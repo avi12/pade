@@ -1,4 +1,4 @@
-# ADE — Agentic Development Environment
+# PADE — Power ADE (Agentic Development Environment)
 
 An open-source, comprehension-first GUI that wraps your agent CLI (Claude Code,
 Codex, Antigravity CLI, …) running **unmodified in an integrated terminal**, and

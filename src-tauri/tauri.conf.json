@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ADE",
+  "productName": "PADE",
   "version": "0.0.1",
   "identifier": "dev.ade.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "ADE",
+        "title": "PADE",
         "width": 1200,
         "height": 800,
         "minWidth": 720,

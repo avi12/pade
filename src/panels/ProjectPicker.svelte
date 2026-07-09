@@ -249,7 +249,7 @@
 <div class="picker">
   <div class="inner">
     <header>
-      <span class="brand">◆ ADE</span>
+      <span class="brand">◆ PADE</span>
       <h1>Open a project</h1>
       <p class="lede">
         Add the folders your projects live in, then open one — or start a new

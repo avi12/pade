@@ -1,7 +1,7 @@
 {
-  "name": "ade",
+  "name": "pade",
   "version": "0.0.1",
-  "description": "ADE — an Agentic Development Environment that wraps your agent CLI in a comprehension-first GUI",
+  "description": "PADE (Power ADE) — an Agentic Development Environment that wraps your agent CLI in a comprehension-first GUI",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@11.1.2",

@@ -257,7 +257,7 @@
   {:else if phase === "ready"}
     <div class="shell">
       <header class="topbar">
-        <span class="brand">◆ ADE</span>
+        <span class="brand">◆ PADE</span>
         {#if currentProject}
           <button class="project-name" data-tooltip={currentProject} onclick={switchProject}>
             {#if isTemp}

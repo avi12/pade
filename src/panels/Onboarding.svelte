@@ -11,7 +11,7 @@
 
 <div class="onboarding">
   <div class="card">
-    <span class="brand">◆ ADE</span>
+    <span class="brand">◆ PADE</span>
     <h1>Choose an agent to start</h1>
     <p class="lede">
       Several agents are installed. Pick one to launch now — you can switch
