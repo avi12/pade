@@ -8,6 +8,8 @@
     "core:event:default",
     "core:window:default",
     "core:webview:default",
-    "dialog:default"
+    "dialog:default",
+    "clipboard-manager:allow-read-text",
+    "global-shortcut:default"
   ]
 }
