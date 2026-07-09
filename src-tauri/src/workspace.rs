@@ -88,18 +88,48 @@ pub struct ProjectEntry {
     is_git: bool,
 }
 
-pub(crate) fn config_dir() -> Result<PathBuf, String> {
-    let base = if cfg!(windows) {
+fn config_base() -> Result<PathBuf, String> {
+    if cfg!(windows) {
         std::env::var_os("APPDATA").map(PathBuf::from)
     } else {
         std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
     }
-    .ok_or("no config directory")?;
-    let dir = base.join("ade");
+    .ok_or_else(|| "no config directory".to_string())
+}
+
+pub(crate) fn config_dir() -> Result<PathBuf, String> {
+    let dir = config_base()?.join("pade");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
+}
+
+/// One-time migration from the old `ade` config dir to `pade`: move the whole
+/// directory (settings, workspaces, worktrees) and rewrite absolute paths stored
+/// in the history so recents/temp workspaces keep working. Idempotent.
+pub fn migrate_from_ade() {
+    let Ok(base) = config_base() else { return };
+    let old = base.join("ade");
+    let new = base.join("pade");
+    if new.exists() || !old.exists() {
+        return; // already migrated, or nothing to migrate
+    }
+    if std::fs::rename(&old, &new).is_err() {
+        return;
+    }
+
+    // Rewrite paths that pointed inside the old dir (temp workspaces, worktrees).
+    let (old_s, new_s) = (
+        old.to_string_lossy().to_string(),
+        new.to_string_lossy().to_string(),
+    );
+    let fix = |p: &String| p.replace(&old_s, &new_s);
+    let mut settings = load();
+    settings.recent_projects = settings.recent_projects.iter().map(fix).collect();
+    settings.owned_workspaces = settings.owned_workspaces.iter().map(fix).collect();
+    settings.roots = settings.roots.iter().map(fix).collect();
+    let _ = save(&settings);
 }
 
 fn settings_path() -> Result<PathBuf, String> {
@@ -126,7 +156,7 @@ fn save(settings: &Settings) -> Result<Settings, String> {
 
 #[tauri::command]
 pub fn launch_context() -> Result<LaunchContext, String> {
-    // A directory passed as an argument — `ade <dir>` from a terminal or the
+    // A directory passed as an argument — `pade <dir>` from a terminal or the
     // folder's context menu — is an explicit request to open that project.
     if let Some(dir) = std::env::args().skip(1).find(|arg| Path::new(arg).is_dir()) {
         return Ok(LaunchContext {

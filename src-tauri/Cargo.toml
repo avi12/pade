@@ -1,13 +1,13 @@
 [package]
-name = "ade"
+name = "pade"
 version = "0.0.1"
-description = "ADE — Agentic Development Environment"
+description = "PADE — Power ADE (Agentic Development Environment)"
 authors = ["Avi"]
 edition = "2021"
 license = "Apache-2.0"
 
 [lib]
-name = "ade_lib"
+name = "pade_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
