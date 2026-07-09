@@ -4,9 +4,9 @@
 //! the user launch, switch, and combine them. Adding a backend is one entry in
 //! REGISTRY — nothing else in the app hard-codes "claude".
 
-use std::process::Command;
-
 use serde::Serialize;
+
+use crate::util::is_on_path;
 
 struct AgentDef {
     id: &'static str,
@@ -33,28 +33,13 @@ pub struct Agent {
     command: String,
 }
 
-/// Is `command` resolvable on PATH? Uses the platform's own resolver so shims
-/// (.cmd/.ps1 on Windows) are found the same way a shell would find them.
-fn is_installed(command: &str) -> bool {
-    let (finder, args): (&str, [&str; 1]) = if cfg!(windows) {
-        ("where", [command])
-    } else {
-        ("which", [command])
-    };
-    Command::new(finder)
-        .args(args)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
 /// Every installed agent backend. The shell fallback is appended so the list is
 /// never empty (there is always something to launch).
 #[tauri::command]
 pub fn agents_detect() -> Vec<Agent> {
     let mut found: Vec<Agent> = REGISTRY
         .iter()
-        .filter(|a| is_installed(a.command))
+        .filter(|a| is_on_path(a.command))
         .map(|a| Agent {
             id: a.id.into(),
             label: a.label.into(),
