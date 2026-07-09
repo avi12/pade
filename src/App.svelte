@@ -5,7 +5,7 @@
 
   // MVP layout: one calm surface — terminal on the left, a switchable side
   // panel on the right. Heavy/optional panels lazy-load (tree-shaking).
-  type Side = "feed" | "vcs" | null;
+  type Side = "feed" | "vcs" | "config" | null;
   let side = $state<Side>("feed");
 
   const toggle = (p: Exclude<Side, null>) => (side = side === p ? null : p);
@@ -45,6 +45,9 @@
       <button role="tab" aria-selected={side === "vcs"} onclick={() => toggle("vcs")}>
         Git
       </button>
+      <button role="tab" aria-selected={side === "config"} onclick={() => toggle("config")}>
+        Config
+      </button>
     </div>
   </header>
 
@@ -60,6 +63,10 @@
         {:else if side === "vcs"}
           {#await import("./panels/VcsPanel.svelte") then { default: VcsPanel }}
             <VcsPanel />
+          {/await}
+        {:else if side === "config"}
+          {#await import("./panels/ConfigPanel.svelte") then { default: ConfigPanel }}
+            <ConfigPanel />
           {/await}
         {/if}
       </aside>

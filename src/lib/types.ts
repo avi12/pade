@@ -18,6 +18,14 @@ export interface Commit {
   when: string;
 }
 
+/** An agent config file the ADE surfaces (read-only for MVP). */
+export interface ConfigFile {
+  name: string;
+  rel: string;
+  kind: "instructions" | "mcp" | "settings";
+  exists: boolean;
+}
+
 /** One entry in the Change Feed — a file the agent (or you) touched. */
 export interface ChangeEvent {
   id: string;

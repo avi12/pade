@@ -4,7 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ChangeEvent, Commit, StatusEntry } from "./types";
+import type { ChangeEvent, Commit, ConfigFile, StatusEntry } from "./types";
 
 /** Terminal / PTY channel. */
 export const pty = {
@@ -29,4 +29,10 @@ export const vcs = {
   status: () => invoke<StatusEntry[]>("vcs_status"),
   log: (limit = 20) => invoke<Commit[]>("vcs_log", { limit }),
   diff: (path: string, staged = false) => invoke<string>("vcs_diff", { path, staged }),
+};
+
+/** Agent config channel — reads the CLI's own config files, never shadows them. */
+export const config = {
+  list: () => invoke<ConfigFile[]>("config_list"),
+  read: (rel: string) => invoke<string>("config_read", { rel }),
 };

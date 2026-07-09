@@ -1,3 +1,4 @@
+mod config;
 mod pty;
 mod vcs;
 mod watcher;
@@ -19,6 +20,8 @@ pub fn run() {
             vcs::vcs_status,
             vcs::vcs_log,
             vcs::vcs_diff,
+            config::config_list,
+            config::config_read,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE");
