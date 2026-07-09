@@ -18,7 +18,7 @@
     <ul>
       {#each ides as i, idx (i.id)}
         <li>
-          <button onclick={() => ide.open(i.command)}>
+          <button onclick={() => ide.open({ command: i.command })}>
             {i.label}
             {#if idx === 0}
               <span class="best">best fit</span>

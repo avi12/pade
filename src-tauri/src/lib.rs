@@ -1,6 +1,7 @@
 mod agents;
 mod config;
 mod ide;
+mod os;
 mod pty;
 mod util;
 mod vcs;
@@ -22,6 +23,8 @@ pub fn run() {
             ide::ide_detect,
             ide::ide_suggest,
             ide::ide_open,
+            os::open_in_explorer,
+            os::open_in_terminal,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

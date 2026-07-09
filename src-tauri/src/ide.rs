@@ -167,16 +167,20 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     Ok(ordered.into_iter().filter_map(lookup).collect())
 }
 
-/// Open the current project directory in the given IDE launcher.
+/// Open a project directory in the given IDE launcher. `path` defaults to the
+/// current project when omitted (topbar), or names a specific project (picker).
 #[tauri::command]
-pub fn ide_open(command: String) -> Result<(), String> {
-    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+pub fn ide_open(command: String, path: Option<String>) -> Result<(), String> {
+    let dir = match path {
+        Some(p) => std::path::PathBuf::from(p),
+        None => std::env::current_dir().map_err(|e| e.to_string())?,
+    };
     // On Windows the JetBrains/VS Code launchers are .cmd shims, so go through
     // the shell to resolve them the way a terminal would.
     let spawn = if cfg!(windows) {
-        Command::new("cmd").args(["/C", &command]).arg(&cwd).spawn()
+        Command::new("cmd").args(["/C", &command]).arg(&dir).spawn()
     } else {
-        Command::new(&command).arg(&cwd).spawn()
+        Command::new(&command).arg(&dir).spawn()
     };
     spawn
         .map(|_| ())

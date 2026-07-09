@@ -47,6 +47,8 @@ pub struct Prefs {
     pub theme_mode: Option<String>,
     /// Diff layout: "unified" | "split".
     pub diff_style: Option<String>,
+    /// What to do when launched with no project: "temp" (default) | "picker".
+    pub start_mode: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -120,6 +122,14 @@ fn save(settings: &Settings) -> Result<Settings, String> {
 
 #[tauri::command]
 pub fn launch_context() -> Result<LaunchContext, String> {
+    // A directory passed as an argument — `ade <dir>` from a terminal or the
+    // folder's context menu — is an explicit request to open that project.
+    if let Some(dir) = std::env::args().skip(1).find(|arg| Path::new(arg).is_dir()) {
+        return Ok(LaunchContext {
+            has_project: true,
+            cwd: dir,
+        });
+    }
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     Ok(LaunchContext {
         has_project: is_project(&cwd),

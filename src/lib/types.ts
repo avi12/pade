@@ -84,11 +84,15 @@ export const DiffStyle = z.enum(["unified", "split"]);
 export type DiffStyle = z.infer<typeof DiffStyle>;
 
 /** Appearance & editor preferences. All optional — `null`/absent = use default. */
+export const StartMode = z.enum(["temp", "picker"]);
+export type StartMode = z.infer<typeof StartMode>;
+
 export const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
   themeMode: ThemeMode.nullish(),
-  diffStyle: DiffStyle.nullish()
+  diffStyle: DiffStyle.nullish(),
+  startMode: StartMode.nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 

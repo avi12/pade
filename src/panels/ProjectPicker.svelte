@@ -1,6 +1,12 @@
 <script lang="ts">
-  import { workspace } from "../lib/bridge";
-  import type { Agent, ProjectEntry, Settings } from "../lib/types";
+  import { ide, os, workspace } from "../lib/bridge";
+  import type {
+    Agent,
+    Ide,
+    ProjectEntry,
+    Settings,
+    StartMode
+  } from "../lib/types";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
@@ -26,18 +32,27 @@
     prefs: {}
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
+  let ides = $state<Ide[]>([]);
   let newRoot = $state("");
   let createIn = $state("");
   let createName = $state("");
   let createPrompt = $state("");
 
   const realAgents = $derived(agents.filter(a => a.id !== "shell"));
+  const startMode = $derived(settings.prefs.startMode ?? "temp");
 
   async function refresh() {
-    settings = await workspace.settings();
+    [settings, ides] = await Promise.all([workspace.settings(), ide.detect()]);
     projectsByRoot = Object.fromEntries(
       await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const))
     );
+  }
+
+  async function setStartMode(mode: StartMode) {
+    settings = await workspace.setPrefs({
+      ...settings.prefs,
+      startMode: mode
+    });
   }
   function scan(root: string): Promise<ProjectEntry[]> {
     return workspace.scan(root).catch((): ProjectEntry[] => []);
@@ -100,7 +115,10 @@
       return;
     }
 
-    const path = await workspace.create(createIn, createName.trim());
+    const path = await workspace.create({
+      root: createIn,
+      name: createName.trim()
+    });
     onopen({
       path,
       initialPrompt: createPrompt.trim() || undefined
@@ -109,6 +127,22 @@
 
   onMount(refresh);
 </script>
+
+{#snippet openActions(path: string)}
+  <span class="row-actions">
+    <button aria-label="Open in file explorer" onclick={() => void os.explorer(path)}>Files</button>
+    <button aria-label="Open in terminal" onclick={() => void os.terminal(path)}>Terminal</button>
+    {#if ides.length > 0}
+      <button
+        aria-label="Open in {ides[0].label}" onclick={() => void ide.open({
+          command: ides[0].command,
+          path
+        })}>
+        {ides[0].label}
+      </button>
+    {/if}
+  </span>
+{/snippet}
 
 <div class="picker">
   <div class="inner">
@@ -129,6 +163,13 @@
           <small>Jump straight in — switch to a real project any time.</small>
         </span>
       </button>
+      <div class="startmode">
+        <span class="sm-label">On launch with no project</span>
+        <div class="sm-toggle">
+          <button class="sm-btn" class:on={startMode === "temp"} onclick={() => setStartMode("temp")}>Temp workspace</button>
+          <button class="sm-btn" class:on={startMode === "picker"} onclick={() => setStartMode("picker")}>This picker</button>
+        </div>
+      </div>
     </section>
 
     {#if settings.recentProjects.length > 0}
@@ -139,14 +180,15 @@
         </div>
         <ul class="recent-list">
           {#each settings.recentProjects as path (path)}
-            <li>
-              <button class="recent-item" onclick={() => onopen({ path })} title={path}>
+            <li class="row">
+              <button class="recent-item" onclick={() => onopen({ path })}>
                 {#if isTempPath(path)}
                   <span class="temp-tag">temp</span>
                 {/if}
                 <span class="rname">{basename(path)}</span>
                 <span class="rpath">{path}</span>
               </button>
+              {@render openActions(path)}
             </li>
           {/each}
         </ul>
@@ -193,13 +235,14 @@
           </div>
           <ul class="projects">
             {#each projectsByRoot[root] ?? [] as p (p.path)}
-              <li>
+              <li class="row">
                 <button class="project" onclick={() => onopen({ path: p.path })}>
                   <span class="pname">{p.name}</span>
                   {#if p.isGit}
                     <span class="git">git</span>
                   {/if}
                 </button>
+                {@render openActions(p.path)}
               </li>
             {:else}
               <li class="none">No projects found in this folder.</li>
@@ -311,8 +354,8 @@
   .recent-head {
     display: flex;
     gap: 8px;
-    align-items: baseline;
     justify-content: space-between;
+    align-items: baseline;
   }
 
   .clear {
@@ -345,6 +388,79 @@
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .row > button:first-child {
+    flex: 1;
+    min-inline-size: 0;
+  }
+
+  .row-actions {
+    display: flex;
+    gap: 4px;
+    margin-inline-start: auto;
+    opacity: 0%;
+    transition: opacity 150ms var(--ease);
+
+    button {
+      padding: 3px 9px;
+      border: 1px solid var(--outline);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--on-surface-var);
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      color: var(--primary);
+    }
+  }
+
+  .row:hover .row-actions {
+    opacity: 100%;
+  }
+
+  .startmode {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-block-start: 12px;
+  }
+
+  .sm-label {
+    color: var(--on-surface-var);
+    font-size: 12px;
+  }
+
+  .sm-toggle {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: var(--surface-2);
+
+    .sm-btn {
+      padding: 4px 12px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--on-surface-var);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+
+      &.on {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
+    }
   }
 
   .recent-item {
@@ -496,9 +612,9 @@
   }
 
   .projects {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     margin-block: 8px 0;
     margin-inline: 0;
     padding: 0;

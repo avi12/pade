@@ -102,10 +102,17 @@
     });
 
     // Send keystrokes to this session's PTY.
-    term.onData(data => void pty.write(session.id, data));
+    term.onData(data => void pty.write({
+      id: session.id,
+      data
+    }));
 
     // Keep the PTY's window size in sync with the visible grid.
-    term.onResize(({ cols, rows }) => void pty.resize(session.id, cols, rows));
+    term.onResize(({ cols, rows }) => void pty.resize({
+      id: session.id,
+      cols,
+      rows
+    }));
 
     // Debounce fit(): reflowing xterm is expensive, and a burst of resize
     // events (e.g. dragging across monitors with different DPI) would otherwise
@@ -117,12 +124,20 @@
     resizeObs.observe(host);
 
     // Spawn the chosen agent in a real PTY.
-    await pty.spawn(session.id, session.agent.command, term.cols, term.rows);
+    await pty.spawn({
+      id: session.id,
+      command: session.agent.command,
+      cols: term.cols,
+      rows: term.rows
+    });
 
     // Seed a new-project first prompt into the input (typed, not submitted —
     // the user reviews and presses Enter).
     if (session.initialPrompt) {
-      await pty.write(session.id, session.initialPrompt);
+      await pty.write({
+        id: session.id,
+        data: session.initialPrompt
+      });
     }
   });
 

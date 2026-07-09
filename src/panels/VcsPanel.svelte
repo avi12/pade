@@ -29,7 +29,13 @@
 
   async function open(entry: StatusEntry) {
     selected = entry;
-    diff = entry.kind === "untracked" ? "(new file — not yet tracked)" : await vcs.diff(entry.path, entry.staged);
+    diff =
+      entry.kind === "untracked"
+        ? "(new file — not yet tracked)"
+        : await vcs.diff({
+          path: entry.path,
+          staged: entry.staged
+        });
   }
 
   // Debounced refresh so a burst of saves triggers one status fetch.

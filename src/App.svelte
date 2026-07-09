@@ -50,9 +50,12 @@
     if (ctx.hasProject) {
       await workspace.open(ctx.cwd); // records it in recent history
       startAgentFlow(ctx.cwd);
+    } else if (saved.prefs.startMode === "picker") {
+      // Opt-in: show the project picker instead of starting in a temp workspace.
+      phase = "project";
     } else {
-      // No project context → start immediately in a throwaway workspace rather
-      // than blocking on a picker. The user can switch any time (Switch button).
+      // Default: start immediately in a throwaway workspace so there's no
+      // blocking picker. The user can switch any time (Switch button).
       const temp = await workspace.temp();
       startAgentFlow(temp);
     }
@@ -157,7 +160,10 @@
       return;
     }
 
-    await pty.write(activeId, selection);
+    await pty.write({
+      id: activeId,
+      data: selection
+    });
     selection = "";
     window.getSelection()?.removeAllRanges();
   }

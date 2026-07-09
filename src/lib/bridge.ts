@@ -53,28 +53,37 @@ export const agents = {
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
   suggest: () => call("ide_suggest", z.array(Ide)),
-  open: (command: string) => run("ide_open", { command })
+  open: (args: {
+    command: string;
+    path?: string;
+  }) => run("ide_open", { ...args })
+};
+
+/** OS integrations — reveal a project in the file manager or a terminal. */
+export const os = {
+  explorer: (path: string) => run("open_in_explorer", { path }),
+  terminal: (path: string) => run("open_in_terminal", { path })
 };
 
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
  *  so a listener can route to the right terminal. */
 export const pty = {
-  spawn: (id: string, command: string | null, cols: number, rows: number) =>
-    run("pty_spawn", {
-      id,
-      command,
-      cols,
-      rows
-    }),
-  write: (id: string, data: string) => run("pty_write", {
-    id,
-    data
-  }),
-  resize: (id: string, cols: number, rows: number) => run("pty_resize", {
-    id,
-    cols,
-    rows
-  }),
+  spawn: (args: {
+    id: string;
+    command: string | null;
+    cols: number;
+    rows: number;
+  }) =>
+    run("pty_spawn", { ...args }),
+  write: (args: {
+    id: string;
+    data: string;
+  }) => run("pty_write", { ...args }),
+  resize: (args: {
+    id: string;
+    cols: number;
+    rows: number;
+  }) => run("pty_resize", { ...args }),
   kill: (id: string) => run("pty_kill", { id }),
   onData: (callback: (id: string, data: string) => void) =>
     on("pty://data", PtyChunk, payload => callback(payload.id, payload.data)),
@@ -93,10 +102,14 @@ export const feed = {
 export const vcs = {
   status: () => call("vcs_status", z.array(StatusEntry)),
   log: (limit = 20) => call("vcs_log", z.array(Commit), { limit }),
-  diff: (path: string, staged = false) => call("vcs_diff", z.string(), {
-    path,
-    staged
-  })
+  diff: ({ path, staged = false }: {
+    path: string;
+    staged?: boolean;
+  }) =>
+    call("vcs_diff", z.string(), {
+      path,
+      staged
+    })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */
@@ -114,20 +127,20 @@ export const workspace = {
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
   temp: () => call("workspace_temp", z.string()),
-  create: (root: string, name: string) => call("workspace_create", z.string(), {
-    root,
-    name
-  }),
-  clone: (root: string, url: string) => call("workspace_clone", z.string(), {
-    root,
-    url
-  }),
+  create: (args: {
+    root: string;
+    name: string;
+  }) => call("workspace_create", z.string(), { ...args }),
+  clone: (args: {
+    root: string;
+    url: string;
+  }) => call("workspace_clone", z.string(), { ...args }),
   clearRecent: () => call("workspace_clear_recent", Settings),
   setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
-  setProjectAgent: (path: string, agent: string) =>
-    call("set_project_agent", Settings, {
-      path,
-      agent
-    }),
+  setProjectAgent: (args: {
+    path: string;
+    agent: string;
+  }) =>
+    call("set_project_agent", Settings, { ...args }),
   setPrefs: (prefs: Prefs) => call("set_prefs", Settings, { prefs })
 };
