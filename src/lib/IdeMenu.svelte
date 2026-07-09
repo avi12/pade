@@ -14,47 +14,39 @@
 </script>
 
 {#if ides.length}
-  <details class="ide-menu">
-    <summary><Icon name="external" /> Open in {ides[0].label}<span class="caret">▾</span></summary>
-    <ul>
-      {#each ides as i, idx (i.id)}
-        <li>
-          <button onclick={() => ide.open({ command: i.command })}>
-            {i.label}
-            {#if idx === 0}
-              <span class="best">best fit</span>
-            {/if}
-          </button>
-        </li>
-      {/each}
-    </ul>
-  </details>
+  <button style:anchor-name="--ide-anchor" class="ide-btn" popovertarget="ide-menu">
+    <Icon name="external" /> Open in {ides[0].label}<span class="caret">▾</span>
+  </button>
+  <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list" popover>
+    {#each ides as i, idx (i.id)}
+      <li>
+        <button onclick={() => ide.open({ command: i.command })} popovertarget="ide-menu" popovertargetaction="hide">
+          {i.label}
+          {#if idx === 0}
+            <span class="best">best fit</span>
+          {/if}
+        </button>
+      </li>
+    {/each}
+  </ul>
 {/if}
 
 <style>
-  .ide-menu {
-    position: relative;
+  .ide-btn {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface);
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
 
-    summary {
-      display: inline-flex;
-      gap: 6px;
-      align-items: center;
-      padding: 7px 14px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      color: var(--on-surface);
-      list-style: none;
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    summary::-webkit-details-marker {
-      display: none;
-    }
-
-    summary:hover {
+    &:hover {
       background: var(--surface-3);
     }
 
@@ -62,21 +54,22 @@
       color: var(--on-surface-var);
       font-size: 10px;
     }
+  }
 
-    ul {
-      position: absolute;
-      inset-block-start: calc(100% + 6px);
-      inset-inline-end: 0;
-      z-index: 10;
-      min-inline-size: 200px;
-      margin: 0;
-      padding: 6px;
-      border: 1px solid var(--outline);
-      border-radius: var(--r-md);
-      background: var(--surface-2);
-      list-style: none;
-      box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
-    }
+  /* Native popover — light-dismisses on outside click. */
+  .ide-list {
+    position: absolute;
+    inset: auto;
+    position-area: bottom span-left;
+    min-inline-size: 200px;
+    margin-block: 6px 0;
+    margin-inline: 0;
+    padding: 6px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    list-style: none;
+    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
 
     li button {
       display: flex;

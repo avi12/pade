@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { agents as agentsApi, pty, workspace } from "./lib/bridge";
+  import { agents as agentsApi, pty, vcs, workspace } from "./lib/bridge";
   import Icon from "./lib/Icon.svelte";
   import IdeMenu from "./lib/IdeMenu.svelte";
   import { effective } from "./lib/prefs.svelte";
@@ -24,6 +24,8 @@
   let sessions = $state<AgentSession[]>([]);
   let activeId = $state<string | null>(null);
   let currentProject = $state<string>("");
+  // Local branches when the project is a git repo — enables per-branch agents.
+  let branches = $state<string[]>([]);
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
@@ -52,6 +54,7 @@
     if (ctx.hasProject) {
       await workspace.open(ctx.cwd); // records it in recent history
       startAgentFlow(ctx.cwd);
+      await loadBranches();
     } else if (saved.prefs.startMode === "picker") {
       // Opt-in: show the project picker instead of starting in a temp workspace.
       phase = "project";
@@ -86,6 +89,7 @@
     await workspace.open(target.path);
     settings = await workspace.settings(); // pick up the updated recent history
     startAgentFlow(target.path, target.initialPrompt);
+    await loadBranches();
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
@@ -95,31 +99,67 @@
     const prefId = settings.projectAgents[path] ?? settings.defaultAgent ?? null;
     const preferred = prefId ? agents.find(a => a.id === prefId) : undefined;
     if (preferred) {
-      return launch(preferred, initialPrompt);
+      return launch({
+        agent: preferred,
+        initialPrompt
+      });
     }
 
     if (realAgents.length === 1) {
-      return launch(realAgents[0], initialPrompt);
+      return launch({
+        agent: realAgents[0],
+        initialPrompt
+      });
     }
 
     if (realAgents.length === 0) {
-      return launch(agents[0], initialPrompt);
-    } // shell
+      return launch({
+        agent: agents[0],
+        initialPrompt
+      }); // shell
+    }
 
     pendingPrompt = initialPrompt;
     phase = "onboarding";
   }
 
-  function launch(agent: Agent, initialPrompt?: string) {
+  function launch(opts: {
+    agent: Agent;
+    initialPrompt?: string;
+    cwd?: string;
+    branch?: string;
+  }) {
     const session: AgentSession = {
       id: crypto.randomUUID(),
-      agent,
-      initialPrompt
+      agent: opts.agent,
+      initialPrompt: opts.initialPrompt,
+      cwd: opts.cwd,
+      branch: opts.branch
     };
     sessions.push(session);
     activeId = session.id;
     pendingPrompt = undefined;
     phase = "ready";
+  }
+
+  // Load branches for the current repo (empty when not a git project).
+  async function loadBranches() {
+    branches = await vcs.branches().catch(() => []);
+  }
+
+  // Spawn an agent on its own git worktree for `branch`, isolated from the
+  // other sessions. Uses the active session's agent (or the first available).
+  async function launchOnBranch(branch: string) {
+    const agent = sessions.find(s => s.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
+    const cwd = await vcs.worktreeAdd({
+      branch,
+      create: false
+    });
+    launch({
+      agent,
+      cwd,
+      branch
+    });
   }
 
   async function close(session: AgentSession) {
@@ -134,7 +174,7 @@
       phase = realAgents.length > 1 ? "onboarding" : "loading";
 
       if (phase === "loading") {
-        launch(agents[0]);
+        launch({ agent: agents[0] });
       }
     }
   }
@@ -179,7 +219,11 @@
   {#if phase === "project"}
     <ProjectPicker {agents} onopen={openProject} />
   {:else if phase === "onboarding"}
-    <Onboarding {agents} onpick={a => launch(a, pendingPrompt)} />
+    <Onboarding
+      {agents} onpick={a => launch({
+        agent: a,
+        initialPrompt: pendingPrompt
+      })} />
   {:else if phase === "ready"}
     <div class="shell">
       <header class="topbar">
@@ -207,14 +251,34 @@
             </div>
           {/each}
 
-          <details class="add">
-            <summary aria-label="Add an agent" data-tooltip="Add an agent">+</summary>
-            <ul>
-              {#each agents as a (a.id)}
-                <li><button onclick={() => launch(a)}>{a.label}</button></li>
+          <button
+            style:anchor-name="--add-anchor"
+            class="add-btn"
+            aria-label="Add an agent"
+            data-tooltip="Add an agent"
+            popovertarget="add-menu"
+          >+</button>
+          <ul id="add-menu" style:position-anchor="--add-anchor" class="menu" popover>
+            {#each agents as a (a.id)}
+              <li>
+                <button onclick={() => launch({ agent: a })} popovertarget="add-menu" popovertargetaction="hide">
+                  {a.label}
+                </button>
+              </li>
+            {/each}
+            {#if branches.length > 0}
+              <li class="menu-sep">On a branch — new worktree</li>
+              {#each branches as b (b)}
+                <li>
+                  <button
+                    onclick={async () => await launchOnBranch(b)}
+                    popovertarget="add-menu"
+                    popovertargetaction="hide"
+                  ><Icon name="git" /> {b}</button>
+                </li>
               {/each}
-            </ul>
-          </details>
+            {/if}
+          </ul>
         </nav>
 
         <div class="spacer"></div>
@@ -400,47 +464,42 @@
   }
 
   /* Pure-CSS dropdown via <details> (rule 9). */
-  .add {
-    position: relative;
+  .add-btn {
+    display: grid;
+    place-items: center;
+    block-size: 30px;
+    inline-size: 30px;
+    border: none;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface-var);
+    font-size: 18px;
+    cursor: pointer;
 
-    summary {
-      display: grid;
-      place-items: center;
-      block-size: 30px;
-      inline-size: 30px;
-      border-radius: 999px;
-      background: var(--surface-2);
-      color: var(--on-surface-var);
-      list-style: none;
-      font-size: 18px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    summary::-webkit-details-marker {
-      display: none;
-    }
-
-    summary:hover {
+    &:hover {
       color: var(--primary);
     }
+  }
 
-    ul {
-      position: absolute;
-      inset-block-start: calc(100% + 6px);
-      inset-inline-start: 0;
-      z-index: 10;
-      min-inline-size: 180px;
-      margin: 0;
-      padding: 6px;
-      border: 1px solid var(--outline);
-      border-radius: var(--r-md);
-      background: var(--surface-2);
-      list-style: none;
-      box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
-    }
+  /* Native popover (light-dismiss on outside click) anchored to its button. */
+  .menu {
+    position: absolute;
+    inset: auto;
+    position-area: bottom span-right;
+    min-inline-size: 180px;
+    margin-block: 6px 0;
+    margin-inline: 0;
+    padding: 6px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    list-style: none;
+    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
 
     li button {
+      display: flex;
+      gap: 8px;
+      align-items: center;
       inline-size: 100%;
       padding: 8px 10px;
       border: none;
@@ -456,6 +515,15 @@
         background: var(--primary-container);
         color: var(--on-primary-container);
       }
+    }
+
+    .menu-sep {
+      margin-block: 6px 2px;
+      padding-inline: 10px;
+      color: var(--on-surface-var);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
   }
 

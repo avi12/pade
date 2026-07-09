@@ -88,7 +88,7 @@ pub struct ProjectEntry {
     is_git: bool,
 }
 
-fn config_dir() -> Result<PathBuf, String> {
+pub(crate) fn config_dir() -> Result<PathBuf, String> {
     let base = if cfg!(windows) {
         std::env::var_os("APPDATA").map(PathBuf::from)
     } else {

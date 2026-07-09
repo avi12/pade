@@ -71,6 +71,7 @@ export const pty = {
   spawn: (args: {
     id: string;
     command: string | null;
+    cwd: string | null;
     cols: number;
     rows: number;
   }) =>
@@ -109,7 +110,13 @@ export const vcs = {
     call("vcs_diff", z.string(), {
       path,
       staged
-    })
+    }),
+  branches: () => call("vcs_branches", z.array(z.string())),
+  worktreeAdd: (args: {
+    branch: string;
+    create: boolean;
+  }) =>
+    call("vcs_worktree_add", z.string(), { ...args })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */

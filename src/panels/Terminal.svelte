@@ -127,6 +127,7 @@
     await pty.spawn({
       id: session.id,
       command: session.agent.command,
+      cwd: session.cwd ?? null,
       cols: term.cols,
       rows: term.rows
     });
@@ -162,9 +163,11 @@
 
 <div class="term-wrap">
   <header class="session-bar">
-    <SessionBadge label={session.agent.label} {status} />
+    <SessionBadge label={session.branch ? `${session.agent.label} · ${session.branch}` : session.agent.label} {status} />
   </header>
-  <div bind:this={host} class="term-host"></div>
+  <div class="term-pad">
+    <div bind:this={host} class="term-host"></div>
+  </div>
 </div>
 
 <style>
@@ -183,11 +186,18 @@
     background: var(--surface-1);
   }
 
-  .term-host {
+  /* The xterm element must have no padding: FitAddon measures its full box to
+     compute rows, so padding would fit one row too many and clip the bottom.
+     Visual insets live on the wrapper instead. */
+  .term-pad {
     flex: 1;
     min-block-size: 0;
-    inline-size: 100%;
     padding: 8px 10px;
     background: var(--code-bg);
+  }
+
+  .term-host {
+    block-size: 100%;
+    inline-size: 100%;
   }
 </style>

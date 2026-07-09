@@ -121,4 +121,8 @@ export interface AgentSession {
   id: string;
   agent: Agent;
   initialPrompt?: string;
+  /** Working dir override — a per-branch git worktree, when set. */
+  cwd?: string;
+  /** Branch this session works, when spawned on a worktree. */
+  branch?: string;
 }

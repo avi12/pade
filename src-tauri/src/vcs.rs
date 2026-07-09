@@ -4,9 +4,12 @@
 //! build deps). This module is the single seam behind which other backends
 //! (Jujutsu, Mercurial, or a native `gix`/`git2` impl) can slot in later.
 
+use std::path::Path;
 use std::process::Command;
 
 use serde::Serialize;
+
+use crate::workspace::config_dir;
 
 const US: char = '\u{1f}'; // field separator inside a record
 
@@ -115,6 +118,47 @@ pub fn vcs_log(limit: u32) -> Result<Vec<Commit>, String> {
         })
         .collect();
     Ok(commits)
+}
+
+/// Local branches in the current repo (empty/Err when not a git repo).
+#[tauri::command]
+pub fn vcs_branches() -> Result<Vec<String>, String> {
+    let raw = run_git(&["branch", "--format=%(refname:short)"])?;
+    Ok(raw
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(ToOwned::to_owned)
+        .collect())
+}
+
+/// Add a git worktree for `branch` so an agent can work it in isolation, and
+/// return the worktree path. Reuses an existing worktree if already created.
+/// `create` makes a new branch (`git worktree add -b`) off the current HEAD.
+#[tauri::command]
+pub fn vcs_worktree_add(branch: String, create: bool) -> Result<String, String> {
+    let root = run_git(&["rev-parse", "--show-toplevel"])?
+        .trim()
+        .to_string();
+    let repo = Path::new(&root)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("repo");
+    // Branches can contain '/', which would nest dirs — flatten for the folder.
+    let safe = branch.replace(['/', '\\'], "-");
+    let dir = config_dir()?.join("worktrees").join(repo).join(&safe);
+    let dir_str = dir.to_string_lossy().into_owned();
+
+    if dir.exists() {
+        return Ok(dir_str);
+    }
+
+    if create {
+        run_git(&["worktree", "add", "-b", &branch, &dir_str])?;
+    } else {
+        run_git(&["worktree", "add", &dir_str, &branch])?;
+    }
+    Ok(dir_str)
 }
 
 /// Raw unified diff for one path (staged or working-tree).

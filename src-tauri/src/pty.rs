@@ -56,6 +56,7 @@ pub fn pty_spawn(
     state: State<PtyState>,
     id: String,
     command: Option<String>,
+    cwd: Option<String>,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
@@ -75,8 +76,12 @@ pub fn pty_spawn(
         .map_err(|e| e.to_string())?;
 
     let mut cmd = build_command(command);
-    if let Ok(cwd) = std::env::current_dir() {
-        cmd.cwd(cwd);
+    // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
+    let dir = cwd
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok());
+    if let Some(dir) = dir {
+        cmd.cwd(dir);
     }
 
     let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;

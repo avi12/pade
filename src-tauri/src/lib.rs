@@ -33,6 +33,8 @@ pub fn run() {
             vcs::vcs_status,
             vcs::vcs_log,
             vcs::vcs_diff,
+            vcs::vcs_branches,
+            vcs::vcs_worktree_add,
             config::config_list,
             config::config_read,
             workspace::launch_context,
