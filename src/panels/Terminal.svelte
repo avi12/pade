@@ -5,12 +5,30 @@
   import { WebglAddon } from "@xterm/addon-webgl";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { pty } from "../lib/bridge";
+  import SessionBadge from "../lib/SessionBadge.svelte";
+  import type { SessionStatus } from "../lib/types";
 
   let host: HTMLDivElement;
   let term: Terminal;
   let fit: FitAddon;
   let unlisten: UnlistenFn | undefined;
+  let exitUnlisten: UnlistenFn | undefined;
   let resizeObs: ResizeObserver | undefined;
+
+  // Session status. Output flowing = working; a quiet gap while the process is
+  // alive = ready (done with its task, waiting for you); exit = done.
+  let status = $state<SessionStatus>("starting");
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const IDLE_MS = 700;
+
+  function markActivity() {
+    if (status === "exited") return;
+    status = "working";
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      if (status === "working") status = "ready";
+    }, IDLE_MS);
+  }
 
   onMount(async () => {
     term = new Terminal({
@@ -35,8 +53,16 @@
 
     fit.fit();
 
-    // Stream PTY output from the Rust core into the terminal.
-    unlisten = await pty.onData((chunk) => term.write(chunk));
+    // Stream PTY output from the Rust core into the terminal; each chunk is a
+    // sign of life that resets the idle → ready timer.
+    unlisten = await pty.onData((chunk) => {
+      term.write(chunk);
+      markActivity();
+    });
+    exitUnlisten = await pty.onExit(() => {
+      clearTimeout(idleTimer);
+      status = "exited";
+    });
 
     // Send keystrokes to the PTY.
     term.onData((data) => void pty.write(data));
@@ -53,6 +79,8 @@
 
   onDestroy(() => {
     unlisten?.();
+    exitUnlisten?.();
+    clearTimeout(idleTimer);
     resizeObs?.disconnect();
     term?.dispose();
   });
@@ -68,12 +96,27 @@
   }
 </script>
 
-<div class="term-host" bind:this={host}></div>
+<div class="term-wrap">
+  <header class="session-bar">
+    <SessionBadge {status} label="agent" />
+  </header>
+  <div class="term-host" bind:this={host}></div>
+</div>
 
 <style>
+  .term-wrap { display: flex; flex-direction: column; block-size: 100%; }
+  .session-bar {
+    display: flex;
+    align-items: center;
+    padding-block: 8px;
+    padding-inline: 14px;
+    background: var(--surface-1);
+    border-block-end: 1px solid var(--outline);
+  }
   .term-host {
-    height: 100%;
-    width: 100%;
+    flex: 1;
+    min-block-size: 0;
+    inline-size: 100%;
     padding: 8px 10px;
     background: var(--code-bg);
   }

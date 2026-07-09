@@ -1,5 +1,10 @@
 export type ChangeKind = "created" | "modified" | "deleted";
 
+/** Lifecycle of an agent or sub-agent session, shared by the terminal and
+ *  (later) the agent tree. `ready` = idle at a prompt, done with its task and
+ *  waiting for you; `exited` = the process ended. */
+export type SessionStatus = "starting" | "working" | "ready" | "exited";
+
 export type VcsKind = "created" | "modified" | "deleted" | "renamed" | "untracked";
 
 /** One changed path in the working tree. */
