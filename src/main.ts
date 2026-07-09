@@ -1,5 +1,4 @@
 import App from "./App.svelte";
-import { pauseAnimationsWhileMoving } from "./lib/dragpause";
 import { loadPrefs } from "./lib/prefs.svelte";
 import "./theme.css";
 import "@xterm/xterm/css/xterm.css";
@@ -11,7 +10,6 @@ document.documentElement.dataset.theme = window.matchMedia("(prefers-color-schem
   ? "dark"
   : "light";
 void loadPrefs();
-pauseAnimationsWhileMoving();
 
 const app = mount(App, { target: document.getElementById("app")! });
 

@@ -90,10 +90,3 @@ body {
   }
 }
 
-/* While the OS window is being dragged, freeze continuous animations so the
-   WebView isn't repainting every frame in step with the move (drag smoothness). */
-:root.window-moving *,
-:root.window-moving *::before,
-:root.window-moving *::after {
-  animation-play-state: paused !important;
-}
