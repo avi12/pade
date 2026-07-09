@@ -112,7 +112,8 @@
     return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
   }
   function isOwned(path: string): boolean {
-    return settings.ownedWorkspaces.includes(path);
+    // Temp dirs are ADE-created even if predating owned-workspace tracking.
+    return settings.ownedWorkspaces.includes(path) || isTempPath(path);
   }
 
   // Owned-workspace lifecycle: delete, move (→ permanent, still deletable),

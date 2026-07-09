@@ -184,6 +184,22 @@ pub fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
     Ok(entries)
 }
 
+/// A path directly under the config `.../workspaces/temp-*` is one ADE created,
+/// even if predating the `owned_workspaces` list.
+fn is_temp_workspace(path: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.starts_with("temp-"))
+        && path.contains("workspaces")
+}
+
+/// May ADE rename/move/delete this path? Only its own workspaces — never a real
+/// project the user owns.
+fn is_ade_owned(settings: &Settings, path: &str) -> bool {
+    settings.owned_workspaces.iter().any(|p| p == path) || is_temp_workspace(path)
+}
+
 /// Push a path to the front of the recent list (deduped, capped).
 fn record_recent(settings: &mut Settings, path: &str) {
     settings.recent_projects.retain(|p| p != path);
@@ -246,7 +262,7 @@ fn retarget(settings: &mut Settings, from: &str, to: &str) {
 #[tauri::command]
 pub fn workspace_move(from: String, dest_dir: String) -> Result<String, String> {
     let mut settings = load();
-    if !settings.owned_workspaces.contains(&from) {
+    if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be moved".into());
     }
     let name = Path::new(&from)
@@ -267,7 +283,7 @@ pub fn workspace_move(from: String, dest_dir: String) -> Result<String, String> 
 #[tauri::command]
 pub fn workspace_rename(from: String, new_name: String) -> Result<String, String> {
     let mut settings = load();
-    if !settings.owned_workspaces.contains(&from) {
+    if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be renamed".into());
     }
     let root = settings
@@ -288,7 +304,7 @@ pub fn workspace_rename(from: String, new_name: String) -> Result<String, String
 #[tauri::command]
 pub fn workspace_delete(path: String) -> Result<Settings, String> {
     let mut settings = load();
-    if !settings.owned_workspaces.contains(&path) {
+    if !is_ade_owned(&settings, &path) {
         return Err("only ADE-created workspaces can be deleted".into());
     }
     std::fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
