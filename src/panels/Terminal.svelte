@@ -1,6 +1,6 @@
 <script lang="ts">
   import { pty } from "../lib/bridge";
-  import { effective } from "../lib/prefs.svelte";
+  import { appearance, effective } from "../lib/prefs.svelte";
   import SessionBadge from "../lib/SessionBadge.svelte";
   import type { AgentSession, SessionStatus } from "../lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -44,6 +44,16 @@
     if (term) {
       term.options.fontFamily = family;
       fit?.fit();
+    }
+  });
+
+  // Re-theme the terminal when the app scheme flips, so Claude Code's output
+  // sits on a background that matches the light/dark theme.
+  $effect(() => {
+    const { scheme } = appearance;
+    if (term) {
+      void scheme;
+      term.options.theme = readXtermTheme();
     }
   });
 

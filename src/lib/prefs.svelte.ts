@@ -28,6 +28,10 @@ export const effective = {
 
 const osDark = window.matchMedia("(prefers-color-scheme: dark)");
 
+/** The concrete scheme currently applied — reactive so consumers like the
+ *  terminal can re-theme when it changes. */
+export const appearance = $state<{ scheme: "light" | "dark" }>({ scheme: "light" });
+
 /** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
 function resolvedScheme(): "light" | "dark" {
   const mode = effective.themeMode;
@@ -40,7 +44,9 @@ function resolvedScheme(): "light" | "dark" {
 
 function apply() {
   const root = document.documentElement;
-  root.dataset.theme = resolvedScheme();
+  const scheme = resolvedScheme();
+  appearance.scheme = scheme;
+  root.dataset.theme = scheme;
   root.style.setProperty("--font-ui", effective.uiFamily);
   root.style.setProperty("--font-mono", effective.monoFamily);
 }

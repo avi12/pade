@@ -20,8 +20,10 @@
   --on-surface: hsl(214deg 30% 14%);
   --on-surface-var: hsl(214deg 14% 40%);
   --outline: hsl(214deg 15% 82%);
-  --code-bg: hsl(214deg 32% 12%);
-  --code-fg: hsl(210deg 20% 88%);
+
+  /* Terminal surface follows the theme — light in light mode. */
+  --code-bg: hsl(210deg 30% 96%);
+  --code-fg: hsl(214deg 30% 20%);
 
   /* M3 shape scale */
   --r-sm: 8px;
