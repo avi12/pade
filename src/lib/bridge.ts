@@ -4,7 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ChangeEvent } from "./types";
+import type { ChangeEvent, Commit, StatusEntry } from "./types";
 
 /** Terminal / PTY channel. */
 export const pty = {
@@ -22,4 +22,11 @@ export const feed = {
   start: () => invoke<void>("watch_start"),
   onChange: (cb: (ev: ChangeEvent) => void): Promise<UnlistenFn> =>
     listen<ChangeEvent>("feed://change", (e) => cb(e.payload)),
+};
+
+/** Version-control review channel. */
+export const vcs = {
+  status: () => invoke<StatusEntry[]>("vcs_status"),
+  log: (limit = 20) => invoke<Commit[]>("vcs_log", { limit }),
+  diff: (path: string, staged = false) => invoke<string>("vcs_diff", { path, staged }),
 };

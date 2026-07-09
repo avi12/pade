@@ -1,4 +1,5 @@
 mod pty;
+mod vcs;
 mod watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -15,6 +16,9 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             watcher::watch_start,
+            vcs::vcs_status,
+            vcs::vcs_log,
+            vcs::vcs_diff,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE");
