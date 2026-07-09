@@ -3,6 +3,7 @@ mod config;
 mod pty;
 mod vcs;
 mod watcher;
+mod workspace;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -25,6 +26,15 @@ pub fn run() {
             vcs::vcs_diff,
             config::config_list,
             config::config_read,
+            workspace::launch_context,
+            workspace::settings_get,
+            workspace::workspace_add_root,
+            workspace::workspace_remove_root,
+            workspace::workspace_scan,
+            workspace::workspace_open,
+            workspace::workspace_create,
+            workspace::set_default_agent,
+            workspace::set_project_agent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE");

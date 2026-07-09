@@ -1,0 +1,167 @@
+//! Workspace & projects.
+//!
+//! Two launch modes:
+//!  - Launched *inside* a project directory → use it directly (the agent rules
+//!    apply to that dir).
+//!  - Launched with no project → the project onboarding lets the user pick root
+//!    directories, browse the projects inside them, open one, or create a new
+//!    one.
+//!
+//! Settings (roots, default/per-project agent) persist to the OS config dir.
+//! They are plain JSON so they can later live in a git-backed shelf for sync.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+/// Files/dirs that mark a directory as a project worth listing.
+const MARKERS: &[&str] = &[
+    ".git", ".hg", ".jj", "package.json", "Cargo.toml", "pyproject.toml", "go.mod",
+    "pom.xml", "build.gradle", "CLAUDE.md", "AGENTS.md",
+];
+
+#[derive(Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Settings {
+    /// Root directories the user has added to browse for projects.
+    pub roots: Vec<String>,
+    /// Master agent applied to every project without an explicit override.
+    pub default_agent: Option<String>,
+    /// Per-project agent overrides, keyed by absolute project path.
+    pub project_agents: BTreeMap<String, String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchContext {
+    /// True when the launch directory already looks like a project.
+    has_project: bool,
+    cwd: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectEntry {
+    name: String,
+    path: String,
+    is_git: bool,
+}
+
+fn config_dir() -> Result<PathBuf, String> {
+    let base = if cfg!(windows) {
+        std::env::var_os("APPDATA").map(PathBuf::from)
+    } else {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+    }
+    .ok_or("no config directory")?;
+    let dir = base.join("ade");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+fn settings_path() -> Result<PathBuf, String> {
+    Ok(config_dir()?.join("settings.json"))
+}
+
+fn is_project(dir: &Path) -> bool {
+    MARKERS.iter().any(|m| dir.join(m).exists())
+}
+
+fn load() -> Settings {
+    settings_path()
+        .and_then(|p| std::fs::read_to_string(p).map_err(|e| e.to_string()))
+        .and_then(|s| serde_json::from_str(&s).map_err(|e| e.to_string()))
+        .unwrap_or_default()
+}
+
+fn save(settings: &Settings) -> Result<Settings, String> {
+    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    std::fs::write(settings_path()?, json).map_err(|e| e.to_string())?;
+    // Return the persisted value so the frontend stays in sync in one round-trip.
+    Ok(load())
+}
+
+#[tauri::command]
+pub fn launch_context() -> Result<LaunchContext, String> {
+    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    Ok(LaunchContext {
+        has_project: is_project(&cwd),
+        cwd: cwd.to_string_lossy().into_owned(),
+    })
+}
+
+#[tauri::command]
+pub fn settings_get() -> Settings {
+    load()
+}
+
+#[tauri::command]
+pub fn workspace_add_root(path: String) -> Result<Settings, String> {
+    let mut s = load();
+    if !s.roots.contains(&path) {
+        s.roots.push(path);
+    }
+    save(&s)
+}
+
+#[tauri::command]
+pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
+    let mut s = load();
+    s.roots.retain(|r| r != &path);
+    save(&s)
+}
+
+/// Immediate sub-directories of `root` that look like projects.
+#[tauri::command]
+pub fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
+    let dir = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
+    let mut entries: Vec<ProjectEntry> = dir
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.is_dir() && is_project(p))
+        .map(|p| ProjectEntry {
+            name: p.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string(),
+            is_git: p.join(".git").exists(),
+            path: p.to_string_lossy().into_owned(),
+        })
+        .collect();
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(entries)
+}
+
+/// Open a project: point the process (and thus the watcher/VCS/agent) at it.
+#[tauri::command]
+pub fn workspace_open(path: String) -> Result<(), String> {
+    std::env::set_current_dir(&path).map_err(|e| e.to_string())
+}
+
+/// Create a new project directory under `root` and open it.
+#[tauri::command]
+pub fn workspace_create(root: String, name: String) -> Result<String, String> {
+    let path = Path::new(&root).join(&name);
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    let path_str = path.to_string_lossy().into_owned();
+    workspace_open(path_str.clone())?;
+    Ok(path_str)
+}
+
+/// Master switch: set the default agent for every project and clear per-project
+/// overrides so the whole workspace moves to it at once.
+#[tauri::command]
+pub fn set_default_agent(agent: String) -> Result<Settings, String> {
+    let mut s = load();
+    s.default_agent = Some(agent);
+    s.project_agents.clear();
+    save(&s)
+}
+
+/// Override the agent for a single project.
+#[tauri::command]
+pub fn set_project_agent(path: String, agent: String) -> Result<Settings, String> {
+    let mut s = load();
+    s.project_agents.insert(path, agent);
+    save(&s)
+}
