@@ -46,6 +46,10 @@ These are non-negotiable for all work in this repo.
    - Object params: a function taking two or more arguments takes a single
      destructured object param (`fn({ a, b })`) instead of positional args, and
      reduce/reuse the param types (`z.infer`, shared interfaces) where applicable.
+   - `await` over `void`: never fire-and-forget a promise (`void p`) when a later
+     step or shared state depends on it — `await` it so ordering is guaranteed.
+     `void` is only for genuinely independent side effects (e.g. opening an
+     external app) with no follow-up and no shared-state race.
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,

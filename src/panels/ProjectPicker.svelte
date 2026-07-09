@@ -8,7 +8,7 @@
     Settings,
     StartMode
   } from "../lib/types";
-  import { open as openDialog } from "@tauri-apps/plugin-dialog";
+  import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
@@ -30,6 +30,7 @@
     defaultAgent: null,
     projectAgents: {},
     recentProjects: [],
+    ownedWorkspaces: [],
     prefs: {}
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
@@ -110,6 +111,60 @@
   function isTempPath(path: string): boolean {
     return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
   }
+  function isOwned(path: string): boolean {
+    return settings.ownedWorkspaces.includes(path);
+  }
+
+  // Owned-workspace lifecycle: delete, move (→ permanent, still deletable),
+  // rename (→ promoted into the primary project root).
+  let renaming = $state<string | null>(null);
+  let renameValue = $state("");
+
+  async function deleteWorkspace(path: string) {
+    const ok = await ask(`Delete this workspace and its files?\n\n${path}`, {
+      title: "Delete workspace",
+      kind: "warning"
+    });
+    if (!ok) {
+      return;
+    }
+
+    settings = await workspace.delete(path);
+  }
+
+  async function moveWorkspace(path: string) {
+    const dest = await openDialog({
+      directory: true,
+      multiple: false
+    });
+    if (typeof dest !== "string") {
+      return;
+    }
+
+    await workspace.move({
+      from: path,
+      destDir: dest
+    });
+    await refresh();
+  }
+
+  function startRename(path: string) {
+    renaming = path;
+    renameValue = basename(path);
+  }
+
+  async function commitRename(path: string) {
+    if (!renameValue.trim()) {
+      return;
+    }
+
+    await workspace.rename({
+      from: path,
+      newName: renameValue.trim()
+    });
+    renaming = null;
+    await refresh();
+  }
 
   async function create() {
     if (!createIn || !createName.trim()) {
@@ -186,14 +241,43 @@
         <ul class="recent-list">
           {#each settings.recentProjects as path (path)}
             <li class="row">
-              <button class="recent-item" onclick={() => onopen({ path })}>
-                {#if isTempPath(path)}
-                  <span class="temp-tag">temp</span>
-                {/if}
-                <span class="rname">{basename(path)}</span>
-                <span class="rpath">{path}</span>
-              </button>
-              {@render openActions(path)}
+              {#if renaming === path}
+                <form
+                  class="rename" onsubmit={async e => {
+                    e.preventDefault(); await commitRename(path);
+                  }}>
+                  <input aria-label="New name" bind:value={renameValue} />
+                  <button type="submit">Save to root</button>
+                  <button onclick={() => (renaming = null)} type="button">Cancel</button>
+                </form>
+              {:else}
+                <button class="recent-item" onclick={() => onopen({ path })}>
+                  {#if isTempPath(path)}
+                    <span class="temp-tag">temp</span>
+                  {/if}
+                  <span class="rname">{basename(path)}</span>
+                  <span class="rpath">{path}</span>
+                </button>
+                <span class="row-actions">
+                  {#if isOwned(path)}
+                    <button aria-label="Rename and save to primary root" onclick={() => startRename(path)}>
+                      <Icon name="code" /> Rename
+                    </button>
+                    <button aria-label="Move workspace" onclick={async () => await moveWorkspace(path)}>
+                      <Icon name="folder" /> Move
+                    </button>
+                    <button aria-label="Delete workspace" onclick={async () => await deleteWorkspace(path)}>
+                      <Icon name="trash" /> Delete
+                    </button>
+                  {/if}
+                  <button aria-label="Open in file explorer" onclick={() => void os.explorer(path)}>
+                    <Icon name="folder" /> Files
+                  </button>
+                  <button aria-label="Open in terminal" onclick={() => void os.terminal(path)}>
+                    <Icon name="terminal" /> Terminal
+                  </button>
+                </span>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -446,6 +530,36 @@
 
   .row:hover .row-actions {
     opacity: 100%;
+  }
+
+  .rename {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    inline-size: 100%;
+
+    input {
+      flex: 1;
+      min-inline-size: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--primary);
+      border-radius: var(--r-sm);
+      background: var(--surface-2);
+      color: var(--on-surface);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    button {
+      padding: 6px 10px;
+      border: 1px solid var(--outline);
+      border-radius: var(--r-sm);
+      background: var(--surface-2);
+      color: var(--on-surface);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
   }
 
   .startmode {

@@ -127,6 +127,15 @@ export const workspace = {
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
   temp: () => call("workspace_temp", z.string()),
+  move: (args: {
+    from: string;
+    destDir: string;
+  }) => call("workspace_move", z.string(), { ...args }),
+  rename: (args: {
+    from: string;
+    newName: string;
+  }) => call("workspace_rename", z.string(), { ...args }),
+  delete: (path: string) => call("workspace_delete", Settings, { path }),
   create: (args: {
     root: string;
     name: string;

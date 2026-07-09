@@ -18,6 +18,7 @@
     defaultAgent: null,
     projectAgents: {},
     recentProjects: [],
+    ownedWorkspaces: [],
     prefs: {}
   });
   let sessions = $state<AgentSession[]>([]);

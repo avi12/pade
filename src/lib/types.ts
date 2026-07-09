@@ -101,6 +101,7 @@ export const Settings = z.object({
   defaultAgent: z.string().nullable(),
   projectAgents: z.record(z.string(), z.string()),
   recentProjects: z.array(z.string()).default([]),
+  ownedWorkspaces: z.array(z.string()).default([]),
   prefs: Prefs.default({})
 });
 export type Settings = z.infer<typeof Settings>;

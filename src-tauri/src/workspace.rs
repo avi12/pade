@@ -63,6 +63,10 @@ pub struct Settings {
     /// Recently opened projects (incl. temp workspaces), most-recent first.
     #[serde(default)]
     pub recent_projects: Vec<String>,
+    /// Paths ADE created (temp workspaces, and where they were moved to). Only
+    /// these may be renamed/moved/deleted — never a real project the user owns.
+    #[serde(default)]
+    pub owned_workspaces: Vec<String>,
     /// Appearance & editor preferences.
     #[serde(default)]
     pub prefs: Prefs,
@@ -211,8 +215,86 @@ pub fn workspace_temp() -> Result<String, String> {
         .join(format!("temp-{stamp}"));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.to_string_lossy().into_owned();
+
+    // Mark it ADE-owned so it can later be renamed/moved/deleted.
+    let mut settings = load();
+    if !settings.owned_workspaces.contains(&path) {
+        settings.owned_workspaces.push(path.clone());
+    }
+    save(&settings)?;
+
     workspace_open(path.clone())?;
     Ok(path)
+}
+
+/// Replace a path across recent + owned lists (used when a workspace moves).
+fn retarget(settings: &mut Settings, from: &str, to: &str) {
+    for list in [
+        &mut settings.recent_projects,
+        &mut settings.owned_workspaces,
+    ] {
+        for entry in list.iter_mut() {
+            if entry == from {
+                *entry = to.to_string();
+            }
+        }
+    }
+}
+
+/// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
+/// directory — no longer "temp" — but stays ADE-owned so it's still deletable.
+#[tauri::command]
+pub fn workspace_move(from: String, dest_dir: String) -> Result<String, String> {
+    let mut settings = load();
+    if !settings.owned_workspaces.contains(&from) {
+        return Err("only ADE-created workspaces can be moved".into());
+    }
+    let name = Path::new(&from)
+        .file_name()
+        .ok_or("bad source path")?
+        .to_owned();
+    let dest = Path::new(&dest_dir).join(name);
+    std::fs::rename(&from, &dest).map_err(|e| e.to_string())?;
+    let dest_str = dest.to_string_lossy().into_owned();
+    retarget(&mut settings, &from, &dest_str);
+    save(&settings)?;
+    workspace_open(dest_str.clone())?;
+    Ok(dest_str)
+}
+
+/// Rename a temp workspace, promoting it into the primary project root
+/// (`roots[0]`) under the new name — turning it into a real project.
+#[tauri::command]
+pub fn workspace_rename(from: String, new_name: String) -> Result<String, String> {
+    let mut settings = load();
+    if !settings.owned_workspaces.contains(&from) {
+        return Err("only ADE-created workspaces can be renamed".into());
+    }
+    let root = settings
+        .roots
+        .first()
+        .ok_or("add a root folder first — rename saves into the primary root")?
+        .clone();
+    let dest = Path::new(&root).join(new_name.trim());
+    std::fs::rename(&from, &dest).map_err(|e| e.to_string())?;
+    let dest_str = dest.to_string_lossy().into_owned();
+    retarget(&mut settings, &from, &dest_str);
+    save(&settings)?;
+    workspace_open(dest_str.clone())?;
+    Ok(dest_str)
+}
+
+/// Delete an ADE-owned workspace directory and forget it.
+#[tauri::command]
+pub fn workspace_delete(path: String) -> Result<Settings, String> {
+    let mut settings = load();
+    if !settings.owned_workspaces.contains(&path) {
+        return Err("only ADE-created workspaces can be deleted".into());
+    }
+    std::fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+    settings.recent_projects.retain(|p| p != &path);
+    settings.owned_workspaces.retain(|p| p != &path);
+    save(&settings)
 }
 
 /// Create a new project directory under `root` and open it.
