@@ -43,12 +43,11 @@ function resolvedScheme(): "light" | "dark" {
 }
 
 function apply() {
-  const root = document.documentElement;
-  const scheme = resolvedScheme();
-  appearance.scheme = scheme;
-  root.dataset.theme = scheme;
-  root.style.setProperty("--font-ui", effective.uiFamily);
-  root.style.setProperty("--font-mono", effective.monoFamily);
+  // Fonts are bound declaratively in the template (style:--font-ui / --font-mono).
+  // Theme mode stays here: it must sit on <html> for the pre-paint flash guard
+  // and to cover anything rendered outside the app root.
+  appearance.scheme = resolvedScheme();
+  document.documentElement.dataset.theme = appearance.scheme;
 }
 
 // Re-apply when the OS theme flips while we're following it.
