@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "windows": [
@@ -16,7 +16,8 @@
         "width": 1200,
         "height": 800,
         "minWidth": 720,
-        "minHeight": 480
+        "minHeight": 480,
+        "transparent": true
       }
     ],
     "security": {
