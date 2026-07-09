@@ -80,6 +80,10 @@
 
     // Spawn the chosen agent in a real PTY.
     await pty.spawn(session.id, session.agent.command, term.cols, term.rows);
+
+    // Seed a new-project first prompt into the input (typed, not submitted —
+    // the user reviews and presses Enter).
+    if (session.initialPrompt) await pty.write(session.id, session.initialPrompt);
   });
 
   onDestroy(() => {

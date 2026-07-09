@@ -3,31 +3,61 @@
   import Terminal from "./panels/Terminal.svelte";
   import ChangeFeed from "./panels/ChangeFeed.svelte";
   import Onboarding from "./panels/Onboarding.svelte";
-  import { agents as agentsApi, pty } from "./lib/bridge";
-  import type { Agent, AgentSession } from "./lib/types";
+  import ProjectPicker from "./panels/ProjectPicker.svelte";
+  import IdeMenu from "./lib/IdeMenu.svelte";
+  import { agents as agentsApi, pty, workspace } from "./lib/bridge";
+  import type { Agent, AgentSession, Settings } from "./lib/types";
 
-  type Phase = "loading" | "onboarding" | "ready";
+  type Phase = "loading" | "project" | "onboarding" | "ready";
   let phase = $state<Phase>("loading");
   let agents = $state<Agent[]>([]);
+  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {} });
   let sessions = $state<AgentSession[]>([]);
   let activeId = $state<string | null>(null);
+  let currentProject = $state<string>("");
+  // Carried through the agent picker so a new-project prompt survives onboarding.
+  let pendingPrompt = $state<string | undefined>();
 
   // Agents excluding the always-present shell fallback — this count decides
   // whether we auto-launch or onboard.
   const realAgents = $derived(agents.filter((a) => a.id !== "shell"));
+  const projectName = $derived(currentProject.split(/[\\/]/).filter(Boolean).at(-1) ?? "");
 
   onMount(async () => {
-    agents = await agentsApi.detect();
-    const real = agents.filter((a) => a.id !== "shell");
-    if (real.length === 1) launch(real[0]); // exactly one → straight in
-    else if (real.length === 0) launch(agents[0]); // none → the shell
-    else phase = "onboarding"; // many → let the user choose
+    const [ctx, detected, saved] = await Promise.all([
+      workspace.context(),
+      agentsApi.detect(),
+      workspace.settings(),
+    ]);
+    agents = detected;
+    settings = saved;
+    if (ctx.hasProject) startAgentFlow(ctx.cwd);
+    else phase = "project"; // launched with no project → pick one
   });
 
-  function launch(agent: Agent) {
-    const session: AgentSession = { id: crypto.randomUUID(), agent };
+  async function openProject(p: { path: string; initialPrompt?: string }) {
+    await workspace.open(p.path);
+    startAgentFlow(p.path, p.initialPrompt);
+  }
+
+  // Decide how to enter a project: honor a saved per-project/default agent,
+  // else auto-launch a lone agent, else onboard. (Reused for every entry path.)
+  function startAgentFlow(path: string, initialPrompt?: string) {
+    currentProject = path;
+    const prefId = settings.projectAgents[path] ?? settings.defaultAgent ?? null;
+    const preferred = prefId ? agents.find((a) => a.id === prefId) : undefined;
+    if (preferred) return launch(preferred, initialPrompt);
+    if (realAgents.length === 1) return launch(realAgents[0], initialPrompt);
+    if (realAgents.length === 0) return launch(agents[0], initialPrompt); // shell
+    pendingPrompt = initialPrompt;
+    phase = "onboarding";
+  }
+
+  function launch(agent: Agent, initialPrompt?: string) {
+    const session: AgentSession = { id: crypto.randomUUID(), agent, initialPrompt };
     sessions.push(session);
     activeId = session.id;
+    pendingPrompt = undefined;
     phase = "ready";
   }
 
@@ -67,12 +97,17 @@
 
 <svelte:document onselectionchange={readSelection} />
 
-{#if phase === "onboarding"}
-  <Onboarding {agents} onpick={launch} />
+{#if phase === "project"}
+  <ProjectPicker {agents} onopen={openProject} />
+{:else if phase === "onboarding"}
+  <Onboarding {agents} onpick={(a) => launch(a, pendingPrompt)} />
 {:else if phase === "ready"}
   <div class="shell">
     <header class="topbar">
       <span class="brand">◆ ADE</span>
+      {#if currentProject}
+        <span class="project-name" title={currentProject}>{projectName}</span>
+      {/if}
 
       <nav class="tabs" aria-label="Agent sessions">
         {#each sessions as s (s.id)}
@@ -93,6 +128,8 @@
       </nav>
 
       <div class="spacer"></div>
+
+      <IdeMenu />
 
       <div class="seg" role="tablist" aria-label="Side panel">
         <button role="tab" aria-selected={side === "feed"} onclick={() => toggleSide("feed")}>Change Feed</button>
@@ -149,6 +186,13 @@
     border-block-end: 1px solid var(--outline);
   }
   .brand { font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
+  .project-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--on-surface-var);
+    padding-inline: 10px;
+    border-inline-start: 1px solid var(--outline);
+  }
   .spacer { flex: 1; }
 
   .tabs {
