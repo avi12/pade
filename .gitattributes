@@ -1,0 +1,7 @@
+# Normalize line endings: LF in the repo, checked out native on Windows.
+* text=auto eol=lf
+
+# Binary assets — never touched.
+*.png binary
+*.ico binary
+*.icns binary
