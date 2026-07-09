@@ -122,6 +122,7 @@ export const workspace = {
     root,
     url
   }),
+  clearRecent: () => call("workspace_clear_recent", Settings),
   setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
   setProjectAgent: (path: string, agent: string) =>
     call("set_project_agent", Settings, {

@@ -196,7 +196,9 @@ pub fn workspace_temp() -> Result<String, String> {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    let dir = config_dir()?.join("workspaces").join(format!("temp-{stamp}"));
+    let dir = config_dir()?
+        .join("workspaces")
+        .join(format!("temp-{stamp}"));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.to_string_lossy().into_owned();
     workspace_open(path.clone())?;
@@ -229,6 +231,14 @@ pub fn set_project_agent(path: String, agent: String) -> Result<Settings, String
     let mut s = load();
     s.project_agents.insert(path, agent);
     save(&s)
+}
+
+/// Clear the recent-projects history.
+#[tauri::command]
+pub fn workspace_clear_recent() -> Result<Settings, String> {
+    let mut settings = load();
+    settings.recent_projects.clear();
+    save(&settings)
 }
 
 /// Replace appearance/editor preferences (frontend sends the full set).

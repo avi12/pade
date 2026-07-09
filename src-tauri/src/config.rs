@@ -18,15 +18,31 @@ struct ConfigDef {
 /// files relevant to the active agent are shown — e.g. CLAUDE.md for Claude
 /// Code, AGENTS.md for agents that follow that convention.
 const KNOWN: &[ConfigDef] = &[
-    ConfigDef { rel: "CLAUDE.md", kind: "instructions", agents: &["claude"] },
+    ConfigDef {
+        rel: "CLAUDE.md",
+        kind: "instructions",
+        agents: &["claude"],
+    },
     ConfigDef {
         rel: "AGENTS.md",
         kind: "instructions",
         agents: &["codex", "cursor", "antigravity", "aider"],
     },
-    ConfigDef { rel: ".mcp.json", kind: "mcp", agents: &["claude"] },
-    ConfigDef { rel: ".claude/settings.json", kind: "settings", agents: &["claude"] },
-    ConfigDef { rel: ".claude/settings.local.json", kind: "settings", agents: &["claude"] },
+    ConfigDef {
+        rel: ".mcp.json",
+        kind: "mcp",
+        agents: &["claude"],
+    },
+    ConfigDef {
+        rel: ".claude/settings.json",
+        kind: "settings",
+        agents: &["claude"],
+    },
+    ConfigDef {
+        rel: ".claude/settings.local.json",
+        kind: "settings",
+        agents: &["claude"],
+    },
 ];
 
 fn applies_to(def: &ConfigDef, agent: &str) -> bool {

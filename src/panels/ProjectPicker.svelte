@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspace } from "../lib/bridge";
   import type { Agent, ProjectEntry, Settings } from "../lib/types";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
@@ -61,6 +62,22 @@
     projectsByRoot = rest;
   }
 
+  // Native folder picker (Tauri dialog) — nicer than pasting a path.
+  async function browseRoot() {
+    const picked = await openDialog({
+      directory: true,
+      multiple: false
+    });
+    if (typeof picked === "string") {
+      newRoot = picked;
+      await addRoot();
+    }
+  }
+
+  async function clearRecent() {
+    settings = await workspace.clearRecent();
+  }
+
   async function setMaster(agentId: string) {
     settings = await workspace.setDefaultAgent(agentId);
   }
@@ -116,11 +133,14 @@
 
     {#if settings.recentProjects.length > 0}
       <section class="recent">
-        <h2>Recent</h2>
+        <div class="recent-head">
+          <h2>Recent</h2>
+          <button class="clear" onclick={clearRecent}>Clear</button>
+        </div>
         <ul class="recent-list">
           {#each settings.recentProjects as path (path)}
             <li>
-              <button class="recent-item" title={path} onclick={() => onopen({ path })}>
+              <button class="recent-item" onclick={() => onopen({ path })} title={path}>
                 {#if isTempPath(path)}
                   <span class="temp-tag">temp</span>
                 {/if}
@@ -161,6 +181,7 @@
           type="text"
           bind:value={newRoot}
         />
+        <button class="browse" onclick={browseRoot} type="button">Browse…</button>
         <button disabled={!newRoot.trim()} type="submit">Add root</button>
       </form>
 
@@ -285,6 +306,36 @@
       font-size: 12px;
       opacity: 80%;
     }
+  }
+
+  .recent-head {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .clear {
+    border: none;
+    background: transparent;
+    color: var(--on-surface-var);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--crit);
+    }
+  }
+
+  .browse {
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--on-surface);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
   }
 
   .recent-list {

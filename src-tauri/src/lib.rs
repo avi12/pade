@@ -10,6 +10,7 @@ mod workspace;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle();
             pty::init(handle);
@@ -40,6 +41,7 @@ pub fn run() {
             workspace::workspace_temp,
             workspace::workspace_create,
             workspace::workspace_clone,
+            workspace::workspace_clear_recent,
             workspace::set_default_agent,
             workspace::set_project_agent,
             workspace::set_prefs,
