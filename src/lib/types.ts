@@ -5,6 +5,20 @@ export type ChangeKind = "created" | "modified" | "deleted";
  *  waiting for you; `exited` = the process ended. */
 export type SessionStatus = "starting" | "working" | "ready" | "exited";
 
+/** An agent backend the ADE can launch (detected as installed). */
+export interface Agent {
+  id: string;
+  label: string;
+  command: string;
+}
+
+/** A running terminal session bound to one agent. */
+export interface AgentSession {
+  /** Unique per session — several sessions may share the same agent. */
+  id: string;
+  agent: Agent;
+}
+
 export type VcsKind = "created" | "modified" | "deleted" | "renamed" | "untracked";
 
 /** One changed path in the working tree. */

@@ -1,49 +1,66 @@
-//! PTY host: runs the agent CLI unmodified in a real pseudo-terminal.
+//! PTY host: runs agent CLIs unmodified in real pseudo-terminals.
 //!
-//! ToS-clean by construction — the ADE only reads the PTY's output stream and
+//! ToS-clean by construction — the ADE only reads a PTY's output stream and
 //! writes the user's keystrokes back in. It never scripts around the agent.
+//!
+//! Multi-session: each agent runs in its own PTY keyed by a session id, so the
+//! user can switch between and combine agents. Events carry the id so the right
+//! terminal receives them.
 
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Mutex;
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-/// Live PTY handles. `None` until `pty_spawn` is called.
+/// All live PTY sessions, keyed by session id.
 #[derive(Default)]
-pub struct PtyState(pub Mutex<Option<Pty>>);
+pub struct PtyState(pub Mutex<HashMap<String, Pty>>);
 
 pub struct Pty {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
 }
 
-/// The command to run in the terminal. Defaults to the platform shell so the
-/// window is useful even before `claude` is on PATH; override with ADE_AGENT_CMD
-/// (e.g. `claude`) to launch the agent directly.
-fn agent_command() -> CommandBuilder {
-    if let Ok(cmd) = std::env::var("ADE_AGENT_CMD") {
-        return CommandBuilder::new(cmd);
-    }
-    #[cfg(windows)]
-    {
-        CommandBuilder::new("powershell.exe")
-    }
-    #[cfg(not(windows))]
-    {
-        CommandBuilder::new(std::env::var("SHELL").unwrap_or_else(|_| "bash".into()))
-    }
+#[derive(Serialize, Clone)]
+struct Chunk {
+    id: String,
+    data: String,
+}
+
+#[derive(Serialize, Clone)]
+struct Exit {
+    id: String,
+}
+
+/// Resolve the program to run: the explicit command, else `ADE_AGENT_CMD`, else
+/// the platform shell (so a session is always launchable).
+fn build_command(command: Option<String>) -> CommandBuilder {
+    let program = command
+        .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
+        .unwrap_or_else(|| {
+            if cfg!(windows) {
+                "powershell.exe".into()
+            } else {
+                std::env::var("SHELL").unwrap_or_else(|_| "bash".into())
+            }
+        });
+    CommandBuilder::new(program)
 }
 
 #[tauri::command]
 pub fn pty_spawn(
     app: AppHandle,
     state: State<PtyState>,
+    id: String,
+    command: Option<String>,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    if guard.is_some() {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if sessions.contains_key(&id) {
         return Ok(()); // already running
     }
 
@@ -52,8 +69,7 @@ pub fn pty_spawn(
         .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
         .map_err(|e| e.to_string())?;
 
-    let mut cmd = agent_command();
-    // Start the agent in the directory the ADE was opened on.
+    let mut cmd = build_command(command);
     if let Ok(cwd) = std::env::current_dir() {
         cmd.cwd(cwd);
     }
@@ -64,31 +80,32 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    // Pump PTY output to the frontend terminal.
+    // Pump this session's output to the frontend, tagged with its id.
     let app_reader = app.clone();
+    let session_id = id.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break, // EOF — agent exited
                 Ok(n) => {
-                    let chunk = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app_reader.emit("pty://data", chunk);
+                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let _ = app_reader.emit("pty://data", Chunk { id: session_id.clone(), data });
                 }
                 Err(_) => break,
             }
         }
-        let _ = app_reader.emit("pty://exit", ());
+        let _ = app_reader.emit("pty://exit", Exit { id: session_id.clone() });
     });
 
-    *guard = Some(Pty { master: pair.master, writer });
+    sessions.insert(id, Pty { master: pair.master, writer });
     Ok(())
 }
 
 #[tauri::command]
-pub fn pty_write(state: State<PtyState>, data: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(pty) = guard.as_mut() {
+pub fn pty_write(state: State<PtyState>, id: String, data: String) -> Result<(), String> {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(pty) = sessions.get_mut(&id) {
         pty.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
         pty.writer.flush().map_err(|e| e.to_string())?;
     }
@@ -96,9 +113,9 @@ pub fn pty_write(state: State<PtyState>, data: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn pty_resize(state: State<PtyState>, cols: u16, rows: u16) -> Result<(), String> {
-    let guard = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(pty) = guard.as_ref() {
+pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> Result<(), String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(pty) = sessions.get(&id) {
         pty.master
             .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
             .map_err(|e| e.to_string())?;
@@ -106,7 +123,14 @@ pub fn pty_resize(state: State<PtyState>, cols: u16, rows: u16) -> Result<(), St
     Ok(())
 }
 
-/// Ensure a `PtyState` exists on the app.
+/// Close a session and release its PTY (dropping the writer ends the child).
+#[tauri::command]
+pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    sessions.remove(&id);
+    Ok(())
+}
+
 pub fn init(app: &AppHandle) {
     app.manage(PtyState::default());
 }

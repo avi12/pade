@@ -6,7 +6,9 @@
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { pty } from "../lib/bridge";
   import SessionBadge from "../lib/SessionBadge.svelte";
-  import type { SessionStatus } from "../lib/types";
+  import type { AgentSession, SessionStatus } from "../lib/types";
+
+  let { session }: { session: AgentSession } = $props();
 
   let host: HTMLDivElement;
   let term: Terminal;
@@ -53,28 +55,31 @@
 
     fit.fit();
 
-    // Stream PTY output from the Rust core into the terminal; each chunk is a
-    // sign of life that resets the idle → ready timer.
-    unlisten = await pty.onData((chunk) => {
+    // Stream this session's PTY output into the terminal; each chunk is a sign
+    // of life that resets the idle → ready timer. Events are filtered by id so
+    // sibling sessions don't cross-write.
+    unlisten = await pty.onData((id, chunk) => {
+      if (id !== session.id) return;
       term.write(chunk);
       markActivity();
     });
-    exitUnlisten = await pty.onExit(() => {
+    exitUnlisten = await pty.onExit((id) => {
+      if (id !== session.id) return;
       clearTimeout(idleTimer);
       status = "exited";
     });
 
-    // Send keystrokes to the PTY.
-    term.onData((data) => void pty.write(data));
+    // Send keystrokes to this session's PTY.
+    term.onData((data) => void pty.write(session.id, data));
 
     // Keep the PTY's window size in sync with the visible grid.
-    term.onResize(({ cols, rows }) => void pty.resize(cols, rows));
+    term.onResize(({ cols, rows }) => void pty.resize(session.id, cols, rows));
 
     resizeObs = new ResizeObserver(() => fit.fit());
     resizeObs.observe(host);
 
-    // Spawn the agent CLI (defaults to the platform shell) in a real PTY.
-    await pty.spawn(term.cols, term.rows);
+    // Spawn the chosen agent in a real PTY.
+    await pty.spawn(session.id, session.agent.command, term.cols, term.rows);
   });
 
   onDestroy(() => {
@@ -98,7 +103,7 @@
 
 <div class="term-wrap">
   <header class="session-bar">
-    <SessionBadge {status} label="agent" />
+    <SessionBadge {status} label={session.agent.label} />
   </header>
   <div class="term-host" bind:this={host}></div>
 </div>

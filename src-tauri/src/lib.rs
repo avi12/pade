@@ -1,3 +1,4 @@
+mod agents;
 mod config;
 mod pty;
 mod vcs;
@@ -13,9 +14,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            agents::agents_detect,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
+            pty::pty_kill,
             watcher::watch_start,
             vcs::vcs_status,
             vcs::vcs_log,

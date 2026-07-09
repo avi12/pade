@@ -4,17 +4,29 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ChangeEvent, Commit, ConfigFile, StatusEntry } from "./types";
+import type { Agent, ChangeEvent, Commit, ConfigFile, StatusEntry } from "./types";
 
-/** Terminal / PTY channel. */
+/** Detected agent backends. */
+export const agents = {
+  detect: () => invoke<Agent[]>("agents_detect"),
+};
+
+interface PtyChunk { id: string; data: string }
+interface PtyExit { id: string }
+
+/** Terminal / PTY channel. Every session is addressed by its `id`; callbacks
+ *  receive the id so a listener can route to the right terminal. */
 export const pty = {
-  spawn: (cols: number, rows: number) => invoke<void>("pty_spawn", { cols, rows }),
-  write: (data: string) => invoke<void>("pty_write", { data }),
-  resize: (cols: number, rows: number) => invoke<void>("pty_resize", { cols, rows }),
-  onData: (cb: (chunk: string) => void): Promise<UnlistenFn> =>
-    listen<string>("pty://data", (e) => cb(e.payload)),
-  onExit: (cb: () => void): Promise<UnlistenFn> =>
-    listen<void>("pty://exit", () => cb()),
+  spawn: (id: string, command: string | null, cols: number, rows: number) =>
+    invoke<void>("pty_spawn", { id, command, cols, rows }),
+  write: (id: string, data: string) => invoke<void>("pty_write", { id, data }),
+  resize: (id: string, cols: number, rows: number) =>
+    invoke<void>("pty_resize", { id, cols, rows }),
+  kill: (id: string) => invoke<void>("pty_kill", { id }),
+  onData: (cb: (id: string, data: string) => void): Promise<UnlistenFn> =>
+    listen<PtyChunk>("pty://data", (e) => cb(e.payload.id, e.payload.data)),
+  onExit: (cb: (id: string) => void): Promise<UnlistenFn> =>
+    listen<PtyExit>("pty://exit", (e) => cb(e.payload.id)),
 };
 
 /** Change Feed / filesystem watcher channel. */
