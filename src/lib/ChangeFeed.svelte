@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { feed } from "./bridge";
   import type { ChangeEvent } from "./types";
 
   // Newest first. Capped so a busy agent session can't grow this unbounded.
@@ -10,11 +10,11 @@
   let unlisten: UnlistenFn | undefined;
 
   onMount(async () => {
-    unlisten = await listen<ChangeEvent>("feed://change", (e) => {
-      events = [e.payload, ...events].slice(0, CAP);
+    unlisten = await feed.onChange((ev) => {
+      events = [ev, ...events].slice(0, CAP);
     });
     // Watch the project the ADE was opened on.
-    await invoke("watch_start");
+    await feed.start();
   });
 
   onDestroy(() => unlisten?.());

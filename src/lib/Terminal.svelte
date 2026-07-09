@@ -3,8 +3,8 @@
   import { Terminal } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebglAddon } from "@xterm/addon-webgl";
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { pty } from "./bridge";
 
   let host: HTMLDivElement;
   let term: Terminal;
@@ -36,19 +36,19 @@
     fit.fit();
 
     // Stream PTY output from the Rust core into the terminal.
-    unlisten = await listen<string>("pty://data", (e) => term.write(e.payload));
+    unlisten = await pty.onData((chunk) => term.write(chunk));
 
     // Send keystrokes to the PTY.
-    term.onData((data) => void invoke("pty_write", { data }));
+    term.onData((data) => void pty.write(data));
 
     // Keep the PTY's window size in sync with the visible grid.
-    term.onResize(({ cols, rows }) => void invoke("pty_resize", { cols, rows }));
+    term.onResize(({ cols, rows }) => void pty.resize(cols, rows));
 
     resizeObs = new ResizeObserver(() => fit.fit());
     resizeObs.observe(host);
 
-    // Spawn the agent CLI (defaults to `claude`) in a real PTY.
-    await invoke("pty_spawn", { cols: term.cols, rows: term.rows });
+    // Spawn the agent CLI (defaults to the platform shell) in a real PTY.
+    await pty.spawn(term.cols, term.rows);
   });
 
   onDestroy(() => {
