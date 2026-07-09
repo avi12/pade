@@ -29,6 +29,13 @@ These are non-negotiable for all work in this repo.
 6. **Modern & performant** — use current language features and best practices:
    - TypeScript: `strict` mode, `import type`, discriminated unions, `satisfies`,
      no `any`. Prefer immutable data and pure functions.
+   - Runtime validation: use **zod** at every trust boundary (all IPC responses
+     from Rust). Define one schema per payload and derive the TS type with
+     `z.infer` — schema is the single source of truth, never a hand-written
+     `interface` alongside it.
+   - Reuse relentlessly (TS & Rust): factor shared logic into one function and
+     call it; a validated-`invoke` wrapper, `is_on_path`, `lookup` — extend these
+     rather than re-deriving. If you write similar code twice, stop and extract.
    - CSS: logical properties, `gap`, container/`clamp()` sizing, nesting,
      `color-mix()`, custom properties. No hard-coded magic numbers where a token
      exists. No heavyweight frameworks — hand-authored M3 tokens only.

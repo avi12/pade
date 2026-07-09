@@ -1,50 +1,97 @@
 // The single boundary between the UI and the Rust core (DRY + SoC).
-// No Svelte component calls Tauri directly — everything funnels through here,
-// so the IPC contract lives in exactly one place.
+// Every response is validated with zod, so malformed data fails loudly here
+// rather than corrupting the UI. Two helpers own that contract; channels below
+// just declare command + schema.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { Agent, ChangeEvent, Commit, ConfigFile, StatusEntry } from "./types";
+import { z } from "zod";
+import {
+  Agent,
+  ChangeEvent,
+  Commit,
+  ConfigFile,
+  Ide,
+  LaunchContext,
+  ProjectEntry,
+  PtyChunk,
+  PtyExit,
+  Settings,
+  StatusEntry,
+} from "./types";
+
+/** Invoke a command and validate its result against `schema`. */
+async function call<T>(
+  command: string,
+  schema: z.ZodType<T>,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  return schema.parse(await invoke(command, args));
+}
+
+/** Invoke a command that returns nothing meaningful. */
+const run = (command: string, args?: Record<string, unknown>): Promise<void> =>
+  invoke(command, args);
+
+/** Subscribe to an event, validating each payload. */
+function on<T>(event: string, schema: z.ZodType<T>, cb: (payload: T) => void): Promise<UnlistenFn> {
+  return listen(event, (e) => cb(schema.parse(e.payload)));
+}
 
 /** Detected agent backends. */
 export const agents = {
-  detect: () => invoke<Agent[]>("agents_detect"),
+  detect: () => call("agents_detect", z.array(Agent)),
 };
 
-interface PtyChunk { id: string; data: string }
-interface PtyExit { id: string }
+/** External IDE integration. */
+export const ide = {
+  detect: () => call("ide_detect", z.array(Ide)),
+  suggest: () => call("ide_suggest", z.array(Ide)),
+  open: (command: string) => run("ide_open", { command }),
+};
 
-/** Terminal / PTY channel. Every session is addressed by its `id`; callbacks
- *  receive the id so a listener can route to the right terminal. */
+/** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
+ *  so a listener can route to the right terminal. */
 export const pty = {
   spawn: (id: string, command: string | null, cols: number, rows: number) =>
-    invoke<void>("pty_spawn", { id, command, cols, rows }),
-  write: (id: string, data: string) => invoke<void>("pty_write", { id, data }),
-  resize: (id: string, cols: number, rows: number) =>
-    invoke<void>("pty_resize", { id, cols, rows }),
-  kill: (id: string) => invoke<void>("pty_kill", { id }),
-  onData: (cb: (id: string, data: string) => void): Promise<UnlistenFn> =>
-    listen<PtyChunk>("pty://data", (e) => cb(e.payload.id, e.payload.data)),
-  onExit: (cb: (id: string) => void): Promise<UnlistenFn> =>
-    listen<PtyExit>("pty://exit", (e) => cb(e.payload.id)),
+    run("pty_spawn", { id, command, cols, rows }),
+  write: (id: string, data: string) => run("pty_write", { id, data }),
+  resize: (id: string, cols: number, rows: number) => run("pty_resize", { id, cols, rows }),
+  kill: (id: string) => run("pty_kill", { id }),
+  onData: (cb: (id: string, data: string) => void) =>
+    on("pty://data", PtyChunk, (p) => cb(p.id, p.data)),
+  onExit: (cb: (id: string) => void) => on("pty://exit", PtyExit, (p) => cb(p.id)),
 };
 
 /** Change Feed / filesystem watcher channel. */
 export const feed = {
-  start: () => invoke<void>("watch_start"),
-  onChange: (cb: (ev: ChangeEvent) => void): Promise<UnlistenFn> =>
-    listen<ChangeEvent>("feed://change", (e) => cb(e.payload)),
+  start: () => run("watch_start"),
+  onChange: (cb: (ev: ChangeEvent) => void) => on("feed://change", ChangeEvent, cb),
 };
 
 /** Version-control review channel. */
 export const vcs = {
-  status: () => invoke<StatusEntry[]>("vcs_status"),
-  log: (limit = 20) => invoke<Commit[]>("vcs_log", { limit }),
-  diff: (path: string, staged = false) => invoke<string>("vcs_diff", { path, staged }),
+  status: () => call("vcs_status", z.array(StatusEntry)),
+  log: (limit = 20) => call("vcs_log", z.array(Commit), { limit }),
+  diff: (path: string, staged = false) => call("vcs_diff", z.string(), { path, staged }),
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */
 export const config = {
-  list: () => invoke<ConfigFile[]>("config_list"),
-  read: (rel: string) => invoke<string>("config_read", { rel }),
+  list: () => call("config_list", z.array(ConfigFile)),
+  read: (rel: string) => call("config_read", z.string(), { rel }),
+};
+
+/** Workspace & projects channel. */
+export const workspace = {
+  context: () => call("launch_context", LaunchContext),
+  settings: () => call("settings_get", Settings),
+  addRoot: (path: string) => call("workspace_add_root", Settings, { path }),
+  removeRoot: (path: string) => call("workspace_remove_root", Settings, { path }),
+  scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
+  open: (path: string) => run("workspace_open", { path }),
+  create: (root: string, name: string) => call("workspace_create", z.string(), { root, name }),
+  setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
+  setProjectAgent: (path: string, agent: string) =>
+    call("set_project_agent", Settings, { path, agent }),
 };

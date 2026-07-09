@@ -1,58 +1,99 @@
-export type ChangeKind = "created" | "modified" | "deleted";
+// Single source of truth for every IPC payload shape. Schemas are zod so the
+// data crossing the Rust→TS boundary is validated at runtime; the TS types are
+// inferred from them (never hand-written alongside).
 
-/** Lifecycle of an agent or sub-agent session, shared by the terminal and
- *  (later) the agent tree. `ready` = idle at a prompt, done with its task and
- *  waiting for you; `exited` = the process ended. */
-export type SessionStatus = "starting" | "working" | "ready" | "exited";
+import { z } from "zod";
 
-/** An agent backend the ADE can launch (detected as installed). */
-export interface Agent {
-  id: string;
-  label: string;
-  command: string;
-}
+export const ChangeKind = z.enum(["created", "modified", "deleted"]);
+export type ChangeKind = z.infer<typeof ChangeKind>;
 
-/** A running terminal session bound to one agent. */
+export const ChangeEvent = z.object({
+  id: z.string(),
+  path: z.string(),
+  kind: ChangeKind,
+  added: z.number(),
+  removed: z.number(),
+  summary: z.string(),
+  ts: z.number(),
+});
+export type ChangeEvent = z.infer<typeof ChangeEvent>;
+
+/** Lifecycle of an agent or sub-agent session, shared by the terminal and the
+ *  agent tree. `ready` = idle at a prompt, done and waiting for you. */
+export const SessionStatus = z.enum(["starting", "working", "ready", "exited"]);
+export type SessionStatus = z.infer<typeof SessionStatus>;
+
+export const VcsKind = z.enum(["created", "modified", "deleted", "renamed", "untracked"]);
+export type VcsKind = z.infer<typeof VcsKind>;
+
+export const StatusEntry = z.object({
+  path: z.string(),
+  kind: VcsKind,
+  staged: z.boolean(),
+});
+export type StatusEntry = z.infer<typeof StatusEntry>;
+
+export const Commit = z.object({
+  id: z.string(),
+  short: z.string(),
+  summary: z.string(),
+  author: z.string(),
+  when: z.string(),
+});
+export type Commit = z.infer<typeof Commit>;
+
+export const ConfigFile = z.object({
+  name: z.string(),
+  rel: z.string(),
+  kind: z.enum(["instructions", "mcp", "settings"]),
+  exists: z.boolean(),
+});
+export type ConfigFile = z.infer<typeof ConfigFile>;
+
+export const Agent = z.object({
+  id: z.string(),
+  label: z.string(),
+  command: z.string(),
+});
+export type Agent = z.infer<typeof Agent>;
+
+export const Ide = z.object({
+  id: z.string(),
+  label: z.string(),
+  command: z.string(),
+});
+export type Ide = z.infer<typeof Ide>;
+
+export const LaunchContext = z.object({
+  hasProject: z.boolean(),
+  cwd: z.string(),
+});
+export type LaunchContext = z.infer<typeof LaunchContext>;
+
+export const ProjectEntry = z.object({
+  name: z.string(),
+  path: z.string(),
+  isGit: z.boolean(),
+});
+export type ProjectEntry = z.infer<typeof ProjectEntry>;
+
+export const Settings = z.object({
+  roots: z.array(z.string()),
+  defaultAgent: z.string().nullable(),
+  projectAgents: z.record(z.string(), z.string()),
+});
+export type Settings = z.infer<typeof Settings>;
+
+/** PTY stream event payloads. */
+export const PtyChunk = z.object({ id: z.string(), data: z.string() });
+export type PtyChunk = z.infer<typeof PtyChunk>;
+
+export const PtyExit = z.object({ id: z.string() });
+export type PtyExit = z.infer<typeof PtyExit>;
+
+/** A running terminal session bound to one agent (frontend-only, not IPC). */
 export interface AgentSession {
-  /** Unique per session — several sessions may share the same agent. */
   id: string;
   agent: Agent;
-}
-
-export type VcsKind = "created" | "modified" | "deleted" | "renamed" | "untracked";
-
-/** One changed path in the working tree. */
-export interface StatusEntry {
-  path: string;
-  kind: VcsKind;
-  staged: boolean;
-}
-
-/** A recent commit in the Log view. */
-export interface Commit {
-  id: string;
-  short: string;
-  summary: string;
-  author: string;
-  when: string;
-}
-
-/** An agent config file the ADE surfaces (read-only for MVP). */
-export interface ConfigFile {
-  name: string;
-  rel: string;
-  kind: "instructions" | "mcp" | "settings";
-  exists: boolean;
-}
-
-/** One entry in the Change Feed — a file the agent (or you) touched. */
-export interface ChangeEvent {
-  id: string;
-  path: string;
-  kind: ChangeKind;
-  added: number;
-  removed: number;
-  /** Plain-language, one-line intent. MVP: heuristic; later: agent-authored. */
-  summary: string;
-  ts: number;
+  initialPrompt?: string;
 }
