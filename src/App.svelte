@@ -170,12 +170,11 @@
       activeId = sessions.at(-1)?.id ?? null;
     }
 
+    // Closing the last session shows the agent picker (project stays open) —
+    // never silently spawn a replacement.
     if (sessions.length === 0) {
-      phase = realAgents.length > 1 ? "onboarding" : "loading";
-
-      if (phase === "loading") {
-        launch({ agent: agents[0] });
-      }
+      pendingPrompt = undefined;
+      phase = "onboarding";
     }
   }
 
