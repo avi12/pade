@@ -21,6 +21,7 @@
     roots: [],
     defaultAgent: null,
     projectAgents: {},
+    recentProjects: [],
     prefs: {}
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
@@ -64,6 +65,19 @@
     settings = await workspace.setDefaultAgent(agentId);
   }
 
+  // Start immediately in a throwaway workspace.
+  async function startTemp() {
+    const path = await workspace.temp();
+    onopen({ path });
+  }
+
+  function basename(path: string): string {
+    return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+  }
+  function isTempPath(path: string): boolean {
+    return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
+  }
+
   async function create() {
     if (!createIn || !createName.trim()) {
       return;
@@ -89,6 +103,35 @@
         project with a first prompt for the agent.
       </p>
     </header>
+
+    <section class="quick">
+      <button class="temp-start" onclick={startTemp}>
+        <span class="ico">✦</span>
+        <span class="txt">
+          <strong>Start in a temp workspace</strong>
+          <small>Jump straight in — switch to a real project any time.</small>
+        </span>
+      </button>
+    </section>
+
+    {#if settings.recentProjects.length > 0}
+      <section class="recent">
+        <h2>Recent</h2>
+        <ul class="recent-list">
+          {#each settings.recentProjects as path (path)}
+            <li>
+              <button class="recent-item" title={path} onclick={() => onopen({ path })}>
+                {#if isTempPath(path)}
+                  <span class="temp-tag">temp</span>
+                {/if}
+                <span class="rname">{basename(path)}</span>
+                <span class="rpath">{path}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
     {#if realAgents.length > 1}
       <section class="master">
@@ -207,6 +250,91 @@
       margin: 0;
       color: var(--on-surface-var);
     }
+  }
+
+  .temp-start {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    inline-size: 100%;
+    padding: 16px 18px;
+    border: 1px solid var(--primary);
+    border-radius: var(--r-lg);
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    text-align: start;
+    cursor: pointer;
+    transition: filter 150ms var(--ease);
+
+    &:hover {
+      filter: brightness(1.05);
+    }
+
+    .ico {
+      font-size: 20px;
+    }
+
+    .txt {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    small {
+      color: var(--on-primary-container);
+      font-size: 12px;
+      opacity: 80%;
+    }
+  }
+
+  .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .recent-item {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    inline-size: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--on-surface);
+    text-align: start;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--surface-2);
+    }
+
+    .rname {
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .rpath {
+      overflow: hidden;
+      color: var(--on-surface-var);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .temp-tag {
+    padding-inline: 6px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--on-surface-var);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   h2 {

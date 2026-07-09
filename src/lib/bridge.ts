@@ -113,6 +113,7 @@ export const workspace = {
   removeRoot: (path: string) => call("workspace_remove_root", Settings, { path }),
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
+  temp: () => call("workspace_temp", z.string()),
   create: (root: string, name: string) => call("workspace_create", z.string(), {
     root,
     name

@@ -12,8 +12,12 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+
+/// How many recently-opened projects to remember.
+const RECENT_CAP: usize = 20;
 
 /// Files/dirs that mark a directory as a project worth listing.
 const MARKERS: &[&str] = &[
@@ -54,6 +58,9 @@ pub struct Settings {
     pub default_agent: Option<String>,
     /// Per-project agent overrides, keyed by absolute project path.
     pub project_agents: BTreeMap<String, String>,
+    /// Recently opened projects (incl. temp workspaces), most-recent first.
+    #[serde(default)]
+    pub recent_projects: Vec<String>,
     /// Appearance & editor preferences.
     #[serde(default)]
     pub prefs: Prefs,
@@ -163,10 +170,37 @@ pub fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
     Ok(entries)
 }
 
-/// Open a project: point the process (and thus the watcher/VCS/agent) at it.
+/// Push a path to the front of the recent list (deduped, capped).
+fn record_recent(settings: &mut Settings, path: &str) {
+    settings.recent_projects.retain(|p| p != path);
+    settings.recent_projects.insert(0, path.to_string());
+    settings.recent_projects.truncate(RECENT_CAP);
+}
+
+/// Open a project: point the process (and thus the watcher/VCS/agent) at it and
+/// remember it in the recent history.
 #[tauri::command]
 pub fn workspace_open(path: String) -> Result<(), String> {
-    std::env::set_current_dir(&path).map_err(|e| e.to_string())
+    std::env::set_current_dir(&path).map_err(|e| e.to_string())?;
+    let mut settings = load();
+    record_recent(&mut settings, &path);
+    save(&settings)?;
+    Ok(())
+}
+
+/// Create a throwaway workspace so the user can start coding immediately without
+/// choosing a project, then switch to a real one whenever they like.
+#[tauri::command]
+pub fn workspace_temp() -> Result<String, String> {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let dir = config_dir()?.join("workspaces").join(format!("temp-{stamp}"));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.to_string_lossy().into_owned();
+    workspace_open(path.clone())?;
+    Ok(path)
 }
 
 /// Create a new project directory under `root` and open it.

@@ -37,6 +37,7 @@ pub fn run() {
             workspace::workspace_remove_root,
             workspace::workspace_scan,
             workspace::workspace_open,
+            workspace::workspace_temp,
             workspace::workspace_create,
             workspace::workspace_clone,
             workspace::set_default_agent,

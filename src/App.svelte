@@ -15,6 +15,7 @@
     roots: [],
     defaultAgent: null,
     projectAgents: {},
+    recentProjects: [],
     prefs: {}
   });
   let sessions = $state<AgentSession[]>([]);
@@ -27,6 +28,8 @@
   // whether we auto-launch or onboard.
   const realAgents = $derived(agents.filter(a => a.id !== "shell"));
   const projectName = $derived(currentProject.split(/[\\/]/).filter(Boolean).at(-1) ?? "");
+  // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
+  const isTemp = $derived(/[\\/]workspaces[\\/]temp-\d+$/.test(currentProject));
 
   onMount(async () => {
     const [ctx, detected, saved] = await Promise.all([
@@ -38,11 +41,20 @@
     settings = saved;
 
     if (ctx.hasProject) {
+      await workspace.open(ctx.cwd); // records it in recent history
       startAgentFlow(ctx.cwd);
     } else {
-      phase = "project";
-    } // launched with no project → pick one
+      // No project context → start immediately in a throwaway workspace rather
+      // than blocking on a picker. The user can switch any time (Switch button).
+      const temp = await workspace.temp();
+      startAgentFlow(temp);
+    }
   });
+
+  // Show the project picker on demand to switch project / open recent / create.
+  function switchProject() {
+    phase = "project";
+  }
 
   // Re-detect installed agents so the picker reflects an agent the user just
   // installed or removed — on window focus (they alt-tab back from a terminal)
@@ -60,6 +72,7 @@
     initialPrompt?: string;
   }) {
     await workspace.open(target.path);
+    settings = await workspace.settings(); // pick up the updated recent history
     startAgentFlow(target.path, target.initialPrompt);
   }
 
@@ -155,7 +168,13 @@
     <header class="topbar">
       <span class="brand">◆ ADE</span>
       {#if currentProject}
-        <span class="project-name" title={currentProject}>{projectName}</span>
+        <button class="project-name" title={currentProject} onclick={switchProject}>
+          {#if isTemp}
+            <span class="temp-badge">temp</span>
+          {/if}
+          {projectName}
+          <span class="switch-hint">switch</span>
+        </button>
       {/if}
 
       <nav class="tabs" aria-label="Agent sessions">
@@ -247,11 +266,44 @@
   }
 
   .project-name {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    padding-block: 4px;
     padding-inline: 10px;
+    border: none;
     border-inline-start: 1px solid var(--outline);
+    background: transparent;
     color: var(--on-surface-var);
     font-family: var(--font-mono);
     font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--on-surface);
+    }
+
+    &:hover .switch-hint {
+      opacity: 100%;
+    }
+
+    .temp-badge {
+      padding-inline: 6px;
+      border-radius: 999px;
+      background: var(--surface-3);
+      color: var(--on-surface-var);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .switch-hint {
+      color: var(--primary);
+      font-family: var(--font-ui);
+      font-size: 11px;
+      opacity: 0%;
+      transition: opacity 150ms var(--ease);
+    }
   }
 
   .spacer {
