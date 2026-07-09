@@ -35,6 +35,21 @@ These are non-negotiable for all work in this repo.
    - Performance first (virtualize long lists, debounce, GPU rendering, lazy
      panels) — but never at the cost of readability. Clear beats clever.
 
+7. **Semantic HTML over ARIA** — reach for the element that already carries the
+   role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,
+   headings, lists) before adding `role`/`aria-*`. ARIA is the fallback for gaps
+   native elements can't express, not the default. Correct semantics first;
+   annotate only what's left.
+
+8. **Nested CSS** — use native CSS nesting to keep a component's rules together
+   and mirror its markup, instead of repeating long selector prefixes.
+
+9. **Pure CSS over JS** — prefer a CSS solution whenever one exists: `:hover`/
+   `:focus-within`/`:has()` state, `<details>`/`popover`/`dialog`, CSS transitions
+   and animations, scroll-snap, container queries, `accent-color`. Only add JS
+   when the behavior genuinely can't be expressed in CSS. Less JS = less to ship,
+   parse, and break.
+
 ## Project shape
 
 See `docs/requirements.md` for the full MVP spec and `README.md` for how to run.
