@@ -1,6 +1,8 @@
 mod agents;
 mod config;
+mod ide;
 mod pty;
+mod util;
 mod vcs;
 mod watcher;
 mod workspace;
@@ -16,6 +18,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
+            ide::ide_detect,
+            ide::ide_open,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
