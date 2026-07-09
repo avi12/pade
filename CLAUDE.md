@@ -38,7 +38,12 @@ These are non-negotiable for all work in this repo.
      rather than re-deriving. If you write similar code twice, stop and extract.
    - CSS: logical properties, `gap`, container/`clamp()` sizing, nesting,
      `color-mix()`, custom properties. No hard-coded magic numbers where a token
-     exists. No heavyweight frameworks — hand-authored M3 tokens only.
+     exists. No heavyweight frameworks — hand-authored M3 tokens only. In Svelte,
+     never use a `style="…"` attribute — bind dynamic values with the `style:`
+     directive (`style:--x={v}`, `style:anchor-name="--a"`).
+   - Popovers/menus: use the native popover API (`popover` + `popovertarget`)
+     with CSS anchor positioning so they light-dismiss on outside click — not a
+     JS-toggled dropdown.
    - Performance first (virtualize long lists, debounce, GPU rendering, lazy
      panels) — but never at the cost of readability. Clear beats clever.
    - Early returns: prefer guard clauses that bail out early over nested
