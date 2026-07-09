@@ -19,6 +19,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
             ide::ide_detect,
+            ide::ide_suggest,
             ide::ide_open,
             pty::pty_spawn,
             pty::pty_write,

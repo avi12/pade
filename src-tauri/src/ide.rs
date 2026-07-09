@@ -23,9 +23,31 @@ const REGISTRY: &[IdeDef] = &[
     IdeDef { id: "webstorm", label: "WebStorm", command: "webstorm" },
     IdeDef { id: "idea", label: "IntelliJ IDEA", command: "idea" },
     IdeDef { id: "pycharm", label: "PyCharm", command: "pycharm" },
+    IdeDef { id: "goland", label: "GoLand", command: "goland" },
+    IdeDef { id: "rustrover", label: "RustRover", command: "rustrover" },
+    IdeDef { id: "androidstudio", label: "Android Studio", command: "studio" },
     IdeDef { id: "zed", label: "Zed", command: "zed" },
     IdeDef { id: "sublime", label: "Sublime Text", command: "subl" },
 ];
+
+/// Detected project kind → the IDEs that suit it best, in priority order.
+/// Generalist editors are appended to every suggestion list as a fallback.
+const PREFERENCES: &[(&str, &[&str])] = &[
+    ("android", &["androidstudio", "idea"]),
+    ("web", &["webstorm", "vscode", "cursor"]),
+    ("python", &["pycharm", "vscode"]),
+    ("go", &["goland", "vscode"]),
+    ("rust", &["rustrover", "zed", "vscode"]),
+    ("java", &["idea"]),
+];
+const GENERALISTS: &[&str] = &["vscode", "cursor", "zed", "sublime"];
+
+fn lookup(id: &str) -> Option<Ide> {
+    REGISTRY
+        .iter()
+        .find(|i| i.id == id)
+        .map(|i| Ide { id: i.id.into(), label: i.label.into(), command: i.command.into() })
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +64,62 @@ pub fn ide_detect() -> Vec<Ide> {
         .filter(|i| is_on_path(i.command))
         .map(|i| Ide { id: i.id.into(), label: i.label.into(), command: i.command.into() })
         .collect()
+}
+
+/// Sniff the project kinds present in the current directory from marker files.
+fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
+    let has = |name: &str| cwd.join(name).exists();
+    let mut kinds = Vec::new();
+    // Android is checked first: an Android project is also "web"/"java"-ish, but
+    // Android Studio is the right call when the manifest/gradle wrapper is there.
+    if has("AndroidManifest.xml") || has("gradlew") || has("settings.gradle") {
+        kinds.push("android");
+    }
+    if has("package.json") || has("tsconfig.json") || has("index.html") {
+        kinds.push("web");
+    }
+    if has("pyproject.toml") || has("requirements.txt") || has("setup.py") {
+        kinds.push("python");
+    }
+    if has("go.mod") {
+        kinds.push("go");
+    }
+    if has("Cargo.toml") {
+        kinds.push("rust");
+    }
+    if has("pom.xml") {
+        kinds.push("java");
+    }
+    kinds
+}
+
+/// Installed IDEs ranked for the current project type — best match first, then
+/// generalist editors. Lets the UI offer "Open in WebStorm" for a web project,
+/// "Android Studio" for an Android one, etc., limited to what's installed.
+#[tauri::command]
+pub fn ide_suggest() -> Result<Vec<Ide>, String> {
+    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    let kinds = detect_kinds(&cwd);
+
+    // Preferred ids for the detected kinds, then generalists, deduped in order.
+    let preferred = kinds.iter().flat_map(|k| {
+        PREFERENCES
+            .iter()
+            .find(|(kind, _)| kind == k)
+            .map(|(_, ids)| *ids)
+            .unwrap_or(&[])
+            .iter()
+            .copied()
+    });
+
+    let mut ordered = Vec::new();
+    for id in preferred.chain(GENERALISTS.iter().copied()) {
+        if !ordered.contains(&id) && is_on_path(lookup(id).map(|i| i.command).unwrap_or_default().as_str())
+        {
+            ordered.push(id);
+        }
+    }
+    Ok(ordered.into_iter().filter_map(lookup).collect())
 }
 
 /// Open the current project directory in the given IDE launcher.
