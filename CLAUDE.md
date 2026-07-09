@@ -41,6 +41,11 @@ These are non-negotiable for all work in this repo.
      exists. No heavyweight frameworks — hand-authored M3 tokens only.
    - Performance first (virtualize long lists, debounce, GPU rendering, lazy
      panels) — but never at the cost of readability. Clear beats clever.
+   - Early returns: prefer guard clauses that bail out early over nested
+     `if`/`else` pyramids, wherever it makes the happy path read top-to-bottom.
+   - Object params: a function taking two or more arguments takes a single
+     destructured object param (`fn({ a, b })`) instead of positional args, and
+     reduce/reuse the param types (`z.infer`, shared interfaces) where applicable.
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,
