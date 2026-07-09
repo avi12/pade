@@ -18,9 +18,18 @@ The user can **always rename** it; **renaming changes the directory name on disk
 
 ## Behavior (decided with the user)
 
-- **Name source:** **Copilot API with a heuristic fallback.** Try Copilot first;
-  if it's unavailable/unauthenticated, fall back to a local heuristic so naming
-  always works offline.
+- **Name source (layered, platform-aware):**
+  1. **Installed agent CLI, one-shot headless — the primary, cross-platform
+     path.** ADE already wraps an agent (Claude Code / Codex / …). Invoke it
+     non-interactively to produce the name, e.g. `claude -p "<naming prompt>"`
+     (or Codex's equivalent), capture stdout, sanitize. This works on **Windows,
+     macOS, and Linux**, needs **no extra auth** (reuses the user's
+     subscription), and stays agent-agnostic — the ideal default.
+  2. **Copilot API — a Windows-only optimization/alternative** (see below). Only
+     worth wiring if the agent-CLI path is unavailable and Copilot is signed in.
+  3. **Local heuristic — the always-on fallback** (offline, no agent, no token).
+- Pick the method per platform/availability at runtime: prefer (1); on Windows,
+  (2) may substitute if no agent CLI is present; (3) always backs both.
 - **Trigger:** **after first meaningful activity** — once the agent has
   created/edited a few files (watch the Change Feed / `watcher.rs` events) OR
   after the first prompt+response. Debounce and run **once** per temp workspace
@@ -50,10 +59,21 @@ The user can **always rename** it; **renaming changes the directory name on disk
   orchestration) behind a Tauri command, e.g. `project_autoname()` returning the
   suggested name; the frontend applies it via the rename/label command.
 
-## Copilot on Windows — integration research
+## Platform matrix
 
-Two local repos were studied. **`reverse-engineer-copilot`** documents the Copilot
-**chat protocol**; **`any-stt`** shows the **native token acquisition** on Windows.
+| Platform | Primary method | Notes |
+| --- | --- | --- |
+| all | **Installed agent CLI one-shot** (`claude -p …`) | Cross-platform, no extra auth, reuses subscription. Preferred everywhere. |
+| Windows | Copilot API via MSAL (below) | Optional/alt only; `msalruntime.dll` is Windows-only. |
+| macOS/Linux | agent CLI, else heuristic | **No `msalruntime.dll`.** A Copilot token would need the browser/Auth0 path (localStorage) or the MS Copilot app — not worth it; use the agent CLI or heuristic. |
+| all | Local heuristic | Always-on fallback. |
+
+## Copilot on Windows — integration research (optional path)
+
+**Windows-only.** Two local repos were studied. **`reverse-engineer-copilot`**
+documents the Copilot **chat protocol**; **`any-stt`** shows the **native token
+acquisition** on Windows via `msalruntime.dll` (which does **not** exist on
+macOS/Linux — hence the agent-CLI path is the real cross-platform answer).
 
 ### Native token (the important part for a Tauri/Rust app)
 
@@ -114,9 +134,11 @@ reply to a safe dir name (`[a-z0-9-]`).
   fallback is mandatory** and must produce a decent name on its own.
 - Do all of this behind a feature flag / setting; never block the temp-workspace
   launch on naming (it runs async, after activity).
-- Keep it swappable: the vision is agent-agnostic. Structure `copilot.rs` behind a
-  small `Namer` trait so a different LLM (or the running agent itself) can name
-  the project later.
+- Keep it swappable: structure naming behind a small `Namer` trait with
+  implementations `AgentCliNamer` (default, all platforms), `CopilotNamer`
+  (Windows-only, optional), `HeuristicNamer` (fallback). Select at runtime by
+  platform + availability. `copilot.rs` is only compiled/used on Windows
+  (`#[cfg(windows)]`).
 - Respect existing lint rules (CLAUDE.md): zod at the IPC boundary, destructured
   object params, `await` over `void`, `replaceAll`, native popovers, nested CSS,
   `style:` directives, etc.
