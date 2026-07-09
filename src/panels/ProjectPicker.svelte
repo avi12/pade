@@ -506,7 +506,9 @@
     display: flex;
     gap: 4px;
     margin-inline-start: auto;
-    opacity: 0%;
+    /* Dimmed but always visible so actions like Delete are discoverable;
+       full strength on row hover. */
+    opacity: 62%;
     transition: opacity 150ms var(--ease);
 
     button {
