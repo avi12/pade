@@ -1,0 +1,86 @@
+/* ADE — Material 3 Expressive tokens, hand-authored.
+   Light + dark schemes from a single blue seed; follows OS theme by default.
+   This is the MVP's only skin; alternate skins swap this token set later. */
+
+:root {
+  --seed-h: 210;
+
+  /* light scheme */
+  --primary: hsl(210 90% 45%);
+  --on-primary: #fff;
+  --primary-container: hsl(210 90% 92%);
+  --on-primary-container: hsl(210 90% 18%);
+  --tertiary: hsl(160 55% 38%);
+  --warn: hsl(28 90% 46%);
+  --crit: hsl(352 72% 50%);
+
+  --surface: hsl(210 30% 98%);
+  --surface-1: hsl(210 28% 96%);
+  --surface-2: hsl(210 26% 93%);
+  --surface-3: hsl(210 24% 89%);
+  --on-surface: hsl(214 30% 14%);
+  --on-surface-var: hsl(214 14% 40%);
+  --outline: hsl(214 15% 82%);
+
+  --code-bg: hsl(214 32% 12%);
+  --code-fg: hsl(210 20% 88%);
+
+  /* M3 shape scale */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  /* M3 emphasized easing */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --font-ui: "Google Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: hsl(210 90% 68%);
+    --on-primary: hsl(210 90% 12%);
+    --primary-container: hsl(210 55% 22%);
+    --on-primary-container: hsl(210 90% 88%);
+    --tertiary: hsl(160 55% 62%);
+    --warn: hsl(28 90% 62%);
+    --crit: hsl(352 80% 70%);
+
+    --surface: hsl(214 30% 8%);
+    --surface-1: hsl(214 28% 11%);
+    --surface-2: hsl(214 26% 14%);
+    --surface-3: hsl(214 24% 19%);
+    --on-surface: hsl(210 24% 92%);
+    --on-surface-var: hsl(214 14% 66%);
+    --outline: hsl(214 15% 28%);
+
+    --code-bg: hsl(214 40% 6%);
+    --code-fg: hsl(210 20% 85%);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
