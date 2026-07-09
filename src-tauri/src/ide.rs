@@ -18,16 +18,56 @@ struct IdeDef {
 }
 
 const REGISTRY: &[IdeDef] = &[
-    IdeDef { id: "vscode", label: "VS Code", command: "code" },
-    IdeDef { id: "cursor", label: "Cursor", command: "cursor" },
-    IdeDef { id: "webstorm", label: "WebStorm", command: "webstorm" },
-    IdeDef { id: "idea", label: "IntelliJ IDEA", command: "idea" },
-    IdeDef { id: "pycharm", label: "PyCharm", command: "pycharm" },
-    IdeDef { id: "goland", label: "GoLand", command: "goland" },
-    IdeDef { id: "rustrover", label: "RustRover", command: "rustrover" },
-    IdeDef { id: "androidstudio", label: "Android Studio", command: "studio" },
-    IdeDef { id: "zed", label: "Zed", command: "zed" },
-    IdeDef { id: "sublime", label: "Sublime Text", command: "subl" },
+    IdeDef {
+        id: "vscode",
+        label: "VS Code",
+        command: "code",
+    },
+    IdeDef {
+        id: "cursor",
+        label: "Cursor",
+        command: "cursor",
+    },
+    IdeDef {
+        id: "webstorm",
+        label: "WebStorm",
+        command: "webstorm",
+    },
+    IdeDef {
+        id: "idea",
+        label: "IntelliJ IDEA",
+        command: "idea",
+    },
+    IdeDef {
+        id: "pycharm",
+        label: "PyCharm",
+        command: "pycharm",
+    },
+    IdeDef {
+        id: "goland",
+        label: "GoLand",
+        command: "goland",
+    },
+    IdeDef {
+        id: "rustrover",
+        label: "RustRover",
+        command: "rustrover",
+    },
+    IdeDef {
+        id: "androidstudio",
+        label: "Android Studio",
+        command: "studio",
+    },
+    IdeDef {
+        id: "zed",
+        label: "Zed",
+        command: "zed",
+    },
+    IdeDef {
+        id: "sublime",
+        label: "Sublime Text",
+        command: "subl",
+    },
 ];
 
 /// Detected project kind → the IDEs that suit it best, in priority order.
@@ -43,10 +83,11 @@ const PREFERENCES: &[(&str, &[&str])] = &[
 const GENERALISTS: &[&str] = &["vscode", "cursor", "zed", "sublime"];
 
 fn lookup(id: &str) -> Option<Ide> {
-    REGISTRY
-        .iter()
-        .find(|i| i.id == id)
-        .map(|i| Ide { id: i.id.into(), label: i.label.into(), command: i.command.into() })
+    REGISTRY.iter().find(|i| i.id == id).map(|i| Ide {
+        id: i.id.into(),
+        label: i.label.into(),
+        command: i.command.into(),
+    })
 }
 
 #[derive(Serialize)]
@@ -62,7 +103,11 @@ pub fn ide_detect() -> Vec<Ide> {
     REGISTRY
         .iter()
         .filter(|i| is_on_path(i.command))
-        .map(|i| Ide { id: i.id.into(), label: i.label.into(), command: i.command.into() })
+        .map(|i| Ide {
+            id: i.id.into(),
+            label: i.label.into(),
+            command: i.command.into(),
+        })
         .collect()
 }
 
@@ -94,7 +139,7 @@ fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
 }
 
 /// Installed IDEs ranked for the current project type — best match first, then
-/// generalist editors. Lets the UI offer "Open in WebStorm" for a web project,
+/// generalist editors. Lets the UI offer "Open in `WebStorm`" for a web project,
 /// "Android Studio" for an Android one, etc., limited to what's installed.
 #[tauri::command]
 pub fn ide_suggest() -> Result<Vec<Ide>, String> {
@@ -106,15 +151,15 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
         PREFERENCES
             .iter()
             .find(|(kind, _)| kind == k)
-            .map(|(_, ids)| *ids)
-            .unwrap_or(&[])
+            .map_or::<&[&str], _>(&[], |(_, ids)| *ids)
             .iter()
             .copied()
     });
 
     let mut ordered = Vec::new();
     for id in preferred.chain(GENERALISTS.iter().copied()) {
-        if !ordered.contains(&id) && is_on_path(lookup(id).map(|i| i.command).unwrap_or_default().as_str())
+        if !ordered.contains(&id)
+            && is_on_path(lookup(id).map(|i| i.command).unwrap_or_default().as_str())
         {
             ordered.push(id);
         }
@@ -129,12 +174,11 @@ pub fn ide_open(command: String) -> Result<(), String> {
     // On Windows the JetBrains/VS Code launchers are .cmd shims, so go through
     // the shell to resolve them the way a terminal would.
     let spawn = if cfg!(windows) {
-        Command::new("cmd")
-            .args(["/C", &command])
-            .arg(&cwd)
-            .spawn()
+        Command::new("cmd").args(["/C", &command]).arg(&cwd).spawn()
     } else {
         Command::new(&command).arg(&cwd).spawn()
     };
-    spawn.map(|_| ()).map_err(|e| format!("failed to open {command}: {e}"))
+    spawn
+        .map(|_| ())
+        .map_err(|e| format!("failed to open {command}: {e}"))
 }

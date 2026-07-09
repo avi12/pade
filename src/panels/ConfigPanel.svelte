@@ -1,22 +1,27 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { config } from "../lib/bridge";
   import type { ConfigFile } from "../lib/types";
+  import { onMount } from "svelte";
 
   let files = $state<ConfigFile[]>([]);
   let selected = $state<ConfigFile | null>(null);
   let content = $state("");
 
-  async function open(f: ConfigFile) {
-    if (!f.exists) return;
-    selected = f;
-    content = await config.read(f.rel);
+  async function open(file: ConfigFile) {
+    if (!file.exists) {
+      return;
+    }
+
+    selected = file;
+    content = await config.read(file.rel);
   }
 
   onMount(async () => {
     files = await config.list();
-    const first = files.find((f) => f.exists);
-    if (first) await open(first);
+    const first = files.find(file => file.exists);
+    if (first) {
+      await open(first);
+    }
   });
 </script>
 
@@ -35,7 +40,9 @@
           >
             <span class="kind {f.kind}">{f.kind}</span>
             <span class="rel">{f.rel}</span>
-            {#if !f.exists}<span class="missing">absent</span>{/if}
+            {#if !f.exists}
+              <span class="missing">absent</span>
+            {/if}
           </button>
         </li>
       {/each}
@@ -52,66 +59,125 @@
 </div>
 
 <style>
-  .cfg { display: flex; flex-direction: column; block-size: 100%; }
+  .cfg {
+    display: flex;
+    flex-direction: column;
+    block-size: 100%;
+  }
+
   .head {
     padding-block: 12px;
     padding-inline: 16px;
     border-block-end: 1px solid var(--outline);
   }
-  .head h2 { margin: 0; font-size: 15px; }
-  .scroll { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
 
-  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .head h2 {
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
   .row {
     display: flex;
-    align-items: center;
     gap: 10px;
+    align-items: center;
     inline-size: 100%;
-    text-align: start;
     padding: 7px 8px;
     border: none;
-    background: transparent;
     border-radius: var(--r-sm);
-    cursor: pointer;
+    background: transparent;
     color: var(--on-surface);
+    text-align: start;
+    cursor: pointer;
   }
-  .row:hover:not(:disabled) { background: var(--surface-2); }
-  .row:disabled { opacity: 0.45; cursor: default; }
-  .row.sel { background: var(--primary-container); color: var(--on-primary-container); }
+
+  .row:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  .row:disabled {
+    opacity: 45%;
+    cursor: default;
+  }
+
+  .row.sel {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+
   .kind {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    flex: none;
     padding: 2px 8px;
     border-radius: 999px;
     background: var(--surface-3);
     color: var(--on-surface-var);
-    flex: none;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
-  .kind.instructions { background: color-mix(in srgb, var(--tertiary) 25%, transparent); }
-  .kind.mcp { background: color-mix(in srgb, var(--primary) 22%, transparent); }
-  .rel { font-family: var(--font-mono); font-size: 13px; }
-  .missing { margin-inline-start: auto; font-size: 11px; color: var(--on-surface-var); }
+
+  .kind.instructions {
+    background: color-mix(in sRGB, var(--tertiary) 25%, transparent);
+  }
+
+  .kind.mcp {
+    background: color-mix(in sRGB, var(--primary) 22%, transparent);
+  }
+
+  .rel {
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .missing {
+    margin-inline-start: auto;
+    color: var(--on-surface-var);
+    font-size: 11px;
+  }
 
   .viewer h3 {
-    margin: 0 0 6px;
+    margin-block: 0 6px;
+    margin-inline: 0;
+    color: var(--on-surface-var);
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--on-surface-var);
   }
+
   .body {
+    overflow: auto;
+    max-block-size: 380px;
     margin: 0;
     padding: 12px;
-    max-block-size: 380px;
-    overflow: auto;
+    border-radius: var(--r-md);
     background: var(--code-bg);
     color: var(--code-fg);
     font-family: var(--font-mono);
     font-size: 12px;
     line-height: 1.5;
-    border-radius: var(--r-md);
     white-space: pre-wrap;
   }
-  .note { margin: 8px 2px 0; font-size: 12px; color: var(--on-surface-var); }
+
+  .note {
+    margin-block: 8px 0;
+    margin-inline: 2px;
+    color: var(--on-surface-var);
+    font-size: 12px;
+  }
 </style>

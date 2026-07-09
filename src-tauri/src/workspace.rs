@@ -17,8 +17,17 @@ use serde::{Deserialize, Serialize};
 
 /// Files/dirs that mark a directory as a project worth listing.
 const MARKERS: &[&str] = &[
-    ".git", ".hg", ".jj", "package.json", "Cargo.toml", "pyproject.toml", "go.mod",
-    "pom.xml", "build.gradle", "CLAUDE.md", "AGENTS.md",
+    ".git",
+    ".hg",
+    ".jj",
+    "package.json",
+    "Cargo.toml",
+    "pyproject.toml",
+    "go.mod",
+    "pom.xml",
+    "build.gradle",
+    "CLAUDE.md",
+    "AGENTS.md",
 ];
 
 /// Appearance & editor preferences. All optional so the frontend can fall back
@@ -28,7 +37,7 @@ const MARKERS: &[&str] = &[
 pub struct Prefs {
     /// UI font family; falls back to the M3 stack.
     pub ui_font: Option<String>,
-    /// Terminal/code font family; falls back to JetBrains Mono.
+    /// Terminal/code font family; falls back to `JetBrains` Mono.
     pub mono_font: Option<String>,
     /// "system" (follow OS) | "light" | "dark".
     pub theme_mode: Option<String>,
@@ -141,7 +150,11 @@ pub fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
         .map(|e| e.path())
         .filter(|p| p.is_dir() && is_project(p))
         .map(|p| ProjectEntry {
-            name: p.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string(),
+            name: p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("?")
+                .to_string(),
             is_git: p.join(".git").exists(),
             path: p.to_string_lossy().into_owned(),
         })

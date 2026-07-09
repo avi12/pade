@@ -14,7 +14,7 @@ export const ChangeEvent = z.object({
   added: z.number(),
   removed: z.number(),
   summary: z.string(),
-  ts: z.number(),
+  ts: z.number()
 });
 export type ChangeEvent = z.infer<typeof ChangeEvent>;
 
@@ -29,7 +29,7 @@ export type VcsKind = z.infer<typeof VcsKind>;
 export const StatusEntry = z.object({
   path: z.string(),
   kind: VcsKind,
-  staged: z.boolean(),
+  staged: z.boolean()
 });
 export type StatusEntry = z.infer<typeof StatusEntry>;
 
@@ -38,7 +38,7 @@ export const Commit = z.object({
   short: z.string(),
   summary: z.string(),
   author: z.string(),
-  when: z.string(),
+  when: z.string()
 });
 export type Commit = z.infer<typeof Commit>;
 
@@ -46,34 +46,34 @@ export const ConfigFile = z.object({
   name: z.string(),
   rel: z.string(),
   kind: z.enum(["instructions", "mcp", "settings"]),
-  exists: z.boolean(),
+  exists: z.boolean()
 });
 export type ConfigFile = z.infer<typeof ConfigFile>;
 
 export const Agent = z.object({
   id: z.string(),
   label: z.string(),
-  command: z.string(),
+  command: z.string()
 });
 export type Agent = z.infer<typeof Agent>;
 
 export const Ide = z.object({
   id: z.string(),
   label: z.string(),
-  command: z.string(),
+  command: z.string()
 });
 export type Ide = z.infer<typeof Ide>;
 
 export const LaunchContext = z.object({
   hasProject: z.boolean(),
-  cwd: z.string(),
+  cwd: z.string()
 });
 export type LaunchContext = z.infer<typeof LaunchContext>;
 
 export const ProjectEntry = z.object({
   name: z.string(),
   path: z.string(),
-  isGit: z.boolean(),
+  isGit: z.boolean()
 });
 export type ProjectEntry = z.infer<typeof ProjectEntry>;
 
@@ -88,7 +88,7 @@ export const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
   themeMode: ThemeMode.nullish(),
-  diffStyle: DiffStyle.nullish(),
+  diffStyle: DiffStyle.nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 
@@ -96,12 +96,15 @@ export const Settings = z.object({
   roots: z.array(z.string()),
   defaultAgent: z.string().nullable(),
   projectAgents: z.record(z.string(), z.string()),
-  prefs: Prefs.default({}),
+  prefs: Prefs.default({})
 });
 export type Settings = z.infer<typeof Settings>;
 
 /** PTY stream event payloads. */
-export const PtyChunk = z.object({ id: z.string(), data: z.string() });
+export const PtyChunk = z.object({
+  id: z.string(),
+  data: z.string()
+});
 export type PtyChunk = z.infer<typeof PtyChunk>;
 
 export const PtyExit = z.object({ id: z.string() });

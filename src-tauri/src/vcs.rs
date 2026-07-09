@@ -92,7 +92,11 @@ pub fn vcs_status() -> Result<Vec<StatusEntry>, String> {
 #[tauri::command]
 pub fn vcs_log(limit: u32) -> Result<Vec<Commit>, String> {
     let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr");
-    let raw = run_git(&["log", &format!("-n{limit}"), &format!("--pretty=format:{fmt}")])?;
+    let raw = run_git(&[
+        "log",
+        &format!("-n{limit}"),
+        &format!("--pretty=format:{fmt}"),
+    ])?;
 
     let commits = raw
         .lines()

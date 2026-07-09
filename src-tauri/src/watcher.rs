@@ -1,7 +1,7 @@
 //! Filesystem watcher feeding the Change Feed.
 //!
 //! MVP: watches the opened project, ignores build/VCS noise, and turns each
-//! save into a ChangeEvent with a line-count delta and a heuristic summary.
+//! save into a `ChangeEvent` with a line-count delta and a heuristic summary.
 //! Later: real per-hunk diffs and agent-authored intent replace the heuristic.
 
 use std::collections::HashMap;
@@ -36,16 +36,19 @@ struct ChangeEvent {
 }
 
 const IGNORED: &[&str] = &[
-    ".git", "node_modules", "target", "dist", "build", ".svelte-kit", ".ade", ".vite",
+    ".git",
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    ".svelte-kit",
+    ".ade",
+    ".vite",
 ];
 
 fn ignored(path: &Path) -> bool {
-    path.components().any(|c| {
-        c.as_os_str()
-            .to_str()
-            .map(|s| IGNORED.contains(&s))
-            .unwrap_or(false)
-    })
+    path.components()
+        .any(|c| c.as_os_str().to_str().is_some_and(|s| IGNORED.contains(&s)))
 }
 
 fn now_ms() -> u128 {
@@ -79,7 +82,11 @@ fn summarize(kind: &str, path: &Path, added: usize, removed: usize) -> String {
 }
 
 fn plural(n: usize) -> &'static str {
-    if n == 1 { "" } else { "s" }
+    if n == 1 {
+        ""
+    } else {
+        "s"
+    }
 }
 
 #[tauri::command]
@@ -123,9 +130,8 @@ fn handle_event(app: &AppHandle, event: Event) {
 
         // Debounce: editors emit bursts per save.
         {
-            let mut seen = match state.last_seen.lock() {
-                Ok(g) => g,
-                Err(_) => continue,
+            let Ok(mut seen) = state.last_seen.lock() else {
+                continue;
             };
             let now = Instant::now();
             if let Some(prev) = seen.get(&path) {
@@ -138,9 +144,8 @@ fn handle_event(app: &AppHandle, event: Event) {
 
         let new_count = line_count(&path);
         let (added, removed) = {
-            let mut counts = match state.line_counts.lock() {
-                Ok(g) => g,
-                Err(_) => continue,
+            let Ok(mut counts) = state.line_counts.lock() else {
+                continue;
             };
             let old = counts.get(&path).copied();
             let (a, r) = match (old, new_count) {

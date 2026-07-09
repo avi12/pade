@@ -66,7 +66,12 @@ pub fn pty_spawn(
 
     let pty_system = native_pty_system();
     let pair = pty_system
-        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
         .map_err(|e| e.to_string())?;
 
     let mut cmd = build_command(command);
@@ -87,18 +92,35 @@ pub fn pty_spawn(
         let mut buf = [0u8; 8192];
         loop {
             match reader.read(&mut buf) {
-                Ok(0) => break, // EOF — agent exited
-                Ok(n) => {
+                Ok(n) if n > 0 => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app_reader.emit("pty://data", Chunk { id: session_id.clone(), data });
+                    let _ = app_reader.emit(
+                        "pty://data",
+                        Chunk {
+                            id: session_id.clone(),
+                            data,
+                        },
+                    );
                 }
-                Err(_) => break,
+                // EOF (agent exited) or a read error — end the pump.
+                _ => break,
             }
         }
-        let _ = app_reader.emit("pty://exit", Exit { id: session_id.clone() });
+        let _ = app_reader.emit(
+            "pty://exit",
+            Exit {
+                id: session_id.clone(),
+            },
+        );
     });
 
-    sessions.insert(id, Pty { master: pair.master, writer });
+    sessions.insert(
+        id,
+        Pty {
+            master: pair.master,
+            writer,
+        },
+    );
     Ok(())
 }
 
@@ -106,7 +128,9 @@ pub fn pty_spawn(
 pub fn pty_write(state: State<PtyState>, id: String, data: String) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(pty) = sessions.get_mut(&id) {
-        pty.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        pty.writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
         pty.writer.flush().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -117,7 +141,12 @@ pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> R
     let sessions = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(pty) = sessions.get(&id) {
         pty.master
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(|e| e.to_string())?;
     }
     Ok(())

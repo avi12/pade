@@ -1,41 +1,57 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { workspace } from "../lib/bridge";
   import type { Agent, ProjectEntry, Settings } from "../lib/types";
+  import { onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
   // browse the projects inside them, open one, or create a new one — then hand
   // the chosen project path (and optional first prompt) back to the app.
-  let {
+  const {
     agents,
-    onopen,
+    onopen
   }: {
     agents: Agent[];
-    onopen: (p: { path: string; initialPrompt?: string }) => void;
+    onopen: (target: {
+      path: string;
+      initialPrompt?: string;
+    }) => void;
   } = $props();
 
-  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {}, prefs: {} });
+  let settings = $state<Settings>({
+    roots: [],
+    defaultAgent: null,
+    projectAgents: {},
+    prefs: {}
+  });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   let newRoot = $state("");
   let createIn = $state("");
   let createName = $state("");
   let createPrompt = $state("");
 
-  const realAgents = $derived(agents.filter((a) => a.id !== "shell"));
+  const realAgents = $derived(agents.filter(a => a.id !== "shell"));
 
   async function refresh() {
     settings = await workspace.settings();
     projectsByRoot = Object.fromEntries(
-      await Promise.all(settings.roots.map(async (r) => [r, await scan(r)] as const)),
+      await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const))
     );
   }
-  const scan = (root: string) => workspace.scan(root).catch(() => [] as ProjectEntry[]);
+  function scan(root: string): Promise<ProjectEntry[]> {
+    return workspace.scan(root).catch((): ProjectEntry[] => []);
+  }
 
   async function addRoot() {
     const path = newRoot.trim();
-    if (!path) return;
+    if (!path) {
+      return;
+    }
+
     settings = await workspace.addRoot(path);
-    projectsByRoot = { ...projectsByRoot, [path]: await scan(path) };
+    projectsByRoot = {
+      ...projectsByRoot,
+      [path]: await scan(path)
+    };
     newRoot = "";
   }
   async function removeRoot(path: string) {
@@ -49,9 +65,15 @@
   }
 
   async function create() {
-    if (!createIn || !createName.trim()) return;
+    if (!createIn || !createName.trim()) {
+      return;
+    }
+
     const path = await workspace.create(createIn, createName.trim());
-    onopen({ path, initialPrompt: createPrompt.trim() || undefined });
+    onopen({
+      path,
+      initialPrompt: createPrompt.trim() || undefined
+    });
   }
 
   onMount(refresh);
@@ -86,28 +108,33 @@
 
     <section class="roots">
       <h2>Root folders</h2>
-      <form class="addrow" onsubmit={(e) => { e.preventDefault(); addRoot(); }}>
+      <form
+        class="addrow" onsubmit={e => {
+          e.preventDefault(); addRoot();
+        }}>
         <input
-          type="text"
-          bind:value={newRoot}
           placeholder="C:\repositories  ·  paste a folder path"
           spellcheck="false"
+          type="text"
+          bind:value={newRoot}
         />
-        <button type="submit" disabled={!newRoot.trim()}>Add root</button>
+        <button disabled={!newRoot.trim()} type="submit">Add root</button>
       </form>
 
       {#each settings.roots as root (root)}
         <div class="root">
           <div class="root-head">
             <code class="rootpath">{root}</code>
-            <button class="remove" title="Remove root" onclick={() => removeRoot(root)}>×</button>
+            <button class="remove" onclick={() => removeRoot(root)} title="Remove root">×</button>
           </div>
           <ul class="projects">
             {#each projectsByRoot[root] ?? [] as p (p.path)}
               <li>
                 <button class="project" onclick={() => onopen({ path: p.path })}>
                   <span class="pname">{p.name}</span>
-                  {#if p.isGit}<span class="git">git</span>{/if}
+                  {#if p.isGit}
+                    <span class="git">git</span>
+                  {/if}
                 </button>
               </li>
             {:else}
@@ -122,17 +149,17 @@
       <section class="create">
         <h2>New project</h2>
         <div class="createform">
-          <select bind:value={createIn} aria-label="Root folder">
-            <option value="" disabled>Choose a root…</option>
+          <select aria-label="Root folder" bind:value={createIn}>
+            <option disabled value="">Choose a root…</option>
             {#each settings.roots as root (root)}
               <option value={root}>{root}</option>
             {/each}
           </select>
-          <input type="text" bind:value={createName} placeholder="project-name" spellcheck="false" />
+          <input placeholder="project-name" spellcheck="false" type="text" bind:value={createName} />
           <textarea
-            bind:value={createPrompt}
-            rows="3"
             placeholder="First prompt for the agent (optional) — e.g. “scaffold a SvelteKit app with auth”"
+            rows="3"
+            bind:value={createPrompt}
           ></textarea>
           <button class="go" disabled={!createIn || !createName.trim()} onclick={create}>
             Create &amp; open
@@ -145,64 +172,202 @@
 
 <style>
   .picker {
-    block-size: 100%;
     overflow-y: auto;
+    block-size: 100%;
     background: radial-gradient(120% 70% at 50% 0%, var(--surface-1), var(--surface));
   }
-  .inner { inline-size: min(680px, 100%); margin-inline: auto; padding: 48px 24px 64px; display: flex; flex-direction: column; gap: 28px; }
+
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    inline-size: min(680px, 100%);
+    margin-inline: auto;
+    padding-block: 48px 64px;
+    padding-inline: 24px;
+  }
 
   header {
-    .brand { font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
-    h1 { margin: 12px 0 8px; font-size: clamp(26px, 4vw, 36px); letter-spacing: -0.02em; text-wrap: balance; }
-    .lede { margin: 0; color: var(--on-surface-var); max-inline-size: 52ch; }
+    .brand {
+      color: var(--primary);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      margin-block: 12px 8px;
+      margin-inline: 0;
+      font-size: clamp(26px, 4vw, 36px);
+      letter-spacing: -0.02em;
+      text-wrap: balance;
+    }
+
+    .lede {
+      max-inline-size: 52ch;
+      margin: 0;
+      color: var(--on-surface-var);
+    }
   }
 
-  h2 { margin: 0 0 4px; font-size: 15px; }
-  .hint { margin: 0 0 12px; font-size: 13px; color: var(--on-surface-var); }
+  h2 {
+    margin-block: 0 4px;
+    margin-inline: 0;
+    font-size: 15px;
+  }
 
-  .chips, .addrow, .createform { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hint {
+    margin-block: 0 12px;
+    margin-inline: 0;
+    color: var(--on-surface-var);
+    font-size: 13px;
+  }
+
+  .chips,
+  .addrow,
+  .createform {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .chip {
-    font: inherit; font-size: 13px; font-weight: 600;
-    padding: 8px 16px; border-radius: 999px; cursor: pointer;
-    background: var(--surface-2); color: var(--on-surface-var); border: 1px solid transparent;
-    &.on { background: var(--primary-container); color: var(--on-primary-container); border-color: var(--primary); }
+    padding: 8px 16px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface-var);
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+
+    &.on {
+      border-color: var(--primary);
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
   }
 
-  input, select, textarea {
-    font: inherit; font-size: 14px;
-    color: var(--on-surface); background: var(--surface-2);
-    border: 1px solid var(--outline); border-radius: var(--r-md);
+  input,
+  select,
+  textarea {
     padding: 10px 12px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--on-surface);
+    font: inherit;
+    font-size: 14px;
   }
-  input[type="text"] { flex: 1; min-inline-size: 220px; font-family: var(--font-mono); font-size: 13px; }
-  textarea { inline-size: 100%; resize: vertical; }
+
+  input {
+    flex: 1;
+    min-inline-size: 220px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  textarea {
+    inline-size: 100%;
+    resize: vertical;
+  }
 
   button {
-    font: inherit; font-weight: 600; cursor: pointer;
-    background: var(--primary); color: var(--on-primary);
-    border: none; border-radius: var(--r-md); padding: 10px 18px;
-    &:disabled { opacity: 0.5; cursor: default; }
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--r-md);
+    background: var(--primary);
+    color: var(--on-primary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 50%;
+      cursor: default;
+    }
   }
 
-  .roots .root { margin-block-start: 14px; }
-  .root-head { display: flex; align-items: center; gap: 8px; }
-  .rootpath { font-family: var(--font-mono); font-size: 12px; color: var(--on-surface-var); }
+  .roots .root {
+    margin-block-start: 14px;
+  }
+
+  .root-head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .rootpath {
+    color: var(--on-surface-var);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
   .remove {
-    margin-inline-start: auto; background: transparent; color: var(--on-surface-var);
-    padding: 2px 8px; font-size: 16px;
-    &:hover { color: var(--crit); }
+    margin-inline-start: auto;
+    padding: 2px 8px;
+    background: transparent;
+    color: var(--on-surface-var);
+    font-size: 16px;
+
+    &:hover {
+      color: var(--crit);
+    }
   }
 
-  .projects { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+  .projects {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    margin-block: 8px 0;
+    margin-inline: 0;
+    padding: 0;
+    list-style: none;
+  }
+
   .project {
-    inline-size: 100%; text-align: start; display: flex; align-items: center; gap: 8px;
-    background: var(--surface-2); color: var(--on-surface); border-radius: var(--r-md); padding: 12px 14px;
-    &:hover { background: var(--primary-container); color: var(--on-primary-container); }
-    .pname { font-weight: 600; font-size: 14px; }
-    .git { margin-inline-start: auto; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tertiary); }
-  }
-  .none { list-style: none; font-size: 13px; color: var(--on-surface-var); }
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    inline-size: 100%;
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--on-surface);
+    text-align: start;
 
-  .createform { flex-direction: column; }
-  .createform .go { align-self: start; }
+    &:hover {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+
+    .pname {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .git {
+      margin-inline-start: auto;
+      color: var(--tertiary);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  }
+
+  .none {
+    color: var(--on-surface-var);
+    list-style: none;
+    font-size: 13px;
+  }
+
+  .createform {
+    flex-direction: column;
+  }
+
+  .createform .go {
+    align-self: start;
+  }
 </style>

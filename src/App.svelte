@@ -1,17 +1,22 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import Terminal from "./panels/Terminal.svelte";
+  import { agents as agentsApi, pty, workspace } from "./lib/bridge";
+  import IdeMenu from "./lib/IdeMenu.svelte";
+  import type { Agent, AgentSession, Settings } from "./lib/types";
   import ChangeFeed from "./panels/ChangeFeed.svelte";
   import Onboarding from "./panels/Onboarding.svelte";
   import ProjectPicker from "./panels/ProjectPicker.svelte";
-  import IdeMenu from "./lib/IdeMenu.svelte";
-  import { agents as agentsApi, pty, workspace } from "./lib/bridge";
-  import type { Agent, AgentSession, Settings } from "./lib/types";
+  import Terminal from "./panels/Terminal.svelte";
+  import { onMount } from "svelte";
 
   type Phase = "loading" | "project" | "onboarding" | "ready";
   let phase = $state<Phase>("loading");
   let agents = $state<Agent[]>([]);
-  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {}, prefs: {} });
+  let settings = $state<Settings>({
+    roots: [],
+    defaultAgent: null,
+    projectAgents: {},
+    prefs: {}
+  });
   let sessions = $state<AgentSession[]>([]);
   let activeId = $state<string | null>(null);
   let currentProject = $state<string>("");
@@ -20,24 +25,31 @@
 
   // Agents excluding the always-present shell fallback — this count decides
   // whether we auto-launch or onboard.
-  const realAgents = $derived(agents.filter((a) => a.id !== "shell"));
+  const realAgents = $derived(agents.filter(a => a.id !== "shell"));
   const projectName = $derived(currentProject.split(/[\\/]/).filter(Boolean).at(-1) ?? "");
 
   onMount(async () => {
     const [ctx, detected, saved] = await Promise.all([
       workspace.context(),
       agentsApi.detect(),
-      workspace.settings(),
+      workspace.settings()
     ]);
     agents = detected;
     settings = saved;
-    if (ctx.hasProject) startAgentFlow(ctx.cwd);
-    else phase = "project"; // launched with no project → pick one
+
+    if (ctx.hasProject) {
+      startAgentFlow(ctx.cwd);
+    } else {
+      phase = "project";
+    } // launched with no project → pick one
   });
 
-  async function openProject(p: { path: string; initialPrompt?: string }) {
-    await workspace.open(p.path);
-    startAgentFlow(p.path, p.initialPrompt);
+  async function openProject(target: {
+    path: string;
+    initialPrompt?: string;
+  }) {
+    await workspace.open(target.path);
+    startAgentFlow(target.path, target.initialPrompt);
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
@@ -45,16 +57,29 @@
   function startAgentFlow(path: string, initialPrompt?: string) {
     currentProject = path;
     const prefId = settings.projectAgents[path] ?? settings.defaultAgent ?? null;
-    const preferred = prefId ? agents.find((a) => a.id === prefId) : undefined;
-    if (preferred) return launch(preferred, initialPrompt);
-    if (realAgents.length === 1) return launch(realAgents[0], initialPrompt);
-    if (realAgents.length === 0) return launch(agents[0], initialPrompt); // shell
+    const preferred = prefId ? agents.find(a => a.id === prefId) : undefined;
+    if (preferred) {
+      return launch(preferred, initialPrompt);
+    }
+
+    if (realAgents.length === 1) {
+      return launch(realAgents[0], initialPrompt);
+    }
+
+    if (realAgents.length === 0) {
+      return launch(agents[0], initialPrompt);
+    } // shell
+
     pendingPrompt = initialPrompt;
     phase = "onboarding";
   }
 
   function launch(agent: Agent, initialPrompt?: string) {
-    const session: AgentSession = { id: crypto.randomUUID(), agent, initialPrompt };
+    const session: AgentSession = {
+      id: crypto.randomUUID(),
+      agent,
+      initialPrompt
+    };
     sessions.push(session);
     activeId = session.id;
     pendingPrompt = undefined;
@@ -63,18 +88,27 @@
 
   async function close(session: AgentSession) {
     await pty.kill(session.id);
-    sessions = sessions.filter((s) => s.id !== session.id);
-    if (activeId === session.id) activeId = sessions.at(-1)?.id ?? null;
+    sessions = sessions.filter(s => s.id !== session.id);
+
+    if (activeId === session.id) {
+      activeId = sessions.at(-1)?.id ?? null;
+    }
+
     if (sessions.length === 0) {
       phase = realAgents.length > 1 ? "onboarding" : "loading";
-      if (phase === "loading") launch(agents[0]);
+
+      if (phase === "loading") {
+        launch(agents[0]);
+      }
     }
   }
 
   // Side panels (lazy-loaded for tree-shaking).
   type Side = "feed" | "vcs" | "config" | null;
   let side = $state<Side>("feed");
-  const toggleSide = (p: Exclude<Side, null>) => (side = side === p ? null : p);
+  function toggleSide(panel: Exclude<Side, null>) {
+    side = side === panel ? null : panel;
+  }
 
   // Highlight → agent bridge: a selection in a side panel is injected into the
   // active session's input.
@@ -84,11 +118,14 @@
     const text = sel?.toString().trim() ?? "";
     const inSidePanel =
       sel?.anchorNode instanceof Node &&
-      !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
+        !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
     selection = text && inSidePanel ? text : "";
   }
   async function sendToAgent() {
-    if (!selection || !activeId) return;
+    if (!selection || !activeId) {
+      return;
+    }
+
     await pty.write(activeId, selection);
     selection = "";
     window.getSelection()?.removeAllRanges();
@@ -100,7 +137,7 @@
 {#if phase === "project"}
   <ProjectPicker {agents} onopen={openProject} />
 {:else if phase === "onboarding"}
-  <Onboarding {agents} onpick={(a) => launch(a, pendingPrompt)} />
+  <Onboarding {agents} onpick={a => launch(a, pendingPrompt)} />
 {:else if phase === "ready"}
   <div class="shell">
     <header class="topbar">
@@ -113,7 +150,7 @@
         {#each sessions as s (s.id)}
           <div class="tab" class:active={s.id === activeId}>
             <button class="pick" onclick={() => (activeId = s.id)}>{s.agent.label}</button>
-            <button class="x" title="Close session" onclick={() => close(s)}>×</button>
+            <button class="x" onclick={() => close(s)} title="Close session">×</button>
           </div>
         {/each}
 
@@ -131,10 +168,10 @@
 
       <IdeMenu />
 
-      <div class="seg" role="tablist" aria-label="Side panel">
-        <button role="tab" aria-selected={side === "feed"} onclick={() => toggleSide("feed")}>Change Feed</button>
-        <button role="tab" aria-selected={side === "vcs"} onclick={() => toggleSide("vcs")}>Git</button>
-        <button role="tab" aria-selected={side === "config"} onclick={() => toggleSide("config")}>Config</button>
+      <div class="seg" aria-label="Side panel" role="tablist">
+        <button aria-selected={side === "feed"} onclick={() => toggleSide("feed")} role="tab">Change Feed</button>
+        <button aria-selected={side === "vcs"} onclick={() => toggleSide("vcs")} role="tab">Git</button>
+        <button aria-selected={side === "config"} onclick={() => toggleSide("config")} role="tab">Config</button>
       </div>
     </header>
 
@@ -167,68 +204,94 @@
     {#if selection}
       <button class="send-fab" onclick={sendToAgent}>
         ◆ Send to agent
-        <span class="preview">{selection.length > 40 ? selection.slice(0, 40) + "…" : selection}</span>
+        <!-- Truncation is pure CSS (.preview: max-inline-size + ellipsis). -->
+        <span class="preview">{selection}</span>
       </button>
     {/if}
   </div>
 {/if}
 
 <style>
-  .shell { display: flex; flex-direction: column; block-size: 100%; }
+  .shell {
+    display: flex;
+    flex-direction: column;
+    block-size: 100%;
+  }
 
   .topbar {
     display: flex;
-    align-items: center;
     gap: 12px;
+    align-items: center;
     padding-block: 8px;
     padding-inline: 16px;
-    background: var(--surface-1);
     border-block-end: 1px solid var(--outline);
+    background: var(--surface-1);
   }
-  .brand { font-weight: 700; color: var(--primary); letter-spacing: 0.02em; }
+
+  .brand {
+    color: var(--primary);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
   .project-name {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--on-surface-var);
     padding-inline: 10px;
     border-inline-start: 1px solid var(--outline);
+    color: var(--on-surface-var);
+    font-family: var(--font-mono);
+    font-size: 13px;
   }
-  .spacer { flex: 1; }
+
+  .spacer {
+    flex: 1;
+  }
 
   .tabs {
     display: flex;
-    align-items: center;
     gap: 4px;
+    align-items: center;
 
     .tab {
       display: flex;
       align-items: center;
-      background: var(--surface-2);
-      border-radius: 999px;
       overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-2);
 
-      &.active { background: var(--primary-container); }
-      &.active .pick { color: var(--on-primary-container); font-weight: 600; }
+      &.active {
+        background: var(--primary-container);
+      }
+
+      &.active .pick {
+        color: var(--on-primary-container);
+        font-weight: 600;
+      }
     }
+
     .pick {
+      padding-block: 6px;
+      padding-inline: 14px 6px;
+      border: none;
+      background: transparent;
+      color: var(--on-surface-var);
       font: inherit;
       font-size: 13px;
-      color: var(--on-surface-var);
-      background: transparent;
-      border: none;
-      padding: 6px 6px 6px 14px;
       cursor: pointer;
     }
+
     .x {
+      padding-block: 6px;
+      padding-inline: 6px 12px;
+      border: none;
+      background: transparent;
+      color: var(--on-surface-var);
       font-size: 15px;
       line-height: 1;
-      color: var(--on-surface-var);
-      background: transparent;
-      border: none;
-      padding: 6px 12px 6px 6px;
       cursor: pointer;
 
-      &:hover { color: var(--crit); }
+      &:hover {
+        color: var(--crit);
+      }
     }
   }
 
@@ -237,20 +300,26 @@
     position: relative;
 
     summary {
-      list-style: none;
       display: grid;
       place-items: center;
-      inline-size: 30px;
       block-size: 30px;
+      inline-size: 30px;
       border-radius: 999px;
       background: var(--surface-2);
       color: var(--on-surface-var);
+      list-style: none;
       font-size: 18px;
       cursor: pointer;
       user-select: none;
     }
-    summary::-webkit-details-marker { display: none; }
-    summary:hover { color: var(--primary); }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary:hover {
+      color: var(--primary);
+    }
 
     ul {
       position: absolute;
@@ -260,106 +329,143 @@
       min-inline-size: 180px;
       margin: 0;
       padding: 6px;
-      list-style: none;
-      background: var(--surface-2);
       border: 1px solid var(--outline);
       border-radius: var(--r-md);
-      box-shadow: 0 8px 24px color-mix(in srgb, var(--on-surface) 20%, transparent);
+      background: var(--surface-2);
+      list-style: none;
+      box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
     }
+
     li button {
       inline-size: 100%;
-      text-align: start;
-      font: inherit;
-      font-size: 13px;
-      color: var(--on-surface);
-      background: transparent;
-      border: none;
       padding: 8px 10px;
+      border: none;
       border-radius: var(--r-sm);
-      cursor: pointer;
-
-      &:hover { background: var(--primary-container); color: var(--on-primary-container); }
-    }
-  }
-
-  .seg {
-    display: inline-flex;
-    background: var(--surface-2);
-    border-radius: 999px;
-    padding: 3px;
-
-    button {
+      background: transparent;
+      color: var(--on-surface);
       font: inherit;
       font-size: 13px;
-      font-weight: 600;
-      color: var(--on-surface-var);
-      background: transparent;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 999px;
+      text-align: start;
       cursor: pointer;
-      transition: background 0.2s var(--ease), color 0.2s var(--ease);
 
-      &[aria-selected="true"] {
+      &:hover {
         background: var(--primary-container);
         color: var(--on-primary-container);
       }
     }
   }
 
+  .seg {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--surface-2);
+
+    button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--on-surface-var);
+      font: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 200ms var(--ease), color 200ms var(--ease);
+    }
+
+    /* Selected tab — matched by state, not by qualifying the button type. */
+    [aria-selected="true"] {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+  }
+
   .body {
-    flex: 1;
     display: grid;
+    flex: 1;
     grid-template-columns: 1fr;
     min-block-size: 0;
 
-    &.with-side { grid-template-columns: 1fr minmax(320px, 420px); }
+    &.with-side {
+      grid-template-columns: 1fr minmax(320px, 420px);
+    }
   }
-  .pane { min-block-size: 0; min-inline-size: 0; overflow: hidden; }
-  .side-pane { border-inline-start: 1px solid var(--outline); background: var(--surface); }
+
+  .pane {
+    overflow: hidden;
+    min-block-size: 0;
+    min-inline-size: 0;
+  }
+
+  .side-pane {
+    border-inline-start: 1px solid var(--outline);
+    background: var(--surface);
+  }
 
   /* All sessions stay mounted so their scrollback survives switching; only the
      active one is shown. */
-  .term-pane { position: relative; }
-  .term-slot { position: absolute; inset: 0; }
-  .term-slot.hidden { visibility: hidden; pointer-events: none; }
+  .term-pane {
+    position: relative;
+  }
 
-  @media (max-width: 720px) {
-    .body.with-side { grid-template-columns: 1fr; grid-template-rows: 1fr 40%; }
+  .term-slot {
+    position: absolute;
+    inset: 0;
+  }
+
+  .term-slot.hidden {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  @media (width <= 720px) {
+    .body.with-side {
+      grid-template-rows: 1fr 40%;
+      grid-template-columns: 1fr;
+    }
   }
 
   .send-fab {
     position: fixed;
     inset-block-end: 20px;
     inset-inline-start: 50%;
-    translate: -50% 0;
     display: inline-flex;
-    align-items: center;
     gap: 10px;
+    align-items: center;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--on-primary);
     font: inherit;
     font-weight: 600;
-    color: var(--on-primary);
-    background: var(--primary);
-    border: none;
-    padding: 12px 20px;
-    border-radius: 999px;
-    box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 40%, transparent);
+    box-shadow: 0 6px 20px color-mix(in sRGB, var(--primary) 40%, transparent);
     cursor: pointer;
-    animation: pop 0.2s var(--ease);
+    translate: -50% 0;
+    animation: pop 200ms var(--ease);
 
     .preview {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 400;
-      opacity: 0.85;
-      max-inline-size: 40ch;
       overflow: hidden;
+      max-inline-size: 40ch;
+      font-family: var(--font-mono);
+      font-weight: 400;
+      font-size: 12px;
       text-overflow: ellipsis;
       white-space: nowrap;
+      opacity: 85%;
     }
   }
+
   @keyframes pop {
-    from { opacity: 0; translate: -50% 8px; }
-    to { opacity: 1; translate: -50% 0; }
+    from {
+      opacity: 0%;
+      translate: -50% 8px;
+    }
+
+    to {
+      opacity: 100%;
+      translate: -50% 0;
+    }
   }
 </style>

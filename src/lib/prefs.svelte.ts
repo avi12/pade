@@ -5,8 +5,8 @@
 import { workspace } from "./bridge";
 import type { DiffStyle, Prefs, ThemeMode } from "./types";
 
-const UI_FALLBACK = '"Google Sans", "Segoe UI", system-ui, sans-serif';
-const MONO_FALLBACK = '"JetBrains Mono", "Cascadia Code", ui-monospace, monospace';
+const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
+const MONO_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";
 
 export const prefs = $state<Prefs>({});
 
@@ -23,7 +23,7 @@ export const effective = {
   },
   get uiFamily(): string {
     return prefs.uiFont ? `"${prefs.uiFont}", ${UI_FALLBACK}` : UI_FALLBACK;
-  },
+  }
 };
 
 const osDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -31,7 +31,10 @@ const osDark = window.matchMedia("(prefers-color-scheme: dark)");
 /** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
 function resolvedScheme(): "light" | "dark" {
   const mode = effective.themeMode;
-  if (mode === "system") return osDark.matches ? "dark" : "light";
+  if (mode === "system") {
+    return osDark.matches ? "dark" : "light";
+  }
+
   return mode;
 }
 
@@ -44,7 +47,9 @@ function apply() {
 
 // Re-apply when the OS theme flips while we're following it.
 osDark.addEventListener("change", () => {
-  if (effective.themeMode === "system") apply();
+  if (effective.themeMode === "system") {
+    apply();
+  }
 });
 
 export async function loadPrefs(): Promise<void> {

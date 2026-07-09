@@ -6,24 +6,22 @@
   --seed-h: 210;
 
   /* light scheme */
-  --primary: hsl(210 90% 45%);
-  --on-primary: #fff;
-  --primary-container: hsl(210 90% 92%);
-  --on-primary-container: hsl(210 90% 18%);
-  --tertiary: hsl(160 55% 38%);
-  --warn: hsl(28 90% 46%);
-  --crit: hsl(352 72% 50%);
-
-  --surface: hsl(210 30% 98%);
-  --surface-1: hsl(210 28% 96%);
-  --surface-2: hsl(210 26% 93%);
-  --surface-3: hsl(210 24% 89%);
-  --on-surface: hsl(214 30% 14%);
-  --on-surface-var: hsl(214 14% 40%);
-  --outline: hsl(214 15% 82%);
-
-  --code-bg: hsl(214 32% 12%);
-  --code-fg: hsl(210 20% 88%);
+  --primary: hsl(210deg 90% 45%);
+  --on-primary: #ffffff;
+  --primary-container: hsl(210deg 90% 92%);
+  --on-primary-container: hsl(210deg 90% 18%);
+  --tertiary: hsl(160deg 55% 38%);
+  --warn: hsl(28deg 90% 46%);
+  --crit: hsl(352deg 72% 50%);
+  --surface: hsl(210deg 30% 98%);
+  --surface-1: hsl(210deg 28% 96%);
+  --surface-2: hsl(210deg 26% 93%);
+  --surface-3: hsl(210deg 24% 89%);
+  --on-surface: hsl(214deg 30% 14%);
+  --on-surface-var: hsl(214deg 14% 40%);
+  --outline: hsl(214deg 15% 82%);
+  --code-bg: hsl(214deg 32% 12%);
+  --code-fg: hsl(210deg 20% 88%);
 
   /* M3 shape scale */
   --r-sm: 8px;
@@ -33,7 +31,6 @@
 
   /* M3 emphasized easing */
   --ease: cubic-bezier(0.2, 0, 0, 1);
-
   --font-ui: "Google Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 }
@@ -42,39 +39,41 @@
    via matchMedia and sets data-theme accordingly, so this single block covers
    both OS-follow and an explicit dark choice (DRY — no duplicated media block). */
 :root[data-theme="dark"] {
-  --primary: hsl(210 90% 68%);
-  --on-primary: hsl(210 90% 12%);
-  --primary-container: hsl(210 55% 22%);
-  --on-primary-container: hsl(210 90% 88%);
-  --tertiary: hsl(160 55% 62%);
-  --warn: hsl(28 90% 62%);
-  --crit: hsl(352 80% 70%);
-
-  --surface: hsl(214 30% 8%);
-  --surface-1: hsl(214 28% 11%);
-  --surface-2: hsl(214 26% 14%);
-  --surface-3: hsl(214 24% 19%);
-  --on-surface: hsl(210 24% 92%);
-  --on-surface-var: hsl(214 14% 66%);
-  --outline: hsl(214 15% 28%);
-
-  --code-bg: hsl(214 40% 6%);
-  --code-fg: hsl(210 20% 85%);
+  --primary: hsl(210deg 90% 68%);
+  --on-primary: hsl(210deg 90% 12%);
+  --primary-container: hsl(210deg 55% 22%);
+  --on-primary-container: hsl(210deg 90% 88%);
+  --tertiary: hsl(160deg 55% 62%);
+  --warn: hsl(28deg 90% 62%);
+  --crit: hsl(352deg 80% 70%);
+  --surface: hsl(214deg 30% 8%);
+  --surface-1: hsl(214deg 28% 11%);
+  --surface-2: hsl(214deg 26% 14%);
+  --surface-3: hsl(214deg 24% 19%);
+  --on-surface: hsl(210deg 24% 92%);
+  --on-surface-var: hsl(214deg 14% 66%);
+  --outline: hsl(214deg 15% 28%);
+  --code-bg: hsl(214deg 40% 6%);
+  --code-fg: hsl(210deg 20% 85%);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body, #app {
+html,
+body,
+#app {
   height: 100%;
   margin: 0;
 }
 
 body {
+  overflow: hidden;
   background: var(--surface);
   color: var(--on-surface);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
 }
 
 :focus-visible {
@@ -83,5 +82,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

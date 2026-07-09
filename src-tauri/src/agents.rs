@@ -18,11 +18,31 @@ struct AgentDef {
 /// Known agent backends, in preferred display order. The plain shell is always
 /// offered last as a universal fallback.
 const REGISTRY: &[AgentDef] = &[
-    AgentDef { id: "claude", label: "Claude Code", command: "claude" },
-    AgentDef { id: "codex", label: "Codex", command: "codex" },
-    AgentDef { id: "antigravity", label: "Antigravity CLI", command: "antigravity" },
-    AgentDef { id: "cursor", label: "Cursor CLI", command: "cursor-agent" },
-    AgentDef { id: "aider", label: "aider", command: "aider" },
+    AgentDef {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude",
+    },
+    AgentDef {
+        id: "codex",
+        label: "Codex",
+        command: "codex",
+    },
+    AgentDef {
+        id: "antigravity",
+        label: "Antigravity CLI",
+        command: "antigravity",
+    },
+    AgentDef {
+        id: "cursor",
+        label: "Cursor CLI",
+        command: "cursor-agent",
+    },
+    AgentDef {
+        id: "aider",
+        label: "aider",
+        command: "aider",
+    },
 ];
 
 #[derive(Serialize)]
@@ -47,7 +67,11 @@ pub fn agents_detect() -> Vec<Agent> {
         })
         .collect();
 
-    let shell = if cfg!(windows) { "powershell.exe" } else { "bash" };
+    let shell = if cfg!(windows) {
+        "powershell.exe"
+    } else {
+        "bash"
+    };
     found.push(Agent {
         id: "shell".into(),
         label: "Terminal (shell)".into(),
