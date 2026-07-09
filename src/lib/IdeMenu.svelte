@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ide } from "./bridge";
+  import Icon from "./Icon.svelte";
   import type { Ide } from "./types";
   import { onMount } from "svelte";
 
@@ -14,7 +15,7 @@
 
 {#if ides.length}
   <details class="ide-menu">
-    <summary>Open in {ides[0].label}<span class="caret">▾</span></summary>
+    <summary><Icon name="external" /> Open in {ides[0].label}<span class="caret">▾</span></summary>
     <ul>
       {#each ides as i, idx (i.id)}
         <li>

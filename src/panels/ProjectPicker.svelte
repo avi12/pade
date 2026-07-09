@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ide, os, workspace } from "../lib/bridge";
+  import Icon from "../lib/Icon.svelte";
   import type {
     Agent,
     Ide,
@@ -130,15 +131,19 @@
 
 {#snippet openActions(path: string)}
   <span class="row-actions">
-    <button aria-label="Open in file explorer" onclick={() => void os.explorer(path)}>Files</button>
-    <button aria-label="Open in terminal" onclick={() => void os.terminal(path)}>Terminal</button>
+    <button aria-label="Open in file explorer" onclick={() => void os.explorer(path)}>
+      <Icon name="folder" /> Files
+    </button>
+    <button aria-label="Open in terminal" onclick={() => void os.terminal(path)}>
+      <Icon name="terminal" /> Terminal
+    </button>
     {#if ides.length > 0}
       <button
         aria-label="Open in {ides[0].label}" onclick={() => void ide.open({
           command: ides[0].command,
           path
         })}>
-        {ides[0].label}
+        <Icon name="code" /> {ides[0].label}
       </button>
     {/if}
   </span>
@@ -176,7 +181,7 @@
       <section class="recent">
         <div class="recent-head">
           <h2>Recent</h2>
-          <button class="clear" onclick={clearRecent}>Clear</button>
+          <button class="clear" onclick={clearRecent}><Icon name="trash" /> Clear</button>
         </div>
         <ul class="recent-list">
           {#each settings.recentProjects as path (path)}
@@ -223,7 +228,7 @@
           type="text"
           bind:value={newRoot}
         />
-        <button class="browse" onclick={browseRoot} type="button">Browse…</button>
+        <button class="browse" onclick={browseRoot} type="button"><Icon name="folder" /> Browse…</button>
         <button disabled={!newRoot.trim()} type="submit">Add root</button>
       </form>
 
@@ -231,7 +236,12 @@
         <div class="root">
           <div class="root-head">
             <code class="rootpath">{root}</code>
-            <button class="remove" aria-label="Remove root" data-tooltip="Remove root" onclick={() => removeRoot(root)}>×</button>
+            <button
+              class="remove"
+              aria-label="Remove root"
+              data-tooltip="Remove root"
+              onclick={() => removeRoot(root)}
+            >×</button>
           </div>
           <ul class="projects">
             {#each projectsByRoot[root] ?? [] as p (p.path)}
@@ -359,12 +369,16 @@
   }
 
   .clear {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
     border: none;
     background: transparent;
     color: var(--on-surface-var);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
+    transition: color 150ms var(--ease);
 
     &:hover {
       color: var(--crit);
@@ -372,6 +386,9 @@
   }
 
   .browse {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
     border: 1px solid var(--outline);
     border-radius: var(--r-md);
     background: var(--surface-2);
@@ -409,6 +426,9 @@
     transition: opacity 150ms var(--ease);
 
     button {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
       padding: 3px 9px;
       border: 1px solid var(--outline);
       border-radius: 999px;

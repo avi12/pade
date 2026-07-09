@@ -1,5 +1,6 @@
 <script lang="ts">
   import { agents as agentsApi, pty, workspace } from "./lib/bridge";
+  import Icon from "./lib/Icon.svelte";
   import IdeMenu from "./lib/IdeMenu.svelte";
   import { effective } from "./lib/prefs.svelte";
   import type { Agent, AgentSession, Settings } from "./lib/types";
@@ -196,7 +197,12 @@
           {#each sessions as s (s.id)}
             <div class="tab" class:active={s.id === activeId}>
               <button class="pick" onclick={() => (activeId = s.id)}>{s.agent.label}</button>
-              <button class="x" aria-label="Close session" data-tooltip="Close session" onclick={() => close(s)}>×</button>
+              <button
+                class="x"
+                aria-label="Close session"
+                data-tooltip="Close session"
+                onclick={() => close(s)}
+              >×</button>
             </div>
           {/each}
 
@@ -215,9 +221,15 @@
         <IdeMenu />
 
         <div class="seg" aria-label="Side panel" role="tablist">
-          <button aria-selected={side === "feed"} onclick={() => toggleSide("feed")} role="tab">Change Feed</button>
-          <button aria-selected={side === "vcs"} onclick={() => toggleSide("vcs")} role="tab">Git</button>
-          <button aria-selected={side === "config"} onclick={() => toggleSide("config")} role="tab">Config</button>
+          <button aria-selected={side === "feed"} onclick={() => toggleSide("feed")} role="tab">
+            <Icon name="feed" /> Change Feed
+          </button>
+          <button aria-selected={side === "vcs"} onclick={() => toggleSide("vcs")} role="tab">
+            <Icon name="git" /> Git
+          </button>
+          <button aria-selected={side === "config"} onclick={() => toggleSide("config")} role="tab">
+            <Icon name="sliders" /> Config
+          </button>
         </div>
       </header>
 
@@ -453,6 +465,9 @@
     background: var(--surface-2);
 
     button {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
       padding: 6px 14px;
       border: none;
       border-radius: 999px;
