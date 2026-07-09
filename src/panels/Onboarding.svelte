@@ -75,6 +75,8 @@
     gap: 12px;
     text-align: start;
     font: inherit;
+    /* Buttons don't inherit the page text color — set it explicitly. */
+    color: var(--on-surface);
     padding: 16px 18px;
     background: var(--surface-2);
     border: 1px solid transparent;
@@ -82,12 +84,16 @@
     cursor: pointer;
     transition:
       background 0.2s var(--ease),
-      border-color 0.2s var(--ease);
+      border-color 0.2s var(--ease),
+      color 0.2s var(--ease);
 
     &:hover {
       background: var(--primary-container);
       border-color: var(--primary);
+      color: var(--on-primary-container);
     }
+    &:hover .cmd { color: var(--on-primary-container); }
+
     .name { font-weight: 600; font-size: 16px; }
     .cmd {
       margin-inline-start: auto;
