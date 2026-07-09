@@ -44,6 +44,17 @@
     } // launched with no project → pick one
   });
 
+  // Re-detect installed agents so the picker reflects an agent the user just
+  // installed or removed — on window focus (they alt-tab back from a terminal)
+  // and on a slow poll as a fallback.
+  async function redetectAgents() {
+    agents = await agentsApi.detect();
+  }
+  onMount(() => {
+    const interval = setInterval(() => void redetectAgents(), 5000);
+    return () => clearInterval(interval);
+  });
+
   async function openProject(target: {
     path: string;
     initialPrompt?: string;
@@ -133,6 +144,7 @@
 </script>
 
 <svelte:document onselectionchange={readSelection} />
+<svelte:window onfocus={() => void redetectAgents()} />
 
 {#if phase === "project"}
   <ProjectPicker {agents} onopen={openProject} />
