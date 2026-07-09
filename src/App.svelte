@@ -35,6 +35,8 @@
   );
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(/[\\/]workspaces[\\/]temp-\d+$/.test(currentProject));
+  // Active agent id — used to show only its relevant config files.
+  const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
 
   onMount(async () => {
     const [ctx, detected, saved] = await Promise.all([
@@ -232,7 +234,7 @@
               {/await}
             {:else if side === "config"}
               {#await import("./panels/ConfigPanel.svelte") then { default: ConfigPanel }}
-                <ConfigPanel />
+                <ConfigPanel agent={activeAgent} />
               {/await}
             {/if}
           </aside>

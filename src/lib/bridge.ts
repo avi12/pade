@@ -101,7 +101,7 @@ export const vcs = {
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */
 export const config = {
-  list: () => call("config_list", z.array(ConfigFile)),
+  list: (agent: string) => call("config_list", z.array(ConfigFile), { agent }),
   read: (rel: string) => call("config_read", z.string(), { rel })
 };
 

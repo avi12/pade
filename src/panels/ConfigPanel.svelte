@@ -3,6 +3,9 @@
   import type { ConfigFile } from "../lib/types";
   import { onMount } from "svelte";
 
+  // Only the config files relevant to the active agent are listed.
+  const { agent }: { agent: string } = $props();
+
   let files = $state<ConfigFile[]>([]);
   let selected = $state<ConfigFile | null>(null);
   let content = $state("");
@@ -17,7 +20,7 @@
   }
 
   onMount(async () => {
-    files = await config.list();
+    files = await config.list(agent);
     const first = files.find(file => file.exists);
     if (first) {
       await open(first);

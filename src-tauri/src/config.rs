@@ -6,14 +6,32 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-/// Config files/dirs the ADE knows how to surface, in display order.
-const KNOWN: &[(&str, &str)] = &[
-    ("CLAUDE.md", "instructions"),
-    ("AGENTS.md", "instructions"),
-    (".mcp.json", "mcp"),
-    (".claude/settings.json", "settings"),
-    (".claude/settings.local.json", "settings"),
+/// A config file the ADE can surface: (relative path, kind, agents it applies
+/// to). An empty agent list means it applies to every agent.
+struct ConfigDef {
+    rel: &'static str,
+    kind: &'static str,
+    agents: &'static [&'static str],
+}
+
+/// Config files/dirs the ADE knows how to surface, in display order. Only the
+/// files relevant to the active agent are shown — e.g. CLAUDE.md for Claude
+/// Code, AGENTS.md for agents that follow that convention.
+const KNOWN: &[ConfigDef] = &[
+    ConfigDef { rel: "CLAUDE.md", kind: "instructions", agents: &["claude"] },
+    ConfigDef {
+        rel: "AGENTS.md",
+        kind: "instructions",
+        agents: &["codex", "cursor", "antigravity", "aider"],
+    },
+    ConfigDef { rel: ".mcp.json", kind: "mcp", agents: &["claude"] },
+    ConfigDef { rel: ".claude/settings.json", kind: "settings", agents: &["claude"] },
+    ConfigDef { rel: ".claude/settings.local.json", kind: "settings", agents: &["claude"] },
 ];
+
+fn applies_to(def: &ConfigDef, agent: &str) -> bool {
+    def.agents.is_empty() || def.agents.contains(&agent)
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,19 +47,20 @@ fn root() -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn config_list() -> Result<Vec<ConfigFile>, String> {
+pub fn config_list(agent: String) -> Result<Vec<ConfigFile>, String> {
     let root = root()?;
     let files = KNOWN
         .iter()
-        .map(|(rel, kind)| ConfigFile {
-            name: Path::new(rel)
+        .filter(|def| applies_to(def, &agent))
+        .map(|def| ConfigFile {
+            name: Path::new(def.rel)
                 .file_name()
                 .and_then(|n| n.to_str())
-                .unwrap_or(rel)
+                .unwrap_or(def.rel)
                 .to_string(),
-            rel: (*rel).to_string(),
-            kind: (*kind).to_string(),
-            exists: root.join(rel).is_file(),
+            rel: def.rel.to_string(),
+            kind: def.kind.to_string(),
+            exists: root.join(def.rel).is_file(),
         })
         .collect();
     Ok(files)
@@ -51,7 +70,7 @@ pub fn config_list() -> Result<Vec<ConfigFile>, String> {
 /// arbitrary paths from the frontend.
 #[tauri::command]
 pub fn config_read(rel: String) -> Result<String, String> {
-    if !KNOWN.iter().any(|(k, _)| *k == rel) {
+    if !KNOWN.iter().any(|def| def.rel == rel) {
         return Err("not an allowed config file".into());
     }
     let path = root()?.join(&rel);
