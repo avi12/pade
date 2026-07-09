@@ -1,0 +1,5 @@
+# Formatting config — the Rust counterpart to the JS/CSS formatter rules.
+max_width = 100
+edition = "2021"
+newline_style = "Unix"
+use_field_init_shorthand = true

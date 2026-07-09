@@ -26,3 +26,24 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Strict lints — the Rust equivalent of the frontend's oxlint/eslint layers.
+# `cargo clippy -- -D warnings` (see the lint:rust script) turns these into
+# errors in CI/local, matching oxlint's correctness=error posture.
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Pragmatic allowances (mirrors ignoring a handful of noisy stylistic rules):
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+# Tauri #[command] fns must take owned args (String) and State by value — the
+# framework deserializes into them, so pass-by-value is required here.
+needless_pass_by_value = "allow"
+# Correctness we want as hard errors even without -D warnings:
+unwrap_used = "deny"
+expect_used = "allow"

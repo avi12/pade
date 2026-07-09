@@ -1,0 +1,75 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "builtin": true
+  },
+  "rules": {
+    "no-void": ["error", { "allowAsStatement": true }],
+    "prefer-const": "error",
+    "no-nested-ternary": "error",
+    "curly": ["error", "all"],
+    "object-shorthand": ["error", "always", { "avoidExplicitReturnArrows": true }],
+    "id-length": ["error", {
+      "min": 3,
+      "exceptions": ["z", "_", "i", "fs", "id", "os", "e", "db", "mi", "ui", "HL", "GL", "js", "q", "t", "to", "dd", "mm", "x", "y", "d", "T", "a", "fd", "n", "K", "V", "on", "gw", "hl", "gl", "FS", "fg", "km", "up", "ok", "R", "m", "h", "w", "s", "mo", "hM", "ml"],
+      "properties": "never"
+    }],
+    "func-style": ["error", "declaration", { "allowArrowFunctions": false }],
+    "arrow-body-style": ["error", "as-needed"],
+    "no-control-regex": "off",
+    "typescript/no-explicit-any": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/unbound-method": "off",
+    "typescript/await-thenable": "off",
+    "typescript/no-base-to-string": "off",
+    "typescript/restrict-template-expressions": "off",
+    "typescript/no-useless-default-assignment": "off",
+    "typescript/no-unused-vars": ["error", {
+      "varsIgnorePattern": "^_",
+      "argsIgnorePattern": "^_",
+      "caughtErrorsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
+    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+    "import/first": "error",
+    "import/default": "off",
+    "no-restricted-globals": ["error", { "name": "process", "message": "extension/Vite code does not run under Node - read config via import.meta.env, not process" }]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.svelte"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "prefer-const": "off",
+        "no-self-assign": "off",
+        "no-unassigned-vars": "off"
+      }
+    },
+    {
+      "files": ["./scripts/*.ts", "**/*.config.ts", "**/*.config.js", "**/*.config.mjs"],
+      "env": {
+        "node": true
+      },
+      "rules": {
+        "no-restricted-globals": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "src-tauri/**",
+    "eslint-rules/**"
+  ]
+}
