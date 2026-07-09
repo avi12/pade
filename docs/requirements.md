@@ -24,18 +24,17 @@ writes.
 - R1.2.3 Ignore VCS/build noise (`.git`, `node_modules`, `target`, `dist`, …).
 - R1.2.4 🔭 Real per-hunk diffs and agent-authored intent replace the heuristic.
 
-### 1.3 Highlight → Agent bridge (⏳)
-- R1.3.1 Selecting text in any panel offers "Send to agent".
+### 1.3 Highlight → Agent bridge (✅)
+- R1.3.1 Selecting text in a side panel offers "Send to agent".
 - R1.3.2 The selection is injected into the terminal's input.
 
-### 1.4 Version-control review panel (⏳)
-- R1.4.1 Behind a `Vcs` abstraction; Git first (`git2`), others later (🔭).
-- R1.4.2 Show working-tree status grouped into changelists; agent changes in
-  their own "unreviewed" list, separate from the user's.
-- R1.4.3 Show recent commits (log) with author, message, stats.
-- R1.4.4 Per-file diff view.
-- R1.4.5 Review verbs on agent commits: approve / send-back / explain.
-- R1.4.6 User can still commit manually (agent-oriented by default, not exclusive).
+### 1.4 Version-control review panel (✅ core, 🚧 verbs)
+- R1.4.1 Behind a git seam (MVP: `git` CLI; `git2`/`gix`/jj later 🔭).
+- R1.4.2 ✅ Working-tree status grouped: unstaged = "unreviewed", staged separate.
+- R1.4.3 ✅ Recent commits (log) with author, message, relative time.
+- R1.4.4 ✅ Per-file colorized diff view.
+- R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
+- R1.4.6 ⏳ Manual commit path (agent-oriented by default, not exclusive).
 
 ### 1.5 Agent tree (⏳)
 - R1.5.1 Show the live spawn hierarchy: root session + subagents/background tasks.
@@ -46,9 +45,9 @@ writes.
 - R1.6.1 Adapt to the active agent; parse its own usage output.
 - R1.6.2 Show % used, reset time; 🔭 burn-rate warning.
 
-### 1.7 Config respect (⏳)
-- R1.7.1 Read/surface `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.mcp.json` as-is.
-- R1.7.2 Edits round-trip through the same files (no shadow store).
+### 1.7 Config respect (✅ read, 🚧 edit)
+- R1.7.1 ✅ Read/surface `CLAUDE.md`, `AGENTS.md`, `.claude/settings*`, `.mcp.json`.
+- R1.7.2 ⏳ Edits round-trip through the same files (no shadow store).
 
 ### 1.8 Knowledge bank (🔭 for MVP, architected-for)
 - Shared, git-backed, two-way (agent writes research; user has full CRUD).
