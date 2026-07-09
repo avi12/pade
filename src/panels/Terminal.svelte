@@ -22,6 +22,7 @@
   // alive = ready (done with its task, waiting for you); exit = done.
   let status = $state<SessionStatus>("starting");
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let fitTimer: ReturnType<typeof setTimeout> | undefined;
   const IDLE_MS = 700;
 
   function markActivity() {
@@ -106,7 +107,13 @@
     // Keep the PTY's window size in sync with the visible grid.
     term.onResize(({ cols, rows }) => void pty.resize(session.id, cols, rows));
 
-    resizeObs = new ResizeObserver(() => fit.fit());
+    // Debounce fit(): reflowing xterm is expensive, and a burst of resize
+    // events (e.g. dragging across monitors with different DPI) would otherwise
+    // reflow on every frame and stutter. Coalesce to the trailing edge.
+    resizeObs = new ResizeObserver(() => {
+      clearTimeout(fitTimer);
+      fitTimer = setTimeout(() => fit.fit(), 80);
+    });
     resizeObs.observe(host);
 
     // Spawn the chosen agent in a real PTY.
@@ -123,6 +130,7 @@
     unlisten?.();
     exitUnlisten?.();
     clearTimeout(idleTimer);
+    clearTimeout(fitTimer);
     resizeObs?.disconnect();
     term?.dispose();
   });
