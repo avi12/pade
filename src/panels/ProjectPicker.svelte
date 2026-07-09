@@ -506,6 +506,7 @@
     display: flex;
     gap: 4px;
     margin-inline-start: auto;
+
     /* Dimmed but always visible so actions like Delete are discoverable;
        full strength on row hover. */
     opacity: 62%;
