@@ -192,7 +192,11 @@
   .term-pad {
     flex: 1;
     min-block-size: 0;
-    padding: 8px 10px;
+
+    /* No inline padding: the terminal spans the full pane width. Any sub-cell
+       remainder on the right is filled by the shared code-bg, so it reads flush. */
+    padding-block: 8px 0;
+    padding-inline: 8px 0;
     background: var(--code-bg);
   }
 
