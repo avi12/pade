@@ -89,3 +89,34 @@ body {
     animation: none !important;
   }
 }
+
+/* Pure-CSS tooltips — annotate any element with data-tooltip="…" (rule 9).
+   Icon-only controls keep an aria-label for the accessible name. */
+[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    inset-block-start: calc(100% + 6px);
+    inset-inline-start: 50%;
+    z-index: 50;
+    max-inline-size: 60ch;
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    background: var(--surface-3);
+    color: var(--on-surface);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0%;
+    translate: -50% 0;
+    transition: opacity 120ms var(--ease);
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 100%;
+  }
+}

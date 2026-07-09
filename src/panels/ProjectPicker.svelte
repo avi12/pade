@@ -231,7 +231,7 @@
         <div class="root">
           <div class="root-head">
             <code class="rootpath">{root}</code>
-            <button class="remove" onclick={() => removeRoot(root)} title="Remove root">×</button>
+            <button class="remove" aria-label="Remove root" data-tooltip="Remove root" onclick={() => removeRoot(root)}>×</button>
           </div>
           <ul class="projects">
             {#each projectsByRoot[root] ?? [] as p (p.path)}

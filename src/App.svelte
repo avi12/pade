@@ -183,7 +183,7 @@
       <header class="topbar">
         <span class="brand">◆ ADE</span>
         {#if currentProject}
-          <button class="project-name" onclick={switchProject} title={currentProject}>
+          <button class="project-name" data-tooltip={currentProject} onclick={switchProject}>
             {#if isTemp}
               <span class="temp-badge">temp</span>
             {/if}
@@ -196,12 +196,12 @@
           {#each sessions as s (s.id)}
             <div class="tab" class:active={s.id === activeId}>
               <button class="pick" onclick={() => (activeId = s.id)}>{s.agent.label}</button>
-              <button class="x" onclick={() => close(s)} title="Close session">×</button>
+              <button class="x" aria-label="Close session" data-tooltip="Close session" onclick={() => close(s)}>×</button>
             </div>
           {/each}
 
           <details class="add">
-            <summary title="Add an agent">+</summary>
+            <summary aria-label="Add an agent" data-tooltip="Add an agent">+</summary>
             <ul>
               {#each agents as a (a.id)}
                 <li><button onclick={() => launch(a)}>{a.label}</button></li>

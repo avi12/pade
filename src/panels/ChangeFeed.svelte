@@ -59,7 +59,7 @@
       <li class="card {ev.kind}">
         <div class="row">
           <span class="dot {ev.kind}" aria-hidden="true"></span>
-          <span class="name" title={ev.path}>{fileName(ev.path)}</span>
+          <span class="name" data-tooltip={ev.path}>{fileName(ev.path)}</span>
           <span class="time">{ago(ev.ts)}</span>
         </div>
         <p class="summary">{ev.summary}</p>

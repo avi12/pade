@@ -78,7 +78,7 @@
 <div class="vcs">
   <header class="head">
     <h2>Version control</h2>
-    <button class="refresh" onclick={refresh} title="Refresh">⟳</button>
+    <button class="refresh" aria-label="Refresh" data-tooltip="Refresh" onclick={refresh}>⟳</button>
   </header>
 
   {#if error}
