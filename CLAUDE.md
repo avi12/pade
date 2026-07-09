@@ -55,6 +55,8 @@ These are non-negotiable for all work in this repo.
      step or shared state depends on it — `await` it so ordering is guaranteed.
      `void` is only for genuinely independent side effects (e.g. opening an
      external app) with no follow-up and no shared-state race.
+   - `String.replaceAll`: use `replaceAll` (not `replace` with a `/g` regex) for
+     global replacement — it states the intent and reads clearer.
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,

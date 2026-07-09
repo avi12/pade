@@ -115,6 +115,10 @@
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
     return settings.ownedWorkspaces.includes(path) || isTempPath(path);
   }
+  // Stable, valid popover id/anchor per row (paths are unique).
+  function menuId(path: string): string {
+    return `m${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  }
 
   // Owned-workspace lifecycle: delete, move (→ permanent, still deletable),
   // rename (→ promoted into the primary project root).
@@ -185,24 +189,61 @@
   onMount(refresh);
 </script>
 
-{#snippet openActions(path: string)}
-  <span class="row-actions">
-    <button aria-label="Open in file explorer" onclick={() => void os.explorer(path)}>
-      <Icon name="folder" /> Files
-    </button>
-    <button aria-label="Open in terminal" onclick={() => void os.terminal(path)}>
-      <Icon name="terminal" /> Terminal
-    </button>
-    {#if ides.length > 0}
-      <button
-        aria-label="Open in {ides[0].label}" onclick={() => void ide.open({
-          command: ides[0].command,
-          path
-        })}>
-        <Icon name="code" /> {ides[0].label}
+{#snippet rowMenu(path: string)}
+  <button
+    style:anchor-name="--{menuId(path)}"
+    class="kebab"
+    aria-label="Project actions"
+    popovertarget={menuId(path)}
+  >⋯</button>
+  <ul id={menuId(path)} style:position-anchor="--{menuId(path)}" class="menu" popover>
+    <li>
+      <button onclick={() => void os.explorer(path)} popovertarget={menuId(path)} popovertargetaction="hide">
+        <Icon name="folder" /> Open in Files
       </button>
+    </li>
+    <li>
+      <button onclick={() => void os.terminal(path)} popovertarget={menuId(path)} popovertargetaction="hide">
+        <Icon name="terminal" /> Open in Terminal
+      </button>
+    </li>
+    {#if ides.length > 0}
+      <li>
+        <button
+          onclick={() => void ide.open({
+            command: ides[0].command,
+            path
+          })}
+          popovertarget={menuId(path)}
+          popovertargetaction="hide"
+        >
+          <Icon name="code" /> Open in {ides[0].label}
+        </button>
+      </li>
     {/if}
-  </span>
+    {#if isOwned(path)}
+      <li class="sep">
+        <button onclick={() => startRename(path)} popovertarget={menuId(path)} popovertargetaction="hide">
+          <Icon name="code" /> Rename to a project
+        </button>
+      </li>
+      <li>
+        <button onclick={async () => await moveWorkspace(path)} popovertarget={menuId(path)} popovertargetaction="hide">
+          <Icon name="folder" /> Move…
+        </button>
+      </li>
+      <li>
+        <button
+          class="danger"
+          onclick={async () => await deleteWorkspace(path)}
+          popovertarget={menuId(path)}
+          popovertargetaction="hide"
+        >
+          <Icon name="trash" /> Delete workspace
+        </button>
+      </li>
+    {/if}
+  </ul>
 {/snippet}
 
 <div class="picker">
@@ -259,25 +300,7 @@
                   <span class="rname">{basename(path)}</span>
                   <span class="rpath">{path}</span>
                 </button>
-                <span class="row-actions">
-                  {#if isOwned(path)}
-                    <button aria-label="Rename and save to primary root" onclick={() => startRename(path)}>
-                      <Icon name="code" /> Rename
-                    </button>
-                    <button aria-label="Move workspace" onclick={async () => await moveWorkspace(path)}>
-                      <Icon name="folder" /> Move
-                    </button>
-                    <button aria-label="Delete workspace" onclick={async () => await deleteWorkspace(path)}>
-                      <Icon name="trash" /> Delete
-                    </button>
-                  {/if}
-                  <button aria-label="Open in file explorer" onclick={() => void os.explorer(path)}>
-                    <Icon name="folder" /> Files
-                  </button>
-                  <button aria-label="Open in terminal" onclick={() => void os.terminal(path)}>
-                    <Icon name="terminal" /> Terminal
-                  </button>
-                </span>
+                {@render rowMenu(path)}
               {/if}
             </li>
           {/each}
@@ -337,7 +360,7 @@
                     <span class="git">git</span>
                   {/if}
                 </button>
-                {@render openActions(p.path)}
+                {@render rowMenu(p.path)}
               </li>
             {:else}
               <li class="none">No projects found in this folder.</li>
@@ -503,37 +526,70 @@
     min-inline-size: 0;
   }
 
-  .row-actions {
-    display: flex;
-    gap: 4px;
+  .kebab {
+    flex: none;
     margin-inline-start: auto;
+    padding: 2px 8px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--on-surface-var);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
 
-    /* Dimmed but always visible so actions like Delete are discoverable;
-       full strength on row hover. */
-    opacity: 62%;
-    transition: opacity 150ms var(--ease);
-
-    button {
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-      padding: 3px 9px;
-      border: 1px solid var(--outline);
-      border-radius: 999px;
+    &:hover {
       background: var(--surface-2);
-      color: var(--on-surface-var);
-      font: inherit;
-      font-size: 11px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      color: var(--primary);
+      color: var(--on-surface);
     }
   }
 
-  .row:hover .row-actions {
-    opacity: 100%;
+  /* Native popover row menu — light-dismisses on outside click. */
+  .menu {
+    position: absolute;
+    inset: auto;
+    min-inline-size: 190px;
+    margin-block: 4px 0;
+    margin-inline: 0;
+    padding: 6px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    list-style: none;
+    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
+    position-area: bottom span-left;
+
+    li button {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      inline-size: 100%;
+      padding: 8px 10px;
+      border: none;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--on-surface);
+      font: inherit;
+      font-size: 13px;
+      text-align: start;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
+    }
+
+    .sep {
+      margin-block-start: 4px;
+      padding-block-start: 4px;
+      border-block-start: 1px solid var(--outline);
+    }
+
+    .danger:hover {
+      background: color-mix(in sRGB, var(--crit) 22%, transparent);
+      color: var(--on-surface);
+    }
   }
 
   .rename {
