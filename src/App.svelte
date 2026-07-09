@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Terminal from "./lib/Terminal.svelte";
-  import ChangeFeed from "./lib/ChangeFeed.svelte";
+  import Terminal from "./panels/Terminal.svelte";
+  import ChangeFeed from "./panels/ChangeFeed.svelte";
 
   // MVP layout: one calm surface — terminal on the left, Change Feed on the
   // right. Everything else in the vision is a summon-able panel added later.

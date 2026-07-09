@@ -26,6 +26,15 @@ These are non-negotiable for all work in this repo.
    commit compiles. Conventional-commit style (`feat:`, `fix:`, `refactor:`,
    `docs:`, `chore:`).
 
+6. **Modern & performant** — use current language features and best practices:
+   - TypeScript: `strict` mode, `import type`, discriminated unions, `satisfies`,
+     no `any`. Prefer immutable data and pure functions.
+   - CSS: logical properties, `gap`, container/`clamp()` sizing, nesting,
+     `color-mix()`, custom properties. No hard-coded magic numbers where a token
+     exists. No heavyweight frameworks — hand-authored M3 tokens only.
+   - Performance first (virtualize long lists, debounce, GPU rendering, lazy
+     panels) — but never at the cost of readability. Clear beats clever.
+
 ## Project shape
 
 See `docs/requirements.md` for the full MVP spec and `README.md` for how to run.

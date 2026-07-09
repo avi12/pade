@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { feed } from "./bridge";
-  import type { ChangeEvent } from "./types";
+  import { feed } from "../lib/bridge";
+  import type { ChangeEvent } from "../lib/types";
 
   // Newest first. Capped so a busy agent session can't grow this unbounded.
   let events = $state<ChangeEvent[]>([]);

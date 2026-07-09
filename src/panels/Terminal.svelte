@@ -4,7 +4,7 @@
   import { FitAddon } from "@xterm/addon-fit";
   import { WebglAddon } from "@xterm/addon-webgl";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { pty } from "./bridge";
+  import { pty } from "../lib/bridge";
 
   let host: HTMLDivElement;
   let term: Terminal;
