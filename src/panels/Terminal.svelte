@@ -6,6 +6,7 @@
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { pty } from "../lib/bridge";
   import SessionBadge from "../lib/SessionBadge.svelte";
+  import { effective } from "../lib/prefs.svelte";
   import type { AgentSession, SessionStatus } from "../lib/types";
 
   let { session }: { session: AgentSession } = $props();
@@ -32,9 +33,18 @@
     }, IDLE_MS);
   }
 
+  // Live-update the terminal font when the preference changes.
+  $effect(() => {
+    const family = effective.monoFamily;
+    if (term) {
+      term.options.fontFamily = family;
+      fit?.fit();
+    }
+  });
+
   onMount(async () => {
     term = new Terminal({
-      fontFamily: '"JetBrains Mono", "Cascadia Code", ui-monospace, monospace',
+      fontFamily: effective.monoFamily,
       fontSize: 13,
       cursorBlink: true,
       allowProposedApi: true,

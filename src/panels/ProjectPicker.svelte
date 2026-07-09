@@ -14,7 +14,7 @@
     onopen: (p: { path: string; initialPrompt?: string }) => void;
   } = $props();
 
-  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {} });
+  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {}, prefs: {} });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   let newRoot = $state("");
   let createIn = $state("");

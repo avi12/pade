@@ -21,6 +21,21 @@ const MARKERS: &[&str] = &[
     "pom.xml", "build.gradle", "CLAUDE.md", "AGENTS.md",
 ];
 
+/// Appearance & editor preferences. All optional so the frontend can fall back
+/// to its own defaults; `None` means "unset, use the default".
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Prefs {
+    /// UI font family; falls back to the M3 stack.
+    pub ui_font: Option<String>,
+    /// Terminal/code font family; falls back to JetBrains Mono.
+    pub mono_font: Option<String>,
+    /// "system" (follow OS) | "light" | "dark".
+    pub theme_mode: Option<String>,
+    /// Diff layout: "unified" | "split".
+    pub diff_style: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -30,6 +45,9 @@ pub struct Settings {
     pub default_agent: Option<String>,
     /// Per-project agent overrides, keyed by absolute project path.
     pub project_agents: BTreeMap<String, String>,
+    /// Appearance & editor preferences.
+    #[serde(default)]
+    pub prefs: Prefs,
 }
 
 #[derive(Serialize)]
@@ -164,4 +182,41 @@ pub fn set_project_agent(path: String, agent: String) -> Result<Settings, String
     let mut s = load();
     s.project_agents.insert(path, agent);
     save(&s)
+}
+
+/// Replace appearance/editor preferences (frontend sends the full set).
+#[tauri::command]
+pub fn set_prefs(prefs: Prefs) -> Result<Settings, String> {
+    let mut s = load();
+    s.prefs = prefs;
+    save(&s)
+}
+
+/// Derive a directory name from a repo URL: the last path segment sans `.git`.
+fn repo_dir_name(url: &str) -> String {
+    url.trim_end_matches('/')
+        .rsplit(['/', ':'])
+        .next()
+        .unwrap_or("repo")
+        .trim_end_matches(".git")
+        .to_string()
+}
+
+/// Clone a version-control repo into `root` and open it. Git for the MVP; the
+/// same seam extends to other VCSes later.
+#[tauri::command]
+pub fn workspace_clone(root: String, url: String) -> Result<String, String> {
+    let name = repo_dir_name(&url);
+    let dest = Path::new(&root).join(&name);
+    let out = std::process::Command::new("git")
+        .args(["clone", &url, &dest.to_string_lossy()])
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    let path = dest.to_string_lossy().into_owned();
+    workspace_open(path.clone())?;
+    Ok(path)
 }

@@ -38,8 +38,10 @@ pub fn run() {
             workspace::workspace_scan,
             workspace::workspace_open,
             workspace::workspace_create,
+            workspace::workspace_clone,
             workspace::set_default_agent,
             workspace::set_project_agent,
+            workspace::set_prefs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE");

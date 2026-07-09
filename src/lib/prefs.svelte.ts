@@ -1,0 +1,63 @@
+// Reactive appearance/editor preferences, shared app-wide. Loaded once from the
+// persisted settings, applied to the document root as CSS custom properties and
+// a theme-mode data attribute, and saved back through the bridge.
+
+import { workspace } from "./bridge";
+import type { DiffStyle, Prefs, ThemeMode } from "./types";
+
+const UI_FALLBACK = '"Google Sans", "Segoe UI", system-ui, sans-serif';
+const MONO_FALLBACK = '"JetBrains Mono", "Cascadia Code", ui-monospace, monospace';
+
+export const prefs = $state<Prefs>({});
+
+/** Effective values with defaults resolved (for consumers that need a concrete value). */
+export const effective = {
+  get themeMode(): ThemeMode {
+    return prefs.themeMode ?? "system";
+  },
+  get diffStyle(): DiffStyle {
+    return prefs.diffStyle ?? "unified";
+  },
+  get monoFamily(): string {
+    return prefs.monoFont ? `"${prefs.monoFont}", ${MONO_FALLBACK}` : MONO_FALLBACK;
+  },
+  get uiFamily(): string {
+    return prefs.uiFont ? `"${prefs.uiFont}", ${UI_FALLBACK}` : UI_FALLBACK;
+  },
+};
+
+const osDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+/** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
+function resolvedScheme(): "light" | "dark" {
+  const mode = effective.themeMode;
+  if (mode === "system") return osDark.matches ? "dark" : "light";
+  return mode;
+}
+
+function apply() {
+  const root = document.documentElement;
+  root.dataset.theme = resolvedScheme();
+  root.style.setProperty("--font-ui", effective.uiFamily);
+  root.style.setProperty("--font-mono", effective.monoFamily);
+}
+
+// Re-apply when the OS theme flips while we're following it.
+osDark.addEventListener("change", () => {
+  if (effective.themeMode === "system") apply();
+});
+
+export async function loadPrefs(): Promise<void> {
+  const settings = await workspace.settings();
+  Object.assign(prefs, settings.prefs);
+  apply();
+}
+
+/** Merge a change, apply it immediately, then persist. */
+export async function updatePrefs(patch: Partial<Prefs>): Promise<void> {
+  Object.assign(prefs, patch);
+  apply();
+  const settings = await workspace.setPrefs(prefs);
+  Object.assign(prefs, settings.prefs);
+  apply();
+}

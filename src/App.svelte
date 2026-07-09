@@ -11,7 +11,7 @@
   type Phase = "loading" | "project" | "onboarding" | "ready";
   let phase = $state<Phase>("loading");
   let agents = $state<Agent[]>([]);
-  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {} });
+  let settings = $state<Settings>({ roots: [], defaultAgent: null, projectAgents: {}, prefs: {} });
   let sessions = $state<AgentSession[]>([]);
   let activeId = $state<string | null>(null);
   let currentProject = $state<string>("");

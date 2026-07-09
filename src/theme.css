@@ -38,27 +38,28 @@
   --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --primary: hsl(210 90% 68%);
-    --on-primary: hsl(210 90% 12%);
-    --primary-container: hsl(210 55% 22%);
-    --on-primary-container: hsl(210 90% 88%);
-    --tertiary: hsl(160 55% 62%);
-    --warn: hsl(28 90% 62%);
-    --crit: hsl(352 80% 70%);
+/* Dark tokens. The theme controller resolves "system" to a concrete light/dark
+   via matchMedia and sets data-theme accordingly, so this single block covers
+   both OS-follow and an explicit dark choice (DRY — no duplicated media block). */
+:root[data-theme="dark"] {
+  --primary: hsl(210 90% 68%);
+  --on-primary: hsl(210 90% 12%);
+  --primary-container: hsl(210 55% 22%);
+  --on-primary-container: hsl(210 90% 88%);
+  --tertiary: hsl(160 55% 62%);
+  --warn: hsl(28 90% 62%);
+  --crit: hsl(352 80% 70%);
 
-    --surface: hsl(214 30% 8%);
-    --surface-1: hsl(214 28% 11%);
-    --surface-2: hsl(214 26% 14%);
-    --surface-3: hsl(214 24% 19%);
-    --on-surface: hsl(210 24% 92%);
-    --on-surface-var: hsl(214 14% 66%);
-    --outline: hsl(214 15% 28%);
+  --surface: hsl(214 30% 8%);
+  --surface-1: hsl(214 28% 11%);
+  --surface-2: hsl(214 26% 14%);
+  --surface-3: hsl(214 24% 19%);
+  --on-surface: hsl(210 24% 92%);
+  --on-surface-var: hsl(214 14% 66%);
+  --outline: hsl(214 15% 28%);
 
-    --code-bg: hsl(214 40% 6%);
-    --code-fg: hsl(210 20% 85%);
-  }
+  --code-bg: hsl(214 40% 6%);
+  --code-fg: hsl(210 20% 85%);
 }
 
 * { box-sizing: border-box; }

@@ -19,6 +19,7 @@ import {
   Settings,
   StatusEntry,
 } from "./types";
+import type { Prefs } from "./types";
 
 /** Invoke a command and validate its result against `schema`. */
 async function call<T>(
@@ -91,7 +92,9 @@ export const workspace = {
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
   create: (root: string, name: string) => call("workspace_create", z.string(), { root, name }),
+  clone: (root: string, url: string) => call("workspace_clone", z.string(), { root, url }),
   setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
   setProjectAgent: (path: string, agent: string) =>
     call("set_project_agent", Settings, { path, agent }),
+  setPrefs: (prefs: Prefs) => call("set_prefs", Settings, { prefs }),
 };

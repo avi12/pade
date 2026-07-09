@@ -77,10 +77,26 @@ export const ProjectEntry = z.object({
 });
 export type ProjectEntry = z.infer<typeof ProjectEntry>;
 
+export const ThemeMode = z.enum(["system", "light", "dark"]);
+export type ThemeMode = z.infer<typeof ThemeMode>;
+
+export const DiffStyle = z.enum(["unified", "split"]);
+export type DiffStyle = z.infer<typeof DiffStyle>;
+
+/** Appearance & editor preferences. All optional — `null`/absent = use default. */
+export const Prefs = z.object({
+  uiFont: z.string().nullish(),
+  monoFont: z.string().nullish(),
+  themeMode: ThemeMode.nullish(),
+  diffStyle: DiffStyle.nullish(),
+});
+export type Prefs = z.infer<typeof Prefs>;
+
 export const Settings = z.object({
   roots: z.array(z.string()),
   defaultAgent: z.string().nullable(),
   projectAgents: z.record(z.string(), z.string()),
+  prefs: Prefs.default({}),
 });
 export type Settings = z.infer<typeof Settings>;
 
