@@ -285,10 +285,29 @@
   }
 
   // Side panels (lazy-loaded for tree-shaking).
-  type Side = "feed" | "vcs" | "config" | null;
+  type Side = "feed" | "vcs" | "tasks" | "config" | null;
   let side = $state<Side>("feed");
   function toggleSide(panel: Exclude<Side, null>) {
     side = side === panel ? null : panel;
+  }
+
+  // Run a project task in a fresh terminal session: spawn the platform shell and
+  // seed the command (plus a newline) so it auto-runs in the task's directory.
+  function runTask(task: {
+    label: string;
+    command: string;
+    cwd: string;
+  }) {
+    const shell = agents.find(a => a.id === "shell") ?? agents[0];
+    launch({
+      agent: {
+        id: `task:${task.label}`,
+        label: task.label,
+        command: shell.command
+      },
+      initialPrompt: `${task.command}\r`,
+      cwd: task.cwd
+    });
   }
 
   // Highlight → agent bridge: a selection in a side panel is injected into the
@@ -398,6 +417,9 @@
           <button aria-selected={side === "vcs"} onclick={() => toggleSide("vcs")} role="tab">
             <Icon name="git" /> Git
           </button>
+          <button aria-selected={side === "tasks"} onclick={() => toggleSide("tasks")} role="tab">
+            <Icon name="terminal" /> Tasks
+          </button>
           <button aria-selected={side === "config"} onclick={() => toggleSide("config")} role="tab">
             <Icon name="sliders" /> Config
           </button>
@@ -420,6 +442,10 @@
             {:else if side === "vcs"}
               {#await import("./panels/VcsPanel.svelte") then { default: VcsPanel }}
                 <VcsPanel />
+              {/await}
+            {:else if side === "tasks"}
+              {#await import("./panels/TasksPanel.svelte") then { default: TasksPanel }}
+                <TasksPanel onrun={runTask} />
               {/await}
             {:else if side === "config"}
               {#await import("./panels/ConfigPanel.svelte") then { default: ConfigPanel }}

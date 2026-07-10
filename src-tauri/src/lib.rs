@@ -7,6 +7,7 @@ mod ide;
 mod naming;
 mod os;
 mod pty;
+mod tasks;
 mod util;
 mod vcs;
 mod watcher;
@@ -46,6 +47,7 @@ pub fn run() {
             vcs::vcs_worktree_add,
             config::config_list,
             config::config_read,
+            tasks::tasks_list,
             naming::project_autoname,
             workspace::launch_context,
             workspace::settings_get,

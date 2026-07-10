@@ -15,7 +15,8 @@ import {
   PtyChunk,
   PtyExit,
   Settings,
-  StatusEntry
+  StatusEntry,
+  TaskGroup
 } from "./types";
 import type { Prefs } from "./types";
 import { invoke } from "@tauri-apps/api/core";
@@ -124,6 +125,11 @@ export const vcs = {
     create: boolean;
   }) =>
     call("vcs_worktree_add", z.string(), { ...args })
+};
+
+/** Task runner channel — runnable tasks parsed from project manifests. */
+export const tasks = {
+  list: () => call("tasks_list", z.array(TaskGroup))
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */
