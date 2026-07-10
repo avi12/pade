@@ -78,6 +78,15 @@ These are non-negotiable for all work in this repo.
      what-it-checks, extract it into a descriptively-named boolean first
      (`const isTempWorkspace = …; if (isTempWorkspace)`), so the happy path reads
      as prose. Inline only conditions that are already obvious.
+   - Full words, no abbreviations: name variables, functions, parameters, types,
+     and CSS classes with complete, spelled-out words — `index` not `idx`,
+     `button` not `btn`, `element` not `el`, `previous` not `prev`,
+     `configuration` not `cfg`, `column` not `col`. A descriptive full-word name
+     always beats a terse one; the only exceptions are a bare loop counter (`i`)
+     and domain terms conventionally written short. Applies in TS and Rust alike.
+   - Tabular numerals: every place a number is displayed (counts, percentages,
+     stats, timers, SHAs' surrounding metrics) sets `font-variant-numeric:
+     tabular-nums` so digits align and don't jitter as values change.
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,
