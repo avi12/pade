@@ -89,6 +89,138 @@
   const canRemovePane = $derived(paneIds.length > 1);
   const splitCandidates = $derived(sessions.filter(s => !paneIds.includes(s.id)));
 
+  // ── Session-tab overflow ────────────────────────────────────────────────────
+  // The tab strip is bounded to the width the nav gives it. Tabs that fit render
+  // as full pills; the next few collapse to status dots; the remainder live
+  // behind a "+N" popover. Pill widths come from an off-layout mirror row
+  // (re-measured on session change / reflow) so collapsing a tab never changes
+  // the numbers we packed against.
+  const TAB_GAP = 6; // px between tab items — mirrors the flex gap
+  const DOT_SLOT = 22 + TAB_GAP; // a collapsed status-dot button + its gap
+  const MORE_SLOT = 34 + TAB_GAP; // the "+N" overflow button + its gap
+  let stripEl = $state<HTMLElement>();
+  let measureEl = $state<HTMLElement>();
+  let stripWidth = $state(0);
+  let tabWidths = $state<Map<string, number>>(new Map());
+
+  // Read each mirror pill's natural width into a fresh map (index-aligned with
+  // `sessions`, since the mirror renders them in order).
+  function measureTabs() {
+    const mirror = measureEl;
+    if (!mirror) {
+      return;
+    }
+
+    const widths = new Map<string, number>();
+    sessions.forEach((session, index) => {
+      const el = mirror.children[index];
+      if (el instanceof HTMLElement) {
+        widths.set(session.id, el.offsetWidth);
+      }
+    });
+    tabWidths = widths;
+  }
+
+  // Re-measure after the mirror re-renders for a changed session set.
+  $effect(() => {
+    void sessions.length;
+    measureTabs();
+  });
+
+  // Track the strip's available width and re-measure on any reflow (font load,
+  // window resize); both the strip and the mirror are observed.
+  $effect(() => {
+    const el = stripEl;
+    if (!el) {
+      return;
+    }
+
+    const remeasure = () => {
+      stripWidth = el.clientWidth;
+      measureTabs();
+    };
+    const observer = new ResizeObserver(remeasure);
+    observer.observe(el);
+    if (measureEl) {
+      observer.observe(measureEl);
+    }
+
+    remeasure();
+    return () => observer.disconnect();
+  });
+
+  // Greedy three-tier packing: full pills → status dots → "+N" overflow.
+  type TabPack = {
+    visible: string[];
+    dots: string[];
+    more: string[];
+  };
+  const tabPack = $derived.by<TabPack>(() => {
+    const order = sessions;
+    const widthOf = (id: string) => tabWidths.get(id) ?? 0;
+    const total = order.reduce((sum, s, index) => sum + widthOf(s.id) + (index ? TAB_GAP : 0), 0);
+    // Everything fits (or we haven't measured yet) — all as full pills.
+    if (stripWidth === 0 || total <= stripWidth) {
+      return {
+        visible: order.map(s => s.id),
+        dots: [],
+        more: []
+      };
+    }
+
+    // We know we'll overflow, so reserve room for the "+N" button.
+    const budget = stripWidth - MORE_SLOT;
+    const visible: string[] = [];
+    let used = 0;
+    for (const session of order) {
+      const next = used + widthOf(session.id) + (visible.length ? TAB_GAP : 0);
+      if (next > budget) {
+        break;
+      }
+
+      visible.push(session.id);
+      used = next;
+    }
+
+    // Always keep at least one pill so the bar is never only a "+N".
+    if (visible.length === 0 && order.length > 0) {
+      visible.push(order[0].id);
+      used = widthOf(order[0].id);
+    }
+
+    const rest = order.slice(visible.length);
+    const dots: string[] = [];
+    let dotRoom = budget - used;
+    for (const session of rest) {
+      if (dotRoom < DOT_SLOT) {
+        break;
+      }
+
+      dots.push(session.id);
+      dotRoom -= DOT_SLOT;
+    }
+
+    return {
+      visible,
+      dots,
+      more: rest.slice(dots.length).map(s => s.id)
+    };
+  });
+
+  const bySessionId = $derived(new Map(sessions.map(s => [s.id, s] as const)));
+  function tabsFor(ids: string[]): AgentSession[] {
+    return ids
+      .map(id => bySessionId.get(id))
+      .filter((s): s is AgentSession => s !== undefined);
+  }
+  const visibleSessions = $derived(tabsFor(tabPack.visible));
+  const dotSessions = $derived(tabsFor(tabPack.dots));
+  const moreSessions = $derived(tabsFor(tabPack.more));
+  const hasMoreSessions = $derived(moreSessions.length > 0);
+  const overflowHasActive = $derived(
+    activeId !== null && (tabPack.dots.includes(activeId) || tabPack.more.includes(activeId))
+  );
+
   // How a spawned window routes off its query string (window_create encodes the
   // target here). A closed set defined once so no bare literal leaks into boot.
   const WindowMode = {
@@ -761,21 +893,77 @@
         />
         <span class="divider"></span>
 
+        {#snippet fullTab(s: AgentSession)}
+          <div class="tab" class:active={s.id === activeId} class:shown={paneIds.includes(s.id)}>
+            <button class="pick" onclick={() => selectSession(s.id)}>
+              <span class="dot {sessionStatus(s.id)}"></span>
+              {s.agent.label}
+            </button>
+            <button
+              class="x"
+              aria-label="Close session"
+              data-tooltip="Close session"
+              onclick={() => close(s)}
+            >×</button>
+          </div>
+        {/snippet}
+
         <nav class="tabs" aria-label="Agent sessions">
-          {#each sessions as s (s.id)}
-            <div class="tab" class:active={s.id === activeId} class:shown={paneIds.includes(s.id)}>
-              <button class="pick" onclick={() => selectSession(s.id)}>
-                <span class="dot {sessionStatus(s.id)}"></span>
-                {s.agent.label}
-              </button>
+          <div class="tab-strip" bind:this={stripEl}>
+            {#each visibleSessions as s (s.id)}
+              {@render fullTab(s)}
+            {/each}
+
+            {#each dotSessions as s (s.id)}
               <button
-                class="x"
-                aria-label="Close session"
-                data-tooltip="Close session"
-                onclick={() => close(s)}
-              >×</button>
-            </div>
-          {/each}
+                class="tab-dot"
+                class:active={s.id === activeId}
+                aria-label={s.agent.label}
+                data-tooltip={s.agent.label}
+                onclick={() => selectSession(s.id)}
+              ><span class="dot {sessionStatus(s.id)}"></span></button>
+            {/each}
+
+            {#if hasMoreSessions}
+              <span class="more-wrap">
+                <button
+                  style:anchor-name="--more-anchor"
+                  class="more-btn"
+                  class:active={overflowHasActive}
+                  aria-label="Show remaining sessions"
+                  popovertarget="more-menu"
+                >+{moreSessions.length}</button>
+                <ul id="more-menu" style:position-anchor="--more-anchor" class="menu more-menu" popover>
+                  {#each moreSessions as s (s.id)}
+                    <li class="more-item" class:active={s.id === activeId}>
+                      <button
+                        class="more-pick"
+                        onclick={() => selectSession(s.id)}
+                        popovertarget="more-menu"
+                        popovertargetaction="hide"
+                      >
+                        <span class="dot {sessionStatus(s.id)}"></span>
+                        <span class="more-label">{s.agent.label}</span>
+                      </button>
+                      <button
+                        class="more-x"
+                        aria-label="Close session"
+                        data-tooltip="Close session"
+                        onclick={() => close(s)}
+                      >×</button>
+                    </li>
+                  {/each}
+                </ul>
+              </span>
+            {/if}
+          </div>
+
+          <!-- Off-layout mirror: every tab at full width, purely for measuring. -->
+          <span class="tab-measure" bind:this={measureEl} aria-hidden="true">
+            {#each sessions as s (s.id)}
+              {@render fullTab(s)}
+            {/each}
+          </span>
 
           <button
             style:anchor-name="--add-anchor"
@@ -806,8 +994,6 @@
             {/if}
           </ul>
         </nav>
-
-        <div class="spacer"></div>
 
         <UsageMeter />
         <DesignMenu agent={activeAgent} />
@@ -963,15 +1149,87 @@
     background: var(--outline);
   }
 
-  .spacer {
-    flex: 1;
-  }
-
   .tabs {
+    position: relative;
     display: flex;
-    flex-shrink: 0;
+    flex: 1 1 0;
     gap: 6px;
     align-items: center;
+    min-inline-size: 0;
+
+    /* The visible, bounded strip — pills/dots/+N clip here rather than wrap. */
+    .tab-strip {
+      display: flex;
+      flex: 1;
+      gap: 6px;
+      align-items: center;
+      min-inline-size: 0;
+      overflow: hidden;
+    }
+
+    /* Off-layout copy of every full pill, measured to drive the packing. */
+    .tab-measure {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-start: 0;
+      display: flex;
+      gap: 6px;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* A session collapsed to just its status dot. */
+    .tab-dot {
+      display: inline-grid;
+      flex: none;
+      place-items: center;
+      block-size: 22px;
+      inline-size: 22px;
+      border: none;
+      border-radius: 999px;
+      background: var(--surface-2);
+      cursor: pointer;
+      transition: background 150ms var(--ease);
+
+      &.active {
+        background: var(--primary-container);
+      }
+
+      &:hover {
+        background: var(--surface-3);
+      }
+    }
+
+    .more-wrap {
+      flex: none;
+    }
+
+    /* The "+N" overflow trigger. */
+    .more-btn {
+      display: inline-flex;
+      flex: none;
+      align-items: center;
+      block-size: 22px;
+      padding-inline: 9px;
+      border: none;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--on-surface-var);
+      font-weight: 700;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      transition: color 150ms var(--ease), background 150ms var(--ease);
+
+      &.active {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
+
+      &:hover {
+        background: var(--surface-3);
+      }
+    }
 
     .tab {
       display: inline-flex;
@@ -1116,6 +1374,60 @@
       font-size: 10px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+    }
+  }
+
+  /* Overflow-session popover: a compact two-column grid of the collapsed tabs. */
+  .more-menu {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    inline-size: min(360px, 80vw);
+    min-inline-size: 0;
+
+    .more-item {
+      display: flex;
+      align-items: center;
+      border-radius: var(--r-sm);
+
+      &.active {
+        background: var(--primary-container);
+      }
+
+      &.active .more-pick {
+        color: var(--on-primary-container);
+      }
+    }
+
+    .more-pick {
+      display: flex;
+      flex: 1;
+      gap: 8px;
+      align-items: center;
+      inline-size: auto;
+      min-inline-size: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .more-label {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .more-x {
+      flex: none;
+      justify-content: center;
+      inline-size: 26px;
+      padding: 0;
+      color: var(--on-surface-var);
+      font-size: 15px;
+
+      &:hover {
+        background: var(--crit-wash);
+        color: var(--crit);
+      }
     }
   }
 
