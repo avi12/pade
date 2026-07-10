@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { config } from "../lib/bridge";
-  import type { ConfigFile } from "../lib/types";
+  import { config } from "@/lib/bridge";
+  import type { ConfigFile } from "@/lib/types";
   import { onMount } from "svelte";
 
   // Only the config files relevant to the active agent are listed.

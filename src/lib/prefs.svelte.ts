@@ -2,8 +2,8 @@
 // persisted settings, applied to the document root as CSS custom properties and
 // a theme-mode data attribute, and saved back through the bridge.
 
-import { workspace } from "./bridge";
-import type { DiffStyle, Prefs, ThemeMode } from "./types";
+import { workspace } from "@/lib/bridge";
+import type { DiffStyle, Prefs, ThemeMode } from "@/lib/types";
 
 const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
 const MONO_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";

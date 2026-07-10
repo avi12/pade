@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { contextMenu, ide, os, workspace } from "../lib/bridge";
-  import Icon from "../lib/Icon.svelte";
-  import { SHELL_AGENT_ID, StartMode } from "../lib/types";
-  import type { Agent, Ide, ProjectEntry, Settings } from "../lib/types";
+  import { contextMenu, ide, os, workspace } from "@/lib/bridge";
+  import Icon from "@/lib/Icon.svelte";
+  import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
+  import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
   import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 

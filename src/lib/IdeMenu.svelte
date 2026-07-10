@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { ide } from "./bridge";
-  import Icon from "./Icon.svelte";
-  import type { Ide } from "./types";
+  import { ide } from "@/lib/bridge";
+  import Icon from "@/lib/Icon.svelte";
+  import type { Ide } from "@/lib/types";
   import { onMount } from "svelte";
 
   // Opens the active project in an external editor. The list is ranked for the

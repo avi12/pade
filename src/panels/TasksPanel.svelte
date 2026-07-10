@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { feed, tasks as tasksApi } from "../lib/bridge";
-  import Icon from "../lib/Icon.svelte";
-  import type { TaskGroup } from "../lib/types";
+  import { feed, tasks as tasksApi } from "@/lib/bridge";
+  import Icon from "@/lib/Icon.svelte";
+  import type { TaskGroup } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 

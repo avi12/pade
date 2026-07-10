@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { usage as usageApi } from "./bridge";
-  import type { Usage } from "./types";
+  import { usage as usageApi } from "@/lib/bridge";
+  import type { Usage } from "@/lib/types";
   import { onDestroy } from "svelte";
 
   // Remaining usage / quota for the selected agent, sourced WITHOUT spending

@@ -1,6 +1,6 @@
-import App from "./App.svelte";
-import { loadPrefs } from "./lib/prefs.svelte";
-import "./theme.css";
+import App from "@/App.svelte";
+import { loadPrefs } from "@/lib/prefs.svelte";
+import "@/theme.css";
 import "@xterm/xterm/css/xterm.css";
 import { mount } from "svelte";
 

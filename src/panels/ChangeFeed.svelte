@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { feed } from "../lib/bridge";
-  import type { ChangeEvent } from "../lib/types";
+  import { feed } from "@/lib/bridge";
+  import type { ChangeEvent } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 

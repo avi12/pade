@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { pty } from "../lib/bridge";
-  import { appearance, effective } from "../lib/prefs.svelte";
-  import SessionBadge from "../lib/SessionBadge.svelte";
-  import { SessionStatus } from "../lib/types";
-  import type { AgentSession } from "../lib/types";
+  import { pty } from "@/lib/bridge";
+  import { appearance, effective } from "@/lib/prefs.svelte";
+  import SessionBadge from "@/lib/SessionBadge.svelte";
+  import { SessionStatus } from "@/lib/types";
+  import type { AgentSession } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebglAddon } from "@xterm/addon-webgl";

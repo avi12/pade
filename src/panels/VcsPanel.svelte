@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { feed, vcs } from "../lib/bridge";
-  import { VcsKind } from "../lib/types";
-  import type { Commit, StatusEntry } from "../lib/types";
+  import { feed, vcs } from "@/lib/bridge";
+  import { VcsKind } from "@/lib/types";
+  import type { Commit, StatusEntry } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 

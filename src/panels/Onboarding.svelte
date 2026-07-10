@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Agent } from "../lib/types";
+  import type { Agent } from "@/lib/types";
 
   // Shown only when more than one agent is installed — the user picks which to
   // launch. They can switch or add more later from the session bar.

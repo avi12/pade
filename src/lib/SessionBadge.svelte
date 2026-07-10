@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SessionStatus } from "./types";
+  import type { SessionStatus } from "@/lib/types";
 
   // Reusable across the terminal session and, later, every node in the agent
   // tree — one place defines how a session's state looks and reads.

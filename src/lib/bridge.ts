@@ -18,8 +18,8 @@ import {
   StatusEntry,
   TaskGroup,
   Usage
-} from "./types";
-import type { Prefs } from "./types";
+} from "@/lib/types";
+import type { Prefs } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { z } from "zod";

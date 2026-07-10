@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { design } from "./bridge";
-  import Icon from "./Icon.svelte";
-  import type { DesignTool } from "./types";
+  import { design } from "@/lib/bridge";
+  import Icon from "@/lib/Icon.svelte";
+  import type { DesignTool } from "@/lib/types";
 
   // Quick-launch an AI design/UI-generation tool (Claude, Google Stitch, v0, …)
   // as a design-to-code companion to the agent terminal. The roster is ranked for

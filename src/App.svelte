@@ -5,18 +5,18 @@
     pty,
     vcs,
     workspace
-  } from "./lib/bridge";
-  import DesignMenu from "./lib/DesignMenu.svelte";
-  import Icon from "./lib/Icon.svelte";
-  import IdeMenu from "./lib/IdeMenu.svelte";
-  import { effective } from "./lib/prefs.svelte";
-  import { ChangeKind, SHELL_AGENT_ID, StartMode } from "./lib/types";
-  import type { Agent, AgentSession, ChangeEvent, Settings } from "./lib/types";
-  import UsageMeter from "./lib/UsageMeter.svelte";
-  import ChangeFeed from "./panels/ChangeFeed.svelte";
-  import Onboarding from "./panels/Onboarding.svelte";
-  import ProjectPicker from "./panels/ProjectPicker.svelte";
-  import Terminal from "./panels/Terminal.svelte";
+  } from "@/lib/bridge";
+  import DesignMenu from "@/lib/DesignMenu.svelte";
+  import Icon from "@/lib/Icon.svelte";
+  import IdeMenu from "@/lib/IdeMenu.svelte";
+  import { effective } from "@/lib/prefs.svelte";
+  import { ChangeKind, SHELL_AGENT_ID, StartMode } from "@/lib/types";
+  import type { Agent, AgentSession, ChangeEvent, Settings } from "@/lib/types";
+  import UsageMeter from "@/lib/UsageMeter.svelte";
+  import ChangeFeed from "@/panels/ChangeFeed.svelte";
+  import Onboarding from "@/panels/Onboarding.svelte";
+  import ProjectPicker from "@/panels/ProjectPicker.svelte";
+  import Terminal from "@/panels/Terminal.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { readText } from "@tauri-apps/plugin-clipboard-manager";
@@ -464,15 +464,15 @@
             {#if side === Side.feed}
               <ChangeFeed />
             {:else if side === Side.vcs}
-              {#await import("./panels/VcsPanel.svelte") then { default: VcsPanel }}
+              {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
                 <VcsPanel />
               {/await}
             {:else if side === Side.tasks}
-              {#await import("./panels/TasksPanel.svelte") then { default: TasksPanel }}
+              {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
                 <TasksPanel onrun={runTask} />
               {/await}
             {:else if side === Side.config}
-              {#await import("./panels/ConfigPanel.svelte") then { default: ConfigPanel }}
+              {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
                 <ConfigPanel agent={activeAgent} />
               {/await}
             {/if}
