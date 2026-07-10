@@ -44,12 +44,13 @@
       flex: none;
       block-size: 9px;
       inline-size: 9px;
-      border-radius: 50%;
-      background: var(--outline);
+      border-radius: 999px;
+      background: var(--on-surface-var);
     }
 
-    /* Working: primary, pulsing. Ready: tertiary (green), steady — the "done"
-       signal you're looking for. Exited: neutral. */
+    /* Working: primary, pulsing (shared global @keyframes pulse). Ready:
+       tertiary (green) with a soft halo — the "done" signal, steady. Exited:
+       neutral. Starting inherits the neutral dot above. */
     &.working .dot {
       background: var(--primary);
       animation: pulse 1100ms var(--ease) infinite;
@@ -57,7 +58,7 @@
 
     &.ready .dot {
       background: var(--tertiary);
-      box-shadow: 0 0 0 4px color-mix(in sRGB, var(--tertiary) 25%, transparent);
+      box-shadow: 0 0 0 4px var(--tertiary-wash);
     }
 
     &.ready .state {
@@ -67,23 +68,6 @@
 
     &.exited .dot {
       background: var(--on-surface-var);
-    }
-  }
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 100%;
-    }
-
-    50% {
-      opacity: 35%;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .badge.working .dot {
-      animation: none;
     }
   }
 </style>

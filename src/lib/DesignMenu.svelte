@@ -37,10 +37,12 @@
     {#each tools as t (t.id)}
       <li>
         <button onclick={() => void design.open(t.url)} popovertarget="design-menu" popovertargetaction="hide">
-          {t.label}
-          {#if t.recommended}
-            <span class="best">best fit</span>
-          {/if}
+          <span class="tool">
+            {t.label}
+            {#if t.recommended}
+              <span class="best">best fit</span>
+            {/if}
+          </span>
           <span class="vendor">{t.vendor}</span>
         </button>
       </li>
@@ -53,7 +55,7 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    padding: 7px 14px;
+    padding: 7px 13px;
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
@@ -68,8 +70,8 @@
     }
 
     .caret {
-      color: var(--on-surface-var);
       font-size: 10px;
+      opacity: 70%;
     }
   }
 
@@ -77,8 +79,7 @@
   .design-list {
     position: absolute;
     inset: auto;
-    position-area: bottom span-left;
-    min-inline-size: 220px;
+    min-inline-size: 230px;
     margin-block: 6px 0;
     margin-inline: 0;
     padding: 6px;
@@ -86,20 +87,24 @@
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
+    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 50%, transparent);
+    position-area: bottom span-left;
 
     .hint {
       padding-block: 6px 4px;
       padding-inline: 10px;
       color: var(--on-surface-var);
-      font-size: 11px;
-      letter-spacing: 0.04em;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     li button {
       display: flex;
-      gap: 8px;
-      align-items: baseline;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
       inline-size: 100%;
       padding: 8px 10px;
       border: none;
@@ -116,16 +121,22 @@
         color: var(--on-primary-container);
       }
 
+      .tool {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-weight: 600;
+      }
+
       .best {
         color: var(--tertiary);
         font-weight: 700;
-        font-size: 10px;
+        font-size: 9px;
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
 
       .vendor {
-        margin-inline-start: auto;
         color: var(--on-surface-var);
         font-size: 11px;
       }

@@ -373,6 +373,7 @@
     <div class="shell">
       <header class="topbar">
         <span class="brand">◆ PADE</span>
+        <span class="divider"></span>
         {#if currentProject}
           <button class="project-name" data-tooltip={currentProject} onclick={switchProject}>
             {#if isTemp}
@@ -381,6 +382,7 @@
             <span class="dir">{currentLabel ?? shortDir}</span>
             <span class="switch-hint">switch</span>
           </button>
+          <span class="divider"></span>
         {/if}
 
         <nav class="tabs" aria-label="Agent sessions">
@@ -502,6 +504,8 @@
 
   .topbar {
     display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
     gap: 12px;
     align-items: center;
     padding-block: 8px;
@@ -513,29 +517,38 @@
   .brand {
     color: var(--primary);
     font-weight: 700;
+    font-size: 15px;
     letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* Thin vertical rules separate brand / project / tabs (canvas uses spans,
+     not a border on the neighbouring element). */
+  .divider {
+    flex-shrink: 0;
+    block-size: 20px;
+    inline-size: 1px;
+    background: var(--outline);
   }
 
   .project-name {
     display: inline-flex;
-    gap: 8px;
+    gap: 7px;
     align-items: center;
-    padding-block: 4px;
+    padding-block: 5px;
     padding-inline: 10px;
     border: none;
-    border-inline-start: 1px solid var(--outline);
+    border-radius: 999px;
     background: transparent;
-    color: var(--on-surface-var);
+    color: var(--on-surface);
     font-family: var(--font-mono);
     font-size: 13px;
+    white-space: nowrap;
     cursor: pointer;
+    transition: background 150ms var(--ease);
 
     &:hover {
-      color: var(--on-surface);
-    }
-
-    &:hover .switch-hint {
-      opacity: 100%;
+      background: var(--surface-2);
     }
 
     .dir {
@@ -546,21 +559,22 @@
     }
 
     .temp-badge {
-      padding-inline: 6px;
+      padding-block: 2px;
+      padding-inline: 7px;
       border-radius: 999px;
       background: var(--surface-3);
       color: var(--on-surface-var);
-      font-size: 10px;
-      letter-spacing: 0.06em;
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
     .switch-hint {
       color: var(--primary);
       font-family: var(--font-ui);
-      font-size: 11px;
-      opacity: 0%;
-      transition: opacity 150ms var(--ease);
+      font-weight: 600;
+      opacity: 70%;
     }
   }
 
@@ -570,15 +584,17 @@
 
   .tabs {
     display: flex;
-    gap: 4px;
+    flex-shrink: 0;
+    gap: 6px;
     align-items: center;
 
     .tab {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       overflow: hidden;
       border-radius: 999px;
       background: var(--surface-2);
+      animation: spring-in 320ms var(--ease);
 
       &.active {
         background: var(--primary-container);
@@ -592,32 +608,42 @@
 
     .pick {
       padding-block: 6px;
-      padding-inline: 14px 6px;
+      padding-inline: 12px 4px;
       border: none;
       background: transparent;
       color: var(--on-surface-var);
-      font: inherit;
-      font-size: 13px;
+      font-family: var(--font-mono);
+      font-size: 12px;
       cursor: pointer;
     }
 
     .x {
-      padding-block: 6px;
-      padding-inline: 6px 12px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      block-size: 26px;
+      inline-size: 24px;
       border: none;
+      border-end-start-radius: 0;
+      border-end-end-radius: 999px;
+      border-start-end-radius: 999px;
+      border-start-start-radius: 0;
       background: transparent;
       color: var(--on-surface-var);
       font-size: 15px;
       line-height: 1;
+      opacity: 60%;
       cursor: pointer;
+      transition: color 150ms var(--ease), background 150ms var(--ease), opacity 150ms var(--ease);
 
       &:hover {
+        background: var(--crit-wash);
         color: var(--crit);
+        opacity: 100%;
       }
     }
   }
 
-  /* Pure-CSS dropdown via <details> (rule 9). */
   .add-btn {
     display: grid;
     place-items: center;
@@ -629,9 +655,11 @@
     color: var(--on-surface-var);
     font-size: 18px;
     cursor: pointer;
+    transition: color 150ms var(--ease), background 150ms var(--ease);
 
     &:hover {
-      color: var(--primary);
+      background: var(--primary-container);
+      color: var(--on-primary-container);
     }
   }
 
@@ -639,8 +667,7 @@
   .menu {
     position: absolute;
     inset: auto;
-    position-area: bottom span-right;
-    min-inline-size: 180px;
+    min-inline-size: 220px;
     margin-block: 6px 0;
     margin-inline: 0;
     padding: 6px;
@@ -648,11 +675,12 @@
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
+    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 24%, transparent);
+    position-area: bottom span-right;
 
     li button {
       display: flex;
-      gap: 8px;
+      gap: 9px;
       align-items: center;
       inline-size: 100%;
       padding: 8px 10px;
@@ -664,6 +692,7 @@
       font-size: 13px;
       text-align: start;
       cursor: pointer;
+      transition: color 120ms var(--ease), background 120ms var(--ease);
 
       &:hover {
         background: var(--primary-container);
@@ -673,16 +702,20 @@
 
     .menu-sep {
       margin-block: 6px 2px;
+      padding-block: 2px 4px;
       padding-inline: 10px;
       color: var(--on-surface-var);
-      font-size: 11px;
-      letter-spacing: 0.06em;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
   }
 
   .seg {
     display: inline-flex;
+    flex-shrink: 0;
+    gap: 2px;
     padding: 3px;
     border-radius: 999px;
     background: var(--surface-2);
@@ -691,14 +724,14 @@
       display: inline-flex;
       gap: 6px;
       align-items: center;
-      padding: 6px 14px;
+      padding: 6px 12px;
       border: none;
       border-radius: 999px;
       background: transparent;
       color: var(--on-surface-var);
       font: inherit;
       font-weight: 600;
-      font-size: 13px;
+      font-size: 12px;
       cursor: pointer;
       transition: background 200ms var(--ease), color 200ms var(--ease);
     }
@@ -715,6 +748,7 @@
     flex: 1;
     grid-template-columns: 1fr;
     min-block-size: 0;
+    transition: grid-template-columns 250ms var(--ease);
 
     &.with-side {
       grid-template-columns: 1fr minmax(320px, 420px);
@@ -730,6 +764,7 @@
   .side-pane {
     border-inline-start: 1px solid var(--outline);
     background: var(--surface);
+    animation: panel-in 320ms var(--ease);
   }
 
   /* All sessions stay mounted so their scrollback survives switching; only the
@@ -757,44 +792,35 @@
 
   .send-fab {
     position: fixed;
-    inset-block-end: 20px;
+    inset-block-end: 26px;
     inset-inline-start: 50%;
+    z-index: 80;
     display: inline-flex;
     gap: 10px;
     align-items: center;
+    max-inline-size: min(560px, 90vw);
     padding: 12px 20px;
     border: none;
     border-radius: 999px;
     background: var(--primary);
     color: var(--on-primary);
     font: inherit;
-    font-weight: 600;
-    box-shadow: 0 6px 20px color-mix(in sRGB, var(--primary) 40%, transparent);
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 10px 30px color-mix(in sRGB, var(--primary) 45%, transparent);
     cursor: pointer;
-    translate: -50% 0;
-    animation: pop 200ms var(--ease);
+    transform: translateX(-50%);
+    animation: pop-in 220ms var(--ease);
 
     .preview {
       overflow: hidden;
       max-inline-size: 40ch;
       font-family: var(--font-mono);
-      font-weight: 400;
+      font-weight: 500;
       font-size: 12px;
       text-overflow: ellipsis;
       white-space: nowrap;
       opacity: 85%;
-    }
-  }
-
-  @keyframes pop {
-    from {
-      opacity: 0%;
-      translate: -50% 8px;
-    }
-
-    to {
-      opacity: 100%;
-      translate: -50% 0;
     }
   }
 </style>

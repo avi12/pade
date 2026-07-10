@@ -178,8 +178,12 @@
     block-size: 100%;
   }
 
+  /* Thin session bar on surface-1 with a hairline divider; the SessionBadge
+     (dot + mono label + state phrase) sits flush at the start. */
   .session-bar {
     display: flex;
+    flex-shrink: 0;
+    gap: 10px;
     align-items: center;
     padding-block: 8px;
     padding-inline: 14px;
@@ -189,15 +193,16 @@
 
   /* The xterm element must have no padding: FitAddon measures its full box to
      compute rows, so padding would fit one row too many and clip the bottom.
-     Visual insets live on the wrapper instead. */
+     Visual insets live on the wrapper instead — a small top/left inset lifts the
+     output off the pane edge (canvas 10px top, 14px left). */
   .term-pad {
     flex: 1;
     min-block-size: 0;
 
-    /* No inline padding: the terminal spans the full pane width. Any sub-cell
-       remainder on the right is filled by the shared code-bg, so it reads flush. */
-    padding-block: 8px 0;
-    padding-inline: 8px 0;
+    /* No end inset: the terminal spans the full pane width/height. Any sub-cell
+       remainder is filled by the shared code-bg, so it reads flush. */
+    padding-block: 10px 0;
+    padding-inline: 14px 0;
     background: var(--code-bg);
   }
 

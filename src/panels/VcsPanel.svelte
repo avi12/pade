@@ -190,21 +190,24 @@
 
   .group h3 {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
     margin-block: 4px 8px;
     margin-inline: 4px;
     color: var(--on-surface-var);
-    font-size: 12px;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
   .n {
+    padding-block: 1px;
     padding-inline: 7px;
     border-radius: 999px;
-    background: var(--surface-3);
+    background: var(--surface-2);
     color: var(--on-surface-var);
+    font-weight: 700;
     font-size: 11px;
   }
 
@@ -227,7 +230,8 @@
     gap: 10px;
     align-items: center;
     inline-size: 100%;
-    padding: 6px 8px;
+    padding-block: 7px;
+    padding-inline: 9px;
     border: none;
     border-radius: var(--r-sm);
     background: transparent;
@@ -274,7 +278,7 @@
   .fname {
     overflow: hidden;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -291,6 +295,7 @@
     background: var(--surface-2);
     color: var(--on-surface);
     font-family: var(--font-mono);
+    font-weight: 600;
     font-size: 12px;
     letter-spacing: 0;
     text-transform: none;
@@ -298,13 +303,13 @@
 
   .diffbody {
     overflow: auto;
-    max-block-size: 320px;
+    max-block-size: 300px;
     margin: 0;
     padding: 8px 0;
     background: var(--code-bg);
     font-family: var(--font-mono);
     font-size: 12px;
-    line-height: 1.45;
+    line-height: 1.5;
   }
 
   .dl {
@@ -315,11 +320,11 @@
   }
 
   .dl.add {
-    background: color-mix(in sRGB, var(--tertiary) 22%, transparent);
+    background: var(--tertiary-wash);
   }
 
   .dl.del {
-    background: color-mix(in sRGB, var(--crit) 22%, transparent);
+    background: var(--crit-wash);
   }
 
   .dl.meta {
@@ -328,14 +333,18 @@
 
   .log .commit {
     display: grid;
-    gap: 2px;
-    padding: 6px 8px;
+    grid-template-columns: auto 1fr;
+    gap: 2px 10px;
+    align-items: baseline;
+    padding-block: 4px;
+    padding-inline: 2px;
   }
 
   .sha {
     color: var(--primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-weight: 600;
+    font-size: 12px;
   }
 
   .msg {
@@ -343,6 +352,7 @@
   }
 
   .by {
+    grid-column: 1 / -1;
     color: var(--on-surface-var);
     font-size: 11px;
   }

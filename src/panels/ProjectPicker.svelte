@@ -309,12 +309,22 @@
         </div>
       </div>
       <label class="autoname">
-        <input checked={autoName} onchange={e => setAutoName(e.currentTarget.checked)} type="checkbox" />
+        <span class="ck">
+          <input checked={autoName} onchange={e => setAutoName(e.currentTarget.checked)} type="checkbox" />
+          <span class="box" aria-hidden="true">
+            <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+          </span>
+        </span>
         <span>Auto-name temp workspaces once the agent starts working</span>
       </label>
       {#if isWindows}
         <label class="autoname">
-          <input checked={ctxMenuOn} onchange={e => setCtxMenu(e.currentTarget.checked)} type="checkbox" />
+          <span class="ck">
+            <input checked={ctxMenuOn} onchange={e => setCtxMenu(e.currentTarget.checked)} type="checkbox" />
+            <span class="box" aria-hidden="true">
+              <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+            </span>
+          </span>
           <span>Add “Open in PADE” to the folder right-click menu</span>
         </label>
       {/if}
@@ -445,7 +455,7 @@
   .picker {
     overflow-y: auto;
     block-size: 100%;
-    background: radial-gradient(120% 70% at 50% 0%, var(--surface-1), var(--surface));
+    background: radial-gradient(120% 100% at 50% 0%, var(--surface-1), var(--surface));
   }
 
   .inner {
@@ -454,38 +464,47 @@
     gap: 28px;
     inline-size: min(680px, 100%);
     margin-inline: auto;
-    padding-block: 48px 64px;
+    padding-block: 48px 80px;
     padding-inline: 24px;
+    animation: rise 420ms var(--ease);
   }
 
   header {
+    animation: rise 300ms var(--ease);
+
     .brand {
       color: var(--primary);
       font-weight: 700;
+      font-size: 13px;
       letter-spacing: 0.02em;
     }
 
     h1 {
-      margin-block: 12px 8px;
+      margin-block: 10px 0;
       margin-inline: 0;
-      font-size: clamp(26px, 4vw, 36px);
+      font-weight: 800;
+      font-size: clamp(24px, 4vw, 36px);
       letter-spacing: -0.02em;
       text-wrap: balance;
     }
 
     .lede {
       max-inline-size: 52ch;
-      margin: 0;
+      margin-block: 8px 0;
+      margin-inline: 0;
       color: var(--on-surface-var);
     }
   }
 
+  /* Big scratch-workspace card — filled primary-container with a hairline
+     primary edge; brightens on hover. */
   .temp-start {
     display: flex;
-    gap: 14px;
-    align-items: center;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
     inline-size: 100%;
-    padding: 16px 18px;
+    padding: 20px 22px;
     border: 1px solid var(--primary);
     border-radius: var(--r-lg);
     background: var(--primary-container);
@@ -495,7 +514,7 @@
     transition: filter 150ms var(--ease);
 
     &:hover {
-      filter: brightness(1.05);
+      filter: brightness(1.08);
     }
 
     .ico {
@@ -508,10 +527,15 @@
       gap: 2px;
     }
 
+    strong {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
     small {
       color: var(--on-primary-container);
-      font-size: 12px;
-      opacity: 80%;
+      font-size: 13px;
+      opacity: 85%;
     }
   }
 
@@ -519,22 +543,27 @@
     display: flex;
     gap: 8px;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
   }
 
   .clear {
     display: inline-flex;
     gap: 5px;
     align-items: center;
+    padding: 4px 8px;
     border: none;
+    border-radius: 999px;
     background: transparent;
     color: var(--on-surface-var);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
-    transition: color 150ms var(--ease);
+    transition:
+      color 150ms var(--ease),
+      background 150ms var(--ease);
 
     &:hover {
+      background: var(--crit-wash);
       color: var(--crit);
     }
   }
@@ -543,13 +572,20 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
+    padding: 10px 16px;
     border: 1px solid var(--outline);
     border-radius: var(--r-md);
-    background: var(--surface-2);
+    background: transparent;
     color: var(--on-surface);
     font: inherit;
+    font-weight: 600;
     font-size: 13px;
     cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+    }
   }
 
   .recent-list {
@@ -562,8 +598,9 @@
   }
 
   .row {
+    position: relative;
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
   }
 
@@ -572,17 +609,24 @@
     min-inline-size: 0;
   }
 
+  /* Trailing kebab — a subtle pill circle that fills on hover. */
   .kebab {
+    display: inline-flex;
     flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 30px;
+    inline-size: 30px;
     margin-inline-start: auto;
-    padding: 2px 8px;
+    padding: 0;
     border: none;
-    border-radius: var(--r-sm);
+    border-radius: 999px;
     background: transparent;
     color: var(--on-surface-var);
     font-size: 16px;
     line-height: 1;
     cursor: pointer;
+    transition: background 150ms var(--ease);
 
     &:hover {
       background: var(--surface-2);
@@ -590,24 +634,27 @@
     }
   }
 
-  /* Native popover row menu — light-dismisses on outside click. */
+  /* Native popover row menu — light-dismisses on outside click; the only place
+     a floating shadow is warranted. */
   .menu {
     position: absolute;
     inset: auto;
-    min-inline-size: 190px;
-    margin-block: 4px 0;
+    overflow-y: auto;
+    max-block-size: min(70vh, 520px);
+    min-inline-size: 250px;
+    margin-block: 6px 0;
     margin-inline: 0;
     padding: 6px;
     border: 1px solid var(--outline);
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
+    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 22%, transparent);
     position-area: bottom span-left;
 
     li button {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
       inline-size: 100%;
       padding: 8px 10px;
@@ -627,93 +674,177 @@
     }
 
     .sep {
-      margin-block-start: 4px;
-      padding-block-start: 4px;
+      margin-block-start: 6px;
+      padding-block-start: 6px;
       border-block-start: 1px solid var(--outline);
     }
 
     .danger:hover {
-      background: color-mix(in sRGB, var(--crit) 22%, transparent);
-      color: var(--on-surface);
+      background: var(--crit-wash);
+      color: var(--crit);
     }
   }
 
   .rename {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
     inline-size: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--primary);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
 
     input {
       flex: 1;
       min-inline-size: 0;
-      padding: 6px 10px;
-      border: 1px solid var(--primary);
-      border-radius: var(--r-sm);
-      background: var(--surface-2);
+      padding: 0;
+      border: none;
+      background: transparent;
       color: var(--on-surface);
       font-family: var(--font-mono);
+      font-weight: 600;
       font-size: 13px;
     }
 
     button {
-      padding: 6px 10px;
-      border: 1px solid var(--outline);
-      border-radius: var(--r-sm);
-      background: var(--surface-2);
-      color: var(--on-surface);
+      flex: none;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 999px;
+      background: var(--primary);
+      color: var(--on-primary);
       font: inherit;
+      font-weight: 700;
       font-size: 12px;
       cursor: pointer;
+      transition: filter 150ms var(--ease);
+
+      &:hover {
+        filter: brightness(1.06);
+      }
+    }
+
+    button + button {
+      background: transparent;
+      color: var(--on-surface-var);
+      font-weight: 600;
+
+      &:hover {
+        background: var(--surface-3);
+        filter: none;
+      }
     }
   }
 
   .startmode {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: center;
-    margin-block-start: 12px;
   }
 
   .autoname {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
-    margin-block-start: 10px;
-    color: var(--on-surface-var);
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
+  }
+
+  /* Animated custom checkbox — a rounded box that fills primary with a
+     stroke-drawn check (check-pop) when toggled. Semantic input stays inside. */
+  .ck {
+    position: relative;
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    block-size: 20px;
+    inline-size: 20px;
 
     input {
-      flex: none;
-      min-inline-size: 0;
-      padding: 0;
-      border: none;
-      background: none;
-      accent-color: var(--primary);
+      position: absolute;
+      inset: 0;
+      block-size: 100%;
+      inline-size: 100%;
+      margin: 0;
+      opacity: 0%;
+      cursor: pointer;
+    }
+
+    .box {
+      display: grid;
+      place-items: center;
+      block-size: 20px;
+      inline-size: 20px;
+      border: 2px solid var(--outline);
+      border-radius: 7px;
+      background: var(--surface-2);
+      transition:
+        background 250ms var(--ease),
+        border-color 250ms var(--ease),
+        scale 300ms var(--spring);
+
+      svg {
+        display: block;
+        block-size: 13px;
+        inline-size: 13px;
+      }
+
+      path {
+        fill: none;
+        stroke: var(--on-primary);
+        stroke-dasharray: 22;
+        stroke-dashoffset: 22;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 3;
+        transition: stroke-dashoffset 240ms var(--ease) 60ms;
+      }
+    }
+
+    input:checked + .box {
+      border-color: var(--primary);
+      background: var(--primary);
+      scale: 1.06;
+      animation: check-pop 360ms var(--spring);
+    }
+
+    input:checked + .box path {
+      stroke-dashoffset: 0;
+    }
+
+    input:not(:checked):hover + .box {
+      border-color: var(--primary);
     }
   }
 
   .sm-label {
     color: var(--on-surface-var);
-    font-size: 12px;
+    font-size: 13px;
   }
 
+  /* Pill segmented toggle. */
   .sm-toggle {
     display: inline-flex;
-    padding: 2px;
+    gap: 2px;
+    padding: 3px;
     border-radius: 999px;
     background: var(--surface-2);
 
     .sm-btn {
-      padding: 4px 12px;
+      padding: 6px 14px;
       border: none;
       border-radius: 999px;
       background: transparent;
       color: var(--on-surface-var);
       font: inherit;
+      font-weight: 600;
       font-size: 12px;
       cursor: pointer;
+      transition:
+        background 150ms var(--ease),
+        color 150ms var(--ease);
 
       &.on {
         background: var(--primary-container);
@@ -722,31 +853,36 @@
     }
   }
 
+  /* Recent row — pill button, mono name, truncating path; fills on hover. */
   .recent-item {
     display: flex;
     gap: 10px;
-    align-items: baseline;
+    align-items: center;
     inline-size: 100%;
-    padding: 8px 10px;
+    padding: 10px 12px;
     border: none;
-    border-radius: var(--r-sm);
+    border-radius: var(--r-md);
     background: transparent;
     color: var(--on-surface);
     text-align: start;
     cursor: pointer;
+    transition: background 150ms var(--ease);
 
     &:hover {
       background: var(--surface-2);
     }
 
     .rname {
+      flex: none;
       font-family: var(--font-mono);
+      font-weight: 600;
       font-size: 13px;
     }
 
     .rpath {
       overflow: hidden;
       color: var(--on-surface-var);
+      font-family: var(--font-mono);
       font-size: 11px;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -754,24 +890,35 @@
   }
 
   .temp-tag {
-    padding-inline: 6px;
+    flex: none;
+    padding: 2px 7px;
     border-radius: 999px;
     background: var(--surface-3);
     color: var(--on-surface-var);
-    font-size: 10px;
+    font-weight: 700;
+    font-size: 9px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
+  /* Section eyebrows — uppercase micro-labels. */
   h2 {
-    margin-block: 0 4px;
-    margin-inline: 0;
-    font-size: 15px;
+    margin: 0;
+    color: var(--on-surface-var);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .hint {
-    margin-block: 0 12px;
-    margin-inline: 0;
+    margin: 0;
     color: var(--on-surface-var);
     font-size: 13px;
   }
@@ -784,6 +931,7 @@
     gap: 8px;
   }
 
+  /* Choice chips — pills; selected gets a primary edge over its container. */
   .chip {
     padding: 8px 16px;
     border: 1px solid transparent;
@@ -794,6 +942,11 @@
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
+    transition: border-color 150ms var(--ease);
+
+    &:hover {
+      border-color: var(--primary);
+    }
 
     &.on {
       border-color: var(--primary);
@@ -805,7 +958,7 @@
   input,
   select,
   textarea {
-    padding: 10px 12px;
+    padding: 10px 14px;
     border: 1px solid var(--outline);
     border-radius: var(--r-md);
     background: var(--surface-2);
@@ -816,13 +969,14 @@
 
   input {
     flex: 1;
-    min-inline-size: 220px;
+    min-inline-size: 200px;
     font-family: var(--font-mono);
     font-size: 13px;
   }
 
   textarea {
     inline-size: 100%;
+    line-height: 1.5;
     resize: vertical;
   }
 
@@ -833,67 +987,94 @@
     background: var(--primary);
     color: var(--on-primary);
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
+    transition: filter 150ms var(--ease);
+
+    &:hover {
+      filter: brightness(1.06);
+    }
 
     &:disabled {
       opacity: 50%;
+      filter: none;
       cursor: default;
     }
   }
 
   .roots .root {
-    margin-block-start: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .root-head {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
   }
 
   .rootpath {
-    color: var(--on-surface-var);
+    padding: 4px 10px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--on-surface);
     font-family: var(--font-mono);
     font-size: 12px;
   }
 
   .remove {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 24px;
+    inline-size: 24px;
     margin-inline-start: auto;
-    padding: 2px 8px;
-    background: transparent;
+    padding: 0;
+    border-radius: 999px;
+    background: var(--surface-2);
     color: var(--on-surface-var);
     font-size: 16px;
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
 
     &:hover {
+      background: var(--crit-wash);
       color: var(--crit);
+      filter: none;
     }
   }
 
   .projects {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-block: 8px 0;
-    margin-inline: 0;
+    gap: 6px;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
 
+  /* Detected project — tonal card; lifts into primary-container on hover. */
   .project {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
     inline-size: 100%;
-    padding: 12px 14px;
+    padding: 11px 13px;
     border-radius: var(--r-md);
     background: var(--surface-2);
     color: var(--on-surface);
     text-align: start;
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
 
     &:hover {
       background: var(--primary-container);
       color: var(--on-primary-container);
+      filter: none;
     }
 
     .pname {
@@ -902,10 +1083,9 @@
     }
 
     .git {
-      margin-inline-start: auto;
       color: var(--tertiary);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }

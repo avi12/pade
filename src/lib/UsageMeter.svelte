@@ -93,6 +93,7 @@
   /* Nested CSS (rule 8): the meter's rules live together, mirroring its markup. */
   .usage {
     display: inline-flex;
+    flex-shrink: 0;
     gap: 8px;
     align-items: center;
     padding-block: 6px;
@@ -111,12 +112,16 @@
       background: var(--surface-3);
     }
 
+    /* Fill grows/shrinks on refresh and cross-fades primary↔warn at the 80%
+       threshold — both animated over ~300ms with the emphasized easing. */
     .fill {
       display: block;
       block-size: 100%;
       border-radius: 999px;
       background: var(--primary);
-      transition: inline-size 300ms var(--ease);
+      transition:
+        inline-size 300ms var(--ease),
+        background 300ms var(--ease);
     }
 
     /* High consumption (≥80%) reads as a warning — a glanceable signal. */
@@ -129,12 +134,14 @@
     }
 
     .num {
+      font-size: 12px;
       font-variant-numeric: tabular-nums;
     }
 
     .reset {
       color: var(--on-surface-var);
       font-weight: 400;
+      font-size: 11px;
     }
 
     &.unknown {

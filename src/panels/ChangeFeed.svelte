@@ -57,6 +57,7 @@
   <ul class="cards">
     {#each events as ev (ev.id)}
       <li class="card {ev.kind}">
+        <span class="stripe" aria-hidden="true"></span>
         <div class="row">
           <span class="dot {ev.kind}" aria-hidden="true"></span>
           <span class="name" data-tooltip={ev.path}>{fileName(ev.path)}</span>
@@ -126,34 +127,38 @@
   }
 
   .card {
-    padding: 12px 14px;
-    border-left: 3px solid var(--outline);
+    position: relative;
+    overflow: hidden;
+    padding-block: 11px;
+    padding-inline: 15px 13px;
     border-radius: var(--r-md);
     background: var(--surface-1);
-    animation: rise 250ms var(--ease);
-  }
+    transition: background 140ms var(--ease);
+    animation: pop-in 260ms var(--spring);
 
-  .card.created {
-    border-left-color: var(--tertiary);
-  }
-
-  .card.modified {
-    border-left-color: var(--primary);
-  }
-
-  .card.deleted {
-    border-left-color: var(--crit);
-  }
-
-  @keyframes rise {
-    from {
-      opacity: 0%;
-      transform: translateY(-4px);
+    &:hover {
+      background: var(--surface-2);
     }
 
-    to {
-      opacity: 100%;
-      transform: none;
+    /* Accent stripe hugging the rounded left edge, tinted by change kind. */
+    .stripe {
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: 0;
+      inline-size: 3px;
+      background: var(--outline);
+    }
+
+    &.created .stripe {
+      background: var(--tertiary);
+    }
+
+    &.modified .stripe {
+      background: var(--primary);
+    }
+
+    &.deleted .stripe {
+      background: var(--crit);
     }
   }
 
@@ -165,9 +170,9 @@
 
   .dot {
     flex: none;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    block-size: 7px;
+    inline-size: 7px;
+    border-radius: 999px;
   }
 
   .dot.created {
@@ -198,7 +203,7 @@
   }
 
   .summary {
-    margin-block: 6px 8px;
+    margin-block: 5px 0;
     margin-inline: 0;
     color: var(--on-surface);
     font-size: 13px;
@@ -206,25 +211,26 @@
 
   .meta {
     display: flex;
-    gap: 8px;
-    justify-content: space-between;
+    gap: 10px;
     align-items: center;
+    margin-block-start: 6px;
+    color: var(--on-surface-var);
+    font-size: 11px;
   }
 
   .path {
     overflow: hidden;
-    color: var(--on-surface-var);
     font-family: var(--font-mono);
-    font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .stat {
     display: flex;
-    gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 12px;
+    gap: 8px;
+    margin-inline-start: auto;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 
   .add {

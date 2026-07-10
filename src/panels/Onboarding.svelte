@@ -37,7 +37,7 @@
     place-items: center;
     block-size: 100%;
     padding: 24px;
-    background: radial-gradient(120% 80% at 50% 0%, var(--surface-1), var(--surface));
+    background: radial-gradient(120% 120% at 50% 0%, var(--surface-1), var(--surface));
   }
 
   .card {
@@ -46,42 +46,54 @@
     border-radius: var(--r-xl);
     background: var(--surface-1);
 
+    /* Floating hero surface — soft depth shadow (allowed on elevated cards),
+       tinted from the darkest on-surface token so it tracks the theme. */
+    box-shadow: 0 24px 60px color-mix(in sRGB, var(--on-surface) 35%, transparent);
+    animation: rise 350ms var(--ease);
+
     .brand {
       color: var(--primary);
       font-weight: 700;
+      font-size: 13px;
       letter-spacing: 0.02em;
     }
 
     h1 {
-      margin-block: 12px 8px;
+      margin-block: 14px 0;
       margin-inline: 0;
-      font-size: clamp(24px, 4vw, 34px);
+      font-weight: 800;
+      font-size: clamp(24px, 4vw, 36px);
+      line-height: 1.1;
       letter-spacing: -0.02em;
       text-wrap: balance;
     }
 
     .lede {
       max-inline-size: 46ch;
-      margin-block: 0 24px;
+      margin-block: 12px 0;
       margin-inline: 0;
       color: var(--on-surface-var);
+      font-size: 14px;
+      line-height: 1.5;
     }
   }
 
   .agents {
     display: grid;
     gap: 10px;
-    margin: 0;
+    margin-block: 26px 0;
+    margin-inline: 0;
     padding: 0;
     list-style: none;
   }
 
   .agent {
     display: flex;
-    gap: 12px;
+    gap: 16px;
+    justify-content: space-between;
     align-items: center;
     inline-size: 100%;
-    padding: 16px 18px;
+    padding: 18px 20px;
     border: 1px solid transparent;
     border-radius: var(--r-lg);
     background: var(--surface-2);
@@ -108,7 +120,6 @@
     }
 
     .cmd {
-      margin-inline-start: auto;
       color: var(--on-surface-var);
       font-family: var(--font-mono);
       font-size: 12px;

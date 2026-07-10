@@ -21,7 +21,7 @@
     {#each ides as i, idx (i.id)}
       <li>
         <button onclick={() => ide.open({ command: i.command })} popovertarget="ide-menu" popovertargetaction="hide">
-          {i.label}
+          <span class="name">{i.label}</span>
           {#if idx === 0}
             <span class="best">best fit</span>
           {/if}
@@ -51,8 +51,8 @@
     }
 
     .caret {
-      color: var(--on-surface-var);
       font-size: 10px;
+      opacity: 70%;
     }
   }
 
@@ -60,7 +60,6 @@
   .ide-list {
     position: absolute;
     inset: auto;
-    position-area: bottom span-left;
     min-inline-size: 200px;
     margin-block: 6px 0;
     margin-inline: 0;
@@ -69,11 +68,13 @@
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 8px 24px color-mix(in sRGB, var(--on-surface) 20%, transparent);
+    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 32%, transparent);
+    position-area: bottom span-left;
 
     li button {
       display: flex;
-      gap: 8px;
+      gap: 10px;
+      justify-content: space-between;
       align-items: center;
       inline-size: 100%;
       padding: 8px 10px;
@@ -82,6 +83,7 @@
       background: transparent;
       color: var(--on-surface);
       font: inherit;
+      font-weight: 600;
       font-size: 13px;
       text-align: start;
       cursor: pointer;
@@ -91,11 +93,16 @@
         color: var(--on-primary-container);
       }
 
+      .name {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
       .best {
-        margin-inline-start: auto;
         color: var(--tertiary);
         font-weight: 700;
-        font-size: 10px;
+        font-size: 9px;
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
