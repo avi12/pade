@@ -86,6 +86,17 @@ writes.
   picker; disabled via `prefs.autoNameTemp`.
 - R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token —
   seam in place (`copilot.rs`), not yet wired; see the auto-naming handoff doc.
+- R1.9.5 ✅ **Move / rename re-points every linked reference** (`refs.rs`). Moving
+  or renaming a workspace rewrites the old→new path everywhere it's remembered:
+  the agent memory dir (`~/.claude/projects/<encoded-cwd>`; Codex/Gemini TODO),
+  IDE recents **gated on the project's marker dir** (`.idea` → JetBrains recents +
+  `.idea/*.xml`; `.vscode` → VS Code; `.vscode`/`.cursor` → Cursor — `storage.json`
+  + the `state.vscdb` SQLite recents, via `rusqlite`), and **node_modules** links
+  with absolute targets under the old path (pnpm junctions via `mklink /J`).
+- R1.9.6 ✅ **Live-agent lock handling on move/rename** — an agent holding the dir
+  as cwd locks it (Windows). PADE kills the sessions under it (remembering the
+  live ones), does the move/rename, then **resumes** the live ones on the new path
+  seeded with `continue`; idle/exited sessions stay closed.
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** — open the active project in an installed editor (`ide.rs`;
