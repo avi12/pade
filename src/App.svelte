@@ -15,6 +15,7 @@
   import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import RunnerDock from "@/lib/RunnerDock.svelte";
+  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/sendShortcut";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
@@ -37,9 +38,6 @@
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
   import Terminal from "@/panels/Terminal.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
-  import { readText } from "@tauri-apps/plugin-clipboard-manager";
-  import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
   import { onDestroy, onMount } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -329,35 +327,15 @@
     }
   }
 
-  // Send-from-IDE bridge: highlight + copy a snippet in any external editor,
-  // then press this global shortcut to inject the clipboard into the active
-  // Claude Code input — works regardless of which IDE the project is open in.
-  const SEND_SHORTCUT = "CommandOrControl+Alt+S";
+  // Send-from-IDE bridge (lib/sendShortcut): copy in any external editor, press
+  // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
-    void setupSendShortcut();
-    return () => void unregister(SEND_SHORTCUT).catch(() => {});
-  });
-  async function setupSendShortcut() {
-    await unregister(SEND_SHORTCUT).catch(() => {}); // clean re-register on HMR
-    await register(SEND_SHORTCUT, async event => {
-      if (event.state !== "Pressed") {
-        return;
-      }
-
-      const text = (await readText()).trim();
-      if (!text || !activeId) {
-        return;
-      }
-
-      await pty.write({
-        id: activeId,
-        data: text
-      });
-      await getCurrentWindow().setFocus();
-      const label = sessions.find(s => s.id === activeId)?.agent.label ?? "agent";
-      showToast(`Sent selection to ${label}`);
+    void registerSendShortcut({
+      activeId: () => activeId,
+      activeLabel: () => sessions.find(s => s.id === activeId)?.agent.label ?? "agent"
     });
-  }
+    return () => void unregisterSendShortcut();
+  });
 
   // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut chip).
   function onWindowKey(event: KeyboardEvent) {
