@@ -57,6 +57,18 @@ These are non-negotiable for all work in this repo.
      external app) with no follow-up and no shared-state race.
    - `String.replaceAll`: use `replaceAll` (not `replace` with a `/g` regex) for
      global replacement — it states the intent and reads clearer.
+   - `await` over `.then()`: use `async`/`await`, never a `.then()`/`.catch()`
+     chain, unless a `.then()` is genuinely unavoidable (e.g. kicking off async
+     work inside a synchronous `$effect` — wrap it in an `async` IIFE and `await`
+     inside, rather than chaining `.then()`).
+   - Enums over magic strings: never compare against a bare string literal. Model
+     the closed set once — a Rust `enum`, or a TS `z.enum`/`as const` union — and
+     compare against its members (`kind === ChangeKind.Created`, not
+     `kind === "created"`). One authoritative definition, no scattered literals.
+   - Name your conditions: when an `if`/`while`/ternary test isn't self-evidently
+     what-it-checks, extract it into a descriptively-named boolean first
+     (`const isTempWorkspace = …; if (isTempWorkspace)`), so the happy path reads
+     as prose. Inline only conditions that are already obvious.
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,
