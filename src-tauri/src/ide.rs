@@ -185,7 +185,9 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     });
 
     let mut ordered: Vec<String> = Vec::new();
-    let auto = preferred.chain(GENERALISTS.iter().copied()).map(str::to_string);
+    let auto = preferred
+        .chain(GENERALISTS.iter().copied())
+        .map(str::to_string);
     for id in configured.chain(auto) {
         let is_new_and_installed = !ordered.contains(&id) && is_installed(&id);
         if is_new_and_installed {

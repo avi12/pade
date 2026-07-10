@@ -25,8 +25,10 @@ use crate::util::{encode_project, home_dir};
 /// dir paths). Per-adapter errors are logged and ignored — one failing tool must
 /// never abort the others or the move itself.
 pub fn update_references(old: &str, new: &str) {
+    let new_dir = Path::new(new);
     rename_agent_memory(old, new);
-    rewrite_ide_recents(Path::new(new), old, new);
+    rewrite_ide_recents(new_dir, old, new);
+    fix_node_modules_symlinks(new_dir, old, new);
 }
 
 // ---------------------------------------------------------------------------
@@ -375,3 +377,145 @@ use windows::{rewrite_jetbrains_recents, rewrite_vscode_family};
 fn rewrite_jetbrains_recents(_old: &str, _new: &str) {}
 #[cfg(not(windows))]
 fn rewrite_vscode_family(_app: VsCodeApp, _old: &str, _new: &str) {}
+
+// ---------------------------------------------------------------------------
+// Adapter — node_modules symlinks/junctions (cross-platform).
+// ---------------------------------------------------------------------------
+
+/// Re-point `node_modules` links whose ABSOLUTE target lived under the moved
+/// tree. pnpm links packages into `node_modules` as symlinks (junctions on
+/// Windows); a link with an absolute target under `old` dangles after the move,
+/// so we swing it to the matching path under `new`.
+///
+/// Relative links are left untouched — they survive a move within one drive
+/// (pnpm's common case), so usually nothing here changes. This handles the
+/// absolute-target edge cases: workspace/monorepo links, cross-tree links, and
+/// globally-linked packages. Gated on `<new_dir>/node_modules` existing.
+///
+/// Best-effort throughout: a giant `node_modules` must never fail or hang the
+/// move, so every fallible step is swallowed and we bound the walk by never
+/// following the links we inspect (which also avoids link cycles).
+fn fix_node_modules_symlinks(new_dir: &Path, old: &str, new: &str) {
+    let node_modules = new_dir.join("node_modules");
+    if !node_modules.is_dir() {
+        return;
+    }
+    relink_dir(&node_modules, old, new);
+}
+
+/// Recurse `dir`, re-pointing stale absolute links and descending only into real
+/// sub-directories (never into a link — that bounds the walk and dodges cycles).
+fn relink_dir(dir: &Path, old: &str, new: &str) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        // `symlink_metadata` describes the entry itself, not its target — so a
+        // link reports as a link rather than as whatever it points at.
+        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if meta.file_type().is_symlink() {
+            remap_link(&path, old, new);
+        } else if meta.is_dir() {
+            relink_dir(&path, old, new);
+        }
+    }
+}
+
+/// If `link`'s target is an absolute path under `old`, recreate it pointing at
+/// the same suffix under `new`. No-op for relative targets or targets outside
+/// `old`. `is_target_dir` decides junction-vs-file-symlink on recreation.
+fn remap_link(link: &Path, old: &str, new: &str) {
+    let Ok(target) = std::fs::read_link(link) else {
+        return;
+    };
+    let Some(target_str) = target.to_str() else {
+        return;
+    };
+    let Some(remapped) = remap_under(target_str, old, new) else {
+        return; // relative, or not under `old` — leave it alone
+    };
+    // A link to a directory must be recreated as a dir link (junction on
+    // Windows); resolve through the link to learn what it points at.
+    let is_target_dir = std::fs::metadata(link).map(|m| m.is_dir()).unwrap_or(true);
+    recreate_link(link, &remapped, is_target_dir);
+}
+
+/// Remap an absolute `target` that sits under `old` to the same suffix under
+/// `new`; `None` if `target` is relative or not under `old`. Case-insensitive
+/// prefix match on Windows (its filesystem is), case-sensitive elsewhere.
+fn remap_under(target: &str, old: &str, new: &str) -> Option<String> {
+    if !Path::new(target).is_absolute() {
+        return None;
+    }
+    let starts_under_old = if cfg!(windows) {
+        target.to_lowercase().starts_with(&old.to_lowercase())
+    } else {
+        target.starts_with(old)
+    };
+    if !starts_under_old {
+        return None;
+    }
+    // Preserve the original suffix bytes (only the `old` prefix is swapped).
+    let suffix = &target[old.len()..];
+    Some(format!("{new}{suffix}"))
+}
+
+/// Remove the stale link at `link` and recreate it pointing at `target`. On
+/// Windows a directory link is a junction (`mklink /J`, no admin needed, matching
+/// pnpm); a file link uses `symlink_file`. On other platforms a single `symlink`
+/// covers both. Best-effort: any failure is logged and swallowed.
+#[cfg(windows)]
+fn recreate_link(link: &Path, target: &str, is_target_dir: bool) {
+    use std::os::windows::fs::symlink_file;
+
+    // Removing a junction is a directory op (`remove_dir`); a file symlink is a
+    // file op. Pick by what we're about to recreate.
+    let removed = if is_target_dir {
+        std::fs::remove_dir(link)
+    } else {
+        std::fs::remove_file(link)
+    };
+    if let Err(e) = removed {
+        eprintln!("refs: failed to remove stale link {}: {e}", link.display());
+        return;
+    }
+
+    let result = if is_target_dir {
+        // pnpm uses junctions for dir links (no admin). `mklink /J` is the only
+        // no-admin way to make one; the std lib has no junction constructor.
+        std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .map(|out| out.status.success())
+            .unwrap_or(false)
+    } else {
+        symlink_file(target, link).is_ok()
+    };
+    if !result {
+        eprintln!(
+            "refs: failed to recreate link {} → {target}",
+            link.display()
+        );
+    }
+}
+
+#[cfg(not(windows))]
+fn recreate_link(link: &Path, target: &str, _is_target_dir: bool) {
+    use std::os::unix::fs::symlink;
+
+    if let Err(e) = std::fs::remove_file(link) {
+        eprintln!("refs: failed to remove stale link {}: {e}", link.display());
+        return;
+    }
+    if let Err(e) = symlink(target, link) {
+        eprintln!(
+            "refs: failed to recreate link {} → {target}: {e}",
+            link.display()
+        );
+    }
+}
