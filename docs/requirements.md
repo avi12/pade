@@ -55,6 +55,16 @@ writes.
 - R1.6.1 Adapt to the active agent; parse its own usage output.
 - R1.6.2 Show % used, reset time; 🔭 burn-rate warning.
 
+### 1.6a Auto-handoff (✅)
+- R1.6a.1 ✅ Track each session's **context-window** fill — parse the agent CLI's
+  own indicator from the PTY stream (`lib/stores/context.svelte.ts`), with a
+  conservative byte-estimate fallback.
+- R1.6a.2 ✅ Near the limit (≥90%), while the agent is idle and quota allows
+  (usage gate), **hand off automatically**: ask it to write `continue-<slug>.md`,
+  wait for the watcher to see it, end the session, and launch a successor seeded
+  to resume from that doc. Opt-out via `prefs.autoHandoff` (default on).
+  🔭 the CLI context parser is heuristic and should be tuned to the real output.
+
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface `CLAUDE.md`, `AGENTS.md`, `.claude/settings*`, `.mcp.json`.
 - R1.7.2 ⏳ Edits round-trip through the same files (no shadow store).
