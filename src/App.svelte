@@ -19,6 +19,7 @@
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
+  import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { packTabs } from "@/lib/tabFit";
   import { ChangeKind, SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
@@ -327,21 +328,6 @@
       });
     }
   }
-
-  // Transient status toast — a bottom-center pill that auto-dismisses. Reused by
-  // the send-from-IDE bridge and window-open actions; one timer, so a new toast
-  // resets the countdown rather than stacking.
-  const TOAST_MS = 2400;
-  let toast = $state("");
-  let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  function showToast(message: string) {
-    toast = message;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toast = "";
-    }, TOAST_MS);
-  }
-  onDestroy(() => clearTimeout(toastTimer));
 
   // Send-from-IDE bridge: highlight + copy a snippet in any external editor,
   // then press this global shortcut to inject the clipboard into the active
@@ -888,12 +874,12 @@
         </output>
       {/if}
 
-      {#if toast}
+      {#if toastText()}
         <!-- <output> already carries role=status — a transient bottom pill that
              auto-dismisses via the showToast timer. -->
         <output class="toast">
           <span class="tdot"><Icon name="external" /></span>
-          {toast}
+          {toastText()}
         </output>
       {/if}
 
