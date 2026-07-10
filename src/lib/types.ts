@@ -57,6 +57,22 @@ export const Agent = z.object({
 });
 export type Agent = z.infer<typeof Agent>;
 
+/** One runnable task parsed from a project manifest. */
+export const Task = z.object({
+  name: z.string(),
+  command: z.string()
+});
+export type Task = z.infer<typeof Task>;
+
+/** The tasks extracted from one manifest (package.json, Cargo.toml, …). */
+export const TaskGroup = z.object({
+  manifest: z.string(),
+  dir: z.string(),
+  kind: z.enum(["npm", "cargo", "make", "python"]),
+  tasks: z.array(Task)
+});
+export type TaskGroup = z.infer<typeof TaskGroup>;
+
 export const Ide = z.object({
   id: z.string(),
   label: z.string(),
