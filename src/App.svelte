@@ -20,6 +20,7 @@
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
+  import { packTabs } from "@/lib/tabFit";
   import { ChangeKind, SessionStatus, SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -92,14 +93,11 @@
   const splitCandidates = $derived(sessions.filter(s => !paneIds.includes(s.id)));
 
   // ── Session-tab overflow ────────────────────────────────────────────────────
-  // The tab strip is bounded to the width the nav gives it. Tabs that fit render
-  // as full pills; the next few collapse to status dots; the remainder live
-  // behind a "+N" popover. Pill widths come from an off-layout mirror row
-  // (re-measured on session change / reflow) so collapsing a tab never changes
-  // the numbers we packed against.
-  const TAB_GAP = 6; // px between tab items — mirrors the flex gap
-  const DOT_SLOT = 22 + TAB_GAP; // a collapsed status-dot button + its gap
-  const MORE_SLOT = 34 + TAB_GAP; // the "+N" overflow button + its gap
+  // The tab strip is bounded to the width the nav gives it. Packing into the
+  // pill / dot / "+N" tiers lives in lib/tabFit (pure); this component only
+  // measures. Pill widths come from an off-layout mirror row (re-measured on
+  // session change / reflow) so collapsing a tab never changes the numbers we
+  // packed against.
   let stripEl = $state<HTMLElement>();
   let measureEl = $state<HTMLElement>();
   let stripWidth = $state(0);
@@ -158,65 +156,13 @@
   });
 
   // Greedy three-tier packing: full pills → status dots → "+N" overflow.
-  type TabPack = {
-    visible: string[];
-    dots: string[];
-    more: string[];
-  };
-  const tabPack = $derived.by<TabPack>(() => {
-    const order = sessions;
-    function widthOf(id: string): number {
-      return tabWidths.get(id) ?? 0;
-    }
-
-    const total = order.reduce((sum, s, index) => sum + widthOf(s.id) + (index ? TAB_GAP : 0), 0);
-    // Everything fits (or we haven't measured yet) — all as full pills.
-    if (stripWidth === 0 || total <= stripWidth) {
-      return {
-        visible: order.map(s => s.id),
-        dots: [],
-        more: []
-      };
-    }
-
-    // We know we'll overflow, so reserve room for the "+N" button.
-    const budget = stripWidth - MORE_SLOT;
-    const visible: string[] = [];
-    let used = 0;
-    for (const session of order) {
-      const next = used + widthOf(session.id) + (visible.length ? TAB_GAP : 0);
-      if (next > budget) {
-        break;
-      }
-
-      visible.push(session.id);
-      used = next;
-    }
-
-    // Always keep at least one pill so the bar is never only a "+N".
-    if (visible.length === 0 && order.length > 0) {
-      visible.push(order[0].id);
-      used = widthOf(order[0].id);
-    }
-
-    const rest = order.slice(visible.length);
-    const dots: string[] = [];
-    let dotRoom = budget - used;
-    for (const session of rest) {
-      if (dotRoom < DOT_SLOT) {
-        break;
-      }
-
-      dots.push(session.id);
-      dotRoom -= DOT_SLOT;
-    }
-
-    return {
-      visible,
-      dots,
-      more: rest.slice(dots.length).map(s => s.id)
-    };
-  });
+  const tabPack = $derived(
+    packTabs({
+      ids: sessions.map(s => s.id),
+      widthOf: id => tabWidths.get(id) ?? 0,
+      stripWidth
+    })
+  );
 
   const bySessionId = $derived(new Map(sessions.map(s => [s.id, s] as const)));
   function tabsFor(ids: string[]): AgentSession[] {
