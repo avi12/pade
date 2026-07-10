@@ -11,6 +11,7 @@
   import IdeMenu from "./lib/IdeMenu.svelte";
   import { effective } from "./lib/prefs.svelte";
   import type { Agent, AgentSession, ChangeEvent, Settings } from "./lib/types";
+  import UsageMeter from "./lib/UsageMeter.svelte";
   import ChangeFeed from "./panels/ChangeFeed.svelte";
   import Onboarding from "./panels/Onboarding.svelte";
   import ProjectPicker from "./panels/ProjectPicker.svelte";
@@ -409,6 +410,7 @@
 
         <div class="spacer"></div>
 
+        <UsageMeter agent={activeAgent} />
         <DesignMenu
           agent={activeAgent} onpick={tool => {
             designUrl = tool.url;

@@ -16,7 +16,8 @@ import {
   PtyExit,
   Settings,
   StatusEntry,
-  TaskGroup
+  TaskGroup,
+  Usage
 } from "./types";
 import type { Prefs } from "./types";
 import { invoke } from "@tauri-apps/api/core";
@@ -171,6 +172,11 @@ export const vcs = {
 /** Task runner channel — runnable tasks parsed from project manifests. */
 export const tasks = {
   list: () => call("tasks_list", z.array(TaskGroup))
+};
+
+/** Agent usage / quota channel — reads local data only, never spends quota. */
+export const usage = {
+  get: (agent: string) => call("usage_get", Usage.nullable(), { agent })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */

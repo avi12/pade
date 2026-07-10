@@ -9,6 +9,7 @@ mod naming;
 mod os;
 mod pty;
 mod tasks;
+mod usage;
 mod util;
 mod vcs;
 mod watcher;
@@ -55,6 +56,7 @@ pub fn run() {
             config::config_list,
             config::config_read,
             tasks::tasks_list,
+            usage::usage_get,
             naming::project_autoname,
             workspace::launch_context,
             workspace::settings_get,
