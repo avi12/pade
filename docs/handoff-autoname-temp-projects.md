@@ -1,6 +1,38 @@
 # Handoff: auto-name temp projects via the Copilot API
 
-**Status:** spec + integration research complete, not yet implemented.
+**Status:** ✅ **implemented** (agent-CLI + heuristic, label-based). The optional
+Copilot-on-Windows source remains a documented stub (`copilot.rs`).
+
+## Implemented (2026-07)
+
+- **Applied as a display label, not a disk rename.** Auto-naming fires *while the
+  agent is live in the temp dir*, and the agent PTY child holds that dir as its
+  cwd — which Windows locks against rename (verified: a child-held cwd → rename
+  fails with "used by another process"; an open file handle inside → access
+  denied). So the derived name is stored in `settings.labels[path]` and shown in
+  the topbar + Recent list; the folder keeps its `temp-<stamp>` name on disk. This
+  is also non-destructive (never yanks the dir out from under the agent/editor).
+- **Name source chain** (`src-tauri/src/naming.rs`, behind a `Namer` trait):
+  `AgentCliNamer` (`claude -p …` / `codex exec …`, per the registry's `oneshot`
+  field) → `CopilotNamer` (Windows stub, returns `None`) → `HeuristicNamer`
+  (package.json / Cargo.toml name, README H1, dominant file stem). Orchestrator
+  sanitizes every candidate through the shared `sanitize()`.
+- **Trigger:** the frontend (`App.svelte`) counts distinct non-dotfile changes
+  from the Change Feed; after 3 it calls `project_autoname`, then
+  `workspace_set_label`. Guarded to run once per workspace; gated by
+  `prefs.autoNameTemp` (toggle in the picker).
+- **Commands:** `project_autoname({ path, agent })` (async, off-UI-thread, returns
+  `string | null`) and `workspace_set_label({ path, name })`.
+- **Note / follow-up:** the manual "Rename to a project" and "Move…" verbs still do
+  a physical `std::fs::rename`, which for the same cwd-lock reason will fail while
+  an agent session is live in the workspace. Consider closing the session first or
+  switching those to a deferred/label path too.
+
+---
+
+Original spec + integration research below (still current for the optional Copilot
+path).
+
 **Owner of next session:** implement per this doc. Read `docs/requirements.md` and
 the `ade-*` memory files first.
 

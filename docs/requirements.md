@@ -52,6 +52,21 @@ writes.
 ### 1.8 Knowledge bank (🔭 for MVP, architected-for)
 - Shared, git-backed, two-way (agent writes research; user has full CRUD).
 
+### 1.9 Workspaces & projects (✅ core)
+- R1.9.1 Launch modes: open the cwd when it's a project, else a throwaway **temp
+  workspace** (default) or the project picker (opt-in `startMode`).
+- R1.9.2 Temp workspaces live under the config dir; ADE-owned, so they can be
+  deleted, moved (→ permanent), or renamed (→ promoted into the primary root).
+- R1.9.3 ✅ **Auto-naming** — after first meaningful activity (≈3 distinct files
+  changed) a temp workspace gets a short, human-readable name: the installed agent
+  CLI one-shot (`claude -p …`, cross-platform) → local heuristic (package/Cargo
+  name, README heading, dominant file) as the always-on fallback. The name is
+  applied as a **display label**, never a disk rename — the live agent holds the
+  workspace as its cwd, which the OS (Windows) locks against rename. Toggle in the
+  picker; disabled via `prefs.autoNameTemp`.
+- R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token —
+  seam in place (`copilot.rs`), not yet wired; see the auto-naming handoff doc.
+
 ## 2. Non-functional requirements
 
 - R2.1 **Performance** — native core (Rust); web build reuses logic as WASM,
