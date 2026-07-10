@@ -842,15 +842,36 @@
     side = side === panel ? null : panel;
   }
 
-  // The shared side-panel header renders each panel's title here; the live count
-  // and refresh action are published by the active panel via the sidePanel store.
-  const SIDE_TITLES: Record<Exclude<Side, null>, string> = {
-    [Side.feed]: "Change Feed",
-    [Side.vcs]: "Version control",
-    [Side.tasks]: "Tasks",
-    [Side.config]: "Agent config"
-  };
-  const sideTitle = $derived(side ? SIDE_TITLES[side] : "");
+  // One source of truth for the side panels: the segmented control shows the
+  // short label (full name in a tooltip), the shared aside header shows the full
+  // label. Count + refresh are published per-panel via the sidePanel store.
+  const PANEL_TABS = [
+    {
+      id: Side.feed,
+      icon: "feed",
+      short: "Feed",
+      label: "Change Feed"
+    },
+    {
+      id: Side.vcs,
+      icon: "git",
+      short: "Git",
+      label: "Version control"
+    },
+    {
+      id: Side.tasks,
+      icon: "terminal",
+      short: "Tasks",
+      label: "Tasks"
+    },
+    {
+      id: Side.config,
+      icon: "sliders",
+      short: "Config",
+      label: "Agent config"
+    }
+  ] as const;
+  const sideTitle = $derived(PANEL_TABS.find(tab => tab.id === side)?.label ?? "");
 
   // Run a project task as a streaming runner in the dock (not a throwaway
   // terminal tab), so its output stays visible and can be piped into an agent.
@@ -925,7 +946,7 @@
               aria-label="Close session"
               data-tooltip="Close session"
               onclick={() => close(s)}
-            >×</button>
+            ><Icon name="close" size={13} /></button>
           </div>
         {/snippet}
 
@@ -971,7 +992,7 @@
                         aria-label="Close session"
                         data-tooltip="Close session"
                         onclick={() => close(s)}
-                      >×</button>
+                      ><Icon name="close" size={13} /></button>
                     </li>
                   {/each}
                 </ul>
@@ -994,6 +1015,7 @@
             popovertarget="add-menu"
           >+</button>
           <ul id="add-menu" style:position-anchor="--add-anchor" class="menu" popover>
+            <li class="menu-sep">Launch an agent</li>
             {#each agents as a (a.id)}
               <li>
                 <button onclick={() => launch({ agent: a })} popovertarget="add-menu" popovertargetaction="hide">
@@ -1020,19 +1042,15 @@
         <DesignMenu agent={activeAgent} />
         <IdeMenu />
 
-        <div class="seg" aria-label="Side panel" role="tablist">
-          <button aria-selected={side === Side.feed} onclick={() => toggleSide(Side.feed)} role="tab">
-            <Icon name="feed" /> Change Feed
-          </button>
-          <button aria-selected={side === Side.vcs} onclick={() => toggleSide(Side.vcs)} role="tab">
-            <Icon name="git" /> Git
-          </button>
-          <button aria-selected={side === Side.tasks} onclick={() => toggleSide(Side.tasks)} role="tab">
-            <Icon name="terminal" /> Tasks
-          </button>
-          <button aria-selected={side === Side.config} onclick={() => toggleSide(Side.config)} role="tab">
-            <Icon name="sliders" /> Config
-          </button>
+        <div class="seg" aria-label="Side panels" role="tablist">
+          {#each PANEL_TABS as tab (tab.id)}
+            <button
+              aria-selected={side === tab.id}
+              data-tooltip={tab.label}
+              onclick={() => toggleSide(tab.id)}
+              role="tab"
+            ><Icon name={tab.icon} /> <span>{tab.short}</span></button>
+          {/each}
         </div>
       </header>
 
