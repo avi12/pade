@@ -79,11 +79,14 @@ These are non-negotiable for all work in this repo.
      (`const isTempWorkspace = …; if (isTempWorkspace)`), so the happy path reads
      as prose. Inline only conditions that are already obvious.
    - Full words, no abbreviations: name variables, functions, parameters, types,
-     and CSS classes with complete, spelled-out words — `index` not `idx`,
-     `button` not `btn`, `element` not `el`, `previous` not `prev`,
-     `configuration` not `cfg`, `column` not `col`. A descriptive full-word name
+     CSS classes, and CSS custom properties with complete, spelled-out words —
+     `index` not `idx`, `button` not `btn`, `element` not `el`, `previous` not
+     `prev`, `configuration` not `cfg`, `column` not `col`, and
+     `--radius-small` / `--on-surface-variant` / `--font-monospace` not
+     `--r-sm` / `--on-surface-var` / `--font-mono`. A descriptive full-word name
      always beats a terse one; the only exceptions are a bare loop counter (`i`)
-     and domain terms conventionally written short. Applies in TS and Rust alike.
+     and domain terms/initialisms conventionally written short (`ui`, `id`,
+     `url`). Applies in TS, Rust, and CSS alike.
    - Tabular numerals: every place a number is displayed (counts, percentages,
      stats, timers, SHAs' surrounding metrics) sets `font-variant-numeric:
      tabular-nums` so digits align and don't jitter as values change.
@@ -97,11 +100,13 @@ These are non-negotiable for all work in this repo.
 8. **Nested CSS** — use native CSS nesting to keep a component's rules together
    and mirror its markup, instead of repeating long selector prefixes.
 
-9. **Pure CSS over JS** — prefer a CSS solution whenever one exists: `:hover`/
-   `:focus-within`/`:has()` state, `<details>`/`popover`/`dialog`, CSS transitions
-   and animations, scroll-snap, container queries, `accent-color`. Only add JS
-   when the behavior genuinely can't be expressed in CSS. Less JS = less to ship,
-   parse, and break.
+9. **Modern platform first; pure HTML & CSS over JS** — always reach for current,
+   native HTML, CSS, and JavaScript features (the platform's own capabilities over
+   libraries or polyfills), and whenever a behavior can be expressed in HTML or
+   CSS, do it there rather than in JS: `:hover`/`:focus-within`/`:has()` state,
+   `<details>`/`popover`/`dialog`, CSS transitions and animations, scroll-snap,
+   container queries, `accent-color`. Only add JS when the behavior genuinely
+   can't be expressed in HTML/CSS. Less JS = less to ship, parse, and break.
 
 10. **Minimize dependencies** — every third-party package is supply-chain attack
     surface. Prefer implementing a small, well-understood utility yourself over
