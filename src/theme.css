@@ -27,29 +27,41 @@
 }
 
 :root {
-  --seed-h: 210;
+  --seed-h: 210deg;
 
   /* light scheme */
-  --primary: hsl(210deg 90% 45%);
+  --primary: hsl(var(--seed-h) 90% 45%);
   --on-primary: #ffffff;
-  --primary-container: hsl(210deg 90% 92%);
-  --on-primary-container: hsl(210deg 90% 18%);
+  --primary-container: hsl(var(--seed-h) 90% 92%);
+  --on-primary-container: hsl(var(--seed-h) 90% 18%);
   --tertiary: hsl(160deg 55% 32%);
   --tertiary-wash: hsl(160deg 55% 45% / 16%);
   --warn: hsl(28deg 90% 42%);
+  --warn-wash: hsl(28deg 90% 45% / 14%);
   --crit: hsl(352deg 72% 50%);
   --crit-wash: hsl(352deg 72% 55% / 14%);
-  --surface: hsl(210deg 30% 98%);
-  --surface-1: hsl(210deg 28% 96%);
-  --surface-2: hsl(210deg 26% 93%);
-  --surface-3: hsl(210deg 24% 89%);
+  --surface: hsl(var(--seed-h) 30% 98%);
+  --surface-1: hsl(var(--seed-h) 28% 96%);
+  --surface-2: hsl(var(--seed-h) 26% 93%);
+  --surface-3: hsl(var(--seed-h) 24% 89%);
   --on-surface: hsl(214deg 30% 14%);
   --on-surface-var: hsl(214deg 14% 40%);
   --outline: hsl(214deg 15% 82%);
 
+  /* Shadow tint for floating surfaces (menus, modals). A fixed dark blue so it
+     reads as depth in both schemes — never color-mix(on-surface) which inverts
+     to a light "glow" in dark mode. */
+  --shadow-color: hsl(214deg 30% 30% / 20%);
+
   /* Terminal surface follows the theme — light in light mode. */
-  --code-bg: hsl(210deg 30% 96%);
+  --code-bg: hsl(var(--seed-h) 30% 96%);
   --code-fg: hsl(214deg 30% 20%);
+
+  /* Syntax-highlight palette for the code / config / diff viewers. */
+  --syn-comment: hsl(214deg 12% 48%);
+  --syn-keyword: hsl(265deg 55% 52%);
+  --syn-string: hsl(160deg 50% 34%);
+  --syn-number: hsl(28deg 75% 44%);
 
   /* M3 shape scale */
   --r-sm: 8px;
@@ -69,24 +81,30 @@
    via matchMedia and sets data-theme accordingly, so this single block covers
    both OS-follow and an explicit dark choice (DRY — no duplicated media block). */
 :root[data-theme="dark"] {
-  --primary: hsl(210deg 90% 68%);
-  --on-primary: hsl(210deg 90% 12%);
-  --primary-container: hsl(210deg 55% 22%);
-  --on-primary-container: hsl(210deg 90% 88%);
+  --primary: hsl(var(--seed-h) 90% 68%);
+  --on-primary: hsl(var(--seed-h) 90% 12%);
+  --primary-container: hsl(var(--seed-h) 55% 22%);
+  --on-primary-container: hsl(var(--seed-h) 90% 88%);
   --tertiary: hsl(160deg 55% 62%);
   --tertiary-wash: hsl(160deg 55% 50% / 18%);
   --warn: hsl(28deg 90% 62%);
+  --warn-wash: hsl(28deg 90% 58% / 16%);
   --crit: hsl(352deg 80% 70%);
   --crit-wash: hsl(352deg 80% 60% / 18%);
   --surface: hsl(214deg 30% 8%);
   --surface-1: hsl(214deg 28% 11%);
   --surface-2: hsl(214deg 26% 14%);
   --surface-3: hsl(214deg 24% 19%);
-  --on-surface: hsl(210deg 24% 92%);
+  --on-surface: hsl(var(--seed-h) 24% 92%);
   --on-surface-var: hsl(214deg 14% 66%);
   --outline: hsl(214deg 15% 28%);
+  --shadow-color: hsl(214deg 40% 3% / 50%);
   --code-bg: hsl(214deg 40% 6%);
-  --code-fg: hsl(210deg 20% 85%);
+  --code-fg: hsl(var(--seed-h) 20% 85%);
+  --syn-comment: hsl(214deg 14% 56%);
+  --syn-keyword: hsl(265deg 70% 76%);
+  --syn-string: hsl(160deg 50% 62%);
+  --syn-number: hsl(28deg 85% 66%);
 }
 
 * {
@@ -326,6 +344,91 @@ body {
 @keyframes spin {
   to {
     rotate: 1turn;
+  }
+}
+
+/* Backdrop / plain fade (modal scrim, toast). */
+@keyframes fadein {
+  from {
+    opacity: 0%;
+  }
+
+  to {
+    opacity: 100%;
+  }
+}
+
+/* ── Custom checkbox — shared M3 control ──────────────────────────────────────
+   One authoritative home (DRY) so any panel can reuse `<span class="ck">`. The
+   box fills primary and the tick draws itself on check; reuses the check-pop
+   keyframe above. */
+.ck {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  block-size: 20px;
+  inline-size: 20px;
+
+  input {
+    position: absolute;
+    inset: 0;
+    block-size: 100%;
+    inline-size: 100%;
+    margin: 0;
+    opacity: 0%;
+    cursor: pointer;
+  }
+
+  .box {
+    display: grid;
+    place-items: center;
+    block-size: 20px;
+    inline-size: 20px;
+    border: 2px solid var(--outline);
+    border-radius: 7px;
+    background: var(--surface-2);
+    transition:
+      background 250ms var(--ease),
+      border-color 250ms var(--ease),
+      scale 300ms var(--spring);
+
+    svg {
+      display: block;
+      block-size: 13px;
+      inline-size: 13px;
+    }
+
+    path {
+      fill: none;
+      stroke: var(--on-primary);
+      stroke-dasharray: 22;
+      stroke-dashoffset: 22;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 3;
+      transition: stroke-dashoffset 240ms var(--ease) 60ms;
+    }
+  }
+
+  input:checked + .box {
+    border-color: var(--primary);
+    background: var(--primary);
+    scale: 1.06;
+    animation: check-pop 360ms var(--spring);
+  }
+
+  input:checked + .box path {
+    stroke-dashoffset: 0;
+  }
+
+  input:not(:checked):hover + .box {
+    border-color: var(--primary);
+  }
+
+  input:focus-visible + .box {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 }
 

@@ -11,16 +11,16 @@
 
   const ICONS = {
     folder: {
-      path: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+      path: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
     },
     folderPlus: {
       path: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6"
     },
     terminal: {
-      path: "M5 6l5 6-5 6 M13 18h6"
+      path: "M4 17l6-6-6-6 M12 19h8"
     },
     code: {
-      path: "M9 6l-5 6 5 6 M15 6l5 6-5 6"
+      path: "M16 18l6-6-6-6 M8 6l-6 6 6 6"
     },
     feed: {
       path: "M4 7h16 M4 12h16 M4 17h10"
@@ -39,7 +39,8 @@
       path: "M3 7l2 2 4-4 M3 17l2 2 4-4 M13 6h8 M13 12h8 M13 18h8"
     },
     sliders: {
-      path: "M4 7h16 M4 12h16 M4 17h16 M9 5v4 M15 10v4 M7 15v4"
+      path: "M4 6h11 M19 6h1 M4 12h4 M12 12h8 M4 18h9 M17 18h3",
+      circles: [[16, 6, 2], [9, 12, 2], [15, 18, 2]]
     },
     plus: {
       path: "M12 5v14 M5 12h14"
@@ -48,7 +49,7 @@
       path: "M18 6 6 18 M6 6l12 12"
     },
     trash: {
-      path: "M4 7h16 M9 7V5h6v2 M6 7l1 13h10l1-13"
+      path: "M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
     },
     pencil: {
       path: "M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"
@@ -57,10 +58,10 @@
       path: "M16 3l4 4-4 4 M20 7H4 M8 21l-4-4 4-4 M4 17h16"
     },
     external: {
-      path: "M14 4h6v6 M20 4l-9 9 M5 6v13h13v-6"
+      path: "M15 3h6v6 M10 14 21 3 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
     },
     refresh: {
-      path: "M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4"
+      path: "M21 12a9 9 0 1 1-2.64-6.36 M21 3v6h-6"
     },
     history: {
       path: "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l4 2"
@@ -83,6 +84,15 @@
     },
     sparkles: {
       path: "M12 3l1.9 5.3a2 2 0 0 0 1.8 1.8L21 12l-5.3 1.9a2 2 0 0 0-1.8 1.8L12 21l-1.9-5.3a2 2 0 0 0-1.8-1.8L3 12l5.3-1.9a2 2 0 0 0 1.8-1.8z M19 4v3 M17.5 5.5h3"
+    },
+    search: {
+      path: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M20 20l-3.5-3.5"
+    },
+    window: {
+      path: "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 9h18 M7 6h.01 M10 6h.01"
+    },
+    windowPlus: {
+      path: "M3 5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5 M3 9h13 M7 6h.01 M18 14v6 M15 17h6"
     }
   } as const satisfies Record<string, IconDef>;
 
@@ -106,7 +116,7 @@
   stroke="currentColor"
   stroke-linecap="round"
   stroke-linejoin="round"
-  stroke-width="2"
+  stroke-width="1.9"
   viewBox="0 0 24 24"
   width={size}
 >
