@@ -33,6 +33,10 @@ These are non-negotiable for all work in this repo.
      from Rust). Define one schema per payload and derive the TS type with
      `z.infer` — schema is the single source of truth, never a hand-written
      `interface` alongside it.
+   - Path aliases: import internal modules through the `@/` alias (→ `src/`) —
+     `@/lib/bridge`, `@/panels/Terminal.svelte` — never a relative `./` or `../`
+     chain. Configured once in `vite.config.ts` (`resolve.alias`) and
+     `tsconfig.json` (`paths`). Third-party packages stay bare imports.
    - Reuse relentlessly (TS & Rust): factor shared logic into one function and
      call it; a validated-`invoke` wrapper, `is_on_path`, `lookup` — extend these
      rather than re-deriving. If you write similar code twice, stop and extract.

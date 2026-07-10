@@ -1,9 +1,16 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 // Tauri expects a fixed port and no clobbering of its own env vars.
 export default defineConfig({
   plugins: [svelte()],
+  // `@` → src, so internal modules import as `@/lib/…` not brittle `../../` chains.
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url))
+    }
+  },
   clearScreen: false,
   server: {
     port: 1420,
