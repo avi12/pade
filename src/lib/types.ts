@@ -74,6 +74,21 @@ export const DesignTool = z.object({
 });
 export type DesignTool = z.infer<typeof DesignTool>;
 
+/** Remaining usage / quota for the active agent. Every field is optional so an
+ *  adapter can surface only what it has locally; the whole payload is nullable
+ *  (`null` = no reliable local signal, UI shows "usage —"). */
+export const Usage = z.object({
+  /** Percent of quota consumed, 0..100, when a precise number is known. */
+  usedPct: z.number().nullish(),
+  /** Short meter label (e.g. a plan/tier name). */
+  label: z.string(),
+  /** ISO-8601 reset time for the quota window, when known. */
+  resetsAt: z.string().nullish(),
+  /** Where the figure came from — so the UI stays honest about it. */
+  source: z.string()
+});
+export type Usage = z.infer<typeof Usage>;
+
 export const LaunchContext = z.object({
   hasProject: z.boolean(),
   cwd: z.string()

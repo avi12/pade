@@ -15,7 +15,8 @@ import {
   PtyChunk,
   PtyExit,
   Settings,
-  StatusEntry
+  StatusEntry,
+  Usage
 } from "./types";
 import type { Prefs } from "./types";
 import { invoke } from "@tauri-apps/api/core";
@@ -124,6 +125,11 @@ export const vcs = {
     create: boolean;
   }) =>
     call("vcs_worktree_add", z.string(), { ...args })
+};
+
+/** Agent usage / quota channel — reads local data only, never spends quota. */
+export const usage = {
+  get: (agent: string) => call("usage_get", Usage.nullable(), { agent })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */
