@@ -56,6 +56,10 @@ pub struct Prefs {
     /// IDE id used when no `ide_rules` entry matches the project kind.
     #[serde(default)]
     pub ide_fallback: Option<String>,
+    /// Auto-hand-off to a fresh agent near the context limit. Opt-out:
+    /// `None`/`Some(true)` = on, `Some(false)` = disabled.
+    #[serde(default)]
+    pub auto_handoff: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Default)]

@@ -148,7 +148,10 @@ export const Prefs = z.object({
   /** Per project-kind editor rules — kind (e.g. "web", "rust") → IDE id. */
   ideRules: z.record(z.string(), z.string()).nullish(),
   /** IDE id to open when no rule matches the project kind. */
-  ideFallback: z.string().nullish()
+  ideFallback: z.string().nullish(),
+  /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless
+   *  explicitly set to false. */
+  autoHandoff: z.boolean().nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 

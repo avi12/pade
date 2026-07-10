@@ -2,6 +2,7 @@
   import { pty } from "@/lib/bridge";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
+  import { dropContext, observeContext } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession } from "@/lib/types";
@@ -101,6 +102,11 @@
 
       term.write(chunk);
       markActivity();
+      // Track how full this agent's context window is (drives auto-handoff).
+      observeContext({
+        id: session.id,
+        chunk
+      });
     });
     exitUnlisten = await pty.onExit(id => {
       if (id !== session.id) {
@@ -158,6 +164,7 @@
     clearTimeout(idleTimer);
     clearTimeout(fitTimer);
     resizeObs?.disconnect();
+    dropContext(session.id);
     term?.dispose();
   });
 
