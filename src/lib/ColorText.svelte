@@ -34,20 +34,20 @@
 
 <style>
   .cmt {
-    color: var(--syn-comment);
+    color: var(--syntax-comment);
     font-style: italic;
   }
 
   .str {
-    color: var(--syn-string);
+    color: var(--syntax-string);
   }
 
   .num {
-    color: var(--syn-number);
+    color: var(--syntax-number);
   }
 
   .kw {
-    color: var(--syn-keyword);
+    color: var(--syntax-keyword);
   }
 
   .swatch {

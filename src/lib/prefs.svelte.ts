@@ -43,7 +43,7 @@ function resolvedScheme(): "light" | "dark" {
 }
 
 function apply() {
-  // Fonts are bound declaratively in the template (style:--font-ui / --font-mono).
+  // Fonts are bound declaratively in the template (style:--font-ui / --font-monospace).
   // Theme mode stays here: it must sit on <html> for the pre-paint flash guard
   // and to cover anything rendered outside the app root.
   appearance.scheme = resolvedScheme();

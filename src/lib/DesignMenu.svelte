@@ -84,7 +84,7 @@
     margin-inline: 0;
     padding: 6px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-2);
     list-style: none;
     box-shadow: 0 16px 40px var(--shadow-color);
@@ -93,7 +93,7 @@
     .hint {
       padding-block: 6px 4px;
       padding-inline: 10px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
       letter-spacing: 0.08em;
@@ -108,7 +108,7 @@
       inline-size: 100%;
       padding: 8px 10px;
       border: none;
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
       background: transparent;
       color: var(--on-surface);
       font: inherit;
@@ -137,7 +137,7 @@
       }
 
       .vendor {
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
         font-size: 11px;
       }
 

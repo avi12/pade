@@ -231,7 +231,7 @@
   }
 
   .hint {
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 11px;
   }
 
@@ -267,7 +267,7 @@
     padding-inline: 8px;
     border-radius: 999px;
     background: var(--surface-3);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 10px;
     letter-spacing: 0.05em;
@@ -300,7 +300,7 @@
 
     /* Non-zero exit: crit dot, no success halo. */
     &.failed {
-      background: var(--crit);
+      background: var(--critical);
       animation: none;
     }
   }
@@ -326,7 +326,7 @@
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     cursor: pointer;
     transition: background 140ms var(--ease), color 140ms var(--ease);
   }
@@ -341,8 +341,8 @@
   }
 
   .stop:hover {
-    background: var(--crit-wash);
-    color: var(--crit);
+    background: var(--critical-wash);
+    color: var(--critical);
   }
 
   .out {
@@ -351,9 +351,9 @@
     min-block-size: 0;
     padding-block: 8px;
     padding-inline: 10px;
-    background: var(--code-bg);
-    color: var(--code-fg);
-    font-family: var(--font-mono);
+    background: var(--code-background);
+    color: var(--code-foreground);
+    font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
   }
@@ -365,7 +365,7 @@
 
     /* stderr in a crit tint so failures read at a glance. */
     &.err {
-      color: color-mix(in sRGB, var(--crit) 82%, var(--code-fg));
+      color: color-mix(in sRGB, var(--critical) 82%, var(--code-foreground));
     }
   }
 </style>

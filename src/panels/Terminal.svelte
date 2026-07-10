@@ -205,8 +205,8 @@
   function readXtermTheme() {
     const style = getComputedStyle(document.documentElement);
     return {
-      background: style.getPropertyValue("--code-bg").trim(),
-      foreground: style.getPropertyValue("--code-fg").trim(),
+      background: style.getPropertyValue("--code-background").trim(),
+      foreground: style.getPropertyValue("--code-foreground").trim(),
       cursor: style.getPropertyValue("--primary").trim()
     };
   }
@@ -251,7 +251,7 @@
     min-block-size: 0;
     padding-block: 10px 8px;
     padding-inline: 14px 8px;
-    background: var(--code-bg);
+    background: var(--code-background);
   }
 
   .term-host {

@@ -27,25 +27,25 @@
 }
 
 :root {
-  --seed-h: 210deg;
+  --seed-hue: 210deg;
 
   /* light scheme */
-  --primary: hsl(var(--seed-h) 90% 45%);
+  --primary: hsl(var(--seed-hue) 90% 45%);
   --on-primary: #ffffff;
-  --primary-container: hsl(var(--seed-h) 90% 92%);
-  --on-primary-container: hsl(var(--seed-h) 90% 18%);
+  --primary-container: hsl(var(--seed-hue) 90% 92%);
+  --on-primary-container: hsl(var(--seed-hue) 90% 18%);
   --tertiary: hsl(160deg 55% 32%);
   --tertiary-wash: hsl(160deg 55% 45% / 16%);
-  --warn: hsl(28deg 90% 42%);
-  --warn-wash: hsl(28deg 90% 45% / 14%);
-  --crit: hsl(352deg 72% 50%);
-  --crit-wash: hsl(352deg 72% 55% / 14%);
-  --surface: hsl(var(--seed-h) 30% 98%);
-  --surface-1: hsl(var(--seed-h) 28% 96%);
-  --surface-2: hsl(var(--seed-h) 26% 93%);
-  --surface-3: hsl(var(--seed-h) 24% 89%);
+  --warning: hsl(28deg 90% 42%);
+  --warning-wash: hsl(28deg 90% 45% / 14%);
+  --critical: hsl(352deg 72% 50%);
+  --critical-wash: hsl(352deg 72% 55% / 14%);
+  --surface: hsl(var(--seed-hue) 30% 98%);
+  --surface-1: hsl(var(--seed-hue) 28% 96%);
+  --surface-2: hsl(var(--seed-hue) 26% 93%);
+  --surface-3: hsl(var(--seed-hue) 24% 89%);
   --on-surface: hsl(214deg 30% 14%);
-  --on-surface-var: hsl(214deg 14% 40%);
+  --on-surface-variant: hsl(214deg 14% 40%);
   --outline: hsl(214deg 15% 82%);
 
   /* Shadow tint for floating surfaces (menus, modals). A fixed dark blue so it
@@ -54,57 +54,57 @@
   --shadow-color: hsl(214deg 30% 30% / 20%);
 
   /* Terminal surface follows the theme — light in light mode. */
-  --code-bg: hsl(var(--seed-h) 30% 96%);
-  --code-fg: hsl(214deg 30% 20%);
+  --code-background: hsl(var(--seed-hue) 30% 96%);
+  --code-foreground: hsl(214deg 30% 20%);
 
   /* Syntax-highlight palette for the code / config / diff viewers. */
-  --syn-comment: hsl(214deg 12% 48%);
-  --syn-keyword: hsl(265deg 55% 52%);
-  --syn-string: hsl(160deg 50% 34%);
-  --syn-number: hsl(28deg 75% 44%);
+  --syntax-comment: hsl(214deg 12% 48%);
+  --syntax-keyword: hsl(265deg 55% 52%);
+  --syntax-string: hsl(160deg 50% 34%);
+  --syntax-number: hsl(28deg 75% 44%);
 
   /* M3 shape scale */
-  --r-sm: 8px;
-  --r-md: 14px;
-  --r-lg: 20px;
-  --r-xl: 28px;
+  --radius-small: 8px;
+  --radius-medium: 14px;
+  --radius-large: 20px;
+  --radius-extra-large: 28px;
 
   /* M3 emphasized easing, plus a spring that overshoots for expressive,
      spatial motion (cards rising, chips popping, menus springing open). */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
   --font-ui: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+  --font-monospace: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 }
 
 /* Dark tokens. The theme controller resolves "system" to a concrete light/dark
    via matchMedia and sets data-theme accordingly, so this single block covers
    both OS-follow and an explicit dark choice (DRY — no duplicated media block). */
 :root[data-theme="dark"] {
-  --primary: hsl(var(--seed-h) 90% 68%);
-  --on-primary: hsl(var(--seed-h) 90% 12%);
-  --primary-container: hsl(var(--seed-h) 55% 22%);
-  --on-primary-container: hsl(var(--seed-h) 90% 88%);
+  --primary: hsl(var(--seed-hue) 90% 68%);
+  --on-primary: hsl(var(--seed-hue) 90% 12%);
+  --primary-container: hsl(var(--seed-hue) 55% 22%);
+  --on-primary-container: hsl(var(--seed-hue) 90% 88%);
   --tertiary: hsl(160deg 55% 62%);
   --tertiary-wash: hsl(160deg 55% 50% / 18%);
-  --warn: hsl(28deg 90% 62%);
-  --warn-wash: hsl(28deg 90% 58% / 16%);
-  --crit: hsl(352deg 80% 70%);
-  --crit-wash: hsl(352deg 80% 60% / 18%);
+  --warning: hsl(28deg 90% 62%);
+  --warning-wash: hsl(28deg 90% 58% / 16%);
+  --critical: hsl(352deg 80% 70%);
+  --critical-wash: hsl(352deg 80% 60% / 18%);
   --surface: hsl(214deg 30% 8%);
   --surface-1: hsl(214deg 28% 11%);
   --surface-2: hsl(214deg 26% 14%);
   --surface-3: hsl(214deg 24% 19%);
-  --on-surface: hsl(var(--seed-h) 24% 92%);
-  --on-surface-var: hsl(214deg 14% 66%);
+  --on-surface: hsl(var(--seed-hue) 24% 92%);
+  --on-surface-variant: hsl(214deg 14% 66%);
   --outline: hsl(214deg 15% 28%);
   --shadow-color: hsl(214deg 40% 3% / 50%);
-  --code-bg: hsl(214deg 40% 6%);
-  --code-fg: hsl(var(--seed-h) 20% 85%);
-  --syn-comment: hsl(214deg 14% 56%);
-  --syn-keyword: hsl(265deg 70% 76%);
-  --syn-string: hsl(160deg 50% 62%);
-  --syn-number: hsl(28deg 85% 66%);
+  --code-background: hsl(214deg 40% 6%);
+  --code-foreground: hsl(var(--seed-hue) 20% 85%);
+  --syntax-comment: hsl(214deg 14% 56%);
+  --syntax-keyword: hsl(265deg 70% 76%);
+  --syntax-string: hsl(160deg 50% 62%);
+  --syntax-number: hsl(28deg 85% 66%);
 }
 
 * {
@@ -183,7 +183,7 @@ body {
     z-index: 50;
     max-inline-size: 60ch;
     padding: 4px 8px;
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     background: var(--surface-3);
     color: var(--on-surface);
     font-family: var(--font-ui);

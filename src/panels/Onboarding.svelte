@@ -44,7 +44,7 @@
   .card {
     inline-size: min(560px, 100%);
     padding: 40px;
-    border-radius: var(--r-xl);
+    border-radius: var(--radius-extra-large);
     background: var(--surface-1);
 
     /* Floating hero surface — soft depth shadow (allowed on elevated cards),
@@ -66,7 +66,7 @@
       max-inline-size: 46ch;
       margin-block: 12px 0;
       margin-inline: 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 14px;
       line-height: 1.5;
     }
@@ -89,7 +89,7 @@
     inline-size: 100%;
     padding: 18px 20px;
     border: 1px solid transparent;
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-large);
     background: var(--surface-2);
 
     /* Buttons don't inherit the page text color — set it explicitly. */
@@ -114,8 +114,8 @@
     }
 
     .cmd {
-      color: var(--on-surface-var);
-      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
       font-size: 12px;
     }
 

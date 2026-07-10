@@ -31,12 +31,12 @@
     display: inline-flex;
     gap: 8px;
     align-items: center;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 12px;
 
     .label {
       color: var(--on-surface);
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 600;
     }
 
@@ -45,7 +45,7 @@
       block-size: 9px;
       inline-size: 9px;
       border-radius: 999px;
-      background: var(--on-surface-var);
+      background: var(--on-surface-variant);
     }
 
     /* Working: primary, pulsing (shared global @keyframes pulse). Ready:
@@ -67,7 +67,7 @@
     }
 
     &.exited .dot {
-      background: var(--on-surface-var);
+      background: var(--on-surface-variant);
     }
   }
 </style>

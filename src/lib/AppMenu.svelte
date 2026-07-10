@@ -230,7 +230,7 @@
     }
 
     .eyebrow {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 9px;
       letter-spacing: 0.08em;
@@ -241,13 +241,13 @@
       display: inline-flex;
       gap: 6px;
       align-items: center;
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 700;
       font-size: 14px;
     }
 
     .caret {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 10px;
       opacity: 70%;
@@ -260,7 +260,7 @@
     padding-inline: 6px;
     border-radius: 999px;
     background: var(--surface-3);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-family: var(--font-ui);
     font-weight: 700;
     font-size: 9px;
@@ -278,7 +278,7 @@
     margin-inline: 0;
     padding: 6px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-2);
     color: var(--on-surface);
     box-shadow: 0 16px 40px var(--shadow-color);
@@ -313,7 +313,7 @@
 
       .head-name {
         overflow: hidden;
-        font-family: var(--font-mono);
+        font-family: var(--font-monospace);
         font-weight: 700;
         font-size: 14px;
         text-overflow: ellipsis;
@@ -322,8 +322,8 @@
 
       .head-path {
         overflow: hidden;
-        color: var(--on-surface-var);
-        font-family: var(--font-mono);
+        color: var(--on-surface-variant);
+        font-family: var(--font-monospace);
         font-size: 10px;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -338,7 +338,7 @@
       padding-block: 8px;
       padding-inline: 10px;
       border: none;
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
       background: transparent;
       color: var(--on-surface);
       font: inherit;
@@ -363,7 +363,7 @@
       .lead {
         display: inline-flex;
         flex-shrink: 0;
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
 
         &.accent {
           color: var(--primary);
@@ -377,7 +377,7 @@
       .trail {
         display: inline-flex;
         flex-shrink: 0;
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
         opacity: 70%;
       }
 
@@ -394,8 +394,8 @@
         padding-inline: 6px;
         border-radius: 6px;
         background: var(--surface-3);
-        color: var(--on-surface-var);
-        font-family: var(--font-mono);
+        color: var(--on-surface-variant);
+        font-family: var(--font-monospace);
         font-size: 10px;
       }
 
@@ -432,7 +432,7 @@
     }
 
     .eyebrow {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
       letter-spacing: 0.08em;
@@ -465,13 +465,13 @@
       padding-block: 6px;
       padding-inline: 10px;
       border: 1px solid var(--outline);
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
       background: var(--surface-1);
 
       .lead {
         display: inline-flex;
         flex-shrink: 0;
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
       }
 
       input {
@@ -497,7 +497,7 @@
       .empty {
         padding-block: 14px;
         padding-inline: 10px;
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
         font-size: 12px;
         text-align: center;
       }

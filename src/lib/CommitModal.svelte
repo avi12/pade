@@ -314,7 +314,7 @@
     margin: auto;
     padding: 0;
     border: 1px solid var(--outline);
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-large);
     background: var(--surface-1);
     color: var(--on-surface);
     outline: none;
@@ -352,10 +352,10 @@
     .sha-chip {
       padding-block: 3px;
       padding-inline: 9px;
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
       background: var(--primary-container);
       color: var(--on-primary-container);
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 700;
       font-size: 13px;
     }
@@ -364,8 +364,8 @@
       display: inline-flex;
       gap: 5px;
       align-items: center;
-      color: var(--on-surface-var);
-      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
       font-size: 11px;
     }
 
@@ -390,7 +390,7 @@
       gap: 12px;
       align-items: center;
       margin-block: 7px 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
     }
@@ -413,7 +413,7 @@
     }
 
     .del {
-      color: var(--crit);
+      color: var(--critical);
       font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
@@ -462,7 +462,7 @@
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     cursor: pointer;
     transition:
       background 120ms var(--ease),
@@ -492,7 +492,7 @@
       margin: 0;
       padding-block: 6px 4px;
       padding-inline: 8px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
       letter-spacing: 0.08em;
@@ -546,7 +546,7 @@
       padding-block: 1px;
       padding-inline: 5px;
       border-radius: 5px;
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 700;
       font-size: 10px;
     }
@@ -564,15 +564,15 @@
     }
 
     &.deleted .kind {
-      background: var(--crit-wash);
-      color: var(--crit);
+      background: var(--critical-wash);
+      color: var(--critical);
     }
 
     .fname {
       flex: 1;
       overflow: hidden;
       min-inline-size: 0;
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 12px;
       text-overflow: ellipsis;
@@ -593,7 +593,7 @@
     }
 
     .del {
-      color: var(--crit);
+      color: var(--critical);
     }
   }
 
@@ -601,7 +601,7 @@
     display: flex;
     flex-direction: column;
     min-block-size: 0;
-    background: var(--code-bg);
+    background: var(--code-background);
   }
 
   .pane-bar {
@@ -619,7 +619,7 @@
       overflow: hidden;
       min-inline-size: 0;
       color: var(--on-surface);
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 12px;
       text-overflow: ellipsis;
@@ -631,8 +631,8 @@
       padding-block: 3px;
       padding-inline: 9px;
       border-radius: 999px;
-      background: var(--warn-wash);
-      color: var(--warn);
+      background: var(--warning-wash);
+      color: var(--warning);
       font-weight: 700;
       font-size: 10px;
       letter-spacing: 0.04em;
@@ -652,19 +652,19 @@
   .state {
     margin: 0;
     padding: 14px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 12px;
   }
 
   .unified {
     margin: 0;
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-size: 12px;
 
     .dl {
       display: block;
       padding-inline: 14px;
-      color: var(--code-fg);
+      color: var(--code-foreground);
       white-space: pre;
     }
 
@@ -673,11 +673,11 @@
     }
 
     .dl.del {
-      background: var(--crit-wash);
+      background: var(--critical-wash);
     }
 
     .dl.metaline {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
     }
   }
 
@@ -689,12 +689,12 @@
     margin-inline: 14px;
     padding: 14px;
     border: 1px dashed var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-1);
 
     .omit-text {
       flex: 1;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 12px;
       line-height: 1.5;
     }

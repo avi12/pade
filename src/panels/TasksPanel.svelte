@@ -130,7 +130,7 @@
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     cursor: pointer;
     transition: color 140ms var(--ease);
 
@@ -141,7 +141,7 @@
 
   .empty {
     margin: 16px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 13px;
     line-height: 1.5;
   }
@@ -175,7 +175,7 @@
     padding-inline: 9px;
     border-radius: 999px;
     background: var(--surface-3);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 10px;
     letter-spacing: 0.06em;
@@ -197,8 +197,8 @@
   .manifest {
     overflow: hidden;
     min-inline-size: 0;
-    color: var(--on-surface-var);
-    font-family: var(--font-mono);
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -210,7 +210,7 @@
     align-items: center;
     padding-block: 8px;
     padding-inline: 10px;
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     transition: background 140ms var(--ease);
 
     &:hover {
@@ -232,8 +232,8 @@
 
   .cmd {
     overflow: hidden;
-    color: var(--on-surface-var);
-    font-family: var(--font-mono);
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
     font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;

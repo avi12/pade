@@ -281,7 +281,7 @@
 
   .empty {
     margin: 16px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 13px;
     line-height: 1.5;
   }
@@ -303,7 +303,7 @@
     /* Border reserves its space always so the layout doesn't shift when a card
        opens; it's transparent when idle and lights to primary while expanded. */
     border: 1px solid transparent;
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-1);
     transition:
       background 140ms var(--ease),
@@ -337,7 +337,7 @@
     }
 
     &.deleted .stripe {
-      background: var(--crit);
+      background: var(--critical);
     }
   }
 
@@ -374,12 +374,12 @@
   }
 
   .dot.deleted {
-    background: var(--crit);
+    background: var(--critical);
   }
 
   .name {
     overflow: hidden;
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-weight: 600;
     font-size: 13px;
     text-overflow: ellipsis;
@@ -388,7 +388,7 @@
 
   .time {
     margin-left: auto;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 11px;
   }
 
@@ -405,13 +405,13 @@
     gap: 10px;
     align-items: center;
     margin-block-start: 6px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 11px;
   }
 
   .path {
     overflow: hidden;
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -429,7 +429,7 @@
   }
 
   .del {
-    color: var(--crit);
+    color: var(--critical);
   }
 
   /* Inline diff viewer -------------------------------------------------- */
@@ -438,7 +438,7 @@
     margin-block: 0 11px;
     margin-inline: 15px 13px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     animation: rise 220ms var(--ease);
   }
 
@@ -458,7 +458,7 @@
     overflow: hidden;
     min-inline-size: 0;
     color: var(--primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-weight: 600;
     font-size: 12px;
     white-space: nowrap;
@@ -469,7 +469,7 @@
     }
 
     &:disabled {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       cursor: default;
     }
   }
@@ -494,7 +494,7 @@
     button {
       padding: 4px 11px;
       border-radius: 999px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 11px;
       cursor: pointer;
@@ -515,7 +515,7 @@
     block-size: 26px;
     inline-size: 26px;
     border-radius: 999px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     cursor: pointer;
 
     &:hover {
@@ -527,8 +527,8 @@
   .state {
     margin: 0;
     padding: 14px 12px;
-    background: var(--code-bg);
-    color: var(--on-surface-var);
+    background: var(--code-background);
+    color: var(--on-surface-variant);
     font-size: 12px;
   }
 
@@ -536,14 +536,14 @@
     overflow: auto;
     max-block-size: 300px;
     padding-block: 8px;
-    background: var(--code-bg);
-    font-family: var(--font-mono);
+    background: var(--code-background);
+    font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
 
     .line {
       padding-inline: 12px;
-      color: var(--code-fg);
+      color: var(--code-foreground);
       white-space: pre;
     }
 
@@ -552,11 +552,11 @@
     }
 
     .line.del {
-      background: var(--crit-wash);
+      background: var(--critical-wash);
     }
 
     .line.metaline {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
     }
   }
 
@@ -566,15 +566,15 @@
     overflow: auto;
     max-block-size: 300px;
     padding-block: 8px;
-    background: var(--code-bg);
-    font-family: var(--font-mono);
+    background: var(--code-background);
+    font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
 
     .hunk {
       grid-column: 1 / -1;
       padding-inline: 12px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       white-space: pre;
     }
 
@@ -583,7 +583,7 @@
       min-block-size: 1.5em;
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
-      color: var(--code-fg);
+      color: var(--code-foreground);
       white-space: pre;
     }
 
@@ -592,7 +592,7 @@
     }
 
     .cell.filled-del {
-      background: var(--crit-wash);
+      background: var(--critical-wash);
     }
 
     .cell.filled-add {

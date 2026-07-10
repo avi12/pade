@@ -375,7 +375,7 @@
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 16px;
     line-height: 1;
     cursor: pointer;
@@ -395,7 +395,7 @@
 
   .empty {
     margin: 16px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 13px;
   }
 
@@ -405,7 +405,7 @@
     gap: 9px;
     padding: 12px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-1);
 
     .eyebrow {
@@ -413,7 +413,7 @@
       gap: 7px;
       align-items: center;
       margin: 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 11px;
       letter-spacing: 0.05em;
@@ -473,12 +473,12 @@
 
     .hint {
       margin: 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 11px;
     }
 
     .hint code {
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
     }
 
     .restore-msg {
@@ -487,7 +487,7 @@
     }
 
     .restore-msg code {
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 600;
     }
 
@@ -496,7 +496,7 @@
     }
 
     .restore-msg.crit {
-      color: var(--crit);
+      color: var(--critical);
       white-space: pre-wrap;
     }
   }
@@ -518,7 +518,7 @@
     padding-block: 8px;
     padding-inline: 10px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     background: var(--surface-2);
     text-align: start;
     cursor: pointer;
@@ -573,7 +573,7 @@
     }
 
     .pct {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 11px;
       font-variant-numeric: tabular-nums;
     }
@@ -585,7 +585,7 @@
     align-items: center;
     margin-block: 4px 8px;
     margin-inline: 4px;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 11px;
     letter-spacing: 0.06em;
@@ -597,7 +597,7 @@
     padding-inline: 7px;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 11px;
     font-variant-numeric: tabular-nums;
@@ -625,7 +625,7 @@
     padding-block: 7px;
     padding-inline: 9px;
     border: none;
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     background: transparent;
     color: var(--on-surface);
     text-align: start;
@@ -647,7 +647,7 @@
     place-items: center;
     block-size: 18px;
     inline-size: 18px;
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     color: #ffffff;
     font-weight: 700;
     font-size: 11px;
@@ -664,12 +664,12 @@
   }
 
   .k.deleted {
-    background: var(--crit);
+    background: var(--critical);
   }
 
   .fname {
     overflow: hidden;
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -678,7 +678,7 @@
   .diff {
     overflow: hidden;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
   }
 
   .difftitle {
@@ -686,7 +686,7 @@
     padding: 8px 12px;
     background: var(--surface-2);
     color: var(--on-surface);
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-weight: 600;
     font-size: 12px;
     letter-spacing: 0;
@@ -698,8 +698,8 @@
     max-block-size: 300px;
     margin: 0;
     padding: 8px 0;
-    background: var(--code-bg);
-    font-family: var(--font-mono);
+    background: var(--code-background);
+    font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
   }
@@ -707,7 +707,7 @@
   .dl {
     display: block;
     padding-inline: 12px;
-    color: var(--code-fg);
+    color: var(--code-foreground);
     white-space: pre-wrap;
   }
 
@@ -716,11 +716,11 @@
   }
 
   .dl.del {
-    background: var(--crit-wash);
+    background: var(--critical-wash);
   }
 
   .dl.meta {
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
   }
 
   /* Split (2-col) view — rows come from the shared `toSplitRows` (DRY). */
@@ -731,7 +731,7 @@
     .hunk {
       grid-column: 1 / -1;
       padding-inline: 12px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       white-space: pre;
     }
 
@@ -740,7 +740,7 @@
       min-block-size: 1.5em;
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
-      color: var(--code-fg);
+      color: var(--code-foreground);
       white-space: pre;
     }
 
@@ -749,7 +749,7 @@
     }
 
     .cell.filled-del {
-      background: var(--crit-wash);
+      background: var(--critical-wash);
     }
 
     .cell.filled-add {
@@ -774,7 +774,7 @@
     padding-block: 8px;
     padding-inline: 10px;
     border: none;
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     background: transparent;
     color: var(--on-surface);
     text-align: start;
@@ -806,7 +806,7 @@
       gap: 10px;
       align-items: center;
       inline-size: 100%;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 11px;
     }
 
@@ -824,20 +824,20 @@
     }
 
     .del {
-      color: var(--crit);
+      color: var(--critical);
     }
   }
 
   .sha {
     flex: none;
     color: var(--primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-weight: 600;
     font-size: 12px;
   }
 
   .by {
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 11px;
   }
 </style>

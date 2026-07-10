@@ -274,11 +274,11 @@
     --sev: var(--primary);
 
     &.warn {
-      --sev: var(--warn);
+      --sev: var(--warning);
     }
 
     &.crit {
-      --sev: var(--crit);
+      --sev: var(--critical);
     }
   }
 
@@ -300,7 +300,7 @@
     }
 
     .tag {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 11px;
     }
@@ -327,13 +327,13 @@
     }
 
     .type {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 10px;
     }
 
     .none {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 12px;
     }
@@ -371,7 +371,7 @@
 
     .more {
       margin-inline-start: 2px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
     }
@@ -400,7 +400,7 @@
 
     .eyebrow {
       margin-block-end: 13px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
       letter-spacing: 0.08em;
@@ -430,7 +430,7 @@
       }
 
       .gplan {
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
         font-size: 11px;
         white-space: nowrap;
       }
@@ -470,7 +470,7 @@
       .lsub {
         display: block;
         overflow: hidden;
-        color: var(--on-surface-var);
+        color: var(--on-surface-variant);
         font-size: 11px;
         font-variant-numeric: tabular-nums;
         text-overflow: ellipsis;
@@ -504,7 +504,7 @@
 
     .empty {
       margin: 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 12px;
       line-height: 1.5;
     }

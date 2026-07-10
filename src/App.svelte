@@ -101,7 +101,7 @@
   let stripEl = $state<HTMLElement>();
   let measureEl = $state<HTMLElement>();
   let stripWidth = $state(0);
-  let tabWidths = $state<Map<string, number>>(new Map());
+  const tabWidths = new SvelteMap<string, number>();
 
   // Read each mirror pill's natural width into a fresh map (index-aligned with
   // `sessions`, since the mirror renders them in order).
@@ -111,14 +111,23 @@
       return;
     }
 
-    const widths = new Map<string, number>();
+    tabWidths.clear();
     sessions.forEach((session, index) => {
-      const el = mirror.children[index];
-      if (el instanceof HTMLElement) {
-        widths.set(session.id, el.offsetWidth);
+      const element = mirror.children[index];
+      if (element instanceof HTMLElement) {
+        tabWidths.set(session.id, element.offsetWidth);
       }
     });
-    tabWidths = widths;
+  }
+
+  // Sync the strip's available width, then re-measure the pills.
+  function remeasureTabStrip() {
+    const strip = stripEl;
+    if (strip) {
+      stripWidth = strip.clientWidth;
+    }
+
+    measureTabs();
   }
 
   // Re-measure after the mirror re-renders for a changed session set.
@@ -130,22 +139,19 @@
   // Track the strip's available width and re-measure on any reflow (font load,
   // window resize); both the strip and the mirror are observed.
   $effect(() => {
-    const el = stripEl;
-    if (!el) {
+    const strip = stripEl;
+    if (!strip) {
       return;
     }
 
-    const remeasure = () => {
-      stripWidth = el.clientWidth;
-      measureTabs();
-    };
-    const observer = new ResizeObserver(remeasure);
-    observer.observe(el);
+    const observer = new ResizeObserver(remeasureTabStrip);
+    observer.observe(strip);
+
     if (measureEl) {
       observer.observe(measureEl);
     }
 
-    remeasure();
+    remeasureTabStrip();
     return () => observer.disconnect();
   });
 
@@ -157,7 +163,10 @@
   };
   const tabPack = $derived.by<TabPack>(() => {
     const order = sessions;
-    const widthOf = (id: string) => tabWidths.get(id) ?? 0;
+    function widthOf(id: string): number {
+      return tabWidths.get(id) ?? 0;
+    }
+
     const total = order.reduce((sum, s, index) => sum + widthOf(s.id) + (index ? TAB_GAP : 0), 0);
     // Everything fits (or we haven't measured yet) — all as full pills.
     if (stripWidth === 0 || total <= stripWidth) {
@@ -871,7 +880,7 @@
 <svelte:window onfocus={() => void redetectAgents()} onkeydown={onWindowKey} />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
-<div style:--font-ui={effective.uiFamily} style:--font-mono={effective.monoFamily} class="app-root">
+<div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monoFamily} class="app-root">
   {#if phase === Phase.project}
     <ProjectPicker {agents} onmove={moveWorkspace} onopen={openProject} onrename={renameWorkspace} />
   {:else if phase === Phase.onboarding}
@@ -909,7 +918,7 @@
         {/snippet}
 
         <nav class="tabs" aria-label="Agent sessions">
-          <div class="tab-strip" bind:this={stripEl}>
+          <div bind:this={stripEl} class="tab-strip">
             {#each visibleSessions as s (s.id)}
               {@render fullTab(s)}
             {/each}
@@ -959,7 +968,7 @@
           </div>
 
           <!-- Off-layout mirror: every tab at full width, purely for measuring. -->
-          <span class="tab-measure" bind:this={measureEl} aria-hidden="true">
+          <span bind:this={measureEl} class="tab-measure" aria-hidden="true">
             {#each sessions as s (s.id)}
               {@render fullTab(s)}
             {/each}
@@ -1163,8 +1172,8 @@
       flex: 1;
       gap: 6px;
       align-items: center;
-      min-inline-size: 0;
       overflow: hidden;
+      min-inline-size: 0;
     }
 
     /* Off-layout copy of every full pill, measured to drive the packing. */
@@ -1214,7 +1223,7 @@
       border: none;
       border-radius: 999px;
       background: var(--surface-2);
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 11px;
       font-variant-numeric: tabular-nums;
@@ -1257,8 +1266,8 @@
       padding-inline: 12px 4px;
       border: none;
       background: transparent;
-      color: var(--on-surface-var);
-      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
       font-size: 12px;
       cursor: pointer;
     }
@@ -1269,7 +1278,7 @@
       block-size: 8px;
       inline-size: 8px;
       border-radius: 999px;
-      background: var(--on-surface-var);
+      background: var(--on-surface-variant);
 
       &.working {
         background: var(--primary);
@@ -1294,7 +1303,7 @@
       border-start-end-radius: 999px;
       border-start-start-radius: 0;
       background: transparent;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 15px;
       line-height: 1;
       opacity: 60%;
@@ -1302,8 +1311,8 @@
       transition: color 150ms var(--ease), background 150ms var(--ease), opacity 150ms var(--ease);
 
       &:hover {
-        background: var(--crit-wash);
-        color: var(--crit);
+        background: var(--critical-wash);
+        color: var(--critical);
         opacity: 100%;
       }
     }
@@ -1317,7 +1326,7 @@
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-size: 18px;
     cursor: pointer;
     transition: color 150ms var(--ease), background 150ms var(--ease);
@@ -1337,7 +1346,7 @@
     margin-inline: 0;
     padding: 6px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-2);
     list-style: none;
     box-shadow: 0 16px 40px var(--shadow-color);
@@ -1350,7 +1359,7 @@
       inline-size: 100%;
       padding: 8px 10px;
       border: none;
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
       background: transparent;
       color: var(--on-surface);
       font: inherit;
@@ -1369,7 +1378,7 @@
       margin-block: 6px 2px;
       padding-block: 2px 4px;
       padding-inline: 10px;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
       letter-spacing: 0.08em;
@@ -1388,7 +1397,7 @@
     .more-item {
       display: flex;
       align-items: center;
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
 
       &.active {
         background: var(--primary-container);
@@ -1406,14 +1415,14 @@
       align-items: center;
       inline-size: auto;
       min-inline-size: 0;
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-size: 12px;
     }
 
     .more-label {
       overflow: hidden;
-      white-space: nowrap;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .more-x {
@@ -1421,12 +1430,12 @@
       justify-content: center;
       inline-size: 26px;
       padding: 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-size: 15px;
 
       &:hover {
-        background: var(--crit-wash);
-        color: var(--crit);
+        background: var(--critical-wash);
+        color: var(--critical);
       }
     }
   }
@@ -1447,7 +1456,7 @@
       border: none;
       border-radius: 999px;
       background: transparent;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font: inherit;
       font-weight: 600;
       font-size: 12px;
@@ -1522,13 +1531,13 @@
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     cursor: pointer;
     transition: color 150ms var(--ease), background 150ms var(--ease);
 
     &:hover {
-      background: var(--crit-wash);
-      color: var(--crit);
+      background: var(--critical-wash);
+      color: var(--critical);
     }
   }
 
@@ -1547,7 +1556,7 @@
     border: none;
     border-inline-start: 1px solid var(--outline);
     background: var(--surface-1);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     cursor: pointer;
     transition: color 150ms var(--ease), background 150ms var(--ease);
 
@@ -1651,7 +1660,7 @@
     .preview {
       overflow: hidden;
       max-inline-size: 40ch;
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 500;
       font-size: 12px;
       text-overflow: ellipsis;

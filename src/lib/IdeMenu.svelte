@@ -70,7 +70,7 @@
     margin-inline: 0;
     padding: 6px;
     border: 1px solid var(--outline);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-medium);
     background: var(--surface-2);
     list-style: none;
     box-shadow: 0 16px 40px var(--shadow-color);
@@ -84,7 +84,7 @@
       inline-size: 100%;
       padding: 8px 10px;
       border: none;
-      border-radius: var(--r-sm);
+      border-radius: var(--radius-small);
       background: transparent;
       color: var(--on-surface);
       font: inherit;

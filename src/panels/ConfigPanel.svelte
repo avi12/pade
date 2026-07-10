@@ -122,7 +122,7 @@
     padding-block: 8px;
     padding-inline: 10px;
     border: none;
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-small);
     background: transparent;
     color: var(--on-surface);
     text-align: start;
@@ -150,7 +150,7 @@
     padding-inline: 9px;
     border-radius: 999px;
     background: var(--surface-3);
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 10px;
     letter-spacing: 0.05em;
@@ -169,7 +169,7 @@
 
   .rel {
     overflow: hidden;
-    font-family: var(--font-mono);
+    font-family: var(--font-monospace);
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -177,7 +177,7 @@
 
   .missing {
     margin-inline-start: auto;
-    color: var(--on-surface-var);
+    color: var(--on-surface-variant);
     font-style: italic;
     font-size: 10px;
   }
@@ -191,7 +191,7 @@
     .card {
       overflow: hidden;
       border: 1px solid var(--outline);
-      border-radius: var(--r-md);
+      border-radius: var(--radius-medium);
     }
 
     h3 {
@@ -200,13 +200,13 @@
       padding-inline: 12px;
       background: var(--surface-2);
       color: var(--on-surface);
-      font-family: var(--font-mono);
+      font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 12px;
     }
 
     .placeholder {
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-style: italic;
     }
 
@@ -215,9 +215,9 @@
       max-block-size: 280px;
       margin: 0;
       padding: 12px;
-      background: var(--code-bg);
-      color: var(--code-fg);
-      font-family: var(--font-mono);
+      background: var(--code-background);
+      color: var(--code-foreground);
+      font-family: var(--font-monospace);
       font-size: 12px;
       line-height: 1.55;
       white-space: pre-wrap;
@@ -226,7 +226,7 @@
     .note {
       margin-block: 2px 0;
       margin-inline: 0;
-      color: var(--on-surface-var);
+      color: var(--on-surface-variant);
       font-style: italic;
       font-size: 11px;
     }
