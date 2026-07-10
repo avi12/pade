@@ -19,6 +19,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::util::{encode_project, home_dir};
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
@@ -40,12 +42,6 @@ pub fn usage_get(agent: String) -> Option<Usage> {
         "claude" => claude_usage(),
         _ => None,
     }
-}
-
-/// The user's home directory, cross-platform, without pulling in a dependency.
-fn home_dir() -> Option<PathBuf> {
-    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(var).map(PathBuf::from)
 }
 
 /// Best-effort Claude Code usage from `~/.claude`, network- and CLI-free.
@@ -147,19 +143,6 @@ pub fn usage_session(cwd: String) -> Option<SessionUsage> {
     }
 
     None
-}
-
-/// Encode an absolute path to Claude's project-dir name (drive/separators → '-').
-fn encode_project(cwd: &str) -> String {
-    cwd.chars()
-        .map(|c| {
-            if matches!(c, ':' | '\\' | '/') {
-                '-'
-            } else {
-                c
-            }
-        })
-        .collect()
 }
 
 /// The most-recently-modified `*.jsonl` in `dir` — the active session, if any.

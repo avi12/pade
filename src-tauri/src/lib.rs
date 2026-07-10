@@ -8,6 +8,7 @@ mod ide;
 mod naming;
 mod os;
 mod pty;
+mod refs;
 mod runner;
 mod tasks;
 mod usage;

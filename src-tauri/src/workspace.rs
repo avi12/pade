@@ -342,6 +342,9 @@ pub fn workspace_move(from: String, dest_dir: String) -> Result<String, String> 
     let dest = Path::new(&dest_dir).join(name);
     std::fs::rename(&from, &dest).map_err(|e| e.to_string())?;
     let dest_str = dest.to_string_lossy().into_owned();
+    // Re-point external tools (Claude transcripts, IDE recents) at the new path.
+    // Best-effort and independent of the internal `retarget` below.
+    crate::refs::update_references(&from, &dest_str);
     retarget(&mut settings, &from, &dest_str);
     save(&settings)?;
     workspace_open(dest_str.clone())?;
@@ -364,6 +367,9 @@ pub fn workspace_rename(from: String, new_name: String) -> Result<String, String
     let dest = Path::new(&root).join(new_name.trim());
     std::fs::rename(&from, &dest).map_err(|e| e.to_string())?;
     let dest_str = dest.to_string_lossy().into_owned();
+    // Re-point external tools (agent memory, IDE recents) at the new path —
+    // best-effort, independent of the internal `retarget` below.
+    crate::refs::update_references(&from, &dest_str);
     retarget(&mut settings, &from, &dest_str);
     save(&settings)?;
     workspace_open(dest_str.clone())?;
