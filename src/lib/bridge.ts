@@ -142,6 +142,16 @@ export const workspace = {
     from: string;
     newName: string;
   }) => call("workspace_rename", z.string(), { ...args }),
+  /** Set a friendly display label (no disk rename). */
+  setLabel: (args: {
+    path: string;
+    name: string;
+  }) => call("workspace_set_label", Settings, { ...args }),
+  /** Suggest a name for a temp workspace via the agent CLI, else a heuristic. */
+  autoname: (args: {
+    path: string;
+    agent: string;
+  }) => call("project_autoname", z.string().nullable(), { ...args }),
   delete: (path: string) => call("workspace_delete", Settings, { path }),
   create: (args: {
     root: string;

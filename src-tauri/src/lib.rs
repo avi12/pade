@@ -1,6 +1,9 @@
 mod agents;
 mod config;
+#[cfg(windows)]
+mod copilot;
 mod ide;
+mod naming;
 mod os;
 mod pty;
 mod util;
@@ -40,6 +43,7 @@ pub fn run() {
             vcs::vcs_worktree_add,
             config::config_list,
             config::config_read,
+            naming::project_autoname,
             workspace::launch_context,
             workspace::settings_get,
             workspace::workspace_add_root,
@@ -49,6 +53,7 @@ pub fn run() {
             workspace::workspace_temp,
             workspace::workspace_move,
             workspace::workspace_rename,
+            workspace::workspace_set_label,
             workspace::workspace_delete,
             workspace::workspace_create,
             workspace::workspace_clone,

@@ -31,6 +31,7 @@
     projectAgents: {},
     recentProjects: [],
     ownedWorkspaces: [],
+    labels: {},
     prefs: {}
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
@@ -42,6 +43,7 @@
 
   const realAgents = $derived(agents.filter(a => a.id !== "shell"));
   const startMode = $derived(settings.prefs.startMode ?? "temp");
+  const autoName = $derived(settings.prefs.autoNameTemp !== false);
 
   async function refresh() {
     [settings, ides] = await Promise.all([workspace.settings(), ide.detect()]);
@@ -54,6 +56,12 @@
     settings = await workspace.setPrefs({
       ...settings.prefs,
       startMode: mode
+    });
+  }
+  async function setAutoName(on: boolean) {
+    settings = await workspace.setPrefs({
+      ...settings.prefs,
+      autoNameTemp: on
     });
   }
   function scan(root: string): Promise<ProjectEntry[]> {
@@ -107,6 +115,10 @@
 
   function basename(path: string): string {
     return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+  }
+  // Prefer a friendly auto-derived label over the raw folder name.
+  function displayName(path: string): string {
+    return settings.labels[path] ?? basename(path);
   }
   function isTempPath(path: string): boolean {
     return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
@@ -272,6 +284,10 @@
           <button class="sm-btn" class:on={startMode === "picker"} onclick={() => setStartMode("picker")}>This picker</button>
         </div>
       </div>
+      <label class="autoname">
+        <input checked={autoName} onchange={e => setAutoName(e.currentTarget.checked)} type="checkbox" />
+        <span>Auto-name temp workspaces once the agent starts working</span>
+      </label>
     </section>
 
     {#if settings.recentProjects.length > 0}
@@ -297,7 +313,7 @@
                   {#if isTempPath(path)}
                     <span class="temp-tag">temp</span>
                   {/if}
-                  <span class="rname">{basename(path)}</span>
+                  <span class="rname">{displayName(path)}</span>
                   <span class="rpath">{path}</span>
                 </button>
                 {@render rowMenu(path)}
@@ -627,6 +643,25 @@
     gap: 10px;
     align-items: center;
     margin-block-start: 12px;
+  }
+
+  .autoname {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-block-start: 10px;
+    color: var(--on-surface-var);
+    font-size: 12px;
+    cursor: pointer;
+
+    input {
+      flex: none;
+      min-inline-size: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      accent-color: var(--primary);
+    }
   }
 
   .sm-label {

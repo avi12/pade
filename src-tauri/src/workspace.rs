@@ -67,6 +67,11 @@ pub struct Settings {
     /// these may be renamed/moved/deleted — never a real project the user owns.
     #[serde(default)]
     pub owned_workspaces: Vec<String>,
+    /// Friendly display names for workspaces, keyed by absolute path. Auto-derived
+    /// for temp workspaces and shown instead of the `temp-<stamp>` folder name. A
+    /// label never touches the directory on disk (the live agent locks its cwd).
+    #[serde(default)]
+    pub labels: BTreeMap<String, String>,
     /// Appearance & editor preferences.
     #[serde(default)]
     pub prefs: Prefs,
@@ -230,6 +235,12 @@ fn is_ade_owned(settings: &Settings, path: &str) -> bool {
     settings.owned_workspaces.iter().any(|p| p == path) || is_temp_workspace(path)
 }
 
+/// Public ownership check for the naming module: is this an ADE-owned workspace
+/// (so it's safe to scan and label)?
+pub fn is_owned(path: &str) -> bool {
+    is_ade_owned(&load(), path)
+}
+
 /// Push a path to the front of the recent list (deduped, capped).
 fn record_recent(settings: &mut Settings, path: &str) {
     settings.recent_projects.retain(|p| p != path);
@@ -273,7 +284,8 @@ pub fn workspace_temp() -> Result<String, String> {
     Ok(path)
 }
 
-/// Replace a path across recent + owned lists (used when a workspace moves).
+/// Replace a path across recent + owned lists (used when a workspace moves). The
+/// display label, if any, follows the path to its new key.
 fn retarget(settings: &mut Settings, from: &str, to: &str) {
     for list in [
         &mut settings.recent_projects,
@@ -285,6 +297,23 @@ fn retarget(settings: &mut Settings, from: &str, to: &str) {
             }
         }
     }
+    if let Some(label) = settings.labels.remove(from) {
+        settings.labels.insert(to.to_string(), label);
+    }
+}
+
+/// Set a friendly display label for an ADE-owned workspace. Non-destructive: the
+/// directory keeps its `temp-<stamp>` name on disk (the live agent holds it as
+/// cwd, which the OS locks against rename); only the shown name changes.
+#[tauri::command]
+pub fn workspace_set_label(path: String, name: String) -> Result<Settings, String> {
+    let mut settings = load();
+    if !is_ade_owned(&settings, &path) {
+        return Err("only ADE-created workspaces can be labeled".into());
+    }
+    let label = crate::naming::sanitize(&name).ok_or("invalid name")?;
+    settings.labels.insert(path, label);
+    save(&settings)
 }
 
 /// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
@@ -340,6 +369,7 @@ pub fn workspace_delete(path: String) -> Result<Settings, String> {
     std::fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
     settings.recent_projects.retain(|p| p != &path);
     settings.owned_workspaces.retain(|p| p != &path);
+    settings.labels.remove(&path);
     save(&settings)
 }
 

@@ -92,7 +92,9 @@ export const Prefs = z.object({
   monoFont: z.string().nullish(),
   themeMode: ThemeMode.nullish(),
   diffStyle: DiffStyle.nullish(),
-  startMode: StartMode.nullish()
+  startMode: StartMode.nullish(),
+  /** Auto-name temp workspaces once the agent has done real work (default on). */
+  autoNameTemp: z.boolean().nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 
@@ -102,6 +104,8 @@ export const Settings = z.object({
   projectAgents: z.record(z.string(), z.string()),
   recentProjects: z.array(z.string()).default([]),
   ownedWorkspaces: z.array(z.string()).default([]),
+  /** Friendly display names for workspaces, keyed by absolute path. */
+  labels: z.record(z.string(), z.string()).default({}),
   prefs: Prefs.default({})
 });
 export type Settings = z.infer<typeof Settings>;

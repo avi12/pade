@@ -13,6 +13,10 @@ struct AgentDef {
     label: &'static str,
     /// The executable to look for and run.
     command: &'static str,
+    /// Args that make the CLI answer one prompt non-interactively and exit, with
+    /// the prompt appended as the final arg (used for auto-naming). `None` = no
+    /// headless mode we can drive.
+    oneshot: Option<&'static [&'static str]>,
 }
 
 /// Known agent backends, in preferred display order. The plain shell is always
@@ -22,28 +26,42 @@ const REGISTRY: &[AgentDef] = &[
         id: "claude",
         label: "Claude Code",
         command: "claude",
+        oneshot: Some(&["-p"]),
     },
     AgentDef {
         id: "codex",
         label: "Codex",
         command: "codex",
+        oneshot: Some(&["exec"]),
     },
     AgentDef {
         id: "antigravity",
         label: "Antigravity CLI",
         command: "antigravity",
+        oneshot: None,
     },
     AgentDef {
         id: "cursor",
         label: "Cursor CLI",
         command: "cursor-agent",
+        oneshot: None,
     },
     AgentDef {
         id: "aider",
         label: "aider",
         command: "aider",
+        oneshot: None,
     },
 ];
+
+/// How to invoke `command` headlessly for a one-shot prompt (auto-naming), if we
+/// know a way. Keeps the registry the single source of truth (DRY).
+pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
+    REGISTRY
+        .iter()
+        .find(|a| a.command == command)
+        .and_then(|a| a.oneshot)
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

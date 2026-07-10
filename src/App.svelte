@@ -1,17 +1,25 @@
 <script lang="ts">
-  import { agents as agentsApi, pty, vcs, workspace } from "./lib/bridge";
+  import {
+    agents as agentsApi,
+    feed,
+    pty,
+    vcs,
+    workspace
+  } from "./lib/bridge";
   import Icon from "./lib/Icon.svelte";
   import IdeMenu from "./lib/IdeMenu.svelte";
   import { effective } from "./lib/prefs.svelte";
-  import type { Agent, AgentSession, Settings } from "./lib/types";
+  import type { Agent, AgentSession, ChangeEvent, Settings } from "./lib/types";
   import ChangeFeed from "./panels/ChangeFeed.svelte";
   import Onboarding from "./panels/Onboarding.svelte";
   import ProjectPicker from "./panels/ProjectPicker.svelte";
   import Terminal from "./panels/Terminal.svelte";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { readText } from "@tauri-apps/plugin-clipboard-manager";
   import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   type Phase = "loading" | "project" | "onboarding" | "ready";
   let phase = $state<Phase>("loading");
@@ -22,6 +30,7 @@
     projectAgents: {},
     recentProjects: [],
     ownedWorkspaces: [],
+    labels: {},
     prefs: {}
   });
   let sessions = $state<AgentSession[]>([]);
@@ -42,6 +51,8 @@
   );
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(/[\\/]workspaces[\\/]temp-\d+$/.test(currentProject));
+  // Friendly auto-derived name for the current workspace, if one was assigned.
+  const currentLabel = $derived(settings.labels[currentProject]);
   // Active agent id — used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
 
@@ -84,6 +95,69 @@
     const interval = setInterval(() => void redetectAgents(), 5000);
     return () => clearInterval(interval);
   });
+
+  // Auto-name a temp workspace once the agent has produced real work. After a few
+  // distinct files change, ask the agent (or a heuristic) for a friendly label
+  // and apply it. Fires once per workspace; never blocks or renames on disk.
+  const AUTONAME_AFTER = 3;
+  const touchedByProject = new SvelteMap<string, SvelteSet<string>>();
+  const namedProjects = new SvelteSet<string>();
+  let unlistenFeed: UnlistenFn | undefined;
+  onMount(async () => {
+    await feed.start(); // idempotent — safe even if the Change Feed panel is closed
+    unlistenFeed = await feed.onChange(event => void maybeAutoName(event));
+  });
+  onDestroy(() => unlistenFeed?.());
+
+  // Normalize a path for comparison — watcher and workspace paths can differ in
+  // separator/casing on Windows.
+  function normPath(path: string): string {
+    return path.replaceAll("\\", "/").toLowerCase();
+  }
+
+  async function maybeAutoName(event: ChangeEvent) {
+    const proj = currentProject;
+    if (!isTemp || settings.prefs.autoNameTemp === false) {
+      return;
+    }
+
+    if (event.kind === "deleted" || namedProjects.has(proj) || settings.labels[proj]) {
+      return;
+    }
+
+    const base = normPath(proj);
+    const touched = normPath(event.path);
+    if (!touched.startsWith(base)) {
+      return;
+    }
+
+    const rel = touched.slice(base.length).replace(/^\//, "");
+    // Skip dotfiles/dot-dirs (e.g. .git, .claude) — not signal for a name.
+    if (!rel || rel.split("/").some(seg => seg.startsWith("."))) {
+      return;
+    }
+
+    const set = touchedByProject.get(proj) ?? new SvelteSet<string>();
+    set.add(touched);
+    touchedByProject.set(proj, set);
+
+    if (set.size < AUTONAME_AFTER) {
+      return;
+    }
+
+    namedProjects.add(proj); // guard so the naming call runs exactly once
+    const agent = sessions.find(s => s.id === activeId)?.agent.command ?? "";
+    const name = await workspace.autoname({
+      path: proj,
+      agent
+    }).catch(() => null);
+    if (name && currentProject === proj) {
+      settings = await workspace.setLabel({
+        path: proj,
+        name
+      });
+    }
+  }
 
   // Send-from-IDE bridge: highlight + copy a snippet in any external editor,
   // then press this global shortcut to inject the clipboard into the active
@@ -263,7 +337,7 @@
             {#if isTemp}
               <span class="temp-badge">temp</span>
             {/if}
-            <span class="dir">{shortDir}</span>
+            <span class="dir">{currentLabel ?? shortDir}</span>
             <span class="switch-hint">switch</span>
           </button>
         {/if}
