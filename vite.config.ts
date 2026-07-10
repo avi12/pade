@@ -1,6 +1,6 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 // Tauri expects a fixed port and no clobbering of its own env vars.
 export default defineConfig({
@@ -25,5 +25,10 @@ export default defineConfig({
   build: {
     target: "esnext",
     sourcemap: true
+  },
+  // Unit tests share this config, so `@/` resolves in tests exactly as in the app.
+  test: {
+    include: ["src/**/*.test.ts"],
+    environment: "node"
   }
 });
