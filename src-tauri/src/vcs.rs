@@ -238,7 +238,7 @@ fn now_unix() -> u64 {
 /// Split a string into lowercase alphanumeric-ish tokens (whitespace-separated).
 fn tokenize(text: &str) -> Vec<String> {
     text.split_whitespace()
-        .map(|t| t.to_lowercase())
+        .map(str::to_lowercase)
         .filter(|t| !t.is_empty())
         .collect()
 }
@@ -306,7 +306,7 @@ fn parse_days_ago(query: &str) -> Option<u64> {
     let digits: String = head
         .chars()
         .rev()
-        .take_while(|c| c.is_ascii_digit())
+        .take_while(char::is_ascii_digit)
         .collect::<String>()
         .chars()
         .rev()
@@ -327,11 +327,7 @@ pub fn vcs_restore_candidates(
     let n = limit.unwrap_or(DEFAULT_CANDIDATE_LIMIT);
     // %ct is the committer unix timestamp, used for time-hint scoring.
     let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%ct");
-    let raw = run_git(&[
-        "log",
-        &format!("-n{n}"),
-        &format!("--pretty=format:{fmt}"),
-    ])?;
+    let raw = run_git(&["log", &format!("-n{n}"), &format!("--pretty=format:{fmt}")])?;
 
     let query_tokens = tokenize(&query);
     let now = now_unix();
@@ -350,6 +346,9 @@ pub fn vcs_restore_candidates(
                 .iter()
                 .filter(|tok| subject.contains(tok.as_str()))
                 .count();
+            // Token counts are tiny (a short query vs a commit subject), so the
+            // usize→f32 conversion can't actually lose precision here.
+            #[allow(clippy::cast_precision_loss)]
             let mut score = if query_tokens.is_empty() {
                 0.0
             } else {
@@ -391,9 +390,7 @@ pub fn vcs_restore_candidates(
 /// touches the working tree with `reset --hard`. Returns the branch name.
 #[tauri::command]
 pub fn vcs_restore_checkout(sha: String) -> Result<String, String> {
-    let short = run_git(&["rev-parse", "--short", &sha])?
-        .trim()
-        .to_string();
+    let short = run_git(&["rev-parse", "--short", &sha])?.trim().to_string();
     let branch = format!("pade/restore-{short}");
 
     // Does the restore branch already exist? Then just switch to it.

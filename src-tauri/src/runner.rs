@@ -65,7 +65,7 @@ struct RunnerExit {
 fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
+        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
         .unwrap_or(0)
 }
 
@@ -97,7 +97,14 @@ struct PumpArgs<R: BufRead> {
 /// Pump one piped stream line-by-line to the frontend, tagging each line with the
 /// runner id and stream name. Emit errors are swallowed so a closed frontend never
 /// panics the reader thread.
-fn pump_stream<R: BufRead>(PumpArgs { app, id, stream, reader }: PumpArgs<R>) {
+fn pump_stream<R: BufRead>(
+    PumpArgs {
+        app,
+        id,
+        stream,
+        reader,
+    }: PumpArgs<R>,
+) {
     for line in reader.lines() {
         let Ok(data) = line else { break };
         let _ = app.emit(
