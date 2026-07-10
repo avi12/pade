@@ -7,6 +7,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
+  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { DiffStyle, VcsKind } from "@/lib/types";
   import type { Commit, CommitDetail, RestoreCandidate, StatusEntry } from "@/lib/types";
   import { parseInput, RestoreQuery } from "@/lib/validate";
@@ -174,6 +175,14 @@
     clearTimeout(timer);
   });
 
+  // Publish the refresh action to the shared side-panel header.
+  $effect(() => {
+    setPanelHeader({
+      count: null,
+      refresh
+    });
+  });
+
   function fileLabel(count: number) {
     return `${formatCount(count)} file${count === 1 ? "" : "s"}`;
   }
@@ -192,11 +201,6 @@
 </script>
 
 <div class="vcs">
-  <header class="head">
-    <h2>Version control</h2>
-    <button class="refresh" aria-label="Refresh" data-tooltip="Refresh" onclick={refresh}>⟳</button>
-  </header>
-
   {#if error}
     <p class="empty">Not a Git repository, or git is unavailable.</p>
   {:else}
@@ -354,42 +358,13 @@
     height: 100%;
   }
 
-  .head {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    padding-block: 12px;
-    padding-inline: 16px;
-    border-block-end: 1px solid var(--outline);
-  }
-
-  .head h2 {
-    margin: 0;
-    font-size: 15px;
-  }
-
-  .refresh {
-    block-size: 30px;
-    inline-size: 30px;
-    margin-inline-start: auto;
-    border: none;
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .refresh:hover {
-    color: var(--primary);
-  }
-
   .scroll {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 14px;
     overflow-y: auto;
+    min-block-size: 0;
     padding: 8px 10px;
   }
 

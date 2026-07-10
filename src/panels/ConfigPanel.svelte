@@ -2,6 +2,7 @@
   import { config } from "@/lib/bridge";
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
+  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import type { ConfigFile } from "@/lib/types";
 
   // Only the config files relevant to the active agent are listed.
@@ -55,11 +56,17 @@
       }
     })();
   });
+
+  // Config has no count or refresh — clear those slots in the shared header.
+  $effect(() => {
+    setPanelHeader({
+      count: null,
+      refresh: null
+    });
+  });
 </script>
 
 <div class="cfg">
-  <header class="head"><h2>Agent config</h2></header>
-
   <div class="scroll">
     {#each files as f (f.rel)}
       <button
@@ -93,23 +100,13 @@
     block-size: 100%;
   }
 
-  .head {
-    padding-block: 12px;
-    padding-inline: 16px;
-    border-block-end: 1px solid var(--outline);
-
-    h2 {
-      margin: 0;
-      font-weight: 700;
-      font-size: 15px;
-    }
-  }
-
   .scroll {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
+    min-block-size: 0;
     padding: 10px;
     animation: panel-swap 280ms var(--ease);
   }

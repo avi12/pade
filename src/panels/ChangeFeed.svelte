@@ -6,6 +6,7 @@
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { effective } from "@/lib/prefs.svelte";
+  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
@@ -74,6 +75,14 @@
   const splitRows = $derived<SplitRow[]>(cachedLines ? toSplitRows(cachedLines) : []);
   const hasPreview = $derived(unifiedLines.length > 0);
 
+  // Publish the live event count to the shared side-panel header.
+  $effect(() => {
+    setPanelHeader({
+      count: events.length,
+      refresh: null
+    });
+  });
+
   async function toggle(event: ChangeEvent) {
     const isAlreadyOpen = expandedId === event.id;
     if (isAlreadyOpen) {
@@ -136,11 +145,6 @@
 </script>
 
 <div class="feed">
-  <header class="head">
-    <h2>Change Feed</h2>
-    <span class="count">{formatCount(events.length)}</span>
-  </header>
-
   {#if events.length === 0}
     <p class="empty">
       Waiting for edits. Ask the agent to change a file and it appears here —
@@ -256,29 +260,6 @@
     height: 100%;
   }
 
-  .head {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--outline);
-  }
-
-  .head h2 {
-    margin: 0;
-    font-size: 15px;
-  }
-
-  .count {
-    padding: 2px 9px;
-    border-radius: 999px;
-    background: var(--primary-container);
-    color: var(--on-primary-container);
-    font-weight: 700;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-
   .empty {
     margin: 16px;
     color: var(--on-surface-variant);
@@ -288,9 +269,11 @@
 
   .cards {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 8px;
     overflow-y: auto;
+    min-block-size: 0;
     margin: 0;
     padding: 10px;
     list-style: none;

@@ -10,6 +10,7 @@
     workspace
   } from "@/lib/bridge";
   import DesignMenu from "@/lib/DesignMenu.svelte";
+  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import { isTemporaryWorkspace } from "@/lib/paths";
@@ -18,6 +19,7 @@
   import { contextPct, dropContext } from "@/lib/stores/context.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
+  import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { ChangeKind, SessionStatus, SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -840,6 +842,16 @@
     side = side === panel ? null : panel;
   }
 
+  // The shared side-panel header renders each panel's title here; the live count
+  // and refresh action are published by the active panel via the sidePanel store.
+  const SIDE_TITLES: Record<Exclude<Side, null>, string> = {
+    [Side.feed]: "Change Feed",
+    [Side.vcs]: "Version control",
+    [Side.tasks]: "Tasks",
+    [Side.config]: "Agent config"
+  };
+  const sideTitle = $derived(side ? SIDE_TITLES[side] : "");
+
   // Run a project task as a streaming runner in the dock (not a throwaway
   // terminal tab), so its output stays visible and can be piped into an agent.
   async function runTask(task: {
@@ -1078,21 +1090,42 @@
 
         {#if side !== null}
           <aside class="pane side-pane">
-            {#if side === Side.feed}
-              <ChangeFeed />
-            {:else if side === Side.vcs}
-              {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
-                <VcsPanel />
-              {/await}
-            {:else if side === Side.tasks}
-              {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
-                <TasksPanel onrun={runTask} />
-              {/await}
-            {:else if side === Side.config}
-              {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
-                <ConfigPanel agent={activeAgent} />
-              {/await}
-            {/if}
+            <header class="panel-head">
+              <div class="panel-title">
+                <h2>{sideTitle}</h2>
+                {#if panelCount() !== null}
+                  <span class="panel-count">{formatCount(panelCount() ?? 0)}</span>
+                {/if}
+              </div>
+              {#if panelRefresh()}
+                <button
+                  class="panel-refresh"
+                  aria-label="Refresh"
+                  data-tooltip="Refresh"
+                  onclick={() => panelRefresh()?.()}
+                >
+                  <Icon name="refresh" />
+                </button>
+              {/if}
+            </header>
+
+            <div class="panel-body">
+              {#if side === Side.feed}
+                <ChangeFeed />
+              {:else if side === Side.vcs}
+                {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
+                  <VcsPanel />
+                {/await}
+              {:else if side === Side.tasks}
+                {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
+                  <TasksPanel onrun={runTask} />
+                {/await}
+              {:else if side === Side.config}
+                {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
+                  <ConfigPanel agent={activeAgent} />
+                {/await}
+              {/if}
+            </div>
           </aside>
         {/if}
       </main>
@@ -1490,9 +1523,71 @@
   }
 
   .side-pane {
+    display: flex;
+    flex-direction: column;
     border-inline-start: 1px solid var(--outline);
     background: var(--surface);
     animation: panel-in 320ms var(--ease);
+  }
+
+  /* One shared header for every panel (DRY) — title + optional count + optional
+     refresh. The panels below own only their scroll body. */
+  .panel-head {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+    align-items: center;
+    padding-block: 12px;
+    padding-inline: 16px;
+    border-block-end: 1px solid var(--outline);
+  }
+
+  .panel-title {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+
+    h2 {
+      margin: 0;
+      font-weight: 700;
+      font-size: 15px;
+    }
+  }
+
+  .panel-count {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font-weight: 700;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .panel-refresh {
+    display: grid;
+    place-items: center;
+    block-size: 28px;
+    inline-size: 28px;
+    margin-inline-start: auto;
+    border: none;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    transition: color 140ms var(--ease), background 140ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+      color: var(--on-surface);
+    }
+  }
+
+  .panel-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-block-size: 0;
   }
 
   /* All sessions stay mounted so their scrollback survives switching; only the

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { feed, tasks as tasksApi } from "@/lib/bridge";
-  import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
+  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import type { TaskGroup } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
@@ -51,16 +51,17 @@
     unlisten?.();
     clearTimeout(timer);
   });
+
+  // Publish the refresh action to the shared side-panel header.
+  $effect(() => {
+    setPanelHeader({
+      count: null,
+      refresh
+    });
+  });
 </script>
 
 <div class="tasks">
-  <header class="head">
-    <h2>Tasks</h2>
-    <button class="refresh" aria-label="Refresh" data-tooltip="Refresh" onclick={refresh}>
-      <Icon name="refresh" />
-    </button>
-  </header>
-
   {#if error}
     <p class="empty">Could not read project tasks.</p>
   {:else if groups.length === 0}
@@ -107,38 +108,6 @@
     block-size: 100%;
   }
 
-  .head {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    padding-block: 12px;
-    padding-inline: 16px;
-    border-block-end: 1px solid var(--outline);
-  }
-
-  .head h2 {
-    margin: 0;
-    font-size: 15px;
-  }
-
-  .refresh {
-    display: grid;
-    place-items: center;
-    block-size: 30px;
-    inline-size: 30px;
-    margin-inline-start: auto;
-    border: none;
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: color 140ms var(--ease);
-
-    &:hover {
-      color: var(--primary);
-    }
-  }
-
   .empty {
     margin: 16px;
     color: var(--on-surface-variant);
@@ -148,9 +117,11 @@
 
   .scroll {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
+    min-block-size: 0;
     padding-block: 8px;
     padding-inline: 10px;
     animation: panel-swap 280ms var(--ease);
