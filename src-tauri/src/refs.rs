@@ -541,18 +541,36 @@ struct PackageManager {
     command: &'static str,
 }
 
-/// Managers we know how to reconcile. pnpm is concrete; npm/yarn are trivial to
-/// add once wanted (left as TODO so the set stays honest, not speculative).
+/// Managers we know how to reconcile, in priority order — the first whose
+/// lockfile is present and whose tool is on PATH wins (a project uses one). The
+/// surest fix after a move is to let the manager rebuild its links/store.
 const PACKAGE_MANAGERS: &[PackageManager] = &[
-    // pnpm links packages as symlinks/junctions with absolute targets; the surest
-    // fix after a move is to let pnpm rebuild its store links.
     PackageManager {
         lockfile: "pnpm-lock.yaml",
         tool: "pnpm",
         command: "pnpm install",
     },
-    // TODO: npm — { lockfile: "package-lock.json", tool: "npm", command: "npm install" }
-    // TODO: yarn — { lockfile: "yarn.lock", tool: "yarn", command: "yarn" }
+    PackageManager {
+        lockfile: "package-lock.json",
+        tool: "npm",
+        command: "npm install",
+    },
+    PackageManager {
+        lockfile: "yarn.lock",
+        tool: "yarn",
+        command: "yarn install",
+    },
+    // Bun's lockfile is `bun.lockb` (binary) or `bun.lock` (text, newer) — match either.
+    PackageManager {
+        lockfile: "bun.lockb",
+        tool: "bun",
+        command: "bun install",
+    },
+    PackageManager {
+        lockfile: "bun.lock",
+        tool: "bun",
+        command: "bun install",
+    },
 ];
 
 /// If the moved project uses a known package manager (lockfile present + tool on
@@ -569,6 +587,7 @@ fn reconcile_package_manager(new_dir: &Path) {
             continue;
         }
         spawn_install(new_dir, manager.command);
+        break; // one package manager per project — run only the first match
     }
 }
 
