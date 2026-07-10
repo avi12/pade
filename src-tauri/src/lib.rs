@@ -28,6 +28,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
             design::design_tools,
+            design::design_embed,
+            design::design_set_bounds,
+            design::design_close,
             ide::ide_detect,
             ide::ide_suggest,
             ide::ide_open,

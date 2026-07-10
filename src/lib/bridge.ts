@@ -69,7 +69,41 @@ export const os = {
 /** AI design/UI-generation tools — a roster ranked for the active agent. */
 export const design = {
   tools: (agent: string) => call("design_tools", z.array(DesignTool), { agent }),
-  open: (url: string) => run("open_url", { url })
+  open: (url: string) => run("open_url", { url }),
+  /** Dock a tool's live UI in the native child webview over the side pane. */
+  embed: ({ url, x, y, width, height }: {
+    url: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) =>
+    run("design_embed", {
+      url,
+      bounds: {
+        x,
+        y,
+        width,
+        height
+      }
+    }),
+  /** Reposition the docked webview as its host pane moves/resizes. */
+  setBounds: ({ x, y, width, height }: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) =>
+    run("design_set_bounds", {
+      bounds: {
+        x,
+        y,
+        width,
+        height
+      }
+    }),
+  /** Park the docked webview off-screen (keeps its session). */
+  close: () => run("design_close")
 };
 
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it

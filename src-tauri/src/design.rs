@@ -8,6 +8,8 @@
 //! one is a single `REGISTRY` entry (DRY); nothing else hard-codes a product.
 
 use serde::Serialize;
+use tauri::webview::WebviewBuilder;
+use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Url, WebviewUrl};
 
 struct DesignDef {
     id: &'static str,
@@ -82,4 +84,77 @@ pub fn design_tools(agent: String) -> Vec<DesignTool> {
     // Stable: recommended tool(s) float up, everything else keeps its order.
     tools.sort_by_key(|t| !t.recommended);
     tools
+}
+
+// Docking the design tool as a native child webview.
+//
+// iframes are impossible here: claude.ai / stitch / v0 / figma all send
+// `X-Frame-Options`, so the tool's live UI can only live in a *native* webview.
+// We host a single reusable child webview (`design-view`) on the main window,
+// positioned by the frontend `DesignPanel` over the right-hand side pane. The
+// panel measures its host div and passes logical bounds; we create the webview
+// on first embed, then just re-`navigate`/reposition it thereafter — closing
+// only parks it off-screen so the tool's session survives a reopen.
+
+const DESIGN_WEBVIEW: &str = "design-view";
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Bounds {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+/// Dock `url` in the design child webview at `bounds`, creating it on first use.
+#[tauri::command]
+pub fn design_embed(app: AppHandle, url: String, bounds: Bounds) -> Result<(), String> {
+    let target = Url::parse(&url).map_err(|e| e.to_string())?;
+    if let Some(webview) = app.get_webview(DESIGN_WEBVIEW) {
+        webview.navigate(target).map_err(|e| e.to_string())?;
+        webview
+            .set_position(LogicalPosition::new(bounds.x, bounds.y))
+            .map_err(|e| e.to_string())?;
+        webview
+            .set_size(LogicalSize::new(bounds.width, bounds.height))
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    let window = app
+        .get_window("main")
+        .ok_or_else(|| "no main window".to_string())?;
+    window
+        .add_child(
+            WebviewBuilder::new(DESIGN_WEBVIEW, WebviewUrl::External(target)),
+            LogicalPosition::new(bounds.x, bounds.y),
+            LogicalSize::new(bounds.width, bounds.height),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Reposition the design webview as its host pane moves/resizes (no navigation).
+#[tauri::command]
+pub fn design_set_bounds(app: AppHandle, bounds: Bounds) -> Result<(), String> {
+    if let Some(webview) = app.get_webview(DESIGN_WEBVIEW) {
+        webview
+            .set_position(LogicalPosition::new(bounds.x, bounds.y))
+            .map_err(|e| e.to_string())?;
+        webview
+            .set_size(LogicalSize::new(bounds.width, bounds.height))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Hide the design webview by parking it off-screen — keeps the tool's session.
+#[tauri::command]
+pub fn design_close(app: AppHandle) -> Result<(), String> {
+    if let Some(webview) = app.get_webview(DESIGN_WEBVIEW) {
+        webview
+            .set_position(LogicalPosition::new(0.0, 100_000.0))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
