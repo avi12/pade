@@ -15,6 +15,7 @@ mod usage;
 mod util;
 mod vcs;
 mod watcher;
+mod window;
 mod workspace;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -45,6 +46,7 @@ pub fn run() {
             os::open_in_explorer,
             os::open_in_terminal,
             os::open_url,
+            window::window_create,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
@@ -57,6 +59,10 @@ pub fn run() {
             vcs::vcs_log,
             vcs::vcs_diff,
             vcs::vcs_branches,
+            vcs::vcs_commit,
+            vcs::vcs_commit_diff,
+            vcs::vcs_remote_url,
+            vcs::vcs_current_branch,
             vcs::vcs_worktree_add,
             vcs::vcs_restore_candidates,
             vcs::vcs_restore_checkout,
@@ -65,6 +71,7 @@ pub fn run() {
             tasks::tasks_list,
             usage::usage_get,
             usage::usage_session,
+            usage::usage_account,
             naming::project_autoname,
             workspace::launch_context,
             workspace::settings_get,

@@ -4,9 +4,11 @@
 // just declare command + schema.
 
 import {
+  AccountUsage,
   Agent,
   ChangeEvent,
   Commit,
+  CommitDetail,
   ConfigFile,
   DesignTool,
   Ide,
@@ -72,7 +74,18 @@ export const ide = {
 /** OS integrations — reveal a project in the file manager or a terminal. */
 export const os = {
   explorer: (path: string) => run("open_in_explorer", { path }),
-  terminal: (path: string) => run("open_in_terminal", { path })
+  terminal: (path: string) => run("open_in_terminal", { path }),
+  /** Open an http(s) URL in the system's default browser. */
+  openUrl: (url: string) => run("open_url", { url })
+};
+
+/** Multi-window — spawn a fresh app window targeting a project, an empty picker,
+ *  or a throwaway workspace. The spawned window routes off its query string. */
+export const windows = {
+  create: (args: {
+    mode: "empty" | "temp" | "open";
+    path?: string;
+  }) => run("window_create", { ...args })
 };
 
 /** AI design/UI-generation tools — a roster ranked for the active agent. */
@@ -136,6 +149,20 @@ export const vcs = {
       staged
     }),
   branches: () => call("vcs_branches", z.array(z.string())),
+  /** One commit's message body, per-file stats, and branch. */
+  commit: (sha: string) => call("vcs_commit", CommitDetail, { sha }),
+  /** Raw unified diff for one path within a commit. */
+  commitDiff: ({ sha, path }: {
+    sha: string;
+    path: string;
+  }) => call("vcs_commit_diff", z.string(), {
+    sha,
+    path
+  }),
+  /** The `origin` remote as a browsable `https://host/owner/repo` URL, or null. */
+  remoteUrl: () => call("vcs_remote_url", z.string().nullable()),
+  /** The current HEAD branch name, or null on a detached HEAD / non-repo. */
+  currentBranch: () => call("vcs_current_branch", z.string().nullable()),
   worktreeAdd: (args: {
     branch: string;
     create: boolean;
@@ -177,7 +204,10 @@ export const tasks = {
 export const usage = {
   get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
   /** The active session's context-window state for the latest session in `cwd`. */
-  session: (cwd: string) => call("usage_session", SessionUsage.nullable(), { cwd })
+  session: (cwd: string) => call("usage_session", SessionUsage.nullable(), { cwd }),
+  /** Live claude.ai usage windows (5-hour session + 7-day weekly) via the OAuth
+   *  endpoint — the same numbers `claude /usage` shows. */
+  account: () => call("usage_account", AccountUsage.nullable())
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */

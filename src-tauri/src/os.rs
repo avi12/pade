@@ -3,9 +3,15 @@
 
 use std::process::Command;
 
-/// Open a URL in the default browser.
+/// Open a URL in the default browser. Only http(s) schemes are allowed — this is
+/// the one seam that hands a string to the OS shell, so we refuse anything that
+/// isn't a plain web URL (no `file:`, `javascript:`, custom handlers, etc.).
 #[tauri::command]
 pub fn open_url(url: String) -> Result<(), String> {
+    let scheme_ok = url.starts_with("https://") || url.starts_with("http://");
+    if !scheme_ok {
+        return Err("only http(s) URLs may be opened".into());
+    }
     let result = if cfg!(windows) {
         // The empty "" is `start`'s title arg, so the URL isn't mistaken for one.
         Command::new("cmd").args(["/C", "start", "", &url]).spawn()

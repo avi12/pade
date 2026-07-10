@@ -38,9 +38,44 @@ export const Commit = z.object({
   short: z.string(),
   summary: z.string(),
   author: z.string(),
-  when: z.string()
+  when: z.string(),
+  /** Lines added across the commit (defaulted for back-compat with old callers). */
+  additions: z.number().default(0),
+  /** Lines deleted across the commit. */
+  deletions: z.number().default(0),
+  /** Files the commit touched. */
+  files: z.number().default(0)
 });
 export type Commit = z.infer<typeof Commit>;
+
+/** One file changed by a commit, with its per-file line counts. */
+export const CommitFileEntry = z.object({
+  path: z.string(),
+  kind: VcsKind,
+  additions: z.number(),
+  deletions: z.number(),
+  /** True when git reports the file as binary (line counts are meaningless). */
+  binary: z.boolean().default(false)
+});
+export type CommitFileEntry = z.infer<typeof CommitFileEntry>;
+
+/** A single commit's full detail: message body, branch, and per-file stats.
+ *  Reuses `Commit`'s field names for the shared header fields. */
+export const CommitDetail = z.object({
+  id: z.string(),
+  short: z.string(),
+  summary: z.string(),
+  /** The commit message body (everything after the subject); empty if none. */
+  body: z.string(),
+  author: z.string(),
+  when: z.string(),
+  /** Current HEAD branch name (empty on a detached HEAD). */
+  branch: z.string(),
+  files: z.array(CommitFileEntry),
+  additions: z.number(),
+  deletions: z.number()
+});
+export type CommitDetail = z.infer<typeof CommitDetail>;
 
 /** A commit ranked as a candidate for "restore a version" — a Commit plus a
  *  0..≈1.5 fuzzy `score` (token overlap with the query, boosted by time hints). */
@@ -114,12 +149,53 @@ export const Usage = z.object({
 });
 export type Usage = z.infer<typeof Usage>;
 
-/** The active session's context-window state, read from the local transcript. */
+/** The active session's context-window state, read from the local transcript.
+ *  The token/message/start fields are best-effort — `null` when not reliably
+ *  parseable (the UI hides that cell) rather than a fabricated number. */
+/** One live rate-limit window (the 5-hour session or the 7-day weekly), mirrored
+ *  from the same claude.ai OAuth usage endpoint Claude Code's `/usage` reads. */
+export const UsageWindow = z.object({
+  /** Percent of the window consumed (0..100). */
+  utilization: z.number(),
+  /** ISO-8601 reset time for the window, when known. */
+  resetsAt: z.string().nullish()
+});
+export type UsageWindow = z.infer<typeof UsageWindow>;
+
+/** A per-model weekly window (Opus / Fable etc. can have their own weekly cap).
+ *  Only the ones actually in use (> 0%) are surfaced by the backend. */
+export const ModelUsage = z.object({
+  name: z.string(),
+  utilization: z.number(),
+  resetsAt: z.string().nullish()
+});
+export type ModelUsage = z.infer<typeof ModelUsage>;
+
+/** Live account usage — the 5-hour + weekly windows claude.ai shows, any non-zero
+ *  per-model weekly windows, plus the plan label. `null` when offline / the local
+ *  token is missing or expired. */
+export const AccountUsage = z.object({
+  fiveHour: UsageWindow.nullish(),
+  sevenDay: UsageWindow.nullish(),
+  models: z.array(ModelUsage).default([]),
+  plan: z.string(),
+  source: z.string()
+});
+export type AccountUsage = z.infer<typeof AccountUsage>;
+
 export const SessionUsage = z.object({
   /** Context-window fill percent (0..100). */
   pct: z.number(),
   /** The model in play, best-effort (empty when unknown). */
-  model: z.string()
+  model: z.string(),
+  /** Tokens of context in play right now (input + cache). */
+  usedTokens: z.number().nullish(),
+  /** The model's context window in tokens. */
+  limitTokens: z.number().nullish(),
+  /** User + assistant message count in the transcript. */
+  messages: z.number().nullish(),
+  /** Epoch-ms of the session's first timestamped entry. */
+  startedAt: z.number().nullish()
 });
 export type SessionUsage = z.infer<typeof SessionUsage>;
 
