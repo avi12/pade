@@ -10,6 +10,7 @@
   import Icon from "./lib/Icon.svelte";
   import IdeMenu from "./lib/IdeMenu.svelte";
   import { effective } from "./lib/prefs.svelte";
+  import { ChangeKind, SHELL_AGENT_ID, StartMode } from "./lib/types";
   import type { Agent, AgentSession, ChangeEvent, Settings } from "./lib/types";
   import UsageMeter from "./lib/UsageMeter.svelte";
   import ChangeFeed from "./panels/ChangeFeed.svelte";
@@ -23,8 +24,16 @@
   import { onDestroy, onMount } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-  type Phase = "loading" | "project" | "onboarding" | "ready";
-  let phase = $state<Phase>("loading");
+  // Which top-level screen is showing. A closed set defined once, compared
+  // against by member so no bare literal leaks into the flow logic.
+  const Phase = {
+    loading: "loading",
+    project: "project",
+    onboarding: "onboarding",
+    ready: "ready"
+  } as const;
+  type Phase = (typeof Phase)[keyof typeof Phase];
+  let phase = $state<Phase>(Phase.loading);
   let agents = $state<Agent[]>([]);
   let settings = $state<Settings>({
     roots: [],
@@ -45,7 +54,7 @@
 
   // Agents excluding the always-present shell fallback — this count decides
   // whether we auto-launch or onboard.
-  const realAgents = $derived(agents.filter(a => a.id !== "shell"));
+  const realAgents = $derived(agents.filter(a => a.id !== SHELL_AGENT_ID));
   // The current directory, shown as the last couple of segments so it's legible
   // without eating the whole topbar (full path in the tooltip).
   const shortDir = $derived(
@@ -67,13 +76,14 @@
     agents = detected;
     settings = saved;
 
+    const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
     if (ctx.hasProject) {
       await workspace.open(ctx.cwd); // records it in recent history
       startAgentFlow(ctx.cwd);
       await loadBranches();
-    } else if (saved.prefs.startMode === "picker") {
+    } else if (prefersPicker) {
       // Opt-in: show the project picker instead of starting in a temp workspace.
-      phase = "project";
+      phase = Phase.project;
     } else {
       // Default: start immediately in a throwaway workspace so there's no
       // blocking picker. The user can switch any time (Switch button).
@@ -84,7 +94,7 @@
 
   // Show the project picker on demand to switch project / open recent / create.
   function switchProject() {
-    phase = "project";
+    phase = Phase.project;
   }
 
   // Re-detect installed agents so the picker reflects an agent the user just
@@ -119,11 +129,13 @@
 
   async function maybeAutoName(event: ChangeEvent) {
     const proj = currentProject;
-    if (!isTemp || settings.prefs.autoNameTemp === false) {
+    const autoNameDisabled = settings.prefs.autoNameTemp === false;
+    if (!isTemp || autoNameDisabled) {
       return;
     }
 
-    if (event.kind === "deleted" || namedProjects.has(proj) || settings.labels[proj]) {
+    const alreadyNamed = namedProjects.has(proj) || Boolean(settings.labels[proj]);
+    if (event.kind === ChangeKind.enum.deleted || alreadyNamed) {
       return;
     }
 
@@ -227,7 +239,7 @@
     }
 
     pendingPrompt = initialPrompt;
-    phase = "onboarding";
+    phase = Phase.onboarding;
   }
 
   function launch(opts: {
@@ -246,7 +258,7 @@
     sessions.push(session);
     activeId = session.id;
     pendingPrompt = undefined;
-    phase = "ready";
+    phase = Phase.ready;
   }
 
   // Load branches for the current repo (empty when not a git project).
@@ -279,15 +291,23 @@
 
     // Closing the last session shows the agent picker (project stays open) —
     // never silently spawn a replacement.
-    if (sessions.length === 0) {
+    const wasLastSession = sessions.length === 0;
+    if (wasLastSession) {
       pendingPrompt = undefined;
-      phase = "onboarding";
+      phase = Phase.onboarding;
     }
   }
 
-  // Side panels (lazy-loaded for tree-shaking).
-  type Side = "feed" | "vcs" | "tasks" | "config" | null;
-  let side = $state<Side>("feed");
+  // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
+  // defined once; `null` means no panel is open.
+  const Side = {
+    feed: "feed",
+    vcs: "vcs",
+    tasks: "tasks",
+    config: "config"
+  } as const;
+  type Side = (typeof Side)[keyof typeof Side] | null;
+  let side = $state<Side>(Side.feed);
   function toggleSide(panel: Exclude<Side, null>) {
     side = side === panel ? null : panel;
   }
@@ -299,7 +319,7 @@
     command: string;
     cwd: string;
   }) {
-    const shell = agents.find(a => a.id === "shell") ?? agents[0];
+    const shell = agents.find(a => a.id === SHELL_AGENT_ID) ?? agents[0];
     launch({
       agent: {
         id: `task:${task.label}`,
@@ -341,15 +361,15 @@
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-mono={effective.monoFamily} class="app-root">
-  {#if phase === "project"}
+  {#if phase === Phase.project}
     <ProjectPicker {agents} onopen={openProject} />
-  {:else if phase === "onboarding"}
+  {:else if phase === Phase.onboarding}
     <Onboarding
       {agents} onpick={a => launch({
         agent: a,
         initialPrompt: pendingPrompt
       })} />
-  {:else if phase === "ready"}
+  {:else if phase === Phase.ready}
     <div class="shell">
       <header class="topbar">
         <span class="brand">◆ PADE</span>
@@ -413,16 +433,16 @@
         <IdeMenu />
 
         <div class="seg" aria-label="Side panel" role="tablist">
-          <button aria-selected={side === "feed"} onclick={() => toggleSide("feed")} role="tab">
+          <button aria-selected={side === Side.feed} onclick={() => toggleSide(Side.feed)} role="tab">
             <Icon name="feed" /> Change Feed
           </button>
-          <button aria-selected={side === "vcs"} onclick={() => toggleSide("vcs")} role="tab">
+          <button aria-selected={side === Side.vcs} onclick={() => toggleSide(Side.vcs)} role="tab">
             <Icon name="git" /> Git
           </button>
-          <button aria-selected={side === "tasks"} onclick={() => toggleSide("tasks")} role="tab">
+          <button aria-selected={side === Side.tasks} onclick={() => toggleSide(Side.tasks)} role="tab">
             <Icon name="terminal" /> Tasks
           </button>
-          <button aria-selected={side === "config"} onclick={() => toggleSide("config")} role="tab">
+          <button aria-selected={side === Side.config} onclick={() => toggleSide(Side.config)} role="tab">
             <Icon name="sliders" /> Config
           </button>
         </div>
@@ -439,17 +459,17 @@
 
         {#if side !== null}
           <aside class="pane side-pane">
-            {#if side === "feed"}
+            {#if side === Side.feed}
               <ChangeFeed />
-            {:else if side === "vcs"}
+            {:else if side === Side.vcs}
               {#await import("./panels/VcsPanel.svelte") then { default: VcsPanel }}
                 <VcsPanel />
               {/await}
-            {:else if side === "tasks"}
+            {:else if side === Side.tasks}
               {#await import("./panels/TasksPanel.svelte") then { default: TasksPanel }}
                 <TasksPanel onrun={runTask} />
               {/await}
-            {:else if side === "config"}
+            {:else if side === Side.config}
               {#await import("./panels/ConfigPanel.svelte") then { default: ConfigPanel }}
                 <ConfigPanel agent={activeAgent} />
               {/await}

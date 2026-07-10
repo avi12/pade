@@ -57,6 +57,10 @@ export const Agent = z.object({
 });
 export type Agent = z.infer<typeof Agent>;
 
+/** The always-present shell fallback's agent id — the one backend-provided agent
+ *  that isn't a real coding agent, so it's excluded from auto-launch/onboarding. */
+export const SHELL_AGENT_ID = "shell";
+
 /** One runnable task parsed from a project manifest. */
 export const Task = z.object({
   name: z.string(),

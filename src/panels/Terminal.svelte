@@ -2,7 +2,8 @@
   import { pty } from "../lib/bridge";
   import { appearance, effective } from "../lib/prefs.svelte";
   import SessionBadge from "../lib/SessionBadge.svelte";
-  import type { AgentSession, SessionStatus } from "../lib/types";
+  import { SessionStatus } from "../lib/types";
+  import type { AgentSession } from "../lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebglAddon } from "@xterm/addon-webgl";
@@ -20,21 +21,21 @@
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
-  let status = $state<SessionStatus>("starting");
+  let status = $state<SessionStatus>(SessionStatus.enum.starting);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let fitTimer: ReturnType<typeof setTimeout> | undefined;
   const IDLE_MS = 700;
 
   function markActivity() {
-    if (status === "exited") {
+    if (status === SessionStatus.enum.exited) {
       return;
     }
 
-    status = "working";
+    status = SessionStatus.enum.working;
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-      if (status === "working") {
-        status = "ready";
+      if (status === SessionStatus.enum.working) {
+        status = SessionStatus.enum.ready;
       }
     }, IDLE_MS);
   }
@@ -98,7 +99,7 @@
       }
 
       clearTimeout(idleTimer);
-      status = "exited";
+      status = SessionStatus.enum.exited;
     });
 
     // Send keystrokes to this session's PTY.
