@@ -322,7 +322,10 @@
   .runner {
     display: flex;
     flex-direction: column;
-    min-block-size: 0;
+
+    /* Each runner stays readable (canvas floor); the grid scrolls when several
+       stack. The output pane below scrolls independently via its own min-size. */
+    min-block-size: 168px;
     background: var(--surface-1);
 
     &.dragging {
