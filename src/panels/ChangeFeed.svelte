@@ -119,6 +119,27 @@
     }
   }
 
+  // Clicking the diff body reveals the file in the detected editor — a larger
+  // target than the filename button. A drag to select text (for send-to-agent)
+  // must not also open the file, so bail while a selection is live.
+  const revealTip = $derived(ides[0] ? `Reveal in ${ides[0].label}` : "No editor detected");
+  function revealDiff(path: string) {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      return;
+    }
+
+    openInEditor(path);
+  }
+  function onDiffKey({ event, path }: {
+    event: KeyboardEvent;
+    path: string;
+  }) {
+    if (event.key === "Enter") {
+      openInEditor(path);
+    }
+  }
+
   function fileName(path: string) {
     return path.split(/[\\/]/).pop() ?? path;
   }
@@ -224,7 +245,17 @@
                 <p class="state">No preview available.</p>
               {/if}
             {:else if diffMode === DiffMode.unified}
-              <div class="unified">
+              <div
+                class="unified"
+                data-tooltip={revealTip}
+                onclick={() => revealDiff(ev.path)}
+                onkeydown={event => onDiffKey({
+                  event,
+                  path: ev.path
+                })}
+                role="button"
+                tabindex="0"
+              >
                 {#each unifiedLines as line, i (i)}
                   <div
                     class="line"
@@ -235,7 +266,17 @@
                 {/each}
               </div>
             {:else}
-              <div class="split">
+              <div
+                class="split"
+                data-tooltip={revealTip}
+                onclick={() => revealDiff(ev.path)}
+                onkeydown={event => onDiffKey({
+                  event,
+                  path: ev.path
+                })}
+                role="button"
+                tabindex="0"
+              >
                 {#each splitRows as row, i (i)}
                   {#if row.hunk}
                     <div class="hunk">{row.hunkText}</div>
@@ -523,6 +564,7 @@
     font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
+    cursor: pointer;
 
     .line {
       padding-inline: 12px;
@@ -553,6 +595,7 @@
     font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
+    cursor: pointer;
 
     .hunk {
       grid-column: 1 / -1;
