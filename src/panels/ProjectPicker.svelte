@@ -1,13 +1,8 @@
 <script lang="ts">
   import { contextMenu, ide, os, workspace } from "../lib/bridge";
   import Icon from "../lib/Icon.svelte";
-  import type {
-    Agent,
-    Ide,
-    ProjectEntry,
-    Settings,
-    StartMode
-  } from "../lib/types";
+  import { SHELL_AGENT_ID, StartMode } from "../lib/types";
+  import type { Agent, Ide, ProjectEntry, Settings } from "../lib/types";
   import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
@@ -41,8 +36,8 @@
   let createName = $state("");
   let createPrompt = $state("");
 
-  const realAgents = $derived(agents.filter(a => a.id !== "shell"));
-  const startMode = $derived(settings.prefs.startMode ?? "temp");
+  const realAgents = $derived(agents.filter(a => a.id !== SHELL_AGENT_ID));
+  const startMode = $derived(settings.prefs.startMode ?? StartMode.enum.temp);
   const autoName = $derived(settings.prefs.autoNameTemp !== false);
 
   async function refresh() {
@@ -301,8 +296,16 @@
       <div class="startmode">
         <span class="sm-label">On launch with no project</span>
         <div class="sm-toggle">
-          <button class="sm-btn" class:on={startMode === "temp"} onclick={() => setStartMode("temp")}>Temp workspace</button>
-          <button class="sm-btn" class:on={startMode === "picker"} onclick={() => setStartMode("picker")}>This picker</button>
+          <button
+            class="sm-btn"
+            class:on={startMode === StartMode.enum.temp}
+            onclick={() => setStartMode(StartMode.enum.temp)}
+          >Temp workspace</button>
+          <button
+            class="sm-btn"
+            class:on={startMode === StartMode.enum.picker}
+            onclick={() => setStartMode(StartMode.enum.picker)}
+          >This picker</button>
         </div>
       </div>
       <label class="autoname">

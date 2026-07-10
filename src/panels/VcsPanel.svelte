@@ -1,5 +1,6 @@
 <script lang="ts">
   import { feed, vcs } from "../lib/bridge";
+  import { VcsKind } from "../lib/types";
   import type { Commit, StatusEntry } from "../lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
@@ -29,13 +30,13 @@
 
   async function open(entry: StatusEntry) {
     selected = entry;
-    diff =
-      entry.kind === "untracked"
-        ? "(new file — not yet tracked)"
-        : await vcs.diff({
-          path: entry.path,
-          staged: entry.staged
-        });
+    const isUntracked = entry.kind === VcsKind.enum.untracked;
+    diff = isUntracked
+      ? "(new file — not yet tracked)"
+      : await vcs.diff({
+        path: entry.path,
+        staged: entry.staged
+      });
   }
 
   // Debounced refresh so a burst of saves triggers one status fetch.
