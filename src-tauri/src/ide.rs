@@ -158,9 +158,9 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
 
     let mut ordered = Vec::new();
     for id in preferred.chain(GENERALISTS.iter().copied()) {
-        if !ordered.contains(&id)
-            && is_on_path(lookup(id).map(|i| i.command).unwrap_or_default().as_str())
-        {
+        let command = lookup(id).map(|i| i.command).unwrap_or_default();
+        let is_new_and_installed = !ordered.contains(&id) && is_on_path(&command);
+        if is_new_and_installed {
             ordered.push(id);
         }
     }
