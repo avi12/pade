@@ -216,7 +216,7 @@
         disabled={!commitUrl}
         onclick={openOnGithub}
       >
-        <Icon name="external" size={15} /> Open on GitHub
+        <Icon name="github" size={15} /> Open on GitHub
       </button>
       <button class="close" aria-label="Close commit details" data-tooltip="Close" onclick={onclose}>
         <Icon name="close" size={16} />
@@ -283,7 +283,7 @@
               This file is too large to render inline. The rest of the diff is available on GitHub.
             </span>
             <button class="omit-btn" disabled={!commitUrl} onclick={openOnGithub}>
-              <Icon name="external" size={14} /> View on GitHub
+              <Icon name="github" size={14} /> View full diff
             </button>
           </div>
         {:else}

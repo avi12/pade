@@ -318,7 +318,7 @@
                 class="commit"
                 aria-label="Commit {c.short}: {c.summary}, by {c.author} {c.when}"
                 data-commit
-                data-tooltip="Enter to view · Ctrl-click opens on GitHub"
+                data-tooltip="Enter to view · Ctrl-click or Ctrl-Enter opens on GitHub"
                 onclick={event => onCommitClick(event, c)}
                 onkeydown={event => onCommitKey(event, index, c)}
               >
