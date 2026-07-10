@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ide, os, workspace } from "../lib/bridge";
+  import { contextMenu, ide, os, workspace } from "../lib/bridge";
   import Icon from "../lib/Icon.svelte";
   import type {
     Agent,
@@ -63,6 +63,24 @@
       ...settings.prefs,
       autoNameTemp: on
     });
+  }
+
+  // Explorer "Open in PADE" folder context menu (Windows-only, per-user).
+  const isWindows = navigator.userAgent.includes("Windows");
+  let ctxMenuOn = $state(false);
+  async function loadCtxMenu() {
+    if (isWindows) {
+      ctxMenuOn = await contextMenu.status();
+    }
+  }
+  async function setCtxMenu(on: boolean) {
+    if (on) {
+      await contextMenu.register();
+    } else {
+      await contextMenu.unregister();
+    }
+
+    ctxMenuOn = await contextMenu.status();
   }
   function scan(root: string): Promise<ProjectEntry[]> {
     return workspace.scan(root).catch((): ProjectEntry[] => []);
@@ -198,7 +216,10 @@
     });
   }
 
-  onMount(refresh);
+  onMount(() => {
+    void refresh();
+    void loadCtxMenu();
+  });
 </script>
 
 {#snippet rowMenu(path: string)}
@@ -288,6 +309,12 @@
         <input checked={autoName} onchange={e => setAutoName(e.currentTarget.checked)} type="checkbox" />
         <span>Auto-name temp workspaces once the agent starts working</span>
       </label>
+      {#if isWindows}
+        <label class="autoname">
+          <input checked={ctxMenuOn} onchange={e => setCtxMenu(e.currentTarget.checked)} type="checkbox" />
+          <span>Add “Open in PADE” to the folder right-click menu</span>
+        </label>
+      {/if}
     </section>
 
     {#if settings.recentProjects.length > 0}

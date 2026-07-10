@@ -1,5 +1,6 @@
 mod agents;
 mod config;
+mod contextmenu;
 #[cfg(windows)]
 mod copilot;
 mod design;
@@ -27,6 +28,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
+            contextmenu::context_menu_register,
+            contextmenu::context_menu_unregister,
+            contextmenu::context_menu_status,
             design::design_tools,
             ide::ide_detect,
             ide::ide_suggest,

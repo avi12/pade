@@ -72,6 +72,13 @@ export const design = {
   open: (url: string) => run("open_url", { url })
 };
 
+/** Windows Explorer "Open in PADE" folder context-menu entry. */
+export const contextMenu = {
+  status: () => call("context_menu_status", z.boolean()),
+  register: () => run("context_menu_register"),
+  unregister: () => run("context_menu_unregister")
+};
+
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
  *  so a listener can route to the right terminal. */
 export const pty = {
