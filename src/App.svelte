@@ -4,7 +4,6 @@
     agents as agentsApi,
     feed,
     pty,
-    usage,
     vcs,
     windows,
     workspace
@@ -16,7 +15,8 @@
   import { isTemporaryWorkspace } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import RunnerDock from "@/lib/RunnerDock.svelte";
-  import { contextPct, dropContext } from "@/lib/stores/context.svelte";
+  import { dropContext } from "@/lib/stores/context.svelte";
+  import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
@@ -613,166 +613,21 @@
   }
 
   // ── Auto-handoff ───────────────────────────────────────────────────────────
-  // When an agent nears its context window, hand off to a fresh one: ask it to
-  // write a continue-*.md, end the session, and start a successor seeded to
-  // resume from that doc. Opt-out via prefs.autoHandoff; fires once per session.
-  const CONTEXT_HANDOFF_PCT = 90;
-  const HANDOFF_DOC_TIMEOUT_MS = 120_000;
-  const HANDOFF_SETTLE_MS = 3_000;
-  const USAGE_EXHAUSTED_PCT = 95;
-  const handingOff = new SvelteSet<string>();
-  let handoffNote = $state("");
-
-  $effect(() => {
-    const optedOut = settings.prefs.autoHandoff === false;
-    if (optedOut) {
-      return;
-    }
-
-    for (const session of sessions) {
-      const pct = contextPct({ id: session.id });
-      const nearLimit = pct !== null && pct >= CONTEXT_HANDOFF_PCT;
-      const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
-      const already = handingOff.has(session.id);
-      if (nearLimit && idle && !already) {
-        handingOff.add(session.id);
-        void handoff(session);
-      }
-    }
+  // Near-limit sessions hand off to a fresh agent; the machinery lives in
+  // lib/stores/handoff. The scan runs inside this $effect so it re-fires as the
+  // session list, prefs and context stores change.
+  const autoHandoff = createAutoHandoff({
+    sessions: () => sessions,
+    isOptedOut: () => settings.prefs.autoHandoff === false,
+    slugSource: () => currentLabel ?? shortDir,
+    removeSession(id) {
+      sessions = sessions.filter(s => s.id !== id);
+      paneIds = paneIds.filter(paneId => paneId !== id);
+    },
+    launchSuccessor: launch
   });
-
-  // Only cycle when there's quota to spare — a handoff itself costs tokens. An
-  // unknown quota (tier-only) counts as "enough" so the feature still works.
-  async function hasEnoughUsage(agent: string): Promise<boolean> {
-    const quota = await usage.get(agent).catch(() => null);
-    if (!quota || quota.usedPct == null) {
-      return true;
-    }
-
-    return quota.usedPct < USAGE_EXHAUSTED_PCT;
-  }
-
-  // A filesystem-safe slug for the handoff doc, from the workspace label/dir.
-  function handoffSlug(): string {
-    const slug = (currentLabel ?? shortDir)
-      .replaceAll(/[^a-z0-9-]+/gi, "-")
-      .replaceAll(/^-+|-+$/g, "")
-      .toLowerCase();
-    return slug || "session";
-  }
-
-  function handoffPrompt(doc: string): string {
-    return `\nYour context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.\r`;
-  }
-
-  // In-flight waitForFile resources. A handoff can pend up to 120s, so its
-  // feed listener + timers must be torn down if the component unmounts first —
-  // otherwise the watcher subscription and timers leak. Tracked here so onDestroy
-  // can clear every still-pending wait.
-  const pendingUnlistens = new SvelteSet<UnlistenFn>();
-  const pendingTimers = new SvelteSet<ReturnType<typeof setTimeout>>();
-  onDestroy(() => {
-    for (const unlisten of pendingUnlistens) {
-      unlisten();
-    }
-
-    for (const timer of pendingTimers) {
-      clearTimeout(timer);
-    }
-
-    pendingUnlistens.clear();
-    pendingTimers.clear();
-  });
-
-  // Track one timer in the pending set and return its id, so every timer we
-  // create is registered for teardown in exactly one place.
-  function trackTimer(handler: () => void, delayMs: number): ReturnType<typeof setTimeout> {
-    const timer = setTimeout(handler, delayMs);
-    pendingTimers.add(timer);
-    return timer;
-  }
-
-  // Resolve once the watcher sees `name` written (plus a short settle) or on timeout.
-  function waitForFile(name: string): Promise<void> {
-    return new Promise(resolve => {
-      let unlisten: UnlistenFn | undefined;
-      let settleTimer: ReturnType<typeof setTimeout> | undefined;
-      // Single teardown path: drop the listener + both timers from the pending
-      // set, cancel them, then resolve. Used by every exit (match, settle, timeout).
-      function finish() {
-        if (unlisten) {
-          pendingUnlistens.delete(unlisten);
-          unlisten();
-        }
-
-        for (const timer of [deadlineTimer, settleTimer]) {
-          if (timer !== undefined) {
-            pendingTimers.delete(timer);
-            clearTimeout(timer);
-          }
-        }
-
-        resolve();
-      }
-
-      // Read by finish() only at call time (a timer fires well after this line),
-      // so a const in the closure is safe.
-      const deadlineTimer = trackTimer(finish, HANDOFF_DOC_TIMEOUT_MS);
-      const target = name.toLowerCase();
-      // Kick off the async subscription from this sync executor (the one place a
-      // .then/IIFE is warranted — rule 6).
-      void (async () => {
-        unlisten = await feed.onChange(event => {
-          const seen = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
-          if (!seen) {
-            return;
-          }
-
-          // Restart the short settle window on each matching change; finish only
-          // fires once it goes quiet (or the deadline hits first).
-          if (settleTimer !== undefined) {
-            pendingTimers.delete(settleTimer);
-            clearTimeout(settleTimer);
-          }
-
-          settleTimer = trackTimer(finish, HANDOFF_SETTLE_MS);
-        });
-        pendingUnlistens.add(unlisten);
-      })();
-    });
-  }
-
-  async function handoff(session: AgentSession) {
-    const enough = await hasEnoughUsage(session.agent.id);
-    if (!enough) {
-      return; // stay marked so we don't re-check each tick; skip this cycle
-    }
-
-    const doc = `continue-${handoffSlug()}.md`;
-    handoffNote = `Context nearly full — handing ${session.agent.label} off to a fresh agent…`;
-
-    // 1. Ask the agent to write the handoff doc, then wait for it to land.
-    await pty.write({
-      id: session.id,
-      data: handoffPrompt(doc)
-    });
-    await waitForFile(doc);
-
-    // 2. End the session, 3. start the successor seeded to continue.
-    const { agent, cwd } = session;
-    await pty.kill(session.id);
-    sessions = sessions.filter(s => s.id !== session.id);
-    paneIds = paneIds.filter(id => id !== session.id);
-    dropSessionStatus(session.id);
-    dropContext(session.id);
-    handingOff.delete(session.id);
-    launch({
-      agent,
-      cwd,
-      initialPrompt: `Read ${doc} and continue the work where the previous session left off.\r`
-    });
-    handoffNote = "";
-  }
+  $effect(() => autoHandoff.check());
+  onDestroy(() => autoHandoff.dispose());
 
   // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
   // defined once; `null` means no panel is open.
@@ -1092,10 +947,10 @@
 
       <RunnerDock activeSessionId={activeId} />
 
-      {#if handoffNote}
+      {#if autoHandoff.note}
         <output class="handoff-note">
           <span class="hdot"></span>
-          {handoffNote}
+          {autoHandoff.note}
         </output>
       {/if}
 
