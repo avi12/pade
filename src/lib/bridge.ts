@@ -66,9 +66,9 @@ export const os = {
   terminal: (path: string) => run("open_in_terminal", { path })
 };
 
-/** AI design/UI-generation tools — a curated roster opened in the browser. */
+/** AI design/UI-generation tools — a roster ranked for the active agent. */
 export const design = {
-  tools: () => call("design_tools", z.array(DesignTool)),
+  tools: (agent: string) => call("design_tools", z.array(DesignTool), { agent }),
   open: (url: string) => run("open_url", { url })
 };
 

@@ -388,7 +388,7 @@
 
         <div class="spacer"></div>
 
-        <DesignMenu />
+        <DesignMenu agent={activeAgent} />
         <IdeMenu />
 
         <div class="seg" aria-label="Side panel" role="tablist">

@@ -70,10 +70,19 @@ writes.
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** — open the active project in an installed editor, ranked by
   project kind (`ide.rs`; VS Code, JetBrains family, Zed, Sublime…).
-- R1.10.2 **Design menu** — quick-launch an AI design/UI-generation tool in the
-  browser as a design-to-code companion (`design.rs`; Claude, Google Stitch,
-  Vercel v0, Figma Make, Lovable, Bolt). Curated roster; one registry entry per
-  product (DRY), Claude first.
+- R1.10.2 **Design menu** — an AI design/UI-generation tool as a design-to-code
+  companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
+  **ranked for the active agent** (the vendor-matched tool is pinned first);
+  one registry entry per product (DRY). 🚧 Currently opens in the browser; a
+  **docked native webview panel** (in-app, side-by-side) is the planned form —
+  iframes are blocked by all four sites (`X-Frame-Options`), so it needs a Tauri
+  webview.
+- R1.10.3 🔭 **Agent usage meter** — show the selected agent's remaining quota
+  (e.g. weekly), parsed from the vendor's site (not by invoking the CLI, which
+  would consume quota).
+- R1.10.4 🔭 **Task runner** — parse runnable tasks from project manifests
+  (`package.json` scripts, Cargo/Make/pyproject, …), list them to run in a
+  terminal, auto-synced with the files; monorepo-aware (multiple manifests).
 
 ## 2. Non-functional requirements
 

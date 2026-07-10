@@ -64,12 +64,13 @@ export const Ide = z.object({
 });
 export type Ide = z.infer<typeof Ide>;
 
-/** An AI design/UI-generation tool the topbar can open in the browser. */
+/** An AI design/UI-generation tool, ranked for the active agent. */
 export const DesignTool = z.object({
   id: z.string(),
   label: z.string(),
   vendor: z.string(),
-  url: z.string()
+  url: z.string(),
+  recommended: z.boolean()
 });
 export type DesignTool = z.infer<typeof DesignTool>;
 

@@ -2,14 +2,26 @@
   import { design } from "./bridge";
   import Icon from "./Icon.svelte";
   import type { DesignTool } from "./types";
-  import { onMount } from "svelte";
 
   // Quick-launch an AI design/UI-generation tool (Claude, Google Stitch, v0, …)
-  // in the browser — a design-to-code companion to the agent terminal.
+  // as a design-to-code companion to the agent terminal. The roster is ranked for
+  // the active agent — the vendor-matched tool is pinned first and flagged.
+  const { agent }: { agent: string } = $props();
+
   let tools = $state<DesignTool[]>([]);
 
-  onMount(async () => {
-    tools = await design.tools();
+  // Re-rank whenever the active agent changes; ignore a stale in-flight response.
+  $effect(() => {
+    const active = agent;
+    let cancelled = false;
+    design.tools(active).then(list => {
+      if (!cancelled) {
+        tools = list;
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   });
 </script>
 
@@ -23,6 +35,9 @@
       <li>
         <button onclick={() => void design.open(t.url)} popovertarget="design-menu" popovertargetaction="hide">
           {t.label}
+          {#if t.recommended}
+            <span class="best">best fit</span>
+          {/if}
           <span class="vendor">{t.vendor}</span>
         </button>
       </li>
@@ -98,10 +113,22 @@
         color: var(--on-primary-container);
       }
 
+      .best {
+        color: var(--tertiary);
+        font-weight: 700;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
       .vendor {
         margin-inline-start: auto;
         color: var(--on-surface-var);
         font-size: 11px;
+      }
+
+      &:hover .best {
+        color: inherit;
       }
 
       &:hover .vendor {
