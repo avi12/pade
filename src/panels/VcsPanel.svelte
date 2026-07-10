@@ -1,12 +1,17 @@
 <script lang="ts">
-  import { feed, vcs } from "@/lib/bridge";
-  import { DiffKind, parseDiff } from "@/lib/diff";
+  import { feed, os, vcs } from "@/lib/bridge";
+  import ColorText from "@/lib/ColorText.svelte";
+  import CommitModal from "@/lib/CommitModal.svelte";
+  import { DiffKind, parseDiff, toSplitRows } from "@/lib/diff";
+  import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { VcsKind } from "@/lib/types";
-  import type { Commit, RestoreCandidate, StatusEntry } from "@/lib/types";
+  import { baseName } from "@/lib/paths";
+  import { effective } from "@/lib/prefs.svelte";
+  import { DiffStyle, VcsKind } from "@/lib/types";
+  import type { Commit, CommitDetail, RestoreCandidate, StatusEntry } from "@/lib/types";
   import { parseInput, RestoreQuery } from "@/lib/validate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
 
   let entries = $state<StatusEntry[]>([]);
   let commits = $state<Commit[]>([]);
@@ -14,6 +19,12 @@
   let selected = $state<StatusEntry | null>(null);
   let diff = $state("");
   let unlisten: UnlistenFn | undefined;
+
+  // Commit inspection — clicking a log row opens the detail modal; the remote URL
+  // (fetched once) powers the "open on GitHub" links.
+  let openCommit = $state<CommitDetail | null>(null);
+  let remoteUrl = $state<string | null>(null);
+  let logEl = $state<HTMLElement | null>(null);
 
   // Restore a version — natural-language → ranked prior commits → checkout.
   let restoreQuery = $state("");
@@ -36,6 +47,59 @@
       entries = [];
       commits = [];
     }
+  }
+
+  // ── Recent commits: open the detail modal, or Ctrl/Cmd-click → GitHub ───────
+  async function inspectCommit(commit: Commit) {
+    try {
+      openCommit = await vcs.commit(commit.id);
+    } catch {
+      openCommit = null;
+    }
+  }
+
+  async function openCommitOnGithub(commit: Commit) {
+    const base = remoteUrl ?? (await vcs.remoteUrl());
+    remoteUrl = base;
+
+    if (base) {
+      void os.openUrl(`${base}/commit/${commit.id}`);
+    }
+  }
+
+  function onCommitClick(event: MouseEvent, commit: Commit) {
+    const wantsGithub = event.ctrlKey || event.metaKey;
+    if (wantsGithub) {
+      event.preventDefault();
+      void openCommitOnGithub(commit);
+      return;
+    }
+
+    void inspectCommit(commit);
+  }
+
+  // Arrow-key navigation across the log; Ctrl/Cmd-Enter opens the commit on GitHub.
+  function onCommitKey(event: KeyboardEvent, index: number, commit: Commit) {
+    const isDown = event.key === "ArrowDown";
+    const isUp = event.key === "ArrowUp";
+    if (isDown || isUp) {
+      event.preventDefault();
+      const count = commits.length;
+      const next = isDown ? (index + 1) % count : (index - 1 + count) % count;
+      void focusCommit(next);
+      return;
+    }
+
+    const isOpenKey = event.key === "Enter" || event.key === " ";
+    if (isOpenKey && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      void openCommitOnGithub(commit);
+    }
+  }
+
+  async function focusCommit(index: number) {
+    await tick();
+    logEl?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
   }
 
   async function open(entry: StatusEntry) {
@@ -98,6 +162,11 @@
 
   onMount(async () => {
     await refresh();
+    try {
+      remoteUrl = await vcs.remoteUrl();
+    } catch {
+      remoteUrl = null;
+    }
     unlisten = await feed.onChange(scheduleRefresh);
   });
   onDestroy(() => {
@@ -105,13 +174,16 @@
     clearTimeout(timer);
   });
 
-  function fileName(path: string) {
-    return path.split(/[\\/]/).pop() ?? path;
+  function fileLabel(count: number) {
+    return `${formatCount(count)} file${count === 1 ? "" : "s"}`;
   }
 
   // Diff rendering funnels through the shared parser (DRY) — one authoritative
-  // line classifier for both the Change Feed and this panel.
+  // line classifier for both the Change Feed and this panel. The split view is
+  // derived from the same parsed lines (reuse `toSplitRows`, never re-implement).
   const diffLines = $derived(parseDiff(diff));
+  const splitRows = $derived(toSplitRows(diffLines));
+  const isSplit = $derived(effective.diffStyle === DiffStyle.enum.split);
 
   // Confidence as a 0..100 percentage — scores run 0..≈1.5, clamped for display.
   function confidencePct(score: number): number {
@@ -165,7 +237,7 @@
                     <span class="by">{c.author} · {c.when}</span>
                     <span class="conf" aria-label="Match confidence">
                       <span class="bar"><span style:inline-size="{confidencePct(c.score)}%" class="fill"></span></span>
-                      <span class="pct">{confidencePct(c.score)}%</span>
+                      <span class="pct">{formatPercent(confidencePct(c.score))}</span>
                     </span>
                   </div>
                 </button>
@@ -181,11 +253,11 @@
 
       {#if unstaged.length}
         <section class="group">
-          <h3><span class="dot agent"></span> Unreviewed <span class="n">{unstaged.length}</span></h3>
+          <h3><span class="dot agent"></span> Unreviewed <span class="n">{formatCount(unstaged.length)}</span></h3>
           {#each unstaged as e (e.path)}
             <button class="row" class:sel={selected?.path === e.path} onclick={() => open(e)}>
               <span class="k {e.kind}">{e.kind[0].toUpperCase()}</span>
-              <span class="fname">{fileName(e.path)}</span>
+              <span class="fname">{baseName(e.path)}</span>
             </button>
           {/each}
         </section>
@@ -193,11 +265,11 @@
 
       {#if staged.length}
         <section class="group">
-          <h3><span class="dot staged"></span> Staged <span class="n">{staged.length}</span></h3>
+          <h3><span class="dot staged"></span> Staged <span class="n">{formatCount(staged.length)}</span></h3>
           {#each staged as e (e.path)}
             <button class="row" class:sel={selected?.path === e.path} onclick={() => open(e)}>
               <span class="k {e.kind}">{e.kind[0].toUpperCase()}</span>
-              <span class="fname">{fileName(e.path)}</span>
+              <span class="fname">{baseName(e.path)}</span>
             </button>
           {/each}
         </section>
@@ -209,30 +281,71 @@
 
       {#if selected}
         <section class="diff">
-          <h3 class="difftitle">{fileName(selected.path)}</h3>
-          <pre class="diffbody">{#each diffLines as line, index (index)}<span
-            class="dl"
-            class:add={line.kind === DiffKind.add}
-            class:del={line.kind === DiffKind.del}
-            class:meta={line.kind === DiffKind.meta}
-          >{line.text}
+          <h3 class="difftitle">{baseName(selected.path)}</h3>
+          {#if isSplit}
+            <div class="diffbody split">
+              {#each splitRows as row, index (index)}
+                {#if row.hunk}
+                  <div class="hunk">{row.hunkText}</div>
+                {:else}
+                  <div class="cell" class:filled-del={row.leftFilled}><ColorText text={row.left} /></div>
+                  <div class="cell right" class:filled-add={row.rightFilled}><ColorText text={row.right} /></div>
+                {/if}
+              {/each}
+            </div>
+          {:else}
+            <pre class="diffbody">{#each diffLines as line, index (index)}<span
+              class="dl"
+              class:add={line.kind === DiffKind.add}
+              class:del={line.kind === DiffKind.del}
+              class:meta={line.kind === DiffKind.meta}
+            ><ColorText text={line.text} />
 </span>{/each}</pre>
+          {/if}
         </section>
       {/if}
 
       <section class="group log">
         <h3>Recent commits</h3>
-        {#each commits as c (c.id)}
-          <div class="commit">
-            <code class="sha">{c.short}</code>
-            <span class="msg">{c.summary}</span>
-            <span class="by">{c.author} · {c.when}</span>
-          </div>
-        {/each}
+        <ul bind:this={logEl} class="log-list">
+          {#each commits as c, index (c.id)}
+            <li>
+              <button
+                class="commit"
+                aria-label="Commit {c.short}: {c.summary}, by {c.author} {c.when}"
+                data-commit
+                data-tooltip="Enter to view · Ctrl-click opens on GitHub"
+                onclick={event => onCommitClick(event, c)}
+                onkeydown={event => onCommitKey(event, index, c)}
+              >
+                <span class="c-top">
+                  <code class="sha">{c.short}</code>
+                  <span class="msg">{c.summary}</span>
+                </span>
+                <span class="c-bot">
+                  <span class="by">{c.author} · {c.when}</span>
+                  <span class="stats">
+                    <span class="fn">{fileLabel(c.files)}</span>
+                    {#if c.additions}
+                      <span class="add">+{formatCount(c.additions)}</span>
+                    {/if}
+                    {#if c.deletions}
+                      <span class="del">−{formatCount(c.deletions)}</span>
+                    {/if}
+                  </span>
+                </span>
+              </button>
+            </li>
+          {/each}
+        </ul>
       </section>
     </div>
   {/if}
 </div>
+
+{#if openCommit}
+  <CommitModal commit={openCommit} onclose={() => (openCommit = null)} {remoteUrl} />
+{/if}
 
 <style>
   .vcs {
@@ -487,6 +600,7 @@
     color: var(--on-surface-var);
     font-weight: 700;
     font-size: 11px;
+    font-variant-numeric: tabular-nums;
   }
 
   .dot {
@@ -609,33 +723,121 @@
     color: var(--on-surface-var);
   }
 
-  .log .commit {
+  /* Split (2-col) view — rows come from the shared `toSplitRows` (DRY). */
+  .diffbody.split {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 2px 10px;
-    align-items: baseline;
-    padding-block: 4px;
-    padding-inline: 2px;
+    grid-template-columns: 1fr 1fr;
+
+    .hunk {
+      grid-column: 1 / -1;
+      padding-inline: 12px;
+      color: var(--on-surface-var);
+      white-space: pre;
+    }
+
+    .cell {
+      overflow: hidden;
+      min-block-size: 1.5em;
+      padding-inline: 10px;
+      border-inline-end: 1px solid var(--outline);
+      color: var(--code-fg);
+      white-space: pre;
+    }
+
+    .cell.right {
+      border-inline-end: none;
+    }
+
+    .cell.filled-del {
+      background: var(--crit-wash);
+    }
+
+    .cell.filled-add {
+      background: var(--tertiary-wash);
+    }
+  }
+
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .commit {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    inline-size: 100%;
+    padding-block: 8px;
+    padding-inline: 10px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--on-surface);
+    text-align: start;
+    cursor: pointer;
+    transition: background 120ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+    }
+
+    .c-top {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      inline-size: 100%;
+    }
+
+    .msg {
+      flex: 1;
+      overflow: hidden;
+      min-inline-size: 0;
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .c-bot {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      inline-size: 100%;
+      color: var(--on-surface-var);
+      font-size: 11px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-inline-start: auto;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .add {
+      color: var(--tertiary);
+    }
+
+    .del {
+      color: var(--crit);
+    }
   }
 
   .sha {
+    flex: none;
     color: var(--primary);
     font-family: var(--font-mono);
     font-weight: 600;
     font-size: 12px;
   }
 
-  .msg {
-    font-size: 13px;
-  }
-
   .by {
-    grid-column: 1 / -1;
     color: var(--on-surface-var);
     font-size: 11px;
-  }
-
-  .candidate .by {
-    grid-column: auto;
   }
 </style>

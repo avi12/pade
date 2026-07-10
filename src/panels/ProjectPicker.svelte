@@ -1,6 +1,15 @@
 <script lang="ts">
-  import { contextMenu, ide, os, workspace } from "@/lib/bridge";
+  import BrandMark from "@/lib/BrandMark.svelte";
+  import {
+    agents as agentsApi,
+    contextMenu,
+    ide,
+    os,
+    workspace
+  } from "@/lib/bridge";
+  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { baseName, displayName, isTemporaryWorkspace } from "@/lib/paths";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
   import { FirstPrompt, FolderPath, parseInput, ProjectName } from "@/lib/validate";
@@ -49,36 +58,90 @@
   let createName = $state("");
   let createPrompt = $state("");
 
-  const realAgents = $derived(agents.filter(a => a.id !== SHELL_AGENT_ID));
+  // Default-agent section owns its own agent list so it can re-detect (Reload)
+  // without needing a new prop from the parent. It's seeded from — and kept in
+  // sync with — the `agents` prop; a rescan flag drives the spinning refresh
+  // icon + skeleton chips.
+  let agentList = $state<Agent[]>([]);
+  let scanning = $state(false);
+  // The exact `agents` prop reference we last adopted. A local rescan writes a
+  // fresh array into `agentList`; without this guard the effect would re-run
+  // whenever `scanning` (or any other read state) changes and clobber that
+  // result with the stale prop. Plain (non-reactive) bookkeeping so it neither
+  // registers as a dependency nor retriggers the effect. We adopt the prop only
+  // when its reference itself changes.
+  let lastAdopted: Agent[] | null = null;
+  $effect(() => {
+    const incoming = agents;
+    if (incoming === lastAdopted) {
+      return;
+    }
+
+    lastAdopted = incoming;
+    agentList = incoming;
+  });
+
+  const realAgents = $derived(agentList.filter(agent => agent.id !== SHELL_AGENT_ID));
   const startMode = $derived(settings.prefs.startMode ?? StartMode.enum.temp);
   const autoName = $derived(settings.prefs.autoNameTemp !== false);
+  const showSkeleton = $derived(scanning && realAgents.length === 0);
+  const showEmpty = $derived(!scanning && realAgents.length === 0);
+  const agentStatus = $derived(agentStatusText());
+
+  function agentStatusText(): string {
+    if (scanning) {
+      return "Scanning installs…";
+    }
+
+    if (realAgents.length === 0) {
+      return "No agents found";
+    }
+
+    return `${formatCount(realAgents.length)} detected on this machine`;
+  }
+
+  async function rescanAgents() {
+    scanning = true;
+    try {
+      agentList = await agentsApi.detect();
+    } finally {
+      scanning = false;
+    }
+  }
 
   // Editor-rules engine — fixed, priority-ordered project kinds. A rule maps a
   // kind to an editor id; unmatched folders use the fallback. One row per kind.
+  // Each kind carries the manifest files PADE looks for to classify a folder.
   const EDITOR_KINDS = [
     {
       kind: "web",
-      label: "Web / JavaScript"
+      label: "Web / JavaScript",
+      signals: ["package.json"]
     },
     {
       kind: "python",
-      label: "Python"
+      label: "Python",
+      signals: ["pyproject.toml", "requirements.txt"]
     },
     {
       kind: "java",
-      label: "Java"
+      label: "Java",
+      signals: ["pom.xml", "build.gradle"]
     },
     {
       kind: "go",
-      label: "Go"
+      label: "Go",
+      signals: ["go.mod"]
     },
     {
       kind: "rust",
-      label: "Rust"
+      label: "Rust",
+      signals: ["Cargo.toml"]
     },
     {
       kind: "android",
-      label: "Android"
+      label: "Android",
+      signals: ["build.gradle", "AndroidManifest.xml"]
     }
   ] as const;
 
@@ -87,7 +150,7 @@
   const ideFallback = $derived(settings.prefs.ideFallback ?? ides[0]?.id ?? "");
 
   function editorLabel(editorId: string): string {
-    return ides.find(i => i.id === editorId)?.label ?? "Choose…";
+    return ides.find(editor => editor.id === editorId)?.label ?? "Choose…";
   }
   // Stable, valid popover id/anchor per editor select (kind or "fallback").
   function editorSelectId(key: string): string {
@@ -206,29 +269,44 @@
     onopen({ path });
   }
 
-  function basename(path: string): string {
-    return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
-  }
-  // Prefer a friendly auto-derived label over the raw folder name.
-  function displayName(path: string): string {
-    return settings.labels[path] ?? basename(path);
-  }
-  function isTempPath(path: string): boolean {
-    return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
-  }
   function isOwned(path: string): boolean {
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
-    return settings.ownedWorkspaces.includes(path) || isTempPath(path);
+    return settings.ownedWorkspaces.includes(path) || isTemporaryWorkspace(path);
   }
-  // Stable, valid popover id/anchor per row (paths are unique).
-  function menuId(path: string): string {
-    return `m${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  // Stable, valid popover id/anchor per row. A path can appear in more than one
+  // section (Recent AND under its root), so the same path would otherwise mint
+  // duplicate ids/anchors and clicking one kebab would open the wrong menu.
+  // The section scope disambiguates them.
+  function menuId({ path, scope }: {
+    path: string;
+    scope: string;
+  }): string {
+    return `menu-${scope}-${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 
   // Owned-workspace lifecycle: delete, move (→ permanent, still deletable),
   // rename (→ promoted into the primary project root).
   let renaming = $state<string | null>(null);
   let renameValue = $state("");
+
+  // Live name validation for the create + rename fields. We surface the schema's
+  // own message (e.g. "Name can't contain path characters.") and gate the submit
+  // on the same check, so an invalid name like "a/b" can't reach a create() /
+  // rename() that would otherwise silently no-op. An empty field yields no
+  // message (nothing typed yet) but still keeps the submit disabled.
+  function nameError(raw: string): string | null {
+    if (raw.trim().length === 0) {
+      return null;
+    }
+
+    const result = ProjectName.safeParse(raw);
+    return result.success ? null : result.error.issues[0].message;
+  }
+
+  const createNameError = $derived(nameError(createName));
+  const createNameValid = $derived(ProjectName.safeParse(createName).success);
+  const renameError = $derived(nameError(renameValue));
+  const renameValid = $derived(ProjectName.safeParse(renameValue).success);
 
   async function deleteWorkspace(path: string) {
     const ok = await ask(`Delete this workspace and its files?\n\n${path}`, {
@@ -260,7 +338,7 @@
 
   function startRename(path: string) {
     renaming = path;
-    renameValue = basename(path);
+    renameValue = baseName(path);
   }
 
   async function commitRename(path: string) {
@@ -310,57 +388,72 @@
   });
 </script>
 
-{#snippet rowMenu(path: string)}
+{#snippet rowMenu({ path, scope }: {
+  path: string;
+  scope: string;
+})}
+  {@const identifier = menuId({
+    path,
+    scope
+  })}
   <button
-    style:anchor-name="--{menuId(path)}"
+    style:anchor-name="--{identifier}"
     class="kebab"
     aria-label="Project actions"
-    popovertarget={menuId(path)}
-  >⋯</button>
-  <ul id={menuId(path)} style:position-anchor="--{menuId(path)}" class="menu" popover>
+    popovertarget={identifier}
+  ><Icon name="more" /></button>
+  <ul id={identifier} style:position-anchor="--{identifier}" class="menu" popover>
+    <li class="head">Reveal</li>
     <li>
-      <button onclick={() => void os.explorer(path)} popovertarget={menuId(path)} popovertargetaction="hide">
-        <Icon name="folder" /> Open in Files
+      <button class="mi" onclick={() => void os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">
+        <Icon name="folder" /><span class="mi-txt">Open in Files</span>
       </button>
     </li>
     <li>
-      <button onclick={() => void os.terminal(path)} popovertarget={menuId(path)} popovertargetaction="hide">
-        <Icon name="terminal" /> Open in Terminal
+      <button class="mi" onclick={() => void os.terminal(path)} popovertarget={identifier} popovertargetaction="hide">
+        <Icon name="terminal" /><span class="mi-txt">Open in Terminal</span>
       </button>
     </li>
     {#if ides.length > 0}
       <li>
         <button
+          class="mi"
           onclick={() => void ide.open({
             command: ides[0].command,
             path
           })}
-          popovertarget={menuId(path)}
+          popovertarget={identifier}
           popovertargetaction="hide"
         >
-          <Icon name="code" /> Open in {ides[0].label}
+          <Icon name="code" /><span class="mi-txt">Open in {ides[0].label}</span>
         </button>
       </li>
     {/if}
     {#if isOwned(path)}
-      <li class="sep">
-        <button onclick={() => startRename(path)} popovertarget={menuId(path)} popovertargetaction="hide">
-          <Icon name="code" /> Rename to a project
-        </button>
-      </li>
+      <li class="head sep">Workspace</li>
       <li>
-        <button onclick={async () => await moveWorkspace(path)} popovertarget={menuId(path)} popovertargetaction="hide">
-          <Icon name="folder" /> Move…
+        <button class="mi" onclick={() => startRename(path)} popovertarget={identifier} popovertargetaction="hide">
+          <Icon name="pencil" /><span class="mi-txt">Rename to a project</span>
         </button>
       </li>
       <li>
         <button
-          class="danger"
-          onclick={async () => await deleteWorkspace(path)}
-          popovertarget={menuId(path)}
+          class="mi"
+          onclick={async () => await moveWorkspace(path)}
+          popovertarget={identifier}
           popovertargetaction="hide"
         >
-          <Icon name="trash" /> Delete workspace
+          <Icon name="swap" /><span class="mi-txt">Move…</span>
+        </button>
+      </li>
+      <li>
+        <button
+          class="mi danger"
+          onclick={async () => await deleteWorkspace(path)}
+          popovertarget={identifier}
+          popovertargetaction="hide"
+        >
+          <Icon name="trash" /><span class="mi-txt">Delete workspace</span>
         </button>
       </li>
     {/if}
@@ -391,7 +484,7 @@
         {@const isPicked = editor.id === value}
         <li>
           <button
-            class="editor-opt"
+            class="mi editor-opt"
             class:picked={isPicked}
             aria-current={isPicked}
             onclick={() => onpick(editor.id)}
@@ -415,40 +508,132 @@
 <div class="picker">
   <div class="inner">
     <header>
-      <span class="brand">◆ PADE</span>
+      <BrandMark />
       <h1>Open a project</h1>
       <p class="lede">
-        Add the folders your projects live in, then open one — or start a new
-        project with a first prompt for the agent.
+        Pick up where you left off, drop into a throwaway workspace, or point
+        PADE at your code.
       </p>
     </header>
 
-    <section class="quick">
-      <button class="temp-start" onclick={startTemp}>
-        <span class="ico">✦</span>
-        <span class="txt">
-          <strong>Start in a temp workspace</strong>
-          <small>Jump straight in — switch to a real project any time.</small>
-        </span>
-      </button>
+    <section class="new">
+      <h2>Start something new</h2>
+      <div class="new-grid">
+        <button class="temp-start" onclick={startTemp}>
+          <span class="ico"><Icon name="star" size={20} /></span>
+          <span class="txt">
+            <strong>Start in a temp workspace</strong>
+            <small>A clean scratch folder — auto-named once the agent starts working.</small>
+          </span>
+        </button>
+
+        <form
+          class="np" aria-labelledby="np-title" onsubmit={event => {
+            event.preventDefault(); create();
+          }}>
+          <h3 id="np-title">Create a new project</h3>
+
+          <div class="np-field">
+            <span id="np-loc-label" class="np-label">Location</span>
+            <div class="np-loc" aria-labelledby="np-loc-label" role="group">
+              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
+              <span class="root-sel">
+                <button
+                  style:anchor-name="--np-root"
+                  class="root-trigger"
+                  aria-label="Root folder"
+                  popovertarget="np-root-menu"
+                  type="button"
+                >
+                  <span class="root-current">{createIn || "Choose a root…"}</span>
+                  <span class="caret" aria-hidden="true">▾</span>
+                </button>
+                <ul id="np-root-menu" style:position-anchor="--np-root" class="menu root-menu" popover>
+                  {#each settings.roots as root (root)}
+                    {@const isPicked = createIn === root}
+                    <li>
+                      <button
+                        class="mi root-opt"
+                        class:picked={isPicked}
+                        aria-current={isPicked}
+                        onclick={() => (createIn = root)}
+                        popovertarget="np-root-menu"
+                        popovertargetaction="hide"
+                        type="button"
+                      >
+                        <span>{root}</span>
+                        {#if isPicked}
+                          <span class="tick" aria-hidden="true">✓</span>
+                        {/if}
+                      </button>
+                    </li>
+                  {:else}
+                    <li class="none root-empty">No roots yet — add one below.</li>
+                  {/each}
+                </ul>
+              </span>
+              <span class="np-sep" aria-hidden="true">\</span>
+              <label class="visually-hidden" for="np-name">Project name</label>
+              <input
+                id="np-name"
+                class="np-name"
+                aria-describedby={createNameError ? "np-name-error" : undefined}
+                aria-invalid={createNameError !== null}
+                autocomplete="off"
+                placeholder="project-name"
+                spellcheck="false"
+                bind:value={createName}
+              />
+            </div>
+            {#if createNameError}
+              <output id="np-name-error" class="field-error">{createNameError}</output>
+            {/if}
+          </div>
+
+          <div class="np-field">
+            <label class="np-label" for="np-prompt">
+              First prompt <span class="np-optional">— optional</span>
+            </label>
+            <textarea
+              id="np-prompt"
+              class="np-prompt"
+              placeholder="e.g. scaffold a SvelteKit app with Tailwind"
+              rows="2"
+              bind:value={createPrompt}
+            ></textarea>
+          </div>
+
+          <button class="np-go" disabled={!createIn || !createNameValid} type="submit">
+            Create &amp; open
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <section class="onlaunch">
+      <h2>On launch</h2>
       <div class="startmode">
-        <span class="sm-label">On launch with no project</span>
-        <div class="sm-toggle">
+        <span class="sm-label">With no project, open</span>
+        <div class="sm-toggle" role="tablist">
           <button
             class="sm-btn"
             class:on={startMode === StartMode.enum.temp}
+            aria-selected={startMode === StartMode.enum.temp}
             onclick={() => setStartMode(StartMode.enum.temp)}
+            role="tab"
           >Temp workspace</button>
           <button
             class="sm-btn"
             class:on={startMode === StartMode.enum.picker}
+            aria-selected={startMode === StartMode.enum.picker}
             onclick={() => setStartMode(StartMode.enum.picker)}
+            role="tab"
           >This picker</button>
         </div>
       </div>
-      <label class="autoname">
+      <label class="check">
         <span class="ck">
-          <input checked={autoName} onchange={e => setAutoName(e.currentTarget.checked)} type="checkbox" />
+          <input checked={autoName} onchange={event => setAutoName(event.currentTarget.checked)} type="checkbox" />
           <span class="box" aria-hidden="true">
             <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
           </span>
@@ -456,9 +641,9 @@
         <span>Auto-name temp workspaces once the agent starts working</span>
       </label>
       {#if isWindows}
-        <label class="autoname">
+        <label class="check">
           <span class="ck">
-            <input checked={ctxMenuOn} onchange={e => setCtxMenu(e.currentTarget.checked)} type="checkbox" />
+            <input checked={ctxMenuOn} onchange={event => setCtxMenu(event.currentTarget.checked)} type="checkbox" />
             <span class="box" aria-hidden="true">
               <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
             </span>
@@ -479,22 +664,38 @@
             <li class="row">
               {#if renaming === path}
                 <form
-                  class="rename" onsubmit={async e => {
-                    e.preventDefault(); await commitRename(path);
+                  class="rename" onsubmit={async event => {
+                    event.preventDefault(); await commitRename(path);
                   }}>
-                  <input aria-label="New name" bind:value={renameValue} />
-                  <button type="submit">Save to root</button>
+                  <input
+                    aria-describedby={renameError ? "rename-error" : undefined}
+                    aria-invalid={renameError !== null}
+                    aria-label="Project name"
+                    bind:value={renameValue}
+                  />
+                  <button disabled={!renameValid} type="submit">Save</button>
                   <button onclick={() => (renaming = null)} type="button">Cancel</button>
+                  {#if renameError}
+                    <output id="rename-error" class="field-error rename-error">{renameError}</output>
+                  {/if}
                 </form>
               {:else}
                 <button class="recent-item" onclick={() => onopen({ path })}>
-                  {#if isTempPath(path)}
-                    <span class="temp-tag">temp</span>
+                  {#if isTemporaryWorkspace(path)}
+                    <span
+                      class="temp-tag"
+                      data-tooltip="Auto-named by the agent — the folder keeps its path"
+                    >temp</span>
+                  {:else if isOwned(path)}
+                    <span class="project-tag">project</span>
                   {/if}
-                  <span class="rname">{displayName(path)}</span>
+                  <span class="rname">{displayName(path, settings.labels)}</span>
                   <span class="rpath">{path}</span>
                 </button>
-                {@render rowMenu(path)}
+                {@render rowMenu({
+                  path,
+                  scope: "recent"
+                })}
               {/if}
             </li>
           {/each}
@@ -502,21 +703,49 @@
       </section>
     {/if}
 
-    {#if realAgents.length > 1}
-      <section class="master">
-        <h2>Default agent</h2>
-        <p class="hint">Used for every project unless overridden. Switches all at once.</p>
-        <div class="chips">
-          {#each realAgents as a (a.id)}
+    <section class="master">
+      <div class="master-head">
+        <div class="master-title">
+          <h2>Default agent</h2>
+          <output class="agent-status">{agentStatus}</output>
+        </div>
+        <button
+          class="rescan"
+          class:scanning
+          aria-label="Rescan for installed agents"
+          data-tooltip="Rescan for installed agents"
+          onclick={rescanAgents}
+        ><Icon name="refresh" size={14} /> Reload</button>
+      </div>
+
+      {#if showSkeleton}
+        <div class="agent-skels" aria-hidden="true">
+          <span class="agent-skel"></span>
+          <span style:animation-delay="0.15s" class="agent-skel"></span>
+          <span style:animation-delay="0.3s" class="agent-skel"></span>
+        </div>
+      {:else if showEmpty}
+        <p class="agent-empty">
+          No supported agents were found on this machine. Install one (Claude
+          Code, Codex, Gemini CLI…) then press <strong>Reload</strong>.
+        </p>
+      {:else}
+        <div class="chips" aria-label="Default agent" role="radiogroup">
+          {#each realAgents as agent (agent.id)}
+            {@const isSelected = settings.defaultAgent === agent.id}
             <button
               class="chip"
-              class:on={settings.defaultAgent === a.id}
-              onclick={() => setMaster(a.id)}
-            >{a.label}</button>
+              class:on={isSelected}
+              aria-checked={isSelected}
+              onclick={() => setMaster(agent.id)}
+              role="radio"
+            >
+              <span class="dot" aria-hidden="true"></span>{agent.label}
+            </button>
           {/each}
         </div>
-      </section>
-    {/if}
+      {/if}
+    </section>
 
     <section class="editors">
       <div class="ed-head">
@@ -528,14 +757,21 @@
         </p>
       </div>
       <ul class="ed-rules">
-        {#each EDITOR_KINDS as { kind, label } (kind)}
+        {#each EDITOR_KINDS as { kind, label, signals } (kind)}
           {@const isThisProject = currentKind === kind}
           <li class="ed-rule" class:here={isThisProject}>
             <span class="ed-kind">
-              <span class="ed-label">{label}</span>
-              {#if isThisProject}
-                <span class="here-tag">this project</span>
-              {/if}
+              <span class="ed-label-row">
+                <span class="ed-label">{label}</span>
+                {#if isThisProject}
+                  <span class="here-tag">this project</span>
+                {/if}
+              </span>
+              <span class="ed-signals">
+                {#each signals as sig (sig)}
+                  <code class="sig">{sig}</code>
+                {/each}
+              </span>
             </span>
             <span class="ed-spacer"></span>
             <span class="ed-arrow">detected → open in</span>
@@ -567,8 +803,8 @@
     <section class="roots">
       <h2>Root folders</h2>
       <form
-        class="addrow" onsubmit={e => {
-          e.preventDefault(); addRoot();
+        class="addrow" onsubmit={event => {
+          event.preventDefault(); addRoot();
         }}>
         <input
           placeholder="C:\repositories  ·  paste a folder path"
@@ -589,18 +825,21 @@
               aria-label="Remove root"
               data-tooltip="Remove root"
               onclick={() => removeRoot(root)}
-            >×</button>
+            ><Icon name="close" size={14} /></button>
           </div>
           <ul class="projects">
-            {#each projectsByRoot[root] ?? [] as p (p.path)}
+            {#each projectsByRoot[root] ?? [] as project (project.path)}
               <li class="row">
-                <button class="project" onclick={() => onopen({ path: p.path })}>
-                  <span class="pname">{p.name}</span>
-                  {#if p.isGit}
+                <button class="project" onclick={() => onopen({ path: project.path })}>
+                  <span class="pname">{project.name}</span>
+                  {#if project.isGit}
                     <span class="git">git</span>
                   {/if}
                 </button>
-                {@render rowMenu(p.path)}
+                {@render rowMenu({
+                  path: project.path,
+                  scope: "root"
+                })}
               </li>
             {:else}
               <li class="none">No projects found in this folder.</li>
@@ -609,29 +848,6 @@
         </div>
       {/each}
     </section>
-
-    {#if settings.roots.length}
-      <section class="create">
-        <h2>New project</h2>
-        <div class="createform">
-          <select aria-label="Root folder" bind:value={createIn}>
-            <option disabled value="">Choose a root…</option>
-            {#each settings.roots as root (root)}
-              <option value={root}>{root}</option>
-            {/each}
-          </select>
-          <input placeholder="project-name" spellcheck="false" type="text" bind:value={createName} />
-          <textarea
-            placeholder="First prompt for the agent (optional) — e.g. “scaffold a SvelteKit app with auth”"
-            rows="3"
-            bind:value={createPrompt}
-          ></textarea>
-          <button class="go" disabled={!createIn || !createName.trim()} onclick={create}>
-            Create &amp; open
-          </button>
-        </div>
-      </section>
-    {/if}
   </div>
 </div>
 
@@ -656,13 +872,6 @@
   header {
     animation: rise 300ms var(--ease);
 
-    .brand {
-      color: var(--primary);
-      font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.02em;
-    }
-
     h1 {
       margin-block: 10px 0;
       margin-inline: 0;
@@ -680,6 +889,44 @@
     }
   }
 
+  /* Section eyebrows — uppercase micro-labels. */
+  h2 {
+    margin: 0;
+    color: var(--on-surface-var);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .hint {
+    margin: 0;
+    color: var(--on-surface-var);
+    font-size: 13px;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    overflow: hidden;
+    block-size: 1px;
+    inline-size: 1px;
+    clip-path: inset(50%);
+  }
+
+  /* ── Start something new — responsive 2-up: temp card + create form. ── */
+  .new-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+
   /* Big scratch-workspace card — filled primary-container with a hairline
      primary edge; brightens on hover. */
   .temp-start {
@@ -687,7 +934,6 @@
     flex-direction: column;
     gap: 8px;
     justify-content: center;
-    inline-size: 100%;
     padding: 20px 22px;
     border: 1px solid var(--primary);
     border-radius: var(--r-lg);
@@ -699,10 +945,6 @@
 
     &:hover {
       filter: brightness(1.08);
-    }
-
-    .ico {
-      font-size: 20px;
     }
 
     .txt {
@@ -723,284 +965,194 @@
     }
   }
 
-  .recent-head {
-    display: flex;
-    gap: 8px;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .clear {
-    display: inline-flex;
-    gap: 5px;
-    align-items: center;
-    padding: 4px 8px;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--on-surface-var);
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    transition:
-      color 150ms var(--ease),
-      background 150ms var(--ease);
-
-    &:hover {
-      background: var(--crit-wash);
-      color: var(--crit);
-    }
-  }
-
-  .browse {
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-    padding: 10px 16px;
-    border: 1px solid var(--outline);
-    border-radius: var(--r-md);
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 150ms var(--ease);
-
-    &:hover {
-      background: var(--surface-2);
-    }
-  }
-
-  .recent-list {
+  /* Create-a-new-project form card — surface-1 with a hairline outline. */
+  .np {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    gap: 14px;
+    padding: 18px 20px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-lg);
+    background: var(--surface-1);
+
+    h3 {
+      margin: 0;
+      font-weight: 700;
+      font-size: 16px;
+    }
   }
 
-  .row {
-    position: relative;
+  .np-field {
     display: flex;
-    gap: 4px;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  .row > button:first-child {
-    flex: 1;
+  .np-label {
+    color: var(--on-surface-var);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  .np-optional {
+    font-weight: 400;
+    opacity: 75%;
+  }
+
+  /* Inline validation message — the schema's own reason a name was rejected. */
+  .field-error {
+    display: block;
+    margin-block-start: 6px;
+    color: var(--crit);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* In the rename row, the error sits on its own full-width line below the field
+     + buttons (the row is flex; this breaks to a new line). */
+  .rename-error {
+    flex-basis: 100%;
+    margin-block-start: 2px;
+  }
+
+  /* The "Location" group row — folder icon, root select, "\" separator, name. */
+  .np-loc {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    padding-block: 4px;
+    padding-inline: 12px 4px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+
+    .np-loc-ico {
+      display: inline-flex;
+      flex: none;
+      color: var(--on-surface-var);
+    }
+
+    .np-sep {
+      flex: none;
+      color: var(--on-surface-var);
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+  }
+
+  .np-name {
+    flex: 1 1 90px;
+    min-inline-size: 80px;
+    padding: 6px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--on-surface);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .np-prompt {
+    inline-size: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--on-surface);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+  }
+
+  .np-go {
+    align-self: start;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--r-md);
+    background: var(--primary);
+    color: var(--on-primary);
+    font: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: filter 150ms var(--ease);
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+
+    &:disabled {
+      opacity: 50%;
+      cursor: default;
+    }
+  }
+
+  /* Root select — a native-popover custom select, like the editor selects. */
+  .root-sel {
+    position: relative;
+    flex: 1 1 auto;
     min-inline-size: 0;
   }
 
-  /* Trailing kebab — a subtle pill circle that fills on hover. */
-  .kebab {
+  .root-trigger {
     display: inline-flex;
-    flex: none;
-    justify-content: center;
+    gap: 6px;
     align-items: center;
-    block-size: 30px;
-    inline-size: 30px;
-    margin-inline-start: auto;
-    padding: 0;
+    max-inline-size: 150px;
+    padding: 6px 2px;
     border: none;
-    border-radius: 999px;
     background: transparent;
-    color: var(--on-surface-var);
-    font-size: 16px;
-    line-height: 1;
+    color: var(--on-surface);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
     cursor: pointer;
-    transition: background 150ms var(--ease);
+    transition: color 150ms var(--ease);
 
     &:hover {
-      background: var(--surface-2);
-      color: var(--on-surface);
+      color: var(--primary);
+    }
+
+    .root-current {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .caret {
+      flex: none;
+      font-size: 9px;
+      opacity: 70%;
     }
   }
 
-  /* Native popover row menu — light-dismisses on outside click; the only place
-     a floating shadow is warranted. */
-  .menu {
-    position: absolute;
-    inset: auto;
-    overflow-y: auto;
-    max-block-size: min(70vh, 520px);
-    min-inline-size: 250px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--r-md);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 22%, transparent);
-    position-area: bottom span-left;
+  .root-menu {
+    min-inline-size: 240px;
 
-    li button {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--r-sm);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
-
-      &:hover {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-    }
-
-    .sep {
-      margin-block-start: 6px;
-      padding-block-start: 6px;
-      border-block-start: 1px solid var(--outline);
-    }
-
-    .danger:hover {
-      background: var(--crit-wash);
-      color: var(--crit);
-    }
-  }
-
-  .rename {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    inline-size: 100%;
-    padding: 6px 8px;
-    border: 1px solid var(--primary);
-    border-radius: var(--r-md);
-    background: var(--surface-2);
-
-    input {
-      flex: 1;
-      min-inline-size: 0;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: var(--on-surface);
+    .root-opt {
+      justify-content: space-between;
       font-family: var(--font-mono);
       font-weight: 600;
-      font-size: 13px;
-    }
-
-    button {
-      flex: none;
-      padding: 6px 14px;
-      border: none;
-      border-radius: 999px;
-      background: var(--primary);
-      color: var(--on-primary);
-      font: inherit;
-      font-weight: 700;
       font-size: 12px;
-      cursor: pointer;
-      transition: filter 150ms var(--ease);
 
-      &:hover {
-        filter: brightness(1.06);
+      &.picked {
+        color: var(--primary);
       }
     }
 
-    button + button {
-      background: transparent;
-      color: var(--on-surface-var);
-      font-weight: 600;
-
-      &:hover {
-        background: var(--surface-3);
-        filter: none;
-      }
+    .root-empty {
+      padding: 8px 10px;
     }
   }
 
+  /* ── On launch — segmented toggle + checkboxes. ── */
   .startmode {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     align-items: center;
-  }
-
-  .autoname {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  /* Animated custom checkbox — a rounded box that fills primary with a
-     stroke-drawn check (check-pop) when toggled. Semantic input stays inside. */
-  .ck {
-    position: relative;
-    display: inline-grid;
-    flex: none;
-    place-items: center;
-    block-size: 20px;
-    inline-size: 20px;
-
-    input {
-      position: absolute;
-      inset: 0;
-      block-size: 100%;
-      inline-size: 100%;
-      margin: 0;
-      opacity: 0%;
-      cursor: pointer;
-    }
-
-    .box {
-      display: grid;
-      place-items: center;
-      block-size: 20px;
-      inline-size: 20px;
-      border: 2px solid var(--outline);
-      border-radius: 7px;
-      background: var(--surface-2);
-      transition:
-        background 250ms var(--ease),
-        border-color 250ms var(--ease),
-        scale 300ms var(--spring);
-
-      svg {
-        display: block;
-        block-size: 13px;
-        inline-size: 13px;
-      }
-
-      path {
-        fill: none;
-        stroke: var(--on-primary);
-        stroke-dasharray: 22;
-        stroke-dashoffset: 22;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        stroke-width: 3;
-        transition: stroke-dashoffset 240ms var(--ease) 60ms;
-      }
-    }
-
-    input:checked + .box {
-      border-color: var(--primary);
-      background: var(--primary);
-      scale: 1.06;
-      animation: check-pop 360ms var(--spring);
-    }
-
-    input:checked + .box path {
-      stroke-dashoffset: 0;
-    }
-
-    input:not(:checked):hover + .box {
-      border-color: var(--primary);
-    }
   }
 
   .sm-label {
@@ -1035,6 +1187,65 @@
         color: var(--on-primary-container);
       }
     }
+  }
+
+  .check {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* ── Recent ── */
+  .recent-head {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .clear {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-surface-var);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      color 150ms var(--ease),
+      background 150ms var(--ease);
+
+    &:hover {
+      background: var(--crit-wash);
+      color: var(--crit);
+    }
+  }
+
+  .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .row {
+    position: relative;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .row > button:first-child {
+    flex: 1;
+    min-inline-size: 0;
   }
 
   /* Recent row — pill button, mono name, truncating path; fills on hover. */
@@ -1085,43 +1296,277 @@
     text-transform: uppercase;
   }
 
-  /* Section eyebrows — uppercase micro-labels. */
-  h2 {
-    margin: 0;
-    color: var(--on-surface-var);
+  .project-tag {
+    flex: none;
+    color: var(--tertiary);
     font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 0.07em;
+    font-size: 9px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
-  section {
+  /* Inline rename — a bordered field with Save (primary) + Cancel. */
+  .rename {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    inline-size: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--primary);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+
+    input {
+      flex: 1;
+      min-inline-size: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--on-surface);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    button {
+      flex: none;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 999px;
+      background: var(--primary);
+      color: var(--on-primary);
+      font: inherit;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      transition: filter 150ms var(--ease);
+
+      &:hover:not(:disabled) {
+        filter: brightness(1.06);
+      }
+
+      &:disabled {
+        opacity: 50%;
+        filter: none;
+        cursor: default;
+      }
+    }
+
+    button + button {
+      background: transparent;
+      color: var(--on-surface-var);
+      font-weight: 600;
+
+      &:hover {
+        background: var(--surface-3);
+        filter: none;
+      }
+    }
   }
 
-  .hint {
-    margin: 0;
+  /* Trailing kebab — a subtle pill circle that fills on hover. */
+  .kebab {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 30px;
+    inline-size: 30px;
+    margin-inline-start: auto;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
     color: var(--on-surface-var);
-    font-size: 13px;
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+      color: var(--on-surface);
+    }
   }
 
-  .chips,
-  .addrow,
-  .createform {
+  /* Native popover menus — light-dismiss on outside click; the only place a
+     floating shadow is warranted. */
+  .menu {
+    position: absolute;
+    inset: auto;
+    overflow-y: auto;
+    max-block-size: min(70vh, 520px);
+    min-inline-size: 250px;
+    margin-block: 6px 0;
+    margin-inline: 0;
+    padding: 6px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    list-style: none;
+    box-shadow: 0 16px 40px var(--shadow-color);
+    position-area: bottom span-left;
+
+    .mi {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      inline-size: 100%;
+      padding: 8px 10px;
+      border: none;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--on-surface);
+      font: inherit;
+      font-size: 13px;
+      text-align: start;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
+
+      .mi-txt {
+        flex: 1;
+        min-inline-size: 0;
+      }
+    }
+
+    /* Uppercase section header inside the menu. */
+    .head {
+      padding-block: 6px 3px;
+      padding-inline: 10px;
+      color: var(--on-surface-var);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .sep {
+      margin-block-start: 6px;
+      padding-block-start: 9px;
+      border-block-start: 1px solid var(--outline);
+    }
+
+    .danger:hover {
+      background: var(--crit-wash);
+      color: var(--crit);
+    }
+  }
+
+  /* ── Default agent ── */
+  .master-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .master-title {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    min-inline-size: 0;
+  }
+
+  .agent-status {
+    color: var(--on-surface-var);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Reload pill — the refresh icon spins while scanning. */
+  .rescan {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+    padding: 5px 12px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-surface);
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 150ms var(--ease),
+      border-color 150ms var(--ease),
+      color 150ms var(--ease);
+
+    &:hover {
+      border-color: var(--primary);
+      background: var(--surface-2);
+      color: var(--primary);
+    }
+
+    &.scanning :global(.icon) {
+      animation: spin 800ms linear infinite;
+    }
+  }
+
+  /* Skeleton chips while the first scan runs. */
+  .agent-skels {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  /* Choice chips — pills; selected gets a primary edge over its container. */
+  .agent-skel {
+    block-size: 35px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    animation: pulse 1100ms var(--ease) infinite;
+
+    &:nth-child(1) {
+      inline-size: 112px;
+    }
+
+    &:nth-child(2) {
+      inline-size: 86px;
+    }
+
+    &:nth-child(3) {
+      inline-size: 98px;
+    }
+  }
+
+  .agent-empty {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px dashed var(--outline);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--on-surface-var);
+    font-size: 13px;
+
+    strong {
+      color: var(--on-surface);
+    }
+  }
+
+  .chips,
+  .addrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Choice chips — pills; selected gets a primary edge over its container. Each
+     carries a leading status dot (tertiary; primary when selected). */
   .chip {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
     padding: 8px 16px;
     border: 1px solid transparent;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-var);
+    color: var(--on-surface);
     font: inherit;
     font-weight: 600;
     font-size: 13px;
@@ -1137,10 +1582,21 @@
       background: var(--primary-container);
       color: var(--on-primary-container);
     }
+
+    .dot {
+      flex: none;
+      block-size: 7px;
+      inline-size: 7px;
+      border-radius: 999px;
+      background: var(--tertiary);
+    }
+
+    &.on .dot {
+      background: var(--primary);
+    }
   }
 
   input,
-  select,
   textarea {
     padding: 10px 14px;
     border: 1px solid var(--outline);
@@ -1151,17 +1607,11 @@
     font-size: 14px;
   }
 
-  input {
+  .addrow input {
     flex: 1;
     min-inline-size: 200px;
     font-family: var(--font-mono);
     font-size: 13px;
-  }
-
-  textarea {
-    inline-size: 100%;
-    line-height: 1.5;
-    resize: vertical;
   }
 
   button {
@@ -1186,6 +1636,28 @@
     }
   }
 
+  .browse {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 10px 16px;
+    border: 1px solid var(--outline);
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--on-surface);
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+      filter: none;
+    }
+  }
+
+  /* ── Root folders ── */
   .roots .root {
     display: flex;
     flex-direction: column;
@@ -1219,10 +1691,6 @@
     border-radius: 999px;
     background: var(--surface-2);
     color: var(--on-surface-var);
-    font-size: 16px;
-    transition:
-      background 150ms var(--ease),
-      color 150ms var(--ease);
 
     &:hover {
       background: var(--crit-wash);
@@ -1281,16 +1749,8 @@
     font-size: 13px;
   }
 
-  .createform {
-    flex-direction: column;
-  }
-
-  .createform .go {
-    align-self: start;
-  }
-
-  /* Editor-rules engine — one tonal row per project kind, plus a dashed
-     fall-back row. Each row carries a native-popover editor select. */
+  /* ── Editor-rules engine — one tonal row per project kind, plus a dashed
+     fall-back row. Each row carries a native-popover editor select. ── */
   .ed-head {
     display: flex;
     flex-direction: column;
@@ -1344,14 +1804,36 @@
 
   .ed-kind {
     display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-inline-size: 150px;
+  }
+
+  .ed-label-row {
+    display: flex;
     gap: 8px;
     align-items: center;
-    min-inline-size: 150px;
   }
 
   .ed-label {
     font-weight: 600;
     font-size: 13px;
+  }
+
+  /* Per-kind manifest signals — small mono surface-3 chips. */
+  .ed-signals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .sig {
+    padding: 2px 6px;
+    border-radius: var(--r-sm);
+    background: var(--surface-3);
+    color: var(--on-surface-var);
+    font-family: var(--font-mono);
+    font-size: 10px;
   }
 
   .here-tag {
@@ -1418,18 +1900,19 @@
 
     .editor-opt {
       justify-content: space-between;
+      font-weight: 600;
 
       &.picked {
         color: var(--primary);
       }
     }
+  }
 
-    .tick {
-      color: var(--primary);
-    }
+  .tick {
+    color: var(--primary);
+  }
 
-    .editor-empty {
-      padding: 8px 10px;
-    }
+  .editor-empty {
+    padding: 8px 10px;
   }
 </style>

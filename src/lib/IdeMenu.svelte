@@ -18,11 +18,15 @@
     <Icon name="external" /> Open in {ides[0].label}<span class="caret">▾</span>
   </button>
   <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list" popover>
-    {#each ides as i, idx (i.id)}
+    {#each ides as editor, index (editor.id)}
       <li>
-        <button onclick={() => ide.open({ command: i.command })} popovertarget="ide-menu" popovertargetaction="hide">
-          <span class="name">{i.label}</span>
-          {#if idx === 0}
+        <button
+          onclick={() => ide.open({ command: editor.command })}
+          popovertarget="ide-menu"
+          popovertargetaction="hide"
+        >
+          <span class="name"><Icon name="code" />{editor.label}</span>
+          {#if index === 0 && ides.length > 1}
             <span class="best">best fit</span>
           {/if}
         </button>
@@ -44,6 +48,7 @@
     font: inherit;
     font-weight: 600;
     font-size: 13px;
+    white-space: nowrap;
     cursor: pointer;
 
     &:hover {
@@ -68,7 +73,7 @@
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 32%, transparent);
+    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
 
     li button {

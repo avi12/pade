@@ -1,7 +1,8 @@
 <script lang="ts">
   import { config } from "@/lib/bridge";
+  import { collectVars } from "@/lib/colors";
+  import ColorText from "@/lib/ColorText.svelte";
   import type { ConfigFile } from "@/lib/types";
-  import { onMount } from "svelte";
 
   // Only the config files relevant to the active agent are listed.
   const { agent }: { agent: string } = $props();
@@ -9,6 +10,8 @@
   let files = $state<ConfigFile[]>([]);
   let selected = $state<ConfigFile | null>(null);
   let content = $state("");
+  // Trace var(--x) swatches against the file's own token definitions first.
+  const fileVars = $derived(collectVars(content));
 
   async function open(file: ConfigFile) {
     if (!file.exists) {
@@ -16,15 +19,41 @@
     }
 
     selected = file;
-    content = await config.read(file.rel);
+    // The read can resolve out of order relative to a later selection; only
+    // apply it while this file is still the selected one.
+    const requested = file;
+    try {
+      const text = await config.read(requested.rel);
+      if (selected?.rel === requested.rel) {
+        content = text;
+      }
+    } catch {
+      if (selected?.rel === requested.rel) {
+        content = "";
+      }
+    }
   }
 
-  onMount(async () => {
-    files = await config.list(agent);
-    const first = files.find(file => file.exists);
-    if (first) {
-      await open(first);
-    }
+  // `agent` is a reactive prop and the panel is not remounted when the active
+  // agent changes, so reload the file list whenever it does. Capture the agent
+  // to discard responses from a superseded agent.
+  $effect(() => {
+    const requestedAgent = agent;
+    selected = null;
+    content = "";
+    files = [];
+    (async () => {
+      const listed = await config.list(requestedAgent);
+      if (requestedAgent !== agent) {
+        return;
+      }
+
+      files = listed;
+      const first = listed.find(file => file.exists);
+      if (first) {
+        await open(first);
+      }
+    })();
   });
 </script>
 
@@ -32,34 +61,28 @@
   <header class="head"><h2>Agent config</h2></header>
 
   <div class="scroll">
-    <ul class="list">
-      {#each files as f (f.rel)}
-        <li>
-          <button
-            class="row"
-            class:sel={selected?.rel === f.rel}
-            disabled={!f.exists}
-            onclick={() => open(f)}
-          >
-            <span class="kind {f.kind}">{f.kind}</span>
-            <span class="rel">{f.rel}</span>
-            {#if !f.exists}
-              <span class="missing">absent</span>
-            {/if}
-          </button>
-        </li>
-      {/each}
-    </ul>
+    {#each files as f (f.rel)}
+      <button
+        class="row"
+        class:sel={selected?.rel === f.rel}
+        disabled={!f.exists}
+        onclick={() => open(f)}
+      >
+        <span class="kind {f.kind}">{f.kind}</span>
+        <span class="rel">{f.rel}</span>
+        {#if !f.exists}
+          <span class="missing">absent</span>
+        {/if}
+      </button>
+    {/each}
 
-    {#if selected}
-      <section class="viewer">
-        <div class="card">
-          <h3>{selected.rel}</h3>
-          <pre class="body">{content}</pre>
-        </div>
-        <p class="note">Read-only in the MVP — edits will write back to this same file.</p>
-      </section>
-    {/if}
+    <section class="viewer">
+      <div class="card">
+        <h3 class:placeholder={!selected}>{selected?.rel ?? "Select a file to view"}</h3>
+        <pre class="body"><ColorText text={content} vars={fileVars} /></pre>
+      </div>
+      <p class="note">Read-only in the MVP — edits will write back to this same file.</p>
+    </section>
   </div>
 </div>
 
@@ -74,11 +97,12 @@
     padding-block: 12px;
     padding-inline: 16px;
     border-block-end: 1px solid var(--outline);
-  }
 
-  .head h2 {
-    margin: 0;
-    font-size: 15px;
+    h2 {
+      margin: 0;
+      font-weight: 700;
+      font-size: 15px;
+    }
   }
 
   .scroll {
@@ -88,15 +112,6 @@
     overflow-y: auto;
     padding: 10px;
     animation: panel-swap 280ms var(--ease);
-  }
-
-  .list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
   }
 
   .row {
@@ -113,20 +128,20 @@
     text-align: start;
     cursor: pointer;
     transition: background 140ms var(--ease);
-  }
 
-  .row:hover:not(:disabled) {
-    background: var(--surface-2);
-  }
+    &:hover:not(:disabled) {
+      background: var(--surface-2);
+    }
 
-  .row:disabled {
-    opacity: 45%;
-    cursor: default;
-  }
+    &:disabled {
+      opacity: 45%;
+      cursor: default;
+    }
 
-  .row.sel {
-    background: var(--primary-container);
-    color: var(--on-primary-container);
+    &.sel {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
   }
 
   .kind {
@@ -140,16 +155,16 @@
     font-size: 10px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-  }
 
-  .kind.instructions {
-    background: var(--tertiary-wash);
-    color: var(--tertiary);
-  }
+    &.instructions {
+      background: var(--tertiary-wash);
+      color: var(--tertiary);
+    }
 
-  .kind.mcp {
-    background: var(--primary-container);
-    color: var(--on-primary-container);
+    &.mcp {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
   }
 
   .rel {
@@ -172,43 +187,48 @@
     flex-direction: column;
     gap: 2px;
     margin-block-start: 6px;
-  }
 
-  .card {
-    overflow: hidden;
-    border: 1px solid var(--outline);
-    border-radius: var(--r-md);
-  }
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--outline);
+      border-radius: var(--r-md);
+    }
 
-  .viewer h3 {
-    margin: 0;
-    padding-block: 8px;
-    padding-inline: 12px;
-    background: var(--surface-2);
-    color: var(--on-surface);
-    font-family: var(--font-mono);
-    font-weight: 600;
-    font-size: 12px;
-  }
+    h3 {
+      margin: 0;
+      padding-block: 8px;
+      padding-inline: 12px;
+      background: var(--surface-2);
+      color: var(--on-surface);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 12px;
+    }
 
-  .body {
-    overflow: auto;
-    max-block-size: 280px;
-    margin: 0;
-    padding: 12px;
-    background: var(--code-bg);
-    color: var(--code-fg);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.55;
-    white-space: pre-wrap;
-  }
+    .placeholder {
+      color: var(--on-surface-var);
+      font-style: italic;
+    }
 
-  .note {
-    margin-block: 2px 0;
-    margin-inline: 0;
-    color: var(--on-surface-var);
-    font-style: italic;
-    font-size: 11px;
+    .body {
+      overflow: auto;
+      max-block-size: 280px;
+      margin: 0;
+      padding: 12px;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .note {
+      margin-block: 2px 0;
+      margin-inline: 0;
+      color: var(--on-surface-var);
+      font-style: italic;
+      font-size: 11px;
+    }
   }
 </style>

@@ -5,9 +5,22 @@
 // an agent is done here via pty.write (the backend has no such command by design).
 
 import { pty, runner } from "@/lib/bridge";
-import type { TaskGroup } from "@/lib/types";
+import type { RunnerStream, TaskGroup } from "@/lib/types";
 
 type RunnerKind = TaskGroup["kind"];
+
+/**
+ * Cap on captured lines per runner. Runners are dev servers / watchers that
+ * stream forever, so an uncapped buffer blows up memory and the DOM. Once a row
+ * exceeds this, the oldest lines are dropped from the head.
+ */
+const MAX_LINES = 5000;
+
+/** One captured output line plus which stream it arrived on (for stderr tinting). */
+export interface RunnerLine {
+  text: string;
+  stream: RunnerStream;
+}
 
 export interface RunnerRow {
   id: string;
@@ -16,9 +29,11 @@ export interface RunnerRow {
   command: string;
   cwd: string;
   /** Captured stdout/stderr lines, in arrival order. */
-  lines: string[];
+  lines: RunnerLine[];
   /** True once the process has exited. */
   done: boolean;
+  /** True once the process exited with a non-zero code (failure). */
+  failed: boolean;
 }
 
 let rows = $state<RunnerRow[]>([]);
@@ -36,16 +51,24 @@ export async function ensureRunnerListeners(): Promise<void> {
   }
 
   listening = true;
-  await runner.onData(({ id, data }) => {
+  await runner.onData(({ id, data, stream }) => {
     const row = rows.find(item => item.id === id);
     if (row) {
-      row.lines.push(data);
+      row.lines.push({
+        text: data,
+        stream
+      });
+
+      if (row.lines.length > MAX_LINES) {
+        row.lines.splice(0, row.lines.length - MAX_LINES);
+      }
     }
   });
-  await runner.onExit(({ id }) => {
+  await runner.onExit(({ id, code }) => {
     const row = rows.find(item => item.id === id);
     if (row) {
       row.done = true;
+      row.failed = code !== null && code !== 0;
     }
   });
 }
@@ -65,13 +88,19 @@ export async function startRunner({ label, kind, command, cwd }: {
     command,
     cwd,
     lines: [],
-    done: false
+    done: false,
+    failed: false
   });
-  await runner.start({
-    id,
-    command,
-    cwd
-  });
+  try {
+    await runner.start({
+      id,
+      command,
+      cwd
+    });
+  } catch (error) {
+    rows = rows.filter(row => row.id !== id);
+    throw error;
+  }
 }
 
 /** Stop a runner and drop it from the dock. */
@@ -92,6 +121,6 @@ export async function pipeRunner({ id, sessionId }: {
 
   await pty.write({
     id: sessionId,
-    data: `${row.lines.join("\n")}\n`
+    data: `${row.lines.map(line => line.text).join("\n")}\n`
   });
 }

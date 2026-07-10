@@ -20,6 +20,10 @@
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
   let resizeObs: ResizeObserver | undefined;
+  // Guards the async onMount against a teardown that runs before its awaits
+  // settle: onDestroy sets this, and each awaited step bails so no listener is
+  // registered after unmount and no write hits a disposed terminal.
+  let destroyed = false;
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
@@ -95,8 +99,14 @@
     // Stream this session's PTY output into the terminal; each chunk is a sign
     // of life that resets the idle → ready timer. Events are filtered by id so
     // sibling sessions don't cross-write.
-    unlisten = await pty.onData((id, chunk) => {
+    const dataUnlisten = await pty.onData((id, chunk) => {
       if (id !== session.id) {
+        return;
+      }
+
+      // The terminal may already be disposed if a late chunk arrives during
+      // teardown; skip the write rather than throw.
+      if (destroyed || !term) {
         return;
       }
 
@@ -108,7 +118,16 @@
         chunk
       });
     });
-    exitUnlisten = await pty.onExit(id => {
+    // If we were destroyed while awaiting, this listener registered too late
+    // for onDestroy to see — tear it down now and stop.
+    if (destroyed) {
+      dataUnlisten();
+      return;
+    }
+
+    unlisten = dataUnlisten;
+
+    const exitListener = await pty.onExit(id => {
       if (id !== session.id) {
         return;
       }
@@ -116,6 +135,12 @@
       clearTimeout(idleTimer);
       status = SessionStatus.enum.exited;
     });
+    if (destroyed) {
+      exitListener();
+      return;
+    }
+
+    exitUnlisten = exitListener;
 
     // Send keystrokes to this session's PTY.
     term.onData(data => void pty.write({
@@ -140,6 +165,10 @@
     resizeObs.observe(host);
 
     // Spawn the chosen agent in a real PTY.
+    if (destroyed) {
+      return;
+    }
+
     await pty.spawn({
       id: session.id,
       command: session.agent.command,
@@ -150,6 +179,10 @@
 
     // Seed a new-project first prompt into the input (typed, not submitted —
     // the user reviews and presses Enter).
+    if (destroyed) {
+      return;
+    }
+
     if (session.initialPrompt) {
       await pty.write({
         id: session.id,
@@ -159,6 +192,7 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
     unlisten?.();
     exitUnlisten?.();
     clearTimeout(idleTimer);
@@ -209,16 +243,14 @@
 
   /* The xterm element must have no padding: FitAddon measures its full box to
      compute rows, so padding would fit one row too many and clip the bottom.
-     Visual insets live on the wrapper instead — a small top/left inset lifts the
-     output off the pane edge (canvas 10px top, 14px left). */
+     Visual insets live on the wrapper instead — it lifts the output off every
+     pane edge (canvas line 264: 10px top, 8px right, 8px bottom, 14px left). Any
+     sub-cell remainder is filled by the shared code-bg, so it reads flush. */
   .term-pad {
     flex: 1;
     min-block-size: 0;
-
-    /* No end inset: the terminal spans the full pane width/height. Any sub-cell
-       remainder is filled by the shared code-bg, so it reads flush. */
-    padding-block: 10px 0;
-    padding-inline: 14px 0;
+    padding-block: 10px 8px;
+    padding-inline: 14px 8px;
     background: var(--code-bg);
   }
 

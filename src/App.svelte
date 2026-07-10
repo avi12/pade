@@ -1,15 +1,18 @@
 <script lang="ts">
+  import AppMenu from "@/lib/AppMenu.svelte";
   import {
     agents as agentsApi,
     feed,
     pty,
     usage,
     vcs,
+    windows,
     workspace
   } from "@/lib/bridge";
   import DesignMenu from "@/lib/DesignMenu.svelte";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
+  import { isTemporaryWorkspace } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { contextPct, dropContext } from "@/lib/stores/context.svelte";
@@ -24,6 +27,7 @@
     TaskGroup
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
+  import { FolderPath, parseInput } from "@/lib/validate";
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
@@ -75,28 +79,42 @@
     currentProject.split(/[\\/]/).filter(Boolean).slice(-2).join("/")
   );
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
-  const isTemp = $derived(/[\\/]workspaces[\\/]temp-\d+$/.test(currentProject));
+  const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
   const currentLabel = $derived(settings.labels[currentProject]);
   // Active agent id — used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
-  // The active session's working dir (a worktree override, else the project) —
-  // the usage meter reads its context from that dir's transcript.
-  const activeCwd = $derived(sessions.find(s => s.id === activeId)?.cwd ?? currentProject);
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
   const canRemovePane = $derived(paneIds.length > 1);
   const splitCandidates = $derived(sessions.filter(s => !paneIds.includes(s.id)));
 
+  // How a spawned window routes off its query string (window_create encodes the
+  // target here). A closed set defined once so no bare literal leaks into boot.
+  const WindowMode = {
+    empty: "empty",
+    temp: "temp",
+    open: "open"
+  } as const;
+  type WindowMode = (typeof WindowMode)[keyof typeof WindowMode];
+
   onMount(async () => {
-    const [ctx, detected, saved] = await Promise.all([
-      workspace.context(),
+    const [detected, saved] = await Promise.all([
       agentsApi.detect(),
       workspace.settings()
     ]);
     agents = detected;
     settings = saved;
 
+    // A spawned window carries a `w=` query that overrides the normal cold-start.
+    // The plain main window (no query) keeps today's launch_context behavior.
+    const query = new URLSearchParams(location.search);
+    const routed = await routeFromQuery(query);
+    if (routed) {
+      return;
+    }
+
+    const ctx = await workspace.context();
     const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
     if (ctx.hasProject) {
       await workspace.open(ctx.cwd); // records it in recent history
@@ -112,6 +130,36 @@
       startAgentFlow(temp);
     }
   });
+
+  // Boot a spawned window from its `w=` query. Returns true when it handled the
+  // launch (so the default launch_context path is skipped), false otherwise.
+  async function routeFromQuery(query: URLSearchParams): Promise<boolean> {
+    const mode = query.get("w");
+    if (mode === WindowMode.temp) {
+      const temp = await workspace.temp();
+      startAgentFlow(temp);
+      return true;
+    }
+
+    if (mode === WindowMode.empty) {
+      phase = Phase.project;
+      return true;
+    }
+
+    if (mode === WindowMode.open) {
+      // query.get("path") is a trust boundary — validate before opening.
+      const path = parseInput({
+        schema: FolderPath,
+        raw: query.get("path")
+      });
+      if (path) {
+        await openProject({ path });
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   // Show the project picker on demand to switch project / open recent / create.
   function switchProject() {
@@ -197,6 +245,21 @@
     }
   }
 
+  // Transient status toast — a bottom-center pill that auto-dismisses. Reused by
+  // the send-from-IDE bridge and window-open actions; one timer, so a new toast
+  // resets the countdown rather than stacking.
+  const TOAST_MS = 2400;
+  let toast = $state("");
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  function showToast(message: string) {
+    toast = message;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast = "";
+    }, TOAST_MS);
+  }
+  onDestroy(() => clearTimeout(toastTimer));
+
   // Send-from-IDE bridge: highlight + copy a snippet in any external editor,
   // then press this global shortcut to inject the clipboard into the active
   // Claude Code input — works regardless of which IDE the project is open in.
@@ -222,7 +285,24 @@
         data: text
       });
       await getCurrentWindow().setFocus();
+      const label = sessions.find(s => s.id === activeId)?.agent.label ?? "agent";
+      showToast(`Sent selection to ${label}`);
     });
+  }
+
+  // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut chip).
+  function onWindowKey(event: KeyboardEvent) {
+    const isNewWindow = event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n";
+    if (!isNewWindow) {
+      return;
+    }
+
+    event.preventDefault();
+    void openEmptyWindow();
+  }
+  async function openEmptyWindow() {
+    await windows.create({ mode: WindowMode.empty });
+    showToast("Opened a new window");
   }
 
   async function openProject(target: {
@@ -496,30 +576,79 @@
     return `\nYour context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.\r`;
   }
 
+  // In-flight waitForFile resources. A handoff can pend up to 120s, so its
+  // feed listener + timers must be torn down if the component unmounts first —
+  // otherwise the watcher subscription and timers leak. Tracked here so onDestroy
+  // can clear every still-pending wait.
+  const pendingUnlistens = new SvelteSet<UnlistenFn>();
+  const pendingTimers = new SvelteSet<ReturnType<typeof setTimeout>>();
+  onDestroy(() => {
+    for (const unlisten of pendingUnlistens) {
+      unlisten();
+    }
+
+    for (const timer of pendingTimers) {
+      clearTimeout(timer);
+    }
+
+    pendingUnlistens.clear();
+    pendingTimers.clear();
+  });
+
+  // Track one timer in the pending set and return its id, so every timer we
+  // create is registered for teardown in exactly one place.
+  function trackTimer(handler: () => void, delayMs: number): ReturnType<typeof setTimeout> {
+    const timer = setTimeout(handler, delayMs);
+    pendingTimers.add(timer);
+    return timer;
+  }
+
   // Resolve once the watcher sees `name` written (plus a short settle) or on timeout.
   function waitForFile(name: string): Promise<void> {
     return new Promise(resolve => {
       let unlisten: UnlistenFn | undefined;
-      let settle: ReturnType<typeof setTimeout> | undefined;
-      const timeout = setTimeout(() => {
-        unlisten?.();
+      let settleTimer: ReturnType<typeof setTimeout> | undefined;
+      // Single teardown path: drop the listener + both timers from the pending
+      // set, cancel them, then resolve. Used by every exit (match, settle, timeout).
+      function finish() {
+        if (unlisten) {
+          pendingUnlistens.delete(unlisten);
+          unlisten();
+        }
+
+        for (const timer of [deadlineTimer, settleTimer]) {
+          if (timer !== undefined) {
+            pendingTimers.delete(timer);
+            clearTimeout(timer);
+          }
+        }
+
         resolve();
-      }, HANDOFF_DOC_TIMEOUT_MS);
+      }
+
+      // Read by finish() only at call time (a timer fires well after this line),
+      // so a const in the closure is safe.
+      const deadlineTimer = trackTimer(finish, HANDOFF_DOC_TIMEOUT_MS);
       const target = name.toLowerCase();
       // Kick off the async subscription from this sync executor (the one place a
       // .then/IIFE is warranted — rule 6).
       void (async () => {
         unlisten = await feed.onChange(event => {
           const seen = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
-          if (seen) {
-            clearTimeout(timeout);
-            clearTimeout(settle);
-            settle = setTimeout(() => {
-              unlisten?.();
-              resolve();
-            }, HANDOFF_SETTLE_MS);
+          if (!seen) {
+            return;
           }
+
+          // Restart the short settle window on each matching change; finish only
+          // fires once it goes quiet (or the deadline hits first).
+          if (settleTimer !== undefined) {
+            pendingTimers.delete(settleTimer);
+            clearTimeout(settleTimer);
+          }
+
+          settleTimer = trackTimer(finish, HANDOFF_SETTLE_MS);
         });
+        pendingUnlistens.add(unlisten);
       })();
     });
   }
@@ -607,7 +736,7 @@
 </script>
 
 <svelte:document onselectionchange={readSelection} />
-<svelte:window onfocus={() => void redetectAgents()} />
+<svelte:window onfocus={() => void redetectAgents()} onkeydown={onWindowKey} />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-mono={effective.monoFamily} class="app-root">
@@ -622,18 +751,15 @@
   {:else if phase === Phase.ready}
     <div class="shell">
       <header class="topbar">
-        <span class="brand">◆ PADE</span>
+        <AppMenu
+          {isTemp}
+          label={currentLabel ?? shortDir}
+          labels={settings.labels}
+          onswitch={switchProject}
+          path={currentProject}
+          recentProjects={settings.recentProjects}
+        />
         <span class="divider"></span>
-        {#if currentProject}
-          <button class="project-name" data-tooltip={currentProject} onclick={switchProject}>
-            {#if isTemp}
-              <span class="temp-badge">temp</span>
-            {/if}
-            <span class="dir">{currentLabel ?? shortDir}</span>
-            <span class="switch-hint">switch</span>
-          </button>
-          <span class="divider"></span>
-        {/if}
 
         <nav class="tabs" aria-label="Agent sessions">
           {#each sessions as s (s.id)}
@@ -683,7 +809,7 @@
 
         <div class="spacer"></div>
 
-        <UsageMeter agent={activeAgent} cwd={activeCwd} />
+        <UsageMeter />
         <DesignMenu agent={activeAgent} />
         <IdeMenu />
 
@@ -785,6 +911,15 @@
         </output>
       {/if}
 
+      {#if toast}
+        <!-- <output> already carries role=status — a transient bottom pill that
+             auto-dismisses via the showToast timer. -->
+        <output class="toast">
+          <span class="tdot"><Icon name="external" /></span>
+          {toast}
+        </output>
+      {/if}
+
       {#if selection}
         <button class="send-fab" onclick={sendToAgent}>
           ◆ Send to agent
@@ -819,68 +954,13 @@
     background: var(--surface-1);
   }
 
-  .brand {
-    color: var(--primary);
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  /* Thin vertical rules separate brand / project / tabs (canvas uses spans,
-     not a border on the neighbouring element). */
+  /* Thin vertical rule between the app menu and the sessions nav (canvas uses a
+     span, not a border on the neighbouring element). */
   .divider {
     flex-shrink: 0;
     block-size: 20px;
     inline-size: 1px;
     background: var(--outline);
-  }
-
-  .project-name {
-    display: inline-flex;
-    gap: 7px;
-    align-items: center;
-    padding-block: 5px;
-    padding-inline: 10px;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--on-surface);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background 150ms var(--ease);
-
-    &:hover {
-      background: var(--surface-2);
-    }
-
-    .dir {
-      overflow: hidden;
-      max-inline-size: 32ch;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .temp-badge {
-      padding-block: 2px;
-      padding-inline: 7px;
-      border-radius: 999px;
-      background: var(--surface-3);
-      color: var(--on-surface-var);
-      font-weight: 700;
-      font-size: 9px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .switch-hint {
-      color: var(--primary);
-      font-family: var(--font-ui);
-      font-weight: 600;
-      opacity: 70%;
-    }
   }
 
   .spacer {
@@ -1002,7 +1082,7 @@
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 24%, transparent);
+    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-right;
 
     li button {
@@ -1193,7 +1273,7 @@
     color: var(--on-primary-container);
     font-weight: 600;
     font-size: 13px;
-    box-shadow: 0 10px 30px color-mix(in sRGB, var(--on-surface) 24%, transparent);
+    box-shadow: 0 10px 30px var(--shadow-color);
     transform: translateX(-50%);
     animation: pop-in 220ms var(--ease);
 
@@ -1204,6 +1284,33 @@
       border-radius: 999px;
       background: var(--primary);
       animation: pulse 1100ms var(--ease) infinite;
+    }
+  }
+
+  /* Transient status toast — sits just above the send FAB, auto-dismissed. */
+  .toast {
+    position: fixed;
+    inset-block-end: 72px;
+    inset-inline-start: 50%;
+    z-index: 85;
+    display: inline-flex;
+    gap: 9px;
+    align-items: center;
+    padding-block: 10px;
+    padding-inline: 18px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--on-surface);
+    font-weight: 600;
+    font-size: 13px;
+    box-shadow: 0 12px 34px var(--shadow-color);
+    transform: translateX(-50%);
+    animation: pop-in 240ms var(--spring);
+
+    .tdot {
+      display: inline-flex;
+      color: var(--primary);
     }
   }
 

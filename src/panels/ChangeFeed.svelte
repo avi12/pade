@@ -1,12 +1,15 @@
 <script lang="ts">
   import { feed, ide, vcs } from "@/lib/bridge";
+  import ColorText from "@/lib/ColorText.svelte";
   import { DiffKind, parseDiff, toSplitRows } from "@/lib/diff";
   import type { DiffLine, SplitRow } from "@/lib/diff";
+  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { effective } from "@/lib/prefs.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
-  import { SvelteMap } from "svelte/reactivity";
+  import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // Newest first. Capped so a busy agent session can't grow this unbounded.
   let events = $state<ChangeEvent[]>([]);
@@ -24,13 +27,25 @@
   type DiffMode = (typeof DiffMode)[keyof typeof DiffMode];
 
   let expandedId = $state<string | null>(null);
-  let diffMode = $state<DiffMode>(DiffMode.unified);
-  // Cache raw parsed lines per file path so re-opening a card never refetches.
+  // Seed the viewer from the saved preference; the two enums share values.
+  let diffMode = $state<DiffMode>(effective.diffStyle);
+  // Cache raw parsed lines per event id so re-opening a card never refetches.
+  // Keyed by id (not path) so repeated edits to the same file — distinct events
+  // sharing a path — each render their own diff rather than the stale first one.
   const diffCache = new SvelteMap<string, DiffLine[]>();
-  let loadingPath = $state<string | null>(null);
-  let errored = $state(false);
+  let loadingId = $state<string | null>(null);
+  // Ids whose diff fetch failed, so a re-opened previously-failed card shows
+  // "Couldn't load" rather than the empty-cache "No preview" message.
+  const failedIds = new SvelteSet<string>();
+
+  // A reactive clock so relative timestamps ("3m ago") tick forward on their own.
+  let now = $state(Date.now());
+  let clock: ReturnType<typeof setInterval> | undefined;
 
   onMount(async () => {
+    clock = setInterval(() => {
+      now = Date.now();
+    }, 1000);
     unlisten = await feed.onChange(event => {
       events = [event, ...events].slice(0, CAP);
     });
@@ -43,11 +58,18 @@
     await feed.start();
   });
 
-  onDestroy(() => unlisten?.());
+  onDestroy(() => {
+    unlisten?.();
+
+    if (clock !== undefined) {
+      clearInterval(clock);
+    }
+  });
 
   const expandedEvent = $derived(events.find(item => item.id === expandedId) ?? null);
-  const cachedLines = $derived(expandedEvent ? diffCache.get(expandedEvent.path) : undefined);
-  const isLoading = $derived(!!expandedEvent && loadingPath === expandedEvent.path);
+  const cachedLines = $derived(expandedEvent ? diffCache.get(expandedEvent.id) : undefined);
+  const isLoading = $derived(!!expandedEvent && loadingId === expandedEvent.id);
+  const isErrored = $derived(!!expandedEvent && failedIds.has(expandedEvent.id));
   const unifiedLines = $derived(cachedLines ?? []);
   const splitRows = $derived<SplitRow[]>(cachedLines ? toSplitRows(cachedLines) : []);
   const hasPreview = $derived(unifiedLines.length > 0);
@@ -60,21 +82,21 @@
     }
 
     expandedId = event.id;
-    errored = false;
 
-    if (diffCache.has(event.path)) {
+    if (diffCache.has(event.id)) {
       return;
     }
 
-    loadingPath = event.path;
+    loadingId = event.id;
     try {
       const raw = await vcs.diff({ path: event.path });
-      diffCache.set(event.path, parseDiff(raw));
+      diffCache.set(event.id, parseDiff(raw));
+      failedIds.delete(event.id);
     } catch {
-      errored = true;
-      diffCache.set(event.path, []);
+      failedIds.add(event.id);
+      diffCache.set(event.id, []);
     } finally {
-      loadingPath = null;
+      loadingId = null;
     }
   }
 
@@ -96,24 +118,27 @@
     parts.pop();
     return parts.join("/");
   }
-  function ago(stamp: number) {
-    const secs = Math.max(0, Math.round((Date.now() - stamp) / 1000));
-    if (secs < 60) {
-      return `${secs}s ago`;
+  function ago({ stamp, now }: {
+    stamp: number;
+    now: number;
+  }) {
+    const seconds = Math.max(0, Math.round((now - stamp) / 1000));
+    if (seconds < 60) {
+      return `${seconds}s ago`;
     }
 
-    if (secs < 3600) {
-      return `${Math.round(secs / 60)}m ago`;
+    if (seconds < 3600) {
+      return `${Math.round(seconds / 60)}m ago`;
     }
 
-    return `${Math.round(secs / 3600)}h ago`;
+    return `${Math.round(seconds / 3600)}h ago`;
   }
 </script>
 
 <div class="feed">
   <header class="head">
     <h2>Change Feed</h2>
-    <span class="count">{events.length}</span>
+    <span class="count">{formatCount(events.length)}</span>
   </header>
 
   {#if events.length === 0}
@@ -132,17 +157,20 @@
           <span class="row">
             <span class="dot {ev.kind}" aria-hidden="true"></span>
             <span class="name" data-tooltip={ev.path}>{fileName(ev.path)}</span>
-            <span class="time">{ago(ev.ts)}</span>
+            <span class="time">{ago({
+              stamp: ev.ts,
+              now
+            })}</span>
           </span>
           <span class="summary">{ev.summary}</span>
           <span class="meta">
             <span class="path">{dir(ev.path)}</span>
             <span class="stat">
               {#if ev.added}
-                <span class="add">+{ev.added}</span>
+                <span class="add">+{formatCount(ev.added)}</span>
               {/if}
               {#if ev.removed}
-                <span class="del">−{ev.removed}</span>
+                <span class="del">−{formatCount(ev.removed)}</span>
               {/if}
             </span>
           </span>
@@ -164,10 +192,12 @@
               <div class="seg" aria-label="Diff view" role="group">
                 <button
                   class:on={diffMode === DiffMode.unified}
+                  aria-pressed={diffMode === DiffMode.unified}
                   onclick={() => (diffMode = DiffMode.unified)}
                 >Unified</button>
                 <button
                   class:on={diffMode === DiffMode.split}
+                  aria-pressed={diffMode === DiffMode.split}
                   onclick={() => (diffMode = DiffMode.split)}
                 >Split</button>
               </div>
@@ -184,7 +214,7 @@
             {#if isLoading}
               <p class="state">Loading diff…</p>
             {:else if !hasPreview}
-              {#if errored}
+              {#if isErrored}
                 <p class="state">Couldn't load a preview.</p>
               {:else}
                 <p class="state">No preview available.</p>
@@ -197,7 +227,7 @@
                     class:add={line.kind === DiffKind.add}
                     class:del={line.kind === DiffKind.del}
                     class:metaline={line.kind === DiffKind.meta}
-                  >{line.text}</div>
+                  ><ColorText text={line.text} /></div>
                 {/each}
               </div>
             {:else}
@@ -206,8 +236,8 @@
                   {#if row.hunk}
                     <div class="hunk">{row.hunkText}</div>
                   {:else}
-                    <div class="cell" class:filled-del={row.leftFilled}>{row.left}</div>
-                    <div class="cell right" class:filled-add={row.rightFilled}>{row.right}</div>
+                    <div class="cell" class:filled-del={row.leftFilled}><ColorText text={row.left} /></div>
+                    <div class="cell right" class:filled-add={row.rightFilled}><ColorText text={row.right} /></div>
                   {/if}
                 {/each}
               </div>
@@ -246,6 +276,7 @@
     color: var(--on-primary-container);
     font-weight: 700;
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
   }
 
   .empty {
@@ -268,9 +299,15 @@
   .card {
     position: relative;
     overflow: hidden;
+
+    /* Border reserves its space always so the layout doesn't shift when a card
+       opens; it's transparent when idle and lights to primary while expanded. */
+    border: 1px solid transparent;
     border-radius: var(--r-md);
     background: var(--surface-1);
-    transition: background 140ms var(--ease);
+    transition:
+      background 140ms var(--ease),
+      border-color 140ms var(--ease);
     animation: pop-in 260ms var(--spring);
 
     &:hover {
@@ -278,6 +315,7 @@
     }
 
     &.open {
+      border-color: var(--primary);
       background: var(--surface-2);
     }
 

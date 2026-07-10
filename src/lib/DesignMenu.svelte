@@ -34,16 +34,16 @@
   </button>
   <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list" popover>
     <li class="hint">Open a design-to-code tool</li>
-    {#each tools as t (t.id)}
+    {#each tools as tool (tool.id)}
       <li>
-        <button onclick={() => void design.open(t.url)} popovertarget="design-menu" popovertargetaction="hide">
+        <button onclick={() => void design.open(tool.url)} popovertarget="design-menu" popovertargetaction="hide">
           <span class="tool">
-            {t.label}
-            {#if t.recommended}
+            <Icon name="star" />{tool.label}
+            {#if tool.recommended}
               <span class="best">best fit</span>
             {/if}
           </span>
-          <span class="vendor">{t.vendor}</span>
+          <span class="vendor">{tool.vendor}</span>
         </button>
       </li>
     {/each}
@@ -87,7 +87,7 @@
     border-radius: var(--r-md);
     background: var(--surface-2);
     list-style: none;
-    box-shadow: 0 16px 40px color-mix(in sRGB, var(--on-surface) 50%, transparent);
+    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
 
     .hint {

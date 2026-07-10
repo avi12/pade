@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BrandMark from "@/lib/BrandMark.svelte";
   import type { Agent } from "@/lib/types";
 
   // Shown only when more than one agent is installed — the user picks which to
@@ -11,11 +12,11 @@
 
 <div class="onboarding">
   <div class="card">
-    <span class="brand">◆ PADE</span>
-    <h1>Choose an agent to start</h1>
+    <BrandMark />
+    <h1>Choose an agent to start.</h1>
     <p class="lede">
-      Several agents are installed. Pick one to launch now — you can switch
-      between them or run more side by side at any time.
+      Several agents are installed on this machine. Pick one to begin — you can
+      switch or run more side by side later.
     </p>
 
     <ul class="agents">
@@ -47,16 +48,9 @@
     background: var(--surface-1);
 
     /* Floating hero surface — soft depth shadow (allowed on elevated cards),
-       tinted from the darkest on-surface token so it tracks the theme. */
-    box-shadow: 0 24px 60px color-mix(in sRGB, var(--on-surface) 35%, transparent);
+       tinted from the theme's shadow token so it tracks light/dark. */
+    box-shadow: 0 24px 60px var(--shadow-color);
     animation: rise 350ms var(--ease);
-
-    .brand {
-      color: var(--primary);
-      font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.02em;
-    }
 
     h1 {
       margin-block: 14px 0;

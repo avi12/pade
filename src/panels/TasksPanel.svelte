@@ -1,6 +1,7 @@
 <script lang="ts">
   import { feed, tasks as tasksApi } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { baseName } from "@/lib/paths";
   import type { TaskGroup } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
@@ -31,10 +32,6 @@
     }
   }
 
-  function basename(path: string): string {
-    return path.split(/[\\/]/).pop() ?? path;
-  }
-
   // Debounced re-scan so a burst of manifest edits triggers one fetch.
   let timer: ReturnType<typeof setTimeout> | undefined;
   function scheduleRefresh() {
@@ -45,7 +42,7 @@
   onMount(async () => {
     await refresh();
     unlisten = await feed.onChange(event => {
-      if (MANIFESTS.includes(basename(event.path))) {
+      if (MANIFESTS.includes(baseName(event.path))) {
         scheduleRefresh();
       }
     });
@@ -79,7 +76,7 @@
             <span class="kind {group.kind}">{group.kind}</span>
             <span class="manifest" data-tooltip={group.dir}>{group.manifest}</span>
           </h3>
-          {#each group.tasks as task (task.command)}
+          {#each group.tasks as task (task.name)}
             <div class="row">
               <div class="meta">
                 <span class="tname">{task.name}</span>
@@ -87,6 +84,7 @@
               </div>
               <button
                 class="run"
+                data-tooltip="Run in the dock — ◆ pipes its output to the agent"
                 onclick={() => onrun({
                   label: task.name,
                   command: task.command,
@@ -198,6 +196,7 @@
 
   .manifest {
     overflow: hidden;
+    min-inline-size: 0;
     color: var(--on-surface-var);
     font-family: var(--font-mono);
     font-size: 12px;
@@ -256,6 +255,15 @@
 
     &:hover {
       opacity: 90%;
+    }
+
+    /* The long pipe-explainer would overflow the panel's right edge with the
+       global centered-below tooltip — anchor it to this button's trailing edge
+       and float it above instead. */
+    &::after {
+      inset-block: auto calc(100% + 6px);
+      inset-inline: auto 0;
+      translate: 0 0;
     }
   }
 </style>

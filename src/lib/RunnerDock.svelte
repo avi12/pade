@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { pipeRunner, runnerRows, stopRunner } from "@/lib/stores/runners.svelte";
+  import { RunnerStream } from "@/lib/types";
 
   // The active agent session — pipe target for a runner's output.
   const { activeSessionId }: {
@@ -8,6 +10,76 @@
   } = $props();
 
   const rows = $derived(runnerRows());
+
+  // NOTE: the feed-toggle chip and the per-runner maximize/float control from the
+  // canvas are backend/planned — deferred until the runner backend supports them.
+
+  // Dock height, drag-resizable from the top grip. Clamped so the dock can never
+  // swallow the whole window nor collapse below a usable minimum.
+  const MIN_DOCK = 140;
+  let dockHeight = $state(clampDock(360));
+
+  function maxDock(): number {
+    return window.innerHeight * 0.75;
+  }
+
+  function clampDock(height: number): number {
+    return Math.min(Math.max(height, MIN_DOCK), maxDock());
+  }
+
+  // Drag the top grip to resize: pointer moving up grows the dock (block-size
+  // increases as clientY decreases). Pointer capture keeps the drag alive off-target.
+  function startDockResize(event: PointerEvent) {
+    event.preventDefault();
+
+    if (!(event.currentTarget instanceof HTMLElement)) {
+      return;
+    }
+
+    const grip = event.currentTarget;
+    const startY = event.clientY;
+    const startHeight = dockHeight;
+    grip.setPointerCapture(event.pointerId);
+
+    function onMove(move: PointerEvent): void {
+      dockHeight = clampDock(startHeight + (startY - move.clientY));
+    }
+    function cleanup(): void {
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", cleanup);
+      grip.removeEventListener("pointercancel", cleanup);
+    }
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", cleanup);
+    grip.addEventListener("pointercancel", cleanup);
+  }
+
+  // The dock height is clamped against the viewport; a window resize can push the
+  // stored height past the new max, so re-clamp on every resize.
+  $effect(() => {
+    function reclamp(): void {
+      dockHeight = clampDock(dockHeight);
+    }
+    window.addEventListener("resize", reclamp);
+    return () => window.removeEventListener("resize", reclamp);
+  });
+
+  // Human-readable status for a runner's dot, used for both the tooltip and the
+  // accessible name.
+  function statusLabel({ done, failed }: {
+    done: boolean;
+    failed: boolean;
+  }): string {
+    if (failed) {
+      return "Failed";
+    }
+
+    if (done) {
+      return "Done";
+    }
+
+    return "Running";
+  }
 
   // Keep an output pane pinned to its newest line as it streams.
   function autoscroll(node: HTMLElement) {
@@ -27,10 +99,20 @@
 </script>
 
 {#if rows.length > 0}
-  <section class="dock" aria-label="Task runners">
+  <section style:block-size="{dockHeight}px" class="dock" aria-label="Task runners">
+    <!-- Drag-to-resize grip along the dock's top edge. -->
+    <div
+      class="grip"
+      aria-label="Resize task runner dock"
+      aria-orientation="horizontal"
+      data-tooltip="Drag to resize"
+      onpointerdown={startDockResize}
+      role="separator"
+    ><span class="grabber"></span></div>
+
     <header class="head">
       <h2>Task runners</h2>
-      <span class="count">{rows.length}</span>
+      <span class="count">{formatCount(rows.length)}</span>
       <span class="spacer"></span>
       <span class="hint">Running side by side</span>
     </header>
@@ -40,7 +122,19 @@
         <article class="runner">
           <div class="bar">
             <span class="kind {row.kind}">{row.kind}</span>
-            <span class="dot" class:done={row.done}></span>
+            <span
+              class="dot"
+              class:done={row.done && !row.failed}
+              class:failed={row.failed}
+              aria-label={statusLabel({
+                done: row.done,
+                failed: row.failed
+              })}
+              data-tooltip={statusLabel({
+                done: row.done,
+                failed: row.failed
+              })}
+            ></span>
             <span class="name">{row.label}</span>
             {#if activeSessionId}
               <button
@@ -62,7 +156,10 @@
           </div>
           <div class="out" use:autoscroll>
             {#each row.lines as line, i (i)}
-              <div class="line">{line || " "}</div>
+              <div
+                class="line"
+                class:err={line.stream === RunnerStream.enum.stderr}
+              >{line.text || " "}</div>
             {/each}
           </div>
         </article>
@@ -76,10 +173,31 @@
     display: flex;
     flex: none;
     flex-direction: column;
-    block-size: min(40%, 360px);
     border-block-start: 1px solid var(--outline);
     background: var(--surface-1);
     animation: rise 280ms var(--ease);
+  }
+
+  .grip {
+    display: flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 7px;
+    margin-block-end: -4px;
+    cursor: row-resize;
+    touch-action: none;
+
+    &:hover {
+      background: var(--primary-container);
+    }
+
+    .grabber {
+      block-size: 3px;
+      inline-size: 36px;
+      border-radius: 999px;
+      background: var(--outline);
+    }
   }
 
   .head {
@@ -179,6 +297,12 @@
       box-shadow: 0 0 0 4px var(--tertiary-wash);
       animation: none;
     }
+
+    /* Non-zero exit: crit dot, no success halo. */
+    &.failed {
+      background: var(--crit);
+      animation: none;
+    }
   }
 
   .name {
@@ -238,5 +362,10 @@
     min-block-size: 1.5em;
     white-space: pre-wrap;
     animation: line-in 180ms var(--ease);
+
+    /* stderr in a crit tint so failures read at a glance. */
+    &.err {
+      color: color-mix(in sRGB, var(--crit) 82%, var(--code-fg));
+    }
   }
 </style>
