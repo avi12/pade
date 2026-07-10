@@ -6,6 +6,7 @@
     vcs,
     workspace
   } from "./lib/bridge";
+  import DesignMenu from "./lib/DesignMenu.svelte";
   import Icon from "./lib/Icon.svelte";
   import IdeMenu from "./lib/IdeMenu.svelte";
   import { effective } from "./lib/prefs.svelte";
@@ -387,6 +388,7 @@
 
         <div class="spacer"></div>
 
+        <DesignMenu />
         <IdeMenu />
 
         <div class="seg" aria-label="Side panel" role="tablist">

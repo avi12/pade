@@ -8,6 +8,7 @@ import {
   ChangeEvent,
   Commit,
   ConfigFile,
+  DesignTool,
   Ide,
   LaunchContext,
   ProjectEntry,
@@ -63,6 +64,12 @@ export const ide = {
 export const os = {
   explorer: (path: string) => run("open_in_explorer", { path }),
   terminal: (path: string) => run("open_in_terminal", { path })
+};
+
+/** AI design/UI-generation tools — a curated roster opened in the browser. */
+export const design = {
+  tools: () => call("design_tools", z.array(DesignTool)),
+  open: (url: string) => run("open_url", { url })
 };
 
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it

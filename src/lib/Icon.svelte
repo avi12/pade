@@ -11,7 +11,8 @@
     plus: "M12 5v14 M5 12h14",
     trash: "M4 7h16 M9 7V5h6v2 M6 7l1 13h10l1-13",
     external: "M14 4h6v6 M20 4l-9 9 M5 6v13h13v-6",
-    refresh: "M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4"
+    refresh: "M20 12a8 8 0 1 1-2.3-5.6 M20 4v4h-4",
+    sparkles: "M12 3l1.9 5.3a2 2 0 0 0 1.8 1.8L21 12l-5.3 1.9a2 2 0 0 0-1.8 1.8L12 21l-1.9-5.3a2 2 0 0 0-1.8-1.8L3 12l5.3-1.9a2 2 0 0 0 1.8-1.8z M19 4v3 M17.5 5.5h3"
   };
 
   export type IconName = keyof typeof PATHS;

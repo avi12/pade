@@ -2,6 +2,7 @@ mod agents;
 mod config;
 #[cfg(windows)]
 mod copilot;
+mod design;
 mod ide;
 mod naming;
 mod os;
@@ -26,11 +27,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
+            design::design_tools,
             ide::ide_detect,
             ide::ide_suggest,
             ide::ide_open,
             os::open_in_explorer,
             os::open_in_terminal,
+            os::open_url,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

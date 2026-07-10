@@ -64,6 +64,15 @@ export const Ide = z.object({
 });
 export type Ide = z.infer<typeof Ide>;
 
+/** An AI design/UI-generation tool the topbar can open in the browser. */
+export const DesignTool = z.object({
+  id: z.string(),
+  label: z.string(),
+  vendor: z.string(),
+  url: z.string()
+});
+export type DesignTool = z.infer<typeof DesignTool>;
+
 export const LaunchContext = z.object({
   hasProject: z.boolean(),
   cwd: z.string()

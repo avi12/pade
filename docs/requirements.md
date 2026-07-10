@@ -67,6 +67,14 @@ writes.
 - R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token —
   seam in place (`copilot.rs`), not yet wired; see the auto-naming handoff doc.
 
+### 1.10 External tool launchers (✅)
+- R1.10.1 **IDE menu** — open the active project in an installed editor, ranked by
+  project kind (`ide.rs`; VS Code, JetBrains family, Zed, Sublime…).
+- R1.10.2 **Design menu** — quick-launch an AI design/UI-generation tool in the
+  browser as a design-to-code companion (`design.rs`; Claude, Google Stitch,
+  Vercel v0, Figma Make, Lovable, Bolt). Curated roster; one registry entry per
+  product (DRY), Claude first.
+
 ## 2. Non-functional requirements
 
 - R2.1 **Performance** — native core (Rust); web build reuses logic as WASM,

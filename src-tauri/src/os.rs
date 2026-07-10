@@ -1,6 +1,21 @@
-//! OS integrations — reveal a project in the system file manager or a terminal.
+//! OS integrations — reveal a project in the system file manager or a terminal,
+//! or open a URL in the default browser.
 
 use std::process::Command;
+
+/// Open a URL in the default browser.
+#[tauri::command]
+pub fn open_url(url: String) -> Result<(), String> {
+    let result = if cfg!(windows) {
+        // The empty "" is `start`'s title arg, so the URL isn't mistaken for one.
+        Command::new("cmd").args(["/C", "start", "", &url]).spawn()
+    } else if cfg!(target_os = "macos") {
+        Command::new("open").arg(&url).spawn()
+    } else {
+        Command::new("xdg-open").arg(&url).spawn()
+    };
+    result.map(|_| ()).map_err(|e| e.to_string())
+}
 
 /// Open `path` in the platform file manager (Explorer / Finder / xdg).
 #[tauri::command]
