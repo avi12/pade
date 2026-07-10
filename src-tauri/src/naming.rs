@@ -112,7 +112,8 @@ fn gather_files(dir: &Path) -> Vec<String> {
             }
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref()) {
+            let is_noise = name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref());
+            if is_noise {
                 continue;
             }
             let p = entry.path();

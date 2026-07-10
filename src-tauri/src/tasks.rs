@@ -71,7 +71,8 @@ fn manifest_dirs(root: &Path) -> Vec<PathBuf> {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref()) {
+            let is_noise_dir = name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref());
+            if is_noise_dir {
                 continue;
             }
             let path = entry.path();
@@ -158,33 +159,53 @@ fn npm_tasks(path: &Path) -> Vec<Task> {
         return Vec::new();
     };
     let dir = path.parent().unwrap_or(path);
-    let pm = package_manager(dir);
+    let pm = PackageManager::detect(dir);
     scripts
         .keys()
         .map(|name| Task {
-            command: run_command(pm, name),
+            command: pm.run_command(name),
             name: name.clone(),
         })
         .collect()
 }
 
-/// Detect the package manager from a lockfile in `dir`: pnpm, then yarn, else npm.
-fn package_manager(dir: &Path) -> &'static str {
-    if dir.join("pnpm-lock.yaml").exists() {
-        "pnpm"
-    } else if dir.join("yarn.lock").exists() {
-        "yarn"
-    } else {
-        "npm"
-    }
+/// A JS package manager, the closed set ADE knows how to drive.
+#[derive(Clone, Copy)]
+enum PackageManager {
+    Pnpm,
+    Yarn,
+    Npm,
 }
 
-/// The command to run an npm script: `npm run <s>`, but `pnpm <s>` / `yarn <s>`
-/// for those managers (both accept the bare-script shorthand).
-fn run_command(pm: &str, script: &str) -> String {
-    match pm {
-        "pnpm" | "yarn" => format!("{pm} {script}"),
-        _ => format!("{pm} run {script}"),
+impl PackageManager {
+    /// Detect from a lockfile in `dir`: pnpm, then yarn, else npm.
+    fn detect(dir: &Path) -> Self {
+        if dir.join("pnpm-lock.yaml").exists() {
+            PackageManager::Pnpm
+        } else if dir.join("yarn.lock").exists() {
+            PackageManager::Yarn
+        } else {
+            PackageManager::Npm
+        }
+    }
+
+    /// The launcher binary name (the only place these literals live).
+    fn bin(self) -> &'static str {
+        match self {
+            PackageManager::Pnpm => "pnpm",
+            PackageManager::Yarn => "yarn",
+            PackageManager::Npm => "npm",
+        }
+    }
+
+    /// The command to run an npm script: `npm run <s>`, but `pnpm <s>` / `yarn <s>`
+    /// for those managers (both accept the bare-script shorthand).
+    fn run_command(self, script: &str) -> String {
+        let bin = self.bin();
+        match self {
+            PackageManager::Pnpm | PackageManager::Yarn => format!("{bin} {script}"),
+            PackageManager::Npm => format!("{bin} run {script}"),
+        }
     }
 }
 
@@ -230,11 +251,11 @@ fn make_target(line: &str) -> Option<String> {
         return None; // recipe body, not a rule head
     }
     let head = line.split(':').next()?.trim();
-    if head.is_empty()
-        || !head
+    let is_rule_head = !head.is_empty()
+        && head
             .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
-    {
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'));
+    if !is_rule_head {
         return None;
     }
     Some(head.to_string())

@@ -23,6 +23,36 @@ pub struct WatcherState {
     last_seen: Mutex<HashMap<PathBuf, Instant>>,
 }
 
+/// The kind of filesystem change, in the exact wire strings the frontend reads.
+/// One authoritative home for the `"created"`/`"modified"`/`"deleted"` literals.
+#[derive(Clone, Copy)]
+enum ChangeKind {
+    Created,
+    Modified,
+    Deleted,
+}
+
+impl ChangeKind {
+    /// Map a `notify` event to a change kind, ignoring events we don't surface.
+    fn from_event(kind: EventKind) -> Option<Self> {
+        match kind {
+            EventKind::Create(_) => Some(ChangeKind::Created),
+            EventKind::Modify(_) => Some(ChangeKind::Modified),
+            EventKind::Remove(_) => Some(ChangeKind::Deleted),
+            _ => None,
+        }
+    }
+
+    /// The serialized string for this kind — the only place the literals live.
+    fn as_str(self) -> &'static str {
+        match self {
+            ChangeKind::Created => "created",
+            ChangeKind::Modified => "modified",
+            ChangeKind::Deleted => "deleted",
+        }
+    }
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ChangeEvent {
@@ -64,12 +94,12 @@ fn line_count(path: &Path) -> Option<usize> {
         .map(|s| s.lines().count())
 }
 
-fn summarize(kind: &str, path: &Path, added: usize, removed: usize) -> String {
+fn summarize(kind: ChangeKind, path: &Path, added: usize, removed: usize) -> String {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
     match kind {
-        "created" => format!("New file {name}"),
-        "deleted" => format!("Deleted {name}"),
-        _ => {
+        ChangeKind::Created => format!("New file {name}"),
+        ChangeKind::Deleted => format!("Deleted {name}"),
+        ChangeKind::Modified => {
             if added > 0 && removed == 0 {
                 format!("Grew {name} by {added} line{}", plural(added))
             } else if removed > 0 && added == 0 {
@@ -114,11 +144,8 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>) -> Result<(), Str
 }
 
 fn handle_event(app: &AppHandle, event: Event) {
-    let kind = match event.kind {
-        EventKind::Create(_) => "created",
-        EventKind::Modify(_) => "modified",
-        EventKind::Remove(_) => "deleted",
-        _ => return,
+    let Some(kind) = ChangeKind::from_event(event.kind) else {
+        return;
     };
 
     let state: State<WatcherState> = app.state();
@@ -134,10 +161,11 @@ fn handle_event(app: &AppHandle, event: Event) {
                 continue;
             };
             let now = Instant::now();
-            if let Some(prev) = seen.get(&path) {
-                if now.duration_since(*prev) < Duration::from_millis(150) {
-                    continue;
-                }
+            let within_debounce = seen
+                .get(&path)
+                .is_some_and(|prev| now.duration_since(*prev) < Duration::from_millis(150));
+            if within_debounce {
+                continue;
             }
             seen.insert(path.clone(), now);
         }
@@ -168,7 +196,7 @@ fn handle_event(app: &AppHandle, event: Event) {
             id,
             summary: summarize(kind, &path, added, removed),
             path: path_str,
-            kind: kind.to_string(),
+            kind: kind.as_str().to_string(),
             added,
             removed,
             ts: now_ms(),

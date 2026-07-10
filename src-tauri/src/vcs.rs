@@ -27,6 +27,30 @@ fn run_git(args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&out.stdout).to_string())
 }
 
+/// How a working-tree path changed, in the exact wire strings the frontend reads.
+/// One authoritative home for the status-kind literals.
+#[derive(Clone, Copy)]
+enum StatusKind {
+    Created,
+    Modified,
+    Deleted,
+    Renamed,
+    Untracked,
+}
+
+impl StatusKind {
+    /// The serialized string for this kind — the only place the literals live.
+    fn as_str(self) -> &'static str {
+        match self {
+            StatusKind::Created => "created",
+            StatusKind::Modified => "modified",
+            StatusKind::Deleted => "deleted",
+            StatusKind::Renamed => "renamed",
+            StatusKind::Untracked => "untracked",
+        }
+    }
+}
+
 /// A single changed path in the working tree.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,20 +73,20 @@ pub struct Commit {
     when: String,
 }
 
-fn classify(index: char, worktree: char) -> (String, bool) {
+fn classify(index: char, worktree: char) -> (StatusKind, bool) {
     // Untracked files show as "??".
     if index == '?' {
-        return ("untracked".into(), false);
+        return (StatusKind::Untracked, false);
     }
     let staged = index != ' ';
     let code = if staged { index } else { worktree };
     let kind = match code {
-        'A' => "created",
-        'D' => "deleted",
-        'R' => "renamed",
-        _ => "modified",
+        'A' => StatusKind::Created,
+        'D' => StatusKind::Deleted,
+        'R' => StatusKind::Renamed,
+        _ => StatusKind::Modified,
     };
-    (kind.into(), staged)
+    (kind, staged)
 }
 
 #[tauri::command]
@@ -82,12 +106,17 @@ pub fn vcs_status() -> Result<Vec<StatusEntry>, String> {
         let path: String = rec[3..].to_string();
 
         // A rename record is followed by the old path in the next field; drop it.
-        if index == 'R' || worktree == 'R' {
+        let is_rename = index == 'R' || worktree == 'R';
+        if is_rename {
             records.next();
         }
 
         let (kind, staged) = classify(index, worktree);
-        entries.push(StatusEntry { path, kind, staged });
+        entries.push(StatusEntry {
+            path,
+            kind: kind.as_str().to_string(),
+            staged,
+        });
     }
     Ok(entries)
 }
