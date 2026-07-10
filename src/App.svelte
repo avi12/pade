@@ -1040,15 +1040,11 @@
         <section class="pane term-pane">
           {#each sessions as s (s.id)}
             <div class="term-slot" class:shown={paneIds.includes(s.id)}>
-              {#if canRemovePane && paneIds.includes(s.id)}
-                <button
-                  class="remove-pane"
-                  aria-label="Remove from split"
-                  data-tooltip="Remove from split"
-                  onclick={() => removePane(s.id)}
-                ><Icon name="close" /></button>
-              {/if}
-              <Terminal session={s} />
+              <Terminal
+                onremove={() => removePane(s.id)}
+                removable={canRemovePane && paneIds.includes(s.id)}
+                session={s}
+              />
             </div>
           {/each}
 
@@ -1599,7 +1595,6 @@
   }
 
   .term-slot {
-    position: relative;
     display: none;
     flex: 1;
     flex-direction: column;
@@ -1610,29 +1605,6 @@
     &.shown {
       display: flex;
       animation: panel-swap 260ms var(--ease);
-    }
-  }
-
-  .remove-pane {
-    position: absolute;
-    inset-block-start: 8px;
-    inset-inline-end: 8px;
-    z-index: 5;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    block-size: 24px;
-    inline-size: 24px;
-    border: none;
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: color 150ms var(--ease), background 150ms var(--ease);
-
-    &:hover {
-      background: var(--critical-wash);
-      color: var(--critical);
     }
   }
 

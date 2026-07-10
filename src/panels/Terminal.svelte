@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pty } from "@/lib/bridge";
+  import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { dropContext, observeContext } from "@/lib/stores/context.svelte";
@@ -12,7 +13,12 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session }: { session: AgentSession } = $props();
+  const { session, removable = false, onremove }: {
+    session: AgentSession;
+    /** Show a trailing remove-from-split button in the session bar. */
+    removable?: boolean;
+    onremove?: () => void;
+  } = $props();
 
   let host: HTMLDivElement;
   let term: Terminal;
@@ -215,6 +221,16 @@
 <div class="term-wrap">
   <header class="session-bar">
     <SessionBadge label={session.branch ? `${session.agent.label} · ${session.branch}` : session.agent.label} {status} />
+    {#if removable}
+      <button
+        class="remove-pane"
+        aria-label="Remove from split"
+        data-tooltip="Remove from split"
+        onclick={() => onremove?.()}
+      >
+        <Icon name="close" size={16} />
+      </button>
+    {/if}
   </header>
   <div class="term-pad">
     <div bind:this={host} class="term-host"></div>
@@ -239,6 +255,29 @@
     padding-inline: 14px;
     border-block-end: 1px solid var(--outline);
     background: var(--surface-1);
+  }
+
+  /* Inline remove-from-split action at the end of the bar — transparent until
+     hovered, then a soft crit wash (canvas line 276). */
+  .remove-pane {
+    display: inline-flex;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: center;
+    block-size: 24px;
+    inline-size: 24px;
+    margin-inline-start: auto;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    transition: color 150ms var(--ease), background 150ms var(--ease);
+
+    &:hover {
+      background: var(--critical-wash);
+      color: var(--critical);
+    }
   }
 
   /* The xterm element must have no padding: FitAddon measures its full box to
