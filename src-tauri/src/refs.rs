@@ -19,7 +19,7 @@
 
 use std::path::Path;
 
-use crate::util::{encode_project, home_dir};
+use crate::util::{encode_project, home_dir, is_on_path};
 
 /// Best-effort: re-point every external reference from `old` to `new` (absolute
 /// dir paths). Per-adapter errors are logged and ignored — one failing tool must
@@ -28,7 +28,8 @@ pub fn update_references(old: &str, new: &str) {
     let new_dir = Path::new(new);
     rename_agent_memory(old, new);
     rewrite_ide_recents(new_dir, old, new);
-    fix_node_modules_symlinks(new_dir, old, new);
+    fix_project_symlinks(new_dir, old, new);
+    reconcile_package_manager(new_dir);
 }
 
 // ---------------------------------------------------------------------------
@@ -379,32 +380,30 @@ fn rewrite_jetbrains_recents(_old: &str, _new: &str) {}
 fn rewrite_vscode_family(_app: VsCodeApp, _old: &str, _new: &str) {}
 
 // ---------------------------------------------------------------------------
-// Adapter — node_modules symlinks/junctions (cross-platform).
+// Adapter — project-tree symlinks/junctions (cross-platform).
 // ---------------------------------------------------------------------------
 
-/// Re-point `node_modules` links whose ABSOLUTE target lived under the moved
-/// tree. pnpm links packages into `node_modules` as symlinks (junctions on
-/// Windows); a link with an absolute target under `old` dangles after the move,
-/// so we swing it to the matching path under `new`.
+/// Re-point every link in the moved project whose ABSOLUTE target lived under
+/// the old tree. Many toolchains plant absolute symlinks/junctions inside a
+/// project — pnpm's `node_modules`, Python's `.venv`, and others — and a link
+/// with an absolute target under `old` dangles after the move, so we swing it to
+/// the matching path under `new`.
 ///
 /// Relative links are left untouched — they survive a move within one drive
-/// (pnpm's common case), so usually nothing here changes. This handles the
-/// absolute-target edge cases: workspace/monorepo links, cross-tree links, and
-/// globally-linked packages. Gated on `<new_dir>/node_modules` existing.
+/// (the common case), so usually nothing here changes. This handles the
+/// absolute-target edge cases: workspace/monorepo links, cross-tree links, venv
+/// interpreter links, and globally-linked packages, uniformly across techs.
 ///
-/// Best-effort throughout: a giant `node_modules` must never fail or hang the
-/// move, so every fallible step is swallowed and we bound the walk by never
-/// following the links we inspect (which also avoids link cycles).
-fn fix_node_modules_symlinks(new_dir: &Path, old: &str, new: &str) {
-    let node_modules = new_dir.join("node_modules");
-    if !node_modules.is_dir() {
-        return;
-    }
-    relink_dir(&node_modules, old, new);
+/// Best-effort throughout: a giant tree must never fail or hang the move, so
+/// every fallible step is swallowed and we bound the walk by never following the
+/// links we inspect (which also avoids link cycles).
+fn fix_project_symlinks(new_dir: &Path, old: &str, new: &str) {
+    relink_dir(new_dir, old, new);
 }
 
 /// Recurse `dir`, re-pointing stale absolute links and descending only into real
 /// sub-directories (never into a link — that bounds the walk and dodges cycles).
+/// Skips `.git` (huge, holds no project-path links worth rewriting).
 fn relink_dir(dir: &Path, old: &str, new: &str) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -419,7 +418,10 @@ fn relink_dir(dir: &Path, old: &str, new: &str) {
         if meta.file_type().is_symlink() {
             remap_link(&path, old, new);
         } else if meta.is_dir() {
-            relink_dir(&path, old, new);
+            let is_git_dir = path.file_name().and_then(|n| n.to_str()) == Some(".git");
+            if !is_git_dir {
+                relink_dir(&path, old, new);
+            }
         }
     }
 }
@@ -516,6 +518,86 @@ fn recreate_link(link: &Path, target: &str, _is_target_dir: bool) {
         eprintln!(
             "refs: failed to recreate link {} → {target}: {e}",
             link.display()
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Adapter — package-manager reconcile (cross-platform).
+// ---------------------------------------------------------------------------
+
+/// A package manager we can re-materialize after a move: if `lockfile` is present
+/// in the moved project and the manager's `tool` is on PATH, run `command` there
+/// to regenerate its (absolute-link-laden) install tree from scratch. This is the
+/// robust "easy way" that complements `fix_project_symlinks` — the fixer re-points
+/// links in place; this rebuilds them wholesale where a manager exists.
+struct PackageManager {
+    /// Lockfile whose presence marks this manager as the project's (e.g.
+    /// `pnpm-lock.yaml`).
+    lockfile: &'static str,
+    /// Executable that must be on PATH for the reconcile to run (e.g. `pnpm`).
+    tool: &'static str,
+    /// Command line run (through the shell) in the new project dir.
+    command: &'static str,
+}
+
+/// Managers we know how to reconcile. pnpm is concrete; npm/yarn are trivial to
+/// add once wanted (left as TODO so the set stays honest, not speculative).
+const PACKAGE_MANAGERS: &[PackageManager] = &[
+    // pnpm links packages as symlinks/junctions with absolute targets; the surest
+    // fix after a move is to let pnpm rebuild its store links.
+    PackageManager {
+        lockfile: "pnpm-lock.yaml",
+        tool: "pnpm",
+        command: "pnpm install",
+    },
+    // TODO: npm — { lockfile: "package-lock.json", tool: "npm", command: "npm install" }
+    // TODO: yarn — { lockfile: "yarn.lock", tool: "yarn", command: "yarn" }
+];
+
+/// If the moved project uses a known package manager (lockfile present + tool on
+/// PATH), kick off its install in the new dir to regenerate the dependency tree.
+///
+/// Fire-and-forget by design: we **spawn detached and never wait** so the move
+/// stays fast — the install rebuilds in the background. The child handle is
+/// dropped (never joined, never killed). Best-effort: a missing tool or spawn
+/// failure is logged and ignored, never failing the move.
+fn reconcile_package_manager(new_dir: &Path) {
+    for manager in PACKAGE_MANAGERS {
+        let has_lockfile = new_dir.join(manager.lockfile).is_file();
+        if !has_lockfile || !is_on_path(manager.tool) {
+            continue;
+        }
+        spawn_install(new_dir, manager.command);
+    }
+}
+
+/// Spawn `command` through the platform shell in `dir`, detached: on Windows
+/// `cmd /C <command>` so the `.cmd` shim resolves (mirroring `runner`/`ide`),
+/// else the command directly. Stdio is nulled so the background install doesn't
+/// tie its pipes to us; the handle is dropped so we neither wait nor kill it.
+fn spawn_install(dir: &Path, command: &str) {
+    use std::process::{Command, Stdio};
+
+    let mut cmd = if cfg!(windows) {
+        let mut c = Command::new("cmd");
+        c.args(["/C", command]);
+        c
+    } else {
+        let mut c = Command::new("sh");
+        c.args(["-c", command]);
+        c
+    };
+    cmd.current_dir(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    // Spawn and drop the handle — detached, no wait, no kill.
+    if let Err(e) = cmd.spawn() {
+        eprintln!(
+            "refs: failed to start `{command}` in {}: {e}",
+            dir.display()
         );
     }
 }
