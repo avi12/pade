@@ -85,6 +85,18 @@ These are non-negotiable for all work in this repo.
    when the behavior genuinely can't be expressed in CSS. Less JS = less to ship,
    parse, and break.
 
+10. **Minimize dependencies** — every third-party package is supply-chain attack
+    surface. Prefer implementing a small, well-understood utility yourself over
+    pulling in a dep: a formatter, a tiny parser, a debounce, a clamp, an ID
+    generator — write it. Reach for a dependency only when the problem is
+    substantial, genuinely hard to get right, and the package is well-audited and
+    already load-bearing (Tauri, Svelte, Vite, zod, xterm, portable-pty). When you
+    do add one, justify why in the commit message and prefer the smallest, most
+    trusted option with the fewest transitive deps. **Vendor assets locally** —
+    embed fonts (self-hosted `@font-face` + `woff2` in the repo), icons, and other
+    static assets rather than loading them from a runtime CDN; no third-party
+    origin should be fetched at runtime.
+
 ## Project shape
 
 See `docs/requirements.md` for the full MVP spec and `README.md` for how to run.
