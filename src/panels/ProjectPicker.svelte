@@ -3,6 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
+  import { FirstPrompt, FolderPath, parseInput, ProjectName } from "@/lib/validate";
   import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
@@ -148,7 +149,10 @@
   }
 
   async function addRoot() {
-    const path = newRoot.trim();
+    const path = parseInput({
+      schema: FolderPath,
+      raw: newRoot
+    });
     if (!path) {
       return;
     }
@@ -250,30 +254,43 @@
   }
 
   async function commitRename(path: string) {
-    if (!renameValue.trim()) {
+    const newName = parseInput({
+      schema: ProjectName,
+      raw: renameValue
+    });
+    if (!newName) {
       return;
     }
 
     await workspace.rename({
       from: path,
-      newName: renameValue.trim()
+      newName
     });
     renaming = null;
     await refresh();
   }
 
   async function create() {
-    if (!createIn || !createName.trim()) {
+    const name = parseInput({
+      schema: ProjectName,
+      raw: createName
+    });
+    const prompt = parseInput({
+      schema: FirstPrompt,
+      raw: createPrompt
+    });
+    const promptInvalid = prompt === null;
+    if (!createIn || !name || promptInvalid) {
       return;
     }
 
     const path = await workspace.create({
       root: createIn,
-      name: createName.trim()
+      name
     });
     onopen({
       path,
-      initialPrompt: createPrompt.trim() || undefined
+      initialPrompt: prompt || undefined
     });
   }
 

@@ -4,6 +4,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { VcsKind } from "@/lib/types";
   import type { Commit, RestoreCandidate, StatusEntry } from "@/lib/types";
+  import { parseInput, RestoreQuery } from "@/lib/validate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 
@@ -49,9 +50,11 @@
   }
 
   async function runRestore() {
-    const query = restoreQuery.trim();
-    const isEmptyQuery = query.length === 0;
-    if (isEmptyQuery) {
+    const query = parseInput({
+      schema: RestoreQuery,
+      raw: restoreQuery
+    });
+    if (!query) {
       return;
     }
 
