@@ -42,6 +42,11 @@ export const Commit = z.object({
 });
 export type Commit = z.infer<typeof Commit>;
 
+/** A commit ranked as a candidate for "restore a version" — a Commit plus a
+ *  0..≈1.5 fuzzy `score` (token overlap with the query, boosted by time hints). */
+export const RestoreCandidate = Commit.extend({ score: z.number() });
+export type RestoreCandidate = z.infer<typeof RestoreCandidate>;
+
 export const ConfigFile = z.object({
   name: z.string(),
   rel: z.string(),
@@ -139,7 +144,11 @@ export const Prefs = z.object({
   diffStyle: DiffStyle.nullish(),
   startMode: StartMode.nullish(),
   /** Auto-name temp workspaces once the agent has done real work (default on). */
-  autoNameTemp: z.boolean().nullish()
+  autoNameTemp: z.boolean().nullish(),
+  /** Per project-kind editor rules — kind (e.g. "web", "rust") → IDE id. */
+  ideRules: z.record(z.string(), z.string()).nullish(),
+  /** IDE id to open when no rule matches the project kind. */
+  ideFallback: z.string().nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 
@@ -164,6 +173,31 @@ export type PtyChunk = z.infer<typeof PtyChunk>;
 
 export const PtyExit = z.object({ id: z.string() });
 export type PtyExit = z.infer<typeof PtyExit>;
+
+/** A tracked task-runner (dock) and its stream event payloads. */
+export const RunnerInfo = z.object({
+  id: z.string(),
+  command: z.string(),
+  cwd: z.string().nullable(),
+  startedAt: z.number()
+});
+export type RunnerInfo = z.infer<typeof RunnerInfo>;
+
+export const RunnerStream = z.enum(["stdout", "stderr"]);
+export type RunnerStream = z.infer<typeof RunnerStream>;
+
+export const RunnerData = z.object({
+  id: z.string(),
+  data: z.string(),
+  stream: RunnerStream
+});
+export type RunnerData = z.infer<typeof RunnerData>;
+
+export const RunnerExit = z.object({
+  id: z.string(),
+  code: z.number().nullable()
+});
+export type RunnerExit = z.infer<typeof RunnerExit>;
 
 /** A running terminal session bound to one agent (frontend-only, not IPC). */
 export interface AgentSession {

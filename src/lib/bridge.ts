@@ -14,6 +14,10 @@ import {
   ProjectEntry,
   PtyChunk,
   PtyExit,
+  RestoreCandidate,
+  RunnerData,
+  RunnerExit,
+  RunnerInfo,
   Settings,
   StatusEntry,
   TaskGroup,
@@ -56,6 +60,8 @@ export const agents = {
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
   suggest: () => call("ide_suggest", z.array(Ide)),
+  /** Primary detected project kind of the current dir (e.g. "web"), or null. */
+  projectKind: () => call("ide_project_kind", z.string().nullable()),
   open: (args: {
     command: string;
     path?: string;
@@ -133,7 +139,32 @@ export const vcs = {
     branch: string;
     create: boolean;
   }) =>
-    call("vcs_worktree_add", z.string(), { ...args })
+    call("vcs_worktree_add", z.string(), { ...args }),
+  /** Rank prior commits by a natural-language description of the version to restore. */
+  restoreCandidates: (args: {
+    query: string;
+    limit?: number;
+  }) =>
+    call("vcs_restore_candidates", z.array(RestoreCandidate), { ...args }),
+  /** Non-destructively check the chosen commit out on a `pade/restore-<sha>` branch. */
+  restoreCheckout: (sha: string) => call("vcs_restore_checkout", z.string(), { sha })
+};
+
+/** Task-runner dock — a task launched as a tracked runner that streams its output.
+ *  Piping a runner's output into an agent is done in the UI via `pty.write`. */
+export const runner = {
+  start: (args: {
+    id: string;
+    command: string;
+    cwd?: string | null;
+  }) =>
+    run("runner_start", { ...args }),
+  stop: (id: string) => run("runner_stop", { id }),
+  list: () => call("runner_list", z.array(RunnerInfo)),
+  onData: (callback: (payload: RunnerData) => void) =>
+    on("runner://data", RunnerData, callback),
+  onExit: (callback: (payload: RunnerExit) => void) =>
+    on("runner://exit", RunnerExit, callback)
 };
 
 /** Task runner channel — runnable tasks parsed from project manifests. */

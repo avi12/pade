@@ -8,6 +8,7 @@ mod ide;
 mod naming;
 mod os;
 mod pty;
+mod runner;
 mod tasks;
 mod usage;
 mod util;
@@ -25,6 +26,7 @@ pub fn run() {
             workspace::migrate_from_ade(); // one-time ade → pade data migration
             let handle = app.handle();
             pty::init(handle);
+            runner::init(handle);
             watcher::init(handle);
             Ok(())
         })
@@ -38,6 +40,7 @@ pub fn run() {
             ide::ide_detect,
             ide::ide_suggest,
             ide::ide_open,
+            ide::ide_project_kind,
             os::open_in_explorer,
             os::open_in_terminal,
             os::open_url,
@@ -45,12 +48,17 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            runner::runner_start,
+            runner::runner_stop,
+            runner::runner_list,
             watcher::watch_start,
             vcs::vcs_status,
             vcs::vcs_log,
             vcs::vcs_diff,
             vcs::vcs_branches,
             vcs::vcs_worktree_add,
+            vcs::vcs_restore_candidates,
+            vcs::vcs_restore_checkout,
             config::config_list,
             config::config_read,
             tasks::tasks_list,

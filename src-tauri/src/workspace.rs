@@ -49,6 +49,13 @@ pub struct Prefs {
     pub diff_style: Option<String>,
     /// What to do when launched with no project: "temp" (default) | "picker".
     pub start_mode: Option<String>,
+    /// Editor-rules engine: project-kind → IDE id. When a project's primary kind
+    /// matches a key here, that IDE is suggested first (if installed).
+    #[serde(default)]
+    pub ide_rules: BTreeMap<String, String>,
+    /// IDE id used when no `ide_rules` entry matches the project kind.
+    #[serde(default)]
+    pub ide_fallback: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -145,7 +152,7 @@ fn is_project(dir: &Path) -> bool {
     MARKERS.iter().any(|m| dir.join(m).exists())
 }
 
-fn load() -> Settings {
+pub(crate) fn load() -> Settings {
     settings_path()
         .and_then(|p| std::fs::read_to_string(p).map_err(|e| e.to_string()))
         .and_then(|s| serde_json::from_str(&s).map_err(|e| e.to_string()))
