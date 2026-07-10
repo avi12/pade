@@ -2,6 +2,7 @@
   import { pty } from "@/lib/bridge";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
+  import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -39,6 +40,14 @@
       }
     }, IDLE_MS);
   }
+
+  // Publish status to the shared store so the top-bar tab shows a matching dot.
+  $effect(() => {
+    setSessionStatus({
+      id: session.id,
+      status
+    });
+  });
 
   // Live-update the terminal font when the preference changes.
   $effect(() => {

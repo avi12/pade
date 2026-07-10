@@ -10,6 +10,7 @@
       label: string;
       command: string;
       cwd: string;
+      kind: TaskGroup["kind"];
     }) => void;
   } = $props();
 
@@ -89,7 +90,8 @@
                 onclick={() => onrun({
                   label: task.name,
                   command: task.command,
-                  cwd: group.dir
+                  cwd: group.dir,
+                  kind: group.kind
                 })}
               >Run</button>
             </div>

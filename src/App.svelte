@@ -10,8 +10,17 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import { effective } from "@/lib/prefs.svelte";
+  import RunnerDock from "@/lib/RunnerDock.svelte";
+  import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
+  import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
   import { ChangeKind, SHELL_AGENT_ID, StartMode } from "@/lib/types";
-  import type { Agent, AgentSession, ChangeEvent, Settings } from "@/lib/types";
+  import type {
+    Agent,
+    AgentSession,
+    ChangeEvent,
+    Settings,
+    TaskGroup
+  } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
@@ -46,6 +55,9 @@
   });
   let sessions = $state<AgentSession[]>([]);
   let activeId = $state<string | null>(null);
+  // Which sessions are shown side by side in the terminal area. One id = the
+  // classic single pane; more = a split view. Always a subset of `sessions`.
+  let paneIds = $state<string[]>([]);
   let currentProject = $state<string>("");
   // Local branches when the project is a git repo — enables per-branch agents.
   let branches = $state<string[]>([]);
@@ -66,6 +78,10 @@
   const currentLabel = $derived(settings.labels[currentProject]);
   // Active agent id — used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
+  // A pane can be removed only while more than one is shown; sessions not
+  // currently shown are offered in the "add to split" menu.
+  const canRemovePane = $derived(paneIds.length > 1);
+  const splitCandidates = $derived(sessions.filter(s => !paneIds.includes(s.id)));
 
   onMount(async () => {
     const [ctx, detected, saved] = await Promise.all([
@@ -107,6 +123,9 @@
     const interval = setInterval(() => void redetectAgents(), 5000);
     return () => clearInterval(interval);
   });
+
+  // Subscribe once to the backend task-runner stream so the dock updates live.
+  onMount(() => void ensureRunnerListeners());
 
   // Auto-name a temp workspace once the agent has produced real work. After a few
   // distinct files change, ask the agent (or a heuristic) for a friendly label
@@ -247,6 +266,8 @@
     initialPrompt?: string;
     cwd?: string;
     branch?: string;
+    /** Add alongside the current panes (split) instead of replacing them. */
+    split?: boolean;
   }) {
     const session: AgentSession = {
       id: crypto.randomUUID(),
@@ -257,8 +278,37 @@
     };
     sessions.push(session);
     activeId = session.id;
+    paneIds = opts.split ? [...paneIds, session.id] : [session.id];
     pendingPrompt = undefined;
     phase = Phase.ready;
+  }
+
+  // A tab click shows that session as the sole pane (classic single view).
+  function selectSession(id: string) {
+    activeId = id;
+    paneIds = [id];
+  }
+
+  // Show an already-running session alongside the current pane(s).
+  function addPane(id: string) {
+    if (!paneIds.includes(id)) {
+      paneIds = [...paneIds, id];
+    }
+
+    activeId = id;
+  }
+
+  // Drop a pane from the split — never the last visible one.
+  function removePane(id: string) {
+    if (!canRemovePane) {
+      return;
+    }
+
+    paneIds = paneIds.filter(paneId => paneId !== id);
+
+    if (activeId === id) {
+      activeId = paneIds.at(-1) ?? null;
+    }
   }
 
   // Load branches for the current repo (empty when not a git project).
@@ -284,9 +334,16 @@
   async function close(session: AgentSession) {
     await pty.kill(session.id);
     sessions = sessions.filter(s => s.id !== session.id);
+    paneIds = paneIds.filter(id => id !== session.id);
+    dropSessionStatus(session.id);
 
     if (activeId === session.id) {
-      activeId = sessions.at(-1)?.id ?? null;
+      activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
+    }
+
+    // Keep at least one pane visible while any session remains.
+    if (paneIds.length === 0 && activeId) {
+      paneIds = [activeId];
     }
 
     // Closing the last session shows the agent picker (project stays open) —
@@ -312,23 +369,15 @@
     side = side === panel ? null : panel;
   }
 
-  // Run a project task in a fresh terminal session: spawn the platform shell and
-  // seed the command (plus a newline) so it auto-runs in the task's directory.
-  function runTask(task: {
+  // Run a project task as a streaming runner in the dock (not a throwaway
+  // terminal tab), so its output stays visible and can be piped into an agent.
+  async function runTask(task: {
     label: string;
     command: string;
     cwd: string;
+    kind: TaskGroup["kind"];
   }) {
-    const shell = agents.find(a => a.id === SHELL_AGENT_ID) ?? agents[0];
-    launch({
-      agent: {
-        id: `task:${task.label}`,
-        label: task.label,
-        command: shell.command
-      },
-      initialPrompt: `${task.command}\r`,
-      cwd: task.cwd
-    });
+    await startRunner(task);
   }
 
   // Highlight → agent bridge: a selection in a side panel is injected into the
@@ -387,8 +436,11 @@
 
         <nav class="tabs" aria-label="Agent sessions">
           {#each sessions as s (s.id)}
-            <div class="tab" class:active={s.id === activeId}>
-              <button class="pick" onclick={() => (activeId = s.id)}>{s.agent.label}</button>
+            <div class="tab" class:active={s.id === activeId} class:shown={paneIds.includes(s.id)}>
+              <button class="pick" onclick={() => selectSession(s.id)}>
+                <span class="dot {sessionStatus(s.id)}"></span>
+                {s.agent.label}
+              </button>
               <button
                 class="x"
                 aria-label="Close session"
@@ -453,10 +505,53 @@
       <main class="body" class:with-side={side !== null}>
         <section class="pane term-pane">
           {#each sessions as s (s.id)}
-            <div class="term-slot" class:hidden={s.id !== activeId}>
+            <div class="term-slot" class:shown={paneIds.includes(s.id)}>
+              {#if canRemovePane && paneIds.includes(s.id)}
+                <button
+                  class="remove-pane"
+                  aria-label="Remove from split"
+                  data-tooltip="Remove from split"
+                  onclick={() => removePane(s.id)}
+                ><Icon name="close" /></button>
+              {/if}
               <Terminal session={s} />
             </div>
           {/each}
+
+          <div class="add-pane-wrap">
+            <button
+              style:anchor-name="--pane-anchor"
+              class="add-pane"
+              aria-label="Split — add an agent instance"
+              data-tooltip="Split — add an agent instance"
+              popovertarget="pane-menu"
+            ><Icon name="columns" /></button>
+            <ul id="pane-menu" style:position-anchor="--pane-anchor" class="menu pane-menu" popover>
+              {#if splitCandidates.length > 0}
+                <li class="menu-sep">Add to split</li>
+                {#each splitCandidates as s (s.id)}
+                  <li>
+                    <button onclick={() => addPane(s.id)} popovertarget="pane-menu" popovertargetaction="hide">
+                      <Icon name="terminal" /> {s.agent.label}
+                    </button>
+                  </li>
+                {/each}
+              {/if}
+              <li class="menu-sep">Launch a new instance</li>
+              {#each agents as a (a.id)}
+                <li>
+                  <button
+                    onclick={() => launch({
+                      agent: a,
+                      split: true
+                    })}
+                    popovertarget="pane-menu"
+                    popovertargetaction="hide"
+                  >{a.label}</button>
+                </li>
+              {/each}
+            </ul>
+          </div>
         </section>
 
         {#if side !== null}
@@ -479,6 +574,8 @@
           </aside>
         {/if}
       </main>
+
+      <RunnerDock activeSessionId={activeId} />
 
       {#if selection}
         <button class="send-fab" onclick={sendToAgent}>
@@ -607,6 +704,9 @@
     }
 
     .pick {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
       padding-block: 6px;
       padding-inline: 12px 4px;
       border: none;
@@ -615,6 +715,25 @@
       font-family: var(--font-mono);
       font-size: 12px;
       cursor: pointer;
+    }
+
+    /* Per-session status dot — mirrors the SessionBadge states. */
+    .dot {
+      flex: none;
+      block-size: 8px;
+      inline-size: 8px;
+      border-radius: 999px;
+      background: var(--on-surface-var);
+
+      &.working {
+        background: var(--primary);
+        animation: pulse 1100ms var(--ease) infinite;
+      }
+
+      &.ready {
+        background: var(--tertiary);
+        box-shadow: 0 0 0 4px var(--tertiary-wash);
+      }
     }
 
     .x {
@@ -768,19 +887,79 @@
   }
 
   /* All sessions stay mounted so their scrollback survives switching; only the
-     active one is shown. */
+     sessions in the current split are laid out (side by side), the rest collapse
+     out of flow. */
   .term-pane {
-    position: relative;
+    display: flex;
+    align-items: stretch;
   }
 
   .term-slot {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    min-block-size: 0;
+    min-inline-size: 0;
+    border-inline-end: 1px solid var(--outline);
+
+    &.shown {
+      display: flex;
+      animation: panel-swap 260ms var(--ease);
+    }
   }
 
-  .term-slot.hidden {
-    visibility: hidden;
-    pointer-events: none;
+  .remove-pane {
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+    z-index: 5;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    block-size: 24px;
+    inline-size: 24px;
+    border: none;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface-var);
+    cursor: pointer;
+    transition: color 150ms var(--ease), background 150ms var(--ease);
+
+    &:hover {
+      background: var(--crit-wash);
+      color: var(--crit);
+    }
+  }
+
+  /* Thin strip at the right of the terminal row that opens the split menu. */
+  .add-pane-wrap {
+    display: flex;
+    flex: none;
+    align-items: stretch;
+  }
+
+  .add-pane {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    inline-size: 44px;
+    border: none;
+    border-inline-start: 1px solid var(--outline);
+    background: var(--surface-1);
+    color: var(--on-surface-var);
+    cursor: pointer;
+    transition: color 150ms var(--ease), background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+      color: var(--on-surface);
+    }
+  }
+
+  /* The split menu opens to the left since its trigger sits at the right edge. */
+  .pane-menu {
+    position-area: bottom span-left;
   }
 
   @media (width <= 720px) {
