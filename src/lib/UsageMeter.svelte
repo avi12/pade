@@ -47,11 +47,12 @@
   $effect(() => {
     const active = agent;
     let cancelled = false;
-    usageApi.get(active).then(next => {
+    void (async () => {
+      const next = await usageApi.get(active);
       if (!cancelled) {
         usage = next;
       }
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -59,10 +60,8 @@
 
   // Slow background refresh for the active agent, independent of the change
   // effect above. Cleaned up on unmount.
-  const timer = setInterval(() => {
-    usageApi.get(agent).then(next => {
-      usage = next;
-    });
+  const timer = setInterval(async () => {
+    usage = await usageApi.get(agent);
   }, REFRESH_MS);
   onDestroy(() => clearInterval(timer));
 </script>

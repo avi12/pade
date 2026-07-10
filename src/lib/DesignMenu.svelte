@@ -6,12 +6,9 @@
   // Quick-launch an AI design/UI-generation tool (Claude, Google Stitch, v0, …)
   // as a design-to-code companion to the agent terminal. The roster is ranked for
   // the active agent — the vendor-matched tool is pinned first and flagged.
-  // Picking a tool docks its live UI in a native webview beside the terminal
-  // (via `onpick`) rather than bouncing to the external browser.
-  const { agent, onpick }: {
-    agent: string;
-    onpick: (tool: DesignTool) => void;
-  } = $props();
+  // Picking a tool opens its live UI in a companion PADE window (a native webview
+  // — the tools all block iframes), never bouncing to the external browser.
+  const { agent }: { agent: string } = $props();
 
   let tools = $state<DesignTool[]>([]);
 
@@ -19,11 +16,12 @@
   $effect(() => {
     const active = agent;
     let cancelled = false;
-    design.tools(active).then(list => {
+    void (async () => {
+      const list = await design.tools(active);
       if (!cancelled) {
         tools = list;
       }
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -38,7 +36,7 @@
     <li class="hint">Open a design-to-code tool</li>
     {#each tools as t (t.id)}
       <li>
-        <button onclick={() => onpick(t)} popovertarget="design-menu" popovertargetaction="hide">
+        <button onclick={() => void design.open(t.url)} popovertarget="design-menu" popovertargetaction="hide">
           {t.label}
           {#if t.recommended}
             <span class="best">best fit</span>

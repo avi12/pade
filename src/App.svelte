@@ -286,10 +286,8 @@
   }
 
   // Side panels (lazy-loaded for tree-shaking).
-  type Side = "feed" | "vcs" | "tasks" | "config" | "design" | null;
+  type Side = "feed" | "vcs" | "tasks" | "config" | null;
   let side = $state<Side>("feed");
-  // The design tool docked in the side pane (native webview), when side === "design".
-  let designUrl = $state<string>("");
   function toggleSide(panel: Exclude<Side, null>) {
     side = side === panel ? null : panel;
   }
@@ -411,11 +409,7 @@
         <div class="spacer"></div>
 
         <UsageMeter agent={activeAgent} />
-        <DesignMenu
-          agent={activeAgent} onpick={tool => {
-            designUrl = tool.url;
-            side = "design";
-          }} />
+        <DesignMenu agent={activeAgent} />
         <IdeMenu />
 
         <div class="seg" aria-label="Side panel" role="tablist">
@@ -434,7 +428,7 @@
         </div>
       </header>
 
-      <main class="body" class:wide-side={side === "design"} class:with-side={side !== null}>
+      <main class="body" class:with-side={side !== null}>
         <section class="pane term-pane">
           {#each sessions as s (s.id)}
             <div class="term-slot" class:hidden={s.id !== activeId}>
@@ -458,10 +452,6 @@
             {:else if side === "config"}
               {#await import("./panels/ConfigPanel.svelte") then { default: ConfigPanel }}
                 <ConfigPanel agent={activeAgent} />
-              {/await}
-            {:else if side === "design"}
-              {#await import("./panels/DesignPanel.svelte") then { default: DesignPanel }}
-                <DesignPanel url={designUrl} />
               {/await}
             {/if}
           </aside>
@@ -709,11 +699,6 @@
     &.with-side {
       grid-template-columns: 1fr minmax(320px, 420px);
     }
-  }
-
-  /* A docked design tool needs more room than the review panels. */
-  .body.wide-side {
-    grid-template-columns: 1fr minmax(460px, 52%);
   }
 
   .pane {
