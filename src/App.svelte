@@ -80,6 +80,9 @@
   const currentLabel = $derived(settings.labels[currentProject]);
   // Active agent id — used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
+  // The active session's working dir (a worktree override, else the project) —
+  // the usage meter reads its context from that dir's transcript.
+  const activeCwd = $derived(sessions.find(s => s.id === activeId)?.cwd ?? currentProject);
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
   const canRemovePane = $derived(paneIds.length > 1);
@@ -597,7 +600,7 @@
 
         <div class="spacer"></div>
 
-        <UsageMeter agent={activeAgent} />
+        <UsageMeter agent={activeAgent} cwd={activeCwd} />
         <DesignMenu agent={activeAgent} />
         <IdeMenu />
 

@@ -15,7 +15,7 @@
 //! is the plumbing + local best-effort adapter that a site-backed source can
 //! later slot into.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
@@ -73,4 +73,114 @@ fn claude_usage() -> Option<Usage> {
         resets_at: None,
         source: "local:.claude/.credentials.json".to_string(),
     })
+}
+
+// ---------------------------------------------------------------------------
+// Context-window fill — the one exact "percent" we can source locally.
+// ---------------------------------------------------------------------------
+
+/// The active session's context-window state, sourced locally.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionUsage {
+    /// Fill of the context window as a percent (0..100).
+    pct: f64,
+    /// The model in play, best-effort (e.g. "claude-sonnet-4-6"); empty if unknown.
+    model: String,
+}
+
+/// Context-window fill for the most recent Claude session in `cwd`, read from its
+/// local transcript — no network, no CLI. `None` when there is no readable session
+/// log yet.
+///
+/// Claude Code writes a JSONL transcript per session under
+/// `~/.claude/projects/<encoded-cwd>/`; each assistant message carries a
+/// `message.usage` with exact token counts. The context in play is the input side
+/// (`input_tokens` + cache creation + cache read); we divide it by the model's
+/// window (1M when the model advertises it, else 200k) for a real percentage.
+#[tauri::command]
+pub fn usage_session(cwd: String) -> Option<SessionUsage> {
+    let dir = home_dir()?
+        .join(".claude")
+        .join("projects")
+        .join(encode_project(&cwd));
+    let log = latest_jsonl(&dir)?;
+    let raw = std::fs::read_to_string(&log).ok()?;
+
+    // The newest assistant message with usage reflects the current context.
+    for line in raw.lines().rev() {
+        let Ok(json) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let Some(usage) = json.pointer("/message/usage") else {
+            continue;
+        };
+        let field = |key: &str| {
+            usage
+                .get(key)
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0)
+        };
+        let used = field("input_tokens")
+            + field("cache_creation_input_tokens")
+            + field("cache_read_input_tokens");
+        if used == 0 {
+            continue;
+        }
+
+        let model = json
+            .pointer("/message/model")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        let window: u64 = if model.to_lowercase().contains("1m") {
+            1_000_000
+        } else {
+            200_000
+        };
+        // Token counts are far below f64's exact-integer range, so no precision loss.
+        #[allow(clippy::cast_precision_loss)]
+        let pct = (used as f64 / window as f64) * 100.0;
+        return Some(SessionUsage {
+            pct: pct.min(100.0),
+            model: model.to_string(),
+        });
+    }
+
+    None
+}
+
+/// Encode an absolute path to Claude's project-dir name (drive/separators → '-').
+fn encode_project(cwd: &str) -> String {
+    cwd.chars()
+        .map(|c| {
+            if matches!(c, ':' | '\\' | '/') {
+                '-'
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
+/// The most-recently-modified `*.jsonl` in `dir` — the active session, if any.
+fn latest_jsonl(dir: &Path) -> Option<PathBuf> {
+    let mut newest: Option<(std::time::SystemTime, PathBuf)> = None;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else { continue };
+        let Ok(modified) = meta.modified() else {
+            continue;
+        };
+        let is_newer = match &newest {
+            Some((newest_time, _)) => modified > *newest_time,
+            None => true,
+        };
+        if is_newer {
+            newest = Some((modified, path));
+        }
+    }
+    newest.map(|(_, path)| path)
 }

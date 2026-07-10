@@ -18,6 +18,7 @@ import {
   RunnerData,
   RunnerExit,
   RunnerInfo,
+  SessionUsage,
   Settings,
   StatusEntry,
   TaskGroup,
@@ -174,7 +175,9 @@ export const tasks = {
 
 /** Agent usage / quota channel — reads local data only, never spends quota. */
 export const usage = {
-  get: (agent: string) => call("usage_get", Usage.nullable(), { agent })
+  get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
+  /** The active session's context-window state for the latest session in `cwd`. */
+  session: (cwd: string) => call("usage_session", SessionUsage.nullable(), { cwd })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */

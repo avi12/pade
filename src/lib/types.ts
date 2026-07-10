@@ -114,6 +114,15 @@ export const Usage = z.object({
 });
 export type Usage = z.infer<typeof Usage>;
 
+/** The active session's context-window state, read from the local transcript. */
+export const SessionUsage = z.object({
+  /** Context-window fill percent (0..100). */
+  pct: z.number(),
+  /** The model in play, best-effort (empty when unknown). */
+  model: z.string()
+});
+export type SessionUsage = z.infer<typeof SessionUsage>;
+
 export const LaunchContext = z.object({
   hasProject: z.boolean(),
   cwd: z.string()

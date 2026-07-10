@@ -63,6 +63,7 @@ pub fn run() {
             config::config_read,
             tasks::tasks_list,
             usage::usage_get,
+            usage::usage_session,
             naming::project_autoname,
             workspace::launch_context,
             workspace::settings_get,
