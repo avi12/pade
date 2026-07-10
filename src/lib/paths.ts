@@ -17,3 +17,9 @@ export function displayName(path: string, labels: Record<string, string>): strin
 export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
 }
+
+/** Normalize a path for comparison — watcher and workspace paths can differ in
+ *  separator/casing on Windows. */
+export function normalizePath(path: string): string {
+  return path.replaceAll("\\", "/").toLowerCase();
+}

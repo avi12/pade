@@ -1,4 +1,4 @@
-import { baseName, displayName, isTemporaryWorkspace } from "@/lib/paths";
+import { baseName, displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
 import { describe, expect, it } from "vitest";
 
 describe("baseName", () => {
@@ -50,5 +50,15 @@ describe("isTemporaryWorkspace", () => {
 
   it("rejects a temp name without a numeric stamp", () => {
     expect(isTemporaryWorkspace("C:\\pade\\workspaces\\temp-abc")).toBe(false);
+  });
+});
+
+describe("normalizePath", () => {
+  it("lowercases and forward-slashes a Windows path", () => {
+    expect(normalizePath("C:\\Repos\\Avi\\PADE")).toBe("c:/repos/avi/pade");
+  });
+
+  it("leaves an already-normal path unchanged", () => {
+    expect(normalizePath("c:/repos/avi/pade")).toBe("c:/repos/avi/pade");
   });
 });

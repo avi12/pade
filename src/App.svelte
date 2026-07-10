@@ -12,16 +12,15 @@
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
-  import { isTemporaryWorkspace } from "@/lib/paths";
+  import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import RunnerDock from "@/lib/RunnerDock.svelte";
-  import { dropContext } from "@/lib/stores/context.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { packTabs } from "@/lib/tabFit";
-  import { ChangeKind, SessionStatus, SHELL_AGENT_ID, StartMode } from "@/lib/types";
+  import { ChangeKind, SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
     AgentSession,
@@ -31,6 +30,7 @@
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import { FolderPath, parseInput } from "@/lib/validate";
+  import { createRelocator } from "@/lib/workspaceRelocate";
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
@@ -282,12 +282,6 @@
   });
   onDestroy(() => unlistenFeed?.());
 
-  // Normalize a path for comparison — watcher and workspace paths can differ in
-  // separator/casing on Windows.
-  function normPath(path: string): string {
-    return path.replaceAll("\\", "/").toLowerCase();
-  }
-
   async function maybeAutoName(event: ChangeEvent) {
     const proj = currentProject;
     const autoNameDisabled = settings.prefs.autoNameTemp === false;
@@ -300,8 +294,8 @@
       return;
     }
 
-    const base = normPath(proj);
-    const touched = normPath(event.path);
+    const base = normalizePath(proj);
+    const touched = normalizePath(event.path);
     if (!touched.startsWith(base)) {
       return;
     }
@@ -530,87 +524,27 @@
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
-  // Moving or renaming a workspace fs::renames its folder — which fails while a
-  // live agent holds it as cwd (Windows lock). Kill the sessions under it
-  // (remembering the live ones), run the backend op (which also re-points every
-  // external reference — agent memory dirs, IDE recents…), then resume the live
-  // ones on the new path with a "continue" prompt. Idle/exited sessions stay closed.
-  async function relocateWorkspace({ from, run }: {
-    from: string;
-    run: () => Promise<string>;
-  }): Promise<string> {
-    const base = normPath(from);
-    function isUnder(dir: string): boolean {
-      const norm = normPath(dir);
-      return norm === base || norm.startsWith(`${base}/`);
-    }
+  // The kill → backend-op → resume flow lives in lib/workspaceRelocate; this
+  // shell only lends it the session list and takes back the results.
+  const relocator = createRelocator({
+    sessions: () => sessions,
+    currentProject: () => currentProject,
+    removeSessions(ids) {
+      sessions = sessions.filter(s => !ids.has(s.id));
+      paneIds = paneIds.filter(id => !ids.has(id));
 
-    function remapUnder(dir: string, target: string): string {
-      return target + dir.slice(from.length);
-    }
-
-    const locking = sessions.filter(s => isUnder(s.cwd ?? currentProject));
-    // Capture the live ones + where they were working, to resume after the move.
-    const toResume = locking
-      .filter(s => sessionStatus(s.id) !== SessionStatus.enum.exited)
-      .map(s => ({
-        agent: s.agent,
-        oldDir: s.cwd ?? currentProject
-      }));
-
-    // Release the lock: kill every session under the dir.
-    for (const session of locking) {
-      await pty.kill(session.id);
-      dropSessionStatus(session.id);
-      dropContext(session.id);
-    }
-
-    const lockingIds = new Set(locking.map(s => s.id));
-    sessions = sessions.filter(s => !lockingIds.has(s.id));
-    paneIds = paneIds.filter(id => !lockingIds.has(id));
-
-    if (activeId && lockingIds.has(activeId)) {
-      activeId = sessions.at(-1)?.id ?? null;
-    }
-
-    // Run the backend move/rename (also re-points every external reference).
-    const newPath = await run();
-    settings = await workspace.settings();
-
-    if (isUnder(currentProject)) {
-      currentProject = remapUnder(currentProject, newPath);
-    }
-
-    // Resume the live sessions on the new path, seeded to continue.
-    toResume.forEach((entry, index) => launch({
-      agent: entry.agent,
-      cwd: remapUnder(entry.oldDir, newPath),
-      initialPrompt: "continue\r",
-      split: index > 0
-    }));
-
-    return newPath;
-  }
-
-  function moveWorkspace(target: {
-    from: string;
-    destDir: string;
-  }): Promise<string> {
-    return relocateWorkspace({
-      from: target.from,
-      run: () => workspace.move(target)
-    });
-  }
-
-  function renameWorkspace(target: {
-    from: string;
-    newName: string;
-  }): Promise<string> {
-    return relocateWorkspace({
-      from: target.from,
-      run: () => workspace.rename(target)
-    });
-  }
+      if (activeId && ids.has(activeId)) {
+        activeId = sessions.at(-1)?.id ?? null;
+      }
+    },
+    applySettings(next) {
+      settings = next;
+    },
+    setCurrentProject(path) {
+      currentProject = path;
+    },
+    relaunch: launch
+  });
 
   // ── Auto-handoff ───────────────────────────────────────────────────────────
   // Near-limit sessions hand off to a fresh agent; the machinery lives in
@@ -716,7 +650,7 @@
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monoFamily} class="app-root">
   {#if phase === Phase.project}
-    <ProjectPicker {agents} onmove={moveWorkspace} onopen={openProject} onrename={renameWorkspace} />
+    <ProjectPicker {agents} onmove={relocator.move} onopen={openProject} onrename={relocator.rename} />
   {:else if phase === Phase.onboarding}
     <Onboarding
       {agents} onpick={a => launch({
