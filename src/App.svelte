@@ -360,6 +360,89 @@
     }
   }
 
+  // ── Relocate (move / rename) with lock handling ─────────────────────────────
+  // Moving or renaming a workspace fs::renames its folder — which fails while a
+  // live agent holds it as cwd (Windows lock). Kill the sessions under it
+  // (remembering the live ones), run the backend op (which also re-points every
+  // external reference — agent memory dirs, IDE recents…), then resume the live
+  // ones on the new path with a "continue" prompt. Idle/exited sessions stay closed.
+  async function relocateWorkspace({ from, run }: {
+    from: string;
+    run: () => Promise<string>;
+  }): Promise<string> {
+    const base = normPath(from);
+    function isUnder(dir: string): boolean {
+      const norm = normPath(dir);
+      return norm === base || norm.startsWith(`${base}/`);
+    }
+
+    function remapUnder(dir: string, target: string): string {
+      return target + dir.slice(from.length);
+    }
+
+    const locking = sessions.filter(s => isUnder(s.cwd ?? currentProject));
+    // Capture the live ones + where they were working, to resume after the move.
+    const toResume = locking
+      .filter(s => sessionStatus(s.id) !== SessionStatus.enum.exited)
+      .map(s => ({
+        agent: s.agent,
+        oldDir: s.cwd ?? currentProject
+      }));
+
+    // Release the lock: kill every session under the dir.
+    for (const session of locking) {
+      await pty.kill(session.id);
+      dropSessionStatus(session.id);
+      dropContext(session.id);
+    }
+
+    const lockingIds = new Set(locking.map(s => s.id));
+    sessions = sessions.filter(s => !lockingIds.has(s.id));
+    paneIds = paneIds.filter(id => !lockingIds.has(id));
+
+    if (activeId && lockingIds.has(activeId)) {
+      activeId = sessions.at(-1)?.id ?? null;
+    }
+
+    // Run the backend move/rename (also re-points every external reference).
+    const newPath = await run();
+    settings = await workspace.settings();
+
+    if (isUnder(currentProject)) {
+      currentProject = remapUnder(currentProject, newPath);
+    }
+
+    // Resume the live sessions on the new path, seeded to continue.
+    toResume.forEach((entry, index) => launch({
+      agent: entry.agent,
+      cwd: remapUnder(entry.oldDir, newPath),
+      initialPrompt: "continue\r",
+      split: index > 0
+    }));
+
+    return newPath;
+  }
+
+  function moveWorkspace(target: {
+    from: string;
+    destDir: string;
+  }): Promise<string> {
+    return relocateWorkspace({
+      from: target.from,
+      run: () => workspace.move(target)
+    });
+  }
+
+  function renameWorkspace(target: {
+    from: string;
+    newName: string;
+  }): Promise<string> {
+    return relocateWorkspace({
+      from: target.from,
+      run: () => workspace.rename(target)
+    });
+  }
+
   // ── Auto-handoff ───────────────────────────────────────────────────────────
   // When an agent nears its context window, hand off to a fresh one: ask it to
   // write a continue-*.md, end the session, and start a successor seeded to
@@ -529,7 +612,7 @@
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-mono={effective.monoFamily} class="app-root">
   {#if phase === Phase.project}
-    <ProjectPicker {agents} onopen={openProject} />
+    <ProjectPicker {agents} onmove={moveWorkspace} onopen={openProject} onrename={renameWorkspace} />
   {:else if phase === Phase.onboarding}
     <Onboarding
       {agents} onpick={a => launch({

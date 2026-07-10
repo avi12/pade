@@ -12,13 +12,23 @@
   // the chosen project path (and optional first prompt) back to the app.
   const {
     agents,
-    onopen
+    onopen,
+    onmove,
+    onrename
   }: {
     agents: Agent[];
     onopen: (target: {
       path: string;
       initialPrompt?: string;
     }) => void;
+    onmove: (target: {
+      from: string;
+      destDir: string;
+    }) => Promise<string>;
+    onrename: (target: {
+      from: string;
+      newName: string;
+    }) => Promise<string>;
   } = $props();
 
   let settings = $state<Settings>({
@@ -241,7 +251,7 @@
       return;
     }
 
-    await workspace.move({
+    await onmove({
       from: path,
       destDir: dest
     });
@@ -262,7 +272,7 @@
       return;
     }
 
-    await workspace.rename({
+    await onrename({
       from: path,
       newName
     });
