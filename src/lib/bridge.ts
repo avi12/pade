@@ -68,6 +68,8 @@ export const ide = {
   open: (args: {
     command: string;
     path?: string;
+    /** 1-based line to jump to (only meaningful when `path` is a file). */
+    line?: number;
   }) => run("ide_open", { ...args })
 };
 

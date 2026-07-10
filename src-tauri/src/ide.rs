@@ -10,11 +10,28 @@ use serde::Serialize;
 
 use crate::util::is_on_path;
 
+/// How a launcher wants a jump-to-line request shaped on the command line —
+/// verified against each editor's official CLI docs.
+#[derive(Clone, Copy)]
+enum OpenStyle {
+    /// VS Code family: `-r -g file:line` — reuse the already-open window (so it
+    /// navigates in place rather than spawning a new one) and go to the line.
+    VsCode,
+    /// `JetBrains` family: `--line <n> file` — flags first, path last. The
+    /// launcher hands the file to the running IDE instance when one is up.
+    JetBrains,
+    /// Zed / Sublime: a `file:line` colon suffix on the path; the CLI routes to
+    /// the running editor instance.
+    PathColon,
+}
+
 struct IdeDef {
     id: &'static str,
     label: &'static str,
-    /// CLI launcher that opens a directory when given its path.
+    /// CLI launcher that opens a path (file or directory) when given it.
     command: &'static str,
+    /// How this launcher phrases a jump-to-line.
+    style: OpenStyle,
 }
 
 const REGISTRY: &[IdeDef] = &[
@@ -22,51 +39,61 @@ const REGISTRY: &[IdeDef] = &[
         id: "vscode",
         label: "VS Code",
         command: "code",
+        style: OpenStyle::VsCode,
     },
     IdeDef {
         id: "cursor",
         label: "Cursor",
         command: "cursor",
+        style: OpenStyle::VsCode,
     },
     IdeDef {
         id: "webstorm",
         label: "WebStorm",
         command: "webstorm",
+        style: OpenStyle::JetBrains,
     },
     IdeDef {
         id: "idea",
         label: "IntelliJ IDEA",
         command: "idea",
+        style: OpenStyle::JetBrains,
     },
     IdeDef {
         id: "pycharm",
         label: "PyCharm",
         command: "pycharm",
+        style: OpenStyle::JetBrains,
     },
     IdeDef {
         id: "goland",
         label: "GoLand",
         command: "goland",
+        style: OpenStyle::JetBrains,
     },
     IdeDef {
         id: "rustrover",
         label: "RustRover",
         command: "rustrover",
+        style: OpenStyle::JetBrains,
     },
     IdeDef {
         id: "androidstudio",
         label: "Android Studio",
         command: "studio",
+        style: OpenStyle::JetBrains,
     },
     IdeDef {
         id: "zed",
         label: "Zed",
         command: "zed",
+        style: OpenStyle::PathColon,
     },
     IdeDef {
         id: "sublime",
         label: "Sublime Text",
         command: "subl",
+        style: OpenStyle::PathColon,
     },
 ];
 
@@ -197,20 +224,54 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     Ok(ordered.iter().filter_map(|id| lookup(id)).collect())
 }
 
-/// Open a project directory in the given IDE launcher. `path` defaults to the
-/// current project when omitted (topbar), or names a specific project (picker).
+/// The jump-to-line style for a launcher command, or `None` for an unknown one.
+fn open_style(command: &str) -> Option<OpenStyle> {
+    REGISTRY
+        .iter()
+        .find(|i| i.command == command)
+        .map(|i| i.style)
+}
+
+/// The launcher arguments for opening `target` — jumping to `line` when one is
+/// given and the launcher's style is known (otherwise the path is passed as-is,
+/// which every editor accepts).
+fn open_args(command: &str, target: String, line: Option<u32>) -> Vec<String> {
+    match (line, open_style(command)) {
+        (Some(n), Some(OpenStyle::VsCode)) => {
+            vec!["-r".to_owned(), "-g".to_owned(), format!("{target}:{n}")]
+        }
+        (Some(n), Some(OpenStyle::JetBrains)) => vec!["--line".to_owned(), n.to_string(), target],
+        (Some(n), Some(OpenStyle::PathColon)) => vec![format!("{target}:{n}")],
+        _ => vec![target],
+    }
+}
+
+/// Open a path in the given IDE launcher. `path` defaults to the current project
+/// directory when omitted (topbar); a `line` (only meaningful with a file path)
+/// jumps the editor to that line, phrased per the launcher's own CLI.
 #[tauri::command]
-pub fn ide_open(command: String, path: Option<String>) -> Result<(), String> {
-    let dir = match path {
-        Some(p) => std::path::PathBuf::from(p),
-        None => std::env::current_dir().map_err(|e| e.to_string())?,
+pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Result<(), String> {
+    let has_path = path.is_some();
+    let target = match path {
+        Some(p) => p,
+        None => std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .to_string_lossy()
+            .into_owned(),
     };
+    // A line only applies when we were handed a file to jump into.
+    let args = open_args(&command, target, line.filter(|_| has_path));
+
     // On Windows the JetBrains/VS Code launchers are .cmd shims, so go through
     // the shell to resolve them the way a terminal would.
     let spawn = if cfg!(windows) {
-        Command::new("cmd").args(["/C", &command]).arg(&dir).spawn()
+        Command::new("cmd")
+            .arg("/C")
+            .arg(&command)
+            .args(&args)
+            .spawn()
     } else {
-        Command::new(&command).arg(&dir).spawn()
+        Command::new(&command).args(&args).spawn()
     };
     spawn
         .map(|_| ())

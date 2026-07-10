@@ -1,7 +1,7 @@
 <script lang="ts">
   import { feed, ide, vcs } from "@/lib/bridge";
   import ColorText from "@/lib/ColorText.svelte";
-  import { DiffKind, parseDiff, toSplitRows } from "@/lib/diff";
+  import { DiffKind, firstChangedLine, parseDiff, toSplitRows } from "@/lib/diff";
   import type { DiffLine, SplitRow } from "@/lib/diff";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
@@ -109,34 +109,46 @@
     }
   }
 
-  function openInEditor(path: string) {
+  function openInEditor({ path, line }: {
+    path: string;
+    line?: number;
+  }) {
     const editor = ides[0];
     if (editor) {
       void ide.open({
         command: editor.command,
-        path
+        path,
+        line
       });
     }
   }
 
-  // Clicking the diff body reveals the file in the detected editor — a larger
-  // target than the filename button. A drag to select text (for send-to-agent)
-  // must not also open the file, so bail while a selection is live.
+  // Clicking the diff body (or the filename) opens the file in the selected
+  // editor, jumped to the first changed line. The launcher hands the file to the
+  // already-open editor when one is running, so it navigates there in place.
   const revealTip = $derived(ides[0] ? `Reveal in ${ides[0].label}` : "No editor detected");
+  const revealLine = $derived(firstChangedLine(unifiedLines));
   function revealDiff(path: string) {
+    // A drag to select text (for send-to-agent) must not also open the file.
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
       return;
     }
 
-    openInEditor(path);
+    openInEditor({
+      path,
+      line: revealLine
+    });
   }
   function onDiffKey({ event, path }: {
     event: KeyboardEvent;
     path: string;
   }) {
     if (event.key === "Enter") {
-      openInEditor(path);
+      openInEditor({
+        path,
+        line: revealLine
+      });
     }
   }
 
@@ -208,7 +220,10 @@
                 class="filebtn"
                 data-tooltip={ides[0] ? `Open in ${ides[0].label}` : "No editor detected"}
                 disabled={!ides[0]}
-                onclick={() => openInEditor(ev.path)}
+                onclick={() => openInEditor({
+                  path: ev.path,
+                  line: revealLine
+                })}
               >
                 <Icon name="external" size={14} />
                 <span class="fpath">{ev.path}</span>
