@@ -1,8 +1,8 @@
 <script lang="ts">
   import AppMenu from "@/lib/AppMenu.svelte";
+  import { createAutoNamer } from "@/lib/autoName";
   import {
     agents as agentsApi,
-    feed,
     pty,
     vcs,
     windows,
@@ -12,7 +12,7 @@
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
-  import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+  import { isTemporaryWorkspace } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/sendShortcut";
@@ -22,14 +22,8 @@
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { packTabs } from "@/lib/tabFit";
-  import { ChangeKind, SHELL_AGENT_ID, StartMode } from "@/lib/types";
-  import type {
-    Agent,
-    AgentSession,
-    ChangeEvent,
-    Settings,
-    TaskGroup
-  } from "@/lib/types";
+  import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
+  import type { Agent, AgentSession, Settings, TaskGroup } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import { FolderPath, parseInput } from "@/lib/validate";
   import { createRelocator } from "@/lib/workspaceRelocate";
@@ -37,9 +31,8 @@
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
   import Terminal from "@/panels/Terminal.svelte";
-  import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
-  import { SvelteMap, SvelteSet } from "svelte/reactivity";
+  import { SvelteMap } from "svelte/reactivity";
 
   // Which top-level screen is showing. A closed set defined once, compared
   // against by member so no bare literal leaks into the flow logic.
@@ -268,64 +261,22 @@
   // Subscribe once to the backend task-runner stream so the dock updates live.
   onMount(() => void ensureRunnerListeners());
 
-  // Auto-name a temp workspace once the agent has produced real work. After a few
-  // distinct files change, ask the agent (or a heuristic) for a friendly label
-  // and apply it. Fires once per workspace; never blocks or renames on disk.
-  const AUTONAME_AFTER = 3;
-  const touchedByProject = new SvelteMap<string, SvelteSet<string>>();
-  const namedProjects = new SvelteSet<string>();
-  let unlistenFeed: UnlistenFn | undefined;
-  onMount(async () => {
-    await feed.start(); // idempotent — safe even if the Change Feed panel is closed
-    unlistenFeed = await feed.onChange(event => void maybeAutoName(event));
+  // Auto-name a temp workspace once the agent has produced real work
+  // (lib/autoName): after a few distinct files change, ask the agent (or a
+  // heuristic) for a friendly label. Fires once per workspace; label-only.
+  const autoNamer = createAutoNamer({
+    currentProject: () => currentProject,
+    isOptedOut: () => settings.prefs.autoNameTemp === false,
+    labelOf: path => settings.labels[path],
+    activeAgentCommand: () => sessions.find(s => s.id === activeId)?.agent.command ?? "",
+    applySettings(next) {
+      settings = next;
+    }
   });
-  onDestroy(() => unlistenFeed?.());
-
-  async function maybeAutoName(event: ChangeEvent) {
-    const proj = currentProject;
-    const autoNameDisabled = settings.prefs.autoNameTemp === false;
-    if (!isTemp || autoNameDisabled) {
-      return;
-    }
-
-    const alreadyNamed = namedProjects.has(proj) || Boolean(settings.labels[proj]);
-    if (event.kind === ChangeKind.enum.deleted || alreadyNamed) {
-      return;
-    }
-
-    const base = normalizePath(proj);
-    const touched = normalizePath(event.path);
-    if (!touched.startsWith(base)) {
-      return;
-    }
-
-    const rel = touched.slice(base.length).replace(/^\//, "");
-    // Skip dotfiles/dot-dirs (e.g. .git, .claude) — not signal for a name.
-    if (!rel || rel.split("/").some(seg => seg.startsWith("."))) {
-      return;
-    }
-
-    const set = touchedByProject.get(proj) ?? new SvelteSet<string>();
-    set.add(touched);
-    touchedByProject.set(proj, set);
-
-    if (set.size < AUTONAME_AFTER) {
-      return;
-    }
-
-    namedProjects.add(proj); // guard so the naming call runs exactly once
-    const agent = sessions.find(s => s.id === activeId)?.agent.command ?? "";
-    const name = await workspace.autoname({
-      path: proj,
-      agent
-    }).catch(() => null);
-    if (name && currentProject === proj) {
-      settings = await workspace.setLabel({
-        path: proj,
-        name
-      });
-    }
-  }
+  onMount(() => {
+    void autoNamer.start();
+    return () => autoNamer.dispose();
+  });
 
   // Send-from-IDE bridge (lib/sendShortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
