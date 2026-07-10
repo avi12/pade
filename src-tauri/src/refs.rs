@@ -620,3 +620,77 @@ fn spawn_install(dir: &Path, command: &str) {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{remap_under, replace_all_forms, vscode_uri};
+
+    #[test]
+    fn vscode_uri_encodes_a_windows_path() {
+        assert_eq!(
+            vscode_uri(r"C:\repositories\avi\foo"),
+            "file:///c%3A/repositories/avi/foo"
+        );
+    }
+
+    #[test]
+    fn replace_all_forms_covers_raw_forward_slash_and_uri_forms() {
+        let haystack = r"raw C:\old\proj, fwd C:/old/proj, uri file:///c%3A/old/proj";
+        assert_eq!(
+            replace_all_forms(haystack, r"C:\old\proj", r"C:\new\proj"),
+            r"raw C:\new\proj, fwd C:/new/proj, uri file:///c%3A/new/proj"
+        );
+    }
+
+    #[test]
+    fn remap_under_ignores_relative_targets() {
+        assert_eq!(remap_under("relative/path", "/old", "/new"), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn remap_under_swings_a_target_under_the_old_tree() {
+        assert_eq!(
+            remap_under(
+                r"C:\old\proj\node_modules\pkg",
+                r"C:\old\proj",
+                r"C:\new\proj"
+            )
+            .as_deref(),
+            Some(r"C:\new\proj\node_modules\pkg")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn remap_under_matches_the_old_prefix_case_insensitively() {
+        assert_eq!(
+            remap_under(r"c:\OLD\proj\x", r"C:\old\proj", r"C:\new\proj").as_deref(),
+            Some(r"C:\new\proj\x")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn remap_under_leaves_targets_outside_the_old_tree() {
+        assert_eq!(
+            remap_under(r"C:\elsewhere\x", r"C:\old\proj", r"C:\new\proj"),
+            None
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn remap_under_swings_a_target_under_the_old_tree() {
+        assert_eq!(
+            remap_under("/old/proj/node_modules/pkg", "/old/proj", "/new/proj").as_deref(),
+            Some("/new/proj/node_modules/pkg")
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn remap_under_leaves_targets_outside_the_old_tree() {
+        assert_eq!(remap_under("/elsewhere/x", "/old/proj", "/new/proj"), None);
+    }
+}

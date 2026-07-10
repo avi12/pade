@@ -277,3 +277,45 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
         .map(|_| ())
         .map_err(|e| format!("failed to open {command}: {e}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::open_args;
+
+    #[test]
+    fn vscode_style_reuses_the_window_and_jumps_to_the_line() {
+        assert_eq!(
+            open_args("code", "C:/p/file.ts".to_string(), Some(12)),
+            ["-r", "-g", "C:/p/file.ts:12"]
+        );
+    }
+
+    #[test]
+    fn jetbrains_style_passes_the_line_flag_before_the_path() {
+        assert_eq!(
+            open_args("webstorm", "C:/p/file.ts".to_string(), Some(7)),
+            ["--line", "7", "C:/p/file.ts"]
+        );
+    }
+
+    #[test]
+    fn path_colon_style_suffixes_the_line_onto_the_path() {
+        assert_eq!(
+            open_args("zed", "C:/p/file.ts".to_string(), Some(3)),
+            ["C:/p/file.ts:3"]
+        );
+    }
+
+    #[test]
+    fn a_bare_path_passes_through_without_a_line() {
+        assert_eq!(open_args("code", "C:/p".to_string(), None), ["C:/p"]);
+    }
+
+    #[test]
+    fn an_unknown_launcher_gets_the_plain_path_even_with_a_line() {
+        assert_eq!(
+            open_args("notepad", "C:/p/file.ts".to_string(), Some(9)),
+            ["C:/p/file.ts"]
+        );
+    }
+}
