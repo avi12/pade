@@ -1,7 +1,13 @@
 <script lang="ts">
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { pipeRunner, runnerRows, stopRunner } from "@/lib/stores/runners.svelte";
+  import {
+    moveRunnerBefore,
+    moveRunnerBy,
+    pipeRunner,
+    runnerRows,
+    stopRunner
+  } from "@/lib/stores/runners.svelte";
   import { RunnerStream } from "@/lib/types";
 
   // The active agent session — pipe target for a runner's output.
@@ -64,6 +70,61 @@
     return () => window.removeEventListener("resize", reclamp);
   });
 
+  // ── Drag-to-reorder ─────────────────────────────────────────────────────────
+  // The grip at the start of each runner's bar reorders it among its siblings.
+  // A pointer drag hit-tests the runner under the cursor (each carries a
+  // data-runner-id) and moves the dragged one before it; arrow keys nudge it one
+  // slot, so reordering works without a mouse too.
+  let draggingId = $state<string | null>(null);
+  function onGripDown({ event, id }: {
+    event: PointerEvent;
+    id: string;
+  }) {
+    if (!(event.currentTarget instanceof HTMLElement)) {
+      return;
+    }
+
+    event.preventDefault();
+    const grip = event.currentTarget;
+    draggingId = id;
+    grip.setPointerCapture(event.pointerId);
+
+    function onMove(move: PointerEvent): void {
+      const under = document.elementFromPoint(move.clientX, move.clientY);
+      const overRunner = under instanceof Element ? under.closest("[data-runner-id]") : null;
+      const beforeId = overRunner?.getAttribute("data-runner-id");
+      if (beforeId) {
+        moveRunnerBefore({
+          id,
+          beforeId
+        });
+      }
+    }
+    function cleanup(): void {
+      draggingId = null;
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", cleanup);
+      grip.removeEventListener("pointercancel", cleanup);
+    }
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", cleanup);
+    grip.addEventListener("pointercancel", cleanup);
+  }
+  function onGripKey({ event, id }: {
+    event: KeyboardEvent;
+    id: string;
+  }) {
+    const earlier = event.key === "ArrowLeft" || event.key === "ArrowUp";
+    const later = event.key === "ArrowRight" || event.key === "ArrowDown";
+    if (earlier || later) {
+      event.preventDefault();
+      moveRunnerBy({
+        id,
+        delta: earlier ? -1 : 1
+      });
+    }
+  }
+
   // Human-readable status for a runner's dot, used for both the tooltip and the
   // accessible name.
   function statusLabel({ done, failed }: {
@@ -119,8 +180,21 @@
 
     <div class="grid">
       {#each rows as row (row.id)}
-        <article class="runner">
+        <article class="runner" class:dragging={draggingId === row.id} data-runner-id={row.id}>
           <div class="bar">
+            <button
+              class="grab"
+              aria-label="Reorder task runner — drag, or use arrow keys"
+              data-tooltip="Drag to reorder"
+              onkeydown={event => onGripKey({
+                event,
+                id: row.id
+              })}
+              onpointerdown={event => onGripDown({
+                event,
+                id: row.id
+              })}
+            ><Icon name="grip" /></button>
             <span class="kind {row.kind}">{row.kind}</span>
             <span
               class="dot"
@@ -250,6 +324,10 @@
     flex-direction: column;
     min-block-size: 0;
     background: var(--surface-1);
+
+    &.dragging {
+      opacity: 60%;
+    }
   }
 
   .bar {
@@ -259,6 +337,31 @@
     padding-block: 7px;
     padding-inline: 10px;
     background: var(--surface-2);
+  }
+
+  /* Drag handle at the start of the bar — grab to reorder the runner. */
+  .grab {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 22px;
+    inline-size: 16px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--on-surface-variant);
+    cursor: grab;
+    touch-action: none;
+    transition: color 140ms var(--ease), background 140ms var(--ease);
+
+    &:hover {
+      color: var(--on-surface);
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
   }
 
   .kind {
