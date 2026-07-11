@@ -22,7 +22,9 @@ lives in `src/lib/types.ts` as a zod schema.
 | `src/lib/DesignMenu.svelte` | Quick-launch menu for AI design tools | `bridge.design` |
 | `src/lib/IdeMenu.svelte` | Open the project in a detected IDE | `bridge.ide` |
 | `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent | `stores/runners` |
-| `src/lib/CommitModal.svelte` | Commit dialog: file list + diff + big-file fallback | `bridge.vcs`, `diff` |
+| `src/lib/CommitModal.svelte` | Commit-dialog orchestrator: native `<dialog>` plumbing, header, selection + diff-load state machine | `commitModal/FileList`, `commitModal/DiffPane`, `bridge.vcs`, `diff` |
+| `src/lib/commitModal/FileList.svelte` | The commit's changed-files tablist: kind badges, stats, roving-tabindex keys | `paths` |
+| `src/lib/commitModal/DiffPane.svelte` | Path bar + unified diff with loading / failed / large-file states (presentation only) | `diff` |
 | `src/lib/SessionBadge.svelte`, `Icon`, `Logo`, `BrandMark`, `ColorText` | Small presentational atoms | — |
 
 ## Frontend — extracted concerns (logic modules)
@@ -98,7 +100,7 @@ entry. Each concern is one module:
 | --- | --- |
 | `pty.rs` | PTY host — runs agent CLIs unmodified in pseudo-terminals (portable-pty) |
 | `watcher.rs` | Filesystem watcher feeding the Change Feed (notify) |
-| `vcs.rs` | Git backend: status, log, diff, restore/bisect, worktrees |
+| `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
 | `refs.rs` | After a move: re-point agent memory dirs, IDE recents, symlinks, package-manager installs |
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
@@ -119,7 +121,8 @@ entry. Each concern is one module:
 
 `pnpm test` runs both sides: `test:js` (vitest, colocated `*.test.ts` next to
 each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
-`naming.rs`, `refs.rs`, `ide.rs`). The pure logic extracted from components —
+`naming.rs`, `refs.rs`, `ide.rs` and the `vcs/` parsers). The pure logic
+extracted from components —
 `tabFit`, `diff`, `paths`, `colors`, `format`, `validate`, `autoName`'s signal
 detection, `workspaceRelocate`'s path remapping, `handoff`'s slug — is where
 new tests belong first: they run in milliseconds and need no window.
