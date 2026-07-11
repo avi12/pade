@@ -16,3 +16,15 @@ impl Namer for CopilotNamer {
         None
     }
 }
+
+#[cfg(windows)]
+impl CopilotNamer {
+    /// Generate a session name from its recent transcript. Stage 2 wires the
+    /// real Copilot chat call (MSAL token + `c/api/chat` socket); until then
+    /// naming falls through to the agent CLI. `self` will carry the token/client
+    /// once wired, so this stays a method.
+    #[allow(clippy::unused_self)]
+    pub fn suggest_session(&self, _transcript: &str) -> Option<String> {
+        None
+    }
+}

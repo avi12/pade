@@ -74,6 +74,7 @@ pub fn run() {
             usage::usage_session,
             usage::usage_account,
             naming::project_autoname,
+            naming::session_generate_name,
             workspace::launch_context,
             workspace::settings_get,
             workspace::workspace_add_root,

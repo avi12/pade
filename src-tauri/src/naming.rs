@@ -55,6 +55,80 @@ pub async fn project_autoname(path: String, agent: String) -> Option<String> {
         .flatten()
 }
 
+/// Suggest a short display name for a live agent *session* from its recent
+/// terminal transcript. Copilot (Windows) first when wired, else the agent CLI
+/// one-shot. Returns `None` until there is enough conversation to be meaningful.
+/// Reads the transcript from the PTY layer so the caller only passes the id.
+#[tauri::command]
+pub async fn session_generate_name(
+    id: String,
+    agent: String,
+    state: tauri::State<'_, crate::pty::PtyState>,
+) -> Result<Option<String>, String> {
+    let transcript = crate::pty::transcript_of(&state, &id);
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || session_name(&transcript, &agent))
+            .await
+            .ok()
+            .flatten(),
+    )
+}
+
+/// Minimum transcript length before a session name is worth generating.
+const SESSION_NAME_MIN: usize = 40;
+
+fn session_name(transcript: &str, agent: &str) -> Option<String> {
+    let trimmed = transcript.trim();
+    if trimmed.len() < SESSION_NAME_MIN {
+        return None;
+    }
+
+    #[cfg(windows)]
+    if let Some(name) = crate::copilot::CopilotNamer
+        .suggest_session(trimmed)
+        .and_then(|raw| sanitize(&raw))
+    {
+        return Some(name);
+    }
+
+    session_name_via_agent(agent, trimmed)
+}
+
+/// The trailing `max` bytes of `text`, snapped to a char boundary — most recent
+/// context matters most and keeps the prompt bounded.
+fn tail(text: &str, max: usize) -> &str {
+    if text.len() <= max {
+        return text;
+    }
+    let mut start = text.len() - max;
+    while start < text.len() && !text.is_char_boundary(start) {
+        start += 1;
+    }
+    &text[start..]
+}
+
+fn session_naming_prompt(transcript: &str) -> String {
+    let mut prompt = String::from(
+        "Below is the recent terminal transcript of a coding-agent session. Suggest a concise, \
+         descriptive name in kebab-case (2-4 lowercase words joined by hyphens) capturing what \
+         the session is about.\n\n---\n",
+    );
+    prompt.push_str(tail(transcript, 4000));
+    prompt.push_str("\n---\n\nReply with ONLY the name — no quotes, no explanation.");
+    prompt
+}
+
+fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
+    let args = oneshot_invocation(agent)?;
+    if !is_on_path(agent) {
+        return None;
+    }
+    let mut cmd = Command::new(agent);
+    cmd.args(args).arg(session_naming_prompt(transcript));
+    let out = run_capture(cmd, Duration::from_secs(30))?;
+    extract_name(&out).and_then(|raw| sanitize(&raw))
+}
+
 fn autoname(path: &str, agent: &str) -> Option<String> {
     // Only ever name ADE's own workspaces — never walk a real project's tree.
     if !crate::workspace::is_owned(path) {

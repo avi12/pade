@@ -212,13 +212,23 @@ pub fn pty_spawn(
 /// The rolling, ANSI-stripped transcript for a session — the context the AI
 /// session-namer summarises. Empty string if the session is unknown.
 #[tauri::command]
-pub fn session_transcript(state: State<PtyState>, id: String) -> Result<String, String> {
-    let sessions = state.0.lock().map_err(|e| e.to_string())?;
-    let Some(pty) = sessions.get(&id) else {
-        return Ok(String::new());
+pub fn session_transcript(state: State<PtyState>, id: String) -> String {
+    transcript_of(&state, &id)
+}
+
+/// Read a session's current transcript, or an empty string if it is unknown or
+/// the lock is poisoned. Shared by the command and the session-namer.
+pub fn transcript_of(state: &PtyState, id: &str) -> String {
+    let Ok(sessions) = state.0.lock() else {
+        return String::new();
     };
-    let transcript = pty.transcript.lock().map_err(|e| e.to_string())?;
-    Ok(transcript.clone())
+    let Some(pty) = sessions.get(id) else {
+        return String::new();
+    };
+    pty.transcript
+        .lock()
+        .map(|buffer| buffer.clone())
+        .unwrap_or_default()
 }
 
 #[tauri::command]
