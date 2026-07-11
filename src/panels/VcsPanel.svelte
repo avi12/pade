@@ -3,15 +3,14 @@
   import ColorText from "@/lib/ColorText.svelte";
   import CommitModal from "@/lib/CommitModal.svelte";
   import { DiffKind, parseDiff, toSplitRows } from "@/lib/diff";
-  import { formatCount, formatPercent } from "@/lib/format";
-  import Icon from "@/lib/Icon.svelte";
+  import { formatCount } from "@/lib/format";
   import { baseName } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { DiffStyle, VcsKind } from "@/lib/types";
-  import type { Commit, CommitDetail, RestoreCandidate, StatusEntry } from "@/lib/types";
-  import { parseInput, RestoreQuery } from "@/lib/validate";
+  import type { Commit, CommitDetail, StatusEntry } from "@/lib/types";
   import "@/panels/vcs/chrome.css";
+  import RestoreSection from "@/panels/vcs/RestoreSection.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 
@@ -27,13 +26,6 @@
   let openCommit = $state<CommitDetail | null>(null);
   let remoteUrl = $state<string | null>(null);
   let logEl = $state<HTMLElement | null>(null);
-
-  // Restore a version — natural-language → ranked prior commits → checkout.
-  let restoreQuery = $state("");
-  let candidates = $state<RestoreCandidate[]>([]);
-  let restoreError = $state<string | null>(null);
-  let restoreDone = $state<string | null>(null);
-  let searching = $state(false);
 
   // Grouped views — agent-oriented review lives in the "unreviewed" (unstaged)
   // group; "approve" moves entries into the staged group.
@@ -115,46 +107,6 @@
       });
   }
 
-  async function runRestore() {
-    const query = parseInput({
-      schema: RestoreQuery,
-      raw: restoreQuery
-    });
-    if (!query) {
-      return;
-    }
-
-    searching = true;
-    restoreError = null;
-    restoreDone = null;
-    try {
-      candidates = await vcs.restoreCandidates({ query });
-    } catch (e) {
-      restoreError = String(e);
-      candidates = [];
-    } finally {
-      searching = false;
-    }
-  }
-
-  function onRestoreKey(event: KeyboardEvent) {
-    const isSubmit = event.key === "Enter";
-    if (isSubmit) {
-      void runRestore();
-    }
-  }
-
-  async function checkout(candidate: RestoreCandidate) {
-    restoreError = null;
-    try {
-      const branch = await vcs.restoreCheckout(candidate.id);
-      restoreDone = branch;
-      candidates = [];
-    } catch (e) {
-      restoreError = String(e);
-    }
-  }
-
   // Debounced refresh so a burst of saves triggers one status fetch.
   let timer: ReturnType<typeof setTimeout> | undefined;
   function scheduleRefresh() {
@@ -194,11 +146,6 @@
   const diffLines = $derived(parseDiff(diff));
   const splitRows = $derived(toSplitRows(diffLines));
   const isSplit = $derived(effective.diffStyle === DiffStyle.enum.split);
-
-  // Confidence as a 0..100 percentage — scores run 0..≈1.5, clamped for display.
-  function confidencePct(score: number): number {
-    return Math.round(Math.min(score / 1.5, 1) * 100);
-  }
 </script>
 
 <div class="vcs">
@@ -206,55 +153,7 @@
     <p class="empty">Not a Git repository, or git is unavailable.</p>
   {:else}
     <div class="scroll">
-      <section class="restore">
-        <h3 class="eyebrow"><span class="lead"><Icon name="history" /></span> Restore a version</h3>
-        <div class="restore-input">
-          <input
-            aria-label="Restore to a previous version"
-            onkeydown={onRestoreKey}
-            placeholder="e.g. last working version, before the meter change"
-            type="text"
-            bind:value={restoreQuery}
-          />
-          <button class="go" disabled={searching} onclick={runRestore}>Restore</button>
-        </div>
-        <p class="hint">
-          PADE reads your local edit history and runs <code>git bisect</code> to trace back to the matching version.
-        </p>
-
-        {#if restoreError}
-          <p class="restore-msg crit">{restoreError}</p>
-        {/if}
-        {#if restoreDone}
-          <p class="restore-msg ok">Checked out on <code>{restoreDone}</code></p>
-        {/if}
-
-        {#if candidates.length}
-          <ul class="candidates">
-            {#each candidates as c (c.id)}
-              <li>
-                <button class="candidate" onclick={() => checkout(c)}>
-                  <div class="cand-top">
-                    <code class="sha">{c.short}</code>
-                    <span class="summary">{c.summary}</span>
-                  </div>
-                  <div class="cand-bot">
-                    <span class="by">{c.author} · {c.when}</span>
-                    <span class="conf" aria-label="Match confidence">
-                      <span class="bar"><span style:inline-size="{confidencePct(c.score)}%" class="fill"></span></span>
-                      <span class="pct">{formatPercent(confidencePct(c.score))}</span>
-                    </span>
-                  </div>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {:else if searching}
-          <p class="hint">Searching your history…</p>
-        {:else if restoreQuery.trim() && !restoreDone && !restoreError}
-          <p class="hint">No matching version found — try describing it differently.</p>
-        {/if}
-      </section>
+      <RestoreSection />
 
       {#if unstaged.length}
         <section class="group">
@@ -372,185 +271,7 @@
   /* Shared panel chrome (group headers, sha, author line, empty state) lives
      in vcs/chrome.css so the section components share one copy. */
 
-  .restore {
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-    padding: 12px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-1);
-
-    .eyebrow {
-      display: flex;
-      gap: 7px;
-      align-items: center;
-      margin: 0;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-
-    .lead {
-      display: inline-flex;
-      color: var(--primary);
-    }
-
-    .restore-input {
-      display: flex;
-      gap: 8px;
-    }
-
-    input {
-      flex: 1;
-      min-inline-size: 0;
-      padding-block: 8px;
-      padding-inline: 14px;
-      border: 1px solid var(--outline);
-      border-radius: 999px;
-      background: var(--surface-2);
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-
-      &:focus-visible {
-        border-color: var(--primary);
-        outline: none;
-      }
-    }
-
-    .go {
-      flex: none;
-      padding-block: 8px;
-      padding-inline: 16px;
-      border: none;
-      border-radius: 999px;
-      background: var(--primary);
-      color: var(--on-primary);
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      transition: filter 120ms var(--ease);
-
-      &:hover:not(:disabled) {
-        filter: brightness(1.06);
-      }
-
-      &:disabled {
-        opacity: 60%;
-        cursor: default;
-      }
-    }
-
-    .hint {
-      margin: 0;
-      color: var(--on-surface-variant);
-      font-size: 11px;
-    }
-
-    .hint code {
-      font-family: var(--font-monospace);
-    }
-
-    .restore-msg {
-      margin: 0;
-      font-size: 12px;
-    }
-
-    .restore-msg code {
-      font-family: var(--font-monospace);
-      font-weight: 600;
-    }
-
-    .restore-msg.ok {
-      color: var(--tertiary);
-    }
-
-    .restore-msg.crit {
-      color: var(--critical);
-      white-space: pre-wrap;
-    }
-  }
-
-  .candidates {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .candidate {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    inline-size: 100%;
-    padding-block: 8px;
-    padding-inline: 10px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-small);
-    background: var(--surface-2);
-    text-align: start;
-    cursor: pointer;
-    transition: border-color 120ms var(--ease);
-    animation: line-in 240ms var(--ease) both;
-
-    &:hover {
-      border-color: var(--primary);
-    }
-
-    .cand-top {
-      display: flex;
-      gap: 10px;
-      align-items: baseline;
-    }
-
-    .summary {
-      overflow: hidden;
-      font-size: 13px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .cand-bot {
-      display: flex;
-      gap: 10px;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .conf {
-      display: flex;
-      flex: none;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .bar {
-      display: block;
-      overflow: hidden;
-      block-size: 4px;
-      inline-size: 48px;
-      border-radius: 999px;
-      background: var(--surface-3);
-    }
-
-    .fill {
-      display: block;
-      block-size: 100%;
-      border-radius: 999px;
-      background: var(--tertiary);
-    }
-
-    .pct {
-      color: var(--on-surface-variant);
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-    }
-  }
+  /* "Restore a version" lives in vcs/RestoreSection.svelte. */
 
   .n {
     padding-block: 1px;
