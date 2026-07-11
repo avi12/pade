@@ -53,22 +53,10 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
 
     let seq = WINDOW_SEQ.fetch_add(1, Ordering::Relaxed);
     let label = format!("w-{seq}");
+    let url = format!("index.html?{query}");
 
-    // In dev, point runtime windows at the dev server explicitly. A relative
-    // `WebviewUrl::App` on a spawned window doesn't reliably load the dev server
-    // (it renders a blank window), so resolve the absolute dev URL and carry the
-    // launch query on it. In a bundled build there is no dev URL, so fall back to
-    // the app asset path, which works there.
-    let webview_url = match app.config().build.dev_url.clone() {
-        Some(mut dev) => {
-            dev.set_path("/index.html");
-            dev.set_query(Some(&query));
-            WebviewUrl::External(dev)
-        }
-        None => WebviewUrl::App(format!("index.html?{query}").into()),
-    };
-
-    let mut builder = WebviewWindowBuilder::new(&app, &label, webview_url).title("PADE");
+    let mut builder =
+        WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into())).title("PADE");
 
     // Clone the main window's sizing/decorations so a spawned window matches it.
     if let Some(main) = app.get_webview_window("main") {
@@ -83,12 +71,9 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
         }
     }
 
-    // NOTE: runtime-created windows must NOT be transparent — a transparent
-    // WebView2 window spawned at runtime renders as a blank white screen on
-    // Windows (tauri-apps/tauri#10011, #13963). The main window's transparency
-    // is set up at startup and is unaffected; spawned windows stay opaque.
     builder
         .min_inner_size(720.0, 480.0)
+        .transparent(true)
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())
