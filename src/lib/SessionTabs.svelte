@@ -561,7 +561,7 @@
       background: var(--on-surface-variant);
 
       &.working {
-        background: var(--primary);
+        background: var(--tertiary);
         animation: pulse 1100ms var(--ease) infinite;
       }
 

@@ -48,11 +48,11 @@
       background: var(--on-surface-variant);
     }
 
-    /* Working: primary, pulsing (shared global @keyframes pulse). Ready:
-       tertiary (green) with a soft halo — the "done" signal, steady. Exited:
+    /* Working: green, dim-flashing (shared global @keyframes pulse). Ready:
+       the same green but steady, with a soft halo — the "done" signal. Exited:
        neutral. Starting inherits the neutral dot above. */
     &.working .dot {
-      background: var(--primary);
+      background: var(--tertiary);
       animation: pulse 1100ms var(--ease) infinite;
     }
 
