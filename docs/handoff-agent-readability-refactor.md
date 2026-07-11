@@ -16,8 +16,10 @@
 > - Deviation from step 3: no `TopBar.svelte` wrapper — once the tab strip left,
 >   the header was ~30 lines of wiring, and a wrapper would only add ~17
 >   pass-through props. App.svelte *is* the orchestrator.
-> - Still open (step 6): decompose `VcsPanel.svelte` (818), `CommitModal.svelte`
->   (729), `vcs.rs` (700).
+> - Step 6 (same day, follow-up pass): `VcsPanel.svelte` 818 → 78 lines —
+>   `RestoreSection` / `ChangesSection` / `CommitLog` + shared `chrome.css`
+>   under `src/panels/vcs/`. Still open: `CommitModal.svelte` (729),
+>   `vcs.rs` (700).
 
 **Goal (from the user):** make the codebase *readable and maintainable primarily
 by agents, but also accessible to humans.* This is a fresh-session task — audit,

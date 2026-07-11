@@ -60,11 +60,20 @@ lives in `src/lib/types.ts` as a zod schema.
 | --- | --- |
 | `src/panels/Terminal.svelte` | xterm.js terminal bound to one PTY session |
 | `src/panels/ChangeFeed.svelte` | Live file-change feed with inline diffs |
-| `src/panels/VcsPanel.svelte` | Git panel: status groups, restore-a-version, inline diff, recent commits |
+| `src/panels/VcsPanel.svelte` | Git-panel orchestrator: fetch + watcher-debounced refresh + panel header; composes the sections below |
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files |
 | `src/panels/Onboarding.svelte` | Agent picker when several agents could open a project |
 | `src/panels/ProjectPicker.svelte` | Picker orchestrator: owns settings + refresh + the shared workspace lifecycle; composes the sections below |
+
+### Git-panel sections (`src/panels/vcs/`)
+
+| Module | Responsibility |
+| --- | --- |
+| `chrome.css` | Shared panel chrome (group headers, sha/author line, empty state), selector-scoped under `.vcs` |
+| `RestoreSection.svelte` | Restore a version: natural-language query → ranked candidates → checkout |
+| `ChangesSection.svelte` | Unreviewed/staged groups + the selected file's inline diff (unified + split) |
+| `CommitLog.svelte` | Recent commits with keyboard navigation, GitHub links and the detail modal |
 
 ### Project-picker sections (`src/panels/picker/`)
 
