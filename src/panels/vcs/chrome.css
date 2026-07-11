@@ -1,0 +1,40 @@
+/* Shared chrome for the Git panel and its section components. Plain CSS (not
+   Svelte-scoped) so one authoritative copy reaches every section; every
+   selector is prefixed with `.vcs` so nothing leaks past the panel. Imported
+   once by VcsPanel.svelte — section components rely on it. */
+
+/* Uppercase group headers — the status groups and the commit log share them. */
+.vcs .group h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-block: 4px 8px;
+  margin-inline: 4px;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Short commit hash — restore candidates and log rows share it. */
+.vcs .sha {
+  flex: none;
+  color: var(--primary);
+  font-family: var(--font-monospace);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* Author · relative-time line under a candidate / commit summary. */
+.vcs .by {
+  color: var(--on-surface-variant);
+  font-size: 11px;
+}
+
+/* Quiet empty/error state ("Working tree clean", "Not a Git repository…"). */
+.vcs .empty {
+  margin: 16px;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+}

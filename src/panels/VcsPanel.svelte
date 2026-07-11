@@ -11,6 +11,7 @@
   import { DiffStyle, VcsKind } from "@/lib/types";
   import type { Commit, CommitDetail, RestoreCandidate, StatusEntry } from "@/lib/types";
   import { parseInput, RestoreQuery } from "@/lib/validate";
+  import "@/panels/vcs/chrome.css";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 
@@ -368,11 +369,8 @@
     padding: 8px 10px;
   }
 
-  .empty {
-    margin: 16px;
-    color: var(--on-surface-variant);
-    font-size: 13px;
-  }
+  /* Shared panel chrome (group headers, sha, author line, empty state) lives
+     in vcs/chrome.css so the section components share one copy. */
 
   .restore {
     display: flex;
@@ -552,19 +550,6 @@
       font-size: 11px;
       font-variant-numeric: tabular-nums;
     }
-  }
-
-  .group h3 {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-block: 4px 8px;
-    margin-inline: 4px;
-    color: var(--on-surface-variant);
-    font-weight: 700;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
   }
 
   .n {
@@ -801,18 +786,5 @@
     .del {
       color: var(--critical);
     }
-  }
-
-  .sha {
-    flex: none;
-    color: var(--primary);
-    font-family: var(--font-monospace);
-    font-weight: 600;
-    font-size: 12px;
-  }
-
-  .by {
-    color: var(--on-surface-variant);
-    font-size: 11px;
   }
 </style>
