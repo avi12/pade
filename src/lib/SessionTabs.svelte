@@ -138,6 +138,38 @@
       onlaunch(lastAgent);
     }
   }
+
+  // Closing a visible tab: collapse just that pill (width + fade), then remove it
+  // so survivors flip-slide into the gap. Driven imperatively on the click — not
+  // an out-transition — so it only plays on a real close, never on a repack.
+  const closing = new Set<string>();
+  function closeTab(session: AgentSession) {
+    const element = stripEl?.querySelector<HTMLElement>(
+      `[data-tab-id="${CSS.escape(session.id)}"]`
+    );
+    if (!element || prefersReducedMotion || closing.has(session.id)) {
+      onclose(session);
+      return;
+    }
+
+    closing.add(session.id);
+    const width = element.offsetWidth;
+    element.style.overflow = "hidden";
+    element.style.flexShrink = "0";
+    element.style.pointerEvents = "none";
+    element.style.inlineSize = `${width}px`;
+    element.style.transition =
+      "inline-size 240ms var(--ease), opacity 180ms var(--ease), margin-inline-start 240ms var(--ease)";
+    requestAnimationFrame(() => {
+      element.style.inlineSize = "0px";
+      element.style.opacity = "0";
+      element.style.marginInlineStart = "-6px";
+    });
+    setTimeout(() => {
+      closing.delete(session.id);
+      onclose(session);
+    }, 240);
+  }
 </script>
 
 {#snippet tabInner(s: AgentSession)}
@@ -149,7 +181,7 @@
     class="x"
     aria-label="Close session"
     data-tooltip="Close session"
-    onclick={() => onclose(s)}
+    onclick={() => closeTab(s)}
   ><Icon name="close" size={13} /></button>
 {/snippet}
 
@@ -160,6 +192,7 @@
         class="tab"
         class:active={s.id === activeId}
         class:shown={paneIds.includes(s.id)}
+        data-tab-id={s.id}
         animate:flip={flipParams}
       >
         {@render tabInner(s)}
