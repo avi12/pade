@@ -5,11 +5,12 @@
   import { baseName, displayName, isTemporaryWorkspace } from "@/lib/paths";
   import { StartMode } from "@/lib/types";
   import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
-  import { FirstPrompt, FolderPath, parseInput, ProjectName } from "@/lib/validate";
+  import { FolderPath, nameError, parseInput, ProjectName } from "@/lib/validate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
+  import QuickStartSection from "@/panels/picker/QuickStartSection.svelte";
   import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
@@ -51,9 +52,6 @@
   // Primary detected kind of the current dir, so we can tag "this project"'s row.
   let currentKind = $state<string | null>(null);
   let newRoot = $state("");
-  let createIn = $state("");
-  let createName = $state("");
-  let createPrompt = $state("");
 
   async function setEditorRule({ kind, editorId }: {
     kind: string;
@@ -144,12 +142,6 @@
     settings = await workspace.setDefaultAgent(agentId);
   }
 
-  // Start immediately in a throwaway workspace.
-  async function startTemp() {
-    const path = await workspace.temp();
-    onopen({ path });
-  }
-
   function isOwned(path: string): boolean {
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
     return settings.ownedWorkspaces.includes(path) || isTemporaryWorkspace(path);
@@ -170,22 +162,9 @@
   let renaming = $state<string | null>(null);
   let renameValue = $state("");
 
-  // Live name validation for the create + rename fields. We surface the schema's
-  // own message (e.g. "Name can't contain path characters.") and gate the submit
-  // on the same check, so an invalid name like "a/b" can't reach a create() /
-  // rename() that would otherwise silently no-op. An empty field yields no
-  // message (nothing typed yet) but still keeps the submit disabled.
-  function nameError(raw: string): string | null {
-    if (raw.trim().length === 0) {
-      return null;
-    }
-
-    const result = ProjectName.safeParse(raw);
-    return result.success ? null : result.error.issues[0].message;
-  }
-
-  const createNameError = $derived(nameError(createName));
-  const createNameValid = $derived(ProjectName.safeParse(createName).success);
+  // Live rename validation — nameError (lib/validate) surfaces the schema's own
+  // message; the same schema gates Save, so an invalid name can't reach a
+  // rename() that would silently no-op.
   const renameError = $derived(nameError(renameValue));
   const renameValid = $derived(ProjectName.safeParse(renameValue).success);
 
@@ -237,30 +216,6 @@
     });
     renaming = null;
     await refresh();
-  }
-
-  async function create() {
-    const name = parseInput({
-      schema: ProjectName,
-      raw: createName
-    });
-    const prompt = parseInput({
-      schema: FirstPrompt,
-      raw: createPrompt
-    });
-    const promptInvalid = prompt === null;
-    if (!createIn || !name || promptInvalid) {
-      return;
-    }
-
-    const path = await workspace.create({
-      root: createIn,
-      name
-    });
-    onopen({
-      path,
-      initialPrompt: prompt || undefined
-    });
   }
 
   onMount(() => void refresh());
@@ -349,99 +304,7 @@
       </p>
     </header>
 
-    <section class="new">
-      <h2>Start something new</h2>
-      <div class="new-grid">
-        <button class="temp-start" onclick={startTemp}>
-          <span class="ico"><Icon name="star" size={20} /></span>
-          <span class="txt">
-            <strong>Start in a temp workspace</strong>
-            <small>A clean scratch folder — auto-named once the agent starts working.</small>
-          </span>
-        </button>
-
-        <form
-          class="np" aria-labelledby="np-title" onsubmit={event => {
-            event.preventDefault(); create();
-          }}>
-          <h3 id="np-title">Create a new project</h3>
-
-          <div class="np-field">
-            <span id="np-loc-label" class="np-label">Location</span>
-            <div class="np-loc" aria-labelledby="np-loc-label" role="group">
-              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-              <span class="root-sel">
-                <button
-                  style:anchor-name="--np-root"
-                  class="root-trigger"
-                  aria-label="Root folder"
-                  popovertarget="np-root-menu"
-                  type="button"
-                >
-                  <span class="root-current">{createIn || "Choose a root…"}</span>
-                  <span class="caret" aria-hidden="true">▾</span>
-                </button>
-                <ul id="np-root-menu" style:position-anchor="--np-root" class="menu root-menu" popover>
-                  {#each settings.roots as root (root)}
-                    {@const isPicked = createIn === root}
-                    <li>
-                      <button
-                        class="mi root-opt"
-                        class:picked={isPicked}
-                        aria-current={isPicked}
-                        onclick={() => (createIn = root)}
-                        popovertarget="np-root-menu"
-                        popovertargetaction="hide"
-                        type="button"
-                      >
-                        <span>{root}</span>
-                        {#if isPicked}
-                          <span class="tick" aria-hidden="true">✓</span>
-                        {/if}
-                      </button>
-                    </li>
-                  {:else}
-                    <li class="none root-empty">No roots yet — add one below.</li>
-                  {/each}
-                </ul>
-              </span>
-              <span class="np-sep" aria-hidden="true">\</span>
-              <label class="visually-hidden" for="np-name">Project name</label>
-              <input
-                id="np-name"
-                class="np-name"
-                aria-describedby={createNameError ? "np-name-error" : undefined}
-                aria-invalid={createNameError !== null}
-                autocomplete="off"
-                placeholder="project-name"
-                spellcheck="false"
-                bind:value={createName}
-              />
-            </div>
-            {#if createNameError}
-              <output id="np-name-error" class="field-error">{createNameError}</output>
-            {/if}
-          </div>
-
-          <div class="np-field">
-            <label class="np-label" for="np-prompt">
-              First prompt <span class="np-optional">— optional</span>
-            </label>
-            <textarea
-              id="np-prompt"
-              class="np-prompt"
-              placeholder="e.g. scaffold a SvelteKit app with Tailwind"
-              rows="2"
-              bind:value={createPrompt}
-            ></textarea>
-          </div>
-
-          <button class="np-go" disabled={!createIn || !createNameValid} type="submit">
-            Create &amp; open
-          </button>
-        </form>
-      </div>
-    </section>
+    <QuickStartSection {onopen} roots={settings.roots} />
 
     <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
 
@@ -597,223 +460,13 @@
   /* Shared page chrome (eyebrows, base fields/buttons, rows, kebab menus) lives
      in picker/chrome.css so the section components share one copy. */
 
-  /* ── Start something new — responsive 2-up: temp card + create form. ── */
-  .new-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
-    gap: 12px;
-    align-items: stretch;
-  }
-
-  /* Big scratch-workspace card — filled primary-container with a hairline
-     primary edge; brightens on hover. */
-  .temp-start {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    justify-content: center;
-    padding: 20px 22px;
-    border: 1px solid var(--primary);
-    border-radius: var(--radius-large);
-    background: var(--primary-container);
-    color: var(--on-primary-container);
-    text-align: start;
-    cursor: pointer;
-    transition: filter 150ms var(--ease);
-
-    &:hover {
-      filter: brightness(1.08);
-    }
-
-    .txt {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    strong {
-      font-weight: 700;
-      font-size: 16px;
-    }
-
-    small {
-      color: var(--on-primary-container);
-      font-size: 13px;
-      opacity: 85%;
-    }
-  }
-
-  /* Create-a-new-project form card — surface-1 with a hairline outline. */
-  .np {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 18px 20px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-large);
-    background: var(--surface-1);
-
-    h3 {
-      margin: 0;
-      font-weight: 700;
-      font-size: 16px;
-    }
-  }
-
-  .np-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .np-label {
-    color: var(--on-surface-variant);
-    font-weight: 600;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-  }
-
-  .np-optional {
-    font-weight: 400;
-    opacity: 75%;
-  }
+  /* The "Start something new" cards live in picker/QuickStartSection.svelte. */
 
   /* In the rename row, the error sits on its own full-width line below the field
      + buttons (the row is flex; this breaks to a new line). */
   .rename-error {
     flex-basis: 100%;
     margin-block-start: 2px;
-  }
-
-  /* The "Location" group row — folder icon, root select, "\" separator, name. */
-  .np-loc {
-    display: flex;
-    gap: 2px;
-    align-items: center;
-    padding-block: 4px;
-    padding-inline: 12px 4px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-
-    .np-loc-ico {
-      display: inline-flex;
-      flex: none;
-      color: var(--on-surface-variant);
-    }
-
-    .np-sep {
-      flex: none;
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 13px;
-    }
-  }
-
-  .np-name {
-    flex: 1 1 90px;
-    min-inline-size: 80px;
-    padding: 6px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font-family: var(--font-monospace);
-    font-size: 13px;
-  }
-
-  .np-prompt {
-    inline-size: 100%;
-    padding: 9px 12px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    color: var(--on-surface);
-    font: inherit;
-    font-size: 13px;
-    line-height: 1.5;
-    resize: vertical;
-  }
-
-  .np-go {
-    align-self: start;
-    padding: 10px 20px;
-    border: none;
-    border-radius: var(--radius-medium);
-    background: var(--primary);
-    color: var(--on-primary);
-    font: inherit;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
-    transition: filter 150ms var(--ease);
-
-    &:hover:not(:disabled) {
-      filter: brightness(1.06);
-    }
-
-    &:disabled {
-      opacity: 50%;
-      cursor: default;
-    }
-  }
-
-  /* Root select — a native-popover custom select, like the editor selects. */
-  .root-sel {
-    position: relative;
-    flex: 1 1 auto;
-    min-inline-size: 0;
-  }
-
-  .root-trigger {
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-    max-inline-size: 150px;
-    padding: 6px 2px;
-    border: none;
-    background: transparent;
-    color: var(--on-surface);
-    font-family: var(--font-monospace);
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: color 150ms var(--ease);
-
-    &:hover {
-      color: var(--primary);
-    }
-
-    .root-current {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .caret {
-      flex: none;
-      font-size: 9px;
-      opacity: 70%;
-    }
-  }
-
-  .root-menu {
-    min-inline-size: 240px;
-
-    .root-opt {
-      justify-content: space-between;
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 12px;
-
-      &.picked {
-        color: var(--primary);
-      }
-    }
-
-    .root-empty {
-      padding: 8px 10px;
-    }
   }
 
   /* "On launch" toggles live in picker/OnLaunchSection.svelte. */

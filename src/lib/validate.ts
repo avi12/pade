@@ -36,3 +36,16 @@ export function parseInput<T>({ schema, raw }: {
   const result = schema.safeParse(raw);
   return result.success ? result.data : null;
 }
+
+/** Live validation for a name field (create/rename): the schema's own message
+ *  for a non-empty invalid name (e.g. "Name can't contain path characters."),
+ *  or null. An empty field yields no message — nothing typed yet — so callers
+ *  gate their submit on the schema separately. */
+export function nameError(raw: string): string | null {
+  if (raw.trim().length === 0) {
+    return null;
+  }
+
+  const result = ProjectName.safeParse(raw);
+  return result.success ? null : result.error.issues[0].message;
+}

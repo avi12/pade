@@ -1,6 +1,7 @@
 import {
   FirstPrompt,
   FolderPath,
+  nameError,
   NonEmptyText,
   parseInput,
   ProjectName,
@@ -65,6 +66,21 @@ describe("ProjectName", () => {
   it("caps the length at 100 characters", () => {
     expect(ProjectName.safeParse("x".repeat(100)).success).toBe(true);
     expect(ProjectName.safeParse("x".repeat(101)).success).toBe(false);
+  });
+});
+
+describe("nameError", () => {
+  it("stays quiet while the field is empty", () => {
+    expect(nameError("")).toBeNull();
+    expect(nameError("   ")).toBeNull();
+  });
+
+  it("stays quiet for a valid name", () => {
+    expect(nameError("brave-otter")).toBeNull();
+  });
+
+  it("surfaces the schema's own message for an invalid name", () => {
+    expect(nameError("a/b")).toBe("Name can't contain path characters.");
   });
 });
 
