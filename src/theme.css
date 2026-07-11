@@ -53,6 +53,11 @@
      to a light "glow" in dark mode. */
   --shadow-color: hsl(214deg 30% 30% / 20%);
 
+  /* Saturated primary glow under the floating "Send to agent" action — a fixed
+     mid-tone blue (same in both schemes, per the design) so it reads as a tinted
+     halo rather than tracking the theme's lighter/darker primary. */
+  --primary-shadow: hsl(var(--seed-hue) 90% 45% / 45%);
+
   /* Terminal surface follows the theme — light in light mode. */
   --code-background: hsl(var(--seed-hue) 30% 96%);
   --code-foreground: hsl(214deg 30% 20%);
@@ -86,11 +91,11 @@
   --primary-container: hsl(var(--seed-hue) 55% 22%);
   --on-primary-container: hsl(var(--seed-hue) 90% 88%);
   --tertiary: hsl(160deg 55% 62%);
-  --tertiary-wash: hsl(160deg 55% 50% / 18%);
+  --tertiary-wash: hsl(160deg 55% 50% / 16%);
   --warning: hsl(28deg 90% 62%);
   --warning-wash: hsl(28deg 90% 58% / 16%);
   --critical: hsl(352deg 80% 70%);
-  --critical-wash: hsl(352deg 80% 60% / 18%);
+  --critical-wash: hsl(352deg 80% 60% / 16%);
   --surface: hsl(214deg 30% 8%);
   --surface-1: hsl(214deg 28% 11%);
   --surface-2: hsl(214deg 26% 14%);

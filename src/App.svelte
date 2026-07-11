@@ -886,8 +886,9 @@
   .add-pane {
     display: inline-flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     inline-size: 44px;
+    padding-block-start: 12px;
     border: none;
     border-inline-start: 1px solid var(--outline);
     background: var(--surface-1);
@@ -970,6 +971,25 @@
     }
   }
 
+  /* FAB entrance: drops in from below and bounces up into place. Bakes the
+     translateX(-50%) centering into every step since it animates transform. */
+  @keyframes send-pop {
+    0% {
+      opacity: 0%;
+      transform: translateX(-50%) translateY(12px) scale(0.88);
+    }
+
+    65% {
+      opacity: 100%;
+      transform: translateX(-50%) translateY(-4px) scale(1.03);
+    }
+
+    100% {
+      opacity: 100%;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+  }
+
   .send-fab {
     position: fixed;
     inset-block-end: 26px;
@@ -987,10 +1007,10 @@
     font: inherit;
     font-weight: 700;
     font-size: 14px;
-    box-shadow: 0 10px 30px color-mix(in sRGB, var(--primary) 45%, transparent);
+    box-shadow: 0 10px 30px var(--primary-shadow);
     cursor: pointer;
     transform: translateX(-50%);
-    animation: pop-in 220ms var(--ease);
+    animation: send-pop 220ms var(--ease);
 
     .preview {
       overflow: hidden;

@@ -327,7 +327,7 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     overflow-y: auto;
     min-block-size: 0;
     margin: 0;
