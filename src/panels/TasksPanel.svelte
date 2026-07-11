@@ -2,6 +2,7 @@
   import { feed, tasks as tasksApi } from "@/lib/bridge";
   import { baseName } from "@/lib/paths";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { isTaskRunning, taskKey } from "@/lib/stores/taskRuns.svelte";
   import type { TaskGroup } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
@@ -78,9 +79,23 @@
             <span class="manifest" data-tooltip={group.dir}>{group.manifest}</span>
           </h3>
           {#each group.tasks as task (task.name)}
-            <div class="row">
+            {@const runningNow = isTaskRunning(
+              taskKey({
+                dir: group.dir,
+                command: task.command
+              })
+            )}
+            <div class="row" class:running={runningNow}>
               <div class="meta">
-                <span class="tname">{task.name}</span>
+                <span class="tname">
+                  {#if runningNow}
+                    <span class="run-dot" aria-hidden="true"></span>
+                  {/if}
+                  {task.name}
+                  {#if runningNow}
+                    <output class="run-tag">running</output>
+                  {/if}
+                </span>
                 <code class="cmd">{task.command}</code>
               </div>
               <button
@@ -197,8 +212,29 @@
   }
 
   .tname {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
     font-weight: 600;
     font-size: 13px;
+
+    /* Green, dim-flashing while the agent is running this task. */
+    .run-dot {
+      flex: none;
+      block-size: 7px;
+      inline-size: 7px;
+      border-radius: 999px;
+      background: var(--tertiary);
+      animation: pulse 1100ms var(--ease) infinite;
+    }
+
+    .run-tag {
+      color: var(--tertiary);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
   }
 
   .cmd {

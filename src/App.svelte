@@ -23,6 +23,7 @@
   import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
+  import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type { Agent, AgentSession, Settings, TaskGroup } from "@/lib/types";
@@ -175,6 +176,9 @@
 
   // Subscribe once to the backend task-runner stream so the dock updates live.
   onMount(() => void ensureRunnerListeners());
+
+  // Reflect known tasks the agent runs as "running" in the Tasks panel.
+  onMount(() => void initTaskRunDetection());
 
   // Auto-name a temp workspace once the agent has produced real work
   // (lib/autoName): after a few distinct files change, ask the agent (or a
