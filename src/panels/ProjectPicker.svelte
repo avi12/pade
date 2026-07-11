@@ -1,17 +1,19 @@
 <script lang="ts">
   import BrandMark from "@/lib/BrandMark.svelte";
-  import { ide, os, workspace } from "@/lib/bridge";
+  import { ide, workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { baseName, displayName, isTemporaryWorkspace } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace } from "@/lib/paths";
   import { StartMode } from "@/lib/types";
   import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
-  import { FolderPath, nameError, parseInput, ProjectName } from "@/lib/validate";
+  import { FolderPath, parseInput } from "@/lib/validate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
+  import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
   import QuickStartSection from "@/panels/picker/QuickStartSection.svelte";
-  import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
+  import RowMenu from "@/panels/picker/RowMenu.svelte";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
@@ -146,152 +148,21 @@
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
     return settings.ownedWorkspaces.includes(path) || isTemporaryWorkspace(path);
   }
-  // Stable, valid popover id/anchor per row. A path can appear in more than one
-  // section (Recent AND under its root), so the same path would otherwise mint
-  // duplicate ids/anchors and clicking one kebab would open the wrong menu.
-  // The section scope disambiguates them.
-  function menuId({ path, scope }: {
-    path: string;
-    scope: string;
-  }): string {
-    return `menu-${scope}-${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
-  }
 
-  // Owned-workspace lifecycle: delete, move (→ permanent, still deletable),
-  // rename (→ promoted into the primary project root).
-  let renaming = $state<string | null>(null);
-  let renameValue = $state("");
-
-  // Live rename validation — nameError (lib/validate) surfaces the schema's own
-  // message; the same schema gates Save, so an invalid name can't reach a
-  // rename() that would silently no-op.
-  const renameError = $derived(nameError(renameValue));
-  const renameValid = $derived(ProjectName.safeParse(renameValue).success);
-
-  async function deleteWorkspace(path: string) {
-    const ok = await ask(`Delete this workspace and its files?\n\n${path}`, {
-      title: "Delete workspace",
-      kind: "warning"
-    });
-    if (!ok) {
-      return;
-    }
-
-    settings = await workspace.delete(path);
-  }
-
-  async function moveWorkspace(path: string) {
-    const dest = await openDialog({
-      directory: true,
-      multiple: false
-    });
-    if (typeof dest !== "string") {
-      return;
-    }
-
-    await onmove({
-      from: path,
-      destDir: dest
-    });
-    await refresh();
-  }
-
-  function startRename(path: string) {
-    renaming = path;
-    renameValue = baseName(path);
-  }
-
-  async function commitRename(path: string) {
-    const newName = parseInput({
-      schema: ProjectName,
-      raw: renameValue
-    });
-    if (!newName) {
-      return;
-    }
-
-    await onrename({
-      from: path,
-      newName
-    });
-    renaming = null;
-    await refresh();
-  }
+  // Owned-workspace lifecycle (rename/move/delete + the inline-rename form
+  // state) — one instance shared by the Recent rows and the root-project rows.
+  const lifecycle = createWorkspaceLifecycle({
+    isOwned,
+    onmove: target => onmove(target),
+    onrename: target => onrename(target),
+    applySettings(next) {
+      settings = next;
+    },
+    refresh
+  });
 
   onMount(() => void refresh());
 </script>
-
-{#snippet rowMenu({ path, scope }: {
-  path: string;
-  scope: string;
-})}
-  {@const identifier = menuId({
-    path,
-    scope
-  })}
-  <button
-    style:anchor-name="--{identifier}"
-    class="kebab"
-    aria-label="Project actions"
-    popovertarget={identifier}
-  ><Icon name="more" /></button>
-  <ul id={identifier} style:position-anchor="--{identifier}" class="menu" popover>
-    <li class="head">Reveal</li>
-    <li>
-      <button class="mi" onclick={() => void os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">
-        <Icon name="folder" /><span class="mi-txt">Open in Files</span>
-      </button>
-    </li>
-    <li>
-      <button class="mi" onclick={() => void os.terminal(path)} popovertarget={identifier} popovertargetaction="hide">
-        <Icon name="terminal" /><span class="mi-txt">Open in Terminal</span>
-      </button>
-    </li>
-    {#if ides.length > 0}
-      <li>
-        <button
-          class="mi"
-          onclick={() => void ide.open({
-            command: ides[0].command,
-            path
-          })}
-          popovertarget={identifier}
-          popovertargetaction="hide"
-        >
-          <Icon name="code" /><span class="mi-txt">Open in {ides[0].label}</span>
-        </button>
-      </li>
-    {/if}
-    {#if isOwned(path)}
-      <li class="head sep">Workspace</li>
-      <li>
-        <button class="mi" onclick={() => startRename(path)} popovertarget={identifier} popovertargetaction="hide">
-          <Icon name="pencil" /><span class="mi-txt">Rename to a project</span>
-        </button>
-      </li>
-      <li>
-        <button
-          class="mi"
-          onclick={async () => await moveWorkspace(path)}
-          popovertarget={identifier}
-          popovertargetaction="hide"
-        >
-          <Icon name="swap" /><span class="mi-txt">Move…</span>
-        </button>
-      </li>
-      <li>
-        <button
-          class="mi danger"
-          onclick={async () => await deleteWorkspace(path)}
-          popovertarget={identifier}
-          popovertargetaction="hide"
-        >
-          <Icon name="trash" /><span class="mi-txt">Delete workspace</span>
-        </button>
-      </li>
-    {/if}
-  </ul>
-{/snippet}
 
 <div class="picker">
   <div class="inner">
@@ -317,21 +188,21 @@
         <ul class="recent-list">
           {#each settings.recentProjects as path (path)}
             <li class="row">
-              {#if renaming === path}
+              {#if lifecycle.renaming === path}
                 <form
                   class="rename" onsubmit={async event => {
-                    event.preventDefault(); await commitRename(path);
+                    event.preventDefault(); await lifecycle.commitRename(path);
                   }}>
                   <input
-                    aria-describedby={renameError ? "rename-error" : undefined}
-                    aria-invalid={renameError !== null}
+                    aria-describedby={lifecycle.renameError ? "rename-error" : undefined}
+                    aria-invalid={lifecycle.renameError !== null}
                     aria-label="Project name"
-                    bind:value={renameValue}
+                    bind:value={lifecycle.renameValue}
                   />
-                  <button disabled={!renameValid} type="submit">Save</button>
-                  <button onclick={() => (renaming = null)} type="button">Cancel</button>
-                  {#if renameError}
-                    <output id="rename-error" class="field-error rename-error">{renameError}</output>
+                  <button disabled={!lifecycle.renameValid} type="submit">Save</button>
+                  <button onclick={() => lifecycle.cancelRename()} type="button">Cancel</button>
+                  {#if lifecycle.renameError}
+                    <output id="rename-error" class="field-error rename-error">{lifecycle.renameError}</output>
                   {/if}
                 </form>
               {:else}
@@ -347,10 +218,7 @@
                   <span class="rname">{displayName(path, settings.labels)}</span>
                   <span class="rpath">{path}</span>
                 </button>
-                {@render rowMenu({
-                  path,
-                  scope: "recent"
-                })}
+                <RowMenu {ides} {lifecycle} {path} scope="recent" />
               {/if}
             </li>
           {/each}
@@ -404,10 +272,7 @@
                     <span class="git">git</span>
                   {/if}
                 </button>
-                {@render rowMenu({
-                  path: project.path,
-                  scope: "root"
-                })}
+                <RowMenu {ides} {lifecycle} path={project.path} scope="root" />
               </li>
             {:else}
               <li class="none">No projects found in this folder.</li>
