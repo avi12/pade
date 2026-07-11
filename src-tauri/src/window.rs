@@ -71,9 +71,12 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
         }
     }
 
+    // NOTE: runtime-created windows must NOT be transparent — a transparent
+    // WebView2 window spawned at runtime renders as a blank white screen on
+    // Windows (tauri-apps/tauri#10011, #13963). The main window's transparency
+    // is set up at startup and is unaffected; spawned windows stay opaque.
     builder
         .min_inner_size(720.0, 480.0)
-        .transparent(true)
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())

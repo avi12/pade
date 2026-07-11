@@ -655,12 +655,34 @@
         </button>
       {/if}
     </div>
+  {:else}
+    <!-- Loading phase: a calm branded ground so a booting window is never a
+         blank void (also the safety net if a boot step stalls). -->
+    <div class="booting">
+      <span class="brand" aria-label="PADE is starting">◆</span>
+    </div>
   {/if}
 </div>
 
 <style>
   .app-root {
     block-size: 100%;
+  }
+
+  /* Booting ground — a centered, gently pulsing brand mark on the app surface
+     so a loading window reads as PADE, never a blank white void. */
+  .booting {
+    display: grid;
+    place-items: center;
+    block-size: 100%;
+    background: radial-gradient(120% 120% at 50% 0%, var(--surface-1), var(--surface));
+
+    .brand {
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 44px;
+      animation: pulse 1400ms var(--ease) infinite;
+    }
   }
 
   .shell {
