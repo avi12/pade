@@ -51,6 +51,7 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            pty::session_transcript,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

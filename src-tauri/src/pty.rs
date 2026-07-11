@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
@@ -22,6 +22,81 @@ pub struct PtyState(pub Mutex<HashMap<String, Pty>>);
 pub struct Pty {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    /// Rolling, ANSI-stripped tail of this session's output — the context the
+    /// AI session-namer reads. Its own lock so the read thread never contends
+    /// with the sessions map.
+    transcript: Arc<Mutex<String>>,
+}
+
+/// How much recent output to keep per session for naming (bytes, tail-trimmed).
+const TRANSCRIPT_CAP: usize = 16 * 1024;
+
+/// Strip terminal control sequences so the buffered transcript is plain text:
+/// drop ESC-introduced CSI/OSC sequences, carriage returns, and other C0
+/// control bytes, keeping printable characters, newlines, and tabs.
+fn strip_ansi(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\u{1b}' => match chars.peek() {
+                Some('[') => {
+                    chars.next();
+                    // CSI: parameters until a final byte in @…~.
+                    while let Some(&param) = chars.peek() {
+                        chars.next();
+                        if ('@'..='~').contains(&param) {
+                            break;
+                        }
+                    }
+                }
+                Some(']') => {
+                    chars.next();
+                    // OSC: until BEL or the ST (ESC \) terminator.
+                    while let Some(&param) = chars.peek() {
+                        chars.next();
+                        if param == '\u{7}' {
+                            break;
+                        }
+                        if param == '\u{1b}' {
+                            if chars.peek() == Some(&'\\') {
+                                chars.next();
+                            }
+                            break;
+                        }
+                    }
+                }
+                Some(_) => {
+                    chars.next();
+                }
+                None => {}
+            },
+            '\r' => {}
+            '\n' | '\t' => out.push(ch),
+            other if u32::from(other) < 0x20 => {}
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// Append cleaned output to a session's transcript, trimming the front to
+/// `TRANSCRIPT_CAP` on a char boundary so it never grows unbounded.
+fn append_transcript(transcript: &Arc<Mutex<String>>, cleaned: &str) {
+    if cleaned.is_empty() {
+        return;
+    }
+    let Ok(mut buffer) = transcript.lock() else {
+        return;
+    };
+    buffer.push_str(cleaned);
+    if buffer.len() > TRANSCRIPT_CAP {
+        let mut cut = buffer.len() - TRANSCRIPT_CAP;
+        while cut < buffer.len() && !buffer.is_char_boundary(cut) {
+            cut += 1;
+        }
+        buffer.drain(..cut);
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -90,15 +165,19 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    // Pump this session's output to the frontend, tagged with its id.
+    // Pump this session's output to the frontend, tagged with its id, while
+    // mirroring a cleaned tail into the transcript for the AI namer.
     let app_reader = app.clone();
     let session_id = id.clone();
+    let transcript = Arc::new(Mutex::new(String::new()));
+    let transcript_reader = transcript.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
         loop {
             match reader.read(&mut buf) {
                 Ok(n) if n > 0 => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    append_transcript(&transcript_reader, &strip_ansi(&data));
                     let _ = app_reader.emit(
                         "pty://data",
                         Chunk {
@@ -124,9 +203,22 @@ pub fn pty_spawn(
         Pty {
             master: pair.master,
             writer,
+            transcript,
         },
     );
     Ok(())
+}
+
+/// The rolling, ANSI-stripped transcript for a session — the context the AI
+/// session-namer summarises. Empty string if the session is unknown.
+#[tauri::command]
+pub fn session_transcript(state: State<PtyState>, id: String) -> Result<String, String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let Some(pty) = sessions.get(&id) else {
+        return Ok(String::new());
+    };
+    let transcript = pty.transcript.lock().map_err(|e| e.to_string())?;
+    Ok(transcript.clone())
 }
 
 #[tauri::command]
