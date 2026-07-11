@@ -53,10 +53,22 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
 
     let seq = WINDOW_SEQ.fetch_add(1, Ordering::Relaxed);
     let label = format!("w-{seq}");
-    let url = format!("index.html?{query}");
 
-    let mut builder =
-        WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into())).title("PADE");
+    // In dev, point runtime windows at the dev server explicitly. A relative
+    // `WebviewUrl::App` on a spawned window doesn't reliably load the dev server
+    // (it renders a blank window), so resolve the absolute dev URL and carry the
+    // launch query on it. In a bundled build there is no dev URL, so fall back to
+    // the app asset path, which works there.
+    let webview_url = match app.config().build.dev_url.clone() {
+        Some(mut dev) => {
+            dev.set_path("/index.html");
+            dev.set_query(Some(&query));
+            WebviewUrl::External(dev)
+        }
+        None => WebviewUrl::App(format!("index.html?{query}").into()),
+    };
+
+    let mut builder = WebviewWindowBuilder::new(&app, &label, webview_url).title("PADE");
 
     // Clone the main window's sizing/decorations so a spawned window matches it.
     if let Some(main) = app.get_webview_window("main") {
