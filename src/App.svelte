@@ -488,15 +488,35 @@
   {:else if phase === Phase.ready}
     <div class="shell">
       <header class="topbar">
-        <AppMenu
-          {isTemp}
-          label={currentLabel ?? shortDir}
-          labels={settings.labels}
-          onswitch={switchProject}
-          path={currentProject}
-          recentProjects={settings.recentProjects}
-        />
-        <span class="divider"></span>
+        <!-- Chrome row: project menu on the left, actions pushed right. Session
+             tabs live on their own full-width row below so they get the whole
+             width and only spill to "+N" on genuine overflow. -->
+        <div class="chrome">
+          <AppMenu
+            {isTemp}
+            label={currentLabel ?? shortDir}
+            labels={settings.labels}
+            onswitch={switchProject}
+            path={currentProject}
+            recentProjects={settings.recentProjects}
+          />
+          <span class="chrome-spacer"></span>
+
+          <UsageMeter />
+          <DesignMenu agent={activeAgent} />
+          <IdeMenu />
+
+          <div class="seg" aria-label="Side panels" role="tablist">
+            {#each PANEL_TABS as tab (tab.id)}
+              <button
+                aria-selected={side === tab.id}
+                data-tooltip={tab.label}
+                onclick={() => toggleSide(tab.id)}
+                role="tab"
+              ><Icon name={tab.icon} /> <span>{tab.short}</span></button>
+            {/each}
+          </div>
+        </div>
 
         <SessionTabs
           {activeId}
@@ -509,21 +529,6 @@
           {paneIds}
           {sessions}
         />
-
-        <UsageMeter />
-        <DesignMenu agent={activeAgent} />
-        <IdeMenu />
-
-        <div class="seg" aria-label="Side panels" role="tablist">
-          {#each PANEL_TABS as tab (tab.id)}
-            <button
-              aria-selected={side === tab.id}
-              data-tooltip={tab.label}
-              onclick={() => toggleSide(tab.id)}
-              role="tab"
-            ><Icon name={tab.icon} /> <span>{tab.short}</span></button>
-          {/each}
-        </div>
       </header>
 
       <main class="body" class:with-side={side !== null}>
@@ -659,22 +664,28 @@
   .topbar {
     display: flex;
     flex-shrink: 0;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
+    flex-direction: column;
+    gap: 8px;
+    min-inline-size: 0;
     padding-block: 8px;
-    padding-inline: 16px;
+    padding-inline: clamp(10px, 1.6vw, 16px);
     border-block-end: 1px solid var(--outline);
     background: var(--surface-1);
   }
 
-  /* Thin vertical rule between the app menu and the sessions nav (canvas uses a
-     span, not a border on the neighbouring element). */
-  .divider {
-    flex-shrink: 0;
-    block-size: 20px;
-    inline-size: 1px;
-    background: var(--outline);
+  /* First row: project menu + usage/design/IDE/panel actions. Its own labels
+     fold to icons when it gets tight, independent of the tabs row below. */
+  .chrome {
+    display: flex;
+    gap: clamp(8px, 1vw, 12px);
+    align-items: center;
+    min-inline-size: 0;
+  }
+
+  /* Pushes the action cluster to the right edge of the chrome row. */
+  .chrome-spacer {
+    flex: 1 1 0;
+    min-inline-size: 0;
   }
 
   /* Native popover (light-dismiss on outside click) anchored to its button. */

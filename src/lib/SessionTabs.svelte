@@ -3,6 +3,7 @@
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
   import { packTabs } from "@/lib/tabFit";
   import type { Agent, AgentSession } from "@/lib/types";
+  import { flip } from "svelte/animate";
   import { SvelteMap } from "svelte/reactivity";
 
   // The session tab strip: full pills for the sessions that fit, status dots
@@ -115,27 +116,38 @@
   const overflowHasActive = $derived(
     activeId !== null && (tabPack.dots.includes(activeId) || tabPack.more.includes(activeId))
   );
+
+  // Survivors slide to their new spots when a tab is added, closed, or the strip
+  // repacks (Svelte's built-in FLIP). Disabled under reduced-motion so it snaps.
+  const prefersReducedMotion =
+    typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const flipParams = { duration: prefersReducedMotion ? 0 : 280 };
 </script>
 
-{#snippet fullTab(s: AgentSession)}
-  <div class="tab" class:active={s.id === activeId} class:shown={paneIds.includes(s.id)}>
-    <button class="pick" onclick={() => onselect(s.id)}>
-      <span class="dot {sessionStatus(s.id)}"></span>
-      {s.agent.label}
-    </button>
-    <button
-      class="x"
-      aria-label="Close session"
-      data-tooltip="Close session"
-      onclick={() => onclose(s)}
-    ><Icon name="close" size={13} /></button>
-  </div>
+{#snippet tabInner(s: AgentSession)}
+  <button class="pick" onclick={() => onselect(s.id)}>
+    <span class="dot {sessionStatus(s.id)}"></span>
+    {s.agent.label}
+  </button>
+  <button
+    class="x"
+    aria-label="Close session"
+    data-tooltip="Close session"
+    onclick={() => onclose(s)}
+  ><Icon name="close" size={13} /></button>
 {/snippet}
 
 <nav class="tabs" aria-label="Agent sessions">
   <div bind:this={stripEl} class="tab-strip">
     {#each visibleSessions as s (s.id)}
-      {@render fullTab(s)}
+      <div
+        class="tab"
+        class:active={s.id === activeId}
+        class:shown={paneIds.includes(s.id)}
+        animate:flip={flipParams}
+      >
+        {@render tabInner(s)}
+      </div>
     {/each}
 
     {#each dotSessions as s (s.id)}
@@ -182,10 +194,13 @@
     {/if}
   </div>
 
-  <!-- Off-layout mirror: every tab at full width, purely for measuring. -->
+  <!-- Off-layout mirror: every tab at full width, purely for measuring. Keeps
+       the active/shown classes so the measured width matches the rendered pill. -->
   <span bind:this={measureEl} class="tab-measure" aria-hidden="true">
     {#each sessions as s (s.id)}
-      {@render fullTab(s)}
+      <div class="tab" class:active={s.id === activeId} class:shown={paneIds.includes(s.id)}>
+        {@render tabInner(s)}
+      </div>
     {/each}
   </span>
 
