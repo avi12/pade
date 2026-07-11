@@ -4,7 +4,9 @@
   import { ADD_SLOT, packTabs } from "@/lib/tabFit";
   import type { Agent, AgentSession } from "@/lib/types";
   import { flip } from "svelte/animate";
+  import { cubicOut } from "svelte/easing";
   import { SvelteMap } from "svelte/reactivity";
+  import type { TransitionConfig } from "svelte/transition";
 
   // The session tab strip: full pills for the sessions that fit, status dots
   // for the next few, a "+N" popover for the rest (packing in lib/tabFit), the
@@ -139,39 +141,37 @@
     }
   }
 
-  // Closing a visible tab: collapse just that pill (width + fade), then remove it
-  // so survivors flip-slide into the gap. Driven imperatively on the click — not
-  // an out-transition — so it only plays on a real close, never on a repack.
-  const closing = new Set<string>();
+  // Closing a tab removes the session synchronously; the pill's collapse is a
+  // Svelte out-transition. `closingIds` marks which pills left via a real close
+  // so the transition only animates those — a repack-driven exit snaps instantly.
+  let closingIds = $state(new Set<string>());
   function closeTab(session: AgentSession) {
-    const element = stripEl?.querySelector<HTMLElement>(
-      `[data-tab-id="${CSS.escape(session.id)}"]`
-    );
-    if (!element || prefersReducedMotion || closing.has(session.id)) {
-      onclose(session);
-      return;
+    closingIds = new Set(closingIds).add(session.id);
+    onclose(session);
+    // Prune the marker after the outro; purely housekeeping, not a close delay.
+    setTimeout(() => {
+      const next = new Set(closingIds);
+      next.delete(session.id);
+      closingIds = next;
+    }, 260);
+  }
+
+  // Collapse a closing pill (width + fade), pinning its height so the label
+  // reflow can't grow the row. Height/width are read once as the outro begins.
+  function collapse(node: HTMLElement, { id }: { id: string }): TransitionConfig {
+    if (prefersReducedMotion || !closingIds.has(id)) {
+      return { duration: 0 };
     }
 
-    closing.add(session.id);
-    const width = element.offsetWidth;
-    // Pin the height so the label reflowing as the pill narrows can't grow the
-    // row; overflow:hidden clips the content instead.
-    element.style.blockSize = `${element.offsetHeight}px`;
-    element.style.overflow = "hidden";
-    element.style.flexShrink = "0";
-    element.style.pointerEvents = "none";
-    element.style.inlineSize = `${width}px`;
-    element.style.transition =
-      "inline-size 240ms var(--ease), opacity 180ms var(--ease), margin-inline-start 240ms var(--ease)";
-    requestAnimationFrame(() => {
-      element.style.inlineSize = "0px";
-      element.style.opacity = "0";
-      element.style.marginInlineStart = "-6px";
-    });
-    setTimeout(() => {
-      closing.delete(session.id);
-      onclose(session);
-    }, 240);
+    const width = node.offsetWidth;
+    const height = node.offsetHeight;
+    return {
+      duration: 240,
+      easing: cubicOut,
+      css: t =>
+        `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +
+        `opacity: ${t}; margin-inline-start: ${(t - 1) * 6}px;`
+    };
   }
 </script>
 
@@ -195,8 +195,8 @@
         class="tab"
         class:active={s.id === activeId}
         class:shown={paneIds.includes(s.id)}
-        data-tab-id={s.id}
         animate:flip={flipParams}
+        out:collapse={{ id: s.id }}
       >
         {@render tabInner(s)}
       </div>
