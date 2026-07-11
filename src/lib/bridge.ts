@@ -125,6 +125,14 @@ export const pty = {
     rows: number;
   }) => run("pty_resize", { ...args }),
   kill: (id: string) => run("pty_kill", { id }),
+  /** The session's rolling, ANSI-stripped transcript tail. */
+  transcript: (id: string) => call("session_transcript", z.string(), { id }),
+  /** Ask the namer for a concise session name from its transcript (null until
+   *  there's enough conversation, or if nothing usable is produced). */
+  generateName: (args: {
+    id: string;
+    agent: string;
+  }) => call("session_generate_name", z.string().nullable(), { ...args }),
   onData: (callback: (id: string, data: string) => void) =>
     on("pty://data", PtyChunk, payload => callback(payload.id, payload.data)),
   onExit: (callback: (id: string) => void) =>

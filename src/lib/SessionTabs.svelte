@@ -1,11 +1,14 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
+  import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
   import { ADD_SLOT, packTabs } from "@/lib/tabFit";
   import type { Agent, AgentSession } from "@/lib/types";
+  import { parseInput, SessionName } from "@/lib/validate";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
-  import { SvelteMap } from "svelte/reactivity";
+  import { SvelteMap, SvelteSet } from "svelte/reactivity";
   import type { TransitionConfig } from "svelte/transition";
 
   // The session tab strip: full pills for the sessions that fit, status dots
@@ -144,12 +147,13 @@
   // Closing a tab removes the session synchronously; the pill's collapse is a
   // Svelte out-transition. `closingIds` marks which pills left via a real close
   // so the transition only animates those — a repack-driven exit snaps instantly.
-  let closingIds = $state(new Set<string>());
+  const closingIds = new SvelteSet<string>();
   // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
   // middle-click autoscroll). onmousedown suppresses the same on press.
   function onTabPointer(event: MouseEvent, session: AgentSession) {
     if (event.button === 1) {
       event.preventDefault();
+
       if (event.type === "auxclick") {
         closeTab(session);
       }
@@ -157,13 +161,11 @@
   }
 
   function closeTab(session: AgentSession) {
-    closingIds = new Set(closingIds).add(session.id);
+    closingIds.add(session.id);
     onclose(session);
     // Prune the marker after the outro; purely housekeeping, not a close delay.
     setTimeout(() => {
-      const next = new Set(closingIds);
-      next.delete(session.id);
-      closingIds = next;
+      closingIds.delete(session.id);
     }, 260);
   }
 
@@ -181,21 +183,91 @@
       easing: cubicOut,
       css: t =>
         `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +
-        `opacity: ${t}; margin-inline-start: ${(t - 1) * 6}px;`
+          `opacity: ${t}; margin-inline-start: ${(t - 1) * 6}px;`
     };
+  }
+
+  // ── Inline manual rename ────────────────────────────────────────────────────
+  let editingId = $state<string | null>(null);
+  let renameDraft = $state("");
+
+  function startRename(session: AgentSession) {
+    editingId = session.id;
+    renameDraft = sessionLabel(session.id) ?? session.agent.label;
+  }
+
+  function commitRename() {
+    if (editingId === null) {
+      return;
+    }
+
+    const label = parseInput({
+      schema: SessionName,
+      raw: renameDraft
+    });
+    if (label !== null) {
+      setSessionLabel({
+        id: editingId,
+        label
+      });
+    }
+
+    editingId = null;
+  }
+
+  function onRenameKey(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitRename();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      editingId = null;
+    }
+  }
+
+  // Focus + select the rename field the moment it mounts.
+  function focusOnMount(node: HTMLInputElement) {
+    node.focus();
+    node.select();
   }
 </script>
 
 {#snippet tabInner(s: AgentSession)}
-  <button
-    class="pick"
-    onclick={() => onselect(s.id)}
-    onmousedown={e => onTabPointer(e, s)}
-    onauxclick={e => onTabPointer(e, s)}
-  >
-    <span class="dot {sessionStatus(s.id)}"></span>
-    {s.agent.label}
-  </button>
+  {#if editingId === s.id}
+    <span class="rename">
+      <span class="dot {sessionStatus(s.id)}"></span>
+      <input
+        class="rename-input"
+        aria-label="Rename session"
+        onblur={commitRename}
+        oninput={event => (renameDraft = event.currentTarget.value)}
+        onkeydown={onRenameKey}
+        value={renameDraft}
+        use:focusOnMount
+      />
+    </span>
+  {:else}
+    <button
+      class="pick"
+      onauxclick={event => onTabPointer(event, s)}
+      onclick={() => onselect(s.id)}
+      ondblclick={() => startRename(s)}
+      onmousedown={event => onTabPointer(event, s)}
+    >
+      <span class="dot {sessionStatus(s.id)}"></span>
+      {sessionLabel(s.id) ?? s.agent.label}
+    </button>
+    <button
+      class="ai"
+      class:on={isNaming(s.id)}
+      aria-label="Auto-name this session with AI"
+      data-tooltip="AI name"
+      onclick={() => toggleNaming({
+        id: s.id,
+        agent: s.agent.command
+      })}
+    ><Icon name="sparkles" size={13} /></button>
+  {/if}
   <button
     class="x"
     aria-label="Close session"
@@ -211,8 +283,8 @@
         class="tab"
         class:active={s.id === activeId}
         class:shown={paneIds.includes(s.id)}
-        animate:flip={flipParams}
         out:collapse={{ id: s.id }}
+        animate:flip={flipParams}
       >
         {@render tabInner(s)}
       </div>
@@ -247,7 +319,7 @@
                 popovertargetaction="hide"
               >
                 <span class="dot {sessionStatus(s.id)}"></span>
-                <span class="more-label">{s.agent.label}</span>
+                <span class="more-label">{sessionLabel(s.id) ?? s.agent.label}</span>
               </button>
               <button
                 class="more-x"
@@ -417,6 +489,67 @@
       font-size: 12px;
       white-space: nowrap;
       cursor: pointer;
+    }
+
+    /* The ✦ AI-name toggle — hidden until the tab is hovered or active, and
+       pinned visible (primary) while auto-naming is on for the session. */
+    .ai {
+      display: inline-flex;
+      flex: none;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      block-size: 26px;
+      inline-size: 0;
+      border: none;
+      background: transparent;
+      color: var(--on-surface-variant);
+      opacity: 0%;
+      cursor: pointer;
+      transition:
+        inline-size 140ms var(--ease),
+        opacity 140ms var(--ease),
+        color 140ms var(--ease);
+
+      /* Revealed when the tab is hovered or active. */
+      .tab:hover &,
+      .tab.active & {
+        inline-size: 22px;
+        opacity: 85%;
+      }
+
+      &:hover {
+        color: var(--primary);
+        opacity: 100%;
+      }
+
+      /* Pinned visible while auto-naming is on for this session. */
+      &.on {
+        inline-size: 22px;
+        color: var(--primary);
+        opacity: 100%;
+      }
+    }
+
+    /* Inline rename field, sized like the label it replaces. */
+    .rename {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      padding-block: 6px;
+      padding-inline: 12px 4px;
+
+      .rename-input {
+        inline-size: 7.5rem;
+        min-inline-size: 0;
+        border: none;
+        background: transparent;
+        color: var(--on-surface);
+        outline: none;
+        font-family: var(--font-monospace);
+        font-weight: 700;
+        font-size: 12px;
+      }
     }
 
     /* Per-session status dot — mirrors the SessionBadge states. */

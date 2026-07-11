@@ -23,6 +23,9 @@ export const ProjectName = z
 /** A folder path the user typed or pasted. */
 export const FolderPath = z.string().trim().min(1).max(4096);
 
+/** A session tab's display name — a short single-line label. */
+export const SessionName = z.string().trim().min(1).max(60);
+
 /** An optional first prompt seeded to an agent — may be empty, but capped. */
 export const FirstPrompt = z.string().trim().max(10_000);
 

@@ -19,6 +19,8 @@
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
+  import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
+  import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
@@ -332,6 +334,8 @@
     sessions = sessions.filter(s => s.id !== session.id);
     paneIds = paneIds.filter(id => id !== session.id);
     dropSessionStatus(session.id);
+    dropSessionLabel(session.id);
+    dropNaming(session.id);
 
     if (activeId === session.id) {
       activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
