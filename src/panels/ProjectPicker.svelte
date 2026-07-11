@@ -13,6 +13,7 @@
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
   import { FirstPrompt, FolderPath, parseInput, ProjectName } from "@/lib/validate";
+  import "@/panels/picker/chrome.css";
   import { ask, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
@@ -889,35 +890,8 @@
     }
   }
 
-  /* Section eyebrows — uppercase micro-labels. */
-  h2 {
-    margin: 0;
-    color: var(--on-surface-variant);
-    font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-  }
-
-  section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .hint {
-    margin: 0;
-    color: var(--on-surface-variant);
-    font-size: 13px;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    overflow: hidden;
-    block-size: 1px;
-    inline-size: 1px;
-    clip-path: inset(50%);
-  }
+  /* Shared page chrome (eyebrows, base fields/buttons, rows, kebab menus) lives
+     in picker/chrome.css so the section components share one copy. */
 
   /* ── Start something new — responsive 2-up: temp card + create form. ── */
   .new-grid {
@@ -998,15 +972,6 @@
   .np-optional {
     font-weight: 400;
     opacity: 75%;
-  }
-
-  /* Inline validation message — the schema's own reason a name was rejected. */
-  .field-error {
-    display: block;
-    margin-block-start: 6px;
-    color: var(--critical);
-    font-size: 12px;
-    line-height: 1.4;
   }
 
   /* In the rename row, the error sits on its own full-width line below the field
@@ -1236,18 +1201,6 @@
     list-style: none;
   }
 
-  .row {
-    position: relative;
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-
-  .row > button:first-child {
-    flex: 1;
-    min-inline-size: 0;
-  }
-
   /* Recent row — pill button, mono name, truncating path; fills on hover. */
   .recent-item {
     display: flex;
@@ -1362,96 +1315,6 @@
         background: var(--surface-3);
         filter: none;
       }
-    }
-  }
-
-  /* Trailing kebab — a subtle pill circle that fills on hover. */
-  .kebab {
-    display: inline-flex;
-    flex: none;
-    justify-content: center;
-    align-items: center;
-    block-size: 30px;
-    inline-size: 30px;
-    margin-inline-start: auto;
-    padding: 0;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: background 150ms var(--ease);
-
-    &:hover {
-      background: var(--surface-2);
-      color: var(--on-surface);
-    }
-  }
-
-  /* Native popover menus — light-dismiss on outside click; the only place a
-     floating shadow is warranted. */
-  .menu {
-    position: absolute;
-    inset: auto;
-    overflow-y: auto;
-    max-block-size: min(70vh, 520px);
-    min-inline-size: 250px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
-    position-area: bottom span-left;
-
-    .mi {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
-
-      &:hover {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-
-      .mi-txt {
-        flex: 1;
-        min-inline-size: 0;
-      }
-    }
-
-    /* Uppercase section header inside the menu. */
-    .head {
-      padding-block: 6px 3px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-    }
-
-    .sep {
-      margin-block-start: 6px;
-      padding-block-start: 9px;
-      border-block-start: 1px solid var(--outline);
-    }
-
-    .danger:hover {
-      background: var(--critical-wash);
-      color: var(--critical);
     }
   }
 
@@ -1596,44 +1459,11 @@
     }
   }
 
-  input,
-  textarea {
-    padding: 10px 14px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    color: var(--on-surface);
-    font: inherit;
-    font-size: 14px;
-  }
-
   .addrow input {
     flex: 1;
     min-inline-size: 200px;
     font-family: var(--font-monospace);
     font-size: 13px;
-  }
-
-  button {
-    padding: 10px 18px;
-    border: none;
-    border-radius: var(--radius-medium);
-    background: var(--primary);
-    color: var(--on-primary);
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
-    transition: filter 150ms var(--ease);
-
-    &:hover {
-      filter: brightness(1.06);
-    }
-
-    &:disabled {
-      opacity: 50%;
-      filter: none;
-      cursor: default;
-    }
   }
 
   .browse {
@@ -1741,12 +1571,6 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-  }
-
-  .none {
-    color: var(--on-surface-variant);
-    list-style: none;
-    font-size: 13px;
   }
 
   /* ── Editor-rules engine — one tonal row per project kind, plus a dashed
@@ -1906,10 +1730,6 @@
         color: var(--primary);
       }
     }
-  }
-
-  .tick {
-    color: var(--primary);
   }
 
   .editor-empty {
