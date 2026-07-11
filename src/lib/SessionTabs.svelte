@@ -154,6 +154,9 @@
 
     closing.add(session.id);
     const width = element.offsetWidth;
+    // Pin the height so the label reflowing as the pill narrows can't grow the
+    // row; overflow:hidden clips the content instead.
+    element.style.blockSize = `${element.offsetHeight}px`;
     element.style.overflow = "hidden";
     element.style.flexShrink = "0";
     element.style.pointerEvents = "none";
@@ -396,6 +399,7 @@
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-size: 12px;
+      white-space: nowrap;
       cursor: pointer;
     }
 
