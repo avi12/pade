@@ -1,8 +1,8 @@
 <script lang="ts">
   import { os, vcs } from "@/lib/bridge";
-  import ColorText from "@/lib/ColorText.svelte";
+  import DiffPane from "@/lib/commitModal/DiffPane.svelte";
   import FileList from "@/lib/commitModal/FileList.svelte";
-  import { DiffKind, parseDiff } from "@/lib/diff";
+  import { parseDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
@@ -45,7 +45,6 @@
   const fileCountLabel = $derived(`${formatCount(commit.files.length)} file${commit.files.length === 1 ? "" : "s"}`);
   const commitUrl = $derived(remoteUrl ? `${remoteUrl}/commit/${commit.id}` : null);
   const paneName = $derived(selectedFile ? baseName(selectedFile.path) : "");
-  const diffAria = $derived(paneName ? `Diff for ${paneName}` : "Diff");
 
   async function loadDiff(path: string) {
     selectedPath = path;
@@ -176,38 +175,15 @@
   <div class="body">
     <FileList files={commit.files} onpick={path => void loadDiff(path)} {selectedPath} />
 
-    <div class="pane">
-      <div class="pane-bar">
-        <span class="pane-path">{paneName}</span>
-        {#if isBigFile}
-          <span class="big-note">large file · diff omitted</span>
-        {/if}
-      </div>
-      <div id="commit-diff" class="diff" aria-label={diffAria} role="tabpanel" tabindex="0">
-        {#if loading}
-          <p class="state">Loading diff…</p>
-        {:else if loadFailed}
-          <p class="state">Couldn't load this diff</p>
-        {:else if isBigFile}
-          <div class="omit">
-            <span class="omit-text">
-              This file is too large to render inline. The rest of the diff is available on GitHub.
-            </span>
-            <button class="omit-btn" disabled={!commitUrl} onclick={openOnGithub}>
-              <Icon name="github" size={14} /> View full diff
-            </button>
-          </div>
-        {:else}
-          <pre class="unified">{#each diffLines as line, i (i)}<code
-              class="dl"
-              class:add={line.kind === DiffKind.add}
-              class:del={line.kind === DiffKind.del}
-              class:metaline={line.kind === DiffKind.meta}
-            ><ColorText text={line.text} />
-</code>{/each}</pre>
-        {/if}
-      </div>
-    </div>
+    <DiffPane
+      name={paneName}
+      {commitUrl}
+      {diffLines}
+      {isBigFile}
+      {loadFailed}
+      {loading}
+      onopengithub={openOnGithub}
+    />
   </div>
 </dialog>
 
@@ -392,135 +368,6 @@
     min-block-size: 0;
   }
 
-  /* The changed-files tablist lives in commitModal/FileList.svelte. */
-
-  .pane {
-    display: flex;
-    flex-direction: column;
-    min-block-size: 0;
-    background: var(--code-background);
-  }
-
-  .pane-bar {
-    display: flex;
-    flex: none;
-    gap: 8px;
-    align-items: center;
-    padding-block: 9px;
-    padding-inline: 14px;
-    border-block-end: 1px solid var(--outline);
-    background: var(--surface-2);
-
-    .pane-path {
-      flex: 1;
-      overflow: hidden;
-      min-inline-size: 0;
-      color: var(--on-surface);
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 12px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .big-note {
-      flex: none;
-      padding-block: 3px;
-      padding-inline: 9px;
-      border-radius: 999px;
-      background: var(--warning-wash);
-      color: var(--warning);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-  }
-
-  .diff {
-    flex: 1;
-    overflow: auto;
-    min-block-size: 0;
-    padding-block: 10px 0;
-    line-height: 1.55;
-  }
-
-  .state {
-    margin: 0;
-    padding: 14px;
-    color: var(--on-surface-variant);
-    font-size: 12px;
-  }
-
-  .unified {
-    margin: 0;
-    font-family: var(--font-monospace);
-    font-size: 12px;
-
-    .dl {
-      display: block;
-      padding-inline: 14px;
-      color: var(--code-foreground);
-      white-space: pre;
-    }
-
-    .dl.add {
-      background: var(--tertiary-wash);
-    }
-
-    .dl.del {
-      background: var(--critical-wash);
-    }
-
-    .dl.metaline {
-      color: var(--on-surface-variant);
-    }
-  }
-
-  .omit {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    margin-block: 12px 4px;
-    margin-inline: 14px;
-    padding: 14px;
-    border: 1px dashed var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-1);
-
-    .omit-text {
-      flex: 1;
-      color: var(--on-surface-variant);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .omit-btn {
-      display: inline-flex;
-      flex: none;
-      gap: 7px;
-      align-items: center;
-      padding-block: 8px;
-      padding-inline: 15px;
-      border: none;
-      border-radius: 999px;
-      background: var(--primary);
-      color: var(--on-primary);
-      font: inherit;
-      font-weight: 700;
-      font-size: 12px;
-      cursor: pointer;
-      transition: filter 120ms var(--ease);
-
-      &:hover:not(:disabled) {
-        filter: brightness(1.06);
-      }
-
-      &:disabled {
-        opacity: 55%;
-        cursor: default;
-      }
-    }
-  }
+  /* The changed-files tablist lives in commitModal/FileList.svelte; the diff
+     pane (path bar + states + unified diff) in commitModal/DiffPane.svelte. */
 </style>
