@@ -145,6 +145,17 @@
   // Svelte out-transition. `closingIds` marks which pills left via a real close
   // so the transition only animates those — a repack-driven exit snaps instantly.
   let closingIds = $state(new Set<string>());
+  // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
+  // middle-click autoscroll). onmousedown suppresses the same on press.
+  function onTabPointer(event: MouseEvent, session: AgentSession) {
+    if (event.button === 1) {
+      event.preventDefault();
+      if (event.type === "auxclick") {
+        closeTab(session);
+      }
+    }
+  }
+
   function closeTab(session: AgentSession) {
     closingIds = new Set(closingIds).add(session.id);
     onclose(session);
@@ -176,7 +187,12 @@
 </script>
 
 {#snippet tabInner(s: AgentSession)}
-  <button class="pick" onclick={() => onselect(s.id)}>
+  <button
+    class="pick"
+    onclick={() => onselect(s.id)}
+    onmousedown={e => onTabPointer(e, s)}
+    onauxclick={e => onTabPointer(e, s)}
+  >
     <span class="dot {sessionStatus(s.id)}"></span>
     {s.agent.label}
   </button>
