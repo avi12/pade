@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
-  import { packTabs } from "@/lib/tabFit";
+  import { ADD_SLOT, packTabs } from "@/lib/tabFit";
   import type { Agent, AgentSession } from "@/lib/types";
   import { flip } from "svelte/animate";
   import { SvelteMap } from "svelte/reactivity";
@@ -99,7 +99,8 @@
     packTabs({
       ids: sessions.map(s => s.id),
       widthOf: id => tabWidths.get(id) ?? 0,
-      stripWidth
+      // Reserve the trailing add button's slot so tabs never sit under it.
+      stripWidth: Math.max(0, stripWidth - ADD_SLOT)
     })
   );
 
@@ -122,6 +123,21 @@
   const prefersReducedMotion =
     typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const flipParams = { duration: prefersReducedMotion ? 0 : 280 };
+
+  // The last tab's agent — a plain "+" click launches another of the same kind;
+  // Ctrl/Cmd-click opens the full launch menu instead.
+  const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
+
+  function onAddClick(event: MouseEvent) {
+    if (event.ctrlKey || event.metaKey) {
+      document.getElementById("add-menu")?.togglePopover();
+      return;
+    }
+
+    if (lastAgent) {
+      onlaunch(lastAgent);
+    }
+  }
 </script>
 
 {#snippet tabInner(s: AgentSession)}
@@ -192,6 +208,36 @@
         </ul>
       </span>
     {/if}
+
+    <button
+      style:anchor-name="--add-anchor"
+      class="add-btn"
+      aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
+      data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click for options`}
+      onclick={onAddClick}
+    >+</button>
+    <ul id="add-menu" style:position-anchor="--add-anchor" class="menu" popover>
+      <li class="menu-sep">Launch an agent</li>
+      {#each agents as a (a.id)}
+        <li>
+          <button onclick={() => onlaunch(a)} popovertarget="add-menu" popovertargetaction="hide">
+            {a.label}
+          </button>
+        </li>
+      {/each}
+      {#if branches.length > 0}
+        <li class="menu-sep">On a branch — new worktree</li>
+        {#each branches as b (b)}
+          <li>
+            <button
+              onclick={async () => await onlaunchbranch(b)}
+              popovertarget="add-menu"
+              popovertargetaction="hide"
+            ><Icon name="git" /> {b}</button>
+          </li>
+        {/each}
+      {/if}
+    </ul>
   </div>
 
   <!-- Off-layout mirror: every tab at full width, purely for measuring. Keeps
@@ -203,36 +249,6 @@
       </div>
     {/each}
   </span>
-
-  <button
-    style:anchor-name="--add-anchor"
-    class="add-btn"
-    aria-label="Add an agent"
-    data-tooltip="Add an agent"
-    popovertarget="add-menu"
-  >+</button>
-  <ul id="add-menu" style:position-anchor="--add-anchor" class="menu" popover>
-    <li class="menu-sep">Launch an agent</li>
-    {#each agents as a (a.id)}
-      <li>
-        <button onclick={() => onlaunch(a)} popovertarget="add-menu" popovertargetaction="hide">
-          {a.label}
-        </button>
-      </li>
-    {/each}
-    {#if branches.length > 0}
-      <li class="menu-sep">On a branch — new worktree</li>
-      {#each branches as b (b)}
-        <li>
-          <button
-            onclick={async () => await onlaunchbranch(b)}
-            popovertarget="add-menu"
-            popovertargetaction="hide"
-          ><Icon name="git" /> {b}</button>
-        </li>
-      {/each}
-    {/if}
-  </ul>
 </nav>
 
 <style>
@@ -398,6 +414,7 @@
 
   .add-btn {
     display: grid;
+    flex: none;
     place-items: center;
     block-size: 30px;
     inline-size: 30px;
