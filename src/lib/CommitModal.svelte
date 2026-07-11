@@ -1,13 +1,14 @@
 <script lang="ts">
   import { os, vcs } from "@/lib/bridge";
   import ColorText from "@/lib/ColorText.svelte";
+  import FileList from "@/lib/commitModal/FileList.svelte";
   import { DiffKind, parseDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { VcsKind } from "@/lib/types";
+  import { baseName } from "@/lib/paths";
   import type { CommitDetail, CommitFileEntry } from "@/lib/types";
-  import { tick, untrack } from "svelte";
+  import { untrack } from "svelte";
 
   const { commit, remoteUrl, onclose }: {
     commit: CommitDetail;
@@ -15,15 +16,6 @@
     remoteUrl: string | null;
     onclose: () => void;
   } = $props();
-
-  // A one-letter kind badge with its own tint — reuse the panel's status colors.
-  const KIND_BADGE: Record<VcsKind, string> = {
-    [VcsKind.enum.created]: "A",
-    [VcsKind.enum.untracked]: "A",
-    [VcsKind.enum.modified]: "M",
-    [VcsKind.enum.renamed]: "R",
-    [VcsKind.enum.deleted]: "D"
-  };
 
   // Selected file within the commit; seeded to the first file so its tab is
   // selected and focusable from the first render, before the diff loads.
@@ -52,15 +44,8 @@
 
   const fileCountLabel = $derived(`${formatCount(commit.files.length)} file${commit.files.length === 1 ? "" : "s"}`);
   const commitUrl = $derived(remoteUrl ? `${remoteUrl}/commit/${commit.id}` : null);
-  const paneName = $derived(selectedFile ? fileName(selectedFile.path) : "");
+  const paneName = $derived(selectedFile ? baseName(selectedFile.path) : "");
   const diffAria = $derived(paneName ? `Diff for ${paneName}` : "Diff");
-
-  function fileName(path: string) {
-    return path.split(/[\\/]/).pop() ?? path;
-  }
-  function badge(kind: VcsKind): string {
-    return KIND_BADGE[kind];
-  }
 
   async function loadDiff(path: string) {
     selectedPath = path;
@@ -128,42 +113,6 @@
     }
   }
 
-  // Arrow-key navigation across the vertical file tablist (roving tabindex).
-  function onTabListKey(event: KeyboardEvent) {
-    const isVertical = event.key === "ArrowDown" || event.key === "ArrowUp";
-    const isEdge = event.key === "Home" || event.key === "End";
-    if (!isVertical && !isEdge) {
-      return;
-    }
-
-    event.preventDefault();
-    const count = commit.files.length;
-    if (count === 0) {
-      return;
-    }
-
-    const current = commit.files.findIndex(file => file.path === selectedPath);
-    let next = current;
-    if (event.key === "ArrowDown") {
-      next = (current + 1) % count;
-    } else if (event.key === "ArrowUp") {
-      next = (current - 1 + count) % count;
-    } else if (event.key === "Home") {
-      next = 0;
-    } else {
-      next = count - 1;
-    }
-
-    const target = commit.files[next];
-    void loadDiff(target.path);
-    void focusTab(target.path);
-  }
-
-  async function focusTab(path: string) {
-    await tick();
-    dialogEl?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"]`)?.focus();
-  }
-
   // Open the modal on the top layer and kick off the first file's diff. Guard
   // against re-opening an already-open dialog (showModal() throws otherwise).
   $effect(() => {
@@ -225,45 +174,7 @@
   </header>
 
   <div class="body">
-    <nav class="files" aria-label="Changed files">
-      <h3 id="commit-files-label" class="files-eyebrow">Files</h3>
-      <ul
-        aria-labelledby="commit-files-label"
-        aria-orientation="vertical"
-        onkeydown={onTabListKey}
-        role="tablist"
-      >
-        {#each commit.files as f (f.path)}
-          {@const isSel = f.path === selectedPath}
-          <li role="presentation">
-            <button
-              class="file {f.kind}"
-              class:sel={isSel}
-              aria-controls="commit-diff"
-              aria-label="{fileName(f.path)}, {f.kind}, +{formatCount(f.additions)} −{formatCount(f.deletions)}"
-              aria-selected={isSel}
-              data-file={f.path}
-              onclick={() => void loadDiff(f.path)}
-              role="tab"
-              tabindex={isSel ? 0 : -1}
-            >
-              <span class="file-top">
-                <span class="kind" aria-hidden="true">{badge(f.kind)}</span>
-                <span class="fname">{fileName(f.path)}</span>
-              </span>
-              <span class="file-stat" aria-hidden="true">
-                {#if f.additions}
-                  <span class="add">+{formatCount(f.additions)}</span>
-                {/if}
-                {#if f.deletions}
-                  <span class="del">−{formatCount(f.deletions)}</span>
-                {/if}
-              </span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-    </nav>
+    <FileList files={commit.files} onpick={path => void loadDiff(path)} {selectedPath} />
 
     <div class="pane">
       <div class="pane-bar">
@@ -481,121 +392,7 @@
     min-block-size: 0;
   }
 
-  .files {
-    overflow-y: auto;
-    min-block-size: 0;
-    padding: 8px;
-    border-inline-end: 1px solid var(--outline);
-    background: var(--surface);
-
-    .files-eyebrow {
-      margin: 0;
-      padding-block: 6px 4px;
-      padding-inline: 8px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    ul {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-  }
-
-  .file {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    inline-size: 100%;
-    padding-block: 7px;
-    padding-inline: 9px;
-    border: none;
-    border-radius: 9px;
-    background: transparent;
-    color: var(--on-surface);
-    text-align: start;
-    cursor: pointer;
-    transition: background 120ms var(--ease);
-
-    &:hover {
-      background: var(--surface-2);
-    }
-
-    &.sel {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
-
-    .file-top {
-      display: flex;
-      gap: 7px;
-      align-items: center;
-      min-inline-size: 0;
-    }
-
-    /* Per-kind tint on the one-letter badge — mirrors the panel status squares. */
-    .kind {
-      flex: none;
-      padding-block: 1px;
-      padding-inline: 5px;
-      border-radius: 5px;
-      font-family: var(--font-monospace);
-      font-weight: 700;
-      font-size: 10px;
-    }
-
-    &.created .kind,
-    &.untracked .kind {
-      background: var(--tertiary-wash);
-      color: var(--tertiary);
-    }
-
-    &.modified .kind,
-    &.renamed .kind {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
-
-    &.deleted .kind {
-      background: var(--critical-wash);
-      color: var(--critical);
-    }
-
-    .fname {
-      flex: 1;
-      overflow: hidden;
-      min-inline-size: 0;
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 12px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .file-stat {
-      display: flex;
-      gap: 8px;
-      padding-inline-start: 2px;
-      font-weight: 600;
-      font-size: 10px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .add {
-      color: var(--tertiary);
-    }
-
-    .del {
-      color: var(--critical);
-    }
-  }
+  /* The changed-files tablist lives in commitModal/FileList.svelte. */
 
   .pane {
     display: flex;
