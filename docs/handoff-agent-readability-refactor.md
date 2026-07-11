@@ -1,5 +1,24 @@
 # Handoff — refactor for agent-first (and human) maintainability
 
+> **Status (2026-07-11): steps 1–5 landed** as 17 behaviour-preserving
+> commits; step 6 remains optional follow-up.
+>
+> - Tests: vitest + cargo test wired (`pnpm test`), 85 JS + 23 Rust tests over
+>   the pure modules.
+> - `App.svelte` 1756 → 903 lines: tab packing → `lib/tabFit.ts`, auto-handoff
+>   → `lib/stores/handoff.svelte.ts`, relocate → `lib/workspaceRelocate.ts`,
+>   toast → `lib/stores/toast.svelte.ts`, send-shortcut → `lib/sendShortcut.ts`,
+>   auto-naming → `lib/autoName.ts`, tab strip → `lib/SessionTabs.svelte`.
+> - `ProjectPicker.svelte` 1918 → 210 lines: six section components +
+>   `RowMenu` + `lifecycle.svelte.ts` + shared `chrome.css` under
+>   `src/panels/picker/`.
+> - `ARCHITECTURE.md` added (module → responsibility map).
+> - Deviation from step 3: no `TopBar.svelte` wrapper — once the tab strip left,
+>   the header was ~30 lines of wiring, and a wrapper would only add ~17
+>   pass-through props. App.svelte *is* the orchestrator.
+> - Still open (step 6): decompose `VcsPanel.svelte` (818), `CommitModal.svelte`
+>   (729), `vcs.rs` (700).
+
 **Goal (from the user):** make the codebase *readable and maintainable primarily
 by agents, but also accessible to humans.* This is a fresh-session task — audit,
 agree a plan with the user, then land it as small, verifiable commits.
