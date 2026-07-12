@@ -141,7 +141,6 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
 
     builder
         .min_inner_size(720.0, 480.0)
-        .transparent(true)
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())
