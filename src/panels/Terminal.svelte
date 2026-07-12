@@ -37,9 +37,23 @@
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let fitTimer: ReturnType<typeof setTimeout> | undefined;
   const IDLE_MS = 700;
+  // A resize makes the agent repaint; output within this window after one is
+  // treated as that repaint's echo, not fresh activity — so revealing a hidden
+  // pane (which refits it) can't flash the badge from "ready" to "working".
+  const RESIZE_SETTLE_MS = 400;
+  let lastResizeAt = 0;
 
   function markActivity() {
     if (status === SessionStatus.enum.exited) {
+      return;
+    }
+
+    // Ignore the agent's own resize-repaint: it isn't the agent working, so a
+    // settled "ready" session shouldn't blink to "working" when its pane is
+    // revealed and refitted. Real work arrives outside the settle window.
+    const isResizeEcho =
+      status === SessionStatus.enum.ready && Date.now() - lastResizeAt < RESIZE_SETTLE_MS;
+    if (isResizeEcho) {
       return;
     }
 
@@ -154,12 +168,16 @@
       data
     }));
 
-    // Keep the PTY's window size in sync with the visible grid.
-    term.onResize(({ cols, rows }) => void pty.resize({
-      id: session.id,
-      cols,
-      rows
-    }));
+    // Keep the PTY's window size in sync with the visible grid. Stamp the time
+    // so the repaint the agent sends back isn't counted as activity (markActivity).
+    term.onResize(({ cols, rows }) => {
+      lastResizeAt = Date.now();
+      void pty.resize({
+        id: session.id,
+        cols,
+        rows
+      });
+    });
 
     // Debounce fit(): reflowing xterm is expensive, and a burst of resize
     // events (e.g. dragging across monitors with different DPI) would otherwise
