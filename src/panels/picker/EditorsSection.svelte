@@ -1,5 +1,9 @@
 <script lang="ts">
+  import Icon from "@/lib/Icon.svelte";
+  import { showToast } from "@/lib/stores/toast.svelte";
   import type { Ide, Prefs } from "@/lib/types";
+  import { FolderPath, parseInput } from "@/lib/validate";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
   // Editor-rules engine — fixed, priority-ordered project kinds. A rule maps a
   // kind to an editor id; unmatched folders use the fallback. One row per kind.
@@ -11,7 +15,8 @@
     currentKind,
     prefs,
     onrule,
-    onfallback
+    onfallback,
+    onaddeditor
   }: {
     ides: Ide[];
     /** Primary detected kind of the current dir — tags "this project"'s row. */
@@ -22,7 +27,80 @@
       editorId: string;
     }) => void;
     onfallback: (editorId: string) => void;
+    /** Add an editor by executable path — resolves to its label or a rejection. */
+    onaddeditor: (path: string) => Promise<{
+      label: string;
+    } | {
+      error: string;
+    }>;
   } = $props();
+
+  // "Add editor…" flow — reveal an inline path field, validate & persist the
+  // executable through the backend, and surface an ok/error status line.
+  let adding = $state(false);
+  let draft = $state("");
+  let status = $state<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
+
+  function startAdd() {
+    adding = true;
+    draft = "";
+    status = null;
+  }
+  function cancelAdd() {
+    adding = false;
+    draft = "";
+    status = null;
+  }
+  function onDraft() {
+    // Clear a stale message the moment the user edits the path.
+    status = null;
+  }
+
+  async function browse() {
+    const picked = await openDialog({
+      multiple: false,
+      title: "Locate an editor’s executable"
+    });
+    if (typeof picked === "string") {
+      draft = picked;
+      status = null;
+    }
+  }
+
+  async function confirmAdd() {
+    // The path is a trust boundary — trim/length-cap it before it leaves the UI.
+    const path = parseInput({
+      schema: FolderPath,
+      raw: draft
+    });
+    if (path === null) {
+      status = {
+        kind: "err",
+        text: "Enter the full path to an editor executable."
+      };
+      return;
+    }
+
+    const result = await onaddeditor(path);
+    if ("error" in result) {
+      status = {
+        kind: "err",
+        text: result.error
+      };
+      return;
+    }
+
+    status = {
+      kind: "ok",
+      text: `${result.label} added.`
+    };
+    showToast(`${result.label} added`);
+    adding = false;
+    draft = "";
+  }
 
   const EDITOR_KINDS = [
     {
@@ -166,6 +244,60 @@
       })}
     </li>
   </ul>
+
+  <!-- Locate an editor PADE didn't auto-detect on PATH. -->
+  <div class="ed-add">
+    <div class="ed-add-head">
+      <span class="ed-add-ico" aria-hidden="true"><Icon name="monitor" /></span>
+      <span class="ed-add-copy">
+        <strong>Using an editor that isn’t listed?</strong>
+        <small>
+          PADE lists the editors it found automatically. Point it at any other
+          editor’s executable and it’ll appear in the menus above.
+        </small>
+      </span>
+      {#if !adding}
+        <button class="ed-add-btn" onclick={startAdd} type="button">
+          <Icon name="plus" /> <span>Add editor…</span>
+        </button>
+      {/if}
+    </div>
+
+    {#if adding}
+      <form
+        class="ed-add-form" onsubmit={event => {
+          event.preventDefault(); confirmAdd();
+        }}>
+        <div class="ed-locate">
+          <span class="ed-locate-ico" aria-hidden="true"><Icon name="folder" /></span>
+          <label class="visually-hidden" for="ed-locate-input">Path to editor executable</label>
+          <input
+            id="ed-locate-input"
+            class="ed-locate-input"
+            autocomplete="off"
+            oninput={onDraft}
+            placeholder="C:\path\to\editor.exe"
+            spellcheck="false"
+            bind:value={draft}
+          />
+          <button class="ed-browse" onclick={browse} type="button">Browse…</button>
+        </div>
+        <div class="ed-add-actions">
+          <button class="ed-confirm" type="submit">Add</button>
+          <button class="ed-cancel" onclick={cancelAdd} type="button">Cancel</button>
+        </div>
+      </form>
+    {/if}
+
+    {#if status}
+      <output class="ed-status" class:err={status.kind === "err"}>
+        <span class="ed-status-ico" aria-hidden="true">
+          <Icon name={status.kind === "ok" ? "check" : "alert"} size={14} />
+        </span>
+        <span>{status.text}</span>
+      </output>
+    {/if}
+  </div>
 </section>
 
 <style>
@@ -330,5 +462,194 @@
 
   .editor-empty {
     padding: 8px 10px;
+  }
+
+  /* ── "Add editor…" — locate an editor PADE didn't find on PATH. ── */
+  .ed-add {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-1);
+  }
+
+  .ed-add-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ed-add-ico {
+    display: inline-flex;
+    flex: none;
+    color: var(--primary);
+  }
+
+  .ed-add-copy {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+
+    strong {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    small {
+      color: var(--on-surface-variant);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  }
+
+  /* Reveal button — tonal surface-3 pill that fills primary-container on hover. */
+  .ed-add-btn {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+    padding: 7px 12px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: var(--surface-3);
+    color: var(--on-surface);
+    font: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
+
+    &:hover {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+  }
+
+  .ed-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Path field — mono input with a folder lead and a ghost Browse…, primary edge. */
+  .ed-locate {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding-block: 3px;
+    padding-inline: 10px 3px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-medium);
+    background: var(--surface-2);
+
+    .ed-locate-ico {
+      display: inline-flex;
+      flex: none;
+      color: var(--on-surface-variant);
+    }
+  }
+
+  .ed-locate-input {
+    flex: 1;
+    min-inline-size: 0;
+    padding: 6px 4px;
+    border: none;
+    background: transparent;
+    color: var(--on-surface);
+    font-family: var(--font-monospace);
+    font-size: 13px;
+  }
+
+  .ed-browse {
+    flex: none;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: var(--on-surface-variant);
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+      color: var(--on-surface);
+    }
+  }
+
+  .ed-add-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .ed-confirm {
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: var(--primary);
+    color: var(--on-primary);
+    font: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition: filter 150ms var(--ease);
+
+    &:hover {
+      filter: brightness(1.06);
+    }
+  }
+
+  .ed-cancel {
+    padding: 8px 14px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: var(--on-surface-variant);
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+    }
+  }
+
+  /* Inline result — tertiary wash on success, crit wash on rejection. */
+  .ed-status {
+    display: flex;
+    gap: 7px;
+    align-items: flex-start;
+    padding: 7px 9px;
+    border-radius: var(--radius-small);
+    background: var(--tertiary-wash);
+    color: var(--tertiary);
+    font-size: 11px;
+    line-height: 1.45;
+    animation: line-in 180ms var(--ease);
+
+    &.err {
+      background: var(--critical-wash);
+      color: var(--critical);
+    }
+
+    .ed-status-ico {
+      display: inline-flex;
+      flex: none;
+      margin-block-start: 1px;
+    }
   }
 </style>

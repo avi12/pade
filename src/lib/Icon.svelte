@@ -45,6 +45,15 @@
     plus: {
       path: "M12 5v14 M5 12h14"
     },
+    check: {
+      path: "M20 6 9 17l-5-5"
+    },
+    alert: {
+      path: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"
+    },
+    monitor: {
+      path: "M3 4h18v12H3z M8 20h8 M12 16v4"
+    },
     close: {
       path: "M18 6 6 18 M6 6l12 12"
     },

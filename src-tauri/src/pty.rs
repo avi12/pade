@@ -125,6 +125,10 @@ fn build_command(command: Option<String>) -> CommandBuilder {
     CommandBuilder::new(program)
 }
 
+// A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
+// these are Tauri-injected (app, state), not caller-supplied — grouping them
+// would only obscure the IPC shape the frontend sends.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn pty_spawn(
     app: AppHandle,
@@ -134,6 +138,9 @@ pub fn pty_spawn(
     cwd: Option<String>,
     cols: u16,
     rows: u16,
+    // Extra arguments for `command` (e.g. the project path for a terminal
+    // editor). Empty/absent for a plain agent or shell session.
+    args: Option<Vec<String>>,
 ) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     if sessions.contains_key(&id) {
@@ -151,6 +158,9 @@ pub fn pty_spawn(
         .map_err(|e| e.to_string())?;
 
     let mut cmd = build_command(command);
+    for arg in args.unwrap_or_default() {
+        cmd.arg(arg);
+    }
     // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
     let dir = cwd
         .map(std::path::PathBuf::from)

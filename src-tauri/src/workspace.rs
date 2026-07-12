@@ -34,6 +34,19 @@ const MARKERS: &[&str] = &[
     "AGENTS.md",
 ];
 
+/// An editor the user located by executable path — first-class alongside the
+/// PATH-detected ones. `command` for launching is the absolute `path`.
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AddedEditor {
+    /// Stable, unique id in the merged editor list (e.g. `added-code`).
+    pub id: String,
+    /// Human label ("VS Code").
+    pub label: String,
+    /// Absolute path to the executable PADE launches.
+    pub path: String,
+}
+
 /// Appearance & editor preferences. All optional so the frontend can fall back
 /// to its own defaults; `None` means "unset, use the default".
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -56,6 +69,10 @@ pub struct Prefs {
     /// IDE id used when no `ide_rules` entry matches the project kind.
     #[serde(default)]
     pub ide_fallback: Option<String>,
+    /// Editors the user located by executable path (not auto-detected on PATH).
+    /// Merged into the detected editor list so they show up in every menu.
+    #[serde(default)]
+    pub added_editors: Vec<AddedEditor>,
     /// Auto-hand-off to a fresh agent near the context limit. Opt-out:
     /// `None`/`Some(true)` = on, `Some(false)` = disabled.
     #[serde(default)]
@@ -424,6 +441,15 @@ pub fn workspace_clear_recent() -> Result<Settings, String> {
     let mut settings = load();
     settings.recent_projects.clear();
     save(&settings)
+}
+
+/// Persist a user-added editor, de-duplicated by executable path (re-adding the
+/// same path is a no-op move-to-end). Returns the refreshed settings.
+pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
+    let mut s = load();
+    s.prefs.added_editors.retain(|e| e.path != editor.path);
+    s.prefs.added_editors.push(editor);
+    save(&s)
 }
 
 /// Replace appearance/editor preferences (frontend sends the full set).

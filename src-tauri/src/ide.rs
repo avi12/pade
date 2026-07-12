@@ -137,11 +137,126 @@ const PREFERENCES: &[(&str, &[&str])] = &[
 const GENERALISTS: &[&str] = &["vscode", "cursor", "zed", "sublime"];
 
 fn lookup(id: &str) -> Option<Ide> {
-    REGISTRY.iter().find(|i| i.id == id).map(|i| Ide {
-        id: i.id.into(),
-        label: i.label.into(),
-        command: i.command.into(),
+    if let Some(i) = REGISTRY.iter().find(|i| i.id == id) {
+        return Some(Ide {
+            id: i.id.into(),
+            label: i.label.into(),
+            command: i.command.into(),
+            terminal: false,
+        });
+    }
+    // User-added editors are first-class too — resolve them by their stored id.
+    added_editors().into_iter().find(|e| e.id == id)
+}
+
+/// A launchable editor family PADE recognises. Keyed off an executable's
+/// lowercased basename so the "Add editor…" flow and jump-to-line launching of
+/// an added editor share one authoritative table (DRY). `style` is `None` for
+/// editors with no line-jump CLI (the path is passed as-is); `protocol` is the
+/// `JetBrains` tool id for `JetBrains` IDEs. `terminal` marks console editors
+/// (Neovim, Vim, Helix) that PADE opens inside a terminal tab rather than
+/// spawning as a detached window.
+struct Family {
+    label: &'static str,
+    style: Option<OpenStyle>,
+    protocol: Option<&'static str>,
+    terminal: bool,
+}
+
+fn family(basename: &str) -> Option<Family> {
+    // (label, jump-to-line style, JetBrains protocol, runs-in-a-terminal)
+    let (label, style, protocol, terminal) = match basename {
+        "code" => ("VS Code", Some(OpenStyle::VsCode), None, false),
+        "code - insiders" => ("VS Code Insiders", Some(OpenStyle::VsCode), None, false),
+        "cursor" => ("Cursor", Some(OpenStyle::VsCode), None, false),
+        "zed" => ("Zed", Some(OpenStyle::PathColon), None, false),
+        "sublime_text" | "subl" => ("Sublime Text", Some(OpenStyle::PathColon), None, false),
+        "notepad++" => ("Notepad++", None, None, false),
+        "gvim" => ("GVim", None, None, false),
+        "nvim" => ("Neovim", None, None, true),
+        "vim" | "vi" => ("Vim", None, None, true),
+        "hx" => ("Helix", None, None, true),
+        "webstorm" | "webstorm64" => (
+            "WebStorm",
+            Some(OpenStyle::JetBrains),
+            Some("webstorm"),
+            false,
+        ),
+        "idea" | "idea64" => (
+            "IntelliJ IDEA",
+            Some(OpenStyle::JetBrains),
+            Some("idea"),
+            false,
+        ),
+        "pycharm" | "pycharm64" => (
+            "PyCharm",
+            Some(OpenStyle::JetBrains),
+            Some("pycharm"),
+            false,
+        ),
+        "goland" | "goland64" => ("GoLand", Some(OpenStyle::JetBrains), Some("goland"), false),
+        "rider" | "rider64" => ("Rider", Some(OpenStyle::JetBrains), Some("rider"), false),
+        "clion" | "clion64" => ("CLion", Some(OpenStyle::JetBrains), Some("clion"), false),
+        "phpstorm" | "phpstorm64" => (
+            "PhpStorm",
+            Some(OpenStyle::JetBrains),
+            Some("phpstorm"),
+            false,
+        ),
+        "rubymine" | "rubymine64" => (
+            "RubyMine",
+            Some(OpenStyle::JetBrains),
+            Some("rubymine"),
+            false,
+        ),
+        "rustrover" | "rustrover64" => (
+            "RustRover",
+            Some(OpenStyle::JetBrains),
+            Some("rustrover"),
+            false,
+        ),
+        _ => return None,
+    };
+    Some(Family {
+        label,
+        style,
+        protocol,
+        terminal,
     })
+}
+
+/// An executable path's lowercased basename with a known launcher extension
+/// stripped (`Code.exe` → `code`, `notepad++.exe` → `notepad++`).
+fn exe_basename(path: &str) -> String {
+    let file = path
+        .replace('\\', "/")
+        .rsplit('/')
+        .next()
+        .unwrap_or(path)
+        .to_lowercase();
+    for ext in [".exe", ".cmd", ".bat", ".sh", ".app"] {
+        if let Some(stripped) = file.strip_suffix(ext) {
+            return stripped.to_string();
+        }
+    }
+    file
+}
+
+/// The user-added editors as `Ide`s (command = the stored executable path). A
+/// console editor (Neovim, Vim, Helix) is flagged `terminal` so the UI opens it
+/// in a PADE terminal tab instead of spawning it as a detached window.
+fn added_editors() -> Vec<Ide> {
+    crate::workspace::load()
+        .prefs
+        .added_editors
+        .into_iter()
+        .map(|e| Ide {
+            terminal: family(&exe_basename(&e.path)).is_some_and(|f| f.terminal),
+            id: e.id,
+            label: e.label,
+            command: e.path,
+        })
+        .collect()
 }
 
 #[derive(Serialize)]
@@ -150,6 +265,8 @@ pub struct Ide {
     id: String,
     label: String,
     command: String,
+    /// A console editor PADE runs inside a terminal tab (never a detached window).
+    terminal: bool,
 }
 
 #[tauri::command]
@@ -161,8 +278,39 @@ pub fn ide_detect() -> Vec<Ide> {
             id: i.id.into(),
             label: i.label.into(),
             command: i.command.into(),
+            terminal: false,
         })
+        .chain(added_editors())
         .collect()
+}
+
+/// Add an editor by the full path to its executable. Validates the basename
+/// against the launchable families ({@link family}) — an unsupported executable
+/// (e.g. `WinRAR.exe`) is rejected with a message the UI shows inline. On
+/// success the editor is persisted and appears in every editor menu.
+#[tauri::command]
+pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String> {
+    let path = path.trim().to_string();
+    if path.is_empty() {
+        return Err("Enter the full path to an editor executable.".to_string());
+    }
+    let file = path
+        .replace('\\', "/")
+        .rsplit('/')
+        .next()
+        .unwrap_or(&path)
+        .to_string();
+    let Some(fam) = family(&exe_basename(&path)) else {
+        return Err(format!(
+            "\u{201c}{file}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
+             VS Code, Cursor, Zed, Sublime Text, Neovim and the JetBrains IDEs."
+        ));
+    };
+    crate::workspace::add_editor(crate::workspace::AddedEditor {
+        id: format!("added-{}", exe_basename(&path)),
+        label: fam.label.to_string(),
+        path,
+    })
 }
 
 /// Whether any direct child of `dir` has the given extension (case-insensitive).
@@ -227,8 +375,12 @@ pub fn ide_project_kind() -> Option<String> {
         .map(str::to_string)
 }
 
-/// An id is worth suggesting only if its launcher is actually installed.
+/// An id is worth suggesting only if it's actually launchable — a registry
+/// launcher on PATH, or a user-added editor (its stored path is the launcher).
 fn is_installed(id: &str) -> bool {
+    if id.starts_with("added-") {
+        return added_editors().iter().any(|e| e.id == id);
+    }
     lookup(id).is_some_and(|i| is_on_path(&i.command))
 }
 
@@ -270,11 +422,13 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
 }
 
 /// The jump-to-line style for a launcher command, or `None` for an unknown one.
+/// An added editor's command is its executable path, so fall back to matching
+/// the family by basename.
 fn open_style(command: &str) -> Option<OpenStyle> {
-    REGISTRY
-        .iter()
-        .find(|i| i.command == command)
-        .map(|i| i.style)
+    if let Some(i) = REGISTRY.iter().find(|i| i.command == command) {
+        return Some(i.style);
+    }
+    family(&exe_basename(command)).and_then(|f| f.style)
 }
 
 /// The launcher arguments for opening `target` — jumping to `line` when one is
@@ -310,8 +464,10 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
     let args = open_args(&command, target, line.filter(|_| has_path));
 
     // On Windows the JetBrains/VS Code launchers are .cmd shims, so go through
-    // the shell to resolve them the way a terminal would.
-    let spawn = if cfg!(windows) {
+    // the shell to resolve them the way a terminal would. An added editor's
+    // command is an absolute executable path, so spawn it directly instead.
+    let is_path = command.contains('/') || command.contains('\\');
+    let spawn = if cfg!(windows) && !is_path {
         Command::new("cmd")
             .arg("/C")
             .arg(&command)
@@ -328,10 +484,10 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
 /// The `JetBrains` protocol tool id for a launcher command, if it is a
 /// `JetBrains` IDE (else `None`, meaning "use the CLI").
 fn protocol_id(command: &str) -> Option<&'static str> {
-    REGISTRY
-        .iter()
-        .find(|i| i.command == command)
-        .and_then(|i| i.protocol)
+    if let Some(i) = REGISTRY.iter().find(|i| i.command == command) {
+        return i.protocol;
+    }
+    family(&exe_basename(command)).and_then(|f| f.protocol)
 }
 
 /// The project's display name — its root folder's basename, which is how the
@@ -400,7 +556,44 @@ pub fn ide_open_file(
 
 #[cfg(test)]
 mod tests {
-    use super::{open_args, project_name, relative_path};
+    use super::{
+        exe_basename, family, open_args, open_style, project_name, relative_path, OpenStyle,
+    };
+
+    #[test]
+    fn exe_basename_strips_extension_and_lowercases() {
+        assert_eq!(exe_basename("C:\\Program Files\\Code.exe"), "code");
+        assert_eq!(exe_basename("/usr/bin/nvim"), "nvim");
+        assert_eq!(exe_basename("notepad++.exe"), "notepad++");
+    }
+
+    #[test]
+    fn family_maps_a_jetbrains_editor_to_its_protocol() {
+        let webstorm = family("webstorm64").expect("supported");
+        assert!(matches!(webstorm.style, Some(OpenStyle::JetBrains)));
+        assert_eq!(webstorm.protocol, Some("webstorm"));
+    }
+
+    #[test]
+    fn family_rejects_a_non_editor_executable() {
+        assert!(family("winrar").is_none());
+    }
+
+    #[test]
+    fn console_editors_are_flagged_terminal_but_gui_ones_are_not() {
+        assert!(family("nvim").expect("supported").terminal);
+        assert!(family("vi").expect("supported").terminal);
+        assert!(!family("code").expect("supported").terminal);
+        assert!(!family("gvim").expect("supported").terminal);
+    }
+
+    #[test]
+    fn open_style_resolves_an_added_editor_by_its_path() {
+        assert!(matches!(
+            open_style("C:\\Users\\me\\AppData\\Local\\Programs\\cursor\\Cursor.exe"),
+            Some(OpenStyle::VsCode)
+        ));
+    }
 
     #[test]
     fn project_name_is_the_root_basename() {

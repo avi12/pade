@@ -26,7 +26,13 @@
   import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
-  import type { Agent, AgentSession, Settings, TaskGroup } from "@/lib/types";
+  import type {
+    Agent,
+    AgentSession,
+    Ide,
+    Settings,
+    TaskGroup
+  } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import { FolderPath, parseInput } from "@/lib/validate";
   import { createRelocator } from "@/lib/workspaceRelocate";
@@ -276,6 +282,8 @@
     initialPrompt?: string;
     cwd?: string;
     branch?: string;
+    /** Extra command args — the project path when running a terminal editor. */
+    args?: string[];
     /** Add alongside the current panes (split) instead of replacing them. */
     split?: boolean;
   }) {
@@ -284,13 +292,32 @@
       agent: opts.agent,
       initialPrompt: opts.initialPrompt,
       cwd: opts.cwd,
-      branch: opts.branch
+      branch: opts.branch,
+      args: opts.args
     };
     sessions.push(session);
     activeId = session.id;
     paneIds = opts.split ? [...paneIds, session.id] : [session.id];
     pendingPrompt = undefined;
     phase = Phase.ready;
+  }
+
+  // Open a console editor (Neovim/Vim/Helix) in its own terminal tab, split
+  // beside the agent so you can watch and edit at once. GUI editors go through
+  // the OS (ide.open); these need a real TTY, which only a PADE terminal gives.
+  function openEditorSession(editor: Ide) {
+    launch({
+      agent: {
+        id: `editor-${editor.id}`,
+        label: editor.label,
+        command: editor.command
+      },
+      // Inherit the active session's worktree, if any, else the project dir.
+      cwd: sessions.find(session => session.id === activeId)?.cwd,
+      // Open the working directory in the editor.
+      args: ["."],
+      split: true
+    });
   }
 
   // A tab click shows that session as the sole pane (classic single view).
@@ -520,7 +547,7 @@
 
           <UsageMeter />
           <DesignMenu agent={activeAgent} />
-          <IdeMenu />
+          <IdeMenu onterminaleditor={openEditorSession} />
 
           <div class="seg" aria-label="Side panels" role="tablist">
             {#each PANEL_TABS as tab (tab.id)}

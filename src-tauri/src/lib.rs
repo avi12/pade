@@ -43,6 +43,7 @@ pub fn run() {
             design::design_tools,
             design::design_open,
             ide::ide_detect,
+            ide::ide_add_editor,
             ide::ide_suggest,
             ide::ide_open,
             ide::ide_open_file,

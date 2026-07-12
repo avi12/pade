@@ -120,9 +120,20 @@ export type TaskGroup = z.infer<typeof TaskGroup>;
 export const Ide = z.object({
   id: z.string(),
   label: z.string(),
-  command: z.string()
+  command: z.string(),
+  /** A console editor (Neovim, Vim, Helix) PADE opens in a terminal tab rather
+   *  than launching as a detached window. */
+  terminal: z.boolean().default(false)
 });
 export type Ide = z.infer<typeof Ide>;
+
+/** An editor the user located by executable path (merged into detection). */
+export const AddedEditor = z.object({
+  id: z.string(),
+  label: z.string(),
+  path: z.string()
+});
+export type AddedEditor = z.infer<typeof AddedEditor>;
 
 /** An AI design/UI-generation tool, ranked for the active agent. */
 export const DesignTool = z.object({
@@ -234,6 +245,8 @@ export const Prefs = z.object({
   ideRules: z.record(z.string(), z.string()).nullish(),
   /** IDE id to open when no rule matches the project kind. */
   ideFallback: z.string().nullish(),
+  /** Editors the user located by executable path (merged into detection). */
+  addedEditors: z.array(AddedEditor).nullish(),
   /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless
    *  explicitly set to false. */
   autoHandoff: z.boolean().nullish()
@@ -296,4 +309,7 @@ export interface AgentSession {
   cwd?: string;
   /** Branch this session works, when spawned on a worktree. */
   branch?: string;
+  /** Extra args for the command — the project path when this session runs a
+   *  terminal editor (Neovim/Vim/Helix) instead of an agent. */
+  args?: string[];
 }

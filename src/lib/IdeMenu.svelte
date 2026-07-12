@@ -5,12 +5,27 @@
   import { onMount } from "svelte";
 
   // Opens the active project in an external editor. The list is ranked for the
-  // project type (suggest), so the best-fit IDE sits at the top.
+  // project type (suggest), so the best-fit IDE sits at the top. A console
+  // editor (Neovim/Vim/Helix) can't run detached — it's handed to the parent to
+  // open in a PADE terminal tab instead of through the OS.
+  const { onterminaleditor }: {
+    onterminaleditor: (editor: Ide) => void;
+  } = $props();
+
   let ides = $state<Ide[]>([]);
 
   onMount(async () => {
     ides = await ide.suggest();
   });
+
+  function open(editor: Ide) {
+    if (editor.terminal) {
+      onterminaleditor(editor);
+      return;
+    }
+
+    ide.open({ command: editor.command });
+  }
 </script>
 
 {#if ides.length}
@@ -21,7 +36,7 @@
     {#each ides as editor, index (editor.id)}
       <li>
         <button
-          onclick={() => ide.open({ command: editor.command })}
+          onclick={() => open(editor)}
           popovertarget="ide-menu"
           popovertargetaction="hide"
         >

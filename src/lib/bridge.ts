@@ -63,6 +63,9 @@ export const agents = {
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
   suggest: () => call("ide_suggest", z.array(Ide)),
+  /** Add an editor by its executable path. Rejects (throws the message) when the
+   *  executable isn't a supported editor; returns the refreshed settings. */
+  addEditor: (path: string) => call("ide_add_editor", Settings, { path }),
   /** Primary detected project kind of the current dir (e.g. "web"), or null. */
   projectKind: () => call("ide_project_kind", z.string().nullable()),
   open: (args: {
@@ -125,6 +128,8 @@ export const pty = {
     cwd: string | null;
     cols: number;
     rows: number;
+    /** Extra args for `command` — e.g. the project path for a terminal editor. */
+    args?: string[];
   }) =>
     run("pty_spawn", { ...args }),
   write: (args: {

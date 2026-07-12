@@ -70,6 +70,23 @@
       ideFallback: editorId
     });
   }
+  // Add an editor by executable path. The backend validates the executable and
+  // persists it; we refresh the detected list so it appears in every menu.
+  // Returns the new editor's label on success, or the rejection message.
+  async function addEditor(path: string): Promise<{
+    label: string;
+  } | {
+    error: string;
+  }> {
+    try {
+      settings = await ide.addEditor(path);
+      ides = await ide.detect();
+      const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
+      return { label: added?.label ?? "Editor" };
+    } catch (error) {
+      return { error: typeof error === "string" ? error : "Couldn’t add that editor." };
+    }
+  }
 
   async function refresh() {
     [settings, ides, currentKind] = await Promise.all([
@@ -169,6 +186,7 @@
     <EditorsSection
       {currentKind}
       {ides}
+      onaddeditor={addEditor}
       onfallback={setEditorFallback}
       onrule={setEditorRule}
       prefs={settings.prefs}

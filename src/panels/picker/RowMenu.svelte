@@ -19,6 +19,10 @@
 
   // Stable, valid popover id/anchor per row.
   const identifier = $derived(`menu-${scope}-${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`);
+
+  // The picker has no terminal, so it can only open a project in a GUI editor
+  // (a console editor needs a TTY — that's launched from the workspace instead).
+  const guiEditor = $derived(ides.find(editor => !editor.terminal));
 </script>
 
 <button
@@ -39,18 +43,18 @@
       <Icon name="terminal" /><span class="mi-txt">Open in Terminal</span>
     </button>
   </li>
-  {#if ides.length > 0}
+  {#if guiEditor}
     <li>
       <button
         class="mi"
         onclick={() => void ide.open({
-          command: ides[0].command,
+          command: guiEditor.command,
           path
         })}
         popovertarget={identifier}
         popovertargetaction="hide"
       >
-        <Icon name="code" /><span class="mi-txt">Open in {ides[0].label}</span>
+        <Icon name="code" /><span class="mi-txt">Open in {guiEditor.label}</span>
       </button>
     </li>
   {/if}

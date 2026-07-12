@@ -180,7 +180,8 @@
       command: session.agent.command,
       cwd: session.cwd ?? null,
       cols: term.cols,
-      rows: term.rows
+      rows: term.rows,
+      args: session.args
     });
 
     // Seed a new-project first prompt into the input (typed, not submitted —
