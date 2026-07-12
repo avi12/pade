@@ -9,6 +9,98 @@ Two layers, one boundary: the Svelte frontend never talks to Tauri directly —
 every IPC call funnels through `src/lib/bridge.ts`, and every payload shape
 lives in `src/lib/types.ts` as a zod schema.
 
+## How it works
+
+PADE wraps an AI coding-agent CLI (Claude Code, Codex, …) running **unmodified in
+a real terminal** and builds a comprehension-first GUI around it. The big idea:
+the agent writes; you stay the owner. So the screen is a live terminal on the
+left and glanceable review panels on the right.
+
+Under the hood there are just **two layers with one door between them**. The
+Svelte webview owns everything you see; the Rust core owns everything native
+(processes, the filesystem, git). They only ever speak through Tauri IPC, and on
+the frontend that traffic is squeezed through a single module — `bridge.ts` —
+which validates every payload with zod so bad data fails loudly at the boundary
+instead of corrupting a panel.
+
+```mermaid
+flowchart TB
+  subgraph FE["Frontend · Svelte 5 (webview)"]
+    App["App.svelte<br/>phase router + session panes"]
+    Panels["panels &amp; menus<br/>Terminal · ChangeFeed · Vcs · Tasks · Config"]
+    Bridge["bridge.ts<br/>the one IPC door · zod-validated"]
+  end
+  subgraph BE["Rust core · Tauri (native)"]
+    Cmds["#tauri::command handlers"]
+    Pty["pty.rs<br/>pseudo-terminals"]
+    Rest["vcs/ · watcher · workspace · ide · tasks …"]
+  end
+  OS["OS · git · agent CLIs · editors"]
+  App --> Panels --> Bridge
+  Bridge -->|"invoke() + events"| Cmds
+  Cmds --> Pty
+  Cmds --> Rest
+  Pty --> OS
+  Rest --> OS
+```
+
+### Screens are phases
+
+`App.svelte` is a small state machine. It boots into one of three full-window
+phases and never shows two at once.
+
+```mermaid
+stateDiagram-v2
+  [*] --> loading
+  loading --> ready: launched inside a project
+  loading --> onboarding: several agents installed
+  loading --> picker: no project (opt-in)
+  onboarding --> ready: agent chosen
+  picker --> ready: project opened
+```
+
+### A terminal session is the unit of work
+
+Each agent tab is a **session** — an id, the agent to run, and an optional
+worktree cwd. `Terminal.svelte` mounts an xterm.js instance per session and asks
+the core to spawn a PTY; bytes then stream both ways over Tauri events. All
+sessions stay mounted so scrollback survives tab switching.
+
+```mermaid
+sequenceDiagram
+  participant You
+  participant T as Terminal.svelte
+  participant B as bridge.pty
+  participant R as pty.rs (portable-pty)
+  You->>T: open a session
+  T->>B: spawn({ id, command, args, cwd })
+  B->>R: invoke pty_spawn
+  R-->>T: pty://data (stdout stream) → xterm renders
+  You->>T: keystrokes
+  T->>R: pty_write
+```
+
+### Opening a project in an editor
+
+"Open in editor" forks on **how the editor runs**. A GUI editor (VS Code,
+JetBrains, Zed…) is launched by the OS and detaches into its own window. A
+**console editor** (Neovim, Vim, Helix) needs a real TTY, which the OS spawn
+can't give it — so PADE opens it in a **new terminal tab** right beside the
+agent, reusing the very same PTY machinery sessions use. The `ide.rs` `family()`
+table is the single place that knows which editors are terminal-based, and it
+also drives add-an-editor validation and jump-to-line launching (DRY).
+
+```mermaid
+flowchart LR
+  Click["Open in &lt;editor&gt;"] --> Q{"terminal editor?"}
+  Q -->|"no · GUI"| OSopen["ide_open<br/>OS spawns a window"]
+  Q -->|"yes · Neovim / Vim / Helix"| Tab["new session tab<br/>pty_spawn(cmd, args=['.'])"]
+  Tab --> Beside["runs in a TTY, split beside the agent"]
+```
+
+Everything below is the module-by-module map: each file, its single
+responsibility, and who it collaborates with.
+
 ## Frontend — app shell
 
 | Module | Responsibility | Collaborators |
@@ -20,7 +112,7 @@ lives in `src/lib/types.ts` as a zod schema.
 | `src/lib/AppMenu.svelte` | Top-bar project menu: current dir, recents, switch/open/new-window | `bridge` |
 | `src/lib/UsageMeter.svelte` | Agent usage/quota pill in the top bar | `bridge.usage` |
 | `src/lib/DesignMenu.svelte` | Quick-launch menu for AI design tools | `bridge.design` |
-| `src/lib/IdeMenu.svelte` | Open the project in a detected IDE | `bridge.ide` |
+| `src/lib/IdeMenu.svelte` | Open the project in a detected IDE — GUI editors via the OS, console editors handed back to `App` for a terminal tab | `bridge.ide` |
 | `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent | `stores/runners` |
 | `src/lib/CommitModal.svelte` | Commit-dialog orchestrator: native `<dialog>` plumbing, header, selection + diff-load state machine | `commitModal/FileList`, `commitModal/DiffPane`, `bridge.vcs`, `diff` |
 | `src/lib/commitModal/FileList.svelte` | The commit's changed-files tablist: kind badges, stats, roving-tabindex keys | `paths` |
@@ -86,7 +178,7 @@ lives in `src/lib/types.ts` as a zod schema.
 | `OnLaunchSection.svelte` | Start-mode toggle, auto-name checkbox, Explorer context-menu toggle |
 | `RecentSection.svelte` | Recent rows with tags + inline-rename form |
 | `AgentsSection.svelte` | Default-agent chips with rescan/skeleton states |
-| `EditorsSection.svelte` | Editor-rules engine rows + popover editor selects |
+| `EditorsSection.svelte` | Editor-rules engine rows + popover selects + "Add editor…" by executable path (validated, inline status) |
 | `RootsSection.svelte` | Root folders: add/remove + detected projects per root |
 | `RowMenu.svelte` | Shared kebab popover: reveal actions + owned-workspace lifecycle entries |
 | `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots |
@@ -98,7 +190,7 @@ entry. Each concern is one module:
 
 | Module | Responsibility |
 | --- | --- |
-| `pty.rs` | PTY host — runs agent CLIs unmodified in pseudo-terminals (portable-pty) |
+| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty) |
 | `watcher.rs` | Filesystem watcher feeding the Change Feed (notify) |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
@@ -106,7 +198,7 @@ entry. Each concern is one module:
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
 | `agents.rs` | Agent registry + detection, one-shot headless invocations |
 | `usage.rs` | Agent usage / quota meter |
-| `ide.rs` | IDE detection, per-kind suggestion rules, open-at-line |
+| `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `family()` table also flags console editors that run in a terminal tab |
 | `tasks.rs` | Discover runnable tasks from project manifests |
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |

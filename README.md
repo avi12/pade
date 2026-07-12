@@ -18,7 +18,9 @@ This is step 1–2 of the roadmap:
 
 - ✅ Native window (Tauri 2 + Rust) with a real terminal (xterm.js + PTY)
 - ✅ Change Feed — filesystem watcher turns each save into a diff card
-- ⏳ Highlight → agent bridge, VCS review panel, agent tree (next)
+- ✅ Open the project in your editor — GUI editors (VS Code, JetBrains, Zed…) or
+  console editors (Neovim, Vim, Helix) in a terminal tab; add any editor by path
+- ⏳ Highlight → agent bridge, agent tree (next)
 
 ## Stack
 
@@ -48,6 +50,14 @@ $env:ADE_AGENT_CMD="claude"; npm run app
 ```
 
 Then edit any file in this repo and watch it appear in the Change Feed.
+
+## Architecture
+
+New to the codebase? [`ARCHITECTURE.md`](ARCHITECTURE.md) is a one-read
+orientation — how the two layers (Svelte webview + Rust core) talk over the
+single `bridge.ts` IPC door, the screen phases, and a module-by-module map, with
+diagrams. Product spec lives in [`docs/requirements.md`](docs/requirements.md);
+engineering rules in [`CLAUDE.md`](CLAUDE.md).
 
 ## License
 

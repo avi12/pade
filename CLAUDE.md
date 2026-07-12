@@ -17,9 +17,14 @@ These are non-negotiable for all work in this repo.
    `import * as`), no side-effectful barrel files, `import type` for types, and
    lazy-load heavy/optional panels so unused code is dropped.
 
-4. **Document requirements** — software requirements live in `docs/` (see
-   `docs/requirements.md`) and the persistent memory. Update them when scope
-   changes; code and docs stay in sync.
+4. **Document requirements & architecture** — software requirements live in
+   `docs/` (see `docs/requirements.md`) and the persistent memory. Update them
+   when scope changes; code and docs stay in sync. **`ARCHITECTURE.md` is part of
+   this contract**: whenever you add, split, rename, or meaningfully re-scope a
+   module — or change how the layers talk (a new IPC command, a new cross-module
+   flow) — update `ARCHITECTURE.md` in the same change so its module map, prose,
+   and mermaid diagrams never drift from the code. A structural change with a
+   stale architecture doc is an incomplete change.
 
 5. **Digestible commits** — small, single-purpose commits with a clear message.
    One feature or refactor per commit; never mix a refactor with a feature. Each
@@ -90,6 +95,13 @@ These are non-negotiable for all work in this repo.
    - Tabular numerals: every place a number is displayed (counts, percentages,
      stats, timers, SHAs' surrounding metrics) sets `font-variant-numeric:
      tabular-nums` so digits align and don't jitter as values change.
+   - Icons live in SVG only: every pictographic icon is authored as an SVG entry
+     in the shared `Icon.svelte` set (its one authoritative home) and rendered
+     via `<Icon name="…" />`. Never inline a raw `<svg>`/`<path>`, and never use
+     an emoji or a Unicode pictograph (`✓`, `⚙`, `▶`) as an icon in markup or a
+     string. Need a new glyph? Add it to `Icon.svelte`, then reference it by
+     name. (Bare typographic affordances like a `▾` disclosure caret or a `\`
+     path separator are text, not icons, and stay as-is.)
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,
