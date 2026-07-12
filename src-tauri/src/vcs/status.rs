@@ -23,13 +23,7 @@ fn classify(index: char, worktree: char) -> (StatusKind, bool) {
     }
     let staged = index != ' ';
     let code = if staged { index } else { worktree };
-    let kind = match code {
-        'A' => StatusKind::Created,
-        'D' => StatusKind::Deleted,
-        'R' => StatusKind::Renamed,
-        _ => StatusKind::Modified,
-    };
-    (kind, staged)
+    (StatusKind::from_git_letter(code), staged)
 }
 
 #[tauri::command]

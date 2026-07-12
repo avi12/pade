@@ -49,6 +49,19 @@ pub(crate) enum StatusKind {
 }
 
 impl StatusKind {
+    /// The change kind for a git status letter (`A`/`D`/`R`/`C`), defaulting to
+    /// `Modified`. Renames and copies carry a trailing similarity score (`R100`),
+    /// so callers pass the leading letter. One authoritative home for the
+    /// letter→kind mapping — shared by working-tree status and commit inspection.
+    pub(crate) fn from_git_letter(letter: char) -> StatusKind {
+        match letter {
+            'A' => StatusKind::Created,
+            'D' => StatusKind::Deleted,
+            'R' | 'C' => StatusKind::Renamed,
+            _ => StatusKind::Modified,
+        }
+    }
+
     /// The serialized string for this kind — the only place the literals live.
     pub(crate) fn as_str(self) -> &'static str {
         match self {

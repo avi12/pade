@@ -42,12 +42,7 @@ pub struct CommitDetail {
 /// Map a `--name-status` status letter to a wire status-kind string. Git uses a
 /// trailing similarity score for renames/copies (`R100`), so we match the head.
 fn status_letter_kind(code: &str) -> StatusKind {
-    match code.chars().next() {
-        Some('A') => StatusKind::Created,
-        Some('D') => StatusKind::Deleted,
-        Some('R' | 'C') => StatusKind::Renamed,
-        _ => StatusKind::Modified,
-    }
+    StatusKind::from_git_letter(code.chars().next().unwrap_or(' '))
 }
 
 #[tauri::command]
