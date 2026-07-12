@@ -42,14 +42,23 @@ pub struct RunnerInfo {
     started_at: u64,
 }
 
+/// Which pipe a captured line came from. Mirrors the frontend's
+/// `z.enum(["stdout", "stderr"])` — one authoritative home for the two names.
+#[derive(Serialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+enum RunnerStream {
+    Stdout,
+    Stderr,
+}
+
 /// One captured line of output from a runner.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct RunnerData {
     id: String,
     data: String,
-    /// Which stream the line came from: `"stdout"` or `"stderr"`.
-    stream: String,
+    /// Which stream the line came from.
+    stream: RunnerStream,
 }
 
 /// Emitted once when a runner's process exits.
@@ -90,7 +99,7 @@ fn shell_command(command: &str) -> Command {
 struct PumpArgs<R: BufRead> {
     app: AppHandle,
     id: String,
-    stream: String,
+    stream: RunnerStream,
     reader: R,
 }
 
@@ -112,7 +121,7 @@ fn pump_stream<R: BufRead>(
             RunnerData {
                 id: id.clone(),
                 data,
-                stream: stream.clone(),
+                stream,
             },
         );
     }
@@ -155,7 +164,7 @@ pub fn runner_start(
     let stdout_args = PumpArgs {
         app: app.clone(),
         id: id.clone(),
-        stream: "stdout".into(),
+        stream: RunnerStream::Stdout,
         reader: BufReader::new(stdout),
     };
     std::thread::spawn(move || pump_stream(stdout_args));
@@ -163,7 +172,7 @@ pub fn runner_start(
     let stderr_args = PumpArgs {
         app: app.clone(),
         id: id.clone(),
-        stream: "stderr".into(),
+        stream: RunnerStream::Stderr,
         reader: BufReader::new(stderr),
     };
     std::thread::spawn(move || pump_stream(stderr_args));
