@@ -114,7 +114,7 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
         LaunchMode::Temp => "w=temp".to_string(),
         // `path` is Some here by construction of `resolve`.
         LaunchMode::Open => {
-            let encoded = percent_encode(path.as_deref().unwrap_or_default());
+            let encoded = crate::util::percent_encode(path.as_deref().unwrap_or_default(), b"");
             format!("w=open&path={encoded}")
         }
     };
@@ -145,30 +145,4 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-/// Percent-encode a string for use as a URL query value, dependency-free. Keeps
-/// the RFC 3986 unreserved set (`A–Z a–z 0–9 - _ . ~`) verbatim and encodes every
-/// other byte as `%XX` — so Windows path separators/spaces survive the round-trip.
-fn percent_encode(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    for &byte in input.as_bytes() {
-        let unreserved = byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~');
-        if unreserved {
-            out.push(char::from(byte));
-        } else {
-            out.push('%');
-            out.push(hex_digit(byte >> 4));
-            out.push(hex_digit(byte & 0x0f));
-        }
-    }
-    out
-}
-
-/// The uppercase hex character for a nibble (0..=15).
-fn hex_digit(nibble: u8) -> char {
-    match nibble {
-        0..=9 => char::from(b'0' + nibble),
-        _ => char::from(b'A' + (nibble - 10)),
-    }
 }
