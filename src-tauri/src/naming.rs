@@ -77,6 +77,10 @@ pub async fn session_generate_name(
 /// Minimum transcript length before a session name is worth generating.
 const SESSION_NAME_MIN: usize = 40;
 
+/// How long to let an agent CLI run before giving up on a name — one home for the
+/// timeout shared by the project-namer and session-namer invocations.
+const NAME_TIMEOUT: Duration = Duration::from_secs(30);
+
 fn session_name(transcript: &str, agent: &str) -> Option<String> {
     let trimmed = transcript.trim();
     if trimmed.len() < SESSION_NAME_MIN {
@@ -123,10 +127,8 @@ fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
     if !is_on_path(agent) {
         return None;
     }
-    let mut cmd = crate::util::command(agent);
-    cmd.args(args).arg(session_naming_prompt(transcript));
-    let out = run_capture(cmd, Duration::from_secs(30))?;
-    extract_name(&out).and_then(|raw| sanitize(&raw))
+    run_agent_prompt(agent, args, None, session_naming_prompt(transcript))
+        .and_then(|raw| sanitize(&raw))
 }
 
 fn autoname(path: &str, agent: &str) -> Option<String> {
@@ -216,12 +218,7 @@ struct AgentCliNamer {
 
 impl Namer for AgentCliNamer {
     fn suggest(&self, ctx: &NameContext) -> Option<String> {
-        let mut cmd = crate::util::command(&self.command);
-        cmd.current_dir(&self.cwd)
-            .args(self.args)
-            .arg(naming_prompt(ctx));
-        let out = run_capture(cmd, Duration::from_secs(30))?;
-        extract_name(&out)
+        run_agent_prompt(&self.command, self.args, Some(&self.cwd), naming_prompt(ctx))
     }
 }
 
@@ -233,17 +230,17 @@ fn naming_prompt(ctx: &NameContext) -> String {
         .cloned()
         .collect::<Vec<_>>()
         .join("\n");
-    let mut p = String::from(
+    let mut prompt = String::from(
         "Suggest a concise, descriptive project name in kebab-case (2-4 lowercase \
          words joined by hyphens) for a codebase containing these files:\n",
     );
-    p.push_str(&list);
+    prompt.push_str(&list);
     if let Some(task) = &ctx.prompt {
-        p.push_str("\n\nInitial task: ");
-        p.push_str(task);
+        prompt.push_str("\n\nInitial task: ");
+        prompt.push_str(task);
     }
-    p.push_str("\n\nReply with ONLY the name — no quotes, no explanation.");
-    p
+    prompt.push_str("\n\nReply with ONLY the name — no quotes, no explanation.");
+    prompt
 }
 
 /// Pull the name out of a CLI reply: prefer a line that is already a bare token,
@@ -262,6 +259,25 @@ fn extract_name(out: &str) -> Option<String> {
             .find(|l| !l.is_empty())
             .map(str::to_string)
     })
+}
+
+/// Run an agent CLI headless: `command args… prompt` (optionally in `cwd`),
+/// capture its reply within [`NAME_TIMEOUT`], and pull a raw name candidate out.
+/// Guarding `is_on_path`/`oneshot_invocation` and sanitizing the result are the
+/// caller's job — this is the shared invoke-and-extract sequence (DRY).
+fn run_agent_prompt(
+    command: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    prompt: String,
+) -> Option<String> {
+    let mut cmd = crate::util::command(command);
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
+    cmd.args(args).arg(prompt);
+    let out = run_capture(cmd, NAME_TIMEOUT)?;
+    extract_name(&out)
 }
 
 /// Run `cmd`, capturing stdout and killing it after `timeout`. stdin is closed so
