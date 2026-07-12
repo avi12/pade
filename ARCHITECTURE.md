@@ -206,7 +206,7 @@ entry. Each concern is one module:
 | `design.rs` | Quick-launch AI design / UI-generation tools |
 | `contextmenu.rs` | Windows Explorer "Open in PADE" registration |
 | `os.rs` | Reveal in file manager / terminal, open URLs |
-| `window.rs` | Spawn additional app windows |
+| `window.rs` | Spawn additional app windows; paint each window's webview with the themed M3 surface so it opens in-theme (no white flash) |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
 | `util.rs` | Cross-cutting helpers: `is_on_path`, `home_dir`, `encode_project` |
 

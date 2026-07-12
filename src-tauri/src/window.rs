@@ -11,7 +11,34 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::window::Color;
+use tauri::{AppHandle, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+
+/// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
+/// dark schemes. Painted as the webview background at window creation so a window
+/// opens already in-theme: `WebView2` otherwise shows an unthemed white surface
+/// until the HTML/CSS first paints, flashing white on a dark desktop. This is the
+/// native side of the token — Rust can't read the CSS custom property — so keep
+/// the two in sync.
+const SURFACE_LIGHT: Color = Color(248, 250, 251, 255); // hsl(210deg 30% 98%)
+const SURFACE_DARK: Color = Color(14, 20, 27, 255); // hsl(214deg 30% 8%)
+
+/// The surface color matching a resolved OS theme.
+fn surface_for(theme: Theme) -> Color {
+    match theme {
+        Theme::Dark => SURFACE_DARK,
+        // `Theme` is `#[non_exhaustive]`; treat light and anything new as light.
+        _ => SURFACE_LIGHT,
+    }
+}
+
+/// Paint `window`'s webview with the themed surface so it shows in-theme before
+/// the frontend renders. Best-effort — a failed theme probe leaves the default.
+pub fn paint_surface(window: &WebviewWindow) {
+    if let Ok(theme) = window.theme() {
+        let _ = window.set_background_color(Some(surface_for(theme)));
+    }
+}
 
 /// Which project each window currently has open, keyed by window label. Lets the
 /// picker focus an already-open project's window instead of opening it twice.
@@ -128,6 +155,10 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
 
     // Clone the main window's sizing/decorations so a spawned window matches it.
     if let Some(main) = app.get_webview_window("main") {
+        // Open in-theme like the main window, avoiding a white flash on dark.
+        if let Ok(theme) = main.theme() {
+            builder = builder.background_color(surface_for(theme));
+        }
         if let Ok(size) = main.inner_size() {
             #[allow(clippy::cast_precision_loss)]
             {
@@ -139,9 +170,13 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
         }
     }
 
-    builder
+    // Build hidden, then show — so the window first appears already painted with
+    // the themed surface instead of a white frame during creation.
+    let window = builder
         .min_inner_size(720.0, 480.0)
+        .visible(false)
         .build()
         .map_err(|e| e.to_string())?;
+    let _ = window.show();
     Ok(())
 }

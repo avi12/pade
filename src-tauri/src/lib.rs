@@ -33,6 +33,13 @@ pub fn run() {
             runner::init(handle);
             watcher::init(handle);
             app.manage(window::WindowProjects::default());
+            // Paint the main window in-theme before showing it, so a dark desktop
+            // doesn't flash a white webview before the UI first renders. The window
+            // is created hidden (see tauri.conf.json) and shown here once themed.
+            if let Some(main) = app.get_webview_window("main") {
+                window::paint_surface(&main);
+                let _ = main.show();
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
