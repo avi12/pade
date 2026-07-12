@@ -107,6 +107,16 @@ pub fn run() {
             workspace::set_project_agent,
             workspace::set_prefs,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running ADE");
+        .build(tauri::generate_context!())
+        .expect("error while building ADE")
+        .run(|handle, event| {
+            // As the app exits (window closed), terminate every agent PTY so no
+            // child lingers and the workspace cwd-lock is released — letting the
+            // user reopen and pick up cleanly.
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(state) = handle.try_state::<pty::PtyState>() {
+                    pty::kill_all(state.inner());
+                }
+            }
+        });
 }

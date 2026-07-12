@@ -277,6 +277,15 @@ pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Terminate every live session. Closing each PTY (dropping its master) ends the
+/// agent, so this releases all children — called as the app exits so none lingers
+/// after the window is gone and the workspace cwd-lock is freed.
+pub fn kill_all(state: &PtyState) {
+    if let Ok(mut sessions) = state.0.lock() {
+        sessions.clear();
+    }
+}
+
 pub fn init(app: &AppHandle) {
     app.manage(PtyState::default());
 }

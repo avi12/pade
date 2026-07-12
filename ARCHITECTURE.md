@@ -191,7 +191,7 @@ entry. Each concern is one module:
 
 | Module | Responsibility |
 | --- | --- |
-| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty) |
+| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty); `kill_all` terminates every session on app exit (wired in `lib.rs`'s run loop) so no agent lingers |
 | `watcher.rs` | Filesystem watcher feeding the Change Feed (notify) |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
