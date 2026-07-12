@@ -1,13 +1,32 @@
 //! Small cross-cutting helpers shared by multiple modules (DRY).
 
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::Command;
+
+/// A `Command` that never flashes a console window on Windows. Every background
+/// or captured-output spawn — PATH lookups, git, curl, the agent namer, task
+/// runners, registry edits — goes through this so a GUI app stays windowless
+/// instead of popping a `conhost` window per spawn (e.g. on the 5s agent
+/// re-detect). Interactive terminals the user explicitly opens (`os.rs`) are
+/// spawned directly so they *do* get a window.
+pub fn command(program: impl AsRef<OsStr>) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW — the child gets no console window.
+        cmd.creation_flags(0x0800_0000);
+    }
+    cmd
+}
 
 /// Is `command` resolvable on PATH? Uses the platform's own resolver (`where`
 /// on Windows, `which` elsewhere) so shims (.cmd/.ps1) resolve as a shell would.
 pub fn is_on_path(command: &str) -> bool {
     let finder = if cfg!(windows) { "where" } else { "which" };
-    Command::new(finder)
+    crate::util::command(finder)
         .arg(command)
         .output()
         .map(|o| o.status.success())

@@ -20,14 +20,12 @@ pub(crate) mod restore;
 pub(crate) mod status;
 pub(crate) mod worktree;
 
-use std::process::Command;
-
 pub(crate) const US: char = '\u{1f}'; // field separator inside a record
 pub(crate) const RS: char = '\u{1e}'; // record separator — marks the start of a log entry
 
 pub(crate) fn run_git(args: &[&str]) -> Result<String, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    let out = Command::new("git")
+    let out = crate::util::command("git")
         .args(args)
         .current_dir(cwd)
         .output()

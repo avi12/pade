@@ -488,7 +488,7 @@ fn recreate_link(link: &Path, target: &str, is_target_dir: bool) {
     let result = if is_target_dir {
         // pnpm uses junctions for dir links (no admin). `mklink /J` is the only
         // no-admin way to make one; the std lib has no junction constructor.
-        std::process::Command::new("cmd")
+        crate::util::command("cmd")
             .args(["/C", "mklink", "/J"])
             .arg(link)
             .arg(target)
@@ -596,14 +596,14 @@ fn reconcile_package_manager(new_dir: &Path) {
 /// else the command directly. Stdio is nulled so the background install doesn't
 /// tie its pipes to us; the handle is dropped so we neither wait nor kill it.
 fn spawn_install(dir: &Path, command: &str) {
-    use std::process::{Command, Stdio};
+    use std::process::Stdio;
 
     let mut cmd = if cfg!(windows) {
-        let mut c = Command::new("cmd");
+        let mut c = crate::util::command("cmd");
         c.args(["/C", command]);
         c
     } else {
-        let mut c = Command::new("sh");
+        let mut c = crate::util::command("sh");
         c.args(["-c", command]);
         c
     };

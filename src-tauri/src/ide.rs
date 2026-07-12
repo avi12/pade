@@ -4,8 +4,6 @@
 //! detects installed editors (by their CLI launcher) and opens the active
 //! project directory in the one you pick.
 
-use std::process::Command;
-
 use serde::Serialize;
 
 use crate::util::is_on_path;
@@ -468,13 +466,13 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
     // command is an absolute executable path, so spawn it directly instead.
     let is_path = command.contains('/') || command.contains('\\');
     let spawn = if cfg!(windows) && !is_path {
-        Command::new("cmd")
+        crate::util::command("cmd")
             .arg("/C")
             .arg(&command)
             .args(&args)
             .spawn()
     } else {
-        Command::new(&command).args(&args).spawn()
+        crate::util::command(&command).args(&args).spawn()
     };
     spawn
         .map(|_| ())

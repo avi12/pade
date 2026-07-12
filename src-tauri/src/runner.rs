@@ -74,11 +74,11 @@ fn now_millis() -> u64 {
 /// `sh -c <command>` so shell syntax (pipes, `&&`, `$VAR`) works either way.
 fn shell_command(command: &str) -> Command {
     let mut cmd = if cfg!(windows) {
-        let mut c = Command::new("cmd");
+        let mut c = crate::util::command("cmd");
         c.args(["/C", command]);
         c
     } else {
-        let mut c = Command::new("sh");
+        let mut c = crate::util::command("sh");
         c.args(["-c", command]);
         c
     };

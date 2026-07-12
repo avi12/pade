@@ -17,7 +17,7 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -266,7 +266,7 @@ fn curl_oauth_usage(token: &str) -> Option<String> {
          header = \"Content-Type: application/json\"\n"
     );
 
-    let mut child = Command::new("curl")
+    let mut child = crate::util::command("curl")
         .arg("--config")
         .arg("-")
         .stdin(Stdio::piped())

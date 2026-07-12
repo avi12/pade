@@ -123,7 +123,7 @@ fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
     if !is_on_path(agent) {
         return None;
     }
-    let mut cmd = Command::new(agent);
+    let mut cmd = crate::util::command(agent);
     cmd.args(args).arg(session_naming_prompt(transcript));
     let out = run_capture(cmd, Duration::from_secs(30))?;
     extract_name(&out).and_then(|raw| sanitize(&raw))
@@ -216,7 +216,7 @@ struct AgentCliNamer {
 
 impl Namer for AgentCliNamer {
     fn suggest(&self, ctx: &NameContext) -> Option<String> {
-        let mut cmd = Command::new(&self.command);
+        let mut cmd = crate::util::command(&self.command);
         cmd.current_dir(&self.cwd)
             .args(self.args)
             .arg(naming_prompt(ctx));

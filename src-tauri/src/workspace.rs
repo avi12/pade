@@ -476,7 +476,7 @@ fn repo_dir_name(url: &str) -> String {
 pub fn workspace_clone(root: String, url: String) -> Result<String, String> {
     let name = repo_dir_name(&url);
     let dest = Path::new(&root).join(&name);
-    let out = std::process::Command::new("git")
+    let out = crate::util::command("git")
         .args(["clone", &url, &dest.to_string_lossy()])
         .current_dir(&root)
         .output()

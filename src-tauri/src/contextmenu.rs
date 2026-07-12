@@ -64,7 +64,7 @@ pub fn context_menu_unregister() -> Result<(), String> {
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_status() -> bool {
-    std::process::Command::new("reg")
+    crate::util::command("reg")
         .args(["query", ROOTS[0]])
         .output()
         .is_ok_and(|o| o.status.success())
