@@ -23,6 +23,10 @@ enum OpenStyle {
     /// Zed / Sublime: a `file:line` colon suffix on the path; the CLI routes to
     /// the running editor instance.
     PathColon,
+    /// Visual Studio: `/Edit file` opens the file in the running instance. There
+    /// is no reliable CLI to also jump to a line (combining `/Edit` with a
+    /// `/Command "Edit.Goto"` doesn't navigate), so the line is dropped.
+    VisualStudio,
 }
 
 struct IdeDef {
@@ -110,6 +114,13 @@ const REGISTRY: &[IdeDef] = &[
         style: OpenStyle::PathColon,
         protocol: None,
     },
+    IdeDef {
+        id: "visualstudio",
+        label: "Visual Studio",
+        command: "devenv",
+        style: OpenStyle::VisualStudio,
+        protocol: None,
+    },
 ];
 
 /// Detected project kind → the IDEs that suit it best, in priority order.
@@ -121,6 +132,7 @@ const PREFERENCES: &[(&str, &[&str])] = &[
     ("go", &["goland", "vscode"]),
     ("rust", &["rustrover", "zed", "vscode"]),
     ("java", &["idea"]),
+    ("dotnet", &["visualstudio", "vscode"]),
 ];
 const GENERALISTS: &[&str] = &["vscode", "cursor", "zed", "sublime"];
 
@@ -153,6 +165,19 @@ pub fn ide_detect() -> Vec<Ide> {
         .collect()
 }
 
+/// Whether any direct child of `dir` has the given extension (case-insensitive).
+fn has_ext(dir: &std::path::Path, ext: &str) -> bool {
+    std::fs::read_dir(dir).ok().is_some_and(|entries| {
+        entries.flatten().any(|entry| {
+            entry
+                .path()
+                .extension()
+                .and_then(|value| value.to_str())
+                .is_some_and(|value| value.eq_ignore_ascii_case(ext))
+        })
+    })
+}
+
 /// Sniff the project kinds present in the current directory from marker files.
 fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
     let has = |name: &str| cwd.join(name).exists();
@@ -176,6 +201,11 @@ fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
     }
     if has("pom.xml") {
         kinds.push("java");
+    }
+    // .NET / C++ — Visual Studio's home turf. Solution/project files or a
+    // dotnet marker; scanned by extension since names vary per project.
+    if has("global.json") || has_ext(cwd, "sln") || has_ext(cwd, "csproj") {
+        kinds.push("dotnet");
     }
     kinds
 }
@@ -257,6 +287,8 @@ fn open_args(command: &str, target: String, line: Option<u32>) -> Vec<String> {
         }
         (Some(n), Some(OpenStyle::JetBrains)) => vec!["--line".to_owned(), n.to_string(), target],
         (Some(n), Some(OpenStyle::PathColon)) => vec![format!("{target}:{n}")],
+        // Visual Studio opens the file in the running instance; no line jump.
+        (_, Some(OpenStyle::VisualStudio)) => vec!["/Edit".to_owned(), target],
         _ => vec![target],
     }
 }
@@ -405,6 +437,14 @@ mod tests {
         assert_eq!(
             open_args("webstorm", "C:/p/file.ts".to_string(), Some(7)),
             ["--line", "7", "C:/p/file.ts"]
+        );
+    }
+
+    #[test]
+    fn visual_studio_edits_the_file_and_drops_the_line() {
+        assert_eq!(
+            open_args("devenv", "C:/p/file.cs".to_string(), Some(42)),
+            ["/Edit", "C:/p/file.cs"]
         );
     }
 
