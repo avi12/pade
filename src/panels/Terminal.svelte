@@ -43,6 +43,15 @@
   const RESIZE_SETTLE_MS = 400;
   let lastResizeAt = 0;
 
+  // Shift+Enter should add a newline to the agent's prompt, not submit it.
+  // Terminals send plain `\r` (0x0D) for both Enter and Shift+Enter, so the
+  // wrapped CLI can't tell them apart and submits on either. Emit the CSI u
+  // (fixterms) encoding for Shift+Enter instead — key 13 (Enter) with modifier
+  // 2 (Shift) — which Claude Code decodes as "insert newline". This mirrors what
+  // `claude`'s own /terminal-setup makes terminals like VS Code emit.
+  // https://code.claude.com/docs/en/terminal-config
+  const SHIFT_ENTER = "\x1b[13;2u";
+
   function markActivity() {
     if (status === SessionStatus.enum.exited) {
       return;
@@ -167,6 +176,33 @@
       id: session.id,
       data
     }));
+
+    // Translate Shift+Enter into a prompt newline before xterm encodes it as a
+    // plain Enter (see SHIFT_ENTER). Returning false stops xterm from also
+    // sending its own `\r`, which would submit.
+    term.attachCustomKeyEventHandler(event => {
+      const isShiftEnter =
+        event.type === "keydown" &&
+          event.key === "Enter" &&
+          event.shiftKey &&
+          !event.altKey &&
+          !event.ctrlKey &&
+          !event.metaKey;
+      if (!isShiftEnter) {
+        return true;
+      }
+
+      // preventDefault stops the browser inserting a newline into xterm's hidden
+      // textarea, which xterm's input handler would otherwise forward to the PTY
+      // as a submit. Returning false additionally stops xterm sending its own
+      // `\r`, so the CSI u sequence we write is the only thing the agent sees.
+      event.preventDefault();
+      void pty.write({
+        id: session.id,
+        data: SHIFT_ENTER
+      });
+      return false;
+    });
 
     // Keep the PTY's window size in sync with the visible grid. Stamp the time
     // so the repaint the agent sends back isn't counted as activity (markActivity).
