@@ -218,7 +218,12 @@ struct AgentCliNamer {
 
 impl Namer for AgentCliNamer {
     fn suggest(&self, ctx: &NameContext) -> Option<String> {
-        run_agent_prompt(&self.command, self.args, Some(&self.cwd), naming_prompt(ctx))
+        run_agent_prompt(
+            &self.command,
+            self.args,
+            Some(&self.cwd),
+            naming_prompt(ctx),
+        )
     }
 }
 
