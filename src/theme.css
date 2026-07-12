@@ -204,6 +204,12 @@ body {
   &:focus-visible::after {
     opacity: 100%;
   }
+
+  /* Nested tooltips: while a descendant's own tooltip is hovered, suppress this
+     one so the two don't stack (e.g. a usage bar inside the usage pill). */
+  &:has([data-tooltip]:hover)::after {
+    opacity: 0%;
+  }
 }
 
 /* ── Shared M3 Expressive motion ─────────────────────────────────────────────
