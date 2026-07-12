@@ -32,24 +32,49 @@ This is step 1–2 of the roadmap:
 | Frontend   | Svelte 5 + Vite                         |
 | Theme      | Material 3 Expressive (light/dark, OS-follow) |
 
-## Run it
+## Prerequisites
+
+- **Node** ≥ 18 and **pnpm** (`corepack enable` picks up the version pinned in
+  `package.json`)
+- **Rust** (stable) via [rustup](https://rustup.rs)
+- Platform WebView + build tools per the
+  [Tauri prerequisites](https://tauri.app/start/prerequisites/) — Windows:
+  WebView2 (preinstalled on Windows 11); Linux: `webkit2gtk` +
+  `libayatana-appindicator`; macOS: Xcode command-line tools.
+
+## Run (development)
 
 ```bash
-npm install
-npm run app        # tauri dev — opens the native window
+pnpm install
+pnpm app          # tauri dev — compiles the Rust core and opens the native window
 ```
 
-The terminal launches your platform shell by default. To launch the agent
-directly, set the command:
+The terminal launches your platform shell by default. To launch an agent CLI
+directly, set its command:
 
 ```bash
 # macOS/Linux
-ADE_AGENT_CMD=claude npm run app
+ADE_AGENT_CMD=claude pnpm app
 # Windows PowerShell
-$env:ADE_AGENT_CMD="claude"; npm run app
+$env:ADE_AGENT_CMD="claude"; pnpm app
 ```
 
-Then edit any file in this repo and watch it appear in the Change Feed.
+Then edit any file in the repo and watch it appear in the Change Feed.
+
+## Build (release)
+
+```bash
+pnpm app:build                 # tauri build — every installer for the host OS
+pnpm tauri build --bundles nsis   # …or a single installer type
+```
+
+Artifacts land under `src-tauri/target/release/`:
+
+- the app binary — `pade.exe` (Windows) / `pade` (macOS, Linux)
+- installers under `bundle/` — e.g. `bundle/nsis/PADE_<version>_x64-setup.exe`
+
+Tauri builds for the host platform only, so run the build on each OS you target.
+Before cutting a release, run the quality gates: `pnpm lint` and `pnpm test`.
 
 ## Architecture
 
@@ -61,4 +86,4 @@ engineering rules in [`CLAUDE.md`](CLAUDE.md).
 
 ## License
 
-Apache-2.0.
+Licensed under the [Apache License 2.0](LICENSE).
