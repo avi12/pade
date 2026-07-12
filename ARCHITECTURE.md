@@ -107,7 +107,7 @@ responsibility, and who it collaborates with.
 | --- | --- | --- |
 | `src/main.ts` | Entry: mounts `App`, loads the theme | `App.svelte`, `theme.css` |
 | `src/theme.css` | M3 Expressive tokens, global keyframes, base document styles | everything |
-| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `stores/toast` |
+| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
 | `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu | `tabFit`, `stores/sessions` |
 | `src/lib/AppMenu.svelte` | Top-bar project menu: current dir, recents, switch/open/new-window | `bridge` |
 | `src/lib/UsageMeter.svelte` | Agent usage/quota pill in the top bar | `bridge.usage` |
@@ -130,6 +130,7 @@ responsibility, and who it collaborates with.
 | `src/lib/autoName.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
 | `src/lib/workspaceRelocate.ts` | Move/rename with cwd-lock handling: kill locking sessions → backend op → resume remapped | `bridge`, `stores/sessions`, `stores/context` |
 | `src/lib/sendShortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
+| `src/lib/tabShortcuts.ts` | Tab keyboard shortcuts: pure key-chord → action matcher + capture-phase registrar (new / close / cycle / launch-menu) | `App` |
 | `src/lib/paths.ts` | Path helpers: `baseName`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff parser + side-by-side rows | `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
@@ -216,5 +217,6 @@ each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
 `naming.rs`, `refs.rs`, `ide.rs` and the `vcs/` parsers). The pure logic
 extracted from components —
 `tabFit`, `diff`, `paths`, `colors`, `format`, `validate`, `autoName`'s signal
-detection, `workspaceRelocate`'s path remapping, `handoff`'s slug — is where
+detection, `workspaceRelocate`'s path remapping, `handoff`'s slug,
+`tabShortcuts`'s chord matching — is where
 new tests belong first: they run in milliseconds and need no window.

@@ -1,0 +1,132 @@
+import { type KeyChord, matchTabShortcut, TabAction } from "@/lib/tabShortcuts";
+import { describe, expect, it } from "vitest";
+
+// A chord with every modifier off, overridden per case.
+function chord(over: Partial<KeyChord> = {}): KeyChord {
+  return {
+    key: "",
+    ctrlKey: false,
+    shiftKey: false,
+    altKey: false,
+    metaKey: false,
+    ...over
+  };
+}
+
+describe("matchTabShortcut", () => {
+  it("opens a new tab on Ctrl+T and the launch menu on Ctrl+Shift+T", () => {
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          key: "t"
+        })
+      )
+    ).toBe(TabAction.New);
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          shiftKey: true,
+          key: "T"
+        })
+      )
+    ).toBe(
+      TabAction.LaunchMenu
+    );
+  });
+
+  it("closes on Ctrl+W and Ctrl+F4", () => {
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          key: "w"
+        })
+      )
+    ).toBe(TabAction.Close);
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          key: "F4"
+        })
+      )
+    ).toBe(TabAction.Close);
+  });
+
+  it("cycles with Ctrl+Tab / Ctrl+Shift+Tab", () => {
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          key: "Tab"
+        })
+      )
+    ).toBe(TabAction.Next);
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          shiftKey: true,
+          key: "Tab"
+        })
+      )
+    ).toBe(
+      TabAction.Previous
+    );
+  });
+
+  it("cycles with Alt+Arrow", () => {
+    expect(
+      matchTabShortcut(
+        chord({
+          altKey: true,
+          key: "ArrowRight"
+        })
+      )
+    ).toBe(TabAction.Next);
+    expect(
+      matchTabShortcut(
+        chord({
+          altKey: true,
+          key: "ArrowLeft"
+        })
+      )
+    ).toBe(TabAction.Previous);
+  });
+
+  it("ignores plain keys and unrelated chords", () => {
+    expect(matchTabShortcut(chord({ key: "t" }))).toBeNull();
+    // Ctrl+Shift+N stays with the new-window handler, not here.
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          shiftKey: true,
+          key: "n"
+        })
+      )
+    ).toBeNull();
+    // A stray Alt on a Ctrl shortcut disqualifies it.
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          altKey: true,
+          key: "t"
+        })
+      )
+    ).toBeNull();
+    // Alt+Shift+Arrow is not a cycle (Shift must be absent for Alt+Arrow).
+    expect(
+      matchTabShortcut(
+        chord({
+          altKey: true,
+          shiftKey: true,
+          key: "ArrowRight"
+        })
+      )
+    ).toBeNull();
+  });
+});

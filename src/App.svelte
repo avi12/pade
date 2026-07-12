@@ -25,6 +25,7 @@
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
+  import { registerTabShortcuts } from "@/lib/tabShortcuts";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -171,12 +172,22 @@
 
   // Re-detect installed agents so the picker reflects an agent the user just
   // installed or removed — on window focus (they alt-tab back from a terminal)
-  // and on a slow poll as a fallback.
+  // and on a slow poll as a fallback. Detection spawns a process per agent, so
+  // it's throttled: a title-bar click refocuses the window and must NOT kick off
+  // a detect every time (the backend runs it off-thread, but there's no reason
+  // to spam it).
+  let lastAgentDetectAt = 0;
   async function redetectAgents() {
+    lastAgentDetectAt = Date.now();
     agents = await agentsApi.detect();
   }
+  function redetectAgentsOnFocus() {
+    if (Date.now() - lastAgentDetectAt > 15_000) {
+      void redetectAgents();
+    }
+  }
   onMount(() => {
-    const interval = setInterval(() => void redetectAgents(), 5000);
+    const interval = setInterval(() => void redetectAgents(), 30_000);
     return () => clearInterval(interval);
   });
 
@@ -212,6 +223,17 @@
     });
     return () => void unregisterSendShortcut();
   });
+
+  // Tab shortcuts (lib/tabShortcuts): capture-phase so they win over a focused
+  // agent terminal — new tab, launch menu, close, and next/previous cycling.
+  onMount(() =>
+    registerTabShortcuts({
+      newTab,
+      launchMenu: openLaunchMenu,
+      closeTab: closeActiveTab,
+      next: () => stepSession(1),
+      previous: () => stepSession(-1)
+    }));
 
   // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut chip).
   function onWindowKey(event: KeyboardEvent) {
@@ -346,6 +368,56 @@
     if (activeId === id) {
       activeId = paneIds.at(-1) ?? null;
     }
+  }
+
+  // ── Tab keyboard shortcuts (lib/tabShortcuts) ───────────────────────────────
+  // Actions the shortcut layer drives; each is a no-op outside the ready phase.
+
+  // Ctrl+T — another tab of the last session's kind (mirrors the "+" button).
+  function newTab() {
+    if (phase !== Phase.ready) {
+      return;
+    }
+
+    const agent = sessions.at(-1)?.agent ?? realAgents[0] ?? agents[0];
+    if (agent) {
+      launch({ agent });
+    }
+  }
+
+  // Ctrl+Shift+T — open the launch dropdown with the first agent focused, so
+  // Enter fires it and Esc light-dismisses (native popover handles both).
+  function openLaunchMenu() {
+    if (phase !== Phase.ready) {
+      return;
+    }
+
+    const menu = document.getElementById("add-menu");
+    if (!(menu instanceof HTMLElement) || menu.matches(":popover-open")) {
+      return;
+    }
+
+    menu.showPopover();
+    menu.querySelector<HTMLButtonElement>("button")?.focus();
+  }
+
+  // Ctrl+W / Ctrl+F4 — close the active session.
+  function closeActiveTab() {
+    const active = sessions.find(s => s.id === activeId);
+    if (active) {
+      void close(active);
+    }
+  }
+
+  // Ctrl+Tab / Alt+Arrow — cycle the active tab, wrapping at the ends.
+  function stepSession(delta: number) {
+    if (sessions.length === 0) {
+      return;
+    }
+
+    const index = sessions.findIndex(s => s.id === activeId);
+    const nextIndex = (index + delta + sessions.length) % sessions.length;
+    selectSession(sessions[nextIndex].id);
   }
 
   // Load branches for the current repo (empty when not a git project).
@@ -516,7 +588,7 @@
 </script>
 
 <svelte:document onselectionchange={readSelection} />
-<svelte:window onfocus={() => void redetectAgents()} onkeydown={onWindowKey} />
+<svelte:window onfocus={redetectAgentsOnFocus} onkeydown={onWindowKey} />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monoFamily} class="app-root">
