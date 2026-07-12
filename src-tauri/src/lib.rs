@@ -45,6 +45,7 @@ pub fn run() {
             ide::ide_detect,
             ide::ide_suggest,
             ide::ide_open,
+            ide::ide_open_file,
             ide::ide_project_kind,
             os::open_in_explorer,
             os::open_in_terminal,

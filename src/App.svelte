@@ -618,7 +618,7 @@
 
             <div class="panel-body">
               {#if side === Side.feed}
-                <ChangeFeed />
+                <ChangeFeed project={currentProject} />
               {:else if side === Side.vcs}
                 {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
                   <VcsPanel />

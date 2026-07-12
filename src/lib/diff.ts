@@ -29,6 +29,8 @@ export interface SplitRow {
   leftFilled: boolean;
   right: string;
   rightFilled: boolean;
+  /** New-file line for the right (new) side — lets a click open at that line. */
+  newLine?: number;
 }
 
 const META_PREFIXES = ["diff ", "index ", "--- ", "+++ ", "new file", "deleted file", "rename ", "similarity "];
@@ -136,7 +138,8 @@ export function toSplitRows(lines: DiffLine[]): SplitRow[] {
       return {
         ...blank,
         right: source,
-        rightFilled: true
+        rightFilled: true,
+        newLine: line.newLine
       };
     }
 
@@ -151,7 +154,8 @@ export function toSplitRows(lines: DiffLine[]): SplitRow[] {
     return {
       ...blank,
       left: source,
-      right: source
+      right: source,
+      newLine: line.newLine
     };
   });
 }

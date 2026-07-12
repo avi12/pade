@@ -70,7 +70,15 @@ export const ide = {
     path?: string;
     /** 1-based line to jump to (only meaningful when `path` is a file). */
     line?: number;
-  }) => run("ide_open", { ...args })
+  }) => run("ide_open", { ...args }),
+  /** Open a file in the window that already has `project` open (JetBrains via its
+   *  URL scheme, others via the CLI), jumping to `line` when given. */
+  openFile: (args: {
+    command: string;
+    project: string;
+    file: string;
+    line?: number;
+  }) => run("ide_open_file", { ...args })
 };
 
 /** OS integrations — reveal a project in the file manager or a terminal. */

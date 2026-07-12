@@ -32,6 +32,11 @@ struct IdeDef {
     command: &'static str,
     /// How this launcher phrases a jump-to-line.
     style: OpenStyle,
+    /// `JetBrains` `jetbrains://<tool>/…` protocol tool id, when this IDE is a
+    /// `JetBrains` one. The CLI can't reliably route a file to the *correct open
+    /// project window* (it drops it into the last-active one); the protocol
+    /// targets a project by name, so opening a file lands in the right window.
+    protocol: Option<&'static str>,
 }
 
 const REGISTRY: &[IdeDef] = &[
@@ -40,60 +45,70 @@ const REGISTRY: &[IdeDef] = &[
         label: "VS Code",
         command: "code",
         style: OpenStyle::VsCode,
+        protocol: None,
     },
     IdeDef {
         id: "cursor",
         label: "Cursor",
         command: "cursor",
         style: OpenStyle::VsCode,
+        protocol: None,
     },
     IdeDef {
         id: "webstorm",
         label: "WebStorm",
         command: "webstorm",
         style: OpenStyle::JetBrains,
+        protocol: Some("webstorm"),
     },
     IdeDef {
         id: "idea",
         label: "IntelliJ IDEA",
         command: "idea",
         style: OpenStyle::JetBrains,
+        protocol: Some("idea"),
     },
     IdeDef {
         id: "pycharm",
         label: "PyCharm",
         command: "pycharm",
         style: OpenStyle::JetBrains,
+        protocol: Some("pycharm"),
     },
     IdeDef {
         id: "goland",
         label: "GoLand",
         command: "goland",
         style: OpenStyle::JetBrains,
+        protocol: Some("goland"),
     },
     IdeDef {
         id: "rustrover",
         label: "RustRover",
         command: "rustrover",
         style: OpenStyle::JetBrains,
+        protocol: Some("rustrover"),
     },
     IdeDef {
         id: "androidstudio",
         label: "Android Studio",
         command: "studio",
         style: OpenStyle::JetBrains,
+        protocol: Some("studio"),
     },
     IdeDef {
         id: "zed",
         label: "Zed",
         command: "zed",
         style: OpenStyle::PathColon,
+        protocol: None,
     },
     IdeDef {
         id: "sublime",
         label: "Sublime Text",
         command: "subl",
         style: OpenStyle::PathColon,
+        protocol: None,
     },
 ];
 
@@ -278,9 +293,104 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
         .map_err(|e| format!("failed to open {command}: {e}"))
 }
 
+/// The `JetBrains` protocol tool id for a launcher command, if it is a
+/// `JetBrains` IDE (else `None`, meaning "use the CLI").
+fn protocol_id(command: &str) -> Option<&'static str> {
+    REGISTRY
+        .iter()
+        .find(|i| i.command == command)
+        .and_then(|i| i.protocol)
+}
+
+/// The project's display name — its root folder's basename, which is how the
+/// `JetBrains` protocol identifies an open project.
+fn project_name(project: &str) -> String {
+    project
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or(project)
+        .to_string()
+}
+
+/// `file` expressed relative to `project` (forward slashes), or the absolute
+/// path when it isn't under the project. Matching is case-insensitive on `Windows`.
+fn relative_path(project: &str, file: &str) -> String {
+    let root = project.replace('\\', "/");
+    let root = root.trim_end_matches('/');
+    let path = file.replace('\\', "/");
+    let under = if cfg!(windows) {
+        path.to_lowercase().starts_with(&root.to_lowercase())
+    } else {
+        path.starts_with(root)
+    };
+    if under {
+        path.get(root.len()..)
+            .unwrap_or(&path)
+            .trim_start_matches('/')
+            .to_string()
+    } else {
+        path
+    }
+}
+
+/// Open a file in the IDE so it lands in the window that already has `project`
+/// open, jumping to `line` when given. A `JetBrains` IDE uses its `jetbrains://`
+/// scheme (targets the project by name, unlike the CLI); other editors use the
+/// CLI open (`VS Code` reuses its window with `-r`). `project` is the root dir.
+#[tauri::command]
+pub fn ide_open_file(
+    command: String,
+    project: String,
+    file: String,
+    line: Option<u32>,
+) -> Result<(), String> {
+    if let Some(tool) = protocol_id(&command) {
+        let mut path = relative_path(&project, &file);
+        if let Some(number) = line {
+            path.push(':');
+            path.push_str(&number.to_string());
+        }
+        // Keep `/` and `:` literal so the path and its `:line` suffix parse.
+        let url = format!(
+            "jetbrains://{tool}/navigate/reference?project={}&path={}",
+            crate::util::percent_encode(&project_name(&project), b""),
+            crate::util::percent_encode(&path, b"/:")
+        );
+        return crate::os::open_url(url);
+    }
+
+    // VS Code family and the rest: the CLI open handles jump-to-line and reuses
+    // the running window (`-r`), which is a single-project-window model.
+    ide_open(command, Some(file), line)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::open_args;
+    use super::{open_args, project_name, relative_path};
+
+    #[test]
+    fn project_name_is_the_root_basename() {
+        assert_eq!(project_name("C:\\repositories\\avi\\pade"), "pade");
+        assert_eq!(project_name("/home/me/proj/"), "proj");
+    }
+
+    #[test]
+    fn relative_path_strips_the_project_root() {
+        assert_eq!(
+            relative_path("C:\\repos\\pade", "C:\\repos\\pade\\src\\App.svelte"),
+            "src/App.svelte"
+        );
+    }
+
+    #[test]
+    fn relative_path_keeps_an_outside_file_absolute() {
+        assert_eq!(
+            relative_path("C:/repos/pade", "D:/other/file.ts"),
+            "D:/other/file.ts"
+        );
+    }
 
     #[test]
     fn vscode_style_reuses_the_window_and_jumps_to_the_line() {

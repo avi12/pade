@@ -12,6 +12,10 @@
   import { onDestroy, onMount } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
+  // The open project's root dir — lets an editor open a change in the window
+  // that already has this project, at the right line.
+  const { project }: { project: string } = $props();
+
   // Newest first. Capped so a busy agent session can't grow this unbounded.
   let events = $state<ChangeEvent[]>([]);
   const CAP = 300;
@@ -115,9 +119,10 @@
   }) {
     const editor = ides[0];
     if (editor) {
-      void ide.open({
+      void ide.openFile({
         command: editor.command,
-        path,
+        project,
+        file: path,
         line
       });
     }
@@ -128,16 +133,24 @@
   // already-open editor when one is running, so it navigates there in place.
   const revealTip = $derived(ides[0] ? `Reveal in ${ides[0].label}` : "No editor detected");
   const revealLine = $derived(firstChangedLine(unifiedLines));
-  function revealDiff(path: string) {
+  function revealDiff({ path, event }: {
+    path: string;
+    event: MouseEvent;
+  }) {
     // A drag to select text (for send-to-agent) must not also open the file.
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
       return;
     }
 
+    // Open at the clicked line when a line was hit; else the first changed line.
+    const target = event.target;
+    const lineElement =
+      target instanceof Element ? target.closest<HTMLElement>("[data-newline]") : null;
+    const line = lineElement ? Number(lineElement.dataset.newline) : revealLine;
     openInEditor({
       path,
-      line: revealLine
+      line
     });
   }
   function onDiffKey({ event, path }: {
@@ -263,7 +276,10 @@
               <div
                 class="unified"
                 data-tooltip={revealTip}
-                onclick={() => revealDiff(ev.path)}
+                onclick={event => revealDiff({
+                  path: ev.path,
+                  event
+                })}
                 onkeydown={event => onDiffKey({
                   event,
                   path: ev.path
@@ -277,6 +293,7 @@
                     class:add={line.kind === DiffKind.add}
                     class:del={line.kind === DiffKind.del}
                     class:metaline={line.kind === DiffKind.meta}
+                    data-newline={line.newLine}
                   ><ColorText text={line.text} /></div>
                 {/each}
               </div>
@@ -284,7 +301,10 @@
               <div
                 class="split"
                 data-tooltip={revealTip}
-                onclick={() => revealDiff(ev.path)}
+                onclick={event => revealDiff({
+                  path: ev.path,
+                  event
+                })}
                 onkeydown={event => onDiffKey({
                   event,
                   path: ev.path
@@ -297,7 +317,11 @@
                     <div class="hunk">{row.hunkText}</div>
                   {:else}
                     <div class="cell" class:filled-del={row.leftFilled}><ColorText text={row.left} /></div>
-                    <div class="cell right" class:filled-add={row.rightFilled}><ColorText text={row.right} /></div>
+                    <div
+                      class="cell right"
+                      class:filled-add={row.rightFilled}
+                      data-newline={row.newLine}
+                    ><ColorText text={row.right} /></div>
                   {/if}
                 {/each}
               </div>
