@@ -87,7 +87,11 @@ export const windows = {
   create: (args: {
     mode: "empty" | "temp" | "open";
     path?: string;
-  }) => run("window_create", { ...args })
+  }) => run("window_create", { ...args }),
+  /** Record the project this window now has open (for focus-instead-of-reopen). */
+  registerProject: (path: string) => run("window_register_project", { path }),
+  /** Focus another window already showing this project; true if one was found. */
+  focusProject: (path: string) => call("window_focus_project", z.boolean(), { path })
 };
 
 /** AI design/UI-generation tools — a roster ranked for the active agent. */

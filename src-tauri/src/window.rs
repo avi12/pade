@@ -7,9 +7,77 @@
 //! a window that loads the app with the right query. New windows clone the main
 //! window's sizing/decorations so they feel identical.
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Mutex;
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+
+/// Which project each window currently has open, keyed by window label. Lets the
+/// picker focus an already-open project's window instead of opening it twice.
+#[derive(Default)]
+pub struct WindowProjects(pub Mutex<HashMap<String, String>>);
+
+/// Canonicalize a path for cross-window comparison — `/`-separated, no trailing
+/// slash, lowercased on case-insensitive Windows.
+fn normalize(path: &str) -> String {
+    let trimmed = path.replace('\\', "/");
+    let trimmed = trimmed.trim_end_matches('/');
+    if cfg!(windows) {
+        trimmed.to_lowercase()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// Record the project the calling window now has open.
+#[tauri::command]
+pub fn window_register_project(
+    window: WebviewWindow,
+    state: tauri::State<WindowProjects>,
+    path: String,
+) {
+    if let Ok(mut projects) = state.0.lock() {
+        projects.insert(window.label().to_string(), normalize(&path));
+    }
+}
+
+/// Focus another window already showing `path`. Returns true when one was found
+/// and focused, so the caller can skip opening the project again. Prunes any
+/// stale entry whose window has since closed.
+#[tauri::command]
+pub fn window_focus_project(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: tauri::State<WindowProjects>,
+    path: String,
+) -> bool {
+    let target = normalize(&path);
+    let me = window.label().to_string();
+    let candidates: Vec<String> = {
+        let Ok(projects) = state.0.lock() else {
+            return false;
+        };
+        projects
+            .iter()
+            .filter(|(label, project)| **label != me && **project == target)
+            .map(|(label, _)| label.clone())
+            .collect()
+    };
+
+    for label in candidates {
+        if let Some(target_window) = app.get_webview_window(&label) {
+            let _ = target_window.unminimize();
+            let _ = target_window.set_focus();
+            return true;
+        }
+        // The window is gone — drop its stale entry.
+        if let Ok(mut projects) = state.0.lock() {
+            projects.remove(&label);
+        }
+    }
+    false
+}
 
 /// Monotonic counter for unique window labels (`w-1`, `w-2`, …). Labels must be
 /// unique per app run; a simple atomic is enough and needs no dependency.

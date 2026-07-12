@@ -226,6 +226,12 @@
     path: string;
     initialPrompt?: string;
   }) {
+    // If another window already has this project open, focus it instead of
+    // opening a second copy here — the picker window stays put.
+    if (await windows.focusProject(target.path)) {
+      return;
+    }
+
     await workspace.open(target.path);
     settings = await workspace.settings(); // pick up the updated recent history
     startAgentFlow(target.path, target.initialPrompt);
@@ -236,6 +242,8 @@
   // else auto-launch a lone agent, else onboard. (Reused for every entry path.)
   function startAgentFlow(path: string, initialPrompt?: string) {
     currentProject = path;
+    // Let other windows' pickers focus this one instead of reopening the project.
+    void windows.registerProject(path);
     const prefId = settings.projectAgents[path] ?? settings.defaultAgent ?? null;
     const preferred = prefId ? agents.find(a => a.id === prefId) : undefined;
     if (preferred) {

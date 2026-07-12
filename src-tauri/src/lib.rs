@@ -18,6 +18,8 @@ mod watcher;
 mod window;
 mod workspace;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -30,6 +32,7 @@ pub fn run() {
             pty::init(handle);
             runner::init(handle);
             watcher::init(handle);
+            app.manage(window::WindowProjects::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -47,6 +50,8 @@ pub fn run() {
             os::open_in_terminal,
             os::open_url,
             window::window_create,
+            window::window_register_project,
+            window::window_focus_project,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
