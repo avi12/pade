@@ -8,7 +8,6 @@
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { FitAddon } from "@xterm/addon-fit";
   import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
@@ -21,8 +20,8 @@
   } = $props();
 
   let host: HTMLDivElement;
+  let viewport: HTMLDivElement;
   let term: Terminal;
-  let fit: FitAddon;
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
   let resizeObs: ResizeObserver | undefined;
@@ -37,6 +36,15 @@
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let fitFrame: number | undefined;
   const IDLE_MS = 700;
+  // The grid is sized in whole cells, always a touch smaller than the pane. These
+  // factors (applied to the grid-sized `.term-host` via a style: directive, origin
+  // bottom-left) stretch it the leftover sub-cell so it fills the pane exactly —
+  // the terminal grows continuously like a web page instead of snapping a whole
+  // row/column at a time. Each stays under one cell (a reflow adds the row and
+  // resets it), so the stretch is a couple of percent: text stays crisp and, with
+  // the origin at the bottom-left where the prompt sits, clicks still map true.
+  let scaleX = $state(1);
+  let scaleY = $state(1);
   // A resize makes the agent repaint; output within this window after one is
   // treated as that repaint's echo, not fresh activity — so revealing a hidden
   // pane (which refits it) can't flash the badge from "ready" to "working".
@@ -88,7 +96,7 @@
     const family = effective.monoFamily;
     if (term) {
       term.options.fontFamily = family;
-      fit?.fit();
+      fitToPane();
     }
   });
 
@@ -102,6 +110,36 @@
     }
   });
 
+  // xterm needs the scrollbar's own width reserved out of the usable columns, or
+  // the last column hides behind it. Default track width when scrollback is on.
+  const SCROLLBAR_WIDTH = 14;
+
+  // Fit the grid to the pane, then fill the sub-cell remainder with a scale. Cols
+  // and rows come from the full-size viewport measured against xterm's true cell
+  // size (`term.dimensions.css.cell` — the font metric, independent of the current
+  // grid, so there's no circular measurement); the grid-sized `.term-host` is then
+  // scaled to cover the whole viewport. `clientWidth`/`clientHeight` are layout
+  // sizes that ignore the transform, so the maths stay stable frame to frame.
+  function fitToPane() {
+    if (!term || !host || !viewport) {
+      return;
+    }
+
+    const cell = term.dimensions?.css.cell;
+    if (!cell || !(cell.width > 0) || !(cell.height > 0)) {
+      return;
+    }
+
+    const cols = Math.max(2, Math.floor((viewport.clientWidth - SCROLLBAR_WIDTH) / cell.width));
+    const rows = Math.max(1, Math.floor(viewport.clientHeight / cell.height));
+    if (cols !== term.cols || rows !== term.rows) {
+      term.resize(cols, rows);
+    }
+
+    scaleX = viewport.clientWidth / (cols * cell.width);
+    scaleY = viewport.clientHeight / (rows * cell.height);
+  }
+
   onMount(async () => {
     term = new Terminal({
       fontFamily: effective.monoFamily,
@@ -110,8 +148,6 @@
       allowProposedApi: true,
       theme: readXtermTheme()
     });
-    fit = new FitAddon();
-    term.loadAddon(fit);
     term.open(host);
 
     // GPU-accelerated rendering; fall back silently if WebGL is unavailable.
@@ -123,7 +159,7 @@
     /* CPU renderer is fine as a fallback */
     }
 
-    fit.fit();
+    fitToPane();
 
     // Stream this session's PTY output into the terminal; each chunk is a sign
     // of life that resets the idle → ready timer. Events are filtered by id so
@@ -216,9 +252,9 @@
     });
 
     // Refit once per animation frame so the grid reflows in lockstep with the
-    // drag. A terminal reflows in whole cells, so this steps a row/column at a
-    // time — that's the natural terminal behaviour, and on xterm 6.1 the reflow
-    // renders synchronously (issue #4922 / PR #5529) so each step stays crisp.
+    // drag; the sub-cell scale then fills the remainder so it tracks continuously
+    // rather than snapping a whole row/column at a time. xterm 6.1 renders the
+    // reflow synchronously (issue #4922 / PR #5529) so each step stays crisp, and
     // rAF coalesces a burst of resize events into one fit per frame.
     resizeObs = new ResizeObserver(() => {
       if (fitFrame !== undefined) {
@@ -227,10 +263,10 @@
 
       fitFrame = requestAnimationFrame(() => {
         fitFrame = undefined;
-        fit.fit();
+        fitToPane();
       });
     });
-    resizeObs.observe(host);
+    resizeObs.observe(viewport);
 
     // Spawn the chosen agent in a real PTY.
     if (destroyed) {
@@ -300,7 +336,9 @@
     {/if}
   </header>
   <div class="term-pad">
-    <div bind:this={host} class="term-host"></div>
+    <div bind:this={viewport} class="term-viewport">
+      <div bind:this={host} style:scale={`${scaleX} ${scaleY}`} class="term-host"></div>
+    </div>
   </div>
 </div>
 
@@ -347,11 +385,9 @@
     }
   }
 
-  /* The xterm element must have no padding: FitAddon measures its full box to
-     compute rows, so padding would fit one row too many and clip the bottom.
-     Visual insets live on the wrapper instead — it lifts the output off every
-     pane edge (canvas line 264: 10px top, 8px right, 8px bottom, 14px left). Any
-     sub-cell remainder is filled by the shared code-bg, so it reads flush. */
+  /* Visual insets live on this pad, off the measured viewport, so they never
+     count toward the fit — it lifts the output off every pane edge (canvas line
+     264: 10px top, 8px right, 8px bottom, 14px left). */
   .term-pad {
     flex: 1;
     min-block-size: 0;
@@ -360,8 +396,26 @@
     background: var(--code-background);
   }
 
-  .term-host {
+  /* Full-size measuring frame: fitToPane reads its client size for the cols/rows.
+     It bottom-left-anchors the grid inside it so the grid's bottom-left corner —
+     where the prompt sits — stays put as the pane resizes. */
+  .term-viewport {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
     block-size: 100%;
     inline-size: 100%;
+
+    /* xterm mounts here, so this box is exactly the whole-cell grid (a touch
+       smaller than the viewport). It's scaled from the bottom-left (scaleX/scaleY,
+       set via a style: directive) to stretch the leftover sub-cell and fill the
+       viewport exactly — the couple-percent stretch grows up and to the right,
+       under the session bar, while the prompt stays crisp and flush at the
+       bottom-left. */
+    .term-host {
+      flex: none;
+      transform-origin: bottom left;
+    }
   }
 </style>
