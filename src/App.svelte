@@ -12,6 +12,7 @@
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
+  import Logo from "@/lib/Logo.svelte";
   import { isTemporaryWorkspace } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -771,7 +772,7 @@
     <!-- Loading phase: a calm branded ground so a booting window is never a
          blank void (also the safety net if a boot step stalls). -->
     <div class="booting">
-      <span class="brand" aria-label="PADE is starting">◆</span>
+      <span class="brand" aria-label="PADE is starting"><Logo size={64} /></span>
     </div>
   {/if}
 </div>
@@ -790,9 +791,7 @@
     background: radial-gradient(120% 120% at 50% 0%, var(--surface-1), var(--surface));
 
     .brand {
-      color: var(--primary);
-      font-weight: 700;
-      font-size: 44px;
+      display: inline-flex;
       animation: pulse 1400ms var(--ease) infinite;
     }
   }
