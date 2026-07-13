@@ -236,6 +236,10 @@
     }));
 
   // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut chip).
+  // Handled in the capture phase (see the <svelte:window> binding): a focused
+  // xterm calls stopPropagation on keys it handles, so a bubble-phase listener
+  // never sees the combo while the terminal has focus. stopPropagation here keeps
+  // the terminal from also receiving it.
   function onWindowKey(event: KeyboardEvent) {
     const isNewWindow = event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n";
     if (!isNewWindow) {
@@ -243,6 +247,7 @@
     }
 
     event.preventDefault();
+    event.stopPropagation();
     void openEmptyWindow();
   }
   async function openEmptyWindow() {
@@ -588,7 +593,7 @@
 </script>
 
 <svelte:document onselectionchange={readSelection} />
-<svelte:window onfocus={redetectAgentsOnFocus} onkeydown={onWindowKey} />
+<svelte:window onfocus={redetectAgentsOnFocus} onkeydowncapture={onWindowKey} />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monoFamily} class="app-root">
