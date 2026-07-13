@@ -170,13 +170,13 @@ pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Resu
         }
     }
 
-    // Build hidden, then show — so the window first appears already painted with
-    // the themed surface instead of a white frame during creation.
-    let window = builder
+    // Build visible: the builder's `background_color` above already paints the
+    // themed surface at creation, so there's no white flash to hide. (Building
+    // hidden and calling `show()` here left the window invisible — a freshly
+    // built webview window doesn't reliably show from within the command.)
+    builder
         .min_inner_size(720.0, 480.0)
-        .visible(false)
         .build()
         .map_err(|e| e.to_string())?;
-    let _ = window.show();
     Ok(())
 }
