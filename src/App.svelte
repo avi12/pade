@@ -926,6 +926,11 @@
   .body {
     display: grid;
     flex: 1;
+
+    /* Explicit full-height row track: without it the implicit row is `auto`
+       (content-sized), so the terminal shrinks with the window but never grows
+       back — the resize observer only fires on the shrink. */
+    grid-template-rows: 1fr;
     grid-template-columns: 1fr;
     min-block-size: 0;
     transition: grid-template-columns 250ms var(--ease);
