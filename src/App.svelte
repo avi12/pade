@@ -103,36 +103,50 @@
   } as const;
   type WindowMode = (typeof WindowMode)[keyof typeof WindowMode];
 
+  // Agent detection runs a subprocess per agent, so cap how long the boot waits
+  // on it — a stall must never freeze the splash. An empty list just routes to
+  // onboarding, and the redetect interval fills it in shortly after.
+  const BOOT_DETECT_TIMEOUT_MS = 6_000;
+
   onMount(async () => {
-    const [detected, saved] = await Promise.all([
-      agentsApi.detect(),
-      workspace.settings()
-    ]);
-    agents = detected;
-    settings = saved;
+    try {
+      // Detection is best-effort: a rejection or a stall both yield an empty
+      // list rather than blocking the routing below.
+      const detecting = Promise.race([
+        agentsApi.detect().catch((): Agent[] => []),
+        new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
+      ]);
+      const [detected, saved] = await Promise.all([detecting, workspace.settings()]);
+      agents = detected;
+      settings = saved;
 
-    // A spawned window carries a `w=` query that overrides the normal cold-start.
-    // The plain main window (no query) keeps today's launch_context behavior.
-    const query = new URLSearchParams(location.search);
-    const routed = await routeFromQuery(query);
-    if (routed) {
-      return;
-    }
+      // A spawned window carries a `w=` query that overrides the normal cold-start.
+      // The plain main window (no query) keeps today's launch_context behavior.
+      const query = new URLSearchParams(location.search);
+      const routed = await routeFromQuery(query);
+      if (routed) {
+        return;
+      }
 
-    const ctx = await workspace.context();
-    const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
-    if (ctx.hasProject) {
-      await workspace.open(ctx.cwd); // records it in recent history
-      startAgentFlow(ctx.cwd);
-      await loadBranches();
-    } else if (prefersPicker) {
-      // Opt-in: show the project picker instead of starting in a temp workspace.
+      const ctx = await workspace.context();
+      const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
+      if (ctx.hasProject) {
+        await workspace.open(ctx.cwd); // records it in recent history
+        startAgentFlow(ctx.cwd);
+        await loadBranches();
+      } else if (prefersPicker) {
+        // Opt-in: show the project picker instead of starting in a temp workspace.
+        phase = Phase.project;
+      } else {
+        // Default: start immediately in a throwaway workspace so there's no
+        // blocking picker. The user can switch any time (Switch button).
+        const temp = await workspace.temp();
+        startAgentFlow(temp);
+      }
+    } catch {
+      // Never strand the user on the splash — fall back to the project picker.
+      showToast("Startup hit a snag — pick a project to continue.");
       phase = Phase.project;
-    } else {
-      // Default: start immediately in a throwaway workspace so there's no
-      // blocking picker. The user can switch any time (Switch button).
-      const temp = await workspace.temp();
-      startAgentFlow(temp);
     }
   });
 
