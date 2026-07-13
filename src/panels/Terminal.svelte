@@ -35,7 +35,7 @@
   // alive = ready (done with its task, waiting for you); exit = done.
   let status = $state<SessionStatus>(SessionStatus.enum.starting);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  let fitTimer: ReturnType<typeof setTimeout> | undefined;
+  let fitFrame: number | undefined;
   const IDLE_MS = 700;
   // A resize makes the agent repaint; output within this window after one is
   // treated as that repaint's echo, not fresh activity — so revealing a hidden
@@ -215,12 +215,20 @@
       });
     });
 
-    // Debounce fit(): reflowing xterm is expensive, and a burst of resize
-    // events (e.g. dragging across monitors with different DPI) would otherwise
-    // reflow on every frame and stutter. Coalesce to the trailing edge.
+    // Refit once per animation frame so the grid reflows in lockstep with the
+    // drag. A terminal reflows in whole cells, so this steps a row/column at a
+    // time — that's the natural terminal behaviour, and on xterm 6.1 the reflow
+    // renders synchronously (issue #4922 / PR #5529) so each step stays crisp.
+    // rAF coalesces a burst of resize events into one fit per frame.
     resizeObs = new ResizeObserver(() => {
-      clearTimeout(fitTimer);
-      fitTimer = setTimeout(() => fit.fit(), 80);
+      if (fitFrame !== undefined) {
+        return;
+      }
+
+      fitFrame = requestAnimationFrame(() => {
+        fitFrame = undefined;
+        fit.fit();
+      });
     });
     resizeObs.observe(host);
 
@@ -257,7 +265,11 @@
     unlisten?.();
     exitUnlisten?.();
     clearTimeout(idleTimer);
-    clearTimeout(fitTimer);
+
+    if (fitFrame !== undefined) {
+      cancelAnimationFrame(fitFrame);
+    }
+
     resizeObs?.disconnect();
     dropContext(session.id);
     term?.dispose();
