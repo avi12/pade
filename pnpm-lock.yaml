@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@xterm/xterm@6.1.0-beta.288': 94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a
+
 importers:
 
   .:
@@ -25,10 +28,10 @@ importers:
         version: 2.3.5
       '@xterm/addon-webgl':
         specifier: 0.20.0-beta.287
-        version: 0.20.0-beta.287(@xterm/xterm@6.1.0-beta.288)
+        version: 0.20.0-beta.287(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))
       '@xterm/xterm':
         specifier: 6.1.0-beta.288
-        version: 6.1.0-beta.288
+        version: 6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -3048,11 +3051,11 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@xterm/addon-webgl@0.20.0-beta.287(@xterm/xterm@6.1.0-beta.288)':
+  '@xterm/addon-webgl@0.20.0-beta.287(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))':
     dependencies:
-      '@xterm/xterm': 6.1.0-beta.288
+      '@xterm/xterm': 6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)
 
-  '@xterm/xterm@6.1.0-beta.288': {}
+  '@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)': {}
 
   acorn-jsx@5.3.2(acorn@8.17.0):
     dependencies:
