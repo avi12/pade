@@ -113,7 +113,7 @@ any moment anyway — a pager or editor an agent opens, or Claude Code put back 
 | --- | --- | --- |
 | Grid refit | **every frame** — xterm owns the document and reflows it | **on settle only** — see below |
 | `SIGWINCH` | width only, debounced; height **never** | **cols and rows, immediately** — only the agent can paint a row, so a size it hasn't heard is a row nobody paints |
-| Grid anchor | top until it scrolls, then bottom | **bottom** — the agent paints all `rows` rows, prompt on the last |
+| Grid anchor | top until it scrolls, then bottom | **top** — see "the stabiliser" below |
 | xterm patch | active | **inert** (gated on `_hasScrollback`) |
 
 The grid rule is the surprising one, and it took three attempts to get right.
@@ -155,6 +155,29 @@ Three more traps found the hard way:
   after every drag just makes it end with a needless blink.
 - Switching screens must immediately re-send the size, because on the normal screen we
   deliberately let the agent's idea of the height go stale.
+
+### The stabiliser: pin the top, and squeeze the lag
+
+A fullscreen agent's frame is **rigid** — the conversation is nailed to its first row, the
+prompt to its last — and the pane's height is not a whole number of rows. So whichever
+edge is *not* pinned is the one that jumps a whole row every time the row count changes.
+
+Pinning the **bottom** welds the prompt to the pane's edge, which sounds right and is
+wrong: it makes the entire conversation sawtooth by a row on every boundary. That is the
+"mid-step". Pinning the **top** instead nails the conversation — measured across three row
+boundaries, it does not move by a single pixel (`y = 51` at every height) — and the
+remainder collects at the bottom as a strip of *terminal background*, which is not visible
+as anything. The prompt block steps a row instead, into the space that just appeared,
+which is what a terminal getting taller ought to look like.
+
+One thing must not follow from that. Because the agent only reaches the new size at the
+pace it can paint (above), the grid is briefly **taller than the pane** during a shrink —
+and with the top pinned, that overflow hangs past the bottom edge and **cuts the agent's
+status line off**. Nothing may ever cut that line. So while the grid is too tall it is
+scaled to fit (`squeeze`): at most the size of the lag, ~3% on a normal drag, back to
+exactly **1** the moment the agent catches up. Every settled state is unscaled, so the
+text is crisp and clicks map true; the scale exists only in the moments the agent is
+behind, and it is what stops the lag being visible at all.
 
 ## Attaching to a session already in flight
 

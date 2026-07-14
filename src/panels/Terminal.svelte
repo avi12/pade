@@ -170,10 +170,16 @@
 
   // Which edge the grid is pinned to. The grid is whole cells and the pane is not, so
   // there is always a sub-cell remainder to put somewhere, and which end it belongs at
-  // depends on which end of its content the terminal is showing:
+  // decides what the eye sees move:
   //
-  //   Alternate screen: the agent paints all `rows` rows, with its prompt on the last
-  //   one. Pin the BOTTOM so the prompt stays welded to the pane's edge.
+  //   Alternate screen: the agent's frame is RIGID — conversation nailed to its first
+  //   row, prompt to its last — so whichever edge is not pinned is the one that steps a
+  //   whole row when the row count changes. Pin the TOP: the conversation, which is what
+  //   you are reading and most of what is on screen, then never moves at all, and the
+  //   remainder collects at the BOTTOM as a strip of terminal background — the same
+  //   colour as the terminal, so it is not visible as anything. Pinning the bottom
+  //   instead welds the prompt to the pane's edge but makes the whole conversation
+  //   sawtooth by a row on every boundary, which is exactly the "mid-step".
   //
   //   Normal screen, no scrollback yet (the conversation still fits): output starts at
   //   row 0, so pinning the TOP keeps every line at a fixed y. Resizing then moves
@@ -190,10 +196,32 @@
   // Either way the remainder ends up at the unpinned edge, as a sliver of background.
   let anchorBottom = $state(false);
 
+  // Vertical scale of the grid, and 1 in every settled state (see `fit`).
+  let squeeze = $state(1);
+
   // Scrollback existing at all is the signal that the document has outgrown the grid —
-  // xterm only pushes a line into scrollback then. (The alternate screen never has any.)
+  // xterm only pushes a line into scrollback then. (The alternate screen never has any,
+  // and pins its top: see above.)
   function updateAnchor() {
-    anchorBottom = onAlternateScreen || (term?.buffer.active.baseY ?? 0) > 0;
+    anchorBottom = !onAlternateScreen && (term?.buffer.active.baseY ?? 0) > 0;
+  }
+
+  // How much a grid that is momentarily too tall for its pane has to be scaled by to fit
+  // inside it — 1 whenever it fits, which is every settled state.
+  //
+  // It has to be recomputed both when the PANE moves (the drag) and when the GRID does
+  // (the agent catching up, which lands later, on its own schedule): either one closes
+  // the gap, and only redoing it on both is what brings the scale back to exactly 1 when
+  // they meet.
+  function updateSqueeze() {
+    const cell = term?.dimensions?.css.cell;
+    if (!term || !viewport || !cell || !(cell.height > 0)) {
+      return;
+    }
+
+    const gridHeight = term.rows * cell.height;
+    const paneHeight = viewport.clientHeight;
+    squeeze = gridHeight > paneHeight && gridHeight > 0 ? paneHeight / gridHeight : 1;
   }
 
   // The one place that tells the PTY how big it is (DRY — both resize paths and the
@@ -367,6 +395,14 @@
       return;
     }
 
+    // The agent's frame only reaches the new size at the pace the agent can paint it, so
+    // between here and there the grid can still be TALLER than the pane — and the grid is
+    // pinned at the top, which would put the overflow past the bottom edge and cut the
+    // agent's status line off. Nothing may ever cut that line. So for as long as the grid
+    // is too big, it is squeezed to fit; the squeeze is never more than the lag, and goes
+    // back to exactly 1 the moment the agent catches up — so a settled terminal is never
+    // scaled, its text is crisp, and its clicks map true.
+    updateSqueeze();
     altFit({
       cols,
       rows
@@ -537,6 +573,8 @@
     // and xterm simply reveals more or less of it, exactly like scrolling a web page.
     term.onResize(({ cols, rows }) => {
       lastResizeAt = Date.now();
+      // The grid just changed, which is the other half of what the squeeze measures.
+      updateSqueeze();
 
       // Alternate screen: tell the agent at once — it owns every row, and a size it has
       // not heard is a row nobody paints. The grid only reaches it at a pace the agent
@@ -712,7 +750,7 @@
   </header>
   <div class="term-pad">
     <div bind:this={viewport} class="term-viewport" class:anchor-bottom={anchorBottom}>
-      <div bind:this={host} class="term-host"></div>
+      <div bind:this={host} style:scale={`1 ${squeeze}`} class="term-host"></div>
     </div>
   </div>
 </div>
@@ -772,10 +810,10 @@
   }
 
   /* Full-size measuring frame: fitToPane reads its client size for the cols/rows and
-     pins the grid to the end of the document the terminal is actually showing (see
-     `anchorBottom`) — the top while the conversation still fits, the bottom once it
-     scrolls. Either way the grid is whole cells and never quite fills the frame, so
-     the leftover sits as a sliver of background at the unpinned edge. */
+     pins the grid to the end of the content the terminal is actually showing (see
+     `anchorBottom`) — a fullscreen agent's frame and an unscrolled conversation pin the
+     top, a scrolled one pins the bottom. The grid is whole cells and never quite fills
+     the frame, so the leftover sits as a sliver of background at the unpinned edge. */
   .term-viewport {
     display: flex;
     flex-direction: column;
@@ -788,10 +826,14 @@
       justify-content: flex-end;
     }
 
-    /* xterm mounts here at its natural whole-cell size. No transform — text stays
-       crisp and clicks map at native cell size. */
+    /* xterm mounts here at its natural whole-cell size, scaled only while a grid that is
+       momentarily too tall for the pane is being squeezed to fit (see `squeeze`) — from
+       the top, so the squeeze pulls the overflowing bottom up into view rather than
+       moving the text you are reading. At rest the scale is exactly 1: text stays crisp
+       and clicks map at native cell size. */
     .term-host {
       flex: none;
+      transform-origin: top left;
     }
   }
 </style>
