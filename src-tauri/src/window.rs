@@ -134,8 +134,21 @@ impl LaunchMode {
 
 /// Spawn a new PADE window loading the app with a `w=` query describing what to
 /// boot into. `mode` is `"empty"` | `"temp"`; a present `path` opens that project.
+///
+/// **`async` is load-bearing on Windows.** Tauri runs a synchronous command *on the
+/// event loop thread*, and building a webview window blocks that thread waiting for
+/// `WebView2` to hand the webview back — which it can only do from the event loop. The
+/// two wait on each other: the OS window appears (title bar, themed surface) with no
+/// webview in it, and the whole app stops pumping messages, so the blank window cannot
+/// even be closed. Tauri's own docs say it outright: "on Windows, this function
+/// deadlocks when used in a synchronous command". An async command runs off that
+/// thread, leaving the event loop free to finish the job.
 #[tauri::command]
-pub fn window_create(app: AppHandle, mode: String, path: Option<String>) -> Result<(), String> {
+pub async fn window_create(
+    app: AppHandle,
+    mode: String,
+    path: Option<String>,
+) -> Result<(), String> {
     let query = match LaunchMode::resolve(&mode, path.as_deref()) {
         LaunchMode::Empty => "w=empty".to_string(),
         LaunchMode::Temp => "w=temp".to_string(),
