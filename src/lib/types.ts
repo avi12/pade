@@ -265,12 +265,22 @@ export const Settings = z.object({
 });
 export type Settings = z.infer<typeof Settings>;
 
-/** PTY stream event payloads. */
+/** PTY stream event payloads. `seq` is the chunk's position in the session's
+ *  stream, which is what lets a terminal attaching mid-flight tell the chunks it
+ *  caught live apart from the ones already inside the history it replayed. */
 export const PtyChunk = z.object({
   id: z.string(),
-  data: z.string()
+  data: z.string(),
+  seq: z.number()
 });
 export type PtyChunk = z.infer<typeof PtyChunk>;
+
+/** A session's replayable output, and the sequence number of the last chunk in it. */
+export const PtyHistory = z.object({
+  data: z.string(),
+  seq: z.number()
+});
+export type PtyHistory = z.infer<typeof PtyHistory>;
 
 export const PtyExit = z.object({ id: z.string() });
 export type PtyExit = z.infer<typeof PtyExit>;

@@ -16,6 +16,7 @@ import {
   ProjectEntry,
   PtyChunk,
   PtyExit,
+  PtyHistory,
   RestoreCandidate,
   RunnerData,
   RunnerExit,
@@ -142,6 +143,12 @@ export const pty = {
     rows: number;
   }) => run("pty_resize", { ...args }),
   kill: (id: string) => run("pty_kill", { id }),
+  /** Everything a terminal needs to paint a session it is attaching to mid-flight
+   *  (a remounted component, a reloaded window), and the sequence number of the last
+   *  chunk already inside it — chunks above that one arrived live and still need
+   *  writing. A PTY has no scrollback of its own, so without this the terminal has
+   *  nothing to draw and sits blank while the agent waits, quite happily, for input. */
+  history: (id: string) => call("pty_history", PtyHistory, { id }),
   /** The session's rolling, ANSI-stripped transcript tail. */
   transcript: (id: string) => call("session_transcript", z.string(), { id }),
   /** Ask the namer for a concise session name from its transcript (null until
@@ -150,8 +157,7 @@ export const pty = {
     id: string;
     agent: string;
   }) => call("session_generate_name", z.string().nullable(), { ...args }),
-  onData: (callback: (id: string, data: string) => void) =>
-    on("pty://data", PtyChunk, payload => callback(payload.id, payload.data)),
+  onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
   onExit: (callback: (id: string) => void) =>
     on("pty://exit", PtyExit, payload => callback(payload.id))
 };

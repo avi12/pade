@@ -6,7 +6,7 @@
   import { dropContext, observeContext } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { SessionStatus } from "@/lib/types";
-  import type { AgentSession } from "@/lib/types";
+  import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
@@ -261,24 +261,42 @@
     // Stream this session's PTY output into the terminal; each chunk is a sign
     // of life that resets the idle → ready timer. Events are filtered by id so
     // sibling sessions don't cross-write.
-    const dataUnlisten = await pty.onData((id, chunk) => {
-      if (id !== session.id) {
-        return;
-      }
+    //
+    // Until the session's history has been replayed (below) the live chunks are only
+    // parked, not written: the PTY may already be running and this terminal is empty,
+    // so writing them now would paint the tail of a conversation whose beginning is
+    // missing. Each chunk carries its position in the stream, so once the history is
+    // in, the ones it already contains can be dropped and the rest written in order.
+    const pendingChunks: PtyChunk[] = [];
+    let replayed = false;
 
+    function consume(chunk: PtyChunk) {
       // The terminal may already be disposed if a late chunk arrives during
       // teardown; skip the write rather than throw.
       if (destroyed || !term) {
         return;
       }
 
-      term.write(chunk);
+      term.write(chunk.data);
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
       observeContext({
         id: session.id,
-        chunk
+        chunk: chunk.data
       });
+    }
+
+    const dataUnlisten = await pty.onData(chunk => {
+      if (chunk.id !== session.id) {
+        return;
+      }
+
+      if (!replayed) {
+        pendingChunks.push(chunk);
+        return;
+      }
+
+      consume(chunk);
     });
     // If we were destroyed while awaiting, this listener registered too late
     // for onDestroy to see — tear it down now and stop.
@@ -442,12 +460,41 @@
       args: session.args
     });
 
-    // Seed a new-project first prompt into the input (typed, not submitted —
-    // the user reviews and presses Enter).
+    // Paint whatever the session has already said. A spawn for a session that is
+    // still running is a no-op, so this terminal may be attaching to a conversation
+    // already in flight — a remounted component, a reloaded window — and a PTY keeps
+    // no scrollback of its own: with nothing replayed, the pane just sits blank while
+    // the agent waits, quite happily, for input. For a fresh spawn the history is
+    // empty and this costs nothing.
+    //
+    // Chunks that arrived while this was in flight were parked, not written. The
+    // history is authoritative up to its `seq`, so anything at or below it is already
+    // painted and only the newer ones still need to go in — in order, and before any
+    // further live chunk is written.
     if (destroyed) {
       return;
     }
 
+    const history = await pty.history(session.id);
+    if (destroyed || !term) {
+      return;
+    }
+
+    if (history.data) {
+      term.write(history.data);
+    }
+
+    for (const chunk of pendingChunks) {
+      if (chunk.seq > history.seq) {
+        consume(chunk);
+      }
+    }
+
+    pendingChunks.length = 0;
+    replayed = true;
+
+    // Seed a new-project first prompt into the input (typed, not submitted —
+    // the user reviews and presses Enter).
     if (session.initialPrompt) {
       await pty.write({
         id: session.id,
