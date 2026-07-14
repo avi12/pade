@@ -26,10 +26,31 @@ pub struct Pty {
     /// AI session-namer reads. Its own lock so the read thread never contends
     /// with the sessions map.
     transcript: Arc<Mutex<String>>,
+    /// Everything the terminal would need to paint this session from scratch.
+    /// A PTY has no scrollback of its own: whatever the frontend never received,
+    /// or received and then threw away, is gone. So a terminal that attaches to a
+    /// session already in flight — a remounted component, a reloaded window, a
+    /// reopened tab — has nothing to draw and sits blank while the agent, quite
+    /// happily, waits for input. Keeping the raw stream is what lets it catch up.
+    history: Arc<Mutex<History>>,
+}
+
+/// A session's replayable output, and how many chunks have been emitted for it.
+/// The counter is what makes the handover exact: the frontend can be listening to
+/// the live stream while it asks for the history, and `seq` tells it which of the
+/// chunks it caught are already inside that history (see `pty_history`).
+#[derive(Default)]
+pub struct History {
+    data: String,
+    seq: u64,
 }
 
 /// How much recent output to keep per session for naming (bytes, tail-trimmed).
 const TRANSCRIPT_CAP: usize = 16 * 1024;
+
+/// How much raw output to keep per session for replay. Bigger than the transcript
+/// because this is the unstripped stream — escape codes and repaints included.
+const HISTORY_CAP: usize = 512 * 1024;
 
 /// Strip terminal control sequences so the buffered transcript is plain text:
 /// drop ESC-introduced CSI/OSC sequences, carriage returns, and other C0
@@ -99,10 +120,45 @@ fn append_transcript(transcript: &Arc<Mutex<String>>, cleaned: &str) {
     }
 }
 
+/// Append raw output to a session's replay history and take the sequence number of
+/// this chunk. Trimming the front to `HISTORY_CAP` cuts at a line break (and never
+/// mid-character), so a replay starts on a whole line rather than halfway through
+/// an escape sequence.
+fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
+    let Ok(mut buffer) = history.lock() else {
+        return 0;
+    };
+    buffer.data.push_str(raw);
+    buffer.seq += 1;
+
+    if buffer.data.len() > HISTORY_CAP {
+        let overflow = buffer.data.len() - HISTORY_CAP;
+        let mut cut = buffer.data[overflow..]
+            .find('\n')
+            .map_or(buffer.data.len(), |line_end| overflow + line_end + 1);
+        while cut < buffer.data.len() && !buffer.data.is_char_boundary(cut) {
+            cut += 1;
+        }
+        buffer.data.drain(..cut);
+    }
+
+    buffer.seq
+}
+
 #[derive(Serialize, Clone)]
 struct Chunk {
     id: String,
     data: String,
+    /// This chunk's position in the session's stream — see `History`.
+    seq: u64,
+}
+
+/// A session's replayable output and the sequence number of the last chunk in it.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct HistorySnapshot {
+    data: String,
+    seq: u64,
 }
 
 #[derive(Serialize, Clone)]
@@ -180,12 +236,16 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    // Pump this session's output to the frontend, tagged with its id, while
-    // mirroring a cleaned tail into the transcript for the AI namer.
+    // Pump this session's output to the frontend, tagged with its id, while keeping
+    // the raw stream for replay and mirroring a cleaned tail into the transcript for
+    // the AI namer. The chunk is recorded BEFORE it is emitted, so any chunk the
+    // frontend can hear is already inside the history it is about to ask for.
     let app_reader = app.clone();
     let session_id = id.clone();
     let transcript = Arc::new(Mutex::new(String::new()));
     let transcript_reader = transcript.clone();
+    let history = Arc::new(Mutex::new(History::default()));
+    let history_reader = history.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
         loop {
@@ -193,11 +253,13 @@ pub fn pty_spawn(
                 Ok(n) if n > 0 => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
                     append_transcript(&transcript_reader, &strip_ansi(&data));
+                    let seq = append_history(&history_reader, &data);
                     let _ = app_reader.emit(
                         "pty://data",
                         Chunk {
                             id: session_id.clone(),
                             data,
+                            seq,
                         },
                     );
                 }
@@ -219,9 +281,31 @@ pub fn pty_spawn(
             master: pair.master,
             writer,
             transcript,
+            history,
         },
     );
     Ok(())
+}
+
+/// Everything a terminal needs to paint a session it is attaching to mid-flight,
+/// plus the sequence number of the last chunk already inside it — so a frontend that
+/// was listening while it asked can tell which chunks it caught are duplicates and
+/// which are genuinely new. Empty for an unknown session.
+#[tauri::command]
+pub fn pty_history(state: State<PtyState>, id: String) -> HistorySnapshot {
+    let Ok(sessions) = state.0.lock() else {
+        return HistorySnapshot::default();
+    };
+    let Some(pty) = sessions.get(&id) else {
+        return HistorySnapshot::default();
+    };
+    pty.history
+        .lock()
+        .map(|buffer| HistorySnapshot {
+            data: buffer.data.clone(),
+            seq: buffer.seq,
+        })
+        .unwrap_or_default()
 }
 
 /// The rolling, ANSI-stripped transcript for a session — the context the AI
