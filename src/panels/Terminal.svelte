@@ -36,6 +36,7 @@
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let fitFrame: number | undefined;
   let sigwinchTimer: ReturnType<typeof setTimeout> | undefined;
+  let altFitTimer: ReturnType<typeof setTimeout> | undefined;
   const IDLE_MS = 700;
   // How long the grid must hold still before the agent is told its new width. Long
   // enough that one drag gesture is one SIGWINCH, short enough to feel immediate.
@@ -113,28 +114,69 @@
   // the last column hides behind it. Default track width when scrollback is on.
   const SCROLLBAR_WIDTH = 14;
 
-  // Which edge the grid is pinned to. The grid is whole cells and the pane is not,
-  // so there is always a sub-cell remainder to put somewhere — and which end it
-  // belongs at depends on which end of the document the terminal is showing:
+  // The two screens a terminal has, and the only thing that decides how a resize must
+  // behave. ADE runs Claude Code on the normal one (see agents.rs), but nothing here
+  // may assume that: a fullscreen agent (Codex, aider), a pager or editor the agent
+  // shells out to, or Claude Code itself switched back with `/tui fullscreen`, all
+  // take over the ALTERNATE screen — and the rules there are the exact opposite.
+  const Screen = {
+    Normal: "normal",
+    Alternate: "alternate"
+  } as const;
+
+  // On the alternate screen there is no document and no scrollback: it is a
+  // framebuffer the agent owns and repaints, and the terminal holds nothing it could
+  // reflow. So the agent must be told the size — height included — immediately and
+  // every frame, or the rows it hasn't painted come out blank and the ones it lost are
+  // truncated. Everything below keys off this.
+  let onAlternateScreen = $state(false);
+
+  // Which edge the grid is pinned to. The grid is whole cells and the pane is not, so
+  // there is always a sub-cell remainder to put somewhere, and which end it belongs at
+  // depends on which end of its content the terminal is showing:
   //
-  //   No scrollback yet (the conversation still fits): the agent's output starts at
+  //   Alternate screen: the agent paints all `rows` rows, with its prompt on the last
+  //   one. Pin the BOTTOM so the prompt stays welded to the pane's edge.
+  //
+  //   Normal screen, no scrollback yet (the conversation still fits): output starts at
   //   row 0, so pinning the TOP keeps every line at a fixed y. Resizing then moves
   //   nothing at all — the pane just reveals or hides empty rows at the bottom.
   //
-  //   Scrollback (the conversation overflows, terminal parked at the newest line):
-  //   xterm scrolls the document in whole rows, so a top-pinned grid would step the
-  //   text by a row each time the row count changes. Pinning the BOTTOM instead puts
-  //   every visible line at a fixed distance from the pane's bottom edge —
+  //   Normal screen with scrollback (the conversation overflows, terminal parked at
+  //   the newest line): xterm scrolls the document in whole rows, so a top-pinned grid
+  //   would step the text by a row each time the row count changes. Pinning the BOTTOM
+  //   instead puts every visible line at a fixed distance from the pane's bottom edge —
   //   `y = paneBottom - (linesFromEnd + 1) * cellHeight`, which has no `rows` term in
   //   it. The row xterm scrolls away and the remainder the grid gains cancel out, so
-  //   the text is continuous through a row boundary. The remainder becomes a sliver
-  //   of background at the top, under the session bar.
+  //   the text is continuous through a row boundary.
+  //
+  // Either way the remainder ends up at the unpinned edge, as a sliver of background.
   let anchorBottom = $state(false);
 
-  // Scrollback existing at all is the signal: xterm only pushes a line into it once
-  // the document has outgrown the grid.
+  // Scrollback existing at all is the signal that the document has outgrown the grid —
+  // xterm only pushes a line into scrollback then. (The alternate screen never has any.)
   function updateAnchor() {
-    anchorBottom = (term?.buffer.active.baseY ?? 0) > 0;
+    anchorBottom = onAlternateScreen || (term?.buffer.active.baseY ?? 0) > 0;
+  }
+
+  // The one place that tells the PTY how big it is (DRY — both resize paths and the
+  // screen switch go through here). Remembering the width we sent is what lets a
+  // height-only change on the normal screen be dropped entirely. Stamp the time so the
+  // repaint the agent sends back isn't counted as activity (see markActivity).
+  function sizeAgent({
+    cols,
+    rows
+  }: {
+    cols: number;
+    rows: number;
+  }) {
+    lastResizeAt = Date.now();
+    agentCols = cols;
+    void pty.resize({
+      id: session.id,
+      cols,
+      rows
+    });
   }
 
   // Fit the grid to the pane, and re-pin it (above). Whole cells only, rounded down,
@@ -156,8 +198,40 @@
 
     const cols = Math.max(2, Math.floor((viewport.clientWidth - SCROLLBAR_WIDTH) / cell.width));
     const rows = Math.max(1, Math.floor(viewport.clientHeight / cell.height));
-    if (cols !== term.cols || rows !== term.rows) {
-      term.resize(cols, rows);
+    // On the alternate screen the grid may not move under the agent mid-drag. A
+    // fullscreen TUI paints by DIFFING against its own model of the screen (that is what
+    // makes it flicker-free), so a grid that resizes faster than it can process the
+    // SIGWINCH leaves its model describing a screen that no longer exists — and because
+    // it then writes only the cells it believes changed, the half-drawn frame never
+    // repairs itself, not even on the next resize (measured: one fast drag left the
+    // layout stuck at a stale width for good). So there the grid waits for the drag to
+    // settle, and then moves in lockstep with the agent (see term.onResize).
+    //
+    // The normal screen has no such contract — xterm owns the document and reflows it
+    // itself — so it refits every frame, which is what makes a drag flow like a page.
+    const grid = term;
+    const isGridStale = cols !== grid.cols || rows !== grid.rows;
+    if (!onAlternateScreen) {
+      if (isGridStale) {
+        grid.resize(cols, rows);
+      }
+
+      updateAnchor();
+      return;
+    }
+
+    // Always re-arm with the latest size, even when it matches the grid: the grid does
+    // not move during the drag, so a gesture that ends back where it started still has
+    // to cancel the stale resize a mid-drag frame left pending.
+    if (isGridStale || altFitTimer !== undefined) {
+      clearTimeout(altFitTimer);
+      altFitTimer = setTimeout(() => {
+        altFitTimer = undefined;
+
+        if (cols !== grid.cols || rows !== grid.rows) {
+          grid.resize(cols, rows);
+        }
+      }, SIGWINCH_SETTLE_MS);
     }
 
     updateAnchor();
@@ -267,43 +341,72 @@
     // prints past the last row — and that is the moment the grid must re-pin.
     term.onScroll(updateAnchor);
 
-    // Tell the agent about a WIDTH change only, and only once the drag has settled.
+    // A program that takes over the alternate screen has to be told the moment the
+    // grid changes, and told the height too — it is painting the whole framebuffer,
+    // and nobody else can. Switching screens also makes the grid re-pin, and squares
+    // the agent's idea of the size with ours, since on the normal screen we deliberately
+    // let its height go stale (below).
+    term.buffer.onBufferChange(() => {
+      onAlternateScreen = term.buffer.active.type === Screen.Alternate;
+      updateAnchor();
+
+      if (onAlternateScreen) {
+        sizeAgent({
+          cols: term.cols,
+          rows: term.rows
+        });
+      }
+    });
+
+    // Which of a resize's two numbers the agent hears depends on the screen it is on.
     //
-    // A CLI printing an inline document needs the width — that is what its text
-    // wraps to. It does not need the height: how much of a document you can see is
-    // the terminal's business, and xterm already knows. Sending the height anyway is
-    // what put the last step back on screen, because every SIGWINCH makes the agent
-    // re-lay-out and reprint:
+    // ALTERNATE: both, immediately, every frame. There is no document behind that
+    // screen and no scrollback — only the agent can paint a row — so a size it hasn't
+    // been told is a row nobody paints (blank at the bottom, truncated at the top).
+    // Never debounce this one.
     //
-    //   - it re-flows its own frame for the new row count and drops or adds a line,
-    //     which shoves the conversation above that line a full row sideways of the
-    //     text below it — the "step" that survived every geometry fix, because it
-    //     isn't geometry, it's the document changing under us; and
-    //   - Ink reprints its whole static history on a resize, so the previous copy is
-    //     left behind in the scrollback (one per SIGWINCH — a fast drag once left 52).
+    // NORMAL: the width, once the drag settles, and NEVER the height. A CLI printing an
+    // inline document needs the width — that is what its text wraps to. It does not
+    // need the height: how much of a document you can see is the terminal's business,
+    // and xterm already knows. Send the height anyway and every SIGWINCH makes it
+    // re-render — which is what kept a step on screen:
     //
-    // So a vertical drag now sends nothing at all: the agent's output is untouched
+    //   - it re-lays-out its frame for the new row count and drops or adds a line, so
+    //     the conversation above that line sits a full row off from the text below it.
+    //     Not geometry: the document itself changing under us; and
+    //   - Ink reprints its whole static history on a resize, stranding the previous
+    //     copy in the scrollback (one per SIGWINCH — a fast drag once left 52).
+    //
+    // So a vertical drag there sends nothing at all: the agent's output is untouched
     // and xterm simply reveals more or less of it, exactly like scrolling a web page.
-    // A width change still has to go through (the text must rewrap to it), debounced
-    // to the end of the gesture so one drag costs one reprint instead of dozens.
-    // Stamp the time so the repaint it sends back isn't counted as activity.
     term.onResize(({ cols, rows }) => {
       lastResizeAt = Date.now();
+
+      // The grid only reaches this size on the alternate screen once the drag has
+      // already settled (see fitToPane), so the agent is told at once — it owns every
+      // row there and nothing else can paint the ones it hasn't seen.
+      if (onAlternateScreen) {
+        clearTimeout(sigwinchTimer);
+        sizeAgent({
+          cols,
+          rows
+        });
+        return;
+      }
 
       if (cols === agentCols) {
         return;
       }
 
       clearTimeout(sigwinchTimer);
-      sigwinchTimer = setTimeout(async () => {
-        lastResizeAt = Date.now();
-        agentCols = cols;
-        await pty.resize({
-          id: session.id,
-          cols,
-          rows
-        });
-      }, SIGWINCH_SETTLE_MS);
+      sigwinchTimer = setTimeout(
+        () =>
+          sizeAgent({
+            cols,
+            rows
+          }),
+        SIGWINCH_SETTLE_MS
+      );
     });
 
     // Fit the grid once per animation frame so the conversation rewraps live as you
@@ -359,6 +462,7 @@
     exitUnlisten?.();
     clearTimeout(idleTimer);
     clearTimeout(sigwinchTimer);
+    clearTimeout(altFitTimer);
 
     if (fitFrame !== undefined) {
       cancelAnimationFrame(fitFrame);
