@@ -116,20 +116,43 @@ any moment anyway — a pager or editor an agent opens, or Claude Code put back 
 | Grid anchor | top until it scrolls, then bottom | **bottom** — the agent paints all `rows` rows, prompt on the last |
 | xterm patch | active | **inert** (gated on `_hasScrollback`) |
 
-The grid rule is the surprising one. A fullscreen TUI paints by **diffing against its
-own model of the screen** — that is what makes it flicker-free. Resize the grid under
-it faster than it can process the `SIGWINCH` and its model describes a screen that no
-longer exists; because it then writes only the cells it *believes* changed, the
-half-drawn frame **never repairs itself** — not on the next repaint, not on the next
-resize. Measured: one fast drag left Claude's fullscreen layout stuck at a stale width
-permanently. So on the alternate screen the grid holds still for the whole gesture and
-then moves in lockstep with the agent.
+The grid rule is the surprising one, and it took three attempts to get right.
 
-Two traps found the hard way while doing that:
+A fullscreen TUI paints by **diffing against its own model of the screen** — that is
+what makes it flicker-free. Resize the grid under it faster than it can process the
+`SIGWINCH` and its model starts describing a screen that no longer exists; from then on
+it writes only the cells it *believes* changed, so a torn frame **never repairs itself**.
+Measured, resizing every frame through a fast drag: the agent **stopped painting
+altogether** — the pane went blank and stayed blank, the process still alive, typing
+into it producing nothing. This is not cosmetic damage. It wedges the renderer.
 
-- The deferred resize must always re-arm with the **latest** size, even when it equals
-  the current grid. The grid does not move during the drag, so a gesture that ends back
-  where it started would otherwise leave a stale mid-drag resize pending, and fire it.
+The obvious answers both fail:
+
+| Attempt | Result |
+| --- | --- |
+| Resize every frame (as on the normal screen) | Renderer wedged; pane blank, unrecoverable |
+| Freeze the grid for the whole gesture, move it on release | Safe, but then **the TUI only updates when you let go** |
+| Fixed throttle (100ms) | Survived one drag, wedged on the third — a fixed rate just moves the cliff |
+
+What works is **flow control**: one resize in flight at a time. Give the agent a size,
+wait until it has finished painting it (its output goes quiet for `ALT_REPAINT_QUIET_MS`),
+and only then hand it the size the pane has reached in the meantime. The drag is paced by
+the agent itself — as fast as it can follow, never faster. Measured through four
+consecutive fast drags: the frame stays intact every time, and mid-gesture the agent has
+painted right down to the grid's last row, so it tracks the drag live.
+
+Waiting on its repaint is necessary but **not sufficient**: the agent goes quiet
+*between* the bursts of a single repaint, so the credit comes back early and the resizes
+still pile up. `ALT_FIT_MIN_INTERVAL_MS` (250ms) is the floor on how often it may be
+disturbed at all, whatever the pane is doing.
+
+Three more traps found the hard way:
+
+- A drag that ends inside the minimum interval still has to land its last size — nothing
+  else will come back to collect it, so the parked fit needs its own timer.
+- If we ever give up waiting for a repaint (`ALT_REPAINT_TIMEOUT_MS`), the frame may be
+  torn, and the gesture owes it a **full repaint** when it stops. Only then — forcing one
+  after every drag just makes it end with a needless blink.
 - Switching screens must immediately re-send the size, because on the normal screen we
   deliberately let the agent's idea of the height go stale.
 

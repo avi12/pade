@@ -108,7 +108,7 @@ of the emulator — and ADE hosts both, so `Terminal.svelte` watches
 | --- | --- | --- |
 | What it holds | A real document, with real scrollback | A framebuffer the program owns and diffs against its own model of |
 | Who paints a row | The terminal — so xterm can rewrap the text itself, continuously, like a web page | **Only the program** |
-| Grid refit | Every frame, so the text tracks the drag | **Only once the drag settles** — resize it faster than the program can follow and its model desyncs, leaving a half-drawn frame that never repairs itself |
+| Grid refit | Every frame, so the text tracks the drag | **Flow-controlled**: one resize in flight at a time, the next only once the program has finished painting the last (and never more often than `ALT_FIT_MIN_INTERVAL_MS`). Resize it faster than it can follow and its model desyncs — measured, that stops it painting altogether and the pane goes blank for good. Freezing the grid instead would be safe, but then the TUI only updates when you let go |
 | `SIGWINCH` | **Width only**, debounced; the height never. An inline document wraps to the width, but how much of it you can see is the terminal's business — and every `SIGWINCH` makes the agent re-lay-out (dropping a line, which steps the text above it) and reprint its whole static history (a per-frame drag left **52** orphaned conversations in the scrollback) | **Cols and rows, immediately.** A size the program has not heard is a row nobody paints |
 | Grid anchor | Top while the conversation fits, bottom once it scrolls — pinning the end you are looking at, so the sub-cell remainder and the row xterm scrolls away cancel out | **Bottom** — the program paints every row, prompt on the last |
 

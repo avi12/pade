@@ -36,7 +36,25 @@
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let fitFrame: number | undefined;
   let sigwinchTimer: ReturnType<typeof setTimeout> | undefined;
+  // Flow control for the alternate screen (see altFit): the agent is repainting the size
+  // we last gave it, the size the pane has reached since, and the timers that decide when
+  // that repaint is done — plus whether we ever gave up waiting, which means the frame on
+  // screen may be torn and owes a full repaint when the drag stops.
+  let awaitingRepaint = false;
   let altFitTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastAltFitAt = 0;
+  let pendingFit:
+    | {
+      cols: number;
+      rows: number;
+    }
+    | undefined;
+  let repaintQuietTimer: ReturnType<typeof setTimeout> | undefined;
+  let repaintWatchdog: ReturnType<typeof setTimeout> | undefined;
+  let missedRepaint = false;
+  // A repaint nudge resizes the grid itself, so it comes back through the resize path —
+  // this is what stops it queueing another repaint off the back of its own.
+  let repainting = false;
   const IDLE_MS = 700;
   // How long the grid must hold still before the agent is told its new width. Long
   // enough that one drag gesture is one SIGWINCH, short enough to feel immediate.
@@ -46,6 +64,16 @@
   // resize events, or it processes the two as one and paints for the wrong size —
   // measured at 40ms, that left its frame a row short (the hint under its prompt).
   const REPAINT_NUDGE_MS = 180;
+  // A frame the agent has gone quiet for this long is a frame it has finished painting.
+  const ALT_REPAINT_QUIET_MS = 40;
+  // …and it is never disturbed more often than this, however fast the pane is moving.
+  // Waiting for its repaint alone is not enough: it goes quiet *between* the bursts of
+  // one repaint, so the credit comes back early and the resizes still pile up. Measured,
+  // that pile-up eventually stops it painting for good.
+  const ALT_FIT_MIN_INTERVAL_MS = 250;
+  // …and if it says nothing at all for this long, stop waiting. Something is wrong (or
+  // the resize genuinely changed nothing) and the drag must not stall on it.
+  const ALT_REPAINT_TIMEOUT_MS = 400;
   // The width the agent is currently wrapping its output to — the PTY's spawn width,
   // then whatever we last sent it. A resize that leaves this alone is a resize the
   // agent never needs to hear about (see term.onResize).
@@ -200,14 +228,112 @@
   // frame a row short. Resizing the grid drives `term.onResize`, which sends the
   // SIGWINCH — terminal and program move together, exactly as in a real resize.
   function repaintAgent() {
-    if (!term) {
+    if (!term || repainting) {
       return;
     }
 
     const grid = term;
     const { cols, rows } = grid;
+    // Both halves of the nudge drive term.onResize, which would otherwise queue another
+    // repaint off the back of this one, forever.
+    repainting = true;
     grid.resize(cols, Math.max(1, rows - 1));
-    setTimeout(() => grid.resize(cols, rows), REPAINT_NUDGE_MS);
+    setTimeout(() => {
+      grid.resize(cols, rows);
+      repainting = false;
+    }, REPAINT_NUDGE_MS);
+  }
+
+  // Resize the grid on the ALTERNATE screen — at the pace the agent can actually paint.
+  //
+  // Only the agent can paint a row there, and it paints by diffing against its own model
+  // of the screen. Move the grid faster than it can process the SIGWINCH and that model
+  // starts describing a screen which no longer exists; from then on it writes only the
+  // cells it *believes* changed, so the torn frame never repairs itself. Measured with a
+  // fast drag: resizing every frame stopped it painting altogether — the pane went blank
+  // and stayed blank, with the process still alive and still not drawing. A fixed
+  // throttle only moves the cliff (100ms survived one drag, then wedged on the third).
+  //
+  // But freezing the grid for the whole gesture is what makes a TUI "only update when you
+  // let go". So neither: **one resize in flight at a time.** Give the agent a size, wait
+  // until it has finished painting it (its output goes quiet), and only then give it the
+  // size the pane has reached in the meantime. The drag is paced by the agent itself — as
+  // fast as it can actually follow, never faster.
+  function altFit({
+    cols,
+    rows
+  }: {
+    cols: number;
+    rows: number;
+  }) {
+    if (!term) {
+      return;
+    }
+
+    const sinceLastFit = Date.now() - lastAltFitAt;
+    if (awaitingRepaint || sinceLastFit < ALT_FIT_MIN_INTERVAL_MS) {
+      pendingFit = {
+        cols,
+        rows
+      };
+      // Nothing else will come back to collect it: a drag that ends inside the interval
+      // has to have its last size land anyway.
+      clearTimeout(altFitTimer);
+      altFitTimer = setTimeout(
+        () => {
+          const next = pendingFit;
+          pendingFit = undefined;
+
+          if (next && !awaitingRepaint) {
+            altFit(next);
+          }
+        },
+        Math.max(0, ALT_FIT_MIN_INTERVAL_MS - sinceLastFit)
+      );
+      return;
+    }
+
+    if (cols === term.cols && rows === term.rows) {
+      return;
+    }
+
+    lastAltFitAt = Date.now();
+    awaitingRepaint = true;
+    term.resize(cols, rows);
+    clearTimeout(repaintWatchdog);
+    repaintWatchdog = setTimeout(() => {
+      // It never answered. Whatever is on screen may be torn, so the gesture owes a full
+      // repaint once it stops (see term.onResize).
+      missedRepaint = true;
+      finishRepaint();
+    }, ALT_REPAINT_TIMEOUT_MS);
+  }
+
+  // The agent has stopped talking, so the frame it was painting is done: let the next
+  // size through, if the pane has moved on since.
+  function finishRepaint() {
+    clearTimeout(repaintQuietTimer);
+    clearTimeout(repaintWatchdog);
+    awaitingRepaint = false;
+
+    const next = pendingFit;
+    pendingFit = undefined;
+
+    if (next) {
+      // altFit re-parks it if the minimum interval has not elapsed yet.
+      altFit(next);
+    }
+  }
+
+  // Every chunk of output while a resize is in flight is the agent painting that resize.
+  // A gap in it means the frame is finished — that is the credit the next resize waits on.
+  function noteRepaintProgress() {
+    if (!awaitingRepaint) {
+      return;
+    }
+
+    clearTimeout(repaintQuietTimer);
+    repaintQuietTimer = setTimeout(finishRepaint, ALT_REPAINT_QUIET_MS);
   }
 
   // Fit the grid to the pane, and re-pin it (above). Whole cells only, rounded down,
@@ -229,21 +355,11 @@
 
     const cols = Math.max(2, Math.floor((viewport.clientWidth - SCROLLBAR_WIDTH) / cell.width));
     const rows = Math.max(1, Math.floor(viewport.clientHeight / cell.height));
-    // On the alternate screen the grid may not move under the agent mid-drag. A
-    // fullscreen TUI paints by DIFFING against its own model of the screen (that is what
-    // makes it flicker-free), so a grid that resizes faster than it can process the
-    // SIGWINCH leaves its model describing a screen that no longer exists — and because
-    // it then writes only the cells it believes changed, the half-drawn frame never
-    // repairs itself, not even on the next resize (measured: one fast drag left the
-    // layout stuck at a stale width for good). So there the grid waits for the drag to
-    // settle, and then moves in lockstep with the agent (see term.onResize).
-    //
-    // The normal screen has no such contract — xterm owns the document and reflows it
-    // itself — so it refits every frame, which is what makes a drag flow like a page.
     const grid = term;
-    const isGridStale = cols !== grid.cols || rows !== grid.rows;
+    // The normal screen reflows every frame: xterm owns the document there, so it can
+    // rewrap the text itself as fast as the drag moves.
     if (!onAlternateScreen) {
-      if (isGridStale) {
+      if (cols !== grid.cols || rows !== grid.rows) {
         grid.resize(cols, rows);
       }
 
@@ -251,20 +367,10 @@
       return;
     }
 
-    // Always re-arm with the latest size, even when it matches the grid: the grid does
-    // not move during the drag, so a gesture that ends back where it started still has
-    // to cancel the stale resize a mid-drag frame left pending.
-    if (isGridStale || altFitTimer !== undefined) {
-      clearTimeout(altFitTimer);
-      altFitTimer = setTimeout(() => {
-        altFitTimer = undefined;
-
-        if (cols !== grid.cols || rows !== grid.rows) {
-          grid.resize(cols, rows);
-        }
-      }, SIGWINCH_SETTLE_MS);
-    }
-
+    altFit({
+      cols,
+      rows
+    });
     updateAnchor();
   }
 
@@ -309,6 +415,7 @@
       }
 
       term.write(chunk.data);
+      noteRepaintProgress();
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
       observeContext({
@@ -431,15 +538,27 @@
     term.onResize(({ cols, rows }) => {
       lastResizeAt = Date.now();
 
-      // The grid only reaches this size on the alternate screen once the drag has
-      // already settled (see fitToPane), so the agent is told at once — it owns every
-      // row there and nothing else can paint the ones it hasn't seen.
+      // Alternate screen: tell the agent at once — it owns every row, and a size it has
+      // not heard is a row nobody paints. The grid only reaches it at a pace the agent
+      // can keep up with in the first place (see altFit).
+      //
+      // If we ever gave up waiting for one of its repaints, the frame on screen may be
+      // torn, so the gesture owes it a full repaint once the pane stops moving. Otherwise
+      // it kept up, and forcing one would only make the drag end with a needless blink.
       if (onAlternateScreen) {
         clearTimeout(sigwinchTimer);
         sizeAgent({
           cols,
           rows
         });
+
+        if (missedRepaint && !repainting) {
+          sigwinchTimer = setTimeout(() => {
+            missedRepaint = false;
+            repaintAgent();
+          }, SIGWINCH_SETTLE_MS);
+        }
+
         return;
       }
 
@@ -554,6 +673,8 @@
     exitUnlisten?.();
     clearTimeout(idleTimer);
     clearTimeout(sigwinchTimer);
+    clearTimeout(repaintQuietTimer);
+    clearTimeout(repaintWatchdog);
     clearTimeout(altFitTimer);
 
     if (fitFrame !== undefined) {
