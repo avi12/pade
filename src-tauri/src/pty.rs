@@ -43,7 +43,17 @@ pub struct Pty {
 pub struct History {
     data: String,
     seq: u64,
+    /// Is the program currently painting the ALTERNATE screen (a fullscreen TUI, a
+    /// pager)? Then this history is a stream of framebuffer edits, not a document,
+    /// and replaying a trimmed one paints a torn frame. The frontend needs to know
+    /// so it can ask the program to repaint itself instead.
+    alternate: bool,
 }
+
+/// The escape sequences a program uses to take over the alternate screen and to give
+/// it back (DEC private mode 1049).
+const ENTER_ALTERNATE_SCREEN: &str = "\x1b[?1049h";
+const LEAVE_ALTERNATE_SCREEN: &str = "\x1b[?1049l";
 
 /// How much recent output to keep per session for naming (bytes, tail-trimmed).
 const TRANSCRIPT_CAP: usize = 16 * 1024;
@@ -131,6 +141,16 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
     buffer.data.push_str(raw);
     buffer.seq += 1;
 
+    // Track which screen the program is on. Whichever switch came last in this chunk
+    // wins; a program that never switches stays on the normal screen.
+    if let Some(enter) = raw.rfind(ENTER_ALTERNATE_SCREEN) {
+        buffer.alternate = raw
+            .rfind(LEAVE_ALTERNATE_SCREEN)
+            .is_none_or(|leave| leave < enter);
+    } else if raw.contains(LEAVE_ALTERNATE_SCREEN) {
+        buffer.alternate = false;
+    }
+
     if buffer.data.len() > HISTORY_CAP {
         let overflow = buffer.data.len() - HISTORY_CAP;
         let mut cut = buffer.data[overflow..]
@@ -153,12 +173,14 @@ struct Chunk {
     seq: u64,
 }
 
-/// A session's replayable output and the sequence number of the last chunk in it.
+/// A session's replayable output and the sequence number of the last chunk in it,
+/// plus whether the program is currently painting the alternate screen.
 #[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HistorySnapshot {
     data: String,
     seq: u64,
+    alternate: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -304,6 +326,7 @@ pub fn pty_history(state: State<PtyState>, id: String) -> HistorySnapshot {
         .map(|buffer| HistorySnapshot {
             data: buffer.data.clone(),
             seq: buffer.seq,
+            alternate: buffer.alternate,
         })
         .unwrap_or_default()
 }

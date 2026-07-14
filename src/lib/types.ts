@@ -275,10 +275,14 @@ export const PtyChunk = z.object({
 });
 export type PtyChunk = z.infer<typeof PtyChunk>;
 
-/** A session's replayable output, and the sequence number of the last chunk in it. */
+/** A session's replayable output, the sequence number of the last chunk in it, and
+ *  whether the program is currently painting the alternate screen — in which case
+ *  the history is a stream of framebuffer edits rather than a document, and a
+ *  trimmed one cannot be replayed faithfully. */
 export const PtyHistory = z.object({
   data: z.string(),
-  seq: z.number()
+  seq: z.number(),
+  alternate: z.boolean()
 });
 export type PtyHistory = z.infer<typeof PtyHistory>;
 
