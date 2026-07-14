@@ -76,10 +76,21 @@ sequenceDiagram
   T->>B: spawn({ id, command, args, cwd })
   B->>R: invoke pty_spawn
   Note over R: applies agents::spawn_env(command)<br/>— e.g. Claude Code's classic renderer
+  T->>R: pty_history(id)
+  R-->>T: everything the session has said so far
   R-->>T: pty://data (stdout stream) → xterm renders
   You->>T: keystrokes
   T->>R: pty_write
 ```
+
+A spawn for a session that is already running is a no-op, so a terminal may be
+mounting onto a conversation **in flight** — a hot-reloaded component, a reloaded
+window. A PTY keeps no scrollback of its own, so without a replay that terminal has
+nothing to paint and sits blank while the agent, quite happily, waits for input (it
+reads as "the agent isn't starting"). `pty.rs` therefore keeps each session's raw
+stream and hands it back through `pty_history`. Every chunk carries its position in
+the stream, so a frontend already listening to the live feed while it asks for the
+history can tell which chunks that history already contains from which are new.
 
 ### The terminal reflows like a document
 
@@ -224,7 +235,7 @@ entry. Each concern is one module:
 
 | Module | Responsibility |
 | --- | --- |
-| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; `kill_all` terminates every session on app exit (wired in `lib.rs`'s run loop) so no agent lingers |
+| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; keeps each session's replayable history so a terminal can attach to a conversation in flight; `kill_all` terminates every session on app exit (wired in `lib.rs`'s run loop) so no agent lingers |
 | `watcher.rs` | Filesystem watcher feeding the Change Feed (notify) |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
