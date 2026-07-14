@@ -59,6 +59,44 @@ stateDiagram-v2
   picker --> ready: project opened
 ```
 
+### Finding an installed agent
+
+Detection cannot trust `PATH`. A process inherits its environment **once**, at
+launch — and a GUI app inherits it from the Explorer session that started it,
+itself born at login. An installer's `PATH` edit lands in the registry, so a
+running ADE would never see a CLI the user just installed, and Reload would keep
+insisting it isn't there. Nor can detection trust the *name*: winget's Codex
+package unpacks OpenAI's release binary verbatim, so on that machine `codex` is
+spelled `codex-x86_64-pc-windows-msvc.exe` and no `codex.exe` exists at all.
+
+So `util::search_dirs()` rebuilds the search path from its sources on every
+detect — the inherited `PATH`, the **live** `PATH` read back out of the registry,
+and the bin directories package managers use (npm, pnpm, cargo, bun, Homebrew,
+and each winget package folder) — and `agents::program()` searches it for the
+agent's canonical name first, then the `aliases` its installers are known to use.
+
+```mermaid
+flowchart LR
+  Q["agents::program('codex')"] --> N["names: codex,<br/>codex-x86_64-pc-windows-msvc, …"]
+  Q --> D["util::search_dirs()"]
+  D --> P1["inherited PATH<br/><i>(stale — misses new installs)</i>"]
+  D --> P2["live PATH<br/><i>(reg query — the fix)</i>"]
+  D --> P3["package-manager bins<br/><i>(npm · pnpm · cargo · winget)</i>"]
+  N --> F["find_in(dirs, names)"]
+  P1 --> F
+  P2 --> F
+  P3 --> F
+  F --> R["absolute path to the exe"]
+```
+
+One resolver, three callers — **detection** (is it installed?), **`pty.rs`** (what
+to exec for a session), **`naming.rs`** (what to exec headlessly) — so an agent ADE
+can *see* is always one it can *run*. Sessions exec the **absolute path**, never a
+bare name: a bare name would be re-resolved by the child against that same stale
+`PATH`, and an agent ADE had just listed could fail to start. Per-agent knowledge
+(`spawn_env`, `oneshot_invocation`) stays keyed by the canonical command, never by
+whichever file an installer happened to lay down.
+
 ### A terminal session is the unit of work
 
 Each agent tab is a **session** — an id, the agent to run, and an optional
@@ -246,7 +284,7 @@ entry. Each concern is one module:
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
 | `refs.rs` | After a move: re-point agent memory dirs, IDE recents, symlinks, package-manager installs |
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
-| `agents.rs` | Agent registry + detection, one-shot headless invocations, and the env each agent is spawned with (e.g. Claude Code's classic renderer — see "The terminal reflows like a document") |
+| `agents.rs` | Agent registry + detection, one-shot headless invocations, and the env each agent is spawned with (e.g. Claude Code's classic renderer — see "The terminal reflows like a document"). `program()` is the one place that turns an agent's name into the executable to run — see "Finding an installed agent" |
 | `usage.rs` | Agent usage / quota meter |
 | `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `family()` table also flags console editors that run in a terminal tab |
 | `tasks.rs` | Discover runnable tasks from project manifests |
@@ -257,7 +295,7 @@ entry. Each concern is one module:
 | `os.rs` | Reveal in file manager / terminal, open URLs |
 | `window.rs` | Spawn additional app windows; paint each window's webview with the themed M3 surface so it opens in-theme (no white flash) |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
-| `util.rs` | Cross-cutting helpers: `is_on_path`, `home_dir`, `encode_project` |
+| `util.rs` | Cross-cutting helpers: executable resolution (`search_dirs`, `find_in`, `resolve`, `is_on_path`), `home_dir`, `encode_project` |
 
 ## Tests
 

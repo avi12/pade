@@ -1,7 +1,8 @@
 //! Small cross-cutting helpers shared by multiple modules (DRY).
 
+use std::collections::HashSet;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// A `Command` that never flashes a console window on Windows. Every background
@@ -22,15 +23,244 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     cmd
 }
 
-/// Is `command` resolvable on PATH? Uses the platform's own resolver (`where`
-/// on Windows, `which` elsewhere) so shims (.cmd/.ps1) resolve as a shell would.
-pub fn is_on_path(command: &str) -> bool {
-    let finder = if cfg!(windows) { "where" } else { "which" };
-    crate::util::command(finder)
-        .arg(command)
+/// Every directory an executable could live in, most authoritative first: this
+/// process's `PATH`, then the *live* `PATH` the OS would hand a brand-new
+/// process, then the per-user bin directories package managers install into.
+///
+/// Why more than `PATH`: a process inherits its environment once, at launch — and
+/// a GUI app inherits it from the Explorer session that started it, which was
+/// itself born at login. An installer's `PATH` edit lands in the registry, not in
+/// any running process, so a long-lived ADE would keep missing a CLI the user
+/// just installed no matter how often they hit Reload. Reading `PATH` back from
+/// its source is what makes Reload actually reload. The extra bin directories
+/// then cover the installers that never touch `PATH` at all.
+///
+/// Built once per detect (it spawns `reg` on Windows) and passed to [`find_in`],
+/// rather than rebuilt per lookup.
+pub fn search_dirs() -> Vec<PathBuf> {
+    let inherited = std::env::var_os("PATH").unwrap_or_default();
+    let mut dirs: Vec<PathBuf> = std::env::split_paths(&inherited).collect();
+    dirs.extend(live_path_dirs());
+    dirs.extend(package_manager_dirs());
+
+    let mut seen = HashSet::new();
+    dirs.retain(|dir| !dir.as_os_str().is_empty() && seen.insert(dir_key(dir)));
+    dirs
+}
+
+/// A directory's identity for de-duping — case-insensitive on Windows, where
+/// `C:\Foo` and `c:\foo` are the same directory.
+fn dir_key(dir: &Path) -> String {
+    let key = dir
+        .to_string_lossy()
+        .trim_end_matches(['\\', '/'])
+        .to_string();
+    if cfg!(windows) {
+        key.to_lowercase()
+    } else {
+        key
+    }
+}
+
+/// The `PATH` a newly-launched process would get, read from where Windows keeps
+/// it (the user's and the machine's environment keys) rather than from our own
+/// stale copy. Empty elsewhere: on Unix a shell re-reads its profile per session,
+/// so there is no equivalent registry of truth to consult.
+#[cfg(windows)]
+fn live_path_dirs() -> Vec<PathBuf> {
+    const KEYS: &[&str] = &[
+        r"HKCU\Environment",
+        r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+    ];
+    KEYS.iter()
+        .filter_map(|key| registry_string(key, "Path"))
+        .flat_map(|value| std::env::split_paths(&expand_env(&value)).collect::<Vec<PathBuf>>())
+        .collect()
+}
+
+#[cfg(not(windows))]
+fn live_path_dirs() -> Vec<PathBuf> {
+    Vec::new()
+}
+
+/// One string value out of the registry, via `reg query` — no registry crate, per
+/// the minimize-dependencies rule. The value comes back unexpanded, because
+/// `Path` is stored as a `REG_EXPAND_SZ` full of `%VAR%` references.
+#[cfg(windows)]
+fn registry_string(key: &str, name: &str) -> Option<String> {
+    let out = command("reg")
+        .args(["query", key, "/v", name])
         .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    // A hit prints as `    Path    REG_EXPAND_SZ    C:\one;C:\two`.
+    let text = String::from_utf8_lossy(&out.stdout);
+    text.lines()
+        .filter(|line| line.trim_start().starts_with(name))
+        .find_map(|line| {
+            line.split_once("REG_EXPAND_SZ")
+                .or_else(|| line.split_once("REG_SZ"))
+        })
+        .map(|(_, value)| value.trim().to_string())
+}
+
+/// Expand `%VAR%` references against the process environment. An unset variable
+/// is left verbatim (the resulting path simply won't exist, and is skipped).
+#[cfg(windows)]
+fn expand_env(value: &str) -> String {
+    let mut expanded = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(open) = rest.find('%') {
+        expanded.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let Some(close) = after.find('%') else {
+            expanded.push('%');
+            rest = after;
+            continue;
+        };
+        let name = &after[..close];
+        if let Ok(value) = std::env::var(name) {
+            expanded.push_str(&value);
+        } else {
+            expanded.push('%');
+            expanded.push_str(name);
+            expanded.push('%');
+        }
+        rest = &after[close + 1..];
+    }
+    expanded.push_str(rest);
+    expanded
+}
+
+/// The bin directories package managers drop CLIs into. Several of them never add
+/// themselves to `PATH` (or add it only for future login sessions), so a detect
+/// that trusted `PATH` alone would miss a perfectly working install.
+fn package_manager_dirs() -> Vec<PathBuf> {
+    let Some(home) = home_dir() else {
+        return Vec::new();
+    };
+    // cargo, bun, deno, volta, pipx/uv, and hand-rolled `~/.local/bin` installs.
+    let mut dirs: Vec<PathBuf> = [
+        ".cargo/bin",
+        ".bun/bin",
+        ".deno/bin",
+        ".volta/bin",
+        ".local/bin",
+        ".npm-global/bin",
+    ]
+    .iter()
+    .map(|relative| home.join(relative))
+    .collect();
+
+    if cfg!(windows) {
+        dirs.extend(windows_package_dirs(&home));
+    } else {
+        // Homebrew (Apple silicon, Intel) and the classic system-wide prefix.
+        dirs.extend([
+            PathBuf::from("/opt/homebrew/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ]);
+    }
+    dirs
+}
+
+/// Windows package-manager bin directories: npm's global prefix, pnpm's home,
+/// winget's shim folder — plus every winget *portable package* folder, because
+/// winget installs those as a directory of raw binaries and only sometimes adds
+/// one to `PATH`.
+#[cfg(windows)]
+fn windows_package_dirs(home: &Path) -> Vec<PathBuf> {
+    let mut dirs = vec![
+        home.join("AppData/Roaming/npm"),
+        home.join("AppData/Local/pnpm"),
+        home.join("AppData/Local/pnpm/bin"),
+        home.join("scoop/shims"),
+    ];
+
+    let winget = home.join("AppData/Local/Microsoft/WinGet");
+    dirs.push(winget.join("Links"));
+    let packages = winget.join("Packages");
+    if let Ok(entries) = std::fs::read_dir(&packages) {
+        dirs.extend(
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.is_dir()),
+        );
+    }
+    dirs
+}
+
+#[cfg(not(windows))]
+fn windows_package_dirs(_home: &Path) -> Vec<PathBuf> {
+    Vec::new()
+}
+
+/// The first of `names` that exists as an executable in `dirs`. Name-major on
+/// purpose: the caller passes its preferred name first and every directory is
+/// tried for it before falling back to an alternate spelling.
+pub fn find_in(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
+    let extensions = executable_extensions();
+    names.iter().find_map(|name| {
+        dirs.iter().find_map(|dir| {
+            extensions
+                .iter()
+                .map(|extension| dir.join(format!("{name}{extension}")))
+                .find(|candidate| is_executable(candidate))
+        })
+    })
+}
+
+/// The suffixes to try after a bare command name. Windows resolves a name through
+/// `PATHEXT` (so an `.exe`/`.cmd` shim is found the way a shell would find it);
+/// everywhere else the name is the filename. The empty suffix comes first so an
+/// exact filename always wins over an extension guess.
+fn executable_extensions() -> Vec<String> {
+    let mut extensions = vec![String::new()];
+    if cfg!(windows) {
+        let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+        extensions.extend(
+            pathext
+                .split(';')
+                .map(str::trim)
+                .filter(|extension| extension.starts_with('.'))
+                .map(str::to_lowercase),
+        );
+    }
+    extensions
+}
+
+/// Is this path a file we could actually exec? (On Unix that means the execute
+/// bit is set — a readable-but-not-executable file is not a command.)
+fn is_executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        return std::fs::metadata(path)
+            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0);
+    }
+    #[cfg(not(unix))]
+    path.is_file()
+}
+
+/// The executable `command` names, or `None` if it isn't installed. A command that
+/// already carries a path (`C:\…\codex.exe`) is taken as-is; a bare name is looked
+/// up across [`search_dirs`]. For a one-off lookup — a caller resolving several
+/// commands should build [`search_dirs`] once and call [`find_in`].
+pub fn resolve(command: &str) -> Option<PathBuf> {
+    let given = Path::new(command);
+    if given.components().count() > 1 {
+        return is_executable(given).then(|| given.to_path_buf());
+    }
+    find_in(&search_dirs(), &[command])
+}
+
+/// Is `command` runnable on this machine? Sees installs made since ADE launched —
+/// see [`search_dirs`].
+pub fn is_on_path(command: &str) -> bool {
+    resolve(command).is_some()
 }
 
 /// The user's home directory, cross-platform, without pulling in a dependency
@@ -82,4 +312,72 @@ pub fn encode_project(path: &str) -> String {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(windows)]
+    use super::expand_env;
+    use super::find_in;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::slice;
+
+    /// A scratch directory populated with empty, executable `files`.
+    fn scratch(name: &str, files: &[&str]) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("pade-search-{name}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create scratch dir");
+        for file in files {
+            let path = dir.join(file);
+            fs::write(&path, b"").expect("create scratch file");
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+                    .expect("mark scratch file executable");
+            }
+        }
+        dir
+    }
+
+    const CODEX_NAMES: &[&str] = &["codex", "codex-x86_64-pc-windows-msvc"];
+
+    #[test]
+    fn find_in_falls_back_to_an_alias() {
+        // What winget's Codex package actually looks like: no `codex` anywhere,
+        // only the release binary under its target-triple name.
+        let dir = scratch("alias", &["codex-x86_64-pc-windows-msvc"]);
+        assert_eq!(
+            find_in(slice::from_ref(&dir), CODEX_NAMES),
+            Some(dir.join("codex-x86_64-pc-windows-msvc"))
+        );
+    }
+
+    #[test]
+    fn find_in_prefers_the_canonical_name_over_an_alias() {
+        let dir = scratch("canonical", &["codex", "codex-x86_64-pc-windows-msvc"]);
+        assert_eq!(
+            find_in(slice::from_ref(&dir), CODEX_NAMES),
+            Some(dir.join("codex"))
+        );
+    }
+
+    #[test]
+    fn find_in_reports_a_command_that_is_not_installed() {
+        let dir = scratch("empty", &[]);
+        assert_eq!(find_in(slice::from_ref(&dir), CODEX_NAMES), None);
+    }
+
+    /// The registry hands back `PATH` as a `REG_EXPAND_SZ`, so a directory only
+    /// becomes searchable once its `%VAR%`s are resolved.
+    #[cfg(windows)]
+    #[test]
+    fn expand_env_resolves_known_variables_and_leaves_unknown_ones() {
+        let home = std::env::var("USERPROFILE").expect("USERPROFILE is always set on Windows");
+        assert_eq!(
+            expand_env(r"%USERPROFILE%\bin;%PADE_UNSET_VAR%\bin"),
+            format!(r"{home}\bin;%PADE_UNSET_VAR%\bin")
+        );
+    }
 }

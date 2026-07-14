@@ -18,8 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use crate::agents::oneshot_invocation;
-use crate::util::is_on_path;
+use crate::agents::{oneshot_invocation, program};
 
 /// What a namer works from: the workspace's files (relative, `/`-joined) and an
 /// optional first task prompt.
@@ -124,10 +123,8 @@ fn session_naming_prompt(transcript: &str) -> String {
 
 fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
     let args = oneshot_invocation(agent)?;
-    if !is_on_path(agent) {
-        return None;
-    }
-    run_agent_prompt(agent, args, None, session_naming_prompt(transcript))
+    let exe = program(agent)?;
+    run_agent_prompt(&exe, args, None, session_naming_prompt(transcript))
         .and_then(|raw| sanitize(&raw))
 }
 
@@ -148,14 +145,12 @@ fn autoname(path: &str, agent: &str) -> Option<String> {
 
     // Layered sources: agent CLI first, then (on Windows) Copilot, then heuristic.
     let mut namers: Vec<Box<dyn Namer>> = Vec::new();
-    if let Some(args) = oneshot_invocation(agent) {
-        if is_on_path(agent) {
-            namers.push(Box::new(AgentCliNamer {
-                command: agent.to_string(),
-                args,
-                cwd: dir.to_path_buf(),
-            }));
-        }
+    if let Some((args, exe)) = oneshot_invocation(agent).zip(program(agent)) {
+        namers.push(Box::new(AgentCliNamer {
+            command: exe,
+            args,
+            cwd: dir.to_path_buf(),
+        }));
     }
     #[cfg(windows)]
     namers.push(Box::new(crate::copilot::CopilotNamer));
@@ -211,7 +206,8 @@ fn gather_files(dir: &Path) -> Vec<String> {
 
 /// Ask the installed agent to name the project via its one-shot headless mode.
 struct AgentCliNamer {
-    command: String,
+    /// The resolved executable — see `agents::program`.
+    command: PathBuf,
     args: &'static [&'static str],
     cwd: PathBuf,
 }
@@ -268,10 +264,10 @@ fn extract_name(out: &str) -> Option<String> {
 
 /// Run an agent CLI headless: `command args… prompt` (optionally in `cwd`),
 /// capture its reply within [`NAME_TIMEOUT`], and pull a raw name candidate out.
-/// Guarding `is_on_path`/`oneshot_invocation` and sanitizing the result are the
+/// Resolving the executable (`agents::program`) and sanitizing the result are the
 /// caller's job — this is the shared invoke-and-extract sequence (DRY).
 fn run_agent_prompt(
-    command: &str,
+    command: &Path,
     args: &[&str],
     cwd: Option<&Path>,
     prompt: String,

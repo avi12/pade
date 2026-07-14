@@ -191,6 +191,12 @@ struct Exit {
 /// Resolve the program to run: the explicit command, else `ADE_AGENT_CMD`, else
 /// the platform shell (so a session is always launchable), and apply whatever
 /// environment that agent needs (the registry knows; this module doesn't).
+///
+/// The command is exec'd by absolute path when we can find one. Left as a bare
+/// name it would be resolved by the PTY against *our* inherited PATH — the same
+/// stale copy that hides a freshly-installed agent from detection — so a CLI ADE
+/// had just listed as available could fail to start. Unresolvable commands (a task
+/// runner, a shell) pass through untouched, for the PTY to resolve as before.
 fn build_command(command: Option<String>) -> CommandBuilder {
     let program = command
         .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
@@ -201,7 +207,14 @@ fn build_command(command: Option<String>) -> CommandBuilder {
                 std::env::var("SHELL").unwrap_or_else(|_| "bash".into())
             }
         });
-    let mut cmd = CommandBuilder::new(&program);
+    let exe = crate::agents::program(&program).map_or_else(
+        || program.clone(),
+        |path| path.to_string_lossy().into_owned(),
+    );
+
+    let mut cmd = CommandBuilder::new(&exe);
+    // Keyed by the command ADE knows (`codex`), not the file it resolved to
+    // (`…\codex-x86_64-pc-windows-msvc.exe`).
     for (key, value) in crate::agents::spawn_env(&program) {
         cmd.env(key, value);
     }
