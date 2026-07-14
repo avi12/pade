@@ -12,8 +12,10 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session, removable = false, onremove }: {
+  const { session, active = false, removable = false, onremove }: {
     session: AgentSession;
+    /** The session the keyboard belongs to — the one tab (or split pane) in front. */
+    active?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
     onremove?: () => void;
@@ -29,6 +31,10 @@
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
   let destroyed = false;
+  // The terminal exists and is attached — reactive, so the focus effect below can
+  // wait for it (the terminal is built inside an async onMount, well after the
+  // first effects have already run).
+  let attached = $state(false);
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
@@ -144,6 +150,17 @@
     if (term) {
       void scheme;
       term.options.theme = readXtermTheme();
+    }
+  });
+
+  // Hand the keyboard to the session in front — the moment it launches, and again
+  // whenever the user switches to it. Nothing else claims focus for a terminal, so
+  // without this the keystrokes go to whatever the user last clicked (the tab, the
+  // agent button in onboarding) and the agent looks like it is ignoring you: you
+  // have to click into the pane before it will hear a single key.
+  $effect(() => {
+    if (active && attached) {
+      term.focus();
     }
   });
 
@@ -419,6 +436,7 @@
       theme: readXtermTheme()
     });
     term.open(host);
+    attached = true;
 
     // GPU-accelerated rendering; fall back silently if WebGL is unavailable.
     try {

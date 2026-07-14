@@ -671,6 +671,7 @@
           {#each sessions as s (s.id)}
             <div class="term-slot" class:shown={paneIds.includes(s.id)}>
               <Terminal
+                active={s.id === activeId && paneIds.includes(s.id)}
                 onremove={() => removePane(s.id)}
                 removable={canRemovePane && paneIds.includes(s.id)}
                 session={s}
