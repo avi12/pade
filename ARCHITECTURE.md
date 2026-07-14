@@ -92,27 +92,32 @@ stream and hands it back through `pty_history`. Every chunk carries its position
 the stream, so a frontend already listening to the live feed while it asks for the
 history can tell which chunks that history already contains from which are new.
 
-### The terminal reflows like a document
+A **fullscreen** program's history is not a document, though — it is a stream of edits
+to a framebuffer, and a trimmed one replays as a torn frame. So `pty.rs` also tracks
+which screen the program is on, and for the alternate one the terminal replays what it
+has and then asks the program to repaint (a one-row resize and back): the program's own
+model of the screen is the only complete copy.
 
-A resize should feel like a web page reflowing, and that is a property of **which
-screen buffer the agent paints on** — not of the emulator.
+### A terminal has two screens, and they invert every rule
 
-Left to itself, Claude Code renders fullscreen on the terminal's **alternate**
-screen buffer: a framebuffer the agent owns, with no document and no scrollback
-behind it. There is nothing there for xterm to reflow, so a resize can only wait
-for the agent to repaint, which lands a whole row at a time. So the registry
-(`agents.rs`) spawns it with `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` — its
-**classic main-screen renderer** — and the conversation becomes a real document in
-real scrollback that xterm rewraps continuously as the pane changes size.
+How a resize must behave is a property of **which screen the program paints on**, not
+of the emulator — and ADE hosts both, so `Terminal.svelte` watches
+`buffer.onBufferChange` and switches policy on it.
 
-Three rules follow, all in `Terminal.svelte`:
+| | **Normal screen** (a shell, an agent with no fullscreen mode) | **Alternate screen** (Claude Code as ADE runs it, Codex, aider, a pager) |
+| --- | --- | --- |
+| What it holds | A real document, with real scrollback | A framebuffer the program owns and diffs against its own model of |
+| Who paints a row | The terminal — so xterm can rewrap the text itself, continuously, like a web page | **Only the program** |
+| Grid refit | Every frame, so the text tracks the drag | **Only once the drag settles** — resize it faster than the program can follow and its model desyncs, leaving a half-drawn frame that never repairs itself |
+| `SIGWINCH` | **Width only**, debounced; the height never. An inline document wraps to the width, but how much of it you can see is the terminal's business — and every `SIGWINCH` makes the agent re-lay-out (dropping a line, which steps the text above it) and reprint its whole static history (a per-frame drag left **52** orphaned conversations in the scrollback) | **Cols and rows, immediately.** A size the program has not heard is a row nobody paints |
+| Grid anchor | Top while the conversation fits, bottom once it scrolls — pinning the end you are looking at, so the sub-cell remainder and the row xterm scrolls away cancel out | **Bottom** — the program paints every row, prompt on the last |
 
-| Rule | Why |
-| --- | --- |
-| Grid is `floor(pane / cell)` — whole cells, never rounded up | Rounding up means clipping a row, and on the normal buffer every row is content, not slack |
-| The grid pins to the **top** while the conversation fits, and to the **bottom** once it scrolls (`anchorBottom`) | Pins the end of the document you are actually looking at, so each visible line keeps a fixed y. Bottom-pinned, the row xterm scrolls away and the sub-cell remainder the grid gains cancel out — the text stays continuous through a row boundary |
-| The grid reflows every frame, but the PTY hears about **width** changes only, and only once the drag settles | An inline document needs the width (its text wraps to it); the height is the terminal's business. Every `SIGWINCH` makes the agent re-lay-out its frame (dropping a line, which steps the text above it) and makes Ink reprint its whole static history (stranding the old copy in scrollback — a per-frame drag left **52** orphaned conversations). A vertical drag now sends nothing |
-| …and every one of those rules **flips on the alternate screen** | A fullscreen agent (Codex, aider), a pager the agent opens, or Claude Code put back with `/tui fullscreen` owns the whole framebuffer and paints by diffing against its own model of it. There the grid holds still until the drag settles and then moves in lockstep with a full `SIGWINCH` (cols *and* rows) — resize it faster than the agent can follow and its model desyncs, leaving a half-drawn frame that never repairs. `Terminal.svelte` watches `buffer.onBufferChange` and switches policy |
+ADE runs Claude Code **fullscreen** (`CLAUDE_CODE_NO_FLICKER=1` in the registry): the
+polished TUI, with mouse support and flicker-free output. The cost is deliberate — on
+the alternate screen a resize cannot flow like a web page, because the content is on
+the far side of the PTY. The normal-screen column is not dead code: it is what every
+shell session runs, and what Claude Code runs again the moment the renderer is flipped
+back.
 
 One xterm patch backs this (`patches/@xterm__xterm@…`), making a row resize a lossless
 round trip. Stock, a **shrink** `pop()`s the line below the cursor — while its own

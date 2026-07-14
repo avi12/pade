@@ -1,51 +1,50 @@
-# Terminal rendering — why a resize flows like a web page
+# Terminal rendering — the two screens, and why they invert every rule
 
 Read this before touching `src/panels/Terminal.svelte` or the `env` column of the
 registry in `src-tauri/src/agents.rs`. It supersedes the resize handoffs
-(`handoff-terminal-midstep.md`, `handoff-terminal-resize.md`), which are deleted:
-the problem they were handing off is solved. Everything below is **measured**
-against the live app, not reasoned from first principles — several very plausible
-ideas in here are wrong, and the point of the document is to stop you re-deriving
-them.
+(`handoff-terminal-midstep.md`, `handoff-terminal-resize.md`), which are deleted.
+Everything below is **measured** against the live app, not reasoned from first
+principles — several very plausible ideas in here turned out to be wrong, and the
+point of the document is to stop you re-deriving them.
 
-## The goal
+## The one fact everything follows from
 
-> Make resizing behave identical to a web page — no steps, no snapping.
+A terminal has two screens, and **which one a program paints on decides everything**
+about how a resize must behave. They are opposites, and ADE hosts both.
 
-## The root cause was the screen buffer, not the emulator
+| | **Normal screen** | **Alternate screen** |
+| --- | --- | --- |
+| What it is | A real document, with real scrollback | A framebuffer the program owns |
+| Who can paint a row | The terminal (it holds the text) | **Only the program** |
+| On resize | xterm can rewrap the text itself — continuously, like a web page | Nothing to reflow: the terminal must wait for the program to repaint, which lands a whole row at a time |
+| Runs there | a shell, an agent with no fullscreen mode, Claude Code with `/tui default` | **Claude Code (as ADE runs it)**, Codex, aider, a pager or editor an agent opens |
 
-Claude Code's default renderer paints **fullscreen, on the terminal's alternate
-screen buffer**. Verified live: `activeType: "alternate"`, `baseY: 0`,
-`length === rows` in every sample.
+## What ADE runs Claude Code as
 
-The alternate screen is a framebuffer the agent owns. There is **no document and
-no scrollback** behind it — so there is nothing for the terminal to reflow. Only
-the agent can paint a row, which means a resize can do nothing but wait for the
-agent to repaint, and the agent repaints in whole rows. That is the step. No
-terminal emulator avoids it, and no amount of xterm patching or CSS can, because
-the content the user wants reflowed **does not exist on our side of the PTY**.
-
-So we don't fight it. The registry spawns Claude Code with:
+Its **fullscreen renderer**, on the alternate screen — the polished TUI: flicker-free
+output, mouse support, selection that copies itself. The registry forces it:
 
 ```
-CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1
+CLAUDE_CODE_NO_FLICKER=1
 ```
 
-which selects its **classic main-screen renderer**: the conversation is printed
-inline, as a real document, into real scrollback. Now xterm holds the text, and
-the emulator can rewrap it continuously — like a web page. (Also available as
-`/tui default` or `"tui": "default"` in settings; the env var takes precedence
-over both, and over `CLAUDE_CODE_NO_FLICKER`.)
+by env rather than the `tui` setting, so it does not depend on — and cannot be undone
+by — whatever the user's own Claude config says. (`CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`
+is the opposite lever: it forces the classic main-screen renderer, and takes precedence
+over both this and the `tui` setting.)
 
-Two consequences worth knowing:
+**The cost is real and was chosen deliberately.** On the alternate screen a resize
+cannot flow like a web page: the agent owns the pixels, it repaints in whole rows, and
+no emulator-side trick reaches that — the content is on the far side of the PTY. The
+"reflow like a document" machinery below is therefore *not* dead code: it is what runs
+for every session on the normal screen, and it is what would run for Claude Code again
+the moment someone flips the renderer back.
 
-- The user gets **scrollback for free**. Previously the alt screen had none.
-- Claude Code may offer a one-time *"Try the new fullscreen renderer?"* prompt.
-  Answer **Not now** — accepting it is asking for the alternate screen back.
+## The three rules on the NORMAL screen
 
-## The three rules that follow
-
-All in `Terminal.svelte`. Each is load-bearing; each is measured.
+All in `Terminal.svelte`. Each is load-bearing; each is measured. (For the alternate
+screen — which is what Claude Code runs on today — skip to "The alternate screen
+inverts every rule".)
 
 ### 1. Whole cells, rounded down
 
@@ -103,13 +102,12 @@ conversation.
 **Do not "fix" this by sending the height again.** It is the same trap as #3 in the
 rejected list, wearing a different hat.
 
-### …but only on the normal screen. The alternate screen inverts every rule.
+## The alternate screen inverts every rule
 
-Nothing above may be applied blindly, because the terminal can switch screens under
-you at any moment: a fullscreen agent (Codex, aider), a pager or editor the agent
-shells out to, or Claude Code itself put back with `/tui fullscreen` — which works
-live, since the env var only picks the *default*. `Terminal.svelte` therefore watches
-`buffer.onBufferChange` and keeps `onAlternateScreen`, and every rule flips on it:
+This is where Claude Code runs today, and the terminal can switch screens under you at
+any moment anyway — a pager or editor an agent opens, or Claude Code put back with
+`/tui default`. `Terminal.svelte` watches `buffer.onBufferChange` and keeps
+`onAlternateScreen`, and every rule flips on it:
 
 | | Normal screen | Alternate screen |
 | --- | --- | --- |
@@ -134,6 +132,34 @@ Two traps found the hard way while doing that:
   where it started would otherwise leave a stale mid-drag resize pending, and fire it.
 - Switching screens must immediately re-send the size, because on the normal screen we
   deliberately let the agent's idea of the height go stale.
+
+## Attaching to a session already in flight
+
+A PTY has no scrollback of its own, so a terminal that mounts onto a running session —
+a hot-reloaded component, a reloaded window — has nothing to paint and sits blank while
+the agent, quite happily, waits for input. It reads as *"the agent isn't starting"*, and
+it is the same bug every time. `pty.rs` keeps each session's raw stream and hands it
+back through `pty_history`; every chunk carries a sequence number, so a frontend that is
+already listening to the live feed while it asks for the history can tell which chunks
+that history already contains from which are genuinely new.
+
+**But a fullscreen program's history is not a document — it is a stream of edits to a
+framebuffer.** Once the buffer has been trimmed, the edits that built the frame are half
+gone, and replaying it paints a torn one. So when the history says the program is on the
+alternate screen (`pty.rs` tracks the DEC 1049 switches), the terminal switches to that
+screen, replays what it has, and then **asks the program to repaint** — its own model of
+the screen is the only complete copy.
+
+The only lever for that is a resize: a fullscreen program re-lays-out when the size
+changes. Two things had to be right, both measured:
+
+- **The grid must move, not just the PTY.** Sending a new size to the program alone
+  leaves xterm's grid saying one thing and the program's model another, and it paints
+  its frame a row short (the hint under its prompt goes missing). Resizing the grid
+  drives `term.onResize`, which sends the `SIGWINCH` — terminal and program move
+  together, exactly as in a real resize.
+- **The nudge must outlast the program's own coalescing of resize events.** At 40ms it
+  processed the two as one and painted for the wrong size; 180ms is honest.
 
 ## The xterm patch (`patches/@xterm__xterm@…`)
 
