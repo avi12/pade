@@ -35,16 +35,15 @@
   let status = $state<SessionStatus>(SessionStatus.enum.starting);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let fitFrame: number | undefined;
+  let sigwinchTimer: ReturnType<typeof setTimeout> | undefined;
   const IDLE_MS = 700;
-  // The grid is sized in whole cells, always a touch smaller than the pane. These
-  // factors (applied to the grid-sized `.term-host` via a style: directive, origin
-  // bottom-left) stretch it the leftover sub-cell so it fills the pane exactly —
-  // the terminal grows continuously like a web page instead of snapping a whole
-  // row/column at a time. Each stays under one cell (a reflow adds the row and
-  // resets it), so the stretch is a couple of percent: text stays crisp and, with
-  // the origin at the bottom-left where the prompt sits, clicks still map true.
-  let scaleX = $state(1);
-  let scaleY = $state(1);
+  // How long the grid must hold still before the agent is told its new width. Long
+  // enough that one drag gesture is one SIGWINCH, short enough to feel immediate.
+  const SIGWINCH_SETTLE_MS = 150;
+  // The width the agent is currently wrapping its output to — the PTY's spawn width,
+  // then whatever we last sent it. A resize that leaves this alone is a resize the
+  // agent never needs to hear about (see term.onResize).
+  let agentCols = 0;
   // A resize makes the agent repaint; output within this window after one is
   // treated as that repaint's echo, not fresh activity — so revealing a hidden
   // pane (which refits it) can't flash the badge from "ready" to "working".
@@ -114,14 +113,39 @@
   // the last column hides behind it. Default track width when scrollback is on.
   const SCROLLBAR_WIDTH = 14;
 
-  // Fit the grid to the pane, then fill the sub-cell remainder with a scale. Cols
-  // and rows come from the full-size viewport measured against xterm's true cell
-  // size (`term.dimensions.css.cell` — the font metric, independent of the current
-  // grid, so there's no circular measurement); the grid-sized `.term-host` is then
-  // scaled to cover the whole viewport. `clientWidth`/`clientHeight` are layout
-  // sizes that ignore the transform, so the maths stay stable frame to frame.
+  // Which edge the grid is pinned to. The grid is whole cells and the pane is not,
+  // so there is always a sub-cell remainder to put somewhere — and which end it
+  // belongs at depends on which end of the document the terminal is showing:
+  //
+  //   No scrollback yet (the conversation still fits): the agent's output starts at
+  //   row 0, so pinning the TOP keeps every line at a fixed y. Resizing then moves
+  //   nothing at all — the pane just reveals or hides empty rows at the bottom.
+  //
+  //   Scrollback (the conversation overflows, terminal parked at the newest line):
+  //   xterm scrolls the document in whole rows, so a top-pinned grid would step the
+  //   text by a row each time the row count changes. Pinning the BOTTOM instead puts
+  //   every visible line at a fixed distance from the pane's bottom edge —
+  //   `y = paneBottom - (linesFromEnd + 1) * cellHeight`, which has no `rows` term in
+  //   it. The row xterm scrolls away and the remainder the grid gains cancel out, so
+  //   the text is continuous through a row boundary. The remainder becomes a sliver
+  //   of background at the top, under the session bar.
+  let anchorBottom = $state(false);
+
+  // Scrollback existing at all is the signal: xterm only pushes a line into it once
+  // the document has outgrown the grid.
+  function updateAnchor() {
+    anchorBottom = (term?.buffer.active.baseY ?? 0) > 0;
+  }
+
+  // Fit the grid to the pane, and re-pin it (above). Whole cells only, rounded down,
+  // so the grid always fits inside the pane. Never round up — the overflowing row
+  // would have to be clipped, and on the normal screen buffer every row is content.
+  //
+  // No transform anywhere, so text stays crisp and clicks map at native cell size.
+  // `term.dimensions.css.cell` is the font metric, independent of the current grid,
+  // so there's no circular measurement.
   function fitToPane() {
-    if (!term || !host || !viewport) {
+    if (!term || !viewport) {
       return;
     }
 
@@ -136,8 +160,7 @@
       term.resize(cols, rows);
     }
 
-    scaleX = viewport.clientWidth / (cols * cell.width);
-    scaleY = viewport.clientHeight / (rows * cell.height);
+    updateAnchor();
   }
 
   onMount(async () => {
@@ -240,22 +263,55 @@
       return false;
     });
 
-    // Keep the PTY's window size in sync with the visible grid. Stamp the time
-    // so the repaint the agent sends back isn't counted as activity (markActivity).
+    // The document can outgrow the pane with no resize involved — the agent simply
+    // prints past the last row — and that is the moment the grid must re-pin.
+    term.onScroll(updateAnchor);
+
+    // Tell the agent about a WIDTH change only, and only once the drag has settled.
+    //
+    // A CLI printing an inline document needs the width — that is what its text
+    // wraps to. It does not need the height: how much of a document you can see is
+    // the terminal's business, and xterm already knows. Sending the height anyway is
+    // what put the last step back on screen, because every SIGWINCH makes the agent
+    // re-lay-out and reprint:
+    //
+    //   - it re-flows its own frame for the new row count and drops or adds a line,
+    //     which shoves the conversation above that line a full row sideways of the
+    //     text below it — the "step" that survived every geometry fix, because it
+    //     isn't geometry, it's the document changing under us; and
+    //   - Ink reprints its whole static history on a resize, so the previous copy is
+    //     left behind in the scrollback (one per SIGWINCH — a fast drag once left 52).
+    //
+    // So a vertical drag now sends nothing at all: the agent's output is untouched
+    // and xterm simply reveals more or less of it, exactly like scrolling a web page.
+    // A width change still has to go through (the text must rewrap to it), debounced
+    // to the end of the gesture so one drag costs one reprint instead of dozens.
+    // Stamp the time so the repaint it sends back isn't counted as activity.
     term.onResize(({ cols, rows }) => {
       lastResizeAt = Date.now();
-      void pty.resize({
-        id: session.id,
-        cols,
-        rows
-      });
+
+      if (cols === agentCols) {
+        return;
+      }
+
+      clearTimeout(sigwinchTimer);
+      sigwinchTimer = setTimeout(async () => {
+        lastResizeAt = Date.now();
+        agentCols = cols;
+        await pty.resize({
+          id: session.id,
+          cols,
+          rows
+        });
+      }, SIGWINCH_SETTLE_MS);
     });
 
-    // Refit once per animation frame so the grid reflows in lockstep with the
-    // drag; the sub-cell scale then fills the remainder so it tracks continuously
-    // rather than snapping a whole row/column at a time. xterm 6.1 renders the
-    // reflow synchronously (issue #4922 / PR #5529) so each step stays crisp, and
-    // rAF coalesces a burst of resize events into one fit per frame.
+    // Fit the grid once per animation frame so the conversation rewraps live as you
+    // drag, the way a web page reflows — which only works because the agent runs on
+    // the normal screen buffer (see agents.rs: ADE forces the classic renderer), so
+    // xterm holds a real document and real scrollback to reflow. rAF coalesces a
+    // burst of resize events into one fit per frame; xterm 6.1 renders the reflow
+    // synchronously (issue #4922 / PR #5529) so it stays crisp.
     resizeObs = new ResizeObserver(() => {
       if (fitFrame !== undefined) {
         return;
@@ -273,11 +329,12 @@
       return;
     }
 
+    agentCols = term.cols;
     await pty.spawn({
       id: session.id,
       command: session.agent.command,
       cwd: session.cwd ?? null,
-      cols: term.cols,
+      cols: agentCols,
       rows: term.rows,
       args: session.args
     });
@@ -301,6 +358,7 @@
     unlisten?.();
     exitUnlisten?.();
     clearTimeout(idleTimer);
+    clearTimeout(sigwinchTimer);
 
     if (fitFrame !== undefined) {
       cancelAnimationFrame(fitFrame);
@@ -336,8 +394,8 @@
     {/if}
   </header>
   <div class="term-pad">
-    <div bind:this={viewport} class="term-viewport">
-      <div bind:this={host} style:scale={`${scaleX} ${scaleY}`} class="term-host"></div>
+    <div bind:this={viewport} class="term-viewport" class:anchor-bottom={anchorBottom}>
+      <div bind:this={host} class="term-host"></div>
     </div>
   </div>
 </div>
@@ -396,26 +454,27 @@
     background: var(--code-background);
   }
 
-  /* Full-size measuring frame: fitToPane reads its client size for the cols/rows.
-     It bottom-left-anchors the grid inside it so the grid's bottom-left corner —
-     where the prompt sits — stays put as the pane resizes. */
+  /* Full-size measuring frame: fitToPane reads its client size for the cols/rows and
+     pins the grid to the end of the document the terminal is actually showing (see
+     `anchorBottom`) — the top while the conversation still fits, the bottom once it
+     scrolls. Either way the grid is whole cells and never quite fills the frame, so
+     the leftover sits as a sliver of background at the unpinned edge. */
   .term-viewport {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
     align-items: flex-start;
+    overflow: hidden;
     block-size: 100%;
     inline-size: 100%;
 
-    /* xterm mounts here, so this box is exactly the whole-cell grid (a touch
-       smaller than the viewport). It's scaled from the bottom-left (scaleX/scaleY,
-       set via a style: directive) to stretch the leftover sub-cell and fill the
-       viewport exactly — the couple-percent stretch grows up and to the right,
-       under the session bar, while the prompt stays crisp and flush at the
-       bottom-left. */
+    &.anchor-bottom {
+      justify-content: flex-end;
+    }
+
+    /* xterm mounts here at its natural whole-cell size. No transform — text stays
+       crisp and clicks map at native cell size. */
     .term-host {
       flex: none;
-      transform-origin: bottom left;
     }
   }
 </style>
