@@ -111,7 +111,8 @@ struct Exit {
 }
 
 /// Resolve the program to run: the explicit command, else `ADE_AGENT_CMD`, else
-/// the platform shell (so a session is always launchable).
+/// the platform shell (so a session is always launchable), and apply whatever
+/// environment that agent needs (the registry knows; this module doesn't).
 fn build_command(command: Option<String>) -> CommandBuilder {
     let program = command
         .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
@@ -122,7 +123,11 @@ fn build_command(command: Option<String>) -> CommandBuilder {
                 std::env::var("SHELL").unwrap_or_else(|_| "bash".into())
             }
         });
-    CommandBuilder::new(program)
+    let mut cmd = CommandBuilder::new(&program);
+    for (key, value) in crate::agents::spawn_env(&program) {
+        cmd.env(key, value);
+    }
+    cmd
 }
 
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of

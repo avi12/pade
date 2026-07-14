@@ -17,6 +17,8 @@ struct AgentDef {
     /// the prompt appended as the final arg (used for auto-naming). `None` = no
     /// headless mode we can drive.
     oneshot: Option<&'static [&'static str]>,
+    /// Environment the CLI needs to render the way ADE embeds it. Empty for most.
+    env: &'static [(&'static str, &'static str)],
 }
 
 /// Known agent backends, in preferred display order. The plain shell is always
@@ -27,40 +29,61 @@ const REGISTRY: &[AgentDef] = &[
         label: "Claude Code",
         command: "claude",
         oneshot: Some(&["-p"]),
+        // Claude Code's default renderer paints on the terminal's ALTERNATE screen
+        // buffer: a framebuffer the agent owns, with no document and no scrollback
+        // behind it. An embedding terminal has nothing to reflow there, so resizing
+        // can only wait for the agent to repaint — which lands a whole row at a
+        // time. Its classic main-screen renderer keeps the conversation in real
+        // scrollback instead, which the terminal *can* rewrap continuously as the
+        // pane changes size, the way a web page reflows.
+        env: &[("CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", "1")],
     },
     AgentDef {
         id: "codex",
         label: "Codex",
         command: "codex",
         oneshot: Some(&["exec"]),
+        env: &[],
     },
     AgentDef {
         id: "antigravity",
         label: "Antigravity CLI",
         command: "antigravity",
         oneshot: None,
+        env: &[],
     },
     AgentDef {
         id: "cursor",
         label: "Cursor CLI",
         command: "cursor-agent",
         oneshot: None,
+        env: &[],
     },
     AgentDef {
         id: "aider",
         label: "aider",
         command: "aider",
         oneshot: None,
+        env: &[],
     },
 ];
+
+/// The registry entry for an executable, if ADE knows it. One lookup (DRY) behind
+/// every per-agent question.
+fn definition(command: &str) -> Option<&'static AgentDef> {
+    REGISTRY.iter().find(|a| a.command == command)
+}
 
 /// How to invoke `command` headlessly for a one-shot prompt (auto-naming), if we
 /// know a way. Keeps the registry the single source of truth (DRY).
 pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
-    REGISTRY
-        .iter()
-        .find(|a| a.command == command)
-        .and_then(|a| a.oneshot)
+    definition(command).and_then(|a| a.oneshot)
+}
+
+/// Environment variables to set when spawning `command` in a PTY. Empty for an
+/// unknown command or a plain shell, so `pty.rs` stays agent-agnostic.
+pub fn spawn_env(command: &str) -> &'static [(&'static str, &'static str)] {
+    definition(command).map_or(&[], |a| a.env)
 }
 
 #[derive(Serialize)]
