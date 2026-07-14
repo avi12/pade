@@ -75,10 +75,43 @@ sequenceDiagram
   You->>T: open a session
   T->>B: spawn({ id, command, args, cwd })
   B->>R: invoke pty_spawn
+  Note over R: applies agents::spawn_env(command)<br/>— e.g. Claude Code's classic renderer
   R-->>T: pty://data (stdout stream) → xterm renders
   You->>T: keystrokes
   T->>R: pty_write
 ```
+
+### The terminal reflows like a document
+
+A resize should feel like a web page reflowing, and that is a property of **which
+screen buffer the agent paints on** — not of the emulator.
+
+Left to itself, Claude Code renders fullscreen on the terminal's **alternate**
+screen buffer: a framebuffer the agent owns, with no document and no scrollback
+behind it. There is nothing there for xterm to reflow, so a resize can only wait
+for the agent to repaint, which lands a whole row at a time. So the registry
+(`agents.rs`) spawns it with `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` — its
+**classic main-screen renderer** — and the conversation becomes a real document in
+real scrollback that xterm rewraps continuously as the pane changes size.
+
+Three rules follow, all in `Terminal.svelte`:
+
+| Rule | Why |
+| --- | --- |
+| Grid is `floor(pane / cell)` — whole cells, never rounded up | Rounding up means clipping a row, and on the normal buffer every row is content, not slack |
+| The grid pins to the **top** while the conversation fits, and to the **bottom** once it scrolls (`anchorBottom`) | Pins the end of the document you are actually looking at, so each visible line keeps a fixed y. Bottom-pinned, the row xterm scrolls away and the sub-cell remainder the grid gains cancel out — the text stays continuous through a row boundary |
+| The grid reflows every frame, but the PTY hears about **width** changes only, and only once the drag settles | An inline document needs the width (its text wraps to it); the height is the terminal's business. Every `SIGWINCH` makes the agent re-lay-out its frame (dropping a line, which steps the text above it) and makes Ink reprint its whole static history (stranding the old copy in scrollback — a per-frame drag left **52** orphaned conversations). A vertical drag now sends nothing |
+| …and every one of those rules **flips on the alternate screen** | A fullscreen agent (Codex, aider), a pager the agent opens, or Claude Code put back with `/tui fullscreen` owns the whole framebuffer and paints by diffing against its own model of it. There the grid holds still until the drag settles and then moves in lockstep with a full `SIGWINCH` (cols *and* rows) — resize it faster than the agent can follow and its model desyncs, leaving a half-drawn frame that never repairs. `Terminal.svelte` watches `buffer.onBufferChange` and switches policy |
+
+One xterm patch backs this (`patches/@xterm__xterm@…`), making a row resize a lossless
+round trip. Stock, a **shrink** `pop()`s the line below the cursor — while its own
+comment claims that line is blank — which destroyed the agent's `accept edits` hint;
+and a **grow** refuses to reclaim the scrollback whenever anything sits below the
+cursor, pushing blank lines under the conversation instead, so shrink→grow marched the
+conversation off the top and left the pane full of dead space.
+
+`docs/terminal-rendering.md` has the measurements and the approaches that were
+tried and rejected.
 
 ### Opening a project in an editor
 
@@ -153,7 +186,7 @@ responsibility, and who it collaborates with.
 
 | Module | Responsibility |
 | --- | --- |
-| `src/panels/Terminal.svelte` | xterm.js terminal bound to one PTY session |
+| `src/panels/Terminal.svelte` | xterm.js terminal bound to one PTY session; owns the document-style reflow (grid fit, anchor, settle-debounced `SIGWINCH`) |
 | `src/panels/ChangeFeed.svelte` | Live file-change feed with inline diffs |
 | `src/panels/VcsPanel.svelte` | Git-panel orchestrator: fetch + watcher-debounced refresh + panel header; composes the sections below |
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
@@ -191,13 +224,13 @@ entry. Each concern is one module:
 
 | Module | Responsibility |
 | --- | --- |
-| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty); `kill_all` terminates every session on app exit (wired in `lib.rs`'s run loop) so no agent lingers |
+| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; `kill_all` terminates every session on app exit (wired in `lib.rs`'s run loop) so no agent lingers |
 | `watcher.rs` | Filesystem watcher feeding the Change Feed (notify) |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
 | `refs.rs` | After a move: re-point agent memory dirs, IDE recents, symlinks, package-manager installs |
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
-| `agents.rs` | Agent registry + detection, one-shot headless invocations |
+| `agents.rs` | Agent registry + detection, one-shot headless invocations, and the env each agent is spawned with (e.g. Claude Code's classic renderer — see "The terminal reflows like a document") |
 | `usage.rs` | Agent usage / quota meter |
 | `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `family()` table also flags console editors that run in a terminal tab |
 | `tasks.rs` | Discover runnable tasks from project manifests |
