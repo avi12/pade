@@ -73,8 +73,20 @@ pub struct Agent {
 
 /// Every installed agent backend. The shell fallback is appended so the list is
 /// never empty (there is always something to launch).
+///
+/// Async + `spawn_blocking`: detection runs `where`/`which` per agent, which is
+/// slow enough (~hundreds of ms) that running it as a synchronous command would
+/// block Tauri's main thread — and the main thread also drives Windows' window
+/// move loop, so a sync detect fired on window-focus stalls dragging. Off-thread
+/// it can't.
 #[tauri::command]
-pub fn agents_detect() -> Vec<Agent> {
+pub async fn agents_detect() -> Vec<Agent> {
+    tauri::async_runtime::spawn_blocking(detect_installed)
+        .await
+        .unwrap_or_default()
+}
+
+fn detect_installed() -> Vec<Agent> {
     let mut found: Vec<Agent> = REGISTRY
         .iter()
         .filter(|a| is_on_path(a.command))
