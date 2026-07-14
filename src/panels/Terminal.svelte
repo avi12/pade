@@ -41,6 +41,11 @@
   // How long the grid must hold still before the agent is told its new width. Long
   // enough that one drag gesture is one SIGWINCH, short enough to feel immediate.
   const SIGWINCH_SETTLE_MS = 150;
+  // How long the nudged size is held before it is put back, when asking a fullscreen
+  // agent to repaint (see repaintAgent). It must outlast the agent's own coalescing of
+  // resize events, or it processes the two as one and paints for the wrong size —
+  // measured at 40ms, that left its frame a row short (the hint under its prompt).
+  const REPAINT_NUDGE_MS = 180;
   // The width the agent is currently wrapping its output to — the PTY's spawn width,
   // then whatever we last sent it. A resize that leaves this alone is a resize the
   // agent never needs to hear about (see term.onResize).
@@ -50,6 +55,10 @@
   // pane (which refits it) can't flash the badge from "ready" to "working".
   const RESIZE_SETTLE_MS = 400;
   let lastResizeAt = 0;
+
+  // Take over the alternate screen (DEC private mode 1049) — written into xterm, not to
+  // the agent, when re-attaching to a session that is already painting there.
+  const ENTER_ALTERNATE_SCREEN = "\x1b[?1049h";
 
   // Shift+Enter should add a newline to the agent's prompt, not submit it.
   // Terminals send plain `\r` (0x0D) for both Enter and Shift+Enter, so the
@@ -115,10 +124,10 @@
   const SCROLLBAR_WIDTH = 14;
 
   // The two screens a terminal has, and the only thing that decides how a resize must
-  // behave. ADE runs Claude Code on the normal one (see agents.rs), but nothing here
-  // may assume that: a fullscreen agent (Codex, aider), a pager or editor the agent
-  // shells out to, or Claude Code itself switched back with `/tui fullscreen`, all
-  // take over the ALTERNATE screen — and the rules there are the exact opposite.
+  // behave. ADE runs Claude Code fullscreen, on the ALTERNATE one (see agents.rs), but
+  // nothing here may assume either: a plain shell, an agent with no fullscreen mode, and
+  // Claude Code itself put back with `/tui default` all live on the NORMAL screen — and
+  // every rule below is the opposite there.
   const Screen = {
     Normal: "normal",
     Alternate: "alternate"
@@ -177,6 +186,28 @@
       cols,
       rows
     });
+  }
+
+  // Make a fullscreen program redraw its whole frame, by resizing the terminal a row
+  // and back. It owns the alternate screen and only re-lays-out when the size changes,
+  // so this is the one lever a terminal has to ask for a fresh frame — needed when
+  // attaching to a session already in flight, whose framebuffer cannot be faithfully
+  // replayed (a trimmed history is a torn frame, and the program's own model of the
+  // screen is the only complete copy).
+  //
+  // The GRID has to move, not just the PTY: a size sent to the program alone leaves
+  // xterm's grid saying one thing and the program's model another, and it paints its
+  // frame a row short. Resizing the grid drives `term.onResize`, which sends the
+  // SIGWINCH — terminal and program move together, exactly as in a real resize.
+  function repaintAgent() {
+    if (!term) {
+      return;
+    }
+
+    const grid = term;
+    const { cols, rows } = grid;
+    grid.resize(cols, Math.max(1, rows - 1));
+    setTimeout(() => grid.resize(cols, rows), REPAINT_NUDGE_MS);
   }
 
   // Fit the grid to the pane, and re-pin it (above). Whole cells only, rounded down,
@@ -427,12 +458,12 @@
       );
     });
 
-    // Fit the grid once per animation frame so the conversation rewraps live as you
-    // drag, the way a web page reflows — which only works because the agent runs on
-    // the normal screen buffer (see agents.rs: ADE forces the classic renderer), so
-    // xterm holds a real document and real scrollback to reflow. rAF coalesces a
-    // burst of resize events into one fit per frame; xterm 6.1 renders the reflow
-    // synchronously (issue #4922 / PR #5529) so it stays crisp.
+    // Refit once per animation frame. On the normal screen that reflows the document
+    // live as you drag, the way a web page does — xterm holds the text there, so it
+    // can rewrap it itself. On the alternate screen fitToPane holds the grid still
+    // until the gesture ends instead (the agent owns the pixels; see there). rAF
+    // coalesces a burst of resize events into one fit per frame; xterm 6.1 renders the
+    // reflow synchronously (issue #4922 / PR #5529) so it stays crisp.
     resizeObs = new ResizeObserver(() => {
       if (fitFrame !== undefined) {
         return;
@@ -481,6 +512,16 @@
     }
 
     if (history.data) {
+      // A fullscreen program's history is not a document, it is a stream of edits to a
+      // framebuffer — and once the buffer has been trimmed, the edits that built the
+      // frame are half gone, so replaying it paints a torn one. Switch to the alternate
+      // screen anyway (so the replay lands there, and the pane never flashes the wrong
+      // buffer), then ask the program to repaint itself: it re-renders on a SIGWINCH,
+      // and it is the only thing that can. Its own frame is the source of truth.
+      if (history.alternate) {
+        term.write(ENTER_ALTERNATE_SCREEN);
+      }
+
       term.write(history.data);
     }
 
@@ -492,6 +533,10 @@
 
     pendingChunks.length = 0;
     replayed = true;
+
+    if (history.alternate) {
+      repaintAgent();
+    }
 
     // Seed a new-project first prompt into the input (typed, not submitted —
     // the user reviews and presses Enter).

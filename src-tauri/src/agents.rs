@@ -29,14 +29,16 @@ const REGISTRY: &[AgentDef] = &[
         label: "Claude Code",
         command: "claude",
         oneshot: Some(&["-p"]),
-        // Claude Code's default renderer paints on the terminal's ALTERNATE screen
-        // buffer: a framebuffer the agent owns, with no document and no scrollback
-        // behind it. An embedding terminal has nothing to reflow there, so resizing
-        // can only wait for the agent to repaint — which lands a whole row at a
-        // time. Its classic main-screen renderer keeps the conversation in real
-        // scrollback instead, which the terminal *can* rewrap continuously as the
-        // pane changes size, the way a web page reflows.
-        env: &[("CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", "1")],
+        // Claude Code's fullscreen renderer: it takes over the terminal's ALTERNATE
+        // screen and owns every row of it, which is what buys the polished TUI —
+        // flicker-free output, mouse support, selection that copies itself. ADE wants
+        // that, and `Terminal.svelte` knows how to host it (a resize there waits for
+        // the drag to settle and then moves the grid and the agent together; see
+        // docs/terminal-rendering.md).
+        //
+        // Forced by env, not by the `tui` setting, so it does not depend on — and
+        // cannot be undone by — whatever the user's own Claude config happens to say.
+        env: &[("CLAUDE_CODE_NO_FLICKER", "1")],
     },
     AgentDef {
         id: "codex",
