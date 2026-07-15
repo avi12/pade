@@ -297,14 +297,12 @@
   }
 
   // Re-detect installed agents so the picker reflects an agent the user just
-  // installed or removed — on window focus (they alt-tab back from a terminal)
-  // and on a slow poll as a fallback. Detection spawns a process per agent, so
-  // it's throttled: a title-bar click refocuses the window and must NOT kick off
-  // a detect every time (the backend runs it off-thread, but there's no reason
-  // to spam it).
-  let lastAgentDetectAt = 0;
+  // installed or removed — when the app becomes visible again (they switched back
+  // from installing one, see the `visibilitychange` below) and on a slow poll as a
+  // fallback. Detection spawns a process per agent, so it must stay off the drag
+  // path: page visibility never changes while dragging a window that stays on
+  // screen, unlike window focus which a title-bar drag churns and lagged.
   async function redetectAgents() {
-    lastAgentDetectAt = Date.now();
     agents = await agentsApi.detect();
   }
   onMount(() => {
@@ -643,16 +641,16 @@
         !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
     selection = text && inSidePanel ? text : "";
   }}
+  onvisibilitychange={() => {
+    if (!document.hidden) {
+      void redetectAgents();
+    }
+  }}
 />
 <!-- Window-level shortcuts, handled in the capture phase: a focused xterm calls
      stopPropagation on keys it handles, so a bubble-phase listener never sees the
      combo while the terminal has focus. -->
 <svelte:window
-  onfocus={() => {
-    if (Date.now() - lastAgentDetectAt > 15_000) {
-      void redetectAgents();
-    }
-  }}
   onkeydowncapture={e => {
     // Dev-only: F5 / Ctrl+Shift+R reloads the WebView — the escape hatch when
     // Vite's HMR socket drops (a Tauri window wires no reload of its own). Ctrl+R

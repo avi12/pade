@@ -2,7 +2,7 @@
   import { ide } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { Ide } from "@/lib/types";
-  import { onDestroy, onMount } from "svelte";
+  import { onMount } from "svelte";
 
   // Opens the active project in an external editor. `ide.suggest()` returns the
   // installed editors ranked for the detected project kind, so the best fit is
@@ -19,9 +19,16 @@
   const bestFit = $derived(ides[0]);
   const hasAlternatives = $derived(ides.length > 1);
 
-  onMount(async () => {
+  // A newly-installed editor should show up without a restart: re-detect once at
+  // mount and whenever the app becomes visible again (the user installed one in
+  // another app and switched back). We key off page *visibility*, not window focus —
+  // a Windows title-bar drag churns focus and any focus-driven `ide.suggest()`
+  // spawned editor-detection processes mid-drag and lagged the drag, whereas
+  // visibility never changes while you drag a window that stays on screen.
+  async function detect() {
     ides = await ide.suggest();
-  });
+  }
+  onMount(detect);
 
   function open(editor: Ide) {
     if (editor.terminal) {
@@ -31,23 +38,11 @@
 
     ide.open({ command: editor.command });
   }
-
-  // A newly-installed editor should show up without a restart, so re-detect when
-  // the window regains focus (below). But a title-bar drag on Windows churns window
-  // focus rapidly, and `ide.suggest()` spawns editor-detection processes — firing it
-  // per focus event stacked up detections and lagged every drag (regressed in
-  // 597589a). Debounce so it runs once, after the focus churn settles, never mid-drag.
-  const REDETECT_DEBOUNCE_MS = 250;
-  let redetectTimer: ReturnType<typeof setTimeout> | undefined;
-  onDestroy(() => clearTimeout(redetectTimer));
 </script>
 
-<svelte:window
-  onfocus={() => {
-    clearTimeout(redetectTimer);
-    redetectTimer = setTimeout(async () => {
-      ides = await ide.suggest();
-    }, REDETECT_DEBOUNCE_MS);
+<svelte:document
+  onvisibilitychange={() => {
+    if (!document.hidden) void detect();
   }}
 />
 
