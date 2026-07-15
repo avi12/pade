@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Axis, beginReorder } from "@/lib/dragReorder";
+  import type { DragHint } from "@/lib/dragReorder";
   import Icon from "@/lib/Icon.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
@@ -23,7 +25,10 @@
     onselect,
     onclose,
     onlaunch,
-    onlaunchbranch
+    onlaunchbranch,
+    onreorder,
+    onsplit,
+    ondraghint
   }: {
     sessions: AgentSession[];
     activeId: string | null;
@@ -36,6 +41,16 @@
     onclose: (session: AgentSession) => void;
     onlaunch: (agent: Agent) => void;
     onlaunchbranch: (branch: string) => Promise<void>;
+    /** A drag reordered the visible pills — commit the new session order. */
+    onreorder?: (orderedIds: string[]) => void;
+    /** A pill was dropped over the terminal panes — open it as a split there. */
+    onsplit?: (drop: {
+      id: string;
+      pointerX: number;
+      pointerY: number;
+    }) => void;
+    /** Live drag state, so App can paint the panes' "drop here" overlay. */
+    ondraghint?: (hint: DragHint | null) => void;
   } = $props();
 
   // ── Measurement ─────────────────────────────────────────────────────────────
@@ -204,6 +219,29 @@
     node.focus();
     node.select();
   }
+
+  // Press-and-drag a pill by its body to reorder the strip (past a 5px threshold),
+  // or drag it down over the terminal panes to open it as a split. The close / AI
+  // buttons and the rename field carry `data-noreorder`, so a press on them is
+  // theirs; a plain press-and-release still selects. Never while renaming.
+  function startTabDrag(e: PointerEvent) {
+    if (editingId !== null) {
+      return;
+    }
+
+    beginReorder({
+      e,
+      itemSelector: "[data-session-tab]",
+      idAttribute: "data-session-tab",
+      axis: Axis.Horizontal,
+      threshold: 5,
+      ignoreSelector: "[data-noreorder]",
+      onCommit: ids => onreorder?.(ids),
+      onHint: hint => ondraghint?.(hint),
+      outsideSelector: "[data-panes]",
+      onDropOutside: drop => onsplit?.(drop)
+    });
+  }
 </script>
 
 {#snippet tabInner(s: AgentSession)}
@@ -213,6 +251,7 @@
       <input
         class="rename-input"
         aria-label="Rename session"
+        data-noreorder
         onblur={commitRename}
         oninput={e => (renameDraft = e.currentTarget.value)}
         onkeydown={e => {
@@ -246,6 +285,7 @@
       class="ai"
       class:on={isNaming(s.id)}
       aria-label="Auto-name this session with AI"
+      data-noreorder
       data-tooltip="AI name"
       onclick={() => toggleNaming({
         id: s.id,
@@ -256,6 +296,7 @@
   <button
     class="x"
     aria-label="Close session"
+    data-noreorder
     data-tooltip="Close session"
     onclick={() => closeTab(s)}
   ><Icon name="close" size={13} /></button>
@@ -264,10 +305,15 @@
 <nav class="tabs" aria-label="Agent sessions">
   <div bind:this={stripEl} class="tab-strip">
     {#each visibleSessions as s (s.id)}
+      <!-- Pointer-only reorder handle; select/close/rename stay keyboard-reachable
+           through the buttons inside, so the drag is a pure enhancement. -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="tab"
         class:active={s.id === activeId}
         class:shown={paneIds.includes(s.id)}
+        data-session-tab={s.id}
+        onpointerdown={startTabDrag}
         out:collapse={{ id: s.id }}
         animate:flip={flipParams}
       >
@@ -462,7 +508,16 @@
       overflow: hidden;
       border-radius: 999px;
       background: var(--surface-2);
+
+      /* The pill body is a drag handle (reorder / split); a touch-drag must
+         grab the pill, not scroll the strip. */
+      cursor: grab;
+      touch-action: none;
       animation: spring-in 320ms var(--ease);
+
+      &:active {
+        cursor: grabbing;
+      }
 
       &.active {
         background: var(--primary-container);

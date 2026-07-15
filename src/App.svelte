@@ -9,6 +9,7 @@
     workspace
   } from "@/lib/bridge";
   import DesignMenu from "@/lib/DesignMenu.svelte";
+  import type { DragHint } from "@/lib/dragReorder";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
@@ -93,6 +94,121 @@
   // currently shown are offered in the "add to split" menu.
   const canRemovePane = $derived(paneIds.length > 1);
   const splitCandidates = $derived(sessions.filter(s => !paneIds.includes(s.id)));
+
+  // The terminal slots render in this order: the shown panes first, in `paneIds`
+  // order (so a pane-header drag that reorders `paneIds` reorders the view), then
+  // the hidden sessions. Keyed by id, so a reorder moves DOM nodes rather than
+  // remounting — every terminal keeps its scrollback.
+  const bySessionId = $derived(new Map(sessions.map(s => [s.id, s] as const)));
+  const orderedSessions = $derived.by(() => {
+    const shown = paneIds
+      .map(id => bySessionId.get(id))
+      .filter((s): s is AgentSession => s !== undefined);
+    const hidden = sessions.filter(s => !paneIds.includes(s.id));
+    return [...shown, ...hidden];
+  });
+
+  // ── Tab drag → reorder / split ──────────────────────────────────────────────
+  // Which side of a pane a dragged tab drops onto. Its own closed set (the `Side`
+  // above names the side panels — different concern, no bare literals shared).
+  const DropSide = {
+    left: "left",
+    right: "right"
+  } as const;
+  type DropSide = (typeof DropSide)[keyof typeof DropSide];
+
+  // The panes container, so a drop's pointer can be hit-tested against the panes.
+  let panesElement = $state<HTMLElement>();
+  // Live drag state from the tab strip; drives the "drop here" overlay + halves.
+  let dragHint = $state<DragHint | null>(null);
+  const dragOverPanes = $derived(dragHint?.outside === true);
+
+  // Which pane + side the drag is currently over — the highlighted drop half.
+  const splitTarget = $derived.by(() => (dragOverPanes && dragHint
+    ? paneDropAt({
+      x: dragHint.pointerX,
+      y: dragHint.pointerY
+    })
+    : null));
+  function dropSideFor(id: string): DropSide | null {
+    return splitTarget?.id === id ? splitTarget.side : null;
+  }
+
+  // The shown pane under a point, and which half of it — used both for the live
+  // highlight and for the actual drop, so the two never disagree (DRY).
+  function paneDropAt({ x, y }: {
+    x: number;
+    y: number;
+  }): {
+    id: string;
+    side: DropSide;
+  } | null {
+    const container = panesElement;
+    if (!container) {
+      return null;
+    }
+
+    for (const slot of container.querySelectorAll<HTMLElement>("[data-pane-id]")) {
+      const id = slot.getAttribute("data-pane-id");
+      if (id === null || !paneIds.includes(id)) {
+        continue;
+      }
+
+      const rect = slot.getBoundingClientRect();
+      const isInside = rect.width > 0
+        && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      if (isInside) {
+        return {
+          id,
+          side: x < rect.left + rect.width / 2 ? DropSide.left : DropSide.right
+        };
+      }
+    }
+
+    return null;
+  }
+
+  // A tab dropped over the panes: show its session as a split pane, on the side of
+  // the target pane the pointer landed on (repositioning it if already shown).
+  function splitDrop(drop: {
+    id: string;
+    pointerX: number;
+    pointerY: number;
+  }) {
+    const target = paneDropAt({
+      x: drop.pointerX,
+      y: drop.pointerY
+    });
+    if (!target) {
+      return;
+    }
+
+    const base = paneIds.filter(id => id !== drop.id);
+    const targetIndex = base.indexOf(target.id);
+    let insertAt = base.length;
+    if (targetIndex !== -1) {
+      insertAt = target.side === DropSide.right ? targetIndex + 1 : targetIndex;
+    }
+
+    paneIds = [...base.slice(0, insertAt), drop.id, ...base.slice(insertAt)];
+    activeId = drop.id;
+  }
+
+  // A tab-strip drag committed a new order for the visible pills. They are a
+  // prefix of `sessions` (the overflow dots/+N are the tail), so slot the reordered
+  // ids back into the positions the visible set held and leave the tail put.
+  function reorderSessions(orderedIds: string[]) {
+    const inOrder = new Set(orderedIds);
+    const queue = [...orderedIds];
+    sessions = sessions.map(session => {
+      if (!inOrder.has(session.id)) {
+        return session;
+      }
+
+      const nextId = queue.shift();
+      return (nextId ? bySessionId.get(nextId) : undefined) ?? session;
+    });
+  }
 
   // How a spawned window routes off its query string (window_create encodes the
   // target here). A closed set defined once so no bare literal leaks into boot.
@@ -520,7 +636,7 @@
 
 <svelte:document
   onselectionchange={() => {
-    const sel = window.getSelection();
+    const sel = getSelection();
     const text = sel?.toString().trim() ?? "";
     const inSidePanel =
       sel?.anchorNode instanceof Node &&
@@ -546,7 +662,7 @@
         e.key === "F5" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "r");
       if (isReload) {
         e.preventDefault();
-        window.location.reload();
+        location.reload();
         return;
       }
     }
@@ -636,6 +752,7 @@
           {agents}
           {branches}
           onclose={close}
+          ondraghint={hint => (dragHint = hint)}
           onlaunch={a => launch({ agent: a })}
           onlaunchbranch={async branch => {
             // Spawn an agent on its own git worktree for `branch`, isolated from
@@ -651,19 +768,35 @@
               branch
             });
           }}
+          onreorder={reorderSessions}
           onselect={selectSession}
+          onsplit={splitDrop}
           {paneIds}
           {sessions}
         />
       </header>
 
       <main class="body" class:with-side={side !== null}>
-        <section class="pane term-pane">
-          {#each sessions as s (s.id)}
-            <div class="term-slot" class:shown={paneIds.includes(s.id)}>
+        <section bind:this={panesElement} class="pane term-pane" data-panes>
+          <!-- A tab dragged over the panes reads as "open in split" — a dashed
+               primary frame invites the drop; each pane then shows the left/right
+               half the pointer is over (below). -->
+          {#if dragOverPanes}
+            <div class="drop-overlay">
+              <span class="drop-badge"><Icon name="columns" /> Drop to open in split view</span>
+            </div>
+          {/if}
+          {#each orderedSessions as s (s.id)}
+            <div class="term-slot" class:shown={paneIds.includes(s.id)} data-pane-id={s.id}>
+              {#if dropSideFor(s.id) === DropSide.left}
+                <div class="drop-half left"></div>
+              {:else if dropSideFor(s.id) === DropSide.right}
+                <div class="drop-half right"></div>
+              {/if}
               <Terminal
                 active={s.id === activeId && paneIds.includes(s.id)}
                 onremove={() => removePane(s.id)}
+                onreorder={ids => (paneIds = ids)}
                 removable={canRemovePane && paneIds.includes(s.id)}
                 session={s}
               />
@@ -789,7 +922,7 @@
               data: selection
             });
             selection = "";
-            window.getSelection()?.removeAllRanges();
+            getSelection()?.removeAllRanges();
           }}
         >
           ◆ Send to agent
@@ -1033,11 +1166,13 @@
      sessions in the current split are laid out (side by side), the rest collapse
      out of flow. */
   .term-pane {
+    position: relative;
     display: flex;
     align-items: stretch;
   }
 
   .term-slot {
+    position: relative;
     display: none;
     flex: 1;
     flex-direction: column;
@@ -1048,6 +1183,57 @@
     &.shown {
       display: flex;
       animation: panel-swap 260ms var(--ease);
+    }
+  }
+
+  /* Dashed primary frame over the whole panes area while a tab is dragged onto
+     it — the invitation to open the session as a split. */
+  .drop-overlay {
+    position: absolute;
+    inset: 8px;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    border: 2px dashed var(--primary);
+    border-radius: var(--radius-medium);
+    background: color-mix(in oklab, var(--primary) 8%, transparent);
+    pointer-events: none;
+    animation: panel-swap 160ms var(--ease);
+
+    .drop-badge {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding-block: 6px;
+      padding-inline: 14px;
+      border-radius: 999px;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: 0 6px 20px var(--shadow-color);
+    }
+  }
+
+  /* The half of a pane the pointer is over — where the dropped session will land
+     (left = before this pane, right = after). A primary wash plus a solid edge. */
+  .drop-half {
+    position: absolute;
+    inset-block: 0;
+    z-index: 58;
+    inline-size: 50%;
+    background: color-mix(in oklab, var(--primary) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 40%, transparent);
+    pointer-events: none;
+
+    &.left {
+      inset-inline-start: 0;
+      border-inline-start: 3px solid var(--primary);
+    }
+
+    &.right {
+      inset-inline-end: 0;
+      border-inline-end: 3px solid var(--primary);
     }
   }
 

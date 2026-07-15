@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pty } from "@/lib/bridge";
+  import { Axis, beginReorder } from "@/lib/dragReorder";
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
@@ -12,14 +13,38 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session, active = false, removable = false, onremove }: {
+  const { session, active = false, removable = false, onremove, onreorder }: {
     session: AgentSession;
     /** The session the keyboard belongs to — the one tab (or split pane) in front. */
     active?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
     onremove?: () => void;
+    /** A drag of this pane's header reordered the split — commit the new order. */
+    onreorder?: (orderedIds: string[]) => void;
   } = $props();
+
+  // Drag the session bar to reorder the visible split panes (past a 4px
+  // threshold). The `[data-pane-id]` slot the engine reorders lives in App, one
+  // level up from this header; `closest` reaches it across the component boundary.
+  // The remove button carries `data-noreorder` so pressing it stays a click. Only
+  // a pane in a live split reorders — `removable` is true exactly then, so a lone
+  // pane's header never lifts with nothing to sort.
+  function startPaneDrag(e: PointerEvent) {
+    if (!removable) {
+      return;
+    }
+
+    beginReorder({
+      e,
+      itemSelector: "[data-pane-id]",
+      idAttribute: "data-pane-id",
+      axis: Axis.Horizontal,
+      threshold: 4,
+      ignoreSelector: "[data-noreorder]",
+      onCommit: ids => onreorder?.(ids)
+    });
+  }
 
   let host: HTMLDivElement;
   let viewport: HTMLDivElement;
@@ -134,11 +159,17 @@
     });
   });
 
-  // Live-update the terminal font when the preference changes.
+  // xterm paints on a canvas in px, so the font-size pref scales it here directly
+  // (the CSS --ui-scale reaches rem/em UI but not the canvas). Base size × zoom.
+  const TERMINAL_FONT_SIZE = 13;
+
+  // Live-update the terminal font (family + zoom) when the preference changes.
   $effect(() => {
     const family = effective.monoFamily;
+    const fontSize = Math.round(TERMINAL_FONT_SIZE * effective.uiScale);
     if (term) {
       term.options.fontFamily = family;
+      term.options.fontSize = fontSize;
       fitToPane();
     }
   });
@@ -430,7 +461,7 @@
   onMount(async () => {
     term = new Terminal({
       fontFamily: effective.monoFamily,
-      fontSize: 13,
+      fontSize: Math.round(TERMINAL_FONT_SIZE * effective.uiScale),
       cursorBlink: true,
       allowProposedApi: true,
       theme: readXtermTheme()
@@ -753,12 +784,16 @@
 </script>
 
 <div class="term-wrap">
-  <header class="session-bar">
+  <!-- Pointer-only reorder handle for the split; the remove button stays
+       keyboard-reachable, so the drag is a pure enhancement. -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <header class="session-bar" class:reorderable={removable} onpointerdown={startPaneDrag}>
     <SessionBadge label={session.branch ? `${session.agent.label} · ${session.branch}` : session.agent.label} {status} />
     {#if removable}
       <button
         class="remove-pane"
         aria-label="Remove from split"
+        data-noreorder
         data-tooltip="Remove from split"
         onclick={() => onremove?.()}
       >
@@ -791,6 +826,17 @@
     padding-inline: 14px;
     border-block-end: 1px solid var(--outline);
     background: var(--surface-1);
+
+    /* In a split, the bar is a drag handle for reordering the panes; a touch-drag
+       must grab it, not scroll. A lone pane has nothing to sort, so no affordance. */
+    &.reorderable {
+      cursor: grab;
+      touch-action: none;
+
+      &:active {
+        cursor: grabbing;
+      }
+    }
   }
 
   /* Inline remove-from-split action at the end of the bar — transparent until
