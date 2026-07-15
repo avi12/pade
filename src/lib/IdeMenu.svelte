@@ -4,15 +4,20 @@
   import type { Ide } from "@/lib/types";
   import { onMount } from "svelte";
 
-  // Opens the active project in an external editor. The list is ranked for the
-  // project type (suggest), so the best-fit IDE sits at the top. A console
-  // editor (Neovim/Vim/Helix) can't run detached — it's handed to the parent to
-  // open in a PADE terminal tab instead of through the OS.
+  // Opens the active project in an external editor. `ide.suggest()` returns the
+  // installed editors ranked for the detected project kind, so the best fit is
+  // first — the split button's primary action opens it directly (auto-detected),
+  // and the caret drops the full list to pick another. A console editor
+  // (Neovim/Vim/Helix) can't run detached, so it's handed to the parent to open
+  // in a PADE terminal tab instead of through the OS.
   const { onterminaleditor }: {
     onterminaleditor: (editor: Ide) => void;
   } = $props();
 
   let ides = $state<Ide[]>([]);
+  // The auto-detected best fit for this project — the primary action's target.
+  const bestFit = $derived(ides[0]);
+  const hasAlternatives = $derived(ides.length > 1);
 
   onMount(async () => {
     ides = await ide.suggest();
@@ -28,43 +33,114 @@
   }
 </script>
 
-{#if ides.length}
-  <button style:anchor-name="--ide-anchor" class="ide-btn" popovertarget="ide-menu">
-    <Icon name="external" /> Open in {ides[0].label}<span class="caret">▾</span>
-  </button>
-  <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list" popover>
-    {#each ides as editor, index (editor.id)}
-      <li>
-        <button
-          onclick={() => open(editor)}
-          popovertarget="ide-menu"
-          popovertargetaction="hide"
-        >
-          <span class="name"><Icon name="code" />{editor.label}</span>
-          {#if index === 0 && ides.length > 1}
-            <span class="best">best fit</span>
-          {/if}
-        </button>
-      </li>
-    {/each}
-  </ul>
+<svelte:window
+  onfocus={async () => {
+    // Re-detect when the window regains focus, so an editor installed while PADE
+    // was in the background becomes selectable without a restart.
+    ides = await ide.suggest();
+  }}
+/>
+
+{#if bestFit}
+  <span class="ide">
+    <button
+      class="ide-open"
+      data-tooltip={`Open in ${bestFit.label}`}
+      onclick={() => open(bestFit)}
+    ><Icon name="external" /> <span class="lbl">Open in {bestFit.label}</span></button>
+    {#if hasAlternatives}
+      <button
+        style:anchor-name="--ide-anchor"
+        class="ide-more"
+        aria-label="Choose a different editor"
+        data-tooltip="Choose a different editor"
+        popovertarget="ide-menu"
+      ><span class="caret">▾</span></button>
+    {/if}
+  </span>
+
+  {#if hasAlternatives}
+    <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list" popover>
+      {#each ides as editor, index (editor.id)}
+        <li>
+          <button
+            onclick={() => open(editor)}
+            popovertarget="ide-menu"
+            popovertargetaction="hide"
+          >
+            <span class="name"><Icon name="code" />{editor.label}</span>
+            {#if index === 0}
+              <span class="best">best fit</span>
+            {/if}
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 {/if}
 
 <style>
-  .ide-btn {
+  /* Split pill: a primary "open" action joined to a caret that opens the list.
+     Both zones live in one surface-2 pill and light up independently on hover. */
+  .ide {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: stretch;
+    border-radius: 999px;
+    background: var(--surface-2);
+  }
+
+  .ide-open {
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    padding: 7px 14px;
+    padding: 7px 13px;
     border: none;
     border-radius: 999px;
-    background: var(--surface-2);
+    background: transparent;
     color: var(--on-surface);
     font: inherit;
     font-weight: 600;
     font-size: 13px;
     white-space: nowrap;
     cursor: pointer;
+    transition: background 200ms var(--ease), color 200ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+    }
+  }
+
+  /* When a caret follows, the open zone gives up its trailing round corners so
+     the two read as one pill. */
+  .ide:has(.ide-more) .ide-open {
+    border-end-end-radius: 0;
+    border-start-end-radius: 0;
+  }
+
+  .ide-more {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding-inline: 8px 11px;
+    border: none;
+    border-end-end-radius: 999px;
+    border-start-end-radius: 999px;
+    background: transparent;
+    color: var(--on-surface);
+    cursor: pointer;
+    transition: background 200ms var(--ease);
+
+    /* Hairline seam between the two zones. */
+    &::before {
+      content: "";
+      position: absolute;
+      inset-block: 6px;
+      inset-inline-start: 0;
+      inline-size: 1px;
+      background: var(--outline);
+    }
 
     &:hover {
       background: var(--surface-3);
