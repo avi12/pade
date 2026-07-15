@@ -81,13 +81,22 @@
       </button>
     </li>
     <li>
+      <!-- Shift-click is the power-user path: it skips the confirmation and
+           deletes straight away (a failure still surfaces in the dialog). -->
       <button
         class="mi danger"
-        onclick={async () => await lifecycle.deleteWorkspace(path)}
+        onclick={async e => {
+          if (e.shiftKey) {
+            await lifecycle.deleteNow(path);
+            return;
+          }
+
+          lifecycle.requestDelete(path);
+        }}
         popovertarget={identifier}
         popovertargetaction="hide"
       >
-        <Icon name="trash" /><span class="mi-txt">Delete workspace</span>
+        <Icon name="trash" /><span class="mi-txt">Delete workspace</span><kbd>⇧</kbd>
       </button>
     </li>
   {/if}

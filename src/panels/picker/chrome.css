@@ -120,6 +120,19 @@
       flex: 1;
       min-inline-size: 0;
     }
+
+    /* Modifier hint on an item that takes a shortcut (Shift = skip the
+       confirmation). A tooltip would be clipped by the menu's own overflow. */
+    kbd {
+      flex: none;
+      padding-block: 1px;
+      padding-inline: 5px;
+      border-radius: var(--radius-small);
+      background: var(--surface-3);
+      color: var(--on-surface-variant);
+      font-family: var(--font-ui);
+      font-size: 10px;
+    }
   }
 
   /* Uppercase section header inside the menu. */

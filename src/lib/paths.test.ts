@@ -1,4 +1,10 @@
-import { baseName, displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+import {
+  baseName,
+  displayName,
+  isTemporaryWorkspace,
+  normalizePath,
+  parentDir
+} from "@/lib/paths";
 import { describe, expect, it } from "vitest";
 
 describe("baseName", () => {
@@ -28,6 +34,28 @@ describe("displayName", () => {
 
   it("falls back to the folder name when no label is assigned", () => {
     expect(displayName(temporary, {})).toBe("temp-42");
+  });
+});
+
+describe("parentDir", () => {
+  it("returns the containing folder of a Windows path", () => {
+    expect(parentDir("C:\\repositories\\avi\\pade")).toBe("C:\\repositories\\avi");
+  });
+
+  it("returns the containing folder of a POSIX path", () => {
+    expect(parentDir("/home/avi/pade")).toBe("/home/avi");
+  });
+
+  it("ignores a trailing separator", () => {
+    expect(parentDir("C:\\projects\\demo\\")).toBe("C:\\projects");
+  });
+
+  it("returns null for a bare name with no parent", () => {
+    expect(parentDir("pade")).toBeNull();
+  });
+
+  it("returns null at the top of a POSIX tree", () => {
+    expect(parentDir("/home")).toBeNull();
   });
 });
 

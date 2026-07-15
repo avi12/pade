@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import { collapseRow } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace } from "@/lib/paths";
   import type { Ide } from "@/lib/types";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
@@ -33,12 +34,14 @@
       <button class="clear" onclick={onclear}><Icon name="trash" /> Clear</button>
     </div>
     <ul class="recent-list">
+      <!-- A deleted (or cleared) row collapses on its way out instead of
+           blinking away, so the list visibly closes over it. -->
       {#each recentProjects as path (path)}
-        <li class="row">
+        <li class="row" out:collapseRow>
           {#if lifecycle.renaming === path}
             <form
-              class="rename" onsubmit={async event => {
-                event.preventDefault(); await lifecycle.commitRename(path);
+              class="rename" onsubmit={async e => {
+                e.preventDefault(); await lifecycle.commitRename(path);
               }}>
               <input
                 aria-describedby={lifecycle.renameError ? "rename-error" : undefined}

@@ -1,10 +1,12 @@
-// Relocate (move / rename) a workspace with cwd-lock handling. Either op
-// fs::renames the folder — which fails while a live agent holds it as cwd
-// (Windows lock). So: kill the sessions under it (remembering the live ones),
-// run the backend op (which also re-points every external reference — agent
-// memory dirs, IDE recents…), then resume the live ones on the new path seeded
-// to continue. Idle/exited sessions stay closed. The app shell supplies its
-// session list, settings sink and relaunch through `RelocateHost`.
+// Move / rename / delete a workspace with cwd-lock handling. Every one of them
+// touches the folder itself — which fails while a live agent holds it as cwd
+// (Windows lock). So they share one opening move: kill the sessions under it
+// (remembering the live ones). Move and rename then run the backend op (which
+// also re-points every external reference — agent memory dirs, IDE recents…)
+// and resume the live sessions on the new path, seeded to continue; delete has
+// nothing to resume and the app simply forgets the folder. Idle/exited sessions
+// stay closed. The app shell supplies its session list, settings sink and
+// relaunch through `RelocateHost`.
 
 import { pty, workspace } from "@/lib/bridge";
 import { normalizePath } from "@/lib/paths";
@@ -51,20 +53,26 @@ export interface RelocateHost {
   }) => void;
 }
 
-/** Move/rename entry points for one app shell, sharing the lock-handling flow. */
+/** Move/rename/delete entry points for one app shell, sharing the lock-handling
+ *  flow. */
 export function createRelocator(host: RelocateHost) {
-  async function relocate({ from, run }: {
-    from: string;
-    run: () => Promise<string>;
-  }): Promise<string> {
-    function isUnder(dir: string): boolean {
-      return isUnderDir({
-        dir,
-        base: from
-      });
-    }
+  function isUnder({ dir, base }: {
+    dir: string;
+    base: string;
+  }): boolean {
+    return isUnderDir({
+      dir,
+      base
+    });
+  }
 
-    const locking = host.sessions().filter(s => isUnder(s.cwd ?? host.currentProject()));
+  /** Free the folder: kill every session holding it (or a child) as cwd, and
+   *  report the ones that were still alive so a caller can resume them. */
+  async function releaseLock(from: string) {
+    const locking = host.sessions().filter(s => isUnder({
+      dir: s.cwd ?? host.currentProject(),
+      base: from
+    }));
     // Capture the live ones + where they were working, to resume after the move.
     const toResume = locking
       .filter(s => sessionStatus(s.id) !== SessionStatus.enum.exited)
@@ -73,7 +81,6 @@ export function createRelocator(host: RelocateHost) {
         oldDir: s.cwd ?? host.currentProject()
       }));
 
-    // Release the lock: kill every session under the dir.
     for (const session of locking) {
       await pty.kill(session.id);
       dropSessionStatus(session.id);
@@ -81,12 +88,23 @@ export function createRelocator(host: RelocateHost) {
     }
 
     host.removeSessions(new Set(locking.map(s => s.id)));
+    return toResume;
+  }
+
+  async function relocate({ from, run }: {
+    from: string;
+    run: () => Promise<string>;
+  }): Promise<string> {
+    const toResume = await releaseLock(from);
 
     // Run the backend move/rename (also re-points every external reference).
     const newPath = await run();
     host.applySettings(await workspace.settings());
 
-    if (isUnder(host.currentProject())) {
+    if (isUnder({
+      dir: host.currentProject(),
+      base: from
+    })) {
       host.setCurrentProject(
         remapDir({
           dir: host.currentProject(),
@@ -131,8 +149,27 @@ export function createRelocator(host: RelocateHost) {
     });
   }
 
+  /** Delete a workspace: same lock release (a running agent would otherwise keep
+   *  the folder open and the removal would fail), then remove it. Nothing to
+   *  resume, and the shell lets go of it if it was the open project. */
+  async function remove(path: string): Promise<Settings> {
+    await releaseLock(path);
+    const settings = await workspace.delete(path);
+    host.applySettings(settings);
+
+    if (isUnder({
+      dir: host.currentProject(),
+      base: path
+    })) {
+      host.setCurrentProject("");
+    }
+
+    return settings;
+  }
+
   return {
     move,
-    rename
+    rename,
+    remove
   };
 }

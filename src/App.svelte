@@ -180,11 +180,6 @@
     return false;
   }
 
-  // Show the project picker on demand to switch project / open recent / create.
-  function switchProject() {
-    phase = Phase.project;
-  }
-
   // Re-detect installed agents so the picker reflects an agent the user just
   // installed or removed — on window focus (they alt-tab back from a terminal)
   // and on a slow poll as a fallback. Detection spawns a process per agent, so
@@ -195,11 +190,6 @@
   async function redetectAgents() {
     lastAgentDetectAt = Date.now();
     agents = await agentsApi.detect();
-  }
-  function redetectAgentsOnFocus() {
-    if (Date.now() - lastAgentDetectAt > 15_000) {
-      void redetectAgents();
-    }
   }
   onMount(() => {
     const interval = setInterval(() => void redetectAgents(), 30_000);
@@ -250,21 +240,6 @@
       previous: () => stepSession(-1)
     }));
 
-  // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut chip).
-  // Handled in the capture phase (see the <svelte:window> binding): a focused
-  // xterm calls stopPropagation on keys it handles, so a bubble-phase listener
-  // never sees the combo while the terminal has focus. stopPropagation here keeps
-  // the terminal from also receiving it.
-  function onWindowKey(event: KeyboardEvent) {
-    const isNewWindow = event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n";
-    if (!isNewWindow) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    void openEmptyWindow();
-  }
   async function openEmptyWindow() {
     await windows.create({ mode: WindowMode.empty });
     showToast("Opened a new window");
@@ -342,24 +317,6 @@
     paneIds = opts.split ? [...paneIds, session.id] : [session.id];
     pendingPrompt = undefined;
     phase = Phase.ready;
-  }
-
-  // Open a console editor (Neovim/Vim/Helix) in its own terminal tab, split
-  // beside the agent so you can watch and edit at once. GUI editors go through
-  // the OS (ide.open); these need a real TTY, which only a PADE terminal gives.
-  function openEditorSession(editor: Ide) {
-    launch({
-      agent: {
-        id: `editor-${editor.id}`,
-        label: editor.label,
-        command: editor.command
-      },
-      // Inherit the active session's worktree, if any, else the project dir.
-      cwd: sessions.find(session => session.id === activeId)?.cwd,
-      // Open the working directory in the editor.
-      args: ["."],
-      split: true
-    });
   }
 
   // A tab click shows that session as the sole pane (classic single view).
@@ -443,21 +400,6 @@
   // Load branches for the current repo (empty when not a git project).
   async function loadBranches() {
     branches = await vcs.branches().catch(() => []);
-  }
-
-  // Spawn an agent on its own git worktree for `branch`, isolated from the
-  // other sessions. Uses the active session's agent (or the first available).
-  async function launchOnBranch(branch: string) {
-    const agent = sessions.find(s => s.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
-    const cwd = await vcs.worktreeAdd({
-      branch,
-      create: false
-    });
-    launch({
-      agent,
-      cwd,
-      branch
-    });
   }
 
   async function close(session: AgentSession) {
@@ -571,49 +513,67 @@
   ] as const;
   const sideTitle = $derived(PANEL_TABS.find(tab => tab.id === side)?.label ?? "");
 
-  // Run a project task as a streaming runner in the dock (not a throwaway
-  // terminal tab), so its output stays visible and can be piped into an agent.
-  async function runTask(task: {
-    label: string;
-    command: string;
-    cwd: string;
-    kind: TaskGroup["kind"];
-  }) {
-    await startRunner(task);
-  }
-
   // Highlight → agent bridge: a selection in a side panel is injected into the
   // active session's input.
   let selection = $state("");
-  function readSelection() {
+</script>
+
+<svelte:document
+  onselectionchange={() => {
     const sel = window.getSelection();
     const text = sel?.toString().trim() ?? "";
     const inSidePanel =
       sel?.anchorNode instanceof Node &&
         !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
     selection = text && inSidePanel ? text : "";
-  }
-  async function sendToAgent() {
-    if (!selection || !activeId) {
+  }}
+/>
+<!-- Window-level shortcuts, handled in the capture phase: a focused xterm calls
+     stopPropagation on keys it handles, so a bubble-phase listener never sees the
+     combo while the terminal has focus. -->
+<svelte:window
+  onfocus={() => {
+    if (Date.now() - lastAgentDetectAt > 15_000) {
+      void redetectAgents();
+    }
+  }}
+  onkeydowncapture={e => {
+    // Dev-only: F5 / Ctrl+Shift+R reloads the WebView — the escape hatch when
+    // Vite's HMR socket drops (a Tauri window wires no reload of its own). Ctrl+R
+    // is left to the terminal's shell reverse-search. Stripped from prod builds.
+    if (import.meta.env.DEV) {
+      const isReload =
+        e.key === "F5" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "r");
+      if (isReload) {
+        e.preventDefault();
+        window.location.reload();
+        return;
+      }
+    }
+
+    // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut
+    // chip). stopPropagation keeps the terminal from also receiving it.
+    const isNewWindow = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n";
+    if (!isNewWindow) {
       return;
     }
 
-    await pty.write({
-      id: activeId,
-      data: selection
-    });
-    selection = "";
-    window.getSelection()?.removeAllRanges();
-  }
-</script>
-
-<svelte:document onselectionchange={readSelection} />
-<svelte:window onfocus={redetectAgentsOnFocus} onkeydowncapture={onWindowKey} />
+    e.preventDefault();
+    e.stopPropagation();
+    void openEmptyWindow();
+  }}
+/>
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monoFamily} class="app-root">
   {#if phase === Phase.project}
-    <ProjectPicker {agents} onmove={relocator.move} onopen={openProject} onrename={relocator.rename} />
+    <ProjectPicker
+      {agents}
+      ondelete={relocator.remove}
+      onmove={relocator.move}
+      onopen={openProject}
+      onrename={relocator.rename}
+    />
   {:else if phase === Phase.onboarding}
     <Onboarding
       {agents} onpick={a => launch({
@@ -631,7 +591,7 @@
             {isTemp}
             label={currentLabel ?? shortDir}
             labels={settings.labels}
-            onswitch={switchProject}
+            onswitch={() => (phase = Phase.project)}
             path={currentProject}
             recentProjects={settings.recentProjects}
           />
@@ -639,7 +599,25 @@
 
           <UsageMeter />
           <DesignMenu agent={activeAgent} />
-          <IdeMenu onterminaleditor={openEditorSession} />
+          <!-- Open a console editor (Neovim/Vim/Helix) in its own terminal tab,
+               split beside the agent so you can watch and edit at once. GUI editors
+               go through the OS (ide.open); these need a real TTY, which only a PADE
+               terminal gives. -->
+          <IdeMenu
+            onterminaleditor={(editor: Ide) =>
+              launch({
+                agent: {
+                  id: `editor-${editor.id}`,
+                  label: editor.label,
+                  command: editor.command
+                },
+                // Inherit the active session's worktree, if any, else the project dir.
+                cwd: sessions.find(session => session.id === activeId)?.cwd,
+                // Open the working directory in the editor.
+                args: ["."],
+                split: true
+              })}
+          />
 
           <div class="seg" aria-label="Side panels" role="tablist">
             {#each PANEL_TABS as tab (tab.id)}
@@ -659,7 +637,20 @@
           {branches}
           onclose={close}
           onlaunch={a => launch({ agent: a })}
-          onlaunchbranch={launchOnBranch}
+          onlaunchbranch={async branch => {
+            // Spawn an agent on its own git worktree for `branch`, isolated from
+            // the other sessions. Uses the active session's agent (or the first).
+            const agent = sessions.find(s => s.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
+            const cwd = await vcs.worktreeAdd({
+              branch,
+              create: false
+            });
+            launch({
+              agent,
+              cwd,
+              branch
+            });
+          }}
           onselect={selectSession}
           {paneIds}
           {sessions}
@@ -745,7 +736,17 @@
                 {/await}
               {:else if side === Side.tasks}
                 {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
-                  <TasksPanel onrun={runTask} />
+                  <!-- Run a project task as a streaming runner in the dock (not a
+                       throwaway terminal tab), so its output stays visible and can
+                       be piped into an agent. -->
+                  <TasksPanel
+                    onrun={async (task: {
+                      label: string;
+                      command: string;
+                      cwd: string;
+                      kind: TaskGroup["kind"];
+                    }) => await startRunner(task)}
+                  />
                 {/await}
               {:else if side === Side.config}
                 {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
@@ -776,7 +777,21 @@
       {/if}
 
       {#if selection}
-        <button class="send-fab" onclick={sendToAgent}>
+        <button
+          class="send-fab"
+          onclick={async () => {
+            if (!selection || !activeId) {
+              return;
+            }
+
+            await pty.write({
+              id: activeId,
+              data: selection
+            });
+            selection = "";
+            window.getSelection()?.removeAllRanges();
+          }}
+        >
           ◆ Send to agent
           <!-- Truncation is pure CSS (.preview: max-inline-size + ellipsis). -->
           <span class="preview">{selection}</span>
@@ -952,7 +967,7 @@
     flex-direction: column;
     border-inline-start: 1px solid var(--outline);
     background: var(--surface);
-    animation: panel-in 320ms var(--ease);
+    animation: panel-in 340ms var(--ease);
   }
 
   /* One shared header for every panel (DRY) — title + optional count + optional
@@ -962,9 +977,8 @@
     flex-shrink: 0;
     gap: 8px;
     align-items: center;
-    padding-block: 12px;
+    padding-block: 12px 10px;
     padding-inline: 16px;
-    border-block-end: 1px solid var(--outline);
   }
 
   .panel-title {

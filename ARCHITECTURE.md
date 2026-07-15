@@ -204,6 +204,7 @@ responsibility, and who it collaborates with.
 | `src/lib/CommitModal.svelte` | Commit-dialog orchestrator: native `<dialog>` plumbing, header, selection + diff-load state machine | `commitModal/FileList`, `commitModal/DiffPane`, `bridge.vcs`, `diff` |
 | `src/lib/commitModal/FileList.svelte` | The commit's changed-files tablist: kind badges, stats, roving-tabindex keys | `paths` |
 | `src/lib/commitModal/DiffPane.svelte` | Path bar + unified diff with loading / failed / large-file states (presentation only) | `diff` |
+| `src/lib/ConfirmDialog.svelte` | Shared in-app confirmation modal (native `<dialog>`): destructive prompt with caller-owned busy + error states — replaces the OS popup | `Icon` |
 | `src/lib/SessionBadge.svelte`, `Icon`, `Logo`, `BrandMark`, `ColorText` | Small presentational atoms | — |
 
 ## Frontend — extracted concerns (logic modules)
@@ -215,12 +216,14 @@ responsibility, and who it collaborates with.
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError` | form components |
 | `src/lib/tabFit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
 | `src/lib/autoName.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
-| `src/lib/workspaceRelocate.ts` | Move/rename with cwd-lock handling: kill locking sessions → backend op → resume remapped | `bridge`, `stores/sessions`, `stores/context` |
+| `src/lib/workspaceRelocate.ts` | Move/rename/delete with cwd-lock handling: kill locking sessions → backend op → resume remapped (delete has nothing to resume and drops the project) | `bridge`, `stores/sessions`, `stores/context` |
 | `src/lib/sendShortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
 | `src/lib/tabShortcuts.ts` | Tab keyboard shortcuts: pure key-chord → action matcher + capture-phase registrar (new / close / cycle / launch-menu) | `App` |
 | `src/lib/paths.ts` | Path helpers: `baseName`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff parser + side-by-side rows | `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
+| `src/lib/errors.ts` | `errorMessage` — one reading of a thrown IPC rejection into user-facing text | any catch block |
+| `src/lib/motion.ts` | `collapseRow` exit transition (the one animation CSS can't own: the node is gone before it could run), reduced-motion aware | picker lists |
 | `src/lib/colors.ts` | Color-token detection + `var()` tracing for swatches | `ColorText`, viewers |
 | `src/lib/highlight.ts` | Dependency-free syntax highlighting for code/config/diff viewers | viewers |
 | `src/lib/prefs.svelte.ts` | Reactive appearance/editor prefs, applied as CSS custom properties | `App`, `bridge` |
@@ -246,7 +249,7 @@ responsibility, and who it collaborates with.
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files |
 | `src/panels/Onboarding.svelte` | Agent picker when several agents could open a project |
-| `src/panels/ProjectPicker.svelte` | Picker orchestrator: owns settings + refresh + the shared workspace lifecycle; composes the sections below |
+| `src/panels/ProjectPicker.svelte` | Picker orchestrator: owns settings + refresh + the shared workspace lifecycle, hosts the delete `ConfirmDialog`, and keeps the page live — it watches the parents of its rows (`dirs`) and re-prunes on any change, so a folder deleted outside PADE leaves the list on its own; composes the sections below |
 
 ### Git-panel sections (`src/panels/vcs/`)
 
@@ -264,12 +267,12 @@ responsibility, and who it collaborates with.
 | `chrome.css` | Shared picker chrome (base fields/buttons, kebab + popover menus, rows, eyebrows), selector-scoped under `.picker` so all sections inherit one copy |
 | `QuickStartSection.svelte` | Temp-workspace card + create-a-project form |
 | `OnLaunchSection.svelte` | Start-mode toggle, auto-name checkbox, Explorer context-menu toggle |
-| `RecentSection.svelte` | Recent rows with tags + inline-rename form |
+| `RecentSection.svelte` | Recent rows with tags + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chips with rescan/skeleton states |
 | `EditorsSection.svelte` | Editor-rules engine rows + popover selects + "Add editor…" by executable path (validated, inline status) |
 | `RootsSection.svelte` | Root folders: add/remove + detected projects per root |
 | `RowMenu.svelte` | Shared kebab popover: reveal actions + owned-workspace lifecycle entries |
-| `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots |
+| `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; owns the delete confirmation state (target / in-flight / error) that `ProjectPicker` renders as one `ConfirmDialog` |
 
 ## Rust core (`src-tauri/src/`)
 
@@ -278,10 +281,10 @@ entry. Each concern is one module:
 
 | Module | Responsibility |
 | --- | --- |
-| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; keeps each session's replayable history so a terminal can attach to a conversation in flight; `kill_all` terminates every session on app exit (wired in `lib.rs`'s run loop) so no agent lingers |
-| `watcher.rs` | Filesystem watcher feeding the Change Feed (notify) |
+| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; keeps each session's replayable history so a terminal can attach to a conversation in flight; dropping a session kills **and reaps** its child (closing the PTY only hangs it up, and a survivor keeps its cwd locked), so `pty_kill` frees the workspace and `kill_all` leaves nothing behind on app exit |
+| `watcher.rs` | Filesystem watchers (notify): the recursive one feeding the Change Feed, and `watch_dirs` — the picker's, watching the *parents* of the rows it shows (watching a row would hold a handle on it and block its deletion) and emitting `dirs://changed` when one gains or loses a child |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
-| `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete |
+| `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete. Deleting first steps the process out of the folder (opening a project chdirs into it, and Windows won't delete the directory a process stands in), then retries briefly while the OS closes the killed agents' handles; an already-absent folder counts as deleted, so a stale Recent row can always be cleared |
 | `refs.rs` | After a move: re-point agent memory dirs, IDE recents, symlinks, package-manager installs |
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
 | `agents.rs` | Agent registry + detection, one-shot headless invocations, and the env each agent is spawned with (e.g. Claude Code's classic renderer — see "The terminal reflows like a document"). `program()` is the one place that turns an agent's name into the executable to run — see "Finding an installed agent" |

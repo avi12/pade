@@ -13,6 +13,14 @@ export function displayName(path: string, labels: Record<string, string>): strin
   return labels[path] ?? baseName(path);
 }
 
+/** The folder a path sits in, or null when it has no parent (a bare drive/root).
+ *  Watching the parent — never the folder itself — is what lets the picker see a
+ *  project appear or disappear without holding a handle on it. */
+export function parentDir(path: string): string | null {
+  const cut = path.replace(/[\\/]+$/, "").search(/[\\/][^\\/]*$/);
+  return cut > 0 ? path.slice(0, cut) : null;
+}
+
 /** Whether a path is a PADE temporary workspace (…/workspaces/temp-<stamp>). */
 export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);

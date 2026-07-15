@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import { collapseRow } from "@/lib/motion";
   import type { Ide, ProjectEntry } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
@@ -42,25 +43,13 @@
     await onadd(path);
     newRoot = "";
   }
-
-  // Native folder picker (Tauri dialog) — nicer than pasting a path.
-  async function browseRoot() {
-    const picked = await openDialog({
-      directory: true,
-      multiple: false
-    });
-    if (typeof picked === "string") {
-      newRoot = picked;
-      await addRoot();
-    }
-  }
 </script>
 
 <section class="roots">
   <h2>Root folders</h2>
   <form
-    class="addrow" onsubmit={event => {
-      event.preventDefault(); addRoot();
+    class="addrow" onsubmit={e => {
+      e.preventDefault(); addRoot();
     }}>
     <input
       placeholder="C:\repositories  ·  paste a folder path"
@@ -68,7 +57,21 @@
       type="text"
       bind:value={newRoot}
     />
-    <button class="browse" onclick={browseRoot} type="button"><Icon name="folder" /> Browse…</button>
+    <!-- Native folder picker (Tauri dialog) — nicer than pasting a path. -->
+    <button
+      class="browse"
+      onclick={async () => {
+        const picked = await openDialog({
+          directory: true,
+          multiple: false
+        });
+        if (typeof picked === "string") {
+          newRoot = picked;
+          await addRoot();
+        }
+      }}
+      type="button"
+    ><Icon name="folder" /> Browse…</button>
     <button disabled={!newRoot.trim()} type="submit">Add root</button>
   </form>
 
@@ -85,7 +88,7 @@
       </div>
       <ul class="projects">
         {#each projectsByRoot[root] ?? [] as project (project.path)}
-          <li class="row">
+          <li class="row" out:collapseRow>
             <button class="project" onclick={() => onopen({ path: project.path })}>
               <span class="pname">{project.name}</span>
               {#if project.isGit}
