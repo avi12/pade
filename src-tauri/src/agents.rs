@@ -69,6 +69,19 @@ const REGISTRY: &[AgentDef] = &[
         env: &[],
     },
     AgentDef {
+        id: "grok",
+        label: "Grok CLI",
+        command: "grok",
+        aliases: &[],
+        // xAI's Grok Build answers a single prompt with `-p <PROMPT>`, the same
+        // shape as Claude. `--no-auto-update` goes first because a one-shot naming
+        // run is exactly the headless, automated case the CLI's own docs say to
+        // pass it for — it skips the background update check that would otherwise
+        // risk blowing NAME_TIMEOUT before the name comes back.
+        oneshot: Some(&["--no-auto-update", "-p"]),
+        env: &[],
+    },
+    AgentDef {
         id: "antigravity",
         label: "Antigravity CLI",
         command: "antigravity",
@@ -208,6 +221,10 @@ mod tests {
     fn agent_knowledge_is_keyed_by_the_canonical_command() {
         assert_eq!(oneshot_invocation("codex"), Some(&["exec"][..]));
         assert!(oneshot_invocation("codex-x86_64-pc-windows-msvc").is_none());
+        assert_eq!(
+            oneshot_invocation("grok"),
+            Some(&["--no-auto-update", "-p"][..])
+        );
         assert_eq!(spawn_env("claude"), &[("CLAUDE_CODE_NO_FLICKER", "1")]);
     }
 }

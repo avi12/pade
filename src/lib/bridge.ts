@@ -169,6 +169,14 @@ export const feed = {
     on("feed://change", ChangeEvent, callback)
 };
 
+/** The picker's folder watcher: hand it the parents of the rows on the page and
+ *  it reports whenever one of them gains or loses a child — a project created or
+ *  deleted outside PADE — so the list can catch up on its own. */
+export const dirs = {
+  watch: (paths: string[]) => run("watch_dirs", { dirs: paths }),
+  onChange: (callback: () => void) => on("dirs://changed", z.null(), () => callback())
+};
+
 /** Version-control review channel. */
 export const vcs = {
   status: () => call("vcs_status", z.array(StatusEntry)),
@@ -277,6 +285,8 @@ export const workspace = {
     agent: string;
   }) => call("project_autoname", z.string().nullable(), { ...args }),
   delete: (path: string) => call("workspace_delete", Settings, { path }),
+  /** Settings with every vanished folder forgotten (see `dirs`). */
+  prune: () => call("workspace_prune", Settings),
   create: (args: {
     root: string;
     name: string;

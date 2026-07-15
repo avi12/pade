@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
@@ -393,6 +393,91 @@ pub fn workspace_rename(from: String, new_name: String) -> Result<String, String
     Ok(dest_str)
 }
 
+/// How many times to re-try a delete that lost a race with Windows, and how long
+/// to wait between attempts.
+const DELETE_ATTEMPTS: u32 = 10;
+const DELETE_RETRY: Duration = Duration::from_millis(100);
+
+/// Step the process out of a folder it is about to lose. Opening a project points
+/// the whole process at it — `workspace_open` chdirs — and on Windows the current
+/// directory is an open handle: the OS refuses to delete the folder a process is
+/// standing in, however many agents have been killed. So walk out to its parent
+/// first. (The project is on its way out; the frontend drops it at the same time.)
+fn leave_if_inside(path: &Path) {
+    let Ok(cwd) = std::env::current_dir() else {
+        return;
+    };
+    let is_inside = std::fs::canonicalize(cwd)
+        .ok()
+        .zip(std::fs::canonicalize(path).ok())
+        .is_some_and(|(here, doomed)| here.starts_with(&doomed));
+    if !is_inside {
+        return;
+    }
+
+    if let Some(parent) = path.parent() {
+        let _ = std::env::set_current_dir(parent);
+    }
+}
+
+/// Remove a directory tree, riding out a Windows sharing violation. The agents
+/// holding the folder are killed before this runs, but the OS closes their
+/// handles asynchronously: a process can be gone while its last handle is still
+/// open, and a delete in that window fails with "used by another process".
+/// Retrying briefly turns that race into a wait instead of an error.
+fn remove_dir_all_patiently(path: &str) -> std::io::Result<()> {
+    for attempt in 1..=DELETE_ATTEMPTS {
+        match std::fs::remove_dir_all(path) {
+            Ok(()) => return Ok(()),
+            // Already gone (deleted outside PADE): the folder is in the state the
+            // caller asked for, so this is a success — and the entry still on the
+            // Recent list gets forgotten instead of being stuck there forever.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
+            Err(_) => std::thread::sleep(DELETE_RETRY),
+        }
+    }
+    Ok(())
+}
+
+/// Has this folder been deleted out from under us? Only if its parent is still
+/// there: a project on a drive that is merely unplugged has a missing folder AND a
+/// missing parent, and it keeps its place in the list rather than being forgotten
+/// because someone pulled a USB stick.
+fn has_vanished(path: &str) -> bool {
+    let path = Path::new(path);
+    !path.exists() && path.parent().is_some_and(Path::exists)
+}
+
+/// Forget every remembered path whose folder is gone, and hand back the settings
+/// the picker should now show. Called on every picker refresh — including the ones
+/// its directory watcher triggers — so a workspace deleted in Explorer, by a
+/// script, or from a terminal leaves the page like one deleted from the menu.
+#[tauri::command]
+pub fn workspace_prune() -> Result<Settings, String> {
+    let mut settings = load();
+    let before = (
+        settings.recent_projects.len(),
+        settings.owned_workspaces.len(),
+        settings.labels.len(),
+    );
+
+    settings.recent_projects.retain(|path| !has_vanished(path));
+    settings.owned_workspaces.retain(|path| !has_vanished(path));
+    settings.labels.retain(|path, _| !has_vanished(path));
+
+    let after = (
+        settings.recent_projects.len(),
+        settings.owned_workspaces.len(),
+        settings.labels.len(),
+    );
+    if before == after {
+        return Ok(settings);
+    }
+
+    save(&settings)
+}
+
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
 pub fn workspace_delete(path: String) -> Result<Settings, String> {
@@ -400,7 +485,8 @@ pub fn workspace_delete(path: String) -> Result<Settings, String> {
     if !is_ade_owned(&settings, &path) {
         return Err("only ADE-created workspaces can be deleted".into());
     }
-    std::fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+    leave_if_inside(Path::new(&path));
+    remove_dir_all_patiently(&path).map_err(|e| e.to_string())?;
     settings.recent_projects.retain(|p| p != &path);
     settings.owned_workspaces.retain(|p| p != &path);
     settings.labels.remove(&path);

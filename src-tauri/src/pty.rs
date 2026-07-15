@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -22,6 +22,9 @@ pub struct PtyState(pub Mutex<HashMap<String, Pty>>);
 pub struct Pty {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    /// The agent process itself. Held so that ending a session can end the
+    /// process — see `Drop`.
+    child: Box<dyn Child + Send + Sync>,
     /// Rolling, ANSI-stripped tail of this session's output — the context the
     /// AI session-namer reads. Its own lock so the read thread never contends
     /// with the sessions map.
@@ -33,6 +36,18 @@ pub struct Pty {
     /// reopened tab — has nothing to draw and sits blank while the agent, quite
     /// happily, waits for input. Keeping the raw stream is what lets it catch up.
     history: Arc<Mutex<History>>,
+}
+
+impl Drop for Pty {
+    /// Ending a session has to end its process. Dropping the PTY only hangs the
+    /// child up, and a shell (or an agent mid-task) can outlive that — on Windows
+    /// a surviving child keeps its working directory locked, so the workspace it
+    /// runs in can then be neither deleted nor moved. Kill it and reap it here,
+    /// so the folder is free the moment the session is gone.
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
 }
 
 /// A session's replayable output, and how many chunks have been emitted for it.
@@ -265,7 +280,7 @@ pub fn pty_spawn(
         cmd.cwd(dir);
     }
 
-    let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
@@ -315,6 +330,7 @@ pub fn pty_spawn(
         Pty {
             master: pair.master,
             writer,
+            child,
             transcript,
             history,
         },
@@ -394,7 +410,9 @@ pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> R
     Ok(())
 }
 
-/// Close a session and release its PTY (dropping the writer ends the child).
+/// Close a session: dropping it kills and reaps the agent process (see `Pty`'s
+/// `Drop`), so by the time this returns the session's cwd is unlocked and its
+/// workspace can be deleted or moved.
 #[tauri::command]
 pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
@@ -402,9 +420,8 @@ pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Terminate every live session. Closing each PTY (dropping its master) ends the
-/// agent, so this releases all children — called as the app exits so none lingers
-/// after the window is gone and the workspace cwd-lock is freed.
+/// Terminate every live session — called as the app exits so no agent lingers
+/// after the window is gone and every workspace cwd-lock is freed.
 pub fn kill_all(state: &PtyState) {
     if let Ok(mut sessions) = state.0.lock() {
         sessions.clear();

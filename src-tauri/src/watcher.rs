@@ -19,6 +19,10 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 #[derive(Default)]
 pub struct WatcherState {
     watcher: Mutex<Option<RecommendedWatcher>>,
+    /// The picker's watcher — see `watch_dirs`. Separate from the Change Feed's:
+    /// it watches other folders, for a different question, and is re-armed as the
+    /// picker's list changes.
+    dirs: Mutex<Option<RecommendedWatcher>>,
     line_counts: Mutex<HashMap<PathBuf, usize>>,
     last_seen: Mutex<HashMap<PathBuf, Instant>>,
 }
@@ -138,6 +142,45 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>) -> Result<(), Str
     watcher
         .watch(&root, RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
+
+    *guard = Some(watcher);
+    Ok(())
+}
+
+/// Watch a set of folders (non-recursively) and report when anything inside one
+/// appears or disappears — the project picker's eyes. It hands over the *parents*
+/// of the rows it shows, never the rows themselves: a watch holds a handle on the
+/// folder it watches, and a handle on a project would be the very thing stopping
+/// that project from being deleted. Re-arming replaces the previous set.
+#[tauri::command]
+pub fn watch_dirs(
+    app: AppHandle,
+    state: State<WatcherState>,
+    dirs: Vec<String>,
+) -> Result<(), String> {
+    let mut guard = state.dirs.lock().map_err(|e| e.to_string())?;
+    // Drop the old watcher before opening the new one, so its handles go with it.
+    *guard = None;
+    if dirs.is_empty() {
+        return Ok(());
+    }
+
+    let app_handle = app.clone();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
+        let Ok(event) = res else { return };
+        // Only appearance/disappearance moves rows on the page; edits inside a
+        // project are the Change Feed's business, not the picker's.
+        if matches!(event.kind, EventKind::Create(_) | EventKind::Remove(_)) {
+            let _ = app_handle.emit("dirs://changed", ());
+        }
+    })
+    .map_err(|e| e.to_string())?;
+
+    for dir in dirs {
+        // A folder that is already gone isn't an error — that's precisely the news
+        // the caller is listening for, and the next re-arm won't ask for it again.
+        let _ = watcher.watch(Path::new(&dir), RecursiveMode::NonRecursive);
+    }
 
     *guard = Some(watcher);
     Ok(())
