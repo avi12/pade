@@ -1,11 +1,15 @@
 <script lang="ts">
   import BrandMark from "@/lib/BrandMark.svelte";
+  import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
 
   // Shown only when more than one agent is installed — the user picks which to
-  // launch. They can switch or add more later from the session bar.
-  const { agents, onpick }: {
+  // launch. `path` is the already-chosen workspace the agent will start in, shown
+  // up front so the user knows where they're about to run. They can switch or add
+  // more agents later from the session bar.
+  const { agents, path, onpick }: {
     agents: Agent[];
+    path: string;
     onpick: (a: Agent) => void;
   } = $props();
 </script>
@@ -18,6 +22,14 @@
       Several agents are installed on this machine. Pick one to begin — you can
       switch or run more side by side later.
     </p>
+
+    <div class="cwd">
+      <span class="lead"><Icon name="folder" /></span>
+      <span class="stack">
+        <span class="eyebrow">Working directory</span>
+        <span class="path">{path}</span>
+      </span>
+    </div>
 
     <ul class="agents">
       {#each agents as a (a.id)}
@@ -69,6 +81,48 @@
       color: var(--on-surface-variant);
       font-size: 14px;
       line-height: 1.5;
+    }
+  }
+
+  /* Where the agent will start — surfaced up front so the choice has context. */
+  .cwd {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-block: 20px 0;
+    padding: 10px 13px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-2);
+
+    .lead {
+      display: inline-flex;
+      flex-shrink: 0;
+      color: var(--primary);
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      min-inline-size: 0;
+      line-height: 1.3;
+    }
+
+    .eyebrow {
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .path {
+      overflow: hidden;
+      font-family: var(--font-monospace);
+      font-weight: 600;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 

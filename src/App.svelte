@@ -692,10 +692,13 @@
     />
   {:else if phase === Phase.onboarding}
     <Onboarding
-      {agents} onpick={a => launch({
+      {agents}
+      onpick={a => launch({
         agent: a,
         initialPrompt: pendingPrompt
-      })} />
+      })}
+      path={currentProject}
+    />
   {:else if phase === Phase.ready}
     <div class="shell">
       <header class="topbar">
