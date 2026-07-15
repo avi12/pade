@@ -2,7 +2,7 @@
   import { ide } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { Ide } from "@/lib/types";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
 
   // Opens the active project in an external editor. `ide.suggest()` returns the
   // installed editors ranked for the detected project kind, so the best fit is
@@ -31,13 +31,23 @@
 
     ide.open({ command: editor.command });
   }
+
+  // A newly-installed editor should show up without a restart, so re-detect when
+  // the window regains focus (below). But a title-bar drag on Windows churns window
+  // focus rapidly, and `ide.suggest()` spawns editor-detection processes — firing it
+  // per focus event stacked up detections and lagged every drag (regressed in
+  // 597589a). Debounce so it runs once, after the focus churn settles, never mid-drag.
+  const REDETECT_DEBOUNCE_MS = 250;
+  let redetectTimer: ReturnType<typeof setTimeout> | undefined;
+  onDestroy(() => clearTimeout(redetectTimer));
 </script>
 
 <svelte:window
-  onfocus={async () => {
-    // Re-detect when the window regains focus, so an editor installed while PADE
-    // was in the background becomes selectable without a restart.
-    ides = await ide.suggest();
+  onfocus={() => {
+    clearTimeout(redetectTimer);
+    redetectTimer = setTimeout(async () => {
+      ides = await ide.suggest();
+    }, REDETECT_DEBOUNCE_MS);
   }}
 />
 
