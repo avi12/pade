@@ -200,7 +200,7 @@ responsibility, and who it collaborates with.
 | `src/lib/UsageMeter.svelte` | Agent usage/quota pill in the top bar | `bridge.usage` |
 | `src/lib/DesignMenu.svelte` | Quick-launch menu for AI design tools | `bridge.design` |
 | `src/lib/IdeMenu.svelte` | Open the project in a detected IDE — GUI editors via the OS, console editors handed back to `App` for a terminal tab | `bridge.ide` |
-| `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent | `stores/runners` |
+| `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent; keeps its own 2-D-grid pointer drag rather than the single-axis `dragReorder` engine (the dock wraps to multiple rows) | `stores/runners` |
 | `src/lib/CommitModal.svelte` | Commit-dialog orchestrator: native `<dialog>` plumbing, header, selection + diff-load state machine | `commitModal/FileList`, `commitModal/DiffPane`, `bridge.vcs`, `diff` |
 | `src/lib/commitModal/FileList.svelte` | The commit's changed-files tablist: kind badges, stats, roving-tabindex keys | `paths` |
 | `src/lib/commitModal/DiffPane.svelte` | Path bar + unified diff with loading / failed / large-file states (presentation only) | `diff` |
@@ -215,6 +215,8 @@ responsibility, and who it collaborates with.
 | `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `bridge`, everywhere |
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError` | form components |
 | `src/lib/tabFit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
+| `src/lib/dragReorder.ts` | Pointer-drag FLIP reorder engine (DOM + geometry): lifts a tile, slides its siblings, supports drop-outside-to-split; delegates the pure order/index math to `reorder` | `SessionTabs`, `Terminal`, `reorder` |
+| `src/lib/reorder.ts` | Pure, DOM-free order/index math for drag-to-reorder + drop-to-split (`reorderedIds`, `insertionIndex`, `paneInsertIndex`) and the `DropSide` enum | `dragReorder`, `App` |
 | `src/lib/autoName.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
 | `src/lib/workspaceRelocate.ts` | Move/rename/delete with cwd-lock handling: kill locking sessions → backend op → resume remapped (delete has nothing to resume and drops the project) | `bridge`, `stores/sessions`, `stores/context` |
 | `src/lib/sendShortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
@@ -306,7 +308,7 @@ entry. Each concern is one module:
 each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
 `naming.rs`, `refs.rs`, `ide.rs` and the `vcs/` parsers). The pure logic
 extracted from components —
-`tabFit`, `diff`, `paths`, `colors`, `format`, `validate`, `autoName`'s signal
-detection, `workspaceRelocate`'s path remapping, `handoff`'s slug,
+`tabFit`, `diff`, `paths`, `colors`, `format`, `reorder`, `validate`, `autoName`'s
+signal detection, `workspaceRelocate`'s path remapping, `handoff`'s slug,
 `tabShortcuts`'s chord matching — is where
 new tests belong first: they run in milliseconds and need no window.

@@ -11,6 +11,11 @@
 // `onHint`, so a Svelte caller can mirror the hint into `$state` and paint its
 // own indicators (the tab → split overlay). Reduced motion is respected — the
 // lift/gap transitions are skipped so nothing animates.
+//
+// The DOM-free order/index math (which slot the pointer lands in, the reordered
+// id array) lives in `@/lib/reorder` so it's unit-testable and shared (DRY).
+
+import { insertionIndex, reorderedIds } from "@/lib/reorder";
 
 /** The direction items are laid out in, and the one the reorder tracks. */
 export const Axis = {
@@ -164,6 +169,10 @@ export function beginReorder(options: BeginReorderOptions): void {
     ? Math.max(0, siblings[1].start - (siblings[0].start + siblings[0].size))
     : 0;
   const draggedExtent = dragged.size + flexGap;
+  // Centers snapshot in visible order — a stable input to `insertionIndex`, so the
+  // landing slot is always compared against the pre-drag layout, not the shifting
+  // one the gaps are actively opening.
+  const centers = siblings.map(sibling => sibling.center);
 
   const pointerStartX = e.clientX;
   const pointerStartY = e.clientY;
@@ -185,18 +194,6 @@ export function beginReorder(options: BeginReorderOptions): void {
   addEventListener("keydown", onKeyDown, true);
 
   // ── geometry ───────────────────────────────────────────────────────────────
-
-  // The index in the full array where the dragged item would land: the count of
-  // other siblings whose center sits before the dragged item's projected center.
-  function insertionIndex(draggedCenter: number): number {
-    let index = 0;
-    siblings.forEach((sibling, i) => {
-      if (i !== fromIndex && sibling.center < draggedCenter) {
-        index += 1;
-      }
-    });
-    return index;
-  }
 
   function shiftFor(index: number, targetIndex: number): number {
     if (index > fromIndex && index <= targetIndex) {
@@ -343,7 +340,11 @@ export function beginReorder(options: BeginReorderOptions): void {
     }
 
     const draggedCenter = dragged.center + (isHorizontal ? deltaX : deltaY);
-    const nextIndex = insertionIndex(draggedCenter);
+    const nextIndex = insertionIndex({
+      centers,
+      fromIndex,
+      draggedCenter
+    });
     if (nextIndex !== currentIndex) {
       currentIndex = nextIndex;
       applyGaps(nextIndex);
@@ -373,9 +374,12 @@ export function beginReorder(options: BeginReorderOptions): void {
     }
 
     if (currentIndex !== fromIndex) {
-      const ids = siblings.map(sibling => sibling.id);
-      const rest = ids.filter((_, i) => i !== fromIndex);
-      onCommit([...rest.slice(0, currentIndex), draggedId, ...rest.slice(currentIndex)]);
+      const orderedIds = reorderedIds({
+        ids: siblings.map(sibling => sibling.id),
+        fromIndex,
+        toIndex: currentIndex
+      });
+      onCommit(orderedIds);
     }
 
     cleanup();

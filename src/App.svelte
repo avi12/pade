@@ -16,6 +16,7 @@
   import Logo from "@/lib/Logo.svelte";
   import { isTemporaryWorkspace } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
+  import { DropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/sendShortcut";
   import SessionTabs from "@/lib/SessionTabs.svelte";
@@ -109,13 +110,9 @@
   });
 
   // ── Tab drag → reorder / split ──────────────────────────────────────────────
-  // Which side of a pane a dragged tab drops onto. Its own closed set (the `Side`
-  // above names the side panels — different concern, no bare literals shared).
-  const DropSide = {
-    left: "left",
-    right: "right"
-  } as const;
-  type DropSide = (typeof DropSide)[keyof typeof DropSide];
+  // `DropSide` (which half of a pane a dragged tab lands on) and the drop's index
+  // math live in `@/lib/reorder` — DOM-free and unit-tested. (The `Side` above
+  // names the side panels — a different concern, no bare literals shared.)
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
   let panesElement = $state<HTMLElement>();
@@ -184,11 +181,12 @@
     }
 
     const base = paneIds.filter(id => id !== drop.id);
-    const targetIndex = base.indexOf(target.id);
-    let insertAt = base.length;
-    if (targetIndex !== -1) {
-      insertAt = target.side === DropSide.right ? targetIndex + 1 : targetIndex;
-    }
+    const insertAt = paneInsertIndex({
+      paneIds,
+      draggedId: drop.id,
+      targetId: target.id,
+      side: target.side
+    });
 
     paneIds = [...base.slice(0, insertAt), drop.id, ...base.slice(insertAt)];
     activeId = drop.id;
