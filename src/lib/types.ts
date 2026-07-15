@@ -249,7 +249,9 @@ export const Prefs = z.object({
   addedEditors: z.array(AddedEditor).nullish(),
   /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless
    *  explicitly set to false. */
-  autoHandoff: z.boolean().nullish()
+  autoHandoff: z.boolean().nullish(),
+  /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
+  uiScale: z.number().min(0.85).max(1.3).nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 

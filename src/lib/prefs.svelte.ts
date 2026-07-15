@@ -23,10 +23,13 @@ export const effective = {
   },
   get uiFamily(): string {
     return prefs.uiFont ? `"${prefs.uiFont}", ${UI_FALLBACK}` : UI_FALLBACK;
+  },
+  get uiScale(): number {
+    return prefs.uiScale ?? 1;
   }
 };
 
-const osDark = window.matchMedia("(prefers-color-scheme: dark)");
+const osDark = matchMedia("(prefers-color-scheme: dark)");
 
 /** The concrete scheme currently applied — reactive so consumers like the
  *  terminal can re-theme when it changes. */
@@ -48,6 +51,11 @@ function apply() {
   // and to cover anything rendered outside the app root.
   appearance.scheme = resolvedScheme();
   document.documentElement.dataset.theme = appearance.scheme;
+  // Font scaling follows youtube-time-manager: the root font is `100% * --ui-scale`
+  // (the user's browser base, times their zoom preference — never a fixed px that
+  // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
+  // ≥16px unit from it. rem/em UI and the terminal scale from the one knob.
+  document.documentElement.style.setProperty("--ui-scale", String(effective.uiScale));
 }
 
 // Re-apply when the OS theme flips while we're following it.
