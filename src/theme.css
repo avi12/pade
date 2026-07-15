@@ -80,6 +80,13 @@
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
   --font-ui: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-monospace: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+
+  /* Font scaling (youtube-time-manager model): --font-base is a ≥16px unit that
+     still tracks the user's browser zoom (1rem), and --ui-scale (set from the
+     uiScale pref in lib/prefs) is the user's zoom knob. rem/em-sized UI and
+     the terminal derive from this one base. */
+  --ui-scale: 1;
+  --font-base: max(16px, 1rem);
 }
 
 /* Dark tokens. The theme controller resolves "system" to a concrete light/dark
@@ -125,6 +132,13 @@ body,
 #app {
   height: 100%;
   margin: 0;
+}
+
+/* Root font tracks the user's zoom pref (lib/prefs sets --ui-scale). Using % of
+   the inherited base — never a fixed px — keeps the OS/browser a11y font size
+   honored; rem/em and `--font-base` sizing scale with it. */
+html {
+  font-size: calc(100% * var(--ui-scale, 1));
 }
 
 body {
@@ -175,65 +189,62 @@ body {
   }
 }
 
-/* Tooltips — a single top-layer popover (see lib/tooltip.ts), reused for every
-   element annotated with data-tooltip="…" (rule 9). The popover API keeps the
-   bubble in the top layer so a dense, `overflow:hidden` toolbar never clips it,
-   and CSS anchor positioning pins it to the hovered/focused control. Triggers
-   keep their aria-label for the accessible name; the bubble is purely visual.
-   `position: relative` is retained so a trigger stays a containing block for any
-   absolutely-positioned children it owns. */
+/* Tooltips — pure CSS (inspired by youtube-time-manager). Add data-tooltip="…"
+   (plus an aria-label on icon-only controls) to any element and its ::after shows
+   the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
+   a dense, overflow:hidden toolbar's clip; `anchor-scope` keeps every trigger
+   anchoring its own bubble; `position-try-fallbacks` flips/slides it to stay on
+   screen. `position: relative` also keeps the trigger a containing block for any
+   absolutely-positioned children it owns. Sized off --font-base so it tracks the
+   zoom pref. */
 [data-tooltip] {
   position: relative;
-}
+  anchor-name: --tooltip;
+  anchor-scope: --tooltip;
 
-#app-tooltip {
-  position: fixed;
-  margin: 0;
-  margin-block: 6px;
-  padding: 4px 9px;
-  border: none;
-  border-radius: var(--radius-small);
-  background: var(--surface-3);
-  color: var(--on-surface);
-  font-family: var(--font-ui);
-  font-weight: 500;
-  font-size: 11px;
-  white-space: nowrap;
-  opacity: 0%;
-  box-shadow: 0 6px 20px var(--shadow-color);
-  pointer-events: none;
-  transition:
-    opacity 120ms var(--ease),
-    translate 120ms var(--ease),
-    overlay 120ms allow-discrete,
-    display 120ms allow-discrete;
-
-  /* A quiet fade + rise, kept independent of the springy menu-popover motion
-     defined for [popover] above (id selector wins over the attribute one). */
-  scale: 1;
-  translate: 0 -3px;
-
-  /* Anchored to whichever trigger lib/tooltip tags with the anchor name; opens
-     below by default and flips to stay on-screen. `margin-block` gives the 6px
-     gap on whichever side ends up facing the trigger. */
-  position-anchor: --app-tooltip-anchor;
-  position-area: block-end;
-  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
-
-  &[data-pos="top"] {
-    position-area: block-start;
-  }
-
-  &:popover-open {
-    opacity: 100%;
-    translate: 0 0;
-  }
-}
-
-@starting-style {
-  #app-tooltip:popover-open {
+  &::after {
+    content: attr(data-tooltip);
+    position: fixed;
+    z-index: 200;
+    inline-size: max-content;
+    max-inline-size: min(320px, 90vw);
+    margin-block: 6px;
+    padding: 4px 9px;
+    border-radius: var(--radius-small);
+    background: var(--surface-3);
+    color: var(--on-surface);
+    font-family: var(--font-ui);
+    font-weight: 500;
+    font-size: calc(0.6875 * var(--font-base));
+    line-height: 1.35;
     opacity: 0%;
-    translate: 0 -3px;
+    box-shadow: 0 6px 20px var(--shadow-color);
+    pointer-events: none;
+    transition: opacity 120ms var(--ease);
+
+    /* Open below by default (most triggers sit in the top bar), flipping above
+       and sliding toward an edge when there's no room — all logical, so it
+       adapts to position and RTL on its own. */
+    position-anchor: --tooltip;
+    position-area: block-end;
+    position-try-fallbacks:
+      block-start,
+      block-end span-inline-start,
+      block-end span-inline-end,
+      block-start span-inline-start,
+      block-start span-inline-end;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 100%;
+  }
+
+  /* Nested tooltips: while a descendant's own tooltip shows, suppress this one so
+     the two never stack (e.g. a usage bar inside the usage pill). */
+  &:has([data-tooltip]:hover)::after,
+  &:has([data-tooltip]:focus-visible)::after {
+    opacity: 0%;
   }
 }
 

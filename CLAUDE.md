@@ -113,6 +113,15 @@ These are non-negotiable for all work in this repo.
      (`onclick={(e) => …}`). Keep a handler named only when it is genuinely shared
      (bound or called in two or more places) or needs a stable reference (an
      `addEventListener` paired with a `removeEventListener`).
+   - No `window.` prefix: call browser globals bare — `matchMedia(…)`,
+     `setTimeout(…)`, `addEventListener(…)`, `location.reload()` — never
+     `window.matchMedia` / `window.setTimeout`. The global is implicit; the prefix
+     is noise.
+   - Component-scoped CSS over global: keep styles in the component's own
+     `<style>` (Svelte scopes them) rather than global `theme.css` whenever
+     possible. Reserve global CSS for genuinely cross-cutting utilities many
+     components share by token/attribute/name — the design tokens, `[popover]`,
+     the `.ck` checkbox, the `[data-tooltip]` bubble, the shared keyframes.
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,

@@ -26,7 +26,7 @@
   let dockHeight = $state(clampDock(360));
 
   function maxDock(): number {
-    return window.innerHeight * 0.75;
+    return innerHeight * 0.75;
   }
 
   function clampDock(height: number): number {
@@ -39,8 +39,8 @@
     function reclamp(): void {
       dockHeight = clampDock(dockHeight);
     }
-    window.addEventListener("resize", reclamp);
-    return () => window.removeEventListener("resize", reclamp);
+    addEventListener("resize", reclamp);
+    return () => removeEventListener("resize", reclamp);
   });
 
   // ── Drag-to-reorder ─────────────────────────────────────────────────────────

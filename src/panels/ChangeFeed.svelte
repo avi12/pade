@@ -112,7 +112,7 @@
     event: MouseEvent;
   }) {
     // A drag to select text (for send-to-agent) must not also open the file.
-    const selection = window.getSelection();
+    const selection = getSelection();
     if (selection && !selection.isCollapsed) {
       return;
     }

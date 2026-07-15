@@ -103,8 +103,8 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers): () => void 
     run[action]();
   }
 
-  window.addEventListener("keydown", onKeyDown, { capture: true });
-  return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+  addEventListener("keydown", onKeyDown, { capture: true });
+  return () => removeEventListener("keydown", onKeyDown, { capture: true });
 }
 
 /** True when focus sits in an editable field other than the terminal textarea. */
