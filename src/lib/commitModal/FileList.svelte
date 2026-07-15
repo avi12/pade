@@ -29,37 +29,6 @@
     return KIND_BADGE[kind];
   }
 
-  // Arrow-key navigation across the vertical file tablist (roving tabindex).
-  function onTabListKey(event: KeyboardEvent) {
-    const isVertical = event.key === "ArrowDown" || event.key === "ArrowUp";
-    const isEdge = event.key === "Home" || event.key === "End";
-    if (!isVertical && !isEdge) {
-      return;
-    }
-
-    event.preventDefault();
-    const count = files.length;
-    if (count === 0) {
-      return;
-    }
-
-    const current = files.findIndex(file => file.path === selectedPath);
-    let next = current;
-    if (event.key === "ArrowDown") {
-      next = (current + 1) % count;
-    } else if (event.key === "ArrowUp") {
-      next = (current - 1 + count) % count;
-    } else if (event.key === "Home") {
-      next = 0;
-    } else {
-      next = count - 1;
-    }
-
-    const target = files[next];
-    onpick(target.path);
-    void focusTab(target.path);
-  }
-
   async function focusTab(path: string) {
     await tick();
     listEl?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"]`)?.focus();
@@ -72,7 +41,35 @@
     bind:this={listEl}
     aria-labelledby="commit-files-label"
     aria-orientation="vertical"
-    onkeydown={onTabListKey}
+    onkeydown={e => {
+      const isVertical = e.key === "ArrowDown" || e.key === "ArrowUp";
+      const isEdge = e.key === "Home" || e.key === "End";
+      if (!isVertical && !isEdge) {
+        return;
+      }
+
+      e.preventDefault();
+      const count = files.length;
+      if (count === 0) {
+        return;
+      }
+
+      const current = files.findIndex(file => file.path === selectedPath);
+      let next = current;
+      if (e.key === "ArrowDown") {
+        next = (current + 1) % count;
+      } else if (e.key === "ArrowUp") {
+        next = (current - 1 + count) % count;
+      } else if (e.key === "Home") {
+        next = 0;
+      } else {
+        next = count - 1;
+      }
+
+      const target = files[next];
+      onpick(target.path);
+      void focusTab(target.path);
+    }}
     role="tablist"
   >
     {#each files as f (f.path)}

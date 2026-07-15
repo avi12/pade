@@ -42,36 +42,6 @@
     }
   }
 
-  function onCommitClick(event: MouseEvent, commit: Commit) {
-    const wantsGithub = event.ctrlKey || event.metaKey;
-    if (wantsGithub) {
-      event.preventDefault();
-      void openCommitOnGithub(commit);
-      return;
-    }
-
-    void inspectCommit(commit);
-  }
-
-  // Arrow-key navigation across the log; Ctrl/Cmd-Enter opens the commit on GitHub.
-  function onCommitKey(event: KeyboardEvent, index: number, commit: Commit) {
-    const isDown = event.key === "ArrowDown";
-    const isUp = event.key === "ArrowUp";
-    if (isDown || isUp) {
-      event.preventDefault();
-      const count = commits.length;
-      const next = isDown ? (index + 1) % count : (index - 1 + count) % count;
-      void focusCommit(next);
-      return;
-    }
-
-    const isOpenKey = event.key === "Enter" || event.key === " ";
-    if (isOpenKey && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      void openCommitOnGithub(commit);
-    }
-  }
-
   async function focusCommit(index: number) {
     await tick();
     logEl?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
@@ -92,8 +62,33 @@
           aria-label="Commit {c.short}: {c.summary}, by {c.author} {c.when}"
           data-commit
           data-tooltip="Enter to view · Ctrl-click or Ctrl-Enter opens on GitHub"
-          onclick={event => onCommitClick(event, c)}
-          onkeydown={event => onCommitKey(event, index, c)}
+          onclick={e => {
+            const wantsGithub = e.ctrlKey || e.metaKey;
+            if (wantsGithub) {
+              e.preventDefault();
+              void openCommitOnGithub(c);
+              return;
+            }
+
+            void inspectCommit(c);
+          }}
+          onkeydown={e => {
+            const isDown = e.key === "ArrowDown";
+            const isUp = e.key === "ArrowUp";
+            if (isDown || isUp) {
+              e.preventDefault();
+              const count = commits.length;
+              const next = isDown ? (index + 1) % count : (index - 1 + count) % count;
+              void focusCommit(next);
+              return;
+            }
+
+            const isOpenKey = e.key === "Enter" || e.key === " ";
+            if (isOpenKey && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              void openCommitOnGithub(c);
+            }
+          }}
         >
           <span class="c-top">
             <code class="sha">{c.short}</code>

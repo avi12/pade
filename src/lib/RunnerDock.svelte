@@ -33,33 +33,6 @@
     return Math.min(Math.max(height, MIN_DOCK), maxDock());
   }
 
-  // Drag the top grip to resize: pointer moving up grows the dock (block-size
-  // increases as clientY decreases). Pointer capture keeps the drag alive off-target.
-  function startDockResize(event: PointerEvent) {
-    event.preventDefault();
-
-    if (!(event.currentTarget instanceof HTMLElement)) {
-      return;
-    }
-
-    const grip = event.currentTarget;
-    const startY = event.clientY;
-    const startHeight = dockHeight;
-    grip.setPointerCapture(event.pointerId);
-
-    function onMove(move: PointerEvent): void {
-      dockHeight = clampDock(startHeight + (startY - move.clientY));
-    }
-    function cleanup(): void {
-      grip.removeEventListener("pointermove", onMove);
-      grip.removeEventListener("pointerup", cleanup);
-      grip.removeEventListener("pointercancel", cleanup);
-    }
-    grip.addEventListener("pointermove", onMove);
-    grip.addEventListener("pointerup", cleanup);
-    grip.addEventListener("pointercancel", cleanup);
-  }
-
   // The dock height is clamped against the viewport; a window resize can push the
   // stored height past the new max, so re-clamp on every resize.
   $effect(() => {
@@ -76,54 +49,6 @@
   // data-runner-id) and moves the dragged one before it; arrow keys nudge it one
   // slot, so reordering works without a mouse too.
   let draggingId = $state<string | null>(null);
-  function onGripDown({ event, id }: {
-    event: PointerEvent;
-    id: string;
-  }) {
-    if (!(event.currentTarget instanceof HTMLElement)) {
-      return;
-    }
-
-    event.preventDefault();
-    const grip = event.currentTarget;
-    draggingId = id;
-    grip.setPointerCapture(event.pointerId);
-
-    function onMove(move: PointerEvent): void {
-      const under = document.elementFromPoint(move.clientX, move.clientY);
-      const overRunner = under instanceof Element ? under.closest("[data-runner-id]") : null;
-      const beforeId = overRunner?.getAttribute("data-runner-id");
-      if (beforeId) {
-        moveRunnerBefore({
-          id,
-          beforeId
-        });
-      }
-    }
-    function cleanup(): void {
-      draggingId = null;
-      grip.removeEventListener("pointermove", onMove);
-      grip.removeEventListener("pointerup", cleanup);
-      grip.removeEventListener("pointercancel", cleanup);
-    }
-    grip.addEventListener("pointermove", onMove);
-    grip.addEventListener("pointerup", cleanup);
-    grip.addEventListener("pointercancel", cleanup);
-  }
-  function onGripKey({ event, id }: {
-    event: KeyboardEvent;
-    id: string;
-  }) {
-    const earlier = event.key === "ArrowLeft" || event.key === "ArrowUp";
-    const later = event.key === "ArrowRight" || event.key === "ArrowDown";
-    if (earlier || later) {
-      event.preventDefault();
-      moveRunnerBy({
-        id,
-        delta: earlier ? -1 : 1
-      });
-    }
-  }
 
   // Human-readable status for a runner's dot, used for both the tooltip and the
   // accessible name.
@@ -167,7 +92,30 @@
       aria-label="Resize task runner dock"
       aria-orientation="horizontal"
       data-tooltip="Drag to resize"
-      onpointerdown={startDockResize}
+      onpointerdown={e => {
+        e.preventDefault();
+
+        if (!(e.currentTarget instanceof HTMLElement)) {
+          return;
+        }
+
+        const grip = e.currentTarget;
+        const startY = e.clientY;
+        const startHeight = dockHeight;
+        grip.setPointerCapture(e.pointerId);
+
+        function onMove(move: PointerEvent): void {
+          dockHeight = clampDock(startHeight + (startY - move.clientY));
+        }
+        function cleanup(): void {
+          grip.removeEventListener("pointermove", onMove);
+          grip.removeEventListener("pointerup", cleanup);
+          grip.removeEventListener("pointercancel", cleanup);
+        }
+        grip.addEventListener("pointermove", onMove);
+        grip.addEventListener("pointerup", cleanup);
+        grip.addEventListener("pointercancel", cleanup);
+      }}
       role="separator"
     ><span class="grabber"></span></div>
 
@@ -186,14 +134,51 @@
               class="grab"
               aria-label="Reorder task runner — drag, or use arrow keys"
               data-tooltip="Drag to reorder"
-              onkeydown={event => onGripKey({
-                event,
-                id: row.id
-              })}
-              onpointerdown={event => onGripDown({
-                event,
-                id: row.id
-              })}
+              onkeydown={e => {
+                const earlier = e.key === "ArrowLeft" || e.key === "ArrowUp";
+                const later = e.key === "ArrowRight" || e.key === "ArrowDown";
+                if (earlier || later) {
+                  e.preventDefault();
+                  moveRunnerBy({
+                    id: row.id,
+                    delta: earlier ? -1 : 1
+                  });
+                }
+              }}
+              onpointerdown={e => {
+                if (!(e.currentTarget instanceof HTMLElement)) {
+                  return;
+                }
+
+                e.preventDefault();
+                const grip = e.currentTarget;
+                // Capture the id up front: the each-binding `row` can't be read
+                // from inside the hoisted nested closures below.
+                const id = row.id;
+                draggingId = id;
+                grip.setPointerCapture(e.pointerId);
+
+                function onMove(move: PointerEvent): void {
+                  const under = document.elementFromPoint(move.clientX, move.clientY);
+                  const overRunner = under instanceof Element ? under.closest("[data-runner-id]") : null;
+                  const beforeId = overRunner?.getAttribute("data-runner-id");
+                  if (beforeId) {
+                    moveRunnerBefore({
+                      id,
+                      beforeId
+                    });
+                  }
+                }
+                function cleanup(): void {
+                  draggingId = null;
+                  grip.removeEventListener("pointermove", onMove);
+                  grip.removeEventListener("pointerup", cleanup);
+                  grip.removeEventListener("pointercancel", cleanup);
+                }
+                grip.addEventListener("pointermove", onMove);
+                grip.addEventListener("pointerup", cleanup);
+                grip.addEventListener("pointercancel", cleanup);
+              }}
             ><Icon name="grip" /></button>
             <span class="kind {row.kind}">{row.kind}</span>
             <span
@@ -228,7 +213,11 @@
               onclick={async () => await stopRunner(row.id)}
             ><Icon name="close" /></button>
           </div>
-          <div class="out" use:autoscroll>
+          <div
+            style:view-transition-name={`runner-output-${row.id}`}
+            class="out"
+            use:autoscroll
+          >
             {#each row.lines as line, i (i)}
               <div
                 class="line"

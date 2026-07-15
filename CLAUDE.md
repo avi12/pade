@@ -72,9 +72,12 @@ These are non-negotiable for all work in this repo.
    - `String.replaceAll`: use `replaceAll` (not `replace` with a `/g` regex) for
      global replacement — it states the intent and reads clearer.
    - `await` over `.then()`: use `async`/`await`, never a `.then()`/`.catch()`
-     chain, unless a `.then()` is genuinely unavoidable (e.g. kicking off async
-     work inside a synchronous `$effect` — wrap it in an `async` IIFE and `await`
-     inside, rather than chaining `.then()`).
+     chain.
+   - No IIFEs: never immediately invoke a function expression — async or not,
+     `(() => {…})()` / `(async () => {…})()` are out. Give the function a name and
+     call it. To kick off async work from a lifecycle, use an `async onMount` (and
+     tear it down in `onDestroy`) or a named `async` function called from the
+     effect — never an anonymous self-call.
    - Enums over magic strings: never compare against a bare string literal. Model
      the closed set once — a Rust `enum`, or a TS `z.enum`/`as const` union — and
      compare against its members (`kind === ChangeKind.Created`, not
@@ -89,9 +92,9 @@ These are non-negotiable for all work in this repo.
      `prev`, `configuration` not `cfg`, `column` not `col`, and
      `--radius-small` / `--on-surface-variant` / `--font-monospace` not
      `--r-sm` / `--on-surface-var` / `--font-mono`. A descriptive full-word name
-     always beats a terse one; the only exceptions are a bare loop counter (`i`)
-     and domain terms/initialisms conventionally written short (`ui`, `id`,
-     `url`). Applies in TS, Rust, and CSS alike.
+     always beats a terse one; the only exceptions are a bare loop counter (`i`),
+     an event-handler parameter (`e`), and domain terms/initialisms conventionally
+     written short (`ui`, `id`, `url`). Applies in TS, Rust, and CSS alike.
    - Tabular numerals: every place a number is displayed (counts, percentages,
      stats, timers, SHAs' surrounding metrics) sets `font-variant-numeric:
      tabular-nums` so digits align and don't jitter as values change.
@@ -102,6 +105,14 @@ These are non-negotiable for all work in this repo.
      string. Need a new glyph? Add it to `Icon.svelte`, then reference it by
      name. (Bare typographic affordances like a `▾` disclosure caret or a `\`
      path separator are text, not icons, and stay as-is.)
+   - Inline single-use event handlers: an event handler bound in exactly one
+     place — a DOM `on*` attribute, a `<svelte:window>`/`<svelte:document>` event,
+     or a component's `on*`/callback prop — and referenced nowhere else is written
+     inline as an arrow at the binding, never hoisted to a named function. This
+     holds even for multi-statement bodies. Name the event parameter `e`
+     (`onclick={(e) => …}`). Keep a handler named only when it is genuinely shared
+     (bound or called in two or more places) or needs a stable reference (an
+     `addEventListener` paired with a `removeEventListener`).
 
 7. **Semantic HTML over ARIA** — reach for the element that already carries the
    role and behavior (`<button>`, `<nav>`, `<dialog>`, `<details>`, `<output>`,

@@ -51,15 +51,6 @@
 
     return `${formatCount(realAgents.length)} detected on this machine`;
   }
-
-  async function rescanAgents() {
-    scanning = true;
-    try {
-      agentList = await agentsApi.detect();
-    } finally {
-      scanning = false;
-    }
-  }
 </script>
 
 <section class="master">
@@ -73,7 +64,14 @@
       class:scanning
       aria-label="Rescan for installed agents"
       data-tooltip="Rescan for installed agents"
-      onclick={rescanAgents}
+      onclick={async () => {
+        scanning = true;
+        try {
+          agentList = await agentsApi.detect();
+        } finally {
+          scanning = false;
+        }
+      }}
     ><Icon name="refresh" size={14} /> Reload</button>
   </div>
 

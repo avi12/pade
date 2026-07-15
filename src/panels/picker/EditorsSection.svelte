@@ -44,64 +44,6 @@
     text: string;
   } | null>(null);
 
-  function startAdd() {
-    adding = true;
-    draft = "";
-    status = null;
-  }
-  function cancelAdd() {
-    adding = false;
-    draft = "";
-    status = null;
-  }
-  function onDraft() {
-    // Clear a stale message the moment the user edits the path.
-    status = null;
-  }
-
-  async function browse() {
-    const picked = await openDialog({
-      multiple: false,
-      title: "Locate an editor’s executable"
-    });
-    if (typeof picked === "string") {
-      draft = picked;
-      status = null;
-    }
-  }
-
-  async function confirmAdd() {
-    // The path is a trust boundary — trim/length-cap it before it leaves the UI.
-    const path = parseInput({
-      schema: FolderPath,
-      raw: draft
-    });
-    if (path === null) {
-      status = {
-        kind: "err",
-        text: "Enter the full path to an editor executable."
-      };
-      return;
-    }
-
-    const result = await onaddeditor(path);
-    if ("error" in result) {
-      status = {
-        kind: "err",
-        text: result.error
-      };
-      return;
-    }
-
-    status = {
-      kind: "ok",
-      text: `${result.label} added.`
-    };
-    showToast(`${result.label} added`);
-    adding = false;
-    draft = "";
-  }
-
   const EDITOR_KINDS = [
     {
       kind: "web",
@@ -257,7 +199,15 @@
         </small>
       </span>
       {#if !adding}
-        <button class="ed-add-btn" onclick={startAdd} type="button">
+        <button
+          class="ed-add-btn"
+          onclick={() => {
+            adding = true;
+            draft = "";
+            status = null;
+          }}
+          type="button"
+        >
           <Icon name="plus" /> <span>Add editor…</span>
         </button>
       {/if}
@@ -265,9 +215,40 @@
 
     {#if adding}
       <form
-        class="ed-add-form" onsubmit={event => {
-          event.preventDefault(); confirmAdd();
-        }}>
+        class="ed-add-form"
+        onsubmit={async e => {
+          e.preventDefault();
+          // The path is a trust boundary — trim/length-cap it before it leaves the UI.
+          const path = parseInput({
+            schema: FolderPath,
+            raw: draft
+          });
+          if (path === null) {
+            status = {
+              kind: "err",
+              text: "Enter the full path to an editor executable."
+            };
+            return;
+          }
+
+          const result = await onaddeditor(path);
+          if ("error" in result) {
+            status = {
+              kind: "err",
+              text: result.error
+            };
+            return;
+          }
+
+          status = {
+            kind: "ok",
+            text: `${result.label} added.`
+          };
+          showToast(`${result.label} added`);
+          adding = false;
+          draft = "";
+        }}
+      >
         <div class="ed-locate">
           <span class="ed-locate-ico" aria-hidden="true"><Icon name="folder" /></span>
           <label class="visually-hidden" for="ed-locate-input">Path to editor executable</label>
@@ -275,16 +256,40 @@
             id="ed-locate-input"
             class="ed-locate-input"
             autocomplete="off"
-            oninput={onDraft}
+            oninput={() => {
+              // Clear a stale message the moment the user edits the path.
+              status = null;
+            }}
             placeholder="C:\path\to\editor.exe"
             spellcheck="false"
             bind:value={draft}
           />
-          <button class="ed-browse" onclick={browse} type="button">Browse…</button>
+          <button
+            class="ed-browse"
+            onclick={async () => {
+              const picked = await openDialog({
+                multiple: false,
+                title: "Locate an editor’s executable"
+              });
+              if (typeof picked === "string") {
+                draft = picked;
+                status = null;
+              }
+            }}
+            type="button"
+          >Browse…</button>
         </div>
         <div class="ed-add-actions">
           <button class="ed-confirm" type="submit">Add</button>
-          <button class="ed-cancel" onclick={cancelAdd} type="button">Cancel</button>
+          <button
+            class="ed-cancel"
+            onclick={() => {
+              adding = false;
+              draft = "";
+              status = null;
+            }}
+            type="button"
+          >Cancel</button>
         </div>
       </form>
     {/if}

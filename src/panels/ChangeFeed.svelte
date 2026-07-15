@@ -87,32 +87,6 @@
     });
   });
 
-  async function toggle(event: ChangeEvent) {
-    const isAlreadyOpen = expandedId === event.id;
-    if (isAlreadyOpen) {
-      expandedId = null;
-      return;
-    }
-
-    expandedId = event.id;
-
-    if (diffCache.has(event.id)) {
-      return;
-    }
-
-    loadingId = event.id;
-    try {
-      const raw = await vcs.diff({ path: event.path });
-      diffCache.set(event.id, parseDiff(raw));
-      failedIds.delete(event.id);
-    } catch {
-      failedIds.add(event.id);
-      diffCache.set(event.id, []);
-    } finally {
-      loadingId = null;
-    }
-  }
-
   function openInEditor({ path, line }: {
     path: string;
     line?: number;
@@ -203,7 +177,35 @@
       {@const isOpen = expandedId === ev.id}
       <li class="card {ev.kind}" class:open={isOpen}>
         <span class="stripe" aria-hidden="true"></span>
-        <button class="body" aria-expanded={isOpen} onclick={() => void toggle(ev)}>
+        <button
+          class="body"
+          aria-expanded={isOpen}
+          onclick={async () => {
+            const isAlreadyOpen = expandedId === ev.id;
+            if (isAlreadyOpen) {
+              expandedId = null;
+              return;
+            }
+
+            expandedId = ev.id;
+
+            if (diffCache.has(ev.id)) {
+              return;
+            }
+
+            loadingId = ev.id;
+            try {
+              const raw = await vcs.diff({ path: ev.path });
+              diffCache.set(ev.id, parseDiff(raw));
+              failedIds.delete(ev.id);
+            } catch {
+              failedIds.add(ev.id);
+              diffCache.set(ev.id, []);
+            } finally {
+              loadingId = null;
+            }
+          }}
+        >
           <span class="row">
             <span class="dot {ev.kind}" aria-hidden="true"></span>
             <span class="name" data-tooltip={ev.path}>{fileName(ev.path)}</span>
@@ -276,12 +278,12 @@
               <div
                 class="unified"
                 data-tooltip={revealTip}
-                onclick={event => revealDiff({
+                onclick={e => revealDiff({
                   path: ev.path,
-                  event
+                  event: e
                 })}
-                onkeydown={event => onDiffKey({
-                  event,
+                onkeydown={e => onDiffKey({
+                  event: e,
                   path: ev.path
                 })}
                 role="button"
@@ -301,12 +303,12 @@
               <div
                 class="split"
                 data-tooltip={revealTip}
-                onclick={event => revealDiff({
+                onclick={e => revealDiff({
                   path: ev.path,
-                  event
+                  event: e
                 })}
-                onkeydown={event => onDiffKey({
-                  event,
+                onkeydown={e => onDiffKey({
+                  event: e,
                   path: ev.path
                 })}
                 role="button"

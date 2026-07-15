@@ -36,24 +36,6 @@
     }
   }
 
-  function onRestoreKey(event: KeyboardEvent) {
-    const isSubmit = event.key === "Enter";
-    if (isSubmit) {
-      void runRestore();
-    }
-  }
-
-  async function checkout(candidate: RestoreCandidate) {
-    restoreError = null;
-    try {
-      const branch = await vcs.restoreCheckout(candidate.id);
-      restoreDone = branch;
-      candidates = [];
-    } catch (e) {
-      restoreError = String(e);
-    }
-  }
-
   // Confidence as a 0..100 percentage — scores run 0..≈1.5, clamped for display.
   function confidencePct(score: number): number {
     return Math.round(Math.min(score / 1.5, 1) * 100);
@@ -65,7 +47,12 @@
   <div class="restore-input">
     <input
       aria-label="Restore to a previous version"
-      onkeydown={onRestoreKey}
+      onkeydown={e => {
+        const isSubmit = e.key === "Enter";
+        if (isSubmit) {
+          void runRestore();
+        }
+      }}
       placeholder="e.g. last working version, before the meter change"
       type="text"
       bind:value={restoreQuery}
@@ -87,7 +74,19 @@
     <ul class="candidates">
       {#each candidates as c (c.id)}
         <li>
-          <button class="candidate" onclick={() => checkout(c)}>
+          <button
+            class="candidate"
+            onclick={async () => {
+              restoreError = null;
+              try {
+                const branch = await vcs.restoreCheckout(c.id);
+                restoreDone = branch;
+                candidates = [];
+              } catch (e) {
+                restoreError = String(e);
+              }
+            }}
+          >
             <div class="cand-top">
               <code class="sha">{c.short}</code>
               <span class="summary">{c.summary}</span>

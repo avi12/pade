@@ -25,15 +25,6 @@
       ctxMenuOn = await contextMenu.status();
     }
   }
-  async function setCtxMenu(on: boolean) {
-    if (on) {
-      await contextMenu.register();
-    } else {
-      await contextMenu.unregister();
-    }
-
-    ctxMenuOn = await contextMenu.status();
-  }
   onMount(() => void loadCtxMenu());
 </script>
 
@@ -60,7 +51,7 @@
   </div>
   <label class="check">
     <span class="ck">
-      <input checked={autoName} onchange={event => onautoname(event.currentTarget.checked)} type="checkbox" />
+      <input checked={autoName} onchange={e => onautoname(e.currentTarget.checked)} type="checkbox" />
       <span class="box" aria-hidden="true">
         <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
       </span>
@@ -70,7 +61,20 @@
   {#if isWindows}
     <label class="check">
       <span class="ck">
-        <input checked={ctxMenuOn} onchange={event => setCtxMenu(event.currentTarget.checked)} type="checkbox" />
+        <input
+          checked={ctxMenuOn}
+          onchange={async e => {
+            const on = e.currentTarget.checked;
+            if (on) {
+              await contextMenu.register();
+            } else {
+              await contextMenu.unregister();
+            }
+
+            ctxMenuOn = await contextMenu.status();
+          }}
+          type="checkbox"
+        />
         <span class="box" aria-hidden="true">
           <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
         </span>

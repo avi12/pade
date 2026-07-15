@@ -24,42 +24,19 @@
   // silently no-op.
   const createNameError = $derived(nameError(createName));
   const createNameValid = $derived(ProjectName.safeParse(createName).success);
-
-  // Start immediately in a throwaway workspace.
-  async function startTemp() {
-    const path = await workspace.temp();
-    onopen({ path });
-  }
-
-  async function create() {
-    const name = parseInput({
-      schema: ProjectName,
-      raw: createName
-    });
-    const prompt = parseInput({
-      schema: FirstPrompt,
-      raw: createPrompt
-    });
-    const promptInvalid = prompt === null;
-    if (!createIn || !name || promptInvalid) {
-      return;
-    }
-
-    const path = await workspace.create({
-      root: createIn,
-      name
-    });
-    onopen({
-      path,
-      initialPrompt: prompt || undefined
-    });
-  }
 </script>
 
 <section class="new">
   <h2>Start something new</h2>
   <div class="new-grid">
-    <button class="temp-start" onclick={startTemp}>
+    <!-- Start immediately in a throwaway workspace. -->
+    <button
+      class="temp-start"
+      onclick={async () => {
+        const path = await workspace.temp();
+        onopen({ path });
+      }}
+    >
       <span class="ico"><Icon name="star" size={20} /></span>
       <span class="txt">
         <strong>Start in a temp workspace</strong>
@@ -68,9 +45,33 @@
     </button>
 
     <form
-      class="np" aria-labelledby="np-title" onsubmit={event => {
-        event.preventDefault(); create();
-      }}>
+      class="np"
+      aria-labelledby="np-title"
+      onsubmit={async e => {
+        e.preventDefault();
+        const name = parseInput({
+          schema: ProjectName,
+          raw: createName
+        });
+        const prompt = parseInput({
+          schema: FirstPrompt,
+          raw: createPrompt
+        });
+        const promptInvalid = prompt === null;
+        if (!createIn || !name || promptInvalid) {
+          return;
+        }
+
+        const path = await workspace.create({
+          root: createIn,
+          name
+        });
+        onopen({
+          path,
+          initialPrompt: prompt || undefined
+        });
+      }}
+    >
       <h3 id="np-title">Create a new project</h3>
 
       <div class="np-field">

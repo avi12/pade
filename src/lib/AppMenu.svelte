@@ -66,34 +66,6 @@
     hide();
   }
 
-  // Pick a folder, then open it in a new window. The picker returns null on
-  // cancel; the path is validated at this trust boundary before it's forwarded.
-  async function openFolder() {
-    const picked = await openDialog({
-      directory: true,
-      multiple: false
-    });
-    const chosen = parseInput({
-      schema: FolderPath,
-      raw: picked
-    });
-    if (chosen) {
-      await spawn({
-        mode: "open",
-        path: chosen
-      });
-    }
-  }
-
-  function switchHere() {
-    hide();
-    onswitch();
-  }
-  function browseAll() {
-    hide();
-    onswitch();
-  }
-
   function hide() {
     const menu = document.getElementById("m-app");
     if (menu?.matches(":popover-open")) {
@@ -131,7 +103,10 @@
     </span>
   </div>
 
-  <button class="item" onclick={switchHere} role="menuitem">
+  <button
+    class="item" onclick={() => {
+      hide(); onswitch();
+    }} role="menuitem">
     <span class="lead"><Icon name="swap" /></span>
     <span class="grow">Switch project in this window…</span>
   </button>
@@ -188,14 +163,38 @@
     {/if}
   </div>
 
-  <button class="item browse" onclick={browseAll} role="menuitem">
-    <span class="lead"><Icon name="history" /></span>
+  <button
+    class="item browse" onclick={() => {
+      hide(); onswitch();
+    }} role="menuitem">
+    <span class="lead accent"><Icon name="history" /></span>
     <span class="grow">Browse all projects…</span>
   </button>
 
   <div class="sep"></div>
 
-  <button class="item" onclick={openFolder} role="menuitem">
+  <button
+    class="item"
+    onclick={async () => {
+      // Pick a folder, then open it in a new window. The picker returns null on
+      // cancel; the path is validated at this trust boundary before it's forwarded.
+      const picked = await openDialog({
+        directory: true,
+        multiple: false
+      });
+      const chosen = parseInput({
+        schema: FolderPath,
+        raw: picked
+      });
+      if (chosen) {
+        await spawn({
+          mode: "open",
+          path: chosen
+        });
+      }
+    }}
+    role="menuitem"
+  >
     <span class="lead"><Icon name="folder" /></span>
     <span class="grow">Open folder…</span>
   </button>
@@ -407,6 +406,14 @@
 
     .item.recent {
       padding-block: 7px;
+
+      /* Roving keyboard focus reads as an inset primary ring, kept distinct
+         from the hover fill so the arrowed-to row stands out in the list. */
+      &:focus-visible {
+        background: transparent;
+        color: var(--on-surface);
+        box-shadow: inset 0 0 0 2px var(--primary);
+      }
     }
 
     .recent-name {

@@ -97,21 +97,6 @@
   // and the top-layer scrim for free (semantic HTML over a hand-rolled trap).
   let dialogEl = $state<HTMLDialogElement | null>(null);
 
-  // The native "cancel" event fires on Esc (and backdrop dismiss on supporting
-  // engines); route it to the parent so state stays the single source of truth.
-  function onCancel(event: Event) {
-    event.preventDefault();
-    onclose();
-  }
-
-  // Backdrop-click: a modal <dialog>'s hit area covers the whole viewport, so a
-  // click whose target is the dialog element itself landed on the ::backdrop.
-  function onBackdropClick(event: MouseEvent) {
-    if (event.target === dialogEl) {
-      onclose();
-    }
-  }
-
   // Open the modal on the top layer and kick off the first file's diff. Guard
   // against re-opening an already-open dialog (showModal() throws otherwise).
   $effect(() => {
@@ -133,8 +118,15 @@
   class="dialog"
   aria-describedby="commit-meta"
   aria-labelledby="commit-title"
-  oncancel={onCancel}
-  onclick={onBackdropClick}
+  oncancel={e => {
+    e.preventDefault();
+    onclose();
+  }}
+  onclick={e => {
+    if (e.target === dialogEl) {
+      onclose();
+    }
+  }}
 >
   <header class="head">
     <div class="lockup">

@@ -133,28 +133,17 @@
   // Ctrl/Cmd-click opens the full launch menu instead.
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
 
-  function onAddClick(event: MouseEvent) {
-    if (event.ctrlKey || event.metaKey) {
-      document.getElementById("add-menu")?.togglePopover();
-      return;
-    }
-
-    if (lastAgent) {
-      onlaunch(lastAgent);
-    }
-  }
-
   // Closing a tab removes the session synchronously; the pill's collapse is a
   // Svelte out-transition. `closingIds` marks which pills left via a real close
   // so the transition only animates those — a repack-driven exit snaps instantly.
   const closingIds = new SvelteSet<string>();
   // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
   // middle-click autoscroll). onmousedown suppresses the same on press.
-  function onTabPointer(event: MouseEvent, session: AgentSession) {
-    if (event.button === 1) {
-      event.preventDefault();
+  function onTabPointer(e: MouseEvent, session: AgentSession) {
+    if (e.button === 1) {
+      e.preventDefault();
 
-      if (event.type === "auxclick") {
+      if (e.type === "auxclick") {
         closeTab(session);
       }
     }
@@ -191,11 +180,6 @@
   let editingId = $state<string | null>(null);
   let renameDraft = $state("");
 
-  function startRename(session: AgentSession) {
-    editingId = session.id;
-    renameDraft = sessionLabel(session.id) ?? session.agent.label;
-  }
-
   function commitRename() {
     if (editingId === null) {
       return;
@@ -215,16 +199,6 @@
     editingId = null;
   }
 
-  function onRenameKey(event: KeyboardEvent) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commitRename();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      editingId = null;
-    }
-  }
-
   // Focus + select the rename field the moment it mounts.
   function focusOnMount(node: HTMLInputElement) {
     node.focus();
@@ -240,8 +214,16 @@
         class="rename-input"
         aria-label="Rename session"
         onblur={commitRename}
-        oninput={event => (renameDraft = event.currentTarget.value)}
-        onkeydown={onRenameKey}
+        oninput={e => (renameDraft = e.currentTarget.value)}
+        onkeydown={e => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commitRename();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            editingId = null;
+          }
+        }}
         value={renameDraft}
         use:focusOnMount
       />
@@ -249,10 +231,13 @@
   {:else}
     <button
       class="pick"
-      onauxclick={event => onTabPointer(event, s)}
+      onauxclick={e => onTabPointer(e, s)}
       onclick={() => onselect(s.id)}
-      ondblclick={() => startRename(s)}
-      onmousedown={event => onTabPointer(event, s)}
+      ondblclick={() => {
+        editingId = s.id;
+        renameDraft = sessionLabel(s.id) ?? s.agent.label;
+      }}
+      onmousedown={e => onTabPointer(e, s)}
     >
       <span class="dot {sessionStatus(s.id)}"></span>
       {sessionLabel(s.id) ?? s.agent.label}
@@ -338,26 +323,39 @@
       class="add-btn"
       aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
       data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click for options`}
-      onclick={onAddClick}
+      onclick={e => {
+        if (e.ctrlKey || e.metaKey) {
+          document.getElementById("add-menu")?.togglePopover();
+          return;
+        }
+
+        if (lastAgent) {
+          onlaunch(lastAgent);
+        }
+      }}
     >+</button>
     <ul id="add-menu" style:position-anchor="--add-anchor" class="menu" popover>
       <li class="menu-sep">Launch an agent</li>
       {#each agents as a (a.id)}
         <li>
-          <button onclick={() => onlaunch(a)} popovertarget="add-menu" popovertargetaction="hide">
-            {a.label}
-          </button>
+          <button
+            onclick={() => onlaunch(a)}
+            popovertarget="add-menu"
+            popovertargetaction="hide"
+          ><span class="launch-icon"><Icon name="terminal" /></span>{a.label}</button>
         </li>
       {/each}
       {#if branches.length > 0}
+        <li class="menu-divider" role="separator"></li>
         <li class="menu-sep">On a branch — new worktree</li>
         {#each branches as b (b)}
           <li>
             <button
+              class="branch-item"
               onclick={async () => await onlaunchbranch(b)}
               popovertarget="add-menu"
               popovertargetaction="hide"
-            ><Icon name="git" /> {b}</button>
+            ><span class="branch-icon"><Icon name="git" /></span>{b}</button>
           </li>
         {/each}
       {/if}
@@ -472,7 +470,12 @@
 
       &.active .pick {
         color: var(--on-primary-container);
-        font-weight: 600;
+        font-weight: 700;
+      }
+
+      /* On the active pill the close × rides the container's on-color too. */
+      &.active .x {
+        color: var(--on-primary-container);
       }
     }
 
@@ -561,7 +564,7 @@
       background: var(--on-surface-variant);
 
       &.working {
-        background: var(--tertiary);
+        background: var(--primary);
         animation: pulse 1100ms var(--ease) infinite;
       }
 
@@ -666,6 +669,30 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+
+    /* Hairline between the agent list and the worktree-branch group. */
+    .menu-divider {
+      block-size: 1px;
+      margin-block: 6px;
+      margin-inline: 8px;
+      background: var(--outline);
+    }
+
+    /* Leading glyph tints: agents read primary, branches read tertiary (git). */
+    .launch-icon {
+      display: inline-flex;
+      color: var(--primary);
+    }
+
+    .branch-icon {
+      display: inline-flex;
+      color: var(--tertiary);
+    }
+
+    /* Branch rows spell the branch name in the mono face. */
+    .branch-item {
+      font-family: var(--font-monospace);
+    }
   }
 
   /* Overflow-session popover: a compact two-column grid of the collapsed tabs. */
@@ -673,6 +700,8 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 4px;
+    overflow-y: auto;
+    max-block-size: min(60vh, 420px);
     inline-size: min(360px, 80vw);
     min-inline-size: 0;
 
