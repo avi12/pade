@@ -712,7 +712,7 @@
           />
           <span class="chrome-spacer"></span>
 
-          <UsageMeter />
+          <UsageMeter {sessions} />
           <DesignMenu agent={activeAgent} />
           <!-- Open a console editor (Neovim/Vim/Helix) in its own terminal tab,
                split beside the agent so you can watch and edit at once. GUI editors

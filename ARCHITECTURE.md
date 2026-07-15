@@ -197,7 +197,7 @@ responsibility, and who it collaborates with.
 | `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
 | `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu | `tabFit`, `stores/sessions` |
 | `src/lib/AppMenu.svelte` | Top-bar project menu: current dir, recents, switch/open/new-window | `bridge` |
-| `src/lib/UsageMeter.svelte` | Agent usage/quota pill in the top bar | `bridge.usage` |
+| `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usageGroups` |
 | `src/lib/DesignMenu.svelte` | Quick-launch menu for AI design tools | `bridge.design` |
 | `src/lib/IdeMenu.svelte` | Open the project in a detected IDE — GUI editors via the OS, console editors handed back to `App` for a terminal tab | `bridge.ide` |
 | `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent; keeps its own 2-D-grid pointer drag rather than the single-axis `dragReorder` engine (the dock wraps to multiple rows) | `stores/runners` |
@@ -224,6 +224,7 @@ responsibility, and who it collaborates with.
 | `src/lib/paths.ts` | Path helpers: `baseName`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff parser + side-by-side rows | `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
+| `src/lib/usageGroups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
 | `src/lib/errors.ts` | `errorMessage` — one reading of a thrown IPC rejection into user-facing text | any catch block |
 | `src/lib/motion.ts` | `collapseRow` exit transition (the one animation CSS can't own: the node is gone before it could run), reduced-motion aware | picker lists |
 | `src/lib/colors.ts` | Color-token detection + `var()` tracing for swatches | `ColorText`, viewers |
@@ -308,7 +309,7 @@ entry. Each concern is one module:
 each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
 `naming.rs`, `refs.rs`, `ide.rs` and the `vcs/` parsers). The pure logic
 extracted from components —
-`tabFit`, `diff`, `paths`, `colors`, `format`, `reorder`, `validate`, `autoName`'s
-signal detection, `workspaceRelocate`'s path remapping, `handoff`'s slug,
-`tabShortcuts`'s chord matching — is where
+`tabFit`, `diff`, `paths`, `colors`, `format`, `reorder`, `usageGroups`, `validate`,
+`autoName`'s signal detection, `workspaceRelocate`'s path remapping, `handoff`'s
+slug, `tabShortcuts`'s chord matching — is where
 new tests belong first: they run in milliseconds and need no window.

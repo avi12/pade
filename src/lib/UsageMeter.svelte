@@ -2,9 +2,21 @@
   import { usage as usageApi } from "@/lib/bridge";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
-  import type { AccountUsage } from "@/lib/types";
+  import type { AccountUsage, AgentSession } from "@/lib/types";
+  import {
+    buildGroups,
+    buildKindLegend,
+    findSpotlight,
+    severityBreakdown,
+    worstLimit
+  } from "@/lib/usageGroups";
+  import type { AgentGroup, Level } from "@/lib/usageGroups";
   import { onDestroy } from "svelte";
+
+  // The running agent sessions — one usage group per distinct coding agent among
+  // them is derived below (App.svelte owns the list; the shell fallback and
+  // terminal-editor sessions are filtered out in `buildGroups`).
+  const { sessions }: { sessions: AgentSession[] } = $props();
 
   // Live account usage, grouped by agent (mirrors claude.ai / `claude /usage`):
   // each agent's rate-limit windows — the 5-hour session, the weekly all-models
@@ -17,266 +29,50 @@
   const ACCOUNT_REFRESH_MS = 180_000;
   const CLOCK_TICK_MS = 1_000;
 
-  type Level = "normal" | "warn" | "crit";
+  // Trigger compaction threshold: at or below this many running agents the trigger
+  // shows a wide chip per agent; beyond it, compact per-agent pills + a trailing
+  // "+N" overflow chip.
+  const FEW_AGENTS_MAX = 2;
 
-  // The three limit kinds; the short mono code in the "all agents" chips maps off
-  // this closed set (one authoritative definition, no bare string literals).
-  const LimitKind = {
-    Session: "session",
-    Weekly: "weekly",
-    Model: "model"
-  } as const;
-  type LimitKind = (typeof LimitKind)[keyof typeof LimitKind];
+  // One group per distinct running agent, worst-first (see usageGroups.ts). Claude
+  // carries its real limits; every other agent is "unknown" (no local signal).
+  const groups = $derived<AgentGroup[]>(
+    buildGroups({
+      account,
+      sessions,
+      now
+    })
+  );
 
-  type Limit = {
-    label: string;
-    sub: string;
-    reset: string;
-    pct: number;
-    level: Level;
-    kind: LimitKind;
-    /** A 2-char mono code shown in the "all agents" chips + legend ("5h", "wk"). */
-    kindShort: string;
-  };
-  type AgentGroup = {
-    name: string;
-    plan: string;
-    icon: IconName;
-    limits: Limit[];
-  };
-
-  // Severity by consumption: blue while there's room, amber past 75%, red past
-  // 90% — no green, per the design's usage semantics. Applied as a CSS class.
-  function limitLevel(pct: number): Level {
-    if (pct >= 90) {
+  const isFewAgents = $derived(groups.length <= FEW_AGENTS_MAX);
+  const pillGroups = $derived(groups.slice(0, FEW_AGENTS_MAX));
+  const overflowCount = $derived(Math.max(0, groups.length - FEW_AGENTS_MAX));
+  // The "+N" chip's severity dot: red if any agent is critical, amber if any is
+  // near its cap, else no dot.
+  const hasCriticalAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "crit"));
+  const hasNearAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "warn"));
+  const overflowLevel = $derived.by((): Level | null => {
+    if (hasCriticalAgent) {
       return "crit";
     }
 
-    if (pct >= 75) {
+    if (hasNearAgent) {
       return "warn";
     }
 
-    return "normal";
-  }
-
-  function clamp(value: number): number {
-    return Math.max(0, Math.min(100, value));
-  }
-
-  // Normalize the endpoint's microsecond timestamps to ms so every engine parses
-  // them identically — otherwise the countdown can drift.
-  function parseIso(iso: string): number {
-    return new Date(iso.replace(/(\.\d{3})\d+/, "$1")).getTime();
-  }
-
-  // ISO reset time → a live "resets in …" countdown (largest two units), or "".
-  function resetLabel(iso: string | null | undefined, nowMs: number): string {
-    if (!iso) {
-      return "";
-    }
-
-    const remaining = parseIso(iso) - nowMs;
-    if (!Number.isFinite(remaining) || remaining <= 0) {
-      return "";
-    }
-
-    const totalSeconds = Math.floor(remaining / 1000);
-    const days = Math.floor(totalSeconds / 86_400);
-    const hours = Math.floor((totalSeconds % 86_400) / 3_600);
-    const minutes = Math.floor((totalSeconds % 3_600) / 60);
-    const seconds = totalSeconds % 60;
-    if (days > 0) {
-      return `resets in ${days}d ${hours}h`;
-    }
-
-    if (hours > 0) {
-      return `resets in ${hours}h ${minutes}m`;
-    }
-
-    if (minutes > 0) {
-      return `resets in ${minutes}m ${String(seconds).padStart(2, "0")}s`;
-    }
-
-    return `resets in ${seconds}s`;
-  }
-
-  // The worst-consumed limit in a set — drives the agent chip's readout color and
-  // the panel's "near limit" signal.
-  function worstLimit(limits: Limit[]): Limit | null {
-    return limits.length > 0 ? limits.reduce((max, limit) => (limit.pct > max.pct ? limit : max)) : null;
-  }
-
-  // A 2-letter mono code for a per-model weekly limit (the backend sends none) —
-  // the model's first distinctive word, e.g. "Claude Opus" → "OP".
-  function modelShort(name: string): string {
-    const tokens = name.split(/[^a-z0-9]+/i).filter(Boolean);
-    const word = tokens.find(token => token.toLowerCase() !== "claude") ?? tokens[0] ?? name;
-    return word.slice(0, 2).toUpperCase();
-  }
-
-  // Build the agent groups from the account. Claude is the only agent that
-  // exposes usage locally, so this is one group today — but the shape supports
-  // more. Only limits actually in use (> 0%) are kept.
-  const groups = $derived<AgentGroup[]>(buildGroups(account, now));
-
-  function buildGroups(usage: AccountUsage | null, nowMs: number): AgentGroup[] {
-    if (!usage) {
-      return [];
-    }
-
-    const limits: Limit[] = [];
-    function add({ label, sub, kind, kindShort, pct, resetsAt }: {
-      label: string;
-      sub: string;
-      kind: LimitKind;
-      kindShort: string;
-      pct: number | null | undefined;
-      resetsAt: string | null | undefined;
-    }): void {
-      if (typeof pct !== "number" || pct <= 0) {
-        return;
-      }
-
-      const value = clamp(pct);
-      limits.push({
-        label,
-        sub,
-        kind,
-        kindShort,
-        pct: value,
-        level: limitLevel(value),
-        reset: resetLabel(resetsAt, nowMs)
-      });
-    }
-
-    add({
-      label: "Session",
-      sub: "5-hour window",
-      kind: LimitKind.Session,
-      kindShort: "5h",
-      pct: usage.fiveHour?.utilization,
-      resetsAt: usage.fiveHour?.resetsAt
-    });
-    add({
-      label: "Weekly",
-      sub: "all models",
-      kind: LimitKind.Weekly,
-      kindShort: "wk",
-      pct: usage.sevenDay?.utilization,
-      resetsAt: usage.sevenDay?.resetsAt
-    });
-    for (const model of usage.models) {
-      add({
-        label: model.name,
-        sub: "weekly",
-        kind: LimitKind.Model,
-        kindShort: modelShort(model.name),
-        pct: model.utilization,
-        resetsAt: model.resetsAt
-      });
-    }
-
-    if (limits.length === 0) {
-      return [];
-    }
-
-    return [{
-      name: "Claude Code",
-      plan: usage.plan,
-      icon: "sparkles",
-      limits
-    }];
-  }
-
-  // ── Panel view-model ──────────────────────────────────────────────────────
-  // Worst-first severity buckets: how many agents sit at crit / near / healthy,
-  // by each agent's most-consumed limit. Feeds both the header tallies and the
-  // distribution bar (one source, DRY).
-  const SEVERITY_ORDER = [
-    {
-      level: "crit",
-      label: "critical"
-    },
-    {
-      level: "warn",
-      label: "near"
-    },
-    {
-      level: "normal",
-      label: "healthy"
-    }
-  ] as const satisfies readonly {
-    level: Level;
-    label: string;
-  }[];
-
-  type SeveritySlice = {
-    level: Level;
-    label: string;
-    count: number;
-  };
-
-  function severityBreakdown(agents: AgentGroup[]): SeveritySlice[] {
-    return SEVERITY_ORDER.map(severity => ({
-      level: severity.level,
-      label: severity.label,
-      count: agents.filter(agent => (worstLimit(agent.limits)?.level ?? "normal") === severity.level).length
-    }));
-  }
-
-  // The single limit closest to its cap across every agent, tagged with its owner.
-  type Spotlight = {
-    agent: AgentGroup;
-    limit: Limit;
-  };
-
-  function findSpotlight(agents: AgentGroup[]): Spotlight | null {
-    let closest: Spotlight | null = null;
-    for (const agent of agents) {
-      for (const limit of agent.limits) {
-        if (!closest || limit.pct > closest.limit.pct) {
-          closest = {
-            agent,
-            limit
-          };
-        }
-      }
-    }
-
-    return closest;
-  }
-
-  // Distinct kind codes actually in play, each with the label it stands for — the
-  // legend that decodes the "all agents" chips.
-  type KindLegendEntry = {
-    short: string;
-    name: string;
-  };
-
-  function buildKindLegend(agents: AgentGroup[]): KindLegendEntry[] {
-    // Plain-object dedupe (not a Map — this is a pure derivation, not reactive
-    // state) keyed by the short code, first label wins.
-    const seen: Record<string, true> = {};
-    const entries: KindLegendEntry[] = [];
-    for (const agent of agents) {
-      for (const limit of agent.limits) {
-        if (!seen[limit.kindShort]) {
-          seen[limit.kindShort] = true;
-          entries.push({
-            short: limit.kindShort,
-            name: limit.label
-          });
-        }
-      }
-    }
-
-    return entries;
-  }
+    return null;
+  });
+  const overflowTooltip = $derived(
+    `${formatCount(overflowCount)} more ${overflowCount === 1 ? "agent" : "agents"} — open for the full list`
+  );
 
   const severitySlices = $derived(severityBreakdown(groups));
+  // Agents that actually carry a severity — the distribution bar's denominator, so
+  // its segments fill it exactly (unknown agents have no severity to plot).
+  const measuredAgents = $derived(severitySlices.reduce((sum, slice) => sum + slice.count, 0));
   const spotlight = $derived(findSpotlight(groups));
   const kindLegend = $derived(buildKindLegend(groups));
-  const runningLabel = $derived(`${formatCount(groups.length)} running`);
+  const runningLabel = $derived(`${formatCount(groups.length)} ${groups.length === 1 ? "agent" : "agents"} running`);
 
   const ariaLabel = $derived(
     groups.length > 0
@@ -319,10 +115,14 @@
     data-tooltip="Usage by agent"
     popovertarget="usage-menu"
   >
-    <span class="tag">Usage</span>
-    {#if groups.length > 0}
+    {#if isFewAgents}
+      <span class="tag">Usage</span>
+    {/if}
+    {#if groups.length === 0}
+      <span class="none">—</span>
+    {:else if isFewAgents}
       <span class="chips">
-        {#each groups as group (group.name)}
+        {#each groups as group (group.id)}
           {@const groupWorst = worstLimit(group.limits)}
           {#if groupWorst}
             <span
@@ -345,11 +145,61 @@
               </span>
               <span class="pct">{formatPercent(groupWorst.pct)}</span>
             </span>
+          {:else}
+            <span class="chip unknown">
+              <span class="agent-icon"><Icon name={group.icon} /></span>
+              <span class="none">—</span>
+            </span>
           {/if}
         {/each}
       </span>
     {:else}
-      <span class="none">—</span>
+      <span class="pills">
+        {#each pillGroups as group (group.id)}
+          {@const groupWorst = worstLimit(group.limits)}
+          <span
+            class="agent-pill sev"
+            class:crit={groupWorst?.level === "crit"}
+            class:unknown={group.unknown}
+            class:warn={groupWorst?.level === "warn"}
+          >
+            <span class="agent-pill-id">
+              <span class="agent-icon"><Icon name={group.icon} /></span>
+              <span class="agent-pill-name">{group.shortName}</span>
+            </span>
+            <span class="agent-pill-sep"></span>
+            {#if group.limits.length > 0}
+              <span class="agent-pill-limits">
+                {#each group.limits as limit (limit.label)}
+                  <span
+                    class="agent-pill-limit sev"
+                    class:crit={limit.level === "crit"}
+                    class:warn={limit.level === "warn"}
+                  >
+                    <span class="agent-pill-kind">{limit.kindShort}</span>
+                    <span class="agent-pill-pct">{formatPercent(limit.pct)}</span>
+                  </span>
+                {/each}
+              </span>
+            {:else}
+              <span class="agent-pill-dash">—</span>
+            {/if}
+          </span>
+        {/each}
+        {#if overflowCount > 0}
+          <span
+            class="overflow-chip sev"
+            class:crit={overflowLevel === "crit"}
+            class:warn={overflowLevel === "warn"}
+            data-tooltip={overflowTooltip}
+          >
+            {#if overflowLevel}
+              <span class="overflow-dot"></span>
+            {/if}
+            +{formatCount(overflowCount)}
+          </span>
+        {/if}
+      </span>
     {/if}
     <span class="caret">▾</span>
   </button>
@@ -377,7 +227,7 @@
         {#each severitySlices as slice (slice.level)}
           {#if slice.count > 0}
             <span
-              style:inline-size="{(slice.count / groups.length) * 100}%"
+              style:inline-size="{(slice.count / measuredAgents) * 100}%"
               class="distribution-segment sev"
               class:crit={slice.level === "crit"}
               class:warn={slice.level === "warn"}
@@ -423,33 +273,38 @@
       </div>
 
       <ul class="agents">
-        {#each groups as group (group.name)}
+        {#each groups as group (group.id)}
           {@const groupWorst = worstLimit(group.limits)}
           <li
             class="agent-row sev"
             class:crit={groupWorst?.level === "crit"}
+            class:unknown={group.unknown}
             class:warn={groupWorst?.level === "warn"}
           >
             <span class="rail"></span>
             <span class="agent-icon"><Icon name={group.icon} /></span>
             <span class="agent-id">
               <span class="agent-name">{group.name}</span>
-              <span class="agent-plan">{group.plan}</span>
+              <span class="agent-plan">{group.plan || "usage not available locally"}</span>
             </span>
             <span class="agent-limits">
-              {#each group.limits as limit (limit.label)}
-                <span
-                  class="limit-chip sev"
-                  class:crit={limit.level === "crit"}
-                  class:warn={limit.level === "warn"}
-                >
-                  <span class="chip-kind">{limit.kindShort}</span>
-                  <span class="chip-track">
-                    <span style:inline-size="{limit.pct}%" class="chip-fill"></span>
+              {#if group.limits.length > 0}
+                {#each group.limits as limit (limit.label)}
+                  <span
+                    class="limit-chip sev"
+                    class:crit={limit.level === "crit"}
+                    class:warn={limit.level === "warn"}
+                  >
+                    <span class="chip-kind">{limit.kindShort}</span>
+                    <span class="chip-track">
+                      <span style:inline-size="{limit.pct}%" class="chip-fill"></span>
+                    </span>
+                    <output class="chip-pct">{formatPercent(limit.pct)}</output>
                   </span>
-                  <output class="chip-pct">{formatPercent(limit.pct)}</output>
-                </span>
-              {/each}
+                {/each}
+              {:else}
+                <span class="agent-limits-none">—</span>
+              {/if}
             </span>
           </li>
         {/each}
@@ -528,6 +383,15 @@
       background: var(--surface-1);
     }
 
+    /* An agent with no local usage signal — icon + a muted em-dash, no numbers. */
+    .chip.unknown {
+      color: var(--on-surface-variant);
+
+      .agent-icon {
+        color: var(--on-surface-variant);
+      }
+    }
+
     .agent-icon {
       display: inline-flex;
       flex: none;
@@ -572,6 +436,109 @@
       font-weight: 700;
       font-size: 12px;
       font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Many-agents mode: compact per-agent pills + a "+N" overflow chip ── */
+    .pills {
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    /* One pill per agent: icon + short name · a divider · per-limit kind + pct. */
+    .agent-pill {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      padding-block: 3px;
+      padding-inline: 8px;
+      border-radius: var(--radius-small);
+      background: var(--surface-1);
+
+      /* No trustworthy usage → mute the whole pill; the dash carries the meaning. */
+      &.unknown {
+        --sev: var(--on-surface-variant);
+      }
+    }
+
+    .agent-pill-id {
+      display: inline-flex;
+      flex: none;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .agent-pill-name {
+      overflow: hidden;
+      max-inline-size: 4rem;
+      color: var(--on-surface);
+      font-weight: 600;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* A hairline splitting the agent's identity from its readouts. */
+    .agent-pill-sep {
+      flex: none;
+      align-self: stretch;
+      inline-size: 1px;
+      margin-block: 1px;
+      background: var(--outline);
+    }
+
+    .agent-pill-limits {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .agent-pill-limit {
+      display: inline-flex;
+      gap: 3px;
+      align-items: center;
+      font-weight: 700;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+
+      .agent-pill-kind {
+        color: var(--on-surface-variant);
+        font-family: var(--font-monospace);
+        font-weight: 800;
+      }
+
+      .agent-pill-pct {
+        color: var(--sev);
+      }
+    }
+
+    .agent-pill-dash {
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    /* The "+N" overflow: a muted count with a severity dot when any agent is hot. */
+    .overflow-chip {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      padding-block: 3px;
+      padding-inline: 7px;
+      border-radius: var(--radius-small);
+      background: var(--surface-1);
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+
+      .overflow-dot {
+        flex: none;
+        block-size: 6px;
+        inline-size: 6px;
+        border-radius: 999px;
+        background: var(--sev);
+      }
     }
 
     .caret {
@@ -836,6 +803,12 @@
         background: var(--sev-wash);
       }
 
+      /* An unknown agent has no severity — mute its rail + icon so the primary
+         blue never reads as a (fabricated) "healthy" score. */
+      &.unknown {
+        --sev: var(--on-surface-variant);
+      }
+
       .rail {
         flex: none;
         align-self: stretch;
@@ -881,6 +854,13 @@
       gap: 5px 8px;
       justify-content: flex-end;
       min-inline-size: 0;
+    }
+
+    /* Stands in for the readouts on an unknown agent's row. */
+    .agent-limits-none {
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 12px;
     }
 
     /* One per-limit chip: mono kind code + mini track + tabular percent. */
