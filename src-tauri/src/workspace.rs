@@ -47,21 +47,14 @@ pub struct AddedEditor {
     pub path: String,
 }
 
-/// Appearance & editor preferences. All optional so the frontend can fall back
-/// to its own defaults; `None` means "unset, use the default".
+/// The preferences ADE's own Rust code reads. Every other, frontend-owned
+/// preference (theme, fonts, `uiScale`, diff style, start mode, auto-name /
+/// auto-handoff, …) is defined once in the TS zod `Prefs` schema and round-trips
+/// verbatim through `passthrough` — so a new UI-only pref never means editing
+/// this struct, and Rust never duplicates a type the frontend already owns.
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Prefs {
-    /// UI font family; falls back to the M3 stack.
-    pub ui_font: Option<String>,
-    /// Terminal/code font family; falls back to `JetBrains` Mono.
-    pub mono_font: Option<String>,
-    /// "system" (follow OS) | "light" | "dark".
-    pub theme_mode: Option<String>,
-    /// Diff layout: "unified" | "split".
-    pub diff_style: Option<String>,
-    /// What to do when launched with no project: "temp" (default) | "picker".
-    pub start_mode: Option<String>,
     /// Editor-rules engine: project-kind → IDE id. When a project's primary kind
     /// matches a key here, that IDE is suggested first (if installed).
     #[serde(default)]
@@ -73,10 +66,11 @@ pub struct Prefs {
     /// Merged into the detected editor list so they show up in every menu.
     #[serde(default)]
     pub added_editors: Vec<AddedEditor>,
-    /// Auto-hand-off to a fresh agent near the context limit. Opt-out:
-    /// `None`/`Some(true)` = on, `Some(false)` = disabled.
-    #[serde(default)]
-    pub auto_handoff: Option<bool>,
+    /// Frontend-owned preferences Rust never acts on, kept verbatim so they
+    /// survive a load/save round-trip. `flatten` captures every key not named
+    /// above; the TS zod schema is their single source of truth.
+    #[serde(flatten)]
+    pub passthrough: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
