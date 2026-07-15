@@ -175,40 +175,65 @@ body {
   }
 }
 
-/* Pure-CSS tooltips — annotate any element with data-tooltip="…" (rule 9).
-   Icon-only controls keep an aria-label for the accessible name. */
+/* Tooltips — a single top-layer popover (see lib/tooltip.ts), reused for every
+   element annotated with data-tooltip="…" (rule 9). The popover API keeps the
+   bubble in the top layer so a dense, `overflow:hidden` toolbar never clips it,
+   and CSS anchor positioning pins it to the hovered/focused control. Triggers
+   keep their aria-label for the accessible name; the bubble is purely visual.
+   `position: relative` is retained so a trigger stays a containing block for any
+   absolutely-positioned children it owns. */
 [data-tooltip] {
   position: relative;
+}
 
-  &::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    inset-block-start: calc(100% + 6px);
-    inset-inline-start: 50%;
-    z-index: 50;
-    max-inline-size: 60ch;
-    padding: 4px 8px;
-    border-radius: var(--radius-small);
-    background: var(--surface-3);
-    color: var(--on-surface);
-    font-family: var(--font-ui);
-    font-size: 11px;
-    white-space: nowrap;
-    opacity: 0%;
-    pointer-events: none;
-    transition: opacity 120ms var(--ease);
-    translate: -50% 0;
+#app-tooltip {
+  position: fixed;
+  margin: 0;
+  margin-block: 6px;
+  padding: 4px 9px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: var(--surface-3);
+  color: var(--on-surface);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0%;
+  box-shadow: 0 6px 20px var(--shadow-color);
+  pointer-events: none;
+  transition:
+    opacity 120ms var(--ease),
+    translate 120ms var(--ease),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+
+  /* A quiet fade + rise, kept independent of the springy menu-popover motion
+     defined for [popover] above (id selector wins over the attribute one). */
+  scale: 1;
+  translate: 0 -3px;
+
+  /* Anchored to whichever trigger lib/tooltip tags with the anchor name; opens
+     below by default and flips to stay on-screen. `margin-block` gives the 6px
+     gap on whichever side ends up facing the trigger. */
+  position-anchor: --app-tooltip-anchor;
+  position-area: block-end;
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+
+  &[data-pos="top"] {
+    position-area: block-start;
   }
 
-  &:hover::after,
-  &:focus-visible::after {
+  &:popover-open {
     opacity: 100%;
+    translate: 0 0;
   }
+}
 
-  /* Nested tooltips: while a descendant's own tooltip is hovered, suppress this
-     one so the two don't stack (e.g. a usage bar inside the usage pill). */
-  &:has([data-tooltip]:hover)::after {
+@starting-style {
+  #app-tooltip:popover-open {
     opacity: 0%;
+    translate: 0 -3px;
   }
 }
 

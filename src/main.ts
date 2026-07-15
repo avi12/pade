@@ -1,5 +1,6 @@
 import App from "@/App.svelte";
 import { loadPrefs } from "@/lib/prefs.svelte";
+import { initTooltips } from "@/lib/tooltip";
 import "@/theme.css";
 import "@xterm/xterm/css/xterm.css";
 import { mount } from "svelte";
@@ -10,6 +11,9 @@ document.documentElement.dataset.theme = window.matchMedia("(prefers-color-schem
   ? "dark"
   : "light";
 void loadPrefs();
+
+// Wire the shared top-layer tooltip controller once for the whole app.
+initTooltips();
 
 const app = mount(App, { target: document.getElementById("app")! });
 
