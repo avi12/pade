@@ -192,11 +192,24 @@ body {
 /* Tooltips — pure CSS (inspired by youtube-time-manager). Add data-tooltip="…"
    (plus an aria-label on icon-only controls) to any element and its ::after shows
    the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
-   a dense, overflow:hidden toolbar's clip; `anchor-scope` keeps every trigger
-   anchoring its own bubble; `position-try-fallbacks` flips/slides it to stay on
-   screen. `position: relative` also keeps the trigger a containing block for any
-   absolutely-positioned children it owns. Sized off --font-base so it tracks the
-   zoom pref. */
+   a dense, overflow:hidden toolbar's clip; `inset-block-start: anchor(bottom)` +
+   `justify-self: anchor-center` sit the bubble centered *below* the trigger with a
+   `margin-block-start` gap, so it never rides over the control it describes; near
+   the viewport bottom (the dock, low panel rows) it flips *above* via
+   --tooltip-flip-up, keeping the same gap. `anchor-scope` keeps every trigger
+   anchoring its own bubble; `position: relative` keeps the trigger a containing
+   block for any absolutely-positioned children it owns. Sized off --font-base so
+   it tracks the zoom pref.
+
+   PERF: the bubble is `display: none` until its trigger is hovered/focused. An
+   always-present anchor-positioned fixed pseudo on every one of the ~30 triggers
+   makes the browser re-run anchor + position-try for all of them on every
+   drag/resize frame — that is the window-drag lag (bisected to the tooltip
+   rewrite, c9d199a). display:none keeps them out of layout at rest, so only the
+   single hovered bubble is ever positioned; `display` + `@starting-style`
+   (allow-discrete) keep the fade. For the same reason never gate tooltips with a
+   document-level `body:has(…)` — it forces a full-tree recalc on every layout
+   change. */
 [data-tooltip] {
   position: relative;
   anchor-name: --tooltip;
@@ -205,10 +218,13 @@ body {
   &::after {
     content: attr(data-tooltip);
     position: fixed;
+    inset-block-start: anchor(bottom);
     z-index: 200;
+    display: none;
+    justify-self: anchor-center;
     inline-size: max-content;
     max-inline-size: min(320px, 90vw);
-    margin-block: 6px;
+    margin-block-start: 6px;
     padding: 4px 9px;
     border-radius: var(--radius-small);
     background: var(--surface-3);
@@ -220,23 +236,16 @@ body {
     opacity: 0%;
     box-shadow: 0 6px 20px var(--shadow-color);
     pointer-events: none;
-    transition: opacity 120ms var(--ease);
-
-    /* Open below by default (most triggers sit in the top bar), flipping above
-       and sliding toward an edge when there's no room — all logical, so it
-       adapts to position and RTL on its own. */
+    transition:
+      opacity 120ms var(--ease),
+      display 120ms allow-discrete;
     position-anchor: --tooltip;
-    position-area: block-end;
-    position-try-fallbacks:
-      block-start,
-      block-end span-inline-start,
-      block-end span-inline-end,
-      block-start span-inline-start,
-      block-start span-inline-end;
+    position-try-fallbacks: --tooltip-flip-up;
   }
 
   &:hover::after,
   &:focus-visible::after {
+    display: block;
     opacity: 100%;
   }
 
@@ -244,6 +253,22 @@ body {
      the two never stack (e.g. a usage bar inside the usage pill). */
   &:has([data-tooltip]:hover)::after,
   &:has([data-tooltip]:focus-visible)::after {
+    opacity: 0%;
+  }
+}
+
+/* Flip above the trigger only when there's no room below (the dock, low panel
+   rows) — same 6px gap on the other side so the bubble still clears the control. */
+@position-try --tooltip-flip-up {
+  inset-block: auto anchor(top);
+  margin-block: 0 6px;
+}
+
+/* The bubble toggles display, so give its shown state a from-opacity for the
+   enter transition (allow-discrete on `display` handles the exit). */
+@starting-style {
+  [data-tooltip]:hover::after,
+  [data-tooltip]:focus-visible::after {
     opacity: 0%;
   }
 }

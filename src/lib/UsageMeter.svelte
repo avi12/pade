@@ -552,10 +552,10 @@
       border-radius: 2px;
       background: var(--surface-3);
 
-      /* Each bar is tiny and sits right under the pointer, so drop its tooltip
-         below the whole pill — clear of the cursor (base offset is 6px). */
+      /* Each bar is tiny and sits right under the pointer, so widen the gap to
+         drop its tooltip clear of the cursor and the whole pill (base gap is 6px). */
       &[data-tooltip]::after {
-        inset-block-start: calc(100% + 16px);
+        margin-block-start: 16px;
       }
     }
 
