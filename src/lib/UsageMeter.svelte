@@ -1,6 +1,8 @@
 <script lang="ts">
   import { usage as usageApi } from "@/lib/bridge";
-  import { formatPercent } from "@/lib/format";
+  import { formatCount, formatPercent } from "@/lib/format";
+  import Icon from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/Icon.svelte";
   import type { AccountUsage } from "@/lib/types";
   import { onDestroy } from "svelte";
 
@@ -14,8 +16,6 @@
 
   const ACCOUNT_REFRESH_MS = 180_000;
   const CLOCK_TICK_MS = 1_000;
-  // The pill shows at most this many limit bars before collapsing to "+N".
-  const CELL_CAP = 4;
 
   type Level = "normal" | "warn" | "crit";
   type Limit = {
@@ -28,6 +28,7 @@
   type AgentGroup = {
     name: string;
     plan: string;
+    icon: IconName;
     limits: Limit[];
   };
 
@@ -47,20 +48,6 @@
 
   function clamp(value: number): number {
     return Math.max(0, Math.min(100, value));
-  }
-
-  // A one-word type for the pill, from the limit's label.
-  function typeOf(label: string): string {
-    const lower = label.toLowerCase();
-    if (lower.includes("session")) {
-      return "session";
-    }
-
-    if (lower.includes("week")) {
-      return "weekly";
-    }
-
-    return lower.split(" ")[0];
   }
 
   // Normalize the endpoint's microsecond timestamps to ms so every engine parses
@@ -100,9 +87,10 @@
     return `resets in ${seconds}s`;
   }
 
-  // A 4..16px bar height for the pill's mini-chart cells.
-  function cellHeight(pct: number): number {
-    return Math.max(4, Math.round((pct / 100) * 16));
+  // The worst-consumed limit in a set — drives the agent chip's readout color and
+  // the panel's "near limit" signal.
+  function worstLimit(limits: Limit[]): Limit | null {
+    return limits.length > 0 ? limits.reduce((max, limit) => (limit.pct > max.pct ? limit : max)) : null;
   }
 
   // Build the agent groups from the account. Claude is the only agent that
@@ -149,16 +137,16 @@
     return [{
       name: "Claude Code",
       plan: usage.plan,
+      icon: "sparkles",
       limits
     }];
   }
 
   const allLimits = $derived(groups.flatMap(group => group.limits));
-  const worst = $derived(
-    allLimits.length > 0 ? allLimits.reduce((max, limit) => (limit.pct > max.pct ? limit : max)) : null
-  );
-  const cells = $derived(allLimits.slice(0, CELL_CAP));
-  const cellsMore = $derived(Math.max(0, allLimits.length - CELL_CAP));
+  const worst = $derived(worstLimit(allLimits));
+  const isNearLimit = $derived(worst !== null && worst.level !== "normal");
+  const nearLabel = $derived(worst?.level === "crit" ? "at limit" : "near limit");
+  const agentCountLabel = $derived(`${formatCount(groups.length)} ${groups.length === 1 ? "agent" : "agents"}`);
 
   const ariaLabel = $derived(
     groups.length > 0
@@ -202,22 +190,33 @@
     popovertarget="usage-menu"
   >
     <span class="tag">Usage</span>
-    {#if worst}
-      <span class="worst">
-        <span class="dot sev" class:crit={worst.level === "crit"} class:warn={worst.level === "warn"}></span>
-        <span class="pct sev" class:crit={worst.level === "crit"} class:warn={worst.level === "warn"}>{formatPercent(worst.pct)}</span>
-        <span class="type">{typeOf(worst.label)}</span>
-      </span>
-      <span class="sep"></span>
-      <span class="cells">
-        {#each cells as cell (cell.label)}
-          <span class="cell" data-tooltip="{cell.label} · {formatPercent(cell.pct)}">
-            <span style:block-size="{cellHeight(cell.pct)}px" class="cfill sev" class:crit={cell.level === "crit"} class:warn={cell.level === "warn"}></span>
-          </span>
+    {#if groups.length > 0}
+      <span class="chips">
+        {#each groups as group (group.name)}
+          {@const groupWorst = worstLimit(group.limits)}
+          {#if groupWorst}
+            <span
+              class="chip sev"
+              class:crit={groupWorst.level === "crit"}
+              class:warn={groupWorst.level === "warn"}
+            >
+              <span class="agent-icon"><Icon name={group.icon} /></span>
+              <span class="bars">
+                {#each group.limits as limit (limit.label)}
+                  <span class="bar" data-tooltip="{limit.label} · {formatPercent(limit.pct)}">
+                    <span
+                      style:block-size="{limit.pct}%"
+                      class="barfill sev"
+                      class:crit={limit.level === "crit"}
+                      class:warn={limit.level === "warn"}
+                    ></span>
+                  </span>
+                {/each}
+              </span>
+              <span class="pct">{formatPercent(groupWorst.pct)}</span>
+            </span>
+          {/if}
         {/each}
-        {#if cellsMore > 0}
-          <span class="more">+{cellsMore}</span>
-        {/if}
       </span>
     {:else}
       <span class="none">—</span>
@@ -226,15 +225,39 @@
   </button>
 
   <div id="usage-menu" style:position-anchor="--usage-anchor" class="panel" aria-label="Usage details" popover role="dialog">
-    <div class="eyebrow">Usage by agent</div>
+    <div class="phead">
+      <div class="eyebrow">Usage by agent</div>
+      {#if groups.length > 0}
+        <div class="pmeta">
+          <span class="pcount">{agentCountLabel}</span>
+          {#if worst && isNearLimit}
+            <span class="near sev" class:crit={worst.level === "crit"} class:warn={worst.level === "warn"}>
+              <span class="near-dot"></span>{nearLabel}
+            </span>
+          {/if}
+        </div>
+      {/if}
+    </div>
 
     {#if groups.length > 0}
       <div class="scroll">
         {#each groups as group (group.name)}
-          <section class="group">
+          {@const groupWorst = worstLimit(group.limits)}
+          <section
+            class="group sev"
+            class:crit={groupWorst?.level === "crit"}
+            class:warn={groupWorst?.level === "warn"}
+          >
             <div class="ghead">
-              <span class="gname">{group.name}</span>
-              <span class="gplan">{group.plan}</span>
+              <span class="gid">
+                <span class="agent-icon"><Icon name={group.icon} /></span>
+                <span class="gtext">
+                  <span class="gname">{group.name}</span>
+                  <span class="gplan">{group.plan}</span>
+                </span>
+              </span>
+              <span class="gcount">{formatCount(group.limits.length)} {#if group.limits.length === 1}
+                limit{:else}limits{/if}</span>
             </div>
             <ul class="limits">
               {#each group.limits as limit (limit.label)}
@@ -305,60 +328,51 @@
       font-size: 11px;
     }
 
-    .worst {
-      display: inline-flex;
-      gap: 5px;
-      align-items: center;
-    }
-
-    .dot {
-      flex: none;
-      block-size: 6px;
-      inline-size: 6px;
-      border-radius: 999px;
-      background: var(--sev);
-    }
-
-    .pct {
-      color: var(--sev);
-      font-weight: 700;
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .type {
-      color: var(--on-surface-variant);
-      font-weight: 600;
-      font-size: 10px;
-    }
-
     .none {
       color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 12px;
     }
 
-    .sep {
-      block-size: 14px;
-      inline-size: 1px;
-      background: var(--outline);
-    }
-
-    /* A mini bar-chart — one bottom-aligned cell per active limit. */
-    .cells {
+    .chips {
       display: inline-flex;
-      gap: 3px;
-      align-items: flex-end;
-      block-size: 16px;
+      gap: 6px;
+      align-items: center;
     }
 
-    .cell {
+    /* One chip per agent: icon + a row of tiny severity bar-stacks + worst %. */
+    .chip {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding-block: 3px;
+      padding-inline: 7px;
+      border-radius: var(--radius-small);
+      background: var(--surface-1);
+    }
+
+    .agent-icon {
+      display: inline-flex;
+      flex: none;
+      color: var(--sev);
+      font-size: 13px;
+    }
+
+    /* A mini bar-chart — one bottom-aligned track per active limit. */
+    .bars {
+      display: inline-flex;
+      gap: 2px;
+      align-items: flex-end;
+      block-size: 15px;
+    }
+
+    .bar {
       display: flex;
       flex: none;
       align-items: flex-end;
-      block-size: 16px;
-      inline-size: 6px;
-      border-radius: 3px;
+      block-size: 100%;
+      inline-size: 4.5px;
+      border-radius: 2px;
       background: var(--surface-3);
 
       /* Each bar is tiny and sits right under the pointer, so drop its tooltip
@@ -368,18 +382,19 @@
       }
     }
 
-    .cfill {
+    .barfill {
+      min-block-size: 2px;
       inline-size: 100%;
-      border-radius: 3px;
+      border-radius: 2px;
       background: var(--sev);
       transition: block-size 300ms var(--ease), background 300ms var(--ease);
     }
 
-    .more {
-      margin-inline-start: 2px;
-      color: var(--on-surface-variant);
+    .pct {
+      color: var(--sev);
       font-weight: 700;
-      font-size: 10px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
     }
 
     .caret {
@@ -395,7 +410,8 @@
     /* A native [popover] defaults to overflow:auto — clip so no stray scrollbar
        shows; the inner .scroll owns vertical scrolling. */
     overflow: clip;
-    inline-size: 326px;
+    inline-size: min(29rem, 92vw);
+    margin-block-start: 6px;
     padding: 15px;
     border: 1px solid var(--outline);
     border-radius: 16px;
@@ -404,8 +420,15 @@
     box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
 
+    .phead {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+      margin-block-end: 14px;
+    }
+
     .eyebrow {
-      margin-block-end: 13px;
       color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 10px;
@@ -413,31 +436,110 @@
       text-transform: uppercase;
     }
 
+    .pmeta {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      color: var(--on-surface-variant);
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .pcount {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Near-limit chip: worst-severity dot + a short "near/at limit" label. */
+    .near {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      padding-block: 1px;
+      padding-inline: 7px;
+      border-radius: 999px;
+      background: var(--surface-3);
+      color: var(--sev);
+
+      .near-dot {
+        flex: none;
+        block-size: 6px;
+        inline-size: 6px;
+        border-radius: 999px;
+        background: var(--sev);
+      }
+    }
+
     .scroll {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+      gap: 8px;
       overflow-y: auto;
-      max-block-size: min(60vh, 440px);
+      max-block-size: min(62vh, 30rem);
     }
 
     .group {
+      padding: 10px 11px;
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-medium);
+      background: var(--surface-1);
+
       .ghead {
         display: flex;
-        gap: 10px;
+        gap: 8px;
         justify-content: space-between;
+        align-items: flex-start;
+        margin-block-end: 9px;
+      }
+
+      .gid {
+        display: inline-flex;
+        gap: 7px;
         align-items: center;
-        margin-block-end: 10px;
+        min-inline-size: 0;
+      }
+
+      .agent-icon {
+        display: inline-flex;
+        flex: none;
+        color: var(--sev);
+        font-size: 15px;
+      }
+
+      .gtext {
+        display: flex;
+        flex-direction: column;
+        min-inline-size: 0;
+        line-height: 1.15;
       }
 
       .gname {
+        overflow: hidden;
         font-weight: 700;
         font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .gplan {
+        overflow: hidden;
         color: var(--on-surface-variant);
         font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .gcount {
+        flex: none;
+        padding-block: 2px;
+        padding-inline: 7px;
+        border-radius: 999px;
+        background: var(--surface-3);
+        color: var(--on-surface-variant);
+        font-weight: 700;
+        font-size: 9px;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
         white-space: nowrap;
       }
     }

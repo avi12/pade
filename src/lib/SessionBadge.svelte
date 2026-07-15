@@ -37,7 +37,8 @@
     .label {
       color: var(--on-surface);
       font-family: var(--font-monospace);
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 13px;
     }
 
     .dot {
@@ -48,11 +49,12 @@
       background: var(--on-surface-variant);
     }
 
-    /* Working: green, dim-flashing (shared global @keyframes pulse). Ready:
-       the same green but steady, with a soft halo — the "done" signal. Exited:
-       neutral. Starting inherits the neutral dot above. */
+    /* Working: primary dot, dim-flashing (shared global @keyframes pulse) —
+       the agent is busy. Ready: a tertiary dot, steady, with a soft halo —
+       the "done, waiting for you" signal. Exited: neutral. Starting inherits
+       the neutral dot above. */
     &.working .dot {
-      background: var(--tertiary);
+      background: var(--primary);
       animation: pulse 1100ms var(--ease) infinite;
     }
 
