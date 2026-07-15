@@ -78,7 +78,6 @@
   class="trigger"
   aria-haspopup="menu"
   aria-label={`Project menu — ${label}`}
-  data-tooltip={path}
   popovertarget="m-app"
 >
   <Logo size={18} />

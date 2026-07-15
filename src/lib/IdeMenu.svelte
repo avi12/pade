@@ -43,11 +43,9 @@
 
 {#if bestFit}
   <span class="ide">
-    <button
-      class="ide-open"
-      data-tooltip={`Open in ${bestFit.label}`}
-      onclick={() => open(bestFit)}
-    ><Icon name="external" /> <span class="lbl">Open in {bestFit.label}</span></button>
+    <button class="ide-open" onclick={() => open(bestFit)}>
+      <Icon name="external" /> <span class="lbl">Open in {bestFit.label}</span>
+    </button>
     {#if hasAlternatives}
       <button
         style:anchor-name="--ide-anchor"
