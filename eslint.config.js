@@ -246,9 +246,9 @@ const browserGlobals = {
 };
 
 // Node globals belong only to tooling that actually runs under Node (config
-// files). Vite/webview source must not see `process` - oxlint enforces this via
-// the matching env override.
-const nodeToolingFiles = ["**/*.config.ts", "**/*.config.js", "**/*.config.mjs"];
+// files, the scripts/ CLI helpers). Vite/webview source must not see `process`
+// - oxlint enforces this via the matching env override.
+const nodeToolingFiles = ["**/*.config.ts", "**/*.config.js", "**/*.config.mjs", "scripts/**/*.mjs"];
 
 export default [
   ...svelteEslint.configs["flat/recommended"],

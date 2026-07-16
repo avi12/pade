@@ -57,7 +57,7 @@
       }
     },
     {
-      "files": ["./scripts/*.ts", "**/*.config.ts", "**/*.config.js", "**/*.config.mjs"],
+      "files": ["./scripts/*.ts", "./scripts/*.mjs", "**/*.config.ts", "**/*.config.js", "**/*.config.mjs"],
       "env": {
         "node": true
       },

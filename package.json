@@ -19,6 +19,7 @@
     "lint": "pnpm lint:js && pnpm lint:css && pnpm lint:rust",
     "test:js": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:e2e": "node scripts/smoke.mjs",
     "test": "pnpm test:js && pnpm test:rust",
     "fallow": "fallow audit --base HEAD"
   },
