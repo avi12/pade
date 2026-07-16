@@ -1,9 +1,11 @@
 <script lang="ts">
   import { agentIconName } from "@/lib/agentIcon";
+  import { ContextLevel, contextLevel } from "@/lib/contextLevel";
   import { Axis, beginReorder } from "@/lib/dragReorder";
   import type { DragHint } from "@/lib/dragReorder";
-  import { formatCount } from "@/lib/format";
+  import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { contextPct } from "@/lib/stores/context.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
@@ -252,10 +254,41 @@
   }
 </script>
 
+<!-- The tab's leading glyph: the agent's brand mark, tinted by how full its
+     context window is (green→amber→red toward the auto-handoff threshold) and
+     carrying status — a working agent breathes, a ready one gets a soft halo. -->
+{#snippet statusGlyph(s: AgentSession)}
+  {@const pct = contextPct({ id: s.id })}
+  {@const level = pct === null ? null : contextLevel(pct)}
+  <span
+    class="agent-icon {sessionStatus(s.id)}"
+    class:crit={level === ContextLevel.critical}
+    class:unknown={pct === null}
+    class:warn={level === ContextLevel.warning}
+    data-tooltip={pct === null
+      ? "Context window — measuring…"
+      : `${formatPercent(pct)} of context window used`}
+  ><Icon name={agentIconName(s.agent.id)} size={14} /></span>
+{/snippet}
+
+<!-- The exact context-usage percent, in the same severity colour as the glyph.
+     Hidden until there's a signal to show (a just-launched agent has none). -->
+{#snippet contextPercent(s: AgentSession)}
+  {@const pct = contextPct({ id: s.id })}
+  {#if pct !== null}
+    {@const level = contextLevel(pct)}
+    <span
+      class="ctx"
+      class:crit={level === ContextLevel.critical}
+      class:warn={level === ContextLevel.warning}
+    >{formatPercent(pct)}</span>
+  {/if}
+{/snippet}
+
 {#snippet tabInner(s: AgentSession)}
   {#if editingId === s.id}
     <span class="rename">
-      <span class="dot {sessionStatus(s.id)}"></span>
+      {@render statusGlyph(s)}
       <input
         class="rename-input"
         aria-label="Rename session"
@@ -291,8 +324,9 @@
       }}
       onmousedown={e => onTabPointer(e, s)}
     >
-      <span class="dot {sessionStatus(s.id)}"></span>
+      {@render statusGlyph(s)}
       <span class="label">{sessionLabel(s.id) ?? s.agent.label}</span>
+      {@render contextPercent(s)}
     </button>
     <button
       class="ai"
@@ -629,7 +663,63 @@
       }
     }
 
-    /* Per-session status dot — mirrors the SessionBadge states. */
+    /* Leading glyph on a full tab: the agent's brand mark, coloured by how full
+       its context window is (the --context-* gauge) and carrying status. Stands
+       in for the plain status dot, which now marks only the collapsed tiers. */
+    .agent-icon {
+      display: inline-flex;
+      flex: none;
+      border-radius: 999px;
+      color: var(--context-ok);
+      transition: color 300ms var(--ease);
+
+      &.warn {
+        color: var(--context-warning);
+      }
+
+      &.crit {
+        color: var(--context-critical);
+      }
+
+      /* No signal yet (a just-launched agent, or a non-agent terminal) — stay
+         neutral so the blue never reads as a real "plenty of room" measurement. */
+      &.unknown {
+        color: var(--on-surface-variant);
+      }
+
+      /* Working breathes; ready (idle, awaiting you) keeps the dot's soft halo. */
+      &.working {
+        animation: pulse 1100ms var(--ease) infinite;
+      }
+
+      &.ready {
+        box-shadow: 0 0 0 3px var(--tertiary-wash);
+      }
+    }
+
+    /* The exact context percent, in the glyph's severity colour. A stable min
+       width over tabular figures so counting up never re-packs the strip. */
+    .ctx {
+      flex: none;
+      min-inline-size: 3.5ch;
+      color: var(--context-ok);
+      font-weight: 700;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      text-align: end;
+      transition: color 300ms var(--ease);
+
+      &.warn {
+        color: var(--context-warning);
+      }
+
+      &.crit {
+        color: var(--context-critical);
+      }
+    }
+
+    /* Per-session status dot — mirrors the SessionBadge states. Used now only by
+       the collapsed overflow dots and the "+N" more-menu rows. */
     .dot {
       flex: none;
       block-size: 8px;

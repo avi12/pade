@@ -195,7 +195,7 @@ responsibility, and who it collaborates with.
 | `src/main.ts` | Entry: mounts `App`, loads the theme | `App.svelte`, `theme.css` |
 | `src/theme.css` | M3 Expressive tokens, global keyframes, base document styles | everything |
 | `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
-| `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu | `tabFit`, `stores/sessions` |
+| `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu; each full tab's agent glyph is tinted by its context-window fill (the `--context-*` gauge) with the exact percent alongside | `tabFit`, `stores/sessions`, `stores/context`, `contextLevel`, `agentIcon` |
 | `src/lib/AppMenu.svelte` | Top-bar project menu: current dir, recents, switch/open/new-window | `bridge` |
 | `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usageGroups` |
 | `src/lib/DesignMenu.svelte` | Quick-launch menu for AI design tools | `bridge.design` |
@@ -215,6 +215,7 @@ responsibility, and who it collaborates with.
 | `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `bridge`, everywhere |
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError` | form components |
 | `src/lib/tabFit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
+| `src/lib/contextLevel.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel(pct)` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
 | `src/lib/dragReorder.ts` | Pointer-drag FLIP reorder engine (DOM + geometry): lifts a tile, slides its siblings, supports drop-outside-to-split; delegates the pure order/index math to `reorder` | `SessionTabs`, `Terminal`, `reorder` |
 | `src/lib/reorder.ts` | Pure, DOM-free order/index math for drag-to-reorder + drop-to-split (`reorderedIds`, `insertionIndex`, `paneInsertIndex`) and the `DropSide` enum | `dragReorder`, `App` |
 | `src/lib/autoName.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
