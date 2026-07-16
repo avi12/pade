@@ -16,9 +16,17 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
+/// The Change Feed's live watcher plus the root it is armed on. The root is what
+/// lets `watch_start` detect a project switch and re-arm; the watcher handle is
+/// held only so dropping it stops the watch.
+struct ProjectWatcher {
+    root: PathBuf,
+    _watcher: RecommendedWatcher,
+}
+
 #[derive(Default)]
 pub struct WatcherState {
-    watcher: Mutex<Option<RecommendedWatcher>>,
+    watcher: Mutex<Option<ProjectWatcher>>,
     /// The picker's watcher — see `watch_dirs`. Separate from the Change Feed's:
     /// it watches other folders, for a different question, and is re-armed as the
     /// picker's list changes.
@@ -123,16 +131,30 @@ fn plural(n: usize) -> &'static str {
     }
 }
 
+/// Start (or re-root) the Change Feed's watcher on the current workspace.
+/// Idempotent per workspace: a repeat call for the same root keeps the live
+/// watcher, while a call after a project switch drops the old project's watcher
+/// and re-arms on the new root — the feed always follows the open workspace.
 #[tauri::command]
 pub fn watch_start(app: AppHandle, state: State<WatcherState>) -> Result<(), String> {
+    let root = std::env::current_dir().map_err(|e| e.to_string())?;
     let mut guard = state.watcher.lock().map_err(|e| e.to_string())?;
-    if guard.is_some() {
+    let already_watching_root = guard.as_ref().is_some_and(|active| active.root == root);
+    if already_watching_root {
         return Ok(());
     }
 
-    let root = std::env::current_dir().map_err(|e| e.to_string())?;
-    let app_handle = app.clone();
+    // Drop the previous project's watcher and its per-file bookkeeping before
+    // re-arming, so its handles and stale line counts go with it.
+    *guard = None;
+    if let Ok(mut counts) = state.line_counts.lock() {
+        counts.clear();
+    }
+    if let Ok(mut seen) = state.last_seen.lock() {
+        seen.clear();
+    }
 
+    let app_handle = app.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
         let Ok(event) = res else { return };
         handle_event(&app_handle, event);
@@ -143,7 +165,10 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>) -> Result<(), Str
         .watch(&root, RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
 
-    *guard = Some(watcher);
+    *guard = Some(ProjectWatcher {
+        root,
+        _watcher: watcher,
+    });
     Ok(())
 }
 

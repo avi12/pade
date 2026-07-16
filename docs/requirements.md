@@ -29,6 +29,8 @@ writes.
 - R1.2.3 Ignore VCS/build noise (`.git`, `node_modules`, `target`, `dist`, …).
 - R1.2.4 ✅ Click a card to expand its real per-file diff (via the git seam) with a
   **Unified / Split** toggle and open-in-editor; cached per path. 🔭 agent intent.
+- R1.2.5 ✅ The watcher follows the open workspace: switching projects re-roots
+  it (`watch_start` re-arms when the current dir no longer matches its root).
 
 ### 1.3 Highlight → Agent bridge (✅)
 - R1.3.1 Selecting text in a side panel offers "Send to agent".
