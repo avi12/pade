@@ -37,10 +37,16 @@
 
   // "Add editor…" flow — reveal an inline path field, validate & persist the
   // executable through the backend, and surface an ok/error status line.
+  const StatusKind = {
+    Ok: "ok",
+    Error: "err"
+  } as const;
+  type StatusKind = (typeof StatusKind)[keyof typeof StatusKind];
+
   let adding = $state(false);
   let draft = $state("");
   let status = $state<{
-    kind: "ok" | "err";
+    kind: StatusKind;
     text: string;
   } | null>(null);
 
@@ -225,7 +231,7 @@
           });
           if (path === null) {
             status = {
-              kind: "err",
+              kind: StatusKind.Error,
               text: "Enter the full path to an editor executable."
             };
             return;
@@ -234,14 +240,14 @@
           const result = await onaddeditor(path);
           if ("error" in result) {
             status = {
-              kind: "err",
+              kind: StatusKind.Error,
               text: result.error
             };
             return;
           }
 
           status = {
-            kind: "ok",
+            kind: StatusKind.Ok,
             text: `${result.label} added.`
           };
           showToast(`${result.label} added`);
@@ -295,9 +301,9 @@
     {/if}
 
     {#if status}
-      <output class="ed-status" class:err={status.kind === "err"}>
+      <output class="ed-status" class:err={status.kind === StatusKind.Error}>
         <span class="ed-status-ico" aria-hidden="true">
-          <Icon name={status.kind === "ok" ? "check" : "alert"} size={14} />
+          <Icon name={status.kind === StatusKind.Ok ? "check" : "alert"} size={14} />
         </span>
         <span>{status.text}</span>
       </output>
