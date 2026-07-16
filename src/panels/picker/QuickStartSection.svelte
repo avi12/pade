@@ -261,8 +261,10 @@
   }
 
   .np-name {
-    flex: 1 1 90px;
-    min-inline-size: 80px;
+    /* A small basis keeps the name on the root's line whenever ~5 characters
+       fit (typing scrolls); only a genuinely long root wraps it below. */
+    flex: 1 1 64px;
+    min-inline-size: 64px;
     padding: 6px;
     border: none;
     border-radius: var(--radius-small);
@@ -308,10 +310,12 @@
     }
   }
 
-  /* Root select — a native-popover custom select, like the editor selects. */
+  /* Root select — a native-popover custom select, like the editor selects.
+     Sized to its content (no grow): a short root shares one line with the
+     name input; only a genuinely long one wraps the row. */
   .root-sel {
     position: relative;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-inline-size: 0;
   }
 
