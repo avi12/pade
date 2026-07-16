@@ -21,22 +21,21 @@ export const IdeId = {
 } as const;
 export type IdeId = (typeof IdeId)[keyof typeof IdeId];
 
-// Brand mark per detected editor. The JetBrains IDEs share the JetBrains family
-// mark — legible at tab size and honest, where a per-product colour logo can't
-// reduce to one monochrome glyph (each still gets its own product tint via
-// `ideBrand` below).
+// Brand mark per detected editor. Each JetBrains product carries its own
+// official icon (the full-colour gradient square, vendored from
+// github.com/JetBrains/logos) — the icon name matches the editor id.
 const IDE_ICONS: Record<string, IconName> = {
   [IdeId.VsCode]: "vscode",
   [IdeId.Cursor]: "cursor",
-  [IdeId.WebStorm]: "jetbrains",
-  [IdeId.IntelliJ]: "jetbrains",
-  [IdeId.PyCharm]: "jetbrains",
-  [IdeId.GoLand]: "jetbrains",
-  [IdeId.RustRover]: "jetbrains",
-  [IdeId.Rider]: "jetbrains",
-  [IdeId.CLion]: "jetbrains",
-  [IdeId.PhpStorm]: "jetbrains",
-  [IdeId.RubyMine]: "jetbrains",
+  [IdeId.WebStorm]: "webstorm",
+  [IdeId.IntelliJ]: "idea",
+  [IdeId.PyCharm]: "pycharm",
+  [IdeId.GoLand]: "goland",
+  [IdeId.RustRover]: "rustrover",
+  [IdeId.Rider]: "rider",
+  [IdeId.CLion]: "clion",
+  [IdeId.PhpStorm]: "phpstorm",
+  [IdeId.RubyMine]: "rubymine",
   [IdeId.AndroidStudio]: "androidstudio",
   [IdeId.Zed]: "zed",
   [IdeId.Sublime]: "sublime",
@@ -95,10 +94,10 @@ export function ideIcon(id: string): IconName {
   return isConsoleEditor ? "terminal" : FALLBACK_ICON;
 }
 
-/** The editor's brand-tint key (theme.css `[data-brand]`) — the canonical id,
- *  so each JetBrains product wears its own colour on the shared family mark.
- *  Undefined when there's no brand to tint (a console or unknown editor),
- *  which omits the attribute and leaves the icon on the text colour. */
+/** The editor's brand-tint key (theme.css `[data-brand]`) — the canonical id.
+ *  A full-colour mark (the JetBrains products) simply ignores the tint; its
+ *  fills are baked in. Undefined when there's no brand to tint (a console or
+ *  unknown editor), which omits the attribute and leaves the text colour. */
 export function ideBrand(id: string): IdeId | undefined {
   return canonicalIdeId(id) ?? undefined;
 }

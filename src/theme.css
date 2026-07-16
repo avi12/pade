@@ -156,17 +156,16 @@
 
 /* Language & editor brand tints — same mechanism as the agent tints above.
    Languages key by their icon name (`data-brand={languageIcon(kind)}`); editors
-   key by their canonical id (`data-brand={ideBrand(id)}`), so every JetBrains
-   product wears its own colour on the shared family mark, Toolbox-style. A
+   key by their canonical id (`data-brand={ideBrand(id)}`). A
    component opts in by colouring the icon span with
    `var(--brand-color, <fallback>)`. Each block nests both schemes: light is the
    official brand hex (darkened only where the true hex is illegible on light
-   surfaces — the JavaScript yellow, the Android green, the light JetBrains
-   product tones); dark is lightened for contrast. Cursor stays untinted — its
-   brand is genuinely black and follows the text colour. JetBrains product tones
-   come from the official logo gradients (github.com/JetBrains/logos); Rust's
-   logo is black, so it wears the colour the ecosystem knows it by — the named
-   rust #b7410e, GitHub's Rust #dea584 in the dark scheme. */
+   surfaces — the JavaScript yellow, the Android green); dark is lightened for
+   contrast. Cursor stays untinted — its brand is genuinely black and follows
+   the text colour. The JetBrains products need no entries: each carries its
+   official full-colour mark (fills baked into the SVG), so the tint is a no-op
+   there. Rust's logo is black, so it wears the colour the ecosystem knows it
+   by — the named rust #b7410e, GitHub's Rust #dea584 in the dark scheme. */
 [data-brand="javascript"] {
   --brand-color: #b59f00;
 
@@ -277,78 +276,6 @@
 
   :root[data-theme="dark"] & {
     --brand-color: #5b8def;
-  }
-}
-
-[data-brand="webstorm"] {
-  --brand-color: #0089ab;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #00c4f4;
-  }
-}
-
-[data-brand="idea"] {
-  --brand-color: #fe2857;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #ff6188;
-  }
-}
-
-[data-brand="pycharm"] {
-  --brand-color: #00a065;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #00d886;
-  }
-}
-
-[data-brand="goland"] {
-  --brand-color: #007dfe;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #52a8ff;
-  }
-}
-
-[data-brand="rustrover"] {
-  --brand-color: #cc8900;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #ffab00;
-  }
-}
-
-[data-brand="rider"] {
-  --brand-color: #ff0a67;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #ff5c93;
-  }
-}
-
-[data-brand="clion"] {
-  --brand-color: #009ae5;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #43bdff;
-  }
-}
-
-[data-brand="phpstorm"] {
-  --brand-color: #7256ff;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #9d89ff;
-  }
-}
-
-[data-brand="rubymine"] {
-  --brand-color: #ff2358;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #ff6b8f;
   }
 }
 

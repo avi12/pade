@@ -11,19 +11,19 @@ describe("ideIcon", () => {
     expect(ideIcon("androidstudio")).toBe("androidstudio");
   });
 
-  it("shares the JetBrains mark across the JetBrains IDEs", () => {
-    expect(ideIcon("webstorm")).toBe("jetbrains");
-    expect(ideIcon("idea")).toBe("jetbrains");
-    expect(ideIcon("pycharm")).toBe("jetbrains");
-    expect(ideIcon("rustrover")).toBe("jetbrains");
-    expect(ideIcon("rider")).toBe("jetbrains");
-    expect(ideIcon("clion")).toBe("jetbrains");
-    expect(ideIcon("phpstorm")).toBe("jetbrains");
-    expect(ideIcon("rubymine")).toBe("jetbrains");
+  it("gives each JetBrains product its own official mark", () => {
+    expect(ideIcon("webstorm")).toBe("webstorm");
+    expect(ideIcon("idea")).toBe("idea");
+    expect(ideIcon("pycharm")).toBe("pycharm");
+    expect(ideIcon("rustrover")).toBe("rustrover");
+    expect(ideIcon("rider")).toBe("rider");
+    expect(ideIcon("clion")).toBe("clion");
+    expect(ideIcon("phpstorm")).toBe("phpstorm");
+    expect(ideIcon("rubymine")).toBe("rubymine");
   });
 
   it("resolves user-added editors by their `added-<basename>` id", () => {
-    expect(ideIcon("added-webstorm64")).toBe("jetbrains");
+    expect(ideIcon("added-webstorm64")).toBe("webstorm");
     expect(ideIcon("added-cursor")).toBe("cursor");
     expect(ideIcon("added-sublime_text")).toBe("sublime");
   });
