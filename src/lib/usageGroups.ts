@@ -8,6 +8,7 @@
 // every other agent has no local usage signal we can trust, so it surfaces as
 // an `unknown` group with no limits rather than an invented figure.
 
+import { agentIconName, AgentId } from "@/lib/agentIcon";
 import type { IconName } from "@/lib/Icon.svelte";
 import { SHELL_AGENT_ID } from "@/lib/types";
 import type { AccountUsage, Agent, AgentSession } from "@/lib/types";
@@ -50,39 +51,9 @@ export type AgentGroup = {
   limits: Limit[];
 };
 
-/** The agent registry ids ADE knows (mirrors `src-tauri/src/agents.rs`) — the
- *  closed set the icon map keys off, so no bare id string literals leak out. */
-export const AgentId = {
-  Claude: "claude",
-  Codex: "codex",
-  Grok: "grok",
-  Antigravity: "antigravity",
-  Cursor: "cursor",
-  Aider: "aider"
-} as const;
-export type AgentId = (typeof AgentId)[keyof typeof AgentId];
-
 // Terminal-editor sessions (Neovim/Vim/Helix) run under an `editor-<id>` agent
 // id (see `App.svelte`); they aren't coding agents and carry no usage.
 const EDITOR_AGENT_ID_PREFIX = "editor-";
-
-// Every known agent's glyph, drawn from the existing `Icon.svelte` set (one
-// authoritative home). Unknown ids fall back to the generic terminal mark.
-const AGENT_ICONS: Record<string, IconName> = {
-  [AgentId.Claude]: "sparkles",
-  [AgentId.Codex]: "code",
-  [AgentId.Grok]: "activity",
-  [AgentId.Antigravity]: "star",
-  [AgentId.Cursor]: "pencil",
-  [AgentId.Aider]: "git"
-};
-const FALLBACK_ICON: IconName = "terminal";
-
-/** The icon for an agent id — a known agent's own glyph, else the terminal
- *  fallback. Pure so both the trigger and the panel resolve it identically. */
-export function agentIconName(agentId: string): IconName {
-  return AGENT_ICONS[agentId] ?? FALLBACK_ICON;
-}
 
 // Severity by consumption. Applied as a CSS class downstream.
 export function limitLevel(pct: number): Level {
