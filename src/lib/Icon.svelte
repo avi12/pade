@@ -9,11 +9,12 @@
   // ICON_NAMES is the type's single source of truth — a glob's keys are only
   // `string` to the type system, so the name union can't be derived from them.
   const ICON_NAMES = [
-    "activity", "alert", "branch", "check", "checks", "close", "code",
-    "columns", "external", "feed", "folder", "folderPlus", "git", "github",
-    "grip", "history", "maximize", "minimize", "monitor", "moon", "more",
-    "pencil", "plus", "refresh", "search", "sliders", "sparkles", "star",
-    "sun", "swap", "terminal", "trash", "window", "windowPlus"
+    "alert", "antigravity", "branch", "check", "checks", "claude", "close",
+    "code", "codex", "columns", "cursor", "external", "feed", "folder",
+    "folderPlus", "git", "github", "grip", "grok", "history", "maximize",
+    "minimize", "monitor", "moon", "more", "pencil", "plus", "refresh",
+    "search", "sliders", "sparkles", "star", "sun", "swap", "terminal",
+    "trash", "window", "windowPlus"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
 

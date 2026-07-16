@@ -2,14 +2,16 @@ import { agentIconName } from "@/lib/agentIcon";
 import { describe, expect, it } from "vitest";
 
 describe("agentIconName", () => {
-  it("maps known agent ids to their glyphs", () => {
-    expect(agentIconName("claude")).toBe("sparkles");
-    expect(agentIconName("codex")).toBe("code");
-    expect(agentIconName("grok")).toBe("activity");
-    expect(agentIconName("aider")).toBe("git");
+  it("maps known agent ids to their brand glyphs", () => {
+    expect(agentIconName("claude")).toBe("claude");
+    expect(agentIconName("codex")).toBe("codex");
+    expect(agentIconName("grok")).toBe("grok");
+    expect(agentIconName("antigravity")).toBe("antigravity");
+    expect(agentIconName("cursor")).toBe("cursor");
   });
 
-  it("falls back to the terminal glyph for an unknown id", () => {
+  it("falls back to the terminal glyph for an agent with no brand mark (aider) or an unknown id", () => {
+    expect(agentIconName("aider")).toBe("terminal");
     expect(agentIconName("editor-nvim")).toBe("terminal");
     expect(agentIconName("something-new")).toBe("terminal");
   });

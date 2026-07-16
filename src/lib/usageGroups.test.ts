@@ -97,7 +97,7 @@ describe("buildGroups", () => {
 
     expect(claude.unknown).toBe(false);
     expect(claude.plan).toBe("Max");
-    expect(claude.icon).toBe("sparkles");
+    expect(claude.icon).toBe("claude");
     expect(claude.name).toBe(CLAUDE_LABEL);
     expect(claude.shortName).toBe("Claude");
     expect(claude.limits.map(limit => limit.kindShort)).toEqual(["5h", "wk"]);
