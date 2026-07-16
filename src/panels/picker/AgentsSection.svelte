@@ -95,6 +95,7 @@
           class="chip"
           class:on={isSelected}
           aria-checked={isSelected}
+          data-agent={agent.id}
           onclick={() => onpick(agent.id)}
           role="radio"
         >
@@ -206,7 +207,9 @@
   }
 
   /* Choice chips — pills; selected gets a primary edge over its container, with
-     the agent's own glyph leading the label. */
+     the agent's own glyph leading the label. The glyph carries the agent's brand
+     colour (--agent-brand, set per data-agent in theme.css); a monochrome-brand
+     agent has none and its glyph follows the label colour. */
   .chip {
     display: inline-flex;
     gap: 8px;
@@ -221,6 +224,10 @@
     font-size: 13px;
     cursor: pointer;
     transition: border-color 150ms var(--ease);
+
+    :global(.icon) {
+      color: var(--agent-brand, currentColor);
+    }
 
     &:hover {
       border-color: var(--primary);

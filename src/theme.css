@@ -119,6 +119,37 @@
   --syntax-number: hsl(28deg 85% 66%);
 }
 
+/* Agent brand tints — each coding agent's signature colour. Used only to tint the
+   agent chips in the picker and onboarding; a component opts in by colouring its
+   icon with `var(--agent-brand, currentColor)`. The session tabs stay monochrome
+   (they never set --agent-brand) and the usage meter's icon colour encodes
+   severity, so neither is tinted. Grok, Cursor and Aider are monochrome brands —
+   they set nothing and follow the text colour. Brand hex (not theme tokens) so the
+   colours stay true; the dark scheme lightens each for contrast on dark surfaces. */
+[data-agent="claude"] {
+  --agent-brand: #d97757;
+}
+
+[data-agent="codex"] {
+  --agent-brand: #6d5ae6;
+}
+
+[data-agent="antigravity"] {
+  --agent-brand: #4285f4;
+}
+
+:root[data-theme="dark"] [data-agent="claude"] {
+  --agent-brand: #e28b6d;
+}
+
+:root[data-theme="dark"] [data-agent="codex"] {
+  --agent-brand: #a99bff;
+}
+
+:root[data-theme="dark"] [data-agent="antigravity"] {
+  --agent-brand: #83aefc;
+}
+
 * {
   box-sizing: border-box;
   scrollbar-color: color-mix(in sRGB, currentColor 28%, transparent) transparent;

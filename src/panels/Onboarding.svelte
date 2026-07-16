@@ -37,7 +37,7 @@
     <ul class="agents">
       {#each agents as a (a.id)}
         <li>
-          <button class="agent" onclick={() => onpick(a)}>
+          <button class="agent" data-agent={a.id} onclick={() => onpick(a)}>
             <span class="identity">
               <Icon name={agentIconName(a.id)} size={18} />
               <span class="name">{a.label}</span>
@@ -192,6 +192,12 @@
       border-color: var(--primary);
       background: var(--primary-container);
       color: var(--on-primary-container);
+    }
+
+    /* The agent's glyph carries its brand colour (--agent-brand, set per
+       data-agent in theme.css); a monochrome-brand agent follows the text. */
+    :global(.icon) {
+      color: var(--agent-brand, currentColor);
     }
 
     .identity {
