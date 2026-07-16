@@ -86,6 +86,11 @@ These are non-negotiable for all work in this repo.
      what-it-checks, extract it into a descriptively-named boolean first
      (`const isTempWorkspace = …; if (isTempWorkspace)`), so the happy path reads
      as prose. Inline only conditions that are already obvious.
+   - Prefer names over comments: make the code self-documenting — reach for a
+     descriptive variable, function, or boolean name before a comment. Avoid
+     comments unless absolutely necessary; reserve them for a non-obvious *why* a
+     name can't carry, never to restate *what* the code does. Especially: never
+     write a comment above an `if` to explain its condition — name the condition.
    - Full words, no abbreviations: name variables, functions, parameters, types,
      CSS classes, and CSS custom properties with complete, spelled-out words —
      `index` not `idx`, `button` not `btn`, `element` not `el`, `previous` not
