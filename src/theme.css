@@ -40,6 +40,14 @@
   --warning-wash: hsl(28deg 90% 45% / 14%);
   --critical: hsl(352deg 72% 50%);
   --critical-wash: hsl(352deg 72% 55% / 14%);
+
+  /* Context-window fuel gauge — a blue→amber→red ramp for how full an agent's
+     context is (see lib/contextLevel). Its own scale, distinct from the
+     blue/orange/pink severity above, so a filling context reads like a traffic
+     light on each session tab. Theme-adaptive: darker/denser in light mode. */
+  --context-ok: hsl(212deg 90% 46%);
+  --context-warning: hsl(40deg 92% 40%);
+  --context-critical: hsl(2deg 78% 50%);
   --surface: hsl(var(--seed-hue) 30% 98%);
   --surface-1: hsl(var(--seed-hue) 28% 96%);
   --surface-2: hsl(var(--seed-hue) 26% 93%);
@@ -103,6 +111,9 @@
   --warning-wash: hsl(28deg 90% 58% / 16%);
   --critical: hsl(352deg 80% 70%);
   --critical-wash: hsl(352deg 80% 60% / 16%);
+  --context-ok: hsl(212deg 90% 66%);
+  --context-warning: hsl(45deg 95% 60%);
+  --context-critical: hsl(2deg 85% 66%);
   --surface: hsl(214deg 30% 8%);
   --surface-1: hsl(214deg 28% 11%);
   --surface-2: hsl(214deg 26% 14%);
@@ -121,9 +132,10 @@
 
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the
    agent chips in the picker and onboarding; a component opts in by colouring its
-   icon with `var(--agent-brand, currentColor)`. The session tabs stay monochrome
-   (they never set --agent-brand) and the usage meter's icon colour encodes
-   severity, so neither is tinted. Grok, Cursor and Aider are monochrome brands —
+   icon with `var(--agent-brand, currentColor)`. The session tabs never set
+   --agent-brand — their icon colour instead encodes context-window severity (the
+   --context-* gauge above), as the usage meter's icon encodes rate-limit
+   severity. Grok, Cursor and Aider are monochrome brands —
    they set nothing and follow the text colour. Brand hex (not theme tokens) so the
    colours stay true; the dark scheme lightens each for contrast on dark surfaces. */
 [data-agent="claude"] {
