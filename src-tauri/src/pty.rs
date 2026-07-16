@@ -54,6 +54,11 @@ impl Drop for Pty {
 /// The counter is what makes the handover exact: the frontend can be listening to
 /// the live stream while it asks for the history, and `seq` tells it which of the
 /// chunks it caught are already inside that history (see `pty_history`).
+///
+/// `seq` invariants the frontend's splice depends on (Hyrum): 1-based, +1 per
+/// *emitted* chunk (empty decodes never reach here), `0` = empty/unknown
+/// session, and `data` is the byte-trimmed but seq-complete concatenation of
+/// chunks `1..=seq`.
 #[derive(Default)]
 pub struct History {
     data: String,
@@ -66,7 +71,9 @@ pub struct History {
 }
 
 /// The escape sequences a program uses to take over the alternate screen and to give
-/// it back (DEC private mode 1049).
+/// it back (DEC private mode 1049). Wire constant shared with the frontend:
+/// `Terminal.svelte` writes the same enter literal before replaying an alternate
+/// history — the two spellings must change together.
 const ENTER_ALTERNATE_SCREEN: &str = "\x1b[?1049h";
 const LEAVE_ALTERNATE_SCREEN: &str = "\x1b[?1049l";
 

@@ -306,6 +306,48 @@ entry. Each concern is one module:
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
 | `util.rs` | Cross-cutting helpers: executable resolution (`search_dirs`, `find_in`, `resolve`, `is_on_path`), `home_dir`, `encode_project` |
 
+### Load-bearing IPC contracts (Hyrum's Law)
+
+Beyond the zod schemas, the frontend depends on these *observable behaviors* of
+the Rust commands. They are contracts — a refactor that changes one silently
+breaks a consumer with no type error:
+
+- **The alternate-screen wire constant is duplicated across the boundary.**
+  `pty.rs` detects `\x1b[?1049h/l` to set `History.alternate`;
+  `Terminal.svelte` writes the same literal before replaying an alternate
+  history. The two spellings must change together (each side carries a comment
+  pointing at the other).
+- **`seq` invariants** (`pty.rs` `History`): 1-based, +1 per *emitted* chunk
+  (empty decodes don't count), `0` means "empty or unknown session", and
+  `history.data` is the byte-trimmed but seq-complete concatenation of chunks
+  `1..=seq`. `Terminal.svelte`'s splice (`chunk.seq > history.seq`) relies on
+  all four.
+- **The emitted PTY `data` is never transformed** — escape codes and all; only
+  the transcript is ANSI-stripped. xterm reconstructs state from the raw
+  stream.
+- **VCS commands reject outside a git repo** (never resolve with an empty
+  array). That rejection is `VcsPanel`'s only repo-presence signal; a "lenient"
+  `Ok(vec![])` would render a clean-repo view in a non-repo.
+- **`ide_suggest`'s array order is the contract** — consumers treat `ides[0]`
+  as *the* editor for reveal/open actions.
+- **`vcs_remote_url` returns a host root**; the `/commit/<sha>` path appended
+  by `CommitLog`/`CommitModal` is a GitHub-shaped assumption — the seam to
+  change for GitLab (`/-/commit/`) or Bitbucket (`/commits/`).
+- **Paths cross the boundary verbatim, never canonicalized**, with mixed
+  separators by origin: git output uses `/`, watcher/workspace paths are
+  native (`\` on Windows). The frontend's `normalizePath` (separators + case +
+  trailing) is therefore the *entire* recents/dedup contract, and helpers
+  split on `[\\/]`. The picker guesses the display separator from the user
+  agent — a latent coupling if PADE ships beyond Windows.
+- **`ChangeEvent.id` is globally unique by construction** (timestamp +
+  process-global counter) and is used as a Svelte keyed-each and cache key —
+  repeated edits to the same path must keep distinct ids.
+- Error-string *wording* is **not** load-bearing: the frontend never matches
+  on message content, so Rust `Err(...)` strings may be reworded freely.
+- The context-percent regexes and the Shift+Enter escape are couplings to the
+  **agent CLI's** observable output (documented at their definitions) — a
+  deliberate, accepted Hyrum dependency, not a stable PADE contract.
+
 ### Windows 11 modern context menu (`src-tauri/contextmenu-handler/`)
 
 Windows 11's first-shown right-click menu only loads a context-menu handler that

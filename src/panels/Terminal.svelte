@@ -124,7 +124,9 @@
   let lastResizeAt = 0;
 
   // Take over the alternate screen (DEC private mode 1049) — written into xterm, not to
-  // the agent, when re-attaching to a session that is already painting there.
+  // the agent, when re-attaching to a session that is already painting there. Wire
+  // constant shared with pty.rs, which detects this exact literal to set
+  // `history.alternate` — the two spellings must change together.
   const ENTER_ALTERNATE_SCREEN = "\x1b[?1049h";
 
   // Shift+Enter should add a newline to the agent's prompt, not submit it.
