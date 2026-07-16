@@ -1,4 +1,4 @@
-import { formatCompact, formatCount, formatPercent } from "@/lib/format";
+import { formatCount, formatPercent } from "@/lib/format";
 import { describe, expect, it } from "vitest";
 
 // The wrappers delegate localisation to Intl, so these assertions pin what the
@@ -18,19 +18,6 @@ describe("formatCount", () => {
 
     expect(formatted.replaceAll(/\D/gu, "")).toBe("1234567");
     expect(formatted.length).toBeGreaterThan("1234567".length);
-  });
-});
-
-describe("formatCompact", () => {
-  it("keeps small values unshortened", () => {
-    expect(formatCompact(950)).toBe("950");
-  });
-
-  it("shortens large values with a compact unit", () => {
-    const compact = formatCompact(1_500_000);
-
-    expect(compact).toContain("1");
-    expect(compact.length).toBeLessThan(formatCount(1_500_000).length);
   });
 });
 

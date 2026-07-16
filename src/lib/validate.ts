@@ -5,9 +5,6 @@
 
 import { z } from "zod";
 
-/** Generic trimmed, non-empty text with a sane cap (short single-line fields). */
-export const NonEmptyText = z.string().trim().min(1).max(2000);
-
 /** A restore-a-version query — a short natural-language description. */
 export const RestoreQuery = z.string().trim().min(1).max(200);
 

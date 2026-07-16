@@ -2,7 +2,6 @@ import {
   FirstPrompt,
   FolderPath,
   nameError,
-  NonEmptyText,
   parseInput,
   ProjectName,
   RestoreQuery
@@ -12,7 +11,7 @@ import { describe, expect, it } from "vitest";
 describe("parseInput", () => {
   it("returns the trimmed value when the schema accepts", () => {
     const parsed = parseInput({
-      schema: NonEmptyText,
+      schema: RestoreQuery,
       raw: "  hello  "
     });
 
@@ -21,7 +20,7 @@ describe("parseInput", () => {
 
   it("returns null when the schema rejects", () => {
     const parsed = parseInput({
-      schema: NonEmptyText,
+      schema: RestoreQuery,
       raw: "   "
     });
 
@@ -30,7 +29,7 @@ describe("parseInput", () => {
 
   it("returns null for a non-string value", () => {
     const parsed = parseInput({
-      schema: NonEmptyText,
+      schema: RestoreQuery,
       raw: 42
     });
 
@@ -95,11 +94,6 @@ describe("FirstPrompt", () => {
 });
 
 describe("length caps", () => {
-  it("caps NonEmptyText at 2000 characters", () => {
-    expect(NonEmptyText.safeParse("x".repeat(2000)).success).toBe(true);
-    expect(NonEmptyText.safeParse("x".repeat(2001)).success).toBe(false);
-  });
-
   it("caps RestoreQuery at 200 characters", () => {
     expect(RestoreQuery.safeParse("x".repeat(200)).success).toBe(true);
     expect(RestoreQuery.safeParse("x".repeat(201)).success).toBe(false);
