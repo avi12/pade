@@ -82,6 +82,11 @@ These are non-negotiable for all work in this repo.
      the closed set once — a Rust `enum`, or a TS `z.enum`/`as const` union — and
      compare against its members (`kind === ChangeKind.Created`, not
      `kind === "created"`). One authoritative definition, no scattered literals.
+     The one exception is the closed set's *own definition*: the string values
+     inside the `z.enum` / `as const` / `IdeId` object literal that declares the
+     set are allowed to be hardcoded there — that file is their authoritative
+     home. A literal is only "magic" once it appears a second time somewhere that
+     should have referenced the member instead.
    - Name your conditions: when an `if`/`while`/ternary test isn't self-evidently
      what-it-checks, extract it into a descriptively-named boolean first
      (`const isTempWorkspace = …; if (isTempWorkspace)`), so the happy path reads
