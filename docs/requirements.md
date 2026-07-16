@@ -106,6 +106,13 @@ writes.
   as cwd locks it (Windows). PADE kills the sessions under it (remembering the
   live ones), does the move/rename, then **resumes** the live ones on the new path
   seeded with `continue`; idle/exited sessions stay closed.
+- R1.9.7 ✅ **IntelliJ-style path completion** in the add-root field: while the
+  suggestion list shows, exactly one option is always selected — the top by
+  default, and across re-filters by the formula
+  `next = survivorIndex ≥ 0 ? survivorIndex : min(previousIndex, lastIndex)`
+  (a surviving option keeps its selection at its new position; a vanished one
+  falls to the nearest remaining position). Enter accepts the selection; Tab
+  accepts and drills into sub-folders; a cleared field forgets the selection.
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** — open the active project in an installed editor (`ide.rs`;

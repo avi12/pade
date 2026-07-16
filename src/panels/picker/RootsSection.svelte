@@ -48,8 +48,15 @@
     result: emptyProbe
   });
   let listOpen = $state(false);
-  // Keyboard-highlighted suggestion, or -1 when pointer/typing drives the list.
+  // The selected suggestion. One option is always selected while the list is
+  // visible — the reconciler effect below enforces it; -1 only while hidden.
   let activeIndex = $state(-1);
+  // What was last selected, remembered across re-filters so the reconciler can
+  // follow the same folder to its new position (or fall to the nearest one).
+  let lastSelected: {
+    dir: string;
+    index: number;
+  } | null = null;
   let inputEl = $state<HTMLInputElement | null>(null);
   let listEl = $state<HTMLUListElement | null>(null);
 
@@ -156,6 +163,8 @@
         path: "",
         result: emptyProbe
       };
+      // A fresh path starts a fresh selection — don't carry one across a clear.
+      lastSelected = null;
       return;
     }
 
@@ -186,12 +195,42 @@
     }
   });
 
+  // Move the selection — shared by the arrow keys and the reconciler, so the
+  // remembered selection always matches what's highlighted.
+  function select(index: number) {
+    activeIndex = index;
+    lastSelected = {
+      dir: suggestions[index],
+      index
+    };
+  }
+
+  // While the list shows, one option is always selected, by one formula:
+  //
+  //   next = survivorIndex ≥ 0 ? survivorIndex : min(previousIndex, lastIndex)
+  //
+  // — a surviving option is followed by value to its new position; a vanished
+  // one falls to the nearest remaining position (its old index, clamped to the
+  // new end — a removed bottom selects the new bottom); no previous selection
+  // means previousIndex 0, the top.
+  $effect(() => {
+    if (!listVisible) {
+      return;
+    }
+
+    const survivorIndex = lastSelected ? suggestions.indexOf(lastSelected.dir) : -1;
+    const previousIndex = lastSelected?.index ?? 0;
+    const lastIndex = suggestions.length - 1;
+    select(survivorIndex >= 0 ? survivorIndex : Math.min(previousIndex, lastIndex));
+  });
+
   // Adopt a suggested directory — shared by the listbox rows and the Enter key,
   // so it stays a named function.
   function pick(dir: string) {
     newRoot = dir;
     listOpen = false;
     activeIndex = -1;
+    lastSelected = null;
     inputEl?.focus();
   }
 
@@ -236,9 +275,7 @@
           autocomplete="off"
           onblur={() => (listOpen = false)}
           onfocus={() => (listOpen = true)}
-          oninput={() => {
-            listOpen = true; activeIndex = -1;
-          }}
+          oninput={() => (listOpen = true)}
           onkeydown={e => {
             if (!listVisible) {
               return;
@@ -246,23 +283,26 @@
 
             if (e.key === "ArrowDown") {
               e.preventDefault();
-              activeIndex = (activeIndex + 1) % suggestions.length;
+              select((activeIndex + 1) % suggestions.length);
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
-              activeIndex = activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1;
+              select(activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1);
             } else if (e.key === "Enter" && activeIndex >= 0) {
               e.preventDefault();
               pick(suggestions[activeIndex]);
             } else if (e.key === "Tab" && activeIndex >= 0) {
               // Accept the highlighted folder and append a separator instead of
               // moving focus, then keep the list open so the debounced probe
-              // immediately starts completing that folder's sub-folders.
+              // immediately starts completing that folder's sub-folders — where
+              // the selection starts fresh at the top.
               e.preventDefault();
               newRoot = suggestions[activeIndex] + pathSeparator;
-              activeIndex = -1;
+              lastSelected = null;
               listOpen = true;
             } else if (e.key === "Escape") {
-              listOpen = false; activeIndex = -1;
+              listOpen = false;
+              activeIndex = -1;
+              lastSelected = null;
             }
           }}
           placeholder="C:\repositories  ·  paste or start typing a folder path"
