@@ -10,9 +10,11 @@
 //!   registry entry pointing at the exe with `%V` (the folder), since there's no
 //!   modern menu to host the verb (and it needs no Developer Mode).
 //!
-//! Both open the folder through `launch_context`. The project-picker toggle turns
-//! the version-appropriate menu on; unregister removes either (and any leftover from
-//! an earlier build that added both). The modern step can fail (Developer Mode off),
+//! Both open the folder through `launch_context`. The project-picker toggle turns the
+//! version-appropriate menu on and off: on Windows 11 the packaged handler is
+//! registered once and thereafter shown/hidden via a flag it reads on every menu build
+//! (no Explorer restart, à la `PowerToys`); on Windows 10 the legacy keys are added and
+//! removed directly. Registering the modern package can fail (Developer Mode off),
 //! which is surfaced to the UI. Windows-only; other platforms get inert stubs so
 //! `lib.rs` compiles everywhere.
 
@@ -94,6 +96,30 @@ fn set_menu_shown(shown: bool) -> Result<(), String> {
     ])
 }
 
+/// Read the show/hide flag the same way the handler does (see the `contextmenu-handler`
+/// crate): an explicit `0` means hidden; absent, unreadable, or any other value means
+/// shown. Lets `context_menu_status` report a registered-but-hidden package as off.
+#[cfg(windows)]
+fn menu_shown() -> bool {
+    let Ok(output) = crate::util::command("reg")
+        .args(["query", MENU_FLAG_KEY, "/v", MENU_FLAG_VALUE])
+        .output()
+    else {
+        return true;
+    };
+    if !output.status.success() {
+        return true;
+    }
+    // The value line ends in the DWORD as hex ("… REG_DWORD    0x0"); only 0 is hidden.
+    let is_hidden = String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .next_back()
+        .and_then(|token| token.strip_prefix("0x"))
+        .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+        .is_some_and(|value| value == 0);
+    !is_hidden
+}
+
 /// Add the legacy folder + folder-background registry entries.
 #[cfg(windows)]
 fn register_legacy() -> Result<(), String> {
@@ -131,44 +157,57 @@ fn legacy_registered() -> bool {
         .is_ok_and(|o| o.status.success())
 }
 
-/// Register "Open in PADE" in the one menu that fits this Windows version: the modern
-/// packaged handler on Windows 11 (its only first-level menu), or the legacy registry
-/// keys on Windows 10 and older. Registering both would duplicate the entry on 11. On
-/// 11 the handler's show/hide flag is turned on and any legacy leftover is cleared.
+/// Turn "Open in PADE" on for the one menu that fits this Windows version.
+///
+/// - **Windows 11**: register the sparse package **once** (skipped when it is already
+///   registered — re-enabling is then just a flag flip, never a redeploy), clear any
+///   legacy leftover, and set the show/hide flag to shown. Mirrors `PowerToys`, which
+///   registers its packaged handler once and thereafter only toggles a flag.
+/// - **Windows 10 and older**: add the legacy registry keys (there is no packaged
+///   handler to host the verb).
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_register() -> Result<(), String> {
-    if is_windows_11() {
-        let _ = unregister_legacy();
-        modern::register()?;
-        set_menu_shown(true)
-    } else {
-        register_legacy()
+    if !is_windows_11() {
+        return register_legacy();
     }
+    let _ = unregister_legacy();
+    if !modern::is_registered() {
+        modern::register()?;
+    }
+    set_menu_shown(true)
 }
 
-/// Remove both menus — whichever this version uses, plus any leftover from an earlier
-/// build that added both. The handler's show/hide flag is turned off *first* so a
-/// cached modern handler stops showing the item immediately (it reads the flag on
-/// every menu build), then the package and keys are removed. Each removal is a no-op
-/// when its menu is absent; the first real error (if any) is returned.
+/// Turn "Open in PADE" off.
+///
+/// - **Windows 11**: only flip the handler's show/hide flag to hidden. The sparse
+///   package stays registered, so the handler self-hides on the next menu build with no
+///   Explorer restart and no redeploy — exactly how `PowerToys`' File Locksmith /
+///   `PowerRename` keep their handler registered and just hide it. Fully removing the
+///   package is reserved for a future uninstall path (`modern::unregister`).
+/// - **Windows 10 and older**: remove the legacy registry keys outright (no
+///   self-hiding handler exists there).
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_unregister() -> Result<(), String> {
-    let hidden = set_menu_shown(false);
-    let modern = modern::unregister();
-    let legacy = unregister_legacy();
-    hidden.and(modern).and(legacy)
+    if !is_windows_11() {
+        return unregister_legacy();
+    }
+    set_menu_shown(false)
 }
 
-/// Whether "Open in PADE" is currently registered — in either menu. The legacy key
-/// is checked first (a fast registry query); only if it is absent do we ask about
-/// the modern package (a `PowerShell` call). Register/unregister keep the two in
-/// lockstep, so this faithfully mirrors the toggle.
+/// Whether "Open in PADE" is currently on.
+///
+/// - **Windows 11**: the sparse package is registered **and** the show/hide flag is not
+///   off (a registered-but-hidden package reads as off, matching the toggle).
+/// - **Windows 10 and older**: whether the legacy keys exist.
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_status() -> bool {
-    legacy_registered() || modern::is_registered()
+    if !is_windows_11() {
+        return legacy_registered();
+    }
+    modern::is_registered() && menu_shown()
 }
 
 #[cfg(not(windows))]

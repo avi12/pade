@@ -70,6 +70,12 @@ pub fn register() -> Result<(), String> {
 
 /// Remove the sparse package and clean up the files we wrote. Idempotent — removing
 /// a package that was never registered is a no-op success.
+///
+/// Reserved for a future uninstall/cleanup path: the toggle-off flow now only hides the
+/// handler via its show/hide flag (the package stays registered, à la `PowerToys`), so
+/// nothing calls this yet — but full removal still belongs here for when PADE gains an
+/// uninstaller.
+#[allow(dead_code)]
 pub fn unregister() -> Result<(), String> {
     let script =
         format!("Get-AppxPackage -Name '{PACKAGE_NAME}' | Remove-AppxPackage -ErrorAction Stop");

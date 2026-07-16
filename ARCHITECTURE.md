@@ -297,7 +297,7 @@ entry. Each concern is one module:
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |
 | `design.rs` | Quick-launch AI design / UI-generation tools |
-| `contextmenu.rs` | Windows Explorer "Open in PADE" registration, **one menu per Windows version** so it's never duplicated: on Win11 (build 22000+) only the modern menu via the `modern` submodule (sparse MSIX package — see below); on Win10/older only the legacy registry keys inline. Version detected from the registry build number; unregister clears both |
+| `contextmenu.rs` | Windows Explorer "Open in PADE" registration, **one menu per Windows version** so it's never duplicated: on Win11 (build 22000+) only the modern menu via the `modern` submodule (sparse MSIX package — see below); on Win10/older only the legacy registry keys inline. Version detected from the registry build number. On Win11 the package is registered once and the toggle thereafter only flips a show/hide flag (the package stays registered); on Win10 the toggle adds/removes the keys directly |
 | `os.rs` | Reveal in file manager / terminal, open URLs |
 | `window.rs` | Spawn additional app windows; paint each window's webview with the themed M3 surface so it opens in-theme (no white flash) |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
@@ -322,12 +322,15 @@ crate's `lib.rs` and mirrored (braceless) in `AppxManifest.xml`.
 
 **Toggling without an Explorer restart** — Explorer caches a packaged handler once
 loaded, so *unregistering* the package alone leaves the cached menu entry showing
-until sign-in. Like PowerToys' File Locksmith / PowerRename, the handler instead
-**hides itself**: its `IExplorerCommand::GetState` reads `HKCU\Software\PADE`
-`ContextMenu` (a DWORD the app writes: `0` = hidden, `1`/absent = shown) fresh on
-every menu build, so flipping the flag shows/hides the item immediately. Turning the
-toggle off sets the flag to `0` *first* (a cached handler stops showing at once) and
-then removes the package; on it sets the flag to `1`. No `explorer.exe` restart.
+until sign-in. Like PowerToys' File Locksmith / PowerRename, PADE **registers the
+package once and never unregisters it on toggle**; the handler instead **hides
+itself**: its `IExplorerCommand::GetState` reads `HKCU\Software\PADE` `ContextMenu`
+(a DWORD the app writes: `0` = hidden, `1`/absent = shown) fresh on every menu build,
+so flipping the flag shows/hides the item immediately. Turning the toggle **off** sets
+the flag to `0` (the cached handler stops showing at once) and leaves the package
+registered; **on** re-registers only if needed, then sets the flag to `1`. No
+`explorer.exe` restart, and re-enabling never redeploys. Full package removal is
+reserved for a future uninstall path (`modern::unregister`).
 
 ```mermaid
 flowchart LR
