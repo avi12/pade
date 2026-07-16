@@ -66,6 +66,9 @@ export const agents = {
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
   suggest: () => call("ide_suggest", z.array(Ide)),
+  /** Editor ids suited to each project kind (kind → ordered, installed-only), so a
+   *  per-kind menu offers only fitting editors (no WebStorm for an Android row). */
+  kindOptions: () => call("ide_kind_options", z.record(z.string(), z.array(z.string()))),
   /** Add an editor by its executable path. Rejects (throws the message) when the
    *  executable isn't a supported editor; returns the refreshed settings. */
   addEditor: (path: string) => call("ide_add_editor", Settings, { path }),

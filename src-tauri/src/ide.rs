@@ -4,6 +4,8 @@
 //! detects installed editors (by their CLI launcher) and opens the active
 //! project directory in the one you pick.
 
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 use crate::util::is_on_path;
@@ -362,6 +364,65 @@ fn primary_kind(cwd: &std::path::Path) -> Option<&'static str> {
     detect_kinds(cwd).first().copied()
 }
 
+/// The map key for the "any other folder" fallback options (not a project kind).
+/// Matches the `key` the frontend's fallback editor-select uses.
+const FALLBACK_KEY: &str = "fallback";
+
+/// Order-preserving dedup: keep each id's first appearance only. No mutable
+/// accumulator — an id survives just at the index of its first occurrence.
+fn dedup_in_order(ids: Vec<String>) -> Vec<String> {
+    ids.iter()
+        .enumerate()
+        .filter(|(index, id)| ids.iter().position(|other| other == *id) == Some(*index))
+        .map(|(_, id)| id.clone())
+        .collect()
+}
+
+/// Editor ids to offer per editor-rules row, installed-only. Each recognised
+/// project kind gets its [`PREFERENCES`] list plus the generalists (so an
+/// unrelated IDE — `WebStorm` for an Android project — is never offered); the
+/// [`FALLBACK_KEY`] "any other folder" row gets only the generalists and any
+/// user-added editors (a folder with no recognised kind wants a general editor,
+/// not a language-specific IDE). The frontend maps these ids to its detected
+/// editors.
+#[tauri::command]
+pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
+    let installed = ide_detect();
+    let is_present = |id: &str| installed.iter().any(|editor| editor.id == id);
+    let added_ids = installed
+        .iter()
+        .filter(|editor| editor.id.starts_with("added-"))
+        .map(|editor| editor.id.clone());
+
+    // General editors + the user's own added editors — suitable for any folder.
+    let general = dedup_in_order(
+        GENERALISTS
+            .iter()
+            .copied()
+            .map(str::to_string)
+            .chain(added_ids)
+            .filter(|id| is_present(id))
+            .collect(),
+    );
+
+    PREFERENCES
+        .iter()
+        .map(|(kind, preferred)| {
+            let options = dedup_in_order(
+                preferred
+                    .iter()
+                    .copied()
+                    .map(str::to_string)
+                    .filter(|id| is_present(id))
+                    .chain(general.iter().cloned())
+                    .collect(),
+            );
+            ((*kind).to_string(), options)
+        })
+        .chain(std::iter::once((FALLBACK_KEY.to_string(), general.clone())))
+        .collect()
+}
+
 /// The current project's primary kind (e.g. `"rust"`, `"web"`), or `None` when no
 /// marker file is recognised. Drives the editor-rules UI in settings.
 #[tauri::command]
@@ -385,7 +446,10 @@ fn is_installed(id: &str) -> bool {
 /// Installed IDEs ranked for the current project, best match first. The
 /// editor-rules engine takes precedence: a user rule for the project's primary
 /// kind is offered first, then the configured fallback, then the built-in
-/// auto-ranking (kind preferences + generalists). Deduped, installed-only.
+/// auto-ranking (kind preferences + generalists). A project with several entry
+/// points (a monorepo — more than one detected kind) is usually better served by a
+/// generalist than any one language's specialised IDE, so generalists lead the
+/// auto-ranking there. Deduped, installed-only.
 #[tauri::command]
 pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
@@ -396,20 +460,30 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let rule = primary_kind(&cwd).and_then(|k| prefs.ide_rules.get(k).cloned());
     let configured = rule.into_iter().chain(prefs.ide_fallback);
 
-    // Preferred ids for the detected kinds, then generalists, deduped in order.
-    let preferred = kinds.iter().flat_map(|k| {
-        PREFERENCES
-            .iter()
-            .find(|(kind, _)| kind == k)
-            .map_or::<&[&str], _>(&[], |(_, ids)| *ids)
-            .iter()
-            .copied()
-    });
+    // Specialised IDEs for every detected kind, and the generalists. A monorepo
+    // (more than one kind) leads with the generalists; a single-kind project leads
+    // with that kind's specialised IDEs. Deduped in order by the loop below.
+    let specialized: Vec<&str> = kinds
+        .iter()
+        .flat_map(|k| {
+            PREFERENCES
+                .iter()
+                .find(|(kind, _)| kind == k)
+                .map_or::<&[&str], _>(&[], |(_, ids)| *ids)
+                .iter()
+                .copied()
+        })
+        .collect();
+    let is_monorepo = kinds.len() > 1;
+    let auto: Vec<String> = if is_monorepo {
+        GENERALISTS.iter().chain(specialized.iter()).copied()
+    } else {
+        specialized.iter().chain(GENERALISTS.iter()).copied()
+    }
+    .map(str::to_string)
+    .collect();
 
     let mut ordered: Vec<String> = Vec::new();
-    let auto = preferred
-        .chain(GENERALISTS.iter().copied())
-        .map(str::to_string);
     for id in configured.chain(auto) {
         let is_new_and_installed = !ordered.contains(&id) && is_installed(&id);
         if is_new_and_installed {

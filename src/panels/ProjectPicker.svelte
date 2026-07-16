@@ -65,6 +65,9 @@
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   let ides = $state<Ide[]>([]);
+  // Editor ids that suit each project kind (kind → ordered), so a per-kind editor
+  // menu offers only fitting editors rather than every installed one.
+  let kindOptions = $state<Record<string, string[]>>({});
   // Primary detected kind of the current dir, so we can tag "this project"'s row.
   let currentKind = $state<string | null>(null);
 
@@ -106,12 +109,13 @@
 
   async function refresh() {
     const detectedKind = hasActiveProject ? ide.projectKind().catch(() => null) : Promise.resolve(null);
-    [settings, ides, currentKind] = await Promise.all([
+    [settings, ides, kindOptions, currentKind] = await Promise.all([
       // prune, not settings: a folder deleted outside PADE is forgotten here, so
       // its row leaves the page (collapsing out) instead of lingering as a link
       // to nothing.
       workspace.prune(),
       ide.detect(),
+      ide.kindOptions(),
       detectedKind
     ]);
     projectsByRoot = Object.fromEntries(
@@ -259,6 +263,7 @@
     <EditorsSection
       {currentKind}
       {ides}
+      {kindOptions}
       onaddeditor={addEditor}
       onfallback={setEditorFallback}
       onrule={setEditorRule}

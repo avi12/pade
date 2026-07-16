@@ -20,6 +20,10 @@ mod workspace;
 
 use tauri::Manager;
 
+// Mostly the command registry (`generate_handler!`) + builder wiring — one long
+// but flat list, not branching logic, so the line count is expected to grow with
+// each new IPC command.
+#[allow(clippy::too_many_lines)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Dev-only: expose WebView2's DevTools protocol (CDP) on a fixed port so tools
@@ -64,6 +68,7 @@ pub fn run() {
             ide::ide_detect,
             ide::ide_add_editor,
             ide::ide_suggest,
+            ide::ide_kind_options,
             ide::ide_open,
             ide::ide_open_file,
             ide::ide_project_kind,

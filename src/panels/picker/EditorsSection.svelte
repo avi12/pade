@@ -12,6 +12,7 @@
   // this section renders the rows and reports picks.
   const {
     ides,
+    kindOptions,
     currentKind,
     prefs,
     onrule,
@@ -19,6 +20,9 @@
     onaddeditor
   }: {
     ides: Ide[];
+    /** Editor ids that suit each project kind (kind → ordered, installed-only), so
+        a kind's menu offers only fitting editors — no WebStorm on an Android row. */
+    kindOptions: Record<string, string[]>;
     /** Primary detected kind of the current dir — tags "this project"'s row. */
     currentKind: string | null;
     prefs: Prefs;
@@ -90,15 +94,28 @@
   function editorLabel(editorId: string): string {
     return ides.find(editor => editor.id === editorId)?.label ?? "Choose…";
   }
+  // The detected editors that suit a kind, in the backend's priority order. An
+  // unknown kind (no entry) falls back to every editor rather than hiding them all.
+  function editorsForKind(kind: string): Ide[] {
+    const ids = kindOptions[kind];
+    if (!ids) {
+      return ides;
+    }
+
+    return ids
+      .map(id => ides.find(editor => editor.id === id))
+      .filter((editor): editor is Ide => editor !== undefined);
+  }
   // Stable, valid popover id/anchor per editor select (kind or "fallback").
   function editorSelectId(key: string): string {
     return `ide-${key.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 </script>
 
-{#snippet editorSelect({ key, value, onpick, ariaLabel }: {
+{#snippet editorSelect({ key, value, options, onpick, ariaLabel }: {
   key: string;
   value: string;
+  options: Ide[];
   onpick: (editorId: string) => void;
   ariaLabel: string;
 })}
@@ -116,7 +133,7 @@
       <span class="caret" aria-hidden="true">▾</span>
     </button>
     <ul id={selectId} style:position-anchor="--{selectId}" class="menu editor-menu" popover>
-      {#each ides as editor (editor.id)}
+      {#each options as editor (editor.id)}
         {@const isPicked = editor.id === value}
         <li>
           <button
@@ -172,6 +189,7 @@
         {@render editorSelect({
           key: kind,
           value: ideRules[kind] ?? ideFallback,
+          options: editorsForKind(kind),
           onpick: editorId => onrule({
             kind,
             editorId
@@ -187,6 +205,7 @@
       {@render editorSelect({
         key: "fallback",
         value: ideFallback,
+        options: editorsForKind("fallback"),
         onpick: onfallback,
         ariaLabel: "Fallback editor"
       })}
@@ -467,6 +486,12 @@
 
       &.picked {
         color: var(--primary);
+      }
+
+      /* On the blue hover wash, the selected item's blue text muddies — switch it
+         to the hover's on-container colour so it highlights as clearly as the rest. */
+      &.picked:hover {
+        color: var(--on-primary-container);
       }
     }
   }

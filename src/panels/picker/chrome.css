@@ -115,6 +115,12 @@
     &:hover {
       background: var(--primary-container);
       color: var(--on-primary-container);
+
+      /* A selected item's checkmark is primary-blue at rest; on the blue hover
+         wash it would vanish, so let it follow the hovered text colour. */
+      .tick {
+        color: inherit;
+      }
     }
 
     .mi-txt {

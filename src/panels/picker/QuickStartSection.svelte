@@ -357,6 +357,11 @@
       &.picked {
         color: var(--primary);
       }
+
+      /* On the blue hover wash, blue-on-blue muddies — use the on-container colour. */
+      &.picked:hover {
+        color: var(--on-primary-container);
+      }
     }
 
     .root-empty {
