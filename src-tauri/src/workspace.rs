@@ -203,13 +203,60 @@ pub fn settings_get() -> Settings {
     load()
 }
 
-#[tauri::command]
-pub fn workspace_add_root(path: String) -> Result<Settings, String> {
+/// The result of trying to add a root folder. A directory that already exists (or
+/// one just created on request) is added and carries the refreshed `Settings`; the
+/// two "didn't add" outcomes tell the picker to prompt or show an error instead of
+/// persisting a broken root.
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum AddRootOutcome {
+    /// The path is (now) a directory and was added. Boxed so this data-carrying
+    /// variant doesn't bloat the empty ones (serializes identically to `Settings`).
+    Added { settings: Box<Settings> },
+    /// The path doesn't exist and creation wasn't requested.
+    Missing,
+    /// The path exists but names a file, not a directory.
+    NotADirectory,
+}
+
+/// Persist `path` as a root (deduped) and hand back the refreshed settings. The
+/// path is canonicalized through its components first — dropping any trailing
+/// separator (e.g. from Tab-completing an autocomplete suggestion) while keeping a
+/// bare drive root like `C:\` intact — so a root is stored one way and dedups.
+fn push_root(path: String) -> Result<Settings, String> {
+    let path = Path::new(&path)
+        .components()
+        .collect::<PathBuf>()
+        .to_string_lossy()
+        .into_owned();
     let mut s = load();
     if !s.roots.contains(&path) {
         s.roots.push(path);
     }
     save(&s)
+}
+
+/// Add a root folder. An existing directory is added as-is; a missing path is only
+/// created (and then added) when `create` is set, otherwise it reports `Missing`;
+/// a path that exists but is a file reports `NotADirectory`.
+#[tauri::command]
+pub fn workspace_add_root(path: String, create: bool) -> Result<AddRootOutcome, String> {
+    let target = Path::new(&path);
+    if target.is_dir() {
+        return Ok(AddRootOutcome::Added {
+            settings: Box::new(push_root(path)?),
+        });
+    }
+    if target.exists() {
+        return Ok(AddRootOutcome::NotADirectory);
+    }
+    if !create {
+        return Ok(AddRootOutcome::Missing);
+    }
+    std::fs::create_dir_all(target).map_err(|e| e.to_string())?;
+    Ok(AddRootOutcome::Added {
+        settings: Box::new(push_root(path)?),
+    })
 }
 
 #[tauri::command]
@@ -239,6 +286,92 @@ pub fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
         .collect();
     entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(entries)
+}
+
+/// A live look at a path the user is typing into the add-root field: what the
+/// path itself is on disk (so the field can say "exists" vs "will be created", or
+/// reject a file), plus the child directories that would complete it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathProbe {
+    /// The typed path is an existing directory.
+    is_dir: bool,
+    /// The typed path exists but names a file, not a directory.
+    is_file: bool,
+    /// The typed path's parent is an existing directory — so even though the path
+    /// itself doesn't exist yet, it names a real place PADE can create it in. This
+    /// is what tells a not-yet-created folder ("C:\repositories\new-app") apart
+    /// from a stray, un-locatable string — an existence check in place of a regex.
+    parent_exists: bool,
+    /// Absolute paths of child directories that complete the text, name-sorted
+    /// and capped. Empty when nothing matches or the parent can't be read.
+    suggestions: Vec<String>,
+}
+
+/// How many directory completions to offer at once — enough to be useful, few
+/// enough to stay a glance rather than a scroll.
+const SUGGESTION_CAP: usize = 8;
+
+/// Split a partially-typed path into the directory to list and the (possibly
+/// empty) leaf typed so far. A trailing separator means "list everything inside
+/// this directory"; otherwise the last segment is the prefix to match. The
+/// separator is kept on a bare drive/root head so `C:\` stays absolute. `None`
+/// when there's no separator yet (e.g. a lone `C:` — nothing to complete).
+fn split_for_completion(input: &str) -> Option<(PathBuf, String)> {
+    let cut = input.rfind(['\\', '/'])?;
+    let (head, tail) = input.split_at(cut);
+    let prefix = tail[1..].to_string();
+    let parent = if head.is_empty() || head.ends_with(':') {
+        format!("{head}{}", std::path::MAIN_SEPARATOR)
+    } else {
+        head.to_string()
+    };
+    Some((PathBuf::from(parent), prefix))
+}
+
+/// Child directories of `parent` whose name starts with `prefix` (case-insensitive),
+/// as absolute paths, name-sorted and capped at [`SUGGESTION_CAP`]. Collecting into
+/// a `BTreeMap` keyed by the lowercased leaf yields the sort for free — no mutable
+/// scratch vector to sort in place.
+fn dir_completions(parent: &Path, prefix: &str) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return Vec::new();
+    };
+    let needle = prefix.to_lowercase();
+    let leaf_lower = |path: &Path| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_lowercase()
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir() && leaf_lower(path).starts_with(&needle))
+        .map(|path| (leaf_lower(&path), path))
+        .collect::<BTreeMap<String, PathBuf>>()
+        .into_values()
+        .take(SUGGESTION_CAP)
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
+}
+
+/// Probe the path being typed into the add-root field: what it is on disk, plus
+/// the child-directory completions that drive the field's autocomplete. Pure
+/// query (no persistence); a bad or unreadable path just yields empty suggestions.
+#[tauri::command]
+pub fn workspace_probe_path(path: String) -> PathProbe {
+    let trimmed = path.trim();
+    let target = Path::new(trimmed);
+    let suggestions = split_for_completion(trimmed)
+        .map(|(parent, prefix)| dir_completions(&parent, &prefix))
+        .unwrap_or_default();
+    PathProbe {
+        is_dir: target.is_dir(),
+        is_file: target.is_file(),
+        parent_exists: target.parent().is_some_and(Path::is_dir),
+        suggestions,
+    }
 }
 
 /// A path directly under the config `.../workspaces/temp-*` is one ADE created,

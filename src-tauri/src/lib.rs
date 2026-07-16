@@ -107,6 +107,7 @@ pub fn run() {
             workspace::settings_get,
             workspace::workspace_add_root,
             workspace::workspace_remove_root,
+            workspace::workspace_probe_path,
             workspace::workspace_scan,
             workspace::workspace_open,
             workspace::workspace_temp,

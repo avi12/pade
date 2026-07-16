@@ -267,6 +267,38 @@ export const Settings = z.object({
 });
 export type Settings = z.infer<typeof Settings>;
 
+/** How `workspace_add_root` resolved. `added` carries the refreshed settings;
+ *  `missing` (the path doesn't exist and creation wasn't requested) and
+ *  `notADirectory` (the path names a file) are the two "didn't add" outcomes the
+ *  picker acts on — prompting to create, or showing an inline error. */
+export const AddRootStatus = z.enum(["added", "missing", "notADirectory"]);
+export type AddRootStatus = z.infer<typeof AddRootStatus>;
+
+export const AddRootOutcome = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal(AddRootStatus.enum.added),
+    settings: Settings
+  }),
+  z.object({ status: z.literal(AddRootStatus.enum.missing) }),
+  z.object({ status: z.literal(AddRootStatus.enum.notADirectory) })
+]);
+export type AddRootOutcome = z.infer<typeof AddRootOutcome>;
+
+/** A live probe of the path being typed into the add-root field. Instead of
+ *  regex-guessing whether the text is a valid path, the backend just checks the
+ *  filesystem: whether the path itself is a directory (`isDir`) or a file
+ *  (`isFile`), and whether its parent exists (`parentExists`) — so a not-yet-made
+ *  folder in a real place reads as "will create" and a stray string reads as
+ *  invalid. `suggestions` are the child directories that complete what was typed,
+ *  for the autocomplete. */
+export const PathProbe = z.object({
+  isDir: z.boolean(),
+  isFile: z.boolean(),
+  parentExists: z.boolean(),
+  suggestions: z.array(z.string())
+});
+export type PathProbe = z.infer<typeof PathProbe>;
+
 /** PTY stream event payloads. `seq` is the chunk's position in the session's
  *  stream, which is what lets a terminal attaching mid-flight tell the chunks it
  *  caught live apart from the ones already inside the history it replayed. */

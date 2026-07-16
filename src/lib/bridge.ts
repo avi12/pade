@@ -5,6 +5,7 @@
 
 import {
   AccountUsage,
+  AddRootOutcome,
   Agent,
   ChangeEvent,
   Commit,
@@ -13,6 +14,7 @@ import {
   DesignTool,
   Ide,
   LaunchContext,
+  PathProbe,
   ProjectEntry,
   PtyChunk,
   PtyExit,
@@ -261,8 +263,17 @@ export const config = {
 export const workspace = {
   context: () => call("launch_context", LaunchContext),
   settings: () => call("settings_get", Settings),
-  addRoot: (path: string) => call("workspace_add_root", Settings, { path }),
+  /** Add a root folder. `create` asks the backend to `create_dir_all` a missing
+   *  path before adding it; the discriminated outcome says whether it was added,
+   *  is missing (so the caller can offer to create it), or names a file. */
+  addRoot: (args: {
+    path: string;
+    create: boolean;
+  }) => call("workspace_add_root", AddRootOutcome, { ...args }),
   removeRoot: (path: string) => call("workspace_remove_root", Settings, { path }),
+  /** Probe a partially-typed root path: whether it already exists (as a dir or a
+   *  file), plus child-directory completions for the add-root autocomplete. */
+  probePath: (path: string) => call("workspace_probe_path", PathProbe, { path }),
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
   temp: () => call("workspace_temp", z.string()),

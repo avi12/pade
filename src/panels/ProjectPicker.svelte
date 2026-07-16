@@ -3,8 +3,14 @@
   import { dirs, ide, workspace } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { displayName, isTemporaryWorkspace, parentDir } from "@/lib/paths";
-  import { StartMode } from "@/lib/types";
-  import type { Agent, Ide, ProjectEntry, Settings } from "@/lib/types";
+  import { AddRootStatus, StartMode } from "@/lib/types";
+  import type {
+    AddRootOutcome,
+    Agent,
+    Ide,
+    ProjectEntry,
+    Settings
+  } from "@/lib/types";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
@@ -130,12 +136,25 @@
     return workspace.scan(root).catch((): ProjectEntry[] => []);
   }
 
-  async function addRoot(path: string) {
-    settings = await workspace.addRoot(path);
-    projectsByRoot = {
-      ...projectsByRoot,
-      [path]: await scan(path)
-    };
+  // Stays the single settings owner: only an `added` outcome adopts the returned
+  // settings and scans the new root — `missing`/`notADirectory` are handed back
+  // untouched so the add-row can prompt to create the folder or show an error.
+  async function addRoot(path: string, { create }: {
+    create: boolean;
+  }): Promise<AddRootOutcome> {
+    const outcome = await workspace.addRoot({
+      path,
+      create
+    });
+    if (outcome.status === AddRootStatus.enum.added) {
+      settings = outcome.settings;
+      projectsByRoot = {
+        ...projectsByRoot,
+        [path]: await scan(path)
+      };
+    }
+
+    return outcome;
   }
   async function removeRoot(path: string) {
     settings = await workspace.removeRoot(path);
