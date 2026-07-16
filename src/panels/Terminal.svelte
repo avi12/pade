@@ -1,4 +1,9 @@
 <script lang="ts">
+  // Read docs/terminal-rendering.md BEFORE changing resize/replay behavior here.
+  // A terminal has TWO screens and they invert every rule: the normal screen
+  // (scrollback document; never send height, debounce width) vs the alternate
+  // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
+  // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
   import { pty } from "@/lib/bridge";
   import { Axis, beginReorder } from "@/lib/dragReorder";
   import Icon from "@/lib/Icon.svelte";
