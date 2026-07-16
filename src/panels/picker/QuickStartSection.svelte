@@ -339,9 +339,23 @@
     }
 
     .caret {
+      display: inline-block;
       flex: none;
       font-size: 9px;
       opacity: 70%;
+      transition: rotate 150ms var(--ease);
+    }
+  }
+
+  /* Open state — while the menu is open the trigger reads active and the caret
+     flips (inspired by the youtube-downloader select). Pure CSS, field-scoped. */
+  .root-sel:has(.root-menu:popover-open) {
+    .root-trigger {
+      color: var(--primary);
+    }
+
+    .caret {
+      rotate: 180deg;
     }
   }
 

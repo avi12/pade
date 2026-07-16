@@ -471,8 +471,24 @@
     }
 
     .caret {
+      display: inline-block;
       font-size: 9px;
       opacity: 70%;
+      transition: rotate 150ms var(--ease);
+    }
+  }
+
+  /* Open state — inspired by the youtube-downloader select: while the menu is open
+     the trigger takes the primary edge and the caret flips, so the field reads as
+     active. Pure CSS via :has(:popover-open) — scoped to the field, so drag-safe. */
+  .editor-sel:has(.editor-menu:popover-open) {
+    .editor-trigger {
+      border-color: var(--primary);
+      background: var(--surface-3);
+    }
+
+    .caret {
+      rotate: 180deg;
     }
   }
 
