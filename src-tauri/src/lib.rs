@@ -22,6 +22,18 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Dev-only: expose WebView2's DevTools protocol (CDP) on a fixed port so tools
+    // — chrome-devtools-mcp, a raw CDP client — can drive the live app for UI checks.
+    // Set before any window (and thus any WebView2 environment) is created, and
+    // compiled out of release builds. `--remote-allow-origins=*` lets modern Chromium
+    // accept the WebSocket CDP connection; the port also opens the webview to any local
+    // process, which is why this stays gated behind debug_assertions.
+    #[cfg(all(debug_assertions, windows))]
+    std::env::set_var(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        "--remote-debugging-port=9222 --remote-allow-origins=*",
+    );
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
