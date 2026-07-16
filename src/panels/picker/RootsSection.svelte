@@ -224,6 +224,12 @@
     select(survivorIndex >= 0 ? survivorIndex : Math.min(previousIndex, lastIndex));
   });
 
+  /** Focus the add-root field — how the quick-start form's "New root folder…"
+   *  menu option lands the user here. Focus itself scrolls the field into view. */
+  export function focusAddRoot() {
+    inputEl?.focus();
+  }
+
   // Adopt a suggested directory — shared by the listbox rows and the Enter key,
   // so it stays a named function.
   function pick(dir: string) {

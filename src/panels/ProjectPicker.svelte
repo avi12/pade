@@ -149,6 +149,10 @@
   // the picker (adding one in Root folders) fills the create location too.
   let createRoot = $state("");
 
+  // The Root folders section instance — the create-form's "New root folder…"
+  // option jumps to its add field through this handle.
+  let rootsSection = $state<{ focusAddRoot: () => void } | null>(null);
+
   // The form's best default root: a lone root wins outright; otherwise the one
   // most recent projects live in (ties keep the earlier root).
   function popularRoot(): string {
@@ -280,7 +284,12 @@
       </p>
     </header>
 
-    <QuickStartSection {onopen} roots={settings.roots} bind:createIn={createRoot} />
+    <QuickStartSection
+      onnewroot={() => rootsSection?.focusAddRoot()}
+      {onopen}
+      roots={settings.roots}
+      bind:createIn={createRoot}
+    />
 
     <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
 
@@ -307,6 +316,7 @@
     />
 
     <RootsSection
+      bind:this={rootsSection}
       {ides}
       {lifecycle}
       onadd={addRoot}
@@ -345,9 +355,18 @@
 
 <style>
   .picker {
+    /* Programmatic jumps (focusing the add-root field) glide instead of snap;
+       focus() scrolls with behavior "auto", which follows this property. */
+    scroll-behavior: smooth;
     overflow-y: auto;
     block-size: 100%;
     background: radial-gradient(120% 100% at 50% 0%, var(--surface-1), var(--surface));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .picker {
+      scroll-behavior: auto;
+    }
   }
 
   .inner {

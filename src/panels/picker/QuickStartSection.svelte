@@ -9,16 +9,22 @@
   // and the optional first prompt — go back to the app through `onopen`.
   // `createIn` is bindable so the picker can fill it when a root is selected
   // elsewhere (adding one in Root folders picks it as the create location).
-  let { roots, onopen, createIn = $bindable("") }: {
+  // `onnewroot` jumps to that Root folders add field for a root not listed yet.
+  let { roots, onopen, onnewroot, createIn = $bindable("") }: {
     roots: string[];
     onopen: (target: {
       path: string;
       initialPrompt?: string;
     }) => void;
+    onnewroot: () => void;
     createIn?: string;
   } = $props();
   let createName = $state("");
   let createPrompt = $state("");
+  // The root menu element — "New root folder…" hides it imperatively BEFORE
+  // handing off, because the declarative popovertargetaction="hide" runs after
+  // the click handler and would cancel the smooth scroll to the add field.
+  let rootMenu = $state<HTMLUListElement | null>(null);
 
   // Live name validation: surface the schema's message and gate the submit on
   // the same check, so an invalid name can't reach a create() that would
@@ -89,7 +95,13 @@
               <span class="root-current">{createIn || "Choose a root…"}</span>
               <span class="caret" aria-hidden="true">▾</span>
             </button>
-            <ul id="np-root-menu" style:position-anchor="--np-root" class="menu root-menu popover-menu" popover>
+            <ul
+              bind:this={rootMenu}
+              id="np-root-menu"
+              style:position-anchor="--np-root"
+              class="menu root-menu popover-menu"
+              popover
+            >
               {#each roots as root (root)}
                 {@const isPicked = createIn === root}
                 <li>
@@ -108,9 +120,20 @@
                     {/if}
                   </button>
                 </li>
-              {:else}
-                <li class="none root-empty">No roots yet — add one below.</li>
               {/each}
+              <li class:separated={roots.length > 0}>
+                <button
+                  class="mi root-new"
+                  onclick={() => {
+                    rootMenu?.hidePopover();
+                    onnewroot();
+                  }}
+                  type="button"
+                >
+                  <Icon name="folderPlus" size={15} />
+                  <span>New root folder…</span>
+                </button>
+              </li>
             </ul>
           </span>
           <span class="np-sep" aria-hidden="true">\</span>
@@ -397,8 +420,19 @@
       font-size: 12px;
     }
 
-    .root-empty {
-      padding: 8px 10px;
+    /* The jump-to-add action — tinted primary so it reads as an action among
+       the plain root values, hairline-separated from them when any exist. */
+    .root-new {
+      gap: 8px;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .separated {
+      margin-block-start: 4px;
+      padding-block-start: 4px;
+      border-block-start: 1px solid var(--outline);
     }
   }
 </style>
