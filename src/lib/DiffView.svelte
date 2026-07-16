@@ -55,10 +55,14 @@
     line-height: 1.5;
   }
 
+  /* "Fully printed": every code line is visible in full — long lines wrap
+     (preserving whitespace) rather than clip or hide behind a side-scroll,
+     and unbroken tokens may break anywhere so nothing ever overflows. */
   .unified .line {
     padding-inline: var(--diff-line-padding, 12px);
     color: var(--code-foreground);
-    white-space: pre;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .line.add {
@@ -81,16 +85,17 @@
       grid-column: 1 / -1;
       padding-inline: var(--diff-line-padding, 12px);
       color: var(--on-surface-variant);
-      white-space: pre;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
     .cell {
-      overflow: hidden;
       min-block-size: 1.5em;
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
       color: var(--code-foreground);
-      white-space: pre;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
     .cell.right {

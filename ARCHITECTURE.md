@@ -204,7 +204,7 @@ responsibility, and who it collaborates with.
 | `src/lib/CommitModal.svelte` | Commit-dialog orchestrator: native `<dialog>` plumbing, header, selection + diff-load state machine | `commitModal/FileList`, `commitModal/DiffPane`, `bridge.vcs`, `diff` |
 | `src/lib/commitModal/FileList.svelte` | The commit's changed-files tablist: kind badges, stats, roving-tabindex keys | `paths` |
 | `src/lib/commitModal/DiffPane.svelte` | Path bar + the selected file's diff with loading / failed / large-file states (presentation only) | `DiffView` |
-| `src/lib/DiffView.svelte` | The one renderer for a parsed diff, unified or split — line washes, hunk headers, `data-newline` hooks; callers own the scroll container and interactivity | `diff`, `ColorText`; used by `ChangeFeed`, `vcs/ChangesSection`, `commitModal/DiffPane` |
+| `src/lib/DiffView.svelte` | The one renderer for a parsed diff, unified or split — line washes, hunk headers, `data-newline` hooks; every line prints in full (long lines wrap, never clip or side-scroll); callers own the scroll container and interactivity | `diff`, `ColorText`; used by `ChangeFeed`, `vcs/ChangesSection`, `commitModal/DiffPane` |
 | `src/lib/ConfirmDialog.svelte` | Shared in-app confirmation modal (native `<dialog>`): destructive prompt with caller-owned busy + error states — replaces the OS popup | `Icon` |
 | `src/lib/SessionBadge.svelte`, `Icon`, `Logo`, `BrandMark`, `ColorText` | Small presentational atoms | — |
 

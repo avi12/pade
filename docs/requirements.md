@@ -31,6 +31,9 @@ writes.
   **Unified / Split** toggle and open-in-editor; cached per path. 🔭 agent intent.
 - R1.2.5 ✅ The watcher follows the open workspace: switching projects re-roots
   it (`watch_start` re-arms when the current dir no longer matches its root).
+- R1.2.6 ✅ Every diff surface (feed card, Git panel, commit modal) prints each
+  code line **in full**: long lines wrap (`DiffView.svelte`), never clip or hide
+  behind a horizontal scroll; the diff stays hunks + context, never the whole file.
 
 ### 1.3 Highlight → Agent bridge (✅)
 - R1.3.1 Selecting text in a side panel offers "Send to agent".
