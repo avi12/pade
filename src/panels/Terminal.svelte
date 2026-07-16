@@ -123,20 +123,26 @@
   const RESIZE_SETTLE_MS = 400;
   let lastResizeAt = 0;
 
-  // Take over the alternate screen (DEC private mode 1049) — written into xterm, not to
-  // the agent, when re-attaching to a session that is already painting there. Wire
-  // constant shared with pty.rs, which detects this exact literal to set
-  // `history.alternate` — the two spellings must change together.
-  const ENTER_ALTERNATE_SCREEN = "\x1b[?1049h";
+  // Terminal control sequences, composed from named parts.
+  const CONTROL_SEQUENCE_INTRODUCER = "\x1b[";
+  const ALTERNATE_SCREEN_PRIVATE_MODE = "?1049";
+  const SET_MODE = "h";
+
+  // Written into xterm, not to the agent, when re-attaching to a session that is
+  // already painting the alternate screen. Wire constant shared with pty.rs, which
+  // detects this exact sequence to set `history.alternate` — change them together.
+  const ENTER_ALTERNATE_SCREEN = `${CONTROL_SEQUENCE_INTRODUCER}${ALTERNATE_SCREEN_PRIVATE_MODE}${SET_MODE}`;
 
   // Shift+Enter should add a newline to the agent's prompt, not submit it.
   // Terminals send plain `\r` (0x0D) for both Enter and Shift+Enter, so the
   // wrapped CLI can't tell them apart and submits on either. Emit the CSI u
-  // (fixterms) encoding for Shift+Enter instead — key 13 (Enter) with modifier
-  // 2 (Shift) — which Claude Code decodes as "insert newline". This mirrors what
-  // `claude`'s own /terminal-setup makes terminals like VS Code emit.
-  // https://code.claude.com/docs/en/terminal-config
-  const SHIFT_ENTER = "\x1b[13;2u";
+  // (fixterms) encoding for Shift+Enter instead, which Claude Code decodes as
+  // "insert newline". This mirrors what `claude`'s own /terminal-setup makes
+  // terminals like VS Code emit. https://code.claude.com/docs/en/terminal-config
+  const ENTER_KEY_CODE = 13;
+  const SHIFT_MODIFIER = 2;
+  const FIXTERMS_KEY_SUFFIX = "u";
+  const SHIFT_ENTER = `${CONTROL_SEQUENCE_INTRODUCER}${ENTER_KEY_CODE};${SHIFT_MODIFIER}${FIXTERMS_KEY_SUFFIX}`;
 
   function markActivity() {
     if (status === SessionStatus.enum.exited) {

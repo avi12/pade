@@ -70,12 +70,21 @@ pub struct History {
     alternate: bool,
 }
 
-/// The escape sequences a program uses to take over the alternate screen and to give
-/// it back (DEC private mode 1049). Wire constant shared with the frontend:
-/// `Terminal.svelte` writes the same enter literal before replaying an alternate
-/// history — the two spellings must change together.
-const ENTER_ALTERNATE_SCREEN: &str = "\x1b[?1049h";
-const LEAVE_ALTERNATE_SCREEN: &str = "\x1b[?1049l";
+/// A terminal control sequence: the Control Sequence Introducer (`ESC [`)
+/// followed by the body, composed so the parts are named rather than one
+/// opaque escape string.
+macro_rules! control_sequence {
+    ($body:literal) => {
+        concat!("\x1b[", $body)
+    };
+}
+
+/// DEC private mode 1049 — the alternate screen. A program sets the mode (`h`)
+/// to take the screen over and resets it (`l`) to give it back. Wire constants
+/// shared with `Terminal.svelte`, which writes the enter sequence when
+/// replaying an alternate-screen history — the two sides must change together.
+const ENTER_ALTERNATE_SCREEN: &str = control_sequence!("?1049h");
+const LEAVE_ALTERNATE_SCREEN: &str = control_sequence!("?1049l");
 
 /// How much recent output to keep per session for naming (bytes, tail-trimmed).
 const TRANSCRIPT_CAP: usize = 16 * 1024;
