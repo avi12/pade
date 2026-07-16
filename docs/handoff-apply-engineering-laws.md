@@ -1,5 +1,14 @@
 # Handoff — apply the software-engineering laws across the codebase
 
+> **Status: COMPLETED 2026-07-16** (`b445fda`..`0878ed9`, 17 commits). All four
+> sweeps ran: design (doc-truthing, dead-IPC removal, shared popover shell +
+> DiffView), quality (pty.rs chunk-boundary fixes with its first 12 tests, VCS
+> diff-collapse fix, 179 JS / 103 Rust tests up from 136 / 67, `pnpm test:e2e`
+> CDP smoke suite), architecture (Hyrum contracts section in ARCHITECTURE.md,
+> two-screens doc linked from Terminal.svelte), planning (requirements.md
+> statuses synced). Demeter + broken-windows audits came back clean. The audit
+> table below is kept for reference.
+
 **Mission:** audit PADE against the laws in the `software-engineering-laws`
 skill (55 laws from lawsofsoftwareengineering.com, installed user-level at
 `~/.claude/skills/software-engineering-laws/`) and land the improvements as
