@@ -2,7 +2,7 @@
   import BrandMark from "@/lib/BrandMark.svelte";
   import { dirs, ide, workspace } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
-  import { displayName, isTemporaryWorkspace, parentDir } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace, normalizePath, parentDir } from "@/lib/paths";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
     AddRootOutcome,
@@ -149,6 +149,25 @@
   // the picker (adding one in Root folders) fills the create location too.
   let createRoot = $state("");
 
+  // The form's best default root: a lone root wins outright; otherwise the one
+  // most recent projects live in (ties keep the earlier root).
+  function popularRoot(): string {
+    const { roots, recentProjects } = settings;
+    const [firstRoot] = roots;
+    if (firstRoot === undefined || roots.length === 1) {
+      return firstRoot ?? "";
+    }
+
+    const recentParents = recentProjects
+      .map(parentDir)
+      .filter((parent): parent is string => parent !== null)
+      .map(normalizePath);
+    function usage(root: string): number {
+      return recentParents.filter(parent => parent === normalizePath(root)).length;
+    }
+    return roots.reduce((best, root) => (usage(root) > usage(best) ? root : best));
+  }
+
   // Stays the single settings owner: only an `added` outcome adopts the returned
   // settings and scans the new root — `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
@@ -177,7 +196,7 @@
     projectsByRoot = rest;
 
     if (createRoot === path) {
-      createRoot = "";
+      createRoot = popularRoot();
     }
   }
 
@@ -237,6 +256,7 @@
 
   onMount(async () => {
     await refresh();
+    createRoot ||= popularRoot();
     unlisten = await dirs.onChange(rescanSoon);
   });
 
