@@ -126,7 +126,8 @@ fn config_base() -> Result<PathBuf, String> {
     .ok_or_else(|| "no config directory".to_string())
 }
 
-pub(crate) fn config_dir() -> Result<PathBuf, String> {
+/// PADE's config directory, created on disk if missing.
+pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
     let dir = config_base()?.join("pade");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
@@ -160,7 +161,7 @@ pub fn migrate_from_ade() {
 }
 
 fn settings_path() -> Result<PathBuf, String> {
-    Ok(config_dir()?.join("settings.json"))
+    Ok(ensure_config_dir()?.join("settings.json"))
 }
 
 fn is_project(dir: &Path) -> bool {
@@ -422,7 +423,7 @@ pub fn workspace_temp() -> Result<String, String> {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    let dir = config_dir()?
+    let dir = ensure_config_dir()?
         .join("workspaces")
         .join(format!("temp-{stamp}"));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
