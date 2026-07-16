@@ -195,6 +195,12 @@
   let editingId = $state<string | null>(null);
   let renameDraft = $state("");
 
+  // Enter inline rename for a session, seeding the field with its current label.
+  function startRename(id: string) {
+    editingId = id;
+    renameDraft = sessionLabel(id) ?? bySessionId.get(id)?.agent.label ?? "";
+  }
+
   function commitRename() {
     if (editingId === null) {
       return;
@@ -271,15 +277,20 @@
     <button
       class="pick"
       onauxclick={e => onTabPointer(e, s)}
-      onclick={() => onselect(s.id)}
-      ondblclick={() => {
-        editingId = s.id;
-        renameDraft = sessionLabel(s.id) ?? s.agent.label;
+      onclick={() => {
+        // Finder-style: a click selects an inactive tab; clicking the already-active
+        // tab renames it (its label reads with a text caret). The reorder engine
+        // swallows the post-drag click, so dragging the active pill never renames.
+        if (s.id === activeId) {
+          startRename(s.id);
+        } else {
+          onselect(s.id);
+        }
       }}
       onmousedown={e => onTabPointer(e, s)}
     >
       <span class="dot {sessionStatus(s.id)}"></span>
-      {sessionLabel(s.id) ?? s.agent.label}
+      <span class="label">{sessionLabel(s.id) ?? s.agent.label}</span>
     </button>
     <button
       class="ai"
@@ -526,6 +537,12 @@
       &.active .pick {
         color: var(--on-primary-container);
         font-weight: 700;
+      }
+
+      /* The active pill's label reads with a text caret — a single click there
+         renames it (Finder-style); inactive labels inherit the pill's pointer. */
+      &.active .label {
+        cursor: text;
       }
 
       /* On the active pill the close × rides the container's on-color too. */
