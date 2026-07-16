@@ -93,6 +93,20 @@ function prefersReducedMotion(): boolean {
   return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
+/** The container's flex gap, measured between its first two siblings. The whole
+ *  shift model rests on the invariant that CSS `gap` is uniform — every pair of
+ *  neighbors sits the same distance apart, so removing the dragged item closes,
+ *  and re-inserting it opens, exactly `size + gap` everywhere. If items ever
+ *  gained individual margins, this measurement (and the model) would break. */
+function measureUniformFlexGap(siblings: Sibling[]): number {
+  if (siblings.length < 2) {
+    return 0;
+  }
+
+  const [first, second] = siblings;
+  return Math.max(0, second.start - (first.start + first.size));
+}
+
 // Only one drag may run at a time — a second press while one is live is ignored.
 let dragInProgress = false;
 
@@ -162,13 +176,9 @@ export function beginReorder(options: BeginReorderOptions): void {
   }
 
   const dragged = siblings[fromIndex];
-  // Removing the dragged item closes a gap of its own width plus one flex gap, and
-  // inserting it elsewhere opens the same gap — so every displaced sibling moves by
-  // exactly this extent, whatever its own width (true even for variable-width pills).
-  const flexGap = siblings.length > 1
-    ? Math.max(0, siblings[1].start - (siblings[0].start + siblings[0].size))
-    : 0;
-  const draggedExtent = dragged.size + flexGap;
+  // Every displaced sibling moves by exactly the dragged item's size plus one
+  // uniform gap, whatever its own width (true even for variable-width pills).
+  const draggedExtent = dragged.size + measureUniformFlexGap(siblings);
   // Centers snapshot in visible order — a stable input to `insertionIndex`, so the
   // landing slot is always compared against the pre-drag layout, not the shifting
   // one the gaps are actively opening.
