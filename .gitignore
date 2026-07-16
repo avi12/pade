@@ -41,3 +41,6 @@ desktop.ini
 # --- Test / coverage ---
 coverage/
 .nyc_output/
+
+# --- Session handoff notes (local working docs, not part of the product) ---
+docs/handoff-*.md
