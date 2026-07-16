@@ -103,13 +103,15 @@ These are non-negotiable for all work in this repo.
    - Tabular numerals: every place a number is displayed (counts, percentages,
      stats, timers, SHAs' surrounding metrics) sets `font-variant-numeric:
      tabular-nums` so digits align and don't jitter as values change.
-   - Icons live in SVG only: every pictographic icon is authored as an SVG entry
-     in the shared `Icon.svelte` set (its one authoritative home) and rendered
-     via `<Icon name="…" />`. Never inline a raw `<svg>`/`<path>`, and never use
-     an emoji or a Unicode pictograph (`✓`, `⚙`, `▶`) as an icon in markup or a
-     string. Need a new glyph? Add it to `Icon.svelte`, then reference it by
-     name. (Bare typographic affordances like a `▾` disclosure caret or a `\`
-     path separator are text, not icons, and stay as-is.)
+   - Icons live in SVG only: every pictographic icon is an individual `.svg` file
+     in `src/lib/icons/` (its one authoritative home) — never a hardcoded path
+     string — loaded by `Icon.svelte` and rendered via `<Icon name="…" />`. Never
+     inline a raw `<svg>`/`<path>` in a component, and never use an emoji or a
+     Unicode pictograph (`✓`, `⚙`, `▶`) as an icon in markup or a string. Need a
+     new glyph? Drop a `<name>.svg` in `src/lib/icons/` and add its name to
+     `ICON_NAMES` in `Icon.svelte`, then reference it by name. (Bare typographic
+     affordances like a `▾` disclosure caret or a `\` path separator are text, not
+     icons, and stay as-is.)
    - Inline single-use event handlers: an event handler bound in exactly one
      place — a DOM `on*` attribute, a `<svelte:window>`/`<svelte:document>` event,
      or a component's `on*`/callback prop — and referenced nowhere else is written
