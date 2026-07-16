@@ -5,6 +5,7 @@
   import type { DiffLine, SplitRow } from "@/lib/diff";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { baseName } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
@@ -139,9 +140,6 @@
     }
   }
 
-  function fileName(path: string) {
-    return path.split(/[\\/]/).pop() ?? path;
-  }
   function dir(path: string) {
     const parts = path.split(/[\\/]/);
     parts.pop();
@@ -208,7 +206,7 @@
         >
           <span class="row">
             <span class="dot {ev.kind}" aria-hidden="true"></span>
-            <span class="name" data-tooltip={ev.path}>{fileName(ev.path)}</span>
+            <span class="name" data-tooltip={ev.path}>{baseName(ev.path)}</span>
             <span class="time">{ago({
               stamp: ev.ts,
               now
