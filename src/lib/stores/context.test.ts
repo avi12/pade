@@ -1,0 +1,147 @@
+import { contextPct, dropContext, observeContext } from "@/lib/stores/context.svelte";
+import { describe, expect, it } from "vitest";
+
+// The parser is internal, so every case drives it through the public API:
+// observe a chunk, read the percent back. Each test uses its own session id —
+// the store keeps module-level state, and fresh ids keep tests independent.
+
+describe("contextPct via observeContext", () => {
+  it("returns null for a session never observed", () => {
+    expect(contextPct("never-observed")).toBeNull();
+  });
+
+  it("inverts a percent-remaining readout into percent used", () => {
+    observeContext({
+      id: "remaining-form",
+      chunk: "Context: 37% remaining"
+    });
+
+    expect(contextPct("remaining-form")).toBe(63);
+  });
+
+  it("inverts the 'context left' remaining variant too", () => {
+    observeContext({
+      id: "context-left-form",
+      chunk: "12% context left until compaction"
+    });
+
+    expect(contextPct("context-left-form")).toBe(88);
+  });
+
+  it("reads a percent-of-context used form directly", () => {
+    observeContext({
+      id: "used-form",
+      chunk: "45% context consumed"
+    });
+
+    expect(contextPct("used-form")).toBe(45);
+  });
+
+  it("computes the percent from a used/limit token ratio", () => {
+    observeContext({
+      id: "ratio-plain",
+      chunk: "50000/200000 tokens"
+    });
+
+    expect(contextPct("ratio-plain")).toBe(25);
+  });
+
+  it("scales k and m suffixes in a token ratio", () => {
+    observeContext({
+      id: "ratio-k",
+      chunk: "using 50k / 200k tokens"
+    });
+    observeContext({
+      id: "ratio-m",
+      chunk: "1m / 2m tokens in the window"
+    });
+
+    expect(contextPct("ratio-k")).toBe(25);
+    expect(contextPct("ratio-m")).toBe(50);
+  });
+
+  it("strips thousands separators in a token ratio", () => {
+    observeContext({
+      id: "ratio-commas",
+      chunk: "1,500 / 3,000 tokens"
+    });
+
+    expect(contextPct("ratio-commas")).toBe(50);
+  });
+
+  it("clamps an over-100 remaining percent to zero used", () => {
+    observeContext({
+      id: "clamp-remaining",
+      chunk: "250% remaining"
+    });
+
+    expect(contextPct("clamp-remaining")).toBe(0);
+  });
+
+  it("clamps an over-100 used percent and an overflowing ratio to 100", () => {
+    observeContext({
+      id: "clamp-used",
+      chunk: "999% context"
+    });
+    observeContext({
+      id: "clamp-ratio",
+      chunk: "300k/200k tokens"
+    });
+
+    expect(contextPct("clamp-used")).toBe(100);
+    expect(contextPct("clamp-ratio")).toBe(100);
+  });
+
+  it("falls back to a chars-seen estimate when nothing parses", () => {
+    // 80k chars ≈ 20k tokens of a 200k window → 10%.
+    observeContext({
+      id: "estimate-fallback",
+      chunk: "x".repeat(80_000)
+    });
+
+    expect(contextPct("estimate-fallback")).toBeCloseTo(10);
+  });
+
+  it("accumulates the estimate across chunks and caps it at 100", () => {
+    observeContext({
+      id: "estimate-accumulates",
+      chunk: "x".repeat(40_000)
+    });
+    observeContext({
+      id: "estimate-accumulates",
+      chunk: "x".repeat(40_000)
+    });
+    observeContext({
+      id: "estimate-capped",
+      chunk: "x".repeat(1_000_000)
+    });
+
+    expect(contextPct("estimate-accumulates")).toBeCloseTo(10);
+    expect(contextPct("estimate-capped")).toBe(100);
+  });
+
+  it("keeps the last parsed percent across later non-matching chunks", () => {
+    observeContext({
+      id: "parsed-persists",
+      chunk: "42% context"
+    });
+    observeContext({
+      id: "parsed-persists",
+      chunk: "plain build output with no signal"
+    });
+
+    expect(contextPct("parsed-persists")).toBe(42);
+  });
+});
+
+describe("dropContext", () => {
+  it("forgets the session entirely", () => {
+    observeContext({
+      id: "dropped-session",
+      chunk: "42% context"
+    });
+    dropContext("dropped-session");
+
+    expect(contextPct("dropped-session")).toBeNull();
+  });
+});

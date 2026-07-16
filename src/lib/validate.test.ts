@@ -4,7 +4,8 @@ import {
   nameError,
   parseInput,
   ProjectName,
-  RestoreQuery
+  RestoreQuery,
+  SessionName
 } from "@/lib/validate";
 import { describe, expect, it } from "vitest";
 
@@ -90,6 +91,27 @@ describe("FirstPrompt", () => {
 
   it("caps the length at 10000 characters", () => {
     expect(FirstPrompt.safeParse("x".repeat(10_001)).success).toBe(false);
+  });
+});
+
+describe("SessionName", () => {
+  it("requires at least one non-whitespace character", () => {
+    expect(SessionName.safeParse("").success).toBe(false);
+    expect(SessionName.safeParse("   ").success).toBe(false);
+  });
+
+  it("trims surrounding whitespace", () => {
+    const parsed = parseInput({
+      schema: SessionName,
+      raw: "  planning  "
+    });
+
+    expect(parsed).toBe("planning");
+  });
+
+  it("caps the length at 60 characters", () => {
+    expect(SessionName.safeParse("x".repeat(60)).success).toBe(true);
+    expect(SessionName.safeParse("x".repeat(61)).success).toBe(false);
   });
 });
 

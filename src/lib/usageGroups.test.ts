@@ -178,6 +178,53 @@ describe("buildGroups", () => {
   });
 });
 
+describe("reset countdowns", () => {
+  // `buildGroups` takes `now` as a parameter (nothing reads `Date.now()`), so a
+  // fixed epoch keeps every countdown deterministic — no fake timers needed.
+  const now = Date.UTC(2026, 0, 1);
+
+  // The session limit's countdown for a given ISO reset time, via the builder.
+  function fiveHourReset(resetsAt: string): string {
+    const [claude] = buildGroups({
+      account: makeAccount({
+        fiveHour: {
+          utilization: 40,
+          resetsAt
+        }
+      }),
+      sessions: [claudeSession()],
+      now
+    });
+    return claude.limits[0].reset;
+  }
+
+  it("shows days and hours when more than a day remains", () => {
+    expect(fiveHourReset("2026-01-03T05:00:00Z")).toBe("resets in 2d 5h");
+  });
+
+  it("shows hours and minutes when less than a day remains", () => {
+    expect(fiveHourReset("2026-01-01T03:30:00Z")).toBe("resets in 3h 30m");
+  });
+
+  it("shows minutes with zero-padded seconds when less than an hour remains", () => {
+    expect(fiveHourReset("2026-01-01T00:05:07Z")).toBe("resets in 5m 07s");
+  });
+
+  it("shows bare seconds inside the final minute", () => {
+    expect(fiveHourReset("2026-01-01T00:00:42Z")).toBe("resets in 42s");
+  });
+
+  it("leaves the label empty at or past the reset time", () => {
+    expect(fiveHourReset("2026-01-01T00:00:00Z")).toBe("");
+    expect(fiveHourReset("2025-12-31T23:59:00Z")).toBe("");
+  });
+
+  it("truncates a microsecond timestamp to milliseconds before parsing", () => {
+    expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe(fiveHourReset("2026-01-01T00:01:30.123Z"));
+    expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe("resets in 1m 30s");
+  });
+});
+
 describe("panel view-model skips unknown agents", () => {
   const now = Date.UTC(2026, 0, 1);
   // Claude at a critical per-model cap, plus an unknown Codex agent alongside.
