@@ -40,6 +40,30 @@ each behavior.**
 - **Gap 3 (WinRT `PackageManager` instead of PowerShell)** — still an optional
   nice-to-have; untouched.
 
+### Finding: the entry appears in BOTH menus by design (not a bug, not ours to fix)
+
+On Win11 build 26200 the packaged `IExplorerCommand` handler shows up in **both** the
+modern menu *and* "Show more options". Confirmed **not** a stale cache — it survived a
+full `explorer.exe` restart and returns on every toggle-on. This is intrinsic Windows
+behavior: a modern packaged handler **auto-propagates** into the legacy menu, and
+**PowerToys does the identical thing** (PowerRename / Image Resizer — open issues
+[#19271](https://github.com/microsoft/PowerToys/issues/19271),
+[#25355](https://github.com/microsoft/PowerToys/issues/25355),
+[#31574](https://github.com/microsoft/PowerToys/issues/31574),
+[#36696](https://github.com/microsoft/PowerToys/issues/36696)). There is **no knob**
+— not in the `desktop4`/`desktop5` manifest, not in `IExplorerCommand`
+(`GetState`/`GetFlags`) — to place a third-party handler in the modern menu *only*;
+that placement is reserved to Windows' own shell verbs. Our registration is actually
+**cleaner** than PowerToys: a single entry per menu, because we don't also register a
+separate Win10 classic `IContextMenu` handler (which is what doubles PowerToys' legacy
+entry). **Decision: accept the dual appearance.**
+
+**OPEN (needs a human):** verify the self-hide flag hides "Open in PADE" from **both**
+menus on toggle-off. The modern menu honors `GetState`→`ECS_HIDDEN`; it's unconfirmed
+whether "Show more options" does. If the legacy menu ignores `GetState`, toggle-off
+would leave a ghost there — *that* would be the real bug (and would force a rethink:
+either accept it, or unregister on toggle-off and trade away the no-restart property).
+
 ---
 
 ## What this session already did (committed, unpushed)
