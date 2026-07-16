@@ -7,15 +7,16 @@
   // form (root select + name + optional first prompt). Creation goes straight
   // through the bridge (it never touches settings); the chosen project path —
   // and the optional first prompt — go back to the app through `onopen`.
-  const { roots, onopen }: {
+  // `createIn` is bindable so the picker can fill it when a root is selected
+  // elsewhere (adding one in Root folders picks it as the create location).
+  let { roots, onopen, createIn = $bindable("") }: {
     roots: string[];
     onopen: (target: {
       path: string;
       initialPrompt?: string;
     }) => void;
+    createIn?: string;
   } = $props();
-
-  let createIn = $state("");
   let createName = $state("");
   let createPrompt = $state("");
 
@@ -236,6 +237,7 @@
   /* The "Location" group row — folder icon, root select, "\" separator, name. */
   .np-loc {
     display: flex;
+    flex-wrap: wrap;
     gap: 2px;
     align-items: center;
     padding-block: 4px;
@@ -317,7 +319,10 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    max-inline-size: 150px;
+
+    /* Full width of the row's free space — the chosen root prints in full
+       (ellipsis only at the row's own edge, never a hard cap). */
+    max-inline-size: 100%;
     padding: 6px 2px;
     border: none;
     background: transparent;
@@ -332,10 +337,11 @@
       color: var(--primary);
     }
 
+    /* The chosen root prints in full — a long path wraps (the row is
+       wrap-enabled) rather than ellipsizing behind a clipped tail. */
     .root-current {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
+      text-align: start;
     }
 
     .caret {

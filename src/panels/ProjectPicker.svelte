@@ -145,6 +145,10 @@
     return workspace.scan(root).catch((): ProjectEntry[] => []);
   }
 
+  // The create-form's chosen root, owned here so selecting a root anywhere in
+  // the picker (adding one in Root folders) fills the create location too.
+  let createRoot = $state("");
+
   // Stays the single settings owner: only an `added` outcome adopts the returned
   // settings and scans the new root — `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
@@ -161,6 +165,8 @@
         ...projectsByRoot,
         [path]: await scan(path)
       };
+
+      createRoot = path;
     }
 
     return outcome;
@@ -169,6 +175,10 @@
     settings = await workspace.removeRoot(path);
     const { [path]: _drop, ...rest } = projectsByRoot;
     projectsByRoot = rest;
+
+    if (createRoot === path) {
+      createRoot = "";
+    }
   }
 
   async function clearRecent() {
@@ -250,7 +260,7 @@
       </p>
     </header>
 
-    <QuickStartSection {onopen} roots={settings.roots} />
+    <QuickStartSection {onopen} roots={settings.roots} bind:createIn={createRoot} />
 
     <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
 

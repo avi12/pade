@@ -113,6 +113,9 @@ writes.
   (a surviving option keeps its selection at its new position; a vanished one
   falls to the nearest remaining position). Enter accepts the selection; Tab
   accepts and drills into sub-folders; a cleared field forgets the selection.
+- R1.9.8 ✅ Selecting a root (adding one in Root folders) auto-fills it as the
+  create-a-new-project **Location**; removing that root clears it. The chosen
+  root prints in full — a long path wraps in the Location row, never truncates.
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** — open the active project in an installed editor (`ide.rs`;
