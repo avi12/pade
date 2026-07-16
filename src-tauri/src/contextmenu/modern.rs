@@ -1,7 +1,8 @@
 //! The Windows 11 **modern** context menu — registering PADE's sparse
 //! (external-location) MSIX package so File Explorer loads the
 //! `contextmenu_handler.dll` COM verb (`IExplorerCommand`). Dev-mode, unsigned,
-//! per-user; additive to the legacy registry menu in the parent module.
+//! per-user; the sole "Open in PADE" menu on Windows 11 (the parent module skips
+//! the legacy registry keys there, so the entry isn't duplicated).
 //!
 //! Register/unregister shell out to `Add-AppxPackage -Register … -ExternalLocation`
 //! / `Remove-AppxPackage` — the documented way to (de)register a loose manifest,
@@ -44,9 +45,9 @@ const ASSETS: &[(&str, &[u8])] = &[
     ),
 ];
 
-/// Register the sparse package so the modern menu appears. Assumes the caller has
-/// already applied the legacy keys; a failure here (typically Developer Mode off)
-/// is returned with a clear, user-facing message and leaves the legacy menu intact.
+/// Register the sparse package so the modern menu appears — the only menu PADE uses
+/// on Windows 11. A failure here (typically Developer Mode off) is returned with a
+/// clear, user-facing message.
 pub fn register() -> Result<(), String> {
     let location = external_location()?;
     let handler = location.join(HANDLER_DLL);
@@ -140,10 +141,11 @@ fn interpret(output: &Output) -> Result<(), String> {
     let developer_mode_off =
         message.contains("0x80073CFF") || message.to_lowercase().contains("developer");
     if developer_mode_off {
-        return Err("The modern Windows 11 menu needs Developer Mode turned on \
-             (Settings → System → For developers → Developer Mode). \
-             The legacy right-click menu was still added."
-            .to_string());
+        return Err(
+            "The Windows 11 right-click menu needs Developer Mode turned on \
+             (Settings → System → For developers → Developer Mode), then try again."
+                .to_string(),
+        );
     }
     Err(format!(
         "registering the modern context menu failed: {}",

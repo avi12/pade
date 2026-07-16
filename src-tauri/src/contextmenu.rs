@@ -1,18 +1,20 @@
-//! Windows Explorer "Open in PADE" integration — for BOTH right-click menus.
+//! Windows Explorer "Open in PADE" integration, tailored per Windows version so the
+//! entry appears in exactly one right-click menu — never duplicated.
 //!
-//! - **Legacy menu** (`HKCU\Software\Classes\Directory\…\shell\PADE`): the classic
-//!   menu, still shown on Windows 10 and under Windows 11's "Show more options".
-//!   Per-user, no admin, plain registry keys pointing at the running executable
-//!   with `%V` (the folder).
-//! - **Modern menu** (Windows 11's first-shown menu): a *packaged* `IExplorerCommand`
-//!   COM handler, which Windows only loads with package identity. Registered via a
-//!   sparse MSIX manifest — see the [`modern`] submodule and the
-//!   `contextmenu-handler` crate.
+//! - **Windows 11** (build 22000+): only the **modern** menu — a *packaged*
+//!   `IExplorerCommand` COM handler shown in Explorer's first-level menu (see the
+//!   [`modern`] submodule and the `contextmenu-handler` crate). The legacy keys are
+//!   skipped so the entry doesn't *also* show under "Show more options".
+//! - **Windows 10 and older**: only the **legacy** menu
+//!   (`HKCU\Software\Classes\Directory\…\shell\PADE`) — the classic per-user
+//!   registry entry pointing at the exe with `%V` (the folder), since there's no
+//!   modern menu to host the verb (and it needs no Developer Mode).
 //!
-//! Both open the folder through `launch_context`. The toggle in the project picker
-//! turns them on/off together; the modern step can fail (e.g. Developer Mode off)
-//! while the legacy step still succeeds, and that is surfaced to the UI.
-//! Windows-only; other platforms get inert stubs so `lib.rs` compiles everywhere.
+//! Both open the folder through `launch_context`. The project-picker toggle turns
+//! the version-appropriate menu on; unregister removes either (and any leftover from
+//! an earlier build that added both). The modern step can fail (Developer Mode off),
+//! which is surfaced to the UI. Windows-only; other platforms get inert stubs so
+//! `lib.rs` compiles everywhere.
 
 #[cfg(windows)]
 mod modern;
@@ -30,6 +32,30 @@ fn exe_path() -> Result<String, String> {
         .to_str()
         .map(String::from)
         .ok_or_else(|| "executable path is not valid UTF-8".to_string())
+}
+
+/// Windows 11 is build 22000 or newer. Read the build from the registry — no extra
+/// dependency, matching how the rest of this module talks to Windows. Anything we
+/// can't read (or a lower build) is treated as Windows 10, whose only menu is legacy.
+#[cfg(windows)]
+fn is_windows_11() -> bool {
+    let Ok(output) = crate::util::command("reg")
+        .args([
+            "query",
+            r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+            "/v",
+            "CurrentBuildNumber",
+        ])
+        .output()
+    else {
+        return false;
+    };
+    // The value line is "CurrentBuildNumber  REG_SZ  22631" — the lone numeric token.
+    String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .filter_map(|token| token.parse::<u32>().ok())
+        .next_back()
+        .is_some_and(|build| build >= 22000)
 }
 
 #[cfg(windows)]
@@ -58,9 +84,14 @@ fn register_legacy() -> Result<(), String> {
     Ok(())
 }
 
-/// Remove the legacy registry entries.
+/// Remove the legacy registry entries. A no-op when they're absent (e.g. on a
+/// Windows 11 install that only ever registered the modern menu), so unregister can
+/// safely clear both menus without erroring on the one that was never there.
 #[cfg(windows)]
 fn unregister_legacy() -> Result<(), String> {
+    if !legacy_registered() {
+        return Ok(());
+    }
     for root in ROOTS {
         reg(&["delete", root, "/f"])?;
     }
@@ -76,17 +107,22 @@ fn legacy_registered() -> bool {
         .is_ok_and(|o| o.status.success())
 }
 
-/// Register "Open in PADE" for both menus. The legacy keys go in first (they always
-/// work, no Developer Mode needed); then the modern packaged handler, whose failure
-/// is returned to the UI but leaves the legacy menu in place.
+/// Register "Open in PADE" in the one menu that fits this Windows version: the modern
+/// packaged handler on Windows 11 (its only first-level menu), or the legacy registry
+/// keys on Windows 10 and older. Registering both would duplicate the entry on 11.
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_register() -> Result<(), String> {
-    register_legacy()?;
-    modern::register()
+    if is_windows_11() {
+        modern::register()
+    } else {
+        register_legacy()
+    }
 }
 
-/// Remove both menus. Both steps run; the first error (if any) is returned.
+/// Remove both menus — whichever this version uses, plus any leftover from an earlier
+/// build that added both. Each step is a no-op when its menu is absent; the first
+/// real error (if any) is returned.
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_unregister() -> Result<(), String> {

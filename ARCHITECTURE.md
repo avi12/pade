@@ -297,7 +297,7 @@ entry. Each concern is one module:
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |
 | `design.rs` | Quick-launch AI design / UI-generation tools |
-| `contextmenu.rs` | Windows Explorer "Open in PADE" registration — **both** menus: the legacy registry keys (Win10 / "Show more options") inline, and the Windows 11 modern menu via the `modern` submodule (registers the sparse MSIX package — see below) |
+| `contextmenu.rs` | Windows Explorer "Open in PADE" registration, **one menu per Windows version** so it's never duplicated: on Win11 (build 22000+) only the modern menu via the `modern` submodule (sparse MSIX package — see below); on Win10/older only the legacy registry keys inline. Version detected from the registry build number; unregister clears both |
 | `os.rs` | Reveal in file manager / terminal, open URLs |
 | `window.rs` | Spawn additional app windows; paint each window's webview with the themed M3 surface so it opens in-theme (no white flash) |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
@@ -323,8 +323,8 @@ crate's `lib.rs` and mirrored (braceless) in `AppxManifest.xml`.
 ```mermaid
 flowchart LR
   toggle["Picker toggle\n(OnLaunchSection)"] -->|context_menu_register| cm["contextmenu.rs"]
-  cm -->|legacy: reg keys| legacy["HKCU…\\shell\\PADE\n(Win10 / More options)"]
-  cm -->|modern| modernmod["contextmenu::modern"]
+  cm -->|"Win10/older: reg keys"| legacy["HKCU…\\shell\\PADE\n(legacy menu)"]
+  cm -->|"Win11 (build 22000+)"| modernmod["contextmenu::modern"]
   modernmod -->|writes manifest+Assets,\nAdd-AppxPackage -Register\n-ExternalLocation| pkg["sparse MSIX package"]
   pkg -.registers CLSID.-> dll["contextmenu_handler.dll\n(IExplorerCommand)"]
 
