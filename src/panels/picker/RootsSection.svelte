@@ -3,6 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow } from "@/lib/motion";
+  import { normalizePath } from "@/lib/paths";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome, Ide, PathProbe, ProjectEntry } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";
@@ -59,8 +60,10 @@
 
   const trimmedRoot = $derived(newRoot.trim());
   const hasValue = $derived(trimmedRoot.length > 0);
+  // A path that differs from an existing root only by case or a trailing separator
+  // is the same folder — `C:\repositories\` is already `C:\repositories`.
   const alreadyRoot = $derived(
-    roots.some(root => root.toLowerCase() === trimmedRoot.toLowerCase())
+    roots.some(root => normalizePath(root) === normalizePath(trimmedRoot))
   );
   // The probe is async + debounced; only believe its flags once they describe the
   // path currently in the field.
@@ -73,9 +76,10 @@
   const invalidLocation = $derived(
     probeSettled && !folderExists && !typedPathIsFile && !probe.result.parentExists
   );
-  // Never echo the exact folder already typed back as a suggestion.
+  // Never echo the exact folder already typed back as a suggestion (case- and
+  // trailing-separator-insensitive, so a `…\` variant is still recognised as self).
   const suggestions = $derived(
-    probe.result.suggestions.filter(dir => dir.toLowerCase() !== probe.path.toLowerCase())
+    probe.result.suggestions.filter(dir => normalizePath(dir) !== normalizePath(probe.path))
   );
 
   const willCreate = $derived(canCreate && !alreadyRoot);

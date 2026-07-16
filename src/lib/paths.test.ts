@@ -89,4 +89,9 @@ describe("normalizePath", () => {
   it("leaves an already-normal path unchanged", () => {
     expect(normalizePath("c:/repos/avi/pade")).toBe("c:/repos/avi/pade");
   });
+
+  it("drops a trailing separator so C:\\repositories\\ equals C:\\repositories", () => {
+    expect(normalizePath("C:\\repositories\\")).toBe(normalizePath("C:\\repositories"));
+    expect(normalizePath("c:/repos/avi/")).toBe("c:/repos/avi");
+  });
 });

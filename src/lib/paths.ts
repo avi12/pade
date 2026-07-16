@@ -26,8 +26,10 @@ export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
 }
 
-/** Normalize a path for comparison — watcher and workspace paths can differ in
- *  separator/casing on Windows. */
+/** Normalize a path for comparison — separator, casing, and a trailing separator
+ *  are all cosmetic on Windows, so `C:\repositories\` and `C:\repositories` (the
+ *  same directory) compare equal. Used by the watcher, the workspace list, and the
+ *  add-root dedup. */
 export function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/").toLowerCase();
+  return path.replaceAll("\\", "/").replace(/\/+$/, "").toLowerCase();
 }
