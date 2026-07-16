@@ -16,12 +16,13 @@
   $effect(() => {
     const active = agent;
     let cancelled = false;
-    void (async () => {
+    async function loadTools() {
       const list = await design.tools(active);
       if (!cancelled) {
         tools = list;
       }
-    })();
+    }
+    void loadTools();
     return () => {
       cancelled = true;
     };
