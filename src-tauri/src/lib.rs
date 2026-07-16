@@ -69,6 +69,7 @@ pub fn run() {
             ide::ide_add_editor,
             ide::ide_suggest,
             ide::ide_kind_options,
+            ide::ide_kinds,
             ide::ide_open,
             ide::ide_open_file,
             ide::ide_project_kind,

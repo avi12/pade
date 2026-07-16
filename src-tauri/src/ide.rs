@@ -94,6 +94,34 @@ const REGISTRY: &[IdeDef] = &[
         protocol: Some("rustrover"),
     },
     IdeDef {
+        id: "rider",
+        label: "Rider",
+        command: "rider",
+        style: OpenStyle::JetBrains,
+        protocol: Some("rider"),
+    },
+    IdeDef {
+        id: "clion",
+        label: "CLion",
+        command: "clion",
+        style: OpenStyle::JetBrains,
+        protocol: Some("clion"),
+    },
+    IdeDef {
+        id: "phpstorm",
+        label: "PhpStorm",
+        command: "phpstorm",
+        style: OpenStyle::JetBrains,
+        protocol: Some("phpstorm"),
+    },
+    IdeDef {
+        id: "rubymine",
+        label: "RubyMine",
+        command: "rubymine",
+        style: OpenStyle::JetBrains,
+        protocol: Some("rubymine"),
+    },
+    IdeDef {
         id: "androidstudio",
         label: "Android Studio",
         command: "studio",
@@ -123,16 +151,132 @@ const REGISTRY: &[IdeDef] = &[
     },
 ];
 
-/// Detected project kind → the IDEs that suit it best, in priority order.
-/// Generalist editors are appended to every suggestion list as a fallback.
-const PREFERENCES: &[(&str, &[&str])] = &[
-    ("android", &["androidstudio", "idea"]),
-    ("web", &["webstorm", "vscode", "cursor"]),
-    ("python", &["pycharm", "vscode"]),
-    ("go", &["goland", "vscode"]),
-    ("rust", &["rustrover", "zed", "vscode"]),
-    ("java", &["idea"]),
-    ("dotnet", &["visualstudio", "vscode"]),
+/// A project-kind marker — something in the project root that signals the kind,
+/// and how it is probed on disk.
+enum Marker {
+    /// A file with this exact name exists in the root.
+    Named(&'static str),
+    /// Any direct child has this extension (solution/project file names vary
+    /// per project, so they're matched by extension).
+    Extension(&'static str),
+}
+
+impl Marker {
+    fn is_present(&self, cwd: &std::path::Path) -> bool {
+        match self {
+            Self::Named(name) => cwd.join(name).exists(),
+            Self::Extension(extension) => has_ext(cwd, extension),
+        }
+    }
+
+    /// The marker as the UI displays it (`*.sln` for an extension probe).
+    fn display(&self) -> String {
+        match self {
+            Self::Named(name) => (*name).to_string(),
+            Self::Extension(extension) => format!("*.{extension}"),
+        }
+    }
+}
+
+/// One project kind PADE recognises. A single row wires everything a kind
+/// needs — its detection markers, UI label, and purpose-built editors — so
+/// adding a language is one entry here. Table order is the detection priority
+/// (the first matching kind is a project's primary kind) and the UI's render
+/// order.
+struct KindDef {
+    kind: &'static str,
+    label: &'static str,
+    markers: &'static [Marker],
+    /// The IDEs purpose-built for this kind, best first. Generalist editors
+    /// are appended to every suggestion list as a fallback.
+    preferred: &'static [&'static str],
+}
+
+const KIND_REGISTRY: &[KindDef] = &[
+    // Android is checked first: an Android project is also "web"/"java"-ish,
+    // but Android Studio is the right call when its markers are there.
+    KindDef {
+        kind: "android",
+        label: "Android",
+        markers: &[
+            Marker::Named("AndroidManifest.xml"),
+            Marker::Named("gradlew"),
+            Marker::Named("settings.gradle"),
+        ],
+        preferred: &["androidstudio", "idea"],
+    },
+    KindDef {
+        kind: "web",
+        label: "Web / JavaScript",
+        markers: &[
+            Marker::Named("package.json"),
+            Marker::Named("tsconfig.json"),
+            Marker::Named("index.html"),
+        ],
+        preferred: &["webstorm", "vscode", "cursor"],
+    },
+    KindDef {
+        kind: "python",
+        label: "Python",
+        markers: &[
+            Marker::Named("pyproject.toml"),
+            Marker::Named("requirements.txt"),
+            Marker::Named("setup.py"),
+        ],
+        preferred: &["pycharm", "vscode"],
+    },
+    KindDef {
+        kind: "php",
+        label: "PHP",
+        markers: &[Marker::Named("composer.json")],
+        preferred: &["phpstorm", "vscode"],
+    },
+    KindDef {
+        kind: "ruby",
+        label: "Ruby",
+        markers: &[Marker::Named("Gemfile")],
+        preferred: &["rubymine", "vscode"],
+    },
+    KindDef {
+        kind: "go",
+        label: "Go",
+        markers: &[Marker::Named("go.mod")],
+        preferred: &["goland", "vscode"],
+    },
+    KindDef {
+        kind: "rust",
+        label: "Rust",
+        markers: &[Marker::Named("Cargo.toml")],
+        preferred: &["rustrover", "zed", "vscode"],
+    },
+    KindDef {
+        kind: "java",
+        label: "Java",
+        markers: &[Marker::Named("pom.xml"), Marker::Named("build.gradle")],
+        preferred: &["idea"],
+    },
+    // C/C++ before .NET: a Visual C++ solution also carries a .sln, and marker
+    // files can't reliably separate C from C++, so one "cpp" kind covers both.
+    KindDef {
+        kind: "cpp",
+        label: "C / C++",
+        markers: &[
+            Marker::Named("CMakeLists.txt"),
+            Marker::Named("meson.build"),
+            Marker::Extension("vcxproj"),
+        ],
+        preferred: &["visualstudio", "clion", "vscode"],
+    },
+    KindDef {
+        kind: "dotnet",
+        label: "C# / .NET",
+        markers: &[
+            Marker::Named("global.json"),
+            Marker::Extension("sln"),
+            Marker::Extension("csproj"),
+        ],
+        preferred: &["visualstudio", "rider", "vscode"],
+    },
 ];
 const GENERALISTS: &[&str] = &["vscode", "cursor", "zed", "sublime"];
 
@@ -326,36 +470,14 @@ fn has_ext(dir: &std::path::Path, ext: &str) -> bool {
     })
 }
 
-/// Sniff the project kinds present in the current directory from marker files.
+/// Sniff the project kinds present in the current directory from the
+/// [`KIND_REGISTRY`] marker files, in the registry's priority order.
 fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
-    let has = |name: &str| cwd.join(name).exists();
-    let mut kinds = Vec::new();
-    // Android is checked first: an Android project is also "web"/"java"-ish, but
-    // Android Studio is the right call when the manifest/gradle wrapper is there.
-    if has("AndroidManifest.xml") || has("gradlew") || has("settings.gradle") {
-        kinds.push("android");
-    }
-    if has("package.json") || has("tsconfig.json") || has("index.html") {
-        kinds.push("web");
-    }
-    if has("pyproject.toml") || has("requirements.txt") || has("setup.py") {
-        kinds.push("python");
-    }
-    if has("go.mod") {
-        kinds.push("go");
-    }
-    if has("Cargo.toml") {
-        kinds.push("rust");
-    }
-    if has("pom.xml") {
-        kinds.push("java");
-    }
-    // .NET / C++ — Visual Studio's home turf. Solution/project files or a
-    // dotnet marker; scanned by extension since names vary per project.
-    if has("global.json") || has_ext(cwd, "sln") || has_ext(cwd, "csproj") {
-        kinds.push("dotnet");
-    }
-    kinds
+    KIND_REGISTRY
+        .iter()
+        .filter(|def| def.markers.iter().any(|marker| marker.is_present(cwd)))
+        .map(|def| def.kind)
+        .collect()
 }
 
 /// The single best-matching project kind for `cwd` — the highest-priority marker
@@ -379,7 +501,7 @@ fn dedup_in_order(ids: Vec<String>) -> Vec<String> {
 }
 
 /// Editor ids to offer per editor-rules row, installed-only. Each recognised
-/// project kind gets its [`PREFERENCES`] list plus the generalists (so an
+/// project kind gets its [`KIND_REGISTRY`] preference list plus the generalists (so an
 /// unrelated IDE — `WebStorm` for an Android project — is never offered); the
 /// [`FALLBACK_KEY`] "any other folder" row gets only the generalists and any
 /// user-added editors (a folder with no recognised kind wants a general editor,
@@ -405,11 +527,11 @@ pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
             .collect(),
     );
 
-    PREFERENCES
+    KIND_REGISTRY
         .iter()
-        .map(|(kind, preferred)| {
+        .map(|def| {
             let options = dedup_in_order(
-                preferred
+                def.preferred
                     .iter()
                     .copied()
                     .map(str::to_string)
@@ -417,9 +539,33 @@ pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
                     .chain(general.iter().cloned())
                     .collect(),
             );
-            ((*kind).to_string(), options)
+            (def.kind.to_string(), options)
         })
         .chain(std::iter::once((FALLBACK_KEY.to_string(), general.clone())))
+        .collect()
+}
+
+/// One project kind as the editor-rules UI renders it — its id, display label,
+/// and the marker signals shown under the label.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KindInfo {
+    kind: String,
+    label: String,
+    signals: Vec<String>,
+}
+
+/// Every recognised project kind, in the [`KIND_REGISTRY`]'s priority/render
+/// order. Drives the editor-rules rows in the picker's settings.
+#[tauri::command]
+pub fn ide_kinds() -> Vec<KindInfo> {
+    KIND_REGISTRY
+        .iter()
+        .map(|def| KindInfo {
+            kind: def.kind.to_string(),
+            label: def.label.to_string(),
+            signals: def.markers.iter().map(Marker::display).collect(),
+        })
         .collect()
 }
 
@@ -466,10 +612,10 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let specialized: Vec<&str> = kinds
         .iter()
         .flat_map(|k| {
-            PREFERENCES
+            KIND_REGISTRY
                 .iter()
-                .find(|(kind, _)| kind == k)
-                .map_or::<&[&str], _>(&[], |(_, ids)| *ids)
+                .find(|def| def.kind == *k)
+                .map_or::<&[&str], _>(&[], |def| def.preferred)
                 .iter()
                 .copied()
         })
@@ -629,7 +775,8 @@ pub fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        exe_basename, family, open_args, open_style, project_name, relative_path, OpenStyle,
+        exe_basename, family, ide_kinds, open_args, open_style, project_name, protocol_id,
+        relative_path, OpenStyle,
     };
 
     #[test]
@@ -657,6 +804,40 @@ mod tests {
         assert!(family("vi").expect("supported").terminal);
         assert!(!family("code").expect("supported").terminal);
         assert!(!family("gvim").expect("supported").terminal);
+    }
+
+    #[test]
+    fn new_jetbrains_registry_entries_resolve_style_and_protocol() {
+        for command in ["rider", "clion", "phpstorm", "rubymine"] {
+            assert!(
+                matches!(open_style(command), Some(OpenStyle::JetBrains)),
+                "{command} should open JetBrains-style"
+            );
+            assert_eq!(protocol_id(command), Some(command));
+        }
+    }
+
+    #[test]
+    fn kinds_list_cpp_before_dotnet_and_android_first() {
+        let kinds: Vec<String> = ide_kinds().into_iter().map(|info| info.kind).collect();
+        assert_eq!(kinds.first().map(String::as_str), Some("android"));
+        let position = |kind: &str| {
+            kinds
+                .iter()
+                .position(|k| k == kind)
+                .unwrap_or_else(|| panic!("{kind} is a recognised kind"))
+        };
+        assert!(position("cpp") < position("dotnet"));
+    }
+
+    #[test]
+    fn kind_signals_display_extension_markers_with_a_wildcard() {
+        let dotnet = ide_kinds()
+            .into_iter()
+            .find(|info| info.kind == "dotnet")
+            .expect("dotnet is a recognised kind");
+        assert_eq!(dotnet.label, "C# / .NET");
+        assert_eq!(dotnet.signals, ["global.json", "*.sln", "*.csproj"]);
     }
 
     #[test]
