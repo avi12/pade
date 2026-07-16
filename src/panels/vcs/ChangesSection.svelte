@@ -160,7 +160,11 @@
     white-space: nowrap;
   }
 
+  /* `flex: none` matters: the panel's `.scroll` column would otherwise shrink
+     this section (overflow: hidden zeroes its automatic minimum size) to a
+     2px sliver whenever the file list + commits fill the viewport. */
   .diff {
+    flex: none;
     overflow: hidden;
     border: 1px solid var(--outline);
     border-radius: var(--radius-medium);
