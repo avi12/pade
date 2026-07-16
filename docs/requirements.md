@@ -51,9 +51,13 @@ writes.
 - R1.5.2 Per-node status (running/waiting/done/merged/error); blocked nodes surface.
 - R1.5.3 🔭 Interrupt/redirect individual nodes.
 
-### 1.6 Usage panel (⏳)
-- R1.6.1 Adapt to the active agent; parse its own usage output.
-- R1.6.2 Show % used, reset time; 🔭 burn-rate warning.
+### 1.6 Usage meter (✅ meter, 🔭 burn-rate)
+- R1.6.1 ✅ Adapt to the running agents — the top-bar meter groups quota **per
+  running agent**; agents without a reliable source show an honest "unknown".
+- R1.6.2 ✅ Show % used and reset time. For Claude: the live 5-hour + weekly
+  windows from the vendor's OAuth usage endpoint (the local token, cached, no
+  message quota spent), with the subscription-tier label as offline fallback.
+  🔭 burn-rate warning.
 
 ### 1.6a Auto-handoff (✅)
 - R1.6a.1 ✅ Track each session's **context-window** fill — parse the agent CLI's
@@ -103,16 +107,14 @@ writes.
   VS Code, JetBrains family, Zed, Sublime…). ✅ Ranked by project kind, and ✅ a
   user-set **editor-rules** engine (project kind → chosen editor + a fallback,
   persisted in prefs) resolved rule → fallback → auto-rank.
-- R1.10.2 **Design menu** — an AI design/UI-generation tool as a design-to-code
+- R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);
-  one registry entry per product (DRY). 🚧 Currently opens in the browser; a
-  **docked native webview panel** (in-app, side-by-side) is the planned form —
-  iframes are blocked by all four sites (`X-Frame-Options`), so it needs a Tauri
-  webview.
-- R1.10.3 🔭 **Agent usage meter** — show the selected agent's remaining quota
-  (e.g. weekly), parsed from the vendor's site (not by invoking the CLI, which
-  would consume quota).
+  one registry entry per product (DRY). Opens in a reused **companion PADE
+  window** (a native Tauri webview — all four sites block iframes via
+  `X-Frame-Options`, so in-page embedding is impossible). 🔭 a docked
+  side-by-side panel form.
+- R1.10.3 ✅ **Agent usage meter** — shipped as the top-bar meter; see 1.6.
 - R1.10.4 ✅ **Task-runner dock** — runnable tasks parsed from manifests
   (`package.json` scripts, Cargo/Make/pyproject) launch as tracked **runners**
   (`runner.rs`, `std::process`) that stream their output live into a bottom dock
@@ -140,7 +142,7 @@ Frontend (Svelte)          Rust core (Tauri)
   lib/bridge.ts    ──IPC──▶  pty.rs        (terminal)
   lib/validate.ts            runner.rs     (task-runner dock)
   lib/diff.ts                watcher.rs    (change feed)
-  lib/stores/*               vcs.rs        (git review + restore)
+  lib/stores/*               vcs/          (git review + restore)
   panels/*.svelte            ide.rs        (editor rules)
   theme.css                  usage.rs      (subscription)
                              lib.rs        (wiring only)
