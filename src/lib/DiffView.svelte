@@ -58,7 +58,15 @@
   /* "Fully printed": every code line is visible in full — long lines wrap
      (preserving whitespace) rather than clip or hide behind a side-scroll,
      and unbroken tokens may break anywhere so nothing ever overflows. */
+
+  /* content-visibility lets the engine skip layout/paint for offscreen rows —
+     on a 9.4k-line diff (Notepad++ stress test) it cut the expand's main-thread
+     block ~30% and the split toggle ~20%, with instant scrolling. The intrinsic
+     size reserves one line-height (1.5 × 12px) per row to keep the scrollbar
+     honest. */
   .unified .line {
+    contain-intrinsic-block-size: auto 18px;
+    content-visibility: auto;
     padding-inline: var(--diff-line-padding, 12px);
     color: var(--code-foreground);
     white-space: pre-wrap;
@@ -90,6 +98,8 @@
     }
 
     .cell {
+      contain-intrinsic-block-size: auto 18px;
+      content-visibility: auto;
       min-block-size: 1.5em;
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
