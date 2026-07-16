@@ -282,6 +282,7 @@
     box-shadow: 0 16px 40px var(--shadow-color);
     animation: pop-in 220ms var(--spring);
     position-area: bottom span-right;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     .head {
       display: flex;

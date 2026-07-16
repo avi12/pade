@@ -563,6 +563,7 @@
     color: var(--on-surface);
     box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     /* Small uppercase section label, shared by the spotlight + "all agents". */
     .eyebrow {
