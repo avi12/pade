@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { agentIconName } from "@/lib/agentIcon";
   import { agents as agentsApi } from "@/lib/bridge";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
@@ -97,7 +98,7 @@
           onclick={() => onpick(agent.id)}
           role="radio"
         >
-          <span class="dot" aria-hidden="true"></span>{agent.label}
+          <Icon name={agentIconName(agent.id)} size={15} />{agent.label}
         </button>
       {/each}
     </div>
@@ -204,8 +205,8 @@
     gap: 8px;
   }
 
-  /* Choice chips — pills; selected gets a primary edge over its container. Each
-     carries a leading status dot (tertiary; primary when selected). */
+  /* Choice chips — pills; selected gets a primary edge over its container, with
+     the agent's own glyph leading the label. */
   .chip {
     display: inline-flex;
     gap: 8px;
@@ -229,18 +230,6 @@
       border-color: var(--primary);
       background: var(--primary-container);
       color: var(--on-primary-container);
-    }
-
-    .dot {
-      flex: none;
-      block-size: 7px;
-      inline-size: 7px;
-      border-radius: 999px;
-      background: var(--tertiary);
-    }
-
-    &.on .dot {
-      background: var(--primary);
     }
   }
 </style>

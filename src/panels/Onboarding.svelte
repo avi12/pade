@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { agentIconName } from "@/lib/agentIcon";
   import BrandMark from "@/lib/BrandMark.svelte";
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
@@ -37,7 +38,10 @@
       {#each agents as a (a.id)}
         <li>
           <button class="agent" onclick={() => onpick(a)}>
-            <span class="name">{a.label}</span>
+            <span class="identity">
+              <Icon name={agentIconName(a.id)} size={18} />
+              <span class="name">{a.label}</span>
+            </span>
             <code class="cmd">{a.command}</code>
           </button>
         </li>
@@ -188,6 +192,13 @@
       border-color: var(--primary);
       background: var(--primary-container);
       color: var(--on-primary-container);
+    }
+
+    .identity {
+      display: inline-flex;
+      gap: 12px;
+      align-items: center;
+      min-inline-size: 0;
     }
 
     .name {

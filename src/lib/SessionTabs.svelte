@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { agentIconName } from "@/lib/agentIcon";
   import { Axis, beginReorder } from "@/lib/dragReorder";
   import type { DragHint } from "@/lib/dragReorder";
   import Icon from "@/lib/Icon.svelte";
@@ -399,7 +400,7 @@
             onclick={() => onlaunch(a)}
             popovertarget="add-menu"
             popovertargetaction="hide"
-          ><span class="launch-icon"><Icon name="terminal" /></span>{a.label}</button>
+          ><span class="launch-icon"><Icon name={agentIconName(a.id)} /></span>{a.label}</button>
         </li>
       {/each}
       {#if branches.length > 0}
