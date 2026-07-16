@@ -1,7 +1,7 @@
 <script lang="ts">
   import { vcs } from "@/lib/bridge";
-  import ColorText from "@/lib/ColorText.svelte";
-  import { DiffKind, parseDiff, toSplitRows } from "@/lib/diff";
+  import { parseDiff } from "@/lib/diff";
+  import DiffView from "@/lib/DiffView.svelte";
   import { formatCount } from "@/lib/format";
   import { baseName } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
@@ -32,11 +32,10 @@
       });
   }
 
-  // Diff rendering funnels through the shared parser (DRY) — one authoritative
-  // line classifier for both the Change Feed and this panel. The split view is
-  // derived from the same parsed lines (reuse `toSplitRows`, never re-implement).
+  // Diff rendering funnels through the shared parser and the shared DiffView
+  // renderer (DRY) — one authoritative line classifier and one painter for the
+  // Change Feed, this panel, and the commit modal.
   const diffLines = $derived(parseDiff(diff));
-  const splitRows = $derived(toSplitRows(diffLines));
   const isSplit = $derived(effective.diffStyle === DiffStyle.enum.split);
 </script>
 
@@ -71,26 +70,9 @@
 {#if selected}
   <section class="diff">
     <h3 class="difftitle">{baseName(selected.path)}</h3>
-    {#if isSplit}
-      <div class="diffbody split">
-        {#each splitRows as row, index (index)}
-          {#if row.hunk}
-            <div class="hunk">{row.hunkText}</div>
-          {:else}
-            <div class="cell" class:filled-del={row.leftFilled}><ColorText text={row.left} /></div>
-            <div class="cell right" class:filled-add={row.rightFilled}><ColorText text={row.right} /></div>
-          {/if}
-        {/each}
-      </div>
-    {:else}
-      <pre class="diffbody">{#each diffLines as line, index (index)}<span
-        class="dl"
-        class:add={line.kind === DiffKind.add}
-        class:del={line.kind === DiffKind.del}
-        class:meta={line.kind === DiffKind.meta}
-      ><ColorText text={line.text} />
-</span>{/each}</pre>
-    {/if}
+    <div class="diffbody">
+      <DiffView {diffLines} split={isSplit} />
+    </div>
   </section>
 {/if}
 
@@ -196,67 +178,11 @@
     text-transform: none;
   }
 
+  /* Scroll container around the shared DiffView. */
   .diffbody {
     overflow: auto;
     max-block-size: 300px;
-    margin: 0;
-    padding: 8px 0;
+    padding-block: 8px;
     background: var(--code-background);
-    font-family: var(--font-monospace);
-    font-size: 12px;
-    line-height: 1.5;
-  }
-
-  .dl {
-    display: block;
-    padding-inline: 12px;
-    color: var(--code-foreground);
-    white-space: pre-wrap;
-  }
-
-  .dl.add {
-    background: var(--tertiary-wash);
-  }
-
-  .dl.del {
-    background: var(--critical-wash);
-  }
-
-  .dl.meta {
-    color: var(--on-surface-variant);
-  }
-
-  /* Split (2-col) view — rows come from the shared `toSplitRows` (DRY). */
-  .diffbody.split {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-
-    .hunk {
-      grid-column: 1 / -1;
-      padding-inline: 12px;
-      color: var(--on-surface-variant);
-      white-space: pre;
-    }
-
-    .cell {
-      overflow: hidden;
-      min-block-size: 1.5em;
-      padding-inline: 10px;
-      border-inline-end: 1px solid var(--outline);
-      color: var(--code-foreground);
-      white-space: pre;
-    }
-
-    .cell.right {
-      border-inline-end: none;
-    }
-
-    .cell.filled-del {
-      background: var(--critical-wash);
-    }
-
-    .cell.filled-add {
-      background: var(--tertiary-wash);
-    }
   }
 </style>

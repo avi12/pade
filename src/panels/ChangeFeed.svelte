@@ -1,8 +1,8 @@
 <script lang="ts">
   import { feed, ide, vcs } from "@/lib/bridge";
-  import ColorText from "@/lib/ColorText.svelte";
-  import { DiffKind, firstChangedLine, parseDiff, toSplitRows } from "@/lib/diff";
-  import type { DiffLine, SplitRow } from "@/lib/diff";
+  import { firstChangedLine, parseDiff } from "@/lib/diff";
+  import type { DiffLine } from "@/lib/diff";
+  import DiffView from "@/lib/DiffView.svelte";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
@@ -77,7 +77,6 @@
   const isLoading = $derived(!!expandedEvent && loadingId === expandedEvent.id);
   const isErrored = $derived(!!expandedEvent && failedIds.has(expandedEvent.id));
   const unifiedLines = $derived(cachedLines ?? []);
-  const splitRows = $derived<SplitRow[]>(cachedLines ? toSplitRows(cachedLines) : []);
   const hasPreview = $derived(unifiedLines.length > 0);
 
   // Publish the live event count to the shared side-panel header.
@@ -272,34 +271,9 @@
               {:else}
                 <p class="state">No preview available.</p>
               {/if}
-            {:else if diffMode === DiffMode.unified}
-              <div
-                class="unified"
-                data-tooltip={revealTip}
-                onclick={e => revealDiff({
-                  path: ev.path,
-                  event: e
-                })}
-                onkeydown={e => onDiffKey({
-                  event: e,
-                  path: ev.path
-                })}
-                role="button"
-                tabindex="0"
-              >
-                {#each unifiedLines as line, i (i)}
-                  <div
-                    class="line"
-                    class:add={line.kind === DiffKind.add}
-                    class:del={line.kind === DiffKind.del}
-                    class:metaline={line.kind === DiffKind.meta}
-                    data-newline={line.newLine}
-                  ><ColorText text={line.text} /></div>
-                {/each}
-              </div>
             {:else}
               <div
-                class="split"
+                class="preview"
                 data-tooltip={revealTip}
                 onclick={e => revealDiff({
                   path: ev.path,
@@ -312,18 +286,7 @@
                 role="button"
                 tabindex="0"
               >
-                {#each splitRows as row, i (i)}
-                  {#if row.hunk}
-                    <div class="hunk">{row.hunkText}</div>
-                  {:else}
-                    <div class="cell" class:filled-del={row.leftFilled}><ColorText text={row.left} /></div>
-                    <div
-                      class="cell right"
-                      class:filled-add={row.rightFilled}
-                      data-newline={row.newLine}
-                    ><ColorText text={row.right} /></div>
-                  {/if}
-                {/each}
+                <DiffView diffLines={unifiedLines} split={diffMode === DiffMode.split} />
               </div>
             {/if}
           </div>
@@ -596,73 +559,13 @@
     font-size: 12px;
   }
 
-  .unified {
+  /* Scroll container around the shared DiffView; the click-to-reveal cursor
+     and cap live here, the line rendering in DiffView. */
+  .preview {
     overflow: auto;
     max-block-size: 300px;
     padding-block: 8px;
     background: var(--code-background);
-    font-family: var(--font-monospace);
-    font-size: 12px;
-    line-height: 1.5;
     cursor: pointer;
-
-    .line {
-      padding-inline: 12px;
-      color: var(--code-foreground);
-      white-space: pre;
-    }
-
-    .line.add {
-      background: var(--tertiary-wash);
-    }
-
-    .line.del {
-      background: var(--critical-wash);
-    }
-
-    .line.metaline {
-      color: var(--on-surface-variant);
-    }
-  }
-
-  .split {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    overflow: auto;
-    max-block-size: 300px;
-    padding-block: 8px;
-    background: var(--code-background);
-    font-family: var(--font-monospace);
-    font-size: 12px;
-    line-height: 1.5;
-    cursor: pointer;
-
-    .hunk {
-      grid-column: 1 / -1;
-      padding-inline: 12px;
-      color: var(--on-surface-variant);
-      white-space: pre;
-    }
-
-    .cell {
-      overflow: hidden;
-      min-block-size: 1.5em;
-      padding-inline: 10px;
-      border-inline-end: 1px solid var(--outline);
-      color: var(--code-foreground);
-      white-space: pre;
-    }
-
-    .cell.right {
-      border-inline-end: none;
-    }
-
-    .cell.filled-del {
-      background: var(--critical-wash);
-    }
-
-    .cell.filled-add {
-      background: var(--tertiary-wash);
-    }
   }
 </style>

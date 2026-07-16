@@ -1,7 +1,6 @@
 <script lang="ts">
-  import ColorText from "@/lib/ColorText.svelte";
-  import { DiffKind } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
+  import DiffView from "@/lib/DiffView.svelte";
   import Icon from "@/lib/Icon.svelte";
 
   // The commit modal's right pane: path bar + the selected file's unified diff,
@@ -54,13 +53,7 @@
         </button>
       </div>
     {:else}
-      <pre class="unified">{#each diffLines as line, i (i)}<code
-          class="dl"
-          class:add={line.kind === DiffKind.add}
-          class:del={line.kind === DiffKind.del}
-          class:metaline={line.kind === DiffKind.meta}
-        ><ColorText text={line.text} />
-</code>{/each}</pre>
+      <DiffView {diffLines} />
     {/if}
   </div>
 </div>
@@ -110,12 +103,15 @@
     }
   }
 
+  /* Scroll container around the shared DiffView; the wider gutter matches the
+     pane bar's 14px inline padding. */
   .diff {
+    --diff-line-padding: 14px;
+
     flex: 1;
     overflow: auto;
     min-block-size: 0;
     padding-block: 10px 0;
-    line-height: 1.55;
   }
 
   .state {
@@ -123,31 +119,6 @@
     padding: 14px;
     color: var(--on-surface-variant);
     font-size: 12px;
-  }
-
-  .unified {
-    margin: 0;
-    font-family: var(--font-monospace);
-    font-size: 12px;
-
-    .dl {
-      display: block;
-      padding-inline: 14px;
-      color: var(--code-foreground);
-      white-space: pre;
-    }
-
-    .dl.add {
-      background: var(--tertiary-wash);
-    }
-
-    .dl.del {
-      background: var(--critical-wash);
-    }
-
-    .dl.metaline {
-      color: var(--on-surface-variant);
-    }
   }
 
   .omit {
