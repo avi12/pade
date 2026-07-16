@@ -368,7 +368,10 @@
       border-color 150ms var(--ease),
       background 150ms var(--ease);
 
-    &:hover {
+    /* Keep the row active while its editor menu is open — the pointer has moved
+       onto the top-layer popover, so :hover alone would drop off the row. */
+    &:hover,
+    &:has(.editor-menu:popover-open) {
       border-color: var(--primary-container);
       background: var(--surface-2);
     }
