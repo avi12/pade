@@ -13,6 +13,35 @@ each behavior.**
 
 ---
 
+## Update 2026-07-16 (session 2): gap 2 shipped, gap 1 decided → defer
+
+- **Gap 2 (register-once + self-hide) — DONE.** Commit `0bac855`
+  (`fix(contextmenu): register once + self-hide on toggle, never redeploy`). The
+  toggle-off now only flips the flag; the Win11 package stays registered. Verified at
+  the OS level on a real Win11 box (build 26200): hiding keeps the package registered,
+  `context_menu_status` reads registered-but-hidden as off, and re-enabling skips
+  redeployment. `modern::unregister` is kept `#[allow(dead_code)]` for a future
+  uninstall path. (Still **not** visually confirmed in Explorer — the shell can't be
+  driven from the session; a human must eyeball the menu appear/disappear.)
+- **Gap 1 (drop Developer Mode) — DECIDED: defer to a future installer** (Avi's call,
+  2026-07-16). Rationale: the "no Dev Mode" payoff only helps someone *without* Dev
+  Mode, which is nobody today (Avi's own dev machine has it on); a self-signed cert
+  doesn't remove the admin step, it relocates it; and cert-trust belongs in an
+  **installer's** elevated step, not a UAC prompt on first toggle. When PADE gains an
+  installer, ship a signed sparse `.msix`, have the installer trust its (ideally real)
+  code-signing cert, then register with `-ExternalLocation` (no `-Register`, no Dev
+  Mode). **The mechanism is proven feasible** — on a real Win11 box this session:
+  `makeappx pack /nv` packs our exact `AppxManifest.xml` into an 8.9 KB sparse `.msix`
+  with no edits; `signtool sign /fd SHA256` signs it with a self-signed `CN=PADE` cert
+  (matched to the manifest `Publisher`); the *only* remaining wall is trusting that
+  cert (a one-time admin step → `LocalMachine\TrustedPeople`), which is exactly the
+  step that belongs in the installer. So gap-1 detail below stands as the runbook for
+  when that installer exists.
+- **Gap 3 (WinRT `PackageManager` instead of PowerShell)** — still an optional
+  nice-to-have; untouched.
+
+---
+
 ## What this session already did (committed, unpushed)
 
 | Commit | Change |
@@ -63,7 +92,7 @@ Repo: `microsoft/PowerToys`. Fetch files with
 
 ## Parity gaps to close (the actual task)
 
-### 1. Drop the Developer-Mode requirement  ← biggest UX difference
+### 1. Drop the Developer-Mode requirement — DEFERRED to a future installer (see the 2026-07-16 update above); this is the runbook for then
 
 PADE registers a **loose manifest**: `Add-AppxPackage -Register <AppxManifest.xml>
 -ExternalLocation <dir>` (see `src-tauri/src/contextmenu/modern.rs`). That only works
@@ -85,7 +114,7 @@ location, which needs **no** Developer Mode. To mimic:
 Decide with the user: self-signed-per-machine (a one-time admin trust step) vs.
 keeping the dev-mode loose model. This is the crux of "mimic PowerToys."
 
-### 2. Register once + self-hide only (don't unregister on toggle)
+### 2. Register once + self-hide only (don't unregister on toggle) — DONE (commit `0bac855`)
 
 PADE currently **unregisters the package on disable** (writes flag `0`, then
 `Remove-AppxPackage`). PowerToys **keeps the package registered** and only flips the
