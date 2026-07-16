@@ -154,11 +154,23 @@
 
 <style>
   /* ── Start something new — responsive 2-up: temp card + create form. ── */
+  .new {
+    container-type: inline-size;
+  }
+
+  /* The form gets the lion's share: the temp card is one wrapping sentence,
+     while the form's Location row needs root + name on a single line. */
   .new-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
     gap: 12px;
     align-items: stretch;
+  }
+
+  @container (inline-size < 560px) {
+    .new-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   /* Big scratch-workspace card — filled primary-container with a hairline
@@ -261,11 +273,14 @@
   }
 
   .np-name {
-    /* A small basis keeps the name on the root's line whenever ~5 characters
-       fit (typing scrolls); only a genuinely long root wraps it below. */
-    flex: 1 1 64px;
-    min-inline-size: 64px;
-    padding: 6px;
+    /* Wide enough for its own "project-name" placeholder (12ch + padding) so
+       the hint never clips yet shares the root's line; typing scrolls, and
+       only a genuinely long root wraps the name below. */
+    --np-name-padding: 6px;
+
+    flex: 1 1 calc(12ch + 2 * var(--np-name-padding));
+    min-inline-size: calc(12ch + 2 * var(--np-name-padding));
+    padding: var(--np-name-padding);
     border: none;
     border-radius: var(--radius-small);
     background: transparent;
