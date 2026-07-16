@@ -77,11 +77,10 @@
 
       <div class="np-field">
         <span id="np-loc-label" class="np-label">Location</span>
-        <div class="np-loc" aria-labelledby="np-loc-label" role="group">
+        <div style:anchor-name="--np-root" class="np-loc" aria-labelledby="np-loc-label" role="group">
           <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
           <span class="root-sel">
             <button
-              style:anchor-name="--np-root"
               class="root-trigger"
               aria-label="Root folder"
               popovertarget="np-root-menu"
@@ -359,8 +358,8 @@
     /* The chosen root prints in full — a long path wraps (the row is
        wrap-enabled) rather than ellipsizing behind a clipped tail. */
     .root-current {
-      overflow-wrap: anywhere;
       text-align: start;
+      overflow-wrap: anywhere;
     }
 
     .caret {
@@ -385,7 +384,11 @@
   }
 
   .root-menu {
-    min-inline-size: 240px;
+    min-inline-size: anchor-size(inline);
+
+    /* Anchored to the whole Location field (not the trigger): it opens flush
+       with the field's start — the folder icon — and is at least field-wide. */
+    position-area: block-end span-inline-end;
 
     .root-opt {
       justify-content: space-between;
