@@ -7,6 +7,7 @@
   import type {
     AddRootOutcome,
     Agent,
+    EditorKind,
     Ide,
     ProjectEntry,
     Settings
@@ -65,6 +66,9 @@
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   let ides = $state<Ide[]>([]);
+  // The project kinds the rules engine shows, straight from the backend registry
+  // (its single home) in render/priority order.
+  let kinds = $state<EditorKind[]>([]);
   // Editor ids that suit each project kind (kind → ordered), so a per-kind editor
   // menu offers only fitting editors rather than every installed one.
   let kindOptions = $state<Record<string, string[]>>({});
@@ -109,12 +113,13 @@
 
   async function refresh() {
     const detectedKind = hasActiveProject ? ide.projectKind().catch(() => null) : Promise.resolve(null);
-    [settings, ides, kindOptions, currentKind] = await Promise.all([
+    [settings, ides, kinds, kindOptions, currentKind] = await Promise.all([
       // prune, not settings: a folder deleted outside PADE is forgotten here, so
       // its row leaves the page (collapsing out) instead of lingering as a link
       // to nothing.
       workspace.prune(),
       ide.detect(),
+      ide.kinds(),
       ide.kindOptions(),
       detectedKind
     ]);
@@ -264,6 +269,7 @@
       {currentKind}
       {ides}
       {kindOptions}
+      {kinds}
       onaddeditor={addEditor}
       onfallback={setEditorFallback}
       onrule={setEditorRule}

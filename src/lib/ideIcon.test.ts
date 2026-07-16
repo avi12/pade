@@ -16,6 +16,10 @@ describe("ideIcon", () => {
     expect(ideIcon("idea")).toBe("jetbrains");
     expect(ideIcon("pycharm")).toBe("jetbrains");
     expect(ideIcon("rustrover")).toBe("jetbrains");
+    expect(ideIcon("rider")).toBe("jetbrains");
+    expect(ideIcon("clion")).toBe("jetbrains");
+    expect(ideIcon("phpstorm")).toBe("jetbrains");
+    expect(ideIcon("rubymine")).toBe("jetbrains");
   });
 
   it("resolves user-added editors by their `added-<basename>` id", () => {

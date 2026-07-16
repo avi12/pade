@@ -12,6 +12,7 @@ import {
   CommitDetail,
   ConfigFile,
   DesignTool,
+  EditorKind,
   Ide,
   LaunchContext,
   PathProbe,
@@ -66,6 +67,9 @@ export const agents = {
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
   suggest: () => call("ide_suggest", z.array(Ide)),
+  /** The project kinds the rules engine shows (label + manifest signals), in the
+   *  backend registry's render/priority order — the frontend derives its rows here. */
+  kinds: () => call("ide_kinds", z.array(EditorKind)),
   /** Editor ids suited to each project kind (kind → ordered, installed-only), so a
    *  per-kind menu offers only fitting editors (no WebStorm for an Android row). */
   kindOptions: () => call("ide_kind_options", z.record(z.string(), z.array(z.string()))),

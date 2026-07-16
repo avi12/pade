@@ -127,6 +127,16 @@ export const Ide = z.object({
 });
 export type Ide = z.infer<typeof Ide>;
 
+/** One project kind the editor-rules engine renders a row for. The kind
+ *  registry lives in Rust (`ide_kinds`, render/priority order); the frontend
+ *  derives its rows from it rather than hardcoding the list. */
+export const EditorKind = z.object({
+  kind: z.string(),
+  label: z.string(),
+  signals: z.array(z.string())
+});
+export type EditorKind = z.infer<typeof EditorKind>;
+
 /** An editor the user located by executable path (merged into detection). */
 export const AddedEditor = z.object({
   id: z.string(),

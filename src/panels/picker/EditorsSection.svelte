@@ -1,17 +1,21 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import { ideIcon } from "@/lib/ideIcon";
+  import { languageIcon } from "@/lib/languageIcon";
   import { showToast } from "@/lib/stores/toast.svelte";
-  import type { Ide, Prefs } from "@/lib/types";
+  import type { EditorKind, Ide, Prefs } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
-  // Editor-rules engine — fixed, priority-ordered project kinds. A rule maps a
-  // kind to an editor id; unmatched folders use the fallback. One row per kind.
-  // Each kind carries the manifest files PADE looks for to classify a folder.
+  // Editor-rules engine — the project kinds come from the backend registry
+  // (`ide_kinds`, priority order), one row per kind. A rule maps a kind to an
+  // editor id; unmatched folders use the fallback. Each kind carries the
+  // manifest files PADE looks for to classify a folder.
   // Rule/fallback persistence stays with the parent (single settings owner);
   // this section renders the rows and reports picks.
   const {
     ides,
+    kinds,
     kindOptions,
     currentKind,
     prefs,
@@ -20,6 +24,10 @@
     onaddeditor
   }: {
     ides: Ide[];
+    /** The project kinds to render rows for (label + manifest signals), straight
+        from the backend registry in its render/priority order — the single home
+        of the kind list, so a new kind needs no frontend change. */
+    kinds: EditorKind[];
     /** Editor ids that suit each project kind (kind → ordered, installed-only), so
         a kind's menu offers only fitting editors — no WebStorm on an Android row. */
     kindOptions: Record<string, string[]>;
@@ -54,45 +62,14 @@
     text: string;
   } | null>(null);
 
-  const EDITOR_KINDS = [
-    {
-      kind: "web",
-      label: "Web / JavaScript",
-      signals: ["package.json"]
-    },
-    {
-      kind: "python",
-      label: "Python",
-      signals: ["pyproject.toml", "requirements.txt"]
-    },
-    {
-      kind: "java",
-      label: "Java",
-      signals: ["pom.xml", "build.gradle"]
-    },
-    {
-      kind: "go",
-      label: "Go",
-      signals: ["go.mod"]
-    },
-    {
-      kind: "rust",
-      label: "Rust",
-      signals: ["Cargo.toml"]
-    },
-    {
-      kind: "android",
-      label: "Android",
-      signals: ["build.gradle", "AndroidManifest.xml"]
-    }
-  ] as const;
-
   // Rules/fallback live in prefs; a missing map is treated as no rules.
   const ideRules = $derived(prefs.ideRules ?? {});
   const ideFallback = $derived(prefs.ideFallback ?? ides[0]?.id ?? "");
 
-  function editorLabel(editorId: string): string {
-    return ides.find(editor => editor.id === editorId)?.label ?? "Choose…";
+  // The detected editor behind an id — undefined when the rule points at an
+  // editor that's no longer installed (the trigger then reads "Choose…", no icon).
+  function detectedEditor(editorId: string): Ide | undefined {
+    return ides.find(editor => editor.id === editorId);
   }
   // The detected editors that suit a kind, in the backend's priority order. An
   // unknown kind (no entry) falls back to every editor rather than hiding them all.
@@ -120,6 +97,7 @@
   ariaLabel: string;
 })}
   {@const selectId = editorSelectId(key)}
+  {@const pickedEditor = detectedEditor(value)}
   <span class="editor-sel">
     <button
       style:anchor-name="--{selectId}"
@@ -129,7 +107,10 @@
       popovertarget={selectId}
       type="button"
     >
-      <span>{editorLabel(value)}</span>
+      {#if pickedEditor}
+        <span class="editor-icon" aria-hidden="true"><Icon name={ideIcon(pickedEditor.id)} size={15} /></span>
+      {/if}
+      <span>{pickedEditor?.label ?? "Choose…"}</span>
       <span class="caret" aria-hidden="true">▾</span>
     </button>
     <ul id={selectId} style:position-anchor="--{selectId}" class="menu editor-menu" popover>
@@ -145,7 +126,10 @@
             popovertargetaction="hide"
             type="button"
           >
-            <span>{editor.label}</span>
+            <span class="option-label">
+              <span class="editor-icon" aria-hidden="true"><Icon name={ideIcon(editor.id)} size={15} /></span>
+              <span>{editor.label}</span>
+            </span>
             {#if isPicked}
               <span class="tick" aria-hidden="true">✓</span>
             {/if}
@@ -168,11 +152,12 @@
     </p>
   </div>
   <ul class="ed-rules">
-    {#each EDITOR_KINDS as { kind, label, signals } (kind)}
+    {#each kinds as { kind, label, signals } (kind)}
       {@const isThisProject = currentKind === kind}
       <li class="ed-rule" class:here={isThisProject}>
         <span class="ed-kind">
           <span class="ed-label-row">
+            <span class="kind-logo" aria-hidden="true"><Icon name={languageIcon(kind)} size={15} /></span>
             <span class="ed-label">{label}</span>
             {#if isThisProject}
               <span class="here-tag">this project</span>
@@ -400,6 +385,13 @@
     align-items: center;
   }
 
+  /* Language logo leading the kind label — muted so the panel stays calm. */
+  .kind-logo {
+    display: inline-flex;
+    flex: none;
+    color: var(--on-surface-variant);
+  }
+
   .ed-label {
     font-weight: 600;
     font-size: 13px;
@@ -495,6 +487,12 @@
     }
   }
 
+  /* Editor brand mark in the trigger and each option. */
+  .editor-icon {
+    display: inline-flex;
+    flex: none;
+  }
+
   /* Reuse the row-menu popover chrome; align + size for a select. */
   .editor-menu {
     min-inline-size: 180px;
@@ -502,6 +500,12 @@
     .editor-opt {
       justify-content: space-between;
       font-weight: 600;
+    }
+
+    .option-label {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
     }
   }
 

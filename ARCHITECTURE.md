@@ -226,6 +226,7 @@ responsibility, and who it collaborates with.
 | `src/lib/diff.ts` | Pure unified-diff parser + side-by-side rows | `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
 | `src/lib/usageGroups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
+| `src/lib/languageIcon.ts` | Pure project-kind → language-logo map; an unknown kind falls back to the generic code glyph (the kind registry itself lives in Rust — the picker derives its rows from `ide_kinds`) | picker `EditorsSection` |
 | `src/lib/errors.ts` | `errorMessage` — one reading of a thrown IPC rejection into user-facing text | any catch block |
 | `src/lib/motion.ts` | `collapseRow` exit transition (the one animation CSS can't own: the node is gone before it could run), reduced-motion aware | picker lists |
 | `src/lib/colors.ts` | Color-token detection + `var()` tracing for swatches | `ColorText`, viewers |
@@ -273,7 +274,7 @@ responsibility, and who it collaborates with.
 | `OnLaunchSection.svelte` | Start-mode toggle, auto-name checkbox, Explorer context-menu toggle |
 | `RecentSection.svelte` | Recent rows with tags + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chips with rescan/skeleton states |
-| `EditorsSection.svelte` | Editor-rules engine rows + popover selects + "Add editor…" by executable path (validated, inline status) |
+| `EditorsSection.svelte` | Editor-rules engine rows — kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby), each row led by its language logo (`languageIcon`) — + popover selects whose trigger and options carry the editor's brand mark (`ideIcon`) + "Add editor…" by executable path (validated, inline status) |
 | `RootsSection.svelte` | Root folders: add (typed path with live, existence-driven validation + a debounced directory-autocomplete combobox backed by `workspace_probe_path`, or the native picker) / remove + detected projects per root |
 | `RowMenu.svelte` | Shared kebab popover: reveal actions + owned-workspace lifecycle entries |
 | `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; owns the delete confirmation state (target / in-flight / error) that `ProjectPicker` renders as one `ConfirmDialog` |
@@ -293,7 +294,7 @@ entry. Each concern is one module:
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
 | `agents.rs` | Agent registry + detection, one-shot headless invocations, and the env each agent is spawned with (e.g. Claude Code's classic renderer — see "The terminal reflows like a document"). `program()` is the one place that turns an agent's name into the executable to run — see "Finding an installed agent" |
 | `usage.rs` | Agent usage / quota meter |
-| `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `family()` table also flags console editors that run in a terminal tab |
+| `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `KIND_REGISTRY` table is the single row-per-language home for a project kind (marker files, UI label via `ide_kinds`, purpose-built IDEs), and one `family()` table also flags console editors that run in a terminal tab |
 | `tasks.rs` | Discover runnable tasks from project manifests |
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |
