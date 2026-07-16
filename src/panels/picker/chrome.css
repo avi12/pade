@@ -115,12 +115,14 @@
     &:hover {
       background: var(--primary-container);
       color: var(--on-primary-container);
+    }
 
-      /* A selected item's checkmark is primary-blue at rest; on the blue hover
-         wash it would vanish, so let it follow the hovered text colour. */
-      .tick {
-        color: inherit;
-      }
+    /* The current selection reads as a filled row (like a resting hover), so an
+       open menu obviously has a highlighted item — not just coloured text. The
+       checkmark follows the row colour via `.tick`. */
+    &.picked {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
     }
 
     .mi-txt {
@@ -205,6 +207,8 @@
   font-size: 13px;
 }
 
+/* The selected-item checkmark follows its row's text colour — legible whether the
+   row is a filled selection, a hover, or (defensively) a plain surface. */
 .picker .tick {
-  color: var(--primary);
+  color: inherit;
 }

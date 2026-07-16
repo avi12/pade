@@ -483,16 +483,6 @@
     .editor-opt {
       justify-content: space-between;
       font-weight: 600;
-
-      &.picked {
-        color: var(--primary);
-      }
-
-      /* On the blue hover wash, the selected item's blue text muddies — switch it
-         to the hover's on-container colour so it highlights as clearly as the rest. */
-      &.picked:hover {
-        color: var(--on-primary-container);
-      }
     }
   }
 
