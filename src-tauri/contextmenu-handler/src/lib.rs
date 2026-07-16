@@ -31,14 +31,15 @@ use std::ptr::null_mut;
 use std::sync::atomic::{AtomicIsize, AtomicPtr, Ordering};
 
 use windows::Win32::Foundation::{
-    CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, E_FAIL, E_NOTIMPL, E_POINTER, HINSTANCE,
-    HMODULE, S_FALSE, S_OK,
+    CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, E_FAIL, E_NOTIMPL, E_POINTER, ERROR_SUCCESS,
+    HINSTANCE, HMODULE, S_FALSE, S_OK,
 };
 use windows::Win32::System::Com::{CoTaskMemFree, IBindCtx, IClassFactory, IClassFactory_Impl};
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
+use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 use windows::Win32::UI::Shell::{
     IEnumExplorerCommand, IExplorerCommand, IExplorerCommand_Impl, IShellItem, IShellItemArray,
-    SHStrDupW, ECS_ENABLED, SIGDN_FILESYSPATH,
+    SHStrDupW, ECS_ENABLED, ECS_HIDDEN, SIGDN_FILESYSPATH,
 };
 use windows_core::{w, Error, IUnknown, Interface, Ref, Result, BOOL, GUID, HRESULT, PWSTR};
 use windows_implement::implement;
@@ -111,10 +112,19 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
         Ok(CLSID_OPEN_IN_PADE)
     }
 
-    /// Always enabled: the manifest only offers us on `Directory` targets, so
-    /// there is nothing further to gate on. `ECS_ENABLED` is `0`.
+    /// Show the verb, or hide it when the app's toggle is off. Explorer calls this
+    /// while building the menu, so reading the flag here (fresh, per right-click) is
+    /// what lets the picker's toggle show/hide "Open in PADE" *immediately* — even
+    /// for a handler Explorer still has cached — with no Explorer restart. This
+    /// mirrors how `PowerToys`' File Locksmith / `PowerRename` keep their handler
+    /// registered and hide it via `GetState`.
     fn GetState(&self, _items: Ref<'_, IShellItemArray>, _ok_to_be_slow: BOOL) -> Result<u32> {
-        u32::try_from(ECS_ENABLED.0).map_err(|_| Error::from(E_FAIL))
+        let state = if context_menu_hidden() {
+            ECS_HIDDEN
+        } else {
+            ECS_ENABLED
+        };
+        u32::try_from(state.0).map_err(|_| Error::from(E_FAIL))
     }
 
     /// Read every selected folder's filesystem path and open it in PADE.
@@ -184,6 +194,27 @@ fn current_module_path() -> Option<PathBuf> {
 /// UTF-16, NUL-terminated, for passing a Rust string to a `PCWSTR` Win32 arg.
 fn to_wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// Whether the app has turned the menu off. PADE writes `HKCU\Software\PADE`
+/// `ContextMenu` = `0` when the toggle is off (and `1`, or leaves it absent, when
+/// on); we treat only an explicit `0` as hidden. Read fresh on every menu build so a
+/// toggle takes effect at once. Any read error falls back to shown.
+fn context_menu_hidden() -> bool {
+    let mut value: u32 = 1;
+    let mut size = u32::try_from(size_of::<u32>()).unwrap_or(4);
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!("Software\\PADE"),
+            w!("ContextMenu"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(std::ptr::from_mut(&mut value).cast::<c_void>()),
+            Some(std::ptr::from_mut(&mut size)),
+        )
+    };
+    status == ERROR_SUCCESS && value == 0
 }
 
 // ---------------------------------------------------------------------------

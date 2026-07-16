@@ -37,11 +37,14 @@ windows-implement = "0.60"
 #   Win32_System_Com         — IClassFactory, IBindCtx, CoTaskMemFree
 #   Win32_UI_Shell           — IExplorerCommand, IShellItem(Array), SHStrDupW, SIGDN
 #   Win32_System_LibraryLoader — GetModuleFileNameW, to find pade.exe next to us
+#   Win32_System_Registry    — RegGetValueW, to read the app's show/hide flag so the
+#                              handler can hide itself when the toggle is off
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_Com",
     "Win32_UI_Shell",
     "Win32_System_LibraryLoader",
+    "Win32_System_Registry",
 ] }
 
 # Same strict bar as the main crate (rust-best-practices), but this crate MUST

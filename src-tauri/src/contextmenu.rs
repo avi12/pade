@@ -70,6 +70,30 @@ fn reg(args: &[&str]) -> Result<(), String> {
     Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
 }
 
+/// The show/hide flag the modern handler reads on every menu build (see the
+/// `contextmenu-handler` crate). Flipping it hides/shows "Open in PADE" at once —
+/// even for a handler Explorer still has cached — with no Explorer restart, the way
+/// `PowerToys` toggles its context menus. `1`/absent = shown, `0` = hidden.
+#[cfg(windows)]
+const MENU_FLAG_KEY: &str = r"HKCU\Software\PADE";
+#[cfg(windows)]
+const MENU_FLAG_VALUE: &str = "ContextMenu";
+
+#[cfg(windows)]
+fn set_menu_shown(shown: bool) -> Result<(), String> {
+    reg(&[
+        "add",
+        MENU_FLAG_KEY,
+        "/v",
+        MENU_FLAG_VALUE,
+        "/t",
+        "REG_DWORD",
+        "/d",
+        if shown { "1" } else { "0" },
+        "/f",
+    ])
+}
+
 /// Add the legacy folder + folder-background registry entries.
 #[cfg(windows)]
 fn register_legacy() -> Result<(), String> {
@@ -109,26 +133,32 @@ fn legacy_registered() -> bool {
 
 /// Register "Open in PADE" in the one menu that fits this Windows version: the modern
 /// packaged handler on Windows 11 (its only first-level menu), or the legacy registry
-/// keys on Windows 10 and older. Registering both would duplicate the entry on 11.
+/// keys on Windows 10 and older. Registering both would duplicate the entry on 11. On
+/// 11 the handler's show/hide flag is turned on and any legacy leftover is cleared.
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_register() -> Result<(), String> {
     if is_windows_11() {
-        modern::register()
+        let _ = unregister_legacy();
+        modern::register()?;
+        set_menu_shown(true)
     } else {
         register_legacy()
     }
 }
 
 /// Remove both menus — whichever this version uses, plus any leftover from an earlier
-/// build that added both. Each step is a no-op when its menu is absent; the first
-/// real error (if any) is returned.
+/// build that added both. The handler's show/hide flag is turned off *first* so a
+/// cached modern handler stops showing the item immediately (it reads the flag on
+/// every menu build), then the package and keys are removed. Each removal is a no-op
+/// when its menu is absent; the first real error (if any) is returned.
 #[cfg(windows)]
 #[tauri::command]
 pub fn context_menu_unregister() -> Result<(), String> {
+    let hidden = set_menu_shown(false);
     let modern = modern::unregister();
     let legacy = unregister_legacy();
-    modern.and(legacy)
+    hidden.and(modern).and(legacy)
 }
 
 /// Whether "Open in PADE" is currently registered — in either menu. The legacy key

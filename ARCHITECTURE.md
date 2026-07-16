@@ -320,6 +320,15 @@ already lives, so the DLL sits next to the exe (shared `target/` dir). The crate
 The CLSID `{C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC}` is authoritative in the handler
 crate's `lib.rs` and mirrored (braceless) in `AppxManifest.xml`.
 
+**Toggling without an Explorer restart** — Explorer caches a packaged handler once
+loaded, so *unregistering* the package alone leaves the cached menu entry showing
+until sign-in. Like PowerToys' File Locksmith / PowerRename, the handler instead
+**hides itself**: its `IExplorerCommand::GetState` reads `HKCU\Software\PADE`
+`ContextMenu` (a DWORD the app writes: `0` = hidden, `1`/absent = shown) fresh on
+every menu build, so flipping the flag shows/hides the item immediately. Turning the
+toggle off sets the flag to `0` *first* (a cached handler stops showing at once) and
+then removes the package; on it sets the flag to `1`. No `explorer.exe` restart.
+
 ```mermaid
 flowchart LR
   toggle["Picker toggle\n(OnLaunchSection)"] -->|context_menu_register| cm["contextmenu.rs"]
