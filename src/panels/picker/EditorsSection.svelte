@@ -108,7 +108,9 @@
       type="button"
     >
       {#if pickedEditor}
-        <span class="editor-icon" aria-hidden="true"><Icon name={ideIcon(pickedEditor.id)} size={15} /></span>
+        <span class="editor-icon" aria-hidden="true" data-brand={ideIcon(pickedEditor.id)}>
+          <Icon name={ideIcon(pickedEditor.id)} size={15} />
+        </span>
       {/if}
       <span>{pickedEditor?.label ?? "Choose…"}</span>
       <span class="caret" aria-hidden="true">▾</span>
@@ -127,7 +129,9 @@
             type="button"
           >
             <span class="option-label">
-              <span class="editor-icon" aria-hidden="true"><Icon name={ideIcon(editor.id)} size={15} /></span>
+              <span class="editor-icon" aria-hidden="true" data-brand={ideIcon(editor.id)}>
+                <Icon name={ideIcon(editor.id)} size={15} />
+              </span>
               <span>{editor.label}</span>
             </span>
             {#if isPicked}
@@ -157,7 +161,9 @@
       <li class="ed-rule" class:here={isThisProject}>
         <span class="ed-kind">
           <span class="ed-label-row">
-            <span class="kind-logo" aria-hidden="true"><Icon name={languageIcon(kind)} size={15} /></span>
+            <span class="kind-logo" aria-hidden="true" data-brand={languageIcon(kind)}>
+              <Icon name={languageIcon(kind)} size={15} />
+            </span>
             <span class="ed-label">{label}</span>
             {#if isThisProject}
               <span class="here-tag">this project</span>
@@ -386,10 +392,13 @@
   }
 
   /* Language logo leading the kind label — muted so the panel stays calm. */
+
+  /* The language's own colour (theme.css [data-brand]); an officially-black
+     brand (Rust) has no tint and falls back to the muted text colour. */
   .kind-logo {
     display: inline-flex;
     flex: none;
-    color: var(--on-surface-variant);
+    color: var(--brand-color, var(--on-surface-variant));
   }
 
   .ed-label {
@@ -488,9 +497,12 @@
   }
 
   /* Editor brand mark in the trigger and each option. */
+
+  /* The editor's brand colour; a black brand (JetBrains) follows the text. */
   .editor-icon {
     display: inline-flex;
     flex: none;
+    color: var(--brand-color, currentColor);
   }
 
   /* Reuse the row-menu popover chrome; align + size for a select. */

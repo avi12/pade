@@ -154,6 +154,120 @@
   --agent-brand: #4285f4;
 }
 
+/* Language & editor brand tints — same mechanism as the agent tints above, but
+   keyed by the ICON name (`data-brand={languageIcon(kind)}` /
+   `data-brand={ideIcon(id)}`), so the icon map stays the only TS mapping. A
+   component opts in by colouring the icon span with
+   `var(--brand-color, <fallback>)`. Light scheme carries the official brand hex
+   (darkened only where the true hex is illegible on light surfaces — the
+   JavaScript yellow, the Android green); the dark scheme lightens each for
+   contrast. Officially-black brands (Rust, JetBrains — and Cursor above) set
+   nothing and follow the text colour. */
+[data-brand="javascript"] {
+  --brand-color: #b59f00;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #f7df1e;
+  }
+}
+
+[data-brand="python"] {
+  --brand-color: #3776ab;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #6ba6dc;
+  }
+}
+
+[data-brand="java"] {
+  --brand-color: #007396;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #45b3d3;
+  }
+}
+
+[data-brand="go"] {
+  --brand-color: #00add8;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #40c8ea;
+  }
+}
+
+[data-brand="android"],
+[data-brand="androidstudio"] {
+  --brand-color: #1ea362;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #3ddc84;
+  }
+}
+
+[data-brand="cplusplus"] {
+  --brand-color: #00599c;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #4d94d0;
+  }
+}
+
+[data-brand="csharp"] {
+  --brand-color: #239120;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #57c355;
+  }
+}
+
+[data-brand="php"] {
+  --brand-color: #777bb4;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #9ca0d8;
+  }
+}
+
+[data-brand="ruby"] {
+  --brand-color: #cc342d;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #e06258;
+  }
+}
+
+[data-brand="vscode"] {
+  --brand-color: #007acc;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #3ea6e8;
+  }
+}
+
+[data-brand="sublime"] {
+  --brand-color: #ff9800;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #ffad33;
+  }
+}
+
+[data-brand="visualstudio"] {
+  --brand-color: #5c2d91;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #9a70d6;
+  }
+}
+
+[data-brand="zed"] {
+  --brand-color: #084ccf;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #5b8def;
+  }
+}
+
 :root[data-theme="dark"] [data-agent="claude"] {
   --agent-brand: #e28b6d;
 }

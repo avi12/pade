@@ -50,7 +50,8 @@
 {#if bestFit}
   <span class="ide">
     <button class="ide-open" onclick={() => open(bestFit)}>
-      <Icon name={ideIcon(bestFit.id)} /> <span class="lbl">Open in {bestFit.label}</span>
+      <span class="editor-glyph" data-brand={ideIcon(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
+      <span class="lbl">Open in {bestFit.label}</span>
     </button>
     {#if hasAlternatives}
       <button
@@ -72,7 +73,10 @@
             popovertarget="ide-menu"
             popovertargetaction="hide"
           >
-            <span class="name"><Icon name={ideIcon(editor.id)} />{editor.label}</span>
+            <span class="name">
+              <span class="editor-glyph" data-brand={ideIcon(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
+              {editor.label}
+            </span>
             {#if index === 0}
               <span class="best">best fit</span>
             {/if}
@@ -84,6 +88,14 @@
 {/if}
 
 <style>
+  /* The editor's brand colour (theme.css [data-brand]); a black brand
+     (JetBrains) has no tint and follows the text colour. */
+  .editor-glyph {
+    display: inline-flex;
+    flex: none;
+    color: var(--brand-color, currentColor);
+  }
+
   /* Split pill: a primary "open" action joined to a caret that opens the list.
      Both zones live in one surface-2 pill and light up independently on hover. */
   .ide {
