@@ -92,10 +92,7 @@ export function observeContext({ id, chunk }: {
 
 /** The session's context usage percent (parsed if known, else estimated), or
  *  null when nothing has been observed yet. */
-export function contextPct({ id, limit = DEFAULT_CONTEXT_LIMIT }: {
-  id: string;
-  limit?: number;
-}): number | null {
+export function contextPct(id: string): number | null {
   const signal = signals.get(id);
   if (!signal) {
     return null;
@@ -106,7 +103,7 @@ export function contextPct({ id, limit = DEFAULT_CONTEXT_LIMIT }: {
   }
 
   const tokens = signal.chars / CHARS_PER_TOKEN;
-  return Math.min(100, (tokens / limit) * 100);
+  return Math.min(100, (tokens / DEFAULT_CONTEXT_LIMIT) * 100);
 }
 
 /** Forget a session's context when it ends. */

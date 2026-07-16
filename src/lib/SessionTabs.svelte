@@ -258,7 +258,7 @@
      context window is (green→amber→red toward the auto-handoff threshold) and
      carrying status — a working agent breathes, a ready one gets a soft halo. -->
 {#snippet statusGlyph(s: AgentSession)}
-  {@const pct = contextPct({ id: s.id })}
+  {@const pct = contextPct(s.id)}
   {@const level = pct === null ? null : contextLevel(pct)}
   <span
     class="agent-icon {sessionStatus(s.id)}"
@@ -274,7 +274,7 @@
 <!-- The exact context-usage percent, in the same severity colour as the glyph.
      Hidden until there's a signal to show (a just-launched agent has none). -->
 {#snippet contextPercent(s: AgentSession)}
-  {@const pct = contextPct({ id: s.id })}
+  {@const pct = contextPct(s.id)}
   {#if pct !== null}
     {@const level = contextLevel(pct)}
     <span

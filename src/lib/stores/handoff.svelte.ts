@@ -170,7 +170,7 @@ export function createAutoHandoff(host: HandoffHost) {
     }
 
     for (const session of host.sessions()) {
-      const pct = contextPct({ id: session.id });
+      const pct = contextPct(session.id);
       const nearLimit = pct !== null && pct >= CONTEXT_HANDOFF_PCT;
       const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
       const already = handingOff.has(session.id);
