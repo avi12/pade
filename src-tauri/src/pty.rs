@@ -360,15 +360,8 @@ pub fn pty_history(state: State<PtyState>, id: String) -> HistorySnapshot {
         .unwrap_or_default()
 }
 
-/// The rolling, ANSI-stripped transcript for a session — the context the AI
-/// session-namer summarises. Empty string if the session is unknown.
-#[tauri::command]
-pub fn session_transcript(state: State<PtyState>, id: String) -> String {
-    transcript_of(&state, &id)
-}
-
 /// Read a session's current transcript, or an empty string if it is unknown or
-/// the lock is poisoned. Shared by the command and the session-namer.
+/// the lock is poisoned. The context the AI session-namer summarises.
 pub fn transcript_of(state: &PtyState, id: &str) -> String {
     let Ok(sessions) = state.0.lock() else {
         return String::new();

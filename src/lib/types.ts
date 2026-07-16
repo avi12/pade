@@ -170,9 +170,6 @@ export const Usage = z.object({
 });
 export type Usage = z.infer<typeof Usage>;
 
-/** The active session's context-window state, read from the local transcript.
- *  The token/message/start fields are best-effort — `null` when not reliably
- *  parseable (the UI hides that cell) rather than a fabricated number. */
 /** One live rate-limit window (the 5-hour session or the 7-day weekly), mirrored
  *  from the same claude.ai OAuth usage endpoint Claude Code's `/usage` reads. */
 export const UsageWindow = z.object({
@@ -203,22 +200,6 @@ export const AccountUsage = z.object({
   source: z.string()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
-
-export const SessionUsage = z.object({
-  /** Context-window fill percent (0..100). */
-  pct: z.number(),
-  /** The model in play, best-effort (empty when unknown). */
-  model: z.string(),
-  /** Tokens of context in play right now (input + cache). */
-  usedTokens: z.number().nullish(),
-  /** The model's context window in tokens. */
-  limitTokens: z.number().nullish(),
-  /** User + assistant message count in the transcript. */
-  messages: z.number().nullish(),
-  /** Epoch-ms of the session's first timestamped entry. */
-  startedAt: z.number().nullish()
-});
-export type SessionUsage = z.infer<typeof SessionUsage>;
 
 export const LaunchContext = z.object({
   hasProject: z.boolean(),

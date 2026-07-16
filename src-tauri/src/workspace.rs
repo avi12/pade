@@ -673,32 +673,3 @@ pub fn set_prefs(prefs: Prefs) -> Result<Settings, String> {
     s.prefs = prefs;
     save(&s)
 }
-
-/// Derive a directory name from a repo URL: the last path segment sans `.git`.
-fn repo_dir_name(url: &str) -> String {
-    url.trim_end_matches('/')
-        .rsplit(['/', ':'])
-        .next()
-        .unwrap_or("repo")
-        .trim_end_matches(".git")
-        .to_string()
-}
-
-/// Clone a version-control repo into `root` and open it. Git for the MVP; the
-/// same seam extends to other VCSes later.
-#[tauri::command]
-pub fn workspace_clone(root: String, url: String) -> Result<String, String> {
-    let name = repo_dir_name(&url);
-    let dest = Path::new(&root).join(&name);
-    let out = crate::util::command("git")
-        .args(["clone", &url, &dest.to_string_lossy()])
-        .current_dir(&root)
-        .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-    }
-    let path = dest.to_string_lossy().into_owned();
-    workspace_open(path.clone())?;
-    Ok(path)
-}

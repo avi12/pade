@@ -2,14 +2,8 @@
 
 use super::run_git;
 
-/// The current HEAD branch name (`None` on a detached HEAD or non-repo).
-#[tauri::command]
-pub fn vcs_current_branch() -> Option<String> {
-    current_branch()
-}
-
-/// Shared HEAD-branch resolver used by both `vcs_current_branch` and
-/// `vcs_commit`. `None`/detached maps to no branch.
+/// The current HEAD branch name, for `vcs_commit`. `None`/detached maps to no
+/// branch.
 pub(crate) fn current_branch() -> Option<String> {
     let raw = run_git(&["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
     let name = raw.trim();

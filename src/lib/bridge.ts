@@ -24,7 +24,6 @@ import {
   RunnerData,
   RunnerExit,
   RunnerInfo,
-  SessionUsage,
   Settings,
   StatusEntry,
   TaskGroup,
@@ -160,8 +159,6 @@ export const pty = {
    *  writing. A PTY has no scrollback of its own, so without this the terminal has
    *  nothing to draw and sits blank while the agent waits, quite happily, for input. */
   history: (id: string) => call("pty_history", PtyHistory, { id }),
-  /** The session's rolling, ANSI-stripped transcript tail. */
-  transcript: (id: string) => call("session_transcript", z.string(), { id }),
   /** Ask the namer for a concise session name from its transcript (null until
    *  there's enough conversation, or if nothing usable is produced). */
   generateName: (args: {
@@ -213,8 +210,6 @@ export const vcs = {
   }),
   /** The `origin` remote as a browsable `https://host/owner/repo` URL, or null. */
   remoteUrl: () => call("vcs_remote_url", z.string().nullable()),
-  /** The current HEAD branch name, or null on a detached HEAD / non-repo. */
-  currentBranch: () => call("vcs_current_branch", z.string().nullable()),
   worktreeAdd: (args: {
     branch: string;
     create: boolean;
@@ -252,13 +247,11 @@ export const tasks = {
   list: () => call("tasks_list", z.array(TaskGroup))
 };
 
-/** Agent usage / quota channel — never spends message quota. `session` reads
- *  local data only; `get`/`account` also make a cached call to the vendor's
- *  OAuth usage endpoint for the live account windows. */
+/** Agent usage / quota channel — never spends message quota: local data plus a
+ *  cached call to the vendor's OAuth usage endpoint for the live account
+ *  windows. */
 export const usage = {
   get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
-  /** The active session's context-window state for the latest session in `cwd`. */
-  session: (cwd: string) => call("usage_session", SessionUsage.nullable(), { cwd }),
   /** Live claude.ai usage windows (5-hour session + 7-day weekly) via the OAuth
    *  endpoint — the same numbers `claude /usage` shows. */
   account: () => call("usage_account", AccountUsage.nullable())
@@ -315,10 +308,6 @@ export const workspace = {
     root: string;
     name: string;
   }) => call("workspace_create", z.string(), { ...args }),
-  clone: (args: {
-    root: string;
-    url: string;
-  }) => call("workspace_clone", z.string(), { ...args }),
   clearRecent: () => call("workspace_clear_recent", Settings),
   setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
   setProjectAgent: (args: {
