@@ -10,11 +10,11 @@
   // `string` to the type system, so the name union can't be derived from them.
   const ICON_NAMES = [
     "alert", "antigravity", "branch", "check", "checks", "claude", "close",
-    "code", "codex", "columns", "cursor", "external", "feed", "folder",
-    "folderPlus", "git", "github", "grip", "grok", "history", "maximize",
-    "minimize", "monitor", "moon", "more", "pencil", "plus", "refresh",
-    "search", "sliders", "sparkles", "star", "sun", "swap", "terminal",
-    "trash", "window", "windowPlus"
+    "code", "codex", "columns", "copilot", "cursor", "external", "feed",
+    "folder", "folderPlus", "git", "github", "grip", "grok", "history",
+    "maximize", "minimize", "monitor", "moon", "more", "pencil", "plus",
+    "refresh", "search", "sliders", "sparkles", "star", "sun", "swap",
+    "terminal", "trash", "window", "windowPlus"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
 

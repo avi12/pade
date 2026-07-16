@@ -5,6 +5,7 @@ import type { IconName } from "@/lib/Icon.svelte";
 export const AgentId = {
   Claude: "claude",
   Codex: "codex",
+  Copilot: "copilot",
   Grok: "grok",
   Antigravity: "antigravity",
   Cursor: "cursor",
@@ -18,6 +19,7 @@ export type AgentId = (typeof AgentId)[keyof typeof AgentId];
 const AGENT_ICONS: Record<string, IconName> = {
   [AgentId.Claude]: "claude",
   [AgentId.Codex]: "codex",
+  [AgentId.Copilot]: "copilot",
   [AgentId.Grok]: "grok",
   [AgentId.Antigravity]: "antigravity",
   [AgentId.Cursor]: "cursor"

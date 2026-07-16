@@ -134,6 +134,10 @@
   --agent-brand: #6d5ae6;
 }
 
+[data-agent="copilot"] {
+  --agent-brand: #8250df;
+}
+
 [data-agent="antigravity"] {
   --agent-brand: #4285f4;
 }
@@ -144,6 +148,10 @@
 
 :root[data-theme="dark"] [data-agent="codex"] {
   --agent-brand: #a99bff;
+}
+
+:root[data-theme="dark"] [data-agent="copilot"] {
+  --agent-brand: #a371f7;
 }
 
 :root[data-theme="dark"] [data-agent="antigravity"] {

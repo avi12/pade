@@ -69,6 +69,20 @@ const REGISTRY: &[AgentDef] = &[
         env: &[],
     },
     AgentDef {
+        id: "copilot",
+        label: "Copilot CLI",
+        // GitHub's standalone Copilot CLI (`npm i -g @github/copilot`) installs a
+        // plain `copilot` binary. This is not the older `gh copilot` extension,
+        // which is a subcommand of `gh` and has no `copilot` executable of its own.
+        command: "copilot",
+        aliases: &[],
+        // No headless one-shot wired: the CLI's programmatic mode gates on tool
+        // approvals, so a naming run could stall. Auto-naming falls back to the
+        // label-based heuristic (see naming.rs) until a safe invocation is known.
+        oneshot: None,
+        env: &[],
+    },
+    AgentDef {
         id: "grok",
         label: "Grok CLI",
         command: "grok",

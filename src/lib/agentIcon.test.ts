@@ -5,6 +5,7 @@ describe("agentIconName", () => {
   it("maps known agent ids to their brand glyphs", () => {
     expect(agentIconName("claude")).toBe("claude");
     expect(agentIconName("codex")).toBe("codex");
+    expect(agentIconName("copilot")).toBe("copilot");
     expect(agentIconName("grok")).toBe("grok");
     expect(agentIconName("antigravity")).toBe("antigravity");
     expect(agentIconName("cursor")).toBe("cursor");
