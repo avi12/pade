@@ -145,6 +145,20 @@ fn append_transcript(transcript: &Arc<Mutex<String>>, cleaned: &str) {
     }
 }
 
+/// The screen the program switched to, judging by the last switch sequence in
+/// `window`: `Some(true)` for the alternate screen, `Some(false)` for the
+/// normal one, `None` when the window contains no switch at all.
+fn last_screen_switch(window: &str) -> Option<bool> {
+    let entered = window.rfind(ENTER_ALTERNATE_SCREEN);
+    let left = window.rfind(LEAVE_ALTERNATE_SCREEN);
+    match (entered, left) {
+        (Some(enter), Some(leave)) => Some(enter > leave),
+        (Some(_), None) => Some(true),
+        (None, Some(_)) => Some(false),
+        (None, None) => None,
+    }
+}
+
 /// Append raw output to a session's replay history and take the sequence number of
 /// this chunk. Trimming the front to `HISTORY_CAP` cuts at a line break (and never
 /// mid-character), so a replay starts on a whole line rather than halfway through
@@ -156,28 +170,68 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
     buffer.data.push_str(raw);
     buffer.seq += 1;
 
-    // Track which screen the program is on. Whichever switch came last in this chunk
-    // wins; a program that never switches stays on the normal screen.
-    if let Some(enter) = raw.rfind(ENTER_ALTERNATE_SCREEN) {
-        buffer.alternate = raw
-            .rfind(LEAVE_ALTERNATE_SCREEN)
-            .is_none_or(|leave| leave < enter);
-    } else if raw.contains(LEAVE_ALTERNATE_SCREEN) {
-        buffer.alternate = false;
+    // Track which screen the program is on: the last switch wins; no switch keeps
+    // the current screen. Judged over a window reaching back past the chunk
+    // boundary, so a switch sequence split across two reads still counts once its
+    // tail arrives.
+    let lookback = raw.len() + ENTER_ALTERNATE_SCREEN.len() - 1;
+    let mut window_start = buffer.data.len().saturating_sub(lookback);
+    while !buffer.data.is_char_boundary(window_start) {
+        window_start += 1;
+    }
+    if let Some(alternate) = last_screen_switch(&buffer.data[window_start..]) {
+        buffer.alternate = alternate;
     }
 
     if buffer.data.len() > HISTORY_CAP {
-        let overflow = buffer.data.len() - HISTORY_CAP;
-        let mut cut = buffer.data[overflow..]
-            .find('\n')
-            .map_or(buffer.data.len(), |line_end| overflow + line_end + 1);
-        while cut < buffer.data.len() && !buffer.data.is_char_boundary(cut) {
-            cut += 1;
+        // Walk the cap overflow to a char boundary BEFORE slicing — landing inside
+        // a multibyte character would panic — then cut just past the first line
+        // break so a replay starts on a whole line. A tail with no line break at
+        // all is dropped entirely rather than replayed torn.
+        let mut overflow = buffer.data.len() - HISTORY_CAP;
+        while !buffer.data.is_char_boundary(overflow) {
+            overflow += 1;
         }
+        let cut = buffer.data[overflow..]
+            .find('\n')
+            .map_or(buffer.data.len(), |line_break| overflow + line_break + 1);
         buffer.data.drain(..cut);
     }
 
     buffer.seq
+}
+
+/// Decode the completed UTF-8 prefix of `pending` and consume it, leaving an
+/// incomplete trailing character in place — a PTY read can split one across two
+/// chunks, and decoding the halves separately would turn both into U+FFFD.
+/// Genuinely invalid bytes become one U+FFFD each and are consumed.
+fn drain_decoded(pending: &mut Vec<u8>) -> String {
+    let mut out = String::new();
+    loop {
+        match std::str::from_utf8(pending) {
+            Ok(text) => {
+                out.push_str(text);
+                pending.clear();
+                return out;
+            }
+            Err(error) => {
+                let valid_end = error.valid_up_to();
+                out.push_str(&String::from_utf8_lossy(&pending[..valid_end]));
+                match error.error_len() {
+                    // The chunk ends mid-character: keep the partial bytes for
+                    // the next read to complete.
+                    None => {
+                        pending.drain(..valid_end);
+                        return out;
+                    }
+                    Some(invalid_len) => {
+                        out.push('\u{FFFD}');
+                        pending.drain(..valid_end + invalid_len);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -298,10 +352,15 @@ pub fn pty_spawn(
     let history_reader = history.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
+        let mut pending = Vec::new();
         loop {
             match reader.read(&mut buf) {
                 Ok(n) if n > 0 => {
-                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    pending.extend_from_slice(&buf[..n]);
+                    let data = drain_decoded(&mut pending);
+                    if data.is_empty() {
+                        continue;
+                    }
                     append_transcript(&transcript_reader, &strip_ansi(&data));
                     let seq = append_history(&history_reader, &data);
                     let _ = app_reader.emit(
@@ -423,4 +482,123 @@ pub fn kill_all(state: &PtyState) {
 
 pub fn init(app: &AppHandle) {
     app.manage(PtyState::default());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn history_with(chunks: &[&str]) -> (Arc<Mutex<History>>, u64) {
+        let history = Arc::new(Mutex::new(History::default()));
+        let mut seq = 0;
+        for chunk in chunks {
+            seq = append_history(&history, chunk);
+        }
+        (history, seq)
+    }
+
+    fn snapshot(history: &Arc<Mutex<History>>) -> (String, bool) {
+        let buffer = history.lock().expect("history lock");
+        (buffer.data.clone(), buffer.alternate)
+    }
+
+    #[test]
+    fn entering_the_alternate_screen_sets_the_flag() {
+        let (history, _) = history_with(&["hello \x1b[?1049h painting"]);
+        assert!(snapshot(&history).1);
+    }
+
+    #[test]
+    fn leaving_the_alternate_screen_clears_the_flag() {
+        let (history, _) = history_with(&["\x1b[?1049h tui", "bye \x1b[?1049l prompt"]);
+        assert!(!snapshot(&history).1);
+    }
+
+    #[test]
+    fn the_last_switch_in_a_chunk_wins() {
+        let (history, _) = history_with(&["\x1b[?1049h tui \x1b[?1049l back"]);
+        assert!(!snapshot(&history).1);
+
+        let (history, _) = history_with(&["\x1b[?1049l \x1b[?1049h tui"]);
+        assert!(snapshot(&history).1);
+    }
+
+    #[test]
+    fn a_chunk_without_a_switch_keeps_the_current_screen() {
+        let (history, _) = history_with(&["\x1b[?1049h tui", "more painting"]);
+        assert!(snapshot(&history).1);
+    }
+
+    #[test]
+    fn a_switch_split_across_two_reads_still_counts() {
+        let (enter_head, enter_tail) = ENTER_ALTERNATE_SCREEN.split_at(4);
+        let (history, _) = history_with(&[enter_head, enter_tail]);
+        assert!(snapshot(&history).1, "split enter sequence must be seen");
+
+        let (leave_head, leave_tail) = LEAVE_ALTERNATE_SCREEN.split_at(5);
+        let (history, _) = history_with(&["\x1b[?1049h tui", leave_head, leave_tail]);
+        assert!(!snapshot(&history).1, "split leave sequence must be seen");
+    }
+
+    #[test]
+    fn history_trims_to_the_cap_at_a_line_break() {
+        let filler = format!("{}\n", "x".repeat(1023));
+        let over_cap = HISTORY_CAP / filler.len() + 2;
+        let (history, seq) = history_with(&vec![filler.as_str(); over_cap]);
+        let (data, _) = snapshot(&history);
+        assert!(data.len() <= HISTORY_CAP);
+        assert!(data.starts_with('x'), "replay starts on a whole line");
+        assert_eq!(seq, over_cap as u64);
+    }
+
+    #[test]
+    fn a_tail_with_no_line_break_is_dropped_entirely() {
+        let blob = "y".repeat(HISTORY_CAP + 1);
+        let (history, _) = history_with(&[blob.as_str()]);
+        assert_eq!(snapshot(&history).0, "");
+    }
+
+    #[test]
+    fn trimming_never_slices_inside_a_multibyte_character() {
+        // Overflow the cap so the cut position lands inside the run of
+        // multibyte characters — slicing there would panic before the fix.
+        let multibyte = "é".repeat(HISTORY_CAP / 2);
+        let (history, _) = history_with(&[multibyte.as_str(), multibyte.as_str()]);
+        let (data, _) = snapshot(&history);
+        assert!(data.len() <= HISTORY_CAP);
+    }
+
+    #[test]
+    fn drain_decoded_reassembles_a_character_split_across_reads() {
+        let bytes = "caf\u{e9} au lait".as_bytes();
+        let (head, tail) = bytes.split_at(4); // splits the two-byte é
+        let mut pending = Vec::new();
+
+        pending.extend_from_slice(head);
+        let first = drain_decoded(&mut pending);
+        assert_eq!(first, "caf");
+        assert!(!pending.is_empty(), "partial character is held back");
+
+        pending.extend_from_slice(tail);
+        let second = drain_decoded(&mut pending);
+        assert_eq!(second, "\u{e9} au lait");
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn drain_decoded_replaces_genuinely_invalid_bytes() {
+        let mut pending = vec![b'o', b'k', 0xFF, b'!'];
+        assert_eq!(drain_decoded(&mut pending), "ok\u{FFFD}!");
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn transcript_trims_on_a_char_boundary() {
+        let transcript = Arc::new(Mutex::new(String::new()));
+        let multibyte = "日".repeat(TRANSCRIPT_CAP / 3 + 10);
+        append_transcript(&transcript, &multibyte);
+        let tail = transcript.lock().expect("transcript lock").clone();
+        assert!(tail.len() <= TRANSCRIPT_CAP);
+        assert!(tail.chars().all(|ch| ch == '日'));
+    }
 }
