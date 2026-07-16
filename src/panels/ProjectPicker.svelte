@@ -20,12 +20,17 @@
   // the chosen project path (and optional first prompt) back to the app.
   const {
     agents,
+    hasActiveProject,
     onopen,
     onmove,
     onrename,
     ondelete
   }: {
     agents: Agent[];
+    /** Whether the picker was opened from an active project (the workspace). Only
+        then is tagging "this project"'s editor rule meaningful — a bare launch or
+        the onboarding step has no working project to point at. */
+    hasActiveProject: boolean;
     onopen: (target: {
       path: string;
       initialPrompt?: string;
@@ -94,13 +99,14 @@
   }
 
   async function refresh() {
+    const detectedKind = hasActiveProject ? ide.projectKind().catch(() => null) : Promise.resolve(null);
     [settings, ides, currentKind] = await Promise.all([
       // prune, not settings: a folder deleted outside PADE is forgotten here, so
       // its row leaves the page (collapsing out) instead of lingering as a link
       // to nothing.
       workspace.prune(),
       ide.detect(),
-      ide.projectKind().catch(() => null)
+      detectedKind
     ]);
     projectsByRoot = Object.fromEntries(
       await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const))

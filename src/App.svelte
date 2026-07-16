@@ -589,7 +589,12 @@
     }
   }
 
+  // The picker's "this project" tag is only meaningful when we came from an active
+  // project (the workspace) — not from onboarding or a bare launch into the picker.
+  let pickerHasActiveProject = $state(false);
+
   function switchToPicker() {
+    pickerHasActiveProject = phase === Phase.ready;
     document.startViewTransition(async () => {
       phase = Phase.project;
       await tick();
@@ -737,6 +742,7 @@
   {#if phase === Phase.project}
     <ProjectPicker
       {agents}
+      hasActiveProject={pickerHasActiveProject}
       ondelete={relocator.remove}
       onmove={relocator.move}
       onopen={openProject}
