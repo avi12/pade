@@ -23,7 +23,8 @@ export type IdeId = (typeof IdeId)[keyof typeof IdeId];
 
 // Brand mark per detected editor. The JetBrains IDEs share the JetBrains family
 // mark — legible at tab size and honest, where a per-product colour logo can't
-// reduce to one monochrome glyph.
+// reduce to one monochrome glyph (each still gets its own product tint via
+// `ideBrand` below).
 const IDE_ICONS: Record<string, IconName> = {
   [IdeId.VsCode]: "vscode",
   [IdeId.Cursor]: "cursor",
@@ -46,38 +47,58 @@ const FALLBACK_ICON: IconName = "code";
 const ADDED_PREFIX = "added-";
 
 // A user-added editor carries an `added-<exe-basename>` id (see ide.rs), whose
-// basename can differ from the launcher id — `code`→VS Code, `subl`→Sublime,
-// `studio`→Android Studio, and the console editors to the terminal mark.
-const ALIAS_ICONS: Record<string, IconName> = {
-  code: "vscode",
-  subl: "sublime",
-  studio: "androidstudio",
-  devenv: "visualstudio",
-  nvim: "terminal",
-  hx: "terminal",
-  vim: "terminal"
+// basename can differ from the launcher id — these aliases bridge the gap
+// (`code` → VS Code, `subl` → Sublime, `studio` → Android Studio).
+const ALIAS_IDS: Record<string, IdeId> = {
+  code: IdeId.VsCode,
+  subl: IdeId.Sublime,
+  studio: IdeId.AndroidStudio,
+  devenv: IdeId.VisualStudio
 };
 
-/** A detected editor's brand mark, else the generic code glyph. */
-export function ideIcon(id: string): IconName {
-  const direct = IDE_ICONS[id];
+// Console editors have no brand mark or tint — they get the terminal glyph.
+const CONSOLE_EDITOR_NAMES = ["nvim", "hx", "vim"] as const;
+
+/** The canonical editor id behind a detected or user-added id — `added-<exe>`
+ *  basenames carry version/bit suffixes (`webstorm64`) and often contain the
+ *  launcher id (`sublime_text`), so known ids match by inclusion. Null for a
+ *  console editor or anything unrecognised. */
+export function canonicalIdeId(id: string): IdeId | null {
+  const direct = Object.values(IdeId).find(value => value === id);
   if (direct) {
     return direct;
   }
 
   if (!id.startsWith(ADDED_PREFIX)) {
-    return FALLBACK_ICON;
+    return null;
   }
 
-  // Basenames carry version/bit suffixes (`webstorm64`) and often contain the
-  // launcher id (`sublime_text`), so match a known id by inclusion first, then
-  // fall back to the basename aliases above.
   const basename = id.slice(ADDED_PREFIX.length).toLowerCase();
   const known = Object.values(IdeId).find(value => basename.includes(value));
   if (known) {
-    return IDE_ICONS[known];
+    return known;
   }
 
-  const alias = Object.keys(ALIAS_ICONS).find(name => basename.includes(name));
-  return alias ? ALIAS_ICONS[alias] : FALLBACK_ICON;
+  const alias = Object.keys(ALIAS_IDS).find(name => basename.includes(name));
+  return alias ? ALIAS_IDS[alias] : null;
+}
+
+/** A detected editor's brand mark, else the generic code glyph. */
+export function ideIcon(id: string): IconName {
+  const canonical = canonicalIdeId(id);
+  if (canonical) {
+    return IDE_ICONS[canonical];
+  }
+
+  const basename = id.startsWith(ADDED_PREFIX) ? id.slice(ADDED_PREFIX.length).toLowerCase() : "";
+  const isConsoleEditor = CONSOLE_EDITOR_NAMES.some(name => basename.includes(name));
+  return isConsoleEditor ? "terminal" : FALLBACK_ICON;
+}
+
+/** The editor's brand-tint key (theme.css `[data-brand]`) — the canonical id,
+ *  so each JetBrains product wears its own colour on the shared family mark.
+ *  Undefined when there's no brand to tint (a console or unknown editor),
+ *  which omits the attribute and leaves the icon on the text colour. */
+export function ideBrand(id: string): IdeId | undefined {
+  return canonicalIdeId(id) ?? undefined;
 }

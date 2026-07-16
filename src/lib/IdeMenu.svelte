@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ide } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { ideIcon } from "@/lib/ideIcon";
+  import { ideBrand, ideIcon } from "@/lib/ideIcon";
   import type { Ide } from "@/lib/types";
   import { onMount } from "svelte";
 
@@ -50,7 +50,7 @@
 {#if bestFit}
   <span class="ide">
     <button class="ide-open" onclick={() => open(bestFit)}>
-      <span class="editor-glyph" data-brand={ideIcon(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
+      <span class="editor-glyph" data-brand={ideBrand(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
       <span class="lbl">Open in {bestFit.label}</span>
     </button>
     {#if hasAlternatives}
@@ -74,7 +74,7 @@
             popovertargetaction="hide"
           >
             <span class="name">
-              <span class="editor-glyph" data-brand={ideIcon(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
+              <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
               {editor.label}
             </span>
             {#if index === 0}

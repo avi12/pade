@@ -1,4 +1,4 @@
-import { ideIcon } from "@/lib/ideIcon";
+import { ideBrand, ideIcon, IdeId } from "@/lib/ideIcon";
 import { describe, expect, it } from "vitest";
 
 describe("ideIcon", () => {
@@ -37,5 +37,25 @@ describe("ideIcon", () => {
   it("falls back to the generic code glyph for an unknown editor", () => {
     expect(ideIcon("added-notepad++")).toBe("code");
     expect(ideIcon("something-else")).toBe("code");
+  });
+});
+
+describe("ideBrand", () => {
+  it("keys each JetBrains product to its own tint despite the shared mark", () => {
+    expect(ideBrand("webstorm")).toBe(IdeId.WebStorm);
+    expect(ideBrand("rider")).toBe(IdeId.Rider);
+    expect(ideBrand("added-pycharm64")).toBe(IdeId.PyCharm);
+  });
+
+  it("resolves user-added aliases to the canonical editor id", () => {
+    expect(ideBrand("added-code - insiders")).toBe(IdeId.VsCode);
+    expect(ideBrand("added-sublime_text")).toBe(IdeId.Sublime);
+    expect(ideBrand("added-devenv")).toBe(IdeId.VisualStudio);
+  });
+
+  it("leaves console and unknown editors untinted", () => {
+    expect(ideBrand("added-nvim")).toBeUndefined();
+    expect(ideBrand("added-notepad++")).toBeUndefined();
+    expect(ideBrand("something-else")).toBeUndefined();
   });
 });

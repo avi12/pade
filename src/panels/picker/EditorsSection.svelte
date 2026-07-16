@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { ideIcon } from "@/lib/ideIcon";
+  import { ideBrand, ideIcon } from "@/lib/ideIcon";
   import { languageIcon } from "@/lib/languageIcon";
   import { showToast } from "@/lib/stores/toast.svelte";
   import type { EditorKind, Ide, Prefs } from "@/lib/types";
@@ -108,7 +108,7 @@
       type="button"
     >
       {#if pickedEditor}
-        <span class="editor-icon" aria-hidden="true" data-brand={ideIcon(pickedEditor.id)}>
+        <span class="editor-icon" aria-hidden="true" data-brand={ideBrand(pickedEditor.id)}>
           <Icon name={ideIcon(pickedEditor.id)} size={15} />
         </span>
       {/if}
@@ -129,7 +129,7 @@
             type="button"
           >
             <span class="option-label">
-              <span class="editor-icon" aria-hidden="true" data-brand={ideIcon(editor.id)}>
+              <span class="editor-icon" aria-hidden="true" data-brand={ideBrand(editor.id)}>
                 <Icon name={ideIcon(editor.id)} size={15} />
               </span>
               <span>{editor.label}</span>
