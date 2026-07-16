@@ -223,7 +223,7 @@ responsibility, and who it collaborates with.
 | `src/lib/workspaceRelocate.ts` | Move/rename/delete with cwd-lock handling: kill locking sessions → backend op → resume remapped (delete has nothing to resume and drops the project) | `bridge`, `stores/sessions`, `stores/context` |
 | `src/lib/sendShortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
 | `src/lib/tabShortcuts.ts` | Tab keyboard shortcuts: pure key-chord → action matcher + capture-phase registrar (new / close / cycle / launch-menu) | `App` |
-| `src/lib/paths.ts` | Path helpers: `baseName`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
+| `src/lib/paths.ts` | Path helpers: `baseName`, `parentDir`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff parser + side-by-side rows | `DiffView`, `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
 | `src/lib/usageGroups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
@@ -357,9 +357,14 @@ surfaced by the picker (the legacy menu is still applied).
 
 `pnpm test` runs both sides: `test:js` (vitest, colocated `*.test.ts` next to
 each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
-`naming.rs`, `refs.rs`, `ide.rs` and the `vcs/` parsers). The pure logic
-extracted from components —
+`naming.rs`, `refs.rs`, `ide.rs`, `pty.rs`, `tasks.rs`, `usage.rs` and the
+`vcs/` parsers). The pure logic extracted from components —
 `tabFit`, `diff`, `paths`, `colors`, `format`, `reorder`, `usageGroups`, `validate`,
+`highlight`, `errors`, the context store's percent parsing,
 `autoName`'s signal detection, `workspaceRelocate`'s path remapping, `handoff`'s
 slug, `tabShortcuts`'s chord matching — is where
 new tests belong first: they run in milliseconds and need no window.
+
+Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a two-check
+boot-and-render gate over the real app via the WebView2 CDP port — see the
+script's header for its deliberate scope limits.
