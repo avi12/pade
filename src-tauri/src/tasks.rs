@@ -226,6 +226,11 @@ fn make_tasks(path: &Path) -> Vec<Task> {
     let Ok(text) = std::fs::read_to_string(path) else {
         return Vec::new();
     };
+    make_tasks_from_text(&text)
+}
+
+/// The pure scan behind [`make_tasks`]: targets from Makefile text.
+fn make_tasks_from_text(text: &str) -> Vec<Task> {
     let mut seen = Vec::new();
     let mut tasks = Vec::new();
     for line in text.lines() {
@@ -268,6 +273,11 @@ fn python_tasks(path: &Path) -> Vec<Task> {
     let Ok(text) = std::fs::read_to_string(path) else {
         return Vec::new();
     };
+    python_tasks_from_text(&text)
+}
+
+/// The pure scan behind [`python_tasks`]: script keys from pyproject text.
+fn python_tasks_from_text(text: &str) -> Vec<Task> {
     let mut in_scripts = false;
     let mut tasks = Vec::new();
     for line in text.lines() {
@@ -295,4 +305,129 @@ fn python_tasks(path: &Path) -> Vec<Task> {
         });
     }
     tasks
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::{
+        cargo_tasks, make_target, make_tasks_from_text, python_tasks_from_text, rel_display,
+        PackageManager, Task,
+    };
+
+    fn names(tasks: &[Task]) -> Vec<&str> {
+        tasks.iter().map(|task| task.name.as_str()).collect()
+    }
+
+    #[test]
+    fn make_target_reads_a_rule_head() {
+        assert_eq!(make_target("build: src/main.rs"), Some("build".to_string()));
+        assert_eq!(make_target("lint-all_v2:"), Some("lint-all_v2".to_string()));
+    }
+
+    #[test]
+    fn make_target_ignores_indented_recipe_bodies() {
+        assert_eq!(make_target("\tcargo build"), None);
+        assert_eq!(make_target("    echo done"), None);
+    }
+
+    #[test]
+    fn make_target_ignores_blank_and_comment_lines() {
+        assert_eq!(make_target(""), None);
+        assert_eq!(make_target("# a comment"), None);
+    }
+
+    #[test]
+    fn make_target_ignores_a_plain_variable_assignment() {
+        assert_eq!(make_target("CC = gcc"), None);
+    }
+
+    #[test]
+    fn make_target_treats_a_colon_assignment_like_a_rule_head() {
+        assert_eq!(make_target("VAR := value"), Some("VAR".to_string()));
+    }
+
+    #[test]
+    fn make_target_still_yields_dot_directives_for_the_caller_to_filter() {
+        assert_eq!(make_target(".PHONY: build"), Some(".PHONY".to_string()));
+    }
+
+    #[test]
+    fn make_tasks_skip_dot_directives_and_duplicates() {
+        let text = ".PHONY: build test\nbuild:\n\tcargo build\nbuild:\ntest:\n\tcargo test\n";
+        let tasks = make_tasks_from_text(text);
+        assert_eq!(names(&tasks), ["build", "test"]);
+        assert!(tasks
+            .iter()
+            .all(|task| task.command == format!("make {}", task.name)));
+    }
+
+    #[test]
+    fn python_tasks_read_project_scripts_entries() {
+        let text = "[project]\nname = \"demo\"\n\n[project.scripts]\nserve = \"demo.cli:serve\"\nmigrate = \"demo.cli:migrate\"\n";
+        let tasks = python_tasks_from_text(text);
+        assert_eq!(names(&tasks), ["serve", "migrate"]);
+        assert!(tasks.iter().all(|task| task.command == task.name));
+    }
+
+    #[test]
+    fn python_tasks_read_poetry_scripts_entries() {
+        let text = "[tool.poetry.scripts]\ncli = \"pkg:main\"\n";
+        assert_eq!(names(&python_tasks_from_text(text)), ["cli"]);
+    }
+
+    #[test]
+    fn python_tasks_trim_quoted_script_keys() {
+        let text = "[project.scripts]\n\"lint-all\" = \"demo.cli:lint\"\n";
+        assert_eq!(names(&python_tasks_from_text(text)), ["lint-all"]);
+    }
+
+    #[test]
+    fn python_tasks_skip_comments_and_blank_lines_inside_the_table() {
+        let text = "[project.scripts]\n# a comment\n\nserve = \"demo.cli:serve\"\n";
+        assert_eq!(names(&python_tasks_from_text(text)), ["serve"]);
+    }
+
+    #[test]
+    fn python_tasks_ignore_non_script_tables() {
+        let text = "[tool.ruff]\nline-length = 100\n\n[project.scripts]\nserve = \"x\"\n\n[tool.pytest.ini_options]\naddopts = \"-q\"\n";
+        assert_eq!(names(&python_tasks_from_text(text)), ["serve"]);
+    }
+
+    #[test]
+    fn python_tasks_are_empty_without_a_scripts_table() {
+        let text = "[project]\nname = \"demo\"\n";
+        assert!(python_tasks_from_text(text).is_empty());
+    }
+
+    #[test]
+    fn npm_runs_scripts_through_npm_run_but_pnpm_and_yarn_take_the_bare_script() {
+        assert_eq!(PackageManager::Npm.run_command("dev"), "npm run dev");
+        assert_eq!(PackageManager::Pnpm.run_command("dev"), "pnpm dev");
+        assert_eq!(PackageManager::Yarn.run_command("dev"), "yarn dev");
+    }
+
+    #[test]
+    fn cargo_manifests_always_offer_the_standard_verbs() {
+        let tasks = cargo_tasks(Path::new("Cargo.toml"));
+        assert_eq!(names(&tasks), ["build", "test", "run", "check", "clippy"]);
+        assert!(tasks
+            .iter()
+            .all(|task| task.command == format!("cargo {}", task.name)));
+    }
+
+    #[test]
+    fn rel_display_strips_the_root_and_joins_with_forward_slashes() {
+        let root = Path::new("repo");
+        let path = root.join("crates").join("core").join("Cargo.toml");
+        assert_eq!(rel_display(root, &path), "crates/core/Cargo.toml");
+    }
+
+    #[test]
+    fn rel_display_falls_back_to_the_full_path_outside_the_root() {
+        let root = Path::new("alpha");
+        let path = Path::new("beta").join("Makefile");
+        assert_eq!(rel_display(root, &path), "beta/Makefile");
+    }
 }
