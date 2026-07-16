@@ -31,7 +31,7 @@
   aria-label="Project actions"
   popovertarget={identifier}
 ><Icon name="more" /></button>
-<ul id={identifier} style:position-anchor="--{identifier}" class="menu" popover>
+<ul id={identifier} style:position-anchor="--{identifier}" class="menu popover-menu" popover>
   <li class="head">Reveal</li>
   <li>
     <button class="mi" onclick={() => void os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">

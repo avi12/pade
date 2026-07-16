@@ -78,24 +78,13 @@
   }
 }
 
-/* Native popover menus — light-dismiss on outside click; the only place a
-   floating shadow is warranted. */
+/* Shell comes from the shared .popover-menu; the picker's menus add a scroll
+   cap plus their width and anchor side. */
 .picker .menu {
-  position: absolute;
-  inset: auto;
   overflow-y: auto;
   max-block-size: min(70vh, 520px);
   min-inline-size: 250px;
-  margin-block: 6px 0;
-  margin-inline: 0;
-  padding: 6px;
-  border: 1px solid var(--outline);
-  border-radius: var(--radius-medium);
-  background: var(--surface-2);
-  list-style: none;
-  box-shadow: 0 16px 40px var(--shadow-color);
   position-area: bottom span-left;
-  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
   .mi {
     display: flex;

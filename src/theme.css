@@ -669,3 +669,21 @@ body {
     translate: 0 -10px;
   }
 }
+
+/* Shared shell for anchored popover menus (app menu, tab menus, IDE / design
+   lists, picker row menus) — the one authoritative home for the menu box.
+   Each menu keeps only what genuinely varies: its width, its anchor side
+   (`position-area`), and its own item styles. */
+.popover-menu {
+  position: absolute;
+  inset: auto;
+  margin-block: 6px 0;
+  margin-inline: 0;
+  padding: 6px;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-medium);
+  background: var(--surface-2);
+  list-style: none;
+  box-shadow: 0 16px 40px var(--shadow-color);
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+}

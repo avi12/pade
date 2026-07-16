@@ -387,7 +387,7 @@
           aria-label="Show remaining sessions"
           popovertarget="more-menu"
         >+{formatCount(moreSessions.length)}</button>
-        <ul id="more-menu" style:position-anchor="--more-anchor" class="menu more-menu" popover>
+        <ul id="more-menu" style:position-anchor="--more-anchor" class="menu more-menu popover-menu" popover>
           {#each moreSessions as s (s.id)}
             <li class="more-item" class:active={s.id === activeId}>
               <button
@@ -427,7 +427,7 @@
         }
       }}
     >+</button>
-    <ul id="add-menu" style:position-anchor="--add-anchor" class="menu" popover>
+    <ul id="add-menu" style:position-anchor="--add-anchor" class="menu popover-menu" popover>
       <li class="menu-sep">Launch an agent</li>
       {#each agents as a (a.id)}
         <li>
@@ -785,22 +785,11 @@
     }
   }
 
-  /* Native popover (light-dismiss on outside click) anchored to its button.
-     Scoped copy of the shared menu chrome — same as AppMenu carries its own. */
+  /* Shell comes from the shared .popover-menu; only width and anchor side
+     live here. */
   .menu {
-    position: absolute;
-    inset: auto;
     min-inline-size: 220px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-right;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     li button {
       display: flex;

@@ -115,7 +115,7 @@
       <span>{pickedEditor?.label ?? "Choose…"}</span>
       <span class="caret" aria-hidden="true">▾</span>
     </button>
-    <ul id={selectId} style:position-anchor="--{selectId}" class="menu editor-menu" popover>
+    <ul id={selectId} style:position-anchor="--{selectId}" class="menu editor-menu popover-menu" popover>
       {#each options as editor (editor.id)}
         {@const isPicked = editor.id === value}
         <li>

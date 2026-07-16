@@ -93,7 +93,7 @@
   <span class="caret" aria-hidden="true">▾</span>
 </button>
 
-<div id="m-app" style:position-anchor="--m-app" class="menu" popover role="menu">
+<div id="m-app" style:position-anchor="--m-app" class="menu popover-menu" popover role="menu">
   <div class="head">
     <span class="chip"><Icon name="folder" /></span>
     <span class="ident">
@@ -266,23 +266,14 @@
     text-transform: uppercase;
   }
 
-  /* Native popover — light-dismisses on outside click — anchored under the trigger. */
+  /* Shell comes from the shared .popover-menu; only width, colour and anchor
+     side live here. */
   .menu {
-    position: absolute;
-    inset: auto;
     min-inline-size: 272px;
     max-inline-size: 340px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
     color: var(--on-surface);
-    box-shadow: 0 16px 40px var(--shadow-color);
     animation: pop-in 220ms var(--spring);
     position-area: bottom span-right;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     .head {
       display: flex;

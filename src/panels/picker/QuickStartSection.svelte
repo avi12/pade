@@ -89,7 +89,7 @@
               <span class="root-current">{createIn || "Choose a root…"}</span>
               <span class="caret" aria-hidden="true">▾</span>
             </button>
-            <ul id="np-root-menu" style:position-anchor="--np-root" class="menu root-menu" popover>
+            <ul id="np-root-menu" style:position-anchor="--np-root" class="menu root-menu popover-menu" popover>
               {#each roots as root (root)}
                 {@const isPicked = createIn === root}
                 <li>

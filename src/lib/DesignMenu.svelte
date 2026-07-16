@@ -33,7 +33,7 @@
   <button style:anchor-name="--design-anchor" class="design-btn" popovertarget="design-menu">
     <Icon name="sparkles" /> Design<span class="caret">▾</span>
   </button>
-  <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list" popover>
+  <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list popover-menu" popover>
     <li class="hint">Open a design-to-code tool</li>
     {#each tools as tool (tool.id)}
       <li>
@@ -76,21 +76,11 @@
     }
   }
 
-  /* Native popover — light-dismisses on outside click. */
+  /* Shell comes from the shared .popover-menu; only width and anchor side
+     live here. */
   .design-list {
-    position: absolute;
-    inset: auto;
     min-inline-size: 230px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     .hint {
       padding-block: 6px 4px;

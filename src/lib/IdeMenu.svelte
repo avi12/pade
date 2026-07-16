@@ -65,7 +65,7 @@
   </span>
 
   {#if hasAlternatives}
-    <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list" popover>
+    <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
       {#each ides as editor, index (editor.id)}
         <li>
           <button
@@ -168,21 +168,11 @@
     }
   }
 
-  /* Native popover — light-dismisses on outside click. */
+  /* Shell comes from the shared .popover-menu; only width and anchor side
+     live here. */
   .ide-list {
-    position: absolute;
-    inset: auto;
     min-inline-size: 200px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
     position-area: bottom span-left;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 
     li button {
       display: flex;
