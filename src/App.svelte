@@ -45,6 +45,7 @@
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
   import Terminal from "@/panels/Terminal.svelte";
   import { onDestroy, onMount } from "svelte";
+  import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // Which top-level screen is showing. A closed set defined once, compared
   // against by member so no bare literal leaks into the flow logic.
@@ -406,6 +407,14 @@
     phase = Phase.onboarding;
   }
 
+  // A self-exit within RESPAWN_MIN_LIFETIME_MS of launch reads as a failed start,
+  // so we don't respawn-loop on it.
+  const sessionLaunchedAt = new SvelteMap<string, number>();
+  const RESPAWN_MIN_LIFETIME_MS = 2_000;
+  // A hand-close also kills the PTY, firing the exit event; the exit handler skips
+  // these so the two teardown paths don't race.
+  const closingByHand = new SvelteSet<string>();
+
   function launch(opts: {
     agent: Agent;
     initialPrompt?: string;
@@ -425,6 +434,7 @@
       args: opts.args
     };
     sessions.push(session);
+    sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
     paneIds = opts.split ? [...paneIds, session.id] : [session.id];
     pendingPrompt = undefined;
@@ -514,27 +524,66 @@
     branches = await vcs.branches().catch(() => []);
   }
 
-  async function close(session: AgentSession) {
-    await pty.kill(session.id);
-    sessions = sessions.filter(s => s.id !== session.id);
-    paneIds = paneIds.filter(id => id !== session.id);
-    dropSessionStatus(session.id);
-    dropSessionLabel(session.id);
-    dropNaming(session.id);
+  // The caller kills the PTY and decides the empty-workspace policy.
+  function detachSession(id: string) {
+    sessions = sessions.filter(s => s.id !== id);
+    paneIds = paneIds.filter(paneId => paneId !== id);
+    sessionLaunchedAt.delete(id);
+    dropSessionStatus(id);
+    dropSessionLabel(id);
+    dropNaming(id);
 
-    if (activeId === session.id) {
+    if (activeId === id) {
       activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
     }
 
-    // Keep at least one pane visible while any session remains.
     if (paneIds.length === 0 && activeId) {
       paneIds = [activeId];
     }
+  }
 
-    // Closing the last session shows the agent picker (project stays open) —
-    // never silently spawn a replacement.
-    const wasLastSession = sessions.length === 0;
+  async function close(session: AgentSession) {
+    closingByHand.add(session.id);
+    await pty.kill(session.id);
+    const wasLastSession = sessions.length === 1;
+    detachSession(session.id);
+    closingByHand.delete(session.id);
+
+    // Hand-closing the last tab returns to the picker — never a silent respawn
+    // (a self-exit does respawn; see handleSessionExit).
     if (wasLastSession) {
+      pendingPrompt = undefined;
+      phase = Phase.onboarding;
+    }
+  }
+
+  // The PTY exited on its own — e.g. the user pressed Ctrl-C to quit the agent.
+  async function handleSessionExit(id: string) {
+    const isClosingByHand = closingByHand.has(id);
+    if (isClosingByHand) {
+      return;
+    }
+
+    const session = sessions.find(s => s.id === id);
+    if (!session) {
+      return;
+    }
+
+    const { agent } = session;
+    const wasLastSession = sessions.length === 1;
+    const startedAt = sessionLaunchedAt.get(id) ?? 0;
+    const failedToStart = Date.now() - startedAt <= RESPAWN_MIN_LIFETIME_MS;
+    detachSession(id);
+    await pty.kill(id).catch(() => {}); // reap the backend record; the child is already gone
+
+    if (!wasLastSession) {
+      return;
+    }
+
+    const shouldRespawn = !failedToStart;
+    if (shouldRespawn) {
+      launch({ agent });
+    } else {
       pendingPrompt = undefined;
       phase = Phase.onboarding;
     }
@@ -794,6 +843,7 @@
               {/if}
               <Terminal
                 active={s.id === activeId && paneIds.includes(s.id)}
+                onexit={handleSessionExit}
                 onremove={() => removePane(s.id)}
                 onreorder={ids => (paneIds = ids)}
                 removable={canRemovePane && paneIds.includes(s.id)}

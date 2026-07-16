@@ -13,7 +13,7 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session, active = false, removable = false, onremove, onreorder }: {
+  const { session, active = false, removable = false, onremove, onreorder, onexit }: {
     session: AgentSession;
     /** The session the keyboard belongs to — the one tab (or split pane) in front. */
     active?: boolean;
@@ -22,6 +22,9 @@
     onremove?: () => void;
     /** A drag of this pane's header reordered the split — commit the new order. */
     onreorder?: (orderedIds: string[]) => void;
+    /** The PTY exited on its own (the agent quit, e.g. via Ctrl-C) — so App can
+        auto-close this tab (and respawn the agent if it was the last one). */
+    onexit?: (id: string) => void;
   } = $props();
 
   // Drag the session bar to reorder the visible split panes (past a 4px
@@ -537,6 +540,7 @@
 
       clearTimeout(idleTimer);
       status = SessionStatus.enum.exited;
+      onexit?.(session.id);
     });
     if (destroyed) {
       exitListener();

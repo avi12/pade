@@ -194,7 +194,7 @@ responsibility, and who it collaborates with.
 | --- | --- | --- |
 | `src/main.ts` | Entry: mounts `App`, loads the theme | `App.svelte`, `theme.css` |
 | `src/theme.css` | M3 Expressive tokens, global keyframes, base document styles | everything |
-| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
+| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
 | `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu | `tabFit`, `stores/sessions` |
 | `src/lib/AppMenu.svelte` | Top-bar project menu: current dir, recents, switch/open/new-window | `bridge` |
 | `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usageGroups` |
