@@ -1,0 +1,60 @@
+# PADE Windows 11 "modern" context-menu handler.
+#
+# A standalone in-process COM server (`cdylib` → `contextmenu_handler.dll`) that
+# implements `IExplorerCommand`. Windows 11's modern right-click menu only reaches
+# a *packaged* COM handler (package identity via a sparse MSIX manifest) — there is
+# no registry shortcut, so this cannot live in the main `pade` binary. It is its
+# own workspace member built with `cargo build -p contextmenu-handler`; the DLL
+# lands next to `pade.exe` in the shared `target/` dir and both are pointed at by
+# the sparse `AppxManifest.xml`. See `src/lib.rs` and `AppxManifest.xml`.
+[package]
+name = "contextmenu-handler"
+version = "0.0.1"
+description = "PADE Explorer context-menu COM handler (IExplorerCommand)"
+authors = ["Avi"]
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "contextmenu_handler"
+crate-type = ["cdylib"]
+
+[dependencies]
+# windows-rs, pinned to the same 0.61 already in the lockfile via Tauri so no
+# second copy of the crate is compiled (minimize-dependencies). Only the features
+# this handler actually calls are enabled, to keep the compile lean.
+#   windows-core       — core COM types (GUID/HRESULT/Interface/Ref/PWSTR).
+#   windows-implement  — the #[implement] COM-vtable macro (its generated code
+#                        references windows_core). Neither the `windows` umbrella
+#                        nor `windows-core` 0.61 expose the macro via a feature, so
+#                        it is pulled in directly. Versions match the lockfile
+#                        (windows-core 0.61 already depends on windows-implement
+#                        0.60), so no extra copies compile.
+windows-core = "0.61"
+windows-implement = "0.60"
+#   Win32_Foundation         — HRESULT/BOOL/HMODULE + the S_*/E_*/CLASS_E_* codes
+#   Win32_System_Com         — IClassFactory, IBindCtx, CoTaskMemFree
+#   Win32_UI_Shell           — IExplorerCommand, IShellItem(Array), SHStrDupW, SIGDN
+#   Win32_System_LibraryLoader — GetModuleFileNameW, to find pade.exe next to us
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+    "Win32_System_LibraryLoader",
+] }
+
+# Same strict bar as the main crate (rust-best-practices), but this crate MUST
+# allow unsafe: an in-proc COM server is inherently unsafe (raw vtable pointers,
+# FFI). Every other lint stays at the pedantic-with-`-D warnings` level.
+[lints.rust]
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+unwrap_used = "deny"
+expect_used = "allow"

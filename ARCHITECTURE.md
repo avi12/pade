@@ -297,11 +297,46 @@ entry. Each concern is one module:
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |
 | `design.rs` | Quick-launch AI design / UI-generation tools |
-| `contextmenu.rs` | Windows Explorer "Open in PADE" registration |
+| `contextmenu.rs` | Windows Explorer "Open in PADE" registration — **both** menus: the legacy registry keys (Win10 / "Show more options") inline, and the Windows 11 modern menu via the `modern` submodule (registers the sparse MSIX package — see below) |
 | `os.rs` | Reveal in file manager / terminal, open URLs |
 | `window.rs` | Spawn additional app windows; paint each window's webview with the themed M3 surface so it opens in-theme (no white flash) |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
 | `util.rs` | Cross-cutting helpers: executable resolution (`search_dirs`, `find_in`, `resolve`, `is_on_path`), `home_dir`, `encode_project` |
+
+### Windows 11 modern context menu (`src-tauri/contextmenu-handler/`)
+
+Windows 11's first-shown right-click menu only loads a context-menu handler that
+has **package identity**; a plain registry verb (the legacy menu) never reaches it.
+So the modern "Open in PADE" is a second, separate **workspace-member crate** — an
+in-process COM server (`cdylib` → `contextmenu_handler.dll`) implementing
+`IExplorerCommand` — registered through a **sparse, external-location MSIX
+manifest** (`AppxManifest.xml`). Deployment model: dev-mode, **unsigned**,
+per-user; the manifest points its external location at the folder where `pade.exe`
+already lives, so the DLL sits next to the exe (shared `target/` dir). The crate is
+**not** a dependency of `pade` — build it explicitly with
+`cargo build -p contextmenu-handler`. Full runbook:
+`docs/handoff-windows11-context-menu.md`.
+
+The CLSID `{C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC}` is authoritative in the handler
+crate's `lib.rs` and mirrored (braceless) in `AppxManifest.xml`.
+
+```mermaid
+flowchart LR
+  toggle["Picker toggle\n(OnLaunchSection)"] -->|context_menu_register| cm["contextmenu.rs"]
+  cm -->|legacy: reg keys| legacy["HKCU…\\shell\\PADE\n(Win10 / More options)"]
+  cm -->|modern| modernmod["contextmenu::modern"]
+  modernmod -->|writes manifest+Assets,\nAdd-AppxPackage -Register\n-ExternalLocation| pkg["sparse MSIX package"]
+  pkg -.registers CLSID.-> dll["contextmenu_handler.dll\n(IExplorerCommand)"]
+
+  rc["Right-click a folder\n(Win11 modern menu)"] --> dll
+  dll -->|GetTitle| title["'Open in PADE'"]
+  dll -->|Invoke: read folder path\nfrom IShellItemArray| spawn["spawn pade.exe &lt;folder&gt;"]
+  spawn --> lc["launch_context opens it"]
+```
+
+The register step needs **Developer Mode ON**; when it is off `Add-AppxPackage`
+fails with `0x80073CFF`, which `modern::interpret` turns into a clear message
+surfaced by the picker (the legacy menu is still applied).
 
 ## Tests
 

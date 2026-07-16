@@ -20,6 +20,9 @@
   // Explorer "Open in PADE" folder context menu (Windows-only, per-user).
   const isWindows = navigator.userAgent.includes("Windows");
   let ctxMenuOn = $state(false);
+  // Surfaced when registering the modern (Win11) menu fails — typically because
+  // Developer Mode is off. The legacy menu still gets added in that case.
+  let ctxMenuError = $state("");
   async function loadCtxMenu() {
     if (isWindows) {
       ctxMenuOn = await contextMenu.status();
@@ -65,12 +68,16 @@
           checked={ctxMenuOn}
           onchange={async e => {
             const on = e.currentTarget.checked;
-            if (on) {
-              await contextMenu.register();
-            } else {
-              await contextMenu.unregister();
+            ctxMenuError = "";
+            try {
+              if (on) {
+                await contextMenu.register();
+              } else {
+                await contextMenu.unregister();
+              }
+            } catch (err) {
+              ctxMenuError = err instanceof Error ? err.message : String(err);
             }
-
             ctxMenuOn = await contextMenu.status();
           }}
           type="checkbox"
@@ -81,6 +88,9 @@
       </span>
       <span>Add “Open in PADE” to the folder right-click menu</span>
     </label>
+    {#if ctxMenuError}
+      <p class="ctx-error" role="alert">{ctxMenuError}</p>
+    {/if}
   {/if}
 </section>
 
@@ -133,5 +143,18 @@
     align-items: center;
     font-size: 13px;
     cursor: pointer;
+  }
+
+  /* Modern-menu registration failure (e.g. Developer Mode off). A tonal warning
+     surface rather than a hard border, per M3. */
+  .ctx-error {
+    margin-block: 2px 0;
+    margin-inline-start: 30px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: var(--warning-wash);
+    color: var(--warning);
+    font-size: 12px;
+    line-height: 1.4;
   }
 </style>

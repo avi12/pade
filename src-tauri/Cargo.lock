@@ -380,6 +380,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "contextmenu-handler"
+version = "0.0.1"
+dependencies = [
+ "windows",
+ "windows-core 0.61.2",
+ "windows-implement",
+]
+
+[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PADE "modern" (Windows 11) context-menu handler — sparse, external-location MSIX
+  manifest. Registered UNSIGNED, in place, with Windows Developer Mode ON:
+
+      Add-AppxPackage -Register <this file> -ExternalLocation <dir with pade.exe>
+
+  This is a TEMPLATE: `src/contextmenu/modern.rs` embeds it (include_str!) and, at
+  register time, replaces {{EXECUTABLE}} with the actual running executable's file
+  name (e.g. pade.exe) before writing it next to that executable. Every other value
+  is fixed. The DLL, the executable and the Assets\ logos must all sit in the
+  ExternalLocation directory (the com:Class Path and asset paths resolve there).
+
+  CLSID {C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC} is authoritative in
+  contextmenu-handler/src/lib.rs; it is written WITHOUT braces here (that is what
+  com:Class@Id and desktop5:Verb@Clsid expect — verified against shipping samples).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap uap10 rescap desktop4 desktop5 com">
+
+  <!-- Unsigned dev-mode register imposes no cert, so Publisher can be any valid
+       X.500 name; it only has to be internally consistent. -->
+  <Identity
+    Name="PADE.ContextMenu"
+    Publisher="CN=PADE"
+    Version="1.0.0.0"
+    ProcessorArchitecture="neutral" />
+
+  <Properties>
+    <DisplayName>PADE Explorer integration</DisplayName>
+    <PublisherDisplayName>PADE</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!-- Required for external-location content (min OS build 19041). -->
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <!-- A sparse identity package still needs one Application with VisualElements,
+         even though this one launches nothing (AppListEntry="none" hides it). -->
+    <Application
+      Id="PADE"
+      Executable="{{EXECUTABLE}}"
+      uap10:TrustLevel="mediumIL"
+      uap10:RuntimeBehavior="win32App">
+
+      <uap:VisualElements
+        AppListEntry="none"
+        DisplayName="PADE"
+        Description="Open a folder as a PADE project"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+
+      <Extensions>
+        <!-- 1) Register contextmenu_handler.dll as an in-proc COM server. The
+                deployment engine writes the private InprocServer32 for us. -->
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:SurrogateServer DisplayName="PADE Explorer integration">
+              <com:Class
+                Id="C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC"
+                Path="contextmenu_handler.dll"
+                ThreadingModel="STA" />
+            </com:SurrogateServer>
+          </com:ComServer>
+        </com:Extension>
+
+        <!-- 2) Point the folder + folder-background verbs at that CLSID. The label
+                shown to the user comes from IExplorerCommand::GetTitle, not Id. -->
+        <desktop4:Extension Category="windows.fileExplorerContextMenus">
+          <desktop4:FileExplorerContextMenus>
+            <desktop5:ItemType Type="Directory">
+              <desktop5:Verb Id="OpenInPade" Clsid="C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type="Directory\Background">
+              <desktop5:Verb Id="OpenInPade" Clsid="C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC" />
+            </desktop5:ItemType>
+          </desktop4:FileExplorerContextMenus>
+        </desktop4:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>

@@ -6,6 +6,17 @@ authors = ["Avi"]
 edition = "2021"
 license = "Apache-2.0"
 
+# `pade` is also the workspace root. `contextmenu-handler` is a separate cdylib
+# (the Windows 11 modern-menu COM server) — NOT a dependency of `pade`, so a normal
+# `cargo build`/`tauri dev` skips it; build it explicitly with
+# `cargo build -p contextmenu-handler`. Being a member means it shares this
+# `target/` dir, so its DLL lands next to `pade.exe` (where the sparse manifest
+# expects both). Each crate keeps its own `[lints]` (this one forbids unsafe; the
+# handler must allow it).
+[workspace]
+members = ["contextmenu-handler"]
+resolver = "2"
+
 [lib]
 name = "pade_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
