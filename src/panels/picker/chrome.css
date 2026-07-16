@@ -112,17 +112,16 @@
     text-align: start;
     cursor: pointer;
 
+    /* Hover + current selection read as a subtle tonal overlay on the row (the
+       youtube-downloader select's `tonal-rim`), not a loud primary fill — a calm
+       neutral that adapts to light/dark. The selection keeps a primary checkmark
+       (`.tick`) as its accent. */
     &:hover {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
+      background: color-mix(in oklab, var(--on-surface) 8%, transparent);
     }
 
-    /* The current selection reads as a filled row (like a resting hover), so an
-       open menu obviously has a highlighted item — not just coloured text. The
-       checkmark follows the row colour via `.tick`. */
     &.picked {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
+      background: color-mix(in oklab, var(--on-surface) 8%, transparent);
     }
 
     .mi-txt {
@@ -207,8 +206,8 @@
   font-size: 13px;
 }
 
-/* The selected-item checkmark follows its row's text colour — legible whether the
-   row is a filled selection, a hover, or (defensively) a plain surface. */
+/* The selected-item checkmark — a primary accent that stands out on the row's
+   neutral selection/hover wash. */
 .picker .tick {
-  color: inherit;
+  color: var(--primary);
 }
