@@ -44,7 +44,7 @@
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
   import Terminal from "@/panels/Terminal.svelte";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // Which top-level screen is showing. A closed set defined once, compared
@@ -589,6 +589,13 @@
     }
   }
 
+  function switchToPicker() {
+    document.startViewTransition(async () => {
+      phase = Phase.project;
+      await tick();
+    });
+  }
+
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
   // The kill → backend-op → resume flow lives in lib/workspaceRelocate; this
   // shell only lends it the session list and takes back the results.
@@ -742,6 +749,7 @@
         agent: a,
         initialPrompt: pendingPrompt
       })}
+      onswitchproject={switchToPicker}
       path={currentProject}
     />
   {:else if phase === Phase.ready}
@@ -755,7 +763,7 @@
             {isTemp}
             label={currentLabel ?? shortDir}
             labels={settings.labels}
-            onswitch={() => (phase = Phase.project)}
+            onswitch={switchToPicker}
             path={currentProject}
             recentProjects={settings.recentProjects}
           />

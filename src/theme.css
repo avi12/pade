@@ -182,9 +182,24 @@ body {
   inline-size: 0;
 }
 
+/* SPA phase changes (onboarding ↔ picker ↔ workspace) cross-fade via the View
+   Transitions API — styled here in pure CSS on the M3 emphasized easing. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
+  }
+
+  /* The `*` reset can't reach the view-transition pseudo-tree — disable it here. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none !important;
   }
 }

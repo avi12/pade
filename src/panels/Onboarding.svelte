@@ -7,10 +7,11 @@
   // launch. `path` is the already-chosen workspace the agent will start in, shown
   // up front so the user knows where they're about to run. They can switch or add
   // more agents later from the session bar.
-  const { agents, path, onpick }: {
+  const { agents, path, onpick, onswitchproject }: {
     agents: Agent[];
     path: string;
     onpick: (a: Agent) => void;
+    onswitchproject: () => void;
   } = $props();
 </script>
 
@@ -23,13 +24,14 @@
       switch or run more side by side later.
     </p>
 
-    <div class="cwd">
+    <button class="cwd" onclick={onswitchproject}>
       <span class="lead"><Icon name="folder" /></span>
       <span class="stack">
         <span class="eyebrow">Working directory</span>
         <span class="path">{path}</span>
       </span>
-    </div>
+      <span class="switch">Switch project</span>
+    </button>
 
     <ul class="agents">
       {#each agents as a (a.id)}
@@ -84,16 +86,27 @@
     }
   }
 
-  /* Where the agent will start — surfaced up front so the choice has context. */
+  /* The workspace the agent will start in — click to switch project. */
   .cwd {
     display: flex;
     gap: 10px;
     align-items: center;
+    inline-size: 100%;
     margin-block: 20px 0;
     padding: 10px 13px;
     border: 1px solid var(--outline);
     border-radius: var(--radius-medium);
     background: var(--surface-2);
+    color: var(--on-surface);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    transition: background 200ms var(--ease), border-color 200ms var(--ease);
+
+    &:hover {
+      border-color: var(--primary);
+      background: var(--surface-3);
+    }
 
     .lead {
       display: inline-flex;
@@ -103,9 +116,24 @@
 
     .stack {
       display: flex;
+      flex: 1;
       flex-direction: column;
       min-inline-size: 0;
       line-height: 1.3;
+    }
+
+    /* Fades in on hover to signal the card navigates to the picker. */
+    .switch {
+      flex-shrink: 0;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 12px;
+      opacity: 0%;
+      transition: opacity 200ms var(--ease);
+    }
+
+    &:hover .switch {
+      opacity: 100%;
     }
 
     .eyebrow {
