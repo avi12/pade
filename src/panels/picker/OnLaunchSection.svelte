@@ -18,8 +18,10 @@
   const autoName = $derived(prefs.autoNameTemp !== false);
 
   // Explorer "Open in PADE" folder context menu (Windows-only, per-user).
+  // `null` until the registry answers — the row waits for it so the checkbox
+  // is born showing the real state instead of flipping a beat after paint.
   const isWindows = navigator.userAgent.includes("Windows");
-  let ctxMenuOn = $state(false);
+  let ctxMenuOn = $state<boolean | null>(null);
   // Surfaced when registering the modern (Win11) menu fails — typically because
   // Developer Mode is off. The legacy menu still gets added in that case.
   let ctxMenuError = $state("");
@@ -61,7 +63,7 @@
     </span>
     <span>Auto-name temp workspaces once the agent starts working</span>
   </label>
-  {#if isWindows}
+  {#if isWindows && ctxMenuOn !== null}
     <label class="check">
       <span class="ck">
         <input

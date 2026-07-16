@@ -65,6 +65,10 @@
     prefs: {}
   });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
+  // Whether the first settings load has landed. The sections render only then,
+  // so every control is born showing the persisted preference — never a
+  // defaults flash that snaps to the real values a beat later.
+  let loaded = $state(false);
   let ides = $state<Ide[]>([]);
   // The project kinds the rules engine shows, straight from the backend registry
   // (its single home) in render/priority order.
@@ -261,6 +265,7 @@
   onMount(async () => {
     await refresh();
     createRoot ||= popularRoot();
+    loaded = true;
     unlisten = await dirs.onChange(rescanSoon);
   });
 
@@ -284,47 +289,53 @@
       </p>
     </header>
 
-    <QuickStartSection
-      onnewroot={() => rootsSection?.focusAddRoot()}
-      {onopen}
-      roots={settings.roots}
-      bind:createIn={createRoot}
-    />
+    <!-- Painted only once the first settings load lands, so every control is
+         born prefilled with the persisted preferences (no defaults flash). -->
+    {#if loaded}
+      <div class="sections">
+        <QuickStartSection
+          onnewroot={() => rootsSection?.focusAddRoot()}
+          {onopen}
+          roots={settings.roots}
+          bind:createIn={createRoot}
+        />
 
-    <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
+        <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
 
-    <RecentSection
-      {ides}
-      labels={settings.labels}
-      {lifecycle}
-      onclear={clearRecent}
-      {onopen}
-      recentProjects={settings.recentProjects}
-    />
+        <RecentSection
+          {ides}
+          labels={settings.labels}
+          {lifecycle}
+          onclear={clearRecent}
+          {onopen}
+          recentProjects={settings.recentProjects}
+        />
 
-    <AgentsSection {agents} defaultAgent={settings.defaultAgent} onpick={setMaster} />
+        <AgentsSection {agents} defaultAgent={settings.defaultAgent} onpick={setMaster} />
 
-    <EditorsSection
-      {currentKind}
-      {ides}
-      {kindOptions}
-      {kinds}
-      onaddeditor={addEditor}
-      onfallback={setEditorFallback}
-      onrule={setEditorRule}
-      prefs={settings.prefs}
-    />
+        <EditorsSection
+          {currentKind}
+          {ides}
+          {kindOptions}
+          {kinds}
+          onaddeditor={addEditor}
+          onfallback={setEditorFallback}
+          onrule={setEditorRule}
+          prefs={settings.prefs}
+        />
 
-    <RootsSection
-      bind:this={rootsSection}
-      {ides}
-      {lifecycle}
-      onadd={addRoot}
-      {onopen}
-      onremove={removeRoot}
-      {projectsByRoot}
-      roots={settings.roots}
-    />
+        <RootsSection
+          bind:this={rootsSection}
+          {ides}
+          {lifecycle}
+          onadd={addRoot}
+          {onopen}
+          onremove={removeRoot}
+          {projectsByRoot}
+          roots={settings.roots}
+        />
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -377,6 +388,15 @@
     margin-inline: auto;
     padding-block: 48px 80px;
     padding-inline: 24px;
+    animation: rise 420ms var(--ease);
+  }
+
+  /* The settings-fed sections, mounted together once loaded — same column
+     rhythm as .inner, rising in as one block. */
+  .sections {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
     animation: rise 420ms var(--ease);
   }
 
