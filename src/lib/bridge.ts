@@ -66,6 +66,8 @@ export const agents = {
 /** External IDE integration. */
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
+  /** Installed IDEs ordered for the current project: rule → fallback → auto-rank;
+   *  a multi-kind project (monorepo) puts generalists before specialists. */
   suggest: () => call("ide_suggest", z.array(Ide)),
   /** The project kinds the rules engine shows (label + manifest signals), in the
    *  backend registry's render/priority order — the frontend derives its rows here. */
@@ -250,7 +252,9 @@ export const tasks = {
   list: () => call("tasks_list", z.array(TaskGroup))
 };
 
-/** Agent usage / quota channel — reads local data only, never spends quota. */
+/** Agent usage / quota channel — never spends message quota. `session` reads
+ *  local data only; `get`/`account` also make a cached call to the vendor's
+ *  OAuth usage endpoint for the live account windows. */
 export const usage = {
   get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
   /** The active session's context-window state for the latest session in `cwd`. */
@@ -283,6 +287,8 @@ export const workspace = {
   probePath: (path: string) => call("workspace_probe_path", PathProbe, { path }),
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
+  /** Create a throwaway workspace, mark it owned, and open it — chdirs the
+   *  process and records it in Recents. Returns its path. */
   temp: () => call("workspace_temp", z.string()),
   move: (args: {
     from: string;

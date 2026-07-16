@@ -15,7 +15,7 @@ struct DesignDef {
     label: &'static str,
     /// Vendor, shown as a subtle tag next to the name.
     vendor: &'static str,
-    /// Where the tool lives (opened in the default browser).
+    /// Where the tool lives (opened in the companion PADE window).
     url: &'static str,
     /// Agent ids (from `agents.rs`) this tool's vendor matches — it's pinned to
     /// the top and flagged when one of them is the active agent. Empty = a

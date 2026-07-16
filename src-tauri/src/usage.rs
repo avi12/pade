@@ -1,19 +1,17 @@
 //! Agent usage / quota meter.
 //!
 //! Surfaces how much of the active agent's quota is left, sourced WITHOUT
-//! spending any quota — we never invoke the agent CLI and never hit the network.
-//! We only read data the agent already persisted locally. Because no vendor
-//! exposes a uniform local "remaining %", this is best-effort per agent:
-//!  - When a reliable local signal exists we return what we can (e.g. the
-//!    subscription tier label), leaving `used_pct`/`resets_at` `None` if the
-//!    precise numbers aren't on disk.
-//!  - When nothing reliable is found we return `None` and the UI shows an honest
-//!    "usage unavailable" state — we never fabricate numbers.
+//! spending any message quota — we never invoke the agent CLI. Two sources,
+//! best-effort per agent:
+//!  - The vendor's OAuth usage endpoint (the same numbers claude.ai shows),
+//!    called with the locally-stored access token and cached for ~3 minutes —
+//!    a real network request, but one that consumes no quota.
+//!  - Data the agent already persisted locally (e.g. the subscription tier
+//!    label) when the network / token isn't available, leaving
+//!    `used_pct`/`resets_at` `None` if the precise numbers aren't on disk.
 //!
-//! The fully-robust source is the vendor's authenticated site (e.g. claude.ai),
-//! which needs a logged-in webview — a separate in-progress feature. This module
-//! is the plumbing + local best-effort adapter that a site-backed source can
-//! later slot into.
+//! When nothing reliable is found we return `None` and the UI shows an honest
+//! "usage unavailable" state — we never fabricate numbers.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -38,8 +36,9 @@ pub struct Usage {
     pub source: String,
 }
 
-/// Remaining usage for `agent`, from local data only. `None` when we have no
-/// reliable local signal for that agent (the UI then shows "usage —").
+/// Remaining usage for `agent` — live account windows when the OAuth endpoint
+/// is reachable, local tier label otherwise. `None` when we have no reliable
+/// signal for that agent (the UI then shows "usage —").
 #[tauri::command]
 pub fn usage_get(agent: String) -> Option<Usage> {
     match agent.as_str() {
