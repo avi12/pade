@@ -6,6 +6,7 @@
 // launch through `HandoffHost` and drives the scan from a component `$effect`.
 
 import { feed, pty, usage } from "@/lib/bridge";
+import { CONTEXT_HANDOFF_PCT } from "@/lib/contextLevel";
 import { contextPct, dropContext } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
@@ -13,7 +14,6 @@ import type { Agent, AgentSession } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteSet } from "svelte/reactivity";
 
-const CONTEXT_HANDOFF_PCT = 90;
 const HANDOFF_DOC_TIMEOUT_MS = 120_000;
 const HANDOFF_SETTLE_MS = 3_000;
 const USAGE_EXHAUSTED_PCT = 95;
