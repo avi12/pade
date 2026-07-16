@@ -297,7 +297,9 @@
       class:on={isNaming(s.id)}
       aria-label="Auto-name this session with AI"
       data-noreorder
-      data-tooltip="AI name"
+      data-tooltip={isNaming(s.id)
+        ? "Auto-naming on — the name follows the conversation. Click the tab name to rename it yourself."
+        : "Auto-name with AI — let the session name follow the conversation. Click the tab name to rename it yourself."}
       onclick={() => toggleNaming({
         id: s.id,
         agent: s.agent.command
