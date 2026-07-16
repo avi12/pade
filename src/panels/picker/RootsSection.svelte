@@ -329,7 +329,7 @@
   </div>
 
   {#each roots as root (root)}
-    <div class="root">
+    <div class="root" out:collapseRow>
       <div class="root-head">
         <code class="rootpath">{root}</code>
         <button
