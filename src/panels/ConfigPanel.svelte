@@ -2,6 +2,7 @@
   import { config } from "@/lib/bridge";
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
+  import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
   import { effective, prefs, updatePrefs } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
@@ -69,7 +70,7 @@
   const MINIMUM_UI_SCALE = 0.85;
   const MAXIMUM_UI_SCALE = 1.3;
   const UI_SCALE_STEP = 0.05;
-  const scalePercent = $derived(new Intl.NumberFormat(undefined, { style: "percent" }).format(effective.uiScale));
+  const scalePercent = $derived(formatPercent(effective.uiScale * 100));
 
   async function stepScale(delta: number): Promise<void> {
     const clamped = Math.min(MAXIMUM_UI_SCALE, Math.max(MINIMUM_UI_SCALE, effective.uiScale + delta));

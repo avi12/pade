@@ -26,10 +26,12 @@
   font-size: 12px;
 }
 
-/* Author · relative-time line under a candidate / commit summary. */
+/* Author · relative-time line under a candidate / commit summary. The relative
+   time carries digits, so keep them tabular-aligned. */
 .vcs .by {
   color: var(--on-surface-variant);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Quiet empty/error state ("Working tree clean", "Not a Git repository…"). */

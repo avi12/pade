@@ -153,14 +153,14 @@
   }) {
     const seconds = Math.max(0, Math.round((now - stamp) / 1000));
     if (seconds < 60) {
-      return `${seconds}s ago`;
+      return `${formatCount(seconds)}s ago`;
     }
 
     if (seconds < 3600) {
-      return `${Math.round(seconds / 60)}m ago`;
+      return `${formatCount(Math.round(seconds / 60))}m ago`;
     }
 
-    return `${Math.round(seconds / 3600)}h ago`;
+    return `${formatCount(Math.round(seconds / 3600))}h ago`;
   }
 </script>
 
@@ -455,6 +455,7 @@
     margin-left: auto;
     color: var(--on-surface-variant);
     font-size: 11px;
+    font-variant-numeric: tabular-nums;
   }
 
   .summary {

@@ -2,6 +2,7 @@
   import { agentIconName } from "@/lib/agentIcon";
   import { Axis, beginReorder } from "@/lib/dragReorder";
   import type { DragHint } from "@/lib/dragReorder";
+  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
@@ -351,7 +352,7 @@
           class:active={overflowHasActive}
           aria-label="Show remaining sessions"
           popovertarget="more-menu"
-        >+{moreSessions.length}</button>
+        >+{formatCount(moreSessions.length)}</button>
         <ul id="more-menu" style:position-anchor="--more-anchor" class="menu more-menu" popover>
           {#each moreSessions as s (s.id)}
             <li class="more-item" class:active={s.id === activeId}>
