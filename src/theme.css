@@ -95,6 +95,10 @@
      the terminal derive from this one base. */
   --ui-scale: 1;
   --font-base: max(16px, 1rem);
+
+  /* Native widgets (buttons, form controls, scrollbars) follow the app theme —
+     without this the UA paints its light-mode faces in dark mode. */
+  color-scheme: light;
 }
 
 /* Dark tokens. The theme controller resolves "system" to a concrete light/dark
@@ -128,6 +132,8 @@
   --syntax-keyword: hsl(265deg 70% 76%);
   --syntax-string: hsl(160deg 50% 62%);
   --syntax-number: hsl(28deg 85% 66%);
+
+  color-scheme: dark;
 }
 
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the
@@ -270,9 +276,35 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* A button is a themed surface, never the UA's ButtonFace — components paint
+   their own backgrounds on top. (On the light theme the UA face was near-
+   invisible against the light surfaces, so the missing reset only showed as
+   glaring light patches in dark mode — the design file's reset, adopted.) */
+button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  color: inherit;
+  font: inherit;
+}
+
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+/* Text selection in the primary's hue (from the design file) — the fixed
+   mid-tone blue reads on both schemes. */
+::selection {
+  background: hsl(var(--seed-hue) 90% 55% / 35%);
 }
 
 /* Chromium/WebView scrollbar — thin, subtle; xterm's viewport otherwise shows
