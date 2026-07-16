@@ -240,19 +240,30 @@ fn fetch_account_usage() -> Option<AccountUsage> {
     })
 }
 
+/// Whether `token` is safe to interpolate into a quoted `header = "…"` directive
+/// of a curl `--config` file.
+///
+/// The token is spliced verbatim inside the double quotes, so a stray quote or
+/// newline could close the string and inject an arbitrary curl directive
+/// (config-file directive injection). We therefore accept only the OAuth-token
+/// character set — non-empty, ASCII alphanumerics plus `.`, `_`, `-` — and
+/// reject everything else.
+fn is_safe_header_token(token: &str) -> bool {
+    !token.is_empty()
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
 /// GET the usage endpoint via `curl`, feeding every header (incl. the bearer
 /// token) through a `--config` file on stdin so the token never appears in the
 /// process arguments. `--fail` turns an HTTP error status into a non-zero exit.
 ///
 /// The token is interpolated into a quoted `header = "…"` config directive, so we
-/// reject anything outside the OAuth-token character set — a stray quote or
-/// newline could otherwise close the string and inject an arbitrary directive.
+/// reject anything outside the OAuth-token character set — see
+/// [`is_safe_header_token`].
 fn curl_oauth_usage(token: &str) -> Option<String> {
-    let is_safe_token = !token.is_empty()
-        && token
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'));
-    if !is_safe_token {
+    if !is_safe_header_token(token) {
         return None;
     }
 
@@ -281,4 +292,58 @@ fn curl_oauth_usage(token: &str) -> Option<String> {
         return None;
     }
     String::from_utf8(output.stdout).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_safe_header_token;
+
+    #[test]
+    fn a_realistic_oauth_token_is_accepted() {
+        assert!(is_safe_header_token(
+            "sk-ant-oat01-AbCdEfGh_1234567890-IjKlMnOp.QrStUvWxYz"
+        ));
+    }
+
+    #[test]
+    fn an_embedded_double_quote_is_rejected() {
+        assert!(!is_safe_header_token("abc\"\nurl = \"http://evil\""));
+        assert!(!is_safe_header_token("\""));
+    }
+
+    #[test]
+    fn an_embedded_newline_is_rejected() {
+        assert!(!is_safe_header_token("abc\ndef"));
+    }
+
+    #[test]
+    fn an_embedded_carriage_return_is_rejected() {
+        assert!(!is_safe_header_token("abc\rdef"));
+    }
+
+    #[test]
+    fn an_empty_token_is_rejected() {
+        assert!(!is_safe_header_token(""));
+    }
+
+    #[test]
+    fn whitespace_and_shell_ish_punctuation_are_rejected() {
+        assert!(!is_safe_header_token("abc def"));
+        assert!(!is_safe_header_token("abc\\def"));
+        assert!(!is_safe_header_token("abc;def"));
+        assert!(!is_safe_header_token("abc:def"));
+        assert!(!is_safe_header_token("abc=def"));
+    }
+
+    #[test]
+    fn base64_padding_and_separator_characters_are_rejected() {
+        assert!(!is_safe_header_token("abc+def"));
+        assert!(!is_safe_header_token("abc/def"));
+    }
+
+    #[test]
+    fn non_ascii_characters_are_rejected() {
+        assert!(!is_safe_header_token("abcé"));
+        assert!(!is_safe_header_token("токен"));
+    }
 }
