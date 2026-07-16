@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "chrome-devtools-mcp": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": ["/c", "pnpx", "chrome-devtools-mcp@latest", "--browserUrl", "http://localhost:9222"],
+      "env": {}
+    }
+  }
+}
