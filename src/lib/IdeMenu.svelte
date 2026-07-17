@@ -21,6 +21,7 @@
   let ides = $state<Ide[]>([]);
   // The auto-detected best fit for this project — the primary action's target.
   const bestFit = $derived(ides[0]);
+  const hasAlternatives = $derived(ides.length > 1);
 
   // A newly-installed editor should show up without a restart: re-detect once at
   // mount and whenever the app becomes visible again (the user installed one in
@@ -77,7 +78,7 @@
             <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
             {editor.label}
           </span>
-          {#if index === 0}
+          {#if index === 0 && hasAlternatives}
             <span class="best">best fit</span>
           {/if}
         </button>
