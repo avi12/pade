@@ -5,6 +5,7 @@
   import DiffView from "@/lib/DiffView.svelte";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { revealBlock } from "@/lib/motion";
   import { baseName } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
@@ -226,7 +227,7 @@
         </button>
 
         {#if isOpen}
-          <div class="diff">
+          <div class="diff" transition:revealBlock>
             <div class="bar">
               <button
                 class="filebtn"
@@ -316,6 +317,7 @@
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     min-block-size: 0;
     margin: 0;
     padding: 10px;
@@ -323,7 +325,17 @@
   }
 
   .card {
+    contain-intrinsic-block-size: auto 86px;
     position: relative;
+
+    /* Offscreen cards skip layout and paint entirely, so a full feed (the
+       300-event cap) scrolls without jank; the placeholder size keeps the
+       scrollbar honest until a card has rendered once and remembers its own. */
+    content-visibility: auto;
+
+    /* Never let the scroller's flex column squash a card to fit — an
+       overflowing feed scrolls; cards keep their natural height. */
+    flex-shrink: 0;
     overflow: hidden;
 
     /* Border reserves its space always so the layout doesn't shift when a card
@@ -466,7 +478,6 @@
     margin-inline: 15px 13px;
     border: 1px solid var(--outline);
     border-radius: var(--radius-medium);
-    animation: rise 220ms var(--ease);
   }
 
   .bar {

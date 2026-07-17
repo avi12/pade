@@ -17,6 +17,26 @@ function motionDuration(milliseconds: number): number {
   return prefersReducedMotion() ? 0 : milliseconds;
 }
 
+/** In/out transition for a block revealed inside a card (the feed's inline
+ *  diff): its height — and the end-margin it brings — glides open and closed
+ *  while it fades, so toggling the card is a smooth glide both ways instead of
+ *  an appear-then-snap. */
+export function revealBlock(node: Element, { duration = 240 }: { duration?: number } = {}) {
+  const { height } = node.getBoundingClientRect();
+  const marginBlockEnd = Number.parseFloat(getComputedStyle(node).marginBlockEnd) || 0;
+
+  return {
+    duration: motionDuration(duration),
+    easing: cubicOut,
+    css: (progress: number) => `
+      overflow: hidden;
+      block-size: ${progress * height}px;
+      margin-block-end: ${progress * marginBlockEnd}px;
+      opacity: ${progress};
+    `
+  };
+}
+
 /** Out-transition for a row that was removed from a list: it fades and slides
  *  aside while its height (and the flex gap it was holding open) collapses, so
  *  the rows below glide up to close the space instead of snapping shut. */
