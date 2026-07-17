@@ -572,7 +572,7 @@
 
       &.active .pick {
         color: var(--on-primary-container);
-        font-weight: 700;
+        font-weight: 600;
       }
 
       /* The active pill's label reads with a text caret — a single click there
@@ -625,7 +625,7 @@
       /* Revealed when the tab is hovered or active. */
       .tab:hover &,
       .tab.active & {
-        inline-size: 22px;
+        inline-size: 24px;
         opacity: 85%;
       }
 
@@ -636,7 +636,7 @@
 
       /* Pinned visible while auto-naming is on for this session. */
       &.on {
-        inline-size: 22px;
+        inline-size: 24px;
         color: var(--primary);
         opacity: 100%;
       }
@@ -858,11 +858,19 @@
     max-block-size: min(60vh, 420px);
     inline-size: min(360px, 80vw);
     min-inline-size: 0;
+    padding: 8px;
 
     .more-item {
       display: flex;
       align-items: center;
       border-radius: var(--radius-small);
+
+      /* The whole row washes neutral surface-3 on hover (canon); the inner pick
+         button carries no fill of its own — so it cancels the shared menu-item
+         primary hover below. */
+      &:not(.active):hover {
+        background: var(--surface-3);
+      }
 
       &.active {
         background: var(--primary-container);
@@ -882,6 +890,11 @@
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-size: 12px;
+
+      &:hover {
+        background: transparent;
+        color: inherit;
+      }
     }
 
     .more-label {
@@ -891,12 +904,15 @@
     }
 
     .more-x {
+      display: inline-flex;
       flex: none;
       justify-content: center;
+      align-items: center;
+      block-size: 26px;
       inline-size: 26px;
       padding: 0;
       color: var(--on-surface-variant);
-      font-size: 15px;
+      font-size: 0.9375rem;
 
       &:hover {
         background: var(--critical-wash);
