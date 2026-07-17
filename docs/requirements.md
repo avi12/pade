@@ -119,7 +119,10 @@ writes.
   the Location row, never truncates.
 - R1.9.9 ✅ **Get started card** — one tabbed card, three ways in, behind an
   ARIA pill tablist (arrow keys switch tabs — `lib/rovingTabs.ts` — and Tab
-  moves into the active panel's inputs):
+  moves into the active panel's inputs; a pointer click on a tab focuses the
+  panel's first input; panels stay mounted — typed state survives switching —
+  and swap as an in-place cross-fade while the body's height glides to the
+  open panel's measured size):
   - **New** — root select + project name + optional first prompt → "Create &
     open"; a blank name (or the quiet "…or start a throwaway temp workspace"
     button) falls through to a temp workspace. Replaces the old separate
@@ -129,8 +132,11 @@ writes.
     `workspace_probe_path` check.
   - **Clone** — gated on git being installed (`vcs_git_installed`; when
     missing, a warning card offers "Install Git…" and "Re-check"). Repository
-    URL + "Clone into" the same root select; the folder name auto-fills from
-    the URL until edited. An SSH-style URL with no SSH key on disk
+    URL + "Clone into" the same root select; the typed URL is probed live
+    (`vcs_probe_remote` — a debounced `git ls-remote`) and the folder name
+    auto-fills only once the repository answers, until edited. An
+    unreachable repository says so under the field. An SSH-style URL with no
+    SSH key on disk
     (`vcs_has_ssh_key`) falls back to an HTTPS-credentials panel — the
     credentials are used for that one `git clone` and **never persisted** (the
     saved remote is scrubbed back to the clean URL; error text is sanitized;
