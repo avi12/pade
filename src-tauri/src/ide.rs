@@ -58,6 +58,29 @@ const REGISTRY: &[IdeDef] = &[
         style: OpenStyle::VsCode,
         protocol: None,
     },
+    // The popular VS Code forks are generalists exactly like their parent —
+    // same launcher conventions, same any-language reach.
+    IdeDef {
+        id: "antigravity",
+        label: "Antigravity",
+        command: "antigravity",
+        style: OpenStyle::VsCode,
+        protocol: None,
+    },
+    IdeDef {
+        id: "windsurf",
+        label: "Windsurf",
+        command: "windsurf",
+        style: OpenStyle::VsCode,
+        protocol: None,
+    },
+    IdeDef {
+        id: "vscodium",
+        label: "VSCodium",
+        command: "codium",
+        style: OpenStyle::VsCode,
+        protocol: None,
+    },
     IdeDef {
         id: "webstorm",
         label: "WebStorm",
@@ -278,7 +301,140 @@ const KIND_REGISTRY: &[KindDef] = &[
         preferred: &["visualstudio", "rider", "vscode"],
     },
 ];
-const GENERALISTS: &[&str] = &["vscode", "cursor", "zed", "sublime"];
+const GENERALISTS: &[&str] = &[
+    "vscode",
+    "cursor",
+    "antigravity",
+    "windsurf",
+    "vscodium",
+    "zed",
+    "sublime",
+];
+
+/// Polyglot IDEs — they cover several kinds at once (IDEA Ultimate ships the
+/// full web stack next to the JVM and plugin languages), so a true hybrid
+/// ranks them right after the generalists, still ahead of any single-language
+/// specialist. (`JetBrains`' own compare matrix: `WebStorm` has no Rust at
+/// all; IDEA is "a superset of most `IntelliJ` platform-based IDEs".)
+const POLYGLOTS: &[&str] = &["idea"];
+
+/// Extension → project kind for the byte census — only extensions that
+/// unambiguously signal one registry kind (Linguist resolves ambiguous ones
+/// with content heuristics; PADE just leaves them out of the weighing).
+const CENSUS_EXTENSIONS: &[(&str, &str)] = &[
+    ("ts", "web"),
+    ("tsx", "web"),
+    ("js", "web"),
+    ("jsx", "web"),
+    ("mjs", "web"),
+    ("svelte", "web"),
+    ("vue", "web"),
+    ("html", "web"),
+    ("css", "web"),
+    ("scss", "web"),
+    ("rs", "rust"),
+    ("py", "python"),
+    ("go", "go"),
+    ("php", "php"),
+    ("rb", "ruby"),
+    ("java", "java"),
+    ("kt", "java"),
+    ("cs", "dotnet"),
+    ("c", "cpp"),
+    ("cc", "cpp"),
+    ("cpp", "cpp"),
+    ("h", "cpp"),
+    ("hpp", "cpp"),
+];
+
+/// Census walk bounds — enough to weigh a real repo, bounded so the suggestion
+/// never stalls on a huge working tree.
+const CENSUS_MAX_DEPTH: usize = 5;
+const CENSUS_MAX_FILES: usize = 4000;
+
+/// Byte share (percent) one kind needs, of all census-counted bytes across the
+/// detected kinds, to count as dominant. A "hybrid" in markers only — a web
+/// app with one Rust helper — still reads as its dominant kind; below the bar
+/// the repo is a genuine hybrid. (No published cutoff exists; this is PADE's
+/// tuning, chosen so its own repo — a real Tauri hybrid — stays hybrid.)
+const DOMINANT_BYTE_PERCENT: u128 = 85;
+
+/// Sum on-disk bytes per census kind under `dir` — Linguist's byte-weighted
+/// language stats, bounded and marker-kind-grained. Skips the same hidden and
+/// dependency/build dirs as the marker probe (the census walks the working
+/// tree, where `node_modules` physically exists — exclusions first, or the
+/// weighing is meaningless).
+fn census_bytes(
+    dir: &std::path::Path,
+    depth: usize,
+    files_left: &mut usize,
+    totals: &mut BTreeMap<&'static str, u64>,
+) {
+    if depth > CENSUS_MAX_DEPTH || *files_left == 0 {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if *files_left == 0 {
+            return;
+        }
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if name.starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            if !IGNORED_PROBE_DIRS.contains(&name) {
+                census_bytes(&path, depth + 1, files_left, totals);
+            }
+            continue;
+        }
+        *files_left -= 1;
+        let Some(kind) = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .and_then(|extension| {
+                CENSUS_EXTENSIONS
+                    .iter()
+                    .find(|(known, _)| known.eq_ignore_ascii_case(extension))
+                    .map(|(_, kind)| *kind)
+            })
+        else {
+            continue;
+        };
+        let bytes = entry.metadata().map_or(0, |meta| meta.len());
+        *totals.entry(kind).or_insert(0) += bytes;
+    }
+}
+
+/// The detected kind holding a clear byte majority of the census, or `None`
+/// when the mix is genuinely hybrid (or nothing countable was found).
+fn dominant_kind(cwd: &std::path::Path, kinds: &[&'static str]) -> Option<&'static str> {
+    let mut totals = BTreeMap::new();
+    let mut files_left = CENSUS_MAX_FILES;
+    census_bytes(cwd, 0, &mut files_left, &mut totals);
+
+    let counted: u64 = kinds
+        .iter()
+        .filter_map(|kind| totals.get(kind))
+        .copied()
+        .sum();
+    if counted == 0 {
+        return None;
+    }
+
+    kinds
+        .iter()
+        .find(|kind| {
+            let bytes = totals.get(*kind).copied().unwrap_or(0);
+            u128::from(bytes) * 100 >= u128::from(counted) * DOMINANT_BYTE_PERCENT
+        })
+        .copied()
+}
 
 fn lookup(id: &str) -> Option<Ide> {
     if let Some(i) = REGISTRY.iter().find(|i| i.id == id) {
@@ -313,6 +469,9 @@ fn family(basename: &str) -> Option<Family> {
         "code" => ("VS Code", Some(OpenStyle::VsCode), None, false),
         "code - insiders" => ("VS Code Insiders", Some(OpenStyle::VsCode), None, false),
         "cursor" => ("Cursor", Some(OpenStyle::VsCode), None, false),
+        "antigravity" => ("Antigravity", Some(OpenStyle::VsCode), None, false),
+        "windsurf" => ("Windsurf", Some(OpenStyle::VsCode), None, false),
+        "codium" | "vscodium" => ("VSCodium", Some(OpenStyle::VsCode), None, false),
         "zed" => ("Zed", Some(OpenStyle::PathColon), None, false),
         "sublime_text" | "subl" => ("Sublime Text", Some(OpenStyle::PathColon), None, false),
         "notepad++" => ("Notepad++", None, None, false),
@@ -447,7 +606,8 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
     let Some(fam) = family(&exe_basename(&path)) else {
         return Err(format!(
             "\u{201c}{file}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
-             VS Code, Cursor, Zed, Sublime Text, Neovim and the JetBrains IDEs."
+             VS Code and its forks (Cursor, Antigravity, Windsurf, VSCodium), Zed, \
+             Sublime Text, Neovim and the JetBrains IDEs."
         ));
     };
     crate::workspace::add_editor(crate::workspace::AddedEditor {
@@ -641,26 +801,47 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let rule = primary_kind(&cwd).and_then(|k| prefs.ide_rules.get(k).cloned());
     let configured = rule.into_iter().chain(prefs.ide_fallback);
 
-    // Specialised IDEs for every detected kind, and the generalists. A monorepo
-    // (more than one kind) leads with the generalists; a single-kind project leads
-    // with that kind's specialised IDEs. Deduped in order by the loop below.
+    // Specialised IDEs for every detected kind, and the generalists. A
+    // single-kind project leads with that kind's specialists. A multi-kind
+    // project is weighed by the byte census first: one kind holding a clear
+    // majority still leads with its specialists (a hybrid in markers only);
+    // a genuine hybrid leads with the generalists and the polyglot IDEs —
+    // no single-language specialist fits a repo that is really two languages.
+    let preferred_of = |kind: &str| {
+        KIND_REGISTRY
+            .iter()
+            .find(|def| def.kind == kind)
+            .map_or::<&[&str], _>(&[], |def| def.preferred)
+    };
     let specialized: Vec<&str> = kinds
         .iter()
-        .flat_map(|k| {
-            KIND_REGISTRY
-                .iter()
-                .find(|def| def.kind == *k)
-                .map_or::<&[&str], _>(&[], |def| def.preferred)
-                .iter()
-                .copied()
-        })
+        .flat_map(|k| preferred_of(k).iter().copied())
         .collect();
     let is_monorepo = kinds.len() > 1;
     let auto: Vec<String> = if is_monorepo {
-        GENERALISTS.iter().chain(specialized.iter()).copied()
+        match dominant_kind(&cwd, &kinds) {
+            Some(dominant) => preferred_of(dominant)
+                .iter()
+                .chain(GENERALISTS)
+                .chain(POLYGLOTS)
+                .chain(specialized.iter())
+                .copied()
+                .collect(),
+            None => GENERALISTS
+                .iter()
+                .chain(POLYGLOTS)
+                .chain(specialized.iter())
+                .copied()
+                .collect(),
+        }
     } else {
-        specialized.iter().chain(GENERALISTS.iter()).copied()
+        specialized
+            .iter()
+            .chain(GENERALISTS.iter())
+            .copied()
+            .collect::<Vec<&str>>()
     }
+    .into_iter()
     .map(str::to_string)
     .collect();
 
@@ -810,9 +991,27 @@ pub fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        exe_basename, family, ide_kinds, open_args, open_style, project_name, protocol_id,
-        relative_path, OpenStyle,
+        dominant_kind, exe_basename, family, ide_kinds, open_args, open_style, project_name,
+        protocol_id, relative_path, OpenStyle,
     };
+
+    #[test]
+    fn census_flags_a_dominant_kind_and_stays_hybrid_otherwise() {
+        let dir = std::env::temp_dir().join(format!("pade-census-{}", std::process::id()));
+        let core = dir.join("src-tauri");
+        std::fs::create_dir_all(&core).expect("test dirs");
+
+        // 9:1 bytes web:rust — the web side clearly dominates.
+        std::fs::write(dir.join("app.ts"), vec![b'a'; 9_000]).expect("web file");
+        std::fs::write(core.join("main.rs"), vec![b'a'; 1_000]).expect("rust file");
+        assert_eq!(dominant_kind(&dir, &["web", "rust"]), Some("web"));
+
+        // Balance the bytes — now it is a genuine hybrid, nobody dominates.
+        std::fs::write(core.join("core.rs"), vec![b'a'; 8_000]).expect("rust file");
+        assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
 
     #[test]
     fn exe_basename_strips_extension_and_lowercases() {

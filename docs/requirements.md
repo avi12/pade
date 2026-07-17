@@ -166,9 +166,18 @@ writes.
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** — open the active project in an installed editor (`ide.rs`;
-  VS Code, JetBrains family, Zed, Sublime…). ✅ Ranked by project kind, and ✅ a
-  user-set **editor-rules** engine (project kind → chosen editor + a fallback,
-  persisted in prefs) resolved rule → fallback → auto-rank.
+  VS Code + its forks (Cursor, Antigravity, Windsurf, VSCodium), JetBrains
+  family, Zed, Sublime…). ✅ Ranked by project kind, and ✅ a user-set
+  **editor-rules** engine (project kind → chosen editor + a fallback, persisted
+  in prefs) resolved rule → fallback → auto-rank.
+- R1.10.1a ✅ **Hybrid-aware ranking** (research-backed: Linguist / Nixpacks /
+  Buildpacks / JetBrains compare-matrix). Kinds are detected as a **union** of
+  markers probed in the root and one level down (`src-tauri/Cargo.toml` counts);
+  a multi-kind repo is weighed by a bounded **byte census** with vendored/build
+  dirs excluded. One kind ≥85% of counted bytes → its specialist leads; a
+  genuine hybrid leads with generalists and the polyglot IDEA — never a
+  single-language specialist (WebStorm has no Rust; RustRover dropped its web
+  plugins).
 - R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);

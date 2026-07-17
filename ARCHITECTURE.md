@@ -308,7 +308,7 @@ entry. Each concern is one module:
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
 | `agents.rs` | Agent registry + detection, one-shot headless invocations, and the env each agent is spawned with (e.g. Claude Code's classic renderer — see "The terminal reflows like a document"). `program()` is the one place that turns an agent's name into the executable to run — see "Finding an installed agent" |
 | `usage.rs` | Agent usage / quota meter |
-| `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `KIND_REGISTRY` table is the single row-per-language home for a project kind (marker files, UI label via `ide_kinds`, purpose-built IDEs), and one `family()` table also flags console editors that run in a terminal tab |
+| `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, open-at-line; one `KIND_REGISTRY` table is the single row-per-language home for a project kind (marker files, UI label via `ide_kinds`, purpose-built IDEs), and one `family()` table also flags console editors that run in a terminal tab. Kind detection probes markers in the root and one level down (union, never first-match — a Tauri-style hybrid detects as web *and* rust); a multi-kind repo is weighed by a bounded byte census (Linguist-style, vendored/build dirs excluded): one kind ≥85% of counted bytes still leads with its specialist, otherwise generalists (VS Code + forks, Zed) and the polyglot IDEA lead — a single-language specialist never fronts a genuine hybrid |
 | `tasks.rs` | Discover runnable tasks from project manifests |
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |
