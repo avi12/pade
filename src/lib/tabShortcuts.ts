@@ -26,7 +26,7 @@ export interface KeyChord {
 }
 
 /** Map a key chord to the tab action it triggers, or null when it isn't one.
- *  Ctrl+Alt+T new · Ctrl+Shift+T launch menu · Ctrl+W / Ctrl+F4 close ·
+ *  Ctrl+Shift+T new · Ctrl+Alt+T launch menu · Ctrl+W / Ctrl+F4 close ·
  *  Ctrl+Tab / Alt+Right next · Ctrl+Shift+Tab / Alt+Left previous. */
 export function matchTabShortcut(chord: KeyChord): TabAction | null {
   const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
@@ -44,10 +44,10 @@ export function matchTabShortcut(chord: KeyChord): TabAction | null {
     return null;
   }
 
-  // Ctrl+Alt+T opens a new agent tab — moved off plain Ctrl+T so a focused
-  // terminal keeps that chord for itself.
+  // Ctrl+Alt+T opens the launch menu — off plain Ctrl+T so a focused terminal
+  // keeps that chord for itself.
   if (ctrlKey && altKey && !metaKey && !shiftKey && lowerKey === "t") {
-    return TabAction.New;
+    return TabAction.LaunchMenu;
   }
 
   // Every remaining shortcut is Ctrl-based, with Alt/Meta absent.
@@ -55,9 +55,9 @@ export function matchTabShortcut(chord: KeyChord): TabAction | null {
     return null;
   }
 
-  // Ctrl+Shift+T opens the launch menu; plain Ctrl+T is left to the terminal.
+  // Ctrl+Shift+T opens a new agent tab; plain Ctrl+T is left to the terminal.
   if (lowerKey === "t") {
-    return shiftKey ? TabAction.LaunchMenu : null;
+    return shiftKey ? TabAction.New : null;
   }
 
   if (key === "Tab") {
