@@ -1,5 +1,5 @@
-import { SHELL_AGENT_ID } from "@/lib/types";
-import type { AccountUsage, AgentSession } from "@/lib/types";
+import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
+import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
 import { buildGroups, buildKindLegend, findSpotlight, severityBreakdown } from "@/lib/usageGroups";
 import type { Level, SeveritySlice } from "@/lib/usageGroups";
 import { describe, expect, it } from "vitest";
@@ -21,16 +21,47 @@ function makeSession({ agentId, label, sessionId }: {
   };
 }
 
-// A Claude account: 5-hour at `fiveHour`, weekly at `sevenDay`, plus any models.
+// A 5-hour session window, defaulting to 40% consumed.
+function sessionWindow(over: Partial<UsageWindow> = {}): UsageWindow {
+  return {
+    key: "five_hour",
+    kind: UsageWindowKind.enum.session,
+    label: "Session",
+    utilization: 40,
+    ...over
+  };
+}
+
+// A weekly all-models window, defaulting to 80% consumed.
+function weeklyWindow(over: Partial<UsageWindow> = {}): UsageWindow {
+  return {
+    key: "seven_day",
+    kind: UsageWindowKind.enum.weekly,
+    label: "Weekly",
+    utilization: 80,
+    ...over
+  };
+}
+
+// A per-model window carrying the model's display name as its label.
+function modelWindow({ name, utilization, resetsAt }: {
+  name: string;
+  utilization: number;
+  resetsAt?: string;
+}): UsageWindow {
+  return {
+    key: name,
+    kind: UsageWindowKind.enum.model,
+    label: name,
+    utilization,
+    resetsAt
+  };
+}
+
+// A Claude account whose windows default to session (40%) + weekly (80%).
 function makeAccount(over: Partial<AccountUsage> = {}): AccountUsage {
   return {
-    fiveHour: {
-      utilization: 40
-    },
-    sevenDay: {
-      utilization: 80
-    },
-    models: [],
+    windows: [sessionWindow(), weeklyWindow()],
     plan: "Max",
     source: "test",
     ...over
@@ -187,10 +218,7 @@ describe("reset countdowns", () => {
   function fiveHourReset(resetsAt: string): string {
     const [claude] = buildGroups({
       account: makeAccount({
-        fiveHour: {
-          utilization: 40,
-          resetsAt
-        }
+        windows: [sessionWindow({ resetsAt }), weeklyWindow()]
       }),
       sessions: [claudeSession()],
       now
@@ -230,14 +258,13 @@ describe("panel view-model skips unknown agents", () => {
   // Claude at a critical per-model cap, plus an unknown Codex agent alongside.
   const groups = buildGroups({
     account: makeAccount({
-      sevenDay: {
-        utilization: 88
-      },
-      models: [
-        {
+      windows: [
+        sessionWindow(),
+        weeklyWindow({ utilization: 88 }),
+        modelWindow({
           name: "Claude Opus",
           utilization: 96
-        }
+        })
       ]
     }),
     sessions: [claudeSession(), makeSession({

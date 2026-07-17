@@ -10,21 +10,12 @@
 
 import { agentIconName, AgentId } from "@/lib/agentIcon";
 import type { IconName } from "@/lib/Icon.svelte";
-import { SHELL_AGENT_ID } from "@/lib/types";
-import type { AccountUsage, Agent, AgentSession } from "@/lib/types";
+import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
+import type { AccountUsage, Agent, AgentSession, UsageWindow } from "@/lib/types";
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
  *  past 75%, red past 90% — no green, per the design's usage semantics. */
 export type Level = "normal" | "warn" | "crit";
-
-// The three limit kinds; the short mono code in the trigger + legend maps off
-// this closed set (one authoritative definition, no bare string literals).
-export const LimitKind = {
-  Session: "session",
-  Weekly: "weekly",
-  Model: "model"
-} as const;
-export type LimitKind = (typeof LimitKind)[keyof typeof LimitKind];
 
 export type Limit = {
   label: string;
@@ -32,7 +23,9 @@ export type Limit = {
   reset: string;
   pct: number;
   level: Level;
-  kind: LimitKind;
+  /** The window's semantic kind (session / weekly / model / opaque), straight
+   *  from the account payload's classification. */
+  kind: UsageWindowKind;
   /** A single-letter mono code shown in the trigger pills, legend + rows
    *  ("S", "W", "O"). */
   kindShort: string;
@@ -114,9 +107,10 @@ function resetCountdown({ iso, now }: {
   return `in ${seconds}s`;
 }
 
-// A single-letter mono code for a per-model weekly limit (the backend sends none)
-// — the initial of the model's first distinctive word, e.g. "Claude Opus" → "O".
-function modelShort(name: string): string {
+// A single-letter mono code derived from a window's own label — the initial of
+// its first distinctive word, e.g. "Claude Opus" → "O", "Claude Fable" → "F".
+// Used for per-model and any opaque windows (session/weekly get fixed codes).
+function labelShort(name: string): string {
   const tokens = name.split(/[^a-z0-9]+/i).filter(Boolean);
   const word = tokens.find(token => token.toLowerCase() !== "claude") ?? tokens[0] ?? name;
   return word.slice(0, 1).toUpperCase();
@@ -135,65 +129,64 @@ export function worstLimit(limits: Limit[]): Limit | null {
   return limits.length > 0 ? limits.reduce((max, limit) => (limit.pct > max.pct ? limit : max)) : null;
 }
 
-// Claude's real rate-limit windows off the account: the 5-hour session, the
-// weekly all-models cap, and any per-model weekly caps in use. Only limits
-// actually in use (> 0%) are kept.
+// A window's presentation for the meter: its display label, sub-caption, and
+// single-letter mono code. The two named windows get product names; a per-model
+// or opaque window derives its label + code from its own backend label.
+function windowPresentation(window: UsageWindow): {
+  label: string;
+  sub: string;
+  kindShort: string;
+} {
+  if (window.kind === UsageWindowKind.enum.session) {
+    return {
+      label: "Session",
+      sub: "5-hour window",
+      kindShort: "S"
+    };
+  }
+
+  if (window.kind === UsageWindowKind.enum.weekly) {
+    return {
+      label: "Weekly",
+      sub: "all models",
+      kindShort: "W"
+    };
+  }
+
+  const sub = window.kind === UsageWindowKind.enum.model ? "weekly" : "";
+  return {
+    label: window.label,
+    sub,
+    kindShort: labelShort(window.label)
+  };
+}
+
+// Claude's real rate-limit windows off the account — every window the endpoint
+// returned (session, weekly, per-model, and any others), in the order it sent
+// them. Only windows with actual consumption (> 0%) are shown.
 function buildClaudeLimits({ account, now }: {
   account: AccountUsage;
   now: number;
 }): Limit[] {
   const limits: Limit[] = [];
-  function add({ label, sub, kind, kindShort, pct, resetsAt }: {
-    label: string;
-    sub: string;
-    kind: LimitKind;
-    kindShort: string;
-    pct: number | null | undefined;
-    resetsAt: string | null | undefined;
-  }): void {
-    if (typeof pct !== "number" || pct <= 0) {
-      return;
+  for (const window of account.windows) {
+    if (window.utilization <= 0) {
+      continue;
     }
 
-    const value = clamp(pct);
+    const value = clamp(window.utilization);
+    const presentation = windowPresentation(window);
     limits.push({
-      label,
-      sub,
-      kind,
-      kindShort,
+      label: presentation.label,
+      sub: presentation.sub,
+      kind: window.kind,
+      kindShort: presentation.kindShort,
       pct: value,
       level: limitLevel(value),
       reset: resetCountdown({
-        iso: resetsAt,
+        iso: window.resetsAt,
         now
       })
-    });
-  }
-
-  add({
-    label: "Session",
-    sub: "5-hour window",
-    kind: LimitKind.Session,
-    kindShort: "S",
-    pct: account.fiveHour?.utilization,
-    resetsAt: account.fiveHour?.resetsAt
-  });
-  add({
-    label: "Weekly",
-    sub: "all models",
-    kind: LimitKind.Weekly,
-    kindShort: "W",
-    pct: account.sevenDay?.utilization,
-    resetsAt: account.sevenDay?.resetsAt
-  });
-  for (const model of account.models) {
-    add({
-      label: model.name,
-      sub: "weekly",
-      kind: LimitKind.Model,
-      kindShort: modelShort(model.name),
-      pct: model.utilization,
-      resetsAt: model.resetsAt
     });
   }
 

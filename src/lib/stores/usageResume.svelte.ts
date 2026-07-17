@@ -170,7 +170,9 @@ export function createUsageResume(host: ResumeHost) {
   // null means "not knowable yet" and the caller probes again later.
   async function resolveResetAt(hit: LimitHit): Promise<number | null> {
     const account = await usage.account().catch(() => null);
-    const window = hit.window === LimitWindow.weekly ? account?.sevenDay : account?.fiveHour;
+    // The CLI names a session/weekly window; find the matching one in the
+    // account's generic window list by kind (LimitWindow ⊆ UsageWindowKind).
+    const window = account?.windows.find(candidate => candidate.kind === hit.window);
     if (window && window.utilization < EXHAUSTED_PCT) {
       return Number.NaN;
     }

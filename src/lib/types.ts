@@ -170,9 +170,22 @@ export const Usage = z.object({
 });
 export type Usage = z.infer<typeof Usage>;
 
-/** One live rate-limit window (the 5-hour session or the 7-day weekly), mirrored
- *  from the same claude.ai OAuth usage endpoint Claude Code's `/usage` reads. */
+/** The semantic kind of a rate-limit window. The account endpoint returns a
+ *  handful of named windows (the 5-hour session, the 7-day weekly all-models cap)
+ *  plus any per-model caps; the backend classifies each. A named window it doesn't
+ *  recognize arrives as `opaque` — surfaced honestly, never dropped. */
+export const UsageWindowKind = z.enum(["session", "weekly", "model", "opaque"]);
+export type UsageWindowKind = z.infer<typeof UsageWindowKind>;
+
+/** One live rate-limit window mirrored from the same claude.ai OAuth usage
+ *  endpoint Claude Code's `/usage` reads: a stable `key`, its `kind`, a human
+ *  `label`, the 0..100 `utilization`, and an ISO-8601 reset time when known. */
 export const UsageWindow = z.object({
+  /** Stable identity from the API (`five_hour`, `seven_day`, or a model name). */
+  key: z.string(),
+  kind: UsageWindowKind,
+  /** Human name — a model's display name, or a humanized form of the key. */
+  label: z.string(),
   /** Percent of the window consumed (0..100). */
   utilization: z.number(),
   /** ISO-8601 reset time for the window, when known. */
@@ -180,22 +193,11 @@ export const UsageWindow = z.object({
 });
 export type UsageWindow = z.infer<typeof UsageWindow>;
 
-/** A per-model weekly window (Opus / Fable etc. can have their own weekly cap).
- *  Only the ones actually in use (> 0%) are surfaced by the backend. */
-export const ModelUsage = z.object({
-  name: z.string(),
-  utilization: z.number(),
-  resetsAt: z.string().nullish()
-});
-export type ModelUsage = z.infer<typeof ModelUsage>;
-
-/** Live account usage — the 5-hour + weekly windows claude.ai shows, any non-zero
- *  per-model weekly windows, plus the plan label. `null` when offline / the local
- *  token is missing or expired. */
+/** Live account usage — every rate-limit window the endpoint returns (session,
+ *  weekly, and any per-model or other windows), plus the plan label. `null` when
+ *  offline / the local token is missing or expired. */
 export const AccountUsage = z.object({
-  fiveHour: UsageWindow.nullish(),
-  sevenDay: UsageWindow.nullish(),
-  models: z.array(ModelUsage).default([]),
+  windows: z.array(UsageWindow).default([]),
   plan: z.string(),
   source: z.string()
 });

@@ -50,18 +50,23 @@ pub fn usage_get(agent: String) -> Option<Usage> {
 /// %, mirroring claude.ai) and falls back to the honest subscription-tier label
 /// when the network / token isn't available.
 fn claude_usage() -> Option<Usage> {
-    if let Some(account) = account_usage() {
-        let (used_pct, resets_at) = account.seven_day.as_ref().map_or((None, None), |week| {
-            (Some(week.utilization), week.resets_at.clone())
-        });
-        return Some(Usage {
-            used_pct,
-            label: account.plan,
-            resets_at,
-            source: account.source,
-        });
-    }
-    tier_label_usage()
+    let Some(account) = account_usage() else {
+        return tier_label_usage();
+    };
+
+    let weekly = account
+        .windows
+        .iter()
+        .find(|window| window.kind == UsageWindowKind::Weekly);
+    let (used_pct, resets_at) = weekly.map_or((None, None), |window| {
+        (Some(window.utilization), window.resets_at.clone())
+    });
+    Some(Usage {
+        used_pct,
+        label: account.plan,
+        resets_at,
+        source: account.source,
+    })
 }
 
 /// Offline fallback: just the subscription tier from the local credentials, with
@@ -85,8 +90,9 @@ fn tier_label_usage() -> Option<Usage> {
 }
 
 // ---------------------------------------------------------------------------
-// Live account usage — the same 5h + weekly windows claude.ai / `claude /usage`
-// show, read from the OAuth endpoint using the local Claude Code token.
+// Live account usage — every rate-limit window claude.ai / `claude /usage` shows,
+// read from the OAuth endpoint using the local Claude Code token. We enumerate
+// whatever windows the response carries rather than hardcoding a fixed few.
 // ---------------------------------------------------------------------------
 
 /// The undocumented endpoint Claude Code's `/usage` reads. It requires the
@@ -96,41 +102,78 @@ const OAUTH_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 const USAGE_UA: &str = "claude-code/1.0.128";
 const USAGE_CACHE_SECS: u64 = 170;
 
-/// One rate-limit window (the 5-hour session or the 7-day weekly): a 0..100
-/// utilization percent and an ISO-8601 reset time — the shape claude.ai reports.
-#[derive(Serialize, Clone)]
+/// The two named top-level windows we give product names to; every other named
+/// window the endpoint returns is surfaced generically as
+/// [`UsageWindowKind::Opaque`].
+const SESSION_WINDOW_KEY: &str = "five_hour";
+const WEEKLY_WINDOW_KEY: &str = "seven_day";
+
+/// The semantic kind of a rate-limit window. The endpoint returns a handful of
+/// named windows (the 5-hour `five_hour` session, the 7-day `seven_day` weekly
+/// all-models cap) plus per-model caps under `limits[]`; we classify each so the
+/// meter can label it and the auto-resume scheduler can match the window a CLI
+/// named. A named window we don't recognize passes through as `Opaque` — surfaced
+/// honestly, never dropped.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UsageWindowKind {
+    Session,
+    Weekly,
+    Model,
+    Opaque,
+}
+
+impl UsageWindowKind {
+    /// The one authoritative mapping from a top-level window key to its kind.
+    fn from_window_key(key: &str) -> Self {
+        match key {
+            SESSION_WINDOW_KEY => Self::Session,
+            WEEKLY_WINDOW_KEY => Self::Weekly,
+            _ => Self::Opaque,
+        }
+    }
+
+    /// Stable render + match order: session, then the weekly all-models cap, then
+    /// per-model caps, then anything unrecognized.
+    fn order(self) -> u8 {
+        match self {
+            Self::Session => 0,
+            Self::Weekly => 1,
+            Self::Model => 2,
+            Self::Opaque => 3,
+        }
+    }
+}
+
+/// One rate-limit window surfaced from the account response: a stable `key`, its
+/// semantic `kind`, a human `label`, the 0..100 `utilization` percent, and an
+/// ISO-8601 reset time when known. The generic shape the meter renders and the
+/// auto-resume scheduler matches against — one entry per window the endpoint
+/// actually returns, nothing invented.
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageWindow {
+    key: String,
+    kind: UsageWindowKind,
+    label: String,
     utilization: f64,
     resets_at: Option<String>,
 }
 
-/// A per-model weekly window (e.g. Opus / Fable have their own weekly caps on
-/// some plans). Only the ones actually in use are surfaced — see the `> 0` filter.
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelUsage {
-    name: String,
-    utilization: f64,
-    resets_at: Option<String>,
-}
-
-/// Live account usage mirrored from the OAuth endpoint: the 5-hour session
-/// window, the 7-day weekly window, any non-zero per-model weekly windows, and
-/// the plan label.
+/// Live account usage mirrored from the OAuth endpoint: every rate-limit window it
+/// returns (the session + weekly windows, any per-model caps, and any future
+/// windows), plus the plan label.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountUsage {
-    five_hour: Option<UsageWindow>,
-    seven_day: Option<UsageWindow>,
-    models: Vec<ModelUsage>,
+    windows: Vec<UsageWindow>,
     plan: String,
     source: String,
 }
 
-/// Live 5-hour + 7-day usage windows, mirroring claude.ai. `None` when offline,
-/// `curl` is unavailable, or the token is missing/expired (Claude Code refreshes
-/// it on its next run). Cached ~3 min to respect the endpoint's per-token limit.
+/// Live account usage windows, mirroring claude.ai. `None` when offline, `curl` is
+/// unavailable, or the token is missing/expired (Claude Code refreshes it on its
+/// next run). Cached ~3 min to respect the endpoint's per-token limit.
 #[tauri::command]
 pub fn usage_account() -> Option<AccountUsage> {
     account_usage()
@@ -181,46 +224,79 @@ fn fetch_account_usage() -> Option<AccountUsage> {
         .map_or_else(|| "Claude".to_string(), |tier| format!("Claude {tier}"));
 
     let body = curl_oauth_usage(token)?;
-    let resp: serde_json::Value = serde_json::from_str(&body).ok()?;
-    let window = |key: &str| -> Option<UsageWindow> {
-        let raw_window = resp.get(key)?;
-        Some(UsageWindow {
-            utilization: raw_window
-                .get("utilization")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0),
-            resets_at: raw_window
-                .get("resets_at")
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_string),
-        })
-    };
+    let response: serde_json::Value = serde_json::from_str(&body).ok()?;
 
-    let five_hour = window("five_hour");
-    let seven_day = window("seven_day");
-    // A non-usage body (e.g. a 401 JSON error) carries neither window.
-    if five_hour.is_none() && seven_day.is_none() {
+    let windows = collect_windows(&response);
+    // A non-usage body (e.g. a 401 JSON error) carries no windows.
+    if windows.is_empty() {
         return None;
     }
 
-    // Per-model weekly caps live in `limits[]` as `weekly_scoped` rows; keep only
-    // the ones with a named model that are actually in use (> 0%).
-    let models = resp
+    Some(AccountUsage {
+        windows,
+        plan,
+        source: "oauth:api.anthropic.com".to_string(),
+    })
+}
+
+/// Every rate-limit window the account response carries, in a stable order: the
+/// named top-level windows (`five_hour`, `seven_day`, and any others the endpoint
+/// adds) followed by the per-model caps under `limits[]`. Whatever the API returns
+/// — nothing is invented.
+fn collect_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
+    let mut windows: Vec<UsageWindow> = response
+        .as_object()
+        .map(|object| {
+            object
+                .iter()
+                .filter_map(|(key, value)| named_window(key, value))
+                .collect()
+        })
+        .unwrap_or_default();
+    windows.extend(model_windows(response));
+    windows.sort_by_key(|window| window.kind.order());
+    windows
+}
+
+/// A top-level entry as a window when it is window-shaped — an object carrying a
+/// numeric `utilization`. Non-window fields (`limits`, the plan, an error blob)
+/// have no `utilization`, so they fall away here.
+fn named_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
+    let utilization = value
+        .get("utilization")
+        .and_then(serde_json::Value::as_f64)?;
+    Some(UsageWindow {
+        key: key.to_string(),
+        kind: UsageWindowKind::from_window_key(key),
+        label: humanize_key(key),
+        utilization,
+        resets_at: value
+            .get("resets_at")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+    })
+}
+
+/// The per-model caps under `limits[]` — each row scoped to a named model
+/// (`scope.model.display_name`), which both identifies it as a per-model window
+/// and skips the unscoped session/weekly rows the array may also carry. Display
+/// filtering of empty windows is the frontend's job (see `usageGroups.ts`).
+fn model_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
+    response
         .get("limits")
         .and_then(serde_json::Value::as_array)
         .map(|rows| {
             rows.iter()
                 .filter_map(|row| {
-                    let percent = row.get("percent").and_then(serde_json::Value::as_f64)?;
-                    if percent <= 0.0 {
-                        return None;
-                    }
+                    let utilization = row.get("percent").and_then(serde_json::Value::as_f64)?;
                     let name = row
                         .pointer("/scope/model/display_name")
                         .and_then(serde_json::Value::as_str)?;
-                    Some(ModelUsage {
-                        name: name.to_string(),
-                        utilization: percent,
+                    Some(UsageWindow {
+                        key: name.to_string(),
+                        kind: UsageWindowKind::Model,
+                        label: name.to_string(),
+                        utilization,
                         resets_at: row
                             .get("resets_at")
                             .and_then(serde_json::Value::as_str)
@@ -229,15 +305,18 @@ fn fetch_account_usage() -> Option<AccountUsage> {
                 })
                 .collect()
         })
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
 
-    Some(AccountUsage {
-        five_hour,
-        seven_day,
-        models,
-        plan,
-        source: "oauth:api.anthropic.com".to_string(),
-    })
+/// A human label for a named window, sentence-cased from its `snake_case` key
+/// (`seven_day` → "Seven day") — the fallback the frontend shows for a window
+/// whose kind it gives no product name.
+fn humanize_key(key: &str) -> String {
+    let mut label = key.replace('_', " ");
+    if let Some(first) = label.get_mut(0..1) {
+        first.make_ascii_uppercase();
+    }
+    label
 }
 
 /// Whether `token` is safe to interpolate into a quoted `header = "…"` directive
@@ -296,7 +375,62 @@ fn curl_oauth_usage(token: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_safe_header_token;
+    use super::{collect_windows, humanize_key, is_safe_header_token, UsageWindowKind};
+
+    #[test]
+    fn collect_windows_enumerates_named_then_model_windows() {
+        let response = serde_json::json!({
+            "five_hour": { "utilization": 40.0, "resets_at": "2026-01-01T00:00:00Z" },
+            "seven_day": { "utilization": 80.0 },
+            "limits": [
+                { "percent": 12.0, "scope": { "model": { "display_name": "Claude Opus" } } },
+                { "percent": 5.0, "scope": { "org": true } }
+            ]
+        });
+
+        let windows = collect_windows(&response);
+
+        // session, weekly, then the one named-model window; the scopeless limit
+        // row and the non-window `limits` key are skipped.
+        assert_eq!(windows.len(), 3);
+        assert_eq!(windows[0].kind, UsageWindowKind::Session);
+        assert_eq!(windows[0].key, "five_hour");
+        assert!((windows[0].utilization - 40.0).abs() < f64::EPSILON);
+        assert_eq!(
+            windows[0].resets_at.as_deref(),
+            Some("2026-01-01T00:00:00Z")
+        );
+        assert_eq!(windows[1].kind, UsageWindowKind::Weekly);
+        assert_eq!(windows[1].resets_at, None);
+        assert_eq!(windows[2].kind, UsageWindowKind::Model);
+        assert_eq!(windows[2].label, "Claude Opus");
+    }
+
+    #[test]
+    fn an_unrecognized_named_window_passes_through_as_opaque() {
+        let response = serde_json::json!({ "thirty_day": { "utilization": 3.0 } });
+
+        let windows = collect_windows(&response);
+
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].kind, UsageWindowKind::Opaque);
+        assert_eq!(windows[0].key, "thirty_day");
+        assert_eq!(windows[0].label, "Thirty day");
+    }
+
+    #[test]
+    fn a_non_usage_body_yields_no_windows() {
+        let error_body = serde_json::json!({ "error": { "message": "unauthorized" } });
+
+        assert!(collect_windows(&error_body).is_empty());
+    }
+
+    #[test]
+    fn humanize_key_sentence_cases_a_snake_case_key() {
+        assert_eq!(humanize_key("seven_day"), "Seven day");
+        assert_eq!(humanize_key("five_hour"), "Five hour");
+        assert_eq!(humanize_key(""), "");
+    }
 
     #[test]
     fn a_realistic_oauth_token_is_accepted() {
