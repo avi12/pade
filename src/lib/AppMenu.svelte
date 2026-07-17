@@ -322,7 +322,10 @@
             </span>
             <span class="prow-meta">
               {#if branches[project]}
-                <span class="branch"><span class="dot" aria-hidden="true"></span>{branches[project]}</span>
+                <span class="branch">
+                  <span class="branch-icon" aria-hidden="true"><Icon name="branch" size={11} /></span>
+                  {branches[project]}
+                </span>
               {/if}
               <span class="prow-path">{project}</span>
             </span>
@@ -774,12 +777,12 @@
       font-weight: 600;
       font-size: 9px;
 
-      .dot {
-        display: inline-block;
-        block-size: 5px;
-        inline-size: 5px;
-        border-radius: 999px;
-        background: var(--tertiary);
+      /* The branch glyph leads the branch name, tinted tertiary like the design's
+         "vc" mark — it stays that colour on row hover (as the dot did). */
+      .branch-icon {
+        display: inline-flex;
+        flex: none;
+        color: var(--tertiary);
       }
     }
 
