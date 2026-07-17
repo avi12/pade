@@ -81,8 +81,9 @@ writes.
   the PTY sniffer spots the CLI's "limit reached" stop message (never the softer
   "approaching" warning), confirms against the OAuth usage window (a healthy
   window means stale scrollback), and schedules the session to resume when the
-  window resets (the message's own "resets 3am" clock, else the API's
-  `resets_at`, else a retry probe): **"continue"** into the same session while
+  window resets (the API's to-the-second `resets_at` stamp first — the same
+  endpoint the usage meter reads — else the message's own "resets 3am" clock,
+  else a retry probe): **"continue"** into the same session while
   its context has room, the **auto-handoff flow** when it doesn't. Opt-out via
   `prefs.autoResume` (default on).
 

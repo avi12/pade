@@ -160,11 +160,14 @@ export function createUsageResume(host: ResumeHost) {
     }
   }
 
-  // The window's reset instant: the CLI's own clock when it printed one, else
-  // the account API's ISO stamp for that window. Null means "not knowable yet".
-  // The API is always the health gate when reachable — a sniffed message whose
-  // window the account reports as healthy is stale scrollback (a remounted
-  // terminal replays history), signalled with NaN so the caller drops the hit.
+  // The window's reset instant. The account API is both the health gate and
+  // the preferred clock: its `resets_at` is a to-the-second UTC stamp (probed
+  // live: "2026-07-17T08:20:00+00:00"), where the CLI's own "resets 3am" names
+  // a bare local hour. A window the API reports healthy means the sniffed
+  // message was stale scrollback (a remounted terminal replays history) —
+  // signalled with NaN so the caller drops the hit. The inline clock only
+  // carries the schedule when the API is unreachable (offline, no token);
+  // null means "not knowable yet" and the caller probes again later.
   async function resolveResetAt(hit: LimitHit): Promise<number | null> {
     const account = await usage.account().catch(() => null);
     const window = hit.window === LimitWindow.weekly ? account?.sevenDay : account?.fiveHour;
@@ -172,16 +175,12 @@ export function createUsageResume(host: ResumeHost) {
       return Number.NaN;
     }
 
-    if (hit.inlineResetAt !== null) {
-      return hit.inlineResetAt;
+    const stamp = window?.resetsAt ? Date.parse(window.resetsAt) : Number.NaN;
+    if (!Number.isNaN(stamp)) {
+      return stamp;
     }
 
-    if (!window) {
-      return null;
-    }
-
-    const stamp = window.resetsAt ? Date.parse(window.resetsAt) : Number.NaN;
-    return Number.isNaN(stamp) ? null : stamp;
+    return hit.inlineResetAt;
   }
 
   async function resume(session: AgentSession) {
