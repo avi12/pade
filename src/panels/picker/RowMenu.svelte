@@ -28,7 +28,7 @@
 <button
   style:anchor-name="--{identifier}"
   class="kebab"
-  aria-label="Project actions"
+  aria-label="Row actions"
   popovertarget={identifier}
 ><Icon name="more" /></button>
 <ul id={identifier} style:position-anchor="--{identifier}" class="menu popover-menu" popover>

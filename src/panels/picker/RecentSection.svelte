@@ -106,10 +106,16 @@
     }
   }
 
+  /* Tighter than the shared 12px picker-section gap — canon groups the head and
+     rows at 8px, and the rows sit 8px apart. */
+  .recent {
+    gap: 8px;
+  }
+
   .recent-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -221,6 +227,7 @@
     }
 
     button + button {
+      padding: 6px 12px;
       background: transparent;
       color: var(--on-surface-variant);
       font-weight: 600;
