@@ -1,5 +1,6 @@
 <script lang="ts">
   import { contextMenu } from "@/lib/bridge";
+  import { rovingTablist } from "@/lib/rovingTabs";
   import { StartMode } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
   import { onMount } from "svelte";
@@ -37,20 +38,20 @@
   <h2>On launch</h2>
   <div class="startmode">
     <span class="sm-label">With no project, open</span>
-    <div class="sm-toggle" role="tablist">
+    <div class="pill-tabs" role="tablist" use:rovingTablist>
       <button
-        class="sm-btn"
-        class:on={startMode === StartMode.enum.temp}
+        class="pill-tab"
         aria-selected={startMode === StartMode.enum.temp}
         onclick={() => onstartmode(StartMode.enum.temp)}
         role="tab"
+        tabindex={startMode === StartMode.enum.temp ? 0 : -1}
       >Temp workspace</button>
       <button
-        class="sm-btn"
-        class:on={startMode === StartMode.enum.picker}
+        class="pill-tab"
         aria-selected={startMode === StartMode.enum.picker}
         onclick={() => onstartmode(StartMode.enum.picker)}
         role="tab"
+        tabindex={startMode === StartMode.enum.picker ? 0 : -1}
       >This picker</button>
     </div>
   </div>
@@ -97,7 +98,7 @@
 </section>
 
 <style>
-  /* ── On launch — segmented toggle + checkboxes. ── */
+  /* ── On launch — checkboxes; the pill-tabs chrome is shared (chrome.css). ── */
   .startmode {
     display: flex;
     flex-wrap: wrap;
@@ -108,35 +109,6 @@
   .sm-label {
     color: var(--on-surface-variant);
     font-size: 13px;
-  }
-
-  /* Pill segmented toggle. */
-  .sm-toggle {
-    display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: 999px;
-    background: var(--surface-2);
-
-    .sm-btn {
-      padding: 6px 14px;
-      border: none;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--on-surface-variant);
-      font: inherit;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-      transition:
-        background 150ms var(--ease),
-        color 150ms var(--ease);
-
-      &.on {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-    }
   }
 
   .check {
