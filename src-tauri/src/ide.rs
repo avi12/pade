@@ -953,6 +953,14 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
     })
 }
 
+/// Remove a user-added editor by its id (an `added-…` id from [`ide_add_editor`]).
+/// Auto-detected editors carry no stored entry, so removing one is a no-op. Returns
+/// the refreshed settings so every editor menu drops it at once.
+#[tauri::command]
+pub fn ide_remove_editor(id: String) -> Result<crate::workspace::Settings, String> {
+    crate::workspace::remove_editor(&id)
+}
+
 /// Whether any direct child of `dir` has the given extension (case-insensitive).
 fn has_ext(dir: &std::path::Path, ext: &str) -> bool {
     std::fs::read_dir(dir).ok().is_some_and(|entries| {
@@ -1323,15 +1331,42 @@ pub fn ide_kinds() -> Vec<KindInfo> {
         .collect()
 }
 
-/// The current project's primary declared kind, or `None` when no ecosystem
-/// marker is recognised. Retained for consumers of the editor-rules API.
+/// Primary detected kind for each of `paths` — the marker-declared kind highest
+/// in the registry's priority order — for the switcher's per-project language
+/// logo. Paths with no recognised markers are omitted, so the caller falls back
+/// to a folder glyph. Marker probing only (root + one level down), so it stays
+/// cheap enough to run for a menuful of recent projects at once.
 #[tauri::command]
-pub fn ide_project_kind() -> Option<String> {
-    let cwd = std::env::current_dir().ok()?;
-    kinds_from_declarations(&project_declarations(&cwd))
-        .first()
-        .map(ProjectKind::as_str)
-        .map(str::to_string)
+pub fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
+    paths
+        .into_iter()
+        .filter_map(|path| {
+            let project_path = std::path::Path::new(&path);
+            let kind = kinds_from_declarations(&project_declarations(project_path))
+                .into_iter()
+                .next()?;
+            // A web project that uses TypeScript shows the TS badge, not JavaScript.
+            let icon_key = if kind == ProjectKind::Web && uses_typescript(project_path) {
+                "typescript".to_string()
+            } else {
+                kind.as_str().to_string()
+            };
+            Some((path, icon_key))
+        })
+        .collect()
+}
+
+/// Whether a web project uses TypeScript — a `tsconfig.json`, or a `.ts`/`.tsx`
+/// source in the project root, a direct child, or a `src` dir. Narrows the
+/// per-project switcher icon from the JavaScript badge to the TypeScript one.
+fn uses_typescript(cwd: &std::path::Path) -> bool {
+    probe_roots(cwd).iter().any(|root| {
+        root.join("tsconfig.json").exists()
+            || has_ext(root, "ts")
+            || has_ext(root, "tsx")
+            || has_ext(&root.join("src"), "ts")
+            || has_ext(&root.join("src"), "tsx")
+    })
 }
 
 /// An id is worth suggesting only if it's actually launchable — a registry

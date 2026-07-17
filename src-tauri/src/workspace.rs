@@ -85,6 +85,10 @@ pub struct Settings {
     /// Recently opened projects (incl. temp workspaces), most-recent first.
     #[serde(default)]
     pub recent_projects: Vec<String>,
+    /// Projects the user pinned in the switcher, so they sit above the recents
+    /// and survive falling out of the recent history. Keyed by absolute path.
+    #[serde(default)]
+    pub pinned_projects: Vec<String>,
     /// Paths ADE created (temp workspaces, and where they were moved to). Only
     /// these may be renamed/moved/deleted — never a real project the user owns.
     #[serde(default)]
@@ -607,16 +611,19 @@ pub fn workspace_prune() -> Result<Settings, String> {
     let mut settings = load();
     let before = (
         settings.recent_projects.len(),
+        settings.pinned_projects.len(),
         settings.owned_workspaces.len(),
         settings.labels.len(),
     );
 
     settings.recent_projects.retain(|path| !has_vanished(path));
+    settings.pinned_projects.retain(|path| !has_vanished(path));
     settings.owned_workspaces.retain(|path| !has_vanished(path));
     settings.labels.retain(|path, _| !has_vanished(path));
 
     let after = (
         settings.recent_projects.len(),
+        settings.pinned_projects.len(),
         settings.owned_workspaces.len(),
         settings.labels.len(),
     );
@@ -627,6 +634,20 @@ pub fn workspace_prune() -> Result<Settings, String> {
     save(&settings)
 }
 
+/// Remove `path` from disk (stepping the process out first, riding out the
+/// Windows sharing race) and forget it from every list — recents, pins, owned,
+/// and its label. Shared by the owned-only `workspace_delete` and the
+/// confirmation-gated `workspace_delete_directory`.
+fn delete_directory(settings: &mut Settings, path: &str) -> Result<(), String> {
+    leave_if_inside(Path::new(path));
+    remove_dir_all_patiently(path).map_err(|e| e.to_string())?;
+    settings.recent_projects.retain(|entry| entry != path);
+    settings.pinned_projects.retain(|entry| entry != path);
+    settings.owned_workspaces.retain(|entry| entry != path);
+    settings.labels.remove(path);
+    Ok(())
+}
+
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
 pub fn workspace_delete(path: String) -> Result<Settings, String> {
@@ -634,11 +655,19 @@ pub fn workspace_delete(path: String) -> Result<Settings, String> {
     if !is_ade_owned(&settings, &path) {
         return Err("only ADE-created workspaces can be deleted".into());
     }
-    leave_if_inside(Path::new(&path));
-    remove_dir_all_patiently(&path).map_err(|e| e.to_string())?;
-    settings.recent_projects.retain(|p| p != &path);
-    settings.owned_workspaces.retain(|p| p != &path);
-    settings.labels.remove(&path);
+    delete_directory(&mut settings, &path)?;
+    save(&settings)
+}
+
+/// Delete ANY project directory from disk and forget it — the switcher's "Delete
+/// directory" action. Unlike `workspace_delete` this is not gated to ADE-owned
+/// workspaces, so it can remove a real project the user points at; the UI raises
+/// an explicit, path-naming confirmation before calling it, and the caller (the
+/// relocator) kills the sessions holding the folder first.
+#[tauri::command]
+pub fn workspace_delete_directory(path: String) -> Result<Settings, String> {
+    let mut settings = load();
+    delete_directory(&mut settings, &path)?;
     save(&settings)
 }
 
@@ -678,12 +707,68 @@ pub fn workspace_clear_recent() -> Result<Settings, String> {
     save(&settings)
 }
 
+/// Pin or unpin a project in the switcher. Pinning moves it to the front of the
+/// pinned list; unpinning drops it. Returns the refreshed settings.
+#[tauri::command]
+pub fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, String> {
+    let mut settings = load();
+    settings
+        .pinned_projects
+        .retain(|pinned_path| pinned_path != &path);
+    if pinned {
+        settings.pinned_projects.insert(0, path);
+    }
+    save(&settings)
+}
+
+/// Forget a project from the switcher — drop it from the recent history and, if
+/// pinned, from the pinned list too (a pin outlives recents, so removing only the
+/// recent entry would leave the row still showing). The folder on disk is
+/// untouched, and its display label is kept so a later re-open keeps the friendly
+/// name. Returns the refreshed settings.
+#[tauri::command]
+pub fn workspace_remove_recent(path: String) -> Result<Settings, String> {
+    let mut settings = load();
+    settings.recent_projects.retain(|entry| entry != &path);
+    settings.pinned_projects.retain(|entry| entry != &path);
+    save(&settings)
+}
+
+/// Replace the pinned-project order with `paths` — a drag-reorder of the existing
+/// pins. Reconciles rather than trusting the client: only already-pinned paths are
+/// kept (this reorders, it never adds a pin — that stays `workspace_set_pinned`),
+/// and any current pin the caller omitted is appended in its existing order, so a
+/// list that raced with a toggle in another window can't silently drop a pin.
+#[tauri::command]
+pub fn workspace_set_pinned_order(paths: Vec<String>) -> Result<Settings, String> {
+    let mut settings = load();
+    let mut reordered: Vec<String> = paths
+        .into_iter()
+        .filter(|path| settings.pinned_projects.contains(path))
+        .collect();
+    for pinned in &settings.pinned_projects {
+        if !reordered.contains(pinned) {
+            reordered.push(pinned.clone());
+        }
+    }
+    settings.pinned_projects = reordered;
+    save(&settings)
+}
+
 /// Persist a user-added editor, de-duplicated by executable path (re-adding the
 /// same path is a no-op move-to-end). Returns the refreshed settings.
 pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
     let mut s = load();
     s.prefs.added_editors.retain(|e| e.path != editor.path);
     s.prefs.added_editors.push(editor);
+    save(&s)
+}
+
+/// Drop a user-added editor by its id. Returns the refreshed settings; removing
+/// an id that isn't present is a no-op.
+pub fn remove_editor(id: &str) -> Result<Settings, String> {
+    let mut s = load();
+    s.prefs.added_editors.retain(|e| e.id != id);
     save(&s)
 }
 

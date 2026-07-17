@@ -214,6 +214,15 @@ export const ProjectEntry = z.object({
 });
 export type ProjectEntry = z.infer<typeof ProjectEntry>;
 
+/** One open PADE window and the project it has, for the switcher's Open-windows
+ *  list. `label` is the stable window id used to focus it. */
+export const WindowInfo = z.object({
+  label: z.string(),
+  path: z.string(),
+  isCurrent: z.boolean()
+});
+export type WindowInfo = z.infer<typeof WindowInfo>;
+
 export const ThemeMode = z.enum(["system", "light", "dark"]);
 export type ThemeMode = z.infer<typeof ThemeMode>;
 
@@ -255,6 +264,9 @@ export const Settings = z.object({
   defaultAgent: z.string().nullable(),
   projectAgents: z.record(z.string(), z.string()),
   recentProjects: z.array(z.string()).default([]),
+  /** Projects pinned in the switcher — kept above the recents and independent of
+   *  recent-history churn. */
+  pinnedProjects: z.array(z.string()).default([]),
   ownedWorkspaces: z.array(z.string()).default([]),
   /** Friendly display names for workspaces, keyed by absolute path. */
   labels: z.record(z.string(), z.string()).default({}),

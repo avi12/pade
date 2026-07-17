@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 
+use serde::{Deserialize, Serialize};
 use tauri::window::Color;
 use tauri::{AppHandle, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -65,7 +66,9 @@ pub fn window_register_project(
     path: String,
 ) {
     if let Ok(mut projects) = state.0.lock() {
-        projects.insert(window.label().to_string(), normalize(&path));
+        // Stored verbatim so the switcher's "Open windows" list can show the real
+        // path/name; comparison normalizes on read (see `window_focus_project`).
+        projects.insert(window.label().to_string(), path);
     }
 }
 
@@ -87,7 +90,7 @@ pub fn window_focus_project(
         };
         projects
             .iter()
-            .filter(|(label, project)| **label != me && **project == target)
+            .filter(|(label, project)| **label != me && normalize(project) == target)
             .map(|(label, _)| label.clone())
             .collect()
     };
@@ -102,6 +105,118 @@ pub fn window_focus_project(
         if let Ok(mut projects) = state.0.lock() {
             projects.remove(&label);
         }
+    }
+    false
+}
+
+/// Which neighbouring window to cycle to. Mirrors the frontend
+/// `focusRelative("previous" | "next")` — one authoritative home for the two
+/// names. `pub` because it appears in a `#[tauri::command]` signature.
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum CycleDirection {
+    Previous,
+    Next,
+}
+
+/// Stable creation-order sort key: the startup `main` window first (0), then each
+/// spawned `w-{n}` by its sequence number. An unrecognised label sorts last so a
+/// stray window never breaks the cycle. Lexicographic sorting would misplace
+/// `w-10` before `w-2`; the numeric parse keeps them in creation order.
+fn order_key(label: &str) -> u32 {
+    if label == "main" {
+        return 0;
+    }
+    label
+        .strip_prefix("w-")
+        .and_then(|seq| seq.parse::<u32>().ok())
+        .unwrap_or(u32::MAX)
+}
+
+/// Focus the previous/next open PADE window in stable creation order, wrapping
+/// around at the ends. Returns true when another window was focused (false when
+/// this is the only window). The calling window is injected as `window`, so the
+/// frontend passes only a direction; live windows are re-enumerated each press,
+/// so a closed window simply drops out of the cycle.
+#[tauri::command]
+pub fn window_focus_relative(
+    app: AppHandle,
+    window: WebviewWindow,
+    direction: CycleDirection,
+) -> bool {
+    let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
+    labels.sort_by_key(|label| (order_key(label), label.clone()));
+
+    let me = window.label();
+    let Some(current) = labels.iter().position(|label| label == me) else {
+        return false;
+    };
+    let count = labels.len();
+    if count < 2 {
+        return false;
+    }
+
+    let target_index = match direction {
+        CycleDirection::Next => (current + 1) % count,
+        CycleDirection::Previous => (current + count - 1) % count,
+    };
+
+    let Some(target) = app.get_webview_window(&labels[target_index]) else {
+        return false;
+    };
+    let _ = target.unminimize();
+    target.set_focus().is_ok()
+}
+
+/// One open PADE window and the project it has: its unique `label` (the id the
+/// frontend focuses by), the project path, and whether it is the calling window.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowInfo {
+    label: String,
+    path: String,
+    is_current: bool,
+}
+
+/// Every open PADE window that has a project, in stable creation order, flagging
+/// the caller as the current window. Windows with no registered project (an empty
+/// or picker window) are omitted. Drives the switcher's "Open windows" section, so
+/// its order matches the `Ctrl+Shift+Alt+[`/`]` cycle order.
+#[tauri::command]
+pub fn window_list(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: tauri::State<WindowProjects>,
+) -> Vec<WindowInfo> {
+    let me = window.label();
+    let projects = state
+        .0
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
+    let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
+    labels.sort_by_key(|label| (order_key(label), label.clone()));
+    labels
+        .into_iter()
+        .filter_map(|label| {
+            let path = projects.get(&label)?.clone();
+            let is_current = label.as_str() == me;
+            Some(WindowInfo {
+                label,
+                path,
+                is_current,
+            })
+        })
+        .collect()
+}
+
+/// Focus a specific open PADE window by label — the switcher's "Open windows"
+/// rows. Returns true when that window existed and took focus.
+#[tauri::command]
+pub fn window_focus_label(app: AppHandle, label: String) -> bool {
+    if let Some(target) = app.get_webview_window(&label) {
+        let _ = target.unminimize();
+        return target.set_focus().is_ok();
     }
     false
 }

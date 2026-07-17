@@ -151,10 +151,11 @@ export function createRelocator(host: RelocateHost) {
 
   /** Delete a workspace: same lock release (a running agent would otherwise keep
    *  the folder open and the removal would fail), then remove it. Nothing to
-   *  resume, and the shell lets go of it if it was the open project. */
-  async function remove(path: string): Promise<Settings> {
+   *  resume, and the shell lets go of it if it was the open project. `del` is the
+   *  backend removal — owned-only for `remove`, ungated for `removeDirectory`. */
+  async function deleteVia(path: string, del: (path: string) => Promise<Settings>): Promise<Settings> {
     await releaseLock(path);
-    const settings = await workspace.delete(path);
+    const settings = await del(path);
     host.applySettings(settings);
 
     if (isUnder({
@@ -167,9 +168,21 @@ export function createRelocator(host: RelocateHost) {
     return settings;
   }
 
+  /** Delete an ADE-owned workspace directory (the picker's delete). */
+  function remove(path: string): Promise<Settings> {
+    return deleteVia(path, workspace.delete);
+  }
+
+  /** Delete ANY project directory from disk — the switcher's "Delete directory".
+   *  Ungated, so it can remove a real project; the caller confirms first. */
+  function removeDirectory(path: string): Promise<Settings> {
+    return deleteVia(path, workspace.deleteDirectory);
+  }
+
   return {
     move,
     rename,
-    remove
+    remove,
+    removeDirectory
   };
 }

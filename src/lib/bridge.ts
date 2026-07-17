@@ -29,7 +29,8 @@ import {
   Settings,
   StatusEntry,
   TaskGroup,
-  Usage
+  Usage,
+  WindowInfo
 } from "@/lib/types";
 import type { Prefs } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
@@ -76,11 +77,14 @@ export const ide = {
   /** Editor ids suited to each project kind (kind → ordered, installed-only), so a
    *  per-kind menu offers only fitting editors (no WebStorm for an Android row). */
   kindOptions: () => call("ide_kind_options", z.record(z.string(), z.array(z.string()))),
+  /** Primary detected kind per project path (path → kind id), for the switcher's
+   *  per-project language logo. Paths with no recognised markers are omitted. */
+  projectKinds: (paths: string[]) => call("ide_project_kinds", z.record(z.string(), z.string()), { paths }),
   /** Add an editor by its executable path. Rejects (throws the message) when the
    *  executable isn't a supported editor; returns the refreshed settings. */
   addEditor: (path: string) => call("ide_add_editor", Settings, { path }),
-  /** Primary detected project kind of the current dir (e.g. "web"), or null. */
-  projectKind: () => call("ide_project_kind", z.string().nullable()),
+  /** Remove a user-added editor by its id; returns the refreshed settings. */
+  removeEditor: (id: string) => call("ide_remove_editor", Settings, { id }),
   open: (args: {
     command: string;
     path?: string;
@@ -115,7 +119,16 @@ export const windows = {
   /** Record the project this window now has open (for focus-instead-of-reopen). */
   registerProject: (path: string) => run("window_register_project", { path }),
   /** Focus another window already showing this project; true if one was found. */
-  focusProject: (path: string) => call("window_focus_project", z.boolean(), { path })
+  focusProject: (path: string) => call("window_focus_project", z.boolean(), { path }),
+  /** Focus the previous/next open PADE window in stable creation order; true if
+   *  another window was focused (false when this is the only one). */
+  focusRelative: (direction: "previous" | "next") =>
+    call("window_focus_relative", z.boolean(), { direction }),
+  /** Every open PADE window that has a project, in creation order (= cycle order),
+   *  for the switcher's "Open windows" list. */
+  list: () => call("window_list", z.array(WindowInfo)),
+  /** Focus a specific open window by its label; true if it existed and focused. */
+  focus: (label: string) => call("window_focus_label", z.boolean(), { label })
 };
 
 /** AI design/UI-generation tools — a roster ranked for the active agent. */
@@ -209,6 +222,9 @@ export const vcs = {
       staged
     }),
   branches: () => call("vcs_branches", z.array(z.string())),
+  /** Current HEAD branch per project path (path → branch), for the switcher's
+   *  per-project branch chip. Non-repo / detached paths are omitted. */
+  branchOf: (paths: string[]) => call("vcs_branch_of", z.record(z.string(), z.string()), { paths }),
   /** One commit's message body, per-file stats, and branch. */
   commit: (sha: string) => call("vcs_commit", CommitDetail, { sha }),
   /** Raw unified diff for one path within a commit. */
@@ -343,6 +359,18 @@ export const workspace = {
     name: string;
   }) => call("workspace_create", z.string(), { ...args }),
   clearRecent: () => call("workspace_clear_recent", Settings),
+  /** Pin or unpin a project in the switcher; returns the refreshed settings. */
+  setPinned: (args: {
+    path: string;
+    pinned: boolean;
+  }) => call("workspace_set_pinned", Settings, { ...args }),
+  /** Forget a project from the switcher (recents + pins); folder untouched. */
+  removeRecent: (path: string) => call("workspace_remove_recent", Settings, { path }),
+  /** Persist a drag-reordered pin order (reorders existing pins only). */
+  setPinnedOrder: (paths: string[]) => call("workspace_set_pinned_order", Settings, { paths }),
+  /** Delete ANY project directory from disk and forget it — the switcher's "Delete
+   *  directory". The caller raises a confirmation and releases the folder first. */
+  deleteDirectory: (path: string) => call("workspace_delete_directory", Settings, { path }),
   setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
   setProjectAgent: (args: {
     path: string;

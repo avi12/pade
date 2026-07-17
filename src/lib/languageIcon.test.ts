@@ -15,6 +15,10 @@ describe("languageIcon", () => {
     expect(languageIcon(ProjectKind.Ruby)).toBe("ruby");
   });
 
+  it("shows the TypeScript badge for the backend's TS narrowing", () => {
+    expect(languageIcon("typescript")).toBe("typescript");
+  });
+
   it("falls back to the generic code glyph for an unknown kind", () => {
     expect(languageIcon("cobol")).toBe("code");
     expect(languageIcon("")).toBe("code");

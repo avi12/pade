@@ -16,9 +16,10 @@ export const ProjectKind = {
 } as const;
 export type ProjectKind = (typeof ProjectKind)[keyof typeof ProjectKind];
 
-// Each kind's language logo. Umbrella kinds take their most recognisable member's
-// mark: web → the JavaScript badge, .NET → the C# badge.
-export const PROJECT_KIND_ICONS: Record<string, IconName> = {
+// Each kind's language logo, keyed by `ProjectKind` so adding a kind forces adding
+// its icon. Umbrella kinds take their most recognisable member's mark: web → the
+// JavaScript badge, .NET → the C# badge.
+export const PROJECT_KIND_ICONS: Record<ProjectKind, IconName> = {
   [ProjectKind.Web]: "javascript",
   [ProjectKind.Python]: "python",
   [ProjectKind.Java]: "java",
@@ -33,8 +34,23 @@ export const PROJECT_KIND_ICONS: Record<string, IconName> = {
 
 const FALLBACK_ICON: IconName = "code";
 
-/** A known project kind's language logo, else the generic code glyph — so a
- *  backend-only kind added later still renders a row without frontend changes. */
+// A web project the backend detects as TypeScript reports this key instead of its
+// `web` kind (see `ide_project_kinds`), so its per-project icon is the TS badge,
+// not JavaScript. It's a language narrowing, not a project KIND, so it maps here
+// rather than polluting the `ProjectKind`-keyed map above.
+const TYPESCRIPT_KEY = "typescript";
+
+function isProjectKind(value: string): value is ProjectKind {
+  return Object.hasOwn(PROJECT_KIND_ICONS, value);
+}
+
+/** A known project kind's language logo (or the TypeScript narrowing a web project
+ *  can report), else the generic code glyph — so a backend-only kind added later
+ *  still renders a row without frontend changes. */
 export function languageIcon(kind: string): IconName {
-  return PROJECT_KIND_ICONS[kind] ?? FALLBACK_ICON;
+  if (isProjectKind(kind)) {
+    return PROJECT_KIND_ICONS[kind];
+  }
+
+  return kind === TYPESCRIPT_KEY ? "typescript" : FALLBACK_ICON;
 }
