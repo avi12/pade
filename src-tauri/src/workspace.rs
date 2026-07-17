@@ -173,10 +173,16 @@ fn is_project(dir: &Path) -> bool {
 }
 
 pub(crate) fn load() -> Settings {
-    settings_path()
+    let mut settings: Settings = settings_path()
         .and_then(|p| std::fs::read_to_string(p).map_err(|e| e.to_string()))
         .and_then(|s| serde_json::from_str(&s).map_err(|e| e.to_string()))
-        .unwrap_or_default()
+        .unwrap_or_default();
+    // Self-heal any project recorded twice under different path spellings (a
+    // doubled-backslash entry vs a normal one): recents + pins are always
+    // canonical and unique on read, so the switcher never shows a folder twice.
+    settings.recent_projects = canonical_dedup(&settings.recent_projects);
+    settings.pinned_projects = canonical_dedup(&settings.pinned_projects);
+    settings
 }
 
 fn save(settings: &Settings) -> Result<Settings, String> {
@@ -224,16 +230,34 @@ pub enum AddRootOutcome {
     NotADirectory,
 }
 
-/// Persist `path` as a root (deduped) and hand back the refreshed settings. The
-/// path is canonicalized through its components first — dropping any trailing
-/// separator (e.g. from Tab-completing an autocomplete suggestion) while keeping a
-/// bare drive root like `C:\` intact — so a root is stored one way and dedups.
-fn push_root(path: String) -> Result<Settings, String> {
-    let path = Path::new(&path)
+/// Rebuild a path from its components — collapses doubled or trailing separators
+/// and forward slashes so one folder is spelled exactly one way and dedups (e.g.
+/// `C:\\a\\b`, `C:/a/b` and `C:\a\b\` all fold to `C:\a\b`), while keeping a bare
+/// drive root like `C:\` intact.
+fn canonical_path(path: &str) -> String {
+    Path::new(path)
         .components()
         .collect::<PathBuf>()
         .to_string_lossy()
-        .into_owned();
+        .into_owned()
+}
+
+/// Canonicalize a path list and drop duplicates, keeping first-seen order — so a
+/// folder recorded twice under different spellings collapses to one entry.
+fn canonical_dedup(paths: &[String]) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    paths
+        .iter()
+        .map(|path| canonical_path(path))
+        .filter(|path| seen.insert(path.clone()))
+        .collect()
+}
+
+/// Persist `path` as a root (deduped) and hand back the refreshed settings. The
+/// path is canonicalized first (see [`canonical_path`]) so a root is stored one
+/// way and dedups.
+fn push_root(path: String) -> Result<Settings, String> {
+    let path = canonical_path(&path);
     let mut s = load();
     if !s.roots.contains(&path) {
         s.roots.push(path);
@@ -401,10 +425,11 @@ pub fn is_owned(path: &str) -> bool {
     is_ade_owned(&load(), path)
 }
 
-/// Push a path to the front of the recent list (deduped, capped).
+/// Push a path to the front of the recent list (canonicalized, deduped, capped).
 fn record_recent(settings: &mut Settings, path: &str) {
-    settings.recent_projects.retain(|p| p != path);
-    settings.recent_projects.insert(0, path.to_string());
+    let path = canonical_path(path);
+    settings.recent_projects.retain(|p| p != &path);
+    settings.recent_projects.insert(0, path);
     settings.recent_projects.truncate(RECENT_CAP);
 }
 
@@ -778,4 +803,44 @@ pub fn set_prefs(prefs: Prefs) -> Result<Settings, String> {
     let mut s = load();
     s.prefs = prefs;
     save(&s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{canonical_dedup, canonical_path};
+
+    #[cfg(windows)]
+    #[test]
+    fn folds_doubled_and_forward_separators_to_one_spelling() {
+        let canonical = canonical_path(r"C:\repositories\avi\sb-companion");
+        assert_eq!(
+            canonical_path(r"C:\\repositories\\avi\\sb-companion"),
+            canonical
+        );
+        assert_eq!(
+            canonical_path("C:/repositories/avi/sb-companion"),
+            canonical
+        );
+        assert_eq!(
+            canonical_path(r"C:\repositories\avi\sb-companion\"),
+            canonical
+        );
+    }
+
+    #[test]
+    fn dedup_collapses_the_same_folder_spelled_two_ways() {
+        let deduped = canonical_dedup(&[
+            r"C:\repositories\avi\sb-companion".to_string(),
+            r"C:\\repositories\\avi\\sb-companion".to_string(),
+            r"C:\repositories\avi\pade".to_string(),
+        ]);
+        // The doubled-backslash duplicate folds away; first-seen order is kept.
+        assert_eq!(
+            deduped,
+            vec![
+                canonical_path(r"C:\repositories\avi\sb-companion"),
+                canonical_path(r"C:\repositories\avi\pade"),
+            ]
+        );
+    }
 }
