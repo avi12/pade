@@ -147,8 +147,23 @@
   let cloning = $state(false);
   let cloneError = $state("");
 
+  // The latest reachability answer, tagged with the URL it described — the
+  // folder name auto-fills only once the repository itself has answered, not
+  // from URL shape alone.
+  let remoteProbe = $state<{
+    url: string;
+    reachable: boolean;
+  }>({
+    url: "",
+    reachable: false
+  });
+
   const cloneUrlValid = $derived(CloneUrl.safeParse(cloneUrl).success);
   const cloneNameValid = $derived(ProjectName.safeParse(cloneName).success);
+  const remoteSettled = $derived(cloneUrlValid && remoteProbe.url === cloneUrl.trim());
+  const remoteReachable = $derived(remoteSettled && remoteProbe.reachable);
+  const remoteChecking = $derived(cloneUrlValid && !remoteSettled);
+  const remoteUnreachable = $derived(remoteSettled && !remoteProbe.reachable);
   // An SSH-style URL with no key on disk can't authenticate — offer HTTPS
   // credentials instead (the backend rewrites the URL for the clone).
   const needsCredentials = $derived(cloneUrlValid && isSshCloneUrl(cloneUrl) && !hasSshKey);
@@ -160,12 +175,35 @@
     !cloneUrlValid || !createIn || !cloneNameValid || credentialsMissing || cloning
   );
 
+  // Debounced live probe: does the typed repository exist, and can this
+  // machine's auth see it? An answer, not a guess — the same philosophy as the
+  // add-root path probe, pointed at the network.
+  $effect(() => {
+    const url = cloneUrl.trim();
+    if (!CloneUrl.safeParse(url).success) {
+      remoteProbe = {
+        url: "",
+        reachable: false
+      };
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const reachable = await vcs.probeRemote(url);
+      remoteProbe = {
+        url,
+        reachable
+      };
+    }, 500);
+    return () => clearTimeout(timer);
+  });
+
   $effect(() => {
     if (cloneNameEdited) {
       return;
     }
 
-    cloneName = repoFolderName(cloneUrl);
+    cloneName = remoteReachable ? repoFolderName(cloneUrl) : "";
   });
 
   // Shared by mount and the "Re-check" button after installing git.
@@ -484,6 +522,11 @@
               spellcheck="false"
               bind:value={cloneUrl}
             />
+            {#if remoteChecking}
+              <output class="probe-note">Checking the repository…</output>
+            {:else if remoteUnreachable}
+              <output class="field-error">Can’t reach that repository — check the URL or your access.</output>
+            {/if}
           </div>
 
           <div class="np-field">
@@ -568,6 +611,14 @@
       padding-block: 7px;
       font-size: 13px;
     }
+  }
+
+  /* Quiet in-flight note under the URL field while the repository is probed. */
+  .probe-note {
+    display: block;
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .panel {
