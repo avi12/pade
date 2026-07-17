@@ -296,7 +296,7 @@
           >Browse…</button>
         </div>
         <div class="ed-add-actions">
-          <button class="ed-confirm" type="submit">Add</button>
+          <button class="ed-confirm" type="submit">Add editor</button>
           <button
             class="ed-cancel"
             onclick={() => {
@@ -306,6 +306,7 @@
             }}
             type="button"
           >Cancel</button>
+          <span class="ed-add-hint">Select the editor’s executable</span>
         </div>
       </form>
     {/if}
@@ -625,7 +626,7 @@
     background: transparent;
     color: var(--on-surface);
     font-family: var(--font-monospace);
-    font-size: 13px;
+    font-size: 0.75rem;
   }
 
   .ed-browse {
@@ -637,7 +638,7 @@
     color: var(--on-surface-variant);
     font: inherit;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 0.6875rem;
     cursor: pointer;
     transition:
       background 150ms var(--ease),
@@ -655,8 +656,14 @@
     align-items: center;
   }
 
+  .ed-add-hint {
+    margin-inline-start: auto;
+    color: var(--on-surface-variant);
+    font-size: 0.6875rem;
+  }
+
   .ed-confirm {
-    padding: 8px 18px;
+    padding: 7px 14px;
     border: none;
     border-radius: var(--radius-small);
     background: var(--primary);
