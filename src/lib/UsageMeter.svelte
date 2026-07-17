@@ -339,10 +339,10 @@
 
   .pill {
     display: inline-flex;
-    gap: 9px;
+    gap: 8px;
     align-items: center;
-    padding-block: 5px;
-    padding-inline: 11px;
+    padding-block: 4px;
+    padding-inline: 11px 9px;
     border: none;
     border-radius: 999px;
     background: var(--surface-2);
@@ -441,7 +441,7 @@
     /* ── Many-agents mode: compact per-agent pills + a "+N" overflow chip ── */
     .pills {
       display: inline-flex;
-      gap: 5px;
+      gap: 4px;
       align-items: center;
     }
 
@@ -481,9 +481,8 @@
     /* A hairline splitting the agent's identity from its readouts. */
     .agent-pill-sep {
       flex: none;
-      align-self: stretch;
+      block-size: 12px;
       inline-size: 1px;
-      margin-block: 1px;
       background: var(--outline);
     }
 
@@ -585,7 +584,7 @@
     /* ── Header: title + running count, plus per-severity agent tallies ── */
     .summary {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       justify-content: space-between;
       align-items: flex-start;
       margin-block-end: 11px;
@@ -615,7 +614,7 @@
     .severity-counts {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px 10px;
+      gap: 10px;
       justify-content: flex-end;
       padding-block-start: 2px;
     }
@@ -739,7 +738,7 @@
     /* ── "All agents" heading + kind-code legend ── */
     .agents-head {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       justify-content: space-between;
       align-items: center;
       margin-block-end: 8px;
