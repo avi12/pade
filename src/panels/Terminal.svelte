@@ -4,7 +4,7 @@
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
-  import { pty } from "@/lib/bridge";
+  import { os, pty } from "@/lib/bridge";
   import { Axis, beginReorder } from "@/lib/dragReorder";
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
@@ -14,6 +14,7 @@
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { WebLinksAddon } from "@xterm/addon-web-links";
   import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
@@ -484,6 +485,12 @@
     });
     term.open(host);
     attached = true;
+
+    // Make URLs in the output clickable — the agent's OAuth sign-in links, docs
+    // pointers. The addon's default handler is window.open, which a Tauri
+    // WebView won't turn into a browser tab, so route through the bridge to the
+    // system browser instead.
+    term.loadAddon(new WebLinksAddon((_event, uri) => void os.openUrl(uri)));
 
     // GPU-accelerated rendering; fall back silently if WebGL is unavailable.
     try {
