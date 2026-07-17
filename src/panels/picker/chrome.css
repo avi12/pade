@@ -101,16 +101,18 @@
     text-align: start;
     cursor: pointer;
 
-    /* Hover + current selection read as a subtle tonal overlay on the row (the
-       youtube-downloader select's `tonal-rim`), not a loud primary fill — a calm
-       neutral that adapts to light/dark. The selection keeps a primary checkmark
-       (`.tick`) as its accent. */
+    /* Hover + current selection fill with primary-container per the design
+       canon (brief §4.8/§5: selected/active anything = primary-container). The
+       selection keeps its primary checkmark (`.tick`) as a brighter accent on
+       the tinted row. */
     &:hover {
-      background: color-mix(in oklab, var(--on-surface) 8%, transparent);
+      background: var(--primary-container);
+      color: var(--on-primary-container);
     }
 
     &.picked {
-      background: color-mix(in oklab, var(--on-surface) 8%, transparent);
+      background: var(--primary-container);
+      color: var(--on-primary-container);
     }
 
     .mi-txt {
@@ -147,6 +149,12 @@
     margin-block-start: 6px;
     padding-block-start: 9px;
     border-block-start: 1px solid var(--outline);
+  }
+
+  /* Destructive item reads critical-red at rest (not only on hover), so a
+     delete action is legible as dangerous before the pointer lands. */
+  .danger {
+    color: var(--critical);
   }
 
   .danger:hover {
