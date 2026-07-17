@@ -56,13 +56,19 @@ stateDiagram-v2
   loading --> picker: no project (opt-in)
   picker --> ready: project opened (best agent launches outright)
   ready --> onboarding: last session closed / exited
+  ready --> picker: last session ends in a never-named temp workspace (folder deleted)
   onboarding --> ready: agent chosen
 ```
 
 Opening a project never blocks on a chooser: the saved per-project/default
 agent — else the first installed agent in registry order — launches straight
 into the workspace. `onboarding` is the *afterwards* screen, shown when the
-last session is hand-closed or exits without a respawn.
+last session is hand-closed or exits without a respawn. A **temp workspace
+that never earned a name** skips both the respawn and onboarding: ending its
+last session (closing the tab, or the agent quitting) hands the window back to
+the picker and deletes the throwaway folder (`workspace_delete` — the backend
+chdirs out first, so the cwd lock is released). One that was auto-named holds
+real work and keeps the normal behavior.
 
 ### Finding an installed agent
 
@@ -199,7 +205,7 @@ responsibility, and who it collaborates with.
 | --- | --- | --- |
 | `src/main.ts` | Entry: mounts `App`, loads the theme | `App.svelte`, `theme.css` |
 | `src/theme.css` | M3 Expressive tokens, global keyframes, base document styles | everything |
-| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
+| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C; a never-named temp workspace instead returns to the picker and is deleted), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
 | `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu; each full tab's agent glyph is tinted by its context-window fill (the `--context-*` gauge) with the exact percent alongside | `tabFit`, `stores/sessions`, `stores/context`, `contextLevel`, `agentIcon` |
 | `src/lib/AppMenu.svelte` | Top-bar project menu: current dir, recents, switch/open/new-window | `bridge` |
 | `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usageGroups` |
@@ -293,7 +299,7 @@ entry. Each concern is one module:
 
 | Module | Responsibility |
 | --- | --- |
-| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; keeps each session's replayable history so a terminal can attach to a conversation in flight; dropping a session kills **and reaps** its child (closing the PTY only hangs it up, and a survivor keeps its cwd locked), so `pty_kill` frees the workspace and `kill_all` leaves nothing behind on app exit |
+| `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; keeps each session's replayable history so a terminal can attach to a conversation in flight; dropping a session kills **and reaps** its child (closing the PTY only hangs it up, and a survivor keeps its cwd locked), so `pty_kill` frees the workspace and `kill_all` leaves nothing behind on app exit; a per-session reaper thread polls the child because a self-exit never EOFs the reader on Windows (conhost holds the ConPTY open) — reaping drops the session, whose closing pipe is what emits `pty://exit` |
 | `watcher.rs` | Filesystem watchers (notify): the recursive one feeding the Change Feed — armed on the workspace root and re-rooted by `watch_start` whenever the current dir no longer matches (so the feed follows a project switch) — and `watch_dirs` — the picker's, watching the *parents* of the rows it shows (watching a row would hold a handle on it and block its deletion) and emitting `dirs://changed` when one gains or loses a child |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout), `clone` (the picker's `vcs_git_installed` / `vcs_has_ssh_key` / `vcs_probe_remote` probes + `vcs_clone` — shells out `git clone` into `root\name`; optional credentials ride a percent-encoded HTTPS URL for that one command only, then the saved remote and any error text are scrubbed back to the clean URL, with `GIT_TERMINAL_PROMPT=0`/`GCM_INTERACTIVE=never` so a private repo fails fast instead of hanging on a hidden prompt) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete. Adding a root goes through `workspace_add_root` (existing dir → added; missing → created only when the picker asks; a file → rejected) with `workspace_probe_path` feeding the add-row's live check (is-dir / is-file / parent-exists) and its directory autocomplete (child dirs matching the typed prefix) — existence checks in place of a path regex. Deleting first steps the process out of the folder (opening a project chdirs into it, and Windows won't delete the directory a process stands in), then retries briefly while the OS closes the killed agents' handles; an already-absent folder counts as deleted, so a stale Recent row can always be cleared |

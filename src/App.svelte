@@ -90,6 +90,11 @@
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
   const currentLabel = $derived(settings.labels[currentProject]);
+  // A temp workspace that never earned a name is still a throwaway: when its
+  // last session ends, the window returns to the picker and the folder is
+  // deleted (see discardTempWorkspace). One that was auto-named holds real
+  // work, so it keeps the normal last-session behavior instead.
+  const isDiscardableTemp = $derived(isTemp && !currentLabel);
   // Active agent id — used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
@@ -536,8 +541,14 @@
     closingByHand.delete(session.id);
 
     // Hand-closing the last tab returns to the picker — never a silent respawn
-    // (a self-exit does respawn; see handleSessionExit).
+    // (a self-exit does respawn; see handleSessionExit). A still-unnamed temp
+    // workspace has nothing worth keeping, so it is discarded outright.
     if (wasLastSession) {
+      if (isDiscardableTemp) {
+        await discardTempWorkspace();
+        return;
+      }
+
       pendingPrompt = undefined;
       phase = Phase.onboarding;
     }
@@ -566,6 +577,13 @@
       return;
     }
 
+    // The agent quitting in a still-unnamed temp workspace ends the throwaway
+    // session: no respawn, no agent picker — back to the project picker.
+    if (isDiscardableTemp) {
+      await discardTempWorkspace();
+      return;
+    }
+
     const shouldRespawn = !failedToStart;
     if (shouldRespawn) {
       launch({ agent });
@@ -576,15 +594,37 @@
   }
 
   // The picker's "this project" tag is only meaningful when we came from an active
-  // project (the workspace) — not from onboarding or a bare launch into the picker.
+  // project (the workspace) — not from onboarding, a bare launch into the picker,
+  // or a discarded temp workspace (whose project no longer exists).
   let pickerHasActiveProject = $state(false);
 
-  function switchToPicker() {
-    pickerHasActiveProject = phase === Phase.ready;
+  function switchToPicker({ fromActiveProject = phase === Phase.ready } = {}) {
+    pickerHasActiveProject = fromActiveProject;
     document.startViewTransition(async () => {
       phase = Phase.project;
       await tick();
     });
+  }
+
+  // Ending the last session of a never-named temp workspace throws the whole
+  // workspace away: this window hands itself back to the project picker and the
+  // folder is deleted. The backend releases the cwd lock first (workspace_delete
+  // chdirs the process out), and every PTY under it is already dead — both close
+  // paths kill/reap theirs before calling here.
+  async function discardTempWorkspace() {
+    const path = currentProject;
+    currentProject = "";
+    branches = [];
+    pendingPrompt = undefined;
+    // Drop this window's claim on the project so no picker tries to focus it.
+    void windows.registerProject("");
+    switchToPicker({ fromActiveProject: false });
+
+    try {
+      settings = await workspace.delete(path);
+    } catch {
+      showToast("Couldn't delete the temp workspace folder.");
+    }
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
