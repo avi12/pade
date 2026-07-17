@@ -180,6 +180,10 @@
   // (the CSS --ui-scale reaches rem/em UI but not the canvas). Base size × zoom.
   const TERMINAL_FONT_SIZE = 13;
 
+  // WCAG AA for body text — the floor xterm holds every foreground to against
+  // the themed background (see the Terminal options).
+  const MINIMUM_CONTRAST_RATIO = 4.5;
+
   // Live-update the terminal font (family + zoom) when the preference changes.
   $effect(() => {
     const family = effective.monoFamily;
@@ -481,7 +485,12 @@
       fontSize: Math.round(TERMINAL_FONT_SIZE * effective.uiScale),
       cursorBlink: true,
       allowProposedApi: true,
-      theme: readXtermTheme()
+      theme: readXtermTheme(),
+      // Safety net for colors the palette can't remap: an agent that paints
+      // truecolor picked for the opposite scheme (a pale blue on the light
+      // background) is nudged to WCAG AA against ours. Render-time only — the
+      // buffer keeps the agent's true colors.
+      minimumContrastRatio: MINIMUM_CONTRAST_RATIO
     });
     term.open(host);
     attached = true;
@@ -799,10 +808,33 @@
 
   function readXtermTheme() {
     const style = getComputedStyle(document.documentElement);
+    function token(name: string) {
+      return style.getPropertyValue(name).trim();
+    }
+    // The full ANSI palette comes from the theme (see the --terminal-* tokens):
+    // agent CLIs paint with these 16 slots, and xterm's own defaults only suit
+    // a dark screen — the light scheme re-picks every one dark enough to read.
     return {
-      background: style.getPropertyValue("--code-background").trim(),
-      foreground: style.getPropertyValue("--code-foreground").trim(),
-      cursor: style.getPropertyValue("--primary").trim()
+      background: token("--code-background"),
+      foreground: token("--code-foreground"),
+      cursor: token("--primary"),
+      selectionBackground: token("--terminal-selection"),
+      black: token("--terminal-black"),
+      red: token("--terminal-red"),
+      green: token("--terminal-green"),
+      yellow: token("--terminal-yellow"),
+      blue: token("--terminal-blue"),
+      magenta: token("--terminal-magenta"),
+      cyan: token("--terminal-cyan"),
+      white: token("--terminal-white"),
+      brightBlack: token("--terminal-bright-black"),
+      brightRed: token("--terminal-bright-red"),
+      brightGreen: token("--terminal-bright-green"),
+      brightYellow: token("--terminal-bright-yellow"),
+      brightBlue: token("--terminal-bright-blue"),
+      brightMagenta: token("--terminal-bright-magenta"),
+      brightCyan: token("--terminal-bright-cyan"),
+      brightWhite: token("--terminal-bright-white")
     };
   }
 </script>

@@ -70,6 +70,28 @@
   --code-background: hsl(var(--seed-hue) 30% 96%);
   --code-foreground: hsl(214deg 30% 20%);
 
+  /* Terminal ANSI palette (Terminal.svelte feeds these to xterm). Agent CLIs
+     paint with these 16 slots, and xterm's defaults suit only a dark screen —
+     on the light scheme every colour is re-picked dark enough to read on the
+     light code surface ("white" included: it means "plain text", not #fff). */
+  --terminal-black: hsl(214deg 30% 20%);
+  --terminal-red: hsl(352deg 72% 44%);
+  --terminal-green: hsl(160deg 60% 28%);
+  --terminal-yellow: hsl(30deg 90% 36%);
+  --terminal-blue: hsl(210deg 90% 42%);
+  --terminal-magenta: hsl(265deg 55% 48%);
+  --terminal-cyan: hsl(190deg 75% 30%);
+  --terminal-white: hsl(214deg 12% 55%);
+  --terminal-bright-black: hsl(214deg 12% 46%);
+  --terminal-bright-red: hsl(352deg 75% 38%);
+  --terminal-bright-green: hsl(160deg 65% 24%);
+  --terminal-bright-yellow: hsl(30deg 95% 32%);
+  --terminal-bright-blue: hsl(210deg 95% 38%);
+  --terminal-bright-magenta: hsl(265deg 60% 44%);
+  --terminal-bright-cyan: hsl(190deg 80% 26%);
+  --terminal-bright-white: hsl(214deg 30% 14%);
+  --terminal-selection: hsl(210deg 90% 45% / 22%);
+
   /* Syntax-highlight palette for the code / config / diff viewers. */
   --syntax-comment: hsl(214deg 12% 48%);
   --syntax-keyword: hsl(265deg 55% 52%);
@@ -128,6 +150,23 @@
   --shadow-color: hsl(214deg 40% 3% / 50%);
   --code-background: hsl(214deg 40% 6%);
   --code-foreground: hsl(var(--seed-hue) 20% 85%);
+  --terminal-black: hsl(214deg 25% 18%);
+  --terminal-red: hsl(352deg 80% 66%);
+  --terminal-green: hsl(160deg 55% 58%);
+  --terminal-yellow: hsl(40deg 90% 64%);
+  --terminal-blue: hsl(210deg 90% 66%);
+  --terminal-magenta: hsl(265deg 70% 74%);
+  --terminal-cyan: hsl(190deg 70% 58%);
+  --terminal-white: hsl(214deg 20% 78%);
+  --terminal-bright-black: hsl(214deg 14% 52%);
+  --terminal-bright-red: hsl(352deg 85% 74%);
+  --terminal-bright-green: hsl(160deg 60% 68%);
+  --terminal-bright-yellow: hsl(45deg 95% 72%);
+  --terminal-bright-blue: hsl(210deg 95% 74%);
+  --terminal-bright-magenta: hsl(265deg 75% 82%);
+  --terminal-bright-cyan: hsl(190deg 75% 68%);
+  --terminal-bright-white: hsl(var(--seed-hue) 24% 94%);
+  --terminal-selection: hsl(210deg 90% 66% / 28%);
   --syntax-comment: hsl(214deg 14% 56%);
   --syntax-keyword: hsl(265deg 70% 76%);
   --syntax-string: hsl(160deg 50% 62%);
