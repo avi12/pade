@@ -403,10 +403,14 @@ textarea {
    `justify-self: anchor-center` sit the bubble centered *below* the trigger with a
    `margin-block-start` gap, so it never rides over the control it describes; near
    the viewport bottom (the dock, low panel rows) it flips *above* via
-   --tooltip-flip-up, keeping the same gap. `anchor-scope` keeps every trigger
-   anchoring its own bubble; `position: relative` keeps the trigger a containing
-   block for any absolutely-positioned children it owns. Sized off --font-base so
-   it tracks the zoom pref.
+   --tooltip-flip-up, keeping the same gap. The bubble anchors to its own trigger
+   via `position-anchor: auto` — a pseudo-element's implicit anchor is its
+   originating element — deliberately NOT a named anchor: a trigger that also
+   hosts a popover sets its own inline `anchor-name` (the IDE caret, the usage
+   pill), which would override a stylesheet-side name and strand the bubble on
+   top of the control. `position: relative` keeps the trigger a containing block
+   for any absolutely-positioned children it owns. Sized off --font-base so it
+   tracks the zoom pref.
 
    PERF: the bubble is `display: none` until its trigger is hovered/focused. An
    always-present anchor-positioned fixed pseudo on every one of the ~30 triggers
@@ -419,8 +423,6 @@ textarea {
    change. */
 [data-tooltip] {
   position: relative;
-  anchor-name: --tooltip;
-  anchor-scope: --tooltip;
 
   &::after {
     content: attr(data-tooltip);
@@ -446,7 +448,7 @@ textarea {
     transition:
       opacity 120ms var(--ease),
       display 120ms allow-discrete;
-    position-anchor: --tooltip;
+    position-anchor: auto;
     position-try-fallbacks: --tooltip-flip-up;
   }
 
