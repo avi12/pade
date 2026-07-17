@@ -21,6 +21,7 @@
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/sendShortcut";
   import SessionTabs from "@/lib/SessionTabs.svelte";
+  import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
@@ -554,6 +555,7 @@
     dropSessionLabel(id);
     dropNaming(id);
     dropUsageLimit(id);
+    dropApiError(id);
 
     if (activeId === id) {
       activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
@@ -746,6 +748,7 @@
   // session list, prefs and context stores change.
   const autoHandoff = createAutoHandoff({
     sessions: () => sessions,
+    availableAgents: () => realAgents,
     isOptedOut: () => settings.prefs.autoHandoff === false,
     slugSource: () => currentLabel ?? shortDir,
     projectDir: () => currentProject,
@@ -769,6 +772,18 @@
   });
   $effect(() => usageResume.check());
   onDestroy(() => usageResume.dispose());
+
+  // ── API-error auto-retry ───────────────────────────────────────────────────
+  // A session stopped by a transient API error (overloaded, a 5xx, a dropped
+  // connection) is nudged with "continue" every 30s, handing off through the
+  // flow above when its context is too full to recover (lib/stores/apiErrorRetry).
+  const apiErrorRetry = createApiErrorRetry({
+    sessions: () => sessions,
+    isOptedOut: () => settings.prefs.autoResume === false,
+    forceHandoff: session => autoHandoff.force(session)
+  });
+  $effect(() => apiErrorRetry.check());
+  onDestroy(() => apiErrorRetry.dispose());
 
   // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
   // defined once; `null` means no panel is open.
@@ -1106,10 +1121,10 @@
 
       <RunnerDock activeSessionId={activeId} />
 
-      {#if autoHandoff.note || usageResume.note}
+      {#if autoHandoff.note || usageResume.note || apiErrorRetry.note}
         <output class="handoff-note">
           <span class="hdot"></span>
-          {autoHandoff.note || usageResume.note}
+          {autoHandoff.note || usageResume.note || apiErrorRetry.note}
         </output>
       {/if}
 

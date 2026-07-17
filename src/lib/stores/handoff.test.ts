@@ -1,4 +1,5 @@
-import { handoffSlug } from "@/lib/stores/handoff.svelte";
+import { handoffSlug, pickSuccessor } from "@/lib/stores/handoff.svelte";
+import type { Agent } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
 describe("handoffSlug", () => {
@@ -21,5 +22,59 @@ describe("handoffSlug", () => {
   it("falls back to a generic slug when nothing survives", () => {
     expect(handoffSlug("!!!")).toBe("session");
     expect(handoffSlug("")).toBe("session");
+  });
+});
+
+describe("pickSuccessor", () => {
+  function agent(id: string): Agent {
+    return {
+      id,
+      label: id,
+      command: id
+    };
+  }
+
+  const claude = agent("claude");
+  const codex = agent("codex");
+  const gemini = agent("gemini");
+  const available = [claude, codex, gemini];
+  function headroomFor(ids: string[]) {
+    return (agentId: string) => Promise.resolve(ids.includes(agentId));
+  }
+
+  it("keeps the current agent while it still has headroom", async () => {
+    const chosen = await pickSuccessor({
+      current: claude,
+      available,
+      hasHeadroom: headroomFor(["claude", "codex"])
+    });
+    expect(chosen).toBe(claude);
+  });
+
+  it("crosses over to the first other agent with headroom", async () => {
+    const chosen = await pickSuccessor({
+      current: claude,
+      available,
+      hasHeadroom: headroomFor(["codex", "gemini"])
+    });
+    expect(chosen).toBe(codex);
+  });
+
+  it("skips agents without headroom to find one that has it", async () => {
+    const chosen = await pickSuccessor({
+      current: claude,
+      available,
+      hasHeadroom: headroomFor(["gemini"])
+    });
+    expect(chosen).toBe(gemini);
+  });
+
+  it("returns null when no agent has headroom", async () => {
+    const chosen = await pickSuccessor({
+      current: codex,
+      available,
+      hasHeadroom: headroomFor([])
+    });
+    expect(chosen).toBeNull();
   });
 });

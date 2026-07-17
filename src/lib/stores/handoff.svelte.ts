@@ -1,9 +1,13 @@
 // Auto-handoff: when an agent nears its context window, ask it to write a
 // continue-<slug>.md handoff doc, end the session, and start a fresh successor
-// seeded to resume from that doc. Opt-out via prefs.autoHandoff; fires once per
-// session. This module owns the machinery — thresholds, the settle-wait for the
-// doc, resource teardown — while the app shell supplies its session list and
-// launch through `HandoffHost` and drives the scan from a component `$effect`.
+// seeded to resume from that doc. The successor is the SAME agent while it still
+// has usage headroom (a context-driven handoff); when the current agent is
+// tapped out, the handoff crosses over to the first other available agent that
+// does (Claude→Codex, generalized to any agents). Opt-out via prefs.autoHandoff;
+// fires once per session. This module owns the machinery — thresholds, successor
+// selection, the settle-wait for the doc, resource teardown — while the app
+// shell supplies its session list, its available-agent pool and launch through
+// `HandoffHost` and drives the scan from a component `$effect`.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { CONTEXT_HANDOFF_PCT } from "@/lib/contextLevel";
@@ -35,10 +39,48 @@ function handoffPrompt(doc: string): string {
   return `\nYour context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.\r`;
 }
 
+/** Seed for the fresh successor: read the handoff doc, plus a pointer to the
+ *  accumulated project memory (CLAUDE.md and any earlier continue-*.md docs) so a
+ *  crossover agent picks up conventions and prior handoffs too. Agent-agnostic —
+ *  it names files on disk, not any one agent's memory system. */
+function successorPrompt(doc: string): string {
+  return `Read ${doc} to continue the work where the previous session left off. For project conventions and any earlier handoffs, also read CLAUDE.md and any other continue-*.md files in this directory.\r`;
+}
+
+/** Pick the agent that should take over. The current agent stays on while it
+ *  still has usage headroom (the context-driven handoff — context near full but
+ *  the agent can keep going). Once it's out of headroom, the first OTHER
+ *  available agent that has headroom takes over (a usage crossover). `null` when
+ *  no agent has headroom — the caller stays marked and skips this cycle. */
+export async function pickSuccessor({ current, available, hasHeadroom }: {
+  current: Agent;
+  available: Agent[];
+  hasHeadroom: (agentId: string) => Promise<boolean>;
+}): Promise<Agent | null> {
+  if (await hasHeadroom(current.id)) {
+    return current;
+  }
+
+  for (const agent of available) {
+    if (agent.id === current.id) {
+      continue;
+    }
+
+    if (await hasHeadroom(agent.id)) {
+      return agent;
+    }
+  }
+
+  return null;
+}
+
 /** What the app shell provides. The reads run inside the shell's `$effect`, so
  *  the scan re-runs as the session list / prefs / context stores change. */
 export interface HandoffHost {
   sessions: () => AgentSession[];
+  /** The agents installed and available to take over — the crossover pool for a
+   *  usage failover. The current agent is excluded at selection time. */
+  availableAgents: () => Agent[];
   /** Whether the user opted out via prefs.autoHandoff. */
   isOptedOut: () => boolean;
   /** Source text for the handoff-doc slug (workspace label or short dir). */
@@ -141,13 +183,23 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   async function handoff(session: AgentSession) {
-    const enough = await hasEnoughUsage(session.agent.id);
-    if (!enough) {
-      return; // stay marked so we don't re-check each tick; skip this cycle
+    // Same agent while it still has headroom; otherwise cross over to the first
+    // other available agent that does. No agent with headroom → stay marked so we
+    // don't re-check each tick; skip this cycle.
+    const successorAgent = await pickSuccessor({
+      current: session.agent,
+      available: host.availableAgents(),
+      hasHeadroom: hasEnoughUsage
+    });
+    if (!successorAgent) {
+      return;
     }
 
     const doc = `continue-${handoffSlug(host.slugSource())}.md`;
-    note = `Context nearly full — handing ${session.agent.label} off to a fresh agent…`;
+    const isCrossover = successorAgent.id !== session.agent.id;
+    note = isCrossover
+      ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
+      : `Context nearly full — handing ${session.agent.label} off to a fresh agent…`;
 
     // 1. Ask the agent to write the handoff doc, then wait for it to land.
     await pty.write({
@@ -157,16 +209,16 @@ export function createAutoHandoff(host: HandoffHost) {
     await waitForFile(doc);
 
     // 2. End the session, 3. start the successor seeded to continue.
-    const { agent, cwd } = session;
+    const { cwd } = session;
     await pty.kill(session.id);
     host.removeSession(session.id);
     dropSessionStatus(session.id);
     dropContext(session.id);
     handingOff.delete(session.id);
     const successorId = host.launchSuccessor({
-      agent,
+      agent: successorAgent,
       cwd,
-      initialPrompt: `Read ${doc} and continue the work where the previous session left off.\r`
+      initialPrompt: successorPrompt(doc)
     });
     note = "";
 

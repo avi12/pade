@@ -9,6 +9,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
+  import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { dropContext, observeContext } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
@@ -551,6 +552,11 @@
       });
       // Spot the CLI's "limit reached" stop message (drives auto-resume).
       observeUsageLimit({
+        id: session.id,
+        chunk: chunk.data
+      });
+      // Spot a transient API-error stop (drives API-error auto-retry).
+      observeApiError({
         id: session.id,
         chunk: chunk.data
       });
