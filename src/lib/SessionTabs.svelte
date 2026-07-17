@@ -616,6 +616,11 @@
         opacity: 85%;
       }
 
+      /* Full opacity when the button itself is hovered — must beat `.tab:hover &`
+         (higher specificity) or it stays at 85%, and CSS opacity groups the whole
+         subtree, so a faded button also fades its own tooltip pseudo to match. */
+      .tab:hover &:hover,
+      .tab.active &:hover,
       &:hover {
         color: var(--primary);
         opacity: 100%;
