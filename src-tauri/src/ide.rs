@@ -470,12 +470,47 @@ fn has_ext(dir: &std::path::Path, ext: &str) -> bool {
     })
 }
 
+/// Directories that never signal a project kind of their own: dependency and
+/// build output, plus anything hidden. Skipped when probing markers a level
+/// down, so `node_modules` or `vendor` can't smuggle in a false kind.
+const IGNORED_PROBE_DIRS: &[&str] = &["node_modules", "target", "vendor", "dist", "build", "out"];
+
+/// The project root plus its direct child directories — everywhere a kind
+/// marker may live. A hybrid app or a small monorepo keeps each side's manifest
+/// in its own folder (`src-tauri/Cargo.toml`, `backend/go.mod`), and a root-only
+/// probe would miss that whole side of the project.
+fn probe_roots(cwd: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let children = std::fs::read_dir(cwd)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| !name.starts_with('.') && !IGNORED_PROBE_DIRS.contains(&name))
+        });
+    std::iter::once(cwd.to_path_buf()).chain(children).collect()
+}
+
 /// Sniff the project kinds present in the current directory from the
-/// [`KIND_REGISTRY`] marker files, in the registry's priority order.
+/// [`KIND_REGISTRY`] marker files, in the registry's priority order. Markers
+/// are probed in the root and one level down (see [`probe_roots`]), so a
+/// project's kinds are the union of what it contains — a web frontend with a
+/// Rust core detects as both, and the multi-kind ranking in [`ide_suggest`]
+/// then leads with editors that speak every side rather than one side's
+/// specialist.
 fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
+    let roots = probe_roots(cwd);
     KIND_REGISTRY
         .iter()
-        .filter(|def| def.markers.iter().any(|marker| marker.is_present(cwd)))
+        .filter(|def| {
+            def.markers
+                .iter()
+                .any(|marker| roots.iter().any(|root| marker.is_present(root)))
+        })
         .map(|def| def.kind)
         .collect()
 }
