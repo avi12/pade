@@ -29,7 +29,7 @@
   /* Nested CSS (rule 8): a component's rules live together, mirroring markup. */
   .badge {
     display: inline-flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
     color: var(--on-surface-variant);
     font-size: 12px;
@@ -39,6 +39,12 @@
       font-family: var(--font-monospace);
       font-weight: 700;
       font-size: 13px;
+    }
+
+    /* The state phrase is 600-weight in every state (canon); each status
+       colors it via its own rule below. */
+    .state {
+      font-weight: 600;
     }
 
     .dot {
@@ -58,6 +64,10 @@
       animation: pulse 1100ms var(--ease) infinite;
     }
 
+    &.working .state {
+      color: var(--primary);
+    }
+
     &.ready .dot {
       background: var(--tertiary);
       box-shadow: 0 0 0 4px var(--tertiary-wash);
@@ -65,7 +75,6 @@
 
     &.ready .state {
       color: var(--tertiary);
-      font-weight: 600;
     }
 
     &.exited .dot {
