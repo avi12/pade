@@ -12,11 +12,12 @@ use serde::Serialize;
 
 use crate::util::is_on_path;
 
-/// The source-language families PADE can identify and match against an
-/// editor's capabilities. The string identifier crosses the IPC and settings
-/// boundaries; this enum is the sole Rust definition of that closed set.
+/// The project families and source languages PADE can match against an editor's
+/// capabilities. The string identifier crosses the IPC and settings boundaries;
+/// this enum is the sole Rust definition of that closed set.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum ProjectKind {
+    Tauri,
     Android,
     Web,
     Python,
@@ -32,6 +33,7 @@ enum ProjectKind {
 impl ProjectKind {
     const fn as_str(self) -> &'static str {
         match self {
+            Self::Tauri => "tauri",
             Self::Android => "android",
             Self::Web => "web",
             Self::Python => "python",
@@ -309,10 +311,10 @@ impl Marker {
     }
 }
 
-/// One source-language family PADE recognises. A single row is the authoritative
-/// mapping from project markers, filename extensions, and GitHub Linguist names
-/// to one project kind. Editor support lives separately in [`REGISTRY`], so
-/// adding a language never requires preference-list tuning.
+/// One project family PADE recognises. A single row is the authoritative mapping
+/// from project markers, filename extensions, and GitHub Linguist names to one
+/// project kind. Editor support lives separately in [`REGISTRY`], so adding a
+/// language never requires preference-list tuning.
 struct KindDef {
     kind: ProjectKind,
     label: &'static str,
@@ -325,6 +327,20 @@ struct KindDef {
 }
 
 const KIND_REGISTRY: &[KindDef] = &[
+    // A Tauri configuration lives in the Rust application directory and proves
+    // that the adjacent web and Rust sources form one desktop application. It
+    // must precede the web marker: a WebStorm rule is not a complete Tauri fit.
+    KindDef {
+        kind: ProjectKind::Tauri,
+        label: "Tauri",
+        markers: &[
+            Marker::Named("tauri.conf.json"),
+            Marker::Named("tauri.conf.json5"),
+            Marker::Named("Tauri.toml"),
+        ],
+        extensions: &[],
+        linguist_languages: &[],
+    },
     // Android is checked first: an Android project is also "web"/"java"-ish,
     // but Android Studio is the right call when its markers are there.
     KindDef {
@@ -1263,8 +1279,9 @@ pub fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        census, exe_basename, family, ide_kinds, open_args, open_style, project_name, protocol_id,
-        ranked_editor_ids, relative_path, source_content, OpenStyle, ProjectKind,
+        census, exe_basename, family, ide_kinds, open_args, open_style, primary_kind, project_name,
+        protocol_id, ranked_editor_ids, relative_path, source_content, OpenStyle, ProjectKind,
+        REGISTRY,
     };
 
     #[test]
@@ -1286,6 +1303,27 @@ mod tests {
             ranked.iter().position(|id| id == "vscode")
                 < ranked.iter().position(|id| id == "webstorm")
         );
+    }
+
+    #[test]
+    fn a_tauri_manifest_outranks_its_web_and_rust_parts() {
+        let dir = std::env::temp_dir().join(format!("pade-tauri-{}", std::process::id()));
+        let rust_dir = dir.join("src-tauri");
+        std::fs::create_dir_all(&rust_dir).expect("test dirs");
+        std::fs::write(dir.join("package.json"), "{}").expect("web manifest");
+        std::fs::write(rust_dir.join("Cargo.toml"), "[package]\nname = \"app\"\n")
+            .expect("rust manifest");
+        std::fs::write(rust_dir.join("tauri.conf.json"), "{}").expect("tauri configuration");
+
+        assert_eq!(primary_kind(&dir), Some(ProjectKind::Tauri));
+        assert!(!REGISTRY
+            .iter()
+            .find(|editor| editor.id == "webstorm")
+            .expect("WebStorm registry entry")
+            .coverage
+            .supports(ProjectKind::Tauri));
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
@@ -1408,9 +1446,9 @@ mod tests {
     }
 
     #[test]
-    fn kinds_list_cpp_before_dotnet_and_android_first() {
+    fn kinds_list_cpp_before_dotnet_and_tauri_first() {
         let kinds: Vec<String> = ide_kinds().into_iter().map(|info| info.kind).collect();
-        assert_eq!(kinds.first().map(String::as_str), Some("android"));
+        assert_eq!(kinds.first().map(String::as_str), Some("tauri"));
         let position = |kind: &str| {
             kinds
                 .iter()
