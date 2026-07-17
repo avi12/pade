@@ -93,6 +93,20 @@ fn ignored(path: &Path) -> bool {
         .any(|c| c.as_os_str().to_str().is_some_and(|s| IGNORED.contains(&s)))
 }
 
+/// Whether a change is worth surfacing, given whether its file still exists.
+///
+/// A created or modified path that is already gone was an atomic-write scratch
+/// file: an editor or tool writes the new contents under a temporary name, then
+/// renames it onto the real file. The scratch name only ever exists for an
+/// instant, so by the time its diff is fetched the file is gone and the card can
+/// only read "no preview available" — never a useful change. Detecting that by
+/// its absence (rather than guessing temp-name shapes) catches every such file,
+/// whatever a tool happens to call it. A deletion is the one case where the file
+/// being gone *is* the event, so it always surfaces.
+fn surfaces(kind: ChangeKind, path_exists: bool) -> bool {
+    matches!(kind, ChangeKind::Deleted) || path_exists
+}
+
 fn now_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -222,6 +236,11 @@ fn handle_event(app: &AppHandle, event: Event) {
         if ignored(&path) || path.is_dir() {
             continue;
         }
+        // A created/modified file that has already vanished was an atomic-write
+        // scratch file — skip it rather than surface a preview-less phantom card.
+        if !surfaces(kind, path.exists()) {
+            continue;
+        }
 
         // Debounce: editors emit bursts per save.
         {
@@ -275,4 +294,27 @@ fn handle_event(app: &AppHandle, event: Event) {
 
 pub fn init(app: &AppHandle) {
     app.manage(WatcherState::default());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{surfaces, ChangeKind};
+
+    #[test]
+    fn a_created_or_modified_file_that_vanished_is_not_surfaced() {
+        // An atomic-write scratch file is renamed away before it can be diffed.
+        assert!(!surfaces(ChangeKind::Created, false));
+        assert!(!surfaces(ChangeKind::Modified, false));
+    }
+
+    #[test]
+    fn a_created_or_modified_file_that_still_exists_is_surfaced() {
+        assert!(surfaces(ChangeKind::Created, true));
+        assert!(surfaces(ChangeKind::Modified, true));
+    }
+
+    #[test]
+    fn a_deletion_always_surfaces_since_the_file_being_gone_is_the_event() {
+        assert!(surfaces(ChangeKind::Deleted, false));
+    }
 }
