@@ -51,46 +51,46 @@
 />
 
 {#if bestFit}
-  <span class="ide">
+  <div class="ide menu-host">
     <button class="ide-open" onclick={() => open(bestFit)}>
       <span class="editor-glyph" data-brand={ideBrand(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
       <span class="lbl">Open in {bestFit.label}</span>
     </button>
     <button
       style:anchor-name="--ide-anchor"
-      class="ide-more"
+      class="ide-more menu-trigger"
       aria-label="Switch editor or reveal in file explorer"
       data-tooltip="Switch editor or reveal in file explorer"
       popovertarget="ide-menu"
     ><span class="caret">▾</span></button>
-  </span>
 
-  <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
-    <li class="hint">Open in editor</li>
-    {#each ides as editor, index (editor.id)}
+    <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
+      <li class="hint">Open in editor</li>
+      {#each ides as editor, index (editor.id)}
+        <li>
+          <button
+            onclick={() => open(editor)}
+            popovertarget="ide-menu"
+            popovertargetaction="hide"
+          >
+            <span class="name">
+              <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
+              {editor.label}
+            </span>
+            {#if index === 0 && hasAlternatives}
+              <span class="best">best fit</span>
+            {/if}
+          </button>
+        </li>
+      {/each}
+      <li class="sep" role="separator"></li>
       <li>
-        <button
-          onclick={() => open(editor)}
-          popovertarget="ide-menu"
-          popovertargetaction="hide"
-        >
-          <span class="name">
-            <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
-            {editor.label}
-          </span>
-          {#if index === 0 && hasAlternatives}
-            <span class="best">best fit</span>
-          {/if}
+        <button onclick={() => void os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
+          <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
         </button>
       </li>
-    {/each}
-    <li class="sep" role="separator"></li>
-    <li>
-      <button onclick={() => void os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
-        <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
-      </button>
-    </li>
-  </ul>
+    </ul>
+  </div>
 {/if}
 
 <style>
@@ -110,20 +110,14 @@
     align-items: stretch;
     border-radius: 999px;
     background: var(--surface-2);
-
-    /* While the menu is open, hide the caret's own hover tooltip: the popover
-       lives in the top layer (above any z-index), so an unsuppressed bubble
-       peeks out from behind the open menu. */
-    &:has(~ .ide-list:popover-open) .ide-more::after {
-      display: none;
-    }
   }
 
   .ide-open {
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    padding: 7px 10px 7px 13px;
+    padding-block: 7px;
+    padding-inline: 13px 10px;
     border: none;
     border-radius: 999px;
     background: transparent;

@@ -301,9 +301,9 @@
      declarative popovertargetaction="hide" would run after the click handler
      and cancel the smooth scroll to the add field. -->
 {#snippet rootSelect(menuId: string)}
-  <span class="root-sel">
+  <span class="root-sel menu-host">
     <button
-      class="root-trigger"
+      class="root-trigger menu-trigger"
       aria-label="Root folder"
       popovertarget={menuId}
       type="button"
@@ -1027,16 +1027,11 @@
     }
   }
 
-  /* Open state — while the menu is open the trigger reads active and the caret
-     flips (inspired by the youtube-downloader select). Pure CSS, field-scoped. */
-  .root-sel:has(.root-menu:popover-open) {
-    .root-trigger {
-      color: var(--primary);
-    }
-
-    .caret {
-      rotate: 180deg;
-    }
+  /* Open state — the field's own extra on top of the shared `.menu-host` active
+     look (border/background/caret, from theme.css): the trigger text tints
+     primary while the menu is open. Pure CSS, field-scoped. */
+  .root-sel:has(.root-menu:popover-open) .root-trigger {
+    color: var(--primary);
   }
 
   .root-menu {

@@ -482,6 +482,35 @@ textarea {
   }
 }
 
+/* ── Popover menu triggers stay active while their menu is open ────────────────
+   A control that opens a [popover] loses :hover the instant the pointer crosses
+   into the top-layer menu, so the trigger flattens while the menu is still
+   showing. The fix is one shared, JS-free rule for every dropdown: wrap the
+   trigger and its [popover] in a `.menu-host`, tag the control `.menu-trigger`,
+   and it holds a pressed state for as long as the menu is open — the same
+   surface-3 fill + primary edge + flipped caret the fields use on :hover, so all
+   dropdowns read identically. New dropdowns opt in with the two class names and
+   inherit the behaviour; nothing is written per component.
+
+   `.menu-host` bounds the :has() so it never becomes a document-wide selector
+   (see the tooltip PERF note above); `:not([popover] *)` stops a menu's own inner
+   trigger (a submenu) from lighting up the outer one. */
+.menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
+  border-color: var(--primary);
+  background: var(--surface-3);
+
+  /* A caret in the trigger flips to point at the open menu. */
+  .caret {
+    rotate: 180deg;
+  }
+
+  /* The trigger's own hover tooltip must not peek out from behind the open menu
+     (both live in the top layer). */
+  &[data-tooltip]::after {
+    display: none;
+  }
+}
+
 /* ── Shared M3 Expressive motion ─────────────────────────────────────────────
    One authoritative home for the animation vocabulary (DRY). Components
    reference these by name; the reduced-motion block above already disables them

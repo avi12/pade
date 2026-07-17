@@ -30,28 +30,36 @@
 </script>
 
 {#if tools.length}
-  <button style:anchor-name="--design-anchor" class="design-btn" popovertarget="design-menu">
-    <Icon name="sparkles" /> Design<span class="caret">▾</span>
-  </button>
-  <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list popover-menu" popover>
-    <li class="hint">Open a design-to-code tool</li>
-    {#each tools as tool (tool.id)}
-      <li>
-        <button onclick={() => void design.open(tool.url)} popovertarget="design-menu" popovertargetaction="hide">
-          <span class="tool">
-            <Icon name="star" />{tool.label}
-            {#if tool.recommended}
-              <span class="best">best fit</span>
-            {/if}
-          </span>
-          <span class="vendor">{tool.vendor}</span>
-        </button>
-      </li>
-    {/each}
-  </ul>
+  <span class="menu-host">
+    <button style:anchor-name="--design-anchor" class="design-btn menu-trigger" popovertarget="design-menu">
+      <Icon name="sparkles" /> Design<span class="caret">▾</span>
+    </button>
+    <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list popover-menu" popover>
+      <li class="hint">Open a design-to-code tool</li>
+      {#each tools as tool (tool.id)}
+        <li>
+          <button onclick={() => void design.open(tool.url)} popovertarget="design-menu" popovertargetaction="hide">
+            <span class="tool">
+              <Icon name="star" />{tool.label}
+              {#if tool.recommended}
+                <span class="best">best fit</span>
+              {/if}
+            </span>
+            <span class="vendor">{tool.vendor}</span>
+          </button>
+        </li>
+      {/each}
+    </ul>
+  </span>
 {/if}
 
 <style>
+  /* Layout-neutral wrapper so the shared .menu-host rule can hold the trigger
+     active while #design-menu is open. */
+  .menu-host {
+    display: contents;
+  }
+
   .design-btn {
     display: inline-flex;
     gap: 6px;

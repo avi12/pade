@@ -379,10 +379,10 @@
     {/each}
 
     {#if hasMoreSessions}
-      <span class="more-wrap">
+      <span class="more-wrap menu-host">
         <button
           style:anchor-name="--more-anchor"
-          class="more-btn"
+          class="more-btn menu-trigger"
           class:active={overflowHasActive}
           aria-label="Show remaining sessions"
           popovertarget="more-menu"
@@ -411,48 +411,50 @@
       </span>
     {/if}
 
-    <button
-      style:anchor-name="--add-anchor"
-      class="add-btn"
-      aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
-      data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click for options`}
-      onclick={e => {
-        if (e.ctrlKey || e.metaKey) {
-          document.getElementById("add-menu")?.togglePopover();
-          return;
-        }
+    <span class="add-wrap menu-host">
+      <button
+        style:anchor-name="--add-anchor"
+        class="add-btn menu-trigger"
+        aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
+        data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click for options`}
+        onclick={e => {
+          if (e.ctrlKey || e.metaKey) {
+            document.getElementById("add-menu")?.togglePopover();
+            return;
+          }
 
-        if (lastAgent) {
-          onlaunch(lastAgent);
-        }
-      }}
-    >+</button>
-    <ul id="add-menu" style:position-anchor="--add-anchor" class="menu popover-menu" popover>
-      <li class="menu-sep">Launch an agent</li>
-      {#each agents as a (a.id)}
-        <li>
-          <button
-            onclick={() => onlaunch(a)}
-            popovertarget="add-menu"
-            popovertargetaction="hide"
-          ><span class="launch-icon"><Icon name={agentIconName(a.id)} /></span>{a.label}</button>
-        </li>
-      {/each}
-      {#if branches.length > 0}
-        <li class="menu-divider" role="separator"></li>
-        <li class="menu-sep">On a branch — new worktree</li>
-        {#each branches as b (b)}
+          if (lastAgent) {
+            onlaunch(lastAgent);
+          }
+        }}
+      >+</button>
+      <ul id="add-menu" style:position-anchor="--add-anchor" class="menu popover-menu" popover>
+        <li class="menu-sep">Launch an agent</li>
+        {#each agents as a (a.id)}
           <li>
             <button
-              class="branch-item"
-              onclick={async () => await onlaunchbranch(b)}
+              onclick={() => onlaunch(a)}
               popovertarget="add-menu"
               popovertargetaction="hide"
-            ><span class="branch-icon"><Icon name="git" /></span>{b}</button>
+            ><span class="launch-icon"><Icon name={agentIconName(a.id)} /></span>{a.label}</button>
           </li>
         {/each}
-      {/if}
-    </ul>
+        {#if branches.length > 0}
+          <li class="menu-divider" role="separator"></li>
+          <li class="menu-sep">On a branch — new worktree</li>
+          {#each branches as b (b)}
+            <li>
+              <button
+                class="branch-item"
+                onclick={async () => await onlaunchbranch(b)}
+                popovertarget="add-menu"
+                popovertargetaction="hide"
+              ><span class="branch-icon"><Icon name="git" /></span>{b}</button>
+            </li>
+          {/each}
+        {/if}
+      </ul>
+    </span>
   </div>
 
   <!-- Off-layout mirror: every tab at full width, purely for measuring. Keeps
@@ -763,6 +765,12 @@
         opacity: 100%;
       }
     }
+  }
+
+  /* Groups the add trigger with its popover as one menu-host, adding no box of
+     its own so the button lays out in the strip exactly as before. */
+  .add-wrap {
+    display: contents;
   }
 
   .add-btn {
