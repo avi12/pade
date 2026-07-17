@@ -491,7 +491,16 @@
       // truecolor picked for the opposite scheme (a pale blue on the light
       // background) is nudged to WCAG AA against ours. Render-time only — the
       // buffer keeps the agent's true colors.
-      minimumContrastRatio: MINIMUM_CONTRAST_RATIO
+      minimumContrastRatio: MINIMUM_CONTRAST_RATIO,
+      // OSC 8 hyperlinks — the terminal's <a>: an escape-wrapped label with a
+      // hidden URL (Claude's "Security guide", "MCP documentation"). xterm
+      // detects these itself but only activates them through this handler.
+      // Routed through the same bridge as plain-text URLs; the Rust side still
+      // refuses anything that isn't http(s), so a file:// or custom-scheme
+      // link an agent emits goes nowhere.
+      linkHandler: {
+        activate: (_event, uri) => void os.openUrl(uri)
+      }
     });
     term.open(host);
     attached = true;

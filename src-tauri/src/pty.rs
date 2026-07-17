@@ -307,6 +307,11 @@ fn build_command(command: Option<String>) -> CommandBuilder {
     for (key, value) in crate::agents::spawn_env(&program) {
         cmd.env(key, value);
     }
+    // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI
+    // can't tell from inside a bare ConPTY: Ink/terminal-link probe the
+    // environment (TERM_PROGRAM, VTE version) and silently fall back to plain
+    // text when nothing matches. This is the escape hatch those probes honor.
+    cmd.env("FORCE_HYPERLINK", "1");
     cmd
 }
 
