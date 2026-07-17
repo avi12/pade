@@ -187,8 +187,10 @@ if cramped. Left→right:
 4. **Spacer** (pushes the rest right).
 5. **Usage meter** — see §4.6.
 6. **Design menu** — a pill button `✦ Design ▾` (`surface-2`); see §4.4.
-7. **IDE menu** — a pill button `⇱ Open in <best-fit IDE> ▾` (`surface-2`); opens a
-   popover of installed editors, the project-type best-match tagged "best fit".
+7. **IDE menu** — a pill button `⇱ Open in <best-fit IDE> ▾` (`surface-2`); its
+   drop-down is always available, lists installed compatible editors with the
+   project-type best-match tagged "best fit", and ends with **Reveal in file
+   explorer**.
 8. **Side-panel segmented control** — a pill-grouped `role="tablist"` of four
    tabs, each an icon+label: **Change Feed**, **Git**, **Tasks**, **Config**. The
    selected tab is filled `primary-container`. Clicking the active one closes the panel.

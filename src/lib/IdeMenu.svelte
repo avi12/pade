@@ -8,20 +8,19 @@
   // Opens the active project in an external editor. `ide.suggest()` returns the
   // installed editors ranked for the detected project kind, so the best fit is
   // first — the split button's primary action opens it directly (auto-detected),
-  // and the caret drops the full list to pick another. A console editor
+  // and the caret always drops the full list, ending with File Explorer. A console editor
   // (Neovim/Vim/Helix) can't run detached, so it's handed to the parent to open
   // in a PADE terminal tab instead of through the OS.
   const { onterminaleditor, cwd }: {
     onterminaleditor: (editor: Ide) => void;
     // The active project/worktree directory — the target of "Reveal in file
-    // explorer". Absent means no reveal item (no directory to open).
-    cwd?: string;
+    // explorer" and is required so the selector always has that final action.
+    cwd: string;
   } = $props();
 
   let ides = $state<Ide[]>([]);
   // The auto-detected best fit for this project — the primary action's target.
   const bestFit = $derived(ides[0]);
-  const hasAlternatives = $derived(ides.length > 1);
 
   // A newly-installed editor should show up without a restart: re-detect once at
   // mount and whenever the app becomes visible again (the user installed one in
@@ -56,47 +55,41 @@
       <span class="editor-glyph" data-brand={ideBrand(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
       <span class="lbl">Open in {bestFit.label}</span>
     </button>
-    {#if hasAlternatives}
-      <button
-        style:anchor-name="--ide-anchor"
-        class="ide-more"
-        aria-label="Switch editor or reveal in file explorer"
-        data-tooltip="Switch editor or reveal in file explorer"
-        popovertarget="ide-menu"
-      ><span class="caret">▾</span></button>
-    {/if}
+    <button
+      style:anchor-name="--ide-anchor"
+      class="ide-more"
+      aria-label="Switch editor or reveal in file explorer"
+      data-tooltip="Switch editor or reveal in file explorer"
+      popovertarget="ide-menu"
+    ><span class="caret">▾</span></button>
   </span>
 
-  {#if hasAlternatives}
-    <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
-      <li class="hint">Open in editor</li>
-      {#each ides as editor, index (editor.id)}
-        <li>
-          <button
-            onclick={() => open(editor)}
-            popovertarget="ide-menu"
-            popovertargetaction="hide"
-          >
-            <span class="name">
-              <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
-              {editor.label}
-            </span>
-            {#if index === 0}
-              <span class="best">best fit</span>
-            {/if}
-          </button>
-        </li>
-      {/each}
-      {#if cwd}
-        <li class="sep" role="separator"></li>
-        <li>
-          <button onclick={() => void os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
-            <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
-          </button>
-        </li>
-      {/if}
-    </ul>
-  {/if}
+  <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
+    <li class="hint">Open in editor</li>
+    {#each ides as editor, index (editor.id)}
+      <li>
+        <button
+          onclick={() => open(editor)}
+          popovertarget="ide-menu"
+          popovertargetaction="hide"
+        >
+          <span class="name">
+            <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
+            {editor.label}
+          </span>
+          {#if index === 0}
+            <span class="best">best fit</span>
+          {/if}
+        </button>
+      </li>
+    {/each}
+    <li class="sep" role="separator"></li>
+    <li>
+      <button onclick={() => void os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
+        <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
+      </button>
+    </li>
+  </ul>
 {/if}
 
 <style>
