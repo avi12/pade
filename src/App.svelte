@@ -375,36 +375,22 @@
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
-  // else auto-launch a lone agent, else onboard. (Reused for every entry path.)
+  // else launch the best installed agent outright — opening a project always
+  // lands in the workspace, never on a blocking chooser. The agent picker
+  // still appears after a hand-closed or exited last session, where "what
+  // next?" is a genuine question. (Reused for every entry path.)
   function startAgentFlow(path: string, initialPrompt?: string) {
     currentProject = path;
     // Let other windows' pickers focus this one instead of reopening the project.
     void windows.registerProject(path);
     const prefId = settings.projectAgents[path] ?? settings.defaultAgent ?? null;
     const preferred = prefId ? agents.find(a => a.id === prefId) : undefined;
-    if (preferred) {
-      return launch({
-        agent: preferred,
-        initialPrompt
-      });
-    }
-
-    if (realAgents.length === 1) {
-      return launch({
-        agent: realAgents[0],
-        initialPrompt
-      });
-    }
-
-    if (realAgents.length === 0) {
-      return launch({
-        agent: agents[0],
-        initialPrompt
-      }); // shell
-    }
-
-    pendingPrompt = initialPrompt;
-    phase = Phase.onboarding;
+    // Detection order is the registry's priority order, so the first real
+    // agent is the best installed one; the shell fallback carries otherwise.
+    launch({
+      agent: preferred ?? realAgents[0] ?? agents[0],
+      initialPrompt
+    });
   }
 
   // A self-exit within RESPAWN_MIN_LIFETIME_MS of launch reads as a failed start,

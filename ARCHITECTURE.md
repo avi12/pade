@@ -53,11 +53,16 @@ phases and never shows two at once.
 stateDiagram-v2
   [*] --> loading
   loading --> ready: launched inside a project
-  loading --> onboarding: several agents installed
   loading --> picker: no project (opt-in)
+  picker --> ready: project opened (best agent launches outright)
+  ready --> onboarding: last session closed / exited
   onboarding --> ready: agent chosen
-  picker --> ready: project opened
 ```
+
+Opening a project never blocks on a chooser: the saved per-project/default
+agent — else the first installed agent in registry order — launches straight
+into the workspace. `onboarding` is the *afterwards* screen, shown when the
+last session is hand-closed or exits without a respawn.
 
 ### Finding an installed agent
 
@@ -255,7 +260,7 @@ responsibility, and who it collaborates with.
 | `src/panels/VcsPanel.svelte` | Git-panel orchestrator: fetch + watcher-debounced refresh + panel header; composes the sections below |
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files |
-| `src/panels/Onboarding.svelte` | Agent picker when several agents could open a project |
+| `src/panels/Onboarding.svelte` | Agent picker shown after the last session is closed or exits — never on the way into a project |
 | `src/panels/ProjectPicker.svelte` | Picker orchestrator: owns settings + refresh + the shared workspace lifecycle, hosts the delete `ConfirmDialog`, and keeps the page live — it watches the parents of its rows (`dirs`) and re-prunes on any change, so a folder deleted outside PADE leaves the list on its own; composes the sections below |
 
 ### Git-panel sections (`src/panels/vcs/`)
