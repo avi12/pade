@@ -1,9 +1,12 @@
 import {
+  CloneUrl,
   FirstPrompt,
   FolderPath,
+  isSshCloneUrl,
   nameError,
   parseInput,
   ProjectName,
+  repoFolderName,
   RestoreQuery,
   SessionName
 } from "@/lib/validate";
@@ -112,6 +115,50 @@ describe("SessionName", () => {
   it("caps the length at 60 characters", () => {
     expect(SessionName.safeParse("x".repeat(60)).success).toBe(true);
     expect(SessionName.safeParse("x".repeat(61)).success).toBe(false);
+  });
+});
+
+describe("CloneUrl", () => {
+  it("accepts every git transport", () => {
+    expect(CloneUrl.safeParse("https://github.com/org/repo.git").success).toBe(true);
+    expect(CloneUrl.safeParse("ssh://git@github.com/org/repo.git").success).toBe(true);
+    expect(CloneUrl.safeParse("git://github.com/org/repo.git").success).toBe(true);
+    expect(CloneUrl.safeParse("git@github.com:org/repo.git").success).toBe(true);
+  });
+
+  it("rejects a Windows path, a bare word, and a non-git protocol", () => {
+    expect(CloneUrl.safeParse("C:\\repositories\\repo").success).toBe(false);
+    expect(CloneUrl.safeParse("repo").success).toBe(false);
+    expect(CloneUrl.safeParse("ftp://github.com/org/repo.git").success).toBe(false);
+  });
+});
+
+describe("isSshCloneUrl", () => {
+  it("recognises ssh:// and scp-like URLs", () => {
+    expect(isSshCloneUrl("ssh://git@github.com/org/repo.git")).toBe(true);
+    expect(isSshCloneUrl("git@github.com:org/repo.git")).toBe(true);
+  });
+
+  it("treats https as not-SSH", () => {
+    expect(isSshCloneUrl("https://github.com/org/repo.git")).toBe(false);
+  });
+});
+
+describe("repoFolderName", () => {
+  it("derives the folder from any supported URL shape", () => {
+    expect(repoFolderName("https://github.com/org/repo.git")).toBe("repo");
+    expect(repoFolderName("git@github.com:org/repo.git")).toBe("repo");
+    expect(repoFolderName("https://github.com/org/repo/")).toBe("repo");
+  });
+
+  it("yields nothing while the URL has no usable tail", () => {
+    expect(repoFolderName("https://github.com/")).toBe("");
+    expect(repoFolderName("")).toBe("");
+  });
+
+  it("never suggests a name from a non-clone shape", () => {
+    expect(repoFolderName("C:\\repositories\\repo")).toBe("");
+    expect(repoFolderName("repo")).toBe("");
   });
 });
 

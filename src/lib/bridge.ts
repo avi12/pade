@@ -210,6 +210,20 @@ export const vcs = {
   }),
   /** The `origin` remote as a browsable `https://host/owner/repo` URL, or null. */
   remoteUrl: () => call("vcs_remote_url", z.string().nullable()),
+  /** Is the `git` CLI installed? Gates the picker's Clone tab. */
+  gitInstalled: () => call("vcs_git_installed", z.boolean()),
+  /** Whether an SSH private key exists — without one an `ssh://`/`git@` clone
+   *  URL can't authenticate, so the picker offers HTTPS credentials instead. */
+  hasSshKey: () => call("vcs_has_ssh_key", z.boolean()),
+  /** Clone `url` into `root\name`; returns the new project path. Credentials
+   *  switch the clone to HTTPS for that one command and are never persisted. */
+  clone: (args: {
+    url: string;
+    root: string;
+    name: string;
+    username?: string;
+    password?: string;
+  }) => call("vcs_clone", z.string(), { ...args }),
   worktreeAdd: (args: {
     branch: string;
     create: boolean;

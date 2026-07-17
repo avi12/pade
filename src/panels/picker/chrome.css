@@ -200,3 +200,44 @@
 .picker .tick {
   color: var(--primary);
 }
+
+/* Pill segmented tablist (Get started modes, On-launch start mode). Keyboard:
+   the rovingTablist action moves selection with the arrow keys while the
+   markup keeps a roving tabindex, so Tab itself leaves the list and lands in
+   the active panel's first input. */
+.picker .pill-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-self: flex-start;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+
+  .pill-tab {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-surface-variant);
+    font: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
+
+    &:hover {
+      filter: none;
+    }
+
+    &[aria-selected="true"] {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+  }
+}
