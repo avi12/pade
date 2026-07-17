@@ -1,0 +1,6 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  // Referenced by name from .stylelintrc.json (customSyntax: "postcss-html"),
+  // which dependency scanning can't see through.
+  "ignoreDependencies": ["postcss-html"]
+}

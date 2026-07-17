@@ -730,15 +730,15 @@
   .slot {
     grid-area: 1 / 1;
     align-self: start;
-    visibility: hidden;
     opacity: 0%;
+    visibility: hidden;
     transition:
       opacity 240ms var(--ease),
       visibility 240ms;
 
     &.open {
-      visibility: visible;
       opacity: 100%;
+      visibility: visible;
     }
   }
 
