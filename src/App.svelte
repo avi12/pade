@@ -8,13 +8,14 @@
     windows,
     workspace
   } from "@/lib/bridge";
+  import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import DesignMenu from "@/lib/DesignMenu.svelte";
   import type { DragHint } from "@/lib/dragReorder";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
-  import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { DropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -64,6 +65,7 @@
     defaultAgent: null,
     projectAgents: {},
     recentProjects: [],
+    pinnedProjects: [],
     ownedWorkspaces: [],
     labels: {},
     prefs: {}
@@ -640,13 +642,54 @@
     }
   }
 
-  // The picker's "this project" tag is only meaningful when we came from an active
-  // project (the workspace) — not from onboarding, a bare launch into the picker,
-  // or a discarded temp workspace (whose project no longer exists).
-  let pickerHasActiveProject = $state(false);
+  // Clear the recent-projects history from the switcher (pins survive).
+  async function clearRecentProjects() {
+    settings = await workspace.clearRecent();
+  }
+  // Pin/unpin a project from the switcher; the parent stays the settings owner.
+  async function toggleProjectPin(target: {
+    path: string;
+    pinned: boolean;
+  }) {
+    settings = await workspace.setPinned(target);
+  }
+  // Forget a project from the switcher's lists (folder untouched).
+  async function removeRecentProject(projectPath: string) {
+    settings = await workspace.removeRecent(projectPath);
+  }
+  // Persist a drag-reordered pin order from the switcher.
+  async function reorderPins(paths: string[]) {
+    settings = await workspace.setPinnedOrder(paths);
+  }
 
-  function switchToPicker({ fromActiveProject = phase === Phase.ready } = {}) {
-    pickerHasActiveProject = fromActiveProject;
+  // "Delete directory" from the switcher — a destructive removal of a real
+  // project's folder, so it goes through an explicit confirmation before the
+  // relocator releases the folder (killing any session holding it) and deletes it.
+  let deleteDirTarget = $state<string | null>(null);
+  let deletingDir = $state(false);
+  let deleteDirError = $state("");
+
+  function requestDeleteDirectory(projectPath: string) {
+    deleteDirTarget = projectPath;
+    deleteDirError = "";
+  }
+  async function confirmDeleteDirectory() {
+    if (deleteDirTarget === null) {
+      return;
+    }
+
+    deletingDir = true;
+    try {
+      settings = await relocator.removeDirectory(deleteDirTarget);
+      deleteDirTarget = null;
+    } catch (error) {
+      deleteDirError = typeof error === "string" ? error : "Couldn’t delete that directory.";
+    } finally {
+      deletingDir = false;
+    }
+  }
+
+  function switchToPicker() {
     document.startViewTransition(async () => {
       phase = Phase.project;
       await tick();
@@ -665,7 +708,7 @@
     pendingPrompt = undefined;
     // Drop this window's claim on the project so no picker tries to focus it.
     void windows.registerProject("");
-    switchToPicker({ fromActiveProject: false });
+    switchToPicker();
 
     try {
       settings = await workspace.delete(path);
@@ -810,6 +853,20 @@
       }
     }
 
+    // Ctrl+Shift+Alt+[ / ] cycles to the previous / next open PADE window. Uses
+    // e.code, not e.key: holding Shift rewrites "[" to "{", so the layout-position
+    // code is the modifier-independent match.
+    const isCyclePrevWindow =
+      e.ctrlKey && e.shiftKey && e.altKey && e.code === "BracketLeft";
+    const isCycleNextWindow =
+      e.ctrlKey && e.shiftKey && e.altKey && e.code === "BracketRight";
+    if (isCyclePrevWindow || isCycleNextWindow) {
+      e.preventDefault();
+      e.stopPropagation();
+      void windows.focusRelative(isCyclePrevWindow ? "previous" : "next");
+      return;
+    }
+
     // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut
     // chip). stopPropagation keeps the terminal from also receiving it.
     const isNewWindow = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n";
@@ -828,7 +885,6 @@
   {#if phase === Phase.project}
     <ProjectPicker
       {agents}
-      hasActiveProject={pickerHasActiveProject}
       ondelete={relocator.remove}
       onmove={relocator.move}
       onopen={openProject}
@@ -855,8 +911,15 @@
             {isTemp}
             label={currentLabel ?? shortDir}
             labels={settings.labels}
+            onclearrecent={clearRecentProjects}
+            ondelete={requestDeleteDirectory}
+            onopen={projectPath => openProject({ path: projectPath })}
+            onremoverecent={removeRecentProject}
+            onreorderpins={reorderPins}
             onswitch={switchToPicker}
+            ontogglepin={toggleProjectPin}
             path={currentProject}
+            pinnedProjects={settings.pinnedProjects}
             recentProjects={settings.recentProjects}
           />
           <span class="chrome-spacer"></span>
@@ -953,10 +1016,10 @@
             </div>
           {/each}
 
-          <div class="add-pane-wrap">
+          <div class="add-pane-wrap menu-host">
             <button
               style:anchor-name="--pane-anchor"
-              class="add-pane"
+              class="add-pane menu-trigger"
               aria-label="Split — add an agent instance"
               data-tooltip="Split — add an agent instance"
               popovertarget="pane-menu"
@@ -1079,6 +1142,32 @@
           <!-- Truncation is pure CSS (.preview: max-inline-size + ellipsis). -->
           <span class="preview">{selection}</span>
         </button>
+      {/if}
+
+      <!-- Confirm the switcher's destructive "Delete directory" before it removes
+           a real project's folder from disk. -->
+      {#if deleteDirTarget}
+        <ConfirmDialog
+          busy={deletingDir}
+          busyLabel="Deleting…"
+          confirmLabel="Delete directory"
+          danger
+          error={deleteDirError}
+          icon="trash"
+          oncancel={() => {
+            deleteDirTarget = null;
+          }}
+          onconfirm={async () => await confirmDeleteDirectory()}
+          title="Delete this project directory?"
+        >
+          <div class="dir-delete-body">
+            <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
+            <p class="target">
+              <span class="target-name">{displayName(deleteDirTarget, settings.labels)}</span>
+              <code>{deleteDirTarget}</code>
+            </p>
+          </div>
+        </ConfirmDialog>
       {/if}
     </div>
   {:else}
@@ -1531,6 +1620,37 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       opacity: 85%;
+    }
+  }
+
+  /* Body of the switcher's "Delete directory" confirmation (chrome is ConfirmDialog's). */
+  .dir-delete-body {
+    p {
+      margin: 0;
+    }
+
+    .target {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-block-start: 14px;
+      padding: 10px 12px;
+      border-radius: var(--radius-medium);
+      background: var(--surface-2);
+    }
+
+    .target-name {
+      color: var(--on-surface);
+      font-family: var(--font-monospace);
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    code {
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
+      font-size: 11px;
+      overflow-wrap: anywhere;
     }
   }
 </style>
