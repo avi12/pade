@@ -868,6 +868,7 @@
                go through the OS (ide.open); these need a real TTY, which only a PADE
                terminal gives. -->
           <IdeMenu
+            cwd={sessions.find(session => session.id === activeId)?.cwd}
             onterminaleditor={(editor: Ide) =>
               launch({
                 agent: {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ide } from "@/lib/bridge";
+  import { ide, os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ideIcon";
   import type { Ide } from "@/lib/types";
@@ -11,8 +11,11 @@
   // and the caret drops the full list to pick another. A console editor
   // (Neovim/Vim/Helix) can't run detached, so it's handed to the parent to open
   // in a PADE terminal tab instead of through the OS.
-  const { onterminaleditor }: {
+  const { onterminaleditor, cwd }: {
     onterminaleditor: (editor: Ide) => void;
+    // The active project/worktree directory — the target of "Reveal in file
+    // explorer". Absent means no reveal item (no directory to open).
+    cwd?: string;
   } = $props();
 
   let ides = $state<Ide[]>([]);
@@ -57,8 +60,8 @@
       <button
         style:anchor-name="--ide-anchor"
         class="ide-more"
-        aria-label="Choose a different editor"
-        data-tooltip="Choose a different editor"
+        aria-label="Switch editor or reveal in file explorer"
+        data-tooltip="Switch editor or reveal in file explorer"
         popovertarget="ide-menu"
       ><span class="caret">▾</span></button>
     {/if}
@@ -66,6 +69,7 @@
 
   {#if hasAlternatives}
     <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
+      <li class="hint">Open in editor</li>
       {#each ides as editor, index (editor.id)}
         <li>
           <button
@@ -83,6 +87,14 @@
           </button>
         </li>
       {/each}
+      {#if cwd}
+        <li class="sep" role="separator"></li>
+        <li>
+          <button onclick={() => void os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
+            <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
+          </button>
+        </li>
+      {/if}
     </ul>
   {/if}
 {/if}
@@ -110,7 +122,7 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    padding: 7px 13px;
+    padding: 7px 10px 7px 13px;
     border: none;
     border-radius: 999px;
     background: transparent;
@@ -139,14 +151,14 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    padding-inline: 8px 11px;
+    padding-inline: 6px 9px;
     border: none;
     border-end-end-radius: 999px;
     border-start-end-radius: 999px;
     background: transparent;
-    color: var(--on-surface);
+    color: var(--on-surface-variant);
     cursor: pointer;
-    transition: background 200ms var(--ease);
+    transition: background 200ms var(--ease), color 200ms var(--ease);
 
     /* Hairline seam between the two zones. */
     &::before {
@@ -160,19 +172,38 @@
 
     &:hover {
       background: var(--surface-3);
+      color: var(--on-surface);
     }
 
     .caret {
       font-size: 10px;
-      opacity: 70%;
     }
   }
 
   /* Shell comes from the shared .popover-menu; only width and anchor side
      live here. */
   .ide-list {
-    min-inline-size: 200px;
+    min-inline-size: 230px;
     position-area: bottom span-left;
+
+    /* Uppercase section header at the top of the list. */
+    .hint {
+      padding-block: 6px 4px;
+      padding-inline: 10px;
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Hairline divider before the reveal action. */
+    .sep {
+      block-size: 1px;
+      margin-block: 6px;
+      margin-inline: 8px;
+      background: var(--outline);
+    }
 
     li button {
       display: flex;
