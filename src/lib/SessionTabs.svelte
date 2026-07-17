@@ -271,20 +271,6 @@
   ><Icon name={agentIconName(s.agent.id)} size={14} /></span>
 {/snippet}
 
-<!-- The exact context-usage percent, in the same severity colour as the glyph.
-     Hidden until there's a signal to show (a just-launched agent has none). -->
-{#snippet contextPercent(s: AgentSession)}
-  {@const pct = contextPct(s.id)}
-  {#if pct !== null}
-    {@const level = contextLevel(pct)}
-    <span
-      class="ctx"
-      class:crit={level === ContextLevel.critical}
-      class:warn={level === ContextLevel.warning}
-    >{formatPercent(pct)}</span>
-  {/if}
-{/snippet}
-
 {#snippet tabInner(s: AgentSession)}
   {#if editingId === s.id}
     <span class="rename">
@@ -326,7 +312,6 @@
     >
       {@render statusGlyph(s)}
       <span class="label">{sessionLabel(s.id) ?? s.agent.label}</span>
-      {@render contextPercent(s)}
     </button>
     <button
       class="ai"
@@ -696,27 +681,6 @@
 
       &.ready {
         box-shadow: 0 0 0 3px var(--tertiary-wash);
-      }
-    }
-
-    /* The exact context percent, in the glyph's severity colour. A stable min
-       width over tabular figures so counting up never re-packs the strip. */
-    .ctx {
-      flex: none;
-      min-inline-size: 3.5ch;
-      color: var(--context-ok);
-      font-weight: 700;
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-      text-align: end;
-      transition: color 300ms var(--ease);
-
-      &.warn {
-        color: var(--context-warning);
-      }
-
-      &.crit {
-        color: var(--context-critical);
       }
     }
 
