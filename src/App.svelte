@@ -1525,7 +1525,6 @@
 
     .preview {
       overflow: hidden;
-      max-inline-size: 40ch;
       font-family: var(--font-monospace);
       font-weight: 500;
       font-size: 12px;
