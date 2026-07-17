@@ -66,11 +66,28 @@
   ];
   let tab = $state<StartTab>(StartTab.create);
   let card = $state<HTMLDivElement | null>(null);
+  // The panels container and the height it should occupy — the open panel's
+  // own measured height, kept current by a ResizeObserver so the container
+  // glides (CSS transition) on tab switches AND when the open panel itself
+  // grows or shrinks (a credentials panel appearing, an error line).
+  let panelsElement = $state<HTMLDivElement | null>(null);
+  let panelsHeight = $state<number | null>(null);
 
-  // The root menu element — "New root folder…" hides it imperatively BEFORE
-  // handing off, because the declarative popovertargetaction="hide" runs after
-  // the click handler and would cancel the smooth scroll to the add field.
-  let rootMenu = $state<HTMLUListElement | null>(null);
+  $effect(() => {
+    const body = panelsElement;
+    // Re-arm on every tab switch — the observer must follow the OPEN slot.
+    void tab;
+    const openSlot = body?.querySelector(".slot.open");
+    if (!(openSlot instanceof HTMLElement)) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      panelsHeight = openSlot.getBoundingClientRect().height;
+    });
+    observer.observe(openSlot);
+    return () => observer.disconnect();
+  });
 
   // ── New — create a project (or fall through to a temp workspace) ──────────
   let createName = $state("");
@@ -219,26 +236,24 @@
 </script>
 
 <!-- The root select — trigger + anchored menu incl. the jump-to-add action.
-     Shared by the New and Clone location rows; only one is ever mounted, so
-     the menu id and anchor name can stay fixed. -->
-{#snippet rootSelect()}
+     The New and Clone location rows each mount one (both panels stay in the
+     DOM for the pure-CSS height glide), so the menu id is a parameter; the
+     hosting row declares `anchor-name: --<menuId>` to pair with it. The menu
+     hides imperatively BEFORE handing off to `onnewroot`, because the
+     declarative popovertargetaction="hide" would run after the click handler
+     and cancel the smooth scroll to the add field. -->
+{#snippet rootSelect(menuId: string)}
   <span class="root-sel">
     <button
       class="root-trigger"
       aria-label="Root folder"
-      popovertarget="np-root-menu"
+      popovertarget={menuId}
       type="button"
     >
       <span class="root-current">{createIn || "Choose a root…"}</span>
       <span class="caret" aria-hidden="true">▾</span>
     </button>
-    <ul
-      bind:this={rootMenu}
-      id="np-root-menu"
-      style:position-anchor="--np-root"
-      class="menu root-menu popover-menu"
-      popover
-    >
+    <ul id={menuId} style:position-anchor={`--${menuId}`} class="menu root-menu popover-menu" popover>
       {#each roots as root (root)}
         {@const isPicked = createIn === root}
         <li>
@@ -247,7 +262,7 @@
             class:picked={isPicked}
             aria-current={isPicked}
             onclick={() => (createIn = root)}
-            popovertarget="np-root-menu"
+            popovertarget={menuId}
             popovertargetaction="hide"
             type="button"
           >
@@ -261,8 +276,8 @@
       <li class:separated={roots.length > 0}>
         <button
           class="mi root-new"
-          onclick={() => {
-            rootMenu?.hidePopover();
+          onclick={e => {
+            e.currentTarget.closest("ul")?.hidePopover();
             onnewroot();
           }}
           type="button"
@@ -295,7 +310,7 @@
             }
 
             await tick();
-            card?.querySelector<HTMLElement>(".panel input, .panel textarea")?.focus();
+            card?.querySelector<HTMLElement>(".open .panel input, .open .panel textarea")?.focus();
           }}
           role="tab"
           tabindex={tab === id ? 0 : -1}
@@ -307,291 +322,310 @@
       {/each}
     </div>
 
-    {#if tab === StartTab.create}
-      <form
-        class="panel"
-        onsubmit={async e => {
-          e.preventDefault();
-          const prompt = parseInput({
-            schema: FirstPrompt,
-            raw: createPrompt
-          });
-          if (prompt === null) {
-            return;
-          }
-
-          if (!hasTypedName) {
-            await startTemp(prompt);
-            return;
-          }
-
-          const name = parseInput({
-            schema: ProjectName,
-            raw: createName
-          });
-          if (!createIn || !name) {
-            return;
-          }
-
-          const path = await workspace.create({
-            root: createIn,
-            name
-          });
-          onopen({
-            path,
-            initialPrompt: prompt || undefined
-          });
-        }}
-      >
-        <p class="hint">
-          Name a folder to create a project — or leave the name blank for a
-          throwaway temp workspace, auto-named once the agent starts working.
-        </p>
-
-        <div class="np-field">
-          <span id="np-loc-label" class="np-label">Location</span>
-          <div style:anchor-name="--np-root" class="np-loc" aria-labelledby="np-loc-label" role="group">
-            <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-            {@render rootSelect()}
-            <span class="np-sep" aria-hidden="true">\</span>
-            <label class="visually-hidden" for="np-name">Project name</label>
-            <input
-              id="np-name"
-              class="np-name"
-              aria-describedby={createNameError ? "np-name-error" : undefined}
-              aria-invalid={createNameError !== null}
-              autocomplete="off"
-              placeholder="project-name"
-              spellcheck="false"
-              bind:value={createName}
-            />
-          </div>
-          {#if createNameError}
-            <output id="np-name-error" class="field-error">{createNameError}</output>
-          {/if}
-        </div>
-
-        <div class="np-field">
-          <label class="np-label" for="np-prompt">
-            First prompt <span class="np-optional">— optional</span>
-          </label>
-          <textarea
-            id="np-prompt"
-            class="np-prompt"
-            placeholder="e.g. scaffold a SvelteKit app with Tailwind"
-            rows="2"
-            bind:value={createPrompt}
-          ></textarea>
-        </div>
-
-        <div class="actions">
-          <button class="go" disabled={createDisabled} type="submit">
-            Create &amp; open
-          </button>
-          <button
-            class="temp-link"
-            onclick={async () => {
-              const prompt = parseInput({
-                schema: FirstPrompt,
-                raw: createPrompt
-              });
-              if (prompt === null) {
-                return;
-              }
-
-              await startTemp(prompt);
-            }}
-            type="button"
-          >
-            …or start a throwaway temp workspace
-          </button>
-        </div>
-      </form>
-    {:else if tab === StartTab.local}
-      <form
-        class="panel"
-        onsubmit={e => {
-          e.preventDefault();
-          const path = parseInput({
-            schema: FolderPath,
-            raw: localPath
-          });
-          if (!path || !localIsDir) {
-            return;
-          }
-
-          onopen({ path });
-        }}
-      >
-        <div class="np-field">
-          <label class="np-label" for="local-path">Project folder</label>
-          <div class="np-loc">
-            <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-            <input
-              id="local-path"
-              class="path-input"
-              autocomplete="off"
-              placeholder="C:\repositories\my-app"
-              spellcheck="false"
-              bind:value={localPath}
-            />
-            <button
-              class="browse"
-              onclick={async () => {
-                const picked = await openDialog({
-                  directory: true,
-                  multiple: false
-                });
-                if (typeof picked === "string") {
-                  localPath = picked;
-                }
-              }}
-              type="button"
-            >Browse…</button>
-          </div>
-          {#if localError}
-            <output class="field-error">{localError}</output>
-          {/if}
-        </div>
-
-        <button class="go" disabled={!localIsDir} type="submit">Open project</button>
-      </form>
-    {:else if gitInstalled !== null}
-      {#if !gitInstalled}
-        <div class="panel warn-card">
-          <p class="warn-head">
-            <span class="warn-ico" aria-hidden="true"><Icon name="alert" size={16} /></span>
-            <strong>Git isn’t installed</strong>
-          </p>
-          <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check.</p>
-          <div class="actions">
-            <button class="go" onclick={() => os.openUrl("https://git-scm.com/downloads")} type="button">
-              Install Git…
-            </button>
-            <button class="ghost" onclick={async () => await checkGit()} type="button">Re-check</button>
-          </div>
-        </div>
-      {:else}
+    <!-- Every panel stays mounted, overlaid in ONE grid cell, so a switch
+         swaps content in place (a cross-fade, nothing travels) while the
+         container's height glides to the open panel's measured size. Panels
+         keep their typed state across switches. -->
+    <div
+      bind:this={panelsElement}
+      style:block-size={panelsHeight === null ? "auto" : `${panelsHeight}px`}
+      class="panels"
+    >
+      <div class="slot" class:open={tab === StartTab.create}>
         <form
           class="panel"
           onsubmit={async e => {
             e.preventDefault();
-            const url = parseInput({
-              schema: CloneUrl,
-              raw: cloneUrl
+            const prompt = parseInput({
+              schema: FirstPrompt,
+              raw: createPrompt
             });
-            const name = parseInput({
-              schema: ProjectName,
-              raw: cloneName
-            });
-            if (!url || !name || !createIn || cloneDisabled) {
+            if (prompt === null) {
               return;
             }
 
-            cloning = true;
-            cloneError = "";
-            try {
-              const path = await vcs.clone({
-                url,
-                root: createIn,
-                name,
-                username: needsCredentials ? (parseInput({
-                  schema: GitUsername,
-                  raw: cloneUsername
-                }) ?? undefined) : undefined,
-                password: needsCredentials ? (parseInput({
-                  schema: GitSecret,
-                  raw: clonePassword
-                }) ?? undefined) : undefined
-              });
-              onopen({ path });
-            } catch (error) {
-              cloneError = typeof error === "string" ? error : "Clone failed.";
-            } finally {
-              cloning = false;
+            if (!hasTypedName) {
+              await startTemp(prompt);
+              return;
             }
+
+            const name = parseInput({
+              schema: ProjectName,
+              raw: createName
+            });
+            if (!createIn || !name) {
+              return;
+            }
+
+            const path = await workspace.create({
+              root: createIn,
+              name
+            });
+            onopen({
+              path,
+              initialPrompt: prompt || undefined
+            });
           }}
         >
+          <p class="hint">
+            Name a folder to create a project — or leave the name blank for a
+            throwaway temp workspace, auto-named once the agent starts working.
+          </p>
+
           <div class="np-field">
-            <label class="np-label" for="clone-url">Repository URL</label>
-            <input
-              id="clone-url"
-              class="path-input framed"
-              autocomplete="off"
-              placeholder="https://github.com/org/repo.git  ·  git@github.com:org/repo.git"
-              spellcheck="false"
-              bind:value={cloneUrl}
-            />
-            {#if remoteChecking}
-              <output class="probe-note">Checking the repository…</output>
-            {:else if remoteUnreachable}
-              <output class="field-error">Can’t reach that repository — check the URL or your access.</output>
+            <span id="np-loc-label" class="np-label">Location</span>
+            <div style:anchor-name="--np-root-menu-create" class="np-loc" aria-labelledby="np-loc-label" role="group">
+              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
+              {@render rootSelect("np-root-menu-create")}
+              <span class="np-sep" aria-hidden="true">\</span>
+              <label class="visually-hidden" for="np-name">Project name</label>
+              <input
+                id="np-name"
+                class="np-name"
+                aria-describedby={createNameError ? "np-name-error" : undefined}
+                aria-invalid={createNameError !== null}
+                autocomplete="off"
+                placeholder="project-name"
+                spellcheck="false"
+                bind:value={createName}
+              />
+            </div>
+            {#if createNameError}
+              <output id="np-name-error" class="field-error">{createNameError}</output>
             {/if}
           </div>
 
           <div class="np-field">
-            <span id="clone-loc-label" class="np-label">
-              Clone into <span class="np-optional">— folder name auto-filled from the repo</span>
-            </span>
-            <div style:anchor-name="--np-root" class="np-loc" aria-labelledby="clone-loc-label" role="group">
-              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-              {@render rootSelect()}
-              <span class="np-sep" aria-hidden="true">\</span>
-              <label class="visually-hidden" for="clone-name">Folder name</label>
-              <input
-                id="clone-name"
-                class="np-name"
-                autocomplete="off"
-                oninput={() => (cloneNameEdited = true)}
-                placeholder="repo"
-                spellcheck="false"
-                bind:value={cloneName}
-              />
-            </div>
+            <label class="np-label" for="np-prompt">
+              First prompt <span class="np-optional">— optional</span>
+            </label>
+            <textarea
+              id="np-prompt"
+              class="np-prompt"
+              placeholder="e.g. scaffold a SvelteKit app with Tailwind"
+              rows="2"
+              bind:value={createPrompt}
+            ></textarea>
           </div>
 
-          {#if needsCredentials}
-            <div class="warn-card creds">
+          <div class="actions">
+            <button class="go" disabled={createDisabled} type="submit">
+              Create &amp; open
+            </button>
+            <button
+              class="temp-link"
+              onclick={async () => {
+                const prompt = parseInput({
+                  schema: FirstPrompt,
+                  raw: createPrompt
+                });
+                if (prompt === null) {
+                  return;
+                }
+
+                await startTemp(prompt);
+              }}
+              type="button"
+            >
+              …or start a throwaway temp workspace
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="slot" class:open={tab === StartTab.local}>
+        <form
+          class="panel"
+          onsubmit={e => {
+            e.preventDefault();
+            const path = parseInput({
+              schema: FolderPath,
+              raw: localPath
+            });
+            if (!path || !localIsDir) {
+              return;
+            }
+
+            onopen({ path });
+          }}
+        >
+          <div class="np-field">
+            <label class="np-label" for="local-path">Project folder</label>
+            <div class="np-loc">
+              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
+              <input
+                id="local-path"
+                class="path-input"
+                autocomplete="off"
+                placeholder="C:\repositories\my-app"
+                spellcheck="false"
+                bind:value={localPath}
+              />
+              <button
+                class="browse"
+                onclick={async () => {
+                  const picked = await openDialog({
+                    directory: true,
+                    multiple: false
+                  });
+                  if (typeof picked === "string") {
+                    localPath = picked;
+                  }
+                }}
+                type="button"
+              >Browse…</button>
+            </div>
+            {#if localError}
+              <output class="field-error">{localError}</output>
+            {/if}
+          </div>
+
+          <button class="go" disabled={!localIsDir} type="submit">Open project</button>
+        </form>
+      </div>
+      <div class="slot" class:open={tab === StartTab.clone}>
+        {#if gitInstalled !== null}
+          {#if !gitInstalled}
+            <div class="panel warn-card">
               <p class="warn-head">
                 <span class="warn-ico" aria-hidden="true"><Icon name="alert" size={16} /></span>
-                <span>No SSH key set up for this host — sign in to clone over HTTPS instead.</span>
+                <strong>Git isn’t installed</strong>
               </p>
-              <div class="np-field">
-                <label class="np-label" for="clone-user">Email or username</label>
-                <input
-                  id="clone-user"
-                  class="cred-input"
-                  autocomplete="username"
-                  placeholder="you@example.com"
-                  spellcheck="false"
-                  bind:value={cloneUsername}
-                />
-              </div>
-              <div class="np-field">
-                <label class="np-label" for="clone-password">Password or access token</label>
-                <input
-                  id="clone-password"
-                  class="cred-input"
-                  autocomplete="current-password"
-                  placeholder="••••••••••••"
-                  type="password"
-                  bind:value={clonePassword}
-                />
+              <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check.</p>
+              <div class="actions">
+                <button class="go" onclick={() => os.openUrl("https://git-scm.com/downloads")} type="button">
+                  Install Git…
+                </button>
+                <button class="ghost" onclick={async () => await checkGit()} type="button">Re-check</button>
               </div>
             </div>
-          {/if}
+          {:else}
+            <form
+              class="panel"
+              onsubmit={async e => {
+                e.preventDefault();
+                const url = parseInput({
+                  schema: CloneUrl,
+                  raw: cloneUrl
+                });
+                const name = parseInput({
+                  schema: ProjectName,
+                  raw: cloneName
+                });
+                if (!url || !name || !createIn || cloneDisabled) {
+                  return;
+                }
 
-          {#if cloneError}
-            <output class="field-error">{cloneError}</output>
-          {/if}
+                cloning = true;
+                cloneError = "";
+                try {
+                  const path = await vcs.clone({
+                    url,
+                    root: createIn,
+                    name,
+                    username: needsCredentials ? (parseInput({
+                      schema: GitUsername,
+                      raw: cloneUsername
+                    }) ?? undefined) : undefined,
+                    password: needsCredentials ? (parseInput({
+                      schema: GitSecret,
+                      raw: clonePassword
+                    }) ?? undefined) : undefined
+                  });
+                  onopen({ path });
+                } catch (error) {
+                  cloneError = typeof error === "string" ? error : "Clone failed.";
+                } finally {
+                  cloning = false;
+                }
+              }}
+            >
+              <div class="np-field">
+                <label class="np-label" for="clone-url">Repository URL</label>
+                <input
+                  id="clone-url"
+                  class="path-input framed"
+                  autocomplete="off"
+                  placeholder="https://github.com/org/repo.git  ·  git@github.com:org/repo.git"
+                  spellcheck="false"
+                  bind:value={cloneUrl}
+                />
+                {#if remoteChecking}
+                  <output class="probe-note">Checking the repository…</output>
+                {:else if remoteUnreachable}
+                  <output class="field-error">Can’t reach that repository — check the URL or your access.</output>
+                {/if}
+              </div>
 
-          <button class="go" disabled={cloneDisabled} type="submit">
-            {#if cloning}
-              Cloning…{:else}Clone &amp; open{/if}
-          </button>
-        </form>
-      {/if}
-    {/if}
+              <div class="np-field">
+                <span id="clone-loc-label" class="np-label">
+                  Clone into <span class="np-optional">— folder name auto-filled from the repo</span>
+                </span>
+                <div
+                  style:anchor-name="--np-root-menu-clone"
+                  class="np-loc"
+                  aria-labelledby="clone-loc-label"
+                  role="group"
+                >
+                  <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
+                  {@render rootSelect("np-root-menu-clone")}
+                  <span class="np-sep" aria-hidden="true">\</span>
+                  <label class="visually-hidden" for="clone-name">Folder name</label>
+                  <input
+                    id="clone-name"
+                    class="np-name"
+                    autocomplete="off"
+                    oninput={() => (cloneNameEdited = true)}
+                    placeholder="repo"
+                    spellcheck="false"
+                    bind:value={cloneName}
+                  />
+                </div>
+              </div>
+
+              {#if needsCredentials}
+                <div class="warn-card creds">
+                  <p class="warn-head">
+                    <span class="warn-ico" aria-hidden="true"><Icon name="alert" size={16} /></span>
+                    <span>No SSH key set up for this host — sign in to clone over HTTPS instead.</span>
+                  </p>
+                  <div class="np-field">
+                    <label class="np-label" for="clone-user">Email or username</label>
+                    <input
+                      id="clone-user"
+                      class="cred-input"
+                      autocomplete="username"
+                      placeholder="you@example.com"
+                      spellcheck="false"
+                      bind:value={cloneUsername}
+                    />
+                  </div>
+                  <div class="np-field">
+                    <label class="np-label" for="clone-password">Password or access token</label>
+                    <input
+                      id="clone-password"
+                      class="cred-input"
+                      autocomplete="current-password"
+                      placeholder="••••••••••••"
+                      type="password"
+                      bind:value={clonePassword}
+                    />
+                  </div>
+                </div>
+              {/if}
+
+              {#if cloneError}
+                <output class="field-error">{cloneError}</output>
+              {/if}
+
+              <button class="go" disabled={cloneDisabled} type="submit">
+                {#if cloning}
+                  Cloning…{:else}Clone &amp; open{/if}
+              </button>
+            </form>
+          {/if}
+        {/if}
+      </div>
+    </div>
   </div>
 </section>
 
@@ -621,24 +655,38 @@
     line-height: 1.4;
   }
 
+  /* All panels overlay one grid cell: a tab switch is a pure in-place
+     cross-fade — nothing slides — while the container's block-size (the open
+     panel's measured height, CSS-transitioned) glides between panel sizes.
+     `visibility` rides the fade so a closed panel is untabbable/invisible
+     exactly when it has faded out; the clip margin keeps focus rings visible
+     while the container sits exactly at the open panel's height. */
+  .panels {
+    display: grid;
+    overflow: clip;
+    overflow-clip-margin: 6px;
+    transition: block-size 300ms var(--ease);
+  }
+
+  .slot {
+    grid-area: 1 / 1;
+    align-self: start;
+    visibility: hidden;
+    opacity: 0%;
+    transition:
+      opacity 240ms var(--ease),
+      visibility 240ms;
+
+    &.open {
+      visibility: visible;
+      opacity: 100%;
+    }
+  }
+
   .panel {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    animation: tab-in 240ms var(--ease);
-  }
-
-  @keyframes tab-in {
-    from {
-      opacity: 0%;
-      translate: 0 4px;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .panel {
-      animation: none;
-    }
   }
 
   .np-field {
