@@ -5,6 +5,7 @@
 //! project directory in the one you pick.
 
 use std::collections::BTreeMap;
+use std::io::Read;
 
 use serde::Serialize;
 
@@ -352,6 +353,43 @@ const CENSUS_EXTENSIONS: &[(&str, &str)] = &[
 const CENSUS_MAX_DEPTH: usize = 5;
 const CENSUS_MAX_FILES: usize = 4000;
 
+/// A byte census of a project's languages must ignore *generated* files, or a
+/// single vendored bundle — a 4&nbsp;MB minified `common.js` — drowns out the real
+/// source and misreads the language mix (a Tauri hybrid reads as pure web). This
+/// is the half of Linguist's method the marker/byte census alone skips: Linguist
+/// excludes generated content before weighing. PADE judges a file by what it
+/// *contains*, never by its name — a minified blob is recognised by lines that
+/// run implausibly long for hand-written code, whatever a tool called the file.
+const CENSUS_CONTENT_CHECK_MIN_BYTES: u64 = 64 * 1024;
+const MINIFIED_SAMPLE_BYTES: usize = 8 * 1024;
+const MINIFIED_AVG_LINE_BYTES: usize = 400;
+
+/// Whether `path` looks generated/minified and should sit out the census. Cheap:
+/// only files past [`CENSUS_CONTENT_CHECK_MIN_BYTES`] are read (smaller files
+/// barely move the census), and only their head is sampled for the near-absence
+/// of newlines that marks minified output. The decision is purely by content —
+/// no filename or extension patterns.
+fn is_generated(path: &std::path::Path, size: u64) -> bool {
+    if size < CENSUS_CONTENT_CHECK_MIN_BYTES {
+        return false;
+    }
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut head = [0u8; MINIFIED_SAMPLE_BYTES];
+    let Ok(read) = file.read(&mut head) else {
+        return false;
+    };
+    // Minified output runs almost without line breaks — its first "line" spans
+    // the whole file. A first line longer than any hand-written one (or a sample
+    // with no break at all) marks it generated. `position` stops at the first
+    // newline, so there's no scanning the whole buffer.
+    match head[..read].iter().position(|&b| b == b'\n') {
+        Some(first_break) => first_break > MINIFIED_AVG_LINE_BYTES,
+        None => read > MINIFIED_AVG_LINE_BYTES,
+    }
+}
+
 /// Byte share (percent) one kind needs, of all census-counted bytes across the
 /// detected kinds, to count as dominant. A "hybrid" in markers only — a web
 /// app with one Rust helper — still reads as its dominant kind; below the bar
@@ -359,12 +397,65 @@ const CENSUS_MAX_FILES: usize = 4000;
 /// tuning, chosen so its own repo — a real Tauri hybrid — stays hybrid.)
 const DOMINANT_BYTE_PERCENT: u128 = 85;
 
-/// Sum on-disk bytes per census kind under `dir` — Linguist's byte-weighted
-/// language stats, bounded and marker-kind-grained. Skips the same hidden and
-/// dependency/build dirs as the marker probe (the census walks the working
-/// tree, where `node_modules` physically exists — exclusions first, or the
-/// weighing is meaningless).
-fn census_bytes(
+/// The census kind for a file extension, or `None` for extensions that don't
+/// unambiguously map to one registry kind (they sit out the weighing).
+fn census_kind(extension: &str) -> Option<&'static str> {
+    CENSUS_EXTENSIONS
+        .iter()
+        .find(|(known, _)| known.eq_ignore_ascii_case(extension))
+        .map(|(_, kind)| *kind)
+}
+
+/// Fold one file's on-disk bytes into the running per-kind totals — the byte
+/// weighting is Linguist's. Files with no census kind, and generated/minified
+/// blobs, sit out.
+fn weigh_file(path: &std::path::Path, totals: &mut BTreeMap<&'static str, u64>) {
+    let Some(kind) = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .and_then(census_kind)
+    else {
+        return;
+    };
+    let bytes = std::fs::metadata(path).map_or(0, |meta| meta.len());
+    if is_generated(path, bytes) {
+        return;
+    }
+    *totals.entry(kind).or_insert(0) += bytes;
+}
+
+/// The repo's tracked files as absolute paths, or `None` when `cwd` isn't a git
+/// repo (or git isn't installed). `git ls-files` lists exactly the tracked files
+/// — never an untracked scratch file or gitignored build output — so the census
+/// weighs the project's real source the way Linguist does: from what the repo
+/// actually tracks, not from whatever happens to sit in the working tree. This
+/// is what keeps a stray vendored bundle a contributor never committed from
+/// rewriting the language mix.
+fn git_tracked_files(cwd: &std::path::Path) -> Option<Vec<std::path::PathBuf>> {
+    let output = crate::util::command("git")
+        .arg("-C")
+        .arg(cwd)
+        .args(["ls-files", "-z"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let listing = String::from_utf8_lossy(&output.stdout);
+    Some(
+        listing
+            .split('\0')
+            .filter(|entry| !entry.is_empty())
+            .map(|relative| cwd.join(relative))
+            .collect(),
+    )
+}
+
+/// Bounded filesystem-walk fallback for a folder that isn't a git repo: sum
+/// census bytes under `dir`, skipping the hidden and dependency/build dirs the
+/// marker probe skips (untracked build output physically lives here, so the
+/// exclusions matter). A repo goes through [`git_tracked_files`] instead.
+fn census_walk(
     dir: &std::path::Path,
     depth: usize,
     files_left: &mut usize,
@@ -389,34 +480,37 @@ fn census_bytes(
         }
         if path.is_dir() {
             if !IGNORED_PROBE_DIRS.contains(&name) {
-                census_bytes(&path, depth + 1, files_left, totals);
+                census_walk(&path, depth + 1, files_left, totals);
             }
             continue;
         }
         *files_left -= 1;
-        let Some(kind) = path
-            .extension()
-            .and_then(|value| value.to_str())
-            .and_then(|extension| {
-                CENSUS_EXTENSIONS
-                    .iter()
-                    .find(|(known, _)| known.eq_ignore_ascii_case(extension))
-                    .map(|(_, kind)| *kind)
-            })
-        else {
-            continue;
-        };
-        let bytes = entry.metadata().map_or(0, |meta| meta.len());
-        *totals.entry(kind).or_insert(0) += bytes;
+        weigh_file(&path, totals);
     }
+}
+
+/// Byte totals per census kind for `cwd`. The file list is git's tracked set
+/// when `cwd` is a repo — so untracked junk and ignored build output never sway
+/// the mix — and a bounded filesystem walk otherwise. Bounded to
+/// [`CENSUS_MAX_FILES`] either way so a huge tree can't stall a suggestion.
+fn census(cwd: &std::path::Path) -> BTreeMap<&'static str, u64> {
+    let mut totals = BTreeMap::new();
+    if let Some(files) = git_tracked_files(cwd) {
+        files
+            .iter()
+            .take(CENSUS_MAX_FILES)
+            .for_each(|path| weigh_file(path, &mut totals));
+    } else {
+        let mut files_left = CENSUS_MAX_FILES;
+        census_walk(cwd, 0, &mut files_left, &mut totals);
+    }
+    totals
 }
 
 /// The detected kind holding a clear byte majority of the census, or `None`
 /// when the mix is genuinely hybrid (or nothing countable was found).
 fn dominant_kind(cwd: &std::path::Path, kinds: &[&'static str]) -> Option<&'static str> {
-    let mut totals = BTreeMap::new();
-    let mut files_left = CENSUS_MAX_FILES;
-    census_bytes(cwd, 0, &mut files_left, &mut totals);
+    let totals = census(cwd);
 
     let counted: u64 = kinds
         .iter()
@@ -991,8 +1085,8 @@ pub fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        dominant_kind, exe_basename, family, ide_kinds, open_args, open_style, project_name,
-        protocol_id, relative_path, OpenStyle,
+        dominant_kind, exe_basename, family, ide_kinds, is_generated, open_args, open_style,
+        project_name, protocol_id, relative_path, OpenStyle,
     };
 
     #[test]
@@ -1008,6 +1102,67 @@ mod tests {
 
         // Balance the bytes — now it is a genuine hybrid, nobody dominates.
         std::fs::write(core.join("core.rs"), vec![b'a'; 8_000]).expect("rust file");
+        assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn a_minified_bundle_sits_out_the_census_so_a_hybrid_stays_hybrid() {
+        let dir = std::env::temp_dir().join(format!("pade-generated-{}", std::process::id()));
+        let core = dir.join("src-tauri");
+        std::fs::create_dir_all(&core).expect("test dirs");
+
+        // Real hand-written source with ordinary short lines: a small web file
+        // next to a comparable Rust core — a genuine hybrid on real code alone.
+        let web_src = "const value = 1;\n".repeat(200);
+        std::fs::write(dir.join("app.ts"), &web_src).expect("web file");
+        std::fs::write(core.join("main.rs"), "fn main() {}\n".repeat(260)).expect("rust file");
+
+        // A vendored, minified bundle: multi-megabyte, effectively one line. Left
+        // in the census it would make web dominate ~99%; excluded, the repo stays
+        // the hybrid its real source describes.
+        std::fs::write(dir.join("common.js"), vec![b'a'; 4_000_000]).expect("bundle");
+
+        assert!(is_generated(&dir.join("common.js"), 4_000_000));
+        assert!(!is_generated(&dir.join("app.ts"), web_src.len() as u64));
+        assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn the_census_weighs_only_git_tracked_source_not_untracked_junk() {
+        let dir = std::env::temp_dir().join(format!("pade-gittracked-{}", std::process::id()));
+        let core = dir.join("src-tauri");
+        std::fs::create_dir_all(&core).expect("test dirs");
+
+        let git = |args: &[&str]| {
+            crate::util::command("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(args)
+                .output()
+        };
+        // A machine without git skips this rather than failing the suite.
+        let Ok(init) = git(&["init", "-q"]) else {
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        }
+
+        // A balanced hybrid on the tracked source alone.
+        std::fs::write(dir.join("app.ts"), "const value = 1;\n".repeat(400)).expect("web file");
+        std::fs::write(core.join("main.rs"), "fn main() {}\n".repeat(500)).expect("rust file");
+        git(&["add", "app.ts", "src-tauri/main.rs"]).expect("git add");
+
+        // A large *untracked* web blob — it would tip the repo web-dominant if the
+        // census weighed the working tree instead of git's tracked set.
+        std::fs::write(dir.join("bundle.js"), "x = 1;\n".repeat(120_000)).expect("untracked blob");
+
         assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
