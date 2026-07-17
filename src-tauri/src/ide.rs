@@ -558,8 +558,9 @@ fn weigh_file(
     *totals.entry(kind).or_insert(0) += bytes;
 }
 
-/// The Git repository root and its tracked paths. `--full-name` makes each path
-/// relative to the root even when PADE was launched from a subdirectory.
+/// The Git repository root and the tracked paths below PADE's active project
+/// directory. `--full-name` keeps those paths rooted at the repository, so the
+/// census can join them safely after Git scopes the listing to the active folder.
 struct GitRepository {
     root: std::path::PathBuf,
     tracked_paths: Vec<String>,
@@ -581,7 +582,7 @@ fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
     }
     let files_output = crate::util::command("git")
         .arg("-C")
-        .arg(&root)
+        .arg(cwd)
         .args(["ls-files", "--cached", "--full-name", "-z"])
         .output()
         .ok()?;
@@ -1021,15 +1022,32 @@ fn editor_covers_project(
     source_bytes: &BTreeMap<ProjectKind, u64>,
     marker_kinds: &[ProjectKind],
 ) -> bool {
+    let has_evidence = !source_bytes.is_empty() || !marker_kinds.is_empty();
     REGISTRY
         .iter()
         .find(|editor| editor.id == id)
         .is_none_or(|editor| {
+            if !has_evidence {
+                return matches!(editor.coverage, EditorCoverage::EveryKind);
+            }
             source_bytes
                 .keys()
                 .chain(marker_kinds.iter())
                 .all(|kind| editor.coverage.supports(*kind))
         })
+}
+
+/// The compatible editor subset, preserving the coverage ranking. The menu is
+/// an offer of editors that can work on the current project, not every installed
+/// editor that happens to launch; a zero-coverage specialist is omitted.
+fn suggestible_editor_ids(
+    source_bytes: &BTreeMap<ProjectKind, u64>,
+    marker_kinds: &[ProjectKind],
+) -> Vec<String> {
+    ranked_editor_ids(source_bytes, marker_kinds)
+        .into_iter()
+        .filter(|id| editor_covers_project(id, source_bytes, marker_kinds))
+        .collect()
 }
 
 /// Editor ids to offer per editor-rules row, installed-only. A kind's list is
@@ -1141,7 +1159,7 @@ pub fn ide_suggest() -> Result<Vec<Ide>, String> {
         .into_iter()
         .chain(prefs.ide_fallback)
         .filter(|id| editor_covers_project(id, &source_bytes, &kinds));
-    let auto = ranked_editor_ids(&source_bytes, &kinds);
+    let auto = suggestible_editor_ids(&source_bytes, &kinds);
 
     let mut ordered: Vec<String> = Vec::new();
     for id in configured.chain(auto) {
@@ -1290,8 +1308,8 @@ pub fn ide_open_file(
 mod tests {
     use super::{
         census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
-        project_name, protocol_id, ranked_editor_ids, relative_path, source_content, OpenStyle,
-        ProjectKind,
+        project_name, protocol_id, ranked_editor_ids, relative_path, source_content,
+        suggestible_editor_ids, OpenStyle, ProjectKind,
     };
 
     #[test]
@@ -1338,6 +1356,19 @@ mod tests {
             &web_rust_project,
             &[ProjectKind::Web, ProjectKind::Rust]
         ));
+    }
+
+    #[test]
+    fn suggestions_omit_specialists_that_cannot_cover_the_project() {
+        let web_rust_project = std::collections::BTreeMap::from([
+            (ProjectKind::Web, 9_000),
+            (ProjectKind::Rust, 1_000),
+        ]);
+        let suggested =
+            suggestible_editor_ids(&web_rust_project, &[ProjectKind::Web, ProjectKind::Rust]);
+        assert_eq!(suggested.first().map(String::as_str), Some("vscode"));
+        assert!(!suggested.iter().any(|id| id == "webstorm"));
+        assert!(!suggested.iter().any(|id| id == "androidstudio"));
     }
 
     #[test]
@@ -1417,6 +1448,47 @@ mod tests {
             totals.get(&ProjectKind::Rust),
             Some(&(rust_src.len() as u64))
         );
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn a_nested_project_census_does_not_expand_to_its_git_root() {
+        let dir = std::env::temp_dir().join(format!("pade-git-scope-{}", std::process::id()));
+        let nested = dir.join("core");
+        std::fs::create_dir_all(&nested).expect("test dirs");
+
+        let git = |args: &[&str]| {
+            crate::util::command("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(args)
+                .output()
+        };
+        let Ok(init) = git(&["init", "-q"]) else {
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        };
+        if !init.status.success() {
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        }
+
+        std::fs::write(dir.join("app.ts"), "const app = 1;\n").expect("web source");
+        let rust_src = "fn main() {}\n";
+        std::fs::write(nested.join("main.rs"), rust_src).expect("rust source");
+        let add = git(&["add", "."]).expect("git add");
+        if !add.status.success() {
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        }
+
+        let totals = census(&nested);
+        assert_eq!(
+            totals.get(&ProjectKind::Rust),
+            Some(&(rust_src.len() as u64))
+        );
+        assert!(!totals.contains_key(&ProjectKind::Web));
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
