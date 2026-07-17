@@ -33,7 +33,8 @@ export type Limit = {
   pct: number;
   level: Level;
   kind: LimitKind;
-  /** A 2-char mono code shown in the trigger pills + legend ("5h", "wk"). */
+  /** A single-letter mono code shown in the trigger pills, legend + rows
+   *  ("S", "W", "O"). */
   kindShort: string;
 };
 
@@ -78,8 +79,9 @@ function parseIso(iso: string): number {
   return new Date(iso.replace(/(\.\d{3})\d+/, "$1")).getTime();
 }
 
-// ISO reset time → a live "resets in …" countdown (largest two units), or "".
-function resetLabel({ iso, now }: {
+// ISO reset time → a live "in …" countdown (largest two units), or "". Consumers
+// phrase it: the spotlight prefixes "resets", each limit row shows it as-is.
+function resetCountdown({ iso, now }: {
   iso: string | null | undefined;
   now: number;
 }): string {
@@ -98,26 +100,26 @@ function resetLabel({ iso, now }: {
   const minutes = Math.floor((totalSeconds % 3_600) / 60);
   const seconds = totalSeconds % 60;
   if (days > 0) {
-    return `resets in ${days}d ${hours}h`;
+    return `in ${days}d ${hours}h`;
   }
 
   if (hours > 0) {
-    return `resets in ${hours}h ${minutes}m`;
+    return `in ${hours}h ${minutes}m`;
   }
 
   if (minutes > 0) {
-    return `resets in ${minutes}m ${String(seconds).padStart(2, "0")}s`;
+    return `in ${minutes}m ${String(seconds).padStart(2, "0")}s`;
   }
 
-  return `resets in ${seconds}s`;
+  return `in ${seconds}s`;
 }
 
-// A 2-letter mono code for a per-model weekly limit (the backend sends none) —
-// the model's first distinctive word, e.g. "Claude Opus" → "OP".
+// A single-letter mono code for a per-model weekly limit (the backend sends none)
+// — the initial of the model's first distinctive word, e.g. "Claude Opus" → "O".
 function modelShort(name: string): string {
   const tokens = name.split(/[^a-z0-9]+/i).filter(Boolean);
   const word = tokens.find(token => token.toLowerCase() !== "claude") ?? tokens[0] ?? name;
-  return word.slice(0, 2).toUpperCase();
+  return word.slice(0, 1).toUpperCase();
 }
 
 // The display name minus a trailing " Code" / " CLI" ("Claude Code" → "Claude",
@@ -161,7 +163,7 @@ function buildClaudeLimits({ account, now }: {
       kindShort,
       pct: value,
       level: limitLevel(value),
-      reset: resetLabel({
+      reset: resetCountdown({
         iso: resetsAt,
         now
       })
@@ -172,7 +174,7 @@ function buildClaudeLimits({ account, now }: {
     label: "Session",
     sub: "5-hour window",
     kind: LimitKind.Session,
-    kindShort: "5h",
+    kindShort: "S",
     pct: account.fiveHour?.utilization,
     resetsAt: account.fiveHour?.resetsAt
   });
@@ -180,7 +182,7 @@ function buildClaudeLimits({ account, now }: {
     label: "Weekly",
     sub: "all models",
     kind: LimitKind.Weekly,
-    kindShort: "wk",
+    kindShort: "W",
     pct: account.sevenDay?.utilization,
     resetsAt: account.sevenDay?.resetsAt
   });

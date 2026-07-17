@@ -29,10 +29,10 @@
   const ACCOUNT_REFRESH_MS = 180_000;
   const CLOCK_TICK_MS = 1_000;
 
-  // Trigger compaction threshold: at or below this many running agents the trigger
-  // shows a wide chip per agent; beyond it, compact per-agent pills + a trailing
-  // "+N" overflow chip.
-  const FEW_AGENTS_MAX = 2;
+  // How many per-agent pills the trigger shows before collapsing the rest into a
+  // trailing "+N" overflow chip. Every agent renders as a pill — a single agent
+  // still shows its full per-window breakdown, never a compacted chip.
+  const MAX_TRIGGER_PILLS = 2;
 
   // One group per distinct running agent, worst-first (see usageGroups.ts). Claude
   // carries its real limits; every other agent is "unknown" (no local signal).
@@ -44,9 +44,8 @@
     })
   );
 
-  const isFewAgents = $derived(groups.length <= FEW_AGENTS_MAX);
-  const pillGroups = $derived(groups.slice(0, FEW_AGENTS_MAX));
-  const overflowCount = $derived(Math.max(0, groups.length - FEW_AGENTS_MAX));
+  const pillGroups = $derived(groups.slice(0, MAX_TRIGGER_PILLS));
+  const overflowCount = $derived(Math.max(0, groups.length - MAX_TRIGGER_PILLS));
   // The "+N" chip's severity dot: red if any agent is critical, amber if any is
   // near its cap, else no dot.
   const hasCriticalAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "crit"));
@@ -71,6 +70,9 @@
   // its segments fill it exactly (unknown agents have no severity to plot).
   const measuredAgents = $derived(severitySlices.reduce((sum, slice) => sum + slice.count, 0));
   const spotlight = $derived(findSpotlight(groups));
+  // The spotlight's countdown, phrased ("resets in 3h 30m"); an em-dash when its
+  // reset time is unknown or already past.
+  const spotlightReset = $derived(spotlight?.limit.reset ? `resets ${spotlight.limit.reset}` : "—");
   const kindLegend = $derived(buildKindLegend(groups));
   const runningLabel = $derived(`${formatCount(groups.length)} ${groups.length === 1 ? "agent" : "agents"} running`);
 
@@ -107,52 +109,16 @@
   });
 </script>
 
-<span class="usage-wrap">
+<span class="usage-wrap menu-host">
   <button
     style:anchor-name="--usage-anchor"
-    class="pill"
+    class="pill menu-trigger"
     aria-label={ariaLabel}
     data-tooltip="Usage by agent"
     popovertarget="usage-menu"
   >
-    {#if isFewAgents}
-      <span class="tag">Usage</span>
-    {/if}
     {#if groups.length === 0}
       <span class="none">—</span>
-    {:else if isFewAgents}
-      <span class="chips">
-        {#each groups as group (group.id)}
-          {@const groupWorst = worstLimit(group.limits)}
-          {#if groupWorst}
-            <span
-              class="chip sev"
-              class:crit={groupWorst.level === "crit"}
-              class:warn={groupWorst.level === "warn"}
-            >
-              <span class="agent-icon"><Icon name={group.icon} /></span>
-              <span class="bars">
-                {#each group.limits as limit (limit.label)}
-                  <span class="bar" data-tooltip="{limit.label} · {formatPercent(limit.pct)}">
-                    <span
-                      style:block-size="{limit.pct}%"
-                      class="barfill sev"
-                      class:crit={limit.level === "crit"}
-                      class:warn={limit.level === "warn"}
-                    ></span>
-                  </span>
-                {/each}
-              </span>
-              <span class="pct">{formatPercent(groupWorst.pct)}</span>
-            </span>
-          {:else}
-            <span class="chip unknown">
-              <span class="agent-icon"><Icon name={group.icon} /></span>
-              <span class="none">—</span>
-            </span>
-          {/if}
-        {/each}
-      </span>
     {:else}
       <span class="pills">
         {#each pillGroups as group (group.id)}
@@ -167,7 +133,6 @@
               <span class="agent-icon"><Icon name={group.icon} /></span>
               <span class="agent-pill-name">{group.shortName}</span>
             </span>
-            <span class="agent-pill-sep"></span>
             {#if group.limits.length > 0}
               <span class="agent-pill-limits">
                 {#each group.limits as limit (limit.label)}
@@ -255,7 +220,7 @@
           <span class="track">
             <span style:inline-size="{spotlight.limit.pct}%" class="track-fill"></span>
           </span>
-          <span class="spotlight-reset">{spotlight.limit.reset || "—"}</span>
+          <span class="spotlight-reset">{spotlightReset}</span>
         </section>
       {/if}
 
@@ -276,36 +241,38 @@
         {#each groups as group (group.id)}
           {@const groupWorst = worstLimit(group.limits)}
           <li
-            class="agent-row sev"
+            class="agent-card sev"
             class:crit={groupWorst?.level === "crit"}
             class:unknown={group.unknown}
             class:warn={groupWorst?.level === "warn"}
           >
-            <span class="rail"></span>
-            <span class="agent-icon"><Icon name={group.icon} /></span>
-            <span class="agent-id">
+            <div class="agent-head">
+              <span class="agent-icon"><Icon name={group.icon} /></span>
               <span class="agent-name">{group.name}</span>
               <span class="agent-plan">{group.plan || "usage not available locally"}</span>
-            </span>
-            <span class="agent-limits">
-              {#if group.limits.length > 0}
+            </div>
+            {#if group.limits.length > 0}
+              <div class="limits">
                 {#each group.limits as limit (limit.label)}
-                  <span
-                    class="limit-chip sev"
+                  <div
+                    class="limit sev"
                     class:crit={limit.level === "crit"}
                     class:warn={limit.level === "warn"}
                   >
-                    <span class="chip-kind">{limit.kindShort}</span>
-                    <span class="chip-track">
-                      <span style:inline-size="{limit.pct}%" class="chip-fill"></span>
+                    <span class="limit-kind">{limit.kindShort}</span>
+                    <span class="limit-track">
+                      <span style:inline-size="{limit.pct}%" class="limit-fill"></span>
                     </span>
-                    <output class="chip-pct">{formatPercent(limit.pct)}</output>
-                  </span>
+                    <output class="limit-pct">{formatPercent(limit.pct)}</output>
+                    <span class="limit-reset">
+                      {#if limit.reset}
+                        <Icon name="clock" />{limit.reset}
+                      {/if}
+                    </span>
+                  </div>
                 {/each}
-              {:else}
-                <span class="agent-limits-none">—</span>
-              {/if}
-            </span>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -318,13 +285,6 @@
 <style>
   .usage-wrap {
     flex-shrink: 0;
-
-    /* While the menu is open, hide the pill's own hover tooltip: the popover
-       lives in the top layer (above any z-index), so an unsuppressed bubble
-       peeks out from behind the open menu. */
-    &:has(#usage-menu:popover-open) .pill::after {
-      display: none;
-    }
   }
 
   /* Severity color, shared: the level class sets --sev (and a faint --sev-wash
@@ -361,42 +321,10 @@
       background: var(--surface-3);
     }
 
-    .tag {
-      color: var(--on-surface-variant);
-      font-weight: 600;
-      font-size: 11px;
-    }
-
     .none {
       color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 12px;
-    }
-
-    .chips {
-      display: inline-flex;
-      gap: 6px;
-      align-items: center;
-    }
-
-    /* One chip per agent: icon + a row of tiny severity bar-stacks + worst %. */
-    .chip {
-      display: inline-flex;
-      gap: 6px;
-      align-items: center;
-      padding-block: 3px;
-      padding-inline: 7px;
-      border-radius: var(--radius-small);
-      background: var(--surface-1);
-    }
-
-    /* An agent with no local usage signal — icon + a muted em-dash, no numbers. */
-    .chip.unknown {
-      color: var(--on-surface-variant);
-
-      .agent-icon {
-        color: var(--on-surface-variant);
-      }
     }
 
     .agent-icon {
@@ -406,59 +334,20 @@
       font-size: 13px;
     }
 
-    /* A mini bar-chart — one bottom-aligned track per active limit. */
-    .bars {
-      display: inline-flex;
-      gap: 2px;
-      align-items: flex-end;
-      block-size: 15px;
-    }
-
-    .bar {
-      display: flex;
-      flex: none;
-      align-items: flex-end;
-      block-size: 100%;
-      inline-size: 4.5px;
-      border-radius: 2px;
-      background: var(--surface-3);
-
-      /* Each bar is tiny and sits right under the pointer, so widen the gap to
-         drop its tooltip clear of the cursor and the whole pill (base gap is 6px). */
-      &[data-tooltip]::after {
-        margin-block-start: 16px;
-      }
-    }
-
-    .barfill {
-      min-block-size: 2px;
-      inline-size: 100%;
-      border-radius: 2px;
-      background: var(--sev);
-      transition: block-size 300ms var(--ease), background 300ms var(--ease);
-    }
-
-    .pct {
-      color: var(--sev);
-      font-weight: 700;
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* ── Many-agents mode: compact per-agent pills + a "+N" overflow chip ── */
+    /* ── Per-agent pills + a "+N" overflow chip ── */
     .pills {
       display: inline-flex;
       gap: 4px;
       align-items: center;
     }
 
-    /* One pill per agent: icon + short name · a divider · per-limit kind + pct. */
+    /* One pill per agent: icon + short name, then a stack per limit (kind over pct). */
     .agent-pill {
       display: inline-flex;
-      gap: 7px;
+      gap: 8px;
       align-items: center;
-      padding-block: 3px;
-      padding-inline: 8px;
+      padding-block: 4px;
+      padding-inline: 7px 8px;
       border-radius: var(--radius-small);
       background: var(--surface-1);
 
@@ -471,7 +360,7 @@
     .agent-pill-id {
       display: inline-flex;
       flex: none;
-      gap: 5px;
+      gap: 6px;
       align-items: center;
     }
 
@@ -485,36 +374,33 @@
       white-space: nowrap;
     }
 
-    /* A hairline splitting the agent's identity from its readouts. */
-    .agent-pill-sep {
-      flex: none;
-      block-size: 12px;
-      inline-size: 1px;
-      background: var(--outline);
-    }
-
     .agent-pill-limits {
       display: inline-flex;
-      gap: 6px;
-      align-items: center;
+      gap: 8px;
+      align-items: stretch;
     }
 
+    /* Each limit is a tight vertical stack: the mono kind letter over its percent. */
     .agent-pill-limit {
       display: inline-flex;
-      gap: 3px;
+      flex-direction: column;
+      gap: 1px;
       align-items: center;
-      font-weight: 700;
-      font-size: 10px;
-      font-variant-numeric: tabular-nums;
+      line-height: 1;
 
       .agent-pill-kind {
         color: var(--on-surface-variant);
         font-family: var(--font-monospace);
         font-weight: 800;
+        font-size: 8px;
+        letter-spacing: 0.02em;
       }
 
       .agent-pill-pct {
         color: var(--sev);
+        font-weight: 700;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
       }
     }
 
@@ -782,11 +668,11 @@
       font-size: 8px;
     }
 
-    /* ── Agent rows ── */
+    /* ── Agent cards: a header, then one full-width bar row per active limit ── */
     .agents {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 7px;
       overflow-y: auto;
       max-block-size: min(46vh, 22rem);
       margin: 0;
@@ -794,54 +680,41 @@
       list-style: none;
     }
 
-    .agent-row {
+    .agent-card {
       display: flex;
+      flex-direction: column;
       gap: 9px;
-      align-items: center;
-      padding-block: 8px;
-      padding-inline: 6px 10px;
+      padding: 11px 12px;
       border: 1px solid var(--outline);
-      border-radius: 10px;
-      background: transparent;
+      border-radius: var(--radius-medium);
+      background: var(--surface-1);
 
-      /* Rows at near/crit pick up the faint severity wash. */
+      /* Near/crit cards lift onto the severity wash with a matching hairline. */
       &.warn,
       &.crit {
+        border-color: color-mix(in sRGB, var(--sev) 35%, var(--outline));
         background: var(--sev-wash);
       }
 
-      /* An unknown agent has no severity — mute its rail + icon so the primary
-         blue never reads as a (fabricated) "healthy" score. */
+      /* An unknown agent has no severity — mute its icon so the primary blue
+         never reads as a (fabricated) "healthy" score. */
       &.unknown {
         --sev: var(--on-surface-variant);
       }
-
-      .rail {
-        flex: none;
-        align-self: stretch;
-        inline-size: 3px;
-        border-radius: 999px;
-        background: var(--sev);
-      }
-
-      .agent-icon {
-        font-size: 14px;
-      }
     }
 
-    .agent-id {
+    /* Header: agent icon + name, with the plan trailing it, muted. */
+    .agent-head {
       display: flex;
-      flex: 0 0 auto;
-      flex-direction: column;
-      min-inline-size: 4.5rem;
-      max-inline-size: 8rem;
-      line-height: 1.2;
+      gap: 7px;
+      align-items: center;
+      min-inline-size: 0;
     }
 
     .agent-name {
       overflow: hidden;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 12.5px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -849,66 +722,76 @@
     .agent-plan {
       overflow: hidden;
       color: var(--on-surface-variant);
-      font-size: 9px;
+      font-size: 10px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .agent-limits {
-      display: flex;
-      flex: 1;
-      flex-wrap: wrap;
-      gap: 5px 8px;
-      justify-content: flex-end;
-      min-inline-size: 0;
-    }
-
-    /* Stands in for the readouts on an unknown agent's row. */
-    .agent-limits-none {
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 12px;
-    }
-
-    /* One per-limit chip: mono kind code + mini track + tabular percent. */
-    .limit-chip {
-      display: inline-flex;
-      gap: 5px;
+    /* One shared grid across every limit row so the badge / bar / percent /
+       reset columns line up down the card (each row is display: contents). */
+    .limits {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 8px 9px;
       align-items: center;
+    }
 
-      .chip-kind {
-        color: var(--on-surface-variant);
-        font-family: var(--font-monospace);
-        font-weight: 800;
-        font-size: 9px;
-      }
+    .limit {
+      display: contents;
+    }
 
-      .chip-track {
-        display: block;
-        flex: none;
-        overflow: clip;
-        block-size: 6px;
-        inline-size: 32px;
-        border-radius: 999px;
-        background: var(--surface-3);
-      }
+    /* A limit's single-letter kind badge (S / W / O), tinted neutral. */
+    .limit-kind {
+      display: inline-flex;
+      flex: none;
+      justify-content: center;
+      align-items: center;
+      block-size: 17px;
+      min-inline-size: 17px;
+      padding-inline: 3px;
+      border-radius: 5px;
+      background: var(--surface-3);
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
+      font-weight: 800;
+      font-size: 9px;
+    }
 
-      .chip-fill {
-        display: block;
-        block-size: 100%;
-        border-radius: 999px;
-        background: var(--sev);
-        transition: inline-size 300ms var(--ease), background 300ms var(--ease);
-      }
+    .limit-track {
+      display: block;
+      overflow: clip;
+      block-size: 7px;
+      border-radius: 999px;
+      background: var(--surface-3);
+    }
 
-      .chip-pct {
-        min-inline-size: 26px;
-        color: var(--sev);
-        font-weight: 700;
-        font-size: 11px;
-        font-variant-numeric: tabular-nums;
-        text-align: end;
-      }
+    .limit-fill {
+      display: block;
+      block-size: 100%;
+      border-radius: 999px;
+      background: var(--sev);
+      transition: inline-size 300ms var(--ease), background 300ms var(--ease);
+    }
+
+    .limit-pct {
+      min-inline-size: 2.5rem;
+      color: var(--sev);
+      font-weight: 700;
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+      text-align: end;
+    }
+
+    /* Clock + live "in …" countdown, right-aligned to the card edge. */
+    .limit-reset {
+      display: inline-flex;
+      gap: 3px;
+      align-items: center;
+      justify-self: end;
+      color: var(--on-surface-variant);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     .empty {

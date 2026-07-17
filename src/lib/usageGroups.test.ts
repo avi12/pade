@@ -100,7 +100,7 @@ describe("buildGroups", () => {
     expect(claude.icon).toBe("claude");
     expect(claude.name).toBe(CLAUDE_LABEL);
     expect(claude.shortName).toBe("Claude");
-    expect(claude.limits.map(limit => limit.kindShort)).toEqual(["5h", "wk"]);
+    expect(claude.limits.map(limit => limit.kindShort)).toEqual(["S", "W"]);
     expect(claude.limits.map(limit => limit.pct)).toEqual([40, 80]);
     expect(claude.limits.map(limit => limit.level)).toEqual(["normal", "warn"]);
   });
@@ -199,19 +199,19 @@ describe("reset countdowns", () => {
   }
 
   it("shows days and hours when more than a day remains", () => {
-    expect(fiveHourReset("2026-01-03T05:00:00Z")).toBe("resets in 2d 5h");
+    expect(fiveHourReset("2026-01-03T05:00:00Z")).toBe("in 2d 5h");
   });
 
   it("shows hours and minutes when less than a day remains", () => {
-    expect(fiveHourReset("2026-01-01T03:30:00Z")).toBe("resets in 3h 30m");
+    expect(fiveHourReset("2026-01-01T03:30:00Z")).toBe("in 3h 30m");
   });
 
   it("shows minutes with zero-padded seconds when less than an hour remains", () => {
-    expect(fiveHourReset("2026-01-01T00:05:07Z")).toBe("resets in 5m 07s");
+    expect(fiveHourReset("2026-01-01T00:05:07Z")).toBe("in 5m 07s");
   });
 
   it("shows bare seconds inside the final minute", () => {
-    expect(fiveHourReset("2026-01-01T00:00:42Z")).toBe("resets in 42s");
+    expect(fiveHourReset("2026-01-01T00:00:42Z")).toBe("in 42s");
   });
 
   it("leaves the label empty at or past the reset time", () => {
@@ -221,7 +221,7 @@ describe("reset countdowns", () => {
 
   it("truncates a microsecond timestamp to milliseconds before parsing", () => {
     expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe(fiveHourReset("2026-01-01T00:01:30.123Z"));
-    expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe("resets in 1m 30s");
+    expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe("in 1m 30s");
   });
 });
 
@@ -287,6 +287,6 @@ describe("panel view-model skips unknown agents", () => {
   it("builds the kind legend only from agents with limits", () => {
     const legend = buildKindLegend(groups);
 
-    expect(legend.map(entry => entry.short)).toEqual(["5h", "wk", "OP"]);
+    expect(legend.map(entry => entry.short)).toEqual(["S", "W", "O"]);
   });
 });
