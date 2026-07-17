@@ -934,12 +934,12 @@
   }
 
   /* Visual insets live on this pad, off the measured viewport, so they never
-     count toward the fit — it lifts the output off every pane edge (canvas line
-     264: 10px top, 8px right, 8px bottom, 14px left). */
+     count toward the fit — it lifts the output off every pane edge (canon:
+     12px top, 8px right, 8px bottom, 14px left). */
   .term-pad {
     flex: 1;
     min-block-size: 0;
-    padding-block: 10px 8px;
+    padding-block: 12px 8px;
     padding-inline: 14px 8px;
     background: var(--code-background);
   }
