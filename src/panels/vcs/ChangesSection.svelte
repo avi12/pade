@@ -82,7 +82,7 @@
     padding-inline: 7px;
     border-radius: 999px;
     background: var(--surface-2);
-    color: var(--on-surface-variant);
+    color: var(--on-surface);
     font-weight: 700;
     font-size: 11px;
     font-variant-numeric: tabular-nums;
