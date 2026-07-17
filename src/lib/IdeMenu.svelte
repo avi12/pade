@@ -110,6 +110,13 @@
     align-items: stretch;
     border-radius: 999px;
     background: var(--surface-2);
+
+    /* While the menu is open, hide the caret's own hover tooltip: the popover
+       lives in the top layer (above any z-index), so an unsuppressed bubble
+       peeks out from behind the open menu. */
+    &:has(~ .ide-list:popover-open) .ide-more::after {
+      display: none;
+    }
   }
 
   .ide-open {

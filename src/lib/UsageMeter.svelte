@@ -318,6 +318,13 @@
 <style>
   .usage-wrap {
     flex-shrink: 0;
+
+    /* While the menu is open, hide the pill's own hover tooltip: the popover
+       lives in the top layer (above any z-index), so an unsuppressed bubble
+       peeks out from behind the open menu. */
+    &:has(#usage-menu:popover-open) .pill::after {
+      display: none;
+    }
   }
 
   /* Severity color, shared: the level class sets --sev (and a faint --sev-wash
