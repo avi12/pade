@@ -1,6 +1,6 @@
 // App-level keyboard shortcuts for the agent tab strip. A single capture-phase
 // keydown listener so the shortcuts win over a focused terminal — xterm would
-// otherwise hand Ctrl+W / Ctrl+T etc. to the agent as raw control codes. The
+// otherwise hand Ctrl+W / Ctrl+Alt+T etc. to the agent as raw control codes. The
 // pure `matchTabShortcut` maps a key chord to an action and is unit-tested; the
 // registrar wires actions to the app's handlers and leaves text fields alone.
 
@@ -26,10 +26,11 @@ export interface KeyChord {
 }
 
 /** Map a key chord to the tab action it triggers, or null when it isn't one.
- *  Ctrl+T new · Ctrl+Shift+T launch menu · Ctrl+W / Ctrl+F4 close ·
+ *  Ctrl+Alt+T new · Ctrl+Shift+T launch menu · Ctrl+W / Ctrl+F4 close ·
  *  Ctrl+Tab / Alt+Right next · Ctrl+Shift+Tab / Alt+Left previous. */
 export function matchTabShortcut(chord: KeyChord): TabAction | null {
   const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
+  const lowerKey = key.toLowerCase();
   // Alt+Arrow (alone) cycles tabs, echoing the browser's back/forward gesture.
   if (altKey && !ctrlKey && !metaKey && !shiftKey) {
     if (key === "ArrowRight") {
@@ -43,14 +44,20 @@ export function matchTabShortcut(chord: KeyChord): TabAction | null {
     return null;
   }
 
+  // Ctrl+Alt+T opens a new agent tab — moved off plain Ctrl+T so a focused
+  // terminal keeps that chord for itself.
+  if (ctrlKey && altKey && !metaKey && !shiftKey && lowerKey === "t") {
+    return TabAction.New;
+  }
+
   // Every remaining shortcut is Ctrl-based, with Alt/Meta absent.
   if (!ctrlKey || altKey || metaKey) {
     return null;
   }
 
-  const lowerKey = key.toLowerCase();
+  // Ctrl+Shift+T opens the launch menu; plain Ctrl+T is left to the terminal.
   if (lowerKey === "t") {
-    return shiftKey ? TabAction.LaunchMenu : TabAction.New;
+    return shiftKey ? TabAction.LaunchMenu : null;
   }
 
   if (key === "Tab") {

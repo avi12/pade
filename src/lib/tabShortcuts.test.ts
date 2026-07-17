@@ -14,7 +14,17 @@ function chord(over: Partial<KeyChord> = {}): KeyChord {
 }
 
 describe("matchTabShortcut", () => {
-  it("opens a new tab on Ctrl+T and the launch menu on Ctrl+Shift+T", () => {
+  it("opens a new tab on Ctrl+Alt+T and the launch menu on Ctrl+Shift+T", () => {
+    expect(
+      matchTabShortcut(
+        chord({
+          ctrlKey: true,
+          altKey: true,
+          key: "t"
+        })
+      )
+    ).toBe(TabAction.New);
+    // Plain Ctrl+T is no longer a tab shortcut — it belongs to the terminal now.
     expect(
       matchTabShortcut(
         chord({
@@ -22,7 +32,7 @@ describe("matchTabShortcut", () => {
           key: "t"
         })
       )
-    ).toBe(TabAction.New);
+    ).toBeNull();
     expect(
       matchTabShortcut(
         chord({
@@ -108,13 +118,14 @@ describe("matchTabShortcut", () => {
         })
       )
     ).toBeNull();
-    // A stray Alt on a Ctrl shortcut disqualifies it.
+    // A stray Alt on a Ctrl shortcut disqualifies it — Ctrl+Alt+T is now the
+    // new-tab chord, so close (Ctrl+W) is the example here.
     expect(
       matchTabShortcut(
         chord({
           ctrlKey: true,
           altKey: true,
-          key: "t"
+          key: "w"
         })
       )
     ).toBeNull();
