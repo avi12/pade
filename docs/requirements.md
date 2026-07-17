@@ -183,8 +183,11 @@ writes.
   expands its required editor coverage to every language co-located in its main
   source branch, so a web/Rust application requires a generalist while Python
   automation under a separate scripts branch does not veto WebStorm. With no
-  manifests, every observed source kind is required. The same ownership rule
-  applies across all registered ecosystems; it has no framework-name exceptions.
+  manifests, every observed source kind is required; if there is no recognized
+  source kind (for example, a text/Markdown-only folder), only general-purpose
+  editors are eligible and the configured fallback leads. The same ownership
+  rule applies across all registered ecosystems; it has no framework-name
+  exceptions.
 - R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);

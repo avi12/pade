@@ -1757,6 +1757,14 @@ mod tests {
     }
 
     #[test]
+    fn an_unclassified_project_only_suggests_general_purpose_editors() {
+        let suggested = suggestible_editor_ids(&std::collections::BTreeMap::new(), &[]);
+
+        assert!(!suggested.is_empty());
+        assert!(suggested.iter().all(|id| is_general_purpose_editor(id)));
+    }
+
+    #[test]
     fn generated_content_sits_out_the_census_without_a_path_rule() {
         let dir = std::env::temp_dir().join(format!("pade-generated-{}", std::process::id()));
         let core = dir.join("src-tauri");
