@@ -5,11 +5,98 @@
 //! project directory in the one you pick.
 
 use std::collections::BTreeMap;
-use std::io::Read;
+use std::io::{Read, Write};
+use std::process::Stdio;
 
 use serde::Serialize;
 
 use crate::util::is_on_path;
+
+/// The source-language families PADE can identify and match against an
+/// editor's capabilities. The string identifier crosses the IPC and settings
+/// boundaries; this enum is the sole Rust definition of that closed set.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum ProjectKind {
+    Android,
+    Web,
+    Python,
+    Php,
+    Ruby,
+    Go,
+    Rust,
+    Java,
+    Cpp,
+    Dotnet,
+}
+
+impl ProjectKind {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Android => "android",
+            Self::Web => "web",
+            Self::Python => "python",
+            Self::Php => "php",
+            Self::Ruby => "ruby",
+            Self::Go => "go",
+            Self::Rust => "rust",
+            Self::Java => "java",
+            Self::Cpp => "cpp",
+            Self::Dotnet => "dotnet",
+        }
+    }
+
+    fn from_extension(extension: &str) -> Option<Self> {
+        KIND_REGISTRY
+            .iter()
+            .find(|definition| {
+                definition
+                    .extensions
+                    .iter()
+                    .any(|known| known.eq_ignore_ascii_case(extension))
+            })
+            .map(|definition| definition.kind)
+    }
+
+    fn from_linguist_language(language: &str) -> Option<Self> {
+        KIND_REGISTRY
+            .iter()
+            .find(|definition| {
+                definition
+                    .linguist_languages
+                    .iter()
+                    .any(|known| known.eq_ignore_ascii_case(language))
+            })
+            .map(|definition| definition.kind)
+    }
+}
+
+/// The languages an editor can handle without inspecting its per-user plugin
+/// installation. General-purpose editors deliberately cover every PADE kind;
+/// product-specific editors declare only their shipped language families.
+#[derive(Clone, Copy)]
+enum EditorCoverage {
+    EveryKind,
+    Kinds(&'static [ProjectKind]),
+}
+
+impl EditorCoverage {
+    fn supports(self, kind: ProjectKind) -> bool {
+        match self {
+            Self::EveryKind => true,
+            Self::Kinds(kinds) => kinds.contains(&kind),
+        }
+    }
+
+    /// On equal source coverage, prefer the least-general tool that fully fits
+    /// the project. It selects `RustRover` for a Rust-only project while leaving
+    /// a general editor to win whenever no specialist covers the whole mix.
+    const fn breadth(self) -> usize {
+        match self {
+            Self::EveryKind => usize::MAX,
+            Self::Kinds(kinds) => kinds.len(),
+        }
+    }
+}
 
 /// How a launcher wants a jump-to-line request shaped on the command line —
 /// verified against each editor's official CLI docs.
@@ -42,6 +129,8 @@ struct IdeDef {
     /// project window* (it drops it into the last-active one); the protocol
     /// targets a project by name, so opening a file lands in the right window.
     protocol: Option<&'static str>,
+    /// Source-language families this product can cover for ranking purposes.
+    coverage: EditorCoverage,
 }
 
 const REGISTRY: &[IdeDef] = &[
@@ -51,6 +140,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "code",
         style: OpenStyle::VsCode,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
         id: "cursor",
@@ -58,6 +148,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "cursor",
         style: OpenStyle::VsCode,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     // The popular VS Code forks are generalists exactly like their parent —
     // same launcher conventions, same any-language reach.
@@ -67,6 +158,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "antigravity",
         style: OpenStyle::VsCode,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
         id: "windsurf",
@@ -74,6 +166,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "windsurf",
         style: OpenStyle::VsCode,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
         id: "vscodium",
@@ -81,6 +174,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "codium",
         style: OpenStyle::VsCode,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
         id: "webstorm",
@@ -88,6 +182,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "webstorm",
         style: OpenStyle::JetBrains,
         protocol: Some("webstorm"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web]),
     },
     IdeDef {
         id: "idea",
@@ -95,6 +190,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "idea",
         style: OpenStyle::JetBrains,
         protocol: Some("idea"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Java]),
     },
     IdeDef {
         id: "pycharm",
@@ -102,6 +198,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "pycharm",
         style: OpenStyle::JetBrains,
         protocol: Some("pycharm"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Python]),
     },
     IdeDef {
         id: "goland",
@@ -109,6 +206,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "goland",
         style: OpenStyle::JetBrains,
         protocol: Some("goland"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Go]),
     },
     IdeDef {
         id: "rustrover",
@@ -116,6 +214,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "rustrover",
         style: OpenStyle::JetBrains,
         protocol: Some("rustrover"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Rust]),
     },
     IdeDef {
         id: "rider",
@@ -123,6 +222,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "rider",
         style: OpenStyle::JetBrains,
         protocol: Some("rider"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Dotnet]),
     },
     IdeDef {
         id: "clion",
@@ -130,6 +230,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "clion",
         style: OpenStyle::JetBrains,
         protocol: Some("clion"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Cpp]),
     },
     IdeDef {
         id: "phpstorm",
@@ -137,6 +238,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "phpstorm",
         style: OpenStyle::JetBrains,
         protocol: Some("phpstorm"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Php]),
     },
     IdeDef {
         id: "rubymine",
@@ -144,6 +246,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "rubymine",
         style: OpenStyle::JetBrains,
         protocol: Some("rubymine"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Ruby]),
     },
     IdeDef {
         id: "androidstudio",
@@ -151,6 +254,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "studio",
         style: OpenStyle::JetBrains,
         protocol: Some("studio"),
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Android, ProjectKind::Java]),
     },
     IdeDef {
         id: "zed",
@@ -158,6 +262,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "zed",
         style: OpenStyle::PathColon,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
         id: "sublime",
@@ -165,6 +270,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "subl",
         style: OpenStyle::PathColon,
         protocol: None,
+        coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
         id: "visualstudio",
@@ -172,6 +278,7 @@ const REGISTRY: &[IdeDef] = &[
         command: "devenv",
         style: OpenStyle::VisualStudio,
         protocol: None,
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Cpp, ProjectKind::Dotnet]),
     },
 ];
 
@@ -202,150 +309,126 @@ impl Marker {
     }
 }
 
-/// One project kind PADE recognises. A single row wires everything a kind
-/// needs — its detection markers, UI label, and purpose-built editors — so
-/// adding a language is one entry here. Table order is the detection priority
-/// (the first matching kind is a project's primary kind) and the UI's render
-/// order.
+/// One source-language family PADE recognises. A single row is the authoritative
+/// mapping from project markers, filename extensions, and GitHub Linguist names
+/// to one project kind. Editor support lives separately in [`REGISTRY`], so
+/// adding a language never requires preference-list tuning.
 struct KindDef {
-    kind: &'static str,
+    kind: ProjectKind,
     label: &'static str,
     markers: &'static [Marker],
-    /// The IDEs purpose-built for this kind, best first. Generalist editors
-    /// are appended to every suggestion list as a fallback.
-    preferred: &'static [&'static str],
+    /// Filename extensions whose language classification is unambiguous in the
+    /// PADE-supported set. Ambiguous extensions deliberately sit out.
+    extensions: &'static [&'static str],
+    /// Canonical names accepted by the `linguist-language` Git attribute.
+    linguist_languages: &'static [&'static str],
 }
 
 const KIND_REGISTRY: &[KindDef] = &[
     // Android is checked first: an Android project is also "web"/"java"-ish,
     // but Android Studio is the right call when its markers are there.
     KindDef {
-        kind: "android",
+        kind: ProjectKind::Android,
         label: "Android",
         markers: &[
             Marker::Named("AndroidManifest.xml"),
             Marker::Named("gradlew"),
             Marker::Named("settings.gradle"),
         ],
-        preferred: &["androidstudio", "idea"],
+        extensions: &[],
+        linguist_languages: &[],
     },
     KindDef {
-        kind: "web",
+        kind: ProjectKind::Web,
         label: "Web / JavaScript",
         markers: &[
             Marker::Named("package.json"),
             Marker::Named("tsconfig.json"),
             Marker::Named("index.html"),
         ],
-        preferred: &["webstorm", "vscode", "cursor"],
+        extensions: &[
+            "ts", "tsx", "js", "jsx", "mjs", "svelte", "vue", "html", "css", "scss",
+        ],
+        linguist_languages: &[
+            "JavaScript",
+            "TypeScript",
+            "Svelte",
+            "Vue",
+            "HTML",
+            "CSS",
+            "SCSS",
+        ],
     },
     KindDef {
-        kind: "python",
+        kind: ProjectKind::Python,
         label: "Python",
         markers: &[
             Marker::Named("pyproject.toml"),
             Marker::Named("requirements.txt"),
             Marker::Named("setup.py"),
         ],
-        preferred: &["pycharm", "vscode"],
+        extensions: &["py"],
+        linguist_languages: &["Python"],
     },
     KindDef {
-        kind: "php",
+        kind: ProjectKind::Php,
         label: "PHP",
         markers: &[Marker::Named("composer.json")],
-        preferred: &["phpstorm", "vscode"],
+        extensions: &["php"],
+        linguist_languages: &["PHP"],
     },
     KindDef {
-        kind: "ruby",
+        kind: ProjectKind::Ruby,
         label: "Ruby",
         markers: &[Marker::Named("Gemfile")],
-        preferred: &["rubymine", "vscode"],
+        extensions: &["rb"],
+        linguist_languages: &["Ruby"],
     },
     KindDef {
-        kind: "go",
+        kind: ProjectKind::Go,
         label: "Go",
         markers: &[Marker::Named("go.mod")],
-        preferred: &["goland", "vscode"],
+        extensions: &["go"],
+        linguist_languages: &["Go"],
     },
     KindDef {
-        kind: "rust",
+        kind: ProjectKind::Rust,
         label: "Rust",
         markers: &[Marker::Named("Cargo.toml")],
-        preferred: &["rustrover", "zed", "vscode"],
+        extensions: &["rs"],
+        linguist_languages: &["Rust"],
     },
     KindDef {
-        kind: "java",
+        kind: ProjectKind::Java,
         label: "Java",
         markers: &[Marker::Named("pom.xml"), Marker::Named("build.gradle")],
-        preferred: &["idea"],
+        extensions: &["java", "kt"],
+        linguist_languages: &["Java", "Kotlin"],
     },
     // C/C++ before .NET: a Visual C++ solution also carries a .sln, and marker
     // files can't reliably separate C from C++, so one "cpp" kind covers both.
     KindDef {
-        kind: "cpp",
+        kind: ProjectKind::Cpp,
         label: "C / C++",
         markers: &[
             Marker::Named("CMakeLists.txt"),
             Marker::Named("meson.build"),
             Marker::Extension("vcxproj"),
         ],
-        preferred: &["visualstudio", "clion", "vscode"],
+        extensions: &["c", "cc", "cpp", "h", "hpp"],
+        linguist_languages: &["C", "C++"],
     },
     KindDef {
-        kind: "dotnet",
+        kind: ProjectKind::Dotnet,
         label: "C# / .NET",
         markers: &[
             Marker::Named("global.json"),
             Marker::Extension("sln"),
             Marker::Extension("csproj"),
         ],
-        preferred: &["visualstudio", "rider", "vscode"],
+        extensions: &["cs"],
+        linguist_languages: &["C#"],
     },
-];
-const GENERALISTS: &[&str] = &[
-    "vscode",
-    "cursor",
-    "antigravity",
-    "windsurf",
-    "vscodium",
-    "zed",
-    "sublime",
-];
-
-/// Polyglot IDEs — they cover several kinds at once (IDEA Ultimate ships the
-/// full web stack next to the JVM and plugin languages), so a true hybrid
-/// ranks them right after the generalists, still ahead of any single-language
-/// specialist. (`JetBrains`' own compare matrix: `WebStorm` has no Rust at
-/// all; IDEA is "a superset of most `IntelliJ` platform-based IDEs".)
-const POLYGLOTS: &[&str] = &["idea"];
-
-/// Extension → project kind for the byte census — only extensions that
-/// unambiguously signal one registry kind (Linguist resolves ambiguous ones
-/// with content heuristics; PADE just leaves them out of the weighing).
-const CENSUS_EXTENSIONS: &[(&str, &str)] = &[
-    ("ts", "web"),
-    ("tsx", "web"),
-    ("js", "web"),
-    ("jsx", "web"),
-    ("mjs", "web"),
-    ("svelte", "web"),
-    ("vue", "web"),
-    ("html", "web"),
-    ("css", "web"),
-    ("scss", "web"),
-    ("rs", "rust"),
-    ("py", "python"),
-    ("go", "go"),
-    ("php", "php"),
-    ("rb", "ruby"),
-    ("java", "java"),
-    ("kt", "java"),
-    ("cs", "dotnet"),
-    ("c", "cpp"),
-    ("cc", "cpp"),
-    ("cpp", "cpp"),
-    ("h", "cpp"),
-    ("hpp", "cpp"),
 ];
 
 /// Census walk bounds — enough to weigh a real repo, bounded so the suggestion
@@ -353,113 +436,225 @@ const CENSUS_EXTENSIONS: &[(&str, &str)] = &[
 const CENSUS_MAX_DEPTH: usize = 5;
 const CENSUS_MAX_FILES: usize = 4000;
 
-/// A byte census of a project's languages must ignore *generated* files, or a
-/// single vendored bundle — a 4&nbsp;MB minified `common.js` — drowns out the real
-/// source and misreads the language mix (a Tauri hybrid reads as pure web). This
-/// is the half of Linguist's method the marker/byte census alone skips: Linguist
-/// excludes generated content before weighing. PADE judges a file by what it
-/// *contains*, never by its name — a minified blob is recognised by lines that
-/// run implausibly long for hand-written code, whatever a tool called the file.
-const CENSUS_CONTENT_CHECK_MIN_BYTES: u64 = 64 * 1024;
-const MINIFIED_SAMPLE_BYTES: usize = 8 * 1024;
+/// The first 8 KiB is enough to identify binary, minified, and generator-marked
+/// content without turning editor suggestion into a full repository scan.
+const SOURCE_SAMPLE_BYTES: usize = 8 * 1024;
+const MINIFIED_MIN_SAMPLE_BYTES: usize = 1024;
 const MINIFIED_AVG_LINE_BYTES: usize = 400;
+const LINGUIST_GENERATED: &str = "linguist-generated";
+const LINGUIST_VENDORED: &str = "linguist-vendored";
+const LINGUIST_DOCUMENTATION: &str = "linguist-documentation";
+const LINGUIST_DETECTABLE: &str = "linguist-detectable";
+const LINGUIST_LANGUAGE: &str = "linguist-language";
+const LINGUIST_ATTRIBUTES: &[&str] = &[
+    LINGUIST_GENERATED,
+    LINGUIST_VENDORED,
+    LINGUIST_DOCUMENTATION,
+    LINGUIST_DETECTABLE,
+    LINGUIST_LANGUAGE,
+];
 
-/// Whether `path` looks generated/minified and should sit out the census. Cheap:
-/// only files past [`CENSUS_CONTENT_CHECK_MIN_BYTES`] are read (smaller files
-/// barely move the census), and only their head is sampled for the near-absence
-/// of newlines that marks minified output. The decision is purely by content —
-/// no filename or extension patterns.
-fn is_generated(path: &std::path::Path, size: u64) -> bool {
-    if size < CENSUS_CONTENT_CHECK_MIN_BYTES {
-        return false;
+/// The Git-authored exclusions and classification that apply to one tracked
+/// file. `None` means the corresponding attribute was unspecified.
+#[derive(Default)]
+struct LinguistAttributes {
+    language: Option<ProjectKind>,
+    generated: Option<bool>,
+    vendored: Option<bool>,
+    documentation: Option<bool>,
+    detectable: Option<bool>,
+}
+
+impl LinguistAttributes {
+    fn excludes_from_census(&self) -> bool {
+        self.detectable == Some(false)
+            || self.generated == Some(true)
+            || self.vendored == Some(true)
+            || self.documentation == Some(true)
     }
-    let Ok(mut file) = std::fs::File::open(path) else {
-        return false;
-    };
-    let mut head = [0u8; MINIFIED_SAMPLE_BYTES];
-    let Ok(read) = file.read(&mut head) else {
-        return false;
-    };
-    // Minified output runs almost without line breaks — its first "line" spans
-    // the whole file. A first line longer than any hand-written one (or a sample
-    // with no break at all) marks it generated. `position` stops at the first
-    // newline, so there's no scanning the whole buffer.
-    match head[..read].iter().position(|&b| b == b'\n') {
-        Some(first_break) => first_break > MINIFIED_AVG_LINE_BYTES,
-        None => read > MINIFIED_AVG_LINE_BYTES,
+
+    fn set(&mut self, attribute: &str, value: &str) {
+        let boolean = match value {
+            "set" => Some(true),
+            "unset" => Some(false),
+            _ => None,
+        };
+        match attribute {
+            LINGUIST_GENERATED => self.generated = boolean,
+            LINGUIST_VENDORED => self.vendored = boolean,
+            LINGUIST_DOCUMENTATION => self.documentation = boolean,
+            LINGUIST_DETECTABLE => self.detectable = boolean,
+            LINGUIST_LANGUAGE => self.language = ProjectKind::from_linguist_language(value),
+            _ => {}
+        }
     }
 }
 
-/// Byte share (percent) one kind needs, of all census-counted bytes across the
-/// detected kinds, to count as dominant. A "hybrid" in markers only — a web
-/// app with one Rust helper — still reads as its dominant kind; below the bar
-/// the repo is a genuine hybrid. (No published cutoff exists; this is PADE's
-/// tuning, chosen so its own repo — a real Tauri hybrid — stays hybrid.)
-const DOMINANT_BYTE_PERCENT: u128 = 85;
-
-/// The census kind for a file extension, or `None` for extensions that don't
-/// unambiguously map to one registry kind (they sit out the weighing).
-fn census_kind(extension: &str) -> Option<&'static str> {
-    CENSUS_EXTENSIONS
-        .iter()
-        .find(|(known, _)| known.eq_ignore_ascii_case(extension))
-        .map(|(_, kind)| *kind)
+/// Intrinsic source properties used before language classification. Binary data
+/// and generated output never influence editor coverage, whatever their path.
+struct SourceContent {
+    binary: bool,
+    generated: bool,
 }
 
-/// Fold one file's on-disk bytes into the running per-kind totals — the byte
-/// weighting is Linguist's. Files with no census kind, and generated/minified
-/// blobs, sit out.
-fn weigh_file(path: &std::path::Path, totals: &mut BTreeMap<&'static str, u64>) {
-    let Some(kind) = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .and_then(census_kind)
-    else {
+/// Read the small content sample used to exclude non-source files. A source
+/// file is classified only when its bytes were readable; guessing around a read
+/// failure would make the result depend on a transient filesystem error.
+fn source_content(path: &std::path::Path) -> Option<SourceContent> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut sample = [0u8; SOURCE_SAMPLE_BYTES];
+    let read = file.read(&mut sample).ok()?;
+    let sample = &sample[..read];
+    let binary = sample.contains(&0);
+    if binary {
+        return Some(SourceContent {
+            binary,
+            generated: false,
+        });
+    }
+
+    let text = String::from_utf8_lossy(sample).to_ascii_lowercase();
+    let declares_generated = text.contains("generated by")
+        || text.contains("code generated")
+        || text.contains("autogenerated")
+        || (text.contains("generated") && text.contains("do not edit"))
+        || text.contains("sourcemappingurl=");
+    let line_count = sample.split(|&byte| byte == b'\n').count();
+    let average_line_bytes = sample.len() / line_count.max(1);
+    let minified =
+        sample.len() >= MINIFIED_MIN_SAMPLE_BYTES && average_line_bytes > MINIFIED_AVG_LINE_BYTES;
+    Some(SourceContent {
+        binary,
+        generated: declares_generated || minified,
+    })
+}
+
+/// Fold one file's bytes into the language profile. Git attributes are the
+/// project author's explicit statement, so they override intrinsic generated
+/// detection and extension classification.
+fn weigh_file(
+    path: &std::path::Path,
+    attributes: &LinguistAttributes,
+    totals: &mut BTreeMap<ProjectKind, u64>,
+) {
+    if attributes.excludes_from_census() {
+        return;
+    }
+    let Some(content) = source_content(path) else {
+        return;
+    };
+    let is_generated = attributes.generated.unwrap_or(content.generated);
+    if content.binary || is_generated {
+        return;
+    }
+    let Some(kind) = attributes.language.or_else(|| {
+        path.extension()
+            .and_then(|value| value.to_str())
+            .and_then(ProjectKind::from_extension)
+    }) else {
         return;
     };
     let bytes = std::fs::metadata(path).map_or(0, |meta| meta.len());
-    if is_generated(path, bytes) {
-        return;
-    }
     *totals.entry(kind).or_insert(0) += bytes;
 }
 
-/// The repo's tracked files as absolute paths, or `None` when `cwd` isn't a git
-/// repo (or git isn't installed). `git ls-files` lists exactly the tracked files
-/// — never an untracked scratch file or gitignored build output — so the census
-/// weighs the project's real source the way Linguist does: from what the repo
-/// actually tracks, not from whatever happens to sit in the working tree. This
-/// is what keeps a stray vendored bundle a contributor never committed from
-/// rewriting the language mix.
-fn git_tracked_files(cwd: &std::path::Path) -> Option<Vec<std::path::PathBuf>> {
-    let output = crate::util::command("git")
+/// The Git repository root and its tracked paths. `--full-name` makes each path
+/// relative to the root even when PADE was launched from a subdirectory.
+struct GitRepository {
+    root: std::path::PathBuf,
+    tracked_paths: Vec<String>,
+}
+
+fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
+    let root_output = crate::util::command("git")
         .arg("-C")
         .arg(cwd)
-        .args(["ls-files", "-z"])
+        .args(["rev-parse", "--show-toplevel"])
         .output()
         .ok()?;
-    if !output.status.success() {
+    if !root_output.status.success() {
         return None;
     }
+    let root = std::path::PathBuf::from(String::from_utf8_lossy(&root_output.stdout).trim());
+    if root.as_os_str().is_empty() {
+        return None;
+    }
+    let files_output = crate::util::command("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["ls-files", "--cached", "--full-name", "-z"])
+        .output()
+        .ok()?;
+    if !files_output.status.success() {
+        return None;
+    }
+    let tracked_paths = String::from_utf8_lossy(&files_output.stdout)
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(str::to_string)
+        .collect();
+    Some(GitRepository {
+        root,
+        tracked_paths,
+    })
+}
+
+/// Resolve the project's `.gitattributes` through Git itself, including nested
+/// files and Git's path-matching semantics. The fallback map is empty if Git
+/// cannot evaluate the attributes; the tracked-file census remains usable.
+fn git_linguist_attributes(
+    repository: &GitRepository,
+    paths: &[String],
+) -> BTreeMap<String, LinguistAttributes> {
+    let Ok(mut child) = crate::util::command("git")
+        .arg("-C")
+        .arg(&repository.root)
+        .args(["check-attr", "-z", "--stdin"])
+        .args(LINGUIST_ATTRIBUTES)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+    else {
+        return BTreeMap::new();
+    };
+    let Some(mut input) = child.stdin.take() else {
+        return BTreeMap::new();
+    };
+    let wrote_all_paths = paths.iter().all(|path| {
+        input
+            .write_all(path.as_bytes())
+            .and_then(|()| input.write_all(&[0]))
+            .is_ok()
+    });
+    drop(input);
+    let Ok(output) = child.wait_with_output() else {
+        return BTreeMap::new();
+    };
+    if !wrote_all_paths || !output.status.success() {
+        return BTreeMap::new();
+    }
+
     let listing = String::from_utf8_lossy(&output.stdout);
-    Some(
-        listing
-            .split('\0')
-            .filter(|entry| !entry.is_empty())
-            .map(|relative| cwd.join(relative))
-            .collect(),
-    )
+    let values: Vec<&str> = listing.split('\0').collect();
+    let mut attributes = BTreeMap::new();
+    for record in values.chunks_exact(3) {
+        attributes
+            .entry(record[0].to_string())
+            .or_insert_with(LinguistAttributes::default)
+            .set(record[1], record[2]);
+    }
+    attributes
 }
 
 /// Bounded filesystem-walk fallback for a folder that isn't a git repo: sum
 /// census bytes under `dir`, skipping the hidden and dependency/build dirs the
 /// marker probe skips (untracked build output physically lives here, so the
-/// exclusions matter). A repo goes through [`git_tracked_files`] instead.
+/// exclusions matter). A Git repository goes through [`git_repository`] instead.
 fn census_walk(
     dir: &std::path::Path,
     depth: usize,
     files_left: &mut usize,
-    totals: &mut BTreeMap<&'static str, u64>,
+    totals: &mut BTreeMap<ProjectKind, u64>,
 ) {
     if depth > CENSUS_MAX_DEPTH || *files_left == 0 {
         return;
@@ -485,7 +680,7 @@ fn census_walk(
             continue;
         }
         *files_left -= 1;
-        weigh_file(&path, totals);
+        weigh_file(&path, &LinguistAttributes::default(), totals);
     }
 }
 
@@ -493,41 +688,30 @@ fn census_walk(
 /// when `cwd` is a repo — so untracked junk and ignored build output never sway
 /// the mix — and a bounded filesystem walk otherwise. Bounded to
 /// [`CENSUS_MAX_FILES`] either way so a huge tree can't stall a suggestion.
-fn census(cwd: &std::path::Path) -> BTreeMap<&'static str, u64> {
+fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
     let mut totals = BTreeMap::new();
-    if let Some(files) = git_tracked_files(cwd) {
-        files
+    if let Some(repository) = git_repository(cwd) {
+        let paths: Vec<String> = repository
+            .tracked_paths
             .iter()
             .take(CENSUS_MAX_FILES)
-            .for_each(|path| weigh_file(path, &mut totals));
+            .cloned()
+            .collect();
+        let attributes = git_linguist_attributes(&repository, &paths);
+        for path in &paths {
+            weigh_file(
+                &repository.root.join(path),
+                attributes
+                    .get(path)
+                    .unwrap_or(&LinguistAttributes::default()),
+                &mut totals,
+            );
+        }
     } else {
         let mut files_left = CENSUS_MAX_FILES;
         census_walk(cwd, 0, &mut files_left, &mut totals);
     }
     totals
-}
-
-/// The detected kind holding a clear byte majority of the census, or `None`
-/// when the mix is genuinely hybrid (or nothing countable was found).
-fn dominant_kind(cwd: &std::path::Path, kinds: &[&'static str]) -> Option<&'static str> {
-    let totals = census(cwd);
-
-    let counted: u64 = kinds
-        .iter()
-        .filter_map(|kind| totals.get(kind))
-        .copied()
-        .sum();
-    if counted == 0 {
-        return None;
-    }
-
-    kinds
-        .iter()
-        .find(|kind| {
-            let bytes = totals.get(*kind).copied().unwrap_or(0);
-            u128::from(bytes) * 100 >= u128::from(counted) * DOMINANT_BYTE_PERCENT
-        })
-        .copied()
 }
 
 fn lookup(id: &str) -> Option<Ide> {
@@ -751,12 +935,9 @@ fn probe_roots(cwd: &std::path::Path) -> Vec<std::path::PathBuf> {
 
 /// Sniff the project kinds present in the current directory from the
 /// [`KIND_REGISTRY`] marker files, in the registry's priority order. Markers
-/// are probed in the root and one level down (see [`probe_roots`]), so a
-/// project's kinds are the union of what it contains — a web frontend with a
-/// Rust core detects as both, and the multi-kind ranking in [`ide_suggest`]
-/// then leads with editors that speak every side rather than one side's
-/// specialist.
-fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
+/// are probed in the root and one level down (see [`probe_roots`]); they provide
+/// a second, source-free signal when a new project has no countable files yet.
+fn detect_kinds(cwd: &std::path::Path) -> Vec<ProjectKind> {
     let roots = probe_roots(cwd);
     KIND_REGISTRY
         .iter()
@@ -771,7 +952,7 @@ fn detect_kinds(cwd: &std::path::Path) -> Vec<&'static str> {
 
 /// The single best-matching project kind for `cwd` — the highest-priority marker
 /// present (Android before web/java, etc.), or `None` for an unrecognised project.
-fn primary_kind(cwd: &std::path::Path) -> Option<&'static str> {
+fn primary_kind(cwd: &std::path::Path) -> Option<ProjectKind> {
     detect_kinds(cwd).first().copied()
 }
 
@@ -789,13 +970,51 @@ fn dedup_in_order(ids: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-/// Editor ids to offer per editor-rules row, installed-only. Each recognised
-/// project kind gets its [`KIND_REGISTRY`] preference list plus the generalists (so an
-/// unrelated IDE — `WebStorm` for an Android project — is never offered); the
-/// [`FALLBACK_KEY`] "any other folder" row gets only the generalists and any
-/// user-added editors (a folder with no recognised kind wants a general editor,
-/// not a language-specific IDE). The frontend maps these ids to its detected
-/// editors.
+/// Rank each registered editor by the source bytes it can cover. Marker coverage
+/// breaks a byte tie (e.g. Android Studio for an Android Java project), then the
+/// least-general fully fitting editor wins. Registry order remains the stable
+/// final tie-breaker for equivalent editors such as VS Code and its forks.
+fn ranked_editor_ids(
+    source_bytes: &BTreeMap<ProjectKind, u64>,
+    marker_kinds: &[ProjectKind],
+) -> Vec<String> {
+    let has_evidence = !source_bytes.is_empty() || !marker_kinds.is_empty();
+    let mut editors: Vec<&IdeDef> = REGISTRY.iter().collect();
+    editors.sort_by(|left, right| {
+        if !has_evidence {
+            return matches!(right.coverage, EditorCoverage::EveryKind)
+                .cmp(&matches!(left.coverage, EditorCoverage::EveryKind));
+        }
+        let left_source = source_bytes
+            .iter()
+            .filter(|(kind, _)| left.coverage.supports(**kind))
+            .map(|(_, bytes)| *bytes)
+            .sum::<u64>();
+        let right_source = source_bytes
+            .iter()
+            .filter(|(kind, _)| right.coverage.supports(**kind))
+            .map(|(_, bytes)| *bytes)
+            .sum::<u64>();
+        let left_markers = marker_kinds
+            .iter()
+            .filter(|kind| left.coverage.supports(**kind))
+            .count();
+        let right_markers = marker_kinds
+            .iter()
+            .filter(|kind| right.coverage.supports(**kind))
+            .count();
+        right_source
+            .cmp(&left_source)
+            .then_with(|| right_markers.cmp(&left_markers))
+            .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
+    });
+    editors.iter().map(|editor| editor.id.to_string()).collect()
+}
+
+/// Editor ids to offer per editor-rules row, installed-only. A kind's list is
+/// derived from the same capability table and coverage scorer as suggestions,
+/// so an unrelated IDE is never offered. Unknown folders get only universal
+/// editors and user-added launchers.
 #[tauri::command]
 pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
     let installed = ide_detect();
@@ -805,13 +1024,12 @@ pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
         .filter(|editor| editor.id.starts_with("added-"))
         .map(|editor| editor.id.clone());
 
-    // General editors + the user's own added editors — suitable for any folder.
     let general = dedup_in_order(
-        GENERALISTS
+        REGISTRY
             .iter()
-            .copied()
-            .map(str::to_string)
-            .chain(added_ids)
+            .filter(|editor| matches!(editor.coverage, EditorCoverage::EveryKind))
+            .map(|editor| editor.id.to_string())
+            .chain(added_ids.clone())
             .filter(|id| is_present(id))
             .collect(),
     );
@@ -819,16 +1037,21 @@ pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
     KIND_REGISTRY
         .iter()
         .map(|def| {
+            let source_bytes = BTreeMap::from([(def.kind, 1)]);
             let options = dedup_in_order(
-                def.preferred
-                    .iter()
-                    .copied()
-                    .map(str::to_string)
+                ranked_editor_ids(&source_bytes, &[def.kind])
+                    .into_iter()
+                    .filter(|id| {
+                        REGISTRY
+                            .iter()
+                            .find(|editor| editor.id == id)
+                            .is_some_and(|editor| editor.coverage.supports(def.kind))
+                    })
                     .filter(|id| is_present(id))
-                    .chain(general.iter().cloned())
+                    .chain(added_ids.clone())
                     .collect(),
             );
-            (def.kind.to_string(), options)
+            (def.kind.as_str().to_string(), options)
         })
         .chain(std::iter::once((FALLBACK_KEY.to_string(), general.clone())))
         .collect()
@@ -851,7 +1074,7 @@ pub fn ide_kinds() -> Vec<KindInfo> {
     KIND_REGISTRY
         .iter()
         .map(|def| KindInfo {
-            kind: def.kind.to_string(),
+            kind: def.kind.as_str().to_string(),
             label: def.label.to_string(),
             signals: def.markers.iter().map(Marker::display).collect(),
         })
@@ -866,6 +1089,7 @@ pub fn ide_project_kind() -> Option<String> {
         .ok()
         .as_deref()
         .and_then(primary_kind)
+        .map(ProjectKind::as_str)
         .map(str::to_string)
 }
 
@@ -879,65 +1103,19 @@ fn is_installed(id: &str) -> bool {
 }
 
 /// Installed IDEs ranked for the current project, best match first. The
-/// editor-rules engine takes precedence: a user rule for the project's primary
-/// kind is offered first, then the configured fallback, then the built-in
-/// auto-ranking (kind preferences + generalists). A project with several entry
-/// points (a monorepo — more than one detected kind) is usually better served by a
-/// generalist than any one language's specialised IDE, so generalists lead the
-/// auto-ranking there. Deduped, installed-only.
+/// editor-rules engine takes precedence: a user rule for the primary marker
+/// kind is offered first, then the configured fallback, then byte-weighted
+/// editor coverage. No dominant-language threshold is involved.
 #[tauri::command]
 pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     let kinds = detect_kinds(&cwd);
     let prefs = crate::workspace::load().prefs;
 
-    // 1) Explicit rule for the primary kind, 2) fallback, 3) auto-ranking.
-    let rule = primary_kind(&cwd).and_then(|k| prefs.ide_rules.get(k).cloned());
+    // 1) Explicit rule for the primary kind, 2) fallback, 3) coverage ranking.
+    let rule = primary_kind(&cwd).and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
     let configured = rule.into_iter().chain(prefs.ide_fallback);
-
-    // Specialised IDEs for every detected kind, and the generalists. A
-    // single-kind project leads with that kind's specialists. A multi-kind
-    // project is weighed by the byte census first: one kind holding a clear
-    // majority still leads with its specialists (a hybrid in markers only);
-    // a genuine hybrid leads with the generalists and the polyglot IDEs —
-    // no single-language specialist fits a repo that is really two languages.
-    let preferred_of = |kind: &str| {
-        KIND_REGISTRY
-            .iter()
-            .find(|def| def.kind == kind)
-            .map_or::<&[&str], _>(&[], |def| def.preferred)
-    };
-    let specialized: Vec<&str> = kinds
-        .iter()
-        .flat_map(|k| preferred_of(k).iter().copied())
-        .collect();
-    let is_monorepo = kinds.len() > 1;
-    let auto: Vec<String> = if is_monorepo {
-        match dominant_kind(&cwd, &kinds) {
-            Some(dominant) => preferred_of(dominant)
-                .iter()
-                .chain(GENERALISTS)
-                .chain(POLYGLOTS)
-                .chain(specialized.iter())
-                .copied()
-                .collect(),
-            None => GENERALISTS
-                .iter()
-                .chain(POLYGLOTS)
-                .chain(specialized.iter())
-                .copied()
-                .collect(),
-        }
-    } else {
-        specialized
-            .iter()
-            .chain(GENERALISTS.iter())
-            .copied()
-            .collect::<Vec<&str>>()
-    }
-    .into_iter()
-    .map(str::to_string)
-    .collect();
+    let auto = ranked_editor_ids(&census(&cwd), &kinds);
 
     let mut ordered: Vec<String> = Vec::new();
     for id in configured.chain(auto) {
@@ -1085,57 +1263,62 @@ pub fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        dominant_kind, exe_basename, family, ide_kinds, is_generated, open_args, open_style,
-        project_name, protocol_id, relative_path, OpenStyle,
+        census, exe_basename, family, ide_kinds, open_args, open_style, project_name, protocol_id,
+        ranked_editor_ids, relative_path, source_content, OpenStyle, ProjectKind,
     };
 
     #[test]
-    fn census_flags_a_dominant_kind_and_stays_hybrid_otherwise() {
-        let dir = std::env::temp_dir().join(format!("pade-census-{}", std::process::id()));
-        let core = dir.join("src-tauri");
-        std::fs::create_dir_all(&core).expect("test dirs");
-
-        // 9:1 bytes web:rust — the web side clearly dominates.
-        std::fs::write(dir.join("app.ts"), vec![b'a'; 9_000]).expect("web file");
-        std::fs::write(core.join("main.rs"), vec![b'a'; 1_000]).expect("rust file");
-        assert_eq!(dominant_kind(&dir, &["web", "rust"]), Some("web"));
-
-        // Balance the bytes — now it is a genuine hybrid, nobody dominates.
-        std::fs::write(core.join("core.rs"), vec![b'a'; 8_000]).expect("rust file");
-        assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
-
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+    fn coverage_ranking_prefers_a_specialist_for_one_language() {
+        let source_bytes = std::collections::BTreeMap::from([(ProjectKind::Rust, 10_000)]);
+        let ranked = ranked_editor_ids(&source_bytes, &[ProjectKind::Rust]);
+        assert_eq!(ranked.first().map(String::as_str), Some("rustrover"));
     }
 
     #[test]
-    fn a_minified_bundle_sits_out_the_census_so_a_hybrid_stays_hybrid() {
+    fn coverage_ranking_requires_full_coverage_for_a_hybrid() {
+        let source_bytes = std::collections::BTreeMap::from([
+            (ProjectKind::Web, 9_000),
+            (ProjectKind::Rust, 1_000),
+        ]);
+        let ranked = ranked_editor_ids(&source_bytes, &[ProjectKind::Web, ProjectKind::Rust]);
+        assert_eq!(ranked.first().map(String::as_str), Some("vscode"));
+        assert!(
+            ranked.iter().position(|id| id == "vscode")
+                < ranked.iter().position(|id| id == "webstorm")
+        );
+    }
+
+    #[test]
+    fn generated_content_sits_out_the_census_without_a_path_rule() {
         let dir = std::env::temp_dir().join(format!("pade-generated-{}", std::process::id()));
         let core = dir.join("src-tauri");
         std::fs::create_dir_all(&core).expect("test dirs");
 
-        // Real hand-written source with ordinary short lines: a small web file
-        // next to a comparable Rust core — a genuine hybrid on real code alone.
         let web_src = "const value = 1;\n".repeat(200);
         std::fs::write(dir.join("app.ts"), &web_src).expect("web file");
-        std::fs::write(core.join("main.rs"), "fn main() {}\n".repeat(260)).expect("rust file");
+        let rust_src = "fn main() {}\n".repeat(260);
+        std::fs::write(core.join("main.rs"), &rust_src).expect("rust file");
+        std::fs::write(dir.join("bundle.unknown"), vec![b'a'; 4_000_000]).expect("bundle");
 
-        // A vendored, minified bundle: multi-megabyte, effectively one line. Left
-        // in the census it would make web dominate ~99%; excluded, the repo stays
-        // the hybrid its real source describes.
-        std::fs::write(dir.join("common.js"), vec![b'a'; 4_000_000]).expect("bundle");
-
-        assert!(is_generated(&dir.join("common.js"), 4_000_000));
-        assert!(!is_generated(&dir.join("app.ts"), web_src.len() as u64));
-        assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
+        assert!(
+            source_content(&dir.join("bundle.unknown"))
+                .expect("bundle readable")
+                .generated
+        );
+        let totals = census(&dir);
+        assert_eq!(totals.get(&ProjectKind::Web), Some(&(web_src.len() as u64)));
+        assert_eq!(
+            totals.get(&ProjectKind::Rust),
+            Some(&(rust_src.len() as u64))
+        );
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]
-    fn the_census_weighs_only_git_tracked_source_not_untracked_junk() {
+    fn the_census_honors_git_attributes_and_ignores_untracked_junk() {
         let dir = std::env::temp_dir().join(format!("pade-gittracked-{}", std::process::id()));
-        let core = dir.join("src-tauri");
-        std::fs::create_dir_all(&core).expect("test dirs");
+        std::fs::create_dir_all(&dir).expect("test dir");
 
         let git = |args: &[&str]| {
             crate::util::command("git")
@@ -1154,16 +1337,34 @@ mod tests {
             return;
         }
 
-        // A balanced hybrid on the tracked source alone.
-        std::fs::write(dir.join("app.ts"), "const value = 1;\n".repeat(400)).expect("web file");
-        std::fs::write(core.join("main.rs"), "fn main() {}\n".repeat(500)).expect("rust file");
-        git(&["add", "app.ts", "src-tauri/main.rs"]).expect("git add");
+        let web_src = "const value = 1;\n".repeat(400);
+        let overridden_src = "m".repeat(20_000);
+        let rust_src = "fn main() {}\n".repeat(500);
+        std::fs::write(dir.join("app.ts"), &web_src).expect("web file");
+        std::fs::write(dir.join("custom.source"), &rust_src).expect("rust override");
+        std::fs::write(dir.join("generated.ts"), "x".repeat(20_000)).expect("generated file");
+        std::fs::write(dir.join("manual.ts"), &overridden_src).expect("manual file");
+        std::fs::write(
+            dir.join(".gitattributes"),
+            "generated.ts linguist-generated\ncustom.source linguist-language=Rust\nmanual.ts -linguist-generated\n",
+        )
+        .expect("attributes");
+        let add = git(&["add", "."]).expect("git add");
+        if !add.status.success() {
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        }
 
-        // A large *untracked* web blob — it would tip the repo web-dominant if the
-        // census weighed the working tree instead of git's tracked set.
         std::fs::write(dir.join("bundle.js"), "x = 1;\n".repeat(120_000)).expect("untracked blob");
-
-        assert_eq!(dominant_kind(&dir, &["web", "rust"]), None);
+        let totals = census(&dir);
+        assert_eq!(
+            totals.get(&ProjectKind::Web),
+            Some(&((web_src.len() + overridden_src.len()) as u64))
+        );
+        assert_eq!(
+            totals.get(&ProjectKind::Rust),
+            Some(&(rust_src.len() as u64))
+        );
 
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }

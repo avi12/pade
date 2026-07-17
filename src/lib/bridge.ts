@@ -67,8 +67,8 @@ export const agents = {
 /** External IDE integration. */
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
-  /** Installed IDEs ordered for the current project: rule → fallback → auto-rank;
-   *  a multi-kind project (monorepo) puts generalists before specialists. */
+  /** Installed IDEs ordered for the current project: rule → fallback →
+   *  byte-weighted language-coverage ranking. */
   suggest: () => call("ide_suggest", z.array(Ide)),
   /** The project kinds the rules engine shows (label + manifest signals), in the
    *  backend registry's render/priority order — the frontend derives its rows here. */
