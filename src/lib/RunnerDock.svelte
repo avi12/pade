@@ -428,6 +428,8 @@
 
   .pipe {
     color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
 
     &:hover {
       background: var(--primary-container);
