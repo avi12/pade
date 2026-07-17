@@ -14,7 +14,7 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
-  import { isTemporaryWorkspace } from "@/lib/paths";
+  import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { DropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -373,10 +373,36 @@
       return;
     }
 
+    // Picking the project this window already has open is a return, not a
+    // reopen — the live sessions stay exactly as they were.
+    const isReturnToCurrent =
+      normalizePath(target.path) === normalizePath(currentProject) && sessions.length > 0;
+    if (isReturnToCurrent) {
+      phase = Phase.ready;
+      return;
+    }
+
+    // Switching this window to another project: the old project's agents don't
+    // come along. Kill them before entering, so no session keeps running — and
+    // cwd-locking — a workspace this window has left. Leaving a never-named
+    // temp workspace behind also discards it, exactly like ending its last
+    // session would (see discardTempWorkspace).
+    const previousProject = currentProject;
+    const leavesDiscardableTemp = isDiscardableTemp;
+    await closeAllSessions();
+
     await workspace.open(target.path);
     settings = await workspace.settings(); // pick up the updated recent history
     startAgentFlow(target.path, target.initialPrompt);
     await loadBranches();
+
+    if (leavesDiscardableTemp) {
+      try {
+        settings = await workspace.delete(previousProject);
+      } catch {
+        showToast("Couldn't delete the temp workspace folder.");
+      }
+    }
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
@@ -530,6 +556,24 @@
 
     if (paneIds.length === 0 && activeId) {
       paneIds = [activeId];
+    }
+  }
+
+  // Tear down every session at once — the project-switch path. Each PTY is
+  // killed (reaping its child, so the old workspace's cwd lock is released)
+  // and its exit event is claimed as a hand-close so the exit handler never
+  // races this with a respawn or a discard.
+  async function closeAllSessions() {
+    const ids = sessions.map(s => s.id);
+    for (const id of ids) {
+      closingByHand.add(id);
+    }
+
+    await Promise.all(ids.map(id => pty.kill(id)));
+
+    for (const id of ids) {
+      detachSession(id);
+      closingByHand.delete(id);
     }
   }
 
