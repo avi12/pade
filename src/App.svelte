@@ -28,6 +28,7 @@
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
+  import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerTabShortcuts } from "@/lib/tabShortcuts";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
@@ -441,7 +442,7 @@
     args?: string[];
     /** Add alongside the current panes (split) instead of replacing them. */
     split?: boolean;
-  }) {
+  }): string {
     const session: AgentSession = {
       id: crypto.randomUUID(),
       agent: opts.agent,
@@ -456,6 +457,7 @@
     paneIds = opts.split ? [...paneIds, session.id] : [session.id];
     pendingPrompt = undefined;
     phase = Phase.ready;
+    return session.id;
   }
 
   // A tab click shows that session as the sole pane (classic single view).
@@ -549,6 +551,7 @@
     dropSessionStatus(id);
     dropSessionLabel(id);
     dropNaming(id);
+    dropUsageLimit(id);
 
     if (activeId === id) {
       activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
@@ -702,6 +705,7 @@
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoHandoff === false,
     slugSource: () => currentLabel ?? shortDir,
+    projectDir: () => currentProject,
     removeSession(id) {
       sessions = sessions.filter(s => s.id !== id);
       paneIds = paneIds.filter(paneId => paneId !== id);
@@ -710,6 +714,18 @@
   });
   $effect(() => autoHandoff.check());
   onDestroy(() => autoHandoff.dispose());
+
+  // ── Usage-limit auto-resume ────────────────────────────────────────────────
+  // A session stopped by an exhausted usage window resumes the moment the
+  // window resets — "continue" into the same session while its context has
+  // room, the handoff flow above when it doesn't (lib/stores/usageResume).
+  const usageResume = createUsageResume({
+    sessions: () => sessions,
+    isOptedOut: () => settings.prefs.autoResume === false,
+    forceHandoff: session => autoHandoff.force(session)
+  });
+  $effect(() => usageResume.check());
+  onDestroy(() => usageResume.dispose());
 
   // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
   // defined once; `null` means no panel is open.
@@ -1026,10 +1042,10 @@
 
       <RunnerDock activeSessionId={activeId} />
 
-      {#if autoHandoff.note}
+      {#if autoHandoff.note || usageResume.note}
         <output class="handoff-note">
           <span class="hdot"></span>
-          {autoHandoff.note}
+          {autoHandoff.note || usageResume.note}
         </output>
       {/if}
 

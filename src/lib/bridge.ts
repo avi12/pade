@@ -308,6 +308,12 @@ export const workspace = {
   probePath: (path: string) => call("workspace_probe_path", PathProbe, { path }),
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
+  /** Delete a consumed auto-handoff doc (`continue-*.md` in the project dir —
+   *  the backend refuses anything else). */
+  deleteHandoffDoc: (args: {
+    dir: string;
+    name: string;
+  }) => run("handoff_doc_delete", { ...args }),
   /** Create a throwaway workspace, mark it owned, and open it — chdirs the
    *  process and records it in Recents. Returns its path. */
   temp: () => call("workspace_temp", z.string()),

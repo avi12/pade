@@ -11,6 +11,7 @@
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { dropContext, observeContext } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
+  import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -536,6 +537,11 @@
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
       observeContext({
+        id: session.id,
+        chunk: chunk.data
+      });
+      // Spot the CLI's "limit reached" stop message (drives auto-resume).
+      observeUsageLimit({
         id: session.id,
         chunk: chunk.data
       });

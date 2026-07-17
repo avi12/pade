@@ -241,6 +241,10 @@ export const Prefs = z.object({
   /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless
    *  explicitly set to false. */
   autoHandoff: z.boolean().nullish(),
+  /** Auto-resume a usage-limited session when its window resets — "continue"
+   *  in place, or hand off when the context is nearly full. Opt-out: on unless
+   *  explicitly set to false. */
+  autoResume: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(0.85).max(1.3).nullish()
 });

@@ -73,6 +73,18 @@ writes.
   wait for the watcher to see it, end the session, and launch a successor seeded
   to resume from that doc. Opt-out via `prefs.autoHandoff` (default on).
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
+- R1.6a.3 ✅ **Consumed docs are retired** — once the successor finishes its
+  first turn (it has certainly read the doc by then), the app deletes the
+  `continue-*.md` via the narrow `handoff_doc_delete` seam (bare handoff-doc
+  names only), so completed handoffs never litter the project.
+- R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usageResume.svelte.ts`) —
+  the PTY sniffer spots the CLI's "limit reached" stop message (never the softer
+  "approaching" warning), confirms against the OAuth usage window (a healthy
+  window means stale scrollback), and schedules the session to resume when the
+  window resets (the message's own "resets 3am" clock, else the API's
+  `resets_at`, else a retry probe): **"continue"** into the same session while
+  its context has room, the **auto-handoff flow** when it doesn't. Opt-out via
+  `prefs.autoResume` (default on).
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface `CLAUDE.md`, `AGENTS.md`, `.claude/settings*`, `.mcp.json`.

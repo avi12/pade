@@ -404,6 +404,27 @@ fn record_recent(settings: &mut Settings, path: &str) {
     settings.recent_projects.truncate(RECENT_CAP);
 }
 
+/// Delete a consumed auto-handoff doc. The one file-deletion seam the frontend
+/// has, so it can only ever remove what auto-handoff itself created: a bare
+/// `continue-*.md` name (no path separators) directly inside `dir`. A doc that
+/// is already gone is fine — the goal is its absence.
+#[tauri::command]
+pub fn handoff_doc_delete(dir: String, name: String) -> Result<(), String> {
+    let is_handoff_doc = name.starts_with("continue-")
+        && Path::new(&name)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
+        && !name.contains(['/', '\\']);
+    if !is_handoff_doc {
+        return Err("only a continue-*.md handoff doc can be deleted".into());
+    }
+    let path = Path::new(&dir).join(&name);
+    if path.exists() {
+        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Open a project: point the process (and thus the watcher/VCS/agent) at it and
 /// remember it in the recent history.
 #[tauri::command]

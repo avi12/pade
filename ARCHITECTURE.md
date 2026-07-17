@@ -252,7 +252,8 @@ responsibility, and who it collaborates with.
 | --- | --- |
 | `src/lib/stores/sessions.svelte.ts` | Per-session status (working/ready/exited) |
 | `src/lib/stores/context.svelte.ts` | Per-session context-window percentage |
-| `src/lib/stores/handoff.svelte.ts` | Auto-handoff: near-limit scan, handoff-doc wait, successor launch |
+| `src/lib/stores/handoff.svelte.ts` | Auto-handoff: near-limit scan, handoff-doc wait, successor launch, consumed-doc deletion (via the narrow `handoff_doc_delete` command), and a `force()` entry the usage-resume flow calls |
+| `src/lib/stores/usageResume.svelte.ts` | Usage-limit auto-resume: sniffs the CLI's "limit reached" stop message from the PTY stream, confirms against the OAuth usage window, schedules the resume at window reset — "continue" in place, or `handoff.force()` when the context is nearly full |
 | `src/lib/stores/runners.svelte.ts` | Task-runner rows + backend stream subscription |
 | `src/lib/stores/sidePanel.svelte.ts` | Active side-panel header (count + refresh action) |
 | `src/lib/stores/toast.svelte.ts` | Transient status toast (single reset-on-show timer) |

@@ -117,6 +117,7 @@ pub fn run() {
             workspace::workspace_probe_path,
             workspace::workspace_scan,
             workspace::workspace_open,
+            workspace::handoff_doc_delete,
             workspace::workspace_temp,
             workspace::workspace_move,
             workspace::workspace_rename,

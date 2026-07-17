@@ -5,7 +5,7 @@
 // doc, resource teardown — while the app shell supplies its session list and
 // launch through `HandoffHost` and drives the scan from a component `$effect`.
 
-import { feed, pty, usage } from "@/lib/bridge";
+import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { CONTEXT_HANDOFF_PCT } from "@/lib/contextLevel";
 import { contextPct, dropContext } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
@@ -17,6 +17,10 @@ import { SvelteSet } from "svelte/reactivity";
 const HANDOFF_DOC_TIMEOUT_MS = 120_000;
 const HANDOFF_SETTLE_MS = 3_000;
 const USAGE_EXHAUSTED_PCT = 95;
+// How often the successor is checked for having finished its first turn (the
+// doc is certainly consumed by then), and how long before we stop watching.
+const SUCCESSOR_POLL_MS = 3_000;
+const SUCCESSOR_DEADLINE_MS = 10 * 60_000;
 
 /** A filesystem-safe slug for the handoff doc, from the workspace label/dir. */
 export function handoffSlug(source: string): string {
@@ -39,14 +43,18 @@ export interface HandoffHost {
   isOptedOut: () => boolean;
   /** Source text for the handoff-doc slug (workspace label or short dir). */
   slugSource: () => string;
+  /** The open project's root dir — where the handoff doc lands (and is
+   *  deleted from once the successor has consumed it). */
+  projectDir: () => string;
   /** Drop an ended session from the shell's tab strip and panes. */
   removeSession: (id: string) => void;
-  /** Start the successor agent seeded to continue from the handoff doc. */
+  /** Start the successor agent seeded to continue from the handoff doc.
+   *  Returns the new session's id so the doc's consumption can be watched. */
   launchSuccessor: (opts: {
     agent: Agent;
     cwd?: string;
     initialPrompt: string;
-  }) => void;
+  }) => string;
 }
 
 /** The auto-handoff machinery, scoped to one app shell. The shell calls
@@ -155,12 +163,48 @@ export function createAutoHandoff(host: HandoffHost) {
     dropSessionStatus(session.id);
     dropContext(session.id);
     handingOff.delete(session.id);
-    host.launchSuccessor({
+    const successorId = host.launchSuccessor({
       agent,
       cwd,
       initialPrompt: `Read ${doc} and continue the work where the previous session left off.\r`
     });
     note = "";
+
+    // 4. The doc's job ends with the handoff: once the successor has finished
+    // its first turn (it has certainly read the doc by then), delete it so
+    // consumed handoffs never litter the project.
+    await waitForSuccessorSettled(successorId);
+    void workspace.deleteHandoffDoc({
+      dir: host.projectDir(),
+      name: doc
+    }).catch(() => {}); // a doc the agent never wrote (timeout path) is fine
+  }
+
+  // Resolve once the successor session has been seen working and then gone
+  // ready — its first turn is over — or the deadline passes, or it disappears.
+  function waitForSuccessorSettled(id: string): Promise<void> {
+    return new Promise(resolve => {
+      let sawWorking = false;
+      const startedAt = Date.now();
+      function poll() {
+        const status = sessionStatus(id);
+        const gone = !host.sessions().some(s => s.id === id);
+        const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
+        if (status === SessionStatus.enum.working) {
+          sawWorking = true;
+        }
+
+        const settled = sawWorking && status === SessionStatus.enum.ready;
+        if (settled || gone || expired) {
+          resolve();
+          return;
+        }
+
+        trackTimer(poll, SUCCESSOR_POLL_MS);
+      }
+
+      trackTimer(poll, SUCCESSOR_POLL_MS);
+    });
   }
 
   // Scan for sessions near the context limit and kick off their handoff.
@@ -179,6 +223,19 @@ export function createAutoHandoff(host: HandoffHost) {
         void handoff(session);
       }
     }
+  }
+
+  // Hand a session off right now — the usage-resume flow calls this at window
+  // reset when the context is too full to just continue. Same single-flight
+  // guard as the scan, none of its idle/threshold gates: the caller has
+  // already decided this session must cycle.
+  function force(session: AgentSession) {
+    if (handingOff.has(session.id)) {
+      return;
+    }
+
+    handingOff.add(session.id);
+    void handoff(session);
   }
 
   // Tear down every still-pending wait (listener + timers).
@@ -201,6 +258,7 @@ export function createAutoHandoff(host: HandoffHost) {
       return note;
     },
     check,
+    force,
     dispose
   };
 }
