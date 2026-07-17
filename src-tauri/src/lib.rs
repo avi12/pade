@@ -98,6 +98,7 @@ pub fn run() {
             vcs::remote::vcs_remote_url,
             vcs::clone::vcs_git_installed,
             vcs::clone::vcs_has_ssh_key,
+            vcs::clone::vcs_probe_remote,
             vcs::clone::vcs_clone,
             vcs::worktree::vcs_worktree_add,
             vcs::restore::vcs_restore_candidates,

@@ -33,6 +33,21 @@ pub fn vcs_has_ssh_key() -> bool {
         .any(|name| ssh_dir.join(name).is_file())
 }
 
+/// Is `url` a repository the current environment can actually reach — it
+/// exists, and the user's auth (SSH key, credential manager) can see it?
+/// Backs the picker's live URL check: the destination folder name auto-fills
+/// only once the repository answers. Prompts are disabled so a private repo
+/// the user can't see reports unreachable instead of hanging.
+#[tauri::command]
+pub fn vcs_probe_remote(url: String) -> bool {
+    command("git")
+        .args(["ls-remote", "--exit-code", "--", &url, "HEAD"])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "never")
+        .output()
+        .is_ok_and(|out| out.status.success())
+}
+
 /// The `host` and `path` of any supported clone URL — `https://host/path`,
 /// `ssh://git@host/path`, or scp-like `git@host:path` — or `None` when the
 /// shape isn't one of those.

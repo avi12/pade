@@ -215,6 +215,9 @@ export const vcs = {
   /** Whether an SSH private key exists — without one an `ssh://`/`git@` clone
    *  URL can't authenticate, so the picker offers HTTPS credentials instead. */
   hasSshKey: () => call("vcs_has_ssh_key", z.boolean()),
+  /** Can the current environment reach this repository (exists + access)?
+   *  Live check behind the Clone tab's URL field. */
+  probeRemote: (url: string) => call("vcs_probe_remote", z.boolean(), { url }),
   /** Clone `url` into `root\name`; returns the new project path. Credentials
    *  switch the clone to HTTPS for that one command and are never persisted. */
   clone: (args: {
