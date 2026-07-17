@@ -10,7 +10,7 @@
 // `HandoffHost` and drives the scan from a component `$effect`.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
-import { CONTEXT_HANDOFF_PCT } from "@/lib/contextLevel";
+import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { contextPct, dropContext } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";

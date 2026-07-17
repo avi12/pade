@@ -1,4 +1,4 @@
-import { isUnderDir, remapDir } from "@/lib/workspaceRelocate";
+import { isUnderDir, remapDir } from "@/lib/workspace-relocate";
 import { describe, expect, it } from "vitest";
 
 describe("isUnderDir", () => {

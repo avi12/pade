@@ -1,5 +1,5 @@
 // Per-agent usage grouping — the pure, DOM-free, rune-free core behind
-// `UsageMeter.svelte` (mirrors the `format.ts` / `tabFit.ts` / `colors.ts`
+// `UsageMeter.svelte` (mirrors the `format.ts` / `tab-fit.ts` / `colors.ts`
 // pattern: plain functions + a colocated test).
 //
 // Honesty doctrine (see the comment atop `src-tauri/src/usage.rs`): ADE never
@@ -8,7 +8,7 @@
 // every other agent has no local usage signal we can trust, so it surfaces as
 // an `unknown` group with no limits rather than an invented figure.
 
-import { agentIconName, AgentId } from "@/lib/agentIcon";
+import { agentIconName, AgentId } from "@/lib/agent-icon";
 import type { IconName } from "@/lib/Icon.svelte";
 import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, Agent, AgentSession, UsageWindow } from "@/lib/types";

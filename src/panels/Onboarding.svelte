@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { agentIconName } from "@/lib/agentIcon";
+  import { agentIconName } from "@/lib/agent-icon";
   import BrandMark from "@/lib/BrandMark.svelte";
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";

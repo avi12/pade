@@ -1,4 +1,4 @@
-import { languageIcon, ProjectKind } from "@/lib/languageIcon";
+import { languageIcon, ProjectKind } from "@/lib/language-icon";
 import { describe, expect, it } from "vitest";
 
 describe("languageIcon", () => {

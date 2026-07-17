@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { ideBrand, ideIcon } from "@/lib/ideIcon";
-  import { languageIcon } from "@/lib/languageIcon";
+  import { ideBrand, ideIcon } from "@/lib/ide-icon";
+  import { languageIcon } from "@/lib/language-icon";
   import { showToast } from "@/lib/stores/toast.svelte";
   import type { EditorKind, Ide, Prefs } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";

@@ -1,4 +1,4 @@
-import { type KeyChord, matchTabShortcut, TabAction } from "@/lib/tabShortcuts";
+import { type KeyChord, matchTabShortcut, TabAction } from "@/lib/tab-shortcuts";
 import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.

@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { agentIconName } from "@/lib/agentIcon";
-  import { ContextLevel, contextLevel } from "@/lib/contextLevel";
-  import { Axis, beginReorder } from "@/lib/dragReorder";
-  import type { DragHint } from "@/lib/dragReorder";
+  import { agentIconName } from "@/lib/agent-icon";
+  import { ContextLevel, contextLevel } from "@/lib/context-level";
+  import { Axis, beginReorder } from "@/lib/drag-reorder";
+  import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { contextPct } from "@/lib/stores/context.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
-  import { ADD_SLOT, packTabs } from "@/lib/tabFit";
+  import { ADD_SLOT, packTabs } from "@/lib/tab-fit";
   import type { Agent, AgentSession } from "@/lib/types";
   import { parseInput, SessionName } from "@/lib/validate";
   import { flip } from "svelte/animate";
@@ -18,7 +18,7 @@
   import type { TransitionConfig } from "svelte/transition";
 
   // The session tab strip: full pills for the sessions that fit, status dots
-  // for the next few, a "+N" popover for the rest (packing in lib/tabFit), the
+  // for the next few, a "+N" popover for the rest (packing in lib/tab-fit), the
   // off-layout mirror row that drives the measurements, and the add-agent menu.
   const {
     sessions,

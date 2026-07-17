@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { agentIconName } from "@/lib/agentIcon";
+  import { agentIconName } from "@/lib/agent-icon";
   import { agents as agentsApi } from "@/lib/bridge";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";

@@ -1,4 +1,4 @@
-import { agentIconName } from "@/lib/agentIcon";
+import { agentIconName } from "@/lib/agent-icon";
 import { describe, expect, it } from "vitest";
 
 describe("agentIconName", () => {

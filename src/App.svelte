@@ -1,6 +1,6 @@
 <script lang="ts">
   import AppMenu from "@/lib/AppMenu.svelte";
-  import { createAutoNamer } from "@/lib/autoName";
+  import { createAutoNamer } from "@/lib/auto-name";
   import {
     agents as agentsApi,
     pty,
@@ -10,7 +10,7 @@
   } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import DesignMenu from "@/lib/DesignMenu.svelte";
-  import type { DragHint } from "@/lib/dragReorder";
+  import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
@@ -19,7 +19,7 @@
   import { effective } from "@/lib/prefs.svelte";
   import { DropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
-  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/sendShortcut";
+  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
@@ -31,7 +31,7 @@
   import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
-  import { registerTabShortcuts } from "@/lib/tabShortcuts";
+  import { registerTabShortcuts } from "@/lib/tab-shortcuts";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -42,7 +42,7 @@
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import { FolderPath, parseInput } from "@/lib/validate";
-  import { createRelocator } from "@/lib/workspaceRelocate";
+  import { createRelocator } from "@/lib/workspace-relocate";
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
@@ -325,7 +325,7 @@
   onMount(() => void initTaskRunDetection());
 
   // Auto-name a temp workspace once the agent has produced real work
-  // (lib/autoName): after a few distinct files change, ask the agent (or a
+  // (lib/auto-name): after a few distinct files change, ask the agent (or a
   // heuristic) for a friendly label. Fires once per workspace; label-only.
   const autoNamer = createAutoNamer({
     currentProject: () => currentProject,
@@ -341,7 +341,7 @@
     return () => autoNamer.dispose();
   });
 
-  // Send-from-IDE bridge (lib/sendShortcut): copy in any external editor, press
+  // Send-from-IDE bridge (lib/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
     void registerSendShortcut({
@@ -351,7 +351,7 @@
     return () => void unregisterSendShortcut();
   });
 
-  // Tab shortcuts (lib/tabShortcuts): capture-phase so they win over a focused
+  // Tab shortcuts (lib/tab-shortcuts): capture-phase so they win over a focused
   // agent terminal — new tab, launch menu, close, and next/previous cycling.
   onMount(() =>
     registerTabShortcuts({
@@ -491,7 +491,7 @@
     }
   }
 
-  // ── Tab keyboard shortcuts (lib/tabShortcuts) ───────────────────────────────
+  // ── Tab keyboard shortcuts (lib/tab-shortcuts) ───────────────────────────────
   // Actions the shortcut layer drives; each is a no-op outside the ready phase.
 
   // Ctrl+T — another tab of the last session's kind (mirrors the "+" button).
@@ -720,7 +720,7 @@
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
-  // The kill → backend-op → resume flow lives in lib/workspaceRelocate; this
+  // The kill → backend-op → resume flow lives in lib/workspace-relocate; this
   // shell only lends it the session list and takes back the results.
   const relocator = createRelocator({
     sessions: () => sessions,

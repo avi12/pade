@@ -12,7 +12,7 @@
 // `RetryHost` and drives the scan from a component `$effect`.
 
 import { pty } from "@/lib/bridge";
-import { CONTEXT_HANDOFF_PCT } from "@/lib/contextLevel";
+import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { contextPct } from "@/lib/stores/context.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";

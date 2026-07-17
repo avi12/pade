@@ -1,6 +1,6 @@
 <script lang="ts">
   import { contextMenu } from "@/lib/bridge";
-  import { rovingTablist } from "@/lib/rovingTabs";
+  import { rovingTablist } from "@/lib/roving-tabs";
   import { StartMode } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
   import { onMount } from "svelte";

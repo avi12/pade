@@ -205,13 +205,13 @@ responsibility, and who it collaborates with.
 | --- | --- | --- |
 | `src/main.ts` | Entry: mounts `App`, loads the theme | `App.svelte`, `theme.css` |
 | `src/theme.css` | M3 Expressive tokens, global keyframes, base document styles | everything |
-| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C; a never-named temp workspace instead returns to the picker and is deleted), in-window project switch (kills every session of the project being left — no agent keeps running, or cwd-locking, a workspace the window has moved on from), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `autoName`, `stores/handoff`, `workspaceRelocate`, `sendShortcut`, `tabShortcuts`, `stores/toast` |
-| `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu; each full tab's agent glyph is tinted by its context-window fill (the `--context-*` gauge) with the exact percent alongside | `tabFit`, `stores/sessions`, `stores/context`, `contextLevel`, `agentIcon` |
-| `src/lib/AppMenu.svelte` | Top-bar project switcher: an Open-windows list (focus any window; cycle with Ctrl+Shift+Alt+[ / ]), a filter (Ctrl P), pinned/recent rows with a per-row kebab (pin/unpin, remove-from-list, delete-directory) and drag-reorderable pins, then open-a-project / new-window actions | `bridge`, `dragReorder` |
-| `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usageGroups` |
+| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C; a never-named temp workspace instead returns to the picker and is deleted), in-window project switch (kills every session of the project being left — no agent keeps running, or cwd-locking, a workspace the window has moved on from), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `auto-name`, `stores/handoff`, `workspace-relocate`, `send-shortcut`, `tab-shortcuts`, `stores/toast` |
+| `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu; each full tab's agent glyph is tinted by its context-window fill (the `--context-*` gauge) with the exact percent alongside | `tab-fit`, `stores/sessions`, `stores/context`, `context-level`, `agent-icon` |
+| `src/lib/AppMenu.svelte` | Top-bar project switcher: an Open-windows list (focus any window; cycle with Ctrl+Shift+Alt+[ / ]), a filter (Ctrl P), pinned/recent rows with a per-row kebab (pin/unpin, remove-from-list, delete-directory) and drag-reorderable pins, then open-a-project / new-window actions | `bridge`, `drag-reorder` |
+| `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usage-groups` |
 | `src/lib/DesignMenu.svelte` | Quick-launch menu for AI design tools | `bridge.design` |
 | `src/lib/IdeMenu.svelte` | Split launcher for the project: opens in a detected IDE — GUI editors via the OS, console editors handed back to `App` for a terminal tab — and always exposes a drop-down whose final action reveals the project in the file explorer | `bridge.ide`, `bridge.os` |
-| `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent; keeps its own 2-D-grid pointer drag rather than the single-axis `dragReorder` engine (the dock wraps to multiple rows) | `stores/runners` |
+| `src/lib/RunnerDock.svelte` | Task-runner dock: streaming output rows, resize, pipe-to-agent; keeps its own 2-D-grid pointer drag rather than the single-axis `drag-reorder` engine (the dock wraps to multiple rows) | `stores/runners` |
 | `src/lib/CommitModal.svelte` | Commit-dialog orchestrator: native `<dialog>` plumbing, header, selection + diff-load state machine | `commitModal/FileList`, `commitModal/DiffPane`, `bridge.vcs`, `diff` |
 | `src/lib/commitModal/FileList.svelte` | The commit's changed-files tablist: kind badges, stats, roving-tabindex keys | `paths` |
 | `src/lib/commitModal/DiffPane.svelte` | Path bar + the selected file's diff with loading / failed / large-file states (presentation only) | `DiffView` |
@@ -226,22 +226,22 @@ responsibility, and who it collaborates with.
 | `src/lib/bridge.ts` | The single UI ↔ Rust boundary; zod-validates every response | `types`, `@tauri-apps/api` |
 | `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `bridge`, everywhere |
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError`; owns the clone-URL shape knowledge — `CloneUrl` (https / ssh / scp-like), `GitUsername`, `GitSecret`, `isSshCloneUrl`, `repoFolderName` | form components |
-| `src/lib/tabFit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
-| `src/lib/contextLevel.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel(pct)` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
-| `src/lib/dragReorder.ts` | Pointer-drag FLIP reorder engine (DOM + geometry): lifts a tile, slides its siblings, supports drop-outside-to-split; delegates the pure order/index math to `reorder` | `SessionTabs`, `Terminal`, `reorder` |
-| `src/lib/reorder.ts` | Pure, DOM-free order/index math for drag-to-reorder + drop-to-split (`reorderedIds`, `insertionIndex`, `paneInsertIndex`) and the `DropSide` enum | `dragReorder`, `App` |
-| `src/lib/autoName.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
-| `src/lib/workspaceRelocate.ts` | Move/rename/delete with cwd-lock handling: kill locking sessions → backend op → resume remapped (delete has nothing to resume and drops the project) | `bridge`, `stores/sessions`, `stores/context` |
-| `src/lib/sendShortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
-| `src/lib/tabShortcuts.ts` | Tab keyboard shortcuts: pure key-chord → action matcher + capture-phase registrar (new / close / cycle / launch-menu) | `App` |
+| `src/lib/tab-fit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
+| `src/lib/context-level.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel(pct)` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
+| `src/lib/drag-reorder.ts` | Pointer-drag FLIP reorder engine (DOM + geometry): lifts a tile, slides its siblings, supports drop-outside-to-split; delegates the pure order/index math to `reorder` | `SessionTabs`, `Terminal`, `reorder` |
+| `src/lib/reorder.ts` | Pure, DOM-free order/index math for drag-to-reorder + drop-to-split (`reorderedIds`, `insertionIndex`, `paneInsertIndex`) and the `DropSide` enum | `drag-reorder`, `App` |
+| `src/lib/auto-name.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
+| `src/lib/workspace-relocate.ts` | Move/rename/delete with cwd-lock handling: kill locking sessions → backend op → resume remapped (delete has nothing to resume and drops the project) | `bridge`, `stores/sessions`, `stores/context` |
+| `src/lib/send-shortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
+| `src/lib/tab-shortcuts.ts` | Tab keyboard shortcuts: pure key-chord → action matcher + capture-phase registrar (new / close / cycle / launch-menu) | `App` |
 | `src/lib/paths.ts` | Path helpers: `baseName`, `parentDir`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff parser + side-by-side rows | `DiffView`, `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
-| `src/lib/usageGroups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
-| `src/lib/languageIcon.ts` | Pure project-kind → language-logo map; an unknown kind falls back to the generic code glyph (the kind registry itself lives in Rust — the picker derives its rows from `ide_kinds`) | picker `EditorsSection` |
+| `src/lib/usage-groups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
+| `src/lib/language-icon.ts` | Pure project-kind → language-logo map; an unknown kind falls back to the generic code glyph (the kind registry itself lives in Rust — the picker derives its rows from `ide_kinds`) | picker `EditorsSection` |
 | `src/lib/errors.ts` | `errorMessage` — one reading of a thrown IPC rejection into user-facing text | any catch block |
 | `src/lib/motion.ts` | `collapseRow` exit transition (the one animation CSS can't own: the node is gone before it could run), reduced-motion aware | picker lists |
-| `src/lib/rovingTabs.ts` | `rovingTablist` Svelte action — the ARIA tabs keyboard pattern for pill tablists: arrows move **and activate** with wrap, Home/End jump to the ends, Tab leaves the list (markup keeps the roving tabindex) | picker `QuickStartSection`, `OnLaunchSection` |
+| `src/lib/roving-tabs.ts` | `rovingTablist` Svelte action — the ARIA tabs keyboard pattern for pill tablists: arrows move **and activate** with wrap, Home/End jump to the ends, Tab leaves the list (markup keeps the roving tabindex) | picker `QuickStartSection`, `OnLaunchSection` |
 | `src/lib/colors.ts` | Color-token detection + `var()` tracing for swatches | `ColorText`, viewers |
 | `src/lib/highlight.ts` | Dependency-free syntax highlighting for code/config/diff viewers | viewers |
 | `src/lib/prefs.svelte.ts` | Reactive appearance/editor prefs, applied as CSS custom properties | `App`, `bridge` |
@@ -288,7 +288,7 @@ responsibility, and who it collaborates with.
 | `OnLaunchSection.svelte` | Start-mode toggle, auto-name checkbox, Explorer context-menu toggle |
 | `RecentSection.svelte` | Recent rows with tags + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chips with rescan/skeleton states |
-| `EditorsSection.svelte` | Editor-rules engine rows — kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby), each row led by its language logo (`languageIcon`) — + popover selects whose trigger and options carry the editor's brand mark (`ideIcon`) + "Add editor…" by executable path (validated, inline status) |
+| `EditorsSection.svelte` | Editor-rules engine rows — kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby), each row led by its language logo (`language-icon`) — + popover selects whose trigger and options carry the editor's brand mark (`ide-icon`) + "Add editor…" by executable path (validated, inline status) |
 | `RootsSection.svelte` | Root folders: add (typed path with live, existence-driven validation + a debounced directory-autocomplete combobox backed by `workspace_probe_path`, or the native picker) / remove + detected projects per root |
 | `RowMenu.svelte` | Shared kebab popover: reveal actions + owned-workspace lifecycle entries |
 | `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; owns the delete confirmation state (target / in-flight / error) that `ProjectPicker` renders as one `ConfirmDialog` |
@@ -416,10 +416,10 @@ surfaced by the picker (the legacy menu is still applied).
 each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
 `naming.rs`, `refs.rs`, `ide.rs`, `pty.rs`, `tasks.rs`, `usage.rs` and the
 `vcs/` parsers). The pure logic extracted from components —
-`tabFit`, `diff`, `paths`, `colors`, `format`, `reorder`, `usageGroups`, `validate`,
+`tab-fit`, `diff`, `paths`, `colors`, `format`, `reorder`, `usage-groups`, `validate`,
 `highlight`, `errors`, the context store's percent parsing,
-`autoName`'s signal detection, `workspaceRelocate`'s path remapping, `handoff`'s
-slug, `tabShortcuts`'s chord matching — is where
+`auto-name`'s signal detection, `workspace-relocate`'s path remapping, `handoff`'s
+slug, `tab-shortcuts`'s chord matching — is where
 new tests belong first: they run in milliseconds and need no window.
 
 Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a two-check

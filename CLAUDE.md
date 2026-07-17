@@ -47,6 +47,12 @@ These are non-negotiable for all work in this repo.
      `@/lib/bridge`, `@/panels/Terminal.svelte` — never a relative `./` or `../`
      chain. Configured once in `vite.config.ts` (`resolve.alias`) and
      `tsconfig.json` (`paths`). Third-party packages stay bare imports.
+   - File names: plain `.ts` modules are **kebab-case** (`usage-groups.ts`,
+     `tab-shortcuts.ts`, `agent-icon.ts`), and so are their colocated `.test.ts`.
+     Svelte-related files keep their existing casing — components stay PascalCase
+     (`UsageMeter.svelte`, `Icon.svelte`) and rune-store modules stay camelCase
+     (`usageResume.svelte.ts`, `handoff.svelte.ts`). The exported identifiers are
+     unaffected: a kebab-case file still exports a camelCase `contextLevel()`.
    - Reuse relentlessly (TS & Rust): factor shared logic into one function and
      call it; a validated-`invoke` wrapper, `is_on_path`, `lookup` — extend these
      rather than re-deriving. If you write similar code twice, stop and extract.

@@ -1,4 +1,4 @@
-import { ideBrand, ideIcon, IdeId } from "@/lib/ideIcon";
+import { ideBrand, ideIcon, IdeId } from "@/lib/ide-icon";
 import { describe, expect, it } from "vitest";
 
 describe("ideIcon", () => {

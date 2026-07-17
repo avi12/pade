@@ -2,7 +2,7 @@
   import { dragDrop, os, vcs, workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { rovingTablist } from "@/lib/rovingTabs";
+  import { rovingTablist } from "@/lib/roving-tabs";
   import type { DragPosition } from "@/lib/types";
   import {
     CloneUrl,

@@ -8,7 +8,7 @@
 // through `ResumeHost` and drives the scan from a component `$effect`.
 
 import { pty, usage } from "@/lib/bridge";
-import { CONTEXT_HANDOFF_PCT } from "@/lib/contextLevel";
+import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { contextPct } from "@/lib/stores/context.svelte";
 import type { AgentSession } from "@/lib/types";
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";

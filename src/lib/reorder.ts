@@ -1,6 +1,6 @@
 // Pure order/index arithmetic behind the drag-to-reorder + drop-to-split feature.
 // DOM-free, so it runs under vitest's node env and is the one authoritative home
-// (DRY) for the math shared by the pointer-drag engine (`dragReorder.ts`) and the
+// (DRY) for the math shared by the pointer-drag engine (`drag-reorder.ts`) and the
 // session-tab → split drop (`App.svelte`). The engine measures geometry and drives
 // the DOM imperatively; this module owns only the array/index math on drop.
 

@@ -5,7 +5,7 @@
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
   import { os, pty } from "@/lib/bridge";
-  import { Axis, beginReorder } from "@/lib/dragReorder";
+  import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";

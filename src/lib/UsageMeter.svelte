@@ -9,8 +9,8 @@
     findSpotlight,
     severityBreakdown,
     worstLimit
-  } from "@/lib/usageGroups";
-  import type { AgentGroup, Level } from "@/lib/usageGroups";
+  } from "@/lib/usage-groups";
+  import type { AgentGroup, Level } from "@/lib/usage-groups";
   import { onDestroy } from "svelte";
 
   // The running agent sessions — one usage group per distinct coding agent among
@@ -34,7 +34,7 @@
   // still shows its full per-window breakdown, never a compacted chip.
   const MAX_TRIGGER_PILLS = 2;
 
-  // One group per distinct running agent, worst-first (see usageGroups.ts). Claude
+  // One group per distinct running agent, worst-first (see usage-groups.ts). Claude
   // carries its real limits; every other agent is "unknown" (no local signal).
   const groups = $derived<AgentGroup[]>(
     buildGroups({

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { ide, vcs, windows } from "@/lib/bridge";
-  import { Axis, beginReorder } from "@/lib/dragReorder";
+  import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { languageIcon } from "@/lib/languageIcon";
+  import { languageIcon } from "@/lib/language-icon";
   import Logo from "@/lib/Logo.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import type { WindowInfo } from "@/lib/types";

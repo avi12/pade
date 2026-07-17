@@ -1,7 +1,7 @@
 import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
-import { buildGroups, buildKindLegend, findSpotlight, severityBreakdown } from "@/lib/usageGroups";
-import type { Level, SeveritySlice } from "@/lib/usageGroups";
+import { buildGroups, buildKindLegend, findSpotlight, severityBreakdown } from "@/lib/usage-groups";
+import type { Level, SeveritySlice } from "@/lib/usage-groups";
 import { describe, expect, it } from "vitest";
 
 // A running session bound to `agentId`; only `session.agent` matters to the

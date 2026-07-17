@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ide, os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { ideBrand, ideIcon } from "@/lib/ideIcon";
+  import { ideBrand, ideIcon } from "@/lib/ide-icon";
   import type { Ide } from "@/lib/types";
   import { onMount } from "svelte";
 

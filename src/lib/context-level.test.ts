@@ -1,4 +1,4 @@
-import { CONTEXT_HANDOFF_PCT, ContextLevel, contextLevel } from "@/lib/contextLevel";
+import { CONTEXT_HANDOFF_PCT, ContextLevel, contextLevel } from "@/lib/context-level";
 import { describe, expect, it } from "vitest";
 
 describe("contextLevel", () => {
