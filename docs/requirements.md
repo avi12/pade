@@ -114,8 +114,27 @@ writes.
   falls to the nearest remaining position). Enter accepts the selection; Tab
   accepts and drills into sub-folders; a cleared field forgets the selection.
 - R1.9.8 ✅ Selecting a root (adding one in Root folders) auto-fills it as the
-  create-a-new-project **Location**; removing that root clears it. The chosen
-  root prints in full — a long path wraps in the Location row, never truncates.
+  Get started card's **Location** (shared by the New and Clone tabs); removing
+  that root clears it. The chosen root prints in full — a long path wraps in
+  the Location row, never truncates.
+- R1.9.9 ✅ **Get started card** — one tabbed card, three ways in, behind an
+  ARIA pill tablist (arrow keys switch tabs — `lib/rovingTabs.ts` — and Tab
+  moves into the active panel's inputs):
+  - **New** — root select + project name + optional first prompt → "Create &
+    open"; a blank name (or the quiet "…or start a throwaway temp workspace"
+    button) falls through to a temp workspace. Replaces the old separate
+    temp-workspace card.
+  - **Local** — open an existing folder: monospace path input with Browse…
+    (Tauri dialog); "Open project" is existence-gated through the debounced
+    `workspace_probe_path` check.
+  - **Clone** — gated on git being installed (`vcs_git_installed`; when
+    missing, a warning card offers "Install Git…" and "Re-check"). Repository
+    URL + "Clone into" the same root select; the folder name auto-fills from
+    the URL until edited. An SSH-style URL with no SSH key on disk
+    (`vcs_has_ssh_key`) falls back to an HTTPS-credentials panel — the
+    credentials are used for that one `git clone` and **never persisted** (the
+    saved remote is scrubbed back to the clean URL; error text is sanitized;
+    `GIT_TERMINAL_PROMPT=0` prevents hidden prompts).
 
 ### 1.10 External tool launchers (✅)
 - R1.10.1 **IDE menu** — open the active project in an installed editor (`ide.rs`;
@@ -157,7 +176,7 @@ Frontend (Svelte)          Rust core (Tauri)
   lib/bridge.ts    ──IPC──▶  pty.rs        (terminal)
   lib/validate.ts            runner.rs     (task-runner dock)
   lib/diff.ts                watcher.rs    (change feed)
-  lib/stores/*               vcs/          (git review + restore)
+  lib/stores/*               vcs/          (git review + restore + clone)
   panels/*.svelte            ide.rs        (editor rules)
   theme.css                  usage.rs      (subscription)
                              lib.rs        (wiring only)

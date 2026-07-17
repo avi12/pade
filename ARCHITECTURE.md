@@ -214,7 +214,7 @@ responsibility, and who it collaborates with.
 | --- | --- | --- |
 | `src/lib/bridge.ts` | The single UI ↔ Rust boundary; zod-validates every response | `types`, `@tauri-apps/api` |
 | `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `bridge`, everywhere |
-| `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError` | form components |
+| `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError`; owns the clone-URL shape knowledge — `CloneUrl` (https / ssh / scp-like), `GitUsername`, `GitSecret`, `isSshCloneUrl`, `repoFolderName` | form components |
 | `src/lib/tabFit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
 | `src/lib/contextLevel.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel(pct)` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
 | `src/lib/dragReorder.ts` | Pointer-drag FLIP reorder engine (DOM + geometry): lifts a tile, slides its siblings, supports drop-outside-to-split; delegates the pure order/index math to `reorder` | `SessionTabs`, `Terminal`, `reorder` |
@@ -230,6 +230,7 @@ responsibility, and who it collaborates with.
 | `src/lib/languageIcon.ts` | Pure project-kind → language-logo map; an unknown kind falls back to the generic code glyph (the kind registry itself lives in Rust — the picker derives its rows from `ide_kinds`) | picker `EditorsSection` |
 | `src/lib/errors.ts` | `errorMessage` — one reading of a thrown IPC rejection into user-facing text | any catch block |
 | `src/lib/motion.ts` | `collapseRow` exit transition (the one animation CSS can't own: the node is gone before it could run), reduced-motion aware | picker lists |
+| `src/lib/rovingTabs.ts` | `rovingTablist` Svelte action — the ARIA tabs keyboard pattern for pill tablists: arrows move **and activate** with wrap, Home/End jump to the ends, Tab leaves the list (markup keeps the roving tabindex) | picker `QuickStartSection`, `OnLaunchSection` |
 | `src/lib/colors.ts` | Color-token detection + `var()` tracing for swatches | `ColorText`, viewers |
 | `src/lib/highlight.ts` | Dependency-free syntax highlighting for code/config/diff viewers | viewers |
 | `src/lib/prefs.svelte.ts` | Reactive appearance/editor prefs, applied as CSS custom properties | `App`, `bridge` |
@@ -270,8 +271,8 @@ responsibility, and who it collaborates with.
 
 | Module | Responsibility |
 | --- | --- |
-| `chrome.css` | Shared picker chrome (base fields/buttons, kebab + popover menus, rows, eyebrows), selector-scoped under `.picker` so all sections inherit one copy |
-| `QuickStartSection.svelte` | Temp-workspace card + create-a-project form |
+| `chrome.css` | Shared picker chrome (base fields/buttons, kebab + popover menus, rows, eyebrows, the `.pill-tabs`/`.pill-tab` tablist), selector-scoped under `.picker` so all sections inherit one copy |
+| `QuickStartSection.svelte` | Tabbed "Get started" card — three ways in sharing one card behind a pill tablist (`rovingTablist`): **New** (root select + project name — a blank name falls through to a throwaway temp workspace — + optional first prompt), **Local** (open an existing folder, the monospace path existence-gated through the `workspace_probe_path` debounce), **Clone** (gated on `vcs_git_installed` with an install-git fallback card; folder name auto-filled from the URL via `repoFolderName` until edited; an SSH-style URL with no key on disk — `vcs_has_ssh_key` — swaps in an HTTPS-credentials panel; submits `vcs_clone`) |
 | `OnLaunchSection.svelte` | Start-mode toggle, auto-name checkbox, Explorer context-menu toggle |
 | `RecentSection.svelte` | Recent rows with tags + inline-rename form; a removed row collapses out (`motion.collapseRow`) |
 | `AgentsSection.svelte` | Default-agent chips with rescan/skeleton states |
@@ -289,7 +290,7 @@ entry. Each concern is one module:
 | --- | --- |
 | `pty.rs` | PTY host — runs agent CLIs (and console editors) unmodified in pseudo-terminals (portable-pty), applying the registry's per-agent spawn env; keeps each session's replayable history so a terminal can attach to a conversation in flight; dropping a session kills **and reaps** its child (closing the PTY only hangs it up, and a survivor keeps its cwd locked), so `pty_kill` frees the workspace and `kill_all` leaves nothing behind on app exit |
 | `watcher.rs` | Filesystem watchers (notify): the recursive one feeding the Change Feed — armed on the workspace root and re-rooted by `watch_start` whenever the current dir no longer matches (so the feed follows a project switch) — and `watch_dirs` — the picker's, watching the *parents* of the rows it shows (watching a row would hold a handle on it and block its deletion) and emitting `dirs://changed` when one gains or loses a child |
-| `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout) |
+| `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner + status-kind vocabulary), `status` (working-tree status + diff), `log`, `inspect` (one commit's detail + per-file diff), `remote` (browse-URL normalization), `branches`, `worktree`, `restore` (natural-language ranking + checkout), `clone` (the picker's `vcs_git_installed` / `vcs_has_ssh_key` probes + `vcs_clone` — shells out `git clone` into `root\name`; optional credentials ride a percent-encoded HTTPS URL for that one command only, then the saved remote and any error text are scrubbed back to the clean URL, with `GIT_TERMINAL_PROMPT=0`/`GCM_INTERACTIVE=never` so a private repo fails fast instead of hanging on a hidden prompt) |
 | `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete. Adding a root goes through `workspace_add_root` (existing dir → added; missing → created only when the picker asks; a file → rejected) with `workspace_probe_path` feeding the add-row's live check (is-dir / is-file / parent-exists) and its directory autocomplete (child dirs matching the typed prefix) — existence checks in place of a path regex. Deleting first steps the process out of the folder (opening a project chdirs into it, and Windows won't delete the directory a process stands in), then retries briefly while the OS closes the killed agents' handles; an already-absent folder counts as deleted, so a stale Recent row can always be cleared |
 | `refs.rs` | After a move: re-point agent memory dirs, IDE recents, symlinks, package-manager installs |
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
@@ -304,7 +305,7 @@ entry. Each concern is one module:
 | `os.rs` | Reveal in file manager / terminal, open URLs |
 | `window.rs` | Spawn additional app windows; paint each window's webview with the themed M3 surface so it opens in-theme (no white flash) |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
-| `util.rs` | Cross-cutting helpers: executable resolution (`search_dirs`, `find_in`, `resolve`, `is_on_path`), `home_dir`, `encode_project` |
+| `util.rs` | Cross-cutting helpers: executable resolution (`search_dirs`, `find_in`, `resolve`, `is_on_path`), `command` (windowless child processes), `home_dir`, `encode_project`, `percent_encode` |
 
 ### Load-bearing IPC contracts (Hyrum's Law)
 
@@ -325,9 +326,11 @@ breaks a consumer with no type error:
 - **The emitted PTY `data` is never transformed** — escape codes and all; only
   the transcript is ANSI-stripped. xterm reconstructs state from the raw
   stream.
-- **VCS commands reject outside a git repo** (never resolve with an empty
-  array). That rejection is `VcsPanel`'s only repo-presence signal; a "lenient"
-  `Ok(vec![])` would render a clean-repo view in a non-repo.
+- **Repo-scoped VCS commands reject outside a git repo** (never resolve with an
+  empty array). That rejection is `VcsPanel`'s only repo-presence signal; a
+  "lenient" `Ok(vec![])` would render a clean-repo view in a non-repo. The
+  `vcs::clone` commands are the deliberate exception — they run from the picker
+  before any repo exists.
 - **`ide_suggest`'s array order is the contract** — consumers treat `ides[0]`
   as *the* editor for reveal/open actions.
 - **`vcs_remote_url` returns a host root**; the `/commit/<sha>` path appended
