@@ -162,22 +162,22 @@ export function createUsageResume(host: ResumeHost) {
 
   // The window's reset instant: the CLI's own clock when it printed one, else
   // the account API's ISO stamp for that window. Null means "not knowable yet".
+  // The API is always the health gate when reachable — a sniffed message whose
+  // window the account reports as healthy is stale scrollback (a remounted
+  // terminal replays history), signalled with NaN so the caller drops the hit.
   async function resolveResetAt(hit: LimitHit): Promise<number | null> {
+    const account = await usage.account().catch(() => null);
+    const window = hit.window === LimitWindow.weekly ? account?.sevenDay : account?.fiveHour;
+    if (window && window.utilization < EXHAUSTED_PCT) {
+      return Number.NaN;
+    }
+
     if (hit.inlineResetAt !== null) {
       return hit.inlineResetAt;
     }
 
-    const account = await usage.account().catch(() => null);
-    const window = hit.window === LimitWindow.weekly ? account?.sevenDay : account?.fiveHour;
     if (!window) {
       return null;
-    }
-
-    // A healthy window means the sniffed message was stale scrollback (a
-    // remounted terminal replays history) — signalled with NaN so the caller
-    // can drop the hit rather than retry it.
-    if (window.utilization < EXHAUSTED_PCT) {
-      return Number.NaN;
     }
 
     const stamp = window.resetsAt ? Date.parse(window.resetsAt) : Number.NaN;
