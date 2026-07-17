@@ -405,12 +405,23 @@
         color: var(--on-surface);
         box-shadow: inset 0 0 0 2px var(--primary);
       }
+
+      /* Canon breathes the recent name/path apart by 1px (the header stack sits
+         flush). */
+      .ident {
+        gap: 1px;
+      }
     }
 
-    .recent-name {
+    /* A recent project's name reads in the UI sans face at 13px/600 (only its
+       path below stays monospace) — unlike the header's mono project name. */
+    .ident .recent-name {
       display: flex;
       gap: 6px;
       align-items: center;
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 13px;
     }
 
     .item.browse {
@@ -446,6 +457,7 @@
         gap: 8px;
         justify-content: space-between;
         align-items: center;
+        padding-block: 2px 4px;
       }
 
       .count {
