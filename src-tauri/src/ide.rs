@@ -4,7 +4,7 @@
 //! detects installed editors (by their CLI launcher) and opens the active
 //! project directory in the one you pick.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
 use std::process::Stdio;
 
@@ -67,6 +67,16 @@ impl ProjectKind {
                     .any(|known| known.eq_ignore_ascii_case(language))
             })
             .map(|definition| definition.kind)
+    }
+
+    /// Whether source of `kind` is native to this declared project ecosystem.
+    /// Android is a platform declaration whose implementation language is
+    /// represented by the Java/Kotlin family; every language kind owns itself.
+    fn owns_source_kind(self, kind: Self) -> bool {
+        match self {
+            Self::Android => matches!(kind, Self::Java),
+            _ => self == kind,
+        }
     }
 }
 
@@ -287,6 +297,9 @@ const REGISTRY: &[IdeDef] = &[
 enum Marker {
     /// A file with this exact name exists in the root.
     Named(&'static str),
+    /// A JSON file contains this top-level key. This distinguishes ecosystem
+    /// manifests from unrelated files that happen to share a generic name.
+    JsonKey(&'static str, &'static str),
     /// Any direct child has this extension (solution/project file names vary
     /// per project, so they're matched by extension).
     Extension(&'static str),
@@ -296,6 +309,10 @@ impl Marker {
     fn is_present(&self, cwd: &std::path::Path) -> bool {
         match self {
             Self::Named(name) => cwd.join(name).exists(),
+            Self::JsonKey(name, key) => std::fs::read_to_string(cwd.join(name))
+                .ok()
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                .is_some_and(|json| json.get(key).is_some()),
             Self::Extension(extension) => has_ext(cwd, extension),
         }
     }
@@ -303,7 +320,7 @@ impl Marker {
     /// The marker as the UI displays it (`*.sln` for an extension probe).
     fn display(&self) -> String {
         match self {
-            Self::Named(name) => (*name).to_string(),
+            Self::Named(name) | Self::JsonKey(name, _) => (*name).to_string(),
             Self::Extension(extension) => format!("*.{extension}"),
         }
     }
@@ -334,6 +351,7 @@ const KIND_REGISTRY: &[KindDef] = &[
             Marker::Named("AndroidManifest.xml"),
             Marker::Named("gradlew"),
             Marker::Named("settings.gradle"),
+            Marker::Named("settings.gradle.kts"),
         ],
         extensions: &[],
         linguist_languages: &[],
@@ -345,6 +363,7 @@ const KIND_REGISTRY: &[KindDef] = &[
             Marker::Named("package.json"),
             Marker::Named("tsconfig.json"),
             Marker::Named("index.html"),
+            Marker::JsonKey("manifest.json", "manifest_version"),
         ],
         extensions: &[
             "ts", "tsx", "js", "jsx", "mjs", "svelte", "vue", "html", "css", "scss",
@@ -401,7 +420,11 @@ const KIND_REGISTRY: &[KindDef] = &[
     KindDef {
         kind: ProjectKind::Java,
         label: "Java",
-        markers: &[Marker::Named("pom.xml"), Marker::Named("build.gradle")],
+        markers: &[
+            Marker::Named("pom.xml"),
+            Marker::Named("build.gradle"),
+            Marker::Named("build.gradle.kts"),
+        ],
         extensions: &["java", "kt"],
         linguist_languages: &["Java", "Kotlin"],
     },
@@ -497,6 +520,30 @@ struct SourceContent {
     generated: bool,
 }
 
+/// One countable source file, retaining its location so project-root ownership
+/// can distinguish core source from unrelated tools and documentation.
+#[derive(Clone, Debug)]
+struct SourceFileEvidence {
+    path: std::path::PathBuf,
+    kind: ProjectKind,
+    bytes: u64,
+}
+
+/// Both aggregate language weights and the file-level evidence behind them.
+/// Ranking consumes the totals; project-shape analysis consumes the locations.
+#[derive(Default)]
+struct SourceProfile {
+    totals: BTreeMap<ProjectKind, u64>,
+    files: Vec<SourceFileEvidence>,
+}
+
+impl SourceProfile {
+    fn record(&mut self, file: SourceFileEvidence) {
+        *self.totals.entry(file.kind).or_insert(0) += file.bytes;
+        self.files.push(file);
+    }
+}
+
 /// Read the small content sample used to exclude non-source files. A source
 /// file is classified only when its bytes were readable; guessing around a read
 /// failure would make the result depend on a transient filesystem error.
@@ -529,33 +576,32 @@ fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     })
 }
 
-/// Fold one file's bytes into the language profile. Git attributes are the
-/// project author's explicit statement, so they override intrinsic generated
-/// detection and extension classification.
-fn weigh_file(
+/// Classify one source file. Git attributes are the project author's explicit
+/// statement, so they override intrinsic generated detection and extension
+/// classification.
+fn source_file_evidence(
     path: &std::path::Path,
     attributes: &LinguistAttributes,
-    totals: &mut BTreeMap<ProjectKind, u64>,
-) {
+) -> Option<SourceFileEvidence> {
     if attributes.excludes_from_census() {
-        return;
+        return None;
     }
-    let Some(content) = source_content(path) else {
-        return;
-    };
+    let content = source_content(path)?;
     let is_generated = attributes.generated.unwrap_or(content.generated);
     if content.binary || is_generated {
-        return;
+        return None;
     }
-    let Some(kind) = attributes.language.or_else(|| {
+    let kind = attributes.language.or_else(|| {
         path.extension()
             .and_then(|value| value.to_str())
             .and_then(ProjectKind::from_extension)
-    }) else {
-        return;
-    };
+    })?;
     let bytes = std::fs::metadata(path).map_or(0, |meta| meta.len());
-    *totals.entry(kind).or_insert(0) += bytes;
+    Some(SourceFileEvidence {
+        path: path.to_path_buf(),
+        kind,
+        bytes,
+    })
 }
 
 /// The Git repository root and the tracked paths below PADE's active project
@@ -655,7 +701,7 @@ fn census_walk(
     dir: &std::path::Path,
     depth: usize,
     files_left: &mut usize,
-    totals: &mut BTreeMap<ProjectKind, u64>,
+    profile: &mut SourceProfile,
 ) {
     if depth > CENSUS_MAX_DEPTH || *files_left == 0 {
         return;
@@ -676,21 +722,23 @@ fn census_walk(
         }
         if path.is_dir() {
             if !IGNORED_PROBE_DIRS.contains(&name) {
-                census_walk(&path, depth + 1, files_left, totals);
+                census_walk(&path, depth + 1, files_left, profile);
             }
             continue;
         }
         *files_left -= 1;
-        weigh_file(&path, &LinguistAttributes::default(), totals);
+        if let Some(file) = source_file_evidence(&path, &LinguistAttributes::default()) {
+            profile.record(file);
+        }
     }
 }
 
-/// Byte totals per census kind for `cwd`. The file list is git's tracked set
-/// when `cwd` is a repo — so untracked junk and ignored build output never sway
-/// the mix — and a bounded filesystem walk otherwise. Bounded to
-/// [`CENSUS_MAX_FILES`] either way so a huge tree can't stall a suggestion.
-fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
-    let mut totals = BTreeMap::new();
+/// Source evidence for `cwd`. The file list is git's tracked set when `cwd` is a
+/// repo — so untracked junk and ignored build output never sway the mix — and a
+/// bounded filesystem walk otherwise. Bounded to [`CENSUS_MAX_FILES`] either
+/// way so a huge tree can't stall a suggestion.
+fn source_profile(cwd: &std::path::Path) -> SourceProfile {
+    let mut profile = SourceProfile::default();
     if let Some(repository) = git_repository(cwd) {
         let paths: Vec<String> = repository
             .tracked_paths
@@ -700,19 +748,28 @@ fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
             .collect();
         let attributes = git_linguist_attributes(&repository, &paths);
         for path in &paths {
-            weigh_file(
-                &repository.root.join(path),
+            let absolute_path = repository.root.join(path);
+            if let Some(file) = source_file_evidence(
+                &absolute_path,
                 attributes
                     .get(path)
                     .unwrap_or(&LinguistAttributes::default()),
-                &mut totals,
-            );
+            ) {
+                profile.record(file);
+            }
         }
     } else {
         let mut files_left = CENSUS_MAX_FILES;
-        census_walk(cwd, 0, &mut files_left, &mut totals);
+        census_walk(cwd, 0, &mut files_left, &mut profile);
     }
-    totals
+    profile
+}
+
+/// Byte totals retained as a small compatibility wrapper for census-focused
+/// tests; runtime suggestion uses [`source_profile`] once for both views.
+#[cfg(test)]
+fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
+    source_profile(cwd).totals
 }
 
 fn lookup(id: &str) -> Option<Ide> {
@@ -934,27 +991,159 @@ fn probe_roots(cwd: &std::path::Path) -> Vec<std::path::PathBuf> {
     std::iter::once(cwd.to_path_buf()).chain(children).collect()
 }
 
+/// One independently declared project unit within the active workspace. Keeping
+/// its root lets source files belong to the nearest unit instead of one nested
+/// package contaminating its parent profile.
+#[derive(Clone, Debug)]
+struct ProjectDeclaration {
+    root: std::path::PathBuf,
+    kinds: Vec<ProjectKind>,
+}
+
+/// Every marker-bearing project root in the workspace root or a direct child.
+/// This depth captures small monorepos and hybrid applications while leaving a
+/// nested support utility owned by its enclosing project unless explicitly
+/// opened as the active workspace.
+fn project_declarations(cwd: &std::path::Path) -> Vec<ProjectDeclaration> {
+    probe_roots(cwd)
+        .into_iter()
+        .filter_map(|root| {
+            let kinds: Vec<ProjectKind> = KIND_REGISTRY
+                .iter()
+                .filter(|definition| {
+                    definition
+                        .markers
+                        .iter()
+                        .any(|marker| marker.is_present(&root))
+                })
+                .map(|definition| definition.kind)
+                .collect();
+            (!kinds.is_empty()).then_some(ProjectDeclaration { root, kinds })
+        })
+        .collect()
+}
+
 /// Sniff the project kinds present in the current directory from the
 /// [`KIND_REGISTRY`] marker files, in the registry's priority order. Markers
 /// are probed in the root and one level down (see [`probe_roots`]); they provide
 /// a second, source-free signal when a new project has no countable files yet.
-fn detect_kinds(cwd: &std::path::Path) -> Vec<ProjectKind> {
-    let roots = probe_roots(cwd);
+fn kinds_from_declarations(declarations: &[ProjectDeclaration]) -> Vec<ProjectKind> {
     KIND_REGISTRY
         .iter()
-        .filter(|def| {
-            def.markers
+        .filter(|definition| {
+            declarations
                 .iter()
-                .any(|marker| roots.iter().any(|root| marker.is_present(root)))
+                .any(|declaration| declaration.kinds.contains(&definition.kind))
         })
-        .map(|def| def.kind)
+        .map(|definition| definition.kind)
         .collect()
 }
 
-/// The single best-matching project kind for `cwd` — the highest-priority marker
-/// present (Android before web/java, etc.), or `None` for an unrecognised project.
-fn primary_kind(cwd: &std::path::Path) -> Option<ProjectKind> {
-    detect_kinds(cwd).first().copied()
+/// Source evidence grouped by its first branch below a declared project root.
+/// A root-level file uses an empty branch. Counts lead bytes so one large static
+/// document cannot look more representative than a real source tree.
+#[derive(Default)]
+struct BranchEvidence {
+    kinds: BTreeSet<ProjectKind>,
+    by_kind: BTreeMap<ProjectKind, (usize, u64)>,
+}
+
+impl BranchEvidence {
+    fn record(&mut self, file: &SourceFileEvidence) {
+        self.kinds.insert(file.kind);
+        let evidence = self.by_kind.entry(file.kind).or_insert((0, 0));
+        evidence.0 += 1;
+        evidence.1 += file.bytes;
+    }
+
+    fn declared_strength(&self, declared: ProjectKind) -> Option<(usize, u64)> {
+        self.by_kind
+            .iter()
+            .filter(|(source_kind, _)| declared.owns_source_kind(**source_kind))
+            .map(|(_, evidence)| *evidence)
+            .max()
+    }
+}
+
+fn source_branch(
+    declaration_root: &std::path::Path,
+    file: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    let relative = file.strip_prefix(declaration_root).ok()?;
+    let mut components = relative.components();
+    let first = components.next()?;
+    if components.next().is_none() {
+        return Some(std::path::PathBuf::new());
+    }
+    Some(std::path::PathBuf::from(first.as_os_str()))
+}
+
+fn declaration_owns_file(
+    declaration: &ProjectDeclaration,
+    file: &std::path::Path,
+    declarations: &[ProjectDeclaration],
+) -> bool {
+    file.starts_with(&declaration.root)
+        && !declarations.iter().any(|nested| {
+            nested.root != declaration.root
+                && nested.root.starts_with(&declaration.root)
+                && file.starts_with(&nested.root)
+        })
+}
+
+/// Required editor capabilities derived without framework names. Each declared
+/// project unit selects the branch that best represents its native source. A
+/// conventional `src` branch leads, then root-level source, then the branch with
+/// the most native files. Every language co-located in that branch is required;
+/// unrelated branches remain ancillary. With no declarations, every observed
+/// language is required because there is no stronger ownership signal.
+fn required_project_kinds(
+    profile: &SourceProfile,
+    declarations: &[ProjectDeclaration],
+) -> Vec<ProjectKind> {
+    if declarations.is_empty() {
+        return profile.totals.keys().copied().collect();
+    }
+
+    let mut required: BTreeSet<ProjectKind> = declarations
+        .iter()
+        .flat_map(|declaration| declaration.kinds.iter().copied())
+        .collect();
+
+    for declaration in declarations {
+        let mut branches: BTreeMap<std::path::PathBuf, BranchEvidence> = BTreeMap::new();
+        for file in profile
+            .files
+            .iter()
+            .filter(|file| declaration_owns_file(declaration, &file.path, declarations))
+        {
+            let Some(branch) = source_branch(&declaration.root, &file.path) else {
+                continue;
+            };
+            branches.entry(branch).or_default().record(file);
+        }
+
+        for declared in &declaration.kinds {
+            let selected = branches
+                .iter()
+                .filter_map(|(branch, evidence)| {
+                    let (files, bytes) = evidence.declared_strength(*declared)?;
+                    let conventional_source = branch == std::path::Path::new("src");
+                    let root_level = branch.as_os_str().is_empty();
+                    Some(((conventional_source, root_level, files, bytes), evidence))
+                })
+                .max_by_key(|(strength, _)| *strength);
+            if let Some((_, evidence)) = selected {
+                required.extend(&evidence.kinds);
+            }
+        }
+    }
+
+    KIND_REGISTRY
+        .iter()
+        .map(|definition| definition.kind)
+        .filter(|kind| required.contains(kind))
+        .collect()
 }
 
 /// The map key for the "any other folder" fallback options (not a project kind).
@@ -972,16 +1161,16 @@ fn dedup_in_order(ids: Vec<String>) -> Vec<String> {
 }
 
 /// Rank each registered editor against the project's independent evidence.
-/// Declared project kinds lead and capability breadth breaks their tie, so a
-/// specialist is not displaced by unrelated documentation or a small support
-/// tool. Source coverage leads only for an unmarked folder and otherwise breaks
-/// ties between equally specific editors. Registry order remains stable for
-/// equivalent editors such as VS Code and its forks.
+/// Required kinds from declarations and their main source branches lead;
+/// capability breadth breaks their tie, so a specialist is not displaced by
+/// unrelated documentation or a small support tool. Source coverage leads only
+/// for an unmarked folder and otherwise breaks ties between equally specific
+/// editors. Registry order remains stable for equivalent editor families.
 fn ranked_editor_ids(
     source_bytes: &BTreeMap<ProjectKind, u64>,
-    marker_kinds: &[ProjectKind],
+    required_kinds: &[ProjectKind],
 ) -> Vec<String> {
-    let has_evidence = !source_bytes.is_empty() || !marker_kinds.is_empty();
+    let has_evidence = !source_bytes.is_empty() || !required_kinds.is_empty();
     let mut editors: Vec<&IdeDef> = REGISTRY.iter().collect();
     editors.sort_by(|left, right| {
         if !has_evidence {
@@ -998,21 +1187,21 @@ fn ranked_editor_ids(
             .filter(|(kind, _)| right.coverage.supports(**kind))
             .map(|(_, bytes)| *bytes)
             .sum::<u64>();
-        let left_markers = marker_kinds
+        let left_required = required_kinds
             .iter()
             .filter(|kind| left.coverage.supports(**kind))
             .count();
-        let right_markers = marker_kinds
+        let right_required = required_kinds
             .iter()
             .filter(|kind| right.coverage.supports(**kind))
             .count();
-        if marker_kinds.is_empty() {
+        if required_kinds.is_empty() {
             right_source
                 .cmp(&left_source)
                 .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
         } else {
-            right_markers
-                .cmp(&left_markers)
+            right_required
+                .cmp(&left_required)
                 .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
                 .then_with(|| right_source.cmp(&left_source))
         }
@@ -1021,17 +1210,17 @@ fn ranked_editor_ids(
 }
 
 /// Whether a known editor covers the project's required capabilities. Declared
-/// project kinds are authoritative when present: they distinguish a real hybrid
-/// from incidental tracked source such as documentation and support tools. An
-/// unmarked folder falls back to requiring every source kind the census found.
+/// project kinds plus languages in their main source branch distinguish a real
+/// hybrid from incidental tracked source such as documentation and support
+/// tools. An unmarked folder requires every source kind the census found.
 /// User-added editors lack a capability declaration, so their explicit rule is
 /// retained rather than guessing what the user's installation supports.
 fn editor_covers_project(
     id: &str,
     source_bytes: &BTreeMap<ProjectKind, u64>,
-    marker_kinds: &[ProjectKind],
+    required_kinds: &[ProjectKind],
 ) -> bool {
-    let has_evidence = !source_bytes.is_empty() || !marker_kinds.is_empty();
+    let has_evidence = !source_bytes.is_empty() || !required_kinds.is_empty();
     REGISTRY
         .iter()
         .find(|editor| editor.id == id)
@@ -1039,12 +1228,12 @@ fn editor_covers_project(
             if !has_evidence {
                 return matches!(editor.coverage, EditorCoverage::EveryKind);
             }
-            if marker_kinds.is_empty() {
+            if required_kinds.is_empty() {
                 source_bytes
                     .keys()
                     .all(|kind| editor.coverage.supports(*kind))
             } else {
-                marker_kinds
+                required_kinds
                     .iter()
                     .all(|kind| editor.coverage.supports(*kind))
             }
@@ -1056,11 +1245,11 @@ fn editor_covers_project(
 /// editor that happens to launch; a zero-coverage specialist is omitted.
 fn suggestible_editor_ids(
     source_bytes: &BTreeMap<ProjectKind, u64>,
-    marker_kinds: &[ProjectKind],
+    required_kinds: &[ProjectKind],
 ) -> Vec<String> {
-    ranked_editor_ids(source_bytes, marker_kinds)
+    ranked_editor_ids(source_bytes, required_kinds)
         .into_iter()
-        .filter(|id| editor_covers_project(id, source_bytes, marker_kinds))
+        .filter(|id| editor_covers_project(id, source_bytes, required_kinds))
         .collect()
 }
 
@@ -1134,14 +1323,13 @@ pub fn ide_kinds() -> Vec<KindInfo> {
         .collect()
 }
 
-/// The current project's primary kind (e.g. `"rust"`, `"web"`), or `None` when no
-/// marker file is recognised. Drives the editor-rules UI in settings.
+/// The current project's primary declared kind, or `None` when no ecosystem
+/// marker is recognised. Retained for consumers of the editor-rules API.
 #[tauri::command]
 pub fn ide_project_kind() -> Option<String> {
-    std::env::current_dir()
-        .ok()
-        .as_deref()
-        .and_then(primary_kind)
+    let cwd = std::env::current_dir().ok()?;
+    kinds_from_declarations(&project_declarations(&cwd))
+        .first()
         .map(ProjectKind::as_str)
         .map(str::to_string)
 }
@@ -1157,24 +1345,28 @@ fn is_installed(id: &str) -> bool {
 
 /// Installed IDEs ranked for the current project, best match first. The
 /// editor-rules engine takes precedence only when its editor covers every
-/// declared project kind (or every source kind when no declaration exists). A
-/// user rule for the primary marker kind is considered first, then the configured
+/// required kind derived from project declarations and source ownership. A user
+/// rule for the primary declared kind is considered first, then the configured
 /// fallback, then evidence-weighted editor coverage. No dominant-language
 /// threshold or framework-specific detection is involved.
 #[tauri::command]
 pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    let kinds = detect_kinds(&cwd);
-    let source_bytes = census(&cwd);
+    let declarations = project_declarations(&cwd);
+    let kinds = kinds_from_declarations(&declarations);
+    let profile = source_profile(&cwd);
+    let required_kinds = required_project_kinds(&profile, &declarations);
     let prefs = crate::workspace::load().prefs;
 
     // 1) Compatible primary-kind rule, 2) compatible fallback, 3) coverage ranking.
-    let rule = primary_kind(&cwd).and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
+    let rule = kinds
+        .first()
+        .and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
     let configured = rule
         .into_iter()
         .chain(prefs.ide_fallback)
-        .filter(|id| editor_covers_project(id, &source_bytes, &kinds));
-    let auto = suggestible_editor_ids(&source_bytes, &kinds);
+        .filter(|id| editor_covers_project(id, &profile.totals, &required_kinds));
+    let auto = suggestible_editor_ids(&profile.totals, &required_kinds);
 
     let mut ordered: Vec<String> = Vec::new();
     for id in configured.chain(auto) {
@@ -1323,8 +1515,9 @@ pub fn ide_open_file(
 mod tests {
     use super::{
         census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
-        project_name, protocol_id, ranked_editor_ids, relative_path, source_content,
-        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectKind, REGISTRY,
+        project_declarations, project_name, protocol_id, ranked_editor_ids, relative_path,
+        required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
+        ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
     };
 
     fn is_general_purpose_editor(id: &str) -> bool {
@@ -1332,6 +1525,14 @@ mod tests {
             .iter()
             .find(|editor| editor.id == id)
             .is_some_and(|editor| matches!(editor.coverage, EditorCoverage::EveryKind))
+    }
+
+    fn source_file(path: &str, kind: ProjectKind, bytes: u64) -> SourceFileEvidence {
+        SourceFileEvidence {
+            path: std::path::PathBuf::from(path),
+            kind,
+            bytes,
+        }
     }
 
     #[test]
@@ -1482,6 +1683,62 @@ mod tests {
             );
             assert!(suggested.iter().any(|id| is_general_purpose_editor(id)));
         }
+    }
+
+    #[test]
+    fn a_declared_project_requires_every_language_in_its_main_source_branch() {
+        let mut profile = SourceProfile::default();
+        profile.record(source_file("project/src/app.ts", ProjectKind::Web, 10_000));
+        profile.record(source_file(
+            "project/src/native.rs",
+            ProjectKind::Rust,
+            2_000,
+        ));
+        profile.record(source_file(
+            "project/scripts/automate.py",
+            ProjectKind::Python,
+            20_000,
+        ));
+        let declarations = [ProjectDeclaration {
+            root: std::path::PathBuf::from("project"),
+            kinds: vec![ProjectKind::Web],
+        }];
+
+        assert_eq!(
+            required_project_kinds(&profile, &declarations),
+            vec![ProjectKind::Web, ProjectKind::Rust]
+        );
+    }
+
+    #[test]
+    fn a_browser_manifest_declares_web_without_a_package_manifest() {
+        let dir =
+            std::env::temp_dir().join(format!("pade-browser-manifest-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        std::fs::write(dir.join("manifest.json"), "{\"manifest_version\":3}")
+            .expect("browser manifest");
+
+        let declarations = project_declarations(&dir);
+        assert!(declarations
+            .iter()
+            .any(|declaration| declaration.kinds.contains(&ProjectKind::Web)));
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn an_unrelated_json_manifest_does_not_declare_web() {
+        let dir =
+            std::env::temp_dir().join(format!("pade-generic-manifest-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        std::fs::write(dir.join("manifest.json"), "{\"name\":\"artifact\"}")
+            .expect("generic manifest");
+
+        assert!(!project_declarations(&dir)
+            .iter()
+            .any(|declaration| declaration.kinds.contains(&ProjectKind::Web)));
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
     #[test]

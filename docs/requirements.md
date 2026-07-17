@@ -175,14 +175,16 @@ writes.
   option, not an algorithmic special case. The top-bar selector always has a
   drop-down, whose final action reveals the active project in the file explorer.
 - R1.10.1a ✅ **Hybrid-aware ranking** (research-backed: Linguist / Nixpacks /
-  Buildpacks / JetBrains compare-matrix). Kinds are detected as a **union** of
-  markers probed in the root and one level down (`src-tauri/Cargo.toml` counts);
-  a multi-kind repo is weighed by a bounded **byte census** with vendored/build
-  dirs excluded. Declared project kinds are the compatibility contract; the
-  census ranks matching editors without letting incidental documentation or a
-  support tool veto the project specialist. With no markers, every observed
-  source kind is required. A genuine declared hybrid therefore leads with a
-  generalist — never a single-language specialist.
+  Buildpacks / JetBrains compare-matrix). Ecosystem manifests are probed in the
+  root and one level down (`src-tauri/Cargo.toml` counts); markerless web roots
+  are also recognized from `index.html`, or a browser `manifest.json` containing
+  `manifest_version`. A bounded, per-file **source census** excludes generated,
+  vendored, and build output. Each manifest owns its nearest source files and
+  expands its required editor coverage to every language co-located in its main
+  source branch, so a web/Rust application requires a generalist while Python
+  automation under a separate scripts branch does not veto WebStorm. With no
+  manifests, every observed source kind is required. The same ownership rule
+  applies across all registered ecosystems; it has no framework-name exceptions.
 - R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);
