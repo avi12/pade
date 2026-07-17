@@ -1400,6 +1400,18 @@ mod tests {
     }
 
     #[test]
+    fn declared_web_project_is_not_vetoed_by_python_automation() {
+        let source_bytes = std::collections::BTreeMap::from([
+            (ProjectKind::Web, 20_000),
+            (ProjectKind::Python, 30_000),
+        ]);
+        let suggested = suggestible_editor_ids(&source_bytes, &[ProjectKind::Web]);
+
+        assert_eq!(suggested.first().map(String::as_str), Some("webstorm"));
+        assert!(suggested.iter().any(|id| id == "vscode"));
+    }
+
+    #[test]
     fn unmarked_mixed_source_still_requires_a_generalist() {
         let source_bytes = std::collections::BTreeMap::from([
             (ProjectKind::Web, 9_000),
