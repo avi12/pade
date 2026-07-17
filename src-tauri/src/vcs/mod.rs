@@ -13,6 +13,7 @@
 //! Not implemented yet.
 
 pub(crate) mod branches;
+pub(crate) mod clone;
 pub(crate) mod inspect;
 pub(crate) mod log;
 pub(crate) mod remote;
