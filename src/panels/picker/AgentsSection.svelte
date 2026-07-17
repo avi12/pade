@@ -129,36 +129,7 @@
     white-space: nowrap;
   }
 
-  /* Reload pill — the refresh icon spins while scanning. */
-  .rescan {
-    display: inline-flex;
-    flex: none;
-    gap: 6px;
-    align-items: center;
-    padding: 5px 12px;
-    border: 1px solid var(--outline);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
-    font-weight: 600;
-    font-size: 12px;
-    cursor: pointer;
-    transition:
-      background 150ms var(--ease),
-      border-color 150ms var(--ease),
-      color 150ms var(--ease);
-
-    &:hover {
-      border-color: var(--primary);
-      background: var(--surface-2);
-      color: var(--primary);
-    }
-
-    &.scanning :global(.icon) {
-      animation: spin 800ms linear infinite;
-    }
-  }
+  /* The Reload pill (.rescan) is shared chrome — see picker/chrome.css. */
 
   /* Skeleton chips while the first scan runs. */
   .agent-skels {

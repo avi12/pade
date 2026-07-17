@@ -27,17 +27,12 @@
   // the chosen project path (and optional first prompt) back to the app.
   const {
     agents,
-    hasActiveProject,
     onopen,
     onmove,
     onrename,
     ondelete
   }: {
     agents: Agent[];
-    /** Whether the picker was opened from an active project (the workspace). Only
-        then is tagging "this project"'s editor rule meaningful — a bare launch or
-        the onboarding step has no working project to point at. */
-    hasActiveProject: boolean;
     onopen: (target: {
       path: string;
       initialPrompt?: string;
@@ -60,6 +55,7 @@
     defaultAgent: null,
     projectAgents: {},
     recentProjects: [],
+    pinnedProjects: [],
     ownedWorkspaces: [],
     labels: {},
     prefs: {}
@@ -76,8 +72,6 @@
   // Editor ids that suit each project kind (kind → ordered), so a per-kind editor
   // menu offers only fitting editors rather than every installed one.
   let kindOptions = $state<Record<string, string[]>>({});
-  // Primary detected kind of the current dir, so we can tag "this project"'s row.
-  let currentKind = $state<string | null>(null);
 
   async function setEditorRule({ kind, editorId }: {
     kind: string;
@@ -114,18 +108,31 @@
       return { error: typeof error === "string" ? error : "Couldn’t add that editor." };
     }
   }
+  // Re-probe the machine for installed editors (the Editors "Reload" button). The
+  // detected list is shared across the picker, so refreshing it here updates every
+  // section at once. Returns how many were auto-detected (added editors aren't
+  // "detected") for the button's toast.
+  async function rescanEditors(): Promise<number> {
+    ides = await ide.detect();
+    const addedIds = new Set((settings.prefs.addedEditors ?? []).map(editor => editor.id));
+    return ides.filter(editor => !addedIds.has(editor.id)).length;
+  }
+  // Drop a user-added editor, then refresh the detected list so it leaves every
+  // menu. Stays the single settings owner.
+  async function removeEditor(id: string) {
+    settings = await ide.removeEditor(id);
+    ides = await ide.detect();
+  }
 
   async function refresh() {
-    const detectedKind = hasActiveProject ? ide.projectKind().catch(() => null) : Promise.resolve(null);
-    [settings, ides, kinds, kindOptions, currentKind] = await Promise.all([
+    [settings, ides, kinds, kindOptions] = await Promise.all([
       // prune, not settings: a folder deleted outside PADE is forgotten here, so
       // its row leaves the page (collapsing out) instead of lingering as a link
       // to nothing.
       workspace.prune(),
       ide.detect(),
       ide.kinds(),
-      ide.kindOptions(),
-      detectedKind
+      ide.kindOptions()
     ]);
     projectsByRoot = Object.fromEntries(
       await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const))
@@ -314,12 +321,13 @@
         <AgentsSection {agents} defaultAgent={settings.defaultAgent} onpick={setMaster} />
 
         <EditorsSection
-          {currentKind}
           {ides}
           {kindOptions}
           {kinds}
           onaddeditor={addEditor}
           onfallback={setEditorFallback}
+          onremoveeditor={removeEditor}
+          onrescan={rescanEditors}
           onrule={setEditorRule}
           prefs={settings.prefs}
         />

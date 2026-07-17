@@ -203,6 +203,40 @@
   font-size: 13px;
 }
 
+/* Re-detect ("Reload") pill — shared by the Default-agent and Editors sections.
+   A tonal outline pill that takes the primary edge on hover; its refresh icon
+   spins while a scan is in flight (`.scanning`). */
+.picker .rescan {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 150ms var(--ease),
+    border-color 150ms var(--ease),
+    color 150ms var(--ease);
+
+  &:hover {
+    border-color: var(--primary);
+    background: var(--surface-2);
+    color: var(--primary);
+  }
+
+  &.scanning .icon {
+    animation: spin 800ms linear infinite;
+  }
+}
+
 /* The selected-item checkmark — a primary accent that stands out on the row's
    neutral selection/hover wash. */
 .picker .tick {

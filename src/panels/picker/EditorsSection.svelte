@@ -17,11 +17,12 @@
     ides,
     kinds,
     kindOptions,
-    currentKind,
     prefs,
     onrule,
     onfallback,
-    onaddeditor
+    onaddeditor,
+    onrescan,
+    onremoveeditor
   }: {
     ides: Ide[];
     /** The project kinds to render rows for (label + manifest signals), straight
@@ -31,8 +32,6 @@
     /** Editor ids that suit each project kind (kind → ordered, installed-only), so
         a kind's menu offers only fitting editors — no WebStorm on an Android row. */
     kindOptions: Record<string, string[]>;
-    /** Primary detected kind of the current dir — tags "this project"'s row. */
-    currentKind: string | null;
     prefs: Prefs;
     onrule: (rule: {
       kind: string;
@@ -45,6 +44,11 @@
     } | {
       error: string;
     }>;
+    /** Re-probe the machine for installed editors — resolves to how many were
+        found, so the button can report the count. */
+    onrescan: () => Promise<number>;
+    /** Drop a user-added editor by id (removes it from every menu). */
+    onremoveeditor: (id: string) => Promise<void>;
   } = $props();
 
   // "Add editor…" flow — reveal an inline path field, validate & persist the
@@ -61,10 +65,15 @@
     kind: StatusKind;
     text: string;
   } | null>(null);
+  // Re-detect in flight — flips the header's Reload button to "Detecting…".
+  let rescanning = $state(false);
 
   // Rules/fallback live in prefs; a missing map is treated as no rules.
   const ideRules = $derived(prefs.ideRules ?? {});
   const ideFallback = $derived(prefs.ideFallback ?? ides[0]?.id ?? "");
+  // Editors the user located by executable path — shown as a removable list so a
+  // stale entry can be dropped from every menu.
+  const addedEditors = $derived(prefs.addedEditors ?? []);
 
   // The detected editor behind an id — undefined when the rule points at an
   // editor that's no longer installed (the trigger then reads "Choose…", no icon).
@@ -98,10 +107,10 @@
 })}
   {@const selectId = editorSelectId(key)}
   {@const pickedEditor = detectedEditor(value)}
-  <span class="editor-sel">
+  <span class="editor-sel menu-host">
     <button
       style:anchor-name="--{selectId}"
-      class="editor-trigger"
+      class="editor-trigger menu-trigger"
       aria-label={ariaLabel}
       disabled={ides.length === 0}
       popovertarget={selectId}
@@ -148,26 +157,45 @@
 
 <section class="editors">
   <div class="ed-head">
-    <h2>Editors</h2>
-    <p class="hint">
-      PADE reads what’s in a folder and opens it in the editor you set for
-      that kind of project. Rules win over order — no shuffling a priority
-      list.
-    </p>
+    <div class="ed-head-copy">
+      <h2>Editors</h2>
+      <p class="hint">
+        PADE reads what’s in a folder and opens it in the editor you set for
+        that kind of project. Rules win over order — no shuffling a priority
+        list.
+      </p>
+    </div>
+    <button
+      class="rescan"
+      class:scanning={rescanning}
+      aria-label="Re-detect installed editors"
+      data-tooltip="Re-detect installed editors"
+      onclick={async () => {
+        if (rescanning) {
+          return;
+        }
+
+        rescanning = true;
+        try {
+          const found = await onrescan();
+          showToast(`Re-detected ${found} editor${found === 1 ? "" : "s"} on this machine`);
+        } finally {
+          rescanning = false;
+        }
+      }}
+      type="button"
+    ><Icon name="refresh" size={14} /> {#if rescanning}
+      Detecting…{:else}Reload{/if}</button>
   </div>
   <ul class="ed-rules">
     {#each kinds as { kind, label, signals } (kind)}
-      {@const isThisProject = currentKind === kind}
-      <li class="ed-rule" class:here={isThisProject}>
+      <li class="ed-rule">
         <span class="ed-kind">
           <span class="ed-label-row">
             <span class="kind-logo" aria-hidden="true" data-brand={languageIcon(kind)}>
               <Icon name={languageIcon(kind)} size={15} />
             </span>
             <span class="ed-label">{label}</span>
-            {#if isThisProject}
-              <span class="here-tag">this project</span>
-            {/if}
           </span>
           <span class="ed-signals">
             {#each signals as sig (sig)}
@@ -190,7 +218,15 @@
       </li>
     {/each}
     <li class="ed-rule fallback">
-      <span class="ed-label">Any other folder</span>
+      <!-- The catch-all: a folder matching no single-language rule — including a
+           polyglot monorepo no one editor fully covers — carries a folder logo
+           rather than any one language's mark. -->
+      <span class="ed-label-row">
+        <span class="kind-logo" aria-hidden="true">
+          <Icon name="folder" size={15} />
+        </span>
+        <span class="ed-label">Any other folder</span>
+      </span>
       <span class="ed-spacer"></span>
       <span class="ed-arrow">fall back to</span>
       {@render editorSelect({
@@ -319,6 +355,34 @@
         <span>{status.text}</span>
       </output>
     {/if}
+
+    <!-- Editors located by executable path — listed so a stale one can be dropped. -->
+    {#if addedEditors.length > 0}
+      <div class="ed-added">
+        <span class="ed-added-eyebrow">Added manually</span>
+        {#each addedEditors as editor (editor.id)}
+          <div class="ed-added-row">
+            <span class="ed-added-info">
+              <span class="ed-added-name-row">
+                <span class="ed-added-name">{editor.label}</span>
+                <span class="ed-added-tag">added</span>
+              </span>
+              <span class="ed-added-path" data-tooltip={editor.path}>{editor.path}</span>
+            </span>
+            <button
+              class="ed-remove"
+              aria-label={`Remove ${editor.label}`}
+              data-tooltip="Remove"
+              onclick={async () => {
+                await onremoveeditor(editor.id);
+                showToast(`Removed ${editor.label}`);
+              }}
+              type="button"
+            ><Icon name="trash" size={15} /></button>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 </section>
 
@@ -327,8 +391,16 @@
      fall-back row. Each row carries a native-popover editor select. ── */
   .ed-head {
     display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .ed-head-copy {
+    display: flex;
     flex-direction: column;
     gap: 6px;
+    min-inline-size: 0;
 
     .hint {
       max-inline-size: 62ch;
@@ -370,12 +442,6 @@
 
     &.fallback {
       border-style: dashed;
-    }
-
-    /* The current project's kind — a subtle tertiary edge. */
-    &.here {
-      border-color: var(--tertiary);
-      background: var(--tertiary-wash);
     }
   }
 
@@ -423,18 +489,6 @@
     font-size: 10px;
   }
 
-  .here-tag {
-    flex: none;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: var(--tertiary);
-    color: var(--on-primary);
-    font-weight: 700;
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   .ed-spacer {
     flex: 1;
     min-inline-size: 8px;
@@ -480,20 +534,6 @@
       font-size: 9px;
       opacity: 70%;
       transition: rotate 150ms var(--ease);
-    }
-  }
-
-  /* Open state — inspired by the youtube-downloader select: while the menu is open
-     the trigger takes the primary edge and the caret flips, so the field reads as
-     active. Pure CSS via :has(:popover-open) — scoped to the field, so drag-safe. */
-  .editor-sel:has(.editor-menu:popover-open) {
-    .editor-trigger {
-      border-color: var(--primary);
-      background: var(--surface-3);
-    }
-
-    .caret {
-      rotate: 180deg;
     }
   }
 
@@ -718,6 +758,96 @@
       display: inline-flex;
       flex: none;
       margin-block-start: 1px;
+    }
+  }
+
+  /* ── "Added manually" — editors located by path, listed for removal. ── */
+  .ed-added {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ed-added-eyebrow {
+    color: var(--on-surface-variant);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .ed-added-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-block: 8px;
+    padding-inline: 12px 8px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-2);
+  }
+
+  .ed-added-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+  }
+
+  .ed-added-name-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .ed-added-name {
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  /* "added" provenance tag — a quiet tertiary micro-label, no fill. */
+  .ed-added-tag {
+    flex: none;
+    color: var(--tertiary);
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .ed-added-path {
+    overflow: hidden;
+    max-inline-size: 100%;
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Remove — a circle that reddens on hover, like the roots-row close button. */
+  .ed-remove {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 28px;
+    inline-size: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
+
+    &:hover {
+      background: var(--critical-wash);
+      color: var(--critical);
+      filter: none;
     }
   }
 </style>
