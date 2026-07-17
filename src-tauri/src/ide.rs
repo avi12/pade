@@ -1387,28 +1387,84 @@ mod tests {
     }
 
     #[test]
-    fn declared_android_project_is_not_vetoed_by_incidental_web_source() {
-        let source_bytes = std::collections::BTreeMap::from([
-            (ProjectKind::Web, 280_000),
-            (ProjectKind::Java, 82_000),
-        ]);
-        let suggested = suggestible_editor_ids(&source_bytes, &[ProjectKind::Android]);
+    fn declared_project_kinds_ignore_ancillary_source_languages() {
+        let cases = [
+            (
+                ProjectKind::Android,
+                ProjectKind::Java,
+                ProjectKind::Web,
+                "androidstudio",
+            ),
+            (
+                ProjectKind::Web,
+                ProjectKind::Web,
+                ProjectKind::Python,
+                "webstorm",
+            ),
+            (
+                ProjectKind::Python,
+                ProjectKind::Python,
+                ProjectKind::Rust,
+                "pycharm",
+            ),
+            (
+                ProjectKind::Php,
+                ProjectKind::Php,
+                ProjectKind::Rust,
+                "phpstorm",
+            ),
+            (
+                ProjectKind::Ruby,
+                ProjectKind::Ruby,
+                ProjectKind::Rust,
+                "rubymine",
+            ),
+            (
+                ProjectKind::Go,
+                ProjectKind::Go,
+                ProjectKind::Rust,
+                "goland",
+            ),
+            (
+                ProjectKind::Rust,
+                ProjectKind::Rust,
+                ProjectKind::Web,
+                "rustrover",
+            ),
+            (
+                ProjectKind::Java,
+                ProjectKind::Java,
+                ProjectKind::Rust,
+                "idea",
+            ),
+            (
+                ProjectKind::Cpp,
+                ProjectKind::Cpp,
+                ProjectKind::Python,
+                "clion",
+            ),
+            (
+                ProjectKind::Dotnet,
+                ProjectKind::Dotnet,
+                ProjectKind::Python,
+                "rider",
+            ),
+        ];
 
-        assert_eq!(suggested.first().map(String::as_str), Some("androidstudio"));
-        assert!(suggested.iter().any(|id| id == "vscode"));
-        assert!(!suggested.iter().any(|id| id == "webstorm"));
-    }
+        for (declared, primary_source, ancillary_source, expected) in cases {
+            let source_bytes = std::collections::BTreeMap::from([
+                (primary_source, 20_000),
+                (ancillary_source, 30_000),
+            ]);
+            let suggested = suggestible_editor_ids(&source_bytes, &[declared]);
 
-    #[test]
-    fn declared_web_project_is_not_vetoed_by_python_automation() {
-        let source_bytes = std::collections::BTreeMap::from([
-            (ProjectKind::Web, 20_000),
-            (ProjectKind::Python, 30_000),
-        ]);
-        let suggested = suggestible_editor_ids(&source_bytes, &[ProjectKind::Web]);
-
-        assert_eq!(suggested.first().map(String::as_str), Some("webstorm"));
-        assert!(suggested.iter().any(|id| id == "vscode"));
+            assert_eq!(
+                suggested.first().map(String::as_str),
+                Some(expected),
+                "declared kind: {declared:?}"
+            );
+            assert!(suggested.iter().any(|id| id == "vscode"));
+        }
     }
 
     #[test]
