@@ -170,9 +170,10 @@ writes.
   VS Code + its forks (Cursor, Antigravity, Windsurf, VSCodium), JetBrains
   family, Zed, Sublime…). ✅ Ranked by project kind, and ✅ a user-set
   **editor-rules** engine (project kind → chosen editor + a fallback, persisted
-  in prefs) resolved rule → fallback → auto-rank. The top-bar selector always
-  has a drop-down, whose final action reveals the active project in the file
-  explorer.
+  in prefs) resolved rule → fallback → auto-rank. The fallback is any installed
+  general-purpose editor the user selects in the project picker; VS Code is one
+  option, not an algorithmic special case. The top-bar selector always has a
+  drop-down, whose final action reveals the active project in the file explorer.
 - R1.10.1a ✅ **Hybrid-aware ranking** (research-backed: Linguist / Nixpacks /
   Buildpacks / JetBrains compare-matrix). Kinds are detected as a **union** of
   markers probed in the root and one level down (`src-tauri/Cargo.toml` counts);

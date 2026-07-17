@@ -1324,8 +1324,15 @@ mod tests {
     use super::{
         census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
         project_name, protocol_id, ranked_editor_ids, relative_path, source_content,
-        suggestible_editor_ids, OpenStyle, ProjectKind,
+        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectKind, REGISTRY,
     };
+
+    fn is_general_purpose_editor(id: &str) -> bool {
+        REGISTRY
+            .iter()
+            .find(|editor| editor.id == id)
+            .is_some_and(|editor| matches!(editor.coverage, EditorCoverage::EveryKind))
+    }
 
     #[test]
     fn coverage_ranking_prefers_a_specialist_for_one_language() {
@@ -1341,10 +1348,18 @@ mod tests {
             (ProjectKind::Rust, 1_000),
         ]);
         let ranked = ranked_editor_ids(&source_bytes, &[ProjectKind::Web, ProjectKind::Rust]);
-        assert_eq!(ranked.first().map(String::as_str), Some("vscode"));
+        assert!(ranked
+            .first()
+            .is_some_and(|id| is_general_purpose_editor(id)));
         assert!(
-            ranked.iter().position(|id| id == "vscode")
-                < ranked.iter().position(|id| id == "webstorm")
+            ranked
+                .iter()
+                .position(|id| is_general_purpose_editor(id))
+                .unwrap_or(usize::MAX)
+                < ranked
+                    .iter()
+                    .position(|id| id == "webstorm")
+                    .unwrap_or(usize::MAX)
         );
     }
 
@@ -1381,7 +1396,9 @@ mod tests {
         ]);
         let suggested =
             suggestible_editor_ids(&web_rust_project, &[ProjectKind::Web, ProjectKind::Rust]);
-        assert_eq!(suggested.first().map(String::as_str), Some("vscode"));
+        assert!(suggested
+            .first()
+            .is_some_and(|id| is_general_purpose_editor(id)));
         assert!(!suggested.iter().any(|id| id == "webstorm"));
         assert!(!suggested.iter().any(|id| id == "androidstudio"));
     }
@@ -1463,7 +1480,7 @@ mod tests {
                 Some(expected),
                 "declared kind: {declared:?}"
             );
-            assert!(suggested.iter().any(|id| id == "vscode"));
+            assert!(suggested.iter().any(|id| is_general_purpose_editor(id)));
         }
     }
 
@@ -1475,7 +1492,9 @@ mod tests {
         ]);
         let suggested = suggestible_editor_ids(&source_bytes, &[]);
 
-        assert_eq!(suggested.first().map(String::as_str), Some("vscode"));
+        assert!(suggested
+            .first()
+            .is_some_and(|id| is_general_purpose_editor(id)));
         assert!(!suggested.iter().any(|id| id == "webstorm"));
         assert!(!suggested.iter().any(|id| id == "rustrover"));
     }
