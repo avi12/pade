@@ -89,6 +89,10 @@ const LEAVE_ALTERNATE_SCREEN: &str = control_sequence!("?1049l");
 /// How much recent output to keep per session for naming (bytes, tail-trimmed).
 const TRANSCRIPT_CAP: usize = 16 * 1024;
 
+/// How often each session's reaper checks whether its agent process has exited
+/// on its own (see the reaper thread in `pty_spawn`).
+const CHILD_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+
 /// How much raw output to keep per session for replay. Bigger than the transcript
 /// because this is the unstripped stream — escape codes and repaints included.
 const HISTORY_CAP: usize = 512 * 1024;
@@ -401,7 +405,7 @@ pub fn pty_spawn(
     });
 
     sessions.insert(
-        id,
+        id.clone(),
         Pty {
             master: pair.master,
             writer,
@@ -410,6 +414,33 @@ pub fn pty_spawn(
             history,
         },
     );
+
+    // Reap the agent when it exits on its own. The reader thread's EOF alone
+    // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
+    // the master pipe open after the child dies, so the read blocks forever, no
+    // exit ever reaches the frontend, and the dead session's conhost lingers.
+    // Poll the child instead; once it has exited, drop the session — that closes
+    // the ConPTY, which EOFs the reader, whose existing end-of-pump emit is the
+    // one authoritative source of `pty://exit` (DRY). A hand-closed session
+    // (`pty_kill`) is already out of the map, which ends this thread too.
+    let handle = app.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(CHILD_POLL_INTERVAL);
+        let Some(state) = handle.try_state::<PtyState>() else {
+            break;
+        };
+        let Ok(mut sessions) = state.0.lock() else {
+            break;
+        };
+        let Some(pty) = sessions.get_mut(&id) else {
+            break;
+        };
+        let still_running = matches!(pty.child.try_wait(), Ok(None));
+        if !still_running {
+            sessions.remove(&id);
+            break;
+        }
+    });
     Ok(())
 }
 
