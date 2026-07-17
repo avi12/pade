@@ -12,12 +12,11 @@ use serde::Serialize;
 
 use crate::util::is_on_path;
 
-/// The project families and source languages PADE can match against an editor's
-/// capabilities. The string identifier crosses the IPC and settings boundaries;
-/// this enum is the sole Rust definition of that closed set.
+/// The source-language families PADE can match against an editor's capabilities.
+/// The string identifier crosses the IPC and settings boundaries; this enum is
+/// the sole Rust definition of that closed set.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum ProjectKind {
-    Tauri,
     Android,
     Web,
     Python,
@@ -33,7 +32,6 @@ enum ProjectKind {
 impl ProjectKind {
     const fn as_str(self) -> &'static str {
         match self {
-            Self::Tauri => "tauri",
             Self::Android => "android",
             Self::Web => "web",
             Self::Python => "python",
@@ -311,10 +309,10 @@ impl Marker {
     }
 }
 
-/// One project family PADE recognises. A single row is the authoritative mapping
-/// from project markers, filename extensions, and GitHub Linguist names to one
-/// project kind. Editor support lives separately in [`REGISTRY`], so adding a
-/// language never requires preference-list tuning.
+/// One source-language family PADE recognises. A single row is the authoritative
+/// mapping from project markers, filename extensions, and GitHub Linguist names
+/// to one project kind. Editor support lives separately in [`REGISTRY`], so
+/// adding a language never requires preference-list tuning.
 struct KindDef {
     kind: ProjectKind,
     label: &'static str,
@@ -327,20 +325,6 @@ struct KindDef {
 }
 
 const KIND_REGISTRY: &[KindDef] = &[
-    // A Tauri configuration lives in the Rust application directory and proves
-    // that the adjacent web and Rust sources form one desktop application. It
-    // must precede the web marker: a WebStorm rule is not a complete Tauri fit.
-    KindDef {
-        kind: ProjectKind::Tauri,
-        label: "Tauri",
-        markers: &[
-            Marker::Named("tauri.conf.json"),
-            Marker::Named("tauri.conf.json5"),
-            Marker::Named("Tauri.toml"),
-        ],
-        extensions: &[],
-        linguist_languages: &[],
-    },
     // Android is checked first: an Android project is also "web"/"java"-ish,
     // but Android Studio is the right call when its markers are there.
     KindDef {
@@ -1027,6 +1011,27 @@ fn ranked_editor_ids(
     editors.iter().map(|editor| editor.id.to_string()).collect()
 }
 
+/// Whether a known editor can cover every source language and project marker
+/// observed in the current project. A web rule is a useful preference for an
+/// all-web monorepo, but must never force `WebStorm` ahead of a web/Rust hybrid.
+/// User-added editors lack a capability declaration, so their explicit rule is
+/// retained rather than guessing what the user's installation supports.
+fn editor_covers_project(
+    id: &str,
+    source_bytes: &BTreeMap<ProjectKind, u64>,
+    marker_kinds: &[ProjectKind],
+) -> bool {
+    REGISTRY
+        .iter()
+        .find(|editor| editor.id == id)
+        .is_none_or(|editor| {
+            source_bytes
+                .keys()
+                .chain(marker_kinds.iter())
+                .all(|kind| editor.coverage.supports(*kind))
+        })
+}
+
 /// Editor ids to offer per editor-rules row, installed-only. A kind's list is
 /// derived from the same capability table and coverage scorer as suggestions,
 /// so an unrelated IDE is never offered. Unknown folders get only universal
@@ -1119,19 +1124,24 @@ fn is_installed(id: &str) -> bool {
 }
 
 /// Installed IDEs ranked for the current project, best match first. The
-/// editor-rules engine takes precedence: a user rule for the primary marker
-/// kind is offered first, then the configured fallback, then byte-weighted
-/// editor coverage. No dominant-language threshold is involved.
+/// editor-rules engine takes precedence only when its editor covers the complete
+/// observed project. A user rule for the primary marker kind is considered first,
+/// then the configured fallback, then byte-weighted editor coverage. No
+/// dominant-language threshold or framework-specific detection is involved.
 #[tauri::command]
 pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     let kinds = detect_kinds(&cwd);
+    let source_bytes = census(&cwd);
     let prefs = crate::workspace::load().prefs;
 
-    // 1) Explicit rule for the primary kind, 2) fallback, 3) coverage ranking.
+    // 1) Compatible primary-kind rule, 2) compatible fallback, 3) coverage ranking.
     let rule = primary_kind(&cwd).and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
-    let configured = rule.into_iter().chain(prefs.ide_fallback);
-    let auto = ranked_editor_ids(&census(&cwd), &kinds);
+    let configured = rule
+        .into_iter()
+        .chain(prefs.ide_fallback)
+        .filter(|id| editor_covers_project(id, &source_bytes, &kinds));
+    let auto = ranked_editor_ids(&source_bytes, &kinds);
 
     let mut ordered: Vec<String> = Vec::new();
     for id in configured.chain(auto) {
@@ -1279,9 +1289,9 @@ pub fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        census, exe_basename, family, ide_kinds, open_args, open_style, primary_kind, project_name,
-        protocol_id, ranked_editor_ids, relative_path, source_content, OpenStyle, ProjectKind,
-        REGISTRY,
+        census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
+        project_name, protocol_id, ranked_editor_ids, relative_path, source_content, OpenStyle,
+        ProjectKind,
     };
 
     #[test]
@@ -1306,24 +1316,28 @@ mod tests {
     }
 
     #[test]
-    fn a_tauri_manifest_outranks_its_web_and_rust_parts() {
-        let dir = std::env::temp_dir().join(format!("pade-tauri-{}", std::process::id()));
-        let rust_dir = dir.join("src-tauri");
-        std::fs::create_dir_all(&rust_dir).expect("test dirs");
-        std::fs::write(dir.join("package.json"), "{}").expect("web manifest");
-        std::fs::write(rust_dir.join("Cargo.toml"), "[package]\nname = \"app\"\n")
-            .expect("rust manifest");
-        std::fs::write(rust_dir.join("tauri.conf.json"), "{}").expect("tauri configuration");
+    fn a_web_rule_requires_complete_language_coverage() {
+        let web_monorepo = std::collections::BTreeMap::from([(ProjectKind::Web, 10_000)]);
+        assert!(editor_covers_project(
+            "webstorm",
+            &web_monorepo,
+            &[ProjectKind::Web]
+        ));
 
-        assert_eq!(primary_kind(&dir), Some(ProjectKind::Tauri));
-        assert!(!REGISTRY
-            .iter()
-            .find(|editor| editor.id == "webstorm")
-            .expect("WebStorm registry entry")
-            .coverage
-            .supports(ProjectKind::Tauri));
-
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        let web_rust_project = std::collections::BTreeMap::from([
+            (ProjectKind::Web, 9_000),
+            (ProjectKind::Rust, 1_000),
+        ]);
+        assert!(!editor_covers_project(
+            "webstorm",
+            &web_rust_project,
+            &[ProjectKind::Web, ProjectKind::Rust]
+        ));
+        assert!(editor_covers_project(
+            "vscode",
+            &web_rust_project,
+            &[ProjectKind::Web, ProjectKind::Rust]
+        ));
     }
 
     #[test]
@@ -1446,9 +1460,9 @@ mod tests {
     }
 
     #[test]
-    fn kinds_list_cpp_before_dotnet_and_tauri_first() {
+    fn kinds_list_cpp_before_dotnet_and_android_first() {
         let kinds: Vec<String> = ide_kinds().into_iter().map(|info| info.kind).collect();
-        assert_eq!(kinds.first().map(String::as_str), Some("tauri"));
+        assert_eq!(kinds.first().map(String::as_str), Some("android"));
         let position = |kind: &str| {
             kinds
                 .iter()

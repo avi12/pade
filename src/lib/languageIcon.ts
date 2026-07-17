@@ -3,7 +3,6 @@ import type { IconName } from "@/lib/Icon.svelte";
 // Mirrors the project-kind ids in the Rust kind registry (src-tauri/src/ide.rs) —
 // the closed set the logo map keys off, so no bare kind string literals leak out.
 export const ProjectKind = {
-  Tauri: "tauri",
   Web: "web",
   Python: "python",
   Java: "java",
@@ -20,7 +19,6 @@ export type ProjectKind = (typeof ProjectKind)[keyof typeof ProjectKind];
 // Each kind's language logo. Umbrella kinds take their most recognisable member's
 // mark: web → the JavaScript badge, .NET → the C# badge.
 export const PROJECT_KIND_ICONS: Record<string, IconName> = {
-  [ProjectKind.Tauri]: "code",
   [ProjectKind.Web]: "javascript",
   [ProjectKind.Python]: "python",
   [ProjectKind.Java]: "java",
