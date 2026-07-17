@@ -177,10 +177,11 @@ writes.
   Buildpacks / JetBrains compare-matrix). Kinds are detected as a **union** of
   markers probed in the root and one level down (`src-tauri/Cargo.toml` counts);
   a multi-kind repo is weighed by a bounded **byte census** with vendored/build
-  dirs excluded. Only editors that cover every observed project language are
-  offered, so a genuine hybrid leads with generalists and the polyglot IDEA —
-  never a single-language specialist (WebStorm has no Rust; RustRover dropped
-  its web plugins).
+  dirs excluded. Declared project kinds are the compatibility contract; the
+  census ranks matching editors without letting incidental documentation or a
+  support tool veto the project specialist. With no markers, every observed
+  source kind is required. A genuine declared hybrid therefore leads with a
+  generalist — never a single-language specialist.
 - R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);

@@ -87,9 +87,9 @@ impl EditorCoverage {
         }
     }
 
-    /// On equal source coverage, prefer the least-general tool that fully fits
-    /// the project. It selects `RustRover` for a Rust-only project while leaving
-    /// a general editor to win whenever no specialist covers the whole mix.
+    /// Among editors that cover the declared project kinds, prefer the
+    /// least-general tool. It selects `RustRover` for a Rust project while a
+    /// genuinely hybrid set of markers still leaves only a generalist eligible.
     const fn breadth(self) -> usize {
         match self {
             Self::EveryKind => usize::MAX,
@@ -971,10 +971,12 @@ fn dedup_in_order(ids: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-/// Rank each registered editor by the source bytes it can cover. Marker coverage
-/// breaks a byte tie (e.g. Android Studio for an Android Java project), then the
-/// least-general fully fitting editor wins. Registry order remains the stable
-/// final tie-breaker for equivalent editors such as VS Code and its forks.
+/// Rank each registered editor against the project's independent evidence.
+/// Declared project kinds lead and capability breadth breaks their tie, so a
+/// specialist is not displaced by unrelated documentation or a small support
+/// tool. Source coverage leads only for an unmarked folder and otherwise breaks
+/// ties between equally specific editors. Registry order remains stable for
+/// equivalent editors such as VS Code and its forks.
 fn ranked_editor_ids(
     source_bytes: &BTreeMap<ProjectKind, u64>,
     marker_kinds: &[ProjectKind],
@@ -1004,17 +1006,24 @@ fn ranked_editor_ids(
             .iter()
             .filter(|kind| right.coverage.supports(**kind))
             .count();
-        right_source
-            .cmp(&left_source)
-            .then_with(|| right_markers.cmp(&left_markers))
-            .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
+        if marker_kinds.is_empty() {
+            right_source
+                .cmp(&left_source)
+                .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
+        } else {
+            right_markers
+                .cmp(&left_markers)
+                .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
+                .then_with(|| right_source.cmp(&left_source))
+        }
     });
     editors.iter().map(|editor| editor.id.to_string()).collect()
 }
 
-/// Whether a known editor can cover every source language and project marker
-/// observed in the current project. A web rule is a useful preference for an
-/// all-web monorepo, but must never force `WebStorm` ahead of a web/Rust hybrid.
+/// Whether a known editor covers the project's required capabilities. Declared
+/// project kinds are authoritative when present: they distinguish a real hybrid
+/// from incidental tracked source such as documentation and support tools. An
+/// unmarked folder falls back to requiring every source kind the census found.
 /// User-added editors lack a capability declaration, so their explicit rule is
 /// retained rather than guessing what the user's installation supports.
 fn editor_covers_project(
@@ -1030,10 +1039,15 @@ fn editor_covers_project(
             if !has_evidence {
                 return matches!(editor.coverage, EditorCoverage::EveryKind);
             }
-            source_bytes
-                .keys()
-                .chain(marker_kinds.iter())
-                .all(|kind| editor.coverage.supports(*kind))
+            if marker_kinds.is_empty() {
+                source_bytes
+                    .keys()
+                    .all(|kind| editor.coverage.supports(*kind))
+            } else {
+                marker_kinds
+                    .iter()
+                    .all(|kind| editor.coverage.supports(*kind))
+            }
         })
 }
 
@@ -1142,10 +1156,11 @@ fn is_installed(id: &str) -> bool {
 }
 
 /// Installed IDEs ranked for the current project, best match first. The
-/// editor-rules engine takes precedence only when its editor covers the complete
-/// observed project. A user rule for the primary marker kind is considered first,
-/// then the configured fallback, then byte-weighted editor coverage. No
-/// dominant-language threshold or framework-specific detection is involved.
+/// editor-rules engine takes precedence only when its editor covers every
+/// declared project kind (or every source kind when no declaration exists). A
+/// user rule for the primary marker kind is considered first, then the configured
+/// fallback, then evidence-weighted editor coverage. No dominant-language
+/// threshold or framework-specific detection is involved.
 #[tauri::command]
 pub fn ide_suggest() -> Result<Vec<Ide>, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
@@ -1369,6 +1384,32 @@ mod tests {
         assert_eq!(suggested.first().map(String::as_str), Some("vscode"));
         assert!(!suggested.iter().any(|id| id == "webstorm"));
         assert!(!suggested.iter().any(|id| id == "androidstudio"));
+    }
+
+    #[test]
+    fn declared_android_project_is_not_vetoed_by_incidental_web_source() {
+        let source_bytes = std::collections::BTreeMap::from([
+            (ProjectKind::Web, 280_000),
+            (ProjectKind::Java, 82_000),
+        ]);
+        let suggested = suggestible_editor_ids(&source_bytes, &[ProjectKind::Android]);
+
+        assert_eq!(suggested.first().map(String::as_str), Some("androidstudio"));
+        assert!(suggested.iter().any(|id| id == "vscode"));
+        assert!(!suggested.iter().any(|id| id == "webstorm"));
+    }
+
+    #[test]
+    fn unmarked_mixed_source_still_requires_a_generalist() {
+        let source_bytes = std::collections::BTreeMap::from([
+            (ProjectKind::Web, 9_000),
+            (ProjectKind::Rust, 1_000),
+        ]);
+        let suggested = suggestible_editor_ids(&source_bytes, &[]);
+
+        assert_eq!(suggested.first().map(String::as_str), Some("vscode"));
+        assert!(!suggested.iter().any(|id| id == "webstorm"));
+        assert!(!suggested.iter().any(|id| id == "rustrover"));
     }
 
     #[test]
