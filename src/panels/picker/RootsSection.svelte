@@ -495,14 +495,14 @@
      (will be created), neutral (checking). */
   .status {
     display: flex;
-    gap: 8px;
+    gap: 7px;
     align-items: center;
-    padding: 8px 12px;
-    border-radius: var(--radius-medium);
+    padding: 6px 9px;
+    border-radius: var(--radius-small);
     font-weight: 600;
-    font-size: 13px;
+    font-size: 0.6875rem;
     line-height: 1.4;
-    animation: banner-in 180ms var(--ease);
+    animation: rise 180ms var(--ease);
 
     &[data-tone="critical"] {
       background: var(--critical-wash);
@@ -534,11 +534,8 @@
     }
   }
 
-  @keyframes banner-in {
-    from {
-      opacity: 0%;
-      transform: translateY(-4px);
-    }
+  .add {
+    font-size: 0.8125rem;
   }
 
   .browse {
@@ -590,7 +587,6 @@
     align-items: center;
     block-size: 24px;
     inline-size: 24px;
-    margin-inline-start: auto;
     padding: 0;
     border-radius: 999px;
     background: var(--surface-2);
