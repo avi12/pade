@@ -98,6 +98,12 @@
 </section>
 
 <style>
+  /* Canon spaces this section's rows 10px apart, a touch tighter than the
+     shared 12px picker-section gap. */
+  .onlaunch {
+    gap: 10px;
+  }
+
   /* ── On launch — checkboxes; the pill-tabs chrome is shared (chrome.css). ── */
   .startmode {
     display: flex;
