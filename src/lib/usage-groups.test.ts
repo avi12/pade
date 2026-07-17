@@ -136,6 +136,19 @@ describe("buildGroups", () => {
     expect(claude.limits.map(limit => limit.level)).toEqual(["normal", "warn"]);
   });
 
+  it("shows a window still at 0% (an unused session), not only consumed ones", () => {
+    const [claude] = buildGroups({
+      account: makeAccount({
+        windows: [sessionWindow({ utilization: 0 }), weeklyWindow({ utilization: 42 })]
+      }),
+      sessions: [claudeSession()],
+      now
+    });
+
+    expect(claude.limits.map(limit => limit.kindShort)).toEqual(["S", "W"]);
+    expect(claude.limits.map(limit => limit.pct)).toEqual([0, 42]);
+  });
+
   it("marks every non-Claude agent unknown, with no limits or plan", () => {
     const [codex] = buildGroups({
       account: makeAccount(),

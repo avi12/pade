@@ -279,8 +279,9 @@ fn named_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
 
 /// The per-model caps under `limits[]` — each row scoped to a named model
 /// (`scope.model.display_name`), which both identifies it as a per-model window
-/// and skips the unscoped session/weekly rows the array may also carry. Display
-/// filtering of empty windows is the frontend's job (see `usageGroups.ts`).
+/// and skips the unscoped session/weekly rows the array may also carry. Every
+/// window is surfaced as-is — the frontend (`usage-groups.ts`) shows them all,
+/// including any still at 0%.
 fn model_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     response
         .get("limits")

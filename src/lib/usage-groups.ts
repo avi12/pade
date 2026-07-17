@@ -163,17 +163,14 @@ function windowPresentation(window: UsageWindow): {
 
 // Claude's real rate-limit windows off the account — every window the endpoint
 // returned (session, weekly, per-model, and any others), in the order it sent
-// them. Only windows with actual consumption (> 0%) are shown.
+// them. Every returned window is shown, including one still at 0%: an unused
+// session window is a real limit worth surfacing, not noise to hide.
 function buildClaudeLimits({ account, now }: {
   account: AccountUsage;
   now: number;
 }): Limit[] {
   const limits: Limit[] = [];
   for (const window of account.windows) {
-    if (window.utilization <= 0) {
-      continue;
-    }
-
     const value = clamp(window.utilization);
     const presentation = windowPresentation(window);
     limits.push({
