@@ -169,3 +169,9 @@ These are non-negotiable for all work in this repo.
 See `docs/requirements.md` for the full MVP spec and `README.md` for how to run.
 Stack: Tauri 2 + Rust core, Svelte 5 + Vite frontend, xterm.js + `portable-pty`
 terminal, `notify` watcher, Material 3 Expressive theme.
+
+**Writing Rust?** Follow the `rust-best-practices` skill
+(`.claude/skills/rust-best-practices/SKILL.md`) — idiomatic naming, error
+handling, type safety, ownership, dependency discipline, and testing for the
+`src-tauri` backend. Invoke it before writing or reviewing Rust here, or when a
+clippy `-D warnings` finding needs an idiomatic fix rather than an `#[allow]`.
