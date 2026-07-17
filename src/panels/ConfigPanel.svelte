@@ -203,6 +203,10 @@
       </div>
     </section>
 
+    {#if files.length}
+      <span class="card-label">Project files</span>
+    {/if}
+
     {#each files as f (f.rel)}
       <button
         class="row"
