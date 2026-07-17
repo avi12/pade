@@ -111,7 +111,7 @@
     flex: 1;
     overflow: auto;
     min-block-size: 0;
-    padding-block: 10px 0;
+    padding-block: 10px;
   }
 
   .state {

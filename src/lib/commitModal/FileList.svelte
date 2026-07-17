@@ -152,6 +152,13 @@
       background: var(--surface-2);
     }
 
+    /* Inset primary ring (canon) — an outer outline would be clipped by the
+       file list's own overflow. */
+    &:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px var(--primary);
+    }
+
     &.sel {
       background: var(--primary-container);
       color: var(--on-primary-container);
