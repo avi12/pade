@@ -12,6 +12,8 @@ import {
   CommitDetail,
   ConfigFile,
   DesignTool,
+  DragDropPayload,
+  DragOverPayload,
   EditorKind,
   Ide,
   LaunchContext,
@@ -183,6 +185,15 @@ export const feed = {
 export const dirs = {
   watch: (paths: string[]) => run("watch_dirs", { dirs: paths }),
   onChange: (callback: () => void) => on("dirs://changed", z.null(), () => callback())
+};
+
+/** Native OS drag-and-drop onto the window. Tauri intercepts the webview's
+ *  file DnD (the web API never exposes absolute paths) and emits these events
+ *  instead — how a folder dragged from Explorer or an IDE reaches the app. */
+export const dragDrop = {
+  onOver: (callback: (payload: DragOverPayload) => void) => on("tauri://drag-over", DragOverPayload, callback),
+  onDrop: (callback: (payload: DragDropPayload) => void) => on("tauri://drag-drop", DragDropPayload, callback),
+  onLeave: (callback: () => void) => on("tauri://drag-leave", z.unknown(), () => callback())
 };
 
 /** Version-control review channel. */

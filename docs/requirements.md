@@ -129,7 +129,10 @@ writes.
     temp-workspace card.
   - **Local** — open an existing folder: monospace path input with Browse…
     (Tauri dialog); "Open project" is existence-gated through the debounced
-    `workspace_probe_path` check.
+    `workspace_probe_path` check. A folder dragged from Explorer or an IDE
+    onto the field fills its path (native Tauri drag-drop events carry the
+    absolute paths the web API withholds; the field highlights while a drag
+    hovers it).
   - **Clone** — gated on git being installed (`vcs_git_installed`; when
     missing, a warning card offers "Install Git…" and "Re-check"). Repository
     URL + "Clone into" the same root select; the typed URL is probed live

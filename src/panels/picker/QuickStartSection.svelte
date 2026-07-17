@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { os, vcs, workspace } from "@/lib/bridge";
+  import { dragDrop, os, vcs, workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { rovingTablist } from "@/lib/rovingTabs";
+  import type { DragPosition } from "@/lib/types";
   import {
     CloneUrl,
     FirstPrompt,
@@ -15,8 +16,9 @@
     ProjectName,
     repoFolderName
   } from "@/lib/validate";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
-  import { onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
 
   // "Get started": one card, three ways in — New (create a project, or a
   // throwaway temp workspace when the name stays blank), Local (open an
@@ -114,6 +116,25 @@
 
   // ── Local — open an existing folder ───────────────────────────────────────
   let localPath = $state("");
+  let localInput = $state<HTMLInputElement | null>(null);
+  // True while an OS drag hovers the Local field — the drop-affordance state.
+  let dropReady = $state(false);
+
+  // Does a native drag sit over the Local tab's folder field? The panels
+  // overlay each other, so the tab gate matters as much as the geometry (the
+  // clone URL input occupies the same spot). Tauri reports physical pixels;
+  // rects are CSS pixels.
+  function isOverLocalField({ x, y }: DragPosition): boolean {
+    const row = localInput?.closest(".np-loc");
+    if (tab !== StartTab.local || !row) {
+      return false;
+    }
+
+    const rect = row.getBoundingClientRect();
+    const cssX = x / devicePixelRatio;
+    const cssY = y / devicePixelRatio;
+    return cssX >= rect.left && cssX <= rect.right && cssY >= rect.top && cssY <= rect.bottom;
+  }
   // The latest probe, tagged with the path it described — only a settled probe
   // (disk knowledge about the *current* text) gates the button or complains.
   let localProbe = $state<{
@@ -230,8 +251,45 @@
     hasSshKey = keyOnDisk;
   }
 
+  // A folder dragged from Explorer / an IDE onto the Local field fills its
+  // path (Tauri's native DnD events carry the absolute paths the web API
+  // withholds). The `over` stream drives the field's drop affordance.
+  let unlistenDragOver: UnlistenFn | undefined;
+  let unlistenDragDrop: UnlistenFn | undefined;
+  let unlistenDragLeave: UnlistenFn | undefined;
+
   onMount(async () => {
     await checkGit();
+    unlistenDragOver = await dragDrop.onOver(({ position }) => {
+      dropReady = isOverLocalField(position);
+    });
+    unlistenDragLeave = await dragDrop.onLeave(() => (dropReady = false));
+    unlistenDragDrop = await dragDrop.onDrop(({ paths, position }) => {
+      const [dropped] = paths;
+      const landsOnField = dropped !== undefined && isOverLocalField(position);
+      dropReady = false;
+
+      if (!landsOnField) {
+        return;
+      }
+
+      const path = parseInput({
+        schema: FolderPath,
+        raw: dropped
+      });
+      if (path === null) {
+        return;
+      }
+
+      localPath = path;
+      localInput?.focus();
+    });
+  });
+
+  onDestroy(() => {
+    unlistenDragOver?.();
+    unlistenDragDrop?.();
+    unlistenDragLeave?.();
   });
 </script>
 
@@ -450,13 +508,14 @@
         >
           <div class="np-field">
             <label class="np-label" for="local-path">Project folder</label>
-            <div class="np-loc">
+            <div class="np-loc" class:drop-ready={dropReady}>
               <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
               <input
+                bind:this={localInput}
                 id="local-path"
                 class="path-input"
                 autocomplete="off"
-                placeholder="C:\repositories\my-app"
+                placeholder="C:\repositories\my-app  ·  or drop a folder here"
                 spellcheck="false"
                 bind:value={localPath}
               />
@@ -730,6 +789,12 @@
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-size: 13px;
+    }
+
+    /* An OS drag hovering the field — signal it will accept the drop. */
+    &.drop-ready {
+      border-color: var(--primary);
+      background: var(--primary-container);
     }
   }
 

@@ -300,6 +300,28 @@ export const PtyChunk = z.object({
 });
 export type PtyChunk = z.infer<typeof PtyChunk>;
 
+/** Physical (device-pixel) cursor position carried by the window's native
+ *  drag-and-drop events — divide by devicePixelRatio before comparing with
+ *  CSS-pixel rects. */
+export const DragPosition = z.object({
+  x: z.number(),
+  y: z.number()
+});
+export type DragPosition = z.infer<typeof DragPosition>;
+
+/** An OS file/folder drop onto the window: absolute paths + drop position. */
+export const DragDropPayload = z.object({
+  paths: z.array(z.string()),
+  position: DragPosition
+});
+export type DragDropPayload = z.infer<typeof DragDropPayload>;
+
+/** A drag travelling over the window (fires continuously with the position). */
+export const DragOverPayload = z.object({
+  position: DragPosition
+});
+export type DragOverPayload = z.infer<typeof DragOverPayload>;
+
 /** A session's replayable output, the sequence number of the last chunk in it, and
  *  whether the program is currently painting the alternate screen — in which case
  *  the history is a stream of framebuffer edits rather than a document, and a
