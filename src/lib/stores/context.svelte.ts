@@ -1,11 +1,15 @@
 // Context-window tracking per session (SoC: shared state in lib/stores). Powers
 // auto-handoff: when an agent nears its context limit we hand off to a fresh one.
 //
-// Two signals, preferred in order:
+// Two signals:
 //   1. Parse the agent CLI's own context indicator out of the PTY stream (exact,
 //      but coupled to that CLI's output — heuristic, tune against real output).
-//   2. Estimate from the bytes seen through the PTY (rough, agent-agnostic
-//      fallback). Deliberately conservative so it never triggers a false handoff.
+//      This is the ONLY signal an automated decision may act on — see
+//      `measuredContextPct`.
+//   2. Estimate from the bytes seen through the PTY (rough, agent-agnostic). A
+//      fullscreen agent repaints its whole frame on every spinner tick, so this
+//      over-counts badly and must never end a session; it feeds only the soft
+//      tab gauge (`contextPct`), never auto-handoff / resume / retry.
 
 import { SvelteMap } from "svelte/reactivity";
 
@@ -104,6 +108,18 @@ export function contextPct(id: string): number | null {
 
   const tokens = signal.chars / CHARS_PER_TOKEN;
   return Math.min(100, (tokens / DEFAULT_CONTEXT_LIMIT) * 100);
+}
+
+/** The session's context fill from the agent's OWN reported indicator (the
+ *  parsed signal alone), or null when it hasn't printed one yet. Unlike
+ *  `contextPct` this never falls back to the byte estimate — that estimate
+ *  counts every byte a fullscreen agent repaints (spinners, elapsed-time ticks,
+ *  whole-frame redraws), so it balloons far past real usage and must never end a
+ *  session. Auto-handoff, usage-resume, and API-error retry all gate on this, so
+ *  they act only on a fill the agent itself vouches for; a `null` reads as "room
+ *  to spare" everywhere, the safe default. */
+export function measuredContextPct(id: string): number | null {
+  return signals.get(id)?.parsedPct ?? null;
 }
 
 /** Forget a session's context when it ends. */

@@ -9,7 +9,7 @@
 
 import { pty, usage } from "@/lib/bridge";
 import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
-import { contextPct } from "@/lib/stores/context.svelte";
+import { measuredContextPct } from "@/lib/stores/context.svelte";
 import type { AgentSession } from "@/lib/types";
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -198,7 +198,7 @@ export function createUsageResume(host: ResumeHost) {
     // Room left in the context window → the same session just continues.
     // Nearly full → resuming would stall again within a few turns, so hand
     // off to a fresh agent instead (it reads the handoff doc and carries on).
-    const pct = contextPct(session.id);
+    const pct = measuredContextPct(session.id);
     const hasRoom = pct === null || pct < CONTEXT_HANDOFF_PCT;
     if (hasRoom) {
       await pty.write({

@@ -13,7 +13,7 @@
 
 import { pty } from "@/lib/bridge";
 import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
-import { contextPct } from "@/lib/stores/context.svelte";
+import { measuredContextPct } from "@/lib/stores/context.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
@@ -159,7 +159,7 @@ export function createApiErrorRetry(host: RetryHost) {
       return;
     }
 
-    const pct = contextPct(id);
+    const pct = measuredContextPct(id);
     const hasRoom = pct === null || pct < CONTEXT_HANDOFF_PCT;
     if (!hasRoom) {
       stop(id);

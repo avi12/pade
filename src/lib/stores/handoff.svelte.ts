@@ -11,7 +11,7 @@
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
-import { contextPct, dropContext } from "@/lib/stores/context.svelte";
+import { dropContext, measuredContextPct } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
@@ -266,7 +266,7 @@ export function createAutoHandoff(host: HandoffHost) {
     }
 
     for (const session of host.sessions()) {
-      const pct = contextPct(session.id);
+      const pct = measuredContextPct(session.id);
       const nearLimit = pct !== null && pct >= CONTEXT_HANDOFF_PCT;
       const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
       const already = handingOff.has(session.id);

@@ -1,4 +1,4 @@
-import { contextPct, dropContext, observeContext } from "@/lib/stores/context.svelte";
+import { contextPct, dropContext, measuredContextPct, observeContext } from "@/lib/stores/context.svelte";
 import { describe, expect, it } from "vitest";
 
 // The parser is internal, so every case drives it through the public API:
@@ -131,6 +131,33 @@ describe("contextPct via observeContext", () => {
     });
 
     expect(contextPct("parsed-persists")).toBe(42);
+  });
+});
+
+describe("measuredContextPct — the signal automated decisions gate on", () => {
+  it("returns null for a session never observed", () => {
+    expect(measuredContextPct("measured-never")).toBeNull();
+  });
+
+  it("returns the parsed percent when the agent has reported one", () => {
+    observeContext({
+      id: "measured-parsed",
+      chunk: "8% context left until compaction"
+    });
+
+    expect(measuredContextPct("measured-parsed")).toBe(92);
+  });
+
+  it("stays null on the byte estimate alone — the estimate never ends a session", () => {
+    observeContext({
+      id: "measured-estimate-only",
+      chunk: "x".repeat(1_000_000)
+    });
+
+    // The soft gauge reads full from the bytes, but the measured signal — the
+    // one auto-handoff/resume/retry act on — refuses to guess.
+    expect(contextPct("measured-estimate-only")).toBe(100);
+    expect(measuredContextPct("measured-estimate-only")).toBeNull();
   });
 });
 
