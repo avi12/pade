@@ -126,6 +126,15 @@ export type Agent = z.infer<typeof Agent>;
  *  that isn't a real coding agent, so it's excluded from auto-launch/onboarding. */
 export const SHELL_AGENT_ID = "shell";
 
+/** Where the picker hands a chosen or freshly-created project back to the app:
+ *  the project path, plus — for a create — an optional first prompt to seed and
+ *  the agent id to launch it with (both absent when reopening an existing one). */
+export type OpenTarget = {
+  path: string;
+  initialPrompt?: string;
+  agent?: string;
+};
+
 /** One runnable task parsed from a project manifest. */
 export const Task = z.object({
   name: z.string(),
@@ -282,7 +291,11 @@ export const Prefs = z.object({
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
-  uiScale: z.number().min(0.85).max(1.3).nullish()
+  uiScale: z.number().min(0.85).max(1.3).nullish(),
+  /** Broadcast a Discord "Playing PADE" rich-presence status. Opt-in: off unless explicitly true. */
+  discordPresence: z.boolean().nullish(),
+  /** When presence is on, show the current project's name in the status. Default on. */
+  discordShowProject: z.boolean().nullish()
 });
 export type Prefs = z.infer<typeof Prefs>;
 

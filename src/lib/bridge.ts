@@ -147,6 +147,25 @@ export const design = {
   open: (url: string) => run("design_open", { url })
 };
 
+/** Discord Rich Presence — report PADE ("Playing PADE") on the user's Discord
+ *  profile. Best-effort: with Discord closed the backend fails quietly. */
+export const discord = {
+  setActivity: ({ details, state, image, caption }: {
+    details?: string;
+    state?: string;
+    /** Small overlay art-asset key (the language mark). */
+    image?: string;
+    /** Hover text for the small overlay. */
+    caption?: string;
+  }): Promise<void> => run("discord_set_activity", {
+    details,
+    state,
+    image,
+    caption
+  }),
+  clearActivity: (): Promise<void> => run("discord_clear_activity")
+};
+
 /** Windows Explorer "Open in PADE" folder context-menu entry. */
 export const contextMenu = {
   status: () => call("context_menu_status", z.boolean()),
