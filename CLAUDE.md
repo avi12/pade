@@ -60,7 +60,11 @@ These are non-negotiable for all work in this repo.
      `color-mix()`, custom properties. No hard-coded magic numbers where a token
      exists. No heavyweight frameworks — hand-authored M3 tokens only. In Svelte,
      never use a `style="…"` attribute — bind dynamic values with the `style:`
-     directive (`style:--x={v}`, `style:anchor-name="--a"`).
+     directive (`style:--x={v}`, `style:anchor-name="--a"`). Prefer the individual
+     `translate` / `rotate` / `scale` properties over the `transform` shorthand
+     (and transition each one individually) so composited transforms never clobber
+     each other. Never hand-write vendor prefixes (`-webkit-…`) — author the
+     standard property only.
    - Popovers/menus: use the native popover API (`popover` + `popovertarget`)
      with CSS anchor positioning so they light-dismiss on outside click — not a
      JS-toggled dropdown.
@@ -68,6 +72,15 @@ These are non-negotiable for all work in this repo.
      panels) — but never at the cost of readability. Clear beats clever.
    - Early returns: prefer guard clauses that bail out early over nested
      `if`/`else` pyramids, wherever it makes the happy path read top-to-bottom.
+   - `for…of` over `.forEach`, a `for` loop over `.reduce()`: reach for a `for…of`
+     loop instead of `Array.prototype.forEach`, and a plain `for`/`for…of`
+     accumulation instead of `.reduce()` — they read top-to-bottom, allow
+     `break`/`continue`/`await`, and keep the control flow visible where a chained
+     callback hides it. Pure, side-effect-free transforms (`.map`, `.filter`) that
+     read clearly are still fine.
+   - Avoid nested `try`/`catch`: flatten it with early returns or an extracted
+     function so each `try` guards exactly one concern — never a `catch` inside a
+     `catch`.
    - Object params: a function taking two or more arguments takes a single
      destructured object param (`fn({ a, b })`) instead of positional args, and
      reduce/reuse the param types (`z.infer`, shared interfaces) where applicable.
@@ -131,6 +144,10 @@ These are non-negotiable for all work in this repo.
      (`onclick={(e) => …}`). Keep a handler named only when it is genuinely shared
      (bound or called in two or more places) or needs a stable reference (an
      `addEventListener` paired with a `removeEventListener`).
+   - Svelte `$derived`: never wrap a ternary or branching logic in `$derived(…)`
+     — use `$derived.by(() => { … })` with `if`/`else` so the branches read as
+     prose. Likewise, extract an `@attach` handler to a named function in the
+     `<script>` rather than writing it inline in the template.
    - No `window.` prefix: call browser globals bare — `matchMedia(…)`,
      `setTimeout(…)`, `addEventListener(…)`, `location.reload()` — never
      `window.matchMedia` / `window.setTimeout`. The global is implicit; the prefix
