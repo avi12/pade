@@ -87,6 +87,32 @@ describe("tokenize", () => {
     expect(classOf("banana")).toBe("plain");
   });
 
+  it("colors an identifier immediately followed by `(` as a function", () => {
+    expect(classOf("linear-gradient(0deg, red, blue)")).toBe("function");
+    expect(classOf("calc(100% - 24px)")).toBe("function");
+  });
+
+  it("colors an identifier immediately followed by `:` as a property/key", () => {
+    expect(classOf("align-items: center")).toBe("property");
+    expect(classOf("background: red")).toBe("property");
+  });
+
+  it("does not treat a `::` pseudo-element or a `://` scheme as a property", () => {
+    expect(classOf("div::before")).toBe("plain");
+    expect(tokenize("https://x")[0].cls).toBe("plain");
+  });
+
+  it("keeps a hyphenated identifier whole", () => {
+    expect(tokenize("mask-image")).toEqual([{
+      text: "mask-image",
+      cls: "plain"
+    }]);
+  });
+
+  it("does not turn a keyword before `(` into a function", () => {
+    expect(classOf("if(x)")).toBe("keyword");
+  });
+
   it("emits the gaps between matches as plain runs", () => {
     const tokens = tokenize("const width = 42;");
 
@@ -111,11 +137,13 @@ describe("tokenize", () => {
 });
 
 describe("isSyntax", () => {
-  it("marks comment, string, number and keyword as syntax-colored", () => {
+  it("marks comment, string, number, keyword and function as syntax-colored", () => {
     expect(isSyntax("comment")).toBe(true);
     expect(isSyntax("string")).toBe(true);
     expect(isSyntax("number")).toBe(true);
     expect(isSyntax("keyword")).toBe(true);
+    expect(isSyntax("function")).toBe(true);
+    expect(isSyntax("property")).toBe(true);
   });
 
   it("leaves plain and color tokens on the default color", () => {

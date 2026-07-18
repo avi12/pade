@@ -6,7 +6,7 @@
 
 import { resolveColor } from "@/lib/colors";
 
-export type TokenClass = "comment" | "string" | "number" | "keyword" | "color" | "plain";
+export type TokenClass = "comment" | "string" | "number" | "keyword" | "function" | "property" | "color" | "plain";
 
 export type Token = {
   text: string;
@@ -44,7 +44,8 @@ const SCANNER = new RegExp(
     "var\\(\\s*--[\\w-]+\\s*\\)", // var(--x) color
     "@[\\w-]+", // @at-rule / decorator
     "\\b\\d[\\d_]*(?:\\.\\d+)?\\b", // number
-    "[A-Za-z_$][\\w$]*" // identifier / keyword
+    "[A-Za-z_$][\\w$-]*" // identifier / keyword / function (hyphens kept whole so
+    //                     `mask-image`, `linear-gradient` stay one token)
   ].join("|"),
   "g"
 );
@@ -116,8 +117,23 @@ export function tokenize(text: string, vars?: Map<string, string>): Token[] {
       });
     }
 
-    tokens.push(classify(match[0], vars));
-    last = start + match[0].length;
+    const token = classify(match[0], vars);
+    const end = start + match[0].length;
+    // A plain identifier takes a role from what immediately follows: `foo(` is a
+    // call; `foo:` a property/key (but not a `::` pseudo-element or a `://`
+    // scheme). This is what makes a CSS diff read — its property names and calls
+    // colour, not just the values that already carry a swatch.
+    if (token.cls === "plain") {
+      const next = text[end];
+      if (next === "(") {
+        token.cls = "function";
+      } else if (next === ":" && text[end + 1] !== ":" && text[end + 1] !== "/") {
+        token.cls = "property";
+      }
+    }
+
+    tokens.push(token);
+    last = end;
   }
 
   if (last < text.length) {
@@ -136,5 +152,12 @@ export function tokenize(text: string, vars?: Map<string, string>): Token[] {
 /** Whether a token class carries a syntax color (applied via a themed CSS class
  *  in ColorText — plain text and color tokens keep the default color). */
 export function isSyntax(cls: TokenClass): boolean {
-  return cls === "comment" || cls === "string" || cls === "number" || cls === "keyword";
+  return (
+    cls === "comment"
+    || cls === "string"
+    || cls === "number"
+    || cls === "keyword"
+    || cls === "function"
+    || cls === "property"
+  );
 }

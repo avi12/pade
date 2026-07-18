@@ -20,8 +20,10 @@
 
 {#each tokens as token, index (index)}<span
   class:cmt={token.cls === "comment"}
+  class:fn={token.cls === "function"}
   class:kw={token.cls === "keyword"}
   class:num={token.cls === "number"}
+  class:prop={token.cls === "property"}
   class:str={token.cls === "string"}
 >{token.text}{#if token.color}
   <span
@@ -48,6 +50,14 @@
 
   .kw {
     color: var(--syntax-keyword);
+  }
+
+  .fn {
+    color: var(--syntax-function);
+  }
+
+  .prop {
+    color: var(--syntax-property);
   }
 
   .swatch {
