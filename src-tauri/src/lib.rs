@@ -4,6 +4,7 @@ mod contextmenu;
 #[cfg(windows)]
 mod copilot;
 mod design;
+mod discord;
 mod ide;
 mod naming;
 mod os;
@@ -50,6 +51,7 @@ pub fn run() {
             runner::init(handle);
             watcher::init(handle);
             app.manage(window::WindowProjects::default());
+            app.manage(discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop
             // doesn't flash a white webview before the UI first renders. The window
             // is created hidden (see tauri.conf.json) and shown here once themed.
@@ -66,6 +68,8 @@ pub fn run() {
             contextmenu::context_menu_status,
             design::design_tools,
             design::design_open,
+            discord::discord_set_activity,
+            discord::discord_clear_activity,
             ide::ide_detect,
             ide::ide_add_editor,
             ide::ide_remove_editor,
