@@ -4,6 +4,7 @@
   import { displayName, isTemporaryWorkspace } from "@/lib/paths";
   import type { Ide } from "@/lib/types";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";
 
   // Recent projects: open-on-click rows with temp/project tags, the shared
@@ -68,7 +69,8 @@
               <span class="rname">{displayName(path, labels)}</span>
               <span class="rpath">{path}</span>
             </button>
-            <RowMenu {ides} {lifecycle} {path} scope="recent" />
+            <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
+            <RowMenu {lifecycle} {path} scope="recent" />
           {/if}
         </li>
       {/each}

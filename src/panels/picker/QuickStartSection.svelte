@@ -3,8 +3,8 @@
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { rovingTablist } from "@/lib/roving-tabs";
-  import { emptyPathProbe } from "@/lib/types";
-  import type { DragPosition, TaggedPathProbe } from "@/lib/types";
+  import { emptyPathProbe, SHELL_AGENT_ID } from "@/lib/types";
+  import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
   import {
     CloneUrl,
     FirstPrompt,
@@ -17,6 +17,7 @@
     ProjectName,
     repoFolderName
   } from "@/lib/validate";
+  import AgentChips from "@/panels/picker/AgentChips.svelte";
   import PathCombobox from "@/panels/picker/PathCombobox.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -30,15 +31,23 @@
   // through `onopen`. `createIn` is bindable so the picker can fill it when a
   // root is selected elsewhere; `onnewroot` jumps to the Root folders add
   // field for a root not listed yet.
-  let { roots, onopen, onnewroot, createIn = $bindable("") }: {
+  let { roots, agents, defaultAgent, onopen, onnewroot, createIn = $bindable("") }: {
     roots: string[];
-    onopen: (target: {
-      path: string;
-      initialPrompt?: string;
-    }) => void;
+    agents: Agent[];
+    defaultAgent: string | null;
+    onopen: (target: OpenTarget) => void;
     onnewroot: () => void;
     createIn?: string;
   } = $props();
+
+  // The installed coding agents (the shell fallback isn't a choice), and whether
+  // there's more than one — the Agent row only earns its space when a pick is
+  // actually on offer. The chosen agent defaults to the workspace default (or the
+  // best-installed), overridable per-create through the chips.
+  const realAgents = $derived(agents.filter(agent => agent.id !== SHELL_AGENT_ID));
+  const newAgentMulti = $derived(realAgents.length > 1);
+  let chosenAgent = $state<string | null>(null);
+  const selectedAgent = $derived(chosenAgent ?? defaultAgent ?? realAgents[0]?.id ?? null);
 
   // The three ways in — a closed set, compared against by member.
   const StartTab = {
@@ -54,17 +63,17 @@
   }[] = [
     {
       id: StartTab.create,
-      label: "New",
+      label: "New project",
       icon: "sparkles"
     },
     {
       id: StartTab.local,
-      label: "Local",
+      label: "Open local",
       icon: "folder"
     },
     {
       id: StartTab.clone,
-      label: "Clone",
+      label: "Clone repo",
       icon: "git"
     }
   ];
@@ -120,7 +129,8 @@
     const path = await workspace.temp();
     onopen({
       path,
-      initialPrompt: prompt || undefined
+      initialPrompt: prompt || undefined,
+      agent: selectedAgent ?? undefined
     });
   }
 
@@ -410,7 +420,8 @@
             });
             onopen({
               path,
-              initialPrompt: prompt || undefined
+              initialPrompt: prompt || undefined,
+              agent: selectedAgent ?? undefined
             });
           }}
         >
@@ -454,6 +465,19 @@
               bind:value={createPrompt}
             ></textarea>
           </div>
+
+          {#if newAgentMulti}
+            <div class="np-field">
+              <span class="np-label">Agent</span>
+              <AgentChips
+                agents={realAgents}
+                ariaLabel="Agent to launch"
+                compact
+                onpick={id => (chosenAgent = id)}
+                selected={selectedAgent}
+              />
+            </div>
+          {/if}
 
           <div class="actions">
             <button class="go" disabled={createDisabled} type="submit">

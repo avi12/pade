@@ -74,8 +74,11 @@ export function repoFolderName(url: string): string {
   return ProjectName.safeParse(name).success ? name : "";
 }
 
-/** An optional first prompt seeded to an agent — may be empty, but capped. */
-export const FirstPrompt = z.string().trim().max(10_000);
+/** An optional first prompt seeded to an agent — may be empty, and uncapped: it
+ *  is the user's own instructions, written (typed) straight into the agent's
+ *  input rather than passed as an argument, so a long detailed spec is exactly
+ *  the point and no length limit applies. */
+export const FirstPrompt = z.string().trim();
 
 /** Parse a user input without throwing: returns the validated value, or null if
  *  it fails the schema (e.g. empty → no-op). Use `schema.safeParse` directly when

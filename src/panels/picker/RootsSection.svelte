@@ -7,6 +7,7 @@
   import type { AddRootOutcome, Ide, ProjectEntry, TaggedPathProbe } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import PathCombobox from "@/panels/picker/PathCombobox.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -29,6 +30,12 @@
     }) => Promise<AddRootOutcome>;
     onremove: (path: string) => Promise<void>;
   } = $props();
+
+  // "1 project" / "6 projects" — count and matching noun as one string, so no
+  // template whitespace can split them.
+  function projectCountLabel(count: number): string {
+    return `${count} project${count === 1 ? "" : "s"}`;
+  }
 
   let newRoot = $state("");
   // The latest probe result, tagged with the path it was computed for so the
@@ -144,6 +151,11 @@
 
 <section class="roots">
   <h2>Root folders</h2>
+  <p class="hint">
+    A root is a folder your projects live in — a home base for starting new work.
+    Add one and PADE lists every project inside it below; open any in a click, and
+    projects you create or clone there show up here automatically.
+  </p>
   <div class="addrow-wrap">
     <form
       class="addrow" onsubmit={async e => {
@@ -201,9 +213,14 @@
   </div>
 
   {#each roots as root (root)}
+    {@const projects = projectsByRoot[root] ?? []}
     <div class="root" out:collapseRow>
       <div class="root-head">
+        <span class="root-ico" aria-hidden="true"><Icon name="folder" size={15} /></span>
         <code class="rootpath">{root}</code>
+        {#if projects.length > 0}
+          <span class="root-count">{projectCountLabel(projects.length)}</span>
+        {/if}
         <button
           class="remove"
           aria-label="Remove root"
@@ -212,7 +229,7 @@
         ><Icon name="close" size={14} /></button>
       </div>
       <ul class="projects">
-        {#each projectsByRoot[root] ?? [] as project (project.path)}
+        {#each projects as project (project.path)}
           <li class="row" out:collapseRow>
             <button class="project" onclick={() => onopen({ path: project.path })}>
               <span class="pname">{project.name}</span>
@@ -220,7 +237,8 @@
                 <span class="git">git</span>
               {/if}
             </button>
-            <RowMenu {ides} {lifecycle} path={project.path} scope="root" />
+            <OpenInEditorButton name={project.name} {ides} path={project.path} />
+            <RowMenu {lifecycle} path={project.path} scope="root" />
           </li>
         {:else}
           <li class="none">No projects found in this folder.</li>
@@ -327,8 +345,14 @@
 
   .root-head {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
+  }
+
+  .root-ico {
+    display: inline-flex;
+    flex: none;
+    color: var(--on-surface-variant);
   }
 
   .rootpath {
@@ -340,6 +364,15 @@
     font-size: 12px;
   }
 
+  /* How many projects the root holds — frames the list below as "what's inside". */
+  .root-count {
+    color: var(--on-surface-variant);
+    font-weight: 600;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
   .remove {
     display: inline-flex;
     flex: none;
@@ -347,6 +380,9 @@
     align-items: center;
     block-size: 24px;
     inline-size: 24px;
+
+    /* Pushed to the row's end, past the path + count. */
+    margin-inline-start: auto;
     padding: 0;
     border-radius: 999px;
     background: var(--surface-2);
@@ -358,6 +394,9 @@
       filter: none;
     }
   }
+
+  /* The per-row "open in editor" button lives in picker/OpenInEditorButton.svelte
+     (shared with the Recent rows). */
 
   .projects {
     display: flex;

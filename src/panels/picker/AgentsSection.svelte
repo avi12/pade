@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { agentIconName } from "@/lib/agent-icon";
   import { agents as agentsApi } from "@/lib/bridge";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { SHELL_AGENT_ID } from "@/lib/types";
   import type { Agent } from "@/lib/types";
+  import AgentChips from "@/panels/picker/AgentChips.svelte";
 
   // Default-agent section: owns its own agent list so it can re-detect
   // (Reload) without needing a new prop from the parent. It's seeded from —
@@ -88,21 +88,7 @@
       Code, Codex, Gemini CLI…) then press <strong>Reload</strong>.
     </p>
   {:else}
-    <div class="chips" aria-label="Default agent" role="radiogroup">
-      {#each realAgents as agent (agent.id)}
-        {@const isSelected = defaultAgent === agent.id}
-        <button
-          class="chip"
-          class:on={isSelected}
-          aria-checked={isSelected}
-          data-agent={agent.id}
-          onclick={() => onpick(agent.id)}
-          role="radio"
-        >
-          <Icon name={agentIconName(agent.id)} size={15} />{agent.label}
-        </button>
-      {/each}
-    </div>
+    <AgentChips agents={realAgents} ariaLabel="Default agent" {onpick} selected={defaultAgent} />
   {/if}
 </section>
 
@@ -171,43 +157,6 @@
     }
   }
 
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  /* Choice chips — pills; selected gets a primary edge over its container, with
-     the agent's own glyph leading the label. The glyph carries the agent's brand
-     colour (--agent-brand, set per data-agent in theme.css); a monochrome-brand
-     agent has none and its glyph follows the label colour. */
-  .chip {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 16px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--on-surface);
-    font: inherit;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: border-color 150ms var(--ease);
-
-    :global(.icon) {
-      color: var(--agent-brand, currentColor);
-    }
-
-    &:hover {
-      border-color: var(--primary);
-    }
-
-    &.on {
-      border-color: var(--primary);
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
-  }
+  /* The agent choice-chips live in picker/AgentChips.svelte (shared with the
+     create form's Agent row). */
 </style>

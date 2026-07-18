@@ -9,11 +9,13 @@
     Agent,
     EditorKind,
     Ide,
+    OpenTarget,
     ProjectEntry,
     Settings
   } from "@/lib/types";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
+  import DiscordSection from "@/panels/picker/DiscordSection.svelte";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
@@ -33,10 +35,7 @@
     ondelete
   }: {
     agents: Agent[];
-    onopen: (target: {
-      path: string;
-      initialPrompt?: string;
-    }) => void;
+    onopen: (target: OpenTarget) => void;
     onmove: (target: {
       from: string;
       destDir: string;
@@ -124,19 +123,38 @@
     ides = await ide.detect();
   }
 
+  // Re-scan every root's projects into projectsByRoot — the cheap part of a
+  // reload (a handful of directory reads), shared by both refresh paths.
+  function scanRoots(): Promise<Record<string, ProjectEntry[]>> {
+    return Promise.all(
+      settings.roots.map(async root => [root, await scan(root)] as const)
+    ).then(Object.fromEntries);
+  }
+
+  // Light reload: the project lists only — prune the settings, re-scan the roots.
+  // A workspace delete/rename/move, and a folder appearing or vanishing under a
+  // watched root, change the projects but never the machine's installed editors,
+  // so re-detecting those here (≈1.8s of registry/PATH probing — `ide.detect` +
+  // `ide.kindOptions`) would stall the picker for nothing. The lifecycle ops and
+  // the folder watcher use this; only mount and the Editors "Reload" button pay
+  // for a full editor re-detect.
+  async function refreshProjects() {
+    // prune, not settings: a folder deleted outside PADE is forgotten here, so
+    // its row leaves the page (collapsing out) instead of lingering as a link
+    // to nothing.
+    settings = await workspace.prune();
+    projectsByRoot = await scanRoots();
+  }
+
+  // Full reload: everything, including the machine's editors + project kinds.
   async function refresh() {
     [settings, ides, kinds, kindOptions] = await Promise.all([
-      // prune, not settings: a folder deleted outside PADE is forgotten here, so
-      // its row leaves the page (collapsing out) instead of lingering as a link
-      // to nothing.
       workspace.prune(),
       ide.detect(),
       ide.kinds(),
       ide.kindOptions()
     ]);
-    projectsByRoot = Object.fromEntries(
-      await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const))
-    );
+    projectsByRoot = await scanRoots();
   }
 
   async function setStartMode(mode: StartMode) {
@@ -149,6 +167,18 @@
     settings = await workspace.setPrefs({
       ...settings.prefs,
       autoNameTemp: on
+    });
+  }
+  async function setDiscordPresence(on: boolean) {
+    settings = await workspace.setPrefs({
+      ...settings.prefs,
+      discordPresence: on
+    });
+  }
+  async function setDiscordShowProject(on: boolean) {
+    settings = await workspace.setPrefs({
+      ...settings.prefs,
+      discordShowProject: on
     });
   }
 
@@ -238,7 +268,9 @@
     applySettings(next) {
       settings = next;
     },
-    refresh
+    // A rename/move/delete changes the project lists, not the installed editors —
+    // so catch the lists up cheaply, without re-probing the machine for editors.
+    refresh: refreshProjects
   });
 
   // ── Watching the folders behind the rows ───────────────────────────────────
@@ -266,7 +298,9 @@
 
   function rescanSoon() {
     clearTimeout(rescan);
-    rescan = setTimeout(refresh, 250);
+    // A folder appearing/vanishing under a watched root only moves projects
+    // around — the light refresh, not a full editor re-detect.
+    rescan = setTimeout(refreshProjects, 250);
   }
 
   onMount(async () => {
@@ -301,6 +335,8 @@
     {#if loaded}
       <div class="sections">
         <QuickStartSection
+          {agents}
+          defaultAgent={settings.defaultAgent}
           onnewroot={() => rootsSection?.focusAddRoot()}
           {onopen}
           roots={settings.roots}
@@ -308,6 +344,12 @@
         />
 
         <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
+
+        <DiscordSection
+          ondiscordpresence={setDiscordPresence}
+          ondiscordshowproject={setDiscordShowProject}
+          prefs={settings.prefs}
+        />
 
         <RecentSection
           {ides}

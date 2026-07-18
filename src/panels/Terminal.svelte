@@ -896,12 +896,14 @@
       repaintAgent();
     }
 
-    // Seed a new-project first prompt into the input (typed, not submitted —
-    // the user reviews and presses Enter).
+    // Seed a new-project first prompt and submit it: the prompt's own newlines
+    // are `\n` (which the agent keeps as soft newlines in the input), and the
+    // trailing `\r` is the Enter that sends it — same submit convention as the
+    // handoff/successor prompts.
     if (session.initialPrompt) {
       await pty.write({
         id: session.id,
-        data: session.initialPrompt
+        data: `${session.initialPrompt}\r`
       });
     }
   });
