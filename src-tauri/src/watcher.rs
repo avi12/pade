@@ -4,7 +4,7 @@
 //! save into a `ChangeEvent` with a line-count delta and a heuristic summary.
 //! Later: real per-hunk diffs and agent-authored intent replace the heuristic.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -41,6 +41,15 @@ pub struct WatcherState {
     /// falls back to "none". Cleared and re-scoped to the new root on a project
     /// switch (see `watch_start`).
     baselines: Mutex<HashMap<PathBuf, Option<String>>>,
+    /// How the current watch root decides a path is ignored, computed once per
+    /// `watch_start` and recomputed on a project switch. `None` before the first
+    /// arm. Git mode defers to git's own ignore rules; static mode carries a
+    /// tech-inferred set of directory names to exclude (see [`IgnorePolicy`]).
+    ignore_policy: Mutex<Option<IgnorePolicy>>,
+    /// Memoized `git check-ignore` results per absolute path (git mode only), so a
+    /// path shells git at most once. Cleared on a re-root and whenever a
+    /// `.gitignore` changes, since editing its rules can flip any path's state.
+    git_ignore_cache: Mutex<HashMap<PathBuf, bool>>,
 }
 
 /// The kind of filesystem change, in the exact wire strings the frontend reads.
@@ -97,8 +106,216 @@ const IGNORED: &[&str] = &[
 ];
 
 fn ignored(path: &Path) -> bool {
+    path_component_matches(path, |name| IGNORED.contains(&name))
+}
+
+/// Whether any component of `path` names an ignored directory, decided by the
+/// `is_ignored_name` predicate. One authoritative component scan shared by the
+/// always-on baseline [`ignored`] pre-filter (against the [`IGNORED`] slice) and
+/// static-mode exclusion (against a tech-inferred [`HashSet`]).
+fn path_component_matches(path: &Path, is_ignored_name: impl Fn(&str) -> bool) -> bool {
     path.components()
-        .any(|c| c.as_os_str().to_str().is_some_and(|s| IGNORED.contains(&s)))
+        .filter_map(|component| component.as_os_str().to_str())
+        .any(is_ignored_name)
+}
+
+/// Static-mode exclusion: whether `path` lies under any directory named in `dirs`.
+fn ignored_by_static_dirs(path: &Path, dirs: &HashSet<String>) -> bool {
+    path_component_matches(path, |name| dirs.contains(name))
+}
+
+/// How the Change Feed decides a path is "ignored", fixed once per watch root by
+/// `watch_start` and stored in [`WatcherState::ignore_policy`].
+///
+/// A git work tree defers to git itself via `git check-ignore`, which honors
+/// nested `.gitignore` files, `.git/info/exclude`, the global `core.excludesFile`,
+/// and negation rules — exactly what the user's git already ignores, rather than a
+/// brittle hand-rolled parse. A folder that is not a git repo has none of those
+/// rules, so it falls back to a set of directory names inferred from the manifest
+/// files at the root (see [`manifest_ignore_dirs`]) unioned with the [`IGNORED`]
+/// baseline.
+#[derive(Debug)]
+enum IgnorePolicy {
+    /// The root is a git work tree; ask `git check-ignore` per path (memoized).
+    Git { root: PathBuf },
+    /// The root is not a git repo; exclude any path whose component names one of
+    /// these tech-inferred directories.
+    Static(HashSet<String>),
+}
+
+/// The ignore-rules file whose edits invalidate the git-check-ignore cache: when
+/// its rules change, any path's ignored state can flip.
+const GITIGNORE_FILE_NAME: &str = ".gitignore";
+
+/// The build- and dependency-output directories a given manifest file implies
+/// should be excluded when there is no git to consult. The single authoritative
+/// home for the manifest→ignore-directories mapping; each name is a real
+/// per-ecosystem generated directory. Matched by exact file name, or by extension
+/// for the .NET project/solution manifests. Returns an empty slice for a file that
+/// implies nothing.
+fn manifest_ignore_dirs(file_name: &str) -> &'static [&'static str] {
+    const NODE: &[&str] = &[
+        "node_modules",
+        "dist",
+        "build",
+        "out",
+        "coverage",
+        ".next",
+        ".nuxt",
+        ".svelte-kit",
+        ".turbo",
+        ".cache",
+        ".parcel-cache",
+    ];
+    const RUST: &[&str] = &["target"];
+    const PYTHON: &[&str] = &[
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+        "build",
+        "dist",
+        ".eggs",
+    ];
+    const GO: &[&str] = &["vendor", "bin"];
+    const JVM: &[&str] = &["target", "build", ".gradle"];
+    const RUBY: &[&str] = &["vendor", ".bundle"];
+    const PHP: &[&str] = &["vendor"];
+    const DOTNET: &[&str] = &["bin", "obj"];
+    const NONE: &[&str] = &[];
+
+    let extension = Path::new(file_name)
+        .extension()
+        .and_then(|name| name.to_str());
+    if matches!(extension, Some("csproj" | "sln" | "fsproj")) {
+        return DOTNET;
+    }
+
+    match file_name {
+        "package.json" | "pnpm-lock.yaml" | "yarn.lock" | "package-lock.json" => NODE,
+        "Cargo.toml" => RUST,
+        "pyproject.toml" | "requirements.txt" | "setup.py" | "Pipfile" => PYTHON,
+        "go.mod" => GO,
+        "pom.xml" | "build.gradle" | "build.gradle.kts" => JVM,
+        "Gemfile" => RUBY,
+        "composer.json" => PHP,
+        _ => NONE,
+    }
+}
+
+/// The set of directory names to exclude in static mode: the [`IGNORED`] baseline
+/// (so static mode is never weaker than the always-on pre-filter) unioned with the
+/// ignore directories implied by every manifest file sitting directly in `root`.
+/// One cheap one-level directory scan, run once per `watch_start`.
+fn static_ignore_dirs(root: &Path) -> HashSet<String> {
+    let mut dirs: HashSet<String> = IGNORED.iter().map(|&name| name.to_string()).collect();
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return dirs;
+    };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let Some(name) = file_name.to_str() else {
+            continue;
+        };
+        for &directory in manifest_ignore_dirs(name) {
+            dirs.insert(directory.to_string());
+        }
+    }
+    dirs
+}
+
+fn is_gitignore_file(path: &Path) -> bool {
+    path.file_name().and_then(|name| name.to_str()) == Some(GITIGNORE_FILE_NAME)
+}
+
+/// Determine how to exclude ignored files for a freshly-armed watch `root`: git
+/// mode when the root is a git work tree (defer to git's own ignore rules), else
+/// static mode with a tech-inferred ignore-directory set. Runs git once (and, in
+/// static mode, one directory scan); the result is stored for the whole watch.
+fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
+    if is_git_work_tree(root) {
+        return IgnorePolicy::Git {
+            root: root.to_path_buf(),
+        };
+    }
+    IgnorePolicy::Static(static_ignore_dirs(root))
+}
+
+/// Whether `root` sits inside a git work tree, via `git -C <root> rev-parse
+/// --is-inside-work-tree` (which prints `true` in a work tree). A missing git
+/// binary, a non-repo folder, or a bare repo all resolve to `false`, routing
+/// `watch_start` to the static tech-inference fallback instead. Runs git against
+/// `root` (not PADE's process cwd) so it reflects the watched project.
+fn is_git_work_tree(root: &Path) -> bool {
+    let Ok(output) = crate::util::command("git")
+        .arg("-C")
+        .arg(root)
+        .arg("rev-parse")
+        .arg("--is-inside-work-tree")
+        .output()
+    else {
+        return false;
+    };
+    output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true"
+}
+
+/// Whether the watch root's ignore policy excludes `path` from the Change Feed.
+/// Git mode asks git (memoized per path); static mode matches the path's component
+/// names against the tech-inferred ignore set. A poisoned lock, an unset policy, or
+/// a git failure all resolve to "not excluded" so a fault never silently hides real
+/// changes.
+fn excluded_by_ignore_policy(state: &WatcherState, path: &Path) -> bool {
+    let git_root = {
+        let Ok(guard) = state.ignore_policy.lock() else {
+            return false;
+        };
+        match guard.as_ref() {
+            None => return false,
+            Some(IgnorePolicy::Static(dirs)) => return ignored_by_static_dirs(path, dirs),
+            Some(IgnorePolicy::Git { root }) => root.clone(),
+        }
+    };
+    git_excludes_path(state, &git_root, path)
+}
+
+/// Whether git considers `path` ignored under the work tree at `root`, memoized in
+/// [`WatcherState::git_ignore_cache`] so each path shells git at most once. The
+/// cache is cleared on a re-root and whenever a `.gitignore` changes.
+fn git_excludes_path(state: &WatcherState, root: &Path, path: &Path) -> bool {
+    if let Ok(cache) = state.git_ignore_cache.lock() {
+        if let Some(&is_ignored) = cache.get(path) {
+            return is_ignored;
+        }
+    }
+    let is_ignored = git_check_ignore(root, path);
+    if let Ok(mut cache) = state.git_ignore_cache.lock() {
+        cache.insert(path.to_path_buf(), is_ignored);
+    }
+    is_ignored
+}
+
+/// Shell `git -C <root> check-ignore -q -- <path>` and report whether the path is
+/// ignored: exit status 0 means git would ignore it. Because git evaluates the path
+/// against every applicable ignore source itself, this correctly honors nested
+/// `.gitignore` files, `.git/info/exclude`, `core.excludesFile`, and negations. Any
+/// spawn failure resolves to `false` so a fault never hides a real change. Scoped to
+/// `root` via `-C`, never PADE's process cwd.
+fn git_check_ignore(root: &Path, path: &Path) -> bool {
+    let Ok(output) = crate::util::command("git")
+        .arg("-C")
+        .arg(root)
+        .arg("check-ignore")
+        .arg("-q")
+        .arg("--")
+        .arg(path)
+        .output()
+    else {
+        return false;
+    };
+    output.status.success()
 }
 
 /// Whether a change is worth surfacing, given whether its file still exists.
@@ -220,6 +437,17 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> 
     if let Ok(mut baselines) = state.baselines.lock() {
         baselines.clear();
     }
+    if let Ok(mut cache) = state.git_ignore_cache.lock() {
+        cache.clear();
+    }
+
+    // Decide how this root's ignored files are recognized before arming the
+    // watcher, so the very first change is already filtered. Computed while `root`
+    // is still owned here, before it moves into the `ProjectWatcher` below.
+    let policy = compute_ignore_policy(&root);
+    if let Ok(mut guard) = state.ignore_policy.lock() {
+        *guard = Some(policy);
+    }
 
     let app_handle = app.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
@@ -292,6 +520,25 @@ fn handle_event(app: &AppHandle, event: Event) {
         // A created/modified file that has already vanished was an atomic-write
         // scratch file — skip it rather than surface a preview-less phantom card.
         if !surfaces(kind, path.exists()) {
+            continue;
+        }
+
+        // An edited .gitignore changes what git treats as ignored, so drop the
+        // memoized per-path decisions before the policy check below re-consults
+        // git. The .gitignore itself is not ignored, so it still surfaces as its
+        // own change.
+        if is_gitignore_file(&path) {
+            if let Ok(mut cache) = state.git_ignore_cache.lock() {
+                cache.clear();
+            }
+        }
+
+        // Skip whatever the project itself would ignore: git's own ignore rules in
+        // a repo, or the tech-inferred ignore directories when there is no git. The
+        // baseline `ignored` pre-filter above already dropped the giant dirs, so a
+        // repo never shells git for node_modules/target and each surviving path is
+        // git-checked at most once (memoized).
+        if excluded_by_ignore_policy(&state, &path) {
             continue;
         }
 
@@ -405,9 +652,13 @@ pub fn init(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{read_preview_text, resolve_watch_root, surfaces, ChangeKind, MAX_PREVIEW_BYTES};
+    use super::{
+        ignored_by_static_dirs, manifest_ignore_dirs, read_preview_text, resolve_watch_root,
+        static_ignore_dirs, surfaces, ChangeKind, MAX_PREVIEW_BYTES,
+    };
+    use std::collections::HashSet;
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn a_created_or_modified_file_that_vanished_is_not_surfaced() {
@@ -497,5 +748,71 @@ mod tests {
         let path = file.to_string_lossy().into_owned();
         assert!(resolve_watch_root(&path).is_err());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_node_manifest_maps_to_node_modules_and_friends() {
+        let dirs = manifest_ignore_dirs("package.json");
+        assert!(dirs.contains(&"node_modules"));
+        assert!(dirs.contains(&"dist"));
+        // A lockfile alone implies the same node ignore set.
+        assert!(manifest_ignore_dirs("pnpm-lock.yaml").contains(&"node_modules"));
+    }
+
+    #[test]
+    fn a_cargo_manifest_maps_to_target() {
+        assert!(manifest_ignore_dirs("Cargo.toml").contains(&"target"));
+    }
+
+    #[test]
+    fn a_dotnet_project_file_maps_to_bin_and_obj_by_extension() {
+        let dirs = manifest_ignore_dirs("MyApp.csproj");
+        assert!(dirs.contains(&"bin"));
+        assert!(dirs.contains(&"obj"));
+    }
+
+    #[test]
+    fn an_unrecognized_file_implies_no_ignore_dirs() {
+        assert!(manifest_ignore_dirs("README.md").is_empty());
+    }
+
+    #[test]
+    fn static_ignore_dirs_unions_manifest_dirs_with_the_baseline() {
+        let dir = scratch("static-node");
+        fs::write(dir.join("package.json"), b"{}").expect("write manifest");
+        let dirs = static_ignore_dirs(&dir);
+        assert!(dirs.contains("node_modules"));
+        // The baseline is always present, so static mode never weakens the
+        // always-on pre-filter.
+        assert!(dirs.contains(".git"));
+        assert!(dirs.contains("target"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn static_ignore_dirs_for_a_bare_folder_is_just_the_baseline() {
+        let dir = scratch("static-bare");
+        let dirs = static_ignore_dirs(&dir);
+        assert!(dirs.contains(".git"));
+        assert!(dirs.contains("node_modules"));
+        // No manifest present, so nothing beyond the baseline is added.
+        assert!(!dirs.contains(".gradle"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_path_under_an_ignored_directory_is_excluded_in_static_mode() {
+        let mut dirs = HashSet::new();
+        dirs.insert("node_modules".to_string());
+        let path = Path::new("project/node_modules/react/index.js");
+        assert!(ignored_by_static_dirs(path, &dirs));
+    }
+
+    #[test]
+    fn a_normal_source_path_is_not_excluded_in_static_mode() {
+        let mut dirs = HashSet::new();
+        dirs.insert("node_modules".to_string());
+        let path = Path::new("project/src/app.ts");
+        assert!(!ignored_by_static_dirs(path, &dirs));
     }
 }

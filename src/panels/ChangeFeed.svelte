@@ -10,11 +10,11 @@
   import { revealBlock } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
+  import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { ChangeKind } from "@/lib/types";
-  import type { ChangeEvent, Ide } from "@/lib/types";
-  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import type { Ide } from "@/lib/types";
   import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -22,16 +22,9 @@
   // that already has this project, at the right line.
   const { project }: { project: string } = $props();
 
-  // Newest first. Capped so a busy agent session can't grow this unbounded.
-  let events = $state<ChangeEvent[]>([]);
-  const CAP = 300;
-  let unlisten: UnlistenFn | undefined;
-
-  // Editor/tool scratch files that churn during an atomic save (write to a temp
-  // name, then rename over the target) — noise, not real changes. Match the
-  // shapes the feed sees: a `.tmp.` infix, a `_tmp_` scratch name, a vim swap, a
-  // trailing `~` backup, or a long numeric atomic-save suffix.
-  const TEMP_FILE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
+  // The feed events live in a persistent store (lib/stores/feed) that owns the one
+  // live subscription, so switching side panels away and back keeps the feed —
+  // this component only reads and renders them.
 
   // Detected editors — the first is used to open a file from the diff title bar.
   let ides = $state<Ide[]>([]);
@@ -100,14 +93,6 @@
     clock = setInterval(() => {
       now = Date.now();
     }, 1000);
-    unlisten = await feed.onChange(event => {
-      const isScratchFile = TEMP_FILE.test(baseName(event.path));
-      if (isScratchFile) {
-        return;
-      }
-
-      events = [event, ...events].slice(0, CAP);
-    });
     try {
       ides = await ide.suggest(project);
     } catch {
@@ -116,8 +101,6 @@
   });
 
   onDestroy(() => {
-    unlisten?.();
-
     if (clock !== undefined) {
       clearInterval(clock);
     }
@@ -128,15 +111,16 @@
   // to arm it here.
 
   // Re-read the workspace branch on mount and whenever the window switches
-  // projects (the panel persists across a switch, so an effect keyed on `project`
-  // is what refreshes the header subtitle).
+  // projects, and point the persistent feed at the current project so a workspace
+  // switch clears stale events even if the panel was closed during the switch.
   $effect(() => {
     if (project) {
+      retarget(project);
       void loadBranch(project);
     }
   });
 
-  const expandedEvent = $derived(events.find(item => item.id === expandedId) ?? null);
+  const expandedEvent = $derived(feedStore.events.find(item => item.id === expandedId) ?? null);
   const cachedLines = $derived(expandedEvent ? diffCache.get(expandedEvent.id) : undefined);
   const isErrored = $derived(!!expandedEvent && failedIds.has(expandedEvent.id));
   const unifiedLines = $derived(cachedLines ?? []);
@@ -150,10 +134,10 @@
 
   const kindFiltered = $derived.by(() => {
     if (kindFilter === "all") {
-      return events;
+      return feedStore.events;
     }
 
-    return events.filter(event => event.kind === kindFilter);
+    return feedStore.events.filter(event => event.kind === kindFilter);
   });
   const groups = $derived(
     groupChanges({
@@ -185,7 +169,7 @@
   // Publish the live event count to the shared side-panel header.
   $effect(() => {
     setPanelHeader({
-      count: events.length,
+      count: feedStore.events.length,
       refresh: null
     });
   });
@@ -260,7 +244,7 @@
 </script>
 
 <div class="feed">
-  {#if events.length === 0}
+  {#if feedStore.events.length === 0}
     <p class="empty">
       Waiting for edits. Ask the agent to change a file and it appears here —
       what changed, and how much.
@@ -302,7 +286,7 @@
     {#if groups.length > 1 || activeGroupId !== null}
       <div class="chips">
         <button class="chip" class:on={activeGroupId === null} onclick={() => (activeGroupId = null)}>
-          All <span class="n">{formatCount(events.length)}</span>
+          All <span class="n">{formatCount(feedStore.events.length)}</span>
         </button>
         {#each groups as group (group.id)}
           <button
@@ -377,7 +361,13 @@
                   }}
                 >
                   <span class="row">
-                    <span class="ftype tone-{badge.tone}" aria-hidden="true">{badge.label}</span>
+                    <span class="ftype tone-{badge.tone}" class:logo={!!badge.icon} aria-hidden="true">
+                      {#if badge.icon}
+                        <Icon name={badge.icon} size={18} />
+                      {:else}
+                        {badge.label}
+                      {/if}
+                    </span>
                     <span class="name" data-tooltip={ev.path}>{baseName(ev.path)}</span>
                     <span class="time">{ago({
                       stamp: ev.ts,
@@ -783,6 +773,19 @@
     font-weight: 700;
     font-size: 9.5px;
     letter-spacing: 0.02em;
+
+    /* Brand-logo variant: drop the text chip's pill and tint the mark with the
+       language tone. Multi-colour marks carry their own baked fills (the tone is
+       a no-op there); single-colour marks and the format glyphs take the tone.
+       The Icon renders at 1em, so the font-size sets its square. */
+    &.logo {
+      inline-size: 20px;
+      min-inline-size: 0;
+      padding: 0;
+      background: none;
+      color: var(--tone, #6b7280);
+      font-size: 18px;
+    }
   }
 
   .tone-typescript {
