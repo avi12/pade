@@ -11,14 +11,15 @@
   const ICON_NAMES = [
     "alert", "android", "androidstudio", "antigravity", "branch", "check",
     "checks", "claude", "clion", "clock", "close", "code", "codex", "columns",
-    "copilot", "cplusplus", "csharp", "cursor", "external", "feed", "folder",
-    "folderPlus", "git", "github", "go", "goland", "grip", "grok", "history",
-    "idea", "java", "javascript", "maximize", "minimize", "monitor", "moon",
-    "more", "pencil", "php", "phpstorm", "plus", "pycharm", "python",
-    "refresh", "rider", "ruby", "rubymine", "rust", "rustrover", "search",
-    "sliders", "sparkles", "star", "sublime", "sun", "swap", "terminal",
-    "trash", "typescript", "visualstudio", "vscode", "webstorm", "window",
-    "windowPlus", "zed"
+    "copilot", "cplusplus", "csharp", "css", "cursor", "external", "feed",
+    "folder", "folderPlus", "git", "github", "go", "goland", "grip", "grok",
+    "history", "html", "idea", "image", "java", "javascript", "json",
+    "markdown", "maximize", "minimize", "monitor", "moon", "more", "pencil",
+    "php", "phpstorm", "plus", "pycharm", "python", "refresh", "rider", "ruby",
+    "rubymine", "rust", "rustrover", "search", "shell", "sliders", "sparkles",
+    "star", "sublime", "sun", "svelte", "swap", "terminal", "toml", "trash",
+    "typescript", "visualstudio", "vscode", "webstorm", "window", "windowPlus",
+    "yaml", "zed"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
 

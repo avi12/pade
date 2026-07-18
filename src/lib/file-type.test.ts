@@ -2,26 +2,31 @@ import { FileTone, fileTypeBadge } from "@/lib/file-type";
 import { describe, expect, it } from "vitest";
 
 describe("fileTypeBadge", () => {
-  it("labels and tones known source extensions", () => {
+  it("labels, tones, and logos known source extensions", () => {
     expect(fileTypeBadge("src/App.svelte")).toEqual({
       label: "SV",
-      tone: FileTone.Svelte
+      tone: FileTone.Svelte,
+      icon: "svelte"
     });
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
-      tone: FileTone.TypeScript
+      tone: FileTone.TypeScript,
+      icon: "typescript"
     });
     expect(fileTypeBadge("src-tauri/src/watcher.rs")).toEqual({
       label: "RS",
-      tone: FileTone.Rust
+      tone: FileTone.Rust,
+      icon: "rust"
     });
     expect(fileTypeBadge("src/theme.css")).toEqual({
       label: "CSS",
-      tone: FileTone.Style
+      tone: FileTone.Style,
+      icon: "css"
     });
     expect(fileTypeBadge("services/api/usage.py")).toEqual({
       label: "PY",
-      tone: FileTone.Python
+      tone: FileTone.Python,
+      icon: "python"
     });
   });
 
@@ -32,7 +37,8 @@ describe("fileTypeBadge", () => {
   it("is case-insensitive on the extension", () => {
     expect(fileTypeBadge("README.MD")).toEqual({
       label: "MD",
-      tone: FileTone.Doc
+      tone: FileTone.Doc,
+      icon: "markdown"
     });
   });
 
