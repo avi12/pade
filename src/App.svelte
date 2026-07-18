@@ -3,6 +3,7 @@
   import { createAutoNamer } from "@/lib/auto-name";
   import {
     agents as agentsApi,
+    feed,
     pty,
     vcs,
     windows,
@@ -342,6 +343,17 @@
 
   // Reflect known tasks the agent runs as "running" in the Tasks panel.
   onMount(() => void initTaskRunDetection());
+
+  // Watch the open project's files app-wide — not only while the Change Feed is
+  // open — so the Tasks panel auto-updates on a manifest/script edit, and the
+  // task-run and auto-name subscribers see changes from the moment a project
+  // opens. Keyed on the project so it re-roots on an in-window switch; the
+  // backend is idempotent, so a repeat call for the same root is a no-op.
+  $effect(() => {
+    if (currentProject) {
+      void feed.start(currentProject);
+    }
+  });
 
   // Auto-name a temp workspace once the agent has produced real work
   // (lib/auto-name): after a few distinct files change, ask the agent (or a

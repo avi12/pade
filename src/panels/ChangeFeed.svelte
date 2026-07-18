@@ -123,16 +123,9 @@
     }
   });
 
-  // Watch the open project — and re-root when this window switches projects. The
-  // panel persists across a switch (only `project` updates, it never re-mounts),
-  // so an effect keyed on `project` re-arms the watcher on every change, keeping
-  // the feed on the workspace shown rather than the process's (possibly drifted)
-  // cwd. Idempotent in the backend, so the initial mount's call is a no-op repeat.
-  $effect(() => {
-    if (project) {
-      void feed.start(project);
-    }
-  });
+  // The file-watcher itself is started and re-rooted app-wide by App (keyed on
+  // the open project), so the feed just subscribes to its stream above — no need
+  // to arm it here.
 
   // Re-read the workspace branch on mount and whenever the window switches
   // projects (the panel persists across a switch, so an effect keyed on `project`
