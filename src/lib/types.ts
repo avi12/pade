@@ -93,6 +93,20 @@ export type CommitDetail = z.infer<typeof CommitDetail>;
 export const RestoreCandidate = Commit.extend({ score: z.number() });
 export type RestoreCandidate = z.infer<typeof RestoreCandidate>;
 
+/** How a "Sync all" fast-forward pull resolved. `updated` fast-forwarded to new
+ *  upstream commits, `alreadyUpToDate` had nothing to fetch, and `refusedDirty`
+ *  bailed because the working tree has uncommitted changes to tracked files. A
+ *  branch that diverged from upstream (no fast-forward) throws instead. */
+export const PullStatus = z.enum(["updated", "alreadyUpToDate", "refusedDirty"]);
+export type PullStatus = z.infer<typeof PullStatus>;
+
+/** The result of `vcs.pull`: the outcome plus a short human line for the toast. */
+export const PullOutcome = z.object({
+  status: PullStatus,
+  message: z.string()
+});
+export type PullOutcome = z.infer<typeof PullOutcome>;
+
 export const ConfigFile = z.object({
   name: z.string(),
   rel: z.string(),

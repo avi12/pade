@@ -23,6 +23,7 @@ import {
   PtyChunk,
   PtyExit,
   PtyHistory,
+  PullOutcome,
   RestoreCandidate,
   RunnerData,
   RunnerExit,
@@ -35,8 +36,8 @@ import {
 } from "@/lib/types";
 import type { Prefs } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
-import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { z } from "zod";
 
 /** Invoke a command and validate its result against `schema`. */
@@ -243,6 +244,10 @@ export const vcs = {
   /** Current HEAD branch per project path (path → branch), for the switcher's
    *  per-project branch chip. Non-repo / detached paths are omitted. */
   branchOf: (paths: string[]) => call("vcs_branch_of", z.record(z.string(), z.string()), { paths }),
+  /** Fast-forward the open workspace from `origin` (never a merge commit).
+   *  Resolves `refusedDirty` when the tree has uncommitted tracked changes;
+   *  throws git's message when the branch has diverged (no fast-forward). */
+  pull: () => call("vcs_pull", PullOutcome),
   /** One commit's message body, per-file stats, and branch. */
   commit: (sha: string) => call("vcs_commit", CommitDetail, { sha }),
   /** Raw unified diff for one path within a commit. */
