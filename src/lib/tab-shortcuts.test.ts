@@ -1,4 +1,4 @@
-import { type KeyChord, matchTabShortcut, TabAction } from "@/lib/tab-shortcuts";
+import { type KeyChord, matchTabSelection, matchTabShortcut, TabAction } from "@/lib/tab-shortcuts";
 import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.
@@ -136,6 +136,141 @@ describe("matchTabShortcut", () => {
           key: "ArrowRight"
         })
       )
+    ).toBeNull();
+  });
+});
+
+describe("matchTabSelection", () => {
+  // A plain Ctrl chord for the given digit key.
+  function ctrlDigit(key: string): KeyChord {
+    return chord({
+      ctrlKey: true,
+      key
+    });
+  }
+
+  it("maps Ctrl+1..8 to that 0-based tab when it exists", () => {
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("1"),
+        count: 5
+      })
+    ).toBe(0);
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("2"),
+        count: 5
+      })
+    ).toBe(1);
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("8"),
+        count: 8
+      })
+    ).toBe(7);
+  });
+
+  it("maps Ctrl+9 to the LAST tab, not the ninth", () => {
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("9"),
+        count: 3
+      })
+    ).toBe(2);
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("9"),
+        count: 5
+      })
+    ).toBe(4);
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("9"),
+        count: 12
+      })
+    ).toBe(11);
+  });
+
+  it("is a no-op for a number past the last tab", () => {
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("5"),
+        count: 3
+      })
+    ).toBeNull();
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("8"),
+        count: 2
+      })
+    ).toBeNull();
+  });
+
+  it("is a no-op when there are no tabs", () => {
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("1"),
+        count: 0
+      })
+    ).toBeNull();
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("9"),
+        count: 0
+      })
+    ).toBeNull();
+  });
+
+  it("requires plain Ctrl — Shift / Alt / Meta or no Ctrl disqualifies", () => {
+    expect(
+      matchTabSelection({
+        chord: chord({ key: "1" }),
+        count: 5
+      })
+    ).toBeNull();
+    expect(
+      matchTabSelection({
+        chord: chord({
+          ctrlKey: true,
+          shiftKey: true,
+          key: "1"
+        }),
+        count: 5
+      })
+    ).toBeNull();
+    expect(
+      matchTabSelection({
+        chord: chord({
+          ctrlKey: true,
+          altKey: true,
+          key: "1"
+        }),
+        count: 5
+      })
+    ).toBeNull();
+    expect(
+      matchTabSelection({
+        chord: chord({
+          metaKey: true,
+          key: "1"
+        }),
+        count: 5
+      })
+    ).toBeNull();
+  });
+
+  it("ignores 0 and non-digit keys", () => {
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("0"),
+        count: 5
+      })
+    ).toBeNull();
+    expect(
+      matchTabSelection({
+        chord: ctrlDigit("t"),
+        count: 5
+      })
     ).toBeNull();
   });
 });

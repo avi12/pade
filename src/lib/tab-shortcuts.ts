@@ -1,8 +1,10 @@
 // App-level keyboard shortcuts for the agent tab strip. A single capture-phase
 // keydown listener so the shortcuts win over a focused terminal — xterm would
-// otherwise hand Ctrl+W / Ctrl+Alt+T etc. to the agent as raw control codes. The
-// pure `matchTabShortcut` maps a key chord to an action and is unit-tested; the
-// registrar wires actions to the app's handlers and leaves text fields alone.
+// otherwise hand Ctrl+W / Ctrl+Alt+T / Ctrl+<number> etc. to the agent as raw
+// control codes. Two pure matchers do the deciding and are unit-tested:
+// `matchTabShortcut` (chord → action) and `matchTabSelection` (Ctrl+number →
+// which tab to activate); the registrar wires both to the app's handlers and
+// leaves app text fields alone.
 
 /** The closed set of actions a tab shortcut can trigger. */
 export const TabAction = {
@@ -71,6 +73,37 @@ export function matchTabShortcut(chord: KeyChord): TabAction | null {
   return null;
 }
 
+/** The digit keys that pick a tab by position — Ctrl+1..8 select the 1st..8th
+ *  tab. Ctrl+9 is special-cased (the LAST tab, whatever the count), so it's kept
+ *  out of here. This literal list is their authoritative home. */
+const TAB_NUMBER_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8"];
+/** Ctrl+9 always jumps to the last tab — the browser/terminal convention. */
+const LAST_TAB_KEY = "9";
+
+/** Map a Ctrl+number chord to the 0-based index of the tab it selects, given how
+ *  many tabs exist, or null when it isn't a tab-number chord. Ctrl+1 → first …
+ *  Ctrl+8 → eighth, but only while that tab exists — a number past the last tab
+ *  is a no-op; Ctrl+9 → the LAST tab, however many there are. Plain Ctrl only:
+ *  any Shift/Alt/Meta, or no tabs at all, disqualifies it. */
+export function matchTabSelection({ chord, count }: {
+  chord: KeyChord;
+  count: number;
+}): number | null {
+  const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
+  const isPlainCtrl = ctrlKey && !shiftKey && !altKey && !metaKey;
+  if (!isPlainCtrl || count === 0) {
+    return null;
+  }
+
+  if (key === LAST_TAB_KEY) {
+    return count - 1;
+  }
+
+  const position = TAB_NUMBER_KEYS.indexOf(key);
+  const selectsExistingTab = position !== -1 && position < count;
+  return selectsExistingTab ? position : null;
+}
+
 /** The action → handler wiring the app supplies. */
 export interface TabShortcutHandlers {
   newTab: () => void;
@@ -78,6 +111,11 @@ export interface TabShortcutHandlers {
   closeTab: () => void;
   next: () => void;
   previous: () => void;
+  /** Activate the tab at this 0-based index (Ctrl+number). */
+  selectTab: (index: number) => void;
+  /** How many session tabs currently exist — decides Ctrl+9 (last tab) and the
+   *  out-of-range no-op. */
+  tabCount: () => number;
 }
 
 /** Register the capture-phase listener; returns the matching unregister. */
@@ -92,7 +130,13 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers): () => void 
 
   function onKeyDown(event: KeyboardEvent) {
     const action = matchTabShortcut(event);
-    if (action === null) {
+    // Only reach for the number matcher when it isn't an action chord already.
+    const selectedTab =
+      action === null ? matchTabSelection({
+        chord: event,
+        count: handlers.tabCount()
+      }) : null;
+    if (action === null && selectedTab === null) {
       return;
     }
 
@@ -107,7 +151,15 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers): () => void 
     // Alt+Arrow history nav) by consuming the event here in the capture phase.
     event.preventDefault();
     event.stopImmediatePropagation();
-    run[action]();
+
+    if (action !== null) {
+      run[action]();
+      return;
+    }
+
+    if (selectedTab !== null) {
+      handlers.selectTab(selectedTab);
+    }
   }
 
   addEventListener("keydown", onKeyDown, { capture: true });

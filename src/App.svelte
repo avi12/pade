@@ -359,7 +359,9 @@
       launchMenu: openLaunchMenu,
       closeTab: closeActiveTab,
       next: () => stepSession(1),
-      previous: () => stepSession(-1)
+      previous: () => stepSession(-1),
+      selectTab: selectTabByIndex,
+      tabCount: () => sessions.length
     }));
 
   async function openEmptyWindow() {
@@ -527,6 +529,16 @@
     const active = sessions.find(s => s.id === activeId);
     if (active) {
       void close(active);
+    }
+  }
+
+  // Ctrl+number — jump straight to a tab by position (Ctrl+9 = the last one).
+  // The matcher only ever hands back an index that exists, so the guard is
+  // belt-and-suspenders; selection reuses the same make-active path as a click.
+  function selectTabByIndex(index: number) {
+    const session = sessions[index];
+    if (session) {
+      selectSession(session.id);
     }
   }
 
