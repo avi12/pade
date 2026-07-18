@@ -3,12 +3,19 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import type { Snippet } from "svelte";
 
-  // Shared confirmation modal — an in-app <dialog> in place of the OS popup, so
-  // a destructive prompt is themed, carries rich body content, and can stay open
-  // to show why the action failed. showModal() gives Esc-to-dismiss, the focus
-  // trap and the ::backdrop scrim for free (semantic HTML over a hand-rolled
-  // trap). The caller owns the work: it passes `busy` while its promise is in
-  // flight and `error` when it rejects.
+  // Shared confirmation prompt — an in-app themed card in place of the OS popup, so
+  // a destructive prompt carries rich body content and can stay open to show why
+  // the action failed. Two shells around one card:
+  //   • default — a modal <dialog>: showModal() gives Esc-to-dismiss, the focus
+  //     trap and the ::backdrop scrim for free (semantic HTML over a hand-rolled
+  //     trap).
+  //   • `nested` — a full-viewport `popover` opened inside an already-open menu
+  //     popover, so that menu stays visible (dimmed) behind the prompt instead of
+  //     being force-closed (showModal() closes every open popover). The scrim IS
+  //     the popover element, so a click on the dim cancels (no click-through to
+  //     the menu) and Esc light-dismisses → oncancel via `ontoggle`.
+  // The caller owns the work: it passes `busy` while its promise is in flight and
+  // `error` when it rejects.
   const {
     title,
     icon,
@@ -17,6 +24,7 @@
     danger = false,
     busy = false,
     error = null,
+    nested = false,
     onconfirm,
     oncancel,
     children
@@ -30,6 +38,9 @@
     danger?: boolean;
     busy?: boolean;
     error?: string | null;
+    /** Render as a popover nested in an open menu (keeps that menu visible behind)
+     *  rather than a top-level modal <dialog>. */
+    nested?: boolean;
     onconfirm: () => Promise<void> | void;
     oncancel: () => void;
     children: Snippet;
@@ -38,6 +49,7 @@
   const actionLabel = $derived(busy && busyLabel ? busyLabel : confirmLabel);
 
   let dialogElement = $state<HTMLDialogElement | null>(null);
+  let scrimElement = $state<HTMLDialogElement | null>(null);
 
   // Lift onto the top layer once mounted (showModal throws on an open dialog).
   $effect(() => {
@@ -45,30 +57,18 @@
       dialogElement.showModal();
     }
   });
+
+  // The nested popover doesn't move focus on show the way showModal does, so land
+  // it on Cancel — the safe default for a destructive prompt.
+  $effect(() => {
+    if (scrimElement && !scrimElement.matches(":popover-open")) {
+      scrimElement.showPopover();
+      scrimElement.querySelector<HTMLElement>(".cancel")?.focus();
+    }
+  });
 </script>
 
-<dialog
-  bind:this={dialogElement}
-  class="dialog"
-  class:danger
-  aria-labelledby="confirm-title"
-  oncancel={e => {
-    // Esc (the native "cancel" event) routes to the parent, so the caller's
-    // state stays the single source of truth for whether the dialog is mounted.
-    e.preventDefault();
-
-    if (!busy) {
-      oncancel();
-    }
-  }}
-  onclick={e => {
-    // A modal <dialog>'s hit area spans the viewport: a click whose target is
-    // the dialog itself landed on the ::backdrop, not on the card.
-    if (e.target === dialogElement && !busy) {
-      oncancel();
-    }
-  }}
->
+{#snippet card()}
   <div class="glyph" aria-hidden="true"><Icon name={icon} size={20} /></div>
   <h2 id="confirm-title">{title}</h2>
 
@@ -87,7 +87,57 @@
       {actionLabel}
     </button>
   </footer>
-</dialog>
+{/snippet}
+
+{#if nested}
+  <!-- A <dialog> shown as a nested popover — not showModal(), which would force-close
+       the menu popover behind it. It fills the viewport as its own scrim (a fit-content
+       popover's ::backdrop leaks clicks to the menu behind), so a click on the dim
+       cancels without reaching the menu; Esc light-dismisses → oncancel via ontoggle.
+       Being a <dialog>, the backdrop click needs no faux-interactive role. -->
+  <dialog
+    bind:this={scrimElement}
+    class="scrim"
+    class:danger
+    popover="auto"
+    aria-labelledby="confirm-title"
+    ontoggle={e => {
+      if ((e as ToggleEvent).newState === "closed" && !busy) {
+        oncancel();
+      }
+    }}
+    onclick={e => {
+      if (e.target === scrimElement && !busy) {
+        oncancel();
+      }
+    }}
+  >
+    <div class="dialog" class:danger>{@render card()}</div>
+  </dialog>
+{:else}
+  <dialog
+    bind:this={dialogElement}
+    class="dialog"
+    class:danger
+    aria-labelledby="confirm-title"
+    oncancel={e => {
+      // Esc (the native "cancel" event) routes to the parent, so the caller's
+      // state stays the single source of truth for whether the dialog is mounted.
+      e.preventDefault();
+
+      if (!busy) {
+        oncancel();
+      }
+    }}
+    onclick={e => {
+      // A modal <dialog>'s hit area spans the viewport: a click whose target is
+      // the dialog itself landed on the ::backdrop, not on the card.
+      if (e.target === dialogElement && !busy) {
+        oncancel();
+      }
+    }}
+  >{@render card()}</dialog>
+{/if}
 
 <style>
   /* The card itself: showModal() puts it on the top layer and paints ::backdrop
@@ -107,6 +157,36 @@
     &::backdrop {
       background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
       animation: fadein 160ms var(--ease);
+    }
+  }
+
+  /* Nested shell: a <dialog>-as-popover that fills the viewport and IS its own scrim,
+     so the menu behind stays visible (dimmed) yet un-clickable and there's no
+     fit-content ::backdrop for clicks to leak through. `display` is gated on
+     :popover-open (beating the UA `dialog:not([open])` display:none) so it centres
+     the card only while shown. */
+  .scrim {
+    position: fixed;
+    inset: 0;
+    max-inline-size: none;
+    max-block-size: none;
+    inline-size: 100%;
+    block-size: 100%;
+    margin: 0;
+    padding: 24px;
+    border: none;
+    overflow: auto;
+    color: inherit;
+    background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
+    animation: fadein 160ms var(--ease);
+
+    &:popover-open {
+      display: grid;
+      place-items: center;
+    }
+
+    .dialog {
+      margin: 0;
     }
   }
 

@@ -1,11 +1,15 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { ide, vcs, windows } from "@/lib/bridge";
+  import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { languageIcon } from "@/lib/language-icon";
   import Logo from "@/lib/Logo.svelte";
+  import { collapseRow } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+  import { truncationTooltip } from "@/lib/truncation-tooltip";
   import type { WindowInfo } from "@/lib/types";
 
   // The project switcher that leads the top bar. It lists every open PADE window
@@ -48,8 +52,10 @@
     onclearrecent: () => void;
     /** Forget one project from the switcher (recents + pins); folder untouched. */
     onremoverecent: (path: string) => void;
-    /** Delete a project's directory from disk (the parent raises a confirmation). */
-    ondelete: (path: string) => void;
+    /** Delete a project's directory from disk — performs the removal and resolves
+     *  (or throws its message). The switcher owns the confirmation UI, so it stays
+     *  open behind the prompt and animates the row out when this resolves. */
+    ondelete: (path: string) => Promise<void>;
     /** Persist a drag-reordered pin order. */
     onreorderpins: (paths: string[]) => void;
   } = $props();
@@ -60,6 +66,15 @@
   let kinds = $state<Record<string, string>>({});
   let branches = $state<Record<string, string>>({});
   let windowRows = $state<WindowInfo[]>([]);
+  // Whether the popover is open — the moment a row first has a real width, so the
+  // per-row truncation tooltips (re)measure then rather than while hidden.
+  let menuOpen = $state(false);
+
+  // The "Delete directory" confirmation lives inside this menu (a nested popover)
+  // so the switcher stays visible behind it; the parent only performs the removal.
+  let deletePending = $state<string | null>(null);
+  let deleteBusy = $state(false);
+  let deleteError = $state("");
 
   const pinnedSet = $derived(new Set(pinnedProjects.map(normalizePath)));
   // Recents minus anything already pinned, so a project shows in one section only.
@@ -174,12 +189,13 @@
     await windows.create(args);
     hide();
   }
-</script>
 
-<!-- Ctrl P from anywhere opens the switcher and focuses its filter, matching the
-     shortcut the trigger and the search field advertise. -->
-<svelte:window
-  onkeydown={e => {
+  // Ctrl P from anywhere opens the switcher and focuses its filter, matching the
+  // shortcut the trigger and the search field advertise. It runs in the capture
+  // phase (like pane-shortcuts) so it wins over the terminal — xterm would
+  // otherwise swallow Ctrl P and send it to the agent — and the browser's print
+  // dialog, neither of which sees the chord once it's consumed here.
+  function openViaShortcut(e: KeyboardEvent) {
     const isCtrlP =
       (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "p";
     if (!isCtrlP) {
@@ -187,14 +203,20 @@
     }
 
     e.preventDefault();
+    e.stopImmediatePropagation();
     const menu = document.getElementById("m-app");
     if (menu && !menu.matches(":popover-open")) {
       menu.showPopover();
     }
 
     focusFilter();
-  }}
-/>
+  }
+
+  onMount(() => {
+    addEventListener("keydown", openViaShortcut, { capture: true });
+    return () => removeEventListener("keydown", openViaShortcut, { capture: true });
+  });
+</script>
 
 <span class="menu-host">
   <button
@@ -221,7 +243,8 @@
     style:position-anchor="--m-app"
     class="menu popover-menu"
     ontoggle={async e => {
-      if ((e as ToggleEvent).newState === "open") {
+      menuOpen = (e as ToggleEvent).newState === "open";
+      if (menuOpen) {
         focusFilter();
         await loadMeta();
       }
@@ -297,7 +320,7 @@
       {@const pinned = isPinned(project)}
       {@const menuId = rowMenuId(project)}
       {@const canReorder = pinned && pinsReorderable}
-      <div class="prow" data-pin-id={pinned && filter.trim() === "" ? project : undefined}>
+      <div class="prow">
         {#if canReorder}
           <span
             class="grip"
@@ -338,7 +361,7 @@
                   {branches[project]}
                 </span>
               {/if}
-              <span class="prow-path">{project}</span>
+              <span class="prow-path" {@attach truncationTooltip({ text: project, visible: menuOpen })}>{project}</span>
             </span>
           </span>
           {#if current}
@@ -377,9 +400,13 @@
           <div class="sep"></div>
           <button
             class="mi critical" onclick={() => {
-              ondelete(project);
-              hide();
-            }} role="menuitem" type="button">
+              deleteError = "";
+              deletePending = project;
+            }}
+            popovertarget={menuId}
+            popovertargetaction="hide"
+            role="menuitem"
+            type="button">
             <span class="mi-ico"><Icon name="trash" size={15} /></span>
             <span class="mi-body">
               <span>Delete directory</span>
@@ -394,7 +421,11 @@
       {#if pinnedShown.length > 0}
         <div class="list-head"><span>Pinned</span></div>
         {#each pinnedShown as project (project)}
-          {@render projectRow(project)}
+          <!-- Wrapper carries the collapse-out (a removed row closes over instead of
+               blinking) and the drag id, keeping a flat sibling set for the engine. -->
+          <div class="prow-slot" data-pin-id={filter.trim() === "" ? project : undefined} out:collapseRow>
+            {@render projectRow(project)}
+          </div>
         {/each}
       {/if}
 
@@ -406,7 +437,9 @@
           </button>
         </div>
         {#each recentShown as project (project)}
-          {@render projectRow(project)}
+          <div class="prow-slot" out:collapseRow>
+            {@render projectRow(project)}
+          </div>
         {/each}
       {/if}
 
@@ -441,6 +474,51 @@
       <span class="lead tertiary"><Icon name="plus" /></span>
       <span class="grow">Throwaway workspace</span>
     </button>
+
+    <!-- Destructive "Delete directory" confirmation. Nested inside this popover so
+         the switcher stays visible (dimmed) behind it; on confirm the parent removes
+         the folder and the refreshed list animates the row out. -->
+    {#if deletePending}
+      {@const target = deletePending}
+      <ConfirmDialog
+        busy={deleteBusy}
+        busyLabel="Deleting…"
+        confirmLabel="Delete directory"
+        danger
+        error={deleteError}
+        icon="trash"
+        nested
+        oncancel={() => {
+          if (deleteBusy) {
+            return;
+          }
+
+          deletePending = null;
+          deleteError = "";
+        }}
+        onconfirm={async () => {
+          deleteBusy = true;
+          deleteError = "";
+          try {
+            await ondelete(target);
+            deletePending = null;
+          } catch (error) {
+            deleteError = typeof error === "string" ? error : "Couldn’t delete that directory.";
+          } finally {
+            deleteBusy = false;
+          }
+        }}
+        title="Delete this project directory?"
+      >
+        <div class="directory-delete-body">
+          <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
+          <p class="target">
+            <span class="target-name">{displayName(target, labels)}</span>
+            <code>{target}</code>
+          </p>
+        </div>
+      </ConfirmDialog>
+    {/if}
   </div>
 </span>
 
@@ -691,6 +769,14 @@
     }
   }
 
+  /* Layout-neutral row wrapper (see the each-blocks): the flat sibling the drag
+     engine tracks and the box the collapse-out transition measures. A plain block
+     (not a flex parent) so .prow keeps full-width block sizing and the long path
+     still ellipsizes instead of forcing the list to scroll sideways. */
+  .prow-slot {
+    min-inline-size: 0;
+  }
+
   .prow {
     position: relative;
     display: flex;
@@ -856,9 +942,12 @@
     opacity: 100%;
   }
 
-  /* Per-row options popover — Pin/Unpin, Remove, Delete. */
+  /* Per-row options popover — Pin/Unpin, Remove, Delete. Width is capped so the
+     Delete item's path ellipsizes (.mi-sub) instead of ballooning the menu wide
+     enough to spill past the panel over the terminal. */
   .row-menu {
     min-inline-size: 210px;
+    max-inline-size: 260px;
     position-area: bottom span-left;
 
     .mi {
@@ -1036,6 +1125,37 @@
     &:hover .kbd,
     &:focus-visible .kbd {
       color: inherit;
+    }
+  }
+
+  /* Body of the "Delete directory" confirmation (chrome is ConfirmDialog's). */
+  .directory-delete-body {
+    p {
+      margin: 0;
+    }
+
+    .target {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-block-start: 14px;
+      padding: 10px 12px;
+      border-radius: var(--radius-medium);
+      background: var(--surface-2);
+    }
+
+    .target-name {
+      color: var(--on-surface);
+      font-family: var(--font-monospace);
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    code {
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
+      font-size: 11px;
+      overflow-wrap: anywhere;
     }
   }
 </style>
