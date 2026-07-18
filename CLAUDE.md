@@ -92,6 +92,12 @@ These are non-negotiable for all work in this repo.
      global replacement — it states the intent and reads clearer.
    - `await` over `.then()`: use `async`/`await`, never a `.then()`/`.catch()`
      chain.
+   - No stray timers: avoid `setTimeout`/`setInterval` unless genuinely necessary
+     (a real debounce, a deliberate delay, a poll with no event to hang off). Prefer
+     event- and lifecycle-driven timing — a transition's `outroend`, an
+     `animationend`, `onMount`/`onDestroy`, a `ResizeObserver`/`IntersectionObserver`
+     — and let CSS own durations and easing. A timer used to "wait for the
+     DOM/animation to settle" is a smell: hook the real signal instead.
    - No IIFEs: never immediately invoke a function expression — async or not,
      `(() => {…})()` / `(async () => {…})()` are out. Give the function a name and
      call it. To kick off async work from a lifecycle, use an `async onMount` (and
@@ -172,8 +178,14 @@ These are non-negotiable for all work in this repo.
    libraries or polyfills), and whenever a behavior can be expressed in HTML or
    CSS, do it there rather than in JS: `:hover`/`:focus-within`/`:has()` state,
    `<details>`/`popover`/`dialog`, CSS transitions and animations, scroll-snap,
-   container queries, `accent-color`. Only add JS when the behavior genuinely
-   can't be expressed in HTML/CSS. Less JS = less to ship, parse, and break.
+   container queries, `accent-color`. For a discrete view or layout change (a
+   phase/route swap, a list reflow) reach for `document.startViewTransition` so the
+   browser cross-fades or morphs it natively instead of a hand-rolled tween — but
+   never wrap a region of **live-reflowing content** (an xterm terminal pane) in
+   one: a view transition snapshots then scales the old frame, so a pane that
+   repaints on resize ghosts its old text over the reflowed grid. Animate just the
+   entering element with scoped CSS there instead. Only add JS when the behavior
+   genuinely can't be expressed in HTML/CSS. Less JS = less to ship, parse, and break.
 
 10. **Minimize dependencies** — every third-party package is supply-chain attack
     surface. Prefer implementing a small, well-understood utility yourself over
