@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { feed, ide } from "@/lib/bridge";
+  import { feed, ide, vcs } from "@/lib/bridge";
   import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
@@ -11,6 +11,7 @@
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { showToast } from "@/lib/stores/toast.svelte";
   import { ChangeKind } from "@/lib/types";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -34,6 +35,23 @@
 
   // Detected editors — the first is used to open a file from the diff title bar.
   let ides = $state<Ide[]>([]);
+
+  // The workspace's current git branch (all groups share the one repo/HEAD), for
+  // the group-header subtitle. Empty for a non-repo / detached-HEAD workspace.
+  let branchByPath = $state<Record<string, string>>({});
+  const branch = $derived(branchByPath[project]);
+
+  async function loadBranch(root: string) {
+    try {
+      branchByPath = await vcs.branchOf([root]);
+    } catch {
+      branchByPath = {};
+    }
+  }
+
+  // "Sync all" (fast-forward pull) in-flight guard — disables the button and
+  // spins its icon so a slow fetch can't be double-fired.
+  let syncing = $state(false);
 
   // Inline diff viewer: only one card expands at a time.
   const DiffMode = {
@@ -113,6 +131,15 @@
   $effect(() => {
     if (project) {
       void feed.start(project);
+    }
+  });
+
+  // Re-read the workspace branch on mount and whenever the window switches
+  // projects (the panel persists across a switch, so an effect keyed on `project`
+  // is what refreshes the header subtitle).
+  $effect(() => {
+    if (project) {
+      void loadBranch(project);
     }
   });
 
@@ -256,6 +283,27 @@
           {/each}
         </select>
       </label>
+
+      <button
+        class="sync"
+        data-tooltip="Fast-forward this workspace from origin"
+        disabled={syncing}
+        onclick={async () => {
+          syncing = true;
+          try {
+            const outcome = await vcs.pull();
+            showToast(outcome.message);
+          } catch (error) {
+            const text = error instanceof Error ? error.message : String(error);
+            showToast(text.split("\n")[0] || "Sync failed.");
+          } finally {
+            syncing = false;
+          }
+        }}
+      >
+        <span class="ico" class:spin={syncing}><Icon name="refresh" size={14} /></span>
+        Sync all
+      </button>
     </div>
 
     {#if groups.length > 1 || activeGroupId !== null}
@@ -279,6 +327,9 @@
           <header class="ghead">
             <span class="badge {group.role}">{roleLabel(group.role)}</span>
             <span class="gname">{group.name}</span>
+            {#if branch}
+              <span class="gbranch"><Icon name="branch" size={12} />{branch}</span>
+            {/if}
             <span class="gstat">
               {#if group.added}
                 <span class="add">+{formatCount(group.added)}</span>
@@ -475,6 +526,43 @@
     cursor: pointer;
   }
 
+  .sync {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    margin-inline-start: auto;
+    padding: 4px 12px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 120ms var(--ease);
+
+    &:hover:not(:disabled) {
+      background: var(--surface-3);
+    }
+
+    &:disabled {
+      color: var(--on-surface-variant);
+      cursor: default;
+    }
+
+    .ico {
+      display: inline-flex;
+      color: var(--primary);
+    }
+
+    /* Reuses the global `spin` keyframe (theme.css); the global
+       reduced-motion reset disables it for those who ask. */
+    .spin {
+      animation: spin 900ms linear infinite;
+    }
+  }
+
   .chips {
     display: flex;
     flex-wrap: wrap;
@@ -568,6 +656,20 @@
     font-weight: 700;
     font-size: 13px;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Git-branch subtitle beside the group name — leads with the branch glyph, to
+     match the switcher's branch chip; muted so the project name stays primary. */
+  .gbranch {
+    display: inline-flex;
+    flex: none;
+    gap: 3px;
+    align-items: center;
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
