@@ -23,7 +23,7 @@ function motionDuration(milliseconds: number): number {
  *  an appear-then-snap. */
 export function revealBlock(node: Element, { duration = 240 }: { duration?: number } = {}) {
   const { height } = node.getBoundingClientRect();
-  const marginBlockEnd = Number.parseFloat(getComputedStyle(node).marginBlockEnd) || 0;
+  const marginBlockEnd = parseFloat(getComputedStyle(node).marginBlockEnd) || 0;
 
   return {
     duration: motionDuration(duration),
@@ -46,7 +46,7 @@ function slideRow(node: Element, duration: number) {
   // The list's own `gap` still reserves space for a row of zero height; a
   // matching negative end-margin retires it in step with the collapse.
   const gap = node.parentElement
-    ? Number.parseFloat(getComputedStyle(node.parentElement).rowGap) || 0
+    ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0
     : 0;
 
   return {
@@ -74,6 +74,31 @@ export function collapseRow(node: Element, { duration = 260 }: { duration?: numb
  *  up, so the rows below glide apart to make room instead of snapping open. */
 export function expandRow(node: Element, { duration = 220 }: { duration?: number } = {}) {
   return slideRow(node, duration);
+}
+
+/** Out-transition for a split PANE being closed: the flex-row pane collapses its
+ *  inline-size — and the column-gap it was holding — to nothing while it fades
+ *  and dips slightly in scale, so the surviving panes glide across to fill the
+ *  space instead of snapping shut. The inline-axis mirror of {@link collapseRow}
+ *  (which does the block axis), for `out:collapsePane` on a pane slot. */
+export function collapsePane(node: Element, { duration = 260 }: { duration?: number } = {}) {
+  const { width } = node.getBoundingClientRect();
+  const gap = node.parentElement
+    ? parseFloat(getComputedStyle(node.parentElement).columnGap) || 0
+    : 0;
+
+  return {
+    duration: motionDuration(duration),
+    easing: cubicOut,
+    css: (progress: number, remaining: number) => `
+      overflow: hidden;
+      flex: none;
+      inline-size: ${progress * width}px;
+      margin-inline-end: ${-gap * remaining}px;
+      opacity: ${progress};
+      scale: ${1 - (0.02 * remaining)};
+    `
+  };
 }
 
 /** `animate:flip` duration for a reordering list row, silenced under reduced

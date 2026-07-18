@@ -16,6 +16,8 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
+  import { collapsePane } from "@/lib/motion";
+  import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
@@ -393,6 +395,20 @@
       previous: () => stepSession(-1),
       selectTab: selectTabByIndex,
       tabCount: () => sessions.length
+    }));
+
+  // Pane shortcuts (lib/pane-shortcuts), active while a tab is split into panes:
+  // Ctrl+[ / Ctrl+] cycle the active pane (wrapping), Ctrl+Alt+1..9 jump to the
+  // nth, and Ctrl+Alt+W closes the active pane's session — the slot then animates
+  // out via `out:collapsePane`, and closing the sole pane closes the tab. Selecting
+  // a pane only moves focus within the split (never collapses it, unlike a tab
+  // click). Capture-phase like the tab shortcuts so they beat a focused terminal.
+  onMount(() =>
+    registerPaneShortcuts({
+      selectPane: id => (activeId = id),
+      closeActivePane: closeActiveTab,
+      paneIds: () => paneIds,
+      activeId: () => activeId
     }));
 
   async function openEmptyWindow() {
@@ -1073,7 +1089,7 @@
             </div>
           {/if}
           {#each orderedSessions as s (s.id)}
-            <div class="term-slot" class:shown={paneIds.includes(s.id)} data-pane-id={s.id}>
+            <div class="term-slot" class:shown={paneIds.includes(s.id)} data-pane-id={s.id} out:collapsePane>
               {#if dropSideFor(s.id) === DropSide.left}
                 <div class="drop-half left"></div>
               {:else if dropSideFor(s.id) === DropSide.right}
