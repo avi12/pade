@@ -320,7 +320,11 @@
       {@const pinned = isPinned(project)}
       {@const menuId = rowMenuId(project)}
       {@const canReorder = pinned && pinsReorderable}
-      <div class="prow">
+      <!-- The transition and the drag id sit on the row itself (the element that
+           holds the content), not a wrapper around {@render} — a wrapper would
+           collapse out empty (its snippet content is torn down first) and the
+           drag engine needs a flat sibling set directly under .switch-list. -->
+      <div class="prow" data-pin-id={pinned && filter.trim() === "" ? project : undefined} out:collapseRow>
         {#if canReorder}
           <span
             class="grip"
@@ -421,11 +425,7 @@
       {#if pinnedShown.length > 0}
         <div class="list-head"><span>Pinned</span></div>
         {#each pinnedShown as project (project)}
-          <!-- Wrapper carries the collapse-out (a removed row closes over instead of
-               blinking) and the drag id, keeping a flat sibling set for the engine. -->
-          <div class="prow-slot" data-pin-id={filter.trim() === "" ? project : undefined} out:collapseRow>
-            {@render projectRow(project)}
-          </div>
+          {@render projectRow(project)}
         {/each}
       {/if}
 
@@ -437,9 +437,7 @@
           </button>
         </div>
         {#each recentShown as project (project)}
-          <div class="prow-slot" out:collapseRow>
-            {@render projectRow(project)}
-          </div>
+          {@render projectRow(project)}
         {/each}
       {/if}
 
@@ -767,14 +765,6 @@
         color: var(--critical);
       }
     }
-  }
-
-  /* Layout-neutral row wrapper (see the each-blocks): the flat sibling the drag
-     engine tracks and the box the collapse-out transition measures. A plain block
-     (not a flex parent) so .prow keeps full-width block sizing and the long path
-     still ellipsizes instead of forcing the list to scroll sideways. */
-  .prow-slot {
-    min-inline-size: 0;
   }
 
   .prow {
