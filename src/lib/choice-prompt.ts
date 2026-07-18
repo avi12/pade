@@ -6,30 +6,11 @@
 // output — deliberately conservative so ordinary numbered lists in agent prose
 // never trip it. What it keys on, and its limits, are documented at the export.
 
+import { stripAnsi } from "@/lib/ansi";
+
 /** The selection-cursor glyph Claude Code (Ink's select prompt) draws next to
  *  the highlighted option — U+276F, distinct from the input line's plain ">". */
 const SELECTION_CURSOR = "❯";
-
-// The terminal stream is a framebuffer repaint: colours, cursor moves and the
-// option text arrive interleaved as ANSI escape sequences. Strip those control
-// sequences so the glyphs line up, then match on the result — a cursor-move
-// carries no text, so removing it simply joins the runs the TUI wrote. Built
-// from a string (the ESC/BEL bytes written as unicode escapes) so no raw control
-// character ever sits in the source.
-const ANSI_ESCAPE_RE = new RegExp(
-  // OSC: ESC ] … terminated by BEL or ST (ESC \).
-  "\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)"
-    // Two-byte escapes: ESC then a single @–Z byte.
-    + "|\\u001b[@-Z]"
-    // CSI: ESC [ params intermediates final (SGR colours, cursor moves…).
-    + "|\\u001b\\[[0-9;?]*[ -/]*[@-~]",
-  "g"
-);
-
-/** Strip ANSI/control sequences from a chunk of terminal output. */
-export function stripAnsi(text: string): string {
-  return text.replaceAll(ANSI_ESCAPE_RE, "");
-}
 
 // A numbered option token — "1." / "12)" — counted loosely (no surrounding
 // whitespace required) so a framebuffer that joins the rows without a newline

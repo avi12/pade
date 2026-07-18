@@ -1,4 +1,4 @@
-import { detectChoicePrompt, stripAnsi } from "@/lib/choice-prompt";
+import { detectChoicePrompt } from "@/lib/choice-prompt";
 import { describe, expect, it } from "vitest";
 
 const CURSOR = "❯";
@@ -36,15 +36,5 @@ describe("detectChoicePrompt", () => {
 
   it("does NOT flag the cursor next to non-option text", () => {
     expect(detectChoicePrompt(`${CURSOR} run the build, then 3 files changed`)).toBe(false);
-  });
-});
-
-describe("stripAnsi", () => {
-  it("removes CSI colour and cursor-move sequences", () => {
-    expect(stripAnsi(`${ESC}[31mred${ESC}[0m${ESC}[2A`)).toBe("red");
-  });
-
-  it("leaves ordinary text untouched", () => {
-    expect(stripAnsi("plain 1. text")).toBe("plain 1. text");
   });
 });
