@@ -39,15 +39,34 @@ pub struct Pty {
 }
 
 impl Drop for Pty {
-    /// Ending a session has to end its process. Dropping the PTY only hangs the
-    /// child up, and a shell (or an agent mid-task) can outlive that — on Windows
-    /// a surviving child keeps its working directory locked, so the workspace it
-    /// runs in can then be neither deleted nor moved. Kill it and reap it here,
-    /// so the folder is free the moment the session is gone.
+    /// Ending a session has to end its whole process *tree*. Dropping the PTY only
+    /// hangs the child up, and a shell (or an agent mid-task) can outlive that.
+    /// Worse, on Windows `Child::kill` terminates the immediate child alone, so
+    /// the agent's own descendants — the shell it runs under, a `node`, a tool it
+    /// spawned — survive and keep the working directory locked, and the workspace
+    /// can then be neither deleted nor moved ("used by another process", os error
+    /// 32). Kill the tree first (while it's still walkable from the child), then
+    /// reap the immediate child, so the folder is free the moment the session ends.
     fn drop(&mut self) {
+        #[cfg(windows)]
+        if let Some(pid) = self.child.process_id() {
+            kill_process_tree(pid);
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+/// Terminate a process and every descendant it spawned. `Child::kill` reaches
+/// only the immediate child, so an agent's grandchildren live on and hold the
+/// workspace cwd; `taskkill /T` walks the tree from `pid` and ends them all, `/F`
+/// forces it. Best-effort — a process already gone just makes this a no-op.
+/// Shelled out through `util::command` so it inherits `CREATE_NO_WINDOW`.
+#[cfg(windows)]
+fn kill_process_tree(pid: u32) {
+    let _ = crate::util::command("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .output();
 }
 
 /// A session's replayable output, and how many chunks have been emitted for it.
