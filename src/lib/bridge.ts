@@ -35,6 +35,7 @@ import {
 } from "@/lib/types";
 import type { Prefs } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { z } from "zod";
 
@@ -108,6 +109,12 @@ export const os = {
   terminal: (path: string) => run("open_in_terminal", { path }),
   /** Open an http(s) URL in the system's default browser. */
   openUrl: (url: string) => run("open_url", { url })
+};
+
+/** System clipboard — read for Ctrl+V paste, write for Ctrl+C copy. */
+export const clipboard = {
+  readText: () => readText(),
+  writeText: (text: string) => writeText(text)
 };
 
 /** Multi-window — spawn a fresh app window targeting a project, an empty picker,

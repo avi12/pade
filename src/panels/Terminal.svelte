@@ -4,7 +4,7 @@
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
-  import { os, pty } from "@/lib/bridge";
+  import { clipboard, os, pty } from "@/lib/bridge";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
@@ -628,31 +628,57 @@
       data
     }));
 
-    // Translate Shift+Enter into a prompt newline before xterm encodes it as a
-    // plain Enter (see SHIFT_ENTER). Returning false stops xterm from also
-    // sending its own `\r`, which would submit.
+    async function pasteClipboard() {
+      const text = await clipboard.readText();
+      if (text) {
+        // paste (not write) so xterm wraps it in bracketed-paste markers when the
+        // agent has that mode on — it then treats it as pasted text, not typing.
+        term.paste(text);
+      }
+    }
+
+    // Keyboard overrides layered on xterm's own handling; returning false stops
+    // xterm from also sending the key's control code.
+    //  • Shift+Enter → a prompt newline (CSI u) instead of a submitting `\r`.
+    //  • Ctrl+C → copy the selection; with nothing selected it falls through so
+    //    xterm still sends ^C (SIGINT) to interrupt the agent.
+    //  • Ctrl+V → paste the clipboard (xterm would otherwise send a raw ^V, and
+    //    only the WebView's right-click menu pasted).
     term.attachCustomKeyEventHandler(event => {
-      const isShiftEnter =
-        event.type === "keydown" &&
-          event.key === "Enter" &&
-          event.shiftKey &&
-          !event.altKey &&
-          !event.ctrlKey &&
-          !event.metaKey;
-      if (!isShiftEnter) {
+      if (event.type !== "keydown") {
         return true;
       }
 
-      // preventDefault stops the browser inserting a newline into xterm's hidden
-      // textarea, which xterm's input handler would otherwise forward to the PTY
-      // as a submit. Returning false additionally stops xterm sending its own
-      // `\r`, so the CSI u sequence we write is the only thing the agent sees.
-      event.preventDefault();
-      void pty.write({
-        id: session.id,
-        data: SHIFT_ENTER
-      });
-      return false;
+      const isShiftEnter =
+        event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+      if (isShiftEnter) {
+        // preventDefault stops the browser inserting a newline into xterm's hidden
+        // textarea, which xterm would forward to the PTY as a submit.
+        event.preventDefault();
+        void pty.write({
+          id: session.id,
+          data: SHIFT_ENTER
+        });
+        return false;
+      }
+
+      const isPlainCtrl = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
+
+      const isCopyChord = isPlainCtrl && (event.key === "c" || event.key === "C");
+      if (isCopyChord && term.hasSelection()) {
+        event.preventDefault();
+        void clipboard.writeText(term.getSelection());
+        return false;
+      }
+
+      const isPasteChord = isPlainCtrl && (event.key === "v" || event.key === "V");
+      if (isPasteChord) {
+        event.preventDefault();
+        void pasteClipboard();
+        return false;
+      }
+
+      return true;
     });
 
     // Wheel-scroll the agent's own transcript when xterm has nothing to scroll
