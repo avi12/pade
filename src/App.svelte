@@ -24,6 +24,11 @@
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
+  import {
+    dropChoiceAttention,
+    ensureChoiceAttention,
+    reconcileChoiceAttention
+  } from "@/lib/stores/sessionAttention.svelte";
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus } from "@/lib/stores/sessions.svelte";
@@ -321,6 +326,10 @@
   // Subscribe once to the backend task-runner stream so the dock updates live.
   onMount(() => void ensureRunnerListeners());
 
+  // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
+  // can flash red when one is pending on it (lib/stores/sessionAttention).
+  onMount(() => void ensureChoiceAttention());
+
   // Reflect known tasks the agent runs as "running" in the Tasks panel.
   onMount(() => void initTaskRunDetection());
 
@@ -568,6 +577,7 @@
     dropNaming(id);
     dropUsageLimit(id);
     dropApiError(id);
+    dropChoiceAttention(id);
 
     if (activeId === id) {
       activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
@@ -796,6 +806,20 @@
   });
   $effect(() => apiErrorRetry.check());
   onDestroy(() => apiErrorRetry.dispose());
+
+  // ── Multiple-choice attention ───────────────────────────────────────────────
+  // A running agent that puts up a multiple-choice question flashes its tab red
+  // (SessionTabs) until the user looks at it or answers. The reconcile runs in an
+  // $effect so it re-fires as focus and per-session status change, clearing the
+  // flag on the active tab and once a session goes back to working (answered).
+  $effect(() => {
+    for (const s of sessions) {
+      reconcileChoiceAttention({
+        id: s.id,
+        isActive: s.id === activeId
+      });
+    }
+  });
 
   // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
   // defined once; `null` means no panel is open.

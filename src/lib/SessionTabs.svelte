@@ -6,6 +6,7 @@
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { contextPct } from "@/lib/stores/context.svelte";
+  import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
@@ -142,6 +143,16 @@
     activeId !== null && (tabPack.dots.includes(activeId) || tabPack.more.includes(activeId))
   );
 
+  // A tab flashes red while its agent waits on a multiple-choice answer — but not
+  // while it's the tab in front, since looking at it is what stops the flashing
+  // (the reconcile in App clears the flag; this also gates the very first frame).
+  function isAwaitingChoice(id: string): boolean {
+    return awaitingChoice(id) && id !== activeId;
+  }
+  // Any collapsed-into-"+N" session waiting on a choice — so a pending prompt
+  // hidden in the overflow still surfaces on the trigger.
+  const overflowAwaiting = $derived(moreSessions.some(s => isAwaitingChoice(s.id)));
+
   // Survivors slide to their new spots when a tab is added, closed, or the strip
   // repacks (Svelte's built-in FLIP). Disabled under reduced-motion so it snaps.
   const prefersReducedMotion =
@@ -262,6 +273,7 @@
   {@const level = pct === null ? null : contextLevel(pct)}
   <span
     class="agent-icon {sessionStatus(s.id)}"
+    class:awaiting-choice={isAwaitingChoice(s.id)}
     class:crit={level === ContextLevel.critical}
     class:unknown={pct === null}
     class:warn={level === ContextLevel.warning}
@@ -360,7 +372,7 @@
         aria-label={s.agent.label}
         data-tooltip={s.agent.label}
         onclick={() => onselect(s.id)}
-      ><span class="dot {sessionStatus(s.id)}"></span></button>
+      ><span class="dot {sessionStatus(s.id)}" class:awaiting-choice={isAwaitingChoice(s.id)}></span></button>
     {/each}
 
     {#if hasMoreSessions}
@@ -369,6 +381,7 @@
           style:anchor-name="--more-anchor"
           class="more-btn menu-trigger"
           class:active={overflowHasActive}
+          class:awaiting-choice={overflowAwaiting}
           aria-label="Show remaining sessions"
           popovertarget="more-menu"
         >+{formatCount(moreSessions.length)}</button>
@@ -381,7 +394,7 @@
                 popovertarget="more-menu"
                 popovertargetaction="hide"
               >
-                <span class="dot {sessionStatus(s.id)}"></span>
+                <span class="dot {sessionStatus(s.id)}" class:awaiting-choice={isAwaitingChoice(s.id)}></span>
                 <span class="more-label">{sessionLabel(s.id) ?? s.agent.label}</span>
               </button>
               <button
@@ -529,6 +542,17 @@
       &.active {
         background: var(--primary-container);
         color: var(--on-primary-container);
+      }
+
+      /* A choice pending on a session hidden in the overflow flashes the +N. */
+      &.awaiting-choice {
+        color: var(--critical);
+        animation: choice-flash 1100ms var(--ease) infinite;
+
+        @media (prefers-reduced-motion: reduce) {
+          box-shadow: 0 0 0 2px var(--critical-wash);
+          animation: none;
+        }
       }
 
       &:hover {
@@ -687,6 +711,18 @@
       &.ready {
         box-shadow: 0 0 0 3px var(--tertiary-wash);
       }
+
+      /* Waiting on a multiple-choice answer — a red ring pulses out to grab the
+         eye. Reduced motion swaps the pulse for a steady red ring. */
+      &.awaiting-choice {
+        color: var(--critical);
+        animation: choice-flash 1100ms var(--ease) infinite;
+
+        @media (prefers-reduced-motion: reduce) {
+          box-shadow: 0 0 0 2px var(--critical-wash);
+          animation: none;
+        }
+      }
     }
 
     /* Per-session status dot — mirrors the SessionBadge states. Used now only by
@@ -706,6 +742,17 @@
       &.ready {
         background: var(--tertiary);
         box-shadow: 0 0 0 4px var(--tertiary-wash);
+      }
+
+      /* Same red attention pulse as the full pill's glyph, on the collapsed dot. */
+      &.awaiting-choice {
+        background: var(--critical);
+        animation: choice-flash 1100ms var(--ease) infinite;
+
+        @media (prefers-reduced-motion: reduce) {
+          box-shadow: 0 0 0 2px var(--critical-wash);
+          animation: none;
+        }
       }
     }
 
@@ -895,6 +942,23 @@
         background: var(--critical-wash);
         color: var(--critical);
       }
+    }
+  }
+
+  /* Red attention ripple for a tab whose agent is waiting on a multiple-choice
+     answer (see isAwaitingChoice) — a ring pulses out from the indicator. Held
+     still (a steady red ring instead) under reduced motion, at each usage. */
+  @keyframes choice-flash {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--critical) 60%, transparent);
+    }
+
+    70% {
+      box-shadow: 0 0 0 6px transparent;
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 transparent;
     }
   }
 </style>
