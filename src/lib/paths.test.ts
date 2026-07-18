@@ -94,4 +94,14 @@ describe("normalizePath", () => {
     expect(normalizePath("C:\\repositories\\")).toBe(normalizePath("C:\\repositories"));
     expect(normalizePath("c:/repos/avi/")).toBe("c:/repos/avi");
   });
+
+  it("keeps case on a POSIX / WSL path (case-sensitive filesystem)", () => {
+    expect(normalizePath("/home/User/Project")).toBe("/home/User/Project");
+    // Case-differing POSIX paths are distinct files, so they must not compare equal.
+    expect(normalizePath("/home/User/x")).not.toBe(normalizePath("/home/user/x"));
+  });
+
+  it("still folds separators and a trailing slash on a POSIX path", () => {
+    expect(normalizePath("/mnt/c/Repos/")).toBe("/mnt/c/Repos");
+  });
 });

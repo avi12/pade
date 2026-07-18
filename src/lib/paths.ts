@@ -26,10 +26,16 @@ export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
 }
 
-/** Normalize a path for comparison — separator, casing, and a trailing separator
- *  are all cosmetic on Windows, so `C:\repositories\` and `C:\repositories` (the
- *  same directory) compare equal. Used by the watcher, the workspace list, and the
- *  add-root dedup. */
+/** Normalize a path for comparison. Separators and a trailing separator are
+ *  cosmetic everywhere; casing is cosmetic only on Windows. A drive-letter path
+ *  (`C:\…`) lives on case-insensitive NTFS, so it also folds to lower case —
+ *  `C:\Repositories\` and `c:/repositories` compare equal. A POSIX path (a
+ *  leading `/`), including WSL and its `/mnt/…` mounts, lives on a case-SENSITIVE
+ *  filesystem, so it keeps its case: `/home/User/x` and `/home/user/x` stay
+ *  distinct files. Used by the watcher, the workspace list, and the add-root
+ *  dedup. */
 export function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/").replace(/\/+$/, "").toLowerCase();
+  const separated = path.replaceAll("\\", "/").replace(/\/+$/, "");
+  const isWindowsDrivePath = /^[a-z]:/i.test(path);
+  return isWindowsDrivePath ? separated.toLowerCase() : separated;
 }
