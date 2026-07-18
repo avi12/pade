@@ -6,6 +6,8 @@
 // which tab to activate); the registrar wires both to the app's handlers and
 // leaves app text fields alone.
 
+import { isEditingText } from "@/lib/focus";
+
 /** The closed set of actions a tab shortcut can trigger. */
 export const TabAction = {
   New: "new",
@@ -164,22 +166,4 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers): () => void 
 
   addEventListener("keydown", onKeyDown, { capture: true });
   return () => removeEventListener("keydown", onKeyDown, { capture: true });
-}
-
-/** True when focus sits in an editable field other than the terminal textarea. */
-function isEditingText(element: Element | null): boolean {
-  if (!(element instanceof HTMLElement)) {
-    return false;
-  }
-
-  // xterm's hidden input is a <textarea> too, but shortcuts should still fire.
-  if (element.classList.contains("xterm-helper-textarea")) {
-    return false;
-  }
-
-  return (
-    element.isContentEditable ||
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement
-  );
 }
