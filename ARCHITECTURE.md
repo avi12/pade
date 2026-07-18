@@ -228,7 +228,9 @@ responsibility, and who it collaborates with.
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError`; owns the clone-URL shape knowledge — `CloneUrl` (https / ssh / scp-like), `GitUsername`, `GitSecret`, `isSshCloneUrl`, `repoFolderName` | form components |
 | `src/lib/tab-fit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
 | `src/lib/context-level.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel(pct)` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
-| `src/lib/choice-prompt.ts` | Pure, conservative detector (`detectChoicePrompt`) for the agent's on-screen multiple-choice prompt in the PTY stream: strip ANSI, then require the `❯` selection cursor on a numbered option plus ≥2 numbered options, so ordinary numbered prose never trips it | `stores/sessionAttention` |
+| `src/lib/ansi.ts` | `stripAnsi` — remove a terminal's ANSI/control sequences so text matchers see the glyphs the TUI wrote, not the colour/cursor codes interleaved with them | `choice-prompt`, `task-detect` |
+| `src/lib/choice-prompt.ts` | Pure, conservative detector (`detectChoicePrompt`) for the agent's on-screen multiple-choice prompt in the PTY stream: strip ANSI (`ansi`), then require the `❯` selection cursor on a numbered option plus ≥2 numbered options, so ordinary numbered prose never trips it | `ansi`, `stores/sessionAttention` |
+| `src/lib/task-detect.ts` | Pure `isTaskInvocation` — whether a known task's command appears whole (not a longer sibling) in a line of agent output; strips ANSI (`ansi`) and accepts the agent's `Tool(command)` paren wrapping as a word boundary | `stores/taskRuns` |
 | `src/lib/drag-reorder.ts` | Pointer-drag FLIP reorder engine (DOM + geometry): lifts a tile, slides its siblings, supports drop-outside-to-split; delegates the pure order/index math to `reorder` | `SessionTabs`, `Terminal`, `reorder` |
 | `src/lib/reorder.ts` | Pure, DOM-free order/index math for drag-to-reorder + drop-to-split (`reorderedIds`, `insertionIndex`, `paneInsertIndex`) and the `DropSide` enum | `drag-reorder`, `App` |
 | `src/lib/auto-name.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
@@ -237,6 +239,8 @@ responsibility, and who it collaborates with.
 | `src/lib/tab-shortcuts.ts` | Tab keyboard shortcuts: two pure matchers — `matchTabShortcut` (chord → new / close / cycle / launch-menu action) and `matchTabSelection` (Ctrl+1..8 → that tab, Ctrl+9 → the last) — plus the capture-phase registrar wiring both to the app's handlers | `App` |
 | `src/lib/paths.ts` | Path helpers: `baseName`, `parentDir`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff pipeline: parser + side-by-side rows, and `unifiedDiff` — a git-free LCS line-diff generator (shared prefix/suffix trim → LCS on the changed middle → context-bounded hunks) that turns the Change Feed's baseline-vs-current texts into the same unified-diff string the parser reads | `DiffView`, `ChangeFeed`, `VcsPanel`, `CommitModal` |
+| `src/lib/change-groups.ts` | Pure grouping of Change Feed events into monorepo-aware project buckets — a change under an `apps/`·`packages/`·`services/` container groups by its member folder (an `@scope/name` kept whole), else the repo itself — summing each group's line deltas | `ChangeFeed` |
+| `src/lib/file-type.ts` | Pure extension → file-type badge (short label + colour tone) for a Change Feed card's language chip | `ChangeFeed` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
 | `src/lib/usage-groups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
 | `src/lib/language-icon.ts` | Pure project-kind → language-logo map; an unknown kind falls back to the generic code glyph (the kind registry itself lives in Rust — the picker derives its rows from `ide_kinds`) | picker `EditorsSection` |
@@ -258,6 +262,7 @@ responsibility, and who it collaborates with.
 | `src/lib/stores/handoff.svelte.ts` | Auto-handoff: near-limit scan, handoff-doc wait, successor launch, consumed-doc deletion (via the narrow `handoff_doc_delete` command), and a `force()` entry the usage-resume flow calls |
 | `src/lib/stores/usageResume.svelte.ts` | Usage-limit auto-resume: sniffs the CLI's "limit reached" stop message from the PTY stream, confirms against the OAuth usage window, schedules the resume at window reset — "continue" in place, or `handoff.force()` when the context is nearly full |
 | `src/lib/stores/runners.svelte.ts` | Task-runner rows + backend stream subscription |
+| `src/lib/stores/taskRuns.svelte.ts` | Reflects a known task the agent runs (spotted in its PTY output via `task-detect`) as "running" in the Tasks panel — status only, cleared when the session goes idle or exits; no process is spawned |
 | `src/lib/stores/sidePanel.svelte.ts` | Active side-panel header (count + refresh action) |
 | `src/lib/stores/toast.svelte.ts` | Transient status toast (single reset-on-show timer) |
 
@@ -266,7 +271,7 @@ responsibility, and who it collaborates with.
 | Module | Responsibility |
 | --- | --- |
 | `src/panels/Terminal.svelte` | xterm.js terminal bound to one PTY session; owns the document-style reflow (grid fit, anchor, settle-debounced `SIGWINCH`); makes plain-text URLs clickable via `terminal-links` (whole wrapped URL → system browser) and OSC-8 hyperlinks via its own `linkHandler` |
-| `src/panels/ChangeFeed.svelte` | Live file-change feed with inline diffs; expanding a card fetches the git-free session-baseline preview (`feed.diff`) and renders it through the shared `unifiedDiff` → `parseDiff` → `DiffView` path |
+| `src/panels/ChangeFeed.svelte` | Live file-change feed, grouped by project (`change-groups`) under role-badged headers with a per-project chip filter, a change-kind filter, and per-card file-type chips (`file-type`); expanding a card fetches the git-free session-baseline preview (`feed.diff`) and renders it through the shared `unifiedDiff` → `parseDiff` → `DiffView` path |
 | `src/panels/VcsPanel.svelte` | Git-panel orchestrator: fetch + watcher-debounced refresh + panel header; composes the sections below |
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files |
@@ -424,7 +429,8 @@ each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
 `highlight`, `errors`, the context store's percent parsing,
 `auto-name`'s signal detection, `workspace-relocate`'s path remapping, `handoff`'s
 slug, `tab-shortcuts`'s chord + tab-number matching, `choice-prompt`'s
-multiple-choice detection — is where
+multiple-choice detection, `ansi` stripping, `task-detect`'s invocation matching,
+`change-groups`' project bucketing, `file-type`'s badge mapping — is where
 new tests belong first: they run in milliseconds and need no window.
 
 Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a two-check
