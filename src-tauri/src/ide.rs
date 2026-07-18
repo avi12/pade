@@ -134,11 +134,6 @@ struct IdeDef {
     command: &'static str,
     /// How this launcher phrases a jump-to-line.
     style: OpenStyle,
-    /// `JetBrains` `jetbrains://<tool>/…` protocol tool id, when this IDE is a
-    /// `JetBrains` one. The CLI can't reliably route a file to the *correct open
-    /// project window* (it drops it into the last-active one); the protocol
-    /// targets a project by name, so opening a file lands in the right window.
-    protocol: Option<&'static str>,
     /// Source-language families this product can cover for ranking purposes.
     coverage: EditorCoverage,
 }
@@ -149,7 +144,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "VS Code",
         command: "code",
         style: OpenStyle::VsCode,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
@@ -157,7 +151,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Cursor",
         command: "cursor",
         style: OpenStyle::VsCode,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     // The popular VS Code forks are generalists exactly like their parent —
@@ -167,7 +160,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Antigravity",
         command: "antigravity",
         style: OpenStyle::VsCode,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
@@ -175,7 +167,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Windsurf",
         command: "windsurf",
         style: OpenStyle::VsCode,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
@@ -183,7 +174,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "VSCodium",
         command: "codium",
         style: OpenStyle::VsCode,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
@@ -191,7 +181,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "WebStorm",
         command: "webstorm",
         style: OpenStyle::JetBrains,
-        protocol: Some("webstorm"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web]),
     },
     IdeDef {
@@ -199,7 +188,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "IntelliJ IDEA",
         command: "idea",
         style: OpenStyle::JetBrains,
-        protocol: Some("idea"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Java]),
     },
     IdeDef {
@@ -207,7 +195,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "PyCharm",
         command: "pycharm",
         style: OpenStyle::JetBrains,
-        protocol: Some("pycharm"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Python]),
     },
     IdeDef {
@@ -215,7 +202,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "GoLand",
         command: "goland",
         style: OpenStyle::JetBrains,
-        protocol: Some("goland"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Go]),
     },
     IdeDef {
@@ -223,7 +209,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "RustRover",
         command: "rustrover",
         style: OpenStyle::JetBrains,
-        protocol: Some("rustrover"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Rust]),
     },
     IdeDef {
@@ -231,7 +216,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Rider",
         command: "rider",
         style: OpenStyle::JetBrains,
-        protocol: Some("rider"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Dotnet]),
     },
     IdeDef {
@@ -239,7 +223,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "CLion",
         command: "clion",
         style: OpenStyle::JetBrains,
-        protocol: Some("clion"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Cpp]),
     },
     IdeDef {
@@ -247,7 +230,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "PhpStorm",
         command: "phpstorm",
         style: OpenStyle::JetBrains,
-        protocol: Some("phpstorm"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Php]),
     },
     IdeDef {
@@ -255,7 +237,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "RubyMine",
         command: "rubymine",
         style: OpenStyle::JetBrains,
-        protocol: Some("rubymine"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Ruby]),
     },
     IdeDef {
@@ -263,7 +244,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Android Studio",
         command: "studio",
         style: OpenStyle::JetBrains,
-        protocol: Some("studio"),
         coverage: EditorCoverage::Kinds(&[ProjectKind::Android, ProjectKind::Java]),
     },
     IdeDef {
@@ -271,7 +251,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Zed",
         command: "zed",
         style: OpenStyle::PathColon,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
@@ -279,7 +258,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Sublime Text",
         command: "subl",
         style: OpenStyle::PathColon,
-        protocol: None,
         coverage: EditorCoverage::EveryKind,
     },
     IdeDef {
@@ -287,7 +265,6 @@ const REGISTRY: &[IdeDef] = &[
         label: "Visual Studio",
         command: "devenv",
         style: OpenStyle::VisualStudio,
-        protocol: None,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Cpp, ProjectKind::Dotnet]),
     },
 ];
@@ -788,78 +765,45 @@ fn lookup(id: &str) -> Option<Ide> {
 /// A launchable editor family PADE recognises. Keyed off an executable's
 /// lowercased basename so the "Add editor…" flow and jump-to-line launching of
 /// an added editor share one authoritative table (DRY). `style` is `None` for
-/// editors with no line-jump CLI (the path is passed as-is); `protocol` is the
-/// `JetBrains` tool id for `JetBrains` IDEs. `terminal` marks console editors
-/// (Neovim, Vim, Helix) that PADE opens inside a terminal tab rather than
-/// spawning as a detached window.
+/// editors with no line-jump CLI (the path is passed as-is). `terminal` marks
+/// console editors (Neovim, Vim, Helix) that PADE opens inside a terminal tab
+/// rather than spawning as a detached window.
 struct Family {
     label: &'static str,
     style: Option<OpenStyle>,
-    protocol: Option<&'static str>,
     terminal: bool,
 }
 
 fn family(basename: &str) -> Option<Family> {
-    // (label, jump-to-line style, JetBrains protocol, runs-in-a-terminal)
-    let (label, style, protocol, terminal) = match basename {
-        "code" => ("VS Code", Some(OpenStyle::VsCode), None, false),
-        "code - insiders" => ("VS Code Insiders", Some(OpenStyle::VsCode), None, false),
-        "cursor" => ("Cursor", Some(OpenStyle::VsCode), None, false),
-        "antigravity" => ("Antigravity", Some(OpenStyle::VsCode), None, false),
-        "windsurf" => ("Windsurf", Some(OpenStyle::VsCode), None, false),
-        "codium" | "vscodium" => ("VSCodium", Some(OpenStyle::VsCode), None, false),
-        "zed" => ("Zed", Some(OpenStyle::PathColon), None, false),
-        "sublime_text" | "subl" => ("Sublime Text", Some(OpenStyle::PathColon), None, false),
-        "notepad++" => ("Notepad++", None, None, false),
-        "gvim" => ("GVim", None, None, false),
-        "nvim" => ("Neovim", None, None, true),
-        "vim" | "vi" => ("Vim", None, None, true),
-        "hx" => ("Helix", None, None, true),
-        "webstorm" | "webstorm64" => (
-            "WebStorm",
-            Some(OpenStyle::JetBrains),
-            Some("webstorm"),
-            false,
-        ),
-        "idea" | "idea64" => (
-            "IntelliJ IDEA",
-            Some(OpenStyle::JetBrains),
-            Some("idea"),
-            false,
-        ),
-        "pycharm" | "pycharm64" => (
-            "PyCharm",
-            Some(OpenStyle::JetBrains),
-            Some("pycharm"),
-            false,
-        ),
-        "goland" | "goland64" => ("GoLand", Some(OpenStyle::JetBrains), Some("goland"), false),
-        "rider" | "rider64" => ("Rider", Some(OpenStyle::JetBrains), Some("rider"), false),
-        "clion" | "clion64" => ("CLion", Some(OpenStyle::JetBrains), Some("clion"), false),
-        "phpstorm" | "phpstorm64" => (
-            "PhpStorm",
-            Some(OpenStyle::JetBrains),
-            Some("phpstorm"),
-            false,
-        ),
-        "rubymine" | "rubymine64" => (
-            "RubyMine",
-            Some(OpenStyle::JetBrains),
-            Some("rubymine"),
-            false,
-        ),
-        "rustrover" | "rustrover64" => (
-            "RustRover",
-            Some(OpenStyle::JetBrains),
-            Some("rustrover"),
-            false,
-        ),
+    // (label, jump-to-line style, runs-in-a-terminal)
+    let (label, style, terminal) = match basename {
+        "code" => ("VS Code", Some(OpenStyle::VsCode), false),
+        "code - insiders" => ("VS Code Insiders", Some(OpenStyle::VsCode), false),
+        "cursor" => ("Cursor", Some(OpenStyle::VsCode), false),
+        "antigravity" => ("Antigravity", Some(OpenStyle::VsCode), false),
+        "windsurf" => ("Windsurf", Some(OpenStyle::VsCode), false),
+        "codium" | "vscodium" => ("VSCodium", Some(OpenStyle::VsCode), false),
+        "zed" => ("Zed", Some(OpenStyle::PathColon), false),
+        "sublime_text" | "subl" => ("Sublime Text", Some(OpenStyle::PathColon), false),
+        "notepad++" => ("Notepad++", None, false),
+        "gvim" => ("GVim", None, false),
+        "nvim" => ("Neovim", None, true),
+        "vim" | "vi" => ("Vim", None, true),
+        "hx" => ("Helix", None, true),
+        "webstorm" | "webstorm64" => ("WebStorm", Some(OpenStyle::JetBrains), false),
+        "idea" | "idea64" => ("IntelliJ IDEA", Some(OpenStyle::JetBrains), false),
+        "pycharm" | "pycharm64" => ("PyCharm", Some(OpenStyle::JetBrains), false),
+        "goland" | "goland64" => ("GoLand", Some(OpenStyle::JetBrains), false),
+        "rider" | "rider64" => ("Rider", Some(OpenStyle::JetBrains), false),
+        "clion" | "clion64" => ("CLion", Some(OpenStyle::JetBrains), false),
+        "phpstorm" | "phpstorm64" => ("PhpStorm", Some(OpenStyle::JetBrains), false),
+        "rubymine" | "rubymine64" => ("RubyMine", Some(OpenStyle::JetBrains), false),
+        "rustrover" | "rustrover64" => ("RustRover", Some(OpenStyle::JetBrains), false),
         _ => return None,
     };
     Some(Family {
         label,
         style,
-        protocol,
         terminal,
     })
 }
@@ -1478,76 +1422,21 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
         .map_err(|e| format!("failed to open {command}: {e}"))
 }
 
-/// The `JetBrains` protocol tool id for a launcher command, if it is a
-/// `JetBrains` IDE (else `None`, meaning "use the CLI").
-fn protocol_id(command: &str) -> Option<&'static str> {
-    if let Some(i) = REGISTRY.iter().find(|i| i.command == command) {
-        return i.protocol;
-    }
-    family(&exe_basename(command)).and_then(|f| f.protocol)
-}
-
-/// The project's display name — its root folder's basename, which is how the
-/// `JetBrains` protocol identifies an open project.
-fn project_name(project: &str) -> String {
-    project
-        .replace('\\', "/")
-        .trim_end_matches('/')
-        .rsplit('/')
-        .next()
-        .unwrap_or(project)
-        .to_string()
-}
-
-/// `file` expressed relative to `project` (forward slashes), or the absolute
-/// path when it isn't under the project. Matching is case-insensitive on `Windows`.
-fn relative_path(project: &str, file: &str) -> String {
-    let root = project.replace('\\', "/");
-    let root = root.trim_end_matches('/');
-    let path = file.replace('\\', "/");
-    let under = if cfg!(windows) {
-        path.to_lowercase().starts_with(&root.to_lowercase())
-    } else {
-        path.starts_with(root)
-    };
-    if under {
-        path.get(root.len()..)
-            .unwrap_or(&path)
-            .trim_start_matches('/')
-            .to_string()
-    } else {
-        path
-    }
-}
-
-/// Open a file in the IDE so it lands in the window that already has `project`
-/// open, jumping to `line` when given. A `JetBrains` IDE uses its `jetbrains://`
-/// scheme (targets the project by name, unlike the CLI); other editors use the
-/// CLI open (`VS Code` reuses its window with `-r`). `project` is the root dir.
+/// Reveal a file in the given editor, jumping to `line` when given. This routes
+/// through the same launcher as "Open in editor" ([`ide_open`]): every editor
+/// family's launcher (`JetBrains` `--line n file`, VS Code `-r -g file:line`,
+/// Zed/Sublime `file:line`) both **starts a cold IDE** and hands the file to an
+/// already-running one, so a reveal opens the file at the line whether or not
+/// the editor was running. The owning project window is resolved by the launcher
+/// from the file's own path; `_project` rides the IPC contract but isn't needed
+/// here.
 #[tauri::command]
 pub fn ide_open_file(
     command: String,
-    project: String,
+    _project: String,
     file: String,
     line: Option<u32>,
 ) -> Result<(), String> {
-    if let Some(tool) = protocol_id(&command) {
-        let mut path = relative_path(&project, &file);
-        if let Some(number) = line {
-            path.push(':');
-            path.push_str(&number.to_string());
-        }
-        // Keep `/` and `:` literal so the path and its `:line` suffix parse.
-        let url = format!(
-            "jetbrains://{tool}/navigate/reference?project={}&path={}",
-            crate::util::percent_encode(&project_name(&project), b""),
-            crate::util::percent_encode(&path, b"/:")
-        );
-        return crate::os::open_url(url);
-    }
-
-    // VS Code family and the rest: the CLI open handles jump-to-line and reuses
-    // the running window (`-r`), which is a single-project-window model.
     ide_open(command, Some(file), line)
 }
 
@@ -1555,9 +1444,9 @@ pub fn ide_open_file(
 mod tests {
     use super::{
         census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
-        project_declarations, project_name, protocol_id, ranked_editor_ids, relative_path,
-        required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
-        ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
+        project_declarations, ranked_editor_ids, required_project_kinds, source_content,
+        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind,
+        SourceFileEvidence, SourceProfile, REGISTRY,
     };
 
     fn is_general_purpose_editor(id: &str) -> bool {
@@ -1934,10 +1823,9 @@ mod tests {
     }
 
     #[test]
-    fn family_maps_a_jetbrains_editor_to_its_protocol() {
+    fn family_maps_a_jetbrains_editor_to_its_open_style() {
         let webstorm = family("webstorm64").expect("supported");
         assert!(matches!(webstorm.style, Some(OpenStyle::JetBrains)));
-        assert_eq!(webstorm.protocol, Some("webstorm"));
     }
 
     #[test]
@@ -1954,13 +1842,12 @@ mod tests {
     }
 
     #[test]
-    fn new_jetbrains_registry_entries_resolve_style_and_protocol() {
+    fn new_jetbrains_registry_entries_resolve_their_open_style() {
         for command in ["rider", "clion", "phpstorm", "rubymine"] {
             assert!(
                 matches!(open_style(command), Some(OpenStyle::JetBrains)),
                 "{command} should open JetBrains-style"
             );
-            assert_eq!(protocol_id(command), Some(command));
         }
     }
 
@@ -1993,28 +1880,6 @@ mod tests {
             open_style("C:\\Users\\me\\AppData\\Local\\Programs\\cursor\\Cursor.exe"),
             Some(OpenStyle::VsCode)
         ));
-    }
-
-    #[test]
-    fn project_name_is_the_root_basename() {
-        assert_eq!(project_name("C:\\repositories\\avi\\pade"), "pade");
-        assert_eq!(project_name("/home/me/proj/"), "proj");
-    }
-
-    #[test]
-    fn relative_path_strips_the_project_root() {
-        assert_eq!(
-            relative_path("C:\\repos\\pade", "C:\\repos\\pade\\src\\App.svelte"),
-            "src/App.svelte"
-        );
-    }
-
-    #[test]
-    fn relative_path_keeps_an_outside_file_absolute() {
-        assert_eq!(
-            relative_path("C:/repos/pade", "D:/other/file.ts"),
-            "D:/other/file.ts"
-        );
     }
 
     #[test]
