@@ -4,13 +4,14 @@
   import {
     agents as agentsApi,
     feed,
+    ide,
     pty,
     vcs,
     windows,
     workspace
   } from "@/lib/bridge";
-  import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import DesignMenu from "@/lib/DesignMenu.svelte";
+  import { updateDiscordPresence } from "@/lib/discord-presence";
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
@@ -18,7 +19,7 @@
   import Logo from "@/lib/Logo.svelte";
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
-  import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+  import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -45,6 +46,7 @@
     Agent,
     AgentSession,
     Ide,
+    OpenTarget,
     Settings,
     TaskGroup
   } from "@/lib/types";
@@ -275,7 +277,7 @@
       const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
       if (ctx.hasProject) {
         await workspace.open(ctx.cwd); // records it in recent history
-        startAgentFlow(ctx.cwd);
+        startAgentFlow({ path: ctx.cwd });
         await loadBranches();
       } else if (prefersPicker) {
         // Opt-in: show the project picker instead of starting in a temp workspace.
@@ -284,7 +286,7 @@
         // Default: start immediately in a throwaway workspace so there's no
         // blocking picker. The user can switch any time (Switch button).
         const temp = await workspace.temp();
-        startAgentFlow(temp);
+        startAgentFlow({ path: temp });
       }
     } catch {
       // Never strand the user on the splash — fall back to the project picker.
@@ -299,7 +301,7 @@
     const mode = query.get("w");
     if (mode === WindowMode.temp) {
       const temp = await workspace.temp();
-      startAgentFlow(temp);
+      startAgentFlow({ path: temp });
       return true;
     }
 
@@ -356,6 +358,44 @@
     if (currentProject) {
       void feed.start(currentProject);
     }
+  });
+
+  // ── Discord Rich Presence ────────────────────────────────────────────────────
+  // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
+  // state→bridge mapping lives in lib/discord-presence (SoC). Reads settings.prefs
+  // (refreshed on boot and every project open), the same source the other
+  // picker-managed prefs use here, so a toggle in the picker takes effect the moment
+  // a project opens. The two flags are $derived so the effect only re-sends when
+  // presence, the project-name toggle, or the open project actually change — not on
+  // every unrelated settings reassignment (a pin, an editor rule).
+  const discordEnabled = $derived(settings.prefs.discordPresence === true);
+  const discordShowProject = $derived(settings.prefs.discordShowProject !== false);
+  // The open project's language, shown VS-Code-style as a small overlay icon +
+  // status line. Fetched only while presence will actually show it, and refreshed
+  // on a project switch.
+  let discordProjectKind = $state<string | undefined>(undefined);
+  async function loadDiscordKind(project: string): Promise<void> {
+    try {
+      const kinds = await ide.projectKinds([project]);
+      discordProjectKind = kinds[project];
+    } catch {
+      discordProjectKind = undefined;
+    }
+  }
+  $effect(() => {
+    if (discordEnabled && discordShowProject && currentProject) {
+      void loadDiscordKind(currentProject);
+    } else {
+      discordProjectKind = undefined;
+    }
+  });
+  $effect(() => {
+    void updateDiscordPresence({
+      enabled: discordEnabled,
+      showProject: discordShowProject,
+      project: currentProject,
+      kind: discordProjectKind
+    });
   });
 
   // Auto-name a temp workspace once the agent has produced real work
@@ -417,10 +457,7 @@
     showToast("Opened a new window");
   }
 
-  async function openProject(target: {
-    path: string;
-    initialPrompt?: string;
-  }) {
+  async function openProject(target: OpenTarget) {
     // If another window already has this project open, focus it instead of
     // opening a second copy here — the picker window stays put.
     if (await windows.focusProject(target.path)) {
@@ -447,7 +484,11 @@
 
     await workspace.open(target.path);
     settings = await workspace.settings(); // pick up the updated recent history
-    startAgentFlow(target.path, target.initialPrompt);
+    startAgentFlow({
+      path: target.path,
+      initialPrompt: target.initialPrompt,
+      agentId: target.agent
+    });
     await loadBranches();
 
     if (leavesDiscardableTemp) {
@@ -464,11 +505,17 @@
   // lands in the workspace, never on a blocking chooser. The agent picker
   // still appears after a hand-closed or exited last session, where "what
   // next?" is a genuine question. (Reused for every entry path.)
-  function startAgentFlow(path: string, initialPrompt?: string) {
+  function startAgentFlow({ path, initialPrompt, agentId }: {
+    path: string;
+    initialPrompt?: string;
+    agentId?: string;
+  }) {
     currentProject = path;
     // Let other windows' pickers focus this one instead of reopening the project.
     void windows.registerProject(path);
-    const prefId = settings.projectAgents[path] ?? settings.defaultAgent ?? null;
+    // A create-form agent pick wins outright; otherwise honor the per-project
+    // override, then the workspace default.
+    const prefId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent ?? null;
     const preferred = prefId ? agents.find(a => a.id === prefId) : undefined;
     // Detection order is the registry's priority order, so the first real
     // agent is the best installed one; the shell fallback carries otherwise.
@@ -782,30 +829,12 @@
   }
 
   // "Delete directory" from the switcher — a destructive removal of a real
-  // project's folder, so it goes through an explicit confirmation before the
-  // relocator releases the folder (killing any session holding it) and deletes it.
-  let deleteDirTarget = $state<string | null>(null);
-  let deletingDir = $state(false);
-  let deleteDirError = $state("");
-
-  function requestDeleteDirectory(projectPath: string) {
-    deleteDirTarget = projectPath;
-    deleteDirError = "";
-  }
-  async function confirmDeleteDirectory() {
-    if (deleteDirTarget === null) {
-      return;
-    }
-
-    deletingDir = true;
-    try {
-      settings = await relocator.removeDirectory(deleteDirTarget);
-      deleteDirTarget = null;
-    } catch (error) {
-      deleteDirError = typeof error === "string" ? error : "Couldn’t delete that directory.";
-    } finally {
-      deletingDir = false;
-    }
+  // project's folder. The switcher owns the confirmation UI (so it stays open and
+  // animates the row out); here we just release the folder (killing any session
+  // holding it) and delete it, letting the refreshed settings flow back. Rejects
+  // with its message so the switcher can surface it in the still-open prompt.
+  async function deleteDirectory(projectPath: string) {
+    settings = await relocator.removeDirectory(projectPath);
   }
 
   function switchToPicker() {
@@ -1058,7 +1087,7 @@
             label={currentLabel ?? shortDir}
             labels={settings.labels}
             onclearrecent={clearRecentProjects}
-            ondelete={requestDeleteDirectory}
+            ondelete={deleteDirectory}
             onopen={projectPath => openProject({ path: projectPath })}
             onremoverecent={removeRecentProject}
             onreorderpins={reorderPins}
@@ -1299,31 +1328,6 @@
         </button>
       {/if}
 
-      <!-- Confirm the switcher's destructive "Delete directory" before it removes
-           a real project's folder from disk. -->
-      {#if deleteDirTarget}
-        <ConfirmDialog
-          busy={deletingDir}
-          busyLabel="Deleting…"
-          confirmLabel="Delete directory"
-          danger
-          error={deleteDirError}
-          icon="trash"
-          oncancel={() => {
-            deleteDirTarget = null;
-          }}
-          onconfirm={async () => await confirmDeleteDirectory()}
-          title="Delete this project directory?"
-        >
-          <div class="dir-delete-body">
-            <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
-            <p class="target">
-              <span class="target-name">{displayName(deleteDirTarget, settings.labels)}</span>
-              <code>{deleteDirTarget}</code>
-            </p>
-          </div>
-        </ConfirmDialog>
-      {/if}
     </div>
   {:else}
     <!-- Loading phase: a calm branded ground so a booting window is never a
@@ -1781,34 +1785,4 @@
     }
   }
 
-  /* Body of the switcher's "Delete directory" confirmation (chrome is ConfirmDialog's). */
-  .dir-delete-body {
-    p {
-      margin: 0;
-    }
-
-    .target {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-block-start: 14px;
-      padding: 10px 12px;
-      border-radius: var(--radius-medium);
-      background: var(--surface-2);
-    }
-
-    .target-name {
-      color: var(--on-surface);
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    code {
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 11px;
-      overflow-wrap: anywhere;
-    }
-  }
 </style>
