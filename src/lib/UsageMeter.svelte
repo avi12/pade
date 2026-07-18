@@ -264,7 +264,7 @@
                       <span style:inline-size="{limit.pct}%" class="limit-fill"></span>
                     </span>
                     <output class="limit-pct">{formatPercent(limit.pct)}</output>
-                    <span class="limit-reset">
+                    <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
                       {#if limit.reset}
                         <Icon name="clock" />{limit.reset}
                       {/if}

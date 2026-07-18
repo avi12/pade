@@ -21,6 +21,9 @@ export type Limit = {
   label: string;
   sub: string;
   reset: string;
+  /** The same reset moment as an absolute local timestamp ("Thu, Jul 24, 2:15 PM"),
+   *  shown on hover over the countdown; empty when the reset time is unknown. */
+  resetAt: string;
   pct: number;
   level: Level;
   /** The window's semantic kind (session / weekly / model / opaque), straight
@@ -70,6 +73,30 @@ function clamp(value: number): number {
 // them identically — otherwise the countdown can drift.
 function parseIso(iso: string): number {
   return new Date(iso.replace(/(\.\d{3})\d+/, "$1")).getTime();
+}
+
+// Absolute reset time for the hover tooltip — weekday + date + time so a window
+// days out reads unambiguously. Local + locale-aware, like the number formatters.
+const RESET_TIMESTAMP = new Intl.DateTimeFormat(undefined, {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit"
+});
+
+// ISO reset time → its absolute local timestamp, or "" when unknown/unparseable.
+function resetTimestamp(iso: string | null | undefined): string {
+  if (!iso) {
+    return "";
+  }
+
+  const resetMs = parseIso(iso);
+  if (!Number.isFinite(resetMs)) {
+    return "";
+  }
+
+  return RESET_TIMESTAMP.format(resetMs);
 }
 
 // ISO reset time → a live "in …" countdown (largest two units), or "". Consumers
@@ -183,7 +210,8 @@ function buildClaudeLimits({ account, now }: {
       reset: resetCountdown({
         iso: window.resetsAt,
         now
-      })
+      }),
+      resetAt: resetTimestamp(window.resetsAt)
     });
   }
 
