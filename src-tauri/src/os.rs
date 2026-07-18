@@ -2,25 +2,27 @@
 //! or open a URL in the default browser.
 
 use std::process::Command;
+use tauri::AppHandle;
+use tauri_plugin_opener::OpenerExt;
 
 /// Open a URL in the default browser. Only http(s) schemes are allowed — this is
-/// the one seam that hands a string to the OS shell, so we refuse anything that
-/// isn't a plain web URL (no `file:`, `javascript:`, custom handlers, etc.).
+/// the one seam that hands a string to the OS, so we refuse anything that isn't a
+/// plain web URL (no `file:`, `javascript:`, custom handlers, etc.).
+///
+/// Hands the URL to the platform opener (`ShellExecute` / `open` / `xdg-open`) via
+/// the Tauri opener plugin, which passes it through untouched. Shelling out to
+/// `cmd /C start` instead would let a `&` in the URL — every OAuth sign-in link
+/// has several (`?code=true&client_id=…`) — split it into commands, so the browser
+/// only ever received the URL up to the first `&`.
 #[tauri::command]
-pub fn open_url(url: String) -> Result<(), String> {
+pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     let scheme_ok = url.starts_with("https://") || url.starts_with("http://");
     if !scheme_ok {
         return Err("only http(s) URLs may be opened".into());
     }
-    let result = if cfg!(windows) {
-        // The empty "" is `start`'s title arg, so the URL isn't mistaken for one.
-        Command::new("cmd").args(["/C", "start", "", &url]).spawn()
-    } else if cfg!(target_os = "macos") {
-        Command::new("open").arg(&url).spawn()
-    } else {
-        Command::new("xdg-open").arg(&url).spawn()
-    };
-    result.map(|_| ()).map_err(|e| e.to_string())
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
 }
 
 /// Open `path` in the platform file manager (Explorer / Finder / xdg).
