@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { ide, vcs, windows } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
@@ -7,7 +7,6 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import { languageIcon } from "@/lib/language-icon";
   import Logo from "@/lib/Logo.svelte";
-  import { collapseRow } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
   import type { WindowInfo } from "@/lib/types";
@@ -43,15 +42,18 @@
     onopen: (path: string) => void;
     /** Open the full picker (browse every root, clone, open a folder). */
     onswitch: () => void;
-    /** Pin or unpin a project — persisted by the parent (single settings owner). */
+    /** Pin or unpin a project — persisted by the parent (single settings owner).
+     *  Resolves once settings are updated, so the switcher can wrap it in a view
+     *  transition and morph the row to its new section. */
     ontogglepin: (target: {
       path: string;
       pinned: boolean;
-    }) => void;
-    /** Clear the recent-projects history (pins survive). */
-    onclearrecent: () => void;
-    /** Forget one project from the switcher (recents + pins); folder untouched. */
-    onremoverecent: (path: string) => void;
+    }) => Promise<void>;
+    /** Clear the recent-projects history (pins survive). Resolves when done. */
+    onclearrecent: () => Promise<void>;
+    /** Forget one project from the switcher (recents + pins); folder untouched.
+     *  Resolves when done. */
+    onremoverecent: (path: string) => Promise<void>;
     /** Delete a project's directory from disk — performs the removal and resolves
      *  (or throws its message). The switcher owns the confirmation UI, so it stays
      *  open behind the prompt and animates the row out when this resolves. */
@@ -69,6 +71,10 @@
   // Whether the popover is open — the moment a row first has a real width, so the
   // per-row truncation tooltips (re)measure then rather than while hidden.
   let menuOpen = $state(false);
+  // The rows container, so list mutations animate through a view transition
+  // scoped to *just* this element (never the document — that would snapshot the
+  // live-repainting terminal and ghost it).
+  let switchListElement = $state<HTMLElement | null>(null);
 
   // The "Delete directory" confirmation lives inside this menu (a nested popover)
   // so the switcher stays visible behind it; the parent only performs the removal.
@@ -105,9 +111,6 @@
   function isCurrent(project: string): boolean {
     return normalizePath(project) === normalizePath(path);
   }
-  function isPinned(project: string): boolean {
-    return pinnedSet.has(normalizePath(project));
-  }
   // A project's language logo, or the neutral folder glyph when no kind is known.
   function kindIcon(project: string): IconName {
     const kind = kinds[project];
@@ -116,6 +119,13 @@
   // Stable, valid popover id/anchor per row kebab (sanitised from the path).
   function rowMenuId(project: string): string {
     return `sw-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  }
+  // Stable, unique view-transition-name per row, so the scoped view transition
+  // tracks each row across a list change and morphs it (a moved row glides to its
+  // new slot) instead of cross-fading the whole list. The same project keeps the
+  // same name across sections, so pinning it glides from Recent to Pinned.
+  function rowTransitionName(project: string): string {
+    return `row-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 
   // Fetch the open windows, then kinds + branches for everything the menu shows,
@@ -188,6 +198,32 @@
   }) {
     await windows.create(args);
     hide();
+  }
+
+  // Run a list mutation (pin/unpin/remove/delete/clear — each an async settings
+  // update that reshapes the rows) inside a view transition scoped to *just* the
+  // rows container, so a row morphs — one moved between sections glides to its new
+  // place — instead of snapping. Scoped to this element, never `document`, so it
+  // never snapshots the live-repainting terminal (which would ghost). Reduced
+  // motion, or an engine without the scoped API, runs the mutation directly.
+  async function animateListChange(mutate: () => Promise<void>) {
+    const list = switchListElement as
+      | (HTMLElement & {
+          startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
+        })
+      | null;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !list?.startViewTransition) {
+      await mutate();
+      return;
+    }
+
+    // Resolve once the DOM has updated (so a caller like the delete flow can close
+    // its dialog then) — the transition itself keeps animating after that.
+    const transition = list.startViewTransition(async () => {
+      await mutate();
+      await tick();
+    });
+    await transition.updateCallbackDone;
   }
 
   // Ctrl P from anywhere opens the switcher and focuses its filter, matching the
@@ -315,129 +351,141 @@
       <span class="kbd" aria-hidden="true">Ctrl P</span>
     </label>
 
-    {#snippet projectRow(project: string)}
-      {@const current = isCurrent(project)}
-      {@const pinned = isPinned(project)}
-      {@const menuId = rowMenuId(project)}
-      {@const canReorder = pinned && pinsReorderable}
-      <!-- The transition and the drag id sit on the row itself (the element that
-           holds the content), not a wrapper around {@render} — a wrapper would
-           collapse out empty (its snippet content is torn down first) and the
-           drag engine needs a flat sibling set directly under .switch-list. -->
-      <div class="prow" data-pin-id={pinned && filter.trim() === "" ? project : undefined} out:collapseRow>
-        {#if canReorder}
-          <span
-            class="grip"
-            aria-hidden="true"
-            data-tooltip="Drag to reorder"
-            onpointerdown={e => beginReorder({
-              e,
-              itemSelector: "[data-pin-id]",
-              idAttribute: "data-pin-id",
-              axis: Axis.Vertical,
-              threshold: 4,
-              onCommit: paths => onreorderpins(paths)
-            })}
-          ><Icon name="grip" size={14} /></span>
-        {/if}
+    <!-- The row's kebab + options popover, shared by both sections. -->
+    {#snippet rowMenu(project: string, pinned: boolean, menuId: string)}
+      <button
+        class="prow-kebab"
+        aria-haspopup="menu"
+        aria-label={`Options for ${displayName(project, labels)}`}
+        popovertarget={menuId}
+        type="button"
+      ><Icon name="more" size={16} /></button>
+      <div id={menuId} class="row-menu popover-menu" popover role="menu">
         <button
-          class="prow-main"
-          class:current
-          aria-checked={current}
-          onclick={e => pick(project, e)}
-          role="menuitemradio"
-          type="button"
-        >
-          <span class="kind-logo" aria-hidden="true" data-brand={kinds[project] ? kindIcon(project) : undefined}>
-            <Icon name={kindIcon(project)} size={16} />
-          </span>
-          <span class="prow-body">
-            <span class="prow-name-row">
-              <span class="prow-name">{displayName(project, labels)}</span>
-              {#if isTemporaryWorkspace(project)}
-                <span class="temp">temp</span>
-              {/if}
-            </span>
-            <span class="prow-meta">
-              {#if branches[project]}
-                <span class="branch">
-                  <span class="branch-icon" aria-hidden="true"><Icon name="branch" size={11} /></span>
-                  {branches[project]}
-                </span>
-              {/if}
-              <span class="prow-path" {@attach truncationTooltip({ text: project, visible: menuOpen })}>{project}</span>
-            </span>
-          </span>
-          {#if current}
-            <span class="prow-check" aria-hidden="true"><Icon name="check" size={15} /></span>
-          {/if}
+          class="mi" onclick={() => animateListChange(() => ontogglepin({
+            path: project,
+            pinned: !pinned
+          }))}
+          popovertarget={menuId}
+          popovertargetaction="hide"
+          role="menuitem"
+          type="button">
+          <span class="mi-ico"><Icon name="star" size={15} /></span>
+          <span>{#if pinned}
+            Unpin from top{:else}Pin to top{/if}</span>
         </button>
         <button
-          style:anchor-name={`--${menuId}`}
-          class="prow-kebab"
-          aria-haspopup="menu"
-          aria-label={`Options for ${displayName(project, labels)}`}
+          class="mi" onclick={() => animateListChange(() => onremoverecent(project))}
           popovertarget={menuId}
-          type="button"
-        ><Icon name="more" size={16} /></button>
-        <div id={menuId} style:position-anchor={`--${menuId}`} class="row-menu popover-menu" popover role="menu">
-          <button
-            class="mi" onclick={() => {
-              ontogglepin({
-                path: project,
-                pinned: !pinned
-              });
-              hide();
-            }} role="menuitem" type="button">
-            <span class="mi-ico"><Icon name="star" size={15} /></span>
-            <span>{#if pinned}
-              Unpin from top{:else}Pin to top{/if}</span>
-          </button>
-          <button
-            class="mi" onclick={() => {
-              onremoverecent(project);
-              hide();
-            }} role="menuitem" type="button">
-            <span class="mi-ico"><Icon name="close" size={15} /></span>
-            <span>Remove from list</span>
-          </button>
-          <div class="sep"></div>
-          <button
-            class="mi critical" onclick={() => {
-              deleteError = "";
-              deletePending = project;
-            }}
-            popovertarget={menuId}
-            popovertargetaction="hide"
-            role="menuitem"
-            type="button">
-            <span class="mi-ico"><Icon name="trash" size={15} /></span>
-            <span class="mi-body">
-              <span>Delete directory</span>
-              <span class="mi-sub">{project}</span>
-            </span>
-          </button>
-        </div>
+          popovertargetaction="hide"
+          role="menuitem"
+          type="button">
+          <span class="mi-ico"><Icon name="close" size={15} /></span>
+          <span>Remove from list</span>
+        </button>
+        <div class="sep"></div>
+        <button
+          class="mi critical" onclick={() => {
+            deleteError = "";
+            deletePending = project;
+          }}
+          popovertarget={menuId}
+          popovertargetaction="hide"
+          role="menuitem"
+          type="button">
+          <span class="mi-ico"><Icon name="trash" size={15} /></span>
+          <span class="mi-body">
+            <span>Delete directory</span>
+            <span class="mi-sub">{project}</span>
+          </span>
+        </button>
       </div>
     {/snippet}
 
-    <div class="switch-list">
+    <!-- The row's main button (logo, name, branch, path), shared by both sections. -->
+    {#snippet rowMain(project: string)}
+      {@const current = isCurrent(project)}
+      <button
+        class="prow-main"
+        class:current
+        aria-checked={current}
+        onclick={e => pick(project, e)}
+        role="menuitemradio"
+        type="button"
+      >
+        <span class="kind-logo" aria-hidden="true" data-brand={kinds[project] ? kindIcon(project) : undefined}>
+          <Icon name={kindIcon(project)} size={16} />
+        </span>
+        <span class="prow-body">
+          <span class="prow-name-row">
+            <span class="prow-name">{displayName(project, labels)}</span>
+            {#if isTemporaryWorkspace(project)}
+              <span class="temp">temp</span>
+            {/if}
+          </span>
+          <span class="prow-meta">
+            {#if branches[project]}
+              <span class="branch">
+                <span class="branch-icon" aria-hidden="true"><Icon name="branch" size={11} /></span>
+                {branches[project]}
+              </span>
+            {/if}
+            <span class="prow-path" {@attach truncationTooltip({ text: project, visible: menuOpen })}>{project}</span>
+          </span>
+        </span>
+        {#if current}
+          <span class="prow-check" aria-hidden="true"><Icon name="check" size={15} /></span>
+        {/if}
+      </button>
+    {/snippet}
+
+    <div class="switch-list" bind:this={switchListElement}>
       {#if pinnedShown.length > 0}
         <div class="list-head"><span>Pinned</span></div>
         {#each pinnedShown as project (project)}
-          {@render projectRow(project)}
+          {@const menuId = rowMenuId(project)}
+          <!-- view-transition-name lets the scoped view transition morph THIS row (a
+               moved/removed row glides) instead of cross-fading the whole list;
+               data-pin-id keeps a flat drag-sibling set for the reorder engine. -->
+          <div
+            class="prow"
+            data-pin-id={filter.trim() === "" ? project : undefined}
+            style:view-transition-name={rowTransitionName(project)}
+          >
+            {#if pinsReorderable}
+              <span
+                class="grip"
+                aria-hidden="true"
+                data-tooltip="Drag to reorder"
+                onpointerdown={e => beginReorder({
+                  e,
+                  itemSelector: "[data-pin-id]",
+                  idAttribute: "data-pin-id",
+                  axis: Axis.Vertical,
+                  threshold: 4,
+                  onCommit: paths => onreorderpins(paths)
+                })}
+              ><Icon name="grip" size={14} /></span>
+            {/if}
+            {@render rowMain(project)}
+            {@render rowMenu(project, true, menuId)}
+          </div>
         {/each}
       {/if}
 
       {#if recentShown.length > 0}
         <div class="list-head">
           <span>Recent</span>
-          <button class="clear" onclick={() => onclearrecent()} type="button">
+          <button class="clear" onclick={() => animateListChange(() => onclearrecent())} type="button">
             <Icon name="trash" size={12} /> Clear
           </button>
         </div>
         {#each recentShown as project (project)}
-          {@render projectRow(project)}
+          {@const menuId = rowMenuId(project)}
+          <div class="prow" style:view-transition-name={rowTransitionName(project)}>
+            {@render rowMain(project)}
+            {@render rowMenu(project, false, menuId)}
+          </div>
         {/each}
       {/if}
 
@@ -498,7 +546,7 @@
           deleteBusy = true;
           deleteError = "";
           try {
-            await ondelete(target);
+            await animateListChange(() => ondelete(target));
             deletePending = null;
           } catch (error) {
             deleteError = typeof error === "string" ? error : "Couldn’t delete that directory.";
