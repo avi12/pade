@@ -93,6 +93,14 @@
     return () => observer.disconnect();
   });
 
+  // The newly-open slot flips `visibility: hidden → visible` this tick, but that
+  // change only takes hold once the browser has laid it out — focusing a
+  // still-hidden element is a silent no-op. Waiting two frames lets the
+  // visibility actually land before we place the caret.
+  function afterVisibilityApplies(): Promise<void> {
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  }
+
   // ── New — create a project (or fall through to a temp workspace) ──────────
   let createName = $state("");
   let createPrompt = $state("");
@@ -348,6 +356,7 @@
             }
 
             await tick();
+            await afterVisibilityApplies();
             card?.querySelector<HTMLElement>(".open .panel input, .open .panel textarea")?.focus();
           }}
           role="tab"
@@ -768,6 +777,19 @@
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-size: 13px;
+    }
+
+    /* While any control inside is focused, the group's border becomes the
+       single focus indicator; the inner text field drops its own outline
+       (theme.css rings every :focus-visible) so the two don't double up. The
+       input lives inside the child PathCombobox, so `:global` reaches it —
+       still bounded by the scoped `.np-loc:focus-within` prefix. */
+    &:focus-within {
+      border-color: var(--primary);
+    }
+
+    &:focus-within :global(input) {
+      outline: none;
     }
 
     /* An OS drag hovering the field — signal it will accept the drop. */
