@@ -218,6 +218,7 @@
 
     paneIds = [...base.slice(0, insertAt), drop.id, ...base.slice(insertAt)];
     activeId = drop.id;
+    void animatePaneIn(drop.id);
   }
 
   // A tab-strip drag committed a new order for the visible pills. They are a
@@ -507,21 +508,64 @@
     sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
     paneIds = opts.split ? [...paneIds, session.id] : [session.id];
+
+    if (opts.split) {
+      void animatePaneIn(session.id);
+    }
+
     pendingPrompt = undefined;
     phase = Phase.ready;
     return session.id;
   }
 
   // A tab click shows that session as the sole pane (classic single view).
+  // Collapsing a split is deliberately instant (as the design is): a View
+  // Transition here would scale the surviving pane's snapshot as it grows to
+  // fill, ghosting the old half-width terminal text over the reflowed full-width
+  // grid — the platform morph can't track a terminal that repaints on resize.
   function selectSession(id: string) {
     activeId = id;
     paneIds = [id];
   }
 
-  // Show an already-running session alongside the current pane(s).
+  // A split pane's header was dragged onto the tab strip: pop that pane out of
+  // the split into its own tab — the split collapses to it and it shows
+  // fullscreen as the active tab (the mirror of dragging a tab down into the
+  // panes to split it). Distinct from the pane's × button below, which only
+  // drops the pane from the split and keeps a remaining pane active.
+  function popPaneToTab(id: string) {
+    if (paneIds.length <= 1) {
+      return;
+    }
+
+    selectSession(id);
+  }
+
+  // Spring just the added pane in from its trailing edge (pane-enter). Fired on
+  // the one slot that joined a split — never on a plain tab open / close / switch,
+  // which stay instant — so it can't run on every show the way a CSS rule on
+  // `.shown` would (that wiped the terminal in on any tab change). Clears the
+  // inline animation once it settles so a later show/hide of the same slot can't
+  // replay it. Mirrors the design's imperative `animatePaneIn`.
+  async function animatePaneIn(id: string) {
+    await tick();
+    const slot = panesElement?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
+    if (!slot) {
+      return;
+    }
+
+    slot.style.animation = "none";
+    void slot.offsetWidth; // reflow so re-adding the same pane restarts the run
+    slot.style.animation = "pane-enter 340ms var(--spring)";
+    slot.addEventListener("animationend", () => (slot.style.animation = ""), { once: true });
+  }
+
+  // Show an already-running session alongside the current pane(s) — a split-add,
+  // so the newcomer springs in (animatePaneIn).
   function addPane(id: string) {
     if (!paneIds.includes(id)) {
       paneIds = [...paneIds, id];
+      void animatePaneIn(id);
     }
 
     activeId = id;
@@ -1099,6 +1143,7 @@
                 active={s.id === activeId && paneIds.includes(s.id)}
                 ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
                 onexit={handleSessionExit}
+                onpopout={() => popPaneToTab(s.id)}
                 onremove={() => removePane(s.id)}
                 onreorder={ids => (paneIds = ids)}
                 removable={canRemovePane && paneIds.includes(s.id)}
@@ -1510,9 +1555,12 @@
     min-inline-size: 0;
     border-inline-end: 1px solid var(--outline);
 
+    /* A pane appearing is deliberately instant — opening, closing, or switching a
+       tab must not animate the terminal (it would read as a needless wipe). Only a
+       genuine split-ADD springs its newcomer in, fired imperatively on that one
+       slot via animatePaneIn (pane-enter), never here on every `.shown`. */
     &.shown {
       display: flex;
-      animation: panel-swap 260ms var(--ease);
     }
   }
 

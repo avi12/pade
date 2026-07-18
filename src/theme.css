@@ -607,6 +607,31 @@ textarea {
   }
 }
 
+/* A pane springing into the split: it slides in from its trailing edge and
+   reveals left-to-right (clip-path) with a soft overshoot, so an added pane
+   reads as arriving rather than snapping into the flex row. Fired imperatively
+   on the added slot only (App.animatePaneIn) — a plain tab switch stays
+   instant. */
+@keyframes pane-enter {
+  0% {
+    clip-path: inset(0 0 0 40%);
+    opacity: 0%;
+    scale: 0.97;
+    translate: 14px 0;
+  }
+
+  60% {
+    opacity: 100%;
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 100%;
+    scale: 1;
+    translate: 0 0;
+  }
+}
+
 /* Terminal / runner output lines fade up as they stream in. */
 @keyframes line-in {
   from {

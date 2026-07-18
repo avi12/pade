@@ -23,15 +23,19 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session, active = false, removable = false, onremove, onreorder, onexit, ondraghint }: {
+  const { session, active = false, removable = false, onremove, onpopout, onreorder, onexit, ondraghint }: {
     session: AgentSession;
     /** The session the keyboard belongs to — the one tab (or split pane) in front. */
     active?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
-    /** Remove this pane from the split — the trailing × button, and the drop when
-        the header is dragged up onto the tab strip (both pop it back to a tab). */
+    /** Remove this pane from the split — the trailing × button. The other pane(s)
+        stay shown; the removed session lives on as a background tab. */
     onremove?: () => void;
+    /** Pop this pane out of the split into its own tab — its header was dragged up
+        onto the tab strip. Collapses the split to this session (shown fullscreen,
+        active); the mirror of dragging a tab down onto the panes to split it. */
+    onpopout?: () => void;
     /** A drag of this pane's header reordered the split — commit the new order. */
     onreorder?: (orderedIds: string[]) => void;
     /** Live pane-drag state, so App can light the tab strip's "drop → new tab"
@@ -65,7 +69,7 @@
       onCommit: ids => onreorder?.(ids),
       onHint: hint => ondraghint?.(hint),
       outsideSelector: "[data-tab-strip]",
-      onDropOutside: () => onremove?.()
+      onDropOutside: () => onpopout?.()
     });
   }
 
