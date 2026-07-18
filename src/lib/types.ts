@@ -308,6 +308,23 @@ export const PathProbe = z.object({
 });
 export type PathProbe = z.infer<typeof PathProbe>;
 
+/** The nothing-typed-yet probe: no disk knowledge, no completions. The shared
+ *  reset every path field starts from, so an empty box never reads as a folder. */
+export const emptyPathProbe: PathProbe = {
+  isDir: false,
+  isFile: false,
+  parentExists: false,
+  suggestions: []
+};
+
+/** A probe tagged with the exact text it describes — the field only trusts the
+ *  disk flags once `path` matches the current (trimmed) input, since the probe is
+ *  async + debounced. The shape `PathCombobox` binds back to its host. */
+export type TaggedPathProbe = {
+  path: string;
+  result: PathProbe;
+};
+
 /** PTY stream event payloads. `seq` is the chunk's position in the session's
  *  stream, which is what lets a terminal attaching mid-flight tell the chunks it
  *  caught live apart from the ones already inside the history it replayed. */

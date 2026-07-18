@@ -3,7 +3,8 @@
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { rovingTablist } from "@/lib/roving-tabs";
-  import type { DragPosition } from "@/lib/types";
+  import { emptyPathProbe } from "@/lib/types";
+  import type { DragPosition, TaggedPathProbe } from "@/lib/types";
   import {
     CloneUrl,
     FirstPrompt,
@@ -16,6 +17,7 @@
     ProjectName,
     repoFolderName
   } from "@/lib/validate";
+  import PathCombobox from "@/panels/picker/PathCombobox.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount, tick } from "svelte";
@@ -137,39 +139,17 @@
   }
   // The latest probe, tagged with the path it described — only a settled probe
   // (disk knowledge about the *current* text) gates the button or complains.
-  let localProbe = $state<{
-    path: string;
-    isDir: boolean;
-  }>({
+  // Filled by the PathCombobox, which owns the debounced probe + autocomplete.
+  let localProbe = $state<TaggedPathProbe>({
     path: "",
-    isDir: false
+    result: emptyPathProbe
   });
   const trimmedLocal = $derived(localPath.trim());
   const localSettled = $derived(trimmedLocal.length > 0 && localProbe.path === trimmedLocal);
-  const localIsDir = $derived(localSettled && localProbe.isDir);
+  const localIsDir = $derived(localSettled && localProbe.result.isDir);
   const localError = $derived(
-    localSettled && !localProbe.isDir ? "That folder doesn’t exist." : null
+    localSettled && !localProbe.result.isDir ? "That folder doesn’t exist." : null
   );
-
-  $effect(() => {
-    const path = trimmedLocal;
-    if (path.length === 0) {
-      localProbe = {
-        path: "",
-        isDir: false
-      };
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      const result = await workspace.probePath(path);
-      localProbe = {
-        path,
-        isDir: result.isDir
-      };
-    }, 120);
-    return () => clearTimeout(timer);
-  });
 
   // ── Clone — git clone a repository ─────────────────────────────────────────
   // `null` until the probe answers, so the panel is born knowing whether git
@@ -510,14 +490,13 @@
             <label class="np-label" for="local-path">Project folder</label>
             <div class="np-loc" class:drop-ready={dropReady}>
               <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-              <input
-                bind:this={localInput}
+              <PathCombobox
                 id="local-path"
-                class="path-input"
-                autocomplete="off"
+                name="local"
                 placeholder="C:\repositories\my-app  ·  or drop a folder here"
-                spellcheck="false"
                 bind:value={localPath}
+                bind:probe={localProbe}
+                bind:inputElement={localInput}
               />
               <button
                 class="browse"
@@ -813,27 +792,6 @@
     color: var(--on-surface);
     font-family: var(--font-monospace);
     font-size: 13px;
-  }
-
-  /* A full-width monospace path/URL input. Bare inside a `.np-loc` group row;
-     `framed` gives the standalone one the field chrome itself. */
-  .path-input {
-    flex: 1;
-    min-inline-size: 0;
-    padding: 6px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font-family: var(--font-monospace);
-    font-size: 13px;
-
-    &.framed {
-      padding: 9px 12px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-medium);
-      background: var(--surface-2);
-    }
   }
 
   .np-prompt {

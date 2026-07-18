@@ -37,10 +37,11 @@ export function revealBlock(node: Element, { duration = 240 }: { duration?: numb
   };
 }
 
-/** Out-transition for a row that was removed from a list: it fades and slides
- *  aside while its height (and the flex gap it was holding open) collapses, so
- *  the rows below glide up to close the space instead of snapping shut. */
-export function collapseRow(node: Element, { duration = 260 }: { duration?: number } = {}) {
+/** Slide+collapse geometry shared by the in- and out-transitions of a flex-list
+ *  row: its block-size and the flex `gap` the row holds glide together with a
+ *  fade and a small sideways slide. Svelte drives `progress` 0→1 on the way in
+ *  and 1→0 on the way out, so one builder serves both directions. */
+function slideRow(node: Element, duration: number) {
   const { height } = node.getBoundingClientRect();
   // The list's own `gap` still reserves space for a row of zero height; a
   // matching negative end-margin retires it in step with the collapse.
@@ -59,4 +60,24 @@ export function collapseRow(node: Element, { duration = 260 }: { duration?: numb
       transform: translateX(${-12 * remaining}px) scale(${1 - (0.03 * remaining)});
     `
   };
+}
+
+/** Out-transition for a row that was removed from a list: it fades and slides
+ *  aside while its height (and the flex gap it was holding open) collapses, so
+ *  the rows below glide up to close the space instead of snapping shut. */
+export function collapseRow(node: Element, { duration = 260 }: { duration?: number } = {}) {
+  return slideRow(node, duration);
+}
+
+/** In-transition mirroring {@link collapseRow} for a row added to a list: it
+ *  fades and slides into place as its height (and the flex gap it takes) opens
+ *  up, so the rows below glide apart to make room instead of snapping open. */
+export function expandRow(node: Element, { duration = 220 }: { duration?: number } = {}) {
+  return slideRow(node, duration);
+}
+
+/** `animate:flip` duration for a reordering list row, silenced under reduced
+ *  motion so survivors jump straight to their new slots. */
+export function flipDuration(milliseconds = 220): number {
+  return motionDuration(milliseconds);
 }

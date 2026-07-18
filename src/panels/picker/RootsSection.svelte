@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow } from "@/lib/motion";
   import { normalizePath } from "@/lib/paths";
-  import { AddRootStatus } from "@/lib/types";
-  import type { AddRootOutcome, Ide, PathProbe, ProjectEntry } from "@/lib/types";
+  import { AddRootStatus, emptyPathProbe } from "@/lib/types";
+  import type { AddRootOutcome, Ide, ProjectEntry, TaggedPathProbe } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import PathCombobox from "@/panels/picker/PathCombobox.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
@@ -30,40 +30,15 @@
     onremove: (path: string) => Promise<void>;
   } = $props();
 
-  const emptyProbe: PathProbe = {
-    isDir: false,
-    isFile: false,
-    parentExists: false,
-    suggestions: []
-  };
-
   let newRoot = $state("");
   // The latest probe result, tagged with the path it was computed for so the
-  // "exists" flags are only trusted once they describe the current text.
-  let probe = $state<{
-    path: string;
-    result: PathProbe;
-  }>({
+  // "exists" flags are only trusted once they describe the current text. Filled
+  // by the PathCombobox (which owns the debounced probe + the autocomplete).
+  let probe = $state<TaggedPathProbe>({
     path: "",
-    result: emptyProbe
+    result: emptyPathProbe
   });
-  let listOpen = $state(false);
-  // The selected suggestion. One option is always selected while the list is
-  // visible — the reconciler effect below enforces it; -1 only while hidden.
-  let activeIndex = $state(-1);
-  // What was last selected, remembered across re-filters so the reconciler can
-  // follow the same folder to its new position (or fall to the nearest one).
-  let lastSelected: {
-    dir: string;
-    index: number;
-  } | null = null;
   let inputEl = $state<HTMLInputElement | null>(null);
-  let listEl = $state<HTMLUListElement | null>(null);
-
-  // The OS path separator — appended when a highlighted suggestion is Tab-accepted
-  // so the user can keep drilling into its sub-folders. The webview has no
-  // `path.sep`, so read the platform the way OnLaunchSection already does.
-  const pathSeparator = navigator.userAgent.includes("Windows") ? "\\" : "/";
 
   const trimmedRoot = $derived(newRoot.trim());
   const hasValue = $derived(trimmedRoot.length > 0);
@@ -83,19 +58,12 @@
   const invalidLocation = $derived(
     probeSettled && !folderExists && !typedPathIsFile && !probe.result.parentExists
   );
-  // Never echo the exact folder already typed back as a suggestion (case- and
-  // trailing-separator-insensitive, so a `…\` variant is still recognised as self).
-  const suggestions = $derived(
-    probe.result.suggestions.filter(dir => normalizePath(dir) !== normalizePath(probe.path))
-  );
 
   const willCreate = $derived(canCreate && !alreadyRoot);
   const addLabel = $derived(willCreate ? "Create & add" : "Add root");
   const addDisabled = $derived(
     !probeSettled || alreadyRoot || typedPathIsFile || invalidLocation
   );
-  const listVisible = $derived(listOpen && suggestions.length > 0);
-  const activeId = $derived(activeIndex >= 0 ? `root-suggestion-${activeIndex}` : undefined);
 
   type StatusTone = "critical" | "warning" | "ok" | "primary" | "neutral";
   const status = $derived.by((): {
@@ -154,89 +122,9 @@
     };
   });
 
-  // Debounced backend probe: what the typed path is on disk (and whether its
-  // parent exists) + directory completions. Empty field clears it immediately.
-  $effect(() => {
-    const path = trimmedRoot;
-    if (path.length === 0) {
-      probe = {
-        path: "",
-        result: emptyProbe
-      };
-      // A fresh path starts a fresh selection — don't carry one across a clear.
-      lastSelected = null;
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      const result = await workspace.probePath(path);
-      probe = {
-        path,
-        result
-      };
-    }, 120);
-    return () => clearTimeout(timer);
-  });
-
-  // Drive the manual popover's top-layer visibility off `listVisible`. A typeahead
-  // opens on input/focus rather than a popovertarget click, so it's shown and
-  // hidden imperatively; the `:popover-open` guard keeps show/hidePopover idempotent.
-  $effect(() => {
-    const list = listEl;
-    if (!list) {
-      return;
-    }
-
-    const isOpen = list.matches(":popover-open");
-    if (listVisible && !isOpen) {
-      list.showPopover();
-    } else if (!listVisible && isOpen) {
-      list.hidePopover();
-    }
-  });
-
-  // Move the selection — shared by the arrow keys and the reconciler, so the
-  // remembered selection always matches what's highlighted.
-  function select(index: number) {
-    activeIndex = index;
-    lastSelected = {
-      dir: suggestions[index],
-      index
-    };
-  }
-
-  // While the list shows, one option is always selected, by one formula:
-  //
-  //   next = survivorIndex ≥ 0 ? survivorIndex : min(previousIndex, lastIndex)
-  //
-  // — a surviving option is followed by value to its new position; a vanished
-  // one falls to the nearest remaining position (its old index, clamped to the
-  // new end — a removed bottom selects the new bottom); no previous selection
-  // means previousIndex 0, the top.
-  $effect(() => {
-    if (!listVisible) {
-      return;
-    }
-
-    const survivorIndex = lastSelected ? suggestions.indexOf(lastSelected.dir) : -1;
-    const previousIndex = lastSelected?.index ?? 0;
-    const lastIndex = suggestions.length - 1;
-    select(survivorIndex >= 0 ? survivorIndex : Math.min(previousIndex, lastIndex));
-  });
-
   /** Focus the add-root field — how the quick-start form's "New root folder…"
    *  menu option lands the user here. Focus itself scrolls the field into view. */
   export function focusAddRoot() {
-    inputEl?.focus();
-  }
-
-  // Adopt a suggested directory — shared by the listbox rows and the Enter key,
-  // so it stays a named function.
-  function pick(dir: string) {
-    newRoot = dir;
-    listOpen = false;
-    activeIndex = -1;
-    lastSelected = null;
     inputEl?.focus();
   }
 
@@ -250,7 +138,6 @@
     const outcome = await onadd(path, { create });
     if (outcome.status === AddRootStatus.enum.added) {
       newRoot = "";
-      listOpen = false;
     }
   }
 </script>
@@ -272,82 +159,17 @@
         await add(path, { create: canCreate });
       }}>
       <div class="combo">
-        <input
-          bind:this={inputEl}
-          aria-activedescendant={activeId}
-          aria-autocomplete="list"
-          aria-controls="root-suggestions"
-          aria-expanded={listVisible}
-          autocomplete="off"
-          onblur={() => (listOpen = false)}
-          onfocus={() => (listOpen = true)}
-          oninput={() => (listOpen = true)}
-          onkeydown={e => {
-            if (!listVisible) {
-              return;
-            }
-
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              select((activeIndex + 1) % suggestions.length);
-            } else if (e.key === "ArrowUp") {
-              e.preventDefault();
-              select(activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1);
-            } else if (e.key === "Enter" && activeIndex >= 0) {
-              e.preventDefault();
-              pick(suggestions[activeIndex]);
-            } else if (e.key === "Tab" && activeIndex >= 0) {
-              // Accept the highlighted folder and append a separator instead of
-              // moving focus, then keep the list open so the debounced probe
-              // immediately starts completing that folder's sub-folders — where
-              // the selection starts fresh at the top.
-              e.preventDefault();
-              newRoot = suggestions[activeIndex] + pathSeparator;
-              lastSelected = null;
-              listOpen = true;
-            } else if (e.key === "Escape") {
-              listOpen = false;
-              activeIndex = -1;
-              lastSelected = null;
-            }
-          }}
+        <!-- Typed path + directory autocomplete (shared PathCombobox); `framed`
+             gives the standalone field its own chrome. Its bound `probe` drives
+             the live status banner and the add gate below. -->
+        <PathCombobox
+          name="root"
+          inputClass="framed"
           placeholder="C:\repositories  ·  paste or start typing a folder path"
-          role="combobox"
-          spellcheck="false"
-          type="text"
           bind:value={newRoot}
+          bind:probe
+          bind:inputElement={inputEl}
         />
-        <!-- Autocomplete listbox as a top-layer popover, anchored to the field
-             with CSS anchor positioning: the top layer escapes the picker's own
-             scroll clip, and flip-block flips it above the field near the viewport
-             bottom, so it can never clip through the edge. Shown/hidden via
-             showPopover/hidePopover from the `listVisible` effect (a typeahead
-             opens on typing, not on a popovertarget click). -->
-        <ul
-          bind:this={listEl}
-          id="root-suggestions"
-          class="suggestions"
-          popover="manual"
-          role="listbox"
-        >
-          {#each suggestions as dir, index (dir)}
-            <li>
-              <button
-                id={`root-suggestion-${index}`}
-                class="suggestion"
-                class:active={index === activeIndex}
-                aria-selected={index === activeIndex}
-                onclick={() => pick(dir)}
-                onmousedown={e => e.preventDefault()}
-                role="option"
-                type="button"
-              >
-                <Icon name="folder" size={15} />
-                <span class="sug-path">{dir}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
       </div>
       <!-- Native folder picker (Tauri dialog) — nicer than pasting a path. It
            always returns an existing directory, so add it straight away. -->
@@ -421,73 +243,11 @@
     gap: 8px;
   }
 
-  /* The typed-path field. Its input is the anchor the autocomplete popover binds
-     to, so the two stay aligned wherever the field lands. */
+  /* The typed-path field — holds the shared PathCombobox, which anchors its own
+     autocomplete popover to itself, so the two stay aligned wherever it lands. */
   .combo {
     flex: 1;
     min-inline-size: 200px;
-
-    input {
-      inline-size: 100%;
-      font-family: var(--font-monospace);
-      font-size: 13px;
-      anchor-name: --root-combo;
-    }
-  }
-
-  /* Directory autocomplete — a card of child folders shown as a top-layer popover
-     anchored to the field. The top layer lifts it out of the picker's own scroll
-     container (so it never clips), `anchor-size(width)` matches the field's width,
-     and `flip-block` flips it above the field near the viewport bottom. The reveal
-     transition and `margin: 0` come from the shared `[popover]` base. */
-  .suggestions {
-    position: absolute;
-    inset: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow-y: auto;
-    max-block-size: 280px;
-    inline-size: anchor-size(width);
-    margin-block: 6px 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
-    position-anchor: --root-combo;
-    position-area: bottom span-right;
-    position-try-fallbacks: flip-block;
-  }
-
-  .suggestion {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    inline-size: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font-family: var(--font-monospace);
-    font-weight: 500;
-    font-size: 12px;
-    text-align: start;
-
-    &:hover,
-    &.active {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-      filter: none;
-    }
-
-    .sug-path {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
   }
 
   /* Live status banner — a tonal M3 surface whose colour states what will happen:

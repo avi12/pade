@@ -175,6 +175,29 @@
   font-size: 14px;
 }
 
+/* A full-width monospace path / URL input. Bare (borderless, transparent) inside
+   a `.np-loc` group row or a `PathCombobox`; `framed` gives the standalone one
+   its own field chrome. Shared by the local-folder, add-root, and clone-URL
+   fields — one home for the path-field look. */
+.picker .path-input {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 6px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--on-surface);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+
+  &.framed {
+    padding: 9px 12px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-2);
+  }
+}
+
 .picker button {
   padding: 10px 18px;
   border: none;
