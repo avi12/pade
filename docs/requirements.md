@@ -35,6 +35,24 @@ writes.
 - R1.2.6 ✅ Every diff surface (feed card, Git panel, commit modal) prints each
   code line **in full**: long lines wrap (`DiffView.svelte`), never clip or hide
   behind a horizontal scroll; the diff stays hunks + context, never the whole file.
+- R1.2.7 ✅ **Exclude what the project ignores.** Beyond the always-on build/VCS
+  noise list, the watcher skips ignored paths via an ignore policy fixed per
+  `watch_start`: in a git work tree it defers to git itself (`git check-ignore` —
+  nested `.gitignore`, `.git/info/exclude`, global excludes, negations), and with
+  no git it falls back to **technology-common ignore directories inferred from the
+  root manifests** (`package.json`→`node_modules`…, `Cargo.toml`→`target`, Python /
+  Go / JVM / Ruby / PHP / .NET, …). The cheap baseline still pre-filters, so a giant
+  dir never shells git; git results are memoized per path and reset when a
+  `.gitignore` changes.
+- R1.2.8 ✅ **Language logos on cards.** Each change card leads with the file's
+  **brand logo** (a local `.svg` in `src/lib/icons`, rendered via `Icon.svelte`)
+  instead of a text chip — multi-colour marks (TS/JS/Python…) keep their brand
+  fills, single-colour marks and format glyphs take the card's language tone. An
+  unrecognised type falls back to the text badge, so every row stays tagged.
+- R1.2.9 ✅ **The feed survives panel switches.** Events accumulate in a persistent
+  store (`lib/stores/feed`) that owns the single live subscription, so switching the
+  side panel away from the feed and back no longer empties it (the panel unmounts on
+  every switch; the backend keeps no replay). Cleared on a workspace switch.
 
 ### 1.3 Highlight → Agent bridge (✅)
 - R1.3.1 Selecting text in a side panel offers "Send to agent".
@@ -202,6 +220,15 @@ writes.
   (`runner.rs`, `std::process`) that stream their output live into a bottom dock
   (not a throwaway tab), with stop and **pipe-output-into-an-agent** (via the PTY).
   Auto-synced with the files; monorepo-aware (multiple manifests).
+- R1.10.5 ✅ **Discord Rich Presence** — report PADE on the user's Discord profile
+  as **"Playing PADE"** (`discord.rs`, pure-`std` IPC over Discord's local socket —
+  no crate), with an **opt-in toggle** and an **option to show the open project's
+  name** (both in the picker's settings). Best-effort: with Discord closed the
+  backend fails quietly and the UI never sees it. The connection is reused and the
+  run's start timestamp held steady so the profile's elapsed timer doesn't reset on
+  a project switch. Displaying requires a registered Discord `APPLICATION_ID` (a
+  documented constant) and, for the icon, a `pade` art asset. 🔭 per-agent detail
+  line, idle/away states.
 
 ## 2. Non-functional requirements
 
