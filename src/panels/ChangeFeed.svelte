@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { feed, ide, vcs } from "@/lib/bridge";
-  import { firstChangedLine, parseDiff } from "@/lib/diff";
+  import { feed, ide } from "@/lib/bridge";
+  import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import DiffView from "@/lib/DiffView.svelte";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { revealBlock } from "@/lib/motion";
-  import { baseName } from "@/lib/paths";
+  import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // The open project's root dir — lets an editor open a change in the window
@@ -22,6 +22,12 @@
   let events = $state<ChangeEvent[]>([]);
   const CAP = 300;
   let unlisten: UnlistenFn | undefined;
+
+  // Editor/tool scratch files that churn during an atomic save (write to a temp
+  // name, then rename over the target) — noise, not real changes. Match the
+  // shapes the feed sees: a `.tmp.` infix, a `_tmp_` scratch name, a vim swap, a
+  // trailing `~` backup, or a long numeric atomic-save suffix.
+  const TEMP_FILE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
 
   // Detected editors — the first is used to open a file from the diff title bar.
   let ides = $state<Ide[]>([]);
@@ -36,11 +42,31 @@
   let expandedId = $state<string | null>(null);
   // Seed the viewer from the saved preference; the two enums share values.
   let diffMode = $state<DiffMode>(effective.diffStyle);
+
+  // Swap the diff layout through a View Transition so unified↔split cross-fades in
+  // place rather than snapping. Falls back to a plain swap when the API is absent
+  // or the user prefers reduced motion. `tick()` lets Svelte apply the new layout
+  // inside the transition callback so the API captures the correct "after" state.
+  function setDiffMode(mode: DiffMode) {
+    if (mode === diffMode) {
+      return;
+    }
+
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !document.startViewTransition) {
+      diffMode = mode;
+      return;
+    }
+
+    document.startViewTransition(async () => {
+      diffMode = mode;
+      await tick();
+    });
+  }
   // Cache raw parsed lines per event id so re-opening a card never refetches.
   // Keyed by id (not path) so repeated edits to the same file — distinct events
   // sharing a path — each render their own diff rather than the stale first one.
   const diffCache = new SvelteMap<string, DiffLine[]>();
-  let loadingId = $state<string | null>(null);
   // Ids whose diff fetch failed, so a re-opened previously-failed card shows
   // "Couldn't load" rather than the empty-cache "No preview" message.
   const failedIds = new SvelteSet<string>();
@@ -54,6 +80,11 @@
       now = Date.now();
     }, 1000);
     unlisten = await feed.onChange(event => {
+      const isScratchFile = TEMP_FILE.test(baseName(event.path));
+      if (isScratchFile) {
+        return;
+      }
+
       events = [event, ...events].slice(0, CAP);
     });
     try {
@@ -84,7 +115,6 @@
 
   const expandedEvent = $derived(events.find(item => item.id === expandedId) ?? null);
   const cachedLines = $derived(expandedEvent ? diffCache.get(expandedEvent.id) : undefined);
-  const isLoading = $derived(!!expandedEvent && loadingId === expandedEvent.id);
   const isErrored = $derived(!!expandedEvent && failedIds.has(expandedEvent.id));
   const unifiedLines = $derived(cachedLines ?? []);
   const hasPreview = $derived(unifiedLines.length > 0);
@@ -149,11 +179,6 @@
     }
   }
 
-  function dir(path: string) {
-    const parts = path.split(/[\\/]/);
-    parts.pop();
-    return parts.join("/");
-  }
   function ago({ stamp, now }: {
     stamp: number;
     now: number;
@@ -179,7 +204,7 @@
     </p>
   {/if}
 
-  <ul class="cards">
+  <ul class="cards scroll-fade">
     {#each events as ev (ev.id)}
       {@const isOpen = expandedId === ev.id}
       <li class="card {ev.kind}" class:open={isOpen}>
@@ -194,23 +219,31 @@
               return;
             }
 
+            // Load the diff BEFORE expanding so the reveal measures the card's
+            // full height and glides straight to it. Expanding first would animate
+            // to the pre-diff height, then jump when the async diff lands.
+            if (!diffCache.has(ev.id)) {
+              try {
+                // Git-free preview: the backend hands over the session baseline and
+                // the current content; the shared parse+render path draws the diff.
+                const preview = await feed.diff({ path: ev.path });
+                const lines = preview
+                  ? parseDiff(
+                    unifiedDiff({
+                      before: preview.before,
+                      after: preview.after
+                    })
+                  )
+                  : [];
+                diffCache.set(ev.id, lines);
+                failedIds.delete(ev.id);
+              } catch {
+                failedIds.add(ev.id);
+                diffCache.set(ev.id, []);
+              }
+            }
+
             expandedId = ev.id;
-
-            if (diffCache.has(ev.id)) {
-              return;
-            }
-
-            loadingId = ev.id;
-            try {
-              const raw = await vcs.diff({ path: ev.path });
-              diffCache.set(ev.id, parseDiff(raw));
-              failedIds.delete(ev.id);
-            } catch {
-              failedIds.add(ev.id);
-              diffCache.set(ev.id, []);
-            } finally {
-              loadingId = null;
-            }
           }}
         >
           <span class="row">
@@ -223,7 +256,7 @@
           </span>
           <span class="summary">{ev.summary}</span>
           <span class="meta">
-            <span class="path">{dir(ev.path)}</span>
+            <span class="path">{parentDir(ev.path) ?? ev.path}</span>
             <span class="stat">
               {#if ev.added}
                 <span class="add">+{formatCount(ev.added)}</span>
@@ -251,18 +284,20 @@
                 <span class="fpath">{ev.path}</span>
               </button>
               <span class="spacer"></span>
-              <div class="seg" aria-label="Diff view" role="group">
-                <button
-                  class:on={diffMode === DiffMode.unified}
-                  aria-pressed={diffMode === DiffMode.unified}
-                  onclick={() => (diffMode = DiffMode.unified)}
-                >Unified</button>
-                <button
-                  class:on={diffMode === DiffMode.split}
-                  aria-pressed={diffMode === DiffMode.split}
-                  onclick={() => (diffMode = DiffMode.split)}
-                >Split</button>
-              </div>
+              {#if hasPreview}
+                <div class="seg" aria-label="Diff view" role="group">
+                  <button
+                    class:on={diffMode === DiffMode.unified}
+                    aria-pressed={diffMode === DiffMode.unified}
+                    onclick={() => setDiffMode(DiffMode.unified)}
+                  >Unified</button>
+                  <button
+                    class:on={diffMode === DiffMode.split}
+                    aria-pressed={diffMode === DiffMode.split}
+                    onclick={() => setDiffMode(DiffMode.split)}
+                  >Split</button>
+                </div>
+              {/if}
               <button
                 class="close"
                 aria-label="Close diff"
@@ -273,9 +308,7 @@
               </button>
             </div>
 
-            {#if isLoading}
-              <p class="state">Loading diff…</p>
-            {:else if !hasPreview}
+            {#if !hasPreview}
               {#if isErrored}
                 <p class="state">Couldn't load a preview.</p>
               {:else}
@@ -587,5 +620,9 @@
     padding-block: 8px;
     background: var(--code-background);
     cursor: pointer;
+
+    /* Scopes the unified↔split View Transition to the diff body (only one card
+       is ever open, so the name is unique) — the rest of the app stays still. */
+    view-transition-name: diff-body;
   }
 </style>

@@ -789,3 +789,68 @@ textarea {
   box-shadow: 0 16px 40px var(--shadow-color);
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 }
+
+/* ── Scroll-fade ───────────────────────────────────────────────────────────────
+   A reusable overflow-y scroller that hides its scrollbar and dissolves its top
+   and bottom edges into a soft gradient instead — the only overflow cue once the
+   bar is gone. The fade is scroll-position-driven (`animation-timeline:
+   scroll(self)`): the top edge fades in only once content sits above, the bottom
+   only while content sits below. Off a scroll timeline the mask rests fully
+   opaque (both custom props at their initial `rgb(0 0 0)`), so it degrades to a
+   plain, unfaded scroller. Add the `.scroll-fade` class to any such scroller. */
+@property --scroll-fade-top {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(0 0 0);
+}
+
+@property --scroll-fade-bottom {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(0 0 0);
+}
+
+.scroll-fade {
+  scrollbar-width: none;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      var(--scroll-fade-top) 0%,
+      rgb(0 0 0) 24px,
+      rgb(0 0 0) calc(100% - 24px),
+      var(--scroll-fade-bottom) 100%
+    );
+
+  @supports (animation-timeline: scroll(self)) {
+    animation:
+      scroll-fade-top-unmask linear both,
+      scroll-fade-bottom-unmask linear both;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range: 0 24px, calc(100% - 24px) 100%;
+  }
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@keyframes scroll-fade-top-unmask {
+  from {
+    --scroll-fade-top: rgb(0 0 0);
+  }
+
+  to {
+    --scroll-fade-top: transparent;
+  }
+}
+
+@keyframes scroll-fade-bottom-unmask {
+  from {
+    --scroll-fade-bottom: transparent;
+  }
+
+  to {
+    --scroll-fade-bottom: rgb(0 0 0);
+  }
+}
