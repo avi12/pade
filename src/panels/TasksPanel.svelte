@@ -76,7 +76,7 @@
         <section class="group">
           <h3>
             <span class="kind {group.kind}">{group.kind}</span>
-            <span class="manifest" data-tooltip={group.dir}>{group.manifest}</span>
+            <span class="manifest" data-tooltip={group.dir}>{baseName(group.dir)}</span>
           </h3>
           {#each group.tasks as task (task.name)}
             {@const runningNow = isTaskRunning(
