@@ -13,10 +13,10 @@
   import { dropContext, observeContext } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
+  import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { WebLinksAddon } from "@xterm/addon-web-links";
   import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
@@ -507,10 +507,15 @@
     attached = true;
 
     // Make URLs in the output clickable — the agent's OAuth sign-in links, docs
-    // pointers. The addon's default handler is window.open, which a Tauri
-    // WebView won't turn into a browser tab, so route through the bridge to the
-    // system browser instead.
-    term.loadAddon(new WebLinksAddon((_event, uri) => void os.openUrl(uri)));
+    // pointers. xterm's stock web-links addon only rejoins soft-wrapped rows, so
+    // a URL a fullscreen agent hard-wraps at the edge would open truncated; this
+    // provider stitches those rows too (see terminal-links). The default handler
+    // is window.open, which a Tauri WebView won't turn into a browser tab, so
+    // route the whole URL through the bridge to the system browser instead.
+    registerWrappedLinkProvider({
+      terminal: term,
+      openUrl: uri => void os.openUrl(uri)
+    });
 
     // GPU-accelerated rendering; fall back silently if WebGL is unavailable.
     try {
