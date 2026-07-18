@@ -15,6 +15,7 @@ import {
   DragDropPayload,
   DragOverPayload,
   EditorKind,
+  FeedDiff,
   Ide,
   LaunchContext,
   PathProbe,
@@ -188,6 +189,13 @@ export const pty = {
 /** Change Feed / filesystem watcher channel. */
 export const feed = {
   start: () => run("watch_start"),
+  /** The card's git-free preview for a path: the watch session's first-touch
+   *  baseline vs the file's current content (`null` when nothing was snapshotted
+   *  — binary, too large, or a path with no captured baseline). The frontend
+   *  renders the unified diff, so untracked/ignored files preview like any other. */
+  diff: ({ path }: {
+    path: string;
+  }) => call("feed_diff", FeedDiff.nullable(), { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
     on("feed://change", ChangeEvent, callback)
 };

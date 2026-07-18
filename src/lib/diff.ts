@@ -1,6 +1,8 @@
-// Shared unified-diff parser (DRY — the Change Feed and the Git panel both
+// Shared unified-diff pipeline (DRY — the Change Feed and the Git panel both
 // render diffs). Pure, dependency-free: classify each line of a `git diff` body,
-// and derive the side-by-side rows for a split view.
+// derive the side-by-side rows for a split view, and — for the Change Feed's
+// git-free preview — generate a unified diff between two whole texts so the same
+// parse+render path draws a session-baseline diff exactly like a git one.
 
 /** What a single diff line represents. One authoritative set, no bare strings. */
 export const DiffKind = {
@@ -158,4 +160,294 @@ export function toSplitRows(lines: DiffLine[]): SplitRow[] {
       newLine: line.newLine
     };
   });
+}
+
+// Unified-diff generation ---------------------------------------------------
+// The Change Feed's preview is git-free: the backend hands over two whole texts
+// (a first-touch baseline and the current file) and this turns them into the
+// same unified-diff string `parseDiff` already reads, so the render path is
+// shared with git diffs (DRY) and needs no diff dependency.
+
+/** What happened to one line going from `before` to `after`. One authoritative
+ *  set, no bare strings. */
+const LineOp = {
+  keep: "keep",
+  insert: "insert",
+  delete: "delete"
+} as const;
+type LineOp = (typeof LineOp)[keyof typeof LineOp];
+
+interface LineChange {
+  operation: LineOp;
+  text: string;
+}
+
+/** Lines of surrounding context kept around each change, matching git's default. */
+const DIFF_CONTEXT = 3;
+
+/** Beyond this many DP cells (rows × columns of the *changed* middle region),
+ *  skip the line-level LCS and treat the region as a wholesale replace. Bounds
+ *  the worst case (two large, wholly different files) to a fixed budget; the
+ *  common "edit a few lines in a big file" case never reaches it because the
+ *  shared prefix and suffix are peeled off first. */
+const MAX_DIFF_CELLS = 4_000_000;
+
+/** Split text into lines, treating a file as newline-terminated: a trailing
+ *  newline adds no spurious empty final line, and empty text is zero lines (so an
+ *  empty baseline diffs as a pure addition). Mirrors Rust's `str::lines`, keeping
+ *  the two sides of a baseline diff consistent. */
+function splitLines(text: string): string[] {
+  if (text === "") {
+    return [];
+  }
+
+  const lines = text.split("\n");
+  if (lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  return lines;
+}
+
+/** The line-level edit script for a wholly-different region: every old line
+ *  removed, then every new line inserted. The fallback when the region is too
+ *  large to align, and the base case when one side is empty. */
+function replaceChanges({ before, after }: {
+  before: string[];
+  after: string[];
+}): LineChange[] {
+  return [
+    ...before.map(text => ({
+      operation: LineOp.delete,
+      text
+    })),
+    ...after.map(text => ({
+      operation: LineOp.insert,
+      text
+    }))
+  ];
+}
+
+/** Align two changed regions by longest common subsequence (classic DP +
+ *  backtrack), or fall back to a wholesale replace when the region is too large. */
+function middleChanges({ before, after }: {
+  before: string[];
+  after: string[];
+}): LineChange[] {
+  if (before.length === 0 || after.length === 0) {
+    return replaceChanges({
+      before,
+      after
+    });
+  }
+
+  const isTooLarge = before.length * after.length > MAX_DIFF_CELLS;
+  if (isTooLarge) {
+    return replaceChanges({
+      before,
+      after
+    });
+  }
+
+  const rows = before.length;
+  const columns = after.length;
+  // lengths[row][column] = LCS length of before[row..] and after[column..].
+  const lengths = Array.from({ length: rows + 1 }, () =>
+    Array.from({ length: columns + 1 }, () => 0));
+  for (let row = rows - 1; row >= 0; row -= 1) {
+    for (let column = columns - 1; column >= 0; column -= 1) {
+      lengths[row][column] =
+        before[row] === after[column]
+          ? lengths[row + 1][column + 1] + 1
+          : Math.max(lengths[row + 1][column], lengths[row][column + 1]);
+    }
+  }
+
+  const changes: LineChange[] = [];
+  let row = 0;
+  let column = 0;
+  while (row < rows && column < columns) {
+    if (before[row] === after[column]) {
+      changes.push({
+        operation: LineOp.keep,
+        text: before[row]
+      });
+      row += 1;
+      column += 1;
+    } else if (lengths[row + 1][column] >= lengths[row][column + 1]) {
+      changes.push({
+        operation: LineOp.delete,
+        text: before[row]
+      });
+      row += 1;
+    } else {
+      changes.push({
+        operation: LineOp.insert,
+        text: after[column]
+      });
+      column += 1;
+    }
+  }
+  while (row < rows) {
+    changes.push({
+      operation: LineOp.delete,
+      text: before[row]
+    });
+    row += 1;
+  }
+  while (column < columns) {
+    changes.push({
+      operation: LineOp.insert,
+      text: after[column]
+    });
+    column += 1;
+  }
+
+  return changes;
+}
+
+/** The full edit script from `before` to `after`, peeling the shared prefix and
+ *  suffix off as context before aligning only the region that differs. */
+function lineChanges({ before, after }: {
+  before: string[];
+  after: string[];
+}): LineChange[] {
+  let head = 0;
+  const sharedLimit = Math.min(before.length, after.length);
+  while (head < sharedLimit && before[head] === after[head]) {
+    head += 1;
+  }
+
+  let tail = 0;
+  const tailLimit = sharedLimit - head;
+  while (tail < tailLimit && before[before.length - 1 - tail] === after[after.length - 1 - tail]) {
+    tail += 1;
+  }
+
+  const middle = middleChanges({
+    before: before.slice(head, before.length - tail),
+    after: after.slice(head, after.length - tail)
+  });
+
+  return [
+    ...before.slice(0, head).map(text => ({
+      operation: LineOp.keep,
+      text
+    })),
+    ...middle,
+    ...before.slice(before.length - tail).map(text => ({
+      operation: LineOp.keep,
+      text
+    }))
+  ];
+}
+
+/** A change tagged with its 1-based line number on each side: `oldLine` is real
+ *  for keep/delete, `newLine` for keep/insert (the other is the position it sits
+ *  at). Lets the hunk header read its start and counts straight off the run. */
+interface PlacedChange extends LineChange {
+  oldLine: number;
+  newLine: number;
+}
+
+function markerFor(operation: LineOp): string {
+  if (operation === LineOp.insert) {
+    return "+";
+  }
+
+  if (operation === LineOp.delete) {
+    return "-";
+  }
+
+  return " ";
+}
+
+/** The `@@ -old,n +new,n @@` header for one hunk. A side with no lines starts at
+ *  0 (git's convention for a pure addition or deletion), which `parseDiff` reads
+ *  as "no new-file cursor" for that side. */
+function hunkHeader(hunk: PlacedChange[]): string {
+  const oldLines = hunk.filter(change => change.operation !== LineOp.insert);
+  const newLines = hunk.filter(change => change.operation !== LineOp.delete);
+  const oldStart = oldLines.length > 0 ? oldLines[0].oldLine : 0;
+  const newStart = newLines.length > 0 ? newLines[0].newLine : 0;
+  return `@@ -${oldStart},${oldLines.length} +${newStart},${newLines.length} @@`;
+}
+
+/** Generate a git-style unified diff between two whole texts — the Change Feed's
+ *  git-free preview (session baseline vs current content). Groups changes into
+ *  hunks with up to `DIFF_CONTEXT` lines of surrounding context and emits the
+ *  `@@` headers `parseDiff` reads, so the shared parse+render path draws it.
+ *  Returns "" when the texts are identical (the card shows "No preview"). */
+export function unifiedDiff({ before, after }: {
+  before: string;
+  after: string;
+}): string {
+  const changes = lineChanges({
+    before: splitLines(before),
+    after: splitLines(after)
+  });
+
+  let oldLine = 0;
+  let newLine = 0;
+  const placed: PlacedChange[] = changes.map(change => {
+    if (change.operation !== LineOp.insert) {
+      oldLine += 1;
+    }
+
+    if (change.operation !== LineOp.delete) {
+      newLine += 1;
+    }
+
+    return {
+      ...change,
+      oldLine,
+      newLine
+    };
+  });
+
+  // Keep every changed line, plus the context window around each — an untouched
+  // line survives only when it sits within `DIFF_CONTEXT` of some change.
+  const kept = Array.from({ length: placed.length }, () => false);
+  let anyChange = false;
+  placed.forEach((change, index) => {
+    if (change.operation === LineOp.keep) {
+      return;
+    }
+
+    anyChange = true;
+    const from = Math.max(0, index - DIFF_CONTEXT);
+    const to = Math.min(placed.length - 1, index + DIFF_CONTEXT);
+    for (let cursor = from; cursor <= to; cursor += 1) {
+      kept[cursor] = true;
+    }
+  });
+
+  if (!anyChange) {
+    return "";
+  }
+
+  // Emit each contiguous run of kept lines as one hunk.
+  const lines: string[] = [];
+  let index = 0;
+  while (index < placed.length) {
+    if (!kept[index]) {
+      index += 1;
+      continue;
+    }
+
+    let end = index;
+    while (end + 1 < placed.length && kept[end + 1]) {
+      end += 1;
+    }
+
+    const hunk = placed.slice(index, end + 1);
+    lines.push(hunkHeader(hunk));
+    for (const change of hunk) {
+      lines.push(markerFor(change.operation) + change.text);
+    }
+
+    index = end + 1;
+  }
+
+  return lines.join("\n");
 }

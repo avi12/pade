@@ -33,6 +33,14 @@ pub struct WatcherState {
     dirs: Mutex<Option<RecommendedWatcher>>,
     line_counts: Mutex<HashMap<PathBuf, usize>>,
     last_seen: Mutex<HashMap<PathBuf, Instant>>,
+    /// First-touch baseline snapshots for the git-free preview, keyed by absolute
+    /// path. `Some(text)` is the content the path held the first time it changed
+    /// this watch session (empty for a file created this session, so its diff is a
+    /// full addition); `None` records a path seen but not snapshottable (binary,
+    /// over the size cap, or already gone), so it is never re-read and the preview
+    /// falls back to "none". Cleared and re-scoped to the new root on a project
+    /// switch (see `watch_start`).
+    baselines: Mutex<HashMap<PathBuf, Option<String>>>,
 }
 
 /// The kind of filesystem change, in the exact wire strings the frontend reads.
@@ -120,6 +128,28 @@ fn line_count(path: &Path) -> Option<usize> {
         .map(|s| s.lines().count())
 }
 
+/// Largest file the Change Feed will snapshot for a baseline or read for a live
+/// preview. A few hundred KB covers real source files; past it the preview falls
+/// back to "No preview available" rather than holding megabytes per touched path.
+const MAX_PREVIEW_BYTES: u64 = 512 * 1024;
+
+/// Read `path` as UTF-8 text for the Change Feed preview, or `None` when it is
+/// missing, not a regular file, larger than [`MAX_PREVIEW_BYTES`], or binary (it
+/// holds a NUL byte or isn't valid UTF-8). One helper for both the first-touch
+/// baseline capture and the current-content read (DRY), so both honor the same
+/// size and binary sensibilities.
+fn read_preview_text(path: &Path) -> Option<String> {
+    let metadata = std::fs::metadata(path).ok()?;
+    if !metadata.is_file() || metadata.len() > MAX_PREVIEW_BYTES {
+        return None;
+    }
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.contains(&0) {
+        return None;
+    }
+    String::from_utf8(bytes).ok()
+}
+
 fn summarize(kind: ChangeKind, path: &Path, added: usize, removed: usize) -> String {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
     match kind {
@@ -166,6 +196,9 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>) -> Result<(), Str
     }
     if let Ok(mut seen) = state.last_seen.lock() {
         seen.clear();
+    }
+    if let Ok(mut baselines) = state.baselines.lock() {
+        baselines.clear();
     }
 
     let app_handle = app.clone();
@@ -257,6 +290,20 @@ fn handle_event(app: &AppHandle, event: Event) {
             seen.insert(path.clone(), now);
         }
 
+        // First-touch baseline for the git-free preview: the content this path
+        // held the first time it changed this session. A creation baselines as
+        // empty (its whole content is new this session); any other first sighting
+        // snapshots the current on-disk text — the accepted slightly-late baseline
+        // (the edit that fired this very event is already on disk). Later edits,
+        // and a later deletion, diff against this. `or_insert_with` runs only on
+        // the first sighting, so a large file is read at most once.
+        if let Ok(mut baselines) = state.baselines.lock() {
+            baselines.entry(path.clone()).or_insert_with(|| match kind {
+                ChangeKind::Created => Some(String::new()),
+                ChangeKind::Modified | ChangeKind::Deleted => read_preview_text(&path),
+            });
+        }
+
         let new_count = line_count(&path);
         let (added, removed) = {
             let Ok(mut counts) = state.line_counts.lock() else {
@@ -292,13 +339,55 @@ fn handle_event(app: &AppHandle, event: Event) {
     }
 }
 
+/// The two texts a Change Feed card diffs: the session's first-touch baseline and
+/// the file's current content. The frontend renders the unified diff from these.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedDiff {
+    /// First-touch baseline content (empty for a file created this session).
+    before: String,
+    /// Current on-disk content (empty when the file is now deleted).
+    after: String,
+}
+
+/// The session-baseline diff inputs for `path`: its first-touch baseline
+/// (`before`) and current on-disk content (`after`). `None` when no baseline was
+/// captured this session, or when the baseline or the current file is binary /
+/// over the size cap — the card then shows "No preview available". Git-independent
+/// by construction, so an untracked or ignored file previews like any other, and a
+/// file deleted after being touched shows its baseline as a full removal.
+#[tauri::command]
+pub fn feed_diff(state: State<WatcherState>, path: String) -> Result<Option<FeedDiff>, String> {
+    let before = {
+        let baselines = state.baselines.lock().map_err(|e| e.to_string())?;
+        match baselines.get(Path::new(&path)) {
+            Some(Some(text)) => text.clone(),
+            _ => return Ok(None),
+        }
+    };
+
+    let file = Path::new(&path);
+    let after = if file.exists() {
+        let Some(text) = read_preview_text(file) else {
+            return Ok(None);
+        };
+        text
+    } else {
+        String::new()
+    };
+
+    Ok(Some(FeedDiff { before, after }))
+}
+
 pub fn init(app: &AppHandle) {
     app.manage(WatcherState::default());
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{surfaces, ChangeKind};
+    use super::{read_preview_text, surfaces, ChangeKind, MAX_PREVIEW_BYTES};
+    use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn a_created_or_modified_file_that_vanished_is_not_surfaced() {
@@ -316,5 +405,51 @@ mod tests {
     #[test]
     fn a_deletion_always_surfaces_since_the_file_being_gone_is_the_event() {
         assert!(surfaces(ChangeKind::Deleted, false));
+    }
+
+    /// A scratch directory unique to this test process; removed by the caller.
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("pade-watcher-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create scratch dir");
+        dir
+    }
+
+    #[test]
+    fn read_preview_text_returns_utf8_file_contents() {
+        let dir = scratch("text");
+        let file = dir.join("a.txt");
+        fs::write(&file, b"line one\nline two\n").expect("write file");
+        assert_eq!(
+            read_preview_text(&file).as_deref(),
+            Some("line one\nline two\n")
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_preview_text_skips_binary_content() {
+        let dir = scratch("binary");
+        let file = dir.join("a.bin");
+        fs::write(&file, b"before\x00after").expect("write file");
+        assert_eq!(read_preview_text(&file), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_preview_text_skips_files_over_the_cap() {
+        let dir = scratch("large");
+        let file = dir.join("a.txt");
+        let over_cap = usize::try_from(MAX_PREVIEW_BYTES).expect("cap fits usize") + 1;
+        fs::write(&file, vec![b'x'; over_cap]).expect("write file");
+        assert_eq!(read_preview_text(&file), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_preview_text_is_none_for_a_missing_path() {
+        let dir = scratch("missing");
+        assert_eq!(read_preview_text(&dir.join("nope.txt")), None);
+        let _ = fs::remove_dir_all(&dir);
     }
 }

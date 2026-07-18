@@ -18,6 +18,17 @@ export const ChangeEvent = z.object({
 });
 export type ChangeEvent = z.infer<typeof ChangeEvent>;
 
+/** The Change Feed's git-free preview inputs for one path: the session's
+ *  first-touch baseline snapshot (`before`) and the file's current on-disk
+ *  content (`after`, empty when it is now deleted). The whole payload is nullable
+ *  at the boundary — `null` = nothing to preview (binary, over the size cap, or a
+ *  path with no captured baseline) — so the card shows "No preview available". */
+export const FeedDiff = z.object({
+  before: z.string(),
+  after: z.string()
+});
+export type FeedDiff = z.infer<typeof FeedDiff>;
+
 /** Lifecycle of an agent or sub-agent session, shared by the terminal and the
  *  agent tree. `ready` = idle at a prompt, done and waiting for you. */
 export const SessionStatus = z.enum(["starting", "working", "ready", "exited"]);
