@@ -486,6 +486,15 @@
   // these so the two teardown paths don't race.
   const closingByHand = new SvelteSet<string>();
 
+  // A pane that was one of several in a live split when its session detached
+  // collapses its width so the survivors glide across to fill (out:collapsePane).
+  // Every other removal — a sole-pane tab close above all — swaps instantly: with
+  // nothing beside it, a collapsing pane would only crush the surviving terminal
+  // to near-zero width and let it reflow back out, a needless squeeze. So just
+  // genuine split members are recorded here (and dropped again on `outroend`);
+  // the rest get a zero-duration outro.
+  const collapsingSplitPanes = new SvelteSet<string>();
+
   function launch(opts: {
     agent: Agent;
     initialPrompt?: string;
@@ -651,6 +660,10 @@
 
   // The caller kills the PTY and decides the empty-workspace policy.
   function detachSession(id: string) {
+    if (paneIds.length > 1 && paneIds.includes(id)) {
+      collapsingSplitPanes.add(id);
+    }
+
     sessions = sessions.filter(s => s.id !== id);
     paneIds = paneIds.filter(paneId => paneId !== id);
     sessionLaunchedAt.delete(id);
@@ -1133,7 +1146,13 @@
             </div>
           {/if}
           {#each orderedSessions as s (s.id)}
-            <div class="term-slot" class:shown={paneIds.includes(s.id)} data-pane-id={s.id} out:collapsePane>
+            <div
+              class="term-slot"
+              class:shown={paneIds.includes(s.id)}
+              data-pane-id={s.id}
+              onoutroend={() => collapsingSplitPanes.delete(s.id)}
+              out:collapsePane={{ duration: collapsingSplitPanes.has(s.id) ? 260 : 0 }}
+            >
               {#if dropSideFor(s.id) === DropSide.left}
                 <div class="drop-half left"></div>
               {:else if dropSideFor(s.id) === DropSide.right}
