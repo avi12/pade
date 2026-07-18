@@ -136,7 +136,8 @@
     }
   }
 
-  // Jump this window to a project (or, with a modifier, open it in a new window).
+  // Jump this window to a project (or, with Ctrl/Cmd/Shift held, open it in a new
+  // window instead of switching this one).
   function pick(project: string, e: MouseEvent) {
     hide();
 
@@ -144,7 +145,8 @@
       return;
     }
 
-    if (e.ctrlKey || e.metaKey) {
+    const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
+    if (opensNewWindow) {
       void windows.create({
         mode: "open",
         path: project
@@ -153,6 +155,14 @@
     }
 
     onopen(project);
+  }
+
+  // Focus the filter as the menu opens: it's ready to type, and — crucially —
+  // the trigger no longer keeps focus, so a later keypress (holding Shift for a
+  // shift-click) can't flip `:focus-visible` on and paint a stray ring on it. The
+  // rAF waits for the popover's top layer to lay out before the field is focusable.
+  function focusFilter() {
+    requestAnimationFrame(() => document.getElementById("m-app-q")?.focus());
   }
 
   // Spawn a fresh window and dismiss the menu so it doesn't linger over the new
@@ -182,7 +192,7 @@
       menu.showPopover();
     }
 
-    requestAnimationFrame(() => document.getElementById("m-app-q")?.focus());
+    focusFilter();
   }}
 />
 
@@ -212,6 +222,7 @@
     class="menu popover-menu"
     ontoggle={async e => {
       if ((e as ToggleEvent).newState === "open") {
+        focusFilter();
         await loadMeta();
       }
     }}
