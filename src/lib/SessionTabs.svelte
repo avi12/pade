@@ -13,7 +13,6 @@
   import { ADD_SLOT, packTabs } from "@/lib/tab-fit";
   import type { Agent, AgentSession } from "@/lib/types";
   import { parseInput, SessionName } from "@/lib/validate";
-  import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
   import type { TransitionConfig } from "svelte/transition";
@@ -157,11 +156,12 @@
   // hidden in the overflow still surfaces on the trigger.
   const overflowAwaiting = $derived(moreSessions.some(s => isAwaitingChoice(s.id)));
 
-  // Survivors slide to their new spots when a tab is added, closed, or the strip
-  // repacks (Svelte's built-in FLIP). Disabled under reduced-motion so it snaps.
+  // Whether motion is suppressed — gates the tab-close out-transition below. Tab
+  // reordering is animated by the drag engine's spring-settle (drag-reorder), not
+  // a framework FLIP, so the pills carry no `animate:flip` (it would fight the
+  // engine's own settle).
   const prefersReducedMotion =
     typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const flipParams = { duration: prefersReducedMotion ? 0 : 280 };
 
   // The last tab's agent — a plain "+" click launches another of the same kind;
   // Ctrl/Cmd-click opens the full launch menu instead.
@@ -366,7 +366,6 @@
         data-session-tab={s.id}
         onpointerdown={startTabDrag}
         out:collapse={{ id: s.id }}
-        animate:flip={flipParams}
       >
         {@render tabInner(s)}
       </div>

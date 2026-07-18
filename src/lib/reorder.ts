@@ -30,7 +30,9 @@ export function reorderedIds({ ids, fromIndex, toIndex }: {
 /** Where the dragged item would land: the count of *other* items whose center
  *  sits before the dragged item's projected `draggedCenter` along the axis.
  *  `centers` holds the siblings' centers in visible order; the slot at `fromIndex`
- *  (the dragged item itself) is excluded from the count. */
+ *  — the dragged item's slot — is excluded from the count. Feeding it the dragged
+ *  item's *current* gap (not its origin) each move gives the drag its stickiness:
+ *  a swapped item holds until the pointer crosses the neighbour's new center. */
 export function insertionIndex({ centers, fromIndex, draggedCenter }: {
   centers: number[];
   fromIndex: number;

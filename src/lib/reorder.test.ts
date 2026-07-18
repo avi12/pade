@@ -89,6 +89,38 @@ describe("insertionIndex", () => {
 
     expect(index).toBe(0);
   });
+
+  it("holds a swapped index until the pointer crosses the neighbour's new center (sticky drag)", () => {
+    // The engine excludes the dragged item's *current* gap each move (passing it as
+    // `fromIndex`), which is what makes a swap sticky rather than flickery.
+    // "a" (index 0) dragged right past "b"'s center (150) → lands at index 1.
+    expect(
+      insertionIndex({
+        centers,
+        fromIndex: 0,
+        draggedCenter: 160
+      })
+    ).toBe(1);
+
+    // Now sitting in gap 1 (exclude index 1): easing back toward "b"'s OLD center
+    // (150) does NOT snap back — the index holds at 1.
+    expect(
+      insertionIndex({
+        centers,
+        fromIndex: 1,
+        draggedCenter: 140
+      })
+    ).toBe(1);
+
+    // It only returns to 0 once the pointer crosses "b"'s NEW center (slot 0 = 50).
+    expect(
+      insertionIndex({
+        centers,
+        fromIndex: 1,
+        draggedCenter: 40
+      })
+    ).toBe(0);
+  });
 });
 
 describe("paneDropSide", () => {
