@@ -1,4 +1,10 @@
-import { DropSide, insertionIndex, paneInsertIndex, reorderedIds } from "@/lib/reorder";
+import {
+  DropSide,
+  insertionIndex,
+  paneDropSide,
+  paneInsertIndex,
+  reorderedIds
+} from "@/lib/reorder";
 import { describe, expect, it } from "vitest";
 
 const IDS = ["a", "b", "c", "d"];
@@ -82,6 +88,41 @@ describe("insertionIndex", () => {
     });
 
     expect(index).toBe(0);
+  });
+});
+
+describe("paneDropSide", () => {
+  // A pane spanning x ∈ [100, 300), so its midpoint sits at x = 200.
+  const pane = {
+    left: 100,
+    width: 200
+  };
+
+  it("reads the left half before the midpoint", () => {
+    expect(
+      paneDropSide({
+        pointerX: 140,
+        ...pane
+      })
+    ).toBe(DropSide.left);
+  });
+
+  it("reads the right half at or past the midpoint", () => {
+    expect(
+      paneDropSide({
+        pointerX: 260,
+        ...pane
+      })
+    ).toBe(DropSide.right);
+  });
+
+  it("treats the exact midpoint as the right half", () => {
+    expect(
+      paneDropSide({
+        pointerX: 200,
+        ...pane
+      })
+    ).toBe(DropSide.right);
   });
 });
 

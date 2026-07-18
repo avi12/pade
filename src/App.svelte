@@ -17,7 +17,7 @@
   import Logo from "@/lib/Logo.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
-  import { DropSide, paneInsertIndex } from "@/lib/reorder";
+  import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
   import SessionTabs from "@/lib/SessionTabs.svelte";
@@ -135,6 +135,12 @@
   let dragHint = $state<DragHint | null>(null);
   const dragOverPanes = $derived(dragHint?.outside === true);
 
+  // True while a split pane's header is dragged up over the tab strip — the mirror
+  // gesture: the strip lights as a "drop → new tab" target and the drop pops the
+  // pane out of the split (see the Terminal panes' `onremove`). Reported by the
+  // dragged pane's Terminal via the same engine hint the tab-split path uses.
+  let paneDragOverTabs = $state(false);
+
   // Which pane + side the drag is currently over — the highlighted drop half.
   const splitTarget = $derived.by(() => (dragOverPanes && dragHint
     ? paneDropAt({
@@ -172,7 +178,11 @@
       if (isInside) {
         return {
           id,
-          side: x < rect.left + rect.width / 2 ? DropSide.left : DropSide.right
+          side: paneDropSide({
+            pointerX: x,
+            left: rect.left,
+            width: rect.width
+          })
         };
       }
     }
@@ -1035,6 +1045,7 @@
           onselect={selectSession}
           onsplit={splitDrop}
           {paneIds}
+          popPaneActive={paneDragOverTabs}
           {sessions}
         />
       </header>
@@ -1058,6 +1069,7 @@
               {/if}
               <Terminal
                 active={s.id === activeId && paneIds.includes(s.id)}
+                ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
                 onexit={handleSessionExit}
                 onremove={() => removePane(s.id)}
                 onreorder={ids => (paneIds = ids)}

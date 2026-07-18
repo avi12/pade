@@ -6,6 +6,7 @@
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
   import { clipboard, os, pty } from "@/lib/bridge";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
+  import type { DragHint } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
@@ -22,26 +23,33 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session, active = false, removable = false, onremove, onreorder, onexit }: {
+  const { session, active = false, removable = false, onremove, onreorder, onexit, ondraghint }: {
     session: AgentSession;
     /** The session the keyboard belongs to — the one tab (or split pane) in front. */
     active?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
+    /** Remove this pane from the split — the trailing × button, and the drop when
+        the header is dragged up onto the tab strip (both pop it back to a tab). */
     onremove?: () => void;
     /** A drag of this pane's header reordered the split — commit the new order. */
     onreorder?: (orderedIds: string[]) => void;
+    /** Live pane-drag state, so App can light the tab strip's "drop → new tab"
+        zone while this header is dragged over it (`hint.outside`). */
+    ondraghint?: (hint: DragHint | null) => void;
     /** The PTY exited on its own (the agent quit, e.g. via Ctrl-C) — so App can
         auto-close this tab (and respawn the agent if it was the last one). */
     onexit?: (id: string) => void;
   } = $props();
 
   // Drag the session bar to reorder the visible split panes (past a 4px
-  // threshold). The `[data-pane-id]` slot the engine reorders lives in App, one
-  // level up from this header; `closest` reaches it across the component boundary.
-  // The remove button carries `data-noreorder` so pressing it stays a click. Only
-  // a pane in a live split reorders — `removable` is true exactly then, so a lone
-  // pane's header never lifts with nothing to sort.
+  // threshold), or drag it up onto the tab strip to pop the pane out of the split
+  // and back to a plain tab (the mirror of dragging a tab down to split it). The
+  // `[data-pane-id]` slot the engine reorders lives in App, one level up from this
+  // header; `closest` reaches it across the component boundary. The remove button
+  // carries `data-noreorder` so pressing it stays a click. Only a pane in a live
+  // split reorders — `removable` is true exactly then, so a lone pane's header
+  // never lifts with nothing to sort.
   function startPaneDrag(e: PointerEvent) {
     if (!removable) {
       return;
@@ -54,7 +62,10 @@
       axis: Axis.Horizontal,
       threshold: 4,
       ignoreSelector: "[data-noreorder]",
-      onCommit: ids => onreorder?.(ids)
+      onCommit: ids => onreorder?.(ids),
+      onHint: hint => ondraghint?.(hint),
+      outsideSelector: "[data-tab-strip]",
+      onDropOutside: () => onremove?.()
     });
   }
 

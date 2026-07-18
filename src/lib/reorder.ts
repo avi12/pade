@@ -45,6 +45,18 @@ export function insertionIndex({ centers, fromIndex, draggedCenter }: {
   return index;
 }
 
+/** Which half of a target pane a pointer sits over: the left half lands the drop
+ *  before the pane, the right half after it. The single geometry decision behind
+ *  both the live drop-half highlight and the actual split insertion (DRY), kept
+ *  pure so it's unit-tested without a DOM — the caller measures the pane's rect. */
+export function paneDropSide({ pointerX, left, width }: {
+  pointerX: number;
+  left: number;
+  width: number;
+}): DropSide {
+  return pointerX < left + width / 2 ? DropSide.left : DropSide.right;
+}
+
 /** Index within the base list (`paneIds` with `draggedId` removed) at which to
  *  insert a tab dropped onto `targetId`'s `side`: the right half lands after the
  *  target, the left half before it. If the target isn't in the base list the tab

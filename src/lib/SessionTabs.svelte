@@ -33,13 +33,17 @@
     onlaunchbranch,
     onreorder,
     onsplit,
-    ondraghint
+    ondraghint,
+    popPaneActive = false
   }: {
     sessions: AgentSession[];
     activeId: string | null;
     /** Sessions currently shown side by side — their pills read as "shown". */
     paneIds: string[];
     agents: Agent[];
+    /** A split pane's header is being dragged over the strip — light it as a
+     *  "drop to pop the pane out as a tab" target, mirroring the split overlay. */
+    popPaneActive?: boolean;
     /** Local branches when the project is a git repo — offered as worktrees. */
     branches: string[];
     onselect: (id: string) => void;
@@ -347,7 +351,10 @@
 {/snippet}
 
 <nav class="tabs" aria-label="Agent sessions">
-  <div bind:this={stripEl} class="tab-strip">
+  <div bind:this={stripEl} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
+    {#if popPaneActive}
+      <span class="pop-hint" aria-hidden="true">Drop here — new tab</span>
+    {/if}
     {#each visibleSessions as s (s.id)}
       <!-- Pointer-only reorder handle; select/close/rename stay keyboard-reachable
            through the buttons inside, so the drag is a pure enhancement. -->
@@ -483,6 +490,28 @@
       align-items: center;
       overflow: hidden;
       min-inline-size: 0;
+      border-radius: 8px;
+
+      /* Transparent at rest so only the colour animates when a dragged pane is
+         over the strip (the pop-out drop zone), never the box's geometry. */
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+      transition: outline-color 150ms var(--ease);
+
+      &.drop-target {
+        outline-color: var(--primary);
+      }
+    }
+
+    /* Leading cue shown only while a pane is dragged over the strip: "drop here to
+       pop it out as a tab", the mirror of the panes' "drop to open in split view". */
+    .pop-hint {
+      flex: none;
+      padding-inline: 6px;
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 10px;
+      white-space: nowrap;
     }
 
     /* Off-layout copy of every full pill, measured to drive the packing. */

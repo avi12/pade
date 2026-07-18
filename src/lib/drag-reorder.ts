@@ -148,7 +148,6 @@ export function beginReorder(options: BeginReorderOptions): void {
 
   const isHorizontal = axis === Axis.Horizontal;
   const reduce = prefersReducedMotion();
-  const outsideElement = outsideSelector ? document.querySelector(outsideSelector) : null;
 
   // Snapshot the visible siblings and their geometry once, before anything moves,
   // so the insertion index is always computed against a stable layout rather than
@@ -189,6 +188,11 @@ export function beginReorder(options: BeginReorderOptions): void {
   let dragging = false;
   let currentIndex = fromIndex;
   let outside = false;
+  // A transparent full-window sheet raised for the duration of the drag: it shows
+  // the grabbing cursor over every surface (xterm canvases included) and freezes
+  // stray hover/click on the UI underneath. Momentarily disabled while hit-testing
+  // so `elementFromPoint` reaches the real drop zone below it (see hitElementAt).
+  let shield: HTMLElement | null = null;
   const overflowSaves: {
     element: HTMLElement;
     value: string;
@@ -241,16 +245,37 @@ export function beginReorder(options: BeginReorderOptions): void {
     return isHorizontal ? `${distance}px 0` : `0 ${distance}px`;
   }
 
+  // The element the pointer is truly over, resolved through the drag shield: it is
+  // dropped from hit-testing for the probe so the surface beneath is found, not the
+  // sheet itself. The lifted item already carries `pointerEvents:none`, so it is
+  // transparent to this too — the drop zone under a dragged pill stays reachable.
+  function hitElementAt(point: PointerEvent): Element | null {
+    if (shield) {
+      shield.style.pointerEvents = "none";
+    }
+
+    const element = document.elementFromPoint(point.clientX, point.clientY);
+    if (shield) {
+      shield.style.pointerEvents = "";
+    }
+
+    return element;
+  }
+
+  // Over the registered outside zone (the panes for a tab, the tab strip for a
+  // pane) — but not while hovering one of the reorderable items themselves, which
+  // reads as an in-container sort, never a drop-out.
   function isOverOutside(point: PointerEvent): boolean {
-    if (!outsideElement) {
+    if (!outsideSelector) {
       return false;
     }
 
-    const rect = outsideElement.getBoundingClientRect();
-    return point.clientX >= rect.left
-      && point.clientX <= rect.right
-      && point.clientY >= rect.top
-      && point.clientY <= rect.bottom;
+    const element = hitElementAt(point);
+    if (!element) {
+      return false;
+    }
+
+    return element.closest(outsideSelector) !== null && element.closest(itemSelector) === null;
   }
 
   // ── lift / restore ───────────────────────────────────────────────────────────
@@ -275,7 +300,23 @@ export function beginReorder(options: BeginReorderOptions): void {
 
     bodyStyle.userSelect = "none";
     bodyStyle.cursor = "grabbing";
+    raiseShield();
     unclipAncestors();
+  }
+
+  // Raise the grabbing-cursor sheet just below the lifted item (which sits at
+  // z-index 9999), above the app. Transparent, so it hides nothing — it only
+  // carries the cursor and swallows stray pointer interaction for the gesture.
+  function raiseShield(): void {
+    const element = document.createElement("div");
+    element.dataset.dragShield = "";
+    element.style.position = "fixed";
+    element.style.inset = "0";
+    element.style.zIndex = "9998";
+    element.style.cursor = "grabbing";
+    element.style.background = "transparent";
+    document.body.appendChild(element);
+    shield = element;
   }
 
   // The strip clips its overflow so pills never wrap; a lifted pill leaving the
@@ -302,6 +343,9 @@ export function beginReorder(options: BeginReorderOptions): void {
   }
 
   function restore(): void {
+    shield?.remove();
+    shield = null;
+
     overflowSaves.forEach(({ element, value }) => {
       element.style.overflow = value;
     });
