@@ -14,6 +14,7 @@
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
+  import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -146,6 +147,23 @@
   const SHIFT_MODIFIER = 2;
   const FIXTERMS_KEY_SUFFIX = "u";
   const SHIFT_ENTER = `${CONTROL_SEQUENCE_INTRODUCER}${ENTER_KEY_CODE};${SHIFT_MODIFIER}${FIXTERMS_KEY_SUFFIX}`;
+
+  // Wheel-scroll a fullscreen agent's own transcript. Claude Code's renderer
+  // repaints its UI in place (cursor addressing) rather than appending lines, so
+  // the earlier conversation lives inside the agent, not in xterm's buffer — there
+  // is nothing in xterm's scrollback for a wheel tick to reveal. The agent scrolls
+  // its transcript a half-page per PageUp/PageDown and says so on screen ("use
+  // PgUp/PgDn to scroll"); the arrow keys the terminal would otherwise emit for a
+  // wheel tick instead walk the prompt's input history — the well-known hijack
+  // (claude-code#65833). So a wheel tick with nothing to reveal is forwarded as
+  // PageUp/PageDown. CSI 5 ~ / CSI 6 ~.
+  const PAGE_UP_PARAMETER = "5";
+  const PAGE_DOWN_PARAMETER = "6";
+  const TILDE_FINAL_BYTE = "~";
+  const PAGE_UP = `${CONTROL_SEQUENCE_INTRODUCER}${PAGE_UP_PARAMETER}${TILDE_FINAL_BYTE}`;
+  const PAGE_DOWN = `${CONTROL_SEQUENCE_INTRODUCER}${PAGE_DOWN_PARAMETER}${TILDE_FINAL_BYTE}`;
+  // Mouse-tracking mode xterm reports when no program has grabbed the mouse.
+  const NO_MOUSE_TRACKING = "none";
 
   function markActivity() {
     if (status === SessionStatus.enum.exited) {
@@ -634,6 +652,40 @@
         id: session.id,
         data: SHIFT_ENTER
       });
+      return false;
+    });
+
+    // Wheel-scroll the agent's own transcript when xterm has nothing to scroll
+    // itself (see PAGE_UP). Defer to xterm — return true, behave as if unhooked —
+    // in the two cases it can handle: a program that grabbed the mouse (Neovim, a
+    // pager, an agent doing its own wheel handling) wants the wheel as a mouse
+    // report, and a plain shell with real scrollback (baseY > 0) wants its own
+    // document scrolled. Otherwise the visible frame is all xterm holds — a
+    // fullscreen agent repainting in place — so forward the scroll it understands.
+    let wheelCarry = 0;
+    term.attachCustomWheelEventHandler(e => {
+      const agentOwnsMouse = term.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
+      const hasNativeScrollback = term.buffer.active.baseY > 0;
+      if (agentOwnsMouse || hasNativeScrollback) {
+        return true;
+      }
+
+      const { notches, carry } = accumulateWheelNotches({
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        carry: wheelCarry
+      });
+      wheelCarry = carry;
+
+      if (notches !== 0) {
+        const scrollKey = notches < 0 ? PAGE_UP : PAGE_DOWN;
+        void pty.write({
+          id: session.id,
+          data: scrollKey.repeat(Math.abs(notches))
+        });
+      }
+
+      e.preventDefault();
       return false;
     });
 
