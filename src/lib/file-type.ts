@@ -30,39 +30,138 @@ export interface FileTypeBadge {
 // Extension → badge. The authoritative extension table; anything absent falls
 // back to a neutral chip of the extension itself.
 const BADGES: Record<string, FileTypeBadge> = {
-  ts: { label: "TS", tone: FileTone.TypeScript },
-  tsx: { label: "TSX", tone: FileTone.TypeScript },
-  mts: { label: "TS", tone: FileTone.TypeScript },
-  cts: { label: "TS", tone: FileTone.TypeScript },
-  js: { label: "JS", tone: FileTone.JavaScript },
-  jsx: { label: "JSX", tone: FileTone.JavaScript },
-  mjs: { label: "JS", tone: FileTone.JavaScript },
-  cjs: { label: "JS", tone: FileTone.JavaScript },
-  svelte: { label: "SV", tone: FileTone.Svelte },
-  rs: { label: "RS", tone: FileTone.Rust },
-  css: { label: "CSS", tone: FileTone.Style },
-  scss: { label: "SCSS", tone: FileTone.Style },
-  sass: { label: "SASS", tone: FileTone.Style },
-  html: { label: "HTML", tone: FileTone.Markup },
-  svg: { label: "SVG", tone: FileTone.Markup },
-  py: { label: "PY", tone: FileTone.Python },
-  go: { label: "GO", tone: FileTone.Go },
-  json: { label: "JSON", tone: FileTone.Data },
-  jsonc: { label: "JSON", tone: FileTone.Data },
-  toml: { label: "TOML", tone: FileTone.Data },
-  yaml: { label: "YAML", tone: FileTone.Data },
-  yml: { label: "YAML", tone: FileTone.Data },
-  md: { label: "MD", tone: FileTone.Doc },
-  mdx: { label: "MDX", tone: FileTone.Doc },
-  txt: { label: "TXT", tone: FileTone.Doc },
-  sh: { label: "SH", tone: FileTone.Shell },
-  bash: { label: "SH", tone: FileTone.Shell },
-  ps1: { label: "PS1", tone: FileTone.Shell },
-  png: { label: "IMG", tone: FileTone.Image },
-  jpg: { label: "IMG", tone: FileTone.Image },
-  jpeg: { label: "IMG", tone: FileTone.Image },
-  gif: { label: "IMG", tone: FileTone.Image },
-  webp: { label: "IMG", tone: FileTone.Image }
+  ts: {
+    label: "TS",
+    tone: FileTone.TypeScript
+  },
+  tsx: {
+    label: "TSX",
+    tone: FileTone.TypeScript
+  },
+  mts: {
+    label: "TS",
+    tone: FileTone.TypeScript
+  },
+  cts: {
+    label: "TS",
+    tone: FileTone.TypeScript
+  },
+  js: {
+    label: "JS",
+    tone: FileTone.JavaScript
+  },
+  jsx: {
+    label: "JSX",
+    tone: FileTone.JavaScript
+  },
+  mjs: {
+    label: "JS",
+    tone: FileTone.JavaScript
+  },
+  cjs: {
+    label: "JS",
+    tone: FileTone.JavaScript
+  },
+  svelte: {
+    label: "SV",
+    tone: FileTone.Svelte
+  },
+  rs: {
+    label: "RS",
+    tone: FileTone.Rust
+  },
+  css: {
+    label: "CSS",
+    tone: FileTone.Style
+  },
+  scss: {
+    label: "SCSS",
+    tone: FileTone.Style
+  },
+  sass: {
+    label: "SASS",
+    tone: FileTone.Style
+  },
+  html: {
+    label: "HTML",
+    tone: FileTone.Markup
+  },
+  svg: {
+    label: "SVG",
+    tone: FileTone.Markup
+  },
+  py: {
+    label: "PY",
+    tone: FileTone.Python
+  },
+  go: {
+    label: "GO",
+    tone: FileTone.Go
+  },
+  json: {
+    label: "JSON",
+    tone: FileTone.Data
+  },
+  jsonc: {
+    label: "JSON",
+    tone: FileTone.Data
+  },
+  toml: {
+    label: "TOML",
+    tone: FileTone.Data
+  },
+  yaml: {
+    label: "YAML",
+    tone: FileTone.Data
+  },
+  yml: {
+    label: "YAML",
+    tone: FileTone.Data
+  },
+  md: {
+    label: "MD",
+    tone: FileTone.Doc
+  },
+  mdx: {
+    label: "MDX",
+    tone: FileTone.Doc
+  },
+  txt: {
+    label: "TXT",
+    tone: FileTone.Doc
+  },
+  sh: {
+    label: "SH",
+    tone: FileTone.Shell
+  },
+  bash: {
+    label: "SH",
+    tone: FileTone.Shell
+  },
+  ps1: {
+    label: "PS1",
+    tone: FileTone.Shell
+  },
+  png: {
+    label: "IMG",
+    tone: FileTone.Image
+  },
+  jpg: {
+    label: "IMG",
+    tone: FileTone.Image
+  },
+  jpeg: {
+    label: "IMG",
+    tone: FileTone.Image
+  },
+  gif: {
+    label: "IMG",
+    tone: FileTone.Image
+  },
+  webp: {
+    label: "IMG",
+    tone: FileTone.Image
+  }
 };
 
 /** The badge for a file path — read from its extension. A dotfile (`.gitignore`)

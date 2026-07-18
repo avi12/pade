@@ -135,7 +135,5 @@ export function groupChanges({ events, workspaceRoot }: {
     group.removed += event.removed;
   }
 
-  const groups = [...groupsById.values()];
-  groups.sort((a, b) => (b.events[0]?.ts ?? 0) - (a.events[0]?.ts ?? 0));
-  return groups;
+  return [...groupsById.values()].toSorted((first, second) => (second.events[0]?.ts ?? 0) - (first.events[0]?.ts ?? 0));
 }
