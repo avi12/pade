@@ -1,14 +1,17 @@
 <script lang="ts">
   import { feed, ide } from "@/lib/bridge";
+  import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import DiffView from "@/lib/DiffView.svelte";
+  import { fileTypeBadge } from "@/lib/file-type";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { revealBlock } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { ChangeKind } from "@/lib/types";
   import type { ChangeEvent, Ide } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
@@ -119,6 +122,46 @@
   const unifiedLines = $derived(cachedLines ?? []);
   const hasPreview = $derived(unifiedLines.length > 0);
 
+  // ── Grouping + filters ──────────────────────────────────────────────────────
+  // Bucket the feed by project (monorepo-aware; see change-groups), and let the
+  // chip row narrow to one project and the "Show" control to one change kind.
+  let kindFilter = $state<"all" | ChangeKind>("all");
+  let activeGroupId = $state<string | null>(null);
+
+  const kindFiltered = $derived.by(() => {
+    if (kindFilter === "all") {
+      return events;
+    }
+
+    return events.filter(event => event.kind === kindFilter);
+  });
+  const groups = $derived(
+    groupChanges({
+      events: kindFiltered,
+      workspaceRoot: project
+    })
+  );
+  // A chip selection can outlive its group (its events filtered out or aged past
+  // the cap); when it does, fall back to showing every group.
+  const selectionStillExists = $derived(
+    activeGroupId !== null && groups.some(group => group.id === activeGroupId)
+  );
+  const visibleGroups = $derived.by(() => {
+    if (activeGroupId === null || !selectionStillExists) {
+      return groups;
+    }
+
+    return groups.filter(group => group.id === activeGroupId);
+  });
+
+  function roleLabel(role: GroupRole): string {
+    if (role === GroupRole.Service) {
+      return "SVC";
+    }
+
+    return role.toUpperCase();
+  }
+
   // Publish the live event count to the shared side-panel header.
   $effect(() => {
     setPanelHeader({
@@ -202,141 +245,188 @@
       Waiting for edits. Ask the agent to change a file and it appears here —
       what changed, and how much.
     </p>
-  {/if}
+  {:else}
+    <div class="toolbar">
+      <label class="kind">
+        <span class="kind-label">Show</span>
+        <select bind:value={kindFilter}>
+          <option value="all">All types</option>
+          {#each ChangeKind.options as kind (kind)}
+            <option value={kind}>{kind[0].toUpperCase() + kind.slice(1)}</option>
+          {/each}
+        </select>
+      </label>
+    </div>
 
-  <ul class="cards scroll-fade">
-    {#each events as ev (ev.id)}
-      {@const isOpen = expandedId === ev.id}
-      <li class="card {ev.kind}" class:open={isOpen}>
-        <span class="stripe" aria-hidden="true"></span>
-        <button
-          class="body"
-          aria-expanded={isOpen}
-          onclick={async () => {
-            const isAlreadyOpen = expandedId === ev.id;
-            if (isAlreadyOpen) {
-              expandedId = null;
-              return;
-            }
+    {#if groups.length > 1 || activeGroupId !== null}
+      <div class="chips">
+        <button class="chip" class:on={activeGroupId === null} onclick={() => (activeGroupId = null)}>
+          All <span class="n">{formatCount(events.length)}</span>
+        </button>
+        {#each groups as group (group.id)}
+          <button
+            class="chip"
+            class:on={activeGroupId === group.id}
+            onclick={() => (activeGroupId = group.id)}
+          >{group.name} <span class="n">{formatCount(group.events.length)}</span></button>
+        {/each}
+      </div>
+    {/if}
 
-            // Load the diff BEFORE expanding so the reveal measures the card's
-            // full height and glides straight to it. Expanding first would animate
-            // to the pre-diff height, then jump when the async diff lands.
-            if (!diffCache.has(ev.id)) {
-              try {
-                // Git-free preview: the backend hands over the session baseline and
-                // the current content; the shared parse+render path draws the diff.
-                const preview = await feed.diff({ path: ev.path });
-                const lines = preview
-                  ? parseDiff(
-                    unifiedDiff({
-                      before: preview.before,
-                      after: preview.after
-                    })
-                  )
-                  : [];
-                diffCache.set(ev.id, lines);
-                failedIds.delete(ev.id);
-              } catch {
-                failedIds.add(ev.id);
-                diffCache.set(ev.id, []);
-              }
-            }
-
-            expandedId = ev.id;
-          }}
-        >
-          <span class="row">
-            <span class="dot {ev.kind}" aria-hidden="true"></span>
-            <span class="name" data-tooltip={ev.path}>{baseName(ev.path)}</span>
-            <span class="time">{ago({
-              stamp: ev.ts,
-              now
-            })}</span>
-          </span>
-          <span class="summary">{ev.summary}</span>
-          <span class="meta">
-            <span class="path">{parentDir(ev.path) ?? ev.path}</span>
-            <span class="stat">
-              {#if ev.added}
-                <span class="add">+{formatCount(ev.added)}</span>
+    <div class="cards scroll-fade">
+      {#each visibleGroups as group (group.id)}
+        <section class="group">
+          <header class="ghead">
+            <span class="badge {group.role}">{roleLabel(group.role)}</span>
+            <span class="gname">{group.name}</span>
+            <span class="gstat">
+              {#if group.added}
+                <span class="add">+{formatCount(group.added)}</span>
               {/if}
-              {#if ev.removed}
-                <span class="del">−{formatCount(ev.removed)}</span>
+              {#if group.removed}
+                <span class="del">−{formatCount(group.removed)}</span>
               {/if}
             </span>
-          </span>
-        </button>
+            <span class="gcount">{formatCount(group.events.length)}</span>
+          </header>
+          <ul class="grouplist">
+            {#each group.events as ev (ev.id)}
+              {@const isOpen = expandedId === ev.id}
+              {@const badge = fileTypeBadge(ev.path)}
+              <li class="card {ev.kind}" class:open={isOpen}>
+                <span class="stripe" aria-hidden="true"></span>
+                <button
+                  class="body"
+                  aria-expanded={isOpen}
+                  onclick={async () => {
+                    const isAlreadyOpen = expandedId === ev.id;
+                    if (isAlreadyOpen) {
+                      expandedId = null;
+                      return;
+                    }
 
-        {#if isOpen}
-          <div class="diff" transition:revealBlock>
-            <div class="bar">
-              <button
-                class="filebtn"
-                data-tooltip={ides[0] ? `Open in ${ides[0].label}` : "No editor detected"}
-                disabled={!ides[0]}
-                onclick={() => openInEditor({
-                  path: ev.path,
-                  line: revealLine
-                })}
-              >
-                <Icon name="external" size={14} />
-                <span class="fpath">{ev.path}</span>
-              </button>
-              <span class="spacer"></span>
-              {#if hasPreview}
-                <div class="seg" aria-label="Diff view" role="group">
-                  <button
-                    class:on={diffMode === DiffMode.unified}
-                    aria-pressed={diffMode === DiffMode.unified}
-                    onclick={() => setDiffMode(DiffMode.unified)}
-                  >Unified</button>
-                  <button
-                    class:on={diffMode === DiffMode.split}
-                    aria-pressed={diffMode === DiffMode.split}
-                    onclick={() => setDiffMode(DiffMode.split)}
-                  >Split</button>
-                </div>
-              {/if}
-              <button
-                class="close"
-                aria-label="Close diff"
-                data-tooltip="Close"
-                onclick={() => (expandedId = null)}
-              >
-                <Icon name="close" size={14} />
-              </button>
-            </div>
+                    // Load the diff BEFORE expanding so the reveal measures the card's
+                    // full height and glides straight to it. Expanding first would animate
+                    // to the pre-diff height, then jump when the async diff lands.
+                    if (!diffCache.has(ev.id)) {
+                      try {
+                        // Git-free preview: the backend hands over the session baseline and
+                        // the current content; the shared parse+render path draws the diff.
+                        const preview = await feed.diff({ path: ev.path });
+                        const lines = preview
+                          ? parseDiff(
+                            unifiedDiff({
+                              before: preview.before,
+                              after: preview.after
+                            })
+                          )
+                          : [];
+                        diffCache.set(ev.id, lines);
+                        failedIds.delete(ev.id);
+                      } catch {
+                        failedIds.add(ev.id);
+                        diffCache.set(ev.id, []);
+                      }
+                    }
 
-            {#if !hasPreview}
-              {#if isErrored}
-                <p class="state">Couldn't load a preview.</p>
-              {:else}
-                <p class="state">No preview available.</p>
-              {/if}
-            {:else}
-              <div
-                class="preview"
-                data-tooltip={revealTip}
-                onclick={e => revealDiff({
-                  path: ev.path,
-                  event: e
-                })}
-                onkeydown={e => onDiffKey({
-                  event: e,
-                  path: ev.path
-                })}
-                role="button"
-                tabindex="0"
-              >
-                <DiffView diffLines={unifiedLines} split={diffMode === DiffMode.split} />
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </li>
-    {/each}
-  </ul>
+                    expandedId = ev.id;
+                  }}
+                >
+                  <span class="row">
+                    <span class="ftype tone-{badge.tone}" aria-hidden="true">{badge.label}</span>
+                    <span class="name" data-tooltip={ev.path}>{baseName(ev.path)}</span>
+                    <span class="time">{ago({
+                      stamp: ev.ts,
+                      now
+                    })}</span>
+                  </span>
+                  <span class="summary">{ev.summary}</span>
+                  <span class="meta">
+                    <span class="path">{parentDir(ev.path) ?? ev.path}</span>
+                    <span class="stat">
+                      {#if ev.added}
+                        <span class="add">+{formatCount(ev.added)}</span>
+                      {/if}
+                      {#if ev.removed}
+                        <span class="del">−{formatCount(ev.removed)}</span>
+                      {/if}
+                    </span>
+                  </span>
+                </button>
+
+                {#if isOpen}
+                  <div class="diff" transition:revealBlock>
+                    <div class="bar">
+                      <button
+                        class="filebtn"
+                        data-tooltip={ides[0] ? `Open in ${ides[0].label}` : "No editor detected"}
+                        disabled={!ides[0]}
+                        onclick={() => openInEditor({
+                          path: ev.path,
+                          line: revealLine
+                        })}
+                      >
+                        <Icon name="external" size={14} />
+                        <span class="fpath">{ev.path}</span>
+                      </button>
+                      <span class="spacer"></span>
+                      {#if hasPreview}
+                        <div class="seg" aria-label="Diff view" role="group">
+                          <button
+                            class:on={diffMode === DiffMode.unified}
+                            aria-pressed={diffMode === DiffMode.unified}
+                            onclick={() => setDiffMode(DiffMode.unified)}
+                          >Unified</button>
+                          <button
+                            class:on={diffMode === DiffMode.split}
+                            aria-pressed={diffMode === DiffMode.split}
+                            onclick={() => setDiffMode(DiffMode.split)}
+                          >Split</button>
+                        </div>
+                      {/if}
+                      <button
+                        class="close"
+                        aria-label="Close diff"
+                        data-tooltip="Close"
+                        onclick={() => (expandedId = null)}
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    </div>
+
+                    {#if !hasPreview}
+                      {#if isErrored}
+                        <p class="state">Couldn't load a preview.</p>
+                      {:else}
+                        <p class="state">No preview available.</p>
+                      {/if}
+                    {:else}
+                      <div
+                        class="preview"
+                        data-tooltip={revealTip}
+                        onclick={e => revealDiff({
+                          path: ev.path,
+                          event: e
+                        })}
+                        onkeydown={e => onDiffKey({
+                          event: e,
+                          path: ev.path
+                        })}
+                        role="button"
+                        tabindex="0"
+                      >
+                        <DiffView diffLines={unifiedLines} split={diffMode === DiffMode.split} />
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -353,16 +443,162 @@
     line-height: 1.5;
   }
 
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-block: 10px 0;
+    padding-inline: 10px;
+  }
+
+  .kind {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .kind-label {
+    color: var(--on-surface-variant);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .kind select {
+    padding: 4px 9px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-block: 10px 0;
+    padding-inline: 10px;
+  }
+
+  .chip {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 11px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 120ms var(--ease),
+      color 120ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+    }
+
+    &.on {
+      border-color: transparent;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-weight: 600;
+    }
+
+    .n {
+      font-variant-numeric: tabular-nums;
+      opacity: 75%;
+    }
+  }
+
   .cards {
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 10px;
+    gap: 18px;
     overflow-y: auto;
     overscroll-behavior: contain;
     min-block-size: 0;
     margin: 0;
     padding: 10px;
+  }
+
+  .group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ghead {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    padding-block: 2px 8px;
+    padding-inline: 6px;
+  }
+
+  .badge {
+    flex: none;
+    padding: 2px 6px;
+    border-radius: var(--radius-small);
+    color: #ffffff;
+    font-family: var(--font-monospace);
+    font-weight: 700;
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+
+    &.app {
+      background: #3b6fe0;
+    }
+
+    &.lib {
+      background: #12a58a;
+    }
+
+    &.service {
+      background: #c8871a;
+    }
+  }
+
+  .gname {
+    overflow: hidden;
+    font-weight: 700;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .gstat {
+    display: flex;
+    gap: 8px;
+    margin-inline-start: auto;
+    font-family: var(--font-monospace);
+    font-weight: 600;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gcount {
+    flex: none;
+    min-inline-size: 20px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface-variant);
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .grouplist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
     list-style: none;
   }
 
@@ -438,23 +674,72 @@
     align-items: center;
   }
 
-  .dot {
+  .ftype {
+    display: inline-grid;
     flex: none;
-    block-size: 7px;
-    inline-size: 7px;
-    border-radius: 999px;
+    place-items: center;
+    block-size: 20px;
+    min-inline-size: 30px;
+    padding-inline: 5px;
+    border-radius: 6px;
+    background: var(--tone, #6b7280);
+    color: #ffffff;
+    font-family: var(--font-monospace);
+    font-weight: 700;
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
   }
 
-  .dot.created {
-    background: var(--tertiary);
+  .tone-typescript {
+    --tone: #3b6fe0;
   }
 
-  .dot.modified {
-    background: var(--primary);
+  .tone-javascript {
+    --tone: #c9971a;
   }
 
-  .dot.deleted {
-    background: var(--critical);
+  .tone-svelte {
+    --tone: #e0701c;
+  }
+
+  .tone-rust {
+    --tone: #c56a1a;
+  }
+
+  .tone-style {
+    --tone: #2596be;
+  }
+
+  .tone-markup {
+    --tone: #d9822b;
+  }
+
+  .tone-python {
+    --tone: #3572a5;
+  }
+
+  .tone-go {
+    --tone: #2ba7bd;
+  }
+
+  .tone-data {
+    --tone: #7a8290;
+  }
+
+  .tone-doc {
+    --tone: #6b7688;
+  }
+
+  .tone-shell {
+    --tone: #55607a;
+  }
+
+  .tone-image {
+    --tone: #a05fd6;
+  }
+
+  .tone-neutral {
+    --tone: #6b7280;
   }
 
   .name {
