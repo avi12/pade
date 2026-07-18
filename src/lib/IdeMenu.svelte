@@ -3,7 +3,6 @@
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ide-icon";
   import type { Ide } from "@/lib/types";
-  import { onMount } from "svelte";
 
   // Opens the active project in an external editor. `ide.suggest()` returns the
   // installed editors ranked for the detected project kind, so the best fit is
@@ -29,10 +28,27 @@
   // a Windows title-bar drag churns focus and any focus-driven `ide.suggest()`
   // spawned editor-detection processes mid-drag and lagged the drag, whereas
   // visibility never changes while you drag a window that stays on screen.
-  async function detect() {
-    ides = await ide.suggest();
+  let detection = 0;
+  async function detect(project: string) {
+    const request = ++detection;
+    try {
+      const detected = await ide.suggest(project);
+      // A slower scan for the previous workspace must not overwrite the new
+      // workspace's result after a quick project switch.
+      if (request === detection && project === cwd) {
+        ides = detected;
+      }
+    } catch {
+      if (request === detection && project === cwd) {
+        ides = [];
+      }
+    }
   }
-  onMount(detect);
+
+  // Re-profile on mount and whenever the active project/worktree changes.
+  $effect(() => {
+    void detect(cwd);
+  });
 
   function open(editor: Ide) {
     if (editor.terminal) {
@@ -40,13 +56,16 @@
       return;
     }
 
-    ide.open({ command: editor.command });
+    ide.open({
+      command: editor.command,
+      path: cwd
+    });
   }
 </script>
 
 <svelte:document
   onvisibilitychange={() => {
-    if (!document.hidden) void detect();
+    if (!document.hidden) void detect(cwd);
   }}
 />
 

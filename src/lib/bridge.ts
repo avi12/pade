@@ -69,9 +69,9 @@ export const agents = {
 /** External IDE integration. */
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
-  /** Installed IDEs ordered for the current project: rule → fallback →
+  /** Installed IDEs ordered for the given project: rule → fallback →
    *  byte-weighted language-coverage ranking. */
-  suggest: () => call("ide_suggest", z.array(Ide)),
+  suggest: (cwd: string) => call("ide_suggest", z.array(Ide), { cwd }),
   /** The project kinds the rules engine shows (label + manifest signals), in the
    *  backend registry's render/priority order — the frontend derives its rows here. */
   kinds: () => call("ide_kinds", z.array(EditorKind)),
@@ -188,7 +188,10 @@ export const pty = {
 
 /** Change Feed / filesystem watcher channel. */
 export const feed = {
-  start: () => run("watch_start"),
+  /** Watch `path` — the open workspace's root — so the feed follows the project
+   *  on screen, not the process's cwd. Idempotent per root; a call for a new root
+   *  re-roots the watcher (drops the old one, clears its per-file bookkeeping). */
+  start: (path: string) => run("watch_start", { root: path }),
   /** The card's git-free preview for a path: the watch session's first-touch
    *  baseline vs the file's current content (`null` when nothing was snapshotted
    *  — binary, too large, or a path with no captured baseline). The frontend

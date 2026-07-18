@@ -175,13 +175,33 @@ fn plural(n: usize) -> &'static str {
     }
 }
 
-/// Start (or re-root) the Change Feed's watcher on the current workspace.
-/// Idempotent per workspace: a repeat call for the same root keeps the live
-/// watcher, while a call after a project switch drops the old project's watcher
-/// and re-arms on the new root — the feed always follows the open workspace.
+/// Normalize the workspace path the frontend hands `watch_start` into the Change
+/// Feed's watch root: collapse separators and `.`/`..` to one spelling — but
+/// without the Windows `\\?\` verbatim prefix `std::fs::canonicalize` would add,
+/// which would leak into every emitted change path — and confirm it is an
+/// existing directory, so a drifted or bad path fails loudly here rather than
+/// silently watching the wrong tree. Mirrors workspace's `canonical_path`.
+fn resolve_watch_root(root: &str) -> Result<PathBuf, String> {
+    let normalized: PathBuf = Path::new(root).components().collect();
+    if !normalized.is_dir() {
+        return Err(format!(
+            "Change Feed can't watch {}: not an existing directory",
+            normalized.display()
+        ));
+    }
+    Ok(normalized)
+}
+
+/// Start (or re-root) the Change Feed's watcher on `root` — the open workspace's
+/// path, passed explicitly by the frontend so the feed follows the project on
+/// screen rather than the process's current directory (the two normally match,
+/// but the cwd can drift from the displayed workspace). Idempotent per workspace:
+/// a repeat call for the same root keeps the live watcher, while a call after a
+/// project switch drops the old project's watcher and re-arms on the new root —
+/// the feed always follows the open workspace.
 #[tauri::command]
-pub fn watch_start(app: AppHandle, state: State<WatcherState>) -> Result<(), String> {
-    let root = std::env::current_dir().map_err(|e| e.to_string())?;
+pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> Result<(), String> {
+    let root = resolve_watch_root(&root)?;
     let mut guard = state.watcher.lock().map_err(|e| e.to_string())?;
     let already_watching_root = guard.as_ref().is_some_and(|active| active.root == root);
     if already_watching_root {
@@ -385,7 +405,7 @@ pub fn init(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{read_preview_text, surfaces, ChangeKind, MAX_PREVIEW_BYTES};
+    use super::{read_preview_text, resolve_watch_root, surfaces, ChangeKind, MAX_PREVIEW_BYTES};
     use std::fs;
     use std::path::PathBuf;
 
@@ -450,6 +470,32 @@ mod tests {
     fn read_preview_text_is_none_for_a_missing_path() {
         let dir = scratch("missing");
         assert_eq!(read_preview_text(&dir.join("nope.txt")), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_watch_root_accepts_an_existing_directory() {
+        let dir = scratch("root");
+        let path = dir.to_string_lossy();
+        assert!(resolve_watch_root(&path).is_ok_and(|root| root.is_dir()));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_watch_root_rejects_a_missing_path() {
+        let dir = scratch("root-missing");
+        let path = dir.join("nope").to_string_lossy().into_owned();
+        assert!(resolve_watch_root(&path).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_watch_root_rejects_a_file() {
+        let dir = scratch("root-file");
+        let file = dir.join("a.txt");
+        fs::write(&file, b"x").expect("write file");
+        let path = file.to_string_lossy().into_owned();
+        assert!(resolve_watch_root(&path).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 }

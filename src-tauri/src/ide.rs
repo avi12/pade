@@ -1378,18 +1378,23 @@ fn is_installed(id: &str) -> bool {
     lookup(id).is_some_and(|i| is_on_path(&i.command))
 }
 
-/// Installed IDEs ranked for the current project, best match first. The
+/// Installed IDEs ranked for `cwd`, best match first. The caller supplies the
+/// active project explicitly because multiple PADE windows and workspace
+/// switches do not share one reliable process working directory. The
 /// editor-rules engine takes precedence only when its editor covers every
 /// required kind derived from project declarations and source ownership. A user
 /// rule for the primary declared kind is considered first, then the configured
 /// fallback, then evidence-weighted editor coverage. No dominant-language
 /// threshold or framework-specific detection is involved.
 #[tauri::command]
-pub fn ide_suggest() -> Result<Vec<Ide>, String> {
-    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
-    let declarations = project_declarations(&cwd);
+pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
+    let cwd = std::path::Path::new(&cwd);
+    if !cwd.is_dir() {
+        return Err("project directory does not exist".to_string());
+    }
+    let declarations = project_declarations(cwd);
     let kinds = kinds_from_declarations(&declarations);
-    let profile = source_profile(&cwd);
+    let profile = source_profile(cwd);
     let required_kinds = required_project_kinds(&profile, &declarations);
     let prefs = crate::workspace::load().prefs;
 

@@ -30,7 +30,8 @@ writes.
 - R1.2.4 ✅ Click a card to expand its real per-file diff (via the git seam) with a
   **Unified / Split** toggle and open-in-editor; cached per path. 🔭 agent intent.
 - R1.2.5 ✅ The watcher follows the open workspace: switching projects re-roots
-  it (`watch_start` re-arms when the current dir no longer matches its root).
+  it (`ChangeFeed` passes the open project's path to `watch_start`, which re-arms
+  on that explicit root — never the process's cwd, which can drift from it).
 - R1.2.6 ✅ Every diff surface (feed card, Git panel, commit modal) prints each
   code line **in full**: long lines wrap (`DiffView.svelte`), never clip or hide
   behind a horizontal scroll; the diff stays hunks + context, never the whole file.

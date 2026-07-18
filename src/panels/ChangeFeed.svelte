@@ -57,12 +57,10 @@
       events = [event, ...events].slice(0, CAP);
     });
     try {
-      ides = await ide.suggest();
+      ides = await ide.suggest(project);
     } catch {
       ides = [];
     }
-    // Watch the project the ADE was opened on.
-    await feed.start();
   });
 
   onDestroy(() => {
@@ -70,6 +68,17 @@
 
     if (clock !== undefined) {
       clearInterval(clock);
+    }
+  });
+
+  // Watch the open project — and re-root when this window switches projects. The
+  // panel persists across a switch (only `project` updates, it never re-mounts),
+  // so an effect keyed on `project` re-arms the watcher on every change, keeping
+  // the feed on the workspace shown rather than the process's (possibly drifted)
+  // cwd. Idempotent in the backend, so the initial mount's call is a no-op repeat.
+  $effect(() => {
+    if (project) {
+      void feed.start(project);
     }
   });
 
