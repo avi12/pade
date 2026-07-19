@@ -227,7 +227,7 @@
     idleTimer = setTimeout(() => {
       if (status === SessionStatus.enum.working) {
         status = SessionStatus.enum.ready;
-        void deliverInitialPromptIfReady();
+        deliverInitialPromptIfReady();
       }
     }, IDLE_MS);
   }
@@ -246,10 +246,7 @@
     if (!trustAccepted && isTrustGate(recentOutput)) {
       trustAccepted = true;
       recentOutput = ""; // the gate's gone once accepted — don't re-trip on its stale frame
-      void pty.write({
-        id: session.id,
-        data: ENTER
-      });
+      writeToPty(ENTER);
     }
   }
 

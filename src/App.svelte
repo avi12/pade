@@ -364,7 +364,7 @@
     }
 
     currentProject = snapshot.project;
-    void windows.registerProject(snapshot.project);
+    windows.registerProject(snapshot.project);
     sessions = snapshot.sessions;
     paneIds = snapshot.paneIds;
     activeId = snapshot.activeId;
@@ -470,7 +470,7 @@
   // a running session. See theming.rs.
   $effect(() => {
     if (currentProject) {
-      void agentsApi.syncTheme({
+      agentsApi.syncTheme({
         workspace: currentProject,
         scheme: appearance.scheme
       });
@@ -587,7 +587,7 @@
     });
   }
   onMount(() => {
-    void interceptWindowClose();
+    interceptWindowClose();
     return () => unlistenCloseRequested?.();
   });
 
@@ -1033,7 +1033,7 @@
     currentProject = "";
     branches = [];
     pendingPrompt = undefined;
-    void windows.registerProject("");
+    windows.registerProject("");
   }
 
   // "Switch project" — a DELIBERATE leave to the picker. The project's agents

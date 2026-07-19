@@ -261,7 +261,7 @@
   onMount(async () => {
     unlistenGitState = await vcs.onStateChanged(() => {
       if (menuOpen) {
-        void loadMeta();
+        loadMeta();
       }
     });
   });

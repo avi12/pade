@@ -19,7 +19,18 @@ import {
 // timeout path without real waiting.
 async function settled(promise: Promise<void>): Promise<boolean> {
   let resolved = false;
-  void promise.then(() => (resolved = true));
+  // Observe resolution without blocking on it — `settled` returns after two
+  // microtask turns whether or not the promise resolved (the point is to tell
+  // an already-settled promise from a pending one, so it can't be awaited here).
+  async function markResolved(): Promise<void> {
+    try {
+      await promise;
+      resolved = true;
+    } catch {
+      // A rejected promise counts as not-resolved for this helper.
+    }
+  }
+  markResolved();
   await Promise.resolve();
   await Promise.resolve();
   return resolved;

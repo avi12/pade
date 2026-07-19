@@ -88,7 +88,7 @@
               // Picking from the list is an explicit choice: persisted, it
               // becomes the project's editor on every surface (this button and
               // the Change Feed's reveal) until picked otherwise.
-              void chooseEditor({
+              chooseEditor({
                 project,
                 editorId: editor.id
               });
