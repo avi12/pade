@@ -50,7 +50,7 @@
       onkeydown={e => {
         const isSubmit = e.key === "Enter";
         if (isSubmit) {
-          void runRestore();
+          runRestore();
         }
       }}
       placeholder="e.g. last working version, before the meter change"
