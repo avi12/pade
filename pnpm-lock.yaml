@@ -23,9 +23,6 @@ importers:
       '@tauri-apps/plugin-global-shortcut':
         specifier: ^2.3.2
         version: 2.3.2
-      '@xterm/addon-web-links':
-        specifier: 0.13.0-beta.288
-        version: 0.13.0-beta.288(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))
       '@xterm/addon-webgl':
         specifier: 0.20.0-beta.287
         version: 0.20.0-beta.287(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))
@@ -1010,11 +1007,6 @@ packages:
 
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
-
-  '@xterm/addon-web-links@0.13.0-beta.288':
-    resolution: {integrity: sha512-HMZtBptsnogJC/xIUl7UNZ+XchnKzlEEkEMKsfDsNE7Z/2wWABWZawFD7SdD5OvpoZlOXgg5MVRp5sVpzzaWcA==}
-    peerDependencies:
-      '@xterm/xterm': ^6.1.0-beta.288
 
   '@xterm/addon-webgl@0.20.0-beta.287':
     resolution: {integrity: sha512-ADDuXRHLfhMk3y+BFvaI1ibGCGxPMNRonzH5M/qTUnigsVxdnEMsYODG6pWAYkfDMPoCRBF8Zf/hj0efyEBjzQ==}
@@ -3103,10 +3095,6 @@ snapshots:
       '@vitest/pretty-format': 4.1.10
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
-
-  '@xterm/addon-web-links@0.13.0-beta.288(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))':
-    dependencies:
-      '@xterm/xterm': 6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)
 
   '@xterm/addon-webgl@0.20.0-beta.287(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))':
     dependencies:
