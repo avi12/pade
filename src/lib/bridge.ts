@@ -58,13 +58,18 @@ function run(command: string, args?: Record<string, unknown>): Promise<void> {
   return invoke(command, args);
 }
 
-/** Subscribe to an event, validating each payload. */
+/** Subscribe to an event, validating each payload. Scoped to this window's own
+ *  label so a sibling window's targeted emit (the backend routes each window's
+ *  file-watch changes back to it with `emit_to`) never leaks into this feed;
+ *  an app-wide `emit` broadcast still reaches every window's scoped listener. */
 function on<T>(
   event: string,
   schema: z.ZodType<T>,
   callback: (payload: T) => void
 ): Promise<UnlistenFn> {
-  return listen(event, received => callback(schema.parse(received.payload)));
+  return listen(event, received => callback(schema.parse(received.payload)), {
+    target: getCurrentWindow().label
+  });
 }
 
 /** Detected agent backends. */

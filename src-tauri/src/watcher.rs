@@ -8,13 +8,13 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -36,18 +36,22 @@ struct GitStateWatcher {
     _watcher: RecommendedWatcher,
 }
 
+/// One window's Change Feed watch and its per-file bookkeeping. Every PADE window
+/// opens its own workspace, but all windows share one backend process, so this
+/// state is held per window (keyed by window label in [`WatcherState`]). A single
+/// global slot could arm only one watcher at a time — a second window's
+/// `watch_start` tore down the first window's watch (so its edits never surfaced)
+/// and the one live watcher's changes broadcast into every window's feed. Keyed
+/// per window, each window watches its own root and its events are emitted back
+/// only to it (`emit_to` the owning label).
 #[derive(Default)]
-pub struct WatcherState {
+struct WindowWatch {
     watcher: Mutex<Option<ProjectWatcher>>,
     /// The workspace's live-git-state watcher — see `arm_git_state`. Separate
     /// from the Change Feed's recursive watcher on purpose: it watches only the
     /// dir(s) holding `.git/HEAD` + `.git/config`, non-recursively, so git's
     /// object churn never reaches it.
     git_state: Mutex<Option<GitStateWatcher>>,
-    /// The picker's watcher — see `watch_dirs`. Separate from the Change Feed's:
-    /// it watches other folders, for a different question, and is re-armed as the
-    /// picker's list changes.
-    dirs: Mutex<Option<RecommendedWatcher>>,
     line_counts: Mutex<HashMap<PathBuf, usize>>,
     last_seen: Mutex<HashMap<PathBuf, Instant>>,
     /// First-touch baseline snapshots for the git-free preview, keyed by absolute
@@ -73,6 +77,41 @@ pub struct WatcherState {
     /// a change to this SET (not a value-only edit) drives `mcp://changed`. Seeded
     /// on `watch_start` and re-scoped to the new root on a project switch.
     mcp_servers: Mutex<HashMap<PathBuf, BTreeSet<String>>>,
+}
+
+#[derive(Default)]
+pub struct WatcherState {
+    /// One live Change Feed watch per window, keyed by window label. Shared behind
+    /// an `Arc` so a callback can lift its window's bookkeeping out under a brief
+    /// map lock, then work the fine-grained inner mutexes without holding it.
+    windows: Mutex<HashMap<String, Arc<WindowWatch>>>,
+    /// The picker's folder watcher — see `watch_dirs`. Also per window: each
+    /// window has its own picker, watching its own folders, and its
+    /// appearance/disappearance events route back only to it.
+    dirs: Mutex<HashMap<String, RecommendedWatcher>>,
+}
+
+/// This window's watch bookkeeping, created empty on first use. `None` only when
+/// the state lock is poisoned — a fault resolves to "no watch" so a caller bails
+/// rather than panicking on a background thread.
+fn window_watch(state: &WatcherState, label: &str) -> Option<Arc<WindowWatch>> {
+    let mut windows = state.windows.lock().ok()?;
+    Some(Arc::clone(windows.entry(label.to_string()).or_default()))
+}
+
+/// Drop the watch bookkeeping of every window that has since closed. There is no
+/// per-window teardown hook (windows share one process), so `watch_start` and
+/// `watch_dirs` prune here on each call: dropping an entry drops its watchers,
+/// which stops the OS watch and retires the paired git-state coalescer thread.
+/// Keeps the maps bounded to live windows over a long multi-window session.
+fn prune_closed_windows(app: &AppHandle, state: &WatcherState) {
+    let live: HashSet<String> = app.webview_windows().into_keys().collect();
+    if let Ok(mut windows) = state.windows.lock() {
+        windows.retain(|label, _| live.contains(label));
+    }
+    if let Ok(mut dirs) = state.dirs.lock() {
+        dirs.retain(|label, _| live.contains(label));
+    }
 }
 
 /// The kind of filesystem change, in the exact wire strings the frontend reads.
@@ -234,14 +273,14 @@ fn mcp_agents_for_path(root: &Path, path: &Path) -> Option<Vec<String>> {
 /// known MCP config file, so the first later change diffs against the truth on
 /// disk rather than an empty set (which would restart on project open). Replaces
 /// any previous root's baseline.
-fn snapshot_mcp_baseline(state: &WatcherState, root: &Path) {
+fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
     let fresh: HashMap<PathBuf, BTreeSet<String>> = crate::config::mcp_configs()
         .filter_map(|config| {
             let file = root.join(config.rel);
             crate::mcp::server_names(&file).map(|names| (file, names))
         })
         .collect();
-    if let Ok(mut baseline) = state.mcp_servers.lock() {
+    if let Ok(mut baseline) = watch.mcp_servers.lock() {
         *baseline = fresh;
     }
 }
@@ -251,7 +290,7 @@ fn snapshot_mcp_baseline(state: &WatcherState, root: &Path) {
 /// names) and an unparseable half-written file both no-op, so a session restarts
 /// only on a real membership change. Runs before the ignore filter, so a
 /// `.gitignore`'d `.mcp.json` still triggers.
-fn detect_mcp_change(app: &AppHandle, state: &WatcherState, root: &Path, path: &Path) {
+fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &Path, path: &Path) {
     let Some(agents) = mcp_agents_for_path(root, path) else {
         return;
     };
@@ -260,7 +299,7 @@ fn detect_mcp_change(app: &AppHandle, state: &WatcherState, root: &Path, path: &
     };
 
     let (added, removed) = {
-        let Ok(mut baseline) = state.mcp_servers.lock() else {
+        let Ok(mut baseline) = watch.mcp_servers.lock() else {
             return;
         };
         let previous = baseline.get(path).cloned().unwrap_or_default();
@@ -273,7 +312,8 @@ fn detect_mcp_change(app: &AppHandle, state: &WatcherState, root: &Path, path: &
         (added, removed)
     };
 
-    let _ = app.emit(
+    let _ = app.emit_to(
+        label,
         MCP_EVENT,
         McpChange {
             path: path.to_string_lossy().into_owned(),
@@ -395,9 +435,9 @@ fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
 /// mid-session `git init` flipping the root from static to git mode). The
 /// frontend hears [`FEED_IGNORE_EVENT`] and re-filters the events it already
 /// shows against the fresh policy (`feed_ignored`).
-fn refresh_ignore_policy(app: &AppHandle, state: &WatcherState) {
+fn refresh_ignore_policy(app: &AppHandle, watch: &WindowWatch, label: &str) {
     let Some(root) = ({
-        let Ok(guard) = state.watcher.lock() else {
+        let Ok(guard) = watch.watcher.lock() else {
             return;
         };
         guard.as_ref().map(|active| active.root.clone())
@@ -405,13 +445,13 @@ fn refresh_ignore_policy(app: &AppHandle, state: &WatcherState) {
         return;
     };
     let policy = compute_ignore_policy(&root);
-    if let Ok(mut guard) = state.ignore_policy.lock() {
+    if let Ok(mut guard) = watch.ignore_policy.lock() {
         *guard = Some(policy);
     }
-    if let Ok(mut cache) = state.git_ignore_cache.lock() {
+    if let Ok(mut cache) = watch.git_ignore_cache.lock() {
         cache.clear();
     }
-    let _ = app.emit(FEED_IGNORE_EVENT, ());
+    let _ = app.emit_to(label, FEED_IGNORE_EVENT, ());
 }
 
 /// Whether `root` sits inside a git work tree, via `git -C <root> rev-parse
@@ -437,9 +477,9 @@ fn is_git_work_tree(root: &Path) -> bool {
 /// names against the tech-inferred ignore set. A poisoned lock, an unset policy, or
 /// a git failure all resolve to "not excluded" so a fault never silently hides real
 /// changes.
-fn excluded_by_ignore_policy(state: &WatcherState, path: &Path) -> bool {
+fn excluded_by_ignore_policy(watch: &WindowWatch, path: &Path) -> bool {
     let git_root = {
-        let Ok(guard) = state.ignore_policy.lock() else {
+        let Ok(guard) = watch.ignore_policy.lock() else {
             return false;
         };
         match guard.as_ref() {
@@ -450,7 +490,7 @@ fn excluded_by_ignore_policy(state: &WatcherState, path: &Path) -> bool {
             Some(IgnorePolicy::Git { root }) => root.clone(),
         }
     };
-    git_excludes_path(state, &git_root, path)
+    git_excludes_path(watch, &git_root, path)
 }
 
 /// Whether the static policy's `.gitignore` rules ignore `path` — matched on
@@ -469,14 +509,14 @@ fn gitignore_excludes(root: &Path, rules: &crate::gitignore::Rules, path: &Path)
 /// Whether git considers `path` ignored under the work tree at `root`, memoized in
 /// [`WatcherState::git_ignore_cache`] so each path shells git at most once. The
 /// cache is cleared on a re-root and whenever a `.gitignore` changes.
-fn git_excludes_path(state: &WatcherState, root: &Path, path: &Path) -> bool {
-    if let Ok(cache) = state.git_ignore_cache.lock() {
+fn git_excludes_path(watch: &WindowWatch, root: &Path, path: &Path) -> bool {
+    if let Ok(cache) = watch.git_ignore_cache.lock() {
         if let Some(&is_ignored) = cache.get(path) {
             return is_ignored;
         }
     }
     let is_ignored = git_check_ignore(root, path);
-    if let Ok(mut cache) = state.git_ignore_cache.lock() {
+    if let Ok(mut cache) = watch.git_ignore_cache.lock() {
         cache.insert(path.to_path_buf(), is_ignored);
     }
     is_ignored
@@ -602,9 +642,24 @@ fn resolve_watch_root(root: &str) -> Result<PathBuf, String> {
 /// project switch drops the old project's watcher and re-arms on the new root —
 /// the feed always follows the open workspace.
 #[tauri::command]
-pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> Result<(), String> {
+pub fn watch_start(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<WatcherState>,
+    root: String,
+) -> Result<(), String> {
     let root = resolve_watch_root(&root)?;
-    let mut guard = state.watcher.lock().map_err(|e| e.to_string())?;
+    let label = window.label().to_string();
+
+    // Retire the bookkeeping of any window that has since closed before taking on
+    // this one's — no per-window teardown hook fires otherwise (see
+    // `prune_closed_windows`).
+    prune_closed_windows(&app, &state);
+    let Some(watch) = window_watch(&state, &label) else {
+        return Err("watcher state unavailable".to_string());
+    };
+
+    let mut guard = watch.watcher.lock().map_err(|e| e.to_string())?;
     let already_watching_root = guard.as_ref().is_some_and(|active| active.root == root);
     if already_watching_root {
         return Ok(());
@@ -613,16 +668,16 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> 
     // Drop the previous project's watcher and its per-file bookkeeping before
     // re-arming, so its handles and stale line counts go with it.
     *guard = None;
-    if let Ok(mut counts) = state.line_counts.lock() {
+    if let Ok(mut counts) = watch.line_counts.lock() {
         counts.clear();
     }
-    if let Ok(mut seen) = state.last_seen.lock() {
+    if let Ok(mut seen) = watch.last_seen.lock() {
         seen.clear();
     }
-    if let Ok(mut baselines) = state.baselines.lock() {
+    if let Ok(mut baselines) = watch.baselines.lock() {
         baselines.clear();
     }
-    if let Ok(mut cache) = state.git_ignore_cache.lock() {
+    if let Ok(mut cache) = watch.git_ignore_cache.lock() {
         cache.clear();
     }
 
@@ -630,23 +685,26 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> 
     // watcher, so the very first change is already filtered. Computed while `root`
     // is still owned here, before it moves into the `ProjectWatcher` below.
     let policy = compute_ignore_policy(&root);
-    if let Ok(mut guard) = state.ignore_policy.lock() {
+    if let Ok(mut guard) = watch.ignore_policy.lock() {
         *guard = Some(policy);
     }
 
     // Seed the MCP server baseline from what's on disk now, so opening a project
     // that already declares servers doesn't read as "all added" and restart.
-    snapshot_mcp_baseline(&state, &root);
+    snapshot_mcp_baseline(&watch, &root);
 
     // The live-git-state companion watch (`HEAD`/`config` → `git://state`)
     // re-arms with the project: same lifetime and re-root cadence, but its own
     // tiny non-recursive watcher.
-    arm_git_state(&app, &root);
+    arm_git_state(&app, &label, &watch, &root);
 
+    // The notify callback runs on its own thread; it carries this window's label
+    // so every change it detects is routed back to this window alone.
     let app_handle = app.clone();
+    let callback_label = label.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
         let Ok(event) = res else { return };
-        handle_event(&app_handle, event);
+        handle_event(&app_handle, &callback_label, event);
     })
     .map_err(|e| e.to_string())?;
 
@@ -787,17 +845,22 @@ fn unique_dirs<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> {
 /// covers), and is what lets a `git init` run *after* the project opened gain
 /// the real watch without any polling. Best-effort: a failure to arm just means
 /// git state won't live-update until the next re-root.
-fn arm_git_state(app: &AppHandle, root: &Path) {
-    let state: State<WatcherState> = app.state();
-    let Ok(mut guard) = state.git_state.lock() else {
+fn arm_git_state(app: &AppHandle, label: &str, watch: &WindowWatch, root: &Path) {
+    let Ok(mut guard) = watch.git_state.lock() else {
         return;
     };
-    rearm_git_state_locked(app, root, &mut guard);
+    rearm_git_state_locked(app, label, root, &mut guard);
 }
 
 /// The arming body, run under the `git_state` lock (shared by `arm_git_state`
-/// and the coalescer's post-`git init` re-arm, which already holds it).
-fn rearm_git_state_locked(app: &AppHandle, root: &Path, slot: &mut Option<GitStateWatcher>) {
+/// and the coalescer's post-`git init` re-arm, which already holds it). `label`
+/// is the owning window, so the coalescer routes `git://state` back to it alone.
+fn rearm_git_state_locked(
+    app: &AppHandle,
+    label: &str,
+    root: &Path,
+    slot: &mut Option<GitStateWatcher>,
+) {
     // Drop the previous watch first, so a failed re-arm can't leave a stale
     // watcher reporting another root's repo.
     *slot = None;
@@ -812,7 +875,7 @@ fn rearm_git_state_locked(app: &AppHandle, root: &Path, slot: &mut Option<GitSta
     let Ok(watcher) = armed else {
         return;
     };
-    spawn_git_state_coalescer(app.clone(), root.to_path_buf(), receiver);
+    spawn_git_state_coalescer(app.clone(), label.to_string(), root.to_path_buf(), receiver);
     *slot = Some(GitStateWatcher {
         root: root.to_path_buf(),
         _watcher: watcher,
@@ -913,13 +976,27 @@ fn repo_toplevel(root: &Path) -> Option<PathBuf> {
 /// still arrive, each burst first confirms this thread's root is still the
 /// armed one — a superseded thread must neither re-arm nor emit for a
 /// workspace the window has moved on from.
-fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<GitStateMessage>) {
+fn spawn_git_state_coalescer(
+    app: AppHandle,
+    label: String,
+    root: PathBuf,
+    receiver: Receiver<GitStateMessage>,
+) {
     thread::spawn(move || {
         while let Ok(first) = receiver.recv() {
             let burst = drain_burst(&receiver, first, GIT_STATE_COALESCE);
+            // The window this watch speaks for may have closed and been pruned;
+            // then its `WindowWatch` is gone from the map and this thread retires.
+            let state: State<WatcherState> = app.state();
+            let Ok(windows) = state.windows.lock() else {
+                return;
+            };
+            let Some(watch) = windows.get(&label).cloned() else {
+                return;
+            };
+            drop(windows);
             {
-                let state: State<WatcherState> = app.state();
-                let Ok(mut guard) = state.git_state.lock() else {
+                let Ok(mut guard) = watch.git_state.lock() else {
                     return;
                 };
                 let speaks_for_current_root =
@@ -928,7 +1005,7 @@ fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<G
                     return;
                 }
                 if burst.rearm {
-                    rearm_git_state_locked(&app, &root, &mut guard);
+                    rearm_git_state_locked(&app, &label, &root, &mut guard);
                 }
             }
             if burst.rearm || burst.ignore_touched {
@@ -937,11 +1014,10 @@ fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<G
                 // changes the rules in place. Both re-filter the events already
                 // shown. Outside the `git_state` lock — the refresh takes the
                 // watcher/policy locks instead.
-                let state: State<WatcherState> = app.state();
-                refresh_ignore_policy(&app, &state);
+                refresh_ignore_policy(&app, &watch, &label);
             }
             if burst.rearm || burst.state_touched {
-                let _ = app.emit(GIT_STATE_EVENT, ());
+                let _ = app.emit_to(&label, GIT_STATE_EVENT, ());
             }
         }
     });
@@ -977,23 +1053,29 @@ fn drain_burst(
 #[tauri::command]
 pub fn watch_dirs(
     app: AppHandle,
+    window: WebviewWindow,
     state: State<WatcherState>,
     dirs: Vec<String>,
 ) -> Result<(), String> {
+    let label = window.label().to_string();
+    prune_closed_windows(&app, &state);
     let mut guard = state.dirs.lock().map_err(|e| e.to_string())?;
-    // Drop the old watcher before opening the new one, so its handles go with it.
-    *guard = None;
+    // Drop this window's old watcher before opening the new one, so its handles
+    // go with it; another window's picker watch is untouched.
+    guard.remove(&label);
     if dirs.is_empty() {
         return Ok(());
     }
 
     let app_handle = app.clone();
+    let callback_label = label.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
         let Ok(event) = res else { return };
         // Only appearance/disappearance moves rows on the page; edits inside a
-        // project are the Change Feed's business, not the picker's.
+        // project are the Change Feed's business, not the picker's. Routed to the
+        // owning window alone so a sibling's picker doesn't rescan on our news.
         if matches!(event.kind, EventKind::Create(_) | EventKind::Remove(_)) {
-            let _ = app_handle.emit("dirs://changed", ());
+            let _ = app_handle.emit_to(&callback_label, "dirs://changed", ());
         }
     })
     .map_err(|e| e.to_string())?;
@@ -1004,19 +1086,25 @@ pub fn watch_dirs(
         let _ = watcher.watch(Path::new(&dir), RecursiveMode::NonRecursive);
     }
 
-    *guard = Some(watcher);
+    guard.insert(label, watcher);
     Ok(())
 }
 
-fn handle_event(app: &AppHandle, event: Event) {
+fn handle_event(app: &AppHandle, label: &str, event: Event) {
     let Some(kind) = ChangeKind::from_event(event.kind) else {
         return;
     };
 
     let state: State<WatcherState> = app.state();
+    // This callback belongs to one window's watch; resolve its bookkeeping and
+    // route every surfaced change back to that window alone (`emit_to`), never
+    // broadcast to sibling windows watching other projects.
+    let Some(watch) = window_watch(&state, label) else {
+        return;
+    };
     // The active watch root, for the MCP-config and ancestor-relative checks
     // below — the recursive watcher only ever reports paths under it.
-    let watch_root = state
+    let watch_root = watch
         .watcher
         .lock()
         .ok()
@@ -1036,7 +1124,7 @@ fn handle_event(app: &AppHandle, event: Event) {
         // if so, the affected agent's sessions restart to pick it up. Checked
         // before the ignore filter, since `.mcp.json` is often git-ignored.
         if let Some(root) = &watch_root {
-            detect_mcp_change(app, &state, root, &path);
+            detect_mcp_change(app, &watch, label, root, &path);
         }
 
         // A changed .gitignore — edited, appearing for the first time, or
@@ -1045,7 +1133,7 @@ fn handle_event(app: &AppHandle, event: Event) {
         // and tell the feed to re-filter what it already shows. The .gitignore
         // itself is not ignored, so it still surfaces as its own change.
         if is_gitignore_file(&path) {
-            refresh_ignore_policy(app, &state);
+            refresh_ignore_policy(app, &watch, label);
         }
 
         // Skip whatever the project itself would ignore: git's own ignore rules in
@@ -1053,13 +1141,13 @@ fn handle_event(app: &AppHandle, event: Event) {
         // baseline `ignored` pre-filter above already dropped the giant dirs, so a
         // repo never shells git for node_modules/target and each surviving path is
         // git-checked at most once (memoized).
-        if excluded_by_ignore_policy(&state, &path) {
+        if excluded_by_ignore_policy(&watch, &path) {
             continue;
         }
 
         // Debounce: editors emit bursts per save.
         {
-            let Ok(mut seen) = state.last_seen.lock() else {
+            let Ok(mut seen) = watch.last_seen.lock() else {
                 continue;
             };
             let now = Instant::now();
@@ -1079,7 +1167,7 @@ fn handle_event(app: &AppHandle, event: Event) {
         // (the edit that fired this very event is already on disk). Later edits,
         // and a later deletion, diff against this. `or_insert_with` runs only on
         // the first sighting, so a large file is read at most once.
-        if let Ok(mut baselines) = state.baselines.lock() {
+        if let Ok(mut baselines) = watch.baselines.lock() {
             baselines.entry(path.clone()).or_insert_with(|| match kind {
                 ChangeKind::Created => Some(String::new()),
                 ChangeKind::Modified | ChangeKind::Deleted => read_preview_text(&path),
@@ -1088,7 +1176,7 @@ fn handle_event(app: &AppHandle, event: Event) {
 
         let new_count = line_count(&path);
         let (added, removed) = {
-            let Ok(mut counts) = state.line_counts.lock() else {
+            let Ok(mut counts) = watch.line_counts.lock() else {
                 continue;
             };
             let old = counts.get(&path).copied();
@@ -1117,7 +1205,7 @@ fn handle_event(app: &AppHandle, event: Event) {
             removed,
             ts: now_ms(),
         };
-        let _ = app.emit("feed://change", ev);
+        let _ = app.emit_to(label, "feed://change", ev);
     }
 }
 
@@ -1139,9 +1227,16 @@ pub struct FeedDiff {
 /// by construction, so an untracked or ignored file previews like any other, and a
 /// file deleted after being touched shows its baseline as a full removal.
 #[tauri::command]
-pub fn feed_diff(state: State<WatcherState>, path: String) -> Result<Option<FeedDiff>, String> {
+pub fn feed_diff(
+    window: WebviewWindow,
+    state: State<WatcherState>,
+    path: String,
+) -> Result<Option<FeedDiff>, String> {
+    let Some(watch) = window_watch(&state, window.label()) else {
+        return Ok(None);
+    };
     let before = {
-        let baselines = state.baselines.lock().map_err(|e| e.to_string())?;
+        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
         match baselines.get(Path::new(&path)) {
             Some(Some(text)) => text.clone(),
             _ => return Ok(None),
@@ -1166,12 +1261,20 @@ pub fn feed_diff(state: State<WatcherState>, path: String) -> Result<Option<Feed
 /// (events for now-ignored paths are dropped; never-recorded ones can't be
 /// resurrected, they simply surface again on their next real change).
 #[tauri::command]
-pub fn feed_ignored(state: State<WatcherState>, paths: Vec<String>) -> Vec<String> {
+pub fn feed_ignored(
+    window: WebviewWindow,
+    state: State<WatcherState>,
+    paths: Vec<String>,
+) -> Vec<String> {
+    let watch = window_watch(&state, window.label());
     paths
         .into_iter()
         .filter(|candidate| {
             let path = Path::new(candidate);
-            ignored(path) || excluded_by_ignore_policy(&state, path)
+            ignored(path)
+                || watch
+                    .as_ref()
+                    .is_some_and(|watch| excluded_by_ignore_policy(watch, path))
         })
         .collect()
 }
