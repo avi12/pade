@@ -101,8 +101,9 @@ export const ide = {
     /** 1-based line to jump to (only meaningful when `path` is a file). */
     line?: number;
   }) => run("ide_open", { ...args }),
-  /** Open a file in the window that already has `project` open (JetBrains via its
-   *  URL scheme, others via the CLI), jumping to `line` when given. */
+  /** Open a file inside its `project` workspace window (the folder rides the
+   *  launcher CLI for every family with a workspace+file form — never a bare
+   *  single-file window), jumping to `line` when given. */
   openFile: (args: {
     command: string;
     project: string;

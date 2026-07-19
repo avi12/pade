@@ -112,14 +112,18 @@ impl EditorCoverage {
 /// verified against each editor's official CLI docs.
 #[derive(Clone, Copy)]
 enum OpenStyle {
-    /// VS Code family: `-r -g file:line` — reuse the already-open window (so it
-    /// navigates in place rather than spawning a new one) and go to the line.
+    /// VS Code family: `-g file:line` jumps to the line. With a workspace
+    /// folder the folder leads (`code <dir> -g file:line`) so the file opens in
+    /// that project's window; without one, `-r` reuses the already-open window
+    /// (so it navigates in place rather than spawning a new one).
     VsCode,
-    /// `JetBrains` family: `--line <n> file` — flags first, path last. The
+    /// `JetBrains` family: `--line <n> file` — flags first, path last, with an
+    /// optional leading project directory (`idea <dir> --line <n> file`). The
     /// launcher hands the file to the running IDE instance when one is up.
     JetBrains,
-    /// Zed / Sublime: a `file:line` colon suffix on the path; the CLI routes to
-    /// the running editor instance.
+    /// Zed / Sublime: a `file:line` colon suffix on the path, optionally after
+    /// the workspace folder (both CLIs open all listed paths in one window);
+    /// the CLI routes to the running editor instance.
     PathColon,
     /// Visual Studio: `/Edit file` opens the file in the running instance. There
     /// is no reliable CLI to also jump to a line (combining `/Edit` with a
@@ -1450,18 +1454,82 @@ fn open_style(command: &str) -> Option<OpenStyle> {
 
 /// The launcher arguments for opening `target` — jumping to `line` when one is
 /// given and the launcher's style is known (otherwise the path is passed as-is,
-/// which every editor accepts).
-fn open_args(command: &str, target: String, line: Option<u32>) -> Vec<String> {
-    match (line, open_style(command)) {
-        (Some(n), Some(OpenStyle::VsCode)) => {
+/// which every editor accepts). With a `workspace`, the project folder rides
+/// along for every family whose CLI has a workspace+file form, so the file
+/// opens *inside its project's window* — not a bare single-file window; a
+/// family with no such form keeps the plain-file behavior.
+fn open_args(
+    command: &str,
+    target: String,
+    line: Option<u32>,
+    workspace: Option<&str>,
+) -> Vec<String> {
+    match (open_style(command), workspace, line) {
+        // VS Code family: `code <folder> -g <file>[:<line>]` — the folder names
+        // the workspace (a window already showing it is focused, else one
+        // opens) and `-g`/`--goto` jumps to the file:line inside it (VS Code
+        // CLI docs, "Opening files and folders"). Deliberately no `-r` here:
+        // combined with a folder, `-r` re-points the last-active window at the
+        // folder instead of finding the project's own window.
+        (Some(OpenStyle::VsCode), Some(folder), Some(n)) => {
+            vec![folder.to_owned(), "-g".to_owned(), format!("{target}:{n}")]
+        }
+        (Some(OpenStyle::VsCode), Some(folder), None) => {
+            vec![folder.to_owned(), "-g".to_owned(), target]
+        }
+        (Some(OpenStyle::VsCode), None, Some(n)) => {
             vec!["-r".to_owned(), "-g".to_owned(), format!("{target}:{n}")]
         }
-        (Some(n), Some(OpenStyle::JetBrains)) => vec!["--line".to_owned(), n.to_string(), target],
-        (Some(n), Some(OpenStyle::PathColon)) => vec![format!("{target}:{n}")],
-        // Visual Studio opens the file in the running instance; no line jump.
-        (_, Some(OpenStyle::VisualStudio)) => vec!["/Edit".to_owned(), target],
+        // JetBrains: `idea <projectDir> [--line <n>] <file>` — a leading
+        // project path makes the IDE open the file in that project's window
+        // rather than guessing the project from the file's ancestors
+        // (JetBrains, "Open files from the command line").
+        (Some(OpenStyle::JetBrains), Some(folder), Some(n)) => vec![
+            folder.to_owned(),
+            "--line".to_owned(),
+            n.to_string(),
+            target,
+        ],
+        (Some(OpenStyle::JetBrains), None, Some(n)) => {
+            vec!["--line".to_owned(), n.to_string(), target]
+        }
+        // Zed / Sublime open every listed path in one window, so the folder
+        // becomes (or joins) the workspace and the colon suffix jumps inside it
+        // (`zed <dir> <file>:<line>`, `subl <dir> <file>:<line>`).
+        (Some(OpenStyle::PathColon), Some(folder), Some(n)) => {
+            vec![folder.to_owned(), format!("{target}:{n}")]
+        }
+        (Some(OpenStyle::PathColon), None, Some(n)) => vec![format!("{target}:{n}")],
+        // A line-less folder-carrying open shares one shape across JetBrains
+        // and Zed/Sublime: the workspace folder, then the bare file.
+        (Some(OpenStyle::JetBrains | OpenStyle::PathColon), Some(folder), None) => {
+            vec![folder.to_owned(), target]
+        }
+        // Visual Studio opens the file in the running instance; its CLI has no
+        // trustworthy folder+file form, and no line jump either.
+        (Some(OpenStyle::VisualStudio), _, _) => vec!["/Edit".to_owned(), target],
         _ => vec![target],
     }
+}
+
+/// Spawn a launcher with prepared arguments. On Windows the JetBrains/VS Code
+/// launchers are .cmd shims, so go through the shell to resolve them the way a
+/// terminal would. An added editor's command is an absolute executable path, so
+/// spawn it directly instead.
+fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
+    let is_path = command.contains('/') || command.contains('\\');
+    let spawn = if cfg!(windows) && !is_path {
+        crate::util::command("cmd")
+            .arg("/C")
+            .arg(command)
+            .args(args)
+            .spawn()
+    } else {
+        crate::util::command(command).args(args).spawn()
+    };
+    spawn
+        .map(|_| ())
+        .map_err(|e| format!("failed to open {command}: {e}"))
 }
 
 /// Open a path in the given IDE launcher. `path` defaults to the current project
@@ -1478,42 +1546,28 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
             .into_owned(),
     };
     // A line only applies when we were handed a file to jump into.
-    let args = open_args(&command, target, line.filter(|_| has_path));
-
-    // On Windows the JetBrains/VS Code launchers are .cmd shims, so go through
-    // the shell to resolve them the way a terminal would. An added editor's
-    // command is an absolute executable path, so spawn it directly instead.
-    let is_path = command.contains('/') || command.contains('\\');
-    let spawn = if cfg!(windows) && !is_path {
-        crate::util::command("cmd")
-            .arg("/C")
-            .arg(&command)
-            .args(&args)
-            .spawn()
-    } else {
-        crate::util::command(&command).args(&args).spawn()
-    };
-    spawn
-        .map(|_| ())
-        .map_err(|e| format!("failed to open {command}: {e}"))
+    let args = open_args(&command, target, line.filter(|_| has_path), None);
+    spawn_launcher(&command, &args)
 }
 
-/// Reveal a file in the given editor, jumping to `line` when given. This routes
-/// through the same launcher as "Open in editor" ([`ide_open`]): every editor
-/// family's launcher (`JetBrains` `--line n file`, VS Code `-r -g file:line`,
-/// Zed/Sublime `file:line`) both **starts a cold IDE** and hands the file to an
-/// already-running one, so a reveal opens the file at the line whether or not
-/// the editor was running. The owning project window is resolved by the launcher
-/// from the file's own path; `_project` rides the IPC contract but isn't needed
-/// here.
+/// Reveal a file in the given editor, jumping to `line` when given, **inside
+/// the window that has `project` open**. Every family with a workspace+file CLI
+/// form gets the project folder alongside the file (VS Code `<dir> -g
+/// file:line`, `JetBrains` `<dir> --line n file`, Zed/Sublime `<dir>
+/// file:line`), so a cold editor opens the whole workspace at the right line —
+/// never a bare single-file window — and a running one focuses the project's
+/// own window. A family with no such form (Visual Studio, Notepad++, …)
+/// receives the file alone, as before.
 #[tauri::command]
 pub fn ide_open_file(
     command: String,
-    _project: String,
+    project: String,
     file: String,
     line: Option<u32>,
 ) -> Result<(), String> {
-    ide_open(command, Some(file), line)
+    let workspace = (!project.trim().is_empty()).then_some(project.as_str());
+    let args = open_args(&command, file, line, workspace);
+    spawn_launcher(&command, &args)
 }
 
 #[cfg(test)]
@@ -1983,23 +2037,58 @@ mod tests {
     #[test]
     fn vscode_style_reuses_the_window_and_jumps_to_the_line() {
         assert_eq!(
-            open_args("code", "C:/p/file.ts".to_string(), Some(12)),
+            open_args("code", "C:/p/file.ts".to_string(), Some(12), None),
             ["-r", "-g", "C:/p/file.ts:12"]
+        );
+    }
+
+    #[test]
+    fn vscode_style_opens_the_file_inside_its_workspace() {
+        assert_eq!(
+            open_args("code", "C:/p/file.ts".to_string(), Some(12), Some("C:/p")),
+            ["C:/p", "-g", "C:/p/file.ts:12"]
+        );
+        assert_eq!(
+            open_args("code", "C:/p/file.ts".to_string(), None, Some("C:/p")),
+            ["C:/p", "-g", "C:/p/file.ts"]
         );
     }
 
     #[test]
     fn jetbrains_style_passes_the_line_flag_before_the_path() {
         assert_eq!(
-            open_args("webstorm", "C:/p/file.ts".to_string(), Some(7)),
+            open_args("webstorm", "C:/p/file.ts".to_string(), Some(7), None),
             ["--line", "7", "C:/p/file.ts"]
         );
     }
 
     #[test]
-    fn visual_studio_edits_the_file_and_drops_the_line() {
+    fn jetbrains_style_leads_with_the_project_directory() {
         assert_eq!(
-            open_args("devenv", "C:/p/file.cs".to_string(), Some(42)),
+            open_args(
+                "webstorm",
+                "C:/p/file.ts".to_string(),
+                Some(7),
+                Some("C:/p")
+            ),
+            ["C:/p", "--line", "7", "C:/p/file.ts"]
+        );
+        assert_eq!(
+            open_args("webstorm", "C:/p/file.ts".to_string(), None, Some("C:/p")),
+            ["C:/p", "C:/p/file.ts"]
+        );
+    }
+
+    #[test]
+    fn visual_studio_edits_the_file_and_drops_the_line_and_workspace() {
+        assert_eq!(
+            open_args("devenv", "C:/p/file.cs".to_string(), Some(42), None),
+            ["/Edit", "C:/p/file.cs"]
+        );
+        // Its CLI has no trustworthy folder+file form, so the workspace is
+        // deliberately ignored rather than guessed at.
+        assert_eq!(
+            open_args("devenv", "C:/p/file.cs".to_string(), Some(42), Some("C:/p")),
             ["/Edit", "C:/p/file.cs"]
         );
     }
@@ -2007,20 +2096,33 @@ mod tests {
     #[test]
     fn path_colon_style_suffixes_the_line_onto_the_path() {
         assert_eq!(
-            open_args("zed", "C:/p/file.ts".to_string(), Some(3)),
+            open_args("zed", "C:/p/file.ts".to_string(), Some(3), None),
             ["C:/p/file.ts:3"]
         );
     }
 
     #[test]
-    fn a_bare_path_passes_through_without_a_line() {
-        assert_eq!(open_args("code", "C:/p".to_string(), None), ["C:/p"]);
+    fn path_colon_style_opens_the_workspace_folder_alongside_the_file() {
+        assert_eq!(
+            open_args("zed", "C:/p/file.ts".to_string(), Some(3), Some("C:/p")),
+            ["C:/p", "C:/p/file.ts:3"]
+        );
     }
 
     #[test]
-    fn an_unknown_launcher_gets_the_plain_path_even_with_a_line() {
+    fn a_bare_path_passes_through_without_a_line() {
+        assert_eq!(open_args("code", "C:/p".to_string(), None, None), ["C:/p"]);
+    }
+
+    #[test]
+    fn an_unknown_launcher_gets_the_plain_path_even_with_a_line_and_workspace() {
         assert_eq!(
-            open_args("notepad", "C:/p/file.ts".to_string(), Some(9)),
+            open_args("notepad", "C:/p/file.ts".to_string(), Some(9), None),
+            ["C:/p/file.ts"]
+        );
+        // No known workspace+file form either — current behavior is kept.
+        assert_eq!(
+            open_args("notepad", "C:/p/file.ts".to_string(), Some(9), Some("C:/p")),
             ["C:/p/file.ts"]
         );
     }
