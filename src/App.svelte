@@ -540,6 +540,25 @@
     showToast("Opened a new window");
   }
 
+  // One deliberate leave at a time. The graceful wait can hold the UI open for
+  // up to GRACEFUL_LEAVE_TIMEOUT_MS while it stays fully interactive, so a
+  // second switch/leave starting inside that window would interleave two
+  // kill → open → launch sequences over the same session list. Later attempts
+  // are dropped, not queued — the first leave is already taking the user away.
+  let leaveInFlight = false;
+  async function runExclusiveLeave(leave: () => Promise<void>): Promise<void> {
+    if (leaveInFlight) {
+      return;
+    }
+
+    leaveInFlight = true;
+    try {
+      await leave();
+    } finally {
+      leaveInFlight = false;
+    }
+  }
+
   async function openProject(target: OpenTarget) {
     // If another window already has this project open, focus it instead of
     // opening a second copy here — the picker window stays put.
@@ -561,26 +580,28 @@
     // cwd-locking — a workspace this window has left. Leaving a never-named
     // temp workspace behind also discards it, exactly like ending its last
     // session would (see discardTempWorkspace).
-    const previousProject = currentProject;
-    const leavesDiscardableTemp = isDiscardableTemp;
-    await closeAllSessionsGracefully();
+    await runExclusiveLeave(async () => {
+      const previousProject = currentProject;
+      const leavesDiscardableTemp = isDiscardableTemp;
+      await closeAllSessionsGracefully();
 
-    await workspace.open(target.path);
-    settings = await workspace.settings(); // pick up the updated recent history
-    startAgentFlow({
-      path: target.path,
-      initialPrompt: target.initialPrompt,
-      agentId: target.agent
-    });
-    await loadBranches();
+      await workspace.open(target.path);
+      settings = await workspace.settings(); // pick up the updated recent history
+      startAgentFlow({
+        path: target.path,
+        initialPrompt: target.initialPrompt,
+        agentId: target.agent
+      });
+      await loadBranches();
 
-    if (leavesDiscardableTemp) {
-      try {
-        settings = await workspace.delete(previousProject);
-      } catch {
-        showToast("Couldn't delete the temp workspace folder.");
+      if (leavesDiscardableTemp) {
+        try {
+          settings = await workspace.delete(previousProject);
+        } catch {
+          showToast("Couldn't delete the temp workspace folder.");
+        }
       }
-    }
+    });
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
@@ -968,15 +989,17 @@
   // prompt (closeAllSessionsGracefully), and a never-named temp workspace is
   // discarded exactly as ending its last session would.
   async function leaveToPicker() {
-    await closeAllSessionsGracefully();
+    await runExclusiveLeave(async () => {
+      await closeAllSessionsGracefully();
 
-    if (isDiscardableTemp) {
-      await discardTempWorkspace();
-      return;
-    }
+      if (isDiscardableTemp) {
+        await discardTempWorkspace();
+        return;
+      }
 
-    releaseProject();
-    switchToPicker();
+      releaseProject();
+      switchToPicker();
+    });
   }
 
   // Ending the last session of a never-named temp workspace throws the whole
