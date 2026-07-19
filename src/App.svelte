@@ -428,7 +428,7 @@
     try {
       agents = await agentsApi.detect();
     } catch {
-      // A transient detection failure keeps the agents already on screen.
+    // A transient detection failure keeps the agents already on screen.
     }
   }
   onMount(() => {
@@ -766,8 +766,11 @@
     }
 
     slot.style.animation = "none";
-    // Reading offsetWidth forces a synchronous reflow so re-adding the same pane restarts the run.
-    slot.offsetWidth;
+    // Force a synchronous reflow between clearing and re-setting the animation so
+    // re-adding the same pane restarts the run; getBoundingClientRect flushes
+    // layout the same as reading offsetWidth, but as a call it isn't a bare
+    // "unused expression" (nor an unused local, which a discard const would be).
+    slot.getBoundingClientRect();
     slot.style.animation = "pane-enter 340ms var(--spring)";
     slot.addEventListener("animationend", () => (slot.style.animation = ""), { once: true });
   }

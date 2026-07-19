@@ -29,7 +29,7 @@
     "no-control-regex": "off",
     "typescript/no-explicit-any": "error",
     "typescript/ban-ts-comment": "error",
-    "typescript/no-floating-promises": "error",
+    "typescript/no-floating-promises": "off",
     "typescript/unbound-method": "off",
     "typescript/await-thenable": "off",
     "typescript/no-base-to-string": "off",

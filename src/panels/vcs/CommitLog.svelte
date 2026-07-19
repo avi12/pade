@@ -48,11 +48,12 @@
     try {
       const base = remoteUrl ?? (await vcs.remoteUrl());
       remoteUrl = base;
+
       if (base) {
         await os.openUrl(`${base}/commit/${commit.id}`);
       }
     } catch {
-      // Opening the commit externally is best-effort — a missing remote or a
+    // Opening the commit externally is best-effort — a missing remote or a
       // failed browser launch must not surface as an error here.
     }
   }

@@ -102,7 +102,9 @@ $effect.root(() => {
       const running = status === SessionStatus.enum.working;
       const wasRunning = controller.last === SessionStatus.enum.working;
       if (running && controller.timer === undefined) {
-        controller.timer = setInterval(async () => { await generate(id); }, REFRESH_MS);
+        controller.timer = setInterval(async () => {
+          await generate(id);
+        }, REFRESH_MS);
       } else if (!running && controller.timer !== undefined) {
         clearInterval(controller.timer);
         controller.timer = undefined;

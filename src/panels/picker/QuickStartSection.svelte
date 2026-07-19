@@ -413,7 +413,7 @@
       style:block-size={panelsHeight === null ? "auto" : `${panelsHeight}px`}
       class="panels"
     >
-      <div class="slot" data-tab={StartTab.create} class:open={tab === StartTab.create}>
+      <div class="slot" class:open={tab === StartTab.create} data-tab={StartTab.create}>
         <form
           class="panel"
           onsubmit={async e => {
@@ -528,7 +528,7 @@
           </div>
         </form>
       </div>
-      <div class="slot" data-tab={StartTab.local} class:open={tab === StartTab.local}>
+      <div class="slot" class:open={tab === StartTab.local} data-tab={StartTab.local}>
         <form
           class="panel"
           onsubmit={e => {
@@ -578,7 +578,7 @@
           <button class="go" disabled={!localIsDir} type="submit">Open project</button>
         </form>
       </div>
-      <div class="slot" data-tab={StartTab.clone} class:open={tab === StartTab.clone}>
+      <div class="slot" class:open={tab === StartTab.clone} data-tab={StartTab.clone}>
         {#if gitInstalled !== null}
           {#if !gitInstalled}
             <div class="panel warn-card">

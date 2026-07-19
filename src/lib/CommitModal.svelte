@@ -94,7 +94,7 @@
     try {
       await os.openUrl(commitUrl);
     } catch {
-      // Opening on GitHub is best-effort; a failed browser launch is silent.
+    // Opening on GitHub is best-effort; a failed browser launch is silent.
     }
   }
 

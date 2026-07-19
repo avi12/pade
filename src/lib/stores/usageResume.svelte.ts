@@ -240,7 +240,11 @@ export function createUsageResume(host: ResumeHost) {
 
     const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(resetAt);
     note = `${session.agent.label} hit its usage limit — resuming at ${clock}.`;
-    timers.set(session.id, setTimeout(async () => { await resume(session); }, delay));
+    timers.set(
+      session.id, setTimeout(async () => {
+        await resume(session);
+      }, delay)
+    );
   }
 
   // Scan for freshly limited sessions and schedule their resume; prune state
