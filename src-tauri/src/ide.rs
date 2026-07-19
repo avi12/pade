@@ -1480,10 +1480,14 @@ fn open_args(
         (Some(OpenStyle::VsCode), None, Some(n)) => {
             vec!["-r".to_owned(), "-g".to_owned(), format!("{target}:{n}")]
         }
-        // JetBrains: `idea <projectDir> [--line <n>] <file>` — a leading
-        // project path makes the IDE open the file in that project's window
-        // rather than guessing the project from the file's ancestors
-        // (JetBrains, "Open files from the command line").
+        // JetBrains: `idea <projectDir> [--line <n>] <file>`. The docs
+        // ("Open files from the command line") only promise the single-path
+        // form `idea64.exe [--line <number>] <path>`; the leading project
+        // directory rides the launcher's undocumented-but-real multi-path
+        // handling (CommandLineProcessor opens each path, a directory as a
+        // project), which puts the file in that project's window instead of
+        // one guessed from the file's ancestors. Smoke-test per launcher
+        // (Toolbox shims included) when adding a new JetBrains family entry.
         (Some(OpenStyle::JetBrains), Some(folder), Some(n)) => vec![
             folder.to_owned(),
             "--line".to_owned(),
