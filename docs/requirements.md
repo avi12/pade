@@ -22,6 +22,18 @@ writes.
   sessions stay mounted so scrollback survives; the grid refits on layout change.
 - R1.1.6 ✅ Per-tab **status dot** — starting / working (pulses) / ready (halo) /
   exited, shared from each terminal's idle detection via a `lib/stores` store.
+- R1.1.7 ✅ **Session persistence across an accidental reload** — the window
+  persists its pane mapping (sessionStorage) and boot re-attaches whatever the
+  backend still hosts (`pty_list` ∩ snapshot), replaying `pty_history` per pane;
+  the `w=` window query is kept rewritten to the project actually on screen so a
+  reload never routes off a stale spawn intent. Never across an app restart:
+  sessionStorage dies with the window, and the backend kills all PTYs on exit.
+- R1.1.8 ✅ **Intent-based leave** — a deliberate leave (project switch, back to
+  the picker) kills the project's agents *gracefully*: it waits per session for
+  the idle prompt (`sessionStatus === ready`, the output-quiet signal — never
+  child-process counting, which mis-reads persistent MCP servers), capped at 30s,
+  so nothing mid-flight is severed; the agent's auto-save + `/resume` cover
+  continuity. An accidental reload records no leave and re-attaches instead.
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).
