@@ -14,9 +14,15 @@ const measureContext = document.createElement("canvas").getContext("2d");
  *  (not the CSS `[data-tooltip]` bubble) because the trigger sits inside a popover,
  *  whose top layer traps a `position: fixed` pseudo and inflates the panel's scroll
  *  width; the OS-drawn `title` floats above all UI and never affects layout. */
-export function truncationTooltip({ text, visible }: { text: string; visible: boolean }): Attachment {
+export function truncationTooltip({ text, visible }: {
+  text: string;
+  visible: boolean;
+}): Attachment {
   return element => {
-    if (visible && isTextClipped({ element, text })) {
+    if (visible && isTextClipped({
+      element,
+      text
+    })) {
       element.setAttribute("title", text);
       return;
     }
@@ -26,7 +32,10 @@ export function truncationTooltip({ text, visible }: { text: string; visible: bo
 }
 
 /** True when `text`, rendered in `element`'s font, is wider than its content box. */
-function isTextClipped({ element, text }: { element: Element; text: string }): boolean {
+function isTextClipped({ element, text }: {
+  element: Element;
+  text: string;
+}): boolean {
   if (!measureContext) {
     return false;
   }

@@ -1327,7 +1327,6 @@
           <span class="preview">{selection}</span>
         </button>
       {/if}
-
     </div>
   {:else}
     <!-- Loading phase: a calm branded ground so a booting window is never a
@@ -1784,5 +1783,4 @@
       opacity: 85%;
     }
   }
-
 </style>

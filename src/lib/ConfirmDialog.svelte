@@ -99,18 +99,18 @@
     bind:this={scrimElement}
     class="scrim"
     class:danger
-    popover="auto"
     aria-labelledby="confirm-title"
-    ontoggle={e => {
-      if ((e as ToggleEvent).newState === "closed" && !busy) {
-        oncancel();
-      }
-    }}
     onclick={e => {
       if (e.target === scrimElement && !busy) {
         oncancel();
       }
     }}
+    ontoggle={e => {
+      if ((e as ToggleEvent).newState === "closed" && !busy) {
+        oncancel();
+      }
+    }}
+    popover="auto"
   >
     <div class="dialog" class:danger>{@render card()}</div>
   </dialog>
@@ -168,16 +168,16 @@
   .scrim {
     position: fixed;
     inset: 0;
-    max-inline-size: none;
+    overflow: auto;
+    block-size: 100%;
     max-block-size: none;
     inline-size: 100%;
-    block-size: 100%;
+    max-inline-size: none;
     margin: 0;
     padding: 24px;
     border: none;
-    overflow: auto;
-    color: inherit;
     background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
+    color: inherit;
     animation: fadein 160ms var(--ease);
 
     &:popover-open {

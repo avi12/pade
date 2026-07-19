@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
   import { ide, vcs, windows } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
@@ -10,6 +9,7 @@
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
   import type { WindowInfo } from "@/lib/types";
+  import { onMount, tick } from "svelte";
 
   // The project switcher that leads the top bar. It lists every open PADE window
   // (jump between them, or cycle with Ctrl+Shift+Alt+[ / ]), then is a fast way to
@@ -207,11 +207,11 @@
   // never snapshots the live-repainting terminal (which would ghost). Reduced
   // motion, or an engine without the scoped API, runs the mutation directly.
   async function animateListChange(mutate: () => Promise<void>) {
-    const list = switchListElement as
+    const list:
       | (HTMLElement & {
-          startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
-        })
-      | null;
+        startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
+      })
+      | null = switchListElement;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches || !list?.startViewTransition) {
       await mutate();
       return;
@@ -280,6 +280,7 @@
     class="menu popover-menu"
     ontoggle={async e => {
       menuOpen = (e as ToggleEvent).newState === "open";
+
       if (menuOpen) {
         focusFilter();
         await loadMeta();
@@ -430,7 +431,11 @@
                 {branches[project]}
               </span>
             {/if}
-            <span class="prow-path" {@attach truncationTooltip({ text: project, visible: menuOpen })}>{project}</span>
+            <span
+              class="prow-path" {@attach truncationTooltip({
+                text: project,
+                visible: menuOpen
+              })}>{project}</span>
           </span>
         </span>
         {#if current}
@@ -439,7 +444,7 @@
       </button>
     {/snippet}
 
-    <div class="switch-list" bind:this={switchListElement}>
+    <div bind:this={switchListElement} class="switch-list">
       {#if pinnedShown.length > 0}
         <div class="list-head"><span>Pinned</span></div>
         {#each pinnedShown as project (project)}
@@ -448,9 +453,9 @@
                moved/removed row glides) instead of cross-fading the whole list;
                data-pin-id keeps a flat drag-sibling set for the reorder engine. -->
           <div
+            style:view-transition-name={rowTransitionName(project)}
             class="prow"
             data-pin-id={filter.trim() === "" ? project : undefined}
-            style:view-transition-name={rowTransitionName(project)}
           >
             {#if pinsReorderable}
               <span
@@ -482,7 +487,7 @@
         </div>
         {#each recentShown as project (project)}
           {@const menuId = rowMenuId(project)}
-          <div class="prow" style:view-transition-name={rowTransitionName(project)}>
+          <div style:view-transition-name={rowTransitionName(project)} class="prow">
             {@render rowMain(project)}
             {@render rowMenu(project, false, menuId)}
           </div>
