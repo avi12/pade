@@ -34,16 +34,20 @@ async function generate(id: string): Promise<void> {
     return;
   }
 
-  const name = await pty.generateName({
-    id,
-    agent
-  });
-  // Only apply if still naming this session (it may have been toggled off).
-  if (name !== null && naming.has(id)) {
-    setSessionLabel({
+  try {
+    const name = await pty.generateName({
       id,
-      label: name
+      agent
     });
+    // Only apply if still naming this session (it may have been toggled off).
+    if (name !== null && naming.has(id)) {
+      setSessionLabel({
+        id,
+        label: name
+      });
+    }
+  } catch {
+    // Naming is best-effort; a failed generate just skips this refresh.
   }
 }
 
@@ -68,7 +72,7 @@ export function toggleNaming({ id, agent }: {
   controllers.set(id, { last: sessionStatus(id) });
 
   if (sessionStatus(id) === SessionStatus.enum.working) {
-    void generate(id);
+    generate(id);
   }
 }
 
@@ -98,14 +102,14 @@ $effect.root(() => {
       const running = status === SessionStatus.enum.working;
       const wasRunning = controller.last === SessionStatus.enum.working;
       if (running && controller.timer === undefined) {
-        controller.timer = setInterval(() => void generate(id), REFRESH_MS);
+        controller.timer = setInterval(async () => { await generate(id); }, REFRESH_MS);
       } else if (!running && controller.timer !== undefined) {
         clearInterval(controller.timer);
         controller.timer = undefined;
       }
 
       if (!running && wasRunning) {
-        void generate(id);
+        generate(id);
       }
 
       controller.last = status;
