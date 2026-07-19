@@ -1527,20 +1527,25 @@ fn open_args(
     }
 }
 
-/// Spawn a launcher with prepared arguments. On Windows the JetBrains/VS Code
-/// launchers are .cmd shims, so go through the shell to resolve them the way a
-/// terminal would. An added editor's command is an absolute executable path, so
-/// spawn it directly instead.
+/// Spawn a GUI-IDE launcher with prepared arguments, **detached** so the editor
+/// outlives ADE (requirement: closing ADE must not kill the IDE — see
+/// [`crate::util::spawn_detached`] for the job/console reasoning). On Windows the
+/// JetBrains/VS Code launchers are `.cmd` shims, so go through `cmd /C` to
+/// resolve them the way a terminal would; an added editor's command is an
+/// absolute executable path, so spawn it directly. Both paths go through the one
+/// detached-spawn helper (DRY) so the editor breaks out of ADE's job either way.
+/// (Console editors — Neovim/Vim/Helix — never reach here; they run inside a
+/// PADE terminal tab and are meant to stay tied to ADE.)
 fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
     let is_path = command.contains('/') || command.contains('\\');
     let spawn = if cfg!(windows) && !is_path {
-        crate::util::command("cmd")
-            .arg("/C")
-            .arg(command)
-            .args(args)
-            .spawn()
+        let mut shell_args = Vec::with_capacity(args.len() + 2);
+        shell_args.push("/C".to_owned());
+        shell_args.push(command.to_owned());
+        shell_args.extend_from_slice(args);
+        crate::util::spawn_detached("cmd", &shell_args)
     } else {
-        crate::util::command(command).args(args).spawn()
+        crate::util::spawn_detached(command, args)
     };
     spawn
         .map(|_| ())

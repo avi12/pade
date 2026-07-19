@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
 
 /// A `Command` that never flashes a console window on Windows. Every background
 /// or captured-output spawn — PATH lookups, git, curl, the agent namer, task
@@ -21,6 +21,66 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
         cmd.creation_flags(0x0800_0000);
     }
     cmd
+}
+
+/// Spawn `program args` as a process that fully **outlives** ADE — used only for
+/// launching a GUI IDE (see `ide::spawn_launcher`), which the user expects to
+/// keep running after they close ADE.
+///
+/// Why the plain [`command`] spawn is not enough on Windows: a child inherits
+/// its parent's console *and* its parent's Job object, and job membership is
+/// inherited transitively. A GUI app like ADE is commonly placed in a Job whose
+/// limit flags include `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so when ADE exits
+/// and its job handle closes, every process still in that job — including an IDE
+/// we merely started — is terminated. That is exactly requirement #1's failure.
+/// Three creation flags break the child out of both:
+///
+/// - `DETACHED_PROCESS` (`0x0000_0008`): the child gets no console of its own. A
+///   GUI IDE opens its own window and needs none, so this is the right console
+///   flag here — and it *replaces* [`command`]'s `CREATE_NO_WINDOW`, with which
+///   it is mutually exclusive (both are console-disposition flags). No console
+///   means no `conhost` flash, preserving [`command`]'s windowless property.
+/// - `CREATE_NEW_PROCESS_GROUP` (`0x0000_0200`): the child leads its own process
+///   group, so a Ctrl-C / console signal aimed at ADE never reaches it.
+/// - `CREATE_BREAKAWAY_FROM_JOB` (`0x0100_0000`): the child is created *outside*
+///   ADE's job, so closing ADE's job on exit cannot kill it.
+///
+/// Robustness: `CREATE_BREAKAWAY_FROM_JOB` makes `CreateProcess` fail with
+/// `ERROR_ACCESS_DENIED` (os error 5) when ADE's job forbids breakaway (its
+/// limits lack `JOB_OBJECT_LIMIT_BREAKAWAY_OK`) or ADE is in no job at all. On
+/// that one error we retry without breakaway — still detached and in its own
+/// group, which is the best we can do inside a no-breakaway job. Any other error
+/// is returned unchanged, never swallowed.
+///
+/// On non-Windows there is no job/console teardown to escape: a spawned child is
+/// already independent and is re-parented to init when ADE exits, so a plain
+/// spawn suffices.
+#[cfg(windows)]
+pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::Result<Child> {
+    use std::os::windows::process::CommandExt;
+
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
+    const ERROR_ACCESS_DENIED: i32 = 5;
+
+    let detached = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
+    let spawn = |flags: u32| {
+        Command::new(&program)
+            .args(args)
+            .creation_flags(flags)
+            .spawn()
+    };
+    match spawn(detached | CREATE_BREAKAWAY_FROM_JOB) {
+        Ok(child) => Ok(child),
+        Err(error) if error.raw_os_error() == Some(ERROR_ACCESS_DENIED) => spawn(detached),
+        Err(error) => Err(error),
+    }
+}
+
+#[cfg(not(windows))]
+pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::Result<Child> {
+    Command::new(program).args(args).spawn()
 }
 
 /// Every directory an executable could live in, most authoritative first: this
