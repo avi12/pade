@@ -89,12 +89,13 @@
 
   $effect(() => {
     let cancelled = false;
-    void (async () => {
+    async function loadAccount() {
       const next = await usageApi.account().catch(() => null);
       if (!cancelled) {
         account = next;
       }
-    })();
+    }
+    loadAccount();
     return () => {
       cancelled = true;
     };
