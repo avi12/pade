@@ -289,7 +289,9 @@
 
   // Re-armed whenever that list changes; the backend replaces the previous set.
   // Nothing downstream waits on it, so it's a genuine fire-and-forget.
-  $effect(() => void dirs.watch(watchedDirs));
+  $effect(() => {
+    dirs.watch(watchedDirs);
+  });
 
   // The filesystem answers in bursts (one delete lands as several events), so the
   // rescan is debounced — one refresh per settled change, not one per event.
@@ -315,7 +317,7 @@
     unlisten?.();
     // Let the folders go: nothing should hold a handle on them once the picker is
     // no longer on screen.
-    void dirs.watch([]);
+    dirs.watch([]);
   });
 </script>
 

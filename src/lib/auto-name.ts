@@ -102,7 +102,9 @@ export function createAutoNamer(host: AutoNameHost) {
   // the default side panel whenever a project is open — so the namer only listens
   // for the changes it produces; it no longer arms on the (drift-prone) cwd.
   async function start() {
-    unlisten = await feed.onChange(event => void consider(event));
+    unlisten = await feed.onChange(event => {
+      consider(event);
+    });
   }
 
   function dispose() {

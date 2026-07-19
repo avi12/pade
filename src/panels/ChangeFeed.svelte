@@ -142,8 +142,8 @@
       }
     }, 1000);
     unlistenGitState = await vcs.onStateChanged(() => {
-      void loadBranch(project);
-      void loadRemote();
+      loadBranch(project);
+      loadRemote();
     });
   });
 
@@ -250,7 +250,7 @@
     line?: number;
   }) {
     if (revealEditor) {
-      void ide.openFile({
+      ide.openFile({
         command: revealEditor.command,
         project,
         file: path,
