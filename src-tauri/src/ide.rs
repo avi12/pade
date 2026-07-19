@@ -1322,16 +1322,37 @@ fn is_installed(id: &str) -> bool {
     lookup(id).is_some_and(|i| is_on_path(&i.command))
 }
 
+/// The user-configured editor ids that lead the suggestion ranking, in winning
+/// order. An explicit per-project choice always wins — the user pointed at that
+/// editor for this very project, so no coverage rule may displace it. The
+/// primary-kind rule and the fallback follow, but only while they cover the
+/// project's required kinds.
+fn preference_chain(
+    choice: Option<String>,
+    rule: Option<String>,
+    fallback: Option<String>,
+    covers: impl Fn(&str) -> bool,
+) -> Vec<String> {
+    choice
+        .into_iter()
+        .chain(rule.into_iter().chain(fallback).filter(|id| covers(id)))
+        .collect()
+}
+
 /// Installed IDEs ranked for `cwd`, best match first. The caller supplies the
 /// active project explicitly because multiple PADE windows and workspace
-/// switches do not share one reliable process working directory. The
-/// editor-rules engine takes precedence only when its editor covers every
-/// required kind derived from project declarations and source ownership. A user
-/// rule for the primary declared kind is considered first, then the configured
+/// switches do not share one reliable process working directory. This command
+/// is the single source of the project's editor: every surface (top-bar
+/// launcher, Change Feed reveal, picker rows) treats its first entry as *the*
+/// editor. An explicit per-project pick ([`ide_choose_editor`]) leads; then the
+/// editor-rules engine, which takes precedence only when its editor covers
+/// every required kind derived from project declarations and source ownership —
+/// a user rule for the primary declared kind first, then the configured
 /// fallback, then evidence-weighted editor coverage. No dominant-language
 /// threshold or framework-specific detection is involved.
 #[tauri::command]
 pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
+    let canonical_project = crate::workspace::canonical_path(&cwd);
     let cwd = std::path::Path::new(&cwd);
     if !cwd.is_dir() {
         return Err("project directory does not exist".to_string());
@@ -1342,24 +1363,39 @@ pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     let required_kinds = required_project_kinds(&profile, &declarations);
     let prefs = crate::workspace::load().prefs;
 
-    // 1) Compatible primary-kind rule, 2) compatible fallback, 3) coverage ranking.
+    // 1) Explicit per-project pick, 2) compatible primary-kind rule,
+    // 3) compatible fallback, 4) coverage ranking.
+    let choice = prefs.ide_project_choices.get(&canonical_project).cloned();
     let rule = kinds
         .first()
         .and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
-    let configured = rule
-        .into_iter()
-        .chain(prefs.ide_fallback)
-        .filter(|id| editor_covers_project(id, &profile.totals, &required_kinds));
+    let configured = preference_chain(choice, rule, prefs.ide_fallback, |id| {
+        editor_covers_project(id, &profile.totals, &required_kinds)
+    });
     let auto = suggestible_editor_ids(&profile.totals, &required_kinds);
 
     let mut ordered: Vec<String> = Vec::new();
-    for id in configured.chain(auto) {
+    for id in configured.into_iter().chain(auto) {
         let is_new_and_installed = !ordered.contains(&id) && is_installed(&id);
         if is_new_and_installed {
             ordered.push(id);
         }
     }
     Ok(ordered.iter().filter_map(|id| lookup(id)).collect())
+}
+
+/// Remember an explicit editor pick for the project at `cwd`. The pick becomes
+/// the project's editor everywhere at once, because every surface resolves
+/// through [`ide_suggest`], which puts it first. Only a known editor id (a
+/// registry entry or a user-added editor) is persisted.
+#[tauri::command]
+pub fn ide_choose_editor(cwd: String, id: String) -> Result<crate::workspace::Settings, String> {
+    let is_known_editor =
+        REGISTRY.iter().any(|editor| editor.id == id) || added_editors().iter().any(|e| e.id == id);
+    if !is_known_editor {
+        return Err(format!("unknown editor id \u{201c}{id}\u{201d}"));
+    }
+    crate::workspace::set_project_editor(&cwd, &id)
 }
 
 /// The jump-to-line style for a launcher command, or `None` for an unknown one.
@@ -1444,9 +1480,9 @@ pub fn ide_open_file(
 mod tests {
     use super::{
         census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
-        project_declarations, ranked_editor_ids, required_project_kinds, source_content,
-        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind,
-        SourceFileEvidence, SourceProfile, REGISTRY,
+        preference_chain, project_declarations, ranked_editor_ids, required_project_kinds,
+        source_content, suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration,
+        ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
     };
 
     fn is_general_purpose_editor(id: &str) -> bool {
@@ -1462,6 +1498,28 @@ mod tests {
             kind,
             bytes,
         }
+    }
+
+    #[test]
+    fn an_explicit_project_choice_leads_even_without_coverage() {
+        let chain = preference_chain(
+            Some("webstorm".to_string()),
+            Some("idea".to_string()),
+            Some("vscode".to_string()),
+            |id| id != "webstorm",
+        );
+        assert_eq!(chain, ["webstorm", "idea", "vscode"]);
+    }
+
+    #[test]
+    fn rule_and_fallback_apply_only_while_they_cover_the_project() {
+        let chain = preference_chain(
+            None,
+            Some("webstorm".to_string()),
+            Some("vscode".to_string()),
+            |id| id == "vscode",
+        );
+        assert_eq!(chain, ["vscode"]);
     }
 
     #[test]

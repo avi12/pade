@@ -62,6 +62,11 @@ pub struct Prefs {
     /// IDE id used when no `ide_rules` entry matches the project kind.
     #[serde(default)]
     pub ide_fallback: Option<String>,
+    /// Explicit per-project editor picks — canonical project path → IDE id. A
+    /// pick from the workspace's editor menu lands here and outranks every
+    /// suggestion rule for that project (`ide_suggest` puts it first).
+    #[serde(default)]
+    pub ide_project_choices: BTreeMap<String, String>,
     /// Editors the user located by executable path (not auto-detected on PATH).
     /// Merged into the detected editor list so they show up in every menu.
     #[serde(default)]
@@ -234,7 +239,7 @@ pub enum AddRootOutcome {
 /// and forward slashes so one folder is spelled exactly one way and dedups (e.g.
 /// `C:\\a\\b`, `C:/a/b` and `C:\a\b\` all fold to `C:\a\b`), while keeping a bare
 /// drive root like `C:\` intact.
-fn canonical_path(path: &str) -> String {
+pub(crate) fn canonical_path(path: &str) -> String {
     Path::new(path)
         .components()
         .collect::<PathBuf>()
@@ -786,6 +791,17 @@ pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
     let mut s = load();
     s.prefs.added_editors.retain(|e| e.path != editor.path);
     s.prefs.added_editors.push(editor);
+    save(&s)
+}
+
+/// Persist the user's explicit editor pick for one project — keyed by the
+/// canonical path so spelling variants of the same folder resolve to one entry.
+/// Returns the refreshed settings.
+pub fn set_project_editor(path: &str, editor_id: &str) -> Result<Settings, String> {
+    let mut s = load();
+    s.prefs
+        .ide_project_choices
+        .insert(canonical_path(path), editor_id.to_string());
     save(&s)
 }
 

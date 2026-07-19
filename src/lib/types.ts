@@ -281,6 +281,10 @@ export const Prefs = z.object({
   ideRules: z.record(z.string(), z.string()).nullish(),
   /** IDE id to open when no rule matches the project kind. */
   ideFallback: z.string().nullish(),
+  /** Explicit per-project editor picks — canonical project path → IDE id. A
+   *  pick from the workspace's editor menu; outranks every rule for that
+   *  project (`ide_suggest` puts it first). */
+  ideProjectChoices: z.record(z.string(), z.string()).nullish(),
   /** Editors the user located by executable path (merged into detection). */
   addedEditors: z.array(AddedEditor).nullish(),
   /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless

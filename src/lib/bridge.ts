@@ -71,9 +71,16 @@ export const agents = {
 /** External IDE integration. */
 export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
-  /** Installed IDEs ordered for the given project: rule → fallback →
-   *  byte-weighted language-coverage ranking. */
+  /** Installed IDEs ordered for the given project: explicit per-project choice →
+   *  rule → fallback → byte-weighted language-coverage ranking. The one source of
+   *  the project's editor — `ides[0]` is *the* editor on every surface. */
   suggest: (cwd: string) => call("ide_suggest", z.array(Ide), { cwd }),
+  /** Persist an explicit editor pick for the project at `cwd`; it then leads
+   *  every `suggest` for that project, so the choice wins on every surface. */
+  choose: (args: {
+    cwd: string;
+    id: string;
+  }) => call("ide_choose_editor", Settings, { ...args }),
   /** The project kinds the rules engine shows (label + manifest signals), in the
    *  backend registry's render/priority order — the frontend derives its rows here. */
   kinds: () => call("ide_kinds", z.array(EditorKind)),
