@@ -7,7 +7,8 @@
 // single cached fetch per project and the choose-editor write-through.
 
 import { ide } from "@/lib/bridge";
-import type { Ide } from "@/lib/types";
+import { adoptPrefs } from "@/lib/prefs.svelte";
+import type { Ide, Settings } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
 
 /** Ranked editors per project directory — `editorsFor(project)[0]` is *the*
@@ -65,11 +66,16 @@ export async function chooseEditor({ project, editorId }: {
   project: string;
   editorId: string;
 }): Promise<void> {
+  let settings: Settings;
   try {
-    await ide.choose({ cwd: project, id: editorId });
+    settings = await ide.choose({ cwd: project, id: editorId });
   } catch {
     // The pick didn't persist; the current ranking is still valid as-is.
     return;
   }
+  // The shared prefs store must learn the persisted pick right away: the next
+  // `updatePrefs` save round-trips that store's whole set, so a copy without
+  // this `ideProjectChoices` entry would silently erase the pick on disk.
+  adoptPrefs(settings.prefs);
   await refreshEditors(project);
 }

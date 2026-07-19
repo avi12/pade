@@ -65,10 +65,19 @@ osDark.addEventListener("change", () => {
   }
 });
 
+/** Adopt preferences the backend just persisted (a settings load, a saved
+ *  patch, an editor pick from another store). Every backend write that returns
+ *  fresh `Settings` must funnel its `prefs` through here: `set_prefs` replaces
+ *  the whole set with this store's copy, so a key missing here (e.g. a
+ *  just-persisted `ideProjectChoices` entry) would be erased by the next save. */
+export function adoptPrefs(fresh: Prefs): void {
+  Object.assign(prefs, fresh);
+  apply();
+}
+
 export async function loadPrefs(): Promise<void> {
   const settings = await workspace.settings();
-  Object.assign(prefs, settings.prefs);
-  apply();
+  adoptPrefs(settings.prefs);
 }
 
 /** Merge a change, apply it immediately, then persist. */
@@ -76,6 +85,5 @@ export async function updatePrefs(patch: Partial<Prefs>): Promise<void> {
   Object.assign(prefs, patch);
   apply();
   const settings = await workspace.setPrefs(prefs);
-  Object.assign(prefs, settings.prefs);
-  apply();
+  adoptPrefs(settings.prefs);
 }
