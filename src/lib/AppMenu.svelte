@@ -173,7 +173,7 @@
 
     const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
     if (opensNewWindow) {
-      void windows.create({
+      windows.create({
         mode: "open",
         path: project
       });
@@ -314,7 +314,7 @@
           onclick={() => {
             if (!w.isCurrent) {
               hide();
-              void windows.focus(w.label);
+              windows.focus(w.label);
             }
           }}
           role="menuitem"

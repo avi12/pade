@@ -111,7 +111,7 @@
       {/each}
       <li class="sep" role="separator"></li>
       <li>
-        <button onclick={() => void os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
+        <button onclick={() => os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
           <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
         </button>
       </li>
