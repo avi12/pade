@@ -446,6 +446,13 @@ textarea {
     font-weight: 500;
     font-size: calc(0.6875 * var(--font-base));
     line-height: 1.35;
+
+    /* Wrap long tooltips (a full file path) within the max-inline-size cap: the
+       trigger may set `white-space: nowrap` (the file button does), which the
+       pseudo would otherwise inherit; and a path has no spaces to break at, so
+       `overflow-wrap: anywhere` lets it break to fit rather than overflow. */
+    white-space: normal;
+    overflow-wrap: anywhere;
     opacity: 0%;
     box-shadow: 0 6px 20px var(--shadow-color);
     pointer-events: none;

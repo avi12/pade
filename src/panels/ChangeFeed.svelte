@@ -417,7 +417,7 @@
                     <div class="bar">
                       <button
                         class="filebtn"
-                        data-tooltip={ides[0] ? `Open in ${ides[0].label}` : "No editor detected"}
+                        data-tooltip={ides[0] ? `Open in ${ides[0].label} · ${ev.path}` : ev.path}
                         disabled={!ides[0]}
                         onclick={() => openInEditor({
                           path: ev.path,
@@ -425,6 +425,10 @@
                         })}
                       >
                         <Icon name="external" size={14} />
+                        <!-- The path is usually clipped in this narrow panel, so the full
+                             path (with the open-in action) rides in the tooltip — the shared
+                             CSS `[data-tooltip]` bubble, which caps at 320px + wraps and
+                             anchor-positions with a flip-up fallback. -->
                         <span class="fpath">{ev.path}</span>
                       </button>
                       <span class="spacer"></span>
