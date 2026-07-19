@@ -24,11 +24,7 @@
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
-  import {
-    clearSessionSnapshot,
-    restoreLiveSnapshot,
-    saveSessionSnapshot
-  } from "@/lib/session-restore";
+  import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
@@ -40,11 +36,7 @@
   } from "@/lib/stores/sessionAttention.svelte";
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
-  import {
-    dropSessionStatus,
-    isSessionIdle,
-    whenSessionIdle
-  } from "@/lib/stores/sessions.svelte";
+  import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
@@ -839,10 +831,12 @@
       showToast("Waiting for the agent to finish before leaving…");
     }
 
-    await Promise.all(sessions.map(s => whenSessionIdle({
-      id: s.id,
-      timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
-    })));
+    await Promise.all(
+      sessions.map(s => whenSessionIdle({
+        id: s.id,
+        timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
+      }))
+    );
     await closeAllSessions();
   }
 

@@ -6,7 +6,14 @@ import {
   whenSessionIdle
 } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
 
 // Each promise resolution needs a microtask turn; fake timers cover the
 // timeout path without real waiting.
@@ -60,10 +67,14 @@ describe("whenSessionIdle", () => {
       id: "s1",
       status: SessionStatus.enum.ready
     });
-    expect(await settled(whenSessionIdle({
-      id: "s1",
-      timeoutMs: 1_000
-    }))).toBe(true);
+    expect(
+      await settled(
+        whenSessionIdle({
+          id: "s1",
+          timeoutMs: 1_000
+        })
+      )
+    ).toBe(true);
   });
 
   it("waits while the session works and resolves when it turns ready", async () => {

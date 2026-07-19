@@ -10,8 +10,9 @@ import { SvelteMap } from "svelte/reactivity";
 const statuses = new SvelteMap<string, SessionStatus>();
 
 // Pending `whenSessionIdle` resolvers, settled the moment the session's status
-// turns idle (or the session is dropped). Event-driven — no polling.
-const idleWaiters = new Map<string, (() => void)[]>();
+// turns idle (or the session is dropped). Event-driven — no polling. A
+// SvelteMap only for consistency in a rune module; nothing renders from it.
+const idleWaiters = new SvelteMap<string, (() => void)[]>();
 
 /** Publish the status of a session (called by its Terminal). */
 export function setSessionStatus({ id, status }: {

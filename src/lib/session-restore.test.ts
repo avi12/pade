@@ -6,7 +6,14 @@ import {
   type SessionSnapshot
 } from "@/lib/session-restore";
 import type { AgentSession } from "@/lib/types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
 
 // A minimal sessionStorage double — vitest runs in node, which has none.
 const backing = new Map<string, string>();
@@ -152,9 +159,11 @@ describe("pruneToLive", () => {
   });
 
   it("is null when nothing survived — what a deliberate leave looks like", () => {
-    expect(pruneToLive({
-      snapshot,
-      liveIds: new Set()
-    })).toBeNull();
+    expect(
+      pruneToLive({
+        snapshot,
+        liveIds: new Set()
+      })
+    ).toBeNull();
   });
 });
