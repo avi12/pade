@@ -7,6 +7,7 @@
   import { fileTypeBadge } from "@/lib/file-type";
   import { formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { isImagePath } from "@/lib/image";
   import { revealBlock } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
@@ -117,6 +118,11 @@
   // Keyed by id (not path) so repeated edits to the same file — distinct events
   // sharing a path — each render their own diff rather than the stale first one.
   const diffCache = new SvelteMap<string, DiffLine[]>();
+  // Rendered image previews per event id: the data URL for an image card, or
+  // `null` when the backend has nothing to show (gone, or over its size cap).
+  // Fetched lazily on first expand, exactly like the diff cache — a feed full of
+  // image changes never fetches them all at once, only the card being opened.
+  const imageCache = new SvelteMap<string, string | null>();
   // Ids whose diff fetch failed, so a re-opened previously-failed card shows
   // "Couldn't load" rather than the empty-cache "No preview" message.
   const failedIds = new SvelteSet<string>();
@@ -424,6 +430,7 @@
             {#each group.events as ev (ev.id)}
               {@const isOpen = expandedId === ev.id}
               {@const badge = fileTypeBadge(ev.path)}
+              {@const isImage = isImagePath(ev.path)}
               <li class="card {ev.kind}" class:open={isOpen}>
                 <span class="stripe" aria-hidden="true"></span>
                 <button
@@ -433,6 +440,25 @@
                     const isAlreadyOpen = expandedId === ev.id;
                     if (isAlreadyOpen) {
                       expandedId = null;
+                      return;
+                    }
+
+                    // An image card renders the picture, not a text diff — fetch its
+                    // rendered preview (a data URL) instead of the baseline diff, also
+                    // BEFORE expanding so the reveal measures the final height.
+                    if (isImage) {
+                      if (!imageCache.has(ev.id)) {
+                        try {
+                          const preview = await feed.image({ path: ev.path });
+                          imageCache.set(ev.id, preview?.dataUrl ?? null);
+                          failedIds.delete(ev.id);
+                        } catch {
+                          failedIds.add(ev.id);
+                          imageCache.set(ev.id, null);
+                        }
+                      }
+
+                      expandedId = ev.id;
                       return;
                     }
 
@@ -504,7 +530,7 @@
                         <span class="fpath">{ev.path}</span>
                       </button>
                       <span class="spacer"></span>
-                      {#if hasPreview}
+                      {#if !isImage && hasPreview}
                         <div class="seg" aria-label="Diff view" role="group">
                           <button
                             class:on={diffMode === DiffMode.unified}
@@ -528,7 +554,18 @@
                       </button>
                     </div>
 
-                    {#if !hasPreview}
+                    {#if isImage}
+                      {@const imageUrl = imageCache.get(ev.id)}
+                      {#if imageUrl}
+                        <div class="imgwrap">
+                          <img alt={baseName(ev.path)} loading="lazy" src={imageUrl} />
+                        </div>
+                      {:else if isErrored}
+                        <p class="state">Couldn't load the image.</p>
+                      {:else}
+                        <p class="state">No image preview available.</p>
+                      {/if}
+                    {:else if !hasPreview}
                       {#if isErrored}
                         <p class="state">Couldn't load a preview.</p>
                       {:else}
@@ -1107,5 +1144,41 @@
     /* Scopes the unified↔split View Transition to the diff body (only one card
        is ever open, so the name is unique) — the rest of the app stays still. */
     view-transition-name: diff-body;
+  }
+
+  /* Image preview: the rendered picture in place of a text diff. A subtle
+     checkerboard (a token-tinted `color-mix`, so it adapts to light/dark on its
+     own) sits under it, letting transparent PNG/SVG regions read in both themes. */
+  .imgwrap {
+    --checker: color-mix(in sRGB, var(--on-surface) 7%, transparent);
+
+    display: grid;
+    place-items: center;
+    overflow: auto;
+    max-block-size: 300px;
+    padding: 12px;
+    background-color: var(--code-background);
+    background-image:
+      linear-gradient(45deg, var(--checker) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--checker) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checker) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--checker) 75%);
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
+    background-size: 16px 16px;
+
+    img {
+      object-fit: contain;
+      block-size: auto;
+      max-block-size: 276px;
+      max-inline-size: 100%;
+      border-radius: var(--radius-small);
+
+      /* A hairline keeps a light image legible against the light checkerboard. */
+      box-shadow: 0 0 0 1px color-mix(in sRGB, var(--outline) 60%, transparent);
+    }
   }
 </style>

@@ -136,6 +136,7 @@ pub fn run() {
             watcher::watch_start,
             watcher::watch_dirs,
             watcher::feed_diff,
+            watcher::feed_image,
             watcher::feed_ignored,
             vcs::status::vcs_status,
             vcs::log::vcs_log,

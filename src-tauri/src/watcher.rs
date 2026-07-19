@@ -1256,6 +1256,126 @@ pub fn feed_diff(
     Ok(Some(FeedDiff { before, after }))
 }
 
+/// The image extensions the Change Feed previews inline, each paired with the
+/// MIME type its `data:` URL carries. The one authoritative home for the
+/// extension→MIME mapping (its TS mirror is `ImageExtension` in `@/lib/image`);
+/// an extension absent here is not treated as a previewable image. SVG is
+/// included and served as a data URL like the raster formats — the frontend
+/// renders every image through `<img src>`, so untrusted SVG markup is never
+/// inlined into the DOM (no scripts run, no external refs load).
+const IMAGE_MIME_TYPES: &[(&str, &str)] = &[
+    ("png", "image/png"),
+    ("jpg", "image/jpeg"),
+    ("jpeg", "image/jpeg"),
+    ("gif", "image/gif"),
+    ("webp", "image/webp"),
+    ("avif", "image/avif"),
+    ("bmp", "image/bmp"),
+    ("ico", "image/x-icon"),
+    ("svg", "image/svg+xml"),
+];
+
+/// The MIME type for `path`'s extension when it names an image the feed can
+/// preview, else `None`. Case-insensitive on the extension.
+fn image_mime_type(path: &Path) -> Option<&'static str> {
+    let extension = path.extension().and_then(|name| name.to_str())?;
+    let lowercased = extension.to_ascii_lowercase();
+    IMAGE_MIME_TYPES
+        .iter()
+        .find(|(name, _)| *name == lowercased)
+        .map(|(_, mime)| *mime)
+}
+
+/// Largest image the Change Feed will inline as a data URL. A few megabytes
+/// covers real project assets; past it the preview is skipped rather than
+/// bloating the webview with megabytes of base64 for one card.
+const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+
+/// Whether an image of `byte_length` is small enough to inline, capped at
+/// [`MAX_IMAGE_BYTES`].
+fn image_within_cap(byte_length: u64) -> bool {
+    byte_length <= MAX_IMAGE_BYTES
+}
+
+/// Standard-alphabet (RFC 4648) base64 for the image data URL — a few lines of
+/// std rather than a new dependency (the only base64 the backend needs). Encodes
+/// each three input bytes into four characters, padding a final partial group
+/// with `=`.
+fn base64_encode(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const PAD: char = '=';
+    let sextet = |value: u8| char::from(ALPHABET[usize::from(value & 0x3f)]);
+
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        encoded.push(sextet(first >> 2));
+        encoded.push(sextet((first << 4) | (second >> 4)));
+        encoded.push(if chunk.len() > 1 {
+            sextet((second << 2) | (third >> 6))
+        } else {
+            PAD
+        });
+        encoded.push(if chunk.len() > 2 { sextet(third) } else { PAD });
+    }
+    encoded
+}
+
+/// A Change Feed card's inline image preview: the changed image file's bytes as a
+/// ready-to-use `data:` URL, so the frontend renders it with a plain `<img src>`
+/// and needs no asset protocol or extra capability (mirrors `feed_diff`'s flow).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedImage {
+    /// A `data:<mime>;base64,<bytes>` URL — directly usable as an `<img>` source.
+    data_url: String,
+}
+
+/// The inline image preview for `path`: its bytes as a base64 `data:` URL tagged
+/// with the extension's MIME type. `None` when `path` is not a previewable image,
+/// was not surfaced by this window's watch this session, is missing / not a
+/// regular file, or is larger than [`MAX_IMAGE_BYTES`] — the card then falls back
+/// to its text summary. Reads the CURRENT bytes (what the image is now); a
+/// before/after for a modified image is a deliberate non-goal here. Gated on a
+/// captured baseline like `feed_diff`, so the command can't base64 an arbitrary
+/// file off disk.
+#[tauri::command]
+pub fn feed_image(
+    window: WebviewWindow,
+    state: State<WatcherState>,
+    path: String,
+) -> Result<Option<FeedImage>, String> {
+    let Some(watch) = window_watch(&state, window.label()) else {
+        return Ok(None);
+    };
+    {
+        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
+        if !baselines.contains_key(Path::new(&path)) {
+            return Ok(None);
+        }
+    }
+
+    let file = Path::new(&path);
+    let Some(mime) = image_mime_type(file) else {
+        return Ok(None);
+    };
+    let Ok(metadata) = std::fs::metadata(file) else {
+        return Ok(None);
+    };
+    if !metadata.is_file() || !image_within_cap(metadata.len()) {
+        return Ok(None);
+    }
+    let Ok(bytes) = std::fs::read(file) else {
+        return Ok(None);
+    };
+
+    Ok(Some(FeedImage {
+        data_url: format!("data:{mime};base64,{}", base64_encode(&bytes)),
+    }))
+}
+
 /// The subset of `paths` the current ignore policy excludes — how the frontend
 /// re-filters the Change Feed it already rendered after `feed://ignore-changed`
 /// (events for now-ignored paths are dropped; never-recorded ones can't be
@@ -1286,9 +1406,10 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::{
-        drain_burst, git_state_dirs, ignored_by_static_dirs, is_git_dir_entry, is_git_state_file,
-        manifest_ignore_dirs, read_preview_text, resolve_watch_root, static_ignore_dirs, surfaces,
-        unique_dirs, ChangeKind, GitStateMessage, MAX_PREVIEW_BYTES,
+        base64_encode, drain_burst, git_state_dirs, ignored_by_static_dirs, image_mime_type,
+        image_within_cap, is_git_dir_entry, is_git_state_file, manifest_ignore_dirs,
+        read_preview_text, resolve_watch_root, static_ignore_dirs, surfaces, unique_dirs,
+        ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
     use std::fs;
@@ -1519,6 +1640,53 @@ mod tests {
         assert!(burst.rearm);
         assert!(burst.state_touched);
         assert!(burst.ignore_touched);
+    }
+
+    #[test]
+    fn image_mime_type_maps_known_extensions_case_insensitively() {
+        assert_eq!(
+            image_mime_type(Path::new("a/b/logo.png")),
+            Some("image/png")
+        );
+        assert_eq!(image_mime_type(Path::new("photo.JPG")), Some("image/jpeg"));
+        assert_eq!(image_mime_type(Path::new("photo.jpeg")), Some("image/jpeg"));
+        assert_eq!(
+            image_mime_type(Path::new("icon.svg")),
+            Some("image/svg+xml")
+        );
+        assert_eq!(image_mime_type(Path::new("art.avif")), Some("image/avif"));
+        assert_eq!(
+            image_mime_type(Path::new("favicon.ico")),
+            Some("image/x-icon")
+        );
+    }
+
+    #[test]
+    fn image_mime_type_is_none_for_non_images() {
+        assert_eq!(image_mime_type(Path::new("main.rs")), None);
+        assert_eq!(image_mime_type(Path::new("README")), None);
+        // Only the final extension decides; a `.png` in the stem doesn't count.
+        assert_eq!(image_mime_type(Path::new("archive.png.zip")), None);
+    }
+
+    #[test]
+    fn image_within_cap_rejects_only_over_the_limit() {
+        assert!(image_within_cap(0));
+        assert!(image_within_cap(MAX_IMAGE_BYTES));
+        assert!(!image_within_cap(MAX_IMAGE_BYTES + 1));
+    }
+
+    /// The RFC 4648 test vectors — proof the hand-rolled encoder pads partial
+    /// groups correctly (the case a data URL depends on).
+    #[test]
+    fn base64_encode_matches_the_rfc_vectors() {
+        assert_eq!(base64_encode(b""), "");
+        assert_eq!(base64_encode(b"f"), "Zg==");
+        assert_eq!(base64_encode(b"fo"), "Zm8=");
+        assert_eq!(base64_encode(b"foo"), "Zm9v");
+        assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
+        assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
+        assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
     }
 
     #[test]

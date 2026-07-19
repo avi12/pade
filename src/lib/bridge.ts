@@ -258,6 +258,14 @@ export const pty = {
     on("pty://exit", PtyExit, payload => callback(payload.id))
 };
 
+/** A Change Feed image preview: the file's bytes as a ready-to-use `data:` URL,
+ *  so the card renders it with a plain `<img src>`. The whole payload is nullable
+ *  at the boundary (see `feed.image`). Declared here — the only place it's read —
+ *  rather than in the shared types module. */
+const FeedImage = z.object({
+  dataUrl: z.string()
+});
+
 /** Change Feed / filesystem watcher channel. */
 export const feed = {
   /** Watch `path` — the open workspace's root — so the feed follows the project
@@ -271,6 +279,14 @@ export const feed = {
   diff: ({ path }: {
     path: string;
   }) => call("feed_diff", FeedDiff.nullable(), { path }),
+  /** The rendered image preview for an image path: the file's current bytes as a
+   *  ready-to-use `data:` URL for a plain `<img src>` (no asset protocol). `null`
+   *  when the path isn't a previewable image, is gone, or is over the backend's
+   *  size cap — the card then falls back to its text summary. SVG rides the same
+   *  data-URL path, so its markup is never inlined into the DOM. */
+  image: ({ path }: {
+    path: string;
+  }) => call("feed_image", FeedImage.nullable(), { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
     on("feed://change", ChangeEvent, callback),
   /** The ignore rules changed (a `.gitignore` edited/created/deleted, or a
