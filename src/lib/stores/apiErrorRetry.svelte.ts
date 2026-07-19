@@ -132,7 +132,7 @@ export function createApiErrorRetry(host: RetryHost) {
     }
 
     note = retryNote(session);
-    timers.set(session.id, setTimeout(() => void retry(session), RETRY_MS));
+    timers.set(session.id, setTimeout(async () => { await retry(session); }, RETRY_MS));
   }
 
   // One retry tick, RETRY_MS after the last. A session halted by an API error
