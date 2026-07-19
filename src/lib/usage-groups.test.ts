@@ -58,7 +58,7 @@ function modelWindow({ name, utilization, resetsAt }: {
   };
 }
 
-// A Claude account whose windows default to session (40%) + weekly (80%).
+// An account whose windows default to session (40%) + weekly (80%).
 function makeAccount(over: Partial<AccountUsage> = {}): AccountUsage {
   return {
     windows: [sessionWindow(), weeklyWindow()],
@@ -66,6 +66,12 @@ function makeAccount(over: Partial<AccountUsage> = {}): AccountUsage {
     source: "test",
     ...over
   };
+}
+
+// The per-agent account map `buildGroups` now takes: agent id → its account (or
+// null). A missing entry means that agent has no resolved usage.
+function accountsFor(entries: Record<string, AccountUsage | null>): ReadonlyMap<string, AccountUsage | null> {
+  return new Map(Object.entries(entries));
 }
 
 const CLAUDE_LABEL = "Claude Code";
@@ -90,7 +96,7 @@ describe("buildGroups", () => {
 
   it("dedupes agents by id, keeping the first occurrence", () => {
     const groups = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [claudeSession("first"), claudeSession("second")],
       now
     });
@@ -101,7 +107,7 @@ describe("buildGroups", () => {
 
   it("excludes the shell fallback and terminal-editor sessions", () => {
     const groups = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [
         makeSession({
           agentId: SHELL_AGENT_ID,
@@ -121,7 +127,7 @@ describe("buildGroups", () => {
 
   it("populates the Claude group with real limits + plan from the account", () => {
     const [claude] = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [claudeSession()],
       now
     });
@@ -138,8 +144,10 @@ describe("buildGroups", () => {
 
   it("shows a window still at 0% (an unused session), not only consumed ones", () => {
     const [claude] = buildGroups({
-      account: makeAccount({
-        windows: [sessionWindow({ utilization: 0 }), weeklyWindow({ utilization: 42 })]
+      accounts: accountsFor({
+        claude: makeAccount({
+          windows: [sessionWindow({ utilization: 0 }), weeklyWindow({ utilization: 42 })]
+        })
       }),
       sessions: [claudeSession()],
       now
@@ -149,9 +157,9 @@ describe("buildGroups", () => {
     expect(claude.limits.map(limit => limit.pct)).toEqual([0, 42]);
   });
 
-  it("marks every non-Claude agent unknown, with no limits or plan", () => {
+  it("marks an agent with no resolved account unknown, with no limits or plan", () => {
     const [codex] = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [makeSession({
         agentId: "codex",
         label: "Codex"
@@ -165,21 +173,43 @@ describe("buildGroups", () => {
     expect(codex.shortName).toBe("Codex");
   });
 
-  it("keeps Claude present but empty when the account is null", () => {
+  it("populates any agent (e.g. Codex) with real limits + plan from its account", () => {
+    const [codex] = buildGroups({
+      accounts: accountsFor({
+        codex: makeAccount({
+          windows: [weeklyWindow({ utilization: 5 })],
+          plan: "Codex plus"
+        })
+      }),
+      sessions: [makeSession({
+        agentId: "codex",
+        label: "Codex"
+      })],
+      now
+    });
+
+    expect(codex.unknown).toBe(false);
+    expect(codex.plan).toBe("Codex plus");
+    expect(codex.limits.map(limit => limit.kindShort)).toEqual(["W"]);
+    expect(codex.limits.map(limit => limit.pct)).toEqual([5]);
+  });
+
+  it("keeps an agent present but unknown+empty when its account is null", () => {
     const [claude] = buildGroups({
-      account: null,
+      accounts: accountsFor({ claude: null }),
       sessions: [claudeSession()],
       now
     });
 
-    expect(claude.unknown).toBe(false);
+    expect(claude.id).toBe("claude");
+    expect(claude.unknown).toBe(true);
     expect(claude.limits).toEqual([]);
     expect(claude.plan).toBe("");
   });
 
   it("sorts agents with limits ahead of unknown ones, worst-first", () => {
     const groups = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [
         makeSession({
           agentId: "codex",
@@ -201,12 +231,12 @@ describe("buildGroups", () => {
 
   it("counts every distinct agent — the few/many boundary sits at 2", () => {
     const twoAgents = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [claudeSession(), makeSession({ agentId: "codex" })],
       now
     });
     const threeAgents = buildGroups({
-      account: makeAccount(),
+      accounts: accountsFor({ claude: makeAccount() }),
       sessions: [
         claudeSession(),
         makeSession({ agentId: "codex" }),
@@ -230,8 +260,10 @@ describe("reset countdowns", () => {
   // The session limit's countdown for a given ISO reset time, via the builder.
   function fiveHourReset(resetsAt: string): string {
     const [claude] = buildGroups({
-      account: makeAccount({
-        windows: [sessionWindow({ resetsAt }), weeklyWindow()]
+      accounts: accountsFor({
+        claude: makeAccount({
+          windows: [sessionWindow({ resetsAt }), weeklyWindow()]
+        })
       }),
       sessions: [claudeSession()],
       now
@@ -270,15 +302,17 @@ describe("panel view-model skips unknown agents", () => {
   const now = Date.UTC(2026, 0, 1);
   // Claude at a critical per-model cap, plus an unknown Codex agent alongside.
   const groups = buildGroups({
-    account: makeAccount({
-      windows: [
-        sessionWindow(),
-        weeklyWindow({ utilization: 88 }),
-        modelWindow({
-          name: "Claude Opus",
-          utilization: 96
-        })
-      ]
+    accounts: accountsFor({
+      claude: makeAccount({
+        windows: [
+          sessionWindow(),
+          weeklyWindow({ utilization: 88 }),
+          modelWindow({
+            name: "Claude Opus",
+            utilization: 96
+          })
+        ]
+      })
     }),
     sessions: [claudeSession(), makeSession({
       agentId: "codex",

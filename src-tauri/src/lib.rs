@@ -160,6 +160,7 @@ pub fn run() {
             tasks::tasks_list,
             usage::usage_get,
             usage::usage_account,
+            usage::usage_account_agent,
             naming::project_autoname,
             naming::session_generate_name,
             workspace::launch_context,

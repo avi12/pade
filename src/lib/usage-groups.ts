@@ -3,12 +3,13 @@
 // pattern: plain functions + a colocated test).
 //
 // Honesty doctrine (see the comment atop `src-tauri/src/usage.rs`): ADE never
-// fabricates a usage number. Claude Code exposes its real rate-limit windows
-// through the local OAuth token, so a Claude agent gets real limits + plan;
-// every other agent has no local usage signal we can trust, so it surfaces as
-// an `unknown` group with no limits rather than an invented figure.
+// fabricates a usage number. An agent whose vendor exposes real rate-limit
+// windows through a local token (Claude Code, Codex) gets real limits + plan;
+// an agent with no usable local usage signal surfaces as an `unknown` group with
+// no limits rather than an invented figure. Each agent resolves its own windows
+// through its per-agent account entry — no agent is special-cased here.
 
-import { agentIconName, AgentId } from "@/lib/agent-icon";
+import { agentIconName } from "@/lib/agent-icon";
 import type { IconName } from "@/lib/Icon.svelte";
 import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, Agent, AgentSession, UsageWindow } from "@/lib/types";
@@ -188,11 +189,11 @@ function windowPresentation(window: UsageWindow): {
   };
 }
 
-// Claude's real rate-limit windows off the account — every window the endpoint
+// An agent's real rate-limit windows off its account — every window the endpoint
 // returned (session, weekly, per-model, and any others), in the order it sent
 // them. Every returned window is shown, including one still at 0%: an unused
 // session window is a real limit worth surfacing, not noise to hide.
-function buildClaudeLimits({ account, now }: {
+function buildLimits({ account, now }: {
   account: AccountUsage;
   now: number;
 }): Limit[] {
@@ -218,23 +219,23 @@ function buildClaudeLimits({ account, now }: {
   return limits;
 }
 
-// One group per agent: Claude gets its real limits + plan; every other agent is
-// `unknown` with no limits (ADE has no honest local usage signal for it).
+// One group per agent: an agent with a resolved account gets its real limits +
+// plan; an agent with none is `unknown` with no limits (ADE has no honest local
+// usage signal for it). No agent is special-cased — the account decides.
 function buildAgentGroup({ agent, account, now }: {
   agent: Agent;
   account: AccountUsage | null;
   now: number;
 }): AgentGroup {
-  const isClaudeAgent = agent.id === AgentId.Claude;
-  const hasClaudeUsage = isClaudeAgent && account !== null;
+  const hasUsage = account !== null;
   return {
     id: agent.id,
     name: agent.label,
     shortName: shortName(agent.label),
-    plan: hasClaudeUsage ? account.plan : "",
+    plan: hasUsage ? account.plan : "",
     icon: agentIconName(agent.id),
-    unknown: !isClaudeAgent,
-    limits: hasClaudeUsage ? buildClaudeLimits({
+    unknown: !hasUsage,
+    limits: hasUsage ? buildLimits({
       account,
       now
     }) : []
@@ -264,11 +265,13 @@ function sortWorstFirst(groups: AgentGroup[]): AgentGroup[] {
   });
 }
 
-/** Build the agent groups from the running sessions + the account usage. Distinct
- *  coding agents keyed by agent id (first occurrence wins); the shell fallback
- *  and terminal-editor (`editor-*`) sessions are excluded. Sorted worst-first. */
-export function buildGroups({ account, sessions, now }: {
-  account: AccountUsage | null;
+/** Build the agent groups from the running sessions + each agent's account usage.
+ *  Distinct coding agents keyed by agent id (first occurrence wins); the shell
+ *  fallback and terminal-editor (`editor-*`) sessions are excluded. Each agent
+ *  reads its own windows from `accounts` (missing/`null` ⇒ an unknown group).
+ *  Sorted worst-first. */
+export function buildGroups({ accounts, sessions, now }: {
+  accounts: ReadonlyMap<string, AccountUsage | null>;
   sessions: AgentSession[];
   now: number;
 }): AgentGroup[] {
@@ -287,7 +290,7 @@ export function buildGroups({ account, sessions, now }: {
     groups.push(
       buildAgentGroup({
         agent: session.agent,
-        account,
+        account: accounts.get(agentId) ?? null,
         now
       })
     );

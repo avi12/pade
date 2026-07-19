@@ -18,11 +18,11 @@
   // terminal-editor sessions are filtered out in `buildGroups`).
   const { sessions }: { sessions: AgentSession[] } = $props();
 
-  // Live account usage, grouped by agent (mirrors claude.ai / `claude /usage`):
-  // each agent's rate-limit windows — the 5-hour session, the weekly all-models
-  // cap, and any per-model weekly caps in use — read via the OAuth endpoint from
-  // the local token. The backend caches it (~3 min), so this polls slowly.
-  let account = $state<AccountUsage | null>(null);
+  // Live account usage per agent (mirrors claude.ai / `claude /usage` and Codex's
+  // own limits): each agent's rate-limit windows — the session, weekly, and any
+  // per-model caps — read via that vendor's usage endpoint from the local token,
+  // keyed by agent id. The backend caches each (~3 min), so this polls slowly.
+  let accounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
   // A ticking clock so the "resets in …" countdowns stay live between polls.
   let now = $state(Date.now());
 
@@ -37,11 +37,12 @@
   // still shows its full per-window breakdown, never a compacted chip.
   const MAX_TRIGGER_PILLS = 2;
 
-  // One group per distinct running agent, worst-first (see usage-groups.ts). Claude
-  // carries its real limits; every other agent is "unknown" (no local signal).
+  // One group per distinct running agent, worst-first (see usage-groups.ts). Each
+  // agent carries its real limits when its account resolved; an agent with no
+  // local usage signal is "unknown".
   const groups = $derived<AgentGroup[]>(
     buildGroups({
-      account,
+      accounts,
       sessions,
       now
     })
@@ -87,22 +88,33 @@
       : "Usage details"
   );
 
+  // Fetch each distinct running agent's account (Claude, Codex, …) in parallel,
+  // keyed by agent id. An agent with no local usage signal resolves to null and
+  // renders as an "unknown" group — never fabricated.
+  async function loadAccounts() {
+    const agentIds = [...new Set(sessions.map(session => session.agent.id))];
+    const entries = await Promise.all(
+      agentIds.map(async id => [id, await usageApi.accountFor(id).catch(() => null)] as const)
+    );
+    return new Map(entries);
+  }
+
   $effect(() => {
     let cancelled = false;
-    async function loadAccount() {
-      const next = await usageApi.account().catch(() => null);
+    async function refreshAccounts() {
+      const next = await loadAccounts();
       if (!cancelled) {
-        account = next;
+        accounts = next;
       }
     }
-    loadAccount();
+    refreshAccounts();
     return () => {
       cancelled = true;
     };
   });
 
   const accountTimer = setInterval(async () => {
-    account = await usageApi.account().catch(() => null);
+    accounts = await loadAccounts();
   }, ACCOUNT_REFRESH_MS);
   const clockTimer = setInterval(() => {
     now = Date.now();
