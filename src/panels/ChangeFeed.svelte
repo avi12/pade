@@ -142,6 +142,7 @@
     if (clock !== undefined) {
       clearInterval(clock);
     }
+
     unlistenGitState?.();
   });
 

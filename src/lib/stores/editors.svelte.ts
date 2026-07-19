@@ -18,12 +18,12 @@ const rankedByProject = new SvelteMap<string, Ide[]>();
 /** One in-flight suggestion per project: simultaneous callers (the IdeMenu and
  *  the Change Feed mounting together) coalesce onto a single backend census
  *  instead of each running their own. */
-const inFlight = new Map<string, Promise<void>>();
+const inFlight = new SvelteMap<string, Promise<void>>();
 
 /** Identity of the newest fetch per project. A superseded fetch (an explicit
  *  pick landed while its census ran) finds a different token here when it
  *  resolves and discards its pre-pick ranking instead of publishing it. */
-const currentFetchToken = new Map<string, symbol>();
+const currentFetchToken = new SvelteMap<string, symbol>();
 
 /** The ranked editors for `project` — reactive; empty until resolved. */
 export function editorsFor(project: string): Ide[] {
@@ -61,7 +61,10 @@ export function refreshEditors(project: string): Promise<void> {
 
   const token = Symbol(project);
   currentFetchToken.set(project, token);
-  const fetch = fetchEditors({ project, token });
+  const fetch = fetchEditors({
+    project,
+    token
+  });
   inFlight.set(project, fetch);
   return fetch;
 }
@@ -85,7 +88,10 @@ export async function chooseEditor({ project, editorId }: {
 }): Promise<void> {
   let settings: Settings;
   try {
-    settings = await ide.choose({ cwd: project, id: editorId });
+    settings = await ide.choose({
+      cwd: project,
+      id: editorId
+    });
   } catch {
     // The pick didn't persist; the current ranking is still valid as-is.
     return;

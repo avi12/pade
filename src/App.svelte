@@ -1287,7 +1287,6 @@
                key the Change Feed also reads — SSOT), while the launcher opens
                the active session's worktree when one is focused. -->
           <IdeMenu
-            project={currentProject}
             cwd={sessions.find(session => session.id === activeId)?.cwd ?? currentProject}
             onterminaleditor={(editor: Ide) =>
               launch({
@@ -1302,6 +1301,7 @@
                 args: ["."],
                 split: true
               })}
+            project={currentProject}
           />
 
           <div class="seg" aria-label="Side panels" role="tablist">

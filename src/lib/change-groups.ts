@@ -138,6 +138,7 @@ function projectFromMembers({ path, workspaceRoot, members, repo }: {
       deepestDepth = memberSegments.length;
     }
   }
+
   if (deepest === undefined) {
     return repo;
   }
@@ -173,16 +174,16 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
   for (const event of events) {
     const project = manifestMembers.length > 0
       ? projectFromMembers({
-          path: event.path,
-          workspaceRoot,
-          members: manifestMembers,
-          repo
-        })
+        path: event.path,
+        workspaceRoot,
+        members: manifestMembers,
+        repo
+      })
       : projectOf({
-          path: event.path,
-          workspaceRoot,
-          repo
-        });
+        path: event.path,
+        workspaceRoot,
+        repo
+      });
     let group = groupsById.get(project.id);
     if (group === undefined) {
       group = {
