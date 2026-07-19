@@ -1,20 +1,17 @@
 // Pure grouping of Change Feed events into project buckets, so the feed reads as
-// "what changed, per project" the way the mockup does. Monorepo-aware by
-// convention: a change under a known workspace container (`apps/…`,
-// `packages/…`, `services/…`) is bucketed by its member folder; anything else
-// falls into the repo itself. A single-project repo therefore yields one group,
-// a multi-project monorepo yields one per touched member — no backend needed.
-//
-// KNOWN LIMITATION (see docs / memory): this is a path-CONVENTION heuristic, so a
-// root-level-package layout (pnpm/npm workspaces with `frontend/`, `backend/`,
-// `shared/` directly under the repo) collapses into one repo group. The robust
-// fix reads the actual workspace manifests (`pnpm-workspace.yaml`, a
-// `package.json` `workspaces` field, `Cargo.toml [workspace]`, …) to learn the
-// real members — filesystem work that belongs in the backend, not this pure
-// path-only helper. Tracked for a follow-up; not a dir-name guessing game.
+// "what changed, per project" the way the mockup does. Ground truth first: when
+// the backend's manifest census (`bridge.members`) confirms real workspace
+// members, a change buckets under its deepest enclosing member — whole-segment
+// longest-prefix, so `apps/web` never captures `apps/web-admin` — and anything
+// outside every member falls into the repo itself. Only a workspace with no
+// confirmed members falls back to the old folder-name convention (`apps/…`,
+// `packages/…`, `services/…`); a directory's name proves nothing, so a
+// root-level-package workspace (`frontend/` `backend/` `shared/` declared in
+// `pnpm-workspace.yaml`) now splits per member instead of collapsing into one
+// repo group — the gap the convention could never close.
 
 import { baseName } from "@/lib/paths";
-import type { ChangeEvent } from "@/lib/types";
+import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
 
 /** Coarse project role driving the group's badge. One authoritative home. */
 export const GroupRole = {
@@ -76,20 +73,15 @@ function relativeSegments({ path, workspaceRoot }: {
   return relative.split("/").filter(segment => segment.length > 0);
 }
 
-// The project a changed path belongs to. A path under a container maps to its
-// member folder (honouring an `@scope/name` two-segment member); everything else
-// maps to the repo itself.
-function projectOf({ path, workspaceRoot, repoName }: {
+// The convention fallback: the project a changed path belongs to when no
+// manifest members exist. A path under a container maps to its member folder
+// (honouring an `@scope/name` two-segment member); everything else maps to the
+// repo itself.
+function projectOf({ path, workspaceRoot, repo }: {
   path: string;
   workspaceRoot: string;
-  repoName: string;
+  repo: Project;
 }): Project {
-  const repo: Project = {
-    id: ".",
-    name: repoName,
-    role: GroupRole.App
-  };
-
   const segments = relativeSegments({
     path,
     workspaceRoot
@@ -109,22 +101,88 @@ function projectOf({ path, workspaceRoot, repoName }: {
   };
 }
 
-/** Bucket `events` (newest first) into project groups, summing line deltas. The
- *  groups are ordered by their most-recent change, so the just-touched project
- *  leads — matching the flat feed's newest-first feel. */
-export function groupChanges({ events, workspaceRoot }: {
+// A member's badge role, read off its leading container segment when it uses a
+// conventional one; any other member (a root-level `frontend/`) is badged App.
+function memberRole(memberPath: string): GroupRole {
+  const container = memberPath.split("/")[0]?.toLowerCase();
+  if (container === undefined) {
+    return GroupRole.App;
+  }
+
+  return CONTAINER_ROLES[container] ?? GroupRole.App;
+}
+
+// The deepest manifest-confirmed member enclosing a changed path. Whole
+// segments are compared (case-insensitively, matching the root-prefix rule) so
+// `apps/web` never captures `apps/web-admin`; outside every member the repo
+// itself is the bucket.
+function projectFromMembers({ path, workspaceRoot, members, repo }: {
+  path: string;
+  workspaceRoot: string;
+  members: WorkspaceMember[];
+  repo: Project;
+}): Project {
+  const segments = relativeSegments({
+    path,
+    workspaceRoot
+  }).map(segment => segment.toLowerCase());
+
+  let deepest: WorkspaceMember | undefined;
+  let deepestDepth = 0;
+  for (const member of members) {
+    const memberSegments = member.path.toLowerCase().split("/");
+    const encloses = memberSegments.length <= segments.length
+      && memberSegments.every((segment, index) => segment === segments[index]);
+    if (encloses && memberSegments.length > deepestDepth) {
+      deepest = member;
+      deepestDepth = memberSegments.length;
+    }
+  }
+  if (deepest === undefined) {
+    return repo;
+  }
+
+  return {
+    id: deepest.path,
+    name: deepest.name ?? baseName(deepest.path),
+    role: memberRole(deepest.path)
+  };
+}
+
+/** Bucket `events` (newest first) into project groups, summing line deltas.
+ *  With manifest-confirmed `members` (see `bridge.members`) a change goes to
+ *  its deepest enclosing member; without any, the folder-name convention is the
+ *  fallback. The groups are ordered by their most-recent change, so the
+ *  just-touched project leads — matching the flat feed's newest-first feel. */
+export function groupChanges({ events, workspaceRoot, members = [] }: {
   events: ChangeEvent[];
   workspaceRoot: string;
+  members?: WorkspaceMember[];
 }): ChangeGroup[] {
   const repoName = baseName(workspaceRoot) || workspaceRoot;
+  const repo: Project = {
+    id: ".",
+    name: repoName,
+    role: GroupRole.App
+  };
+  // The root entry only signals "this workspace has a manifest"; grouping needs
+  // the real (non-root) members, and with none the convention takes over.
+  const manifestMembers = members.filter(member => member.path.length > 0);
   const groupsById = new Map<string, ChangeGroup>();
 
   for (const event of events) {
-    const project = projectOf({
-      path: event.path,
-      workspaceRoot,
-      repoName
-    });
+    const project = manifestMembers.length > 0
+      ? projectFromMembers({
+          path: event.path,
+          workspaceRoot,
+          members: manifestMembers,
+          repo
+        })
+      : projectOf({
+          path: event.path,
+          workspaceRoot,
+          repo
+        });
     let group = groupsById.get(project.id);
     if (group === undefined) {
       group = {

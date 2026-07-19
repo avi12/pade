@@ -32,7 +32,8 @@ import {
   StatusEntry,
   TaskGroup,
   Usage,
-  WindowInfo
+  WindowInfo,
+  WorkspaceMember
 } from "@/lib/types";
 import type { Prefs } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
@@ -236,6 +237,14 @@ export const feed = {
   }) => call("feed_diff", FeedDiff.nullable(), { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
     on("feed://change", ChangeEvent, callback)
+};
+
+/** Manifest-driven workspace members — the Change Feed's grouping ground
+ *  truth: one backend census walk confirms which directories are real packages
+ *  and the root's workspace-defining files say which of them are members. */
+export const members = {
+  /** Confirmed members of the workspace at `root`; the root itself is first. */
+  list: (root: string) => call("members_list", z.array(WorkspaceMember), { root })
 };
 
 /** The picker's folder watcher: hand it the parents of the rows on the page and

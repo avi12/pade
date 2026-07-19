@@ -1,5 +1,5 @@
 import { groupChanges, GroupRole } from "@/lib/change-groups";
-import type { ChangeEvent } from "@/lib/types";
+import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
 let idCounter = 0;
@@ -143,5 +143,139 @@ describe("groupChanges", () => {
       events: [change({ path: "c:/repos/app/packages/core/index.ts" })]
     });
     expect(group.id).toBe("packages/core");
+  });
+});
+
+function member({ path, name = null, ecosystem = "javascript" }: {
+  path: string;
+  name?: string | null;
+  ecosystem?: WorkspaceMember["ecosystem"];
+}): WorkspaceMember {
+  return {
+    path,
+    name,
+    ecosystem
+  };
+}
+
+const ROOT_MEMBER = member({
+  path: "",
+  name: "poll-avi"
+});
+
+describe("groupChanges with manifest members", () => {
+  it("splits a root-level-package workspace per member — the convention's blind spot", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      members: [
+        ROOT_MEMBER,
+        member({ path: "frontend" }),
+        member({ path: "backend" }),
+        member({ path: "shared" })
+      ],
+      events: [
+        change({ path: `${ROOT}/frontend/src/App.svelte` }),
+        change({ path: `${ROOT}/backend/src/server.ts` }),
+        change({ path: `${ROOT}/shared/src/types.ts` })
+      ]
+    });
+    expect(groups.map(group => group.id).sort()).toEqual(["backend", "frontend", "shared"]);
+  });
+
+  it("names a group from the member's manifest, falling back to its folder", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      members: [
+        ROOT_MEMBER,
+        member({
+          path: "frontend",
+          name: "@poll/frontend"
+        }),
+        member({ path: "backend" })
+      ],
+      events: [
+        change({ path: `${ROOT}/frontend/src/App.svelte` }),
+        change({ path: `${ROOT}/backend/src/server.ts` })
+      ]
+    });
+    const byId = Object.fromEntries(groups.map(group => [group.id, group]));
+    expect(byId["frontend"].name).toBe("@poll/frontend");
+    expect(byId["backend"].name).toBe("backend");
+  });
+
+  it("assigns a file to its deepest enclosing member", () => {
+    const [group] = groupChanges({
+      workspaceRoot: ROOT,
+      members: [
+        ROOT_MEMBER,
+        member({ path: "apps/web" }),
+        member({ path: "apps/web/plugins/auth" })
+      ],
+      events: [change({ path: `${ROOT}/apps/web/plugins/auth/token.rs` })]
+    });
+    expect(group.id).toBe("apps/web/plugins/auth");
+  });
+
+  it("compares whole segments — apps/web never captures apps/web-admin", () => {
+    const [group] = groupChanges({
+      workspaceRoot: ROOT,
+      members: [ROOT_MEMBER, member({ path: "apps/web" })],
+      events: [change({ path: `${ROOT}/apps/web-admin/main.ts` })]
+    });
+    expect(group).toMatchObject({
+      id: ".",
+      name: "pade"
+    });
+  });
+
+  it("buckets a file outside every member under the repo root", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      members: [ROOT_MEMBER, member({ path: "frontend" })],
+      events: [
+        change({ path: `${ROOT}/scripts/release.sh` }),
+        change({ path: `${ROOT}/frontend/src/App.svelte` })
+      ]
+    });
+    expect(groups.map(group => group.id).sort()).toEqual([".", "frontend"]);
+  });
+
+  it("badges a member by its container when it uses one, else as an app", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      members: [
+        ROOT_MEMBER,
+        member({ path: "packages/ui" }),
+        member({ path: "backend" })
+      ],
+      events: [
+        change({ path: `${ROOT}/packages/ui/index.ts` }),
+        change({ path: `${ROOT}/backend/server.ts` })
+      ]
+    });
+    const byId = Object.fromEntries(groups.map(group => [group.id, group]));
+    expect(byId["packages/ui"].role).toBe(GroupRole.Lib);
+    expect(byId["backend"].role).toBe(GroupRole.App);
+  });
+
+  it("falls back to the folder-name convention when only the root member exists", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      members: [ROOT_MEMBER],
+      events: [
+        change({ path: `${ROOT}/apps/desktop/main.ts` }),
+        change({ path: `${ROOT}/README.md` })
+      ]
+    });
+    expect(groups.map(group => group.id).sort()).toEqual([".", "apps/desktop"]);
+  });
+
+  it("matches member paths case-insensitively (Windows filesystems)", () => {
+    const [group] = groupChanges({
+      workspaceRoot: ROOT,
+      members: [ROOT_MEMBER, member({ path: "Frontend" })],
+      events: [change({ path: `${ROOT}/frontend/src/App.svelte` })]
+    });
+    expect(group.id).toBe("Frontend");
   });
 });

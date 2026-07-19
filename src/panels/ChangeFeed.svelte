@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { feed, ide, vcs } from "@/lib/bridge";
+  import { feed, ide, members, vcs } from "@/lib/bridge";
   import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
@@ -15,7 +15,7 @@
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { ChangeKind } from "@/lib/types";
-  import type { FeedDiff } from "@/lib/types";
+  import type { FeedDiff, WorkspaceMember } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -59,6 +59,19 @@
       hasRemote = (await vcs.remoteUrl()) !== null;
     } catch {
       hasRemote = false;
+    }
+  }
+
+  // Manifest-confirmed workspace members (backend census) — the grouping ground
+  // truth change-groups prefers over folder-name conventions. Refetched on a
+  // project switch; a failure just leaves the convention fallback in charge.
+  let workspaceMembers = $state<WorkspaceMember[]>([]);
+
+  async function loadMembers(root: string) {
+    try {
+      workspaceMembers = await members.list(root);
+    } catch {
+      workspaceMembers = [];
     }
   }
 
@@ -144,6 +157,7 @@
       retarget(project);
       void loadBranch(project);
       void loadRemote();
+      void loadMembers(project);
       // Editors come from the shared store's cache when the panel merely
       // remounts (a side-panel switch); a fetch only runs when nothing is
       // cached for this project yet.
@@ -158,7 +172,8 @@
   const hasPreview = $derived(unifiedLines.length > 0);
 
   // ── Grouping + filters ──────────────────────────────────────────────────────
-  // Bucket the feed by project (monorepo-aware; see change-groups), and let the
+  // Bucket the feed by project (manifest members first, folder-name convention
+  // as the fallback — see change-groups), and let the
   // chip row narrow to one project and the "Show" control to one change kind.
   let kindFilter = $state<"all" | ChangeKind>("all");
   let activeGroupId = $state<string | null>(null);
@@ -173,7 +188,8 @@
   const groups = $derived(
     groupChanges({
       events: kindFiltered,
-      workspaceRoot: project
+      workspaceRoot: project,
+      members: workspaceMembers
     })
   );
   // A chip selection can outlive its group (its events filtered out or aged past

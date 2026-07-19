@@ -29,6 +29,22 @@ export const FeedDiff = z.object({
 });
 export type FeedDiff = z.infer<typeof FeedDiff>;
 
+/** The manifest family that confirms a directory as a package (workspace
+ *  member discovery — a folder is a package IFF it holds its own manifest). */
+export const Ecosystem = z.enum(["javascript", "rust", "go", "python"]);
+export type Ecosystem = z.infer<typeof Ecosystem>;
+
+/** One manifest-confirmed workspace member: its repo-relative `/`-joined
+ *  directory (`""` = the root), the name its manifest declares (`null` when it
+ *  declares none), and the manifest family that confirmed it (`null` only for
+ *  a root without any manifest — kept so every file still has a bucket). */
+export const WorkspaceMember = z.object({
+  path: z.string(),
+  name: z.string().nullable(),
+  ecosystem: Ecosystem.nullable()
+});
+export type WorkspaceMember = z.infer<typeof WorkspaceMember>;
+
 /** Lifecycle of an agent or sub-agent session, shared by the terminal and the
  *  agent tree. `ready` = idle at a prompt, done and waiting for you. */
 export const SessionStatus = z.enum(["starting", "working", "ready", "exited"]);
