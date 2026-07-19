@@ -352,6 +352,13 @@
     try {
       await workspace.open(snapshot.project);
     } catch {
+      // The project vanished while the window was reloading (deleted, moved,
+      // unmounted). Boot falls through to the picker — so kill the snapshot's
+      // still-live sessions rather than leave them running unreachably, which
+      // would recreate the very invisible-agent incident restore exists to fix.
+      await Promise.all(
+        snapshot.sessions.map(orphan => pty.kill(orphan.id).catch(() => {}))
+      );
       clearSessionSnapshot();
       return false;
     }
