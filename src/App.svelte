@@ -221,7 +221,7 @@
 
     paneIds = [...base.slice(0, insertAt), drop.id, ...base.slice(insertAt)];
     activeId = drop.id;
-    void animatePaneIn(drop.id);
+    animatePaneIn(drop.id);
   }
 
   // A tab-strip drag committed a new order for the visible pills. They are a
@@ -421,23 +421,36 @@
   // fallback. Detection spawns a process per agent, so it must stay off the drag
   // path: page visibility never changes while dragging a window that stays on
   // screen, unlike window focus which a title-bar drag churns and lagged.
+  // Best-effort: owns its try/catch so a transient failure just keeps the
+  // current list — the poll and the visibility signal both fire it and neither
+  // can await, so it must never reject.
   async function redetectAgents() {
-    agents = await agentsApi.detect();
+    try {
+      agents = await agentsApi.detect();
+    } catch {
+      // A transient detection failure keeps the agents already on screen.
+    }
   }
   onMount(() => {
-    const interval = setInterval(() => void redetectAgents(), 30_000);
+    const interval = setInterval(() => redetectAgents(), 30_000);
     return () => clearInterval(interval);
   });
 
   // Subscribe once to the backend task-runner stream so the dock updates live.
-  onMount(() => void ensureRunnerListeners());
+  onMount(async () => {
+    await ensureRunnerListeners();
+  });
 
   // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
   // can flash red when one is pending on it (lib/stores/sessionAttention).
-  onMount(() => void ensureChoiceAttention());
+  onMount(async () => {
+    await ensureChoiceAttention();
+  });
 
   // Reflect known tasks the agent runs as "running" in the Tasks panel.
-  onMount(() => void initTaskRunDetection());
+  onMount(async () => {
+    await initTaskRunDetection();
+  });
 
   // Watch the open project's files app-wide — not only while the Change Feed is
   // open — so the Tasks panel auto-updates on a manifest/script edit, and the
@@ -446,7 +459,7 @@
   // backend is idempotent, so a repeat call for the same root is a no-op.
   $effect(() => {
     if (currentProject) {
-      void feed.start(currentProject);
+      feed.start(currentProject);
     }
   });
 
@@ -488,13 +501,13 @@
   }
   $effect(() => {
     if (discordEnabled && discordShowProject && currentProject) {
-      void loadDiscordKind(currentProject);
+      loadDiscordKind(currentProject);
     } else {
       discordProjectKind = undefined;
     }
   });
   $effect(() => {
-    void updateDiscordPresence({
+    updateDiscordPresence({
       enabled: discordEnabled,
       showProject: discordShowProject,
       project: currentProject,
@@ -515,18 +528,18 @@
     }
   });
   onMount(() => {
-    void autoNamer.start();
+    autoNamer.start();
     return () => autoNamer.dispose();
   });
 
   // Send-from-IDE bridge (lib/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
-    void registerSendShortcut({
+    registerSendShortcut({
       activeId: () => activeId,
       activeLabel: () => sessions.find(s => s.id === activeId)?.agent.label ?? "agent"
     });
-    return () => void unregisterSendShortcut();
+    return () => unregisterSendShortcut();
   });
 
   // Tab shortcuts (lib/tab-shortcuts): capture-phase so they win over a focused
@@ -654,7 +667,7 @@
   }) {
     currentProject = path;
     // Let other windows' pickers focus this one instead of reopening the project.
-    void windows.registerProject(path);
+    windows.registerProject(path);
     // A create-form agent pick wins outright; otherwise honor the per-project
     // override, then the workspace default.
     const prefId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent ?? null;
@@ -708,7 +721,7 @@
     paneIds = opts.split ? [...paneIds, session.id] : [session.id];
 
     if (opts.split) {
-      void animatePaneIn(session.id);
+      animatePaneIn(session.id);
     }
 
     pendingPrompt = undefined;
@@ -753,7 +766,8 @@
     }
 
     slot.style.animation = "none";
-    void slot.offsetWidth; // reflow so re-adding the same pane restarts the run
+    // Reading offsetWidth forces a synchronous reflow so re-adding the same pane restarts the run.
+    slot.offsetWidth;
     slot.style.animation = "pane-enter 340ms var(--spring)";
     slot.addEventListener("animationend", () => (slot.style.animation = ""), { once: true });
   }
@@ -763,7 +777,7 @@
   function addPane(id: string) {
     if (!paneIds.includes(id)) {
       paneIds = [...paneIds, id];
-      void animatePaneIn(id);
+      animatePaneIn(id);
     }
 
     activeId = id;
@@ -817,7 +831,7 @@
   function closeActiveTab() {
     const active = sessions.find(s => s.id === activeId);
     if (active) {
-      void close(active);
+      close(active);
     }
   }
 
@@ -1198,7 +1212,7 @@
   }}
   onvisibilitychange={() => {
     if (!document.hidden) {
-      void redetectAgents();
+      redetectAgents();
     }
   }}
 />
@@ -1230,7 +1244,7 @@
     if (isCyclePrevWindow || isCycleNextWindow) {
       e.preventDefault();
       e.stopPropagation();
-      void windows.focusRelative(isCyclePrevWindow ? "previous" : "next");
+      windows.focusRelative(isCyclePrevWindow ? "previous" : "next");
       return;
     }
 
@@ -1243,7 +1257,7 @@
 
     e.preventDefault();
     e.stopPropagation();
-    void openEmptyWindow();
+    openEmptyWindow();
   }}
 />
 
