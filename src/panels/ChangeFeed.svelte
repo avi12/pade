@@ -29,9 +29,12 @@
 
   // The project's ranked editors, read from the shared store (SSOT — the same
   // list the top-bar IdeMenu shows, so a reveal here and the launcher there can
-  // never name different editors). The first is used to open a file from the
-  // diff title bar.
+  // never name different editors). The reveal uses the first *windowed* editor:
+  // a console editor (Neovim/Vim/Helix) can't run detached — handing it to the
+  // OS launcher spawns an invisible orphan that locks the workspace cwd — and
+  // the feed has no terminal tab to route it into, so it's skipped here.
   const ides = $derived(editorsFor(project));
+  const revealEditor = $derived(ides.find(editor => !editor.terminal));
 
   // The workspace's current git branch (all groups share the one repo/HEAD), for
   // the group-header subtitle. Empty for a non-repo / detached-HEAD workspace.
@@ -197,10 +200,9 @@
     path: string;
     line?: number;
   }) {
-    const editor = ides[0];
-    if (editor) {
+    if (revealEditor) {
       void ide.openFile({
-        command: editor.command,
+        command: revealEditor.command,
         project,
         file: path,
         line
@@ -211,7 +213,7 @@
   // Clicking the diff body (or the filename) opens the file in the selected
   // editor, jumped to the first changed line. The launcher hands the file to the
   // already-open editor when one is running, so it navigates there in place.
-  const revealTip = $derived(ides[0] ? `Reveal in ${ides[0].label}` : "No editor detected");
+  const revealTip = $derived(revealEditor ? `Reveal in ${revealEditor.label}` : "No editor detected");
   const revealLine = $derived(firstChangedLine(unifiedLines));
   function revealDiff({ path, event }: {
     path: string;
@@ -438,8 +440,8 @@
                     <div class="bar">
                       <button
                         class="filebtn"
-                        data-tooltip={ides[0] ? `Open in ${ides[0].label} · ${ev.path}` : ev.path}
-                        disabled={!ides[0]}
+                        data-tooltip={revealEditor ? `Open in ${revealEditor.label} · ${ev.path}` : ev.path}
+                        disabled={!revealEditor}
                         onclick={() => openInEditor({
                           path: ev.path,
                           line: revealLine
