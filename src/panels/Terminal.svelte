@@ -985,7 +985,8 @@
       cols: agentCols,
       rows: term.rows,
       args: session.args,
-      scheme: appearance.scheme
+      scheme: appearance.scheme,
+      conversationId: session.conversationId
     });
 
     // Paint whatever the session has already said. A spawn for a session that is

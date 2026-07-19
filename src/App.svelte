@@ -5,6 +5,7 @@
     agents as agentsApi,
     feed,
     ide,
+    mcp,
     pty,
     vcs,
     windows,
@@ -17,6 +18,7 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
+  import { mcpRestartTargets, rekeyLayout } from "@/lib/mcp-restart";
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
@@ -47,6 +49,7 @@
     Agent,
     AgentSession,
     Ide,
+    McpChange,
     OpenTarget,
     Settings,
     TaskGroup
@@ -452,6 +455,17 @@
     await initTaskRunDetection();
   });
 
+  // Restart the affected agent sessions when the project's MCP servers change
+  // (a server added or removed) — they resume into their own conversations.
+  let unlistenMcp: (() => void) | undefined;
+  async function subscribeToMcpChanges() {
+    unlistenMcp = await mcp.onChanged(change => restartForMcpChange(change));
+  }
+  onMount(() => {
+    subscribeToMcpChanges();
+    return () => unlistenMcp?.();
+  });
+
   // Watch the open project's files app-wide — not only while the Change Feed is
   // open — so the Tasks panel auto-updates on a manifest/script edit, and the
   // task-run and auto-name subscribers see changes from the moment a project
@@ -713,7 +727,11 @@
       initialPrompt: opts.initialPrompt,
       cwd: opts.cwd,
       branch: opts.branch,
-      args: opts.args
+      args: opts.args,
+      // A stable id for this conversation, distinct from the session `id` (which
+      // is re-keyed to remount the terminal on a restart). Pins the agent's own
+      // conversation so a restart resumes THIS one — see restartForMcpChange.
+      conversationId: crypto.randomUUID()
     };
     sessions.push(session);
     sessionLaunchedAt.set(session.id, Date.now());
@@ -992,6 +1010,59 @@
       pendingPrompt = undefined;
       phase = Phase.onboarding;
     }
+  }
+
+  // A project's MCP servers changed (a server added or removed — the backend
+  // fires only on a real membership change, never a value-only edit). A running
+  // agent picks the change up only by restarting, so terminate each affected
+  // session and resume it into ITS OWN conversation. Scoped to sessions whose
+  // working dir is the directory that changed (a per-branch worktree keeps its
+  // own .mcp.json), and to agents the config governs.
+  //
+  // The PTYs are killed together (Promise.all); the pane re-keying then happens
+  // in one synchronous pass, so the shared session/pane state is never mutated
+  // from two interleaved awaits. Re-keying the session `id` remounts its
+  // terminal, which respawns resuming the same `conversationId` (initialPrompt
+  // is dropped — already sent — so the agent continues rather than restarts).
+  // `closingByHand` marks the kills so they aren't mistaken for self-exits (which
+  // would respawn from scratch, not resume).
+  async function restartForMcpChange(change: McpChange) {
+    const targets = mcpRestartTargets({
+      sessions,
+      change,
+      currentProject
+    });
+    if (targets.length === 0) {
+      return;
+    }
+
+    showToast(`MCP servers changed — restarting ${targets.length === 1 ? "the agent" : `${targets.length} agents`}`);
+
+    await Promise.all(
+      targets.map(target => {
+        closingByHand.add(target.id);
+        return pty.kill(target.id);
+      })
+    );
+
+    const rekeyed: Record<string, string> = {};
+    for (const target of targets) {
+      const restartedId = crypto.randomUUID();
+      rekeyed[target.id] = restartedId;
+      sessionLaunchedAt.set(restartedId, Date.now());
+      sessionLaunchedAt.delete(target.id);
+      closingByHand.delete(target.id);
+    }
+
+    const relaid = rekeyLayout({
+      sessions,
+      paneIds,
+      activeId,
+      rekeyed
+    });
+    sessions = relaid.sessions;
+    paneIds = relaid.paneIds;
+    activeId = relaid.activeId;
   }
 
   // Clear the recent-projects history from the switcher (pins survive).

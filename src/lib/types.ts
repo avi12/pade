@@ -488,4 +488,19 @@ export interface AgentSession {
   /** Extra args for the command — the project path when this session runs a
    *  terminal editor (Neovim/Vim/Helix) instead of an agent. */
   args?: string[];
+  /** A stable conversation id ADE pins the session to (`claude --session-id`),
+   *  so a restart can resume THIS conversation, not merely the most recent. It
+   *  outlives the session `id`, which is re-keyed to remount the terminal on a
+   *  restart. Only meaningful for an agent whose CLI supports it. */
+  conversationId?: string;
 }
+
+/** A project's declared MCP servers changed (a server name added or removed —
+ *  not a value-only edit). The affected agents' sessions restart to pick it up. */
+export const McpChange = z.object({
+  path: z.string(),
+  agents: z.array(z.string()),
+  added: z.array(z.string()),
+  removed: z.array(z.string())
+});
+export type McpChange = z.infer<typeof McpChange>;

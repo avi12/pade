@@ -18,6 +18,7 @@ import {
   FeedDiff,
   Ide,
   LaunchContext,
+  McpChange,
   PathProbe,
   ProjectEntry,
   PtyChunk,
@@ -210,6 +211,9 @@ export const pty = {
     args?: string[];
     /** ADE's resolved appearance at spawn — env-themed CLIs start matching it. */
     scheme?: Scheme;
+    /** Stable conversation id to pin/resume the session to (`claude
+     *  --session-id`), so a restart lands back in THIS conversation. */
+    conversationId?: string;
   }) =>
     run("pty_spawn", { ...args }),
   write: (args: {
@@ -264,6 +268,14 @@ export const feed = {
   onIgnoreChanged: (callback: () => void) => on("feed://ignore-changed", z.null(), () => callback()),
   /** The subset of `paths` the current ignore policy excludes. */
   ignored: (paths: string[]) => call("feed_ignored", z.array(z.string()), { paths })
+};
+
+/** MCP config changes. A running agent only picks up an added/removed MCP
+ *  server by restarting (there's no in-session reload), so ADE watches the
+ *  project's config file (`.mcp.json` for Claude) and restarts the affected
+ *  sessions when the set of servers changes — not on a value-only edit. */
+export const mcp = {
+  onChanged: (callback: (change: McpChange) => void) => on("mcp://changed", McpChange, callback)
 };
 
 /** Manifest-driven workspace members — the Change Feed's grouping ground
