@@ -2,52 +2,37 @@
   import { ide, os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ide-icon";
+  import { chooseEditor, editorsFor, refreshEditors } from "@/lib/stores/editors.svelte";
   import type { Ide } from "@/lib/types";
 
-  // Opens the active project in an external editor. `ide.suggest()` returns the
-  // installed editors ranked for the detected project kind, so the best fit is
-  // first — the split button's primary action opens it directly (auto-detected),
-  // and the caret always drops the full list, ending with File Explorer. A console editor
+  // Opens the active project in an external editor. The ranked list comes from
+  // the shared editors store (SSOT — the same list the Change Feed's reveal
+  // reads), whose backend `ide_suggest` puts the project's editor first: an
+  // explicit pick from this menu, else the best auto-detected fit. The split
+  // button's primary action opens that editor directly, and the caret always
+  // drops the full list, ending with File Explorer. A console editor
   // (Neovim/Vim/Helix) can't run detached, so it's handed to the parent to open
   // in a PADE terminal tab instead of through the OS.
-  const { onterminaleditor, cwd }: {
+  const { onterminaleditor, project, cwd }: {
     onterminaleditor: (editor: Ide) => void;
-    // The active project/worktree directory — the target of "Reveal in file
-    // explorer" and is required so the selector always has that final action.
+    // The open project — the key the shared editor ranking is resolved under,
+    // shared with the Change Feed so the two surfaces can't drift.
+    project: string;
+    // The directory the launcher opens: the active session's worktree when one
+    // is focused, else the project itself. Also the target of "Reveal in file
+    // explorer", so the selector always has that final action.
     cwd: string;
   } = $props();
 
-  let ides = $state<Ide[]>([]);
-  // The auto-detected best fit for this project — the primary action's target.
+  const ides = $derived(editorsFor(project));
+  // The project's editor — an explicit pick, else the auto-detected best fit.
   const bestFit = $derived(ides[0]);
   const hasAlternatives = $derived(ides.length > 1);
 
-  // A newly-installed editor should show up without a restart: re-detect once at
-  // mount and whenever the app becomes visible again (the user installed one in
-  // another app and switched back). We key off page *visibility*, not window focus —
-  // a Windows title-bar drag churns focus and any focus-driven `ide.suggest()`
-  // spawned editor-detection processes mid-drag and lagged the drag, whereas
-  // visibility never changes while you drag a window that stays on screen.
-  let detection = 0;
-  async function detect(project: string) {
-    const request = ++detection;
-    try {
-      const detected = await ide.suggest(project);
-      // A slower scan for the previous workspace must not overwrite the new
-      // workspace's result after a quick project switch.
-      if (request === detection && project === cwd) {
-        ides = detected;
-      }
-    } catch {
-      if (request === detection && project === cwd) {
-        ides = [];
-      }
-    }
-  }
-
-  // Re-profile on mount and whenever the active project/worktree changes.
+  // Re-profile on mount and whenever the active project changes. The store
+  // coalesces this with any other surface's resolve, so the census runs once.
   $effect(() => {
-    void detect(cwd);
+    void refreshEditors(project);
   });
 
   function open(editor: Ide) {
@@ -63,9 +48,15 @@
   }
 </script>
 
+<!-- A newly-installed editor should show up without a restart: re-detect
+     whenever the app becomes visible again (the user installed one in another
+     app and switched back). Keyed off page *visibility*, not window focus — a
+     Windows title-bar drag churns focus, and a focus-driven re-detection
+     spawned processes mid-drag and lagged the drag, whereas visibility never
+     changes while you drag a window that stays on screen. -->
 <svelte:document
   onvisibilitychange={() => {
-    if (!document.hidden) void detect(cwd);
+    if (!document.hidden) void refreshEditors(project);
   }}
 />
 
@@ -88,7 +79,13 @@
       {#each ides as editor, index (editor.id)}
         <li>
           <button
-            onclick={() => open(editor)}
+            onclick={() => {
+              // Picking from the list is an explicit choice: persisted, it
+              // becomes the project's editor on every surface (this button and
+              // the Change Feed's reveal) until picked otherwise.
+              void chooseEditor({ project, editorId: editor.id });
+              open(editor);
+            }}
             popovertarget="ide-menu"
             popovertargetaction="hide"
           >

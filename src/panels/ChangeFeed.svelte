@@ -10,11 +10,12 @@
   import { revealBlock } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
+  import { editorsFor, ensureEditors } from "@/lib/stores/editors.svelte";
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { ChangeKind } from "@/lib/types";
-  import type { FeedDiff, Ide } from "@/lib/types";
+  import type { FeedDiff } from "@/lib/types";
   import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -26,8 +27,11 @@
   // live subscription, so switching side panels away and back keeps the feed —
   // this component only reads and renders them.
 
-  // Detected editors — the first is used to open a file from the diff title bar.
-  let ides = $state<Ide[]>([]);
+  // The project's ranked editors, read from the shared store (SSOT — the same
+  // list the top-bar IdeMenu shows, so a reveal here and the launcher there can
+  // never name different editors). The first is used to open a file from the
+  // diff title bar.
+  const ides = $derived(editorsFor(project));
 
   // The workspace's current git branch (all groups share the one repo/HEAD), for
   // the group-header subtitle. Empty for a non-repo / detached-HEAD workspace.
@@ -104,15 +108,10 @@
   let now = $state(Date.now());
   let clock: ReturnType<typeof setInterval> | undefined;
 
-  onMount(async () => {
+  onMount(() => {
     clock = setInterval(() => {
       now = Date.now();
     }, 1000);
-    try {
-      ides = await ide.suggest(project);
-    } catch {
-      ides = [];
-    }
   });
 
   onDestroy(() => {
@@ -133,6 +132,10 @@
       retarget(project);
       void loadBranch(project);
       void loadRemote();
+      // Editors come from the shared store's cache when the panel merely
+      // remounts (a side-panel switch); a fetch only runs when nothing is
+      // cached for this project yet.
+      void ensureEditors(project);
     }
   });
 

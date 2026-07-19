@@ -1,0 +1,75 @@
+// The one frontend home for "which editor is this project's?" (DRY/SSOT).
+// Every surface that shows or launches the project's editor — the top-bar
+// IdeMenu and the Change Feed's reveal — reads the ranked list from here, so
+// the two can never drift apart (a top bar saying "VS Code" while the feed
+// reveals in WebStorm). The backend `ide_suggest` owns the actual resolution
+// (explicit per-project choice → rules → coverage ranking); this store owns the
+// single cached fetch per project and the choose-editor write-through.
+
+import { ide } from "@/lib/bridge";
+import type { Ide } from "@/lib/types";
+import { SvelteMap } from "svelte/reactivity";
+
+/** Ranked editors per project directory — `editorsFor(project)[0]` is *the*
+ *  project's editor, mirroring `ide_suggest`'s array-order contract. */
+const rankedByProject = new SvelteMap<string, Ide[]>();
+
+/** One in-flight suggestion per project: simultaneous callers (the IdeMenu and
+ *  the Change Feed mounting together) coalesce onto a single backend census
+ *  instead of each running their own. */
+const inFlight = new Map<string, Promise<void>>();
+
+/** The ranked editors for `project` — reactive; empty until resolved. */
+export function editorsFor(project: string): Ide[] {
+  return rankedByProject.get(project) ?? [];
+}
+
+async function fetchEditors(project: string): Promise<void> {
+  try {
+    rankedByProject.set(project, await ide.suggest(project));
+  } catch {
+    rankedByProject.set(project, []);
+  } finally {
+    inFlight.delete(project);
+  }
+}
+
+/** Re-resolve the project's editors now (project switch, app visibility
+ *  regained, an explicit choice saved). Coalesces with a fetch already in
+ *  flight for the same project. */
+export function refreshEditors(project: string): Promise<void> {
+  const running = inFlight.get(project);
+  if (running) {
+    return running;
+  }
+
+  const fetch = fetchEditors(project);
+  inFlight.set(project, fetch);
+  return fetch;
+}
+
+/** Resolve only when nothing is cached yet — a remounting panel (the Change
+ *  Feed re-enters the DOM on every side-panel switch) reuses the cached list
+ *  instead of re-running the project census. */
+export function ensureEditors(project: string): Promise<void> {
+  if (rankedByProject.has(project)) {
+    return Promise.resolve();
+  }
+
+  return refreshEditors(project);
+}
+
+/** Persist an explicit editor pick for the project, then re-resolve, so every
+ *  surface reading this store sees the choice win at once. */
+export async function chooseEditor({ project, editorId }: {
+  project: string;
+  editorId: string;
+}): Promise<void> {
+  try {
+    await ide.choose({ cwd: project, id: editorId });
+  } catch {
+    // The pick didn't persist; the current ranking is still valid as-is.
+    return;
+  }
+  await refreshEditors(project);
+}

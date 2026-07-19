@@ -1105,7 +1105,11 @@
                split beside the agent so you can watch and edit at once. GUI editors
                go through the OS (ide.open); these need a real TTY, which only a PADE
                terminal gives. -->
+          <!-- The editor is resolved for the *project* (the shared editors-store
+               key the Change Feed also reads — SSOT), while the launcher opens
+               the active session's worktree when one is focused. -->
           <IdeMenu
+            project={currentProject}
             cwd={sessions.find(session => session.id === activeId)?.cwd ?? currentProject}
             onterminaleditor={(editor: Ide) =>
               launch({
