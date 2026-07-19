@@ -45,11 +45,15 @@
   }
 
   async function openCommitOnGithub(commit: Commit) {
-    const base = remoteUrl ?? (await vcs.remoteUrl());
-    remoteUrl = base;
-
-    if (base) {
-      void os.openUrl(`${base}/commit/${commit.id}`);
+    try {
+      const base = remoteUrl ?? (await vcs.remoteUrl());
+      remoteUrl = base;
+      if (base) {
+        await os.openUrl(`${base}/commit/${commit.id}`);
+      }
+    } catch {
+      // Opening the commit externally is best-effort — a missing remote or a
+      // failed browser launch must not surface as an error here.
     }
   }
 
@@ -77,11 +81,11 @@
             const wantsGithub = e.ctrlKey || e.metaKey;
             if (wantsGithub) {
               e.preventDefault();
-              void openCommitOnGithub(c);
+              openCommitOnGithub(c);
               return;
             }
 
-            void inspectCommit(c);
+            inspectCommit(c);
           }}
           onkeydown={e => {
             const isDown = e.key === "ArrowDown";
@@ -90,14 +94,14 @@
               e.preventDefault();
               const count = commits.length;
               const next = isDown ? (index + 1) % count : (index - 1 + count) % count;
-              void focusCommit(next);
+              focusCommit(next);
               return;
             }
 
             const isOpenKey = e.key === "Enter" || e.key === " ";
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              void openCommitOnGithub(c);
+              openCommitOnGithub(c);
             }
           }}
         >
