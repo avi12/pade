@@ -432,6 +432,20 @@ export type PtyHistory = z.infer<typeof PtyHistory>;
 export const PtyExit = z.object({ id: z.string() });
 export type PtyExit = z.infer<typeof PtyExit>;
 
+/** One live PTY session the backend still hosts (`pty_list`) — the re-attach
+ *  roster after a WebView reload. A listed session is alive by construction;
+ *  `millisSinceOutput` is how long it has been quiet (`null` before any output),
+ *  so a caller can judge idleness without a second signal. */
+export const PtySession = z.object({
+  id: z.string(),
+  /** The agent command it was spawned with (`null` = the default-shell fallback). */
+  command: z.string().nullable(),
+  /** The directory it was spawned into — its workspace mapping. */
+  cwd: z.string().nullable(),
+  millisSinceOutput: z.number().nullable()
+});
+export type PtySession = z.infer<typeof PtySession>;
+
 /** A tracked task-runner (dock) and its stream event payloads. */
 export const RunnerInfo = z.object({
   id: z.string(),

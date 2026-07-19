@@ -23,6 +23,7 @@ import {
   PtyChunk,
   PtyExit,
   PtyHistory,
+  PtySession,
   PullOutcome,
   RestoreCandidate,
   RunnerData,
@@ -205,6 +206,10 @@ export const pty = {
     rows: number;
   }) => run("pty_resize", { ...args }),
   kill: (id: string) => run("pty_kill", { id }),
+  /** Every live session the backend still hosts — the roster a reloaded window
+   *  intersects its persisted pane mapping with to re-attach (see
+   *  `session-restore`) instead of stranding running agents invisibly. */
+  list: () => call("pty_list", z.array(PtySession)),
   /** Everything a terminal needs to paint a session it is attaching to mid-flight
    *  (a remounted component, a reloaded window), and the sequence number of the last
    *  chunk already inside it — chunks above that one arrived live and still need

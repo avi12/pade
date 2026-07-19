@@ -96,6 +96,7 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             pty::pty_history,
+            pty::pty_list,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,
