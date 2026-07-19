@@ -59,6 +59,16 @@ pub fn run() {
                 browser_arguments.join(" "),
             );
         }
+        // Give this instance its own WebView2 user-data folder, keyed by the launch
+        // project, so two projects open in parallel run in separate browser + GPU
+        // process trees rather than sharing one (the shared default lets one
+        // instance's GPU load compound into the other and trip a DWM reset). Unlike
+        // the additional-arguments var above (which appends), WEBVIEW2_USER_DATA_FOLDER
+        // *replaces* the folder WebView2 would otherwise derive — the supported way
+        // to override it, since `--user-data-dir` as a browser arg is ignored.
+        if let Some(folder) = workspace::webview_data_dir() {
+            std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", folder);
+        }
     }
 
     tauri::Builder::default()
