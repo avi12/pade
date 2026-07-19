@@ -288,7 +288,7 @@ responsibility, and who it collaborates with.
 
 | Module | Responsibility |
 | --- | --- |
-| `src/lib/stores/sessions.svelte.ts` | Per-session status (working/ready/exited) |
+| `src/lib/stores/sessions.svelte.ts` | Per-session status (working/ready/exited), plus the graceful-leave gate: `whenSessionIdle` resolves the moment a session turns idle (`ready` — the Terminal's output-quiet signal — or exited/dropped), event-driven with a timeout cap, so a deliberate leave can wait before killing |
 | `src/lib/stores/feed.svelte.ts` | Persistent Change Feed events: owns the single live `feed://change` subscription (started once, never torn down) so events accumulate while the panel is unmounted and survive its remount — the `ChangeFeed` panel switches in/out of the DOM on every side-panel change, so component-local state emptied the feed. Holds the newest-first cap + scratch-file filter; `retarget(project)` clears on a workspace switch |
 | `src/lib/stores/sessionAttention.svelte.ts` | Per-session "awaiting a multiple-choice pick" flag: watches the PTY stream once (`choice-prompt`) and reconciles the flag against status + focus (cleared when the tab is active or the agent goes back to working); drives SessionTabs' red flash |
 | `src/lib/stores/context.svelte.ts` | Per-session context-window fill from two signals: the agent's own parsed readout, else a rough PTY-byte estimate. `contextPct` (parsed-or-estimate) tints the soft tab gauge; `measuredContextPct` (parsed only) is what auto-handoff / usage-resume / API-error retry gate on — the byte estimate over-counts a fullscreen agent's repaints, so it must never end a session |
