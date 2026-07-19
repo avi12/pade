@@ -196,6 +196,31 @@ flowchart LR
   Tab --> Beside["runs in a TTY, split beside the agent"]
 ```
 
+### The Change Feed groups by manifest, not by name
+
+A directory called `frontend/` proves nothing — the ground truth of "what
+package owns this file" lives in **manifest files**. So the Change Feed's
+project buckets come from `members.rs`: one census walk records every directory
+holding a real package manifest (noise pruned), the root's workspace-defining
+files declare the member patterns, and a folder is a member **IFF the census
+confirms it**. The frontend (`change-groups.ts`) then assigns each changed file
+to its deepest enclosing member by whole-segment longest-prefix — `apps/web`
+never captures `apps/web-admin` — with the repo root as the always-present
+fallback bucket. A workspace with no confirmed members (nothing declared) keeps
+the old `apps/`·`packages/`·`services/` folder-name convention, so single-repo
+behavior is unchanged while a root-level-package workspace (`frontend/`
+`backend/` `shared/` in `pnpm-workspace.yaml`) now splits correctly.
+
+```mermaid
+flowchart LR
+  Defs["root defining files<br/>pnpm-workspace.yaml · package.json workspaces<br/>Cargo.toml [workspace] · go.work · [tool.uv.workspace]"] --> Globs["include / exclude patterns<br/>(excludes subtract after includes)"]
+  Walk["one census walk<br/>dirs with a real manifest<br/>(node_modules · target · dot-dirs pruned)"] --> Confirm{"census-confirmed<br/>AND glob-included?"}
+  Globs --> Confirm
+  Confirm -->|yes| Members["members_list → bridge.members"]
+  Members --> Assign["change-groups.ts<br/>changed file → deepest member<br/>(whole-segment longest-prefix)"]
+  Assign --> Feed["ChangeFeed groups"]
+```
+
 Everything below is the module-by-module map: each file, its single
 responsibility, and who it collaborates with.
 
@@ -243,7 +268,7 @@ responsibility, and who it collaborates with.
 | `src/lib/focus.ts` | `isEditingText` — whether focus sits in a real editable field (not xterm's helper textarea); the shared guard both shortcut registrars check before swallowing a chord | `tab-shortcuts`, `pane-shortcuts` |
 | `src/lib/paths.ts` | Path helpers: `baseName`, `parentDir`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
 | `src/lib/diff.ts` | Pure unified-diff pipeline: parser + side-by-side rows, and `unifiedDiff` — a git-free LCS line-diff generator (shared prefix/suffix trim → LCS on the changed middle → context-bounded hunks) that turns the Change Feed's baseline-vs-current texts into the same unified-diff string the parser reads | `DiffView`, `ChangeFeed`, `VcsPanel`, `CommitModal` |
-| `src/lib/change-groups.ts` | Pure grouping of Change Feed events into monorepo-aware project buckets — a change under an `apps/`·`packages/`·`services/` container groups by its member folder (an `@scope/name` kept whole), else the repo itself — summing each group's line deltas | `ChangeFeed` |
+| `src/lib/change-groups.ts` | Pure grouping of Change Feed events into project buckets, summing each group's line deltas. Ground truth first: with manifest-confirmed workspace members (`bridge.members` ← `members.rs`) a change buckets under its **deepest enclosing member** (whole-segment longest-prefix, so `apps/web` never captures `apps/web-admin`; outside every member → the repo). Only a workspace with no confirmed members falls back to the folder-name convention — a change under an `apps/`·`packages/`·`services/` container groups by its member folder (an `@scope/name` kept whole), else the repo itself | `ChangeFeed`, `bridge.members` |
 | `src/lib/file-type.ts` | Pure extension → file-type badge (short label + colour tone) for a Change Feed card's language chip | `ChangeFeed` |
 | `src/lib/format.ts` | Locale-aware number formatting | UI counts/stats |
 | `src/lib/usage-groups.ts` | Pure per-agent usage model: running sessions → deduped, worst-first `AgentGroup`s (Claude limits vs "unknown"), the severity/spotlight/legend view-model, and the agent→icon map | `UsageMeter` |
@@ -279,7 +304,7 @@ responsibility, and who it collaborates with.
 | Module | Responsibility |
 | --- | --- |
 | `src/panels/Terminal.svelte` | xterm.js terminal bound to one PTY session; owns the document-style reflow (grid fit, anchor, settle-debounced `SIGWINCH`); makes plain-text URLs clickable via `terminal-links` (whole wrapped URL → system browser) and OSC-8 hyperlinks via its own `linkHandler`. **Delivers a new session's first prompt**: rather than firing it on mount (where it would collide with the agent's first-run trust gate), it watches the stream — auto-accepts the trust gate (`initial-prompt`), then once the agent has settled at its REPL pastes the prompt as a bracketed paste and submits it with a separate Enter |
-| `src/panels/ChangeFeed.svelte` | Live file-change feed, grouped by project (`change-groups`) under role-badged headers that carry the workspace's git branch as a subtitle (`vcs.branchOf`, refreshed on mount / project switch and live on `git://state` — a branch switch or `git init` updates it in place) with a per-project chip filter, a change-kind filter, and per-card file-type chips (`file-type`); expanding a card fetches the git-free session-baseline preview (`feed.diff`) and renders it through the shared `unifiedDiff` → `parseDiff` → `DiffView` path. The toolbar's **Sync all** button (shown only for a repo with a remote, re-checked live on `git://state`) fast-forwards the workspace from `origin` (`vcs.pull`) with an in-flight spinner and a status toast |
+| `src/panels/ChangeFeed.svelte` | Live file-change feed, grouped by project (`change-groups`, fed the manifest-confirmed members from `members.list` — refetched on a project switch, convention fallback on failure) under role-badged headers that carry the workspace's git branch as a subtitle (`vcs.branchOf`, refreshed on mount / project switch and live on `git://state` — a branch switch or `git init` updates it in place) with a per-project chip filter, a change-kind filter, and per-card file-type chips (`file-type`); expanding a card fetches the git-free session-baseline preview (`feed.diff`) and renders it through the shared `unifiedDiff` → `parseDiff` → `DiffView` path. The toolbar's **Sync all** button (shown only for a repo with a remote, re-checked live on `git://state`) fast-forwards the workspace from `origin` (`vcs.pull`) with an in-flight spinner and a status toast |
 | `src/panels/VcsPanel.svelte` | Git-panel orchestrator: fetch + watcher-debounced refresh (on `feed://change` and `git://state`, so a branch switch or remote change refreshes the panel even when no watched file moved) + panel header; composes the sections below |
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files |
@@ -329,6 +354,7 @@ entry. Each concern is one module:
 | `usage.rs` | Agent usage / quota meter |
 | `ide.rs` | Editor detection + user-added editors, per-kind suggestion rules, an explicit per-project editor choice (`ide_choose_editor`, persisted under the canonical project path) that leads every `ide_suggest` ranking, open-at-line (`ide_open_file` opens the file *inside its project workspace* wherever the family's CLI has a folder+file form — VS Code `<dir> -g file:line`, JetBrains `<dir> --line n file`, Zed/Sublime `<dir> file:line`; families without one get the bare file); `ProjectKind` is the single typed source-language registry (ecosystem markers, extensions, Linguist language names, UI label via `ide_kinds`) and each registered editor declares its language coverage separately. Declarations are probed in the root and one level down; markerless web projects are recognized by `index.html` or a browser manifest's intrinsic `manifest_version` field. A bounded per-file census profiles source below the active workspace folder (Git paths are safely rooted, binary/generated content excluded) while Git resolves the project’s `.gitattributes` `linguist-*` exclusions and language overrides. Each declaration owns source not claimed by a nested declaration, selects its representative source branch (`src`, then root-level, then strongest native branch), and requires every language co-located there; separate scripts/tools branches remain ancillary. With no declarations, all observed source kinds are required; with no recognized source at all, only general-purpose editors are eligible and the configured fallback leads. This stays free of dominant-language cutoffs and framework-name rules: WebStorm can lead an all-web monorepo but not a web/Rust application. `family()` also flags console editors that run in a terminal tab |
 | `tasks.rs` | Discover runnable tasks from project manifests |
+| `members.rs` | Manifest-driven workspace member discovery (`members_list`) — the Change Feed's grouping ground truth: a folder is a package **IFF it holds its own manifest**, never because of its name. One census walk records every directory holding a real manifest (`package.json`/`Cargo.toml`/`go.mod`/`pyproject.toml`; `node_modules`/`target`/`dist`/`build`/`vendor`/dot-dirs pruned); the root's workspace-defining files contribute include/exclude member patterns through one parser-per-file seam (`pnpm-workspace.yaml` `packages:` list, `package.json` `"workspaces"` array/object, `Cargo.toml` `[workspace]` `members`/`exclude`, `go.work` `use` directives, `pyproject.toml` `[tool.uv.workspace]`) — all hand-parsed (line scans + a quote-aware mini-TOML reader; serde_json for JSON), no yaml/toml dependency; a census directory becomes a member only when a segment-aware glob includes it (`*`/`?` within one segment, `**` recursive, excludes subtract **after** all includes) and the root is always a member, each carrying its manifest's declared name and ecosystem |
 | `runner.rs` | Task-runner execution with streamed output |
 | `config.rs` | Surface (read-only) the config files each agent CLI uses |
 | `design.rs` | Quick-launch AI design / UI-generation tools |
