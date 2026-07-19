@@ -33,7 +33,7 @@
 // `tick` so the reordered re-render and the inline-style teardown coincide in one
 // frame (no flash).
 
-import { DropSide, insertionIndex, paneDropSide, reorderedIds } from "@/lib/reorder";
+import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/reorder";
 import { tick } from "svelte";
 
 /** The direction items are laid out in, and the one the reorder tracks. */
@@ -591,11 +591,10 @@ export function beginReorder(options: BeginReorderOptions): void {
     const draggedElement = siblings[fromIndex].element;
     const settleIndex = cancel || lastBefore < 0 ? fromIndex : currentIndex;
     const target = slotTranslate(siblings[fromIndex], siblings[settleIndex]);
-    const orderChanged = !cancel && currentIndex !== fromIndex;
     if (reduce) {
       draggedElement.style.translate = target;
       queueMicrotask(async () => {
-        await finalizeCommit(orderChanged);
+        await finalizeCommit(cancel);
       });
       return;
     }
@@ -606,22 +605,27 @@ export function beginReorder(options: BeginReorderOptions): void {
       draggedElement.style.translate = target;
     });
     setTimeout(async () => {
-      await finalizeCommit(orderChanged);
+      await finalizeCommit(cancel);
     }, SPRING_MILLISECONDS);
   }
 
-  async function finalizeCommit(orderChanged: boolean): Promise<void> {
+  // A normal drop always commits the current order — even a same-slot no-op, where
+  // `committedOrderOnDrop` returns the full list unchanged. Skipping the commit on a
+  // no-op left the caller's list out of sync with the DOM the engine had moved, and
+  // a later selection reconciled against that stale order and dropped the tab; the
+  // design engine commits `lastOrder ?? ids.slice()` for exactly this reason.
+  async function finalizeCommit(cancel: boolean): Promise<void> {
     reclipAncestors();
 
-    if (orderChanged) {
-      onCommit(
-        reorderedIds({
-          ids: originalIds,
-          fromIndex,
-          toIndex: currentIndex
-        })
-      );
-      // Let Svelte apply the reordered DOM before stripping the inline translates,
+    const order = committedOrderOnDrop({
+      ids: originalIds,
+      fromIndex,
+      toIndex: currentIndex,
+      cancelled: cancel
+    });
+    if (order) {
+      onCommit(order);
+      // Let Svelte apply the committed DOM before stripping the inline translates,
       // so the two coincide in one frame and the drop never flashes.
       await tick();
     }

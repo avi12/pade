@@ -27,6 +27,30 @@ export function reorderedIds({ ids, fromIndex, toIndex }: {
   return [...rest.slice(0, toIndex), draggedId, ...rest.slice(toIndex)];
 }
 
+/** The id order to commit when a reorder drag is released. A normal drop always
+ *  commits the full order — even a same-slot, below-threshold no-op, where
+ *  `toIndex === fromIndex` makes `reorderedIds` return the list unchanged — so the
+ *  caller re-syncs its state to the DOM the engine imperatively moved, never a
+ *  shorter list (mirrors the design engine's `commitOrder`, which commits
+ *  `lastOrder ?? ids.slice()`). Only a cancel (Escape / pointercancel) commits
+ *  nothing, signalled by `null`. */
+export function committedOrderOnDrop({ ids, fromIndex, toIndex, cancelled }: {
+  ids: string[];
+  fromIndex: number;
+  toIndex: number;
+  cancelled: boolean;
+}): string[] | null {
+  if (cancelled) {
+    return null;
+  }
+
+  return reorderedIds({
+    ids,
+    fromIndex,
+    toIndex
+  });
+}
+
 /** Where the dragged item would land: the count of *other* items whose center
  *  sits before the dragged item's projected `draggedCenter` along the axis.
  *  `centers` holds the siblings' centers in visible order; the slot at `fromIndex`
