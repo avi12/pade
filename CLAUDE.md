@@ -90,10 +90,13 @@ These are non-negotiable for all work in this repo.
    - Object params: a function taking two or more arguments takes a single
      destructured object param (`fn({ a, b })`) instead of positional args, and
      reduce/reuse the param types (`z.infer`, shared interfaces) where applicable.
-   - `await` over `void`: never fire-and-forget a promise (`void p`) when a later
-     step or shared state depends on it — `await` it so ordering is guaranteed.
-     `void` is only for genuinely independent side effects (e.g. opening an
-     external app) with no follow-up and no shared-state race.
+   - No `void` operator: never write `void promise` to fire-and-forget. When a
+     later step or shared state depends on the promise, `await` it so ordering is
+     guaranteed. When it is a genuinely independent side effect, still don't reach
+     for `void` — extract a **named `async` function** whose body `await`s the work
+     (each callee owning its own error handling so the promise never rejects) and
+     call that function, or drive it from an `async onMount`. The name states the
+     intent where `void` only hides it. `void` is banned outright in TS and Svelte.
    - `String.replaceAll`: use `replaceAll` (not `replace` with a `/g` regex) for
      global replacement — it states the intent and reads clearer.
    - `await` over `.then()`: use `async`/`await`, never a `.then()`/`.catch()`
