@@ -968,6 +968,17 @@
       }
 
       term.write(history.data);
+
+      // A session with history to replay was already running before this
+      // terminal attached — it sits at its prompt, not "starting". A
+      // normal-screen session at rest says nothing more after the replay
+      // (replayed bytes never pass through markActivity), so left unseeded the
+      // status would read "starting" forever and the graceful leave gating on
+      // idleness would treat a perfectly quiet session as busy. Fresh output
+      // still flips it to "working" through the live-chunk path.
+      if (status === SessionStatus.enum.starting) {
+        status = SessionStatus.enum.ready;
+      }
     }
 
     for (const chunk of pendingChunks) {
