@@ -36,30 +36,35 @@ async function startFeedSubscription(): Promise<void> {
   }
 
   subscribed = true;
-  await feed.onChange(event => {
-    const isScratchFile = TEMP_FILE.test(baseName(event.path));
-    if (isScratchFile) {
-      return;
-    }
+  try {
+    await feed.onChange(event => {
+      const isScratchFile = TEMP_FILE.test(baseName(event.path));
+      if (isScratchFile) {
+        return;
+      }
 
-    feedStore.events = [event, ...feedStore.events].slice(0, CAP);
-  });
-  // The ignore rules are live: editing (or creating, or deleting) a .gitignore
-  // — and a mid-session `git init` — re-filters what the feed already shows, so
-  // a path the project just started ignoring drops out instead of lingering.
-  // The backend is the one authority on "ignored" (git's own rules in a repo,
-  // the root .gitignore + tech inference otherwise); the store only asks.
-  await feed.onIgnoreChanged(async () => {
-    const paths = [...new Set(feedStore.events.map(event => event.path))];
-    if (paths.length === 0) {
-      return;
-    }
+      feedStore.events = [event, ...feedStore.events].slice(0, CAP);
+    });
+    // The ignore rules are live: editing (or creating, or deleting) a .gitignore
+    // — and a mid-session `git init` — re-filters what the feed already shows, so
+    // a path the project just started ignoring drops out instead of lingering.
+    // The backend is the one authority on "ignored" (git's own rules in a repo,
+    // the root .gitignore + tech inference otherwise); the store only asks.
+    await feed.onIgnoreChanged(async () => {
+      const paths = [...new Set(feedStore.events.map(event => event.path))];
+      if (paths.length === 0) {
+        return;
+      }
 
-    const nowIgnored = new Set(await feed.ignored(paths));
-    if (nowIgnored.size > 0) {
-      feedStore.events = feedStore.events.filter(event => !nowIgnored.has(event.path));
-    }
-  });
+      const nowIgnored = new Set(await feed.ignored(paths));
+      if (nowIgnored.size > 0) {
+        feedStore.events = feedStore.events.filter(event => !nowIgnored.has(event.path));
+      }
+    });
+  } catch {
+    // Re-arm on a failed subscribe so a later retarget can try again.
+    subscribed = false;
+  }
 }
 
 /** Point the feed at `project`, clearing accumulated events when it differs from
@@ -67,9 +72,10 @@ async function startFeedSubscription(): Promise<void> {
  *  Also lazily arms the singleton subscription on first use. ChangeFeed calls this
  *  from a `project`-keyed effect. */
 export function retarget(project: string): void {
-  // Registering the listener is a self-contained side effect with no follow-up
-  // here — the store reacts as events land — so a lazy fire-and-forget is safe.
-  void startFeedSubscription();
+  // Arming the singleton subscription is a self-contained side effect with no
+  // follow-up here — the store reacts as events land, and startFeedSubscription
+  // owns its own error handling — so a lazy call with no await is safe.
+  startFeedSubscription();
 
   if (project === currentProject) {
     return;
