@@ -17,6 +17,7 @@
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
+  import { xtermTheme } from "@/lib/terminal-theme";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -312,7 +313,10 @@
   });
 
   // Re-theme the terminal when the app scheme flips, so Claude Code's output
-  // sits on a background that matches the light/dark theme.
+  // sits on a background that matches the light/dark theme. This assignment is
+  // also what keeps the AGENT in sync: it answers the agent's OSC 11 background
+  // query from the new theme and (mode 2031) pushes a color-scheme report, so an
+  // os-sync agent flips its own palette with ours — see lib/terminal-theme.
   $effect(() => {
     const { scheme } = appearance;
     if (term) {
@@ -1004,36 +1008,13 @@
     term?.dispose();
   });
 
+  // The DOM read lives here; the token→slot mapping and the parse-safe color
+  // conversion (xterm silently drops formats its parser rejects) are the pure
+  // module's job — lib/terminal-theme, which also documents the app↔agent
+  // theme-sync decision.
   function readXtermTheme() {
     const style = getComputedStyle(document.documentElement);
-    function token(name: string) {
-      return style.getPropertyValue(name).trim();
-    }
-    // The full ANSI palette comes from the theme (see the --terminal-* tokens):
-    // agent CLIs paint with these 16 slots, and xterm's own defaults only suit
-    // a dark screen — the light scheme re-picks every one dark enough to read.
-    return {
-      background: token("--code-background"),
-      foreground: token("--code-foreground"),
-      cursor: token("--primary"),
-      selectionBackground: token("--terminal-selection"),
-      black: token("--terminal-black"),
-      red: token("--terminal-red"),
-      green: token("--terminal-green"),
-      yellow: token("--terminal-yellow"),
-      blue: token("--terminal-blue"),
-      magenta: token("--terminal-magenta"),
-      cyan: token("--terminal-cyan"),
-      white: token("--terminal-white"),
-      brightBlack: token("--terminal-bright-black"),
-      brightRed: token("--terminal-bright-red"),
-      brightGreen: token("--terminal-bright-green"),
-      brightYellow: token("--terminal-bright-yellow"),
-      brightBlue: token("--terminal-bright-blue"),
-      brightMagenta: token("--terminal-bright-magenta"),
-      brightCyan: token("--terminal-bright-cyan"),
-      brightWhite: token("--terminal-bright-white")
-    };
+    return xtermTheme({ readToken: name => style.getPropertyValue(name).trim() });
   }
 </script>
 
