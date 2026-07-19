@@ -153,9 +153,12 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building ADE")
         .run(|handle, event| {
-            // As the app exits (window closed), terminate every agent PTY so no
-            // child lingers and the workspace cwd-lock is released — letting the
-            // user reopen and pick up cleanly.
+            // As the app exits, terminate every agent PTY so no child lingers
+            // and the workspace cwd-lock is released — letting the user reopen
+            // and pick up cleanly. The frontend has already closed its sessions
+            // gracefully by now (App intercepts the window close and waits for
+            // each agent's idle prompt before killing); this is the backstop
+            // for whatever a force-close or a crashed WebView leaves behind.
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 if let Some(state) = handle.try_state::<pty::PtyState>() {
                     pty::kill_all(state.inner());

@@ -540,6 +540,23 @@
     showToast("Opened a new window");
   }
 
+  // Closing PADE (the title-bar X) is a deliberate leave too: intercept the
+  // close, let every agent reach an idle prompt, kill them, and only then let
+  // the window go (Tauri destroys it once the handler settles unprevented).
+  // While a leave is already in flight the gate skips the wait, so a second
+  // X-click closes immediately — graceful, never a trap; the backend's
+  // exit-time kill_all reaps whatever that force-close leaves behind.
+  let unlistenCloseRequested: (() => void) | undefined;
+  async function interceptWindowClose() {
+    unlistenCloseRequested = await windows.onCloseRequested(async () => {
+      await runExclusiveLeave(closeAllSessionsGracefully);
+    });
+  }
+  onMount(() => {
+    void interceptWindowClose();
+    return () => unlistenCloseRequested?.();
+  });
+
   // One deliberate leave at a time. The graceful wait can hold the UI open for
   // up to GRACEFUL_LEAVE_TIMEOUT_MS while it stays fully interactive, so a
   // second switch/leave starting inside that window would interleave two

@@ -29,11 +29,13 @@ writes.
   reload never routes off a stale spawn intent. Never across an app restart:
   sessionStorage dies with the window, and the backend kills all PTYs on exit.
 - R1.1.8 ✅ **Intent-based leave** — a deliberate leave (project switch, back to
-  the picker) kills the project's agents *gracefully*: it waits per session for
-  the idle prompt (`sessionStatus === ready`, the output-quiet signal — never
-  child-process counting, which mis-reads persistent MCP servers), capped at 30s,
-  so nothing mid-flight is severed; the agent's auto-save + `/resume` cover
-  continuity. An accidental reload records no leave and re-attaches instead.
+  the picker, closing the window) kills the project's agents *gracefully*: it
+  waits per session for the idle prompt (`sessionStatus === ready`, the
+  output-quiet signal — never child-process counting, which mis-reads persistent
+  MCP servers), capped at 30s, so nothing mid-flight is severed; the agent's
+  auto-save + `/resume` cover continuity. The window close is intercepted
+  (`onCloseRequested`) so the X waits the same way before the window is
+  destroyed. An accidental reload records no leave and re-attaches instead.
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).

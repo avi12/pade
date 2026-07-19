@@ -39,6 +39,7 @@ import {
 import type { Prefs } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { z } from "zod";
 
@@ -147,7 +148,13 @@ export const windows = {
    *  for the switcher's "Open windows" list. */
   list: () => call("window_list", z.array(WindowInfo)),
   /** Focus a specific open window by its label; true if it existed and focused. */
-  focus: (label: string) => call("window_focus_label", z.boolean(), { label })
+  focus: (label: string) => call("window_focus_label", z.boolean(), { label }),
+  /** Intercept this window's close (the title-bar X): the handler runs to
+   *  completion first — the graceful-leave hook — and only then is the window
+   *  destroyed (Tauri's own onCloseRequested contract when nothing prevents).
+   *  Returns the unlisten function. */
+  onCloseRequested: (handler: () => Promise<void>) =>
+    getCurrentWindow().onCloseRequested(handler)
 };
 
 /** AI design/UI-generation tools — a roster ranked for the active agent. */
