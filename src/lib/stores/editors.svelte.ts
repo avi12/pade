@@ -20,19 +20,34 @@ const rankedByProject = new SvelteMap<string, Ide[]>();
  *  instead of each running their own. */
 const inFlight = new Map<string, Promise<void>>();
 
+/** Identity of the newest fetch per project. A superseded fetch (an explicit
+ *  pick landed while its census ran) finds a different token here when it
+ *  resolves and discards its pre-pick ranking instead of publishing it. */
+const currentFetchToken = new Map<string, symbol>();
+
 /** The ranked editors for `project` — reactive; empty until resolved. */
 export function editorsFor(project: string): Ide[] {
   return rankedByProject.get(project) ?? [];
 }
 
-async function fetchEditors(project: string): Promise<void> {
+async function fetchEditors({ project, token }: {
+  project: string;
+  token: symbol;
+}): Promise<void> {
+  let ranked: Ide[];
   try {
-    rankedByProject.set(project, await ide.suggest(project));
+    ranked = await ide.suggest(project);
   } catch {
-    rankedByProject.set(project, []);
-  } finally {
-    inFlight.delete(project);
+    ranked = [];
   }
+
+  const isSuperseded = currentFetchToken.get(project) !== token;
+  if (isSuperseded) {
+    return;
+  }
+
+  rankedByProject.set(project, ranked);
+  inFlight.delete(project);
 }
 
 /** Re-resolve the project's editors now (project switch, app visibility
@@ -44,7 +59,9 @@ export function refreshEditors(project: string): Promise<void> {
     return running;
   }
 
-  const fetch = fetchEditors(project);
+  const token = Symbol(project);
+  currentFetchToken.set(project, token);
+  const fetch = fetchEditors({ project, token });
   inFlight.set(project, fetch);
   return fetch;
 }
@@ -77,5 +94,9 @@ export async function chooseEditor({ project, editorId }: {
   // `updatePrefs` save round-trips that store's whole set, so a copy without
   // this `ideProjectChoices` entry would silently erase the pick on disk.
   adoptPrefs(settings.prefs);
+  // A census already running read the prefs before the pick landed — dropping
+  // its in-flight entry makes the refresh below start a fresh fetch (with a
+  // new token) instead of coalescing onto the stale pre-pick one.
+  inFlight.delete(project);
   await refreshEditors(project);
 }
