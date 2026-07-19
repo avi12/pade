@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
@@ -94,9 +93,6 @@ pub struct History {
     /// and replaying a trimmed one paints a torn frame. The frontend needs to know
     /// so it can ask the program to repaint itself instead.
     alternate: bool,
-    /// When the session last produced output — `None` until it first speaks.
-    /// `pty_list` reports the elapsed gap so a caller can judge idleness.
-    last_output_at: Option<Instant>,
 }
 
 /// A terminal control sequence: the Control Sequence Introducer (`ESC [`)
@@ -218,7 +214,6 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
     };
     buffer.data.push_str(raw);
     buffer.seq += 1;
-    buffer.last_output_at = Some(Instant::now());
 
     // Track which screen the program is on: the last switch wins; no switch keeps
     // the current screen. Judged over a window reaching back past the chunk
@@ -493,21 +488,16 @@ pub fn pty_spawn(
 }
 
 /// One live PTY session as `pty_list` reports it: what it runs (`command` — the
-/// spawn request's agent name, `None` for the default-shell fallback), where
-/// (`cwd`), and how long it has been quiet (`None` before any output).
+/// spawn request's agent name, `None` for the default-shell fallback) and where
+/// (`cwd`). Deliberately no idleness signal: the frontend's session-status
+/// store (the output-quiet detector) is the one authority on idle, and a second
+/// wire-level gauge alongside it could only drift from the first.
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
     id: String,
     command: Option<String>,
     cwd: Option<String>,
-    millis_since_output: Option<u64>,
-}
-
-/// The elapsed gap since `last_output_at`, in milliseconds. Saturates rather
-/// than fails on the (astronomically distant) u64 overflow.
-fn millis_since(last_output_at: Option<Instant>) -> Option<u64> {
-    last_output_at.map(|at| u64::try_from(at.elapsed().as_millis()).unwrap_or(u64::MAX))
 }
 
 /// Every session the backend still hosts — the roster a reloaded frontend
@@ -526,12 +516,6 @@ pub fn pty_list(state: State<PtyState>) -> Vec<SessionInfo> {
             id: id.clone(),
             command: pty.command.clone(),
             cwd: pty.cwd.clone(),
-            millis_since_output: millis_since(
-                pty.history
-                    .lock()
-                    .ok()
-                    .and_then(|buffer| buffer.last_output_at),
-            ),
         })
         .collect();
     infos.sort_by(|a, b| a.id.cmp(&b.id));
@@ -731,24 +715,6 @@ mod tests {
         let mut pending = vec![b'o', b'k', 0xFF, b'!'];
         assert_eq!(drain_decoded(&mut pending), "ok\u{FFFD}!");
         assert!(pending.is_empty());
-    }
-
-    #[test]
-    fn appending_history_stamps_the_last_output_instant() {
-        let (history, _) = history_with(&["hello"]);
-        let buffer = history.lock().expect("history lock");
-        assert!(buffer.last_output_at.is_some());
-    }
-
-    #[test]
-    fn a_session_that_never_spoke_has_no_output_gap() {
-        assert_eq!(millis_since(None), None);
-    }
-
-    #[test]
-    fn the_output_gap_is_measured_from_the_stamp() {
-        let gap = millis_since(Some(Instant::now())).expect("a stamped instant yields a gap");
-        assert!(gap < 1_000, "a just-stamped instant reads as (near) zero");
     }
 
     #[test]
