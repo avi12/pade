@@ -316,7 +316,12 @@ export const vcs = {
   }) =>
     call("vcs_restore_candidates", z.array(RestoreCandidate), { ...args }),
   /** Non-destructively check the chosen commit out on a `pade/restore-<sha>` branch. */
-  restoreCheckout: (sha: string) => call("vcs_restore_checkout", z.string(), { sha })
+  restoreCheckout: (sha: string) => call("vcs_restore_checkout", z.string(), { sha }),
+  /** Fires when the workspace's live git state changes — a branch switch (HEAD),
+   *  a remote added/removed (config), or `git init` creating the repo. Carries no
+   *  payload on purpose: listeners re-fetch whatever git state they display, so
+   *  the event can never hand them stale or partial data. */
+  onStateChanged: (callback: () => void) => on("git://state", z.null(), () => callback())
 };
 
 /** Task-runner dock — a task launched as a tracked runner that streams its output.

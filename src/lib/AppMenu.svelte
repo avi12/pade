@@ -9,7 +9,8 @@
   import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
   import type { WindowInfo } from "@/lib/types";
-  import { onMount, tick } from "svelte";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy, onMount, tick } from "svelte";
 
   // The project switcher that leads the top bar. It lists every open PADE window
   // (jump between them, or cycle with Ctrl+Shift+Alt+[ / ]), then is a fast way to
@@ -252,6 +253,19 @@
     addEventListener("keydown", openViaShortcut, { capture: true });
     return () => removeEventListener("keydown", openViaShortcut, { capture: true });
   });
+
+  // Keep the branch chips honest while the switcher is on screen: a branch
+  // switch or git init in any listed project re-fetches the row metadata. A
+  // closed menu skips the fetch — it reloads on every open anyway.
+  let unlistenGitState: UnlistenFn | undefined;
+  onMount(async () => {
+    unlistenGitState = await vcs.onStateChanged(() => {
+      if (menuOpen) {
+        void loadMeta();
+      }
+    });
+  });
+  onDestroy(() => unlistenGitState?.());
 </script>
 
 <span class="menu-host">

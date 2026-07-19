@@ -16,6 +16,7 @@
   import { showToast } from "@/lib/stores/toast.svelte";
   import { ChangeKind } from "@/lib/types";
   import type { FeedDiff } from "@/lib/types";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -110,17 +111,25 @@
   // A reactive clock so relative timestamps ("3m ago") tick forward on their own.
   let now = $state(Date.now());
   let clock: ReturnType<typeof setInterval> | undefined;
+  // The live git-state subscription — a branch switch, remote change, or git
+  // init in the workspace re-reads the branch subtitle without a remount.
+  let unlistenGitState: UnlistenFn | undefined;
 
-  onMount(() => {
+  onMount(async () => {
     clock = setInterval(() => {
       now = Date.now();
     }, 1000);
+    unlistenGitState = await vcs.onStateChanged(() => {
+      void loadBranch(project);
+      void loadRemote();
+    });
   });
 
   onDestroy(() => {
     if (clock !== undefined) {
       clearInterval(clock);
     }
+    unlistenGitState?.();
   });
 
   // The file-watcher itself is started and re-rooted app-wide by App (keyed on

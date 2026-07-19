@@ -13,6 +13,7 @@
   let commits = $state<Commit[]>([]);
   let error = $state<string | null>(null);
   let unlisten: UnlistenFn | undefined;
+  let unlistenGitState: UnlistenFn | undefined;
 
   async function refresh() {
     try {
@@ -35,9 +36,13 @@
   onMount(async () => {
     await refresh();
     unlisten = await feed.onChange(scheduleRefresh);
+    // A branch switch, remote change, or git init reshapes the status and the
+    // log without necessarily touching a watched file — refresh on it too.
+    unlistenGitState = await vcs.onStateChanged(scheduleRefresh);
   });
   onDestroy(() => {
     unlisten?.();
+    unlistenGitState?.();
     clearTimeout(timer);
   });
 

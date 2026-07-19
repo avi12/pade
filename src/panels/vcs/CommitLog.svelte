@@ -3,7 +3,8 @@
   import CommitModal from "@/lib/CommitModal.svelte";
   import { formatCount } from "@/lib/format";
   import type { Commit, CommitDetail } from "@/lib/types";
-  import { onMount, tick } from "svelte";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy, onMount, tick } from "svelte";
 
   // Recent commits: click a row to open the detail modal, Ctrl/Cmd-click (or
   // Ctrl/Cmd-Enter) to open the commit on GitHub, arrow keys to move through
@@ -16,14 +17,24 @@
   let openCommit = $state<CommitDetail | null>(null);
   let remoteUrl = $state<string | null>(null);
   let logEl = $state<HTMLElement | null>(null);
+  let unlistenGitState: UnlistenFn | undefined;
 
-  onMount(async () => {
+  async function loadRemoteUrl() {
     try {
       remoteUrl = await vcs.remoteUrl();
     } catch {
       remoteUrl = null;
     }
+  }
+
+  onMount(async () => {
+    await loadRemoteUrl();
+    // A `git remote add`/`remove` (or git init) flips whether GitHub links
+    // exist — re-read the remote the moment the live git state changes.
+    unlistenGitState = await vcs.onStateChanged(() => void loadRemoteUrl());
   });
+
+  onDestroy(() => unlistenGitState?.());
 
   async function inspectCommit(commit: Commit) {
     try {
