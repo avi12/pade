@@ -22,7 +22,13 @@
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import { appearance, effective } from "@/lib/prefs.svelte";
+  import {
+    appearance,
+    effective,
+    SIDE_PANEL_DEFAULT_WIDTH,
+    SIDE_PANEL_MIN_WIDTH,
+    updatePrefs
+  } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
@@ -1283,6 +1289,54 @@
   ] as const;
   const sideTitle = $derived(PANEL_TABS.find(tab => tab.id === side)?.label ?? "");
 
+  // ── Side-panel width (draggable divider) ────────────────────────────────────
+  // The persisted width lives in prefs (SSOT); this local mirror is what the drag
+  // moves live without a backend write per frame. The `.body` grid caps it at 60%
+  // of the window via a CSS clamp, so the terminal is never swallowed. Mirrors the
+  // design's `panelW` + `startPanelResize`/`resetPanelW`.
+  let sidePanelWidth = $state(effective.sidePanelWidth);
+  let resizingSidePanel = $state(false);
+  const SIDE_PANEL_NUDGE = 16;
+
+  // Adopt a width persisted in prefs (e.g. loaded at boot, or reset) — but never
+  // while a drag is live, so the pointer stays in charge of the frame.
+  $effect(() => {
+    const persisted = effective.sidePanelWidth;
+    if (!resizingSidePanel) {
+      sidePanelWidth = persisted;
+    }
+  });
+
+  // Persist the current width. `updatePrefs` assigns `prefs` synchronously before
+  // its first await, so calling this before clearing `resizingSidePanel` means the
+  // adopt-effect already sees the new value and won't briefly revert the drag.
+  // Owns its error so the un-awaited call can never reject.
+  async function persistSidePanelWidth() {
+    try {
+      await updatePrefs({ sidePanelWidth: Math.round(sidePanelWidth) });
+    } catch {
+    // A failed settings write just keeps the width on screen; nothing to undo.
+    }
+  }
+
+  // Clamp a proposed width to [min, 60% of the body] — the same ceiling the CSS
+  // clamp enforces, so keyboard and pointer agree.
+  function clampSidePanelWidth(proposed: number): number {
+    const body = document.querySelector<HTMLElement>(".body");
+    const ceiling = body ? Math.round(body.getBoundingClientRect().width * 0.6) : proposed;
+    return Math.max(SIDE_PANEL_MIN_WIDTH, Math.min(ceiling, Math.round(proposed)));
+  }
+
+  function nudgeSidePanel(delta: number) {
+    sidePanelWidth = clampSidePanelWidth(sidePanelWidth + delta);
+    persistSidePanelWidth();
+  }
+
+  function resetSidePanelWidth() {
+    sidePanelWidth = SIDE_PANEL_DEFAULT_WIDTH;
+    persistSidePanelWidth();
+  }
+
   // Highlight → agent bridge: a selection in a side panel is injected into the
   // active session's input.
   let selection = $state("");
@@ -1463,7 +1517,7 @@
         />
       </header>
 
-      <main class="body" class:with-side={side !== null}>
+      <main style:--side-panel-width="{sidePanelWidth}px" class="body" class:with-side={side !== null}>
         <section bind:this={panesElement} class="pane term-pane" data-panes>
           <!-- A tab dragged over the panes reads as "open in split" — a dashed
                primary frame invites the drop; each pane then shows the left/right
@@ -1536,6 +1590,76 @@
         </section>
 
         {#if side !== null}
+          <!-- Draggable divider between the terminal area and the side panel: a thin
+               bar (var(--outline)) that grows to full-height --primary on hover /
+               drag / focus. Sits on the grid boundary via the same clamp the column
+               uses; double-click resets, arrows nudge. Mirrors the design's
+               [data-resizehandle]/[data-resizebar]. -->
+          <!-- A focusable, keyboard-operable window-splitter is a valid ARIA
+               separator widget (tabindex + aria-valuenow), so the non-interactive
+               separator warnings are false positives here. -->
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <div
+            style:--side-panel-width="{sidePanelWidth}px"
+            class="panel-resize"
+            aria-label="Resize side panel (double-click to reset)"
+            aria-orientation="vertical"
+            aria-valuemin={SIDE_PANEL_MIN_WIDTH}
+            aria-valuenow={Math.round(sidePanelWidth)}
+            data-tooltip="Drag to resize · double-click to reset"
+            ondblclick={resetSidePanelWidth}
+            onkeydown={e => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                nudgeSidePanel(SIDE_PANEL_NUDGE);
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                nudgeSidePanel(-SIDE_PANEL_NUDGE);
+              } else if (e.key === "Home") {
+                e.preventDefault();
+                resetSidePanelWidth();
+              }
+            }}
+            onpointerdown={e => {
+              if (e.button !== 0 || !(e.currentTarget instanceof HTMLElement)) {
+                return;
+              }
+
+              e.preventDefault();
+              const handle = e.currentTarget;
+              handle.setPointerCapture(e.pointerId);
+              resizingSidePanel = true;
+              document.body.style.cursor = "col-resize";
+              document.body.style.userSelect = "none";
+
+              function onMove(move: PointerEvent): void {
+                const body = handle.closest<HTMLElement>(".body");
+                if (!body) {
+                  return;
+                }
+
+                const rect = body.getBoundingClientRect();
+                sidePanelWidth = clampSidePanelWidth(rect.right - move.clientX);
+              }
+              function cleanup(): void {
+                handle.removeEventListener("pointermove", onMove);
+                handle.removeEventListener("pointerup", cleanup);
+                handle.removeEventListener("pointercancel", cleanup);
+                document.body.style.cursor = "";
+                document.body.style.userSelect = "";
+                // Persist first (updates prefs synchronously), then release the
+                // drag guard so the adopt-effect sees the final width, not the old.
+                persistSidePanelWidth();
+                resizingSidePanel = false;
+              }
+              handle.addEventListener("pointermove", onMove);
+              handle.addEventListener("pointerup", cleanup);
+              handle.addEventListener("pointercancel", cleanup);
+            }}
+            role="separator"
+            tabindex="0"
+          ><span class="panel-resize-bar" aria-hidden="true"></span></div>
           <aside class="pane side-pane">
             <header class="panel-head">
               <div class="panel-title">
@@ -1769,6 +1893,7 @@
   }
 
   .body {
+    position: relative;
     display: grid;
     flex: 1;
 
@@ -1780,8 +1905,56 @@
     min-block-size: 0;
     transition: grid-template-columns 250ms var(--ease);
 
+    /* The side column follows the dragged `--side-panel-width`, clamped so it
+       never falls below its minimum nor swallows more than 60% of the window
+       (design: `Math.max(280, Math.min(width*0.6, …))`). No width transition —
+       the pointer drives the frame directly. */
     &.with-side {
-      grid-template-columns: 1fr minmax(320px, 420px);
+      grid-template-columns: 1fr clamp(280px, var(--side-panel-width, 380px), 60%);
+      transition: none;
+    }
+  }
+
+  /* Draggable divider straddling the terminal/side-panel boundary. Positioned on
+     the grid line via the same clamp the column uses, and pulled half its width
+     left so the hit-area sits over the seam. Lives in `.body` (not the clipped
+     `.side-pane`) so it can overhang the boundary. */
+  .panel-resize {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: clamp(280px, var(--side-panel-width, 380px), 60%);
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    inline-size: 11px;
+    margin-inline-end: -5.5px;
+    cursor: col-resize;
+    touch-action: none;
+
+    /* A thin pill at rest; fills to full-height primary while hovered, dragged,
+       or keyboard-focused (design's [data-resizebar] hover/active rule). */
+    .panel-resize-bar {
+      block-size: 36px;
+      inline-size: 2px;
+      border-radius: 999px;
+      background: var(--outline);
+      transition: background 150ms var(--ease), block-size 150ms var(--ease);
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    &:hover .panel-resize-bar,
+    &:active .panel-resize-bar,
+    &:focus-visible .panel-resize-bar {
+      block-size: 100%;
+      background: var(--primary);
+    }
+
+    &:focus-visible {
+      outline: none;
     }
   }
 
@@ -1971,6 +2144,12 @@
     .body.with-side {
       grid-template-rows: 1fr 40%;
       grid-template-columns: 1fr;
+    }
+
+    /* Stacked top/bottom below this width — a vertical col-resize divider no
+       longer maps to the layout, so hide it. */
+    .panel-resize {
+      display: none;
     }
   }
 

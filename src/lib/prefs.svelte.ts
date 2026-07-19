@@ -8,6 +8,13 @@ import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
 const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
 const MONO_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";
 
+/** Default side-panel width when the user hasn't dragged the divider. Matches the
+ *  design mockup's `panelW:380` (and its double-click reset). */
+export const SIDE_PANEL_DEFAULT_WIDTH = 380;
+/** Smallest usable side-panel width; the live clamp also caps the max at 60% of the
+ *  window so the terminal is never swallowed. */
+export const SIDE_PANEL_MIN_WIDTH = 280;
+
 export const prefs = $state<Prefs>({});
 
 /** Effective values with defaults resolved (for consumers that need a concrete value). */
@@ -26,6 +33,9 @@ export const effective = {
   },
   get uiScale(): number {
     return prefs.uiScale ?? 1;
+  },
+  get sidePanelWidth(): number {
+    return prefs.sidePanelWidth ?? SIDE_PANEL_DEFAULT_WIDTH;
   }
 };
 

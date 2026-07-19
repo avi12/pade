@@ -321,6 +321,10 @@ export const Prefs = z.object({
   autoResume: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(0.85).max(1.3).nullish(),
+  /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The
+   *  live layout additionally caps it at 60% of the window via a CSS clamp; this
+   *  is the persisted drag target. Absent = default 380. */
+  sidePanelWidth: z.number().min(280).max(1200).nullish(),
   /** Broadcast a Discord "Playing PADE" rich-presence status. Opt-in: off unless explicitly true. */
   discordPresence: z.boolean().nullish(),
   /** When presence is on, show the current project's name in the status. Default on. */
