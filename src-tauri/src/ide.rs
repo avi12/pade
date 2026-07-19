@@ -492,9 +492,12 @@ impl LinguistAttributes {
 
 /// Intrinsic source properties used before language classification. Binary data
 /// and generated output never influence editor coverage, whatever their path.
+/// Carries the file size read off the already-open handle, so classification
+/// never re-stats the path it just opened.
 struct SourceContent {
     binary: bool,
     generated: bool,
+    bytes: u64,
 }
 
 /// One countable source file, retaining its location so project-root ownership
@@ -526,6 +529,7 @@ impl SourceProfile {
 /// failure would make the result depend on a transient filesystem error.
 fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     let mut file = std::fs::File::open(path).ok()?;
+    let bytes = file.metadata().map_or(0, |meta| meta.len());
     let mut sample = [0u8; SOURCE_SAMPLE_BYTES];
     let read = file.read(&mut sample).ok()?;
     let sample = &sample[..read];
@@ -534,6 +538,7 @@ fn source_content(path: &std::path::Path) -> Option<SourceContent> {
         return Some(SourceContent {
             binary,
             generated: false,
+            bytes,
         });
     }
 
@@ -550,6 +555,7 @@ fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     Some(SourceContent {
         binary,
         generated: declares_generated || minified,
+        bytes,
     })
 }
 
@@ -573,11 +579,10 @@ fn source_file_evidence(
             .and_then(|value| value.to_str())
             .and_then(ProjectKind::from_extension)
     })?;
-    let bytes = std::fs::metadata(path).map_or(0, |meta| meta.len());
     Some(SourceFileEvidence {
         path: path.to_path_buf(),
         kind,
-        bytes,
+        bytes: content.bytes,
     })
 }
 
@@ -670,6 +675,18 @@ fn git_linguist_attributes(
     attributes
 }
 
+/// Whether a directory entry is a directory, answered from the entry's own
+/// dirent data — no per-path `stat`, which a walk over thousands of entries
+/// pays dearly for. Only a symlink (whose dirent can't tell what it points at)
+/// falls back to following the path, preserving follow-the-link semantics.
+fn is_directory_entry(entry: &std::fs::DirEntry) -> bool {
+    match entry.file_type() {
+        Ok(file_type) if file_type.is_symlink() => entry.path().is_dir(),
+        Ok(file_type) => file_type.is_dir(),
+        Err(_) => entry.path().is_dir(),
+    }
+}
+
 /// Bounded filesystem-walk fallback for a folder that isn't a git repo: sum
 /// census bytes under `dir`, skipping the hidden and dependency/build dirs the
 /// marker probe skips (untracked build output physically lives here, so the
@@ -697,7 +714,7 @@ fn census_walk(
         if name.starts_with('.') {
             continue;
         }
-        if path.is_dir() {
+        if is_directory_entry(&entry) {
             if !IGNORED_PROBE_DIRS.contains(&name) {
                 census_walk(&path, depth + 1, files_left, profile);
             }
@@ -749,7 +766,10 @@ fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
     source_profile(cwd).totals
 }
 
-fn lookup(id: &str) -> Option<Ide> {
+/// Resolve an editor id against the registry, else against the caller's
+/// already-loaded user-added editors — passed in so a suggestion pass over
+/// many candidate ids reads the settings file once, not once per id.
+fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
     if let Some(i) = REGISTRY.iter().find(|i| i.id == id) {
         return Some(Ide {
             id: i.id.into(),
@@ -759,7 +779,7 @@ fn lookup(id: &str) -> Option<Ide> {
         });
     }
     // User-added editors are first-class too — resolve them by their stored id.
-    added_editors().into_iter().find(|e| e.id == id)
+    added.iter().find(|e| e.id == id).cloned()
 }
 
 /// A launchable editor family PADE recognises. Keyed off an executable's
@@ -828,10 +848,8 @@ fn exe_basename(path: &str) -> String {
 /// The user-added editors as `Ide`s (command = the stored executable path). A
 /// console editor (Neovim, Vim, Helix) is flagged `terminal` so the UI opens it
 /// in a PADE terminal tab instead of spawning it as a detached window.
-fn added_editors() -> Vec<Ide> {
-    crate::workspace::load()
-        .prefs
-        .added_editors
+fn added_editor_ides(added: Vec<crate::workspace::AddedEditor>) -> Vec<Ide> {
+    added
         .into_iter()
         .map(|e| Ide {
             terminal: family(&exe_basename(&e.path)).is_some_and(|f| f.terminal),
@@ -842,7 +860,14 @@ fn added_editors() -> Vec<Ide> {
         .collect()
 }
 
-#[derive(Serialize)]
+/// [`added_editor_ides`] over freshly-loaded settings, for callers with no
+/// settings in hand. Anything iterating candidate ids should load once and use
+/// [`added_editor_ides`] instead.
+fn added_editors() -> Vec<Ide> {
+    added_editor_ides(crate::workspace::load().prefs.added_editors)
+}
+
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ide {
     id: String,
@@ -933,8 +958,8 @@ fn probe_roots(cwd: &std::path::Path) -> Vec<std::path::PathBuf> {
         .into_iter()
         .flatten()
         .flatten()
+        .filter(is_directory_entry)
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
@@ -952,13 +977,12 @@ struct ProjectDeclaration {
     kinds: Vec<ProjectKind>,
 }
 
-/// Every marker-bearing project root in the workspace root or a direct child.
-/// This depth captures small monorepos and hybrid applications while leaving a
-/// nested support utility owned by its enclosing project unless explicitly
-/// opened as the active workspace.
-fn project_declarations(cwd: &std::path::Path) -> Vec<ProjectDeclaration> {
-    probe_roots(cwd)
-        .into_iter()
+/// Every marker-bearing project root among already-walked probe roots — the
+/// seam for callers that reuse one [`probe_roots`] listing across several
+/// probes instead of re-walking the workspace's children per question.
+fn declarations_in(roots: &[std::path::PathBuf]) -> Vec<ProjectDeclaration> {
+    roots
+        .iter()
         .filter_map(|root| {
             let kinds: Vec<ProjectKind> = KIND_REGISTRY
                 .iter()
@@ -966,13 +990,24 @@ fn project_declarations(cwd: &std::path::Path) -> Vec<ProjectDeclaration> {
                     definition
                         .markers
                         .iter()
-                        .any(|marker| marker.is_present(&root))
+                        .any(|marker| marker.is_present(root))
                 })
                 .map(|definition| definition.kind)
                 .collect();
-            (!kinds.is_empty()).then_some(ProjectDeclaration { root, kinds })
+            (!kinds.is_empty()).then_some(ProjectDeclaration {
+                root: root.clone(),
+                kinds,
+            })
         })
         .collect()
+}
+
+/// Every marker-bearing project root in the workspace root or a direct child.
+/// This depth captures small monorepos and hybrid applications while leaving a
+/// nested support utility owned by its enclosing project unless explicitly
+/// opened as the active workspace.
+fn project_declarations(cwd: &std::path::Path) -> Vec<ProjectDeclaration> {
+    declarations_in(&probe_roots(cwd))
 }
 
 /// Sniff the project kinds present in the current directory from the
@@ -1285,12 +1320,14 @@ pub fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
     paths
         .into_iter()
         .filter_map(|path| {
-            let project_path = std::path::Path::new(&path);
-            let kind = kinds_from_declarations(&project_declarations(project_path))
+            // One child walk per project, shared by the marker probe and the
+            // TypeScript narrowing — this runs for a whole menuful of recents.
+            let roots = probe_roots(std::path::Path::new(&path));
+            let kind = kinds_from_declarations(&declarations_in(&roots))
                 .into_iter()
                 .next()?;
             // A web project that uses TypeScript shows the TS badge, not JavaScript.
-            let icon_key = if kind == ProjectKind::Web && uses_typescript(project_path) {
+            let icon_key = if kind == ProjectKind::Web && uses_typescript(&roots) {
                 "typescript".to_string()
             } else {
                 kind.as_str().to_string()
@@ -1301,10 +1338,10 @@ pub fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
 }
 
 /// Whether a web project uses TypeScript — a `tsconfig.json`, or a `.ts`/`.tsx`
-/// source in the project root, a direct child, or a `src` dir. Narrows the
-/// per-project switcher icon from the JavaScript badge to the TypeScript one.
-fn uses_typescript(cwd: &std::path::Path) -> bool {
-    probe_roots(cwd).iter().any(|root| {
+/// source in one of the already-walked probe roots or its `src` dir. Narrows
+/// the per-project switcher icon from the JavaScript badge to the TypeScript one.
+fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
+    roots.iter().any(|root| {
         root.join("tsconfig.json").exists()
             || has_ext(root, "ts")
             || has_ext(root, "tsx")
@@ -1314,12 +1351,13 @@ fn uses_typescript(cwd: &std::path::Path) -> bool {
 }
 
 /// An id is worth suggesting only if it's actually launchable — a registry
-/// launcher on PATH, or a user-added editor (its stored path is the launcher).
-fn is_installed(id: &str) -> bool {
+/// launcher on PATH, or a user-added editor (its stored path is the launcher,
+/// resolved against the caller's already-loaded `added` list).
+fn is_installed(id: &str, added: &[Ide]) -> bool {
     if id.starts_with("added-") {
-        return added_editors().iter().any(|e| e.id == id);
+        return added.iter().any(|e| e.id == id);
     }
-    lookup(id).is_some_and(|i| is_on_path(&i.command))
+    lookup(id, added).is_some_and(|i| is_on_path(&i.command))
 }
 
 /// The user-configured editor ids that lead the suggestion ranking, in winning
@@ -1361,7 +1399,9 @@ pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     let kinds = kinds_from_declarations(&declarations);
     let profile = source_profile(cwd);
     let required_kinds = required_project_kinds(&profile, &declarations);
+    // One settings read for the whole pass; every per-id resolve below shares it.
     let prefs = crate::workspace::load().prefs;
+    let added = added_editor_ides(prefs.added_editors.clone());
 
     // 1) Explicit per-project pick, 2) compatible primary-kind rule,
     // 3) compatible fallback, 4) coverage ranking.
@@ -1376,12 +1416,12 @@ pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
 
     let mut ordered: Vec<String> = Vec::new();
     for id in configured.into_iter().chain(auto) {
-        let is_new_and_installed = !ordered.contains(&id) && is_installed(&id);
+        let is_new_and_installed = !ordered.contains(&id) && is_installed(&id, &added);
         if is_new_and_installed {
             ordered.push(id);
         }
     }
-    Ok(ordered.iter().filter_map(|id| lookup(id)).collect())
+    Ok(ordered.iter().filter_map(|id| lookup(id, &added)).collect())
 }
 
 /// Remember an explicit editor pick for the project at `cwd`. The pick becomes
