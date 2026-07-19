@@ -14,3 +14,16 @@ export function formatCount(value: number): string {
 export function formatPercent(value: number): string {
   return `${INTEGER.format(value)}%`;
 }
+
+// Precise date + time (to the second), locale-aware. One home for the exact
+// timestamp shown behind a relative "3m ago" label (Change Feed, commit log …).
+const TIMESTAMP = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "medium"
+});
+
+/** The exact date-time for `epochMilliseconds` — e.g. "Jul 19, 2026, 7:34:12 AM".
+ *  Pairs with a relative label as its hover tooltip. */
+export function formatTimestamp(epochMilliseconds: number): string {
+  return TIMESTAMP.format(new Date(epochMilliseconds));
+}

@@ -1,4 +1,4 @@
-import { formatCount, formatPercent } from "@/lib/format";
+import { formatCount, formatPercent, formatTimestamp } from "@/lib/format";
 import { describe, expect, it } from "vitest";
 
 // The wrappers delegate localisation to Intl, so these assertions pin what the
@@ -32,5 +32,21 @@ describe("formatPercent", () => {
 
   it("formats zero", () => {
     expect(formatPercent(0)).toBe("0%");
+  });
+});
+
+describe("formatTimestamp", () => {
+  it("renders a precise date + time for an epoch-ms value", () => {
+    // Noon UTC stays on the same calendar day in every timezone, so the year is
+    // stable regardless of where the test runs; the exact separators are Intl's.
+    const noonUtc = Date.UTC(2026, 6, 19, 12, 0, 0);
+
+    const formatted = formatTimestamp(noonUtc);
+    expect(formatted).toMatch(/2026/);
+    expect(formatted.length).toBeGreaterThan(8);
+  });
+
+  it("distinguishes two different instants", () => {
+    expect(formatTimestamp(0)).not.toBe(formatTimestamp(1_000_000_000_000));
   });
 });

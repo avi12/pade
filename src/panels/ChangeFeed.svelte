@@ -5,7 +5,7 @@
   import type { DiffLine } from "@/lib/diff";
   import DiffView from "@/lib/DiffView.svelte";
   import { fileTypeBadge } from "@/lib/file-type";
-  import { formatCount } from "@/lib/format";
+  import { formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { revealBlock } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
@@ -369,7 +369,7 @@
                       {/if}
                     </span>
                     <span class="name" data-tooltip={ev.path}>{baseName(ev.path)}</span>
-                    <span class="time">{ago({
+                    <span class="time" data-tooltip={formatTimestamp(ev.ts)}>{ago({
                       stamp: ev.ts,
                       now
                     })}</span>
