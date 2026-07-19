@@ -39,12 +39,19 @@ function handoffPrompt(doc: string): string {
   return `\nYour context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.\r`;
 }
 
-/** Seed for the fresh successor: read the handoff doc, plus a pointer to the
- *  accumulated project memory (CLAUDE.md and any earlier continue-*.md docs) so a
- *  crossover agent picks up conventions and prior handoffs too. Agent-agnostic —
- *  it names files on disk, not any one agent's memory system. */
+/** Seed for the fresh successor: read ONLY the handoff doc and continue. The
+ *  whole point of a handoff is a small, clean context — so it deliberately does
+ *  NOT ask the successor to also read CLAUDE.md or earlier continue-*.md files.
+ *  The agent auto-loads its project memory (CLAUDE.md) on its own, and re-reading
+ *  stale handoffs would bloat the very context the handoff exists to reset. The
+ *  doc must therefore be self-sufficient: current state + exact next steps.
+ *  Agent-agnostic — it names a file on disk, not any one agent's memory system.
+ *
+ *  No trailing carriage return: this rides in as the successor session's
+ *  initialPrompt, and the terminal's initial-prompt delivery appends the
+ *  submitting ENTER itself (see panels/Terminal.svelte, lib/initial-prompt). */
 function successorPrompt(doc: string): string {
-  return `Read ${doc} to continue the work where the previous session left off. For project conventions and any earlier handoffs, also read CLAUDE.md and any other continue-*.md files in this directory.\r`;
+  return `Read ${doc} to continue the work where the previous session left off.`;
 }
 
 /** Pick the agent that should take over. The current agent stays on while it

@@ -8,6 +8,7 @@
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
+  import { isTrustGate } from "@/lib/initial-prompt";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
@@ -92,6 +93,21 @@
   // alive = ready (done with its task, waiting for you); exit = done.
   let status = $state<SessionStatus>(SessionStatus.enum.starting);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Initial-prompt delivery (see lib/initial-prompt). A fresh agent gates on a
+  // "trust this folder?" prompt before its input line is live, so the first
+  // prompt can't just be fired on mount — it would land in the menu or sit unsent.
+  // Instead we watch the stream: accept the trust gate the moment it appears,
+  // then once the agent has settled quiet at its REPL, paste the prompt and
+  // submit it. Both steps run at most once.
+  let promptDelivered = false;
+  let trustAccepted = false;
+  // A rolling tail of recent output, so the ready-time check can tell whether the
+  // trust gate is still on screen — a backstop for a gate frame that arrived split
+  // across chunks and slipped the per-chunk check.
+  let recentOutput = "";
+  const RECENT_OUTPUT_CAP = 8_000;
+
   let fitFrame: number | undefined;
   let sigwinchTimer: ReturnType<typeof setTimeout> | undefined;
   // Flow control for the alternate screen (see altFit): the agent is repainting the size
@@ -177,6 +193,17 @@
   const TILDE_FINAL_BYTE = "~";
   const PAGE_UP = `${CONTROL_SEQUENCE_INTRODUCER}${PAGE_UP_PARAMETER}${TILDE_FINAL_BYTE}`;
   const PAGE_DOWN = `${CONTROL_SEQUENCE_INTRODUCER}${PAGE_DOWN_PARAMETER}${TILDE_FINAL_BYTE}`;
+
+  // Carriage return — the "Enter" a CLI reads as "submit this line".
+  const ENTER = "\r";
+
+  // Bracketed paste (CSI ? 2004): wrap text so the agent treats it as ONE pasted
+  // block — its own newlines stay soft (never a premature submit) and the ENTER we
+  // append AFTER the closing marker is an unambiguous, separate keystroke that
+  // submits it. Delivering the first prompt as raw bytes instead let the agent
+  // fold the trailing CR into the same burst and leave the prompt sitting unsent.
+  const BRACKETED_PASTE_START = `${CONTROL_SEQUENCE_INTRODUCER}200${TILDE_FINAL_BYTE}`;
+  const BRACKETED_PASTE_END = `${CONTROL_SEQUENCE_INTRODUCER}201${TILDE_FINAL_BYTE}`;
   // Mouse-tracking mode xterm reports when no program has grabbed the mouse.
   const NO_MOUSE_TRACKING = "none";
 
@@ -199,8 +226,62 @@
     idleTimer = setTimeout(() => {
       if (status === SessionStatus.enum.working) {
         status = SessionStatus.enum.ready;
+        void deliverInitialPromptIfReady();
       }
     }, IDLE_MS);
+  }
+
+  // Watch a fresh session's boot output for the first-run trust gate and accept
+  // its default ("Yes, I trust this folder") the instant it appears, so the
+  // prompt delivered next lands at the REPL and not in the menu. Runs only while
+  // a first prompt is still pending, and accepts at most once.
+  function watchInitialPrompt(data: string) {
+    if (!session.initialPrompt || promptDelivered) {
+      return;
+    }
+
+    recentOutput = (recentOutput + data).slice(-RECENT_OUTPUT_CAP);
+
+    if (!trustAccepted && isTrustGate(recentOutput)) {
+      trustAccepted = true;
+      recentOutput = ""; // the gate's gone once accepted — don't re-trip on its stale frame
+      void pty.write({
+        id: session.id,
+        data: ENTER
+      });
+    }
+  }
+
+  // Once the agent has settled quiet — done booting, past the trust gate — paste
+  // the first prompt and submit it. The bracketed paste keeps the prompt's own
+  // newlines soft and makes the trailing ENTER a separate, submitting keystroke
+  // (a raw write folds that CR into the paste and leaves the prompt unsent).
+  async function deliverInitialPromptIfReady() {
+    if (!session.initialPrompt || promptDelivered) {
+      return;
+    }
+
+    // Backstop: a gate frame split across chunks can slip watchInitialPrompt but
+    // still sits in the rolling tail — accept it here and wait for the next settle
+    // rather than pasting into the menu.
+    if (isTrustGate(recentOutput)) {
+      if (!trustAccepted) {
+        trustAccepted = true;
+        await pty.write({
+          id: session.id,
+          data: ENTER
+        });
+      }
+
+      recentOutput = "";
+      return;
+    }
+
+    promptDelivered = true;
+    await pty.write({
+      id: session.id,
+      data: `${BRACKETED_PASTE_START}${session.initialPrompt}${BRACKETED_PASTE_END}${ENTER}`
+    });
   }
 
   // Publish status to the shared store so the top-bar tab shows a matching dot.
@@ -598,6 +679,8 @@
         id: session.id,
         chunk: chunk.data
       });
+      // Accept the first-run trust gate so the pending first prompt can land.
+      watchInitialPrompt(chunk.data);
     }
 
     const dataUnlisten = await pty.onData(chunk => {
@@ -896,16 +979,10 @@
       repaintAgent();
     }
 
-    // Seed a new-project first prompt and submit it: the prompt's own newlines
-    // are `\n` (which the agent keeps as soft newlines in the input), and the
-    // trailing `\r` is the Enter that sends it — same submit convention as the
-    // handoff/successor prompts.
-    if (session.initialPrompt) {
-      await pty.write({
-        id: session.id,
-        data: `${session.initialPrompt}\r`
-      });
-    }
+  // A new-project first prompt is NOT sent here: a fresh agent gates on a
+    // "trust this folder?" prompt before its input is live, so it's delivered by
+    // watchInitialPrompt / deliverInitialPromptIfReady once the agent has
+    // accepted that gate and settled at its REPL (see lib/initial-prompt).
   });
 
   onDestroy(() => {
