@@ -26,6 +26,13 @@ struct AgentDef {
     /// the prompt appended as the final arg (used for auto-naming). `None` = no
     /// headless mode we can drive.
     oneshot: Option<&'static [&'static str]>,
+    /// Args that launch an *interactive* session in the CLI's "skip every
+    /// permission prompt" / yolo mode, so ADE drives the agent autonomously —
+    /// no per-tool, per-edit approval stops. Empty for a CLI with no such flag.
+    /// Distinct from `oneshot` (headless) and from the first-run trust gate,
+    /// which these flags do NOT dismiss (ADE accepts that separately — see the
+    /// frontend's initial-prompt delivery).
+    session_args: &'static [&'static str],
     /// Environment the CLI needs to render the way ADE embeds it. Empty for most.
     env: &'static [(&'static str, &'static str)],
 }
@@ -39,6 +46,10 @@ const REGISTRY: &[AgentDef] = &[
         command: "claude",
         aliases: &[],
         oneshot: Some(&["-p"]),
+        // Bypass every per-tool/edit approval so ADE runs the agent hands-off.
+        // Claude Code's own docs note this does NOT waive the "trust this folder?"
+        // gate — ADE auto-accepts that in the frontend on first launch.
+        session_args: &["--dangerously-skip-permissions"],
         // Claude Code's fullscreen renderer: it takes over the terminal's ALTERNATE
         // screen and owns every row of it, which is what buys the polished TUI —
         // flicker-free output, mouse support, selection that copies itself. ADE wants
@@ -66,6 +77,9 @@ const REGISTRY: &[AgentDef] = &[
             "codex-x86_64-unknown-linux-musl",
         ],
         oneshot: Some(&["exec"]),
+        // `--yolo` is the alias; the explicit form states what it waives. It also
+        // drops the sandbox — the price of a fully autonomous run.
+        session_args: &["--dangerously-bypass-approvals-and-sandbox"],
         env: &[],
     },
     AgentDef {
@@ -80,6 +94,9 @@ const REGISTRY: &[AgentDef] = &[
         // approvals, so a naming run could stall. Auto-naming falls back to the
         // label-based heuristic (see naming.rs) until a safe invocation is known.
         oneshot: None,
+        // Auto-approve every tool. (`--allow-all` also waives path/URL prompts but
+        // has been flaky; tool approval is the friction that matters for a run.)
+        session_args: &["--allow-all-tools"],
         env: &[],
     },
     AgentDef {
@@ -93,6 +110,8 @@ const REGISTRY: &[AgentDef] = &[
         // pass it for — it skips the background update check that would otherwise
         // risk blowing NAME_TIMEOUT before the name comes back.
         oneshot: Some(&["--no-auto-update", "-p"]),
+        // xAI Grok Build's "auto-approve all tool executions" (alias `--yolo`).
+        session_args: &["--always-approve"],
         env: &[],
     },
     AgentDef {
@@ -101,6 +120,9 @@ const REGISTRY: &[AgentDef] = &[
         command: "antigravity",
         aliases: &[],
         oneshot: None,
+        // No verified bypass flag for this CLI yet — left off rather than guess a
+        // wrong flag (an unknown flag makes the whole session fail to launch).
+        session_args: &[],
         env: &[],
     },
     AgentDef {
@@ -109,6 +131,9 @@ const REGISTRY: &[AgentDef] = &[
         command: "cursor-agent",
         aliases: &[],
         oneshot: None,
+        // Cursor's own permissions docs name `--force` as the run-without-prompts
+        // switch; deny rules still take precedence.
+        session_args: &["--force"],
         env: &[],
     },
     AgentDef {
@@ -117,6 +142,8 @@ const REGISTRY: &[AgentDef] = &[
         command: "aider",
         aliases: &[],
         oneshot: None,
+        // aider's "always say yes to every confirmation".
+        session_args: &["--yes-always"],
         env: &[],
     },
 ];
@@ -159,6 +186,14 @@ pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
 /// unknown command or a plain shell, so `pty.rs` stays agent-agnostic.
 pub fn spawn_env(command: &str) -> &'static [(&'static str, &'static str)] {
     definition(command).map_or(&[], |a| a.env)
+}
+
+/// Args to launch an interactive session of `command` with — the CLI's
+/// skip-every-permission ("yolo") flag(s), so ADE runs it autonomously. Empty for
+/// an unknown command or a plain shell (which has nothing to bypass), so `pty.rs`
+/// stays agent-agnostic.
+pub fn session_args(command: &str) -> &'static [&'static str] {
+    definition(command).map_or(&[], |a| a.session_args)
 }
 
 #[derive(Serialize)]
@@ -211,7 +246,7 @@ fn detect_installed() -> Vec<Agent> {
 
 #[cfg(test)]
 mod tests {
-    use super::{installed_names, oneshot_invocation, spawn_env};
+    use super::{installed_names, oneshot_invocation, session_args, spawn_env};
 
     #[test]
     fn installed_names_lead_with_the_canonical_command() {
@@ -227,6 +262,21 @@ mod tests {
         assert_eq!(installed_names("pnpm"), vec!["pnpm"]);
         assert!(spawn_env("pnpm").is_empty());
         assert!(oneshot_invocation("pnpm").is_none());
+        assert!(session_args("pnpm").is_empty());
+    }
+
+    /// Interactive sessions launch in the agent's skip-permissions mode; an
+    /// unknown command (a shell, a task runner) has nothing to bypass.
+    #[test]
+    fn session_args_carry_the_skip_permissions_flag() {
+        assert_eq!(session_args("claude"), &["--dangerously-skip-permissions"]);
+        assert_eq!(
+            session_args("codex"),
+            &["--dangerously-bypass-approvals-and-sandbox"]
+        );
+        assert!(session_args("powershell.exe").is_empty());
+        // Keyed by the canonical command, not the file an installer laid down.
+        assert!(session_args("codex-x86_64-pc-windows-msvc").is_empty());
     }
 
     /// Per-agent knowledge stays keyed by the canonical command, never by the

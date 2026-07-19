@@ -326,6 +326,13 @@ fn build_command(command: Option<String>) -> CommandBuilder {
     for (key, value) in crate::agents::spawn_env(&program) {
         cmd.env(key, value);
     }
+    // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives
+    // it autonomously — no per-tool/edit approval stops. These lead the arg list;
+    // any caller-supplied args (e.g. a terminal editor's project path) follow.
+    // Empty for a shell or an unknown command.
+    for arg in crate::agents::session_args(&program) {
+        cmd.arg(arg);
+    }
     // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI
     // can't tell from inside a bare ConPTY: Ink/terminal-link probe the
     // environment (TERM_PROGRAM, VTE version) and silently fall back to plain
