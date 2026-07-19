@@ -3,8 +3,11 @@
 //! Unlike the PTY host (which runs interactive agents in a real pseudo-terminal),
 //! a runner is fire-and-forget output capture — dev servers, build scripts, test
 //! watchers. It runs the command through the platform shell with stdout and
-//! stderr piped *separately* and free of PTY/ANSI control codes, streaming each
-//! line to the frontend tagged with the runner id and which stream it came from.
+//! stderr piped *separately*, streaming each line to the frontend tagged with the
+//! runner id and which stream it came from. There is no PTY, but a child still
+//! writes its own ANSI/SGR colour codes into the pipe (a dev server's coloured
+//! banner) — the pipe strips nothing, so the frontend renders those colours
+//! (`lib/ansi` → the shared terminal palette) rather than showing raw escapes.
 //!
 //! Multi-runner: each task runs under a caller-chosen id so several can run at
 //! once (a dev server plus a test watcher, say). Events carry the id so the right

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseAnsi } from "@/lib/ansi";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import {
@@ -222,7 +223,14 @@
               <div
                 class="line"
                 class:err={line.stream === RunnerStream.enum.stderr}
-              >{line.text || " "}</div>
+              >{#each parseAnsi(line.text) as segment, segmentIndex (segmentIndex)}<span
+                style:color={segment.color}
+                style:background={segment.background}
+                class:bold={segment.bold}
+                class:dim={segment.dim}
+                class:italic={segment.italic}
+                class:underline={segment.underline}
+              >{segment.text || " "}</span>{/each}</div>
             {/each}
           </div>
         </article>
@@ -460,9 +468,28 @@
     white-space: pre-wrap;
     animation: line-in 180ms var(--ease);
 
-    /* stderr in a crit tint so failures read at a glance. */
+    /* stderr in a crit tint so failures read at a glance. It's the base colour the
+       spans inherit — an SGR foreground colour overrides it per segment. */
     &.err {
       color: color-mix(in sRGB, var(--critical) 82%, var(--code-foreground));
+    }
+
+    /* Each segment span carries its SGR styles; colour/background come from the
+       shared terminal palette via the `style:` directive. */
+    .bold {
+      font-weight: 700;
+    }
+
+    .dim {
+      opacity: 70%;
+    }
+
+    .italic {
+      font-style: italic;
+    }
+
+    .underline {
+      text-decoration: underline;
     }
   }
 </style>

@@ -22,6 +22,50 @@
 
 import type { ITheme } from "@xterm/xterm";
 
+/** The 16 ANSI palette slots as their `--terminal-*` design-token names, in ANSI
+ *  order (0–7 standard, 8–15 bright). The one home mapping an ANSI color index to
+ *  the token that paints it — xterm's theme ({@link xtermTheme}) and the runner
+ *  dock's SGR parser (`parseAnsi`) both read it, so the terminal and the runner
+ *  output can never drift onto two different palettes. */
+export const ANSI_COLOR_TOKENS = [
+  "--terminal-black",
+  "--terminal-red",
+  "--terminal-green",
+  "--terminal-yellow",
+  "--terminal-blue",
+  "--terminal-magenta",
+  "--terminal-cyan",
+  "--terminal-white",
+  "--terminal-bright-black",
+  "--terminal-bright-red",
+  "--terminal-bright-green",
+  "--terminal-bright-yellow",
+  "--terminal-bright-blue",
+  "--terminal-bright-magenta",
+  "--terminal-bright-cyan",
+  "--terminal-bright-white"
+] as const;
+
+/** xterm's 16 ANSI theme slots, in the same order as {@link ANSI_COLOR_TOKENS}. */
+const ANSI_THEME_KEYS = [
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+  "brightBlack",
+  "brightRed",
+  "brightGreen",
+  "brightYellow",
+  "brightBlue",
+  "brightMagenta",
+  "brightCyan",
+  "brightWhite"
+] as const satisfies readonly (keyof ITheme)[];
+
 const HSL_COLOR = new RegExp(
   "^hsl\\(\\s*(-?\\d+(?:\\.\\d+)?)(?:deg)?" + // hue, `deg` optional
     "\\s+(\\d+(?:\\.\\d+)?)%" + // saturation
@@ -86,26 +130,16 @@ export function xtermTheme({ readToken }: { readToken: (name: string) => string 
     return xtermSafeColor(readToken(name));
   }
 
+  const ansiColors: Partial<ITheme> = {};
+  for (let index = 0; index < ANSI_THEME_KEYS.length; index++) {
+    ansiColors[ANSI_THEME_KEYS[index]] = color(ANSI_COLOR_TOKENS[index]);
+  }
+
   return {
     background: color("--code-background"),
     foreground: color("--code-foreground"),
     cursor: color("--primary"),
     selectionBackground: color("--terminal-selection"),
-    black: color("--terminal-black"),
-    red: color("--terminal-red"),
-    green: color("--terminal-green"),
-    yellow: color("--terminal-yellow"),
-    blue: color("--terminal-blue"),
-    magenta: color("--terminal-magenta"),
-    cyan: color("--terminal-cyan"),
-    white: color("--terminal-white"),
-    brightBlack: color("--terminal-bright-black"),
-    brightRed: color("--terminal-bright-red"),
-    brightGreen: color("--terminal-bright-green"),
-    brightYellow: color("--terminal-bright-yellow"),
-    brightBlue: color("--terminal-bright-blue"),
-    brightMagenta: color("--terminal-bright-magenta"),
-    brightCyan: color("--terminal-bright-cyan"),
-    brightWhite: color("--terminal-bright-white")
+    ...ansiColors
   };
 }
