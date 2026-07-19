@@ -68,7 +68,7 @@
 
       const target = files[next];
       onpick(target.path);
-      void focusTab(target.path);
+      focusTab(target.path);
     }}
     role="tablist"
   >

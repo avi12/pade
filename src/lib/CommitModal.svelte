@@ -86,9 +86,15 @@
     }
   }
 
-  function openOnGithub() {
-    if (commitUrl) {
-      void os.openUrl(commitUrl);
+  async function openOnGithub() {
+    if (!commitUrl) {
+      return;
+    }
+
+    try {
+      await os.openUrl(commitUrl);
+    } catch {
+      // Opening on GitHub is best-effort; a failed browser launch is silent.
     }
   }
 
@@ -106,7 +112,7 @@
 
     const first = commit.files[0];
     if (first) {
-      void loadDiff(first.path);
+      loadDiff(first.path);
     }
   });
 </script>
@@ -165,7 +171,7 @@
   </header>
 
   <div class="body">
-    <FileList files={commit.files} onpick={path => void loadDiff(path)} {selectedPath} />
+    <FileList files={commit.files} onpick={path => loadDiff(path)} {selectedPath} />
 
     <DiffPane
       name={paneName}
