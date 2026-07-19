@@ -7,6 +7,7 @@ mod design;
 mod discord;
 mod gitignore;
 mod ide;
+mod mcp;
 mod members;
 mod naming;
 mod os;

@@ -49,6 +49,31 @@ fn applies_to(def: &ConfigDef, agent: &str) -> bool {
     def.agents.is_empty() || def.agents.contains(&agent)
 }
 
+/// The `kind` marking an MCP-server config file in [`KNOWN`].
+const MCP_KIND: &str = "mcp";
+
+/// One MCP-server config file the ADE surfaces: its repo-relative path and the
+/// agents whose servers it declares. The single source of truth for "which file
+/// holds a project's MCP servers" — the watcher reads this to know what to watch
+/// for added/removed servers (`mcp.rs`).
+pub struct McpConfig {
+    pub rel: &'static str,
+    pub agents: &'static [&'static str],
+}
+
+/// Every known project-level MCP config file (e.g. `.mcp.json` for Claude),
+/// drawn from the same [`KNOWN`] registry the config panel shows — no second
+/// list to drift.
+pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
+    KNOWN
+        .iter()
+        .filter(|def| def.kind == MCP_KIND)
+        .map(|def| McpConfig {
+            rel: def.rel,
+            agents: def.agents,
+        })
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigFile {

@@ -4,7 +4,7 @@
 //! save into a `ChangeEvent` with a line-count delta and a heuristic summary.
 //! Later: real per-hunk diffs and agent-authored intent replace the heuristic.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -67,6 +67,12 @@ pub struct WatcherState {
     /// path shells git at most once. Cleared on a re-root and whenever a
     /// `.gitignore` changes, since editing its rules can flip any path's state.
     git_ignore_cache: Mutex<HashMap<PathBuf, bool>>,
+    /// The set of declared MCP server names last seen in each MCP config file
+    /// (absolute path → server-name set), the baseline the change detector diffs
+    /// against. An agent only picks up an added/removed server by restarting, so
+    /// a change to this SET (not a value-only edit) drives `mcp://changed`. Seeded
+    /// on `watch_start` and re-scoped to the new root on a project switch.
+    mcp_servers: Mutex<HashMap<PathBuf, BTreeSet<String>>>,
 }
 
 /// The kind of filesystem change, in the exact wire strings the frontend reads.
@@ -181,6 +187,102 @@ const GITIGNORE_FILE_NAME: &str = ".gitignore";
 /// a `git init` flipping the policy). Payload-free: the frontend re-asks
 /// `feed_ignored` about the events it holds, so the answer is never stale.
 const FEED_IGNORE_EVENT: &str = "feed://ignore-changed";
+
+// ── Live MCP config ───────────────────────────────────────────────────────────
+// A project's MCP servers live in a config file (`.mcp.json` for Claude, per
+// config.rs). A running agent only picks up an **added or removed** server by
+// restarting — Claude re-reads `.mcp.json` at launch, and there is no in-session
+// reload — while a value-only edit to an existing server the user reconnects by
+// hand. So the watcher restarts the affected sessions only when the *set of
+// server names* changes; the frontend does the terminate-and-resume.
+
+/// Announces that a project's declared MCP servers changed (a name added or
+/// removed). Carries which agents the config governs so the frontend restarts
+/// only their sessions, and the added/removed names for the toast.
+const MCP_EVENT: &str = "mcp://changed";
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McpChange {
+    /// The MCP config file that changed (absolute path).
+    path: String,
+    /// The agent commands whose servers this file declares (e.g. `["claude"]`).
+    agents: Vec<String>,
+    /// Server names gained since the last seen set.
+    added: Vec<String>,
+    /// Server names lost since the last seen set.
+    removed: Vec<String>,
+}
+
+/// The agents whose MCP servers `path` declares, if it is a known MCP config
+/// file under `root` (e.g. `<root>/.mcp.json` → `["claude"]`). `None` for any
+/// other path. Matches the full relative path, so a nested config
+/// (`.cursor/mcp.json`) can't be confused with a root one.
+fn mcp_agents_for_path(root: &Path, path: &Path) -> Option<Vec<String>> {
+    crate::config::mcp_configs()
+        .find(|config| root.join(config.rel) == path)
+        .map(|config| {
+            config
+                .agents
+                .iter()
+                .map(|agent| (*agent).to_string())
+                .collect()
+        })
+}
+
+/// Seed the MCP server-name baseline for `root`: record the current set for each
+/// known MCP config file, so the first later change diffs against the truth on
+/// disk rather than an empty set (which would restart on project open). Replaces
+/// any previous root's baseline.
+fn snapshot_mcp_baseline(state: &WatcherState, root: &Path) {
+    let fresh: HashMap<PathBuf, BTreeSet<String>> = crate::config::mcp_configs()
+        .filter_map(|config| {
+            let file = root.join(config.rel);
+            crate::mcp::server_names(&file).map(|names| (file, names))
+        })
+        .collect();
+    if let Ok(mut baseline) = state.mcp_servers.lock() {
+        *baseline = fresh;
+    }
+}
+
+/// Detect an MCP server add/remove for a changed `path` and, when the set truly
+/// changed, emit [`MCP_EVENT`] and advance the baseline. A value-only edit (same
+/// names) and an unparseable half-written file both no-op, so a session restarts
+/// only on a real membership change. Runs before the ignore filter, so a
+/// `.gitignore`'d `.mcp.json` still triggers.
+fn detect_mcp_change(app: &AppHandle, state: &WatcherState, root: &Path, path: &Path) {
+    let Some(agents) = mcp_agents_for_path(root, path) else {
+        return;
+    };
+    let Some(current) = crate::mcp::server_names(path) else {
+        return; // unparseable mid-write — wait for the complete save
+    };
+
+    let (added, removed) = {
+        let Ok(mut baseline) = state.mcp_servers.lock() else {
+            return;
+        };
+        let previous = baseline.get(path).cloned().unwrap_or_default();
+        if current == previous {
+            return; // value-only edit, or no change — nothing to restart for
+        }
+        let added: Vec<String> = current.difference(&previous).cloned().collect();
+        let removed: Vec<String> = previous.difference(&current).cloned().collect();
+        baseline.insert(path.to_path_buf(), current);
+        (added, removed)
+    };
+
+    let _ = app.emit(
+        MCP_EVENT,
+        McpChange {
+            path: path.to_string_lossy().into_owned(),
+            agents,
+            added,
+            removed,
+        },
+    );
+}
 
 /// The build- and dependency-output directories a given manifest file implies
 /// should be excluded when there is no git to consult. The single authoritative
@@ -531,6 +633,10 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> 
     if let Ok(mut guard) = state.ignore_policy.lock() {
         *guard = Some(policy);
     }
+
+    // Seed the MCP server baseline from what's on disk now, so opening a project
+    // that already declares servers doesn't read as "all added" and restart.
+    snapshot_mcp_baseline(&state, &root);
 
     // The live-git-state companion watch (`HEAD`/`config` → `git://state`)
     // re-arms with the project: same lifetime and re-root cadence, but its own
@@ -908,6 +1014,13 @@ fn handle_event(app: &AppHandle, event: Event) {
     };
 
     let state: State<WatcherState> = app.state();
+    // The active watch root, for the MCP-config and ancestor-relative checks
+    // below — the recursive watcher only ever reports paths under it.
+    let watch_root = state
+        .watcher
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|active| active.root.clone()));
 
     for path in event.paths {
         if ignored(&path) || path.is_dir() {
@@ -917,6 +1030,13 @@ fn handle_event(app: &AppHandle, event: Event) {
         // scratch file — skip it rather than surface a preview-less phantom card.
         if !surfaces(kind, path.exists()) {
             continue;
+        }
+
+        // A changed MCP config (`.mcp.json`) may have gained or lost a server;
+        // if so, the affected agent's sessions restart to pick it up. Checked
+        // before the ignore filter, since `.mcp.json` is often git-ignored.
+        if let Some(root) = &watch_root {
+            detect_mcp_change(app, &state, root, &path);
         }
 
         // A changed .gitignore — edited, appearing for the first time, or
