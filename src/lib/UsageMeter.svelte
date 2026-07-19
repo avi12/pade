@@ -27,7 +27,10 @@
   let now = $state(Date.now());
 
   const ACCOUNT_REFRESH_MS = 180_000;
-  const CLOCK_TICK_MS = 1_000;
+  // The countdowns it feeds ("resets in 3h 30m") have minute granularity, so a
+  // half-minute tick keeps them honest at a thirtieth of the repaints a
+  // per-second clock would force (idle frames are what make the app heavy).
+  const CLOCK_TICK_MS = 30_000;
 
   // How many per-agent pills the trigger shows before collapsing the rest into a
   // trailing "+N" overflow chip. Every agent renders as a pill — a single agent

@@ -30,17 +30,35 @@ use tauri::Manager;
 #[allow(clippy::too_many_lines)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Dev-only: expose WebView2's DevTools protocol (CDP) on a fixed port so tools
-    // — chrome-devtools-mcp, a raw CDP client — can drive the live app for UI checks.
-    // Set before any window (and thus any WebView2 environment) is created, and
-    // compiled out of release builds. `--remote-allow-origins=*` lets modern Chromium
-    // accept the WebSocket CDP connection; the port also opens the webview to any local
-    // process, which is why this stays gated behind debug_assertions.
-    #[cfg(all(debug_assertions, windows))]
-    std::env::set_var(
-        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-        "--remote-debugging-port=9222 --remote-allow-origins=*",
-    );
+    // WebView2 browser switches, composed before any window (and thus any
+    // WebView2 environment) is created.
+    #[cfg(windows)]
+    {
+        let mut browser_arguments = Vec::new();
+        // Dev-only: expose WebView2's DevTools protocol (CDP) on a fixed port so
+        // tools — chrome-devtools-mcp, a raw CDP client — can drive the live app
+        // for UI checks. Compiled out of release builds. `--remote-allow-origins=*`
+        // lets modern Chromium accept the WebSocket CDP connection; the port also
+        // opens the webview to any local process, which is why this stays gated
+        // behind debug_assertions.
+        #[cfg(debug_assertions)]
+        browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*");
+        // Opt-in software rendering: when another process saturates the GPU (a
+        // game), the webview's composited frames queue behind it and every UI
+        // interaction stalls on the commits. `--disable-gpu` renders on the CPU
+        // instead, decoupling ADE from the GPU queue entirely — slower frames in
+        // absolute terms, but immune to GPU contention.
+        let software_render = std::env::var("PADE_SOFTWARE_RENDER").is_ok_and(|v| v == "1");
+        if software_render {
+            browser_arguments.push("--disable-gpu");
+        }
+        if !browser_arguments.is_empty() {
+            std::env::set_var(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                browser_arguments.join(" "),
+            );
+        }
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
