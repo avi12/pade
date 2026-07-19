@@ -51,6 +51,19 @@ struct AgentDef {
 
 /// Known agent backends, in preferred display order. The plain shell is always
 /// offered last as a universal fallback.
+///
+/// **Forcing fullscreen.** ADE's terminal host is tuned for agents that own the
+/// terminal's ALTERNATE screen — a full TUI (see the `claude`/`codex` entries and
+/// `docs/terminal-rendering.md`). Where a CLI can be pinned to alt-screen *per
+/// launch*, ADE does so through whichever field the CLI already exposes — and never
+/// a user-global config file, which would leak ADE's choice into the user's other
+/// terminals: Claude via `env` (`CLAUDE_CODE_NO_FLICKER=1`); Codex and Copilot via
+/// `session_args` (`-c tui.alternate_screen=always` / `--alt-screen on`), each
+/// overriding a saved default that could otherwise drop to inline. Grok and
+/// Antigravity already render alt-screen by default on a local terminal and expose
+/// no safe per-launch override (only a slash command or a user-global settings
+/// file), so ADE leaves them as-is; aider is a line-oriented REPL with no fullscreen
+/// mode; cursor-agent's rendering is undocumented — none of those three is forced.
 const REGISTRY: &[AgentDef] = &[
     AgentDef {
         id: "claude",
@@ -104,12 +117,40 @@ const REGISTRY: &[AgentDef] = &[
         oneshot: Some(&["exec"]),
         // `--yolo` is the alias; the explicit form states what it waives. It also
         // drops the sandbox — the price of a fully autonomous run.
-        session_args: &["--dangerously-bypass-approvals-and-sandbox"],
-        // No UI dark/light setting: `[tui] theme` only picks a syntax-highlight
-        // palette, and openai/codex#2020 (a real light/dark mode) is still open.
-        // Its chrome inherits the terminal's ANSI palette, which ADE's xterm
-        // already flips with the scheme.
-        theme_config: None,
+        //
+        // `-c tui.alternate_screen=always` forces Codex fullscreen on the terminal's
+        // ALTERNATE screen, like Claude — which is what `Terminal.svelte` is tuned to
+        // host (its wheel handler forwards a wheel tick as PageUp/PageDown for a
+        // fullscreen agent with no xterm scrollback, and Codex scrolls its transcript
+        // on PageUp/PageDown). Codex's default `auto` mode drops to inline rendering
+        // under some environments (e.g. Zellij) to preserve scrollback, leaving it
+        // NOT fullscreen and unscrollable in ADE; `always` overrides that heuristic
+        // (see openai/codex `AltScreenMode`). The `-c` override applies to THIS spawn
+        // only and never rewrites the user's `~/.codex/config.toml`. This is not
+        // scheme-dependent, so it's a constant launch arg here — not in `theme_config`
+        // (which is scheme-keyed) and not on the `codex exec` oneshot (which renders
+        // no TUI); `session_args` is interactive-session-only, so this is its home.
+        session_args: &[
+            "--dangerously-bypass-approvals-and-sandbox",
+            "-c",
+            "tui.alternate_screen=always",
+        ],
+        // `[tui] theme` names a bundled theme that colors the whole TUI — the
+        // input composer's background bar included — not merely syntax spans, so
+        // the user's own dark theme (e.g. dracula) leaves a dark bar on a light
+        // ADE. Codex reads the theme once at startup and has no live light/dark
+        // toggle, so ADE forces it per launch with the global `-c tui.theme=<name>`
+        // override: it wins over `~/.codex/config.toml` for THIS spawn only, never
+        // rewriting the user's chosen theme on disk. The two names are Codex's own
+        // adaptive defaults — the theme it auto-selects for a light vs dark
+        // terminal background (see openai/codex `highlight.rs`
+        // `adaptive_default_theme_selection`) — so ADE's scheme always wins with
+        // Codex's own neutral picks. Like SpawnEnv, it's read once at startup: a
+        // mid-session scheme flip re-themes only on the next spawn.
+        theme_config: Some(ThemeConfig::SpawnArgs {
+            light: &["-c", "tui.theme=catppuccin-latte"],
+            dark: &["-c", "tui.theme=catppuccin-mocha"],
+        }),
         session_id_flag: None,
         env: &[],
     },
@@ -127,7 +168,17 @@ const REGISTRY: &[AgentDef] = &[
         oneshot: None,
         // Auto-approve every tool. (`--allow-all` also waives path/URL prompts but
         // has been flaky; tool approval is the friction that matters for a run.)
-        session_args: &["--allow-all-tools"],
+        //
+        // `--alt-screen on` forces Copilot fullscreen on the terminal's ALTERNATE
+        // screen, like Claude and Codex — the mode `Terminal.svelte` is tuned to host.
+        // Alt-screen is Copilot's default for interactive sessions, but the CLI
+        // persists display preferences to the user-level `~/.copilot/settings.json`
+        // (a user can turn alt-screen off and it sticks), so `on` pins it for THIS
+        // spawn and can't be undone by the saved config — the same reasoning as
+        // Codex forcing `tui.alternate_screen=always` over its `auto` default. The
+        // flag is documented in Copilot CLI's command reference (default `on`); it
+        // rides `session_args` after the tool-approval flag, its authoritative home.
+        session_args: &["--allow-all-tools", "--alt-screen", "on"],
         // Copilot CLI auto-follows the system light/dark mode since v1.0.62;
         // forcing it would mean writing the USER-level ~/.copilot/settings.json,
         // which would leak ADE's scheme into every other terminal. Left alone.
@@ -386,8 +437,16 @@ mod tests {
             theme_config("aider"),
             Some(ThemeConfig::SpawnEnv { .. })
         ));
+        // Codex themes its whole TUI from a named `[tui] theme`; ADE forces
+        // Codex's own light/dark defaults per launch with `-c tui.theme=…`.
+        assert!(matches!(
+            theme_config("codex"),
+            Some(ThemeConfig::SpawnArgs {
+                light: &["-c", "tui.theme=catppuccin-latte"],
+                dark: &["-c", "tui.theme=catppuccin-mocha"],
+            })
+        ));
         // No verified mechanism → deliberately unforced.
-        assert!(theme_config("codex").is_none());
         assert!(theme_config("grok").is_none());
     }
 
@@ -396,9 +455,22 @@ mod tests {
     #[test]
     fn session_args_carry_the_skip_permissions_flag() {
         assert_eq!(session_args("claude"), &["--dangerously-skip-permissions"]);
+        // Codex also gets forced onto the alternate screen so it renders fullscreen
+        // like Claude (see the codex AgentDef); the `-c` pair rides `session_args`.
         assert_eq!(
             session_args("codex"),
-            &["--dangerously-bypass-approvals-and-sandbox"]
+            &[
+                "--dangerously-bypass-approvals-and-sandbox",
+                "-c",
+                "tui.alternate_screen=always"
+            ]
+        );
+        // Copilot is likewise pinned to the alternate screen so it renders
+        // fullscreen; `--alt-screen on` rides its session args after the
+        // tool-approval flag (see the copilot AgentDef).
+        assert_eq!(
+            session_args("copilot"),
+            &["--allow-all-tools", "--alt-screen", "on"]
         );
         assert!(session_args("powershell.exe").is_empty());
         // Keyed by the canonical command, not the file an installer laid down.

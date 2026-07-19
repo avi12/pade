@@ -350,6 +350,17 @@ fn build_command(
     for arg in crate::agents::session_args(&program) {
         cmd.arg(arg);
     }
+    // Per-scheme theme arguments for arg-themed CLIs (codex's global
+    // `-c tui.theme=…`), so the agent's TUI starts on ADE's current appearance —
+    // see theming.rs. This is the interactive spawn path only; the oneshot
+    // `codex exec` renders no TUI and gets no theme. A global option, so its
+    // order among the top-level flags above doesn't matter. Empty for a shell,
+    // an unknown command, or an agent themed by file/env instead.
+    if let Some(scheme) = scheme {
+        for arg in crate::theming::spawn_args(&program, scheme) {
+            cmd.arg(arg);
+        }
+    }
     // Bind the session to ADE's stable conversation id (`--session-id <uuid>`),
     // so a later spawn with the same id resumes THIS conversation rather than the
     // most recent — how ADE restarts one specific session (e.g. after `.mcp.json`

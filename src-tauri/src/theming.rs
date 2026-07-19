@@ -49,6 +49,15 @@ pub enum ThemeConfig {
         light: &'static [(&'static str, &'static str)],
         dark: &'static [(&'static str, &'static str)],
     },
+    /// Append per-scheme launch *arguments* when the session spawns — for a CLI
+    /// whose theme is chosen by a command-line flag and read once at startup
+    /// (`pty.rs` appends these to the interactive argv; a scheme flip reaches it
+    /// on the next spawn). Either side may be empty when the CLI only needs help
+    /// on one scheme.
+    SpawnArgs {
+        light: &'static [&'static str],
+        dark: &'static [&'static str],
+    },
 }
 
 /// The per-scheme environment to spawn `command` with (empty for an agent
@@ -60,7 +69,20 @@ pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'st
             Scheme::Light => light,
             Scheme::Dark => dark,
         },
-        Some(ThemeConfig::WorkspaceJson { .. }) | None => &[],
+        Some(ThemeConfig::WorkspaceJson { .. } | ThemeConfig::SpawnArgs { .. }) | None => &[],
+    }
+}
+
+/// The per-scheme launch arguments to spawn `command` with (empty for an agent
+/// whose theme is file- or env-driven, or unknown). `pty.rs` appends it to the
+/// interactive session's argv, alongside `agents::session_args`.
+pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
+    match crate::agents::theme_config(command) {
+        Some(ThemeConfig::SpawnArgs { light, dark }) => match scheme {
+            Scheme::Light => light,
+            Scheme::Dark => dark,
+        },
+        Some(ThemeConfig::WorkspaceJson { .. } | ThemeConfig::SpawnEnv { .. }) | None => &[],
     }
 }
 
@@ -105,8 +127,9 @@ fn apply(workspace: &Path, config: &ThemeConfig, scheme: Scheme) -> Result<(), S
             };
             merge_json_key(&workspace.join(relative_path), key, value)
         }
-        // Applied at spawn time by pty.rs (see `spawn_env`) — nothing to write.
-        ThemeConfig::SpawnEnv { .. } => Ok(()),
+        // Applied at spawn time by pty.rs (env via `spawn_env`, args via
+        // `spawn_args`) — nothing to write to disk.
+        ThemeConfig::SpawnEnv { .. } | ThemeConfig::SpawnArgs { .. } => Ok(()),
     }
 }
 
@@ -139,8 +162,26 @@ fn merge_json_key(path: &Path, key: &str, value: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{merge_json_key, Map, Value};
+    use super::{merge_json_key, spawn_args, Map, Scheme, ThemeConfig, Value};
     use std::fs;
+
+    /// The arg-themed accessor routes each scheme to its own side of the
+    /// registry entry (read from the SSOT, so the theme literals stay defined in
+    /// exactly one place — the codex `AgentDef`); a file-themed agent and an
+    /// unknown command carry no launch args.
+    #[test]
+    fn spawn_args_route_each_scheme_to_its_registry_side() {
+        let ThemeConfig::SpawnArgs { light, dark } =
+            crate::agents::theme_config("codex").expect("codex is arg-themed")
+        else {
+            panic!("codex should force its theme via SpawnArgs");
+        };
+        assert_eq!(spawn_args("codex", Scheme::Light), *light);
+        assert_eq!(spawn_args("codex", Scheme::Dark), *dark);
+        assert_ne!(light, dark);
+        assert!(spawn_args("claude", Scheme::Light).is_empty());
+        assert!(spawn_args("pnpm", Scheme::Dark).is_empty());
+    }
 
     fn scratch_file(name: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join("pade-theming-tests").join(name);
