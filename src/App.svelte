@@ -397,6 +397,25 @@
     });
   });
 
+  // The address is state too: `w=` is what a reload re-routes off, and it went
+  // stale the moment the user moved on from what the window was spawned for —
+  // a `?w=empty` picker window living inside a project rebooted to the picker
+  // (the incident), a `?w=temp` one minted a second throwaway. Keep the query
+  // telling the truth — the project on screen, else the picker — so even a
+  // snapshot-less reload (all sessions had exited) lands on the right screen.
+  $effect(() => {
+    if (phase === Phase.loading) {
+      return;
+    }
+
+    const query = currentProject === ""
+      ? `?w=${WindowMode.empty}`
+      : `?w=${WindowMode.open}&path=${encodeURIComponent(currentProject)}`;
+    if (location.search !== query) {
+      history.replaceState(null, "", query);
+    }
+  });
+
   // Re-detect installed agents so the picker reflects an agent the user just
   // installed or removed — when the app becomes visible again (they switched back
   // from installing one, see the `visibilitychange` below) and on a slow poll as a
