@@ -5,6 +5,7 @@ mod contextmenu;
 mod copilot;
 mod design;
 mod discord;
+mod gitignore;
 mod ide;
 mod members;
 mod naming;
@@ -105,6 +106,7 @@ pub fn run() {
             watcher::watch_start,
             watcher::watch_dirs,
             watcher::feed_diff,
+            watcher::feed_ignored,
             vcs::status::vcs_status,
             vcs::log::vcs_log,
             vcs::status::vcs_diff,

@@ -152,21 +152,35 @@ fn ignored_by_static_dirs(path: &Path, dirs: &HashSet<String>) -> bool {
 /// nested `.gitignore` files, `.git/info/exclude`, the global `core.excludesFile`,
 /// and negation rules — exactly what the user's git already ignores, rather than a
 /// brittle hand-rolled parse. A folder that is not a git repo has none of those
-/// rules, so it falls back to a set of directory names inferred from the manifest
+/// tools, so it falls back to a set of directory names inferred from the manifest
 /// files at the root (see [`manifest_ignore_dirs`]) unioned with the [`IGNORED`]
-/// baseline.
-#[derive(Debug)]
+/// baseline — plus the root `.gitignore`'s own rules when the folder has one (a
+/// scaffolded project knows what it will generate before its `git init` runs).
+///
+/// The policy is NOT fixed for the watch's lifetime: any `.gitignore`
+/// change/appearance/deletion, and a mid-session `git init`, recompute it (see
+/// [`refresh_ignore_policy`]) and announce [`FEED_IGNORE_EVENT`] so the frontend
+/// re-filters what it already shows.
 enum IgnorePolicy {
     /// The root is a git work tree; ask `git check-ignore` per path (memoized).
     Git { root: PathBuf },
     /// The root is not a git repo; exclude any path whose component names one of
-    /// these tech-inferred directories.
-    Static(HashSet<String>),
+    /// these tech-inferred directories, or that the root `.gitignore` ignores.
+    Static {
+        root: PathBuf,
+        dirs: HashSet<String>,
+        rules: crate::gitignore::Rules,
+    },
 }
 
 /// The ignore-rules file whose edits invalidate the git-check-ignore cache: when
 /// its rules change, any path's ignored state can flip.
 const GITIGNORE_FILE_NAME: &str = ".gitignore";
+
+/// Announces that the ignore rules themselves changed (a `.gitignore` touched,
+/// a `git init` flipping the policy). Payload-free: the frontend re-asks
+/// `feed_ignored` about the events it holds, so the answer is never stale.
+const FEED_IGNORE_EVENT: &str = "feed://ignore-changed";
 
 /// The build- and dependency-output directories a given manifest file implies
 /// should be excluded when there is no git to consult. The single authoritative
@@ -252,17 +266,50 @@ fn is_gitignore_file(path: &Path) -> bool {
     path.file_name().and_then(|name| name.to_str()) == Some(GITIGNORE_FILE_NAME)
 }
 
-/// Determine how to exclude ignored files for a freshly-armed watch `root`: git
-/// mode when the root is a git work tree (defer to git's own ignore rules), else
-/// static mode with a tech-inferred ignore-directory set. Runs git once (and, in
-/// static mode, one directory scan); the result is stored for the whole watch.
+/// Determine how to exclude ignored files for the watch `root`: git mode when
+/// the root is a git work tree (defer to git's own ignore rules), else static
+/// mode with a tech-inferred ignore-directory set plus the root `.gitignore`'s
+/// rules when one exists. Runs git once (and, in static mode, one directory
+/// scan + one file read); re-run whenever the rules could have changed.
 fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
     if is_git_work_tree(root) {
         return IgnorePolicy::Git {
             root: root.to_path_buf(),
         };
     }
-    IgnorePolicy::Static(static_ignore_dirs(root))
+    let rules = std::fs::read_to_string(root.join(GITIGNORE_FILE_NAME))
+        .map(|content| crate::gitignore::Rules::parse(&content))
+        .unwrap_or_default();
+    IgnorePolicy::Static {
+        root: root.to_path_buf(),
+        dirs: static_ignore_dirs(root),
+        rules,
+    }
+}
+
+/// Recompute the ignore policy for the active watch root and forget every
+/// memoized git decision — run when the rules themselves may have changed (a
+/// `.gitignore` edited/created/deleted anywhere under the root, or a
+/// mid-session `git init` flipping the root from static to git mode). The
+/// frontend hears [`FEED_IGNORE_EVENT`] and re-filters the events it already
+/// shows against the fresh policy (`feed_ignored`).
+fn refresh_ignore_policy(app: &AppHandle, state: &WatcherState) {
+    let Some(root) = ({
+        let Ok(guard) = state.watcher.lock() else {
+            return;
+        };
+        guard.as_ref().map(|active| active.root.clone())
+    }) else {
+        return;
+    };
+    let policy = compute_ignore_policy(&root);
+    if let Ok(mut guard) = state.ignore_policy.lock() {
+        *guard = Some(policy);
+    }
+    if let Ok(mut cache) = state.git_ignore_cache.lock() {
+        cache.clear();
+    }
+    let _ = app.emit(FEED_IGNORE_EVENT, ());
 }
 
 /// Whether `root` sits inside a git work tree, via `git -C <root> rev-parse
@@ -295,11 +342,26 @@ fn excluded_by_ignore_policy(state: &WatcherState, path: &Path) -> bool {
         };
         match guard.as_ref() {
             None => return false,
-            Some(IgnorePolicy::Static(dirs)) => return ignored_by_static_dirs(path, dirs),
+            Some(IgnorePolicy::Static { root, dirs, rules }) => {
+                return ignored_by_static_dirs(path, dirs) || gitignore_excludes(root, rules, path);
+            }
             Some(IgnorePolicy::Git { root }) => root.clone(),
         }
     };
     git_excludes_path(state, &git_root, path)
+}
+
+/// Whether the static policy's `.gitignore` rules ignore `path` — matched on
+/// its root-relative, `/`-joined spelling. A path outside the root (or one that
+/// isn't valid UTF-8) can't match any rule.
+fn gitignore_excludes(root: &Path, rules: &crate::gitignore::Rules, path: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return false;
+    };
+    let Some(relative) = relative.to_str() else {
+        return false;
+    };
+    rules.is_ignored(&relative.replace('\\', "/"))
 }
 
 /// Whether git considers `path` ignored under the work tree at `root`, memoized in
@@ -703,6 +765,14 @@ fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<G
                     rearm_git_state_locked(&app, &root, &mut guard);
                 }
             }
+            if strongest == GitStateMessage::GitDirAppeared {
+                // `git init` mid-session: the feed's ignore policy must flip
+                // from the static fallback to git's own rules (and re-filter
+                // the events already shown). Outside the `git_state` lock —
+                // refresh takes the watcher/policy locks instead.
+                let state: State<WatcherState> = app.state();
+                refresh_ignore_policy(&app, &state);
+            }
             let _ = app.emit(GIT_STATE_EVENT, ());
         }
     });
@@ -782,14 +852,13 @@ fn handle_event(app: &AppHandle, event: Event) {
             continue;
         }
 
-        // An edited .gitignore changes what git treats as ignored, so drop the
-        // memoized per-path decisions before the policy check below re-consults
-        // git. The .gitignore itself is not ignored, so it still surfaces as its
-        // own change.
+        // A changed .gitignore — edited, appearing for the first time, or
+        // deleted — changes what counts as ignored, so rebuild the whole policy
+        // (fresh rules in static mode, dropped memoized decisions in git mode)
+        // and tell the feed to re-filter what it already shows. The .gitignore
+        // itself is not ignored, so it still surfaces as its own change.
         if is_gitignore_file(&path) {
-            if let Ok(mut cache) = state.git_ignore_cache.lock() {
-                cache.clear();
-            }
+            refresh_ignore_policy(app, &state);
         }
 
         // Skip whatever the project itself would ignore: git's own ignore rules in
@@ -903,6 +972,21 @@ pub fn feed_diff(state: State<WatcherState>, path: String) -> Result<Option<Feed
     };
 
     Ok(Some(FeedDiff { before, after }))
+}
+
+/// The subset of `paths` the current ignore policy excludes — how the frontend
+/// re-filters the Change Feed it already rendered after `feed://ignore-changed`
+/// (events for now-ignored paths are dropped; never-recorded ones can't be
+/// resurrected, they simply surface again on their next real change).
+#[tauri::command]
+pub fn feed_ignored(state: State<WatcherState>, paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|candidate| {
+            let path = Path::new(candidate);
+            ignored(path) || excluded_by_ignore_policy(&state, path)
+        })
+        .collect()
 }
 
 pub fn init(app: &AppHandle) {

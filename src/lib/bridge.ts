@@ -257,7 +257,13 @@ export const feed = {
     path: string;
   }) => call("feed_diff", FeedDiff.nullable(), { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
-    on("feed://change", ChangeEvent, callback)
+    on("feed://change", ChangeEvent, callback),
+  /** The ignore rules changed (a `.gitignore` edited/created/deleted, or a
+   *  mid-session `git init` flipped the policy) — re-ask `ignored` about the
+   *  events already shown. */
+  onIgnoreChanged: (callback: () => void) => on("feed://ignore-changed", z.null(), () => callback()),
+  /** The subset of `paths` the current ignore policy excludes. */
+  ignored: (paths: string[]) => call("feed_ignored", z.array(z.string()), { paths })
 };
 
 /** Manifest-driven workspace members — the Change Feed's grouping ground

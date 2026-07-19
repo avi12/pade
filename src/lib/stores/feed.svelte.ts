@@ -44,6 +44,22 @@ async function startFeedSubscription(): Promise<void> {
 
     feedStore.events = [event, ...feedStore.events].slice(0, CAP);
   });
+  // The ignore rules are live: editing (or creating, or deleting) a .gitignore
+  // — and a mid-session `git init` — re-filters what the feed already shows, so
+  // a path the project just started ignoring drops out instead of lingering.
+  // The backend is the one authority on "ignored" (git's own rules in a repo,
+  // the root .gitignore + tech inference otherwise); the store only asks.
+  await feed.onIgnoreChanged(async () => {
+    const paths = [...new Set(feedStore.events.map(event => event.path))];
+    if (paths.length === 0) {
+      return;
+    }
+
+    const nowIgnored = new Set(await feed.ignored(paths));
+    if (nowIgnored.size > 0) {
+      feedStore.events = feedStore.events.filter(event => !nowIgnored.has(event.path));
+    }
+  });
 }
 
 /** Point the feed at `project`, clearing accumulated events when it differs from
