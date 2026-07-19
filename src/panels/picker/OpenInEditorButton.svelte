@@ -41,7 +41,7 @@
       const ranked = await suggestOrFallback();
       const editor = ranked.find(candidate => !candidate.terminal);
       if (editor) {
-        void ide.open({
+        ide.open({
           command: editor.command,
           path
         });

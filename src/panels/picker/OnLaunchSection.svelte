@@ -31,7 +31,9 @@
       ctxMenuOn = await contextMenu.status();
     }
   }
-  onMount(() => void loadCtxMenu());
+  onMount(() => {
+    loadCtxMenu();
+  });
 </script>
 
 <section class="onlaunch">
