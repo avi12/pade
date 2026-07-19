@@ -155,26 +155,34 @@ export function createAutoHandoff(host: HandoffHost) {
       // so a const in the closure is safe.
       const deadlineTimer = trackTimer(finish, HANDOFF_DOC_TIMEOUT_MS);
       const target = name.toLowerCase();
-      // Kick off the async subscription from this sync executor (the one place a
-      // .then/IIFE is warranted — rule 6).
-      void (async () => {
-        unlisten = await feed.onChange(event => {
-          const seen = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
-          if (!seen) {
-            return;
-          }
 
-          // Restart the short settle window on each matching change; finish only
-          // fires once it goes quiet (or the deadline hits first).
-          if (settleTimer !== undefined) {
-            pendingTimers.delete(settleTimer);
-            clearTimeout(settleTimer);
-          }
+      // Kick off the async watcher subscription from this sync Promise executor.
+      // It owns its own error handling, so the deadline timer still resolves the
+      // wait even if the subscription never lands.
+      async function subscribeToChanges() {
+        try {
+          unlisten = await feed.onChange(event => {
+            const seen = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
+            if (!seen) {
+              return;
+            }
 
-          settleTimer = trackTimer(finish, HANDOFF_SETTLE_MS);
-        });
-        pendingUnlistens.add(unlisten);
-      })();
+            // Restart the short settle window on each matching change; finish only
+            // fires once it goes quiet (or the deadline hits first).
+            if (settleTimer !== undefined) {
+              pendingTimers.delete(settleTimer);
+              clearTimeout(settleTimer);
+            }
+
+            settleTimer = trackTimer(finish, HANDOFF_SETTLE_MS);
+          });
+          pendingUnlistens.add(unlisten);
+        } catch {
+          // Subscription failed to arm; the deadline timer resolves the wait.
+        }
+      }
+
+      subscribeToChanges();
     });
   }
 
@@ -233,10 +241,23 @@ export function createAutoHandoff(host: HandoffHost) {
     // its first turn (it has certainly read the doc by then), delete it so
     // consumed handoffs never litter the project.
     await waitForSuccessorSettled(successorId);
-    void workspace.deleteHandoffDoc({
+    await workspace.deleteHandoffDoc({
       dir: host.projectDir(),
       name: doc
-    }).catch(() => {}); // a doc the agent never wrote (timeout path) is fine
+    });
+  }
+
+  // Fire-and-forget entry point for the scan and the force path. handoff is
+  // best-effort: swallow any failure (including deleting a doc the agent never
+  // wrote on the timeout path) and clear the in-flight marker + note so a later
+  // scan can retry.
+  async function runHandoff(session: AgentSession) {
+    try {
+      await handoff(session);
+    } catch {
+      handingOff.delete(session.id);
+      note = "";
+    }
   }
 
   // Resolve once the successor session has been seen working and then gone
@@ -279,7 +300,7 @@ export function createAutoHandoff(host: HandoffHost) {
       const already = handingOff.has(session.id);
       if (nearLimit && idle && !already) {
         handingOff.add(session.id);
-        void handoff(session);
+        runHandoff(session);
       }
     }
   }
@@ -294,7 +315,7 @@ export function createAutoHandoff(host: HandoffHost) {
     }
 
     handingOff.add(session.id);
-    void handoff(session);
+    runHandoff(session);
   }
 
   // Tear down every still-pending wait (listener + timers).
