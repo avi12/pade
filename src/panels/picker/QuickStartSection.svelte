@@ -110,6 +110,25 @@
     return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   }
 
+  // Land the caret on the first field still waiting for input — the name if it's
+  // blank, otherwise the next empty box (the first prompt) — so opening the New
+  // tab with a name already typed drops you straight into the prompt instead of
+  // re-selecting a filled field. `:placeholder-shown` is the platform's own
+  // "this field is empty" state (every field here carries a placeholder), so the
+  // first field still showing it is the first one awaiting input; fall back to the
+  // first field when all are filled.
+  function focusFirstEmptyField(): void {
+    const panel = card?.querySelector<HTMLElement>(".open .panel");
+    if (!panel) {
+      return;
+    }
+
+    const firstEmpty = panel.querySelector<HTMLElement>(
+      "input:placeholder-shown, textarea:placeholder-shown"
+    );
+    (firstEmpty ?? panel.querySelector<HTMLElement>("input, textarea"))?.focus();
+  }
+
   // ── New — create a project (or fall through to a temp workspace) ──────────
   let createName = $state("");
   let createPrompt = $state("");
@@ -282,6 +301,12 @@
       localPath = path;
       localInput?.focus();
     });
+
+    // The New tab is open on arrival — land the caret in its first empty field
+    // (the same behaviour as clicking the tab), so opening the picker to start a
+    // project drops you straight into the name/prompt.
+    await afterVisibilityApplies();
+    focusFirstEmptyField();
   });
 
   onDestroy(() => {
@@ -367,7 +392,7 @@
 
             await tick();
             await afterVisibilityApplies();
-            card?.querySelector<HTMLElement>(".open .panel input, .open .panel textarea")?.focus();
+            focusFirstEmptyField();
           }}
           role="tab"
           tabindex={tab === id ? 0 : -1}
