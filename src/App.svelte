@@ -40,7 +40,11 @@
   } from "@/lib/stores/sessionAttention.svelte";
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
-  import { dropSessionStatus } from "@/lib/stores/sessions.svelte";
+  import {
+    dropSessionStatus,
+    isSessionIdle,
+    whenSessionIdle
+  } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
@@ -548,7 +552,7 @@
     // session would (see discardTempWorkspace).
     const previousProject = currentProject;
     const leavesDiscardableTemp = isDiscardableTemp;
-    await closeAllSessions();
+    await closeAllSessionsGracefully();
 
     await workspace.open(target.path);
     settings = await workspace.settings(); // pick up the updated recent history
@@ -798,6 +802,31 @@
     }
   }
 
+  // How long a deliberate leave waits for a busy agent to reach an idle prompt
+  // before killing it anyway — graceful, but never a trap behind a wedged agent.
+  const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
+
+  // A DELIBERATE leave (switching project, going back to the picker) ends every
+  // session — but gracefully: wait for each to reach an idle prompt first
+  // (sessionStatus ready, the output-quiet signal — never child-process
+  // counting, which mis-reads persistent MCP servers) so nothing mid-flight is
+  // severed; the agent auto-saves, so /resume covers continuity. The wait runs
+  // before any phase change, while the Terminals are still mounted and
+  // publishing status. An accidental reload records no leave — its sessions
+  // stay alive and the next boot re-attaches them (session-restore).
+  async function closeAllSessionsGracefully() {
+    const hasBusySession = sessions.some(s => !isSessionIdle(s.id));
+    if (hasBusySession) {
+      showToast("Waiting for the agent to finish before leaving…");
+    }
+
+    await Promise.all(sessions.map(s => whenSessionIdle({
+      id: s.id,
+      timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
+    })));
+    await closeAllSessions();
+  }
+
   // Tear down every session at once — the project-switch path. Each PTY is
   // killed (reaping its child, so the old workspace's cwd lock is released)
   // and its exit event is claimed as a hand-close so the exit handler never
@@ -912,6 +941,31 @@
     });
   }
 
+  // Hand the project back: this window no longer claims it, so another window
+  // (or this one, later) can open it fresh — no picker tries to focus us here.
+  function releaseProject() {
+    currentProject = "";
+    branches = [];
+    pendingPrompt = undefined;
+    void windows.registerProject("");
+  }
+
+  // "Switch project" — a DELIBERATE leave to the picker. The project's agents
+  // don't idle on invisibly behind it: each is killed once it reaches an idle
+  // prompt (closeAllSessionsGracefully), and a never-named temp workspace is
+  // discarded exactly as ending its last session would.
+  async function leaveToPicker() {
+    await closeAllSessionsGracefully();
+
+    if (isDiscardableTemp) {
+      await discardTempWorkspace();
+      return;
+    }
+
+    releaseProject();
+    switchToPicker();
+  }
+
   // Ending the last session of a never-named temp workspace throws the whole
   // workspace away: this window hands itself back to the project picker and the
   // folder is deleted. The backend releases the cwd lock first (workspace_delete
@@ -919,11 +973,7 @@
   // paths kill/reap theirs before calling here.
   async function discardTempWorkspace() {
     const path = currentProject;
-    currentProject = "";
-    branches = [];
-    pendingPrompt = undefined;
-    // Drop this window's claim on the project so no picker tries to focus it.
-    void windows.registerProject("");
+    releaseProject();
     switchToPicker();
 
     try {
@@ -1159,7 +1209,7 @@
             onopen={projectPath => openProject({ path: projectPath })}
             onremoverecent={removeRecentProject}
             onreorderpins={reorderPins}
-            onswitch={switchToPicker}
+            onswitch={leaveToPicker}
             ontogglepin={toggleProjectPin}
             path={currentProject}
             pinnedProjects={settings.pinnedProjects}
