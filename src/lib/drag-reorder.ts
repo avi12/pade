@@ -594,7 +594,9 @@ export function beginReorder(options: BeginReorderOptions): void {
     const orderChanged = !cancel && currentIndex !== fromIndex;
     if (reduce) {
       draggedElement.style.translate = target;
-      void finalizeCommit(orderChanged);
+      queueMicrotask(async () => {
+        await finalizeCommit(orderChanged);
+      });
       return;
     }
 
@@ -603,7 +605,9 @@ export function beginReorder(options: BeginReorderOptions): void {
     requestAnimationFrame(() => {
       draggedElement.style.translate = target;
     });
-    setTimeout(() => void finalizeCommit(orderChanged), SPRING_MILLISECONDS);
+    setTimeout(async () => {
+      await finalizeCommit(orderChanged);
+    }, SPRING_MILLISECONDS);
   }
 
   async function finalizeCommit(orderChanged: boolean): Promise<void> {
