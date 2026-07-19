@@ -9,7 +9,17 @@ import { mount } from "svelte";
 document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches
   ? "dark"
   : "light";
-void loadPrefs();
+
+// Fire-and-forget: apply the persisted prefs once loaded, keeping the pre-paint
+// fallback theme if they can't be read. Owns its own try/catch so it never rejects.
+async function applyPersistedPreferences(): Promise<void> {
+  try {
+    await loadPrefs();
+  } catch {
+    // Keep the synchronously-resolved fallback theme when prefs can't load.
+  }
+}
+applyPersistedPreferences();
 
 const app = mount(App, { target: document.getElementById("app")! });
 
