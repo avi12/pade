@@ -7,7 +7,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
+use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -24,9 +26,24 @@ struct ProjectWatcher {
     _watcher: RecommendedWatcher,
 }
 
+/// The live-git-state watcher plus the root it is armed on. The root lets a
+/// coalescer thread confirm it still speaks for the current workspace (a
+/// re-root leaves the old thread with buffered messages it must not act on);
+/// dropping the watcher stops the watch, and dropping its channel sender with
+/// it retires the paired coalescer thread once that thread drains.
+struct GitStateWatcher {
+    root: PathBuf,
+    _watcher: RecommendedWatcher,
+}
+
 #[derive(Default)]
 pub struct WatcherState {
     watcher: Mutex<Option<ProjectWatcher>>,
+    /// The workspace's live-git-state watcher — see `arm_git_state`. Separate
+    /// from the Change Feed's recursive watcher on purpose: it watches only the
+    /// dir(s) holding `.git/HEAD` + `.git/config`, non-recursively, so git's
+    /// object churn never reaches it.
+    git_state: Mutex<Option<GitStateWatcher>>,
     /// The picker's watcher — see `watch_dirs`. Separate from the Change Feed's:
     /// it watches other folders, for a different question, and is re-armed as the
     /// picker's list changes.
@@ -94,8 +111,12 @@ struct ChangeEvent {
     ts: u128,
 }
 
+/// The git metadata entry a workspace gains when `git init` runs — the one
+/// authoritative spelling of the `.git` name.
+const GIT_DIR_NAME: &str = ".git";
+
 const IGNORED: &[&str] = &[
-    ".git",
+    GIT_DIR_NAME,
     "node_modules",
     "target",
     "dist",
@@ -449,6 +470,11 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> 
         *guard = Some(policy);
     }
 
+    // The live-git-state companion watch (`HEAD`/`config` → `git://state`)
+    // re-arms with the project: same lifetime and re-root cadence, but its own
+    // tiny non-recursive watcher.
+    arm_git_state(&app, &root);
+
     let app_handle = app.clone();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
         let Ok(event) = res else { return };
@@ -465,6 +491,239 @@ pub fn watch_start(app: AppHandle, state: State<WatcherState>, root: String) -> 
         _watcher: watcher,
     });
     Ok(())
+}
+
+// ── Live git state ──────────────────────────────────────────────────────────
+// The Change Feed's branch subtitle and the remote-gated actions read git state
+// (`vcs_branch_of`, `vcs_remote_url`) that only changes when two files do:
+// `.git/HEAD` (branch switches) and `.git/config` (remotes). This watcher tells
+// the frontend the moment either changes — or the repo itself appears — so that
+// state stays live instead of refreshing only on mount / project switch.
+
+/// The event announcing a change to the workspace's live git state. Payload-free
+/// on purpose: listeners re-fetch whatever git state they display, so the event
+/// can never carry stale or partial data.
+const GIT_STATE_EVENT: &str = "git://state";
+
+/// How long a burst of git-state touches is coalesced before one event is
+/// emitted. A checkout rewrites `HEAD` several times (lockfile, rename, reflog
+/// bookkeeping); waiting for the burst to go quiet emits once, after git has
+/// settled, so listeners re-fetch the final state.
+const GIT_STATE_COALESCE: Duration = Duration::from_millis(250);
+
+/// The files inside a git dir whose content IS the live state PADE displays:
+/// `HEAD` names the checked-out branch, `config` holds the remotes.
+const GIT_STATE_FILE_NAMES: &[&str] = &["HEAD", "config"];
+
+/// What the git-state watcher's callback tells its coalescer thread.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GitStateMessage {
+    /// `HEAD` or `config` was touched — the displayed state changed.
+    StateTouched,
+    /// A `.git` entry appeared under a root that had none — `git init` ran, so
+    /// the watcher must re-arm onto the new repo's state files.
+    GitDirAppeared,
+}
+
+/// Whether `path` names one of the two git-state files. The watch is
+/// non-recursive on the git dir itself, so a matching name is a top-level entry
+/// — never something under `objects/` or `refs/`.
+fn is_git_state_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| GIT_STATE_FILE_NAMES.contains(&name))
+}
+
+/// Whether `path` names a `.git` entry (the thing `git init` creates).
+fn is_git_dir_entry(path: &Path) -> bool {
+    path.file_name().and_then(|name| name.to_str()) == Some(GIT_DIR_NAME)
+}
+
+/// The directories holding the workspace's `HEAD` and `config`, each to be
+/// watched non-recursively. A plain repo keeps both directly in `<root>/.git` —
+/// one dir. A linked worktree or submodule keeps a `.git` *file* pointing
+/// elsewhere: `HEAD` sits in the resolved git dir and `config` in the common
+/// dir, so both are watched (deduplicated when they coincide). Empty when the
+/// workspace has no git yet.
+fn git_state_dirs(root: &Path) -> Vec<PathBuf> {
+    let git_entry = root.join(GIT_DIR_NAME);
+    if git_entry.is_dir() {
+        return vec![git_entry];
+    }
+    if !git_entry.is_file() {
+        return Vec::new();
+    }
+    resolved_git_dirs(root)
+}
+
+/// Ask git where a `.git`-file workspace's real git dir and common dir live
+/// (`--path-format=absolute` keeps both absolute regardless of git's cwd). Any
+/// failure resolves to no dirs — the state watcher then stays quiet rather than
+/// watching a guessed location.
+fn resolved_git_dirs(root: &Path) -> Vec<PathBuf> {
+    let Ok(output) = crate::util::command("git")
+        .arg("-C")
+        .arg(root)
+        .args([
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-dir",
+            "--git-common-dir",
+        ])
+        .output()
+    else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    unique_dirs(String::from_utf8_lossy(&output.stdout).lines())
+}
+
+/// Distinct, order-preserving directories from git's line-per-dir output.
+fn unique_dirs<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let dir = PathBuf::from(trimmed);
+        if !dirs.contains(&dir) {
+            dirs.push(dir);
+        }
+    }
+    dirs
+}
+
+/// Arm (or re-arm) the live-git-state watch for `root`, replacing any previous
+/// one. With a repo present it watches the dir(s) holding `HEAD` and `config`;
+/// with none it watches the workspace root itself, non-recursively, purely to
+/// see a `.git` entry appear — that costs one handle on a handful of direct
+/// children (never the workspace tree, which the recursive feed watcher already
+/// covers), and is what lets a `git init` run *after* the project opened gain
+/// the real watch without any polling. Best-effort: a failure to arm just means
+/// git state won't live-update until the next re-root.
+fn arm_git_state(app: &AppHandle, root: &Path) {
+    let state: State<WatcherState> = app.state();
+    let Ok(mut guard) = state.git_state.lock() else {
+        return;
+    };
+    rearm_git_state_locked(app, root, &mut guard);
+}
+
+/// The arming body, run under the `git_state` lock (shared by `arm_git_state`
+/// and the coalescer's post-`git init` re-arm, which already holds it).
+fn rearm_git_state_locked(app: &AppHandle, root: &Path, slot: &mut Option<GitStateWatcher>) {
+    // Drop the previous watch first, so a failed re-arm can't leave a stale
+    // watcher reporting another root's repo.
+    *slot = None;
+
+    let dirs = git_state_dirs(root);
+    let (sender, receiver) = channel::<GitStateMessage>();
+    let armed = if dirs.is_empty() {
+        watch_for_git_init(root, sender)
+    } else {
+        watch_git_state(&dirs, sender)
+    };
+    let Ok(watcher) = armed else {
+        return;
+    };
+    spawn_git_state_coalescer(app.clone(), root.to_path_buf(), receiver);
+    *slot = Some(GitStateWatcher {
+        root: root.to_path_buf(),
+        _watcher: watcher,
+    });
+}
+
+/// The no-repo-yet sentinel: report a `.git` entry appearing among the root's
+/// direct children.
+fn watch_for_git_init(
+    root: &Path,
+    sender: Sender<GitStateMessage>,
+) -> notify::Result<RecommendedWatcher> {
+    let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
+        let Ok(event) = result else { return };
+        let git_dir_appeared = matches!(event.kind, EventKind::Create(_))
+            && event.paths.iter().any(|path| is_git_dir_entry(path));
+        if git_dir_appeared {
+            let _ = sender.send(GitStateMessage::GitDirAppeared);
+        }
+    })?;
+    watcher.watch(root, RecursiveMode::NonRecursive)?;
+    Ok(watcher)
+}
+
+/// The repo-present watch: report touches of `HEAD`/`config` in the state dirs.
+/// Never the whole `.git` tree — `objects/` alone turns a busy repo into an
+/// event firehose; a non-recursive watch on the git dir sees exactly its
+/// top-level entries, and the name filter drops the rest (`index`, lockfiles,
+/// `FETCH_HEAD`, …) before they cost anything.
+fn watch_git_state(
+    dirs: &[PathBuf],
+    sender: Sender<GitStateMessage>,
+) -> notify::Result<RecommendedWatcher> {
+    let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
+        let Ok(event) = result else { return };
+        if event.paths.iter().any(|path| is_git_state_file(path)) {
+            let _ = sender.send(GitStateMessage::StateTouched);
+        }
+    })?;
+    for dir in dirs {
+        watcher.watch(dir, RecursiveMode::NonRecursive)?;
+    }
+    Ok(watcher)
+}
+
+/// One thread per armed git-state watch: collapse each burst of messages into a
+/// single `git://state` emission, and — when the burst says `git init` just ran
+/// — swap the root sentinel for the real `HEAD`/`config` watch first. The
+/// re-arm happens on this thread, never inside the notify callback (a watcher
+/// must not be dropped from its own event callback). The thread retires itself:
+/// re-arming (or a re-root) drops the watcher holding the channel's sender, so
+/// `recv` errors and the loop ends. Because messages buffered before that drop
+/// still arrive, each burst first confirms this thread's root is still the
+/// armed one — a superseded thread must neither re-arm nor emit for a
+/// workspace the window has moved on from.
+fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<GitStateMessage>) {
+    thread::spawn(move || {
+        while let Ok(first) = receiver.recv() {
+            let strongest = drain_burst(&receiver, first, GIT_STATE_COALESCE);
+            {
+                let state: State<WatcherState> = app.state();
+                let Ok(mut guard) = state.git_state.lock() else {
+                    return;
+                };
+                let speaks_for_current_root =
+                    guard.as_ref().is_some_and(|active| active.root == root);
+                if !speaks_for_current_root {
+                    return;
+                }
+                if strongest == GitStateMessage::GitDirAppeared {
+                    rearm_git_state_locked(&app, &root, &mut guard);
+                }
+            }
+            let _ = app.emit(GIT_STATE_EVENT, ());
+        }
+    });
+}
+
+/// Keep receiving until the channel stays quiet for `window`, and return the
+/// strongest message seen: `GitDirAppeared` outranks `StateTouched` because it
+/// additionally requires a re-arm (git init creates `.git`, `HEAD`, and
+/// `config` in one quick burst — one event, one re-arm).
+fn drain_burst(
+    receiver: &Receiver<GitStateMessage>,
+    first: GitStateMessage,
+    window: Duration,
+) -> GitStateMessage {
+    let mut strongest = first;
+    while let Ok(message) = receiver.recv_timeout(window) {
+        if message == GitStateMessage::GitDirAppeared {
+            strongest = message;
+        }
+    }
+    strongest
 }
 
 /// Watch a set of folders (non-recursively) and report when anything inside one
@@ -653,12 +912,15 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::{
-        ignored_by_static_dirs, manifest_ignore_dirs, read_preview_text, resolve_watch_root,
-        static_ignore_dirs, surfaces, ChangeKind, MAX_PREVIEW_BYTES,
+        drain_burst, git_state_dirs, ignored_by_static_dirs, is_git_dir_entry, is_git_state_file,
+        manifest_ignore_dirs, read_preview_text, resolve_watch_root, static_ignore_dirs, surfaces,
+        unique_dirs, ChangeKind, GitStateMessage, MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::sync::mpsc::channel;
+    use std::time::Duration;
 
     #[test]
     fn a_created_or_modified_file_that_vanished_is_not_surfaced() {
@@ -798,6 +1060,85 @@ mod tests {
         // No manifest present, so nothing beyond the baseline is added.
         assert!(!dirs.contains(".gradle"));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn head_and_config_are_the_git_state_files() {
+        assert!(is_git_state_file(Path::new(r"C:\repo\.git\HEAD")));
+        assert!(is_git_state_file(Path::new(r"C:\repo\.git\config")));
+    }
+
+    #[test]
+    fn other_git_dir_entries_are_not_git_state_files() {
+        assert!(!is_git_state_file(Path::new(r"C:\repo\.git\index")));
+        assert!(!is_git_state_file(Path::new(r"C:\repo\.git\ORIG_HEAD")));
+        assert!(!is_git_state_file(Path::new(r"C:\repo\.git\config.lock")));
+        assert!(!is_git_state_file(Path::new(r"C:\repo\.git\packed-refs")));
+    }
+
+    #[test]
+    fn only_a_dot_git_entry_announces_the_repo_appearing() {
+        assert!(is_git_dir_entry(Path::new(r"C:\repo\.git")));
+        assert!(!is_git_dir_entry(Path::new(r"C:\repo\.gitignore")));
+        assert!(!is_git_dir_entry(Path::new(r"C:\repo\src")));
+    }
+
+    #[test]
+    fn unique_dirs_trims_dedupes_and_skips_empty_lines() {
+        let dirs =
+            unique_dirs([" C:/repo/.git ", "", "C:/repo/.git", "C:/common/.git"].into_iter());
+        assert_eq!(
+            dirs,
+            vec![
+                PathBuf::from("C:/repo/.git"),
+                PathBuf::from("C:/common/.git")
+            ]
+        );
+    }
+
+    #[test]
+    fn a_workspace_with_a_git_dir_watches_exactly_that_dir() {
+        let dir = scratch("git-state-repo");
+        let git_dir = dir.join(".git");
+        fs::create_dir_all(&git_dir).expect("create .git dir");
+        assert_eq!(git_state_dirs(&dir), vec![git_dir]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_workspace_without_git_yields_no_state_dirs() {
+        let dir = scratch("git-state-bare");
+        assert!(git_state_dirs(&dir).is_empty());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_quiet_channel_returns_the_first_message() {
+        let (_sender, receiver) = channel::<GitStateMessage>();
+        let strongest = drain_burst(
+            &receiver,
+            GitStateMessage::StateTouched,
+            Duration::from_millis(5),
+        );
+        assert_eq!(strongest, GitStateMessage::StateTouched);
+    }
+
+    #[test]
+    fn a_burst_coalesces_and_git_dir_appeared_outranks_state_touches() {
+        let (sender, receiver) = channel::<GitStateMessage>();
+        sender
+            .send(GitStateMessage::GitDirAppeared)
+            .expect("send buffered message");
+        sender
+            .send(GitStateMessage::StateTouched)
+            .expect("send buffered message");
+        drop(sender);
+        let strongest = drain_burst(
+            &receiver,
+            GitStateMessage::StateTouched,
+            Duration::from_millis(5),
+        );
+        assert_eq!(strongest, GitStateMessage::GitDirAppeared);
     }
 
     #[test]
