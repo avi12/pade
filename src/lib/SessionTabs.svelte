@@ -72,14 +72,14 @@
 
   // Read each mirror pill's natural width into a fresh map (index-aligned with
   // `sessions`, since the mirror renders them in order).
-  function measureTabs() {
+  function measureTabs(sessionList: AgentSession[]) {
     const mirror = measureEl;
     if (!mirror) {
       return;
     }
 
     tabWidths.clear();
-    sessions.forEach((session, index) => {
+    sessionList.forEach((session, index) => {
       const element = mirror.children[index];
       if (element instanceof HTMLElement) {
         tabWidths.set(session.id, element.offsetWidth);
@@ -94,13 +94,15 @@
       stripWidth = strip.clientWidth;
     }
 
-    measureTabs();
+    measureTabs(sessions);
   }
 
-  // Re-measure after the mirror re-renders for a changed session set.
+  // Re-measure after the mirror re-renders for a changed session set. Passing
+  // `sessions` in is what subscribes this effect to that set: a bare read would
+  // be an unused expression, and measureTabs bails early before touching it when
+  // the mirror isn't mounted yet.
   $effect(() => {
-    void sessions.length;
-    measureTabs();
+    measureTabs(sessions);
   });
 
   // Track the strip's available width and re-measure on any reflow (font load,
