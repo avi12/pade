@@ -6,7 +6,11 @@
 //   2. refresh the name every 30s while it keeps working;
 //   3. when it stops (goes idle or exits), generate one final name, then pause;
 //   4. when work resumes, the 30s refresh restarts.
-// The name is produced backend-side from the session's rolling transcript.
+// Every generate is throttled to at most once per 30s per session, so a flurry of
+// status edges — a quick stop/resume, or a status flicker while a long task runs —
+// can never rename faster than that cadence (rule 3's stop-name is skipped when it
+// falls within 30s of the last). The name is produced backend-side from the
+// session's rolling transcript.
 
 import { pty } from "@/lib/bridge";
 import { setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
@@ -19,10 +23,13 @@ const REFRESH_MS = 30_000;
 /** Sessions with auto-naming on → the agent command used to name them. */
 const naming = new SvelteMap<string, string>();
 
-/** Non-reactive per-session runtime: the refresh timer and last-seen status. */
+/** Non-reactive per-session runtime: the refresh timer, last-seen status, and the
+ *  time of the last name generated (to throttle every generate to the 30s cadence).
+ *  `0` means none yet, so the first generate always runs. */
 interface Controller {
   timer?: ReturnType<typeof setInterval>;
   last: SessionStatus;
+  lastGeneratedAt: number;
 }
 // Plain Map: timers/last-status are runtime bookkeeping, not reactive UI state.
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -33,6 +40,16 @@ async function generate(id: string): Promise<void> {
   if (agent === undefined) {
     return;
   }
+
+  // Throttle: at most one name per 30s per session, whatever triggered this
+  // (toggle-on, the interval, or a stop edge). Stamp the time up front so a
+  // concurrent trigger during the in-flight request can't slip a second one in.
+  const controller = controllers.get(id);
+  if (controller === undefined || Date.now() - controller.lastGeneratedAt < REFRESH_MS) {
+    return;
+  }
+
+  controller.lastGeneratedAt = Date.now();
 
   try {
     const name = await pty.generateName({
@@ -69,7 +86,10 @@ export function toggleNaming({ id, agent }: {
   }
 
   naming.set(id, agent);
-  controllers.set(id, { last: sessionStatus(id) });
+  controllers.set(id, {
+    last: sessionStatus(id),
+    lastGeneratedAt: 0
+  });
 
   if (sessionStatus(id) === SessionStatus.enum.working) {
     generate(id);
