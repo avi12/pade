@@ -201,10 +201,15 @@ export function createUsageResume(host: ResumeHost) {
     const pct = measuredContextPct(session.id);
     const hasRoom = pct === null || pct < CONTEXT_HANDOFF_PCT;
     if (hasRoom) {
-      await pty.write({
-        id: session.id,
-        data: "continue\r"
-      });
+      try {
+        await pty.write({
+          id: session.id,
+          data: "continue\r"
+        });
+      } catch {
+        // The session may have exited between scheduling and this resume; ignore.
+      }
+
       return;
     }
 
@@ -225,9 +230,9 @@ export function createUsageResume(host: ResumeHost) {
     if (resetAt === null) {
       // Reset time unknown (offline, no token): probe again in a while.
       timers.set(
-        session.id, setTimeout(() => {
+        session.id, setTimeout(async () => {
           timers.delete(session.id);
-          void schedule(session, hit);
+          await schedule(session, hit);
         }, delay)
       );
       return;
@@ -235,7 +240,7 @@ export function createUsageResume(host: ResumeHost) {
 
     const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(resetAt);
     note = `${session.agent.label} hit its usage limit — resuming at ${clock}.`;
-    timers.set(session.id, setTimeout(() => void resume(session), delay));
+    timers.set(session.id, setTimeout(async () => { await resume(session); }, delay));
   }
 
   // Scan for freshly limited sessions and schedule their resume; prune state
@@ -260,7 +265,7 @@ export function createUsageResume(host: ResumeHost) {
           ...hit,
           scheduled: true
         });
-        void schedule(session, hit);
+        schedule(session, hit);
       }
     }
   }
