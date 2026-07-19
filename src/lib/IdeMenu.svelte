@@ -93,7 +93,9 @@
               <span class="editor-glyph" data-brand={ideBrand(editor.id)}><Icon name={ideIcon(editor.id)} /></span>
               {editor.label}
             </span>
-            {#if index === 0 && hasAlternatives}
+            {#if editor.chosen}
+              <span class="best">your pick</span>
+            {:else if index === 0 && hasAlternatives}
               <span class="best">best fit</span>
             {/if}
           </button>

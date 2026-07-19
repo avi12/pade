@@ -157,7 +157,10 @@ export const Ide = z.object({
   command: z.string(),
   /** A console editor (Neovim, Vim, Helix) PADE opens in a terminal tab rather
    *  than launching as a detached window. */
-  terminal: z.boolean().default(false)
+  terminal: z.boolean().default(false),
+  /** Leads `ide_suggest`'s ranking because of an explicit per-project pick —
+   *  badged as the user's choice, not the auto-detected best fit. */
+  chosen: z.boolean().default(false)
 });
 export type Ide = z.infer<typeof Ide>;
 

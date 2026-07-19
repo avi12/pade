@@ -364,8 +364,10 @@ breaks a consumer with no type error:
   before any repo exists.
 - **`ide_suggest`'s array order is the contract** — consumers treat `ides[0]`
   as *the* editor for reveal/open actions. An explicit per-project pick
-  (`ide_choose_editor`) always leads that order, so a choice made on one
-  surface wins on every other.
+  (`ide_choose_editor`) always leads that order — and is flagged `chosen` in
+  the payload, so the UI badges it as the user's pick rather than the
+  auto-detected best fit — so a choice made on one surface wins on every
+  other.
 - **`vcs_remote_url` returns a host root**; the `/commit/<sha>` path appended
   by `CommitLog`/`CommitModal` is a GitHub-shaped assumption — the seam to
   change for GitLab (`/-/commit/`) or Bitbucket (`/commits/`).

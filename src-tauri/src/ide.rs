@@ -780,6 +780,7 @@ fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
             label: i.label.into(),
             command: i.command.into(),
             terminal: false,
+            chosen: false,
         });
     }
     // User-added editors are first-class too — resolve them by their stored id.
@@ -860,6 +861,7 @@ fn added_editor_ides(added: Vec<crate::workspace::AddedEditor>) -> Vec<Ide> {
             id: e.id,
             label: e.label,
             command: e.path,
+            chosen: false,
         })
         .collect()
 }
@@ -879,6 +881,10 @@ pub struct Ide {
     command: String,
     /// A console editor PADE runs inside a terminal tab (never a detached window).
     terminal: bool,
+    /// True when this editor leads [`ide_suggest`]'s ranking because of an
+    /// explicit per-project pick ([`ide_choose_editor`]) — the UI badges it as
+    /// the user's choice rather than the auto-detected best fit.
+    chosen: bool,
 }
 
 #[tauri::command]
@@ -891,6 +897,7 @@ pub fn ide_detect() -> Vec<Ide> {
             label: i.label.into(),
             command: i.command.into(),
             terminal: false,
+            chosen: false,
         })
         .chain(added_editors())
         .collect()
@@ -1413,7 +1420,7 @@ pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     let rule = kinds
         .first()
         .and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
-    let configured = preference_chain(choice, rule, prefs.ide_fallback, |id| {
+    let configured = preference_chain(choice.clone(), rule, prefs.ide_fallback, |id| {
         editor_covers_project(id, &profile.totals, &required_kinds)
     });
     let auto = suggestible_editor_ids(&profile.totals, &required_kinds);
@@ -1425,7 +1432,11 @@ pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
             ordered.push(id);
         }
     }
-    Ok(ordered.iter().filter_map(|id| lookup(id, &added)).collect())
+    let mut ranked: Vec<Ide> = ordered.iter().filter_map(|id| lookup(id, &added)).collect();
+    for ide in &mut ranked {
+        ide.chosen = choice.as_deref() == Some(ide.id.as_str());
+    }
+    Ok(ranked)
 }
 
 /// Remember an explicit editor pick for the project at `cwd`. The pick becomes
