@@ -141,6 +141,20 @@ stream and hands it back through `pty_history`. Every chunk carries its position
 the stream, so a frontend already listening to the live feed while it asks for the
 history can tell which chunks that history already contains from which are new.
 
+That attach path is also what makes a whole-window reload survivable. The shell
+persists its pane mapping (project + sessions + layout) in sessionStorage
+(`session-restore`), and boots by intersecting it with the backend's live roster
+(`pty_list`): whatever is still running is re-adopted pane by pane and replayed —
+so an accidental reload (F5, a crash recovery) lands back inside the project
+instead of orphaning invisible agents behind a picker. Liveness is never
+persisted, only *read*: a **deliberate** leave (switching project, going back to
+the picker) first waits for each session to go idle (`whenSessionIdle` — the
+`ready` output-quiet signal, so nothing mid-flight is severed; the agent's own
+auto-save plus `/resume` cover continuity) and then kills its PTYs, which is
+exactly why nothing survives the next boot's intersection. And because
+sessionStorage dies with the window, an app restart never resurrects agents the
+user meant to end.
+
 A **fullscreen** program's history is not a document, though — it is a stream of edits
 to a framebuffer, and a trimmed one replays as a torn frame. So `pty.rs` also tracks
 which screen the program is on, and for the alternate one the terminal replays what it
@@ -230,7 +244,7 @@ responsibility, and who it collaborates with.
 | --- | --- | --- |
 | `src/main.ts` | Entry: mounts `App`, loads the theme | `App.svelte`, `theme.css` |
 | `src/theme.css` | M3 Expressive tokens, global keyframes, base document styles | everything |
-| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C; a never-named temp workspace instead returns to the picker and is deleted), in-window project switch (kills every session of the project being left — no agent keeps running, or cwd-locking, a workspace the window has moved on from), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `auto-name`, `stores/handoff`, `workspace-relocate`, `send-shortcut`, `tab-shortcuts`, `stores/toast` |
+| `src/App.svelte` | App-shell orchestrator: phase routing (loading → picker / onboarding / ready), spawned-window boot, reload re-attach (a boot first re-adopts the backend's still-live sessions via `session-restore`, before any stale `w=` query routing), session list + split panes, launch flows, auto-close-on-exit (respawn the same agent when the last session self-exits, e.g. Ctrl-C; a never-named temp workspace instead returns to the picker and is deleted), in-window project switch and leave-to-picker (deliberate leaves gracefully kill every session of the project being left — idle-first via `whenSessionIdle` — so no agent keeps running, or cwd-locking, a workspace the window has moved on from), side-panel host; wires the extracted concerns below | `SessionTabs`, panels, `auto-name`, `session-restore`, `stores/handoff`, `workspace-relocate`, `send-shortcut`, `tab-shortcuts`, `stores/toast` |
 | `src/lib/SessionTabs.svelte` | Session tab strip: pill/dot/"+N" tiers, off-layout measurement, add-agent menu; each full tab's agent glyph is tinted by its context-window fill (the `--context-*` gauge — colour only, no number) and flashes red (steady red under reduced motion) while its agent waits on a multiple-choice answer, until that tab is looked at or answered | `tab-fit`, `stores/sessions`, `stores/context`, `stores/sessionAttention`, `context-level`, `agent-icon` |
 | `src/lib/AppMenu.svelte` | Top-bar project switcher: an Open-windows list (focus any window; cycle with Ctrl+Shift+Alt+[ / ]), a filter (Ctrl P — a capture-phase shortcut so the terminal can't swallow it), pinned/recent rows with truncation-`title` tooltips on clipped paths and a per-row kebab (pin/unpin, remove-from-list, delete-directory) and drag-reorderable pins, then open-a-project / new-window actions. Row metadata (open windows, language kinds, branch chips) is fetched on each open and re-fetched on `git://state` while the menu is open, so a branch switch updates the chips in place. **Every list change animates**: each row carries a stable `view-transition-name` and the mutation runs inside a view transition scoped to the rows container (`switchList.startViewTransition` — never `document`, so the live-repainting terminal is never snapshotted/ghosted), so a pinned row glides Recent→Pinned and a removed/deleted row morphs out (reduced motion runs the update directly). The kebab's **delete-directory confirms in place**: it owns a `nested` `ConfirmDialog` that sits inside this popover, so the switcher stays visible (dimmed) behind the prompt; the shell only performs the removal | `bridge`, `drag-reorder`, `ConfirmDialog`, `truncation-tooltip` |
 | `src/lib/UsageMeter.svelte` | Usage/quota pill in the top bar, grouped **per running agent** (Claude's real limits; other agents shown as an honest "unknown"): few-agents chips vs many-agents pills + a "+N" overflow, opening the per-agent details dialog | `bridge.usage`, `usage-groups` |
@@ -262,6 +276,7 @@ responsibility, and who it collaborates with.
 | `src/lib/auto-name.ts` | Temp-workspace auto-naming: distinct-file counting, once-per-workspace naming call | `bridge.feed/workspace`, `paths` |
 | `src/lib/workspace-relocate.ts` | Move/rename/delete with cwd-lock handling: kill locking sessions → backend op → resume remapped (delete has nothing to resume and drops the project) | `bridge`, `stores/sessions`, `stores/context` |
 | `src/lib/send-shortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
+| `src/lib/session-restore.ts` | Re-attach after an accidental reload: persists the window's pane mapping (project + sessions + panes) in **sessionStorage** — survives a WebView reload, dies with the window, so an app restart never resurrects ended agents — and restores only the intersection with the backend's live roster (`pty.list`), the sole authority on liveness. A deliberate leave kills its PTYs first, so nothing survives the intersection — no separate leave flag | `bridge.pty`, `types`, `App` |
 | `src/lib/tab-shortcuts.ts` | Tab keyboard shortcuts: two pure matchers — `matchTabShortcut` (chord → new / close / cycle / launch-menu action) and `matchTabSelection` (Ctrl+1..8 → that tab, Ctrl+9 → the last) — plus the capture-phase registrar wiring both to the app's handlers | `focus`, `App` |
 | `src/lib/pane-nav.ts` | Pure previous/next/nth pane lookup for the split-pane keyboard nav (`previousPaneId`/`nextPaneId` wrap; `paneIdAt` bounds-checks) | `pane-shortcuts` |
 | `src/lib/pane-shortcuts.ts` | Split-pane keyboard shortcuts — the sibling of `tab-shortcuts`: pure `matchPaneShortcut` (Ctrl+[ / Ctrl+] cycle, Ctrl+Alt+1..9 → nth pane, Ctrl+Alt+W → close the active pane) + a capture-phase registrar resolving the target pane through `pane-nav` | `pane-nav`, `focus`, `App` |

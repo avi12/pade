@@ -24,6 +24,11 @@
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
+  import {
+    clearSessionSnapshot,
+    restoreLiveSnapshot,
+    saveSessionSnapshot
+  } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
@@ -265,6 +270,16 @@
       agents = detected;
       settings = saved;
 
+      // An accidental reload (F5, a crash recovery) re-attaches this window to
+      // the agents still running in the backend — before any query routing,
+      // whose `w=` went stale the moment the user moved on inside the window
+      // (the incident: a `?w=empty` window living in a project rebooted to the
+      // picker and orphaned its live PTYs, unreachable).
+      const reattached = await reattachAfterReload();
+      if (reattached) {
+        return;
+      }
+
       // A spawned window carries a `w=` query that overrides the normal cold-start.
       // The plain main window (no query) keeps today's launch_context behavior.
       const query = new URLSearchParams(location.search);
@@ -324,6 +339,59 @@
 
     return false;
   }
+
+  // Re-attach the live sessions an accidental reload orphaned. The snapshot
+  // (sessionStorage — survives a reload, dies with the window) says which panes
+  // this window was showing; `pty_list` says which of them the backend still
+  // hosts, and only that intersection is restored — a deliberate leave killed
+  // its PTYs, so nothing survives it and boot proceeds normally. Each restored
+  // pane re-attaches through Terminal's existing path: spawn is a no-op for a
+  // running session and `pty_history` replays the conversation.
+  async function reattachAfterReload(): Promise<boolean> {
+    const snapshot = await restoreLiveSnapshot();
+    if (!snapshot) {
+      return false;
+    }
+
+    try {
+      await workspace.open(snapshot.project);
+    } catch {
+      clearSessionSnapshot();
+      return false;
+    }
+
+    currentProject = snapshot.project;
+    void windows.registerProject(snapshot.project);
+    sessions = snapshot.sessions;
+    paneIds = snapshot.paneIds;
+    activeId = snapshot.activeId;
+    // Stamped as launched-now so a session that dies right after the restore
+    // reads as a failed start (no respawn loop), like any fresh launch.
+    for (const restored of snapshot.sessions) {
+      sessionLaunchedAt.set(restored.id, Date.now());
+    }
+
+    phase = Phase.ready;
+    await loadBranches();
+    return true;
+  }
+
+  // Persist this window's pane mapping so a reload can re-attach it (above).
+  // Never while still booting — the effect's first run lands before the restore
+  // has read the snapshot, and would wipe it. Once live, an empty project or
+  // session list clears the snapshot instead: nothing to re-attach.
+  $effect(() => {
+    if (phase === Phase.loading) {
+      return;
+    }
+
+    saveSessionSnapshot({
+      project: currentProject,
+      sessions,
+      paneIds,
+      activeId
+    });
+  });
 
   // Re-detect installed agents so the picker reflects an agent the user just
   // installed or removed — when the app becomes visible again (they switched back
