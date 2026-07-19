@@ -7,10 +7,11 @@
   import { fileTypeBadge } from "@/lib/file-type";
   import { formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { isImagePath } from "@/lib/image";
+  import { markdownDocument } from "@/lib/markdown";
   import { revealBlock } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
+  import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
   import { editorsFor, ensureEditors } from "@/lib/stores/editors.svelte";
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
@@ -126,6 +127,68 @@
   // Ids whose diff fetch failed, so a re-opened previously-failed card shows
   // "Couldn't load" rather than the empty-cache "No preview" message.
   const failedIds = new SvelteSet<string>();
+
+  // A markdown/HTML card shows a Code|Preview toggle: Code is the diff (the
+  // feed's core purpose, so the default), Preview is the rendered result in a
+  // sandboxed iframe. The chosen pane is kept per card id.
+  const PreviewPane = {
+    code: "code",
+    preview: "preview"
+  } as const;
+  type PreviewPane = (typeof PreviewPane)[keyof typeof PreviewPane];
+  const paneById = new SvelteMap<string, PreviewPane>();
+  // The sandbox-ready srcdoc per card id (a full HTML document for markdown, the
+  // raw file text for HTML), or `null` when its text couldn't be fetched.
+  // Fetched lazily the first time a card switches to Preview — exactly like the
+  // image cache, so a feed of docs never fetches them all at once.
+  const previewDocCache = new SvelteMap<string, string | null>();
+
+  function paneOf(id: string): PreviewPane {
+    return paneById.get(id) ?? PreviewPane.code;
+  }
+
+  // The iframe srcdoc for a file's current text: markdown is rendered to a full
+  // themed document, an HTML file is shown as-is (both inert — see the sandboxed
+  // iframe below).
+  function previewDocument({ path, text }: {
+    path: string;
+    text: string;
+  }): string {
+    return isMarkdownPath(path) ? markdownDocument(text) : text;
+  }
+
+  // Switch a card to its Preview pane, fetching the file's current text on the
+  // first switch and caching the srcdoc. Own error handling, so the promise
+  // never rejects.
+  async function showPreview({ id, path }: {
+    id: string;
+    path: string;
+  }): Promise<void> {
+    paneById.set(id, PreviewPane.preview);
+
+    if (previewDocCache.has(id)) {
+      return;
+    }
+
+    try {
+      const text = await feed.text({ path });
+      if (text === null) {
+        previewDocCache.set(id, null);
+        return;
+      }
+
+      previewDocCache.set(
+        id, previewDocument({
+          path,
+          text
+        })
+      );
+      failedIds.delete(id);
+    } catch {
+      failedIds.add(id);
+      previewDocCache.set(id, null);
+    }
+  }
 
   // A reactive clock so relative timestamps ("3m ago") tick forward on their own.
   let now = $state(Date.now());
@@ -431,6 +494,8 @@
               {@const isOpen = expandedId === ev.id}
               {@const badge = fileTypeBadge(ev.path)}
               {@const isImage = isImagePath(ev.path)}
+              {@const canPreview = isMarkdownPath(ev.path) || isHtmlPath(ev.path)}
+              {@const pane = paneOf(ev.id)}
               <li class="card {ev.kind}" class:open={isOpen}>
                 <span class="stripe" aria-hidden="true"></span>
                 <button
@@ -530,7 +595,24 @@
                         <span class="fpath">{ev.path}</span>
                       </button>
                       <span class="spacer"></span>
-                      {#if !isImage && hasPreview}
+                      {#if canPreview}
+                        <div class="seg" aria-label="Preview mode" role="group">
+                          <button
+                            class:on={pane === PreviewPane.code}
+                            aria-pressed={pane === PreviewPane.code}
+                            onclick={() => paneById.set(ev.id, PreviewPane.code)}
+                          >Code</button>
+                          <button
+                            class:on={pane === PreviewPane.preview}
+                            aria-pressed={pane === PreviewPane.preview}
+                            onclick={() => showPreview({
+                              id: ev.id,
+                              path: ev.path
+                            })}
+                          >Preview</button>
+                        </div>
+                      {/if}
+                      {#if !isImage && pane === PreviewPane.code && hasPreview}
                         <div class="seg" aria-label="Diff view" role="group">
                           <button
                             class:on={diffMode === DiffMode.unified}
@@ -564,6 +646,30 @@
                         <p class="state">Couldn't load the image.</p>
                       {:else}
                         <p class="state">No image preview available.</p>
+                      {/if}
+                    {:else if canPreview && pane === PreviewPane.preview}
+                      {@const doc = previewDocCache.get(ev.id)}
+                      {#if doc}
+                        <!-- The untrusted markdown/HTML render is quarantined in a
+                             sandboxed iframe with NO allow-scripts and NO
+                             allow-same-origin: it runs no scripts, has an opaque
+                             origin, and can't reach the parent — the web analog of
+                             PowerToys' locked-down WebView2. `srcdoc` keeps it fully
+                             inline (no external ref under the CSP). -->
+                        <iframe
+                          class="render"
+                          sandbox=""
+                          srcdoc={doc}
+                          title="Preview of {baseName(ev.path)}"
+                        ></iframe>
+                      {:else if previewDocCache.has(ev.id)}
+                        {#if isErrored}
+                          <p class="state">Couldn't render the preview.</p>
+                        {:else}
+                          <p class="state">No preview available.</p>
+                        {/if}
+                      {:else}
+                        <p class="state">Rendering preview…</p>
                       {/if}
                     {:else if !hasPreview}
                       {#if isErrored}
@@ -1144,6 +1250,17 @@
     /* Scopes the unified↔split View Transition to the diff body (only one card
        is ever open, so the name is unique) — the rest of the app stays still. */
     view-transition-name: diff-body;
+  }
+
+  /* Rendered markdown/HTML preview: a sandboxed iframe standing in for the text
+     diff. Themed background shows while its isolated document loads (and behind a
+     transparent HTML body); the document itself carries its own light/dark CSS. */
+  .render {
+    display: block;
+    block-size: 360px;
+    inline-size: 100%;
+    border: 0;
+    background: var(--surface-1);
   }
 
   /* Image preview: the rendered picture in place of a text diff. A subtle

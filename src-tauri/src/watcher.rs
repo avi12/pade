@@ -1256,9 +1256,35 @@ pub fn feed_diff(
     Ok(Some(FeedDiff { before, after }))
 }
 
+/// The current text of a watched `path`, for the Change Feed's markdown/HTML
+/// Preview toggle: the same UTF-8, size-capped read [`feed_diff`] uses for its
+/// `after`, but handed over on its own so the Preview renders the file as it is
+/// now (the diff is baseline→current; the preview is just current). `None` when
+/// the path was not surfaced by this window's watch this session (so the command
+/// can't be turned into an arbitrary file reader), is gone, or is binary / over
+/// [`MAX_PREVIEW_BYTES`] — the card then keeps its diff and offers no preview.
+#[tauri::command]
+pub fn feed_text(
+    window: WebviewWindow,
+    state: State<WatcherState>,
+    path: String,
+) -> Result<Option<String>, String> {
+    let Some(watch) = window_watch(&state, window.label()) else {
+        return Ok(None);
+    };
+    {
+        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
+        if !baselines.contains_key(Path::new(&path)) {
+            return Ok(None);
+        }
+    }
+
+    Ok(read_preview_text(Path::new(&path)))
+}
+
 /// The image extensions the Change Feed previews inline, each paired with the
 /// MIME type its `data:` URL carries. The one authoritative home for the
-/// extension→MIME mapping (its TS mirror is `ImageExtension` in `@/lib/image`);
+/// extension→MIME mapping (its TS mirror is `ImageExtension` in `@/lib/preview`);
 /// an extension absent here is not treated as a previewable image. SVG is
 /// included and served as a data URL like the raster formats — the frontend
 /// renders every image through `<img src>`, so untrusted SVG markup is never

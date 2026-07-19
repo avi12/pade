@@ -287,6 +287,13 @@ export const feed = {
   image: ({ path }: {
     path: string;
   }) => call("feed_image", FeedImage.nullable(), { path }),
+  /** The current text of a watched markdown/HTML path, for the card's Preview
+   *  toggle (the file rendered as it is now). `null` when the path wasn't
+   *  snapshotted this session, is gone, or is binary / over the backend's size
+   *  cap — the card then keeps its diff and offers no preview. */
+  text: ({ path }: {
+    path: string;
+  }) => call("feed_text", z.string().nullable(), { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
     on("feed://change", ChangeEvent, callback),
   /** The ignore rules changed (a `.gitignore` edited/created/deleted, or a
