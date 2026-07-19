@@ -14,7 +14,7 @@
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { ChangeKind } from "@/lib/types";
-  import type { Ide } from "@/lib/types";
+  import type { FeedDiff, Ide } from "@/lib/types";
   import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -226,6 +226,37 @@
     }
   }
 
+  // Turn the backend's session-baseline pair into diff lines to render. Normally
+  // that's the baseline→current diff. But a file the watcher first saw a beat
+  // AFTER it was written baselines equal to its current content — the write beat
+  // the first watch poll — so that diff is empty even though the card counts real
+  // growth ("Grew by N lines"). Rather than strand it on "No preview available",
+  // fall back to previewing the whole current file: everything a file created this
+  // session holds IS new, so the full content is the honest preview. A deletion
+  // (empty `after`) keeps its real removal diff — no fallback.
+  function previewLines(preview: FeedDiff | null): DiffLine[] {
+    if (!preview) {
+      return [];
+    }
+
+    const changed = parseDiff(
+      unifiedDiff({
+        before: preview.before,
+        after: preview.after
+      })
+    );
+    if (changed.length > 0 || preview.after.length === 0) {
+      return changed;
+    }
+
+    return parseDiff(
+      unifiedDiff({
+        before: "",
+        after: preview.after
+      })
+    );
+  }
+
   function ago({ stamp, now }: {
     stamp: number;
     now: number;
@@ -339,17 +370,10 @@
                     if (!diffCache.has(ev.id)) {
                       try {
                         // Git-free preview: the backend hands over the session baseline and
-                        // the current content; the shared parse+render path draws the diff.
+                        // the current content; the shared parse+render path draws the diff
+                        // (or the whole file when the baseline landed late — see previewLines).
                         const preview = await feed.diff({ path: ev.path });
-                        const lines = preview
-                          ? parseDiff(
-                            unifiedDiff({
-                              before: preview.before,
-                              after: preview.after
-                            })
-                          )
-                          : [];
-                        diffCache.set(ev.id, lines);
+                        diffCache.set(ev.id, previewLines(preview));
                         failedIds.delete(ev.id);
                       } catch {
                         failedIds.add(ev.id);
