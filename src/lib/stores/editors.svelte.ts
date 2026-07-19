@@ -12,18 +12,30 @@ import type { Ide, Settings } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
 
 /** Ranked editors per project directory — `editorsFor(project)[0]` is *the*
- *  project's editor, mirroring `ide_suggest`'s array-order contract. */
+ *  project's editor, mirroring `ide_suggest`'s array-order contract. This is the
+ *  ONLY reactive map here: `editorsFor` is read in the UI, so a completed fetch
+ *  must re-render the surfaces showing it. */
 const rankedByProject = new SvelteMap<string, Ide[]>();
 
 /** One in-flight suggestion per project: simultaneous callers (the IdeMenu and
  *  the Change Feed mounting together) coalesce onto a single backend census
- *  instead of each running their own. */
-const inFlight = new SvelteMap<string, Promise<void>>();
+ *  instead of each running their own.
+ *
+ *  Deliberately a plain `Map`, NOT a `SvelteMap`: it is internal bookkeeping the
+ *  UI never reads. `refreshEditors` both reads (`get`) and writes (`set`/`delete`)
+ *  it, so a reactive version leaked as a dependency of any `$effect` that called
+ *  the trigger functions — every completed fetch re-invalidated the effect and
+ *  kicked off the next fetch, an ~2 Hz `ide_suggest` loop that pegged the backend.
+ *  A non-reactive map makes the trigger functions reactivity-transparent. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: reactive here causes an effect loop
+const inFlight = new Map<string, Promise<void>>();
 
 /** Identity of the newest fetch per project. A superseded fetch (an explicit
  *  pick landed while its census ran) finds a different token here when it
- *  resolves and discards its pre-pick ranking instead of publishing it. */
-const currentFetchToken = new SvelteMap<string, symbol>();
+ *  resolves and discards its pre-pick ranking instead of publishing it. Plain
+ *  `Map` for the same reason as `inFlight` — bookkeeping, never rendered. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping, must not be reactive
+const currentFetchToken = new Map<string, symbol>();
 
 /** The ranked editors for `project` — reactive; empty until resolved. */
 export function editorsFor(project: string): Ide[] {

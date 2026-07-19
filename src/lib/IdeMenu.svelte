@@ -30,9 +30,12 @@
   const hasAlternatives = $derived(ides.length > 1);
 
   // Re-profile on mount and whenever the active project changes. The store
-  // coalesces this with any other surface's resolve, so the census runs once.
+  // coalesces this with any other surface's resolve, so the census runs once —
+  // and its bookkeeping is non-reactive, so this reacts to `project` alone
+  // (a reactive version once re-triggered here every completed fetch).
   $effect(() => {
-    void refreshEditors(project);
+    const workspace = project;
+    refreshEditors(workspace);
   });
 
   function open(editor: Ide) {
@@ -56,7 +59,9 @@
      changes while you drag a window that stays on screen. -->
 <svelte:document
   onvisibilitychange={() => {
-    if (!document.hidden) void refreshEditors(project);
+    if (!document.hidden) {
+      refreshEditors(project);
+    }
   }}
 />
 

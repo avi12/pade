@@ -159,20 +159,34 @@
   // the open project), so the feed just subscribes to its stream above — no need
   // to arm it here.
 
+  // The workspace's git subtitle, remote gating, manifest members, and editors,
+  // loaded together (concurrently) on mount and on a project switch. Each callee
+  // owns its own error handling, so the gathered promise never rejects.
+  async function loadWorkspaceState(workspace: string): Promise<void> {
+    await Promise.all([
+      loadBranch(workspace),
+      loadRemote(),
+      loadMembers(workspace),
+      // Editors come from the shared store's cache on a mere remount (a side-panel
+      // switch); a fetch only runs when nothing is cached for this project yet.
+      ensureEditors(workspace)
+    ]);
+  }
+
   // Re-read the workspace branch on mount and whenever the window switches
   // projects, and point the persistent feed at the current project so a workspace
   // switch clears stale events even if the panel was closed during the switch.
+  // Reacts to `project` — the loads write state this effect doesn't read, and the
+  // editors store's trigger functions are reactivity-transparent (its bookkeeping
+  // maps are non-reactive on purpose), so this fires per workspace, never per tick.
   $effect(() => {
-    if (project) {
-      retarget(project);
-      void loadBranch(project);
-      void loadRemote();
-      void loadMembers(project);
-      // Editors come from the shared store's cache when the panel merely
-      // remounts (a side-panel switch); a fetch only runs when nothing is
-      // cached for this project yet.
-      void ensureEditors(project);
+    const workspace = project;
+    if (!workspace) {
+      return;
     }
+
+    retarget(workspace);
+    loadWorkspaceState(workspace);
   });
 
   const expandedEvent = $derived(feedStore.events.find(item => item.id === expandedId) ?? null);
