@@ -311,7 +311,10 @@ struct Exit {
 /// stale copy that hides a freshly-installed agent from detection — so a CLI ADE
 /// had just listed as available could fail to start. Unresolvable commands (a task
 /// runner, a shell) pass through untouched, for the PTY to resolve as before.
-fn build_command(command: Option<String>) -> CommandBuilder {
+fn build_command(
+    command: Option<String>,
+    scheme: Option<crate::theming::Scheme>,
+) -> CommandBuilder {
     let program = command
         .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
         .unwrap_or_else(|| {
@@ -331,6 +334,13 @@ fn build_command(command: Option<String>) -> CommandBuilder {
     // (`…\codex-x86_64-pc-windows-msvc.exe`).
     for (key, value) in crate::agents::spawn_env(&program) {
         cmd.env(key, value);
+    }
+    // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent),
+    // so the agent starts matching ADE's current appearance — see theming.rs.
+    if let Some(scheme) = scheme {
+        for (key, value) in crate::theming::spawn_env(&program, scheme) {
+            cmd.env(key, value);
+        }
     }
     // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives
     // it autonomously — no per-tool/edit approval stops. These lead the arg list;
@@ -363,6 +373,8 @@ pub fn pty_spawn(
     // Extra arguments for `command` (e.g. the project path for a terminal
     // editor). Empty/absent for a plain agent or shell session.
     args: Option<Vec<String>>,
+    // ADE's resolved appearance at spawn time, for env-themed CLIs (theming.rs).
+    scheme: Option<crate::theming::Scheme>,
 ) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     if sessions.contains_key(&id) {
@@ -382,7 +394,7 @@ pub fn pty_spawn(
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
-    let mut cmd = build_command(command);
+    let mut cmd = build_command(command, scheme);
     for arg in args.unwrap_or_default() {
         cmd.arg(arg);
     }

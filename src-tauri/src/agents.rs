@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use crate::theming::ThemeConfig;
 use crate::util::{find_in, search_dirs};
 
 struct AgentDef {
@@ -33,6 +34,10 @@ struct AgentDef {
     /// which these flags do NOT dismiss (ADE accepts that separately — see the
     /// frontend's initial-prompt delivery).
     session_args: &'static [&'static str],
+    /// How to force this agent's own UI theme to ADE's scheme via its config
+    /// file — the terminal protocol can't carry it through `ConPTY` (see
+    /// `theming.rs`). `None` for a CLI with no known theme setting.
+    theme_config: Option<ThemeConfig>,
     /// Environment the CLI needs to render the way ADE embeds it. Empty for most.
     env: &'static [(&'static str, &'static str)],
 }
@@ -50,6 +55,15 @@ const REGISTRY: &[AgentDef] = &[
         // Claude Code's own docs note this does NOT waive the "trust this folder?"
         // gate — ADE auto-accepts that in the frontend on first launch.
         session_args: &["--dangerously-skip-permissions"],
+        // `theme` is a settings key at every settings level; the project-local
+        // file wins and a RUNNING session re-reads it live — so a scheme flip
+        // re-themes an open Claude without a restart.
+        theme_config: Some(ThemeConfig::WorkspaceJson {
+            relative_path: ".claude/settings.local.json",
+            key: "theme",
+            light: "light",
+            dark: "dark",
+        }),
         // Claude Code's fullscreen renderer: it takes over the terminal's ALTERNATE
         // screen and owns every row of it, which is what buys the polished TUI —
         // flicker-free output, mouse support, selection that copies itself. ADE wants
@@ -80,6 +94,11 @@ const REGISTRY: &[AgentDef] = &[
         // `--yolo` is the alias; the explicit form states what it waives. It also
         // drops the sandbox — the price of a fully autonomous run.
         session_args: &["--dangerously-bypass-approvals-and-sandbox"],
+        // No UI dark/light setting: `[tui] theme` only picks a syntax-highlight
+        // palette, and openai/codex#2020 (a real light/dark mode) is still open.
+        // Its chrome inherits the terminal's ANSI palette, which ADE's xterm
+        // already flips with the scheme.
+        theme_config: None,
         env: &[],
     },
     AgentDef {
@@ -97,6 +116,10 @@ const REGISTRY: &[AgentDef] = &[
         // Auto-approve every tool. (`--allow-all` also waives path/URL prompts but
         // has been flaky; tool approval is the friction that matters for a run.)
         session_args: &["--allow-all-tools"],
+        // Copilot CLI auto-follows the system light/dark mode since v1.0.62;
+        // forcing it would mean writing the USER-level ~/.copilot/settings.json,
+        // which would leak ADE's scheme into every other terminal. Left alone.
+        theme_config: None,
         env: &[],
     },
     AgentDef {
@@ -112,6 +135,9 @@ const REGISTRY: &[AgentDef] = &[
         oneshot: Some(&["--no-auto-update", "-p"]),
         // xAI Grok Build's "auto-approve all tool executions" (alias `--yolo`).
         session_args: &["--always-approve"],
+        // The settings reference lists no theme/color/appearance key at all;
+        // its TUI inherits the terminal palette.
+        theme_config: None,
         env: &[],
     },
     AgentDef {
@@ -123,6 +149,10 @@ const REGISTRY: &[AgentDef] = &[
         // No verified bypass flag for this CLI yet — left off rather than guess a
         // wrong flag (an unknown flag makes the whole session fail to launch).
         session_args: &[],
+        // Its `colorScheme` lives in the USER-level settings file, needs a
+        // restart to apply, and only "dark" is documented verbatim — not enough
+        // verified surface to force safely.
+        theme_config: None,
         env: &[],
     },
     AgentDef {
@@ -134,6 +164,13 @@ const REGISTRY: &[AgentDef] = &[
         // Cursor's own permissions docs name `--force` as the run-without-prompts
         // switch; deny rules still take precedence.
         session_args: &["--force"],
+        // No documented theme setting; Cursor staff recommend TERM_THEME=light
+        // on light-background terminals (fixes an invisible input cursor). The
+        // dark side needs no help — its palette assumes a dark terminal.
+        theme_config: Some(ThemeConfig::SpawnEnv {
+            light: &[("TERM_THEME", "light")],
+            dark: &[],
+        }),
         env: &[],
     },
     AgentDef {
@@ -144,6 +181,13 @@ const REGISTRY: &[AgentDef] = &[
         oneshot: None,
         // aider's "always say yes to every confirmation".
         session_args: &["--yes-always"],
+        // aider reads its theme once at startup; the documented env pair beats
+        // writing a `.aider.conf.yml` into the repo root (which would dirty the
+        // user's git status).
+        theme_config: Some(ThemeConfig::SpawnEnv {
+            light: &[("AIDER_LIGHT_MODE", "true")],
+            dark: &[("AIDER_DARK_MODE", "true")],
+        }),
         env: &[],
     },
 ];
@@ -196,6 +240,26 @@ pub fn session_args(command: &str) -> &'static [&'static str] {
     definition(command).map_or(&[], |a| a.session_args)
 }
 
+/// How `command`'s own UI theme is forced to ADE's scheme, if the registry
+/// knows a mechanism (`theming.rs` interprets it). `None` for an unknown
+/// command or a CLI with no theme setting.
+pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
+    definition(command).and_then(|a| a.theme_config.as_ref())
+}
+
+/// The theme mechanisms of every agent actually installed on this machine —
+/// what `theme_sync` maintains in a workspace. One PATH sweep for the whole
+/// list, mirroring `detect_installed`.
+pub fn installed_theme_configs() -> Vec<&'static ThemeConfig> {
+    let dirs = search_dirs();
+    REGISTRY
+        .iter()
+        .filter(|a| a.theme_config.is_some())
+        .filter(|a| find_in(&dirs, &installed_names(a.command)).is_some())
+        .filter_map(|a| a.theme_config.as_ref())
+        .collect()
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Agent {
@@ -246,7 +310,8 @@ fn detect_installed() -> Vec<Agent> {
 
 #[cfg(test)]
 mod tests {
-    use super::{installed_names, oneshot_invocation, session_args, spawn_env};
+    use super::{installed_names, oneshot_invocation, session_args, spawn_env, theme_config};
+    use crate::theming::ThemeConfig;
 
     #[test]
     fn installed_names_lead_with_the_canonical_command() {
@@ -263,6 +328,29 @@ mod tests {
         assert!(spawn_env("pnpm").is_empty());
         assert!(oneshot_invocation("pnpm").is_none());
         assert!(session_args("pnpm").is_empty());
+        assert!(theme_config("pnpm").is_none());
+    }
+
+    /// Claude's theme rides its project-local settings file (re-read live by a
+    /// running session); env-themed CLIs declare their spawn pairs instead.
+    #[test]
+    fn theme_mechanisms_match_each_agent() {
+        assert!(matches!(
+            theme_config("claude"),
+            Some(ThemeConfig::WorkspaceJson {
+                relative_path: ".claude/settings.local.json",
+                key: "theme",
+                light: "light",
+                dark: "dark",
+            })
+        ));
+        assert!(matches!(
+            theme_config("aider"),
+            Some(ThemeConfig::SpawnEnv { .. })
+        ));
+        // No verified mechanism → deliberately unforced.
+        assert!(theme_config("codex").is_none());
+        assert!(theme_config("grok").is_none());
     }
 
     /// Interactive sessions launch in the agent's skip-permissions mode; an

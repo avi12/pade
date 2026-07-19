@@ -3,7 +3,7 @@
 // a theme-mode data attribute, and saved back through the bridge.
 
 import { workspace } from "@/lib/bridge";
-import type { DiffStyle, Prefs, ThemeMode } from "@/lib/types";
+import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
 
 const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
 const MONO_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";
@@ -33,10 +33,10 @@ const osDark = matchMedia("(prefers-color-scheme: dark)");
 
 /** The concrete scheme currently applied — reactive so consumers like the
  *  terminal can re-theme when it changes. */
-export const appearance = $state<{ scheme: "light" | "dark" }>({ scheme: "light" });
+export const appearance = $state<{ scheme: Scheme }>({ scheme: "light" });
 
 /** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
-function resolvedScheme(): "light" | "dark" {
+function resolvedScheme(): Scheme {
   const mode = effective.themeMode;
   if (mode === "system") {
     return osDark.matches ? "dark" : "light";

@@ -281,6 +281,12 @@ export type WindowInfo = z.infer<typeof WindowInfo>;
 export const ThemeMode = z.enum(["system", "light", "dark"]);
 export type ThemeMode = z.infer<typeof ThemeMode>;
 
+/** The concrete appearance `ThemeMode` resolves to ("system" → the OS answer).
+ *  Applied to the document root, the terminal palette, and — over the wire —
+ *  each agent's own theme config (`theme_sync`) and spawn env. */
+export const Scheme = z.enum(["light", "dark"]);
+export type Scheme = z.infer<typeof Scheme>;
+
 export const DiffStyle = z.enum(["unified", "split"]);
 export type DiffStyle = z.infer<typeof DiffStyle>;
 

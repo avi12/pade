@@ -20,7 +20,7 @@
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
-  import { effective } from "@/lib/prefs.svelte";
+  import { appearance, effective } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
@@ -447,6 +447,20 @@
   $effect(() => {
     if (currentProject) {
       void feed.start(currentProject);
+    }
+  });
+
+  // Keep every installed agent's own theme config in step with ADE's scheme —
+  // re-forced on project open and on every scheme flip. The terminal protocol
+  // can't carry it (ConPTY eats the OSC 11 query and the ?997 report), but
+  // Claude re-reads .claude/settings.local.json live, so a flip re-themes even
+  // a running session. See theming.rs.
+  $effect(() => {
+    if (currentProject) {
+      void agentsApi.syncTheme({
+        workspace: currentProject,
+        scheme: appearance.scheme
+      });
     }
   });
 

@@ -36,7 +36,7 @@ import {
   WindowInfo,
   WorkspaceMember
 } from "@/lib/types";
-import type { Prefs } from "@/lib/types";
+import type { Prefs, Scheme } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -68,7 +68,14 @@ function on<T>(
 
 /** Detected agent backends. */
 export const agents = {
-  detect: () => call("agents_detect", z.array(Agent))
+  detect: () => call("agents_detect", z.array(Agent)),
+  /** Force every installed agent's own theme config in `workspace` to ADE's
+   *  scheme (Claude re-reads its settings live — a flip re-themes a running
+   *  session). The terminal protocol can't carry this through ConPTY. */
+  syncTheme: (args: {
+    workspace: string;
+    scheme: Scheme;
+  }) => run("theme_sync", { ...args })
 };
 
 /** External IDE integration. */
@@ -201,6 +208,8 @@ export const pty = {
     rows: number;
     /** Extra args for `command` — e.g. the project path for a terminal editor. */
     args?: string[];
+    /** ADE's resolved appearance at spawn — env-themed CLIs start matching it. */
+    scheme?: Scheme;
   }) =>
     run("pty_spawn", { ...args }),
   write: (args: {

@@ -13,6 +13,7 @@ mod pty;
 mod refs;
 mod runner;
 mod tasks;
+mod theming;
 mod usage;
 mod util;
 mod vcs;
@@ -64,6 +65,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
+            theming::theme_sync,
             contextmenu::context_menu_register,
             contextmenu::context_menu_unregister,
             contextmenu::context_menu_status,

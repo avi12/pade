@@ -313,10 +313,11 @@
   });
 
   // Re-theme the terminal when the app scheme flips, so Claude Code's output
-  // sits on a background that matches the light/dark theme. This assignment is
-  // also what keeps the AGENT in sync: it answers the agent's OSC 11 background
-  // query from the new theme and (mode 2031) pushes a color-scheme report, so an
-  // os-sync agent flips its own palette with ours — see lib/terminal-theme.
+  // sits on a background that matches the light/dark theme. (The agent itself
+  // can't hear this through the terminal — ConPTY consumes both its OSC 11
+  // background query and xterm's ?997 color-scheme report — so the agent's own
+  // palette is synced through its config file instead: App runs `theme_sync`
+  // on every flip, and pty.rs adds per-scheme spawn env. See theming.rs.)
   $effect(() => {
     const { scheme } = appearance;
     if (term) {
@@ -933,7 +934,8 @@
       cwd: session.cwd ?? null,
       cols: agentCols,
       rows: term.rows,
-      args: session.args
+      args: session.args,
+      scheme: appearance.scheme
     });
 
     // Paint whatever the session has already said. A spawn for a session that is
