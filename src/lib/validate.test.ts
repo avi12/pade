@@ -92,8 +92,12 @@ describe("FirstPrompt", () => {
     expect(FirstPrompt.safeParse("").success).toBe(true);
   });
 
-  it("caps the length at 10000 characters", () => {
-    expect(FirstPrompt.safeParse("x".repeat(10_001)).success).toBe(false);
+  it("accepts a long, detailed spec uncapped — it's the user's own instructions", () => {
+    expect(FirstPrompt.safeParse("x".repeat(50_000)).success).toBe(true);
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(FirstPrompt.parse("  build a thing  ")).toBe("build a thing");
   });
 });
 
