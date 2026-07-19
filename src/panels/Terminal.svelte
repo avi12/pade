@@ -319,9 +319,11 @@
   // palette is synced through its config file instead: App runs `theme_sync`
   // on every flip, and pty.rs adds per-scheme spawn env. See theming.rs.)
   $effect(() => {
+    // Reading the scheme is what subscribes this effect to it, so a light/dark
+    // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
+    // tokens the flipped scheme installed.
     const { scheme } = appearance;
-    if (term) {
-      void scheme;
+    if (term && scheme) {
       term.options.theme = readXtermTheme();
     }
   });
@@ -427,11 +429,63 @@
   }) {
     lastResizeAt = Date.now();
     agentCols = cols;
-    void pty.resize({
-      id: session.id,
+    resizePty({
       cols,
       rows
     });
+  }
+
+  // Fire-and-forget resize: the session may have exited between measuring and
+  // resizing, and a dropped resize on a dead PTY is harmless.
+  async function resizePty({
+    cols,
+    rows
+  }: {
+    cols: number;
+    rows: number;
+  }) {
+    try {
+      await pty.resize({
+        id: session.id,
+        cols,
+        rows
+      });
+    } catch {
+    /* the session may have exited */
+    }
+  }
+
+  // Fire-and-forget keystroke/scroll write: a dropped byte on a PTY that just
+  // exited is harmless, so the write owns its own failure.
+  async function writeToPty(data: string) {
+    try {
+      await pty.write({
+        id: session.id,
+        data
+      });
+    } catch {
+    /* the session may have exited */
+    }
+  }
+
+  // Send the current selection to the clipboard. Copy is best-effort — a
+  // clipboard the platform withholds must not throw into a key handler.
+  async function copySelectionToClipboard() {
+    try {
+      await clipboard.writeText(term.getSelection());
+    } catch {
+    /* clipboard may be unavailable */
+    }
+  }
+
+  // Open a URL in the system browser. Best-effort — launching the browser must
+  // not throw into a link-click handler.
+  async function openExternalUrl(uri: string) {
+    try {
+      await os.openUrl(uri);
+    } catch {
+    /* opening the browser is best-effort */
+    }
   }
 
   // Make a fullscreen program redraw its whole frame, by resizing the terminal a row
@@ -619,7 +673,9 @@
       // refuses anything that isn't http(s), so a file:// or custom-scheme
       // link an agent emits goes nowhere.
       linkHandler: {
-        activate: (_event, uri) => void os.openUrl(uri)
+        activate(_event, uri) {
+          openExternalUrl(uri);
+        }
       }
     });
     term.open(host);
@@ -633,7 +689,7 @@
     // route the whole URL through the bridge to the system browser instead.
     registerWrappedLinkProvider({
       terminal: term,
-      openUrl: uri => void os.openUrl(uri)
+      openUrl: openExternalUrl
     });
 
     // GPU-accelerated rendering; fall back silently if WebGL is unavailable.
@@ -726,17 +782,20 @@
     exitUnlisten = exitListener;
 
     // Send keystrokes to this session's PTY.
-    term.onData(data => void pty.write({
-      id: session.id,
-      data
-    }));
+    term.onData(data => {
+      writeToPty(data);
+    });
 
     async function pasteClipboard() {
-      const text = await clipboard.readText();
-      if (text) {
-        // paste (not write) so xterm wraps it in bracketed-paste markers when the
-        // agent has that mode on — it then treats it as pasted text, not typing.
-        term.paste(text);
+      try {
+        const text = await clipboard.readText();
+        if (text) {
+          // paste (not write) so xterm wraps it in bracketed-paste markers when the
+          // agent has that mode on — it then treats it as pasted text, not typing.
+          term.paste(text);
+        }
+      } catch {
+      /* clipboard may be unavailable */
       }
     }
 
@@ -758,10 +817,7 @@
         // preventDefault stops the browser inserting a newline into xterm's hidden
         // textarea, which xterm would forward to the PTY as a submit.
         event.preventDefault();
-        void pty.write({
-          id: session.id,
-          data: SHIFT_ENTER
-        });
+        writeToPty(SHIFT_ENTER);
         return false;
       }
 
@@ -770,14 +826,14 @@
       const isCopyChord = isPlainCtrl && (event.key === "c" || event.key === "C");
       if (isCopyChord && term.hasSelection()) {
         event.preventDefault();
-        void clipboard.writeText(term.getSelection());
+        copySelectionToClipboard();
         return false;
       }
 
       const isPasteChord = isPlainCtrl && (event.key === "v" || event.key === "V");
       if (isPasteChord) {
         event.preventDefault();
-        void pasteClipboard();
+        pasteClipboard();
         return false;
       }
 
@@ -808,10 +864,7 @@
 
       if (notches !== 0) {
         const scrollKey = notches < 0 ? PAGE_UP : PAGE_DOWN;
-        void pty.write({
-          id: session.id,
-          data: scrollKey.repeat(Math.abs(notches))
-        });
+        writeToPty(scrollKey.repeat(Math.abs(notches)));
       }
 
       e.preventDefault();
