@@ -6,6 +6,7 @@ mod copilot;
 mod design;
 mod discord;
 mod ide;
+mod members;
 mod naming;
 mod os;
 mod pty;
@@ -80,6 +81,7 @@ pub fn run() {
             ide::ide_project_kinds,
             ide::ide_open,
             ide::ide_open_file,
+            members::members_list,
             os::open_in_explorer,
             os::open_in_terminal,
             os::open_url,
