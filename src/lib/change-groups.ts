@@ -4,6 +4,14 @@
 // `packages/…`, `services/…`) is bucketed by its member folder; anything else
 // falls into the repo itself. A single-project repo therefore yields one group,
 // a multi-project monorepo yields one per touched member — no backend needed.
+//
+// KNOWN LIMITATION (see docs / memory): this is a path-CONVENTION heuristic, so a
+// root-level-package layout (pnpm/npm workspaces with `frontend/`, `backend/`,
+// `shared/` directly under the repo) collapses into one repo group. The robust
+// fix reads the actual workspace manifests (`pnpm-workspace.yaml`, a
+// `package.json` `workspaces` field, `Cargo.toml [workspace]`, …) to learn the
+// real members — filesystem work that belongs in the backend, not this pure
+// path-only helper. Tracked for a follow-up; not a dir-name guessing game.
 
 import { baseName } from "@/lib/paths";
 import type { ChangeEvent } from "@/lib/types";
