@@ -42,9 +42,24 @@
     }
   }
 
+  // "Sync all" only makes sense when there's a remote to fast-forward from — a
+  // fresh local project (git-init'd but no origin) or a non-repo has nothing to
+  // pull. `remoteUrl` is null with no remote and rejects outside a repo, so the
+  // button stays hidden in both cases and appears only for a repo with a remote.
+  async function loadRemote() {
+    try {
+      hasRemote = (await vcs.remoteUrl()) !== null;
+    } catch {
+      hasRemote = false;
+    }
+  }
+
   // "Sync all" (fast-forward pull) in-flight guard — disables the button and
   // spins its icon so a slow fetch can't be double-fired.
   let syncing = $state(false);
+  // Whether the workspace has a git remote to sync from — gates the whole button
+  // (see loadRemote). A fresh local project or a non-repo has nothing to pull.
+  let hasRemote = $state(false);
 
   // Inline diff viewer: only one card expands at a time.
   const DiffMode = {
@@ -117,6 +132,7 @@
     if (project) {
       retarget(project);
       void loadBranch(project);
+      void loadRemote();
     }
   });
 
@@ -292,26 +308,28 @@
         </select>
       </label>
 
-      <button
-        class="sync"
-        data-tooltip="Fast-forward this workspace from origin"
-        disabled={syncing}
-        onclick={async () => {
-          syncing = true;
-          try {
-            const outcome = await vcs.pull();
-            showToast(outcome.message);
-          } catch (error) {
-            const text = error instanceof Error ? error.message : String(error);
-            showToast(text.split("\n")[0] || "Sync failed.");
-          } finally {
-            syncing = false;
-          }
-        }}
-      >
-        <span class="ico" class:spin={syncing}><Icon name="refresh" size={14} /></span>
-        Sync all
-      </button>
+      {#if hasRemote}
+        <button
+          class="sync"
+          data-tooltip="Fast-forward this workspace from origin"
+          disabled={syncing}
+          onclick={async () => {
+            syncing = true;
+            try {
+              const outcome = await vcs.pull();
+              showToast(outcome.message);
+            } catch (error) {
+              const text = error instanceof Error ? error.message : String(error);
+              showToast(text.split("\n")[0] || "Sync failed.");
+            } finally {
+              syncing = false;
+            }
+          }}
+        >
+          <span class="ico" class:spin={syncing}><Icon name="refresh" size={14} /></span>
+          Sync all
+        </button>
+      {/if}
     </div>
 
     {#if groups.length > 1 || activeGroupId !== null}
