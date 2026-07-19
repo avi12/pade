@@ -585,6 +585,21 @@ enum GitStateMessage {
     /// A `.git` entry appeared under a root that had none — `git init` ran, so
     /// the watcher must re-arm onto the new repo's state files.
     GitDirAppeared,
+    /// A `.gitignore` in an ANCESTOR of the watch root was touched (the
+    /// recursive feed watch only sees the root's own subtree, but a workspace
+    /// deeper than the repo toplevel inherits every ancestor's rules) — the
+    /// ignore policy must refresh.
+    IgnoreRulesTouched,
+}
+
+/// What one coalesced burst of git-state messages asks for. Distinct effects
+/// rather than one "strongest" message: a busy burst can legitimately need a
+/// re-arm, an ignore refresh, and a state emit at once.
+#[derive(Default, Clone, Copy)]
+struct GitStateBurst {
+    rearm: bool,
+    state_touched: bool,
+    ignore_touched: bool,
 }
 
 /// Whether `path` names one of the two git-state files. The watch is
@@ -686,7 +701,7 @@ fn rearm_git_state_locked(app: &AppHandle, root: &Path, slot: &mut Option<GitSta
     let armed = if dirs.is_empty() {
         watch_for_git_init(root, sender)
     } else {
-        watch_git_state(&dirs, sender)
+        watch_git_state(&dirs, &gitignore_ancestor_dirs(root), sender)
     };
     let Ok(watcher) = armed else {
         return;
@@ -716,13 +731,16 @@ fn watch_for_git_init(
     Ok(watcher)
 }
 
-/// The repo-present watch: report touches of `HEAD`/`config` in the state dirs.
-/// Never the whole `.git` tree — `objects/` alone turns a busy repo into an
-/// event firehose; a non-recursive watch on the git dir sees exactly its
-/// top-level entries, and the name filter drops the rest (`index`, lockfiles,
-/// `FETCH_HEAD`, …) before they cost anything.
+/// The repo-present watch: report touches of `HEAD`/`config` in the state dirs,
+/// and of `.gitignore` in the root's ancestor dirs (whose rules the workspace
+/// inherits but whose events the recursive feed watch can't see). Never the
+/// whole `.git` tree — `objects/` alone turns a busy repo into an event
+/// firehose; a non-recursive watch on each dir sees exactly its top-level
+/// entries, and the name filters drop the rest (`index`, lockfiles,
+/// `FETCH_HEAD`, sibling files, …) before they cost anything.
 fn watch_git_state(
     dirs: &[PathBuf],
+    ancestor_dirs: &[PathBuf],
     sender: Sender<GitStateMessage>,
 ) -> notify::Result<RecommendedWatcher> {
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
@@ -730,11 +748,53 @@ fn watch_git_state(
         if event.paths.iter().any(|path| is_git_state_file(path)) {
             let _ = sender.send(GitStateMessage::StateTouched);
         }
+        if event.paths.iter().any(|path| is_gitignore_file(path)) {
+            let _ = sender.send(GitStateMessage::IgnoreRulesTouched);
+        }
     })?;
     for dir in dirs {
         watcher.watch(dir, RecursiveMode::NonRecursive)?;
     }
+    for dir in ancestor_dirs {
+        // Best-effort: an unwatchable ancestor only costs its rules' liveness.
+        let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
+    }
     Ok(watcher)
+}
+
+/// The directories between the repo toplevel and the watch root (both ends'
+/// dirs included, the root itself excluded — its own subtree is already
+/// watched recursively) whose `.gitignore` files apply to the workspace. Empty
+/// when the root IS the toplevel, or when there is no repo.
+fn gitignore_ancestor_dirs(root: &Path) -> Vec<PathBuf> {
+    let Some(toplevel) = repo_toplevel(root) else {
+        return Vec::new();
+    };
+    root.ancestors()
+        .skip(1)
+        .take_while(|ancestor| ancestor.starts_with(&toplevel))
+        .map(Path::to_path_buf)
+        .collect()
+}
+
+/// The repo work-tree toplevel for `root`, normalized to native components
+/// (git prints forward slashes on Windows). `None` outside a repo.
+fn repo_toplevel(root: &Path) -> Option<PathBuf> {
+    let output = crate::util::command("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let printed = String::from_utf8_lossy(&output.stdout);
+    let trimmed = printed.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(Path::new(trimmed).components().collect())
 }
 
 /// One thread per armed git-state watch: collapse each burst of messages into a
@@ -750,7 +810,7 @@ fn watch_git_state(
 fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<GitStateMessage>) {
     thread::spawn(move || {
         while let Ok(first) = receiver.recv() {
-            let strongest = drain_burst(&receiver, first, GIT_STATE_COALESCE);
+            let burst = drain_burst(&receiver, first, GIT_STATE_COALESCE);
             {
                 let state: State<WatcherState> = app.state();
                 let Ok(mut guard) = state.git_state.lock() else {
@@ -761,39 +821,46 @@ fn spawn_git_state_coalescer(app: AppHandle, root: PathBuf, receiver: Receiver<G
                 if !speaks_for_current_root {
                     return;
                 }
-                if strongest == GitStateMessage::GitDirAppeared {
+                if burst.rearm {
                     rearm_git_state_locked(&app, &root, &mut guard);
                 }
             }
-            if strongest == GitStateMessage::GitDirAppeared {
-                // `git init` mid-session: the feed's ignore policy must flip
-                // from the static fallback to git's own rules (and re-filter
-                // the events already shown). Outside the `git_state` lock —
-                // refresh takes the watcher/policy locks instead.
+            if burst.rearm || burst.ignore_touched {
+                // A `git init` flips the feed's ignore policy from the static
+                // fallback to git's own rules; a touched ancestor `.gitignore`
+                // changes the rules in place. Both re-filter the events already
+                // shown. Outside the `git_state` lock — the refresh takes the
+                // watcher/policy locks instead.
                 let state: State<WatcherState> = app.state();
                 refresh_ignore_policy(&app, &state);
             }
-            let _ = app.emit(GIT_STATE_EVENT, ());
+            if burst.rearm || burst.state_touched {
+                let _ = app.emit(GIT_STATE_EVENT, ());
+            }
         }
     });
 }
 
-/// Keep receiving until the channel stays quiet for `window`, and return the
-/// strongest message seen: `GitDirAppeared` outranks `StateTouched` because it
-/// additionally requires a re-arm (git init creates `.git`, `HEAD`, and
-/// `config` in one quick burst — one event, one re-arm).
+/// Keep receiving until the channel stays quiet for `window`, folding every
+/// message into the burst's distinct effects (git init creates `.git`, `HEAD`,
+/// and `config` in one quick flurry — one coalesced re-arm; a `.gitignore`
+/// save alongside a checkout still refreshes the rules AND re-emits state).
 fn drain_burst(
     receiver: &Receiver<GitStateMessage>,
     first: GitStateMessage,
     window: Duration,
-) -> GitStateMessage {
-    let mut strongest = first;
+) -> GitStateBurst {
+    let mut burst = GitStateBurst::default();
+    let mut fold = |message: GitStateMessage| match message {
+        GitStateMessage::StateTouched => burst.state_touched = true,
+        GitStateMessage::GitDirAppeared => burst.rearm = true,
+        GitStateMessage::IgnoreRulesTouched => burst.ignore_touched = true,
+    };
+    fold(first);
     while let Ok(message) = receiver.recv_timeout(window) {
-        if message == GitStateMessage::GitDirAppeared {
-            strongest = message;
-        }
+        fold(message);
     }
-    strongest
+    burst
 }
 
 /// Watch a set of folders (non-recursively) and report when anything inside one
@@ -1199,30 +1266,36 @@ mod tests {
     #[test]
     fn a_quiet_channel_returns_the_first_message() {
         let (_sender, receiver) = channel::<GitStateMessage>();
-        let strongest = drain_burst(
+        let burst = drain_burst(
             &receiver,
             GitStateMessage::StateTouched,
             Duration::from_millis(5),
         );
-        assert_eq!(strongest, GitStateMessage::StateTouched);
+        assert!(burst.state_touched);
+        assert!(!burst.rearm);
+        assert!(!burst.ignore_touched);
     }
 
+    /// A busy burst asks for each distinct effect it saw — a `git init` re-arm
+    /// doesn't swallow a state emit, nor a `.gitignore` refresh.
     #[test]
-    fn a_burst_coalesces_and_git_dir_appeared_outranks_state_touches() {
+    fn a_burst_coalesces_every_distinct_effect() {
         let (sender, receiver) = channel::<GitStateMessage>();
         sender
             .send(GitStateMessage::GitDirAppeared)
             .expect("send buffered message");
         sender
-            .send(GitStateMessage::StateTouched)
+            .send(GitStateMessage::IgnoreRulesTouched)
             .expect("send buffered message");
         drop(sender);
-        let strongest = drain_burst(
+        let burst = drain_burst(
             &receiver,
             GitStateMessage::StateTouched,
             Duration::from_millis(5),
         );
-        assert_eq!(strongest, GitStateMessage::GitDirAppeared);
+        assert!(burst.rearm);
+        assert!(burst.state_touched);
+        assert!(burst.ignore_touched);
     }
 
     #[test]
