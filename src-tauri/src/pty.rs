@@ -314,6 +314,7 @@ struct Exit {
 fn build_command(
     command: Option<String>,
     scheme: Option<crate::theming::Scheme>,
+    conversation_id: Option<&str>,
 ) -> CommandBuilder {
     let program = command
         .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
@@ -349,6 +350,16 @@ fn build_command(
     for arg in crate::agents::session_args(&program) {
         cmd.arg(arg);
     }
+    // Bind the session to ADE's stable conversation id (`--session-id <uuid>`),
+    // so a later spawn with the same id resumes THIS conversation rather than the
+    // most recent — how ADE restarts one specific session (e.g. after `.mcp.json`
+    // changed). Only for an agent whose CLI supports it; a shell/editor ignores it.
+    if let (Some(flag), Some(conversation_id)) =
+        (crate::agents::session_id_flag(&program), conversation_id)
+    {
+        cmd.arg(flag);
+        cmd.arg(conversation_id);
+    }
     // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI
     // can't tell from inside a bare ConPTY: Ink/terminal-link probe the
     // environment (TERM_PROGRAM, VTE version) and silently fall back to plain
@@ -375,6 +386,9 @@ pub fn pty_spawn(
     args: Option<Vec<String>>,
     // ADE's resolved appearance at spawn time, for env-themed CLIs (theming.rs).
     scheme: Option<crate::theming::Scheme>,
+    // A stable conversation id to pin/resume this session to, for an agent whose
+    // CLI supports it (`claude --session-id`). Absent for a shell/editor.
+    conversation_id: Option<String>,
 ) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     if sessions.contains_key(&id) {
@@ -394,7 +408,7 @@ pub fn pty_spawn(
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
-    let mut cmd = build_command(command, scheme);
+    let mut cmd = build_command(command, scheme, conversation_id.as_deref());
     for arg in args.unwrap_or_default() {
         cmd.arg(arg);
     }

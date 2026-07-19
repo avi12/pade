@@ -38,6 +38,13 @@ struct AgentDef {
     /// file — the terminal protocol can't carry it through `ConPTY` (see
     /// `theming.rs`). `None` for a CLI with no known theme setting.
     theme_config: Option<ThemeConfig>,
+    /// The flag that binds a session to a caller-chosen conversation id
+    /// (`claude --session-id <uuid>`): it creates a fresh conversation with that
+    /// id, and a later spawn with the same id *resumes* that exact one —
+    /// non-interactively. That is what lets ADE terminate a specific session and
+    /// bring back ITS conversation (e.g. after the project's `.mcp.json` changed),
+    /// not merely the most recent. `None` for a CLI with no equivalent.
+    session_id_flag: Option<&'static str>,
     /// Environment the CLI needs to render the way ADE embeds it. Empty for most.
     env: &'static [(&'static str, &'static str)],
 }
@@ -64,6 +71,10 @@ const REGISTRY: &[AgentDef] = &[
             light: "light",
             dark: "dark",
         }),
+        // `--session-id <uuid>` creates-or-continues the conversation with that
+        // id (non-interactive), so ADE can restart a specific session and land
+        // back in its own conversation — see `session_id_flag`.
+        session_id_flag: Some("--session-id"),
         // Claude Code's fullscreen renderer: it takes over the terminal's ALTERNATE
         // screen and owns every row of it, which is what buys the polished TUI —
         // flicker-free output, mouse support, selection that copies itself. ADE wants
@@ -99,6 +110,7 @@ const REGISTRY: &[AgentDef] = &[
         // Its chrome inherits the terminal's ANSI palette, which ADE's xterm
         // already flips with the scheme.
         theme_config: None,
+        session_id_flag: None,
         env: &[],
     },
     AgentDef {
@@ -120,6 +132,7 @@ const REGISTRY: &[AgentDef] = &[
         // forcing it would mean writing the USER-level ~/.copilot/settings.json,
         // which would leak ADE's scheme into every other terminal. Left alone.
         theme_config: None,
+        session_id_flag: None,
         env: &[],
     },
     AgentDef {
@@ -138,6 +151,7 @@ const REGISTRY: &[AgentDef] = &[
         // The settings reference lists no theme/color/appearance key at all;
         // its TUI inherits the terminal palette.
         theme_config: None,
+        session_id_flag: None,
         env: &[],
     },
     AgentDef {
@@ -153,6 +167,7 @@ const REGISTRY: &[AgentDef] = &[
         // restart to apply, and only "dark" is documented verbatim — not enough
         // verified surface to force safely.
         theme_config: None,
+        session_id_flag: None,
         env: &[],
     },
     AgentDef {
@@ -171,6 +186,7 @@ const REGISTRY: &[AgentDef] = &[
             light: &[("TERM_THEME", "light")],
             dark: &[],
         }),
+        session_id_flag: None,
         env: &[],
     },
     AgentDef {
@@ -188,6 +204,7 @@ const REGISTRY: &[AgentDef] = &[
             light: &[("AIDER_LIGHT_MODE", "true")],
             dark: &[("AIDER_DARK_MODE", "true")],
         }),
+        session_id_flag: None,
         env: &[],
     },
 ];
@@ -238,6 +255,15 @@ pub fn spawn_env(command: &str) -> &'static [(&'static str, &'static str)] {
 /// stays agent-agnostic.
 pub fn session_args(command: &str) -> &'static [&'static str] {
     definition(command).map_or(&[], |a| a.session_args)
+}
+
+/// The flag that pins `command`'s session to a caller-chosen conversation id
+/// (and resumes that exact conversation on a later spawn with the same id) —
+/// e.g. `--session-id` for Claude. `None` for a CLI with no equivalent, in which
+/// case ADE can't target a specific conversation and won't try. See
+/// `session_id_flag` on the registry entry.
+pub fn session_id_flag(command: &str) -> Option<&'static str> {
+    definition(command).and_then(|a| a.session_id_flag)
 }
 
 /// How `command`'s own UI theme is forced to ADE's scheme, if the registry
@@ -310,7 +336,9 @@ fn detect_installed() -> Vec<Agent> {
 
 #[cfg(test)]
 mod tests {
-    use super::{installed_names, oneshot_invocation, session_args, spawn_env, theme_config};
+    use super::{
+        installed_names, oneshot_invocation, session_args, session_id_flag, spawn_env, theme_config,
+    };
     use crate::theming::ThemeConfig;
 
     #[test]
@@ -329,6 +357,16 @@ mod tests {
         assert!(oneshot_invocation("pnpm").is_none());
         assert!(session_args("pnpm").is_empty());
         assert!(theme_config("pnpm").is_none());
+        assert!(session_id_flag("pnpm").is_none());
+    }
+
+    /// Claude can pin/resume a conversation by id; agents without the flag can't
+    /// be targeted, so ADE leaves them out of the restart-to-resume flow.
+    #[test]
+    fn only_agents_with_a_session_id_flag_can_be_resumed_by_id() {
+        assert_eq!(session_id_flag("claude"), Some("--session-id"));
+        assert!(session_id_flag("codex").is_none());
+        assert!(session_id_flag("powershell.exe").is_none());
     }
 
     /// Claude's theme rides its project-local settings file (re-read live by a
