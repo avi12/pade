@@ -1,3 +1,4 @@
+import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { contextPct, dropContext, measuredContextPct, observeContext } from "@/lib/stores/context.svelte";
 import { describe, expect, it } from "vitest";
 
@@ -158,6 +159,42 @@ describe("measuredContextPct — the signal automated decisions gate on", () => 
     // one auto-handoff/resume/retry act on — refuses to guess.
     expect(contextPct("measured-estimate-only")).toBe(100);
     expect(measuredContextPct("measured-estimate-only")).toBeNull();
+  });
+});
+
+// Claude Code runs at up to a 1M-token window; the agent reports usage relative
+// to its OWN window, so the parsed percent is window-agnostic — 92% of 1M trips
+// the auto-handoff exactly as 92% of 200k would. These pin that the near-limit
+// signal auto-handoff gates on lands in the required 90–95% band for a 1M window.
+describe("measuredContextPct — 1M context window near the limit", () => {
+  it("reads a near-full 1M window (920k/1M) as ≥ the 90% handoff threshold, within 90–95%", () => {
+    observeContext({
+      id: "ctx-1m-near",
+      chunk: "context: 920k / 1m tokens"
+    });
+
+    const pct = measuredContextPct("ctx-1m-near");
+    expect(pct).toBeCloseTo(92);
+    expect(pct).toBeGreaterThanOrEqual(CONTEXT_HANDOFF_PCT);
+    expect(pct).toBeLessThanOrEqual(95);
+  });
+
+  it("parses a '5% context left' readout on a 1M window into 95% used — still in band", () => {
+    observeContext({
+      id: "ctx-1m-left",
+      chunk: "5% context left until compaction"
+    });
+
+    expect(measuredContextPct("ctx-1m-left")).toBe(95);
+  });
+
+  it("stays below the handoff threshold at 88% of a 1M window", () => {
+    observeContext({
+      id: "ctx-1m-low",
+      chunk: "context: 880k / 1m tokens"
+    });
+
+    expect(measuredContextPct("ctx-1m-low")).toBeLessThan(CONTEXT_HANDOFF_PCT);
   });
 });
 
