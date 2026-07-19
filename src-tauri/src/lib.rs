@@ -122,6 +122,7 @@ pub fn run() {
             window::window_focus_project,
             window::window_focus_relative,
             window::window_list,
+            window::window_reorder,
             window::window_focus_label,
             pty::pty_spawn,
             pty::pty_write,

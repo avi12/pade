@@ -6,14 +6,14 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import { languageIcon } from "@/lib/language-icon";
   import Logo from "@/lib/Logo.svelte";
-  import { displayName, isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
   import type { WindowInfo } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 
   // The project switcher that leads the top bar. It lists every open PADE window
-  // (jump between them, or cycle with Ctrl+Shift+Alt+[ / ]), then is a fast way to
+  // (jump between them, or cycle with Ctrl+Alt+[ / ]), then is a fast way to
   // switch THIS window to another project: type to filter, or click a pinned/recent
   // row. New windows and the full picker sit below. In-window switches funnel
   // through `onopen`; pin/remove/reorder update the single settings owner via
@@ -108,6 +108,9 @@
   // the drag engine commits the visible rows, so a filtered subset would drop the
   // hidden pins from the saved order.
   const pinsReorderable = $derived(filter.trim() === "" && pinnedProjects.length > 1);
+  // A lone window can't be reordered — mirror the pins guard so the grip only
+  // appears when there's more than one open window to drag among.
+  const windowsReorderable = $derived(windowRows.length > 1);
 
   function isCurrent(project: string): boolean {
     return normalizePath(project) === normalizePath(path);
@@ -153,6 +156,19 @@
     } catch {
     // Leave the last-known metadata in place; rows fall back to folders.
     }
+  }
+
+  // Persist a drag-reordered window order to the one backend source (which drives
+  // both this list and the Ctrl+Alt+[ / ] cycle), reflect it at once, then re-fetch
+  // so the rows match backend truth. The drag engine hands us the new label order.
+  async function reorderWindows(labels: string[]) {
+    const byLabel = new Map(windowRows.map(row => [row.label, row]));
+    windowRows = labels.flatMap(labelId => {
+      const row = byLabel.get(labelId);
+      return row ? [row] : [];
+    });
+    await windows.reorder(labels);
+    await loadMeta();
   }
 
   function hide() {
@@ -304,36 +320,56 @@
     role="menu"
   >
     <!-- Open PADE windows — in creation order, which is also the cycle order for
-       Ctrl+Shift+Alt+[ / ]. Click a non-current one to focus its window. -->
+       Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
       <div class="eyebrow section">Open windows</div>
       {#each windowRows as w (w.label)}
-        <button
-          class="wrow"
-          class:current={w.isCurrent}
-          onclick={() => {
-            if (!w.isCurrent) {
-              hide();
-              windows.focus(w.label);
-            }
-          }}
-          role="menuitem"
-          type="button"
-        >
-          <span class="kind-logo" aria-hidden="true" data-brand={kinds[w.path] ? kindIcon(w.path) : undefined}>
-            <Icon name={kindIcon(w.path)} size={16} />
-          </span>
-          <span class="wrow-name">{displayName(w.path, labels)}</span>
-          {#if isTemporaryWorkspace(w.path)}
-            <span class="temp">temp</span>
+        <!-- The row wraps a separate grip (a span, so grabbing it never triggers the
+             button's focus onclick) and the focus button — data-window-id makes the
+             wrapper the reorder engine's drag sibling. -->
+        <div class="wrow-item" data-window-id={w.label}>
+          {#if windowsReorderable}
+            <span
+              class="grip"
+              aria-hidden="true"
+              data-tooltip="Drag to reorder"
+              onpointerdown={e => beginReorder({
+                e,
+                itemSelector: "[data-window-id]",
+                idAttribute: "data-window-id",
+                axis: Axis.Vertical,
+                threshold: 4,
+                onCommit: labelOrder => reorderWindows(labelOrder)
+              })}
+            ><Icon name="grip" size={14} /></span>
           {/if}
-          <span class="wrow-spacer"></span>
-          {#if w.isCurrent}
-            <span class="this-window">this window</span>
-          {:else}
-            <span class="wrow-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
-          {/if}
-        </button>
+          <button
+            class="wrow"
+            class:current={w.isCurrent}
+            onclick={() => {
+              if (!w.isCurrent) {
+                hide();
+                windows.focus(w.label);
+              }
+            }}
+            role="menuitem"
+            type="button"
+          >
+            <span class="kind-logo" aria-hidden="true" data-brand={kinds[w.path] ? kindIcon(w.path) : undefined}>
+              <Icon name={kindIcon(w.path)} size={16} />
+            </span>
+            <span class="wrow-name">{shortDisplayName(w.path, labels)}</span>
+            {#if isTemporaryWorkspace(w.path)}
+              <span class="temp">temp</span>
+            {/if}
+            <span class="wrow-spacer"></span>
+            {#if w.isCurrent}
+              <span class="this-window">this window</span>
+            {:else}
+              <span class="wrow-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
+            {/if}
+          </button>
+        </div>
       {/each}
       <div class="sep"></div>
     {/if}
@@ -677,12 +713,22 @@
     position-area: bottom span-right;
   }
 
+  /* A window row: a drag grip (when reorderable) beside its focus button, laid out
+     like a pinned .prow so the shared .grip sits flush to the row's left edge. */
+  .wrow-item {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+
   /* An open-window row: focus another window, or "this window" for the current one. */
   .wrow {
     display: flex;
+    flex: 1;
     gap: 9px;
     align-items: center;
-    inline-size: 100%;
+    min-inline-size: 0;
     padding-block: 7px;
     padding-inline: 10px;
     border: none;
@@ -707,6 +753,7 @@
 
     .wrow-name {
       overflow: hidden;
+      min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 13px;

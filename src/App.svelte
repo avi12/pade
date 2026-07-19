@@ -21,7 +21,7 @@
   import { mcpRestartTargets, rekeyLayout } from "@/lib/mcp-restart";
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
-  import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -99,15 +99,16 @@
   // Agents excluding the always-present shell fallback — this count decides
   // whether we auto-launch or onboard.
   const realAgents = $derived(agents.filter(a => a.id !== SHELL_AGENT_ID));
-  // The current directory, shown as the last couple of segments so it's legible
-  // without eating the whole topbar (full path in the tooltip).
-  const shortDir = $derived(
-    currentProject.split(/[\\/]/).filter(Boolean).slice(-2).join("/")
-  );
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
   const currentLabel = $derived(settings.labels[currentProject]);
+  // The one label for the open project — a friendly name when assigned, else the
+  // compact "parent/leaf" directory (legible without eating the topbar; full path
+  // in the tooltip). Every surface (top-bar chip, slug source, window title, and
+  // the switcher's open-window rows) reads this one `shortDisplayName` so none of
+  // them recomputes the last-two-segments split independently and drifts.
+  const projectLabel = $derived(shortDisplayName(currentProject, settings.labels));
   // A temp workspace that never earned a name is still a throwaway: when its
   // last session ends, the window returns to the picker and the folder is
   // deleted (see discardTempWorkspace). One that was auto-named holds real
@@ -464,6 +465,18 @@
   onMount(() => {
     subscribeToMcpChanges();
     return () => unlistenMcp?.();
+  });
+
+  // Name the OS window (title bar + taskbar) `PADE - <workspace>`, where the
+  // workspace is the open project's own folder name — the part after the slash,
+  // honoring a friendly label — reusing the same `displayName` leaf the switcher
+  // rows show. The empty picker and a throwaway temp that never earned a name stay
+  // the bare product name. Driven off the project store, so it re-titles on every
+  // open, switch, and close.
+  const hasNamedProject = $derived(currentProject !== "" && !isDiscardableTemp);
+  $effect(() => {
+    const workspace = displayName(currentProject, settings.labels);
+    windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 
   // Watch the open project's files app-wide — not only while the Change Feed is
@@ -1176,7 +1189,7 @@
     sessions: () => sessions,
     availableAgents: () => realAgents,
     isOptedOut: () => settings.prefs.autoHandoff === false,
-    slugSource: () => currentLabel ?? shortDir,
+    slugSource: () => projectLabel,
     projectDir: () => currentProject,
     removeSession(id) {
       sessions = sessions.filter(s => s.id !== id);
@@ -1308,13 +1321,15 @@
       }
     }
 
-    // Ctrl+Shift+Alt+[ / ] cycles to the previous / next open PADE window. Uses
-    // e.code, not e.key: holding Shift rewrites "[" to "{", so the layout-position
-    // code is the modifier-independent match.
+    // Ctrl+Alt+[ / ] cycles to the previous / next open PADE window. Shift must be
+    // absent so the chord stays distinct (and off any future Ctrl+Shift variant).
+    // Still keyed off e.code, not e.key: across layouts a bracket key can carry a
+    // different character, so the layout-position code is the modifier-independent
+    // match.
     const isCyclePrevWindow =
-      e.ctrlKey && e.shiftKey && e.altKey && e.code === "BracketLeft";
+      e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketLeft";
     const isCycleNextWindow =
-      e.ctrlKey && e.shiftKey && e.altKey && e.code === "BracketRight";
+      e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketRight";
     if (isCyclePrevWindow || isCycleNextWindow) {
       e.preventDefault();
       e.stopPropagation();
@@ -1364,7 +1379,7 @@
         <div class="chrome">
           <AppMenu
             {isTemp}
-            label={currentLabel ?? shortDir}
+            label={projectLabel}
             labels={settings.labels}
             onclearrecent={clearRecentProjects}
             ondelete={deleteDirectory}

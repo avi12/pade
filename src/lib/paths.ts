@@ -13,6 +13,22 @@ export function displayName(path: string, labels: Record<string, string>): strin
   return labels[path] ?? baseName(path);
 }
 
+/** The last two path segments joined as "parent/leaf" (or the leaf alone when the
+ *  path has only one) — the compact, legible directory label that fits the top bar
+ *  without eating it. One authoritative home for the last-two-segments split —
+ *  module-private, reached through `shortDisplayName` so the label override always
+ *  applies. */
+function shortDir(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).slice(-2).join("/");
+}
+
+/** A friendly two-segment display name: the assigned label if present, else the
+ *  compact "parent/leaf" directory (see `shortDir`). The top-bar project chip and
+ *  the switcher's open-window rows both read it so they never drift apart. */
+export function shortDisplayName(path: string, labels: Record<string, string>): string {
+  return labels[path] ?? shortDir(path);
+}
+
 /** The folder a path sits in, or null when it has no parent (a bare drive/root).
  *  Watching the parent — never the folder itself — is what lets the picker see a
  *  project appear or disappear without holding a handle on it. */

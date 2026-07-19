@@ -149,6 +149,9 @@ export const windows = {
     mode: "empty" | "temp" | "open";
     path?: string;
   }) => run("window_create", { ...args }),
+  /** Set this window's OS title (title bar + taskbar) — the one place the UI
+   *  drives Tauri's window title, so no surface recomputes it independently. */
+  setTitle: (title: string) => getCurrentWindow().setTitle(title),
   /** Record the project this window now has open (for focus-instead-of-reopen). */
   registerProject: (path: string) => run("window_register_project", { path }),
   /** Focus another window already showing this project; true if one was found. */
@@ -157,9 +160,12 @@ export const windows = {
    *  another window was focused (false when this is the only one). */
   focusRelative: (direction: "previous" | "next") =>
     call("window_focus_relative", z.boolean(), { direction }),
-  /** Every open PADE window that has a project, in creation order (= cycle order),
-   *  for the switcher's "Open windows" list. */
+  /** Every open PADE window that has a project, in the user's explicit order
+   *  (= cycle order), for the switcher's "Open windows" list. */
   list: () => call("window_list", z.array(WindowInfo)),
+  /** Persist the drag-reordered "Open windows" order (session-scoped by label).
+   *  The one source both this list and the Ctrl+Alt+[ / ] cycle read. */
+  reorder: (labels: string[]) => run("window_reorder", { labels }),
   /** Focus a specific open window by its label; true if it existed and focused. */
   focus: (label: string) => call("window_focus_label", z.boolean(), { label }),
   /** Intercept this window's close (the title-bar X): the handler runs to

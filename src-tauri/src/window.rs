@@ -41,10 +41,20 @@ pub fn paint_surface(window: &WebviewWindow) {
     }
 }
 
-/// Which project each window currently has open, keyed by window label. Lets the
-/// picker focus an already-open project's window instead of opening it twice.
+/// Per-window state the switcher reads: which project each window has open (keyed
+/// by window label), and the user's explicit drag-reorder of the "Open windows"
+/// list. The order is session-scoped — window labels are ephemeral per app run, so
+/// persisting it across restarts by label would be meaningless.
 #[derive(Default)]
-pub struct WindowProjects(pub Mutex<HashMap<String, String>>);
+pub struct WindowProjects {
+    /// Which project each window currently has open, keyed by window label. Lets the
+    /// picker focus an already-open project's window instead of opening it twice.
+    projects: Mutex<HashMap<String, String>>,
+    /// The user's explicit label order for the switcher list and the `Ctrl+Alt+[`/`]`
+    /// cycle — the single source both read. A live window absent from it falls back
+    /// to creation order (`order_key`) after the explicitly ordered ones.
+    order: Mutex<Vec<String>>,
+}
 
 /// Canonicalize a path for cross-window comparison — `/`-separated, no trailing
 /// slash, lowercased on case-insensitive Windows.
@@ -65,7 +75,7 @@ pub fn window_register_project(
     state: tauri::State<WindowProjects>,
     path: String,
 ) {
-    if let Ok(mut projects) = state.0.lock() {
+    if let Ok(mut projects) = state.projects.lock() {
         // Stored verbatim so the switcher's "Open windows" list can show the real
         // path/name; comparison normalizes on read (see `window_focus_project`).
         projects.insert(window.label().to_string(), path);
@@ -85,7 +95,7 @@ pub fn window_focus_project(
     let target = normalize(&path);
     let me = window.label().to_string();
     let candidates: Vec<String> = {
-        let Ok(projects) = state.0.lock() else {
+        let Ok(projects) = state.projects.lock() else {
             return false;
         };
         projects
@@ -102,7 +112,7 @@ pub fn window_focus_project(
             return true;
         }
         // The window is gone — drop its stale entry.
-        if let Ok(mut projects) = state.0.lock() {
+        if let Ok(mut projects) = state.projects.lock() {
             projects.remove(&label);
         }
     }
@@ -133,19 +143,52 @@ fn order_key(label: &str) -> u32 {
         .unwrap_or(u32::MAX)
 }
 
-/// Focus the previous/next open PADE window in stable creation order, wrapping
-/// around at the ends. Returns true when another window was focused (false when
-/// this is the only window). The calling window is injected as `window`, so the
-/// frontend passes only a direction; live windows are re-enumerated each press,
+/// The one sort key both the switcher list and the `Ctrl+Alt+[`/`]` cycle read, so
+/// they never diverge. Windows the user has explicitly ordered (drag-reorder) come
+/// first, in that order; any live window not yet in the explicit order follows, in
+/// stable creation order. The label breaks remaining ties deterministically. A
+/// label recorded in the explicit order but no longer live simply never gets a key
+/// (only live windows are enumerated), so it drops out.
+fn window_sort_key(label: &str, order: &[String]) -> (usize, u32, String) {
+    let explicit = order
+        .iter()
+        .position(|ordered| ordered == label)
+        .unwrap_or(usize::MAX);
+    (explicit, order_key(label), label.to_string())
+}
+
+/// Record the user's explicit "Open windows" order (the drag-reordered labels) so
+/// both `window_list` and `window_focus_relative` sort by it — one source of truth
+/// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
+/// are ephemeral per app run, so there's nothing meaningful to persist to disk.
+#[tauri::command]
+pub fn window_reorder(state: tauri::State<WindowProjects>, labels: Vec<String>) {
+    if let Ok(mut order) = state.order.lock() {
+        *order = labels;
+    }
+}
+
+/// Focus the previous/next open PADE window, wrapping around at the ends, in the
+/// user's explicit switcher order (drag-reordered via `window_reorder`) and
+/// creation order for any window not yet reordered — the same order the switcher's
+/// "Open windows" list shows. Returns true when another window was focused (false
+/// when this is the only window). The calling window is injected as `window`, so
+/// the frontend passes only a direction; live windows are re-enumerated each press,
 /// so a closed window simply drops out of the cycle.
 #[tauri::command]
 pub fn window_focus_relative(
     app: AppHandle,
     window: WebviewWindow,
+    state: tauri::State<WindowProjects>,
     direction: CycleDirection,
 ) -> bool {
+    let order = state
+        .order
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
     let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
-    labels.sort_by_key(|label| (order_key(label), label.clone()));
+    labels.sort_by_cached_key(|label| window_sort_key(label, &order));
 
     let me = window.label();
     let Some(current) = labels.iter().position(|label| label == me) else {
@@ -178,10 +221,12 @@ pub struct WindowInfo {
     is_current: bool,
 }
 
-/// Every open PADE window that has a project, in stable creation order, flagging
-/// the caller as the current window. Windows with no registered project (an empty
-/// or picker window) are omitted. Drives the switcher's "Open windows" section, so
-/// its order matches the `Ctrl+Shift+Alt+[`/`]` cycle order.
+/// Every open PADE window that has a project, in the user's explicit switcher order
+/// (drag-reordered via `window_reorder`, falling back to creation order for any not
+/// yet reordered), flagging the caller as the current window. Windows with no
+/// registered project (an empty or picker window) are omitted. Drives the
+/// switcher's "Open windows" section, so its order matches the `Ctrl+Alt+[`/`]`
+/// cycle order — both read the one explicit order.
 #[tauri::command]
 pub fn window_list(
     app: AppHandle,
@@ -190,12 +235,17 @@ pub fn window_list(
 ) -> Vec<WindowInfo> {
     let me = window.label();
     let projects = state
-        .0
+        .projects
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
+    let order = state
+        .order
         .lock()
         .map(|guard| guard.clone())
         .unwrap_or_default();
     let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
-    labels.sort_by_key(|label| (order_key(label), label.clone()));
+    labels.sort_by_cached_key(|label| window_sort_key(label, &order));
     labels
         .into_iter()
         .filter_map(|label| {
@@ -307,4 +357,53 @@ pub async fn window_create(
         .build()
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{order_key, window_sort_key};
+
+    /// Sort the live window labels the way `window_list`/`window_focus_relative` do,
+    /// given the user's explicit order — the behaviour both commands share.
+    fn sorted(live: &[&str], order: &[&str]) -> Vec<String> {
+        let order: Vec<String> = order.iter().map(|label| (*label).to_string()).collect();
+        let mut labels: Vec<String> = live.iter().map(|label| (*label).to_string()).collect();
+        labels.sort_by_cached_key(|label| window_sort_key(label, &order));
+        labels
+    }
+
+    #[test]
+    fn explicit_order_wins_over_creation_order() {
+        // Creation order alone would be main, w-1, w-2; the explicit order overrides it.
+        assert_eq!(
+            sorted(&["main", "w-1", "w-2"], &["w-2", "main", "w-1"]),
+            ["w-2", "main", "w-1"]
+        );
+    }
+
+    #[test]
+    fn unknown_windows_fall_back_to_creation_order() {
+        // Only w-2 is explicitly ordered; the rest follow in creation order — and
+        // w-2 (numeric 2) precedes w-10, which lexicographic sorting would misplace.
+        assert_eq!(
+            sorted(&["main", "w-2", "w-10"], &["w-2"]),
+            ["w-2", "main", "w-10"]
+        );
+    }
+
+    #[test]
+    fn removed_label_is_ignored() {
+        // w-9 sits in the explicit order but is no longer live, so it never appears;
+        // the remaining live windows keep the explicit order.
+        assert_eq!(
+            sorted(&["main", "w-1"], &["w-1", "w-9", "main"]),
+            ["w-1", "main"]
+        );
+    }
+
+    #[test]
+    fn creation_order_key_parses_sequence_numerically() {
+        assert_eq!(order_key("main"), 0);
+        assert!(order_key("w-2") < order_key("w-10"));
+    }
 }
