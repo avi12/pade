@@ -2,10 +2,16 @@
 
 These are non-negotiable for all work in this repo.
 
-1. **DRY** — Don't Repeat Yourself. Every piece of knowledge has one authoritative
-   home. Extract shared logic into a single module (e.g. the Tauri IPC bridge, the
-   M3 tokens, the VCS abstraction) rather than copy-pasting. Before writing a
-   helper, check whether one already exists.
+1. **DRY — single source of truth (SSOT)** — Don't Repeat Yourself. Every piece of
+   knowledge — logic, config, **and derived/displayed state** — has exactly one
+   authoritative home; everything else *reads from it*, never re-derives it. Extract
+   shared logic into a single module (e.g. the Tauri IPC bridge, the M3 tokens, the
+   VCS abstraction) rather than copy-pasting. And when the same value is shown or
+   acted on in two places — e.g. the project's chosen editor in the top-bar launcher
+   and in the Change Feed's "reveal in <editor>" — both must resolve it through the
+   one source; computing it independently in each is exactly how they silently drift
+   out of sync (top bar says "VS Code" while the feed reveals in WebStorm). Before
+   writing a helper or recomputing a value, check whether one already exists.
 
 2. **SoC** — Separation of Concerns. Each module/component owns one concern.
    - Rust: PTY, watcher, VCS, usage each live in their own module; `lib.rs` only
