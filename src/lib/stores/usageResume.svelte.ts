@@ -216,7 +216,10 @@ export function createUsageResume(host: ResumeHost) {
     host.forceHandoff(session);
   }
 
-  async function schedule(session: AgentSession, hit: LimitHit) {
+  async function schedule({ session, hit }: {
+    hit: LimitHit;
+    session: AgentSession;
+  }) {
     const resetAt = await resolveResetAt(hit);
     // NaN = the account window is healthy; the message was stale. Drop it.
     if (Number.isNaN(resetAt)) {
@@ -232,7 +235,7 @@ export function createUsageResume(host: ResumeHost) {
       timers.set(
         session.id, setTimeout(async () => {
           timers.delete(session.id);
-          await schedule(session, hit);
+          await schedule({ session, hit });
         }, delay)
       );
       return;
@@ -269,7 +272,7 @@ export function createUsageResume(host: ResumeHost) {
           ...hit,
           scheduled: true
         });
-        schedule(session, hit);
+        schedule({ session, hit });
       }
     }
   }

@@ -122,7 +122,10 @@ export function createAutoHandoff(host: HandoffHost) {
 
   // Track one timer in the pending set and return its id, so every timer we
   // create is registered for teardown in exactly one place.
-  function trackTimer(handler: () => void, delayMs: number): ReturnType<typeof setTimeout> {
+  function trackTimer({ handler, delayMs }: {
+    delayMs: number;
+    handler: () => void;
+  }): ReturnType<typeof setTimeout> {
     const timer = setTimeout(handler, delayMs);
     pendingTimers.add(timer);
     return timer;
@@ -153,7 +156,10 @@ export function createAutoHandoff(host: HandoffHost) {
 
       // Read by finish() only at call time (a timer fires well after this line),
       // so a const in the closure is safe.
-      const deadlineTimer = trackTimer(finish, HANDOFF_DOC_TIMEOUT_MS);
+      const deadlineTimer = trackTimer({
+        handler: finish,
+        delayMs: HANDOFF_DOC_TIMEOUT_MS
+      });
       const target = name.toLowerCase();
 
       // Kick off the async watcher subscription from this sync Promise executor.
@@ -174,7 +180,10 @@ export function createAutoHandoff(host: HandoffHost) {
               clearTimeout(settleTimer);
             }
 
-            settleTimer = trackTimer(finish, HANDOFF_SETTLE_MS);
+            settleTimer = trackTimer({
+              handler: finish,
+              delayMs: HANDOFF_SETTLE_MS
+            });
           });
           pendingUnlistens.add(unlisten);
         } catch {
@@ -280,10 +289,16 @@ export function createAutoHandoff(host: HandoffHost) {
           return;
         }
 
-        trackTimer(poll, SUCCESSOR_POLL_MS);
+        trackTimer({
+          handler: poll,
+          delayMs: SUCCESSOR_POLL_MS
+        });
       }
 
-      trackTimer(poll, SUCCESSOR_POLL_MS);
+      trackTimer({
+        handler: poll,
+        delayMs: SUCCESSOR_POLL_MS
+      });
     });
   }
 

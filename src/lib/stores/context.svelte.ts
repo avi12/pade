@@ -28,8 +28,11 @@ interface ContextSignal {
 const signals = new SvelteMap<string, ContextSignal>();
 
 /** Scale a token count like "123", "45k", "1m" to an absolute number. */
-function scaleTokens(num: string, suffix: string | undefined): number | null {
-  const base = Number(num.replaceAll(",", ""));
+function scaleTokens({ number, suffix }: {
+  number: string;
+  suffix: string | undefined;
+}): number | null {
+  const base = Number(number.replaceAll(",", ""));
   if (!Number.isFinite(base)) {
     return null;
   }
@@ -68,8 +71,14 @@ function parseUsedPct(text: string): number | null {
 
   const ratio = lower.match(RATIO_RE);
   if (ratio) {
-    const usedTok = scaleTokens(ratio[1], ratio[2]);
-    const limitTok = scaleTokens(ratio[3], ratio[4]);
+    const usedTok = scaleTokens({
+      number: ratio[1],
+      suffix: ratio[2]
+    });
+    const limitTok = scaleTokens({
+      number: ratio[3],
+      suffix: ratio[4]
+    });
     if (usedTok !== null && limitTok !== null && limitTok > 0) {
       return Math.min(100, (usedTok / limitTok) * 100);
     }

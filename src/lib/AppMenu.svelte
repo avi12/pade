@@ -180,14 +180,17 @@
 
   // Jump this window to a project (or, with Ctrl/Cmd/Shift held, open it in a new
   // window instead of switching this one).
-  function pick(project: string, e: MouseEvent) {
+  function pick({ project, event }: {
+    event: MouseEvent;
+    project: string;
+  }) {
     hide();
 
     if (isCurrent(project)) {
       return;
     }
 
-    const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
+    const opensNewWindow = event.ctrlKey || event.metaKey || event.shiftKey;
     if (opensNewWindow) {
       windows.create({
         mode: "open",
@@ -460,7 +463,7 @@
         class="prow-main"
         class:current
         aria-checked={current}
-        onclick={e => pick(project, e)}
+        onclick={e => pick({ project, event: e })}
         role="menuitemradio"
         type="button"
       >

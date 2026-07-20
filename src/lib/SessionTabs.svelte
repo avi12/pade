@@ -175,11 +175,14 @@
   const closingIds = new SvelteSet<string>();
   // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
   // middle-click autoscroll). onmousedown suppresses the same on press.
-  function onTabPointer(e: MouseEvent, session: AgentSession) {
-    if (e.button === 1) {
-      e.preventDefault();
+  function onTabPointer({ event, session }: {
+    event: MouseEvent;
+    session: AgentSession;
+  }) {
+    if (event.button === 1) {
+      event.preventDefault();
 
-      if (e.type === "auxclick") {
+      if (event.type === "auxclick") {
         closeTab(session);
       }
     }
@@ -315,7 +318,7 @@
   {:else}
     <button
       class="pick"
-      onauxclick={e => onTabPointer(e, s)}
+      onauxclick={e => onTabPointer({ event: e, session: s })}
       onclick={() => {
         // Finder-style: a click selects an inactive tab; clicking the already-active
         // tab renames it (its label reads with a text caret). The reorder engine
@@ -326,7 +329,7 @@
           onselect(s.id);
         }
       }}
-      onmousedown={e => onTabPointer(e, s)}
+      onmousedown={e => onTabPointer({ event: e, session: s })}
     >
       {@render statusGlyph(s)}
       <span class="label">{sessionLabel(s.id) ?? s.agent.label}</span>
