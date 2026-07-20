@@ -425,7 +425,7 @@ export const pty = {
   onData: (callback: (chunk: PtyChunk) => void) => on({
     event: "pty://data",
     schema: PtyChunk,
-    callback: callback
+    callback
   }),
   onExit: (callback: (id: string) => void) =>
     on({
@@ -498,7 +498,7 @@ export const feed = {
     on({
       event: "feed://change",
       schema: ChangeEvent,
-      callback: callback
+      callback
     }),
   /** The ignore rules changed (a `.gitignore` edited/created/deleted, or a
    *  mid-session `git init` flipped the policy) — re-ask `ignored` about the
@@ -526,7 +526,7 @@ export const mcp = {
   onChanged: (callback: (change: McpChange) => void) => on({
     event: "mcp://changed",
     schema: McpChange,
-    callback: callback
+    callback
   })
 };
 
@@ -568,12 +568,12 @@ export const dragDrop = {
   onOver: (callback: (payload: DragOverPayload) => void) => on({
     event: "tauri://drag-over",
     schema: DragOverPayload,
-    callback: callback
+    callback
   }),
   onDrop: (callback: (payload: DragDropPayload) => void) => on({
     event: "tauri://drag-drop",
     schema: DragDropPayload,
-    callback: callback
+    callback
   }),
   onLeave: (callback: () => void) => on({
     event: "tauri://drag-leave",
@@ -757,13 +757,13 @@ export const runner = {
     on({
       event: "runner://data",
       schema: RunnerData,
-      callback: callback
+      callback
     }),
   onExit: (callback: (payload: RunnerExit) => void) =>
     on({
       event: "runner://exit",
       schema: RunnerExit,
-      callback: callback
+      callback
     })
 };
 

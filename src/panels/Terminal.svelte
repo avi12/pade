@@ -119,7 +119,10 @@
   // bounced its frame on each tab switch. Fitting always with the WebGL metrics
   // keeps the grid stable while hidden — the DOM renderer paints nothing the user
   // can see, so its mismatch is harmless, and a real pane resize still refits.
-  let webglCellMetrics: { width: number; height: number } | undefined;
+  let webglCellMetrics: {
+    width: number;
+    height: number;
+  } | undefined;
   // Guards the async onMount against a teardown that runs before its awaits
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
@@ -715,7 +718,10 @@
     const liveCell = term.dimensions?.css.cell;
     const liveCellIsUsable = liveCell !== undefined && liveCell.width > 0 && liveCell.height > 0;
     if (webgl && liveCellIsUsable) {
-      webglCellMetrics = { width: liveCell.width, height: liveCell.height };
+      webglCellMetrics = {
+        width: liveCell.width,
+        height: liveCell.height
+      };
     }
 
     const cell = webglCellMetrics ?? (liveCellIsUsable ? liveCell : undefined);
