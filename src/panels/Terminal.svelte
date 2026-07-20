@@ -230,6 +230,17 @@
   // Carriage return — the "Enter" a CLI reads as "submit this line".
   const ENTER = "\r";
 
+  // Focus reports (mode 1004) xterm emits when the pane gains/loses DOM focus.
+  // PADE never forwards them: a PADE pane is either front (focused) or hidden
+  // (where unfocused chrome is invisible anyway), and every tab switch would
+  // otherwise make the outgoing agent repaint its chrome — output the status
+  // heuristic above has no way to tell from real work, flashing a ready
+  // session's badge to "working". Agents simply always render as focused.
+  const FOCUS_IN_FINAL_BYTE = "I";
+  const FOCUS_OUT_FINAL_BYTE = "O";
+  const FOCUS_IN = `${CONTROL_SEQUENCE_INTRODUCER}${FOCUS_IN_FINAL_BYTE}`;
+  const FOCUS_OUT = `${CONTROL_SEQUENCE_INTRODUCER}${FOCUS_OUT_FINAL_BYTE}`;
+
   // Bracketed paste (CSI ? 2004): wrap text so the agent treats it as ONE pasted
   // block — its own newlines stay soft (never a premature submit) and the ENTER we
   // append AFTER the closing marker is an unambiguous, separate keystroke that
@@ -873,6 +884,11 @@
 
     // Send keystrokes to this session's PTY.
     term.onData(data => {
+      const isFocusReport = data === FOCUS_IN || data === FOCUS_OUT;
+      if (isFocusReport) {
+        return;
+      }
+
       writeToPty(data);
     });
 
