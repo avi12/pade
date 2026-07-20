@@ -25,8 +25,9 @@
     ides: Ide[];
     lifecycle: WorkspaceLifecycle;
     onopen: (target: { path: string }) => void;
-    onadd: (path: string, options: {
+    onadd: (input: {
       create: boolean;
+      path: string;
     }) => Promise<AddRootOutcome>;
     onremove: (path: string) => Promise<void>;
   } = $props();
@@ -139,10 +140,14 @@
   // button label already says which). Only an `added` outcome clears the field —
   // a file or a stray location is caught by the disabled gate + the live banner.
   // Shared by the form submit and the folder-picked-from-dialog paths.
-  async function add(path: string, { create }: {
+  async function add({ path, create }: {
     create: boolean;
+    path: string;
   }) {
-    const outcome = await onadd(path, { create });
+    const outcome = await onadd({
+      path,
+      create
+    });
     if (outcome.status === AddRootStatus.enum.added) {
       newRoot = "";
     }
@@ -168,7 +173,10 @@
           return;
         }
 
-        await add(path, { create: canCreate });
+        await add({
+          path,
+          create: canCreate
+        });
       }}>
       <div class="combo">
         <!-- Typed path + directory autocomplete (shared PathCombobox); `framed`
@@ -193,7 +201,10 @@
             multiple: false
           });
           if (typeof picked === "string") {
-            await add(picked, { create: false });
+            await add({
+              path: picked,
+              create: false
+            });
           }
         }}
         type="button"

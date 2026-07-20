@@ -216,8 +216,9 @@
   // Stays the single settings owner: only an `added` outcome adopts the returned
   // settings and scans the new root — `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
-  async function addRoot(path: string, { create }: {
+  async function addRoot({ path, create }: {
     create: boolean;
+    path: string;
   }): Promise<AddRootOutcome> {
     const outcome = await workspace.addRoot({
       path,
