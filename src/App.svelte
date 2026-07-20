@@ -974,22 +974,34 @@
   async function close(session: AgentSession) {
     closingByHand.add(session.id);
     await pty.kill(session.id);
-    const wasLastSession = sessions.length === 1;
+
+    // `pty.kill` yields to the event loop. During that gap a project switch (or
+    // another close) can already have detached this session and launched a
+    // replacement. A stale close must never send that live workspace back to
+    // onboarding.
+    const isStillOpen = sessions.some(current => current.id === session.id);
+    if (!isStillOpen) {
+      closingByHand.delete(session.id);
+      return;
+    }
+
     detachSession(session.id);
     closingByHand.delete(session.id);
 
-    // Hand-closing the last tab returns to the picker — never a silent respawn
-    // (a self-exit does respawn; see handleSessionExit). A still-unnamed temp
-    // workspace has nothing worth keeping, so it is discarded outright.
-    if (wasLastSession) {
-      if (isDiscardableTemp) {
-        await discardTempWorkspace();
-        return;
-      }
-
-      pendingPrompt = undefined;
-      phase = Phase.onboarding;
+    // An unnamed temporary workspace has nothing worth keeping, so its last
+    // hand-closed tab returns directly to the project picker. A real project
+    // always stays usable: replace its final closed tab with a fresh one of the
+    // same agent rather than dropping the user into onboarding.
+    if (sessions.length > 0) {
+      return;
     }
+
+    if (isDiscardableTemp) {
+      await discardTempWorkspace();
+      return;
+    }
+
+    launch({ agent: session.agent });
   }
 
   // The PTY exited on its own — e.g. the user pressed Ctrl-C to quit the agent.
