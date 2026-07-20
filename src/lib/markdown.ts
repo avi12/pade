@@ -215,7 +215,12 @@ function renderTable(cursor: Cursor): string {
   return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderFence(cursor: Cursor, fence: string): string {
+interface FenceRenderInput {
+  cursor: Cursor;
+  fence: string;
+}
+
+function renderFence({ cursor, fence }: FenceRenderInput): string {
   cursor.skip(); // opening fence
   const marker = fence[0];
   const body: string[] = [];
@@ -243,14 +248,25 @@ function renderBlockquote(cursor: Cursor): string {
 
 /** The whitespace width a nested block must clear to belong to the current list
  *  item: the item's own indent plus its marker and the space after it. */
-function itemContentIndent(indent: string, marker: string): number {
+interface ListItemIndentInput {
+  indent: string;
+  marker: string;
+}
+
+function itemContentIndent({ indent, marker }: ListItemIndentInput): number {
   return indent.length + marker.length + 1;
 }
 
 /** The lines belonging to one list item beyond its first: continuation and
  *  nested-block lines dedented to the item's content column, stopping at a blank
  *  line or the next same-or-shallower list marker. Advances `cursor` past them. */
-function collectItemLines(cursor: Cursor, firstLine: string, contentIndent: number): string[] {
+interface ItemLineCollectionInput {
+  contentIndent: number;
+  cursor: Cursor;
+  firstLine: string;
+}
+
+function collectItemLines({ cursor, firstLine, contentIndent }: ItemLineCollectionInput): string[] {
   const itemLines: string[] = [firstLine];
   cursor.skip();
   while (!cursor.done) {
@@ -282,8 +298,15 @@ function renderList(cursor: Cursor): string {
       break;
     }
 
-    const contentIndent = itemContentIndent(match[1], match[2]);
-    const itemLines = collectItemLines(cursor, match[3], contentIndent);
+    const contentIndent = itemContentIndent({
+      indent: match[1],
+      marker: match[2]
+    });
+    const itemLines = collectItemLines({
+      cursor,
+      firstLine: match[3],
+      contentIndent
+    });
     const body = itemLines.length > 1 ? renderBlocks(itemLines) : parseInline(itemLines[0]);
     items.push(`<li>${body}</li>`);
   }
@@ -339,7 +362,10 @@ function renderBlocks(lines: string[]): string {
 
     const fence = FENCE.exec(line);
     if (fence) {
-      html += renderFence(cursor, fence[1]);
+      html += renderFence({
+        cursor,
+        fence: fence[1]
+      });
       continue;
     }
 

@@ -9,7 +9,12 @@ export function baseName(path: string): string {
 }
 
 /** A friendly display name: the assigned label if present, else the folder name. */
-export function displayName(path: string, labels: Record<string, string>): string {
+export interface PathDisplayInput {
+  labels: Readonly<Record<string, string>>;
+  path: string;
+}
+
+export function displayName({ path, labels }: PathDisplayInput): string {
   return labels[path] ?? baseName(path);
 }
 
@@ -25,7 +30,7 @@ function shortDir(path: string): string {
 /** A friendly two-segment display name: the assigned label if present, else the
  *  compact "parent/leaf" directory (see `shortDir`). The top-bar project chip and
  *  the switcher's open-window rows both read it so they never drift apart. */
-export function shortDisplayName(path: string, labels: Record<string, string>): string {
+export function shortDisplayName({ path, labels }: PathDisplayInput): string {
   return labels[path] ?? shortDir(path);
 }
 

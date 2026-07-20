@@ -114,7 +114,10 @@
   // in the tooltip). Every surface (top-bar chip, slug source, window title, and
   // the switcher's open-window rows) reads this one `shortDisplayName` so none of
   // them recomputes the last-two-segments split independently and drifts.
-  const projectLabel = $derived(shortDisplayName(currentProject, settings.labels));
+  const projectLabel = $derived(shortDisplayName({
+    path: currentProject,
+    labels: settings.labels
+  }));
   // A temp workspace that never earned a name is still a throwaway: when its
   // last session ends, the window returns to the picker and the folder is
   // deleted (see discardTempWorkspace). One that was auto-named holds real
@@ -481,7 +484,10 @@
   // open, switch, and close.
   const hasNamedProject = $derived(currentProject !== "" && !isDiscardableTemp);
   $effect(() => {
-    const workspace = displayName(currentProject, settings.labels);
+    const workspace = displayName({
+      path: currentProject,
+      labels: settings.labels
+    });
     windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 

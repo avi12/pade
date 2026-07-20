@@ -50,7 +50,12 @@ const SCANNER = new RegExp(
   "g"
 );
 
-function classify(raw: string, vars?: Map<string, string>): Token {
+interface ClassifyInput {
+  raw: string;
+  vars?: ReadonlyMap<string, string>;
+}
+
+function classify({ raw, vars }: ClassifyInput): Token {
   const head = raw[0];
   if (raw.startsWith("//") || raw.startsWith("/*") || raw.startsWith("<!--") || /^#+[ \t]/.test(raw)) {
     return {
@@ -70,7 +75,10 @@ function classify(raw: string, vars?: Map<string, string>): Token {
     return {
       text: raw,
       cls: "color",
-      color: resolveColor(raw, vars) ?? undefined
+      color: resolveColor({
+        token: raw,
+        vars
+      }) ?? undefined
     };
   }
 
@@ -104,7 +112,12 @@ function classify(raw: string, vars?: Map<string, string>): Token {
 
 /** Split a snippet (a line, or a whole file) into highlighted tokens; color
  *  tokens carry a resolved swatch. Gaps between matches are plain runs. */
-export function tokenize(text: string, vars?: Map<string, string>): Token[] {
+export interface TokenizeInput {
+  text: string;
+  vars?: ReadonlyMap<string, string>;
+}
+
+export function tokenize({ text, vars }: TokenizeInput): Token[] {
   const tokens: Token[] = [];
   let last = 0;
 
@@ -117,7 +130,10 @@ export function tokenize(text: string, vars?: Map<string, string>): Token[] {
       });
     }
 
-    const token = classify(match[0], vars);
+    const token = classify({
+      raw: match[0],
+      vars
+    });
     const end = start + match[0].length;
     // A plain identifier takes a role from what immediately follows: `foo(` is a
     // call; `foo:` a property/key (but not a `::` pseudo-element or a `://`

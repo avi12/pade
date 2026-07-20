@@ -66,10 +66,10 @@
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
               {/if}
-              <span class="rname">{displayName(path, labels)}</span>
+              <span class="rname">{displayName({ path, labels })}</span>
               <span class="rpath">{path}</span>
             </button>
-            <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
+            <OpenInEditorButton name={displayName({ path, labels })} {ides} {path} />
             <RowMenu {lifecycle} {path} scope="recent" />
           {/if}
         </li>

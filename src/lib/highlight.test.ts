@@ -11,7 +11,7 @@ vi.stubGlobal("CSS", {
 });
 
 function classOf(text: string) {
-  return tokenize(text)[0].cls;
+  return tokenize({ text })[0].cls;
 }
 
 describe("tokenize", () => {
@@ -39,14 +39,14 @@ describe("tokenize", () => {
   });
 
   it("resolves a hex color to its own swatch", () => {
-    const [token] = tokenize("#3366ff");
+    const [token] = tokenize({ text: "#3366ff" });
 
     expect(token.cls).toBe("color");
     expect(token.color).toBe("#3366ff");
   });
 
   it("resolves an rgb() color", () => {
-    const [token] = tokenize("rgb(1, 2, 3)");
+    const [token] = tokenize({ text: "rgb(1, 2, 3)" });
 
     expect(token.cls).toBe("color");
     expect(token.color).toBe("rgb(1, 2, 3)");
@@ -54,14 +54,14 @@ describe("tokenize", () => {
 
   it("traces a var() color through the provided token map", () => {
     const vars = new Map([["--brand", "#123456"]]);
-    const [token] = tokenize("var(--brand)", vars);
+    const [token] = tokenize({ text: "var(--brand)", vars });
 
     expect(token.cls).toBe("color");
     expect(token.color).toBe("#123456");
   });
 
   it("leaves an unresolvable var() color without a swatch", () => {
-    const [token] = tokenize("var(--missing)", new Map());
+    const [token] = tokenize({ text: "var(--missing)", vars: new Map() });
 
     expect(token.cls).toBe("color");
     expect(token.color).toBeUndefined();
@@ -99,11 +99,11 @@ describe("tokenize", () => {
 
   it("does not treat a `::` pseudo-element or a `://` scheme as a property", () => {
     expect(classOf("div::before")).toBe("plain");
-    expect(tokenize("https://x")[0].cls).toBe("plain");
+    expect(tokenize({ text: "https://x" })[0].cls).toBe("plain");
   });
 
   it("keeps a hyphenated identifier whole", () => {
-    expect(tokenize("mask-image")).toEqual([{
+    expect(tokenize({ text: "mask-image" })).toEqual([{
       text: "mask-image",
       cls: "plain"
     }]);
@@ -114,7 +114,7 @@ describe("tokenize", () => {
   });
 
   it("emits the gaps between matches as plain runs", () => {
-    const tokens = tokenize("const width = 42;");
+    const tokens = tokenize({ text: "const width = 42;" });
 
     expect(tokens.map(token => token.cls)).toEqual([
       "keyword", "plain", "plain", "plain", "number", "plain"
@@ -123,13 +123,13 @@ describe("tokenize", () => {
 
   it("drops no characters: concatenating token texts reproduces the input", () => {
     const input = `const swatch = "#fff" + rgb(1, 2, 3); // done`;
-    const tokens = tokenize(input);
+    const tokens = tokenize({ text: input });
 
     expect(tokens.map(token => token.text).join("")).toBe(input);
   });
 
   it("returns a single plain token for text with no matches", () => {
-    expect(tokenize("=+;")).toEqual([{
+    expect(tokenize({ text: "=+;" })).toEqual([{
       text: "=+;",
       cls: "plain"
     }]);
