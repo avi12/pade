@@ -9,7 +9,7 @@
   // ICON_NAMES is the type's single source of truth — a glob's keys are only
   // `string` to the type system, so the name union can't be derived from them.
   const ICON_NAMES = [
-    "alert", "android", "androidstudio", "antigravity", "branch", "check",
+    "activity", "alert", "android", "androidstudio", "antigravity", "branch", "check",
     "checks", "claude", "clion", "clock", "close", "code", "codex", "columns",
     "copilot", "cplusplus", "csharp", "css", "cursor", "external", "feed",
     "folder", "folderPlus", "git", "github", "go", "goland", "grip", "grok",

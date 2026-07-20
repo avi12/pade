@@ -1264,19 +1264,19 @@
   const PANEL_TABS = [
     {
       id: Side.feed,
-      icon: "feed",
+      icon: "activity",
       short: "Feed",
       label: "Change Feed"
     },
     {
       id: Side.vcs,
-      icon: "git",
+      icon: "branch",
       short: "Git",
       label: "Version control"
     },
     {
       id: Side.tasks,
-      icon: "terminal",
+      icon: "checks",
       short: "Tasks",
       label: "Tasks"
     },
