@@ -347,7 +347,19 @@
   // background query and xterm's ?997 color-scheme report — so the agent's own
   // palette is synced through its config file instead: App runs `theme_sync`
   // on every flip, and pty.rs adds per-scheme spawn env. See theming.rs.)
+  //
+  // Except for an agent whose theme is fixed at spawn (Codex: `-c tui.theme`
+  // launch args; no DECSET 2031, no config watch, and its OSC 11 re-query on
+  // focus is unix-only — see ThemeConfig::fixed_at_spawn). Its running TUI is
+  // painted for the spawn scheme forever, so this pane's xterm palette stays
+  // pinned to that scheme — flipping the background under it is what made it
+  // unreadable. A restarted session re-keys the terminal and spawns with the
+  // current scheme, adopting it then.
   $effect(() => {
+    if (session.agent.themeFixedAtSpawn) {
+      return;
+    }
+
     // Reading the scheme is what subscribes this effect to it, so a light/dark
     // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
     // tokens the flipped scheme installed.

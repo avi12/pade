@@ -146,7 +146,10 @@ const REGISTRY: &[AgentDef] = &[
         // terminal background (see openai/codex `highlight.rs`
         // `adaptive_default_theme_selection`) — so ADE's scheme always wins with
         // Codex's own neutral picks. Like SpawnEnv, it's read once at startup: a
-        // mid-session scheme flip re-themes only on the next spawn.
+        // mid-session scheme flip re-themes only on the next spawn — so the
+        // terminal pins a live session's xterm palette to its spawn scheme
+        // (`theme_fixed_at_spawn`) instead of flipping the background out from
+        // under a TUI that can never re-detect it.
         theme_config: Some(ThemeConfig::SpawnArgs {
             light: &["-c", "tui.theme=catppuccin-latte"],
             dark: &["-c", "tui.theme=catppuccin-mocha"],
@@ -343,6 +346,11 @@ pub struct Agent {
     id: String,
     label: String,
     command: String,
+    /// True when the agent's theme is applied once at spawn (env or launch
+    /// args, see `ThemeConfig::fixed_at_spawn`) — the terminal pins such a
+    /// session's palette to its spawn scheme, since a live scheme flip can
+    /// never reach the running TUI.
+    theme_fixed_at_spawn: bool,
 }
 
 /// Every installed agent backend. The shell fallback is appended so the list is
@@ -369,6 +377,10 @@ fn detect_installed() -> Vec<Agent> {
             id: a.id.into(),
             label: a.label.into(),
             command: a.command.into(),
+            theme_fixed_at_spawn: a
+                .theme_config
+                .as_ref()
+                .is_some_and(ThemeConfig::fixed_at_spawn),
         })
         .collect();
 
@@ -381,6 +393,7 @@ fn detect_installed() -> Vec<Agent> {
         id: "shell".into(),
         label: "Terminal (shell)".into(),
         command: shell.into(),
+        theme_fixed_at_spawn: false,
     });
     found
 }

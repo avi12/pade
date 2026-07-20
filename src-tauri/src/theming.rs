@@ -60,6 +60,24 @@ pub enum ThemeConfig {
     },
 }
 
+impl ThemeConfig {
+    /// Whether the agent's theme is locked in at spawn time (env or launch
+    /// args) and cannot change for the life of the session. Researched for
+    /// Codex (openai/codex `codex-rs/tui`): no DECSET 2031 color-scheme
+    /// subscription, its OSC 10/11 background probe runs once at startup (the
+    /// re-query on terminal focus is `#[cfg(unix)]`-only — a no-op on
+    /// Windows), and `config.toml` is not watched — so nothing ADE emits into
+    /// a live PTY can re-theme it. The frontend reads this over IPC
+    /// (`Agent.themeFixedAtSpawn`) to pin such a session's xterm palette to
+    /// its spawn scheme instead of flipping it out from under the TUI.
+    pub fn fixed_at_spawn(&self) -> bool {
+        matches!(
+            self,
+            ThemeConfig::SpawnEnv { .. } | ThemeConfig::SpawnArgs { .. }
+        )
+    }
+}
+
 /// The per-scheme environment to spawn `command` with (empty for an agent
 /// whose theme is file-driven, or unknown). `pty.rs` applies it alongside the
 /// static `agents::spawn_env`.
@@ -181,6 +199,18 @@ mod tests {
         assert_ne!(light, dark);
         assert!(spawn_args("claude", Scheme::Light).is_empty());
         assert!(spawn_args("pnpm", Scheme::Dark).is_empty());
+    }
+
+    /// Spawn-time mechanisms (env, args) lock the theme for the session's
+    /// life; the file-driven one (Claude re-reads it live) does not.
+    #[test]
+    fn only_spawn_time_mechanisms_are_fixed_at_spawn() {
+        assert!(crate::agents::theme_config("codex")
+            .expect("codex is arg-themed")
+            .fixed_at_spawn());
+        assert!(!crate::agents::theme_config("claude")
+            .expect("claude is file-themed")
+            .fixed_at_spawn());
     }
 
     fn scratch_file(name: &str) -> std::path::PathBuf {

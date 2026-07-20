@@ -134,7 +134,13 @@ export type ConfigFile = z.infer<typeof ConfigFile>;
 export const Agent = z.object({
   id: z.string(),
   label: z.string(),
-  command: z.string()
+  command: z.string(),
+  /** The agent's theme is applied once at spawn (env / launch args — Codex,
+   *  Aider) and the running TUI can never re-detect a scheme flip, so the
+   *  terminal pins its xterm palette to the spawn scheme. Optional: absent on
+   *  frontend-built pseudo-agents (terminal editors) and older persisted
+   *  sessions, meaning "re-theme live". */
+  themeFixedAtSpawn: z.boolean().optional()
 });
 export type Agent = z.infer<typeof Agent>;
 
