@@ -1,3 +1,14 @@
+<script lang="ts" module>
+  // How many mounted panes this window may hold before hidden ones start giving
+  // their WebGL context back. Browsers force-lose the oldest context around ~16
+  // live ones; staying well under that leaves headroom for a second PADE window
+  // sharing the GPU. Below the budget a hidden pane keeps its context — an
+  // invisible pane isn't composited, so it costs nothing on screen, and the
+  // reveal is seamless: no renderer swap, no metric drift, no stale first frame.
+  const WEBGL_PANE_BUDGET = 8;
+  let mountedPaneCount = 0;
+</script>
+
 <script lang="ts">
   // Read docs/terminal-rendering.md BEFORE changing resize/replay behavior here.
   // A terminal has TWO screens and they invert every rule: the normal screen
@@ -101,6 +112,14 @@
   // (An invisible pane still geometrically intersects, so an IntersectionObserver
   // cannot tell it apart; only the prop can.)
   let webgl: WebglAddon | undefined;
+  // The GPU renderer's cell metrics, cached across its detach. The DOM renderer a
+  // hidden pane falls back to measures cells a hair differently, and a hair is a
+  // column: fitting with the live metrics made every hide/show swap resize the
+  // grid by a column or two, SIGWINCHing the agent into a rewrap that visibly
+  // bounced its frame on each tab switch. Fitting always with the WebGL metrics
+  // keeps the grid stable while hidden — the DOM renderer paints nothing the user
+  // can see, so its mismatch is harmless, and a real pane resize still refits.
+  let webglCellMetrics: { width: number; height: number } | undefined;
   // Guards the async onMount against a teardown that runs before its awaits
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
@@ -348,6 +367,9 @@
     if (term) {
       term.options.fontFamily = family;
       term.options.fontSize = fontSize;
+      // The cached GPU cell metrics are stale for the new font — drop them so the
+      // refit measures fresh instead of fitting the new font to the old cells.
+      webglCellMetrics = undefined;
       fitToPane();
     }
   });
@@ -399,7 +421,12 @@
   $effect(() => {
     if (shown && attached) {
       attachWebgl();
-    } else {
+      return;
+    }
+
+    // Under the pane budget a hidden pane keeps its context (see WEBGL_PANE_BUDGET);
+    // only a crowded window pays the renderer swap and its reveal artifacts.
+    if (mountedPaneCount > WEBGL_PANE_BUDGET) {
       detachWebgl();
     }
   });
@@ -685,8 +712,14 @@
       return;
     }
 
-    const cell = term.dimensions?.css.cell;
-    if (!cell || !(cell.width > 0) || !(cell.height > 0)) {
+    const liveCell = term.dimensions?.css.cell;
+    const liveCellIsUsable = liveCell !== undefined && liveCell.width > 0 && liveCell.height > 0;
+    if (webgl && liveCellIsUsable) {
+      webglCellMetrics = { width: liveCell.width, height: liveCell.height };
+    }
+
+    const cell = webglCellMetrics ?? (liveCellIsUsable ? liveCell : undefined);
+    if (!cell) {
       return;
     }
 
@@ -765,6 +798,7 @@
   }
 
   onMount(async () => {
+    mountedPaneCount += 1;
     term = new Terminal({
       fontFamily: effective.monoFamily,
       fontSize: Math.round(TERMINAL_FONT_SIZE * effective.uiScale),
@@ -1163,6 +1197,7 @@
   });
 
   onDestroy(() => {
+    mountedPaneCount -= 1;
     destroyed = true;
     unlisten?.();
     exitUnlisten?.();

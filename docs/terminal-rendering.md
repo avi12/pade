@@ -154,9 +154,20 @@ Hidden slots are now lifted out of flow over the whole pane (`position: absolute
 inset: 0`) and `visibility: hidden` instead (App.svelte's `.term-slot`), so a
 background PTY stays sized to exactly what its tab will show and switching tabs
 needs no refit at all. Two knock-ons: an invisible pane still geometrically
-intersects, so the WebGL attach/detach is driven by the `shown` prop rather than
-the old IntersectionObserver; and the hidden pane falls back to xterm's DOM
-renderer, which lays out but never paints under `visibility: hidden`.
+intersects, so WebGL lifecycle is driven by the `shown` prop rather than the old
+IntersectionObserver; and a pane that *does* drop to xterm's DOM renderer lays
+out but never paints under `visibility: hidden`.
+
+And its own follow-up: **a hidden pane keeps its WebGL context** while the window
+holds at most `WEBGL_PANE_BUDGET` (8) mounted panes. Swapping renderers on every
+hide/show was the next bounce: the DOM renderer measures cells a hair differently,
+so each reveal refit the grid a few columns off and SIGWINCHed the agent into a
+visible rewrap — and the first revealed frame was whatever stale rows the fallback
+renderer had last painted. An invisible pane isn't composited, so a parked context
+costs nothing on screen; only a window crowded past the budget (browsers force-lose
+contexts around ~16) pays the swap and its reveal artifacts. `webglCellMetrics`
+caches the GPU cell size for that crowded path, so even a DOM-renderer fit keeps
+the grid at the WebGL geometry.
 
 Three more traps found the hard way:
 
