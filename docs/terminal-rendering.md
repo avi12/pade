@@ -146,6 +146,12 @@ Waiting on its repaint is necessary but **not sufficient**: the agent goes quiet
 still pile up. `ALT_FIT_MIN_INTERVAL_MS` (250ms) is the floor on how often it may be
 disturbed at all, whatever the pane is doing.
 
+One more rule, either screen: **a hidden pane is never fitted.** A background
+tab's slot is `display: none`, so its ResizeObserver reports 0×0; fitting to that
+clamps the grid to 2×1 and SIGWINCHes the agent down to it — Claude shrugged it
+off, Codex exited (switching tabs "closed" the Codex session). `fitToPane` bails
+on a zero-size viewport; the show fires the observer again with real dimensions.
+
 Three more traps found the hard way:
 
 - A drag that ends inside the minimum interval still has to land its last size — nothing

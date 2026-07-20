@@ -643,6 +643,16 @@
       return;
     }
 
+    // A background tab's slot is `display: none`, so its ResizeObserver reports a
+    // 0×0 viewport. Fitting to that would clamp the grid to 2×1 and — on the
+    // alternate screen — SIGWINCH the agent down to it, which some TUIs (Codex)
+    // do not survive. A hidden pane keeps its last real size; the observer fires
+    // again with true dimensions the moment it is shown, and refits then.
+    const paneIsHidden = viewport.clientWidth === 0 || viewport.clientHeight === 0;
+    if (paneIsHidden) {
+      return;
+    }
+
     const cell = term.dimensions?.css.cell;
     if (!cell || !(cell.width > 0) || !(cell.height > 0)) {
       return;
