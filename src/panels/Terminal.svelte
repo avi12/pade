@@ -190,6 +190,12 @@
   // pane (which refits it) can't flash the badge from "ready" to "working".
   const RESIZE_SETTLE_MS = 400;
   let lastResizeAt = 0;
+  // A focus flip makes a TUI agent repaint too (mode-1004 focus reporting: xterm
+  // sends CSI I/O and Claude re-renders its prompt chrome). Since hidden panes
+  // stay laid out, switching tabs no longer resizes the outgoing pane — so its
+  // focus-out repaint would read as fresh activity and flash "ready" → "working".
+  // Timestamp every `active` flip and treat output inside the window as echo.
+  let lastFocusChangeAt = 0;
 
   // Terminal control sequences, composed from named parts.
   const CONTROL_SEQUENCE_INTRODUCER = "\x1b[";
@@ -248,9 +254,10 @@
     // Ignore the agent's own resize-repaint: it isn't the agent working, so a
     // settled "ready" session shouldn't blink to "working" when its pane is
     // revealed and refitted. Real work arrives outside the settle window.
-    const isResizeEcho =
-      status === SessionStatus.enum.ready && Date.now() - lastResizeAt < RESIZE_SETTLE_MS;
-    if (isResizeEcho) {
+    const lastRepaintTriggerAt = Math.max(lastResizeAt, lastFocusChangeAt);
+    const isRepaintEcho =
+      status === SessionStatus.enum.ready && Date.now() - lastRepaintTriggerAt < RESIZE_SETTLE_MS;
+    if (isRepaintEcho) {
       return;
     }
 
@@ -375,6 +382,7 @@
   // agent button in onboarding) and the agent looks like it is ignoring you: you
   // have to click into the pane before it will hear a single key.
   $effect(() => {
+    lastFocusChangeAt = Date.now();
     if (active && attached) {
       term.focus();
     }
