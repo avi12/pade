@@ -25,10 +25,17 @@
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
-  const { session, active = false, removable = false, onremove, onpopout, onreorder, onexit, ondraghint }: {
+  const {
+    session, active = false, shown = true, removable = false,
+    onremove, onpopout, onreorder, onexit, ondraghint
+  }: {
     session: AgentSession;
     /** The session the keyboard belongs to — the one tab (or split pane) in front. */
     active?: boolean;
+    /** This pane is in the current split (laid out and visible). A background
+        tab's pane stays mounted at full size but `visibility: hidden`, so only
+        `shown` — never geometry — can tell the two apart (see the WebGL effect). */
+    shown?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
     /** Remove this pane from the split — the trailing × button. The other pane(s)
@@ -81,20 +88,19 @@
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
   let resizeObs: ResizeObserver | undefined;
-  // The GPU renderer and the observer that binds it to on-screen visibility. The
-  // WebGL addon holds a real, VRAM-backed context that the browser hard-caps (~16
-  // live at once, then it force-loses the oldest) and that DWM composites every
-  // frame. PADE keeps every session's Terminal mounted — hidden panes are only
-  // `display:none`d by the parent, which preserves scrollback and uninterrupted PTY
-  // parsing — so one context per mounted component means one per open session,
-  // doubling across two windows past the driver's TDR threshold and crashing the
-  // compositor. So the addon lives no longer than the pane is actually SHOWN: the
-  // IntersectionObserver reports the `display:none` ancestor as not-intersecting and
-  // we drop WebGL then (a hidden pane's DOM renderer paints nothing anyway), capping
-  // live contexts to the number of VISIBLE panes, not the session count.
+  // The GPU renderer, bound to the `shown` prop. The WebGL addon holds a real,
+  // VRAM-backed context that the browser hard-caps (~16 live at once, then it
+  // force-loses the oldest) and that DWM composites every frame. PADE keeps every
+  // session's Terminal mounted — a hidden pane stays laid out at full size but
+  // `visibility: hidden` (so its PTY stays truthfully sized and its scrollback and
+  // parsing run uninterrupted) — so one context per mounted component would mean
+  // one per open session, doubling across two windows past the driver's TDR
+  // threshold and crashing the compositor. So the addon lives no longer than the
+  // pane is actually SHOWN — the effect below attaches/detaches on the prop,
+  // capping live contexts to the number of VISIBLE panes, not the session count.
+  // (An invisible pane still geometrically intersects, so an IntersectionObserver
+  // cannot tell it apart; only the prop can.)
   let webgl: WebglAddon | undefined;
-  let visibilityObs: IntersectionObserver | undefined;
-  let paneVisible = false;
   // Guards the async onMount against a teardown that runs before its awaits
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
@@ -359,6 +365,19 @@
   $effect(() => {
     if (active && attached) {
       term.focus();
+    }
+  });
+
+  // GPU rendering follows visibility: a shown pane gets its WebGL context, a
+  // hidden one gives it back (see `webgl` above for why the count must stay at
+  // the visible panes). `attached` folds the async mount in — the first run
+  // happens before the terminal exists, and the flip to true attaches the
+  // context for a pane that mounted already shown.
+  $effect(() => {
+    if (shown && attached) {
+      attachWebgl();
+    } else {
+      detachWebgl();
     }
   });
 
@@ -643,16 +662,6 @@
       return;
     }
 
-    // A background tab's slot is `display: none`, so its ResizeObserver reports a
-    // 0×0 viewport. Fitting to that would clamp the grid to 2×1 and — on the
-    // alternate screen — SIGWINCH the agent down to it, which some TUIs (Codex)
-    // do not survive. A hidden pane keeps its last real size; the observer fires
-    // again with true dimensions the moment it is shown, and refits then.
-    const paneIsHidden = viewport.clientWidth === 0 || viewport.clientHeight === 0;
-    if (paneIsHidden) {
-      return;
-    }
-
     const cell = term.dimensions?.css.cell;
     if (!cell || !(cell.width > 0) || !(cell.height > 0)) {
       return;
@@ -707,7 +716,7 @@
       addon.onContextLoss(() => {
         detachWebgl();
 
-        if (paneVisible) {
+        if (shown) {
           attachWebgl();
         }
       });
@@ -722,8 +731,7 @@
   // Dispose the GPU renderer and free its context (DRY: the single teardown path,
   // shared by hide, context-loss recovery, and unmount). Idempotent — a double hide
   // or a dispose after the context is already gone is a no-op. xterm falls back to
-  // its DOM renderer, which paints nothing for the `display:none` element that
-  // triggered the hide.
+  // its DOM renderer, whose output the `visibility: hidden` pane never paints.
   function detachWebgl() {
     if (!webgl) {
       return;
@@ -770,29 +778,6 @@
       terminal: term,
       openUrl: openExternalUrl
     });
-
-    // GPU-accelerated rendering, bound to visibility (see `webgl` above). The
-    // observer drives the first attach too: it fires once with the pane's initial
-    // on-screen state, so a pane mounted already-visible gets its context, and one
-    // mounted hidden (a background tab, an off-screen split) never makes one until
-    // it's shown. A `display:none` ancestor reports `isIntersecting: false`, so this
-    // tracks true visibility — every VISIBLE pane in a split keeps its renderer, not
-    // only the one focused pane (`active`, which is narrower).
-    visibilityObs = new IntersectionObserver(entries => {
-      const nowVisible = entries[entries.length - 1].isIntersecting;
-      if (nowVisible === paneVisible) {
-        return;
-      }
-
-      paneVisible = nowVisible;
-
-      if (nowVisible) {
-        attachWebgl();
-      } else {
-        detachWebgl();
-      }
-    });
-    visibilityObs.observe(host);
 
     fitToPane();
 
@@ -1164,7 +1149,6 @@
     }
 
     resizeObs?.disconnect();
-    visibilityObs?.disconnect();
     detachWebgl();
     dropContext(session.id);
     term?.dispose();

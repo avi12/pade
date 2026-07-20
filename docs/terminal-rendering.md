@@ -146,11 +146,17 @@ Waiting on its repaint is necessary but **not sufficient**: the agent goes quiet
 still pile up. `ALT_FIT_MIN_INTERVAL_MS` (250ms) is the floor on how often it may be
 disturbed at all, whatever the pane is doing.
 
-One more rule, either screen: **a hidden pane is never fitted.** A background
-tab's slot is `display: none`, so its ResizeObserver reports 0×0; fitting to that
-clamps the grid to 2×1 and SIGWINCHes the agent down to it — Claude shrugged it
-off, Codex exited (switching tabs "closed" the Codex session). `fitToPane` bails
-on a zero-size viewport; the show fires the observer again with real dimensions.
+One more rule, either screen: **a hidden pane keeps a real layout size.** A
+background tab's slot used to be `display: none`, so its ResizeObserver reported
+0×0; fitToPane clamped that to a 2×1 grid and SIGWINCHed the agent down to it —
+Claude shrugged it off, Codex exited (switching tabs "closed" the Codex session).
+Hidden slots are now lifted out of flow over the whole pane (`position: absolute;
+inset: 0`) and `visibility: hidden` instead (App.svelte's `.term-slot`), so a
+background PTY stays sized to exactly what its tab will show and switching tabs
+needs no refit at all. Two knock-ons: an invisible pane still geometrically
+intersects, so the WebGL attach/detach is driven by the `shown` prop rather than
+the old IntersectionObserver; and the hidden pane falls back to xterm's DOM
+renderer, which lays out but never paints under `visibility: hidden`.
 
 Three more traps found the hard way:
 

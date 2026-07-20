@@ -1549,6 +1549,7 @@
                 onreorder={ids => (paneIds = ids)}
                 removable={canRemovePane && paneIds.includes(s.id)}
                 session={s}
+                shown={paneIds.includes(s.id)}
               />
             </div>
           {/each}
@@ -2032,8 +2033,12 @@
   }
 
   /* All sessions stay mounted so their scrollback survives switching; only the
-     sessions in the current split are laid out (side by side), the rest collapse
-     out of flow. */
+     sessions in the current split are laid out (side by side). A hidden slot is
+     NOT `display:none` — that would zero its ResizeObserver and shrink the
+     background PTY to a 2×1 grid, which some agents (Codex) exit on. Instead it
+     is lifted out of flow over the whole pane and turned invisible, so it keeps
+     a real, full-pane layout size: the background PTY stays sized to exactly what
+     its tab will show, and switching tabs needs no refit at all. */
   .term-pane {
     position: relative;
     display: flex;
@@ -2042,7 +2047,7 @@
 
   .term-slot {
     position: relative;
-    display: none;
+    display: flex;
     flex: 1;
     flex-direction: column;
     min-block-size: 0;
@@ -2053,8 +2058,11 @@
        tab must not animate the terminal (it would read as a needless wipe). Only a
        genuine split-ADD springs its newcomer in, fired imperatively on that one
        slot via animatePaneIn (pane-enter), never here on every `.shown`. */
-    &.shown {
-      display: flex;
+    &:not(.shown) {
+      position: absolute;
+      inset: 0;
+      visibility: hidden;
+      pointer-events: none;
     }
   }
 
