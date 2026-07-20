@@ -82,7 +82,10 @@ export async function updateDiscordPresence({ enabled, showProject, project, kin
 
     // No labels map here — displayName falls back to the folder name, so the
     // status shows a clean project name rather than the full absolute path.
-    const details = `Working on ${displayName({ path: project, labels: {} })}`;
+    const details = `Working on ${displayName({
+      path: project,
+      labels: {}
+    })}`;
     const language = kind ? LANGUAGES[kind] : undefined;
     await discord.setActivity({
       details,

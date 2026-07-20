@@ -15,7 +15,12 @@
     vars?: Map<string, string>;
   } = $props();
 
-  const tokens = $derived<Token[]>(tokenize({ text, vars }));
+  const tokens = $derived<Token[]>(
+    tokenize({
+      text,
+      vars
+    })
+  );
 </script>
 
 {#each tokens as token, index (index)}<span

@@ -318,7 +318,10 @@
   {:else}
     <button
       class="pick"
-      onauxclick={e => onTabPointer({ event: e, session: s })}
+      onauxclick={e => onTabPointer({
+        event: e,
+        session: s
+      })}
       onclick={() => {
         // Finder-style: a click selects an inactive tab; clicking the already-active
         // tab renames it (its label reads with a text caret). The reorder engine
@@ -329,7 +332,10 @@
           onselect(s.id);
         }
       }}
-      onmousedown={e => onTabPointer({ event: e, session: s })}
+      onmousedown={e => onTabPointer({
+        event: e,
+        session: s
+      })}
     >
       {@render statusGlyph(s)}
       <span class="label">{sessionLabel(s.id) ?? s.agent.label}</span>

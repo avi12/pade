@@ -235,7 +235,10 @@ export function createUsageResume(host: ResumeHost) {
       timers.set(
         session.id, setTimeout(async () => {
           timers.delete(session.id);
-          await schedule({ session, hit });
+          await schedule({
+            session,
+            hit
+          });
         }, delay)
       );
       return;
@@ -272,7 +275,10 @@ export function createUsageResume(host: ResumeHost) {
           ...hit,
           scheduled: true
         });
-        schedule({ session, hit });
+        schedule({
+          session,
+          hit
+        });
       }
     }
   }

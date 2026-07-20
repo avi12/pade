@@ -114,10 +114,12 @@
   // in the tooltip). Every surface (top-bar chip, slug source, window title, and
   // the switcher's open-window rows) reads this one `shortDisplayName` so none of
   // them recomputes the last-two-segments split independently and drifts.
-  const projectLabel = $derived(shortDisplayName({
-    path: currentProject,
-    labels: settings.labels
-  }));
+  const projectLabel = $derived(
+    shortDisplayName({
+      path: currentProject,
+      labels: settings.labels
+    })
+  );
   // A temp workspace that never earned a name is still a throwaway: when its
   // last session ends, the window returns to the picker and the folder is
   // deleted (see discardTempWorkspace). One that was auto-named holds real

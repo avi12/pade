@@ -278,10 +278,12 @@ export function parseAnsi(text: string): AnsiSegment[] {
   ANSI_ESCAPE_RE.lastIndex = 0;
   for (let match = ANSI_ESCAPE_RE.exec(text); match !== null; match = ANSI_ESCAPE_RE.exec(text)) {
     if (match.index > runStart) {
-      segments.push(styledSegment({
-        text: text.slice(runStart, match.index),
-        style
-      }));
+      segments.push(
+        styledSegment({
+          text: text.slice(runStart, match.index),
+          style
+        })
+      );
     }
 
     const sgr = CSI_SGR_RE.exec(match[0]);
@@ -296,10 +298,12 @@ export function parseAnsi(text: string): AnsiSegment[] {
   }
 
   if (runStart < text.length) {
-    segments.push(styledSegment({
-      text: text.slice(runStart),
-      style
-    }));
+    segments.push(
+      styledSegment({
+        text: text.slice(runStart),
+        style
+      })
+    );
   }
 
   if (segments.length === 0) {

@@ -29,11 +29,23 @@ describe("displayName", () => {
   const temporary = "C:\\pade\\workspaces\\temp-42";
 
   it("prefers the assigned label", () => {
-    expect(displayName({ path: temporary, labels: { [temporary]: "brave-otter" } })).toBe("brave-otter");
+    expect(
+      displayName({
+        path: temporary,
+        labels: {
+          [temporary]: "brave-otter"
+        }
+      })
+    ).toBe("brave-otter");
   });
 
   it("falls back to the folder name when no label is assigned", () => {
-    expect(displayName({ path: temporary, labels: {} })).toBe("temp-42");
+    expect(
+      displayName({
+        path: temporary,
+        labels: {}
+      })
+    ).toBe("temp-42");
   });
 });
 

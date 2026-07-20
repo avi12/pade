@@ -54,14 +54,20 @@ describe("tokenize", () => {
 
   it("traces a var() color through the provided token map", () => {
     const vars = new Map([["--brand", "#123456"]]);
-    const [token] = tokenize({ text: "var(--brand)", vars });
+    const [token] = tokenize({
+      text: "var(--brand)",
+      vars
+    });
 
     expect(token.cls).toBe("color");
     expect(token.color).toBe("#123456");
   });
 
   it("leaves an unresolvable var() color without a swatch", () => {
-    const [token] = tokenize({ text: "var(--missing)", vars: new Map() });
+    const [token] = tokenize({
+      text: "var(--missing)",
+      vars: new Map()
+    });
 
     expect(token.cls).toBe("color");
     expect(token.color).toBeUndefined();

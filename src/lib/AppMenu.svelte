@@ -94,7 +94,10 @@
     }
 
     return (
-      displayName({ path: project, labels }).toLowerCase().includes(query) ||
+      displayName({
+        path: project,
+        labels
+      }).toLowerCase().includes(query) ||
       project.toLowerCase().includes(query)
     );
   }
@@ -337,7 +340,10 @@
             <span class="kind-logo" aria-hidden="true" data-brand={kinds[w.path] ? kindIcon(w.path) : undefined}>
               <Icon name={kindIcon(w.path)} size={16} />
             </span>
-            <span class="wrow-name">{shortDisplayName({ path: w.path, labels })}</span>
+            <span class="wrow-name">{shortDisplayName({
+              path: w.path,
+              labels
+            })}</span>
             {#if isTemporaryWorkspace(w.path)}
               <span class="temp">temp</span>
             {/if}
@@ -386,7 +392,10 @@
       <button
         class="prow-kebab"
         aria-haspopup="menu"
-        aria-label={`Options for ${displayName({ path: project, labels })}`}
+        aria-label={`Options for ${displayName({
+          path: project,
+          labels
+        })}`}
         popovertarget={menuId}
         type="button"
       ><Icon name="more" size={16} /></button>
@@ -441,6 +450,7 @@
         aria-checked={current}
         onclick={e => {
           hide();
+
           if (isCurrent(project)) {
             return;
           }
@@ -464,7 +474,10 @@
         </span>
         <span class="prow-body">
           <span class="prow-name-row">
-            <span class="prow-name">{displayName({ path: project, labels })}</span>
+            <span class="prow-name">{displayName({
+              path: project,
+              labels
+            })}</span>
             {#if isTemporaryWorkspace(project)}
               <span class="temp">temp</span>
             {/if}
@@ -609,7 +622,10 @@
         <div class="directory-delete-body">
           <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
           <p class="target">
-            <span class="target-name">{displayName({ path: target, labels })}</span>
+            <span class="target-name">{displayName({
+              path: target,
+              labels
+            })}</span>
             <code>{target}</code>
           </p>
         </div>
