@@ -178,30 +178,6 @@
     }
   }
 
-  // Jump this window to a project (or, with Ctrl/Cmd/Shift held, open it in a new
-  // window instead of switching this one).
-  function pick({ project, event }: {
-    event: MouseEvent;
-    project: string;
-  }) {
-    hide();
-
-    if (isCurrent(project)) {
-      return;
-    }
-
-    const opensNewWindow = event.ctrlKey || event.metaKey || event.shiftKey;
-    if (opensNewWindow) {
-      windows.create({
-        mode: "open",
-        path: project
-      });
-      return;
-    }
-
-    onopen(project);
-  }
-
   // Focus the filter as the menu opens: it's ready to type, and — crucially —
   // the trigger no longer keeps focus, so a later keypress (holding Shift for a
   // shift-click) can't flip `:focus-visible` on and paint a stray ring on it. The
@@ -463,7 +439,23 @@
         class="prow-main"
         class:current
         aria-checked={current}
-        onclick={e => pick({ project, event: e })}
+        onclick={e => {
+          hide();
+          if (isCurrent(project)) {
+            return;
+          }
+
+          const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
+          if (opensNewWindow) {
+            windows.create({
+              mode: "open",
+              path: project
+            });
+            return;
+          }
+
+          onopen(project);
+        }}
         role="menuitemradio"
         type="button"
       >
