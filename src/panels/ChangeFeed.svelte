@@ -269,6 +269,21 @@
   const unifiedLines = $derived(cachedLines ?? []);
   const hasPreview = $derived(unifiedLines.length > 0);
 
+  // An open card is a view of one revision, not merely one path. When the agent
+  // writes that same path again, the old card is now stale; follow the newest
+  // event automatically so the expanded preview always shows the live change.
+  $effect(() => {
+    const open = expandedEvent;
+    if (!open) {
+      return;
+    }
+
+    const newestForPath = feedStore.events.find(event => event.path === open.path);
+    if (newestForPath && newestForPath.id !== open.id) {
+      expandedId = newestForPath.id;
+    }
+  });
+
   // ── Grouping + filters ──────────────────────────────────────────────────────
   // Bucket the feed by project (manifest members first, folder-name convention
   // as the fallback — see change-groups), and let the chip row narrow to one
