@@ -25,6 +25,7 @@
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { dropContext, observeContext } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
+  import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
@@ -547,21 +548,56 @@
         rows
       });
     } catch {
-    /* the session may have exited */
+      // A failed IPC write means this WebView can no longer reach the session;
+      // reflect that rather than pretending the grid is still live.
+      status = SessionStatus.enum.exited;
     }
   }
 
-  // Fire-and-forget keystroke/scroll write: a dropped byte on a PTY that just
-  // exited is harmless, so the write owns its own failure.
-  async function writeToPty(data: string) {
-    try {
-      await pty.write({
-        id: session.id,
-        data
+  // Serializes input across the IPC boundary. The first event in a burst begins
+  // immediately; events that land while it is in flight share the next invoke.
+  // Each caller's promise settles after the backend accepted its bytes (or the
+  // endpoint is known gone), so the boot trust-gate and initial-prompt sequence
+  // remains ordered without leaving an awaiter stranded on a failed transport.
+  function writeToPty(data: string): Promise<void> {
+    return new Promise(settle => {
+      queuedPtyWrites.push({
+        data,
+        settle
       });
-    } catch {
-    /* the session may have exited */
+      if (!ptyWriteInFlight) {
+        flushPtyWrites();
+      }
+    });
+  }
+
+  async function flushPtyWrites(): Promise<void> {
+    ptyWriteInFlight = true;
+    while (queuedPtyWrites.length > 0) {
+      const writes = queuedPtyWrites;
+      queuedPtyWrites = [];
+      try {
+        await pty.write({
+          id: session.id,
+          data: writes.map(write => write.data).join("")
+        });
+      } catch {
+        // No later queued input can reach an unavailable transport. Resolve every
+        // waiter and publish the terminal's terminal state instead of retaining
+        // invisible promises or retrying an already-disconnected IPC channel.
+        status = SessionStatus.enum.exited;
+        const pendingWrites = queuedPtyWrites;
+        queuedPtyWrites = [];
+        for (const write of pendingWrites) {
+          write.settle();
+        }
+      } finally {
+        for (const write of writes) {
+          write.settle();
+        }
+      }
     }
+    ptyWriteInFlight = false;
   }
 
   // Send the current selection to the clipboard. Copy is best-effort — a
@@ -570,7 +606,7 @@
     try {
       await clipboard.writeText(term.getSelection());
     } catch {
-    /* clipboard may be unavailable */
+      showToast("Couldn't copy the terminal selection.");
     }
   }
 
@@ -580,7 +616,7 @@
     try {
       await os.openUrl(uri);
     } catch {
-    /* opening the browser is best-effort */
+      showToast("Couldn't open that link.");
     }
   }
 
@@ -784,7 +820,9 @@
       webgl = addon;
       fitToPane();
     } catch {
-    /* CPU renderer is fine as a fallback */
+      // The DOM renderer remains active; discard metrics measured by a renderer
+      // that failed to initialize so the next successful attach measures fresh.
+      webglCellMetrics = undefined;
     }
   }
 
@@ -939,7 +977,7 @@
           term.paste(text);
         }
       } catch {
-      /* clipboard may be unavailable */
+        showToast("Couldn't read the clipboard.");
       }
     }
 

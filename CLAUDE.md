@@ -93,6 +93,10 @@ These are non-negotiable for all work in this repo.
    - Prefer deterministic, behavior-focused tests for every optimization: assert
      replay/order and UTF-8 edge cases for stream changes, and retain the same
      externally observable result before optimizing an internal representation.
+   - No empty `catch` clauses. Let an error propagate when no local recovery is
+     required. When a failure is genuinely expected, make the recovery explicit
+     (a fallback state, retry/teardown, or user-visible diagnostic); a comment
+     that merely says it is ignored is not error handling.
    - Early returns: prefer guard clauses that bail out early over nested
      `if`/`else` pyramids, wherever it makes the happy path read top-to-bottom.
    - `for…of` over `.forEach`, a `for` loop over `.reduce()`: reach for a `for…of`
