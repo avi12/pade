@@ -18,7 +18,7 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
-  import { mcpRestartTargets, rekeyLayout } from "@/lib/mcp-restart";
+  import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
