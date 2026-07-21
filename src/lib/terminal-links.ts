@@ -213,8 +213,14 @@ function nextRowContinues({ buffer, columns, row }: {
     return false;
   }
 
-  const eitherRowIsSeparator = isSeparatorRow({ line: upper, columns })
-    || isSeparatorRow({ line: lower, columns });
+  const eitherRowIsSeparator = isSeparatorRow({
+    line: upper,
+    columns
+  })
+    || isSeparatorRow({
+      line: lower,
+      columns
+    });
   if (eitherRowIsSeparator) {
     return false;
   }

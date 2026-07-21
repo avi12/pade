@@ -333,7 +333,10 @@ export const dragDrop = {
 /** Version-control review channel. */
 export const vcs = {
   status: (cwd: string) => call("vcs_status", z.array(StatusEntry), { cwd }),
-  log: (cwd: string, limit = 20) => call("vcs_log", z.array(Commit), { cwd, limit }),
+  log: (cwd: string, limit = 20) => call("vcs_log", z.array(Commit), {
+    cwd,
+    limit
+  }),
   diff: ({ cwd, path, staged = false }: {
     cwd: string;
     path: string;
@@ -353,7 +356,10 @@ export const vcs = {
    *  throws git's message when the branch has diverged (no fast-forward). */
   pull: (cwd: string) => call("vcs_pull", PullOutcome, { cwd }),
   /** One commit's message body, per-file stats, and branch. */
-  commit: (cwd: string, sha: string) => call("vcs_commit", CommitDetail, { cwd, sha }),
+  commit: (cwd: string, sha: string) => call("vcs_commit", CommitDetail, {
+    cwd,
+    sha
+  }),
   /** Raw unified diff for one path within a commit. */
   commitDiff: ({ cwd, sha, path }: {
     cwd: string;
