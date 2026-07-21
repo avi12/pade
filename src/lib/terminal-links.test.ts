@@ -155,6 +155,26 @@ describe("computeLinks", () => {
     });
   });
 
+  it("stops a full-width URL short of the box-drawing rule below it", () => {
+    const url = "https://api.ezcount.co.il/paypal/ipn/7f1f48eb4da946e63704c8a3";
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [
+          { text: url },
+          { text: "─".repeat(url.length) }
+        ],
+        columns: url.length
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(links).toHaveLength(1);
+    expect(links[0].text).toBe(url);
+    expect(links[0].range.end.y).toBe(1);
+    expect(links[0].range.end.x).toBe(url.length);
+  });
+
   it("joins two full prose rows without inventing a link", () => {
     const links = computeLinks({
       terminal: makeTerminal({

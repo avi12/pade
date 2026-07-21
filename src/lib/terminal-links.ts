@@ -47,6 +47,13 @@ const RIGHT_EDGE_SLACK = 1;
 const BLANK_CELL = " ";
 const EMPTY_CELL = "";
 
+// The Unicode Box Drawing block (U+2500–U+257F). A row drawn entirely from these
+// glyphs is a horizontal rule / separator — Claude's TUI frames a URL between
+// them — never a continuation of a URL. Its first and last code points bound the
+// range we test each glyph against.
+const BOX_DRAWING_FIRST = 0x2500;
+const BOX_DRAWING_LAST = 0x257f;
+
 interface RowContent {
   firstColumn: number;
   lastColumn: number;
@@ -139,6 +146,41 @@ function rowContent({ line, columns }: {
   };
 }
 
+// Whether a row is a horizontal-rule separator: it has content and every
+// visible glyph is a Box Drawing character. Such a row abuts a URL in Claude's
+// framed output but must never be stitched onto it — joining its `─` glyphs
+// (which the URL pattern would happily swallow) would drag the link decoration
+// across the rule below, striking through it.
+function isSeparatorRow({ line, columns }: {
+  line: LinkLine;
+  columns: number;
+}): boolean {
+  const content = rowContent({
+    line,
+    columns
+  });
+  if (!content) {
+    return false;
+  }
+
+  for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
+    const chars = line.getCell(column)?.getChars();
+    if (chars === undefined || chars === BLANK_CELL || chars === EMPTY_CELL) {
+      continue;
+    }
+
+    const codePoint = chars.codePointAt(0);
+    const isBoxDrawing = codePoint !== undefined
+      && codePoint >= BOX_DRAWING_FIRST
+      && codePoint <= BOX_DRAWING_LAST;
+    if (!isBoxDrawing) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Whether a row's content ran to (or within a column of) the right edge, the
 // tell-tale of a program that wrapped because it ran out of width.
 function reachesRightEdge({ content, columns }: {
@@ -168,6 +210,12 @@ function nextRowContinues({ buffer, columns, row }: {
     columns
   });
   if (!lowerContent) {
+    return false;
+  }
+
+  const eitherRowIsSeparator = isSeparatorRow({ line: upper, columns })
+    || isSeparatorRow({ line: lower, columns });
+  if (eitherRowIsSeparator) {
     return false;
   }
 
