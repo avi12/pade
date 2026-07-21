@@ -18,11 +18,11 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
-  import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import {
+    appearance,
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
     SIDE_PANEL_MIN_WIDTH,
@@ -31,6 +31,7 @@
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
+  import { mcpRestartTargets, rekeyLayout, schemeRestartTargets } from "@/lib/session-restart";
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
@@ -1067,7 +1068,14 @@
     }
 
     showToast(`MCP servers changed — restarting ${targets.length === 1 ? "the agent" : `${targets.length} agents`}`);
+    await restartSessions(targets);
+  }
 
+  // Kill the targets and re-key them to fresh ids in place — each terminal
+  // remounts, respawns its agent (resuming its conversation via the session id),
+  // and the pane layout follows. The shared core behind every in-place restart
+  // (MCP change, scheme flip).
+  async function restartSessions(targets: readonly AgentSession[]) {
     await Promise.all(
       targets.map(target => {
         closingByHand.add(target.id);
@@ -1094,6 +1102,52 @@
     paneIds = relaid.paneIds;
     activeId = relaid.activeId;
   }
+
+  // A light/dark flip can't reach a running fixed-at-spawn agent (Claude's
+  // COLORFGBG, Codex's launch args — read once at startup; ConPTY eats every
+  // terminal-protocol channel, see theming.rs), so adopting the new scheme means
+  // restarting the session into its own conversation. Each target waits until
+  // its agent is idle — never yanking one mid-task — and a flip back before that
+  // moment cancels the restart (the generation guard).
+  let schemeFlipGeneration = 0;
+  let lastRestartScheme = appearance.scheme;
+  async function restartWhenIdle({ target, generation }: {
+    target: AgentSession;
+    generation: number;
+  }) {
+    await whenSessionIdle({
+      id: target.id,
+      timeoutMs: 120_000
+    });
+    const stale = generation !== schemeFlipGeneration
+      || !sessions.some(session => session.id === target.id);
+    if (stale) {
+      return;
+    }
+
+    await restartSessions([target]);
+  }
+  $effect(() => {
+    const { scheme } = appearance;
+    if (scheme === lastRestartScheme) {
+      return;
+    }
+
+    lastRestartScheme = scheme;
+    const generation = ++schemeFlipGeneration;
+    const targets = schemeRestartTargets({ sessions });
+    if (targets.length === 0) {
+      return;
+    }
+
+    showToast(`Theme changed — restarting ${targets.length === 1 ? "the agent" : `${targets.length} agents`} to match`);
+    for (const target of targets) {
+      restartWhenIdle({
+        target,
+        generation
+      });
+    }
+  });
 
   // Clear the recent-projects history from the switcher (pins survive).
   async function clearRecentProjects() {
