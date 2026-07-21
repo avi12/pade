@@ -65,7 +65,6 @@
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
-  import Terminal from "@/panels/Terminal.svelte";
   import { onDestroy, onMount, tick } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -1540,32 +1539,40 @@
               <span class="drop-badge"><Icon name="columns" /> Drop to open in split view</span>
             </div>
           {/if}
-          {#each orderedSessions as s (s.id)}
-            <div
-              class="term-slot"
-              class:shown={paneIds.includes(s.id)}
-              data-pane-id={s.id}
-              onoutroend={() => collapsingSplitPanes.delete(s.id)}
-              out:collapsePane={{ duration: collapsingSplitPanes.has(s.id) ? 260 : 0 }}
-            >
-              {#if dropSideFor(s.id) === DropSide.left}
-                <div class="drop-half left"></div>
-              {:else if dropSideFor(s.id) === DropSide.right}
-                <div class="drop-half right"></div>
-              {/if}
-              <Terminal
-                active={s.id === activeId && paneIds.includes(s.id)}
-                ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
-                onexit={handleSessionExit}
-                onpopout={() => popPaneToTab(s.id)}
-                onremove={() => removePane(s.id)}
-                onreorder={ids => (paneIds = ids)}
-                removable={canRemovePane && paneIds.includes(s.id)}
-                session={s}
-                shown={paneIds.includes(s.id)}
-              />
-            </div>
-          {/each}
+          {#if orderedSessions.length > 0}
+            <!-- xterm/WebGL is the heaviest frontend dependency. Load it only when
+                 the first live session needs a pane, not while the picker/onboarding
+                 screen is starting. The keyed loop still owns the mounted terminals
+                 after that, preserving their PTY attachment and scrollback. -->
+            {#await import("@/panels/Terminal.svelte") then { default: Terminal }}
+              {#each orderedSessions as s (s.id)}
+                <div
+                  class="term-slot"
+                  class:shown={paneIds.includes(s.id)}
+                  data-pane-id={s.id}
+                  onoutroend={() => collapsingSplitPanes.delete(s.id)}
+                  out:collapsePane={{ duration: collapsingSplitPanes.has(s.id) ? 260 : 0 }}
+                >
+                  {#if dropSideFor(s.id) === DropSide.left}
+                    <div class="drop-half left"></div>
+                  {:else if dropSideFor(s.id) === DropSide.right}
+                    <div class="drop-half right"></div>
+                  {/if}
+                  <Terminal
+                    active={s.id === activeId && paneIds.includes(s.id)}
+                    ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
+                    onexit={handleSessionExit}
+                    onpopout={() => popPaneToTab(s.id)}
+                    onremove={() => removePane(s.id)}
+                    onreorder={ids => (paneIds = ids)}
+                    removable={canRemovePane && paneIds.includes(s.id)}
+                    session={s}
+                    shown={paneIds.includes(s.id)}
+                  />
+                </div>
+              {/each}
+            {/await}
+          {/if}
 
           <div class="add-pane-wrap menu-host">
             <button

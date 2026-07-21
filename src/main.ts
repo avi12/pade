@@ -1,7 +1,6 @@
 import App from "@/App.svelte";
 import { loadPrefs } from "@/lib/prefs.svelte";
 import "@/theme.css";
-import "@xterm/xterm/css/xterm.css";
 import { mount } from "svelte";
 
 // Resolve a concrete theme synchronously before first paint to avoid a flash;

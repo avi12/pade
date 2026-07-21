@@ -34,6 +34,7 @@
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { WebglAddon } from "@xterm/addon-webgl";
+  import "@xterm/xterm/css/xterm.css";
   import { Terminal } from "@xterm/xterm";
   import { onDestroy, onMount } from "svelte";
 
