@@ -124,6 +124,15 @@
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
   let destroyed = false;
+  // PTY invokes are asynchronous IPC messages. Keep one write in flight and
+  // merge input that arrives while it crosses the process boundary: normal
+  // keystrokes still start immediately, while paste/repeat bursts avoid a costly
+  // invoke per character and cannot overtake one another.
+  let ptyWriteInFlight = false;
+  let queuedPtyWrites: Array<{
+    data: string;
+    settle: () => void;
+  }> = [];
   // The terminal exists and is attached — reactive, so the focus effect below can
   // wait for it (the terminal is built inside an async onMount, well after the
   // first effects have already run).
@@ -327,10 +336,7 @@
     if (isTrustGate(recentOutput)) {
       if (!trustAccepted) {
         trustAccepted = true;
-        await pty.write({
-          id: session.id,
-          data: ENTER
-        });
+        await writeToPty(ENTER);
       }
 
       recentOutput = "";
@@ -338,10 +344,7 @@
     }
 
     promptDelivered = true;
-    await pty.write({
-      id: session.id,
-      data: `${BRACKETED_PASTE_START}${session.initialPrompt}${BRACKETED_PASTE_END}${ENTER}`
-    });
+    await writeToPty(`${BRACKETED_PASTE_START}${session.initialPrompt}${BRACKETED_PASTE_END}${ENTER}`);
   }
 
   // Publish status to the shared store so the top-bar tab shows a matching dot.
