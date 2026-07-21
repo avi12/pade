@@ -348,7 +348,8 @@ fn build_command(
 
     // The agent's leading arguments, in the order they must appear; caller-supplied
     // args (e.g. a terminal editor's project path) are appended by `pty_spawn`
-    // after this.
+    // after this. Assembled up front so the same list feeds either a direct spawn
+    // or the Windows light-console wrapper below.
     let mut leading_args: Vec<String> = Vec::new();
     // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives it
     // autonomously — no per-tool/edit approval stops. Empty for a shell or an
@@ -377,13 +378,31 @@ fn build_command(
         leading_args.push(conversation_id.to_string());
     }
 
-    let mut cmd = CommandBuilder::new(&exe);
-    for arg in &leading_args {
-        cmd.arg(arg);
-    }
+    // Windows + light scheme only: some agents (Codex) paint their input composer
+    // box from the *detected* terminal background, which under ConPTY is the
+    // pseudoconsole's hard-coded BLACK buffer no env/arg/config/OSC channel can
+    // change (see agents.rs). The one lever is a child-side console write, so ADE
+    // prefixes `cmd /c color F0 & …` to flip the buffer light before the agent
+    // probes it. Applied at spawn: a later scheme flip won't recolor an
+    // already-running box (acceptable — every spawn-time theme signal works this
+    // way). Every other case (dark scheme, non-Windows, agents that don't need it)
+    // spawns the agent unchanged.
+    let force_light_console = cfg!(target_os = "windows")
+        && scheme == Some(crate::theming::Scheme::Light)
+        && crate::agents::needs_light_console_fix(&program);
+    let mut cmd = if force_light_console {
+        light_console_command(&exe, &leading_args)
+    } else {
+        let mut cmd = CommandBuilder::new(&exe);
+        for arg in &leading_args {
+            cmd.arg(arg);
+        }
+        cmd
+    };
 
-    // Keyed by the command ADE knows (`codex`), not the file it resolved to
-    // (`…\codex-x86_64-pc-windows-msvc.exe`).
+    // Environment goes on whichever process ADE spawns; a `cmd.exe` wrapper passes
+    // it through to the agent it launches. Keyed by the command ADE knows (`codex`),
+    // not the file it resolved to (`…\codex-x86_64-pc-windows-msvc.exe`).
     for (key, value) in crate::agents::spawn_env(&program) {
         cmd.env(key, value);
     }
@@ -399,6 +418,30 @@ fn build_command(
     // (TERM_PROGRAM, VTE version) and silently fall back to plain text when nothing
     // matches. This is the escape hatch those probes honor.
     cmd.env("FORCE_HYPERLINK", "1");
+    cmd
+}
+
+/// Wrap `exe` + `args` as `cmd /c color F0 & <exe> <args…>` so the `ConPTY` console
+/// buffer reads as a light background *before* the launched agent probes it — ADE's
+/// Windows fix for Codex's terminal-background-derived composer box (see
+/// `build_command` and `agents::needs_light_console_fix`). `color F0` sets the
+/// buffer to black-on-white, which `GetConsoleScreenBufferInfoEx` (the probe's
+/// Windows fallback) then reports as light.
+///
+/// Each token is a *separate* argv entry on purpose: portable-pty quotes each with
+/// standard Windows (`CommandLineToArgvW`) rules, which for tokens without embedded
+/// quotes is exactly what `cmd.exe` parses — a spaced exe path becomes one `"…"`
+/// token, and the bare `&` stays cmd's command separator. Building one pre-quoted
+/// shell string instead would be double-escaped by portable-pty and mis-parsed by
+/// cmd.
+fn light_console_command(exe: &str, args: &[String]) -> CommandBuilder {
+    let mut cmd = CommandBuilder::new("cmd.exe");
+    for token in ["/c", "color", "F0", "&", exe] {
+        cmd.arg(token);
+    }
+    for arg in args {
+        cmd.arg(arg);
+    }
     cmd
 }
 
@@ -737,6 +780,53 @@ mod tests {
     fn snapshot(history: &Arc<Mutex<History>>) -> (String, bool) {
         let buffer = history.lock().expect("history lock");
         (buffer.data[buffer.start..].to_string(), buffer.alternate)
+    }
+
+    /// The Windows light-console wrapper must lead with `cmd /c color F0 &`, keep
+    /// the agent's absolute path as ONE argv token even with spaces, and preserve
+    /// every following arg verbatim — this is the quoting-risk surface the fix
+    /// rides on.
+    #[test]
+    fn light_console_command_round_trips_the_path_and_args() {
+        let exe = r"C:\Program Files\codex dir\codex.exe";
+        let args = vec![
+            "--dangerously-bypass-approvals-and-sandbox".to_string(),
+            "-c".to_string(),
+            "tui.theme=catppuccin-latte".to_string(),
+        ];
+        let built = light_console_command(exe, &args);
+        let assembled: Vec<String> = built
+            .get_argv()
+            .iter()
+            .map(|token| token.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            assembled,
+            vec![
+                "cmd.exe".to_string(),
+                "/c".to_string(),
+                "color".to_string(),
+                "F0".to_string(),
+                "&".to_string(),
+                exe.to_string(),
+                "--dangerously-bypass-approvals-and-sandbox".to_string(),
+                "-c".to_string(),
+                "tui.theme=catppuccin-latte".to_string(),
+            ]
+        );
+        // The spaced path is a single token (portable-pty quotes it at spawn), not
+        // split — the whole point of separate argv entries.
+        assert!(assembled.contains(&exe.to_string()));
+    }
+
+    /// Only Codex opts into the console workaround; agents themed by file/env and
+    /// unknown commands do not.
+    #[test]
+    fn only_codex_needs_the_light_console_fix() {
+        assert!(crate::agents::needs_light_console_fix("codex"));
+        assert!(!crate::agents::needs_light_console_fix("claude"));
+        assert!(!crate::agents::needs_light_console_fix("aider"));
+        assert!(!crate::agents::needs_light_console_fix("powershell.exe"));
     }
 
     #[test]

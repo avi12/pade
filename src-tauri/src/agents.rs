@@ -47,6 +47,15 @@ struct AgentDef {
     session_id_flag: Option<&'static str>,
     /// Environment the CLI needs to render the way ADE embeds it. Empty for most.
     env: &'static [(&'static str, &'static str)],
+    /// Whether this CLI paints its own UI (its input composer box) from the
+    /// *detected* terminal background and so needs ADE's Windows light-console
+    /// workaround. Under `ConPTY` the detected background is the pseudoconsole's
+    /// hard-coded BLACK buffer that no env/arg/config/OSC channel can change, so on
+    /// a light ADE the box clashes; `pty.rs` prefixes `cmd /c color F0 & …` (a
+    /// child-side console write) only for these agents, only on Windows, only when
+    /// the scheme is light. `true` for Codex; `false` for CLIs whose box follows a
+    /// config/env theme (Claude, aider, cursor) or that inherit the palette.
+    needs_light_console_fix: bool,
 }
 
 /// Known agent backends, in preferred display order. The plain shell is always
@@ -98,6 +107,8 @@ const REGISTRY: &[AgentDef] = &[
         // Forced by env, not by the `tui` setting, so it does not depend on — and
         // cannot be undone by — whatever the user's own Claude config happens to say.
         env: &[("CLAUDE_CODE_NO_FLICKER", "1")],
+        // Claude's box follows its `theme` settings key, not the terminal probe.
+        needs_light_console_fix: false,
     },
     AgentDef {
         id: "codex",
@@ -135,19 +146,41 @@ const REGISTRY: &[AgentDef] = &[
             "-c",
             "tui.alternate_screen=always",
         ],
-        // `[tui] theme` names a bundled theme that colors the whole TUI — the
-        // input composer's background bar included — not merely syntax spans, so
-        // the user's own dark theme (e.g. dracula) leaves a dark bar on a light
-        // ADE. Codex reads the theme once at startup and has no live light/dark
-        // toggle, so ADE forces it per launch with the global `-c tui.theme=<name>`
-        // override: it wins over `~/.codex/config.toml` for THIS spawn only, never
-        // rewriting the user's chosen theme on disk. The two names are Codex's own
-        // adaptive defaults — the theme it auto-selects for a light vs dark
-        // terminal background (see openai/codex `highlight.rs`
-        // `adaptive_default_theme_selection`) — so ADE's scheme always wins with
-        // Codex's own neutral picks. Like SpawnEnv, it's read once at startup: a
-        // mid-session scheme flip re-themes only on the next spawn — so the
-        // terminal pins a live session's xterm palette to its spawn scheme
+        // `[tui] theme` selects one of Codex's bundled *syntax-highlight* themes
+        // (syntect/two_face) — code spans, diffs, markdown. Codex reads it once at
+        // startup and has no live light/dark toggle, so ADE forces it per launch
+        // with the global `-c tui.theme=<name>` override: it wins over
+        // `~/.codex/config.toml` for THIS spawn only, never rewriting the user's
+        // chosen theme on disk. The two names are Codex's own adaptive defaults —
+        // what it auto-selects for a light vs dark terminal background (see
+        // openai/codex `highlight.rs` `adaptive_default_theme_selection`) — so
+        // ADE's scheme wins with Codex's own neutral picks.
+        //
+        // What `tui.theme` does NOT control: the input composer / user-message box
+        // background. Codex fills that from `style::user_message_bg(default_bg())`
+        // — a tint blended over the *detected terminal background*, not the syntax
+        // theme (openai/codex `style.rs`; verified: a user's own light
+        // `inspired-github` global theme still yields a dark composer box on ADE).
+        // `default_bg()` comes from a terminal probe (`terminal_probe.rs`): an
+        // OSC 10/11 query, then a `GetConsoleScreenBufferInfoEx` fallback. Under
+        // Windows ConPTY both resolve to the pseudoconsole's hard-coded BLACK
+        // buffer regardless of ADE's scheme — the OSC query is answered by ConPTY
+        // itself (never reaching ADE's xterm, matching theming.rs's live finding),
+        // and the console buffer's background is Black (empirically confirmed via
+        // portable-pty: `GetConsoleScreenBufferInfoEx` reports index-0 Black, and
+        // it is unaffected by an OSC 11 SET written to the pty master). So on a
+        // light ADE the composer box would stay dark, and no env/args/config/OSC
+        // channel can feed Codex a light `default_bg` on Windows — only a
+        // child-side console write can. ADE does exactly that via the
+        // `needs_light_console_fix` flag below: `pty.rs` prefixes the Windows
+        // light-scheme launch with `cmd /c color F0 & …`, which flips the console
+        // buffer light *before* Codex probes it (verified end-to-end: the composer
+        // fill goes from `48;2;41;41;41` to `48;2;232;232;232`). `tui.theme` is a
+        // separate concern and stays forced because it matches syntax highlighting
+        // to ADE's scheme.
+        // Like SpawnEnv, everything above is read once at startup: a mid-session
+        // scheme flip re-themes only on the next spawn — so the terminal pins a
+        // live session's xterm palette to its spawn scheme
         // (`theme_fixed_at_spawn`) instead of flipping the background out from
         // under a TUI that can never re-detect it.
         theme_config: Some(ThemeConfig::SpawnArgs {
@@ -156,6 +189,12 @@ const REGISTRY: &[AgentDef] = &[
         }),
         session_id_flag: None,
         env: &[],
+        // Codex paints its input composer box from the detected terminal
+        // background (`default_bg()`), which under Windows ConPTY is the
+        // pseudoconsole's hard-coded BLACK buffer — so on a light ADE the box
+        // clashes and no clean channel can fix it. `pty.rs` forces the console
+        // buffer light before Codex probes it (Windows + light scheme only).
+        needs_light_console_fix: true,
     },
     AgentDef {
         id: "copilot",
@@ -188,6 +227,7 @@ const REGISTRY: &[AgentDef] = &[
         theme_config: None,
         session_id_flag: None,
         env: &[],
+        needs_light_console_fix: false,
     },
     AgentDef {
         id: "grok",
@@ -207,6 +247,7 @@ const REGISTRY: &[AgentDef] = &[
         theme_config: None,
         session_id_flag: None,
         env: &[],
+        needs_light_console_fix: false,
     },
     AgentDef {
         id: "antigravity",
@@ -223,6 +264,7 @@ const REGISTRY: &[AgentDef] = &[
         theme_config: None,
         session_id_flag: None,
         env: &[],
+        needs_light_console_fix: false,
     },
     AgentDef {
         id: "cursor",
@@ -242,6 +284,7 @@ const REGISTRY: &[AgentDef] = &[
         }),
         session_id_flag: None,
         env: &[],
+        needs_light_console_fix: false,
     },
     AgentDef {
         id: "aider",
@@ -260,6 +303,7 @@ const REGISTRY: &[AgentDef] = &[
         }),
         session_id_flag: None,
         env: &[],
+        needs_light_console_fix: false,
     },
 ];
 
@@ -338,6 +382,15 @@ pub fn installed_theme_configs() -> Vec<&'static ThemeConfig> {
         .filter(|a| find_in(&dirs, &installed_names(a.command)).is_some())
         .filter_map(|a| a.theme_config.as_ref())
         .collect()
+}
+
+/// Whether `command`'s input composer box follows the *detected* terminal
+/// background (rather than a config/env theme), and so needs ADE's Windows
+/// light-console workaround. `pty.rs` gates the `cmd /c color F0 & …` prefix on
+/// this plus `cfg!(windows)` and a light scheme. `false` for an unknown command
+/// or a CLI that themes its box some other way.
+pub fn needs_light_console_fix(command: &str) -> bool {
+    definition(command).is_some_and(|a| a.needs_light_console_fix)
 }
 
 #[derive(Serialize)]
