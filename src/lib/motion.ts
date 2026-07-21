@@ -14,10 +14,14 @@ function prefersReducedMotion(): boolean {
 }
 
 // One coordinate of a cubic Bézier with anchors fixed at 0 and 1 (P0 = 0,
-// P3 = 1), for progress `t` in [0, 1]. `a` and `b` are the two control points.
-function bezierAxis(a: number, b: number, t: number): number {
+// P3 = 1), for progress `t` in [0, 1], shaped by the two control points.
+function bezierAxis({ controlOne, controlTwo, t }: {
+  controlOne: number;
+  controlTwo: number;
+  t: number;
+}): number {
   const inverse = 1 - t;
-  return (3 * inverse * inverse * t * a) + (3 * inverse * t * t * b) + (t * t * t);
+  return (3 * inverse * inverse * t * controlOne) + (3 * inverse * t * t * controlTwo) + (t * t * t);
 }
 
 /** The M3 "emphasized" easing curve — `cubic-bezier(0.2, 0, 0, 1)`, the same
@@ -30,14 +34,23 @@ export function emphasized(progress: number): number {
   let t = progress;
   for (let step = 0; step < 20; step += 1) {
     t = (low + high) / 2;
-    if (bezierAxis(0.2, 0, t) < progress) {
+
+    if (bezierAxis({
+      controlOne: 0.2,
+      controlTwo: 0,
+      t
+    }) < progress) {
       low = t;
     } else {
       high = t;
     }
   }
 
-  return bezierAxis(0, 1, t);
+  return bezierAxis({
+    controlOne: 0,
+    controlTwo: 1,
+    t
+  });
 }
 
 function motionDuration(milliseconds: number): number {

@@ -8,8 +8,13 @@
   import { formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { markdownDocument } from "@/lib/markdown";
-  import { collapseRow, emphasized, expandRow, flipDuration, revealBlock } from "@/lib/motion";
-  import { flip } from "svelte/animate";
+  import {
+    collapseRow,
+    emphasized,
+    expandRow,
+    flipDuration,
+    revealBlock
+  } from "@/lib/motion";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
@@ -20,6 +25,7 @@
   import type { FeedDiff, WorkspaceMember } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
+  import { flip } from "svelte/animate";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // The open project's root dir — lets an editor open a change in the window
@@ -300,18 +306,18 @@
   // than re-derived at each call site. Sorted by count, then name, so the
   // busiest types lead and the order is stable.
   const extensionCounts = $derived.by<ExtensionCount[]>(() => {
-    const counts = new Map<string, number>();
+    const counts: Record<string, number> = {};
     for (const event of feedStore.events) {
       const extension = fileExtension(event.path);
-      counts.set(extension, (counts.get(extension) ?? 0) + 1);
+      counts[extension] = (counts[extension] ?? 0) + 1;
     }
 
-    return [...counts]
+    return Object.entries(counts)
       .map(([extension, count]) => ({
         extension,
         count
       }))
-      .sort((a, b) => b.count - a.count || a.extension.localeCompare(b.extension));
+      .sort((first, second) => second.count - first.count || first.extension.localeCompare(second.extension));
   });
 
   // Opt-in file-type filter: the extensions the user has ticked. An empty set is
@@ -505,8 +511,8 @@
     <div class="toolbar">
       <div class="typefilter menu-host">
         <button
-          class="typechip menu-trigger"
           style:anchor-name="--type-anchor"
+          class="typechip menu-trigger"
           popovertarget="type-filter"
         >
           <span class="caret">▽</span>
@@ -517,7 +523,8 @@
           <div class="pop-head">
             <span class="pop-title">File type</span>
             <button class="selectall" onclick={() => toggleAllTypes()}>
-              {allTypesSelected ? "Clear" : "Select all"}
+              {#if allTypesSelected}
+                Clear{:else}Select all{/if}
             </button>
           </div>
           <ul class="typelist">
@@ -525,7 +532,10 @@
               <li
                 in:expandRow
                 out:collapseRow
-                animate:flip={{ duration: flipDuration(), easing: emphasized }}
+                animate:flip={{
+                  duration: flipDuration(),
+                  easing: emphasized
+                }}
               >
                 <label class="check typerow">
                   <span class="ck">
