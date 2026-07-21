@@ -23,12 +23,18 @@
       {#if row.hunk}
         <div class="hunk">{row.hunkText}</div>
       {:else}
-        <div class="cell" class:filled-del={row.leftFilled}><ColorText text={row.left} /></div>
+        <div class="cell" class:filled-del={row.leftFilled}>
+          <span class="gutter" aria-hidden="true">{row.oldLine ?? ""}</span>
+          <span class="code"><ColorText text={row.left} /></span>
+        </div>
         <div
           class="cell right"
           class:filled-add={row.rightFilled}
           data-newline={row.newLine}
-        ><ColorText text={row.right} /></div>
+        >
+          <span class="gutter" aria-hidden="true">{row.newLine ?? ""}</span>
+          <span class="code"><ColorText text={row.right} /></span>
+        </div>
       {/if}
     {/each}
   </div>
@@ -41,7 +47,13 @@
         class:del={line.kind === DiffKind.del}
         class:meta={line.kind === DiffKind.meta}
         data-newline={line.newLine}
-      ><ColorText text={line.text} /></div>
+      >
+        <span class="gutter" aria-hidden="true">
+          <span class="ln">{line.oldLine ?? ""}</span>
+          <span class="ln">{line.newLine ?? ""}</span>
+        </span>
+        <span class="code"><ColorText text={line.text} /></span>
+      </div>
     {/each}
   </div>
 {/if}
@@ -59,6 +71,37 @@
      (preserving whitespace) rather than clip or hide behind a side-scroll,
      and unbroken tokens may break anywhere so nothing ever overflows. */
 
+  /* A line-number gutter runs down the inline-start edge of every code row:
+     two columns (old, new) in the unified view, one per side in split. It's
+     top-aligned so the numbers sit against the first visual line of a wrapped
+     row, muted, tabular so digits never jitter, and unselectable so dragging to
+     select code (for send-to-agent) never grabs the numbers. */
+  .gutter {
+    display: flex;
+    flex: none;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-inline-end: 10px;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+    white-space: nowrap;
+    opacity: 55%;
+    user-select: none;
+  }
+
+  .gutter .ln {
+    display: inline-block;
+    min-inline-size: 2.5ch;
+  }
+
+  .code {
+    flex: 1;
+    min-inline-size: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   /* content-visibility lets the engine skip layout/paint for offscreen rows —
      on a 9.4k-line diff (Notepad++ stress test) it cut the expand's main-thread
      block ~30% and the split toggle ~20%, with instant scrolling. The intrinsic
@@ -66,11 +109,11 @@
      honest. */
   .unified .line {
     contain-intrinsic-block-size: auto 18px;
+    display: flex;
     content-visibility: auto;
+    align-items: flex-start;
     padding-inline: var(--diff-line-padding, 12px);
     color: var(--code-foreground);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
   }
 
   .line.add {
@@ -83,6 +126,12 @@
 
   .line.meta {
     color: var(--on-surface-variant);
+  }
+
+  /* A hunk/meta row has no line numbers, so its gutter reserves the same width
+     the two number columns take (2 × 2.5ch + gap) to keep the code aligned. */
+  .line.meta .gutter {
+    min-inline-size: calc(5ch + 8px);
   }
 
   .split {
@@ -99,13 +148,17 @@
 
     .cell {
       contain-intrinsic-block-size: auto 18px;
+      display: flex;
       content-visibility: auto;
+      align-items: flex-start;
       min-block-size: 1.5em;
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
       color: var(--code-foreground);
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
+    }
+
+    .cell .gutter {
+      min-inline-size: 2.5ch;
     }
 
     .cell.right {

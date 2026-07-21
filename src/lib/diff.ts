@@ -17,8 +17,12 @@ export type DiffKind = (typeof DiffKind)[keyof typeof DiffKind];
 export interface DiffLine {
   text: string;
   kind: DiffKind;
+  /** 1-based line number in the OLD file for del/context lines; undefined for
+   *  additions, hunk headers, and file meta. Drives the diff gutter's old column. */
+  oldLine?: number;
   /** 1-based line number in the NEW file for add/context lines; undefined for
-   *  deletions, hunk headers, and file meta. Lets a reveal open at that line. */
+   *  deletions, hunk headers, and file meta. Lets a reveal open at that line, and
+   *  drives the diff gutter's new column. */
   newLine?: number;
 }
 
@@ -31,7 +35,10 @@ export interface SplitRow {
   leftFilled: boolean;
   right: string;
   rightFilled: boolean;
-  /** New-file line for the right (new) side — lets a click open at that line. */
+  /** Old-file line for the left (old) side — drives the split gutter's old column. */
+  oldLine?: number;
+  /** New-file line for the right (new) side — lets a click open at that line, and
+   *  drives the split gutter's new column. */
   newLine?: number;
 }
 
@@ -55,25 +62,28 @@ function classify(line: string): DiffKind {
   return DiffKind.context;
 }
 
-// A hunk header — `@@ -old,n +new,n @@` — where capture 1 is the new file's
-// starting line, from which we count add/context lines forward.
-const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
+// A hunk header — `@@ -old,n +new,n @@` — where capture 1 is the old file's and
+// capture 2 the new file's starting line, from which we count lines forward.
+const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
 /** Parse a raw `git diff` body into classified lines (trailing blank dropped).
- *  Add/context lines carry their 1-based line number in the new file. */
+ *  Context lines carry both 1-based line numbers, additions the new-file number,
+ *  deletions the old-file number — the diff gutter reads them per side. */
 export function parseDiff(raw: string): DiffLine[] {
   const lines = raw.split("\n");
   if (lines.length > 0 && lines[lines.length - 1] === "") {
     lines.pop();
   }
 
+  let oldLine = 0; // 0 until the first hunk header sets the old-file cursor
   let newLine = 0; // 0 until the first hunk header sets the new-file cursor
   return lines.map(text => {
     const kind = classify(text);
     if (kind === DiffKind.meta) {
       const hunk = HUNK_HEADER.exec(text);
       if (hunk) {
-        newLine = Number(hunk[1]);
+        oldLine = Number(hunk[1]);
+        newLine = Number(hunk[2]);
       }
 
       return {
@@ -82,20 +92,43 @@ export function parseDiff(raw: string): DiffLine[] {
       };
     }
 
-    // Deletions have no counterpart in the new file, so they carry no number.
+    // Deletions exist only in the old file; additions only in the new; context
+    // in both. Advance each side's cursor only where the line is present there.
     if (kind === DiffKind.del) {
-      return {
+      const number = oldLine;
+      oldLine += 1;
+      return number > 0 ? {
+        text,
+        kind,
+        oldLine: number
+      } : {
         text,
         kind
       };
     }
 
-    const lineNumber = newLine;
+    if (kind === DiffKind.add) {
+      const number = newLine;
+      newLine += 1;
+      return number > 0 ? {
+        text,
+        kind,
+        newLine: number
+      } : {
+        text,
+        kind
+      };
+    }
+
+    const oldNumber = oldLine;
+    const newNumber = newLine;
+    oldLine += 1;
     newLine += 1;
-    return lineNumber > 0 ? {
+    return newNumber > 0 ? {
       text,
       kind,
-      newLine: lineNumber
+      oldLine: oldNumber,
+      newLine: newNumber
     } : {
       text,
       kind
@@ -149,7 +182,8 @@ export function toSplitRows(lines: DiffLine[]): SplitRow[] {
       return {
         ...blank,
         left: source,
-        leftFilled: true
+        leftFilled: true,
+        oldLine: line.oldLine
       };
     }
 
@@ -157,6 +191,7 @@ export function toSplitRows(lines: DiffLine[]): SplitRow[] {
       ...blank,
       left: source,
       right: source,
+      oldLine: line.oldLine,
       newLine: line.newLine
     };
   });

@@ -46,6 +46,12 @@ describe("parseDiff", () => {
     expect(numbers).toEqual([undefined, undefined, undefined, undefined, undefined, 1, undefined, 2, 3, 4]);
   });
 
+  it("numbers deletion and context lines against the old file", () => {
+    const numbers = parseDiff(SAMPLE).map(line => line.oldLine);
+
+    expect(numbers).toEqual([undefined, undefined, undefined, undefined, undefined, 1, 2, undefined, undefined, 3]);
+  });
+
   it("restarts numbering at every hunk header", () => {
     const lines = parseDiff("@@ -10,2 +20,2 @@\n context\n+add\n@@ -40 +50 @@\n context");
 
