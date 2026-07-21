@@ -76,6 +76,23 @@ These are non-negotiable for all work in this repo.
      JS-toggled dropdown.
    - Performance first (virtualize long lists, debounce, GPU rendering, lazy
      panels) — but never at the cost of readability. Clear beats clever.
+   - Treat hot paths as a budgeted contract: identify the actual event/data path
+     first, keep the work bounded, and preserve ordering, cancellation, and
+     lifecycle behavior when coalescing frontend work. Do not make a live terminal
+     or hidden session stale merely to reduce paints.
+   - Rust concurrency: an app-wide mutex is only a registry lookup. Clone the
+     session handle and release that lock **before** filesystem I/O, PTY I/O,
+     process polling, process-tree termination, or other potentially blocking
+     work; synchronize only the affected session resource afterwards. When a
+     background worker can outlive a removed-and-recreated id, use object identity
+     (for example `Arc::ptr_eq`) so it cannot affect the replacement.
+   - Keep hot buffers bounded without repeated full-buffer copies. Advance a
+     validated offset/ring buffer and compact amortizedly; expose only the active
+     slice at the boundary. For aggregate filesystem work, stream rather than
+     allocating an entire file, and reuse metadata already read for the same event.
+   - Prefer deterministic, behavior-focused tests for every optimization: assert
+     replay/order and UTF-8 edge cases for stream changes, and retain the same
+     externally observable result before optimizing an internal representation.
    - Early returns: prefer guard clauses that bail out early over nested
      `if`/`else` pyramids, wherever it makes the happy path read top-to-bottom.
    - `for…of` over `.forEach`, a `for` loop over `.reduce()`: reach for a `for…of`

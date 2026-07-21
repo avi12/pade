@@ -17,14 +17,14 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 /// All live PTY sessions, keyed by session id.
 #[derive(Default)]
-pub struct PtyState(pub Mutex<HashMap<String, Pty>>);
+pub struct PtyState(pub Mutex<HashMap<String, Arc<Pty>>>);
 
 pub struct Pty {
-    master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
+    master: Mutex<Box<dyn MasterPty + Send>>,
+    writer: Mutex<Box<dyn Write + Send>>,
     /// The agent process itself. Held so that ending a session can end the
     /// process — see `Drop`.
-    child: Box<dyn Child + Send + Sync>,
+    child: Mutex<Box<dyn Child + Send + Sync>>,
     /// The command the spawn asked for (the agent's canonical name, e.g.
     /// `claude`) — `None` when the spawn fell through to the default shell.
     /// Kept so `pty_list` can tell a reloaded frontend what each session runs.
@@ -54,12 +54,16 @@ impl Drop for Pty {
     /// 32). Kill the tree first (while it's still walkable from the child), then
     /// reap the immediate child, so the folder is free the moment the session ends.
     fn drop(&mut self) {
+        let child = match self.child.get_mut() {
+            Ok(child) => child,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         #[cfg(windows)]
-        if let Some(pid) = self.child.process_id() {
+        if let Some(pid) = child.process_id() {
             kill_process_tree(pid);
         }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        let _ = child.kill();
+        let _ = child.wait();
     }
 }
 
@@ -86,7 +90,11 @@ fn kill_process_tree(pid: u32) {
 /// chunks `1..=seq`.
 #[derive(Default)]
 pub struct History {
+    /// Backing storage for the replay tail. `start` advances through this string
+    /// as old output expires; compacting only occasionally avoids moving a near-
+    /// 512 KiB tail on every PTY chunk once a session has been running for a while.
     data: String,
+    start: usize,
     seq: u64,
     /// Is the program currently painting the ALTERNATE screen (a fullscreen TUI, a
     /// pager)? Then this history is a stream of framebuffer edits, not a document,
@@ -220,7 +228,7 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
     // boundary, so a switch sequence split across two reads still counts once its
     // tail arrives.
     let lookback = raw.len() + ENTER_ALTERNATE_SCREEN.len() - 1;
-    let mut window_start = buffer.data.len().saturating_sub(lookback);
+    let mut window_start = buffer.data.len().saturating_sub(lookback).max(buffer.start);
     while !buffer.data.is_char_boundary(window_start) {
         window_start += 1;
     }
@@ -228,19 +236,27 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
         buffer.alternate = alternate;
     }
 
-    if buffer.data.len() > HISTORY_CAP {
+    if buffer.data.len() - buffer.start > HISTORY_CAP {
         // Walk the cap overflow to a char boundary BEFORE slicing — landing inside
         // a multibyte character would panic — then cut just past the first line
         // break so a replay starts on a whole line. A tail with no line break at
         // all is dropped entirely rather than replayed torn.
-        let mut overflow = buffer.data.len() - HISTORY_CAP;
+        let mut overflow = buffer.start + (buffer.data.len() - buffer.start - HISTORY_CAP);
         while !buffer.data.is_char_boundary(overflow) {
             overflow += 1;
         }
         let cut = buffer.data[overflow..]
             .find('\n')
             .map_or(buffer.data.len(), |line_break| overflow + line_break + 1);
-        buffer.data.drain(..cut);
+        buffer.start = cut;
+
+        // `String::drain` moves the retained tail. Do that only after a full
+        // history window has expired, not once per output chunk.
+        if buffer.start >= HISTORY_CAP {
+            let start = buffer.start;
+            buffer.data.drain(..start);
+            buffer.start = 0;
+        }
     }
 
     buffer.seq
@@ -330,51 +346,58 @@ fn build_command(
         |path| path.to_string_lossy().into_owned(),
     );
 
+    // The agent's leading arguments, in the order they must appear; caller-supplied
+    // args (e.g. a terminal editor's project path) are appended by `pty_spawn`
+    // after this.
+    let mut leading_args: Vec<String> = Vec::new();
+    // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives it
+    // autonomously — no per-tool/edit approval stops. Empty for a shell or an
+    // unknown command.
+    for arg in crate::agents::session_args(&program) {
+        leading_args.push(arg.to_string());
+    }
+    // Per-scheme theme arguments for arg-themed CLIs (codex's global
+    // `-c tui.theme=…`), so the agent's TUI starts on ADE's current appearance —
+    // see theming.rs. Interactive spawn path only; the oneshot `codex exec` renders
+    // no TUI. A global option, so its order among the flags doesn't matter. Empty
+    // for a shell, an unknown command, or an agent themed by file/env instead.
+    if let Some(scheme) = scheme {
+        for arg in crate::theming::spawn_args(&program, scheme) {
+            leading_args.push(arg.to_string());
+        }
+    }
+    // Bind the session to ADE's stable conversation id (`--session-id <uuid>`), so a
+    // later spawn with the same id resumes THIS conversation rather than the most
+    // recent — how ADE restarts one specific session (e.g. after `.mcp.json`
+    // changed). Only for an agent whose CLI supports it; a shell/editor ignores it.
+    if let (Some(flag), Some(conversation_id)) =
+        (crate::agents::session_id_flag(&program), conversation_id)
+    {
+        leading_args.push(flag.to_string());
+        leading_args.push(conversation_id.to_string());
+    }
+
     let mut cmd = CommandBuilder::new(&exe);
+    for arg in &leading_args {
+        cmd.arg(arg);
+    }
+
     // Keyed by the command ADE knows (`codex`), not the file it resolved to
     // (`…\codex-x86_64-pc-windows-msvc.exe`).
     for (key, value) in crate::agents::spawn_env(&program) {
         cmd.env(key, value);
     }
-    // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent),
-    // so the agent starts matching ADE's current appearance — see theming.rs.
+    // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the
+    // agent starts matching ADE's current appearance — see theming.rs.
     if let Some(scheme) = scheme {
         for (key, value) in crate::theming::spawn_env(&program, scheme) {
             cmd.env(key, value);
         }
     }
-    // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives
-    // it autonomously — no per-tool/edit approval stops. These lead the arg list;
-    // any caller-supplied args (e.g. a terminal editor's project path) follow.
-    // Empty for a shell or an unknown command.
-    for arg in crate::agents::session_args(&program) {
-        cmd.arg(arg);
-    }
-    // Per-scheme theme arguments for arg-themed CLIs (codex's global
-    // `-c tui.theme=…`), so the agent's TUI starts on ADE's current appearance —
-    // see theming.rs. This is the interactive spawn path only; the oneshot
-    // `codex exec` renders no TUI and gets no theme. A global option, so its
-    // order among the top-level flags above doesn't matter. Empty for a shell,
-    // an unknown command, or an agent themed by file/env instead.
-    if let Some(scheme) = scheme {
-        for arg in crate::theming::spawn_args(&program, scheme) {
-            cmd.arg(arg);
-        }
-    }
-    // Bind the session to ADE's stable conversation id (`--session-id <uuid>`),
-    // so a later spawn with the same id resumes THIS conversation rather than the
-    // most recent — how ADE restarts one specific session (e.g. after `.mcp.json`
-    // changed). Only for an agent whose CLI supports it; a shell/editor ignores it.
-    if let (Some(flag), Some(conversation_id)) =
-        (crate::agents::session_id_flag(&program), conversation_id)
-    {
-        cmd.arg(flag);
-        cmd.arg(conversation_id);
-    }
-    // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI
-    // can't tell from inside a bare ConPTY: Ink/terminal-link probe the
-    // environment (TERM_PROGRAM, VTE version) and silently fall back to plain
-    // text when nothing matches. This is the escape hatch those probes honor.
+    // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
+    // tell from inside a bare ConPTY: Ink/terminal-link probe the environment
+    // (TERM_PROGRAM, VTE version) and silently fall back to plain text when nothing
+    // matches. This is the escape hatch those probes honor.
     cmd.env("FORCE_HYPERLINK", "1");
     cmd
 }
@@ -401,9 +424,11 @@ pub fn pty_spawn(
     // CLI supports it (`claude --session-id`). Absent for a shell/editor.
     conversation_id: Option<String>,
 ) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if sessions.contains_key(&id) {
-        return Ok(()); // already running
+    {
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        if sessions.contains_key(&id) {
+            return Ok(()); // already running
+        }
     }
 
     let pty_system = native_pty_system();
@@ -416,6 +441,12 @@ pub fn pty_spawn(
         })
         .map_err(|e| e.to_string())?;
 
+    // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
+    let dir = cwd
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok());
+    let spawn_cwd = dir.as_ref().map(|path| path.to_string_lossy().into_owned());
+
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
@@ -423,11 +454,6 @@ pub fn pty_spawn(
     for arg in args.unwrap_or_default() {
         cmd.arg(arg);
     }
-    // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
-    let dir = cwd
-        .map(std::path::PathBuf::from)
-        .or_else(|| std::env::current_dir().ok());
-    let spawn_cwd = dir.as_ref().map(|path| path.to_string_lossy().into_owned());
     if let Some(dir) = dir {
         cmd.cwd(dir);
     }
@@ -435,65 +461,34 @@ pub fn pty_spawn(
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
-    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-
-    // Pump this session's output to the frontend, tagged with its id, while keeping
-    // the raw stream for replay and mirroring a cleaned tail into the transcript for
-    // the AI namer. The chunk is recorded BEFORE it is emitted, so any chunk the
-    // frontend can hear is already inside the history it is about to ask for.
-    let app_reader = app.clone();
-    let session_id = id.clone();
     let transcript = Arc::new(Mutex::new(String::new()));
-    let transcript_reader = transcript.clone();
     let history = Arc::new(Mutex::new(History::default()));
-    let history_reader = history.clone();
-    std::thread::spawn(move || {
-        let mut buf = [0u8; 8192];
-        let mut pending = Vec::new();
-        loop {
-            match reader.read(&mut buf) {
-                Ok(n) if n > 0 => {
-                    pending.extend_from_slice(&buf[..n]);
-                    let data = drain_decoded(&mut pending);
-                    if data.is_empty() {
-                        continue;
-                    }
-                    append_transcript(&transcript_reader, &strip_ansi(&data));
-                    let seq = append_history(&history_reader, &data);
-                    let _ = app_reader.emit(
-                        "pty://data",
-                        Chunk {
-                            id: session_id.clone(),
-                            data,
-                            seq,
-                        },
-                    );
-                }
-                // EOF (agent exited) or a read error — end the pump.
-                _ => break,
-            }
-        }
-        let _ = app_reader.emit(
-            "pty://exit",
-            Exit {
-                id: session_id.clone(),
-            },
-        );
+    let pty = Arc::new(Pty {
+        master: Mutex::new(pair.master),
+        writer: Mutex::new(writer),
+        child: Mutex::new(child),
+        command: spawn_command,
+        cwd: spawn_cwd,
+        transcript: Arc::clone(&transcript),
+        history: Arc::clone(&history),
     });
 
-    sessions.insert(
-        id.clone(),
-        Pty {
-            master: pair.master,
-            writer,
-            child,
-            command: spawn_command,
-            cwd: spawn_cwd,
-            transcript,
-            history,
-        },
-    );
+    // Opening a PTY and spawning an agent can block on the operating system. Only
+    // take the registry lock to publish the completed session, so existing panes
+    // remain responsive while a new CLI starts. A concurrent duplicate is dropped
+    // here, which terminates the unregistered child through `Pty::drop`.
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if sessions.contains_key(&id) {
+        drop(sessions);
+        drop(pty);
+        return Ok(());
+    }
+    sessions.insert(id.clone(), pty);
+    drop(sessions);
+
+    spawn_session_output_pump(app.clone(), id.clone(), reader, transcript, history);
 
     // Reap the agent when it exits on its own. The reader thread's EOF alone
     // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
@@ -503,25 +498,92 @@ pub fn pty_spawn(
     // the ConPTY, which EOFs the reader, whose existing end-of-pump emit is the
     // one authoritative source of `pty://exit` (DRY). A hand-closed session
     // (`pty_kill`) is already out of the map, which ends this thread too.
-    let handle = app.clone();
+    spawn_session_exit_monitor(app, id);
+    Ok(())
+}
+
+/// Pump one session's output after it has been published in the registry. A chunk
+/// enters replay history before its event is emitted, so attach/replay handover
+/// remains exact even when the frontend starts listening mid-stream.
+fn spawn_session_output_pump(
+    app: AppHandle,
+    id: String,
+    mut reader: Box<dyn Read + Send>,
+    transcript: Arc<Mutex<String>>,
+    history: Arc<Mutex<History>>,
+) {
+    std::thread::spawn(move || {
+        let mut buffer = [0_u8; 8192];
+        let mut pending = Vec::new();
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(bytes_read) if bytes_read > 0 => {
+                    pending.extend_from_slice(&buffer[..bytes_read]);
+                    let data = drain_decoded(&mut pending);
+                    if data.is_empty() {
+                        continue;
+                    }
+                    append_transcript(&transcript, &strip_ansi(&data));
+                    let seq = append_history(&history, &data);
+                    let _ = app.emit(
+                        "pty://data",
+                        Chunk {
+                            id: id.clone(),
+                            data,
+                            seq,
+                        },
+                    );
+                }
+                // EOF (agent exited) or a read error — end the pump.
+                _ => break,
+            }
+        }
+        let _ = app.emit("pty://exit", Exit { id });
+    });
+}
+
+/// Poll one child process and remove precisely that session when it exits. The
+/// registry lock only resolves the session `Arc`; process polling and destruction
+/// happen outside it, so a dead process can never stall input for another pane.
+fn spawn_session_exit_monitor(app: AppHandle, id: String) {
     std::thread::spawn(move || loop {
         std::thread::sleep(CHILD_POLL_INTERVAL);
-        let Some(state) = handle.try_state::<PtyState>() else {
+        let Some(state) = app.try_state::<PtyState>() else {
             break;
         };
-        let Ok(mut sessions) = state.0.lock() else {
+        let pty = {
+            let Ok(sessions) = state.0.lock() else {
+                break;
+            };
+            sessions.get(&id).cloned()
+        };
+        let Some(pty) = pty else {
             break;
         };
-        let Some(pty) = sessions.get_mut(&id) else {
-            break;
-        };
-        let still_running = matches!(pty.child.try_wait(), Ok(None));
+        let still_running = pty
+            .child
+            .lock()
+            .is_ok_and(|mut child| matches!(child.try_wait(), Ok(None)));
         if !still_running {
-            sessions.remove(&id);
+            // A caller can kill and immediately recreate an id. Only remove the
+            // exact PTY this reaper owns; a stale reaper must not reap its successor.
+            let removed = {
+                let Ok(mut sessions) = state.0.lock() else {
+                    break;
+                };
+                if sessions
+                    .get(&id)
+                    .is_some_and(|active| Arc::ptr_eq(active, &pty))
+                {
+                    sessions.remove(&id)
+                } else {
+                    None
+                }
+            };
+            drop(removed);
             break;
         }
     });
-    Ok(())
 }
 
 /// One live PTY session as `pty_list` reports it: what it runs (`command` — the
@@ -565,16 +627,19 @@ pub fn pty_list(state: State<PtyState>) -> Vec<SessionInfo> {
 /// which are genuinely new. Empty for an unknown session.
 #[tauri::command]
 pub fn pty_history(state: State<PtyState>, id: String) -> HistorySnapshot {
-    let Ok(sessions) = state.0.lock() else {
-        return HistorySnapshot::default();
+    let pty = {
+        let Ok(sessions) = state.0.lock() else {
+            return HistorySnapshot::default();
+        };
+        sessions.get(&id).cloned()
     };
-    let Some(pty) = sessions.get(&id) else {
+    let Some(pty) = pty else {
         return HistorySnapshot::default();
     };
     pty.history
         .lock()
         .map(|buffer| HistorySnapshot {
-            data: buffer.data.clone(),
+            data: buffer.data[buffer.start..].to_string(),
             seq: buffer.seq,
             alternate: buffer.alternate,
         })
@@ -584,10 +649,13 @@ pub fn pty_history(state: State<PtyState>, id: String) -> HistorySnapshot {
 /// Read a session's current transcript, or an empty string if it is unknown or
 /// the lock is poisoned. The context the AI session-namer summarises.
 pub fn transcript_of(state: &PtyState, id: &str) -> String {
-    let Ok(sessions) = state.0.lock() else {
-        return String::new();
+    let pty = {
+        let Ok(sessions) = state.0.lock() else {
+            return String::new();
+        };
+        sessions.get(id).cloned()
     };
-    let Some(pty) = sessions.get(id) else {
+    let Some(pty) = pty else {
         return String::new();
     };
     pty.transcript
@@ -598,21 +666,24 @@ pub fn transcript_of(state: &PtyState, id: &str) -> String {
 
 #[tauri::command]
 pub fn pty_write(state: State<PtyState>, id: String, data: String) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(pty) = sessions.get_mut(&id) {
-        pty.writer
+    let pty = state.0.lock().map_err(|e| e.to_string())?.get(&id).cloned();
+    if let Some(pty) = pty {
+        let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
+        writer
             .write_all(data.as_bytes())
             .map_err(|e| e.to_string())?;
-        pty.writer.flush().map_err(|e| e.to_string())?;
+        writer.flush().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
 #[tauri::command]
 pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> Result<(), String> {
-    let sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(pty) = sessions.get(&id) {
+    let pty = state.0.lock().map_err(|e| e.to_string())?.get(&id).cloned();
+    if let Some(pty) = pty {
         pty.master
+            .lock()
+            .map_err(|e| e.to_string())?
             .resize(PtySize {
                 rows,
                 cols,
@@ -630,7 +701,9 @@ pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> R
 #[tauri::command]
 pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    sessions.remove(&id);
+    let pty = sessions.remove(&id);
+    drop(sessions);
+    drop(pty);
     Ok(())
 }
 
@@ -638,7 +711,9 @@ pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
 /// after the window is gone and every workspace cwd-lock is freed.
 pub fn kill_all(state: &PtyState) {
     if let Ok(mut sessions) = state.0.lock() {
-        sessions.clear();
+        let all = std::mem::take(&mut *sessions);
+        drop(sessions);
+        drop(all);
     }
 }
 
@@ -661,7 +736,7 @@ mod tests {
 
     fn snapshot(history: &Arc<Mutex<History>>) -> (String, bool) {
         let buffer = history.lock().expect("history lock");
-        (buffer.data.clone(), buffer.alternate)
+        (buffer.data[buffer.start..].to_string(), buffer.alternate)
     }
 
     #[test]
