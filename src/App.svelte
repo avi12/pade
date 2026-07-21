@@ -1529,7 +1529,12 @@
         />
       </header>
 
-      <main style:--side-panel-width="{sidePanelWidth}px" class="body" class:with-side={side !== null}>
+      <main
+        style:--side-panel-width="{sidePanelWidth}px"
+        class="body"
+        class:with-side={side !== null}
+        data-resizing={resizingSidePanel || undefined}
+      >
         <section bind:this={panesElement} class="pane term-pane" data-panes>
           <!-- A tab dragged over the panes reads as "open in split" — a dashed
                primary frame invites the drop; each pane then shows the left/right
@@ -1929,10 +1934,20 @@
 
     /* The side column follows the dragged `--side-panel-width`, clamped so it
        never falls below its minimum nor swallows more than 60% of the window
-       (design: `Math.max(280, Math.min(width*0.6, …))`). No width transition —
-       the pointer drives the frame directly. */
+       (design: `Math.max(280, Math.min(width*0.6, …))`). The width tweens with
+       the emphasized easing so a double-click snap-back to the default animates. */
     &.with-side {
       grid-template-columns: 1fr clamp(280px, var(--side-panel-width, 380px), 60%);
+      transition: grid-template-columns 250ms var(--ease);
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    /* A live drag drives the frame directly — any transition would lag it behind
+       the pointer, so it is switched off for the duration of the drag. */
+    &[data-resizing] {
       transition: none;
     }
   }
@@ -1953,6 +1968,18 @@
     margin-inline-end: -5.5px;
     cursor: col-resize;
     touch-action: none;
+
+    /* Follows the seam in step with the column tween on a double-click reset,
+       held still during a live drag (see `[data-resizing]` below). */
+    transition: inset-inline-end 250ms var(--ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+
+    .body[data-resizing] & {
+      transition: none;
+    }
 
     /* A thin pill at rest; fills to full-height primary while hovered, dragged,
        or keyboard-focused (design's [data-resizebar] hover/active rule). */
