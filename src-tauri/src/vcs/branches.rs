@@ -6,8 +6,8 @@ use super::run_git;
 
 /// The current HEAD branch name, for `vcs_commit`. `None`/detached maps to no
 /// branch.
-pub(crate) fn current_branch() -> Option<String> {
-    let raw = run_git(&["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
+pub(crate) fn current_branch(cwd: &str) -> Option<String> {
+    let raw = run_git(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
     let name = raw.trim();
     if name.is_empty() || name == "HEAD" {
         return None;
@@ -43,8 +43,8 @@ pub fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
 
 /// Local branches in the current repo (empty/Err when not a git repo).
 #[tauri::command]
-pub fn vcs_branches() -> Result<Vec<String>, String> {
-    let raw = run_git(&["branch", "--format=%(refname:short)"])?;
+pub fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
+    let raw = run_git(&cwd, &["branch", "--format=%(refname:short)"])?;
     Ok(raw
         .lines()
         .map(str::trim)

@@ -27,9 +27,9 @@ fn classify(index: char, worktree: char) -> (StatusKind, bool) {
 }
 
 #[tauri::command]
-pub fn vcs_status() -> Result<Vec<StatusEntry>, String> {
+pub fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
     // NUL-delimited records survive paths with spaces/newlines.
-    let raw = run_git(&["status", "--porcelain=v1", "-z"])?;
+    let raw = run_git(&cwd, &["status", "--porcelain=v1", "-z"])?;
     let mut entries = Vec::new();
     let mut records = raw.split('\0');
 
@@ -60,14 +60,14 @@ pub fn vcs_status() -> Result<Vec<StatusEntry>, String> {
 
 /// Raw unified diff for one path (staged or working-tree).
 #[tauri::command]
-pub fn vcs_diff(path: String, staged: bool) -> Result<String, String> {
+pub fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<String, String> {
     let mut args = vec!["diff", "--no-color"];
     if staged {
         args.push("--staged");
     }
     args.push("--");
     args.push(&path);
-    run_git(&args)
+    run_git(&cwd, &args)
 }
 
 #[cfg(test)]

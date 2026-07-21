@@ -22,17 +22,20 @@ pub struct Commit {
 }
 
 #[tauri::command]
-pub fn vcs_log(limit: u32) -> Result<Vec<Commit>, String> {
+pub fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
     // A record-start marker (RS) precedes each commit header so we can tell a
     // header line apart from the `--numstat` rows that follow it. The header
     // fields are US-separated as before.
     let fmt = format!("{RS}%H{US}%h{US}%s{US}%an{US}%cr");
-    let raw = run_git(&[
-        "log",
-        &format!("-n{limit}"),
-        "--numstat",
-        &format!("--pretty=format:{fmt}"),
-    ])?;
+    let raw = run_git(
+        &cwd,
+        &[
+            "log",
+            &format!("-n{limit}"),
+            "--numstat",
+            &format!("--pretty=format:{fmt}"),
+        ],
+    )?;
 
     let mut commits: Vec<Commit> = Vec::new();
     for line in raw.lines() {

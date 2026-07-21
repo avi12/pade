@@ -120,13 +120,17 @@ fn parse_days_ago(query: &str) -> Option<u64> {
 /// Returns all candidates, best score first, ties keeping git-log recency order.
 #[tauri::command]
 pub fn vcs_restore_candidates(
+    cwd: String,
     query: String,
     limit: Option<u32>,
 ) -> Result<Vec<RestoreCandidate>, String> {
     let n = limit.unwrap_or(DEFAULT_CANDIDATE_LIMIT);
     // %ct is the committer unix timestamp, used for time-hint scoring.
     let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%ct");
-    let raw = run_git(&["log", &format!("-n{n}"), &format!("--pretty=format:{fmt}")])?;
+    let raw = run_git(
+        &cwd,
+        &["log", &format!("-n{n}"), &format!("--pretty=format:{fmt}")],
+    )?;
 
     let query_tokens = tokenize(&query);
     let now = now_unix();
@@ -188,18 +192,20 @@ pub fn vcs_restore_candidates(
 /// Creates (or re-enters) `pade/restore-<shortsha>` pointing at `sha` — never
 /// touches the working tree with `reset --hard`. Returns the branch name.
 #[tauri::command]
-pub fn vcs_restore_checkout(sha: String) -> Result<String, String> {
-    let short = run_git(&["rev-parse", "--short", &sha])?.trim().to_string();
+pub fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {
+    let short = run_git(&cwd, &["rev-parse", "--short", &sha])?
+        .trim()
+        .to_string();
     let branch = format!("pade/restore-{short}");
 
     // Does the restore branch already exist? Then just switch to it.
-    let branch_exists = run_git(&["rev-parse", "--verify", "--quiet", &branch]).is_ok();
+    let branch_exists = run_git(&cwd, &["rev-parse", "--verify", "--quiet", &branch]).is_ok();
     if branch_exists {
-        run_git(&["switch", &branch])?;
+        run_git(&cwd, &["switch", &branch])?;
     } else {
         // Create the branch at the target commit and switch to it in one step.
         // Any error (e.g. a dirty working tree) surfaces git's stderr verbatim.
-        run_git(&["switch", "-c", &branch, &sha])?;
+        run_git(&cwd, &["switch", "-c", &branch, &sha])?;
     }
     Ok(branch)
 }

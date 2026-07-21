@@ -46,10 +46,10 @@ fn status_letter_kind(code: &str) -> StatusKind {
 }
 
 #[tauri::command]
-pub fn vcs_commit(sha: String) -> Result<CommitDetail, String> {
+pub fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
     // Header + full body in one shot: subject on its own line, then the body.
     let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%b");
-    let head = run_git(&["show", "-s", &format!("--format={fmt}"), &sha])?;
+    let head = run_git(&cwd, &["show", "-s", &format!("--format={fmt}"), &sha])?;
     let f: Vec<&str> = head.trim_end_matches('\n').splitn(6, US).collect();
     let [id, short, summary, author, when, body] = f.as_slice() else {
         return Err("could not parse commit header".into());
@@ -60,8 +60,8 @@ pub fn vcs_commit(sha: String) -> Result<CommitDetail, String> {
     // which would poison the stored path and break vcs_commit_diff). --numstat's
     // record is "adds\tdels\tpath\0" normally, or "adds\tdels\t\0old\0new\0" for a
     // rename; --name-status is "code\0path\0" or "code\0old\0new\0".
-    let numstat = run_git(&["show", "--numstat", "-z", "--format=", &sha])?;
-    let namestat = run_git(&["show", "--name-status", "-z", "--format=", &sha])?;
+    let numstat = run_git(&cwd, &["show", "--numstat", "-z", "--format=", &sha])?;
+    let namestat = run_git(&cwd, &["show", "--name-status", "-z", "--format=", &sha])?;
 
     let kinds_by_path = status_kinds_by_path(&namestat);
 
@@ -85,7 +85,7 @@ pub fn vcs_commit(sha: String) -> Result<CommitDetail, String> {
         });
     }
 
-    let branch = current_branch().unwrap_or_default();
+    let branch = current_branch(&cwd).unwrap_or_default();
 
     Ok(CommitDetail {
         id: (*id).into(),
@@ -183,8 +183,8 @@ fn status_kinds_by_path(namestat: &str) -> HashMap<&str, StatusKind> {
 
 /// Raw unified diff for one path within a commit.
 #[tauri::command]
-pub fn vcs_commit_diff(sha: String, path: String) -> Result<String, String> {
-    run_git(&["show", "--no-color", &sha, "--", &path])
+pub fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
+    run_git(&cwd, &["show", "--no-color", &sha, "--", &path])
 }
 
 #[cfg(test)]

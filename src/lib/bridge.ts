@@ -332,36 +332,40 @@ export const dragDrop = {
 
 /** Version-control review channel. */
 export const vcs = {
-  status: () => call("vcs_status", z.array(StatusEntry)),
-  log: (limit = 20) => call("vcs_log", z.array(Commit), { limit }),
-  diff: ({ path, staged = false }: {
+  status: (cwd: string) => call("vcs_status", z.array(StatusEntry), { cwd }),
+  log: (cwd: string, limit = 20) => call("vcs_log", z.array(Commit), { cwd, limit }),
+  diff: ({ cwd, path, staged = false }: {
+    cwd: string;
     path: string;
     staged?: boolean;
   }) =>
     call("vcs_diff", z.string(), {
+      cwd,
       path,
       staged
     }),
-  branches: () => call("vcs_branches", z.array(z.string())),
+  branches: (cwd: string) => call("vcs_branches", z.array(z.string()), { cwd }),
   /** Current HEAD branch per project path (path → branch), for the switcher's
    *  per-project branch chip. Non-repo / detached paths are omitted. */
   branchOf: (paths: string[]) => call("vcs_branch_of", z.record(z.string(), z.string()), { paths }),
   /** Fast-forward the open workspace from `origin` (never a merge commit).
    *  Resolves `refusedDirty` when the tree has uncommitted tracked changes;
    *  throws git's message when the branch has diverged (no fast-forward). */
-  pull: () => call("vcs_pull", PullOutcome),
+  pull: (cwd: string) => call("vcs_pull", PullOutcome, { cwd }),
   /** One commit's message body, per-file stats, and branch. */
-  commit: (sha: string) => call("vcs_commit", CommitDetail, { sha }),
+  commit: (cwd: string, sha: string) => call("vcs_commit", CommitDetail, { cwd, sha }),
   /** Raw unified diff for one path within a commit. */
-  commitDiff: ({ sha, path }: {
+  commitDiff: ({ cwd, sha, path }: {
+    cwd: string;
     sha: string;
     path: string;
   }) => call("vcs_commit_diff", z.string(), {
+    cwd,
     sha,
     path
   }),
   /** The `origin` remote as a browsable `https://host/owner/repo` URL, or null. */
-  remoteUrl: () => call("vcs_remote_url", z.string().nullable()),
+  remoteUrl: (cwd: string) => call("vcs_remote_url", z.string().nullable(), { cwd }),
   /** Is the `git` CLI installed? Gates the picker's Clone tab. */
   gitInstalled: () => call("vcs_git_installed", z.boolean()),
   /** Whether an SSH private key exists — without one an `ssh://`/`git@` clone
@@ -380,18 +384,23 @@ export const vcs = {
     password?: string;
   }) => call("vcs_clone", z.string(), { ...args }),
   worktreeAdd: (args: {
+    cwd: string;
     branch: string;
     create: boolean;
   }) =>
     call("vcs_worktree_add", z.string(), { ...args }),
   /** Rank prior commits by a natural-language description of the version to restore. */
   restoreCandidates: (args: {
+    cwd: string;
     query: string;
     limit?: number;
   }) =>
     call("vcs_restore_candidates", z.array(RestoreCandidate), { ...args }),
   /** Non-destructively check the chosen commit out on a `pade/restore-<sha>` branch. */
-  restoreCheckout: (sha: string) => call("vcs_restore_checkout", z.string(), { sha }),
+  restoreCheckout: (args: {
+    cwd: string;
+    sha: string;
+  }) => call("vcs_restore_checkout", z.string(), { ...args }),
   /** Fires when the workspace's live git state changes — a branch switch (HEAD),
    *  a remote added/removed (config), or `git init` creating the repo. Carries no
    *  payload on purpose: listeners re-fetch whatever git state they display, so
@@ -418,7 +427,7 @@ export const runner = {
 
 /** Task runner channel — runnable tasks parsed from project manifests. */
 export const tasks = {
-  list: () => call("tasks_list", z.array(TaskGroup))
+  list: (cwd: string) => call("tasks_list", z.array(TaskGroup), { cwd })
 };
 
 /** Agent usage / quota channel — never spends message quota: local data plus a

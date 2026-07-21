@@ -43,10 +43,17 @@ pub struct TaskGroup {
     tasks: Vec<Task>,
 }
 
-/// List every runnable task in the open project, grouped by manifest.
+/// List every runnable task in `cwd`, grouped by manifest. The caller supplies
+/// the window's workspace because multiple PADE windows share one process.
 #[tauri::command]
-pub fn tasks_list() -> Result<Vec<TaskGroup>, String> {
-    let root = std::env::current_dir().map_err(|e| e.to_string())?;
+pub fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
+    let root = PathBuf::from(cwd);
+    if !root.is_dir() {
+        return Err(format!(
+            "task workspace is not a directory: {}",
+            root.display()
+        ));
+    }
     let mut groups = Vec::new();
     for dir in manifest_dirs(&root) {
         collect_group(&root, &dir, &mut groups);

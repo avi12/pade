@@ -45,7 +45,7 @@
   import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
-  import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
+  import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
@@ -458,7 +458,7 @@
 
   // Reflect known tasks the agent runs as "running" in the Tasks panel.
   onMount(async () => {
-    await initTaskRunDetection();
+    await initTaskRunDetection(() => currentProject);
   });
 
   // Restart the affected agent sessions when the project's MCP servers change
@@ -730,7 +730,10 @@
       id: crypto.randomUUID(),
       agent: opts.agent,
       initialPrompt: opts.initialPrompt,
-      cwd: opts.cwd,
+      // Never leave an agent to inherit the backend process cwd: another PADE
+      // window may switch that shared process to a different project while this
+      // terminal is mounting. Worktrees still override the window project.
+      cwd: opts.cwd ?? currentProject,
       branch: opts.branch,
       args: opts.args,
       // A stable id for this conversation, distinct from the session `id` (which
@@ -884,7 +887,18 @@
 
   // Load branches for the current repo (empty when not a git project).
   async function loadBranches() {
-    branches = await vcs.branches().catch(() => []);
+    const project = currentProject;
+    if (!project) {
+      branches = [];
+      return;
+    }
+
+    const next = await vcs.branches(project).catch(() => []);
+    // A project switch can outrun this read. Keep the branch list attached to
+    // the project it came from instead of flashing another window's repository.
+    if (project === currentProject) {
+      branches = next;
+    }
   }
 
   // The caller kills the PTY and decides the empty-workspace policy.
@@ -1497,6 +1511,7 @@
             // the other sessions. Uses the active session's agent (or the first).
             const agent = sessions.find(s => s.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
             const cwd = await vcs.worktreeAdd({
+              cwd: currentProject,
               branch,
               create: false
             });
@@ -1684,7 +1699,7 @@
                 <ChangeFeed project={currentProject} />
               {:else if side === Side.vcs}
                 {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
-                  <VcsPanel />
+                  <VcsPanel project={currentProject} />
                 {/await}
               {:else if side === Side.tasks}
                 {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
@@ -1698,6 +1713,7 @@
                       cwd: string;
                       kind: TaskGroup["kind"];
                     }) => await startRunner(task)}
+                    project={currentProject}
                   />
                 {/await}
               {:else if side === Side.config}

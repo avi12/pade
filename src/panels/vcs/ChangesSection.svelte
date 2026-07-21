@@ -11,7 +11,8 @@
   // Working-tree changes: the unreviewed/staged groups and the inline diff of
   // the selected file. Agent-oriented review lives in the "unreviewed"
   // (unstaged) group; "approve" moves entries into the staged group.
-  const { entries }: {
+  const { project, entries }: {
+    project: string;
     entries: StatusEntry[];
   } = $props();
 
@@ -21,12 +22,22 @@
   const unstaged = $derived(entries.filter(e => !e.staged));
   const staged = $derived(entries.filter(e => e.staged));
 
+  // A selected file/diff belongs to one repository. Clear it before the parent
+  // paints another workspace's entries into this long-lived lazy panel.
+  $effect(() => {
+    if (project) {
+      selected = null;
+      diff = "";
+    }
+  });
+
   async function open(entry: StatusEntry) {
     selected = entry;
     const isUntracked = entry.kind === VcsKind.enum.untracked;
     diff = isUntracked
       ? "(new file — not yet tracked)"
       : await vcs.diff({
+        cwd: project,
         path: entry.path,
         staged: entry.staged
       });

@@ -25,8 +25,10 @@ pub(crate) mod worktree;
 pub(crate) const US: char = '\u{1f}'; // field separator inside a record
 pub(crate) const RS: char = '\u{1e}'; // record separator — marks the start of a log entry
 
-pub(crate) fn run_git(args: &[&str]) -> Result<String, String> {
-    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+/// Run Git inside one explicitly selected workspace. A Tauri process can host
+/// several windows at once, so the process working directory belongs to no one
+/// window and must never decide which repository a request reads or mutates.
+pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     let out = crate::util::command("git")
         .args(args)
         .current_dir(cwd)

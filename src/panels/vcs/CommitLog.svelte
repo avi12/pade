@@ -10,7 +10,8 @@
   // Ctrl/Cmd-Enter) to open the commit on GitHub, arrow keys to move through
   // the log. This section owns the modal and the remote URL powering the
   // GitHub links.
-  const { commits }: {
+  const { project, commits }: {
+    project: string;
     commits: Commit[];
   } = $props();
 
@@ -19,11 +20,16 @@
   let logEl = $state<HTMLElement | null>(null);
   let unlistenGitState: UnlistenFn | undefined;
 
-  async function loadRemoteUrl() {
+  async function loadRemoteUrl(workspace = project) {
     try {
-      remoteUrl = await vcs.remoteUrl();
+      const next = await vcs.remoteUrl(workspace);
+      if (workspace === project) {
+        remoteUrl = next;
+      }
     } catch {
-      remoteUrl = null;
+      if (workspace === project) {
+        remoteUrl = null;
+      }
     }
   }
 
@@ -36,9 +42,18 @@
 
   onDestroy(() => unlistenGitState?.());
 
+  // This component stays mounted while the parent panel retargets. The commit
+  // detail and remote from the old repository must not bleed into the next one.
+  $effect(() => {
+    if (project) {
+      openCommit = null;
+      void loadRemoteUrl(project);
+    }
+  });
+
   async function inspectCommit(commit: Commit) {
     try {
-      openCommit = await vcs.commit(commit.id);
+      openCommit = await vcs.commit(project, commit.id);
     } catch {
       openCommit = null;
     }
@@ -46,7 +61,7 @@
 
   async function openCommitOnGithub(commit: Commit) {
     try {
-      const base = remoteUrl ?? (await vcs.remoteUrl());
+      const base = remoteUrl ?? (await vcs.remoteUrl(project));
       remoteUrl = base;
 
       if (base) {
@@ -129,7 +144,7 @@
 </section>
 
 {#if openCommit}
-  <CommitModal commit={openCommit} onclose={() => (openCommit = null)} {remoteUrl} />
+  <CommitModal commit={openCommit} onclose={() => (openCommit = null)} {project} {remoteUrl} />
 {/if}
 
 <style>

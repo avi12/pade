@@ -63,8 +63,8 @@ fn is_already_up_to_date(pull_output: &str) -> bool {
 /// `git pull --ff-only` — a diverged branch (no fast-forward) errors out with
 /// git's message rather than creating a merge commit.
 #[tauri::command]
-pub fn vcs_pull() -> Result<PullOutcome, String> {
-    let porcelain = run_git(&["status", "--porcelain"])?;
+pub fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
+    let porcelain = run_git(&cwd, &["status", "--porcelain"])?;
     if has_uncommitted_changes(&porcelain) {
         return Ok(PullOutcome {
             status: PullStatus::RefusedDirty,
@@ -72,7 +72,7 @@ pub fn vcs_pull() -> Result<PullOutcome, String> {
         });
     }
 
-    let output = run_git(&["pull", "--ff-only"])?;
+    let output = run_git(&cwd, &["pull", "--ff-only"])?;
     if is_already_up_to_date(&output) {
         return Ok(PullOutcome {
             status: PullStatus::AlreadyUpToDate,

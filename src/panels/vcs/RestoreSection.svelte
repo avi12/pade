@@ -5,6 +5,8 @@
   import type { RestoreCandidate } from "@/lib/types";
   import { parseInput, RestoreQuery } from "@/lib/validate";
 
+  const { project }: { project: string } = $props();
+
   // Restore a version — natural-language query → ranked prior commits →
   // checkout. Self-contained: the checkout touches the working tree, so the
   // panel's watcher-driven refresh picks up the result on its own.
@@ -13,6 +15,18 @@
   let restoreError = $state<string | null>(null);
   let restoreDone = $state<string | null>(null);
   let searching = $state(false);
+
+  // Reset a prior repository's search/result when this lazy component receives
+  // a new project from VcsPanel.
+  $effect(() => {
+    if (project) {
+      restoreQuery = "";
+      candidates = [];
+      restoreError = null;
+      restoreDone = null;
+      searching = false;
+    }
+  });
 
   async function runRestore() {
     const query = parseInput({
@@ -27,7 +41,10 @@
     restoreError = null;
     restoreDone = null;
     try {
-      candidates = await vcs.restoreCandidates({ query });
+      candidates = await vcs.restoreCandidates({
+        cwd: project,
+        query
+      });
     } catch (e) {
       restoreError = String(e);
       candidates = [];
@@ -79,7 +96,10 @@
             onclick={async () => {
               restoreError = null;
               try {
-                const branch = await vcs.restoreCheckout(c.id);
+                const branch = await vcs.restoreCheckout({
+                  cwd: project,
+                  sha: c.id
+                });
                 restoreDone = branch;
                 candidates = [];
               } catch (e) {

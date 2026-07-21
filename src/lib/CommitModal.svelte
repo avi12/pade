@@ -10,7 +10,9 @@
   import type { CommitDetail, CommitFileEntry } from "@/lib/types";
   import { untrack } from "svelte";
 
-  const { commit, remoteUrl, onclose }: {
+  const { project, commit, remoteUrl, onclose }: {
+    /** The repository containing `commit`; windows never share a global cwd. */
+    project: string;
     commit: CommitDetail;
     /** Browsable remote base (e.g. https://github.com/o/r), or null when there's no remote. */
     remoteUrl: string | null;
@@ -58,6 +60,7 @@
     loading = true;
     try {
       const raw = await vcs.commitDiff({
+        cwd: project,
         sha: commit.id,
         path
       });

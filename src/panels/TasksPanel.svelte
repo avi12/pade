@@ -7,7 +7,9 @@
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
 
-  const { onrun }: {
+  const { project, onrun }: {
+    /** The workspace displayed by this window, never the process-global cwd. */
+    project: string;
     onrun: (task: {
       label: string;
       command: string;
@@ -22,12 +24,32 @@
   let groups = $state<TaskGroup[]>([]);
   let error = $state<string | null>(null);
   let unlisten: UnlistenFn | undefined;
+  let refreshVersion = 0;
 
   async function refresh() {
+    const workspace = project;
+    const version = ++refreshVersion;
+    if (!workspace) {
+      groups = [];
+      error = null;
+      return;
+    }
+
     try {
-      groups = await tasksApi.list();
+      const next = await tasksApi.list(workspace);
+      // A project switch can happen while its task scan is in flight. Never let
+      // the previous workspace overwrite the new window state when it returns.
+      if (version !== refreshVersion || workspace !== project) {
+        return;
+      }
+
+      groups = next;
       error = null;
     } catch (err) {
+      if (version !== refreshVersion || workspace !== project) {
+        return;
+      }
+
       error = String(err);
       groups = [];
     }
@@ -41,7 +63,6 @@
   }
 
   onMount(async () => {
-    await refresh();
     unlisten = await feed.onChange(event => {
       if (MANIFESTS.includes(baseName(event.path))) {
         scheduleRefresh();
@@ -51,6 +72,12 @@
   onDestroy(() => {
     unlisten?.();
     clearTimeout(timer);
+  });
+
+  // Unlike the feed, this lazy panel stays mounted across an in-window project
+  // switch. Re-scan the newly supplied workspace immediately.
+  $effect(() => {
+    void refresh();
   });
 
   // Publish the refresh action to the shared side-panel header.

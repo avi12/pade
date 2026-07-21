@@ -56,11 +56,16 @@
   // fresh local project (git-init'd but no origin) or a non-repo has nothing to
   // pull. `remoteUrl` is null with no remote and rejects outside a repo, so the
   // button stays hidden in both cases and appears only for a repo with a remote.
-  async function loadRemote() {
+  async function loadRemote(root: string) {
     try {
-      hasRemote = (await vcs.remoteUrl()) !== null;
+      const remote = await vcs.remoteUrl(root);
+      if (root === project) {
+        hasRemote = remote !== null;
+      }
     } catch {
-      hasRemote = false;
+      if (root === project) {
+        hasRemote = false;
+      }
     }
   }
 
@@ -212,7 +217,7 @@
     }, 1000);
     unlistenGitState = await vcs.onStateChanged(() => {
       loadBranch(project);
-      loadRemote();
+      loadRemote(project);
     });
   });
 
@@ -234,7 +239,7 @@
   async function loadWorkspaceState(workspace: string): Promise<void> {
     await Promise.all([
       loadBranch(workspace),
-      loadRemote(),
+      loadRemote(workspace),
       loadMembers(workspace),
       // Editors come from the shared store's cache on a mere remount (a side-panel
       // switch); a fetch only runs when nothing is cached for this project yet.
@@ -439,7 +444,7 @@
           onclick={async () => {
             syncing = true;
             try {
-              const outcome = await vcs.pull();
+              const outcome = await vcs.pull(project);
               showToast(outcome.message);
             } catch (error) {
               const text = error instanceof Error ? error.message : String(error);
