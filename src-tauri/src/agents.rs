@@ -84,14 +84,15 @@ const REGISTRY: &[AgentDef] = &[
         // Claude Code's own docs note this does NOT waive the "trust this folder?"
         // gate — ADE auto-accepts that in the frontend on first launch.
         session_args: &["--dangerously-skip-permissions"],
-        // `theme` is a settings key at every settings level; the project-local
-        // file wins and a RUNNING session re-reads it live — so a scheme flip
-        // re-themes an open Claude without a restart.
-        theme_config: Some(ThemeConfig::WorkspaceJson {
-            relative_path: ".claude/settings.local.json",
-            key: "theme",
-            light: "light",
-            dark: "dark",
+        // Claude's `auto` theme reads `$COLORFGBG` before its OSC 11 background
+        // probe (which ConPTY swallows), so a spawn-time "foreground;background"
+        // pair is the one reliable scheme signal. Per session only — never the
+        // global Claude config, whose `theme` the user owns. (A project
+        // settings.local.json `theme` key is NOT honored — settings.json has no
+        // such key — which is why the old file-driven mechanism never worked.)
+        theme_config: Some(ThemeConfig::SpawnEnv {
+            light: &[("COLORFGBG", "0;15")],
+            dark: &[("COLORFGBG", "15;0")],
         }),
         // `--session-id <uuid>` creates-or-continues the conversation with that
         // id (non-interactive), so ADE can restart a specific session and land
@@ -371,19 +372,6 @@ pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
     definition(command).and_then(|a| a.theme_config.as_ref())
 }
 
-/// The theme mechanisms of every agent actually installed on this machine —
-/// what `theme_sync` maintains in a workspace. One PATH sweep for the whole
-/// list, mirroring `detect_installed`.
-pub fn installed_theme_configs() -> Vec<&'static ThemeConfig> {
-    let dirs = search_dirs();
-    REGISTRY
-        .iter()
-        .filter(|a| a.theme_config.is_some())
-        .filter(|a| find_in(&dirs, &installed_names(a.command)).is_some())
-        .filter_map(|a| a.theme_config.as_ref())
-        .collect()
-}
-
 /// Whether `command`'s input composer box follows the *detected* terminal
 /// background (rather than a config/env theme), and so needs ADE's Windows
 /// light-console workaround. `pty.rs` gates the `cmd /c color F0 & …` prefix on
@@ -486,18 +474,13 @@ mod tests {
         assert!(session_id_flag("powershell.exe").is_none());
     }
 
-    /// Claude's theme rides its project-local settings file (re-read live by a
-    /// running session); env-themed CLIs declare their spawn pairs instead.
+    /// Claude and the other env-themed CLIs declare spawn pairs; Codex declares
+    /// launch args.
     #[test]
     fn theme_mechanisms_match_each_agent() {
         assert!(matches!(
             theme_config("claude"),
-            Some(ThemeConfig::WorkspaceJson {
-                relative_path: ".claude/settings.local.json",
-                key: "theme",
-                light: "light",
-                dark: "dark",
-            })
+            Some(ThemeConfig::SpawnEnv { .. })
         ));
         assert!(matches!(
             theme_config("aider"),

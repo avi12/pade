@@ -43,7 +43,7 @@ const osDark = matchMedia("(prefers-color-scheme: dark)");
 
 /** The concrete scheme currently applied — reactive so consumers like the
  *  terminal can re-theme when it changes. */
-export const appearance = $state<{ scheme: Scheme }>({ scheme: "light" });
+export const appearance = $state<{ scheme: Scheme }>({ scheme: osDark.matches ? "dark" : "light" });
 
 /** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
 function resolvedScheme(): Scheme {

@@ -1,23 +1,26 @@
 //! Force each installed agent's own UI theme to match ADE's light/dark scheme.
 //!
-//! Why a config file and not the terminal protocol: Claude Code's `auto` theme
-//! follows the *terminal* — it queries the background color (OSC 11) at startup
-//! and listens for color-scheme reports (DECSET 2031 → `CSI ?997;n`) — but
-//! Windows `ConPTY` consumes both flavors on the way through, so the agent never
-//! hears from ADE's xterm and falls back to its dark default even on a light
-//! ADE. Verified live: kilobytes of session stream carry the agent's
+//! Why spawn-time signals and not the terminal protocol: an agent's `auto` theme
+//! follows the *terminal* — Claude Code queries the background color (OSC 11) at
+//! startup and listens for color-scheme reports (DECSET 2031 → `CSI ?997;n`) —
+//! but Windows `ConPTY` consumes both flavors on the way through, so the agent
+//! never hears from ADE's xterm and falls back to its dark default even on a
+//! light ADE. Verified live: kilobytes of session stream carry the agent's
 //! `DECSET 2031` yet no OSC 10/11 query ever reaches the frontend, and an
-//! injected `?997` report changes nothing. The channel that does work is the
-//! agent's own settings file — Claude Code re-reads
-//! `.claude/settings.local.json` live mid-session — so ADE writes each
-//! installed agent's theme config on project open and again on every scheme
-//! flip (`App.svelte` → `theme_sync`).
-
-use std::fs;
-use std::path::Path;
+//! injected `?997` report changes nothing.
+//!
+//! What does work is the tier *above* the probe: Claude's `auto` detection reads
+//! `$COLORFGBG` before it ever sends OSC 11, and the other CLIs expose their own
+//! spawn-time env or launch-arg knobs. So every agent is themed at spawn — per
+//! session, never via a user-global config file that would leak ADE's choice
+//! into the user's other terminals. (A project-settings `theme` key is not an
+//! option: Claude Code's settings.json schema has no such key — theme lives in
+//! its global config — so writing one is silently ignored.) A spawn-time theme
+//! cannot follow a mid-session scheme flip; the frontend knows
+//! (`Agent.themeFixedAtSpawn`) and pins that session's xterm palette to its
+//! spawn scheme instead of flipping the background out from under the TUI.
 
 use serde::Deserialize;
-use serde_json::{Map, Value};
 
 /// ADE's resolved appearance — the frontend's `appearance.scheme`, on the wire.
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -29,18 +32,8 @@ pub enum Scheme {
 
 /// How one agent's theme is forced — registry knowledge, declared per agent in
 /// `agents.rs` and interpreted here (`SoC`: the registry knows *what*, this
-/// module knows *how to write it*).
+/// module knows *how to apply it*).
 pub enum ThemeConfig {
-    /// Merge `{<key>: <per-scheme value>}` into a JSON settings file at
-    /// `relative_path` under the workspace, preserving every other key the
-    /// file already holds (permissions, env, …). For a CLI that re-reads the
-    /// file live, a scheme flip re-themes even a running session.
-    WorkspaceJson {
-        relative_path: &'static str,
-        key: &'static str,
-        light: &'static str,
-        dark: &'static str,
-    },
     /// Set per-scheme environment when the session spawns — for a CLI whose
     /// theme is env-driven and read once at startup (`pty.rs` applies these;
     /// a scheme flip reaches it on the next spawn). Either side may be empty
@@ -61,15 +54,15 @@ pub enum ThemeConfig {
 }
 
 impl ThemeConfig {
-    /// Whether the agent's theme is locked in at spawn time (env or launch
-    /// args) and cannot change for the life of the session. Researched for
-    /// Codex (openai/codex `codex-rs/tui`): no DECSET 2031 color-scheme
-    /// subscription, its OSC 10/11 background probe runs once at startup (the
-    /// re-query on terminal focus is `#[cfg(unix)]`-only — a no-op on
-    /// Windows), and `config.toml` is not watched — so nothing ADE emits into
-    /// a live PTY can re-theme it. The frontend reads this over IPC
-    /// (`Agent.themeFixedAtSpawn`) to pin such a session's xterm palette to
-    /// its spawn scheme instead of flipping it out from under the TUI.
+    /// Whether the agent's theme is locked in at spawn time and cannot change
+    /// for the life of the session. Every remaining mechanism is spawn-time
+    /// (env or launch args) — nothing ADE emits into a live PTY can re-theme a
+    /// running agent (researched for Codex: no DECSET 2031 subscription, its
+    /// OSC 10/11 probe runs once at startup and the focus re-query is
+    /// `#[cfg(unix)]`-only; Claude reads `$COLORFGBG` once at startup). The
+    /// frontend reads this over IPC (`Agent.themeFixedAtSpawn`) to pin such a
+    /// session's xterm palette to its spawn scheme instead of flipping it out
+    /// from under the TUI.
     pub fn fixed_at_spawn(&self) -> bool {
         matches!(
             self,
@@ -79,7 +72,7 @@ impl ThemeConfig {
 }
 
 /// The per-scheme environment to spawn `command` with (empty for an agent
-/// whose theme is file-driven, or unknown). `pty.rs` applies it alongside the
+/// whose theme is arg-driven, or unknown). `pty.rs` applies it alongside the
 /// static `agents::spawn_env`.
 pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
     match crate::agents::theme_config(command) {
@@ -87,12 +80,12 @@ pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'st
             Scheme::Light => light,
             Scheme::Dark => dark,
         },
-        Some(ThemeConfig::WorkspaceJson { .. } | ThemeConfig::SpawnArgs { .. }) | None => &[],
+        Some(ThemeConfig::SpawnArgs { .. }) | None => &[],
     }
 }
 
 /// The per-scheme launch arguments to spawn `command` with (empty for an agent
-/// whose theme is file- or env-driven, or unknown). `pty.rs` appends it to the
+/// whose theme is env-driven, or unknown). `pty.rs` appends it to the
 /// interactive session's argv, alongside `agents::session_args`.
 pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
     match crate::agents::theme_config(command) {
@@ -100,92 +93,17 @@ pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
             Scheme::Light => light,
             Scheme::Dark => dark,
         },
-        Some(ThemeConfig::WorkspaceJson { .. } | ThemeConfig::SpawnEnv { .. }) | None => &[],
+        Some(ThemeConfig::SpawnEnv { .. }) | None => &[],
     }
-}
-
-/// Write every installed agent's theme config in `workspace` to `scheme`.
-/// One agent's failure doesn't stop the others; the joined errors come back.
-///
-/// `spawn_blocking` for the same reason as `agents_detect`: finding the
-/// installed agents reads the live PATH and stats candidate files, which would
-/// otherwise stall the main thread's window loop.
-#[tauri::command]
-pub async fn theme_sync(workspace: String, scheme: Scheme) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || sync_workspace(Path::new(&workspace), scheme))
-        .await
-        .map_err(|error| error.to_string())?
-}
-
-fn sync_workspace(workspace: &Path, scheme: Scheme) -> Result<(), String> {
-    let mut errors = Vec::new();
-    for config in crate::agents::installed_theme_configs() {
-        if let Err(error) = apply(workspace, config, scheme) {
-            errors.push(error);
-        }
-    }
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors.join("; "))
-    }
-}
-
-fn apply(workspace: &Path, config: &ThemeConfig, scheme: Scheme) -> Result<(), String> {
-    match config {
-        ThemeConfig::WorkspaceJson {
-            relative_path,
-            key,
-            light,
-            dark,
-        } => {
-            let value = match scheme {
-                Scheme::Light => light,
-                Scheme::Dark => dark,
-            };
-            merge_json_key(&workspace.join(relative_path), key, value)
-        }
-        // Applied at spawn time by pty.rs (env via `spawn_env`, args via
-        // `spawn_args`) — nothing to write to disk.
-        ThemeConfig::SpawnEnv { .. } | ThemeConfig::SpawnArgs { .. } => Ok(()),
-    }
-}
-
-/// Set `key` to `value` in the JSON object at `path`, creating the file (and
-/// its directories) when absent and leaving every other key untouched. A file
-/// that exists but doesn't parse is left alone — rewriting it would destroy
-/// whatever the user (or the agent) had there.
-fn merge_json_key(path: &Path, key: &str, value: &str) -> Result<(), String> {
-    let mut settings: Map<String, Value> = match fs::read_to_string(path) {
-        Err(_) => Map::new(),
-        Ok(text) => serde_json::from_str(&text).map_err(|error| {
-            format!("won't rewrite {}: not valid JSON ({error})", path.display())
-        })?,
-    };
-
-    let already_current = settings.get(key).and_then(Value::as_str) == Some(value);
-    if already_current {
-        return Ok(());
-    }
-
-    settings.insert(key.into(), Value::String(value.into()));
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| format!("{}: {error}", parent.display()))?;
-    }
-    let mut serialized =
-        serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
-    serialized.push('\n');
-    fs::write(path, serialized).map_err(|error| format!("{}: {error}", path.display()))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{merge_json_key, spawn_args, Map, Scheme, ThemeConfig, Value};
-    use std::fs;
+    use super::{spawn_args, spawn_env, Scheme, ThemeConfig};
 
     /// The arg-themed accessor routes each scheme to its own side of the
     /// registry entry (read from the SSOT, so the theme literals stay defined in
-    /// exactly one place — the codex `AgentDef`); a file-themed agent and an
+    /// exactly one place — the codex `AgentDef`); an env-themed agent and an
     /// unknown command carry no launch args.
     #[test]
     fn spawn_args_route_each_scheme_to_its_registry_side() {
@@ -201,84 +119,40 @@ mod tests {
         assert!(spawn_args("pnpm", Scheme::Dark).is_empty());
     }
 
-    /// Spawn-time mechanisms (env, args) lock the theme for the session's
-    /// life; the file-driven one (Claude re-reads it live) does not.
+    /// The env-themed accessor likewise reads from the registry SSOT; an
+    /// arg-themed agent and an unknown command carry no theme env.
     #[test]
-    fn only_spawn_time_mechanisms_are_fixed_at_spawn() {
+    fn spawn_env_routes_each_scheme_to_its_registry_side() {
+        let ThemeConfig::SpawnEnv { light, dark } =
+            crate::agents::theme_config("claude").expect("claude is env-themed")
+        else {
+            panic!("claude should force its theme via SpawnEnv");
+        };
+        assert_eq!(spawn_env("claude", Scheme::Light), *light);
+        assert_eq!(spawn_env("claude", Scheme::Dark), *dark);
+        assert_ne!(light, dark);
+        assert!(spawn_env("codex", Scheme::Light).is_empty());
+        assert!(spawn_env("pnpm", Scheme::Dark).is_empty());
+    }
+
+    /// Claude's theme rides `$COLORFGBG` — the first tier of its `auto`
+    /// detection, and the only one that survives `ConPTY`. Both sides must set it,
+    /// and the background field (after the `;`) must name the scheme's ground.
+    #[test]
+    fn claude_signals_its_scheme_through_colorfgbg() {
+        assert_eq!(spawn_env("claude", Scheme::Light), &[("COLORFGBG", "0;15")]);
+        assert_eq!(spawn_env("claude", Scheme::Dark), &[("COLORFGBG", "15;0")]);
+    }
+
+    /// Every theme mechanism left is spawn-time, so every themed agent pins its
+    /// xterm palette to the spawn scheme.
+    #[test]
+    fn every_theme_mechanism_is_fixed_at_spawn() {
         assert!(crate::agents::theme_config("codex")
             .expect("codex is arg-themed")
             .fixed_at_spawn());
-        assert!(!crate::agents::theme_config("claude")
-            .expect("claude is file-themed")
+        assert!(crate::agents::theme_config("claude")
+            .expect("claude is env-themed")
             .fixed_at_spawn());
-    }
-
-    fn scratch_file(name: &str) -> std::path::PathBuf {
-        let path = std::env::temp_dir().join("pade-theming-tests").join(name);
-        // Each test owns a distinct leaf directory, so clearing only that keeps
-        // parallel tests out of each other's way.
-        let _ = fs::remove_dir_all(path.parent().expect("scratch parent"));
-        path
-    }
-
-    fn read_settings(path: &std::path::Path) -> Map<String, Value> {
-        serde_json::from_str(&fs::read_to_string(path).expect("settings file"))
-            .expect("valid settings JSON")
-    }
-
-    #[test]
-    fn creates_the_file_and_its_directories() {
-        let path = scratch_file("fresh/.claude/settings.local.json");
-        merge_json_key(&path, "theme", "light").expect("merge");
-        let written = read_settings(&path);
-        assert_eq!(written.get("theme").and_then(Value::as_str), Some("light"));
-    }
-
-    /// The whole point of merging: an existing settings file (permissions the
-    /// agent wrote, user env) keeps every key it had.
-    #[test]
-    fn preserves_the_other_keys() {
-        let path = scratch_file("keep/settings.local.json");
-        fs::create_dir_all(path.parent().expect("parent")).expect("fixture dir");
-        fs::write(
-            &path,
-            "{\n  \"permissions\": { \"allow\": [\"Bash\"] }\n}\n",
-        )
-        .expect("fixture file");
-        merge_json_key(&path, "theme", "dark").expect("merge");
-        let written = read_settings(&path);
-        assert_eq!(written.get("theme").and_then(Value::as_str), Some("dark"));
-        assert!(written.get("permissions").is_some_and(Value::is_object));
-    }
-
-    /// Re-forcing the same scheme must not touch the file — the agent watches
-    /// it (Claude re-reads live), and a no-op write would churn that watch and
-    /// ADE's own Change Feed.
-    #[test]
-    fn an_already_current_value_writes_nothing() {
-        let path = scratch_file("idempotent/settings.local.json");
-        merge_json_key(&path, "theme", "light").expect("first merge");
-        let modified = |path: &std::path::Path| {
-            fs::metadata(path)
-                .expect("settings metadata")
-                .modified()
-                .expect("mtime")
-        };
-        let before = modified(&path);
-        merge_json_key(&path, "theme", "light").expect("repeat merge");
-        assert_eq!(modified(&path), before);
-    }
-
-    /// A malformed settings file is the user's data, not ours to clobber.
-    #[test]
-    fn refuses_to_rewrite_invalid_json() {
-        let path = scratch_file("broken/settings.local.json");
-        fs::create_dir_all(path.parent().expect("parent")).expect("fixture dir");
-        fs::write(&path, "{ not json").expect("fixture file");
-        assert!(merge_json_key(&path, "theme", "dark").is_err());
-        assert_eq!(
-            fs::read_to_string(&path).expect("settings file"),
-            "{ not json"
-        );
     }
 }

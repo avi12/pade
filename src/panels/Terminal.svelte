@@ -374,20 +374,21 @@
     }
   });
 
-  // Re-theme the terminal when the app scheme flips, so Claude Code's output
+  // Re-theme the terminal when the app scheme flips, so a plain shell's output
   // sits on a background that matches the light/dark theme. (The agent itself
   // can't hear this through the terminal — ConPTY consumes both its OSC 11
-  // background query and xterm's ?997 color-scheme report — so the agent's own
-  // palette is synced through its config file instead: App runs `theme_sync`
-  // on every flip, and pty.rs adds per-scheme spawn env. See theming.rs.)
+  // background query and xterm's ?997 color-scheme report — so every themed
+  // agent gets its scheme at spawn instead: pty.rs adds per-scheme env
+  // (Claude's COLORFGBG, aider/cursor pairs) or launch args (Codex). See
+  // theming.rs.)
   //
-  // Except for an agent whose theme is fixed at spawn (Codex: `-c tui.theme`
-  // launch args; no DECSET 2031, no config watch, and its OSC 11 re-query on
-  // focus is unix-only — see ThemeConfig::fixed_at_spawn). Its running TUI is
-  // painted for the spawn scheme forever, so this pane's xterm palette stays
-  // pinned to that scheme — flipping the background under it is what made it
-  // unreadable. A restarted session re-keys the terminal and spawns with the
-  // current scheme, adopting it then.
+  // An agent themed that way is fixed at spawn (no DECSET 2031, no config
+  // watch, and Codex's OSC 11 re-query on focus is unix-only — see
+  // ThemeConfig::fixed_at_spawn). Its running TUI is painted for the spawn
+  // scheme forever, so this pane's xterm palette stays pinned to that scheme —
+  // flipping the background under it is what made it unreadable. A restarted
+  // session re-keys the terminal and spawns with the current scheme, adopting
+  // it then.
   $effect(() => {
     if (session.agent.themeFixedAtSpawn) {
       return;

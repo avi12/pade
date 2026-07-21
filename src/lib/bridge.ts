@@ -74,14 +74,7 @@ function on<T>(
 
 /** Detected agent backends. */
 export const agents = {
-  detect: () => call("agents_detect", z.array(Agent)),
-  /** Force every installed agent's own theme config in `workspace` to ADE's
-   *  scheme (Claude re-reads its settings live — a flip re-themes a running
-   *  session). The terminal protocol can't carry this through ConPTY. */
-  syncTheme: (args: {
-    workspace: string;
-    scheme: Scheme;
-  }) => run("theme_sync", { ...args })
+  detect: () => call("agents_detect", z.array(Agent))
 };
 
 /** External IDE integration. */

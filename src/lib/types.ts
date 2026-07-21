@@ -289,7 +289,7 @@ export type ThemeMode = z.infer<typeof ThemeMode>;
 
 /** The concrete appearance `ThemeMode` resolves to ("system" → the OS answer).
  *  Applied to the document root, the terminal palette, and — over the wire —
- *  each agent's own theme config (`theme_sync`) and spawn env. */
+ *  each agent's spawn-time theme env/args (theming.rs). */
 export const Scheme = z.enum(["light", "dark"]);
 export type Scheme = z.infer<typeof Scheme>;
 

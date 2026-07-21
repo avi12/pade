@@ -23,7 +23,6 @@
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import {
-    appearance,
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
     SIDE_PANEL_MIN_WIDTH,
@@ -493,20 +492,7 @@
   $effect(() => {
     if (currentProject) {
       feed.start(currentProject);
-    }
-  });
-
-  // Keep every installed agent's own theme config in step with ADE's scheme —
-  // re-forced on project open and on every scheme flip. The terminal protocol
-  // can't carry it (ConPTY eats the OSC 11 query and the ?997 report), but
-  // Claude re-reads .claude/settings.local.json live, so a flip re-themes even
-  // a running session. See theming.rs.
-  $effect(() => {
-    if (currentProject) {
-      agentsApi.syncTheme({
-        workspace: currentProject,
-        scheme: appearance.scheme
-      });
+      void refreshTaskRunDetection();
     }
   });
 

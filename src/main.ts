@@ -10,8 +10,10 @@ document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark
   ? "dark"
   : "light";
 
-// Fire-and-forget: apply the persisted prefs once loaded, keeping the pre-paint
-// fallback theme if they can't be read. Owns its own try/catch so it never rejects.
+// Apply the persisted prefs before mounting, keeping the pre-paint fallback
+// theme if they can't be read. Awaited so the first terminal spawn (which
+// forwards `appearance.scheme` to the agent's theme sync) never races the
+// settings load with the OS-resolved placeholder.
 async function applyPersistedPreferences(): Promise<void> {
   try {
     await loadPrefs();
@@ -19,7 +21,7 @@ async function applyPersistedPreferences(): Promise<void> {
     // Keep the synchronously-resolved fallback theme when prefs can't load.
   }
 }
-applyPersistedPreferences();
+await applyPersistedPreferences();
 
 const app = mount(App, { target: document.getElementById("app")! });
 
