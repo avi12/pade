@@ -40,7 +40,9 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = "s"
+# This is an interactive, long-running desktop process. Favor runtime throughput
+# (PTY, filesystem, and JSON work) over a small binary-size saving.
+opt-level = 3
 strip = true
 
 # Strict lints — the Rust equivalent of the frontend's oxlint/eslint layers.

@@ -24,7 +24,9 @@ export default defineConfig({
   // Produce assets Tauri can bundle; keep sourcemaps in dev.
   build: {
     target: "esnext",
-    sourcemap: true
+    // The WebView consumes the minified bundle directly. External production
+    // source maps add package and startup I/O but are not used by the app.
+    sourcemap: false
   },
   // Unit tests share this config, so `@/` resolves in tests exactly as in the app.
   test: {
