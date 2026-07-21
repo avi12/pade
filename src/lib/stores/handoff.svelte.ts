@@ -35,6 +35,26 @@ export function handoffSlug(source: string): string {
   return slug || "session";
 }
 
+/** The leading segment of a session's UUID — a short, stable per-session token
+ *  that keeps the handoff doc name unique without dragging the whole id into a
+ *  filename. Falls back to a generic token for a non-UUID id. */
+function sessionToken(sessionId: string): string {
+  return sessionId.split("-")[0] || "session";
+}
+
+/** The handoff doc's file name for one session. Unique PER SESSION, not just per
+ *  project: two agents open in the SAME project must never share one
+ *  `continue-<project>.md`. When they did, one session's doc-write fired the
+ *  other session's `waitForFile` (it matches on file name alone), tearing the
+ *  wrong — usually idle — session down; the project slug keeps the name
+ *  human-readable, the session token keeps it collision-free. */
+export function handoffDocName({ source, sessionId }: {
+  source: string;
+  sessionId: string;
+}): string {
+  return `continue-${handoffSlug(source)}-${sessionToken(sessionId)}.md`;
+}
+
 function handoffPrompt(doc: string): string {
   return `\nYour context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.\r`;
 }
@@ -210,7 +230,10 @@ export function createAutoHandoff(host: HandoffHost) {
       return;
     }
 
-    const doc = `continue-${handoffSlug(host.slugSource())}.md`;
+    const doc = handoffDocName({
+      source: host.slugSource(),
+      sessionId: session.id
+    });
     const isCrossover = successorAgent.id !== session.agent.id;
     note = isCrossover
       ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`

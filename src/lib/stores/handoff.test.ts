@@ -1,4 +1,4 @@
-import { handoffSlug, pickSuccessor } from "@/lib/stores/handoff.svelte";
+import { handoffDocName, handoffSlug, pickSuccessor } from "@/lib/stores/handoff.svelte";
 import type { Agent } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +22,21 @@ describe("handoffSlug", () => {
   it("falls back to a generic slug when nothing survives", () => {
     expect(handoffSlug("!!!")).toBe("session");
     expect(handoffSlug("")).toBe("session");
+  });
+});
+
+describe("handoffDocName", () => {
+  it("includes the session token so same-project sessions never collide", () => {
+    const source = "pade";
+    const first = handoffDocName({ source, sessionId: "1a2b3c4d-1111-2222-3333-444455556666" });
+    const second = handoffDocName({ source, sessionId: "9f8e7d6c-1111-2222-3333-444455556666" });
+    expect(first).toBe("continue-pade-1a2b3c4d.md");
+    expect(second).toBe("continue-pade-9f8e7d6c.md");
+    expect(first).not.toBe(second);
+  });
+
+  it("falls back to a generic token for a non-UUID session id", () => {
+    expect(handoffDocName({ source: "pade", sessionId: "" })).toBe("continue-pade-session.md");
   });
 });
 
