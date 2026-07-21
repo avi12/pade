@@ -5,6 +5,7 @@
 //! Later: real per-hunk diffs and agent-authored intent replace the heuristic.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -565,9 +566,22 @@ fn now_ms() -> u128 {
 }
 
 fn line_count(path: &Path) -> Option<usize> {
-    std::fs::read_to_string(path)
-        .ok()
-        .map(|s| s.lines().count())
+    // `String::lines` was simple, but it read and allocated the complete file
+    // for every watched write. Keep its UTF-8 failure semantics while streaming
+    // through a reusable line buffer: source files with normal line lengths now
+    // use bounded memory even when a formatter rewrites a large file.
+    let file = std::fs::File::open(path).ok()?;
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+    let mut count = 0;
+    loop {
+        line.clear();
+        let bytes = reader.read_line(&mut line).ok()?;
+        if bytes == 0 {
+            return Some(count);
+        }
+        count += 1;
+    }
 }
 
 /// Largest file the Change Feed will snapshot for a baseline or read for a live
@@ -1111,12 +1125,19 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         .and_then(|guard| guard.as_ref().map(|active| active.root.clone()));
 
     for path in event.paths {
-        if ignored(&path) || path.is_dir() {
+        if ignored(&path) {
+            continue;
+        }
+        // Both the directory test and the atomic-write check need metadata.
+        // Resolve it once per path rather than issuing two filesystem queries for
+        // every event in an editor's save burst.
+        let metadata = std::fs::metadata(&path).ok();
+        if metadata.as_ref().is_some_and(std::fs::Metadata::is_dir) {
             continue;
         }
         // A created/modified file that has already vanished was an atomic-write
         // scratch file — skip it rather than surface a preview-less phantom card.
-        if !surfaces(kind, path.exists()) {
+        if !surfaces(kind, metadata.is_some()) {
             continue;
         }
 
@@ -1433,7 +1454,7 @@ pub fn init(app: &AppHandle) {
 mod tests {
     use super::{
         base64_encode, drain_burst, git_state_dirs, ignored_by_static_dirs, image_mime_type,
-        image_within_cap, is_git_dir_entry, is_git_state_file, manifest_ignore_dirs,
+        image_within_cap, is_git_dir_entry, is_git_state_file, line_count, manifest_ignore_dirs,
         read_preview_text, resolve_watch_root, static_ignore_dirs, surfaces, unique_dirs,
         ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
@@ -1504,6 +1525,19 @@ mod tests {
     fn read_preview_text_is_none_for_a_missing_path() {
         let dir = scratch("missing");
         assert_eq!(read_preview_text(&dir.join("nope.txt")), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn line_count_matches_string_lines_and_rejects_invalid_utf8() {
+        let dir = scratch("line-count");
+        let text = dir.join("source.txt");
+        fs::write(&text, b"one\ntwo\n\n").expect("write text file");
+        assert_eq!(line_count(&text), Some(3));
+
+        let binary = dir.join("binary.bin");
+        fs::write(&binary, b"before\xffafter").expect("write binary file");
+        assert_eq!(line_count(&binary), None);
         let _ = fs::remove_dir_all(&dir);
     }
 
