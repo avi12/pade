@@ -169,6 +169,13 @@
   // Ctrl/Cmd-click opens the full launch menu instead.
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
 
+  function openAddMenu() {
+    const menu = document.getElementById("add-menu");
+    if (menu instanceof HTMLElement && !menu.matches(":popover-open")) {
+      menu.showPopover();
+    }
+  }
+
   // Closing a tab removes the session synchronously; the pill's collapse is a
   // Svelte out-transition. `closingIds` marks which pills left via a real close
   // so the transition only animates those — a repack-driven exit snaps instantly.
@@ -422,16 +429,20 @@
         style:anchor-name="--add-anchor"
         class="add-btn menu-trigger"
         aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
-        data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click for options`}
+        data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click or right-click for options`}
         onclick={e => {
           if (e.ctrlKey || e.metaKey) {
-            document.getElementById("add-menu")?.togglePopover();
+            openAddMenu();
             return;
           }
 
           if (lastAgent) {
             onlaunch(lastAgent);
           }
+        }}
+        oncontextmenu={e => {
+          e.preventDefault();
+          openAddMenu();
         }}
       >+</button>
       <ul id="add-menu" style:position-anchor="--add-anchor" class="menu popover-menu" popover>
