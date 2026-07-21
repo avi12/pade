@@ -206,6 +206,17 @@ const BADGES: Record<string, FileTypeBadge> = {
   }
 };
 
+/** A file path's type key for grouping/counting: its extension with the leading
+ *  dot, lowercased (e.g. `.ts`, `.css`). A dotfile (`.gitignore`) or
+ *  extensionless file keys on its own base name, so every path yields one key.
+ *  The single source both the file-type filter's counts and its filtering read. */
+export function fileExtension(path: string): string {
+  const base = path.split(/[\\/]/).pop() ?? path;
+  const dot = base.lastIndexOf(".");
+  const hasExtension = dot > 0 && dot < base.length - 1;
+  return hasExtension ? base.slice(dot).toLowerCase() : base;
+}
+
 /** The badge for a file path — read from its extension. A dotfile (`.gitignore`)
  *  or extensionless file gets a neutral chip from its own name. */
 export function fileTypeBadge(path: string): FileTypeBadge {

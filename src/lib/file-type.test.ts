@@ -1,5 +1,22 @@
-import { FileTone, fileTypeBadge } from "@/lib/file-type";
+import { FileTone, fileExtension, fileTypeBadge } from "@/lib/file-type";
 import { describe, expect, it } from "vitest";
+
+describe("fileExtension", () => {
+  it("keys on the dotted, lowercased extension", () => {
+    expect(fileExtension("src/lib/bridge.ts")).toBe(".ts");
+    expect(fileExtension("src/App.svelte")).toBe(".svelte");
+    expect(fileExtension("README.MD")).toBe(".md");
+  });
+
+  it("reads the extension from a Windows path", () => {
+    expect(fileExtension("C:\\repos\\pade\\src\\theme.css")).toBe(".css");
+  });
+
+  it("keys a dotfile or extensionless file on its base name", () => {
+    expect(fileExtension(".gitignore")).toBe(".gitignore");
+    expect(fileExtension("src/Makefile")).toBe("Makefile");
+  });
+});
 
 describe("fileTypeBadge", () => {
   it("labels, tones, and logos known source extensions", () => {

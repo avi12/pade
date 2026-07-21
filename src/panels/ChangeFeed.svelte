@@ -4,11 +4,12 @@
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import DiffView from "@/lib/DiffView.svelte";
-  import { fileTypeBadge } from "@/lib/file-type";
+  import { fileExtension, fileTypeBadge } from "@/lib/file-type";
   import { formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { markdownDocument } from "@/lib/markdown";
-  import { revealBlock } from "@/lib/motion";
+  import { collapseRow, emphasized, expandRow, flipDuration, revealBlock } from "@/lib/motion";
+  import { flip } from "svelte/animate";
   import { baseName, parentDir } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
@@ -16,7 +17,6 @@
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
-  import { ChangeKind } from "@/lib/types";
   import type { FeedDiff, WorkspaceMember } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
@@ -271,21 +271,83 @@
 
   // ── Grouping + filters ──────────────────────────────────────────────────────
   // Bucket the feed by project (manifest members first, folder-name convention
-  // as the fallback — see change-groups), and let the
-  // chip row narrow to one project and the "Show" control to one change kind.
-  let kindFilter = $state<"all" | ChangeKind>("all");
+  // as the fallback — see change-groups), and let the chip row narrow to one
+  // project and the "File type" filter narrow to a set of file extensions.
   let activeGroupId = $state<string | null>(null);
 
-  const kindFiltered = $derived.by(() => {
-    if (kindFilter === "all") {
+  interface ExtensionCount {
+    extension: string;
+    count: number;
+  }
+
+  // The per-extension tally over the live feed — the one source both the filter
+  // popover's counts and its filtering read (SSOT), computed once here rather
+  // than re-derived at each call site. Sorted by count, then name, so the
+  // busiest types lead and the order is stable.
+  const extensionCounts = $derived.by<ExtensionCount[]>(() => {
+    const counts = new Map<string, number>();
+    for (const event of feedStore.events) {
+      const extension = fileExtension(event.path);
+      counts.set(extension, (counts.get(extension) ?? 0) + 1);
+    }
+
+    return [...counts]
+      .map(([extension, count]) => ({
+        extension,
+        count
+      }))
+      .sort((a, b) => b.count - a.count || a.extension.localeCompare(b.extension));
+  });
+
+  // Opt-in file-type filter: the extensions the user has ticked. An empty set is
+  // the default and means "no filter — show every type", so a checkbox is empty
+  // by default and the feed stays fully visible until a type is picked.
+  const selectedExtensions = new SvelteSet<string>();
+
+  const allTypesSelected = $derived(
+    extensionCounts.length > 0 && extensionCounts.every(item => selectedExtensions.has(item.extension))
+  );
+  const filterLabel = $derived.by(() => {
+    const noFilterActive = selectedExtensions.size === 0 || allTypesSelected;
+    if (noFilterActive) {
+      return "All types";
+    }
+
+    return `${formatCount(selectedExtensions.size)} of ${formatCount(extensionCounts.length)} types`;
+  });
+
+  function toggleExtension(extension: string) {
+    if (selectedExtensions.has(extension)) {
+      selectedExtensions.delete(extension);
+      return;
+    }
+
+    selectedExtensions.add(extension);
+  }
+
+  // The header text action: fills every box when not all are ticked, else clears
+  // the selection back to the "show all" default.
+  function toggleAllTypes() {
+    if (allTypesSelected) {
+      selectedExtensions.clear();
+      return;
+    }
+
+    for (const item of extensionCounts) {
+      selectedExtensions.add(item.extension);
+    }
+  }
+
+  const typeFiltered = $derived.by(() => {
+    if (selectedExtensions.size === 0) {
       return feedStore.events;
     }
 
-    return feedStore.events.filter(event => event.kind === kindFilter);
+    return feedStore.events.filter(event => selectedExtensions.has(fileExtension(event.path)));
   });
   const groups = $derived(
     groupChanges({
-      events: kindFiltered,
+      events: typeFiltered,
       workspaceRoot: project,
       members: workspaceMembers
     })
@@ -426,15 +488,49 @@
     </p>
   {:else}
     <div class="toolbar">
-      <label class="kind">
-        <span class="kind-label">Show</span>
-        <select bind:value={kindFilter}>
-          <option value="all">All types</option>
-          {#each ChangeKind.options as kind (kind)}
-            <option value={kind}>{kind[0].toUpperCase() + kind.slice(1)}</option>
-          {/each}
-        </select>
-      </label>
+      <div class="typefilter menu-host">
+        <button
+          class="typechip menu-trigger"
+          style:anchor-name="--type-anchor"
+          popovertarget="type-filter"
+        >
+          <span class="caret">▽</span>
+          <span class="lbl">{filterLabel}</span>
+        </button>
+
+        <div id="type-filter" style:position-anchor="--type-anchor" class="type-popover popover-menu" popover>
+          <div class="pop-head">
+            <span class="pop-title">File type</span>
+            <button class="selectall" onclick={() => toggleAllTypes()}>
+              {allTypesSelected ? "Clear" : "Select all"}
+            </button>
+          </div>
+          <ul class="typelist">
+            {#each extensionCounts as item (item.extension)}
+              <li
+                in:expandRow
+                out:collapseRow
+                animate:flip={{ duration: flipDuration(), easing: emphasized }}
+              >
+                <label class="check typerow">
+                  <span class="ck">
+                    <input
+                      checked={selectedExtensions.has(item.extension)}
+                      onchange={() => toggleExtension(item.extension)}
+                      type="checkbox"
+                    />
+                    <span class="box" aria-hidden="true">
+                      <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                    </span>
+                  </span>
+                  <span class="ext">{item.extension}</span>
+                  <span class="n">{formatCount(item.count)}</span>
+                </label>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      </div>
 
       {#if hasRemote}
         <button
@@ -733,28 +829,141 @@
     padding-inline: 10px;
   }
 
-  .kind {
+  /* File-type filter: a pill that reads the current selection and drops a native
+     popover of per-extension checkboxes. The pressed state + caret flip come from
+     the shared .menu-host/.menu-trigger chrome (theme.css). */
+  .typefilter {
+    display: inline-flex;
+  }
+
+  .typechip {
     display: inline-flex;
     gap: 6px;
     align-items: center;
-  }
-
-  .kind-label {
-    color: var(--on-surface-variant);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .kind select {
-    padding: 4px 9px;
+    padding-block: 4px;
+    padding-inline: 10px 12px;
     border: 1px solid var(--outline);
     border-radius: 999px;
     background: var(--surface-2);
     color: var(--on-surface);
     font-family: inherit;
+    font-weight: 600;
     font-size: 12px;
     cursor: pointer;
+    transition: background 120ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+    }
+
+    .caret {
+      font-size: 10px;
+      transition: rotate 200ms var(--ease);
+    }
+
+    .lbl {
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  /* Anchored below the chip. Uses the shared .popover-menu shell for its flip
+     fallbacks, but overrides the surface to a tonal surface-container card with
+     the M3 large radius, softer elevation, and airier padding to match design. */
+  .type-popover {
+    overflow-y: auto;
+    max-block-size: 60vh;
+    min-inline-size: 224px;
+    padding: 6px;
+    border: none;
+    border-radius: var(--radius-large);
+    background: var(--surface-2);
+    box-shadow: 0 8px 28px var(--shadow-color);
+    position-area: bottom span-right;
+
+    .pop-head {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      padding-block: 8px 6px;
+      padding-inline: 12px;
+    }
+
+    .pop-title {
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* "Select all" is a text action, not a checkbox: a plain blue link-button. */
+    .selectall {
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--primary);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    .typelist {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 0;
+      padding-block: 2px 0;
+      padding-inline: 0;
+      list-style: none;
+    }
+
+    .check {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* Shrink the shared 20px .ck to a menu-fit 18px. */
+    .ck {
+      block-size: 18px;
+      inline-size: 18px;
+
+      .box {
+        block-size: 18px;
+        inline-size: 18px;
+      }
+    }
+
+    .typerow {
+      padding-block: 7px;
+      padding-inline: 12px;
+      border-radius: var(--radius-small);
+
+      &:hover {
+        background: var(--surface-3);
+      }
+
+      .ext {
+        flex: 1;
+        overflow: hidden;
+        font-family: var(--font-monospace);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .n {
+        color: var(--on-surface-variant);
+        font-variant-numeric: tabular-nums;
+      }
+    }
   }
 
   .sync {

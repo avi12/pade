@@ -13,6 +13,33 @@ function prefersReducedMotion(): boolean {
   return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+// One coordinate of a cubic Bézier with anchors fixed at 0 and 1 (P0 = 0,
+// P3 = 1), for progress `t` in [0, 1]. `a` and `b` are the two control points.
+function bezierAxis(a: number, b: number, t: number): number {
+  const inverse = 1 - t;
+  return (3 * inverse * inverse * t * a) + (3 * inverse * t * t * b) + (t * t * t);
+}
+
+/** The M3 "emphasized" easing curve — `cubic-bezier(0.2, 0, 0, 1)`, the same
+ *  motion the CSS `--ease` token carries — as an easing function for JS-driven
+ *  animations (e.g. `animate:flip`), so JS motion matches the rest of the app.
+ *  Solves x(t) = progress by bisection, then returns y(t). */
+export function emphasized(progress: number): number {
+  let low = 0;
+  let high = 1;
+  let t = progress;
+  for (let step = 0; step < 20; step += 1) {
+    t = (low + high) / 2;
+    if (bezierAxis(0.2, 0, t) < progress) {
+      low = t;
+    } else {
+      high = t;
+    }
+  }
+
+  return bezierAxis(0, 1, t);
+}
+
 function motionDuration(milliseconds: number): number {
   return prefersReducedMotion() ? 0 : milliseconds;
 }
