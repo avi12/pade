@@ -12,8 +12,8 @@
 // timing stay in Terminal.svelte, next to the rest of the PTY plumbing.
 //
 // Coupled to the CLI's *observable* output (the gate's wording), the same
-// deliberate, documented Hyrum dependency as the context-percent regexes and the
-// Shift+Enter escape — not a stable PADE contract.
+// deliberate, documented Hyrum dependency as the context-percent regexes — not a
+// stable PADE contract.
 
 import { stripAnsi } from "@/lib/ansi";
 import { detectChoicePrompt } from "@/lib/choice-prompt";

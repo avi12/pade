@@ -169,6 +169,12 @@ contexts around ~16) pays the swap and its reveal artifacts. `webglCellMetrics`
 caches the GPU cell size for that crowded path, so even a DOM-renderer fit keeps
 the grid at the WebGL geometry.
 
+One final guard covers structural layout changes such as opening the task-runner
+dock. A flex layout can briefly report an undersized viewport while it settles;
+`fitToPane` keeps the previous grid until it measures at least 20 columns and 4
+rows. Passing that transient as a clamped 2×1 PTY resize corrupts Codex's TUI in
+the same way as hiding a pane did, even though the final dock layout is roomy.
+
 Three more traps found the hard way:
 
 - A drag that ends inside the minimum interval still has to land its last size — nothing

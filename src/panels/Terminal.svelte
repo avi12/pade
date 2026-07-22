@@ -27,6 +27,8 @@
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
+  import { TerminalLinkTarget, terminalLinkDestination } from "@/lib/terminal-link-target";
+  import { isPromptNewlineShortcut, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
@@ -234,17 +236,6 @@
   // detects this exact sequence to set `history.alternate` — change them together.
   const ENTER_ALTERNATE_SCREEN = `${CONTROL_SEQUENCE_INTRODUCER}${ALTERNATE_SCREEN_PRIVATE_MODE}${SET_MODE}`;
 
-  // Shift+Enter should add a newline to the agent's prompt, not submit it.
-  // Terminals send plain `\r` (0x0D) for both Enter and Shift+Enter, so the
-  // wrapped CLI can't tell them apart and submits on either. Emit the CSI u
-  // (fixterms) encoding for Shift+Enter instead, which Claude Code decodes as
-  // "insert newline". This mirrors what `claude`'s own /terminal-setup makes
-  // terminals like VS Code emit. https://code.claude.com/docs/en/terminal-config
-  const ENTER_KEY_CODE = 13;
-  const SHIFT_MODIFIER = 2;
-  const FIXTERMS_KEY_SUFFIX = "u";
-  const SHIFT_ENTER = `${CONTROL_SEQUENCE_INTRODUCER}${ENTER_KEY_CODE};${SHIFT_MODIFIER}${FIXTERMS_KEY_SUFFIX}`;
-
   // Wheel-scroll a fullscreen agent's own transcript. Claude Code's renderer
   // repaints its UI in place (cursor addressing) rather than appending lines, so
   // the earlier conversation lives inside the agent, not in xterm's buffer — there
@@ -382,26 +373,13 @@
     }
   });
 
-  // Re-theme the terminal when the app scheme flips, so a plain shell's output
-  // sits on a background that matches the light/dark theme. (The agent itself
-  // can't hear this through the terminal — ConPTY consumes both its OSC 11
-  // background query and xterm's ?997 color-scheme report — so every themed
-  // agent gets its scheme at spawn instead: pty.rs adds per-scheme env
-  // (Claude's COLORFGBG, aider/cursor pairs) or launch args (Codex). See
-  // theming.rs.)
-  //
-  // An agent themed that way is fixed at spawn (no DECSET 2031, no config
-  // watch, and Codex's OSC 11 re-query on focus is unix-only — see
-  // ThemeConfig::fixed_at_spawn). Its running TUI is painted for the spawn
-  // scheme forever, so this pane's xterm palette stays pinned to that scheme —
-  // flipping the background under it is what made it unreadable. A restarted
-  // session re-keys the terminal and spawns with the current scheme, adopting
-  // it then.
+  // Re-theme xterm whenever the app scheme changes. An agent's optional
+  // spawn-time syntax theme cannot be changed without replacing its PTY, but
+  // replacing it destroys the live terminal context. The terminal palette can
+  // change in place, so it is the safe, immediate visual update for every live
+  // session; the agent's own launch theme is applied next time it naturally
+  // starts.
   $effect(() => {
-    if (session.agent.themeFixedAtSpawn) {
-      return;
-    }
-
     // Reading the scheme is what subscribes this effect to it, so a light/dark
     // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
     // tokens the flipped scheme installed.
@@ -615,11 +593,22 @@
     }
   }
 
-  // Open a URL in the system browser. Best-effort — launching the browser must
-  // not throw into a link-click handler.
-  async function openExternalUrl(uri: string) {
+  // Open a terminal hyperlink in the appropriate OS surface. Codex uses OSC-8
+  // `file:` links for paths it reports; those are local folders/files, not URLs
+  // the browser bridge accepts. Web links retain the browser path.
+  async function openTerminalLink(uri: string) {
+    const destination = terminalLinkDestination(uri);
+    if (!destination) {
+      showToast("Couldn't open that link.");
+      return;
+    }
+
     try {
-      await os.openUrl(uri);
+      if (destination.kind === TerminalLinkTarget.explorer) {
+        await os.explorer(destination.value);
+      } else {
+        await os.openUrl(destination.value);
+      }
     } catch {
       showToast("Couldn't open that link.");
     }
@@ -771,8 +760,19 @@
       return;
     }
 
-    const cols = Math.max(2, Math.floor((viewport.clientWidth - SCROLLBAR_WIDTH) / cell.width));
-    const rows = Math.max(1, Math.floor(viewport.clientHeight / cell.height));
+    const availableWidth = viewport.clientWidth - SCROLLBAR_WIDTH;
+    const cols = Math.floor(availableWidth / cell.width);
+    const rows = Math.floor(viewport.clientHeight / cell.height);
+    // A dock/panel can briefly leave its flex sibling with no measured space
+    // while the browser resolves the new layout. Never clamp that transient to
+    // a 2x1 terminal: Codex treats it as a real resize and its TUI can become
+    // permanently desynchronised. Keep the last truthful grid until the pane
+    // has enough cells to be usable again.
+    const MIN_USABLE_COLS = 20;
+    const MIN_USABLE_ROWS = 4;
+    if (cols < MIN_USABLE_COLS || rows < MIN_USABLE_ROWS) {
+      return;
+    }
     const grid = term;
     // The normal screen reflows every frame: xterm owns the document there, so it can
     // rewrap the text itself as fast as the drag moves.
@@ -868,7 +868,7 @@
       // link an agent emits goes nowhere.
       linkHandler: {
         activate(_event, uri) {
-          openExternalUrl(uri);
+          openTerminalLink(uri);
         }
       }
     });
@@ -883,7 +883,7 @@
     // route the whole URL through the bridge to the system browser instead.
     registerWrappedLinkProvider({
       terminal: term,
-      openUrl: openExternalUrl
+      openUrl: openTerminalLink
     });
 
     fitToPane();
@@ -991,7 +991,7 @@
 
     // Keyboard overrides layered on xterm's own handling; returning false stops
     // xterm from also sending the key's control code.
-    //  • Shift+Enter → a prompt newline (CSI u) instead of a submitting `\r`.
+    //  • Shift+Enter → paste a protected prompt newline instead of submitting.
     //  • Ctrl+C → copy the selection; with nothing selected it falls through so
     //    xterm still sends ^C (SIGINT) to interrupt the agent.
     //  • Ctrl+V → paste the clipboard (xterm would otherwise send a raw ^V, and
@@ -1001,13 +1001,15 @@
         return true;
       }
 
-      const isShiftEnter =
-        event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
-      if (isShiftEnter) {
+      if (isPromptNewlineShortcut(event)) {
         // preventDefault stops the browser inserting a newline into xterm's hidden
         // textarea, which xterm would forward to the PTY as a submit.
         event.preventDefault();
-        writeToPty(SHIFT_ENTER);
+        // `paste` is deliberate: when any agent's TUI enables bracketed paste,
+        // xterm marks this as pasted text and the newline stays in its composer.
+        // Unlike CSI-u, this does not depend on an individual agent decoding a
+        // particular modified-key protocol.
+        term.paste(PROMPT_NEWLINE);
         return false;
       }
 
