@@ -338,17 +338,21 @@
       {@render statusGlyph(s)}
       <span class="label">{sessionLabel(s.id) ?? s.agent.label}</span>
     </button>
-    <button
-      class="ai"
+    <span
+      class="ai-wrap"
       class:on={isNaming(s.id)}
-      aria-label="Auto-name this session with AI"
-      data-noreorder
       data-tooltip={isNaming(s.id) ? "Auto-naming on — click to turn off" : "Auto-name this session with AI"}
-      onclick={() => toggleNaming({
-        id: s.id,
-        agent: s.agent.command
-      })}
-    ><Icon name="sparkles" size={13} /></button>
+    >
+      <button
+        class="ai"
+        aria-label="Auto-name this session with AI"
+        data-noreorder
+        onclick={() => toggleNaming({
+          id: s.id,
+          agent: s.agent.command
+        })}
+      ><Icon name="sparkles" size={13} /></button>
+    </span>
   {/if}
   <button
     class="x"
@@ -500,7 +504,6 @@
       flex: 1;
       gap: 6px;
       align-items: center;
-      overflow: hidden;
       min-inline-size: 0;
       border-radius: 8px;
 
@@ -604,7 +607,6 @@
     .tab {
       display: inline-flex;
       align-items: center;
-      overflow: hidden;
       border-radius: 999px;
       background: var(--surface-2);
 
@@ -656,6 +658,21 @@
 
     /* The ✦ AI-name toggle — hidden until the tab is hovered or active, and
        pinned visible (primary) while auto-naming is on for the session. */
+    .ai-wrap {
+      display: inline-flex;
+      flex: none;
+      align-items: center;
+      block-size: 26px;
+      inline-size: 0;
+      transition: inline-size 140ms var(--ease);
+
+      .tab:hover &,
+      .tab.active &,
+      &.on {
+        inline-size: 24px;
+      }
+    }
+
     .ai {
       display: inline-flex;
       flex: none;
@@ -663,37 +680,33 @@
       align-items: center;
       overflow: hidden;
       block-size: 26px;
-      inline-size: 0;
+      inline-size: 24px;
       border: none;
       background: transparent;
       color: var(--on-surface-variant);
       opacity: 0%;
       cursor: pointer;
       transition:
-        inline-size 140ms var(--ease),
         opacity 140ms var(--ease),
         color 140ms var(--ease);
 
       /* Revealed when the tab is hovered or active. */
-      .tab:hover &,
-      .tab.active & {
-        inline-size: 24px;
+      .tab:hover .ai-wrap &,
+      .tab.active .ai-wrap & {
         opacity: 85%;
       }
 
-      /* Full opacity when the button itself is hovered — must beat `.tab:hover &`
-         (higher specificity) or it stays at 85%, and CSS opacity groups the whole
-         subtree, so a faded button also fades its own tooltip pseudo to match. */
-      .tab:hover &:hover,
-      .tab.active &:hover,
+      /* The tooltip belongs to `.ai-wrap`, outside this faded icon button, so
+         the indicator can stay subdued without dimming or clipping its bubble. */
+      .tab:hover .ai-wrap &:hover,
+      .tab.active .ai-wrap &:hover,
       &:hover {
         color: var(--primary);
         opacity: 100%;
       }
 
       /* Pinned visible while auto-naming is on for this session. */
-      &.on {
-        inline-size: 24px;
+      .ai-wrap.on & {
         color: var(--primary);
         opacity: 100%;
       }
