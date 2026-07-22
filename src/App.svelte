@@ -21,7 +21,13 @@
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import { appearance, effective, SIDE_PANEL_DEFAULT_WIDTH, SIDE_PANEL_MIN_WIDTH, updatePrefs } from "@/lib/prefs.svelte";
+  import {
+    appearance,
+    effective,
+    SIDE_PANEL_DEFAULT_WIDTH,
+    SIDE_PANEL_MIN_WIDTH,
+    updatePrefs
+  } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
@@ -92,6 +98,9 @@
   let currentProject = $state<string>("");
   // Local branches when the project is a git repo — enables per-branch agents.
   let branches = $state<string[]>([]);
+  // The project's checked-out branch — the top-bar branch pill (empty when the
+  // project isn't a git repo or HEAD is detached).
+  let currentBranch = $state("");
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
@@ -879,21 +888,38 @@
     selectSession(sessions[nextIndex].id);
   }
 
-  // Load branches for the current repo (empty when not a git project).
+  // Load branches for the current repo (empty when not a git project), and the
+  // checked-out branch the top-bar pill shows.
   async function loadBranches() {
     const project = currentProject;
     if (!project) {
       branches = [];
+      currentBranch = "";
       return;
     }
 
-    const next = await vcs.branches(project).catch(() => []);
+    const [next, heads] = await Promise.all([
+      vcs.branches(project).catch((): string[] => []),
+      vcs.branchOf([project]).catch((): Record<string, string> => ({}))
+    ]);
     // A project switch can outrun this read. Keep the branch list attached to
     // the project it came from instead of flashing another window's repository.
     if (project === currentProject) {
       branches = next;
+      currentBranch = heads[project] ?? "";
     }
   }
+
+  // Keep the branch pill honest: a branch switch, git init, or remote change in
+  // the open project re-fetches what it shows (git://state carries no payload).
+  let unlistenGitState: (() => void) | undefined;
+  async function subscribeToGitState() {
+    unlistenGitState = await vcs.onStateChanged(() => loadBranches());
+  }
+  onMount(() => {
+    subscribeToGitState();
+    return () => unlistenGitState?.();
+  });
 
   // The caller kills the PTY and decides the empty-workspace policy.
   function detachSession(id: string) {
@@ -1200,6 +1226,7 @@
   function releaseProject() {
     currentProject = "";
     branches = [];
+    currentBranch = "";
     pendingPrompt = undefined;
     windows.registerProject("");
   }
@@ -1524,6 +1551,18 @@
             pinnedProjects={settings.pinnedProjects}
             recentProjects={settings.recentProjects}
           />
+          {#if currentBranch}
+            <!-- Design's branch pill: the checked-out branch beside the project
+                 button; clicking it opens the Git panel. -->
+            <button
+              class="branch-pill"
+              data-tooltip="Current branch — open Git panel"
+              onclick={() => (side = Side.vcs)}
+            >
+              <span class="branch-pill-icon" aria-hidden="true"><Icon name="branch" size={13} /></span>
+              <span class="branch-pill-name">{currentBranch}</span>
+            </button>
+          {/if}
           <span class="chrome-spacer"></span>
 
           <UsageMeter {sessions} />
@@ -1898,6 +1937,45 @@
     gap: clamp(8px, 1vw, 12px);
     align-items: center;
     min-inline-size: 0;
+  }
+
+  /* The checked-out branch, pilled beside the project button (design's branch
+     chip) — click opens the Git panel. */
+  .branch-pill {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 6px;
+    align-items: center;
+    min-inline-size: 0;
+    max-inline-size: 14rem;
+    padding-block: 4px;
+    padding-inline: 9px 10px;
+    border: none;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--on-surface);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+    }
+
+    .branch-pill-icon {
+      display: inline-flex;
+      flex-shrink: 0;
+      color: var(--on-surface-variant);
+    }
+
+    .branch-pill-name {
+      overflow: hidden;
+      min-inline-size: 0;
+      font-family: var(--font-monospace);
+      font-weight: 700;
+      font-size: 12px;
+      text-overflow: ellipsis;
+    }
   }
 
   /* Pushes the action cluster to the right edge of the chrome row. */
