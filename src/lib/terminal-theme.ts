@@ -4,13 +4,14 @@
 // PADE's decision on agent/app theme sync: PADE follows the OS scheme end-to-end
 // (prefs resolve themeMode "system" via matchMedia; theme.css carries full light
 // and dark palettes; Terminal.svelte re-themes xterm when the scheme flips), and
-// the agent follows the TERMINAL, not the OS. Claude Code's os-sync theme asks
-// the terminal: an OSC 11 query for the background color (it picks light/dark by
-// the reply's luminance, with COLORFGBG as fallback and dark as default), plus
-// DECSET 2031 to be told again whenever the palette changes. xterm answers the
-// query from the theme built here and pushes a `CSI ?997;n` report on every
-// re-theme — so keeping this theme truthful is the whole sync mechanism; no env
-// var or extra plumbing is needed.
+// the agent follows the TERMINAL, not the OS. Claude Code's `auto` theme asks
+// the terminal for its background color at startup (with COLORFGBG as fallback),
+// then enables DECSET 2031 for live changes. Windows ConPTY swallows the startup
+// query before xterm sees it, and xterm does not emit a color-scheme report just
+// because this theme object changes. Terminal.svelte therefore relays the
+// standard `CSI ?997;<dark|light>n` report directly to Claude after it applies
+// this palette. Keeping these colors truthful is what makes that live report
+// meaningful.
 //
 // Truthful requires parse-safe. xterm's color parser takes `#hex` (alpha
 // included) and legacy comma `rgb()`/`rgba()` directly; every other format falls

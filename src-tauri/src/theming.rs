@@ -3,11 +3,11 @@
 //! Why spawn-time signals and not the terminal protocol: an agent's `auto` theme
 //! follows the *terminal* — Claude Code queries the background color (OSC 11) at
 //! startup and listens for color-scheme reports (DECSET 2031 → `CSI ?997;n`) —
-//! but Windows `ConPTY` consumes both flavors on the way through, so the agent
-//! never hears from ADE's xterm and falls back to its dark default even on a
-//! light ADE. Verified live: kilobytes of session stream carry the agent's
-//! `DECSET 2031` yet no OSC 10/11 query ever reaches the frontend, and an
-//! injected `?997` report changes nothing.
+//! but Windows `ConPTY` consumes the startup query on the way through, so the
+//! agent cannot learn ADE's initial palette from xterm. The frontend applies a
+//! fallback at spawn, then relays the DECSET 2031 `?997` report directly through
+//! the PTY whenever the app palette changes; that live input path reaches the
+//! already-running Claude process without replacing its conversation.
 //!
 //! What does work is the tier *above* the probe: Claude's `auto` detection reads
 //! `$COLORFGBG` before it ever sends OSC 11, and the other CLIs expose their own
