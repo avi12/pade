@@ -1244,6 +1244,19 @@
       term.write(history.data);
       relayColorSchemeAfterSubscribe(history.data);
 
+      // A session with history was already running before this terminal
+      // attached, so Claude's DECSET 2031 subscribe happened at its own
+      // startup — usually trimmed out of the replay, so the handshake watcher
+      // above never sees it. Treat the running process as subscribed and
+      // report the current scheme: its spawn-time COLORFGBG (or a spawn that
+      // predates it) may disagree with the palette this app is painting.
+      const attachedToRunningClaude =
+        session.agent.id === "claude" && !colorSchemeNotificationsEnabled;
+      if (attachedToRunningClaude) {
+        colorSchemeNotificationsEnabled = true;
+        await writeToPty(colorSchemeReport(appearance.scheme));
+      }
+
       // A session with history to replay was already running before this
       // terminal attached — it sits at its prompt, not "starting". A
       // normal-screen session at rest says nothing more after the replay
