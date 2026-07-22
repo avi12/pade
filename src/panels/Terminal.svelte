@@ -28,6 +28,7 @@
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { TerminalLinkTarget, terminalLinkDestination } from "@/lib/terminal-link-target";
+  import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
   import { isPromptNewlineShortcut, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
@@ -236,6 +237,27 @@
   // detects this exact sequence to set `history.alternate` — change them together.
   const ENTER_ALTERNATE_SCREEN = `${CONTROL_SEQUENCE_INTRODUCER}${ALTERNATE_SCREEN_PRIVATE_MODE}${SET_MODE}`;
 
+  // A PTY read can cut a control sequence in half, so retain one complete
+  // sequence's worth of tail while looking for Claude's DECSET 2031 handshake.
+  const COLOR_SCHEME_ENABLE_LENGTH = "\x1b[?2031h".length;
+  let colorSchemeNotificationTail = "";
+  let colorSchemeNotificationsEnabled = false;
+
+  function relayColorSchemeAfterSubscribe(data: string) {
+    if (session.agent.id !== "claude" || colorSchemeNotificationsEnabled) {
+      return;
+    }
+
+    const combined = colorSchemeNotificationTail + data;
+    colorSchemeNotificationTail = combined.slice(-(COLOR_SCHEME_ENABLE_LENGTH - 1));
+    if (!enablesColorSchemeNotifications(combined)) {
+      return;
+    }
+
+    colorSchemeNotificationsEnabled = true;
+    void writeToPty(colorSchemeReport(appearance.scheme));
+  }
+
   // Wheel-scroll a fullscreen agent's own transcript. Claude Code's renderer
   // repaints its UI in place (cursor addressing) rather than appending lines, so
   // the earlier conversation lives inside the agent, not in xterm's buffer — there
@@ -373,12 +395,12 @@
     }
   });
 
-  // Re-theme xterm whenever the app scheme changes. An agent's optional
-  // spawn-time syntax theme cannot be changed without replacing its PTY, but
-  // replacing it destroys the live terminal context. The terminal palette can
-  // change in place, so it is the safe, immediate visual update for every live
-  // session; the agent's own launch theme is applied next time it naturally
-  // starts.
+  // Re-theme xterm whenever the app scheme changes. The terminal palette changes
+  // in place, so it is safe for every live session. Claude also subscribes to
+  // DECSET 2031 color-scheme reports in its `auto` theme: xterm does not emit one
+  // merely because `options.theme` changed, so relay the standard report through
+  // its PTY after repainting. It reaches the already-running Claude process and
+  // redraws its own TUI without a restart or context loss.
   $effect(() => {
     // Reading the scheme is what subscribes this effect to it, so a light/dark
     // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
@@ -386,6 +408,9 @@
     const { scheme } = appearance;
     if (term && scheme) {
       term.options.theme = readXtermTheme();
+      if (session.agent.id === "claude") {
+        void writeToPty(colorSchemeReport(scheme));
+      }
     }
   });
 
@@ -908,6 +933,7 @@
       }
 
       term.write(chunk.data);
+      relayColorSchemeAfterSubscribe(chunk.data);
       noteRepaintProgress();
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
@@ -1216,6 +1242,7 @@
       }
 
       term.write(history.data);
+      relayColorSchemeAfterSubscribe(history.data);
 
       // A session with history to replay was already running before this
       // terminal attached — it sits at its prompt, not "starting". A
