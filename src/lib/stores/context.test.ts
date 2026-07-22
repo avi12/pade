@@ -1,5 +1,10 @@
-import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
-import { contextPct, dropContext, measuredContextPct, observeContext, observeContextScreen } from "@/lib/stores/context.svelte";
+import {
+  contextPct,
+  dropContext,
+  measuredContextPct,
+  observeContext,
+  observeContextScreen
+} from "@/lib/stores/context.svelte";
 import { describe, expect, it } from "vitest";
 
 // The parser is internal, so every case drives it through the public API:
@@ -175,7 +180,7 @@ describe("measuredContextPct — 1M context window near the limit", () => {
 
     const pct = measuredContextPct("ctx-1m-near");
     expect(pct).toBeCloseTo(92);
-    expect(pct).toBeGreaterThanOrEqual(CONTEXT_HANDOFF_PCT);
+    expect(pct).toBeGreaterThanOrEqual(90);
     expect(pct).toBeLessThanOrEqual(95);
   });
 
@@ -188,13 +193,89 @@ describe("measuredContextPct — 1M context window near the limit", () => {
     expect(measuredContextPct("ctx-1m-left")).toBe(95);
   });
 
-  it("stays below the handoff threshold at 88% of a 1M window", () => {
+  it("reads 88% from an 880k/1m ratio", () => {
     observeContext({
       id: "ctx-1m-low",
       chunk: "context: 880k / 1m tokens"
     });
 
-    expect(measuredContextPct("ctx-1m-low")).toBeLessThan(CONTEXT_HANDOFF_PCT);
+    expect(measuredContextPct("ctx-1m-low")).toBeCloseTo(88);
+  });
+});
+
+// A low handoff threshold needs the fill long before the agent prints its own
+// % indicator, so the consumed-tokens counter against the announced window is
+// the second agent-vouched source.
+describe("measuredContextPct — derived from the tokens counter", () => {
+  it("divides the reported total by the announced window", () => {
+    observeContextScreen({
+      id: "tokens-derived",
+      text: "Opus 4.8 (1M context) with low effort"
+    });
+    observeContextScreen({
+      id: "tokens-derived",
+      text: "300,000 tokens"
+    });
+
+    expect(measuredContextPct("tokens-derived")).toBeCloseTo(30);
+  });
+
+  it("keeps the largest counter seen — small per-turn counts never regress it", () => {
+    observeContextScreen({
+      id: "tokens-max",
+      text: "(200K context)"
+    });
+    observeContextScreen({
+      id: "tokens-max",
+      text: "46,706 tokens"
+    });
+    observeContextScreen({
+      id: "tokens-max",
+      text: "↓ 83 tokens"
+    });
+
+    expect(measuredContextPct("tokens-max")).toBeCloseTo(23.353);
+  });
+
+  it("stays null without the window banner — a guessed window would cycle a 1M session absurdly early", () => {
+    observeContextScreen({
+      id: "tokens-no-window",
+      text: "191867 tokens"
+    });
+
+    expect(measuredContextPct("tokens-no-window")).toBeNull();
+  });
+
+  it("never mistakes a used/limit ratio's limit side for consumption", () => {
+    observeContextScreen({
+      id: "tokens-ratio-guard",
+      text: "(1M context)"
+    });
+    observeContextScreen({
+      id: "tokens-ratio-guard",
+      text: "context: 100k / 1m tokens"
+    });
+
+    // The ratio parses to 10% used; the "1m" limit side must not become a
+    // reported total that would read as 100%.
+    expect(measuredContextPct("tokens-ratio-guard")).toBeCloseTo(10);
+  });
+
+  it("the agent's own % indicator still outranks the derived value", () => {
+    observeContextScreen({
+      id: "tokens-vs-parsed",
+      text: "(1M context)"
+    });
+    observeContextScreen({
+      id: "tokens-vs-parsed",
+      text: "250,000 tokens"
+    });
+    observeContextScreen({
+      id: "tokens-vs-parsed",
+      text: "97% context used"
+    });
+
+    expect(measuredContextPct("tokens-vs-parsed")).toBe(97);
   });
 });
 

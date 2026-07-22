@@ -21,6 +21,12 @@ const DEFAULT_CONTEXT_LIMIT = 200_000;
 interface ContextSignal {
   /** Percent of context used, parsed from the agent's own output (0..100). */
   parsedPct: number | null;
+  /** The window size the agent announced ("Opus 4.8 (1M context)"), tokens. */
+  windowTokens: number | null;
+  /** Running maximum of the agent's own "N tokens" consumed counter. A max,
+   *  not the latest: the screen also carries small per-turn counters ("↓ 83
+   *  tokens"), and the session total only grows until the session cycles. */
+  reportedTokens: number;
   /** Cumulative PTY chars seen — the estimate fallback. */
   chars: number;
 }
@@ -50,6 +56,17 @@ const REMAINING_RE = /(\d{1,3})\s*%\s*(?:context\s*)?(?:left|remaining)|(?:left|
 const USED_RE = /(\d{1,3})\s*%\s*context|context[^%\d]{0,24}(\d{1,3})\s*%/;
 const RATIO_RE = /([\d,]+)\s*(k|m)?\s*\/\s*([\d,]+)\s*(k|m)?\s*tokens/;
 
+// The window size the agent announces in its banner — "Opus 4.8 (1M context)",
+// "(200K context)". The one anchor that turns a raw consumed-tokens counter
+// into a percent, since agents only print their own % indicator near the limit
+// while a low threshold needs the fill long before that.
+const WINDOW_RE = /\((\d+(?:\.\d+)?)\s*(k|m)\s*context\)/;
+// Every standalone "N tokens" counter on screen (the transcript total, the
+// per-turn spinner count). Used/limit ratios are stripped first so their limit
+// side is never mistaken for consumption.
+const TOKENS_RE = /(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\s*tokens\b/g;
+const RATIO_STRIP_RE = /[\d,.]+\s*(?:k|m)?\s*\/\s*[\d,.]+\s*(?:k|m)?\s*tokens\b/g;
+
 /** Best-effort parse of a context "percent used" from a chunk of agent output. */
 function parseUsedPct(text: string): number | null {
   const lower = text.toLowerCase();
@@ -78,19 +95,67 @@ function parseUsedPct(text: string): number | null {
   return null;
 }
 
+const EMPTY_SIGNAL: ContextSignal = {
+  parsedPct: null,
+  windowTokens: null,
+  reportedTokens: 0,
+  chars: 0
+};
+
+/** The announced window size and the largest consumed-tokens counter in a
+ *  piece of agent text ("null"/0 when absent). */
+function parseTokenSignals(text: string): {
+  windowTokens: number | null;
+  reportedTokens: number;
+} {
+  const lower = text.toLowerCase();
+
+  let windowTokens: number | null = null;
+  const window = lower.match(WINDOW_RE);
+  if (window) {
+    windowTokens = scaleTokens(window[1], window[2]);
+  }
+
+  let reportedTokens = 0;
+  for (const counter of lower.replaceAll(RATIO_STRIP_RE, "").matchAll(TOKENS_RE)) {
+    const tokens = scaleTokens(counter[1], counter[2]);
+    if (tokens !== null && tokens > reportedTokens) {
+      reportedTokens = tokens;
+    }
+  }
+
+  return {
+    windowTokens,
+    reportedTokens
+  };
+}
+
+/** Fold one observation's parse results into a session's stored signal. */
+function absorb({ id, text, chars }: {
+  id: string;
+  text: string;
+  chars: number;
+}): void {
+  const prev = signals.get(id) ?? EMPTY_SIGNAL;
+  const parsed = parseUsedPct(text);
+  const tokens = parseTokenSignals(text);
+  signals.set(id, {
+    parsedPct: parsed ?? prev.parsedPct,
+    windowTokens: tokens.windowTokens ?? prev.windowTokens,
+    reportedTokens: Math.max(tokens.reportedTokens, prev.reportedTokens),
+    chars: prev.chars + chars
+  });
+}
+
 /** Feed a chunk of a session's PTY output through the context signals. */
 export function observeContext({ id, chunk }: {
   id: string;
   chunk: string;
 }): void {
-  const prev = signals.get(id) ?? {
-    parsedPct: null,
-    chars: 0
-  };
-  const parsed = parseUsedPct(chunk);
-  signals.set(id, {
-    parsedPct: parsed ?? prev.parsedPct,
-    chars: prev.chars + chunk.length
+  absorb({
+    id,
+    text: chunk,
+    chars: chunk.length
   });
 }
 
@@ -105,19 +170,23 @@ export function observeContextScreen({ id, text }: {
   id: string;
   text: string;
 }): void {
-  const parsed = parseUsedPct(text);
-  if (parsed === null) {
-    return;
+  absorb({
+    id,
+    text,
+    chars: 0
+  });
+}
+
+/** The percent the agent's own consumed-tokens counter implies, or null until
+ *  both the counter and the window banner have been seen. The banner is
+ *  required — assuming a default window would over-report a 1M session five
+ *  times over and cycle it absurdly early. */
+function tokensDerivedPct(signal: ContextSignal): number | null {
+  if (signal.windowTokens === null || signal.windowTokens === 0 || signal.reportedTokens === 0) {
+    return null;
   }
 
-  const prev = signals.get(id) ?? {
-    parsedPct: null,
-    chars: 0
-  };
-  signals.set(id, {
-    parsedPct: parsed,
-    chars: prev.chars
-  });
+  return Math.min(100, (signal.reportedTokens / signal.windowTokens) * 100);
 }
 
 /** The session's context usage percent (parsed if known, else estimated), or
@@ -132,6 +201,15 @@ export function contextPct(id: string): number | null {
     return signal.parsedPct;
   }
 
+  const derived = tokensDerivedPct(signal);
+  if (derived !== null) {
+    return derived;
+  }
+
+  if (signal.chars === 0) {
+    return null;
+  }
+
   const tokens = signal.chars / CHARS_PER_TOKEN;
   return Math.min(100, (tokens / DEFAULT_CONTEXT_LIMIT) * 100);
 }
@@ -143,9 +221,19 @@ export function contextPct(id: string): number | null {
  *  whole-frame redraws), so it balloons far past real usage and must never end a
  *  session. Auto-handoff, usage-resume, and API-error retry all gate on this, so
  *  they act only on a fill the agent itself vouches for; a `null` reads as "room
- *  to spare" everywhere, the safe default. */
+ *  to spare" everywhere, the safe default.
+ *
+ *  Two agent-vouched sources: the % indicator when the agent prints one, else
+ *  the consumed-tokens counter against the announced window. The latter is
+ *  what makes a low handoff threshold workable — the agent only prints its own
+ *  % near the limit, but the tokens counter runs from the first turn. */
 export function measuredContextPct(id: string): number | null {
-  return signals.get(id)?.parsedPct ?? null;
+  const signal = signals.get(id);
+  if (!signal) {
+    return null;
+  }
+
+  return signal.parsedPct ?? tokensDerivedPct(signal);
 }
 
 /** Forget a session's context when it ends. */
