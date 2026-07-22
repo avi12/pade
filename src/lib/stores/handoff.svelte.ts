@@ -12,6 +12,7 @@
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { dropContext, measuredContextPct } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
+import { submittedPrompt } from "@/lib/terminal-input";
 import { SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -57,7 +58,14 @@ export function handoffDocName({ source, sessionId }: {
 }
 
 function handoffPrompt(doc: string): string {
-  return `\nYour context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.\r`;
+  // Paste-then-submit delivery: the raw-bytes + trailing-CR form let the agent
+  // fold the CR into the paste burst and leave the request sitting unsent in
+  // its composer — the doc was never written and the cycle stranded its
+  // successor. `submittedPrompt` appends the ENTER as a separate keystroke
+  // after the closing paste marker, so the request actually goes.
+  return submittedPrompt(
+    `Your context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`
+  );
 }
 
 /** Seed for the fresh successor: read ONLY the handoff doc and continue. The

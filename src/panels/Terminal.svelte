@@ -28,7 +28,7 @@
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
-  import { isPromptNewlineShortcut, PROMPT_NEWLINE } from "@/lib/terminal-input";
+  import { isPromptNewlineShortcut, PROMPT_NEWLINE, submittedPrompt } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
@@ -288,13 +288,6 @@
   const FOCUS_IN = `${CONTROL_SEQUENCE_INTRODUCER}${FOCUS_IN_FINAL_BYTE}`;
   const FOCUS_OUT = `${CONTROL_SEQUENCE_INTRODUCER}${FOCUS_OUT_FINAL_BYTE}`;
 
-  // Bracketed paste (CSI ? 2004): wrap text so the agent treats it as ONE pasted
-  // block — its own newlines stay soft (never a premature submit) and the ENTER we
-  // append AFTER the closing marker is an unambiguous, separate keystroke that
-  // submits it. Delivering the first prompt as raw bytes instead let the agent
-  // fold the trailing CR into the same burst and leave the prompt sitting unsent.
-  const BRACKETED_PASTE_START = `${CONTROL_SEQUENCE_INTRODUCER}200${TILDE_FINAL_BYTE}`;
-  const BRACKETED_PASTE_END = `${CONTROL_SEQUENCE_INTRODUCER}201${TILDE_FINAL_BYTE}`;
   // Mouse-tracking mode xterm reports when no program has grabbed the mouse.
   const NO_MOUSE_TRACKING = "none";
 
@@ -380,7 +373,10 @@
     }
 
     promptDelivered = true;
-    await writeToPty(`${BRACKETED_PASTE_START}${session.initialPrompt}${BRACKETED_PASTE_END}${ENTER}`);
+    // Paste-then-submit (lib/terminal-input): the paste markers keep the
+    // prompt's own newlines soft, and the trailing ENTER is a separate
+    // keystroke the agent can't fold into the burst.
+    await writeToPty(submittedPrompt(session.initialPrompt));
   }
 
   // Publish status to the shared store so the top-bar tab shows a matching dot.
