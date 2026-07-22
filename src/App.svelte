@@ -21,7 +21,7 @@
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import { effective, SIDE_PANEL_DEFAULT_WIDTH, SIDE_PANEL_MIN_WIDTH, updatePrefs } from "@/lib/prefs.svelte";
+  import { appearance, effective, SIDE_PANEL_DEFAULT_WIDTH, SIDE_PANEL_MIN_WIDTH, updatePrefs } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
@@ -1103,6 +1103,60 @@
     sessions = relaid.sessions;
     paneIds = relaid.paneIds;
     activeId = relaid.activeId;
+  }
+
+  // Codex has no live theme channel: its syntax theme and (on Windows + light)
+  // the console-buffer ground are fixed at spawn, so after a scheme flip a
+  // running Codex keeps painting the OLD scheme — light boxes on a dark app,
+  // and every ConPTY resize re-fills from the stale buffer. Claude follows the
+  // live ?997 relay and needs nothing here. Restart the sessions that are
+  // sitting idle, each resuming its own recorded conversation (`codex resume
+  // <uuid>` via agent_resume_args); a busy Codex is left alone rather than
+  // severed mid-task — it re-themes on its next natural launch.
+  let lastAgentThemedScheme = appearance.scheme;
+  $effect(() => {
+    const { scheme } = appearance;
+    if (scheme === lastAgentThemedScheme) {
+      return;
+    }
+
+    lastAgentThemedScheme = scheme;
+    restartSpawnThemedAgents();
+  });
+
+  async function restartSpawnThemedAgents() {
+    const targets = sessions.filter(s => s.agent.id === "codex" && isSessionIdle(s.id));
+    if (targets.length === 0) {
+      return;
+    }
+
+    const resumable = await Promise.all(
+      targets.map(async target => ({
+        target,
+        resumeArgs: await pty.resumeArgs({
+          command: target.agent.command,
+          cwd: target.cwd ?? currentProject
+        })
+      }))
+    );
+
+    // Hand each restarted session its resume args BEFORE the re-key remounts
+    // its terminal, so the respawn reopens the same conversation on the new
+    // scheme instead of starting a blank one.
+    sessions = sessions.map(session => {
+      const match = resumable.find(entry => entry.target.id === session.id);
+      if (!match || match.resumeArgs.length === 0) {
+        return session;
+      }
+
+      return {
+        ...session,
+        args: match.resumeArgs
+      };
+    });
+
+    showToast(`Theme changed — restarting ${targets.length === 1 ? "Codex" : `${targets.length} Codex sessions`} to match`);
+    await restartSessions(targets);
   }
 
   // Clear the recent-projects history from the switcher (pins survive).

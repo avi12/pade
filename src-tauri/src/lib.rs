@@ -13,6 +13,7 @@ mod naming;
 mod os;
 mod pty;
 mod refs;
+mod resume;
 mod runner;
 mod tasks;
 mod theming;
@@ -129,6 +130,7 @@ pub fn run() {
             pty::pty_kill,
             pty::pty_history,
             pty::pty_list,
+            resume::agent_resume_args,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

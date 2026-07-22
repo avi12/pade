@@ -246,6 +246,15 @@ export const pty = {
     id: string;
     agent: string;
   }) => call("session_generate_name", z.string().nullable(), { ...args }),
+  /** Launch args that reopen the agent's recorded conversation for `cwd` —
+   *  `["resume", "<uuid>"]` for Codex (its own rollout id; ADE cannot pick one
+   *  at spawn), empty when the agent has no such mechanism or no recording.
+   *  Used when a session must respawn (a scheme flip re-theming an arg-themed
+   *  CLI) without losing its conversation. */
+  resumeArgs: (args: {
+    command: string;
+    cwd: string;
+  }) => call("agent_resume_args", z.array(z.string()), { ...args }),
   onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
   onExit: (callback: (id: string) => void) =>
     on("pty://exit", PtyExit, payload => callback(payload.id))
