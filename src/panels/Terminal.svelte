@@ -959,10 +959,18 @@
       noteRepaintProgress();
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
-      observeContext({
-        id: session.id,
-        chunk: chunk.data
-      });
+      // Only on the normal screen: a fullscreen agent repaints its whole frame
+      // on every spinner tick, so counting those bytes balloons the estimate
+      // to a meaningless 100% within minutes (a freshly handed-off successor
+      // read "≈100%"). On the alternate screen the onRender scan above carries
+      // the parsed percent, and no estimate beats a saturated one.
+      const onNormalScreen = term.buffer.active.type !== "alternate";
+      if (onNormalScreen) {
+        observeContext({
+          id: session.id,
+          chunk: chunk.data
+        });
+      }
       // Spot the CLI's "limit reached" stop message (drives auto-resume).
       observeUsageLimit({
         id: session.id,

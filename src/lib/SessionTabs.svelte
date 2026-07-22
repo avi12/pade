@@ -773,8 +773,11 @@
         color: var(--on-surface-variant);
       }
 
-      /* Working breathes; ready (idle, awaiting you) keeps the dot's soft halo. */
-      &.working {
+      /* Working breathes; ready (idle, awaiting you) keeps the dot's soft halo.
+         The pulse dims the inner mark, never this host span: the tooltip bubble
+         is this span's ::after, and an opacity animation on the host would drag
+         the visible bubble through every breath with it. */
+      &.working > :global(svg) {
         animation: pulse 1100ms var(--ease) infinite;
       }
 
