@@ -127,5 +127,4 @@ mod tests {
         assert_eq!(spawn_env("claude", Scheme::Light), &[("COLORFGBG", "0;15")]);
         assert_eq!(spawn_env("claude", Scheme::Dark), &[("COLORFGBG", "15;0")]);
     }
-
 }

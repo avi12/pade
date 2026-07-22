@@ -558,6 +558,31 @@ fn surfaces(kind: ChangeKind, path_exists: bool) -> bool {
     matches!(kind, ChangeKind::Deleted) || path_exists
 }
 
+/// The change kind the card should carry, reconciled against the disk: a
+/// "deleted" path that exists again was an atomic-save replace (delete +
+/// rename-over), so it is a modification. Every other kind stands as reported.
+fn reclassify(kind: ChangeKind, path_exists: bool) -> ChangeKind {
+    if matches!(kind, ChangeKind::Deleted) && path_exists {
+        ChangeKind::Modified
+    } else {
+        kind
+    }
+}
+
+/// The `(added, removed)` line delta between the last-seen count and the
+/// current one. A file seen for the first time contributes all its lines as
+/// added; a deletion of a tracked file removes every line it had; a deletion
+/// never tracked contributes nothing.
+fn line_delta(old: Option<usize>, new: Option<usize>) -> (usize, usize) {
+    match (old, new) {
+        (Some(o), Some(n)) if n >= o => (n - o, 0),
+        (Some(o), Some(n)) => (0, o - n),
+        (None, Some(n)) => (n, 0),
+        (Some(o), None) => (0, o),
+        (None, None) => (0, 0),
+    }
+}
+
 fn now_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1141,6 +1166,14 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             continue;
         }
 
+        // The event kind describes the past; the disk describes now. An editor's
+        // atomic save deletes the real path and renames a scratch file over it,
+        // so a Remove event routinely loses the race with the recreation —
+        // trusting it would card a live file as "Deleted" while its fresh
+        // content produces a positive line delta. A file that exists is a
+        // modification, whatever the event said.
+        let kind = reclassify(kind, metadata.is_some());
+
         // A changed MCP config (`.mcp.json`) may have gained or lost a server;
         // if so, the affected agent's sessions restart to pick it up. Checked
         // before the ignore filter, since `.mcp.json` is often git-ignored.
@@ -1201,18 +1234,13 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
                 continue;
             };
             let old = counts.get(&path).copied();
-            let (a, r) = match (old, new_count) {
-                (Some(o), Some(n)) if n >= o => (n - o, 0),
-                (Some(o), Some(n)) => (0, o - n),
-                (None, Some(n)) => (n, 0),
-                _ => (0, 0),
-            };
+            let delta = line_delta(old, new_count);
             if let Some(n) = new_count {
                 counts.insert(path.clone(), n);
             } else {
                 counts.remove(&path);
             }
-            (a, r)
+            delta
         };
 
         let path_str = path.to_string_lossy().to_string();
@@ -1454,9 +1482,10 @@ pub fn init(app: &AppHandle) {
 mod tests {
     use super::{
         base64_encode, drain_burst, git_state_dirs, ignored_by_static_dirs, image_mime_type,
-        image_within_cap, is_git_dir_entry, is_git_state_file, line_count, manifest_ignore_dirs,
-        read_preview_text, resolve_watch_root, static_ignore_dirs, surfaces, unique_dirs,
-        ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
+        image_within_cap, is_git_dir_entry, is_git_state_file, line_count, line_delta,
+        manifest_ignore_dirs, read_preview_text, reclassify, resolve_watch_root,
+        static_ignore_dirs, surfaces, unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES,
+        MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
     use std::fs;
@@ -1480,6 +1509,43 @@ mod tests {
     #[test]
     fn a_deletion_always_surfaces_since_the_file_being_gone_is_the_event() {
         assert!(surfaces(ChangeKind::Deleted, false));
+    }
+
+    #[test]
+    fn a_deleted_path_that_exists_again_was_an_atomic_save_and_reads_as_modified() {
+        assert!(matches!(
+            reclassify(ChangeKind::Deleted, true),
+            ChangeKind::Modified
+        ));
+    }
+
+    #[test]
+    fn a_genuinely_gone_path_keeps_its_deleted_kind() {
+        assert!(matches!(
+            reclassify(ChangeKind::Deleted, false),
+            ChangeKind::Deleted
+        ));
+        assert!(matches!(
+            reclassify(ChangeKind::Modified, true),
+            ChangeKind::Modified
+        ));
+        assert!(matches!(
+            reclassify(ChangeKind::Created, true),
+            ChangeKind::Created
+        ));
+    }
+
+    #[test]
+    fn a_deletion_of_a_tracked_file_removes_every_line_it_had() {
+        assert_eq!(line_delta(Some(764), None), (0, 764));
+    }
+
+    #[test]
+    fn line_deltas_split_growth_shrink_first_sighting_and_untracked_deletion() {
+        assert_eq!(line_delta(Some(10), Some(14)), (4, 0));
+        assert_eq!(line_delta(Some(14), Some(10)), (0, 4));
+        assert_eq!(line_delta(None, Some(9)), (9, 0));
+        assert_eq!(line_delta(None, None), (0, 0));
     }
 
     /// A scratch directory unique to this test process; removed by the caller.
