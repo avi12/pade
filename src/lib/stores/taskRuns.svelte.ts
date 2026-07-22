@@ -11,6 +11,7 @@
 
 import { feed, pty, tasks as tasksApi } from "@/lib/bridge";
 import { baseName } from "@/lib/paths";
+import { runnerRows } from "@/lib/stores/runners.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { isTaskInvocation } from "@/lib/task-detect";
 import { SessionStatus } from "@/lib/types";
@@ -38,7 +39,11 @@ const bySession = new SvelteMap<string, string>();
 
 /** Whether a task (by key) is currently running (reactive). */
 export function isTaskRunning(key: string): boolean {
-  return running.has(key);
+  return running.has(key) || runnerRows().some(row =>
+    !row.done && taskKey({
+      dir: row.cwd,
+      command: row.command
+    }) === key);
 }
 
 function clearSessionTask(sessionId: string): void {

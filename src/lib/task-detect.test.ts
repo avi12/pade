@@ -48,6 +48,21 @@ describe("isTaskInvocation", () => {
     ).toBe(false);
   });
 
+  it("does not treat an agent's command mention as an invocation", () => {
+    expect(
+      isTaskInvocation({
+        line: "Verified locally with pnpm lint.",
+        command: "pnpm lint"
+      })
+    ).toBe(false);
+    expect(
+      isTaskInvocation({
+        line: "pnpm lint",
+        command: "pnpm lint"
+      })
+    ).toBe(false);
+  });
+
   it("does not match a command embedded in a longer word", () => {
     expect(
       isTaskInvocation({

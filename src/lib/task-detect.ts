@@ -1,38 +1,31 @@
 // Best-effort detection of a known task's command inside an agent's terminal
 // output — the signal that lets the Tasks panel reflect a task the agent started
-// as "running" (see stores/taskRuns). Two things make a naive match miss it: the
-// PTY carries ANSI colour codes, and the agent renders a tool call as
-// `Tool(command)` (`PowerShell(pnpm dev)`, `Bash(pnpm build)`), so the command
-// sits wrapped in parentheses rather than sitting at a shell prompt. Strip the
-// ANSI, then treat the `(`/`)` wrapper as a word boundary alongside whitespace
-// and the usual prompt sigils.
+// as "running" (see stores/taskRuns). This must be evidence of an execution, not
+// merely an agent mentioning a command in its summary. The PTY carries ANSI colour
+// codes and agents render tool calls as `PowerShell(command)` / `Bash(command)`,
+// while a visible shell invocation begins at a prompt. Strip ANSI, then recognise
+// only those two concrete forms.
 
 import { stripAnsi } from "@/lib/ansi";
 
-// Characters that may legitimately abut a command invocation: whitespace, a
-// shell prompt sigil, or the opening paren an agent wraps a tool call's command
-// in (its close paren is the matching after-boundary).
-const BOUNDARY_BEFORE = /[\s$>#%❯(]/;
-const BOUNDARY_AFTER = /[\s)]/;
+const TOOL_NAMES = "Bash|PowerShell|Shell|Terminal";
 
-/** Whether `command` appears as a whole invocation somewhere in `line`, bounded
- *  on both sides so `pnpm build` doesn't match `pnpm build:prod`, and recognising
- *  the `Tool(command)` form an agent renders its tool calls in (through the ANSI
- *  colour codes the transcript is painted with). */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Whether `line` proves that `command` was invoked: a shell-prompt line or an
+ *  agent tool-call rendering. Plain prose such as "verified with pnpm lint" is
+ *  intentionally not enough to set a task's running state. */
 export function isTaskInvocation({ line, command }: {
   line: string;
   command: string;
 }): boolean {
   const clean = stripAnsi(line).trim();
-  const index = clean.indexOf(command);
-  if (index < 0) {
-    return false;
-  }
-
-  const before = index === 0 ? "" : clean[index - 1];
-  const afterIndex = index + command.length;
-  const after = afterIndex >= clean.length ? "" : clean[afterIndex];
-  const boundaryBefore = before === "" || BOUNDARY_BEFORE.test(before);
-  const boundaryAfter = after === "" || BOUNDARY_AFTER.test(after);
-  return boundaryBefore && boundaryAfter;
+  const escapedCommand = escapeRegExp(command);
+  const shellPrompt = new RegExp(`^[$#%❯>]\\s*${escapedCommand}(?:\\s|$)`);
+  const toolCall = new RegExp(
+    `(?:^|\\s)(?:${TOOL_NAMES})\\(\\s*${escapedCommand}\\s*\\)(?:\\s|$)`
+  );
+  return shellPrompt.test(clean) || toolCall.test(clean);
 }
