@@ -94,6 +94,32 @@ export function observeContext({ id, chunk }: {
   });
 }
 
+/** Feed rendered screen text (xterm buffer rows) through the parsed signal
+ *  only. A TUI's cursor-motion optimizations can split a word across the wire
+ *  — Claude paints "97% contex", skips the unchanged "t" cell with a
+ *  cursor-forward, then " used" — so the stream never carries the phrase the
+ *  parser needs. The screen always does; this is the reliable source for the
+ *  parsed percent. Never counts toward the byte estimate: these are repainted
+ *  cells, not new output. */
+export function observeContextScreen({ id, text }: {
+  id: string;
+  text: string;
+}): void {
+  const parsed = parseUsedPct(text);
+  if (parsed === null) {
+    return;
+  }
+
+  const prev = signals.get(id) ?? {
+    parsedPct: null,
+    chars: 0
+  };
+  signals.set(id, {
+    parsedPct: parsed,
+    chars: prev.chars
+  });
+}
+
 /** The session's context usage percent (parsed if known, else estimated), or
  *  null when nothing has been observed yet. */
 export function contextPct(id: string): number | null {

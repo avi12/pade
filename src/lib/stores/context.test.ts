@@ -1,5 +1,5 @@
 import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
-import { contextPct, dropContext, measuredContextPct, observeContext } from "@/lib/stores/context.svelte";
+import { contextPct, dropContext, measuredContextPct, observeContext, observeContextScreen } from "@/lib/stores/context.svelte";
 import { describe, expect, it } from "vitest";
 
 // The parser is internal, so every case drives it through the public API:
@@ -195,6 +195,50 @@ describe("measuredContextPct — 1M context window near the limit", () => {
     });
 
     expect(measuredContextPct("ctx-1m-low")).toBeLessThan(CONTEXT_HANDOFF_PCT);
+  });
+});
+
+describe("observeContextScreen", () => {
+  it("parses the indicator from rendered rows when the stream split the word", () => {
+    // The exact bytes captured from a live Claude session: the renderer skips
+    // the already-painted "t" cell with a cursor-forward, so the stream never
+    // carries the word "context" intact and the stream parser reads nothing.
+    observeContext({
+      id: "screen-split",
+      chunk: "[10C1.0k tokens)[38;140H97% contex[1C used[40;3H"
+    });
+
+    expect(measuredContextPct("screen-split")).toBeNull();
+
+    // The rendered screen row always holds the full phrase.
+    observeContextScreen({
+      id: "screen-split",
+      text: "✻ Philosophising… (9s)                97% context used"
+    });
+
+    expect(measuredContextPct("screen-split")).toBe(97);
+  });
+
+  it("keeps the last parsed percent when a scanned row has no indicator", () => {
+    observeContextScreen({
+      id: "screen-sticky",
+      text: "91% context used"
+    });
+    observeContextScreen({
+      id: "screen-sticky",
+      text: "just transcript text"
+    });
+
+    expect(measuredContextPct("screen-sticky")).toBe(91);
+  });
+
+  it("never inflates the byte estimate — repainted cells are not new output", () => {
+    observeContextScreen({
+      id: "screen-no-chars",
+      text: "plain row with no indicator at all".repeat(100)
+    });
+
+    expect(contextPct("screen-no-chars")).toBeNull();
   });
 });
 

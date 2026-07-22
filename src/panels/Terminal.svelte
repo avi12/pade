@@ -23,7 +23,7 @@
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { dropContext, observeContext } from "@/lib/stores/context.svelte";
+  import { dropContext, observeContext, observeContextScreen } from "@/lib/stores/context.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
@@ -912,6 +912,28 @@
     });
 
     fitToPane();
+
+    // The context gauge must parse the SCREEN, not just the stream: a
+    // fullscreen agent's renderer skips cells that are already painted with a
+    // cursor-forward, so the wire can carry "97% contex" + CSI 1C + " used"
+    // and the phrase the parser needs never arrives intact. The rendered rows
+    // always hold the full text. onRender reports the repainted viewport row
+    // range; reading only those rows keeps the per-paint work bounded.
+    term.onRender(({ start, end }) => {
+      const buffer = term.buffer.active;
+      const rows: string[] = [];
+      for (let row = start; row <= end; row++) {
+        const line = buffer.getLine(buffer.viewportY + row);
+        if (line) {
+          rows.push(line.translateToString(true));
+        }
+      }
+
+      observeContextScreen({
+        id: session.id,
+        text: rows.join("\n")
+      });
+    });
 
     // Stream this session's PTY output into the terminal; each chunk is a sign
     // of life that resets the idle → ready timer. Events are filtered by id so
