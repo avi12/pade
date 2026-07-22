@@ -1,7 +1,5 @@
 // Pure logic for restarting agent sessions in place — resuming their
-// conversation under a new session id — when the environment they were spawned
-// with goes stale: a project's MCP servers changed, or the app's light/dark
-// scheme flipped under an agent whose theme is fixed at spawn.
+// conversation under a new session id — when a project's MCP servers change.
 //
 // The reactive side (killing PTYs, re-keying the live pane state, toasting) lives
 // in App.svelte, which owns that state; the error-prone decisions — WHICH
@@ -25,19 +23,6 @@ export function mcpRestartTargets({ sessions, change, currentProject }: {
     change.agents.includes(session.agent.command)
     && session.conversationId !== undefined
     && normalizePath(session.cwd ?? currentProject) === changedRoot);
-}
-
-/** The sessions a light/dark scheme flip should restart to adopt it: those
- *  whose agent's theme is locked in at spawn (env or launch args — a live PTY
- *  can't re-theme it; see `theming.rs`) and that carry a conversation id to
- *  resume back into. A shell re-themes through the xterm palette alone, and an
- *  agent with no resumable id would lose its conversation — both stay put. */
-export function schemeRestartTargets({ sessions }: {
-  sessions: readonly AgentSession[];
-}): AgentSession[] {
-  return sessions.filter(session =>
-    session.agent.themeFixedAtSpawn === true
-    && session.conversationId !== undefined);
 }
 
 /** Apply a re-key (old session id → new id) across the pane layout: each

@@ -179,11 +179,10 @@ const REGISTRY: &[AgentDef] = &[
         // fill goes from `48;2;41;41;41` to `48;2;232;232;232`). `tui.theme` is a
         // separate concern and stays forced because it matches syntax highlighting
         // to ADE's scheme.
-        // Like SpawnEnv, everything above is read once at startup: a mid-session
-        // scheme flip re-themes only on the next spawn — so the terminal pins a
-        // live session's xterm palette to its spawn scheme
-        // (`theme_fixed_at_spawn`) instead of flipping the background out from
-        // under a TUI that can never re-detect it.
+        // Like SpawnEnv, everything above is read once at startup. A running
+        // session keeps its syntax choice until it naturally exits; ADE still
+        // re-themes the terminal palette in place so it never destroys a live
+        // conversation just to follow an app appearance change.
         theme_config: Some(ThemeConfig::SpawnArgs {
             light: &["-c", "tui.theme=catppuccin-latte"],
             dark: &["-c", "tui.theme=catppuccin-mocha"],
@@ -387,11 +386,6 @@ pub struct Agent {
     id: String,
     label: String,
     command: String,
-    /// True when the agent's theme is applied once at spawn (env or launch
-    /// args, see `ThemeConfig::fixed_at_spawn`) — the terminal pins such a
-    /// session's palette to its spawn scheme, since a live scheme flip can
-    /// never reach the running TUI.
-    theme_fixed_at_spawn: bool,
 }
 
 /// Every installed agent backend. The shell fallback is appended so the list is
@@ -418,10 +412,6 @@ fn detect_installed() -> Vec<Agent> {
             id: a.id.into(),
             label: a.label.into(),
             command: a.command.into(),
-            theme_fixed_at_spawn: a
-                .theme_config
-                .as_ref()
-                .is_some_and(ThemeConfig::fixed_at_spawn),
         })
         .collect();
 
@@ -434,7 +424,6 @@ fn detect_installed() -> Vec<Agent> {
         id: "shell".into(),
         label: "Terminal (shell)".into(),
         command: shell.into(),
-        theme_fixed_at_spawn: false,
     });
     found
 }

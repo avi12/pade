@@ -1,4 +1,4 @@
-import { mcpRestartTargets, rekeyLayout, schemeRestartTargets } from "@/lib/session-restart";
+import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
 import type { AgentSession, McpChange } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -90,51 +90,6 @@ describe("mcpRestartTargets", () => {
       currentProject: project
     });
     expect(targets).toEqual([]);
-  });
-});
-
-describe("schemeRestartTargets", () => {
-  const fixedClaude = {
-    ...claude,
-    themeFixedAtSpawn: true
-  };
-
-  it("selects fixed-at-spawn sessions with a conversation to resume", () => {
-    const sessions = [
-      session({
-        id: "a",
-        agent: fixedClaude
-      }),
-      session({
-        id: "b",
-        agent: fixedClaude
-      })
-    ];
-    expect(schemeRestartTargets({ sessions }).map(s => s.id)).toEqual(["a", "b"]);
-  });
-
-  it("skips an agent that re-themes live", () => {
-    const sessions = [session({
-      id: "shell",
-      agent: {
-        ...claude,
-        themeFixedAtSpawn: false
-      }
-    })];
-    expect(schemeRestartTargets({ sessions })).toEqual([]);
-  });
-
-  it("skips an agent with no themeFixedAtSpawn flag at all", () => {
-    expect(schemeRestartTargets({ sessions: [session({ id: "a" })] })).toEqual([]);
-  });
-
-  it("skips a session with no conversation id to resume", () => {
-    const sessions = [session({
-      id: "a",
-      agent: fixedClaude,
-      conversationId: undefined
-    })];
-    expect(schemeRestartTargets({ sessions })).toEqual([]);
   });
 });
 

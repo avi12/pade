@@ -109,6 +109,16 @@ export async function stopRunner(id: string): Promise<void> {
   rows = rows.filter(row => row.id !== id);
 }
 
+/** Stop and forget every runner belonging to this window. Workspace changes
+ * must not leave a previous project's dev server running or keep its dock open
+ * over the next project. Every stop is attempted even if one backend call
+ * fails; rows are then cleared so late output/exit events are ignored. */
+export async function stopAllRunners(): Promise<void> {
+  const ids = rows.map(row => row.id);
+  await Promise.all(ids.map(id => runner.stop(id).catch(() => {})));
+  rows = [];
+}
+
 /** Move a runner so it sits just before `beforeId` — pointer drag-to-reorder. */
 export function moveRunnerBefore({ id, beforeId }: {
   id: string;

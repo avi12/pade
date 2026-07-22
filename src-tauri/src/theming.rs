@@ -16,9 +16,9 @@
 //! into the user's other terminals. (A project-settings `theme` key is not an
 //! option: Claude Code's settings.json schema has no such key — theme lives in
 //! its global config — so writing one is silently ignored.) A spawn-time theme
-//! cannot follow a mid-session scheme flip; the frontend knows
-//! (`Agent.themeFixedAtSpawn`) and pins that session's xterm palette to its
-//! spawn scheme instead of flipping the background out from under the TUI.
+//! cannot follow a mid-session scheme flip. ADE re-themes xterm's palette in
+//! place to preserve the running conversation; the agent receives its own
+//! spawn-time syntax choice on the next natural launch.
 
 use serde::Deserialize;
 
@@ -51,24 +51,6 @@ pub enum ThemeConfig {
         light: &'static [&'static str],
         dark: &'static [&'static str],
     },
-}
-
-impl ThemeConfig {
-    /// Whether the agent's theme is locked in at spawn time and cannot change
-    /// for the life of the session. Every remaining mechanism is spawn-time
-    /// (env or launch args) — nothing ADE emits into a live PTY can re-theme a
-    /// running agent (researched for Codex: no DECSET 2031 subscription, its
-    /// OSC 10/11 probe runs once at startup and the focus re-query is
-    /// `#[cfg(unix)]`-only; Claude reads `$COLORFGBG` once at startup). The
-    /// frontend reads this over IPC (`Agent.themeFixedAtSpawn`) to pin such a
-    /// session's xterm palette to its spawn scheme instead of flipping it out
-    /// from under the TUI.
-    pub fn fixed_at_spawn(&self) -> bool {
-        matches!(
-            self,
-            ThemeConfig::SpawnEnv { .. } | ThemeConfig::SpawnArgs { .. }
-        )
-    }
 }
 
 /// The per-scheme environment to spawn `command` with (empty for an agent
@@ -144,15 +126,4 @@ mod tests {
         assert_eq!(spawn_env("claude", Scheme::Dark), &[("COLORFGBG", "15;0")]);
     }
 
-    /// Every theme mechanism left is spawn-time, so every themed agent pins its
-    /// xterm palette to the spawn scheme.
-    #[test]
-    fn every_theme_mechanism_is_fixed_at_spawn() {
-        assert!(crate::agents::theme_config("codex")
-            .expect("codex is arg-themed")
-            .fixed_at_spawn());
-        assert!(crate::agents::theme_config("claude")
-            .expect("claude is env-themed")
-            .fixed_at_spawn());
-    }
 }

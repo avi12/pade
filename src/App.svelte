@@ -22,7 +22,6 @@
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import {
-    appearance,
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
     SIDE_PANEL_MIN_WIDTH,
@@ -31,12 +30,12 @@
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
-  import { mcpRestartTargets, rekeyLayout, schemeRestartTargets } from "@/lib/session-restart";
+  import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
-  import { ensureRunnerListeners, startRunner } from "@/lib/stores/runners.svelte";
+  import { ensureRunnerListeners, startRunner, stopAllRunners } from "@/lib/stores/runners.svelte";
   import {
     dropChoiceAttention,
     ensureChoiceAttention,
@@ -602,7 +601,7 @@
   let unlistenCloseRequested: (() => void) | undefined;
   async function interceptWindowClose() {
     unlistenCloseRequested = await windows.onCloseRequested(async () => {
-      await runExclusiveLeave(closeAllSessionsGracefully);
+      await runExclusiveLeave(closeWorkspaceGracefully);
     });
   }
   onMount(() => {
@@ -653,7 +652,7 @@
     await runExclusiveLeave(async () => {
       const previousProject = currentProject;
       const leavesDiscardableTemp = isDiscardableTemp;
-      await closeAllSessionsGracefully();
+      await closeWorkspaceGracefully();
 
       await workspace.open(target.path);
       settings = await workspace.settings(); // pick up the updated recent history
@@ -953,6 +952,14 @@
     await closeAllSessions();
   }
 
+  // Stop every runner and close every session on a deliberate workspace leave.
+  // The runner store is scoped to this window, so clearing it also removes the
+  // old workspace's dock before the new project paints.
+  async function closeWorkspaceGracefully() {
+    await stopAllRunners();
+    await closeAllSessionsGracefully();
+  }
+
   // Tear down every session at once — the project-switch path. Each PTY is
   // killed (reaping its child, so the old workspace's cwd lock is released)
   // and its exit event is claimed as a hand-close so the exit handler never
@@ -1074,7 +1081,7 @@
   // Kill the targets and re-key them to fresh ids in place — each terminal
   // remounts, respawns its agent (resuming its conversation via the session id),
   // and the pane layout follows. The shared core behind every in-place restart
-  // (MCP change, scheme flip).
+  // (MCP changes).
   async function restartSessions(targets: readonly AgentSession[]) {
     await Promise.all(
       targets.map(target => {
@@ -1102,52 +1109,6 @@
     paneIds = relaid.paneIds;
     activeId = relaid.activeId;
   }
-
-  // A light/dark flip can't reach a running fixed-at-spawn agent (Claude's
-  // COLORFGBG, Codex's launch args — read once at startup; ConPTY eats every
-  // terminal-protocol channel, see theming.rs), so adopting the new scheme means
-  // restarting the session into its own conversation. Each target waits until
-  // its agent is idle — never yanking one mid-task — and a flip back before that
-  // moment cancels the restart (the generation guard).
-  let schemeFlipGeneration = 0;
-  let lastRestartScheme = appearance.scheme;
-  async function restartWhenIdle({ target, generation }: {
-    target: AgentSession;
-    generation: number;
-  }) {
-    await whenSessionIdle({
-      id: target.id,
-      timeoutMs: 120_000
-    });
-    const stale = generation !== schemeFlipGeneration
-      || !sessions.some(session => session.id === target.id);
-    if (stale) {
-      return;
-    }
-
-    await restartSessions([target]);
-  }
-  $effect(() => {
-    const { scheme } = appearance;
-    if (scheme === lastRestartScheme) {
-      return;
-    }
-
-    lastRestartScheme = scheme;
-    const generation = ++schemeFlipGeneration;
-    const targets = schemeRestartTargets({ sessions });
-    if (targets.length === 0) {
-      return;
-    }
-
-    showToast(`Theme changed — restarting ${targets.length === 1 ? "the agent" : `${targets.length} agents`} to match`);
-    for (const target of targets) {
-      restartWhenIdle({
-        target,
-        generation
-      });
-    }
-  });
 
   // Clear the recent-projects history from the switcher (pins survive).
   async function clearRecentProjects() {
@@ -1195,12 +1156,12 @@
   }
 
   // "Switch project" — a DELIBERATE leave to the picker. The project's agents
-  // don't idle on invisibly behind it: each is killed once it reaches an idle
-  // prompt (closeAllSessionsGracefully), and a never-named temp workspace is
-  // discarded exactly as ending its last session would.
+  // and task runners do not idle invisibly behind it: runners stop immediately,
+  // then agents are killed once they reach an idle prompt. A never-named temp
+  // workspace is discarded exactly as ending its last session would.
   async function leaveToPicker() {
     await runExclusiveLeave(async () => {
-      await closeAllSessionsGracefully();
+      await closeWorkspaceGracefully();
 
       if (isDiscardableTemp) {
         await discardTempWorkspace();

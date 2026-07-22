@@ -214,20 +214,34 @@ pub fn runner_start(
     Ok(())
 }
 
-/// Stop a task: kill its process and drop it from the map. Killing is explicit —
-/// dropping a `std::process::Child` does *not* terminate the process.
-///
-/// Windows limitation: `child.kill()` terminates the `cmd /C` process, but a
-/// grandchild it spawned (e.g. `node` under `npm run`) can survive, because
-/// Windows does not kill process trees by default. Callers that need a hard stop
-/// should run their task under a tool that manages its own tree.
+/// Stop a task's whole process tree. Dropping a `std::process::Child` does *not*
+/// terminate it, and on Windows killing only `cmd /C` leaves children such as a
+/// Vite `node` process alive in the workspace the user has just left.
+fn stop_process_tree(child: &mut Child) {
+    #[cfg(windows)]
+    {
+        let pid = child.id().to_string();
+        // `/T` includes descendants and `/F` handles a runner that does not
+        // cooperate with a graceful terminate. `util::command` keeps taskkill
+        // itself from flashing a console window in the GUI app.
+        let _ = crate::util::command("taskkill")
+            .args(["/PID", pid.as_str(), "/T", "/F"])
+            .status();
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = child.kill();
+    }
+}
+
+/// Stop a task and drop it from the map.
 #[tauri::command]
 pub fn runner_stop(state: State<RunnerState>, id: String) -> Result<(), String> {
     let mut runners = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(runner) = runners.remove(&id) {
         if let Ok(mut child) = runner.child.lock() {
-            // Ignore the error: the process may have already exited on its own.
-            let _ = child.kill();
+            stop_process_tree(&mut child);
         }
     }
     Ok(())
