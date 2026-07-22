@@ -5,7 +5,7 @@
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { contextPct } from "@/lib/stores/context.svelte";
+  import { contextPct, measuredContextPct } from "@/lib/stores/context.svelte";
   import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
@@ -276,6 +276,24 @@
       onDropOutside: drop => onsplit?.(drop)
     });
   }
+
+  // The glyph tooltip states only what it can vouch for: the agent's own
+  // reported percent reads as fact; the byte estimate over-counts a fullscreen
+  // agent's repaints badly (see lib/stores/context), so it is labeled the
+  // rough estimate it is instead of masquerading as a measurement.
+  function contextTooltip(id: string): string {
+    const measured = measuredContextPct(id);
+    if (measured !== null) {
+      return `${formatPercent(measured)} of context window used`;
+    }
+
+    const estimate = contextPct(id);
+    if (estimate === null) {
+      return "Context window — measuring…";
+    }
+
+    return `≈${formatPercent(estimate)} of context window used — rough estimate`;
+  }
 </script>
 
 <!-- The tab's leading glyph: the agent's brand mark, tinted by how full its
@@ -290,9 +308,7 @@
     class:crit={level === ContextLevel.critical}
     class:unknown={pct === null}
     class:warn={level === ContextLevel.warning}
-    data-tooltip={pct === null
-      ? "Context window — measuring…"
-      : `${formatPercent(pct)} of context window used`}
+    data-tooltip={contextTooltip(s.id)}
   ><Icon name={agentIconName(s.agent.id)} size={14} /></span>
 {/snippet}
 
