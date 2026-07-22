@@ -3,7 +3,16 @@
 // entry — trimmed, length-capped, and shape-checked — before it reaches app
 // logic or the backend. One authoritative home for the input schemas (DRY).
 
+import { MAXIMUM_HANDOFF_PCT, MINIMUM_HANDOFF_PCT } from "@/lib/context-level";
 import { z } from "zod";
+
+/** The auto-handoff threshold as typed/slid in Config — a whole percent inside
+ *  the allowed band (the band lives in lib/context-level, the SSOT). */
+export const HandoffPercent = z.coerce
+  .number()
+  .int()
+  .min(MINIMUM_HANDOFF_PCT)
+  .max(MAXIMUM_HANDOFF_PCT);
 
 /** A restore-a-version query — a short natural-language description. */
 export const RestoreQuery = z.string().trim().min(1).max(200);

@@ -8,6 +8,7 @@
   import { effective, prefs, updatePrefs } from "@/lib/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { type ConfigFile, ThemeMode } from "@/lib/types";
+  import { HandoffPercent, parseInput } from "@/lib/validate";
 
   // Only the config files relevant to the active agent are listed.
   const { agent }: { agent: string } = $props();
@@ -79,14 +80,19 @@
     await updatePrefs({ uiScale: Math.round(clamped * 100) / 100 });
   }
 
-  const HANDOFF_PCT_STEP = 5;
+  // Slider and number box both funnel through the input schema — the slider
+  // can only emit in-band values, but the free-typed number is a trust
+  // boundary like any other field.
+  async function applyHandoffPct(raw: string): Promise<void> {
+    const percent = parseInput({
+      schema: HandoffPercent,
+      raw
+    });
+    if (percent === null) {
+      return;
+    }
 
-  async function stepHandoff(delta: number): Promise<void> {
-    const clamped = Math.min(
-      MAXIMUM_HANDOFF_PCT,
-      Math.max(MINIMUM_HANDOFF_PCT, effective.handoffPct + delta)
-    );
-    await updatePrefs({ handoffPct: clamped });
+    await updatePrefs({ handoffPct: percent });
   }
 
   let files = $state<ConfigFile[]>([]);
@@ -218,20 +224,32 @@
           <span class="field-label">Auto-handoff at</span>
           <span class="field-hint">Context fill that cycles the agent to a fresh one</span>
         </span>
-        <div class="stepper">
-          <button
-            class="step"
-            aria-label="Lower the handoff threshold"
-            disabled={effective.handoffPct <= MINIMUM_HANDOFF_PCT}
-            onclick={() => stepHandoff(-HANDOFF_PCT_STEP)}
-          >−</button>
-          <output class="scale-value">{formatPercent(effective.handoffPct)}</output>
-          <button
-            class="step step-up"
-            aria-label="Raise the handoff threshold"
-            disabled={effective.handoffPct >= MAXIMUM_HANDOFF_PCT}
-            onclick={() => stepHandoff(HANDOFF_PCT_STEP)}
-          >+</button>
+        <div class="handoff-control">
+          <input
+            class="handoff-slider"
+            type="range"
+            aria-label="Auto-handoff threshold"
+            min={MINIMUM_HANDOFF_PCT}
+            max={MAXIMUM_HANDOFF_PCT}
+            value={effective.handoffPct}
+            oninput={(e) => applyHandoffPct(e.currentTarget.value)}
+          />
+          <span class="handoff-value">
+            <input
+              class="handoff-number"
+              type="number"
+              aria-label="Auto-handoff threshold percent"
+              min={MINIMUM_HANDOFF_PCT}
+              max={MAXIMUM_HANDOFF_PCT}
+              value={effective.handoffPct}
+              onchange={(e) => {
+                applyHandoffPct(e.currentTarget.value);
+                // A rejected entry (out of band, not a number) snaps the box
+                // back to the persisted value instead of lying at rest.
+                e.currentTarget.value = String(effective.handoffPct);
+              }}
+            />
+          </span>
         </div>
       </div>
     </section>
@@ -476,6 +494,51 @@
       font-size: 12px;
       font-variant-numeric: tabular-nums;
       text-align: center;
+    }
+  }
+
+  .handoff-control {
+    display: inline-flex;
+    flex: none;
+    gap: 10px;
+    align-items: center;
+
+    .handoff-slider {
+      inline-size: 110px;
+      accent-color: var(--primary);
+    }
+
+    /* The percent sign lives visually inside the box, after the digits. */
+    .handoff-value {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+
+      &::after {
+        content: "%";
+        position: absolute;
+        inset-inline-end: 8px;
+        color: var(--on-surface-variant);
+        font-weight: 700;
+        font-size: 12px;
+        pointer-events: none;
+      }
+    }
+
+    .handoff-number {
+      inline-size: 52px;
+      padding-block: 6px;
+      padding-inline: 8px 22px;
+      border: none;
+      border-radius: 12px;
+      background: var(--surface-2);
+      color: var(--on-surface);
+      font: inherit;
+      font-weight: 700;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: end;
+      appearance: textfield;
     }
   }
 
