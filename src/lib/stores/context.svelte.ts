@@ -177,16 +177,23 @@ export function observeContextScreen({ id, text }: {
   });
 }
 
+/** When the window banner was never seen (it paints once at spawn and can be
+ *  trimmed out of a long session's replayable history), assume the LARGEST
+ *  window an agent runs — deliberately under-reporting. A small window assumed
+ *  large delays the tokens-derived handoff but the agent's own % indicator
+ *  still fires it near the limit; a large window assumed small would cycle a
+ *  1M session at a twentieth of its life. */
+const FALLBACK_WINDOW_TOKENS = 1_000_000;
+
 /** The percent the agent's own consumed-tokens counter implies, or null until
- *  both the counter and the window banner have been seen. The banner is
- *  required — assuming a default window would over-report a 1M session five
- *  times over and cycle it absurdly early. */
+ *  a counter has been seen at all. */
 function tokensDerivedPct(signal: ContextSignal): number | null {
-  if (signal.windowTokens === null || signal.windowTokens === 0 || signal.reportedTokens === 0) {
+  if (signal.reportedTokens === 0) {
     return null;
   }
 
-  return Math.min(100, (signal.reportedTokens / signal.windowTokens) * 100);
+  const window = signal.windowTokens || FALLBACK_WINDOW_TOKENS;
+  return Math.min(100, (signal.reportedTokens / window) * 100);
 }
 
 /** The session's context usage percent (parsed if known, else estimated), or

@@ -237,13 +237,15 @@ describe("measuredContextPct — derived from the tokens counter", () => {
     expect(measuredContextPct("tokens-max")).toBeCloseTo(23.353);
   });
 
-  it("stays null without the window banner — a guessed window would cycle a 1M session absurdly early", () => {
+  it("assumes the largest window when the banner was never seen — under-reports, never cycles early", () => {
     observeContextScreen({
       id: "tokens-no-window",
       text: "191867 tokens"
     });
 
-    expect(measuredContextPct("tokens-no-window")).toBeNull();
+    // 191,867 over the 1M fallback ≈ 19% — a 200k session reads low rather
+    // than a 1M session reading five times too high.
+    expect(measuredContextPct("tokens-no-window")).toBeCloseTo(19.1867);
   });
 
   it("never mistakes a used/limit ratio's limit side for consumption", () => {
@@ -289,7 +291,9 @@ describe("observeContextScreen", () => {
       chunk: "[10C1.0k tokens)[38;140H97% contex[1C used[40;3H"
     });
 
-    expect(measuredContextPct("screen-split")).toBeNull();
+    // The split word defeats the % parser, but the intact per-turn tokens
+    // counter still yields a (tiny) tokens-derived measurement.
+    expect(measuredContextPct("screen-split")).toBeCloseTo(0.1);
 
     // The rendered screen row always holds the full phrase.
     observeContextScreen({

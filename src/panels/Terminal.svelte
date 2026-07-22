@@ -990,6 +990,16 @@
           id: session.id,
           chunk: chunk.data
         });
+      } else {
+        // Parse-only on the alternate screen: the window banner ("(1M
+        // context)") paints once at spawn and then scrolls out of the visible
+        // frame, so the render scan alone would never learn the window size
+        // and the gauge would sit on "measuring…" forever. Split-word parses
+        // simply miss here; the render scan still carries those.
+        observeContextScreen({
+          id: session.id,
+          text: chunk.data
+        });
       }
 
       // Spot the CLI's "limit reached" stop message (drives auto-resume).
@@ -1301,6 +1311,13 @@
 
       term.write(history.data);
       relayColorSchemeAfterSubscribe(history.data);
+      // The replayed history holds the spawn-time banner (window size) and the
+      // latest counters a fresh attach would otherwise never see — parse-only,
+      // never the byte estimate: these are replayed bytes, not new output.
+      observeContextScreen({
+        id: session.id,
+        text: history.data
+      });
 
       // A session with history was already running before this terminal
       // attached, so Claude's DECSET 2031 subscribe happened at its own
