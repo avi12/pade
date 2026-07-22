@@ -13,9 +13,11 @@
 //! `$COLORFGBG` before it ever sends OSC 11, and the other CLIs expose their own
 //! spawn-time env or launch-arg knobs. So every agent is themed at spawn — per
 //! session, never via a user-global config file that would leak ADE's choice
-//! into the user's other terminals. (A project-settings `theme` key is not an
-//! option: Claude Code's settings.json schema has no such key — theme lives in
-//! its global config — so writing one is silently ignored.) A spawn-time theme
+//! into the user's other terminals. (A project settings.local.json `theme` key
+//! IS honored by Claude Code ≥2.1, but it pins a named theme in a user-owned
+//! file rather than following the scheme — stale keys the old file-driven
+//! mechanism left behind forced wrong themes long after ADE moved on, which is
+//! exactly why writing user files is the wrong channel.) A spawn-time theme
 //! cannot follow a mid-session scheme flip. ADE re-themes xterm's palette in
 //! place to preserve the running conversation; the agent receives its own
 //! spawn-time syntax choice on the next natural launch.

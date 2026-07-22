@@ -87,9 +87,10 @@ const REGISTRY: &[AgentDef] = &[
         // Claude's `auto` theme reads `$COLORFGBG` before its OSC 11 background
         // probe (which ConPTY swallows), so a spawn-time "foreground;background"
         // pair is the one reliable scheme signal. Per session only — never the
-        // global Claude config, whose `theme` the user owns. (A project
-        // settings.local.json `theme` key is NOT honored — settings.json has no
-        // such key — which is why the old file-driven mechanism never worked.)
+        // global Claude config, whose `theme` the user owns. (Claude Code ≥2.1
+        // does honor a project settings.local.json `theme` key, but that pins a
+        // named theme in a user-owned file rather than following the scheme —
+        // the env signal stays the right mechanism.)
         theme_config: Some(ThemeConfig::SpawnEnv {
             light: &[("COLORFGBG", "0;15")],
             dark: &[("COLORFGBG", "15;0")],
