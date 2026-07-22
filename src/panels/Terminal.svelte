@@ -27,9 +27,9 @@
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
-  import { TerminalLinkTarget, terminalLinkDestination } from "@/lib/terminal-link-target";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
   import { isPromptNewlineShortcut, PROMPT_NEWLINE } from "@/lib/terminal-input";
+  import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
@@ -250,6 +250,7 @@
 
     const combined = colorSchemeNotificationTail + data;
     colorSchemeNotificationTail = combined.slice(-(COLOR_SCHEME_ENABLE_LENGTH - 1));
+
     if (!enablesColorSchemeNotifications(combined)) {
       return;
     }
@@ -297,6 +298,12 @@
   // Mouse-tracking mode xterm reports when no program has grabbed the mouse.
   const NO_MOUSE_TRACKING = "none";
 
+  // How soon after a local keystroke an output chunk still reads as the prompt
+  // echoing that keystroke back. The echo round-trips in a few ms; the next
+  // chunk after typing pauses longer than this is genuinely the agent.
+  const KEYSTROKE_ECHO_MS = 250;
+  let lastKeystrokeAt = 0;
+
   function markActivity() {
     if (status === SessionStatus.enum.exited) {
       return;
@@ -308,6 +315,17 @@
     const isResizeEcho =
       status === SessionStatus.enum.ready && Date.now() - lastResizeAt < RESIZE_SETTLE_MS;
     if (isResizeEcho) {
+      return;
+    }
+
+    // Typing at the prompt echoes every keystroke back through the PTY. That
+    // echo is the user composing, not the agent working, so a settled session
+    // must not flash its indicator per keypress. Enter never stamps the
+    // window (see term.onData), so a submitted prompt flips to working
+    // immediately.
+    const isKeystrokeEcho =
+      status === SessionStatus.enum.ready && Date.now() - lastKeystrokeAt < KEYSTROKE_ECHO_MS;
+    if (isKeystrokeEcho) {
       return;
     }
 
@@ -408,6 +426,7 @@
     const { scheme } = appearance;
     if (term && scheme) {
       term.options.theme = readXtermTheme();
+
       if (session.agent.id === "claude") {
         void writeToPty(colorSchemeReport(scheme));
       }
@@ -798,6 +817,7 @@
     if (cols < MIN_USABLE_COLS || rows < MIN_USABLE_ROWS) {
       return;
     }
+
     const grid = term;
     // The normal screen reflows every frame: xterm owns the document there, so it can
     // rewrap the text itself as fast as the drag moves.
@@ -971,6 +991,7 @@
           chunk: chunk.data
         });
       }
+
       // Spot the CLI's "limit reached" stop message (drives auto-resume).
       observeUsageLimit({
         id: session.id,
@@ -1027,6 +1048,13 @@
       const isFocusReport = data === FOCUS_IN || data === FOCUS_OUT;
       if (isFocusReport) {
         return;
+      }
+
+      // Composing keystrokes arm the echo window so their round-trip doesn't
+      // flash the status; the submitting Enter deliberately does not — the
+      // burst it triggers is the agent starting real work.
+      if (data !== ENTER) {
+        lastKeystrokeAt = Date.now();
       }
 
       writeToPty(data);
