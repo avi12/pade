@@ -149,6 +149,113 @@ export function tokenize(text: string, vars?: Map<string, string>): Token[] {
   }];
 }
 
+// ── Markdown ──────────────────────────────────────────────────────────────────
+// Prose is not code: running the generic scanner over a README colors every
+// "use", "for" and "type" like a keyword and every word before a colon like a
+// CSS property. Markdown gets its own line-based pass that colors STRUCTURE —
+// headings, fences, quotes, list markers, inline code/bold/links — and leaves
+// the prose itself plain. Fenced code blocks fall through to the generic
+// scanner, so a ```ts block still reads like code.
+
+const FENCE_LINE = /^\s*(?:```|~~~)/;
+const HEADING_LINE = /^#{1,6}[ \t]/;
+const BLOCKQUOTE_LINE = /^\s*>/;
+const LIST_MARKER = /^(\s*)([-*+]|\d+\.)([ \t])/;
+const INLINE_SPAN = /`[^`\n]+`|\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\n]+\)/g;
+
+/** Tokens for one line of markdown prose: inline code spans read as strings,
+ *  bold as keywords, links as functions; everything between stays plain. */
+function markdownProseTokens(line: string): Token[] {
+  const tokens: Token[] = [];
+  let last = 0;
+  for (const match of line.matchAll(INLINE_SPAN)) {
+    const start = match.index ?? 0;
+    if (start > last) {
+      tokens.push({
+        text: line.slice(last, start),
+        cls: "plain"
+      });
+    }
+
+    const span = match[0];
+    let cls: TokenClass = "function";
+    if (span.startsWith("`")) {
+      cls = "string";
+    } else if (span.startsWith("**")) {
+      cls = "keyword";
+    }
+
+    tokens.push({
+      text: span,
+      cls
+    });
+    last = start + span.length;
+  }
+
+  if (last < line.length) {
+    tokens.push({
+      text: line.slice(last),
+      cls: "plain"
+    });
+  }
+
+  return tokens;
+}
+
+/** Split a markdown document into highlighted tokens (structure-only coloring;
+ *  fenced code blocks are handed to the generic scanner). */
+export function tokenizeMarkdown(text: string, vars?: Map<string, string>): Token[] {
+  const tokens: Token[] = [];
+  let inFence = false;
+
+  const lines = text.split("\n");
+  for (const [index, line] of lines.entries()) {
+    if (FENCE_LINE.test(line)) {
+      inFence = !inFence;
+      tokens.push({
+        text: line,
+        cls: "comment"
+      });
+    } else if (inFence) {
+      tokens.push(...tokenize(line, vars));
+    } else if (HEADING_LINE.test(line)) {
+      tokens.push({
+        text: line,
+        cls: "keyword"
+      });
+    } else if (BLOCKQUOTE_LINE.test(line)) {
+      tokens.push({
+        text: line,
+        cls: "comment"
+      });
+    } else {
+      const listMarker = LIST_MARKER.exec(line);
+      if (listMarker) {
+        tokens.push({
+          text: listMarker[0],
+          cls: "number"
+        });
+        tokens.push(...markdownProseTokens(line.slice(listMarker[0].length)));
+      } else {
+        tokens.push(...markdownProseTokens(line));
+      }
+    }
+
+    const isLastLine = index === lines.length - 1;
+    if (!isLastLine) {
+      tokens.push({
+        text: "\n",
+        cls: "plain"
+      });
+    }
+  }
+
+  return tokens.length > 0 ? tokens : [{
+    text,
+    cls: "plain"
+  }];
+}
+
 /** Whether a token class carries a syntax color (applied via a themed CSS class
  *  in ColorText — plain text and color tokens keep the default color). */
 export function isSyntax(cls: TokenClass): boolean {

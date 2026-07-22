@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tokenize } from "@/lib/highlight";
+  import { tokenize, tokenizeMarkdown } from "@/lib/highlight";
   import type { Token } from "@/lib/highlight";
 
   // Renders a snippet with lightweight syntax highlighting AND a color swatch
@@ -10,12 +10,21 @@
   // SINGLE <span> (the swatch nests inside it), so every iteration is one node —
   // the only whitespace between tokens is the each-body boundary, which Svelte
   // trims. Two sibling nodes per iteration would instead leak a space per token.
-  const { text, vars }: {
+  const { text, vars, markdown = false }: {
     text: string;
     vars?: Map<string, string>;
+    /** Markdown prose gets structure-only coloring — headings, fences, inline
+     *  code — instead of the generic scanner treating prose words as keywords. */
+    markdown?: boolean;
   } = $props();
 
-  const tokens = $derived<Token[]>(tokenize(text, vars));
+  const tokens = $derived.by<Token[]>(() => {
+    if (markdown) {
+      return tokenizeMarkdown(text, vars);
+    }
+
+    return tokenize(text, vars);
+  });
 </script>
 
 {#each tokens as token, index (index)}<span

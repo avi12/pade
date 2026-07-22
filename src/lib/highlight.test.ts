@@ -1,4 +1,5 @@
-import { isSyntax, tokenize } from "@/lib/highlight";
+import { isSyntax, tokenize, tokenizeMarkdown } from "@/lib/highlight";
+import type { Token } from "@/lib/highlight";
 import { describe, expect, it, vi } from "vitest";
 
 // The color branch resolves swatches through `CSS.supports`, which Node lacks.
@@ -149,5 +150,51 @@ describe("isSyntax", () => {
   it("leaves plain and color tokens on the default color", () => {
     expect(isSyntax("plain")).toBe(false);
     expect(isSyntax("color")).toBe(false);
+  });
+});
+
+describe("tokenizeMarkdown", () => {
+  function markdownClassOf(tokens: Token[], text: string): string | undefined {
+    return tokens.find(token => token.text.includes(text))?.cls;
+  }
+
+  it("leaves prose plain — 'use' and 'for' are words here, not keywords", () => {
+    const tokens = tokenizeMarkdown("use pnpm for the extension framework.");
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.cls).toBe("plain");
+  });
+
+  it("colors structure: headings, quotes, list markers, inline spans", () => {
+    const tokens = tokenizeMarkdown([
+      "# Title",
+      "> a quote",
+      "- item with `code` and **bold** and [a link](https://x)"
+    ].join("\n"));
+
+    expect(markdownClassOf(tokens, "# Title")).toBe("keyword");
+    expect(markdownClassOf(tokens, "> a quote")).toBe("comment");
+    expect(markdownClassOf(tokens, "- ")).toBe("number");
+    expect(markdownClassOf(tokens, "`code`")).toBe("string");
+    expect(markdownClassOf(tokens, "**bold**")).toBe("keyword");
+    expect(markdownClassOf(tokens, "[a link](https://x)")).toBe("function");
+    expect(markdownClassOf(tokens, "item with ")).toBe("plain");
+  });
+
+  it("hands fenced code blocks to the generic scanner", () => {
+    const tokens = tokenizeMarkdown([
+      "```ts",
+      "const answer = 42;",
+      "```"
+    ].join("\n"));
+
+    expect(markdownClassOf(tokens, "```ts")).toBe("comment");
+    expect(markdownClassOf(tokens, "const")).toBe("keyword");
+    expect(markdownClassOf(tokens, "42")).toBe("number");
+  });
+
+  it("round-trips the exact text, newlines included", () => {
+    const source = "# H\n\ntext `x`\n";
+    const rebuilt = tokenizeMarkdown(source).map(token => token.text).join("");
+    expect(rebuilt).toBe(source);
   });
 });

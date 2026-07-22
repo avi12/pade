@@ -3,6 +3,7 @@
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
   import { MAXIMUM_HANDOFF_PCT, MINIMUM_HANDOFF_PCT } from "@/lib/context-level";
+  import { fileExtension } from "@/lib/file-type";
   import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
   import { effective, prefs, updatePrefs } from "@/lib/prefs.svelte";
@@ -276,7 +277,11 @@
     <section class="viewer">
       <div class="card">
         <h3 class:placeholder={!selected}>{selected?.rel ?? "Select a file to view"}</h3>
-        <pre class="body"><ColorText text={content} vars={fileVars} /></pre>
+        <pre class="body"><ColorText
+            text={content}
+            vars={fileVars}
+            markdown={fileExtension(selected?.rel ?? "") === "md"}
+          /></pre>
       </div>
       <p class="note">Read-only in the MVP — edits will write back to this same file.</p>
     </section>
