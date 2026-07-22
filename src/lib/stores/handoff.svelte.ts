@@ -17,7 +17,9 @@ import type { Agent, AgentSession } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteSet } from "svelte/reactivity";
 
-const HANDOFF_DOC_TIMEOUT_MS = 120_000;
+// Generous: an agent at a near-full context writes its handoff slowly, and a
+// timeout that beats the write used to strand the successor without a doc.
+const HANDOFF_DOC_TIMEOUT_MS = 300_000;
 const HANDOFF_SETTLE_MS = 3_000;
 const USAGE_EXHAUSTED_PCT = 95;
 // How often the successor is checked for having finished its first turn (the
@@ -151,14 +153,15 @@ export function createAutoHandoff(host: HandoffHost) {
     return timer;
   }
 
-  // Resolve once the watcher sees `name` written (plus a short settle) or on timeout.
-  function waitForFile(name: string): Promise<void> {
+  // Resolve `true` once the watcher sees `name` written (plus a short settle);
+  // `false` when the deadline passes without a sighting.
+  function waitForFile(name: string): Promise<boolean> {
     return new Promise(resolve => {
       let unlisten: UnlistenFn | undefined;
       let settleTimer: ReturnType<typeof setTimeout> | undefined;
       // Single teardown path: drop the listener + both timers from the pending
       // set, cancel them, then resolve. Used by every exit (match, settle, timeout).
-      function finish() {
+      function finish(seen: boolean) {
         if (unlisten) {
           pendingUnlistens.delete(unlisten);
           unlisten();
@@ -171,12 +174,12 @@ export function createAutoHandoff(host: HandoffHost) {
           }
         }
 
-        resolve();
+        resolve(seen);
       }
 
       // Read by finish() only at call time (a timer fires well after this line),
       // so a const in the closure is safe.
-      const deadlineTimer = trackTimer(finish, HANDOFF_DOC_TIMEOUT_MS);
+      const deadlineTimer = trackTimer(() => finish(false), HANDOFF_DOC_TIMEOUT_MS);
       const target = name.toLowerCase();
 
       // Kick off the async watcher subscription from this sync Promise executor.
@@ -197,7 +200,7 @@ export function createAutoHandoff(host: HandoffHost) {
               clearTimeout(settleTimer);
             }
 
-            settleTimer = trackTimer(finish, HANDOFF_SETTLE_MS);
+            settleTimer = trackTimer(() => finish(true), HANDOFF_SETTLE_MS);
           });
           pendingUnlistens.add(unlisten);
         } catch {
@@ -247,7 +250,26 @@ export function createAutoHandoff(host: HandoffHost) {
       id: session.id,
       data: handoffPrompt(doc)
     });
-    await waitForFile(doc);
+    const watcherSawDoc = await waitForFile(doc);
+
+    // Never cycle without the doc actually on disk: killing the session and
+    // seeding a successor onto a file that was never written strands the
+    // successor with nothing to read (and the conversation it was meant to
+    // continue is gone). The watcher can also simply have missed the write
+    // (an ignored path, a torn-down subscription), so a timeout gets one
+    // direct disk probe before giving up. On a genuine no-doc, leave the
+    // session running and marked — no retry loop, the user still has their
+    // agent — and clear the note.
+    if (!watcherSawDoc) {
+      const probe = await workspace
+        .probePath(`${host.projectDir()}/${doc}`)
+        .catch(() => null);
+      const docOnDisk = probe?.isFile === true;
+      if (!docOnDisk) {
+        note = "";
+        return;
+      }
+    }
 
     // 2. End the session, 3. start the successor seeded to continue.
     const { cwd } = session;
