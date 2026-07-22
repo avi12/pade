@@ -227,27 +227,27 @@
         <div class="handoff-control">
           <input
             class="handoff-slider"
-            type="range"
             aria-label="Auto-handoff threshold"
-            min={MINIMUM_HANDOFF_PCT}
             max={MAXIMUM_HANDOFF_PCT}
+            min={MINIMUM_HANDOFF_PCT}
+            oninput={e => applyHandoffPct(e.currentTarget.value)}
+            type="range"
             value={effective.handoffPct}
-            oninput={(e) => applyHandoffPct(e.currentTarget.value)}
           />
           <span class="handoff-value">
             <input
               class="handoff-number"
-              type="number"
               aria-label="Auto-handoff threshold percent"
-              min={MINIMUM_HANDOFF_PCT}
               max={MAXIMUM_HANDOFF_PCT}
-              value={effective.handoffPct}
-              onchange={(e) => {
+              min={MINIMUM_HANDOFF_PCT}
+              onchange={e => {
                 applyHandoffPct(e.currentTarget.value);
                 // A rejected entry (out of band, not a number) snaps the box
                 // back to the persisted value instead of lying at rest.
                 e.currentTarget.value = String(effective.handoffPct);
               }}
+              type="number"
+              value={effective.handoffPct}
             />
           </span>
         </div>
@@ -526,9 +526,13 @@
     }
 
     .handoff-number {
-      inline-size: 52px;
+      appearance: textfield;
+
+      /* Two digits plus the inset % suffix; ch tracks the real digit width so
+         a zoomed UI can never clip "30" down to a lone digit. */
+      inline-size: calc(3ch + 2.5rem);
       padding-block: 6px;
-      padding-inline: 8px 22px;
+      padding-inline: 8px 1.375rem;
       border: none;
       border-radius: 12px;
       background: var(--surface-2);
@@ -538,7 +542,6 @@
       font-size: 12px;
       font-variant-numeric: tabular-nums;
       text-align: end;
-      appearance: textfield;
     }
   }
 
