@@ -5,6 +5,7 @@
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { effective } from "@/lib/prefs.svelte";
   import { contextPct, measuredContextPct } from "@/lib/stores/context.svelte";
   import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
@@ -301,7 +302,10 @@
      carrying status — a working agent breathes, a ready one gets a soft halo. -->
 {#snippet statusGlyph(s: AgentSession)}
   {@const pct = contextPct(s.id)}
-  {@const level = pct === null ? null : contextLevel(pct)}
+  {@const level = pct === null ? null : contextLevel({
+    pct,
+    threshold: effective.handoffPct
+  })}
   <span
     class="agent-icon {sessionStatus(s.id)}"
     class:awaiting-choice={isAwaitingChoice(s.id)}

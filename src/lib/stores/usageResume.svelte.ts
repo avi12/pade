@@ -8,7 +8,6 @@
 // through `ResumeHost` and drives the scan from a component `$effect`.
 
 import { pty, usage } from "@/lib/bridge";
-import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { measuredContextPct } from "@/lib/stores/context.svelte";
 import type { AgentSession } from "@/lib/types";
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -141,6 +140,9 @@ export interface ResumeHost {
   sessions: () => AgentSession[];
   /** Whether the user opted out via prefs.autoResume. */
   isOptedOut: () => boolean;
+  /** The percent-of-context past which a resume hands off instead — the
+   *  resolved prefs.handoffPct (`effective.handoffPct`). */
+  thresholdPct: () => number;
   /** Hand a session off to a fresh agent now (the auto-handoff flow). */
   forceHandoff: (session: AgentSession) => void;
 }
@@ -199,7 +201,7 @@ export function createUsageResume(host: ResumeHost) {
     // Nearly full → resuming would stall again within a few turns, so hand
     // off to a fresh agent instead (it reads the handoff doc and carries on).
     const pct = measuredContextPct(session.id);
-    const hasRoom = pct === null || pct < CONTEXT_HANDOFF_PCT;
+    const hasRoom = pct === null || pct < host.thresholdPct();
     if (hasRoom) {
       try {
         await pty.write({

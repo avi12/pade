@@ -2,6 +2,7 @@
   import { config } from "@/lib/bridge";
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
+  import { MAXIMUM_HANDOFF_PCT, MINIMUM_HANDOFF_PCT } from "@/lib/context-level";
   import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
   import { effective, prefs, updatePrefs } from "@/lib/prefs.svelte";
@@ -76,6 +77,16 @@
     const clamped = Math.min(MAXIMUM_UI_SCALE, Math.max(MINIMUM_UI_SCALE, effective.uiScale + delta));
     // Round to the step grid so accumulated float drift never leaks into the pref.
     await updatePrefs({ uiScale: Math.round(clamped * 100) / 100 });
+  }
+
+  const HANDOFF_PCT_STEP = 5;
+
+  async function stepHandoff(delta: number): Promise<void> {
+    const clamped = Math.min(
+      MAXIMUM_HANDOFF_PCT,
+      Math.max(MINIMUM_HANDOFF_PCT, effective.handoffPct + delta)
+    );
+    await updatePrefs({ handoffPct: clamped });
   }
 
   let files = $state<ConfigFile[]>([]);
@@ -199,6 +210,28 @@
             disabled={effective.uiScale >= MAXIMUM_UI_SCALE}
             onclick={() => stepScale(UI_SCALE_STEP)}
           >A+</button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <span class="field-text">
+          <span class="field-label">Auto-handoff at</span>
+          <span class="field-hint">Context fill that cycles the agent to a fresh one</span>
+        </span>
+        <div class="stepper">
+          <button
+            class="step"
+            aria-label="Lower the handoff threshold"
+            disabled={effective.handoffPct <= MINIMUM_HANDOFF_PCT}
+            onclick={() => stepHandoff(-HANDOFF_PCT_STEP)}
+          >−</button>
+          <output class="scale-value">{formatPercent(effective.handoffPct)}</output>
+          <button
+            class="step step-up"
+            aria-label="Raise the handoff threshold"
+            disabled={effective.handoffPct >= MAXIMUM_HANDOFF_PCT}
+            onclick={() => stepHandoff(HANDOFF_PCT_STEP)}
+          >+</button>
         </div>
       </div>
     </section>

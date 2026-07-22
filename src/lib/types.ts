@@ -315,6 +315,9 @@ export const Prefs = z.object({
   /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless
    *  explicitly set to false. */
   autoHandoff: z.boolean().nullish(),
+  /** Percent of context at which the auto-handoff cycles the session. Absent =
+   *  DEFAULT_CONTEXT_HANDOFF_PCT (lib/context-level). */
+  handoffPct: z.number().min(10).max(95).nullish(),
   /** Auto-resume a usage-limited session when its window resets — "continue"
    *  in place, or hand off when the context is nearly full. Opt-out: on unless
    *  explicitly set to false. */

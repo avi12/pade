@@ -10,7 +10,6 @@
 // `HandoffHost` and drives the scan from a component `$effect`.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
-import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { dropContext, measuredContextPct } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
@@ -110,6 +109,10 @@ export interface HandoffHost {
   availableAgents: () => Agent[];
   /** Whether the user opted out via prefs.autoHandoff. */
   isOptedOut: () => boolean;
+  /** The percent-of-context that triggers the cycle — the resolved
+   *  prefs.handoffPct (`effective.handoffPct`), read per scan so a Config
+   *  change applies without a restart. */
+  thresholdPct: () => number;
   /** Source text for the handoff-doc slug (workspace label or short dir). */
   slugSource: () => string;
   /** The open project's root dir — where the handoff doc lands (and is
@@ -318,7 +321,7 @@ export function createAutoHandoff(host: HandoffHost) {
 
     for (const session of host.sessions()) {
       const pct = measuredContextPct(session.id);
-      const nearLimit = pct !== null && pct >= CONTEXT_HANDOFF_PCT;
+      const nearLimit = pct !== null && pct >= host.thresholdPct();
       const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
       const already = handingOff.has(session.id);
       if (nearLimit && idle && !already) {

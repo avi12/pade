@@ -1,23 +1,76 @@
-import { CONTEXT_HANDOFF_PCT, ContextLevel, contextLevel } from "@/lib/context-level";
+import { ContextLevel, contextLevel, DEFAULT_CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { describe, expect, it } from "vitest";
 
+// Severity is relative to whatever threshold the user configured, so the tests
+// exercise the ramp at a mid-range threshold (90) and at the low default.
 describe("contextLevel", () => {
   it("stays ok well below the handoff threshold", () => {
-    expect(contextLevel(0)).toBe(ContextLevel.ok);
-    expect(contextLevel(53)).toBe(ContextLevel.ok); // 53/90 = 0.588 < 0.6
+    expect(
+      contextLevel({
+        pct: 0,
+        threshold: 90
+      })
+    ).toBe(ContextLevel.ok);
+    expect(
+      contextLevel({
+        pct: 53,
+        threshold: 90
+      })
+    ).toBe(ContextLevel.ok); // 53/90 = 0.588 < 0.6
   });
 
-  it("warns from 60% of the way to the handoff (54% of context)", () => {
-    expect(contextLevel(54)).toBe(ContextLevel.warning); // 54/90 = 0.6
-    expect(contextLevel(80)).toBe(ContextLevel.warning); // 80/90 = 0.889 < 0.9
+  it("warns from 60% of the way to the handoff", () => {
+    expect(
+      contextLevel({
+        pct: 54,
+        threshold: 90
+      })
+    ).toBe(ContextLevel.warning); // 54/90 = 0.6
+    expect(
+      contextLevel({
+        pct: 80,
+        threshold: 90
+      })
+    ).toBe(ContextLevel.warning); // 80/90 = 0.889 < 0.9
   });
 
-  it("turns critical from 90% of the way to the handoff (81% of context)", () => {
-    expect(contextLevel(81)).toBe(ContextLevel.critical); // 81/90 = 0.9
-    expect(contextLevel(100)).toBe(ContextLevel.critical); // clamped past the ceiling
+  it("turns critical from 90% of the way to the handoff", () => {
+    expect(
+      contextLevel({
+        pct: 81,
+        threshold: 90
+      })
+    ).toBe(ContextLevel.critical); // 81/90 = 0.9
+    expect(
+      contextLevel({
+        pct: 100,
+        threshold: 90
+      })
+    ).toBe(ContextLevel.critical); // clamped past the ceiling
   });
 
-  it("pins the handoff threshold at 90% of context", () => {
-    expect(CONTEXT_HANDOFF_PCT).toBe(90);
+  it("scales the whole ramp down with a low threshold", () => {
+    expect(
+      contextLevel({
+        pct: 17,
+        threshold: 30
+      })
+    ).toBe(ContextLevel.ok); // 17/30 = 0.567
+    expect(
+      contextLevel({
+        pct: 18,
+        threshold: 30
+      })
+    ).toBe(ContextLevel.warning); // 18/30 = 0.6
+    expect(
+      contextLevel({
+        pct: 27,
+        threshold: 30
+      })
+    ).toBe(ContextLevel.critical); // 27/30 = 0.9
+  });
+
+  it("defaults the handoff threshold to 30% of context", () => {
+    expect(DEFAULT_CONTEXT_HANDOFF_PCT).toBe(30);
   });
 });

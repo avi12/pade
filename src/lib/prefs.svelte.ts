@@ -3,6 +3,7 @@
 // a theme-mode data attribute, and saved back through the bridge.
 
 import { workspace } from "@/lib/bridge";
+import { DEFAULT_CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
 
 const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
@@ -36,6 +37,9 @@ export const effective = {
   },
   get sidePanelWidth(): number {
     return prefs.sidePanelWidth ?? SIDE_PANEL_DEFAULT_WIDTH;
+  },
+  get handoffPct(): number {
+    return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PCT;
   }
 };
 

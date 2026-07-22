@@ -5,8 +5,15 @@
 // be tested without a Svelte environment, and so the threshold has one home
 // (auto-handoff and the session tabs both read it — DRY).
 
-/** Percent-of-context at which the app auto-hands a session off to a fresh agent. */
-export const CONTEXT_HANDOFF_PCT = 90;
+/** Percent-of-context at which the app auto-hands a session off to a fresh
+ *  agent, when the user hasn't picked their own threshold (prefs.handoffPct —
+ *  `effective.handoffPct` is the resolved value every consumer reads). Low on
+ *  purpose: quality degrades long before the window is full, so cycling early
+ *  keeps the agent sharp. */
+export const DEFAULT_CONTEXT_HANDOFF_PCT = 30;
+/** The range the Config stepper lets the threshold move in. */
+export const MINIMUM_HANDOFF_PCT = 10;
+export const MAXIMUM_HANDOFF_PCT = 95;
 
 // The three gauge steps. A closed set defined once so no bare severity literal
 // leaks into the tabs or the theme mapping (enums over magic strings).
@@ -25,8 +32,11 @@ const HANDOFF_APPROACHING_FRACTION = 0.6;
 
 /** Map a context-usage percent (0..100) to its severity relative to the handoff
  *  threshold: ≥90% of the way there is critical, ≥60% is warning, else ok. */
-export function contextLevel(pct: number): ContextLevel {
-  const fraction = Math.min(pct / CONTEXT_HANDOFF_PCT, 1);
+export function contextLevel({ pct, threshold }: {
+  pct: number;
+  threshold: number;
+}): ContextLevel {
+  const fraction = Math.min(pct / threshold, 1);
   if (fraction >= HANDOFF_IMMINENT_FRACTION) {
     return ContextLevel.critical;
   }

@@ -12,7 +12,6 @@
 // `RetryHost` and drives the scan from a component `$effect`.
 
 import { pty } from "@/lib/bridge";
-import { CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
 import { measuredContextPct } from "@/lib/stores/context.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
@@ -89,6 +88,9 @@ export interface RetryHost {
   sessions: () => AgentSession[];
   /** Whether the user opted out (shares prefs.autoResume with usage auto-resume). */
   isOptedOut: () => boolean;
+  /** The percent-of-context past which a retry hands off instead — the
+   *  resolved prefs.handoffPct (`effective.handoffPct`). */
+  thresholdPct: () => number;
   /** Hand a session off to a fresh agent now (the auto-handoff flow) — used when
    *  the context window is too full for another retry to get anywhere. */
   forceHandoff: (session: AgentSession) => void;
@@ -164,7 +166,7 @@ export function createApiErrorRetry(host: RetryHost) {
     }
 
     const pct = measuredContextPct(id);
-    const hasRoom = pct === null || pct < CONTEXT_HANDOFF_PCT;
+    const hasRoom = pct === null || pct < host.thresholdPct();
     if (!hasRoom) {
       stop(id);
       host.forceHandoff(session);

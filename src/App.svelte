@@ -21,12 +21,7 @@
   import { collapsePane } from "@/lib/motion";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import {
-    effective,
-    SIDE_PANEL_DEFAULT_WIDTH,
-    SIDE_PANEL_MIN_WIDTH,
-    updatePrefs
-  } from "@/lib/prefs.svelte";
+  import { effective, SIDE_PANEL_DEFAULT_WIDTH, SIDE_PANEL_MIN_WIDTH, updatePrefs } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
@@ -1221,6 +1216,7 @@
     sessions: () => sessions,
     availableAgents: () => realAgents,
     isOptedOut: () => settings.prefs.autoHandoff === false,
+    thresholdPct: () => effective.handoffPct,
     slugSource: () => projectLabel,
     projectDir: () => currentProject,
     removeSession(id) {
@@ -1239,6 +1235,7 @@
   const usageResume = createUsageResume({
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoResume === false,
+    thresholdPct: () => effective.handoffPct,
     forceHandoff: session => autoHandoff.force(session)
   });
   $effect(() => usageResume.check());
@@ -1251,6 +1248,7 @@
   const apiErrorRetry = createApiErrorRetry({
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoResume === false,
+    thresholdPct: () => effective.handoffPct,
     forceHandoff: session => autoHandoff.force(session)
   });
   $effect(() => apiErrorRetry.check());

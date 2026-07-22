@@ -1,7 +1,4 @@
-import {
-  TerminalLinkTarget,
-  terminalLinkDestination
-} from "@/lib/terminal-link-target";
+import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
 import { describe, expect, it } from "vitest";
 
 describe("terminalLinkDestination", () => {
