@@ -1,19 +1,8 @@
 <script lang="ts">
-  import { AgentId, agentIconName } from "@/lib/agent-icon";
+  import { agentIconName } from "@/lib/agent-icon";
   import BrandMark from "@/lib/BrandMark.svelte";
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
-
-  // This page is the one place agents present as brand wordmarks, and
-  // opencode's wordmark is styled lowercase (its ASCII banner); everywhere
-  // else the registry label "OpenCode" reads better mid-sentence.
-  function onboardingLabel(agent: Agent): string {
-    if (agent.id === AgentId.Opencode) {
-      return agent.label.toLowerCase();
-    }
-
-    return agent.label;
-  }
 
   // Shown only when more than one agent is installed — the user picks which to
   // launch. `path` is the already-chosen workspace the agent will start in, shown
@@ -51,7 +40,7 @@
           <button class="agent" data-agent={a.id} onclick={() => onpick(a)}>
             <span class="identity">
               <Icon name={agentIconName(a.id)} size={18} />
-              <span class="name">{onboardingLabel(a)}</span>
+              <span class="name">{a.label}</span>
             </span>
             <code class="cmd">{a.command}</code>
           </button>
