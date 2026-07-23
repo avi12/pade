@@ -302,9 +302,7 @@
   // clipped parent dir alone is exactly what the reader couldn't see.
   function clippedPathTooltip(path: string) {
     return truncationTooltip({
-      text: parentDir(path) ?? path,
       tooltip: path,
-      visible: true,
       attribute: TooltipAttribute.Bubble
     });
   }

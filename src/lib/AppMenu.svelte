@@ -483,8 +483,7 @@
             {/if}
             <span
               class="prow-path" {@attach truncationTooltip({
-                text: project,
-                visible: menuOpen
+                tooltip: project
               })}>{project}</span>
           </span>
         </span>
