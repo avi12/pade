@@ -43,6 +43,35 @@ describe("contextPct via observeContext", () => {
     expect(contextPct("used-form")).toBe(45);
   });
 
+  it("trusts OpenCode's sidebar 'Context N tokens P% used' exactly", () => {
+    observeContext({
+      id: "opencode-sidebar",
+      chunk: "Rename to video-time-manager\nContext 14,479 tokens 3% used $0.00 spent\nLSPs are disabled"
+    });
+
+    expect(contextPct("opencode-sidebar")).toBe(3);
+  });
+
+  it("never reads pasted CSS as a remaining-percent readout", () => {
+    // A tool call dumped into the transcript: `left` and percentages with no
+    // context/window anchor once produced a phantom "context nearly full".
+    observeContextScreen({
+      id: "css-junk",
+      text: ".chip{left:4px;padding:9px 15px}.bar{width:97%;margin-left:2px}"
+    });
+
+    expect(measuredContextPct("css-junk")).toBeNull();
+  });
+
+  it("still inverts Claude's anchored 'context left until auto-compact' form", () => {
+    observeContext({
+      id: "claude-anchored-left",
+      chunk: "Context left until auto-compact: 34%"
+    });
+
+    expect(contextPct("claude-anchored-left")).toBe(66);
+  });
+
   it("computes the percent from a used/limit token ratio", () => {
     observeContext({
       id: "ratio-plain",

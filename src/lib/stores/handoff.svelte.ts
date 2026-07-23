@@ -249,9 +249,13 @@ export function createAutoHandoff(host: HandoffHost) {
       sessionId: session.id
     });
     const isCrossover = successorAgent.id !== session.agent.id;
+    // The context note states the measured number: an unquantified "nearly
+    // full" reads as a lie whenever the user is looking at a different (or
+    // fresher) session than the one that hit the threshold.
+    const measuredPct = Math.round(measuredContextPct(session.id) ?? 0);
     note = isCrossover
       ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
-      : `Context nearly full — handing ${session.agent.label} off to a fresh agent…`;
+      : `${session.agent.label} context at ${measuredPct}% — handing off to a fresh agent…`;
 
     // 1. Ask the agent to write the handoff doc, then wait for it to land.
     await pty.write({
