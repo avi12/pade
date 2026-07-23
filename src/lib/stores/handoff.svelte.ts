@@ -172,6 +172,13 @@ export function createAutoHandoff(host: HandoffHost) {
     return handingOff.has(sessionId) || sessionStorage.getItem(persistentMarker(sessionId)) !== null;
   }
 
+  // How many times a session may be re-asked for its handoff doc. Each retry
+  // only happens once the session reads ready again, so this bounds the
+  // prompt-noise for an agent that answers without ever writing the file;
+  // after the last attempt the session stays marked and keeps running.
+  const HANDOFF_ATTEMPT_LIMIT = 3;
+  const handoffAttempts = new Map<string, number>();
+
   // In-flight waitForFile resources. A handoff can pend up to 120s, so its
   // feed listener + timers must be torn down if the shell unmounts first —
   // otherwise the watcher subscription and timers leak. Tracked here so
@@ -283,28 +290,47 @@ export function createAutoHandoff(host: HandoffHost) {
       ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
       : `${session.agent.label} context at ${measuredPct}% — handing off to a fresh agent…`;
 
-    // 1. Ask the agent to write the handoff doc, then wait for it to land.
-    await pty.write({
-      id: session.id,
-      data: handoffPrompt(doc)
-    });
-    const watcherSawDoc = await waitForFile(doc);
-    // Never cycle without the doc actually on disk: killing the session and
-    // seeding a successor onto a file that was never written strands the
-    // successor with nothing to read (and the conversation it was meant to
-    // continue is gone). The watcher can also simply have missed the write
-    // (an ignored path, a torn-down subscription), so a timeout gets one
-    // direct disk probe before giving up. On a genuine no-doc, leave the
-    // session running and marked — no retry loop, the user still has their
-    // agent — and clear the note.
-    if (!watcherSawDoc) {
-      const probe = await workspace
-        .probePath(`${host.projectDir()}/${doc}`)
-        .catch(() => null);
-      const docOnDisk = probe?.isFile === true;
-      if (!docOnDisk) {
-        note = "";
-        return;
+    // 1. Ask the agent to write the handoff doc, then wait for it to land —
+    // unless a previous attempt already produced it: a request sent to a busy
+    // agent gets queued and answered long after the wait below expired, so a
+    // retry must consume the doc that late answer wrote instead of asking for
+    // a second one.
+    const existing = await workspace
+      .probePath(`${host.projectDir()}/${doc}`)
+      .catch(() => null);
+    const alreadyWritten = existing?.isFile === true;
+    if (!alreadyWritten) {
+      await pty.write({
+        id: session.id,
+        data: handoffPrompt(doc)
+      });
+      const watcherSawDoc = await waitForFile(doc);
+      // Never cycle without the doc actually on disk: killing the session and
+      // seeding a successor onto a file that was never written strands the
+      // successor with nothing to read (and the conversation it was meant to
+      // continue is gone). The watcher can also simply have missed the write
+      // (an ignored path, a torn-down subscription), so a timeout gets one
+      // direct disk probe before giving up. On a genuine no-doc, leave the
+      // session running but UNMARK it: the request usually sits queued in a
+      // busy agent, and the next scan that finds the session ready again
+      // retries — the probe above then short-circuits onto the doc the late
+      // answer wrote, so the cycle completes instead of dying here forever.
+      if (!watcherSawDoc) {
+        const probe = await workspace
+          .probePath(`${host.projectDir()}/${doc}`)
+          .catch(() => null);
+        const docOnDisk = probe?.isFile === true;
+        if (!docOnDisk) {
+          const attempts = (handoffAttempts.get(session.id) ?? 0) + 1;
+          handoffAttempts.set(session.id, attempts);
+
+          if (attempts < HANDOFF_ATTEMPT_LIMIT) {
+            unmarkHandingOff(session.id);
+          }
+
+          note = "";
+          return;
+        }
       }
     }
 
