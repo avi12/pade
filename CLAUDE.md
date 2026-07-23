@@ -111,7 +111,9 @@ These are non-negotiable for all work in this repo.
    - Object params: a function taking two or more arguments takes a single
      destructured object param (`fn({ a, b })`) instead of positional args, and
      reduce/reuse the param types (`z.infer`, shared interfaces) where applicable.
-   - No `void` operator: never write `void promise` to fire-and-forget. When a
+   - No `void` operator — **always `await`**: never write `void promise` to
+     fire-and-forget, not even as a stopgap while iterating — write the `await`
+     (or the named `async` wrapper below) in the first draft. When a
      later step or shared state depends on the promise, `await` it so ordering is
      guaranteed. When it is a genuinely independent side effect, still don't reach
      for `void` — extract a **named `async` function** whose body `await`s the work
