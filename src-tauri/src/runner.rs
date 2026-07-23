@@ -136,17 +136,23 @@ fn pump_stream<R: BufRead>(
 ///
 /// Idempotent: if a runner with `id` is already live, returns `Ok(())` without
 /// spawning a second one (mirrors `pty_spawn`).
+// `async`: spawning a process is blocking OS work — a synchronous command runs
+// it on the MAIN thread, stalling the message pump.
 #[tauri::command]
-pub fn runner_start(
+pub async fn runner_start(
     app: AppHandle,
-    state: State<RunnerState>,
+    state: State<'_, RunnerState>,
     id: String,
     command: String,
     cwd: Option<String>,
 ) -> Result<(), String> {
-    let mut runners = state.0.lock().map_err(|e| e.to_string())?;
-    if runners.contains_key(&id) {
-        return Ok(()); // already running
+    // The registry lock is only a lookup — never held across the spawn below
+    // (mirrors `pty_spawn`: check, release, spawn, re-check on publish).
+    {
+        let runners = state.0.lock().map_err(|e| e.to_string())?;
+        if runners.contains_key(&id) {
+            return Ok(()); // already running
+        }
     }
 
     let mut cmd = shell_command(&command);
@@ -210,6 +216,16 @@ pub fn runner_start(
         cwd,
         started_at: now_millis(),
     };
+    // Publish the completed runner. A concurrent duplicate that won the race is
+    // kept; the extra child this call spawned is stopped rather than leaked.
+    let mut runners = state.0.lock().map_err(|e| e.to_string())?;
+    if runners.contains_key(&id) {
+        drop(runners);
+        if let Ok(mut duplicate) = child.lock() {
+            stop_process_tree(&mut duplicate);
+        }
+        return Ok(());
+    }
     runners.insert(id, Runner { child, info });
     Ok(())
 }
@@ -236,10 +252,16 @@ fn stop_process_tree(child: &mut Child) {
 }
 
 /// Stop a task and drop it from the map.
+// `async`, and the registry lock is released before the process-tree kill (a
+// blocking `taskkill` wait on Windows) — only the removed runner's own child
+// lock is held while it dies, so other runners stay reachable meanwhile.
 #[tauri::command]
-pub fn runner_stop(state: State<RunnerState>, id: String) -> Result<(), String> {
-    let mut runners = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(runner) = runners.remove(&id) {
+pub async fn runner_stop(state: State<'_, RunnerState>, id: String) -> Result<(), String> {
+    let removed = {
+        let mut runners = state.0.lock().map_err(|e| e.to_string())?;
+        runners.remove(&id)
+    };
+    if let Some(runner) = removed {
         if let Ok(mut child) = runner.child.lock() {
             stop_process_tree(&mut child);
         }
