@@ -278,9 +278,9 @@
       <div class="card">
         <h3 class:placeholder={!selected}>{selected?.rel ?? "Select a file to view"}</h3>
         <pre class="body"><ColorText
+            markdown={fileExtension(selected?.rel ?? "") === "md"}
             text={content}
             vars={fileVars}
-            markdown={fileExtension(selected?.rel ?? "") === "md"}
           /></pre>
       </div>
       <p class="note">Read-only in the MVP — edits will write back to this same file.</p>

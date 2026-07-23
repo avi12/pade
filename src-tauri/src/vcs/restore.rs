@@ -119,7 +119,7 @@ fn parse_days_ago(query: &str) -> Option<u64> {
 /// of its subject, plus a time-hint boost (e.g. "yesterday", "3 days ago").
 /// Returns all candidates, best score first, ties keeping git-log recency order.
 #[tauri::command]
-pub fn vcs_restore_candidates(
+pub async fn vcs_restore_candidates(
     cwd: String,
     query: String,
     limit: Option<u32>,
@@ -192,7 +192,7 @@ pub fn vcs_restore_candidates(
 /// Creates (or re-enters) `pade/restore-<shortsha>` pointing at `sha` — never
 /// touches the working tree with `reset --hard`. Returns the branch name.
 #[tauri::command]
-pub fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {
+pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {
     let short = run_git(&cwd, &["rev-parse", "--short", &sha])?
         .trim()
         .to_string();

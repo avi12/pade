@@ -46,7 +46,7 @@ pub struct TaskGroup {
 /// List every runnable task in `cwd`, grouped by manifest. The caller supplies
 /// the window's workspace because multiple PADE windows share one process.
 #[tauri::command]
-pub fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
+pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
     let root = PathBuf::from(cwd);
     if !root.is_dir() {
         return Err(format!(

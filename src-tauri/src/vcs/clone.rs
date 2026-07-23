@@ -7,12 +7,14 @@
 
 use std::path::Path;
 
-use crate::util::{command, home_dir, is_on_path, percent_encode};
+use std::time::Duration;
+
+use crate::util::{command, home_dir, is_on_path, percent_encode, succeeds_within};
 
 /// Is the `git` CLI available? Gates the picker's Clone tab — without git the
 /// tab shows an install prompt instead of a clone form.
 #[tauri::command]
-pub fn vcs_git_installed() -> bool {
+pub async fn vcs_git_installed() -> bool {
     is_on_path("git")
 }
 
@@ -23,7 +25,7 @@ const SSH_KEY_NAMES: &[&str] = &["id_ed25519", "id_ecdsa", "id_rsa", "id_dsa"];
 /// Does the user have an SSH private key? An `ssh://`/`git@` clone URL without
 /// one can't authenticate, so the picker offers HTTPS credentials instead.
 #[tauri::command]
-pub fn vcs_has_ssh_key() -> bool {
+pub async fn vcs_has_ssh_key() -> bool {
     let Some(home) = home_dir() else {
         return false;
     };
@@ -33,19 +35,34 @@ pub fn vcs_has_ssh_key() -> bool {
         .any(|name| ssh_dir.join(name).is_file())
 }
 
+/// How long the reachability probe may spend before ADE calls the repository
+/// unreachable. Prompts are already disabled, but a firewalled host can sit on
+/// the TCP connection far longer than a live URL check is worth.
+const PROBE_REMOTE_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// Is `url` a repository the current environment can actually reach — it
 /// exists, and the user's auth (SSH key, credential manager) can see it?
 /// Backs the picker's live URL check: the destination folder name auto-fills
-/// only once the repository answers. Prompts are disabled so a private repo
-/// the user can't see reports unreachable instead of hanging.
+/// only once the repository answers. Prompts are disabled and the wait is
+/// bounded, so a private repo the user can't see (or a host that never
+/// answers) reports unreachable instead of hanging.
+// `async` + `spawn_blocking`: a network round-trip (bounded, but seconds) that
+// must never run synchronously on the MAIN thread.
 #[tauri::command]
-pub fn vcs_probe_remote(url: String) -> bool {
-    command("git")
-        .args(["ls-remote", "--exit-code", "--", &url, "HEAD"])
+pub async fn vcs_probe_remote(url: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || probe_remote(&url))
+        .await
+        .unwrap_or(false)
+}
+
+/// The bounded `git ls-remote` behind [`vcs_probe_remote`].
+fn probe_remote(url: &str) -> bool {
+    let mut ls_remote = command("git");
+    ls_remote
+        .args(["ls-remote", "--exit-code", "--", url, "HEAD"])
         .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GCM_INTERACTIVE", "never")
-        .output()
-        .is_ok_and(|out| out.status.success())
+        .env("GCM_INTERACTIVE", "never");
+    succeeds_within(ls_remote, PROBE_REMOTE_TIMEOUT)
 }
 
 /// The `host` and `path` of any supported clone URL — `https://host/path`,
@@ -87,11 +104,28 @@ fn credential_url(url: &str, username: &str, password: &str) -> Option<String> {
 /// Clone `url` into `root\name` and hand back the new project path. With
 /// credentials the clone runs over HTTPS; the remote is then re-pointed at the
 /// credential-free URL so nothing secret lands in `.git/config`.
+// `async` + `spawn_blocking`: a clone runs for as long as the network transfer
+// takes — never on the MAIN thread, and too long for an async worker.
 #[tauri::command]
-pub fn vcs_clone(
+pub async fn vcs_clone(
     url: String,
     root: String,
     name: String,
+    username: Option<String>,
+    password: Option<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        clone_repository(&url, &root, &name, username, password)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The credential handling + `git clone` behind [`vcs_clone`].
+fn clone_repository(
+    url: &str,
+    root: &str,
+    name: &str,
     username: Option<String>,
     password: Option<String>,
 ) -> Result<String, String> {
@@ -103,9 +137,9 @@ pub fn vcs_clone(
     let credentials = username.zip(password);
     let clone_url = match &credentials {
         Some((user, pass)) => {
-            credential_url(&url, user, pass).ok_or("unrecognized repository URL")?
+            credential_url(url, user, pass).ok_or("unrecognized repository URL")?
         }
-        None => url.clone(),
+        None => url.to_string(),
     };
 
     let out = command("git")
@@ -125,11 +159,11 @@ pub fn vcs_clone(
             return Err(stderr);
         }
         // git echoes the URL it tried — never let the embedded secret through.
-        return Err(stderr.replace(&clone_url, &https_url(&url).unwrap_or_default()));
+        return Err(stderr.replace(&clone_url, &https_url(url).unwrap_or_default()));
     }
 
     if credentials_embedded {
-        let clean = https_url(&url).ok_or("unrecognized repository URL")?;
+        let clean = https_url(url).ok_or("unrecognized repository URL")?;
         let _ = command("git")
             .arg("-C")
             .arg(&dest)

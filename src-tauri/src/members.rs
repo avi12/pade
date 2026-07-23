@@ -58,7 +58,7 @@ pub struct Member {
 /// Manifest-confirmed members of the workspace at `root` (the open project),
 /// for the Change Feed's manifest-driven grouping. The root is always first.
 #[tauri::command]
-pub fn members_list(root: String) -> Result<Vec<Member>, String> {
+pub async fn members_list(root: String) -> Result<Vec<Member>, String> {
     let root = Path::new(&root);
     if !root.is_dir() {
         return Err(format!("not a directory: {}", root.display()));

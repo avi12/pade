@@ -1,4 +1,10 @@
-import { BRACKETED_PASTE_END, BRACKETED_PASTE_START, isPromptNewlineShortcut, PROMPT_NEWLINE, submittedPrompt } from "@/lib/terminal-input";
+import {
+  BRACKETED_PASTE_END,
+  BRACKETED_PASTE_START,
+  isPromptNewlineShortcut,
+  PROMPT_NEWLINE,
+  submittedPrompt
+} from "@/lib/terminal-input";
 import { describe, expect, it } from "vitest";
 
 describe("submittedPrompt", () => {

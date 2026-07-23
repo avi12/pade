@@ -5,7 +5,7 @@ use super::run_git;
 /// The `origin` remote URL, normalized to a browsable `https://host/owner/repo`
 /// form. `None` when there's no `origin` remote.
 #[tauri::command]
-pub fn vcs_remote_url(cwd: String) -> Option<String> {
+pub async fn vcs_remote_url(cwd: String) -> Option<String> {
     let raw = run_git(&cwd, &["remote", "get-url", "origin"]).ok()?;
     let url = raw.trim();
     if url.is_empty() {

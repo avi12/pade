@@ -15,7 +15,7 @@ use tauri_plugin_opener::OpenerExt;
 /// has several (`?code=true&client_id=…`) — split it into commands, so the browser
 /// only ever received the URL up to the first `&`.
 #[tauri::command]
-pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+pub async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     let scheme_ok = url.starts_with("https://") || url.starts_with("http://");
     if !scheme_ok {
         return Err("only http(s) URLs may be opened".into());
@@ -27,7 +27,7 @@ pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
 
 /// Open `path` in the platform file manager (Explorer / Finder / xdg).
 #[tauri::command]
-pub fn open_in_explorer(path: String) -> Result<(), String> {
+pub async fn open_in_explorer(path: String) -> Result<(), String> {
     let result = if cfg!(windows) {
         Command::new("explorer").arg(&path).spawn()
     } else if cfg!(target_os = "macos") {
@@ -41,7 +41,7 @@ pub fn open_in_explorer(path: String) -> Result<(), String> {
 /// Open a terminal rooted at `path`. Prefers Windows Terminal, falling back to
 /// the classic console; Terminal.app on macOS; `x-terminal-emulator` on Linux.
 #[tauri::command]
-pub fn open_in_terminal(path: String) -> Result<(), String> {
+pub async fn open_in_terminal(path: String) -> Result<(), String> {
     let spawn = if cfg!(windows) {
         Command::new("wt").args(["-d", &path]).spawn().or_else(|_| {
             Command::new("cmd")

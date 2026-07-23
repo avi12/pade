@@ -34,7 +34,7 @@ fn branch_at(path: &str) -> Option<String> {
 /// chip. Runs git per path (`-C <path>`); a path that isn't a git repo or is on a
 /// detached HEAD is omitted, so the frontend shows a chip only where one exists.
 #[tauri::command]
-pub fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
+pub async fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
     paths
         .into_iter()
         .filter_map(|path| branch_at(&path).map(|branch| (path, branch)))
@@ -43,7 +43,7 @@ pub fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
 
 /// Local branches in the current repo (empty/Err when not a git repo).
 #[tauri::command]
-pub fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
+pub async fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
     let raw = run_git(&cwd, &["branch", "--format=%(refname:short)"])?;
     Ok(raw
         .lines()

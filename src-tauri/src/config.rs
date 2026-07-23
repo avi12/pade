@@ -88,7 +88,7 @@ fn root() -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn config_list(agent: String) -> Result<Vec<ConfigFile>, String> {
+pub async fn config_list(agent: String) -> Result<Vec<ConfigFile>, String> {
     let root = root()?;
     let files = KNOWN
         .iter()
@@ -110,7 +110,7 @@ pub fn config_list(agent: String) -> Result<Vec<ConfigFile>, String> {
 /// Read one known config file. Guarded to the allowlist so this can never read
 /// arbitrary paths from the frontend.
 #[tauri::command]
-pub fn config_read(rel: String) -> Result<String, String> {
+pub async fn config_read(rel: String) -> Result<String, String> {
     if !KNOWN.iter().any(|def| def.rel == rel) {
         return Err("not an allowed config file".into());
     }

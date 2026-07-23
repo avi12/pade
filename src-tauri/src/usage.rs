@@ -85,9 +85,21 @@ pub struct Usage {
 /// Remaining usage for `agent` — live account windows when the OAuth endpoint
 /// is reachable, local tier label otherwise. `None` when we have no reliable
 /// signal for that agent (the UI then shows "usage —").
+// `async` + `spawn_blocking`: a synchronous command runs on the MAIN thread, and
+// a cache miss here is a real network request (curl, up to 12s) — long enough to
+// stop the window pumping messages ("Not Responding"). The blocking pool keeps
+// even several concurrent per-agent fetches off the async workers too.
 #[tauri::command]
-pub fn usage_get(agent: String) -> Option<Usage> {
-    match UsageAgent::from_id(&agent)? {
+pub async fn usage_get(agent: String) -> Option<Usage> {
+    tauri::async_runtime::spawn_blocking(move || usage_for(&agent))
+        .await
+        .ok()
+        .flatten()
+}
+
+/// The synchronous adapter dispatch behind [`usage_get`].
+fn usage_for(agent: &str) -> Option<Usage> {
+    match UsageAgent::from_id(agent)? {
         UsageAgent::Claude => claude_usage(),
         UsageAgent::Codex => codex_usage(),
         UsageAgent::Copilot => copilot_usage(),
@@ -322,17 +334,25 @@ pub struct AccountUsage {
 /// Live account usage windows, mirroring claude.ai. `None` when offline, `curl` is
 /// unavailable, or the token is missing/expired (Claude Code refreshes it on its
 /// next run). Cached ~3 min to respect the endpoint's per-token limit.
+// `async` + `spawn_blocking` for the same reason as [`usage_get`]: a cache miss
+// is a bounded-but-slow curl request that must never run on the UI thread.
 #[tauri::command]
-pub fn usage_account() -> Option<AccountUsage> {
-    account_usage_for(UsageAgent::Claude)
+pub async fn usage_account() -> Option<AccountUsage> {
+    tauri::async_runtime::spawn_blocking(|| account_usage_for(UsageAgent::Claude))
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Live account usage windows for a specific agent (`claude`, `codex`) — what the
 /// per-agent meter renders. `None` for an agent we have no usage adapter for, or
 /// when its token / network isn't available.
 #[tauri::command]
-pub fn usage_account_agent(agent: String) -> Option<AccountUsage> {
-    account_usage_for(UsageAgent::from_id(&agent)?)
+pub async fn usage_account_agent(agent: String) -> Option<AccountUsage> {
+    tauri::async_runtime::spawn_blocking(move || account_usage_for(UsageAgent::from_id(&agent)?))
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Live account usage for `agent`, cached ~3 min per agent to respect each

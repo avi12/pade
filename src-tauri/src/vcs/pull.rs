@@ -62,9 +62,19 @@ fn is_already_up_to_date(pull_output: &str) -> bool {
 /// returns `RefusedDirty` without running the pull. Otherwise it runs
 /// `git pull --ff-only` — a diverged branch (no fast-forward) errors out with
 /// git's message rather than creating a merge commit.
+// `async` + `spawn_blocking`: the pull talks to the network for as long as the
+// fetch takes — a synchronous command would run it on the MAIN thread and freeze
+// the window, and a wait that long shouldn't tie up an async worker either.
 #[tauri::command]
-pub fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
-    let porcelain = run_git(&cwd, &["status", "--porcelain"])?;
+pub async fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || fast_forward_pull(&cwd))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The dirty-check + `git pull --ff-only` pass behind [`vcs_pull`].
+fn fast_forward_pull(cwd: &str) -> Result<PullOutcome, String> {
+    let porcelain = run_git(cwd, &["status", "--porcelain"])?;
     if has_uncommitted_changes(&porcelain) {
         return Ok(PullOutcome {
             status: PullStatus::RefusedDirty,
@@ -72,7 +82,7 @@ pub fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
         });
     }
 
-    let output = run_git(&cwd, &["pull", "--ff-only"])?;
+    let output = run_git(cwd, &["pull", "--ff-only"])?;
     if is_already_up_to_date(&output) {
         return Ok(PullOutcome {
             status: PullStatus::AlreadyUpToDate,

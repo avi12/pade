@@ -165,11 +165,13 @@ describe("tokenizeMarkdown", () => {
   });
 
   it("colors structure: headings, quotes, list markers, inline spans", () => {
-    const tokens = tokenizeMarkdown([
-      "# Title",
-      "> a quote",
-      "- item with `code` and **bold** and [a link](https://x)"
-    ].join("\n"));
+    const tokens = tokenizeMarkdown(
+      [
+        "# Title",
+        "> a quote",
+        "- item with `code` and **bold** and [a link](https://x)"
+      ].join("\n")
+    );
 
     expect(markdownClassOf(tokens, "# Title")).toBe("keyword");
     expect(markdownClassOf(tokens, "> a quote")).toBe("comment");
@@ -181,11 +183,13 @@ describe("tokenizeMarkdown", () => {
   });
 
   it("hands fenced code blocks to the generic scanner", () => {
-    const tokens = tokenizeMarkdown([
-      "```ts",
-      "const answer = 42;",
-      "```"
-    ].join("\n"));
+    const tokens = tokenizeMarkdown(
+      [
+        "```ts",
+        "const answer = 42;",
+        "```"
+      ].join("\n")
+    );
 
     expect(markdownClassOf(tokens, "```ts")).toBe("comment");
     expect(markdownClassOf(tokens, "const")).toBe("keyword");

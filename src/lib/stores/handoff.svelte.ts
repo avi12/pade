@@ -259,7 +259,6 @@ export function createAutoHandoff(host: HandoffHost) {
       data: handoffPrompt(doc)
     });
     const watcherSawDoc = await waitForFile(doc);
-
     // Never cycle without the doc actually on disk: killing the session and
     // seeding a successor onto a file that was never written strands the
     // successor with nothing to read (and the conversation it was meant to

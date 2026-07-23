@@ -887,8 +887,19 @@ pub struct Ide {
     chosen: bool,
 }
 
+// `async` + `spawn_blocking`: detection probes every PATH/package-manager
+// directory (and `reg` on Windows) — filesystem-and-child-process work that a
+// synchronous command would run on the MAIN thread, freezing the window.
 #[tauri::command]
-pub fn ide_detect() -> Vec<Ide> {
+pub async fn ide_detect() -> Vec<Ide> {
+    tauri::async_runtime::spawn_blocking(installed_ides)
+        .await
+        .unwrap_or_default()
+}
+
+/// The installed-editor roster behind [`ide_detect`], synchronous so in-process
+/// callers ([`kind_options`]) reuse it without an async hop.
+fn installed_ides() -> Vec<Ide> {
     REGISTRY
         .iter()
         .filter(|i| is_on_path(i.command))
@@ -1255,9 +1266,18 @@ fn suggestible_editor_ids(
 /// derived from the same capability table and coverage scorer as suggestions,
 /// so an unrelated IDE is never offered. Unknown folders get only universal
 /// editors and user-added launchers.
+// `async` + `spawn_blocking`: rides the same PATH-probing detection as
+// [`ide_detect`], so it must stay off the UI thread too.
 #[tauri::command]
-pub fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
-    let installed = ide_detect();
+pub async fn ide_kind_options() -> BTreeMap<String, Vec<String>> {
+    tauri::async_runtime::spawn_blocking(kind_options)
+        .await
+        .unwrap_or_default()
+}
+
+/// The per-kind editor options behind [`ide_kind_options`].
+fn kind_options() -> BTreeMap<String, Vec<String>> {
+    let installed = installed_ides();
     let is_present = |id: &str| installed.iter().any(|editor| editor.id == id);
     let added_ids = installed
         .iter()
@@ -1326,8 +1346,17 @@ pub fn ide_kinds() -> Vec<KindInfo> {
 /// logo. Paths with no recognised markers are omitted, so the caller falls back
 /// to a folder glyph. Marker probing only (root + one level down), so it stays
 /// cheap enough to run for a menuful of recent projects at once.
+// `async` + `spawn_blocking`: one child walk per project for a whole menuful of
+// recents is real filesystem work — off the UI thread.
 #[tauri::command]
-pub fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
+pub async fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
+    tauri::async_runtime::spawn_blocking(move || project_kinds(paths))
+        .await
+        .unwrap_or_default()
+}
+
+/// The per-path primary-kind probe behind [`ide_project_kinds`].
+fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
     paths
         .into_iter()
         .filter_map(|path| {
@@ -1399,9 +1428,18 @@ fn preference_chain(
 /// a user rule for the primary declared kind first, then the configured
 /// fallback, then evidence-weighted editor coverage. No dominant-language
 /// threshold or framework-specific detection is involved.
+// `async` + `spawn_blocking`: the source census walks the whole project and the
+// installed check probes PATH — far too much filesystem work for the UI thread.
 #[tauri::command]
-pub fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
-    let canonical_project = crate::workspace::canonical_path(&cwd);
+pub async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
+    tauri::async_runtime::spawn_blocking(move || suggest_for(&cwd))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The ranking pass behind [`ide_suggest`].
+fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
+    let canonical_project = crate::workspace::canonical_path(cwd);
     let cwd = std::path::Path::new(&cwd);
     if !cwd.is_dir() {
         return Err("project directory does not exist".to_string());
@@ -1556,7 +1594,11 @@ fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
 /// directory when omitted (topbar); a `line` (only meaningful with a file path)
 /// jumps the editor to that line, phrased per the launcher's own CLI.
 #[tauri::command]
-pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Result<(), String> {
+pub async fn ide_open(
+    command: String,
+    path: Option<String>,
+    line: Option<u32>,
+) -> Result<(), String> {
     let has_path = path.is_some();
     let target = match path {
         Some(p) => p,
@@ -1579,7 +1621,7 @@ pub fn ide_open(command: String, path: Option<String>, line: Option<u32>) -> Res
 /// own window. A family with no such form (Visual Studio, Notepad++, …)
 /// receives the file alone, as before.
 #[tauri::command]
-pub fn ide_open_file(
+pub async fn ide_open_file(
     command: String,
     project: String,
     file: String,

@@ -100,7 +100,7 @@ const DESIGN_WINDOW: &str = "design";
 /// Open the companion design window on `url` — or, if it's already open, focus it
 /// and navigate it to the newly picked tool.
 #[tauri::command]
-pub fn design_open(app: AppHandle, url: String) -> Result<(), String> {
+pub async fn design_open(app: AppHandle, url: String) -> Result<(), String> {
     let target = Url::parse(&url).map_err(|e| e.to_string())?;
     if let Some(window) = app.get_webview_window(DESIGN_WINDOW) {
         window.navigate(target).map_err(|e| e.to_string())?;

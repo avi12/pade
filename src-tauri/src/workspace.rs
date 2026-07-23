@@ -323,7 +323,7 @@ fn push_root(path: String) -> Result<Settings, String> {
 /// created (and then added) when `create` is set, otherwise it reports `Missing`;
 /// a path that exists but is a file reports `NotADirectory`.
 #[tauri::command]
-pub fn workspace_add_root(path: String, create: bool) -> Result<AddRootOutcome, String> {
+pub async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOutcome, String> {
     let target = Path::new(&path);
     if target.is_dir() {
         return Ok(AddRootOutcome::Added {
@@ -351,7 +351,7 @@ pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
 
 /// Immediate sub-directories of `root` that look like projects.
 #[tauri::command]
-pub fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
+pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
     let dir = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
     let mut entries: Vec<ProjectEntry> = dir
         .filter_map(Result::ok)
@@ -443,7 +443,7 @@ fn dir_completions(parent: &Path, prefix: &str) -> Vec<String> {
 /// the child-directory completions that drive the field's autocomplete. Pure
 /// query (no persistence); a bad or unreadable path just yields empty suggestions.
 #[tauri::command]
-pub fn workspace_probe_path(path: String) -> PathProbe {
+pub async fn workspace_probe_path(path: String) -> PathProbe {
     let trimmed = path.trim();
     let target = Path::new(trimmed);
     let suggestions = split_for_completion(trimmed)
@@ -492,7 +492,7 @@ fn record_recent(settings: &mut Settings, path: &str) {
 /// `continue-*.md` name (no path separators) directly inside `dir`. A doc that
 /// is already gone is fine — the goal is its absence.
 #[tauri::command]
-pub fn handoff_doc_delete(dir: String, name: String) -> Result<(), String> {
+pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String> {
     let is_handoff_doc = name.starts_with("continue-")
         && Path::new(&name)
             .extension()
@@ -522,7 +522,7 @@ pub fn workspace_open(path: String) -> Result<(), String> {
 /// Create a throwaway workspace so the user can start coding immediately without
 /// choosing a project, then switch to a real one whenever they like.
 #[tauri::command]
-pub fn workspace_temp() -> Result<String, String> {
+pub async fn workspace_temp() -> Result<String, String> {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
@@ -579,7 +579,7 @@ pub fn workspace_set_label(path: String, name: String) -> Result<Settings, Strin
 /// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
 /// directory — no longer "temp" — but stays ADE-owned so it's still deletable.
 #[tauri::command]
-pub fn workspace_move(from: String, dest_dir: String) -> Result<String, String> {
+pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, String> {
     let mut settings = load();
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be moved".into());
@@ -603,7 +603,7 @@ pub fn workspace_move(from: String, dest_dir: String) -> Result<String, String> 
 /// Rename a temp workspace, promoting it into the primary project root
 /// (`roots[0]`) under the new name — turning it into a real project.
 #[tauri::command]
-pub fn workspace_rename(from: String, new_name: String) -> Result<String, String> {
+pub async fn workspace_rename(from: String, new_name: String) -> Result<String, String> {
     let mut settings = load();
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be renamed".into());
@@ -686,7 +686,7 @@ fn has_vanished(path: &str) -> bool {
 /// its directory watcher triggers — so a workspace deleted in Explorer, by a
 /// script, or from a terminal leaves the page like one deleted from the menu.
 #[tauri::command]
-pub fn workspace_prune() -> Result<Settings, String> {
+pub async fn workspace_prune() -> Result<Settings, String> {
     let mut settings = load();
     let before = (
         settings.recent_projects.len(),
@@ -729,7 +729,7 @@ fn delete_directory(settings: &mut Settings, path: &str) -> Result<(), String> {
 
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
-pub fn workspace_delete(path: String) -> Result<Settings, String> {
+pub async fn workspace_delete(path: String) -> Result<Settings, String> {
     let mut settings = load();
     if !is_ade_owned(&settings, &path) {
         return Err("only ADE-created workspaces can be deleted".into());
@@ -744,7 +744,7 @@ pub fn workspace_delete(path: String) -> Result<Settings, String> {
 /// an explicit, path-naming confirmation before calling it, and the caller (the
 /// relocator) kills the sessions holding the folder first.
 #[tauri::command]
-pub fn workspace_delete_directory(path: String) -> Result<Settings, String> {
+pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
     let mut settings = load();
     delete_directory(&mut settings, &path)?;
     save(&settings)
@@ -752,7 +752,7 @@ pub fn workspace_delete_directory(path: String) -> Result<Settings, String> {
 
 /// Create a new project directory under `root` and open it.
 #[tauri::command]
-pub fn workspace_create(root: String, name: String) -> Result<String, String> {
+pub async fn workspace_create(root: String, name: String) -> Result<String, String> {
     let path = Path::new(&root).join(&name);
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     let path_str = path.to_string_lossy().into_owned();

@@ -32,6 +32,11 @@ pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     let out = crate::util::command("git")
         .args(args)
         .current_dir(cwd)
+        // Fail fast with a real error instead of hanging on an invisible
+        // terminal prompt (or a credential-manager popup) when a command
+        // reaches the network (`vcs_pull`).
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "never")
         .output()
         .map_err(|e| format!("failed to run git: {e}"))?;
 

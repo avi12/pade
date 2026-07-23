@@ -46,7 +46,7 @@ fn status_letter_kind(code: &str) -> StatusKind {
 }
 
 #[tauri::command]
-pub fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
+pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
     // Header + full body in one shot: subject on its own line, then the body.
     let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%b");
     let head = run_git(&cwd, &["show", "-s", &format!("--format={fmt}"), &sha])?;
@@ -183,7 +183,7 @@ fn status_kinds_by_path(namestat: &str) -> HashMap<&str, StatusKind> {
 
 /// Raw unified diff for one path within a commit.
 #[tauri::command]
-pub fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
+pub async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
     run_git(&cwd, &["show", "--no-color", &sha, "--", &path])
 }
 

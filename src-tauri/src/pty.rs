@@ -456,9 +456,9 @@ fn light_console_command(exe: &str, args: &[String]) -> CommandBuilder {
 // would only obscure the IPC shape the frontend sends.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub fn pty_spawn(
+pub async fn pty_spawn(
     app: AppHandle,
-    state: State<PtyState>,
+    state: State<'_, PtyState>,
     id: String,
     command: Option<String>,
     cwd: Option<String>,
@@ -714,7 +714,7 @@ pub fn transcript_of(state: &PtyState, id: &str) -> String {
 }
 
 #[tauri::command]
-pub fn pty_write(state: State<PtyState>, id: String, data: String) -> Result<(), String> {
+pub async fn pty_write(state: State<'_, PtyState>, id: String, data: String) -> Result<(), String> {
     let pty = state.0.lock().map_err(|e| e.to_string())?.get(&id).cloned();
     if let Some(pty) = pty {
         let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
@@ -727,7 +727,12 @@ pub fn pty_write(state: State<PtyState>, id: String, data: String) -> Result<(),
 }
 
 #[tauri::command]
-pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> Result<(), String> {
+pub async fn pty_resize(
+    state: State<'_, PtyState>,
+    id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
     let pty = state.0.lock().map_err(|e| e.to_string())?.get(&id).cloned();
     if let Some(pty) = pty {
         pty.master
@@ -748,7 +753,7 @@ pub fn pty_resize(state: State<PtyState>, id: String, cols: u16, rows: u16) -> R
 /// `Drop`), so by the time this returns the session's cwd is unlocked and its
 /// workspace can be deleted or moved.
 #[tauri::command]
-pub fn pty_kill(state: State<PtyState>, id: String) -> Result<(), String> {
+pub async fn pty_kill(state: State<'_, PtyState>, id: String) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     let pty = sessions.remove(&id);
     drop(sessions);

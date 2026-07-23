@@ -80,6 +80,12 @@ These are non-negotiable for all work in this repo.
      first, keep the work bounded, and preserve ordering, cancellation, and
      lifecycle behavior when coalescing frontend work. Do not make a live terminal
      or hidden session stale merely to reduce paints.
+   - Tauri commands off the UI thread: a `#[tauri::command]` that does process,
+     network, or non-trivial filesystem work MUST be `async fn` — a synchronous
+     command runs on the MAIN thread, so any blocking inside it stalls the Win32
+     message pump and the window goes "Not Responding". Long waits (a usage
+     fetch, a clone) additionally run under `tauri::async_runtime::spawn_blocking`;
+     only a pure in-memory/registry lookup may stay sync.
    - Rust concurrency: an app-wide mutex is only a registry lookup. Clone the
      session handle and release that lock **before** filesystem I/O, PTY I/O,
      process polling, process-tree termination, or other potentially blocking

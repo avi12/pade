@@ -167,7 +167,7 @@ fn legacy_registered() -> bool {
 ///   handler to host the verb).
 #[cfg(windows)]
 #[tauri::command]
-pub fn context_menu_register() -> Result<(), String> {
+pub async fn context_menu_register() -> Result<(), String> {
     if !is_windows_11() {
         return register_legacy();
     }
@@ -189,7 +189,7 @@ pub fn context_menu_register() -> Result<(), String> {
 ///   self-hiding handler exists there).
 #[cfg(windows)]
 #[tauri::command]
-pub fn context_menu_unregister() -> Result<(), String> {
+pub async fn context_menu_unregister() -> Result<(), String> {
     if !is_windows_11() {
         return unregister_legacy();
     }
@@ -203,7 +203,7 @@ pub fn context_menu_unregister() -> Result<(), String> {
 /// - **Windows 10 and older**: whether the legacy keys exist.
 #[cfg(windows)]
 #[tauri::command]
-pub fn context_menu_status() -> bool {
+pub async fn context_menu_status() -> bool {
     if !is_windows_11() {
         return legacy_registered();
     }
@@ -212,18 +212,18 @@ pub fn context_menu_status() -> bool {
 
 #[cfg(not(windows))]
 #[tauri::command]
-pub fn context_menu_register() -> Result<(), String> {
+pub async fn context_menu_register() -> Result<(), String> {
     Err("the Explorer context menu is Windows-only".into())
 }
 
 #[cfg(not(windows))]
 #[tauri::command]
-pub fn context_menu_unregister() -> Result<(), String> {
+pub async fn context_menu_unregister() -> Result<(), String> {
     Err("the Explorer context menu is Windows-only".into())
 }
 
 #[cfg(not(windows))]
 #[tauri::command]
-pub fn context_menu_status() -> bool {
+pub async fn context_menu_status() -> bool {
     false
 }

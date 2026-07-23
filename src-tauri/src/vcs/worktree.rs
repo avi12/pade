@@ -10,7 +10,7 @@ use super::run_git;
 /// return the worktree path. Reuses an existing worktree if already created.
 /// `create` makes a new branch (`git worktree add -b`) off the current HEAD.
 #[tauri::command]
-pub fn vcs_worktree_add(cwd: String, branch: String, create: bool) -> Result<String, String> {
+pub async fn vcs_worktree_add(cwd: String, branch: String, create: bool) -> Result<String, String> {
     let root = run_git(&cwd, &["rev-parse", "--show-toplevel"])?
         .trim()
         .to_string();

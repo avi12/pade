@@ -3,7 +3,8 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
 
 /// A `Command` that never flashes a console window on Windows. Every background
 /// or captured-output spawn — PATH lookups, git, curl, the agent namer, task
@@ -11,9 +12,14 @@ use std::process::{Child, Command};
 /// instead of popping a `conhost` window per spawn (e.g. on the 5s agent
 /// re-detect). Interactive terminals the user explicitly opens (`os.rs`) are
 /// spawned directly so they *do* get a window.
+///
+/// stdin is closed by default: none of these children are interactive, and a
+/// CLI that decides to wait on stdin (the opencode-db hang class) must see EOF
+/// immediately rather than block forever. The rare caller that feeds a child on
+/// stdin (the usage curl `--config`) overrides this with `Stdio::piped()`.
 pub fn command(program: impl AsRef<OsStr>) -> Command {
-    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut cmd = Command::new(program);
+    cmd.stdin(Stdio::null());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -21,6 +27,39 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
         cmd.creation_flags(0x0800_0000);
     }
     cmd
+}
+
+/// How often [`succeeds_within`] re-checks a child it is waiting on. Matches the
+/// runner's exit-poll cadence: prompt enough for an interactive check, cheap
+/// enough to leave the child undisturbed.
+const CHILD_WAIT_POLL: Duration = Duration::from_millis(50);
+
+/// Run `command` to completion under a hard deadline, reporting only whether it
+/// exited successfully. All three standard streams are closed (the caller wants
+/// a verdict, not output — and an open stdin is exactly what lets a child wait
+/// forever). On deadline the child is killed and the answer is `false`: a probe
+/// that can hang is never worth a hang.
+pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let Ok(mut child) = command.spawn() else {
+        return false;
+    };
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(CHILD_WAIT_POLL),
+            // Deadline reached or the wait itself failed: reap and report no.
+            Ok(None) | Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return false;
+            }
+        }
+    }
 }
 
 /// Spawn `program args` as a process that fully **outlives** ADE — used only for

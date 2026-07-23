@@ -681,10 +681,10 @@ fn resolve_watch_root(root: &str) -> Result<PathBuf, String> {
 /// project switch drops the old project's watcher and re-arms on the new root —
 /// the feed always follows the open workspace.
 #[tauri::command]
-pub fn watch_start(
+pub async fn watch_start(
     app: AppHandle,
     window: WebviewWindow,
-    state: State<WatcherState>,
+    state: State<'_, WatcherState>,
     root: String,
 ) -> Result<(), String> {
     let root = resolve_watch_root(&root)?;
@@ -1090,10 +1090,10 @@ fn drain_burst(
 /// folder it watches, and a handle on a project would be the very thing stopping
 /// that project from being deleted. Re-arming replaces the previous set.
 #[tauri::command]
-pub fn watch_dirs(
+pub async fn watch_dirs(
     app: AppHandle,
     window: WebviewWindow,
-    state: State<WatcherState>,
+    state: State<'_, WatcherState>,
     dirs: Vec<String>,
 ) -> Result<(), String> {
     let label = window.label().to_string();
@@ -1276,9 +1276,9 @@ pub struct FeedDiff {
 /// by construction, so an untracked or ignored file previews like any other, and a
 /// file deleted after being touched shows its baseline as a full removal.
 #[tauri::command]
-pub fn feed_diff(
+pub async fn feed_diff(
     window: WebviewWindow,
-    state: State<WatcherState>,
+    state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<FeedDiff>, String> {
     let Some(watch) = window_watch(&state, window.label()) else {
@@ -1313,9 +1313,9 @@ pub fn feed_diff(
 /// can't be turned into an arbitrary file reader), is gone, or is binary / over
 /// [`MAX_PREVIEW_BYTES`] — the card then keeps its diff and offers no preview.
 #[tauri::command]
-pub fn feed_text(
+pub async fn feed_text(
     window: WebviewWindow,
-    state: State<WatcherState>,
+    state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<String>, String> {
     let Some(watch) = window_watch(&state, window.label()) else {
@@ -1417,9 +1417,9 @@ pub struct FeedImage {
 /// captured baseline like `feed_diff`, so the command can't base64 an arbitrary
 /// file off disk.
 #[tauri::command]
-pub fn feed_image(
+pub async fn feed_image(
     window: WebviewWindow,
-    state: State<WatcherState>,
+    state: State<'_, WatcherState>,
     path: String,
 ) -> Result<Option<FeedImage>, String> {
     let Some(watch) = window_watch(&state, window.label()) else {
@@ -1456,13 +1456,13 @@ pub fn feed_image(
 /// (events for now-ignored paths are dropped; never-recorded ones can't be
 /// resurrected, they simply surface again on their next real change).
 #[tauri::command]
-pub fn feed_ignored(
+pub async fn feed_ignored(
     window: WebviewWindow,
-    state: State<WatcherState>,
+    state: State<'_, WatcherState>,
     paths: Vec<String>,
-) -> Vec<String> {
+) -> Result<Vec<String>, String> {
     let watch = window_watch(&state, window.label());
-    paths
+    Ok(paths
         .into_iter()
         .filter(|candidate| {
             let path = Path::new(candidate);
@@ -1471,7 +1471,7 @@ pub fn feed_ignored(
                     .as_ref()
                     .is_some_and(|watch| excluded_by_ignore_policy(watch, path))
         })
-        .collect()
+        .collect())
 }
 
 pub fn init(app: &AppHandle) {

@@ -22,7 +22,7 @@ pub struct Commit {
 }
 
 #[tauri::command]
-pub fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
+pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
     // A record-start marker (RS) precedes each commit header so we can tell a
     // header line apart from the `--numstat` rows that follow it. The header
     // fields are US-separated as before.
