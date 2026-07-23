@@ -111,6 +111,12 @@ fn json_string_field(json: &str, key: &str) -> Option<String> {
     Some(json[start..start + end].to_string())
 }
 
+/// How long the `opencode db` lookup may take before ADE gives up and spawns a
+/// fresh conversation instead. The child can stall indefinitely — a wedged
+/// sqlite lock from another opencode process, or its CLI deciding to wait on
+/// stdin — and a resume flag is never worth a hang.
+const OPENCODE_DB_LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 /// The newest recorded opencode session for `cwd`, read through opencode's own
 /// `db` subcommand so ADE takes no sqlite dependency for one lookup. Only a
 /// session that actually exists is worth a resume flag: a blind `--continue`
@@ -119,6 +125,10 @@ fn json_string_field(json: &str, key: &str) -> Option<String> {
 /// a never-prompted session records nothing, so there is nothing to reopen.
 /// opencode stores `directory` with forward slashes; compare the normalized,
 /// case-folded forms.
+///
+/// stdin is explicitly closed — with anything readable attached, `opencode db`
+/// can drop into its interactive sqlite shell and wait forever — and the wait
+/// is bounded: on timeout the child is killed and the session spawns fresh.
 fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
     let program = agents::program("opencode")?;
     let directory = cwd.replace('\\', "/").replace('\'', "''");
@@ -127,12 +137,41 @@ fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
          where lower(replace(directory, '\\', '/')) = lower('{directory}') \
          order by time_updated desc limit 1"
     );
-    let output = command(program).args(["db", &query]).output().ok()?;
-    if !output.status.success() {
-        return None;
+    let mut child = command(program)
+        .args(["db", &query])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let stdout = child.stdout.take()?;
+    std::thread::spawn(move || {
+        let mut collected = String::new();
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        while let Ok(read) = reader.read_line(&mut line) {
+            if read == 0 {
+                break;
+            }
+
+            collected.push_str(&line);
+            line.clear();
+        }
+
+        let _ = sender.send(collected);
+    });
+
+    let output = receiver.recv_timeout(OPENCODE_DB_LOOKUP_TIMEOUT).ok();
+    if output.is_none() {
+        // A kill also closes the pipe, so the reader thread ends rather than
+        // leaking alongside the wedged child.
+        let _ = child.kill();
     }
 
-    opencode_session_id(&String::from_utf8_lossy(&output.stdout))
+    let _ = child.wait();
+    opencode_session_id(&output?)
 }
 
 /// The session id in `opencode db`'s tab-separated output — a header line
@@ -151,8 +190,13 @@ fn opencode_session_id(output: &str) -> Option<String> {
 /// directory, empty when the agent has no resume mechanism ADE can drive
 /// (Claude is pinned at spawn via `--session-id` instead) or nothing is
 /// recorded.
+// `async` so Tauri runs this on its worker pool: a synchronous command runs on
+// the MAIN thread, and the opencode lookup shells out — when that child wedged
+// (pre-timeout), the whole window stopped pumping messages ("Not Responding").
+// The lookup itself is additionally time-bounded; async keeps even the bounded
+// wait off the UI thread.
 #[tauri::command]
-pub fn agent_resume_args(command: String, cwd: String) -> Vec<String> {
+pub async fn agent_resume_args(command: String, cwd: String) -> Vec<String> {
     if command == "opencode" {
         return match opencode_session_for_cwd(&cwd) {
             Some(session_id) => vec!["--session".to_string(), session_id],
