@@ -7,7 +7,7 @@
   import { fileExtension, fileTypeBadge } from "@/lib/file-type";
   import { formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { markdownDocument } from "@/lib/markdown";
+  import { markdownDocument, sandboxedHtmlDocument } from "@/lib/markdown";
   import {
     collapseRow,
     emphasized,
@@ -22,6 +22,7 @@
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
+  import { TooltipAttribute, truncationTooltip } from "@/lib/truncation-tooltip";
   import type { FeedDiff, WorkspaceMember } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
@@ -165,7 +166,7 @@
     path: string;
     text: string;
   }): string {
-    return isMarkdownPath(path) ? markdownDocument(text) : text;
+    return isMarkdownPath(path) ? markdownDocument(text) : sandboxedHtmlDocument(text);
   }
 
   // Switch a card to its Preview pane, fetching the file's current text on the
@@ -295,6 +296,18 @@
   // as the fallback — see change-groups), and let the chip row narrow to one
   // project and the "File type" filter narrow to a set of file extensions.
   let activeGroupId = $state<string | null>(null);
+
+  // A card's dir line ellipsizes in the narrow panel; only while actually
+  // clipped does the bubble appear — and it carries the FULL path, since the
+  // clipped parent dir alone is exactly what the reader couldn't see.
+  function clippedPathTooltip(path: string) {
+    return truncationTooltip({
+      text: parentDir(path) ?? path,
+      tooltip: path,
+      visible: true,
+      attribute: TooltipAttribute.Bubble
+    });
+  }
 
   interface ExtensionCount {
     extension: string;
@@ -689,7 +702,7 @@
                   </span>
                   <span class="summary">{ev.summary}</span>
                   <span class="meta">
-                    <span class="path">{parentDir(ev.path) ?? ev.path}</span>
+                    <span class="path" {@attach clippedPathTooltip(ev.path)}>{parentDir(ev.path) ?? ev.path}</span>
                     <span class="stat">
                       {#if ev.added}
                         <span class="add">+{formatCount(ev.added)}</span>

@@ -5,29 +5,40 @@ import type { Attachment } from "svelte/attachments";
 // would.
 const measureContext = document.createElement("canvas").getContext("2d");
 
-/** Attachment that surfaces `text` as a native `title` tooltip only while the
- *  element's box is too narrow to show it in full — measured with the Canvas
- *  text-metrics API against the element's own font. `visible` is the switcher's
- *  open state: the check re-runs when it flips true, which is both the only moment
- *  a row inside the (closed = `display:none`) popover has a real width to measure
- *  and the point a stale title would matter — so no observer is needed. `title`
- *  (not the CSS `[data-tooltip]` bubble) because the trigger sits inside a popover,
- *  whose top layer traps a `position: fixed` pseudo and inflates the panel's scroll
- *  width; the OS-drawn `title` floats above all UI and never affects layout. */
-export function truncationTooltip({ text, visible }: {
+/** Which attribute carries the tooltip. `title` (the OS-drawn tooltip) for an
+ *  element inside a popover — the top layer traps the CSS bubble's fixed pseudo
+ *  and inflates the panel's scroll width; the `data-tooltip` CSS bubble for a
+ *  normal surface, where it matches the app's own tooltip styling. */
+export const TooltipAttribute = {
+  Title: "title",
+  Bubble: "data-tooltip"
+} as const;
+export type TooltipAttribute = (typeof TooltipAttribute)[keyof typeof TooltipAttribute];
+
+/** Attachment that surfaces a tooltip only while the element's box is too
+ *  narrow to show `text` in full — measured with the Canvas text-metrics API
+ *  against the element's own font. `tooltip` is what the tooltip says (defaults
+ *  to the measured `text` — pass a fuller form, e.g. the whole path behind a
+ *  clipped parent-dir). `visible` is the host's shown state: the check re-runs
+ *  when it flips true, which is both the only moment a row inside a
+ *  (closed = `display:none`) popover has a real width to measure and the point
+ *  a stale tooltip would matter — so no observer is needed. */
+export function truncationTooltip({ text, tooltip = text, visible, attribute = TooltipAttribute.Title }: {
   text: string;
+  tooltip?: string;
   visible: boolean;
+  attribute?: TooltipAttribute;
 }): Attachment {
   return element => {
     if (visible && isTextClipped({
       element,
       text
     })) {
-      element.setAttribute("title", text);
+      element.setAttribute(attribute, tooltip);
       return;
     }
 
-    element.removeAttribute("title");
+    element.removeAttribute(attribute);
   };
 }
 
