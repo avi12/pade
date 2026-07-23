@@ -10,11 +10,22 @@ export const TooltipAttribute = {
 } as const;
 export type TooltipAttribute = (typeof TooltipAttribute)[keyof typeof TooltipAttribute];
 
+/** A tooltip text, or a thunk for one that must stay live (e.g. it names the
+ *  currently ranked editor, which can change after the attachment mounts). */
+type TooltipText = string | (() => string);
+
+function resolve(text: TooltipText): string {
+  return typeof text === "function" ? text() : text;
+}
+
 /** Attachment that surfaces `tooltip` only while the element's text is
- *  actually clipped (ellipsized), so an already-readable line never grows a
- *  redundant bubble. Pass a `tooltip` fuller than the visible text where the
- *  clipped form loses information (a feed card shows the parent dir, the
- *  tooltip the whole path).
+ *  actually clipped (ellipsized) — an already-readable line never grows a
+ *  redundant bubble. `restingTooltip`, when given, is what the unclipped state
+ *  shows instead (an action hint like "Open in WebStorm" stays useful without
+ *  the redundant path); omitted, the unclipped state has no tooltip.
+ *  `measureSelector` points at the descendant that actually ellipsizes when
+ *  the clipping child differs from the hover/tooltip host (a button whose
+ *  inner span clips).
  *
  *  The check runs on `pointerenter` — the one moment that both guarantees a
  *  settled layout (a mount-time measure can read a mid-layout width and brand
@@ -23,14 +34,24 @@ export type TooltipAttribute = (typeof TooltipAttribute)[keyof typeof TooltipAtt
  *  styles resolve after the handler). With real layout in hand the DOM's own
  *  overflow answer is exact — no font re-measuring that misses letter-spacing —
  *  and re-checking per hover tracks panel resizes for free. */
-export function truncationTooltip({ tooltip, attribute = TooltipAttribute.Title }: {
-  tooltip: string;
+export function truncationTooltip({ tooltip, restingTooltip, measureSelector, attribute = TooltipAttribute.Title }: {
+  tooltip: TooltipText;
+  restingTooltip?: TooltipText;
+  measureSelector?: string;
   attribute?: TooltipAttribute;
 }): Attachment {
   return element => {
     function measure() {
-      if (element.scrollWidth > element.clientWidth) {
-        element.setAttribute(attribute, tooltip);
+      const measured = (measureSelector ? element.querySelector(measureSelector) : null) ?? element;
+      if (measured.scrollWidth > measured.clientWidth) {
+        element.setAttribute(attribute, resolve(tooltip));
+        return;
+      }
+
+      // An empty resting text (e.g. "no editor ranked yet") means no bubble.
+      const resting = restingTooltip === undefined ? "" : resolve(restingTooltip);
+      if (resting) {
+        element.setAttribute(attribute, resting);
         return;
       }
 

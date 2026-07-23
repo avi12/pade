@@ -307,6 +307,18 @@
     });
   }
 
+  // The expanded card's reveal button: with its path clipped the tooltip
+  // carries action + full path; readable, just the action hint — the thunks
+  // keep the ranked editor's name live past the attachment's mount.
+  function revealTooltip(path: string) {
+    return truncationTooltip({
+      tooltip: () => (revealEditor ? `Open in ${revealEditor.label} · ${path}` : path),
+      restingTooltip: () => (revealEditor ? `Open in ${revealEditor.label}` : ""),
+      measureSelector: ".fpath",
+      attribute: TooltipAttribute.Bubble
+    });
+  }
+
   interface ExtensionCount {
     extension: string;
     count: number;
@@ -717,7 +729,7 @@
                     <div class="bar">
                       <button
                         class="filebtn"
-                        data-tooltip={revealEditor ? `Open in ${revealEditor.label} · ${ev.path}` : ev.path}
+                        {@attach revealTooltip(ev.path)}
                         disabled={!revealEditor}
                         onclick={() => openInEditor({
                           path: ev.path,
@@ -725,10 +737,11 @@
                         })}
                       >
                         <Icon name="external" size={14} />
-                        <!-- The path is usually clipped in this narrow panel, so the full
-                             path (with the open-in action) rides in the tooltip — the shared
-                             CSS `[data-tooltip]` bubble, which caps at 320px + wraps and
-                             anchor-positions with a flip-up fallback. -->
+                        <!-- Usually clipped in this narrow panel; the tooltip then carries
+                             the full path with the open-in action, and just the action when
+                             the path already reads in full — the shared CSS `[data-tooltip]`
+                             bubble, which caps at 320px + wraps and anchor-positions with a
+                             flip-up fallback. -->
                         <span class="fpath">{ev.path}</span>
                       </button>
                       <span class="spacer"></span>
