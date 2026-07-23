@@ -255,6 +255,11 @@
   // probe is answered by ConPTY, not by ADE.)
   const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
 
+  // Agents whose TUI reads the OS clipboard on any paste event, so a pasted
+  // protected newline must arrive as a raw byte instead (see the Shift+Enter
+  // branch in the key handler).
+  const PASTE_READS_CLIPBOARD_AGENTS = new Set<string>([AgentId.Opencode]);
+
   async function writeSchemeReport() {
     await writeToPty(colorSchemeReport(appearance.scheme));
   }
@@ -1142,6 +1147,15 @@
         // preventDefault stops the browser inserting a newline into xterm's hidden
         // textarea, which xterm would forward to the PTY as a submit.
         event.preventDefault();
+        if (PASTE_READS_CLIPBOARD_AGENTS.has(session.agent.id)) {
+          // OpenCode reacts to ANY bracketed paste by also consulting the OS
+          // clipboard — a lingering image would be attached alongside the
+          // newline. A raw LF is its own documented insert-newline binding
+          // (ctrl+j), so the newline lands without a paste event.
+          writeToPty(PROMPT_NEWLINE);
+          return false;
+        }
+
         // `paste` is deliberate: when any agent's TUI enables bracketed paste,
         // xterm marks this as pasted text and the newline stays in its composer.
         // Unlike CSI-u, this does not depend on an individual agent decoding a
