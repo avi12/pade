@@ -111,11 +111,17 @@ fn json_string_field(json: &str, key: &str) -> Option<String> {
 }
 
 /// The extra launch arguments that reopen the agent's recorded conversation for
-/// `cwd` — `["resume", "<uuid>"]` for Codex with a matching rollout, empty when
-/// the agent has no resume mechanism ADE can drive (Claude is pinned at spawn
-/// via `--session-id` instead) or nothing is recorded.
+/// `cwd` — `["resume", "<uuid>"]` for Codex with a matching rollout,
+/// `["--continue"]` for opencode (it keys "the last session" off the working
+/// directory itself, so no id lookup is needed), empty when the agent has no
+/// resume mechanism ADE can drive (Claude is pinned at spawn via `--session-id`
+/// instead) or nothing is recorded.
 #[tauri::command]
 pub fn agent_resume_args(command: String, cwd: String) -> Vec<String> {
+    if command == "opencode" {
+        return vec!["--continue".to_string()];
+    }
+
     if command != "codex" {
         return Vec::new();
     }

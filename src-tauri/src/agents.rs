@@ -209,26 +209,33 @@ const REGISTRY: &[AgentDef] = &[
         // opencode's yolo switch. Its TUI owns the alternate screen by default,
         // so no fullscreen pin is needed.
         session_args: &["--auto"],
-        // opencode exposes no per-launch theme flag or env var; its bundled
-        // `system` theme instead derives everything from the terminal — default
-        // fg/bg left as "none" and the ANSI 0–15 palette, both of which ADE
-        // already themes per scheme in the xterm host. A background probe also
-        // runs for the generated grayscale, and under Windows ConPTY that probe
-        // is answered by the pseudoconsole (see theming.rs), so `COLORFGBG` —
-        // the conventional detection fallback ConPTY can't swallow — is set per
-        // scheme as a best-effort hint, same pair as Claude. Never the user's
-        // global tui.json `theme`, which they own.
-        theme_config: Some(ThemeConfig::SpawnEnv {
-            light: &[("COLORFGBG", "0;15")],
-            dark: &[("COLORFGBG", "15;0")],
+        // opencode exposes no per-launch theme flag or env var, and it decides
+        // light vs dark ONLY from OSC 10/11 query replies — which under Windows
+        // ConPTY are answered by the console layer's hard-coded black buffer,
+        // so on a light ADE it rendered dark and NO env var, config key, or
+        // later `?997` report can flip its mode (verified empirically). The fix
+        // sidesteps mode detection entirely: `OPENCODE_TUI_CONFIG` points at a
+        // PADE-owned tui config that opencode merges OVER the user's own
+        // ~/.config/opencode/tui.json (its logs show user file order=1, env
+        // file order=2 — keybinds survive, only `theme` is overridden),
+        // selecting the mode-independent `pade-light` custom theme (plain
+        // string colors, so the broken detection is irrelevant; theming.rs
+        // ensures the theme file exists). Dark needs no override: the poisoned
+        // probe always yields dark, which is correct on a dark ADE — the user's
+        // own theme renders its dark variant.
+        theme_config: Some(ThemeConfig::SpawnTuiConfig {
+            variable: "OPENCODE_TUI_CONFIG",
+            light: Some(r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#),
+            dark: None,
         }),
         // `--session <id>` only *continues* an existing session; it cannot create
         // one with a caller-chosen id, so restart-to-resume has no handle here.
         session_id_flag: None,
         env: &[],
-        // The `system` theme paints no opaque boxes of its own — it inherits the
-        // terminal palette, so the ConPTY black-buffer probe never shows through.
-        needs_light_console_fix: false,
+        // The `pade-light` theme fixes the colors, but ConPTY resize refills
+        // still paint from the console buffer — so a light ADE keeps the
+        // console-buffer flip (like Codex) to stop dark flashes on reflow.
+        needs_light_console_fix: true,
     },
     AgentDef {
         id: "copilot",
@@ -565,24 +572,35 @@ mod tests {
 
     /// opencode's whole registry surface: `run` is its headless one-shot,
     /// `--auto` its skip-permissions mode, and its `system` theme follows the
-    /// terminal — so ADE only hints the scheme via `COLORFGBG` (the same pair
-    /// as Claude), with no session-id handle and no console-buffer fix needed.
+    /// terminal — but `ConPTY` poisons the OSC 10/11 probe its light/dark
+    /// detection rides, so a light ADE forces the mode-independent `pade-light`
+    /// theme via a per-spawn `OPENCODE_TUI_CONFIG` file while dark needs no
+    /// override. No session-id handle.
     #[test]
     fn opencode_runs_headless_via_run_and_autonomous_via_auto() {
         assert_eq!(oneshot_invocation("opencode"), Some(&["run"][..]));
         assert_eq!(session_args("opencode"), &["--auto"]);
-        assert!(matches!(
-            theme_config("opencode"),
-            Some(ThemeConfig::SpawnEnv {
-                light: &[("COLORFGBG", "0;15")],
-                dark: &[("COLORFGBG", "15;0")],
-            })
-        ));
+        let Some(ThemeConfig::SpawnTuiConfig {
+            variable,
+            light,
+            dark,
+        }) = theme_config("opencode")
+        else {
+            panic!("opencode should force its theme via SpawnTuiConfig");
+        };
+        assert_eq!(*variable, "OPENCODE_TUI_CONFIG");
+        assert_eq!(
+            *light,
+            Some(r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#)
+        );
+        assert!(dark.is_none());
         // `--session <id>` only continues an existing session, so opencode has
         // no restart-to-resume handle.
         assert!(session_id_flag("opencode").is_none());
         assert!(spawn_env("opencode").is_empty());
-        assert!(!needs_light_console_fix("opencode"));
+        // ConPTY resize refills paint from the console buffer, so a light ADE
+        // keeps the console-buffer flip (like Codex).
+        assert!(needs_light_console_fix("opencode"));
         // Installed under its own name only — no installer aliases.
         assert_eq!(installed_names("opencode"), vec!["opencode"]);
     }

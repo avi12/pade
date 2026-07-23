@@ -412,6 +412,12 @@ fn build_command(
         for (key, value) in crate::theming::spawn_env(&program, scheme) {
             cmd.env(key, value);
         }
+        // …and the tui-config file pair for file-themed CLIs (opencode):
+        // theming.rs materializes the config on disk and returns the env pair
+        // pointing at it. Filesystem I/O happens here, before any session lock.
+        for (key, value) in crate::theming::spawn_tui_config_env(&program, scheme) {
+            cmd.env(key, value);
+        }
     }
     // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
     // tell from inside a bare ConPTY: Ink/terminal-link probe the environment

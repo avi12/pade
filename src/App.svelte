@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { AgentId } from "@/lib/agent-icon";
   import AppMenu from "@/lib/AppMenu.svelte";
   import { createAutoNamer } from "@/lib/auto-name";
   import {
@@ -1131,14 +1132,16 @@
     activeId = relaid.activeId;
   }
 
-  // Codex has no live theme channel: its syntax theme and (on Windows + light)
-  // the console-buffer ground are fixed at spawn, so after a scheme flip a
-  // running Codex keeps painting the OLD scheme — light boxes on a dark app,
-  // and every ConPTY resize re-fills from the stale buffer. Claude follows the
-  // live ?997 relay and needs nothing here. Restart the sessions that are
-  // sitting idle, each resuming its own recorded conversation (`codex resume
-  // <uuid>` via agent_resume_args); a busy Codex is left alone rather than
-  // severed mid-task — it re-themes on its next natural launch.
+  // Codex and opencode have no live theme channel: their theme is fixed at
+  // spawn (Codex's syntax theme and console-buffer ground; opencode's forced
+  // tui-config theme — its own light/dark probe is answered by ConPTY, so the
+  // spawn-time theme is the only truthful one). After a scheme flip a running
+  // one keeps painting the OLD scheme. Claude follows the live ?997 relay and
+  // needs nothing here. Restart the sessions that are sitting idle, each
+  // resuming its own recorded conversation (`codex resume <uuid>` /
+  // `opencode --continue` via agent_resume_args); a busy agent is left alone
+  // rather than severed mid-task — it re-themes on its next natural launch.
+  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
   let lastAgentThemedScheme = appearance.scheme;
   $effect(() => {
     const { scheme } = appearance;
@@ -1151,7 +1154,7 @@
   });
 
   async function restartSpawnThemedAgents() {
-    const targets = sessions.filter(s => s.agent.id === "codex" && isSessionIdle(s.id));
+    const targets = sessions.filter(s => SPAWN_THEMED_AGENTS.has(s.agent.id) && isSessionIdle(s.id));
     if (targets.length === 0) {
       return;
     }
