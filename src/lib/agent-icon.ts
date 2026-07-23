@@ -9,6 +9,7 @@ export const AgentId = {
   Grok: "grok",
   Antigravity: "antigravity",
   Cursor: "cursor",
+  Opencode: "opencode",
   Aider: "aider"
 } as const;
 export type AgentId = (typeof AgentId)[keyof typeof AgentId];
@@ -22,7 +23,8 @@ const AGENT_ICONS: Record<string, IconName> = {
   [AgentId.Copilot]: "copilot",
   [AgentId.Grok]: "grok",
   [AgentId.Antigravity]: "antigravity",
-  [AgentId.Cursor]: "cursor"
+  [AgentId.Cursor]: "cursor",
+  [AgentId.Opencode]: "opencode"
 };
 const FALLBACK_ICON: IconName = "terminal";
 

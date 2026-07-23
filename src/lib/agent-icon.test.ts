@@ -9,6 +9,7 @@ describe("agentIconName", () => {
     expect(agentIconName("grok")).toBe("grok");
     expect(agentIconName("antigravity")).toBe("antigravity");
     expect(agentIconName("cursor")).toBe("cursor");
+    expect(agentIconName("opencode")).toBe("opencode");
   });
 
   it("falls back to the terminal glyph for an agent with no brand mark (aider) or an unknown id", () => {

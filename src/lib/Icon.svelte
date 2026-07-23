@@ -14,7 +14,7 @@
     "copilot", "cplusplus", "csharp", "css", "cursor", "external", "feed",
     "folder", "folderPlus", "git", "github", "go", "goland", "grip", "grok",
     "history", "html", "idea", "image", "java", "javascript", "json",
-    "markdown", "maximize", "minimize", "monitor", "moon", "more", "pencil",
+    "markdown", "maximize", "minimize", "monitor", "moon", "more", "opencode", "pencil",
     "php", "phpstorm", "plus", "pycharm", "python", "refresh", "rider", "ruby",
     "rubymine", "rust", "rustrover", "search", "shell", "sliders", "sparkles",
     "star", "sublime", "sun", "svelte", "swap", "terminal", "toml", "trash",

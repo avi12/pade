@@ -198,6 +198,39 @@ const REGISTRY: &[AgentDef] = &[
         needs_light_console_fix: true,
     },
     AgentDef {
+        id: "opencode",
+        label: "opencode",
+        command: "opencode",
+        aliases: &[],
+        // `opencode run <message>` answers one prompt headlessly and exits, with
+        // the prompt appended as the final arg — the shape auto-naming drives.
+        oneshot: Some(&["run"]),
+        // `--auto` auto-approves every permission not explicitly denied —
+        // opencode's yolo switch. Its TUI owns the alternate screen by default,
+        // so no fullscreen pin is needed.
+        session_args: &["--auto"],
+        // opencode exposes no per-launch theme flag or env var; its bundled
+        // `system` theme instead derives everything from the terminal — default
+        // fg/bg left as "none" and the ANSI 0–15 palette, both of which ADE
+        // already themes per scheme in the xterm host. A background probe also
+        // runs for the generated grayscale, and under Windows ConPTY that probe
+        // is answered by the pseudoconsole (see theming.rs), so `COLORFGBG` —
+        // the conventional detection fallback ConPTY can't swallow — is set per
+        // scheme as a best-effort hint, same pair as Claude. Never the user's
+        // global tui.json `theme`, which they own.
+        theme_config: Some(ThemeConfig::SpawnEnv {
+            light: &[("COLORFGBG", "0;15")],
+            dark: &[("COLORFGBG", "15;0")],
+        }),
+        // `--session <id>` only *continues* an existing session; it cannot create
+        // one with a caller-chosen id, so restart-to-resume has no handle here.
+        session_id_flag: None,
+        env: &[],
+        // The `system` theme paints no opaque boxes of its own — it inherits the
+        // terminal palette, so the ConPTY black-buffer probe never shows through.
+        needs_light_console_fix: false,
+    },
+    AgentDef {
         id: "copilot",
         label: "Copilot CLI",
         // GitHub's standalone Copilot CLI (`npm i -g @github/copilot`) installs a
@@ -432,7 +465,8 @@ fn detect_installed() -> Vec<Agent> {
 #[cfg(test)]
 mod tests {
     use super::{
-        installed_names, oneshot_invocation, session_args, session_id_flag, spawn_env, theme_config,
+        installed_names, needs_light_console_fix, oneshot_invocation, session_args,
+        session_id_flag, spawn_env, theme_config,
     };
     use crate::theming::ThemeConfig;
 
@@ -527,5 +561,29 @@ mod tests {
             Some(&["--no-auto-update", "-p"][..])
         );
         assert_eq!(spawn_env("claude"), &[("CLAUDE_CODE_NO_FLICKER", "1")]);
+    }
+
+    /// opencode's whole registry surface: `run` is its headless one-shot,
+    /// `--auto` its skip-permissions mode, and its `system` theme follows the
+    /// terminal — so ADE only hints the scheme via `COLORFGBG` (the same pair
+    /// as Claude), with no session-id handle and no console-buffer fix needed.
+    #[test]
+    fn opencode_runs_headless_via_run_and_autonomous_via_auto() {
+        assert_eq!(oneshot_invocation("opencode"), Some(&["run"][..]));
+        assert_eq!(session_args("opencode"), &["--auto"]);
+        assert!(matches!(
+            theme_config("opencode"),
+            Some(ThemeConfig::SpawnEnv {
+                light: &[("COLORFGBG", "0;15")],
+                dark: &[("COLORFGBG", "15;0")],
+            })
+        ));
+        // `--session <id>` only continues an existing session, so opencode has
+        // no restart-to-resume handle.
+        assert!(session_id_flag("opencode").is_none());
+        assert!(spawn_env("opencode").is_empty());
+        assert!(!needs_light_console_fix("opencode"));
+        // Installed under its own name only — no installer aliases.
+        assert_eq!(installed_names("opencode"), vec!["opencode"]);
     }
 }
