@@ -15,6 +15,7 @@
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
+  import { AgentId } from "@/lib/agent-icon";
   import { clipboard, os, pty } from "@/lib/bridge";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
@@ -238,13 +239,39 @@
   const ENTER_ALTERNATE_SCREEN = `${CONTROL_SEQUENCE_INTRODUCER}${ALTERNATE_SCREEN_PRIVATE_MODE}${SET_MODE}`;
 
   // A PTY read can cut a control sequence in half, so retain one complete
-  // sequence's worth of tail while looking for Claude's DECSET 2031 handshake.
+  // sequence's worth of tail while looking for the agent's DECSET 2031 handshake
+  // (Claude's `auto` theme and opencode's `system` theme both subscribe). Any
+  // agent that enables the channel gets the truthful scheme report — the
+  // handshake itself is the opt-in, not the agent's id.
   const COLOR_SCHEME_ENABLE_LENGTH = "\x1b[?2031h".length;
   let colorSchemeNotificationTail = "";
   let colorSchemeNotificationsEnabled = false;
 
+  // Agents whose TUI subscribes to DEC 2031 color-scheme reports at startup
+  // (Claude's `auto` theme, opencode's renderer). The re-attach path treats
+  // them as subscribed even when the handshake was trimmed out of the replayed
+  // history. (The report only carries the scheme; opencode's own light/dark
+  // *detection* is spawn-themed instead — see agents.rs — because its mode
+  // probe is answered by ConPTY, not by ADE.)
+  const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
+
+  async function writeSchemeReport() {
+    await writeToPty(colorSchemeReport(appearance.scheme));
+  }
+
+  async function reportSchemeToSubscribedAgent() {
+    const listensWithoutHandshake =
+      !colorSchemeNotificationsEnabled && SCHEME_SUBSCRIBED_AGENTS.has(session.agent.id);
+    if (!listensWithoutHandshake) {
+      return;
+    }
+
+    colorSchemeNotificationsEnabled = true;
+    await writeSchemeReport();
+  }
+
   function relayColorSchemeAfterSubscribe(data: string) {
-    if (session.agent.id !== "claude" || colorSchemeNotificationsEnabled) {
+    if (colorSchemeNotificationsEnabled) {
       return;
     }
 
@@ -256,7 +283,7 @@
     }
 
     colorSchemeNotificationsEnabled = true;
-    void writeToPty(colorSchemeReport(appearance.scheme));
+    writeSchemeReport();
   }
 
   // Wheel-scroll a fullscreen agent's own transcript. Claude Code's renderer
@@ -410,11 +437,12 @@
   });
 
   // Re-theme xterm whenever the app scheme changes. The terminal palette changes
-  // in place, so it is safe for every live session. Claude also subscribes to
-  // DECSET 2031 color-scheme reports in its `auto` theme: xterm does not emit one
-  // merely because `options.theme` changed, so relay the standard report through
-  // its PTY after repainting. It reaches the already-running Claude process and
-  // redraws its own TUI without a restart or context loss.
+  // in place, so it is safe for every live session. An agent that subscribed to
+  // DECSET 2031 color-scheme reports (Claude's `auto` theme, opencode's `system`
+  // theme) also gets the standard report relayed through its PTY after
+  // repainting: xterm does not emit one merely because `options.theme` changed.
+  // It reaches the already-running process and redraws its own TUI without a
+  // restart or context loss.
   $effect(() => {
     // Reading the scheme is what subscribes this effect to it, so a light/dark
     // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
@@ -423,8 +451,8 @@
     if (term && scheme) {
       term.options.theme = readXtermTheme();
 
-      if (session.agent.id === "claude") {
-        void writeToPty(colorSchemeReport(scheme));
+      if (colorSchemeNotificationsEnabled) {
+        writeSchemeReport();
       }
     }
   });
@@ -1171,6 +1199,7 @@
           cols: term.cols,
           rows: term.rows
         });
+        reportSchemeToSubscribedAgent();
       }
     });
 
@@ -1316,17 +1345,12 @@
       });
 
       // A session with history was already running before this terminal
-      // attached, so Claude's DECSET 2031 subscribe happened at its own
-      // startup — usually trimmed out of the replay, so the handshake watcher
-      // above never sees it. Treat the running process as subscribed and
-      // report the current scheme: its spawn-time COLORFGBG (or a spawn that
-      // predates it) may disagree with the palette this app is painting.
-      const attachedToRunningClaude =
-        session.agent.id === "claude" && !colorSchemeNotificationsEnabled;
-      if (attachedToRunningClaude) {
-        colorSchemeNotificationsEnabled = true;
-        await writeToPty(colorSchemeReport(appearance.scheme));
-      }
+      // attached — any handshake happened at its own startup, usually trimmed
+      // out of the replay, so the watcher above never sees it. Report the
+      // current scheme to the agents known to listen: their spawn-time
+      // COLORFGBG (or a spawn that predates it) may disagree with the palette
+      // this app is painting.
+      await reportSchemeToSubscribedAgent();
 
       // A session with history to replay was already running before this
       // terminal attached — it sits at its prompt, not "starting". A
