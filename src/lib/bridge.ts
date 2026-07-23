@@ -132,7 +132,10 @@ export const os = {
 /** System clipboard — read for Ctrl+V paste, write for Ctrl+C copy. */
 export const clipboard = {
   readText: () => readText(),
-  writeText: (text: string) => writeText(text)
+  writeText: (text: string) => writeText(text),
+  /** When the clipboard holds a bitmap, the backend saves it as a PNG in a
+   *  bounded temp folder and returns the absolute path; null when text-only. */
+  saveImage: () => call("clipboard_image_save", z.string().nullable())
 };
 
 /** Multi-window — spawn a fresh app window targeting a project, an empty picker,
@@ -173,7 +176,7 @@ export const windows = {
 export const design = {
   tools: (agent: string) => call("design_tools", z.array(DesignTool), { agent }),
   /** Open the picked tool in the companion PADE window (native — iframes blocked). */
-  open: (url: string) => run("design_open", { url })
+  open: (id: string) => run("design_open", { id })
 };
 
 /** Discord Rich Presence — report PADE ("Playing PADE") on the user's Discord

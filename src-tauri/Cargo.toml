@@ -36,6 +36,10 @@ portable-pty = "0.8"
 notify = "6"
 anyhow = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
+# PNG encoding for clipboard-image paste. Already in the tree transitively
+# (arboard → image deps), so this adds no new supply-chain surface; the heavy
+# `image` crate stays out.
+png = "0.18"
 
 [profile.release]
 codegen-units = 1

@@ -1101,6 +1101,15 @@
 
     async function pasteClipboard() {
       try {
+        // An image on the clipboard beats text: the backend saves it as a PNG
+        // and the pasted *path* is what agent composers attach. The trailing
+        // space makes the path a complete token for the agent's parser.
+        const imagePath = await clipboard.saveImage();
+        if (imagePath) {
+          term.paste(`${imagePath} `);
+          return;
+        }
+
         const text = await clipboard.readText();
         if (text) {
           // paste (not write) so xterm wraps it in bracketed-paste markers when the

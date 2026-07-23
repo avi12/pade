@@ -2664,6 +2664,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "notify",
+ "png 0.18.1",
  "portable-pty",
  "rusqlite",
  "serde",

@@ -1,4 +1,5 @@
 mod agents;
+mod clipboard;
 mod config;
 mod contextmenu;
 #[cfg(windows)]
@@ -37,14 +38,12 @@ pub fn run() {
     #[cfg(windows)]
     {
         let mut browser_arguments = Vec::new();
-        // Dev-only: expose WebView2's DevTools protocol (CDP) on a fixed port so
-        // tools — chrome-devtools-mcp, a raw CDP client — can drive the live app
-        // for UI checks. Compiled out of release builds. `--remote-allow-origins=*`
-        // lets modern Chromium accept the WebSocket CDP connection; the port also
-        // opens the webview to any local process, which is why this stays gated
-        // behind debug_assertions.
+        // Dev-only and explicit opt-in: CDP lets any local process control the
+        // privileged webview, so a normal debug build must not expose it.
         #[cfg(debug_assertions)]
-        browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*");
+        if std::env::var("PADE_ENABLE_CDP").is_ok_and(|value| value == "1") {
+            browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*");
+        }
         // Opt-in software rendering: when another process saturates the GPU (a
         // game), the webview's composited frames queue behind it and every UI
         // interaction stalls on the commits. `--disable-gpu` renders on the CPU
@@ -96,6 +95,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
+            clipboard::clipboard_image_save,
             contextmenu::context_menu_register,
             contextmenu::context_menu_unregister,
             contextmenu::context_menu_status,
