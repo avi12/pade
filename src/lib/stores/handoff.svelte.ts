@@ -16,7 +16,7 @@ import { submittedPrompt } from "@/lib/terminal-input";
 import { SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { SvelteSet } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 // Generous: an agent at a near-full context writes its handoff slowly, and a
 // timeout that beats the write used to strand the successor without a doc.
@@ -177,7 +177,7 @@ export function createAutoHandoff(host: HandoffHost) {
   // prompt-noise for an agent that answers without ever writing the file;
   // after the last attempt the session stays marked and keeps running.
   const HANDOFF_ATTEMPT_LIMIT = 3;
-  const handoffAttempts = new Map<string, number>();
+  const handoffAttempts = new SvelteMap<string, number>();
 
   // In-flight waitForFile resources. A handoff can pend up to 120s, so its
   // feed listener + timers must be torn down if the shell unmounts first —
