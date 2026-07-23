@@ -199,7 +199,7 @@ const REGISTRY: &[AgentDef] = &[
     },
     AgentDef {
         id: "opencode",
-        label: "opencode",
+        label: "OpenCode",
         command: "opencode",
         aliases: &[],
         // `opencode run <message>` answers one prompt headlessly and exits, with
