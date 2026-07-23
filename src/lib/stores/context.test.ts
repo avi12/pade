@@ -43,6 +43,24 @@ describe("contextPct via observeContext", () => {
     expect(contextPct("used-form")).toBe(45);
   });
 
+  it("reads OpenCode's footer percent even with main-pane text on the row", () => {
+    observeContext({
+      id: "opencode-footer",
+      chunk: "~ Writing command...\n342.4K (68%)  ctrl+p commands"
+    });
+
+    expect(contextPct("opencode-footer")).toBe(68);
+  });
+
+  it("ignores a bare parenthesized percent with no footer anchor", () => {
+    observeContextScreen({
+      id: "bare-percent",
+      text: "coverage rose to 40K (12%) this week"
+    });
+
+    expect(measuredContextPct("bare-percent")).toBeNull();
+  });
+
   it("trusts OpenCode's sidebar 'Context N tokens P% used' exactly", () => {
     observeContext({
       id: "opencode-sidebar",

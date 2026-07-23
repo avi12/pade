@@ -52,8 +52,14 @@ function scaleTokens(num: string, suffix: string | undefined): number | null {
 }
 
 // Match the common shapes an agent CLI prints and normalize to "percent USED".
-// OpenCode's status sidebar prints the one exact form worth trusting above the
-// loose heuristics: "Context 14,479 tokens 3% used".
+// OpenCode's footer prints its own percent-of-window on one row, uniquely
+// anchored by the hint that follows it — "342.4K (68%)  ctrl+p commands".
+// The one indicator that never splits: the status sidebar's "Context …
+// tokens … % used" spans separate terminal rows with main-pane text
+// interleaved between them, so a joined-rows parse misses it live.
+const FOOTER_USED_RE = /[\d,.]+\s*(?:k|m)?\s*\((\d{1,3})\s*%\)\s*ctrl\+p/;
+// OpenCode's status sidebar, when its pieces land contiguously (a narrow
+// pane, a copy-paste): "Context 14,479 tokens 3% used".
 const SIDEBAR_USED_RE = /context\s+[\d,.]+\s*(?:k|m)?\s*tokens\s+(\d{1,3})\s*%\s*used/;
 // The bare "left … N%" arm needs a context/window anchor: an agent transcript
 // can carry arbitrary pasted content (CSS with `left:` and percentages dumped
@@ -77,6 +83,12 @@ const RATIO_STRIP_RE = /[\d,.]+\s*(?:k|m)?\s*\/\s*[\d,.]+\s*(?:k|m)?\s*tokens\b/
 /** Best-effort parse of a context "percent used" from a chunk of agent output. */
 function parseUsedPct(text: string): number | null {
   const lower = text.toLowerCase();
+
+  const footerUsed = lower.match(FOOTER_USED_RE);
+  if (footerUsed) {
+    const pct = Number(footerUsed[1]);
+    return Number.isFinite(pct) ? Math.min(100, pct) : null;
+  }
 
   const sidebarUsed = lower.match(SIDEBAR_USED_RE);
   if (sidebarUsed) {
