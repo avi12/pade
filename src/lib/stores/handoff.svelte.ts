@@ -142,9 +142,35 @@ export interface HandoffHost {
 /** The auto-handoff machinery, scoped to one app shell. The shell calls
  *  `check()` from a `$effect` and `dispose()` on destroy; `note` is the status
  *  line to show while a handoff is in flight ("" when idle). */
+// The in-flight marker's durable twin. The in-memory set dies with the module
+// (a window reload, an HMR swap of anything in its import chain), and a scan
+// running on the fresh instance re-prompted a session whose handoff request
+// was already sitting in the agent's queue — the user watched the same
+// request queue twice. sessionStorage survives both resets and still scopes
+// to this window's lifetime, matching the sessions themselves.
+const HANDOFF_MARKER_PREFIX = "pade-handoff-inflight:";
+
+function persistentMarker(sessionId: string): string {
+  return `${HANDOFF_MARKER_PREFIX}${sessionId}`;
+}
+
 export function createAutoHandoff(host: HandoffHost) {
   const handingOff = new SvelteSet<string>();
   let note = $state("");
+
+  function markHandingOff(sessionId: string) {
+    handingOff.add(sessionId);
+    sessionStorage.setItem(persistentMarker(sessionId), "1");
+  }
+
+  function unmarkHandingOff(sessionId: string) {
+    handingOff.delete(sessionId);
+    sessionStorage.removeItem(persistentMarker(sessionId));
+  }
+
+  function isHandingOff(sessionId: string): boolean {
+    return handingOff.has(sessionId) || sessionStorage.getItem(persistentMarker(sessionId)) !== null;
+  }
 
   // In-flight waitForFile resources. A handoff can pend up to 120s, so its
   // feed listener + timers must be torn down if the shell unmounts first —
@@ -288,7 +314,7 @@ export function createAutoHandoff(host: HandoffHost) {
     host.removeSession(session.id);
     dropSessionStatus(session.id);
     dropContext(session.id);
-    handingOff.delete(session.id);
+    unmarkHandingOff(session.id);
     const successorId = host.launchSuccessor({
       agent: successorAgent,
       cwd,
@@ -314,7 +340,7 @@ export function createAutoHandoff(host: HandoffHost) {
     try {
       await handoff(session);
     } catch {
-      handingOff.delete(session.id);
+      unmarkHandingOff(session.id);
       note = "";
     }
   }
@@ -356,9 +382,9 @@ export function createAutoHandoff(host: HandoffHost) {
       const pct = measuredContextPct(session.id);
       const nearLimit = pct !== null && pct >= host.thresholdPct();
       const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
-      const already = handingOff.has(session.id);
+      const already = isHandingOff(session.id);
       if (nearLimit && idle && !already) {
-        handingOff.add(session.id);
+        markHandingOff(session.id);
         runHandoff(session);
       }
     }
@@ -369,11 +395,11 @@ export function createAutoHandoff(host: HandoffHost) {
   // guard as the scan, none of its idle/threshold gates: the caller has
   // already decided this session must cycle.
   function force(session: AgentSession) {
-    if (handingOff.has(session.id)) {
+    if (isHandingOff(session.id)) {
       return;
     }
 
-    handingOff.add(session.id);
+    markHandingOff(session.id);
     runHandoff(session);
   }
 
