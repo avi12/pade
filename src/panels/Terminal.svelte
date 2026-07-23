@@ -304,6 +304,11 @@
   // Carriage return — the "Enter" a CLI reads as "submit this line".
   const ENTER = "\r";
 
+  // ^W (ETB) — the line discipline's "erase word backward". Sent for
+  // Ctrl+Backspace, whose legacy byte (^H) a TUI can't tell from a bare
+  // backspace; see the key-handler comment.
+  const ERASE_WORD = "\x17";
+
   // Focus reports (mode 1004) xterm emits when the pane gains/loses DOM focus.
   // PADE never forwards them: a PADE pane is either front (focused) or hidden
   // (where unfocused chrome is invisible anyway), and every tab switch would
@@ -1114,6 +1119,11 @@
     //    xterm still sends ^C (SIGINT) to interrupt the agent.
     //  • Ctrl+V → paste the clipboard (xterm would otherwise send a raw ^V, and
     //    only the WebView's right-click menu pasted).
+    //  • Ctrl+Backspace → ^W (erase word). xterm's legacy encoding for the
+    //    chord is ^H, indistinguishable from a bare backspace to a TUI reading
+    //    plain bytes (Windows Terminal gets away with it via win32-input-mode,
+    //    which xterm doesn't speak); ^W is the erase-word every line editor
+    //    and agent already binds.
     term.attachCustomKeyEventHandler(event => {
       if (event.type !== "keydown") {
         return true;
@@ -1144,6 +1154,13 @@
       if (isPasteChord) {
         event.preventDefault();
         pasteClipboard();
+        return false;
+      }
+
+      const isDeleteWordChord = isPlainCtrl && event.key === "Backspace";
+      if (isDeleteWordChord) {
+        event.preventDefault();
+        writeToPty(ERASE_WORD);
         return false;
       }
 
