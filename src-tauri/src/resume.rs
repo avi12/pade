@@ -12,7 +12,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-use crate::util::home_dir;
+use crate::agents;
+use crate::util::{command, home_dir};
 
 /// How many of the newest rollout files are worth inspecting before giving up.
 /// Oneshot `codex exec` runs (auto-naming) also record rollouts, so a few
@@ -110,16 +111,53 @@ fn json_string_field(json: &str, key: &str) -> Option<String> {
     Some(json[start..start + end].to_string())
 }
 
+/// The newest recorded opencode session for `cwd`, read through opencode's own
+/// `db` subcommand so ADE takes no sqlite dependency for one lookup. Only a
+/// session that actually exists is worth a resume flag: a blind `--continue`
+/// makes opencode walk its legacy session history, which currently throws a
+/// user-visible "unexpected server error" on Windows (opencode #28486) — and
+/// a never-prompted session records nothing, so there is nothing to reopen.
+/// opencode stores `directory` with forward slashes; compare the normalized,
+/// case-folded forms.
+fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
+    let program = agents::program("opencode")?;
+    let directory = cwd.replace('\\', "/").replace('\'', "''");
+    let query = format!(
+        "select id from session \
+         where lower(replace(directory, '\\', '/')) = lower('{directory}') \
+         order by time_updated desc limit 1"
+    );
+    let output = command(program).args(["db", &query]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    opencode_session_id(&String::from_utf8_lossy(&output.stdout))
+}
+
+/// The session id in `opencode db`'s tab-separated output — a header line
+/// (`id`) followed by at most one `ses_…` row.
+fn opencode_session_id(output: &str) -> Option<String> {
+    output
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with("ses_"))
+        .map(str::to_string)
+}
+
 /// The extra launch arguments that reopen the agent's recorded conversation for
 /// `cwd` — `["resume", "<uuid>"]` for Codex with a matching rollout,
-/// `["--continue"]` for opencode (it keys "the last session" off the working
-/// directory itself, so no id lookup is needed), empty when the agent has no
-/// resume mechanism ADE can drive (Claude is pinned at spawn via `--session-id`
-/// instead) or nothing is recorded.
+/// `["--session", "<ses_…>"]` for opencode with a recorded session in that
+/// directory, empty when the agent has no resume mechanism ADE can drive
+/// (Claude is pinned at spawn via `--session-id` instead) or nothing is
+/// recorded.
 #[tauri::command]
 pub fn agent_resume_args(command: String, cwd: String) -> Vec<String> {
     if command == "opencode" {
-        return vec!["--continue".to_string()];
+        return match opencode_session_for_cwd(&cwd) {
+            Some(session_id) => vec!["--session".to_string(), session_id],
+            None => Vec::new(),
+        };
     }
 
     if command != "codex" {
@@ -172,5 +210,22 @@ mod tests {
             Some("019f-abc".to_string())
         );
         assert_eq!(json_string_field(META, "missing"), None);
+    }
+
+    #[test]
+    fn an_opencode_db_row_yields_its_session_id() {
+        assert_eq!(
+            super::opencode_session_id("id\nses_24440494dffekcRK8jTX3XCccC\n"),
+            Some("ses_24440494dffekcRK8jTX3XCccC".to_string())
+        );
+    }
+
+    #[test]
+    fn an_opencode_db_result_without_a_row_yields_nothing() {
+        // Header only (no session recorded), empty output, and an error blurb
+        // must all read as "nothing to resume", never as a session id.
+        assert_eq!(super::opencode_session_id("id\n"), None);
+        assert_eq!(super::opencode_session_id(""), None);
+        assert_eq!(super::opencode_session_id("Error: Unexpected error"), None);
     }
 }
