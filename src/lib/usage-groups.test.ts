@@ -229,6 +229,58 @@ describe("buildGroups", () => {
     expect(groups.map(group => group.id)).toEqual(["claude", "codex", "aider"]);
   });
 
+  it("collapses two agents sharing one billing account into the first-seen group", () => {
+    // Codex and opencode both bill the same ChatGPT subscription, so their
+    // accounts carry the same identity — the meter must never show it twice.
+    const chatgptAccount = makeAccount({
+      windows: [weeklyWindow({ utilization: 5 })],
+      plan: "Codex plus",
+      account: "chatgpt"
+    });
+    const groups = buildGroups({
+      accounts: accountsFor({
+        codex: chatgptAccount,
+        opencode: chatgptAccount
+      }),
+      sessions: [
+        makeSession({
+          agentId: "codex",
+          label: "Codex"
+        }),
+        makeSession({
+          agentId: "opencode",
+          label: "opencode"
+        })
+      ],
+      now
+    });
+
+    expect(groups.map(group => group.id)).toEqual(["codex"]);
+    expect(groups[0].plan).toBe("Codex plus");
+  });
+
+  it("shows opencode alone with the shared account's numbers", () => {
+    const [opencode] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({
+          windows: [weeklyWindow({ utilization: 5 })],
+          plan: "Codex plus",
+          account: "chatgpt"
+        })
+      }),
+      sessions: [makeSession({
+        agentId: "opencode",
+        label: "opencode"
+      })],
+      now
+    });
+
+    expect(opencode.id).toBe("opencode");
+    expect(opencode.unknown).toBe(false);
+    expect(opencode.plan).toBe("Codex plus");
+    expect(opencode.limits.map(limit => limit.pct)).toEqual([5]);
+  });
+
   it("counts every distinct agent — the few/many boundary sits at 2", () => {
     const twoAgents = buildGroups({
       accounts: accountsFor({ claude: makeAccount() }),

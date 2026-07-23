@@ -35,6 +35,8 @@ use crate::util::home_dir;
 /// the user's *own* pay-as-you-go provider API key rather than a metered
 /// subscription — Grok (an xAI key) and aider (the user's OpenAI/Anthropic key) —
 /// have no plan quota at all, so they are deliberately absent and stay "—".
+/// An agent id and an adapter aren't 1:1: opencode signs into the same
+/// `ChatGPT` subscription Codex does, so its id resolves to the Codex adapter.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum UsageAgent {
     Claude,
@@ -49,12 +51,16 @@ const AGENT_ID_CODEX: &str = "codex";
 const AGENT_ID_COPILOT: &str = "copilot";
 const AGENT_ID_ANTIGRAVITY: &str = "antigravity";
 const AGENT_ID_CURSOR: &str = "cursor";
+const AGENT_ID_OPENCODE: &str = "opencode";
 
 impl UsageAgent {
     fn from_id(id: &str) -> Option<Self> {
         match id {
             AGENT_ID_CLAUDE => Some(Self::Claude),
-            AGENT_ID_CODEX => Some(Self::Codex),
+            // opencode authenticates against the same ChatGPT subscription Codex
+            // does, so it reads the Codex adapter — one account, one source of
+            // truth.
+            AGENT_ID_CODEX | AGENT_ID_OPENCODE => Some(Self::Codex),
             AGENT_ID_COPILOT => Some(Self::Copilot),
             AGENT_ID_ANTIGRAVITY => Some(Self::Antigravity),
             AGENT_ID_CURSOR => Some(Self::Cursor),
@@ -288,6 +294,16 @@ pub struct UsageWindow {
     resets_at: Option<String>,
 }
 
+/// Stable identities for the underlying billing account behind each adapter, so
+/// the frontend can dedupe agents that share one subscription (Codex + opencode
+/// both bill the same `ChatGPT` account) — one identity per account, never per
+/// agent.
+const BILLING_ACCOUNT_ANTHROPIC: &str = "anthropic";
+const BILLING_ACCOUNT_CHATGPT: &str = "chatgpt";
+const BILLING_ACCOUNT_GITHUB: &str = "github";
+const BILLING_ACCOUNT_GOOGLE: &str = "google";
+const BILLING_ACCOUNT_CURSOR: &str = "cursor";
+
 /// Live account usage mirrored from the OAuth endpoint: every rate-limit window it
 /// returns (the session + weekly windows, any per-model caps, and any future
 /// windows), plus the plan label.
@@ -297,6 +313,10 @@ pub struct AccountUsage {
     windows: Vec<UsageWindow>,
     plan: String,
     source: String,
+    /// Stable identity of the underlying billing account (one of the
+    /// `BILLING_ACCOUNT_*` ids), so two agents on one subscription are never
+    /// counted twice. `None` when the adapter can't name the account.
+    account: Option<String>,
 }
 
 /// Live account usage windows, mirroring claude.ai. `None` when offline, `curl` is
@@ -381,6 +401,7 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         windows,
         plan,
         source: "oauth:api.anthropic.com".to_string(),
+        account: Some(BILLING_ACCOUNT_ANTHROPIC.to_string()),
     })
 }
 
@@ -576,6 +597,7 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
         windows,
         plan,
         source: "oauth:chatgpt.com".to_string(),
+        account: Some(BILLING_ACCOUNT_CHATGPT.to_string()),
     })
 }
 
@@ -784,6 +806,7 @@ fn fetch_copilot_account_usage() -> Option<AccountUsage> {
         windows: Vec::new(),
         plan: "Copilot".to_string(),
         source: COPILOT_LOCAL_SOURCE.to_string(),
+        account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
     })
 }
 
@@ -811,6 +834,7 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
         windows,
         plan,
         source: "oauth:api.github.com".to_string(),
+        account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
     })
 }
 
@@ -987,6 +1011,7 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
         windows: Vec::new(),
         plan: "Antigravity".to_string(),
         source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
+        account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
     })
 }
 
@@ -1015,6 +1040,7 @@ fn fetch_cursor_account_usage() -> Option<AccountUsage> {
         windows: Vec::new(),
         plan: "Cursor".to_string(),
         source: "local:cursor".to_string(),
+        account: Some(BILLING_ACCOUNT_CURSOR.to_string()),
     })
 }
 
@@ -1062,8 +1088,23 @@ mod tests {
     use super::{
         collect_codex_windows, collect_copilot_windows, collect_windows, humanize_key,
         humanize_window_seconds, is_safe_header_token, unix_seconds_to_iso8601, usage_from_account,
-        AccountUsage, UsageWindow, UsageWindowKind,
+        AccountUsage, UsageAgent, UsageWindow, UsageWindowKind, AGENT_ID_CODEX, AGENT_ID_OPENCODE,
+        BILLING_ACCOUNT_GOOGLE,
     };
+
+    #[test]
+    fn opencode_resolves_to_the_codex_adapter() {
+        // One ChatGPT subscription, one source of truth: both agent ids read the
+        // same adapter, so both surface the same account.
+        assert!(matches!(
+            UsageAgent::from_id(AGENT_ID_OPENCODE),
+            Some(UsageAgent::Codex)
+        ));
+        assert!(matches!(
+            UsageAgent::from_id(AGENT_ID_CODEX),
+            Some(UsageAgent::Codex)
+        ));
+    }
 
     #[test]
     fn collect_windows_enumerates_named_then_model_windows() {
@@ -1340,6 +1381,7 @@ mod tests {
         let account = AccountUsage {
             plan: "Copilot business".to_string(),
             source: "oauth:api.github.com".to_string(),
+            account: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1371,6 +1413,7 @@ mod tests {
         let account = AccountUsage {
             plan: "Copilot".to_string(),
             source: "oauth:api.github.com".to_string(),
+            account: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1400,6 +1443,7 @@ mod tests {
             plan: "Antigravity".to_string(),
             source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
             windows: Vec::new(),
+            account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
         };
 
         let usage = usage_from_account(account);

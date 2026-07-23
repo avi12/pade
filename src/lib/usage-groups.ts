@@ -267,9 +267,11 @@ function sortWorstFirst(groups: AgentGroup[]): AgentGroup[] {
 
 /** Build the agent groups from the running sessions + each agent's account usage.
  *  Distinct coding agents keyed by agent id (first occurrence wins); the shell
- *  fallback and terminal-editor (`editor-*`) sessions are excluded. Each agent
- *  reads its own windows from `accounts` (missing/`null` ⇒ an unknown group).
- *  Sorted worst-first. */
+ *  fallback and terminal-editor (`editor-*`) sessions are excluded. Two agents
+ *  whose accounts carry the same billing-account identity (Codex + opencode on
+ *  one ChatGPT subscription) collapse into the first-seen agent's group — one
+ *  account is never shown twice. Each agent reads its own windows from
+ *  `accounts` (missing/`null` ⇒ an unknown group). Sorted worst-first. */
 export function buildGroups({ accounts, sessions, now }: {
   accounts: ReadonlyMap<string, AccountUsage | null>;
   sessions: AgentSession[];
@@ -277,20 +279,29 @@ export function buildGroups({ accounts, sessions, now }: {
 }): AgentGroup[] {
   const groups: AgentGroup[] = [];
   const seenAgentIds = new Set<string>();
+  const seenAccountIds = new Set<string>();
   for (const session of sessions) {
     const agentId = session.agent.id;
+    const account = accounts.get(agentId) ?? null;
+    const accountId = account?.account ?? null;
     const isShellAgent = agentId === SHELL_AGENT_ID;
     const isEditorSession = agentId.startsWith(EDITOR_AGENT_ID_PREFIX);
     const alreadySeen = seenAgentIds.has(agentId);
-    if (isShellAgent || isEditorSession || alreadySeen) {
+    const accountAlreadyGrouped = accountId !== null && seenAccountIds.has(accountId);
+    if (isShellAgent || isEditorSession || alreadySeen || accountAlreadyGrouped) {
       continue;
     }
 
     seenAgentIds.add(agentId);
+
+    if (accountId !== null) {
+      seenAccountIds.add(accountId);
+    }
+
     groups.push(
       buildAgentGroup({
         agent: session.agent,
-        account: accounts.get(agentId) ?? null,
+        account,
         now
       })
     );

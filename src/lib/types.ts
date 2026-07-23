@@ -252,7 +252,11 @@ export type UsageWindow = z.infer<typeof UsageWindow>;
 export const AccountUsage = z.object({
   windows: z.array(UsageWindow).default([]),
   plan: z.string(),
-  source: z.string()
+  source: z.string(),
+  /** Stable identity of the underlying billing account (e.g. Codex and opencode
+   *  both bill one ChatGPT subscription), so the meter never counts the same
+   *  account twice. Absent when the adapter can't name the account. */
+  account: z.string().nullish()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
 
