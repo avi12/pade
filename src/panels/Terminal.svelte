@@ -20,7 +20,7 @@
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
-  import { isTrustGate } from "@/lib/initial-prompt";
+  import { isTrustGate, promptEchoed } from "@/lib/initial-prompt";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
@@ -387,10 +387,24 @@
     }
   }
 
+  // A freshly-spawned TUI can paint its whole splash while not yet READING
+  // stdin (OpenCode/Claude in a brand-new workspace do first-run setup after
+  // first paint), so a prompt written the moment the output settles can be
+  // silently swallowed. Delivery is therefore verified: after each attempt the
+  // output is watched for the prompt echoing back in the composer, and until it
+  // does the attempt repeats on a short timer — a deliberate poll, since no
+  // event announces "the TUI now reads input". Bounded so an agent that renders
+  // the prompt unrecognizably can't be pasted at forever.
+  const PROMPT_ECHO_VERIFY_MS = 2_000;
+  const PROMPT_MAX_ATTEMPTS = 8;
+  let promptAttempts = 0;
+  let promptVerifyTimer: ReturnType<typeof setTimeout> | undefined;
+
   // Once the agent has settled quiet — done booting, past the trust gate — paste
-  // the first prompt and submit it. The bracketed paste keeps the prompt's own
-  // newlines soft and makes the trailing ENTER a separate, submitting keystroke
-  // (a raw write folds that CR into the paste and leaves the prompt unsent).
+  // the first prompt and submit it; re-attempt until the echo confirms it landed.
+  // The bracketed paste keeps the prompt's own newlines soft and makes the
+  // trailing ENTER a separate, submitting keystroke (a raw write folds that CR
+  // into the paste and leaves the prompt unsent).
   async function deliverInitialPromptIfReady() {
     if (!session.initialPrompt || promptDelivered) {
       return;
@@ -409,11 +423,27 @@
       return;
     }
 
-    promptDelivered = true;
-    // Paste-then-submit (lib/terminal-input): the paste markers keep the
-    // prompt's own newlines soft, and the trailing ENTER is a separate
-    // keystroke the agent can't fold into the burst.
+    // A previous attempt already landed — the composer/transcript echoes it.
+    const echoConfirmed = promptEchoed({
+      output: recentOutput,
+      prompt: session.initialPrompt
+    });
+    if (echoConfirmed || promptAttempts >= PROMPT_MAX_ATTEMPTS) {
+      promptDelivered = true;
+      clearTimeout(promptVerifyTimer);
+      return;
+    }
+
+    promptAttempts += 1;
     await writeToPty(submittedPrompt(session.initialPrompt));
+    // Verify shortly: if the echo hasn't appeared and the session sits quiet at
+    // ready, the TUI wasn't reading yet — try again.
+    clearTimeout(promptVerifyTimer);
+    promptVerifyTimer = setTimeout(() => {
+      if (status === SessionStatus.enum.ready) {
+        deliverInitialPromptIfReady();
+      }
+    }, PROMPT_ECHO_VERIFY_MS);
   }
 
   // Publish status to the shared store so the top-bar tab shows a matching dot.
@@ -1077,6 +1107,7 @@
       }
 
       clearTimeout(idleTimer);
+      clearTimeout(promptVerifyTimer);
       status = SessionStatus.enum.exited;
       onexit?.(session.id);
     });
@@ -1430,6 +1461,7 @@
     unlisten?.();
     exitUnlisten?.();
     clearTimeout(idleTimer);
+    clearTimeout(promptVerifyTimer);
     clearTimeout(sigwinchTimer);
     clearTimeout(repaintQuietTimer);
     clearTimeout(repaintWatchdog);

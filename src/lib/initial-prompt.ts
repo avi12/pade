@@ -35,3 +35,27 @@ const TRUST_KEYWORD_RE = /\btrust\b/i;
 export function isTrustGate(screen: string): boolean {
   return detectChoicePrompt(screen) && TRUST_KEYWORD_RE.test(stripAnsi(screen));
 }
+
+/** How much of the prompt's collapsed text must reappear in the output to count
+ *  as the composer echoing it — long enough to be distinctive, short enough
+ *  that a TUI truncating a long prompt still matches. */
+const ECHO_PREFIX_LENGTH = 24;
+
+/** Terminal text reduced to bare glyphs: ANSI stripped, all whitespace removed —
+ *  so a composer that wraps the prompt across lines still matches it. */
+function collapsed(text: string): string {
+  return stripAnsi(text).replaceAll(/\s+/g, "");
+}
+
+/** Whether the agent's output shows the delivered prompt — the composer (or the
+ *  transcript) echoing its text back. A freshly-spawned TUI can paint its splash
+ *  while not yet reading stdin, silently swallowing a prompt written "on ready";
+ *  only this echo confirms the delivery landed, so the terminal re-delivers
+ *  until it appears. */
+export function promptEchoed({ output, prompt }: {
+  output: string;
+  prompt: string;
+}): boolean {
+  const needle = collapsed(prompt).slice(0, ECHO_PREFIX_LENGTH);
+  return needle.length > 0 && collapsed(output).includes(needle);
+}
