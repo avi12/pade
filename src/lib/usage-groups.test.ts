@@ -125,6 +125,41 @@ describe("buildGroups", () => {
     expect(groups.map(group => group.id)).toEqual(["claude"]);
   });
 
+  it("hides an untouched opaque feature cap but keeps it once used", () => {
+    function sparkCap(utilization: number): UsageWindow {
+      return {
+        key: "codex_GPT-5.3-Codex-Spark_604800s",
+        kind: UsageWindowKind.enum.opaque,
+        label: "GPT-5.3-Codex-Spark",
+        utilization
+      };
+    }
+
+    // ChatGPT's own usage page lists only the weekly cap while its endpoint
+    // also returns untouched per-feature limits — those stay hidden at 0%…
+    const [untouched] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({ windows: [weeklyWindow(), sparkCap(0)] })
+      }),
+      sessions: [makeSession({ agentId: "opencode" })],
+      now
+    });
+    expect(untouched.limits.map(limit => limit.kindShort)).toEqual(["W"]);
+
+    // …but a session/weekly window at 0% is still shown, and a feature cap
+    // with real usage appears.
+    const [used] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({
+          windows: [sessionWindow({ utilization: 0 }), weeklyWindow(), sparkCap(12)]
+        })
+      }),
+      sessions: [makeSession({ agentId: "opencode" })],
+      now
+    });
+    expect(used.limits.map(limit => limit.kindShort)).toEqual(["S", "W", "G"]);
+  });
+
   it("populates the Claude group with real limits + plan from the account", () => {
     const [claude] = buildGroups({
       accounts: accountsFor({ claude: makeAccount() }),

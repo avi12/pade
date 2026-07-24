@@ -191,8 +191,11 @@ function windowPresentation(window: UsageWindow): {
 
 // An agent's real rate-limit windows off its account — every window the endpoint
 // returned (session, weekly, per-model, and any others), in the order it sent
-// them. Every returned window is shown, including one still at 0%: an unused
-// session window is a real limit worth surfacing, not noise to hide.
+// them. A named window (session/weekly/model) is shown even at 0% — an unused
+// session window is a real limit worth surfacing. An OPAQUE feature cap at 0%
+// is hidden until it gains real usage, matching the vendor's own usage page
+// (ChatGPT lists only the weekly cap while its endpoint also returns untouched
+// per-feature limits like a Codex-Spark window).
 function buildLimits({ account, now }: {
   account: AccountUsage;
   now: number;
@@ -200,6 +203,11 @@ function buildLimits({ account, now }: {
   const limits: Limit[] = [];
   for (const window of account.windows) {
     const value = clamp(window.utilization);
+    const isUntouchedFeatureCap = window.kind === UsageWindowKind.enum.opaque && value === 0;
+    if (isUntouchedFeatureCap) {
+      continue;
+    }
+
     const presentation = windowPresentation(window);
     limits.push({
       label: presentation.label,
