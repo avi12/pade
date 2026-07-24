@@ -23,11 +23,9 @@ use tauri::State;
 /// every user gets "Playing PADE" with zero per-user setup (just the toggle). The
 /// app owns the art assets every client references: the `pade` large image plus one
 /// small image per language (see [`ART_ASSET_KEY`] and the frontend's language map).
-/// To register: create the app at <https://discord.com/developers/applications>,
-/// name it PADE, upload the assets, and paste its Application ID here. The
-/// placeholder below is inert — Discord silently shows no presence for an
-/// unregistered id (best-effort, never an error).
-const APPLICATION_ID: &str = "1394000000000000000";
+/// Registered at <https://discord.com/developers/applications> as "PADE"; art
+/// assets upload there (Rich Presence → Art Assets) under the keys above.
+const APPLICATION_ID: &str = "1530345735835619390";
 
 /// The always-present large art-asset key uploaded to the application above (the
 /// PADE logo). The small overlay is a per-language key the frontend supplies; an
