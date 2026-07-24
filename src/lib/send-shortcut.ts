@@ -6,6 +6,7 @@
 
 import { pty } from "@/lib/bridge";
 import { showToast } from "@/lib/stores/toast.svelte";
+import { pastedText } from "@/lib/terminal-input";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
@@ -37,7 +38,7 @@ export async function registerSendShortcut(host: SendShortcutHost): Promise<void
 
     await pty.write({
       id: activeId,
-      data: text
+      data: pastedText(text)
     });
     await getCurrentWindow().setFocus();
     showToast(`Sent selection to ${host.activeLabel()}`);

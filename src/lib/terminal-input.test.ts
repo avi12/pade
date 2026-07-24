@@ -2,6 +2,7 @@ import {
   BRACKETED_PASTE_END,
   BRACKETED_PASTE_START,
   isPromptNewlineShortcut,
+  pastedText,
   PROMPT_NEWLINE,
   submittedPrompt
 } from "@/lib/terminal-input";
@@ -21,6 +22,16 @@ describe("submittedPrompt", () => {
     const enterCount = delivered.split("\r").length - 1;
     expect(enterCount).toBe(1);
     expect(delivered.endsWith("\r")).toBe(true);
+  });
+});
+
+describe("pastedText", () => {
+  it("keeps embedded command separators inside one non-submitting paste", () => {
+    const delivered = pastedText("review this\r\nrm -rf project");
+    expect(delivered).toBe(
+      `${BRACKETED_PASTE_START}review this\r\nrm -rf project${BRACKETED_PASTE_END}`
+    );
+    expect(delivered.endsWith("\r")).toBe(false);
   });
 });
 

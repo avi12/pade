@@ -1147,6 +1147,7 @@
         // preventDefault stops the browser inserting a newline into xterm's hidden
         // textarea, which xterm would forward to the PTY as a submit.
         event.preventDefault();
+
         if (PASTE_READS_CLIPBOARD_AGENTS.has(session.agent.id)) {
           // OpenCode reacts to ANY bracketed paste by also consulting the OS
           // clipboard — a lingering image would be attached alongside the

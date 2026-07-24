@@ -21,9 +21,15 @@ export const BRACKETED_PASTE_START =
 export const BRACKETED_PASTE_END =
   `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_END_PARAMETER}${TILDE_FINAL_BYTE}`;
 
+/** Text inserted from outside the terminal, framed so embedded newlines stay in
+ * the active composer's paste instead of becoming shell Enter keystrokes. */
+export function pastedText(text: string): string {
+  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
+}
+
 /** A prompt wrapped for paste-then-submit delivery to a TUI's composer. */
 export function submittedPrompt(prompt: string): string {
-  return `${BRACKETED_PASTE_START}${prompt}${BRACKETED_PASTE_END}${ENTER}`;
+  return `${pastedText(prompt)}${ENTER}`;
 }
 
 export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,
