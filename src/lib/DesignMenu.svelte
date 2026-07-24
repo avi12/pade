@@ -38,7 +38,7 @@
       <li class="hint">Open a design-to-code tool</li>
       {#each tools as tool (tool.id)}
         <li>
-          <button onclick={() => design.open(tool.url)} popovertarget="design-menu" popovertargetaction="hide">
+          <button onclick={() => design.open(tool.id)} popovertarget="design-menu" popovertargetaction="hide">
             <span class="tool">
               <Icon name="star" />{tool.label}
               {#if tool.recommended}

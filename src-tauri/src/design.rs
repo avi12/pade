@@ -97,11 +97,15 @@ pub fn design_tools(agent: String) -> Vec<DesignTool> {
 
 const DESIGN_WINDOW: &str = "design";
 
-/// Open the companion design window on `url` — or, if it's already open, focus it
-/// and navigate it to the newly picked tool.
+/// Open a registry-selected design tool. The renderer supplies only its opaque id,
+/// so it cannot navigate the application-branded webview to an arbitrary origin.
 #[tauri::command]
-pub async fn design_open(app: AppHandle, url: String) -> Result<(), String> {
-    let target = Url::parse(&url).map_err(|e| e.to_string())?;
+pub async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
+    let definition = REGISTRY
+        .iter()
+        .find(|definition| definition.id == id)
+        .ok_or("unknown design tool")?;
+    let target = Url::parse(definition.url).map_err(|e| e.to_string())?;
     if let Some(window) = app.get_webview_window(DESIGN_WINDOW) {
         window.navigate(target).map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
