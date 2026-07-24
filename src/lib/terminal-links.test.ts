@@ -175,6 +175,58 @@ describe("computeLinks", () => {
     expect(links[0].range.end.x).toBe(url.length);
   });
 
+  it("rejoins a wrapped URL inside a pasted block's left-bar frame", () => {
+    // Claude's TUI draws a `▌` bar down the left edge of a pasted block. Two
+    // pasted URLs: the second wraps, its continuation row starting with the bar
+    // again. The bar and its padding must not leak into the joined text, or the
+    // second URL's match dies at the row boundary.
+    const first = "https://developer.chrome.com/docs/webstore/program_policies/#limited_use";
+    const second = "https://developer.chrome.com/webstore/program_policies";
+    const upper = `▌ ${first} ${second.slice(0, 20)}`;
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [
+          { text: upper },
+          { text: `▌ ${second.slice(20)}` }
+        ],
+        columns: upper.length
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(links).toHaveLength(2);
+    expect(links[0].text).toBe(first);
+    expect(links[1].text).toBe(second);
+    expect(links[1].range.end.y).toBe(2);
+  });
+
+  it("keeps two rule-padded tool-call rows as separate links", () => {
+    // Claude underlines a tool call by padding the row to the edge with `─`.
+    // Two stacked WebFetch rows must stay two links — the rule reaching the
+    // edge is not a wrap, and the `%` opening the lower row must not be glued
+    // onto the upper URL.
+    const first = "https://developer.chrome.com/docs/webstore/program_policies/#limited_use";
+    const second = "https://developer.chrome.com/webstore/program_policies";
+    const upper = `% WebFetch ${first} `;
+    const columns = upper.length + 6;
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [
+          { text: upper + "─".repeat(columns - upper.length) },
+          { text: `% WebFetch ${second}` }
+        ],
+        columns
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(links).toHaveLength(1);
+    expect(links[0].text).toBe(first);
+    expect(links[0].range.end.y).toBe(1);
+  });
+
   it("joins two full prose rows without inventing a link", () => {
     const links = computeLinks({
       terminal: makeTerminal({

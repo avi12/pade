@@ -47,15 +47,25 @@ const RIGHT_EDGE_SLACK = 1;
 const BLANK_CELL = " ";
 const EMPTY_CELL = "";
 
-// The Unicode Box Drawing block (U+2500–U+257F). A row drawn entirely from these
-// glyphs is a horizontal rule / separator — Claude's TUI frames a URL between
-// them — never a continuation of a URL. Its first and last code points bound the
-// range we test each glyph against.
-const BOX_DRAWING_FIRST = 0x2500;
-const BOX_DRAWING_LAST = 0x257f;
+// The Unicode Box Drawing (U+2500–U+257F) and Block Elements (U+2580–U+259F)
+// blocks. These are frame glyphs, never URL content: a `─` rule under a link, or
+// the `▌`/`│` bar Claude's TUI draws down the left edge of a pasted block. A bar
+// on a continuation row would otherwise be joined into the logical line and cut
+// the URL match at the row boundary, so frame glyphs at a row's edges are
+// excluded from its content span (a row of nothing but frame glyphs — a
+// separator rule — thereby reads as blank and is never stitched).
+const FRAME_GLYPH_FIRST = 0x2500;
+const FRAME_GLYPH_LAST = 0x259f;
+
+function isFrameGlyph(chars: string): boolean {
+  const codePoint = chars.codePointAt(0);
+  return codePoint !== undefined && codePoint >= FRAME_GLYPH_FIRST && codePoint <= FRAME_GLYPH_LAST;
+}
 
 interface RowContent {
+  /** First column holding a visible non-frame glyph. */
   firstColumn: number;
+  /** Last column holding a visible non-frame glyph. */
   lastColumn: number;
 }
 
@@ -114,8 +124,10 @@ function isUrl(candidate: string): boolean {
   }
 }
 
-// The first and last columns of a row that hold a visible glyph, or null when
-// the row is blank. Leading indent and trailing margin fall outside this span.
+// The first and last columns of a row that hold a visible non-frame glyph, or
+// null when the row is blank or all frame (a separator rule). Leading indent —
+// blanks AND a frame bar — and the trailing margin fall outside this span;
+// `rawLastColumn` still records where the row truly ends, frame included.
 function rowContent({ line, columns }: {
   line: LinkLine;
   columns: number;
@@ -125,7 +137,7 @@ function rowContent({ line, columns }: {
   for (let column = 0; column < columns; column += 1) {
     const chars = line.getCell(column)?.getChars();
     const isBlank = chars === undefined || chars === BLANK_CELL || chars === EMPTY_CELL;
-    if (isBlank) {
+    if (isBlank || isFrameGlyph(chars)) {
       continue;
     }
 
@@ -146,43 +158,11 @@ function rowContent({ line, columns }: {
   };
 }
 
-// Whether a row is a horizontal-rule separator: it has content and every
-// visible glyph is a Box Drawing character. Such a row abuts a URL in Claude's
-// framed output but must never be stitched onto it — joining its `─` glyphs
-// (which the URL pattern would happily swallow) would drag the link decoration
-// across the rule below, striking through it.
-function isSeparatorRow({ line, columns }: {
-  line: LinkLine;
-  columns: number;
-}): boolean {
-  const content = rowContent({
-    line,
-    columns
-  });
-  if (!content) {
-    return false;
-  }
-
-  for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
-    const chars = line.getCell(column)?.getChars();
-    if (chars === undefined || chars === BLANK_CELL || chars === EMPTY_CELL) {
-      continue;
-    }
-
-    const codePoint = chars.codePointAt(0);
-    const isBoxDrawing = codePoint !== undefined
-      && codePoint >= BOX_DRAWING_FIRST
-      && codePoint <= BOX_DRAWING_LAST;
-    if (!isBoxDrawing) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Whether a row's content ran to (or within a column of) the right edge, the
-// tell-tale of a program that wrapped because it ran out of width.
+// Whether a row's TEXT ran to (or within a column of) the right edge, the
+// tell-tale of a program that wrapped because it ran out of width. Frame glyphs
+// don't count: a row whose text stops mid-row and is merely padded to the edge
+// with a `─` rule (Claude's tool-call underline) did not wrap — stitching the
+// row below it would glue an unrelated line onto the URL.
 function reachesRightEdge({ content, columns }: {
   content: RowContent;
   columns: number;
@@ -210,18 +190,6 @@ function nextRowContinues({ buffer, columns, row }: {
     columns
   });
   if (!lowerContent) {
-    return false;
-  }
-
-  const eitherRowIsSeparator = isSeparatorRow({
-    line: upper,
-    columns
-  })
-    || isSeparatorRow({
-      line: lower,
-      columns
-    });
-  if (eitherRowIsSeparator) {
     return false;
   }
 
