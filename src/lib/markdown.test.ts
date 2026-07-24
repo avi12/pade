@@ -1,4 +1,4 @@
-import { markdownDocument, renderMarkdown } from "@/lib/markdown";
+import { markdownDocument, renderMarkdown, sandboxedHtmlDocument } from "@/lib/markdown";
 import { describe, expect, it } from "vitest";
 
 describe("renderMarkdown block structures", () => {
@@ -99,5 +99,14 @@ describe("markdownDocument", () => {
   it("never emits a live script even from script-shaped source", () => {
     const doc = markdownDocument("<script>alert(1)</script>");
     expect(doc).not.toContain("<script>alert");
+  });
+});
+
+describe("sandboxedHtmlDocument", () => {
+  it("blocks repository HTML from loading remote or local resources", () => {
+    const doc = sandboxedHtmlDocument("<img src=\"https://attacker.example/pixel\">");
+    expect(doc).toContain("default-src 'none'");
+    expect(doc).toContain("form-action 'none'");
+    expect(doc.indexOf("Content-Security-Policy")).toBeLessThan(doc.indexOf("attacker.example"));
   });
 });

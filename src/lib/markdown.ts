@@ -480,3 +480,16 @@ export function markdownDocument(source: string): string {
     `<style>${MARKDOWN_STYLE}</style></head><body>${body}</body></html>`
   );
 }
+
+/** Wrap untrusted repository HTML with a policy that prevents every network,
+ * script, frame, form, and object load. The iframe sandbox separately prevents
+ * top-level navigation and access to the application origin. */
+export function sandboxedHtmlDocument(source: string): string {
+  const contentSecurityPolicy =
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'";
+  return (
+    "<!doctype html><html><head><meta charset=\"utf-8\">" +
+    `<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">` +
+    `</head><body>${source}</body></html>`
+  );
+}
