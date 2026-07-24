@@ -25,10 +25,11 @@ fn normalize_remote(url: &str) -> String {
     let stripped = trimmed.strip_suffix(".git").unwrap_or(trimmed);
 
     // scp-like syntax: `git@host:owner/repo`.
-    if let Some(rest) = stripped.strip_prefix("git@") {
-        if let Some((host, path)) = rest.split_once(':') {
-            return format!("https://{host}/{path}");
-        }
+    let scp_like = stripped
+        .strip_prefix("git@")
+        .and_then(|rest| rest.split_once(':'));
+    if let Some((host, path)) = scp_like {
+        return format!("https://{host}/{path}");
     }
     // `ssh://git@host/owner/repo` or `git://host/owner/repo`.
     for prefix in ["ssh://git@", "ssh://", "git://"] {

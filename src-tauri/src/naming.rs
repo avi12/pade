@@ -299,14 +299,12 @@ fn run_capture(mut cmd: Command, timeout: Duration) -> Option<String> {
                 }
                 break;
             }
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return None;
-                }
-                std::thread::sleep(Duration::from_millis(100));
+            Ok(None) if start.elapsed() > timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
             }
+            Ok(None) => std::thread::sleep(Duration::from_millis(100)),
             Err(_) => return None,
         }
     }
@@ -357,14 +355,15 @@ fn cargo_name(dir: &Path) -> Option<String> {
 
 fn readme_title(dir: &Path) -> Option<String> {
     for candidate in ["README.md", "readme.md", "Readme.md", "README"] {
-        if let Some(text) = read_file(dir, candidate) {
-            if let Some(title) = text
-                .lines()
-                .map(str::trim)
-                .find_map(|l| l.strip_prefix("# "))
-            {
-                return Some(title.to_string());
-            }
+        let Some(text) = read_file(dir, candidate) else {
+            continue;
+        };
+        let title = text
+            .lines()
+            .map(str::trim)
+            .find_map(|l| l.strip_prefix("# "));
+        if let Some(title) = title {
+            return Some(title.to_string());
         }
     }
     None

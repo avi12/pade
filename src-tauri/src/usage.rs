@@ -362,12 +362,12 @@ fn account_usage_for(agent: UsageAgent) -> Option<AccountUsage> {
     static CACHE: OnceLock<Mutex<HashMap<UsageAgent, (Instant, AccountUsage)>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
-    if let Ok(guard) = cache.lock() {
-        if let Some((fetched_at, cached)) = guard.get(&agent) {
-            if fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECS) {
-                return Some(cached.clone());
-            }
-        }
+    let still_fresh = cache.lock().ok().and_then(|guard| {
+        let (fetched_at, cached) = guard.get(&agent)?;
+        (fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECS)).then(|| cached.clone())
+    });
+    if let Some(cached) = still_fresh {
+        return Some(cached);
     }
 
     let fresh = match agent {
@@ -936,11 +936,13 @@ fn copilot_percent_used(snapshot: &serde_json::Value) -> Option<f64> {
 /// so a keychain-only login yields `None` here (and the plan-label fallback).
 fn copilot_token() -> Option<String> {
     for variable in ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"] {
-        if let Ok(token) = std::env::var(variable) {
-            if !token.is_empty() {
-                return Some(token);
-            }
+        let Ok(token) = std::env::var(variable) else {
+            continue;
+        };
+        if token.is_empty() {
+            continue;
         }
+        return Some(token);
     }
     copilot_token_from_store()
 }
@@ -967,11 +969,13 @@ fn copilot_token_from_store() -> Option<String> {
             continue;
         };
         for host in hosts.values() {
-            if let Some(token) = host.get("oauth_token").and_then(serde_json::Value::as_str) {
-                if !token.is_empty() {
-                    return Some(token.to_string());
-                }
+            let Some(token) = host.get("oauth_token").and_then(serde_json::Value::as_str) else {
+                continue;
+            };
+            if token.is_empty() {
+                continue;
             }
+            return Some(token.to_string());
         }
     }
     None

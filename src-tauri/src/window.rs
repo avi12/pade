@@ -278,11 +278,11 @@ pub fn window_list(
 /// rows. Returns true when that window existed and took focus.
 #[tauri::command]
 pub fn window_focus_label(app: AppHandle, label: String) -> bool {
-    if let Some(target) = app.get_webview_window(&label) {
-        let _ = target.unminimize();
-        return target.set_focus().is_ok();
-    }
-    false
+    let Some(target) = app.get_webview_window(&label) else {
+        return false;
+    };
+    let _ = target.unminimize();
+    target.set_focus().is_ok()
 }
 
 /// Monotonic counter for unique window labels (`w-1`, `w-2`, …). Labels must be

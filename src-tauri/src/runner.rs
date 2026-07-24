@@ -354,10 +354,11 @@ pub async fn runner_stop(
         }
         runners.remove(&registry_id)
     };
-    if let Some(runner) = removed {
-        if let Ok(mut child) = runner.child.lock() {
-            stop_process_tree(&mut child);
-        }
+    let Some(runner) = removed else {
+        return Ok(());
+    };
+    if let Ok(mut child) = runner.child.lock() {
+        stop_process_tree(&mut child);
     }
     Ok(())
 }

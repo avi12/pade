@@ -87,17 +87,21 @@ fn discover_members(root: &Path) -> Vec<Member> {
             .include
             .iter()
             .any(|pattern| glob_match(pattern, path));
+        if !included {
+            continue;
+        }
         let excluded = patterns
             .exclude
             .iter()
             .any(|pattern| glob_match(pattern, path));
-        if included && !excluded {
-            members.push(Member {
-                path: path.clone(),
-                name: found.name.clone(),
-                ecosystem: Some(found.ecosystem),
-            });
+        if excluded {
+            continue;
         }
+        members.push(Member {
+            path: path.clone(),
+            name: found.name.clone(),
+            ecosystem: Some(found.ecosystem),
+        });
     }
     members
 }

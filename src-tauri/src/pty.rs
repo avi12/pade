@@ -655,25 +655,26 @@ fn spawn_session_exit_monitor(app: AppHandle, id: String) {
             .child
             .lock()
             .is_ok_and(|mut child| matches!(child.try_wait(), Ok(None)));
-        if !still_running {
-            // A caller can kill and immediately recreate an id. Only remove the
-            // exact PTY this reaper owns; a stale reaper must not reap its successor.
-            let removed = {
-                let Ok(mut sessions) = state.0.lock() else {
-                    break;
-                };
-                if sessions
-                    .get(&id)
-                    .is_some_and(|active| Arc::ptr_eq(active, &pty))
-                {
-                    sessions.remove(&id)
-                } else {
-                    None
-                }
-            };
-            drop(removed);
-            break;
+        if still_running {
+            continue;
         }
+        // A caller can kill and immediately recreate an id. Only remove the
+        // exact PTY this reaper owns; a stale reaper must not reap its successor.
+        let removed = {
+            let Ok(mut sessions) = state.0.lock() else {
+                break;
+            };
+            if sessions
+                .get(&id)
+                .is_some_and(|active| Arc::ptr_eq(active, &pty))
+            {
+                sessions.remove(&id)
+            } else {
+                None
+            }
+        };
+        drop(removed);
+        break;
     });
 }
 
@@ -780,14 +781,14 @@ pub async fn pty_write(
     if data.len() > MAXIMUM_PTY_INPUT_BYTES {
         return Err("PTY input exceeds its size limit".into());
     }
-    let pty = owned_pty(&state, window.label(), &id)?;
-    if let Some(pty) = pty {
-        let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
-        writer
-            .write_all(data.as_bytes())
-            .map_err(|e| e.to_string())?;
-        writer.flush().map_err(|e| e.to_string())?;
-    }
+    let Some(pty) = owned_pty(&state, window.label(), &id)? else {
+        return Ok(());
+    };
+    let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
+    writer
+        .write_all(data.as_bytes())
+        .map_err(|e| e.to_string())?;
+    writer.flush().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -802,19 +803,19 @@ pub async fn pty_resize(
     if cols == 0 || rows == 0 || cols > MAXIMUM_PTY_DIMENSION || rows > MAXIMUM_PTY_DIMENSION {
         return Err("PTY dimensions are outside the allowed range".into());
     }
-    let pty = owned_pty(&state, window.label(), &id)?;
-    if let Some(pty) = pty {
-        pty.master
-            .lock()
-            .map_err(|e| e.to_string())?
-            .resize(PtySize {
-                rows,
-                cols,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| e.to_string())?;
-    }
+    let Some(pty) = owned_pty(&state, window.label(), &id)? else {
+        return Ok(());
+    };
+    pty.master
+        .lock()
+        .map_err(|e| e.to_string())?
+        .resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

@@ -79,11 +79,9 @@ impl Rules {
             let target = &segments[..prefix_length];
             let target_is_directory = prefix_length < segments.len();
             if self.last_match(target, target_is_directory) == Some(Verdict::Ignored) {
-                if target_is_directory {
-                    return true;
-                }
                 return true;
-            } else if prefix_length == segments.len() {
+            }
+            if prefix_length == segments.len() {
                 return false;
             }
         }

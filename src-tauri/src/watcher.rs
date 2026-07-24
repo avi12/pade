@@ -449,14 +449,14 @@ fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
 /// frontend hears [`FEED_IGNORE_EVENT`] and re-filters the events it already
 /// shows against the fresh policy (`feed_ignored`).
 fn refresh_ignore_policy(app: &AppHandle, watch: &WindowWatch, label: &str) {
-    let Some(root) = ({
-        let Ok(guard) = watch.watcher.lock() else {
-            return;
-        };
-        guard.as_ref().map(|active| active.root.clone())
-    }) else {
+    let Ok(watcher_guard) = watch.watcher.lock() else {
         return;
     };
+    let Some(root) = watcher_guard.as_ref().map(|active| active.root.clone()) else {
+        return;
+    };
+    // Release the watcher lock before the policy recompute shells out to git.
+    drop(watcher_guard);
     let policy = compute_ignore_policy(&root);
     if let Ok(mut guard) = watch.ignore_policy.lock() {
         *guard = Some(policy);
@@ -523,10 +523,13 @@ fn gitignore_excludes(root: &Path, rules: &crate::gitignore::Rules, path: &Path)
 /// [`WatcherState::git_ignore_cache`] so each path shells git at most once. The
 /// cache is cleared on a re-root and whenever a `.gitignore` changes.
 fn git_excludes_path(watch: &WindowWatch, root: &Path, path: &Path) -> bool {
-    if let Ok(cache) = watch.git_ignore_cache.lock() {
-        if let Some(&is_ignored) = cache.get(path) {
-            return is_ignored;
-        }
+    let memoized = watch
+        .git_ignore_cache
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(path).copied());
+    if let Some(is_ignored) = memoized {
+        return is_ignored;
     }
     let is_ignored = git_check_ignore(root, path);
     if let Ok(mut cache) = watch.git_ignore_cache.lock() {
