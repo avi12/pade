@@ -138,8 +138,74 @@
   // silently no-op. An empty name is fine — it means "temp workspace".
   const createNameError = $derived(nameError(createName));
   const hasTypedName = $derived(createName.trim().length > 0);
+
+  // Live disk check on the create target (probing the filesystem, never a
+  // regex): the backend's create_dir_all succeeds on an existing folder, so
+  // without this a name colliding with a real project would silently open that
+  // project as if freshly created. Anything already on disk under that name —
+  // directory or file — disables the create with the reason shown inline. The
+  // probe is debounced and tagged with the path it described, so a stale answer
+  // never gates the current text.
+  let createTarget = $state({
+    path: "",
+    isDir: false,
+    isFile: false
+  });
+  const createTargetPath = $derived.by(() => {
+    const name = parseInput({
+      schema: ProjectName,
+      raw: createName
+    });
+    if (!createIn || !name) {
+      return "";
+    }
+
+    return `${createIn}\\${name}`;
+  });
+  $effect(() => {
+    const target = createTargetPath;
+    if (target === "") {
+      createTarget = {
+        path: "",
+        isDir: false,
+        isFile: false
+      };
+      return;
+    }
+
+    async function probeTarget() {
+      try {
+        const probe = await workspace.probePath(target);
+        createTarget = {
+          path: target,
+          isDir: probe.isDir,
+          isFile: probe.isFile
+        };
+      } catch {
+        // An unreachable probe leaves the plain create path — the backend
+        // still validates the final create.
+        createTarget = {
+          path: target,
+          isDir: false,
+          isFile: false
+        };
+      }
+    }
+    const probeTimer = setTimeout(probeTarget, 250);
+    return () => clearTimeout(probeTimer);
+  });
+  const createTargetSettled = $derived(
+    createTargetPath !== "" && createTarget.path === createTargetPath
+  );
+  const createTargetExists = $derived(createTargetSettled && createTarget.isDir);
+  const createTargetIsFile = $derived(createTargetSettled && createTarget.isFile);
+
+  // The settle state never gates the button — that would flash it disabled on
+  // every keystroke until the debounced probe answers. Typing stays enabled;
+  // the submit re-probes authoritatively before creating.
   const createDisabled = $derived(
-    hasTypedName && (!createIn || createNameError !== null)
+    hasTypedName &&
+    (!createIn || createNameError !== null || createTargetExists || createTargetIsFile)
   );
 
   // Shared by the "…or start a throwaway temp workspace" button and a submit
@@ -439,6 +505,22 @@
               return;
             }
 
+            // Authoritative re-probe at submit: a fast Enter can outrun the
+            // debounced live check, and create_dir_all would silently "create"
+            // an existing folder. The result also lands in createTarget so the
+            // inline reason appears if this blocks.
+            const target = `${createIn}\\${name}`;
+            const probe = await workspace.probePath(target);
+            createTarget = {
+              path: target,
+              isDir: probe.isDir,
+              isFile: probe.isFile
+            };
+
+            if (probe.isDir || probe.isFile) {
+              return;
+            }
+
             const path = await workspace.create({
               root: createIn,
               name
@@ -475,6 +557,10 @@
             </div>
             {#if createNameError}
               <output id="np-name-error" class="field-error">{createNameError}</output>
+            {:else if createTargetIsFile}
+              <output class="field-error">That name is taken by a file in this root.</output>
+            {:else if createTargetExists}
+              <output class="field-error">This folder already exists in this root.</output>
             {/if}
           </div>
 
@@ -909,6 +995,7 @@
   }
 
   /* Quiet text-button escape hatch beside the primary action. */
+
   .temp-link {
     padding: 6px 0;
     border: none;
