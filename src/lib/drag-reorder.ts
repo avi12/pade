@@ -615,8 +615,6 @@ export function beginReorder(options: BeginReorderOptions): void {
   // a later selection reconciled against that stale order and dropped the tab; the
   // design engine commits `lastOrder ?? ids.slice()` for exactly this reason.
   async function finalizeCommit(cancel: boolean): Promise<void> {
-    reclipAncestors();
-
     const order = committedOrderOnDrop({
       ids: originalIds,
       fromIndex,
@@ -630,7 +628,11 @@ export function beginReorder(options: BeginReorderOptions): void {
       await tick();
     }
 
+    // Strip the inline translates BEFORE restoring the ancestors' overflow: with
+    // clipping back to `auto` first, the still-translated item overflows its
+    // scroll container for the awaited frame and flashes a scrollbar.
     clearItemStyles();
+    reclipAncestors();
     onHint?.(null);
     dragInProgress = false;
   }
