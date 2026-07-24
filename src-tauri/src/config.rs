@@ -5,6 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use tauri::WebviewWindow;
 
 /// A config file the ADE can surface: (relative path, kind, agents it applies
 /// to). An empty agent list means it applies to every agent.
@@ -83,13 +84,20 @@ pub struct ConfigFile {
     exists: bool,
 }
 
-fn root() -> Result<PathBuf, String> {
-    std::env::current_dir().map_err(|e| e.to_string())
+fn root(
+    window: &WebviewWindow,
+    projects: &crate::window::WindowProjects,
+) -> Result<PathBuf, String> {
+    projects.project_for(window.label()).map(PathBuf::from)
 }
 
 #[tauri::command]
-pub async fn config_list(agent: String) -> Result<Vec<ConfigFile>, String> {
-    let root = root()?;
+pub async fn config_list(
+    window: WebviewWindow,
+    projects: tauri::State<'_, crate::window::WindowProjects>,
+    agent: String,
+) -> Result<Vec<ConfigFile>, String> {
+    let root = root(&window, &projects)?;
     let files = KNOWN
         .iter()
         .filter(|def| applies_to(def, &agent))
@@ -110,10 +118,14 @@ pub async fn config_list(agent: String) -> Result<Vec<ConfigFile>, String> {
 /// Read one known config file. Guarded to the allowlist so this can never read
 /// arbitrary paths from the frontend.
 #[tauri::command]
-pub async fn config_read(rel: String) -> Result<String, String> {
+pub async fn config_read(
+    window: WebviewWindow,
+    projects: tauri::State<'_, crate::window::WindowProjects>,
+    rel: String,
+) -> Result<String, String> {
     if !KNOWN.iter().any(|def| def.rel == rel) {
         return Err("not an allowed config file".into());
     }
-    let path = root()?.join(&rel);
+    let path = root(&window, &projects)?.join(&rel);
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
