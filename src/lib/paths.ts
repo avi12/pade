@@ -42,6 +42,33 @@ export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
 }
 
+/** A path shown relative to a workspace root: the segments below the root
+ *  ("backend/convex"), or "/" for the root itself. A path outside the root (a
+ *  worktree sibling, a moved file) falls back to the absolute form — a wrong
+ *  but honest label beats a fabricated relative one. Comparison rides
+ *  `normalizePath`, so separators, trailing slashes, and Windows casing don't
+ *  break the match; the returned segments use "/" uniformly. */
+export function relativeToRoot({ path, root }: {
+  path: string;
+  root: string;
+}): string {
+  const normalizedPath = normalizePath(path);
+  const normalizedRoot = normalizePath(root);
+  if (normalizedPath === normalizedRoot) {
+    return "/";
+  }
+
+  if (!normalizedPath.startsWith(`${normalizedRoot}/`)) {
+    return path;
+  }
+
+  // Slice the ORIGINAL path so a case-sensitive tail keeps its casing; only
+  // the length of the normalized root matters for the cut.
+  return path
+    .replaceAll("\\", "/")
+    .slice(normalizedRoot.length + 1);
+}
+
 /** Normalize a path for comparison. Separators and a trailing separator are
  *  cosmetic everywhere; casing is cosmetic only on Windows. A drive-letter path
  *  (`C:\…`) lives on case-insensitive NTFS, so it also folds to lower case —

@@ -3,7 +3,8 @@ import {
   displayName,
   isTemporaryWorkspace,
   normalizePath,
-  parentDir
+  parentDir,
+  relativeToRoot
 } from "@/lib/paths";
 import { describe, expect, it } from "vitest";
 
@@ -103,5 +104,52 @@ describe("normalizePath", () => {
 
   it("still folds separators and a trailing slash on a POSIX path", () => {
     expect(normalizePath("/mnt/c/Repos/")).toBe("/mnt/c/Repos");
+  });
+});
+
+describe("relativeToRoot", () => {
+  it("strips the root prefix into a forward-slash relative path", () => {
+    expect(
+      relativeToRoot({
+        path: "C:\\repositories\\avi\\ytm\\backend\\convex",
+        root: "C:\\repositories\\avi\\ytm"
+      })
+    ).toBe("backend/convex");
+  });
+
+  it("shows the root itself as /", () => {
+    expect(
+      relativeToRoot({
+        path: "C:\\repositories\\avi\\ytm",
+        root: "c:/repositories/avi/ytm/"
+      })
+    ).toBe("/");
+  });
+
+  it("keeps the tail casing while matching the root case-insensitively", () => {
+    expect(
+      relativeToRoot({
+        path: "c:/Repositories/Avi/YTM/Backend/File.ts",
+        root: "C:\\repositories\\avi\\ytm"
+      })
+    ).toBe("Backend/File.ts");
+  });
+
+  it("falls back to the absolute path outside the root", () => {
+    expect(
+      relativeToRoot({
+        path: "C:\\elsewhere\\file.ts",
+        root: "C:\\repositories\\avi\\ytm"
+      })
+    ).toBe("C:\\elsewhere\\file.ts");
+  });
+
+  it("never mistakes a sibling sharing the root as a prefix", () => {
+    expect(
+      relativeToRoot({
+        path: "C:\\repositories\\avi\\ytm-backup\\x.ts",
+        root: "C:\\repositories\\avi\\ytm"
+      })
+    ).toBe("C:\\repositories\\avi\\ytm-backup\\x.ts");
   });
 });

@@ -15,7 +15,7 @@
     flipDuration,
     revealBlock
   } from "@/lib/motion";
-  import { baseName, parentDir } from "@/lib/paths";
+  import { baseName, parentDir, relativeToRoot } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
   import { editorsFor, ensureEditors } from "@/lib/stores/editors.svelte";
@@ -298,12 +298,23 @@
   let activeGroupId = $state<string | null>(null);
 
   // A card's dir line ellipsizes in the narrow panel; only while actually
-  // clipped does the bubble appear — and it carries the FULL path, since the
-  // clipped parent dir alone is exactly what the reader couldn't see.
+  // clipped does the bubble appear — and it carries the FULL absolute path,
+  // since what the clipped relative dir hides is exactly what the reader
+  // couldn't see.
   function clippedPathTooltip(path: string) {
     return truncationTooltip({
       tooltip: path,
       attribute: TooltipAttribute.Bubble
+    });
+  }
+
+  // The dir line reads relative to the open project ("backend/convex"), "/"
+  // for a file at the root — the absolute prefix is the workspace's own
+  // constant noise and lives in the tooltip instead.
+  function relativeDir(path: string): string {
+    return relativeToRoot({
+      path: parentDir(path) ?? path,
+      root: project
     });
   }
 
@@ -712,7 +723,7 @@
                   </span>
                   <span class="summary">{ev.summary}</span>
                   <span class="meta">
-                    <span class="path" {@attach clippedPathTooltip(ev.path)}>{parentDir(ev.path) ?? ev.path}</span>
+                    <span class="path" {@attach clippedPathTooltip(ev.path)}>{relativeDir(ev.path)}</span>
                     <span class="stat">
                       {#if ev.added}
                         <span class="add">+{formatCount(ev.added)}</span>
@@ -742,7 +753,10 @@
                              the path already reads in full — the shared CSS `[data-tooltip]`
                              bubble, which caps at 320px + wraps and anchor-positions with a
                              flip-up fallback. -->
-                        <span class="fpath">{ev.path}</span>
+                        <span class="fpath">{relativeToRoot({
+                          path: ev.path,
+                          root: project
+                        })}</span>
                       </button>
                       <span class="spacer"></span>
                       {#if canPreview}
