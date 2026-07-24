@@ -18,6 +18,9 @@
   } = $props();
 
   const rows = $derived(runnerRows());
+  // A lone runner has nothing to sort — its header only becomes a drag handle
+  // (grab cursor + tooltip) once a second card exists, like every other list.
+  const reorderable = $derived(rows.length > 1);
 
   // NOTE: the feed-toggle chip and the per-runner maximize/float control from the
   // canvas are backend/planned — deferred until the runner backend supports them.
@@ -128,16 +131,23 @@
                the shared engine); its buttons are controls, not handles. -->
           <header
             class="bar"
+            class:reorderable
             aria-label="{row.label} controls"
-            data-tooltip="Drag to reorder"
-            onpointerdown={e => beginReorder({
-              e,
-              itemSelector: "[data-runner-id]",
-              idAttribute: "data-runner-id",
-              axis: Axis.Horizontal,
-              ignoreSelector: "button",
-              onCommit: orderedIds => setRunnerOrder(orderedIds)
-            })}
+            data-tooltip={reorderable ? "Drag to reorder" : undefined}
+            onpointerdown={e => {
+              if (!reorderable) {
+                return;
+              }
+
+              beginReorder({
+                e,
+                itemSelector: "[data-runner-id]",
+                idAttribute: "data-runner-id",
+                axis: Axis.Horizontal,
+                ignoreSelector: "button",
+                onCommit: orderedIds => setRunnerOrder(orderedIds)
+              });
+            }}
             role="toolbar"
             tabindex={0}
           >
@@ -295,7 +305,8 @@
     background: var(--surface-1);
   }
 
-  /* The bar doubles as the drag-to-reorder handle for its runner. */
+  /* The bar doubles as the drag-to-reorder handle for its runner — but only
+     once a second card exists to sort against. */
   .bar {
     display: flex;
     gap: 8px;
@@ -303,8 +314,11 @@
     padding-block: 7px;
     padding-inline: 10px;
     background: var(--surface-2);
-    cursor: grab;
-    touch-action: none;
+
+    &.reorderable {
+      cursor: grab;
+      touch-action: none;
+    }
   }
 
   .kind {
