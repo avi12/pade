@@ -248,7 +248,10 @@ const REGISTRY: &[IdeDef] = &[
         label: "Android Studio",
         command: "studio",
         style: OpenStyle::JetBrains,
-        coverage: EditorCoverage::Kinds(&[ProjectKind::Android, ProjectKind::Java]),
+        // Android only: a plain Java/Kotlin project belongs to IDEA (or another
+        // general-purpose editor), never Android Studio. An Android project's
+        // Java/Kotlin source is subsumed by the Android kind (`owns_source_kind`).
+        coverage: EditorCoverage::Kinds(&[ProjectKind::Android]),
     },
     IdeDef {
         id: "zed",
@@ -1705,6 +1708,26 @@ mod tests {
                     .position(|id| id == "webstorm")
                     .unwrap_or(usize::MAX)
         );
+    }
+
+    #[test]
+    fn android_studio_covers_android_but_not_plain_java() {
+        let java_sources = std::collections::BTreeMap::from([(ProjectKind::Java, 10_000)]);
+        assert!(!editor_covers_project(
+            "androidstudio",
+            &java_sources,
+            &[ProjectKind::Java]
+        ));
+        assert!(editor_covers_project(
+            "androidstudio",
+            &java_sources,
+            &[ProjectKind::Android]
+        ));
+        assert!(editor_covers_project(
+            "idea",
+            &java_sources,
+            &[ProjectKind::Java]
+        ));
     }
 
     #[test]
