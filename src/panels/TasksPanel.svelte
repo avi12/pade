@@ -1,11 +1,13 @@
 <script lang="ts">
   import { feed, tasks as tasksApi } from "@/lib/bridge";
+  import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/motion";
   import { baseName } from "@/lib/paths";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { isTaskRunning, taskKey } from "@/lib/stores/taskRuns.svelte";
   import type { TaskGroup } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
+  import { flip } from "svelte/animate";
 
   const { project, onrun }: {
     /** The workspace displayed by this window, never the process-global cwd. */
@@ -99,8 +101,19 @@
     </p>
   {:else}
     <div class="scroll">
+      <!-- A manifest appearing/vanishing glides its whole group in/out; a script
+           added or removed inside one does the same per row, with survivors
+           FLIPping to their new slots. -->
       {#each groups as group (group.manifest)}
-        <section class="group">
+        <section
+          class="group"
+          in:expandRow
+          out:collapseRow
+          animate:flip={{
+            duration: flipDuration(),
+            easing: emphasized
+          }}
+        >
           <h3>
             <span class="kind {group.kind}">{group.kind}</span>
             <span class="manifest" data-tooltip={group.dir}>{baseName(group.dir)}</span>
@@ -112,7 +125,16 @@
                 command: task.command
               })
             )}
-            <div class="row" class:running={runningNow}>
+            <div
+              class="row"
+              class:running={runningNow}
+              in:expandRow
+              out:collapseRow
+              animate:flip={{
+                duration: flipDuration(),
+                easing: emphasized
+              }}
+            >
               <div class="meta">
                 <span class="tname">
                   {#if runningNow}
