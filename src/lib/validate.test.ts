@@ -123,10 +123,11 @@ describe("SessionName", () => {
 });
 
 describe("CloneUrl", () => {
-  it("accepts every git transport", () => {
+  it("accepts authenticated transports and rejects insecure or credentialed URLs", () => {
     expect(CloneUrl.safeParse("https://github.com/org/repo.git").success).toBe(true);
     expect(CloneUrl.safeParse("ssh://git@github.com/org/repo.git").success).toBe(true);
-    expect(CloneUrl.safeParse("git://github.com/org/repo.git").success).toBe(true);
+    expect(CloneUrl.safeParse("git://github.com/org/repo.git").success).toBe(false);
+    expect(CloneUrl.safeParse("https://token@github.com/org/repo.git").success).toBe(false);
     expect(CloneUrl.safeParse("git@github.com:org/repo.git").success).toBe(true);
   });
 

@@ -37,7 +37,16 @@ export const SessionName = z.string().trim().min(1).max(60);
 /** The URL-proper forms git clones over, validated by zod's own URL parser and
  *  pinned to git's transports. Git's scp-like `git@host:path` is NOT a URL, so
  *  it's recognised separately (`isScpLike`) rather than forced through here. */
-const StandardCloneUrl = z.url({ protocol: /^(?:https?|ssh|git)$/ });
+const StandardCloneUrl = z
+  .url({ protocol: /^(?:https|ssh)$/ })
+  .refine(url => {
+    if (!URL.canParse(url)) {
+      return false;
+    }
+
+    const parsed = new URL(url);
+    return !parsed.password && (parsed.protocol !== "https:" || !parsed.username);
+  });
 
 /** Scp-like `git@host:path` — a `user@host` head before the first colon. */
 function isScpLike(url: string): boolean {
@@ -45,14 +54,14 @@ function isScpLike(url: string): boolean {
   return colon > 0 && colon < url.length - 1 && url.slice(0, colon).includes("@");
 }
 
-/** A git clone URL — `https://`, `ssh://`, `git://`, or scp-like `git@host:path`. */
+/** A git clone URL over an authenticated transport: HTTPS, SSH, or scp-like SSH. */
 export const CloneUrl = z
   .string()
   .trim()
   .min(1)
   .max(2048)
   .refine(url => StandardCloneUrl.safeParse(url).success || isScpLike(url), {
-    message: "Enter an https://, ssh://, git://, or git@host:path URL."
+    message: "Enter an https://, ssh://, or git@host:path URL."
   });
 
 /** A git username / email for an HTTPS clone. */
