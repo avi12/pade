@@ -1,0 +1,36 @@
+# PADE WebView2 crash-recovery shim.
+#
+# The one job of this crate: subscribe to WebView2's `ProcessFailed` COM event
+# and translate it into a safe Rust callback. Registering a COM event handler
+# and calling interface methods is `unsafe` in windows-rs, and the main `pade`
+# crate forbids unsafe code — so, like `contextmenu-handler`, the unsafe lives
+# in its own workspace member behind a safe API (`watch_process_failed`).
+[package]
+name = "webview-recovery"
+version = "0.0.1"
+description = "Safe wrapper over WebView2's ProcessFailed event for PADE's crash auto-recovery"
+authors = ["Avi"]
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+# Pinned to the exact versions already in the lockfile via wry/Tauri, so no
+# second copy compiles and the COM interface types are identical to the ones
+# `tauri::webview::PlatformWebview` hands out (minimize-dependencies).
+webview2-com = "0.38"
+windows-core = "0.61"
+
+# Same strict bar as the main crate (rust-best-practices), but this crate MUST
+# allow unsafe: COM event registration is FFI. Everything else stays pedantic.
+[lints.rust]
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+unwrap_used = "deny"
+expect_used = "allow"

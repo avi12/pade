@@ -13,6 +13,7 @@ mod members;
 mod naming;
 mod os;
 mod pty;
+mod recovery;
 mod refs;
 mod resume;
 mod runner;
@@ -90,6 +91,7 @@ pub fn run() {
             if let Some(main) = app.get_webview_window("main") {
                 window::paint_surface(&main);
                 let _ = main.show();
+                recovery::guard(&main);
             }
             Ok(())
         })
@@ -197,7 +199,15 @@ pub fn run() {
             // gracefully by now (App intercepts the window close and waits for
             // each agent's idle prompt before killing); this is the backstop
             // for whatever a force-close or a crashed WebView leaves behind.
-            if let tauri::RunEvent::ExitRequested { .. } = event {
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
+                // The last window closing mid crash-recovery is not an exit:
+                // its replacement (same label, same URL) is about to be built,
+                // and killing the PTYs now would defeat the recovery. An
+                // explicit exit (`code` present) is always honored.
+                if code.is_none() && recovery::recreate_pending() {
+                    api.prevent_exit();
+                    return;
+                }
                 if let Some(state) = handle.try_state::<pty::PtyState>() {
                     pty::kill_all(state.inner());
                 }

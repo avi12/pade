@@ -162,6 +162,12 @@ plus `/resume` cover continuity) and then kills its PTYs, which is exactly why
 nothing survives the next boot's intersection. And because sessionStorage dies
 with the window, an app restart never resurrects agents the user meant to end.
 
+The backend leans on that same seam for **`WebView2` crash auto-recovery**
+(`recovery.rs`): when a window's webview browser process dies under load, the
+window is destroyed and rebuilt with the same label and URL, and the fresh
+frontend re-adopts the label's still-running sessions exactly as a manual
+reload would.
+
 A **fullscreen** program's history is not a document, though — it is a stream of edits
 to a framebuffer, and a trimmed one replays as a torn frame. So `pty.rs` also tracks
 which screen the program is on, and for the alternate one the terminal replays what it
@@ -390,6 +396,7 @@ entry. Each concern is one module:
 | `contextmenu.rs` | Windows Explorer "Open in PADE" registration, **one menu per Windows version** so it's never duplicated: on Win11 (build 22000+) only the modern menu via the `modern` submodule (sparse MSIX package — see below); on Win10/older only the legacy registry keys inline. Version detected from the registry build number. On Win11 the package is registered once and the toggle thereafter only flips a show/hide flag (the package stays registered); on Win10 the toggle adds/removes the keys directly |
 | `os.rs` | Reveal in file manager / terminal, open URLs |
 | `window.rs` | Spawn additional app windows (painted with the themed M3 surface so they open in-theme, no white flash); track each window's project and focus/list/**reorder**/cycle between them (`window_focus_project`, `window_list`, `window_focus_label`, `window_focus_relative`, `window_reorder`) — powering the switcher's Open-windows section and the Ctrl+Alt+[ / ] cycle. A user-defined explicit label order (drag-grip reorder in the switcher, session-scoped in `WindowProjects`) is the one source both `window_list` and `window_focus_relative` sort by, so the drag order drives the list and the cycle alike; a window absent from it appends in creation order |
+| `recovery.rs` | `WebView2` crash auto-recovery, armed on every app window (`main` at setup, each `window_create` spawn, and every window it itself rebuilds). Subscribes the webview to `WebView2`'s `ProcessFailed` event through the `webview-recovery` workspace crate (the COM registration is `unsafe`, and `pade` forbids unsafe code — same split as `contextmenu-handler`): a dead/hung **renderer** process is `Reload()`ed in place there, while a dead **browser** process — the window survives but renders a permanent black void, every COM object defunct — escalates here, which destroys the window (`destroy()`, not `close()`: a dead webview can never answer the frontend's close-confirm) and rebuilds it off the event-loop thread with the **same label and URL** at the old placement, so `pty.rs`'s label-keyed sessions re-adopt exactly as on a manual reload. A pending-rebuild counter lets `lib.rs`'s `ExitRequested` handler veto the app exit the destroy of a last window would otherwise trigger |
 | `copilot.rs` | Copilot as an optional name source (stub, not yet wired) |
 | `util.rs` | Cross-cutting helpers: executable resolution (`search_dirs`, `find_in`, `resolve`, `is_on_path`), `command` (windowless child processes), `spawn_detached` (a fully detached GUI-app launch — Windows job/console breakaway with a no-breakaway fallback — so a spawned editor outlives PADE; used by `ide.rs`), `home_dir`, `encode_project`, `percent_encode` |
 

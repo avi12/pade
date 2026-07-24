@@ -25,7 +25,7 @@ const SURFACE_LIGHT: Color = Color(248, 250, 251, 255); // hsl(210deg 30% 98%)
 const SURFACE_DARK: Color = Color(14, 20, 27, 255); // hsl(214deg 30% 8%)
 
 /// The surface color matching a resolved OS theme.
-fn surface_for(theme: Theme) -> Color {
+pub(crate) fn surface_for(theme: Theme) -> Color {
     match theme {
         Theme::Dark => SURFACE_DARK,
         // `Theme` is `#[non_exhaustive]`; treat light and anything new as light.
@@ -54,6 +54,20 @@ pub struct WindowProjects {
     /// cycle — the single source both read. A live window absent from it falls back
     /// to creation order (`order_key`) after the explicitly ordered ones.
     order: Mutex<Vec<String>>,
+}
+
+impl WindowProjects {
+    /// The project registered to one live application window. Native commands
+    /// use this instead of process-global cwd when selecting project data.
+    pub(crate) fn project_for(&self, label: &str) -> Result<String, String> {
+        self.projects
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(label)
+            .filter(|path| !path.is_empty())
+            .cloned()
+            .ok_or_else(|| "this window has no registered project".to_string())
+    }
 }
 
 /// Canonicalize a path for cross-window comparison — `/`-separated, no trailing
@@ -352,10 +366,11 @@ pub async fn window_create(
     // themed surface at creation, so there's no white flash to hide. (Building
     // hidden and calling `show()` here left the window invisible — a freshly
     // built webview window doesn't reliably show from within the command.)
-    builder
+    let window = builder
         .min_inner_size(720.0, 480.0)
         .build()
         .map_err(|e| e.to_string())?;
+    crate::recovery::guard(&window);
     Ok(())
 }
 

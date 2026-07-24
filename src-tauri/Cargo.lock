@@ -2675,6 +2675,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
+ "webview-recovery",
 ]
 
 [[package]]
@@ -4915,6 +4916,14 @@ dependencies = [
  "pkg-config",
  "soup3-sys",
  "system-deps",
+]
+
+[[package]]
+name = "webview-recovery"
+version = "0.0.1"
+dependencies = [
+ "webview2-com",
+ "windows-core 0.61.2",
 ]
 
 [[package]]

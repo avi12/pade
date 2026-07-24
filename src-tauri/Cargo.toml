@@ -14,7 +14,7 @@ license = "Apache-2.0"
 # expects both). Each crate keeps its own `[lints]` (this one forbids unsafe; the
 # handler must allow it).
 [workspace]
-members = ["contextmenu-handler"]
+members = ["contextmenu-handler", "webview-recovery"]
 resolver = "2"
 
 [lib]
@@ -40,6 +40,13 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 # (arboard → image deps), so this adds no new supply-chain surface; the heavy
 # `image` crate stays out.
 png = "0.18"
+
+[target."cfg(windows)".dependencies]
+# WebView2 `ProcessFailed` auto-recovery (see src/recovery.rs). A separate
+# workspace member because COM event registration is unsafe and this crate
+# forbids unsafe code; it pins webview2-com/windows-core to the versions
+# already in the tree via wry, so no new supply-chain surface.
+webview-recovery = { path = "webview-recovery" }
 
 [profile.release]
 codegen-units = 1
