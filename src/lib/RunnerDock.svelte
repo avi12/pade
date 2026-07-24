@@ -133,7 +133,6 @@
             class="bar"
             class:reorderable
             aria-label="{row.label} controls"
-            data-tooltip={reorderable ? "Drag to reorder" : undefined}
             onpointerdown={e => {
               if (!reorderable) {
                 return;
