@@ -5,7 +5,7 @@
 //! Later: real per-hunk diffs and agent-authored intent replace the heuristic.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -24,6 +24,7 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 /// held only so dropping it stops the watch.
 struct ProjectWatcher {
     root: PathBuf,
+    canonical_root: PathBuf,
     _watcher: RecommendedWatcher,
 }
 
@@ -98,6 +99,17 @@ pub struct WatcherState {
 fn window_watch(state: &WatcherState, label: &str) -> Option<Arc<WindowWatch>> {
     let mut windows = state.windows.lock().ok()?;
     Some(Arc::clone(windows.entry(label.to_string()).or_default()))
+}
+
+/// The canonical filesystem target this window's active watcher was armed on.
+/// Cloned under the watcher lock so preview I/O never holds that lock.
+fn canonical_watch_root(watch: &WindowWatch) -> Option<PathBuf> {
+    watch
+        .watcher
+        .lock()
+        .ok()?
+        .as_ref()
+        .map(|active| active.canonical_root.clone())
 }
 
 /// Drop the watch bookkeeping of every window that has since closed. There is no
@@ -614,21 +626,49 @@ fn line_count(path: &Path) -> Option<usize> {
 /// back to "No preview available" rather than holding megabytes per touched path.
 const MAX_PREVIEW_BYTES: u64 = 512 * 1024;
 
-/// Read `path` as UTF-8 text for the Change Feed preview, or `None` when it is
-/// missing, not a regular file, larger than [`MAX_PREVIEW_BYTES`], or binary (it
-/// holds a NUL byte or isn't valid UTF-8). One helper for both the first-touch
-/// baseline capture and the current-content read (DRY), so both honor the same
-/// size and binary sensibilities.
-fn read_preview_text(path: &Path) -> Option<String> {
-    let metadata = std::fs::metadata(path).ok()?;
-    if !metadata.is_file() || metadata.len() > MAX_PREVIEW_BYTES {
-        return None;
+/// Resolve `path`, require its target to remain under `root`, then read through
+/// one handle. Metadata and content therefore describe the same opened file, and
+/// a file that grows after the metadata check is still bounded by the read cap.
+fn read_authorized_file(
+    root: &Path,
+    path: &Path,
+    maximum_bytes: u64,
+) -> Result<Option<Vec<u8>>, ()> {
+    let resolved = match std::fs::canonicalize(path) {
+        Ok(resolved) => resolved,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(()),
+    };
+    if !resolved.starts_with(root) {
+        return Err(());
     }
-    let bytes = std::fs::read(path).ok()?;
+
+    let mut file = std::fs::File::open(resolved).map_err(|_| ())?;
+    let metadata = file.metadata().map_err(|_| ())?;
+    if !metadata.is_file() || metadata.len() > maximum_bytes {
+        return Err(());
+    }
+
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(maximum_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|_| ())?;
+    if u64::try_from(bytes.len()).map_err(|_| ())? > maximum_bytes {
+        return Err(());
+    }
+    Ok(Some(bytes))
+}
+
+/// Read an authorized `path` as UTF-8 preview text, rejecting binary content.
+fn read_preview_text(root: &Path, path: &Path) -> Result<Option<String>, ()> {
+    let Some(bytes) = read_authorized_file(root, path, MAX_PREVIEW_BYTES)? else {
+        return Ok(None);
+    };
     if bytes.contains(&0) {
-        return None;
+        return Err(());
     }
-    String::from_utf8(bytes).ok()
+    String::from_utf8(bytes).map(Some).map_err(|_| ())
 }
 
 fn summarize(kind: ChangeKind, path: &Path, added: usize, removed: usize) -> String {
@@ -688,6 +728,12 @@ pub async fn watch_start(
     root: String,
 ) -> Result<(), String> {
     let root = resolve_watch_root(&root)?;
+    let canonical_root = std::fs::canonicalize(&root).map_err(|error| {
+        format!(
+            "Change Feed can't resolve watch root {}: {error}",
+            root.display()
+        )
+    })?;
     let label = window.label().to_string();
 
     // Retire the bookkeeping of any window that has since closed before taking on
@@ -753,6 +799,7 @@ pub async fn watch_start(
 
     *guard = Some(ProjectWatcher {
         root,
+        canonical_root,
         _watcher: watcher,
     });
     Ok(())
@@ -1143,11 +1190,11 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
     };
     // The active watch root, for the MCP-config and ancestor-relative checks
     // below — the recursive watcher only ever reports paths under it.
-    let watch_root = watch
-        .watcher
-        .lock()
-        .ok()
-        .and_then(|guard| guard.as_ref().map(|active| active.root.clone()));
+    let watch_roots = watch.watcher.lock().ok().and_then(|guard| {
+        guard
+            .as_ref()
+            .map(|active| (active.root.clone(), active.canonical_root.clone()))
+    });
 
     for path in event.paths {
         if ignored(&path) {
@@ -1177,7 +1224,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // A changed MCP config (`.mcp.json`) may have gained or lost a server;
         // if so, the affected agent's sessions restart to pick it up. Checked
         // before the ignore filter, since `.mcp.json` is often git-ignored.
-        if let Some(root) = &watch_root {
+        if let Some((root, _)) = &watch_roots {
             detect_mcp_change(app, &watch, label, root, &path);
         }
 
@@ -1224,7 +1271,11 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         if let Ok(mut baselines) = watch.baselines.lock() {
             baselines.entry(path.clone()).or_insert_with(|| match kind {
                 ChangeKind::Created => Some(String::new()),
-                ChangeKind::Modified | ChangeKind::Deleted => read_preview_text(&path),
+                ChangeKind::Modified | ChangeKind::Deleted => {
+                    watch_roots.as_ref().and_then(|(_, canonical_root)| {
+                        read_preview_text(canonical_root, &path).ok().flatten()
+                    })
+                }
             });
         }
 
@@ -1292,14 +1343,15 @@ pub async fn feed_diff(
         }
     };
 
+    let Some(canonical_root) = canonical_watch_root(&watch) else {
+        return Ok(None);
+    };
+
     let file = Path::new(&path);
-    let after = if file.exists() {
-        let Some(text) = read_preview_text(file) else {
-            return Ok(None);
-        };
-        text
-    } else {
-        String::new()
+    let after = match read_preview_text(&canonical_root, file) {
+        Ok(Some(text)) => text,
+        Ok(None) => String::new(),
+        Err(()) => return Ok(None),
     };
 
     Ok(Some(FeedDiff { before, after }))
@@ -1328,7 +1380,13 @@ pub async fn feed_text(
         }
     }
 
-    Ok(read_preview_text(Path::new(&path)))
+    let Some(canonical_root) = canonical_watch_root(&watch) else {
+        return Ok(None);
+    };
+
+    Ok(read_preview_text(&canonical_root, Path::new(&path))
+        .ok()
+        .flatten())
 }
 
 /// The image extensions the Change Feed previews inline, each paired with the
@@ -1365,12 +1423,6 @@ fn image_mime_type(path: &Path) -> Option<&'static str> {
 /// covers real project assets; past it the preview is skipped rather than
 /// bloating the webview with megabytes of base64 for one card.
 const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
-
-/// Whether an image of `byte_length` is small enough to inline, capped at
-/// [`MAX_IMAGE_BYTES`].
-fn image_within_cap(byte_length: u64) -> bool {
-    byte_length <= MAX_IMAGE_BYTES
-}
 
 /// Standard-alphabet (RFC 4648) base64 for the image data URL — a few lines of
 /// std rather than a new dependency (the only base64 the backend needs). Encodes
@@ -1436,13 +1488,10 @@ pub async fn feed_image(
     let Some(mime) = image_mime_type(file) else {
         return Ok(None);
     };
-    let Ok(metadata) = std::fs::metadata(file) else {
+    let Some(canonical_root) = canonical_watch_root(&watch) else {
         return Ok(None);
     };
-    if !metadata.is_file() || !image_within_cap(metadata.len()) {
-        return Ok(None);
-    }
-    let Ok(bytes) = std::fs::read(file) else {
+    let Ok(Some(bytes)) = read_authorized_file(&canonical_root, file, MAX_IMAGE_BYTES) else {
         return Ok(None);
     };
 
@@ -1482,8 +1531,8 @@ pub fn init(app: &AppHandle) {
 mod tests {
     use super::{
         base64_encode, drain_burst, git_state_dirs, ignored_by_static_dirs, image_mime_type,
-        image_within_cap, is_git_dir_entry, is_git_state_file, line_count, line_delta,
-        manifest_ignore_dirs, read_preview_text, reclassify, resolve_watch_root,
+        is_git_dir_entry, is_git_state_file, line_count, line_delta, manifest_ignore_dirs,
+        read_authorized_file, read_preview_text, reclassify, resolve_watch_root,
         static_ignore_dirs, surfaces, unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES,
         MAX_PREVIEW_BYTES,
     };
@@ -1561,9 +1610,12 @@ mod tests {
         let dir = scratch("text");
         let file = dir.join("a.txt");
         fs::write(&file, b"line one\nline two\n").expect("write file");
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
         assert_eq!(
-            read_preview_text(&file).as_deref(),
-            Some("line one\nline two\n")
+            read_preview_text(&canonical_root, &file)
+                .expect("read preview")
+                .as_deref(),
+            Some("line one\nline two\n"),
         );
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1573,7 +1625,8 @@ mod tests {
         let dir = scratch("binary");
         let file = dir.join("a.bin");
         fs::write(&file, b"before\x00after").expect("write file");
-        assert_eq!(read_preview_text(&file), None);
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        assert!(read_preview_text(&canonical_root, &file).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1583,14 +1636,72 @@ mod tests {
         let file = dir.join("a.txt");
         let over_cap = usize::try_from(MAX_PREVIEW_BYTES).expect("cap fits usize") + 1;
         fs::write(&file, vec![b'x'; over_cap]).expect("write file");
-        assert_eq!(read_preview_text(&file), None);
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        assert!(read_preview_text(&canonical_root, &file).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn read_preview_text_is_none_for_a_missing_path() {
         let dir = scratch("missing");
-        assert_eq!(read_preview_text(&dir.join("nope.txt")), None);
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        assert_eq!(
+            read_preview_text(&canonical_root, &dir.join("nope.txt")),
+            Ok(None)
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preview_reads_reject_a_target_outside_the_watch_root() {
+        let dir = scratch("authorized-root");
+        let outside = scratch("authorized-outside").join("secret.txt");
+        fs::write(&outside, b"secret").expect("write outside file");
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+
+        assert!(read_authorized_file(&canonical_root, &outside, MAX_PREVIEW_BYTES).is_err());
+
+        let outside_dir = outside.parent().expect("outside file has parent");
+        let _ = fs::remove_dir_all(outside_dir);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn preview_reads_reject_a_symlink_or_reparse_point_escape() {
+        let dir = scratch("symlink-root");
+        let outside_dir = scratch("symlink-outside");
+        let outside = outside_dir.join("secret.txt");
+        let link = dir.join("escape.txt");
+        fs::write(&outside, b"secret").expect("write outside file");
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, &link).expect("create symlink");
+        #[cfg(windows)]
+        if std::os::windows::fs::symlink_file(&outside, &link).is_err() {
+            let _ = fs::remove_dir_all(&outside_dir);
+            let _ = fs::remove_dir_all(&dir);
+            return;
+        }
+
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        assert!(read_authorized_file(&canonical_root, &link, MAX_PREVIEW_BYTES).is_err());
+
+        let _ = fs::remove_dir_all(&outside_dir);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preview_reads_enforce_the_image_cap_from_the_open_handle() {
+        let dir = scratch("image-cap");
+        let file = dir.join("large.png");
+        let opened = fs::File::create(&file).expect("create image");
+        opened
+            .set_len(MAX_IMAGE_BYTES + 1)
+            .expect("extend image beyond cap");
+        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+
+        assert!(read_authorized_file(&canonical_root, &file, MAX_IMAGE_BYTES).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1793,13 +1904,6 @@ mod tests {
         assert_eq!(image_mime_type(Path::new("README")), None);
         // Only the final extension decides; a `.png` in the stem doesn't count.
         assert_eq!(image_mime_type(Path::new("archive.png.zip")), None);
-    }
-
-    #[test]
-    fn image_within_cap_rejects_only_over_the_limit() {
-        assert!(image_within_cap(0));
-        assert!(image_within_cap(MAX_IMAGE_BYTES));
-        assert!(!image_within_cap(MAX_IMAGE_BYTES + 1));
     }
 
     /// The RFC 4648 test vectors — proof the hand-rolled encoder pads partial
