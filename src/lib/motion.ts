@@ -88,6 +88,10 @@ function slideRow(node: Element, duration: number) {
   const gap = node.parentElement
     ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0
     : 0;
+  // An element's own leading margin (an error line's 6px offset) collapses in
+  // step too — left at full size it would pop the exact instant the row's
+  // height reaches zero.
+  const marginBlockStart = parseFloat(getComputedStyle(node).marginBlockStart) || 0;
 
   return {
     duration: motionDuration(duration),
@@ -95,6 +99,7 @@ function slideRow(node: Element, duration: number) {
     css: (progress: number, remaining: number) => `
       overflow: hidden;
       block-size: ${progress * height}px;
+      margin-block-start: ${progress * marginBlockStart}px;
       margin-block-end: ${-gap * remaining}px;
       opacity: ${progress};
       transform: translateX(${-12 * remaining}px) scale(${1 - (0.03 * remaining)});

@@ -2,6 +2,7 @@
   import { dragDrop, os, vcs, workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
+  import { collapseRow, expandRow } from "@/lib/motion";
   import { rovingTablist } from "@/lib/roving-tabs";
   import { emptyPathProbe, SHELL_AGENT_ID } from "@/lib/types";
   import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
@@ -559,11 +560,20 @@
               />
             </div>
             {#if createNameError}
-              <output id="np-name-error" class="field-error">{createNameError}</output>
+              <output
+                id="np-name-error"
+                class="field-error"
+                in:expandRow
+                out:collapseRow
+              >{createNameError}</output>
             {:else if createTargetIsFile}
-              <output class="field-error">That name is taken by a file in this root.</output>
+              <output class="field-error" in:expandRow out:collapseRow>
+                That name is taken by a file in this root.
+              </output>
             {:else if createTargetExists}
-              <output class="field-error">This folder already exists in this root.</output>
+              <output class="field-error" in:expandRow out:collapseRow>
+                This folder already exists in this root.
+              </output>
             {/if}
           </div>
 
