@@ -407,18 +407,25 @@ export function beginReorder(options: BeginReorderOptions): void {
     shield = null;
   }
 
-  // The strip clips its overflow so pills never wrap; a lifted pill dragged out of
-  // it (toward the panes) would be cut off. Force every clipping ancestor visible
-  // for the drag, and put each back exactly as it was on drop.
+  // Neutralize the scroll ancestors' clipping for the gesture, restoring each
+  // exactly as it was on drop. An escape-drag (`outsideSelector` — a tab toward
+  // the panes, a pane toward the strip) forces them `visible` so the lifted item
+  // isn't cut off leaving its container. An in-place sort forces them `hidden`
+  // instead: the translated item still extends the container's scrollable area,
+  // and an `overflow: auto` ancestor (the runner dock's grid) would otherwise
+  // pop scrollbars for the whole drag and settle.
   function unclipAncestors(): void {
-    if (!outsideSelector) {
-      return;
-    }
-
+    const neutral = outsideSelector ? "visible" : "hidden";
     let node: HTMLElement | null = parent;
     while (node && node !== document.body) {
       const { overflow } = getComputedStyle(node);
-      if (overflow !== "" && overflow !== "visible") {
+      if (overflow !== "" && overflow !== "visible" && overflow !== "hidden") {
+        overflowSaves.push({
+          element: node,
+          overflow: node.style.overflow
+        });
+        node.style.overflow = neutral;
+      } else if (outsideSelector && overflow === "hidden") {
         overflowSaves.push({
           element: node,
           overflow: node.style.overflow
