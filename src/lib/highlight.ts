@@ -210,44 +210,55 @@ export function tokenizeMarkdown(text: string, vars?: Map<string, string>): Toke
 
   const lines = text.split("\n");
   for (const [index, line] of lines.entries()) {
+    const isFirstLine = index === 0;
+    if (!isFirstLine) {
+      tokens.push({
+        text: "\n",
+        cls: "plain"
+      });
+    }
+
     if (FENCE_LINE.test(line)) {
       inFence = !inFence;
       tokens.push({
         text: line,
         cls: "comment"
       });
-    } else if (inFence) {
+      continue;
+    }
+
+    if (inFence) {
       tokens.push(...tokenize(line, vars));
-    } else if (HEADING_LINE.test(line)) {
+      continue;
+    }
+
+    if (HEADING_LINE.test(line)) {
       tokens.push({
         text: line,
         cls: "keyword"
       });
-    } else if (BLOCKQUOTE_LINE.test(line)) {
+      continue;
+    }
+
+    if (BLOCKQUOTE_LINE.test(line)) {
       tokens.push({
         text: line,
         cls: "comment"
       });
-    } else {
-      const listMarker = LIST_MARKER.exec(line);
-      if (listMarker) {
-        tokens.push({
-          text: listMarker[0],
-          cls: "number"
-        });
-        tokens.push(...markdownProseTokens(line.slice(listMarker[0].length)));
-      } else {
-        tokens.push(...markdownProseTokens(line));
-      }
+      continue;
     }
 
-    const isLastLine = index === lines.length - 1;
-    if (!isLastLine) {
+    const listMarker = LIST_MARKER.exec(line);
+    if (listMarker) {
       tokens.push({
-        text: "\n",
-        cls: "plain"
+        text: listMarker[0],
+        cls: "number"
       });
+      tokens.push(...markdownProseTokens(line.slice(listMarker[0].length)));
+      continue;
     }
+
+    tokens.push(...markdownProseTokens(line));
   }
 
   return tokens.length > 0 ? tokens : [{
