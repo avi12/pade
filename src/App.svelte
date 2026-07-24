@@ -539,7 +539,17 @@
       discordProjectKind = undefined;
     }
   });
+  // Presence follows the FOCUSED window: every PADE window shares one Discord
+  // connection (one process), so only the focused window publishes — switching
+  // windows switches the reported project, and an unfocused window never
+  // overwrites the focused one's status. A blur sends nothing; the window
+  // gaining focus overwrites.
+  let windowFocused = $state(document.hasFocus());
   $effect(() => {
+    if (!windowFocused) {
+      return;
+    }
+
     updateDiscordPresence({
       enabled: discordEnabled,
       showProject: discordShowProject,
@@ -1479,6 +1489,12 @@
      stopPropagation on keys it handles, so a bubble-phase listener never sees the
      combo while the terminal has focus. -->
 <svelte:window
+  onblur={() => {
+    windowFocused = false;
+  }}
+  onfocus={() => {
+    windowFocused = true;
+  }}
   onkeydowncapture={e => {
     // Dev-only: F5 / Ctrl+Shift+R reloads the WebView — the escape hatch when
     // Vite's HMR socket drops (a Tauri window wires no reload of its own). Ctrl+R
