@@ -71,6 +71,9 @@ writes.
 ### 1.3 Highlight → Agent bridge (✅)
 - R1.3.1 Selecting text in a side panel offers "Send to agent".
 - R1.3.2 The selection is injected into the terminal's input.
+- R1.3.3 ✅ Programmatic clipboard, selection, and runner-output sends use
+  bracketed-paste framing without Enter, so embedded newlines cannot submit shell
+  commands. Only explicit prompt-delivery flows append a separate Enter.
 
 ### 1.4 Version-control review panel (✅ core, 🚧 verbs)
 - R1.4.1 Behind a git seam (MVP: `git` CLI; `git2`/`gix`/jj later 🔭).
@@ -123,6 +126,8 @@ writes.
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface `CLAUDE.md`, `AGENTS.md`, `.claude/settings*`, `.mcp.json`.
 - R1.7.2 ⏳ Edits round-trip through the same files (no shadow store).
+- R1.7.3 ✅ Config reads are scoped to the calling window's registered project;
+  two windows never select files through shared process cwd.
 
 ### 1.8 Knowledge bank (🔭 for MVP, architected-for)
 - Shared, git-backed, two-way (agent writes research; user has full CRUD).
