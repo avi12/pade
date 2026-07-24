@@ -20,7 +20,59 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+
+use crate::util::{owner_access, OwnerAccess};
+
+const MAXIMUM_RUNNERS_PER_WINDOW: usize = 32;
+const MAXIMUM_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
+
+struct RunnerRequest<'a> {
+    id: &'a str,
+    command: &'a str,
+    cwd: Option<&'a str>,
+}
+
+fn validate_runner_request(
+    RunnerRequest { id, command, cwd }: RunnerRequest<'_>,
+) -> Result<(), String> {
+    let exceeds_limits = id.len() > 128
+        || id.chars().any(char::is_control)
+        || command.len() > MAXIMUM_RUNNER_COMMAND_BYTES
+        || cwd.is_some_and(|value| value.len() > 4096);
+    if exceeds_limits {
+        return Err("runner request exceeds its input limits".into());
+    }
+    Ok(())
+}
+
+struct RunnerAccessRequest<'a> {
+    state: &'a RunnerState,
+    owner: &'a str,
+    registry_id: &'a str,
+}
+
+fn runner_start_access(
+    RunnerAccessRequest {
+        state,
+        owner,
+        registry_id,
+    }: RunnerAccessRequest<'_>,
+) -> Result<OwnerAccess, String> {
+    let runners = state.0.lock().map_err(|e| e.to_string())?;
+    let access = owner_access(
+        runners.get(registry_id).map(|runner| runner.owner.as_str()),
+        owner,
+    );
+    let owner_runner_count = runners
+        .values()
+        .filter(|runner| runner.owner == owner)
+        .count();
+    if access == OwnerAccess::Vacant && owner_runner_count >= MAXIMUM_RUNNERS_PER_WINDOW {
+        return Err("this window has reached its runner limit".into());
+    }
+    Ok(access)
+}
 
 /// All live runners, keyed by task id.
 pub struct RunnerState(pub Mutex<HashMap<String, Runner>>);
@@ -28,6 +80,8 @@ pub struct RunnerState(pub Mutex<HashMap<String, Runner>>);
 /// A live runner: the spawned child (shared so the exit-waiter thread can reap it
 /// while `runner_stop` can still kill it) plus its metadata.
 pub struct Runner {
+    /// The window allowed to inspect and stop this runner.
+    owner: String,
     /// The child process, shared with its exit-waiter thread. `runner_stop` locks
     /// it to `kill()`; the waiter locks it to `wait()`.
     child: Arc<Mutex<Child>>,
@@ -101,6 +155,7 @@ fn shell_command(command: &str) -> Command {
 /// Arguments for [`pump_stream`], bundled so the reader thread takes one param.
 struct PumpArgs<R: BufRead> {
     app: AppHandle,
+    owner: String,
     id: String,
     stream: RunnerStream,
     reader: R,
@@ -112,6 +167,7 @@ struct PumpArgs<R: BufRead> {
 fn pump_stream<R: BufRead>(
     PumpArgs {
         app,
+        owner,
         id,
         stream,
         reader,
@@ -119,7 +175,8 @@ fn pump_stream<R: BufRead>(
 ) {
     for line in reader.lines() {
         let Ok(data) = line else { break };
-        let _ = app.emit(
+        let _ = app.emit_to(
+            &owner,
             "runner://data",
             RunnerData {
                 id: id.clone(),
@@ -141,22 +198,30 @@ fn pump_stream<R: BufRead>(
 #[tauri::command]
 pub async fn runner_start(
     app: AppHandle,
+    window: WebviewWindow,
     state: State<'_, RunnerState>,
     id: String,
     command: String,
     cwd: Option<String>,
 ) -> Result<(), String> {
-    // The registry lock is only a lookup — never held across the spawn below
-    // (mirrors `pty_spawn`: check, release, spawn, re-check on publish).
-    {
-        let runners = state.0.lock().map_err(|e| e.to_string())?;
-        if runners.contains_key(&id) {
-            return Ok(()); // already running
-        }
+    let owner = window.label().to_string();
+    validate_runner_request(RunnerRequest {
+        id: &id,
+        command: &command,
+        cwd: cwd.as_deref(),
+    })?;
+    let registry_id = format!("{owner}\0{id}");
+    match runner_start_access(RunnerAccessRequest {
+        state: &state,
+        owner: &owner,
+        registry_id: &registry_id,
+    })? {
+        OwnerAccess::Owned => return Ok(()),
+        OwnerAccess::Foreign => return Err("runner belongs to another window".into()),
+        OwnerAccess::Vacant => {}
     }
 
     let mut cmd = shell_command(&command);
-    // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
     let dir = cwd
         .clone()
         .map(std::path::PathBuf::from)
@@ -169,9 +234,9 @@ pub async fn runner_start(
     let stdout = child.stdout.take().ok_or("failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("failed to capture stderr")?;
 
-    // One reader thread per stream so stdout and stderr interleave as they arrive.
     let stdout_args = PumpArgs {
         app: app.clone(),
+        owner: owner.clone(),
         id: id.clone(),
         stream: RunnerStream::Stdout,
         reader: BufReader::new(stdout),
@@ -180,20 +245,18 @@ pub async fn runner_start(
 
     let stderr_args = PumpArgs {
         app: app.clone(),
+        owner: owner.clone(),
         id: id.clone(),
         stream: RunnerStream::Stderr,
         reader: BufReader::new(stderr),
     };
     std::thread::spawn(move || pump_stream(stderr_args));
 
-    // Share the child with the exit-waiter: it reaps via `try_wait()`, `runner_stop`
-    // kills via the same handle. The waiter *polls* rather than blocking inside the
-    // lock — a blocking `wait()` would hold the lock for the process's whole life and
-    // deadlock `runner_stop`, which needs that same lock to `kill()`. Each poll takes
-    // the lock only momentarily, then sleeps, so a kill lands promptly.
+    // Polling avoids holding the child lock while the process runs.
     let child = Arc::new(Mutex::new(child));
     let waiter_child = Arc::clone(&child);
     let app_exit = app.clone();
+    let exit_owner = owner.clone();
     let exit_id = id.clone();
     std::thread::spawn(move || {
         let code = loop {
@@ -207,7 +270,11 @@ pub async fn runner_start(
                 Ok(Err(_)) | Err(_) => break None,
             }
         };
-        let _ = app_exit.emit("runner://exit", RunnerExit { id: exit_id, code });
+        let _ = app_exit.emit_to(
+            &exit_owner,
+            "runner://exit",
+            RunnerExit { id: exit_id, code },
+        );
     });
 
     let info = RunnerInfo {
@@ -216,17 +283,29 @@ pub async fn runner_start(
         cwd,
         started_at: now_millis(),
     };
-    // Publish the completed runner. A concurrent duplicate that won the race is
-    // kept; the extra child this call spawned is stopped rather than leaked.
     let mut runners = state.0.lock().map_err(|e| e.to_string())?;
-    if runners.contains_key(&id) {
-        drop(runners);
-        if let Ok(mut duplicate) = child.lock() {
-            stop_process_tree(&mut duplicate);
+    match owner_access(
+        runners
+            .get(&registry_id)
+            .map(|runner| runner.owner.as_str()),
+        &owner,
+    ) {
+        OwnerAccess::Owned | OwnerAccess::Foreign => {
+            let is_foreign = runners
+                .get(&registry_id)
+                .is_some_and(|runner| runner.owner != owner);
+            drop(runners);
+            if let Ok(mut duplicate) = child.lock() {
+                stop_process_tree(&mut duplicate);
+            }
+            if is_foreign {
+                return Err("runner belongs to another window".into());
+            }
+            return Ok(());
         }
-        return Ok(());
+        OwnerAccess::Vacant => {}
     }
-    runners.insert(id, Runner { child, info });
+    runners.insert(registry_id, Runner { owner, child, info });
     Ok(())
 }
 
@@ -256,10 +335,24 @@ fn stop_process_tree(child: &mut Child) {
 // blocking `taskkill` wait on Windows) — only the removed runner's own child
 // lock is held while it dies, so other runners stay reachable meanwhile.
 #[tauri::command]
-pub async fn runner_stop(state: State<'_, RunnerState>, id: String) -> Result<(), String> {
+pub async fn runner_stop(
+    window: WebviewWindow,
+    state: State<'_, RunnerState>,
+    id: String,
+) -> Result<(), String> {
+    let registry_id = format!("{}\0{id}", window.label());
     let removed = {
         let mut runners = state.0.lock().map_err(|e| e.to_string())?;
-        runners.remove(&id)
+        if owner_access(
+            runners
+                .get(&registry_id)
+                .map(|runner| runner.owner.as_str()),
+            window.label(),
+        ) == OwnerAccess::Foreign
+        {
+            return Err("runner belongs to another window".into());
+        }
+        runners.remove(&registry_id)
     };
     if let Some(runner) = removed {
         if let Ok(mut child) = runner.child.lock() {
@@ -271,9 +364,16 @@ pub async fn runner_stop(state: State<'_, RunnerState>, id: String) -> Result<()
 
 /// List every live runner's metadata (id, command, cwd, start time) for the dock.
 #[tauri::command]
-pub fn runner_list(state: State<RunnerState>) -> Result<Vec<RunnerInfo>, String> {
+pub fn runner_list(
+    window: WebviewWindow,
+    state: State<RunnerState>,
+) -> Result<Vec<RunnerInfo>, String> {
     let runners = state.0.lock().map_err(|e| e.to_string())?;
-    Ok(runners.values().map(|r| r.info.clone()).collect())
+    Ok(runners
+        .values()
+        .filter(|runner| runner.owner == window.label())
+        .map(|runner| runner.info.clone())
+        .collect())
 }
 
 pub fn init(app: &AppHandle) {

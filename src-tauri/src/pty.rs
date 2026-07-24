@@ -13,13 +13,21 @@ use std::sync::{Arc, Mutex};
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+
+use crate::util::{owner_access, OwnerAccess};
+
+const MAXIMUM_SESSIONS_PER_WINDOW: usize = 32;
+const MAXIMUM_PTY_DIMENSION: u16 = 1_000;
+const MAXIMUM_PTY_INPUT_BYTES: usize = 1024 * 1024;
 
 /// All live PTY sessions, keyed by session id.
 #[derive(Default)]
 pub struct PtyState(pub Mutex<HashMap<String, Arc<Pty>>>);
 
 pub struct Pty {
+    /// The window allowed to re-adopt and control this session.
+    owner: String,
     master: Mutex<Box<dyn MasterPty + Send>>,
     writer: Mutex<Box<dyn Write + Send>>,
     /// The agent process itself. Held so that ending a session can end the
@@ -458,6 +466,7 @@ fn light_console_command(exe: &str, args: &[String]) -> CommandBuilder {
 #[tauri::command]
 pub async fn pty_spawn(
     app: AppHandle,
+    window: WebviewWindow,
     state: State<'_, PtyState>,
     id: String,
     command: Option<String>,
@@ -473,10 +482,32 @@ pub async fn pty_spawn(
     // CLI supports it (`claude --session-id`). Absent for a shell/editor.
     conversation_id: Option<String>,
 ) -> Result<(), String> {
+    let owner = window.label().to_string();
+    let exceeds_argument_limits = args.as_ref().is_some_and(|arguments| {
+        arguments.len() > 64 || arguments.iter().any(|argument| argument.len() > 4096)
+    });
+    let exceeds_string_limits = id.len() > 128
+        || id.chars().any(char::is_control)
+        || command.as_ref().is_some_and(|value| value.len() > 4096)
+        || cwd.as_ref().is_some_and(|value| value.len() > 4096)
+        || conversation_id
+            .as_ref()
+            .is_some_and(|value| value.len() > 256);
+    let invalid_dimensions =
+        cols == 0 || rows == 0 || cols > MAXIMUM_PTY_DIMENSION || rows > MAXIMUM_PTY_DIMENSION;
+    if exceeds_argument_limits || exceeds_string_limits || invalid_dimensions {
+        return Err("PTY request exceeds its input limits".into());
+    }
     {
         let sessions = state.0.lock().map_err(|e| e.to_string())?;
-        if sessions.contains_key(&id) {
-            return Ok(()); // already running
+        match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
+            OwnerAccess::Owned => return Ok(()),
+            OwnerAccess::Foreign => return Err("PTY belongs to another window".into()),
+            OwnerAccess::Vacant => {}
+        }
+        let owner_session_count = sessions.values().filter(|pty| pty.owner == owner).count();
+        if owner_session_count >= MAXIMUM_SESSIONS_PER_WINDOW {
+            return Err("this window has reached its PTY session limit".into());
         }
     }
 
@@ -515,6 +546,7 @@ pub async fn pty_spawn(
     let transcript = Arc::new(Mutex::new(String::new()));
     let history = Arc::new(Mutex::new(History::default()));
     let pty = Arc::new(Pty {
+        owner: owner.clone(),
         master: Mutex::new(pair.master),
         writer: Mutex::new(writer),
         child: Mutex::new(child),
@@ -529,15 +561,23 @@ pub async fn pty_spawn(
     // remain responsive while a new CLI starts. A concurrent duplicate is dropped
     // here, which terminates the unregistered child through `Pty::drop`.
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if sessions.contains_key(&id) {
-        drop(sessions);
-        drop(pty);
-        return Ok(());
+    match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
+        OwnerAccess::Owned => {
+            drop(sessions);
+            drop(pty);
+            return Ok(());
+        }
+        OwnerAccess::Foreign => {
+            drop(sessions);
+            drop(pty);
+            return Err("PTY belongs to another window".into());
+        }
+        OwnerAccess::Vacant => {}
     }
     sessions.insert(id.clone(), pty);
     drop(sessions);
 
-    spawn_session_output_pump(app.clone(), id.clone(), reader, transcript, history);
+    spawn_session_output_pump(app.clone(), owner, id.clone(), reader, transcript, history);
 
     // Reap the agent when it exits on its own. The reader thread's EOF alone
     // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
@@ -556,6 +596,7 @@ pub async fn pty_spawn(
 /// remains exact even when the frontend starts listening mid-stream.
 fn spawn_session_output_pump(
     app: AppHandle,
+    owner: String,
     id: String,
     mut reader: Box<dyn Read + Send>,
     transcript: Arc<Mutex<String>>,
@@ -574,7 +615,8 @@ fn spawn_session_output_pump(
                     }
                     append_transcript(&transcript, &strip_ansi(&data));
                     let seq = append_history(&history, &data);
-                    let _ = app.emit(
+                    let _ = app.emit_to(
+                        &owner,
                         "pty://data",
                         Chunk {
                             id: id.clone(),
@@ -587,7 +629,7 @@ fn spawn_session_output_pump(
                 _ => break,
             }
         }
-        let _ = app.emit("pty://exit", Exit { id });
+        let _ = app.emit_to(&owner, "pty://exit", Exit { id });
     });
 }
 
@@ -654,12 +696,14 @@ pub struct SessionInfo {
 /// no way back). A listed session is alive by construction: the reaper drops a
 /// dead one from the map. Sorted by id so the order is deterministic.
 #[tauri::command]
-pub fn pty_list(state: State<PtyState>) -> Vec<SessionInfo> {
+pub fn pty_list(window: WebviewWindow, state: State<PtyState>) -> Vec<SessionInfo> {
+    let owner = window.label();
     let Ok(sessions) = state.0.lock() else {
         return Vec::new();
     };
     let mut infos: Vec<SessionInfo> = sessions
         .iter()
+        .filter(|(_, pty)| pty.owner == owner)
         .map(|(id, pty)| SessionInfo {
             id: id.clone(),
             command: pty.command.clone(),
@@ -675,47 +719,68 @@ pub fn pty_list(state: State<PtyState>) -> Vec<SessionInfo> {
 /// was listening while it asked can tell which chunks it caught are duplicates and
 /// which are genuinely new. Empty for an unknown session.
 #[tauri::command]
-pub fn pty_history(state: State<PtyState>, id: String) -> HistorySnapshot {
+pub fn pty_history(
+    window: WebviewWindow,
+    state: State<PtyState>,
+    id: String,
+) -> Result<HistorySnapshot, String> {
+    let owner = window.label();
     let pty = {
-        let Ok(sessions) = state.0.lock() else {
-            return HistorySnapshot::default();
-        };
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        if owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), owner)
+            == OwnerAccess::Foreign
+        {
+            return Err("PTY belongs to another window".into());
+        }
         sessions.get(&id).cloned()
     };
     let Some(pty) = pty else {
-        return HistorySnapshot::default();
+        return Ok(HistorySnapshot::default());
     };
-    pty.history
+    Ok(pty
+        .history
         .lock()
         .map(|buffer| HistorySnapshot {
             data: buffer.data[buffer.start..].to_string(),
             seq: buffer.seq,
             alternate: buffer.alternate,
         })
-        .unwrap_or_default()
+        .unwrap_or_default())
 }
 
 /// Read a session's current transcript, or an empty string if it is unknown or
 /// the lock is poisoned. The context the AI session-namer summarises.
-pub fn transcript_of(state: &PtyState, id: &str) -> String {
+pub fn transcript_of(state: &PtyState, owner: &str, id: &str) -> Result<String, String> {
     let pty = {
-        let Ok(sessions) = state.0.lock() else {
-            return String::new();
-        };
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        if owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner)
+            == OwnerAccess::Foreign
+        {
+            return Err("PTY belongs to another window".into());
+        }
         sessions.get(id).cloned()
     };
     let Some(pty) = pty else {
-        return String::new();
+        return Ok(String::new());
     };
-    pty.transcript
+    Ok(pty
+        .transcript
         .lock()
         .map(|buffer| buffer.clone())
-        .unwrap_or_default()
+        .unwrap_or_default())
 }
 
 #[tauri::command]
-pub async fn pty_write(state: State<'_, PtyState>, id: String, data: String) -> Result<(), String> {
-    let pty = state.0.lock().map_err(|e| e.to_string())?.get(&id).cloned();
+pub async fn pty_write(
+    window: WebviewWindow,
+    state: State<'_, PtyState>,
+    id: String,
+    data: String,
+) -> Result<(), String> {
+    if data.len() > MAXIMUM_PTY_INPUT_BYTES {
+        return Err("PTY input exceeds its size limit".into());
+    }
+    let pty = owned_pty(&state, window.label(), &id)?;
     if let Some(pty) = pty {
         let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
         writer
@@ -728,12 +793,16 @@ pub async fn pty_write(state: State<'_, PtyState>, id: String, data: String) -> 
 
 #[tauri::command]
 pub async fn pty_resize(
+    window: WebviewWindow,
     state: State<'_, PtyState>,
     id: String,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let pty = state.0.lock().map_err(|e| e.to_string())?.get(&id).cloned();
+    if cols == 0 || rows == 0 || cols > MAXIMUM_PTY_DIMENSION || rows > MAXIMUM_PTY_DIMENSION {
+        return Err("PTY dimensions are outside the allowed range".into());
+    }
+    let pty = owned_pty(&state, window.label(), &id)?;
     if let Some(pty) = pty {
         pty.master
             .lock()
@@ -753,12 +822,32 @@ pub async fn pty_resize(
 /// `Drop`), so by the time this returns the session's cwd is unlocked and its
 /// workspace can be deleted or moved.
 #[tauri::command]
-pub async fn pty_kill(state: State<'_, PtyState>, id: String) -> Result<(), String> {
+pub async fn pty_kill(
+    window: WebviewWindow,
+    state: State<'_, PtyState>,
+    id: String,
+) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if owner_access(
+        sessions.get(&id).map(|pty| pty.owner.as_str()),
+        window.label(),
+    ) == OwnerAccess::Foreign
+    {
+        return Err("PTY belongs to another window".into());
+    }
     let pty = sessions.remove(&id);
     drop(sessions);
     drop(pty);
     Ok(())
+}
+
+fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    match owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner) {
+        OwnerAccess::Vacant => Ok(None),
+        OwnerAccess::Owned => Ok(sessions.get(id).cloned()),
+        OwnerAccess::Foreign => Err("PTY belongs to another window".into()),
+    }
 }
 
 /// Terminate every live session — called as the app exits so no agent lingers

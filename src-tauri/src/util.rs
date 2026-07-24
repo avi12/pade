@@ -6,6 +6,24 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// Whether a caller may use an id in a process-global resource registry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OwnerAccess {
+    Vacant,
+    Owned,
+    Foreign,
+}
+
+/// Decide access without exposing one window's resource to another. Window
+/// labels survive a `WebView` reload, so `Owned` also permits reload re-adoption.
+pub(crate) fn owner_access(owner: Option<&str>, requester: &str) -> OwnerAccess {
+    match owner {
+        None => OwnerAccess::Vacant,
+        Some(owner) if owner == requester => OwnerAccess::Owned,
+        Some(_) => OwnerAccess::Foreign,
+    }
+}
+
 /// A `Command` that never flashes a console window on Windows. Every background
 /// or captured-output spawn — PATH lookups, git, curl, the agent namer, task
 /// runners, registry edits — goes through this so a GUI app stays windowless
@@ -417,7 +435,7 @@ pub fn encode_project(path: &str) -> String {
 mod tests {
     #[cfg(windows)]
     use super::expand_env;
-    use super::find_in;
+    use super::{find_in, owner_access, OwnerAccess};
     use std::fs;
     use std::path::PathBuf;
     use std::slice;
@@ -441,6 +459,13 @@ mod tests {
     }
 
     const CODEX_NAMES: &[&str] = &["codex", "codex-x86_64-pc-windows-msvc"];
+
+    #[test]
+    fn owner_access_distinguishes_vacant_owned_and_foreign_resources() {
+        assert_eq!(owner_access(None, "main"), OwnerAccess::Vacant);
+        assert_eq!(owner_access(Some("main"), "main"), OwnerAccess::Owned);
+        assert_eq!(owner_access(Some("other"), "main"), OwnerAccess::Foreign);
+    }
 
     #[test]
     fn find_in_falls_back_to_an_alias() {

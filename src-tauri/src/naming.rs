@@ -60,11 +60,12 @@ pub async fn project_autoname(path: String, agent: String) -> Option<String> {
 /// Reads the transcript from the PTY layer so the caller only passes the id.
 #[tauri::command]
 pub async fn session_generate_name(
+    window: tauri::WebviewWindow,
     id: String,
     agent: String,
     state: tauri::State<'_, crate::pty::PtyState>,
 ) -> Result<Option<String>, String> {
-    let transcript = crate::pty::transcript_of(&state, &id);
+    let transcript = crate::pty::transcript_of(&state, window.label(), &id)?;
     Ok(
         tauri::async_runtime::spawn_blocking(move || session_name(&transcript, &agent))
             .await
