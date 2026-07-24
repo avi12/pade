@@ -203,18 +203,19 @@
             {/each}
           </span>
         </span>
-        <span class="ed-spacer"></span>
-        <span class="ed-arrow">detected → open in</span>
-        {@render editorSelect({
-          key: kind,
-          value: ideRules[kind] ?? ideFallback,
-          options: editorsForKind(kind),
-          onpick: editorId => onrule({
-            kind,
-            editorId
-          }),
-          ariaLabel: `Editor for ${label} projects`
-        })}
+        <span class="ed-open">
+          <span class="ed-arrow">detected → open in</span>
+          {@render editorSelect({
+            key: kind,
+            value: ideRules[kind] ?? ideFallback,
+            options: editorsForKind(kind),
+            onpick: editorId => onrule({
+              kind,
+              editorId
+            }),
+            ariaLabel: `Editor for ${label} projects`
+          })}
+        </span>
       </li>
     {/each}
     <li class="ed-rule fallback">
@@ -227,15 +228,16 @@
         </span>
         <span class="ed-label">Any other folder</span>
       </span>
-      <span class="ed-spacer"></span>
-      <span class="ed-arrow">fall back to</span>
-      {@render editorSelect({
-        key: "fallback",
-        value: ideFallback,
-        options: editorsForKind("fallback"),
-        onpick: onfallback,
-        ariaLabel: "Fallback editor"
-      })}
+      <span class="ed-open">
+        <span class="ed-arrow">fall back to</span>
+        {@render editorSelect({
+          key: "fallback",
+          value: ideFallback,
+          options: editorsForKind("fallback"),
+          onpick: onfallback,
+          ariaLabel: "Fallback editor"
+        })}
+      </span>
     </li>
   </ul>
 
@@ -422,6 +424,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+    justify-content: space-between;
     align-items: center;
     padding-block: 10px;
     padding-inline: 14px 8px;
@@ -445,11 +448,14 @@
     }
   }
 
+  /* The kind block flexes and shrinks so many signal chips wrap WITHIN it —
+     never pushing the editor select onto its own line below. */
   .ed-kind {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 6px;
-    min-inline-size: 150px;
+    min-inline-size: min(150px, 100%);
   }
 
   .ed-label-row {
@@ -489,9 +495,13 @@
     font-size: 10px;
   }
 
-  .ed-spacer {
-    flex: 1;
-    min-inline-size: 8px;
+  /* The "detected → open in" label and the select move as one unit, so a
+     narrow panel wraps them together instead of stranding the label. */
+  .ed-open {
+    display: flex;
+    flex: none;
+    gap: 12px;
+    align-items: center;
   }
 
   .ed-arrow {
