@@ -60,23 +60,27 @@ export async function ensureRunnerListeners(): Promise<void> {
   listening = true;
   await runner.onData(({ id, data, stream }) => {
     const row = rows.find(item => item.backendId === id);
-    if (row) {
-      row.lines.push({
-        text: data,
-        stream
-      });
+    if (!row) {
+      return;
+    }
 
-      if (row.lines.length > MAX_LINES) {
-        row.lines.splice(0, row.lines.length - MAX_LINES);
-      }
+    row.lines.push({
+      text: data,
+      stream
+    });
+
+    if (row.lines.length > MAX_LINES) {
+      row.lines.splice(0, row.lines.length - MAX_LINES);
     }
   });
   await runner.onExit(({ id, code }) => {
     const row = rows.find(item => item.backendId === id);
-    if (row) {
-      row.done = true;
-      row.failed = code !== null && code !== 0;
+    if (!row) {
+      return;
     }
+
+    row.done = true;
+    row.failed = code !== null && code !== 0;
   });
 }
 

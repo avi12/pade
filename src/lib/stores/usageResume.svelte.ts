@@ -156,10 +156,12 @@ export function createUsageResume(host: ResumeHost) {
 
   function clearTimer(id: string) {
     const timer = timers.get(id);
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      timers.delete(id);
+    if (timer === undefined) {
+      return;
     }
+
+    clearTimeout(timer);
+    timers.delete(id);
   }
 
   // The window's reset instant. The account API is both the health gate and

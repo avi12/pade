@@ -184,12 +184,14 @@
   // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
   // middle-click autoscroll). onmousedown suppresses the same on press.
   function onTabPointer(e: MouseEvent, session: AgentSession) {
-    if (e.button === 1) {
-      e.preventDefault();
+    if (e.button !== 1) {
+      return;
+    }
 
-      if (e.type === "auxclick") {
-        closeTab(session);
-      }
+    e.preventDefault();
+
+    if (e.type === "auxclick") {
+      closeTab(session);
     }
   }
 

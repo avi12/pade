@@ -111,10 +111,12 @@ export function createApiErrorRetry(host: RetryHost) {
 
   function clearTimer(id: string) {
     const timer = timers.get(id);
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      timers.delete(id);
+    if (timer === undefined) {
+      return;
     }
+
+    clearTimeout(timer);
+    timers.delete(id);
   }
 
   // End one session's retry loop: drop its timer + hit, and clear the shared note
