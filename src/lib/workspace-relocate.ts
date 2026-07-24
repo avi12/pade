@@ -142,6 +142,8 @@ export function createRelocator(host: RelocateHost) {
   function rename(target: {
     from: string;
     newName: string;
+    /** Destination among the saved roots; omitted → the primary root. */
+    root?: string;
   }): Promise<string> {
     return relocate({
       from: target.from,

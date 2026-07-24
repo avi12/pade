@@ -53,7 +53,7 @@
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
   import { pastedText } from "@/lib/terminal-input";
-  import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
+  import { AddRootStatus, SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
     AgentSession,
@@ -1553,16 +1553,35 @@
             {isTemp}
             label={projectLabel}
             labels={settings.labels}
+            onaddroot={async rootPath => {
+              const outcome = await workspace.addRoot({
+                path: rootPath,
+                create: false
+              });
+              if (outcome.status === AddRootStatus.enum.added) {
+                settings = outcome.settings;
+              }
+
+              return outcome;
+            }}
             onclearrecent={clearRecentProjects}
             ondelete={deleteDirectory}
             onopen={projectPath => openProject({ path: projectPath })}
             onremoverecent={removeRecentProject}
             onreorderpins={reorderPins}
+            onsavetemp={async ({ name, root }) => {
+              await relocator.rename({
+                from: currentProject,
+                newName: name,
+                root
+              });
+            }}
             onswitch={leaveToPicker}
             ontogglepin={toggleProjectPin}
             path={currentProject}
             pinnedProjects={settings.pinnedProjects}
             recentProjects={settings.recentProjects}
+            roots={settings.roots}
           />
           {#if currentBranch}
             <!-- Design's branch pill: the checked-out branch beside the project

@@ -505,9 +505,12 @@ export const workspace = {
     from: string;
     destDir: string;
   }) => call("workspace_move", z.string(), { ...args }),
+  /** Promote a temp workspace into a saved root under a new name. `root` picks
+   *  the destination among the saved roots; omitted → the primary root. */
   rename: (args: {
     from: string;
     newName: string;
+    root?: string;
   }) => call("workspace_rename", z.string(), { ...args }),
   /** Set a friendly display label (no disk rename). */
   setLabel: (args: {

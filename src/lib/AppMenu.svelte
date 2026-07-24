@@ -8,8 +8,11 @@
   import Logo from "@/lib/Logo.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import type { WindowInfo } from "@/lib/types";
+  import { AddRootStatus } from "@/lib/types";
+  import type { AddRootOutcome, WindowInfo } from "@/lib/types";
+  import { nameError, parseInput, ProjectName } from "@/lib/validate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount, tick } from "svelte";
 
   // The project switcher that leads the top bar. It lists every open PADE window
@@ -22,6 +25,7 @@
     path,
     label,
     isTemp,
+    roots,
     recentProjects,
     pinnedProjects,
     labels,
@@ -31,11 +35,15 @@
     onclearrecent,
     onremoverecent,
     ondelete,
-    onreorderpins
+    onreorderpins,
+    onsavetemp,
+    onaddroot
   }: {
     path: string;
     label: string;
     isTemp: boolean;
+    /** The saved project roots — destinations the temp workspace can be saved into. */
+    roots: string[];
     recentProjects: string[];
     pinnedProjects: string[];
     labels: Record<string, string>;
@@ -61,6 +69,15 @@
     ondelete: (path: string) => Promise<void>;
     /** Persist a drag-reordered pin order. */
     onreorderpins: (paths: string[]) => void;
+    /** Save the current temp workspace as a real project: rename it into `root`
+     *  (one of the saved roots) under `name`. Resolves once relocated. */
+    onsavetemp: (target: {
+      name: string;
+      root: string;
+    }) => Promise<void>;
+    /** Add an existing folder as a project root — the no-roots save path.
+     *  Persisted by the parent (single settings owner). */
+    onaddroot: (path: string) => Promise<AddRootOutcome>;
   } = $props();
 
   let filter = $state("");
@@ -82,6 +99,76 @@
   let deletePending = $state<string | null>(null);
   let deleteBusy = $state(false);
   let deleteError = $state("");
+
+  // ── Save-this-workspace (temp → real project) ───────────────────────────────
+  // Name the throwaway workspace and pick which saved root receives it. One root
+  // saves straight into it; several list a Save button each; none offers to
+  // create a root first (native folder picker) and then saves into it.
+  // Prefilled as the menu opens with the friendly label when one exists
+  // (auto-name), never the raw temp-<stamp> folder name; anything typed sticks.
+  let saveName = $state("");
+  function prefillSaveName() {
+    const friendlyLabel = parseInput({
+      schema: ProjectName,
+      raw: label
+    });
+    const labelIsPrefillable = saveName === "" && friendlyLabel !== null && !/^temp-\d+$/.test(friendlyLabel);
+    if (labelIsPrefillable) {
+      saveName = friendlyLabel;
+    }
+  }
+  let saveBusy = $state(false);
+  let saveFailure = $state("");
+  const saveNameIssue = $derived(nameError(saveName));
+  const savableName = $derived(
+    parseInput({
+      schema: ProjectName,
+      raw: saveName
+    })
+  );
+
+  // Rename into `root`; the menu closes on success (the window relocates under
+  // the saved path). A failure stays visible inside the card.
+  async function saveTempInto(root: string) {
+    if (!savableName || saveBusy) {
+      return;
+    }
+
+    saveBusy = true;
+    saveFailure = "";
+    try {
+      await onsavetemp({
+        name: savableName,
+        root
+      });
+      hide();
+    } catch (error) {
+      saveFailure = String(error);
+    } finally {
+      saveBusy = false;
+    }
+  }
+
+  // The no-roots path: pick an existing folder as the first root, then save
+  // into it. The dialog always returns an existing directory, so any non-`added`
+  // outcome is a real failure worth showing.
+  async function createRootAndSave() {
+    const picked = await openDialog({
+      directory: true,
+      multiple: false
+    });
+    if (typeof picked !== "string") {
+      return;
+    }
+
+    const outcome = await onaddroot(picked);
+    if (outcome.status !== AddRootStatus.enum.added) {
+      saveFailure = "That folder can't be used as a root.";
+      return;
+    }
+
+    await saveTempInto(picked);
+  }
 
   const pinnedSet = $derived(new Set(pinnedProjects.map(normalizePath)));
   // Recents minus anything already pinned, so a project shows in one section only.
@@ -312,6 +399,7 @@
       menuOpen = (e as ToggleEvent).newState === "open";
 
       if (menuOpen) {
+        prefillSaveName();
         focusFilter();
         await loadMeta();
       }
@@ -319,6 +407,60 @@
     popover
     role="menu"
   >
+    <!-- Save the throwaway workspace as a real project: name + destination root.
+         Design's "Save this workspace" card, shown only for a temp project. -->
+    {#if isTemp}
+      <div class="save-card">
+        <div class="save-head">
+          <span class="temp">temp</span>
+          <span class="save-title">Save this workspace</span>
+        </div>
+        <p class="save-hint">Name it and pick a root to keep it beyond this session.</p>
+        <input
+          class="save-name"
+          aria-label="Project name"
+          autocomplete="off"
+          placeholder="project-name"
+          spellcheck="false"
+          bind:value={saveName}
+        />
+        {#if saveNameIssue}
+          <output class="save-issue">{saveNameIssue}</output>
+        {/if}
+        {#if saveFailure}
+          <output class="save-issue">{saveFailure}</output>
+        {/if}
+        {#if roots.length === 0}
+          <button
+            class="save-root"
+            disabled={!savableName || saveBusy}
+            onclick={async () => await createRootAndSave()}
+            type="button"
+          >
+            <span class="save-root-icon" aria-hidden="true"><Icon name="folderPlus" size={15} /></span>
+            <span class="save-root-path">Choose a folder for your projects…</span>
+            <span class="save-go">Create root & save →</span>
+          </button>
+        {:else}
+          <div class="save-roots">
+            {#each roots as root (root)}
+              <button
+                class="save-root"
+                disabled={!savableName || saveBusy}
+                onclick={async () => await saveTempInto(root)}
+                type="button"
+              >
+                <span class="save-root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
+                <span class="save-root-path">{root}</span>
+                <span class="save-go">Save →</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      <div class="sep"></div>
+    {/if}
+
     <!-- Open PADE windows — in creation order, which is also the cycle order for
        Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
@@ -704,6 +846,123 @@
   }
 
   /* Shell comes from the shared .popover-menu; width, colour and anchor side here. */
+
+  /* "Save this workspace" — the temp-promotion card leading the menu. */
+  .save-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-block: 1px 6px;
+    margin-inline: 2px;
+    padding: 10px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-medium);
+    background: var(--surface-1);
+
+    .save-head {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .save-title {
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .save-hint {
+      margin: 0;
+      color: var(--on-surface-variant);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .save-name {
+      inline-size: 100%;
+      padding-block: 7px;
+      padding-inline: 8px;
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-small);
+      background: var(--surface-2);
+      color: var(--on-surface);
+      outline: none;
+      font-family: var(--font-monospace);
+      font-weight: 600;
+      font-size: 12px;
+
+      &:focus-visible {
+        border-color: var(--primary);
+      }
+    }
+
+    .save-issue {
+      color: var(--critical);
+      font-weight: 600;
+      font-size: 10.5px;
+      line-height: 1.4;
+    }
+
+    .save-roots {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .save-root {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      inline-size: 100%;
+      padding-block: 7px;
+      padding-inline: 8px;
+      border-radius: var(--radius-small);
+      background: transparent;
+      color: var(--on-surface);
+      font: inherit;
+      text-align: start;
+      cursor: pointer;
+      transition: color 120ms var(--ease), background 120ms var(--ease);
+
+      &:hover:not(:disabled) {
+        background: var(--primary-container);
+        color: var(--on-primary-container);
+      }
+
+      &:disabled {
+        opacity: 55%;
+        cursor: default;
+      }
+
+      .save-root-icon {
+        display: inline-flex;
+        flex: none;
+        color: var(--on-surface-variant);
+      }
+
+      .save-root-path {
+        flex: 1;
+        overflow: hidden;
+        min-inline-size: 0;
+        font-family: var(--font-monospace);
+        font-weight: 600;
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .save-go {
+        flex: none;
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 10px;
+      }
+
+      &:hover:not(:disabled) .save-go {
+        color: var(--on-primary-container);
+      }
+    }
+  }
+
   .menu {
     inline-size: 352px;
     max-inline-size: 92vw;

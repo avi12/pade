@@ -296,6 +296,38 @@ pub(crate) fn canonical_path(path: &str) -> String {
         .into_owned()
 }
 
+/// Join a user-provided folder name beneath `root` without allowing the name to
+/// become a path, drive, device, alternate data stream, or parent traversal.
+pub(crate) fn validated_child_path(root: &Path, name: &str) -> Result<PathBuf, String> {
+    let name = name.trim();
+    let has_separator = name.contains(['/', '\\']);
+    let has_control = name.chars().any(char::is_control);
+    if name.is_empty() || name == "." || name == ".." || has_separator || has_control {
+        return Err("folder name must be one plain path segment".into());
+    }
+
+    #[cfg(windows)]
+    {
+        let stem = name
+            .split('.')
+            .next()
+            .unwrap_or_default()
+            .to_ascii_uppercase();
+        let is_reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            || stem
+                .strip_prefix("COM")
+                .or_else(|| stem.strip_prefix("LPT"))
+                .is_some_and(|number| {
+                    matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+                });
+        if name.contains(':') || name.ends_with(['.', ' ']) || is_reserved {
+            return Err("folder name is reserved by Windows".into());
+        }
+    }
+
+    Ok(root.join(name))
+}
+
 /// Canonicalize a path list and drop duplicates, keeping first-seen order — so a
 /// folder recorded twice under different spellings collapses to one entry.
 fn canonical_dedup(paths: &[String]) -> Vec<String> {
@@ -460,11 +492,22 @@ pub async fn workspace_probe_path(path: String) -> PathProbe {
 /// A path directly under the config `.../workspaces/temp-*` is one ADE created,
 /// even if predating the `owned_workspaces` list.
 fn is_temp_workspace(path: &str) -> bool {
-    Path::new(path)
+    let target = Path::new(path);
+    let has_temp_name = target
         .file_name()
         .and_then(|n| n.to_str())
-        .is_some_and(|n| n.starts_with("temp-"))
-        && path.contains("workspaces")
+        .is_some_and(|n| n.starts_with("temp-"));
+    if !has_temp_name {
+        return false;
+    }
+
+    let Ok(workspaces) = ensure_config_dir().map(|directory| directory.join("workspaces")) else {
+        return false;
+    };
+    std::fs::canonicalize(target)
+        .ok()
+        .zip(std::fs::canonicalize(workspaces).ok())
+        .is_some_and(|(target, parent)| target.parent() == Some(parent.as_path()))
 }
 
 /// May ADE rename/move/delete this path? Only its own workspaces — never a real
@@ -600,20 +643,37 @@ pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, St
     Ok(dest_str)
 }
 
-/// Rename a temp workspace, promoting it into the primary project root
-/// (`roots[0]`) under the new name — turning it into a real project.
+/// Rename a temp workspace, promoting it into a saved project root under the new
+/// name — turning it into a real project. `root` picks which saved root receives
+/// it (it must be one of `settings.roots`); omitted, the primary root
+/// (`roots[0]`) is used.
 #[tauri::command]
-pub async fn workspace_rename(from: String, new_name: String) -> Result<String, String> {
+pub async fn workspace_rename(
+    from: String,
+    new_name: String,
+    root: Option<String>,
+) -> Result<String, String> {
     let mut settings = load();
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be renamed".into());
     }
-    let root = settings
-        .roots
-        .first()
-        .ok_or("add a root folder first — rename saves into the primary root")?
-        .clone();
-    let dest = Path::new(&root).join(new_name.trim());
+    let root = match root {
+        Some(chosen) => {
+            let chosen = canonical_path(&chosen);
+            settings
+                .roots
+                .iter()
+                .find(|saved| canonical_path(saved) == chosen)
+                .ok_or("the chosen destination is not a saved root")?
+                .clone()
+        }
+        None => settings
+            .roots
+            .first()
+            .ok_or("add a root folder first — rename saves into the primary root")?
+            .clone(),
+    };
+    let dest = validated_child_path(Path::new(&root), &new_name)?;
     std::fs::rename(&from, &dest).map_err(|e| e.to_string())?;
     let dest_str = dest.to_string_lossy().into_owned();
     // Re-point external tools (agent memory, IDE recents) at the new path —
@@ -718,8 +778,16 @@ pub async fn workspace_prune() -> Result<Settings, String> {
 /// and its label. Shared by the owned-only `workspace_delete` and the
 /// confirmation-gated `workspace_delete_directory`.
 fn delete_directory(settings: &mut Settings, path: &str) -> Result<(), String> {
-    leave_if_inside(Path::new(path));
-    remove_dir_all_patiently(path).map_err(|e| e.to_string())?;
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Err("only a real project directory can be deleted".into());
+    }
+    let target = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+    if target.parent().is_none() {
+        return Err("a filesystem root cannot be deleted".into());
+    }
+    leave_if_inside(&target);
+    remove_dir_all_patiently(&target.to_string_lossy()).map_err(|e| e.to_string())?;
     settings.recent_projects.retain(|entry| entry != path);
     settings.pinned_projects.retain(|entry| entry != path);
     settings.owned_workspaces.retain(|entry| entry != path);
@@ -746,6 +814,16 @@ pub async fn workspace_delete(path: String) -> Result<Settings, String> {
 #[tauri::command]
 pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
     let mut settings = load();
+    let target = std::fs::canonicalize(&path).map_err(|e| e.to_string())?;
+    let is_remembered = settings
+        .recent_projects
+        .iter()
+        .chain(&settings.pinned_projects)
+        .filter_map(|remembered| std::fs::canonicalize(remembered).ok())
+        .any(|remembered| remembered == target);
+    if !is_remembered {
+        return Err("only a project shown in the switcher can be deleted".into());
+    }
     delete_directory(&mut settings, &path)?;
     save(&settings)
 }
@@ -753,7 +831,7 @@ pub async fn workspace_delete_directory(path: String) -> Result<Settings, String
 /// Create a new project directory under `root` and open it.
 #[tauri::command]
 pub async fn workspace_create(root: String, name: String) -> Result<String, String> {
-    let path = Path::new(&root).join(&name);
+    let path = validated_child_path(Path::new(&root), &name)?;
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     let path_str = path.to_string_lossy().into_owned();
     workspace_open(path_str.clone())?;
@@ -872,7 +950,8 @@ pub fn set_prefs(prefs: Prefs) -> Result<Settings, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_dedup, canonical_path};
+    use super::{canonical_dedup, canonical_path, validated_child_path};
+    use std::path::Path;
 
     #[cfg(windows)]
     #[test]
@@ -906,6 +985,25 @@ mod tests {
                 canonical_path(r"C:\repositories\avi\sb-companion"),
                 canonical_path(r"C:\repositories\avi\pade"),
             ]
+        );
+    }
+
+    #[test]
+    fn child_paths_reject_traversal_and_absolute_names() {
+        let root = Path::new("root");
+        for name in [
+            "../outside",
+            "..\\outside",
+            "/outside",
+            "C:\\outside",
+            ".",
+            "",
+        ] {
+            assert!(validated_child_path(root, name).is_err(), "accepted {name}");
+        }
+        assert_eq!(
+            validated_child_path(root, "project").expect("valid child"),
+            root.join("project")
         );
     }
 }
