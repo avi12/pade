@@ -113,7 +113,7 @@
   --font-ui: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-monospace: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 
-  /* Font scaling (youtube-time-manager model): --font-base is a ≥16px unit that
+  /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
      still tracks the user's browser zoom (1rem), and --ui-scale (set from the
      uiScale pref in lib/prefs) is the user's zoom knob. rem/em-sized UI and
      the terminal derive from this one base. */
@@ -400,7 +400,7 @@ textarea {
   }
 }
 
-/* Tooltips — pure CSS (inspired by youtube-time-manager). Add data-tooltip="…"
+/* Tooltips — pure CSS (inspired by video-time-manager). Add data-tooltip="…"
    (plus an aria-label on icon-only controls) to any element and its ::after shows
    the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
    a dense, overflow:hidden toolbar's clip; `inset-block-start: anchor(bottom)` +

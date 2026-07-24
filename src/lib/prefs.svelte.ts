@@ -65,7 +65,7 @@ function apply() {
   // and to cover anything rendered outside the app root.
   appearance.scheme = resolvedScheme();
   document.documentElement.dataset.theme = appearance.scheme;
-  // Font scaling follows youtube-time-manager: the root font is `100% * --ui-scale`
+  // Font scaling follows video-time-manager: the root font is `100% * --ui-scale`
   // (the user's browser base, times their zoom preference — never a fixed px that
   // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
   // ≥16px unit from it. rem/em UI and the terminal scale from the one knob.
