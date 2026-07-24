@@ -144,8 +144,9 @@
   // without this a name colliding with a real project would silently open that
   // project as if freshly created. Anything already on disk under that name —
   // directory or file — disables the create with the reason shown inline. The
-  // probe is debounced and tagged with the path it described, so a stale answer
-  // never gates the current text.
+  // probe fires on every keystroke (it's one local stat, cheap) and its answer
+  // is tagged with the path it described, so an out-of-order reply never gates
+  // the current text.
   let createTarget = $state({
     path: "",
     isDir: false,
@@ -176,11 +177,14 @@
     async function probeTarget() {
       try {
         const probe = await workspace.probePath(target);
-        createTarget = {
-          path: target,
-          isDir: probe.isDir,
-          isFile: probe.isFile
-        };
+        // Only believe an answer that describes the text still in the field.
+        if (target === createTargetPath) {
+          createTarget = {
+            path: target,
+            isDir: probe.isDir,
+            isFile: probe.isFile
+          };
+        }
       } catch {
         // An unreachable probe leaves the plain create path — the backend
         // still validates the final create.
@@ -191,8 +195,7 @@
         };
       }
     }
-    const probeTimer = setTimeout(probeTarget, 250);
-    return () => clearTimeout(probeTimer);
+    probeTarget();
   });
   const createTargetSettled = $derived(
     createTargetPath !== "" && createTarget.path === createTargetPath
