@@ -25,10 +25,12 @@
   // A selected file/diff belongs to one repository. Clear it before the parent
   // paints another workspace's entries into this long-lived lazy panel.
   $effect(() => {
-    if (project) {
-      selected = null;
-      diff = "";
+    if (!project) {
+      return;
     }
+
+    selected = null;
+    diff = "";
   });
 
   async function open(entry: StatusEntry) {

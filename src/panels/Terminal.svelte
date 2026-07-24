@@ -466,14 +466,16 @@
   $effect(() => {
     const family = effective.monoFamily;
     const fontSize = Math.round(TERMINAL_FONT_SIZE * effective.uiScale);
-    if (term) {
-      term.options.fontFamily = family;
-      term.options.fontSize = fontSize;
-      // The cached GPU cell metrics are stale for the new font — drop them so the
-      // refit measures fresh instead of fitting the new font to the old cells.
-      webglCellMetrics = undefined;
-      fitToPane();
+    if (!term) {
+      return;
     }
+
+    term.options.fontFamily = family;
+    term.options.fontSize = fontSize;
+    // The cached GPU cell metrics are stale for the new font — drop them so the
+    // refit measures fresh instead of fitting the new font to the old cells.
+    webglCellMetrics = undefined;
+    fitToPane();
   });
 
   // Re-theme xterm whenever the app scheme changes. The terminal palette changes
@@ -488,12 +490,14 @@
     // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
     // tokens the flipped scheme installed.
     const { scheme } = appearance;
-    if (term && scheme) {
-      term.options.theme = readXtermTheme();
+    if (!term || !scheme) {
+      return;
+    }
 
-      if (colorSchemeNotificationsEnabled) {
-        writeSchemeReport();
-      }
+    term.options.theme = readXtermTheme();
+
+    if (colorSchemeNotificationsEnabled) {
+      writeSchemeReport();
     }
   });
 

@@ -19,13 +19,15 @@
   // Reset a prior repository's search/result when this lazy component receives
   // a new project from VcsPanel.
   $effect(() => {
-    if (project) {
-      restoreQuery = "";
-      candidates = [];
-      restoreError = null;
-      restoreDone = null;
-      searching = false;
+    if (!project) {
+      return;
     }
+
+    restoreQuery = "";
+    candidates = [];
+    restoreError = null;
+    restoreDone = null;
+    searching = false;
   });
 
   async function runRestore() {

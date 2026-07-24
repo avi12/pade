@@ -45,10 +45,12 @@
   // This component stays mounted while the parent panel retargets. The commit
   // detail and remote from the old repository must not bleed into the next one.
   $effect(() => {
-    if (project) {
-      openCommit = null;
-      loadRemoteUrl(project);
+    if (!project) {
+      return;
     }
+
+    openCommit = null;
+    loadRemoteUrl(project);
   });
 
   async function inspectCommit(commit: Commit) {
