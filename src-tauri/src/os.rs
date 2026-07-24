@@ -42,17 +42,29 @@ pub async fn open_in_explorer(path: String) -> Result<(), String> {
 /// the classic console; Terminal.app on macOS; `x-terminal-emulator` on Linux.
 #[tauri::command]
 pub async fn open_in_terminal(path: String) -> Result<(), String> {
+    let directory = std::fs::canonicalize(&path).map_err(|e| e.to_string())?;
+    if !directory.is_dir() {
+        return Err("terminal path must be an existing directory".into());
+    }
     let spawn = if cfg!(windows) {
-        Command::new("wt").args(["-d", &path]).spawn().or_else(|_| {
-            Command::new("cmd")
-                .args(["/C", "start", "cmd", "/K", "cd", "/D", &path])
-                .spawn()
-        })
+        Command::new("wt")
+            .arg("-d")
+            .arg(&directory)
+            .spawn()
+            .or_else(|_| {
+                Command::new("cmd")
+                    .arg("/K")
+                    .current_dir(&directory)
+                    .spawn()
+            })
     } else if cfg!(target_os = "macos") {
-        Command::new("open").args(["-a", "Terminal", &path]).spawn()
+        Command::new("open")
+            .args(["-a", "Terminal"])
+            .arg(&directory)
+            .spawn()
     } else {
         Command::new("x-terminal-emulator")
-            .current_dir(&path)
+            .current_dir(&directory)
             .spawn()
     };
     spawn.map(|_| ()).map_err(|e| e.to_string())
