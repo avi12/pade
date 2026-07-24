@@ -1,5 +1,7 @@
 allowBuilds:
   esbuild: true
+overrides:
+  fast-uri: 3.1.4
 patchedDependencies:
   '@xterm/xterm@6.1.0-beta.288': patches/@xterm__xterm@6.1.0-beta.288.patch
 verifyDepsBeforeRun: false
