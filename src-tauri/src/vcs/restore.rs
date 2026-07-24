@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
-use super::{run_git, US};
+use super::{run_git, validate_object_id, US};
 
 /// A commit ranked against a natural-language restore query.
 /// Mirrors `Commit`'s wire shape (camelCase) plus a relevance `score`.
@@ -193,7 +193,8 @@ pub async fn vcs_restore_candidates(
 /// touches the working tree with `reset --hard`. Returns the branch name.
 #[tauri::command]
 pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {
-    let short = run_git(&cwd, &["rev-parse", "--short", &sha])?
+    let sha = validate_object_id(&sha)?;
+    let short = run_git(&cwd, &["rev-parse", "--short", "--end-of-options", sha])?
         .trim()
         .to_string();
     let branch = format!("pade/restore-{short}");
@@ -205,7 +206,7 @@ pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, St
     } else {
         // Create the branch at the target commit and switch to it in one step.
         // Any error (e.g. a dirty working tree) surfaces git's stderr verbatim.
-        run_git(&cwd, &["switch", "-c", &branch, &sha])?;
+        run_git(&cwd, &["switch", "-c", &branch, sha])?;
     }
     Ok(branch)
 }

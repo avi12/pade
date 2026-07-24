@@ -46,6 +46,16 @@ pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&out.stdout).to_string())
 }
 
+/// Accept only object ids Git produced for the UI. This prevents a renderer from
+/// turning a revision position into an option such as an external-diff switch.
+pub(crate) fn validate_object_id(object_id: &str) -> Result<&str, String> {
+    let valid_length = (4..=64).contains(&object_id.len());
+    if valid_length && object_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Ok(object_id);
+    }
+    Err("invalid Git object id".into())
+}
+
 /// How a working-tree path changed, in the exact wire strings the frontend reads.
 /// One authoritative home for the status-kind literals.
 #[derive(Clone, Copy)]
@@ -79,6 +89,22 @@ impl StatusKind {
             StatusKind::Deleted => "deleted",
             StatusKind::Renamed => "renamed",
             StatusKind::Untracked => "untracked",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_object_id;
+
+    #[test]
+    fn object_ids_reject_options_and_non_hex_revisions() {
+        assert_eq!(validate_object_id("a1b2c3d"), Ok("a1b2c3d"));
+        for object_id in ["--ext-diff", "HEAD", "abc", "gggg"] {
+            assert!(
+                validate_object_id(object_id).is_err(),
+                "accepted {object_id}"
+            );
         }
     }
 }

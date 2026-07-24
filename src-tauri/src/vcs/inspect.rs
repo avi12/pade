@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use super::branches::current_branch;
-use super::{run_git, StatusKind, US};
+use super::{run_git, validate_object_id, StatusKind, US};
 
 /// One file changed by a commit, with its per-file line counts.
 #[derive(Serialize)]
@@ -47,9 +47,19 @@ fn status_letter_kind(code: &str) -> StatusKind {
 
 #[tauri::command]
 pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
+    let sha = validate_object_id(&sha)?;
     // Header + full body in one shot: subject on its own line, then the body.
     let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%b");
-    let head = run_git(&cwd, &["show", "-s", &format!("--format={fmt}"), &sha])?;
+    let head = run_git(
+        &cwd,
+        &[
+            "show",
+            "-s",
+            &format!("--format={fmt}"),
+            "--end-of-options",
+            sha,
+        ],
+    )?;
     let f: Vec<&str> = head.trim_end_matches('\n').splitn(6, US).collect();
     let [id, short, summary, author, when, body] = f.as_slice() else {
         return Err("could not parse commit header".into());
@@ -60,8 +70,28 @@ pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String
     // which would poison the stored path and break vcs_commit_diff). --numstat's
     // record is "adds\tdels\tpath\0" normally, or "adds\tdels\t\0old\0new\0" for a
     // rename; --name-status is "code\0path\0" or "code\0old\0new\0".
-    let numstat = run_git(&cwd, &["show", "--numstat", "-z", "--format=", &sha])?;
-    let namestat = run_git(&cwd, &["show", "--name-status", "-z", "--format=", &sha])?;
+    let numstat = run_git(
+        &cwd,
+        &[
+            "show",
+            "--numstat",
+            "-z",
+            "--format=",
+            "--end-of-options",
+            sha,
+        ],
+    )?;
+    let namestat = run_git(
+        &cwd,
+        &[
+            "show",
+            "--name-status",
+            "-z",
+            "--format=",
+            "--end-of-options",
+            sha,
+        ],
+    )?;
 
     let kinds_by_path = status_kinds_by_path(&namestat);
 
@@ -184,7 +214,11 @@ fn status_kinds_by_path(namestat: &str) -> HashMap<&str, StatusKind> {
 /// Raw unified diff for one path within a commit.
 #[tauri::command]
 pub async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<String, String> {
-    run_git(&cwd, &["show", "--no-color", &sha, "--", &path])
+    let sha = validate_object_id(&sha)?;
+    run_git(
+        &cwd,
+        &["show", "--no-color", "--end-of-options", sha, "--", &path],
+    )
 }
 
 #[cfg(test)]
