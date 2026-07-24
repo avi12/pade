@@ -79,7 +79,7 @@
   // Unlike the feed, this lazy panel stays mounted across an in-window project
   // switch. Re-scan the newly supplied workspace immediately.
   $effect(() => {
-    void refresh();
+    refresh();
   });
 
   // Publish the refresh action to the shared side-panel header.

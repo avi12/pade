@@ -75,7 +75,7 @@
   // The lazy panel remains alive when this window switches projects, so route
   // its fresh query through the new explicit workspace.
   $effect(() => {
-    void refresh();
+    refresh();
   });
 
   // Publish the refresh action to the shared side-panel header.

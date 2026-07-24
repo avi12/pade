@@ -21,8 +21,12 @@ beforeEach(() => {
   backing.clear();
   vi.stubGlobal("sessionStorage", {
     getItem: (key: string) => backing.get(key) ?? null,
-    setItem: (key: string, value: string) => void backing.set(key, value),
-    removeItem: (key: string) => void backing.delete(key)
+    setItem(key: string, value: string) {
+      backing.set(key, value);
+    },
+    removeItem(key: string) {
+      backing.delete(key);
+    }
   });
 });
 afterEach(() => vi.unstubAllGlobals());

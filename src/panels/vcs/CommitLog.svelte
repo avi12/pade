@@ -37,7 +37,7 @@
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether GitHub links
     // exist — re-read the remote the moment the live git state changes.
-    unlistenGitState = await vcs.onStateChanged(() => void loadRemoteUrl());
+    unlistenGitState = await vcs.onStateChanged(async () => await loadRemoteUrl());
   });
 
   onDestroy(() => unlistenGitState?.());
@@ -47,7 +47,7 @@
   $effect(() => {
     if (project) {
       openCommit = null;
-      void loadRemoteUrl(project);
+      loadRemoteUrl(project);
     }
   });
 

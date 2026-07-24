@@ -506,7 +506,7 @@
   $effect(() => {
     if (currentProject) {
       feed.start(currentProject);
-      void refreshTaskRunDetection();
+      refreshTaskRunDetection();
     }
   });
 
