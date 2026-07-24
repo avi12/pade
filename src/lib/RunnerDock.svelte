@@ -1,13 +1,13 @@
 <script lang="ts">
   import { parseAnsi } from "@/lib/ansi";
+  import { Axis, beginReorder } from "@/lib/drag-reorder";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import {
-    moveRunnerBefore,
-    moveRunnerBy,
     pipeRunner,
     rerunRunner,
     runnerRows,
+    setRunnerOrder,
     stopRunner
   } from "@/lib/stores/runners.svelte";
   import { RunnerStream } from "@/lib/types";
@@ -44,13 +44,6 @@
     addEventListener("resize", reclamp);
     return () => removeEventListener("resize", reclamp);
   });
-
-  // ── Drag-to-reorder ─────────────────────────────────────────────────────────
-  // The grip at the start of each runner's bar reorders it among its siblings.
-  // A pointer drag hit-tests the runner under the cursor (each carries a
-  // data-runner-id) and moves the dragged one before it; arrow keys nudge it one
-  // slot, so reordering works without a mouse too.
-  let draggingId = $state<string | null>(null);
 
   // Human-readable status for a runner's dot, used for both the tooltip and the
   // accessible name.
@@ -130,58 +123,24 @@
 
     <div class="grid">
       {#each rows as row (row.id)}
-        <article class="runner" class:dragging={draggingId === row.id} data-runner-id={row.id}>
-          <div class="bar">
-            <button
-              class="grab"
-              aria-label="Reorder task runner — drag, or use arrow keys"
-              data-tooltip="Drag to reorder"
-              onkeydown={e => {
-                const earlier = e.key === "ArrowLeft" || e.key === "ArrowUp";
-                const later = e.key === "ArrowRight" || e.key === "ArrowDown";
-                if (earlier || later) {
-                  e.preventDefault();
-                  moveRunnerBy({
-                    id: row.id,
-                    delta: earlier ? -1 : 1
-                  });
-                }
-              }}
-              onpointerdown={e => {
-                if (!(e.currentTarget instanceof HTMLElement)) {
-                  return;
-                }
-
-                e.preventDefault();
-                const grip = e.currentTarget;
-                // Capture the id up front: the each-binding `row` can't be read
-                // from inside the hoisted nested closures below.
-                const id = row.id;
-                draggingId = id;
-                grip.setPointerCapture(e.pointerId);
-
-                function onMove(move: PointerEvent): void {
-                  const under = document.elementFromPoint(move.clientX, move.clientY);
-                  const overRunner = under instanceof Element ? under.closest("[data-runner-id]") : null;
-                  const beforeId = overRunner?.getAttribute("data-runner-id");
-                  if (beforeId) {
-                    moveRunnerBefore({
-                      id,
-                      beforeId
-                    });
-                  }
-                }
-                function cleanup(): void {
-                  draggingId = null;
-                  grip.removeEventListener("pointermove", onMove);
-                  grip.removeEventListener("pointerup", cleanup);
-                  grip.removeEventListener("pointercancel", cleanup);
-                }
-                grip.addEventListener("pointermove", onMove);
-                grip.addEventListener("pointerup", cleanup);
-                grip.addEventListener("pointercancel", cleanup);
-              }}
-            ><Icon name="grip" /></button>
+        <article class="runner" data-runner-id={row.id}>
+          <!-- The whole bar is the drag handle (canvas: header drag-to-reorder via
+               the shared engine); its buttons are controls, not handles. -->
+          <header
+            class="bar"
+            aria-label="{row.label} controls"
+            data-tooltip="Drag to reorder"
+            onpointerdown={e => beginReorder({
+              e,
+              itemSelector: "[data-runner-id]",
+              idAttribute: "data-runner-id",
+              axis: Axis.Horizontal,
+              ignoreSelector: "button",
+              onCommit: orderedIds => setRunnerOrder(orderedIds)
+            })}
+            role="toolbar"
+            tabindex={0}
+          >
             <span class="kind {row.kind}">{row.kind}</span>
             <span
               class="dot"
@@ -223,7 +182,7 @@
               data-tooltip="Stop"
               onclick={async () => await stopRunner(row.id)}
             ><Icon name="close" /></button>
-          </div>
+          </header>
           <div
             style:view-transition-name={`runner-output-${row.id}`}
             class="out"
@@ -334,12 +293,9 @@
        stack. The output pane below scrolls independently via its own min-size. */
     min-block-size: 168px;
     background: var(--surface-1);
-
-    &.dragging {
-      opacity: 60%;
-    }
   }
 
+  /* The bar doubles as the drag-to-reorder handle for its runner. */
   .bar {
     display: flex;
     gap: 8px;
@@ -347,31 +303,8 @@
     padding-block: 7px;
     padding-inline: 10px;
     background: var(--surface-2);
-  }
-
-  /* Drag handle at the start of the bar — grab to reorder the runner. */
-  .grab {
-    display: inline-flex;
-    flex: none;
-    justify-content: center;
-    align-items: center;
-    block-size: 22px;
-    inline-size: 16px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--on-surface-variant);
     cursor: grab;
     touch-action: none;
-    transition: color 140ms var(--ease), background 140ms var(--ease);
-
-    &:hover {
-      color: var(--on-surface);
-    }
-
-    &:active {
-      cursor: grabbing;
-    }
   }
 
   .kind {

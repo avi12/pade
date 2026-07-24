@@ -199,42 +199,15 @@ export async function stopAllRunners(): Promise<void> {
   rows = [];
 }
 
-/** Move a runner so it sits just before `beforeId` — pointer drag-to-reorder. */
-export function moveRunnerBefore({ id, beforeId }: {
-  id: string;
-  beforeId: string;
-}): void {
-  if (id === beforeId) {
-    return;
-  }
-
-  const from = rows.findIndex(row => row.id === id);
-  if (from === -1 || rows.findIndex(row => row.id === beforeId) === -1) {
-    return;
-  }
-
-  const [moved] = rows.splice(from, 1);
-  const insertAt = rows.findIndex(row => row.id === beforeId);
-  rows.splice(insertAt, 0, moved);
-}
-
-/** Nudge a runner one slot earlier or later — keyboard reorder. */
-export function moveRunnerBy({ id, delta }: {
-  id: string;
-  delta: number;
-}): void {
-  const from = rows.findIndex(row => row.id === id);
-  if (from === -1) {
-    return;
-  }
-
-  const to = Math.min(Math.max(from + delta, 0), rows.length - 1);
-  if (to === from) {
-    return;
-  }
-
-  const [moved] = rows.splice(from, 1);
-  rows.splice(to, 0, moved);
+/** Commit a drag-reordered runner order (the drag engine hands us the full id
+ * order on drop). Ids it doesn't know keep their rows appended in place. */
+export function setRunnerOrder(orderedIds: string[]): void {
+  const reordered = orderedIds.flatMap(id => {
+    const row = rows.find(item => item.id === id);
+    return row ? [row] : [];
+  });
+  const leftover = rows.filter(row => !orderedIds.includes(row.id));
+  rows = [...reordered, ...leftover];
 }
 
 /** Pipe a runner's captured output into an agent session's input. */
