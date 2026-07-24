@@ -5,7 +5,10 @@
 // an agent is done here via pty.write (the backend has no such command by design).
 
 import { pty, runner } from "@/lib/bridge";
-import type { RunnerStream, TaskGroup } from "@/lib/types";
+import { showToast } from "@/lib/stores/toast.svelte";
+import { pastedText } from "@/lib/terminal-input";
+import type { TaskGroup } from "@/lib/types";
+import { RunnerStream } from "@/lib/types";
 
 type RunnerKind = TaskGroup["kind"];
 
@@ -24,6 +27,10 @@ export interface RunnerLine {
 
 export interface RunnerRow {
   id: string;
+  /** The backend process id for the current run. A re-run spawns under a fresh
+   * one so a stale exit event from the replaced process can never mark the new
+   * run as done; the row's `id` stays stable for the UI. */
+  backendId: string;
   label: string;
   kind: RunnerKind;
   command: string;
@@ -52,7 +59,7 @@ export async function ensureRunnerListeners(): Promise<void> {
 
   listening = true;
   await runner.onData(({ id, data, stream }) => {
-    const row = rows.find(item => item.id === id);
+    const row = rows.find(item => item.backendId === id);
     if (row) {
       row.lines.push({
         text: data,
@@ -65,7 +72,7 @@ export async function ensureRunnerListeners(): Promise<void> {
     }
   });
   await runner.onExit(({ id, code }) => {
-    const row = rows.find(item => item.id === id);
+    const row = rows.find(item => item.backendId === id);
     if (row) {
       row.done = true;
       row.failed = code !== null && code !== 0;
@@ -83,6 +90,7 @@ export async function startRunner({ label, kind, command, cwd }: {
   const id = `run-${crypto.randomUUID()}`;
   rows.push({
     id,
+    backendId: id,
     label,
     kind,
     command,
@@ -103,10 +111,82 @@ export async function startRunner({ label, kind, command, cwd }: {
   }
 }
 
+/** The re-run divider, composed from named parts so the value reads on its own. */
+const RERUN_RULE = "─".repeat(3);
+
+function rerunDivider(): string {
+  const time = new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  return `${RERUN_RULE} re-run · ${time} ${RERUN_RULE}`;
+}
+
+/** Re-run a runner's command: kill the current process (if still live) and spawn
+ * it afresh under a new backend id. `preserve` keeps the captured output and
+ * appends a timestamped divider before the new run's lines; otherwise the pane
+ * starts clean. */
+export async function rerunRunner({ id, preserve }: {
+  id: string;
+  preserve: boolean;
+}): Promise<void> {
+  const row = rows.find(item => item.id === id);
+  if (!row) {
+    return;
+  }
+
+  const previousBackendId = row.backendId;
+  if (preserve) {
+    row.lines.push(
+      {
+        text: "",
+        stream: RunnerStream.enum.stdout
+      },
+      {
+        text: rerunDivider(),
+        stream: RunnerStream.enum.stdout
+      }
+    );
+  } else {
+    row.lines = [];
+  }
+
+  row.done = false;
+  row.failed = false;
+  row.backendId = `run-${crypto.randomUUID()}`;
+  try {
+    await runner.stop(previousBackendId);
+    await runner.start({
+      id: row.backendId,
+      command: row.command,
+      cwd: row.cwd
+    });
+  } catch (error) {
+    // Surface the restart failure in the pane itself: crit dot + the error text.
+    row.done = true;
+    row.failed = true;
+    row.lines.push({
+      text: String(error),
+      stream: RunnerStream.enum.stderr
+    });
+    return;
+  }
+  showToast(
+    preserve
+      ? `Re-running “${row.label}” · kept previous output`
+      : `Re-running “${row.label}”`
+  );
+}
+
 /** Stop a runner and drop it from the dock. */
 export async function stopRunner(id: string): Promise<void> {
-  await runner.stop(id);
-  rows = rows.filter(row => row.id !== id);
+  const row = rows.find(item => item.id === id);
+  if (row) {
+    await runner.stop(row.backendId);
+  }
+
+  rows = rows.filter(item => item.id !== id);
 }
 
 /** Stop and forget every runner belonging to this window. Workspace changes
@@ -114,8 +194,8 @@ export async function stopRunner(id: string): Promise<void> {
  * over the next project. Every stop is attempted even if one backend call
  * fails; rows are then cleared so late output/exit events are ignored. */
 export async function stopAllRunners(): Promise<void> {
-  const ids = rows.map(row => row.id);
-  await Promise.all(ids.map(id => runner.stop(id).catch(() => {})));
+  const backendIds = rows.map(row => row.backendId);
+  await Promise.all(backendIds.map(backendId => runner.stop(backendId).catch(() => {})));
   rows = [];
 }
 
@@ -169,6 +249,6 @@ export async function pipeRunner({ id, sessionId }: {
 
   await pty.write({
     id: sessionId,
-    data: `${row.lines.map(line => line.text).join("\n")}\n`
+    data: pastedText(row.lines.map(line => line.text).join("\n"))
   });
 }

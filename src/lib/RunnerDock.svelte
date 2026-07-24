@@ -6,6 +6,7 @@
     moveRunnerBefore,
     moveRunnerBy,
     pipeRunner,
+    rerunRunner,
     runnerRows,
     stopRunner
   } from "@/lib/stores/runners.svelte";
@@ -207,6 +208,15 @@
                 })}
               >◆</button>
             {/if}
+            <button
+              class="rerun"
+              aria-label="Re-run task"
+              data-tooltip="Re-run · Shift-click keeps previous output"
+              onclick={async e => await rerunRunner({
+                id: row.id,
+                preserve: e.shiftKey
+              })}
+            ><Icon name="refresh" /></button>
             <button
               class="stop"
               aria-label="Stop runner"
@@ -419,6 +429,7 @@
   }
 
   .pipe,
+  .rerun,
   .stop {
     display: inline-flex;
     flex: none;
@@ -443,6 +454,11 @@
       background: var(--primary-container);
       color: var(--on-primary-container);
     }
+  }
+
+  .rerun:hover {
+    background: var(--surface-3);
+    color: var(--on-surface);
   }
 
   .stop:hover {
