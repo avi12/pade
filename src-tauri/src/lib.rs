@@ -91,7 +91,9 @@ pub fn run() {
             if let Some(main) = app.get_webview_window("main") {
                 window::paint_surface(&main);
                 let _ = main.show();
-                recovery::guard(&main);
+                // Crash recovery arms from the FRONTEND (`recovery_arm` with
+                // its live location.href) — a backend capture here raced
+                // navigation and rebuilt a crashed window onto about:blank.
             }
             Ok(())
         })
@@ -132,6 +134,7 @@ pub fn run() {
             pty::pty_kill,
             pty::pty_history,
             pty::pty_list,
+            recovery::recovery_arm,
             resume::agent_resume_args,
             runner::runner_start,
             runner::runner_stop,

@@ -370,7 +370,9 @@ pub async fn window_create(
         .min_inner_size(720.0, 480.0)
         .build()
         .map_err(|e| e.to_string())?;
-    crate::recovery::guard(&window);
+    // Crash recovery arms once the window's frontend boots and calls
+    // `recovery_arm` with its live URL (see recovery.rs).
+    let _ = window;
     Ok(())
 }
 

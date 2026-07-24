@@ -138,6 +138,13 @@ export const clipboard = {
   saveImage: () => call("clipboard_image_save", z.string().nullable())
 };
 
+/** WebView2 crash auto-recovery. Armed from the frontend on every boot with
+ *  its live URL — the one value a dead browser process can no longer report,
+ *  and what the rebuilt same-label window navigates back to. */
+export const recovery = {
+  arm: (url: string) => run("recovery_arm", { url })
+};
+
 /** Multi-window — spawn a fresh app window targeting a project, an empty picker,
  *  or a throwaway workspace. The spawned window routes off its query string. */
 export const windows = {

@@ -163,10 +163,13 @@ nothing survives the next boot's intersection. And because sessionStorage dies
 with the window, an app restart never resurrects agents the user meant to end.
 
 The backend leans on that same seam for **`WebView2` crash auto-recovery**
-(`recovery.rs`): when a window's webview browser process dies under load, the
-window is destroyed and rebuilt with the same label and URL, and the fresh
-frontend re-adopts the label's still-running sessions exactly as a manual
-reload would.
+(`recovery.rs`): each window's frontend arms it on boot via `recovery_arm`
+with its live `location.href` (the frontend is the one party that always
+knows the real URL — a backend capture at window creation raced navigation
+and once rebuilt a crashed window onto `about:blank`). When the webview's
+browser process dies under load, the window is destroyed and rebuilt with the
+same label and that URL; the fresh frontend re-adopts the label's
+still-running sessions exactly as a manual reload would, and re-arms itself.
 
 A **fullscreen** program's history is not a document, though — it is a stream of edits
 to a framebuffer, and a trimmed one replays as a torn frame. So `pty.rs` also tracks

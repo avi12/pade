@@ -26,22 +26,35 @@ pub fn recreate_pending() -> bool {
     PENDING_RECREATES.load(Ordering::Relaxed) > 0
 }
 
-/// Arm crash auto-recovery for `window`. Call once per created window, after
-/// its webview exists. Best-effort: a window we fail to arm just keeps today's
-/// behavior (black void until manual restart).
+/// Arm crash auto-recovery for the calling window. The FRONTEND invokes this
+/// on every boot with its live `location.href`: the frontend is the one party
+/// that always knows the window's real URL — a backend capture at window
+/// creation raced navigation and once rebuilt a crashed window onto
+/// `about:blank` — and a rebuilt window's fresh boot re-arms its replacement
+/// webview by the same route. Re-invocations on the same webview (an HMR
+/// full reload) stack duplicate handlers, which is harmless: a second
+/// recreate finds the label already gone, a second `Reload()` is idempotent.
+/// Best-effort: a window that fails to arm just keeps the black-void-until-
+/// manual-restart behavior.
 #[cfg(not(windows))]
-pub fn guard(_window: &WebviewWindow) {}
+#[tauri::command]
+pub fn recovery_arm(_window: WebviewWindow, _url: String) {}
 
-/// Arm crash auto-recovery for `window`. Call once per created window, after
-/// its webview exists. Best-effort: a window we fail to arm just keeps today's
-/// behavior (black void until manual restart).
+/// Arm crash auto-recovery for the calling window (see the non-Windows stub's
+/// doc for the contract; this is the working half).
 #[cfg(windows)]
-pub fn guard(window: &WebviewWindow) {
+#[tauri::command]
+pub fn recovery_arm(window: WebviewWindow, url: String) {
     use tauri::Manager;
 
-    // Captured now because a dead browser process can no longer report its
-    // URL — and a PADE window never navigates after boot (single-page app).
-    let Ok(url) = window.url() else { return };
+    let Ok(url) = tauri::Url::parse(&url) else {
+        eprintln!(
+            "webview crash recovery: unparseable url from {}",
+            window.label()
+        );
+        return;
+    };
+
     let app = window.app_handle().clone();
     let label = window.label().to_string();
     let armed = window.with_webview({
@@ -149,8 +162,8 @@ fn rebuild(app: &tauri::AppHandle, label: &str, url: &tauri::Url, placement: &Pl
             if placement.maximized {
                 let _ = window.maximize();
             }
-            // Re-arm: the replacement window is just as mortal.
-            guard(&window);
+            // No explicit re-arm: the replacement's frontend boots from the
+            // real app URL and calls `recovery_arm` itself, like any window.
         }
         Err(error) => eprintln!("webview crash recovery: rebuilding {label} failed: {error}"),
     }

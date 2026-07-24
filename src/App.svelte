@@ -8,6 +8,7 @@
     ide,
     mcp,
     pty,
+    recovery,
     vcs,
     windows,
     workspace
@@ -51,6 +52,7 @@
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
+  import { pastedText } from "@/lib/terminal-input";
   import { SHELL_AGENT_ID, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -452,6 +454,14 @@
   // Subscribe once to the backend task-runner stream so the dock updates live.
   onMount(async () => {
     await ensureRunnerListeners();
+  });
+
+  // Arm WebView2 crash auto-recovery with this boot's real URL. The frontend
+  // is the one party that always knows it — a backend capture at window
+  // creation raced navigation and once rebuilt a crashed window onto
+  // about:blank — and a recovery-rebuilt window re-arms itself right here.
+  onMount(async () => {
+    await recovery.arm(location.href);
   });
 
   // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
@@ -1875,7 +1885,7 @@
 
             await pty.write({
               id: activeId,
-              data: selection
+              data: pastedText(selection)
             });
             selection = "";
             getSelection()?.removeAllRanges();
