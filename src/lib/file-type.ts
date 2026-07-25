@@ -4,6 +4,7 @@
 // uppercased extension), so every row is tagged even without a logo.
 
 import type { IconName } from "@/lib/Icon.svelte";
+import { baseName } from "@/lib/paths";
 
 /** The closed set of colour tones a badge can carry; each maps to a `.tone-*`
  *  class the card styles. One authoritative home for the tone names. */
@@ -206,32 +207,38 @@ const BADGES: Record<string, FileTypeBadge> = {
   }
 };
 
+/** A path's lower-case final extension without its dot, or null for a dotfile,
+ * extensionless name, or trailing dot. Shared by all extension classifiers. */
+export function pathExtension(path: string): string | null {
+  const name = baseName(path);
+  const dot = name.lastIndexOf(".");
+  const hasExtension = dot > 0 && dot < name.length - 1;
+  return hasExtension ? name.slice(dot + 1).toLowerCase() : null;
+}
+
 /** A file path's type key for grouping/counting: its extension with the leading
  *  dot, lowercased (e.g. `.ts`, `.css`). A dotfile (`.gitignore`) or
  *  extensionless file keys on its own base name, so every path yields one key.
  *  The single source both the file-type filter's counts and its filtering read. */
 export function fileExtension(path: string): string {
-  const base = path.split(/[\\/]/).pop() ?? path;
-  const dot = base.lastIndexOf(".");
-  const hasExtension = dot > 0 && dot < base.length - 1;
-  return hasExtension ? base.slice(dot).toLowerCase() : base;
+  const name = baseName(path);
+  const extension = pathExtension(path);
+  return extension ? `.${extension}` : name;
 }
 
 /** The badge for a file path — read from its extension. A dotfile (`.gitignore`)
  *  or extensionless file gets a neutral chip from its own name. */
 export function fileTypeBadge(path: string): FileTypeBadge {
-  const base = path.split(/[\\/]/).pop() ?? path;
-  const dot = base.lastIndexOf(".");
-  const hasExtension = dot > 0 && dot < base.length - 1;
-  if (!hasExtension) {
-    const stem = base.replace(/^\./, "").slice(0, 3).toUpperCase();
+  const name = baseName(path);
+  const extension = pathExtension(path);
+  if (!extension) {
+    const stem = name.replace(/^\./, "").slice(0, 3).toUpperCase();
     return {
       label: stem.length > 0 ? stem : "FILE",
       tone: FileTone.Neutral
     };
   }
 
-  const extension = base.slice(dot + 1).toLowerCase();
   return BADGES[extension] ?? {
     label: extension.slice(0, 4).toUpperCase(),
     tone: FileTone.Neutral

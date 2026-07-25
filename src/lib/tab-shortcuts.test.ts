@@ -1,4 +1,10 @@
-import { type KeyChord, matchTabSelection, matchTabShortcut, TabAction } from "@/lib/tab-shortcuts";
+import {
+  type KeyChord,
+  matchTabSelection,
+  matchTabShortcut,
+  TAB_SHORTCUTS,
+  TabAction
+} from "@/lib/tab-shortcuts";
 import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.
@@ -14,6 +20,11 @@ function chord(overrides: Partial<KeyChord> = {}): KeyChord {
 }
 
 describe("matchTabShortcut", () => {
+  it("owns the shortcut display vocabulary beside its actions", () => {
+    expect(TAB_SHORTCUTS[TabAction.New].label).toBe("Ctrl+Shift+T");
+    expect(TAB_SHORTCUTS[TabAction.LaunchMenu].label).toBe("Ctrl+Alt+T");
+  });
+
   it("opens the launch menu on Ctrl+Alt+T and a new tab on Ctrl+Shift+T", () => {
     expect(
       matchTabShortcut(

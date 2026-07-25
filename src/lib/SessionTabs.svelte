@@ -12,6 +12,7 @@
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
   import { ADD_SLOT, packTabs } from "@/lib/tab-fit";
+  import { TAB_SHORTCUTS, TabAction } from "@/lib/tab-shortcuts";
   import type { Agent, AgentSession } from "@/lib/types";
   import { parseInput, SessionName } from "@/lib/validate";
   import { cubicOut } from "svelte/easing";
@@ -61,6 +62,9 @@
     /** Live drag state, so App can paint the panes' "drop here" overlay. */
     ondraghint?: (hint: DragHint | null) => void;
   } = $props();
+
+  const newTabShortcut = TAB_SHORTCUTS[TabAction.New];
+  const launchMenuShortcut = TAB_SHORTCUTS[TabAction.LaunchMenu];
 
   // ── Measurement ─────────────────────────────────────────────────────────────
   // The strip is bounded to the width the nav gives it. Pill widths come from
@@ -467,8 +471,8 @@
       <button
         style:anchor-name="--add-session-anchor"
         class="add-button menu-trigger"
-        aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
-        data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click or right-click for options`}
+        aria-label={`New ${lastAgent?.label ?? "agent"} session — ${newTabShortcut.description}: ${newTabShortcut.label}; ${launchMenuShortcut.description}: ${launchMenuShortcut.label}`}
+        data-tooltip={`New ${lastAgent?.label ?? "agent"} session · ${newTabShortcut.label} · Ctrl-click, right-click, or ${launchMenuShortcut.label} for options`}
         onclick={e => {
           if (e.ctrlKey || e.metaKey) {
             openAddMenu();

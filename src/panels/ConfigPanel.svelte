@@ -3,10 +3,10 @@
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
-  import { fileExtension } from "@/lib/file-type";
   import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
   import { effective, prefs, updatePrefs } from "@/lib/prefs.svelte";
+  import { isMarkdownPath } from "@/lib/preview";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { type ConfigFile, ThemeMode } from "@/lib/types";
   import { HandoffPercent, parseInput } from "@/lib/validate";
@@ -282,7 +282,7 @@
       <div class="card">
         <h3 class:placeholder={!selected}>{selected?.rel ?? "Select a file to view"}</h3>
         <pre class="body"><ColorText
-            markdown={fileExtension(selected?.rel ?? "") === "md"}
+            markdown={isMarkdownPath(selected?.rel ?? "")}
             text={content}
             vars={fileVars}
           /></pre>

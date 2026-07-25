@@ -13,7 +13,7 @@
     loadFailed,
     isBigFile,
     commitUrl,
-    onopengithub
+    onopenremote
   }: {
     /** File name shown in the path bar ("" while the commit has no files). */
     name: string;
@@ -25,7 +25,7 @@
     isBigFile: boolean;
     /** Browsable remote commit URL, or null when there's no remote. */
     commitUrl: string | null;
-    onopengithub: () => void;
+    onopenremote: () => void;
   } = $props();
 
   const diffAria = $derived(name ? `Diff for ${name}` : "Diff");
@@ -46,10 +46,10 @@
     {:else if isBigFile}
       <div class="omit">
         <span class="omit-text">
-          This file is too large to render inline. The rest of the diff is available on GitHub.
+          This file is too large to render inline. The rest of the diff is available on the remote.
         </span>
-        <button class="omit-button" disabled={!commitUrl} onclick={onopengithub}>
-          <Icon name="github" size={14} /> View full diff
+        <button class="omit-button" disabled={!commitUrl} onclick={onopenremote}>
+          <Icon name="external" size={14} /> View full diff
         </button>
       </div>
     {:else}

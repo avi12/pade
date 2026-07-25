@@ -19,8 +19,8 @@ export const TabAction = {
 export type TabAction = (typeof TabAction)[keyof typeof TabAction];
 
 /** The modifier + key fields a shortcut is decided from. A real KeyboardEvent
- *  has these, so it's accepted structurally; a plain object keeps the matcher
- *  unit-testable without a DOM. */
+ * has these, so it is accepted structurally; a plain object keeps the matcher
+ * unit-testable without a DOM. */
 export interface KeyChord {
   key: string;
   ctrlKey: boolean;
@@ -29,47 +29,57 @@ export interface KeyChord {
   metaKey: boolean;
 }
 
-/** Map a key chord to the tab action it triggers, or null when it isn't one.
- *  Ctrl+Shift+T new · Ctrl+Alt+T launch menu · Ctrl+W / Ctrl+F4 close ·
- *  Ctrl+Tab / Alt+Right next · Ctrl+Shift+Tab / Alt+Left previous. */
+/** Matching and display vocabulary live together, so changing a chord cannot
+ * leave the tab-strip help text describing the previous binding. */
+export const TAB_SHORTCUTS = {
+  [TabAction.New]: {
+    label: "Ctrl+Shift+T",
+    description: "New agent tab",
+    matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) =>
+      key.toLowerCase() === "t" && ctrlKey && shiftKey && !altKey && !metaKey
+  },
+  [TabAction.LaunchMenu]: {
+    label: "Ctrl+Alt+T",
+    description: "Agent launch options",
+    matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) =>
+      key.toLowerCase() === "t" && ctrlKey && altKey && !shiftKey && !metaKey
+  },
+  [TabAction.Close]: {
+    label: "Ctrl+W or Ctrl+F4",
+    description: "Close the active tab",
+    matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) =>
+      ctrlKey && !shiftKey && !altKey && !metaKey && (key.toLowerCase() === "w" || key === "F4")
+  },
+  [TabAction.Next]: {
+    label: "Ctrl+Tab or Alt+Right",
+    description: "Select the next tab",
+    matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) =>
+      !shiftKey && !metaKey && (
+        (key === "Tab" && ctrlKey && !altKey)
+        || (key === "ArrowRight" && altKey && !ctrlKey)
+      )
+  },
+  [TabAction.Previous]: {
+    label: "Ctrl+Shift+Tab or Alt+Left",
+    description: "Select the previous tab",
+    matches: ({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) =>
+      !metaKey && (
+        (key === "Tab" && ctrlKey && shiftKey && !altKey)
+        || (key === "ArrowLeft" && altKey && !ctrlKey && !shiftKey)
+      )
+  }
+} as const satisfies Record<TabAction, {
+  label: string;
+  description: string;
+  matches: (chord: KeyChord) => boolean;
+}>;
+
+/** Map a key chord to the tab action it triggers, or null when it is not one. */
 export function matchTabShortcut(chord: KeyChord): TabAction | null {
-  const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
-  const lowerKey = key.toLowerCase();
-  // Alt+Arrow (alone) cycles tabs, echoing the browser's back/forward gesture.
-  if (altKey && !ctrlKey && !metaKey && !shiftKey) {
-    if (key === "ArrowRight") {
-      return TabAction.Next;
+  for (const action of Object.values(TabAction)) {
+    if (TAB_SHORTCUTS[action].matches(chord)) {
+      return action;
     }
-
-    if (key === "ArrowLeft") {
-      return TabAction.Previous;
-    }
-
-    return null;
-  }
-
-  // Ctrl+Alt+T opens the launch menu — off plain Ctrl+T so a focused terminal
-  // keeps that chord for itself.
-  if (ctrlKey && altKey && !metaKey && !shiftKey && lowerKey === "t") {
-    return TabAction.LaunchMenu;
-  }
-
-  // Every remaining shortcut is Ctrl-based, with Alt/Meta absent.
-  if (!ctrlKey || altKey || metaKey) {
-    return null;
-  }
-
-  // Ctrl+Shift+T opens a new agent tab; plain Ctrl+T is left to the terminal.
-  if (lowerKey === "t") {
-    return shiftKey ? TabAction.New : null;
-  }
-
-  if (key === "Tab") {
-    return shiftKey ? TabAction.Previous : TabAction.Next;
-  }
-
-  if (!shiftKey && (lowerKey === "w" || key === "F4")) {
-    return TabAction.Close;
   }
 
   return null;

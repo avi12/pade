@@ -5,57 +5,84 @@ import { os, vcs } from "@/lib/bridge";
 import { showToast } from "@/lib/stores/toast.svelte";
 
 type RemoteProvider = {
-  hosts: readonly string[];
+  matches: (remoteUrl: URL) => boolean;
   branchUrl: (remoteUrl: URL, branch: string) => string;
+  commitUrl: (remoteUrl: URL, commit: string) => string;
 };
 
-function pathBranchUrl({ remoteUrl, segment, branch }: {
+function pathTargetUrl({ remoteUrl, segment, target }: {
   remoteUrl: URL;
   segment: string;
-  branch: string;
+  target: string;
 }): string {
-  return `${remoteUrl.toString().replace(/\/$/, "")}${segment}${encodeURIComponent(branch)}`;
+  return `${remoteUrl.toString().replace(/\/$/, "")}${segment}${encodeURIComponent(target)}`;
 }
 
 const REMOTE_PROVIDERS: readonly RemoteProvider[] = [
   {
-    hosts: ["github.com"],
-    branchUrl: (remoteUrl, branch) => pathBranchUrl({
+    matches: remoteUrl => remoteUrl.hostname === "github.com",
+    branchUrl: (remoteUrl, branch) => pathTargetUrl({
       remoteUrl,
       segment: "/tree/",
-      branch
+      target: branch
+    }),
+    commitUrl: (remoteUrl, commit) => pathTargetUrl({
+      remoteUrl,
+      segment: "/commit/",
+      target: commit
     })
   },
   {
-    hosts: ["gitlab.com"],
-    branchUrl: (remoteUrl, branch) => pathBranchUrl({
+    matches: remoteUrl => remoteUrl.hostname === "gitlab.com",
+    branchUrl: (remoteUrl, branch) => pathTargetUrl({
       remoteUrl,
       segment: "/-/tree/",
-      branch
+      target: branch
+    }),
+    commitUrl: (remoteUrl, commit) => pathTargetUrl({
+      remoteUrl,
+      segment: "/-/commit/",
+      target: commit
     })
   },
   {
-    hosts: ["bitbucket.org"],
-    branchUrl: (remoteUrl, branch) => pathBranchUrl({
+    matches: remoteUrl => remoteUrl.hostname === "bitbucket.org",
+    branchUrl: (remoteUrl, branch) => pathTargetUrl({
       remoteUrl,
       segment: "/src/",
-      branch
+      target: branch
+    }),
+    commitUrl: (remoteUrl, commit) => pathTargetUrl({
+      remoteUrl,
+      segment: "/commits/",
+      target: commit
     })
   },
   {
-    hosts: ["codeberg.org", "gitea.com"],
-    branchUrl: (remoteUrl, branch) => pathBranchUrl({
+    matches: remoteUrl => ["codeberg.org", "gitea.com"].includes(remoteUrl.hostname),
+    branchUrl: (remoteUrl, branch) => pathTargetUrl({
       remoteUrl,
       segment: "/src/branch/",
-      branch
+      target: branch
+    }),
+    commitUrl: (remoteUrl, commit) => pathTargetUrl({
+      remoteUrl,
+      segment: "/commit/",
+      target: commit
     })
   },
   {
-    hosts: ["dev.azure.com", "visualstudio.com"],
+    matches: remoteUrl => remoteUrl.hostname === "dev.azure.com"
+      || remoteUrl.hostname.endsWith(".visualstudio.com"),
     branchUrl(remoteUrl, branch) {
       remoteUrl.searchParams.set("version", `GB${branch}`);
       return remoteUrl.toString();
-    }
+    },
+    commitUrl: (remoteUrl, commit) => pathTargetUrl({
+      remoteUrl,
+      segment: "/commit/",
+      target: commit
+    })
   }
 ];
 const CONVENTIONAL_DEFAULT_BRANCHES = ["main", "master"] as const;
@@ -85,8 +112,29 @@ export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
     return remoteUrl;
   }
 
-  const provider = REMOTE_PROVIDERS.find(candidate => candidate.hosts.includes(parsedRemoteUrl.hostname));
+  const provider = REMOTE_PROVIDERS.find(candidate => candidate.matches(parsedRemoteUrl));
   return provider?.branchUrl(parsedRemoteUrl, branch) ?? remoteUrl;
+}
+
+/** Resolve a commit URL through the known remote provider. Unknown or malformed
+ * remotes return null rather than fabricating a GitHub-shaped route. */
+export function repositoryCommitUrl({ remoteUrl, commit }: {
+  remoteUrl: string | null;
+  commit: string;
+}): string | null {
+  if (!remoteUrl) {
+    return null;
+  }
+
+  let parsedRemoteUrl: URL;
+  try {
+    parsedRemoteUrl = new URL(remoteUrl);
+  } catch {
+    return null;
+  }
+
+  const provider = REMOTE_PROVIDERS.find(candidate => candidate.matches(parsedRemoteUrl));
+  return provider?.commitUrl(parsedRemoteUrl, commit) ?? null;
 }
 
 async function readRemoteUrl(project: string): Promise<string | null> {

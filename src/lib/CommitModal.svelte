@@ -7,6 +7,7 @@
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
+  import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { CommitDetail, CommitFileEntry } from "@/lib/types";
   import { untrack } from "svelte";
 
@@ -45,7 +46,12 @@
   );
 
   const fileCountLabel = $derived(`${formatCount(commit.files.length)} file${commit.files.length === 1 ? "" : "s"}`);
-  const commitUrl = $derived(remoteUrl ? `${remoteUrl}/commit/${commit.id}` : null);
+  const commitUrl = $derived(
+    repositoryCommitUrl({
+      remoteUrl,
+      commit: commit.id
+    })
+  );
   const paneName = $derived(selectedFile ? baseName(selectedFile.path) : "");
 
   async function loadDiff(path: string) {
@@ -89,7 +95,7 @@
     }
   }
 
-  async function openOnGithub() {
+  async function openOnRemote() {
     if (!commitUrl) {
       return;
     }
@@ -97,7 +103,7 @@
     try {
       await os.openUrl(commitUrl);
     } catch {
-    // Opening on GitHub is best-effort; a failed browser launch is silent.
+    // Opening the remote is best-effort; a failed browser launch is silent.
     }
   }
 
@@ -160,12 +166,12 @@
     </div>
     <div class="actions">
       <button
-        class="github-button"
-        data-tooltip={commitUrl ? "Open this commit on GitHub" : "No remote configured"}
+        class="remote-button"
+        data-tooltip={commitUrl ? "Open this commit on its remote" : "No supported remote configured"}
         disabled={!commitUrl}
-        onclick={openOnGithub}
+        onclick={openOnRemote}
       >
-        <Icon name="github" size={15} /> Open on GitHub
+        <Icon name="external" size={15} /> Open on remote
       </button>
       <button class="close" aria-label="Close commit details" data-tooltip="Close" onclick={onclose}>
         <Icon name="close" size={16} />
@@ -183,7 +189,7 @@
       {isBigFile}
       {loadFailed}
       {loading}
-      onopengithub={openOnGithub}
+      onopenremote={openOnRemote}
     />
   </div>
 </dialog>
@@ -314,7 +320,7 @@
     align-items: center;
   }
 
-  .github-button {
+  .remote-button {
     display: inline-flex;
     gap: 7px;
     align-items: center;

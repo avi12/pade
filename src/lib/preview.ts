@@ -6,6 +6,7 @@
 // IMAGE_MIME_TYPES (watcher.rs), where each extension is also mapped to its MIME
 // type; the two lists are kept in sync by hand.
 
+import { pathExtension } from "@/lib/file-type";
 import { z } from "zod";
 
 /** The image file extensions the Change Feed previews inline (lower-case, no
@@ -33,34 +34,20 @@ const IMAGE_EXTENSIONS: readonly string[] = ImageExtension.options;
 const MARKDOWN_EXTENSIONS: readonly string[] = MarkdownExtension.options;
 const HTML_EXTENSIONS: readonly string[] = HtmlExtension.options;
 
-/** `path`'s lower-cased final extension, or `null` when the base name carries no
- *  extension (a dotfile or an extensionless path). Case-insensitive; the one
- *  shared classifier all three predicates below decide from. */
-function extensionOf(path: string): string | null {
-  const base = path.split(/[\\/]/).pop() ?? path;
-  const dot = base.lastIndexOf(".");
-  const hasExtension = dot > 0 && dot < base.length - 1;
-  if (!hasExtension) {
-    return null;
-  }
-
-  return base.slice(dot + 1).toLowerCase();
-}
-
 /** Whether `path`'s extension names a previewable image. */
 export function isImagePath(path: string): boolean {
-  const extension = extensionOf(path);
+  const extension = pathExtension(path);
   return extension !== null && IMAGE_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names a markdown document. */
 export function isMarkdownPath(path: string): boolean {
-  const extension = extensionOf(path);
+  const extension = pathExtension(path);
   return extension !== null && MARKDOWN_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names an HTML document. */
 export function isHtmlPath(path: string): boolean {
-  const extension = extensionOf(path);
+  const extension = pathExtension(path);
   return extension !== null && HTML_EXTENSIONS.includes(extension);
 }

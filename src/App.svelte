@@ -870,7 +870,7 @@
   // ── Tab keyboard shortcuts (lib/tab-shortcuts) ───────────────────────────────
   // Actions the shortcut layer drives; each is a no-op outside the ready phase.
 
-  // Ctrl+T — another tab of the last session's kind (mirrors the "+" button).
+  // Another tab of the last session's kind (mirrors the "+" button).
   function newTab() {
     if (phase !== Phase.ready) {
       return;
@@ -882,7 +882,7 @@
     }
   }
 
-  // Ctrl+Shift+T — open the launch dropdown with the first agent focused, so
+  // Open the launch dropdown with the first agent focused, so
   // Enter fires it and Esc light-dismisses (native popover handles both).
   function openLaunchMenu() {
     if (phase !== Phase.ready) {

@@ -2,14 +2,14 @@
   import { os, vcs } from "@/lib/bridge";
   import CommitModal from "@/lib/CommitModal.svelte";
   import { formatCount } from "@/lib/format";
+  import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 
   // Recent commits: click a row to open the detail modal, Ctrl/Cmd-click (or
-  // Ctrl/Cmd-Enter) to open the commit on GitHub, arrow keys to move through
-  // the log. This section owns the modal and the remote URL powering the
-  // GitHub links.
+  // Ctrl/Cmd-Enter) to open the commit at its remote provider, arrow keys to move
+  // through the log. This section owns the modal and its cached remote URL.
   const { project, commits }: {
     project: string;
     commits: Commit[];
@@ -39,7 +39,7 @@
 
   onMount(async () => {
     await loadRemoteUrl();
-    // A `git remote add`/`remove` (or git init) flips whether GitHub links
+    // A `git remote add`/`remove` (or git init) flips whether remote links
     // exist — re-read the remote the moment the live git state changes.
     unlistenGitState = await vcs.onStateChanged(async () => await loadRemoteUrl());
   });
@@ -65,13 +65,17 @@
     }
   }
 
-  async function openCommitOnGithub(commit: Commit) {
+  async function openCommitOnRemote(commit: Commit) {
     try {
       const base = remoteUrl ?? (await vcs.remoteUrl(project));
       remoteUrl = base;
 
-      if (base) {
-        await os.openUrl(`${base}/commit/${commit.id}`);
+      const commitUrl = repositoryCommitUrl({
+        remoteUrl: base,
+        commit: commit.id
+      });
+      if (commitUrl) {
+        await os.openUrl(commitUrl);
       }
     } catch {
     // Opening the commit externally is best-effort — a missing remote or a
@@ -98,12 +102,12 @@
           class="commit"
           aria-label="Commit {commit.short}: {commit.summary}, by {commit.author} {commit.when}"
           data-commit
-          data-tooltip="Enter to view · Ctrl-click or Ctrl-Enter opens on GitHub"
+          data-tooltip="Enter to view · Ctrl-click or Ctrl-Enter opens on remote"
           onclick={e => {
-            const wantsGithub = e.ctrlKey || e.metaKey;
-            if (wantsGithub) {
+            const wantsRemote = e.ctrlKey || e.metaKey;
+            if (wantsRemote) {
               e.preventDefault();
-              openCommitOnGithub(commit);
+              openCommitOnRemote(commit);
               return;
             }
 
@@ -123,7 +127,7 @@
             const isOpenKey = e.key === "Enter" || e.key === " ";
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              openCommitOnGithub(commit);
+              openCommitOnRemote(commit);
             }
           }}
         >
