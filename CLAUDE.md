@@ -41,7 +41,9 @@ These are non-negotiable for all work in this repo.
    for it in the same turn, without waiting to be asked. Don't leave finished,
    verified work sitting uncommitted. When several unrelated changes have
    accumulated, split them into one focused commit each (hunk-stage if they share
-   a file) rather than a single mixed blob. Push only when the user asks.
+   a file) rather than a single mixed blob. Then **push** those commits in the
+   same turn — proactively, without waiting to be asked — so `main` on the remote
+   never lags behind completed, verified work.
 
 6. **Modern & performant** — use current language features and best practices:
    - TypeScript: `strict` mode, `import type`, discriminated unions, `satisfies`,
