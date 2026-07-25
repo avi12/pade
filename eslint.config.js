@@ -252,7 +252,7 @@ const nodeToolingFiles = ["**/*.config.ts", "**/*.config.js", "**/*.config.mjs",
 
 export default [
   ...svelteEslint.configs["flat/recommended"],
-  globalIgnores(["dist/", "node_modules/", "src-tauri/", "eslint-rules/"]),
+  globalIgnores(["dist/", ".svelte-check/", "node_modules/", "src-tauri/", "eslint-rules/"]),
   {
     files: ["**/*.{ts,js,mjs}"],
     languageOptions: {
