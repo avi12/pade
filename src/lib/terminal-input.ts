@@ -14,7 +14,11 @@ const CONTROL_SEQUENCE_INTRODUCER = "\x1b[";
 const BRACKETED_PASTE_START_PARAMETER = "200";
 const BRACKETED_PASTE_END_PARAMETER = "201";
 const TILDE_FINAL_BYTE = "~";
-const ENTER = "\r";
+
+/** The lone submitting keystroke. Sent as its own write AFTER a bracketed paste
+ *  has settled, it is an unambiguous Enter the TUI can't fold into the paste
+ *  burst — the reliable way to submit a composer a paste left holding text. */
+export const PROMPT_SUBMIT = "\r";
 
 export const BRACKETED_PASTE_START =
   `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_START_PARAMETER}${TILDE_FINAL_BYTE}`;
@@ -29,7 +33,7 @@ export function pastedText(text: string): string {
 
 /** A prompt wrapped for paste-then-submit delivery to a TUI's composer. */
 export function submittedPrompt(prompt: string): string {
-  return `${pastedText(prompt)}${ENTER}`;
+  return `${pastedText(prompt)}${PROMPT_SUBMIT}`;
 }
 
 export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,

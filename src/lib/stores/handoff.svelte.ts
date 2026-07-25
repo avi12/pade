@@ -12,7 +12,7 @@
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
-import { submittedPrompt } from "@/lib/terminal-input";
+import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal-input";
 import { SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -23,6 +23,12 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 const HANDOFF_DOC_TIMEOUT_MS = 300_000;
 const HANDOFF_SETTLE_MS = 3_000;
 const USAGE_EXHAUSTED_PERCENTAGE = 95;
+// After pasting the request, the submitting Enter is re-sent until the agent is
+// seen working. A TUI's post-paste guard swallows the Enter that arrives in the
+// same burst as the paste, so the first one often doesn't take; each retry sends
+// only the Enter (never re-pastes), spaced enough for the agent to react.
+const HANDOFF_SUBMIT_ATTEMPTS = 4;
+const HANDOFF_SUBMIT_CONFIRM_MS = 1_500;
 // How often the successor is checked for having finished its first turn (the
 // doc is certainly consumed by then), and how long before we stop watching.
 const SUCCESSOR_POLL_MS = 3_000;
@@ -63,19 +69,29 @@ export function handoffDocName({ source, sessionId }: {
   return `continue-${handoffSlug(source)}-${sessionToken(sessionId)}.md`;
 }
 
+/** The handoff request's text, without any paste framing or submit keystroke —
+ *  what the agent is asked to do. The store pastes this and submits it with a
+ *  separate, retried Enter (see `submitHandoffRequest`). */
+export function handoffRequestBody({ doc, reason }: {
+  doc: string;
+  reason: HandoffReason;
+}): string {
+  const trigger = reason === HandoffReason.ConfigurationChange
+    ? "The project's MCP server configuration changed, so PADE must restart this agent to load it."
+    : "Your context window is nearly full.";
+  return `${trigger} Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`;
+}
+
 export function handoffPrompt({ doc, reason }: {
   doc: string;
   reason: HandoffReason;
 }): string {
-  // Paste-then-submit delivery: the raw-bytes + trailing-CR form let the agent
-  // fold the CR into the paste burst and leave the request sitting unsent in
-  // its composer — the doc was never written and the cycle stranded its
-  // successor. `submittedPrompt` appends the ENTER as a separate keystroke
-  // after the closing paste marker, so the request actually goes.
-  const trigger = reason === HandoffReason.ConfigurationChange
-    ? "The project's MCP server configuration changed, so PADE must restart this agent to load it."
-    : "Your context window is nearly full.";
-  return submittedPrompt(`${trigger} Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`);
+  return submittedPrompt(
+    handoffRequestBody({
+      doc,
+      reason
+    })
+  );
 }
 
 /** Seed for the fresh successor: read ONLY the handoff doc and continue. The
@@ -283,6 +299,47 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
+  // Resolve after the delay, tracking the timer so dispose() tears it down.
+  function afterDelay(delayMs: number): Promise<void> {
+    return new Promise(resolve => {
+      trackTimer(() => resolve(), delayMs);
+    });
+  }
+
+  // Deliver the request as a paste, then submit with a SEPARATE Enter — re-sent
+  // until the agent starts working. A TUI guards against the Enter that
+  // immediately follows a bracketed paste (so a pasted multi-line block isn't
+  // submitted by accident), silently swallowing a one-shot paste+CR and leaving
+  // the request unsent in the composer. Re-sending only the Enter clears the
+  // guard without duplicating the pasted text.
+  async function submitHandoffRequest({ session, doc, reason }: {
+    session: AgentSession;
+    doc: string;
+    reason: HandoffReason;
+  }): Promise<void> {
+    await pty.write({
+      id: session.id,
+      data: pastedText(
+        handoffRequestBody({
+          doc,
+          reason
+        })
+      )
+    });
+
+    for (let attempt = 0; attempt < HANDOFF_SUBMIT_ATTEMPTS; attempt += 1) {
+      await pty.write({
+        id: session.id,
+        data: PROMPT_SUBMIT
+      });
+      await afterDelay(HANDOFF_SUBMIT_CONFIRM_MS);
+
+      if (sessionStatus(session.id) === SessionStatus.enum.working) {
+        return;
+      }
+    }
+  }
+
   // Only cycle when there's quota to spare — a handoff itself costs tokens. An
   // unknown quota (tier-only) counts as "enough" so the feature still works.
   async function hasEnoughUsage(agent: string): Promise<boolean> {
@@ -338,12 +395,10 @@ export function createAutoHandoff(host: HandoffHost) {
       .catch(() => null);
     const alreadyWritten = existing?.isFile === true;
     if (!alreadyWritten) {
-      await pty.write({
-        id: session.id,
-        data: handoffPrompt({
-          doc,
-          reason
-        })
+      await submitHandoffRequest({
+        session,
+        doc,
+        reason
       });
       const watcherSawDoc = await waitForFile(doc);
       // Never cycle without the doc actually on disk: killing the session and

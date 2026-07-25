@@ -2,11 +2,13 @@ import {
   handoffDocName,
   handoffPrompt,
   HandoffReason,
+  handoffRequestBody,
   handoffSlug,
   pickHandoffSuccessor,
   pickSuccessor,
   successorPrompt
 } from "@/lib/stores/handoff.svelte";
+import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal-input";
 import type { Agent } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -69,6 +71,18 @@ describe("handoff prompts", () => {
     });
     expect(prompt).toContain("MCP server configuration changed");
     expect(prompt).toContain(`handoff to ${documentName}`);
+  });
+
+  it("keeps the request body free of paste framing and the submit keystroke", () => {
+    // The store pastes this body and submits it with a SEPARATE, retried Enter;
+    // a body carrying its own CR or paste marker would defeat that delivery.
+    const body = handoffRequestBody({
+      doc: documentName,
+      reason: HandoffReason.ContextLimit
+    });
+    expect(body).not.toContain(PROMPT_SUBMIT);
+    expect(body).not.toContain(BRACKETED_PASTE_END);
+    expect(body).toContain(`handoff to ${documentName}`);
   });
 
   it("seeds the successor to continue from the written document", () => {
