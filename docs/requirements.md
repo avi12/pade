@@ -43,6 +43,9 @@ writes.
   registered `.claude/settings.local.json` seed with `theme:auto`, then supplies
   the resolved terminal scheme. The generic seed path is extensible to future
   agents and never overwrites existing project settings.
+- R1.1.10 ✅ Closing a visible session tab uses the same collapse animation from
+  its close button, middle-click, Ctrl+W, or Ctrl+F4. Reduced-motion mode still
+  removes it immediately.
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).

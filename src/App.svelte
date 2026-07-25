@@ -101,6 +101,7 @@
     prefs: {}
   });
   let sessions = $state<AgentSession[]>([]);
+  let sessionTabsHandle = $state<{ closeSession: (session: AgentSession) => void } | null>(null);
   let activeId = $state<string | null>(null);
   // Which sessions are shown side by side in the terminal area. One id = the
   // classic single pane; more = a split view. Always a subset of `sessions`.
@@ -900,9 +901,16 @@
   // Ctrl+W / Ctrl+F4 — close the active session.
   function closeActiveTab() {
     const active = sessions.find(session => session.id === activeId);
-    if (active) {
-      close(active);
+    if (!active) {
+      return;
     }
+
+    if (sessionTabsHandle) {
+      sessionTabsHandle.closeSession(active);
+      return;
+    }
+
+    close(active);
   }
 
   // Ctrl+number — jump straight to a tab by position (Ctrl+9 = the last one).
@@ -1696,6 +1704,7 @@
         </div>
 
         <SessionTabs
+          bind:this={sessionTabsHandle}
           {activeId}
           {agents}
           {branches}

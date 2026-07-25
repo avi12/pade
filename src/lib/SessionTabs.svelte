@@ -196,12 +196,18 @@
   }
 
   function closeTab(session: AgentSession) {
-    closingIds.add(session.id);
+    const hasVisiblePill = visibleSessions.some(candidateSession => candidateSession.id === session.id);
+    if (hasVisiblePill) {
+      closingIds.add(session.id);
+    }
+
     onclose(session);
-    // Prune the marker after the outro; purely housekeeping, not a close delay.
-    setTimeout(() => {
-      closingIds.delete(session.id);
-    }, 260);
+  }
+
+  /** Route app-level close shortcuts through the same animated seam as pointer
+   * and close-button activation. */
+  export function closeSession(session: AgentSession): void {
+    closeTab(session);
   }
 
   // Collapse a closing pill (width + fade), pinning its height so the label
@@ -399,6 +405,7 @@
         class:active={session.id === activeId}
         class:shown={paneIds.includes(session.id)}
         data-session-tab={session.id}
+        onoutroend={() => closingIds.delete(session.id)}
         onpointerdown={startTabDrag}
         out:collapse={{ id: session.id }}
       >
