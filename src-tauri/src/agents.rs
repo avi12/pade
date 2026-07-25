@@ -38,6 +38,10 @@ struct AgentDef {
     /// file — the terminal protocol can't carry it through `ConPTY` (see
     /// `theming.rs`). `None` for a CLI with no known theme setting.
     theme_config: Option<ThemeConfig>,
+    /// Optional project-local adaptive-theme seed for later launches. Created
+    /// only when absent; never merged or overwritten. The registry owns each
+    /// agent's native path and syntax.
+    project_theme_seed: Option<ProjectThemeSeed>,
     /// The flag that binds a session to a caller-chosen conversation id
     /// (`claude --session-id <uuid>`): it creates a fresh conversation with that
     /// id, and a later spawn with the same id *resumes* that exact one —
@@ -56,6 +60,12 @@ struct AgentDef {
     /// the scheme is light. `true` for Codex; `false` for CLIs whose box follows a
     /// config/env theme (Claude, aider, cursor) or that inherit the palette.
     needs_light_console_fix: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProjectThemeSeed {
+    pub relative_path: &'static str,
+    pub contents: &'static str,
 }
 
 /// Known agent backends, in preferred display order. The plain shell is always
@@ -80,20 +90,21 @@ const REGISTRY: &[AgentDef] = &[
         command: "claude",
         aliases: &[],
         oneshot: Some(&["-p"]),
-        // Bypass every per-tool/edit approval so ADE runs the agent hands-off.
-        // Claude Code's own docs note this does NOT waive the "trust this folder?"
-        // gate — ADE auto-accepts that in the frontend on first launch.
+        // Bypass every per-tool/edit approval. The project-theme seed below is
+        // created before this process launches, so even a brand-new project has
+        // Claude's adaptive mode active on its first frame. The trust gate remains
+        // frontend-owned.
         session_args: &["--dangerously-skip-permissions"],
-        // Claude's `auto` theme reads `$COLORFGBG` before its OSC 11 background
-        // probe (which ConPTY swallows), so a spawn-time "foreground;background"
-        // pair is the one reliable scheme signal. Per session only — never the
-        // global Claude config, whose `theme` the user owns. (Claude Code ≥2.1
-        // does honor a project settings.local.json `theme` key, but that pins a
-        // named theme in a user-owned file rather than following the scheme —
-        // the env signal stays the right mechanism.)
+        // Claude's forced `auto` theme reads `$COLORFGBG` before its OSC 11
+        // background probe (which ConPTY swallows), so this spawn-time pair is
+        // the reliable initial scheme signal. The live ?997 relay handles flips.
         theme_config: Some(ThemeConfig::SpawnEnv {
             light: &[("COLORFGBG", "0;15")],
             dark: &[("COLORFGBG", "15;0")],
+        }),
+        project_theme_seed: Some(ProjectThemeSeed {
+            relative_path: ".claude/settings.local.json",
+            contents: "{\n  \"theme\": \"auto\"\n}\n",
         }),
         // `--session-id <uuid>` creates-or-continues the conversation with that
         // id (non-interactive), so ADE can restart a specific session and land
@@ -106,8 +117,7 @@ const REGISTRY: &[AgentDef] = &[
         // the drag to settle and then moves the grid and the agent together; see
         // docs/terminal-rendering.md).
         //
-        // Forced by env, not by the `tui` setting, so it does not depend on — and
-        // cannot be undone by — whatever the user's own Claude config happens to say.
+        // Forced per invocation, so the user's own Claude config stays untouched.
         env: &[("CLAUDE_CODE_NO_FLICKER", "1")],
         // Claude's box follows its `theme` settings key, not the terminal probe.
         needs_light_console_fix: false,
@@ -188,6 +198,7 @@ const REGISTRY: &[AgentDef] = &[
             light: &["-c", "tui.theme=catppuccin-latte"],
             dark: &["-c", "tui.theme=catppuccin-mocha"],
         }),
+        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         // Codex paints its input composer box from the detected terminal
@@ -228,6 +239,7 @@ const REGISTRY: &[AgentDef] = &[
             light: Some(r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#),
             dark: None,
         }),
+        project_theme_seed: None,
         // `--session <id>` only *continues* an existing session; it cannot create
         // one with a caller-chosen id, so restart-to-resume has no handle here.
         session_id_flag: None,
@@ -266,6 +278,7 @@ const REGISTRY: &[AgentDef] = &[
         // forcing it would mean writing the USER-level ~/.copilot/settings.json,
         // which would leak ADE's scheme into every other terminal. Left alone.
         theme_config: None,
+        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -286,6 +299,7 @@ const REGISTRY: &[AgentDef] = &[
         // The settings reference lists no theme/color/appearance key at all;
         // its TUI inherits the terminal palette.
         theme_config: None,
+        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -303,6 +317,7 @@ const REGISTRY: &[AgentDef] = &[
         // restart to apply, and only "dark" is documented verbatim — not enough
         // verified surface to force safely.
         theme_config: None,
+        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -323,6 +338,7 @@ const REGISTRY: &[AgentDef] = &[
             light: &[("TERM_THEME", "light")],
             dark: &[],
         }),
+        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -342,6 +358,7 @@ const REGISTRY: &[AgentDef] = &[
             light: &[("AIDER_LIGHT_MODE", "true")],
             dark: &[("AIDER_DARK_MODE", "true")],
         }),
+        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -410,6 +427,13 @@ pub fn session_id_flag(command: &str) -> Option<&'static str> {
 /// command or a CLI with no theme setting.
 pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
     definition(command).and_then(|a| a.theme_config.as_ref())
+}
+
+/// Project-local adaptive-theme seed for `command`, when its CLI exposes a
+/// documented project setting safe to create without choosing a fixed palette.
+/// The theming layer owns the generic create-only file operation.
+pub fn project_theme_seed(command: &str) -> Option<ProjectThemeSeed> {
+    definition(command).and_then(|agent| agent.project_theme_seed)
 }
 
 /// Whether `command`'s input composer box follows the *detected* terminal

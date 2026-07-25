@@ -36,6 +36,13 @@ writes.
   auto-save + `/resume` cover continuity. The window close is intercepted
   (`onCloseRequested`) so the X waits the same way before the window is
   destroyed. An accidental reload records no leave and re-attaches instead.
+- R1.1.9 ✅ Agent UI themes match PADE from the first process in a new project.
+  Each agent registry entry owns its verified safe channel: launch arguments,
+  environment, a PADE-owned TUI config, native system following, or terminal
+  palette inheritance. Before Claude's first process starts, PADE creates its
+  registered `.claude/settings.local.json` seed with `theme:auto`, then supplies
+  the resolved terminal scheme. The generic seed path is extensible to future
+  agents and never overwrites existing project settings.
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).

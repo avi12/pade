@@ -527,6 +527,17 @@ pub async fn pty_spawn(
         .or_else(|| std::env::current_dir().ok());
     let spawn_cwd = dir.as_ref().map(|path| path.to_string_lossy().into_owned());
 
+    if let (Some(command), Some(root)) = (command.as_deref(), dir.as_deref()) {
+        if let Err(error) =
+            crate::theming::ensure_project_theme(crate::theming::ProjectThemeRequest {
+                command,
+                root,
+            })
+        {
+            eprintln!("theming: could not seed {command} project theme: {error}");
+        }
+    }
+
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
