@@ -22,7 +22,7 @@
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
-  import { TooltipAttribute, truncationTooltip } from "@/lib/truncation-tooltip";
+  import { truncationTooltip } from "@/lib/truncation-tooltip";
   import type { FeedDiff, WorkspaceMember } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
@@ -306,8 +306,7 @@
   // couldn't see.
   function clippedPathTooltip(path: string) {
     return truncationTooltip({
-      tooltip: path,
-      attribute: TooltipAttribute.Bubble
+      tooltip: path
     });
   }
 
@@ -328,8 +327,7 @@
     return truncationTooltip({
       tooltip: () => (revealEditor ? `Open in ${revealEditor.label} · ${path}` : path),
       restingTooltip: () => (revealEditor ? `Open in ${revealEditor.label}` : ""),
-      measureSelector: ".file-path",
-      attribute: TooltipAttribute.Bubble
+      measureSelector: ".file-path"
     });
   }
 

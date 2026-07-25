@@ -20,6 +20,7 @@
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
   import { collapsePane } from "@/lib/motion";
+  import OverflowTooltipLayer from "@/lib/OverflowTooltipLayer.svelte";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import {
@@ -1964,6 +1965,10 @@
       <span class="brand" aria-label="PADE is starting"><Logo size={64} /></span>
     </div>
   {/if}
+
+  <!-- One top-level bubble for every truncation tooltip — rendered here so it
+       escapes any panel/popover clipping or scroll-width inflation. -->
+  <OverflowTooltipLayer />
 </div>
 
 <style>
