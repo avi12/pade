@@ -257,10 +257,14 @@
   // probe is answered by ConPTY, not by ADE.)
   const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
 
-  // Agents whose TUI reads the OS clipboard on any paste event, so a pasted
-  // protected newline must arrive as a raw byte instead (see the Shift+Enter
-  // branch in the key handler).
-  const PASTE_READS_CLIPBOARD_AGENTS = new Set<string>([AgentId.Opencode]);
+  // Agents whose Shift+Enter newline must arrive as a raw Ctrl+J (LF, 0x0a)
+  // rather than a bracketed paste of it (see the Shift+Enter branch below):
+  //  • Claude Code — Ctrl+J is its documented always-works insert-newline; a
+  //    bracketed paste of a lone LF does NOT register in its composer.
+  //  • OpenCode — reacts to ANY paste event by consulting the OS clipboard (a
+  //    lingering image would attach alongside the newline); a raw LF is its own
+  //    ctrl+j insert-newline binding, so the newline lands without a paste.
+  const NEWLINE_VIA_RAW_LF_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
 
   async function writeSchemeReport() {
     await writeToPty(colorSchemeReport(appearance.scheme));
@@ -1209,11 +1213,11 @@
         // textarea, which xterm would forward to the PTY as a submit.
         event.preventDefault();
 
-        if (PASTE_READS_CLIPBOARD_AGENTS.has(session.agent.id)) {
-          // OpenCode reacts to ANY bracketed paste by also consulting the OS
-          // clipboard — a lingering image would be attached alongside the
-          // newline. A raw LF is its own documented insert-newline binding
-          // (ctrl+j), so the newline lands without a paste event.
+        if (NEWLINE_VIA_RAW_LF_AGENTS.has(session.agent.id)) {
+          // A raw Ctrl+J (LF) is the reliable insert-newline for these agents —
+          // Claude Code's always-works binding, and OpenCode's, without tripping
+          // its clipboard-on-paste. A bracketed paste of a lone LF is silently
+          // dropped by Claude's composer, which is why Shift+Enter did nothing.
           writeToPty(PROMPT_NEWLINE);
           return false;
         }
