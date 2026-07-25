@@ -77,6 +77,10 @@ writes.
 - R1.2.10 ✅ Git state follows repository lifecycle changes. Creating or removing
   the workspace's `.git` entry re-arms the non-recursive state watcher and emits
   fresh Git/ignore state without polling.
+- R1.2.11 ✅ A tracked file whose first observed event is deletion still previews
+  as a full removal. Since `notify` arrives after the file is gone, this one case
+  reads a bounded `HEAD` snapshot; normal first-touch previews remain live and
+  Git-independent.
 
 ### 1.3 Highlight → Agent bridge (✅)
 - R1.3.1 Selecting text in a side panel offers "Send to agent".

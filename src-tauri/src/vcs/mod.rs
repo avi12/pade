@@ -46,6 +46,22 @@ pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+/// Read a tracked file's committed text after it has disappeared from disk.
+/// Used only when the watcher first encounters a path as a deletion and therefore
+/// had no opportunity to capture the normal in-memory first-touch baseline.
+pub(crate) fn head_file_text(
+    cwd: &std::path::Path,
+    path: &std::path::Path,
+    max_bytes: u64,
+) -> Option<String> {
+    let relative = path.strip_prefix(cwd).ok()?;
+    let relative = relative.to_string_lossy().replace('\\', "/");
+    let object = format!("HEAD:{relative}");
+    let text = run_git(&cwd.to_string_lossy(), &["show", "--no-textconv", &object]).ok()?;
+    let within_limit = u64::try_from(text.len()).ok()? <= max_bytes;
+    (within_limit && !text.contains('\0')).then_some(text)
+}
+
 /// Accept only object ids Git produced for the UI. This prevents a renderer from
 /// turning a revision position into an option such as an external-diff switch.
 pub(crate) fn validate_object_id(object_id: &str) -> Result<&str, String> {
@@ -95,7 +111,7 @@ impl StatusKind {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_object_id;
+    use super::{head_file_text, run_git, validate_object_id};
 
     #[test]
     fn object_ids_reject_options_and_non_hex_revisions() {
@@ -106,5 +122,41 @@ mod tests {
                 "accepted {object_id}"
             );
         }
+    }
+
+    #[test]
+    fn head_file_text_recovers_a_first_sighting_deletion() {
+        let scratch = std::env::temp_dir().join(format!("pade-head-text-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        std::fs::create_dir_all(&scratch).expect("create scratch repository");
+        let cwd = scratch.to_string_lossy();
+        if run_git(&cwd, &["init", "-q"]).is_err() {
+            let _ = std::fs::remove_dir_all(scratch);
+            return;
+        }
+
+        let file = scratch.join("deleted.txt");
+        std::fs::write(&file, "before deletion\n").expect("write tracked file");
+        run_git(&cwd, &["add", "deleted.txt"]).expect("stage tracked file");
+        run_git(
+            &cwd,
+            &[
+                "-c",
+                "user.name=PADE Test",
+                "-c",
+                "user.email=pade@example.invalid",
+                "commit",
+                "-qm",
+                "baseline",
+            ],
+        )
+        .expect("commit tracked file");
+        std::fs::remove_file(&file).expect("delete tracked file");
+
+        assert_eq!(
+            head_file_text(&scratch, &file, 1024).as_deref(),
+            Some("before deletion\n")
+        );
+        std::fs::remove_dir_all(scratch).expect("scratch cleanup");
     }
 }

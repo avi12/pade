@@ -1294,11 +1294,15 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         if let Ok(mut baselines) = watch.baselines.lock() {
             baselines.entry(path.clone()).or_insert_with(|| match kind {
                 ChangeKind::Created => Some(String::new()),
-                ChangeKind::Modified | ChangeKind::Deleted => {
-                    watch_roots.as_ref().and_then(|(_, canonical_root)| {
-                        read_preview_text(canonical_root, &path).ok().flatten()
-                    })
-                }
+                ChangeKind::Modified => watch_roots.as_ref().and_then(|(_, canonical_root)| {
+                    read_preview_text(canonical_root, &path).ok().flatten()
+                }),
+                ChangeKind::Deleted => watch_roots.as_ref().and_then(|(root, canonical_root)| {
+                    read_preview_text(canonical_root, &path)
+                        .ok()
+                        .flatten()
+                        .or_else(|| crate::vcs::head_file_text(root, &path, MAX_PREVIEW_BYTES))
+                }),
             });
         }
 
