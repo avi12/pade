@@ -31,14 +31,16 @@ export function createExpandBlockVisitor({ context, getItems, requiresMultiline,
     for (let itemIndex = 1; itemIndex < items.length; itemIndex++) {
       const previousItem = items[itemIndex - 1];
       const currentItem = items[itemIndex];
-      if (previousItem.loc.end.line === currentItem.loc.start.line) {
-        const tokenBeforeCurrent = sourceCode.getTokenBefore(currentItem);
-        context.report({
-          node: currentItem,
-          messageId: messageIds.betweenItems,
-          fix: fixer => fixer.insertTextAfter(tokenBeforeCurrent, `\n${itemIndent}`)
-        });
+      if (previousItem.loc.end.line !== currentItem.loc.start.line) {
+        continue;
       }
+
+      const tokenBeforeCurrent = sourceCode.getTokenBefore(currentItem);
+      context.report({
+        node: currentItem,
+        messageId: messageIds.betweenItems,
+        fix: fixer => fixer.insertTextAfter(tokenBeforeCurrent, `\n${itemIndent}`)
+      });
     }
 
     const lastItem = items[items.length - 1];

@@ -71,28 +71,35 @@ export default {
           );
           const isFirstArgumentOnNewLine = openingParenthesis.loc.end.line !== firstArgument.loc.start.line;
           const isSingleArgument = node.arguments.length === 1;
-          if (allInlineTypes && !hasAnyMultilineArgument && isFirstArgumentOnNewLine && isSingleArgument) {
-            const MAX_LINE_LENGTH = 120;
-            const prefixLength = openingParenthesis.loc.end.column;
-            const argumentsEndLength = lastArgument.loc.end.column
-              + (closingParenthesis.loc.start.line === lastArgument.loc.end.line ? 1 : 0);
-            const resultingLineLength = prefixLength + (firstArgument.loc.start.line === lastArgument.loc.end.line
-              ? lastArgument.loc.end.column - firstArgument.loc.start.column + 1
-              : argumentsEndLength);
-            if (resultingLineLength <= MAX_LINE_LENGTH) {
-              context.report({
-                node,
-                messageId: "inlineArgumentOnNewLine",
-                fix(fixer) {
-                  return fixer.replaceTextRange(
-                    [openingParenthesis.range[1], firstArgument.range[0]],
-                    ""
-                  );
-                }
-              });
-            }
+          const isInlineArgumentEligible = allInlineTypes
+            && !hasAnyMultilineArgument
+            && isFirstArgumentOnNewLine
+            && isSingleArgument;
+          if (!isInlineArgumentEligible) {
+            return;
           }
 
+          const MAX_LINE_LENGTH = 120;
+          const prefixLength = openingParenthesis.loc.end.column;
+          const argumentsEndLength = lastArgument.loc.end.column
+            + (closingParenthesis.loc.start.line === lastArgument.loc.end.line ? 1 : 0);
+          const resultingLineLength = prefixLength + (firstArgument.loc.start.line === lastArgument.loc.end.line
+            ? lastArgument.loc.end.column - firstArgument.loc.start.column + 1
+            : argumentsEndLength);
+          if (resultingLineLength > MAX_LINE_LENGTH) {
+            return;
+          }
+
+          context.report({
+            node,
+            messageId: "inlineArgumentOnNewLine",
+            fix(fixer) {
+              return fixer.replaceTextRange(
+                [openingParenthesis.range[1], firstArgument.range[0]],
+                ""
+              );
+            }
+          });
           return;
         }
 

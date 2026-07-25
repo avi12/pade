@@ -111,13 +111,15 @@ function fail(label) {
 function teardown() {
   socket?.close();
 
-  if (launched?.pid) {
-    // The pnpm shim spawns a tree (vite + cargo + the app) — kill all of it.
-    try {
-      execSync(`taskkill /pid ${launched.pid} /T /F`, { stdio: "ignore" });
-    } catch {
-      // Already gone.
-    }
+  if (!launched?.pid) {
+    return;
+  }
+
+  // The pnpm shim spawns a tree (vite + cargo + the app) — kill all of it.
+  try {
+    execSync(`taskkill /pid ${launched.pid} /T /F`, { stdio: "ignore" });
+  } catch {
+    // Already gone.
   }
 }
 
