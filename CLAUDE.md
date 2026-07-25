@@ -36,6 +36,12 @@ These are non-negotiable for all work in this repo.
    One feature or refactor per commit; never mix a refactor with a feature. Each
    commit compiles. Conventional-commit style (`feat:`, `fix:`, `refactor:`,
    `docs:`, `chore:`).
+   **Commit proactively**: once a change is complete and its gates are green — a
+   bug fix, a feature, a refactor, a doc update — make the digestible commit(s)
+   for it in the same turn, without waiting to be asked. Don't leave finished,
+   verified work sitting uncommitted. When several unrelated changes have
+   accumulated, split them into one focused commit each (hunk-stage if they share
+   a file) rather than a single mixed blob. Push only when the user asks.
 
 6. **Modern & performant** — use current language features and best practices:
    - TypeScript: `strict` mode, `import type`, discriminated unions, `satisfies`,
