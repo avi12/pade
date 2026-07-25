@@ -40,8 +40,6 @@ export interface RelocateHost {
   currentProject: () => string;
   /** Drop the killed sessions from tabs/panes and re-point the active one. */
   removeSessions: (ids: ReadonlySet<string>) => void;
-  /** Apply the refreshed settings after the backend op ran. */
-  applySettings: (settings: Settings) => void;
   /** Re-point the current project dir after the move. */
   setCurrentProject: (path: string) => void;
   /** Resume one displaced live session on its remapped cwd. */
@@ -99,7 +97,7 @@ export function createRelocator(host: RelocateHost) {
 
     // Run the backend move/rename (also re-points every external reference).
     const newPath = await run();
-    host.applySettings(await workspace.settings());
+    await workspace.settings();
 
     if (isUnder({
       directory: host.currentProject(),
@@ -158,8 +156,6 @@ export function createRelocator(host: RelocateHost) {
   async function deleteVia(path: string, del: (path: string) => Promise<Settings>): Promise<Settings> {
     await releaseLock(path);
     const settings = await del(path);
-    host.applySettings(settings);
-
     if (isUnder({
       directory: host.currentProject(),
       base: path

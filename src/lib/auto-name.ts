@@ -8,7 +8,7 @@
 import { feed, workspace } from "@/lib/bridge";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
 import { ChangeKind } from "@/lib/types";
-import type { ChangeEvent, Settings } from "@/lib/types";
+import type { ChangeEvent } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 const AUTONAME_AFTER = 3;
@@ -44,8 +44,6 @@ export interface AutoNameHost {
   labelOf: (path: string) => string | undefined;
   /** The active session's agent command, for the agent-CLI namer. */
   activeAgentCommand: () => string;
-  /** Apply the refreshed settings once the label is stored. */
-  applySettings: (settings: Settings) => void;
 }
 
 /** The auto-namer for one app shell: `start()` on mount subscribes to the
@@ -91,12 +89,10 @@ export function createAutoNamer(host: AutoNameHost) {
       return;
     }
 
-    host.applySettings(
-      await workspace.setLabel({
-        path: project,
-        name
-      })
-    );
+    await workspace.setLabel({
+      path: project,
+      name
+    });
   }
 
   // Subscribe to the change feed. The watcher itself is armed on the open project

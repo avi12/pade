@@ -6,8 +6,9 @@ spec; `CLAUDE.md` holds the engineering rules. Keep this file in sync when a
 module is added, split, or renamed.
 
 Two layers, one boundary: the Svelte frontend never talks to Tauri directly —
-every IPC call funnels through `src/lib/bridge.ts`, and every payload shape
-lives in `src/lib/types.ts` as a zod schema.
+every IPC call funnels through `src/lib/bridge.ts`, where every response and
+event payload is validated with zod. Shared payload schemas live in
+`src/lib/types.ts`; bridge-local shapes stay beside their only consumer.
 
 ## How it works
 
@@ -116,10 +117,12 @@ whichever file an installer happened to lay down.
 
 ### A terminal session is the unit of work
 
-Each agent tab is a **session** — an id, the agent to run, and an optional
-worktree cwd. `Terminal.svelte` mounts an xterm.js instance per session and asks
-the core to spawn a PTY; bytes then stream both ways over Tauri events. All
-sessions stay mounted so scrollback survives tab switching.
+Each terminal tab is a **session** — an id, a launchable `{ id, label, command }`
+record, and a cwd (optionally a worktree). There is no separate agent-kind field:
+the same shape also launches the shell fallback and console editors, with extra
+arguments where needed. `Terminal.svelte` mounts an xterm.js instance per session
+and asks the core to spawn a PTY; bytes then stream both ways over Tauri events.
+All sessions stay mounted so scrollback survives tab switching.
 
 ```mermaid
 sequenceDiagram
@@ -183,7 +186,7 @@ How a resize must behave is a property of **which screen the program paints on**
 of the emulator — and ADE hosts both, so `Terminal.svelte` watches
 `buffer.onBufferChange` and switches policy on it.
 
-| | **Normal screen** (a shell, an agent with no fullscreen mode) | **Alternate screen** (Claude Code as ADE runs it, Codex, aider, a pager) |
+| | **Normal screen** (a shell, aider, or another line-oriented agent) | **Alternate screen** (Claude Code as ADE runs it, Codex, OpenCode, Copilot, a pager) |
 | --- | --- | --- |
 | What it holds | A real document, with real scrollback | A framebuffer the program owns and diffs against its own model of |
 | Who paints a row | The terminal — so xterm can rewrap the text itself, continuously, like a web page | **Only the program** |
@@ -294,12 +297,13 @@ responsibility, and who it collaborates with.
 | `src/lib/send-shortcut.ts` | Global send-from-IDE shortcut: clipboard → active agent input | `bridge.pty`, `stores/toast` |
 | `src/lib/session-restore.ts` | Re-attach after an accidental reload: persists the window's pane mapping (project + sessions + panes, incl. each session's `conversationId`) in **sessionStorage** — survives a WebView reload, dies with the window, so an app restart never resurrects ended agents — and restores only the intersection with the backend's live roster (`pty.list`), the sole authority on liveness. A deliberate leave kills its PTYs first, so nothing survives the intersection — no separate leave flag | `bridge.pty`, `types`, `App` |
 | `src/lib/session-restart.ts` | Pure logic shared by agent relaunch flows: `mcpRestartTargets` picks the governed sessions whose working dir IS the changed dir (a worktree keeps its own config), then `App` routes them through `stores/handoff`; `rekeyLayout` re-keys sessions across the pane layout for spawn-time theme restarts (new id → terminal remounts and resumes; `initialPrompt` dropped) | `paths`, `types`, `App` |
-| `src/lib/tab-shortcuts.ts` | Tab keyboard shortcuts: two pure matchers — `matchTabShortcut` (chord → new / close / cycle / launch-menu action) and `matchTabSelection` (Ctrl+1..8 → that tab, Ctrl+9 → the last) — plus the capture-phase registrar wiring both to the app's handlers | `focus`, `App` |
+| `src/lib/tab-shortcuts.ts` | Tab keyboard shortcuts: one action registry owns matching and display vocabulary; `matchTabShortcut` resolves its chords, `matchTabSelection` handles Ctrl+1..8 → that tab and Ctrl+9 → the last, and the capture-phase registrar wires both to the app's handlers | `focus`, `App`, `SessionTabs` |
 | `src/lib/pane-nav.ts` | Pure previous/next/nth pane lookup for the split-pane keyboard nav (`previousPaneId`/`nextPaneId` wrap; `paneIdAt` bounds-checks) | `pane-shortcuts` |
 | `src/lib/pane-shortcuts.ts` | Split-pane keyboard shortcuts — the sibling of `tab-shortcuts`: pure `matchPaneShortcut` (Ctrl+[ / Ctrl+] cycle, Ctrl+Alt+1..9 → nth pane, Ctrl+Alt+W → close the active pane) + a capture-phase registrar resolving the target pane through `pane-nav` | `pane-nav`, `focus`, `App` |
 | `src/lib/focus.ts` | `isEditingText` — whether focus sits in a real editable field (not xterm's helper textarea); the shared guard both shortcut registrars check before swallowing a chord | `tab-shortcuts`, `pane-shortcuts` |
 | `src/lib/paths.ts` | Path helpers: `baseName`, `parentDirectory`, `displayName`, `isTemporaryWorkspace`, `normalizePath` | many |
-| `src/lib/repository-links.ts` | Opens a project's backend-normalized remote in the system browser and surfaces missing remotes or opener failures through the shared toast. A central provider registry maps non-default branch URLs for GitHub, GitLab, Bitbucket, Codeberg/Gitea, and Azure DevOps; the remote's locally tracked default branch opens the repository root, with `main`/`master` as metadata-free fallbacks, and unknown hosts also fall back safely to the root. Its `openRepositoryOnModifiedClick` attachment preserves the project menu's plain click while Ctrl/Cmd-click opens the repository | `App`, `AppMenu`, `bridge`, `stores/toast` |
+| `src/lib/repository-links.ts` | Opens a project's backend-normalized remote in the system browser and surfaces missing remotes or opener failures through the shared toast. A central provider registry maps branch and commit URLs for GitHub, GitLab, Bitbucket, Codeberg/Gitea, and Azure DevOps; the remote's locally tracked default branch opens the repository root, with `main`/`master` as metadata-free fallbacks, and unknown branch hosts also fall back safely to the root. Its `openRepositoryOnModifiedClick` attachment preserves the project menu's plain click while Ctrl/Cmd-click opens the repository | `App`, `AppMenu`, `CommitLog`, `CommitModal`, `bridge`, `stores/toast` |
+| `src/lib/task-manifests.ts` | Task-manifest filename and display vocabulary shared by task-list refresh and PTY task-run detection | `TasksPanel`, `stores/taskRuns` |
 | `src/lib/diff.ts` | Pure unified-diff pipeline: parser + side-by-side rows, and `unifiedDiff` — a git-free LCS line-diff generator (shared prefix/suffix trim → LCS on the changed middle → context-bounded hunks) that turns the Change Feed's baseline-vs-current texts into the same unified-diff string the parser reads | `DiffView`, `ChangeFeed`, `VcsPanel`, `CommitModal` |
 | `src/lib/change-groups.ts` | Pure grouping of Change Feed events into project buckets, summing each group's line deltas. Ground truth first: with manifest-confirmed workspace members (`bridge.members` ← `members.rs`) a change buckets under its **deepest enclosing member** (whole-segment longest-prefix, so `apps/web` never captures `apps/web-admin`; outside every member → the repo). Only a workspace with no confirmed members falls back to the folder-name convention — a change under an `apps/`·`packages/`·`services/` container groups by its member folder (an `@scope/name` kept whole), else the repo itself | `ChangeFeed`, `bridge.members` |
 | `src/lib/file-type.ts` | Pure extension → file-type badge (short label + colour tone) for a Change Feed card's language chip, plus `fileExtension` — the dotted type key the feed's file-type filter counts and filters by | `ChangeFeed` |
@@ -349,7 +353,7 @@ responsibility, and who it collaborates with.
 | `src/panels/TasksPanel.svelte` | Detected project tasks, run as dock runners |
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files |
 | `src/panels/Onboarding.svelte` | Agent picker shown after the last session is closed or exits — never on the way into a project |
-| `src/panels/ProjectPicker.svelte` | Picker orchestrator: owns settings + refresh + the shared workspace lifecycle, hosts the delete `ConfirmDialog`, and keeps the page live — it watches the parents of its rows (`dirs`) and re-prunes on any change, so a folder deleted outside PADE leaves the list on its own; composes the sections below |
+| `src/panels/ProjectPicker.svelte` | Picker orchestrator: reads the shared settings authority, owns project-list refresh + the shared workspace lifecycle, hosts the delete `ConfirmDialog`, and keeps the page live — it watches the parents of its rows (`dirs`) and re-prunes on any change, so a folder deleted outside PADE leaves the list on its own; composes the sections below |
 
 ### Git-panel sections (`src/panels/vcs/`)
 
@@ -358,7 +362,7 @@ responsibility, and who it collaborates with.
 | `chrome.css` | Shared panel chrome (group headers, sha/author line, empty state), selector-scoped under `.vcs` |
 | `RestoreSection.svelte` | Restore a version: natural-language query → ranked candidates → checkout |
 | `ChangesSection.svelte` | Unreviewed/staged groups + the selected file's inline diff (unified + split) |
-| `CommitLog.svelte` | Recent commits with keyboard navigation, GitHub links (the backing remote URL re-read live on `git://state`, so a `remote add`/`remove` flips the links in place) and the detail modal |
+| `CommitLog.svelte` | Recent commits with keyboard navigation, provider-aware remote links (the backing remote URL re-read live on `git://state`, so a `remote add`/`remove` flips the links in place) and the detail modal |
 
 ### Project-picker sections (`src/panels/picker/`)
 
@@ -388,7 +392,7 @@ entry. Each concern is one module:
 | `watcher.rs` | Filesystem watchers (notify): the recursive one feeding the Change Feed — armed on the workspace path the frontend passes `watch_start` (the open project's root, threaded from `ChangeFeed`, **not** the process cwd — so a cwd that has drifted from the displayed workspace never points the feed at the wrong tree) and re-rooted on a project switch (a call for a new root drops the old watcher and its per-file bookkeeping and re-arms). **All watch state is per window** (`WatcherState.windows`, keyed by window label): every PADE window opens its own workspace but all share one backend process, so a single global watcher slot could arm only one project at a time — a second window's `watch_start` tore down the first's watch (its edits never surfaced) and the one live watcher broadcast into every window's feed. Each window's watcher (and its git-state and picker `dirs` watch, and their per-file bookkeeping — line counts, baselines, ignore policy, MCP baseline) lives under its label, and every event it produces is routed back to that window alone with `emit_to(<label>, …)` (never `emit`, which broadcasts to all) so two windows on different projects never cross-contaminate; the frontend's `bridge.on` correspondingly listens **scoped to its own window label**, so an app-wide `emit` still reaches it but a sibling's targeted emit does not. Closed windows have no teardown hook, so `watch_start`/`watch_dirs` prune the entries of windows no longer live (dropping their watchers and retiring the paired coalescer threads). It also excludes what the project itself would ignore, via a **live ignore policy**: in a git work tree it defers to git's own rules (`git -C <root> check-ignore`, memoized per path, so nested `.gitignore`, `.git/info/exclude`, `core.excludesFile`, and negations all count); with no git it falls back to a set of directory names inferred from the manifests at the root (`package.json`→`node_modules`…, `Cargo.toml`→`target`, …) unioned with the always-on `IGNORED` baseline **plus the root `.gitignore`'s own rules** (`gitignore.rs` — a scaffolded project knows what it will generate before `git init` runs) — that cheap baseline pre-filter runs first in both modes, so a giant dir never reaches git. The policy is **recomputed** whenever the rules could have changed — any `.gitignore` edited, created, or deleted under the root (the recursive watch already sees both the existing file changing and one appearing), and a mid-session `git init` (piggybacked on the git-state coalescer's re-arm) — and each recompute announces payload-free **`feed://ignore-changed`**, on which the frontend's feed store re-asks `feed_ignored` about the events it already shows and drops the now-ignored ones — and `watch_dirs` — the picker's, watching the *parents* of the rows it shows (watching a row would hold a handle on it and block its deletion) and emitting `dirs://changed` when one gains or loses a child; and the **live-git-state watch**, re-armed with every `watch_start` re-root: a deliberately tiny **non-recursive** watch of only the dir(s) holding `.git/HEAD` (branch switches) and `.git/config` (remotes) — never the `.git` tree, whose `objects/` churn is an event firehose; a linked worktree's `.git` *file* resolves its real git dir + common dir via `git rev-parse --path-format=absolute`. Touches of those two files are coalesced per burst on a paired thread (a checkout rewrites `HEAD` several times; the emit waits for quiet) into one payload-free **`git://state`** event — listeners re-fetch what they display, so the event can't carry stale data. A workspace with no repo yet gets a non-recursive sentinel watch of its root that only looks for a `.git` entry appearing, then re-arms onto the real state files — so a `git init` run after the project opened gains the watch without polling. It also detects a change to the project's **MCP servers**: on any touch of a config file `config.rs` marks MCP-kind (`.mcp.json`), it re-reads the server-name set (`mcp.rs`) and — only when a name was added or removed, never on a value-only edit — emits **`mcp://changed`** (agents governed + added/removed names) so the frontend restarts and resumes those sessions; the per-file baseline is seeded on `watch_start` so opening a project that already declares servers doesn't restart. Also owns the Change Feed's **git-free preview**: a per-watch-session, lazily-captured **first-touch baseline** map (path → the content it held the first time it changed this session — empty for a creation, the current text for a pre-existing file; binary/over-cap files aren't snapshotted), cleared on re-root, that `feed_diff` diffs against the file's current content so a card previews the agent's *this-session* changes to any file — tracked, untracked, or ignored — without consulting git. Two companions serve the feed's rich previews, both gated on the same baseline so only a path this window's watch surfaced is ever read: **`feed_image`** returns an image change's bytes as a base64 data URL (extension→MIME via `IMAGE_MIME_TYPES`, capped at 5 MB), and **`feed_text`** returns a file's current UTF-8 text (NUL-rejected, size-capped) for the markdown/HTML Code-or-Preview toggle |
 | `vcs/` | Git backend, one concern per submodule: `mod.rs` (shared git runner, status-kind vocabulary, and hex object-id validation), `status`, `log`, `inspect`, `remote`, `branches`, `pull`, `worktree`, `restore`, `clone`. Clone accepts authenticated HTTPS/SSH transports and a single validated destination name; optional passwords travel through a short-lived askpass environment, never argv or the saved remote, which is sanitized and verified before success |
 | `vcs::head_file_text` | Bounded committed-text fallback for the one preview case where no live first-touch snapshot is possible: a tracked path whose first watcher event is deletion. Normal Change Feed previews remain session-baseline driven and Git-independent | `watcher::feed_diff` |
-| `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete. `launch_directory` is the one home for "which directory this instance launched into" (an explicit `pade <dir>` argument, else the process cwd) — read by both `launch_context` (what the frontend boots into) and `webview_data_dir`, which keys this instance's **WebView2 user-data folder** by that project (a stable digest of the canonical path under `%LOCALAPPDATA%\pade\webview2\`) so two projects open in parallel run in **separate browser + GPU process trees** instead of sharing one; `lib.rs` sets `WEBVIEW2_USER_DATA_FOLDER` to it before any window is built (the shared default lets one instance's GPU load and the ~16 WebGL-context cap compound into the other and trip a DWM reset). Adding a root goes through `workspace_add_root` (existing dir → added; missing → created only when the picker asks; a file → rejected) with `workspace_probe_path` feeding the add-row's live check (is-dir / is-file / parent-exists) and its directory autocomplete (child dirs matching the typed prefix) — existence checks in place of a path regex. Deleting first steps the process out of the folder (opening a project chdirs into it, and Windows won't delete the directory a process stands in), then retries briefly while the OS closes the killed agents' handles; an already-absent folder counts as deleted, so a stale Recent row can always be cleared |
+| `workspace.rs` | Settings, roots, temp workspaces, labels, move/rename/delete. One mutex-protected settings repository serializes every in-process load-modify-save and writes through a same-directory temporary file; preference writes patch fields (null removes an optional key) instead of replacing all prefs. `launch_directory` is the one home for "which directory this instance launched into" (an explicit `pade <dir>` argument, else the process cwd) — read by both `launch_context` (what the frontend boots into) and `webview_data_dir`, which keys this instance's **WebView2 user-data folder** by that project (a stable digest of the canonical path under `%LOCALAPPDATA%\pade\webview2\`) so two projects open in parallel run in **separate browser + GPU process trees** instead of sharing one; `lib.rs` sets `WEBVIEW2_USER_DATA_FOLDER` to it before any window is built (the shared default lets one instance's GPU load and the ~16 WebGL-context cap compound into the other and trip a DWM reset). Adding a root goes through `workspace_add_root` (existing dir → added; missing → created only when the picker asks; a file → rejected) with `workspace_probe_path` feeding the add-row's live check (is-dir / is-file / parent-exists) and its directory autocomplete (child dirs matching the typed prefix) — existence checks in place of a path regex. Deleting first steps the process out of the folder (opening a project chdirs into it, and Windows won't delete the directory a process stands in), then retries briefly while the OS closes the killed agents' handles; an already-absent folder counts as deleted, so a stale Recent row can always be cleared |
 | `refs.rs` | After a move: re-point agent memory dirs, IDE recents, symlinks, package-manager installs |
 | `naming.rs` | Temp-workspace auto-naming (agent CLI → heuristic, shared sanitizer) |
 | `agents.rs` | Agent registry + detection, one-shot headless invocations, the env each agent is spawned with, and each interactive session's skip-permission arguments. It is also the single source for theme preparation: a `ThemeConfig` selects per-scheme env, launch args, or a PADE-owned TUI config, while optional `ProjectThemeSeed { relative_path, contents }` metadata declares a native adaptive project file to create before launch. Claude currently declares `.claude/settings.local.json` with `theme:auto`; future agents add a seed in one registry entry without new theming control flow. `program()` resolves agent executables, and `session_id_flag` declares targeted conversation resume. Fullscreen-capable agents are pinned to the alternate screen where supported |
@@ -441,9 +445,9 @@ breaks a consumer with no type error:
   the payload, so the UI badges it as the user's pick rather than the
   auto-detected best fit — so a choice made on one surface wins on every
   other.
-- **`vcs_remote_url` returns a host root**; the `/commit/<sha>` path appended
-  by `CommitLog`/`CommitModal` is a GitHub-shaped assumption — the seam to
-  change for GitLab (`/-/commit/`) or Bitbucket (`/commits/`).
+- **`vcs_remote_url` returns a host root**; `repository-links.ts` is the one
+  frontend authority that maps that root to provider-specific branch and commit
+  routes. Unknown providers never receive a fabricated commit route.
 - **Paths cross the boundary verbatim, never canonicalized**, with mixed
   separators by origin: git output uses `/`, watcher/workspace paths are
   native (`\` on Windows). The frontend's `normalizePath` (separators + case +
@@ -509,9 +513,8 @@ surfaced by the picker (the legacy menu is still applied).
 ## Tests
 
 `pnpm test` runs both sides: `test:js` (vitest, colocated `*.test.ts` next to
-each pure module) and `test:rust` (`cargo test`, `#[cfg(test)]` modules inside
-`naming.rs`, `refs.rs`, `ide.rs`, `pty.rs`, `tasks.rs`, `usage.rs` and the
-`vcs/` parsers). The pure logic extracted from components —
+each pure module) and `test:rust` (`cargo test`, colocated `#[cfg(test)]`
+modules). The pure logic extracted from components —
 `tab-fit`, `diff`, `paths`, `colors`, `format`, `reorder`, `usage-groups`, `validate`,
 `highlight`, `errors`, the context store's percent parsing,
 `auto-name`'s signal detection, `workspace-relocate`'s path remapping, `handoff`'s
@@ -521,6 +524,6 @@ multiple-choice detection, `ansi` stripping, `task-detect`'s invocation matching
 `change-groups`' project bucketing, `file-type`'s badge mapping — is where
 new tests belong first: they run in milliseconds and need no window.
 
-Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a two-check
+Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a focused
 boot-and-render gate over the real app via the WebView2 CDP port — see the
-script's header for its deliberate scope limits.
+script's header for its deliberate scope limits and current scenarios.

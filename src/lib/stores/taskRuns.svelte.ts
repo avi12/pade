@@ -9,16 +9,14 @@
 // agent's terminal stops producing output; one-shot tasks (build/test/lint)
 // reflect accurately.
 
-import { feed, pty, tasks as tasksApi } from "@/lib/bridge";
-import { baseName } from "@/lib/paths";
+import { pty } from "@/lib/bridge";
 import { runnerRows } from "@/lib/stores/runners.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
+import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/taskCatalog.svelte";
 import { isTaskInvocation } from "@/lib/task-detect";
 import { SessionStatus } from "@/lib/types";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
-
-/** Manifests whose edits change the known-task set. */
-const MANIFESTS = ["package.json", "Cargo.toml", "Makefile", "pyproject.toml"];
 
 /** Joins a task key's two parts. NUL can appear in neither a path nor a shell
  *  command, so the composed key can never collide with a real dir/command pair. */
@@ -73,50 +71,19 @@ function markSessionTask({ sessionId, key }: {
   running.add(key);
 }
 
-/** The known task commands, refreshed from the backend on manifest changes. */
-let commands: {
+/** Derive detector inputs from the exact catalog snapshot rendered by the panel. */
+export function knownTaskCommands(snapshot: TaskCatalogSnapshot): {
   key: string;
   command: string;
-}[] = [];
-// Set by App once per WebView. Keeping this as a getter means a long-lived
-// listener always scans the project that window currently displays.
-let currentProjectGetter: (() => string) | undefined;
-
-function currentProject(): string {
-  return currentProjectGetter?.() ?? "";
-}
-
-async function refreshCommands(): Promise<void> {
-  const cwd = currentProject();
-  if (!cwd) {
-    commands = [];
-    return;
-  }
-
-  try {
-    const groups = await tasksApi.list(cwd);
-    // A project switch can happen while the scan is in flight. A command from
-    // the previous workspace must not be used to classify this window's PTY
-    // output after it has moved on.
-    if (cwd !== currentProject()) {
-      return;
-    }
-
-    commands = groups.flatMap(group =>
-      group.tasks.map(task => ({
-        key: taskKey({
-          directory: group.dir,
-          command: task.command
-        }),
+}[] {
+  return snapshot.groups.flatMap(group =>
+    group.tasks.map(task => ({
+      key: taskKey({
+        directory: group.dir,
         command: task.command
-      })));
-  } catch {
-    if (cwd !== currentProject()) {
-      return;
-    }
-
-    commands = [];
-  }
+      }),
+      command: task.command
+    })));
 }
 
 function detect({ sessionId, chunk }: {
@@ -124,7 +91,7 @@ function detect({ sessionId, chunk }: {
   chunk: string;
 }): void {
   const lines = chunk.split("\n");
-  for (const { key, command } of commands) {
+  for (const { key, command } of knownTaskCommands(taskCatalog.snapshot)) {
     const isInvocation = lines.some(line => isTaskInvocation({
       line,
       command
@@ -153,34 +120,47 @@ $effect.root(() => {
   });
 });
 
-let started = false;
+let listenerInitialization: Promise<void> | undefined;
+let listenerUnlistens: UnlistenFn[] = [];
+
+async function startListeners(): Promise<void> {
+  const pendingUnlistens: UnlistenFn[] = [];
+  try {
+    pendingUnlistens.push(
+      await pty.onData(chunk => detect({
+        sessionId: chunk.id,
+        chunk: chunk.data
+      }))
+    );
+    pendingUnlistens.push(await pty.onExit(id => clearSessionTask(id)));
+    listenerUnlistens = pendingUnlistens;
+  } catch (caughtError) {
+    for (const unlisten of pendingUnlistens) {
+      unlisten();
+    }
+    throw caughtError;
+  }
+}
 
 /** Start watching agent output for known-task runs. Idempotent; call once from
  *  the app shell (like the runner listeners). */
 export async function initTaskRunDetection(project: () => string): Promise<void> {
-  currentProjectGetter = project;
+  await taskCatalog.initialize(project);
 
-  if (started) {
-    await refreshCommands();
-    return;
-  }
-
-  started = true;
-
-  await refreshCommands();
-  await feed.onChange(async event => {
-    if (MANIFESTS.includes(baseName(event.path))) {
-      await refreshCommands();
+  if (listenerUnlistens.length === 0) {
+    if (!listenerInitialization) {
+      listenerInitialization = startListeners();
     }
-  });
-  await pty.onData(chunk => detect({
-    sessionId: chunk.id,
-    chunk: chunk.data
-  }));
-  await pty.onExit(id => clearSessionTask(id));
+
+    try {
+      await listenerInitialization;
+    } finally {
+      listenerInitialization = undefined;
+    }
+  }
 }
 
 /** Re-read task commands after this window switches projects. */
 export async function refreshTaskRunDetection(): Promise<void> {
-  await refreshCommands();
+  await taskCatalog.refresh();
 }

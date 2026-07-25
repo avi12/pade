@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { feed, tasks as tasksApi } from "@/lib/bridge";
   import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/motion";
   import { baseName } from "@/lib/paths";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { taskCatalog } from "@/lib/stores/taskCatalog.svelte";
   import { isTaskRunning, taskKey } from "@/lib/stores/taskRuns.svelte";
   import type { TaskGroup } from "@/lib/types";
-  import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { onDestroy, onMount } from "svelte";
   import { flip } from "svelte/animate";
 
   const { project, onrun }: {
@@ -20,66 +18,35 @@
     }) => void;
   } = $props();
 
-  // Manifest basenames — a change to one of these re-scans the task list.
-  const MANIFESTS = ["package.json", "Cargo.toml", "Makefile", "pyproject.toml"];
+  const snapshot = $derived(taskCatalog.snapshot);
+  const groups = $derived(snapshot.groups);
+  const error = $derived(snapshot.error);
+  const manifestExamples = $derived(
+    formatManifestExamples(
+      snapshot.descriptors.map(descriptor => descriptor.label)
+    )
+  );
 
-  let groups = $state<TaskGroup[]>([]);
-  let error = $state<string | null>(null);
-  let unlisten: UnlistenFn | undefined;
-  let refreshVersion = 0;
-
-  async function refresh() {
-    const workspace = project;
-    const version = ++refreshVersion;
-    if (!workspace) {
-      groups = [];
-      error = null;
-      return;
+  function formatManifestExamples(labels: string[]): string {
+    if (labels.length === 0) {
+      return "a supported manifest";
     }
 
-    try {
-      const next = await tasksApi.list(workspace);
-      // A project switch can happen while its task scan is in flight. Never let
-      // the previous workspace overwrite the new window state when it returns.
-      if (version !== refreshVersion || workspace !== project) {
-        return;
-      }
-
-      groups = next;
-      error = null;
-    } catch (caughtError) {
-      if (version !== refreshVersion || workspace !== project) {
-        return;
-      }
-
-      error = String(caughtError);
-      groups = [];
+    if (labels.length === 1) {
+      return labels[0];
     }
+
+    return `${labels.slice(0, -1).join(", ")}, or ${labels.at(-1)}`;
   }
 
-  // Debounced re-scan so a burst of manifest edits triggers one fetch.
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  function scheduleRefresh() {
-    clearTimeout(timer);
-    timer = setTimeout(refresh, 300);
+  async function refresh(workspace = project): Promise<void> {
+    await taskCatalog.refresh(workspace);
   }
-
-  onMount(async () => {
-    unlisten = await feed.onChange(event => {
-      if (MANIFESTS.includes(baseName(event.path))) {
-        scheduleRefresh();
-      }
-    });
-  });
-  onDestroy(() => {
-    unlisten?.();
-    clearTimeout(timer);
-  });
 
   // Unlike the feed, this lazy panel stays mounted across an in-window project
   // switch. Re-scan the newly supplied workspace immediately.
   $effect(() => {
-    refresh();
+    refresh(project);
   });
 
   // Publish the refresh action to the shared side-panel header.
@@ -96,8 +63,7 @@
     <p class="empty">Could not read project tasks.</p>
   {:else if groups.length === 0}
     <p class="empty">
-      No runnable tasks found. Add a manifest — package.json, Cargo.toml, a
-      Makefile, or pyproject.toml — and its tasks appear here.
+      No runnable tasks found. Add a manifest — {manifestExamples} — and its tasks appear here.
     </p>
   {:else}
     <div class="scroll">

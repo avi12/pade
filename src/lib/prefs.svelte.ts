@@ -4,19 +4,23 @@
 
 import { workspace } from "@/lib/bridge";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/context-level";
+import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/prefs-bounds";
+import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings.svelte";
 import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
 
-const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
-const MONOSPACE_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";
+export { prefs } from "@/lib/settings.svelte";
+export {
+  SIDE_PANEL_DEFAULT_WIDTH,
+  SIDE_PANEL_MAX_FRACTION,
+  SIDE_PANEL_MIN_WIDTH
+} from "@/lib/prefs-bounds";
 
-/** Default side-panel width when the user hasn't dragged the divider. Matches the
- *  design mockup's `panelW:380` (and its double-click reset). */
-export const SIDE_PANEL_DEFAULT_WIDTH = 380;
-/** Smallest usable side-panel width; the live clamp also caps the max at 60% of the
- *  window so the terminal is never swallowed. */
-export const SIDE_PANEL_MIN_WIDTH = 280;
-
-export const prefs = $state<Prefs>({});
+/** Resolve a font-stack CSS custom property (theme.css owns the fallback list) to
+ *  its concrete value and prepend the user's chosen font when set. */
+function withChosenFont(chosen: string | null | undefined, baseVariable: string): string {
+  const base = getComputedStyle(document.documentElement).getPropertyValue(baseVariable).trim();
+  return chosen ? `"${chosen}", ${base}` : base;
+}
 
 /** Effective values with defaults resolved (for consumers that need a concrete value). */
 export const effective = {
@@ -27,10 +31,13 @@ export const effective = {
     return prefs.diffStyle ?? "unified";
   },
   get monospaceFamily(): string {
-    return prefs.monoFont ? `"${prefs.monoFont}", ${MONOSPACE_FALLBACK}` : MONOSPACE_FALLBACK;
+    // The base stack lives once in theme.css (--font-monospace-base); resolve it to
+    // a concrete string (xterm renders to canvas and can't resolve a `var()`) and
+    // prepend a chosen font, so the fallback list is never re-spelled here.
+    return withChosenFont(prefs.monoFont, "--font-monospace-base");
   },
   get uiFamily(): string {
-    return prefs.uiFont ? `"${prefs.uiFont}", ${UI_FALLBACK}` : UI_FALLBACK;
+    return withChosenFont(prefs.uiFont, "--font-ui-base");
   },
   get uiScale(): number {
     return prefs.uiScale ?? 1;
@@ -79,25 +86,15 @@ osDark.addEventListener("change", () => {
   }
 });
 
-/** Adopt preferences the backend just persisted (a settings load, a saved
- *  patch, an editor pick from another store). Every backend write that returns
- *  fresh `Settings` must funnel its `prefs` through here: `set_prefs` replaces
- *  the whole set with this store's copy, so a key missing here (e.g. a
- *  just-persisted `ideProjectChoices` entry) would be erased by the next save. */
-export function adoptPrefs(fresh: Prefs): void {
-  Object.assign(prefs, fresh);
-  apply();
-}
+registerSettingsAdoptionEffect(apply);
 
 export async function loadPrefs(): Promise<void> {
-  const settings = await workspace.settings();
-  adoptPrefs(settings.prefs);
+  await workspace.settings();
 }
 
 /** Merge a change, apply it immediately, then persist. */
 export async function updatePrefs(patch: Partial<Prefs>): Promise<void> {
   Object.assign(prefs, patch);
   apply();
-  const settings = await workspace.setPrefs(prefs);
-  adoptPrefs(settings.prefs);
+  await workspace.setPrefs(patch);
 }

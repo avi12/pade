@@ -26,7 +26,6 @@ export interface LifecycleHost {
   /** Delete the folder — via the app's relocator, so the sessions holding it as
    *  cwd are killed first and the removal isn't blocked by their lock. */
   ondelete: (path: string) => Promise<Settings>;
-  applySettings: (settings: Settings) => void;
   refresh: () => Promise<void>;
 }
 
@@ -106,9 +105,9 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     deleting = true;
     deleteError = null;
     try {
-      // Settings land first so the row leaves the Recent list (and animates out)
-      // the moment the folder is gone; the rescan then catches the root lists up.
-      host.applySettings(await host.ondelete(path));
+      // The bridge adopts settings first so the row leaves the Recent list (and
+      // animates out) before the rescan catches the root lists up.
+      await host.ondelete(path);
       deleteTarget = null;
       await host.refresh();
     } catch (error) {

@@ -7,7 +7,7 @@
 
   // "On launch" preferences: the no-project start mode, temp auto-naming, and
   // the Windows Explorer "Open in PADE" context-menu toggle. Pref persistence
-  // stays with the parent (single settings owner); the context-menu toggle is
+  // reaches shared settings through the parent; the context-menu toggle is
   // self-contained (per-user registry via the bridge, no settings involved).
   const { prefs, onstartmode, onautoname }: {
     prefs: Prefs;

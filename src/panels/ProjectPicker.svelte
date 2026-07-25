@@ -3,6 +3,8 @@
   import { dirs, ide, workspace } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
+  import { updatePrefs } from "@/lib/prefs.svelte";
+  import { settings } from "@/lib/settings.svelte";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
     AddRootOutcome,
@@ -49,16 +51,6 @@
     ondelete: (path: string) => Promise<Settings>;
   } = $props();
 
-  let settings = $state<Settings>({
-    roots: [],
-    defaultAgent: null,
-    projectAgents: {},
-    recentProjects: [],
-    pinnedProjects: [],
-    ownedWorkspaces: [],
-    labels: {},
-    prefs: {}
-  });
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   // Whether the first settings load has landed. The sections render only then,
   // so every control is born showing the persisted preference — never a
@@ -76,8 +68,7 @@
     kind: string;
     editorId: string;
   }) {
-    settings = await workspace.setPrefs({
-      ...settings.prefs,
+    await updatePrefs({
       ideRules: {
         ...settings.prefs.ideRules,
         [kind]: editorId
@@ -85,8 +76,7 @@
     });
   }
   async function setEditorFallback(editorId: string) {
-    settings = await workspace.setPrefs({
-      ...settings.prefs,
+    await updatePrefs({
       ideFallback: editorId
     });
   }
@@ -99,7 +89,7 @@
     error: string;
   }> {
     try {
-      settings = await ide.addEditor(path);
+      await ide.addEditor(path);
       ides = await ide.detect();
       const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
       return { label: added?.label ?? "Editor" };
@@ -117,9 +107,9 @@
     return ides.filter(editor => !addedIds.has(editor.id)).length;
   }
   // Drop a user-added editor, then refresh the detected list so it leaves every
-  // menu. Stays the single settings owner.
+  // menu. The bridge adopts the returned settings before detection refreshes.
   async function removeEditor(id: string) {
-    settings = await ide.removeEditor(id);
+    await ide.removeEditor(id);
     ides = await ide.detect();
   }
 
@@ -142,42 +132,41 @@
     // prune, not settings: a folder deleted outside PADE is forgotten here, so
     // its row leaves the page (collapsing out) instead of lingering as a link
     // to nothing.
-    settings = await workspace.prune();
+    await workspace.prune();
     projectsByRoot = await scanRoots();
   }
 
   // Full reload: everything, including the machine's editors + project kinds.
   async function refresh() {
-    [settings, ides, kinds, kindOptions] = await Promise.all([
+    const [, detectedIdes, detectedKinds, detectedKindOptions] = await Promise.all([
       workspace.prune(),
       ide.detect(),
       ide.kinds(),
       ide.kindOptions()
     ]);
+    ides = detectedIdes;
+    kinds = detectedKinds;
+    kindOptions = detectedKindOptions;
     projectsByRoot = await scanRoots();
   }
 
   async function setStartMode(mode: StartMode) {
-    settings = await workspace.setPrefs({
-      ...settings.prefs,
+    await updatePrefs({
       startMode: mode
     });
   }
   async function setAutoName(on: boolean) {
-    settings = await workspace.setPrefs({
-      ...settings.prefs,
+    await updatePrefs({
       autoNameTemp: on
     });
   }
   async function setDiscordPresence(on: boolean) {
-    settings = await workspace.setPrefs({
-      ...settings.prefs,
+    await updatePrefs({
       discordPresence: on
     });
   }
   async function setDiscordShowProject(on: boolean) {
-    settings = await workspace.setPrefs({
-      ...settings.prefs,
+    await updatePrefs({
       discordShowProject: on
     });
   }
@@ -213,8 +202,8 @@
     return roots.reduce((best, root) => (usage(root) > usage(best) ? root : best));
   }
 
-  // Stays the single settings owner: only an `added` outcome adopts the returned
-  // settings and scans the new root — `missing`/`notADirectory` are handed back
+  // Only an `added` outcome carries settings for the bridge to adopt and scans
+  // the new root — `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
   async function addRoot(path: string, { create }: {
     create: boolean;
@@ -227,7 +216,6 @@
       return outcome;
     }
 
-    settings = outcome.settings;
     projectsByRoot = {
       ...projectsByRoot,
       [path]: await scan(path)
@@ -237,7 +225,7 @@
     return outcome;
   }
   async function removeRoot(path: string) {
-    settings = await workspace.removeRoot(path);
+    await workspace.removeRoot(path);
     const { [path]: _drop, ...rest } = projectsByRoot;
     projectsByRoot = rest;
 
@@ -247,11 +235,11 @@
   }
 
   async function clearRecent() {
-    settings = await workspace.clearRecent();
+    await workspace.clearRecent();
   }
 
   async function setMaster(agentId: string) {
-    settings = await workspace.setDefaultAgent(agentId);
+    await workspace.setDefaultAgent(agentId);
   }
 
   function isOwned(path: string): boolean {
@@ -266,9 +254,6 @@
     onmove: target => onmove(target),
     onrename: target => onrename(target),
     ondelete: path => ondelete(path),
-    applySettings(next) {
-      settings = next;
-    },
     // A rename/move/delete changes the project lists, not the installed editors —
     // so catch the lists up cheaply, without re-probing the machine for editors.
     refresh: refreshProjects

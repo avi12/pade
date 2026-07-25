@@ -186,6 +186,13 @@ export const TaskGroup = z.object({
 });
 export type TaskGroup = z.infer<typeof TaskGroup>;
 
+/** A backend-supported task manifest and its user-facing empty-state label. */
+export const TaskManifestDescriptor = z.object({
+  file: z.string().min(1),
+  label: z.string().min(1)
+});
+export type TaskManifestDescriptor = z.infer<typeof TaskManifestDescriptor>;
+
 export const Ide = z.object({
   id: z.string(),
   label: z.string(),

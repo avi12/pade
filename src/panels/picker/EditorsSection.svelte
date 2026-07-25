@@ -11,7 +11,7 @@
   // (`ide_kinds`, priority order), one row per kind. A rule maps a kind to an
   // editor id; unmatched folders use the fallback. Each kind carries the
   // manifest files PADE looks for to classify a folder.
-  // Rule/fallback persistence stays with the parent (single settings owner);
+  // Rule/fallback persistence goes through parent callbacks into shared settings;
   // this section renders the rows and reports picks.
   const {
     ides,

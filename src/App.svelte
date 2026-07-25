@@ -37,6 +37,7 @@
   import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
+  import { settings } from "@/lib/settings.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
@@ -90,16 +91,6 @@
   type Phase = (typeof Phase)[keyof typeof Phase];
   let phase = $state<Phase>(Phase.loading);
   let agents = $state<Agent[]>([]);
-  let settings = $state<Settings>({
-    roots: [],
-    defaultAgent: null,
-    projectAgents: {},
-    recentProjects: [],
-    pinnedProjects: [],
-    ownedWorkspaces: [],
-    labels: {},
-    prefs: {}
-  });
   let sessions = $state<AgentSession[]>([]);
   let sessionTabsHandle = $state<{ closeSession: (session: AgentSession) => void } | null>(null);
   let activeId = $state<string | null>(null);
@@ -279,9 +270,8 @@
         agentsApi.detect().catch((): Agent[] => []),
         new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
       ]);
-      const [detected, saved] = await Promise.all([detecting, workspace.settings()]);
+      const [detected] = await Promise.all([detecting, workspace.settings()]);
       agents = detected;
-      settings = saved;
 
       // An accidental reload (F5, a crash recovery) re-attaches this window to
       // the agents still running in the backend — before any query routing,
@@ -302,7 +292,7 @@
       }
 
       const context = await workspace.context();
-      const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
+      const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
       if (context.hasProject) {
         await workspace.open(context.cwd); // records it in recent history
         startAgentFlow({ path: context.cwd });
@@ -567,10 +557,7 @@
     currentProject: () => currentProject,
     isOptedOut: () => settings.prefs.autoNameTemp === false,
     labelOf: path => settings.labels[path],
-    activeAgentCommand: () => sessions.find(session => session.id === activeId)?.agent.command ?? "",
-    applySettings(next) {
-      settings = next;
-    }
+    activeAgentCommand: () => sessions.find(session => session.id === activeId)?.agent.command ?? ""
   });
   onMount(() => {
     autoNamer.start();
@@ -682,7 +669,7 @@
       await closeWorkspaceGracefully();
 
       await workspace.open(target.path);
-      settings = await workspace.settings(); // pick up the updated recent history
+      await workspace.settings(); // pick up the updated recent history
       startAgentFlow({
         path: target.path,
         initialPrompt: target.initialPrompt,
@@ -693,7 +680,7 @@
 
       if (leavesDiscardableTemp) {
         try {
-          settings = await workspace.delete(previousProject);
+          await workspace.delete(previousProject);
         } catch {
           showToast("Couldn't delete the temp workspace folder.");
         }
@@ -1230,22 +1217,22 @@
 
   // Clear the recent-projects history from the switcher (pins survive).
   async function clearRecentProjects() {
-    settings = await workspace.clearRecent();
+    await workspace.clearRecent();
   }
-  // Pin/unpin a project from the switcher; the parent stays the settings owner.
+  // Pin/unpin a project from the switcher; the bridge adopts the response.
   async function toggleProjectPin(target: {
     path: string;
     pinned: boolean;
   }) {
-    settings = await workspace.setPinned(target);
+    await workspace.setPinned(target);
   }
   // Forget a project from the switcher's lists (folder untouched).
   async function removeRecentProject(projectPath: string) {
-    settings = await workspace.removeRecent(projectPath);
+    await workspace.removeRecent(projectPath);
   }
   // Persist a drag-reordered pin order from the switcher.
   async function reorderPins(paths: string[]) {
-    settings = await workspace.setPinnedOrder(paths);
+    await workspace.setPinnedOrder(paths);
   }
 
   // "Delete directory" from the switcher — a destructive removal of a real
@@ -1254,7 +1241,7 @@
   // holding it) and delete it, letting the refreshed settings flow back. Rejects
   // with its message so the switcher can surface it in the still-open prompt.
   async function deleteDirectory(projectPath: string) {
-    settings = await relocator.removeDirectory(projectPath);
+    await relocator.removeDirectory(projectPath);
   }
 
   function switchToPicker() {
@@ -1303,7 +1290,7 @@
     switchToPicker();
 
     try {
-      settings = await workspace.delete(path);
+      await workspace.delete(path);
     } catch {
       showToast("Couldn't delete the temp workspace folder.");
     }
@@ -1322,9 +1309,6 @@
       if (activeId && ids.has(activeId)) {
         activeId = sessions.at(-1)?.id ?? null;
       }
-    },
-    applySettings(next) {
-      settings = next;
     },
     setCurrentProject(path) {
       currentProject = path;
@@ -1607,10 +1591,6 @@
                 path: rootPath,
                 create: false
               });
-              if (outcome.status === AddRootStatus.enum.added) {
-                settings = outcome.settings;
-              }
-
               return outcome;
             }}
             onclearrecent={clearRecentProjects}

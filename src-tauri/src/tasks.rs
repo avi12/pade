@@ -43,6 +43,15 @@ pub struct TaskGroup {
     tasks: Vec<Task>,
 }
 
+/// One supported task manifest exposed to the frontend for refresh filtering
+/// and empty-state copy. The registry below remains the sole authority.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskManifestDescriptor {
+    file: &'static str,
+    label: &'static str,
+}
+
 /// List every runnable task in `cwd`, grouped by manifest. The caller supplies
 /// the window's workspace because multiple PADE windows share one process.
 #[tauri::command]
@@ -59,6 +68,15 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
         collect_group(&root, &dir, &mut groups);
     }
     Ok(groups)
+}
+
+/// Describe every manifest understood by [`tasks_list`], in discovery order.
+#[tauri::command]
+pub fn tasks_descriptors() -> Vec<TaskManifestDescriptor> {
+    MANIFESTS
+        .iter()
+        .map(ManifestDefinition::descriptor)
+        .collect()
 }
 
 /// Walk the project (bounded depth, skipping noise) and yield every directory
@@ -96,28 +114,42 @@ fn manifest_directories(root: &Path) -> Vec<PathBuf> {
 /// tasks. The registry (`MANIFESTS`) is the single source of truth.
 struct ManifestDefinition {
     file: &'static str,
+    label: &'static str,
     kind: &'static str,
     extract: fn(&Path) -> Vec<Task>,
+}
+
+impl ManifestDefinition {
+    fn descriptor(&self) -> TaskManifestDescriptor {
+        TaskManifestDescriptor {
+            file: self.file,
+            label: self.label,
+        }
+    }
 }
 
 const MANIFESTS: &[ManifestDefinition] = &[
     ManifestDefinition {
         file: "package.json",
+        label: "package.json",
         kind: "npm",
         extract: npm_tasks,
     },
     ManifestDefinition {
         file: "Cargo.toml",
+        label: "Cargo.toml",
         kind: "cargo",
         extract: cargo_tasks,
     },
     ManifestDefinition {
         file: "Makefile",
+        label: "a Makefile",
         kind: "make",
         extract: make_tasks,
     },
     ManifestDefinition {
         file: "pyproject.toml",
+        label: "pyproject.toml",
         kind: "python",
         extract: python_tasks,
     },
@@ -321,11 +353,36 @@ mod tests {
 
     use super::{
         cargo_tasks, make_target, make_tasks_from_text, python_tasks_from_text, relative_display,
-        PackageManager, Task,
+        tasks_descriptors, PackageManager, Task, TaskManifestDescriptor,
     };
 
     fn names(tasks: &[Task]) -> Vec<&str> {
         tasks.iter().map(|task| task.name.as_str()).collect()
+    }
+
+    #[test]
+    fn descriptors_preserve_registry_order_and_display_labels() {
+        assert_eq!(
+            tasks_descriptors(),
+            [
+                TaskManifestDescriptor {
+                    file: "package.json",
+                    label: "package.json",
+                },
+                TaskManifestDescriptor {
+                    file: "Cargo.toml",
+                    label: "Cargo.toml",
+                },
+                TaskManifestDescriptor {
+                    file: "Makefile",
+                    label: "a Makefile",
+                },
+                TaskManifestDescriptor {
+                    file: "pyproject.toml",
+                    label: "pyproject.toml",
+                },
+            ]
+        );
     }
 
     #[test]

@@ -164,6 +164,7 @@ pub fn run() {
             vcs::restore::vcs_restore_checkout,
             config::config_list,
             config::config_read,
+            tasks::tasks_descriptors,
             tasks::tasks_list,
             usage::usage_get,
             usage::usage_account,

@@ -10,7 +10,7 @@
   // (Reload) without needing a new prop from the parent. It's seeded from —
   // and kept in sync with — the `agents` prop; a rescan flag drives the
   // spinning refresh icon + skeleton chips. The default-agent choice persists
-  // with the parent (single settings owner) via `onpick`.
+  // through the parent via `onpick` and lands in the shared settings authority.
   const { agents, defaultAgent, onpick }: {
     agents: Agent[];
     defaultAgent: string | null;

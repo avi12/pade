@@ -3,6 +3,8 @@
 // rather than corrupting the UI. Two helpers own that contract; channels below
 // just declare command + schema.
 
+import { createSerialQueue } from "@/lib/settings-state";
+import { adoptSettings, beginSettingsRequest } from "@/lib/settings.svelte";
 import {
   AccountUsage,
   AddRootOutcome,
@@ -33,11 +35,12 @@ import {
   Settings,
   StatusEntry,
   TaskGroup,
+  TaskManifestDescriptor,
   Usage,
   WindowInfo,
   WorkspaceMember
 } from "@/lib/types";
-import type { Prefs, Scheme } from "@/lib/types";
+import type { Prefs, Scheme, WindowMode } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -51,6 +54,29 @@ async function call<T>(
   args?: Record<string, unknown>
 ): Promise<T> {
   return schema.parse(await invoke(command, args));
+}
+
+const enqueueSettingsRequest = createSerialQueue();
+
+function callSettings(command: string, args?: Record<string, unknown>): Promise<Settings> {
+  const version = beginSettingsRequest();
+  return enqueueSettingsRequest(async () => {
+    const fresh = await call(command, Settings, args);
+    adoptSettings(fresh, version);
+    return fresh;
+  });
+}
+
+function callAddRoot(args: Record<string, unknown>): Promise<AddRootOutcome> {
+  const version = beginSettingsRequest();
+  return enqueueSettingsRequest(async () => {
+    const outcome = await call("workspace_add_root", AddRootOutcome, args);
+    if (outcome.status === "added") {
+      adoptSettings(outcome.settings, version);
+    }
+
+    return outcome;
+  });
 }
 
 /** Invoke a command that returns nothing meaningful. */
@@ -89,7 +115,7 @@ export const ide = {
   choose: (args: {
     cwd: string;
     id: string;
-  }) => call("ide_choose_editor", Settings, { ...args }),
+  }) => callSettings("ide_choose_editor", { ...args }),
   /** The project kinds the rules engine shows (label + manifest signals), in the
    *  backend registry's render/priority order — the frontend derives its rows here. */
   kinds: () => call("ide_kinds", z.array(EditorKind)),
@@ -101,9 +127,9 @@ export const ide = {
   projectKinds: (paths: string[]) => call("ide_project_kinds", z.record(z.string(), z.string()), { paths }),
   /** Add an editor by its executable path. Rejects (throws the message) when the
    *  executable isn't a supported editor; returns the refreshed settings. */
-  addEditor: (path: string) => call("ide_add_editor", Settings, { path }),
+  addEditor: (path: string) => callSettings("ide_add_editor", { path }),
   /** Remove a user-added editor by its id; returns the refreshed settings. */
-  removeEditor: (id: string) => call("ide_remove_editor", Settings, { id }),
+  removeEditor: (id: string) => callSettings("ide_remove_editor", { id }),
   open: (args: {
     command: string;
     path?: string;
@@ -149,7 +175,7 @@ export const recovery = {
  *  or a throwaway workspace. The spawned window routes off its query string. */
 export const windows = {
   create: (args: {
-    mode: "empty" | "temp" | "open";
+    mode: WindowMode;
     path?: string;
   }) => run("window_create", { ...args }),
   /** Set this window's OS title (title bar + taskbar) — the one place the UI
@@ -453,6 +479,7 @@ export const runner = {
 
 /** Task runner channel — runnable tasks parsed from project manifests. */
 export const tasks = {
+  descriptors: () => call("tasks_descriptors", z.array(TaskManifestDescriptor)),
   list: (cwd: string) => call("tasks_list", z.array(TaskGroup), { cwd })
 };
 
@@ -485,15 +512,15 @@ export const config = {
 /** Workspace & projects channel. */
 export const workspace = {
   context: () => call("launch_context", LaunchContext),
-  settings: () => call("settings_get", Settings),
+  settings: () => callSettings("settings_get"),
   /** Add a root folder. `create` asks the backend to `create_dir_all` a missing
    *  path before adding it; the discriminated outcome says whether it was added,
    *  is missing (so the caller can offer to create it), or names a file. */
   addRoot: (args: {
     path: string;
     create: boolean;
-  }) => call("workspace_add_root", AddRootOutcome, { ...args }),
-  removeRoot: (path: string) => call("workspace_remove_root", Settings, { path }),
+  }) => callAddRoot({ ...args }),
+  removeRoot: (path: string) => callSettings("workspace_remove_root", { path }),
   /** Probe a partially-typed root path: whether it already exists (as a dir or a
    *  file), plus child-directory completions for the add-root autocomplete. */
   probePath: (path: string) => call("workspace_probe_path", PathProbe, { path }),
@@ -523,37 +550,37 @@ export const workspace = {
   setLabel: (args: {
     path: string;
     name: string;
-  }) => call("workspace_set_label", Settings, { ...args }),
+  }) => callSettings("workspace_set_label", { ...args }),
   /** Suggest a name for a temp workspace via the agent CLI, else a heuristic. */
   autoname: (args: {
     path: string;
     agent: string;
   }) => call("project_autoname", z.string().nullable(), { ...args }),
-  delete: (path: string) => call("workspace_delete", Settings, { path }),
+  delete: (path: string) => callSettings("workspace_delete", { path }),
   /** Settings with every vanished folder forgotten (see `dirs`). */
-  prune: () => call("workspace_prune", Settings),
+  prune: () => callSettings("workspace_prune"),
   create: (args: {
     root: string;
     name: string;
   }) => call("workspace_create", z.string(), { ...args }),
-  clearRecent: () => call("workspace_clear_recent", Settings),
+  clearRecent: () => callSettings("workspace_clear_recent"),
   /** Pin or unpin a project in the switcher; returns the refreshed settings. */
   setPinned: (args: {
     path: string;
     pinned: boolean;
-  }) => call("workspace_set_pinned", Settings, { ...args }),
+  }) => callSettings("workspace_set_pinned", { ...args }),
   /** Forget a project from the switcher (recents + pins); folder untouched. */
-  removeRecent: (path: string) => call("workspace_remove_recent", Settings, { path }),
+  removeRecent: (path: string) => callSettings("workspace_remove_recent", { path }),
   /** Persist a drag-reordered pin order (reorders existing pins only). */
-  setPinnedOrder: (paths: string[]) => call("workspace_set_pinned_order", Settings, { paths }),
+  setPinnedOrder: (paths: string[]) => callSettings("workspace_set_pinned_order", { paths }),
   /** Delete ANY project directory from disk and forget it — the switcher's "Delete
    *  directory". The caller raises a confirmation and releases the folder first. */
-  deleteDirectory: (path: string) => call("workspace_delete_directory", Settings, { path }),
-  setDefaultAgent: (agent: string) => call("set_default_agent", Settings, { agent }),
+  deleteDirectory: (path: string) => callSettings("workspace_delete_directory", { path }),
+  setDefaultAgent: (agent: string) => callSettings("set_default_agent", { agent }),
   setProjectAgent: (args: {
     path: string;
     agent: string;
   }) =>
-    call("set_project_agent", Settings, { ...args }),
-  setPrefs: (prefs: Prefs) => call("set_prefs", Settings, { prefs })
+    callSettings("set_project_agent", { ...args }),
+  setPrefs: (patch: Partial<Prefs>) => callSettings("set_prefs", { patch })
 };

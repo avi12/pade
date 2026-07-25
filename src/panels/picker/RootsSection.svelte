@@ -14,8 +14,8 @@
 
   // Root folders: add one (a typed path with live validation + directory
   // autocomplete, or the native folder picker), remove one, and browse the
-  // projects detected inside each. Root persistence and the per-root scan stay
-  // with the parent (single settings owner) via onadd / onremove. As the path is
+  // projects detected inside each. Root persistence reaches shared settings and
+  // the per-root scan stays with the parent via onadd / onremove. As the path is
   // typed, the backend is probed (debounced) for what it is on disk and for child
   // directories to suggest — so the row says whether it will add or create the
   // folder, and rejects a file, before anything is persisted.

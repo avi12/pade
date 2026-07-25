@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Prefs } from "@/lib/types";
 
-  // Discord Rich Presence toggles. Persistence stays with the parent (the single
-  // settings owner) — this section only reflects the prefs and reports changes,
+  // Discord Rich Presence toggles. Persistence reaches shared settings through
+  // the parent — this section only reflects the prefs and reports changes,
   // exactly like OnLaunchSection exposes its callbacks.
   const { prefs, ondiscordpresence, ondiscordshowproject }: {
     prefs: Prefs;

@@ -11,13 +11,21 @@
 //! They are plain JSON so they can later live in a git-backed shelf for sync.
 
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
 /// How many recently-opened projects to remember.
 const RECENT_PROJECT_LIMIT: usize = 20;
+static SETTINGS_REPOSITORY: SettingsRepository = SettingsRepository {
+    lock: Mutex::new(()),
+    path: None,
+};
+static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Files/dirs that mark a directory as a project worth listing.
 const MARKERS: &[&str] = &[
@@ -162,11 +170,12 @@ pub fn migrate_from_ade() {
         new.to_string_lossy().to_string(),
     );
     let fix = |p: &String| p.replace(&old_s, &new_s);
-    let mut settings = load();
-    settings.recent_projects = settings.recent_projects.iter().map(fix).collect();
-    settings.owned_workspaces = settings.owned_workspaces.iter().map(fix).collect();
-    settings.roots = settings.roots.iter().map(fix).collect();
-    let _ = save(&settings);
+    let _ = update_settings(|settings| {
+        settings.recent_projects = settings.recent_projects.iter().map(fix).collect();
+        settings.owned_workspaces = settings.owned_workspaces.iter().map(fix).collect();
+        settings.roots = settings.roots.iter().map(fix).collect();
+        Ok(())
+    });
 }
 
 fn settings_path() -> Result<PathBuf, String> {
@@ -177,24 +186,74 @@ fn is_project(dir: &Path) -> bool {
     MARKERS.iter().any(|marker| dir.join(marker).exists())
 }
 
-pub(crate) fn load() -> Settings {
-    let mut settings: Settings = settings_path()
-        .and_then(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
-        .and_then(|contents| serde_json::from_str(&contents).map_err(|e| e.to_string()))
-        .unwrap_or_default();
-    // Self-heal any project recorded twice under different path spellings (a
-    // doubled-backslash entry vs a normal one): recents + pins are always
-    // canonical and unique on read, so the switcher never shows a folder twice.
-    settings.recent_projects = canonical_dedup(&settings.recent_projects);
-    settings.pinned_projects = canonical_dedup(&settings.pinned_projects);
-    settings
+struct SettingsRepository {
+    lock: Mutex<()>,
+    path: Option<PathBuf>,
 }
 
-fn save(settings: &Settings) -> Result<Settings, String> {
-    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    std::fs::write(settings_path()?, json).map_err(|e| e.to_string())?;
-    // Return the persisted value so the frontend stays in sync in one round-trip.
-    Ok(load())
+impl SettingsRepository {
+    fn path(&self) -> Result<PathBuf, String> {
+        self.path.clone().map_or_else(settings_path, Ok)
+    }
+
+    fn load_unlocked(&self) -> Settings {
+        let mut settings: Settings = self
+            .path()
+            .and_then(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
+            .and_then(|contents| serde_json::from_str(&contents).map_err(|e| e.to_string()))
+            .unwrap_or_default();
+        settings.recent_projects = canonical_dedup(&settings.recent_projects);
+        settings.pinned_projects = canonical_dedup(&settings.pinned_projects);
+        settings
+    }
+
+    fn load(&self) -> Settings {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.load_unlocked()
+    }
+
+    fn update(
+        &self,
+        mutate: impl FnOnce(&mut Settings) -> Result<(), String>,
+    ) -> Result<Settings, String> {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut settings = self.load_unlocked();
+        mutate(&mut settings)?;
+        self.save_unlocked(&settings)?;
+        Ok(settings)
+    }
+
+    fn save_unlocked(&self, settings: &Settings) -> Result<(), String> {
+        let path = self.path()?;
+        let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let temporary = path.with_extension(format!("json.tmp-{}-{sequence}", std::process::id()));
+        let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+        let mut file = std::fs::File::create(&temporary).map_err(|e| e.to_string())?;
+        file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
+        file.sync_all().map_err(|e| e.to_string())?;
+
+        #[cfg(windows)]
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+        std::fs::rename(&temporary, path).map_err(|e| e.to_string())
+    }
+}
+
+pub(crate) fn load() -> Settings {
+    SETTINGS_REPOSITORY.load()
+}
+
+fn update_settings(
+    mutate: impl FnOnce(&mut Settings) -> Result<(), String>,
+) -> Result<Settings, String> {
+    SETTINGS_REPOSITORY.update(mutate)
 }
 
 /// The directory PADE launched into, and whether it came from an explicit request.
@@ -344,11 +403,12 @@ fn canonical_dedup(paths: &[String]) -> Vec<String> {
 /// way and dedups.
 fn push_root(path: String) -> Result<Settings, String> {
     let path = canonical_path(&path);
-    let mut settings = load();
-    if !settings.roots.contains(&path) {
-        settings.roots.push(path);
-    }
-    save(&settings)
+    update_settings(|settings| {
+        if !settings.roots.contains(&path) {
+            settings.roots.push(path);
+        }
+        Ok(())
+    })
 }
 
 /// Add a root folder. An existing directory is added as-is; a missing path is only
@@ -376,9 +436,10 @@ pub async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOut
 
 #[tauri::command]
 pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
-    let mut settings = load();
-    settings.roots.retain(|root| root != &path);
-    save(&settings)
+    update_settings(|settings| {
+        settings.roots.retain(|root| root != &path);
+        Ok(())
+    })
 }
 
 /// Immediate sub-directories of `root` that look like projects.
@@ -560,9 +621,10 @@ pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String>
 #[tauri::command]
 pub fn workspace_open(path: String) -> Result<(), String> {
     std::env::set_current_dir(&path).map_err(|e| e.to_string())?;
-    let mut settings = load();
-    record_recent(&mut settings, &path);
-    save(&settings)?;
+    update_settings(|settings| {
+        record_recent(settings, &path);
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -581,11 +643,12 @@ pub async fn workspace_temp() -> Result<String, String> {
     let path = dir.to_string_lossy().into_owned();
 
     // Mark it ADE-owned so it can later be renamed/moved/deleted.
-    let mut settings = load();
-    if !settings.owned_workspaces.contains(&path) {
-        settings.owned_workspaces.push(path.clone());
-    }
-    save(&settings)?;
+    update_settings(|settings| {
+        if !settings.owned_workspaces.contains(&path) {
+            settings.owned_workspaces.push(path.clone());
+        }
+        Ok(())
+    })?;
 
     workspace_open(path.clone())?;
     Ok(path)
@@ -614,20 +677,21 @@ fn retarget(settings: &mut Settings, from: &str, to: &str) {
 /// cwd, which the OS locks against rename); only the shown name changes.
 #[tauri::command]
 pub fn workspace_set_label(path: String, name: String) -> Result<Settings, String> {
-    let mut settings = load();
-    if !is_ade_owned(&settings, &path) {
-        return Err("only ADE-created workspaces can be labeled".into());
-    }
     let label = crate::naming::sanitize(&name).ok_or("invalid name")?;
-    settings.labels.insert(path, label);
-    save(&settings)
+    update_settings(|settings| {
+        if !is_ade_owned(settings, &path) {
+            return Err("only ADE-created workspaces can be labeled".into());
+        }
+        settings.labels.insert(path, label);
+        Ok(())
+    })
 }
 
 /// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
 /// directory — no longer "temp" — but stays ADE-owned so it's still deletable.
 #[tauri::command]
 pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, String> {
-    let mut settings = load();
+    let settings = load();
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be moved".into());
     }
@@ -641,8 +705,10 @@ pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, St
     // Re-point external tools (Claude transcripts, IDE recents) at the new path.
     // Best-effort and independent of the internal `retarget` below.
     crate::refs::update_references(&from, &destination_string);
-    retarget(&mut settings, &from, &destination_string);
-    save(&settings)?;
+    update_settings(|settings| {
+        retarget(settings, &from, &destination_string);
+        Ok(())
+    })?;
     workspace_open(destination_string.clone())?;
     Ok(destination_string)
 }
@@ -657,7 +723,7 @@ pub async fn workspace_rename(
     new_name: String,
     root: Option<String>,
 ) -> Result<String, String> {
-    let mut settings = load();
+    let settings = load();
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be renamed".into());
     }
@@ -683,8 +749,10 @@ pub async fn workspace_rename(
     // Re-point external tools (agent memory, IDE recents) at the new path —
     // best-effort, independent of the internal `retarget` below.
     crate::refs::update_references(&from, &destination_string);
-    retarget(&mut settings, &from, &destination_string);
-    save(&settings)?;
+    update_settings(|settings| {
+        retarget(settings, &from, &destination_string);
+        Ok(())
+    })?;
     workspace_open(destination_string.clone())?;
     Ok(destination_string)
 }
@@ -751,37 +819,20 @@ fn has_vanished(path: &str) -> bool {
 /// script, or from a terminal leaves the page like one deleted from the menu.
 #[tauri::command]
 pub async fn workspace_prune() -> Result<Settings, String> {
-    let mut settings = load();
-    let before = (
-        settings.recent_projects.len(),
-        settings.pinned_projects.len(),
-        settings.owned_workspaces.len(),
-        settings.labels.len(),
-    );
-
-    settings.recent_projects.retain(|path| !has_vanished(path));
-    settings.pinned_projects.retain(|path| !has_vanished(path));
-    settings.owned_workspaces.retain(|path| !has_vanished(path));
-    settings.labels.retain(|path, _| !has_vanished(path));
-
-    let after = (
-        settings.recent_projects.len(),
-        settings.pinned_projects.len(),
-        settings.owned_workspaces.len(),
-        settings.labels.len(),
-    );
-    if before == after {
-        return Ok(settings);
-    }
-
-    save(&settings)
+    update_settings(|settings| {
+        settings.recent_projects.retain(|path| !has_vanished(path));
+        settings.pinned_projects.retain(|path| !has_vanished(path));
+        settings.owned_workspaces.retain(|path| !has_vanished(path));
+        settings.labels.retain(|path, _| !has_vanished(path));
+        Ok(())
+    })
 }
 
 /// Remove `path` from disk (stepping the process out first, riding out the
 /// Windows sharing race) and forget it from every list — recents, pins, owned,
 /// and its label. Shared by the owned-only `workspace_delete` and the
 /// confirmation-gated `workspace_delete_directory`.
-fn delete_directory(settings: &mut Settings, path: &str) -> Result<(), String> {
+fn delete_directory(path: &str) -> Result<(), String> {
     let metadata = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err("only a real project directory can be deleted".into());
@@ -792,22 +843,28 @@ fn delete_directory(settings: &mut Settings, path: &str) -> Result<(), String> {
     }
     leave_if_inside(&target);
     remove_dir_all_patiently(&target.to_string_lossy()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn forget_directory(settings: &mut Settings, path: &str) {
     settings.recent_projects.retain(|entry| entry != path);
     settings.pinned_projects.retain(|entry| entry != path);
     settings.owned_workspaces.retain(|entry| entry != path);
     settings.labels.remove(path);
-    Ok(())
 }
 
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
 pub async fn workspace_delete(path: String) -> Result<Settings, String> {
-    let mut settings = load();
+    let settings = load();
     if !is_ade_owned(&settings, &path) {
         return Err("only ADE-created workspaces can be deleted".into());
     }
-    delete_directory(&mut settings, &path)?;
-    save(&settings)
+    delete_directory(&path)?;
+    update_settings(|settings| {
+        forget_directory(settings, &path);
+        Ok(())
+    })
 }
 
 /// Delete ANY project directory from disk and forget it — the switcher's "Delete
@@ -817,7 +874,7 @@ pub async fn workspace_delete(path: String) -> Result<Settings, String> {
 /// relocator) kills the sessions holding the folder first.
 #[tauri::command]
 pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
-    let mut settings = load();
+    let settings = load();
     let target = std::fs::canonicalize(&path).map_err(|e| e.to_string())?;
     let is_remembered = settings
         .recent_projects
@@ -828,8 +885,11 @@ pub async fn workspace_delete_directory(path: String) -> Result<Settings, String
     if !is_remembered {
         return Err("only a project shown in the switcher can be deleted".into());
     }
-    delete_directory(&mut settings, &path)?;
-    save(&settings)
+    delete_directory(&path)?;
+    update_settings(|settings| {
+        forget_directory(settings, &path);
+        Ok(())
+    })
 }
 
 /// Create a new project directory under `root` and open it.
@@ -846,40 +906,44 @@ pub async fn workspace_create(root: String, name: String) -> Result<String, Stri
 /// overrides so the whole workspace moves to it at once.
 #[tauri::command]
 pub fn set_default_agent(agent: String) -> Result<Settings, String> {
-    let mut settings = load();
-    settings.default_agent = Some(agent);
-    settings.project_agents.clear();
-    save(&settings)
+    update_settings(|settings| {
+        settings.default_agent = Some(agent);
+        settings.project_agents.clear();
+        Ok(())
+    })
 }
 
 /// Override the agent for a single project.
 #[tauri::command]
 pub fn set_project_agent(path: String, agent: String) -> Result<Settings, String> {
-    let mut settings = load();
-    settings.project_agents.insert(path, agent);
-    save(&settings)
+    update_settings(|settings| {
+        settings.project_agents.insert(path, agent);
+        Ok(())
+    })
 }
 
 /// Clear the recent-projects history.
 #[tauri::command]
 pub fn workspace_clear_recent() -> Result<Settings, String> {
-    let mut settings = load();
-    settings.recent_projects.clear();
-    save(&settings)
+    update_settings(|settings| {
+        settings.recent_projects.clear();
+        Ok(())
+    })
 }
 
 /// Pin or unpin a project in the switcher. Pinning moves it to the front of the
 /// pinned list; unpinning drops it. Returns the refreshed settings.
 #[tauri::command]
 pub fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, String> {
-    let mut settings = load();
-    settings
-        .pinned_projects
-        .retain(|pinned_path| pinned_path != &path);
-    if pinned {
-        settings.pinned_projects.insert(0, path);
-    }
-    save(&settings)
+    update_settings(|settings| {
+        settings
+            .pinned_projects
+            .retain(|pinned_path| pinned_path != &path);
+        if pinned {
+            settings.pinned_projects.insert(0, path);
+        }
+        Ok(())
+    })
 }
 
 /// Forget a project from the switcher — drop it from the recent history and, if
@@ -889,10 +953,11 @@ pub fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, Stri
 /// name. Returns the refreshed settings.
 #[tauri::command]
 pub fn workspace_remove_recent(path: String) -> Result<Settings, String> {
-    let mut settings = load();
-    settings.recent_projects.retain(|entry| entry != &path);
-    settings.pinned_projects.retain(|entry| entry != &path);
-    save(&settings)
+    update_settings(|settings| {
+        settings.recent_projects.retain(|entry| entry != &path);
+        settings.pinned_projects.retain(|entry| entry != &path);
+        Ok(())
+    })
 }
 
 /// Replace the pinned-project order with `paths` — a drag-reorder of the existing
@@ -902,67 +967,95 @@ pub fn workspace_remove_recent(path: String) -> Result<Settings, String> {
 /// list that raced with a toggle in another window can't silently drop a pin.
 #[tauri::command]
 pub fn workspace_set_pinned_order(paths: Vec<String>) -> Result<Settings, String> {
-    let mut settings = load();
-    let mut reordered: Vec<String> = paths
-        .into_iter()
-        .filter(|path| settings.pinned_projects.contains(path))
-        .collect();
-    for pinned in &settings.pinned_projects {
-        if !reordered.contains(pinned) {
-            reordered.push(pinned.clone());
+    update_settings(|settings| {
+        let mut reordered: Vec<String> = paths
+            .into_iter()
+            .filter(|path| settings.pinned_projects.contains(path))
+            .collect();
+        for pinned in &settings.pinned_projects {
+            if !reordered.contains(pinned) {
+                reordered.push(pinned.clone());
+            }
         }
-    }
-    settings.pinned_projects = reordered;
-    save(&settings)
+        settings.pinned_projects = reordered;
+        Ok(())
+    })
 }
 
 /// Persist a user-added editor, de-duplicated by executable path (re-adding the
 /// same path is a no-op move-to-end). Returns the refreshed settings.
 pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
-    let mut settings = load();
-    settings
-        .prefs
-        .added_editors
-        .retain(|existing| existing.path != editor.path);
-    settings.prefs.added_editors.push(editor);
-    save(&settings)
+    update_settings(|settings| {
+        settings
+            .prefs
+            .added_editors
+            .retain(|existing| existing.path != editor.path);
+        settings.prefs.added_editors.push(editor);
+        Ok(())
+    })
 }
 
 /// Persist the user's explicit editor pick for one project — keyed by the
 /// canonical path so spelling variants of the same folder resolve to one entry.
 /// Returns the refreshed settings.
 pub fn set_project_editor(path: &str, editor_id: &str) -> Result<Settings, String> {
-    let mut settings = load();
-    settings
-        .prefs
-        .ide_project_choices
-        .insert(canonical_path(path), editor_id.to_string());
-    save(&settings)
+    update_settings(|settings| {
+        settings
+            .prefs
+            .ide_project_choices
+            .insert(canonical_path(path), editor_id.to_string());
+        Ok(())
+    })
 }
 
 /// Drop a user-added editor by its id. Returns the refreshed settings; removing
 /// an id that isn't present is a no-op.
 pub fn remove_editor(id: &str) -> Result<Settings, String> {
-    let mut settings = load();
-    settings
-        .prefs
-        .added_editors
-        .retain(|editor| editor.id != id);
-    save(&settings)
+    update_settings(|settings| {
+        settings
+            .prefs
+            .added_editors
+            .retain(|editor| editor.id != id);
+        Ok(())
+    })
 }
 
-/// Replace appearance/editor preferences (frontend sends the full set).
+fn apply_prefs_patch(
+    current: &mut Prefs,
+    patch: serde_json::Map<String, serde_json::Value>,
+) -> Result<(), String> {
+    let serde_json::Value::Object(mut prefs) =
+        serde_json::to_value(&*current).map_err(|error| error.to_string())?
+    else {
+        return Err("preferences did not serialize as an object".into());
+    };
+    for (key, value) in patch {
+        if value.is_null() {
+            prefs.remove(&key);
+        } else {
+            prefs.insert(key, value);
+        }
+    }
+    *current = serde_json::from_value(serde_json::Value::Object(prefs))
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Apply only the preference fields the frontend changed. A null value removes
+/// the optional key so its default takes effect again.
 #[tauri::command]
-pub fn set_prefs(prefs: Prefs) -> Result<Settings, String> {
-    let mut settings = load();
-    settings.prefs = prefs;
-    save(&settings)
+pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Settings, String> {
+    update_settings(|settings| apply_prefs_patch(&mut settings.prefs, patch))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_dedup, canonical_path, validated_child_path};
+    use super::{
+        apply_prefs_patch, canonical_dedup, canonical_path, validated_child_path, Prefs,
+        SettingsRepository,
+    };
     use std::path::Path;
+    use std::sync::Arc;
 
     #[cfg(windows)]
     #[test]
@@ -1016,5 +1109,60 @@ mod tests {
             validated_child_path(root, "project").expect("valid child"),
             root.join("project")
         );
+    }
+
+    #[test]
+    fn preference_patch_removes_a_null_optional_key() {
+        let mut prefs = Prefs {
+            passthrough: std::collections::BTreeMap::from([(
+                "themeMode".to_string(),
+                serde_json::Value::String("dark".to_string()),
+            )]),
+            ..Prefs::default()
+        };
+        let patch =
+            serde_json::Map::from_iter([("themeMode".to_string(), serde_json::Value::Null)]);
+
+        apply_prefs_patch(&mut prefs, patch).expect("apply patch");
+
+        assert!(!prefs.passthrough.contains_key("themeMode"));
+    }
+
+    #[test]
+    fn repository_serializes_concurrent_updates_without_losing_fields() {
+        let path = std::env::temp_dir().join(format!(
+            "pade-settings-repository-{}.json",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let repository = Arc::new(SettingsRepository {
+            lock: std::sync::Mutex::new(()),
+            path: Some(path.clone()),
+        });
+        let roots_repository = Arc::clone(&repository);
+        let roots = std::thread::spawn(move || {
+            roots_repository
+                .update(|settings| {
+                    settings.roots.push("root".to_string());
+                    Ok(())
+                })
+                .expect("update roots");
+        });
+        let pins_repository = Arc::clone(&repository);
+        let pins = std::thread::spawn(move || {
+            pins_repository
+                .update(|settings| {
+                    settings.pinned_projects.push("project".to_string());
+                    Ok(())
+                })
+                .expect("update pins");
+        });
+
+        roots.join().expect("roots thread");
+        pins.join().expect("pins thread");
+        let settings = repository.load();
+        assert_eq!(settings.roots, ["root"]);
+        assert_eq!(settings.pinned_projects, ["project"]);
+        std::fs::remove_file(path).expect("clean settings fixture");
     }
 }

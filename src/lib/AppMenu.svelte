@@ -19,8 +19,8 @@
   // (jump between them, or cycle with Ctrl+Alt+[ / ]), then is a fast way to
   // switch THIS window to another project: type to filter, or click a pinned/recent
   // row. New windows and the full picker sit below. In-window switches funnel
-  // through `onopen`; pin/remove/reorder update the single settings owner via
-  // callbacks; window focus + the window list go straight through the bridge.
+  // through `onopen`; pin/remove/reorder persist via parent callbacks and the
+  // shared settings authority; window focus + the list use the bridge directly.
   const {
     path,
     label,
@@ -51,7 +51,7 @@
     onopen: (path: string) => void;
     /** Open the full picker (browse every root, clone, open a folder). */
     onswitch: () => void;
-    /** Pin or unpin a project — persisted by the parent (single settings owner).
+    /** Pin or unpin a project — persisted by the parent into shared settings.
      *  Resolves once settings are updated, so the switcher can wrap it in a view
      *  transition and morph the row to its new section. */
     ontogglepin: (target: {
@@ -76,7 +76,7 @@
       root: string;
     }) => Promise<void>;
     /** Add an existing folder as a project root — the no-roots save path.
-     *  Persisted by the parent (single settings owner). */
+     *  Persisted by the parent into shared settings. */
     onaddroot: (path: string) => Promise<AddRootOutcome>;
   } = $props();
 
