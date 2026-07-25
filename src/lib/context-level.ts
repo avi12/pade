@@ -24,14 +24,16 @@ export const ContextLevel = {
 } as const;
 export type ContextLevel = (typeof ContextLevel)[keyof typeof ContextLevel];
 
-// How far toward the handoff threshold each step kicks in: at 90% of the way the
-// handoff is imminent (critical), at 60% it's approaching (warning). Mirrors the
-// design's context-color ramp (fraction = percentage / context handoff percentage).
-const HANDOFF_IMMINENT_FRACTION = 0.9;
-const HANDOFF_APPROACHING_FRACTION = 0.6;
+// How far toward the handoff threshold each step kicks in: at 75% of the way the
+// handoff is imminent (critical), at 50% it's approaching (warning). The critical
+// band has to open well before the threshold — auto-handoff fires *at* it, so a
+// band that starts at 90% would flash red for only the last sliver before the
+// session cycles. fraction = percentage / context handoff percentage.
+const HANDOFF_IMMINENT_FRACTION = 0.75;
+const HANDOFF_APPROACHING_FRACTION = 0.5;
 
 /** Map a context-usage percent (0..100) to its severity relative to the handoff
- *  threshold: ≥90% of the way there is critical, ≥60% is warning, else ok. */
+ *  threshold: ≥75% of the way there is critical, ≥50% is warning, else ok. */
 export function contextLevel({ percentage, threshold }: {
   percentage: number;
   threshold: number;

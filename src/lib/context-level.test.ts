@@ -13,34 +13,34 @@ describe("contextLevel", () => {
     ).toBe(ContextLevel.ok);
     expect(
       contextLevel({
-        percentage: 53,
+        percentage: 44,
         threshold: 90
       })
-    ).toBe(ContextLevel.ok); // 53/90 = 0.588 < 0.6
+    ).toBe(ContextLevel.ok); // 44/90 = 0.489 < 0.5
   });
 
-  it("warns from 60% of the way to the handoff", () => {
+  it("warns from 50% of the way to the handoff", () => {
     expect(
       contextLevel({
-        percentage: 54,
+        percentage: 45,
         threshold: 90
       })
-    ).toBe(ContextLevel.warning); // 54/90 = 0.6
+    ).toBe(ContextLevel.warning); // 45/90 = 0.5
     expect(
       contextLevel({
-        percentage: 80,
+        percentage: 67,
         threshold: 90
       })
-    ).toBe(ContextLevel.warning); // 80/90 = 0.889 < 0.9
+    ).toBe(ContextLevel.warning); // 67/90 = 0.744 < 0.75
   });
 
-  it("turns critical from 90% of the way to the handoff", () => {
+  it("turns critical from 75% of the way to the handoff", () => {
     expect(
       contextLevel({
-        percentage: 81,
+        percentage: 68,
         threshold: 90
       })
-    ).toBe(ContextLevel.critical); // 81/90 = 0.9
+    ).toBe(ContextLevel.critical); // 68/90 = 0.756
     expect(
       contextLevel({
         percentage: 100,
@@ -52,22 +52,31 @@ describe("contextLevel", () => {
   it("scales the whole ramp down with a low threshold", () => {
     expect(
       contextLevel({
-        percentage: 17,
+        percentage: 14,
         threshold: 30
       })
-    ).toBe(ContextLevel.ok); // 17/30 = 0.567
+    ).toBe(ContextLevel.ok); // 14/30 = 0.467
     expect(
       contextLevel({
-        percentage: 18,
+        percentage: 15,
         threshold: 30
       })
-    ).toBe(ContextLevel.warning); // 18/30 = 0.6
+    ).toBe(ContextLevel.warning); // 15/30 = 0.5
     expect(
       contextLevel({
-        percentage: 27,
+        percentage: 23,
         threshold: 30
       })
-    ).toBe(ContextLevel.critical); // 27/30 = 0.9
+    ).toBe(ContextLevel.critical); // 23/30 = 0.767
+  });
+
+  it("reads a 31% fill as critical against a 40% handoff", () => {
+    expect(
+      contextLevel({
+        percentage: 31,
+        threshold: 40
+      })
+    ).toBe(ContextLevel.critical); // 31/40 = 0.775
   });
 
   it("defaults the handoff threshold to 30% of context", () => {
