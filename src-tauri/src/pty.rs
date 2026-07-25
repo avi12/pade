@@ -434,6 +434,15 @@ fn build_command(
             process.env(key, value);
         }
     }
+    // ADE's terminal renders the full 16-colour ANSI palette (see terminal-theme.ts),
+    // but a CLI can't tell from inside a bare ConPTY: Ink/chalk/supports-color probe
+    // for a colour-capable terminal (TERM, COLORTERM, an isatty check) and, finding a
+    // Windows pseudoconsole that advertises none of them, fall back to MONOCHROME
+    // output — Claude Code's banner and every agent's colour go grey. These two are
+    // the escape hatch supports-color honours: FORCE_COLOR pins the level regardless
+    // of the isatty result, COLORTERM names truecolor so 24-bit SGR is emitted.
+    process.env("FORCE_COLOR", "3");
+    process.env("COLORTERM", "truecolor");
     // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
     // tell from inside a bare ConPTY: Ink/terminal-link probe the environment
     // (TERM_PROGRAM, VTE version) and silently fall back to plain text when nothing
