@@ -38,7 +38,7 @@ pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .output()
-        .map_err(|error| format!("failed to run git: {error}"))?;
+        .map_err(|e| format!("failed to run git: {e}"))?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());

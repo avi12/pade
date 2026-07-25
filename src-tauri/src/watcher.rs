@@ -635,7 +635,7 @@ fn line_count(path: &Path) -> Option<usize> {
 /// Largest file the Change Feed will snapshot for a baseline or read for a live
 /// preview. A few hundred KB covers real source files; past it the preview falls
 /// back to "No preview available" rather than holding megabytes per touched path.
-const MAXIMUM_PREVIEW_BYTES: u64 = 512 * 1024;
+const MAX_PREVIEW_BYTES: u64 = 512 * 1024;
 
 /// Resolve `path`, require its target to remain under `root`, then read through
 /// one handle. Metadata and content therefore describe the same opened file, and
@@ -673,7 +673,7 @@ fn read_authorized_file(
 
 /// Read an authorized `path` as UTF-8 preview text, rejecting binary content.
 fn read_preview_text(root: &Path, path: &Path) -> Result<Option<String>, ()> {
-    let Some(bytes) = read_authorized_file(root, path, MAXIMUM_PREVIEW_BYTES)? else {
+    let Some(bytes) = read_authorized_file(root, path, MAX_PREVIEW_BYTES)? else {
         return Ok(None);
     };
     if bytes.contains(&0) {
@@ -742,9 +742,9 @@ pub async fn watch_start(
     root: String,
 ) -> Result<(), String> {
     let root = resolve_watch_root(&root)?;
-    let canonical_root = std::fs::canonicalize(&root).map_err(|error| {
+    let canonical_root = std::fs::canonicalize(&root).map_err(|e| {
         format!(
-            "Change Feed can't resolve watch root {}: {error}",
+            "Change Feed can't resolve watch root {}: {e}",
             root.display()
         )
     })?;
@@ -758,7 +758,7 @@ pub async fn watch_start(
         return Err("watcher state unavailable".to_string());
     };
 
-    let mut guard = watch.watcher.lock().map_err(|error| error.to_string())?;
+    let mut guard = watch.watcher.lock().map_err(|e| e.to_string())?;
     let already_watching_root = guard.as_ref().is_some_and(|active| active.root == root);
     if already_watching_root {
         return Ok(());
@@ -805,11 +805,11 @@ pub async fn watch_start(
         let Ok(event) = result else { return };
         handle_event(&app_handle, &callback_label, event);
     })
-    .map_err(|error| error.to_string())?;
+    .map_err(|e| e.to_string())?;
 
     watcher
         .watch(&root, RecursiveMode::Recursive)
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
 
     *guard = Some(ProjectWatcher {
         root,
@@ -1168,10 +1168,7 @@ pub async fn watch_dirs(
 ) -> Result<(), String> {
     let label = window.label().to_string();
     prune_closed_windows(&app, &state);
-    let mut guard = state
-        .directory_watchers
-        .lock()
-        .map_err(|error| error.to_string())?;
+    let mut guard = state.directory_watchers.lock().map_err(|e| e.to_string())?;
     // Drop this window's old watcher before opening the new one, so its handles
     // go with it; another window's picker watch is untouched.
     guard.remove(&label);
@@ -1190,7 +1187,7 @@ pub async fn watch_dirs(
             let _ = app_handle.emit_to(&callback_label, "dirs://changed", ());
         }
     })
-    .map_err(|error| error.to_string())?;
+    .map_err(|e| e.to_string())?;
 
     for dir in dirs {
         // A folder that is already gone isn't an error — that's precisely the news
@@ -1362,7 +1359,7 @@ pub async fn feed_diff(
         return Ok(None);
     };
     let before = {
-        let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
+        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
         match baselines.get(Path::new(&path)) {
             Some(Some(text)) => text.clone(),
             _ => return Ok(None),
@@ -1389,7 +1386,7 @@ pub async fn feed_diff(
 /// now (the diff is baseline→current; the preview is just current). `None` when
 /// the path was not surfaced by this window's watch this session (so the command
 /// can't be turned into an arbitrary file reader), is gone, or is binary / over
-/// [`MAXIMUM_PREVIEW_BYTES`] — the card then keeps its diff and offers no preview.
+/// [`MAX_PREVIEW_BYTES`] — the card then keeps its diff and offers no preview.
 #[tauri::command]
 pub async fn feed_text(
     window: WebviewWindow,
@@ -1400,7 +1397,7 @@ pub async fn feed_text(
         return Ok(None);
     };
     {
-        let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
+        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
         if !baselines.contains_key(Path::new(&path)) {
             return Ok(None);
         }
@@ -1448,7 +1445,7 @@ fn image_mime_type(path: &Path) -> Option<&'static str> {
 /// Largest image the Change Feed will inline as a data URL. A few megabytes
 /// covers real project assets; past it the preview is skipped rather than
 /// bloating the webview with megabytes of base64 for one card.
-const MAXIMUM_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 
 /// Standard-alphabet (RFC 4648) base64 for the image data URL — a few lines of
 /// std rather than a new dependency (the only base64 the backend needs). Encodes
@@ -1489,7 +1486,7 @@ pub struct FeedImage {
 /// The inline image preview for `path`: its bytes as a base64 `data:` URL tagged
 /// with the extension's MIME type. `None` when `path` is not a previewable image,
 /// was not surfaced by this window's watch this session, is missing / not a
-/// regular file, or is larger than [`MAXIMUM_IMAGE_BYTES`] — the card then falls back
+/// regular file, or is larger than [`MAX_IMAGE_BYTES`] — the card then falls back
 /// to its text summary. Reads the CURRENT bytes (what the image is now); a
 /// before/after for a modified image is a deliberate non-goal here. Gated on a
 /// captured baseline like `feed_diff`, so the command can't base64 an arbitrary
@@ -1504,7 +1501,7 @@ pub async fn feed_image(
         return Ok(None);
     };
     {
-        let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
+        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
         if !baselines.contains_key(Path::new(&path)) {
             return Ok(None);
         }
@@ -1517,7 +1514,7 @@ pub async fn feed_image(
     let Some(canonical_root) = canonical_watch_root(&watch) else {
         return Ok(None);
     };
-    let Ok(Some(bytes)) = read_authorized_file(&canonical_root, file, MAXIMUM_IMAGE_BYTES) else {
+    let Ok(Some(bytes)) = read_authorized_file(&canonical_root, file, MAX_IMAGE_BYTES) else {
         return Ok(None);
     };
 
@@ -1560,7 +1557,7 @@ mod tests {
         ignored_by_static_dirs, image_mime_type, is_git_dir_entry, is_git_state_file, line_count,
         line_delta, manifest_ignore_dirs, mcp_membership_changed, read_authorized_file,
         read_preview_text, reclassify, resolve_watch_root, static_ignore_dirs, surfaces,
-        unique_dirs, ChangeKind, GitStateMessage, MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES,
+        unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
     use std::fs;
@@ -1685,8 +1682,7 @@ mod tests {
     fn read_preview_text_skips_files_over_the_cap() {
         let dir = scratch("large");
         let file = dir.join("a.txt");
-        let over_capacity =
-            usize::try_from(MAXIMUM_PREVIEW_BYTES).expect("capacity fits usize") + 1;
+        let over_capacity = usize::try_from(MAX_PREVIEW_BYTES).expect("capacity fits usize") + 1;
         fs::write(&file, vec![b'x'; over_capacity]).expect("write file");
         let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
         assert!(read_preview_text(&canonical_root, &file).is_err());
@@ -1711,7 +1707,7 @@ mod tests {
         fs::write(&outside, b"secret").expect("write outside file");
         let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
 
-        assert!(read_authorized_file(&canonical_root, &outside, MAXIMUM_PREVIEW_BYTES).is_err());
+        assert!(read_authorized_file(&canonical_root, &outside, MAX_PREVIEW_BYTES).is_err());
 
         let outside_dir = outside.parent().expect("outside file has parent");
         let _ = fs::remove_dir_all(outside_dir);
@@ -1737,7 +1733,7 @@ mod tests {
         }
 
         let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
-        assert!(read_authorized_file(&canonical_root, &link, MAXIMUM_PREVIEW_BYTES).is_err());
+        assert!(read_authorized_file(&canonical_root, &link, MAX_PREVIEW_BYTES).is_err());
 
         let _ = fs::remove_dir_all(&outside_dir);
         let _ = fs::remove_dir_all(&dir);
@@ -1749,11 +1745,11 @@ mod tests {
         let file = dir.join("large.png");
         let opened = fs::File::create(&file).expect("create image");
         opened
-            .set_len(MAXIMUM_IMAGE_BYTES + 1)
+            .set_len(MAX_IMAGE_BYTES + 1)
             .expect("extend image beyond cap");
         let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
 
-        assert!(read_authorized_file(&canonical_root, &file, MAXIMUM_IMAGE_BYTES).is_err());
+        assert!(read_authorized_file(&canonical_root, &file, MAX_IMAGE_BYTES).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 

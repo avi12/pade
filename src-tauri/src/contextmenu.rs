@@ -30,7 +30,7 @@ const ROOTS: &[&str] = &[
 #[cfg(windows)]
 fn exe_path() -> Result<String, String> {
     std::env::current_exe()
-        .map_err(|error| error.to_string())?
+        .map_err(|e| e.to_string())?
         .to_str()
         .map(String::from)
         .ok_or_else(|| "executable path is not valid UTF-8".to_string())
@@ -65,7 +65,7 @@ fn reg(args: &[&str]) -> Result<(), String> {
     let output = crate::util::command("reg")
         .args(args)
         .output()
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
     if output.status.success() {
         return Ok(());
     }

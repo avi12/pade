@@ -25,7 +25,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use crate::util::{owner_access, OwnerAccess};
 
 const MAXIMUM_RUNNERS_PER_WINDOW: usize = 32;
-const MAXIMUM_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
+const MAX_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
 
 struct RunnerRequest<'a> {
     id: &'a str,
@@ -38,7 +38,7 @@ fn validate_runner_request(
 ) -> Result<(), String> {
     let exceeds_limits = id.len() > 128
         || id.chars().any(char::is_control)
-        || command.len() > MAXIMUM_RUNNER_COMMAND_BYTES
+        || command.len() > MAX_RUNNER_COMMAND_BYTES
         || cwd.is_some_and(|value| value.len() > 4096);
     if exceeds_limits {
         return Err("runner request exceeds its input limits".into());
@@ -59,7 +59,7 @@ fn runner_start_access(
         registry_id,
     }: RunnerAccessRequest<'_>,
 ) -> Result<OwnerAccess, String> {
-    let runners = state.0.lock().map_err(|error| error.to_string())?;
+    let runners = state.0.lock().map_err(|e| e.to_string())?;
     let access = owner_access(
         runners.get(registry_id).map(|runner| runner.owner.as_str()),
         owner,
@@ -230,7 +230,7 @@ pub async fn runner_start(
         process.current_dir(directory);
     }
 
-    let mut child = process.spawn().map_err(|error| error.to_string())?;
+    let mut child = process.spawn().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("failed to capture stderr")?;
 
@@ -283,7 +283,7 @@ pub async fn runner_start(
         cwd,
         started_at: now_millis(),
     };
-    let mut runners = state.0.lock().map_err(|error| error.to_string())?;
+    let mut runners = state.0.lock().map_err(|e| e.to_string())?;
     match owner_access(
         runners
             .get(&registry_id)
@@ -342,7 +342,7 @@ pub async fn runner_stop(
 ) -> Result<(), String> {
     let registry_id = format!("{}\0{id}", window.label());
     let removed = {
-        let mut runners = state.0.lock().map_err(|error| error.to_string())?;
+        let mut runners = state.0.lock().map_err(|e| e.to_string())?;
         if owner_access(
             runners
                 .get(&registry_id)
@@ -369,7 +369,7 @@ pub fn runner_list(
     window: WebviewWindow,
     state: State<RunnerState>,
 ) -> Result<Vec<RunnerInfo>, String> {
-    let runners = state.0.lock().map_err(|error| error.to_string())?;
+    let runners = state.0.lock().map_err(|e| e.to_string())?;
     Ok(runners
         .values()
         .filter(|runner| runner.owner == window.label())

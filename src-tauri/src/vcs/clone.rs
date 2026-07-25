@@ -139,7 +139,7 @@ impl AskPass {
     fn create() -> Result<Self, String> {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|error| error.to_string())?
+            .map_err(|e| e.to_string())?
             .as_nanos();
         let extension = if cfg!(windows) { "cmd" } else { "sh" };
         let path = std::env::temp_dir().join(format!(
@@ -151,13 +151,13 @@ impl AskPass {
         } else {
             "#!/bin/sh\nprintf '%s' \"$PADE_GIT_PASSWORD\"\n"
         };
-        std::fs::write(&path, script).map_err(|error| error.to_string())?;
+        std::fs::write(&path, script).map_err(|e| e.to_string())?;
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
-                .map_err(|error| error.to_string())?;
+                .map_err(|e| e.to_string())?;
         }
         Ok(Self { path })
     }
@@ -186,7 +186,7 @@ pub async fn vcs_clone(
         clone_repository(&url, &root, &name, username, password)
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(|e| e.to_string())?
 }
 
 /// The credential handling + `git clone` behind [`vcs_clone`].
@@ -231,7 +231,7 @@ fn clone_repository(
     };
     let output = clone
         .output()
-        .map_err(|error| format!("failed to run git: {error}"))?;
+        .map_err(|e| format!("failed to run git: {e}"))?;
     drop(askpass);
 
     let credentials_supplied = credentials.is_some();
@@ -251,7 +251,7 @@ fn clone_repository(
             .arg(&destination)
             .args(["remote", "set-url", "origin", &clean])
             .output()
-            .map_err(|error| format!("failed to sanitize cloned remote: {error}"))?;
+            .map_err(|e| format!("failed to sanitize cloned remote: {e}"))?;
         if !sanitized.status.success() {
             let _ = std::fs::remove_dir_all(&destination);
             return Err("could not remove credentials from the cloned remote".into());
@@ -261,7 +261,7 @@ fn clone_repository(
             .arg(&destination)
             .args(["remote", "get-url", "origin"])
             .output()
-            .map_err(|error| format!("failed to verify cloned remote: {error}"))?;
+            .map_err(|e| format!("failed to verify cloned remote: {e}"))?;
         if !stored.status.success() || String::from_utf8_lossy(&stored.stdout).trim() != clean {
             let _ = std::fs::remove_dir_all(&destination);
             return Err("could not verify the credential-free cloned remote".into());

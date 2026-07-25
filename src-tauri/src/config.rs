@@ -163,5 +163,5 @@ pub async fn config_read(
         return Err("not an allowed config file".into());
     }
     let path = root(&window, &projects)?.join(&rel);
-    std::fs::read_to_string(&path).map_err(|error| error.to_string())
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }

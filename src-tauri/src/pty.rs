@@ -19,7 +19,7 @@ use crate::util::{owner_access, OwnerAccess};
 
 const MAXIMUM_SESSIONS_PER_WINDOW: usize = 32;
 const MAXIMUM_PTY_DIMENSION: u16 = 1_000;
-const MAXIMUM_PTY_INPUT_BYTES: usize = 1024 * 1024;
+const MAX_PTY_INPUT_BYTES: usize = 1024 * 1024;
 
 /// All live PTY sessions, keyed by session id.
 #[derive(Default)]
@@ -467,7 +467,7 @@ fn open_pty(rows: u16, columns: u16) -> Result<PtyPair, String> {
             pixel_width: 0,
             pixel_height: 0,
         })
-        .map_err(|error| error.to_string())
+        .map_err(|e| e.to_string())
 }
 
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
@@ -510,7 +510,7 @@ pub async fn pty_spawn(
         return Err("PTY request exceeds its input limits".into());
     }
     {
-        let sessions = state.0.lock().map_err(|error| error.to_string())?;
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
         match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
             OwnerAccess::Owned => return Ok(()),
             OwnerAccess::Foreign => return Err("PTY belongs to another window".into()),
@@ -555,17 +555,11 @@ pub async fn pty_spawn(
     let child = pair
         .slave
         .spawn_command(process)
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
     drop(pair.slave);
 
-    let reader = pair
-        .master
-        .try_clone_reader()
-        .map_err(|error| error.to_string())?;
-    let writer = pair
-        .master
-        .take_writer()
-        .map_err(|error| error.to_string())?;
+    let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let transcript = Arc::new(Mutex::new(String::new()));
     let history = Arc::new(Mutex::new(History::default()));
     let pty = Arc::new(Pty {
@@ -583,7 +577,7 @@ pub async fn pty_spawn(
     // take the registry lock to publish the completed session, so existing panes
     // remain responsive while a new CLI starts. A concurrent duplicate is dropped
     // here, which terminates the unregistered child through `Pty::drop`.
-    let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
         OwnerAccess::Owned => {
             drop(sessions);
@@ -750,7 +744,7 @@ pub fn pty_history(
 ) -> Result<HistorySnapshot, String> {
     let owner = window.label();
     let pty = {
-        let sessions = state.0.lock().map_err(|error| error.to_string())?;
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
         if owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), owner)
             == OwnerAccess::Foreign
         {
@@ -776,7 +770,7 @@ pub fn pty_history(
 /// the lock is poisoned. The context the AI session-namer summarises.
 pub fn transcript_of(state: &PtyState, owner: &str, id: &str) -> Result<String, String> {
     let pty = {
-        let sessions = state.0.lock().map_err(|error| error.to_string())?;
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
         if owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner)
             == OwnerAccess::Foreign
         {
@@ -801,17 +795,17 @@ pub async fn pty_write(
     id: String,
     data: String,
 ) -> Result<(), String> {
-    if data.len() > MAXIMUM_PTY_INPUT_BYTES {
+    if data.len() > MAX_PTY_INPUT_BYTES {
         return Err("PTY input exceeds its size limit".into());
     }
     let Some(pty) = owned_pty(&state, window.label(), &id)? else {
         return Ok(());
     };
-    let mut writer = pty.writer.lock().map_err(|error| error.to_string())?;
+    let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
     writer
         .write_all(data.as_bytes())
-        .map_err(|error| error.to_string())?;
-    writer.flush().map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
+    writer.flush().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -831,14 +825,14 @@ pub async fn pty_resize(
     };
     pty.master
         .lock()
-        .map_err(|error| error.to_string())?
+        .map_err(|e| e.to_string())?
         .resize(PtySize {
             rows,
             cols,
             pixel_width: 0,
             pixel_height: 0,
         })
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -851,7 +845,7 @@ pub async fn pty_kill(
     state: State<'_, PtyState>,
     id: String,
 ) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
     if owner_access(
         sessions.get(&id).map(|pty| pty.owner.as_str()),
         window.label(),
@@ -866,7 +860,7 @@ pub async fn pty_kill(
 }
 
 fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
-    let sessions = state.0.lock().map_err(|error| error.to_string())?;
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
     match owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner) {
         OwnerAccess::Vacant => Ok(None),
         OwnerAccess::Owned => Ok(sessions.get(id).cloned()),

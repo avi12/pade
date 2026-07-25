@@ -838,7 +838,7 @@ fn editor_family(basename: &str) -> Option<Family> {
 
 /// An executable path's lowercased basename with a known launcher extension
 /// stripped (`Code.exe` → `code`, `notepad++.exe` → `notepad++`).
-fn executable_basename(path: &str) -> String {
+fn exe_basename(path: &str) -> String {
     let file = path
         .replace('\\', "/")
         .rsplit('/')
@@ -860,7 +860,7 @@ fn added_editor_ides(added: Vec<crate::workspace::AddedEditor>) -> Vec<Ide> {
     added
         .into_iter()
         .map(|editor| Ide {
-            terminal: editor_family(&executable_basename(&editor.path))
+            terminal: editor_family(&exe_basename(&editor.path))
                 .is_some_and(|family| family.terminal),
             id: editor.id,
             label: editor.label,
@@ -934,7 +934,7 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
         .next()
         .unwrap_or(&path)
         .to_string();
-    let Some(family) = editor_family(&executable_basename(&path)) else {
+    let Some(family) = editor_family(&exe_basename(&path)) else {
         return Err(format!(
             "\u{201c}{file}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
              VS Code and its forks (Cursor, Antigravity, Windsurf, VSCodium), Zed, \
@@ -942,7 +942,7 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
         ));
     };
     crate::workspace::add_editor(crate::workspace::AddedEditor {
-        id: format!("added-{}", executable_basename(&path)),
+        id: format!("added-{}", exe_basename(&path)),
         label: family.label.to_string(),
         path,
     })
@@ -1441,7 +1441,7 @@ fn preference_chain(
 pub async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     tauri::async_runtime::spawn_blocking(move || suggest_for(&cwd))
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(|e| e.to_string())?
 }
 
 /// The ranking pass behind [`ide_suggest`].
@@ -1505,7 +1505,7 @@ fn open_style(command: &str) -> Option<OpenStyle> {
     if let Some(editor) = REGISTRY.iter().find(|editor| editor.command == command) {
         return Some(editor.style);
     }
-    editor_family(&executable_basename(command)).and_then(|family| family.style)
+    editor_family(&exe_basename(command)).and_then(|family| family.style)
 }
 
 /// The launcher arguments for opening `target` — jumping to `line` when one is
@@ -1594,7 +1594,7 @@ fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
     };
     spawn
         .map(|_| ())
-        .map_err(|error| format!("failed to open {command}: {error}"))
+        .map_err(|e| format!("failed to open {command}: {e}"))
 }
 
 /// Open a path in the given IDE launcher. `path` defaults to the current project
@@ -1610,7 +1610,7 @@ pub async fn ide_open(
     let target = match path {
         Some(p) => p,
         None => std::env::current_dir()
-            .map_err(|error| error.to_string())?
+            .map_err(|e| e.to_string())?
             .to_string_lossy()
             .into_owned(),
     };
@@ -1642,7 +1642,7 @@ pub async fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        census, editor_covers_project, editor_family, executable_basename, ide_kinds, open_args,
+        census, editor_covers_project, editor_family, exe_basename, ide_kinds, open_args,
         open_style, preference_chain, project_declarations, ranked_editor_ids,
         required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
         ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
@@ -2057,10 +2057,10 @@ mod tests {
     }
 
     #[test]
-    fn executable_basename_strips_extension_and_lowercases() {
-        assert_eq!(executable_basename("C:\\Program Files\\Code.exe"), "code");
-        assert_eq!(executable_basename("/usr/bin/nvim"), "nvim");
-        assert_eq!(executable_basename("notepad++.exe"), "notepad++");
+    fn exe_basename_strips_extension_and_lowercases() {
+        assert_eq!(exe_basename("C:\\Program Files\\Code.exe"), "code");
+        assert_eq!(exe_basename("/usr/bin/nvim"), "nvim");
+        assert_eq!(exe_basename("notepad++.exe"), "notepad++");
     }
 
     #[test]

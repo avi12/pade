@@ -105,11 +105,11 @@ pub async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
         .iter()
         .find(|definition| definition.id == id)
         .ok_or("unknown design tool")?;
-    let target = Url::parse(definition.url).map_err(|error| error.to_string())?;
+    let target = Url::parse(definition.url).map_err(|e| e.to_string())?;
     if let Some(window) = app.get_webview_window(DESIGN_WINDOW) {
-        window.navigate(target).map_err(|error| error.to_string())?;
-        window.show().map_err(|error| error.to_string())?;
-        window.set_focus().map_err(|error| error.to_string())?;
+        window.navigate(target).map_err(|e| e.to_string())?;
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
     WebviewWindowBuilder::new(&app, DESIGN_WINDOW, WebviewUrl::External(target))
@@ -117,6 +117,6 @@ pub async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
         .inner_size(1100.0, 820.0)
         .min_inner_size(480.0, 480.0)
         .build()
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
     Ok(())
 }

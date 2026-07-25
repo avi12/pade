@@ -138,7 +138,7 @@ fn config_base() -> Result<PathBuf, String> {
 /// PADE's config directory, created on disk if missing.
 pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
     let dir = config_base()?.join("pade");
-    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
 
@@ -179,8 +179,8 @@ fn is_project(dir: &Path) -> bool {
 
 pub(crate) fn load() -> Settings {
     let mut settings: Settings = settings_path()
-        .and_then(|path| std::fs::read_to_string(path).map_err(|error| error.to_string()))
-        .and_then(|contents| serde_json::from_str(&contents).map_err(|error| error.to_string()))
+        .and_then(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
+        .and_then(|contents| serde_json::from_str(&contents).map_err(|e| e.to_string()))
         .unwrap_or_default();
     // Self-heal any project recorded twice under different path spellings (a
     // doubled-backslash entry vs a normal one): recents + pins are always
@@ -191,8 +191,8 @@ pub(crate) fn load() -> Settings {
 }
 
 fn save(settings: &Settings) -> Result<Settings, String> {
-    let json = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
-    std::fs::write(settings_path()?, json).map_err(|error| error.to_string())?;
+    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    std::fs::write(settings_path()?, json).map_err(|e| e.to_string())?;
     // Return the persisted value so the frontend stays in sync in one round-trip.
     Ok(load())
 }
@@ -368,7 +368,7 @@ pub async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOut
     if !create {
         return Ok(AddRootOutcome::Missing);
     }
-    std::fs::create_dir_all(target).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(target).map_err(|e| e.to_string())?;
     Ok(AddRootOutcome::Added {
         settings: Box::new(push_root(path)?),
     })
@@ -384,7 +384,7 @@ pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
 /// Immediate sub-directories of `root` that look like projects.
 #[tauri::command]
 pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
-    let directory = std::fs::read_dir(&root).map_err(|error| error.to_string())?;
+    let directory = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
     let mut entries: Vec<ProjectEntry> = directory
         .filter_map(Result::ok)
         .map(|entry| entry.path())
@@ -550,7 +550,7 @@ pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String>
     }
     let path = Path::new(&dir).join(&name);
     if path.exists() {
-        std::fs::remove_file(&path).map_err(|error| error.to_string())?;
+        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -559,7 +559,7 @@ pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String>
 /// remember it in the recent history.
 #[tauri::command]
 pub fn workspace_open(path: String) -> Result<(), String> {
-    std::env::set_current_dir(&path).map_err(|error| error.to_string())?;
+    std::env::set_current_dir(&path).map_err(|e| e.to_string())?;
     let mut settings = load();
     record_recent(&mut settings, &path);
     save(&settings)?;
@@ -577,7 +577,7 @@ pub async fn workspace_temp() -> Result<String, String> {
     let dir = ensure_config_dir()?
         .join("workspaces")
         .join(format!("temp-{stamp}"));
-    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.to_string_lossy().into_owned();
 
     // Mark it ADE-owned so it can later be renamed/moved/deleted.
@@ -636,7 +636,7 @@ pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, St
         .ok_or("bad source path")?
         .to_owned();
     let destination = Path::new(&dest_dir).join(name);
-    std::fs::rename(&from, &destination).map_err(|error| error.to_string())?;
+    std::fs::rename(&from, &destination).map_err(|e| e.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
     // Re-point external tools (Claude transcripts, IDE recents) at the new path.
     // Best-effort and independent of the internal `retarget` below.
@@ -678,7 +678,7 @@ pub async fn workspace_rename(
             .clone(),
     };
     let destination = validated_child_path(Path::new(&root), &new_name)?;
-    std::fs::rename(&from, &destination).map_err(|error| error.to_string())?;
+    std::fs::rename(&from, &destination).map_err(|e| e.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
     // Re-point external tools (agent memory, IDE recents) at the new path —
     // best-effort, independent of the internal `retarget` below.
@@ -782,16 +782,16 @@ pub async fn workspace_prune() -> Result<Settings, String> {
 /// and its label. Shared by the owned-only `workspace_delete` and the
 /// confirmation-gated `workspace_delete_directory`.
 fn delete_directory(settings: &mut Settings, path: &str) -> Result<(), String> {
-    let metadata = std::fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+    let metadata = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err("only a real project directory can be deleted".into());
     }
-    let target = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
+    let target = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
     if target.parent().is_none() {
         return Err("a filesystem root cannot be deleted".into());
     }
     leave_if_inside(&target);
-    remove_dir_all_patiently(&target.to_string_lossy()).map_err(|error| error.to_string())?;
+    remove_dir_all_patiently(&target.to_string_lossy()).map_err(|e| e.to_string())?;
     settings.recent_projects.retain(|entry| entry != path);
     settings.pinned_projects.retain(|entry| entry != path);
     settings.owned_workspaces.retain(|entry| entry != path);
@@ -818,7 +818,7 @@ pub async fn workspace_delete(path: String) -> Result<Settings, String> {
 #[tauri::command]
 pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
     let mut settings = load();
-    let target = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
+    let target = std::fs::canonicalize(&path).map_err(|e| e.to_string())?;
     let is_remembered = settings
         .recent_projects
         .iter()
@@ -836,7 +836,7 @@ pub async fn workspace_delete_directory(path: String) -> Result<Settings, String
 #[tauri::command]
 pub async fn workspace_create(root: String, name: String) -> Result<String, String> {
     let path = validated_child_path(Path::new(&root), &name)?;
-    std::fs::create_dir_all(&path).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     let path_string = path.to_string_lossy().into_owned();
     workspace_open(path_string.clone())?;
     Ok(path_string)
