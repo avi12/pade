@@ -124,18 +124,18 @@
           }}
         >
           <span class="c-top">
-            <code class="sha">{c.short}</code>
-            <span class="msg">{c.summary}</span>
+            <code class="commit-hash">{c.short}</code>
+            <span class="message">{c.summary}</span>
           </span>
           <span class="c-bot">
-            <span class="by">{c.author} · {c.when}</span>
+            <span class="author-details">{c.author} · {c.when}</span>
             <span class="stats">
               <span class="fn">{fileLabel(c.files)}</span>
               {#if c.additions}
                 <span class="add">+{formatCount(c.additions)}</span>
               {/if}
               {#if c.deletions}
-                <span class="del">−{formatCount(c.deletions)}</span>
+                <span class="deletion">−{formatCount(c.deletions)}</span>
               {/if}
             </span>
           </span>
@@ -185,7 +185,7 @@
       inline-size: 100%;
     }
 
-    .msg {
+    .message {
       flex: 1;
       overflow: hidden;
       min-inline-size: 0;
@@ -216,7 +216,7 @@
       color: var(--tertiary);
     }
 
-    .del {
+    .deletion {
       color: var(--critical);
     }
   }

@@ -86,7 +86,7 @@
   min-inline-size: 250px;
   position-area: bottom span-left;
 
-  .mi {
+  .menu-item {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -115,7 +115,7 @@
       color: var(--on-primary-container);
     }
 
-    .mi-txt {
+    .menu-item-text {
       flex: 1;
       min-inline-size: 0;
     }
@@ -145,7 +145,7 @@
     text-transform: uppercase;
   }
 
-  .sep {
+  .separator {
     margin-block-start: 6px;
     padding-block-start: 9px;
     border-block-start: 1px solid var(--outline);
@@ -176,7 +176,7 @@
 }
 
 /* A full-width monospace path / URL input. Bare (borderless, transparent) inside
-   a `.np-loc` group row or a `PathCombobox`; `framed` gives the standalone one
+   a `.new-project-location` group row or a `PathCombobox`; `framed` gives the standalone one
    its own field chrome. Shared by the local-folder, add-root, and clone-URL
    fields — one home for the path-field look. */
 .picker .path-input {

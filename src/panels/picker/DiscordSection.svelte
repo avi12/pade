@@ -19,7 +19,7 @@
 <section class="discord">
   <h2>Discord</h2>
   <label class="check">
-    <span class="ck">
+    <span class="checkbox">
       <input checked={presenceOn} onchange={e => ondiscordpresence(e.currentTarget.checked)} type="checkbox" />
       <span class="box" aria-hidden="true">
         <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
@@ -28,7 +28,7 @@
     <span>Show my activity on Discord (Playing PADE)</span>
   </label>
   <label class="check" class:disabled={!presenceOn}>
-    <span class="ck">
+    <span class="checkbox">
       <input
         checked={showProject}
         disabled={!presenceOn}

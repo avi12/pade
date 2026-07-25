@@ -705,10 +705,10 @@ textarea {
 }
 
 /* ── Custom checkbox — shared M3 control ──────────────────────────────────────
-   One authoritative home (DRY) so any panel can reuse `<span class="ck">`. The
+   One authoritative home (DRY) so any panel can reuse `<span class="checkbox">`. The
    box fills primary and the tick draws itself on check; reuses the check-pop
    keyframe above. */
-.ck {
+.checkbox {
   position: relative;
   display: inline-grid;
   flex: none;

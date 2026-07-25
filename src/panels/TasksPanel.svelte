@@ -136,7 +136,7 @@
               }}
             >
               <div class="meta">
-                <span class="tname">
+                <span class="task-name">
                   {#if runningNow}
                     <span class="run-dot" aria-hidden="true"></span>
                   {/if}
@@ -145,7 +145,7 @@
                     <output class="run-tag">running</output>
                   {/if}
                 </span>
-                <code class="cmd">{task.command}</code>
+                <code class="command">{task.command}</code>
               </div>
               <button
                 class="run"
@@ -260,7 +260,7 @@
     min-inline-size: 0;
   }
 
-  .tname {
+  .task-name {
     display: inline-flex;
     gap: 6px;
     align-items: center;
@@ -286,7 +286,7 @@
     }
   }
 
-  .cmd {
+  .command {
     overflow: hidden;
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);

@@ -325,7 +325,7 @@
     return truncationTooltip({
       tooltip: () => (revealEditor ? `Open in ${revealEditor.label} · ${path}` : path),
       restingTooltip: () => (revealEditor ? `Open in ${revealEditor.label}` : ""),
-      measureSelector: ".fpath",
+      measureSelector: ".file-path",
       attribute: TooltipAttribute.Bubble
     });
   }
@@ -550,11 +550,11 @@
           popovertarget="type-filter"
         >
           <span class="caret">▽</span>
-          <span class="lbl">{filterLabel}</span>
+          <span class="label">{filterLabel}</span>
         </button>
 
         <div id="type-filter" style:position-anchor="--type-anchor" class="type-popover popover-menu" popover>
-          <div class="pop-head">
+          <div class="popover-header">
             <span class="pop-title">File type</span>
             <button class="selectall" onclick={() => toggleAllTypes()}>
               {#if allTypesSelected}
@@ -572,7 +572,7 @@
                 }}
               >
                 <label class="check typerow">
-                  <span class="ck">
+                  <span class="checkbox">
                     <input
                       checked={selectedExtensions.has(item.extension)}
                       onchange={() => toggleExtension(item.extension)}
@@ -582,8 +582,8 @@
                       <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
                     </span>
                   </span>
-                  <span class="ext">{item.extension}</span>
-                  <span class="n">{formatCount(item.count)}</span>
+                  <span class="extension">{item.extension}</span>
+                  <span class="count">{formatCount(item.count)}</span>
                 </label>
               </li>
             {/each}
@@ -609,7 +609,7 @@
             }
           }}
         >
-          <span class="ico" class:spin={syncing}><Icon name="refresh" size={14} /></span>
+          <span class="icon" class:spin={syncing}><Icon name="refresh" size={14} /></span>
           Sync all
         </button>
       {/if}
@@ -618,14 +618,14 @@
     {#if groups.length > 1 || activeGroupId !== null}
       <div class="chips">
         <button class="chip" class:on={activeGroupId === null} onclick={() => (activeGroupId = null)}>
-          All <span class="n">{formatCount(feedStore.events.length)}</span>
+          All <span class="count">{formatCount(feedStore.events.length)}</span>
         </button>
         {#each groups as group (group.id)}
           <button
             class="chip"
             class:on={activeGroupId === group.id}
             onclick={() => (activeGroupId = group.id)}
-          >{group.name} <span class="n">{formatCount(group.events.length)}</span></button>
+          >{group.name} <span class="count">{formatCount(group.events.length)}</span></button>
         {/each}
       </div>
     {/if}
@@ -633,21 +633,21 @@
     <div class="cards scroll-fade">
       {#each visibleGroups as group (group.id)}
         <section class="group">
-          <header class="ghead">
+          <header class="group-header">
             <span class="badge {group.role}">{roleLabel(group.role)}</span>
-            <span class="gname">{group.name}</span>
+            <span class="group-name">{group.name}</span>
             {#if branch}
-              <span class="gbranch"><Icon name="branch" size={12} />{branch}</span>
+              <span class="group-branch"><Icon name="branch" size={12} />{branch}</span>
             {/if}
-            <span class="gstat">
+            <span class="group-statistics">
               {#if group.added}
                 <span class="add">+{formatCount(group.added)}</span>
               {/if}
               {#if group.removed}
-                <span class="del">−{formatCount(group.removed)}</span>
+                <span class="deletion">−{formatCount(group.removed)}</span>
               {/if}
             </span>
-            <span class="gcount">{formatCount(group.events.length)}</span>
+            <span class="group-count">{formatCount(group.events.length)}</span>
           </header>
           <ul class="grouplist">
             {#each group.events as ev (ev.id)}
@@ -708,7 +708,7 @@
                   }}
                 >
                   <span class="row">
-                    <span class="ftype tone-{badge.tone}" class:logo={!!badge.icon} aria-hidden="true">
+                    <span class="file-type tone-{badge.tone}" class:logo={!!badge.icon} aria-hidden="true">
                       {#if badge.icon}
                         <Icon name={badge.icon} size={18} />
                       {:else}
@@ -724,12 +724,12 @@
                   <span class="summary">{ev.summary}</span>
                   <span class="meta">
                     <span class="path" {@attach clippedPathTooltip(ev.path)}>{relativeDir(ev.path)}</span>
-                    <span class="stat">
+                    <span class="statistics">
                       {#if ev.added}
                         <span class="add">+{formatCount(ev.added)}</span>
                       {/if}
                       {#if ev.removed}
-                        <span class="del">−{formatCount(ev.removed)}</span>
+                        <span class="deletion">−{formatCount(ev.removed)}</span>
                       {/if}
                     </span>
                   </span>
@@ -739,7 +739,7 @@
                   <div class="diff" transition:revealBlock>
                     <div class="bar">
                       <button
-                        class="filebtn"
+                        class="file-button"
                         {@attach revealTooltip(ev.path)}
                         disabled={!revealEditor}
                         onclick={() => openInEditor({
@@ -753,14 +753,14 @@
                              the path already reads in full — the shared CSS `[data-tooltip]`
                              bubble, which caps at 320px + wraps and anchor-positions with a
                              flip-up fallback. -->
-                        <span class="fpath">{relativeToRoot({
+                        <span class="file-path">{relativeToRoot({
                           path: ev.path,
                           root: project
                         })}</span>
                       </button>
                       <span class="spacer"></span>
                       {#if canPreview}
-                        <div class="seg" aria-label="Preview mode" role="group">
+                        <div class="segmented-control" aria-label="Preview mode" role="group">
                           <button
                             class:on={pane === PreviewPane.code}
                             aria-pressed={pane === PreviewPane.code}
@@ -777,7 +777,7 @@
                         </div>
                       {/if}
                       {#if !isImage && pane === PreviewPane.code && hasPreview}
-                        <div class="seg" aria-label="Diff view" role="group">
+                        <div class="segmented-control" aria-label="Diff view" role="group">
                           <button
                             class:on={diffMode === DiffMode.unified}
                             aria-pressed={diffMode === DiffMode.unified}
@@ -803,7 +803,7 @@
                     {#if isImage}
                       {@const imageUrl = imageCache.get(ev.id)}
                       {#if imageUrl}
-                        <div class="imgwrap">
+                        <div class="image-wrapper">
                           <img alt={baseName(ev.path)} loading="lazy" src={imageUrl} />
                         </div>
                       {:else if isErrored}
@@ -924,7 +924,7 @@
       transition: rotate 200ms var(--ease);
     }
 
-    .lbl {
+    .label {
       font-variant-numeric: tabular-nums;
     }
   }
@@ -943,7 +943,7 @@
     box-shadow: 0 8px 28px var(--shadow-color);
     position-area: bottom span-right;
 
-    .pop-head {
+    .popover-header {
       display: flex;
       gap: 12px;
       justify-content: space-between;
@@ -994,8 +994,8 @@
       cursor: pointer;
     }
 
-    /* Shrink the shared 20px .ck to a menu-fit 18px. */
-    .ck {
+    /* Shrink the shared 20px .checkbox to a menu-fit 18px. */
+    .checkbox {
       block-size: 18px;
       inline-size: 18px;
 
@@ -1014,7 +1014,7 @@
         background: var(--surface-3);
       }
 
-      .ext {
+      .extension {
         flex: 1;
         overflow: hidden;
         font-family: var(--font-monospace);
@@ -1022,7 +1022,7 @@
         white-space: nowrap;
       }
 
-      .n {
+      .count {
         color: var(--on-surface-variant);
         font-variant-numeric: tabular-nums;
       }
@@ -1054,7 +1054,7 @@
       cursor: default;
     }
 
-    .ico {
+    .icon {
       display: inline-flex;
       color: var(--primary);
     }
@@ -1100,7 +1100,7 @@
       font-weight: 600;
     }
 
-    .n {
+    .count {
       font-variant-numeric: tabular-nums;
       opacity: 75%;
     }
@@ -1123,7 +1123,7 @@
     flex-direction: column;
   }
 
-  .ghead {
+  .group-header {
     display: flex;
     gap: 9px;
     align-items: center;
@@ -1154,7 +1154,7 @@
     }
   }
 
-  .gname {
+  .group-name {
     overflow: hidden;
     font-weight: 700;
     font-size: 13px;
@@ -1164,7 +1164,7 @@
 
   /* Git-branch subtitle beside the group name — leads with the branch glyph, to
      match the switcher's branch chip; muted so the project name stays primary. */
-  .gbranch {
+  .group-branch {
     display: inline-flex;
     flex: none;
     gap: 3px;
@@ -1176,7 +1176,7 @@
     white-space: nowrap;
   }
 
-  .gstat {
+  .group-statistics {
     display: flex;
     gap: 8px;
     margin-inline-start: auto;
@@ -1186,7 +1186,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .gcount {
+  .group-count {
     flex: none;
     min-inline-size: 20px;
     padding: 1px 7px;
@@ -1279,7 +1279,7 @@
     align-items: center;
   }
 
-  .ftype {
+  .file-type {
     display: inline-grid;
     flex: none;
     place-items: center;
@@ -1400,7 +1400,7 @@
     white-space: nowrap;
   }
 
-  .stat {
+  .statistics {
     display: flex;
     gap: 8px;
     margin-inline-start: auto;
@@ -1412,7 +1412,7 @@
     color: var(--tertiary);
   }
 
-  .del {
+  .deletion {
     color: var(--critical);
   }
 
@@ -1434,7 +1434,7 @@
     background: var(--surface-2);
   }
 
-  .filebtn {
+  .file-button {
     display: inline-flex;
     gap: 6px;
     align-items: center;
@@ -1447,7 +1447,7 @@
     white-space: nowrap;
     cursor: pointer;
 
-    &:hover:not(:disabled) .fpath {
+    &:hover:not(:disabled) .file-path {
       text-decoration: underline;
     }
 
@@ -1457,7 +1457,7 @@
     }
   }
 
-  .fpath {
+  .file-path {
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -1466,7 +1466,7 @@
     flex: 1;
   }
 
-  .seg {
+  .segmented-control {
     display: flex;
     flex-shrink: 0;
     gap: 2px;
@@ -1543,7 +1543,7 @@
   /* Image preview: the rendered picture in place of a text diff. A subtle
      checkerboard (a token-tinted `color-mix`, so it adapts to light/dark on its
      own) sits under it, letting transparent PNG/SVG regions read in both themes. */
-  .imgwrap {
+  .image-wrapper {
     --checker: color-mix(in sRGB, var(--on-surface) 7%, transparent);
 
     display: grid;

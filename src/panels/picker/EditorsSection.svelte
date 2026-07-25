@@ -107,7 +107,7 @@
 })}
   {@const selectId = editorSelectId(key)}
   {@const pickedEditor = detectedEditor(value)}
-  <span class="editor-sel menu-host">
+  <span class="editor-selector menu-host">
     <button
       style:anchor-name="--{selectId}"
       class="editor-trigger menu-trigger"
@@ -129,7 +129,7 @@
         {@const isPicked = editor.id === value}
         <li>
           <button
-            class="mi editor-opt"
+            class="menu-item editor-option"
             class:picked={isPicked}
             aria-current={isPicked}
             onclick={() => onpick(editor.id)}
@@ -156,8 +156,8 @@
 {/snippet}
 
 <section class="editors">
-  <div class="ed-head">
-    <div class="ed-head-copy">
+  <div class="editor-header">
+    <div class="editor-header-copy">
       <h2>Editors</h2>
       <p class="hint">
         PADE reads what’s in a folder and opens it in the editor you set for
@@ -187,24 +187,24 @@
     ><Icon name="refresh" size={14} /> {#if rescanning}
       Detecting…{:else}Reload{/if}</button>
   </div>
-  <ul class="ed-rules">
+  <ul class="editor-rules">
     {#each kinds as { kind, label, signals } (kind)}
-      <li class="ed-rule">
-        <span class="ed-kind">
-          <span class="ed-label-row">
+      <li class="editor-rule">
+        <span class="editor-kind">
+          <span class="editor-label-row">
             <span class="kind-logo" aria-hidden="true" data-brand={languageIcon(kind)}>
               <Icon name={languageIcon(kind)} size={15} />
             </span>
-            <span class="ed-label">{label}</span>
+            <span class="editor-label">{label}</span>
           </span>
-          <span class="ed-signals">
+          <span class="editor-signals">
             {#each signals as sig (sig)}
               <code class="sig">{sig}</code>
             {/each}
           </span>
         </span>
-        <span class="ed-open">
-          <span class="ed-arrow">detected → open in</span>
+        <span class="editor-open">
+          <span class="editor-arrow">detected → open in</span>
           {@render editorSelect({
             key: kind,
             value: ideRules[kind] ?? ideFallback,
@@ -218,18 +218,18 @@
         </span>
       </li>
     {/each}
-    <li class="ed-rule fallback">
+    <li class="editor-rule fallback">
       <!-- The catch-all: a folder matching no single-language rule — including a
            polyglot monorepo no one editor fully covers — carries a folder logo
            rather than any one language's mark. -->
-      <span class="ed-label-row">
+      <span class="editor-label-row">
         <span class="kind-logo" aria-hidden="true">
           <Icon name="folder" size={15} />
         </span>
-        <span class="ed-label">Any other folder</span>
+        <span class="editor-label">Any other folder</span>
       </span>
-      <span class="ed-open">
-        <span class="ed-arrow">fall back to</span>
+      <span class="editor-open">
+        <span class="editor-arrow">fall back to</span>
         {@render editorSelect({
           key: "fallback",
           value: ideFallback,
@@ -242,10 +242,10 @@
   </ul>
 
   <!-- Locate an editor PADE didn't auto-detect on PATH. -->
-  <div class="ed-add">
-    <div class="ed-add-head">
-      <span class="ed-add-ico" aria-hidden="true"><Icon name="monitor" /></span>
-      <span class="ed-add-copy">
+  <div class="editor-addition">
+    <div class="editor-addition-header">
+      <span class="editor-addition-icon" aria-hidden="true"><Icon name="monitor" /></span>
+      <span class="editor-addition-copy">
         <strong>Using an editor that isn’t listed?</strong>
         <small>
           PADE lists the editors it found automatically. Point it at any other
@@ -254,7 +254,7 @@
       </span>
       {#if !adding}
         <button
-          class="ed-add-btn"
+          class="editor-addition-button"
           onclick={() => {
             adding = true;
             draft = "";
@@ -269,7 +269,7 @@
 
     {#if adding}
       <form
-        class="ed-add-form"
+        class="editor-addition-form"
         onsubmit={async e => {
           e.preventDefault();
           // The path is a trust boundary — trim/length-cap it before it leaves the UI.
@@ -303,12 +303,12 @@
           draft = "";
         }}
       >
-        <div class="ed-locate">
-          <span class="ed-locate-ico" aria-hidden="true"><Icon name="folder" /></span>
-          <label class="visually-hidden" for="ed-locate-input">Path to editor executable</label>
+        <div class="editor-location">
+          <span class="editor-location-icon" aria-hidden="true"><Icon name="folder" /></span>
+          <label class="visually-hidden" for="editor-location-input">Path to editor executable</label>
           <input
-            id="ed-locate-input"
-            class="ed-locate-input"
+            id="editor-location-input"
+            class="editor-location-input"
             autocomplete="off"
             oninput={() => {
               // Clear a stale message the moment the user edits the path.
@@ -319,7 +319,7 @@
             bind:value={draft}
           />
           <button
-            class="ed-browse"
+            class="editor-browse"
             onclick={async () => {
               const picked = await openDialog({
                 multiple: false,
@@ -333,10 +333,10 @@
             type="button"
           >Browse…</button>
         </div>
-        <div class="ed-add-actions">
-          <button class="ed-confirm" type="submit">Add editor</button>
+        <div class="editor-addition-actions">
+          <button class="editor-confirm" type="submit">Add editor</button>
           <button
-            class="ed-cancel"
+            class="editor-cancel"
             onclick={() => {
               adding = false;
               draft = "";
@@ -344,14 +344,14 @@
             }}
             type="button"
           >Cancel</button>
-          <span class="ed-add-hint">Select the editor’s executable</span>
+          <span class="editor-addition-hint">Select the editor’s executable</span>
         </div>
       </form>
     {/if}
 
     {#if status}
-      <output class="ed-status" class:err={status.kind === StatusKind.Error}>
-        <span class="ed-status-ico" aria-hidden="true">
+      <output class="editor-status" class:error={status.kind === StatusKind.Error}>
+        <span class="editor-status-icon" aria-hidden="true">
           <Icon name={status.kind === StatusKind.Ok ? "check" : "alert"} size={14} />
         </span>
         <span>{status.text}</span>
@@ -360,19 +360,19 @@
 
     <!-- Editors located by executable path — listed so a stale one can be dropped. -->
     {#if addedEditors.length > 0}
-      <div class="ed-added">
-        <span class="ed-added-eyebrow">Added manually</span>
+      <div class="editor-added">
+        <span class="editor-added-eyebrow">Added manually</span>
         {#each addedEditors as editor (editor.id)}
-          <div class="ed-added-row">
-            <span class="ed-added-info">
-              <span class="ed-added-name-row">
-                <span class="ed-added-name">{editor.label}</span>
-                <span class="ed-added-tag">added</span>
+          <div class="editor-added-row">
+            <span class="editor-added-information">
+              <span class="editor-added-name-row">
+                <span class="editor-added-name">{editor.label}</span>
+                <span class="editor-added-tag">added</span>
               </span>
-              <span class="ed-added-path" data-tooltip={editor.path}>{editor.path}</span>
+              <span class="editor-added-path" data-tooltip={editor.path}>{editor.path}</span>
             </span>
             <button
-              class="ed-remove"
+              class="editor-remove"
               aria-label={`Remove ${editor.label}`}
               data-tooltip="Remove"
               onclick={async () => {
@@ -391,14 +391,14 @@
 <style>
   /* ── Editor-rules engine — one tonal row per project kind, plus a dashed
      fall-back row. Each row carries a native-popover editor select. ── */
-  .ed-head {
+  .editor-header {
     display: flex;
     gap: 12px;
     justify-content: space-between;
     align-items: flex-start;
   }
 
-  .ed-head-copy {
+  .editor-header-copy {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -411,7 +411,7 @@
     }
   }
 
-  .ed-rules {
+  .editor-rules {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -420,7 +420,7 @@
     list-style: none;
   }
 
-  .ed-rule {
+  .editor-rule {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
@@ -450,7 +450,7 @@
 
   /* The kind block flexes and shrinks so many signal chips wrap WITHIN it —
      never pushing the editor select onto its own line below. */
-  .ed-kind {
+  .editor-kind {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -458,7 +458,7 @@
     min-inline-size: min(150px, 100%);
   }
 
-  .ed-label-row {
+  .editor-label-row {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -474,13 +474,13 @@
     color: var(--brand-color, var(--on-surface-variant));
   }
 
-  .ed-label {
+  .editor-label {
     font-weight: 600;
     font-size: 13px;
   }
 
   /* Per-kind manifest signals — small mono surface-3 chips. */
-  .ed-signals {
+  .editor-signals {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
@@ -497,20 +497,20 @@
 
   /* The "detected → open in" label and the select move as one unit, so a
      narrow panel wraps them together instead of stranding the label. */
-  .ed-open {
+  .editor-open {
     display: flex;
     flex: none;
     gap: 12px;
     align-items: center;
   }
 
-  .ed-arrow {
+  .editor-arrow {
     flex: none;
     color: var(--on-surface-variant);
     font-size: 12px;
   }
 
-  .editor-sel {
+  .editor-selector {
     position: relative;
     flex: none;
   }
@@ -560,7 +560,7 @@
   .editor-menu {
     min-inline-size: 180px;
 
-    .editor-opt {
+    .editor-option {
       justify-content: space-between;
       font-weight: 600;
     }
@@ -577,7 +577,7 @@
   }
 
   /* ── "Add editor…" — locate an editor PADE didn't find on PATH. ── */
-  .ed-add {
+  .editor-addition {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -587,20 +587,20 @@
     background: var(--surface-1);
   }
 
-  .ed-add-head {
+  .editor-addition-header {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     align-items: center;
   }
 
-  .ed-add-ico {
+  .editor-addition-icon {
     display: inline-flex;
     flex: none;
     color: var(--primary);
   }
 
-  .ed-add-copy {
+  .editor-addition-copy {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -620,7 +620,7 @@
   }
 
   /* Reveal button — tonal surface-3 pill that fills primary-container on hover. */
-  .ed-add-btn {
+  .editor-addition-button {
     display: inline-flex;
     flex: none;
     gap: 6px;
@@ -644,14 +644,14 @@
     }
   }
 
-  .ed-add-form {
+  .editor-addition-form {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
 
   /* Path field — mono input with a folder lead and a ghost Browse…, primary edge. */
-  .ed-locate {
+  .editor-location {
     display: flex;
     gap: 4px;
     align-items: center;
@@ -661,14 +661,14 @@
     border-radius: var(--radius-medium);
     background: var(--surface-2);
 
-    .ed-locate-ico {
+    .editor-location-icon {
       display: inline-flex;
       flex: none;
       color: var(--on-surface-variant);
     }
   }
 
-  .ed-locate-input {
+  .editor-location-input {
     flex: 1;
     min-inline-size: 0;
     padding: 6px 4px;
@@ -679,7 +679,7 @@
     font-size: 0.75rem;
   }
 
-  .ed-browse {
+  .editor-browse {
     flex: none;
     padding: 6px 10px;
     border: none;
@@ -700,19 +700,19 @@
     }
   }
 
-  .ed-add-actions {
+  .editor-addition-actions {
     display: flex;
     gap: 8px;
     align-items: center;
   }
 
-  .ed-add-hint {
+  .editor-addition-hint {
     margin-inline-start: auto;
     color: var(--on-surface-variant);
     font-size: 0.6875rem;
   }
 
-  .ed-confirm {
+  .editor-confirm {
     padding: 7px 14px;
     border: none;
     border-radius: var(--radius-small);
@@ -729,7 +729,7 @@
     }
   }
 
-  .ed-cancel {
+  .editor-cancel {
     padding: 8px 14px;
     border: none;
     border-radius: var(--radius-small);
@@ -747,7 +747,7 @@
   }
 
   /* Inline result — tertiary wash on success, crit wash on rejection. */
-  .ed-status {
+  .editor-status {
     display: flex;
     gap: 7px;
     align-items: flex-start;
@@ -759,12 +759,12 @@
     line-height: 1.45;
     animation: line-in 180ms var(--ease);
 
-    &.err {
+    &.error {
       background: var(--critical-wash);
       color: var(--critical);
     }
 
-    .ed-status-ico {
+    .editor-status-icon {
       display: inline-flex;
       flex: none;
       margin-block-start: 1px;
@@ -772,13 +772,13 @@
   }
 
   /* ── "Added manually" — editors located by path, listed for removal. ── */
-  .ed-added {
+  .editor-added {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  .ed-added-eyebrow {
+  .editor-added-eyebrow {
     color: var(--on-surface-variant);
     font-weight: 700;
     font-size: 10px;
@@ -786,7 +786,7 @@
     text-transform: uppercase;
   }
 
-  .ed-added-row {
+  .editor-added-row {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -797,7 +797,7 @@
     background: var(--surface-2);
   }
 
-  .ed-added-info {
+  .editor-added-information {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -805,19 +805,19 @@
     min-inline-size: 0;
   }
 
-  .ed-added-name-row {
+  .editor-added-name-row {
     display: flex;
     gap: 8px;
     align-items: center;
   }
 
-  .ed-added-name {
+  .editor-added-name {
     font-weight: 600;
     font-size: 13px;
   }
 
   /* "added" provenance tag — a quiet tertiary micro-label, no fill. */
-  .ed-added-tag {
+  .editor-added-tag {
     flex: none;
     color: var(--tertiary);
     font-weight: 700;
@@ -826,7 +826,7 @@
     text-transform: uppercase;
   }
 
-  .ed-added-path {
+  .editor-added-path {
     overflow: hidden;
     max-inline-size: 100%;
     color: var(--on-surface-variant);
@@ -837,7 +837,7 @@
   }
 
   /* Remove — a circle that reddens on hover, like the roots-row close button. */
-  .ed-remove {
+  .editor-remove {
     display: inline-flex;
     flex: none;
     justify-content: center;

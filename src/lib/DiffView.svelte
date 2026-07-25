@@ -23,7 +23,7 @@
       {#if row.hunk}
         <div class="hunk">{row.hunkText}</div>
       {:else}
-        <div class="cell" class:filled-del={row.leftFilled}>
+        <div class="cell" class:filled-deletion={row.leftFilled}>
           <span class="gutter" aria-hidden="true">{row.oldLine ?? ""}</span>
           <span class="code"><ColorText text={row.left} /></span>
         </div>
@@ -44,13 +44,13 @@
       <div
         class="line"
         class:add={line.kind === DiffKind.add}
-        class:del={line.kind === DiffKind.del}
+        class:deletion={line.kind === DiffKind.del}
         class:meta={line.kind === DiffKind.meta}
         data-newline={line.newLine}
       >
         <span class="gutter" aria-hidden="true">
-          <span class="ln">{line.oldLine ?? ""}</span>
-          <span class="ln">{line.newLine ?? ""}</span>
+          <span class="line-number">{line.oldLine ?? ""}</span>
+          <span class="line-number">{line.newLine ?? ""}</span>
         </span>
         <span class="code"><ColorText text={line.text} /></span>
       </div>
@@ -90,7 +90,7 @@
     user-select: none;
   }
 
-  .gutter .ln {
+  .gutter .line-number {
     display: inline-block;
     min-inline-size: 2.5ch;
   }
@@ -120,7 +120,7 @@
     background: var(--tertiary-wash);
   }
 
-  .line.del {
+  .line.deletion {
     background: var(--critical-wash);
   }
 
@@ -165,7 +165,7 @@
       border-inline-end: none;
     }
 
-    .cell.filled-del {
+    .cell.filled-deletion {
       background: var(--critical-wash);
     }
 

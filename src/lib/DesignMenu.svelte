@@ -31,7 +31,7 @@
 
 {#if tools.length}
   <span class="menu-host">
-    <button style:anchor-name="--design-anchor" class="design-btn menu-trigger" popovertarget="design-menu">
+    <button style:anchor-name="--design-anchor" class="design-button menu-trigger" popovertarget="design-menu">
       <Icon name="sparkles" /> Design<span class="caret">▾</span>
     </button>
     <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list popover-menu" popover>
@@ -60,7 +60,7 @@
     display: contents;
   }
 
-  .design-btn {
+  .design-button {
     display: inline-flex;
     gap: 6px;
     align-items: center;

@@ -244,7 +244,7 @@
         type="button"
       >
         <Icon name="folder" size={15} />
-        <span class="sug-path">{dir}</span>
+        <span class="suggestion-path">{dir}</span>
       </button>
     </li>
   {/each}
@@ -299,7 +299,7 @@
       filter: none;
     }
 
-    .sug-path {
+    .suggestion-path {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

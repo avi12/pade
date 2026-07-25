@@ -216,7 +216,7 @@
     {@const projects = projectsByRoot[root] ?? []}
     <div class="root" out:collapseRow>
       <div class="root-head">
-        <span class="root-ico" aria-hidden="true"><Icon name="folder" size={15} /></span>
+        <span class="root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
         <code class="rootpath">{root}</code>
         {#if projects.length > 0}
           <span class="root-count">{projectCountLabel(projects.length)}</span>
@@ -232,7 +232,7 @@
         {#each projects as project (project.path)}
           <li class="row" out:collapseRow>
             <button class="project" onclick={() => onopen({ path: project.path })}>
-              <span class="pname">{project.name}</span>
+              <span class="project-name">{project.name}</span>
               {#if project.isGit}
                 <span class="git">git</span>
               {/if}
@@ -349,7 +349,7 @@
     align-items: center;
   }
 
-  .root-ico {
+  .root-icon {
     display: inline-flex;
     flex: none;
     color: var(--on-surface-variant);
@@ -428,7 +428,7 @@
       filter: none;
     }
 
-    .pname {
+    .project-name {
       font-weight: 600;
       font-size: 14px;
     }

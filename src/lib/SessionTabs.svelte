@@ -171,7 +171,7 @@
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
 
   function openAddMenu() {
-    const menu = document.getElementById("add-menu");
+    const menu = document.getElementById("add-session-menu");
     if (menu instanceof HTMLElement && !menu.matches(":popover-open")) {
       menu.showPopover();
     }
@@ -311,9 +311,9 @@
   <span
     class="agent-icon {sessionStatus(s.id)}"
     class:awaiting-choice={isAwaitingChoice(s.id)}
-    class:crit={level === ContextLevel.critical}
+    class:critical={level === ContextLevel.critical}
     class:unknown={pct === null}
-    class:warn={level === ContextLevel.warning}
+    class:warning={level === ContextLevel.warning}
     data-tooltip={contextTooltip(s.id)}
   ><Icon name={agentIconName(s.agent.id)} size={14} /></span>
 {/snippet}
@@ -377,7 +377,7 @@
     </span>
   {/if}
   <button
-    class="x"
+    class="close-button"
     aria-label="Close session"
     data-noreorder
     data-tooltip="Close session"
@@ -388,7 +388,7 @@
 <nav class="tabs" aria-label="Agent sessions">
   <div bind:this={stripEl} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
     {#if popPaneActive}
-      <span class="pop-hint" aria-hidden="true">Drop here — new tab</span>
+      <span class="popout-hint" aria-hidden="true">Drop here — new tab</span>
     {/if}
     {#each visibleSessions as s (s.id)}
       <!-- Pointer-only reorder handle; select/close/rename stay keyboard-reachable
@@ -419,27 +419,27 @@
     {#if hasMoreSessions}
       <span class="more-wrap menu-host">
         <button
-          style:anchor-name="--more-anchor"
-          class="more-btn menu-trigger"
+          style:anchor-name="--overflow-session-anchor"
+          class="more-button menu-trigger"
           class:active={overflowHasActive}
           class:awaiting-choice={overflowAwaiting}
           aria-label="Show remaining sessions"
-          popovertarget="more-menu"
+          popovertarget="overflow-session-menu"
         >+{formatCount(moreSessions.length)}</button>
-        <ul id="more-menu" style:position-anchor="--more-anchor" class="menu more-menu popover-menu" popover>
+        <ul id="overflow-session-menu" style:position-anchor="--overflow-session-anchor" class="menu more-menu popover-menu" popover>
           {#each moreSessions as s (s.id)}
             <li class="more-item" class:active={s.id === activeId}>
               <button
                 class="more-pick"
                 onclick={() => onselect(s.id)}
-                popovertarget="more-menu"
+                popovertarget="overflow-session-menu"
                 popovertargetaction="hide"
               >
                 <span class="dot {sessionStatus(s.id)}" class:awaiting-choice={isAwaitingChoice(s.id)}></span>
                 <span class="more-label">{sessionLabel(s.id) ?? s.agent.label}</span>
               </button>
               <button
-                class="more-x"
+                class="more-close-button"
                 aria-label="Close session"
                 data-tooltip="Close session"
                 onclick={() => onclose(s)}
@@ -452,8 +452,8 @@
 
     <span class="add-wrap menu-host">
       <button
-        style:anchor-name="--add-anchor"
-        class="add-btn menu-trigger"
+        style:anchor-name="--add-session-anchor"
+        class="add-button menu-trigger"
         aria-label={`New ${lastAgent?.label ?? "agent"} session — Ctrl-click for launch options`}
         data-tooltip={`New ${lastAgent?.label ?? "agent"} session · Ctrl-click or right-click for options`}
         onclick={e => {
@@ -471,26 +471,26 @@
           openAddMenu();
         }}
       >+</button>
-      <ul id="add-menu" style:position-anchor="--add-anchor" class="menu popover-menu" popover>
-        <li class="menu-sep">Launch an agent</li>
+      <ul id="add-session-menu" style:position-anchor="--add-session-anchor" class="menu popover-menu" popover>
+        <li class="menu-separator">Launch an agent</li>
         {#each agents as a (a.id)}
           <li>
             <button
               onclick={() => onlaunch(a)}
-              popovertarget="add-menu"
+              popovertarget="add-session-menu"
               popovertargetaction="hide"
             ><span class="launch-icon"><Icon name={agentIconName(a.id)} /></span>{a.label}</button>
           </li>
         {/each}
         {#if branches.length > 0}
           <li class="menu-divider" role="separator"></li>
-          <li class="menu-sep">On a branch — new worktree</li>
+          <li class="menu-separator">On a branch — new worktree</li>
           {#each branches as b (b)}
             <li>
               <button
                 class="branch-item"
                 onclick={async () => await onlaunchbranch(b)}
-                popovertarget="add-menu"
+                popovertarget="add-session-menu"
                 popovertargetaction="hide"
               ><span class="branch-icon"><Icon name="git" /></span>{b}</button>
             </li>
@@ -542,7 +542,7 @@
 
     /* Leading cue shown only while a pane is dragged over the strip: "drop here to
        pop it out as a tab", the mirror of the panes' "drop to open in split view". */
-    .pop-hint {
+    .popout-hint {
       flex: none;
       padding-inline: 6px;
       color: var(--primary);
@@ -589,7 +589,7 @@
     }
 
     /* The "+N" overflow trigger. */
-    .more-btn {
+    .more-button {
       display: inline-flex;
       flex: none;
       align-items: center;
@@ -658,7 +658,7 @@
       }
 
       /* On the active pill the close × rides the container's on-color too. */
-      &.active .x {
+      &.active .close-button {
         color: var(--on-primary-container);
       }
     }
@@ -765,11 +765,11 @@
       color: var(--context-ok);
       transition: color 300ms var(--ease);
 
-      &.warn {
+      &.warning {
         color: var(--context-warning);
       }
 
-      &.crit {
+      &.critical {
         color: var(--context-critical);
       }
 
@@ -835,7 +835,7 @@
       }
     }
 
-    .x {
+    .close-button {
       display: inline-flex;
       justify-content: center;
       align-items: center;
@@ -868,7 +868,7 @@
     display: contents;
   }
 
-  .add-btn {
+  .add-button {
     display: grid;
     flex: none;
     place-items: center;
@@ -916,7 +916,7 @@
       }
     }
 
-    .menu-sep {
+    .menu-separator {
       margin-block: 6px 2px;
       padding-block: 2px 4px;
       padding-inline: 10px;
@@ -1006,7 +1006,7 @@
       white-space: nowrap;
     }
 
-    .more-x {
+    .more-close-button {
       display: inline-flex;
       flex: none;
       justify-content: center;

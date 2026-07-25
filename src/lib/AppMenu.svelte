@@ -203,7 +203,7 @@
   }
   // Stable, valid popover id/anchor per row kebab (sanitised from the path).
   function rowMenuId(project: string): string {
-    return `sw-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+    return `switcher-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
   // Stable, unique view-transition-name per row, so the scoped view transition
   // tracks each row across a list change and morphs it (a moved row glides to its
@@ -251,7 +251,7 @@
   }
 
   function hide() {
-    const menu = document.getElementById("m-app");
+    const menu = document.getElementById("application-menu");
     if (menu?.matches(":popover-open")) {
       menu.hidePopover();
     }
@@ -283,7 +283,7 @@
   // shift-click) can't flip `:focus-visible` on and paint a stray ring on it. The
   // rAF waits for the popover's top layer to lay out before the field is focusable.
   function focusFilter() {
-    requestAnimationFrame(() => document.getElementById("m-app-q")?.focus());
+    requestAnimationFrame(() => document.getElementById("application-menu-query")?.focus());
   }
 
   // Spawn a fresh window and dismiss the menu so it doesn't linger over the new
@@ -336,7 +336,7 @@
 
     e.preventDefault();
     e.stopImmediatePropagation();
-    const menu = document.getElementById("m-app");
+    const menu = document.getElementById("application-menu");
     if (menu && !menu.matches(":popover-open")) {
       menu.showPopover();
     }
@@ -370,7 +370,7 @@
     aria-haspopup="menu"
     aria-label={`Switch project · Ctrl P · Ctrl-click opens repository — ${label}`}
     data-tooltip="Switch project · Ctrl-click opens repository"
-    popovertarget="m-app"
+    popovertarget="application-menu"
   >
     <Logo size={18} />
     <span class="stack">
@@ -378,7 +378,7 @@
       <span class="name">
         {label}
         {#if isTemp}
-          <span class="temp">temp</span>
+          <span class="temporary">temp</span>
         {/if}
       </span>
     </span>
@@ -386,8 +386,8 @@
   </button>
 
   <div
-    id="m-app"
-    style:position-anchor="--m-app"
+    id="application-menu"
+    style:position-anchor="--application-menu-anchor"
     class="menu popover-menu"
     ontoggle={async e => {
       menuOpen = (e as ToggleEvent).newState === "open";
@@ -406,7 +406,7 @@
     {#if isTemp}
       <div class="save-card">
         <div class="save-head">
-          <span class="temp">temp</span>
+          <span class="temporary">temp</span>
           <span class="save-title">Save this workspace</span>
         </div>
         <p class="save-hint">Name it and pick a root to keep it beyond this session.</p>
@@ -452,7 +452,7 @@
           </div>
         {/if}
       </div>
-      <div class="sep"></div>
+      <div class="separator"></div>
     {/if}
 
     <!-- Open PADE windows — in creation order, which is also the cycle order for
@@ -463,7 +463,7 @@
         <!-- The row wraps a separate grip (a span, so grabbing it never triggers the
              button's focus onclick) and the focus button — data-window-id makes the
              wrapper the reorder engine's drag sibling. -->
-        <div class="wrow-item" data-window-id={w.label}>
+        <div class="open-window-row-item" data-window-id={w.label}>
           {#if windowsReorderable}
             <span
               class="grip"
@@ -480,7 +480,7 @@
             ><Icon name="grip" size={14} /></span>
           {/if}
           <button
-            class="wrow"
+            class="open-window-row"
             class:current={w.isCurrent}
             onclick={() => {
               if (!w.isCurrent) {
@@ -492,27 +492,27 @@
             type="button"
           >
             <ProjectKindIcon path={w.path} />
-            <span class="wrow-name">{shortDisplayName(w.path, labels)}</span>
+            <span class="open-window-row-name">{shortDisplayName(w.path, labels)}</span>
             {#if isTemporaryWorkspace(w.path)}
-              <span class="temp">temp</span>
+              <span class="temporary">temp</span>
             {/if}
-            <span class="wrow-spacer"></span>
+            <span class="open-window-row-spacer"></span>
             {#if w.isCurrent}
               <span class="this-window">this window</span>
             {:else}
-              <span class="wrow-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
+              <span class="open-window-row-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
             {/if}
           </button>
         </div>
       {/each}
-      <div class="sep"></div>
+      <div class="separator"></div>
     {/if}
 
     <!-- Filter / quick-switch -->
     <label class="search">
       <span class="lead" aria-hidden="true"><Icon name="search" size={15} /></span>
       <input
-        id="m-app-q"
+        id="application-menu-query"
         aria-label="Switch project by name or path"
         autocomplete="off"
         onkeydown={e => {
@@ -539,7 +539,7 @@
     <!-- The row's kebab + options popover, shared by both sections. -->
     {#snippet rowMenu(project: string, pinned: boolean, menuId: string)}
       <button
-        class="prow-kebab"
+        class="project-row-kebab"
         aria-haspopup="menu"
         aria-label={`Options for ${displayName(project, labels)}`}
         popovertarget={menuId}
@@ -547,7 +547,7 @@
       ><Icon name="more" size={16} /></button>
       <div id={menuId} class="row-menu popover-menu" popover role="menu">
         <button
-          class="mi" onclick={() => animateListChange(() => ontogglepin({
+          class="menu-item" onclick={() => animateListChange(() => ontogglepin({
             path: project,
             pinned: !pinned
           }))}
@@ -555,22 +555,22 @@
           popovertargetaction="hide"
           role="menuitem"
           type="button">
-          <span class="mi-ico"><Icon name="star" size={15} /></span>
+          <span class="menu-item-icon"><Icon name="star" size={15} /></span>
           <span>{#if pinned}
             Unpin from top{:else}Pin to top{/if}</span>
         </button>
         <button
-          class="mi" onclick={() => animateListChange(() => onremoverecent(project))}
+          class="menu-item" onclick={() => animateListChange(() => onremoverecent(project))}
           popovertarget={menuId}
           popovertargetaction="hide"
           role="menuitem"
           type="button">
-          <span class="mi-ico"><Icon name="close" size={15} /></span>
+          <span class="menu-item-icon"><Icon name="close" size={15} /></span>
           <span>Remove from list</span>
         </button>
-        <div class="sep"></div>
+        <div class="separator"></div>
         <button
-          class="mi critical" onclick={() => {
+          class="menu-item critical" onclick={() => {
             deleteError = "";
             deletePending = project;
           }}
@@ -578,10 +578,10 @@
           popovertargetaction="hide"
           role="menuitem"
           type="button">
-          <span class="mi-ico"><Icon name="trash" size={15} /></span>
-          <span class="mi-body">
+          <span class="menu-item-icon"><Icon name="trash" size={15} /></span>
+          <span class="menu-item-body">
             <span>Delete directory</span>
-            <span class="mi-sub">{project}</span>
+            <span class="menu-item-subtitle">{project}</span>
           </span>
         </button>
       </div>
@@ -591,7 +591,7 @@
     {#snippet rowMain(project: string)}
       {@const current = isCurrent(project)}
       <button
-        class="prow-main"
+        class="project-row-main"
         class:current
         aria-checked={current}
         onclick={e => pick(project, e)}
@@ -599,14 +599,14 @@
         type="button"
       >
         <ProjectKindIcon path={project} />
-        <span class="prow-body">
-          <span class="prow-name-row">
-            <span class="prow-name">{displayName(project, labels)}</span>
+        <span class="project-row-body">
+          <span class="project-row-name-line">
+            <span class="project-row-name">{displayName(project, labels)}</span>
             {#if isTemporaryWorkspace(project)}
-              <span class="temp">temp</span>
+              <span class="temporary">temp</span>
             {/if}
           </span>
-          <span class="prow-meta">
+          <span class="project-row-metadata">
             {#if branches[project]}
               <span class="branch">
                 <span class="branch-icon" aria-hidden="true"><Icon name="branch" size={11} /></span>
@@ -614,13 +614,13 @@
               </span>
             {/if}
             <span
-              class="prow-path" {@attach truncationTooltip({
+              class="project-row-path" {@attach truncationTooltip({
                 tooltip: project
               })}>{project}</span>
           </span>
         </span>
         {#if current}
-          <span class="prow-check" aria-hidden="true"><Icon name="check" size={15} /></span>
+          <span class="project-row-check" aria-hidden="true"><Icon name="check" size={15} /></span>
         {/if}
       </button>
     {/snippet}
@@ -635,7 +635,7 @@
                data-pin-id keeps a flat drag-sibling set for the reorder engine. -->
           <div
             style:view-transition-name={rowTransitionName(project)}
-            class="prow"
+            class="project-row"
             data-pin-id={filter.trim() === "" ? project : undefined}
           >
             {#if pinsReorderable}
@@ -668,7 +668,7 @@
         </div>
         {#each recentShown as project (project)}
           {@const menuId = rowMenuId(project)}
-          <div style:view-transition-name={rowTransitionName(project)} class="prow">
+          <div style:view-transition-name={rowTransitionName(project)} class="project-row">
             {@render rowMain(project)}
             {@render rowMenu(project, false, menuId)}
           </div>
@@ -682,7 +682,7 @@
       {/if}
     </div>
 
-    <div class="sep"></div>
+    <div class="separator"></div>
 
     <button
       class="action" onclick={() => {
@@ -691,10 +691,10 @@
       }} role="menuitem" type="button">
       <span class="lead"><Icon name="swap" /></span>
       <span class="grow">Open a project…</span>
-      <span class="sub">All projects &amp; clone</span>
+      <span class="subtitle">All projects &amp; clone</span>
     </button>
 
-    <div class="sep"></div>
+    <div class="separator"></div>
 
     <div class="eyebrow section">New window</div>
     <button class="action" onclick={() => spawn({ mode: "empty" })} role="menuitem" type="button">
@@ -773,7 +773,7 @@
     white-space: nowrap;
     cursor: pointer;
     transition: background 150ms var(--ease);
-    anchor-name: --m-app;
+    anchor-name: --application-menu-anchor;
 
     &:hover {
       background: var(--surface-2);
@@ -812,7 +812,7 @@
   }
 
   /* A small temp pill, reused in the trigger, the window rows, and project rows. */
-  .temp {
+  .temporary {
     flex: none;
     padding-block: 1px;
     padding-inline: 6px;
@@ -953,8 +953,8 @@
   }
 
   /* A window row: a drag grip (when reorderable) beside its focus button, laid out
-     like a pinned .prow so the shared .grip sits flush to the row's left edge. */
-  .wrow-item {
+     like a pinned .project-row so the shared .grip sits flush to the row's left edge. */
+  .open-window-row-item {
     position: relative;
     display: flex;
     gap: 2px;
@@ -962,7 +962,7 @@
   }
 
   /* An open-window row: focus another window, or "this window" for the current one. */
-  .wrow {
+  .open-window-row {
     display: flex;
     flex: 1;
     gap: 9px;
@@ -990,7 +990,7 @@
       outline: none;
     }
 
-    .wrow-name {
+    .open-window-row-name {
       overflow: hidden;
       min-inline-size: 0;
       font-family: var(--font-monospace);
@@ -1000,7 +1000,7 @@
       white-space: nowrap;
     }
 
-    .wrow-spacer {
+    .open-window-row-spacer {
       flex: 1;
       min-inline-size: 8px;
     }
@@ -1014,14 +1014,14 @@
       text-transform: uppercase;
     }
 
-    .wrow-focus {
+    .open-window-row-focus {
       display: inline-flex;
       flex: none;
       color: var(--on-surface-variant);
     }
 
-    &:hover .wrow-focus,
-    &:focus-visible .wrow-focus {
+    &:hover .open-window-row-focus,
+    &:focus-visible .open-window-row-focus {
       color: inherit;
     }
   }
@@ -1120,7 +1120,7 @@
     }
   }
 
-  .prow {
+  .project-row {
     position: relative;
     display: flex;
     gap: 2px;
@@ -1147,7 +1147,7 @@
     }
   }
 
-  .prow-main {
+  .project-row-main {
     display: flex;
     flex: 1;
     gap: 9px;
@@ -1177,7 +1177,7 @@
     }
   }
 
-  .prow-body {
+  .project-row-body {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -1185,13 +1185,13 @@
     line-height: 1.25;
   }
 
-  .prow-name-row {
+  .project-row-name-line {
     display: flex;
     gap: 6px;
     align-items: center;
     min-inline-size: 0;
 
-    .prow-name {
+    .project-row-name {
       overflow: hidden;
       font-family: var(--font-monospace);
       font-weight: 600;
@@ -1201,7 +1201,7 @@
     }
   }
 
-  .prow-meta {
+  .project-row-metadata {
     display: flex;
     gap: 7px;
     align-items: center;
@@ -1226,7 +1226,7 @@
       }
     }
 
-    .prow-path {
+    .project-row-path {
       overflow: hidden;
       min-inline-size: 0;
       color: var(--on-surface-variant);
@@ -1237,26 +1237,26 @@
     }
   }
 
-  .prow-main:hover .prow-meta,
-  .prow-main:focus-visible .prow-meta,
-  .prow-main:hover .prow-meta .branch,
-  .prow-main:focus-visible .prow-meta .branch {
+  .project-row-main:hover .project-row-metadata,
+  .project-row-main:focus-visible .project-row-metadata,
+  .project-row-main:hover .project-row-metadata .branch,
+  .project-row-main:focus-visible .project-row-metadata .branch {
     color: inherit;
   }
 
-  .prow-check {
+  .project-row-check {
     display: inline-flex;
     flex: none;
     color: var(--primary);
   }
 
-  .prow-main:hover .prow-check,
-  .prow-main:focus-visible .prow-check {
+  .project-row-main:hover .project-row-check,
+  .project-row-main:focus-visible .project-row-check {
     color: inherit;
   }
 
   /* Row kebab — the ⋮ button opening the per-row options popover. */
-  .prow-kebab {
+  .project-row-kebab {
     display: inline-flex;
     flex: none;
     justify-content: center;
@@ -1280,20 +1280,20 @@
   }
 
   /* Reveal the kebab on row hover/focus (or while its own menu is open). */
-  .prow:hover .prow-kebab,
-  .prow:focus-within .prow-kebab {
+  .project-row:hover .project-row-kebab,
+  .project-row:focus-within .project-row-kebab {
     opacity: 100%;
   }
 
   /* Per-row options popover — Pin/Unpin, Remove, Delete. Width is capped so the
-     Delete item's path ellipsizes (.mi-sub) instead of ballooning the menu wide
+     Delete item's path ellipsizes (.menu-item-subtitle) instead of ballooning the menu wide
      enough to spill past the panel over the terminal. */
   .row-menu {
     min-inline-size: 210px;
     max-inline-size: 260px;
     position-area: bottom span-left;
 
-    .mi {
+    .menu-item {
       display: flex;
       gap: 9px;
       align-items: center;
@@ -1318,25 +1318,25 @@
         outline: none;
       }
 
-      .mi-ico {
+      .menu-item-icon {
         display: inline-flex;
         flex: none;
         color: var(--on-surface-variant);
       }
 
-      &:hover .mi-ico,
-      &:focus-visible .mi-ico {
+      &:hover .menu-item-icon,
+      &:focus-visible .menu-item-icon {
         color: inherit;
       }
 
-      .mi-body {
+      .menu-item-body {
         display: flex;
         flex-direction: column;
         gap: 1px;
         min-inline-size: 0;
       }
 
-      .mi-sub {
+      .menu-item-subtitle {
         overflow: hidden;
         color: var(--on-surface-variant);
         font-family: var(--font-monospace);
@@ -1348,10 +1348,10 @@
 
     /* Delete reads critical-red at rest so it's legible as dangerous before hover;
        its wash on hover stays critical rather than the primary fill. */
-    .mi.critical {
+    .menu-item.critical {
       color: var(--critical);
 
-      .mi-ico {
+      .menu-item-icon {
         color: var(--critical);
       }
 
@@ -1361,10 +1361,10 @@
         color: var(--critical);
       }
 
-      &:hover .mi-ico,
-      &:focus-visible .mi-ico,
-      &:hover .mi-sub,
-      &:focus-visible .mi-sub {
+      &:hover .menu-item-icon,
+      &:focus-visible .menu-item-icon,
+      &:hover .menu-item-subtitle,
+      &:focus-visible .menu-item-subtitle {
         color: var(--critical);
       }
     }
@@ -1382,7 +1382,7 @@
     }
   }
 
-  .sep {
+  .separator {
     block-size: 1px;
     margin-block: 6px;
     margin-inline: 8px;
@@ -1443,7 +1443,7 @@
       }
     }
 
-    .sub {
+    .subtitle {
       flex: none;
       color: var(--on-surface-variant);
       font-weight: 600;
@@ -1463,8 +1463,8 @@
 
     &:hover .lead,
     &:focus-visible .lead,
-    &:hover .sub,
-    &:focus-visible .sub,
+    &:hover .subtitle,
+    &:focus-visible .subtitle,
     &:hover .kbd,
     &:focus-visible .kbd {
       color: inherit;

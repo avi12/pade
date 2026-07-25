@@ -125,7 +125,7 @@
 <dialog
   bind:this={dialogEl}
   class="dialog"
-  aria-describedby="commit-meta"
+  aria-describedby="commit-metadata"
   aria-labelledby="commit-title"
   oncancel={e => {
     e.preventDefault();
@@ -140,27 +140,27 @@
   <header class="head">
     <div class="lockup">
       <div class="chips">
-        <code class="sha-chip">{commit.short}</code>
+        <code class="commit-hash-chip">{commit.short}</code>
         {#if commit.branch}
-          <span class="branch"><span class="bdot" aria-hidden="true"></span>{commit.branch}</span>
+          <span class="branch"><span class="branch-dot" aria-hidden="true"></span>{commit.branch}</span>
         {/if}
       </div>
       <h2 id="commit-title">{commit.summary}</h2>
-      <p id="commit-meta" class="meta">
+      <p id="commit-metadata" class="metadata">
         <span>{commit.author} · {commit.when}</span>
-        <span class="sep" aria-hidden="true"></span>
-        <span class="files-n">{fileCountLabel}</span>
+        <span class="separator" aria-hidden="true"></span>
+        <span class="file-count">{fileCountLabel}</span>
         {#if commit.additions}
           <span class="add">+{formatCount(commit.additions)}</span>
         {/if}
         {#if commit.deletions}
-          <span class="del">−{formatCount(commit.deletions)}</span>
+          <span class="deletion">−{formatCount(commit.deletions)}</span>
         {/if}
       </p>
     </div>
     <div class="actions">
       <button
-        class="ghbtn"
+        class="github-button"
         data-tooltip={commitUrl ? "Open this commit on GitHub" : "No remote configured"}
         disabled={!commitUrl}
         onclick={openOnGithub}
@@ -237,7 +237,7 @@
       align-items: center;
     }
 
-    .sha-chip {
+    .commit-hash-chip {
       padding-block: 3px;
       padding-inline: 9px;
       border-radius: var(--radius-small);
@@ -257,7 +257,7 @@
       font-size: 11px;
     }
 
-    .bdot {
+    .branch-dot {
       block-size: 6px;
       inline-size: 6px;
       border-radius: 999px;
@@ -272,7 +272,7 @@
       text-wrap: balance;
     }
 
-    .meta {
+    .metadata {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -283,11 +283,11 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .files-n {
+    .file-count {
       font-variant-numeric: tabular-nums;
     }
 
-    .sep {
+    .separator {
       block-size: 4px;
       inline-size: 4px;
       border-radius: 999px;
@@ -300,7 +300,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .del {
+    .deletion {
       color: var(--critical);
       font-weight: 600;
       font-variant-numeric: tabular-nums;
@@ -314,7 +314,7 @@
     align-items: center;
   }
 
-  .ghbtn {
+  .github-button {
     display: inline-flex;
     gap: 7px;
     align-items: center;

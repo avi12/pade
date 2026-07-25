@@ -77,10 +77,10 @@
   </div>
 
   {#if showSkeleton}
-    <div class="agent-skels" aria-hidden="true">
-      <span class="agent-skel"></span>
-      <span style:animation-delay="0.15s" class="agent-skel"></span>
-      <span style:animation-delay="0.3s" class="agent-skel"></span>
+    <div class="agent-skeletons" aria-hidden="true">
+      <span class="agent-skeleton"></span>
+      <span style:animation-delay="0.15s" class="agent-skeleton"></span>
+      <span style:animation-delay="0.3s" class="agent-skeleton"></span>
     </div>
   {:else if showEmpty}
     <p class="agent-empty">
@@ -118,13 +118,13 @@
   /* The Reload pill (.rescan) is shared chrome — see picker/chrome.css. */
 
   /* Skeleton chips while the first scan runs. */
-  .agent-skels {
+  .agent-skeletons {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  .agent-skel {
+  .agent-skeleton {
     block-size: 35px;
     border-radius: 999px;
     background: var(--surface-2);

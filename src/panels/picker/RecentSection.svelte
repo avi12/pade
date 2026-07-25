@@ -66,8 +66,8 @@
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
               {/if}
-              <span class="rname">{displayName(path, labels)}</span>
-              <span class="rpath">{path}</span>
+              <span class="recent-name">{displayName(path, labels)}</span>
+              <span class="recent-path">{path}</span>
             </button>
             <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
             <RowMenu {lifecycle} {path} scope="recent" />
@@ -142,14 +142,14 @@
       background: var(--surface-2);
     }
 
-    .rname {
+    .recent-name {
       flex: none;
       font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 13px;
     }
 
-    .rpath {
+    .recent-path {
       overflow: hidden;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);

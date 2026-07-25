@@ -36,10 +36,10 @@
 </script>
 
 <nav class="files" aria-label="Changed files">
-  <h3 id="commit-files-label" class="files-eyebrow">Files</h3>
+  <h3 id="commit-file-list-label" class="files-eyebrow">Files</h3>
   <ul
     bind:this={listEl}
-    aria-labelledby="commit-files-label"
+    aria-labelledby="commit-file-list-label"
     aria-orientation="vertical"
     onkeydown={e => {
       const isVertical = e.key === "ArrowDown" || e.key === "ArrowUp";
@@ -77,7 +77,7 @@
       <li role="presentation">
         <button
           class="file {f.kind}"
-          class:sel={isSel}
+          class:selected={isSel}
           aria-controls="commit-diff"
           aria-label="{baseName(f.path)}, {f.kind}, +{formatCount(f.additions)} −{formatCount(f.deletions)}"
           aria-selected={isSel}
@@ -88,14 +88,14 @@
         >
           <span class="file-top">
             <span class="kind" aria-hidden="true">{badge(f.kind)}</span>
-            <span class="fname">{baseName(f.path)}</span>
+             <span class="file-name">{baseName(f.path)}</span>
           </span>
-          <span class="file-stat" aria-hidden="true">
+          <span class="file-statistics" aria-hidden="true">
             {#if f.additions}
               <span class="add">+{formatCount(f.additions)}</span>
             {/if}
             {#if f.deletions}
-              <span class="del">−{formatCount(f.deletions)}</span>
+              <span class="deletion">−{formatCount(f.deletions)}</span>
             {/if}
           </span>
         </button>
@@ -159,7 +159,7 @@
       box-shadow: inset 0 0 0 2px var(--primary);
     }
 
-    &.sel {
+    &.selected {
       background: var(--primary-container);
       color: var(--on-primary-container);
     }
@@ -199,7 +199,7 @@
       color: var(--critical);
     }
 
-    .fname {
+    .file-name {
       flex: 1;
       overflow: hidden;
       min-inline-size: 0;
@@ -210,7 +210,7 @@
       white-space: nowrap;
     }
 
-    .file-stat {
+    .file-statistics {
       display: flex;
       gap: 8px;
       padding-inline-start: 2px;
@@ -223,7 +223,7 @@
       color: var(--tertiary);
     }
 
-    .del {
+    .deletion {
       color: var(--critical);
     }
   }

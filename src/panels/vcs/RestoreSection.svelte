@@ -83,10 +83,10 @@
   </p>
 
   {#if restoreError}
-    <p class="restore-msg crit">{restoreError}</p>
+    <p class="restore-message critical">{restoreError}</p>
   {/if}
   {#if restoreDone}
-    <p class="restore-msg ok">Checked out on <code>{restoreDone}</code></p>
+    <p class="restore-message successful">Checked out on <code>{restoreDone}</code></p>
   {/if}
 
   {#if candidates.length}
@@ -110,14 +110,14 @@
             }}
           >
             <div class="cand-top">
-              <code class="sha">{c.short}</code>
+              <code class="commit-hash">{c.short}</code>
               <span class="summary">{c.summary}</span>
             </div>
             <div class="cand-bot">
-              <span class="by">{c.author} · {c.when}</span>
+                <span class="author-details">{c.author} · {c.when}</span>
               <span class="conf" aria-label="Match confidence">
                 <span class="bar"><span style:inline-size="{confidencePct(c.score)}%" class="fill"></span></span>
-                <span class="pct">{formatPercent(confidencePct(c.score))}</span>
+                <span class="percent">{formatPercent(confidencePct(c.score))}</span>
               </span>
             </div>
           </button>
@@ -214,21 +214,21 @@
       font-family: var(--font-monospace);
     }
 
-    .restore-msg {
+    .restore-message {
       margin: 0;
       font-size: 12px;
     }
 
-    .restore-msg code {
+    .restore-message code {
       font-family: var(--font-monospace);
       font-weight: 600;
     }
 
-    .restore-msg.ok {
+    .restore-message.successful {
       color: var(--tertiary);
     }
 
-    .restore-msg.crit {
+    .restore-message.critical {
       color: var(--critical);
       white-space: pre-wrap;
     }
@@ -305,7 +305,7 @@
       background: var(--tertiary);
     }
 
-    .pct {
+    .percent {
       color: var(--on-surface-variant);
       font-size: 11px;
       font-variant-numeric: tabular-nums;

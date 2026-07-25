@@ -235,7 +235,7 @@
   // clone URL input occupies the same spot). Tauri reports physical pixels;
   // rects are CSS pixels.
   function isOverLocalField({ x, y }: DragPosition): boolean {
-    const row = localInput?.closest(".np-loc");
+    const row = localInput?.closest(".new-project-location");
     if (tab !== StartTab.local || !row) {
       return false;
     }
@@ -395,7 +395,7 @@
      declarative popovertargetaction="hide" would run after the click handler
      and cancel the smooth scroll to the add field. -->
 {#snippet rootSelect(menuId: string)}
-  <span class="root-sel menu-host">
+  <span class="root-selector menu-host">
     <button
       class="root-trigger menu-trigger"
       aria-label="Root folder"
@@ -410,7 +410,7 @@
         {@const isPicked = createIn === root}
         <li>
           <button
-            class="mi root-opt"
+            class="menu-item root-option"
             class:picked={isPicked}
             aria-current={isPicked}
             onclick={() => (createIn = root)}
@@ -427,7 +427,7 @@
       {/each}
       <li class:separated={roots.length > 0}>
         <button
-          class="mi root-new"
+          class="menu-item root-new"
           onclick={e => {
             e.currentTarget.closest("ul")?.hidePopover();
             onnewroot();
@@ -543,17 +543,17 @@
             throwaway temp workspace, auto-named once the agent starts working.
           </p>
 
-          <div class="np-field">
-            <span id="np-loc-label" class="np-label">Location</span>
-            <div style:anchor-name="--np-root-menu-create" class="np-loc" aria-labelledby="np-loc-label" role="group">
-              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-              {@render rootSelect("np-root-menu-create")}
-              <span class="np-sep" aria-hidden="true">\</span>
-              <label class="visually-hidden" for="np-name">Project name</label>
+          <div class="new-project-field">
+            <span id="new-project-location-label" class="new-project-label">Location</span>
+            <div style:anchor-name="--new-project-root-menu-create" class="new-project-location" aria-labelledby="new-project-location-label" role="group">
+              <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
+              {@render rootSelect("new-project-root-menu-create")}
+              <span class="new-project-separator" aria-hidden="true">\</span>
+              <label class="visually-hidden" for="new-project-name">Project name</label>
               <input
-                id="np-name"
-                class="np-name"
-                aria-describedby={createNameError ? "np-name-error" : undefined}
+                id="new-project-name"
+                class="new-project-name"
+                aria-describedby={createNameError ? "new-project-name-error" : undefined}
                 aria-invalid={createNameError !== null}
                 autocomplete="off"
                 placeholder="project-name"
@@ -563,7 +563,7 @@
             </div>
             {#if createNameError}
               <output
-                id="np-name-error"
+                id="new-project-name-error"
                 class="field-error"
                 in:expandRow
                 out:collapseRow
@@ -579,13 +579,13 @@
             {/if}
           </div>
 
-          <div class="np-field">
-            <label class="np-label" for="np-prompt">
-              First prompt <span class="np-optional">— optional</span>
+          <div class="new-project-field">
+            <label class="new-project-label" for="new-project-prompt">
+              First prompt <span class="new-project-optional">— optional</span>
             </label>
             <textarea
-              id="np-prompt"
-              class="np-prompt"
+              id="new-project-prompt"
+              class="new-project-prompt"
               placeholder="e.g. scaffold a SvelteKit app with Tailwind"
               rows="2"
               bind:value={createPrompt}
@@ -593,8 +593,8 @@
           </div>
 
           {#if newAgentMulti}
-            <div class="np-field">
-              <span class="np-label">Agent</span>
+            <div class="new-project-field">
+              <span class="new-project-label">Agent</span>
               <AgentChips
                 agents={realAgents}
                 ariaLabel="Agent to launch"
@@ -645,10 +645,10 @@
             onopen({ path });
           }}
         >
-          <div class="np-field">
-            <label class="np-label" for="local-path">Project folder</label>
-            <div class="np-loc" class:drop-ready={dropReady}>
-              <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
+          <div class="new-project-field">
+            <label class="new-project-label" for="local-path">Project folder</label>
+            <div class="new-project-location" class:drop-ready={dropReady}>
+              <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
               <PathCombobox
                 id="local-path"
                 name="local"
@@ -682,9 +682,9 @@
       <div class="slot" class:open={tab === StartTab.clone} data-tab={StartTab.clone}>
         {#if gitInstalled !== null}
           {#if !gitInstalled}
-            <div class="panel warn-card">
-              <p class="warn-head">
-                <span class="warn-ico" aria-hidden="true"><Icon name="alert" size={16} /></span>
+            <div class="panel warning-card">
+              <p class="warning-header">
+                <span class="warning-icon" aria-hidden="true"><Icon name="alert" size={16} /></span>
                 <strong>Git isn’t installed</strong>
               </p>
               <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check.</p>
@@ -736,8 +736,8 @@
                 }
               }}
             >
-              <div class="np-field">
-                <label class="np-label" for="clone-url">Repository URL</label>
+              <div class="new-project-field">
+                <label class="new-project-label" for="clone-url">Repository URL</label>
                 <input
                   id="clone-url"
                   class="path-input framed"
@@ -753,23 +753,23 @@
                 {/if}
               </div>
 
-              <div class="np-field">
-                <span id="clone-loc-label" class="np-label">
-                  Clone into <span class="np-optional">— folder name auto-filled from the repo</span>
+              <div class="new-project-field">
+                <span id="clone-location-label" class="new-project-label">
+                  Clone into <span class="new-project-optional">— folder name auto-filled from the repo</span>
                 </span>
                 <div
-                  style:anchor-name="--np-root-menu-clone"
-                  class="np-loc"
-                  aria-labelledby="clone-loc-label"
+                  style:anchor-name="--new-project-root-menu-clone"
+                  class="new-project-location"
+                  aria-labelledby="clone-location-label"
                   role="group"
                 >
-                  <span class="np-loc-ico" aria-hidden="true"><Icon name="folder" /></span>
-                  {@render rootSelect("np-root-menu-clone")}
-                  <span class="np-sep" aria-hidden="true">\</span>
+                  <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
+                  {@render rootSelect("new-project-root-menu-clone")}
+                  <span class="new-project-separator" aria-hidden="true">\</span>
                   <label class="visually-hidden" for="clone-name">Folder name</label>
                   <input
                     id="clone-name"
-                    class="np-name"
+                    class="new-project-name"
                     autocomplete="off"
                     oninput={() => (cloneNameEdited = true)}
                     placeholder="repo"
@@ -780,27 +780,27 @@
               </div>
 
               {#if needsCredentials}
-                <div class="warn-card creds">
-                  <p class="warn-head">
-                    <span class="warn-ico" aria-hidden="true"><Icon name="alert" size={16} /></span>
+                <div class="warning-card credentials">
+                  <p class="warning-header">
+                    <span class="warning-icon" aria-hidden="true"><Icon name="alert" size={16} /></span>
                     <span>No SSH key set up for this host — sign in to clone over HTTPS instead.</span>
                   </p>
-                  <div class="np-field">
-                    <label class="np-label" for="clone-user">Email or username</label>
+                  <div class="new-project-field">
+                    <label class="new-project-label" for="clone-user">Email or username</label>
                     <input
                       id="clone-user"
-                      class="cred-input"
+                      class="credential-input"
                       autocomplete="username"
                       placeholder="you@example.com"
                       spellcheck="false"
                       bind:value={cloneUsername}
                     />
                   </div>
-                  <div class="np-field">
-                    <label class="np-label" for="clone-password">Password or access token</label>
+                  <div class="new-project-field">
+                    <label class="new-project-label" for="clone-password">Password or access token</label>
                     <input
                       id="clone-password"
-                      class="cred-input"
+                      class="credential-input"
                       autocomplete="current-password"
                       placeholder="••••••••••••"
                       type="password"
@@ -886,26 +886,26 @@
     gap: 14px;
   }
 
-  .np-field {
+  .new-project-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  .np-label {
+  .new-project-label {
     color: var(--on-surface-variant);
     font-weight: 600;
     font-size: 11px;
     letter-spacing: 0.03em;
   }
 
-  .np-optional {
+  .new-project-optional {
     font-weight: 400;
     opacity: 75%;
   }
 
   /* A "Location"-style group row: folder icon + its contents in one field. */
-  .np-loc {
+  .new-project-location {
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
@@ -916,13 +916,13 @@
     border-radius: var(--radius-medium);
     background: var(--surface-2);
 
-    .np-loc-ico {
+    .new-project-location-icon {
       display: inline-flex;
       flex: none;
       color: var(--on-surface-variant);
     }
 
-    .np-sep {
+    .new-project-separator {
       flex: none;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
@@ -933,7 +933,7 @@
        single focus indicator; the inner text field drops its own outline
        (theme.css rings every :focus-visible) so the two don't double up. The
        input lives inside the child PathCombobox, so `:global` reaches it —
-       still bounded by the scoped `.np-loc:focus-within` prefix. */
+       still bounded by the scoped `.new-project-location:focus-within` prefix. */
     &:focus-within {
       border-color: var(--primary);
     }
@@ -949,15 +949,15 @@
     }
   }
 
-  .np-name {
+  .new-project-name {
     /* Wide enough for its own "project-name" placeholder (12ch + padding) so
        the hint never clips yet shares the root's line; typing scrolls, and
        only a genuinely long root wraps the name below. */
-    --np-name-padding: 6px;
+    --new-project-name-padding: 6px;
 
-    flex: 1 1 calc(12ch + 2 * var(--np-name-padding));
-    min-inline-size: calc(12ch + 2 * var(--np-name-padding));
-    padding: var(--np-name-padding);
+    flex: 1 1 calc(12ch + 2 * var(--new-project-name-padding));
+    min-inline-size: calc(12ch + 2 * var(--new-project-name-padding));
+    padding: var(--new-project-name-padding);
     border: none;
     border-radius: var(--radius-small);
     background: transparent;
@@ -966,7 +966,7 @@
     font-size: 13px;
   }
 
-  .np-prompt {
+  .new-project-prompt {
     inline-size: 100%;
     padding: 9px 12px;
     border: 1px solid var(--outline);
@@ -1051,7 +1051,7 @@
   }
 
   /* Tonal warning surface: git missing, or the SSH→HTTPS credential fallback. */
-  .warn-card {
+  .warning-card {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -1060,7 +1060,7 @@
     border-radius: var(--radius-medium);
     background: var(--warning-wash);
 
-    .warn-head {
+    .warning-header {
       display: flex;
       gap: 8px;
       align-items: flex-start;
@@ -1070,7 +1070,7 @@
       line-height: 1.45;
     }
 
-    .warn-ico {
+    .warning-icon {
       display: inline-flex;
       flex: none;
       margin-block-start: 1px;
@@ -1078,7 +1078,7 @@
     }
   }
 
-  .cred-input {
+  .credential-input {
     padding: 7px 10px;
     border: 1px solid var(--outline);
     border-radius: var(--radius-small);
@@ -1113,7 +1113,7 @@
   /* Root select — a native-popover custom select, like the editor selects.
      Sized to its content (no grow): a short root shares one line with the
      name input; only a genuinely long one wraps the row. */
-  .root-sel {
+  .root-selector {
     position: relative;
     flex: 0 1 auto;
     min-inline-size: 0;
@@ -1161,7 +1161,7 @@
   /* Open state — the field's own extra on top of the shared `.menu-host` active
      look (border/background/caret, from theme.css): the trigger text tints
      primary while the menu is open. Pure CSS, field-scoped. */
-  .root-sel:has(.root-menu:popover-open) .root-trigger {
+  .root-selector:has(.root-menu:popover-open) .root-trigger {
     color: var(--primary);
   }
 
@@ -1172,7 +1172,7 @@
        with the field's start — the folder icon — and is at least field-wide. */
     position-area: block-end span-inline-end;
 
-    .root-opt {
+    .root-option {
       justify-content: space-between;
       font-family: var(--font-monospace);
       font-weight: 600;

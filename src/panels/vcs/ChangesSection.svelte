@@ -56,7 +56,7 @@
   <section class="group">
     <h3><span class="dot agent"></span> Unreviewed <span class="n">{formatCount(unstaged.length)}</span></h3>
     {#each unstaged as e (e.path)}
-      <button class="row" class:sel={selected?.path === e.path} onclick={() => open(e)}>
+      <button class="row" class:selected={selected?.path === e.path} onclick={() => open(e)}>
         <span class="k {e.kind}">{e.kind[0].toUpperCase()}</span>
         <span class="fname">{baseName(e.path)}</span>
       </button>
@@ -68,7 +68,7 @@
   <section class="group">
     <h3><span class="dot staged"></span> Staged <span class="n">{formatCount(staged.length)}</span></h3>
     {#each staged as e (e.path)}
-      <button class="row" class:sel={selected?.path === e.path} onclick={() => open(e)}>
+      <button class="row" class:selected={selected?.path === e.path} onclick={() => open(e)}>
         <span class="k {e.kind}">{e.kind[0].toUpperCase()}</span>
         <span class="fname">{baseName(e.path)}</span>
       </button>
@@ -134,7 +134,7 @@
     background: var(--surface-2);
   }
 
-  .row.sel {
+  .row.selected {
     background: var(--primary-container);
     color: var(--on-primary-container);
   }

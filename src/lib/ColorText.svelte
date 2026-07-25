@@ -28,15 +28,15 @@
 </script>
 
 {#each tokens as token, index (index)}<span
-  class:cmt={token.cls === "comment"}
-  class:fn={token.cls === "function"}
-  class:kw={token.cls === "keyword"}
-  class:num={token.cls === "number"}
-  class:prop={token.cls === "property"}
-  class:str={token.cls === "string"}
+  class:comment={token.cls === "comment"}
+  class:function={token.cls === "function"}
+  class:keyword={token.cls === "keyword"}
+  class:number={token.cls === "number"}
+  class:property={token.cls === "property"}
+  class:string={token.cls === "string"}
 >{token.text}{#if token.color}
   <span
-    style:--sw={token.color}
+    style:--swatch-color={token.color}
     class="swatch"
     aria-hidden="true"
     title={token.color}
@@ -44,28 +44,28 @@
 {/if}</span>{/each}
 
 <style>
-  .cmt {
+  .comment {
     color: var(--syntax-comment);
     font-style: italic;
   }
 
-  .str {
+  .string {
     color: var(--syntax-string);
   }
 
-  .num {
+  .number {
     color: var(--syntax-number);
   }
 
-  .kw {
+  .keyword {
     color: var(--syntax-keyword);
   }
 
-  .fn {
+  .function {
     color: var(--syntax-function);
   }
 
-  .prop {
+  .property {
     color: var(--syntax-property);
   }
 
@@ -76,7 +76,7 @@
     inline-size: 0.85em;
     margin-inline: 4px 1px;
     border-radius: 3px;
-    background: var(--sw);
+    background: var(--swatch-color);
 
     /* An inset hairline so a swatch stays visible whether it's near-white on a
        light code surface or near-black on a dark one. */

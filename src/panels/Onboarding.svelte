@@ -42,7 +42,7 @@
               <Icon name={agentIconName(a.id)} size={18} />
               <span class="name">{a.label}</span>
             </span>
-            <code class="cmd">{a.command}</code>
+            <code class="command">{a.command}</code>
           </button>
         </li>
       {/each}
@@ -212,13 +212,13 @@
       font-size: 16px;
     }
 
-    .cmd {
+    .command {
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-size: 12px;
     }
 
-    &:hover .cmd {
+    &:hover .command {
       color: var(--on-primary-container);
     }
   }

@@ -186,10 +186,10 @@
         {#each pillGroups as group (group.id)}
           {@const groupWorst = worstLimit(group.limits)}
           <span
-            class="agent-pill sev"
-            class:crit={groupWorst?.level === "crit"}
+            class="agent-pill severity"
+            class:critical={groupWorst?.level === "crit"}
             class:unknown={group.unknown}
-            class:warn={groupWorst?.level === "warn"}
+            class:warning={groupWorst?.level === "warn"}
           >
             <span class="agent-pill-id">
               <span class="agent-icon"><Icon name={group.icon} /></span>
@@ -199,12 +199,12 @@
               <span class="agent-pill-limits">
                 {#each group.limits as limit (limit.label)}
                   <span
-                    class="agent-pill-limit sev"
-                    class:crit={limit.level === "crit"}
-                    class:warn={limit.level === "warn"}
+                    class="agent-pill-limit severity"
+                    class:critical={limit.level === "crit"}
+                    class:warning={limit.level === "warn"}
                   >
                     <span class="agent-pill-kind">{limit.kindShort}</span>
-                    <span class="agent-pill-pct">{formatPercent(limit.pct)}</span>
+                    <span class="agent-pill-percent">{formatPercent(limit.pct)}</span>
                   </span>
                 {/each}
               </span>
@@ -215,9 +215,9 @@
         {/each}
         {#if overflowCount > 0}
           <span
-            class="overflow-chip sev"
-            class:crit={overflowLevel === "crit"}
-            class:warn={overflowLevel === "warn"}
+            class="overflow-chip severity"
+            class:critical={overflowLevel === "crit"}
+            class:warning={overflowLevel === "warn"}
             data-tooltip={overflowTooltip}
           >
             {#if overflowLevel}
@@ -241,7 +241,7 @@
         <div class="severity-counts">
           {#each severitySlices as slice (slice.level)}
             {#if slice.count > 0}
-              <span class="severity-count sev" class:crit={slice.level === "crit"} class:warn={slice.level === "warn"}>
+              <span class="severity-count severity" class:critical={slice.level === "crit"} class:warning={slice.level === "warn"}>
                 <span class="severity-dot"></span>
                 <span class="severity-value">{formatCount(slice.count)}</span> {slice.label}
               </span>
@@ -255,9 +255,9 @@
           {#if slice.count > 0}
             <span
               style:inline-size="{(slice.count / measuredAgents) * 100}%"
-              class="distribution-segment sev"
-              class:crit={slice.level === "crit"}
-              class:warn={slice.level === "warn"}
+              class="distribution-segment severity"
+              class:critical={slice.level === "crit"}
+              class:warning={slice.level === "warn"}
             ></span>
           {/if}
         {/each}
@@ -265,9 +265,9 @@
 
       {#if spotlight}
         <section
-          class="spotlight sev"
-          class:crit={spotlight.limit.level === "crit"}
-          class:warn={spotlight.limit.level === "warn"}
+          class="spotlight severity"
+          class:critical={spotlight.limit.level === "crit"}
+          class:warning={spotlight.limit.level === "warn"}
         >
           <div class="spotlight-head">
             <span class="spotlight-id">
@@ -277,7 +277,7 @@
                 <span class="spotlight-title">{spotlight.agent.name} · {spotlight.limit.label}</span>
               </span>
             </span>
-            <output class="spotlight-pct">{formatPercent(spotlight.limit.pct)}</output>
+            <output class="spotlight-percent">{formatPercent(spotlight.limit.pct)}</output>
           </div>
           <span class="track">
             <span style:inline-size="{spotlight.limit.pct}%" class="track-fill"></span>
@@ -303,10 +303,10 @@
         {#each groups as group (group.id)}
           {@const groupWorst = worstLimit(group.limits)}
           <li
-            class="agent-card sev"
-            class:crit={groupWorst?.level === "crit"}
+            class="agent-card severity"
+            class:critical={groupWorst?.level === "crit"}
             class:unknown={group.unknown}
-            class:warn={groupWorst?.level === "warn"}
+            class:warning={groupWorst?.level === "warn"}
           >
             <div class="agent-head">
               <span class="agent-icon"><Icon name={group.icon} /></span>
@@ -317,15 +317,15 @@
               <div class="limits">
                 {#each group.limits as limit (limit.label)}
                   <div
-                    class="limit sev"
-                    class:crit={limit.level === "crit"}
-                    class:warn={limit.level === "warn"}
+                    class="limit severity"
+                    class:critical={limit.level === "crit"}
+                    class:warning={limit.level === "warn"}
                   >
                     <span class="limit-kind">{limit.kindShort}</span>
                     <span class="limit-track">
                       <span style:inline-size="{limit.pct}%" class="limit-fill"></span>
                     </span>
-                    <output class="limit-pct">{formatPercent(limit.pct)}</output>
+                    <output class="limit-percent">{formatPercent(limit.pct)}</output>
                     <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
                       {#if limit.reset}
                         <Icon name="clock" />{limit.reset}
@@ -349,20 +349,20 @@
     flex-shrink: 0;
   }
 
-  /* Severity color, shared: the level class sets --sev (and a faint --sev-wash
+  /* Severity color, shared: the level class sets --severity-color (and a faint --severity-wash
      tint for warn/crit) once, and every bar / number / row below just reads it
-     (DRY). --sev-wash stays unset at "normal" — there is no primary wash. */
-  .sev {
-    --sev: var(--primary);
+     (DRY). --severity-wash stays unset at "normal" — there is no primary wash. */
+  .severity {
+    --severity-color: var(--primary);
 
-    &.warn {
-      --sev: var(--warning);
-      --sev-wash: var(--warning-wash);
+    &.warning {
+      --severity-color: var(--warning);
+      --severity-wash: var(--warning-wash);
     }
 
-    &.crit {
-      --sev: var(--critical);
-      --sev-wash: var(--critical-wash);
+    &.critical {
+      --severity-color: var(--critical);
+      --severity-wash: var(--critical-wash);
     }
   }
 
@@ -392,7 +392,7 @@
     .agent-icon {
       display: inline-flex;
       flex: none;
-      color: var(--sev);
+      color: var(--severity-color);
       font-size: 13px;
     }
 
@@ -415,7 +415,7 @@
 
       /* No trustworthy usage → mute the whole pill; the dash carries the meaning. */
       &.unknown {
-        --sev: var(--on-surface-variant);
+        --severity-color: var(--on-surface-variant);
       }
     }
 
@@ -458,8 +458,8 @@
         letter-spacing: 0.02em;
       }
 
-      .agent-pill-pct {
-        color: var(--sev);
+      .agent-pill-percent {
+        color: var(--severity-color);
         font-weight: 700;
         font-size: 12px;
         font-variant-numeric: tabular-nums;
@@ -491,7 +491,7 @@
         block-size: 6px;
         inline-size: 6px;
         border-radius: 999px;
-        background: var(--sev);
+        background: var(--severity-color);
       }
     }
 
@@ -528,11 +528,11 @@
       text-transform: uppercase;
     }
 
-    /* An agent's icon, tinted by whichever severity its context set on --sev. */
+    /* An agent's icon, tinted by whichever severity its context set on --severity-color. */
     .agent-icon {
       display: inline-flex;
       flex: none;
-      color: var(--sev);
+      color: var(--severity-color);
       font-size: 15px;
     }
 
@@ -587,7 +587,7 @@
         block-size: 8px;
         inline-size: 8px;
         border-radius: 999px;
-        background: var(--sev);
+        background: var(--severity-color);
       }
 
       .severity-value {
@@ -608,7 +608,7 @@
 
     .distribution-segment {
       min-inline-size: 2px;
-      background: var(--sev);
+      background: var(--severity-color);
       transition: inline-size 300ms var(--ease), background 300ms var(--ease);
     }
 
@@ -655,9 +655,9 @@
         white-space: nowrap;
       }
 
-      .spotlight-pct {
+      .spotlight-percent {
         flex: none;
-        color: var(--sev);
+        color: var(--severity-color);
         font-weight: 800;
         font-size: 22px;
         line-height: 1;
@@ -686,7 +686,7 @@
       display: block;
       block-size: 100%;
       border-radius: 999px;
-      background: var(--sev);
+      background: var(--severity-color);
       transition: inline-size 300ms var(--ease), background 300ms var(--ease);
     }
 
@@ -752,16 +752,16 @@
       background: var(--surface-1);
 
       /* Near/crit cards lift onto the severity wash with a matching hairline. */
-      &.warn,
-      &.crit {
-        border-color: color-mix(in sRGB, var(--sev) 35%, var(--outline));
-        background: var(--sev-wash);
+      &.warning,
+      &.critical {
+        border-color: color-mix(in sRGB, var(--severity-color) 35%, var(--outline));
+        background: var(--severity-wash);
       }
 
       /* An unknown agent has no severity — mute its icon so the primary blue
          never reads as a (fabricated) "healthy" score. */
       &.unknown {
-        --sev: var(--on-surface-variant);
+        --severity-color: var(--on-surface-variant);
       }
     }
 
@@ -831,13 +831,13 @@
       display: block;
       block-size: 100%;
       border-radius: 999px;
-      background: var(--sev);
+      background: var(--severity-color);
       transition: inline-size 300ms var(--ease), background 300ms var(--ease);
     }
 
-    .limit-pct {
+    .limit-percent {
       min-inline-size: 2.5rem;
-      color: var(--sev);
+      color: var(--severity-color);
       font-weight: 700;
       font-size: 11.5px;
       font-variant-numeric: tabular-nums;

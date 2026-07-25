@@ -1497,7 +1497,7 @@
   }
 </script>
 
-<div class="term-wrap">
+<div class="terminal-wrapper">
   <!-- Pointer-only reorder handle for the split; the remove button stays
        keyboard-reachable, so the drag is a pure enhancement. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1515,15 +1515,15 @@
       </button>
     {/if}
   </header>
-  <div class="term-pad">
-    <div bind:this={viewport} class="term-viewport" class:anchor-bottom={anchorBottom}>
-      <div bind:this={host} style:scale={`1 ${squeeze}`} class="term-host"></div>
+  <div class="terminal-padding">
+    <div bind:this={viewport} class="terminal-viewport" class:anchor-bottom={anchorBottom}>
+      <div bind:this={host} style:scale={`1 ${squeeze}`} class="terminal-host"></div>
     </div>
   </div>
 </div>
 
 <style>
-  .term-wrap {
+  .terminal-wrapper {
     display: flex;
     flex-direction: column;
     block-size: 100%;
@@ -1579,7 +1579,7 @@
   /* Visual insets live on this pad, off the measured viewport, so they never
      count toward the fit — it lifts the output off every pane edge (canon:
      12px top, 8px right, 8px bottom, 14px left). */
-  .term-pad {
+  .terminal-padding {
     flex: 1;
     min-block-size: 0;
     padding-block: 12px 8px;
@@ -1592,7 +1592,7 @@
      `anchorBottom`) — a fullscreen agent's frame and an unscrolled conversation pin the
      top, a scrolled one pins the bottom. The grid is whole cells and never quite fills
      the frame, so the leftover sits as a sliver of background at the unpinned edge. */
-  .term-viewport {
+  .terminal-viewport {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -1609,7 +1609,7 @@
        the top, so the squeeze pulls the overflowing bottom up into view rather than
        moving the text you are reading. At rest the scale is exactly 1: text stays crisp
        and clicks map at native cell size. */
-    .term-host {
+    .terminal-host {
       flex: none;
       transform-origin: top left;
     }

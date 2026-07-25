@@ -58,7 +58,7 @@
     </div>
   </div>
   <label class="check">
-    <span class="ck">
+    <span class="checkbox">
       <input checked={autoName} onchange={e => onautoname(e.currentTarget.checked)} type="checkbox" />
       <span class="box" aria-hidden="true">
         <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
@@ -68,7 +68,7 @@
   </label>
   {#if isWindows && ctxMenuOn !== null}
     <label class="check">
-      <span class="ck">
+      <span class="checkbox">
         <input
           checked={ctxMenuOn}
           onchange={async e => {
@@ -94,7 +94,7 @@
       <span>Add “Open in PADE” to the folder right-click menu</span>
     </label>
     {#if ctxMenuError}
-      <p class="ctx-error" role="alert">{ctxMenuError}</p>
+      <p class="context-menu-error" role="alert">{ctxMenuError}</p>
     {/if}
   {/if}
 </section>
@@ -129,7 +129,7 @@
 
   /* Modern-menu registration failure (e.g. Developer Mode off). A tonal warning
      surface rather than a hard border, per M3. */
-  .ctx-error {
+  .context-menu-error {
     margin-block: 2px 0;
     margin-inline-start: 30px;
     padding: 8px 12px;

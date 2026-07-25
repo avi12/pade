@@ -69,7 +69,7 @@
   <div class="ide menu-host">
     <button class="ide-open" onclick={() => open(bestFit)}>
       <span class="editor-glyph" data-brand={ideBrand(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
-      <span class="lbl">Open in {bestFit.label}</span>
+      <span class="label">Open in {bestFit.label}</span>
     </button>
     <button
       style:anchor-name="--ide-anchor"
@@ -109,7 +109,7 @@
           </button>
         </li>
       {/each}
-      <li class="sep" role="separator"></li>
+      <li class="separator" role="separator"></li>
       <li>
         <button onclick={() => os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
           <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
@@ -219,7 +219,7 @@
     }
 
     /* Hairline divider before the reveal action. */
-    .sep {
+    .separator {
       block-size: 1px;
       margin-block: 6px;
       margin-inline: 8px;

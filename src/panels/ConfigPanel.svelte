@@ -154,7 +154,7 @@
   });
 </script>
 
-<div class="cfg">
+<div class="configuration">
   <div class="scroll">
     <section class="appearance">
       <h3 class="card-label">Appearance</h3>
@@ -164,7 +164,7 @@
         <div class="segmented" aria-label="Theme" role="group">
           {#each themeOptions as option (option.mode)}
             <button
-              class="opt"
+              class="option"
               class:on={effective.themeMode === option.mode}
               aria-pressed={effective.themeMode === option.mode}
               onclick={() => updatePrefs({ themeMode: option.mode })}
@@ -262,12 +262,12 @@
     {#each files as f (f.rel)}
       <button
         class="row"
-        class:sel={selected?.rel === f.rel}
+        class:selected={selected?.rel === f.rel}
         disabled={!f.exists}
         onclick={() => open(f)}
       >
         <span class="kind {f.kind}">{f.kind}</span>
-        <span class="rel">{f.rel}</span>
+        <span class="relative-path">{f.rel}</span>
         {#if !f.exists}
           <span class="missing">absent</span>
         {/if}
@@ -289,7 +289,7 @@
 </div>
 
 <style>
-  .cfg {
+  .configuration {
     display: flex;
     flex-direction: column;
     block-size: 100%;
@@ -347,7 +347,7 @@
     border-radius: 12px;
     background: var(--surface-2);
 
-    .opt {
+    .option {
       display: inline-flex;
       flex: 1;
       gap: 6px;
@@ -574,7 +574,7 @@
       cursor: default;
     }
 
-    &.sel {
+    &.selected {
       background: var(--primary-container);
       color: var(--on-primary-container);
     }
@@ -603,7 +603,7 @@
     }
   }
 
-  .rel {
+  .relative-path {
     overflow: hidden;
     font-family: var(--font-monospace);
     font-size: 12px;

@@ -31,42 +31,42 @@
   <ul id={identifier} style:position-anchor="--{identifier}" class="menu popover-menu" popover>
     <li class="head">Reveal</li>
     <li>
-      <button class="mi" onclick={() => os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">
-        <Icon name="folder" /><span class="mi-txt">Open in Files</span>
+      <button class="menu-item" onclick={() => os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">
+        <Icon name="folder" /><span class="menu-item-text">Open in Files</span>
       </button>
     </li>
     <li>
-      <button class="mi" onclick={() => os.terminal(path)} popovertarget={identifier} popovertargetaction="hide">
-        <Icon name="terminal" /><span class="mi-txt">Open in Terminal</span>
+      <button class="menu-item" onclick={() => os.terminal(path)} popovertarget={identifier} popovertargetaction="hide">
+        <Icon name="terminal" /><span class="menu-item-text">Open in Terminal</span>
       </button>
     </li>
     {#if lifecycle.isOwned(path)}
-      <li class="head sep">Workspace</li>
+      <li class="head separator">Workspace</li>
       <li>
         <button
-          class="mi"
+          class="menu-item"
           onclick={() => lifecycle.startRename(path)}
           popovertarget={identifier}
           popovertargetaction="hide"
         >
-          <Icon name="pencil" /><span class="mi-txt">Rename to a project</span>
+          <Icon name="pencil" /><span class="menu-item-text">Rename to a project</span>
         </button>
       </li>
       <li>
         <button
-          class="mi"
+          class="menu-item"
           onclick={async () => await lifecycle.moveWorkspace(path)}
           popovertarget={identifier}
           popovertargetaction="hide"
         >
-          <Icon name="swap" /><span class="mi-txt">Move…</span>
+          <Icon name="swap" /><span class="menu-item-text">Move…</span>
         </button>
       </li>
       <li>
         <!-- Shift-click is the power-user path: it skips the confirmation and
            deletes straight away (a failure still surfaces in the dialog). -->
         <button
-          class="mi danger"
+          class="menu-item danger"
           onclick={async e => {
             if (e.shiftKey) {
               await lifecycle.deleteNow(path);
@@ -78,7 +78,7 @@
           popovertarget={identifier}
           popovertargetaction="hide"
         >
-          <Icon name="trash" /><span class="mi-txt">Delete workspace</span><kbd>⇧</kbd>
+          <Icon name="trash" /><span class="menu-item-text">Delete workspace</span><kbd>⇧</kbd>
         </button>
       </li>
     {/if}

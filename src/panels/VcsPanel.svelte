@@ -87,7 +87,7 @@
   });
 </script>
 
-<div class="vcs">
+<div class="version-control">
   {#if error}
     <p class="empty">Not a Git repository, or git is unavailable.</p>
   {:else}
@@ -102,7 +102,7 @@
 </div>
 
 <style>
-  .vcs {
+  .version-control {
     display: flex;
     flex-direction: column;
     height: 100%;

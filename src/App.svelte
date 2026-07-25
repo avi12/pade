@@ -881,7 +881,7 @@
       return;
     }
 
-    const menu = document.getElementById("add-menu");
+    const menu = document.getElementById("add-session-menu");
     if (!(menu instanceof HTMLElement) || menu.matches(":popover-open")) {
       return;
     }
@@ -1665,7 +1665,7 @@
             project={currentProject}
           />
 
-          <div class="seg" aria-label="Side panels" role="tablist">
+          <div class="segmented-control" aria-label="Side panels" role="tablist">
             {#each PANEL_TABS as tab (tab.id)}
               <button
                 aria-selected={side === tab.id}
@@ -1714,7 +1714,7 @@
         class:with-side={side !== null}
         data-resizing={resizingSidePanel || undefined}
       >
-        <section bind:this={panesElement} class="pane term-pane" data-panes>
+        <section bind:this={panesElement} class="pane terminal-pane" data-panes>
           <!-- A tab dragged over the panes reads as "open in split" — a dashed
                primary frame invites the drop; each pane then shows the left/right
                half the pointer is over (below). -->
@@ -1731,7 +1731,7 @@
             {#await import("@/panels/Terminal.svelte") then { default: Terminal }}
               {#each orderedSessions as s (s.id)}
                 <div
-                  class="term-slot"
+                  class="terminal-slot"
                   class:shown={paneIds.includes(s.id)}
                   data-pane-id={s.id}
                   onoutroend={() => collapsingSplitPanes.delete(s.id)}
@@ -1768,7 +1768,7 @@
             ><Icon name="columns" /></button>
             <ul id="pane-menu" style:position-anchor="--pane-anchor" class="menu pane-menu" popover>
               {#if splitCandidates.length > 0}
-                <li class="menu-sep">Add to split</li>
+                <li class="menu-separator">Add to split</li>
                 {#each splitCandidates as s (s.id)}
                   <li>
                     <button onclick={() => addPane(s.id)} popovertarget="pane-menu" popovertargetaction="hide">
@@ -1777,7 +1777,7 @@
                   </li>
                 {/each}
               {/if}
-              <li class="menu-sep">Launch a new instance</li>
+              <li class="menu-separator">Launch a new instance</li>
               {#each agents as a (a.id)}
                 <li>
                   <button
@@ -1921,7 +1921,7 @@
 
       {#if autoHandoff.note || usageResume.note || apiErrorRetry.note}
         <output class="handoff-note">
-          <span class="hdot"></span>
+          <span class="handoff-dot"></span>
           {autoHandoff.note || usageResume.note || apiErrorRetry.note}
         </output>
       {/if}
@@ -1930,7 +1930,7 @@
         <!-- <output> already carries role=status — a transient bottom pill that
              auto-dismisses via the showToast timer. -->
         <output class="toast">
-          <span class="tdot"><Icon name="external" /></span>
+          <span class="toast-icon"><Icon name="external" /></span>
           {toastText()}
         </output>
       {/if}
@@ -2094,7 +2094,7 @@
       }
     }
 
-    .menu-sep {
+    .menu-separator {
       margin-block: 6px 2px;
       padding-block: 2px 4px;
       padding-inline: 10px;
@@ -2106,7 +2106,7 @@
     }
   }
 
-  .seg {
+  .segmented-control {
     display: inline-flex;
     flex-shrink: 0;
     gap: 2px;
@@ -2305,13 +2305,13 @@
      is lifted out of flow over the whole pane and turned invisible, so it keeps
      a real, full-pane layout size: the background PTY stays sized to exactly what
      its tab will show, and switching tabs needs no refit at all. */
-  .term-pane {
+  .terminal-pane {
     position: relative;
     display: flex;
     align-items: stretch;
   }
 
-  .term-slot {
+  .terminal-slot {
     position: relative;
     display: flex;
     flex: 1;
@@ -2323,7 +2323,7 @@
     /* A pane appearing is deliberately instant — opening, closing, or switching a
        tab must not animate the terminal (it would read as a needless wipe). Only a
        genuine split-ADD springs its newcomer in, fired imperatively on that one
-       slot via animatePaneIn (pane-enter), never here on every `.shown`. */
+      slot via animatePaneIn (pane-enter), never here on every `.shown`. */
     &:not(.shown) {
       position: absolute;
       inset: 0;
@@ -2447,7 +2447,7 @@
     transform: translateX(-50%);
     animation: pop-in 220ms var(--ease);
 
-    .hdot {
+    .handoff-dot {
       flex: none;
       block-size: 8px;
       inline-size: 8px;
@@ -2478,7 +2478,7 @@
     transform: translateX(-50%);
     animation: pop-in 240ms var(--spring);
 
-    .tdot {
+    .toast-icon {
       display: inline-flex;
       color: var(--primary);
     }

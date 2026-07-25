@@ -48,7 +48,7 @@
         <span class="omit-text">
           This file is too large to render inline. The rest of the diff is available on GitHub.
         </span>
-        <button class="omit-btn" disabled={!commitUrl} onclick={onopengithub}>
+        <button class="omit-button" disabled={!commitUrl} onclick={onopengithub}>
           <Icon name="github" size={14} /> View full diff
         </button>
       </div>
@@ -139,7 +139,7 @@
       line-height: 1.5;
     }
 
-    .omit-btn {
+    .omit-button {
       display: inline-flex;
       flex: none;
       gap: 7px;

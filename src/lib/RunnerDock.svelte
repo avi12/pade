@@ -194,13 +194,13 @@
           </header>
           <div
             style:view-transition-name={`runner-output-${row.id}`}
-            class="out"
+            class="output"
             use:autoscroll
           >
             {#each row.lines as line, i (i)}
               <div
                 class="line"
-                class:err={line.stream === RunnerStream.enum.stderr}
+                class:error={line.stream === RunnerStream.enum.stderr}
               >{#each parseAnsi(line.text) as segment, segmentIndex (segmentIndex)}<span
                 style:color={segment.color}
                 style:background={segment.background}
@@ -412,7 +412,7 @@
     color: var(--critical);
   }
 
-  .out {
+  .output {
     flex: 1;
     overflow: auto;
     min-block-size: 0;
@@ -432,7 +432,7 @@
 
     /* stderr in a crit tint so failures read at a glance. It's the base colour the
        spans inherit — an SGR foreground colour overrides it per segment. */
-    &.err {
+    &.error {
       color: color-mix(in sRGB, var(--critical) 82%, var(--code-foreground));
     }
 
