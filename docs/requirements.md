@@ -246,6 +246,11 @@ writes.
   editors are eligible and the configured fallback leads. The same ownership
   rule applies across all registered ecosystems; it has no framework-name
   exceptions.
+- R1.10.1b ✅ Project language icons are detected lazily for visible switcher
+  rows through one normalized, batched frontend cache. A newly created empty
+  workspace listens to the existing filesystem feed until its first registered
+  project marker appears; that same cached result updates language consumers,
+  refreshes editor ranking once, and retires the detector without polling.
 - R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);

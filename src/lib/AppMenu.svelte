@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { ide, vcs, windows } from "@/lib/bridge";
+  import { vcs, windows } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
-  import type { IconName } from "@/lib/Icon.svelte";
-  import { languageIcon } from "@/lib/language-icon";
   import Logo from "@/lib/Logo.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
+  import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
@@ -81,9 +80,8 @@
   } = $props();
 
   let filter = $state("");
-  // Per-project language kind + branch, and the open-window list, all fetched when
-  // the menu opens. Missing entries fall back to a folder glyph / no branch.
-  let kinds = $state<Record<string, string>>({});
+  // Branches and the open-window list are fetched when the menu opens. Language
+  // icons load independently, only as their rows become visible.
   let branches = $state<Record<string, string>>({});
   let windowRows = $state<WindowInfo[]>([]);
   // Whether the popover is open — the moment a row first has a real width, so the
@@ -202,11 +200,6 @@
   function isCurrent(project: string): boolean {
     return normalizePath(project) === normalizePath(path);
   }
-  // A project's language logo, or the neutral folder glyph when no kind is known.
-  function kindIcon(project: string): IconName {
-    const kind = kinds[project];
-    return kind ? languageIcon(kind) : "folder";
-  }
   // Stable, valid popover id/anchor per row kebab (sanitised from the path).
   function rowMenuId(project: string): string {
     return `sw-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
@@ -219,29 +212,27 @@
     return `row-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 
-  // Fetch the open windows, then kinds + branches for everything the menu shows,
-  // in one pass per open. A hiccup (backend restarting mid-dev, a path since
-  // removed) just leaves the rows on their folder-glyph fallback rather than
-  // throwing.
+  // Fetch open windows and branches. Language kinds are deliberately absent:
+  // ProjectKindIcon batches only visible rows and never waits on Git processes.
   async function loadMeta() {
+    let openWindows: WindowInfo[];
     try {
-      const openWindows = await windows.list();
-      windowRows = openWindows;
-      const paths = [
-        ...new Set([path, ...pinnedProjects, ...recentProjects, ...openWindows.map(w => w.path)])
-      ].filter(Boolean);
-      if (paths.length === 0) {
-        return;
-      }
-
-      const [detectedKinds, detectedBranches] = await Promise.all([
-        ide.projectKinds(paths),
-        vcs.branchOf(paths)
-      ]);
-      kinds = detectedKinds;
-      branches = detectedBranches;
+      openWindows = await windows.list();
     } catch {
-    // Leave the last-known metadata in place; rows fall back to folders.
+      return;
+    }
+    windowRows = openWindows;
+    const paths = [
+      ...new Set([path, ...pinnedProjects, ...recentProjects, ...openWindows.map(window => window.path)])
+    ].filter(Boolean);
+    if (paths.length === 0) {
+      return;
+    }
+
+    try {
+      branches = await vcs.branchOf(paths);
+    } catch {
+    // Preserve last-known branches; icon detection remains independent.
     }
   }
 
@@ -497,9 +488,7 @@
             role="menuitem"
             type="button"
           >
-            <span class="kind-logo" aria-hidden="true" data-brand={kinds[w.path] ? kindIcon(w.path) : undefined}>
-              <Icon name={kindIcon(w.path)} size={16} />
-            </span>
+            <ProjectKindIcon path={w.path} />
             <span class="wrow-name">{shortDisplayName(w.path, labels)}</span>
             {#if isTemporaryWorkspace(w.path)}
               <span class="temp">temp</span>
@@ -606,9 +595,7 @@
         role="menuitemradio"
         type="button"
       >
-        <span class="kind-logo" aria-hidden="true" data-brand={kinds[project] ? kindIcon(project) : undefined}>
-          <Icon name={kindIcon(project)} size={16} />
-        </span>
+        <ProjectKindIcon path={project} />
         <span class="prow-body">
           <span class="prow-name-row">
             <span class="prow-name">{displayName(project, labels)}</span>
@@ -834,15 +821,6 @@
     font-size: 9px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-  }
-
-  /* A language logo carries its brand colour (theme.css [data-brand]); a folder
-     fallback (no data-brand) reads muted. It keeps its colour on hover — a
-     baked-colour brand SVG (JS) can't recolour, so none of them do. */
-  .kind-logo {
-    display: inline-flex;
-    flex: none;
-    color: var(--brand-color, var(--on-surface-variant));
   }
 
   /* Shell comes from the shared .popover-menu; width, colour and anchor side here. */

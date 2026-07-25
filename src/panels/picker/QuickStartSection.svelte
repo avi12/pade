@@ -219,7 +219,8 @@
     onopen({
       path,
       initialPrompt: prompt || undefined,
-      agent: selectedAgent ?? undefined
+      agent: selectedAgent ?? undefined,
+      created: true
     });
   }
 
@@ -532,7 +533,8 @@
             onopen({
               path,
               initialPrompt: prompt || undefined,
-              agent: selectedAgent ?? undefined
+              agent: selectedAgent ?? undefined,
+              created: true
             });
           }}
         >

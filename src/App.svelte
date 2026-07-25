@@ -5,7 +5,6 @@
   import {
     agents as agentsApi,
     feed,
-    ide,
     mcp,
     pty,
     recovery,
@@ -39,6 +38,12 @@
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
+  import {
+    armNewProjectDetection,
+    disposeNewProjectDetection,
+    initNewProjectDetection
+  } from "@/lib/stores/new-project-detection";
+  import { projectKind, requestProjectKind } from "@/lib/stores/projectKinds.svelte";
   import { ensureRunnerListeners, startRunner, stopAllRunners } from "@/lib/stores/runners.svelte";
   import {
     dropChoiceAttention,
@@ -272,6 +277,7 @@
 
   onMount(async () => {
     try {
+      await initNewProjectDetection();
       // Detection is best-effort: a rejection or a stall both yield an empty
       // list rather than blocking the routing below.
       const detecting = Promise.race([
@@ -313,7 +319,10 @@
         // Default: start immediately in a throwaway workspace so there's no
         // blocking picker. The user can switch any time (Switch button).
         const temp = await workspace.temp();
-        startAgentFlow({ path: temp });
+        startAgentFlow({
+          path: temp,
+          newProject: true
+        });
       }
     } catch {
       // Never strand the user on the splash — fall back to the project picker.
@@ -321,6 +330,7 @@
       phase = Phase.project;
     }
   });
+  onDestroy(disposeNewProjectDetection);
 
   // Boot a spawned window from its `w=` query. Returns true when it handled the
   // launch (so the default launch_context path is skipped), false otherwise.
@@ -328,7 +338,10 @@
     const mode = query.get("w");
     if (mode === WindowMode.temp) {
       const temp = await workspace.temp();
-      startAgentFlow({ path: temp });
+      startAgentFlow({
+        path: temp,
+        newProject: true
+      });
       return true;
     }
 
@@ -523,20 +536,10 @@
   // The open project's language, shown VS-Code-style as a small overlay icon +
   // status line. Fetched only while presence will actually show it, and refreshed
   // on a project switch.
-  let discordProjectKind = $state<string | undefined>(undefined);
-  async function loadDiscordKind(project: string): Promise<void> {
-    try {
-      const kinds = await ide.projectKinds([project]);
-      discordProjectKind = kinds[project];
-    } catch {
-      discordProjectKind = undefined;
-    }
-  }
+  const discordProjectKind = $derived(projectKind(currentProject) ?? undefined);
   $effect(() => {
     if (discordEnabled && discordShowProject && currentProject) {
-      loadDiscordKind(currentProject);
-    } else {
-      discordProjectKind = undefined;
+      requestProjectKind(currentProject);
     }
   });
   // Presence follows the FOCUSED window: every PADE window shares one Discord
@@ -684,7 +687,8 @@
       startAgentFlow({
         path: target.path,
         initialPrompt: target.initialPrompt,
-        agentId: target.agent
+        agentId: target.agent,
+        newProject: target.created === true
       });
       await loadBranches();
 
@@ -703,12 +707,18 @@
   // lands in the workspace, never on a blocking chooser. The agent picker
   // still appears after a hand-closed or exited last session, where "what
   // next?" is a genuine question. (Reused for every entry path.)
-  function startAgentFlow({ path, initialPrompt, agentId }: {
+  function startAgentFlow({ path, initialPrompt, agentId, newProject = false }: {
     path: string;
     initialPrompt?: string;
     agentId?: string;
+    newProject?: boolean;
   }) {
     currentProject = path;
+
+    if (newProject) {
+      armNewProjectDetection(path);
+    }
+
     // Let other windows' pickers focus this one instead of reopening the project.
     windows.registerProject(path);
     // A create-form agent pick wins outright; otherwise honor the per-project

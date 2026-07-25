@@ -149,6 +149,9 @@ export type OpenTarget = {
   path: string;
   initialPrompt?: string;
   agent?: string;
+  /** The directory was just created empty, so editor detection should wait for
+   *  the agent's first project marker instead of keeping the generic fallback. */
+  created?: true;
 };
 
 /** One runnable task parsed from a project manifest. */
