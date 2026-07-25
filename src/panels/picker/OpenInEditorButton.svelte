@@ -40,12 +40,14 @@
     try {
       const ranked = await suggestOrFallback();
       const editor = ranked.find(candidate => !candidate.terminal);
-      if (editor) {
-        ide.open({
-          command: editor.command,
-          path
-        });
+      if (!editor) {
+        return;
       }
+
+      ide.open({
+        command: editor.command,
+        path
+      });
     } finally {
       busy = false;
     }

@@ -179,13 +179,15 @@
       try {
         const probe = await workspace.probePath(target);
         // Only believe an answer that describes the text still in the field.
-        if (target === createTargetPath) {
-          createTarget = {
-            path: target,
-            isDir: probe.isDir,
-            isFile: probe.isFile
-          };
+        if (target !== createTargetPath) {
+          return;
         }
+
+        createTarget = {
+          path: target,
+          isDir: probe.isDir,
+          isFile: probe.isFile
+        };
       } catch {
         // An unreachable probe leaves the plain create path — the backend
         // still validates the final create.

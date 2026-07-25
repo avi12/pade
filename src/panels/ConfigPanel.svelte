@@ -113,13 +113,17 @@
     const requested = file;
     try {
       const text = await config.read(requested.rel);
-      if (selected?.rel === requested.rel) {
-        content = text;
+      if (selected?.rel !== requested.rel) {
+        return;
       }
+
+      content = text;
     } catch {
-      if (selected?.rel === requested.rel) {
-        content = "";
+      if (selected?.rel !== requested.rel) {
+        return;
       }
+
+      content = "";
     }
   }
 

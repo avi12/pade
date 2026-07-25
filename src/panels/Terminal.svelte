@@ -1013,9 +1013,11 @@
       const rows: string[] = [];
       for (let row = start; row <= end; row++) {
         const line = buffer.getLine(buffer.viewportY + row);
-        if (line) {
-          rows.push(line.translateToString(true));
+        if (!line) {
+          continue;
         }
+
+        rows.push(line.translateToString(true));
       }
 
       observeContextScreen({

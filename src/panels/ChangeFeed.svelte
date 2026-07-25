@@ -66,13 +66,17 @@
   async function loadRemote(root: string) {
     try {
       const remote = await vcs.remoteUrl(root);
-      if (root === project) {
-        hasRemote = remote !== null;
+      if (root !== project) {
+        return;
       }
+
+      hasRemote = remote !== null;
     } catch {
-      if (root === project) {
-        hasRemote = false;
+      if (root !== project) {
+        return;
       }
+
+      hasRemote = false;
     }
   }
 

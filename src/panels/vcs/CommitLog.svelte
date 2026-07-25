@@ -23,13 +23,17 @@
   async function loadRemoteUrl(workspace = project) {
     try {
       const next = await vcs.remoteUrl(workspace);
-      if (workspace === project) {
-        remoteUrl = next;
+      if (workspace !== project) {
+        return;
       }
+
+      remoteUrl = next;
     } catch {
-      if (workspace === project) {
-        remoteUrl = null;
+      if (workspace !== project) {
+        return;
       }
+
+      remoteUrl = null;
     }
   }
 

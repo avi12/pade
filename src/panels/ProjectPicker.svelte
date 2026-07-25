@@ -223,16 +223,17 @@
       path,
       create
     });
-    if (outcome.status === AddRootStatus.enum.added) {
-      settings = outcome.settings;
-      projectsByRoot = {
-        ...projectsByRoot,
-        [path]: await scan(path)
-      };
-
-      createRoot = path;
+    if (outcome.status !== AddRootStatus.enum.added) {
+      return outcome;
     }
 
+    settings = outcome.settings;
+    projectsByRoot = {
+      ...projectsByRoot,
+      [path]: await scan(path)
+    };
+
+    createRoot = path;
     return outcome;
   }
   async function removeRoot(path: string) {
