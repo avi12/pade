@@ -1,12 +1,12 @@
 <script lang="ts">
   import { ide } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { editorsFor, refreshEditors } from "@/lib/stores/editors.svelte";
   import type { Ide } from "@/lib/types";
 
   // A picker row's "open this project in your editor" button. It stays a plain,
-  // static button — the best-fit editor for the project's kind is worked out only
-  // when clicked (one `ide.suggest`, the same rules → fallback → coverage ranking
-  // the workspace's "Open in <editor>" button uses), never per row on render, so a
+  // static button — the project's configured ranking is loaded only when clicked
+  // through the same shared store Change Feed uses, never per row on render, so a
   // rootful of rows never blocks the UI. Shown whenever a GUI editor is installed
   // (a console editor needs a TTY the picker lacks, so it launches from the
   // workspace). Shared by the Recent and Root rows (its one home, so the
@@ -23,14 +23,6 @@
   // dead click, and a second click can't stack another lookup.
   let busy = $state(false);
 
-  async function suggestOrFallback(): Promise<Ide[]> {
-    try {
-      return await ide.suggest(path);
-    } catch {
-      return ides;
-    }
-  }
-
   async function openInEditor() {
     if (busy) {
       return;
@@ -38,13 +30,14 @@
 
     busy = true;
     try {
-      const ranked = await suggestOrFallback();
-      const editor = ranked.find(candidate => !candidate.terminal);
+      await refreshEditors(path);
+      const editor = editorsFor(path).find(candidate => !candidate.terminal)
+        ?? ides.find(candidate => !candidate.terminal);
       if (!editor) {
         return;
       }
 
-      ide.open({
+      await ide.open({
         command: editor.command,
         path
       });
