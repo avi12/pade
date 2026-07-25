@@ -58,14 +58,23 @@ const REMOTE_PROVIDERS: readonly RemoteProvider[] = [
     }
   }
 ];
+const CONVENTIONAL_DEFAULT_BRANCHES = ["main", "master"] as const;
 
 /** Resolve a browsable branch URL for a known remote provider. Unknown hosts
  * safely retain the repository root until a provider entry is added. */
-export function repositoryTargetUrl({ remoteUrl, branch }: {
+export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
   remoteUrl: string;
   branch?: string;
+  defaultBranch?: string | null;
 }): string {
   if (!branch) {
+    return remoteUrl;
+  }
+
+  const isDefaultBranch = defaultBranch
+    ? branch === defaultBranch
+    : CONVENTIONAL_DEFAULT_BRANCHES.some(candidate => candidate === branch);
+  if (isDefaultBranch) {
     return remoteUrl;
   }
 
@@ -89,6 +98,14 @@ async function readRemoteUrl(project: string): Promise<string | null> {
   }
 }
 
+async function readDefaultBranch(project: string): Promise<string | null> {
+  try {
+    return await vcs.defaultBranch(project);
+  } catch {
+    return null;
+  }
+}
+
 async function launchRepositoryUrl(url: string): Promise<void> {
   try {
     await os.openUrl(url);
@@ -108,10 +125,12 @@ export async function openRepositoryTarget({ project, knownRemoteUrl, branch }: 
     return null;
   }
 
+  const defaultBranch = branch ? await readDefaultBranch(project) : null;
   await launchRepositoryUrl(
     repositoryTargetUrl({
       remoteUrl,
-      branch
+      branch,
+      defaultBranch
     })
   );
   return remoteUrl;

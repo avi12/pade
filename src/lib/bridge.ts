@@ -388,8 +388,10 @@ export const vcs = {
     sha,
     path
   }),
-  /** The `origin` remote as a browsable `https://host/owner/repo` URL, or null. */
+  /** The branch-configured remote, falling back to `origin`, as a browser URL. */
   remoteUrl: (cwd: string) => call("vcs_remote_url", z.string().nullable(), { cwd }),
+  /** The configured remote's locally-known default branch, when available. */
+  defaultBranch: (cwd: string) => call("vcs_default_branch", z.string().nullable(), { cwd }),
   /** Is the `git` CLI installed? Gates the picker's Clone tab. */
   gitInstalled: () => call("vcs_git_installed", z.boolean()),
   /** Whether an SSH private key exists — without one an `ssh://`/`git@` clone

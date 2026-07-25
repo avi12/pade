@@ -153,6 +153,7 @@ pub fn run() {
             vcs::pull::vcs_pull,
             vcs::inspect::vcs_commit,
             vcs::inspect::vcs_commit_diff,
+            vcs::remote::vcs_default_branch,
             vcs::remote::vcs_remote_url,
             vcs::clone::vcs_git_installed,
             vcs::clone::vcs_has_ssh_key,

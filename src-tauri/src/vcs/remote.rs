@@ -16,6 +16,16 @@ fn branch_remote_name(cwd: &str) -> String {
     configured.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_string())
 }
 
+fn remote_default_branch(cwd: &str) -> Option<String> {
+    let remote = branch_remote_name(cwd);
+    let remote_head = format!("refs/remotes/{remote}/HEAD");
+    let symbolic = run_git(cwd, &["symbolic-ref", "--short", &remote_head]).ok()?;
+    symbolic
+        .trim()
+        .strip_prefix(&format!("{remote}/"))
+        .map(str::to_string)
+}
+
 /// The checked-out branch's configured remote URL, falling back to `origin`,
 /// normalized to a browsable `https://host/owner/repo` form.
 #[tauri::command]
@@ -27,6 +37,13 @@ pub async fn vcs_remote_url(cwd: String) -> Option<String> {
         return None;
     }
     Some(normalize_remote(url))
+}
+
+/// The branch selected by the configured remote's local HEAD tracking ref.
+/// This is network-free; `None` lets the frontend use conventional fallbacks.
+#[tauri::command]
+pub async fn vcs_default_branch(cwd: String) -> Option<String> {
+    remote_default_branch(&cwd)
 }
 
 /// Normalize a git remote to an `https://host/owner/repo` browse URL:
@@ -57,7 +74,7 @@ fn normalize_remote(url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{branch_remote_name, normalize_remote};
+    use super::{branch_remote_name, normalize_remote, remote_default_branch};
 
     #[test]
     fn configured_branch_remote_leads_over_origin() {
@@ -75,8 +92,18 @@ mod tests {
             super::run_git(&cwd, &["branch", "--show-current"]).expect("read initial branch");
         let key = format!("branch.{}.remote", branch.trim());
         super::run_git(&cwd, &["config", &key, "upstream"]).expect("configure branch remote");
+        super::run_git(
+            &cwd,
+            &[
+                "symbolic-ref",
+                "refs/remotes/upstream/HEAD",
+                "refs/remotes/upstream/trunk",
+            ],
+        )
+        .expect("configure remote head");
 
         assert_eq!(branch_remote_name(&cwd), "upstream");
+        assert_eq!(remote_default_branch(&cwd).as_deref(), Some("trunk"));
         std::fs::remove_dir_all(scratch).expect("scratch cleanup");
     }
 
