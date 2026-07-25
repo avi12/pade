@@ -88,25 +88,25 @@ describe("renderMarkdown safety", () => {
 
 describe("markdownDocument", () => {
   it("wraps the fragment in a sandbox-ready document with a strict CSP", () => {
-    const doc = markdownDocument("# Hi");
-    expect(doc.startsWith("<!doctype html>")).toBe(true);
-    expect(doc).toContain("http-equiv=\"Content-Security-Policy\"");
-    expect(doc).toContain("default-src 'none'");
-    expect(doc).toContain("img-src data:");
-    expect(doc).toContain("<h1>Hi</h1>");
+    const document = markdownDocument("# Hi");
+    expect(document.startsWith("<!doctype html>")).toBe(true);
+    expect(document).toContain("http-equiv=\"Content-Security-Policy\"");
+    expect(document).toContain("default-src 'none'");
+    expect(document).toContain("img-src data:");
+    expect(document).toContain("<h1>Hi</h1>");
   });
 
   it("never emits a live script even from script-shaped source", () => {
-    const doc = markdownDocument("<script>alert(1)</script>");
-    expect(doc).not.toContain("<script>alert");
+    const document = markdownDocument("<script>alert(1)</script>");
+    expect(document).not.toContain("<script>alert");
   });
 });
 
 describe("sandboxedHtmlDocument", () => {
   it("blocks repository HTML from loading remote or local resources", () => {
-    const doc = sandboxedHtmlDocument("<img src=\"https://attacker.example/pixel\">");
-    expect(doc).toContain("default-src 'none'");
-    expect(doc).toContain("form-action 'none'");
-    expect(doc.indexOf("Content-Security-Policy")).toBeLessThan(doc.indexOf("attacker.example"));
+    const document = sandboxedHtmlDocument("<img src=\"https://attacker.example/pixel\">");
+    expect(document).toContain("default-src 'none'");
+    expect(document).toContain("form-action 'none'");
+    expect(document.indexOf("Content-Security-Policy")).toBeLessThan(document.indexOf("attacker.example"));
   });
 });

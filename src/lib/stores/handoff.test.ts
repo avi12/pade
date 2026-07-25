@@ -60,20 +60,20 @@ describe("handoffDocName", () => {
 });
 
 describe("handoff prompts", () => {
-  const doc = "continue-pade-1a2b3c4d.md";
+  const documentName = "continue-pade-1a2b3c4d.md";
 
   it("explains that an MCP handoff will reload project configuration", () => {
     const prompt = handoffPrompt({
-      doc,
+      doc: documentName,
       reason: HandoffReason.ConfigurationChange
     });
     expect(prompt).toContain("MCP server configuration changed");
-    expect(prompt).toContain(`handoff to ${doc}`);
+    expect(prompt).toContain(`handoff to ${documentName}`);
   });
 
   it("seeds the successor to continue from the written document", () => {
-    expect(successorPrompt(doc)).toBe(
-      `Read ${doc} to continue the work where the previous session left off.`
+    expect(successorPrompt(documentName)).toBe(
+      `Read ${documentName} to continue the work where the previous session left off.`
     );
   });
 });

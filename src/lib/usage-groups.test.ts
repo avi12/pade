@@ -22,24 +22,24 @@ function makeSession({ agentId, label, sessionId }: {
 }
 
 // A 5-hour session window, defaulting to 40% consumed.
-function sessionWindow(over: Partial<UsageWindow> = {}): UsageWindow {
+function sessionWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
   return {
     key: "five_hour",
     kind: UsageWindowKind.enum.session,
     label: "Session",
     utilization: 40,
-    ...over
+    ...overrides
   };
 }
 
 // A weekly all-models window, defaulting to 80% consumed.
-function weeklyWindow(over: Partial<UsageWindow> = {}): UsageWindow {
+function weeklyWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
   return {
     key: "seven_day",
     kind: UsageWindowKind.enum.weekly,
     label: "Weekly",
     utilization: 80,
-    ...over
+    ...overrides
   };
 }
 
@@ -59,12 +59,12 @@ function modelWindow({ name, utilization, resetsAt }: {
 }
 
 // An account whose windows default to session (40%) + weekly (80%).
-function makeAccount(over: Partial<AccountUsage> = {}): AccountUsage {
+function makeAccount(overrides: Partial<AccountUsage> = {}): AccountUsage {
   return {
     windows: [sessionWindow(), weeklyWindow()],
     plan: "Max",
     source: "test",
-    ...over
+    ...overrides
   };
 }
 

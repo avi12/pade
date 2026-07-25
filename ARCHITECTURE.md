@@ -99,7 +99,7 @@ flowchart LR
   D --> P1["inherited PATH<br/><i>(stale — misses new installs)</i>"]
   D --> P2["live PATH<br/><i>(reg query — the fix)</i>"]
   D --> P3["package-manager bins<br/><i>(npm · pnpm · cargo · winget)</i>"]
-  N --> F["find_in(dirs, names)"]
+  N --> F["find_in(directories, names)"]
   P1 --> F
   P2 --> F
   P3 --> F
@@ -222,7 +222,7 @@ also drives add-an-editor validation and jump-to-line launching (DRY).
 flowchart LR
   Click["Open in &lt;editor&gt;"] --> Q{"terminal editor?"}
   Q -->|"no · GUI"| OSopen["ide_open<br/>OS spawns a window"]
-  Q -->|"yes · Neovim / Vim / Helix"| Tab["new session tab<br/>pty_spawn(cmd, args=['.'])"]
+  Q -->|"yes · Neovim / Vim / Helix"| Tab["new session tab<br/>pty_spawn({ command, args: arguments })"]
   Tab --> Beside["runs in a TTY, split beside the agent"]
 ```
 
@@ -244,7 +244,7 @@ behavior is unchanged while a root-level-package workspace (`frontend/`
 ```mermaid
 flowchart LR
   Defs["root defining files<br/>pnpm-workspace.yaml · package.json workspaces<br/>Cargo.toml [workspace] · go.work · [tool.uv.workspace]"] --> Globs["include / exclude patterns<br/>(excludes subtract after includes)"]
-  Walk["one census walk<br/>dirs with a real manifest<br/>(node_modules · target · dot-dirs pruned)"] --> Confirm{"census-confirmed<br/>AND glob-included?"}
+  Walk["one census walk<br/>directories with a real manifest<br/>(node_modules · target · dot-directories pruned)"] --> Confirm{"census-confirmed<br/>AND glob-included?"}
   Globs --> Confirm
   Confirm -->|yes| Members["members_list → bridge.members"]
   Members --> Assign["change-groups.ts<br/>changed file → deepest member<br/>(whole-segment longest-prefix)"]
@@ -282,7 +282,7 @@ responsibility, and who it collaborates with.
 | `src/lib/types.ts` | Zod schemas + TS types for every IPC payload; shared enums | `bridge`, everywhere |
 | `src/lib/validate.ts` | User-input schemas (trust boundary) + `parseInput` / `nameError`; owns the clone-URL shape knowledge — `CloneUrl` (https / ssh / scp-like), `GitUsername`, `GitSecret`, `isSshCloneUrl`, `repoFolderName` | form components |
 | `src/lib/tab-fit.ts` | Pure greedy packing of session tabs into pill/dot/overflow tiers | `SessionTabs` |
-| `src/lib/context-level.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel(pct)` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
+| `src/lib/context-level.ts` | Pure context-window severity: the shared auto-handoff threshold + `contextLevel({ pct: percentage, threshold })` → ok/warning/critical gauge step | `SessionTabs`, `stores/handoff` |
 | `src/lib/ansi.ts` | `stripAnsi` — remove a terminal's ANSI/control sequences so text matchers see the glyphs the TUI wrote, not the colour/cursor codes interleaved with them | `choice-prompt`, `task-detect` |
 | `src/lib/choice-prompt.ts` | Pure, conservative detector (`detectChoicePrompt`) for the agent's on-screen multiple-choice prompt in the PTY stream: strip ANSI (`ansi`), then require the `❯` selection cursor on a numbered option plus ≥2 numbered options, so ordinary numbered prose never trips it | `ansi`, `stores/sessionAttention` |
 | `src/lib/initial-prompt.ts` | Pure `isTrustGate` — recognizes a fresh agent's first-run "trust this folder?" gate (a `choice-prompt` whose text mentions trust) so the terminal can auto-accept it before delivering a new session's first prompt. A deliberate, documented coupling to the CLI's observable wording, scoped to that one always-safe gate | `choice-prompt`, `ansi`, `Terminal` |

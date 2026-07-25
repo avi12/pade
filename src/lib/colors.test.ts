@@ -12,17 +12,17 @@ vi.stubGlobal("CSS", {
 
 describe("collectVars", () => {
   it("collects custom-property declarations from stylesheet text", () => {
-    const vars = collectVars(":root { --brand: #123456; --gap: 4px; color: red; }");
+    const variables = collectVars(":root { --brand: #123456; --gap: 4px; color: red; }");
 
-    expect(vars.get("--brand")).toBe("#123456");
-    expect(vars.get("--gap")).toBe("4px");
-    expect(vars.size).toBe(2);
+    expect(variables.get("--brand")).toBe("#123456");
+    expect(variables.get("--gap")).toBe("4px");
+    expect(variables.size).toBe(2);
   });
 
   it("trims whitespace around values", () => {
-    const vars = collectVars("--spacing:   12px  ;");
+    const variables = collectVars("--spacing:   12px  ;");
 
-    expect(vars.get("--spacing")).toBe("12px");
+    expect(variables.get("--spacing")).toBe("12px");
   });
 
   it("ignores declarations without a terminating semicolon", () => {
@@ -40,27 +40,27 @@ describe("resolveColor", () => {
   });
 
   it("traces a var() through the provided token map", () => {
-    const vars = collectVars("--brand: #123456;");
+    const variables = collectVars("--brand: #123456;");
 
-    expect(resolveColor("var(--brand)", vars)).toBe("#123456");
+    expect(resolveColor("var(--brand)", variables)).toBe("#123456");
   });
 
   it("follows nested var() references", () => {
-    const vars = collectVars("--alias: var(--base); --base: rgb(1, 2, 3);");
+    const variables = collectVars("--alias: var(--base); --base: rgb(1, 2, 3);");
 
-    expect(resolveColor("var(--alias)", vars)).toBe("rgb(1, 2, 3)");
+    expect(resolveColor("var(--alias)", variables)).toBe("rgb(1, 2, 3)");
   });
 
   it("tolerates whitespace inside the var() reference", () => {
-    const vars = collectVars("--brand: #fff;");
+    const variables = collectVars("--brand: #fff;");
 
-    expect(resolveColor("var( --brand )", vars)).toBe("#fff");
+    expect(resolveColor("var( --brand )", variables)).toBe("#fff");
   });
 
   it("gives up on a circular var() chain instead of recursing forever", () => {
-    const vars = collectVars("--one: var(--two); --two: var(--one);");
+    const variables = collectVars("--one: var(--two); --two: var(--one);");
 
-    expect(resolveColor("var(--one)", vars)).toBeNull();
+    expect(resolveColor("var(--one)", variables)).toBeNull();
   });
 
   it("returns null for an unknown var() with no document to fall back to", () => {

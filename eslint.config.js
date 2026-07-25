@@ -1,7 +1,7 @@
 import expandNestedObjectExpression from "./eslint-rules/expand-nested-object-expression.js";
 import expandNestedTypeLiteral from "./eslint-rules/expand-nested-type-literal.js";
 import expandSvelteBlock from "./eslint-rules/expand-svelte-block.js";
-import multilineArgParenNewline from "./eslint-rules/multiline-arg-paren-newline.js";
+import multilineArgumentParenthesisNewline from "./eslint-rules/multiline-arg-paren-newline.js";
 import noPaddedTag from "./eslint-rules/no-padded-tag.js";
 import stylistic from "@stylistic/eslint-plugin";
 import importNewlines from "eslint-plugin-import-newlines";
@@ -10,7 +10,7 @@ import svelteEslint from "eslint-plugin-svelte";
 import { globalIgnores } from "eslint/config";
 import globals from "globals";
 import svelteParser from "svelte-eslint-parser";
-import tsEslint from "typescript-eslint";
+import typescriptEslint from "typescript-eslint";
 
 // Logic and correctness rules live in oxlint (.oxlintrc.json) - ESLint only
 // carries what oxlint cannot: formatting, Svelte template rules, selector
@@ -227,7 +227,7 @@ const tsStyleRules = {
 
 const sharedPlugins = {
   "@stylistic": stylistic,
-  "@typescript-eslint": tsEslint.plugin,
+  "@typescript-eslint": typescriptEslint.plugin,
   "import-newlines": importNewlines,
   perfectionist,
   local: {
@@ -235,7 +235,7 @@ const sharedPlugins = {
       "expand-nested-object-expression": expandNestedObjectExpression,
       "expand-nested-type-literal": expandNestedTypeLiteral,
       "expand-svelte-block": expandSvelteBlock,
-      "multiline-arg-paren-newline": multilineArgParenNewline,
+      "multiline-arg-paren-newline": multilineArgumentParenthesisNewline,
       "no-padded-tag": noPaddedTag
     }
   }
@@ -256,7 +256,7 @@ export default [
   {
     files: ["**/*.{ts,js,mjs}"],
     languageOptions: {
-      parser: tsEslint.parser,
+      parser: typescriptEslint.parser,
       globals: browserGlobals
     },
     plugins: sharedPlugins,
@@ -273,7 +273,7 @@ export default [
     languageOptions: {
       parser: svelteParser,
       parserOptions: {
-        parser: tsEslint.parser,
+        parser: typescriptEslint.parser,
         extraFileExtensions: [".svelte"]
       },
       globals: browserGlobals

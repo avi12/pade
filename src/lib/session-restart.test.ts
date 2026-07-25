@@ -39,7 +39,7 @@ describe("mcpRestartTargets", () => {
       change,
       currentProject: project
     });
-    expect(targets.map(s => s.id)).toEqual(["a", "b"]);
+    expect(targets.map(session => session.id)).toEqual(["a", "b"]);
   });
 
   it("skips agents the config doesn't govern", () => {
@@ -52,7 +52,7 @@ describe("mcpRestartTargets", () => {
       change,
       currentProject: project
     });
-    expect(targets.map(s => s.id)).toEqual(["b"]);
+    expect(targets.map(session => session.id)).toEqual(["b"]);
   });
 
   it("skips a worktree session whose own dir isn't the one that changed", () => {
@@ -69,16 +69,16 @@ describe("mcpRestartTargets", () => {
   });
 
   it("matches a session whose cwd IS the changed dir, up to path spelling", () => {
-    const s = session({
+    const matchingSession = session({
       id: "s",
       cwd: "C:/repositories/avi/poll-avi"
     });
     const targets = mcpRestartTargets({
-      sessions: [s],
+      sessions: [matchingSession],
       change,
       currentProject: project
     });
-    expect(targets.map(t => t.id)).toEqual(["s"]);
+    expect(targets.map(target => target.id)).toEqual(["s"]);
   });
 
   it("uses the emitted root for a nested agent config", () => {
@@ -102,12 +102,12 @@ describe("mcpRestartTargets", () => {
   });
 
   it("includes a session without a conversation id because handoff starts fresh", () => {
-    const s = session({
+    const sessionWithoutConversation = session({
       id: "s",
       conversationId: undefined
     });
     const targets = mcpRestartTargets({
-      sessions: [s],
+      sessions: [sessionWithoutConversation],
       change,
       currentProject: project
     });
@@ -132,7 +132,7 @@ describe("rekeyLayout", () => {
         a: "a2"
       }
     });
-    expect(relaid.sessions.map(s => s.id)).toEqual(["a2", "b"]);
+    expect(relaid.sessions.map(session => session.id)).toEqual(["a2", "b"]);
     expect(relaid.sessions[0].initialPrompt).toBeUndefined();
     expect(relaid.sessions[0].conversationId).toBe("conv-a");
     expect(relaid.paneIds).toEqual(["a2", "b"]);
@@ -148,7 +148,7 @@ describe("rekeyLayout", () => {
         a: "a2"
       }
     });
-    expect(relaid.sessions.map(s => s.id)).toEqual(["a2", "b"]);
+    expect(relaid.sessions.map(session => session.id)).toEqual(["a2", "b"]);
     expect(relaid.activeId).toBe("b");
   });
 

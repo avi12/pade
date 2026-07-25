@@ -24,12 +24,12 @@ const inlineArgumentTypes = new Set([
   "FunctionExpression"
 ]);
 
-function getEffectiveType(arg) {
-  if (arg.type === "TSSatisfiesExpression" || arg.type === "TSAsExpression") {
-    return arg.expression.type;
+function getEffectiveType(argument) {
+  if (argument.type === "TSSatisfiesExpression" || argument.type === "TSAsExpression") {
+    return argument.expression.type;
   }
 
-  return arg.type;
+  return argument.type;
 }
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -54,31 +54,38 @@ export default {
         }
 
         const hasMultilineNonLiteralArgument = node.arguments.some(
-          arg => !inlineArgumentTypes.has(getEffectiveType(arg)) && arg.loc.start.line !== arg.loc.end.line
+          argument => !inlineArgumentTypes.has(getEffectiveType(argument))
+            && argument.loc.start.line !== argument.loc.end.line
         );
 
-        const firstArg = node.arguments[0];
-        const openParen = sourceCode.getTokenBefore(firstArg);
-        const lastArg = node.arguments[node.arguments.length - 1];
-        const closeParen = sourceCode.getLastToken(node);        if (!hasMultilineNonLiteralArgument) {
-          const allInlineTypes = node.arguments.every(arg => inlineArgumentTypes.has(getEffectiveType(arg)));
-          const hasAnyMultilineArgument = node.arguments.some(arg => arg.loc.start.line !== arg.loc.end.line);
-          const isFirstArgOnNewLine = openParen.loc.end.line !== firstArg.loc.start.line;
+        const firstArgument = node.arguments[0];
+        const openingParenthesis = sourceCode.getTokenBefore(firstArgument);
+        const lastArgument = node.arguments[node.arguments.length - 1];
+        const closingParenthesis = sourceCode.getLastToken(node);
+        if (!hasMultilineNonLiteralArgument) {
+          const allInlineTypes = node.arguments.every(
+            argument => inlineArgumentTypes.has(getEffectiveType(argument))
+          );
+          const hasAnyMultilineArgument = node.arguments.some(
+            argument => argument.loc.start.line !== argument.loc.end.line
+          );
+          const isFirstArgumentOnNewLine = openingParenthesis.loc.end.line !== firstArgument.loc.start.line;
           const isSingleArgument = node.arguments.length === 1;
-          if (allInlineTypes && !hasAnyMultilineArgument && isFirstArgOnNewLine && isSingleArgument) {
+          if (allInlineTypes && !hasAnyMultilineArgument && isFirstArgumentOnNewLine && isSingleArgument) {
             const MAX_LINE_LENGTH = 120;
-            const prefixLength = openParen.loc.end.column;
-            const argsEndLength = lastArg.loc.end.column + (closeParen.loc.start.line === lastArg.loc.end.line ? 1 : 0);
-            const resultingLineLength = prefixLength + (firstArg.loc.start.line === lastArg.loc.end.line
-              ? lastArg.loc.end.column - firstArg.loc.start.column + 1
-              : argsEndLength);
+            const prefixLength = openingParenthesis.loc.end.column;
+            const argumentsEndLength = lastArgument.loc.end.column
+              + (closingParenthesis.loc.start.line === lastArgument.loc.end.line ? 1 : 0);
+            const resultingLineLength = prefixLength + (firstArgument.loc.start.line === lastArgument.loc.end.line
+              ? lastArgument.loc.end.column - firstArgument.loc.start.column + 1
+              : argumentsEndLength);
             if (resultingLineLength <= MAX_LINE_LENGTH) {
               context.report({
                 node,
                 messageId: "inlineArgumentOnNewLine",
                 fix(fixer) {
                   return fixer.replaceTextRange(
-                    [openParen.range[1], firstArg.range[0]],
+                    [openingParenthesis.range[1], firstArgument.range[0]],
                     ""
                   );
                 }
@@ -90,20 +97,20 @@ export default {
         }
 
         const baseIndent = " ".repeat(node.loc.start.column);
-        const argIndent = `${baseIndent}  `;
-        if (openParen.loc.end.line === firstArg.loc.start.line) {
+        const argumentIndent = `${baseIndent}  `;
+        if (openingParenthesis.loc.end.line === firstArgument.loc.start.line) {
           context.report({
             node,
             messageId: "argumentOnNewLine",
-            fix: fixer => fixer.insertTextAfter(openParen, `\n${argIndent}`)
+            fix: fixer => fixer.insertTextAfter(openingParenthesis, `\n${argumentIndent}`)
           });
         }
 
-        if (closeParen.loc.start.line === lastArg.loc.end.line) {
+        if (closingParenthesis.loc.start.line === lastArgument.loc.end.line) {
           context.report({
             node,
             messageId: "closingParenOnNewLine",
-            fix: fixer => fixer.insertTextBefore(closeParen, `\n${baseIndent}`)
+            fix: fixer => fixer.insertTextBefore(closingParenthesis, `\n${baseIndent}`)
           });
         }
       }

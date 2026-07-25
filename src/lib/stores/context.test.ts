@@ -225,10 +225,10 @@ describe("measuredContextPct — 1M context window near the limit", () => {
       chunk: "context: 920k / 1m tokens"
     });
 
-    const pct = measuredContextPct("ctx-1m-near");
-    expect(pct).toBeCloseTo(92);
-    expect(pct).toBeGreaterThanOrEqual(90);
-    expect(pct).toBeLessThanOrEqual(95);
+    const percentage = measuredContextPct("ctx-1m-near");
+    expect(percentage).toBeCloseTo(92);
+    expect(percentage).toBeGreaterThanOrEqual(90);
+    expect(percentage).toBeLessThanOrEqual(95);
   });
 
   it("parses a '5% context left' readout on a 1M window into 95% used — still in band", () => {

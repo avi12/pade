@@ -54,7 +54,7 @@ describe("save / read round trip", () => {
 
     const snapshot = readSessionSnapshot();
     expect(snapshot?.project).toBe("C:\\repos\\pade");
-    expect(snapshot?.sessions.map(s => s.id)).toEqual(["a", "b"]);
+    expect(snapshot?.sessions.map(session => session.id)).toEqual(["a", "b"]);
     expect(snapshot?.sessions[1]?.branch).toBe("main");
     expect(snapshot?.paneIds).toEqual(["a", "b"]);
     expect(snapshot?.activeId).toBe("b");
@@ -132,7 +132,7 @@ describe("pruneToLive", () => {
       snapshot,
       liveIds: new Set(["a", "c"])
     });
-    expect(pruned?.sessions.map(s => s.id)).toEqual(["a", "c"]);
+    expect(pruned?.sessions.map(session => session.id)).toEqual(["a", "c"]);
   });
 
   it("prunes dead panes and re-points the active id at a survivor", () => {

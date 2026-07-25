@@ -48,7 +48,7 @@ inverts every rule".)
 
 ### 1. Whole cells, rounded down
 
-`rows = floor(paneHeight / cellHeight)`, `cols = floor(...)`. Never `ceil`: the
+`rows = floor(paneHeight / cellHeight)`, `columns = floor(...)`. Never `ceil`: the
 overflowing row would have to be clipped, and on the normal buffer the top row is
 **real content**, not slack. (An earlier design did exactly this — `ceil` plus a
 clipped top row — and it worked on the alt screen, where every row was the agent's

@@ -16,7 +16,7 @@ import { execSync, spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const CDP_ORIGIN = "http://127.0.0.1:9222";
-const APP_URL = "http://localhost:1420";
+const APPLICATION_URL = "http://localhost:1420";
 const LAUNCH_TIMEOUT_MS = 180_000;
 
 async function cdpTargets() {
@@ -121,15 +121,15 @@ function teardown() {
   }
 }
 
-const repoPath = process.cwd();
+const repositoryPath = process.cwd();
 await navigateAndExpect({
-  url: `${APP_URL}/?w=empty`,
+  url: `${APPLICATION_URL}/?w=empty`,
   expression: `!!document.querySelector(".picker h1")`,
   label: "picker renders on ?w=empty"
 });
 await navigateAndExpect({
-  url: `${APP_URL}/?w=open&path=${encodeURIComponent(repoPath)}`,
-  expression: `[...document.querySelectorAll("h1")].some((h) => h.textContent.includes("Choose an agent")) || !!document.querySelector(".xterm")`,
+  url: `${APPLICATION_URL}/?w=open&path=${encodeURIComponent(repositoryPath)}`,
+  expression: `[...document.querySelectorAll("h1")].some((heading) => heading.textContent.includes("Choose an agent")) || !!document.querySelector(".xterm")`,
   label: "agent chooser (or a live terminal) renders on ?w=open"
 });
 

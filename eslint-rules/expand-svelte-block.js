@@ -13,11 +13,11 @@ export default {
 
     function findOpenTagEnd(expression) {
       const source = sourceCode.text;
-      let pos = expression.range[1];
-      while (pos < source.length && source[pos] !== "}") {
-        pos++;
+      let position = expression.range[1];
+      while (position < source.length && source[position] !== "}") {
+        position++;
       }
-      return pos + 1;
+      return position + 1;
     }
 
     function getIndent(node) {

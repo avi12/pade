@@ -3,14 +3,14 @@ import type { KeyChord } from "@/lib/tab-shortcuts";
 import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.
-function chord(over: Partial<KeyChord> = {}): KeyChord {
+function chord(overrides: Partial<KeyChord> = {}): KeyChord {
   return {
     key: "",
     ctrlKey: false,
     shiftKey: false,
     altKey: false,
     metaKey: false,
-    ...over
+    ...overrides
   };
 }
 

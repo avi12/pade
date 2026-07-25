@@ -54,8 +54,8 @@ describe("tokenize", () => {
   });
 
   it("traces a var() color through the provided token map", () => {
-    const vars = new Map([["--brand", "#123456"]]);
-    const [token] = tokenize("var(--brand)", vars);
+    const variables = new Map([["--brand", "#123456"]]);
+    const [token] = tokenize("var(--brand)", variables);
 
     expect(token.cls).toBe("color");
     expect(token.color).toBe("#123456");
