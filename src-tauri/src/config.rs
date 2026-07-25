@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use tauri::WebviewWindow;
 
+use crate::agents::{
+    ID_AIDER, ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE,
+};
+
 /// A config file the ADE can surface: (relative path, kind, agents it applies
 /// to). An empty agent list means it applies to every agent.
 struct ConfigDefinition {
@@ -30,55 +34,55 @@ const KNOWN: &[ConfigDefinition] = &[
     ConfigDefinition {
         rel: "CLAUDE.md",
         kind: "instructions",
-        agents: &["claude"],
+        agents: &[ID_CLAUDE],
         mcp_format: None,
     },
     ConfigDefinition {
         rel: "AGENTS.md",
         kind: "instructions",
-        agents: &["codex", "cursor", "antigravity", "aider"],
+        agents: &[ID_CODEX, ID_CURSOR, ID_ANTIGRAVITY, ID_AIDER],
         mcp_format: None,
     },
     ConfigDefinition {
         rel: ".mcp.json",
         kind: "mcp",
-        agents: &["claude", "copilot"],
+        agents: &[ID_CLAUDE, ID_COPILOT],
         mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
     ConfigDefinition {
         rel: ".github/mcp.json",
         kind: "mcp",
-        agents: &["copilot"],
+        agents: &[ID_COPILOT],
         mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
     ConfigDefinition {
         rel: "opencode.json",
         kind: "mcp",
-        agents: &["opencode"],
+        agents: &[ID_OPENCODE],
         mcp_format: Some(McpFormat::JsonObject { key: "mcp" }),
     },
     ConfigDefinition {
         rel: ".codex/config.toml",
         kind: "mcp",
-        agents: &["codex"],
+        agents: &[ID_CODEX],
         mcp_format: Some(McpFormat::TomlTables { key: "mcp_servers" }),
     },
     ConfigDefinition {
         rel: ".cursor/mcp.json",
         kind: "mcp",
-        agents: &["cursor"],
+        agents: &[ID_CURSOR],
         mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
     ConfigDefinition {
         rel: ".claude/settings.json",
         kind: "settings",
-        agents: &["claude"],
+        agents: &[ID_CLAUDE],
         mcp_format: None,
     },
     ConfigDefinition {
         rel: ".claude/settings.local.json",
         kind: "settings",
-        agents: &["claude"],
+        agents: &[ID_CLAUDE],
         mcp_format: None,
     },
 ];

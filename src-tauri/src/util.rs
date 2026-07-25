@@ -383,6 +383,15 @@ pub fn is_on_path(command: &str) -> bool {
     resolve(command).is_some()
 }
 
+/// Parse a JSON file into a `serde_json::Value`, or `None` when it can't be read
+/// or isn't valid JSON. The single home for the read-then-parse pair every local
+/// credential / auth probe repeats (DRY) — an expected miss (no file, bad JSON)
+/// is a plain `None`, never an error to handle.
+pub fn read_json(path: &Path) -> Option<serde_json::Value> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
 pub fn home_dir() -> Option<PathBuf> {

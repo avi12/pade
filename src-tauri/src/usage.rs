@@ -15,13 +15,15 @@
 
 use std::collections::HashMap;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
-use crate::util::home_dir;
+use crate::agents::{ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE};
+use crate::util::{home_dir, read_json};
 
 /// The agents we can source usage for, and the one authoritative mapping from
 /// the registry id string the frontend sends (`session.agent.id`). An agent we
@@ -46,24 +48,17 @@ enum UsageAgent {
     Cursor,
 }
 
-const AGENT_ID_CLAUDE: &str = "claude";
-const AGENT_ID_CODEX: &str = "codex";
-const AGENT_ID_COPILOT: &str = "copilot";
-const AGENT_ID_ANTIGRAVITY: &str = "antigravity";
-const AGENT_ID_CURSOR: &str = "cursor";
-const AGENT_ID_OPENCODE: &str = "opencode";
-
 impl UsageAgent {
     fn from_id(id: &str) -> Option<Self> {
         match id {
-            AGENT_ID_CLAUDE => Some(Self::Claude),
+            ID_CLAUDE => Some(Self::Claude),
             // opencode authenticates against the same ChatGPT subscription Codex
             // does, so it reads the Codex adapter — one account, one source of
             // truth.
-            AGENT_ID_CODEX | AGENT_ID_OPENCODE => Some(Self::Codex),
-            AGENT_ID_COPILOT => Some(Self::Copilot),
-            AGENT_ID_ANTIGRAVITY => Some(Self::Antigravity),
-            AGENT_ID_CURSOR => Some(Self::Cursor),
+            ID_CODEX | ID_OPENCODE => Some(Self::Codex),
+            ID_COPILOT => Some(Self::Copilot),
+            ID_ANTIGRAVITY => Some(Self::Antigravity),
+            ID_CURSOR => Some(Self::Cursor),
             _ => None,
         }
     }
@@ -108,23 +103,35 @@ fn usage_for(agent: &str) -> Option<Usage> {
     }
 }
 
+/// Which window becomes the meter's headline when the account carries no weekly
+/// cap. Claude's endpoint always returns a weekly window, so its meter shows the
+/// weekly figure or nothing; every other adapter falls back to the most-consumed
+/// window so a session-only or per-feature account still surfaces a number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeadlineWindow {
+    WeeklyOnly,
+    WeeklyOrMostConsumed,
+}
+
 /// The headline figure for an account's meter, mapping whatever windows the
 /// endpoint returned into the flat [`Usage`] the handoff logic reads: the weekly
-/// all-models cap when present, else the most-consumed window, else no number at
-/// all (a tier-label account with an empty window list). Shared by every live and
-/// tier-label agent that reads through [`account_usage_for`] (DRY).
-fn usage_from_account(account: AccountUsage) -> Usage {
-    let headline = account
+/// all-models cap when present, else — per `headline` — the most-consumed window,
+/// else no number at all (a tier-label account with an empty window list). The one
+/// home for the windows → [`Usage`] mapping every live and tier-label adapter
+/// reads through (DRY).
+fn usage_from_account(account: AccountUsage, headline: HeadlineWindow) -> Usage {
+    let chosen = account
         .windows
         .iter()
         .find(|window| window.kind == UsageWindowKind::Weekly)
-        .or_else(|| {
-            account
+        .or_else(|| match headline {
+            HeadlineWindow::WeeklyOnly => None,
+            HeadlineWindow::WeeklyOrMostConsumed => account
                 .windows
                 .iter()
-                .max_by(|first, second| first.utilization.total_cmp(&second.utilization))
+                .max_by(|first, second| first.utilization.total_cmp(&second.utilization)),
         });
-    let (used_pct, resets_at) = headline.map_or((None, None), |window| {
+    let (used_pct, resets_at) = chosen.map_or((None, None), |window| {
         (Some(window.utilization), window.resets_at.clone())
     });
     Usage {
@@ -142,28 +149,22 @@ fn claude_usage() -> Option<Usage> {
     let Some(account) = account_usage_for(AccountUsageRequest::cached(UsageAgent::Claude)) else {
         return tier_label_usage();
     };
+    Some(usage_from_account(account, HeadlineWindow::WeeklyOnly))
+}
 
-    let weekly = account
-        .windows
-        .iter()
-        .find(|window| window.kind == UsageWindowKind::Weekly);
-    let (used_pct, resets_at) = weekly.map_or((None, None), |window| {
-        (Some(window.utilization), window.resets_at.clone())
-    });
-    Some(Usage {
-        used_pct,
-        label: account.plan,
-        resets_at,
-        source: account.source,
-    })
+/// The local Claude Code credentials file, `~/.claude/.credentials.json`. Its
+/// `local:…` source label is derived from the same relative path (see
+/// [`CLAUDE_CREDENTIALS_REL`]) so path and label can never drift.
+const CLAUDE_CREDENTIALS_REL: &str = ".claude/.credentials.json";
+
+fn claude_credentials_path() -> Option<PathBuf> {
+    Some(home_dir()?.join(CLAUDE_CREDENTIALS_REL))
 }
 
 /// Offline fallback: just the subscription tier from the local credentials, with
 /// the precise numbers left `None`.
 fn tier_label_usage() -> Option<Usage> {
-    let creds = home_dir()?.join(".claude").join(".credentials.json");
-    let raw = std::fs::read_to_string(&creds).ok()?;
-    let json: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let json = read_json(&claude_credentials_path()?)?;
 
     let tier = json
         .get("claudeAiOauth")
@@ -174,7 +175,7 @@ fn tier_label_usage() -> Option<Usage> {
         used_pct: None,
         label: format!("Claude {tier}"),
         resets_at: None,
-        source: "local:.claude/.credentials.json".to_string(),
+        source: format!("local:{CLAUDE_CREDENTIALS_REL}"),
     })
 }
 
@@ -193,26 +194,19 @@ fn codex_usage() -> Option<Usage> {
     let Some(account) = account_usage_for(AccountUsageRequest::cached(UsageAgent::Codex)) else {
         return codex_tier_label_usage();
     };
+    Some(usage_from_account(
+        account,
+        HeadlineWindow::WeeklyOrMostConsumed,
+    ))
+}
 
-    let headline = account
-        .windows
-        .iter()
-        .find(|window| window.kind == UsageWindowKind::Weekly)
-        .or_else(|| {
-            account
-                .windows
-                .iter()
-                .max_by(|first, second| first.utilization.total_cmp(&second.utilization))
-        });
-    let (used_pct, resets_at) = headline.map_or((None, None), |window| {
-        (Some(window.utilization), window.resets_at.clone())
-    });
-    Some(Usage {
-        used_pct,
-        label: account.plan,
-        resets_at,
-        source: account.source,
-    })
+/// The local Codex credentials file, `~/.codex/auth.json`. Its `local:…` source
+/// label is derived from the same relative path (see [`CODEX_AUTH_REL`]) so path
+/// and label can never drift.
+const CODEX_AUTH_REL: &str = ".codex/auth.json";
+
+fn codex_auth_path() -> Option<PathBuf> {
+    Some(home_dir()?.join(CODEX_AUTH_REL))
 }
 
 /// Offline fallback: confirm a local `ChatGPT` auth exists and surface a bare
@@ -220,9 +214,7 @@ fn codex_usage() -> Option<Usage> {
 /// id-token — it can be stale (e.g. "free" after an upgrade to Plus) — so we
 /// stay honest and leave the precise figures `None` until the endpoint answers.
 fn codex_tier_label_usage() -> Option<Usage> {
-    let auth = home_dir()?.join(".codex").join("auth.json");
-    let raw = std::fs::read_to_string(&auth).ok()?;
-    let json: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let json = read_json(&codex_auth_path()?)?;
     json.get("tokens")
         .and_then(|tokens| tokens.get("access_token"))
         .and_then(serde_json::Value::as_str)?;
@@ -231,7 +223,7 @@ fn codex_tier_label_usage() -> Option<Usage> {
         used_pct: None,
         label: "Codex".to_string(),
         resets_at: None,
-        source: "local:.codex/auth.json".to_string(),
+        source: format!("local:{CODEX_AUTH_REL}"),
     })
 }
 
@@ -427,9 +419,7 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
 }
 
 fn fetch_claude_account_usage() -> Option<AccountUsage> {
-    let creds = home_dir()?.join(".claude").join(".credentials.json");
-    let raw = std::fs::read_to_string(&creds).ok()?;
-    let json: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let json = read_json(&claude_credentials_path()?)?;
     let oauth = json.get("claudeAiOauth")?;
     let token = oauth
         .get("accessToken")
@@ -631,9 +621,7 @@ const CODEX_SESSION_WINDOW_SECONDS: i64 = 5 * 60 * 60;
 const CODEX_WEEKLY_WINDOW_SECONDS: i64 = 7 * 24 * 60 * 60;
 
 fn fetch_codex_account_usage() -> Option<AccountUsage> {
-    let auth = home_dir()?.join(".codex").join("auth.json");
-    let raw = std::fs::read_to_string(&auth).ok()?;
-    let json: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let json = read_json(&codex_auth_path()?)?;
     let tokens = json.get("tokens")?;
     let token = tokens
         .get("access_token")
@@ -853,9 +841,11 @@ const COPILOT_LOCAL_SOURCE: &str = "local:github-copilot";
 /// Copilot usage for the meter — the live premium-request window when the
 /// entitlement endpoint answers, else the honest plan label with no numbers.
 fn copilot_usage() -> Option<Usage> {
-    Some(usage_from_account(account_usage_for(
-        AccountUsageRequest::cached(UsageAgent::Copilot),
-    )?))
+    let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Copilot))?;
+    Some(usage_from_account(
+        account,
+        HeadlineWindow::WeeklyOrMostConsumed,
+    ))
 }
 
 /// The Copilot account: live entitlement windows when the endpoint answers,
@@ -1004,10 +994,7 @@ fn copilot_token_from_store() -> Option<String> {
         home.join(".config/github-copilot")
     };
     for file in ["apps.json", "hosts.json"] {
-        let Ok(raw) = std::fs::read_to_string(directory.join(file)) else {
-            continue;
-        };
-        let Ok(json) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        let Some(json) = read_json(&directory.join(file)) else {
             continue;
         };
         let Some(hosts) = json.as_object() else {
@@ -1058,9 +1045,11 @@ fn curl_copilot_usage(token: &str) -> Option<String> {
 
 /// Antigravity usage — the plan label when a local Google login exists, else "—".
 fn antigravity_usage() -> Option<Usage> {
-    Some(usage_from_account(account_usage_for(
-        AccountUsageRequest::cached(UsageAgent::Antigravity),
-    )?))
+    let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Antigravity))?;
+    Some(usage_from_account(
+        account,
+        HeadlineWindow::WeeklyOrMostConsumed,
+    ))
 }
 
 /// Confirm the Antigravity OAuth token exists on disk and surface a bare plan
@@ -1071,8 +1060,7 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
         .join(".gemini")
         .join("antigravity-cli")
         .join("antigravity-oauth-token");
-    let raw = std::fs::read_to_string(&token_file).ok()?;
-    let json: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let json = read_json(&token_file)?;
     json.pointer("/token/access_token")
         .and_then(serde_json::Value::as_str)?;
 
@@ -1096,9 +1084,11 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
 
 /// Cursor usage — the plan label when a local login exists, else "—".
 fn cursor_usage() -> Option<Usage> {
-    Some(usage_from_account(account_usage_for(
-        AccountUsageRequest::cached(UsageAgent::Cursor),
-    )?))
+    let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Cursor))?;
+    Some(usage_from_account(
+        account,
+        HeadlineWindow::WeeklyOrMostConsumed,
+    ))
 }
 
 /// Confirm a Cursor login exists on disk (or a `CURSOR_API_KEY` override) and
@@ -1140,10 +1130,7 @@ fn cursor_login_present() -> bool {
 /// Whether an auth file names a stored login — a non-empty `accessToken`/
 /// `access_token` JWT, or the `authInfo` block the CLI writes once signed in.
 fn auth_file_has_login(path: &std::path::Path) -> bool {
-    let Ok(raw) = std::fs::read_to_string(path) else {
-        return false;
-    };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&raw) else {
+    let Some(json) = read_json(path) else {
         return false;
     };
     let has_named_token = ["accessToken", "access_token"].iter().any(|key| {
@@ -1159,20 +1146,21 @@ mod tests {
     use super::{
         collect_codex_windows, collect_copilot_windows, collect_windows, humanize_key,
         humanize_window_seconds, is_safe_header_token, unix_seconds_to_iso8601, usage_from_account,
-        AccountUsage, UsageAgent, UsageWindow, UsageWindowKind, AGENT_ID_CODEX, AGENT_ID_OPENCODE,
+        AccountUsage, HeadlineWindow, UsageAgent, UsageWindow, UsageWindowKind,
         BILLING_ACCOUNT_GOOGLE,
     };
+    use crate::agents::{ID_CODEX, ID_OPENCODE};
 
     #[test]
     fn opencode_resolves_to_the_codex_adapter() {
         // One ChatGPT subscription, one source of truth: both agent ids read the
         // same adapter, so both surface the same account.
         assert!(matches!(
-            UsageAgent::from_id(AGENT_ID_OPENCODE),
+            UsageAgent::from_id(ID_OPENCODE),
             Some(UsageAgent::Codex)
         ));
         assert!(matches!(
-            UsageAgent::from_id(AGENT_ID_CODEX),
+            UsageAgent::from_id(ID_CODEX),
             Some(UsageAgent::Codex)
         ));
     }
@@ -1471,7 +1459,7 @@ mod tests {
             ],
         };
 
-        let usage = usage_from_account(account);
+        let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);
 
         // The weekly cap is the headline even when another window is hotter.
         assert_eq!(usage.used_pct, Some(40.0));
@@ -1503,7 +1491,34 @@ mod tests {
             ],
         };
 
-        assert_eq!(usage_from_account(account).used_pct, Some(88.0));
+        assert_eq!(
+            usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed).used_pct,
+            Some(88.0)
+        );
+    }
+
+    #[test]
+    fn weekly_only_ignores_a_non_weekly_window() {
+        // Claude's strategy: with no weekly cap present, the meter shows no number
+        // rather than falling back to the most-consumed window.
+        let account = AccountUsage {
+            plan: "Claude Pro".to_string(),
+            source: "oauth:api.anthropic.com".to_string(),
+            account: None,
+            windows: vec![UsageWindow {
+                key: "five_hour".to_string(),
+                kind: UsageWindowKind::Session,
+                label: "Session".to_string(),
+                utilization: 55.0,
+                resets_at: Some("2026-08-01".to_string()),
+            }],
+        };
+
+        let usage = usage_from_account(account, HeadlineWindow::WeeklyOnly);
+
+        assert_eq!(usage.used_pct, None);
+        assert_eq!(usage.resets_at, None);
+        assert_eq!(usage.label, "Claude Pro");
     }
 
     #[test]
@@ -1517,7 +1532,7 @@ mod tests {
             account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
         };
 
-        let usage = usage_from_account(account);
+        let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);
 
         assert_eq!(usage.used_pct, None);
         assert_eq!(usage.resets_at, None);

@@ -11,6 +11,19 @@ use serde::Serialize;
 use crate::theming::ThemeConfig;
 use crate::util::{find_in, search_dirs};
 
+/// Canonical registry ids — the one authoritative spelling of each agent's id
+/// (`session.agent.id`). The REGISTRY entries below read from these, as do the
+/// other modules that must name an agent (`usage`, `config`), so the vocabulary
+/// has a single home and can never drift between them.
+pub const ID_CLAUDE: &str = "claude";
+pub const ID_CODEX: &str = "codex";
+pub const ID_OPENCODE: &str = "opencode";
+pub const ID_COPILOT: &str = "copilot";
+pub const ID_GROK: &str = "grok";
+pub const ID_ANTIGRAVITY: &str = "antigravity";
+pub const ID_CURSOR: &str = "cursor";
+pub const ID_AIDER: &str = "aider";
+
 struct AgentDefinition {
     id: &'static str,
     label: &'static str,
@@ -85,7 +98,7 @@ pub struct ProjectThemeSeed {
 /// mode; cursor-agent's rendering is undocumented — none of those three is forced.
 const REGISTRY: &[AgentDefinition] = &[
     AgentDefinition {
-        id: "claude",
+        id: ID_CLAUDE,
         label: "Claude Code",
         command: "claude",
         aliases: &[],
@@ -123,7 +136,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: false,
     },
     AgentDefinition {
-        id: "codex",
+        id: ID_CODEX,
         label: "Codex",
         command: "codex",
         // OpenAI publishes Codex as bare release binaries named by target triple,
@@ -209,7 +222,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: true,
     },
     AgentDefinition {
-        id: "opencode",
+        id: ID_OPENCODE,
         label: "OpenCode",
         command: "opencode",
         aliases: &[],
@@ -250,7 +263,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: true,
     },
     AgentDefinition {
-        id: "copilot",
+        id: ID_COPILOT,
         label: "Copilot CLI",
         // GitHub's standalone Copilot CLI (`npm i -g @github/copilot`) installs a
         // plain `copilot` binary. This is not the older `gh copilot` extension,
@@ -284,7 +297,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: false,
     },
     AgentDefinition {
-        id: "grok",
+        id: ID_GROK,
         label: "Grok CLI",
         command: "grok",
         aliases: &[],
@@ -305,7 +318,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: false,
     },
     AgentDefinition {
-        id: "antigravity",
+        id: ID_ANTIGRAVITY,
         label: "Antigravity CLI",
         command: "antigravity",
         aliases: &[],
@@ -323,7 +336,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: false,
     },
     AgentDefinition {
-        id: "cursor",
+        id: ID_CURSOR,
         label: "Cursor CLI",
         command: "cursor-agent",
         aliases: &[],
@@ -344,7 +357,7 @@ const REGISTRY: &[AgentDefinition] = &[
         needs_light_console_fix: false,
     },
     AgentDefinition {
-        id: "aider",
+        id: ID_AIDER,
         label: "aider",
         command: "aider",
         aliases: &[],
