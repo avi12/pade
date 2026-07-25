@@ -37,7 +37,7 @@ use crate::util::home_dir;
 /// have no plan quota at all, so they are deliberately absent and stay "—".
 /// An agent id and an adapter aren't 1:1: opencode signs into the same
 /// `ChatGPT` subscription Codex does, so its id resolves to the Codex adapter.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum UsageAgent {
     Claude,
     Codex,
@@ -139,7 +139,7 @@ fn usage_from_account(account: AccountUsage) -> Usage {
 /// %, mirroring claude.ai) and falls back to the honest subscription-tier label
 /// when the network / token isn't available.
 fn claude_usage() -> Option<Usage> {
-    let Some(account) = account_usage_for(UsageAgent::Claude) else {
+    let Some(account) = account_usage_for(AccountUsageRequest::cached(UsageAgent::Claude)) else {
         return tier_label_usage();
     };
 
@@ -190,7 +190,7 @@ fn tier_label_usage() -> Option<Usage> {
 /// most-consumed window the endpoint returns), and the honest local plan label
 /// when the network / token isn't available.
 fn codex_usage() -> Option<Usage> {
-    let Some(account) = account_usage_for(UsageAgent::Codex) else {
+    let Some(account) = account_usage_for(AccountUsageRequest::cached(UsageAgent::Codex)) else {
         return codex_tier_label_usage();
     };
 
@@ -331,6 +331,34 @@ pub struct AccountUsage {
     account: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum UsageCachePolicy {
+    UseCache,
+    Refresh,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct AccountUsageRequest {
+    agent: UsageAgent,
+    cache_policy: UsageCachePolicy,
+}
+
+impl AccountUsageRequest {
+    const fn cached(agent: UsageAgent) -> Self {
+        Self {
+            agent,
+            cache_policy: UsageCachePolicy::UseCache,
+        }
+    }
+
+    const fn refresh(agent: UsageAgent) -> Self {
+        Self {
+            agent,
+            cache_policy: UsageCachePolicy::Refresh,
+        }
+    }
+}
+
 /// Live account usage windows, mirroring claude.ai. `None` when offline, `curl` is
 /// unavailable, or the token is missing/expired (Claude Code refreshes it on its
 /// next run). Cached ~3 min to respect the endpoint's per-token limit.
@@ -338,39 +366,54 @@ pub struct AccountUsage {
 // is a bounded-but-slow curl request that must never run on the UI thread.
 #[tauri::command]
 pub async fn usage_account() -> Option<AccountUsage> {
-    tauri::async_runtime::spawn_blocking(|| account_usage_for(UsageAgent::Claude))
-        .await
-        .ok()
-        .flatten()
+    tauri::async_runtime::spawn_blocking(|| {
+        account_usage_for(AccountUsageRequest::cached(UsageAgent::Claude))
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Live account usage windows for a specific agent (`claude`, `codex`) — what the
 /// per-agent meter renders. `None` for an agent we have no usage adapter for, or
 /// when its token / network isn't available.
 #[tauri::command]
-pub async fn usage_account_agent(agent: String) -> Option<AccountUsage> {
-    tauri::async_runtime::spawn_blocking(move || account_usage_for(UsageAgent::from_id(&agent)?))
-        .await
-        .ok()
-        .flatten()
+pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<AccountUsage> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let agent = UsageAgent::from_id(&agent)?;
+        let request = if force_refresh {
+            AccountUsageRequest::refresh(agent)
+        } else {
+            AccountUsageRequest::cached(agent)
+        };
+        account_usage_for(request)
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Live account usage for `agent`, cached ~3 min per agent to respect each
 /// endpoint's per-token limit. One cache map, keyed by agent — the single source
 /// for both the no-arg Claude command and the per-agent one above.
-fn account_usage_for(agent: UsageAgent) -> Option<AccountUsage> {
+fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
     static CACHE: OnceLock<Mutex<HashMap<UsageAgent, (Instant, AccountUsage)>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
-    let still_fresh = cache.lock().ok().and_then(|guard| {
-        let (fetched_at, cached) = guard.get(&agent)?;
-        (fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECS)).then(|| cached.clone())
-    });
+    let still_fresh = matches!(request.cache_policy, UsageCachePolicy::UseCache)
+        .then(|| {
+            cache.lock().ok().and_then(|guard| {
+                let (fetched_at, cached) = guard.get(&request.agent)?;
+                (fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECS))
+                    .then(|| cached.clone())
+            })
+        })
+        .flatten();
     if let Some(cached) = still_fresh {
         return Some(cached);
     }
 
-    let fresh = match agent {
+    let fresh = match request.agent {
         UsageAgent::Claude => fetch_claude_account_usage(),
         UsageAgent::Codex => fetch_codex_account_usage(),
         UsageAgent::Copilot => fetch_copilot_account_usage(),
@@ -378,7 +421,7 @@ fn account_usage_for(agent: UsageAgent) -> Option<AccountUsage> {
         UsageAgent::Cursor => fetch_cursor_account_usage(),
     }?;
     if let Ok(mut guard) = cache.lock() {
-        guard.insert(agent, (Instant::now(), fresh.clone()));
+        guard.insert(request.agent, (Instant::now(), fresh.clone()));
     }
     Some(fresh)
 }
@@ -810,7 +853,9 @@ const COPILOT_LOCAL_SOURCE: &str = "local:github-copilot";
 /// Copilot usage for the meter — the live premium-request window when the
 /// entitlement endpoint answers, else the honest plan label with no numbers.
 fn copilot_usage() -> Option<Usage> {
-    Some(usage_from_account(account_usage_for(UsageAgent::Copilot)?))
+    Some(usage_from_account(account_usage_for(
+        AccountUsageRequest::cached(UsageAgent::Copilot),
+    )?))
 }
 
 /// The Copilot account: live entitlement windows when the endpoint answers,
@@ -1014,7 +1059,7 @@ fn curl_copilot_usage(token: &str) -> Option<String> {
 /// Antigravity usage — the plan label when a local Google login exists, else "—".
 fn antigravity_usage() -> Option<Usage> {
     Some(usage_from_account(account_usage_for(
-        UsageAgent::Antigravity,
+        AccountUsageRequest::cached(UsageAgent::Antigravity),
     )?))
 }
 
@@ -1051,7 +1096,9 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
 
 /// Cursor usage — the plan label when a local login exists, else "—".
 fn cursor_usage() -> Option<Usage> {
-    Some(usage_from_account(account_usage_for(UsageAgent::Cursor)?))
+    Some(usage_from_account(account_usage_for(
+        AccountUsageRequest::cached(UsageAgent::Cursor),
+    )?))
 }
 
 /// Confirm a Cursor login exists on disk (or a `CURSOR_API_KEY` override) and

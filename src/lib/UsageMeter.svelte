@@ -8,10 +8,12 @@
     buildKindLegend,
     findSpotlight,
     severityBreakdown,
+    usageResetTime,
     worstLimit
   } from "@/lib/usage-groups";
   import type { AgentGroup, Level } from "@/lib/usage-groups";
   import { onDestroy } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
 
   // The running agent sessions — one usage group per distinct coding agent among
   // them is derived below (App.svelte owns the list; the shell fallback and
@@ -31,6 +33,8 @@
   // half-minute tick keeps them honest at a thirtieth of the repaints a
   // per-second clock would force (idle frames are what make the app heavy).
   const CLOCK_TICK_MS = 30_000;
+  const RESET_SETTLE_MS = 1_000;
+  const refreshedResetBoundaries = new SvelteSet<string>();
 
   // How many per-agent pills the trigger shows before collapsing the rest into a
   // trailing "+N" overflow chip. Every agent renders as a pill — a single agent
@@ -91,12 +95,23 @@
   // Fetch each distinct running agent's account (Claude, Codex, …) in parallel,
   // keyed by agent id. An agent with no local usage signal resolves to null and
   // renders as an "unknown" group — never fabricated.
-  async function loadAccounts() {
+  async function loadAccounts({ forceRefresh = false }: { forceRefresh?: boolean } = {}) {
     const agentIds = [...new Set(sessions.map(session => session.agent.id))];
     const entries = await Promise.all(
-      agentIds.map(async id => [id, await usageApi.accountFor(id).catch(() => null)] as const)
+      agentIds.map(async id => [
+        id,
+        await usageApi.accountFor({
+          agent: id,
+          forceRefresh
+        }).catch(() => null)
+      ] as const)
     );
     return new Map(entries);
+  }
+
+  async function refreshAtResetBoundary() {
+    now = Date.now();
+    accounts = await loadAccounts({ forceRefresh: true });
   }
 
   $effect(() => {
@@ -119,6 +134,37 @@
   const clockTimer = setInterval(() => {
     now = Date.now();
   }, CLOCK_TICK_MS);
+  $effect(() => {
+    const resetTimes = [...accounts.values()]
+      .flatMap(account => account?.windows ?? [])
+      .map(window => window.resetsAt)
+      .filter((value): value is string => value !== undefined)
+      .map(value => ({
+        value,
+        time: usageResetTime(value)
+      }))
+      .filter(reset => Number.isFinite(reset.time));
+    const currentTime = Date.now();
+    const expired = resetTimes.find(reset => reset.time <= currentTime && !refreshedResetBoundaries.has(reset.value));
+    if (expired) {
+      refreshedResetBoundaries.add(expired.value);
+      refreshAtResetBoundary();
+      return;
+    }
+
+    const nextReset = resetTimes
+      .filter(reset => reset.time > currentTime)
+      .sort((first, second) => first.time - second.time)[0];
+    if (!nextReset) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      refreshedResetBoundaries.add(nextReset.value);
+      await refreshAtResetBoundary();
+    }, nextReset.time - currentTime + RESET_SETTLE_MS);
+    return () => clearTimeout(timer);
+  });
   onDestroy(() => {
     clearInterval(accountTimer);
     clearInterval(clockTimer);

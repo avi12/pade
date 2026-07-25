@@ -98,6 +98,9 @@ writes.
 - R1.6.2 ✅ Show % used and reset time. For Claude: the live 5-hour + weekly
   windows from the vendor's OAuth usage endpoint (the local token, cached, no
   message quota spent), with the subscription-tier label as offline fallback.
+  At a window's advertised reset boundary its expired percentage and severity
+  clear immediately, and the meter bypasses its normal cache once to fetch the
+  new window instead of displaying stale usage until the next poll.
   🔭 burn-rate warning.
 
 ### 1.6a Auto-handoff (✅)

@@ -72,8 +72,20 @@ function clamp(value: number): number {
 
 // Normalize the endpoint's microsecond timestamps to ms so every engine parses
 // them identically — otherwise the countdown can drift.
-function parseIso(iso: string): number {
+export function usageResetTime(iso: string): number {
   return new Date(iso.replace(/(\.\d{3})\d+/, "$1")).getTime();
+}
+
+function resetHasPassed({ resetsAt, now }: {
+  resetsAt: string | null | undefined;
+  now: number;
+}): boolean {
+  if (!resetsAt) {
+    return false;
+  }
+
+  const resetMs = usageResetTime(resetsAt);
+  return Number.isFinite(resetMs) && resetMs <= now;
 }
 
 // Absolute reset time for the hover tooltip — weekday + date + time so a window
@@ -92,7 +104,7 @@ function resetTimestamp(iso: string | null | undefined): string {
     return "";
   }
 
-  const resetMs = parseIso(iso);
+  const resetMs = usageResetTime(iso);
   if (!Number.isFinite(resetMs)) {
     return "";
   }
@@ -110,7 +122,7 @@ function resetCountdown({ iso, now }: {
     return "";
   }
 
-  const remaining = parseIso(iso) - now;
+  const remaining = usageResetTime(iso) - now;
   if (!Number.isFinite(remaining) || remaining <= 0) {
     return "";
   }
@@ -202,7 +214,15 @@ function buildLimits({ account, now }: {
 }): Limit[] {
   const limits: Limit[] = [];
   for (const window of account.windows) {
-    const value = clamp(window.utilization);
+    // A utilization belongs to the window that ended at `resetsAt`. Once that
+    // boundary passes, retaining it is knowingly stale; render the new window's
+    // zero baseline while UsageMeter forces a fresh vendor read.
+    const value = resetHasPassed({
+      resetsAt: window.resetsAt,
+      now
+    })
+      ? 0
+      : clamp(window.utilization);
     const isUntouchedFeatureCap = window.kind === UsageWindowKind.enum.opaque && value === 0;
     if (isUntouchedFeatureCap) {
       continue;

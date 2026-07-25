@@ -379,6 +379,26 @@ describe("reset countdowns", () => {
     expect(fiveHourReset("2025-12-31T23:59:00Z")).toBe("");
   });
 
+  it("clears stale utilization and severity when the window resets", () => {
+    const [claude] = buildGroups({
+      accounts: accountsFor({
+        claude: makeAccount({
+          windows: [sessionWindow({
+            utilization: 96,
+            resetsAt: "2026-01-01T00:00:00Z"
+          })]
+        })
+      }),
+      sessions: [claudeSession()],
+      now
+    });
+    expect(claude.limits[0]).toMatchObject({
+      pct: 0,
+      level: "normal",
+      reset: ""
+    });
+  });
+
   it("truncates a microsecond timestamp to milliseconds before parsing", () => {
     expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe(fiveHourReset("2026-01-01T00:01:30.123Z"));
     expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe("in 1m 30s");

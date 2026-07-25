@@ -465,7 +465,13 @@ export const usage = {
   /** Live usage windows for a specific agent (`claude`, `codex`) — each read from
    *  that vendor's own usage endpoint with its locally-stored token. `null` for an
    *  agent with no usable local usage signal. */
-  accountFor: (agent: string) => call("usage_account_agent", AccountUsage.nullable(), { agent })
+  accountFor: ({ agent, forceRefresh = false }: {
+    agent: string;
+    forceRefresh?: boolean;
+  }) => call("usage_account_agent", AccountUsage.nullable(), {
+    agent,
+    forceRefresh
+  })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */
