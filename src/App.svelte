@@ -1900,6 +1900,8 @@
               {:else if side === Side.vcs}
                 {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
                   <VcsPanel project={currentProject} />
+                {:catch}
+                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
                 {/await}
               {:else if side === Side.tasks}
                 {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
@@ -1915,10 +1917,14 @@
                     }) => await startRunner(task)}
                     project={currentProject}
                   />
+                {:catch}
+                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
                 {/await}
               {:else if side === Side.config}
                 {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
                   <ConfigPanel agent={activeAgent} />
+                {:catch}
+                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
                 {/await}
               {/if}
             </div>
@@ -2262,6 +2268,13 @@
     align-items: center;
     padding-block: 12px 10px;
     padding-inline: 16px;
+  }
+
+  .panel-load-error {
+    margin: 16px;
+    color: var(--on-surface-variant);
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   .panel-title {
