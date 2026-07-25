@@ -11,6 +11,17 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
+use crate::config::McpFormat;
+
+/// One parseable state of an MCP config. Existence is separate from names so
+/// creating or deleting an empty config still triggers an agent reload.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct McpSnapshot {
+    pub exists: bool,
+    pub names: BTreeSet<String>,
+    pub content: String,
+}
+
 /// The declared MCP server names in the config file at `path` (the keys of its
 /// `mcpServers` object), or `None` when the set can't be determined right now.
 ///
@@ -18,22 +29,39 @@ use std::path::Path;
 /// remove. But a file that exists yet doesn't parse (a half-written save caught
 /// mid-flush) is `None`: the caller skips it and waits for the next, complete
 /// write, so a transient partial file never reads as "all servers removed".
-pub fn server_names(path: &Path) -> Option<BTreeSet<String>> {
+pub fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
     let Ok(text) = std::fs::read_to_string(path) else {
-        return Some(BTreeSet::new());
+        return Some(McpSnapshot::default());
     };
-    let document: serde_json::Value = serde_json::from_str(&text).ok()?;
-    let names = document
-        .get("mcpServers")
-        .and_then(serde_json::Value::as_object)
-        .map(|servers| servers.keys().cloned().collect())
-        .unwrap_or_default();
-    Some(names)
+    let names = match format {
+        McpFormat::JsonObject { key } => {
+            let document: serde_json::Value = serde_json::from_str(&text).ok()?;
+            document
+                .get(key)
+                .and_then(serde_json::Value::as_object)
+                .map(|servers| servers.keys().cloned().collect())
+                .unwrap_or_default()
+        }
+        McpFormat::TomlTables { key } => {
+            let document: toml::Value = toml::from_str(&text).ok()?;
+            document
+                .get(key)
+                .and_then(toml::Value::as_table)
+                .map(|servers| servers.keys().cloned().collect())
+                .unwrap_or_default()
+        }
+    };
+    Some(McpSnapshot {
+        exists: true,
+        names,
+        content: text,
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::server_names;
+    use super::{snapshot, McpSnapshot};
+    use crate::config::McpFormat;
     use std::collections::BTreeSet;
 
     fn scratch(name: &str) -> std::path::PathBuf {
@@ -58,7 +86,11 @@ mod tests {
             &path,
             r#"{ "mcpServers": { "github": { "type": "http" }, "postgres": { "command": "x" } } }"#,
         );
-        assert_eq!(server_names(&path), Some(names(&["github", "postgres"])));
+        let state = snapshot(&path, McpFormat::JsonObject { key: "mcpServers" });
+        assert_eq!(
+            state.map(|value| value.names),
+            Some(names(&["github", "postgres"]))
+        );
     }
 
     /// Only the SET of names matters — an edit to an existing server's config
@@ -67,22 +99,30 @@ mod tests {
     fn a_value_only_edit_keeps_the_same_set() {
         let path = scratch("edit/.mcp.json");
         write(&path, r#"{ "mcpServers": { "github": { "url": "a" } } }"#);
-        let before = server_names(&path);
+        let before = snapshot(&path, McpFormat::JsonObject { key: "mcpServers" });
         write(&path, r#"{ "mcpServers": { "github": { "url": "b" } } }"#);
-        assert_eq!(server_names(&path), before);
+        let after = snapshot(&path, McpFormat::JsonObject { key: "mcpServers" });
+        assert_eq!(
+            after.map(|value| value.names),
+            before.map(|value| value.names)
+        );
     }
 
     #[test]
     fn a_missing_file_is_an_empty_set() {
         let path = scratch("gone/.mcp.json");
-        assert_eq!(server_names(&path), Some(BTreeSet::new()));
+        assert_eq!(
+            snapshot(&path, McpFormat::JsonObject { key: "mcpServers" }),
+            Some(McpSnapshot::default())
+        );
     }
 
     #[test]
     fn no_mcp_servers_key_is_an_empty_set() {
         let path = scratch("empty/.mcp.json");
         write(&path, r#"{ "other": true }"#);
-        assert_eq!(server_names(&path), Some(BTreeSet::new()));
+        let state = snapshot(&path, McpFormat::JsonObject { key: "mcpServers" });
+        assert_eq!(state.map(|value| value.names), Some(BTreeSet::new()));
     }
 
     /// A half-written file is unknowable, not "all removed" — so the caller can
@@ -91,6 +131,31 @@ mod tests {
     fn an_unparseable_file_is_unknown() {
         let path = scratch("partial/.mcp.json");
         write(&path, r#"{ "mcpServers": { "githu"#);
-        assert_eq!(server_names(&path), None);
+        assert_eq!(
+            snapshot(&path, McpFormat::JsonObject { key: "mcpServers" }),
+            None
+        );
+    }
+
+    #[test]
+    fn reads_opencode_mcp_keys() {
+        let path = scratch("opencode/opencode.json");
+        write(&path, r#"{ "mcp": { "github": { "type": "remote" } } }"#);
+        let state = snapshot(&path, McpFormat::JsonObject { key: "mcp" });
+        assert_eq!(state.map(|value| value.names), Some(names(&["github"])));
+    }
+
+    #[test]
+    fn reads_codex_mcp_tables() {
+        let path = scratch("codex/config.toml");
+        write(
+            &path,
+            "[mcp_servers.github]\nurl = \"https://example.com\"\n\n[mcp_servers.postgres]\ncommand = \"postgres-mcp\"\n",
+        );
+        let state = snapshot(&path, McpFormat::TomlTables { key: "mcp_servers" });
+        assert_eq!(
+            state.map(|value| value.names),
+            Some(names(&["github", "postgres"]))
+        );
     }
 }

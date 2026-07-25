@@ -506,12 +506,14 @@ export interface AgentSession {
   conversationId?: string;
 }
 
-/** A project's declared MCP servers changed (a server name added or removed —
- *  not a value-only edit). The affected agents' sessions restart to pick it up. */
+/** A registered project MCP config changed. `membershipChanged` distinguishes
+ *  automatic handoff triggers from same-name edits that first reload normally. */
 export const McpChange = z.object({
   path: z.string(),
+  root: z.string(),
   agents: z.array(z.string()),
   added: z.array(z.string()),
-  removed: z.array(z.string())
+  removed: z.array(z.string()),
+  membershipChanged: z.boolean()
 });
 export type McpChange = z.infer<typeof McpChange>;

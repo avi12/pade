@@ -25,6 +25,7 @@
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { dropContext, observeContext, observeContextScreen } from "@/lib/stores/context.svelte";
+  import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
@@ -1080,6 +1081,10 @@
         id: session.id,
         chunk: chunk.data
       });
+      observeMcpReload({
+        id: session.id,
+        chunk: chunk.data
+      });
       // Accept the first-run trust gate so the pending first prompt can land.
       watchInitialPrompt(chunk.data);
     }
@@ -1478,6 +1483,7 @@
     resizeObs?.disconnect();
     detachWebgl();
     dropContext(session.id);
+    dropMcpReload(session.id);
     term?.dispose();
   });
 

@@ -1,27 +1,25 @@
-// Pure logic for restarting agent sessions in place — resuming their
-// conversation under a new session id — when a project's MCP servers change.
+// Pure logic for selecting MCP handoff targets and restarting agent sessions in
+// place under a new session id for other spawn-time changes.
 //
 // The reactive side (killing PTYs, re-keying the live pane state, toasting) lives
 // in App.svelte, which owns that state; the error-prone decisions — WHICH
 // sessions a config change affects, and HOW the pane layout re-keys — are pure
 // functions here so they can be reasoned about and unit-tested on their own.
 
-import { normalizePath, parentDir } from "@/lib/paths";
+import { normalizePath } from "@/lib/paths";
 import type { AgentSession, McpChange } from "@/lib/types";
 
-/** The sessions an MCP-config change should restart: those running an agent the
+/** The sessions an MCP-config change should hand off: those running an agent the
  *  config governs, whose working directory IS the directory that changed (a
- *  per-branch worktree keeps its own config, so a root change leaves it alone),
- *  and that carry a conversation id to resume back into. */
+ *  per-branch worktree keeps its own config, so a root change leaves it alone). */
 export function mcpRestartTargets({ sessions, change, currentProject }: {
   sessions: readonly AgentSession[];
   change: McpChange;
   currentProject: string;
 }): AgentSession[] {
-  const changedRoot = normalizePath(parentDir(change.path) ?? change.path);
+  const changedRoot = normalizePath(change.root);
   return sessions.filter(session =>
-    change.agents.includes(session.agent.command)
-    && session.conversationId !== undefined
+    change.agents.includes(session.agent.id)
     && normalizePath(session.cwd ?? currentProject) === changedRoot);
 }
 

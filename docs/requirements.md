@@ -124,10 +124,20 @@ writes.
   `prefs.autoResume` (default on).
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
-- R1.7.1 ✅ Read/surface `CLAUDE.md`, `AGENTS.md`, `.claude/settings*`, `.mcp.json`.
+- R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,
+  `.claude/settings*`, Claude/Copilot `.mcp.json`, Copilot `.github/mcp.json`,
+  OpenCode `opencode.json`, Codex `.codex/config.toml`, and Cursor
+  `.cursor/mcp.json`.
 - R1.7.2 ⏳ Edits round-trip through the same files (no shadow store).
 - R1.7.3 ✅ Config reads are scoped to the calling window's registered project;
   two windows never select files through shared process cwd.
+- R1.7.4 ✅ MCP monitoring follows the running agent's registered project config.
+  Creating or deleting that file, or adding/removing a server name, triggers a
+  safe reload: each governed session writes a handoff document before it ends,
+  then a fresh instance of the same agent launches and continues from that
+  document. A same-name server-definition edit reloads normally; PADE watches
+  the pending session's output and intervenes with the same handoff only when
+  the agent reports that its MCP reload failed.
 
 ### 1.8 Knowledge bank (🔭 for MVP, architected-for)
 - Shared, git-backed, two-way (agent writes research; user has full CRUD).

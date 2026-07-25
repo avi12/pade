@@ -13,6 +13,14 @@ struct ConfigDef {
     rel: &'static str,
     kind: &'static str,
     agents: &'static [&'static str],
+    mcp_format: Option<McpFormat>,
+}
+
+/// How a specific agent config represents its MCP server-name map.
+#[derive(Debug, Clone, Copy)]
+pub enum McpFormat {
+    JsonObject { key: &'static str },
+    TomlTables { key: &'static str },
 }
 
 /// Config files/dirs the ADE knows how to surface, in display order. Only the
@@ -23,35 +31,61 @@ const KNOWN: &[ConfigDef] = &[
         rel: "CLAUDE.md",
         kind: "instructions",
         agents: &["claude"],
+        mcp_format: None,
     },
     ConfigDef {
         rel: "AGENTS.md",
         kind: "instructions",
         agents: &["codex", "cursor", "antigravity", "aider"],
+        mcp_format: None,
     },
     ConfigDef {
         rel: ".mcp.json",
         kind: "mcp",
-        agents: &["claude"],
+        agents: &["claude", "copilot"],
+        mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
+    },
+    ConfigDef {
+        rel: ".github/mcp.json",
+        kind: "mcp",
+        agents: &["copilot"],
+        mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
+    },
+    ConfigDef {
+        rel: "opencode.json",
+        kind: "mcp",
+        agents: &["opencode"],
+        mcp_format: Some(McpFormat::JsonObject { key: "mcp" }),
+    },
+    ConfigDef {
+        rel: ".codex/config.toml",
+        kind: "mcp",
+        agents: &["codex"],
+        mcp_format: Some(McpFormat::TomlTables { key: "mcp_servers" }),
+    },
+    ConfigDef {
+        rel: ".cursor/mcp.json",
+        kind: "mcp",
+        agents: &["cursor"],
+        mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
     ConfigDef {
         rel: ".claude/settings.json",
         kind: "settings",
         agents: &["claude"],
+        mcp_format: None,
     },
     ConfigDef {
         rel: ".claude/settings.local.json",
         kind: "settings",
         agents: &["claude"],
+        mcp_format: None,
     },
 ];
 
 fn applies_to(def: &ConfigDef, agent: &str) -> bool {
     def.agents.is_empty() || def.agents.contains(&agent)
 }
-
-/// The `kind` marking an MCP-server config file in [`KNOWN`].
-const MCP_KIND: &str = "mcp";
 
 /// One MCP-server config file the ADE surfaces: its repo-relative path and the
 /// agents whose servers it declares. The single source of truth for "which file
@@ -60,6 +94,7 @@ const MCP_KIND: &str = "mcp";
 pub struct McpConfig {
     pub rel: &'static str,
     pub agents: &'static [&'static str],
+    pub format: McpFormat,
 }
 
 /// Every known project-level MCP config file (e.g. `.mcp.json` for Claude),
@@ -68,10 +103,11 @@ pub struct McpConfig {
 pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
     KNOWN
         .iter()
-        .filter(|def| def.kind == MCP_KIND)
-        .map(|def| McpConfig {
+        .filter_map(|def| def.mcp_format.map(|format| (def, format)))
+        .map(|(def, format)| McpConfig {
             rel: def.rel,
             agents: def.agents,
+            format,
         })
 }
 

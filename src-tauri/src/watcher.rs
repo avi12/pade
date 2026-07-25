@@ -4,7 +4,7 @@
 //! save into a `ChangeEvent` with a line-count delta and a heuristic summary.
 //! Later: real per-hunk diffs and agent-authored intent replace the heuristic.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -73,12 +73,10 @@ struct WindowWatch {
     /// path shells git at most once. Cleared on a re-root and whenever a
     /// `.gitignore` changes, since editing its rules can flip any path's state.
     git_ignore_cache: Mutex<HashMap<PathBuf, bool>>,
-    /// The set of declared MCP server names last seen in each MCP config file
-    /// (absolute path → server-name set), the baseline the change detector diffs
-    /// against. An agent only picks up an added/removed server by restarting, so
-    /// a change to this SET (not a value-only edit) drives `mcp://changed`. Seeded
-    /// on `watch_start` and re-scoped to the new root on a project switch.
-    mcp_servers: Mutex<HashMap<PathBuf, BTreeSet<String>>>,
+    /// The last parseable state of each registered MCP config. Existence and
+    /// server membership drive automatic handoff; same-membership content edits
+    /// arm frontend reload-failure recovery.
+    mcp_servers: Mutex<HashMap<PathBuf, crate::mcp::McpSnapshot>>,
 }
 
 #[derive(Default)]
@@ -258,28 +256,31 @@ const MCP_EVENT: &str = "mcp://changed";
 struct McpChange {
     /// The MCP config file that changed (absolute path).
     path: String,
-    /// The agent commands whose servers this file declares (e.g. `["claude"]`).
+    /// The watched project root. Nested configs cannot derive this from `path`.
+    root: String,
+    /// The agent ids whose servers this file declares (e.g. `["claude"]`).
     agents: Vec<String>,
     /// Server names gained since the last seen set.
     added: Vec<String>,
     /// Server names lost since the last seen set.
     removed: Vec<String>,
+    /// Whether the file was created/deleted or server membership changed.
+    membership_changed: bool,
 }
 
 /// The agents whose MCP servers `path` declares, if it is a known MCP config
 /// file under `root` (e.g. `<root>/.mcp.json` → `["claude"]`). `None` for any
 /// other path. Matches the full relative path, so a nested config
 /// (`.cursor/mcp.json`) can't be confused with a root one.
-fn mcp_agents_for_path(root: &Path, path: &Path) -> Option<Vec<String>> {
-    crate::config::mcp_configs()
-        .find(|config| root.join(config.rel) == path)
-        .map(|config| {
-            config
-                .agents
-                .iter()
-                .map(|agent| (*agent).to_string())
-                .collect()
-        })
+fn mcp_config_for_path(root: &Path, path: &Path) -> Option<crate::config::McpConfig> {
+    crate::config::mcp_configs().find(|config| root.join(config.rel) == path)
+}
+
+fn mcp_membership_changed(
+    previous: &crate::mcp::McpSnapshot,
+    current: &crate::mcp::McpSnapshot,
+) -> bool {
+    previous.exists != current.exists || previous.names != current.names
 }
 
 /// Seed the MCP server-name baseline for `root`: record the current set for each
@@ -287,10 +288,10 @@ fn mcp_agents_for_path(root: &Path, path: &Path) -> Option<Vec<String>> {
 /// disk rather than an empty set (which would restart on project open). Replaces
 /// any previous root's baseline.
 fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
-    let fresh: HashMap<PathBuf, BTreeSet<String>> = crate::config::mcp_configs()
+    let fresh: HashMap<PathBuf, crate::mcp::McpSnapshot> = crate::config::mcp_configs()
         .filter_map(|config| {
             let file = root.join(config.rel);
-            crate::mcp::server_names(&file).map(|names| (file, names))
+            crate::mcp::snapshot(&file, config.format).map(|state| (file, state))
         })
         .collect();
     if let Ok(mut baseline) = watch.mcp_servers.lock() {
@@ -304,25 +305,26 @@ fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
 /// only on a real membership change. Runs before the ignore filter, so a
 /// `.gitignore`'d `.mcp.json` still triggers.
 fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &Path, path: &Path) {
-    let Some(agents) = mcp_agents_for_path(root, path) else {
+    let Some(config) = mcp_config_for_path(root, path) else {
         return;
     };
-    let Some(current) = crate::mcp::server_names(path) else {
+    let Some(current) = crate::mcp::snapshot(path, config.format) else {
         return; // unparseable mid-write — wait for the complete save
     };
 
-    let (added, removed) = {
+    let (added, removed, membership_changed) = {
         let Ok(mut baseline) = watch.mcp_servers.lock() else {
             return;
         };
         let previous = baseline.get(path).cloned().unwrap_or_default();
         if current == previous {
-            return; // value-only edit, or no change — nothing to restart for
+            return;
         }
-        let added: Vec<String> = current.difference(&previous).cloned().collect();
-        let removed: Vec<String> = previous.difference(&current).cloned().collect();
+        let added: Vec<String> = current.names.difference(&previous.names).cloned().collect();
+        let removed: Vec<String> = previous.names.difference(&current.names).cloned().collect();
+        let membership_changed = mcp_membership_changed(&previous, &current);
         baseline.insert(path.to_path_buf(), current);
-        (added, removed)
+        (added, removed, membership_changed)
     };
 
     let _ = app.emit_to(
@@ -330,9 +332,15 @@ fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &P
         MCP_EVENT,
         McpChange {
             path: path.to_string_lossy().into_owned(),
-            agents,
+            root: root.to_string_lossy().into_owned(),
+            agents: config
+                .agents
+                .iter()
+                .map(|agent| (*agent).to_string())
+                .collect(),
             added,
             removed,
+            membership_changed,
         },
     );
 }
@@ -1535,15 +1543,40 @@ mod tests {
     use super::{
         base64_encode, drain_burst, git_state_dirs, ignored_by_static_dirs, image_mime_type,
         is_git_dir_entry, is_git_state_file, line_count, line_delta, manifest_ignore_dirs,
-        read_authorized_file, read_preview_text, reclassify, resolve_watch_root,
-        static_ignore_dirs, surfaces, unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES,
-        MAX_PREVIEW_BYTES,
+        mcp_membership_changed, read_authorized_file, read_preview_text, reclassify,
+        resolve_watch_root, static_ignore_dirs, surfaces, unique_dirs, ChangeKind, GitStateMessage,
+        MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::mpsc::channel;
     use std::time::Duration;
+
+    #[test]
+    fn creating_or_deleting_an_empty_mcp_file_changes_membership_state() {
+        let missing = crate::mcp::McpSnapshot::default();
+        let empty_file = crate::mcp::McpSnapshot {
+            exists: true,
+            ..crate::mcp::McpSnapshot::default()
+        };
+        assert!(mcp_membership_changed(&missing, &empty_file));
+        assert!(mcp_membership_changed(&empty_file, &missing));
+    }
+
+    #[test]
+    fn editing_only_an_mcp_definition_does_not_change_membership_state() {
+        let previous = crate::mcp::McpSnapshot {
+            exists: true,
+            names: ["github".to_string()].into_iter().collect(),
+            content: "old".to_string(),
+        };
+        let current = crate::mcp::McpSnapshot {
+            content: "new".to_string(),
+            ..previous.clone()
+        };
+        assert!(!mcp_membership_changed(&previous, &current));
+    }
 
     #[test]
     fn a_created_or_modified_file_that_vanished_is_not_surfaced() {

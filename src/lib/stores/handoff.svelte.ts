@@ -28,6 +28,12 @@ const USAGE_EXHAUSTED_PCT = 95;
 const SUCCESSOR_POLL_MS = 3_000;
 const SUCCESSOR_DEADLINE_MS = 10 * 60_000;
 
+export const HandoffReason = {
+  ContextLimit: "context-limit",
+  ConfigurationChange: "configuration-change"
+} as const;
+type HandoffReason = typeof HandoffReason[keyof typeof HandoffReason];
+
 /** A filesystem-safe slug for the handoff doc, from the workspace label/dir. */
 export function handoffSlug(source: string): string {
   const slug = source
@@ -57,15 +63,19 @@ export function handoffDocName({ source, sessionId }: {
   return `continue-${handoffSlug(source)}-${sessionToken(sessionId)}.md`;
 }
 
-function handoffPrompt(doc: string): string {
+export function handoffPrompt({ doc, reason }: {
+  doc: string;
+  reason: HandoffReason;
+}): string {
   // Paste-then-submit delivery: the raw-bytes + trailing-CR form let the agent
   // fold the CR into the paste burst and leave the request sitting unsent in
   // its composer — the doc was never written and the cycle stranded its
   // successor. `submittedPrompt` appends the ENTER as a separate keystroke
   // after the closing paste marker, so the request actually goes.
-  return submittedPrompt(
-    `Your context window is nearly full. Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`
-  );
+  const trigger = reason === HandoffReason.ConfigurationChange
+    ? "The project's MCP server configuration changed, so PADE must restart this agent to load it."
+    : "Your context window is nearly full.";
+  return submittedPrompt(`${trigger} Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`);
 }
 
 /** Seed for the fresh successor: read ONLY the handoff doc and continue. The
@@ -79,7 +89,7 @@ function handoffPrompt(doc: string): string {
  *  No trailing carriage return: this rides in as the successor session's
  *  initialPrompt, and the terminal's initial-prompt delivery appends the
  *  submitting ENTER itself (see panels/Terminal.svelte, lib/initial-prompt). */
-function successorPrompt(doc: string): string {
+export function successorPrompt(doc: string): string {
   return `Read ${doc} to continue the work where the previous session left off.`;
 }
 
@@ -108,6 +118,26 @@ export async function pickSuccessor({ current, available, hasHeadroom }: {
   }
 
   return null;
+}
+
+/** Pick the successor for a specific handoff trigger. Configuration changes
+ * must relaunch the governed agent itself so its fresh process reads that
+ * agent's changed config; context handoffs retain quota-based crossover. */
+export async function pickHandoffSuccessor({ reason, current, available, hasHeadroom }: {
+  reason: HandoffReason;
+  current: Agent;
+  available: Agent[];
+  hasHeadroom: (agentId: string) => Promise<boolean>;
+}): Promise<Agent | null> {
+  if (reason === HandoffReason.ConfigurationChange) {
+    return current;
+  }
+
+  return await pickSuccessor({
+    current,
+    available,
+    hasHeadroom
+  });
 }
 
 /** What the app shell provides. The reads run inside the shell's `$effect`, so
@@ -264,11 +294,15 @@ export function createAutoHandoff(host: HandoffHost) {
     return quota.usedPct < USAGE_EXHAUSTED_PCT;
   }
 
-  async function handoff(session: AgentSession) {
+  async function handoff({ session, reason }: {
+    session: AgentSession;
+    reason: HandoffReason;
+  }) {
     // Same agent while it still has headroom; otherwise cross over to the first
     // other available agent that does. No agent with headroom → stay marked so we
     // don't re-check each tick; skip this cycle.
-    const successorAgent = await pickSuccessor({
+    const successorAgent = await pickHandoffSuccessor({
+      reason,
       current: session.agent,
       available: host.availableAgents(),
       hasHeadroom: hasEnoughUsage
@@ -286,9 +320,13 @@ export function createAutoHandoff(host: HandoffHost) {
     // full" reads as a lie whenever the user is looking at a different (or
     // fresher) session than the one that hit the threshold.
     const measuredPct = Math.round(measuredContextPct(session.id) ?? 0);
-    note = isCrossover
-      ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
-      : `${session.agent.label} context at ${measuredPct}% — handing off to a fresh agent…`;
+    if (reason === HandoffReason.ConfigurationChange) {
+      note = `MCP servers changed — ${session.agent.label} is writing a handoff before restarting…`;
+    } else {
+      note = isCrossover
+        ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
+        : `${session.agent.label} context at ${measuredPct}% — handing off to a fresh agent…`;
+    }
 
     // 1. Ask the agent to write the handoff doc, then wait for it to land —
     // unless a previous attempt already produced it: a request sent to a busy
@@ -302,7 +340,10 @@ export function createAutoHandoff(host: HandoffHost) {
     if (!alreadyWritten) {
       await pty.write({
         id: session.id,
-        data: handoffPrompt(doc)
+        data: handoffPrompt({
+          doc,
+          reason
+        })
       });
       const watcherSawDoc = await waitForFile(doc);
       // Never cycle without the doc actually on disk: killing the session and
@@ -362,9 +403,15 @@ export function createAutoHandoff(host: HandoffHost) {
   // best-effort: swallow any failure (including deleting a doc the agent never
   // wrote on the timeout path) and clear the in-flight marker + note so a later
   // scan can retry.
-  async function runHandoff(session: AgentSession) {
+  async function runHandoff({ session, reason }: {
+    session: AgentSession;
+    reason: HandoffReason;
+  }) {
     try {
-      await handoff(session);
+      await handoff({
+        session,
+        reason
+      });
     } catch {
       unmarkHandingOff(session.id);
       note = "";
@@ -411,7 +458,10 @@ export function createAutoHandoff(host: HandoffHost) {
       const already = isHandingOff(session.id);
       if (nearLimit && idle && !already) {
         markHandingOff(session.id);
-        runHandoff(session);
+        runHandoff({
+          session,
+          reason: HandoffReason.ContextLimit
+        });
       }
     }
   }
@@ -426,7 +476,25 @@ export function createAutoHandoff(host: HandoffHost) {
     }
 
     markHandingOff(session.id);
-    runHandoff(session);
+    runHandoff({
+      session,
+      reason: HandoffReason.ContextLimit
+    });
+  }
+
+  // An MCP membership change must launch the same governed agent again so it
+  // reads the new configuration. Unlike a context-limit handoff, this bypasses
+  // quota-based crossover while retaining the document-first safety sequence.
+  async function restartForConfiguration(session: AgentSession) {
+    if (isHandingOff(session.id)) {
+      return;
+    }
+
+    markHandingOff(session.id);
+    await runHandoff({
+      session,
+      reason: HandoffReason.ConfigurationChange
+    });
   }
 
   // Tear down every still-pending wait (listener + timers).
@@ -450,6 +518,7 @@ export function createAutoHandoff(host: HandoffHost) {
     },
     check,
     force,
+    restartForConfiguration,
     dispose
   };
 }

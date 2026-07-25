@@ -38,6 +38,7 @@
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
+  import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
   import { ensureRunnerListeners, startRunner, stopAllRunners } from "@/lib/stores/runners.svelte";
   import {
     dropChoiceAttention,
@@ -475,8 +476,7 @@
     await initTaskRunDetection(() => currentProject);
   });
 
-  // Restart the affected agent sessions when the project's MCP servers change
-  // (a server added or removed) — they resume into their own conversations.
+  // Hand off affected agent sessions when the project's MCP servers change.
   let unlistenMcp: (() => void) | undefined;
   async function subscribeToMcpChanges() {
     unlistenMcp = await mcp.onChanged(change => restartForMcpChange(change));
@@ -1093,19 +1093,11 @@
   }
 
   // A project's MCP servers changed (a server added or removed — the backend
-  // fires only on a real membership change, never a value-only edit). A running
-  // agent picks the change up only by restarting, so terminate each affected
-  // session and resume it into ITS OWN conversation. Scoped to sessions whose
-  // working dir is the directory that changed (a per-branch worktree keeps its
-  // own .mcp.json), and to agents the config governs.
-  //
-  // The PTYs are killed together (Promise.all); the pane re-keying then happens
-  // in one synchronous pass, so the shared session/pane state is never mutated
-  // from two interleaved awaits. Re-keying the session `id` remounts its
-  // terminal, which respawns resuming the same `conversationId` (initialPrompt
-  // is dropped — already sent — so the agent continues rather than restarts).
-  // `closingByHand` marks the kills so they aren't mistaken for self-exits (which
-  // would respawn from scratch, not resume).
+  // fires only on a real membership change, never a value-only edit). Each
+  // affected agent first writes a handoff document, then a fresh instance of the
+  // SAME agent launches from it. The fresh process reads the changed MCP config;
+  // the handoff preserves work that an immediate conversation restart could
+  // interrupt. Worktrees remain scoped to their own config directory.
   async function restartForMcpChange(change: McpChange) {
     const targets = mcpRestartTargets({
       sessions,
@@ -1116,14 +1108,24 @@
       return;
     }
 
-    showToast(`MCP servers changed — restarting ${targets.length === 1 ? "the agent" : `${targets.length} agents`}`);
-    await restartSessions(targets);
+    if (!change.membershipChanged) {
+      armMcpReloadRecovery(targets.map(target => target.id));
+      showToast("MCP server settings changed — reload them in the agent; PADE will recover if it fails");
+      return;
+    }
+
+    showToast(`MCP servers changed — preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
+    await Promise.all(
+      targets.map(async target => {
+        await autoHandoff.restartForConfiguration(target);
+      })
+    );
   }
 
   // Kill the targets and re-key them to fresh ids in place — each terminal
   // remounts, respawns its agent (resuming its conversation via the session id),
   // and the pane layout follows. The shared core behind every in-place restart
-  // (MCP changes).
+  // (spawn-time theme changes).
   async function restartSessions(targets: readonly AgentSession[]) {
     await Promise.all(
       targets.map(target => {
@@ -1332,16 +1334,34 @@
   $effect(() => autoHandoff.check());
   onDestroy(() => autoHandoff.dispose());
 
+  async function recoverFailedMcpReload(session: AgentSession) {
+    dropMcpReload(session.id);
+    showToast(`${session.agent.label} couldn't reload MCP — preparing a handoff`);
+    await autoHandoff.restartForConfiguration(session);
+  }
+
+  $effect(() => {
+    for (const id of failedMcpReloads()) {
+      const session = sessions.find(candidate => candidate.id === id);
+      if (session) {
+        recoverFailedMcpReload(session);
+      } else {
+        dropMcpReload(id);
+      }
+    }
+  });
+
   // ── Usage-limit auto-resume ────────────────────────────────────────────────
   // A session stopped by an exhausted usage window resumes the moment the
   // window resets — "continue" into the same session while its context has
   // room, the handoff flow above when it doesn't (lib/stores/usageResume).
-  const usageResume = createUsageResume({
+  const automaticRecoveryHost = {
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoResume === false,
     thresholdPct: () => effective.handoffPct,
     forceHandoff: session => autoHandoff.force(session)
-  });
+  } satisfies Parameters<typeof createUsageResume>[0];
+  const usageResume = createUsageResume(automaticRecoveryHost);
   $effect(() => usageResume.check());
   onDestroy(() => usageResume.dispose());
 
@@ -1349,12 +1369,7 @@
   // A session stopped by a transient API error (overloaded, a 5xx, a dropped
   // connection) is nudged with "continue" every 30s, handing off through the
   // flow above when its context is too full to recover (lib/stores/apiErrorRetry).
-  const apiErrorRetry = createApiErrorRetry({
-    sessions: () => sessions,
-    isOptedOut: () => settings.prefs.autoResume === false,
-    thresholdPct: () => effective.handoffPct,
-    forceHandoff: session => autoHandoff.force(session)
-  });
+  const apiErrorRetry = createApiErrorRetry(automaticRecoveryHost);
   $effect(() => apiErrorRetry.check());
   onDestroy(() => apiErrorRetry.dispose());
 

@@ -316,10 +316,9 @@ export const feed = {
   ignored: (paths: string[]) => call("feed_ignored", z.array(z.string()), { paths })
 };
 
-/** MCP config changes. A running agent only picks up an added/removed MCP
- *  server by restarting (there's no in-session reload), so ADE watches the
- *  project's config file (`.mcp.json` for Claude) and restarts the affected
- *  sessions when the set of servers changes — not on a value-only edit. */
+/** Project MCP config changes from each agent's registered file. Creation,
+ *  deletion, and server membership changes require a safe handoff restart;
+ *  same-name definition edits arm reload-failure recovery. */
 export const mcp = {
   onChanged: (callback: (change: McpChange) => void) => on("mcp://changed", McpChange, callback)
 };

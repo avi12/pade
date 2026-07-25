@@ -1,4 +1,12 @@
-import { handoffDocName, handoffSlug, pickSuccessor } from "@/lib/stores/handoff.svelte";
+import {
+  handoffDocName,
+  handoffPrompt,
+  HandoffReason,
+  handoffSlug,
+  pickHandoffSuccessor,
+  pickSuccessor,
+  successorPrompt
+} from "@/lib/stores/handoff.svelte";
 import type { Agent } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -48,6 +56,25 @@ describe("handoffDocName", () => {
         sessionId: ""
       })
     ).toBe("continue-pade-session.md");
+  });
+});
+
+describe("handoff prompts", () => {
+  const doc = "continue-pade-1a2b3c4d.md";
+
+  it("explains that an MCP handoff will reload project configuration", () => {
+    const prompt = handoffPrompt({
+      doc,
+      reason: HandoffReason.ConfigurationChange
+    });
+    expect(prompt).toContain("MCP server configuration changed");
+    expect(prompt).toContain(`handoff to ${doc}`);
+  });
+
+  it("seeds the successor to continue from the written document", () => {
+    expect(successorPrompt(doc)).toBe(
+      `Read ${doc} to continue the work where the previous session left off.`
+    );
   });
 });
 
@@ -102,5 +129,28 @@ describe("pickSuccessor", () => {
       hasHeadroom: headroomFor([])
     });
     expect(chosen).toBeNull();
+  });
+});
+
+describe("pickHandoffSuccessor", () => {
+  const claude: Agent = {
+    id: "claude",
+    label: "Claude Code",
+    command: "claude"
+  };
+  const codex: Agent = {
+    id: "codex",
+    label: "Codex",
+    command: "codex"
+  };
+
+  it("pins a configuration handoff to the governed agent", async () => {
+    const successor = await pickHandoffSuccessor({
+      reason: HandoffReason.ConfigurationChange,
+      current: claude,
+      available: [claude, codex],
+      hasHeadroom: agentId => Promise.resolve(agentId === codex.id)
+    });
+    expect(successor).toBe(claude);
   });
 });

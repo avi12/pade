@@ -23,9 +23,11 @@ function session(overrides: Partial<AgentSession> & { id: string }): AgentSessio
 
 const change: McpChange = {
   path: "C:\\repositories\\avi\\poll-avi\\.mcp.json",
+  root: "C:\\repositories\\avi\\poll-avi",
   agents: ["claude"],
   added: ["github"],
-  removed: []
+  removed: [],
+  membershipChanged: true
 };
 const project = "C:\\repositories\\avi\\poll-avi";
 
@@ -79,7 +81,27 @@ describe("mcpRestartTargets", () => {
     expect(targets.map(t => t.id)).toEqual(["s"]);
   });
 
-  it("skips a session with no conversation id to resume", () => {
+  it("uses the emitted root for a nested agent config", () => {
+    const targets = mcpRestartTargets({
+      sessions: [session({
+        id: "cursor",
+        agent: {
+          ...codex,
+          id: "cursor",
+          command: "cursor-agent"
+        }
+      })],
+      change: {
+        ...change,
+        path: `${project}\\.cursor\\mcp.json`,
+        agents: ["cursor"]
+      },
+      currentProject: project
+    });
+    expect(targets.map(target => target.id)).toEqual(["cursor"]);
+  });
+
+  it("includes a session without a conversation id because handoff starts fresh", () => {
     const s = session({
       id: "s",
       conversationId: undefined
@@ -89,7 +111,7 @@ describe("mcpRestartTargets", () => {
       change,
       currentProject: project
     });
-    expect(targets).toEqual([]);
+    expect(targets.map(target => target.id)).toEqual(["s"]);
   });
 });
 
