@@ -202,20 +202,27 @@ fn live_path_directories() -> Vec<PathBuf> {
     Vec::new()
 }
 
-/// One string value out of the registry, via `reg query` — no registry crate, per
-/// the minimize-dependencies rule. The value comes back unexpanded, because
+/// The single home for reading the registry via `reg query` — no registry crate,
+/// per the minimize-dependencies rule. `arguments` are the tokens after `query`
+/// (a key, optionally `/v <name>`); returns the captured stdout on success, or
+/// `None` when the command can't spawn or `reg` reports a missing key. Every
+/// registry read (`registry_string`, the context-menu probes) routes here so the
+/// spawn and success-check live in exactly one place (DRY).
+#[cfg(windows)]
+pub(crate) fn registry_query(arguments: &[&str]) -> Option<String> {
+    let output = command("reg").arg("query").args(arguments).output().ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// One string value out of the registry. The value comes back unexpanded, because
 /// `Path` is stored as a `REG_EXPAND_SZ` full of `%VAR%` references.
 #[cfg(windows)]
 fn registry_string(key: &str, name: &str) -> Option<String> {
-    let output = command("reg")
-        .args(["query", key, "/v", name])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
+    let text = registry_query(&[key, "/v", name])?;
     // A hit prints as `    Path    REG_EXPAND_SZ    C:\one;C:\two`.
-    let text = String::from_utf8_lossy(&output.stdout);
     text.lines()
         .filter(|line| line.trim_start().starts_with(name))
         .find_map(|line| {

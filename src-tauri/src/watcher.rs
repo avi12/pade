@@ -238,6 +238,10 @@ const GITIGNORE_FILE_NAME: &str = ".gitignore";
 /// `feed_ignored` about the events it holds, so the answer is never stale.
 const FEED_IGNORE_EVENT: &str = "feed://ignore-changed";
 
+/// Announces a single Change Feed entry (a file created/modified/deleted in a
+/// watched project). This name is the frontend contract (`src/lib/bridge.ts`).
+const FEED_CHANGE_EVENT: &str = "feed://change";
+
 // ── Live MCP config ───────────────────────────────────────────────────────────
 // A project's MCP servers live in a config file (`.mcp.json` for Claude, per
 // config.rs). A running agent only picks up an **added or removed** server by
@@ -1154,6 +1158,11 @@ fn drain_burst(
     burst
 }
 
+/// Announces that a picker-watched folder's contents changed (a project row
+/// appeared or disappeared). Payload-free. This name is the frontend contract
+/// (`src/lib/bridge.ts`).
+const DIRS_CHANGED_EVENT: &str = "dirs://changed";
+
 /// Watch a set of folders (non-recursively) and report when anything inside one
 /// appears or disappears — the project picker's eyes. It hands over the *parents*
 /// of the rows it shows, never the rows themselves: a watch holds a handle on the
@@ -1184,7 +1193,7 @@ pub async fn watch_dirs(
         // project are the Change Feed's business, not the picker's. Routed to the
         // owning window alone so a sibling's picker doesn't rescan on our news.
         if matches!(event.kind, EventKind::Create(_) | EventKind::Remove(_)) {
-            let _ = app_handle.emit_to(&callback_label, "dirs://changed", ());
+            let _ = app_handle.emit_to(&callback_label, DIRS_CHANGED_EVENT, ());
         }
     })
     .map_err(|e| e.to_string())?;
@@ -1332,7 +1341,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             removed,
             ts: now_ms(),
         };
-        let _ = app.emit_to(label, "feed://change", event);
+        let _ = app.emit_to(label, FEED_CHANGE_EVENT, event);
     }
 }
 

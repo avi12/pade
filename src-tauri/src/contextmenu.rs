@@ -41,19 +41,15 @@ fn exe_path() -> Result<String, String> {
 /// can't read (or a lower build) is treated as Windows 10, whose only menu is legacy.
 #[cfg(windows)]
 fn is_windows_11() -> bool {
-    let Ok(output) = crate::util::command("reg")
-        .args([
-            "query",
-            r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
-            "/v",
-            "CurrentBuildNumber",
-        ])
-        .output()
-    else {
+    let Some(output) = crate::util::registry_query(&[
+        r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+        "/v",
+        "CurrentBuildNumber",
+    ]) else {
         return false;
     };
     // The value line is "CurrentBuildNumber  REG_SZ  22631" — the lone numeric token.
-    String::from_utf8_lossy(&output.stdout)
+    output
         .split_whitespace()
         .filter_map(|token| token.parse::<u32>().ok())
         .next_back()
@@ -101,17 +97,11 @@ fn set_menu_shown(shown: bool) -> Result<(), String> {
 /// shown. Lets `context_menu_status` report a registered-but-hidden package as off.
 #[cfg(windows)]
 fn menu_shown() -> bool {
-    let Ok(output) = crate::util::command("reg")
-        .args(["query", MENU_FLAG_KEY, "/v", MENU_FLAG_VALUE])
-        .output()
-    else {
+    let Some(output) = crate::util::registry_query(&[MENU_FLAG_KEY, "/v", MENU_FLAG_VALUE]) else {
         return true;
     };
-    if !output.status.success() {
-        return true;
-    }
     // The value line ends in the DWORD as hex ("… REG_DWORD    0x0"); only 0 is hidden.
-    let is_hidden = String::from_utf8_lossy(&output.stdout)
+    let is_hidden = output
         .split_whitespace()
         .next_back()
         .and_then(|token| token.strip_prefix("0x"))
@@ -151,10 +141,7 @@ fn unregister_legacy() -> Result<(), String> {
 /// Whether the legacy registry entry exists.
 #[cfg(windows)]
 fn legacy_registered() -> bool {
-    crate::util::command("reg")
-        .args(["query", ROOTS[0]])
-        .output()
-        .is_ok_and(|output| output.status.success())
+    crate::util::registry_query(&[ROOTS[0]]).is_some()
 }
 
 /// Turn "Open in PADE" on for the one menu that fits this Windows version.
@@ -211,15 +198,18 @@ pub async fn context_menu_status() -> bool {
 }
 
 #[cfg(not(windows))]
+const CONTEXT_MENU_WINDOWS_ONLY: &str = "the Explorer context menu is Windows-only";
+
+#[cfg(not(windows))]
 #[tauri::command]
 pub async fn context_menu_register() -> Result<(), String> {
-    Err("the Explorer context menu is Windows-only".into())
+    Err(CONTEXT_MENU_WINDOWS_ONLY.into())
 }
 
 #[cfg(not(windows))]
 #[tauri::command]
 pub async fn context_menu_unregister() -> Result<(), String> {
-    Err("the Explorer context menu is Windows-only".into())
+    Err(CONTEXT_MENU_WINDOWS_ONLY.into())
 }
 
 #[cfg(not(windows))]

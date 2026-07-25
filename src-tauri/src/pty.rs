@@ -138,6 +138,13 @@ const CHILD_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_milli
 /// because this is the unstripped stream — escape codes and repaints included.
 const HISTORY_CAPACITY: usize = 512 * 1024;
 
+/// The event carrying a session's raw output chunk to its owning window. This name
+/// is the frontend contract (`src/lib/bridge.ts`) — the two sides must agree.
+const PTY_DATA_EVENT: &str = "pty://data";
+
+/// The event announcing a session's process exited (EOF or read error).
+const PTY_EXIT_EVENT: &str = "pty://exit";
+
 /// Strip terminal control sequences so the buffered transcript is plain text:
 /// drop ESC-introduced CSI/OSC sequences, carriage returns, and other C0
 /// control bytes, keeping printable characters, newlines, and tabs.
@@ -634,7 +641,7 @@ fn spawn_session_output_pump(
                     let seq = append_history(&history, &data);
                     let _ = app.emit_to(
                         &owner,
-                        "pty://data",
+                        PTY_DATA_EVENT,
                         Chunk {
                             id: id.clone(),
                             data,
@@ -646,7 +653,7 @@ fn spawn_session_output_pump(
                 _ => break,
             }
         }
-        let _ = app.emit_to(&owner, "pty://exit", Exit { id });
+        let _ = app.emit_to(&owner, PTY_EXIT_EVENT, Exit { id });
     });
 }
 
