@@ -39,7 +39,7 @@
     style:--swatch-color={token.color}
     class="swatch"
     aria-hidden="true"
-    title={token.color}
+    data-tooltip={token.color}
   ></span>
 {/if}</span>{/each}
 
