@@ -92,6 +92,7 @@
   // scoped to *just* this element (never the document — that would snapshot the
   // live-repainting terminal and ghost it).
   let switchListElement = $state<HTMLElement | null>(null);
+  let windowListElement = $state<HTMLElement | null>(null);
 
   // The "Delete directory" confirmation lives inside this menu (a nested popover)
   // so the switcher stays visible behind it; the parent only performs the removal.
@@ -212,19 +213,18 @@
   function rowTransitionName(project: string): string {
     return `row-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
+  // A separate namespace from `rowTransitionName`, keyed by the window's stable
+  // session label: a window and a pinned row can share a project path, and two
+  // elements can't carry the same view-transition-name in one transition.
+  function windowRowTransitionName(label: string): string {
+    return `window-row-${label.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  }
 
   // Fetch open windows and branches. Language kinds are deliberately absent:
   // ProjectKindIcon batches only visible rows and never waits on Git processes.
-  async function loadMeta() {
-    let openWindows: WindowInfo[];
-    try {
-      openWindows = await windows.list();
-    } catch {
-      return;
-    }
-    windowRows = openWindows;
+  async function loadBranches(windowPaths: string[]) {
     const paths = [
-      ...new Set([path, ...pinnedProjects, ...recentProjects, ...openWindows.map(window => window.path)])
+      ...new Set([path, ...pinnedProjects, ...recentProjects, ...windowPaths])
     ].filter(Boolean);
     if (paths.length === 0) {
       return;
@@ -235,6 +235,40 @@
     } catch {
     // Preserve last-known branches; icon detection remains independent.
     }
+  }
+
+  async function loadMeta() {
+    let openWindows: WindowInfo[];
+    try {
+      openWindows = await windows.list();
+    } catch {
+      return;
+    }
+    windowRows = openWindows;
+    await loadBranches(openWindows.map(window => window.path));
+  }
+
+  // Live cross-window sync: another window changed the open-windows set/order (a
+  // drag-reorder landed there), so reflect it here with the same scoped morph the
+  // pinned/recent list uses. Only the row ORDER is animated — the branch fetch is
+  // slow and would freeze the snapshotted menu, so it runs after the transition.
+  async function onWindowsChanged() {
+    if (!menuOpen) {
+      return;
+    }
+
+    let openWindows: WindowInfo[];
+    try {
+      openWindows = await windows.list();
+    } catch {
+      return;
+    }
+
+    await animateWindowListChange(async () => {
+      windowRows = openWindows;
+      await tick();
+    });
+    await loadBranches(openWindows.map(window => window.path));
   }
 
   // Persist a drag-reordered window order to the one backend source (which drives
@@ -302,12 +336,11 @@
   // place — instead of snapping. Scoped to this element, never `document`, so it
   // never snapshots the live-repainting terminal (which would ghost). Reduced
   // motion, or an engine without the scoped API, runs the mutation directly.
-  async function animateListChange(mutate: () => Promise<void>) {
-    const list:
-      | (HTMLElement & {
-        startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
-      })
-      | null = switchListElement;
+  type ScopedTransitionList = HTMLElement & {
+    startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
+  };
+
+  async function runListTransition(list: ScopedTransitionList | null, mutate: () => Promise<void>) {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches || !list?.startViewTransition) {
       await mutate();
       return;
@@ -320,6 +353,17 @@
       await tick();
     });
     await transition.updateCallbackDone;
+  }
+
+  async function animateListChange(mutate: () => Promise<void>) {
+    await runListTransition(switchListElement, mutate);
+  }
+
+  // The Open-windows list gets the same scoped morph as the pinned/recent list,
+  // so a reorder animates in place. Its rows live outside `switchListElement`, so
+  // the transition is scoped to their own container.
+  async function animateWindowListChange(mutate: () => Promise<void>) {
+    await runListTransition(windowListElement, mutate);
   }
 
   // Ctrl P from anywhere opens the switcher and focuses its filter, matching the
@@ -361,6 +405,14 @@
     });
   });
   onDestroy(() => unlistenGitState?.());
+
+  // Reflect open-windows changes made in OTHER windows live (their reorder lands
+  // → this switcher morphs to match), so two open menus never disagree.
+  let unlistenWindowsChanged: UnlistenFn | undefined;
+  onMount(async () => {
+    unlistenWindowsChanged = await windows.onChanged(onWindowsChanged);
+  });
+  onDestroy(() => unlistenWindowsChanged?.());
 </script>
 
 <span class="menu-host">
@@ -459,52 +511,62 @@
        Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
       <div class="eyebrow section">Open windows</div>
-      {#each windowRows as windowRow (windowRow.label)}
-        <!-- The row wraps a separate grip (a span, so grabbing it never triggers the
-             button's focus onclick) and the focus button — data-window-id makes the
-             wrapper the reorder engine's drag sibling. -->
-        <div class="open-window-row-item" data-window-id={windowRow.label}>
-          {#if windowsReorderable}
-            <span
-              class="grip"
-              aria-hidden="true"
-              data-tooltip="Drag to reorder"
-              onpointerdown={e => beginReorder({
-                e,
-                itemSelector: "[data-window-id]",
-                idAttribute: "data-window-id",
-                axis: Axis.Vertical,
-                threshold: 4,
-                onCommit: labelOrder => reorderWindows(labelOrder)
-              })}
-            ><Icon name="grip" size={14} /></span>
-          {/if}
-          <button
-            class="open-window-row"
-            class:current={windowRow.isCurrent}
-            onclick={() => {
-              if (!windowRow.isCurrent) {
-                hide();
-                windows.focus(windowRow.label);
-              }
-            }}
-            role="menuitem"
-            type="button"
+      <!-- Own container so the scoped view transition (animateWindowListChange)
+           morphs just these rows when the order changes — locally or when another
+           window's reorder broadcasts. -->
+      <div bind:this={windowListElement} class="open-window-list">
+        {#each windowRows as windowRow (windowRow.label)}
+          <!-- Grip (a span, so grabbing it never triggers the button's focus
+               onclick) + focus button; data-window-id makes the wrapper the reorder
+               engine's drag sibling, view-transition-name lets it glide to its new
+               slot instead of the list cross-fading. -->
+          <div
+            style:view-transition-name={windowRowTransitionName(windowRow.label)}
+            class="open-window-row-item"
+            data-window-id={windowRow.label}
           >
-            <ProjectKindIcon path={windowRow.path} />
-            <span class="open-window-row-name">{shortDisplayName(windowRow.path, labels)}</span>
-            {#if isTemporaryWorkspace(windowRow.path)}
-              <span class="temporary">temp</span>
+            {#if windowsReorderable}
+              <span
+                class="grip"
+                aria-hidden="true"
+                data-tooltip="Drag to reorder"
+                onpointerdown={e => beginReorder({
+                  e,
+                  itemSelector: "[data-window-id]",
+                  idAttribute: "data-window-id",
+                  axis: Axis.Vertical,
+                  threshold: 4,
+                  onCommit: labelOrder => reorderWindows(labelOrder)
+                })}
+              ><Icon name="grip" size={14} /></span>
             {/if}
-            <span class="open-window-row-spacer"></span>
-            {#if windowRow.isCurrent}
-              <span class="this-window">this window</span>
-            {:else}
-              <span class="open-window-row-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
-            {/if}
-          </button>
-        </div>
-      {/each}
+            <button
+              class="open-window-row"
+              class:current={windowRow.isCurrent}
+              onclick={() => {
+                if (!windowRow.isCurrent) {
+                  hide();
+                  windows.focus(windowRow.label);
+                }
+              }}
+              role="menuitem"
+              type="button"
+            >
+              <ProjectKindIcon path={windowRow.path} />
+              <span class="open-window-row-name">{shortDisplayName(windowRow.path, labels)}</span>
+              {#if isTemporaryWorkspace(windowRow.path)}
+                <span class="temporary">temp</span>
+              {/if}
+              <span class="open-window-row-spacer"></span>
+              {#if windowRow.isCurrent}
+                <span class="this-window">this window</span>
+              {:else}
+                <span class="open-window-row-focus" aria-hidden="true"><Icon name="external" size={14} /></span>
+              {/if}
+            </button>
+          </div>
+        {/each}
+      </div>
       <div class="separator"></div>
     {/if}
 

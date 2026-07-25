@@ -195,6 +195,11 @@ export const windows = {
   /** Persist the drag-reordered "Open windows" order (session-scoped by label).
    *  The one source both this list and the Ctrl+Alt+[ / ] cycle read. */
   reorder: (labels: string[]) => run("window_reorder", { labels }),
+  /** The open-windows set/order changed in SOME window (a project registered, a
+   *  drag-reorder landed) — app-wide, so every switcher refreshes live. A bare
+   *  `listen` (not the window-scoped `on`) since the backend broadcasts to all. */
+  onChanged: (handler: () => void): Promise<UnlistenFn> =>
+    listen("windows://changed", () => handler()),
   /** Focus a specific open window by its label; true if it existed and focused. */
   focus: (label: string) => call("window_focus_label", z.boolean(), { label }),
   /** Intercept this window's close (the title-bar X): the handler runs to

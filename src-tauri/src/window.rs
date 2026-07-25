@@ -13,7 +13,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::window::Color;
-use tauri::{AppHandle, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 /// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
 /// dark schemes. Painted as the webview background at window creation so a window
@@ -82,6 +82,18 @@ fn normalize(path: &str) -> String {
     }
 }
 
+/// Broadcast that the open-windows set or its order changed, so every window's
+/// switcher (`AppMenu`) can refresh its "Open windows" list live — the one home
+/// for the event name the frontend `windows.onChanged` listens on.
+const WINDOWS_CHANGED_EVENT: &str = "windows://changed";
+
+/// App-wide notify that the open-windows list changed (a window registered a
+/// project, or the user drag-reordered it), so a switcher open in another window
+/// reflects it at once instead of only on its next open.
+fn broadcast_windows_changed(app: &AppHandle) {
+    let _ = app.emit(WINDOWS_CHANGED_EVENT, ());
+}
+
 /// Record the project the calling window now has open.
 #[tauri::command]
 pub fn window_register_project(
@@ -94,6 +106,7 @@ pub fn window_register_project(
         // path/name; comparison normalizes on read (see `window_focus_project`).
         projects.insert(window.label().to_string(), path);
     }
+    broadcast_windows_changed(window.app_handle());
 }
 
 /// Focus another window already showing `path`. Returns true when one was found
@@ -176,10 +189,11 @@ fn window_sort_key(label: &str, order: &[String]) -> (usize, u32, String) {
 /// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
 /// are ephemeral per app run, so there's nothing meaningful to persist to disk.
 #[tauri::command]
-pub fn window_reorder(state: tauri::State<WindowProjects>, labels: Vec<String>) {
+pub fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, labels: Vec<String>) {
     if let Ok(mut order) = state.order.lock() {
         *order = labels;
     }
+    broadcast_windows_changed(&app);
 }
 
 /// Focus the previous/next open PADE window, wrapping around at the ends, in the
