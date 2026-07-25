@@ -14,8 +14,9 @@ terminal**, and builds a comprehension-first GUI around it. The user stays the
 owner while the agent writes: a live terminal on the left, glanceable review panels
 on the right. Calm, focused, developer-grade — never noisy.
 
-**Platform:** desktop (Windows-first), a single resizable window, min 720×480,
-default 1200×800. Dense but breathable. Keyboard- and mouse-driven.
+**Platform:** desktop (Windows-first), with one or more resizable project windows,
+each min 720×480 and default 1200×800. Dense but breathable. Keyboard- and
+mouse-driven.
 
 ---
 

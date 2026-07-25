@@ -1,6 +1,6 @@
 // E2E smoke: boot the real app and assert its shell renders. Dependency-free —
 // WebView2 speaks the Chrome DevTools Protocol when launched with a debugging
-// port, and Node ships fetch + WebSocket. Two checks, DOM-presence only:
+// port, and Node ships fetch + WebSocket. Current DOM-presence scenarios:
 //
 //   1. `?w=empty`             → the project picker mounts ("Open a project").
 //   2. `?w=open&path=<repo>`  → the agent chooser mounts ("Choose an agent"),
