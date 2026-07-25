@@ -252,19 +252,19 @@ export function beginReorder(options: BeginReorderOptions): void {
         continue;
       }
 
-      const rect = child.getBoundingClientRect();
+      const rectangle = child.getBoundingClientRect();
       const id = child.getAttribute(idAttribute);
-      if (rect.width <= 0 || rect.height <= 0 || id === null || id === "") {
+      if (rectangle.width <= 0 || rectangle.height <= 0 || id === null || id === "") {
         continue;
       }
 
       siblings.push({
         id,
         element: child,
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height
+        left: rectangle.left,
+        top: rectangle.top,
+        width: rectangle.width,
+        height: rectangle.height
       });
     }
 
@@ -332,13 +332,13 @@ export function beginReorder(options: BeginReorderOptions): void {
       return null;
     }
 
-    const rect = targetElement.getBoundingClientRect();
+    const rectangle = targetElement.getBoundingClientRect();
     return {
       id,
       side: paneDropSide({
         pointerX: x,
-        left: rect.left,
-        width: rect.width
+        left: rectangle.left,
+        width: rectangle.width
       })
     };
   }

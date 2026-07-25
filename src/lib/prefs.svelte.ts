@@ -3,11 +3,11 @@
 // a theme-mode data attribute, and saved back through the bridge.
 
 import { workspace } from "@/lib/bridge";
-import { DEFAULT_CONTEXT_HANDOFF_PCT } from "@/lib/context-level";
+import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
 
 const UI_FALLBACK = "\"Google Sans\", \"Segoe UI\", system-ui, sans-serif";
-const MONO_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";
+const MONOSPACE_FALLBACK = "\"JetBrains Mono\", \"Cascadia Code\", ui-monospace, monospace";
 
 /** Default side-panel width when the user hasn't dragged the divider. Matches the
  *  design mockup's `panelW:380` (and its double-click reset). */
@@ -26,8 +26,8 @@ export const effective = {
   get diffStyle(): DiffStyle {
     return prefs.diffStyle ?? "unified";
   },
-  get monoFamily(): string {
-    return prefs.monoFont ? `"${prefs.monoFont}", ${MONO_FALLBACK}` : MONO_FALLBACK;
+  get monospaceFamily(): string {
+    return prefs.monoFont ? `"${prefs.monoFont}", ${MONOSPACE_FALLBACK}` : MONOSPACE_FALLBACK;
   },
   get uiFamily(): string {
     return prefs.uiFont ? `"${prefs.uiFont}", ${UI_FALLBACK}` : UI_FALLBACK;
@@ -38,8 +38,8 @@ export const effective = {
   get sidePanelWidth(): number {
     return prefs.sidePanelWidth ?? SIDE_PANEL_DEFAULT_WIDTH;
   },
-  get handoffPct(): number {
-    return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PCT;
+  get handoffPercentage(): number {
+    return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PERCENTAGE;
   }
 };
 

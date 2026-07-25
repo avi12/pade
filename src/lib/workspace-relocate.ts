@@ -16,22 +16,22 @@ import { SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession, Settings } from "@/lib/types";
 
 /** Whether `dir` is `base` itself or nested anywhere under it (normalized). */
-export function isUnderDir({ dir, base }: {
-  dir: string;
+export function isUnderDirectory({ directory, base }: {
+  directory: string;
   base: string;
 }): boolean {
   const normalizedBase = normalizePath(base);
-  const normalized = normalizePath(dir);
+  const normalized = normalizePath(directory);
   return normalized === normalizedBase || normalized.startsWith(`${normalizedBase}/`);
 }
 
 /** Re-point `dir` (a path at or under `from`) to the same suffix under `to`. */
-export function remapDir({ dir, from, to }: {
-  dir: string;
+export function remapDirectory({ directory, from, to }: {
+  directory: string;
   from: string;
   to: string;
 }): string {
-  return to + dir.slice(from.length);
+  return to + directory.slice(from.length);
 }
 
 /** What the app shell provides for a relocation. */
@@ -45,7 +45,7 @@ export interface RelocateHost {
   /** Re-point the current project dir after the move. */
   setCurrentProject: (path: string) => void;
   /** Resume one displaced live session on its remapped cwd. */
-  relaunch: (opts: {
+  relaunch: (options: {
     agent: Agent;
     cwd: string;
     initialPrompt: string;
@@ -56,12 +56,12 @@ export interface RelocateHost {
 /** Move/rename/delete entry points for one app shell, sharing the lock-handling
  *  flow. */
 export function createRelocator(host: RelocateHost) {
-  function isUnder({ dir, base }: {
-    dir: string;
+  function isUnder({ directory, base }: {
+    directory: string;
     base: string;
   }): boolean {
-    return isUnderDir({
-      dir,
+    return isUnderDirectory({
+      directory,
       base
     });
   }
@@ -69,16 +69,16 @@ export function createRelocator(host: RelocateHost) {
   /** Free the folder: kill every session holding it (or a child) as cwd, and
    *  report the ones that were still alive so a caller can resume them. */
   async function releaseLock(from: string) {
-    const locking = host.sessions().filter(s => isUnder({
-      dir: s.cwd ?? host.currentProject(),
+    const locking = host.sessions().filter(session => isUnder({
+      directory: session.cwd ?? host.currentProject(),
       base: from
     }));
     // Capture the live ones + where they were working, to resume after the move.
     const toResume = locking
-      .filter(s => sessionStatus(s.id) !== SessionStatus.enum.exited)
-      .map(s => ({
-        agent: s.agent,
-        oldDir: s.cwd ?? host.currentProject()
+      .filter(session => sessionStatus(session.id) !== SessionStatus.enum.exited)
+      .map(session => ({
+        agent: session.agent,
+        oldDirectory: session.cwd ?? host.currentProject()
       }));
 
     for (const session of locking) {
@@ -87,7 +87,7 @@ export function createRelocator(host: RelocateHost) {
       dropContext(session.id);
     }
 
-    host.removeSessions(new Set(locking.map(s => s.id)));
+    host.removeSessions(new Set(locking.map(session => session.id)));
     return toResume;
   }
 
@@ -102,12 +102,12 @@ export function createRelocator(host: RelocateHost) {
     host.applySettings(await workspace.settings());
 
     if (isUnder({
-      dir: host.currentProject(),
+      directory: host.currentProject(),
       base: from
     })) {
       host.setCurrentProject(
-        remapDir({
-          dir: host.currentProject(),
+        remapDirectory({
+          directory: host.currentProject(),
           from,
           to: newPath
         })
@@ -117,8 +117,8 @@ export function createRelocator(host: RelocateHost) {
     // Resume the live sessions on the new path, seeded to continue.
     toResume.forEach((entry, index) => host.relaunch({
       agent: entry.agent,
-      cwd: remapDir({
-        dir: entry.oldDir,
+      cwd: remapDirectory({
+        directory: entry.oldDirectory,
         from,
         to: newPath
       }),
@@ -161,7 +161,7 @@ export function createRelocator(host: RelocateHost) {
     host.applySettings(settings);
 
     if (isUnder({
-      dir: host.currentProject(),
+      directory: host.currentProject(),
       base: path
     })) {
       host.setCurrentProject("");

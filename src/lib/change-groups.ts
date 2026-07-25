@@ -77,10 +77,10 @@ function relativeSegments({ path, workspaceRoot }: {
 // manifest members exist. A path under a container maps to its member folder
 // (honouring an `@scope/name` two-segment member); everything else maps to the
 // repo itself.
-function projectOf({ path, workspaceRoot, repo }: {
+function projectOf({ path, workspaceRoot, repository }: {
   path: string;
   workspaceRoot: string;
-  repo: Project;
+  repository: Project;
 }): Project {
   const segments = relativeSegments({
     path,
@@ -89,7 +89,7 @@ function projectOf({ path, workspaceRoot, repo }: {
   const container = segments[0]?.toLowerCase();
   const role = container === undefined ? undefined : CONTAINER_ROLES[container];
   if (role === undefined || segments.length < 2) {
-    return repo;
+    return repository;
   }
 
   const isScopedMember = segments[1].startsWith("@") && segments.length >= 3;
@@ -116,11 +116,11 @@ function memberRole(memberPath: string): GroupRole {
 // segments are compared (case-insensitively, matching the root-prefix rule) so
 // `apps/web` never captures `apps/web-admin`; outside every member the repo
 // itself is the bucket.
-function projectFromMembers({ path, workspaceRoot, members, repo }: {
+function projectFromMembers({ path, workspaceRoot, members, repository }: {
   path: string;
   workspaceRoot: string;
   members: WorkspaceMember[];
-  repo: Project;
+  repository: Project;
 }): Project {
   const segments = relativeSegments({
     path,
@@ -140,7 +140,7 @@ function projectFromMembers({ path, workspaceRoot, members, repo }: {
   }
 
   if (deepest === undefined) {
-    return repo;
+    return repository;
   }
 
   return {
@@ -160,10 +160,10 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
   workspaceRoot: string;
   members?: WorkspaceMember[];
 }): ChangeGroup[] {
-  const repoName = baseName(workspaceRoot) || workspaceRoot;
-  const repo: Project = {
+  const repositoryName = baseName(workspaceRoot) || workspaceRoot;
+  const repository: Project = {
     id: ".",
-    name: repoName,
+    name: repositoryName,
     role: GroupRole.App
   };
   // The root entry only signals "this workspace has a manifest"; grouping needs
@@ -177,12 +177,12 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
         path: event.path,
         workspaceRoot,
         members: manifestMembers,
-        repo
+        repository
       })
       : projectOf({
         path: event.path,
         workspaceRoot,
-        repo
+        repository
       });
     let group = groupsById.get(project.id);
     if (group === undefined) {

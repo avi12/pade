@@ -35,14 +35,14 @@
     </button>
 
     <ul class="agents">
-      {#each agents as a (a.id)}
+      {#each agents as agent (agent.id)}
         <li>
-          <button class="agent" data-agent={a.id} onclick={() => onpick(a)}>
+          <button class="agent" data-agent={agent.id} onclick={() => onpick(agent)}>
             <span class="identity">
-              <Icon name={agentIconName(a.id)} size={18} />
-              <span class="name">{a.label}</span>
+              <Icon name={agentIconName(agent.id)} size={18} />
+              <span class="name">{agent.label}</span>
             </span>
-            <code class="command">{a.command}</code>
+            <code class="command">{agent.command}</code>
           </button>
         </li>
       {/each}

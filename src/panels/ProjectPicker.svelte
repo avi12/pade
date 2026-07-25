@@ -2,7 +2,7 @@
   import BrandMark from "@/lib/BrandMark.svelte";
   import { dirs, ide, workspace } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
-  import { displayName, isTemporaryWorkspace, normalizePath, parentDir } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
     AddRootOutcome,
@@ -204,7 +204,7 @@
     }
 
     const recentParents = recentProjects
-      .map(parentDir)
+      .map(parentDirectory)
       .filter((parent): parent is string => parent !== null)
       .map(normalizePath);
     function usage(root: string): number {
@@ -282,9 +282,9 @@
   const watchedDirs = $derived([...new Set(
     [
       ...settings.roots,
-      ...settings.roots.map(parentDir),
-      ...settings.recentProjects.map(parentDir)
-    ].filter((dir): dir is string => dir !== null)
+      ...settings.roots.map(parentDirectory),
+      ...settings.recentProjects.map(parentDirectory)
+    ].filter((directory): directory is string => directory !== null)
   )]);
 
   // Re-armed whenever that list changes; the backend replaces the previous set.

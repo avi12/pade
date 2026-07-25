@@ -25,14 +25,14 @@
   let ctxMenuOn = $state<boolean | null>(null);
   // Surfaced when registering the modern (Win11) menu fails — typically because
   // Developer Mode is off. The legacy menu still gets added in that case.
-  let ctxMenuError = $state("");
-  async function loadCtxMenu() {
+  let contextMenuError = $state("");
+  async function loadContextMenu() {
     if (isWindows) {
       ctxMenuOn = await contextMenu.status();
     }
   }
   onMount(() => {
-    loadCtxMenu();
+    loadContextMenu();
   });
 </script>
 
@@ -73,15 +73,15 @@
           checked={ctxMenuOn}
           onchange={async e => {
             const on = e.currentTarget.checked;
-            ctxMenuError = "";
+            contextMenuError = "";
             try {
               if (on) {
                 await contextMenu.register();
               } else {
                 await contextMenu.unregister();
               }
-            } catch (err) {
-              ctxMenuError = err instanceof Error ? err.message : String(err);
+            } catch (caughtError) {
+              contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
             }
             ctxMenuOn = await contextMenu.status();
           }}
@@ -93,8 +93,8 @@
       </span>
       <span>Add “Open in PADE” to the folder right-click menu</span>
     </label>
-    {#if ctxMenuError}
-      <p class="context-menu-error" role="alert">{ctxMenuError}</p>
+    {#if contextMenuError}
+      <p class="context-menu-error" role="alert">{contextMenuError}</p>
     {/if}
   {/if}
 </section>

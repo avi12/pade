@@ -6,7 +6,7 @@ import {
   nameError,
   parseInput,
   ProjectName,
-  repoFolderName,
+  repositoryFolderName,
   RestoreQuery,
   SessionName
 } from "@/lib/validate";
@@ -149,21 +149,21 @@ describe("isSshCloneUrl", () => {
   });
 });
 
-describe("repoFolderName", () => {
+describe("repositoryFolderName", () => {
   it("derives the folder from any supported URL shape", () => {
-    expect(repoFolderName("https://github.com/org/repo.git")).toBe("repo");
-    expect(repoFolderName("git@github.com:org/repo.git")).toBe("repo");
-    expect(repoFolderName("https://github.com/org/repo/")).toBe("repo");
+    expect(repositoryFolderName("https://github.com/org/repo.git")).toBe("repo");
+    expect(repositoryFolderName("git@github.com:org/repo.git")).toBe("repo");
+    expect(repositoryFolderName("https://github.com/org/repo/")).toBe("repo");
   });
 
   it("yields nothing while the URL has no usable tail", () => {
-    expect(repoFolderName("https://github.com/")).toBe("");
-    expect(repoFolderName("")).toBe("");
+    expect(repositoryFolderName("https://github.com/")).toBe("");
+    expect(repositoryFolderName("")).toBe("");
   });
 
   it("never suggests a name from a non-clone shape", () => {
-    expect(repoFolderName("C:\\repositories\\repo")).toBe("");
-    expect(repoFolderName("repo")).toBe("");
+    expect(repositoryFolderName("C:\\repositories\\repo")).toBe("");
+    expect(repositoryFolderName("repo")).toBe("");
   });
 });
 

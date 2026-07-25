@@ -19,8 +19,8 @@
   let selected = $state<StatusEntry | null>(null);
   let diff = $state("");
 
-  const unstaged = $derived(entries.filter(e => !e.staged));
-  const staged = $derived(entries.filter(e => e.staged));
+  const unstaged = $derived(entries.filter(entry => !entry.staged));
+  const staged = $derived(entries.filter(entry => entry.staged));
 
   // A selected file/diff belongs to one repository. Clear it before the parent
   // paints another workspace's entries into this long-lived lazy panel.
@@ -55,10 +55,10 @@
 {#if unstaged.length}
   <section class="group">
     <h3><span class="dot agent"></span> Unreviewed <span class="n">{formatCount(unstaged.length)}</span></h3>
-    {#each unstaged as e (e.path)}
-      <button class="row" class:selected={selected?.path === e.path} onclick={() => open(e)}>
-        <span class="k {e.kind}">{e.kind[0].toUpperCase()}</span>
-        <span class="fname">{baseName(e.path)}</span>
+    {#each unstaged as entry (entry.path)}
+      <button class="row" class:selected={selected?.path === entry.path} onclick={() => open(entry)}>
+        <span class="k {entry.kind}">{entry.kind[0].toUpperCase()}</span>
+        <span class="fname">{baseName(entry.path)}</span>
       </button>
     {/each}
   </section>
@@ -67,10 +67,10 @@
 {#if staged.length}
   <section class="group">
     <h3><span class="dot staged"></span> Staged <span class="n">{formatCount(staged.length)}</span></h3>
-    {#each staged as e (e.path)}
-      <button class="row" class:selected={selected?.path === e.path} onclick={() => open(e)}>
-        <span class="k {e.kind}">{e.kind[0].toUpperCase()}</span>
-        <span class="fname">{baseName(e.path)}</span>
+    {#each staged as entry (entry.path)}
+      <button class="row" class:selected={selected?.path === entry.path} onclick={() => open(entry)}>
+        <span class="k {entry.kind}">{entry.kind[0].toUpperCase()}</span>
+        <span class="fname">{baseName(entry.path)}</span>
       </button>
     {/each}
   </section>

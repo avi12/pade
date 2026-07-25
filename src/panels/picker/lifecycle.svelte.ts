@@ -66,17 +66,17 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   }
 
   async function moveWorkspace(path: string) {
-    const dest = await openDialog({
+    const destination = await openDialog({
       directory: true,
       multiple: false
     });
-    if (typeof dest !== "string") {
+    if (typeof destination !== "string") {
       return;
     }
 
     await host.onmove({
       from: path,
-      destDir: dest
+      destDir: destination
     });
     await host.refresh();
   }

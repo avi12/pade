@@ -459,11 +459,11 @@
        Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
       <div class="eyebrow section">Open windows</div>
-      {#each windowRows as w (w.label)}
+      {#each windowRows as windowRow (windowRow.label)}
         <!-- The row wraps a separate grip (a span, so grabbing it never triggers the
              button's focus onclick) and the focus button — data-window-id makes the
              wrapper the reorder engine's drag sibling. -->
-        <div class="open-window-row-item" data-window-id={w.label}>
+        <div class="open-window-row-item" data-window-id={windowRow.label}>
           {#if windowsReorderable}
             <span
               class="grip"
@@ -481,23 +481,23 @@
           {/if}
           <button
             class="open-window-row"
-            class:current={w.isCurrent}
+            class:current={windowRow.isCurrent}
             onclick={() => {
-              if (!w.isCurrent) {
+              if (!windowRow.isCurrent) {
                 hide();
-                windows.focus(w.label);
+                windows.focus(windowRow.label);
               }
             }}
             role="menuitem"
             type="button"
           >
-            <ProjectKindIcon path={w.path} />
-            <span class="open-window-row-name">{shortDisplayName(w.path, labels)}</span>
-            {#if isTemporaryWorkspace(w.path)}
+            <ProjectKindIcon path={windowRow.path} />
+            <span class="open-window-row-name">{shortDisplayName(windowRow.path, labels)}</span>
+            {#if isTemporaryWorkspace(windowRow.path)}
               <span class="temporary">temp</span>
             {/if}
             <span class="open-window-row-spacer"></span>
-            {#if w.isCurrent}
+            {#if windowRow.isCurrent}
               <span class="this-window">this window</span>
             {:else}
               <span class="open-window-row-focus" aria-hidden="true"><Icon name="external" size={14} /></span>

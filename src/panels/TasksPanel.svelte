@@ -47,12 +47,12 @@
 
       groups = next;
       error = null;
-    } catch (err) {
+    } catch (caughtError) {
       if (version !== refreshVersion || workspace !== project) {
         return;
       }
 
-      error = String(err);
+      error = String(caughtError);
       groups = [];
     }
   }
@@ -121,7 +121,7 @@
           {#each group.tasks as task (task.name)}
             {@const runningNow = isTaskRunning(
               taskKey({
-                dir: group.dir,
+                directory: group.dir,
                 command: task.command
               })
             )}

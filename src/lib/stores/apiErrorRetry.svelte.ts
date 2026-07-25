@@ -12,7 +12,7 @@
 // `RetryHost` and drives the scan from a component `$effect`.
 
 import { pty } from "@/lib/bridge";
-import { measuredContextPct } from "@/lib/stores/context.svelte";
+import { measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
@@ -89,8 +89,8 @@ export interface RetryHost {
   /** Whether the user opted out (shares prefs.autoResume with usage auto-resume). */
   isOptedOut: () => boolean;
   /** The percent-of-context past which a retry hands off instead — the
-   *  resolved prefs.handoffPct (`effective.handoffPct`). */
-  thresholdPct: () => number;
+   *  resolved prefs.handoffPct (`effective.handoffPercentage`). */
+  thresholdPercentage: () => number;
   /** Hand a session off to a fresh agent now (the auto-handoff flow) — used when
    *  the context window is too full for another retry to get anywhere. */
   forceHandoff: (session: AgentSession) => void;
@@ -153,7 +153,7 @@ export function createApiErrorRetry(host: RetryHost) {
     const id = session.id;
     timers.delete(id);
 
-    const stillHere = host.sessions().some(s => s.id === id);
+    const stillHere = host.sessions().some(session => session.id === id);
     if (!stillHere) {
       stop(id);
       return;
@@ -167,8 +167,8 @@ export function createApiErrorRetry(host: RetryHost) {
       return;
     }
 
-    const pct = measuredContextPct(id);
-    const hasRoom = pct === null || pct < host.thresholdPct();
+    const percentage = measuredContextPercentage(id);
+    const hasRoom = percentage === null || percentage < host.thresholdPercentage();
     if (!hasRoom) {
       stop(id);
       host.forceHandoff(session);
@@ -189,7 +189,7 @@ export function createApiErrorRetry(host: RetryHost) {
       return;
     }
 
-    const alive = new SvelteSet(host.sessions().map(s => s.id));
+    const alive = new SvelteSet(host.sessions().map(session => session.id));
     for (const id of [...hits.keys(), ...timers.keys()]) {
       if (!alive.has(id)) {
         stop(id);

@@ -57,8 +57,8 @@ const EMPTY_CELL = "";
 const FRAME_GLYPH_FIRST = 0x2500;
 const FRAME_GLYPH_LAST = 0x259f;
 
-function isFrameGlyph(chars: string): boolean {
-  const codePoint = chars.codePointAt(0);
+function isFrameGlyph(characters: string): boolean {
+  const codePoint = characters.codePointAt(0);
   return codePoint !== undefined && codePoint >= FRAME_GLYPH_FIRST && codePoint <= FRAME_GLYPH_LAST;
 }
 
@@ -135,9 +135,9 @@ function rowContent({ line, columns }: {
   let firstColumn = -1;
   let lastColumn = -1;
   for (let column = 0; column < columns; column += 1) {
-    const chars = line.getCell(column)?.getChars();
-    const isBlank = chars === undefined || chars === BLANK_CELL || chars === EMPTY_CELL;
-    if (isBlank || isFrameGlyph(chars)) {
+    const characters = line.getCell(column)?.getChars();
+    const isBlank = characters === undefined || characters === BLANK_CELL || characters === EMPTY_CELL;
+    if (isBlank || isFrameGlyph(characters)) {
       continue;
     }
 
@@ -267,14 +267,14 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
       column <= content.lastColumn && text.length < MAX_WINDOW_CHARS;
       column += 1
     ) {
-      const chars = line.getCell(column)?.getChars();
-      const isTrailingWideHalf = chars === undefined || chars === EMPTY_CELL;
+      const characters = line.getCell(column)?.getChars();
+      const isTrailingWideHalf = characters === undefined || characters === EMPTY_CELL;
       if (isTrailingWideHalf) {
         continue;
       }
 
-      text += chars;
-      for (let offset = 0; offset < chars.length; offset += 1) {
+      text += characters;
+      for (let offset = 0; offset < characters.length; offset += 1) {
         cells.push({
           row,
           column

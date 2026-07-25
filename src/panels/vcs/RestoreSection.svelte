@@ -47,8 +47,8 @@
         cwd: project,
         query
       });
-    } catch (e) {
-      restoreError = String(e);
+    } catch (error) {
+      restoreError = String(error);
       candidates = [];
     } finally {
       searching = false;
@@ -56,7 +56,7 @@
   }
 
   // Confidence as a 0..100 percentage — scores run 0..≈1.5, clamped for display.
-  function confidencePct(score: number): number {
+  function confidencePercentage(score: number): number {
     return Math.round(Math.min(score / 1.5, 1) * 100);
   }
 </script>
@@ -91,7 +91,7 @@
 
   {#if candidates.length}
     <ul class="candidates">
-      {#each candidates as c (c.id)}
+      {#each candidates as candidate (candidate.id)}
         <li>
           <button
             class="candidate"
@@ -100,24 +100,26 @@
               try {
                 const branch = await vcs.restoreCheckout({
                   cwd: project,
-                  sha: c.id
+                  sha: candidate.id
                 });
                 restoreDone = branch;
                 candidates = [];
-              } catch (e) {
-                restoreError = String(e);
+              } catch (error) {
+                restoreError = String(error);
               }
             }}
           >
             <div class="cand-top">
-              <code class="commit-hash">{c.short}</code>
-              <span class="summary">{c.summary}</span>
+              <code class="commit-hash">{candidate.short}</code>
+              <span class="summary">{candidate.summary}</span>
             </div>
             <div class="cand-bot">
-                <span class="author-details">{c.author} · {c.when}</span>
+              <span class="author-details">{candidate.author} · {candidate.when}</span>
               <span class="conf" aria-label="Match confidence">
-                <span class="bar"><span style:inline-size="{confidencePct(c.score)}%" class="fill"></span></span>
-                <span class="percent">{formatPercent(confidencePct(c.score))}</span>
+                <span class="bar">
+                  <span style:inline-size="{confidencePercentage(candidate.score)}%" class="fill"></span>
+                </span>
+                <span class="percent">{formatPercent(confidencePercentage(candidate.score))}</span>
               </span>
             </div>
           </button>

@@ -1,10 +1,10 @@
-import { isUnderDir, remapDir } from "@/lib/workspace-relocate";
+import { isUnderDirectory, remapDirectory } from "@/lib/workspace-relocate";
 import { describe, expect, it } from "vitest";
 
-describe("isUnderDir", () => {
+describe("isUnderDirectory", () => {
   it("matches the base directory itself", () => {
-    const under = isUnderDir({
-      dir: "C:\\pade\\workspaces\\temp-1",
+    const under = isUnderDirectory({
+      directory: "C:\\pade\\workspaces\\temp-1",
       base: "C:\\pade\\workspaces\\temp-1"
     });
 
@@ -12,8 +12,8 @@ describe("isUnderDir", () => {
   });
 
   it("matches a nested directory", () => {
-    const under = isUnderDir({
-      dir: "C:\\pade\\workspaces\\temp-1\\src",
+    const under = isUnderDirectory({
+      directory: "C:\\pade\\workspaces\\temp-1\\src",
       base: "C:\\pade\\workspaces\\temp-1"
     });
 
@@ -21,8 +21,8 @@ describe("isUnderDir", () => {
   });
 
   it("compares across separator and casing differences", () => {
-    const under = isUnderDir({
-      dir: "c:/PADE/workspaces/TEMP-1/src",
+    const under = isUnderDirectory({
+      directory: "c:/PADE/workspaces/TEMP-1/src",
       base: "C:\\pade\\workspaces\\temp-1"
     });
 
@@ -30,8 +30,8 @@ describe("isUnderDir", () => {
   });
 
   it("rejects a sibling whose name merely shares the prefix", () => {
-    const under = isUnderDir({
-      dir: "C:\\pade\\workspaces\\temp-10",
+    const under = isUnderDirectory({
+      directory: "C:\\pade\\workspaces\\temp-10",
       base: "C:\\pade\\workspaces\\temp-1"
     });
 
@@ -39,8 +39,8 @@ describe("isUnderDir", () => {
   });
 
   it("rejects a directory outside the base", () => {
-    const under = isUnderDir({
-      dir: "C:\\elsewhere",
+    const under = isUnderDirectory({
+      directory: "C:\\elsewhere",
       base: "C:\\pade\\workspaces\\temp-1"
     });
 
@@ -48,10 +48,10 @@ describe("isUnderDir", () => {
   });
 });
 
-describe("remapDir", () => {
+describe("remapDirectory", () => {
   it("re-points the base directory itself", () => {
-    const remapped = remapDir({
-      dir: "C:\\ws\\old-name",
+    const remapped = remapDirectory({
+      directory: "C:\\ws\\old-name",
       from: "C:\\ws\\old-name",
       to: "C:\\ws\\new-name"
     });
@@ -60,8 +60,8 @@ describe("remapDir", () => {
   });
 
   it("keeps the suffix under the new base", () => {
-    const remapped = remapDir({
-      dir: "C:\\ws\\old-name\\packages\\core",
+    const remapped = remapDirectory({
+      directory: "C:\\ws\\old-name\\packages\\core",
       from: "C:\\ws\\old-name",
       to: "D:\\projects\\moved"
     });

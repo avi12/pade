@@ -173,7 +173,7 @@ describe("buildGroups", () => {
     expect(claude.name).toBe(CLAUDE_LABEL);
     expect(claude.shortName).toBe("Claude");
     expect(claude.limits.map(limit => limit.kindShort)).toEqual(["S", "W"]);
-    expect(claude.limits.map(limit => limit.pct)).toEqual([40, 80]);
+    expect(claude.limits.map(limit => limit.percentage)).toEqual([40, 80]);
     expect(claude.limits.map(limit => limit.level)).toEqual(["normal", "warn"]);
   });
 
@@ -189,7 +189,7 @@ describe("buildGroups", () => {
     });
 
     expect(claude.limits.map(limit => limit.kindShort)).toEqual(["S", "W"]);
-    expect(claude.limits.map(limit => limit.pct)).toEqual([0, 42]);
+    expect(claude.limits.map(limit => limit.percentage)).toEqual([0, 42]);
   });
 
   it("marks an agent with no resolved account unknown, with no limits or plan", () => {
@@ -226,7 +226,7 @@ describe("buildGroups", () => {
     expect(codex.unknown).toBe(false);
     expect(codex.plan).toBe("Codex plus");
     expect(codex.limits.map(limit => limit.kindShort)).toEqual(["W"]);
-    expect(codex.limits.map(limit => limit.pct)).toEqual([5]);
+    expect(codex.limits.map(limit => limit.percentage)).toEqual([5]);
   });
 
   it("keeps an agent present but unknown+empty when its account is null", () => {
@@ -313,7 +313,7 @@ describe("buildGroups", () => {
     expect(opencode.id).toBe("opencode");
     expect(opencode.unknown).toBe(false);
     expect(opencode.plan).toBe("Codex plus");
-    expect(opencode.limits.map(limit => limit.pct)).toEqual([5]);
+    expect(opencode.limits.map(limit => limit.percentage)).toEqual([5]);
   });
 
   it("counts every distinct agent — the few/many boundary sits at 2", () => {
@@ -393,7 +393,7 @@ describe("reset countdowns", () => {
       now
     });
     expect(claude.limits[0]).toMatchObject({
-      pct: 0,
+      percentage: 0,
       level: "normal",
       reset: ""
     });
@@ -462,7 +462,7 @@ describe("panel view-model skips unknown agents", () => {
     const spotlight = findSpotlight(groups);
 
     expect(spotlight?.agent.id).toBe("claude");
-    expect(spotlight?.limit.pct).toBe(96);
+    expect(spotlight?.limit.percentage).toBe(96);
   });
 
   it("builds the kind legend only from agents with limits", () => {

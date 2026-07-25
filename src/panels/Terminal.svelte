@@ -102,10 +102,10 @@
 
   let host: HTMLDivElement;
   let viewport: HTMLDivElement;
-  let term: Terminal;
+  let terminal: Terminal;
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
-  let resizeObs: ResizeObserver | undefined;
+  let resizeObserver: ResizeObserver | undefined;
   // The GPU renderer, bound to the `shown` prop. The WebGL addon holds a real,
   // VRAM-backed context that the browser hard-caps (~16 live at once, then it
   // force-loses the oldest) and that DWM composites every frame. PADE keeps every
@@ -178,7 +178,7 @@
   let lastAltFitAt = 0;
   let pendingFit:
     | {
-      cols: number;
+      columns: number;
       rows: number;
     }
     | undefined;
@@ -221,8 +221,8 @@
   const ALT_REPAINT_TIMEOUT_MS = 400;
   // The width the agent is currently wrapping its output to — the PTY's spawn width,
   // then whatever we last sent it. A resize that leaves this alone is a resize the
-  // agent never needs to hear about (see term.onResize).
-  let agentCols = 0;
+  // agent never needs to hear about (see terminal.onResize).
+  let agentColumns = 0;
   // A resize makes the agent repaint; output within this window after one is
   // treated as that repaint's echo, not fresh activity — so revealing a hidden
   // pane (which refits it) can't flash the badge from "ready" to "working".
@@ -352,7 +352,7 @@
     // Typing at the prompt echoes every keystroke back through the PTY. That
     // echo is the user composing, not the agent working, so a settled session
     // must not flash its indicator per keypress. Enter never stamps the
-    // window (see term.onData), so a submitted prompt flips to working
+    // window (see terminal.onData), so a submitted prompt flips to working
     // immediately.
     const isKeystrokeEcho =
       status === SessionStatus.enum.ready && Date.now() - lastKeystrokeAt < KEYSTROKE_ECHO_MS;
@@ -465,14 +465,14 @@
 
   // Live-update the terminal font (family + zoom) when the preference changes.
   $effect(() => {
-    const family = effective.monoFamily;
+    const family = effective.monospaceFamily;
     const fontSize = Math.round(TERMINAL_FONT_SIZE * effective.uiScale);
-    if (!term) {
+    if (!terminal) {
       return;
     }
 
-    term.options.fontFamily = family;
-    term.options.fontSize = fontSize;
+    terminal.options.fontFamily = family;
+    terminal.options.fontSize = fontSize;
     // The cached GPU cell metrics are stale for the new font — drop them so the
     // refit measures fresh instead of fitting the new font to the old cells.
     webglCellMetrics = undefined;
@@ -491,11 +491,11 @@
     // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
     // tokens the flipped scheme installed.
     const { scheme } = appearance;
-    if (!term || !scheme) {
+    if (!terminal || !scheme) {
       return;
     }
 
-    term.options.theme = readXtermTheme();
+    terminal.options.theme = readXtermTheme();
 
     if (colorSchemeNotificationsEnabled) {
       writeSchemeReport();
@@ -509,7 +509,7 @@
   // have to click into the pane before it will hear a single key.
   $effect(() => {
     if (active && attached) {
-      term.focus();
+      terminal.focus();
     }
   });
 
@@ -587,7 +587,7 @@
   // xterm only pushes a line into scrollback then. (The alternate screen never has any,
   // and pins its top: see above.)
   function updateAnchor() {
-    anchorBottom = !onAlternateScreen && (term?.buffer.active.baseY ?? 0) > 0;
+    anchorBottom = !onAlternateScreen && (terminal?.buffer.active.baseY ?? 0) > 0;
   }
 
   // How much a grid that is momentarily too tall for its pane has to be scaled by to fit
@@ -598,12 +598,12 @@
   // the gap, and only redoing it on both is what brings the scale back to exactly 1 when
   // they meet.
   function updateSqueeze() {
-    const cell = term?.dimensions?.css.cell;
-    if (!term || !viewport || !cell || !(cell.height > 0)) {
+    const cell = terminal?.dimensions?.css.cell;
+    if (!terminal || !viewport || !cell || !(cell.height > 0)) {
       return;
     }
 
-    const gridHeight = term.rows * cell.height;
+    const gridHeight = terminal.rows * cell.height;
     const paneHeight = viewport.clientHeight;
     squeeze = gridHeight > paneHeight && gridHeight > 0 ? paneHeight / gridHeight : 1;
   }
@@ -613,16 +613,16 @@
   // height-only change on the normal screen be dropped entirely. Stamp the time so the
   // repaint the agent sends back isn't counted as activity (see markActivity).
   function sizeAgent({
-    cols,
+    columns,
     rows
   }: {
-    cols: number;
+    columns: number;
     rows: number;
   }) {
     lastResizeAt = Date.now();
-    agentCols = cols;
+    agentColumns = columns;
     resizePty({
-      cols,
+      columns,
       rows
     });
   }
@@ -630,16 +630,16 @@
   // Fire-and-forget resize: the session may have exited between measuring and
   // resizing, and a dropped resize on a dead PTY is harmless.
   async function resizePty({
-    cols,
+    columns,
     rows
   }: {
-    cols: number;
+    columns: number;
     rows: number;
   }) {
     try {
       await pty.resize({
         id: session.id,
-        cols,
+        cols: columns,
         rows
       });
     } catch {
@@ -700,7 +700,7 @@
   // clipboard the platform withholds must not throw into a key handler.
   async function copySelectionToClipboard() {
     try {
-      await clipboard.writeText(term.getSelection());
+      await clipboard.writeText(terminal.getSelection());
     } catch {
       showToast("Couldn't copy the terminal selection.");
     }
@@ -736,21 +736,21 @@
   //
   // The GRID has to move, not just the PTY: a size sent to the program alone leaves
   // xterm's grid saying one thing and the program's model another, and it paints its
-  // frame a row short. Resizing the grid drives `term.onResize`, which sends the
+  // frame a row short. Resizing the grid drives `terminal.onResize`, which sends the
   // SIGWINCH — terminal and program move together, exactly as in a real resize.
   function repaintAgent() {
-    if (!term || repainting) {
+    if (!terminal || repainting) {
       return;
     }
 
-    const grid = term;
-    const { cols, rows } = grid;
-    // Both halves of the nudge drive term.onResize, which would otherwise queue another
+    const grid = terminal;
+    const { cols: columns, rows } = grid;
+    // Both halves of the nudge drive terminal.onResize, which would otherwise queue another
     // repaint off the back of this one, forever.
     repainting = true;
-    grid.resize(cols, Math.max(1, rows - 1));
+    grid.resize(columns, Math.max(1, rows - 1));
     setTimeout(() => {
-      grid.resize(cols, rows);
+      grid.resize(columns, rows);
       repainting = false;
     }, REPAINT_NUDGE_MS);
   }
@@ -771,20 +771,20 @@
   // size the pane has reached in the meantime. The drag is paced by the agent itself — as
   // fast as it can actually follow, never faster.
   function altFit({
-    cols,
+    columns,
     rows
   }: {
-    cols: number;
+    columns: number;
     rows: number;
   }) {
-    if (!term) {
+    if (!terminal) {
       return;
     }
 
     const sinceLastFit = Date.now() - lastAltFitAt;
     if (awaitingRepaint || sinceLastFit < ALT_FIT_MIN_INTERVAL_MS) {
       pendingFit = {
-        cols,
+        columns,
         rows
       };
       // Nothing else will come back to collect it: a drag that ends inside the interval
@@ -804,17 +804,17 @@
       return;
     }
 
-    if (cols === term.cols && rows === term.rows) {
+    if (columns === terminal.cols && rows === terminal.rows) {
       return;
     }
 
     lastAltFitAt = Date.now();
     awaitingRepaint = true;
-    term.resize(cols, rows);
+    terminal.resize(columns, rows);
     clearTimeout(repaintWatchdog);
     repaintWatchdog = setTimeout(() => {
       // It never answered. Whatever is on screen may be torn, so the gesture owes a full
-      // repaint once it stops (see term.onResize).
+      // repaint once it stops (see terminal.onResize).
       missedRepaint = true;
       finishRepaint();
     }, ALT_REPAINT_TIMEOUT_MS);
@@ -852,14 +852,14 @@
   // would have to be clipped, and on the normal screen buffer every row is content.
   //
   // No transform anywhere, so text stays crisp and clicks map at native cell size.
-  // `term.dimensions.css.cell` is the font metric, independent of the current grid,
+  // `terminal.dimensions.css.cell` is the font metric, independent of the current grid,
   // so there's no circular measurement.
   function fitToPane() {
-    if (!term || !viewport) {
+    if (!terminal || !viewport) {
       return;
     }
 
-    const liveCell = term.dimensions?.css.cell;
+    const liveCell = terminal.dimensions?.css.cell;
     const liveCellIsUsable = liveCell !== undefined && liveCell.width > 0 && liveCell.height > 0;
     if (webgl && liveCellIsUsable) {
       webglCellMetrics = {
@@ -874,7 +874,7 @@
     }
 
     const availableWidth = viewport.clientWidth - SCROLLBAR_WIDTH;
-    const cols = Math.floor(availableWidth / cell.width);
+    const columns = Math.floor(availableWidth / cell.width);
     const rows = Math.floor(viewport.clientHeight / cell.height);
     // A dock/panel can briefly leave its flex sibling with no measured space
     // while the browser resolves the new layout. Never clamp that transient to
@@ -883,16 +883,16 @@
     // has enough cells to be usable again.
     const MIN_USABLE_COLS = 20;
     const MIN_USABLE_ROWS = 4;
-    if (cols < MIN_USABLE_COLS || rows < MIN_USABLE_ROWS) {
+    if (columns < MIN_USABLE_COLS || rows < MIN_USABLE_ROWS) {
       return;
     }
 
-    const grid = term;
+    const grid = terminal;
     // The normal screen reflows every frame: xterm owns the document there, so it can
     // rewrap the text itself as fast as the drag moves.
     if (!onAlternateScreen) {
-      if (cols !== grid.cols || rows !== grid.rows) {
-        grid.resize(cols, rows);
+      if (columns !== grid.cols || rows !== grid.rows) {
+        grid.resize(columns, rows);
       }
 
       updateAnchor();
@@ -908,7 +908,7 @@
     // scaled, its text is crisp, and its clicks map true.
     updateSqueeze();
     altFit({
-      cols,
+      columns,
       rows
     });
     updateAnchor();
@@ -921,7 +921,7 @@
   // (re)attached renderer is sized to the pane at once, so it doesn't paint a stale
   // grid on the frame it comes back.
   function attachWebgl() {
-    if (webgl || !term) {
+    if (webgl || !terminal) {
       return;
     }
 
@@ -938,7 +938,7 @@
           attachWebgl();
         }
       });
-      term.loadAddon(addon);
+      terminal.loadAddon(addon);
       webgl = addon;
       fitToPane();
     } catch {
@@ -963,8 +963,8 @@
 
   onMount(async () => {
     mountedPaneCount += 1;
-    term = new Terminal({
-      fontFamily: effective.monoFamily,
+    terminal = new Terminal({
+      fontFamily: effective.monospaceFamily,
       fontSize: Math.round(TERMINAL_FONT_SIZE * effective.uiScale),
       cursorBlink: true,
       allowProposedApi: true,
@@ -986,7 +986,7 @@
         }
       }
     });
-    term.open(host);
+    terminal.open(host);
     attached = true;
 
     // Make URLs in the output clickable — the agent's OAuth sign-in links, docs
@@ -996,7 +996,7 @@
     // is window.open, which a Tauri WebView won't turn into a browser tab, so
     // route the whole URL through the bridge to the system browser instead.
     registerWrappedLinkProvider({
-      terminal: term,
+      terminal,
       openUrl: openTerminalLink
     });
 
@@ -1008,8 +1008,8 @@
     // and the phrase the parser needs never arrives intact. The rendered rows
     // always hold the full text. onRender reports the repainted viewport row
     // range; reading only those rows keeps the per-paint work bounded.
-    term.onRender(({ start, end }) => {
-      const buffer = term.buffer.active;
+    terminal.onRender(({ start, end }) => {
+      const buffer = terminal.buffer.active;
       const rows: string[] = [];
       for (let row = start; row <= end; row++) {
         const line = buffer.getLine(buffer.viewportY + row);
@@ -1039,11 +1039,11 @@
     function consume(chunk: PtyChunk) {
       // The terminal may already be disposed if a late chunk arrives during
       // teardown; skip the write rather than throw.
-      if (destroyed || !term) {
+      if (destroyed || !terminal) {
         return;
       }
 
-      term.write(chunk.data);
+      terminal.write(chunk.data);
       relayColorSchemeAfterSubscribe(chunk.data);
       noteRepaintProgress();
       markActivity();
@@ -1053,7 +1053,7 @@
       // to a meaningless 100% within minutes (a freshly handed-off successor
       // read "≈100%"). On the alternate screen the onRender scan above carries
       // the parsed percent, and no estimate beats a saturated one.
-      const onNormalScreen = term.buffer.active.type !== "alternate";
+      const onNormalScreen = terminal.buffer.active.type !== "alternate";
       if (onNormalScreen) {
         observeContext({
           id: session.id,
@@ -1128,7 +1128,7 @@
     exitUnlisten = exitListener;
 
     // Send keystrokes to this session's PTY.
-    term.onData(data => {
+    terminal.onData(data => {
       const isFocusReport = data === FOCUS_IN || data === FOCUS_OUT;
       if (isFocusReport) {
         return;
@@ -1151,7 +1151,7 @@
         // space makes the path a complete token for the agent's parser.
         const imagePath = await clipboard.saveImage();
         if (imagePath) {
-          term.paste(`${imagePath} `);
+          terminal.paste(`${imagePath} `);
           return;
         }
 
@@ -1159,7 +1159,7 @@
         if (text) {
           // paste (not write) so xterm wraps it in bracketed-paste markers when the
           // agent has that mode on — it then treats it as pasted text, not typing.
-          term.paste(text);
+          terminal.paste(text);
         }
       } catch {
         showToast("Couldn't read the clipboard.");
@@ -1178,7 +1178,7 @@
     //    plain bytes (Windows Terminal gets away with it via win32-input-mode,
     //    which xterm doesn't speak); ^W is the erase-word every line editor
     //    and agent already binds.
-    term.attachCustomKeyEventHandler(event => {
+    terminal.attachCustomKeyEventHandler(event => {
       if (event.type !== "keydown") {
         return true;
       }
@@ -1201,14 +1201,14 @@
         // xterm marks this as pasted text and the newline stays in its composer.
         // Unlike CSI-u, this does not depend on an individual agent decoding a
         // particular modified-key protocol.
-        term.paste(PROMPT_NEWLINE);
+        terminal.paste(PROMPT_NEWLINE);
         return false;
       }
 
       const isPlainCtrl = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
 
       const isCopyChord = isPlainCtrl && (event.key === "c" || event.key === "C");
-      if (isCopyChord && term.hasSelection()) {
+      if (isCopyChord && terminal.hasSelection()) {
         event.preventDefault();
         copySelectionToClipboard();
         return false;
@@ -1239,9 +1239,9 @@
     // document scrolled. Otherwise the visible frame is all xterm holds — a
     // fullscreen agent repainting in place — so forward the scroll it understands.
     let wheelCarry = 0;
-    term.attachCustomWheelEventHandler(e => {
-      const agentOwnsMouse = term.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
-      const hasNativeScrollback = term.buffer.active.baseY > 0;
+    terminal.attachCustomWheelEventHandler(e => {
+      const agentOwnsMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
+      const hasNativeScrollback = terminal.buffer.active.baseY > 0;
       if (agentOwnsMouse || hasNativeScrollback) {
         return true;
       }
@@ -1264,21 +1264,21 @@
 
     // The document can outgrow the pane with no resize involved — the agent simply
     // prints past the last row — and that is the moment the grid must re-pin.
-    term.onScroll(updateAnchor);
+    terminal.onScroll(updateAnchor);
 
     // A program that takes over the alternate screen has to be told the moment the
     // grid changes, and told the height too — it is painting the whole framebuffer,
     // and nobody else can. Switching screens also makes the grid re-pin, and squares
     // the agent's idea of the size with ours, since on the normal screen we deliberately
     // let its height go stale (below).
-    term.buffer.onBufferChange(() => {
-      onAlternateScreen = term.buffer.active.type === Screen.Alternate;
+    terminal.buffer.onBufferChange(() => {
+      onAlternateScreen = terminal.buffer.active.type === Screen.Alternate;
       updateAnchor();
 
       if (onAlternateScreen) {
         sizeAgent({
-          cols: term.cols,
-          rows: term.rows
+          columns: terminal.cols,
+          rows: terminal.rows
         });
         reportSchemeToSubscribedAgent();
       }
@@ -1305,7 +1305,7 @@
     //
     // So a vertical drag there sends nothing at all: the agent's output is untouched
     // and xterm simply reveals more or less of it, exactly like scrolling a web page.
-    term.onResize(({ cols, rows }) => {
+    terminal.onResize(({ cols: columns, rows }) => {
       lastResizeAt = Date.now();
       // The grid just changed, which is the other half of what the squeeze measures.
       updateSqueeze();
@@ -1320,7 +1320,7 @@
       if (onAlternateScreen) {
         clearTimeout(sigwinchTimer);
         sizeAgent({
-          cols,
+          columns,
           rows
         });
 
@@ -1334,7 +1334,7 @@
         return;
       }
 
-      if (cols === agentCols) {
+      if (columns === agentColumns) {
         return;
       }
 
@@ -1342,7 +1342,7 @@
       sigwinchTimer = setTimeout(
         () =>
           sizeAgent({
-            cols,
+            columns,
             rows
           }),
         SIGWINCH_SETTLE_MS
@@ -1355,7 +1355,7 @@
     // until the gesture ends instead (the agent owns the pixels; see there). rAF
     // coalesces a burst of resize events into one fit per frame; xterm 6.1 renders the
     // reflow synchronously (issue #4922 / PR #5529) so it stays crisp.
-    resizeObs = new ResizeObserver(() => {
+    resizeObserver = new ResizeObserver(() => {
       if (fitFrame !== undefined) {
         return;
       }
@@ -1365,20 +1365,20 @@
         fitToPane();
       });
     });
-    resizeObs.observe(viewport);
+    resizeObserver.observe(viewport);
 
     // Spawn the chosen agent in a real PTY.
     if (destroyed) {
       return;
     }
 
-    agentCols = term.cols;
+    agentColumns = terminal.cols;
     await pty.spawn({
       id: session.id,
       command: session.agent.command,
       cwd: session.cwd ?? null,
-      cols: agentCols,
-      rows: term.rows,
+      cols: agentColumns,
+      rows: terminal.rows,
       args: session.args,
       scheme: appearance.scheme,
       conversationId: session.conversationId
@@ -1400,7 +1400,7 @@
     }
 
     const history = await pty.history(session.id);
-    if (destroyed || !term) {
+    if (destroyed || !terminal) {
       return;
     }
 
@@ -1412,10 +1412,10 @@
       // buffer), then ask the program to repaint itself: it re-renders on a SIGWINCH,
       // and it is the only thing that can. Its own frame is the source of truth.
       if (history.alternate) {
-        term.write(ENTER_ALTERNATE_SCREEN);
+        terminal.write(ENTER_ALTERNATE_SCREEN);
       }
 
-      term.write(history.data);
+      terminal.write(history.data);
       relayColorSchemeAfterSubscribe(history.data);
       // The replayed history holds the spawn-time banner (window size) and the
       // latest counters a fresh attach would otherwise never see — parse-only,
@@ -1480,11 +1480,11 @@
       cancelAnimationFrame(fitFrame);
     }
 
-    resizeObs?.disconnect();
+    resizeObserver?.disconnect();
     detachWebgl();
     dropContext(session.id);
     dropMcpReload(session.id);
-    term?.dispose();
+    terminal?.dispose();
   });
 
   // The DOM read lives here; the token→slot mapping and the parse-safe color

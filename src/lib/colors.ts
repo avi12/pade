@@ -36,12 +36,12 @@ export function resolveColor(
   }
 
   const trimmed = token.trim();
-  const ref = VAR_REF.exec(trimmed);
-  if (!ref) {
+  const reference = VAR_REF.exec(trimmed);
+  if (!reference) {
     return isColor(trimmed) ? trimmed : null;
   }
 
-  const name = ref[1];
+  const name = reference[1];
   let value = vars?.get(name)?.trim() ?? "";
   if (!value && typeof document !== "undefined") {
     value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();

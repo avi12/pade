@@ -16,7 +16,7 @@
     nameError,
     parseInput,
     ProjectName,
-    repoFolderName
+    repositoryFolderName
   } from "@/lib/validate";
   import AgentChips from "@/panels/picker/AgentChips.svelte";
   import PathCombobox from "@/panels/picker/PathCombobox.svelte";
@@ -240,10 +240,10 @@
       return false;
     }
 
-    const rect = row.getBoundingClientRect();
+    const rectangle = row.getBoundingClientRect();
     const cssX = x / devicePixelRatio;
     const cssY = y / devicePixelRatio;
-    return cssX >= rect.left && cssX <= rect.right && cssY >= rect.top && cssY <= rect.bottom;
+    return cssX >= rectangle.left && cssX <= rectangle.right && cssY >= rectangle.top && cssY <= rectangle.bottom;
   }
   // The latest probe, tagged with the path it described — only a settled probe
   // (disk knowledge about the *current* text) gates the button or complains.
@@ -254,7 +254,7 @@
   });
   const trimmedLocal = $derived(localPath.trim());
   const localSettled = $derived(trimmedLocal.length > 0 && localProbe.path === trimmedLocal);
-  const localIsDir = $derived(localSettled && localProbe.result.isDir);
+  const localIsDirectory = $derived(localSettled && localProbe.result.isDir);
   const localError = $derived(
     localSettled && !localProbe.result.isDir ? "That folder doesn’t exist." : null
   );
@@ -329,7 +329,7 @@
       return;
     }
 
-    cloneName = remoteReachable ? repoFolderName(cloneUrl) : "";
+    cloneName = remoteReachable ? repositoryFolderName(cloneUrl) : "";
   });
 
   // Shared by mount and the "Re-check" button after installing git.
@@ -545,7 +545,12 @@
 
           <div class="new-project-field">
             <span id="new-project-location-label" class="new-project-label">Location</span>
-            <div style:anchor-name="--new-project-root-menu-create" class="new-project-location" aria-labelledby="new-project-location-label" role="group">
+            <div
+              style:anchor-name="--new-project-root-menu-create"
+              class="new-project-location"
+              aria-labelledby="new-project-location-label"
+              role="group"
+            >
               <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
               {@render rootSelect("new-project-root-menu-create")}
               <span class="new-project-separator" aria-hidden="true">\</span>
@@ -638,7 +643,7 @@
               schema: FolderPath,
               raw: localPath
             });
-            if (!path || !localIsDir) {
+            if (!path || !localIsDirectory) {
               return;
             }
 
@@ -676,7 +681,7 @@
             {/if}
           </div>
 
-          <button class="go" disabled={!localIsDir} type="submit">Open project</button>
+          <button class="go" disabled={!localIsDirectory} type="submit">Open project</button>
         </form>
       </div>
       <div class="slot" class:open={tab === StartTab.clone} data-tab={StartTab.clone}>

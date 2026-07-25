@@ -10,7 +10,7 @@
 // `HandoffHost` and drives the scan from a component `$effect`.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
-import { dropContext, measuredContextPct } from "@/lib/stores/context.svelte";
+import { dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { submittedPrompt } from "@/lib/terminal-input";
 import { SessionStatus } from "@/lib/types";
@@ -22,7 +22,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 // timeout that beats the write used to strand the successor without a doc.
 const HANDOFF_DOC_TIMEOUT_MS = 300_000;
 const HANDOFF_SETTLE_MS = 3_000;
-const USAGE_EXHAUSTED_PCT = 95;
+const USAGE_EXHAUSTED_PERCENTAGE = 95;
 // How often the successor is checked for having finished its first turn (the
 // doc is certainly consumed by then), and how long before we stop watching.
 const SUCCESSOR_POLL_MS = 3_000;
@@ -150,19 +150,19 @@ export interface HandoffHost {
   /** Whether the user opted out via prefs.autoHandoff. */
   isOptedOut: () => boolean;
   /** The percent-of-context that triggers the cycle — the resolved
-   *  prefs.handoffPct (`effective.handoffPct`), read per scan so a Config
+   *  prefs.handoffPct (`effective.handoffPercentage`), read per scan so a Config
    *  change applies without a restart. */
-  thresholdPct: () => number;
+  thresholdPercentage: () => number;
   /** Source text for the handoff-doc slug (workspace label or short dir). */
   slugSource: () => string;
   /** The open project's root dir — where the handoff doc lands (and is
    *  deleted from once the successor has consumed it). */
-  projectDir: () => string;
+  projectDirectory: () => string;
   /** Drop an ended session from the shell's tab strip and panes. */
   removeSession: (id: string) => void;
   /** Start the successor agent seeded to continue from the handoff doc.
    *  Returns the new session's id so the doc's consumption can be watched. */
-  launchSuccessor: (opts: {
+  launchSuccessor: (options: {
     agent: Agent;
     cwd?: string;
     initialPrompt: string;
@@ -291,7 +291,7 @@ export function createAutoHandoff(host: HandoffHost) {
       return true;
     }
 
-    return quota.usedPct < USAGE_EXHAUSTED_PCT;
+    return quota.usedPct < USAGE_EXHAUSTED_PERCENTAGE;
   }
 
   async function handoff({ session, reason }: {
@@ -319,13 +319,13 @@ export function createAutoHandoff(host: HandoffHost) {
     // The context note states the measured number: an unquantified "nearly
     // full" reads as a lie whenever the user is looking at a different (or
     // fresher) session than the one that hit the threshold.
-    const measuredPct = Math.round(measuredContextPct(session.id) ?? 0);
+    const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
     if (reason === HandoffReason.ConfigurationChange) {
       note = `MCP servers changed — ${session.agent.label} is writing a handoff before restarting…`;
     } else {
       note = isCrossover
         ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
-        : `${session.agent.label} context at ${measuredPct}% — handing off to a fresh agent…`;
+        : `${session.agent.label} context at ${measuredPercentage}% — handing off to a fresh agent…`;
     }
 
     // 1. Ask the agent to write the handoff doc, then wait for it to land —
@@ -334,7 +334,7 @@ export function createAutoHandoff(host: HandoffHost) {
     // retry must consume the doc that late answer wrote instead of asking for
     // a second one.
     const existing = await workspace
-      .probePath(`${host.projectDir()}/${doc}`)
+      .probePath(`${host.projectDirectory()}/${doc}`)
       .catch(() => null);
     const alreadyWritten = existing?.isFile === true;
     if (!alreadyWritten) {
@@ -358,7 +358,7 @@ export function createAutoHandoff(host: HandoffHost) {
       // answer wrote, so the cycle completes instead of dying here forever.
       if (!watcherSawDoc) {
         const probe = await workspace
-          .probePath(`${host.projectDir()}/${doc}`)
+          .probePath(`${host.projectDirectory()}/${doc}`)
           .catch(() => null);
         const docOnDisk = probe?.isFile === true;
         if (!docOnDisk) {
@@ -394,7 +394,7 @@ export function createAutoHandoff(host: HandoffHost) {
     // consumed handoffs never litter the project.
     await waitForSuccessorSettled(successorId);
     await workspace.deleteHandoffDoc({
-      dir: host.projectDir(),
+      dir: host.projectDirectory(),
       name: doc
     });
   }
@@ -426,7 +426,7 @@ export function createAutoHandoff(host: HandoffHost) {
       const startedAt = Date.now();
       function poll() {
         const status = sessionStatus(id);
-        const gone = !host.sessions().some(s => s.id === id);
+        const gone = !host.sessions().some(session => session.id === id);
         const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
         if (status === SessionStatus.enum.working) {
           sawWorking = true;
@@ -452,8 +452,8 @@ export function createAutoHandoff(host: HandoffHost) {
     }
 
     for (const session of host.sessions()) {
-      const pct = measuredContextPct(session.id);
-      const nearLimit = pct !== null && pct >= host.thresholdPct();
+      const percentage = measuredContextPercentage(session.id);
+      const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
       const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
       const already = isHandingOff(session.id);
       if (nearLimit && idle && !already) {

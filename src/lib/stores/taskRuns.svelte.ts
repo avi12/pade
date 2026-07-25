@@ -25,11 +25,11 @@ const MANIFESTS = ["package.json", "Cargo.toml", "Makefile", "pyproject.toml"];
 const KEY_SEPARATOR = "\u0000";
 
 /** Unique key for a task: its directory + command (matches the Tasks panel). */
-export function taskKey({ dir, command }: {
-  dir: string;
+export function taskKey({ directory, command }: {
+  directory: string;
   command: string;
 }): string {
-  return `${dir}${KEY_SEPARATOR}${command}`;
+  return `${directory}${KEY_SEPARATOR}${command}`;
 }
 
 /** Task keys currently reflected as running. */
@@ -41,7 +41,7 @@ const bySession = new SvelteMap<string, string>();
 export function isTaskRunning(key: string): boolean {
   return running.has(key) || runnerRows().some(row =>
     !row.done && taskKey({
-      dir: row.cwd,
+      directory: row.cwd,
       command: row.command
     }) === key);
 }
@@ -105,7 +105,7 @@ async function refreshCommands(): Promise<void> {
     commands = groups.flatMap(group =>
       group.tasks.map(task => ({
         key: taskKey({
-          dir: group.dir,
+          directory: group.dir,
           command: task.command
         }),
         command: task.command

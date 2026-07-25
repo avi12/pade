@@ -15,7 +15,7 @@
     flipDuration,
     revealBlock
   } from "@/lib/motion";
-  import { baseName, parentDir, relativeToRoot } from "@/lib/paths";
+  import { baseName, parentDirectory, relativeToRoot } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
   import { editorsFor, ensureEditors } from "@/lib/stores/editors.svelte";
@@ -311,9 +311,9 @@
   // The dir line reads relative to the open project ("backend/convex"), "/"
   // for a file at the root — the absolute prefix is the workspace's own
   // constant noise and lives in the tooltip instead.
-  function relativeDir(path: string): string {
+  function relativeDirectory(path: string): string {
     return relativeToRoot({
-      path: parentDir(path) ?? path,
+      path: parentDirectory(path) ?? path,
       root: project
     });
   }
@@ -650,19 +650,19 @@
             <span class="group-count">{formatCount(group.events.length)}</span>
           </header>
           <ul class="grouplist">
-            {#each group.events as ev (ev.id)}
-              {@const isOpen = expandedId === ev.id}
-              {@const badge = fileTypeBadge(ev.path)}
-              {@const isImage = isImagePath(ev.path)}
-              {@const canPreview = isMarkdownPath(ev.path) || isHtmlPath(ev.path)}
-              {@const pane = paneOf(ev.id)}
-              <li class="card {ev.kind}" class:open={isOpen}>
+            {#each group.events as event (event.id)}
+              {@const isOpen = expandedId === event.id}
+              {@const badge = fileTypeBadge(event.path)}
+              {@const isImage = isImagePath(event.path)}
+              {@const canPreview = isMarkdownPath(event.path) || isHtmlPath(event.path)}
+              {@const pane = paneOf(event.id)}
+              <li class="card {event.kind}" class:open={isOpen}>
                 <span class="stripe" aria-hidden="true"></span>
                 <button
                   class="body"
                   aria-expanded={isOpen}
                   onclick={async () => {
-                    const isAlreadyOpen = expandedId === ev.id;
+                    const isAlreadyOpen = expandedId === event.id;
                     if (isAlreadyOpen) {
                       expandedId = null;
                       return;
@@ -672,39 +672,39 @@
                     // rendered preview (a data URL) instead of the baseline diff, also
                     // BEFORE expanding so the reveal measures the final height.
                     if (isImage) {
-                      if (!imageCache.has(ev.id)) {
+                      if (!imageCache.has(event.id)) {
                         try {
-                          const preview = await feed.image({ path: ev.path });
-                          imageCache.set(ev.id, preview?.dataUrl ?? null);
-                          failedIds.delete(ev.id);
+                          const preview = await feed.image({ path: event.path });
+                          imageCache.set(event.id, preview?.dataUrl ?? null);
+                          failedIds.delete(event.id);
                         } catch {
-                          failedIds.add(ev.id);
-                          imageCache.set(ev.id, null);
+                          failedIds.add(event.id);
+                          imageCache.set(event.id, null);
                         }
                       }
 
-                      expandedId = ev.id;
+                      expandedId = event.id;
                       return;
                     }
 
                     // Load the diff BEFORE expanding so the reveal measures the card's
                     // full height and glides straight to it. Expanding first would animate
                     // to the pre-diff height, then jump when the async diff lands.
-                    if (!diffCache.has(ev.id)) {
+                    if (!diffCache.has(event.id)) {
                       try {
                         // Git-free preview: the backend hands over the session baseline and
                         // the current content; the shared parse+render path draws the diff
                         // (or the whole file when the baseline landed late — see previewLines).
-                        const preview = await feed.diff({ path: ev.path });
-                        diffCache.set(ev.id, previewLines(preview));
-                        failedIds.delete(ev.id);
+                        const preview = await feed.diff({ path: event.path });
+                        diffCache.set(event.id, previewLines(preview));
+                        failedIds.delete(event.id);
                       } catch {
-                        failedIds.add(ev.id);
-                        diffCache.set(ev.id, []);
+                        failedIds.add(event.id);
+                        diffCache.set(event.id, []);
                       }
                     }
 
-                    expandedId = ev.id;
+                    expandedId = event.id;
                   }}
                 >
                   <span class="row">
@@ -715,21 +715,21 @@
                         {badge.label}
                       {/if}
                     </span>
-                    <span class="name" data-tooltip={ev.path}>{baseName(ev.path)}</span>
-                    <span class="time" data-tooltip={formatTimestamp(ev.ts)}>{ago({
-                      stamp: ev.ts,
+                    <span class="name" data-tooltip={event.path}>{baseName(event.path)}</span>
+                    <span class="time" data-tooltip={formatTimestamp(event.ts)}>{ago({
+                      stamp: event.ts,
                       now
                     })}</span>
                   </span>
-                  <span class="summary">{ev.summary}</span>
+                  <span class="summary">{event.summary}</span>
                   <span class="meta">
-                    <span class="path" {@attach clippedPathTooltip(ev.path)}>{relativeDir(ev.path)}</span>
+                    <span class="path" {@attach clippedPathTooltip(event.path)}>{relativeDirectory(event.path)}</span>
                     <span class="statistics">
-                      {#if ev.added}
-                        <span class="add">+{formatCount(ev.added)}</span>
+                      {#if event.added}
+                        <span class="add">+{formatCount(event.added)}</span>
                       {/if}
-                      {#if ev.removed}
-                        <span class="deletion">−{formatCount(ev.removed)}</span>
+                      {#if event.removed}
+                        <span class="deletion">−{formatCount(event.removed)}</span>
                       {/if}
                     </span>
                   </span>
@@ -740,10 +740,10 @@
                     <div class="bar">
                       <button
                         class="file-button"
-                        {@attach revealTooltip(ev.path)}
+                        {@attach revealTooltip(event.path)}
                         disabled={!revealEditor}
                         onclick={() => openInEditor({
-                          path: ev.path,
+                          path: event.path,
                           line: revealLine
                         })}
                       >
@@ -754,7 +754,7 @@
                              bubble, which caps at 320px + wraps and anchor-positions with a
                              flip-up fallback. -->
                         <span class="file-path">{relativeToRoot({
-                          path: ev.path,
+                          path: event.path,
                           root: project
                         })}</span>
                       </button>
@@ -764,14 +764,14 @@
                           <button
                             class:on={pane === PreviewPane.code}
                             aria-pressed={pane === PreviewPane.code}
-                            onclick={() => paneById.set(ev.id, PreviewPane.code)}
+                            onclick={() => paneById.set(event.id, PreviewPane.code)}
                           >Code</button>
                           <button
                             class:on={pane === PreviewPane.preview}
                             aria-pressed={pane === PreviewPane.preview}
                             onclick={() => showPreview({
-                              id: ev.id,
-                              path: ev.path
+                              id: event.id,
+                              path: event.path
                             })}
                           >Preview</button>
                         </div>
@@ -801,10 +801,10 @@
                     </div>
 
                     {#if isImage}
-                      {@const imageUrl = imageCache.get(ev.id)}
+                      {@const imageUrl = imageCache.get(event.id)}
                       {#if imageUrl}
                         <div class="image-wrapper">
-                          <img alt={baseName(ev.path)} loading="lazy" src={imageUrl} />
+                          <img alt={baseName(event.path)} loading="lazy" src={imageUrl} />
                         </div>
                       {:else if isErrored}
                         <p class="state">Couldn't load the image.</p>
@@ -812,8 +812,8 @@
                         <p class="state">No image preview available.</p>
                       {/if}
                     {:else if canPreview && pane === PreviewPane.preview}
-                      {@const doc = previewDocCache.get(ev.id)}
-                      {#if doc}
+                      {@const documentSource = previewDocCache.get(event.id)}
+                      {#if documentSource}
                         <!-- The untrusted markdown/HTML render is quarantined in a
                              sandboxed iframe with NO allow-scripts and NO
                              allow-same-origin: it runs no scripts, has an opaque
@@ -823,10 +823,10 @@
                         <iframe
                           class="render"
                           sandbox=""
-                          srcdoc={doc}
-                          title="Preview of {baseName(ev.path)}"
+                          srcdoc={documentSource}
+                          title="Preview of {baseName(event.path)}"
                         ></iframe>
-                      {:else if previewDocCache.has(ev.id)}
+                      {:else if previewDocCache.has(event.id)}
                         {#if isErrored}
                           <p class="state">Couldn't render the preview.</p>
                         {:else}
@@ -846,12 +846,12 @@
                         class="preview"
                         data-tooltip={revealTip}
                         onclick={e => revealDiff({
-                          path: ev.path,
+                          path: event.path,
                           event: e
                         })}
                         onkeydown={e => onDiffKey({
                           event: e,
-                          path: ev.path
+                          path: event.path
                         })}
                         role="button"
                         tabindex="0"

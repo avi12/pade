@@ -104,13 +104,13 @@
   // ── Modal plumbing ─────────────────────────────────────────────────────────
   // A native <dialog> opened with showModal() gives Esc-to-close, a focus trap,
   // and the top-layer scrim for free (semantic HTML over a hand-rolled trap).
-  let dialogEl = $state<HTMLDialogElement | null>(null);
+  let dialogElement = $state<HTMLDialogElement | null>(null);
 
   // Open the modal on the top layer and kick off the first file's diff. Guard
   // against re-opening an already-open dialog (showModal() throws otherwise).
   $effect(() => {
-    if (dialogEl && !dialogEl.open) {
-      dialogEl.showModal();
+    if (dialogElement && !dialogElement.open) {
+      dialogElement.showModal();
     }
 
     const first = commit.files[0];
@@ -123,7 +123,7 @@
 <!-- Native modal <dialog>: Esc + focus-trap + scrim handled by the platform;
      backdrop-click closes when the hit lands on the ::backdrop, not the content. -->
 <dialog
-  bind:this={dialogEl}
+  bind:this={dialogElement}
   class="dialog"
   aria-describedby="commit-metadata"
   aria-labelledby="commit-title"
@@ -132,7 +132,7 @@
     onclose();
   }}
   onclick={e => {
-    if (e.target === dialogEl) {
+    if (e.target === dialogElement) {
       onclose();
     }
   }}

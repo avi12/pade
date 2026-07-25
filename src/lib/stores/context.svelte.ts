@@ -5,37 +5,37 @@
 //   1. Parse the agent CLI's own context indicator out of the PTY stream (exact,
 //      but coupled to that CLI's output — heuristic, tune against real output).
 //      This is the ONLY signal an automated decision may act on — see
-//      `measuredContextPct`.
+//      `measuredContextPercentage`.
 //   2. Estimate from the bytes seen through the PTY (rough, agent-agnostic). A
 //      fullscreen agent repaints its whole frame on every spinner tick, so this
 //      over-counts badly and must never end a session; it feeds only the soft
-//      tab gauge (`contextPct`), never auto-handoff / resume / retry.
+//      tab gauge (`contextPercentage`), never auto-handoff / resume / retry.
 
 import { SvelteMap } from "svelte/reactivity";
 
-/** Rough chars-per-token for the PTY-estimate fallback. */
-const CHARS_PER_TOKEN = 4;
+/** Rough characters-per-token ratio for the PTY-estimate fallback. */
+const CHARACTERS_PER_TOKEN = 4;
 /** Assumed context window (tokens) when only the estimate is available. */
 const DEFAULT_CONTEXT_LIMIT = 200_000;
 
 interface ContextSignal {
   /** Percent of context used, parsed from the agent's own output (0..100). */
-  parsedPct: number | null;
+  parsedPercentage: number | null;
   /** The window size the agent announced ("Opus 4.8 (1M context)"), tokens. */
   windowTokens: number | null;
   /** Running maximum of the agent's own "N tokens" consumed counter. A max,
    *  not the latest: the screen also carries small per-turn counters ("↓ 83
    *  tokens"), and the session total only grows until the session cycles. */
   reportedTokens: number;
-  /** Cumulative PTY chars seen — the estimate fallback. */
-  chars: number;
+  /** Cumulative PTY characters seen — the estimate fallback. */
+  characters: number;
 }
 
 const signals = new SvelteMap<string, ContextSignal>();
 
 /** Scale a token count like "123", "45k", "1m" to an absolute number. */
-function scaleTokens(num: string, suffix: string | undefined): number | null {
-  const base = Number(num.replaceAll(",", ""));
+function scaleTokens(numberText: string, suffix: string | undefined): number | null {
+  const base = Number(numberText.replaceAll(",", ""));
   if (!Number.isFinite(base)) {
     return null;
   }
@@ -81,39 +81,39 @@ const TOKENS_RE = /(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\s*tokens\b/g;
 const RATIO_STRIP_RE = /[\d,.]+\s*(?:k|m)?\s*\/\s*[\d,.]+\s*(?:k|m)?\s*tokens\b/g;
 
 /** Best-effort parse of a context "percent used" from a chunk of agent output. */
-function parseUsedPct(text: string): number | null {
+function parseUsedPercentage(text: string): number | null {
   const lower = text.toLowerCase();
 
   const footerUsed = lower.match(FOOTER_USED_RE);
   if (footerUsed) {
-    const pct = Number(footerUsed[1]);
-    return Number.isFinite(pct) ? Math.min(100, pct) : null;
+    const percentage = Number(footerUsed[1]);
+    return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
   }
 
   const sidebarUsed = lower.match(SIDEBAR_USED_RE);
   if (sidebarUsed) {
-    const pct = Number(sidebarUsed[1]);
-    return Number.isFinite(pct) ? Math.min(100, pct) : null;
+    const percentage = Number(sidebarUsed[1]);
+    return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
   }
 
   const remaining = lower.match(REMAINING_RE);
   if (remaining) {
-    const pct = Number(remaining[1] ?? remaining[2]);
-    return Number.isFinite(pct) ? Math.max(0, 100 - pct) : null;
+    const percentage = Number(remaining[1] ?? remaining[2]);
+    return Number.isFinite(percentage) ? Math.max(0, 100 - percentage) : null;
   }
 
   const used = lower.match(USED_RE);
   if (used) {
-    const pct = Number(used[1] ?? used[2]);
-    return Number.isFinite(pct) ? Math.min(100, pct) : null;
+    const percentage = Number(used[1] ?? used[2]);
+    return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
   }
 
   const ratio = lower.match(RATIO_RE);
   if (ratio) {
-    const usedTok = scaleTokens(ratio[1], ratio[2]);
-    const limitTok = scaleTokens(ratio[3], ratio[4]);
-    if (usedTok !== null && limitTok !== null && limitTok > 0) {
-      return Math.min(100, (usedTok / limitTok) * 100);
+    const usedTokens = scaleTokens(ratio[1], ratio[2]);
+    const limitTokens = scaleTokens(ratio[3], ratio[4]);
+    if (usedTokens !== null && limitTokens !== null && limitTokens > 0) {
+      return Math.min(100, (usedTokens / limitTokens) * 100);
     }
   }
 
@@ -121,10 +121,10 @@ function parseUsedPct(text: string): number | null {
 }
 
 const EMPTY_SIGNAL: ContextSignal = {
-  parsedPct: null,
+  parsedPercentage: null,
   windowTokens: null,
   reportedTokens: 0,
-  chars: 0
+  characters: 0
 };
 
 /** The announced window size and the largest consumed-tokens counter in a
@@ -156,19 +156,19 @@ function parseTokenSignals(text: string): {
 }
 
 /** Fold one observation's parse results into a session's stored signal. */
-function absorb({ id, text, chars }: {
+function absorb({ id, text, characters }: {
   id: string;
   text: string;
-  chars: number;
+  characters: number;
 }): void {
-  const prev = signals.get(id) ?? EMPTY_SIGNAL;
-  const parsed = parseUsedPct(text);
+  const previous = signals.get(id) ?? EMPTY_SIGNAL;
+  const parsed = parseUsedPercentage(text);
   const tokens = parseTokenSignals(text);
   signals.set(id, {
-    parsedPct: parsed ?? prev.parsedPct,
-    windowTokens: tokens.windowTokens ?? prev.windowTokens,
-    reportedTokens: Math.max(tokens.reportedTokens, prev.reportedTokens),
-    chars: prev.chars + chars
+    parsedPercentage: parsed ?? previous.parsedPercentage,
+    windowTokens: tokens.windowTokens ?? previous.windowTokens,
+    reportedTokens: Math.max(tokens.reportedTokens, previous.reportedTokens),
+    characters: previous.characters + characters
   });
 }
 
@@ -180,7 +180,7 @@ export function observeContext({ id, chunk }: {
   absorb({
     id,
     text: chunk,
-    chars: chunk.length
+    characters: chunk.length
   });
 }
 
@@ -198,7 +198,7 @@ export function observeContextScreen({ id, text }: {
   absorb({
     id,
     text,
-    chars: 0
+    characters: 0
   });
 }
 
@@ -212,7 +212,7 @@ const FALLBACK_WINDOW_TOKENS = 1_000_000;
 
 /** The percent the agent's own consumed-tokens counter implies, or null until
  *  a counter has been seen at all. */
-function tokensDerivedPct(signal: ContextSignal): number | null {
+function tokensDerivedPercentage(signal: ContextSignal): number | null {
   if (signal.reportedTokens === 0) {
     return null;
   }
@@ -223,32 +223,32 @@ function tokensDerivedPct(signal: ContextSignal): number | null {
 
 /** The session's context usage percent (parsed if known, else estimated), or
  *  null when nothing has been observed yet. */
-export function contextPct(id: string): number | null {
+export function contextPercentage(id: string): number | null {
   const signal = signals.get(id);
   if (!signal) {
     return null;
   }
 
-  if (signal.parsedPct !== null) {
-    return signal.parsedPct;
+  if (signal.parsedPercentage !== null) {
+    return signal.parsedPercentage;
   }
 
-  const derived = tokensDerivedPct(signal);
+  const derived = tokensDerivedPercentage(signal);
   if (derived !== null) {
     return derived;
   }
 
-  if (signal.chars === 0) {
+  if (signal.characters === 0) {
     return null;
   }
 
-  const tokens = signal.chars / CHARS_PER_TOKEN;
+  const tokens = signal.characters / CHARACTERS_PER_TOKEN;
   return Math.min(100, (tokens / DEFAULT_CONTEXT_LIMIT) * 100);
 }
 
 /** The session's context fill from the agent's OWN reported indicator (the
  *  parsed signal alone), or null when it hasn't printed one yet. Unlike
- *  `contextPct` this never falls back to the byte estimate — that estimate
+ *  `contextPercentage` this never falls back to the byte estimate — that estimate
  *  counts every byte a fullscreen agent repaints (spinners, elapsed-time ticks,
  *  whole-frame redraws), so it balloons far past real usage and must never end a
  *  session. Auto-handoff, usage-resume, and API-error retry all gate on this, so
@@ -259,13 +259,13 @@ export function contextPct(id: string): number | null {
  *  the consumed-tokens counter against the announced window. The latter is
  *  what makes a low handoff threshold workable — the agent only prints its own
  *  % near the limit, but the tokens counter runs from the first turn. */
-export function measuredContextPct(id: string): number | null {
+export function measuredContextPercentage(id: string): number | null {
   const signal = signals.get(id);
   if (!signal) {
     return null;
   }
 
-  return signal.parsedPct ?? tokensDerivedPct(signal);
+  return signal.parsedPercentage ?? tokensDerivedPercentage(signal);
 }
 
 /** Forget a session's context when it ends. */

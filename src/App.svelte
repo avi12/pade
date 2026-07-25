@@ -115,7 +115,7 @@
 
   // Agents excluding the always-present shell fallback — this count decides
   // whether we auto-launch or onboard.
-  const realAgents = $derived(agents.filter(a => a.id !== SHELL_AGENT_ID));
+  const realAgents = $derived(agents.filter(agent => agent.id !== SHELL_AGENT_ID));
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
@@ -132,22 +132,22 @@
   // work, so it keeps the normal last-session behavior instead.
   const isDiscardableTemp = $derived(isTemp && !currentLabel);
   // Active agent id — used to show only its relevant config files.
-  const activeAgent = $derived(sessions.find(s => s.id === activeId)?.agent.id ?? "");
+  const activeAgent = $derived(sessions.find(session => session.id === activeId)?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
   const canRemovePane = $derived(paneIds.length > 1);
-  const splitCandidates = $derived(sessions.filter(s => !paneIds.includes(s.id)));
+  const splitCandidates = $derived(sessions.filter(session => !paneIds.includes(session.id)));
 
   // The terminal slots render in this order: the shown panes first, in `paneIds`
   // order (so a pane-header drag that reorders `paneIds` reorders the view), then
   // the hidden sessions. Keyed by id, so a reorder moves DOM nodes rather than
   // remounting — every terminal keeps its scrollback.
-  const bySessionId = $derived(new Map(sessions.map(s => [s.id, s] as const)));
+  const bySessionId = $derived(new Map(sessions.map(session => [session.id, session] as const)));
   const orderedSessions = $derived.by(() => {
     const shown = paneIds
       .map(id => bySessionId.get(id))
       .filter((s): s is AgentSession => s !== undefined);
-    const hidden = sessions.filter(s => !paneIds.includes(s.id));
+    const hidden = sessions.filter(session => !paneIds.includes(session.id));
     return [...shown, ...hidden];
   });
 
@@ -199,16 +199,16 @@
         continue;
       }
 
-      const rect = slot.getBoundingClientRect();
-      const isInside = rect.width > 0
-        && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      const rectangle = slot.getBoundingClientRect();
+      const isInside = rectangle.width > 0
+        && x >= rectangle.left && x <= rectangle.right && y >= rectangle.top && y <= rectangle.bottom;
       if (isInside) {
         return {
           id,
           side: paneDropSide({
             pointerX: x,
-            left: rect.left,
-            width: rect.width
+            left: rectangle.left,
+            width: rectangle.width
           })
         };
       }
@@ -306,11 +306,11 @@
         return;
       }
 
-      const ctx = await workspace.context();
+      const context = await workspace.context();
       const prefersPicker = saved.prefs.startMode === StartMode.enum.picker;
-      if (ctx.hasProject) {
-        await workspace.open(ctx.cwd); // records it in recent history
-        startAgentFlow({ path: ctx.cwd });
+      if (context.hasProject) {
+        await workspace.open(context.cwd); // records it in recent history
+        startAgentFlow({ path: context.cwd });
         await loadBranches();
       } else if (prefersPicker) {
         // Opt-in: show the project picker instead of starting in a temp workspace.
@@ -568,7 +568,7 @@
     currentProject: () => currentProject,
     isOptedOut: () => settings.prefs.autoNameTemp === false,
     labelOf: path => settings.labels[path],
-    activeAgentCommand: () => sessions.find(s => s.id === activeId)?.agent.command ?? "",
+    activeAgentCommand: () => sessions.find(session => session.id === activeId)?.agent.command ?? "",
     applySettings(next) {
       settings = next;
     }
@@ -583,7 +583,7 @@
   onMount(() => {
     registerSendShortcut({
       activeId: () => activeId,
-      activeLabel: () => sessions.find(s => s.id === activeId)?.agent.label ?? "agent"
+      activeLabel: () => sessions.find(session => session.id === activeId)?.agent.label ?? "agent"
     });
     return () => unregisterSendShortcut();
   });
@@ -724,7 +724,7 @@
     // A create-form agent pick wins outright; otherwise honor the per-project
     // override, then the workspace default.
     const prefId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent ?? null;
-    const preferred = prefId ? agents.find(a => a.id === prefId) : undefined;
+    const preferred = prefId ? agents.find(agent => agent.id === prefId) : undefined;
     // Detection order is the registry's priority order, so the first real
     // agent is the best installed one; the shell fallback carries otherwise.
     launch({
@@ -750,7 +750,7 @@
   // the rest get a zero-duration outro.
   const collapsingSplitPanes = new SvelteSet<string>();
 
-  function launch(opts: {
+  function launch(options: {
     agent: Agent;
     initialPrompt?: string;
     cwd?: string;
@@ -762,14 +762,14 @@
   }): string {
     const session: AgentSession = {
       id: crypto.randomUUID(),
-      agent: opts.agent,
-      initialPrompt: opts.initialPrompt,
+      agent: options.agent,
+      initialPrompt: options.initialPrompt,
       // Never leave an agent to inherit the backend process cwd: another PADE
       // window may switch that shared process to a different project while this
       // terminal is mounting. Worktrees still override the window project.
-      cwd: opts.cwd ?? currentProject,
-      branch: opts.branch,
-      args: opts.args,
+      cwd: options.cwd ?? currentProject,
+      branch: options.branch,
+      args: options.args,
       // A stable id for this conversation, distinct from the session `id` (which
       // is re-keyed to remount the terminal on a restart). Pins the agent's own
       // conversation so a restart resumes THIS one — see restartForMcpChange.
@@ -778,9 +778,9 @@
     sessions.push(session);
     sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
-    paneIds = opts.split ? [...paneIds, session.id] : [session.id];
+    paneIds = options.split ? [...paneIds, session.id] : [session.id];
 
-    if (opts.split) {
+    if (options.split) {
       animatePaneIn(session.id);
     }
 
@@ -892,7 +892,7 @@
 
   // Ctrl+W / Ctrl+F4 — close the active session.
   function closeActiveTab() {
-    const active = sessions.find(s => s.id === activeId);
+    const active = sessions.find(session => session.id === activeId);
     if (active) {
       close(active);
     }
@@ -914,7 +914,7 @@
       return;
     }
 
-    const index = sessions.findIndex(s => s.id === activeId);
+    const index = sessions.findIndex(session => session.id === activeId);
     const nextIndex = (index + delta + sessions.length) % sessions.length;
     selectSession(sessions[nextIndex].id);
   }
@@ -958,7 +958,7 @@
       collapsingSplitPanes.add(id);
     }
 
-    sessions = sessions.filter(s => s.id !== id);
+    sessions = sessions.filter(session => session.id !== id);
     paneIds = paneIds.filter(paneId => paneId !== id);
     sessionLaunchedAt.delete(id);
     dropSessionStatus(id);
@@ -990,14 +990,14 @@
   // publishing status. An accidental reload records no leave — its sessions
   // stay alive and the next boot re-attaches them (session-restore).
   async function closeAllSessionsGracefully() {
-    const hasBusySession = sessions.some(s => !isSessionIdle(s.id));
+    const hasBusySession = sessions.some(session => !isSessionIdle(session.id));
     if (hasBusySession) {
       showToast("Waiting for the agent to finish before leaving…");
     }
 
     await Promise.all(
-      sessions.map(s => whenSessionIdle({
-        id: s.id,
+      sessions.map(session => whenSessionIdle({
+        id: session.id,
         timeoutMs: GRACEFUL_LEAVE_TIMEOUT_MS
       }))
     );
@@ -1017,7 +1017,7 @@
   // and its exit event is claimed as a hand-close so the exit handler never
   // races this with a respawn or a discard.
   async function closeAllSessions() {
-    const ids = sessions.map(s => s.id);
+    const ids = sessions.map(session => session.id);
     for (const id of ids) {
       closingByHand.add(id);
     }
@@ -1070,7 +1070,7 @@
       return;
     }
 
-    const session = sessions.find(s => s.id === id);
+    const session = sessions.find(candidateSession => candidateSession.id === id);
     if (!session) {
       return;
     }
@@ -1186,7 +1186,7 @@
   });
 
   async function restartSpawnThemedAgents() {
-    const targets = sessions.filter(s => SPAWN_THEMED_AGENTS.has(s.agent.id) && isSessionIdle(s.id));
+    const targets = sessions.filter(session => SPAWN_THEMED_AGENTS.has(session.agent.id) && isSessionIdle(session.id));
     if (targets.length === 0) {
       return;
     }
@@ -1308,7 +1308,7 @@
     sessions: () => sessions,
     currentProject: () => currentProject,
     removeSessions(ids) {
-      sessions = sessions.filter(s => !ids.has(s.id));
+      sessions = sessions.filter(session => !ids.has(session.id));
       paneIds = paneIds.filter(id => !ids.has(id));
 
       if (activeId && ids.has(activeId)) {
@@ -1332,11 +1332,11 @@
     sessions: () => sessions,
     availableAgents: () => realAgents,
     isOptedOut: () => settings.prefs.autoHandoff === false,
-    thresholdPct: () => effective.handoffPct,
+    thresholdPercentage: () => effective.handoffPercentage,
     slugSource: () => projectLabel,
-    projectDir: () => currentProject,
+    projectDirectory: () => currentProject,
     removeSession(id) {
-      sessions = sessions.filter(s => s.id !== id);
+      sessions = sessions.filter(session => session.id !== id);
       paneIds = paneIds.filter(paneId => paneId !== id);
     },
     launchSuccessor: launch
@@ -1368,7 +1368,7 @@
   const automaticRecoveryHost = {
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoResume === false,
-    thresholdPct: () => effective.handoffPct,
+    thresholdPercentage: () => effective.handoffPercentage,
     forceHandoff: session => autoHandoff.force(session)
   } satisfies Parameters<typeof createUsageResume>[0];
   const usageResume = createUsageResume(automaticRecoveryHost);
@@ -1389,10 +1389,10 @@
   // $effect so it re-fires as focus and per-session status change, clearing the
   // flag on the active tab and once a session goes back to working (answered).
   $effect(() => {
-    for (const s of sessions) {
+    for (const session of sessions) {
       reconcileChoiceAttention({
-        id: s.id,
-        isActive: s.id === activeId
+        id: session.id,
+        isActive: session.id === activeId
       });
     }
   });
@@ -1539,14 +1539,14 @@
     // Still keyed off e.code, not e.key: across layouts a bracket key can carry a
     // different character, so the layout-position code is the modifier-independent
     // match.
-    const isCyclePrevWindow =
+    const isCyclePreviousWindow =
       e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketLeft";
     const isCycleNextWindow =
       e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketRight";
-    if (isCyclePrevWindow || isCycleNextWindow) {
+    if (isCyclePreviousWindow || isCycleNextWindow) {
       e.preventDefault();
       e.stopPropagation();
-      windows.focusRelative(isCyclePrevWindow ? "previous" : "next");
+      windows.focusRelative(isCyclePreviousWindow ? "previous" : "next");
       return;
     }
 
@@ -1564,7 +1564,7 @@
 />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
-<div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monoFamily} class="app-root">
+<div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
   {#if phase === Phase.project}
     <ProjectPicker
       {agents}
@@ -1576,8 +1576,8 @@
   {:else if phase === Phase.onboarding}
     <Onboarding
       {agents}
-      onpick={a => launch({
-        agent: a,
+      onpick={agent => launch({
+        agent,
         initialPrompt: pendingPrompt
       })}
       onswitchproject={switchToPicker}
@@ -1683,11 +1683,11 @@
           {branches}
           onclose={close}
           ondraghint={hint => (dragHint = hint)}
-          onlaunch={a => launch({ agent: a })}
+          onlaunch={agent => launch({ agent })}
           onlaunchbranch={async branch => {
             // Spawn an agent on its own git worktree for `branch`, isolated from
             // the other sessions. Uses the active session's agent (or the first).
-            const agent = sessions.find(s => s.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
+            const agent = sessions.find(session => session.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
             const cwd = await vcs.worktreeAdd({
               cwd: currentProject,
               branch,
@@ -1729,29 +1729,29 @@
                  screen is starting. The keyed loop still owns the mounted terminals
                  after that, preserving their PTY attachment and scrollback. -->
             {#await import("@/panels/Terminal.svelte") then { default: Terminal }}
-              {#each orderedSessions as s (s.id)}
+              {#each orderedSessions as session (session.id)}
                 <div
                   class="terminal-slot"
-                  class:shown={paneIds.includes(s.id)}
-                  data-pane-id={s.id}
-                  onoutroend={() => collapsingSplitPanes.delete(s.id)}
-                  out:collapsePane={{ duration: collapsingSplitPanes.has(s.id) ? 260 : 0 }}
+                  class:shown={paneIds.includes(session.id)}
+                  data-pane-id={session.id}
+                  onoutroend={() => collapsingSplitPanes.delete(session.id)}
+                  out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? 260 : 0 }}
                 >
-                  {#if dropSideFor(s.id) === DropSide.left}
+                  {#if dropSideFor(session.id) === DropSide.left}
                     <div class="drop-half left"></div>
-                  {:else if dropSideFor(s.id) === DropSide.right}
+                  {:else if dropSideFor(session.id) === DropSide.right}
                     <div class="drop-half right"></div>
                   {/if}
                   <Terminal
-                    active={s.id === activeId && paneIds.includes(s.id)}
+                    active={session.id === activeId && paneIds.includes(session.id)}
                     ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
                     onexit={handleSessionExit}
-                    onpopout={() => popPaneToTab(s.id)}
-                    onremove={() => removePane(s.id)}
+                    onpopout={() => popPaneToTab(session.id)}
+                    onremove={() => removePane(session.id)}
                     onreorder={ids => (paneIds = ids)}
-                    removable={canRemovePane && paneIds.includes(s.id)}
-                    session={s}
-                    shown={paneIds.includes(s.id)}
+                    removable={canRemovePane && paneIds.includes(session.id)}
+                    {session}
+                    shown={paneIds.includes(session.id)}
                   />
                 </div>
               {/each}
@@ -1769,25 +1769,25 @@
             <ul id="pane-menu" style:position-anchor="--pane-anchor" class="menu pane-menu" popover>
               {#if splitCandidates.length > 0}
                 <li class="menu-separator">Add to split</li>
-                {#each splitCandidates as s (s.id)}
+                {#each splitCandidates as session (session.id)}
                   <li>
-                    <button onclick={() => addPane(s.id)} popovertarget="pane-menu" popovertargetaction="hide">
-                      <Icon name="terminal" /> {s.agent.label}
+                    <button onclick={() => addPane(session.id)} popovertarget="pane-menu" popovertargetaction="hide">
+                      <Icon name="terminal" /> {session.agent.label}
                     </button>
                   </li>
                 {/each}
               {/if}
               <li class="menu-separator">Launch a new instance</li>
-              {#each agents as a (a.id)}
+              {#each agents as agent (agent.id)}
                 <li>
                   <button
                     onclick={() => launch({
-                      agent: a,
+                      agent,
                       split: true
                     })}
                     popovertarget="pane-menu"
                     popovertargetaction="hide"
-                  >{a.label}</button>
+                  >{agent.label}</button>
                 </li>
               {/each}
             </ul>
@@ -1844,8 +1844,8 @@
                   return;
                 }
 
-                const rect = body.getBoundingClientRect();
-                sidePanelWidth = clampSidePanelWidth(rect.right - move.clientX);
+                const rectangle = body.getBoundingClientRect();
+                sidePanelWidth = clampSidePanelWidth(rectangle.right - move.clientX);
               }
               function cleanup(): void {
                 handle.removeEventListener("pointermove", onMove);

@@ -25,7 +25,7 @@ export type Limit = {
   /** The same reset moment as an absolute local timestamp ("Thu, Jul 24, 2:15 PM"),
    *  shown on hover over the countdown; empty when the reset time is unknown. */
   resetAt: string;
-  pct: number;
+  percentage: number;
   level: Level;
   /** The window's semantic kind (session / weekly / model / opaque), straight
    *  from the account payload's classification. */
@@ -54,12 +54,12 @@ export type AgentGroup = {
 const EDITOR_AGENT_ID_PREFIX = "editor-";
 
 // Severity by consumption. Applied as a CSS class downstream.
-export function limitLevel(pct: number): Level {
-  if (pct >= 90) {
+export function limitLevel(percentage: number): Level {
+  if (percentage >= 90) {
     return "crit";
   }
 
-  if (pct >= 75) {
+  if (percentage >= 75) {
     return "warn";
   }
 
@@ -166,7 +166,9 @@ function shortName(label: string): string {
 /** The worst-consumed limit in a set — drives an agent's chip/pill color and the
  *  panel's "closest to a limit" signal. `null` for an agent with no limits. */
 export function worstLimit(limits: Limit[]): Limit | null {
-  return limits.length > 0 ? limits.reduce((max, limit) => (limit.pct > max.pct ? limit : max)) : null;
+  return limits.length > 0
+    ? limits.reduce((maximum, limit) => (limit.percentage > maximum.percentage ? limit : maximum))
+    : null;
 }
 
 // A window's presentation for the meter: its display label, sub-caption, and
@@ -234,7 +236,7 @@ function buildLimits({ account, now }: {
       sub: presentation.sub,
       kind: window.kind,
       kindShort: presentation.kindShort,
-      pct: value,
+      percentage: value,
       level: limitLevel(value),
       reset: resetCountdown({
         iso: window.resetsAt,
@@ -289,7 +291,7 @@ function sortWorstFirst(groups: AgentGroup[]): AgentGroup[] {
       return -1;
     }
 
-    return secondWorst.pct - firstWorst.pct;
+    return secondWorst.percentage - firstWorst.percentage;
   });
 }
 
@@ -394,7 +396,7 @@ export function findSpotlight(agents: AgentGroup[]): Spotlight | null {
     }
 
     for (const limit of agent.limits) {
-      if (!closest || limit.pct > closest.limit.pct) {
+      if (!closest || limit.percentage > closest.limit.percentage) {
         closest = {
           agent,
           limit

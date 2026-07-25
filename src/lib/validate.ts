@@ -3,7 +3,7 @@
 // entry — trimmed, length-capped, and shape-checked — before it reaches app
 // logic or the backend. One authoritative home for the input schemas (DRY).
 
-import { MAXIMUM_HANDOFF_PCT, MINIMUM_HANDOFF_PCT } from "@/lib/context-level";
+import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { z } from "zod";
 
 /** The auto-handoff threshold as typed/slid in Config — a whole percent inside
@@ -11,8 +11,8 @@ import { z } from "zod";
 export const HandoffPercent = z.coerce
   .number()
   .int()
-  .min(MINIMUM_HANDOFF_PCT)
-  .max(MAXIMUM_HANDOFF_PCT);
+  .min(MINIMUM_HANDOFF_PERCENTAGE)
+  .max(MAXIMUM_HANDOFF_PERCENTAGE);
 
 /** A restore-a-version query — a short natural-language description. */
 export const RestoreQuery = z.string().trim().min(1).max(200);
@@ -78,7 +78,7 @@ export function isSshCloneUrl(url: string): boolean {
 
 /** The folder name a clone URL suggests — its last path segment minus `.git` —
  *  or "" while the URL doesn't resolve to a valid project name yet. */
-export function repoFolderName(url: string): string {
+export function repositoryFolderName(url: string): string {
   const trimmed = url.trim().replace(/[/\\]+$/, "");
   const isStandardUrl = StandardCloneUrl.safeParse(trimmed).success;
   if (!isStandardUrl && !isScpLike(trimmed)) {

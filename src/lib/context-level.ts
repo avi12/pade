@@ -7,13 +7,13 @@
 
 /** Percent-of-context at which the app auto-hands a session off to a fresh
  *  agent, when the user hasn't picked their own threshold (prefs.handoffPct —
- *  `effective.handoffPct` is the resolved value every consumer reads). Low on
+ *  `effective.handoffPercentage` is the resolved value every consumer reads). Low on
  *  purpose: quality degrades long before the window is full, so cycling early
  *  keeps the agent sharp. */
-export const DEFAULT_CONTEXT_HANDOFF_PCT = 30;
+export const DEFAULT_CONTEXT_HANDOFF_PERCENTAGE = 30;
 /** The range the Config stepper lets the threshold move in. */
-export const MINIMUM_HANDOFF_PCT = 10;
-export const MAXIMUM_HANDOFF_PCT = 95;
+export const MINIMUM_HANDOFF_PERCENTAGE = 10;
+export const MAXIMUM_HANDOFF_PERCENTAGE = 95;
 
 // The three gauge steps. A closed set defined once so no bare severity literal
 // leaks into the tabs or the theme mapping (enums over magic strings).
@@ -26,17 +26,17 @@ export type ContextLevel = (typeof ContextLevel)[keyof typeof ContextLevel];
 
 // How far toward the handoff threshold each step kicks in: at 90% of the way the
 // handoff is imminent (critical), at 60% it's approaching (warning). Mirrors the
-// design's ctxColor ramp (f = pct / CONTEXT_HANDOFF_PCT).
+// design's context-color ramp (fraction = percentage / context handoff percentage).
 const HANDOFF_IMMINENT_FRACTION = 0.9;
 const HANDOFF_APPROACHING_FRACTION = 0.6;
 
 /** Map a context-usage percent (0..100) to its severity relative to the handoff
  *  threshold: ≥90% of the way there is critical, ≥60% is warning, else ok. */
-export function contextLevel({ pct, threshold }: {
-  pct: number;
+export function contextLevel({ percentage, threshold }: {
+  percentage: number;
   threshold: number;
 }): ContextLevel {
-  const fraction = Math.min(pct / threshold, 1);
+  const fraction = Math.min(percentage / threshold, 1);
   if (fraction >= HANDOFF_IMMINENT_FRACTION) {
     return ContextLevel.critical;
   }

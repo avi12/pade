@@ -53,10 +53,10 @@
   // What was last selected, remembered across re-filters so the reconciler can
   // follow the same folder to its new position (or fall to the nearest one).
   let lastSelected: {
-    dir: string;
+    directory: string;
     index: number;
   } | null = null;
-  let listEl = $state<HTMLUListElement | null>(null);
+  let listElement = $state<HTMLUListElement | null>(null);
 
   // The OS path separator — appended when a highlighted suggestion is Tab-accepted
   // so the user can keep drilling into its sub-folders. The webview has no
@@ -67,7 +67,7 @@
   // Never echo the exact folder already typed back as a suggestion (case- and
   // trailing-separator-insensitive, so a `…\` variant is still recognised as self).
   const suggestions = $derived(
-    probe.result.suggestions.filter(dir => normalizePath(dir) !== normalizePath(probe.path))
+    probe.result.suggestions.filter(directory => normalizePath(directory) !== normalizePath(probe.path))
   );
   const listVisible = $derived(listOpen && suggestions.length > 0);
   const activeId = $derived(activeIndex >= 0 ? optionId(activeIndex) : undefined);
@@ -101,7 +101,7 @@
   // opens on input/focus rather than a popovertarget click, so it's shown and
   // hidden imperatively; the `:popover-open` guard keeps show/hidePopover idempotent.
   $effect(() => {
-    const list = listEl;
+    const list = listElement;
     if (!list) {
       return;
     }
@@ -119,7 +119,7 @@
   function select(index: number) {
     activeIndex = index;
     lastSelected = {
-      dir: suggestions[index],
+      directory: suggestions[index],
       index
     };
   }
@@ -137,7 +137,7 @@
       return;
     }
 
-    const survivorIndex = lastSelected ? suggestions.indexOf(lastSelected.dir) : -1;
+    const survivorIndex = lastSelected ? suggestions.indexOf(lastSelected.directory) : -1;
     const previousIndex = lastSelected?.index ?? 0;
     const lastIndex = suggestions.length - 1;
     select(survivorIndex >= 0 ? survivorIndex : Math.min(previousIndex, lastIndex));
@@ -151,8 +151,8 @@
 
   // Adopt a suggested directory — shared by the listbox rows and the Enter key,
   // so it stays a named function.
-  function pick(dir: string) {
-    value = dir;
+  function pick(directory: string) {
+    value = directory;
     listOpen = false;
     activeIndex = -1;
     lastSelected = null;
@@ -224,27 +224,27 @@
      clip through the edge. Shown/hidden via showPopover/hidePopover from the
      `listVisible` effect (a typeahead opens on typing, not a popovertarget click). -->
 <ul
-  bind:this={listEl}
+  bind:this={listElement}
   id={listboxId}
   style:position-anchor={anchorName}
   class="suggestions"
   popover="manual"
   role="listbox"
 >
-  {#each suggestions as dir, index (dir)}
+  {#each suggestions as directory, index (directory)}
     <li in:expandRow out:collapseRow animate:flip={{ duration: flipDuration() }}>
       <button
         id={optionId(index)}
         class="suggestion"
         class:active={index === activeIndex}
         aria-selected={index === activeIndex}
-        onclick={() => pick(dir)}
+        onclick={() => pick(directory)}
         onmousedown={e => e.preventDefault()}
         role="option"
         type="button"
       >
         <Icon name="folder" size={15} />
-        <span class="suggestion-path">{dir}</span>
+        <span class="suggestion-path">{directory}</span>
       </button>
     </li>
   {/each}

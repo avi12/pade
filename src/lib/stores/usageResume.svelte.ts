@@ -8,7 +8,7 @@
 // through `ResumeHost` and drives the scan from a component `$effect`.
 
 import { pty, usage } from "@/lib/bridge";
-import { measuredContextPct } from "@/lib/stores/context.svelte";
+import { measuredContextPercentage } from "@/lib/stores/context.svelte";
 import type { AgentSession } from "@/lib/types";
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -21,7 +21,7 @@ export type LimitWindow = (typeof LimitWindow)[keyof typeof LimitWindow];
 
 /** A window is only treated as truly exhausted when the account API agrees —
  *  the sniffer can hit a stale message replayed from scrollback history. */
-const EXHAUSTED_PCT = 95;
+const EXHAUSTED_PERCENTAGE = 95;
 /** Fire a little after the reset, so the window has actually rolled over. */
 const RESET_BUFFER_MS = 90_000;
 /** When no reset time is known yet (API offline), probe again this often. */
@@ -141,8 +141,8 @@ export interface ResumeHost {
   /** Whether the user opted out via prefs.autoResume. */
   isOptedOut: () => boolean;
   /** The percent-of-context past which a resume hands off instead — the
-   *  resolved prefs.handoffPct (`effective.handoffPct`). */
-  thresholdPct: () => number;
+   *  resolved prefs.handoffPct (`effective.handoffPercentage`). */
+  thresholdPercentage: () => number;
   /** Hand a session off to a fresh agent now (the auto-handoff flow). */
   forceHandoff: (session: AgentSession) => void;
 }
@@ -177,7 +177,7 @@ export function createUsageResume(host: ResumeHost) {
     // The CLI names a session/weekly window; find the matching one in the
     // account's generic window list by kind (LimitWindow ⊆ UsageWindowKind).
     const window = account?.windows.find(candidate => candidate.kind === hit.window);
-    if (window && window.utilization < EXHAUSTED_PCT) {
+    if (window && window.utilization < EXHAUSTED_PERCENTAGE) {
       return Number.NaN;
     }
 
@@ -194,7 +194,7 @@ export function createUsageResume(host: ResumeHost) {
     timers.delete(session.id);
     note = "";
 
-    const stillHere = host.sessions().some(s => s.id === session.id);
+    const stillHere = host.sessions().some(candidateSession => candidateSession.id === session.id);
     if (!stillHere) {
       return;
     }
@@ -202,8 +202,8 @@ export function createUsageResume(host: ResumeHost) {
     // Room left in the context window → the same session just continues.
     // Nearly full → resuming would stall again within a few turns, so hand
     // off to a fresh agent instead (it reads the handoff doc and carries on).
-    const pct = measuredContextPct(session.id);
-    const hasRoom = pct === null || pct < host.thresholdPct();
+    const percentage = measuredContextPercentage(session.id);
+    const hasRoom = percentage === null || percentage < host.thresholdPercentage();
     if (hasRoom) {
       try {
         await pty.write({
@@ -258,7 +258,7 @@ export function createUsageResume(host: ResumeHost) {
       return;
     }
 
-    const alive = new SvelteSet(host.sessions().map(s => s.id));
+    const alive = new SvelteSet(host.sessions().map(session => session.id));
     for (const id of [...hits.keys(), ...timers.keys()]) {
       if (!alive.has(id)) {
         clearTimer(id);

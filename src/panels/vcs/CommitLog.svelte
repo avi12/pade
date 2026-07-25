@@ -17,7 +17,7 @@
 
   let openCommit = $state<CommitDetail | null>(null);
   let remoteUrl = $state<string | null>(null);
-  let logEl = $state<HTMLElement | null>(null);
+  let logElement = $state<HTMLElement | null>(null);
   let unlistenGitState: UnlistenFn | undefined;
 
   async function loadRemoteUrl(workspace = project) {
@@ -77,7 +77,7 @@
 
   async function focusCommit(index: number) {
     await tick();
-    logEl?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
+    logElement?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
   }
 
   function fileLabel(count: number) {
@@ -87,23 +87,23 @@
 
 <section class="group log">
   <h3>Recent commits</h3>
-  <ul bind:this={logEl} class="log-list">
-    {#each commits as c, index (c.id)}
+  <ul bind:this={logElement} class="log-list">
+    {#each commits as commit, index (commit.id)}
       <li>
         <button
           class="commit"
-          aria-label="Commit {c.short}: {c.summary}, by {c.author} {c.when}"
+          aria-label="Commit {commit.short}: {commit.summary}, by {commit.author} {commit.when}"
           data-commit
           data-tooltip="Enter to view · Ctrl-click or Ctrl-Enter opens on GitHub"
           onclick={e => {
             const wantsGithub = e.ctrlKey || e.metaKey;
             if (wantsGithub) {
               e.preventDefault();
-              openCommitOnGithub(c);
+              openCommitOnGithub(commit);
               return;
             }
 
-            inspectCommit(c);
+            inspectCommit(commit);
           }}
           onkeydown={e => {
             const isDown = e.key === "ArrowDown";
@@ -119,23 +119,23 @@
             const isOpenKey = e.key === "Enter" || e.key === " ";
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              openCommitOnGithub(c);
+              openCommitOnGithub(commit);
             }
           }}
         >
           <span class="c-top">
-            <code class="commit-hash">{c.short}</code>
-            <span class="message">{c.summary}</span>
+            <code class="commit-hash">{commit.short}</code>
+            <span class="message">{commit.summary}</span>
           </span>
           <span class="c-bot">
-            <span class="author-details">{c.author} · {c.when}</span>
+            <span class="author-details">{commit.author} · {commit.when}</span>
             <span class="stats">
-              <span class="fn">{fileLabel(c.files)}</span>
-              {#if c.additions}
-                <span class="add">+{formatCount(c.additions)}</span>
+              <span class="fn">{fileLabel(commit.files)}</span>
+              {#if commit.additions}
+                <span class="add">+{formatCount(commit.additions)}</span>
               {/if}
-              {#if c.deletions}
-                <span class="deletion">−{formatCount(c.deletions)}</span>
+              {#if commit.deletions}
+                <span class="deletion">−{formatCount(commit.deletions)}</span>
               {/if}
             </span>
           </span>

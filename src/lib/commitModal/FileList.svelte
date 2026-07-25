@@ -23,7 +23,7 @@
     [VcsKind.enum.deleted]: "D"
   };
 
-  let listEl = $state<HTMLElement | null>(null);
+  let listElement = $state<HTMLElement | null>(null);
 
   function badge(kind: VcsKind): string {
     return KIND_BADGE[kind];
@@ -31,14 +31,14 @@
 
   async function focusTab(path: string) {
     await tick();
-    listEl?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"]`)?.focus();
+    listElement?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"]`)?.focus();
   }
 </script>
 
 <nav class="files" aria-label="Changed files">
   <h3 id="commit-file-list-label" class="files-eyebrow">Files</h3>
   <ul
-    bind:this={listEl}
+    bind:this={listElement}
     aria-labelledby="commit-file-list-label"
     aria-orientation="vertical"
     onkeydown={e => {
@@ -72,30 +72,30 @@
     }}
     role="tablist"
   >
-    {#each files as f (f.path)}
-      {@const isSel = f.path === selectedPath}
+    {#each files as file (file.path)}
+      {@const isSelected = file.path === selectedPath}
       <li role="presentation">
         <button
-          class="file {f.kind}"
-          class:selected={isSel}
+          class="file {file.kind}"
+          class:selected={isSelected}
           aria-controls="commit-diff"
-          aria-label="{baseName(f.path)}, {f.kind}, +{formatCount(f.additions)} −{formatCount(f.deletions)}"
-          aria-selected={isSel}
-          data-file={f.path}
-          onclick={() => onpick(f.path)}
+          aria-label="{baseName(file.path)}, {file.kind}, +{formatCount(file.additions)} −{formatCount(file.deletions)}"
+          aria-selected={isSelected}
+          data-file={file.path}
+          onclick={() => onpick(file.path)}
           role="tab"
-          tabindex={isSel ? 0 : -1}
+          tabindex={isSelected ? 0 : -1}
         >
           <span class="file-top">
-            <span class="kind" aria-hidden="true">{badge(f.kind)}</span>
-             <span class="file-name">{baseName(f.path)}</span>
+            <span class="kind" aria-hidden="true">{badge(file.kind)}</span>
+            <span class="file-name">{baseName(file.path)}</span>
           </span>
           <span class="file-statistics" aria-hidden="true">
-            {#if f.additions}
-              <span class="add">+{formatCount(f.additions)}</span>
+            {#if file.additions}
+              <span class="add">+{formatCount(file.additions)}</span>
             {/if}
-            {#if f.deletions}
-              <span class="deletion">−{formatCount(f.deletions)}</span>
+            {#if file.deletions}
+              <span class="deletion">−{formatCount(file.deletions)}</span>
             {/if}
           </span>
         </button>

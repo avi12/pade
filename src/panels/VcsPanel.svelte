@@ -42,12 +42,12 @@
       entries = nextEntries;
       commits = nextCommits;
       error = null;
-    } catch (e) {
+    } catch (caughtError) {
       if (version !== refreshVersion || workspace !== project) {
         return;
       }
 
-      error = String(e);
+      error = String(caughtError);
       entries = [];
       commits = [];
     }

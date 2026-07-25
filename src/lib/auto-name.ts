@@ -16,11 +16,11 @@ const AUTONAME_AFTER = 3;
 /** The normalized changed path when it carries naming signal for the workspace
  *  — inside the tree and not a dotfile/dot-dir (e.g. .git, .claude) — else
  *  null. Doubles as the distinct-files key. */
-export function namingSignal({ projectDir, changedPath }: {
-  projectDir: string;
+export function namingSignal({ projectDirectory, changedPath }: {
+  projectDirectory: string;
   changedPath: string;
 }): string | null {
-  const base = normalizePath(projectDir);
+  const base = normalizePath(projectDirectory);
   const touched = normalizePath(changedPath);
   if (!touched.startsWith(base)) {
     return null;
@@ -67,7 +67,7 @@ export function createAutoNamer(host: AutoNameHost) {
     }
 
     const touched = namingSignal({
-      projectDir: project,
+      projectDirectory: project,
       changedPath: event.path
     });
     if (!touched) {

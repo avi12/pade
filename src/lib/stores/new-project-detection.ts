@@ -6,7 +6,7 @@ import { feed } from "@/lib/bridge";
 import { refreshEditors } from "@/lib/stores/editors.svelte";
 import { refreshProjectKind } from "@/lib/stores/projectKinds.svelte";
 import { ChangeKind } from "@/lib/types";
-import { isUnderDir } from "@/lib/workspace-relocate";
+import { isUnderDirectory } from "@/lib/workspace-relocate";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 const MARKER_SETTLE_MS = 300;
@@ -54,8 +54,8 @@ export async function initNewProjectDetection(): Promise<void> {
       }
 
       for (const project of newProjects) {
-        if (isUnderDir({
-          dir: event.path,
+        if (isUnderDirectory({
+          directory: event.path,
           base: project
         })) {
           scheduleMarkerDetection(project);

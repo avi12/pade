@@ -6,7 +6,7 @@ const PROJECT = "C:\\pade\\workspaces\\temp-42";
 describe("namingSignal", () => {
   it("returns the normalized path for a real source change", () => {
     const signal = namingSignal({
-      projectDir: PROJECT,
+      projectDirectory: PROJECT,
       changedPath: "C:\\pade\\workspaces\\temp-42\\src\\main.ts"
     });
 
@@ -15,7 +15,7 @@ describe("namingSignal", () => {
 
   it("matches across separator and casing differences", () => {
     const signal = namingSignal({
-      projectDir: PROJECT,
+      projectDirectory: PROJECT,
       changedPath: "c:/PADE/workspaces/TEMP-42/index.html"
     });
 
@@ -24,7 +24,7 @@ describe("namingSignal", () => {
 
   it("ignores changes outside the workspace", () => {
     const signal = namingSignal({
-      projectDir: PROJECT,
+      projectDirectory: PROJECT,
       changedPath: "C:\\elsewhere\\main.ts"
     });
 
@@ -33,7 +33,7 @@ describe("namingSignal", () => {
 
   it("ignores dot-dirs like .git", () => {
     const signal = namingSignal({
-      projectDir: PROJECT,
+      projectDirectory: PROJECT,
       changedPath: `${PROJECT}\\.git\\HEAD`
     });
 
@@ -42,7 +42,7 @@ describe("namingSignal", () => {
 
   it("ignores dotfiles at any depth", () => {
     const signal = namingSignal({
-      projectDir: PROJECT,
+      projectDirectory: PROJECT,
       changedPath: `${PROJECT}\\src\\.env`
     });
 
@@ -51,7 +51,7 @@ describe("namingSignal", () => {
 
   it("ignores the workspace dir itself", () => {
     const signal = namingSignal({
-      projectDir: PROJECT,
+      projectDirectory: PROJECT,
       changedPath: PROJECT
     });
 

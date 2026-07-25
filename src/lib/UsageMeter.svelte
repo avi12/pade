@@ -87,7 +87,7 @@
   const ariaLabel = $derived(
     groups.length > 0
       ? `Usage — ${groups
-        .map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${formatPercent(limit.pct)}`).join(", ")}`)
+        .map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${formatPercent(limit.percentage)}`).join(", ")}`)
         .join("; ")}`
       : "Usage details"
   );
@@ -204,7 +204,7 @@
                     class:warning={limit.level === "warn"}
                   >
                     <span class="agent-pill-kind">{limit.kindShort}</span>
-                    <span class="agent-pill-percent">{formatPercent(limit.pct)}</span>
+                    <span class="agent-pill-percent">{formatPercent(limit.percentage)}</span>
                   </span>
                 {/each}
               </span>
@@ -277,10 +277,10 @@
                 <span class="spotlight-title">{spotlight.agent.name} · {spotlight.limit.label}</span>
               </span>
             </span>
-            <output class="spotlight-percent">{formatPercent(spotlight.limit.pct)}</output>
+            <output class="spotlight-percent">{formatPercent(spotlight.limit.percentage)}</output>
           </div>
           <span class="track">
-            <span style:inline-size="{spotlight.limit.pct}%" class="track-fill"></span>
+            <span style:inline-size="{spotlight.limit.percentage}%" class="track-fill"></span>
           </span>
           <span class="spotlight-reset">{spotlightReset}</span>
         </section>
@@ -323,9 +323,9 @@
                   >
                     <span class="limit-kind">{limit.kindShort}</span>
                     <span class="limit-track">
-                      <span style:inline-size="{limit.pct}%" class="limit-fill"></span>
+                      <span style:inline-size="{limit.percentage}%" class="limit-fill"></span>
                     </span>
-                    <output class="limit-percent">{formatPercent(limit.pct)}</output>
+                    <output class="limit-percent">{formatPercent(limit.percentage)}</output>
                     <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
                       {#if limit.reset}
                         <Icon name="clock" />{limit.reset}

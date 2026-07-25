@@ -2,7 +2,7 @@
   import { config } from "@/lib/bridge";
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
-  import { MAXIMUM_HANDOFF_PCT, MINIMUM_HANDOFF_PCT } from "@/lib/context-level";
+  import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
   import { fileExtension } from "@/lib/file-type";
   import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
@@ -68,7 +68,7 @@
     family: string;
   }[];
 
-  const selectedMonoFont = $derived(prefs.monoFont ?? "");
+  const selectedMonospaceFont = $derived(prefs.monoFont ?? "");
 
   const MINIMUM_UI_SCALE = 0.85;
   const MAXIMUM_UI_SCALE = 1.3;
@@ -84,7 +84,7 @@
   // Slider and number box both funnel through the input schema — the slider
   // can only emit in-band values, but the free-typed number is a trust
   // boundary like any other field.
-  async function applyHandoffPct(raw: string): Promise<void> {
+  async function applyHandoffPercentage(raw: string): Promise<void> {
     const percent = parseInput({
       schema: HandoffPercent,
       raw
@@ -182,15 +182,15 @@
           {#each fontOptions as option (option.name)}
             <button
               class="font-card"
-              class:on={selectedMonoFont === option.value}
-              aria-pressed={selectedMonoFont === option.value}
+              class:on={selectedMonospaceFont === option.value}
+              aria-pressed={selectedMonospaceFont === option.value}
               onclick={() => updatePrefs({ monoFont: option.value })}
             >
               <span class="font-text">
                 <span class="font-name">{option.name}</span>
                 <span style:font-family={option.family} class="font-preview">Ag0 &lt;/&gt; 1l</span>
               </span>
-              {#if selectedMonoFont === option.value}
+              {#if selectedMonospaceFont === option.value}
                 <Icon name="check" />
               {/if}
             </button>
@@ -229,26 +229,26 @@
           <input
             class="handoff-slider"
             aria-label="Auto-handoff threshold"
-            max={MAXIMUM_HANDOFF_PCT}
-            min={MINIMUM_HANDOFF_PCT}
-            oninput={e => applyHandoffPct(e.currentTarget.value)}
+            max={MAXIMUM_HANDOFF_PERCENTAGE}
+            min={MINIMUM_HANDOFF_PERCENTAGE}
+            oninput={e => applyHandoffPercentage(e.currentTarget.value)}
             type="range"
-            value={effective.handoffPct}
+            value={effective.handoffPercentage}
           />
           <span class="handoff-value">
             <input
               class="handoff-number"
               aria-label="Auto-handoff threshold percent"
-              max={MAXIMUM_HANDOFF_PCT}
-              min={MINIMUM_HANDOFF_PCT}
+              max={MAXIMUM_HANDOFF_PERCENTAGE}
+              min={MINIMUM_HANDOFF_PERCENTAGE}
               onchange={e => {
-                applyHandoffPct(e.currentTarget.value);
+                applyHandoffPercentage(e.currentTarget.value);
                 // A rejected entry (out of band, not a number) snaps the box
                 // back to the persisted value instead of lying at rest.
-                e.currentTarget.value = String(effective.handoffPct);
+                e.currentTarget.value = String(effective.handoffPercentage);
               }}
               type="number"
-              value={effective.handoffPct}
+              value={effective.handoffPercentage}
             />
           </span>
         </div>
@@ -259,16 +259,16 @@
       <span class="card-label">Project files</span>
     {/if}
 
-    {#each files as f (f.rel)}
+    {#each files as file (file.rel)}
       <button
         class="row"
-        class:selected={selected?.rel === f.rel}
-        disabled={!f.exists}
-        onclick={() => open(f)}
+        class:selected={selected?.rel === file.rel}
+        disabled={!file.exists}
+        onclick={() => open(file)}
       >
-        <span class="kind {f.kind}">{f.kind}</span>
-        <span class="relative-path">{f.rel}</span>
-        {#if !f.exists}
+        <span class="kind {file.kind}">{file.kind}</span>
+        <span class="relative-path">{file.rel}</span>
+        {#if !file.exists}
           <span class="missing">absent</span>
         {/if}
       </button>
