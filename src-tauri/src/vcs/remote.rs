@@ -2,11 +2,26 @@
 
 use super::run_git;
 
-/// The `origin` remote URL, normalized to a browsable `https://host/owner/repo`
-/// form. `None` when there's no `origin` remote.
+const DEFAULT_REMOTE_NAME: &str = "origin";
+
+fn branch_remote_name(cwd: &str) -> String {
+    let configured = run_git(cwd, &["branch", "--show-current"])
+        .ok()
+        .map(|branch| branch.trim().to_string())
+        .filter(|branch| !branch.is_empty())
+        .map(|branch| format!("branch.{branch}.remote"))
+        .and_then(|key| run_git(cwd, &["config", "--get", &key]).ok())
+        .map(|remote| remote.trim().to_string())
+        .filter(|remote| !remote.is_empty() && remote != ".");
+    configured.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_string())
+}
+
+/// The checked-out branch's configured remote URL, falling back to `origin`,
+/// normalized to a browsable `https://host/owner/repo` form.
 #[tauri::command]
 pub async fn vcs_remote_url(cwd: String) -> Option<String> {
-    let raw = run_git(&cwd, &["remote", "get-url", "origin"]).ok()?;
+    let remote = branch_remote_name(&cwd);
+    let raw = run_git(&cwd, &["remote", "get-url", &remote]).ok()?;
     let url = raw.trim();
     if url.is_empty() {
         return None;
@@ -42,7 +57,28 @@ fn normalize_remote(url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_remote;
+    use super::{branch_remote_name, normalize_remote};
+
+    #[test]
+    fn configured_branch_remote_leads_over_origin() {
+        let scratch =
+            std::env::temp_dir().join(format!("pade-branch-remote-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        std::fs::create_dir_all(&scratch).expect("create scratch repository");
+        let cwd = scratch.to_string_lossy();
+        if super::run_git(&cwd, &["init", "-q"]).is_err() {
+            let _ = std::fs::remove_dir_all(scratch);
+            return;
+        }
+
+        let branch =
+            super::run_git(&cwd, &["branch", "--show-current"]).expect("read initial branch");
+        let key = format!("branch.{}.remote", branch.trim());
+        super::run_git(&cwd, &["config", &key, "upstream"]).expect("configure branch remote");
+
+        assert_eq!(branch_remote_name(&cwd), "upstream");
+        std::fs::remove_dir_all(scratch).expect("scratch cleanup");
+    }
 
     #[test]
     fn scp_style_becomes_https() {

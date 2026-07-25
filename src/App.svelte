@@ -30,6 +30,7 @@
     updatePrefs
   } from "@/lib/prefs.svelte";
   import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
+  import { openRepositoryTarget } from "@/lib/repository-links";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
   import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
@@ -1633,12 +1634,21 @@
             roots={settings.roots}
           />
           {#if currentBranch}
-            <!-- Design's branch pill: the checked-out branch beside the project
-                 button; clicking it opens the Git panel. -->
+            <!-- Plain click opens Git; Ctrl/Cmd-click follows the remote branch. -->
             <button
               class="branch-pill"
-              data-tooltip="Current branch — open Git panel"
-              onclick={() => (side = Side.vcs)}
+              data-tooltip="Current branch · Ctrl-click opens on remote"
+              onclick={async e => {
+                if (e.ctrlKey || e.metaKey) {
+                  await openRepositoryTarget({
+                    project: currentProject,
+                    branch: currentBranch
+                  });
+                  return;
+                }
+
+                side = Side.vcs;
+              }}
             >
               <span class="branch-pill-icon" aria-hidden="true"><Icon name="branch" size={13} /></span>
               <span class="branch-pill-name">{currentBranch}</span>

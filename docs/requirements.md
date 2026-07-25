@@ -93,6 +93,10 @@ writes.
   root in the system browser, while a plain click still opens the project menu.
   A missing remote or opener failure is surfaced instead of silently doing
   nothing.
+- R1.4.3b ✅ Ctrl/Cmd-clicking the branch pill follows that branch on its remote;
+  plain click still opens the Git panel. Provider routes are registry-driven
+  (GitHub, GitLab, Bitbucket, Codeberg/Gitea, Azure DevOps), with unknown hosts
+  falling back safely to the repository root.
 - R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/diff.ts`; wash tokens).
 - R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
 - R1.4.6 ⏳ Manual commit path (agent-oriented by default, not exclusive).
