@@ -19,6 +19,7 @@
   import { clipboard, os, pty } from "@/lib/bridge";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
+  import { isEditingText } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
   import { isTrustGate, promptEchoed } from "@/lib/initial-prompt";
   import { appearance, effective } from "@/lib/prefs.svelte";
@@ -511,6 +512,24 @@
     if (active && attached) {
       terminal.focus();
     }
+  });
+
+  // Returning to this window — the Ctrl+Alt+[ / ] window cycle, an alt-tab, a
+  // taskbar click — puts the OS focus on the window but not back on the terminal,
+  // so the agent would ignore your first keystrokes until you click the pane.
+  // Re-grab the keyboard for the front session on every window focus, so a cycled
+  // window is immediately promptable. Skipped while the user is mid-typing in a
+  // real field (a rename box, the picker) — that focus must be left alone; the
+  // xterm helper textarea deliberately doesn't count as editing (see lib/focus).
+  function refocusOnWindowFocus() {
+    if (active && attached && !isEditingText(document.activeElement)) {
+      terminal.focus();
+    }
+  }
+
+  $effect(() => {
+    addEventListener("focus", refocusOnWindowFocus);
+    return () => removeEventListener("focus", refocusOnWindowFocus);
   });
 
   // GPU rendering follows visibility: a shown pane gets its WebGL context, a

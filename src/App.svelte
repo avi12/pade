@@ -1735,6 +1735,14 @@
                   class="terminal-slot"
                   class:shown={paneIds.includes(session.id)}
                   data-pane-id={session.id}
+                  onfocusin={() => {
+                    // Focusing a split pane makes it the active one, so activeId
+                    // always names the last agent the user touched — the pane a
+                    // window-refocus (Ctrl+Alt+[ / ]) then hands the keyboard back to.
+                    if (paneIds.includes(session.id)) {
+                      activeId = session.id;
+                    }
+                  }}
                   onoutroend={() => collapsingSplitPanes.delete(session.id)}
                   out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? 260 : 0 }}
                 >
