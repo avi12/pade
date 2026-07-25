@@ -443,6 +443,13 @@ fn build_command(
     // of the isatty result, COLORTERM names truecolor so 24-bit SGR is emitted.
     process.env("FORCE_COLOR", "3");
     process.env("COLORTERM", "truecolor");
+    // Claude Code stamps every subprocess it spawns with CLAUDE_CODE_CHILD_SESSION,
+    // and a bare `ConPTY` forwards it verbatim — so when ADE is itself launched from
+    // inside a Claude Code session, the agent ADE spawns inherits the marker, reads
+    // itself as a nested child, and disables transcript saving (no --resume, no
+    // history). An agent ADE launches is always its own top-level session, so ADE
+    // clears the inherited marker before spawn.
+    process.env_remove("CLAUDE_CODE_CHILD_SESSION");
     // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
     // tell from inside a bare ConPTY: Ink/terminal-link probe the environment
     // (TERM_PROGRAM, VTE version) and silently fall back to plain text when nothing
