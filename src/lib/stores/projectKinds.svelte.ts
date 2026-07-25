@@ -10,6 +10,10 @@ const CACHE_LIMIT = 256;
 const kinds = new SvelteMap<string, string | null>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
 const originalPaths = new Map<string, string>();
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- request ordering, never rendered
+const latestRequests = new Map<string, symbol>();
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- request ordering, never rendered
+const refreshRequests = new Map<string, symbol>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
 const pending = new Set<string>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- observer bookkeeping, never rendered
@@ -36,6 +40,7 @@ function publish({ key, kind }: {
   if (oldest !== undefined) {
     kinds.delete(oldest);
     originalPaths.delete(oldest);
+    latestRequests.delete(oldest);
   }
 }
 
@@ -49,10 +54,19 @@ async function flushPending(): Promise<void> {
   const keys = [...pending];
   pending.clear();
   const paths = keys.map(key => originalPaths.get(key) ?? key);
+  const requests = keys.map(key => {
+    const request = Symbol(key);
+    latestRequests.set(key, request);
+    return request;
+  });
   loading = true;
   try {
     const detected = await ide.projectKinds(paths);
     for (const [index, key] of keys.entries()) {
+      if (latestRequests.get(key) !== requests[index]) {
+        continue;
+      }
+
       const path = paths[index];
       publish({
         key,
@@ -83,7 +97,7 @@ function enqueue({ key, path }: {
   key: string;
   path: string;
 }): void {
-  if (kinds.has(key)) {
+  if (kinds.has(key) || refreshRequests.has(key)) {
     return;
   }
 
@@ -147,16 +161,30 @@ export function projectKind(path: string): string | null | undefined {
 /** Probe one project immediately and publish through the shared cache. This is
  * used by non-visual evidence flows that must know when a marker first exists. */
 export async function refreshProjectKind(path: string): Promise<string | null | undefined> {
+  const key = normalizePath(path);
+  const request = Symbol(key);
+  latestRequests.set(key, request);
+  refreshRequests.set(key, request);
+  pending.delete(key);
+
   let detected: Record<string, string>;
   try {
     detected = await ide.projectKinds([path]);
   } catch {
     return undefined;
+  } finally {
+    if (refreshRequests.get(key) === request) {
+      refreshRequests.delete(key);
+    }
   }
 
   const kind = detected[path] ?? null;
+  if (latestRequests.get(key) !== request) {
+    return projectKind(path);
+  }
+
   publish({
-    key: normalizePath(path),
+    key,
     kind
   });
   return kind;
