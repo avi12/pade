@@ -22,6 +22,10 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 // timeout that beats the write used to strand the successor without a doc.
 const HANDOFF_DOC_TIMEOUT_MS = 300_000;
 const HANDOFF_SETTLE_MS = 3_000;
+// How often to stat the handoff doc on disk while waiting — the reliable detector
+// for a doc the change feed ignores (so the cycle proceeds seconds after the
+// write, not on the full timeout).
+const HANDOFF_DOC_POLL_MS = 1_000;
 const USAGE_EXHAUSTED_PERCENTAGE = 95;
 // After pasting the request, the submitting Enter is re-sent until the agent is
 // seen working. A TUI's post-paste guard swallows the Enter that arrives in the
@@ -240,21 +244,28 @@ export function createAutoHandoff(host: HandoffHost) {
     return timer;
   }
 
-  // Resolve `true` once the watcher sees `name` written (plus a short settle);
-  // `false` when the deadline passes without a sighting.
+  // Resolve `true` once the doc named `name` exists in the project, `false` when
+  // the deadline passes without it. Two detectors race: the watcher's change
+  // event (fast, but SILENT for a doc the feed ignores — a gitignored
+  // `continue-*.md` never emits, which used to strand the cycle on the full
+  // timeout), and a direct disk poll (authoritative regardless of ignore rules).
+  // Whichever sees it first wins.
   function waitForFile(name: string): Promise<boolean> {
     return new Promise(resolve => {
+      const docPath = `${host.projectDirectory()}/${name}`;
       let unlisten: UnlistenFn | undefined;
       let settleTimer: ReturnType<typeof setTimeout> | undefined;
-      // Single teardown path: drop the listener + both timers from the pending
-      // set, cancel them, then resolve. Used by every exit (match, settle, timeout).
+      let pollTimer: ReturnType<typeof setTimeout> | undefined;
+      // Single teardown path: drop the listener + every timer from the pending
+      // set, cancel them, then resolve. Used by every exit (match, settle, poll,
+      // timeout).
       function finish(seen: boolean) {
         if (unlisten) {
           pendingUnlistens.delete(unlisten);
           unlisten();
         }
 
-        for (const timer of [deadlineTimer, settleTimer]) {
+        for (const timer of [deadlineTimer, settleTimer, pollTimer]) {
           if (timer !== undefined) {
             pendingTimers.delete(timer);
             clearTimeout(timer);
@@ -268,6 +279,18 @@ export function createAutoHandoff(host: HandoffHost) {
       // so a const in the closure is safe.
       const deadlineTimer = trackTimer(() => finish(false), HANDOFF_DOC_TIMEOUT_MS);
       const target = name.toLowerCase();
+
+      // Authoritative fallback: stat the doc on disk on a slow tick, so a doc the
+      // watcher never reports (ignored path) is still caught within a poll.
+      async function pollDisk() {
+        const probe = await workspace.probePath(docPath).catch(() => null);
+        if (probe?.isFile === true) {
+          finish(true);
+          return;
+        }
+
+        pollTimer = trackTimer(pollDisk, HANDOFF_DOC_POLL_MS);
+      }
 
       // Kick off the async watcher subscription from this sync Promise executor.
       // It owns its own error handling, so the deadline timer still resolves the
@@ -291,10 +314,11 @@ export function createAutoHandoff(host: HandoffHost) {
           });
           pendingUnlistens.add(unlisten);
         } catch {
-          // Subscription failed to arm; the deadline timer resolves the wait.
+          // Subscription failed to arm; the disk poll and deadline still resolve.
         }
       }
 
+      pollTimer = trackTimer(pollDisk, HANDOFF_DOC_POLL_MS);
       subscribeToChanges();
     });
   }
