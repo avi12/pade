@@ -62,10 +62,8 @@ pub async fn vcs_probe_remote(url: String) -> bool {
 /// The bounded `git ls-remote` behind [`vcs_probe_remote`].
 fn probe_remote(url: &str) -> bool {
     let mut ls_remote = command("git");
-    ls_remote
-        .args(["ls-remote", "--exit-code", "--", url, "HEAD"])
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GCM_INTERACTIVE", "never");
+    ls_remote.args(["ls-remote", "--exit-code", "--", url, "HEAD"]);
+    super::harden_git(&mut ls_remote);
     succeeds_within(ls_remote, PROBE_REMOTE_TIMEOUT)
 }
 
@@ -214,11 +212,8 @@ fn clone_repository(
     let mut clone = command("git");
     clone
         .args(["-c", "credential.helper=", "clone", "--", &clone_url])
-        .arg(&destination)
-        // Fail fast with a real error instead of hanging on an invisible
-        // terminal prompt (or a credential-manager popup) for a private repo.
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GCM_INTERACTIVE", "never");
+        .arg(&destination);
+    super::harden_git(&mut clone);
     let askpass = if let Some((_, password)) = &credentials {
         let askpass = AskPass::create()?;
         clone

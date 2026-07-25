@@ -25,18 +25,23 @@ pub(crate) mod worktree;
 pub(crate) const US: char = '\u{1f}'; // field separator inside a record
 pub(crate) const RS: char = '\u{1e}'; // record separator — marks the start of a log entry
 
+/// Disable every interactive credential path so a git command that reaches the
+/// network fails fast with a real error instead of hanging on an invisible
+/// terminal prompt or a credential-manager popup. The one authoritative home for
+/// this env pair — shared by [`run_git`] and the clone/probe sites.
+pub(crate) fn harden_git(command: &mut std::process::Command) -> &mut std::process::Command {
+    command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GCM_INTERACTIVE", "never")
+}
+
 /// Run Git inside one explicitly selected workspace. A Tauri process can host
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.
 pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
-    let output = crate::util::command("git")
-        .args(args)
-        .current_dir(cwd)
-        // Fail fast with a real error instead of hanging on an invisible
-        // terminal prompt (or a credential-manager popup) when a command
-        // reaches the network (`vcs_pull`).
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GCM_INTERACTIVE", "never")
+    let mut command = crate::util::command("git");
+    command.args(args).current_dir(cwd);
+    let output = harden_git(&mut command)
         .output()
         .map_err(|e| format!("failed to run git: {e}"))?;
 

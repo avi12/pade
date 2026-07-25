@@ -4,8 +4,10 @@ use std::collections::BTreeMap;
 
 use super::run_git;
 
-/// The current HEAD branch name, for `vcs_commit`. `None`/detached maps to no
-/// branch.
+/// The current HEAD branch name — the one authoritative "current branch" query,
+/// used by `vcs_commit`, the per-project branch chip, and remote resolution.
+/// `rev-parse --abbrev-ref HEAD` reports `HEAD` on a detached checkout, which
+/// (with an empty result on a non-repo) maps to `None` — no branch.
 pub(crate) fn current_branch(cwd: &str) -> Option<String> {
     let raw = run_git(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
     let name = raw.trim();
@@ -15,29 +17,14 @@ pub(crate) fn current_branch(cwd: &str) -> Option<String> {
     Some(name.to_string())
 }
 
-/// The HEAD branch at `path`, or `None` when it isn't a repo / is detached.
-fn branch_at(path: &str) -> Option<String> {
-    let output = crate::util::command("git")
-        .arg("-C")
-        .arg(path)
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    (!name.is_empty() && name != "HEAD").then_some(name)
-}
-
 /// Current HEAD branch for each of `paths`, for the switcher's per-project branch
-/// chip. Runs git per path (`-C <path>`); a path that isn't a git repo or is on a
-/// detached HEAD is omitted, so the frontend shows a chip only where one exists.
+/// chip. Queries git per path; a path that isn't a git repo or is on a detached
+/// HEAD is omitted, so the frontend shows a chip only where one exists.
 #[tauri::command]
 pub async fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
     paths
         .into_iter()
-        .filter_map(|path| branch_at(&path).map(|branch| (path, branch)))
+        .filter_map(|path| current_branch(&path).map(|branch| (path, branch)))
         .collect()
 }
 

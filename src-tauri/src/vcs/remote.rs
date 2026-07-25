@@ -1,14 +1,12 @@
 //! Remote-URL resolution — the browsable base behind "open on GitHub".
 
+use super::branches::current_branch;
 use super::run_git;
 
 const DEFAULT_REMOTE_NAME: &str = "origin";
 
 fn branch_remote_name(cwd: &str) -> String {
-    let configured = run_git(cwd, &["branch", "--show-current"])
-        .ok()
-        .map(|branch| branch.trim().to_string())
-        .filter(|branch| !branch.is_empty())
+    let configured = current_branch(cwd)
         .map(|branch| format!("branch.{branch}.remote"))
         .and_then(|key| run_git(cwd, &["config", "--get", &key]).ok())
         .map(|remote| remote.trim().to_string())
@@ -88,9 +86,22 @@ mod tests {
             return;
         }
 
-        let branch =
-            super::run_git(&cwd, &["branch", "--show-current"]).expect("read initial branch");
-        let key = format!("branch.{}.remote", branch.trim());
+        super::run_git(
+            &cwd,
+            &[
+                "-c",
+                "user.name=PADE Test",
+                "-c",
+                "user.email=pade@example.invalid",
+                "commit",
+                "-qm",
+                "baseline",
+                "--allow-empty",
+            ],
+        )
+        .expect("commit so HEAD points at a born branch");
+        let branch = super::current_branch(&cwd).expect("read initial branch");
+        let key = format!("branch.{branch}.remote");
         super::run_git(&cwd, &["config", &key, "upstream"]).expect("configure branch remote");
         super::run_git(
             &cwd,
