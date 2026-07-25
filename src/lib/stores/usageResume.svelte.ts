@@ -268,13 +268,15 @@ export function createUsageResume(host: ResumeHost) {
 
     for (const session of host.sessions()) {
       const hit = hits.get(session.id);
-      if (hit && !hit.scheduled) {
-        hits.set(session.id, {
-          ...hit,
-          scheduled: true
-        });
-        schedule(session, hit);
+      if (!hit || hit.scheduled) {
+        continue;
       }
+
+      hits.set(session.id, {
+        ...hit,
+        scheduled: true
+      });
+      schedule(session, hit);
     }
   }
 

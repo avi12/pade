@@ -198,10 +198,12 @@ export function createApiErrorRetry(host: RetryHost) {
 
     for (const session of host.sessions()) {
       const hit = hits.get(session.id);
-      if (hit && !hit.scheduled) {
-        hits.set(session.id, { scheduled: true });
-        scheduleRetry(session);
+      if (!hit || hit.scheduled) {
+        continue;
       }
+
+      hits.set(session.id, { scheduled: true });
+      scheduleRetry(session);
     }
   }
 

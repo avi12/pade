@@ -125,16 +125,19 @@ function detect({ sessionId, chunk }: {
 }): void {
   const lines = chunk.split("\n");
   for (const { key, command } of commands) {
-    if (lines.some(line => isTaskInvocation({
+    const isInvocation = lines.some(line => isTaskInvocation({
       line,
       command
-    }))) {
-      markSessionTask({
-        sessionId,
-        key
-      });
-      return;
+    }));
+    if (!isInvocation) {
+      continue;
     }
+
+    markSessionTask({
+      sessionId,
+      key
+    });
+    return;
   }
 }
 

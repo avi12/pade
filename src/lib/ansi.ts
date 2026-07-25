@@ -123,12 +123,14 @@ function applyExtendedColor({ style, codes, index, foreground }: {
     const inPalette = paletteIndex !== undefined
       && paletteIndex >= 0
       && paletteIndex < ANSI_COLOR_TOKENS.length;
-    if (inPalette) {
-      if (foreground) {
-        style.color = ansiColor(paletteIndex);
-      } else {
-        style.background = ansiColor(paletteIndex);
-      }
+    if (!inPalette) {
+      return index + 2;
+    }
+
+    if (foreground) {
+      style.color = ansiColor(paletteIndex);
+    } else {
+      style.background = ansiColor(paletteIndex);
     }
 
     return index + 2;

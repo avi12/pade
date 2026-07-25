@@ -87,14 +87,16 @@ export function createAutoNamer(host: AutoNameHost) {
       path: project,
       agent: host.activeAgentCommand()
     }).catch(() => null);
-    if (name && host.currentProject() === project) {
-      host.applySettings(
-        await workspace.setLabel({
-          path: project,
-          name
-        })
-      );
+    if (!name || host.currentProject() !== project) {
+      return;
     }
+
+    host.applySettings(
+      await workspace.setLabel({
+        path: project,
+        name
+      })
+    );
   }
 
   // Subscribe to the change feed. The watcher itself is armed on the open project

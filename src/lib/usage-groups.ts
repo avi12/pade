@@ -426,13 +426,15 @@ export function buildKindLegend(agents: AgentGroup[]): KindLegendEntry[] {
     }
 
     for (const limit of agent.limits) {
-      if (!seen[limit.kindShort]) {
-        seen[limit.kindShort] = true;
-        entries.push({
-          short: limit.kindShort,
-          name: limit.label
-        });
+      if (seen[limit.kindShort]) {
+        continue;
       }
+
+      seen[limit.kindShort] = true;
+      entries.push({
+        short: limit.kindShort,
+        name: limit.label
+      });
     }
   }
 

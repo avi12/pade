@@ -202,16 +202,18 @@
       const rectangle = slot.getBoundingClientRect();
       const isInside = rectangle.width > 0
         && x >= rectangle.left && x <= rectangle.right && y >= rectangle.top && y <= rectangle.bottom;
-      if (isInside) {
-        return {
-          id,
-          side: paneDropSide({
-            pointerX: x,
-            left: rectangle.left,
-            width: rectangle.width
-          })
-        };
+      if (!isInside) {
+        continue;
       }
+
+      return {
+        id,
+        side: paneDropSide({
+          pointerX: x,
+          left: rectangle.left,
+          width: rectangle.width
+        })
+      };
     }
 
     return null;
@@ -350,19 +352,21 @@
       return true;
     }
 
-    if (mode === WindowMode.open) {
-      // query.get("path") is a trust boundary — validate before opening.
-      const path = parseInput({
-        schema: FolderPath,
-        raw: query.get("path")
-      });
-      if (path) {
-        await openProject({ path });
-        return true;
-      }
+    if (mode !== WindowMode.open) {
+      return false;
     }
 
-    return false;
+    // query.get("path") is a trust boundary — validate before opening.
+    const path = parseInput({
+      schema: FolderPath,
+      raw: query.get("path")
+    });
+    if (!path) {
+      return false;
+    }
+
+    await openProject({ path });
+    return true;
   }
 
   // Re-attach the live sessions an accidental reload orphaned. The snapshot
@@ -517,10 +521,12 @@
   // opens. Keyed on the project so it re-roots on an in-window switch; the
   // backend is idempotent, so a repeat call for the same root is a no-op.
   $effect(() => {
-    if (currentProject) {
-      feed.start(currentProject);
-      refreshTaskRunDetection();
+    if (!currentProject) {
+      return;
     }
+
+    feed.start(currentProject);
+    refreshTaskRunDetection();
   });
 
   // ── Discord Rich Presence ────────────────────────────────────────────────────
@@ -935,10 +941,12 @@
     ]);
     // A project switch can outrun this read. Keep the branch list attached to
     // the project it came from instead of flashing another window's repository.
-    if (project === currentProject) {
-      branches = next;
-      currentBranch = heads[project] ?? "";
+    if (project !== currentProject) {
+      return;
     }
+
+    branches = next;
+    currentBranch = heads[project] ?? "";
   }
 
   // Keep the branch pill honest: a branch switch, git init, or remote change in

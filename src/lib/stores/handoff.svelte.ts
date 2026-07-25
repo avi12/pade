@@ -456,13 +456,15 @@ export function createAutoHandoff(host: HandoffHost) {
       const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
       const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
       const already = isHandingOff(session.id);
-      if (nearLimit && idle && !already) {
-        markHandingOff(session.id);
-        runHandoff({
-          session,
-          reason: HandoffReason.ContextLimit
-        });
+      if (!nearLimit || !idle || already) {
+        continue;
       }
+
+      markHandingOff(session.id);
+      runHandoff({
+        session,
+        reason: HandoffReason.ContextLimit
+      });
     }
   }
 
