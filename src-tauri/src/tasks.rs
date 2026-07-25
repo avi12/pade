@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 /// Directories never worth scanning for manifests (build output, VCS, deps).
-/// Mirrors `naming.rs`'s `SKIP_DIRS`; dotdirs are skipped separately.
-const SKIP_DIRS: &[&str] = &[
+/// Mirrors `naming.rs`'s `SKIPPED_DIRECTORIES`; hidden directories are skipped separately.
+const SKIPPED_DIRECTORIES: &[&str] = &[
     "node_modules",
     "target",
     "dist",
@@ -55,7 +55,7 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
         ));
     }
     let mut groups = Vec::new();
-    for dir in manifest_dirs(&root) {
+    for dir in manifest_directories(&root) {
         collect_group(&root, &dir, &mut groups);
     }
     Ok(groups)
@@ -63,13 +63,13 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
 
 /// Walk the project (bounded depth, skipping noise) and yield every directory
 /// worth inspecting for manifests. Mirrors `naming.rs`'s iterative walk.
-fn manifest_dirs(root: &Path) -> Vec<PathBuf> {
-    const MAX_DEPTH: u8 = 3;
-    let mut dirs = Vec::new();
+fn manifest_directories(root: &Path) -> Vec<PathBuf> {
+    const MAXIMUM_DEPTH: u8 = 3;
+    let mut directories = Vec::new();
     let mut stack = vec![(root.to_path_buf(), 0u8)];
     while let Some((dir, depth)) = stack.pop() {
-        dirs.push(dir.clone());
-        if depth >= MAX_DEPTH {
+        directories.push(dir.clone());
+        if depth >= MAXIMUM_DEPTH {
             continue;
         }
         let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -78,8 +78,9 @@ fn manifest_dirs(root: &Path) -> Vec<PathBuf> {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            let is_noise_dir = name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref());
-            if is_noise_dir {
+            let is_noise_directory =
+                name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name.as_ref());
+            if is_noise_directory {
                 continue;
             }
             let path = entry.path();
@@ -88,34 +89,34 @@ fn manifest_dirs(root: &Path) -> Vec<PathBuf> {
             }
         }
     }
-    dirs
+    directories
 }
 
 /// One manifest ADE understands: its filename, its family, and how to parse its
 /// tasks. The registry (`MANIFESTS`) is the single source of truth.
-struct ManifestDef {
+struct ManifestDefinition {
     file: &'static str,
     kind: &'static str,
     extract: fn(&Path) -> Vec<Task>,
 }
 
-const MANIFESTS: &[ManifestDef] = &[
-    ManifestDef {
+const MANIFESTS: &[ManifestDefinition] = &[
+    ManifestDefinition {
         file: "package.json",
         kind: "npm",
         extract: npm_tasks,
     },
-    ManifestDef {
+    ManifestDefinition {
         file: "Cargo.toml",
         kind: "cargo",
         extract: cargo_tasks,
     },
-    ManifestDef {
+    ManifestDefinition {
         file: "Makefile",
         kind: "make",
         extract: make_tasks,
     },
-    ManifestDef {
+    ManifestDefinition {
         file: "pyproject.toml",
         kind: "python",
         extract: python_tasks,
@@ -125,26 +126,26 @@ const MANIFESTS: &[ManifestDef] = &[
 /// Extract this directory's manifests into `groups` (a monorepo dir can hold
 /// several — e.g. a `package.json` and a `Cargo.toml` side by side).
 fn collect_group(root: &Path, dir: &Path, groups: &mut Vec<TaskGroup>) {
-    for def in MANIFESTS {
-        let path = dir.join(def.file);
+    for definition in MANIFESTS {
+        let path = dir.join(definition.file);
         if !path.is_file() {
             continue;
         }
-        let tasks = (def.extract)(&path);
+        let tasks = (definition.extract)(&path);
         if tasks.is_empty() {
             continue;
         }
         groups.push(TaskGroup {
-            manifest: rel_display(root, &path),
+            manifest: relative_display(root, &path),
             dir: dir.to_string_lossy().into_owned(),
-            kind: def.kind.to_string(),
+            kind: definition.kind.to_string(),
             tasks,
         });
     }
 }
 
 /// A manifest's path relative to the project root, `/`-joined for display.
-fn rel_display(root: &Path, path: &Path) -> String {
+fn relative_display(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
@@ -166,11 +167,11 @@ fn npm_tasks(path: &Path) -> Vec<Task> {
         return Vec::new();
     };
     let dir = path.parent().unwrap_or(path);
-    let pm = PackageManager::detect(dir);
+    let package_manager = PackageManager::detect(dir);
     scripts
         .keys()
         .map(|name| Task {
-            command: pm.run_command(name),
+            command: package_manager.run_command(name),
             name: name.clone(),
         })
         .collect()
@@ -197,7 +198,7 @@ impl PackageManager {
     }
 
     /// The launcher binary name (the only place these literals live).
-    fn bin(self) -> &'static str {
+    fn executable(self) -> &'static str {
         match self {
             PackageManager::Pnpm => "pnpm",
             PackageManager::Yarn => "yarn",
@@ -208,10 +209,10 @@ impl PackageManager {
     /// The command to run an npm script: `npm run <s>`, but `pnpm <s>` / `yarn <s>`
     /// for those managers (both accept the bare-script shorthand).
     fn run_command(self, script: &str) -> String {
-        let bin = self.bin();
+        let executable = self.executable();
         match self {
-            PackageManager::Pnpm | PackageManager::Yarn => format!("{bin} {script}"),
-            PackageManager::Npm => format!("{bin} run {script}"),
+            PackageManager::Pnpm | PackageManager::Yarn => format!("{executable} {script}"),
+            PackageManager::Npm => format!("{executable} run {script}"),
         }
     }
 }
@@ -264,9 +265,9 @@ fn make_target(line: &str) -> Option<String> {
     }
     let head = line.split(':').next()?.trim();
     let is_rule_head = !head.is_empty()
-        && head
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'));
+        && head.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '.' | '-')
+        });
     if !is_rule_head {
         return None;
     }
@@ -299,7 +300,7 @@ fn python_tasks_from_text(text: &str) -> Vec<Task> {
         let Some(name) = trimmed
             .split('=')
             .next()
-            .map(|k| k.trim().trim_matches('"'))
+            .map(|key| key.trim().trim_matches('"'))
         else {
             continue;
         };
@@ -319,7 +320,7 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        cargo_tasks, make_target, make_tasks_from_text, python_tasks_from_text, rel_display,
+        cargo_tasks, make_target, make_tasks_from_text, python_tasks_from_text, relative_display,
         PackageManager, Task,
     };
 
@@ -425,16 +426,16 @@ mod tests {
     }
 
     #[test]
-    fn rel_display_strips_the_root_and_joins_with_forward_slashes() {
+    fn relative_display_strips_the_root_and_joins_with_forward_slashes() {
         let root = Path::new("repo");
         let path = root.join("crates").join("core").join("Cargo.toml");
-        assert_eq!(rel_display(root, &path), "crates/core/Cargo.toml");
+        assert_eq!(relative_display(root, &path), "crates/core/Cargo.toml");
     }
 
     #[test]
-    fn rel_display_falls_back_to_the_full_path_outside_the_root() {
+    fn relative_display_falls_back_to_the_full_path_outside_the_root() {
         let root = Path::new("alpha");
         let path = Path::new("beta").join("Makefile");
-        assert_eq!(rel_display(root, &path), "beta/Makefile");
+        assert_eq!(relative_display(root, &path), "beta/Makefile");
     }
 }

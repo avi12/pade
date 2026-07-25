@@ -24,13 +24,13 @@ const DEFAULT_CANDIDATE_LIMIT: u32 = 50;
 const TIME_HINT_BOOST: f32 = 0.5;
 
 /// Seconds in a day — the unit for relative time-hint windows.
-const DAY_SECS: u64 = 86_400;
+const DAY_SECONDS: u64 = 86_400;
 
 /// Current unix time in seconds (0 if the clock predates the epoch).
 fn now_unix() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
+        .map(|duration| duration.as_secs())
         .unwrap_or(0)
 }
 
@@ -38,7 +38,7 @@ fn now_unix() -> u64 {
 fn tokenize(text: &str) -> Vec<String> {
     text.split_whitespace()
         .map(str::to_lowercase)
-        .filter(|t| !t.is_empty())
+        .filter(|token| !token.is_empty())
         .collect()
 }
 
@@ -49,46 +49,46 @@ struct TimeWindow {
 }
 
 impl TimeWindow {
-    fn contains(&self, ts: u64) -> bool {
-        ts >= self.start && ts <= self.end
+    fn contains(&self, timestamp: u64) -> bool {
+        timestamp >= self.start && timestamp <= self.end
     }
 }
 
 /// Derive a unix-time window from natural-language time hints in `query`, if any.
 /// A small, dependency-free hint table; `now` is the reference "now".
 fn time_hint_window(query: &str, now: u64) -> Option<TimeWindow> {
-    let q = query.to_lowercase();
+    let normalized_query = query.to_lowercase();
 
     // "N days ago" — window is that whole calendar-ish day (± around the offset).
-    if let Some(days) = parse_days_ago(&q) {
-        let offset = days.saturating_mul(DAY_SECS);
+    if let Some(days) = parse_days_ago(&normalized_query) {
+        let offset = days.saturating_mul(DAY_SECONDS);
         let center = now.saturating_sub(offset);
         return Some(TimeWindow {
-            start: center.saturating_sub(DAY_SECS),
+            start: center.saturating_sub(DAY_SECONDS),
             end: center,
         });
     }
 
-    let contains_today = q.contains("today");
+    let contains_today = normalized_query.contains("today");
     if contains_today {
         return Some(TimeWindow {
-            start: now.saturating_sub(DAY_SECS),
+            start: now.saturating_sub(DAY_SECONDS),
             end: now,
         });
     }
 
-    let contains_yesterday = q.contains("yesterday");
+    let contains_yesterday = normalized_query.contains("yesterday");
     if contains_yesterday {
         return Some(TimeWindow {
-            start: now.saturating_sub(2 * DAY_SECS),
-            end: now.saturating_sub(DAY_SECS),
+            start: now.saturating_sub(2 * DAY_SECONDS),
+            end: now.saturating_sub(DAY_SECONDS),
         });
     }
 
-    let contains_last_week = q.contains("last week");
+    let contains_last_week = normalized_query.contains("last week");
     if contains_last_week {
         return Some(TimeWindow {
-            start: now.saturating_sub(7 * DAY_SECS),
+            start: now.saturating_sub(7 * DAY_SECONDS),
             end: now,
         });
     }
@@ -99,9 +99,9 @@ fn time_hint_window(query: &str, now: u64) -> Option<TimeWindow> {
 /// Parse a leading "N days ago" pattern out of an already-lowercased query.
 /// Returns the number of days, or None when the phrase isn't present.
 fn parse_days_ago(query: &str) -> Option<u64> {
-    let idx = query.find("days ago").or_else(|| query.find("day ago"))?;
+    let index = query.find("days ago").or_else(|| query.find("day ago"))?;
     // Walk back over the digits immediately preceding the phrase.
-    let head = query[..idx].trim_end();
+    let head = query[..index].trim_end();
     let digits: String = head
         .chars()
         .rev()
@@ -124,12 +124,16 @@ pub async fn vcs_restore_candidates(
     query: String,
     limit: Option<u32>,
 ) -> Result<Vec<RestoreCandidate>, String> {
-    let n = limit.unwrap_or(DEFAULT_CANDIDATE_LIMIT);
+    let candidate_limit = limit.unwrap_or(DEFAULT_CANDIDATE_LIMIT);
     // %ct is the committer unix timestamp, used for time-hint scoring.
-    let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%ct");
+    let format = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%ct");
     let raw = run_git(
         &cwd,
-        &["log", &format!("-n{n}"), &format!("--pretty=format:{fmt}")],
+        &[
+            "log",
+            &format!("-n{candidate_limit}"),
+            &format!("--pretty=format:{format}"),
+        ],
     )?;
 
     let query_tokens = tokenize(&query);
@@ -139,15 +143,15 @@ pub async fn vcs_restore_candidates(
     let mut candidates: Vec<RestoreCandidate> = raw
         .lines()
         .filter_map(|line| {
-            let f: Vec<&str> = line.split(US).collect();
-            let [id, short, summary, author, when, ct] = f.as_slice() else {
+            let fields: Vec<&str> = line.split(US).collect();
+            let [id, short, summary, author, when, committed_at] = fields.as_slice() else {
                 return None;
             };
 
             let subject = summary.to_lowercase();
             let matched = query_tokens
                 .iter()
-                .filter(|tok| subject.contains(tok.as_str()))
+                .filter(|token| subject.contains(token.as_str()))
                 .count();
             // Token counts are tiny (a short query vs a commit subject), so the
             // usize→f32 conversion can't actually lose precision here.
@@ -161,8 +165,8 @@ pub async fn vcs_restore_candidates(
             // Time-hint boost: reward commits committed inside the hinted window.
             let in_time_window = window
                 .as_ref()
-                .zip(ct.parse::<u64>().ok())
-                .is_some_and(|(win, ts)| win.contains(ts));
+                .zip(committed_at.parse::<u64>().ok())
+                .is_some_and(|(window, timestamp)| window.contains(timestamp));
             if in_time_window {
                 score += TIME_HINT_BOOST;
             }
@@ -179,9 +183,10 @@ pub async fn vcs_restore_candidates(
         .collect();
 
     // Stable sort by score desc; equal scores keep git-log (recency) order.
-    candidates.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
+    candidates.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     Ok(candidates)
@@ -213,9 +218,9 @@ pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, St
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_days_ago, time_hint_window, tokenize, DAY_SECS};
+    use super::{parse_days_ago, time_hint_window, tokenize, DAY_SECONDS};
 
-    const NOW: u64 = 100 * DAY_SECS;
+    const NOW: u64 = 100 * DAY_SECONDS;
 
     #[test]
     fn tokenize_lowercases_and_splits_on_whitespace() {
@@ -235,22 +240,22 @@ mod tests {
     fn today_covers_the_last_day() {
         let window = time_hint_window("what I did today", NOW).expect("window");
         assert!(window.contains(NOW));
-        assert!(window.contains(NOW - DAY_SECS));
-        assert!(!window.contains(NOW - 2 * DAY_SECS));
+        assert!(window.contains(NOW - DAY_SECONDS));
+        assert!(!window.contains(NOW - 2 * DAY_SECONDS));
     }
 
     #[test]
     fn yesterday_excludes_the_current_day() {
         let window = time_hint_window("yesterday's version", NOW).expect("window");
-        assert!(window.contains(NOW - DAY_SECS - 1));
+        assert!(window.contains(NOW - DAY_SECONDS - 1));
         assert!(!window.contains(NOW));
     }
 
     #[test]
     fn n_days_ago_centers_on_that_day() {
         let window = time_hint_window("5 days ago", NOW).expect("window");
-        assert!(window.contains(NOW - 5 * DAY_SECS));
-        assert!(window.contains(NOW - 5 * DAY_SECS - DAY_SECS / 2));
+        assert!(window.contains(NOW - 5 * DAY_SECONDS));
+        assert!(window.contains(NOW - 5 * DAY_SECONDS - DAY_SECONDS / 2));
         assert!(!window.contains(NOW));
     }
 
@@ -258,8 +263,8 @@ mod tests {
     fn last_week_spans_seven_days() {
         let window = time_hint_window("last week", NOW).expect("window");
         assert!(window.contains(NOW));
-        assert!(window.contains(NOW - 7 * DAY_SECS));
-        assert!(!window.contains(NOW - 8 * DAY_SECS));
+        assert!(window.contains(NOW - 7 * DAY_SECONDS));
+        assert!(!window.contains(NOW - 8 * DAY_SECONDS));
     }
 
     #[test]

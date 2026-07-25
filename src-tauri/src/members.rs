@@ -39,7 +39,7 @@ const MANIFESTS: &[(&str, Ecosystem)] = &[
 
 /// Directories never worth walking (build output, deps, vendored code);
 /// dot-directories (`.git`, `.venv`, …) are pruned separately.
-const PRUNED_DIRS: &[&str] = &["node_modules", "target", "dist", "build", "vendor"];
+const PRUNED_DIRECTORIES: &[&str] = &["node_modules", "target", "dist", "build", "vendor"];
 
 /// One confirmed workspace member, ready for the frontend's longest-prefix
 /// bucket assignment.
@@ -118,8 +118,8 @@ struct FoundManifest {
 fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
     let mut found = BTreeMap::new();
     let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        let Ok(entries) = fs::read_dir(&dir) else {
+    while let Some(directory) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&directory) else {
             continue;
         };
         let mut file_names = Vec::new();
@@ -127,7 +127,7 @@ fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
             let file_name = entry.file_name();
             let name = file_name.to_string_lossy().into_owned();
             if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
-                let is_noise = name.starts_with('.') || PRUNED_DIRS.contains(&name.as_str());
+                let is_noise = name.starts_with('.') || PRUNED_DIRECTORIES.contains(&name.as_str());
                 if !is_noise {
                     stack.push(entry.path());
                 }
@@ -142,10 +142,10 @@ fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
             continue;
         };
         found.insert(
-            relative_display(root, &dir),
+            relative_display(root, &directory),
             FoundManifest {
                 ecosystem: *ecosystem,
-                name: package_name(&dir.join(manifest_name), *ecosystem),
+                name: package_name(&directory.join(manifest_name), *ecosystem),
             },
         );
     }
@@ -153,9 +153,10 @@ fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
 }
 
 /// A directory's path relative to the root, `/`-joined (`""` for the root).
-fn relative_display(root: &Path, dir: &Path) -> String {
-    dir.strip_prefix(root)
-        .unwrap_or(dir)
+fn relative_display(root: &Path, directory: &Path) -> String {
+    directory
+        .strip_prefix(root)
+        .unwrap_or(directory)
         .to_string_lossy()
         .replace('\\', "/")
 }

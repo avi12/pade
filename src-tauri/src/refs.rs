@@ -40,18 +40,18 @@ pub fn update_references(old: &str, new: &str) {
 /// `C:\repositories\avi\foo` → `file:///c%3A/repositories/avi/foo`:
 /// lowercase drive letter, `:` percent-encoded to `%3A`, `\` → `/`.
 fn vscode_uri(path: &str) -> String {
-    let mut out = String::from("file:///");
-    for c in path.chars() {
-        match c {
-            ':' => out.push_str("%3A"),
-            '\\' => out.push('/'),
+    let mut output = String::from("file:///");
+    for character in path.chars() {
+        match character {
+            ':' => output.push_str("%3A"),
+            '\\' => output.push('/'),
             // Lowercase the drive letter (URIs use `file:///c%3A/...`). Only the
             // ASCII head is a drive letter; lowercasing later chars is harmless
             // for the path segments VS Code emits here.
-            _ => out.extend(c.to_lowercase()),
+            _ => output.extend(character.to_lowercase()),
         }
     }
-    out
+    output
 }
 
 /// Replace every stored form of `old` with `new` in one pass: the raw
@@ -77,8 +77,8 @@ fn rewrite_file_forms(path: &Path, old: &str, new: &str) {
     if updated == content {
         return;
     }
-    if let Err(e) = std::fs::write(path, updated) {
-        eprintln!("refs: failed to write {}: {e}", path.display());
+    if let Err(error) = std::fs::write(path, updated) {
+        eprintln!("refs: failed to write {}: {error}", path.display());
     }
 }
 
@@ -130,9 +130,9 @@ fn rename_agent_memory(old: &str, new: &str) {
         if !should_rename {
             continue;
         }
-        if let Err(e) = std::fs::rename(&old_dir, &new_dir) {
+        if let Err(error) = std::fs::rename(&old_dir, &new_dir) {
             eprintln!(
-                "refs: failed to rename agent memory {} → {}: {e}",
+                "refs: failed to rename agent memory {} → {}: {error}",
                 old_dir.display(),
                 new_dir.display()
             );
@@ -329,28 +329,31 @@ mod windows {
 
         const TABLE_KEY: &str = "history.recentlyOpenedPathsList";
 
-        let db = base.join("state.vscdb");
-        if !db.is_file() {
+        let database = base.join("state.vscdb");
+        if !database.is_file() {
             return;
         }
 
-        let conn = match Connection::open(&db) {
-            Ok(conn) => conn,
-            Err(e) => {
-                eprintln!("refs: failed to open {}: {e}", db.display());
+        let connection = match Connection::open(&database) {
+            Ok(connection) => connection,
+            Err(error) => {
+                eprintln!("refs: failed to open {}: {error}", database.display());
                 return;
             }
         };
 
-        let value: String = match conn.query_row(
+        let value: String = match connection.query_row(
             "SELECT value FROM ItemTable WHERE key = ?1",
             [TABLE_KEY],
             |row| row.get(0),
         ) {
             Ok(value) => value,
             // No such row / locked / other — nothing safe to do.
-            Err(e) => {
-                eprintln!("refs: could not read recents from {}: {e}", db.display());
+            Err(error) => {
+                eprintln!(
+                    "refs: could not read recents from {}: {error}",
+                    database.display()
+                );
                 return;
             }
         };
@@ -360,11 +363,14 @@ mod windows {
             return;
         }
 
-        if let Err(e) = conn.execute(
+        if let Err(error) = connection.execute(
             "UPDATE ItemTable SET value = ?1 WHERE key = ?2",
             rusqlite::params![updated, TABLE_KEY],
         ) {
-            eprintln!("refs: failed to update recents in {}: {e}", db.display());
+            eprintln!(
+                "refs: failed to update recents in {}: {error}",
+                database.display()
+            );
         }
     }
 }
@@ -412,14 +418,14 @@ fn relink_dir(dir: &Path, old: &str, new: &str) {
         let path = entry.path();
         // `symlink_metadata` describes the entry itself, not its target — so a
         // link reports as a link rather than as whatever it points at.
-        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+        let Ok(metadata) = std::fs::symlink_metadata(&path) else {
             continue;
         };
-        if meta.file_type().is_symlink() {
+        if metadata.file_type().is_symlink() {
             remap_link(&path, old, new);
-        } else if meta.is_dir() {
-            let is_git_dir = path.file_name().and_then(|n| n.to_str()) == Some(".git");
-            if !is_git_dir {
+        } else if metadata.is_dir() {
+            let is_git_directory = path.file_name().and_then(|name| name.to_str()) == Some(".git");
+            if !is_git_directory {
                 relink_dir(&path, old, new);
             }
         }
@@ -441,8 +447,10 @@ fn remap_link(link: &Path, old: &str, new: &str) {
     };
     // A link to a directory must be recreated as a dir link (junction on
     // Windows); resolve through the link to learn what it points at.
-    let is_target_dir = std::fs::metadata(link).map(|m| m.is_dir()).unwrap_or(true);
-    recreate_link(link, &remapped, is_target_dir);
+    let is_target_directory = std::fs::metadata(link)
+        .map(|metadata| metadata.is_dir())
+        .unwrap_or(true);
+    recreate_link(link, &remapped, is_target_directory);
 }
 
 /// Remap an absolute `target` that sits under `old` to the same suffix under
@@ -470,22 +478,25 @@ fn remap_under(target: &str, old: &str, new: &str) -> Option<String> {
 /// pnpm); a file link uses `symlink_file`. On other platforms a single `symlink`
 /// covers both. Best-effort: any failure is logged and swallowed.
 #[cfg(windows)]
-fn recreate_link(link: &Path, target: &str, is_target_dir: bool) {
+fn recreate_link(link: &Path, target: &str, is_target_directory: bool) {
     use std::os::windows::fs::symlink_file;
 
     // Removing a junction is a directory op (`remove_dir`); a file symlink is a
     // file op. Pick by what we're about to recreate.
-    let removed = if is_target_dir {
+    let removed = if is_target_directory {
         std::fs::remove_dir(link)
     } else {
         std::fs::remove_file(link)
     };
-    if let Err(e) = removed {
-        eprintln!("refs: failed to remove stale link {}: {e}", link.display());
+    if let Err(error) = removed {
+        eprintln!(
+            "refs: failed to remove stale link {}: {error}",
+            link.display()
+        );
         return;
     }
 
-    let result = if is_target_dir {
+    let result = if is_target_directory {
         // pnpm uses junctions for dir links (no admin). `mklink /J` is the only
         // no-admin way to make one; the std lib has no junction constructor.
         crate::util::command("cmd")
@@ -493,7 +504,7 @@ fn recreate_link(link: &Path, target: &str, is_target_dir: bool) {
             .arg(link)
             .arg(target)
             .output()
-            .map(|out| out.status.success())
+            .map(|output| output.status.success())
             .unwrap_or(false)
     } else {
         symlink_file(target, link).is_ok()
@@ -507,16 +518,19 @@ fn recreate_link(link: &Path, target: &str, is_target_dir: bool) {
 }
 
 #[cfg(not(windows))]
-fn recreate_link(link: &Path, target: &str, _is_target_dir: bool) {
+fn recreate_link(link: &Path, target: &str, _is_target_directory: bool) {
     use std::os::unix::fs::symlink;
 
-    if let Err(e) = std::fs::remove_file(link) {
-        eprintln!("refs: failed to remove stale link {}: {e}", link.display());
+    if let Err(error) = std::fs::remove_file(link) {
+        eprintln!(
+            "refs: failed to remove stale link {}: {error}",
+            link.display()
+        );
         return;
     }
-    if let Err(e) = symlink(target, link) {
+    if let Err(error) = symlink(target, link) {
         eprintln!(
-            "refs: failed to recreate link {} → {target}: {e}",
+            "refs: failed to recreate link {} → {target}: {error}",
             link.display()
         );
     }
@@ -598,24 +612,25 @@ fn reconcile_package_manager(new_dir: &Path) {
 fn spawn_install(dir: &Path, command: &str) {
     use std::process::Stdio;
 
-    let mut cmd = if cfg!(windows) {
-        let mut c = crate::util::command("cmd");
-        c.args(["/C", command]);
-        c
+    let mut process = if cfg!(windows) {
+        let mut command_process = crate::util::command("cmd");
+        command_process.args(["/C", command]);
+        command_process
     } else {
-        let mut c = crate::util::command("sh");
-        c.args(["-c", command]);
-        c
+        let mut command_process = crate::util::command("sh");
+        command_process.args(["-c", command]);
+        command_process
     };
-    cmd.current_dir(dir)
+    process
+        .current_dir(dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
     // Spawn and drop the handle — detached, no wait, no kill.
-    if let Err(e) = cmd.spawn() {
+    if let Err(error) = process.spawn() {
         eprintln!(
-            "refs: failed to start `{command}` in {}: {e}",
+            "refs: failed to start `{command}` in {}: {error}",
             dir.display()
         );
     }

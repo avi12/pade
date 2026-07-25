@@ -49,15 +49,15 @@ fn prune_old_pastes(directory: &Path) {
 }
 
 fn encode_png(image: &tauri::image::Image<'_>, path: &Path) -> Result<(), String> {
-    let file = fs::File::create(path).map_err(|e| e.to_string())?;
+    let file = fs::File::create(path).map_err(|error| error.to_string())?;
     let mut encoder = png::Encoder::new(BufWriter::new(file), image.width(), image.height());
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
-    let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+    let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
     writer
         .write_image_data(image.rgba())
-        .map_err(|e| e.to_string())?;
-    writer.finish().map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())?;
+    writer.finish().map_err(|error| error.to_string())
 }
 
 /// If the clipboard currently holds a bitmap, save it as a PNG under a stable
@@ -72,12 +72,12 @@ pub async fn clipboard_image_save(app: tauri::AppHandle) -> Result<Option<String
     };
 
     let directory = paste_dir();
-    fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     prune_old_pastes(&directory);
 
     let millis = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .as_millis();
     let path = directory.join(format!("paste-{millis}.png"));
     encode_png(&image, &path)?;

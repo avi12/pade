@@ -11,7 +11,7 @@ use serde::Serialize;
 use crate::theming::ThemeConfig;
 use crate::util::{find_in, search_dirs};
 
-struct AgentDef {
+struct AgentDefinition {
     id: &'static str,
     label: &'static str,
     /// The executable to look for and run — the name the CLI's own docs use, and
@@ -83,8 +83,8 @@ pub struct ProjectThemeSeed {
 /// no safe per-launch override (only a slash command or a user-global settings
 /// file), so ADE leaves them as-is; aider is a line-oriented REPL with no fullscreen
 /// mode; cursor-agent's rendering is undocumented — none of those three is forced.
-const REGISTRY: &[AgentDef] = &[
-    AgentDef {
+const REGISTRY: &[AgentDefinition] = &[
+    AgentDefinition {
         id: "claude",
         label: "Claude Code",
         command: "claude",
@@ -122,7 +122,7 @@ const REGISTRY: &[AgentDef] = &[
         // Claude's box follows its `theme` settings key, not the terminal probe.
         needs_light_console_fix: false,
     },
-    AgentDef {
+    AgentDefinition {
         id: "codex",
         label: "Codex",
         command: "codex",
@@ -208,7 +208,7 @@ const REGISTRY: &[AgentDef] = &[
         // buffer light before Codex probes it (Windows + light scheme only).
         needs_light_console_fix: true,
     },
-    AgentDef {
+    AgentDefinition {
         id: "opencode",
         label: "OpenCode",
         command: "opencode",
@@ -249,7 +249,7 @@ const REGISTRY: &[AgentDef] = &[
         // console-buffer flip (like Codex) to stop dark flashes on reflow.
         needs_light_console_fix: true,
     },
-    AgentDef {
+    AgentDefinition {
         id: "copilot",
         label: "Copilot CLI",
         // GitHub's standalone Copilot CLI (`npm i -g @github/copilot`) installs a
@@ -283,7 +283,7 @@ const REGISTRY: &[AgentDef] = &[
         env: &[],
         needs_light_console_fix: false,
     },
-    AgentDef {
+    AgentDefinition {
         id: "grok",
         label: "Grok CLI",
         command: "grok",
@@ -304,7 +304,7 @@ const REGISTRY: &[AgentDef] = &[
         env: &[],
         needs_light_console_fix: false,
     },
-    AgentDef {
+    AgentDefinition {
         id: "antigravity",
         label: "Antigravity CLI",
         command: "antigravity",
@@ -322,7 +322,7 @@ const REGISTRY: &[AgentDef] = &[
         env: &[],
         needs_light_console_fix: false,
     },
-    AgentDef {
+    AgentDefinition {
         id: "cursor",
         label: "Cursor CLI",
         command: "cursor-agent",
@@ -343,7 +343,7 @@ const REGISTRY: &[AgentDef] = &[
         env: &[],
         needs_light_console_fix: false,
     },
-    AgentDef {
+    AgentDefinition {
         id: "aider",
         label: "aider",
         command: "aider",
@@ -367,8 +367,8 @@ const REGISTRY: &[AgentDef] = &[
 
 /// The registry entry for an executable, if ADE knows it. One lookup (DRY) behind
 /// every per-agent question.
-fn definition(command: &str) -> Option<&'static AgentDef> {
-    REGISTRY.iter().find(|a| a.command == command)
+fn definition(command: &str) -> Option<&'static AgentDefinition> {
+    REGISTRY.iter().find(|agent| agent.command == command)
 }
 
 /// Every executable name `command` could be installed under: its own name first,
@@ -376,8 +376,8 @@ fn definition(command: &str) -> Option<&'static AgentDef> {
 /// doesn't know, e.g. a task runner).
 fn installed_names(command: &str) -> Vec<&str> {
     let mut names = vec![command];
-    if let Some(def) = definition(command) {
-        names.extend(def.aliases);
+    if let Some(definition) = definition(command) {
+        names.extend(definition.aliases);
     }
     names
 }
@@ -396,13 +396,13 @@ pub fn program(command: &str) -> Option<PathBuf> {
 /// How to invoke `command` headlessly for a one-shot prompt (auto-naming), if we
 /// know a way. Keeps the registry the single source of truth (DRY).
 pub fn oneshot_invocation(command: &str) -> Option<&'static [&'static str]> {
-    definition(command).and_then(|a| a.oneshot)
+    definition(command).and_then(|agent| agent.oneshot)
 }
 
 /// Environment variables to set when spawning `command` in a PTY. Empty for an
 /// unknown command or a plain shell, so `pty.rs` stays agent-agnostic.
 pub fn spawn_env(command: &str) -> &'static [(&'static str, &'static str)] {
-    definition(command).map_or(&[], |a| a.env)
+    definition(command).map_or(&[], |agent| agent.env)
 }
 
 /// Args to launch an interactive session of `command` with — the CLI's
@@ -410,7 +410,7 @@ pub fn spawn_env(command: &str) -> &'static [(&'static str, &'static str)] {
 /// an unknown command or a plain shell (which has nothing to bypass), so `pty.rs`
 /// stays agent-agnostic.
 pub fn session_args(command: &str) -> &'static [&'static str] {
-    definition(command).map_or(&[], |a| a.session_args)
+    definition(command).map_or(&[], |agent| agent.session_args)
 }
 
 /// The flag that pins `command`'s session to a caller-chosen conversation id
@@ -419,14 +419,14 @@ pub fn session_args(command: &str) -> &'static [&'static str] {
 /// case ADE can't target a specific conversation and won't try. See
 /// `session_id_flag` on the registry entry.
 pub fn session_id_flag(command: &str) -> Option<&'static str> {
-    definition(command).and_then(|a| a.session_id_flag)
+    definition(command).and_then(|agent| agent.session_id_flag)
 }
 
 /// How `command`'s own UI theme is forced to ADE's scheme, if the registry
 /// knows a mechanism (`theming.rs` interprets it). `None` for an unknown
 /// command or a CLI with no theme setting.
 pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
-    definition(command).and_then(|a| a.theme_config.as_ref())
+    definition(command).and_then(|agent| agent.theme_config.as_ref())
 }
 
 /// Project-local adaptive-theme seed for `command`, when its CLI exposes a
@@ -442,7 +442,7 @@ pub fn project_theme_seed(command: &str) -> Option<ProjectThemeSeed> {
 /// this plus `cfg!(windows)` and a light scheme. `false` for an unknown command
 /// or a CLI that themes its box some other way.
 pub fn needs_light_console_fix(command: &str) -> bool {
-    definition(command).is_some_and(|a| a.needs_light_console_fix)
+    definition(command).is_some_and(|agent| agent.needs_light_console_fix)
 }
 
 #[derive(Serialize)]
@@ -469,14 +469,14 @@ pub async fn agents_detect() -> Vec<Agent> {
 
 fn detect_installed() -> Vec<Agent> {
     // One search path for the whole sweep — it costs a registry read to build.
-    let dirs = search_dirs();
+    let directories = search_dirs();
     let mut found: Vec<Agent> = REGISTRY
         .iter()
-        .filter(|a| find_in(&dirs, &installed_names(a.command)).is_some())
-        .map(|a| Agent {
-            id: a.id.into(),
-            label: a.label.into(),
-            command: a.command.into(),
+        .filter(|agent| find_in(&directories, &installed_names(agent.command)).is_some())
+        .map(|agent| Agent {
+            id: agent.id.into(),
+            label: agent.label.into(),
+            command: agent.command.into(),
         })
         .collect();
 

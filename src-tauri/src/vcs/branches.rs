@@ -17,16 +17,16 @@ pub(crate) fn current_branch(cwd: &str) -> Option<String> {
 
 /// The HEAD branch at `path`, or `None` when it isn't a repo / is detached.
 fn branch_at(path: &str) -> Option<String> {
-    let out = crate::util::command("git")
+    let output = crate::util::command("git")
         .arg("-C")
         .arg(path)
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output()
         .ok()?;
-    if !out.status.success() {
+    if !output.status.success() {
         return None;
     }
-    let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
     (!name.is_empty() && name != "HEAD").then_some(name)
 }
 
@@ -48,7 +48,7 @@ pub async fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
     Ok(raw
         .lines()
         .map(str::trim)
-        .filter(|l| !l.is_empty())
+        .filter(|line| !line.is_empty())
         .map(ToOwned::to_owned)
         .collect())
 }

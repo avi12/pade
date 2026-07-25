@@ -9,7 +9,7 @@ use tauri::WebviewWindow;
 
 /// A config file the ADE can surface: (relative path, kind, agents it applies
 /// to). An empty agent list means it applies to every agent.
-struct ConfigDef {
+struct ConfigDefinition {
     rel: &'static str,
     kind: &'static str,
     agents: &'static [&'static str],
@@ -26,56 +26,56 @@ pub enum McpFormat {
 /// Config files/dirs the ADE knows how to surface, in display order. Only the
 /// files relevant to the active agent are shown — e.g. CLAUDE.md for Claude
 /// Code, AGENTS.md for agents that follow that convention.
-const KNOWN: &[ConfigDef] = &[
-    ConfigDef {
+const KNOWN: &[ConfigDefinition] = &[
+    ConfigDefinition {
         rel: "CLAUDE.md",
         kind: "instructions",
         agents: &["claude"],
         mcp_format: None,
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: "AGENTS.md",
         kind: "instructions",
         agents: &["codex", "cursor", "antigravity", "aider"],
         mcp_format: None,
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: ".mcp.json",
         kind: "mcp",
         agents: &["claude", "copilot"],
         mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: ".github/mcp.json",
         kind: "mcp",
         agents: &["copilot"],
         mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: "opencode.json",
         kind: "mcp",
         agents: &["opencode"],
         mcp_format: Some(McpFormat::JsonObject { key: "mcp" }),
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: ".codex/config.toml",
         kind: "mcp",
         agents: &["codex"],
         mcp_format: Some(McpFormat::TomlTables { key: "mcp_servers" }),
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: ".cursor/mcp.json",
         kind: "mcp",
         agents: &["cursor"],
         mcp_format: Some(McpFormat::JsonObject { key: "mcpServers" }),
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: ".claude/settings.json",
         kind: "settings",
         agents: &["claude"],
         mcp_format: None,
     },
-    ConfigDef {
+    ConfigDefinition {
         rel: ".claude/settings.local.json",
         kind: "settings",
         agents: &["claude"],
@@ -83,8 +83,8 @@ const KNOWN: &[ConfigDef] = &[
     },
 ];
 
-fn applies_to(def: &ConfigDef, agent: &str) -> bool {
-    def.agents.is_empty() || def.agents.contains(&agent)
+fn applies_to(definition: &ConfigDefinition, agent: &str) -> bool {
+    definition.agents.is_empty() || definition.agents.contains(&agent)
 }
 
 /// One MCP-server config file the ADE surfaces: its repo-relative path and the
@@ -103,10 +103,10 @@ pub struct McpConfig {
 pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
     KNOWN
         .iter()
-        .filter_map(|def| def.mcp_format.map(|format| (def, format)))
-        .map(|(def, format)| McpConfig {
-            rel: def.rel,
-            agents: def.agents,
+        .filter_map(|definition| definition.mcp_format.map(|format| (definition, format)))
+        .map(|(definition, format)| McpConfig {
+            rel: definition.rel,
+            agents: definition.agents,
             format,
         })
 }
@@ -136,16 +136,16 @@ pub async fn config_list(
     let root = root(&window, &projects)?;
     let files = KNOWN
         .iter()
-        .filter(|def| applies_to(def, &agent))
-        .map(|def| ConfigFile {
-            name: Path::new(def.rel)
+        .filter(|definition| applies_to(definition, &agent))
+        .map(|definition| ConfigFile {
+            name: Path::new(definition.rel)
                 .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(def.rel)
+                .and_then(|name| name.to_str())
+                .unwrap_or(definition.rel)
                 .to_string(),
-            rel: def.rel.to_string(),
-            kind: def.kind.to_string(),
-            exists: root.join(def.rel).is_file(),
+            rel: definition.rel.to_string(),
+            kind: definition.kind.to_string(),
+            exists: root.join(definition.rel).is_file(),
         })
         .collect();
     Ok(files)
@@ -159,9 +159,9 @@ pub async fn config_read(
     projects: tauri::State<'_, crate::window::WindowProjects>,
     rel: String,
 ) -> Result<String, String> {
-    if !KNOWN.iter().any(|def| def.rel == rel) {
+    if !KNOWN.iter().any(|definition| definition.rel == rel) {
         return Err("not an allowed config file".into());
     }
     let path = root(&window, &projects)?.join(&rel);
-    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+    std::fs::read_to_string(&path).map_err(|error| error.to_string())
 }

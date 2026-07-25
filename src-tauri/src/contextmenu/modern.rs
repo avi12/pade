@@ -98,7 +98,7 @@ pub fn is_registered() -> bool {
 /// the handler DLL, the written manifest and the `Assets\` logos must all sit.
 fn external_location() -> Result<PathBuf, String> {
     std::env::current_exe()
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| "cannot determine the executable's directory".to_string())
@@ -108,7 +108,7 @@ fn external_location() -> Result<PathBuf, String> {
 /// `Application@Executable` — the file the sparse package's identity is granted to.
 fn executable_name() -> Result<String, String> {
     std::env::current_exe()
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .file_name()
         .and_then(|name| name.to_str())
         .map(String::from)
@@ -118,11 +118,12 @@ fn executable_name() -> Result<String, String> {
 /// Write the filled-in manifest and the logo assets into the external location.
 fn materialize(location: &Path) -> Result<(), String> {
     let manifest = MANIFEST_TEMPLATE.replace(EXECUTABLE_PLACEHOLDER, &executable_name()?);
-    std::fs::write(location.join("AppxManifest.xml"), manifest).map_err(|e| e.to_string())?;
+    std::fs::write(location.join("AppxManifest.xml"), manifest)
+        .map_err(|error| error.to_string())?;
     let assets = location.join("Assets");
-    std::fs::create_dir_all(&assets).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&assets).map_err(|error| error.to_string())?;
     for (name, bytes) in ASSETS {
-        std::fs::write(assets.join(name), bytes).map_err(|e| e.to_string())?;
+        std::fs::write(assets.join(name), bytes).map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -133,7 +134,7 @@ fn powershell(script: &str) -> Result<Output, String> {
     command("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .output()
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 /// Turn a captured `PowerShell` result into `Ok`/a user-facing `Err`, translating the

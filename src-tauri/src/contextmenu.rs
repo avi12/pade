@@ -30,7 +30,7 @@ const ROOTS: &[&str] = &[
 #[cfg(windows)]
 fn exe_path() -> Result<String, String> {
     std::env::current_exe()
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .to_str()
         .map(String::from)
         .ok_or_else(|| "executable path is not valid UTF-8".to_string())
@@ -62,14 +62,14 @@ fn is_windows_11() -> bool {
 
 #[cfg(windows)]
 fn reg(args: &[&str]) -> Result<(), String> {
-    let out = crate::util::command("reg")
+    let output = crate::util::command("reg")
         .args(args)
         .output()
-        .map_err(|e| e.to_string())?;
-    if out.status.success() {
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
         return Ok(());
     }
-    Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
 }
 
 /// The show/hide flag the modern handler reads on every menu build (see the
@@ -123,11 +123,11 @@ fn menu_shown() -> bool {
 /// Add the legacy folder + folder-background registry entries.
 #[cfg(windows)]
 fn register_legacy() -> Result<(), String> {
-    let exe = exe_path()?;
-    let command = format!("\"{exe}\" \"%V\"");
+    let executable = exe_path()?;
+    let command = format!("\"{executable}\" \"%V\"");
     for root in ROOTS {
         reg(&["add", root, "/ve", "/d", "Open in PADE", "/f"])?;
-        reg(&["add", root, "/v", "Icon", "/d", &exe, "/f"])?;
+        reg(&["add", root, "/v", "Icon", "/d", &executable, "/f"])?;
         let command_key = format!("{root}\\command");
         reg(&["add", &command_key, "/ve", "/d", &command, "/f"])?;
     }
@@ -154,7 +154,7 @@ fn legacy_registered() -> bool {
     crate::util::command("reg")
         .args(["query", ROOTS[0]])
         .output()
-        .is_ok_and(|o| o.status.success())
+        .is_ok_and(|output| output.status.success())
 }
 
 /// Turn "Open in PADE" on for the one menu that fits this Windows version.

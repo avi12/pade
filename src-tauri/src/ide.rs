@@ -131,7 +131,7 @@ enum OpenStyle {
     VisualStudio,
 }
 
-struct IdeDef {
+struct IdeDefinition {
     id: &'static str,
     label: &'static str,
     /// CLI launcher that opens a path (file or directory) when given it.
@@ -142,15 +142,15 @@ struct IdeDef {
     coverage: EditorCoverage,
 }
 
-const REGISTRY: &[IdeDef] = &[
-    IdeDef {
+const REGISTRY: &[IdeDefinition] = &[
+    IdeDefinition {
         id: "vscode",
         label: "VS Code",
         command: "code",
         style: OpenStyle::VsCode,
         coverage: EditorCoverage::EveryKind,
     },
-    IdeDef {
+    IdeDefinition {
         id: "cursor",
         label: "Cursor",
         command: "cursor",
@@ -159,91 +159,91 @@ const REGISTRY: &[IdeDef] = &[
     },
     // The popular VS Code forks are generalists exactly like their parent —
     // same launcher conventions, same any-language reach.
-    IdeDef {
+    IdeDefinition {
         id: "antigravity",
         label: "Antigravity",
         command: "antigravity",
         style: OpenStyle::VsCode,
         coverage: EditorCoverage::EveryKind,
     },
-    IdeDef {
+    IdeDefinition {
         id: "windsurf",
         label: "Windsurf",
         command: "windsurf",
         style: OpenStyle::VsCode,
         coverage: EditorCoverage::EveryKind,
     },
-    IdeDef {
+    IdeDefinition {
         id: "vscodium",
         label: "VSCodium",
         command: "codium",
         style: OpenStyle::VsCode,
         coverage: EditorCoverage::EveryKind,
     },
-    IdeDef {
+    IdeDefinition {
         id: "webstorm",
         label: "WebStorm",
         command: "webstorm",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "idea",
         label: "IntelliJ IDEA",
         command: "idea",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Java]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "pycharm",
         label: "PyCharm",
         command: "pycharm",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Python]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "goland",
         label: "GoLand",
         command: "goland",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Go]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "rustrover",
         label: "RustRover",
         command: "rustrover",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Rust]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "rider",
         label: "Rider",
         command: "rider",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Dotnet]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "clion",
         label: "CLion",
         command: "clion",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Cpp]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "phpstorm",
         label: "PhpStorm",
         command: "phpstorm",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Php]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "rubymine",
         label: "RubyMine",
         command: "rubymine",
         style: OpenStyle::JetBrains,
         coverage: EditorCoverage::Kinds(&[ProjectKind::Web, ProjectKind::Ruby]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "androidstudio",
         label: "Android Studio",
         command: "studio",
@@ -253,21 +253,21 @@ const REGISTRY: &[IdeDef] = &[
         // Java/Kotlin source is subsumed by the Android kind (`owns_source_kind`).
         coverage: EditorCoverage::Kinds(&[ProjectKind::Android]),
     },
-    IdeDef {
+    IdeDefinition {
         id: "zed",
         label: "Zed",
         command: "zed",
         style: OpenStyle::PathColon,
         coverage: EditorCoverage::EveryKind,
     },
-    IdeDef {
+    IdeDefinition {
         id: "sublime",
         label: "Sublime Text",
         command: "subl",
         style: OpenStyle::PathColon,
         coverage: EditorCoverage::EveryKind,
     },
-    IdeDef {
+    IdeDefinition {
         id: "visualstudio",
         label: "Visual Studio",
         command: "devenv",
@@ -297,7 +297,7 @@ impl Marker {
                 .ok()
                 .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
                 .is_some_and(|json| json.get(key).is_some()),
-            Self::Extension(extension) => has_ext(cwd, extension),
+            Self::Extension(extension) => has_extension(cwd, extension),
         }
     }
 
@@ -314,7 +314,7 @@ impl Marker {
 /// mapping from project markers, filename extensions, and GitHub Linguist names
 /// to one project kind. Editor support lives separately in [`REGISTRY`], so
 /// adding a language never requires preference-list tuning.
-struct KindDef {
+struct KindDefinition {
     kind: ProjectKind,
     label: &'static str,
     markers: &'static [Marker],
@@ -325,10 +325,10 @@ struct KindDef {
     linguist_languages: &'static [&'static str],
 }
 
-const KIND_REGISTRY: &[KindDef] = &[
+const KIND_REGISTRY: &[KindDefinition] = &[
     // Android is checked first: an Android project is also "web"/"java"-ish,
     // but Android Studio is the right call when its markers are there.
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Android,
         label: "Android",
         markers: &[
@@ -340,7 +340,7 @@ const KIND_REGISTRY: &[KindDef] = &[
         extensions: &[],
         linguist_languages: &[],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Web,
         label: "Web / JavaScript",
         markers: &[
@@ -362,7 +362,7 @@ const KIND_REGISTRY: &[KindDef] = &[
             "SCSS",
         ],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Python,
         label: "Python",
         markers: &[
@@ -373,35 +373,35 @@ const KIND_REGISTRY: &[KindDef] = &[
         extensions: &["py"],
         linguist_languages: &["Python"],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Php,
         label: "PHP",
         markers: &[Marker::Named("composer.json")],
         extensions: &["php"],
         linguist_languages: &["PHP"],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Ruby,
         label: "Ruby",
         markers: &[Marker::Named("Gemfile")],
         extensions: &["rb"],
         linguist_languages: &["Ruby"],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Go,
         label: "Go",
         markers: &[Marker::Named("go.mod")],
         extensions: &["go"],
         linguist_languages: &["Go"],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Rust,
         label: "Rust",
         markers: &[Marker::Named("Cargo.toml")],
         extensions: &["rs"],
         linguist_languages: &["Rust"],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Java,
         label: "Java",
         markers: &[
@@ -414,7 +414,7 @@ const KIND_REGISTRY: &[KindDef] = &[
     },
     // C/C++ before .NET: a Visual C++ solution also carries a .sln, and marker
     // files can't reliably separate C from C++, so one "cpp" kind covers both.
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Cpp,
         label: "C / C++",
         markers: &[
@@ -425,7 +425,7 @@ const KIND_REGISTRY: &[KindDef] = &[
         extensions: &["c", "cc", "cpp", "h", "hpp"],
         linguist_languages: &["C", "C++"],
     },
-    KindDef {
+    KindDefinition {
         kind: ProjectKind::Dotnet,
         label: "C# / .NET",
         markers: &[
@@ -440,14 +440,14 @@ const KIND_REGISTRY: &[KindDef] = &[
 
 /// Census walk bounds — enough to weigh a real repo, bounded so the suggestion
 /// never stalls on a huge working tree.
-const CENSUS_MAX_DEPTH: usize = 5;
-const CENSUS_MAX_FILES: usize = 4000;
+const CENSUS_MAXIMUM_DEPTH: usize = 5;
+const CENSUS_MAXIMUM_FILES: usize = 4000;
 
 /// The first 8 KiB is enough to identify binary, minified, and generator-marked
 /// content without turning editor suggestion into a full repository scan.
 const SOURCE_SAMPLE_BYTES: usize = 8 * 1024;
-const MINIFIED_MIN_SAMPLE_BYTES: usize = 1024;
-const MINIFIED_AVG_LINE_BYTES: usize = 400;
+const MINIFIED_MINIMUM_SAMPLE_BYTES: usize = 1024;
+const MINIFIED_AVERAGE_LINE_BYTES: usize = 400;
 const LINGUIST_GENERATED: &str = "linguist-generated";
 const LINGUIST_VENDORED: &str = "linguist-vendored";
 const LINGUIST_DOCUMENTATION: &str = "linguist-documentation";
@@ -536,7 +536,7 @@ impl SourceProfile {
 /// failure would make the result depend on a transient filesystem error.
 fn source_content(path: &std::path::Path) -> Option<SourceContent> {
     let mut file = std::fs::File::open(path).ok()?;
-    let bytes = file.metadata().map_or(0, |meta| meta.len());
+    let bytes = file.metadata().map_or(0, |metadata| metadata.len());
     let mut sample = [0u8; SOURCE_SAMPLE_BYTES];
     let read = file.read(&mut sample).ok()?;
     let sample = &sample[..read];
@@ -557,8 +557,8 @@ fn source_content(path: &std::path::Path) -> Option<SourceContent> {
         || text.contains("sourcemappingurl=");
     let line_count = sample.split(|&byte| byte == b'\n').count();
     let average_line_bytes = sample.len() / line_count.max(1);
-    let minified =
-        sample.len() >= MINIFIED_MIN_SAMPLE_BYTES && average_line_bytes > MINIFIED_AVG_LINE_BYTES;
+    let minified = sample.len() >= MINIFIED_MINIMUM_SAMPLE_BYTES
+        && average_line_bytes > MINIFIED_AVERAGE_LINE_BYTES;
     Some(SourceContent {
         binary,
         generated: declares_generated || minified,
@@ -699,15 +699,15 @@ fn is_directory_entry(entry: &std::fs::DirEntry) -> bool {
 /// marker probe skips (untracked build output physically lives here, so the
 /// exclusions matter). A Git repository goes through [`git_repository`] instead.
 fn census_walk(
-    dir: &std::path::Path,
+    directory: &std::path::Path,
     depth: usize,
     files_left: &mut usize,
     profile: &mut SourceProfile,
 ) {
-    if depth > CENSUS_MAX_DEPTH || *files_left == 0 {
+    if depth > CENSUS_MAXIMUM_DEPTH || *files_left == 0 {
         return;
     }
-    let Ok(entries) = std::fs::read_dir(dir) else {
+    let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };
     for entry in entries.flatten() {
@@ -722,7 +722,7 @@ fn census_walk(
             continue;
         }
         if is_directory_entry(&entry) {
-            if !IGNORED_PROBE_DIRS.contains(&name) {
+            if !IGNORED_PROBE_DIRECTORIES.contains(&name) {
                 census_walk(&path, depth + 1, files_left, profile);
             }
             continue;
@@ -736,7 +736,7 @@ fn census_walk(
 
 /// Source evidence for `cwd`. The file list is git's tracked set when `cwd` is a
 /// repo — so untracked junk and ignored build output never sway the mix — and a
-/// bounded filesystem walk otherwise. Bounded to [`CENSUS_MAX_FILES`] either
+/// bounded filesystem walk otherwise. Bounded to [`CENSUS_MAXIMUM_FILES`] either
 /// way so a huge tree can't stall a suggestion.
 fn source_profile(cwd: &std::path::Path) -> SourceProfile {
     let mut profile = SourceProfile::default();
@@ -744,7 +744,7 @@ fn source_profile(cwd: &std::path::Path) -> SourceProfile {
         let paths: Vec<String> = repository
             .tracked_paths
             .iter()
-            .take(CENSUS_MAX_FILES)
+            .take(CENSUS_MAXIMUM_FILES)
             .cloned()
             .collect();
         let attributes = git_linguist_attributes(&repository, &paths);
@@ -760,7 +760,7 @@ fn source_profile(cwd: &std::path::Path) -> SourceProfile {
             }
         }
     } else {
-        let mut files_left = CENSUS_MAX_FILES;
+        let mut files_left = CENSUS_MAXIMUM_FILES;
         census_walk(cwd, 0, &mut files_left, &mut profile);
     }
     profile
@@ -777,11 +777,11 @@ fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
 /// already-loaded user-added editors — passed in so a suggestion pass over
 /// many candidate ids reads the settings file once, not once per id.
 fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
-    if let Some(i) = REGISTRY.iter().find(|i| i.id == id) {
+    if let Some(editor) = REGISTRY.iter().find(|editor| editor.id == id) {
         return Some(Ide {
-            id: i.id.into(),
-            label: i.label.into(),
-            command: i.command.into(),
+            id: editor.id.into(),
+            label: editor.label.into(),
+            command: editor.command.into(),
             terminal: false,
             chosen: false,
         });
@@ -802,7 +802,7 @@ struct Family {
     terminal: bool,
 }
 
-fn family(basename: &str) -> Option<Family> {
+fn editor_family(basename: &str) -> Option<Family> {
     // (label, jump-to-line style, runs-in-a-terminal)
     let (label, style, terminal) = match basename {
         "code" => ("VS Code", Some(OpenStyle::VsCode), false),
@@ -838,7 +838,7 @@ fn family(basename: &str) -> Option<Family> {
 
 /// An executable path's lowercased basename with a known launcher extension
 /// stripped (`Code.exe` → `code`, `notepad++.exe` → `notepad++`).
-fn exe_basename(path: &str) -> String {
+fn executable_basename(path: &str) -> String {
     let file = path
         .replace('\\', "/")
         .rsplit('/')
@@ -859,11 +859,12 @@ fn exe_basename(path: &str) -> String {
 fn added_editor_ides(added: Vec<crate::workspace::AddedEditor>) -> Vec<Ide> {
     added
         .into_iter()
-        .map(|e| Ide {
-            terminal: family(&exe_basename(&e.path)).is_some_and(|f| f.terminal),
-            id: e.id,
-            label: e.label,
-            command: e.path,
+        .map(|editor| Ide {
+            terminal: editor_family(&executable_basename(&editor.path))
+                .is_some_and(|family| family.terminal),
+            id: editor.id,
+            label: editor.label,
+            command: editor.path,
             chosen: false,
         })
         .collect()
@@ -905,11 +906,11 @@ pub async fn ide_detect() -> Vec<Ide> {
 fn installed_ides() -> Vec<Ide> {
     REGISTRY
         .iter()
-        .filter(|i| is_on_path(i.command))
-        .map(|i| Ide {
-            id: i.id.into(),
-            label: i.label.into(),
-            command: i.command.into(),
+        .filter(|editor| is_on_path(editor.command))
+        .map(|editor| Ide {
+            id: editor.id.into(),
+            label: editor.label.into(),
+            command: editor.command.into(),
             terminal: false,
             chosen: false,
         })
@@ -933,7 +934,7 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
         .next()
         .unwrap_or(&path)
         .to_string();
-    let Some(fam) = family(&exe_basename(&path)) else {
+    let Some(family) = editor_family(&executable_basename(&path)) else {
         return Err(format!(
             "\u{201c}{file}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
              VS Code and its forks (Cursor, Antigravity, Windsurf, VSCodium), Zed, \
@@ -941,8 +942,8 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
         ));
     };
     crate::workspace::add_editor(crate::workspace::AddedEditor {
-        id: format!("added-{}", exe_basename(&path)),
-        label: fam.label.to_string(),
+        id: format!("added-{}", executable_basename(&path)),
+        label: family.label.to_string(),
         path,
     })
 }
@@ -956,14 +957,14 @@ pub fn ide_remove_editor(id: String) -> Result<crate::workspace::Settings, Strin
 }
 
 /// Whether any direct child of `dir` has the given extension (case-insensitive).
-fn has_ext(dir: &std::path::Path, ext: &str) -> bool {
-    std::fs::read_dir(dir).ok().is_some_and(|entries| {
+fn has_extension(directory: &std::path::Path, extension: &str) -> bool {
+    std::fs::read_dir(directory).ok().is_some_and(|entries| {
         entries.flatten().any(|entry| {
             entry
                 .path()
                 .extension()
                 .and_then(|value| value.to_str())
-                .is_some_and(|value| value.eq_ignore_ascii_case(ext))
+                .is_some_and(|value| value.eq_ignore_ascii_case(extension))
         })
     })
 }
@@ -971,7 +972,8 @@ fn has_ext(dir: &std::path::Path, ext: &str) -> bool {
 /// Directories that never signal a project kind of their own: dependency and
 /// build output, plus anything hidden. Skipped when probing markers a level
 /// down, so `node_modules` or `vendor` can't smuggle in a false kind.
-const IGNORED_PROBE_DIRS: &[&str] = &["node_modules", "target", "vendor", "dist", "build", "out"];
+const IGNORED_PROBE_DIRECTORIES: &[&str] =
+    &["node_modules", "target", "vendor", "dist", "build", "out"];
 
 /// The project root plus its direct child directories — everywhere a kind
 /// marker may live. A hybrid app or a small monorepo keeps each side's manifest
@@ -988,7 +990,9 @@ fn probe_roots(cwd: &std::path::Path) -> Vec<std::path::PathBuf> {
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| !name.starts_with('.') && !IGNORED_PROBE_DIRS.contains(&name))
+                .is_some_and(|name| {
+                    !name.starts_with('.') && !IGNORED_PROBE_DIRECTORIES.contains(&name)
+                })
         });
     std::iter::once(cwd.to_path_buf()).chain(children).collect()
 }
@@ -1183,7 +1187,7 @@ fn ranked_editor_ids(
     required_kinds: &[ProjectKind],
 ) -> Vec<String> {
     let has_evidence = !source_bytes.is_empty() || !required_kinds.is_empty();
-    let mut editors: Vec<&IdeDef> = REGISTRY.iter().collect();
+    let mut editors: Vec<&IdeDefinition> = REGISTRY.iter().collect();
     editors.sort_by(|left, right| {
         if !has_evidence {
             return matches!(right.coverage, EditorCoverage::EveryKind)
@@ -1299,22 +1303,22 @@ fn kind_options() -> BTreeMap<String, Vec<String>> {
 
     KIND_REGISTRY
         .iter()
-        .map(|def| {
-            let source_bytes = BTreeMap::from([(def.kind, 1)]);
+        .map(|definition| {
+            let source_bytes = BTreeMap::from([(definition.kind, 1)]);
             let options = dedup_in_order(
-                ranked_editor_ids(&source_bytes, &[def.kind])
+                ranked_editor_ids(&source_bytes, &[definition.kind])
                     .into_iter()
                     .filter(|id| {
                         REGISTRY
                             .iter()
                             .find(|editor| editor.id == id)
-                            .is_some_and(|editor| editor.coverage.supports(def.kind))
+                            .is_some_and(|editor| editor.coverage.supports(definition.kind))
                     })
                     .filter(|id| is_present(id))
                     .chain(added_ids.clone())
                     .collect(),
             );
-            (def.kind.as_str().to_string(), options)
+            (definition.kind.as_str().to_string(), options)
         })
         .chain(std::iter::once((FALLBACK_KEY.to_string(), general.clone())))
         .collect()
@@ -1336,10 +1340,10 @@ pub struct KindInfo {
 pub fn ide_kinds() -> Vec<KindInfo> {
     KIND_REGISTRY
         .iter()
-        .map(|def| KindInfo {
-            kind: def.kind.as_str().to_string(),
-            label: def.label.to_string(),
-            signals: def.markers.iter().map(Marker::display).collect(),
+        .map(|definition| KindInfo {
+            kind: definition.kind.as_str().to_string(),
+            label: definition.label.to_string(),
+            signals: definition.markers.iter().map(Marker::display).collect(),
         })
         .collect()
 }
@@ -1386,10 +1390,10 @@ fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
 fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
     roots.iter().any(|root| {
         root.join("tsconfig.json").exists()
-            || has_ext(root, "ts")
-            || has_ext(root, "tsx")
-            || has_ext(&root.join("src"), "ts")
-            || has_ext(&root.join("src"), "tsx")
+            || has_extension(root, "ts")
+            || has_extension(root, "tsx")
+            || has_extension(&root.join("src"), "ts")
+            || has_extension(&root.join("src"), "tsx")
     })
 }
 
@@ -1398,9 +1402,9 @@ fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
 /// resolved against the caller's already-loaded `added` list).
 fn is_installed(id: &str, added: &[Ide]) -> bool {
     if id.starts_with("added-") {
-        return added.iter().any(|e| e.id == id);
+        return added.iter().any(|editor| editor.id == id);
     }
-    lookup(id, added).is_some_and(|i| is_on_path(&i.command))
+    lookup(id, added).is_some_and(|editor| is_on_path(&editor.command))
 }
 
 /// The user-configured editor ids that lead the suggestion ranking, in winning
@@ -1437,7 +1441,7 @@ fn preference_chain(
 pub async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     tauri::async_runtime::spawn_blocking(move || suggest_for(&cwd))
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
 }
 
 /// The ranking pass behind [`ide_suggest`].
@@ -1498,10 +1502,10 @@ pub fn ide_choose_editor(cwd: String, id: String) -> Result<crate::workspace::Se
 /// An added editor's command is its executable path, so fall back to matching
 /// the family by basename.
 fn open_style(command: &str) -> Option<OpenStyle> {
-    if let Some(i) = REGISTRY.iter().find(|i| i.command == command) {
-        return Some(i.style);
+    if let Some(editor) = REGISTRY.iter().find(|editor| editor.command == command) {
+        return Some(editor.style);
     }
-    family(&exe_basename(command)).and_then(|f| f.style)
+    editor_family(&executable_basename(command)).and_then(|family| family.style)
 }
 
 /// The launcher arguments for opening `target` — jumping to `line` when one is
@@ -1590,7 +1594,7 @@ fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
     };
     spawn
         .map(|_| ())
-        .map_err(|e| format!("failed to open {command}: {e}"))
+        .map_err(|error| format!("failed to open {command}: {error}"))
 }
 
 /// Open a path in the given IDE launcher. `path` defaults to the current project
@@ -1606,7 +1610,7 @@ pub async fn ide_open(
     let target = match path {
         Some(p) => p,
         None => std::env::current_dir()
-            .map_err(|e| e.to_string())?
+            .map_err(|error| error.to_string())?
             .to_string_lossy()
             .into_owned(),
     };
@@ -1638,10 +1642,10 @@ pub async fn ide_open_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        census, editor_covers_project, exe_basename, family, ide_kinds, open_args, open_style,
-        preference_chain, project_declarations, ranked_editor_ids, required_project_kinds,
-        source_content, suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration,
-        ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
+        census, editor_covers_project, editor_family, executable_basename, ide_kinds, open_args,
+        open_style, preference_chain, project_declarations, ranked_editor_ids,
+        required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
+        ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
     };
 
     fn is_general_purpose_editor(id: &str) -> bool {
@@ -2053,29 +2057,29 @@ mod tests {
     }
 
     #[test]
-    fn exe_basename_strips_extension_and_lowercases() {
-        assert_eq!(exe_basename("C:\\Program Files\\Code.exe"), "code");
-        assert_eq!(exe_basename("/usr/bin/nvim"), "nvim");
-        assert_eq!(exe_basename("notepad++.exe"), "notepad++");
+    fn executable_basename_strips_extension_and_lowercases() {
+        assert_eq!(executable_basename("C:\\Program Files\\Code.exe"), "code");
+        assert_eq!(executable_basename("/usr/bin/nvim"), "nvim");
+        assert_eq!(executable_basename("notepad++.exe"), "notepad++");
     }
 
     #[test]
     fn family_maps_a_jetbrains_editor_to_its_open_style() {
-        let webstorm = family("webstorm64").expect("supported");
+        let webstorm = editor_family("webstorm64").expect("supported");
         assert!(matches!(webstorm.style, Some(OpenStyle::JetBrains)));
     }
 
     #[test]
     fn family_rejects_a_non_editor_executable() {
-        assert!(family("winrar").is_none());
+        assert!(editor_family("winrar").is_none());
     }
 
     #[test]
     fn console_editors_are_flagged_terminal_but_gui_ones_are_not() {
-        assert!(family("nvim").expect("supported").terminal);
-        assert!(family("vi").expect("supported").terminal);
-        assert!(!family("code").expect("supported").terminal);
-        assert!(!family("gvim").expect("supported").terminal);
+        assert!(editor_family("nvim").expect("supported").terminal);
+        assert!(editor_family("vi").expect("supported").terminal);
+        assert!(!editor_family("code").expect("supported").terminal);
+        assert!(!editor_family("gvim").expect("supported").terminal);
     }
 
     #[test]
@@ -2095,7 +2099,7 @@ mod tests {
         let position = |kind: &str| {
             kinds
                 .iter()
-                .position(|k| k == kind)
+                .position(|candidate| candidate == kind)
                 .unwrap_or_else(|| panic!("{kind} is a recognised kind"))
         };
         assert!(position("cpp") < position("dotnet"));

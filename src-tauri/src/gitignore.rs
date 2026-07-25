@@ -71,7 +71,10 @@ impl Rules {
     /// ignores the file outright (git allows no re-include below an excluded
     /// directory); otherwise the file's own last matching pattern decides.
     pub fn is_ignored(&self, path: &str) -> bool {
-        let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        let segments: Vec<&str> = path
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .collect();
         if segments.is_empty() {
             return false;
         }

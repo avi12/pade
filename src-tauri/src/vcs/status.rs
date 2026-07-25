@@ -33,14 +33,14 @@ pub async fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
     let mut entries = Vec::new();
     let mut records = raw.split('\0');
 
-    while let Some(rec) = records.next() {
-        if rec.len() < 3 {
+    while let Some(record) = records.next() {
+        if record.len() < 3 {
             continue;
         }
-        let bytes: Vec<char> = rec.chars().collect();
+        let bytes: Vec<char> = record.chars().collect();
         let index = bytes[0];
         let worktree = bytes[1];
-        let path: String = rec[3..].to_string();
+        let path: String = record[3..].to_string();
 
         // A rename record is followed by the old path in the next field; drop it.
         let is_rename = index == 'R' || worktree == 'R';
@@ -61,13 +61,13 @@ pub async fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
 /// Raw unified diff for one path (staged or working-tree).
 #[tauri::command]
 pub async fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<String, String> {
-    let mut args = vec!["diff", "--no-color"];
+    let mut arguments = vec!["diff", "--no-color"];
     if staged {
-        args.push("--staged");
+        arguments.push("--staged");
     }
-    args.push("--");
-    args.push(&path);
-    run_git(&cwd, &args)
+    arguments.push("--");
+    arguments.push(&path);
+    run_git(&cwd, &arguments)
 }
 
 #[cfg(test)]

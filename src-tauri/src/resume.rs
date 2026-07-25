@@ -25,8 +25,8 @@ const NEWEST_ROLLOUTS_INSPECTED: usize = 32;
 /// `codex resume` accepts. `None` when nothing matches — the caller then spawns
 /// a fresh conversation.
 fn codex_session_for_cwd(cwd: &str) -> Option<String> {
-    let sessions_dir = home_dir()?.join(".codex").join("sessions");
-    let mut rollouts = rollout_files(&sessions_dir);
+    let sessions_directory = home_dir()?.join(".codex").join("sessions");
+    let mut rollouts = rollout_files(&sessions_directory);
     rollouts.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
 
     let wanted = normalized(cwd);
@@ -34,15 +34,15 @@ fn codex_session_for_cwd(cwd: &str) -> Option<String> {
         .into_iter()
         .take(NEWEST_ROLLOUTS_INSPECTED)
         .find_map(|(_, path)| {
-            let meta = first_line(&path)?;
-            interactive_session_id(&meta, &wanted)
+            let metadata_line = first_line(&path)?;
+            interactive_session_id(&metadata_line, &wanted)
         })
 }
 
 /// Every rollout `.jsonl` under the sessions tree, with its modified time.
-fn rollout_files(dir: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
+fn rollout_files(directory: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
     let mut found = Vec::new();
-    let Ok(entries) = std::fs::read_dir(dir) else {
+    let Ok(entries) = std::fs::read_dir(directory) else {
         return found;
     };
     for entry in entries.flatten() {
@@ -59,7 +59,7 @@ fn rollout_files(dir: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
             continue;
         }
 
-        if let Ok(modified) = entry.metadata().and_then(|meta| meta.modified()) {
+        if let Ok(modified) = entry.metadata().and_then(|metadata| metadata.modified()) {
             found.push((modified, path));
         }
     }
@@ -88,17 +88,17 @@ fn normalized(path: &str) -> String {
 /// Field extraction over full JSON parsing: the meta line drags in the entire
 /// base-instructions prompt, and two string fields don't justify a serde model
 /// of Codex's private schema.
-fn interactive_session_id(meta: &str, wanted_cwd: &str) -> Option<String> {
-    if json_string_field(meta, "source").is_some_and(|source| source == "exec") {
+fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<String> {
+    if json_string_field(metadata_line, "source").is_some_and(|source| source == "exec") {
         return None;
     }
 
-    let cwd = json_string_field(meta, "cwd")?;
+    let cwd = json_string_field(metadata_line, "cwd")?;
     if normalized(&cwd.replace("\\\\", "\\")) != wanted_cwd {
         return None;
     }
 
-    json_string_field(meta, "session_id")
+    json_string_field(metadata_line, "session_id")
 }
 
 /// The raw value of the first `"key":"value"` occurrence in `json`. Enough for

@@ -36,15 +36,15 @@ pub(crate) fn owner_access(owner: Option<&str>, requester: &str) -> OwnerAccess 
 /// immediately rather than block forever. The rare caller that feeds a child on
 /// stdin (the usage curl `--config`) overrides this with `Stdio::piped()`.
 pub fn command(program: impl AsRef<OsStr>) -> Command {
-    let mut cmd = Command::new(program);
-    cmd.stdin(Stdio::null());
+    let mut command = Command::new(program);
+    command.stdin(Stdio::null());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         // CREATE_NO_WINDOW — the child gets no console window.
-        cmd.creation_flags(0x0800_0000);
+        command.creation_flags(0x0800_0000);
     }
-    cmd
+    command
 }
 
 /// How often [`succeeds_within`] re-checks a child it is waiting on. Matches the
@@ -156,19 +156,21 @@ pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::R
 /// rather than rebuilt per lookup.
 pub fn search_dirs() -> Vec<PathBuf> {
     let inherited = std::env::var_os("PATH").unwrap_or_default();
-    let mut dirs: Vec<PathBuf> = std::env::split_paths(&inherited).collect();
-    dirs.extend(live_path_dirs());
-    dirs.extend(package_manager_dirs());
+    let mut directories: Vec<PathBuf> = std::env::split_paths(&inherited).collect();
+    directories.extend(live_path_directories());
+    directories.extend(package_manager_directories());
 
     let mut seen = HashSet::new();
-    dirs.retain(|dir| !dir.as_os_str().is_empty() && seen.insert(dir_key(dir)));
-    dirs
+    directories.retain(|directory| {
+        !directory.as_os_str().is_empty() && seen.insert(directory_key(directory))
+    });
+    directories
 }
 
 /// A directory's identity for de-duping — case-insensitive on Windows, where
 /// `C:\Foo` and `c:\foo` are the same directory.
-fn dir_key(dir: &Path) -> String {
-    let key = dir
+fn directory_key(directory: &Path) -> String {
+    let key = directory
         .to_string_lossy()
         .trim_end_matches(['\\', '/'])
         .to_string();
@@ -184,7 +186,7 @@ fn dir_key(dir: &Path) -> String {
 /// stale copy. Empty elsewhere: on Unix a shell re-reads its profile per session,
 /// so there is no equivalent registry of truth to consult.
 #[cfg(windows)]
-fn live_path_dirs() -> Vec<PathBuf> {
+fn live_path_directories() -> Vec<PathBuf> {
     const KEYS: &[&str] = &[
         r"HKCU\Environment",
         r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
@@ -196,7 +198,7 @@ fn live_path_dirs() -> Vec<PathBuf> {
 }
 
 #[cfg(not(windows))]
-fn live_path_dirs() -> Vec<PathBuf> {
+fn live_path_directories() -> Vec<PathBuf> {
     Vec::new()
 }
 
@@ -205,15 +207,15 @@ fn live_path_dirs() -> Vec<PathBuf> {
 /// `Path` is stored as a `REG_EXPAND_SZ` full of `%VAR%` references.
 #[cfg(windows)]
 fn registry_string(key: &str, name: &str) -> Option<String> {
-    let out = command("reg")
+    let output = command("reg")
         .args(["query", key, "/v", name])
         .output()
         .ok()?;
-    if !out.status.success() {
+    if !output.status.success() {
         return None;
     }
     // A hit prints as `    Path    REG_EXPAND_SZ    C:\one;C:\two`.
-    let text = String::from_utf8_lossy(&out.stdout);
+    let text = String::from_utf8_lossy(&output.stdout);
     text.lines()
         .filter(|line| line.trim_start().starts_with(name))
         .find_map(|line| {
@@ -254,12 +256,12 @@ fn expand_env(value: &str) -> String {
 /// The bin directories package managers drop CLIs into. Several of them never add
 /// themselves to `PATH` (or add it only for future login sessions), so a detect
 /// that trusted `PATH` alone would miss a perfectly working install.
-fn package_manager_dirs() -> Vec<PathBuf> {
+fn package_manager_directories() -> Vec<PathBuf> {
     let Some(home) = home_dir() else {
         return Vec::new();
     };
     // cargo, bun, deno, volta, pipx/uv, and hand-rolled `~/.local/bin` installs.
-    let mut dirs: Vec<PathBuf> = [
+    let mut directories: Vec<PathBuf> = [
         ".cargo/bin",
         ".bun/bin",
         ".deno/bin",
@@ -272,15 +274,15 @@ fn package_manager_dirs() -> Vec<PathBuf> {
     .collect();
 
     if cfg!(windows) {
-        dirs.extend(windows_package_dirs(&home));
+        directories.extend(windows_package_directories(&home));
     } else {
         // Homebrew (Apple silicon, Intel) and the classic system-wide prefix.
-        dirs.extend([
+        directories.extend([
             PathBuf::from("/opt/homebrew/bin"),
             PathBuf::from("/usr/local/bin"),
         ]);
     }
-    dirs
+    directories
 }
 
 /// Windows package-manager bin directories: npm's global prefix, pnpm's home,
@@ -288,8 +290,8 @@ fn package_manager_dirs() -> Vec<PathBuf> {
 /// winget installs those as a directory of raw binaries and only sometimes adds
 /// one to `PATH`.
 #[cfg(windows)]
-fn windows_package_dirs(home: &Path) -> Vec<PathBuf> {
-    let mut dirs = vec![
+fn windows_package_directories(home: &Path) -> Vec<PathBuf> {
+    let mut directories = vec![
         home.join("AppData/Roaming/npm"),
         home.join("AppData/Local/pnpm"),
         home.join("AppData/Local/pnpm/bin"),
@@ -297,21 +299,21 @@ fn windows_package_dirs(home: &Path) -> Vec<PathBuf> {
     ];
 
     let winget = home.join("AppData/Local/Microsoft/WinGet");
-    dirs.push(winget.join("Links"));
+    directories.push(winget.join("Links"));
     let packages = winget.join("Packages");
     if let Ok(entries) = std::fs::read_dir(&packages) {
-        dirs.extend(
+        directories.extend(
             entries
                 .flatten()
                 .map(|entry| entry.path())
                 .filter(|path| path.is_dir()),
         );
     }
-    dirs
+    directories
 }
 
 #[cfg(not(windows))]
-fn windows_package_dirs(_home: &Path) -> Vec<PathBuf> {
+fn windows_package_directories(_home: &Path) -> Vec<PathBuf> {
     Vec::new()
 }
 
@@ -355,8 +357,9 @@ fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        return std::fs::metadata(path)
-            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0);
+        return std::fs::metadata(path).is_ok_and(|metadata| {
+            metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+        });
     }
     #[cfg(not(unix))]
     path.is_file()
@@ -392,20 +395,20 @@ pub fn home_dir() -> Option<PathBuf> {
 /// pass `extra` for characters a target must keep verbatim (e.g. `/` and `:` in a
 /// URL path). One authoritative encoder (DRY) for every `%XX` need.
 pub fn percent_encode(value: &str, extra: &[u8]) -> String {
-    let mut out = String::with_capacity(value.len());
+    let mut output = String::with_capacity(value.len());
     for &byte in value.as_bytes() {
         let literal = byte.is_ascii_alphanumeric()
             || matches!(byte, b'-' | b'_' | b'.' | b'~')
             || extra.contains(&byte);
         if literal {
-            out.push(char::from(byte));
+            output.push(char::from(byte));
         } else {
-            out.push('%');
-            out.push(char::from(hex_nibble(byte >> 4)));
-            out.push(char::from(hex_nibble(byte & 0x0f)));
+            output.push('%');
+            output.push(char::from(hex_nibble(byte >> 4)));
+            output.push(char::from(hex_nibble(byte & 0x0f)));
         }
     }
-    out
+    output
 }
 
 /// The uppercase hex character for a nibble (0..=15).
@@ -421,11 +424,11 @@ fn hex_nibble(nibble: u8) -> u8 {
 /// transcript under `~/.claude/projects/<encoded-path>/`.
 pub fn encode_project(path: &str) -> String {
     path.chars()
-        .map(|c| {
-            if matches!(c, ':' | '\\' | '/') {
+        .map(|character| {
+            if matches!(character, ':' | '\\' | '/') {
                 '-'
             } else {
-                c
+                character
             }
         })
         .collect()

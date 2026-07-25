@@ -26,22 +26,22 @@ pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
     // A record-start marker (RS) precedes each commit header so we can tell a
     // header line apart from the `--numstat` rows that follow it. The header
     // fields are US-separated as before.
-    let fmt = format!("{RS}%H{US}%h{US}%s{US}%an{US}%cr");
+    let format = format!("{RS}%H{US}%h{US}%s{US}%an{US}%cr");
     let raw = run_git(
         &cwd,
         &[
             "log",
             &format!("-n{limit}"),
             "--numstat",
-            &format!("--pretty=format:{fmt}"),
+            &format!("--pretty=format:{format}"),
         ],
     )?;
 
     let mut commits: Vec<Commit> = Vec::new();
     for line in raw.lines() {
         if let Some(header) = line.strip_prefix(RS) {
-            let f: Vec<&str> = header.split(US).collect();
-            let [id, short, summary, author, when] = f.as_slice() else {
+            let fields: Vec<&str> = header.split(US).collect();
+            let [id, short, summary, author, when] = fields.as_slice() else {
                 continue;
             };
             commits.push(Commit {
@@ -61,11 +61,11 @@ pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
         let Some(commit) = commits.last_mut() else {
             continue;
         };
-        let Some((adds, dels)) = parse_numstat(line) else {
+        let Some((additions, deletions)) = parse_numstat(line) else {
             continue;
         };
-        commit.additions += adds;
-        commit.deletions += dels;
+        commit.additions += additions;
+        commit.deletions += deletions;
         commit.files += 1;
     }
     Ok(commits)
@@ -75,19 +75,19 @@ pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
 /// `<adds>\t<dels>\t<path>`; binary files use `-` for both counts (→ `(0, 0)`).
 /// Returns `None` for a line that isn't a numstat row (e.g. a blank separator).
 fn parse_numstat(line: &str) -> Option<(u32, u32)> {
-    let mut cols = line.splitn(3, '\t');
-    let adds = cols.next()?;
-    let dels = cols.next()?;
+    let mut columns = line.splitn(3, '\t');
+    let additions = columns.next()?;
+    let deletions = columns.next()?;
     // The third column (path) must exist for this to be a real numstat row.
-    cols.next()?;
-    let count = |c: &str| {
-        if c == "-" {
+    columns.next()?;
+    let count = |value: &str| {
+        if value == "-" {
             0
         } else {
-            c.parse::<u32>().unwrap_or(0)
+            value.parse::<u32>().unwrap_or(0)
         }
     };
-    Some((count(adds), count(dels)))
+    Some((count(additions), count(deletions)))
 }
 
 #[cfg(test)]

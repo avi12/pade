@@ -49,19 +49,19 @@ fn status_letter_kind(code: &str) -> StatusKind {
 pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
     let sha = validate_object_id(&sha)?;
     // Header + full body in one shot: subject on its own line, then the body.
-    let fmt = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%b");
+    let format = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%b");
     let head = run_git(
         &cwd,
         &[
             "show",
             "-s",
-            &format!("--format={fmt}"),
+            &format!("--format={format}"),
             "--end-of-options",
             sha,
         ],
     )?;
-    let f: Vec<&str> = head.trim_end_matches('\n').splitn(6, US).collect();
-    let [id, short, summary, author, when, body] = f.as_slice() else {
+    let fields: Vec<&str> = head.trim_end_matches('\n').splitn(6, US).collect();
+    let [id, short, summary, author, when, body] = fields.as_slice() else {
         return Err("could not parse commit header".into());
     };
 
@@ -151,7 +151,7 @@ fn parse_numstat_records(numstat: &str) -> Vec<NumstatRecord<'_>> {
 
     while let Some(head) = fields.next() {
         let mut columns = head.splitn(3, '\t');
-        let (Some(adds), Some(dels), Some(path_column)) =
+        let (Some(additions), Some(deletions), Some(path_column)) =
             (columns.next(), columns.next(), columns.next())
         else {
             continue;
@@ -171,11 +171,11 @@ fn parse_numstat_records(numstat: &str) -> Vec<NumstatRecord<'_>> {
             path_column
         };
 
-        let binary = adds == "-" || dels == "-";
+        let binary = additions == "-" || deletions == "-";
         records.push(NumstatRecord {
             path,
-            additions: adds.parse::<u32>().unwrap_or(0),
-            deletions: dels.parse::<u32>().unwrap_or(0),
+            additions: additions.parse::<u32>().unwrap_or(0),
+            deletions: deletions.parse::<u32>().unwrap_or(0),
             binary,
         });
     }
@@ -254,10 +254,13 @@ mod tests {
     fn name_status_keys_a_rename_on_the_new_path() {
         let kinds = status_kinds_by_path("M\0src/app.ts\0R100\0src/old.ts\0src/new.ts\0");
         assert_eq!(
-            kinds.get("src/app.ts").map(|k| k.as_str()),
+            kinds.get("src/app.ts").map(|kind| kind.as_str()),
             Some("modified")
         );
-        assert_eq!(kinds.get("src/new.ts").map(|k| k.as_str()), Some("renamed"));
+        assert_eq!(
+            kinds.get("src/new.ts").map(|kind| kind.as_str()),
+            Some("renamed")
+        );
         assert!(!kinds.contains_key("src/old.ts"));
     }
 

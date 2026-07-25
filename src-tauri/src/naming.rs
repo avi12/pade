@@ -29,11 +29,11 @@ pub(crate) struct NameContext {
 
 /// One name source. Returns a *raw* candidate; the orchestrator sanitizes it.
 pub(crate) trait Namer {
-    fn suggest(&self, ctx: &NameContext) -> Option<String>;
+    fn suggest(&self, context: &NameContext) -> Option<String>;
 }
 
 /// Directories never worth scanning for a name (build output, VCS, deps).
-const SKIP_DIRS: &[&str] = &[
+const SKIPPED_DIRECTORIES: &[&str] = &[
     "node_modules",
     "target",
     "dist",
@@ -75,7 +75,7 @@ pub async fn session_generate_name(
 }
 
 /// Minimum transcript length before a session name is worth generating.
-const SESSION_NAME_MIN: usize = 40;
+const MINIMUM_SESSION_NAME_INPUT_LENGTH: usize = 40;
 
 /// How long to let an agent CLI run before giving up on a name — one home for the
 /// timeout shared by the project-namer and session-namer invocations.
@@ -83,7 +83,7 @@ const NAME_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn session_name(transcript: &str, agent: &str) -> Option<String> {
     let trimmed = transcript.trim();
-    if trimmed.len() < SESSION_NAME_MIN {
+    if trimmed.len() < MINIMUM_SESSION_NAME_INPUT_LENGTH {
         return None;
     }
 
@@ -100,11 +100,11 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
 
 /// The trailing `max` bytes of `text`, snapped to a char boundary — most recent
 /// context matters most and keeps the prompt bounded.
-fn tail(text: &str, max: usize) -> &str {
-    if text.len() <= max {
+fn tail(text: &str, maximum_length: usize) -> &str {
+    if text.len() <= maximum_length {
         return text;
     }
-    let mut start = text.len() - max;
+    let mut start = text.len() - maximum_length;
     while start < text.len() && !text.is_char_boundary(start) {
         start += 1;
     }
@@ -123,10 +123,15 @@ fn session_naming_prompt(transcript: &str) -> String {
 }
 
 fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
-    let args = oneshot_invocation(agent)?;
-    let exe = program(agent)?;
-    run_agent_prompt(&exe, args, None, session_naming_prompt(transcript))
-        .and_then(|raw| sanitize(&raw))
+    let arguments = oneshot_invocation(agent)?;
+    let executable = program(agent)?;
+    run_agent_prompt(
+        &executable,
+        arguments,
+        None,
+        session_naming_prompt(transcript),
+    )
+    .and_then(|raw| sanitize(&raw))
 }
 
 fn autoname(path: &str, agent: &str) -> Option<String> {
@@ -134,73 +139,73 @@ fn autoname(path: &str, agent: &str) -> Option<String> {
     if !crate::workspace::is_owned(path) {
         return None;
     }
-    let dir = Path::new(path);
-    let files = gather_files(dir);
+    let directory = Path::new(path);
+    let files = gather_files(directory);
     if files.is_empty() {
         return None;
     }
-    let ctx = NameContext {
+    let context = NameContext {
         files,
         prompt: None,
     };
 
     // Layered sources: agent CLI first, then (on Windows) Copilot, then heuristic.
     let mut namers: Vec<Box<dyn Namer>> = Vec::new();
-    if let Some((args, exe)) = oneshot_invocation(agent).zip(program(agent)) {
+    if let Some((arguments, executable)) = oneshot_invocation(agent).zip(program(agent)) {
         namers.push(Box::new(AgentCliNamer {
-            command: exe,
-            args,
-            cwd: dir.to_path_buf(),
+            command: executable,
+            args: arguments,
+            cwd: directory.to_path_buf(),
         }));
     }
     #[cfg(windows)]
     namers.push(Box::new(crate::copilot::CopilotNamer));
     namers.push(Box::new(HeuristicNamer {
-        dir: dir.to_path_buf(),
+        directory: directory.to_path_buf(),
     }));
 
     // First namer whose candidate survives sanitizing wins (lazy — later sources
     // only run if earlier ones yield nothing usable).
     namers
         .iter()
-        .filter_map(|n| n.suggest(&ctx))
+        .filter_map(|namer| namer.suggest(&context))
         .find_map(|raw| sanitize(&raw))
 }
 
 /// Collect up to a bounded set of the workspace's files as relative paths,
 /// skipping dotfiles and build/dep noise.
-fn gather_files(dir: &Path) -> Vec<String> {
-    const MAX: usize = 40;
-    const MAX_DEPTH: u8 = 2;
-    let mut out = Vec::new();
-    let mut stack = vec![(dir.to_path_buf(), 0u8)];
-    while let Some((d, depth)) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&d) else {
+fn gather_files(directory: &Path) -> Vec<String> {
+    const MAXIMUM_FILES: usize = 40;
+    const MAXIMUM_DEPTH: u8 = 2;
+    let mut files = Vec::new();
+    let mut stack = vec![(directory.to_path_buf(), 0u8)];
+    while let Some((current_directory, depth)) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&current_directory) else {
             continue;
         };
         for entry in entries.flatten() {
-            if out.len() >= MAX {
-                return out;
+            if files.len() >= MAXIMUM_FILES {
+                return files;
             }
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            let is_noise = name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref());
+            let is_noise = name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name.as_ref());
             if is_noise {
                 continue;
             }
-            let p = entry.path();
-            if p.is_dir() {
-                if depth < MAX_DEPTH {
-                    stack.push((p, depth + 1));
+            let path = entry.path();
+            if path.is_dir() {
+                if depth < MAXIMUM_DEPTH {
+                    stack.push((path, depth + 1));
                 }
                 continue;
             }
-            if let Ok(rel) = p.strip_prefix(dir) {
-                out.push(rel.to_string_lossy().replace('\\', "/"));
+            if let Ok(relative_path) = path.strip_prefix(directory) {
+                files.push(relative_path.to_string_lossy().replace('\\', "/"));
             }
         }
     }
-    out
+    files
 }
 
 // ── Agent-CLI namer ─────────────────────────────────────────────────────────
@@ -214,18 +219,18 @@ struct AgentCliNamer {
 }
 
 impl Namer for AgentCliNamer {
-    fn suggest(&self, ctx: &NameContext) -> Option<String> {
+    fn suggest(&self, context: &NameContext) -> Option<String> {
         run_agent_prompt(
             &self.command,
             self.args,
             Some(&self.cwd),
-            naming_prompt(ctx),
+            naming_prompt(context),
         )
     }
 }
 
-fn naming_prompt(ctx: &NameContext) -> String {
-    let list = ctx
+fn naming_prompt(context: &NameContext) -> String {
+    let list = context
         .files
         .iter()
         .take(12)
@@ -237,7 +242,7 @@ fn naming_prompt(ctx: &NameContext) -> String {
          words joined by hyphens) for a codebase containing these files:\n",
     );
     prompt.push_str(&list);
-    if let Some(task) = &ctx.prompt {
+    if let Some(task) = &context.prompt {
         prompt.push_str("\n\nInitial task: ");
         prompt.push_str(task);
     }
@@ -247,18 +252,20 @@ fn naming_prompt(ctx: &NameContext) -> String {
 
 /// Pull the name out of a CLI reply: prefer a line that is already a bare token,
 /// else the last non-empty line (models tend to conclude with the answer).
-fn extract_name(out: &str) -> Option<String> {
-    let bare = out.lines().map(str::trim).find(|l| {
-        !l.is_empty()
-            && l.len() <= 40
-            && l.chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+fn extract_name(output: &str) -> Option<String> {
+    let bare = output.lines().map(str::trim).find(|line| {
+        !line.is_empty()
+            && line.len() <= 40
+            && line.chars().all(|character| {
+                character.is_ascii_alphanumeric() || character == '-' || character == '_'
+            })
     });
     bare.map(str::to_string).or_else(|| {
-        out.lines()
+        output
+            .lines()
             .rev()
             .map(str::trim)
-            .find(|l| !l.is_empty())
+            .find(|line| !line.is_empty())
             .map(str::to_string)
     })
 }
@@ -273,23 +280,24 @@ fn run_agent_prompt(
     cwd: Option<&Path>,
     prompt: String,
 ) -> Option<String> {
-    let mut cmd = crate::util::command(command);
-    if let Some(dir) = cwd {
-        cmd.current_dir(dir);
+    let mut process = crate::util::command(command);
+    if let Some(directory) = cwd {
+        process.current_dir(directory);
     }
-    cmd.args(args).arg(prompt);
-    let out = run_capture(cmd, NAME_TIMEOUT)?;
-    extract_name(&out)
+    process.args(args).arg(prompt);
+    let output = run_capture(process, NAME_TIMEOUT)?;
+    extract_name(&output)
 }
 
 /// Run `cmd`, capturing stdout and killing it after `timeout`. stdin is closed so
 /// a CLI that expects input gets EOF instead of hanging. Returns stdout on a
 /// clean exit, else `None`.
-fn run_capture(mut cmd: Command, timeout: Duration) -> Option<String> {
-    cmd.stdin(Stdio::null())
+fn run_capture(mut command: Command, timeout: Duration) -> Option<String> {
+    command
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let mut child = cmd.spawn().ok()?;
+    let mut child = command.spawn().ok()?;
     let start = Instant::now();
     loop {
         match child.try_wait() {
@@ -308,60 +316,60 @@ fn run_capture(mut cmd: Command, timeout: Duration) -> Option<String> {
             Err(_) => return None,
         }
     }
-    let mut buf = String::new();
-    child.stdout.take()?.read_to_string(&mut buf).ok()?;
-    Some(buf)
+    let mut buffer = String::new();
+    child.stdout.take()?.read_to_string(&mut buffer).ok()?;
+    Some(buffer)
 }
 
 // ── Heuristic namer ─────────────────────────────────────────────────────────
 
 /// Offline fallback: derive a name from the project's own metadata or files.
 struct HeuristicNamer {
-    dir: PathBuf,
+    directory: PathBuf,
 }
 
 impl Namer for HeuristicNamer {
-    fn suggest(&self, ctx: &NameContext) -> Option<String> {
-        pkg_name(&self.dir)
-            .or_else(|| cargo_name(&self.dir))
-            .or_else(|| readme_title(&self.dir))
-            .or_else(|| dominant_stem(&ctx.files))
+    fn suggest(&self, context: &NameContext) -> Option<String> {
+        package_name(&self.directory)
+            .or_else(|| cargo_name(&self.directory))
+            .or_else(|| readme_title(&self.directory))
+            .or_else(|| dominant_stem(&context.files))
     }
 }
 
-fn read_file(dir: &Path, name: &str) -> Option<String> {
-    std::fs::read_to_string(dir.join(name)).ok()
+fn read_file(directory: &Path, name: &str) -> Option<String> {
+    std::fs::read_to_string(directory.join(name)).ok()
 }
 
-fn pkg_name(dir: &Path) -> Option<String> {
-    let text = read_file(dir, "package.json")?;
+fn package_name(directory: &Path) -> Option<String> {
+    let text = read_file(directory, "package.json")?;
     let json: serde_json::Value = serde_json::from_str(&text).ok()?;
     let name = json.get("name")?.as_str()?;
     // Drop an npm scope: "@acme/widget" -> "widget".
     Some(name.rsplit('/').next().unwrap_or(name).to_string())
 }
 
-fn cargo_name(dir: &Path) -> Option<String> {
-    let text = read_file(dir, "Cargo.toml")?;
+fn cargo_name(directory: &Path) -> Option<String> {
+    let text = read_file(directory, "Cargo.toml")?;
     // Light scan — the first `name = "…"` (the [package] name) is enough here.
     text.lines()
         .map(str::trim)
-        .find_map(|l| {
-            let rest = l.strip_prefix("name")?.trim_start();
+        .find_map(|line| {
+            let rest = line.strip_prefix("name")?.trim_start();
             Some(rest.strip_prefix('=')?.trim().trim_matches('"').to_string())
         })
-        .filter(|s| !s.is_empty())
+        .filter(|name| !name.is_empty())
 }
 
-fn readme_title(dir: &Path) -> Option<String> {
+fn readme_title(directory: &Path) -> Option<String> {
     for candidate in ["README.md", "readme.md", "Readme.md", "README"] {
-        let Some(text) = read_file(dir, candidate) else {
+        let Some(text) = read_file(directory, candidate) else {
             continue;
         };
         let title = text
             .lines()
             .map(str::trim)
-            .find_map(|l| l.strip_prefix("# "));
+            .find_map(|line| line.strip_prefix("# "));
         if let Some(title) = title {
             return Some(title.to_string());
         }
@@ -375,10 +383,10 @@ fn dominant_stem(files: &[String]) -> Option<String> {
         "index", "main", "mod", "lib", "app", "readme", "license", "makefile",
     ];
     let mut counts: HashMap<String, usize> = HashMap::new();
-    for f in files {
-        let stem = Path::new(f)
+    for file in files {
+        let stem = Path::new(file)
             .file_stem()
-            .and_then(|s| s.to_str())
+            .and_then(|value| value.to_str())
             .unwrap_or("")
             .to_lowercase();
         if stem.is_empty() || NOISE.contains(&stem.as_str()) {
@@ -386,7 +394,10 @@ fn dominant_stem(files: &[String]) -> Option<String> {
         }
         *counts.entry(stem).or_insert(0) += 1;
     }
-    counts.into_iter().max_by_key(|(_, n)| *n).map(|(s, _)| s)
+    counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(stem, _)| stem)
 }
 
 // ── Sanitizer (shared) ──────────────────────────────────────────────────────
@@ -408,7 +419,7 @@ pub(crate) fn sanitize(raw: &str) -> Option<String> {
     let name = kebab
         .trim_matches('-')
         .split('-')
-        .filter(|p| !p.is_empty())
+        .filter(|part| !part.is_empty())
         .take(4)
         .collect::<Vec<_>>()
         .join("-");

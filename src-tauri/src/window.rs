@@ -62,7 +62,7 @@ impl WindowProjects {
     pub(crate) fn project_for(&self, label: &str) -> Result<String, String> {
         self.projects
             .lock()
-            .map_err(|e| e.to_string())?
+            .map_err(|error| error.to_string())?
             .get(label)
             .filter(|path| !path.is_empty())
             .cloned()
@@ -369,7 +369,7 @@ pub async fn window_create(
     let window = builder
         .min_inner_size(720.0, 480.0)
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
     // Crash recovery arms once the window's frontend boots and calls
     // `recovery_arm` with its live URL (see recovery.rs).
     let _ = window;

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtyPair, PtySize};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
@@ -67,8 +67,8 @@ impl Drop for Pty {
             Err(poisoned) => poisoned.into_inner(),
         };
         #[cfg(windows)]
-        if let Some(pid) = child.process_id() {
-            kill_process_tree(pid);
+        if let Some(process_id) = child.process_id() {
+            kill_process_tree(process_id);
         }
         let _ = child.kill();
         let _ = child.wait();
@@ -77,13 +77,13 @@ impl Drop for Pty {
 
 /// Terminate a process and every descendant it spawned. `Child::kill` reaches
 /// only the immediate child, so an agent's grandchildren live on and hold the
-/// workspace cwd; `taskkill /T` walks the tree from `pid` and ends them all, `/F`
+/// workspace cwd; `taskkill /T` walks the tree from `process_id` and ends them all, `/F`
 /// forces it. Best-effort — a process already gone just makes this a no-op.
 /// Shelled out through `util::command` so it inherits `CREATE_NO_WINDOW`.
 #[cfg(windows)]
-fn kill_process_tree(pid: u32) {
+fn kill_process_tree(process_id: u32) {
     let _ = crate::util::command("taskkill")
-        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .args(["/F", "/T", "/PID", &process_id.to_string()])
         .output();
 }
 
@@ -128,7 +128,7 @@ const ENTER_ALTERNATE_SCREEN: &str = control_sequence!("?1049h");
 const LEAVE_ALTERNATE_SCREEN: &str = control_sequence!("?1049l");
 
 /// How much recent output to keep per session for naming (bytes, tail-trimmed).
-const TRANSCRIPT_CAP: usize = 16 * 1024;
+const TRANSCRIPT_CAPACITY: usize = 16 * 1024;
 
 /// How often each session's reaper checks whether its agent process has exited
 /// on its own (see the reaper thread in `pty_spawn`).
@@ -136,13 +136,13 @@ const CHILD_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_milli
 
 /// How much raw output to keep per session for replay. Bigger than the transcript
 /// because this is the unstripped stream — escape codes and repaints included.
-const HISTORY_CAP: usize = 512 * 1024;
+const HISTORY_CAPACITY: usize = 512 * 1024;
 
 /// Strip terminal control sequences so the buffered transcript is plain text:
 /// drop ESC-introduced CSI/OSC sequences, carriage returns, and other C0
 /// control bytes, keeping printable characters, newlines, and tabs.
 fn strip_ansi(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
+    let mut output = String::with_capacity(input.len());
     let mut chars = input.chars().peekable();
     while let Some(ch) = chars.next() {
         match ch {
@@ -179,16 +179,16 @@ fn strip_ansi(input: &str) -> String {
                 None => {}
             },
             '\r' => {}
-            '\n' | '\t' => out.push(ch),
+            '\n' | '\t' => output.push(ch),
             other if u32::from(other) < 0x20 => {}
-            other => out.push(other),
+            other => output.push(other),
         }
     }
-    out
+    output
 }
 
 /// Append cleaned output to a session's transcript, trimming the front to
-/// `TRANSCRIPT_CAP` on a char boundary so it never grows unbounded.
+/// `TRANSCRIPT_CAPACITY` on a char boundary so it never grows unbounded.
 fn append_transcript(transcript: &Arc<Mutex<String>>, cleaned: &str) {
     if cleaned.is_empty() {
         return;
@@ -197,8 +197,8 @@ fn append_transcript(transcript: &Arc<Mutex<String>>, cleaned: &str) {
         return;
     };
     buffer.push_str(cleaned);
-    if buffer.len() > TRANSCRIPT_CAP {
-        let mut cut = buffer.len() - TRANSCRIPT_CAP;
+    if buffer.len() > TRANSCRIPT_CAPACITY {
+        let mut cut = buffer.len() - TRANSCRIPT_CAPACITY;
         while cut < buffer.len() && !buffer.is_char_boundary(cut) {
             cut += 1;
         }
@@ -221,7 +221,7 @@ fn last_screen_switch(window: &str) -> Option<bool> {
 }
 
 /// Append raw output to a session's replay history and take the sequence number of
-/// this chunk. Trimming the front to `HISTORY_CAP` cuts at a line break (and never
+/// this chunk. Trimming the front to `HISTORY_CAPACITY` cuts at a line break (and never
 /// mid-character), so a replay starts on a whole line rather than halfway through
 /// an escape sequence.
 fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
@@ -244,12 +244,12 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
         buffer.alternate = alternate;
     }
 
-    if buffer.data.len() - buffer.start > HISTORY_CAP {
+    if buffer.data.len() - buffer.start > HISTORY_CAPACITY {
         // Walk the cap overflow to a char boundary BEFORE slicing — landing inside
         // a multibyte character would panic — then cut just past the first line
         // break so a replay starts on a whole line. A tail with no line break at
         // all is dropped entirely rather than replayed torn.
-        let mut overflow = buffer.start + (buffer.data.len() - buffer.start - HISTORY_CAP);
+        let mut overflow = buffer.start + (buffer.data.len() - buffer.start - HISTORY_CAPACITY);
         while !buffer.data.is_char_boundary(overflow) {
             overflow += 1;
         }
@@ -260,7 +260,7 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
 
         // `String::drain` moves the retained tail. Do that only after a full
         // history window has expired, not once per output chunk.
-        if buffer.start >= HISTORY_CAP {
+        if buffer.start >= HISTORY_CAPACITY {
             let start = buffer.start;
             buffer.data.drain(..start);
             buffer.start = 0;
@@ -275,26 +275,26 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
 /// chunks, and decoding the halves separately would turn both into U+FFFD.
 /// Genuinely invalid bytes become one U+FFFD each and are consumed.
 fn drain_decoded(pending: &mut Vec<u8>) -> String {
-    let mut out = String::new();
+    let mut output = String::new();
     loop {
         match std::str::from_utf8(pending) {
             Ok(text) => {
-                out.push_str(text);
+                output.push_str(text);
                 pending.clear();
-                return out;
+                return output;
             }
             Err(error) => {
                 let valid_end = error.valid_up_to();
-                out.push_str(&String::from_utf8_lossy(&pending[..valid_end]));
+                output.push_str(&String::from_utf8_lossy(&pending[..valid_end]));
                 match error.error_len() {
                     // The chunk ends mid-character: keep the partial bytes for
                     // the next read to complete.
                     None => {
                         pending.drain(..valid_end);
-                        return out;
+                        return output;
                     }
                     Some(invalid_len) => {
-                        out.push('\u{FFFD}');
+                        output.push('\u{FFFD}');
                         pending.drain(..valid_end + invalid_len);
                     }
                 }
@@ -349,7 +349,7 @@ fn build_command(
                 std::env::var("SHELL").unwrap_or_else(|_| "bash".into())
             }
         });
-    let exe = crate::agents::program(&program).map_or_else(
+    let executable = crate::agents::program(&program).map_or_else(
         || program.clone(),
         |path| path.to_string_lossy().into_owned(),
     );
@@ -398,44 +398,44 @@ fn build_command(
     let force_light_console = cfg!(target_os = "windows")
         && scheme == Some(crate::theming::Scheme::Light)
         && crate::agents::needs_light_console_fix(&program);
-    let mut cmd = if force_light_console {
-        light_console_command(&exe, &leading_args)
+    let mut process = if force_light_console {
+        light_console_command(&executable, &leading_args)
     } else {
-        let mut cmd = CommandBuilder::new(&exe);
+        let mut process = CommandBuilder::new(&executable);
         for arg in &leading_args {
-            cmd.arg(arg);
+            process.arg(arg);
         }
-        cmd
+        process
     };
 
     // Environment goes on whichever process ADE spawns; a `cmd.exe` wrapper passes
     // it through to the agent it launches. Keyed by the command ADE knows (`codex`),
     // not the file it resolved to (`…\codex-x86_64-pc-windows-msvc.exe`).
     for (key, value) in crate::agents::spawn_env(&program) {
-        cmd.env(key, value);
+        process.env(key, value);
     }
     // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the
     // agent starts matching ADE's current appearance — see theming.rs.
     if let Some(scheme) = scheme {
         for (key, value) in crate::theming::spawn_env(&program, scheme) {
-            cmd.env(key, value);
+            process.env(key, value);
         }
         // …and the tui-config file pair for file-themed CLIs (opencode):
         // theming.rs materializes the config on disk and returns the env pair
         // pointing at it. Filesystem I/O happens here, before any session lock.
         for (key, value) in crate::theming::spawn_tui_config_env(&program, scheme) {
-            cmd.env(key, value);
+            process.env(key, value);
         }
     }
     // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
     // tell from inside a bare ConPTY: Ink/terminal-link probe the environment
     // (TERM_PROGRAM, VTE version) and silently fall back to plain text when nothing
     // matches. This is the escape hatch those probes honor.
-    cmd.env("FORCE_HYPERLINK", "1");
-    cmd
+    process.env("FORCE_HYPERLINK", "1");
+    process
 }
 
-/// Wrap `exe` + `args` as `cmd /c color F0 & <exe> <args…>` so the `ConPTY` console
+/// Wrap `executable` + `arguments` as `cmd /c color F0 & <executable> <arguments…>` so the `ConPTY` console
 /// buffer reads as a light background *before* the launched agent probes it — ADE's
 /// Windows fix for Codex's terminal-background-derived composer box (see
 /// `build_command` and `agents::needs_light_console_fix`). `color F0` sets the
@@ -448,15 +448,26 @@ fn build_command(
 /// token, and the bare `&` stays cmd's command separator. Building one pre-quoted
 /// shell string instead would be double-escaped by portable-pty and mis-parsed by
 /// cmd.
-fn light_console_command(exe: &str, args: &[String]) -> CommandBuilder {
-    let mut cmd = CommandBuilder::new("cmd.exe");
-    for token in ["/c", "color", "F0", "&", exe] {
-        cmd.arg(token);
+fn light_console_command(executable: &str, arguments: &[String]) -> CommandBuilder {
+    let mut command = CommandBuilder::new("cmd.exe");
+    for token in ["/c", "color", "F0", "&", executable] {
+        command.arg(token);
     }
-    for arg in args {
-        cmd.arg(arg);
+    for argument in arguments {
+        command.arg(argument);
     }
-    cmd
+    command
+}
+
+fn open_pty(rows: u16, columns: u16) -> Result<PtyPair, String> {
+    native_pty_system()
+        .openpty(PtySize {
+            rows,
+            cols: columns,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| error.to_string())
 }
 
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
@@ -499,7 +510,7 @@ pub async fn pty_spawn(
         return Err("PTY request exceeds its input limits".into());
     }
     {
-        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let sessions = state.0.lock().map_err(|error| error.to_string())?;
         match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
             OwnerAccess::Owned => return Ok(()),
             OwnerAccess::Foreign => return Err("PTY belongs to another window".into()),
@@ -511,15 +522,7 @@ pub async fn pty_spawn(
         }
     }
 
-    let pty_system = native_pty_system();
-    let pair = pty_system
-        .openpty(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
+    let pair = open_pty(rows, cols)?;
 
     // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
     let dir = cwd
@@ -541,19 +544,28 @@ pub async fn pty_spawn(
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
-    let mut cmd = build_command(command, scheme, conversation_id.as_deref());
+    let mut process = build_command(command, scheme, conversation_id.as_deref());
     for arg in args.unwrap_or_default() {
-        cmd.arg(arg);
+        process.arg(arg);
     }
     if let Some(dir) = dir {
-        cmd.cwd(dir);
+        process.cwd(dir);
     }
 
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    let child = pair
+        .slave
+        .spawn_command(process)
+        .map_err(|error| error.to_string())?;
     drop(pair.slave);
 
-    let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|error| error.to_string())?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|error| error.to_string())?;
     let transcript = Arc::new(Mutex::new(String::new()));
     let history = Arc::new(Mutex::new(History::default()));
     let pty = Arc::new(Pty {
@@ -571,7 +583,7 @@ pub async fn pty_spawn(
     // take the registry lock to publish the completed session, so existing panes
     // remain responsive while a new CLI starts. A concurrent duplicate is dropped
     // here, which terminates the unregistered child through `Pty::drop`.
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
     match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
         OwnerAccess::Owned => {
             drop(sessions);
@@ -738,7 +750,7 @@ pub fn pty_history(
 ) -> Result<HistorySnapshot, String> {
     let owner = window.label();
     let pty = {
-        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let sessions = state.0.lock().map_err(|error| error.to_string())?;
         if owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), owner)
             == OwnerAccess::Foreign
         {
@@ -764,7 +776,7 @@ pub fn pty_history(
 /// the lock is poisoned. The context the AI session-namer summarises.
 pub fn transcript_of(state: &PtyState, owner: &str, id: &str) -> Result<String, String> {
     let pty = {
-        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let sessions = state.0.lock().map_err(|error| error.to_string())?;
         if owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner)
             == OwnerAccess::Foreign
         {
@@ -795,11 +807,11 @@ pub async fn pty_write(
     let Some(pty) = owned_pty(&state, window.label(), &id)? else {
         return Ok(());
     };
-    let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
+    let mut writer = pty.writer.lock().map_err(|error| error.to_string())?;
     writer
         .write_all(data.as_bytes())
-        .map_err(|e| e.to_string())?;
-    writer.flush().map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
+    writer.flush().map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -819,14 +831,14 @@ pub async fn pty_resize(
     };
     pty.master
         .lock()
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
         .resize(PtySize {
             rows,
             cols,
             pixel_width: 0,
             pixel_height: 0,
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -839,7 +851,7 @@ pub async fn pty_kill(
     state: State<'_, PtyState>,
     id: String,
 ) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
     if owner_access(
         sessions.get(&id).map(|pty| pty.owner.as_str()),
         window.label(),
@@ -854,7 +866,7 @@ pub async fn pty_kill(
 }
 
 fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
-    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let sessions = state.0.lock().map_err(|error| error.to_string())?;
     match owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner) {
         OwnerAccess::Vacant => Ok(None),
         OwnerAccess::Owned => Ok(sessions.get(id).cloned()),
@@ -900,13 +912,13 @@ mod tests {
     /// rides on.
     #[test]
     fn light_console_command_round_trips_the_path_and_args() {
-        let exe = r"C:\Program Files\codex dir\codex.exe";
-        let args = vec![
+        let executable = r"C:\Program Files\codex dir\codex.exe";
+        let arguments = vec![
             "--dangerously-bypass-approvals-and-sandbox".to_string(),
             "-c".to_string(),
             "tui.theme=catppuccin-latte".to_string(),
         ];
-        let built = light_console_command(exe, &args);
+        let built = light_console_command(executable, &arguments);
         let assembled: Vec<String> = built
             .get_argv()
             .iter()
@@ -920,7 +932,7 @@ mod tests {
                 "color".to_string(),
                 "F0".to_string(),
                 "&".to_string(),
-                exe.to_string(),
+                executable.to_string(),
                 "--dangerously-bypass-approvals-and-sandbox".to_string(),
                 "-c".to_string(),
                 "tui.theme=catppuccin-latte".to_string(),
@@ -928,7 +940,7 @@ mod tests {
         );
         // The spaced path is a single token (portable-pty quotes it at spawn), not
         // split — the whole point of separate argv entries.
-        assert!(assembled.contains(&exe.to_string()));
+        assert!(assembled.contains(&executable.to_string()));
     }
 
     /// Only Codex opts into the console workaround; agents themed by file/env and
@@ -982,17 +994,17 @@ mod tests {
     #[test]
     fn history_trims_to_the_cap_at_a_line_break() {
         let filler = format!("{}\n", "x".repeat(1023));
-        let over_cap = HISTORY_CAP / filler.len() + 2;
-        let (history, seq) = history_with(&vec![filler.as_str(); over_cap]);
+        let over_capacity = HISTORY_CAPACITY / filler.len() + 2;
+        let (history, seq) = history_with(&vec![filler.as_str(); over_capacity]);
         let (data, _) = snapshot(&history);
-        assert!(data.len() <= HISTORY_CAP);
+        assert!(data.len() <= HISTORY_CAPACITY);
         assert!(data.starts_with('x'), "replay starts on a whole line");
-        assert_eq!(seq, over_cap as u64);
+        assert_eq!(seq, over_capacity as u64);
     }
 
     #[test]
     fn a_tail_with_no_line_break_is_dropped_entirely() {
-        let blob = "y".repeat(HISTORY_CAP + 1);
+        let blob = "y".repeat(HISTORY_CAPACITY + 1);
         let (history, _) = history_with(&[blob.as_str()]);
         assert_eq!(snapshot(&history).0, "");
     }
@@ -1001,10 +1013,10 @@ mod tests {
     fn trimming_never_slices_inside_a_multibyte_character() {
         // Overflow the cap so the cut position lands inside the run of
         // multibyte characters — slicing there would panic before the fix.
-        let multibyte = "é".repeat(HISTORY_CAP / 2);
+        let multibyte = "é".repeat(HISTORY_CAPACITY / 2);
         let (history, _) = history_with(&[multibyte.as_str(), multibyte.as_str()]);
         let (data, _) = snapshot(&history);
-        assert!(data.len() <= HISTORY_CAP);
+        assert!(data.len() <= HISTORY_CAPACITY);
     }
 
     #[test]
@@ -1034,10 +1046,10 @@ mod tests {
     #[test]
     fn transcript_trims_on_a_char_boundary() {
         let transcript = Arc::new(Mutex::new(String::new()));
-        let multibyte = "日".repeat(TRANSCRIPT_CAP / 3 + 10);
+        let multibyte = "日".repeat(TRANSCRIPT_CAPACITY / 3 + 10);
         append_transcript(&transcript, &multibyte);
         let tail = transcript.lock().expect("transcript lock").clone();
-        assert!(tail.len() <= TRANSCRIPT_CAP);
+        assert!(tail.len() <= TRANSCRIPT_CAPACITY);
         assert!(tail.chars().all(|ch| ch == '日'));
     }
 }

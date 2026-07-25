@@ -29,7 +29,7 @@ pub(crate) const RS: char = '\u{1e}'; // record separator — marks the start of
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.
 pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
-    let out = crate::util::command("git")
+    let output = crate::util::command("git")
         .args(args)
         .current_dir(cwd)
         // Fail fast with a real error instead of hanging on an invisible
@@ -38,12 +38,12 @@ pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
         .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+        .map_err(|error| format!("failed to run git: {error}"))?;
 
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 /// Accept only object ids Git produced for the UI. This prevents a renderer from

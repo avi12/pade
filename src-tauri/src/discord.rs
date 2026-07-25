@@ -38,12 +38,12 @@ const SET_ACTIVITY: &str = "SET_ACTIVITY";
 
 /// Every IPC frame is an 8-byte header (opcode + length, both little-endian u32)
 /// followed by the JSON payload.
-const FRAME_HEADER_LEN: usize = 8;
+const FRAME_HEADER_LENGTH: usize = 8;
 
 /// Reject a response frame claiming more than this many payload bytes — Discord's
 /// frames are small, so an absurd length means a desynced/garbage pipe, not a
 /// real message worth allocating for.
-const MAX_FRAME_PAYLOAD: usize = 64 * 1024;
+const MAXIMUM_FRAME_PAYLOAD: usize = 64 * 1024;
 
 /// IPC frame opcodes. Only the two PADE sends are modelled; the protocol's `Close`
 /// (2) is never written (dropping the socket is enough), so it isn't represented.
@@ -352,7 +352,7 @@ fn write_frame(
 /// the payload bytes.
 fn encode_frame(opcode: Opcode, payload: &[u8]) -> Result<Vec<u8>, DiscordError> {
     let length = u32::try_from(payload.len()).map_err(|_| DiscordError::OversizedFrame)?;
-    let mut frame = Vec::with_capacity(FRAME_HEADER_LEN + payload.len());
+    let mut frame = Vec::with_capacity(FRAME_HEADER_LENGTH + payload.len());
     frame.extend_from_slice(&opcode.code().to_le_bytes());
     frame.extend_from_slice(&length.to_le_bytes());
     frame.extend_from_slice(payload);
@@ -362,11 +362,11 @@ fn encode_frame(opcode: Opcode, payload: &[u8]) -> Result<Vec<u8>, DiscordError>
 /// Read exactly one response frame and discard it — PADE never inspects Discord's
 /// replies, it only needs to keep the stream drained.
 fn read_frame(stream: &mut dyn DuplexStream) -> Result<(), DiscordError> {
-    let mut header = [0u8; FRAME_HEADER_LEN];
+    let mut header = [0u8; FRAME_HEADER_LENGTH];
     stream.read_exact(&mut header)?;
     let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
     let length = usize::try_from(length).map_err(|_| DiscordError::OversizedFrame)?;
-    if length > MAX_FRAME_PAYLOAD {
+    if length > MAXIMUM_FRAME_PAYLOAD {
         return Err(DiscordError::OversizedFrame);
     }
     let mut payload = vec![0u8; length];
@@ -419,9 +419,9 @@ fn connect() -> Option<Box<dyn DuplexStream>> {
 fn connect() -> Option<Box<dyn DuplexStream>> {
     use std::os::unix::net::UnixStream;
 
-    for dir in socket_dirs() {
+    for directory in socket_directories() {
         for index in 0..=9 {
-            let path = dir.join(format!("discord-ipc-{index}"));
+            let path = directory.join(format!("discord-ipc-{index}"));
             if let Ok(stream) = UnixStream::connect(&path) {
                 return Some(Box::new(stream));
             }
@@ -433,15 +433,15 @@ fn connect() -> Option<Box<dyn DuplexStream>> {
 /// Directories the Discord socket may live in, most-specific first: the XDG
 /// runtime dir, then the temp dir, then `/tmp`.
 #[cfg(unix)]
-fn socket_dirs() -> Vec<std::path::PathBuf> {
-    let mut dirs = Vec::new();
+fn socket_directories() -> Vec<std::path::PathBuf> {
+    let mut directories = Vec::new();
     for variable in ["XDG_RUNTIME_DIR", "TMPDIR"] {
         if let Some(value) = std::env::var_os(variable) {
-            dirs.push(std::path::PathBuf::from(value));
+            directories.push(std::path::PathBuf::from(value));
         }
     }
-    dirs.push(std::path::PathBuf::from("/tmp"));
-    dirs
+    directories.push(std::path::PathBuf::from("/tmp"));
+    directories
 }
 
 /// Publish PADE's rich presence. `details` (the project line), `state` (the
@@ -474,7 +474,7 @@ pub fn discord_clear_activity(presence: State<DiscordState>) -> Result<(), Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{activity_payload, encode_frame, ActivityFields, Opcode, FRAME_HEADER_LEN};
+    use super::{activity_payload, encode_frame, ActivityFields, Opcode, FRAME_HEADER_LENGTH};
 
     #[test]
     fn frame_header_is_little_endian_opcode_then_length() {
@@ -483,7 +483,7 @@ mod tests {
         assert_eq!(&frame[0..4], &Opcode::Frame.code().to_le_bytes());
         let length = u32::try_from(payload.len()).expect("length fits");
         assert_eq!(&frame[4..8], &length.to_le_bytes());
-        assert_eq!(&frame[FRAME_HEADER_LEN..], payload);
+        assert_eq!(&frame[FRAME_HEADER_LENGTH..], payload);
     }
 
     #[test]

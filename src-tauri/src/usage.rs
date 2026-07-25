@@ -246,7 +246,7 @@ fn codex_tier_label_usage() -> Option<Usage> {
 /// rate-limited bucket) and is safe at ~180s intervals — hence the cache below.
 const OAUTH_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 const USAGE_UA: &str = "claude-code/1.0.128";
-const USAGE_CACHE_SECS: u64 = 170;
+const USAGE_CACHE_SECONDS: u64 = 170;
 
 /// The two named top-level windows we give product names to; every other named
 /// window the endpoint returns is surfaced generically as
@@ -404,7 +404,7 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
         .then(|| {
             cache.lock().ok().and_then(|guard| {
                 let (fetched_at, cached) = guard.get(&request.agent)?;
-                (fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECS))
+                (fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECONDS))
                     .then(|| cached.clone())
             })
         })

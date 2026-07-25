@@ -10,7 +10,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
-struct DesignDef {
+struct DesignDefinition {
     id: &'static str,
     label: &'static str,
     /// Vendor, shown as a subtle tag next to the name.
@@ -24,29 +24,29 @@ struct DesignDef {
 }
 
 /// Known AI design/UI-generation products, Claude first.
-const REGISTRY: &[DesignDef] = &[
-    DesignDef {
+const REGISTRY: &[DesignDefinition] = &[
+    DesignDefinition {
         id: "claude",
         label: "Claude",
         vendor: "Anthropic",
         url: "https://claude.ai/new",
         agents: &["claude"],
     },
-    DesignDef {
+    DesignDefinition {
         id: "stitch",
         label: "Stitch",
         vendor: "Google",
         url: "https://stitch.withgoogle.com",
         agents: &["antigravity"],
     },
-    DesignDef {
+    DesignDefinition {
         id: "v0",
         label: "v0",
         vendor: "Vercel",
         url: "https://v0.app",
         agents: &[],
     },
-    DesignDef {
+    DesignDefinition {
         id: "figma-make",
         label: "Figma Make",
         vendor: "Figma",
@@ -72,16 +72,16 @@ pub struct DesignTool {
 pub fn design_tools(agent: String) -> Vec<DesignTool> {
     let mut tools: Vec<DesignTool> = REGISTRY
         .iter()
-        .map(|d| DesignTool {
-            id: d.id.into(),
-            label: d.label.into(),
-            vendor: d.vendor.into(),
-            url: d.url.into(),
-            recommended: d.agents.contains(&agent.as_str()),
+        .map(|definition| DesignTool {
+            id: definition.id.into(),
+            label: definition.label.into(),
+            vendor: definition.vendor.into(),
+            url: definition.url.into(),
+            recommended: definition.agents.contains(&agent.as_str()),
         })
         .collect();
     // Stable: recommended tool(s) float up, everything else keeps its order.
-    tools.sort_by_key(|t| !t.recommended);
+    tools.sort_by_key(|tool| !tool.recommended);
     tools
 }
 
@@ -105,11 +105,11 @@ pub async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
         .iter()
         .find(|definition| definition.id == id)
         .ok_or("unknown design tool")?;
-    let target = Url::parse(definition.url).map_err(|e| e.to_string())?;
+    let target = Url::parse(definition.url).map_err(|error| error.to_string())?;
     if let Some(window) = app.get_webview_window(DESIGN_WINDOW) {
-        window.navigate(target).map_err(|e| e.to_string())?;
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+        window.navigate(target).map_err(|error| error.to_string())?;
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
         return Ok(());
     }
     WebviewWindowBuilder::new(&app, DESIGN_WINDOW, WebviewUrl::External(target))
@@ -117,6 +117,6 @@ pub async fn design_open(app: AppHandle, id: String) -> Result<(), String> {
         .inner_size(1100.0, 820.0)
         .min_inner_size(480.0, 480.0)
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
     Ok(())
 }

@@ -59,7 +59,7 @@ fn runner_start_access(
         registry_id,
     }: RunnerAccessRequest<'_>,
 ) -> Result<OwnerAccess, String> {
-    let runners = state.0.lock().map_err(|e| e.to_string())?;
+    let runners = state.0.lock().map_err(|error| error.to_string())?;
     let access = owner_access(
         runners.get(registry_id).map(|runner| runner.owner.as_str()),
         owner,
@@ -131,7 +131,7 @@ struct RunnerExit {
 fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+        .map(|duration| u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
         .unwrap_or(0)
 }
 
@@ -139,17 +139,17 @@ fn now_millis() -> u64 {
 /// `ide::ide_open` reaches launchers: `cmd /C <command>` on Windows, else
 /// `sh -c <command>` so shell syntax (pipes, `&&`, `$VAR`) works either way.
 fn shell_command(command: &str) -> Command {
-    let mut cmd = if cfg!(windows) {
-        let mut c = crate::util::command("cmd");
-        c.args(["/C", command]);
-        c
+    let mut process = if cfg!(windows) {
+        let mut command_process = crate::util::command("cmd");
+        command_process.args(["/C", command]);
+        command_process
     } else {
-        let mut c = crate::util::command("sh");
-        c.args(["-c", command]);
-        c
+        let mut command_process = crate::util::command("sh");
+        command_process.args(["-c", command]);
+        command_process
     };
-    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-    cmd
+    process.stdout(Stdio::piped()).stderr(Stdio::piped());
+    process
 }
 
 /// Arguments for [`pump_stream`], bundled so the reader thread takes one param.
@@ -221,16 +221,16 @@ pub async fn runner_start(
         OwnerAccess::Vacant => {}
     }
 
-    let mut cmd = shell_command(&command);
-    let dir = cwd
+    let mut process = shell_command(&command);
+    let directory = cwd
         .clone()
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::current_dir().ok());
-    if let Some(dir) = dir {
-        cmd.current_dir(dir);
+    if let Some(directory) = directory {
+        process.current_dir(directory);
     }
 
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = process.spawn().map_err(|error| error.to_string())?;
     let stdout = child.stdout.take().ok_or("failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("failed to capture stderr")?;
 
@@ -260,7 +260,7 @@ pub async fn runner_start(
     let exit_id = id.clone();
     std::thread::spawn(move || {
         let code = loop {
-            let poll = waiter_child.lock().map(|mut c| c.try_wait());
+            let poll = waiter_child.lock().map(|mut child| child.try_wait());
             match poll {
                 // Exited: report the code (`None` if killed by a signal).
                 Ok(Ok(Some(status))) => break status.code(),
@@ -283,7 +283,7 @@ pub async fn runner_start(
         cwd,
         started_at: now_millis(),
     };
-    let mut runners = state.0.lock().map_err(|e| e.to_string())?;
+    let mut runners = state.0.lock().map_err(|error| error.to_string())?;
     match owner_access(
         runners
             .get(&registry_id)
@@ -315,12 +315,12 @@ pub async fn runner_start(
 fn stop_process_tree(child: &mut Child) {
     #[cfg(windows)]
     {
-        let pid = child.id().to_string();
+        let process_id = child.id().to_string();
         // `/T` includes descendants and `/F` handles a runner that does not
         // cooperate with a graceful terminate. `util::command` keeps taskkill
         // itself from flashing a console window in the GUI app.
         let _ = crate::util::command("taskkill")
-            .args(["/PID", pid.as_str(), "/T", "/F"])
+            .args(["/PID", process_id.as_str(), "/T", "/F"])
             .status();
     }
 
@@ -342,7 +342,7 @@ pub async fn runner_stop(
 ) -> Result<(), String> {
     let registry_id = format!("{}\0{id}", window.label());
     let removed = {
-        let mut runners = state.0.lock().map_err(|e| e.to_string())?;
+        let mut runners = state.0.lock().map_err(|error| error.to_string())?;
         if owner_access(
             runners
                 .get(&registry_id)
@@ -369,7 +369,7 @@ pub fn runner_list(
     window: WebviewWindow,
     state: State<RunnerState>,
 ) -> Result<Vec<RunnerInfo>, String> {
-    let runners = state.0.lock().map_err(|e| e.to_string())?;
+    let runners = state.0.lock().map_err(|error| error.to_string())?;
     Ok(runners
         .values()
         .filter(|runner| runner.owner == window.label())

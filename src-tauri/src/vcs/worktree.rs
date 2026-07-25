@@ -16,7 +16,7 @@ pub async fn vcs_worktree_add(cwd: String, branch: String, create: bool) -> Resu
         .to_string();
     let repo = Path::new(&root)
         .file_name()
-        .and_then(|n| n.to_str())
+        .and_then(|name| name.to_str())
         .unwrap_or("repo");
     // Branches can contain '/', which would nest dirs — flatten for the folder.
     let safe = branch.replace(['/', '\\'], "-");
