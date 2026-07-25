@@ -8,7 +8,7 @@
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import { AddRootStatus } from "@/lib/types";
+  import { AddRootStatus, WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -269,7 +269,7 @@
     const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
     if (opensNewWindow) {
       windows.create({
-        mode: "open",
+        mode: WindowMode.enum.open,
         path: project
       });
       return;
@@ -289,7 +289,7 @@
   // Spawn a fresh window and dismiss the menu so it doesn't linger over the new
   // one. `path` is optional — omitted for empty/temp modes.
   async function spawn(args: {
-    mode: "empty" | "temp" | "open";
+    mode: WindowMode;
     path?: string;
   }) {
     await windows.create(args);
@@ -697,12 +697,12 @@
     <div class="separator"></div>
 
     <div class="eyebrow section">New window</div>
-    <button class="action" onclick={() => spawn({ mode: "empty" })} role="menuitem" type="button">
+    <button class="action" onclick={() => spawn({ mode: WindowMode.enum.empty })} role="menuitem" type="button">
       <span class="lead accent"><Icon name="windowPlus" /></span>
       <span class="grow">Empty window</span>
       <span class="kbd">Ctrl ⇧ N</span>
     </button>
-    <button class="action" onclick={() => spawn({ mode: "temp" })} role="menuitem" type="button">
+    <button class="action" onclick={() => spawn({ mode: WindowMode.enum.temp })} role="menuitem" type="button">
       <span class="lead tertiary"><Icon name="plus" /></span>
       <span class="grow">Throwaway workspace</span>
     </button>

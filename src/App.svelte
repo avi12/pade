@@ -26,6 +26,7 @@
     appearance,
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
+    SIDE_PANEL_MAX_FRACTION,
     SIDE_PANEL_MIN_WIDTH,
     updatePrefs
   } from "@/lib/prefs.svelte";
@@ -60,14 +61,13 @@
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
   import { pastedText } from "@/lib/terminal-input";
-  import { AddRootStatus, SHELL_AGENT_ID, StartMode } from "@/lib/types";
+  import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type {
     Agent,
     AgentSession,
     Ide,
     McpChange,
     OpenTarget,
-    Settings,
     TaskGroup
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
@@ -117,7 +117,7 @@
 
   // Agents excluding the always-present shell fallback — this count decides
   // whether we auto-launch or onboard.
-  const realAgents = $derived(agents.filter(agent => agent.id !== SHELL_AGENT_ID));
+  const realAgents = $derived(toRealAgents(agents));
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
@@ -265,15 +265,6 @@
     });
   }
 
-  // How a spawned window routes off its query string (window_create encodes the
-  // target here). A closed set defined once so no bare literal leaks into boot.
-  const WindowMode = {
-    empty: "empty",
-    temp: "temp",
-    open: "open"
-  } as const;
-  type WindowMode = (typeof WindowMode)[keyof typeof WindowMode];
-
   // Agent detection runs a subprocess per agent, so cap how long the boot waits
   // on it — a stall must never freeze the splash. An empty list just routes to
   // onboarding, and the redetect interval fills it in shortly after.
@@ -340,7 +331,7 @@
   // launch (so the default launch_context path is skipped), false otherwise.
   async function routeFromQuery(query: URLSearchParams): Promise<boolean> {
     const mode = query.get("w");
-    if (mode === WindowMode.temp) {
+    if (mode === WindowMode.enum.temp) {
       const temp = await workspace.temp();
       startAgentFlow({
         path: temp,
@@ -349,12 +340,12 @@
       return true;
     }
 
-    if (mode === WindowMode.empty) {
+    if (mode === WindowMode.enum.empty) {
       phase = Phase.project;
       return true;
     }
 
-    if (mode !== WindowMode.open) {
+    if (mode !== WindowMode.enum.open) {
       return false;
     }
 
@@ -443,8 +434,8 @@
     }
 
     const query = currentProject === ""
-      ? `?w=${WindowMode.empty}`
-      : `?w=${WindowMode.open}&path=${encodeURIComponent(currentProject)}`;
+      ? `?w=${WindowMode.enum.empty}`
+      : `?w=${WindowMode.enum.open}&path=${encodeURIComponent(currentProject)}`;
     if (location.search !== query) {
       history.replaceState(null, "", query);
     }
@@ -624,7 +615,7 @@
     }));
 
   async function openEmptyWindow() {
-    await windows.create({ mode: WindowMode.empty });
+    await windows.create({ mode: WindowMode.enum.empty });
     showToast("Opened a new window");
   }
 
@@ -1493,7 +1484,7 @@
   // clamp enforces, so keyboard and pointer agree.
   function clampSidePanelWidth(proposed: number): number {
     const body = document.querySelector<HTMLElement>(".body");
-    const ceiling = body ? Math.round(body.getBoundingClientRect().width * 0.6) : proposed;
+    const ceiling = body ? Math.round(body.getBoundingClientRect().width * SIDE_PANEL_MAX_FRACTION) : proposed;
     return Math.max(SIDE_PANEL_MIN_WIDTH, Math.min(ceiling, Math.round(proposed)));
   }
 
@@ -1737,6 +1728,8 @@
 
       <main
         style:--side-panel-width="{sidePanelWidth}px"
+        style:--side-panel-min-width="{SIDE_PANEL_MIN_WIDTH}px"
+        style:--side-panel-max-fraction="{SIDE_PANEL_MAX_FRACTION * 100}%"
         class="body"
         class:with-side={side !== null}
         data-resizing={resizingSidePanel || undefined}
@@ -2182,7 +2175,8 @@
        (design: `Math.max(280, Math.min(width*0.6, …))`). The width tweens with
        the emphasized easing so a double-click snap-back to the default animates. */
     &.with-side {
-      grid-template-columns: 1fr clamp(280px, var(--side-panel-width, 380px), 60%);
+      grid-template-columns:
+        1fr clamp(var(--side-panel-min-width), var(--side-panel-width), var(--side-panel-max-fraction));
       transition: grid-template-columns 250ms var(--ease);
 
       @media (prefers-reduced-motion: reduce) {
@@ -2204,7 +2198,7 @@
   .panel-resize {
     position: absolute;
     inset-block: 0;
-    inset-inline-end: clamp(280px, var(--side-panel-width, 380px), 60%);
+    inset-inline-end: clamp(var(--side-panel-min-width), var(--side-panel-width), var(--side-panel-max-fraction));
     z-index: 20;
     display: flex;
     justify-content: center;

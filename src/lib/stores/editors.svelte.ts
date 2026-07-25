@@ -42,6 +42,38 @@ export function editorsFor(project: string): Ide[] {
   return rankedByProject.get(project) ?? [];
 }
 
+/** The first *windowed* (GUI, non-terminal) editor in a ranked list, or
+ *  `undefined` when every candidate is a console editor. This is THE predicate
+ *  for "which editor can reveal/open a file in a detached OS window": a console
+ *  editor (Neovim/Vim/Helix) can't run detached, so surfaces with no terminal
+ *  tab to route it into (the Change Feed reveal, the picker's open-in button)
+ *  resolve their target through here rather than each re-deriving `!terminal`,
+ *  so the reveal target can never drift between them. */
+export function firstWindowedEditor(editors: Ide[]): Ide | undefined {
+  return editors.find(editor => !editor.terminal);
+}
+
+/** Whether a ranked list has any windowed editor to open into. */
+export function hasWindowedEditor(editors: Ide[]): boolean {
+  return firstWindowedEditor(editors) !== undefined;
+}
+
+/** The project's windowed editor — the first non-terminal editor in its ranked
+ *  list (the store's per-project ranking, reactive). `fallback` covers the beat
+ *  before a project's own census has resolved: a caller already holding a ranked
+ *  list (a picker row's props) passes it so the button still resolves a target. */
+export function windowedEditorFor({ path, fallback }: {
+  path: string;
+  fallback?: Ide[];
+}): Ide | undefined {
+  const resolved = firstWindowedEditor(editorsFor(path));
+  if (resolved) {
+    return resolved;
+  }
+
+  return fallback ? firstWindowedEditor(fallback) : undefined;
+}
+
 async function fetchEditors({ project, token }: {
   project: string;
   token: symbol;

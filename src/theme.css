@@ -110,8 +110,13 @@
      spatial motion (cards rising, chips popping, menus springing open). */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
-  --font-ui: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --font-monospace: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+  /* The one authoritative home for the font stacks. lib/prefs composes a chosen
+     UI/mono font on top of these via `var(--font-*-base)` — never re-spelling the
+     fallback list — and App binds the result onto --font-ui/--font-monospace. */
+  --font-ui-base: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-monospace-base: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+  --font-ui: var(--font-ui-base);
+  --font-monospace: var(--font-monospace-base);
 
   /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
      still tracks the user's browser zoom (1rem), and --ui-scale (set from the

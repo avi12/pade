@@ -18,7 +18,7 @@
   import { baseName, parentDirectory, relativeToRoot } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
   import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
-  import { editorsFor, ensureEditors } from "@/lib/stores/editors.svelte";
+  import { ensureEditors, windowedEditorFor } from "@/lib/stores/editors.svelte";
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
@@ -43,8 +43,7 @@
   // a console editor (Neovim/Vim/Helix) can't run detached — handing it to the
   // OS launcher spawns an invisible orphan that locks the workspace cwd — and
   // the feed has no terminal tab to route it into, so it's skipped here.
-  const ides = $derived(editorsFor(project));
-  const revealEditor = $derived(ides.find(editor => !editor.terminal));
+  const revealEditor = $derived(windowedEditorFor({ path: project }));
 
   // The workspace's current git branch (all groups share the one repo/HEAD), for
   // the group-header subtitle. Empty for a non-repo / detached-HEAD workspace.

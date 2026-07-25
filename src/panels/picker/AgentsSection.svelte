@@ -2,7 +2,7 @@
   import { agents as agentsApi } from "@/lib/bridge";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { SHELL_AGENT_ID } from "@/lib/types";
+  import { realAgents as toRealAgents } from "@/lib/types";
   import type { Agent } from "@/lib/types";
   import AgentChips from "@/panels/picker/AgentChips.svelte";
 
@@ -36,7 +36,7 @@
     agentList = incoming;
   });
 
-  const realAgents = $derived(agentList.filter(agent => agent.id !== SHELL_AGENT_ID));
+  const realAgents = $derived(toRealAgents(agentList));
   const showSkeleton = $derived(scanning && realAgents.length === 0);
   const showEmpty = $derived(!scanning && realAgents.length === 0);
   const agentStatus = $derived(agentStatusText());

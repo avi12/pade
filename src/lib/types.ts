@@ -2,6 +2,8 @@
 // data crossing the Rust→TS boundary is validated at runtime; the TS types are
 // inferred from them (never hand-written alongside).
 
+import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
+import { SIDE_PANEL_MAX_WIDTH, SIDE_PANEL_MIN_WIDTH, UI_SCALE_MAX, UI_SCALE_MIN } from "@/lib/prefs-bounds";
 import { z } from "zod";
 
 export const ChangeKind = z.enum(["created", "modified", "deleted"]);
@@ -141,6 +143,20 @@ export type Agent = z.infer<typeof Agent>;
 /** The always-present shell fallback's agent id — the one backend-provided agent
  *  that isn't a real coding agent, so it's excluded from auto-launch/onboarding. */
 export const SHELL_AGENT_ID = "shell";
+
+/** The launchable coding agents — every detected agent except the shell fallback.
+ *  The one home for "which agents are real", so the app top bar, the picker's
+ *  agents list, and quick-start can't drift on what counts as launchable. */
+export function realAgents(agents: readonly Agent[]): Agent[] {
+  return agents.filter(agent => agent.id !== SHELL_AGENT_ID);
+}
+
+/** How a spawned window routes off its `?w=` query string — `window_create`
+ *  (bridge `windows.create`) encodes the target here and the Rust `window` module
+ *  emits the same tokens. The one home for these literals so boot routing, the
+ *  bridge, and the New-window menu can't drift. */
+export const WindowMode = z.enum(["empty", "temp", "open"]);
+export type WindowMode = z.infer<typeof WindowMode>;
 
 /** Where the picker hands a chosen or freshly-created project back to the app:
  *  the project path, plus — for a create — an optional first prompt to seed and
@@ -324,17 +340,17 @@ export const Prefs = z.object({
   autoHandoff: z.boolean().nullish(),
   /** Percent of context at which the auto-handoff cycles the session. Absent =
    *  DEFAULT_CONTEXT_HANDOFF_PERCENTAGE (lib/context-level). */
-  handoffPct: z.number().min(10).max(95).nullish(),
+  handoffPct: z.number().min(MINIMUM_HANDOFF_PERCENTAGE).max(MAXIMUM_HANDOFF_PERCENTAGE).nullish(),
   /** Auto-resume a usage-limited session when its window resets — "continue"
    *  in place, or hand off when the context is nearly full. Opt-out: on unless
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
-  uiScale: z.number().min(0.85).max(1.3).nullish(),
+  uiScale: z.number().min(UI_SCALE_MIN).max(UI_SCALE_MAX).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The
    *  live layout additionally caps it at 60% of the window via a CSS clamp; this
    *  is the persisted drag target. Absent = default 380. */
-  sidePanelWidth: z.number().min(280).max(1200).nullish(),
+  sidePanelWidth: z.number().min(SIDE_PANEL_MIN_WIDTH).max(SIDE_PANEL_MAX_WIDTH).nullish(),
   /** Broadcast a Discord "Playing PADE" rich-presence status. Opt-in: off unless explicitly true. */
   discordPresence: z.boolean().nullish(),
   /** When presence is on, show the current project's name in the status. Default on. */

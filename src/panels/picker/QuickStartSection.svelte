@@ -4,7 +4,7 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow, expandRow } from "@/lib/motion";
   import { rovingTablist } from "@/lib/roving-tabs";
-  import { emptyPathProbe, SHELL_AGENT_ID } from "@/lib/types";
+  import { emptyPathProbe, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
   import {
     CloneUrl,
@@ -45,7 +45,7 @@
   // there's more than one — the Agent row only earns its space when a pick is
   // actually on offer. The chosen agent defaults to the workspace default (or the
   // best-installed), overridable per-create through the chips.
-  const realAgents = $derived(agents.filter(agent => agent.id !== SHELL_AGENT_ID));
+  const realAgents = $derived(toRealAgents(agents));
   const newAgentMulti = $derived(realAgents.length > 1);
   let chosenAgent = $state<string | null>(null);
   const selectedAgent = $derived(chosenAgent ?? defaultAgent ?? realAgents[0]?.id ?? null);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ide } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { editorsFor, refreshEditors } from "@/lib/stores/editors.svelte";
+  import { hasWindowedEditor, refreshEditors, windowedEditorFor } from "@/lib/stores/editors.svelte";
   import type { Ide } from "@/lib/types";
 
   // A picker row's "open this project in your editor" button. It stays a plain,
@@ -17,7 +17,7 @@
     ides: Ide[];
   } = $props();
 
-  const hasGuiEditor = $derived(ides.some(editor => !editor.terminal));
+  const hasGuiEditor = $derived(hasWindowedEditor(ides));
   // True only while a click's best-fit lookup is in flight — the button reflects
   // it (disabled + dimmed) so the ~second `ide.suggest` takes doesn't read as a
   // dead click, and a second click can't stack another lookup.
@@ -31,8 +31,10 @@
     busy = true;
     try {
       await refreshEditors(path);
-      const editor = editorsFor(path).find(candidate => !candidate.terminal)
-        ?? ides.find(candidate => !candidate.terminal);
+      const editor = windowedEditorFor({
+        path,
+        fallback: ides
+      });
       if (!editor) {
         return;
       }
