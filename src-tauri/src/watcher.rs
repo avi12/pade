@@ -843,9 +843,9 @@ const GIT_STATE_FILE_NAMES: &[&str] = &["HEAD", "config"];
 enum GitStateMessage {
     /// `HEAD` or `config` was touched — the displayed state changed.
     StateTouched,
-    /// A `.git` entry appeared under a root that had none — `git init` ran, so
-    /// the watcher must re-arm onto the new repo's state files.
-    GitDirAppeared,
+    /// A `.git` entry appeared or disappeared, so the watcher must switch
+    /// between the root sentinel and the repo's state directories.
+    GitDirChanged,
     /// A `.gitignore` in an ANCESTOR of the watch root was touched (the
     /// recursive feed watch only sees the root's own subtree, but a workspace
     /// deeper than the repo toplevel inherits every ancestor's rules) — the
@@ -875,6 +875,11 @@ fn is_git_state_file(path: &Path) -> bool {
 /// Whether `path` names a `.git` entry (the thing `git init` creates).
 fn is_git_dir_entry(path: &Path) -> bool {
     path.file_name().and_then(|name| name.to_str()) == Some(GIT_DIR_NAME)
+}
+
+fn git_dir_lifecycle_changed(kind: EventKind, paths: &[PathBuf]) -> bool {
+    matches!(kind, EventKind::Create(_) | EventKind::Remove(_))
+        && paths.iter().any(|path| is_git_dir_entry(path))
 }
 
 /// The directories holding the workspace's `HEAD` and `config`, each to be
@@ -967,7 +972,7 @@ fn rearm_git_state_locked(
     let armed = if dirs.is_empty() {
         watch_for_git_init(root, sender)
     } else {
-        watch_git_state(&dirs, &gitignore_ancestor_dirs(root), sender)
+        watch_git_state(root, &dirs, &gitignore_ancestor_dirs(root), sender)
     };
     let Ok(watcher) = armed else {
         return;
@@ -987,10 +992,9 @@ fn watch_for_git_init(
 ) -> notify::Result<RecommendedWatcher> {
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
         let Ok(event) = result else { return };
-        let git_dir_appeared = matches!(event.kind, EventKind::Create(_))
-            && event.paths.iter().any(|path| is_git_dir_entry(path));
+        let git_dir_appeared = git_dir_lifecycle_changed(event.kind, &event.paths);
         if git_dir_appeared {
-            let _ = sender.send(GitStateMessage::GitDirAppeared);
+            let _ = sender.send(GitStateMessage::GitDirChanged);
         }
     })?;
     watcher.watch(root, RecursiveMode::NonRecursive)?;
@@ -1005,6 +1009,7 @@ fn watch_for_git_init(
 /// entries, and the name filters drop the rest (`index`, lockfiles,
 /// `FETCH_HEAD`, sibling files, …) before they cost anything.
 fn watch_git_state(
+    root: &Path,
     dirs: &[PathBuf],
     ancestor_dirs: &[PathBuf],
     sender: Sender<GitStateMessage>,
@@ -1017,6 +1022,9 @@ fn watch_git_state(
         if event.paths.iter().any(|path| is_gitignore_file(path)) {
             let _ = sender.send(GitStateMessage::IgnoreRulesTouched);
         }
+        if git_dir_lifecycle_changed(event.kind, &event.paths) {
+            let _ = sender.send(GitStateMessage::GitDirChanged);
+        }
     })?;
     for dir in dirs {
         watcher.watch(dir, RecursiveMode::NonRecursive)?;
@@ -1025,6 +1033,7 @@ fn watch_git_state(
         // Best-effort: an unwatchable ancestor only costs its rules' liveness.
         let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
     }
+    watcher.watch(root, RecursiveMode::NonRecursive)?;
     Ok(watcher)
 }
 
@@ -1132,7 +1141,7 @@ fn drain_burst(
     let mut burst = GitStateBurst::default();
     let mut fold = |message: GitStateMessage| match message {
         GitStateMessage::StateTouched => burst.state_touched = true,
-        GitStateMessage::GitDirAppeared => burst.rearm = true,
+        GitStateMessage::GitDirChanged => burst.rearm = true,
         GitStateMessage::IgnoreRulesTouched => burst.ignore_touched = true,
     };
     fold(first);
@@ -1541,11 +1550,11 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::{
-        base64_encode, drain_burst, git_state_dirs, ignored_by_static_dirs, image_mime_type,
-        is_git_dir_entry, is_git_state_file, line_count, line_delta, manifest_ignore_dirs,
-        mcp_membership_changed, read_authorized_file, read_preview_text, reclassify,
-        resolve_watch_root, static_ignore_dirs, surfaces, unique_dirs, ChangeKind, GitStateMessage,
-        MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
+        base64_encode, drain_burst, git_dir_lifecycle_changed, git_state_dirs,
+        ignored_by_static_dirs, image_mime_type, is_git_dir_entry, is_git_state_file, line_count,
+        line_delta, manifest_ignore_dirs, mcp_membership_changed, read_authorized_file,
+        read_preview_text, reclassify, resolve_watch_root, static_ignore_dirs, surfaces,
+        unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
     use std::fs;
@@ -1852,6 +1861,23 @@ mod tests {
     }
 
     #[test]
+    fn git_directory_creation_and_removal_both_rearm_the_detector() {
+        let paths = vec![PathBuf::from(r"C:\repo\.git")];
+        assert!(git_dir_lifecycle_changed(
+            notify::EventKind::Create(notify::event::CreateKind::Any),
+            &paths
+        ));
+        assert!(git_dir_lifecycle_changed(
+            notify::EventKind::Remove(notify::event::RemoveKind::Any),
+            &paths
+        ));
+        assert!(!git_dir_lifecycle_changed(
+            notify::EventKind::Modify(notify::event::ModifyKind::Any),
+            &paths
+        ));
+    }
+
+    #[test]
     fn unique_dirs_trims_dedupes_and_skips_empty_lines() {
         let dirs =
             unique_dirs([" C:/repo/.git ", "", "C:/repo/.git", "C:/common/.git"].into_iter());
@@ -1899,7 +1925,7 @@ mod tests {
     fn a_burst_coalesces_every_distinct_effect() {
         let (sender, receiver) = channel::<GitStateMessage>();
         sender
-            .send(GitStateMessage::GitDirAppeared)
+            .send(GitStateMessage::GitDirChanged)
             .expect("send buffered message");
         sender
             .send(GitStateMessage::IgnoreRulesTouched)

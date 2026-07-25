@@ -74,6 +74,9 @@ writes.
   store (`lib/stores/feed`) that owns the single live subscription, so switching the
   side panel away from the feed and back no longer empties it (the panel unmounts on
   every switch; the backend keeps no replay). Cleared on a workspace switch.
+- R1.2.10 ✅ Git state follows repository lifecycle changes. Creating or removing
+  the workspace's `.git` entry re-arms the non-recursive state watcher and emits
+  fresh Git/ignore state without polling.
 
 ### 1.3 Highlight → Agent bridge (✅)
 - R1.3.1 Selecting text in a side panel offers "Send to agent".
