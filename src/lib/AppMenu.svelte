@@ -6,6 +6,7 @@
   import Logo from "@/lib/Logo.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
+  import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
@@ -365,8 +366,10 @@
 <span class="menu-host">
   <button
     class="trigger menu-trigger"
+    {@attach openRepositoryOnModifiedClick({ project: path })}
     aria-haspopup="menu"
-    aria-label={`Switch project · Ctrl P — ${label}`}
+    aria-label={`Switch project · Ctrl P · Ctrl-click opens repository — ${label}`}
+    data-tooltip="Switch project · Ctrl-click opens repository"
     popovertarget="m-app"
   >
     <Logo size={18} />

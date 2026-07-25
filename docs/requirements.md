@@ -89,6 +89,10 @@ writes.
 - R1.4.1 Behind a git seam (MVP: `git` CLI; `git2`/`gix`/jj later 🔭).
 - R1.4.2 ✅ Working-tree status grouped: unstaged = "unreviewed", staged separate.
 - R1.4.3 ✅ Recent commits (log) with author, message, relative time.
+- R1.4.3a ✅ Ctrl/Cmd-clicking the top-left project button opens the repository
+  root in the system browser, while a plain click still opens the project menu.
+  A missing remote or opener failure is surfaced instead of silently doing
+  nothing.
 - R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/diff.ts`; wash tokens).
 - R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
 - R1.4.6 ⏳ Manual commit path (agent-oriented by default, not exclusive).
