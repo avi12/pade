@@ -1360,10 +1360,10 @@ pub async fn feed_diff(
     };
     let before = {
         let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
-        match baselines.get(Path::new(&path)) {
-            Some(Some(text)) => text.clone(),
-            _ => return Ok(None),
-        }
+        let Some(Some(text)) = baselines.get(Path::new(&path)) else {
+            return Ok(None);
+        };
+        text.clone()
     };
 
     let Some(canonical_root) = canonical_watch_root(&watch) else {

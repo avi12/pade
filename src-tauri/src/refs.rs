@@ -423,12 +423,16 @@ fn relink_dir(dir: &Path, old: &str, new: &str) {
         };
         if metadata.file_type().is_symlink() {
             remap_link(&path, old, new);
-        } else if metadata.is_dir() {
-            let is_git_directory = path.file_name().and_then(|name| name.to_str()) == Some(".git");
-            if !is_git_directory {
-                relink_dir(&path, old, new);
-            }
+            continue;
         }
+        if !metadata.is_dir() {
+            continue;
+        }
+        let is_git_directory = path.file_name().and_then(|name| name.to_str()) == Some(".git");
+        if is_git_directory {
+            continue;
+        }
+        relink_dir(&path, old, new);
     }
 }
 

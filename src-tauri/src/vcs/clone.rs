@@ -244,28 +244,30 @@ fn clone_repository(
         return Err(stderr.replace(&clone_url, &https_url(url).unwrap_or_default()));
     }
 
-    if credentials_supplied {
-        let clean = https_url(url).ok_or("unrecognized repository URL")?;
-        let sanitized = command("git")
-            .arg("-C")
-            .arg(&destination)
-            .args(["remote", "set-url", "origin", &clean])
-            .output()
-            .map_err(|e| format!("failed to sanitize cloned remote: {e}"))?;
-        if !sanitized.status.success() {
-            let _ = std::fs::remove_dir_all(&destination);
-            return Err("could not remove credentials from the cloned remote".into());
-        }
-        let stored = command("git")
-            .arg("-C")
-            .arg(&destination)
-            .args(["remote", "get-url", "origin"])
-            .output()
-            .map_err(|e| format!("failed to verify cloned remote: {e}"))?;
-        if !stored.status.success() || String::from_utf8_lossy(&stored.stdout).trim() != clean {
-            let _ = std::fs::remove_dir_all(&destination);
-            return Err("could not verify the credential-free cloned remote".into());
-        }
+    if !credentials_supplied {
+        return Ok(destination.to_string_lossy().into_owned());
+    }
+
+    let clean = https_url(url).ok_or("unrecognized repository URL")?;
+    let sanitized = command("git")
+        .arg("-C")
+        .arg(&destination)
+        .args(["remote", "set-url", "origin", &clean])
+        .output()
+        .map_err(|e| format!("failed to sanitize cloned remote: {e}"))?;
+    if !sanitized.status.success() {
+        let _ = std::fs::remove_dir_all(&destination);
+        return Err("could not remove credentials from the cloned remote".into());
+    }
+    let stored = command("git")
+        .arg("-C")
+        .arg(&destination)
+        .args(["remote", "get-url", "origin"])
+        .output()
+        .map_err(|e| format!("failed to verify cloned remote: {e}"))?;
+    if !stored.status.success() || String::from_utf8_lossy(&stored.stdout).trim() != clean {
+        let _ = std::fs::remove_dir_all(&destination);
+        return Err("could not verify the credential-free cloned remote".into());
     }
 
     Ok(destination.to_string_lossy().into_owned())
