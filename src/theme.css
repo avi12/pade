@@ -110,6 +110,7 @@
      spatial motion (cards rising, chips popping, menus springing open). */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+
   /* The one authoritative home for the font stacks. lib/prefs composes a chosen
      UI/mono font on top of these via `var(--font-*-base)` — never re-spelling the
      fallback list — and App binds the result onto --font-ui/--font-monospace. */
@@ -786,6 +787,17 @@ textarea {
 /* Native popovers (menus) reveal with a spring; light-dismiss is handled by the
    platform. `@starting-style` gives the enter transition its from-state, and
    `allow-discrete` animates display/overlay so the exit plays too. */
+
+/* The hover underline the terminal link provider paints over a URL's glyphs.
+   Lives here because the elements are appended into xterm's own screen DOM
+   (outside any component's scoped styles); only their position is set inline. */
+.terminal-link-underline {
+  position: absolute;
+  box-sizing: border-box;
+  border-block-end: 2px solid var(--primary);
+  pointer-events: none;
+}
+
 [popover] {
   margin: 0;
   opacity: 0%;

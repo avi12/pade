@@ -1,13 +1,17 @@
 import { computeLinks, registerWrappedLinkProvider } from "@/lib/terminal-links";
+import type { ILink } from "@xterm/xterm";
 import { describe, expect, it } from "vitest";
 
 // The `computeLinks`-shaped bits a registration mock needs so it structurally
 // satisfies the exported parameter without a type assertion.
 const emptyBuffer = {
   cols: 80,
+  rows: 24,
+  element: undefined,
   buffer: {
     active: {
-      getLine: () => undefined
+      getLine: () => undefined,
+      viewportY: 0
     }
   }
 };
@@ -18,8 +22,6 @@ const emptyBuffer = {
 interface MockRow {
   text: string;
   wrapped?: boolean;
-  // Marks the whole row's glyphs as SGR-underlined, as opencode paints its links.
-  underlined?: boolean;
 }
 
 function makeTerminal({ rows, columns }: {
@@ -37,9 +39,7 @@ function makeTerminal({ rows, columns }: {
       length: columns,
       getCell(column: number) {
         return {
-          getChars: () => row.text[column] ?? "",
-          // Mirror xterm: a number (0 / non-zero), not a boolean.
-          isUnderline: () => (row.underlined === true ? 1 : 0)
+          getChars: () => row.text[column] ?? ""
         };
       }
     };
@@ -53,6 +53,18 @@ function makeTerminal({ rows, columns }: {
       }
     }
   };
+}
+
+// A wrapped URL is returned as one link per row; each must stay on a single row
+// so xterm never treats an intermediate cell (padding) as part of the link.
+function expectEverySpanSingleRow(links: ILink[]): void {
+  for (const link of links) {
+    expect(link.range.start.y).toBe(link.range.end.y);
+  }
+}
+
+function textsOf(links: ILink[]): string[] {
+  return links.map(link => link.text);
 }
 
 describe("computeLinks", () => {
@@ -81,7 +93,7 @@ describe("computeLinks", () => {
     });
   });
 
-  it("rejoins a URL the terminal soft-wrapped onto column 0", () => {
+  it("rejoins a URL the terminal soft-wrapped onto column 0, as one span per row", () => {
     const url = "https://example.com/verylongpath";
     const links = computeLinks({
       terminal: makeTerminal({
@@ -98,18 +110,45 @@ describe("computeLinks", () => {
       openUrl() {}
     });
 
-    expect(links).toHaveLength(1);
-    expect(links[0].text).toBe(url);
+    // One link per row; both open the whole URL, neither range crosses rows.
+    expect(links).toHaveLength(2);
+    expect(textsOf(links)).toEqual([url, url]);
+    expectEverySpanSingleRow(links);
     expect(links[0].range).toEqual({
       start: {
         x: 1,
         y: 1
       },
       end: {
+        x: 20,
+        y: 1
+      }
+    });
+    expect(links[1].range).toEqual({
+      start: {
+        x: 1,
+        y: 2
+      },
+      end: {
         x: 12,
         y: 2
       }
     });
+    // Both per-row links carry the whole URL's spans, so hovering either
+    // underlines the entire address.
+    expect(links[0].spans).toEqual(links[1].spans);
+    expect(links[0].spans).toEqual([
+      {
+        row: 0,
+        startColumn: 0,
+        endColumn: 19
+      },
+      {
+        row: 1,
+        startColumn: 0,
+        endColumn: 11
+      }
+    ]);
   });
 
   it("rejoins a URL hard-wrapped onto column 0 (upper row filled to the edge)", () => {
@@ -126,17 +165,12 @@ describe("computeLinks", () => {
       openUrl() {}
     });
 
-    expect(links).toHaveLength(1);
-    expect(links[0].text).toBe(url);
-    expect(links[0].range).toEqual({
-      start: {
-        x: 1,
-        y: 1
-      },
-      end: {
-        x: 12,
-        y: 2
-      }
+    expect(links).toHaveLength(2);
+    expect(textsOf(links)).toEqual([url, url]);
+    expectEverySpanSingleRow(links);
+    expect(links[1].range.end).toEqual({
+      x: 12,
+      y: 2
     });
   });
 
@@ -156,18 +190,40 @@ describe("computeLinks", () => {
       openUrl() {}
     });
 
-    expect(links).toHaveLength(1);
-    expect(links[0].text).toBe(url);
-    expect(links[0].range).toEqual({
-      start: {
-        x: 1,
-        y: 1
-      },
-      end: {
-        x: 15,
-        y: 2
-      }
+    expect(links).toHaveLength(2);
+    expect(textsOf(links)).toEqual([url, url]);
+    expectEverySpanSingleRow(links);
+    // Upper span ends at the URL's last glyph (col 19), never the padded edge.
+    expect(links[0].range.end).toEqual({
+      x: 19,
+      y: 1
     });
+    // Lower span starts at the indent, not column 0.
+    expect(links[1].range.start).toEqual({
+      x: 3,
+      y: 2
+    });
+  });
+
+  it("does not make the blank padding of a self-wrapped row clickable", () => {
+    // The upper row ends mid-URL far short of a wide terminal's edge; the columns
+    // between the URL and the edge are padding an agent left before it wrapped.
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [
+          { text: "https://example.com/very" },
+          { text: "longpath/here" }
+        ],
+        columns: 60
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expectEverySpanSingleRow(links);
+    // The upper span stops at the last URL glyph (col 24 → x24), so no cell in
+    // the 25..60 padding is inside any link range.
+    expect(links[0].range.end.x).toBe(24);
   });
 
   it("stops a full-width URL short of the box-drawing rule below it", () => {
@@ -210,10 +266,14 @@ describe("computeLinks", () => {
       openUrl() {}
     });
 
-    expect(links).toHaveLength(2);
+    expectEverySpanSingleRow(links);
+    // The first URL fits on one row; the second wraps, so it contributes two
+    // per-row spans — three links, two distinct URLs.
+    expect(links).toHaveLength(3);
     expect(links[0].text).toBe(first);
-    expect(links[1].text).toBe(second);
-    expect(links[1].range.end.y).toBe(2);
+    const secondSpans = links.filter(link => link.text === second);
+    expect(secondSpans).toHaveLength(2);
+    expect(secondSpans.map(link => link.range.start.y)).toEqual([1, 2]);
   });
 
   it("keeps two rule-padded tool-call rows as separate links", () => {
@@ -237,6 +297,7 @@ describe("computeLinks", () => {
       openUrl() {}
     });
 
+    // Only the upper row is in this logical line, so only its URL is returned.
     expect(links).toHaveLength(1);
     expect(links[0].text).toBe(first);
     expect(links[0].range.end.y).toBe(1);
@@ -262,13 +323,61 @@ describe("computeLinks", () => {
         openUrl() {}
       });
 
-      expect(links).toHaveLength(1);
-      expect(links[0].text).toBe(url);
-      // The whole URL is covered — from the upper row into the indented lower
-      // row — and the trailing `)` that closed the markdown link is left out.
+      // One span per row, both opening the whole URL; neither crosses rows.
+      expect(links).toHaveLength(2);
+      expect(textsOf(links)).toEqual([url, url]);
+      expectEverySpanSingleRow(links);
       expect(links[0].range.start.y).toBe(1);
-      expect(links[0].range.end.y).toBe(2);
-      expect(links[0].range.end.x).toBe(36);
+      expect(links[1].range.start.y).toBe(2);
+      // The lower span ends at the last URL glyph (col 35 → x36); the trailing
+      // `)` that closed the markdown link is left out.
+      expect(links[1].range.end.x).toBe(36);
+    }
+  });
+
+  it("stitches a self-wrap whose upper row ends on a domain dot", () => {
+    // The upper row ends with `.` — a character the URL pattern trims as trailing
+    // punctuation. A continuation test that inspects the ending would give up
+    // here; matching across the joined seam must not. Same shape holds for any
+    // ending the pattern trims (`,`, `:`, `?`).
+    const url = "https://job-boards.greenhouse.io/neosecurityinc/jobs/4323679009";
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [
+          { text: "5. Neo (https://job-boards.greenhouse." },
+          { text: "   io/neosecurityinc/jobs/4323679009)" }
+        ],
+        columns: 90
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(links).toHaveLength(2);
+    expect(textsOf(links)).toEqual([url, url]);
+    expect(links[1].range.start.y).toBe(2);
+  });
+
+  it("stitches host-only URL shapes (localhost, port, IPv6) across a self-wrap", () => {
+    for (const [upper, lower, url] of [
+      ["visit http://localhost:300", "0/dashboard here", "http://localhost:3000/dashboard"],
+      ["see https://[::1]:8080/api", "/health now", "https://[::1]:8080/api/health"],
+      ["at http://192.168.1.10/adm", "in/settings ok", "http://192.168.1.10/admin/settings"]
+    ] as const) {
+      const links = computeLinks({
+        terminal: makeTerminal({
+          rows: [
+            { text: upper },
+            { text: lower }
+          ],
+          columns: 60
+        }),
+        bufferLineNumber: 1,
+        openUrl() {}
+      });
+
+      expect(textsOf(links)).toContain(url);
+      expect(links.some(link => link.range.start.y === 2)).toBe(true);
     }
   });
 
@@ -291,37 +400,6 @@ describe("computeLinks", () => {
     expect(links).toHaveLength(1);
     expect(links[0].text).toBe("https://developer.chrome.com/docs");
     expect(links[0].range.end.y).toBe(1);
-  });
-
-  it("suppresses its own underline when the agent already underlines the URL", () => {
-    // opencode paints its links as underlined text; a second, xterm-drawn
-    // underline is redundant and pads the wrapped row out to the edge.
-    const [link] = computeLinks({
-      terminal: makeTerminal({
-        rows: [{
-          text: "See https://example.com/page now",
-          underlined: true
-        }],
-        columns: 40
-      }),
-      bufferLineNumber: 1,
-      openUrl() {}
-    });
-
-    expect(link.decorations?.underline).toBe(false);
-  });
-
-  it("keeps its own underline for a plain, un-styled URL", () => {
-    const [link] = computeLinks({
-      terminal: makeTerminal({
-        rows: [{ text: "See https://example.com/page now" }],
-        columns: 40
-      }),
-      bufferLineNumber: 1,
-      openUrl() {}
-    });
-
-    expect(link.decorations).toBeUndefined();
   });
 
   it("joins two full prose rows without inventing a link", () => {

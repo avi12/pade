@@ -87,12 +87,6 @@ interface LogicalLine {
 // satisfies it structurally.
 interface LinkCell {
   getChars(): string;
-  // The cell's SGR underline attribute — non-zero when the AGENT itself rendered
-  // the run as underlined (opencode paints its links this way). xterm returns a
-  // number (0, or an underline-style code), so callers test truthiness, never
-  // `=== true`. Optional so a test mock can omit it; absent reads as not
-  // underlined.
-  isUnderline?(): number | boolean;
 }
 interface LinkLine {
   isWrapped: boolean;
@@ -208,50 +202,38 @@ function rowGlyphs({ line, content }: {
   };
 }
 
-// The URL that runs to the very end of `text`, or null when the text doesn't end
-// mid-URL. A row ending inside a URL is the tell-tale of a wrap: the program had
-// more URL to write but ran out of its content width.
-function trailingUrl(text: string): string | null {
-  const pattern = new RegExp(URL_PATTERN.source, "g");
-  let last: RegExpExecArray | null = null;
-  for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
-    last = match;
-  }
-
-  if (!last || last.index + last[0].length !== text.length) {
-    return null;
-  }
-
-  return last[0];
-}
-
-// How many extra URL characters the lower row must contribute before we treat it
-// as continuing the upper row's URL, so a fresh line whose leading glyph merely
-// happens to be a URL byte (Claude's `%` tool-call marker, then a space) doesn't
-// get glued onto the URL above it.
+// How many characters past the row boundary the resumed URL must reach before we
+// treat the lower row as continuing it, so a fresh line whose first glyph merely
+// happens to be a URL byte (Claude's `%` tool-call marker, then a space) isn't
+// glued onto the URL above.
 const MIN_URL_CONTINUATION = 2;
 
-// Whether the lower row resumes a URL the upper row broke mid-way. Unlike the
-// geometric edge test, this catches a fullscreen agent that self-wrapped a URL
-// at a content width NARROWER than the terminal, leaving the upper row ending
-// mid-URL well short of the physical right edge (an indented continuation under a
-// wide pane). The upper row must end inside a URL, and appending the lower row's
-// text must extend that same URL by more than a stray byte.
+// Whether a URL begins on the upper row and runs across the boundary into the
+// lower row — the tell-tale of a program that self-wrapped a URL at a content
+// width narrower than the terminal. It deliberately does NOT inspect how the
+// upper row ends: the URL pattern trims a trailing `.`/`,`/`:` (it can't know a
+// `.` is a domain dot until the next row's glyphs arrive), so an ending test
+// misfires on hosts like `…greenhouse.` while passing `…view/`. Joining the rows
+// and letting the URL regex match across the seam is shape-agnostic — it holds
+// for host-only, `localhost`, IPv6 `[::1]`, bare IPs, ports, and fragments alike.
+// A qualifying match must start on the upper row and reach at least
+// `MIN_URL_CONTINUATION` chars past the boundary.
 function urlContinuesOntoLower({ upperText, lowerText }: {
   upperText: string;
   lowerText: string;
 }): boolean {
-  const trailing = trailingUrl(upperText);
-  if (!trailing) {
-    return false;
+  const boundary = upperText.length;
+  const joined = upperText + lowerText;
+  const pattern = new RegExp(URL_PATTERN.source, "g");
+  for (let match = pattern.exec(joined); match !== null; match = pattern.exec(joined)) {
+    const startsOnUpperRow = match.index < boundary;
+    const reachesIntoLowerRow = match.index + match[0].length >= boundary + MIN_URL_CONTINUATION;
+    if (startsOnUpperRow && reachesIntoLowerRow) {
+      return true;
+    }
   }
 
-  const continued = new RegExp(URL_PATTERN.source).exec(trailing + lowerText);
-  if (!continued || continued.index !== 0) {
-    return false;
-  }
-
-  return continued[0].length >= trailing.length + MIN_URL_CONTINUATION;
+  return false;
 }
 
 // Whether the row just below `row` continues it as one logical line. The
@@ -388,73 +370,98 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
   };
 }
 
-// Whether the agent already painted this URL's cells with the SGR underline
-// attribute (opencode renders its links as underlined blue text, parens and
-// all). When it did, xterm's own link-hover underline is redundant — and worse,
-// it fills the wrapped row out to the right edge, underlining the blank padding
-// the agent left before the wrap. Sampling the URL's first cell is enough: the
-// whole run shares one style.
-function agentAlreadyUnderlines({ buffer, startCell }: {
-  buffer: LinkBuffer;
-  startCell: CellPosition;
-}): boolean {
-  const cell = buffer.getLine(startCell.row)?.getCell(startCell.column);
-  return Boolean(cell?.isUnderline?.());
+// One contiguous run of a URL's glyphs on a single buffer row: the tight column
+// span the URL occupies there.
+interface RowSpan {
+  row: number;
+  startColumn: number;
+  endColumn: number;
 }
 
-// Detect every clickable URL that passes through the clicked buffer line, mapped
-// back to its exact start and end cells so the hover range covers the whole URL
-// even when it self-wrapped across indented rows.
+// Group a URL's per-character cells into one span per row. Cells arrive in
+// reading order — left to right within a row, top to bottom across rows — so a
+// same-row cell only ever extends the current span's end.
+function rowSpans(urlCells: CellPosition[]): RowSpan[] {
+  const spans: RowSpan[] = [];
+  for (const cell of urlCells) {
+    const current = spans.at(-1);
+    if (current && current.row === cell.row) {
+      current.endColumn = cell.column;
+      continue;
+    }
+
+    spans.push({
+      row: cell.row,
+      startColumn: cell.column,
+      endColumn: cell.column
+    });
+  }
+
+  return spans;
+}
+
+// A clickable URL, plus every row-span it occupies. The `range` is this link's
+// own single row (so xterm's hit-testing stays tight — a self-wrapping agent's
+// blank padding, outside any span, is never clickable); `spans` is the whole URL
+// across all its rows, so hovering any part can underline the entire address.
+export interface WrappedLink extends ILink {
+  spans: RowSpan[];
+}
+
+// Detect every clickable URL passing through the clicked buffer line. A URL that
+// wraps across rows becomes ONE link PER ROW: a single multi-row `range` would
+// make xterm treat every cell between start and end as the link, so the blank
+// padding a self-wrapping agent leaves before the wrap would be clickable (and,
+// for the built-in underline, filled to the edge). Per-row single-row ranges hug
+// the glyphs instead. Each per-row link carries the URL's full span list and its
+// whole text, so hovering any row underlines the entire URL and a click anywhere
+// opens it whole. (xterm's own web-links addon uses one multi-row range, but only
+// stitches genuine soft-wraps, where the upper row is full to the edge with no
+// padding to expose.)
 export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
   terminal: LinkTerminal;
   bufferLineNumber: number;
   openUrl: (uri: string) => void;
-}): ILink[] {
-  const buffer = terminal.buffer.active;
+}): WrappedLink[] {
   const { text, cells } = buildLogicalLine({
-    buffer,
+    buffer: terminal.buffer.active,
     columns: terminal.cols,
     anchorRow: bufferLineNumber - 1
   });
   // A fresh global copy per call so `lastIndex` never leaks between lines.
   const pattern = new RegExp(URL_PATTERN.source, "g");
 
-  const links: ILink[] = [];
+  const links: WrappedLink[] = [];
   let match = pattern.exec(text);
   while (match) {
     const uri = match[0];
     if (isUrl(uri)) {
-      const startCell = cells[match.index];
-      const endCell = cells[match.index + uri.length - 1];
-      const link: ILink = {
-        text: uri,
-        // Ranges are 1-based and end-inclusive; both cells carry 0-based buffer
-        // positions, so every edge gains 1.
-        range: {
-          start: {
-            x: startCell.column + 1,
-            y: startCell.row + 1
+      const spans = rowSpans(cells.slice(match.index, match.index + uri.length));
+      for (const span of spans) {
+        links.push({
+          text: uri,
+          // Ranges are 1-based and end-inclusive; source columns are 0-based, so
+          // every edge gains 1.
+          range: {
+            start: {
+              x: span.startColumn + 1,
+              y: span.row + 1
+            },
+            end: {
+              x: span.endColumn + 1,
+              y: span.row + 1
+            }
           },
-          end: {
-            x: endCell.column + 1,
-            y: endCell.row + 1
-          }
-        },
-        activate: (_event: MouseEvent, activatedUri: string) => openUrl(activatedUri)
-      };
-      // Don't add a second underline (and its wrapped-row edge padding) over a
-      // URL the agent already underlines — keep it clickable, styled as the
-      // agent drew it.
-      if (agentAlreadyUnderlines({
-        buffer,
-        startCell
-      })) {
-        link.decorations = {
-          underline: false
-        };
+          // Built-in underline off — the provider paints its own over every span
+          // (see `withHoverUnderline`); keep the pointer cursor so it reads as a link.
+          decorations: {
+            underline: false,
+            pointerCursor: true
+          },
+          spans,
+          activate: (_event: MouseEvent, activatedUri: string) => openUrl(activatedUri)
+        });
       }
-
-      links.push(link);
     }
 
     match = pattern.exec(text);
@@ -463,11 +470,71 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
   return links;
 }
 
-// The slice of xterm's `Terminal` this registration needs: everything
-// `computeLinks` reads (via `LinkTerminal`) plus `registerLinkProvider`. Narrow
-// enough that a test builds a plain mock, while the real `Terminal` satisfies it.
-interface RegisterableTerminal extends LinkTerminal {
+// The slice of xterm's `Terminal` this registration needs: what `computeLinks`
+// reads, plus `registerLinkProvider` and the DOM/geometry the hover overlay uses
+// (`element` to reach the screen, `rows` + `viewportY` to map a buffer row to a
+// viewport row). Narrow enough that a test builds a plain mock, while the real
+// `Terminal` satisfies it structurally.
+interface RegisterableTerminal {
+  cols: number;
+  rows: number;
+  element?: HTMLElement;
+  buffer: {
+    active: LinkBuffer & {
+      viewportY: number;
+    };
+  };
   registerLinkProvider(provider: ILinkProvider): unknown;
+}
+
+// xterm's screen element and its cell geometry, or null before the terminal has
+// mounted. The screen is exactly `cols × rows` cells with no padding, so a cell's
+// pixel size is just the screen size over the grid — no need to reach into
+// xterm's private render service.
+function screenGeometry(terminal: RegisterableTerminal): {
+  screen: HTMLElement;
+  cellWidth: number;
+  cellHeight: number;
+} | null {
+  const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
+  if (!screen) {
+    return null;
+  }
+
+  return {
+    screen,
+    cellWidth: screen.clientWidth / terminal.cols,
+    cellHeight: screen.clientHeight / terminal.rows
+  };
+}
+
+// Paint a tight underline under every row-span of a hovered URL, appended into
+// xterm's screen so it scrolls with the text; returns the elements to remove on
+// leave. A span above or below the viewport maps to an off-screen row and is
+// simply positioned there (xterm clips its screen), so nothing extra is needed.
+function paintUnderline({ terminal, spans }: {
+  terminal: RegisterableTerminal;
+  spans: RowSpan[];
+}): HTMLElement[] {
+  const geometry = screenGeometry(terminal);
+  if (!geometry) {
+    return [];
+  }
+
+  const viewportRow = terminal.buffer.active.viewportY;
+  const painted: HTMLElement[] = [];
+  for (const span of spans) {
+    const underline = document.createElement("div");
+    underline.className = "terminal-link-underline";
+    underline.style.left = `${span.startColumn * geometry.cellWidth}px`;
+    underline.style.top = `${(span.row - viewportRow) * geometry.cellHeight}px`;
+    underline.style.width = `${(span.endColumn - span.startColumn + 1) * geometry.cellWidth}px`;
+    underline.style.height = `${geometry.cellHeight}px`;
+    geometry.screen.appendChild(underline);
+    painted.push(underline);
+  }
+
+  return painted;
 }
 
 // xterm's ordered list of link providers — its own OSC-8 provider is registered
@@ -539,13 +606,15 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
 }): void {
   const provider: ILinkProvider = {
     provideLinks(bufferLineNumber, callback) {
-      callback(
-        computeLinks({
-          terminal,
-          bufferLineNumber,
-          openUrl
-        })
-      );
+      const links = computeLinks({
+        terminal,
+        bufferLineNumber,
+        openUrl
+      });
+      callback(links.map(link => withHoverUnderline({
+        terminal,
+        link
+      })));
     }
   };
   terminal.registerLinkProvider(provider);
@@ -553,4 +622,37 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
     terminal,
     provider
   });
+}
+
+// Wrap a computed link so hovering paints a tight underline over the WHOLE URL —
+// every row-span, not just the hovered one — and leaving (or discarding the link)
+// removes it. The built-in underline is off, so these elements own the visual.
+function withHoverUnderline({ terminal, link }: {
+  terminal: RegisterableTerminal;
+  link: WrappedLink;
+}): ILink {
+  let painted: HTMLElement[] = [];
+  function clear(): void {
+    for (const underline of painted) {
+      underline.remove();
+    }
+
+    painted = [];
+  }
+
+  return {
+    text: link.text,
+    range: link.range,
+    decorations: link.decorations,
+    activate: link.activate,
+    hover() {
+      clear();
+      painted = paintUnderline({
+        terminal,
+        spans: link.spans
+      });
+    },
+    leave: clear,
+    dispose: clear
+  };
 }
