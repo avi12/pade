@@ -366,16 +366,6 @@
     }
 
     status = SessionStatus.enum.working;
-
-    // The agent went to work right after we submitted the first prompt — that's
-    // it consuming the prompt, so the delivery is done. Latch it here (not just on
-    // the echo) so a successor reading its handoff doc and continuing — output
-    // that pushes the prompt out of `recentOutput` — never gets re-prompted.
-    if (promptSubmitted && !promptDelivered) {
-      promptDelivered = true;
-      clearTimeout(promptVerifyTimer);
-    }
-
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       if (status === SessionStatus.enum.working) {
@@ -411,15 +401,19 @@
   // does the attempt repeats on a short timer — a deliberate poll, since no
   // event announces "the TUI now reads input". Bounded so an agent that renders
   // the prompt unrecognizably can't be pasted at forever.
+  // Longer than IDLE_MS (1500): a submit's paste-echo alone flips the session to
+  // `working`, but with nothing behind it the idle timer settles it back to
+  // `ready` at 1500ms. Verifying at 2000ms therefore tells the two apart — still
+  // `working` here means the agent is genuinely processing the prompt, not just
+  // echoing the paste.
   const PROMPT_ECHO_VERIFY_MS = 2_000;
   const PROMPT_MAX_ATTEMPTS = 8;
   let promptAttempts = 0;
-  // True once a submit has been written but not yet confirmed landed. The moment
-  // the agent then flips to `working` it has taken the prompt up — a far more
-  // reliable "delivered" signal than the echo, which scrolls out of the rolling
-  // tail as soon as the successor's first turn prints more than a few KB and used
-  // to make delivery re-fire and re-paste the "continue" prompt on every idle.
-  let promptSubmitted = false;
+  // A submit is written and waiting for its 2000ms verdict. The idle handler
+  // fires its own re-check at IDLE_MS (1500) — before the verdict — so it must
+  // not re-enter delivery meanwhile, or it would re-paste (or prematurely latch)
+  // while the verify timer is still deciding. The verify callback owns the retry.
+  let awaitingVerify = false;
   let promptVerifyTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Once the agent has settled quiet — done booting, past the trust gate — paste
@@ -428,7 +422,7 @@
   // trailing ENTER a separate, submitting keystroke (a raw write folds that CR
   // into the paste and leaves the prompt unsent).
   async function deliverInitialPromptIfReady() {
-    if (!session.initialPrompt || promptDelivered) {
+    if (!session.initialPrompt || promptDelivered || awaitingVerify) {
       return;
     }
 
@@ -457,15 +451,23 @@
     }
 
     promptAttempts += 1;
-    promptSubmitted = true;
+    awaitingVerify = true;
     await writeToPty(submittedPrompt(session.initialPrompt));
-    // Verify shortly: if the echo hasn't appeared and the session sits quiet at
-    // ready, the TUI wasn't reading yet — try again.
+    // Verify shortly. Still `working` at 2000ms means the agent took the prompt
+    // up and is running it — delivery is done, so latch it and never re-paste
+    // (this is what stops a handoff successor, whose first turn scrolls the echo
+    // out of `recentOutput`, from being re-prompted). Back at `ready` means the
+    // paste didn't land — the TUI wasn't reading yet — so try again.
     clearTimeout(promptVerifyTimer);
     promptVerifyTimer = setTimeout(() => {
-      if (status === SessionStatus.enum.ready) {
-        deliverInitialPromptIfReady();
+      awaitingVerify = false;
+
+      if (status === SessionStatus.enum.working) {
+        promptDelivered = true;
+        return;
       }
+
+      deliverInitialPromptIfReady();
     }, PROMPT_ECHO_VERIFY_MS);
   }
 
