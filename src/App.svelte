@@ -2166,6 +2166,15 @@
   }
 
   .body {
+    /* The side column's resolved width — one authoritative expression the grid
+       track and the drag divider both read, so they can never clamp differently. */
+    --side-panel-track:
+      clamp(
+        var(--side-panel-min-width),
+        var(--side-panel-width),
+        var(--side-panel-max-fraction)
+      );
+
     position: relative;
     display: grid;
     flex: 1;
@@ -2183,8 +2192,7 @@
        (design: `Math.max(280, Math.min(width*0.6, …))`). The width tweens with
        the emphasized easing so a double-click snap-back to the default animates. */
     &.with-side {
-      grid-template-columns:
-        1fr clamp(var(--side-panel-min-width), var(--side-panel-width), var(--side-panel-max-fraction));
+      grid-template-columns: 1fr var(--side-panel-track);
       transition: grid-template-columns 250ms var(--ease);
 
       @media (prefers-reduced-motion: reduce) {
@@ -2206,7 +2214,7 @@
   .panel-resize {
     position: absolute;
     inset-block: 0;
-    inset-inline-end: clamp(var(--side-panel-min-width), var(--side-panel-width), var(--side-panel-max-fraction));
+    inset-inline-end: var(--side-panel-track);
     z-index: 20;
     display: flex;
     justify-content: center;
