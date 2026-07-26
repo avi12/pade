@@ -87,6 +87,12 @@ interface LogicalLine {
 // satisfies it structurally.
 interface LinkCell {
   getChars(): string;
+  // The cell's SGR underline attribute — non-zero when the AGENT itself rendered
+  // the run as underlined (opencode paints its links this way). xterm returns a
+  // number (0, or an underline-style code), so callers test truthiness, never
+  // `=== true`. Optional so a test mock can omit it; absent reads as not
+  // underlined.
+  isUnderline?(): number | boolean;
 }
 interface LinkLine {
   isWrapped: boolean;
@@ -382,6 +388,20 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
   };
 }
 
+// Whether the agent already painted this URL's cells with the SGR underline
+// attribute (opencode renders its links as underlined blue text, parens and
+// all). When it did, xterm's own link-hover underline is redundant — and worse,
+// it fills the wrapped row out to the right edge, underlining the blank padding
+// the agent left before the wrap. Sampling the URL's first cell is enough: the
+// whole run shares one style.
+function agentAlreadyUnderlines({ buffer, startCell }: {
+  buffer: LinkBuffer;
+  startCell: CellPosition;
+}): boolean {
+  const cell = buffer.getLine(startCell.row)?.getCell(startCell.column);
+  return Boolean(cell?.isUnderline?.());
+}
+
 // Detect every clickable URL that passes through the clicked buffer line, mapped
 // back to its exact start and end cells so the hover range covers the whole URL
 // even when it self-wrapped across indented rows.
@@ -390,8 +410,9 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
   bufferLineNumber: number;
   openUrl: (uri: string) => void;
 }): ILink[] {
+  const buffer = terminal.buffer.active;
   const { text, cells } = buildLogicalLine({
-    buffer: terminal.buffer.active,
+    buffer,
     columns: terminal.cols,
     anchorRow: bufferLineNumber - 1
   });
@@ -405,7 +426,7 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
     if (isUrl(uri)) {
       const startCell = cells[match.index];
       const endCell = cells[match.index + uri.length - 1];
-      links.push({
+      const link: ILink = {
         text: uri,
         // Ranges are 1-based and end-inclusive; both cells carry 0-based buffer
         // positions, so every edge gains 1.
@@ -420,7 +441,20 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
           }
         },
         activate: (_event: MouseEvent, activatedUri: string) => openUrl(activatedUri)
-      });
+      };
+      // Don't add a second underline (and its wrapped-row edge padding) over a
+      // URL the agent already underlines — keep it clickable, styled as the
+      // agent drew it.
+      if (agentAlreadyUnderlines({
+        buffer,
+        startCell
+      })) {
+        link.decorations = {
+          underline: false
+        };
+      }
+
+      links.push(link);
     }
 
     match = pattern.exec(text);

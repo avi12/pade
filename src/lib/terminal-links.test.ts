@@ -18,6 +18,8 @@ const emptyBuffer = {
 interface MockRow {
   text: string;
   wrapped?: boolean;
+  // Marks the whole row's glyphs as SGR-underlined, as opencode paints its links.
+  underlined?: boolean;
 }
 
 function makeTerminal({ rows, columns }: {
@@ -35,7 +37,9 @@ function makeTerminal({ rows, columns }: {
       length: columns,
       getCell(column: number) {
         return {
-          getChars: () => row.text[column] ?? ""
+          getChars: () => row.text[column] ?? "",
+          // Mirror xterm: a number (0 / non-zero), not a boolean.
+          isUnderline: () => (row.underlined === true ? 1 : 0)
         };
       }
     };
@@ -287,6 +291,37 @@ describe("computeLinks", () => {
     expect(links).toHaveLength(1);
     expect(links[0].text).toBe("https://developer.chrome.com/docs");
     expect(links[0].range.end.y).toBe(1);
+  });
+
+  it("suppresses its own underline when the agent already underlines the URL", () => {
+    // opencode paints its links as underlined text; a second, xterm-drawn
+    // underline is redundant and pads the wrapped row out to the edge.
+    const [link] = computeLinks({
+      terminal: makeTerminal({
+        rows: [{
+          text: "See https://example.com/page now",
+          underlined: true
+        }],
+        columns: 40
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(link.decorations?.underline).toBe(false);
+  });
+
+  it("keeps its own underline for a plain, un-styled URL", () => {
+    const [link] = computeLinks({
+      terminal: makeTerminal({
+        rows: [{ text: "See https://example.com/page now" }],
+        columns: 40
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(link.decorations).toBeUndefined();
   });
 
   it("joins two full prose rows without inventing a link", () => {
