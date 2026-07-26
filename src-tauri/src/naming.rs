@@ -82,20 +82,46 @@ const MINIMUM_SESSION_NAME_INPUT_LENGTH: usize = 40;
 const NAME_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn session_name(transcript: &str, agent: &str) -> Option<String> {
-    let trimmed = transcript.trim();
-    if trimmed.len() < MINIMUM_SESSION_NAME_INPUT_LENGTH {
+    // A fullscreen-TUI agent (Claude, Codex, opencode) repaints its ENTIRE
+    // screen on every tick, so the raw tail is one frame — status bar, spinner,
+    // key hints — stamped dozens of times, drowning the actual conversation. That
+    // is how a job-search session got named "terminal-loading-animation": the
+    // namer saw mostly the loading chrome. Collapse to distinct content lines
+    // first so the namer reads what was SAID, not one frame's UI amplified.
+    let readable = readable_transcript(transcript);
+    if readable.len() < MINIMUM_SESSION_NAME_INPUT_LENGTH {
         return None;
     }
 
     #[cfg(windows)]
     if let Some(name) = crate::copilot::CopilotNamer
-        .suggest_session(trimmed)
+        .suggest_session(&readable)
         .and_then(|raw| sanitize(&raw))
     {
         return Some(name);
     }
 
-    session_name_via_agent(agent, trimmed)
+    session_name_via_agent(agent, &readable)
+}
+
+/// Collapse a fullscreen-TUI transcript to its distinct content lines, in
+/// first-seen order. An alt-screen agent repaints the whole screen each tick, so
+/// the raw stream is the same frame repeated — keeping each trimmed line once
+/// removes that repaint amplification (the static chrome and the spinner appear
+/// a single time) and leaves the variety of what was actually said.
+fn readable_transcript(transcript: &str) -> String {
+    let mut seen = std::collections::HashSet::new();
+    let mut lines = Vec::new();
+    for line in transcript.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if seen.insert(trimmed) {
+            lines.push(trimmed);
+        }
+    }
+    lines.join("\n")
 }
 
 /// The trailing `max` bytes of `text`, snapped to a char boundary — most recent
@@ -113,9 +139,11 @@ fn tail(text: &str, maximum_length: usize) -> &str {
 
 fn session_naming_prompt(transcript: &str) -> String {
     let mut prompt = String::from(
-        "Below is the recent terminal transcript of a coding-agent session. Suggest a concise, \
-         descriptive name in kebab-case (2-4 lowercase words joined by hyphens) capturing what \
-         the session is about.\n\n---\n",
+        "Below is the recent terminal transcript of a coding-agent session. Ignore the terminal \
+         interface itself — spinners, loading/progress indicators, status bars, key hints, token \
+         counts, borders. Name the underlying task or topic the user and agent are working on. \
+         Suggest a concise, descriptive name in kebab-case (2-4 lowercase words joined by hyphens) \
+         capturing what the session is about.\n\n---\n",
     );
     prompt.push_str(tail(transcript, 4000));
     prompt.push_str("\n---\n\nReply with ONLY the name — no quotes, no explanation.");
@@ -497,6 +525,18 @@ mod tests {
     #[test]
     fn extract_name_yields_nothing_for_blank_output() {
         assert_eq!(extract_name("\n  \n"), None);
+    }
+
+    #[test]
+    fn readable_transcript_collapses_repeated_repaint_frames() {
+        // A fullscreen agent repaints the same frame each spinner tick; only the
+        // substantive line should survive once, chrome deduped to a single copy.
+        let painted =
+            "⠋ Working\nSearch Tel Aviv startups\n⠙ Working\nSearch Tel Aviv startups\n⠹ Working";
+        assert_eq!(
+            super::readable_transcript(painted),
+            "⠋ Working\nSearch Tel Aviv startups\n⠙ Working\n⠹ Working"
+        );
     }
 
     #[test]
