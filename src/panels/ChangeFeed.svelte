@@ -760,35 +760,49 @@
                         })}</span>
                       </button>
                       <span class="spacer"></span>
-                      {#if canPreview}
-                        <div class="segmented-control" aria-label="Preview mode" role="group">
-                          <button
-                            class:on={pane === PreviewPane.code}
-                            aria-pressed={pane === PreviewPane.code}
-                            onclick={() => paneById.set(event.id, PreviewPane.code)}
-                          >Code</button>
-                          <button
-                            class:on={pane === PreviewPane.preview}
-                            aria-pressed={pane === PreviewPane.preview}
-                            onclick={() => showPreview({
-                              id: event.id,
-                              path: event.path
-                            })}
-                          >Preview</button>
-                        </div>
-                      {/if}
-                      {#if !isImage && pane === PreviewPane.code && hasPreview}
-                        <div class="segmented-control" aria-label="Diff view" role="group">
-                          <button
-                            class:on={diffMode === DiffMode.unified}
-                            aria-pressed={diffMode === DiffMode.unified}
-                            onclick={() => setDiffMode(DiffMode.unified)}
-                          >Unified</button>
-                          <button
-                            class:on={diffMode === DiffMode.split}
-                            aria-pressed={diffMode === DiffMode.split}
-                            onclick={() => setDiffMode(DiffMode.split)}
-                          >Split</button>
+                      {#if canPreview || (!isImage && pane === PreviewPane.code && hasPreview)}
+                        <div class="pane-toggles">
+                          {#if canPreview}
+                            <fieldset class="segmented-control">
+                              <legend class="visually-hidden">Preview mode</legend>
+                              <label>
+                                <input
+                                  name="pane-{event.id}"
+                                  checked={pane === PreviewPane.code}
+                                  onchange={() => paneById.set(event.id, PreviewPane.code)}
+                                  type="radio"
+                                />Code</label>
+                              <label>
+                                <input
+                                  name="pane-{event.id}"
+                                  checked={pane === PreviewPane.preview}
+                                  onchange={() => showPreview({
+                                    id: event.id,
+                                    path: event.path
+                                  })}
+                                  type="radio"
+                                />Preview</label>
+                            </fieldset>
+                          {/if}
+                          {#if !isImage && pane === PreviewPane.code && hasPreview}
+                            <fieldset class="segmented-control">
+                              <legend class="visually-hidden">Diff view</legend>
+                              <label>
+                                <input
+                                  name="diff-{event.id}"
+                                  checked={diffMode === DiffMode.unified}
+                                  onchange={() => setDiffMode(DiffMode.unified)}
+                                  type="radio"
+                                />Unified</label>
+                              <label>
+                                <input
+                                  name="diff-{event.id}"
+                                  checked={diffMode === DiffMode.split}
+                                  onchange={() => setDiffMode(DiffMode.split)}
+                                  type="radio"
+                                />Split</label>
+                            </fieldset>
+                          {/if}
                         </div>
                       {/if}
                       <button
@@ -1429,10 +1443,20 @@
   .bar {
     display: flex;
     gap: 8px;
-    align-items: center;
+    align-items: flex-start;
     padding-block: 7px;
     padding-inline: 12px 8px;
     background: var(--surface-2);
+  }
+
+  /* The two segmented controls stack — Code|Preview above Unified|Split — so a
+     previewable diff reads its view choices top-to-bottom, right-aligned. */
+  .pane-toggles {
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
   }
 
   .file-button {
@@ -1467,28 +1491,65 @@
     flex: 1;
   }
 
+  /* A single-choice control, so it's a native radio group in a <fieldset>: each
+     option is a <label> wrapping a hidden-but-focusable radio, lit via :has. */
   .segmented-control {
     display: flex;
     flex-shrink: 0;
     gap: 2px;
+    margin: 0;
     padding: 3px;
+    border: 0;
     border-radius: 999px;
     background: var(--surface-3);
 
-    button {
+    label {
       padding: 4px 11px;
       border-radius: 999px;
       color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 11px;
       cursor: pointer;
-      transition: background 120ms var(--ease);
+      transition:
+        background 120ms var(--ease),
+        color 120ms var(--ease);
     }
 
-    .on {
+    label:has(input:checked) {
       background: var(--primary-container);
       color: var(--on-primary-container);
     }
+
+    label:has(input:focus-visible) {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    /* The radio drives state and stays keyboard-reachable, but the pill label is
+       the visible affordance — so hide the native dot without removing it. */
+    input {
+      position: absolute;
+      overflow: hidden;
+      block-size: 1px;
+      inline-size: 1px;
+      margin: -1px;
+      padding: 0;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  /* Accessible label for a control whose visible affordance carries no text (the
+     <legend> naming each radio group). */
+  .visually-hidden {
+    position: absolute;
+    overflow: hidden;
+    block-size: 1px;
+    inline-size: 1px;
+    margin: -1px;
+    padding: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .close {
@@ -1528,6 +1589,24 @@
     /* Scopes the unified↔split View Transition to the diff body (only one card
        is ever open, so the name is unique) — the rest of the app stays still. */
     view-transition-name: diff-body;
+  }
+
+  /* Cross-fade the Code↔Preview swap: whichever pane mounts fades and slides up
+     from its `@starting-style`. Pure CSS on the entering element (never a View
+     Transition — that would snapshot and ghost the sandboxed preview iframe). */
+  @media (prefers-reduced-motion: no-preference) {
+    .preview,
+    .render,
+    .image-wrapper {
+      @starting-style {
+        opacity: 0%;
+        translate: 0 8px;
+      }
+
+      transition:
+        opacity 200ms var(--ease),
+        translate 200ms var(--ease);
+    }
   }
 
   /* Rendered markdown/HTML preview: a sandboxed iframe standing in for the text
