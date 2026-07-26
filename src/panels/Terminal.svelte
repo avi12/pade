@@ -242,9 +242,9 @@
 
   // A PTY read can cut a control sequence in half, so retain one complete
   // sequence's worth of tail while looking for the agent's DECSET 2031 handshake
-  // (Claude's `auto` theme and opencode's renderer both subscribe). Any
-  // agent that enables the channel gets the truthful scheme report — the
-  // handshake itself is the opt-in, not the agent's id.
+  // (Claude's `auto` theme subscribes). Any agent that enables the channel gets
+  // the truthful scheme report — the handshake itself is the opt-in, not the
+  // agent's id.
   const COLOR_SCHEME_ENABLE_LENGTH = "\x1b[?2031h".length;
   let colorSchemeNotificationTail = "";
   let colorSchemeNotificationsEnabled = false;
@@ -252,9 +252,9 @@
   // Agents whose TUI subscribes to DEC 2031 color-scheme reports at startup
   // (Claude's `auto` theme, opencode's renderer). The re-attach path treats
   // them as subscribed even when the handshake was trimmed out of the replayed
-  // history. opencode wears PADE's adaptive `pade` theme (both light and dark
-  // variants — see agents.rs/theming.rs), so this report drives its live
-  // light/dark switch: its own ConPTY-answered probe can't, but the relay can.
+  // history. (The report only carries the scheme; opencode's own light/dark
+  // *detection* is spawn-themed instead — see agents.rs — because its mode
+  // probe is answered by ConPTY, not by ADE.)
   const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
 
   // Agents whose Shift+Enter newline must arrive as a raw Ctrl+J (LF, 0x0a)
@@ -486,8 +486,8 @@
 
   // Re-theme xterm whenever the app scheme changes. The terminal palette changes
   // in place, so it is safe for every live session. An agent that subscribed to
-  // DECSET 2031 color-scheme reports (Claude's `auto` theme, opencode's adaptive
-  // `pade` theme) also gets the standard report relayed through its PTY after
+  // DECSET 2031 color-scheme reports (Claude's `auto` theme, opencode's `system`
+  // theme) also gets the standard report relayed through its PTY after
   // repainting: xterm does not emit one merely because `options.theme` changed.
   // It reaches the already-running process and redraws its own TUI without a
   // restart or context loss.

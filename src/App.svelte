@@ -1212,7 +1212,9 @@
       };
     });
 
-    showToast(`Theme changed — restarting ${targets.length === 1 ? "Codex" : `${targets.length} Codex sessions`} to match`);
+    const restartedLabel =
+      targets.length === 1 ? targets[0].agent.label : `${targets.length} sessions`;
+    showToast(`Theme changed — restarting ${restartedLabel} to match`);
     await restartSessions(targets);
   }
 

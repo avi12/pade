@@ -96,12 +96,15 @@ pub struct ProjectThemeSeed {
 /// no safe per-launch override (only a slash command or a user-global settings
 /// file), so ADE leaves them as-is; aider is a line-oriented REPL with no fullscreen
 /// mode; cursor-agent's rendering is undocumented — none of those three is forced.
-/// The TUI config `OPENCODE_TUI_CONFIG` points opencode at — it selects the
-/// PADE-owned adaptive `pade` theme (theming.rs materializes its definition).
-/// The theme carries both light and dark variants, so the same selection serves
-/// both schemes; opencode picks the variant from the mode PADE relays to it.
-const OPENCODE_PADE_TUI_CONFIG: &str =
-    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade"}"#;
+/// The TUI configs `OPENCODE_TUI_CONFIG` points opencode at — one per scheme,
+/// each selecting the matching PADE-owned plain-string theme (theming.rs
+/// materializes both definitions). Plain-string, not adaptive, so the render is
+/// truthful regardless of opencode's ConPTY-answered light/dark probe; a flip
+/// re-themes by respawn (App's `restartSpawnThemedAgents`).
+const OPENCODE_LIGHT_TUI_CONFIG: &str =
+    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#;
+const OPENCODE_DARK_TUI_CONFIG: &str =
+    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-dark"}"#;
 
 const REGISTRY: &[AgentDefinition] = &[
     AgentDefinition {
@@ -240,30 +243,31 @@ const REGISTRY: &[AgentDefinition] = &[
         // opencode's yolo switch. Its TUI owns the alternate screen by default,
         // so no fullscreen pin is needed.
         session_args: &["--auto"],
-        // opencode exposes no per-launch theme flag or env var. It decides light
-        // vs dark from OSC 10/11 at startup — which under Windows ConPTY the
-        // console layer answers with its hard-coded black buffer, so the initial
-        // probe always reads dark. But the current opencode TUI DOES subscribe to
-        // DECSET 2031 and re-themes live on the `?997` report PADE relays (same
-        // channel as Claude), which both corrects that poisoned startup probe on a
-        // light ADE and follows a mid-session flip. `OPENCODE_TUI_CONFIG` points
-        // opencode at a PADE-owned tui config that merges OVER the user's own
-        // ~/.config/opencode/tui.json (user file order=1, env file order=2 —
-        // keybinds survive, only `theme` is overridden), selecting the adaptive
-        // `pade` theme whose every color carries a light AND a dark variant
-        // (theming.rs materializes it). One selection serves both schemes: opencode
-        // renders whichever variant matches the mode it currently detects.
+        // opencode exposes no per-launch theme flag or env var, and it decides
+        // light vs dark ONLY from OSC 10/11 query replies — which under Windows
+        // ConPTY are answered by the console layer's hard-coded black buffer, so
+        // its mode probe always reads dark and no env var, config key, or later
+        // `?997` report flips it (verified: on a light ADE an adaptive theme
+        // still rendered its dark variant). The fix sidesteps mode detection:
+        // `OPENCODE_TUI_CONFIG` points opencode at a PADE-owned tui config that
+        // merges OVER the user's own ~/.config/opencode/tui.json (user file
+        // order=1, env file order=2 — keybinds survive, only `theme` is
+        // overridden), selecting a plain-string PADE theme for THIS spawn's
+        // scheme (`pade-light` or `pade-dark`; theming.rs materializes both).
+        // Plain strings render verbatim, so the broken probe can't spoil them. A
+        // mid-session flip re-themes by respawn (App's restartSpawnThemedAgents),
+        // since opencode has no live theme channel.
         theme_config: Some(ThemeConfig::SpawnTuiConfig {
             variable: "OPENCODE_TUI_CONFIG",
-            light: Some(OPENCODE_PADE_TUI_CONFIG),
-            dark: Some(OPENCODE_PADE_TUI_CONFIG),
+            light: Some(OPENCODE_LIGHT_TUI_CONFIG),
+            dark: Some(OPENCODE_DARK_TUI_CONFIG),
         }),
         project_theme_seed: None,
         // `--session <id>` only *continues* an existing session; it cannot create
         // one with a caller-chosen id, so restart-to-resume has no handle here.
         session_id_flag: None,
         env: &[],
-        // The adaptive `pade` theme fixes the colors, but ConPTY resize refills
+        // The `pade-light` theme fixes the colors, but ConPTY resize refills
         // still paint from the console buffer — so a light ADE keeps the
         // console-buffer flip (like Codex) to stop dark flashes on reflow.
         needs_light_console_fix: true,

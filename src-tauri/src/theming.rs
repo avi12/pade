@@ -14,11 +14,9 @@
 //! `$COLORFGBG` before it ever sends OSC 11. The other CLIs expose their own
 //! spawn-time env or launch-arg knobs — and for a CLI with neither (opencode),
 //! a whole TUI-config file selected per spawn via an env var, naming a custom
-//! adaptive theme that carries both a light and a dark variant per color;
-//! opencode subscribes to the same DECSET 2031 channel Claude does, so the
-//! live `?997` report both corrects its ConPTY-poisoned initial probe and
-//! flips it between the two variants in place. So every agent is themed at
-//! spawn — per
+//! per-scheme theme whose colors are plain strings so the poisoned probe stops
+//! mattering (a mid-session flip re-themes by respawn, not a live signal). So
+//! every agent is themed at spawn — per
 //! session, never via a user-global config file that would leak ADE's choice
 //! into the user's other terminals. The registry may also declare a project-local
 //! adaptive-theme seed for future launches; PADE creates it only when absent and
@@ -110,13 +108,13 @@ pub enum ThemeConfig {
     },
     /// Point the CLI at a whole TUI-config *file* through an env var when the
     /// session spawns — for a CLI (opencode) with no theme flag and no theme
-    /// env var. The config selects a PADE-owned adaptive theme (both light and
-    /// dark variants per color); opencode's own mode detection then follows the
-    /// live DECSET 2031 `?997` report PADE relays, so the file is the same on
-    /// both schemes. The per-scheme values are the config file's *contents*;
-    /// `None` means the scheme needs no override. `spawn_tui_config_env`
-    /// materializes the file under PADE's own config dir and hands `pty.rs` the
-    /// `(variable, path)` env pair.
+    /// env var, whose light/dark detection rides OSC 10/11 replies that `ConPTY`
+    /// answers itself (always black), so no signal can flip its *mode*. Each
+    /// scheme selects its own plain-string PADE theme, so the render is truthful
+    /// regardless of that broken probe. The per-scheme values are the config
+    /// file's *contents*; `None` means the scheme needs no override.
+    /// `spawn_tui_config_env` materializes the file under PADE's own config dir
+    /// and hands `pty.rs` the `(variable, path)` env pair.
     SpawnTuiConfig {
         variable: &'static str,
         light: Option<&'static str>,
@@ -150,17 +148,17 @@ pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
     }
 }
 
-/// The custom opencode theme a `SpawnTuiConfig` selects. Every color carries
-/// both a `light` and a `dark` variant (opencode's `{light,dark}` per-color
-/// form), so opencode paints the right one for whichever mode it has detected —
-/// and follows a live flip: PADE relays the DECSET 2031 `?997` report to
-/// opencode (it subscribes at startup, same channel as Claude), which updates
-/// opencode's detected mode, and this adaptive theme then has a variant to swap
-/// to. The startup relay also corrects the ConPTY-poisoned initial probe (which
-/// always reads dark) on a light ADE. Light values are Atom One Light; dark are
-/// Atom One Dark — pade-namespaced.
-const PADE_THEME_FILE: &str = "pade.json";
-const PADE_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.json","theme":{"primary":{"light":"#4078f2","dark":"#61afef"},"secondary":{"light":"#a626a4","dark":"#c678dd"},"accent":{"light":"#0184bc","dark":"#56b6c2"},"error":{"light":"#e45649","dark":"#e06c75"},"warning":{"light":"#c18401","dark":"#e5c07b"},"success":{"light":"#50a14f","dark":"#98c379"},"info":{"light":"#0184bc","dark":"#56b6c2"},"text":{"light":"#383a42","dark":"#abb2bf"},"textMuted":{"light":"#696c77","dark":"#828997"},"background":{"light":"#fafafa","dark":"#282c34"},"backgroundPanel":{"light":"#f0f0f1","dark":"#21252b"},"backgroundElement":{"light":"#e5e5e6","dark":"#2c313a"},"border":{"light":"#d4d4d5","dark":"#3e4451"},"borderActive":{"light":"#a0a1a7","dark":"#5c6370"},"borderSubtle":{"light":"#e5e5e6","dark":"#2c313a"},"diffAdded":{"light":"#50a14f","dark":"#98c379"},"diffRemoved":{"light":"#e45649","dark":"#e06c75"},"diffContext":{"light":"#696c77","dark":"#828997"},"diffHunkHeader":{"light":"#696c77","dark":"#828997"},"diffHighlightAdded":{"light":"#2d6b2c","dark":"#6cbe6c"},"diffHighlightRemoved":{"light":"#a8342a","dark":"#e06c75"},"diffAddedBg":{"light":"#e8f5e9","dark":"#2b3328"},"diffRemovedBg":{"light":"#fdecea","dark":"#3a2a2a"},"diffContextBg":{"light":"#fafafa","dark":"#282c34"},"diffLineNumber":{"light":"#d4d4d5","dark":"#4b5263"},"diffAddedLineNumberBg":{"light":"#d7ecd8","dark":"#33402f"},"diffRemovedLineNumberBg":{"light":"#f8d7d3","dark":"#463131"},"markdownText":{"light":"#383a42","dark":"#abb2bf"},"markdownHeading":{"light":"#a626a4","dark":"#c678dd"},"markdownLink":{"light":"#4078f2","dark":"#61afef"},"markdownLinkText":{"light":"#0184bc","dark":"#56b6c2"},"markdownCode":{"light":"#50a14f","dark":"#98c379"},"markdownBlockQuote":{"light":"#696c77","dark":"#828997"},"markdownEmph":{"light":"#c18401","dark":"#e5c07b"},"markdownStrong":{"light":"#383a42","dark":"#abb2bf"},"markdownHorizontalRule":{"light":"#d4d4d5","dark":"#3e4451"},"markdownListItem":{"light":"#4078f2","dark":"#61afef"},"markdownListEnumeration":{"light":"#0184bc","dark":"#56b6c2"},"markdownImage":{"light":"#4078f2","dark":"#61afef"},"markdownImageText":{"light":"#0184bc","dark":"#56b6c2"},"markdownCodeBlock":{"light":"#383a42","dark":"#abb2bf"},"syntaxComment":{"light":"#a0a1a7","dark":"#5c6370"},"syntaxKeyword":{"light":"#a626a4","dark":"#c678dd"},"syntaxFunction":{"light":"#4078f2","dark":"#61afef"},"syntaxVariable":{"light":"#e45649","dark":"#e06c75"},"syntaxString":{"light":"#50a14f","dark":"#98c379"},"syntaxNumber":{"light":"#986801","dark":"#d19a66"},"syntaxType":{"light":"#c18401","dark":"#e5c07b"},"syntaxOperator":{"light":"#0184bc","dark":"#56b6c2"},"syntaxPunctuation":{"light":"#383a42","dark":"#abb2bf"}}}"##;
+/// The custom opencode themes a `SpawnTuiConfig` selects — one per scheme. Every
+/// color is a plain string (no `{light,dark}` variants), so opencode's
+/// ConPTY-poisoned mode detection is irrelevant: whichever theme the spawn
+/// selects renders verbatim. That is what keeps the initial paint truthful on
+/// BOTH schemes; a mid-session flip re-themes by respawn (App's
+/// `restartSpawnThemedAgents`), not by the agent following a live signal.
+/// `pade-light` is Atom One Light, `pade-dark` Atom One Dark — pade-namespaced.
+const PADE_LIGHT_THEME_FILE: &str = "pade-light.json";
+const PADE_LIGHT_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.json","theme":{"primary":"#4078f2","secondary":"#a626a4","accent":"#0184bc","error":"#e45649","warning":"#c18401","success":"#50a14f","info":"#0184bc","text":"#383a42","textMuted":"#696c77","background":"#fafafa","backgroundPanel":"#f0f0f1","backgroundElement":"#e5e5e6","border":"#d4d4d5","borderActive":"#a0a1a7","borderSubtle":"#e5e5e6","diffAdded":"#50a14f","diffRemoved":"#e45649","diffContext":"#696c77","diffHunkHeader":"#696c77","diffHighlightAdded":"#2d6b2c","diffHighlightRemoved":"#a8342a","diffAddedBg":"#e8f5e9","diffRemovedBg":"#fdecea","diffContextBg":"#fafafa","diffLineNumber":"#d4d4d5","diffAddedLineNumberBg":"#d7ecd8","diffRemovedLineNumberBg":"#f8d7d3","markdownText":"#383a42","markdownHeading":"#a626a4","markdownLink":"#4078f2","markdownLinkText":"#0184bc","markdownCode":"#50a14f","markdownBlockQuote":"#696c77","markdownEmph":"#c18401","markdownStrong":"#383a42","markdownHorizontalRule":"#d4d4d5","markdownListItem":"#4078f2","markdownListEnumeration":"#0184bc","markdownImage":"#4078f2","markdownImageText":"#0184bc","markdownCodeBlock":"#383a42","syntaxComment":"#a0a1a7","syntaxKeyword":"#a626a4","syntaxFunction":"#4078f2","syntaxVariable":"#e45649","syntaxString":"#50a14f","syntaxNumber":"#986801","syntaxType":"#c18401","syntaxOperator":"#0184bc","syntaxPunctuation":"#383a42"}}"##;
+const PADE_DARK_THEME_FILE: &str = "pade-dark.json";
+const PADE_DARK_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.json","theme":{"primary":"#61afef","secondary":"#c678dd","accent":"#56b6c2","error":"#e06c75","warning":"#e5c07b","success":"#98c379","info":"#56b6c2","text":"#abb2bf","textMuted":"#828997","background":"#282c34","backgroundPanel":"#21252b","backgroundElement":"#2c313a","border":"#3e4451","borderActive":"#5c6370","borderSubtle":"#2c313a","diffAdded":"#98c379","diffRemoved":"#e06c75","diffContext":"#828997","diffHunkHeader":"#828997","diffHighlightAdded":"#6cbe6c","diffHighlightRemoved":"#e06c75","diffAddedBg":"#2b3328","diffRemovedBg":"#3a2a2a","diffContextBg":"#282c34","diffLineNumber":"#4b5263","diffAddedLineNumberBg":"#33402f","diffRemovedLineNumberBg":"#463131","markdownText":"#abb2bf","markdownHeading":"#c678dd","markdownLink":"#61afef","markdownLinkText":"#56b6c2","markdownCode":"#98c379","markdownBlockQuote":"#828997","markdownEmph":"#e5c07b","markdownStrong":"#abb2bf","markdownHorizontalRule":"#3e4451","markdownListItem":"#61afef","markdownListEnumeration":"#56b6c2","markdownImage":"#61afef","markdownImageText":"#56b6c2","markdownCodeBlock":"#abb2bf","syntaxComment":"#5c6370","syntaxKeyword":"#c678dd","syntaxFunction":"#61afef","syntaxVariable":"#e06c75","syntaxString":"#98c379","syntaxNumber":"#d19a66","syntaxType":"#e5c07b","syntaxOperator":"#56b6c2","syntaxPunctuation":"#abb2bf"}}"##;
 
 /// Write `contents` to `path` only when the file is missing or differs, so a
 /// spawn never churns the disk (or file-watcher events) with identical bytes.
@@ -183,17 +181,22 @@ fn write_if_stale(path: &Path, contents: &str) -> std::io::Result<()> {
 /// Why writing into the *user's* opencode themes dir doesn't violate the
 /// never-write-user-global-config doctrine: the doctrine guards against ADE
 /// changing what the user's own sessions render (the stale settings.json
-/// `theme` keys the old file mechanism left behind). `pade.json` is an
-/// ADDITIVE, pade-namespaced theme *definition* — inert until a spawn's
-/// `OPENCODE_TUI_CONFIG` selects it. The user's own tui.json, and therefore
-/// every opencode session the user launches outside ADE, is untouched.
+/// `theme` keys the old file mechanism left behind). `pade-light.json` /
+/// `pade-dark.json` are ADDITIVE, pade-namespaced theme *definitions* — inert
+/// until a spawn's `OPENCODE_TUI_CONFIG` selects one. The user's own tui.json,
+/// and therefore every opencode session the user launches outside ADE, is
+/// untouched.
 fn materialize_tui_config(
     contents: &str,
     scheme: Scheme,
     themes_dir: &Path,
     config_dir: &Path,
 ) -> std::io::Result<PathBuf> {
-    write_if_stale(&themes_dir.join(PADE_THEME_FILE), PADE_THEME_JSON)?;
+    write_if_stale(
+        &themes_dir.join(PADE_LIGHT_THEME_FILE),
+        PADE_LIGHT_THEME_JSON,
+    )?;
+    write_if_stale(&themes_dir.join(PADE_DARK_THEME_FILE), PADE_DARK_THEME_JSON)?;
     let tui_config_path = config_dir.join(format!("opencode-tui-{}.json", scheme.as_str()));
     write_if_stale(&tui_config_path, contents)?;
     Ok(tui_config_path)
@@ -249,7 +252,8 @@ pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, Strin
 mod tests {
     use super::{
         ensure_project_theme, materialize_tui_config, spawn_args, spawn_env, spawn_tui_config_env,
-        ProjectThemeRequest, Scheme, ThemeConfig, PADE_THEME_FILE, PADE_THEME_JSON,
+        ProjectThemeRequest, Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON,
+        PADE_LIGHT_THEME_FILE, PADE_LIGHT_THEME_JSON,
     };
 
     #[test]
@@ -359,8 +363,14 @@ mod tests {
             contents
         );
         assert_eq!(
-            std::fs::read_to_string(themes_dir.join(PADE_THEME_FILE)).expect("theme written"),
-            PADE_THEME_JSON
+            std::fs::read_to_string(themes_dir.join(PADE_LIGHT_THEME_FILE))
+                .expect("light theme written"),
+            PADE_LIGHT_THEME_JSON
+        );
+        assert_eq!(
+            std::fs::read_to_string(themes_dir.join(PADE_DARK_THEME_FILE))
+                .expect("dark theme written"),
+            PADE_DARK_THEME_JSON
         );
 
         // A second run with identical contents is a no-op rewrite-wise: the
@@ -382,11 +392,12 @@ mod tests {
         assert!(spawn_tui_config_env("pnpm", Scheme::Light).is_empty());
     }
 
-    /// The pade theme is adaptive: every color declares both a light and a dark
-    /// variant, so opencode has a variant to swap to on a live scheme flip.
+    /// Each scheme has its own truthful theme: the dark palette is a distinct
+    /// definition, not a fallback to the light one (the old `dark: None` gap).
     #[test]
-    fn pade_theme_declares_light_and_dark_variants() {
-        assert!(PADE_THEME_JSON.contains(r#""light":"#));
-        assert!(PADE_THEME_JSON.contains(r#""dark":"#));
+    fn light_and_dark_themes_are_distinct() {
+        assert_ne!(PADE_LIGHT_THEME_JSON, PADE_DARK_THEME_JSON);
+        assert!(PADE_DARK_THEME_JSON.contains(r##""background":"#282c34""##));
+        assert!(PADE_LIGHT_THEME_JSON.contains(r##""background":"#fafafa""##));
     }
 }
