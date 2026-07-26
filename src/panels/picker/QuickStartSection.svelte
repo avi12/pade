@@ -3,6 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow, expandRow } from "@/lib/motion";
+  import { childPath } from "@/lib/paths";
   import { rovingTablist } from "@/lib/roving-tabs";
   import { emptyPathProbe, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
@@ -162,7 +163,10 @@
       return "";
     }
 
-    return `${createIn}\\${name}`;
+    return childPath({
+      parent: createIn,
+      name
+    });
   });
   $effect(() => {
     const target = createTargetPath;
@@ -516,7 +520,10 @@
             // debounced live check, and create_dir_all would silently "create"
             // an existing folder. The result also lands in createTarget so the
             // inline reason appears if this blocks.
-            const target = `${createIn}\\${name}`;
+            const target = childPath({
+              parent: createIn,
+              name
+            });
             const probe = await workspace.probePath(target);
             createTarget = {
               path: target,

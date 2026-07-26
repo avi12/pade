@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { vcs, windows } from "@/lib/bridge";
+  import { vcs, windows, workspace } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import Logo from "@/lib/Logo.svelte";
-  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
+  import {
+    childPath,
+    displayName,
+    isTemporaryWorkspace,
+    normalizePath,
+    shortDisplayName
+  } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
@@ -126,6 +132,63 @@
       raw: saveName
     })
   );
+
+  // Live disk check on each save target — the same collision guard the project
+  // picker's new-project field uses (QuickStartSection). `workspace_rename` does
+  // an `fs::rename`, which on Windows fails with a raw "os error 32/183" if the
+  // target already exists; probe `<root>/<name>` up front so a colliding name
+  // disables that root's Save with a plain reason instead of a cryptic failure.
+  // Each probe is tagged with the name it described, so an out-of-order reply
+  // never gates the current text.
+  type SaveProbe = {
+    name: string;
+    root: string;
+    exists: boolean;
+  };
+  let saveProbes = $state<SaveProbe[]>([]);
+  $effect(() => {
+    const name = savableName;
+    if (name === null || roots.length === 0) {
+      saveProbes = [];
+      return;
+    }
+
+    async function probeRoots(targetName: string) {
+      const probed = await Promise.all(
+        roots.map(async root => {
+          try {
+            const probe = await workspace.probePath(
+              childPath({
+                parent: root,
+                name: targetName
+              })
+            );
+            return {
+              name: targetName,
+              root,
+              exists: probe.isDir || probe.isFile
+            };
+          } catch {
+            // An unreachable probe leaves the plain save path — the backend
+            // still validates the final rename.
+            return {
+              name: targetName,
+              root,
+              exists: false
+            };
+          }
+        })
+      );
+      // Only believe an answer that describes the name still in the field.
+      if (targetName === savableName) {
+        saveProbes = probed;
+      }
+    }
+    probeRoots(name);
+  });
+  function saveCollides(root: string): boolean {
+    return saveProbes.some(probe => probe.root === root && probe.name === savableName && probe.exists);
+  }
 
   // Rename into `root`; the menu closes on success (the window relocates under
   // the saved path). A failure stays visible inside the card.
@@ -490,15 +553,23 @@
         {:else}
           <div class="save-roots">
             {#each roots as root (root)}
+              {@const collides = saveCollides(root)}
               <button
                 class="save-root"
-                disabled={!savableName || saveBusy}
+                class:save-root-collides={collides}
+                disabled={!savableName || saveBusy || collides}
                 onclick={async () => await saveTempInto(root)}
                 type="button"
               >
                 <span class="save-root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
                 <span class="save-root-path">{root}</span>
-                <span class="save-go">Save →</span>
+                <span class="save-go">
+                  {#if collides}
+                    Name taken
+                  {:else}
+                    Save →
+                  {/if}
+                </span>
               </button>
             {/each}
           </div>
@@ -1002,6 +1073,10 @@
 
       &:hover:not(:disabled) .save-go {
         color: var(--on-primary-container);
+      }
+
+      &.save-root-collides .save-go {
+        color: var(--critical);
       }
     }
   }
