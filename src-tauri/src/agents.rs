@@ -636,11 +636,16 @@ mod tests {
             panic!("opencode should force its theme via SpawnTuiConfig");
         };
         assert_eq!(*variable, "OPENCODE_TUI_CONFIG");
+        // Each scheme selects its own plain-string pade theme (both defined, so a
+        // dark ADE is truthful too — a flip re-themes by respawn).
         assert_eq!(
             *light,
             Some(r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#)
         );
-        assert!(dark.is_none());
+        assert_eq!(
+            *dark,
+            Some(r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-dark"}"#)
+        );
         // `--session <id>` only continues an existing session, so opencode has
         // no restart-to-resume handle.
         assert!(session_id_flag("opencode").is_none());
