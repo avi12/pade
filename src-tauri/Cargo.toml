@@ -41,6 +41,16 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 # (arboard → image deps), so this adds no new supply-chain surface; the heavy
 # `image` crate stays out.
 png = "0.18"
+# Anonymous Copilot (copilot.microsoft.com) session namer: a guest chat over a
+# TLS WebSocket, authorized by the cookie POST /c/api/start mints — no account,
+# no bundled SDK. `tungstenite` is the minimal blocking WS client; `ureq` the
+# minimal blocking HTTPS client for the one bootstrap POST (both on the same
+# rustls stack, no OpenSSL); `sha2` solves the hashcash proof-of-work; `uuid`
+# mints the clientSessionId. All pure-Rust, no new native/DLL surface.
+ureq = { version = "2", default-features = false, features = ["tls"] }
+tungstenite = { version = "0.24", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
 
 [target."cfg(windows)".dependencies]
 # WebView2 `ProcessFailed` auto-recovery (see src/recovery.rs). A separate

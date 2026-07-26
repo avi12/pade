@@ -2,7 +2,6 @@ mod agents;
 mod clipboard;
 mod config;
 mod contextmenu;
-#[cfg(windows)]
 mod copilot;
 mod design;
 mod discord;

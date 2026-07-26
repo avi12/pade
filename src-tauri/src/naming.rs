@@ -6,12 +6,16 @@
 //! dir as its cwd, which Windows locks against rename. The label surfaces in the
 //! topbar and the Recent list.
 //!
-//! Naming is layered and swappable behind the `Namer` trait:
-//!   1. the installed agent CLI, one-shot headless (`claude -p …`) — the primary,
-//!      cross-platform path; reuses the user's subscription, no extra auth;
-//!   2. Copilot on Windows (`copilot.rs`) — optional, currently a stub;
+//! Naming is layered and swappable behind the `Namer` trait. Session naming tries
+//! the anonymous Copilot guest chat first, then the session's own agent CLI;
+//! project naming (from a file list) uses the agent CLI then a local heuristic:
+//!   1. anonymous Copilot (`copilot.rs`) — a `copilot.microsoft.com` guest chat,
+//!      no account, cross-platform; session naming only, best-effort (falls
+//!      through when offline / region- or Turnstile-gated);
+//!   2. the installed agent CLI, one-shot headless (`claude -p …`) — reuses the
+//!      user's subscription, no extra auth;
 //!   3. a local heuristic (package/Cargo name, README heading, dominant file) —
-//!      the always-on fallback.
+//!      the always-on fallback for project naming.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -77,9 +81,9 @@ pub async fn session_generate_name(
 /// Minimum transcript length before a session name is worth generating.
 const MINIMUM_SESSION_NAME_INPUT_LENGTH: usize = 40;
 
-/// How long to let an agent CLI run before giving up on a name — one home for the
-/// timeout shared by the project-namer and session-namer invocations.
-const NAME_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long to let a name source run before giving up — one home for the timeout
+/// shared by the agent-CLI invocations and the Copilot chat namer.
+pub(crate) const NAME_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn session_name(transcript: &str, agent: &str) -> Option<String> {
     // A fullscreen-TUI agent (Claude, Codex, opencode) repaints its ENTIRE
@@ -93,7 +97,11 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
         return None;
     }
 
-    #[cfg(windows)]
+    // Copilot first (anonymous copilot.microsoft.com guest chat — no account,
+    // no local CLI, cross-platform), then the session's own agent CLI. Copilot
+    // yields `None` whenever it's unavailable — offline, region-gated, or the
+    // Cloudflare Turnstile gate on the first message — so naming quietly falls
+    // back to `claude -p` / `codex exec` and never blocks on it.
     if let Some(name) = crate::copilot::CopilotNamer
         .suggest_session(&readable)
         .and_then(|raw| sanitize(&raw))
@@ -137,7 +145,7 @@ fn tail(text: &str, maximum_length: usize) -> &str {
     &text[start..]
 }
 
-fn session_naming_prompt(transcript: &str) -> String {
+pub(crate) fn session_naming_prompt(transcript: &str) -> String {
     let mut prompt = String::from(
         "Below is the recent terminal transcript of a coding-agent session. Ignore the terminal \
          interface itself — spinners, loading/progress indicators, status bars, key hints, token \
@@ -186,7 +194,6 @@ fn autoname(path: &str, agent: &str) -> Option<String> {
             cwd: directory.to_path_buf(),
         }));
     }
-    #[cfg(windows)]
     namers.push(Box::new(crate::copilot::CopilotNamer));
     namers.push(Box::new(HeuristicNamer {
         directory: directory.to_path_buf(),
