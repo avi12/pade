@@ -700,7 +700,8 @@ pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, St
         .ok_or("bad source path")?
         .to_owned();
     let destination = Path::new(&dest_dir).join(name);
-    std::fs::rename(&from, &destination).map_err(|e| e.to_string())?;
+    leave_if_inside(Path::new(&from));
+    rename_patiently(Path::new(&from), &destination).map_err(|e| e.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
     // Re-point external tools (Claude transcripts, IDE recents) at the new path.
     // Best-effort and independent of the internal `retarget` below.
@@ -744,7 +745,8 @@ pub async fn workspace_rename(
             .clone(),
     };
     let destination = validated_child_path(Path::new(&root), &new_name)?;
-    std::fs::rename(&from, &destination).map_err(|e| e.to_string())?;
+    leave_if_inside(Path::new(&from));
+    rename_patiently(Path::new(&from), &destination).map_err(|e| e.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
     // Re-point external tools (agent memory, IDE recents) at the new path —
     // best-effort, independent of the internal `retarget` below.
@@ -797,6 +799,23 @@ fn remove_dir_all_patiently(path: &str) -> std::io::Result<()> {
             // caller asked for, so this is a success — and the entry still on the
             // Recent list gets forgotten instead of being stuck there forever.
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
+            Err(_) => std::thread::sleep(DELETE_RETRY),
+        }
+    }
+    Ok(())
+}
+
+/// Rename a directory, riding out the same Windows sharing violation a delete
+/// does. Moving or promoting a temp workspace hits it for the same reasons: the
+/// folder is the process's own current directory (`workspace_open` chdirs into
+/// it), or an agent PTY child just killed still has a handle the OS is closing
+/// asynchronously. The caller must step the process out first (`leave_if_inside`);
+/// retrying briefly then turns the lingering-handle race into a wait, not an error.
+fn rename_patiently(from: &Path, destination: &Path) -> std::io::Result<()> {
+    for attempt in 1..=DELETE_ATTEMPTS {
+        match std::fs::rename(from, destination) {
+            Ok(()) => return Ok(()),
             Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
             Err(_) => std::thread::sleep(DELETE_RETRY),
         }
