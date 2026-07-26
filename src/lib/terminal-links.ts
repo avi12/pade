@@ -236,97 +236,30 @@ function urlContinuesOntoLower({ upperText, lowerText }: {
   return false;
 }
 
-// Whether the row just below `row` continues it as one logical line. The
-// terminal's own soft wrap always continues; a hard wrap continues when `row` ran
-// its text to the right edge and the row below has content; and a self-wrap
-// continues when `row` ends mid-URL and the row below resumes it — exactly how a
-// program wraps a URL it couldn't fit on one row, at the terminal edge or at its
-// own narrower content width.
-function nextRowContinues({ buffer, columns, row }: {
-  buffer: LinkBuffer;
-  columns: number;
-  row: number;
-}): boolean {
-  const upper = buffer.getLine(row);
-  const lower = buffer.getLine(row + 1);
-  if (!upper || !lower) {
-    return false;
-  }
-
-  const lowerContent = rowContent({
-    line: lower,
-    columns
-  });
-  if (!lowerContent) {
-    return false;
-  }
-
-  if (lower.isWrapped) {
-    return true;
-  }
-
-  const upperContent = rowContent({
-    line: upper,
-    columns
-  });
-  if (!upperContent) {
-    return false;
-  }
-
-  if (reachesRightEdge({
-    content: upperContent,
-    columns
-  })) {
-    return true;
-  }
-
-  return urlContinuesOntoLower({
-    upperText: rowGlyphs({
-      line: upper,
-      content: upperContent
-    }).text,
-    lowerText: rowGlyphs({
-      line: lower,
-      content: lowerContent
-    }).text
-  });
+// The scheme+`//` that anchors a URL. A window that already contains it holds the
+// URL's start; one that doesn't is a bare fragment whose start lies further up.
+function hasScheme(text: string): boolean {
+  return /(https?):[/]{2}/i.test(text);
 }
 
-// Grow the run of rows the clicked row belongs to, then flatten it into one
-// string with a parallel cell position for every character. Each row donates
-// only its glyphs from first to last visible column, so a leading indent and a
-// trailing margin never leak a stray space into the joined URL.
-function buildLogicalLine({ buffer, columns, anchorRow }: {
+// A whitespace-free token — what every INNER row of a wrapped URL is (URLs never
+// contain spaces), and what prose never is. Lets the upward walk cross a URL's
+// scheme-less continuation rows to the row that starts it.
+function isBareToken(text: string): boolean {
+  return text.length > 0 && !/\s/.test(text);
+}
+
+// The glyphs of rows `topRow..bottomRow` flattened into one string with a parallel
+// cell for every character. Each row donates only its first-to-last visible
+// column (via `rowGlyphs`), so a leading indent and a trailing margin never leak a
+// stray space into the joined URL. The single home for turning a row range into
+// text — the growth checks read its text, the caller keeps its cells.
+function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
   buffer: LinkBuffer;
   columns: number;
-  anchorRow: number;
+  topRow: number;
+  bottomRow: number;
 }): LogicalLine {
-  let topRow = anchorRow;
-  let bottomRow = anchorRow;
-
-  while (
-    topRow > 0
-    && bottomRow - topRow + 1 < MAX_LOGICAL_ROWS
-    && nextRowContinues({
-      buffer,
-      columns,
-      row: topRow - 1
-    })
-  ) {
-    topRow -= 1;
-  }
-
-  while (
-    bottomRow - topRow + 1 < MAX_LOGICAL_ROWS
-    && nextRowContinues({
-      buffer,
-      columns,
-      row: bottomRow
-    })
-  ) {
-    bottomRow += 1;
-  }
-
   let text = "";
   const cells: CellPosition[] = [];
   for (let row = topRow; row <= bottomRow && text.length < MAX_WINDOW_CHARS; row += 1) {
@@ -343,24 +276,16 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
       continue;
     }
 
-    for (
-      let column = content.firstColumn;
-      column <= content.lastColumn && text.length < MAX_WINDOW_CHARS;
-      column += 1
-    ) {
-      const characters = line.getCell(column)?.getChars();
-      const isTrailingWideHalf = characters === undefined || characters === EMPTY_CELL;
-      if (isTrailingWideHalf) {
-        continue;
-      }
-
-      text += characters;
-      for (let offset = 0; offset < characters.length; offset += 1) {
-        cells.push({
-          row,
-          column
-        });
-      }
+    const glyphs = rowGlyphs({
+      line,
+      content
+    });
+    for (let index = 0; index < glyphs.text.length && text.length < MAX_WINDOW_CHARS; index += 1) {
+      text += glyphs.text[index];
+      cells.push({
+        row,
+        column: glyphs.columns[index]
+      });
     }
   }
 
@@ -368,6 +293,162 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
     text,
     cells
   };
+}
+
+// Whether the row below the window continues the same logical line. The terminal's
+// own soft wrap always continues; a hard wrap continues when the window's last row
+// ran to the right edge; and a self-wrap continues when a URL from the window (its
+// scheme is on the top row) runs across the boundary into the lower row. Testing
+// the WHOLE window, not just its last row, is what lets a URL that already spans
+// several rows keep growing — its later rows carry no scheme of their own.
+function continuesBelow({ buffer, columns, topRow, bottomRow }: {
+  buffer: LinkBuffer;
+  columns: number;
+  topRow: number;
+  bottomRow: number;
+}): boolean {
+  const lower = buffer.getLine(bottomRow + 1);
+  if (!lower) {
+    return false;
+  }
+
+  const lowerContent = rowContent({
+    line: lower,
+    columns
+  });
+  if (!lowerContent) {
+    return false;
+  }
+
+  if (lower.isWrapped) {
+    return true;
+  }
+
+  const lastLine = buffer.getLine(bottomRow);
+  const lastContent = lastLine && rowContent({
+    line: lastLine,
+    columns
+  });
+  if (lastContent && reachesRightEdge({
+    content: lastContent,
+    columns
+  })) {
+    return true;
+  }
+
+  return urlContinuesOntoLower({
+    upperText: windowGlyphs({
+      buffer,
+      columns,
+      topRow,
+      bottomRow
+    }).text,
+    lowerText: rowGlyphs({
+      line: lower,
+      content: lowerContent
+    }).text
+  });
+}
+
+// Whether the row above the window continues the same logical line — the mirror of
+// `continuesBelow`, plus one move it can't make: while the window is still a
+// scheme-less URL fragment (its start not yet reached), absorb the bare token or
+// the scheme row directly above, so a URL hovered on its LAST row still walks up
+// through its scheme-less middle rows to the row that starts it. The scheme guard
+// keeps this from gluing an unrelated line above a URL that's already whole.
+function continuesAbove({ buffer, columns, topRow, bottomRow }: {
+  buffer: LinkBuffer;
+  columns: number;
+  topRow: number;
+  bottomRow: number;
+}): boolean {
+  const upper = buffer.getLine(topRow - 1);
+  if (!upper) {
+    return false;
+  }
+
+  const upperContent = rowContent({
+    line: upper,
+    columns
+  });
+  if (!upperContent) {
+    return false;
+  }
+
+  if (buffer.getLine(topRow)?.isWrapped) {
+    return true;
+  }
+
+  if (reachesRightEdge({
+    content: upperContent,
+    columns
+  })) {
+    return true;
+  }
+
+  const upperText = rowGlyphs({
+    line: upper,
+    content: upperContent
+  }).text;
+  const windowText = windowGlyphs({
+    buffer,
+    columns,
+    topRow,
+    bottomRow
+  }).text;
+  if (urlContinuesOntoLower({
+    upperText,
+    lowerText: windowText
+  })) {
+    return true;
+  }
+
+  return !hasScheme(windowText) && (hasScheme(upperText) || isBareToken(upperText));
+}
+
+// Grow the run of rows the clicked row belongs to — up to the URL's start, then
+// down to its end — and flatten it into one string with a parallel cell for every
+// character. Growing up first lets the downward walk see the scheme once a URL
+// hovered mid-way has been rejoined to its first row.
+function buildLogicalLine({ buffer, columns, anchorRow }: {
+  buffer: LinkBuffer;
+  columns: number;
+  anchorRow: number;
+}): LogicalLine {
+  let topRow = anchorRow;
+  let bottomRow = anchorRow;
+
+  while (
+    topRow > 0
+    && bottomRow - topRow + 1 < MAX_LOGICAL_ROWS
+    && continuesAbove({
+      buffer,
+      columns,
+      topRow,
+      bottomRow
+    })
+  ) {
+    topRow -= 1;
+  }
+
+  while (
+    bottomRow - topRow + 1 < MAX_LOGICAL_ROWS
+    && continuesBelow({
+      buffer,
+      columns,
+      topRow,
+      bottomRow
+    })
+  ) {
+    bottomRow += 1;
+  }
+
+  return windowGlyphs({
+    buffer,
+    columns,
+    topRow,
+    bottomRow
+  });
 }
 
 // One contiguous run of a URL's glyphs on a single buffer row: the tight column

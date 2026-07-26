@@ -67,6 +67,128 @@ function textsOf(links: ILink[]): string[] {
   return links.map(link => link.text);
 }
 
+// A spread of URL shapes to split at every wrap position: schemes, host-only,
+// localhost, IPv6, bare IP, userinfo, ports, query, fragment, dotted paths, and
+// — the adversarial ones — percent-escapes (`%XX`), so a wrap that lands mid-
+// escape (`…%` | `2Fpath`, `…%2` | `Fpath`) is exercised too.
+const URL_CORPUS = [
+  "https://example.com",
+  "http://localhost",
+  "http://localhost:3000/dashboard",
+  "https://[::1]:8080/api/health",
+  "http://192.168.1.10/admin/settings?tab=security#top",
+  "https://user:pass@host.example.com:9443/path/to/resource",
+  "https://community.getro.com/companies/greylock-2/jobs/74075143-applied-ai",
+  "https://job-boards.greenhouse.io/neosecurityinc/jobs/4323679009",
+  "https://sub.domain.co.uk/a.b.c/d?e=f&h=i",
+  "https://example.com/search?q=hello%20world&lang=en%2Dus",
+  "https://example.com/path/%E2%9C%93/check%20mark%21",
+  "https://api.example.com/v1/items/42%2Fnested%3Fkey%3Dvalue",
+  "https://example.com/feed?type=rss&sort=new&page=2",
+  // Ends on `&` (a valid URL byte the pattern keeps) — every split of it,
+  // including one that leaves the trailing `&` on its own row, must still stitch.
+  "https://example.com/list?a=1&b=2&"
+];
+
+// Every link opens the whole URL, each span stays on its own row, and the spans
+// together cover exactly the URL's glyph count — no padding cell, no dropped
+// glyph — regardless of where the wrap fell.
+function expectRecoversWholeUrl({ links, url, rows, label }: {
+  links: ILink[];
+  url: string;
+  rows: number[];
+  label: string;
+}): void {
+  expect(new Set(textsOf(links)), label).toEqual(new Set([url]));
+  const coveredRows = [...new Set(links.map(link => link.range.start.y))]
+    .sort((first, second) => first - second);
+  expect(coveredRows, label).toEqual(rows);
+  expectEverySpanSingleRow(links);
+  const covered = links.reduce((sum, link) => sum + (link.range.end.x - link.range.start.x + 1), 0);
+  expect(covered, label).toBe(url.length);
+}
+
+describe("computeLinks URL-shape robustness (property)", () => {
+  it("recovers every corpus URL sitting on a single line", () => {
+    for (const url of URL_CORPUS) {
+      const [link] = computeLinks({
+        terminal: makeTerminal({
+          rows: [{ text: `See ${url} !` }],
+          columns: url.length + 20
+        }),
+        bufferLineNumber: 1,
+        openUrl() {}
+      });
+      // If this fails, the corpus entry itself isn't a shape the ported pattern
+      // matches whole (fix the corpus, not the wrap logic).
+      expect(link?.text, url).toBe(url);
+    }
+  });
+
+  it("recovers a self-wrapped URL split at every position, from either row", () => {
+    const indent = "   ";
+    for (const url of URL_CORPUS) {
+      // A 1-char continuation is below the min-continuation guard by design, so
+      // stop at length-2; every earlier split leaves ≥2 glyphs on the lower row.
+      for (let split = 1; split <= url.length - 2; split += 1) {
+        const upper = `4. Item (${url.slice(0, split)}`;
+        const lower = `${indent}${url.slice(split)})`;
+        // Wide terminal → the upper row ends mid-URL far short of the edge with
+        // blank padding after it: the self-wrap path, not a soft/hard wrap.
+        const columns = Math.max(upper.length, lower.length) + 12;
+        const rowset = { rows: [{ text: upper }, { text: lower }], columns };
+
+        for (const bufferLineNumber of [1, 2]) {
+          expectRecoversWholeUrl({
+            links: computeLinks({
+              terminal: makeTerminal(rowset),
+              bufferLineNumber,
+              openUrl() {}
+            }),
+            url,
+            rows: [1, 2],
+            label: `url=${url} split=${split} anchor=${bufferLineNumber}`
+          });
+        }
+      }
+    }
+  });
+
+  it("recovers a URL self-wrapped across three rows, hovering any of them", () => {
+    const url = "https://api.example.com/v1/items/42%2Fnested%3Fkey%3Dvalue";
+    // The first break stays past the scheme (`https://`, 8 chars) — a real wrap
+    // width is 40–120 columns, so the scheme is never split across rows; only a
+    // sub-4-column width could fragment it, which no agent produces.
+    for (let first = 10; first <= url.length - 6; first += 6) {
+      for (let second = first + 3; second <= url.length - 2; second += 6) {
+        const rows = [
+          { text: `- (${url.slice(0, first)}` },
+          { text: `  ${url.slice(first, second)}` },
+          { text: `  ${url.slice(second)})` }
+        ];
+        const columns = Math.max(...rows.map(row => row.text.length)) + 10;
+        // Hovering the top (scheme), middle, or bottom row must recover the whole
+        // URL — the upward walk reaches the scheme past the scheme-less middle.
+        for (const bufferLineNumber of [1, 2, 3]) {
+          expectRecoversWholeUrl({
+            links: computeLinks({
+              terminal: makeTerminal({
+                rows,
+                columns
+              }),
+              bufferLineNumber,
+              openUrl() {}
+            }),
+            url,
+            rows: [1, 2, 3],
+            label: `url=${url} first=${first} second=${second} anchor=${bufferLineNumber}`
+          });
+        }
+      }
+    }
+  });
+});
+
 describe("computeLinks", () => {
   it("finds a URL sitting on a single line", () => {
     const url = "https://example.com/page";
