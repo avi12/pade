@@ -26,7 +26,7 @@
 // The URL pattern and the URL-validity check are ported from
 // @xterm/addon-web-links (MIT, the xterm.js authors) because its internals
 // aren't exported. Keep them in sync if that addon is upgraded.
-import type { ILink, Terminal } from "@xterm/xterm";
+import type { ILink, ILinkProvider } from "@xterm/xterm";
 
 // Matches an http(s) URL. Copied verbatim from @xterm/addon-web-links so both
 // paths detect exactly the same links. Its trailing character class excludes
@@ -429,15 +429,81 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
   return links;
 }
 
-// Register a link provider that makes plain-text http(s) URLs clickable,
-// rejoining both soft- and self-wrapped rows so a wrapped URL activates in full.
-// `openUrl` receives the whole URL — route it to the system browser. OSC-8
-// hyperlinks are handled separately by the terminal's own `linkHandler`.
+// The slice of xterm's `Terminal` this registration needs: everything
+// `computeLinks` reads (via `LinkTerminal`) plus `registerLinkProvider`. Narrow
+// enough that a test builds a plain mock, while the real `Terminal` satisfies it.
+interface RegisterableTerminal extends LinkTerminal {
+  registerLinkProvider(provider: ILinkProvider): unknown;
+}
+
+// xterm's ordered list of link providers — its own OSC-8 provider is registered
+// first at terminal construction, and this list is where its precedence lives.
+interface InternalLinkProviderService {
+  linkProviders: ILinkProvider[];
+}
+
+// Read the internal link-provider service off the terminal without a type
+// assertion: `_core` and the service are private, so each hop is fetched
+// reflectively and runtime-checked. A renamed field just yields null, and the
+// caller leaves the provider where it is (still correct, only lower-priority).
+function linkProviderService(terminal: RegisterableTerminal): InternalLinkProviderService | null {
+  const core: unknown = Reflect.get(terminal, "_core");
+  if (core === null || typeof core !== "object") {
+    return null;
+  }
+
+  const service: unknown =
+    Reflect.get(core, "_linkProviderService") ?? Reflect.get(core, "linkProviderService");
+  if (service === null || typeof service !== "object") {
+    return null;
+  }
+
+  const linkProviders: unknown = Reflect.get(service, "linkProviders");
+  if (!Array.isArray(linkProviders)) {
+    return null;
+  }
+
+  return { linkProviders };
+}
+
+// Move `provider` to the front of xterm's provider list. xterm picks the
+// LOWEST-index provider that has a link under the cursor, and it registers its
+// own OSC-8 provider first — so an agent that emits a URL as an OSC-8 hyperlink
+// (Claude, OpenCode) would otherwise be served by that provider, which
+// underlines only the agent-tagged cells (a single self-wrapped row, or the
+// wrapping parens) instead of the whole URL. Promoting this provider makes its
+// regex-parsed, wrap-stitched, punctuation-trimmed range win for URL-shaped
+// links; a labelled OSC-8 link (whose visible text isn't a URL) matches nothing
+// here and still falls through to the OSC-8 provider behind it.
+function promoteAboveOscLinks({ terminal, provider }: {
+  terminal: RegisterableTerminal;
+  provider: ILinkProvider;
+}): void {
+  const service = linkProviderService(terminal);
+  if (!service) {
+    return;
+  }
+
+  const index = service.linkProviders.indexOf(provider);
+  if (index <= 0) {
+    return;
+  }
+
+  service.linkProviders.splice(index, 1);
+  service.linkProviders.unshift(provider);
+}
+
+// Register a link provider that makes http(s) URLs clickable, rejoining soft-,
+// hard-, and self-wrapped rows so a wrapped URL activates and underlines in full.
+// `openUrl` receives the whole URL — route it to the system browser. It is
+// promoted above xterm's built-in OSC-8 provider so an agent's OSC-8-tagged URL
+// gets the same full-URL, no-trailing-punctuation range as a plain-text one;
+// labelled OSC-8 links still reach that provider.
 export function registerWrappedLinkProvider({ terminal, openUrl }: {
-  terminal: Terminal;
+  terminal: RegisterableTerminal;
   openUrl: (uri: string) => void;
 }): void {
-  terminal.registerLinkProvider({
+  const provider: ILinkProvider = {
     provideLinks(bufferLineNumber, callback) {
       callback(
         computeLinks({
@@ -447,5 +513,10 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
         })
       );
     }
+  };
+  terminal.registerLinkProvider(provider);
+  promoteAboveOscLinks({
+    terminal,
+    provider
   });
 }

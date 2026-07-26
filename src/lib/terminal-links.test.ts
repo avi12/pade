@@ -1,5 +1,16 @@
-import { computeLinks } from "@/lib/terminal-links";
+import { computeLinks, registerWrappedLinkProvider } from "@/lib/terminal-links";
 import { describe, expect, it } from "vitest";
+
+// The `computeLinks`-shaped bits a registration mock needs so it structurally
+// satisfies the exported parameter without a type assertion.
+const emptyBuffer = {
+  cols: 80,
+  buffer: {
+    active: {
+      getLine: () => undefined
+    }
+  }
+};
 
 // A tiny stand-in for xterm's buffer: each row is a plain string plus an
 // optional soft-wrap flag. `getCell` mirrors the real API — a column past the
@@ -292,5 +303,49 @@ describe("computeLinks", () => {
     });
 
     expect(links).toHaveLength(0);
+  });
+});
+
+describe("registerWrappedLinkProvider", () => {
+  it("promotes the URL provider above xterm's built-in OSC-8 provider", () => {
+    // xterm registers its own OSC-8 provider first; the URL provider must end up
+    // ahead of it so its full-URL, wrap-stitched range wins the lowest-index
+    // precedence for an OSC-8-tagged URL.
+    const oscProvider = { provideLinks() {} };
+    const linkProviders: unknown[] = [oscProvider];
+    const terminal = {
+      ...emptyBuffer,
+      registerLinkProvider(provider: unknown) {
+        linkProviders.push(provider);
+      },
+      _core: {
+        _linkProviderService: { linkProviders }
+      }
+    };
+
+    registerWrappedLinkProvider({
+      terminal,
+      openUrl() {}
+    });
+
+    expect(linkProviders).toHaveLength(2);
+    expect(linkProviders[0]).not.toBe(oscProvider);
+    expect(linkProviders[1]).toBe(oscProvider);
+  });
+
+  it("leaves registration untouched when the internals aren't shaped as expected", () => {
+    const registered: unknown[] = [];
+    const terminal = {
+      ...emptyBuffer,
+      registerLinkProvider(provider: unknown) {
+        registered.push(provider);
+      }
+    };
+
+    expect(() => registerWrappedLinkProvider({
+      terminal,
+      openUrl() {}
+    })).not.toThrow();
+    expect(registered).toHaveLength(1);
   });
 });
