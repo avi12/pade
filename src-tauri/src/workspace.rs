@@ -753,6 +753,10 @@ pub async fn workspace_rename(
     crate::refs::update_references(&from, &destination_string);
     update_settings(|settings| {
         retarget(settings, &from, &destination_string);
+        // Promotion makes the chosen folder name the authoritative display name;
+        // drop the temp auto-name label retarget carried over so it can't shadow
+        // it (displayName reads the label first, then the folder name).
+        settings.labels.remove(&destination_string);
         Ok(())
     })?;
     workspace_open(destination_string.clone())?;
