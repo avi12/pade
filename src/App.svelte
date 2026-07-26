@@ -547,6 +547,9 @@
       enabled: discordEnabled,
       showProject: discordShowProject,
       project: currentProject,
+      // Read here so a rename (a new settings.labels entry) re-runs this effect
+      // and re-publishes the friendly name, not the stale temp-<stamp> folder.
+      labels: settings.labels,
       kind: discordProjectKind
     });
   });

@@ -61,10 +61,13 @@ const LANGUAGES: Record<string, {
   }
 };
 
-export async function updateDiscordPresence({ enabled, showProject, project, kind }: {
+export async function updateDiscordPresence({ enabled, showProject, project, labels, kind }: {
   enabled: boolean;
   showProject: boolean;
   project: string;
+  /** The workspace-label map, so a renamed (auto-named) temp workspace reports
+   *  its friendly name to Discord rather than its `temp-<stamp>` folder. */
+  labels: Record<string, string>;
   /** The open project's detected kind (from `ide.projectKinds`), if any. */
   kind?: string;
 }): Promise<void> {
@@ -80,9 +83,9 @@ export async function updateDiscordPresence({ enabled, showProject, project, kin
       return;
     }
 
-    // No labels map here — displayName falls back to the folder name, so the
-    // status shows a clean project name rather than the full absolute path.
-    const details = `Working on ${displayName(project, {})}`;
+    // Resolve through the labels map so a renamed workspace reports its friendly
+    // name; displayName falls back to the folder name for an unlabelled path.
+    const details = `Working on ${displayName(project, labels)}`;
     const language = kind ? LANGUAGES[kind] : undefined;
     await discord.setActivity({
       details,
