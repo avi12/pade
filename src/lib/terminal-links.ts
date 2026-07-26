@@ -27,6 +27,7 @@
 // @xterm/addon-web-links (MIT, the xterm.js authors) because its internals
 // aren't exported. Keep them in sync if that addon is upgraded.
 import type { ILink, ILinkProvider } from "@xterm/xterm";
+import { z } from "zod";
 
 // Matches an http(s) URL. Copied verbatim from @xterm/addon-web-links so both
 // paths detect exactly the same links. Its trailing character class excludes
@@ -180,7 +181,10 @@ function reachesRightEdge({ content, columns }: {
 function rowGlyphs({ line, content }: {
   line: LinkLine;
   content: RowContent;
-}): { text: string; columns: number[] } {
+}): {
+  text: string;
+  columns: number[];
+} {
   let text = "";
   const columns: number[] = [];
   for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
@@ -624,28 +628,45 @@ interface InternalLinkProviderService {
   linkProviders: ILinkProvider[];
 }
 
-// Read the internal link-provider service off the terminal without a type
-// assertion: `_core` and the service are private, so each hop is fetched
-// reflectively and runtime-checked. A renamed field just yields null, and the
-// caller leaves the provider where it is (still correct, only lower-priority).
+// The shape xterm's link-provider service must have. Kept minimal — we only
+// reorder the providers, so the elements stay `z.unknown()` and the guard's
+// return type brands them `ILinkProvider`.
+const LinkProviderServiceSchema = z.object({
+  linkProviders: z.array(z.unknown())
+});
+
+// A Zod-backed type guard — the idiomatic v4 way to narrow an `unknown` (v4
+// dropped `.refine` type-predicate narrowing). `safeParse` validates the shape
+// with no cast and no `z.custom`, and returning the ORIGINAL `value` keeps
+// xterm's LIVE object, so reordering its `linkProviders` reorders xterm itself.
+function isLinkProviderService(value: unknown): value is InternalLinkProviderService {
+  return LinkProviderServiceSchema.safeParse(value).success;
+}
+
+// `_core` and the service are private and unexported, so instead of a type
+// assertion (which blindly trusts the shape) the path is validated through Zod
+// at this trust boundary. The service hops stay `z.unknown()` so their values
+// pass through by REFERENCE — a cloning `z.object`/`z.array` on the array would
+// hand back a dead copy — then the guard narrows the live service. A renamed
+// field just yields null, leaving the provider where it is (still correct, only
+// lower-priority). xterm names it `_linkProviderService`; tolerate an unprefixed
+// alias across versions.
+const TerminalInternals = z.object({
+  _core: z.object({
+    _linkProviderService: z.unknown().optional(),
+    linkProviderService: z.unknown().optional()
+  })
+});
+
 function linkProviderService(terminal: RegisterableTerminal): InternalLinkProviderService | null {
-  const core: unknown = Reflect.get(terminal, "_core");
-  if (core === null || typeof core !== "object") {
+  const parsed = TerminalInternals.safeParse(terminal);
+  if (!parsed.success) {
     return null;
   }
 
-  const service: unknown =
-    Reflect.get(core, "_linkProviderService") ?? Reflect.get(core, "linkProviderService");
-  if (service === null || typeof service !== "object") {
-    return null;
-  }
-
-  const linkProviders: unknown = Reflect.get(service, "linkProviders");
-  if (!Array.isArray(linkProviders)) {
-    return null;
-  }
-
-  return { linkProviders };
+  const { _core } = parsed.data;
+  const service = _core._linkProviderService ?? _core.linkProviderService;
+  return isLinkProviderService(service) ? service : null;
 }
 
 // Move `provider` to the front of xterm's provider list. xterm picks the
@@ -692,10 +713,12 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
         bufferLineNumber,
         openUrl
       });
-      callback(links.map(link => withHoverUnderline({
-        terminal,
-        link
-      })));
+      callback(
+        links.map(link => withHoverUnderline({
+          terminal,
+          link
+        }))
+      );
     }
   };
   terminal.registerLinkProvider(provider);
