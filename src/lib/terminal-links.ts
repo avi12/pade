@@ -16,9 +16,12 @@
 // its first to its last visible column — stripping every row's leading indent
 // and trailing margin so the URL reconnects across the boundary with no spurious
 // space — and maps each matched URL back to the exact cells it occupies. A lower
-// row continues the upper one when the terminal soft-wrapped it, or when the
-// upper row reached the right edge and the lower row has content: precisely the
-// self-wrap this fixes.
+// row continues the upper one when the terminal soft-wrapped it; when the upper
+// row reached the right edge and the lower row has content; or when the upper row
+// ends mid-URL and the lower row resumes it. That last case matters when the
+// terminal is WIDER than the agent's content width: the agent wraps at its own
+// narrower width, so the upper row ends mid-URL far short of the physical edge —
+// the edge test alone would miss the wrap and truncate the URL.
 //
 // The URL pattern and the URL-validity check are ported from
 // @xterm/addon-web-links (MIT, the xterm.js authors) because its internals
@@ -170,10 +173,87 @@ function reachesRightEdge({ content, columns }: {
   return content.lastColumn >= columns - 1 - RIGHT_EDGE_SLACK;
 }
 
+// One row's glyphs from its first to its last visible column, plus the source
+// column each character came from. The single home for turning a row's content
+// span into text — both the logical-line builder and the URL-continuation test
+// read from it, so they can never disagree on what a row's text is.
+function rowGlyphs({ line, content }: {
+  line: LinkLine;
+  content: RowContent;
+}): { text: string; columns: number[] } {
+  let text = "";
+  const columns: number[] = [];
+  for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
+    const characters = line.getCell(column)?.getChars();
+    const isTrailingWideHalf = characters === undefined || characters === EMPTY_CELL;
+    if (isTrailingWideHalf) {
+      continue;
+    }
+
+    text += characters;
+    for (let offset = 0; offset < characters.length; offset += 1) {
+      columns.push(column);
+    }
+  }
+
+  return {
+    text,
+    columns
+  };
+}
+
+// The URL that runs to the very end of `text`, or null when the text doesn't end
+// mid-URL. A row ending inside a URL is the tell-tale of a wrap: the program had
+// more URL to write but ran out of its content width.
+function trailingUrl(text: string): string | null {
+  const pattern = new RegExp(URL_PATTERN.source, "g");
+  let last: RegExpExecArray | null = null;
+  for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+    last = match;
+  }
+
+  if (!last || last.index + last[0].length !== text.length) {
+    return null;
+  }
+
+  return last[0];
+}
+
+// How many extra URL characters the lower row must contribute before we treat it
+// as continuing the upper row's URL, so a fresh line whose leading glyph merely
+// happens to be a URL byte (Claude's `%` tool-call marker, then a space) doesn't
+// get glued onto the URL above it.
+const MIN_URL_CONTINUATION = 2;
+
+// Whether the lower row resumes a URL the upper row broke mid-way. Unlike the
+// geometric edge test, this catches a fullscreen agent that self-wrapped a URL
+// at a content width NARROWER than the terminal, leaving the upper row ending
+// mid-URL well short of the physical right edge (an indented continuation under a
+// wide pane). The upper row must end inside a URL, and appending the lower row's
+// text must extend that same URL by more than a stray byte.
+function urlContinuesOntoLower({ upperText, lowerText }: {
+  upperText: string;
+  lowerText: string;
+}): boolean {
+  const trailing = trailingUrl(upperText);
+  if (!trailing) {
+    return false;
+  }
+
+  const continued = new RegExp(URL_PATTERN.source).exec(trailing + lowerText);
+  if (!continued || continued.index !== 0) {
+    return false;
+  }
+
+  return continued[0].length >= trailing.length + MIN_URL_CONTINUATION;
+}
+
 // Whether the row just below `row` continues it as one logical line. The
-// terminal's own soft wrap always continues; otherwise a hard wrap continues
-// only when `row` ran its text to the right edge and the row below has content —
-// exactly how a program wraps a URL it couldn't fit on one row.
+// terminal's own soft wrap always continues; a hard wrap continues when `row` ran
+// its text to the right edge and the row below has content; and a self-wrap
+// continues when `row` ends mid-URL and the row below resumes it — exactly how a
+// program wraps a URL it couldn't fit on one row, at the terminal edge or at its
+// own narrower content width.
 function nextRowContinues({ buffer, columns, row }: {
   buffer: LinkBuffer;
   columns: number;
@@ -205,9 +285,22 @@ function nextRowContinues({ buffer, columns, row }: {
     return false;
   }
 
-  return reachesRightEdge({
+  if (reachesRightEdge({
     content: upperContent,
     columns
+  })) {
+    return true;
+  }
+
+  return urlContinuesOntoLower({
+    upperText: rowGlyphs({
+      line: upper,
+      content: upperContent
+    }).text,
+    lowerText: rowGlyphs({
+      line: lower,
+      content: lowerContent
+    }).text
   });
 }
 

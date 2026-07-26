@@ -227,6 +227,57 @@ describe("computeLinks", () => {
     expect(links[0].range.end.y).toBe(1);
   });
 
+  it("rejoins a URL the agent self-wrapped short of a wide terminal's edge", () => {
+    // A fullscreen agent wraps at its own content width, not the terminal's: the
+    // upper row ends mid-URL well short of the (wide) physical edge, and the
+    // continuation is indented under the markdown list item. The edge test can't
+    // see this wrap — the URL's own break across the rows must.
+    const url = "https://community.getro.com/companies/greylock-2/jobs/74075143-applied-ai-engineer-founding-team";
+    const rows = [
+      { text: "3. Applied AI Engineer, Founding Team (https://community.getro.com/companies/greylock-2/jobs/74075143-" },
+      { text: "   applied-ai-engineer-founding-team)" }
+    ];
+    for (const bufferLineNumber of [1, 2]) {
+      const links = computeLinks({
+        terminal: makeTerminal({
+          rows,
+          columns: 140
+        }),
+        bufferLineNumber,
+        openUrl() {}
+      });
+
+      expect(links).toHaveLength(1);
+      expect(links[0].text).toBe(url);
+      // The whole URL is covered — from the upper row into the indented lower
+      // row — and the trailing `)` that closed the markdown link is left out.
+      expect(links[0].range.start.y).toBe(1);
+      expect(links[0].range.end.y).toBe(2);
+      expect(links[0].range.end.x).toBe(36);
+    }
+  });
+
+  it("does not glue a fresh marker line onto a URL that ended the row above", () => {
+    // The upper row ends exactly at a complete URL; the lower row is a new
+    // tool-call line that merely opens with a `%`. A single stray URL byte must
+    // not be read as the URL continuing.
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [
+          { text: "See https://developer.chrome.com/docs" },
+          { text: "% WebFetch https://example.com/other" }
+        ],
+        columns: 140
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(links).toHaveLength(1);
+    expect(links[0].text).toBe("https://developer.chrome.com/docs");
+    expect(links[0].range.end.y).toBe(1);
+  });
+
   it("joins two full prose rows without inventing a link", () => {
     const links = computeLinks({
       terminal: makeTerminal({
