@@ -1,5 +1,6 @@
 import {
   baseName,
+  childPath,
   displayName,
   isTemporaryWorkspace,
   normalizePath,
@@ -23,6 +24,27 @@ describe("baseName", () => {
 
   it("returns the input unchanged when it has no separators", () => {
     expect(baseName("pade")).toBe("pade");
+  });
+});
+
+describe("childPath", () => {
+  it("joins a name under a root with the Windows separator", () => {
+    expect(
+      childPath({
+        parent: "C:\\repositories\\avi",
+        name: "edge-new-tab"
+      })
+    ).toBe(
+      "C:\\repositories\\avi\\edge-new-tab"
+    );
+  });
+
+  it("round-trips through baseName", () => {
+    const composed = childPath({
+      parent: "C:\\roots",
+      name: "demo"
+    });
+    expect(baseName(composed)).toBe("demo");
   });
 });
 

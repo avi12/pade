@@ -37,6 +37,17 @@ export function parentDirectory(path: string): string | null {
   return cut > 0 ? path.slice(0, cut) : null;
 }
 
+/** Compose the path of a named child under a parent directory — the one home for
+ *  the platform separator so the "<root>\<name>" join never drifts between the
+ *  project picker's new-project probe and the app menu's Save-this-workspace
+ *  collision check. */
+export function childPath({ parent, name }: {
+  parent: string;
+  name: string;
+}): string {
+  return `${parent}\\${name}`;
+}
+
 /** Whether a path is a PADE temporary workspace (…/workspaces/temp-<stamp>). */
 export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
