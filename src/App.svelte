@@ -15,6 +15,7 @@
   import DesignMenu from "@/lib/DesignMenu.svelte";
   import { updateDiscordPresence } from "@/lib/discord-presence";
   import type { DragHint } from "@/lib/drag-reorder";
+  import { focusTerminalPane } from "@/lib/focus";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
@@ -1969,6 +1970,9 @@
             });
             selection = "";
             getSelection()?.removeAllRanges();
+            // The click moved focus to this button; hand it back to the agent so
+            // the sent text can be submitted (or edited) without a click into the pane.
+            focusTerminalPane(activeId);
           }}
         >
           ◆ Send to agent
