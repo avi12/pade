@@ -366,6 +366,16 @@
     }
 
     status = SessionStatus.enum.working;
+
+    // The agent went to work right after we submitted the first prompt — that's
+    // it consuming the prompt, so the delivery is done. Latch it here (not just on
+    // the echo) so a successor reading its handoff doc and continuing — output
+    // that pushes the prompt out of `recentOutput` — never gets re-prompted.
+    if (promptSubmitted && !promptDelivered) {
+      promptDelivered = true;
+      clearTimeout(promptVerifyTimer);
+    }
+
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       if (status === SessionStatus.enum.working) {
@@ -404,6 +414,12 @@
   const PROMPT_ECHO_VERIFY_MS = 2_000;
   const PROMPT_MAX_ATTEMPTS = 8;
   let promptAttempts = 0;
+  // True once a submit has been written but not yet confirmed landed. The moment
+  // the agent then flips to `working` it has taken the prompt up — a far more
+  // reliable "delivered" signal than the echo, which scrolls out of the rolling
+  // tail as soon as the successor's first turn prints more than a few KB and used
+  // to make delivery re-fire and re-paste the "continue" prompt on every idle.
+  let promptSubmitted = false;
   let promptVerifyTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Once the agent has settled quiet — done booting, past the trust gate — paste
@@ -441,6 +457,7 @@
     }
 
     promptAttempts += 1;
+    promptSubmitted = true;
     await writeToPty(submittedPrompt(session.initialPrompt));
     // Verify shortly: if the echo hasn't appeared and the session sits quiet at
     // ready, the TUI wasn't reading yet — try again.
