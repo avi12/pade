@@ -29,6 +29,46 @@ describe("isTaskInvocation", () => {
     ).toBe(true);
   });
 
+  it("matches when the agent wraps the command with cd, args and redirects", () => {
+    // The way an agent actually runs a task: a cd prefix, extra flags, a redirect.
+    expect(
+      isTaskInvocation({
+        line: 'Bash(cd "C:/repo/app" && pnpm dev)',
+        command: "pnpm dev"
+      })
+    ).toBe(true);
+    expect(
+      isTaskInvocation({
+        line: "Bash(cargo check --all-targets 2>&1 | tail -20)",
+        command: "cargo check --all-targets"
+      })
+    ).toBe(true);
+    expect(
+      isTaskInvocation({
+        line: "PowerShell(pnpm build && node scripts/post.mjs)",
+        command: "node scripts/post.mjs"
+      })
+    ).toBe(true);
+  });
+
+  it("matches a script run at a prompt behind a cd", () => {
+    expect(
+      isTaskInvocation({
+        line: "$ cd app && node scripts/dev-server.ts",
+        command: "node scripts/dev-server.ts"
+      })
+    ).toBe(true);
+  });
+
+  it("still rejects a longer sibling wrapped in a tool call", () => {
+    expect(
+      isTaskInvocation({
+        line: "Bash(cd app && pnpm build:prod)",
+        command: "pnpm build"
+      })
+    ).toBe(false);
+  });
+
   it("matches through the ANSI codes the transcript is painted with", () => {
     const painted = `${ESC}[1mPowerShell${ESC}[0m(${ESC}[36mpnpm dev${ESC}[0m)`;
     expect(
