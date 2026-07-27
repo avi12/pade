@@ -212,6 +212,29 @@
     }
   }
 
+  // Enter in the name field saves into the PRIMARY root (roots[0]) — the same
+  // default workspace_rename uses when no root is chosen — or opens the folder
+  // picker when there are no roots yet. Respects the same gates as the primary
+  // root's button (blank/busy/collision), so Enter can't save a name that button
+  // shows disabled.
+  async function saveViaEnter() {
+    if (!savableName || saveBusy) {
+      return;
+    }
+
+    if (roots.length === 0) {
+      await createRootAndSave();
+      return;
+    }
+
+    const primaryRoot = roots[0];
+    if (saveCollides(primaryRoot)) {
+      return;
+    }
+
+    await saveTempInto(primaryRoot);
+  }
+
   // The no-roots path: pick an existing folder as the first root, then save
   // into it. The dialog always returns an existing directory, so any non-`added`
   // outcome is a real failure worth showing.
@@ -478,6 +501,20 @@
   onDestroy(() => unlistenWindowsChanged?.());
 </script>
 
+<!-- Close the menu on Escape from ANYWHERE, including while the terminal holds
+     focus: xterm's textarea preventDefaults Escape to forward it to the agent,
+     which swallows the popover's native close-signal. A capture-phase window
+     handler runs before xterm, so it wins while the menu is open. -->
+<svelte:window
+  onkeydowncapture={e => {
+    if (menuOpen && e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+    }
+  }}
+/>
+
 <span class="menu-host">
   <button
     class="trigger menu-trigger"
@@ -525,55 +562,61 @@
           <span class="save-title">Save this workspace</span>
         </div>
         <p class="save-hint">Name it and pick a root to keep it beyond this session.</p>
-        <input
-          class="save-name"
-          aria-label="Project name"
-          autocomplete="off"
-          placeholder="project-name"
-          spellcheck="false"
-          bind:value={saveName}
-        />
-        {#if saveNameIssue}
-          <output class="save-issue">{saveNameIssue}</output>
-        {/if}
-        {#if saveFailure}
-          <output class="save-issue">{saveFailure}</output>
-        {/if}
-        {#if roots.length === 0}
-          <button
-            class="save-root"
-            disabled={!savableName || saveBusy}
-            onclick={async () => await createRootAndSave()}
-            type="button"
-          >
-            <span class="save-root-icon" aria-hidden="true"><Icon name="folderPlus" size={15} /></span>
-            <span class="save-root-path">Choose a folder for your projects…</span>
-            <span class="save-go">Create root & save →</span>
-          </button>
-        {:else}
-          <div class="save-roots">
-            {#each roots as root (root)}
-              {@const collides = saveCollides(root)}
-              <button
-                class="save-root"
-                class:save-root-collides={collides}
-                disabled={!savableName || saveBusy || collides}
-                onclick={async () => await saveTempInto(root)}
-                type="button"
-              >
-                <span class="save-root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
-                <span class="save-root-path">{root}</span>
-                <span class="save-go">
-                  {#if collides}
-                    Name taken
-                  {:else}
-                    Save →
-                  {/if}
-                </span>
-              </button>
-            {/each}
-          </div>
-        {/if}
+        <form
+          class="save-form" onsubmit={async e => {
+            e.preventDefault();
+            await saveViaEnter();
+          }}>
+          <input
+            class="save-name"
+            aria-label="Project name"
+            autocomplete="off"
+            placeholder="project-name"
+            spellcheck="false"
+            bind:value={saveName}
+          />
+          {#if saveNameIssue}
+            <output class="save-issue">{saveNameIssue}</output>
+          {/if}
+          {#if saveFailure}
+            <output class="save-issue">{saveFailure}</output>
+          {/if}
+          {#if roots.length === 0}
+            <button
+              class="save-root"
+              disabled={!savableName || saveBusy}
+              onclick={async () => await createRootAndSave()}
+              type="button"
+            >
+              <span class="save-root-icon" aria-hidden="true"><Icon name="folderPlus" size={15} /></span>
+              <span class="save-root-path">Choose a folder for your projects…</span>
+              <span class="save-go">Create root & save →</span>
+            </button>
+          {:else}
+            <div class="save-roots">
+              {#each roots as root (root)}
+                {@const collides = saveCollides(root)}
+                <button
+                  class="save-root"
+                  class:save-root-collides={collides}
+                  disabled={!savableName || saveBusy || collides}
+                  onclick={async () => await saveTempInto(root)}
+                  type="button"
+                >
+                  <span class="save-root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
+                  <span class="save-root-path">{root}</span>
+                  <span class="save-go">
+                    {#if collides}
+                      Name taken
+                    {:else}
+                      Save →
+                    {/if}
+                  </span>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </form>
       </div>
       <div class="separator"></div>
     {/if}
@@ -972,6 +1015,12 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius-medium);
     background: var(--surface-1);
+
+    /* The <form> exists only to make Enter submit; it must not become a flex item
+       or it would swallow the card's column gap around the field and roots. */
+    .save-form {
+      display: contents;
+    }
 
     .save-head {
       display: flex;
