@@ -16,7 +16,9 @@ writes.
 - R1.1.1 Run an agent CLI in a real PTY (Windows ConPTY via `portable-pty`).
 - R1.1.2 Render terminals through xterm's DOM renderer so no terminal owns a
   dedicated WebGL context or VRAM; hidden tabs and unfocused windows also pause
-  cursor blinking while continuing to consume PTY output.
+  cursor blinking while continuing to consume PTY output. Covered and minimized
+  windows retain WebView2's native occlusion throttling so Chromium may suspend
+  their visual work entirely.
 - R1.1.3 Bi-directional: stream output in, send keystrokes/resize out.
 - R1.1.4 Command configurable via `ADE_AGENT_CMD` (default: platform shell).
 - R1.1.5 ✅ **Split panes** — show multiple agent sessions side by side (add an

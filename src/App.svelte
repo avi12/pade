@@ -1728,6 +1728,11 @@
             >
               <span class="branch-pill-icon" aria-hidden="true"><Icon name="branch" size={13} /></span>
               <span class="branch-pill-name">{currentBranch}</span>
+              {#if hasRemote}
+                <!-- Only shown with a remote: the affordance that Ctrl-click opens
+                     the branch on its remote provider. -->
+                <span class="branch-pill-launch" aria-hidden="true"><Icon name="external" size={11} /></span>
+              {/if}
             </button>
           {/if}
           <span class="chrome-spacer"></span>
@@ -2149,6 +2154,16 @@
     cursor: pointer;
     transition: background 150ms var(--ease);
 
+    @media (prefers-reduced-motion: reduce) {
+      .branch-pill-launch {
+        transition: color 150ms var(--ease);
+      }
+
+      &:hover .branch-pill-launch {
+        translate: none;
+      }
+    }
+
     &:hover {
       background: var(--surface-3);
     }
@@ -2166,6 +2181,23 @@
       font-weight: 700;
       font-size: 12px;
       text-overflow: ellipsis;
+    }
+
+    /* Trailing open-on-remote affordance (remote repos only). Quiet at rest;
+       on hover it lifts to the accent and nudges up-and-out — an M3-expressive
+       cue that Ctrl-click launches the branch on its remote. */
+    .branch-pill-launch {
+      display: inline-flex;
+      flex-shrink: 0;
+      color: var(--on-surface-variant);
+      transition:
+        color 150ms var(--ease),
+        translate 150ms var(--ease);
+    }
+
+    &:hover .branch-pill-launch {
+      color: var(--primary);
+      translate: 1px -1px;
     }
   }
 

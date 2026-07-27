@@ -39,15 +39,6 @@ pub fn run() {
     #[cfg(windows)]
     {
         let mut browser_arguments = Vec::new();
-        // Keep the webview running when PADE sits on another virtual desktop or is
-        // covered. WebView2 otherwise marks an occluded window hidden and Chromium
-        // FREEZES the page: JS stops, so an OS light/dark flip's matchMedia change
-        // never fires and the agent keeps the old scheme until the window is looked
-        // at again. Disabling native-window occlusion keeps the scheme sync live, so
-        // the terminal recolors the instant the OS flips — no focus needed. The GPU
-        // is still dropped on blur (keyed on window focus, not occlusion), so a
-        // background game keeps its VRAM.
-        browser_arguments.push("--disable-features=CalculateNativeWinOcclusion");
         // Dev-only and explicit opt-in: CDP lets any local process control the
         // privileged webview, so a normal debug build must not expose it.
         #[cfg(debug_assertions)]

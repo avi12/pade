@@ -204,7 +204,7 @@ Fills the remaining space. Contains the active agent's **terminal** (xterm.js):
   **Session badge** (§4.7): a colored status dot + the agent label (mono, bold) +
   a state phrase.
 - The terminal itself sits on `code-bg` (theme-matched), full-bleed to the pane
-  edges (only 8px top/left inset), mono, GPU-rendered, no scrollbar. All sessions
+  edges (only 8px top/left inset), mono, DOM-rendered, no scrollbar. All sessions
   stay mounted; only the active one is visible so scrollback survives switching.
 
 #### Body — side panel (right)

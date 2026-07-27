@@ -162,7 +162,10 @@ work alive whenever PADE was focused, competing with games even though backgroun
 contexts were released. The DOM renderer keeps output and resizing live without
 owning a WebGL context. A background tab or unfocused window also disables its
 cursor blink paint loop; PTY parsing, scrollback, prompt detection, and replay
-ordering continue uninterrupted.
+ordering continue uninterrupted. WebView2's native occlusion detection remains
+enabled so a fully covered, minimized, or off-desktop window can suspend frontend
+visual work entirely. The theme reconciles from the live OS state on
+`visibilitychange` when it resumes.
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;
