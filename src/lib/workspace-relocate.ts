@@ -13,7 +13,7 @@ import { normalizePath } from "@/lib/paths";
 import { dropContext } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
-import type { Agent, AgentSession, SaveMigration, Settings } from "@/lib/types";
+import type { Agent, AgentSession, Settings } from "@/lib/types";
 
 /** Whether `dir` is `base` itself or nested anywhere under it (normalized). */
 export function isUnderDirectory({ directory, base }: {
@@ -194,42 +194,6 @@ export function createRelocator(host: RelocateHost) {
     return settings;
   }
 
-  /** Save a temp workspace by copy-migration: renaming its folder fails on
-   *  Windows while the watcher holds it open, so the backend copies its files
-   *  into a fresh saved project instead. Same lock release first (which frees the
-   *  temp folder so it can be deleted); then the backend copy; then the live
-   *  sessions resume on the new dir and the emptied temp folder is removed. The
-   *  install command is handed back for the caller to run in a runner pane. */
-  async function saveMigrate(target: {
-    from: string;
-    newName: string;
-    root?: string;
-  }): Promise<SaveMigration> {
-    const toResume = await releaseLock(target.from);
-
-    const migration = await workspace.saveMigrate(target);
-    await workspace.settings();
-
-    if (isUnder({
-      directory: host.currentProject(),
-      base: target.from
-    })) {
-      host.setCurrentProject(migration.path);
-    }
-
-    resumeSessions({
-      toResume,
-      from: target.from,
-      to: migration.path
-    });
-
-    // Best-effort: the temp's agents are dead now so the folder should delete,
-    // but the copy is the important work — never let a delete failure sink it.
-    await workspace.delete(target.from).catch(() => {});
-
-    return migration;
-  }
-
   /** Delete an ADE-owned workspace directory (the picker's delete). */
   function remove(path: string): Promise<Settings> {
     return deleteVia(path, workspace.delete);
@@ -244,7 +208,6 @@ export function createRelocator(host: RelocateHost) {
   return {
     move,
     rename,
-    saveMigrate,
     remove,
     removeDirectory
   };

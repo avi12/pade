@@ -1615,23 +1615,52 @@
             onremoverecent={removeRecentProject}
             onreorderpins={reorderPins}
             onsavetemp={async ({ name, root }) => {
-              // Copy-migrate the temp into a saved project (setCurrentProject
-              // happens inside), then reinstall its deps in a runner pane.
-              const migration = await relocator.saveMigrate({
-                from: currentProject,
+              const savingProject = currentProject;
+              const previousSessionIds = sessions.map(session => session.id);
+              const continuingAgent =
+                sessions.find(session => session.id === activeId)?.agent ?? sessions[0]?.agent;
+
+              // Copy the temp workspace into the saved root while its agent keeps
+              // running — a copy only READS files, so it never trips the watcher/
+              // cwd handle a rename does. No up-front kill: the session stays live.
+              const migration = await workspace.saveMigrate({
+                from: savingProject,
                 newName: name,
                 root
               });
-              if (!migration.install) {
-                return;
+
+              // Re-root the window to the saved project, then start its agent in
+              // the SAME tab pointing at the new dir (launch replaces the panes)
+              // BEFORE tearing the temp session down — so the tab transitions
+              // straight to the new-dir agent with no dead gap, then the old
+              // session is killed and the emptied temp folder is deleted.
+              currentProject = migration.path;
+
+              if (continuingAgent) {
+                launch({
+                  agent: continuingAgent,
+                  cwd: migration.path
+                });
               }
 
-              await startRunner({
-                label: "Install dependencies",
-                kind: "npm",
-                command: migration.install,
-                cwd: migration.path
-              });
+              for (const id of previousSessionIds) {
+                closingByHand.add(id);
+              }
+              await Promise.all(previousSessionIds.map(id => pty.kill(id)));
+              for (const id of previousSessionIds) {
+                detachSession(id);
+                closingByHand.delete(id);
+              }
+              await workspace.delete(savingProject).catch(() => {});
+
+              if (migration.install) {
+                await startRunner({
+                  label: "Install dependencies",
+                  kind: "npm",
+                  command: migration.install,
+                  cwd: migration.path
+                });
+              }
             }}
             onswitch={leaveToPicker}
             ontogglepin={toggleProjectPin}
