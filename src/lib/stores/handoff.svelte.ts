@@ -584,19 +584,38 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
-  // Scan for sessions near the context limit and kick off their handoff.
+  // Scan for sessions to hand off: those newly over the context threshold, and any
+  // whose earlier handoff was interrupted before it could reset.
   function check() {
     if (host.isOptedOut()) {
       return;
     }
 
     for (const session of host.sessions()) {
-      const percentage = measuredContextPercentage(session.id);
-      const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
-      const idle = sessionStatus(session.id) === SessionStatus.enum.ready;
-      const already = isHandingOff(session.id);
-      if (!nearLimit || !idle || already) {
+      // A handoff actively running in THIS module instance owns the session.
+      if (handingOff.has(session.id)) {
         continue;
+      }
+
+      // Never cut in on a working agent — only reset one sitting idle.
+      if (sessionStatus(session.id) !== SessionStatus.enum.ready) {
+        continue;
+      }
+
+      // A persistent marker with no live handoff is one whose async flow died
+      // between marking and the kill/launch — a window reload, an HMR swap, or a
+      // crash mid-handoff. It leaves the session stranded: the doc is written but
+      // the id never reset, and the old code skipped it forever on that very
+      // marker. Resume instead — runHandoff's already-written probe short-circuits
+      // onto the doc it already wrote, straight to the reset. A session with no
+      // marker starts a fresh handoff only once it is over threshold.
+      const resuming = sessionStorage.getItem(persistentMarker(session.id)) !== null;
+      if (!resuming) {
+        const percentage = measuredContextPercentage(session.id);
+        const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
+        if (!nearLimit) {
+          continue;
+        }
       }
 
       markHandingOff(session.id);
