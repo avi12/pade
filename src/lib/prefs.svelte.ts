@@ -89,6 +89,19 @@ osDark.addEventListener("change", () => {
   }
 });
 
+// A PADE window parked on another virtual desktop (or minimized) is hidden, and
+// Chromium freezes a hidden page: the `change` above never fires for an OS flip
+// made while it was away, and it is NOT re-fired on thaw — so the scheme silently
+// goes stale and the agent keeps painting the old one. Reconcile on the way back
+// to visible: apply() re-reads osDark.matches live, so a missed flip re-themes
+// xterm and relays the ?997 report through the terminal's own effects. Keyed on
+// visibility, not focus, so it fires the instant the desktop is switched back.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && effective.themeMode === "system") {
+    apply();
+  }
+});
+
 registerSettingsAdoptionEffect(apply);
 
 export async function loadPrefs(): Promise<void> {
