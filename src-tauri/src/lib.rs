@@ -144,6 +144,7 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             pty::session_task_stop,
+            pty::session_task_running,
             pty::pty_history,
             pty::pty_list,
             recovery::recovery_arm,

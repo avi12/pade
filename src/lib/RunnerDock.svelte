@@ -165,7 +165,14 @@
               })}
             ></span>
             <span class="name">{row.label}</span>
-            {#if activeSessionId}
+            {#if row.attached}
+              <!-- The agent owns this process; PADE only reflects + can stop it. -->
+              <span
+                class="attached-tag"
+                data-tooltip="Started by the agent · PADE can stop it, but its output stays in the agent's terminal"
+              >agent</span>
+            {/if}
+            {#if activeSessionId && !row.attached}
               <button
                 class="pipe"
                 aria-label="Send output to the active agent"
@@ -176,15 +183,17 @@
                 })}
               >◆</button>
             {/if}
-            <button
-              class="rerun"
-              aria-label="Re-run task"
-              data-tooltip="Re-run · Shift-click keeps previous output"
-              onclick={async e => await rerunRunner({
-                id: row.id,
-                preserve: e.shiftKey
-              })}
-            ><Icon name="refresh" /></button>
+            {#if !row.attached}
+              <button
+                class="rerun"
+                aria-label="Re-run task"
+                data-tooltip="Re-run · Shift-click keeps previous output"
+                onclick={async e => await rerunRunner({
+                  id: row.id,
+                  preserve: e.shiftKey
+                })}
+              ><Icon name="refresh" /></button>
+            {/if}
             <button
               class="stop"
               aria-label="Stop runner"
@@ -192,25 +201,34 @@
               onclick={async () => await stopRunner(row.id)}
             ><Icon name="close" /></button>
           </header>
-          <div
-            style:view-transition-name={`runner-output-${row.id}`}
-            class="output"
-            use:autoscroll
-          >
-            {#each row.lines as line, i (i)}
-              <div
-                class="line"
-                class:error={line.stream === RunnerStream.enum.stderr}
-              >{#each parseAnsi(line.text) as segment, segmentIndex (segmentIndex)}<span
-                style:color={segment.color}
-                style:background={segment.background}
-                class:bold={segment.bold}
-                class:dim={segment.dim}
-                class:italic={segment.italic}
-                class:underline={segment.underline}
-              >{segment.text || " "}</span>{/each}</div>
-            {/each}
-          </div>
+          {#if row.attached}
+            <!-- No captured output: the task runs in the agent's own terminal,
+                 which PADE can't tee. The card still tracks it and can stop it. -->
+            <div class="attached-note">
+              <p>Running in the agent's terminal.</p>
+              <p class="muted">Its output stays there — PADE didn't spawn this process. Stop ends it.</p>
+            </div>
+          {:else}
+            <div
+              style:view-transition-name={`runner-output-${row.id}`}
+              class="output"
+              use:autoscroll
+            >
+              {#each row.lines as line, i (i)}
+                <div
+                  class="line"
+                  class:error={line.stream === RunnerStream.enum.stderr}
+                >{#each parseAnsi(line.text) as segment, segmentIndex (segmentIndex)}<span
+                  style:color={segment.color}
+                  style:background={segment.background}
+                  class:bold={segment.bold}
+                  class:dim={segment.dim}
+                  class:italic={segment.italic}
+                  class:underline={segment.underline}
+                >{segment.text || " "}</span>{/each}</div>
+              {/each}
+            </div>
+          {/if}
         </article>
       {/each}
     </div>
@@ -423,6 +441,44 @@
     font-family: var(--font-monospace);
     font-size: 12px;
     line-height: 1.5;
+  }
+
+  /* Marks a card whose process the agent owns (no output; Stop still kills it). */
+  .attached-tag {
+    flex: none;
+    padding-block: 2px;
+    padding-inline: 7px;
+    border-radius: 999px;
+    background: var(--tertiary-wash);
+    color: var(--tertiary);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Stand-in for the output pane on an attached runner — there is nothing to
+     stream, so it explains why rather than showing an empty terminal. */
+  .attached-note {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+    padding-block: 8px;
+    padding-inline: 12px;
+    background: var(--code-background);
+
+    p {
+      margin: 0;
+      color: var(--code-foreground);
+      font-size: 12px;
+    }
+
+    .muted {
+      color: var(--on-surface-variant);
+      font-size: 11px;
+    }
   }
 
   .line {

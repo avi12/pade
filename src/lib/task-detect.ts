@@ -45,11 +45,17 @@ export function isTaskInvocation({ line, command }: {
   // the command bounded inside the parentheses' contents.
   const toolCall = new RegExp(`(?:^|\\s)(?:${TOOL_NAMES})\\(([^)]*)\\)`);
   const toolMatch = toolCall.exec(clean);
-  if (toolMatch && containsCommand({ text: toolMatch[1], command })) {
+  if (toolMatch && containsCommand({
+    text: toolMatch[1],
+    command
+  })) {
     return true;
   }
 
   // Visible shell invocation: a prompt, then whatever the user typed after it.
   const promptMatch = /^[$#%❯>]\s*(.*)$/.exec(clean);
-  return promptMatch !== null && containsCommand({ text: promptMatch[1], command });
+  return promptMatch !== null && containsCommand({
+    text: promptMatch[1],
+    command
+  });
 }

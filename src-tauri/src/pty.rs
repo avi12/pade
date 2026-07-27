@@ -231,6 +231,20 @@ fn stop_task_tree(_root: u32, _command: &str) -> Result<bool, String> {
     Ok(false)
 }
 
+/// Whether any process under `root` still runs `command`. Snapshot-and-match with
+/// no kill — the read half of [`stop_task_tree`], used to poll an attached task's
+/// liveness. Windows only.
+#[cfg(windows)]
+fn task_running(root: u32, command: &str) -> Result<bool, String> {
+    let processes = snapshot_processes()?;
+    Ok(!task_processes(&processes, root, command).is_empty())
+}
+
+#[cfg(not(windows))]
+fn task_running(_root: u32, _command: &str) -> Result<bool, String> {
+    Ok(false)
+}
+
 /// A session's replayable output, and how many chunks have been emitted for it.
 /// The counter is what makes the handover exact: the frontend can be listening to
 /// the live stream while it asks for the history, and `seq` tells it which of the
@@ -1026,6 +1040,18 @@ pub async fn pty_kill(
     Ok(())
 }
 
+/// The agent session's root PID, owner-checked. `None` when the session is gone or
+/// has no live process — a caller treats that as "nothing to stop / not running".
+/// Resolves under the registry lock and releases it (plus the child lock) before
+/// returning, so the caller's blocking process work never holds either.
+fn session_root_pid(state: &PtyState, owner: &str, id: &str) -> Result<Option<u32>, String> {
+    let Some(pty) = owned_pty(state, owner, id)? else {
+        return Ok(None);
+    };
+    let child = pty.child.lock().map_err(|error| error.to_string())?;
+    Ok(child.process_id())
+}
+
 /// Stop a known task an agent started from the Tasks list. PADE never spawned the
 /// process — the agent ran it in its own PTY — so this locates the matching
 /// subtree under the agent's own process tree and kills it. Agent-agnostic: it
@@ -1038,17 +1064,31 @@ pub async fn session_task_stop(
     id: String,
     command: String,
 ) -> Result<bool, String> {
-    let Some(pty) = owned_pty(state.inner(), window.label(), &id)? else {
+    let Some(root) = session_root_pid(state.inner(), window.label(), &id)? else {
         return Ok(false);
-    };
-    // Resolve the agent's root PID, then release every lock before the blocking
-    // snapshot + kill so no other pane's input stalls behind it.
-    let root = {
-        let child = pty.child.lock().map_err(|error| error.to_string())?;
-        child.process_id().ok_or("session has no live process")?
     };
 
     tauri::async_runtime::spawn_blocking(move || stop_task_tree(root, &command))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+/// Whether a known task the agent started is still running — a live process under
+/// the agent's tree whose command line runs `command`. Lets an attached runner
+/// reflect a task that outlives the agent's turn (a dev server) and drop itself
+/// once the process exits, without PADE ever having owned it.
+#[tauri::command]
+pub async fn session_task_running(
+    window: WebviewWindow,
+    state: State<'_, PtyState>,
+    id: String,
+    command: String,
+) -> Result<bool, String> {
+    let Some(root) = session_root_pid(state.inner(), window.label(), &id)? else {
+        return Ok(false);
+    };
+
+    tauri::async_runtime::spawn_blocking(move || task_running(root, &command))
         .await
         .map_err(|error| error.to_string())?
 }

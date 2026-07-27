@@ -274,6 +274,20 @@ export const pty = {
     rows: number;
   }) => run("pty_resize", { ...args }),
   kill: (id: string) => run("pty_kill", { id }),
+  /** Stop a known task the agent started itself (PADE never spawned it): finds the
+   *  matching subtree under the agent's process tree and kills it. Resolves to
+   *  whether a matching process was found. Agent-agnostic — see `session_task_stop`. */
+  sessionTaskStop: (args: {
+    id: string;
+    command: string;
+  }) => call("session_task_stop", z.boolean(), { ...args }),
+  /** Whether a task the agent started is still running (a live process under the
+   *  agent's tree). Lets an attached runner outlive the agent's turn and drop
+   *  itself once the process exits. */
+  sessionTaskRunning: (args: {
+    id: string;
+    command: string;
+  }) => call("session_task_running", z.boolean(), { ...args }),
   /** Every live session the backend still hosts — the roster a reloaded window
    *  intersects its persisted pane mapping with to re-attach (see
    *  `session-restore`) instead of stranding running agents invisibly. */

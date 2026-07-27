@@ -41,6 +41,13 @@ export interface RunnerRow {
   done: boolean;
   /** True once the process exited with a non-zero code (failure). */
   failed: boolean;
+  /** Set when this row tracks a task the AGENT started (detected in its output),
+   *  not one PADE spawned. Such a row has NO captured output — the task runs in the
+   *  agent's own terminal, which PADE can't tee — but its Stop kills the real
+   *  process tree, and a liveness poll drops the row when the process exits. */
+  attached?: {
+    sessionId: string;
+  };
 }
 
 let rows = $state<RunnerRow[]>([]);
@@ -115,6 +122,82 @@ export async function startRunner({ label, kind, command, cwd }: {
   }
 }
 
+/** How often an attached runner checks whether the agent's task is still alive.
+ *  A poll, not an event: a process the agent owns has no exit signal PADE hears. */
+const ATTACHED_POLL_MS = 4000;
+let attachedPoll: ReturnType<typeof setInterval> | undefined;
+
+/** Track a task the agent started as an ATTACHED runner: a dock card with a Stop
+ *  that kills the agent's process, but no captured output (PADE never owned it).
+ *  Idempotent per (session, command) so repeated detections never stack rows.
+ *  Returns the row id. */
+export function attachRunner({ sessionId, label, kind, command, cwd }: {
+  sessionId: string;
+  label: string;
+  kind: RunnerKind;
+  command: string;
+  cwd: string;
+}): string {
+  const existing = rows.find(row => row.attached?.sessionId === sessionId && row.command === command);
+  if (existing) {
+    return existing.id;
+  }
+
+  const id = `attached-${crypto.randomUUID()}`;
+  rows.push({
+    id,
+    backendId: id,
+    label,
+    kind,
+    command,
+    cwd,
+    lines: [],
+    done: false,
+    failed: false,
+    attached: {
+      sessionId
+    }
+  });
+  ensureAttachedPoll();
+  return id;
+}
+
+/** Start the liveness poll if any attached row needs it; stop it once none do, so
+ *  the timer lives no longer than the rows it serves. */
+function ensureAttachedPoll(): void {
+  if (attachedPoll !== undefined || !rows.some(row => row.attached)) {
+    return;
+  }
+
+  attachedPoll = setInterval(async () => {
+    await reconcileAttachedRunners();
+  }, ATTACHED_POLL_MS);
+}
+
+/** Drop each attached row whose task is no longer running — it finished, or its
+ *  agent session exited (which kills the tree). Stops the poll when none remain. */
+async function reconcileAttachedRunners(): Promise<void> {
+  for (const row of rows.filter(item => item.attached)) {
+    const sessionId = row.attached?.sessionId;
+    if (sessionId === undefined) {
+      continue;
+    }
+
+    const running = await pty.sessionTaskRunning({
+      id: sessionId,
+      command: row.command
+    }).catch(() => false);
+    if (!running) {
+      rows = rows.filter(item => item.id !== row.id);
+    }
+  }
+
+  if (!rows.some(row => row.attached) && attachedPoll !== undefined) {
+    clearInterval(attachedPoll);
+    attachedPoll = undefined;
+  }
+}
+
 /** The re-run divider, composed from named parts so the value reads on its own. */
 const RERUN_RULE = "─".repeat(3);
 
@@ -183,10 +266,20 @@ export async function rerunRunner({ id, preserve }: {
   );
 }
 
-/** Stop a runner and drop it from the dock. */
+/** Stop a runner and drop it from the dock. An attached runner isn't ours to
+ *  stop, so kill the agent's task process tree instead of a PADE-spawned one. */
 export async function stopRunner(id: string): Promise<void> {
   const row = rows.find(item => item.id === id);
-  if (row) {
+  if (!row) {
+    return;
+  }
+
+  if (row.attached) {
+    await pty.sessionTaskStop({
+      id: row.attached.sessionId,
+      command: row.command
+    });
+  } else {
     await runner.stop(row.backendId);
   }
 

@@ -33,7 +33,7 @@ describe("isTaskInvocation", () => {
     // The way an agent actually runs a task: a cd prefix, extra flags, a redirect.
     expect(
       isTaskInvocation({
-        line: 'Bash(cd "C:/repo/app" && pnpm dev)',
+        line: "Bash(cd \"C:/repo/app\" && pnpm dev)",
         command: "pnpm dev"
       })
     ).toBe(true);

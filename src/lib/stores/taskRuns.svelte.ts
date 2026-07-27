@@ -10,11 +10,11 @@
 // reflect accurately.
 
 import { pty } from "@/lib/bridge";
-import { runnerRows } from "@/lib/stores/runners.svelte";
+import { attachRunner, runnerRows } from "@/lib/stores/runners.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/taskCatalog.svelte";
 import { isTaskInvocation } from "@/lib/task-detect";
-import { SessionStatus } from "@/lib/types";
+import { SessionStatus, type TaskGroup } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -71,10 +71,15 @@ function markSessionTask({ sessionId, key }: {
   running.add(key);
 }
 
-/** Derive detector inputs from the exact catalog snapshot rendered by the panel. */
+/** Derive detector inputs from the exact catalog snapshot rendered by the panel —
+ *  each task's key + command for matching, plus the label/kind/dir an attached
+ *  runner needs to render itself. */
 export function knownTaskCommands(snapshot: TaskCatalogSnapshot): {
   key: string;
   command: string;
+  label: string;
+  kind: TaskGroup["kind"];
+  dir: string;
 }[] {
   return snapshot.groups.flatMap(group =>
     group.tasks.map(task => ({
@@ -82,7 +87,10 @@ export function knownTaskCommands(snapshot: TaskCatalogSnapshot): {
         directory: group.dir,
         command: task.command
       }),
-      command: task.command
+      command: task.command,
+      label: task.name,
+      kind: group.kind,
+      dir: group.dir
     })));
 }
 
@@ -91,10 +99,10 @@ function detect({ sessionId, chunk }: {
   chunk: string;
 }): void {
   const lines = chunk.split("\n");
-  for (const { key, command } of knownTaskCommands(taskCatalog.snapshot)) {
+  for (const task of knownTaskCommands(taskCatalog.snapshot)) {
     const isInvocation = lines.some(line => isTaskInvocation({
       line,
-      command
+      command: task.command
     }));
     if (!isInvocation) {
       continue;
@@ -102,7 +110,18 @@ function detect({ sessionId, chunk }: {
 
     markSessionTask({
       sessionId,
-      key
+      key: task.key
+    });
+    // Reflect the run as an attached dock runner too — a card with a Stop that
+    // kills the agent's process. It outlives the agent's turn (a dev server keeps
+    // running), so it is NOT cleared here on idle; its own liveness poll drops it
+    // when the process exits.
+    attachRunner({
+      sessionId,
+      label: task.label,
+      kind: task.kind,
+      command: task.command,
+      cwd: task.dir
     });
     return;
   }

@@ -111,7 +111,10 @@ describe("task catalog", () => {
         directory: "demo",
         command: "pnpm check"
       }),
-      command: "pnpm check"
+      command: "pnpm check",
+      label: "pnpm check",
+      kind: "npm",
+      dir: "demo"
     }]);
   });
 
