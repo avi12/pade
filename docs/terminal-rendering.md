@@ -158,16 +158,15 @@ intersects, so WebGL lifecycle is driven by the `shown` prop rather than the old
 IntersectionObserver; and a pane that *does* drop to xterm's DOM renderer lays
 out but never paints under `visibility: hidden`.
 
-And its own follow-up: **a hidden pane keeps its WebGL context** while the window
-holds at most `WEBGL_PANE_BUDGET` (8) mounted panes. Swapping renderers on every
-hide/show was the next bounce: the DOM renderer measures cells a hair differently,
-so each reveal refit the grid a few columns off and SIGWINCHed the agent into a
-visible rewrap — and the first revealed frame was whatever stale rows the fallback
-renderer had last painted. An invisible pane isn't composited, so a parked context
-costs nothing on screen; only a window crowded past the budget (browsers force-lose
-contexts around ~16) pays the swap and its reveal artifacts. `webglCellMetrics`
-caches the GPU cell size for that crowded path, so even a DOM-renderer fit keeps
-the grid at the WebGL geometry.
+The GPU rule is stricter: **WebGL exists only for a shown terminal while PADE is
+the foreground app.** A background tab releases its context immediately, and an
+alt-tab to a game releases every terminal context in that window plus its cursor
+blink paint loop. The terminals remain mounted and continue consuming the PTY
+stream through xterm's fallback renderer, so agents, scrollback, prompt detection,
+and replay ordering never go stale. On focus/reveal the WebGL addon reattaches.
+`webglCellMetrics` caches the GPU cell size across that swap; fitting with those
+metrics prevents the fallback renderer's slightly different measurement from
+changing the grid by a column and SIGWINCHing the agent into a visible rewrap.
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;

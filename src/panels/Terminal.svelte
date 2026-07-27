@@ -1,14 +1,3 @@
-<script lang="ts" module>
-  // How many mounted panes this window may hold before hidden ones start giving
-  // their WebGL context back. Browsers force-lose the oldest context around ~16
-  // live ones; staying well under that leaves headroom for a second PADE window
-  // sharing the GPU. Below the budget a hidden pane keeps its context — an
-  // invisible pane isn't composited, so it costs nothing on screen, and the
-  // reveal is seamless: no renderer swap, no metric drift, no stale first frame.
-  const WEBGL_PANE_BUDGET = 8;
-  let mountedPaneCount = 0;
-</script>
-
 <script lang="ts">
   // Read docs/terminal-rendering.md BEFORE changing resize/replay behavior here.
   // A terminal has TWO screens and they invert every rule: the normal screen
@@ -34,6 +23,7 @@
   import { isPromptNewlineShortcut, PROMPT_NEWLINE, submittedPrompt } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
+  import { shouldUseWebgl } from "@/lib/terminal-renderer";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
   import { SessionStatus } from "@/lib/types";
@@ -107,7 +97,7 @@
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
   let resizeObserver: ResizeObserver | undefined;
-  // The GPU renderer, bound to the `shown` prop. The WebGL addon holds a real,
+  // The GPU renderer, bound to visibility and window focus. The WebGL addon holds a real,
   // VRAM-backed context that the browser hard-caps (~16 live at once, then it
   // force-loses the oldest) and that DWM composites every frame. PADE keeps every
   // session's Terminal mounted — a hidden pane stays laid out at full size but
@@ -115,8 +105,9 @@
   // parsing run uninterrupted) — so one context per mounted component would mean
   // one per open session, doubling across two windows past the driver's TDR
   // threshold and crashing the compositor. So the addon lives no longer than the
-  // pane is actually SHOWN — the effect below attaches/detaches on the prop,
-  // capping live contexts to the number of VISIBLE panes, not the session count.
+  // pane is actually shown in the foreground — the effect below attaches/detaches,
+  // capping live contexts to visible panes and releasing every context while the
+  // user is in another app (including a game).
   // (An invisible pane still geometrically intersects, so an IntersectionObserver
   // cannot tell it apart; only the prop can.)
   let webgl: WebglAddon | undefined;
@@ -148,6 +139,7 @@
   // wait for it (the terminal is built inside an async onMount, well after the
   // first effects have already run).
   let attached = $state(false);
+  let windowFocused = $state(document.hasFocus());
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
@@ -544,33 +536,47 @@
   // window is immediately promptable. Skipped while the user is mid-typing in a
   // real field (a rename box, the picker) — that focus must be left alone; the
   // xterm helper textarea deliberately doesn't count as editing (see lib/focus).
-  function refocusOnWindowFocus() {
+  function handleWindowFocus() {
+    windowFocused = true;
+
     if (active && attached && !isEditingText(document.activeElement)) {
       terminal.focus();
     }
   }
 
+  function handleWindowBlur() {
+    windowFocused = false;
+  }
+
   $effect(() => {
-    addEventListener("focus", refocusOnWindowFocus);
-    return () => removeEventListener("focus", refocusOnWindowFocus);
+    addEventListener("focus", handleWindowFocus);
+    addEventListener("blur", handleWindowBlur);
+    return () => {
+      removeEventListener("focus", handleWindowFocus);
+      removeEventListener("blur", handleWindowBlur);
+    };
   });
 
-  // GPU rendering follows visibility: a shown pane gets its WebGL context, a
-  // hidden one gives it back (see `webgl` above for why the count must stay at
-  // the visible panes). `attached` folds the async mount in — the first run
-  // happens before the terminal exists, and the flip to true attaches the
-  // context for a pane that mounted already shown.
+  // GPU rendering follows what the user can see. Background tabs and every pane
+  // in an unfocused PADE window release both their WebGL context and cursor-blink
+  // paint loop; xterm still consumes every PTY chunk, preserving live state.
   $effect(() => {
-    if (shown && attached) {
+    if (!attached) {
+      return;
+    }
+
+    const useWebgl = shouldUseWebgl({
+      shown,
+      windowFocused
+    });
+    terminal.options.cursorBlink = useWebgl;
+
+    if (useWebgl) {
       attachWebgl();
       return;
     }
 
-    // Under the pane budget a hidden pane keeps its context (see WEBGL_PANE_BUDGET);
-    // only a crowded window pays the renderer swap and its reveal artifacts.
-    if (mountedPaneCount > WEBGL_PANE_BUDGET) {
-      detachWebgl();
-    }
+    detachWebgl();
   });
 
   // xterm needs the scrollbar's own width reserved out of the usable columns, or
@@ -976,7 +982,10 @@
       addon.onContextLoss(() => {
         detachWebgl();
 
-        if (shown) {
+        if (shouldUseWebgl({
+          shown,
+          windowFocused
+        })) {
           attachWebgl();
         }
       });
@@ -1004,7 +1013,6 @@
   }
 
   onMount(async () => {
-    mountedPaneCount += 1;
     terminal = new Terminal({
       fontFamily: effective.monospaceFamily,
       fontSize: Math.round(TERMINAL_FONT_SIZE * effective.uiScale),
@@ -1509,7 +1517,6 @@
   });
 
   onDestroy(() => {
-    mountedPaneCount -= 1;
     destroyed = true;
     unlisten?.();
     exitUnlisten?.();
