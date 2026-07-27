@@ -130,13 +130,13 @@ describe("normalizePath", () => {
 });
 
 describe("relativeToRoot", () => {
-  it("strips the root prefix into a forward-slash relative path", () => {
+  it("strips the root prefix into a root-anchored forward-slash path", () => {
     expect(
       relativeToRoot({
         path: "C:\\repositories\\avi\\ytm\\backend\\convex",
         root: "C:\\repositories\\avi\\ytm"
       })
-    ).toBe("backend/convex");
+    ).toBe("/backend/convex");
   });
 
   it("shows the root itself as /", () => {
@@ -154,7 +154,7 @@ describe("relativeToRoot", () => {
         path: "c:/Repositories/Avi/YTM/Backend/File.ts",
         root: "C:\\repositories\\avi\\ytm"
       })
-    ).toBe("Backend/File.ts");
+    ).toBe("/Backend/File.ts");
   });
 
   it("falls back to the absolute path outside the root", () => {

@@ -310,8 +310,8 @@
     });
   }
 
-  // The dir line reads relative to the open project ("backend/convex"), "/"
-  // for a file at the root — the absolute prefix is the workspace's own
+  // The dir line reads root-anchored relative to the open project ("/backend/convex"),
+  // "/" for a file at the root — the absolute prefix is the workspace's own
   // constant noise and lives in the tooltip instead.
   function relativeDirectory(path: string): string {
     return relativeToRoot({

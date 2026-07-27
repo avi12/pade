@@ -53,10 +53,10 @@ export function isTemporaryWorkspace(path: string): boolean {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
 }
 
-/** A path shown relative to a workspace root: the segments below the root
- *  ("backend/convex"), or "/" for the root itself. A path outside the root (a
- *  worktree sibling, a moved file) falls back to the absolute form — a wrong
- *  but honest label beats a fabricated relative one. Comparison rides
+/** A path shown relative to a workspace root, root-anchored with a leading "/":
+ *  "/backend/convex" for a nested path, "/" for the root itself. A path outside
+ *  the root (a worktree sibling, a moved file) falls back to the absolute form —
+ *  a wrong but honest label beats a fabricated relative one. Comparison rides
  *  `normalizePath`, so separators, trailing slashes, and Windows casing don't
  *  break the match; the returned segments use "/" uniformly. */
 export function relativeToRoot({ path, root }: {
@@ -75,9 +75,10 @@ export function relativeToRoot({ path, root }: {
 
   // Slice the ORIGINAL path so a case-sensitive tail keeps its casing; only
   // the length of the normalized root matters for the cut.
-  return path
+  const tail = path
     .replaceAll("\\", "/")
     .slice(normalizedRoot.length + 1);
+  return `/${tail}`;
 }
 
 /** Normalize a path for comparison. Separators and a trailing separator are
