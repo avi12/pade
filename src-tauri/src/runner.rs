@@ -161,6 +161,17 @@ struct PumpArgs<R: BufRead> {
     reader: R,
 }
 
+/// The frame a terminal would leave on a line after in-place `\r` redraws: the
+/// text following the last carriage return (the whole line when there is none). A
+/// build tool draws its progress bar by rewriting one line with `\r` (`Building
+/// 417/462\rBuilding 418/462\r…`), so a single `\n`-terminated line can carry
+/// hundreds of frames; this pane is not a terminal, so it keeps only the last —
+/// what a terminal would show — instead of the `\r`-joined blob that renders as a
+/// tiled wall of frames.
+fn last_carriage_frame(line: &str) -> &str {
+    line.rsplit('\r').next().unwrap_or(line)
+}
+
 /// Pump one piped stream line-by-line to the frontend, tagging each line with the
 /// runner id and stream name. Emit errors are swallowed so a closed frontend never
 /// panics the reader thread.
@@ -180,7 +191,7 @@ fn pump_stream<R: BufRead>(
             "runner://data",
             RunnerData {
                 id: id.clone(),
-                data,
+                data: last_carriage_frame(&data).to_string(),
                 stream,
             },
         );
@@ -379,4 +390,26 @@ pub fn runner_list(
 
 pub fn init(app: &AppHandle) {
     app.manage(RunnerState(Mutex::new(HashMap::new())));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::last_carriage_frame;
+
+    #[test]
+    fn keeps_the_last_frame_of_a_carriage_return_progress_line() {
+        assert_eq!(
+            last_carriage_frame("Building 417/462\rBuilding 418/462\rBuilding 419/462"),
+            "Building 419/462"
+        );
+    }
+
+    #[test]
+    fn leaves_a_plain_line_untouched() {
+        assert_eq!(
+            last_carriage_frame("Compiling tauri v2.6.3"),
+            "Compiling tauri v2.6.3"
+        );
+        assert_eq!(last_carriage_frame(""), "");
+    }
 }
