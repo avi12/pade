@@ -32,6 +32,7 @@ import {
   RunnerData,
   RunnerExit,
   RunnerInfo,
+  SaveMigration,
   Settings,
   StatusEntry,
   TaskGroup,
@@ -551,6 +552,15 @@ export const workspace = {
     newName: string;
     root?: string;
   }) => call("workspace_rename", z.string(), { ...args }),
+  /** Save a temp workspace by copying its files into a fresh saved project
+   *  (skipping dependency dirs). Returns the new project dir plus the
+   *  dependency-install command to run there (`null` when nothing to reinstall).
+   *  `root` picks the destination among the saved roots; omitted → the primary. */
+  saveMigrate: (args: {
+    from: string;
+    newName: string;
+    root?: string;
+  }) => call("workspace_save_migrate", SaveMigration, { ...args }),
   /** Set a friendly display label (no disk rename). */
   setLabel: (args: {
     path: string;

@@ -1615,10 +1615,22 @@
             onremoverecent={removeRecentProject}
             onreorderpins={reorderPins}
             onsavetemp={async ({ name, root }) => {
-              await relocator.rename({
+              // Copy-migrate the temp into a saved project (setCurrentProject
+              // happens inside), then reinstall its deps in a runner pane.
+              const migration = await relocator.saveMigrate({
                 from: currentProject,
                 newName: name,
                 root
+              });
+              if (!migration.install) {
+                return;
+              }
+
+              await startRunner({
+                label: "Install dependencies",
+                kind: "npm",
+                command: migration.install,
+                cwd: migration.path
               });
             }}
             onswitch={leaveToPicker}

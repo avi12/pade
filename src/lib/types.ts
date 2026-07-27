@@ -397,6 +397,15 @@ export const AddRootOutcome = z.discriminatedUnion("status", [
 ]);
 export type AddRootOutcome = z.infer<typeof AddRootOutcome>;
 
+/** The result of saving a temp workspace by copy-migration: the new project dir
+ *  the temp's files were copied into, and the dependency-install command to run
+ *  there (`null` when there is nothing to reinstall). */
+export const SaveMigration = z.object({
+  path: z.string(),
+  install: z.string().nullable()
+});
+export type SaveMigration = z.infer<typeof SaveMigration>;
+
 /** A live probe of the path being typed into the add-root field. Instead of
  *  regex-guessing whether the text is a valid path, the backend just checks the
  *  filesystem: whether the path itself is a directory (`isDir`) or a file
