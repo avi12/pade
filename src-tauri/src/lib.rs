@@ -11,6 +11,7 @@ mod mcp;
 mod members;
 mod naming;
 mod os;
+mod provision;
 mod pty;
 mod recovery;
 mod refs;
