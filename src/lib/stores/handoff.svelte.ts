@@ -189,11 +189,14 @@ export interface HandoffHost {
   /** Drop an ended session from the shell's tab strip and panes. */
   removeSession: (id: string) => void;
   /** Start the successor agent seeded to continue from the handoff doc.
-   *  Returns the new session's id so the doc's consumption can be watched. */
+   *  Returns the new session's id so the doc's consumption can be watched.
+   *  `predecessorId` is the session being handed off, so per-session UI state the
+   *  shell owns (the ✦ auto-naming toggle) can carry over to the successor. */
   launchSuccessor: (options: {
     agent: Agent;
     cwd?: string;
     initialPrompt: string;
+    predecessorId: string;
   }) => string;
 }
 
@@ -472,7 +475,8 @@ export function createAutoHandoff(host: HandoffHost) {
     const successorId = host.launchSuccessor({
       agent: successorAgent,
       cwd,
-      initialPrompt: successorPrompt(doc)
+      initialPrompt: successorPrompt(doc),
+      predecessorId: session.id
     });
     note = "";
 

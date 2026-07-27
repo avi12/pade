@@ -96,6 +96,30 @@ export function toggleNaming({ id, agent }: {
   }
 }
 
+/** Carry a session's auto-naming toggle to a new id when the session is reset in
+ *  place under a fresh id — a restart re-key or a handoff to a successor — so the
+ *  ✦ toggle the user turned on survives the reset instead of silently reverting to
+ *  off. The successor's OWN agent command is stored (it can differ from the
+ *  predecessor on a handoff crossover, e.g. Claude→Codex), and the old id's
+ *  controller + refresh timer are released; the reconcile effect re-arms the timer
+ *  for the new id on its next status tick. No-op when the old id wasn't naming. */
+export function transferNaming({ fromId, toId, agent }: {
+  fromId: string;
+  toId: string;
+  agent: string;
+}): void {
+  if (!naming.has(fromId)) {
+    return;
+  }
+
+  dropNaming(fromId);
+  naming.set(toId, agent);
+  controllers.set(toId, {
+    last: sessionStatus(toId),
+    lastGeneratedAt: 0
+  });
+}
+
 /** Stop auto-naming for a session and release its timer (call on tab close). */
 export function dropNaming(id: string): void {
   const controller = controllers.get(id);

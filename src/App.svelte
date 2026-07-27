@@ -56,7 +56,7 @@
     reconcileChoiceAttention
   } from "@/lib/stores/sessionAttention.svelte";
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
-  import { dropNaming } from "@/lib/stores/sessionNaming.svelte";
+  import { dropNaming, transferNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
@@ -1148,6 +1148,13 @@
     for (const target of targets) {
       const restartedId = crypto.randomUUID();
       rekeyed[target.id] = restartedId;
+      // Carry the ✦ auto-naming toggle across the re-key so a reset session keeps
+      // it on (same agent, so its command is unchanged).
+      transferNaming({
+        fromId: target.id,
+        toId: restartedId,
+        agent: target.agent.command
+      });
       sessionLaunchedAt.set(restartedId, Date.now());
       sessionLaunchedAt.delete(target.id);
       closingByHand.delete(target.id);
@@ -1347,7 +1354,22 @@
       sessions = sessions.filter(session => session.id !== id);
       paneIds = paneIds.filter(paneId => paneId !== id);
     },
-    launchSuccessor: launch
+    launchSuccessor({ agent, cwd, initialPrompt, predecessorId }) {
+      const successorId = launch({
+        agent,
+        cwd,
+        initialPrompt
+      });
+      // Carry the ✦ auto-naming toggle to the successor so a handed-off session
+      // keeps it on; the successor's own agent command names it (it may differ on
+      // a usage crossover).
+      transferNaming({
+        fromId: predecessorId,
+        toId: successorId,
+        agent: agent.command
+      });
+      return successorId;
+    }
   });
   $effect(() => autoHandoff.check());
   onDestroy(() => autoHandoff.dispose());
