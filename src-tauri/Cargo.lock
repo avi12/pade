@@ -2688,6 +2688,7 @@ dependencies = [
  "notify",
  "png 0.18.1",
  "portable-pty",
+ "process-priority",
  "rusqlite",
  "serde",
  "serde_json",
@@ -3022,6 +3023,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "process-priority"
+version = "0.0.1"
+dependencies = [
+ "windows",
 ]
 
 [[package]]

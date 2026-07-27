@@ -38,6 +38,13 @@ pub fn run() {
     // WebView2 environment) is created.
     #[cfg(windows)]
     {
+        // Agents can launch CPU-heavy compilers and dev servers. Lower this
+        // process before creating WebView2 or PTY children so the whole tree
+        // yields scheduler time to games and other foreground applications.
+        if let Err(error) = process_priority::lower_current_process() {
+            eprintln!("could not lower PADE process priority: {error}");
+        }
+
         let mut browser_arguments = Vec::new();
         // Dev-only and explicit opt-in: CDP lets any local process control the
         // privileged webview, so a normal debug build must not expose it.

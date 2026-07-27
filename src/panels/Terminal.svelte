@@ -23,6 +23,7 @@
   import { isPromptNewlineShortcut, PROMPT_NEWLINE, submittedPrompt } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
+  import { terminalFlushMode, TerminalFlushMode } from "@/lib/terminal-output";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
   import { SessionStatus } from "@/lib/types";
@@ -113,6 +114,14 @@
   // first effects have already run).
   let attached = $state(false);
   let windowFocused = $state(document.hasFocus());
+  // xterm's DOM renderer is the remaining output hot path. Join token-sized PTY
+  // chunks before writing: one write per display frame in front, and a bounded
+  // live cadence in the background so another app never competes with dozens of
+  // terminal layouts and paints per second.
+  let queuedTerminalOutput = "";
+  let terminalOutputFrame: number | undefined;
+  let terminalOutputTimer: ReturnType<typeof setTimeout> | undefined;
+  const BACKGROUND_TERMINAL_FLUSH_MS = 250;
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
@@ -518,6 +527,7 @@
   // xterm helper textarea deliberately doesn't count as editing (see lib/focus).
   function handleWindowFocus() {
     windowFocused = true;
+    scheduleTerminalOutputFlush();
 
     if (active && attached && !isEditingText(document.activeElement)) {
       terminal.focus();
@@ -538,14 +548,67 @@
   });
 
   // A hidden or unfocused terminal keeps consuming every PTY chunk, but it does
-  // not need a cursor-blink paint loop until the user can see it again.
+  // not need a cursor-blink paint loop or foreground output cadence until the
+  // user can see it again.
   $effect(() => {
     if (!attached) {
       return;
     }
 
     terminal.options.cursorBlink = shown && windowFocused;
+    scheduleTerminalOutputFlush();
   });
+
+  function flushTerminalOutput() {
+    terminalOutputFrame = undefined;
+    terminalOutputTimer = undefined;
+
+    if (!queuedTerminalOutput || destroyed || !terminal) {
+      return;
+    }
+
+    const output = queuedTerminalOutput;
+    queuedTerminalOutput = "";
+    terminal.write(output);
+    noteRepaintProgress();
+  }
+
+  function scheduleTerminalOutputFlush() {
+    if (!queuedTerminalOutput) {
+      return;
+    }
+
+    const mode = terminalFlushMode({
+      shown,
+      windowFocused
+    });
+    if (mode === TerminalFlushMode.Background) {
+      scheduleBackgroundTerminalOutput();
+      return;
+    }
+
+    scheduleForegroundTerminalOutput();
+  }
+
+  function scheduleForegroundTerminalOutput() {
+    clearTimeout(terminalOutputTimer);
+    terminalOutputTimer = undefined;
+    terminalOutputFrame ??= requestAnimationFrame(flushTerminalOutput);
+  }
+
+  function scheduleBackgroundTerminalOutput() {
+    if (terminalOutputFrame !== undefined) {
+      cancelAnimationFrame(terminalOutputFrame);
+      terminalOutputFrame = undefined;
+    }
+
+    terminalOutputTimer ??= setTimeout(flushTerminalOutput, BACKGROUND_TERMINAL_FLUSH_MS);
+  }
+
+  function queueTerminalOutput(output: string) {
+    queuedTerminalOutput += output;
+    scheduleTerminalOutputFlush();
+  }
 
   // xterm needs the scrollbar's own width reserved out of the usable columns, or
   // the last column hides behind it. Default track width when scrollback is on.
@@ -1006,9 +1069,8 @@
         return;
       }
 
-      terminal.write(chunk.data);
+      queueTerminalOutput(chunk.data);
       relayColorSchemeAfterSubscribe(chunk.data);
-      noteRepaintProgress();
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
       // Only on the normal screen: a fullscreen agent repaints its whole frame
@@ -1437,9 +1499,14 @@
     clearTimeout(repaintQuietTimer);
     clearTimeout(repaintWatchdog);
     clearTimeout(altFitTimer);
+    clearTimeout(terminalOutputTimer);
 
     if (fitFrame !== undefined) {
       cancelAnimationFrame(fitFrame);
+    }
+
+    if (terminalOutputFrame !== undefined) {
+      cancelAnimationFrame(terminalOutputFrame);
     }
 
     resizeObserver?.disconnect();

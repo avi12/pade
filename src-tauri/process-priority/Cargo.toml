@@ -1,0 +1,28 @@
+# PADE process-priority shim.
+#
+# Windows exposes process scheduling priority through an unsafe system call.
+# The main `pade` crate forbids unsafe code, so this workspace member owns the
+# FFI boundary and exposes one safe startup operation.
+[package]
+name = "process-priority"
+version = "0.0.1"
+description = "Safe wrapper for PADE's Windows process scheduling priority"
+authors = ["Avi"]
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.61", features = ["Win32_System_Threading"] }
+
+[lints.rust]
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+unwrap_used = "deny"
+expect_used = "allow"

@@ -167,6 +167,14 @@ enabled so a fully covered, minimized, or off-desktop window can suspend fronten
 visual work entirely. The theme reconciles from the live OS state on
 `visibilitychange` when it resumes.
 
+PTY event handling and terminal painting have separate budgets. Every chunk is
+inspected immediately for activity, trust prompts, usage limits, API failures,
+and context state, while adjacent bytes are joined before xterm sees them. A
+shown terminal in the focused window flushes once per animation frame; hidden
+tabs and unfocused windows flush every 250ms. Ordering and every byte are kept,
+but a token stream cannot force dozens of DOM layouts and paints per second while
+the user works in another application.
+
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;
 `fitToPane` keeps the previous grid until it measures at least 20 columns and 4
