@@ -85,6 +85,15 @@ describe("handoff prompts", () => {
     expect(body).toContain(`handoff to ${documentName}`);
   });
 
+  it("explains a save handoff is for restarting in the saved location", () => {
+    const body = handoffRequestBody({
+      doc: documentName,
+      reason: HandoffReason.Save
+    });
+    expect(body).toContain("saved as a permanent project");
+    expect(body).toContain(`handoff to ${documentName}`);
+  });
+
   it("seeds the successor to continue from the written document", () => {
     expect(successorPrompt(documentName)).toBe(
       `Read ${documentName} to continue the work where the previous session left off.`

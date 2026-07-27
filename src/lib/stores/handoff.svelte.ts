@@ -40,9 +40,20 @@ const SUCCESSOR_DEADLINE_MS = 10 * 60_000;
 
 export const HandoffReason = {
   ContextLimit: "context-limit",
-  ConfigurationChange: "configuration-change"
+  ConfigurationChange: "configuration-change",
+  Save: "save"
 } as const;
 type HandoffReason = typeof HandoffReason[keyof typeof HandoffReason];
+
+/** The one sentence that opens the handoff request, per reason — the SSOT so the
+ *  wording never drifts and adding a reason is one entry, not a new branch. */
+const HANDOFF_TRIGGER: Record<HandoffReason, string> = {
+  [HandoffReason.ContextLimit]: "Your context window is nearly full.",
+  [HandoffReason.ConfigurationChange]:
+    "The project's MCP server configuration changed, so PADE must restart this agent to load it.",
+  [HandoffReason.Save]:
+    "This workspace is being saved as a permanent project, and its agent is restarting in the saved location."
+};
 
 /** A filesystem-safe slug for the handoff doc, from the workspace label/dir. */
 export function handoffSlug(source: string): string {
@@ -80,10 +91,7 @@ export function handoffRequestBody({ doc, reason }: {
   doc: string;
   reason: HandoffReason;
 }): string {
-  const trigger = reason === HandoffReason.ConfigurationChange
-    ? "The project's MCP server configuration changed, so PADE must restart this agent to load it."
-    : "Your context window is nearly full.";
-  return `${trigger} Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`;
+  return `${HANDOFF_TRIGGER[reason]} Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`;
 }
 
 export function handoffPrompt({ doc, reason }: {
@@ -478,6 +486,38 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
+  // Ask `session`'s agent to write its handoff doc and resolve once the doc is on
+  // disk — the reusable core of the handoff, WITHOUT the kill/launch. The
+  // workspace-save flow uses it: the doc is written into the temp workspace, rides
+  // along in the copy to the saved project, and the successor there is seeded to
+  // continue from it. Returns the doc's file name, or null when the agent never
+  // produced it (the caller falls back to a plain restart). A doc a prior attempt
+  // already wrote is reused, not re-requested.
+  async function writeHandoffDoc(session: AgentSession): Promise<string | null> {
+    const doc = handoffDocName({
+      source: host.slugSource(),
+      sessionId: session.id
+    });
+    const docPath = `${host.projectDirectory()}/${doc}`;
+    const existing = await workspace.probePath(docPath).catch(() => null);
+    if (existing?.isFile === true) {
+      return doc;
+    }
+
+    await submitHandoffRequest({
+      session,
+      doc,
+      reason: HandoffReason.Save
+    });
+    const seen = await waitForFile(doc);
+    if (seen) {
+      return doc;
+    }
+
+    const probe = await workspace.probePath(docPath).catch(() => null);
+    return probe?.isFile === true ? doc : null;
+  }
+
   // Fire-and-forget entry point for the scan and the force path. handoff is
   // best-effort: swallow any failure (including deleting a doc the agent never
   // wrote on the timeout path) and clear the in-flight marker + note so a later
@@ -600,6 +640,7 @@ export function createAutoHandoff(host: HandoffHost) {
     check,
     force,
     restartForConfiguration,
+    writeHandoffDoc,
     dispose
   };
 }

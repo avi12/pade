@@ -41,7 +41,7 @@
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { settings } from "@/lib/settings.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
+  import { createAutoHandoff, successorPrompt } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
   import {
     armNewProjectDetection,
@@ -1617,29 +1617,37 @@
             onsavetemp={async ({ name, root }) => {
               const savingProject = currentProject;
               const previousSessionIds = sessions.map(session => session.id);
-              const continuingAgent =
-                sessions.find(session => session.id === activeId)?.agent ?? sessions[0]?.agent;
+              const activeSession =
+                sessions.find(session => session.id === activeId) ?? sessions[0];
+              const continuingAgent = activeSession?.agent;
 
-              // Copy the temp workspace into the saved root while its agent keeps
-              // running — a copy only READS files, so it never trips the watcher/
-              // cwd handle a rename does. No up-front kill: the session stays live.
+              // 1. Have the live agent dump a handoff doc INTO THE TEMP first, so
+              //    it rides along in the copy and the successor continues from it.
+              const handoffDoc = activeSession
+                ? await autoHandoff.writeHandoffDoc(activeSession)
+                : null;
+
+              // 2. Copy the temp workspace (handoff doc included) into the saved
+              //    root while its agent keeps running — a copy only READS files, so
+              //    it never trips the watcher/cwd handle a rename does.
               const migration = await workspace.saveMigrate({
                 from: savingProject,
                 newName: name,
                 root
               });
 
-              // Re-root the window to the saved project, then start its agent in
-              // the SAME tab pointing at the new dir (launch replaces the panes)
-              // BEFORE tearing the temp session down — so the tab transitions
-              // straight to the new-dir agent with no dead gap, then the old
-              // session is killed and the emptied temp folder is deleted.
+              // 3. Re-root the window to the saved project, then start its agent in
+              //    the SAME tab pointing at the new dir (launch replaces the panes),
+              //    seeded to continue the handoff, BEFORE tearing the temp session
+              //    down — so the tab transitions straight to the successor with no
+              //    dead gap. The old session is then killed and the temp deleted.
               currentProject = migration.path;
 
               if (continuingAgent) {
                 launch({
                   agent: continuingAgent,
-                  cwd: migration.path
+                  cwd: migration.path,
+                  initialPrompt: handoffDoc ? successorPrompt(handoffDoc) : undefined
                 });
               }
 
