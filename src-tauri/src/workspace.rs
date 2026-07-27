@@ -714,6 +714,31 @@ pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, St
     Ok(destination_string)
 }
 
+/// Resolve which saved root a save/promote lands in. `Some(chosen)` must match
+/// one of `settings.roots` (compared canonically); `None` falls back to the
+/// primary root (`roots[0]`). Shared by `workspace_rename` and
+/// `workspace_save_migrate` so the two can't resolve the destination differently.
+fn resolve_save_root(settings: &Settings, root: Option<String>) -> Result<String, String> {
+    match root {
+        Some(chosen) => {
+            let chosen = canonical_path(&chosen);
+            settings
+                .roots
+                .iter()
+                .find(|saved| canonical_path(saved) == chosen)
+                .ok_or_else(|| "the chosen destination is not a saved root".to_string())
+                .cloned()
+        }
+        None => settings
+            .roots
+            .first()
+            .ok_or_else(|| {
+                "add a root folder first — rename saves into the primary root".to_string()
+            })
+            .cloned(),
+    }
+}
+
 /// Rename a temp workspace, promoting it into a saved project root under the new
 /// name — turning it into a real project. `root` picks which saved root receives
 /// it (it must be one of `settings.roots`); omitted, the primary root
@@ -728,22 +753,7 @@ pub async fn workspace_rename(
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be renamed".into());
     }
-    let root = match root {
-        Some(chosen) => {
-            let chosen = canonical_path(&chosen);
-            settings
-                .roots
-                .iter()
-                .find(|saved| canonical_path(saved) == chosen)
-                .ok_or("the chosen destination is not a saved root")?
-                .clone()
-        }
-        None => settings
-            .roots
-            .first()
-            .ok_or("add a root folder first — rename saves into the primary root")?
-            .clone(),
-    };
+    let root = resolve_save_root(&settings, root)?;
     let destination = validated_child_path(Path::new(&root), &new_name)?;
     leave_if_inside(Path::new(&from));
     rename_patiently(Path::new(&from), &destination).map_err(|e| e.to_string())?;
@@ -761,6 +771,103 @@ pub async fn workspace_rename(
     })?;
     workspace_open(destination_string.clone())?;
     Ok(destination_string)
+}
+
+/// The outcome of saving a temp workspace by copy-migration: where the new real
+/// project landed, plus the command that restores the dependency directories the
+/// copy skipped (or `null` when nothing needs reinstalling).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveMigration {
+    /// The new project's absolute path.
+    path: String,
+    /// The install command to restore skipped dependencies in a task pane, or
+    /// null when nothing needs reinstalling.
+    install: Option<String>,
+}
+
+/// Recursively copy `from` into `to`, skipping any directory whose name is a
+/// re-downloadable dependency directory (`node_modules`, `.venv`, …) — those are
+/// large and machine-specific, and get reinstalled afterwards. Everything else
+/// (`.git`, sources, build output) is copied verbatim, tree structure preserved.
+/// Symlinks are copied as plain files (via `std::fs::copy`, which follows the
+/// link) so a symlinked directory can never send this into an infinite loop.
+fn copy_tree_skipping_dependencies(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        let source = entry.path();
+        let target = to.join(&name);
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            let is_dependency = name
+                .to_str()
+                .is_some_and(crate::provision::is_dependency_directory);
+            if is_dependency {
+                continue;
+            }
+            copy_tree_skipping_dependencies(&source, &target)?;
+            continue;
+        }
+
+        std::fs::copy(&source, &target)?;
+    }
+    Ok(())
+}
+
+/// Save a temp workspace as a real project by COPYING it into a saved root under
+/// `new_name`, rather than renaming it — on Windows PADE's own recursive watcher
+/// holds the temp directory open, so a `rename`/move fails with a sharing
+/// violation, but reads are unaffected. The copy skips re-downloadable dependency
+/// directories; the returned `install` command restores them in a task pane. The
+/// destination becomes a plain real project (not marked owned/temp); the temp is
+/// left in place for the frontend to delete separately after it opens the copy.
+#[tauri::command]
+pub async fn workspace_save_migrate(
+    from: String,
+    new_name: String,
+    root: Option<String>,
+) -> Result<SaveMigration, String> {
+    let settings = load();
+    if !is_ade_owned(&settings, &from) {
+        return Err("only ADE-created workspaces can be saved".into());
+    }
+    let root = resolve_save_root(&settings, root)?;
+    let destination = validated_child_path(Path::new(&root), &new_name)?;
+    let destination_string = destination.to_string_lossy().into_owned();
+    if Path::new(&destination_string).exists() {
+        return Err("a project with that name already exists there".into());
+    }
+
+    let copy_source = from.clone();
+    let copy_destination = destination.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        copy_tree_skipping_dependencies(Path::new(&copy_source), &copy_destination)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    let install = crate::provision::detect_install(Path::new(&destination_string));
+
+    // Re-point external tools (agent memory, IDE recents) at the copied project —
+    // best-effort, independent of the settings bookkeeping below. The temp is NOT
+    // moved: it stays owned/labeled until the frontend deletes it.
+    crate::refs::update_references(&from, &destination_string);
+    update_settings(|settings| {
+        record_recent(settings, &destination_string);
+        // The chosen folder name is the real project's authoritative display name;
+        // drop any stale label carried from the temp so it can't shadow it.
+        settings.labels.remove(&destination_string);
+        Ok(())
+    })?;
+
+    Ok(SaveMigration {
+        path: destination_string,
+        install,
+    })
 }
 
 /// How many times to re-try a delete that lost a race with Windows, and how long
@@ -1074,8 +1181,8 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_prefs_patch, canonical_dedup, canonical_path, validated_child_path, Prefs,
-        SettingsRepository,
+        apply_prefs_patch, canonical_dedup, canonical_path, copy_tree_skipping_dependencies,
+        validated_child_path, Prefs, SettingsRepository,
     };
     use std::path::Path;
     use std::sync::Arc;
@@ -1149,6 +1256,64 @@ mod tests {
         apply_prefs_patch(&mut prefs, patch).expect("apply patch");
 
         assert!(!prefs.passthrough.contains_key("themeMode"));
+    }
+
+    #[test]
+    fn copy_skips_dependency_directories_and_keeps_the_rest() {
+        let base = std::env::temp_dir().join(format!("pade-migrate-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let from = base.join("temp-source");
+        let to = base.join("saved");
+        std::fs::create_dir_all(from.join("node_modules")).expect("create node_modules");
+        std::fs::write(
+            from.join("node_modules").join("left-pad.js"),
+            "module.exports",
+        )
+        .expect("write dependency file");
+        std::fs::create_dir_all(from.join("src")).expect("create src");
+        std::fs::write(from.join("src").join("main.rs"), "fn main() {}").expect("write source");
+        std::fs::create_dir_all(from.join(".git")).expect("create .git");
+        std::fs::write(from.join(".git").join("HEAD"), "ref: refs/heads/main")
+            .expect("write git head");
+        std::fs::write(from.join("package.json"), "{}").expect("write manifest");
+
+        copy_tree_skipping_dependencies(&from, &to).expect("copy tree");
+
+        assert!(
+            !to.join("node_modules").exists(),
+            "dependency dir was copied"
+        );
+        assert!(
+            to.join("src").join("main.rs").is_file(),
+            "source not copied"
+        );
+        assert!(to.join(".git").join("HEAD").is_file(), ".git not copied");
+        assert!(to.join("package.json").is_file(), "manifest not copied");
+
+        std::fs::remove_dir_all(&base).expect("clean migrate fixture");
+    }
+
+    #[test]
+    fn copy_of_an_empty_workspace_creates_the_destination_and_copies_nothing() {
+        // Saving a workspace the user never prompted in is the same code path, not
+        // a special case: an empty source copies nothing but still yields a valid
+        // (empty) destination — no error, no missing folder.
+        let base = std::env::temp_dir().join(format!("pade-migrate-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let from = base.join("temp-source");
+        let to = base.join("saved");
+        std::fs::create_dir_all(&from).expect("create empty source");
+
+        copy_tree_skipping_dependencies(&from, &to).expect("copy empty tree");
+
+        assert!(to.is_dir(), "destination not created for an empty source");
+        assert_eq!(
+            std::fs::read_dir(&to).expect("read destination").count(),
+            0,
+            "destination should be empty"
+        );
+
+        std::fs::remove_dir_all(&base).expect("clean empty migrate fixture");
     }
 
     #[test]

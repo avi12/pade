@@ -182,6 +182,7 @@ pub fn run() {
             workspace::workspace_temp,
             workspace::workspace_move,
             workspace::workspace_rename,
+            workspace::workspace_save_migrate,
             workspace::workspace_set_label,
             workspace::workspace_delete,
             workspace::workspace_prune,
