@@ -7,7 +7,7 @@
 //! user can switch between and combine agents. Events carry the id so the right
 //! terminal receives them.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
@@ -85,6 +85,150 @@ fn kill_process_tree(process_id: u32) {
     let _ = crate::util::command("taskkill")
         .args(["/F", "/T", "/PID", &process_id.to_string()])
         .output();
+}
+
+/// One running process from a system snapshot: its id, its parent's id, and the
+/// command line it was launched with — the minimum needed to walk the tree and
+/// recognise the task an agent started.
+#[derive(Debug, Clone)]
+struct ProcessInfo {
+    process_id: u32,
+    parent_process_id: u32,
+    command_line: String,
+}
+
+/// Collapse every run of whitespace to one space, so a command matches regardless
+/// of the shell's own reformatting of the line it launched.
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A shell separator or quote — anything that is not part of a command token.
+fn is_command_boundary(character: char) -> bool {
+    matches!(
+        character,
+        ' ' | '"' | '\'' | '&' | '|' | ';' | '(' | ')' | '<' | '>'
+    )
+}
+
+/// Whether `command_line` runs `command` as a whole token run — bounded on both
+/// sides by a shell separator. A bounded substring match, so it fires when the
+/// shell wraps the command (`bash -c "pnpm dev"`, a `cd … &&` prefix, a redirect)
+/// yet never mistakes `pnpm dev` for a run of `pnpm dev:prod`.
+fn command_matches(command_line: &str, command: &str) -> bool {
+    let haystack = collapse_whitespace(command_line);
+    let needle = collapse_whitespace(command);
+    if needle.is_empty() {
+        return false;
+    }
+
+    for (start, matched) in haystack.match_indices(needle.as_str()) {
+        let end = start + matched.len();
+        let before_ok = haystack[..start]
+            .chars()
+            .next_back()
+            .is_none_or(is_command_boundary);
+        let after_ok = haystack[end..]
+            .chars()
+            .next()
+            .is_none_or(is_command_boundary);
+        if before_ok && after_ok {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// The processes under `root` whose command line runs `command` — the subtree an
+/// agent spawned for a known task. Pure over a process snapshot so the tree-walk
+/// and match are unit-testable without enumerating the live system. `root` (the
+/// agent itself) is never included, so a Stop can never kill the agent.
+fn task_processes(processes: &[ProcessInfo], root: u32, command: &str) -> Vec<u32> {
+    let mut descendants: HashSet<u32> = HashSet::new();
+    let mut frontier = vec![root];
+    while let Some(parent) = frontier.pop() {
+        for process in processes {
+            if process.parent_process_id == parent
+                && process.process_id != process.parent_process_id
+                && descendants.insert(process.process_id)
+            {
+                frontier.push(process.process_id);
+            }
+        }
+    }
+
+    processes
+        .iter()
+        .filter(|process| descendants.contains(&process.process_id))
+        .filter(|process| command_matches(&process.command_line, command))
+        .map(|process| process.process_id)
+        .collect()
+}
+
+/// One row of the CIM process snapshot. Fields are optional because a process can
+/// vanish mid-query and CIM then reports nulls.
+#[cfg(windows)]
+#[derive(serde::Deserialize)]
+struct CimProcess {
+    #[serde(rename = "ProcessId")]
+    process_id: Option<u32>,
+    #[serde(rename = "ParentProcessId")]
+    parent_process_id: Option<u32>,
+    #[serde(rename = "CommandLine")]
+    command_line: Option<String>,
+}
+
+/// Snapshot every running process (id, parent, command line) via a single CIM
+/// query. Shelled through `util::command` (no console window; not `wmic`, which is
+/// deprecated on current Windows) rather than PEB-walking each process by hand.
+#[cfg(windows)]
+fn snapshot_processes() -> Result<Vec<ProcessInfo>, String> {
+    let output = crate::util::command("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
+        ])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    let rows: Vec<CimProcess> =
+        serde_json::from_str(text.trim()).map_err(|error| error.to_string())?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|row| {
+            row.process_id.map(|process_id| ProcessInfo {
+                process_id,
+                parent_process_id: row.parent_process_id.unwrap_or_default(),
+                command_line: row.command_line.unwrap_or_default(),
+            })
+        })
+        .collect())
+}
+
+/// Find and kill the subtree(s) an agent spawned for `command`, anywhere under its
+/// process `root`. Returns whether anything matched. Windows only — the snapshot
+/// and the tree-kill both go through Windows tooling.
+#[cfg(windows)]
+fn stop_task_tree(root: u32, command: &str) -> Result<bool, String> {
+    let processes = snapshot_processes()?;
+    let targets = task_processes(&processes, root, command);
+    for process_id in &targets {
+        kill_process_tree(*process_id);
+    }
+
+    Ok(!targets.is_empty())
+}
+
+#[cfg(not(windows))]
+fn stop_task_tree(_root: u32, _command: &str) -> Result<bool, String> {
+    Ok(false)
 }
 
 /// A session's replayable output, and how many chunks have been emitted for it.
@@ -882,6 +1026,33 @@ pub async fn pty_kill(
     Ok(())
 }
 
+/// Stop a known task an agent started from the Tasks list. PADE never spawned the
+/// process — the agent ran it in its own PTY — so this locates the matching
+/// subtree under the agent's own process tree and kills it. Agent-agnostic: it
+/// keys on the OS process tree and the task command, nothing agent-specific.
+/// Returns whether a matching process was found and killed.
+#[tauri::command]
+pub async fn session_task_stop(
+    window: WebviewWindow,
+    state: State<'_, PtyState>,
+    id: String,
+    command: String,
+) -> Result<bool, String> {
+    let Some(pty) = owned_pty(state.inner(), window.label(), &id)? else {
+        return Ok(false);
+    };
+    // Resolve the agent's root PID, then release every lock before the blocking
+    // snapshot + kill so no other pane's input stalls behind it.
+    let root = {
+        let child = pty.child.lock().map_err(|error| error.to_string())?;
+        child.process_id().ok_or("session has no live process")?
+    };
+
+    tauri::async_runtime::spawn_blocking(move || stop_task_tree(root, &command))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
 fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
     let sessions = state.0.lock().map_err(|e| e.to_string())?;
     match owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner) {
@@ -908,6 +1079,51 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn process(process_id: u32, parent_process_id: u32, command_line: &str) -> ProcessInfo {
+        ProcessInfo {
+            process_id,
+            parent_process_id,
+            command_line: command_line.to_string(),
+        }
+    }
+
+    #[test]
+    fn command_matches_survives_shell_wrapping() {
+        assert!(command_matches(
+            "bash -c \"cd app && pnpm dev\"",
+            "pnpm dev"
+        ));
+        assert!(command_matches("pnpm   dev 2>&1", "pnpm dev"));
+        assert!(command_matches(
+            "cargo check --all-targets | tail",
+            "cargo check --all-targets"
+        ));
+    }
+
+    #[test]
+    fn command_matches_rejects_a_longer_sibling() {
+        assert!(!command_matches("pnpm dev:prod", "pnpm dev"));
+        assert!(!command_matches("pnpm develop", "pnpm dev"));
+        assert!(!command_matches("", "pnpm dev"));
+    }
+
+    #[test]
+    fn task_processes_finds_the_agent_subtree_only() {
+        let processes = vec![
+            process(100, 1, "claude"),                 // the agent (root)
+            process(200, 100, "bash -c \"pnpm dev\""), // the task shell it spawned
+            process(300, 200, "node vite"),            // the dev server (no literal match)
+            process(400, 1, "pnpm dev"),               // an UNRELATED sibling outside the agent
+        ];
+        assert_eq!(task_processes(&processes, 100, "pnpm dev"), vec![200]);
+    }
+
+    #[test]
+    fn task_processes_never_returns_the_agent_root() {
+        let processes = vec![process(100, 1, "claude pnpm dev")];
+        assert!(task_processes(&processes, 100, "pnpm dev").is_empty());
+    }
 
     fn history_with(chunks: &[&str]) -> (Arc<Mutex<History>>, u64) {
         let history = Arc::new(Mutex::new(History::default()));
