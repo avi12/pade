@@ -537,21 +537,37 @@ export function createAutoHandoff(host: HandoffHost) {
     }
   }
 
-  // Resolve once the successor session has been seen working and then gone
-  // ready — its first turn is over — or the deadline passes, or it disappears.
+  // Resolve once the successor has genuinely worked its first turn and gone ready
+  // — or the deadline passes, or it disappears. The doc is deleted the moment this
+  // resolves, so the "worked" test must be the REAL doc-reading turn, not a
+  // transient blip: a fresh session flips to `working` for a beat on boot, and
+  // again on each initial-prompt paste-echo, then settles back to `ready` within
+  // one poll. Counting a single such blip as "first turn done" deleted the handoff
+  // doc while the successor was still trying to read it — the reported "agent
+  // couldn't retrieve the file". So only SUSTAINED work — `working` on two
+  // consecutive polls — arms the settle; a doc-reading turn stays working across
+  // polls, while a boot/paste blip never spans two. A fast turn that we miss simply
+  // falls to the deadline, which deletes the doc long after it was safely consumed
+  // — late cleanup, never an early delete.
   function waitForSuccessorSettled(id: string): Promise<void> {
     return new Promise(resolve => {
-      let sawWorking = false;
+      let consecutiveWorking = 0;
+      let sawSustainedWork = false;
       const startedAt = Date.now();
       function poll() {
         const status = sessionStatus(id);
         const gone = !host.sessions().some(session => session.id === id);
         const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
         if (status === SessionStatus.enum.working) {
-          sawWorking = true;
+          consecutiveWorking += 1;
+          if (consecutiveWorking >= 2) {
+            sawSustainedWork = true;
+          }
+        } else {
+          consecutiveWorking = 0;
         }
 
-        const settled = sawWorking && status === SessionStatus.enum.ready;
+        const settled = sawSustainedWork && status === SessionStatus.enum.ready;
         if (settled || gone || expired) {
           resolve();
           return;
