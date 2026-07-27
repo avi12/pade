@@ -105,6 +105,9 @@
   // The project's checked-out branch — the top-bar branch pill (empty when the
   // project isn't a git repo or HEAD is detached).
   let currentBranch = $state("");
+  // Whether the repo has a remote — a local-only repo has nothing to open in a
+  // browser, so the pill's Ctrl-click-opens-on-remote affordance is suppressed.
+  let hasRemote = $state(false);
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
@@ -924,12 +927,14 @@
     if (!project) {
       branches = [];
       currentBranch = "";
+      hasRemote = false;
       return;
     }
 
-    const [next, heads] = await Promise.all([
+    const [next, heads, remote] = await Promise.all([
       vcs.branches(project).catch((): string[] => []),
-      vcs.branchOf([project]).catch((): Record<string, string> => ({}))
+      vcs.branchOf([project]).catch((): Record<string, string> => ({})),
+      vcs.remoteUrl(project).catch((): string | null => null)
     ]);
     // A project switch can outrun this read. Keep the branch list attached to
     // the project it came from instead of flashing another window's repository.
@@ -939,6 +944,7 @@
 
     branches = next;
     currentBranch = heads[project] ?? "";
+    hasRemote = remote !== null;
   }
 
   // Keep the branch pill honest: a branch switch, git init, or remote change in
@@ -1700,12 +1706,16 @@
             roots={settings.roots}
           />
           {#if currentBranch}
-            <!-- Plain click opens Git; Ctrl/Cmd-click follows the remote branch. -->
+            <!-- Plain click opens Git; Ctrl/Cmd-click follows the remote branch —
+                 but only when there IS a remote, so a local-only repo doesn't
+                 offer to open a browser it can't. -->
             <button
               class="branch-pill"
-              data-tooltip="Current branch · Ctrl-click opens on remote"
+              data-tooltip={hasRemote
+                ? "Current branch · Ctrl-click opens on remote"
+                : "Current branch"}
               onclick={async e => {
-                if (e.ctrlKey || e.metaKey) {
+                if (hasRemote && (e.ctrlKey || e.metaKey)) {
                   await openRepositoryTarget({
                     project: currentProject,
                     branch: currentBranch
