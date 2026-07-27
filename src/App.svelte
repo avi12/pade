@@ -1309,9 +1309,18 @@
   const relocator = createRelocator({
     sessions: () => sessions,
     currentProject: () => currentProject,
+    markClosing(ids) {
+      for (const id of ids) {
+        closingByHand.add(id);
+      }
+    },
     removeSessions(ids) {
       sessions = sessions.filter(session => !ids.has(session.id));
       paneIds = paneIds.filter(id => !ids.has(id));
+
+      for (const id of ids) {
+        closingByHand.delete(id);
+      }
 
       if (activeId && ids.has(activeId)) {
         activeId = sessions.at(-1)?.id ?? null;
