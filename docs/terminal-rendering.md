@@ -153,20 +153,16 @@ Claude shrugged it off, Codex exited (switching tabs "closed" the Codex session)
 Hidden slots are now lifted out of flow over the whole pane (`position: absolute;
 inset: 0`) and `visibility: hidden` instead (App.svelte's `.term-slot`), so a
 background PTY stays sized to exactly what its tab will show and switching tabs
-needs no refit at all. Two knock-ons: an invisible pane still geometrically
-intersects, so WebGL lifecycle is driven by the `shown` prop rather than the old
-IntersectionObserver; and a pane that *does* drop to xterm's DOM renderer lays
-out but never paints under `visibility: hidden`.
+needs no refit at all. The hidden DOM terminal still lays out but does not paint,
+and the `shown` prop disables its cursor blink loop.
 
-The GPU rule is stricter: **WebGL exists only for a shown terminal while PADE is
-the foreground app.** A background tab releases its context immediately, and an
-alt-tab to a game releases every terminal context in that window plus its cursor
-blink paint loop. The terminals remain mounted and continue consuming the PTY
-stream through xterm's fallback renderer, so agents, scrollback, prompt detection,
-and replay ordering never go stale. On focus/reveal the WebGL addon reattaches.
-`webglCellMetrics` caches the GPU cell size across that swap; fitting with those
-metrics prevents the fallback renderer's slightly different measurement from
-changing the grid by a column and SIGWINCHing the agent into a visible rewrap.
+The GPU rule is stricter: **terminals always use xterm's DOM renderer.** The
+optional WebGL addon held one VRAM-backed context per shown terminal and kept GPU
+work alive whenever PADE was focused, competing with games even though background
+contexts were released. The DOM renderer keeps output and resizing live without
+owning a WebGL context. A background tab or unfocused window also disables its
+cursor blink paint loop; PTY parsing, scrollback, prompt detection, and replay
+ordering continue uninterrupted.
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;
@@ -327,8 +323,8 @@ will "verify" the wrong code.
   ```
   then read `__padeTerm.buffer.active` over CDP (`type`, `baseY`, `length`).
   **Remove before committing.**
-- WebGL renders to a canvas, so there are **no DOM rows to measure**. Locate a line
-  by scanning the buffer for its text and converting its row index to a y.
+- Prefer scanning xterm's buffer for a line and converting its row index to a y;
+  this remains stable across renderer implementation details.
 - **Editing `Terminal.svelte` HMR-remounts the terminal**, which reattaches to the
   live PTY with no replay, so the pane looks blank. Dev artifact, not a bug —
   recover with a CDP `Page.reload`.

@@ -14,9 +14,9 @@ writes.
 
 ### 1.1 Terminal (✅)
 - R1.1.1 Run an agent CLI in a real PTY (Windows ConPTY via `portable-pty`).
-- R1.1.2 GPU-accelerated rendering (xterm.js WebGL) only for visible terminals
-  while PADE is foregrounded; hidden tabs and unfocused windows release their
-  contexts and continue consuming PTY output through xterm's fallback renderer.
+- R1.1.2 Render terminals through xterm's DOM renderer so no terminal owns a
+  dedicated WebGL context or VRAM; hidden tabs and unfocused windows also pause
+  cursor blinking while continuing to consume PTY output.
 - R1.1.3 Bi-directional: stream output in, send keystrokes/resize out.
 - R1.1.4 Command configurable via `ADE_AGENT_CMD` (default: platform shell).
 - R1.1.5 ✅ **Split panes** — show multiple agent sessions side by side (add an

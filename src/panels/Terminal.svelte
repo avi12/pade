@@ -23,13 +23,11 @@
   import { isPromptNewlineShortcut, PROMPT_NEWLINE, submittedPrompt } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
-  import { shouldUseWebgl } from "@/lib/terminal-renderer";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { WebglAddon } from "@xterm/addon-webgl";
   import { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
   import { onDestroy, onMount } from "svelte";
@@ -43,7 +41,7 @@
     active?: boolean;
     /** This pane is in the current split (laid out and visible). A background
         tab's pane stays mounted at full size but `visibility: hidden`, so only
-        `shown` — never geometry — can tell the two apart (see the WebGL effect). */
+        `shown` — never geometry — can tell the two apart for cursor blinking. */
     shown?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
@@ -97,31 +95,6 @@
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
   let resizeObserver: ResizeObserver | undefined;
-  // The GPU renderer, bound to visibility and window focus. The WebGL addon holds a real,
-  // VRAM-backed context that the browser hard-caps (~16 live at once, then it
-  // force-loses the oldest) and that DWM composites every frame. PADE keeps every
-  // session's Terminal mounted — a hidden pane stays laid out at full size but
-  // `visibility: hidden` (so its PTY stays truthfully sized and its scrollback and
-  // parsing run uninterrupted) — so one context per mounted component would mean
-  // one per open session, doubling across two windows past the driver's TDR
-  // threshold and crashing the compositor. So the addon lives no longer than the
-  // pane is actually shown in the foreground — the effect below attaches/detaches,
-  // capping live contexts to visible panes and releasing every context while the
-  // user is in another app (including a game).
-  // (An invisible pane still geometrically intersects, so an IntersectionObserver
-  // cannot tell it apart; only the prop can.)
-  let webgl: WebglAddon | undefined;
-  // The GPU renderer's cell metrics, cached across its detach. The DOM renderer a
-  // hidden pane falls back to measures cells a hair differently, and a hair is a
-  // column: fitting with the live metrics made every hide/show swap resize the
-  // grid by a column or two, SIGWINCHing the agent into a rewrap that visibly
-  // bounced its frame on each tab switch. Fitting always with the WebGL metrics
-  // keeps the grid stable while hidden — the DOM renderer paints nothing the user
-  // can see, so its mismatch is harmless, and a real pane resize still refits.
-  let webglCellMetrics: {
-    width: number;
-    height: number;
-  } | undefined;
   // Guards the async onMount against a teardown that runs before its awaits
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
@@ -471,8 +444,7 @@
     });
   });
 
-  // xterm paints on a canvas in px, so the font-size pref scales it here directly
-  // (the CSS --ui-scale reaches rem/em UI but not the canvas). Base size × zoom.
+  // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.
   const TERMINAL_FONT_SIZE = 13;
 
   // WCAG AA for body text — the floor xterm holds every foreground to against
@@ -489,9 +461,6 @@
 
     terminal.options.fontFamily = family;
     terminal.options.fontSize = fontSize;
-    // The cached GPU cell metrics are stale for the new font — drop them so the
-    // refit measures fresh instead of fitting the new font to the old cells.
-    webglCellMetrics = undefined;
     fitToPane();
   });
 
@@ -557,26 +526,14 @@
     };
   });
 
-  // GPU rendering follows what the user can see. Background tabs and every pane
-  // in an unfocused PADE window release both their WebGL context and cursor-blink
-  // paint loop; xterm still consumes every PTY chunk, preserving live state.
+  // A hidden or unfocused terminal keeps consuming every PTY chunk, but it does
+  // not need a cursor-blink paint loop until the user can see it again.
   $effect(() => {
     if (!attached) {
       return;
     }
 
-    const useWebgl = shouldUseWebgl({
-      shown,
-      windowFocused
-    });
-    terminal.options.cursorBlink = useWebgl;
-
-    if (useWebgl) {
-      attachWebgl();
-      return;
-    }
-
-    detachWebgl();
+    terminal.options.cursorBlink = shown && windowFocused;
   });
 
   // xterm needs the scrollbar's own width reserved out of the usable columns, or
@@ -909,14 +866,7 @@
 
     const liveCell = terminal.dimensions?.css.cell;
     const liveCellIsUsable = liveCell !== undefined && liveCell.width > 0 && liveCell.height > 0;
-    if (webgl && liveCellIsUsable) {
-      webglCellMetrics = {
-        width: liveCell.width,
-        height: liveCell.height
-      };
-    }
-
-    const cell = webglCellMetrics ?? (liveCellIsUsable ? liveCell : undefined);
+    const cell = liveCellIsUsable ? liveCell : undefined;
     if (!cell) {
       return;
     }
@@ -960,56 +910,6 @@
       rows
     });
     updateAnchor();
-  }
-
-  // Create the GPU renderer and bind it to this terminal — the single place a WebGL
-  // context is ever made (DRY: the visibility handler and the context-loss recovery
-  // both call it). No-ops if one is already attached or the terminal isn't built, so
-  // a double show or a loss-during-attach can't stack two contexts. A freshly
-  // (re)attached renderer is sized to the pane at once, so it doesn't paint a stale
-  // grid on the frame it comes back.
-  function attachWebgl() {
-    if (webgl || !terminal) {
-      return;
-    }
-
-    try {
-      const addon = new WebglAddon();
-      // A forced context loss (a GPU reset / driver TDR) must self-heal rather than
-      // leave the pane permanently blank: drop the dead addon and, if the pane is
-      // still on screen, build a fresh one. If it's hidden, staying on the DOM
-      // renderer is correct — the next show re-attaches through the observer.
-      addon.onContextLoss(() => {
-        detachWebgl();
-
-        if (shouldUseWebgl({
-          shown,
-          windowFocused
-        })) {
-          attachWebgl();
-        }
-      });
-      terminal.loadAddon(addon);
-      webgl = addon;
-      fitToPane();
-    } catch {
-      // The DOM renderer remains active; discard metrics measured by a renderer
-      // that failed to initialize so the next successful attach measures fresh.
-      webglCellMetrics = undefined;
-    }
-  }
-
-  // Dispose the GPU renderer and free its context (DRY: the single teardown path,
-  // shared by hide, context-loss recovery, and unmount). Idempotent — a double hide
-  // or a dispose after the context is already gone is a no-op. xterm falls back to
-  // its DOM renderer, whose output the `visibility: hidden` pane never paints.
-  function detachWebgl() {
-    if (!webgl) {
-      return;
-    }
-
-    webgl.dispose();
-    webgl = undefined;
   }
 
   onMount(async () => {
@@ -1532,7 +1432,6 @@
     }
 
     resizeObserver?.disconnect();
-    detachWebgl();
     dropContext(session.id);
     dropMcpReload(session.id);
     terminal?.dispose();

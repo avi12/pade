@@ -1789,7 +1789,7 @@
             </div>
           {/if}
           {#if orderedSessions.length > 0}
-            <!-- xterm/WebGL is the heaviest frontend dependency. Load it only when
+            <!-- xterm is the heaviest frontend dependency. Load it only when
                  the first live session needs a pane, not while the picker/onboarding
                  screen is starting. The keyed loop still owns the mounted terminals
                  after that, preserving their PTY attachment and scrollback. -->
