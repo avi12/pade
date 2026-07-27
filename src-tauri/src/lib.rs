@@ -50,7 +50,10 @@ pub fn run() {
         // interaction stalls on the commits. `--disable-gpu` renders on the CPU
         // instead, decoupling ADE from the GPU queue entirely — slower frames in
         // absolute terms, but immune to GPU contention.
-        let software_render = std::env::var("PADE_SOFTWARE_RENDER").is_ok_and(|value| value == "1");
+        let software_render_pref = workspace::load().prefs.passthrough.get("softwareRender")
+            == Some(&serde_json::Value::Bool(true));
+        let software_render = software_render_pref
+            || std::env::var("PADE_SOFTWARE_RENDER").is_ok_and(|value| value == "1");
         if software_render {
             browser_arguments.push("--disable-gpu");
         }
@@ -121,6 +124,7 @@ pub fn run() {
             os::open_in_explorer,
             os::open_in_terminal,
             os::open_url,
+            os::restart,
             window::window_create,
             window::window_register_project,
             window::window_focus_project,

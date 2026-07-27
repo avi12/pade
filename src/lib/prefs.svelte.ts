@@ -47,6 +47,9 @@ export const effective = {
   },
   get handoffPercentage(): number {
     return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PERCENTAGE;
+  },
+  get softwareRender(): boolean {
+    return prefs.softwareRender === true;
   }
 };
 

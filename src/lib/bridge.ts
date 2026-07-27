@@ -153,7 +153,9 @@ export const os = {
   explorer: (path: string) => run("open_in_explorer", { path }),
   terminal: (path: string) => run("open_in_terminal", { path }),
   /** Open an http(s) URL in the system's default browser. */
-  openUrl: (url: string) => run("open_url", { url })
+  openUrl: (url: string) => run("open_url", { url }),
+  /** Restart PADE so launch-only settings can take effect. */
+  restart: () => run("restart")
 };
 
 /** System clipboard — read for Ctrl+V paste, write for Ctrl+C copy. */

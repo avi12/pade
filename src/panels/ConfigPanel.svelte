@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { config } from "@/lib/bridge";
+  import { config, os } from "@/lib/bridge";
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
@@ -257,6 +257,27 @@
       </div>
     </section>
 
+    <section class="performance">
+      <h3 class="card-label">Performance</h3>
+      <div class="software-render-row">
+        <label class="software-render-check">
+          <span class="checkbox">
+            <input
+              checked={effective.softwareRender}
+              onchange={e => updatePrefs({ softwareRender: e.currentTarget.checked })}
+              type="checkbox"
+            />
+            <span class="box" aria-hidden="true"><Icon name="check" /></span>
+          </span>
+          <span class="field-text">
+            <span class="field-label">Software rendering</span>
+            <span class="field-hint">Frees the GPU for games. Applies after restart.</span>
+          </span>
+        </label>
+        <button class="restart" onclick={async () => await os.restart()} type="button">Restart PADE</button>
+      </div>
+    </section>
+
     {#if files.length}
       <span class="card-label">Project files</span>
     {/if}
@@ -309,7 +330,8 @@
   }
 
   /* ── Appearance card ──────────────────────────────────────────────────────── */
-  .appearance {
+  .appearance,
+  .performance {
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -317,6 +339,40 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius-medium);
     background: var(--surface-1);
+  }
+
+  .software-render-row {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .software-render-check {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-inline-size: 0;
+    cursor: pointer;
+  }
+
+  .restart {
+    flex: none;
+    padding-block: 7px;
+    padding-inline: 12px;
+    border: none;
+    border-radius: 999px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font: inherit;
+    font-weight: 700;
+    font-size: 11px;
+    cursor: pointer;
+    transition: filter 140ms var(--ease);
+
+    &:hover {
+      filter: brightness(0.96);
+    }
   }
 
   .card-label {

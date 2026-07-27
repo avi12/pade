@@ -1,9 +1,16 @@
 //! OS integrations — reveal a project in the system file manager or a terminal,
-//! or open a URL in the default browser.
+//! open a URL in the default browser, or restart PADE.
 
 use std::process::Command;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
+
+/// Restart the process so launch-only preferences, including `WebView2` browser
+/// arguments, take effect. The normal exit event still tears down child PTYs.
+#[tauri::command]
+pub fn restart(app: AppHandle) {
+    app.request_restart();
+}
 
 /// Open a URL in the default browser. Only http(s) schemes are allowed — this is
 /// the one seam that hands a string to the OS, so we refuse anything that isn't a

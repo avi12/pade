@@ -345,6 +345,8 @@ export const Prefs = z.object({
   /** Auto-hand-off to a fresh agent near the context limit. Opt-out: on unless
    *  explicitly set to false. */
   autoHandoff: z.boolean().nullish(),
+  /** Render WebView2 on the CPU after the next restart, avoiding GPU contention. */
+  softwareRender: z.boolean().nullish(),
   /** Percent of context at which the auto-handoff cycles the session. Absent =
    *  DEFAULT_CONTEXT_HANDOFF_PERCENTAGE (lib/context-level). */
   handoffPct: z.number().min(MINIMUM_HANDOFF_PERCENTAGE).max(MAXIMUM_HANDOFF_PERCENTAGE).nullish(),
