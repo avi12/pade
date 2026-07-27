@@ -382,10 +382,11 @@
   let promptVerifyTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Once the agent has settled quiet — done booting, past the trust gate — paste
-  // the first prompt and submit it; re-attempt until the echo confirms it landed.
-  // The bracketed paste keeps the prompt's own newlines soft and makes the
-  // trailing ENTER a separate, submitting keystroke (a raw write folds that CR
-  // into the paste and leaves the prompt unsent).
+  // the first prompt, then submit it and re-attempt until the agent is seen
+  // working. The bracketed paste keeps the prompt's own newlines soft; the
+  // submitting ENTER is sent separately (a raw write folds the CR into the paste
+  // and leaves the prompt unsent) and re-sent on its own if the TUI's post-paste
+  // guard swallowed the first one.
   async function deliverInitialPromptIfReady() {
     if (!session.initialPrompt || promptDelivered || awaitingVerify) {
       return;
@@ -404,25 +405,35 @@
       return;
     }
 
-    // A previous attempt already landed — the composer/transcript echoes it.
-    const echoConfirmed = promptEchoed({
-      output: recentOutput,
-      prompt: session.initialPrompt
-    });
-    if (echoConfirmed || promptAttempts >= PROMPT_MAX_ATTEMPTS) {
+    if (promptAttempts >= PROMPT_MAX_ATTEMPTS) {
       promptDelivered = true;
       clearTimeout(promptVerifyTimer);
       return;
     }
 
+    // The prompt echoing back means the PASTE reached the composer — NOT that it
+    // was submitted. A TUI's post-paste guard (Claude Code's especially) swallows
+    // the ENTER that rides in the same burst as the bracketed paste, leaving the
+    // text sitting unsent; latching on the echo alone is what stranded a handoff
+    // successor with its prompt typed but never sent, so the user had to press
+    // Enter by hand. A prompt already in the composer is therefore submitted with a
+    // SEPARATE ENTER — a standalone keystroke the guard can't fold into the paste —
+    // re-sent until the agent is seen working; only a prompt that never echoed is
+    // (re)pasted. `working` past the paste-echo settle (the verify below) is the
+    // one signal it truly went in.
+    const pasteLanded = promptEchoed({
+      output: recentOutput,
+      prompt: session.initialPrompt
+    });
     promptAttempts += 1;
     awaitingVerify = true;
-    await writeToPty(submittedPrompt(session.initialPrompt));
+    await writeToPty(pasteLanded ? ENTER : submittedPrompt(session.initialPrompt));
     // Verify shortly. Still `working` at 2000ms means the agent took the prompt
-    // up and is running it — delivery is done, so latch it and never re-paste
-    // (this is what stops a handoff successor, whose first turn scrolls the echo
-    // out of `recentOutput`, from being re-prompted). Back at `ready` means the
-    // paste didn't land — the TUI wasn't reading yet — so try again.
+    // up and is running it — delivery is done, so latch it (this is what stops a
+    // handoff successor, whose first turn scrolls the echo out of `recentOutput`,
+    // from being re-prompted). Back at `ready` means it wasn't submitted — the
+    // bundled Enter was swallowed, or the TUI wasn't reading yet — so try again
+    // (a separate Enter when the paste already landed, else a fresh paste).
     clearTimeout(promptVerifyTimer);
     promptVerifyTimer = setTimeout(() => {
       awaitingVerify = false;
