@@ -2,6 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { collapseRow } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace } from "@/lib/paths";
+  import { tooltip } from "@/lib/truncation-tooltip";
   import type { Ide } from "@/lib/types";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
@@ -61,7 +62,7 @@
               {#if isTemporaryWorkspace(path)}
                 <span
                   class="temp-tag"
-                  data-tooltip="Auto-named by the agent — the folder keeps its path"
+                  {@attach tooltip("Auto-named by the agent — the folder keeps its path")}
                 >temp</span>
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
