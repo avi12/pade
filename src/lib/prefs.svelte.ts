@@ -7,6 +7,7 @@ import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/prefs-bounds";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings.svelte";
 import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
+import { listen } from "@tauri-apps/api/event";
 
 export { prefs } from "@/lib/settings.svelte";
 export {
@@ -69,12 +70,19 @@ function resolvedScheme(): Scheme {
   return mode;
 }
 
+/** Apply a concrete scheme to the reactive store and the `<html>` data-theme in one
+ *  place — the single home for "the applied scheme is X", used by both the media-
+ *  query path and the native OS-theme event. */
+function installScheme(scheme: Scheme): void {
+  appearance.scheme = scheme;
+  document.documentElement.dataset.theme = scheme;
+}
+
 function apply() {
   // Fonts are bound declaratively in the template (style:--font-ui / --font-monospace).
   // Theme mode stays here: it must sit on <html> for the pre-paint flash guard
   // and to cover anything rendered outside the app root.
-  appearance.scheme = resolvedScheme();
-  document.documentElement.dataset.theme = appearance.scheme;
+  installScheme(resolvedScheme());
   // Font scaling follows video-time-manager: the root font is `100% * --ui-scale`
   // (the user's browser base, times their zoom preference — never a fixed px that
   // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
@@ -104,7 +112,35 @@ document.addEventListener("visibilitychange", () => {
 
 registerSettingsAdoptionEffect(apply);
 
+/** Wire the shared name for the backend's OS-theme event (see `window.rs`
+ *  `THEME_CHANGED_EVENT`). Change both together. */
+const OS_THEME_CHANGED_EVENT = "theme://changed";
+let systemThemeWatched = false;
+
+/** Follow the native OS theme flip. WebView2 does not reliably deliver the
+ *  `prefers-color-scheme` `change` to a window that stays focused/visible, so the
+ *  media-query listener (and the visibility reconcile, which only covers a window
+ *  returning to view) can both miss it — the terminal then keeps the old scheme
+ *  with the window focused the whole time. Tauri's native `ThemeChanged` fires
+ *  regardless; follow the scheme IT reports (authoritative — the media query's own
+ *  value can still be stale) so a focused window re-themes at once. Armed once. */
+async function watchSystemTheme(): Promise<void> {
+  if (systemThemeWatched) {
+    return;
+  }
+
+  systemThemeWatched = true;
+  await listen<string>(OS_THEME_CHANGED_EVENT, event => {
+    if (effective.themeMode !== "system") {
+      return;
+    }
+
+    installScheme(event.payload === "dark" ? "dark" : "light");
+  });
+}
+
 export async function loadPrefs(): Promise<void> {
+  await watchSystemTheme();
   await workspace.settings();
 }
 

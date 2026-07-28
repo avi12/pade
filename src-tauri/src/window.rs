@@ -13,7 +13,9 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::window::Color;
-use tauri::{AppHandle, Emitter, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Emitter, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window,
+};
 
 /// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
 /// dark schemes. Painted as the webview background at window creation so a window
@@ -39,6 +41,28 @@ pub fn paint_surface(window: &WebviewWindow) {
     if let Ok(theme) = window.theme() {
         let _ = window.set_background_color(Some(surface_for(theme)));
     }
+}
+
+/// The frontend event carrying an OS theme flip's authoritative scheme.
+pub const THEME_CHANGED_EVENT: &str = "theme://changed";
+
+/// React to a runtime OS theme flip. `WebView2` does not reliably deliver the
+/// `prefers-color-scheme` change to a window that stays *focused/visible* — the
+/// frontend's media query can go stale with no visibility/focus transition to
+/// reconcile off — so the native `ThemeChanged` window event is the trustworthy
+/// signal. Repaint the surface in-theme and hand the resolved scheme to that
+/// window's frontend, which follows it verbatim (see prefs.svelte). Emitted only
+/// to the window that changed, so each window re-themes from its own OS theme.
+pub fn on_theme_changed(window: &Window, theme: Theme) {
+    if let Some(webview) = window.get_webview_window(window.label()) {
+        let _ = webview.set_background_color(Some(surface_for(theme)));
+    }
+
+    let scheme = match theme {
+        Theme::Dark => "dark",
+        _ => "light",
+    };
+    let _ = window.emit_to(window.label(), THEME_CHANGED_EVENT, scheme);
 }
 
 /// Per-window state the switcher reads: which project each window has open (keyed

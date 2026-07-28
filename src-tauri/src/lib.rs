@@ -87,6 +87,13 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|window, event| {
+            // WebView2 doesn't reliably fire the frontend's prefers-color-scheme
+            // change for a window that stays focused; the native ThemeChanged does.
+            if let tauri::WindowEvent::ThemeChanged(theme) = event {
+                window::on_theme_changed(window, *theme);
+            }
+        })
         .setup(|app| {
             workspace::migrate_from_ade(); // one-time ade → pade data migration
             let handle = app.handle();
