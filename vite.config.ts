@@ -28,10 +28,16 @@ export default defineConfig({
   server: {
     port: devServerPort,
     strictPort: true,
-    // Never watch the Rust build tree — its locked .pdb/.exe artifacts crash
-    // the dev-server file watcher (EBUSY on Windows).
     watch: {
-      ignored: ["**/src-tauri/**"]
+      // Files a build/check step writes but the running app never loads. Watching
+      // them needlessly disturbs a live session:
+      //  • src-tauri — its locked .pdb/.exe artifacts crash the watcher (EBUSY on
+      //    Windows).
+      //  • .svelte-check — `svelte-check --tsgo` regenerates a tsconfig here on
+      //    every run; Vite treats a changed tsconfig as a reason to force a FULL
+      //    reload, so running the type gate against a live dev server reloaded (and
+      //    could crash) the app. A static checker must never touch the app.
+      ignored: ["**/src-tauri/**", "**/.svelte-check/**"]
     }
   },
   // Produce assets Tauri can bundle; keep sourcemaps in dev.
