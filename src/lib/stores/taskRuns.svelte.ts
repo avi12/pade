@@ -2,12 +2,8 @@
 // lib/stores). We can't see the agent's child processes — only its PTY text —
 // so this is best-effort: when a line in a session's output looks like an
 // invocation of a known task's command, that task shows as "running" in the
-// Tasks panel. It clears when the session goes idle (its agent turn ends) or
-// exits. No process control — purely a status reflection.
-//
-// Limitation: a quiet long-running task (e.g. a dev server) clears once the
-// agent's terminal stops producing output; one-shot tasks (build/test/lint)
-// reflect accurately.
+// Tasks panel and an attached dock card tracks its process. The panel status
+// clears when the agent turn ends; the card follows process liveness instead.
 
 import { pty } from "@/lib/bridge";
 import { attachRunner, runnerRows } from "@/lib/stores/runners.svelte";
@@ -61,14 +57,15 @@ function clearSessionTask(sessionId: string): void {
 function markSessionTask({ sessionId, key }: {
   sessionId: string;
   key: string;
-}): void {
+}): boolean {
   if (bySession.get(sessionId) === key) {
-    return;
+    return false;
   }
 
   clearSessionTask(sessionId); // one foreground task per session
   bySession.set(sessionId, key);
   running.add(key);
+  return true;
 }
 
 /** Derive detector inputs from the exact catalog snapshot rendered by the panel —
@@ -108,10 +105,14 @@ function detect({ sessionId, chunk }: {
       continue;
     }
 
-    markSessionTask({
+    const isNewInvocation = markSessionTask({
       sessionId,
       key: task.key
     });
+    if (!isNewInvocation) {
+      return;
+    }
+
     // Reflect the run as an attached dock runner too — a card with a Stop that
     // kills the agent's process. It outlives the agent's turn (a dev server keeps
     // running), so it is NOT cleared here on idle; its own liveness poll drops it
