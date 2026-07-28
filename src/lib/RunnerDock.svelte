@@ -48,6 +48,16 @@
     return () => removeEventListener("resize", reclamp);
   });
 
+  // When every card is an ATTACHED runner (a task the AGENT runs, tracked but not
+  // owned), the dock carries no streaming output — just a one-line note — so it
+  // stays compact instead of taking the full streaming height and needlessly
+  // squeezing the terminal above it (which, while a busy agent hasn't repainted at
+  // the new size, shows squished). Any spawned runner restores the resizable height.
+  const attachedOnly = $derived(rows.length > 0 && rows.every(row => row.attached));
+  // Header + one attached card's bar + its note, no output pane.
+  const COMPACT_DOCK = 132;
+  const shownHeight = $derived(attachedOnly ? COMPACT_DOCK : dockHeight);
+
   // Human-readable status for a runner's dot, used for both the tooltip and the
   // accessible name.
   function statusLabel({ done, failed }: {
@@ -83,39 +93,42 @@
 </script>
 
 {#if rows.length > 0}
-  <section style:block-size="{dockHeight}px" class="dock" aria-label="Task runners">
-    <!-- Drag-to-resize grip along the dock's top edge. -->
-    <div
-      class="grip"
-      aria-label="Resize task runner dock"
-      aria-orientation="horizontal"
-      data-tooltip="Drag to resize"
-      onpointerdown={e => {
-        e.preventDefault();
+  <section style:block-size="{shownHeight}px" class="dock" aria-label="Task runners">
+    {#if !attachedOnly}
+      <!-- Drag-to-resize grip along the dock's top edge. A compact attached-only
+         dock has nothing to grow into, so it has no grip. -->
+      <div
+        class="grip"
+        aria-label="Resize task runner dock"
+        aria-orientation="horizontal"
+        data-tooltip="Drag to resize"
+        onpointerdown={e => {
+          e.preventDefault();
 
-        if (!(e.currentTarget instanceof HTMLElement)) {
-          return;
-        }
+          if (!(e.currentTarget instanceof HTMLElement)) {
+            return;
+          }
 
-        const grip = e.currentTarget;
-        const startY = e.clientY;
-        const startHeight = dockHeight;
-        grip.setPointerCapture(e.pointerId);
+          const grip = e.currentTarget;
+          const startY = e.clientY;
+          const startHeight = dockHeight;
+          grip.setPointerCapture(e.pointerId);
 
-        function onMove(move: PointerEvent): void {
-          dockHeight = clampDock(startHeight + (startY - move.clientY));
-        }
-        function cleanup(): void {
-          grip.removeEventListener("pointermove", onMove);
-          grip.removeEventListener("pointerup", cleanup);
-          grip.removeEventListener("pointercancel", cleanup);
-        }
-        grip.addEventListener("pointermove", onMove);
-        grip.addEventListener("pointerup", cleanup);
-        grip.addEventListener("pointercancel", cleanup);
-      }}
-      role="separator"
-    ><span class="grabber"></span></div>
+          function onMove(move: PointerEvent): void {
+            dockHeight = clampDock(startHeight + (startY - move.clientY));
+          }
+          function cleanup(): void {
+            grip.removeEventListener("pointermove", onMove);
+            grip.removeEventListener("pointerup", cleanup);
+            grip.removeEventListener("pointercancel", cleanup);
+          }
+          grip.addEventListener("pointermove", onMove);
+          grip.addEventListener("pointerup", cleanup);
+          grip.addEventListener("pointercancel", cleanup);
+        }}
+        role="separator"
+      ><span class="grabber"></span></div>
+    {/if}
 
     <header class="head">
       <h2>Task runners</h2>
@@ -126,7 +139,7 @@
 
     <div class="grid">
       {#each rows as row (row.id)}
-        <article class="runner" data-runner-id={row.id}>
+        <article class="runner" class:attached={row.attached} data-runner-id={row.id}>
           <!-- The whole bar is the drag handle (canvas: header drag-to-reorder via
                the shared engine); its buttons are controls, not handles. -->
           <header
@@ -320,6 +333,12 @@
        stack. The output pane below scrolls independently via its own min-size. */
     min-block-size: 168px;
     background: var(--surface-1);
+
+    /* An attached card has only a short note, no output pane — it must not hold
+       the streaming-output floor, or a compact attached-only dock can't shrink. */
+    &.attached {
+      min-block-size: 0;
+    }
   }
 
   /* The bar doubles as the drag-to-reorder handle for its runner — but only
