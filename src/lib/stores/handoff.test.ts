@@ -1,4 +1,5 @@
 import {
+  createAutoHandoff,
   handoffDocName,
   handoffPrompt,
   HandoffReason,
@@ -9,8 +10,57 @@ import {
   successorPrompt
 } from "@/lib/stores/handoff.svelte";
 import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal-input";
-import type { Agent } from "@/lib/types";
-import { describe, expect, it } from "vitest";
+import type { Agent, AgentSession } from "@/lib/types";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const bridgeMocks = vi.hoisted(() => ({
+  kill: vi.fn<(id: string) => Promise<void>>(),
+  probePath: vi.fn<(path: string) => Promise<{ isFile: boolean }>>(),
+  deleteHandoffDoc: vi.fn<() => Promise<void>>()
+}));
+
+vi.mock("@/lib/bridge", () => ({
+  feed: {
+    onChange: vi.fn()
+  },
+  pty: {
+    kill: bridgeMocks.kill,
+    write: vi.fn()
+  },
+  usage: {
+    get: vi.fn().mockResolvedValue(null)
+  },
+  workspace: {
+    probePath: bridgeMocks.probePath,
+    deleteHandoffDoc: bridgeMocks.deleteHandoffDoc
+  }
+}));
+
+vi.mock("@/lib/stores/context.svelte", () => ({
+  dropContext: vi.fn(),
+  measuredContextPercentage: vi.fn().mockReturnValue(100)
+}));
+
+vi.mock("@/lib/stores/sessions.svelte", () => ({
+  dropSessionStatus: vi.fn(),
+  sessionStatus: vi.fn().mockReturnValue("ready")
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  bridgeMocks.kill.mockResolvedValue();
+  bridgeMocks.probePath.mockResolvedValue({ isFile: true });
+  bridgeMocks.deleteHandoffDoc.mockResolvedValue();
+
+  const storage = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    removeItem: (key: string) => storage.delete(key)
+  });
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("handoffSlug", () => {
   it("lowercases and kebabs a workspace label", () => {
@@ -175,5 +225,62 @@ describe("pickHandoffSuccessor", () => {
       hasHeadroom: agentId => Promise.resolve(agentId === codex.id)
     });
     expect(successor).toBe(claude);
+  });
+});
+
+describe("createAutoHandoff", () => {
+  it("terminates and removes the predecessor before launching its successor", async () => {
+    const predecessor: AgentSession = {
+      id: "old-session",
+      agent: {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude"
+      },
+      cwd: "C:/repositories/pade"
+    };
+    let sessions = [predecessor];
+    const lifecycle: string[] = [];
+    let finishKill = () => {};
+    bridgeMocks.kill.mockImplementation(async () => {
+      lifecycle.push("kill-started");
+      await new Promise<void>(resolve => {
+        finishKill = resolve;
+      });
+      lifecycle.push("kill-finished");
+    });
+
+    const handoff = createAutoHandoff({
+      sessions: () => sessions,
+      availableAgents: () => [predecessor.agent],
+      isOptedOut: () => false,
+      thresholdPercentage: () => 90,
+      slugSource: () => "pade",
+      projectDirectory: () => "C:/repositories/pade",
+      removeSession(id) {
+        lifecycle.push("predecessor-removed");
+        sessions = sessions.filter(session => session.id !== id);
+      },
+      launchSuccessor() {
+        lifecycle.push("successor-launched");
+        expect(sessions).not.toContainEqual(predecessor);
+        return "new-session";
+      }
+    });
+
+    handoff.force(predecessor);
+    await vi.waitFor(() => expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id));
+    expect(lifecycle).toEqual(["kill-started"]);
+
+    finishKill();
+    await vi.waitFor(() => expect(lifecycle).toContain("successor-launched"));
+
+    expect(lifecycle).toEqual([
+      "kill-started",
+      "kill-finished",
+      "predecessor-removed",
+      "successor-launched"
+    ]);
+    handoff.dispose();
   });
 });
