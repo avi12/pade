@@ -23,7 +23,11 @@
       {#if row.hunk}
         <div class="hunk">{row.hunkText}</div>
       {:else}
-        <div class="cell" class:filled-deletion={row.leftFilled}>
+        <div
+          class="cell"
+          class:filled-deletion={row.leftFilled}
+          data-snippet-line={row.oldLine}
+        >
           <span class="gutter" aria-hidden="true">{row.oldLine ?? ""}</span>
           <span class="code"><ColorText text={row.left} /></span>
         </div>
@@ -31,6 +35,7 @@
           class="cell right"
           class:filled-add={row.rightFilled}
           data-newline={row.newLine}
+          data-snippet-line={row.newLine}
         >
           <span class="gutter" aria-hidden="true">{row.newLine ?? ""}</span>
           <span class="code"><ColorText text={row.right} /></span>
@@ -47,6 +52,7 @@
         class:deletion={line.kind === DiffKind.del}
         class:meta={line.kind === DiffKind.meta}
         data-newline={line.newLine}
+        data-snippet-line={line.newLine ?? line.oldLine}
       >
         <span class="gutter" aria-hidden="true">
           <span class="line-number">{line.oldLine ?? ""}</span>

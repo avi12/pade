@@ -31,6 +31,19 @@ export function pastedText(text: string): string {
   return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
 }
 
+/** Add source coordinates to code copied from an inline diff so the agent can
+ * locate the selection without inferring its file or line range. */
+export function referencedSnippet({ path, anchorLine, focusLine, snippet }: {
+  path: string;
+  anchorLine: number;
+  focusLine: number;
+  snippet: string;
+}): string {
+  const firstLine = Math.min(anchorLine, focusLine);
+  const lastLine = Math.max(anchorLine, focusLine);
+  return `${path}:${firstLine}-${lastLine}\n${snippet}`;
+}
+
 /** A prompt wrapped for paste-then-submit delivery to a TUI's composer. */
 export function submittedPrompt(prompt: string): string {
   return `${pastedText(prompt)}${PROMPT_SUBMIT}`;

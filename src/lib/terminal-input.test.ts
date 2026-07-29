@@ -4,6 +4,7 @@ import {
   isPromptNewlineShortcut,
   pastedText,
   PROMPT_NEWLINE,
+  referencedSnippet,
   submittedPrompt
 } from "@/lib/terminal-input";
 import { describe, expect, it } from "vitest";
@@ -32,6 +33,32 @@ describe("pastedText", () => {
       `${BRACKETED_PASTE_START}review this\r\nrm -rf project${BRACKETED_PASTE_END}`
     );
     expect(delivered.endsWith("\r")).toBe(false);
+  });
+});
+
+describe("referencedSnippet", () => {
+  it("prefixes selected code with its path and inclusive line range", () => {
+    expect(
+      referencedSnippet({
+        path: "src/lib/terminal-input.ts",
+        anchorLine: 28,
+        focusLine: 31,
+        snippet: "export function pastedText(text: string): string {\n  return text;\n}"
+      })
+    ).toBe(
+      "src/lib/terminal-input.ts:28-31\nexport function pastedText(text: string): string {\n  return text;\n}"
+    );
+  });
+
+  it("normalizes an upward selection to an ascending line range", () => {
+    expect(
+      referencedSnippet({
+        path: "src/App.svelte",
+        anchorLine: 1541,
+        focusLine: 1535,
+        snippet: "selected code"
+      })
+    ).toBe("src/App.svelte:1535-1541\nselected code");
   });
 });
 

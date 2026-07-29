@@ -859,6 +859,7 @@
                     {:else}
                       <div
                         class="preview"
+                        data-snippet-path={event.path}
                         data-tooltip={revealTip}
                         onclick={e => revealDiff({
                           path: event.path,

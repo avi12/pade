@@ -83,7 +83,7 @@
 {#if selected}
   <section class="diff">
     <h3 class="difftitle">{baseName(selected.path)}</h3>
-    <div class="diffbody">
+    <div class="diffbody" data-snippet-path={selected.path}>
       <DiffView {diffLines} split={isSplit} />
     </div>
   </section>

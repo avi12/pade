@@ -63,7 +63,7 @@
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
-  import { pastedText } from "@/lib/terminal-input";
+  import { pastedText, referencedSnippet } from "@/lib/terminal-input";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type {
     Agent,
@@ -1529,6 +1529,33 @@
   // Highlight → agent bridge: a selection in a side panel is injected into the
   // active session's input.
   let selection = $state("");
+
+  function snippetLineElement(node: Node | null): HTMLElement | null {
+    const element = node instanceof Element ? node : node?.parentElement;
+    return element?.closest<HTMLElement>("[data-snippet-line]") ?? null;
+  }
+
+  function snippetReference(selected: Selection, text: string): string {
+    const anchor = snippetLineElement(selected.anchorNode);
+    const focus = snippetLineElement(selected.focusNode);
+    const container = anchor?.closest<HTMLElement>("[data-snippet-path]");
+    const firstLine = Number(anchor?.dataset.snippetLine);
+    const lastLine = Number(focus?.dataset.snippetLine);
+    const path = container?.dataset.snippetPath;
+    const sameSnippet = focus?.closest<HTMLElement>("[data-snippet-path]") === container;
+    const isCodeSelection =
+      path !== undefined && sameSnippet && Number.isInteger(firstLine) && Number.isInteger(lastLine);
+    if (!isCodeSelection) {
+      return text;
+    }
+
+    return referencedSnippet({
+      path,
+      anchorLine: firstLine,
+      focusLine: lastLine,
+      snippet: text
+    });
+  }
 </script>
 
 <svelte:document
@@ -1538,7 +1565,7 @@
     const inSidePanel =
       sel?.anchorNode instanceof Node &&
         !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
-    selection = text && inSidePanel ? text : "";
+    selection = text && inSidePanel && sel ? snippetReference(sel, text) : "";
   }}
   onvisibilitychange={() => {
     if (!document.hidden) {
