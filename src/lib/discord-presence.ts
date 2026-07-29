@@ -61,6 +61,17 @@ const LANGUAGES: Record<string, {
   }
 };
 
+// Stop reporting entirely — used when the (focused, publishing) window closes so
+// PADE's process-wide presence doesn't linger on the last project. Best-effort,
+// like every presence call: a closed Discord must never reach the UI.
+export async function clearDiscordPresence(): Promise<void> {
+  try {
+    await discord.clearActivity();
+  } catch {
+    // Best-effort: a closed Discord (or any IPC hiccup) must never reach the UI.
+  }
+}
+
 export async function updateDiscordPresence({ enabled, showProject, project, labels, kind }: {
   enabled: boolean;
   showProject: boolean;

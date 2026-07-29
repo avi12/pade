@@ -13,7 +13,7 @@
     workspace
   } from "@/lib/bridge";
   import DesignMenu from "@/lib/DesignMenu.svelte";
-  import { updateDiscordPresence } from "@/lib/discord-presence";
+  import { clearDiscordPresence, updateDiscordPresence } from "@/lib/discord-presence";
   import type { DragHint } from "@/lib/drag-reorder";
   import { focusTerminalPane } from "@/lib/focus";
   import { formatCount } from "@/lib/format";
@@ -623,6 +623,13 @@
   let unlistenCloseRequested: (() => void) | undefined;
   async function interceptWindowClose() {
     unlistenCloseRequested = await windows.onCloseRequested(async () => {
+      // This window is going away: if it's the one publishing presence (only the
+      // focused window does), stop reporting so its last project doesn't linger.
+      // A remaining PADE window re-publishes its own status on gaining focus.
+      if (windowFocused) {
+        await clearDiscordPresence();
+      }
+
       await runExclusiveLeave(closeWorkspaceGracefully);
     });
   }
