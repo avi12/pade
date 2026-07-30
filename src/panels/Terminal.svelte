@@ -122,6 +122,9 @@
   let terminalOutputFrame: number | undefined;
   let terminalOutputTimer: ReturnType<typeof setTimeout> | undefined;
   const BACKGROUND_TERMINAL_FLUSH_MS = 250;
+  const CONTEXT_SCREEN_SAMPLE_MS = 1000;
+  let contextScreenTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastContextScreenSampleAt = 0;
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
@@ -569,7 +572,7 @@
 
     const output = queuedTerminalOutput;
     queuedTerminalOutput = "";
-    terminal.write(output);
+    terminal.write(output, scheduleContextScreenObservation);
     noteRepaintProgress();
   }
 
@@ -608,6 +611,46 @@
   function queueTerminalOutput(output: string) {
     queuedTerminalOutput += output;
     scheduleTerminalOutputFlush();
+  }
+
+  // Context is derived from agent output, not viewport movement. Sampling after
+  // xterm has processed a write keeps mouse-wheel/scrollbar renders presentation-
+  // only while still reading the complete screen that cursor-motion TUIs paint.
+  function observeContextScreenAfterWrite() {
+    contextScreenTimer = undefined;
+
+    if (destroyed || !terminal) {
+      return;
+    }
+
+    lastContextScreenSampleAt = Date.now();
+    const buffer = terminal.buffer.active;
+    const rows: string[] = [];
+    for (let row = 0; row < terminal.rows; row += 1) {
+      const line = buffer.getLine(buffer.viewportY + row);
+      if (line) {
+        rows.push(line.translateToString(true));
+      }
+    }
+
+    observeContextScreen({
+      id: session.id,
+      text: rows.join("\n")
+    });
+  }
+
+  function scheduleContextScreenObservation() {
+    const elapsed = Date.now() - lastContextScreenSampleAt;
+    if (elapsed >= CONTEXT_SCREEN_SAMPLE_MS) {
+      clearTimeout(contextScreenTimer);
+      observeContextScreenAfterWrite();
+      return;
+    }
+
+    contextScreenTimer ??= setTimeout(
+      observeContextScreenAfterWrite,
+      CONTEXT_SCREEN_SAMPLE_MS - elapsed
+    );
   }
 
   // xterm needs the scrollbar's own width reserved out of the usable columns, or
@@ -1026,29 +1069,13 @@
 
     fitToPane();
 
-    // The context gauge must parse the SCREEN, not just the stream: a
-    // fullscreen agent's renderer skips cells that are already painted with a
+    // The context gauge must parse the SCREEN after output, not just the stream.
+    // Scroll renders are unrelated viewport movement and deliberately do no work.
+    // A fullscreen agent's renderer skips cells that are already painted with a
     // cursor-forward, so the wire can carry "97% contex" + CSI 1C + " used"
     // and the phrase the parser needs never arrives intact. The rendered rows
-    // always hold the full text. onRender reports the repainted viewport row
-    // range; reading only those rows keeps the per-paint work bounded.
-    terminal.onRender(({ start, end }) => {
-      const buffer = terminal.buffer.active;
-      const rows: string[] = [];
-      for (let row = start; row <= end; row++) {
-        const line = buffer.getLine(buffer.viewportY + row);
-        if (!line) {
-          continue;
-        }
-
-        rows.push(line.translateToString(true));
-      }
-
-      observeContextScreen({
-        id: session.id,
-        text: rows.join("\n")
-      });
-    });
+    // always hold the full text. The output-write callback above samples the
+    // complete viewport at a bounded cadence once xterm has applied those edits.
 
     // Stream this session's PTY output into the terminal; each chunk is a sign
     // of life that resets the idle → ready timer. Events are filtered by id so
@@ -1500,6 +1527,7 @@
     clearTimeout(repaintWatchdog);
     clearTimeout(altFitTimer);
     clearTimeout(terminalOutputTimer);
+    clearTimeout(contextScreenTimer);
 
     if (fitFrame !== undefined) {
       cancelAnimationFrame(fitFrame);
