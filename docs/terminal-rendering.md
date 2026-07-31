@@ -170,10 +170,12 @@ visual work entirely. The theme reconciles from the live OS state on
 PTY event handling and terminal painting have separate budgets. Every chunk is
 inspected immediately for activity, trust prompts, usage limits, API failures,
 and context state, while adjacent bytes are joined before xterm sees them. A
-shown terminal in the focused window flushes once per animation frame; hidden
-tabs and unfocused windows flush every 250ms. Ordering and every byte are kept,
-but a token stream cannot force dozens of DOM layouts and paints per second while
-the user works in another application.
+shown terminal in the focused window flushes once per animation frame while it
+is at the live bottom. Hidden tabs, unfocused windows, and a terminal whose user
+is reading scrollback flush every 250ms. Returning to the live bottom restores
+frame cadence immediately. Ordering and every byte are kept, but a token stream
+cannot force dozens of DOM layouts and paints per second while the user scrolls
+or works in another application.
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;

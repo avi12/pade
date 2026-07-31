@@ -20,6 +20,8 @@ writes.
   windows retain WebView2's native occlusion throttling so Chromium may suspend
   their visual work entirely. On Windows, PADE and children it launches use the
   below-normal process priority so foreground applications win CPU contention.
+  While the user reads scrollback, live output remains ordered and complete but
+  paints at a bounded cadence so incoming tokens do not fight wheel scrolling.
 - R1.1.3 Bi-directional: stream output in, send keystrokes/resize out.
 - R1.1.4 Command configurable via `ADE_AGENT_CMD` (default: platform shell).
 - R1.1.5 ✅ **Split panes** — show multiple agent sessions side by side (add an

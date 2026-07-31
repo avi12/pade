@@ -6,7 +6,8 @@ describe("terminalFlushMode", () => {
     expect(
       terminalFlushMode({
         shown: true,
-        windowFocused: true
+        windowFocused: true,
+        readingScrollback: false
       })
     )
       .toBe(TerminalFlushMode.AnimationFrame);
@@ -16,7 +17,8 @@ describe("terminalFlushMode", () => {
     expect(
       terminalFlushMode({
         shown: true,
-        windowFocused: false
+        windowFocused: false,
+        readingScrollback: false
       })
     )
       .toBe(TerminalFlushMode.Background);
@@ -26,7 +28,19 @@ describe("terminalFlushMode", () => {
     expect(
       terminalFlushMode({
         shown: false,
-        windowFocused: true
+        windowFocused: true,
+        readingScrollback: false
+      })
+    )
+      .toBe(TerminalFlushMode.Background);
+  });
+
+  it("bounds output paints while the user reads scrollback", () => {
+    expect(
+      terminalFlushMode({
+        shown: true,
+        windowFocused: true,
+        readingScrollback: true
       })
     )
       .toBe(TerminalFlushMode.Background);

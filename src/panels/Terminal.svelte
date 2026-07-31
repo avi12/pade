@@ -583,7 +583,8 @@
 
     const mode = terminalFlushMode({
       shown,
-      windowFocused
+      windowFocused,
+      readingScrollback: isReadingScrollback()
     });
     if (mode === TerminalFlushMode.Background) {
       scheduleBackgroundTerminalOutput();
@@ -591,6 +592,15 @@
     }
 
     scheduleForegroundTerminalOutput();
+  }
+
+  function isReadingScrollback(): boolean {
+    if (!terminal || terminal.buffer.active.type === Screen.Alternate) {
+      return false;
+    }
+
+    const buffer = terminal.buffer.active;
+    return buffer.viewportY < buffer.baseY;
   }
 
   function scheduleForegroundTerminalOutput() {
@@ -1316,7 +1326,10 @@
 
     // The document can outgrow the pane with no resize involved — the agent simply
     // prints past the last row — and that is the moment the grid must re-pin.
-    terminal.onScroll(updateAnchor);
+    terminal.onScroll(() => {
+      updateAnchor();
+      scheduleTerminalOutputFlush();
+    });
 
     // A program that takes over the alternate screen has to be told the moment the
     // grid changes, and told the height too — it is painting the whole framebuffer,
