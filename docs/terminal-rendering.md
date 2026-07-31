@@ -173,9 +173,10 @@ and context state, while adjacent bytes are joined before xterm sees them. A
 shown terminal in the focused window flushes once per animation frame while it
 is at the live bottom. Hidden tabs, unfocused windows, and a terminal whose user
 is reading scrollback flush every 250ms. Returning to the live bottom restores
-frame cadence immediately. Ordering and every byte are kept, but a token stream
-cannot force dozens of DOM layouts and paints per second while the user scrolls
-or works in another application.
+frame cadence immediately. An active wheel gesture defers xterm writes until
+120ms of quiet, with a one-second ceiling for a continuous gesture; then one
+coalesced write catches up. Ordering and every byte are kept, but a token stream
+cannot force DOM parsing and paint into the middle of scroll frames.
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;

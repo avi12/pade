@@ -7,7 +7,8 @@ describe("terminalFlushMode", () => {
       terminalFlushMode({
         shown: true,
         windowFocused: true,
-        readingScrollback: false
+        readingScrollback: false,
+        scrolling: false
       })
     )
       .toBe(TerminalFlushMode.AnimationFrame);
@@ -18,7 +19,8 @@ describe("terminalFlushMode", () => {
       terminalFlushMode({
         shown: true,
         windowFocused: false,
-        readingScrollback: false
+        readingScrollback: false,
+        scrolling: false
       })
     )
       .toBe(TerminalFlushMode.Background);
@@ -29,7 +31,8 @@ describe("terminalFlushMode", () => {
       terminalFlushMode({
         shown: false,
         windowFocused: true,
-        readingScrollback: false
+        readingScrollback: false,
+        scrolling: false
       })
     )
       .toBe(TerminalFlushMode.Background);
@@ -40,9 +43,22 @@ describe("terminalFlushMode", () => {
       terminalFlushMode({
         shown: true,
         windowFocused: true,
-        readingScrollback: true
+        readingScrollback: true,
+        scrolling: false
       })
     )
       .toBe(TerminalFlushMode.Background);
+  });
+
+  it("defers output paints during an active wheel gesture", () => {
+    expect(
+      terminalFlushMode({
+        shown: true,
+        windowFocused: true,
+        readingScrollback: true,
+        scrolling: true
+      })
+    )
+      .toBe(TerminalFlushMode.Deferred);
   });
 });

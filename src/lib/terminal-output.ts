@@ -1,6 +1,7 @@
 export const TerminalFlushMode = {
   AnimationFrame: "animation-frame",
-  Background: "background"
+  Background: "background",
+  Deferred: "deferred"
 } as const;
 
 /** Foreground output tracks the display unless the user is reading scrollback;
@@ -9,12 +10,18 @@ export const TerminalFlushMode = {
 export function terminalFlushMode({
   shown,
   windowFocused,
-  readingScrollback
+  readingScrollback,
+  scrolling
 }: {
   shown: boolean;
   windowFocused: boolean;
   readingScrollback: boolean;
+  scrolling: boolean;
 }): (typeof TerminalFlushMode)[keyof typeof TerminalFlushMode] {
+  if (scrolling) {
+    return TerminalFlushMode.Deferred;
+  }
+
   return shown && windowFocused && !readingScrollback
     ? TerminalFlushMode.AnimationFrame
     : TerminalFlushMode.Background;

@@ -125,6 +125,11 @@
   const CONTEXT_SCREEN_SAMPLE_MS = 1000;
   let contextScreenTimer: ReturnType<typeof setTimeout> | undefined;
   let lastContextScreenSampleAt = 0;
+  const SCROLL_OUTPUT_QUIET_MS = 120;
+  const SCROLL_OUTPUT_MAX_DELAY_MS = 1000;
+  let activelyScrolling = false;
+  let scrollOutputQuietTimer: ReturnType<typeof setTimeout> | undefined;
+  let scrollOutputDeadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Session status. Output flowing = working; a quiet gap while the process is
   // alive = ready (done with its task, waiting for you); exit = done.
@@ -584,14 +589,54 @@
     const mode = terminalFlushMode({
       shown,
       windowFocused,
-      readingScrollback: isReadingScrollback()
+      readingScrollback: isReadingScrollback(),
+      scrolling: activelyScrolling
     });
+    if (mode === TerminalFlushMode.Deferred) {
+      cancelScheduledTerminalOutput();
+      return;
+    }
+
     if (mode === TerminalFlushMode.Background) {
       scheduleBackgroundTerminalOutput();
       return;
     }
 
     scheduleForegroundTerminalOutput();
+  }
+
+  function cancelScheduledTerminalOutput() {
+    if (terminalOutputFrame !== undefined) {
+      cancelAnimationFrame(terminalOutputFrame);
+      terminalOutputFrame = undefined;
+    }
+
+    clearTimeout(terminalOutputTimer);
+    terminalOutputTimer = undefined;
+  }
+
+  function finishTerminalScroll() {
+    activelyScrolling = false;
+    scrollOutputQuietTimer = undefined;
+    clearTimeout(scrollOutputDeadlineTimer);
+    scrollOutputDeadlineTimer = undefined;
+    flushTerminalOutput();
+  }
+
+  function flushLongTerminalScroll() {
+    scrollOutputDeadlineTimer = undefined;
+    flushTerminalOutput();
+  }
+
+  function noteTerminalScroll() {
+    activelyScrolling = true;
+    cancelScheduledTerminalOutput();
+    clearTimeout(scrollOutputQuietTimer);
+    scrollOutputQuietTimer = setTimeout(finishTerminalScroll, SCROLL_OUTPUT_QUIET_MS);
+    scrollOutputDeadlineTimer ??= setTimeout(
+      flushLongTerminalScroll,
+      SCROLL_OUTPUT_MAX_DELAY_MS
+    );
   }
 
   function isReadingScrollback(): boolean {
@@ -1302,6 +1347,7 @@
     // fullscreen agent repainting in place — so forward the scroll it understands.
     let wheelCarry = 0;
     terminal.attachCustomWheelEventHandler(e => {
+      noteTerminalScroll();
       const agentOwnsMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
       const hasNativeScrollback = terminal.buffer.active.baseY > 0;
       if (agentOwnsMouse || hasNativeScrollback) {
@@ -1541,6 +1587,8 @@
     clearTimeout(altFitTimer);
     clearTimeout(terminalOutputTimer);
     clearTimeout(contextScreenTimer);
+    clearTimeout(scrollOutputQuietTimer);
+    clearTimeout(scrollOutputDeadlineTimer);
 
     if (fitFrame !== undefined) {
       cancelAnimationFrame(fitFrame);
