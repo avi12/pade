@@ -669,16 +669,76 @@ function linkProviderService(terminal: RegisterableTerminal): InternalLinkProvid
   return isLinkProviderService(service) ? service : null;
 }
 
-// Move `provider` to the front of xterm's provider list. xterm picks the
-// LOWEST-index provider that has a link under the cursor, and it registers its
-// own OSC-8 provider first — so an agent that emits a URL as an OSC-8 hyperlink
-// (Claude, OpenCode) would otherwise be served by that provider, which
-// underlines only the agent-tagged cells (a single self-wrapped row, or the
-// wrapping parens) instead of the whole URL. Promoting this provider makes its
-// regex-parsed, wrap-stitched, punctuation-trimmed range win for URL-shaped
-// links; a labelled OSC-8 link (whose visible text isn't a URL) matches nothing
-// here and still falls through to the OSC-8 provider behind it.
-function promoteAboveOscLinks({ terminal, provider }: {
+// Whether this built-in OSC-8 link's VISIBLE anchor is itself a URL — the
+// tell-tale of an agent that emitted a plain URL as an OSC-8 hyperlink (Claude,
+// OpenCode), as opposed to a labelled link whose anchor is prose ("Security
+// guide"). The anchor's glyphs are read straight off its cells and matched with
+// the same `URL_PATTERN` + `isUrl` our provider uses, so the two never disagree on
+// what counts as a URL. A multi-row anchor is judged by its starting row alone —
+// the scheme and host live there, so the first row's glyphs already match. Our
+// provider trims the URL's trailing sentence punctuation while the OSC-8 anchor
+// keeps it; deferring every URL-shaped anchor to our provider is what stops
+// xterm's resolution from serving that trailing `.`/`,`/`)` off the anchor behind
+// us.
+function anchorIsUrl({ terminal, link }: {
+  terminal: LinkTerminal;
+  link: ILink;
+}): boolean {
+  const line = terminal.buffer.active.getLine(link.range.start.y - 1);
+  if (!line) {
+    return false;
+  }
+
+  const firstColumn = link.range.start.x - 1;
+  const onOneRow = link.range.end.y === link.range.start.y;
+  const lastColumn = onOneRow ? link.range.end.x - 1 : terminal.cols - 1;
+  let anchor = "";
+  for (let column = firstColumn; column <= lastColumn; column += 1) {
+    anchor += line.getCell(column)?.getChars() ?? EMPTY_CELL;
+  }
+
+  const match = anchor.match(URL_PATTERN);
+  return match !== null && isUrl(match[0]);
+}
+
+// Wrap a built-in link provider so any link our URL provider already owns is
+// dropped, deferring every URL-shaped OSC-8 hyperlink to the punctuation-trimmed,
+// wrap-stitched range our provider computes — while labelled and `file:` OSC-8
+// links, which our provider never matches, pass straight through to activate as
+// before.
+function deferUrlsFrom({ terminal, provider }: {
+  terminal: LinkTerminal;
+  provider: ILinkProvider;
+}): ILinkProvider {
+  return {
+    provideLinks(bufferLineNumber, callback) {
+      provider.provideLinks(bufferLineNumber, links => {
+        if (!links) {
+          callback(links);
+          return;
+        }
+
+        callback(links.filter(link => !anchorIsUrl({
+          terminal,
+          link
+        })));
+      });
+    }
+  };
+}
+
+// Make our URL provider the authority for every URL-shaped link. xterm registers
+// its own OSC-8 provider first at construction, and its resolution serves the
+// FIRST provider (by list order) that has a link under the cursor — so an agent
+// that emits a URL as an OSC-8 hyperlink (Claude, OpenCode) would otherwise be
+// served by that provider, whose range spans the whole agent-tagged anchor,
+// including a trailing sentence `.`/`,`/`)` our regex trims. This wraps every
+// built-in provider to drop the links our provider already owns, then moves ours
+// to the front, so its regex-parsed, wrap-stitched, punctuation-trimmed range
+// wins outright and no trimmed punctuation survives on the anchor behind it. A
+// labelled OSC-8 link (whose visible text isn't a URL) matches nothing here and
+// still activates through the built-in provider.
+function overrideOscUrlLinks({ terminal, provider }: {
   terminal: RegisterableTerminal;
   provider: ILinkProvider;
 }): void {
@@ -687,20 +747,28 @@ function promoteAboveOscLinks({ terminal, provider }: {
     return;
   }
 
-  const index = service.linkProviders.indexOf(provider);
-  if (index <= 0) {
-    return;
+  const { linkProviders } = service;
+  for (let index = 0; index < linkProviders.length; index += 1) {
+    if (linkProviders[index] !== provider) {
+      linkProviders[index] = deferUrlsFrom({
+        terminal,
+        provider: linkProviders[index]
+      });
+    }
   }
 
-  service.linkProviders.splice(index, 1);
-  service.linkProviders.unshift(provider);
+  const index = linkProviders.indexOf(provider);
+  if (index > 0) {
+    linkProviders.splice(index, 1);
+    linkProviders.unshift(provider);
+  }
 }
 
 // Register a link provider that makes http(s) URLs clickable, rejoining soft-,
 // hard-, and self-wrapped rows so a wrapped URL activates and underlines in full.
-// `openUrl` receives the whole URL — route it to the system browser. It is
-// promoted above xterm's built-in OSC-8 provider so an agent's OSC-8-tagged URL
-// gets the same full-URL, no-trailing-punctuation range as a plain-text one;
+// `openUrl` receives the whole URL — route it to the system browser. It overrides
+// xterm's built-in OSC-8 provider for URL-shaped links so an agent's OSC-8-tagged
+// URL gets the same full-URL, no-trailing-punctuation range as a plain-text one;
 // labelled OSC-8 links still reach that provider.
 export function registerWrappedLinkProvider({ terminal, openUrl }: {
   terminal: RegisterableTerminal;
@@ -722,7 +790,7 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
     }
   };
   terminal.registerLinkProvider(provider);
-  promoteAboveOscLinks({
+  overrideOscUrlLinks({
     terminal,
     provider
   });

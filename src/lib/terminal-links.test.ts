@@ -1,5 +1,5 @@
 import { computeLinks, registerWrappedLinkProvider } from "@/lib/terminal-links";
-import type { ILink } from "@xterm/xterm";
+import type { ILink, ILinkProvider } from "@xterm/xterm";
 import { describe, expect, it } from "vitest";
 
 // The `computeLinks`-shaped bits a registration mock needs so it structurally
@@ -136,7 +136,10 @@ describe("computeLinks URL-shape robustness (property)", () => {
         // Wide terminal → the upper row ends mid-URL far short of the edge with
         // blank padding after it: the self-wrap path, not a soft/hard wrap.
         const columns = Math.max(upper.length, lower.length) + 12;
-        const rowset = { rows: [{ text: upper }, { text: lower }], columns };
+        const rowset = {
+          rows: [{ text: upper }, { text: lower }],
+          columns
+        };
 
         for (const bufferLineNumber of [1, 2]) {
           expectRecoversWholeUrl({
@@ -539,33 +542,152 @@ describe("computeLinks", () => {
 
     expect(links).toHaveLength(0);
   });
-});
 
-describe("registerWrappedLinkProvider", () => {
-  it("promotes the URL provider above xterm's built-in OSC-8 provider", () => {
-    // xterm registers its own OSC-8 provider first; the URL provider must end up
-    // ahead of it so its full-URL, wrap-stitched range wins the lowest-index
-    // precedence for an OSC-8-tagged URL.
-    const oscProvider = { provideLinks() {} };
-    const linkProviders: unknown[] = [oscProvider];
-    const terminal = {
-      ...emptyBuffer,
-      registerLinkProvider(provider: unknown) {
-        linkProviders.push(provider);
-      },
-      _core: {
-        _linkProviderService: { linkProviders }
-      }
-    };
-
-    registerWrappedLinkProvider({
-      terminal,
+  it("trims a trailing sentence period from a URL that ends a clause", () => {
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [{ text: "on https://taki-avi.web.app. All seven fixes ship" }],
+        columns: 60
+      }),
+      bufferLineNumber: 1,
       openUrl() {}
     });
 
+    expect(links).toHaveLength(1);
+    expect(links[0].text).toBe("https://taki-avi.web.app");
+  });
+});
+
+// A terminal whose buffer holds a single row of text, plus a mutable provider
+// list under xterm's private `_linkProviderService` — enough for registration to
+// wrap and reorder the built-in providers and for the wrappers to read the row.
+function makeRegisterableTerminal({ row, linkProviders }: {
+  row: string;
+  linkProviders: ILinkProvider[];
+}) {
+  return {
+    cols: row.length + 6,
+    rows: 24,
+    element: undefined,
+    buffer: {
+      active: {
+        viewportY: 0,
+        getLine(y: number) {
+          if (y !== 0) {
+            return undefined;
+          }
+
+          return {
+            isWrapped: false,
+            getCell(column: number) {
+              return { getChars: () => row[column] ?? "" };
+            }
+          };
+        }
+      }
+    },
+    registerLinkProvider(provider: ILinkProvider) {
+      linkProviders.push(provider);
+    },
+    _core: {
+      _linkProviderService: {
+        linkProviders
+      }
+    }
+  };
+}
+
+// An OSC-8 provider that links a column span of its row, exactly like xterm's
+// built-in one: `text` is the href, the range spans the visible anchor cells.
+function makeOscProvider({ text, startColumn, endColumn }: {
+  text: string;
+  startColumn: number;
+  endColumn: number;
+}): ILinkProvider {
+  return {
+    provideLinks(_bufferLineNumber, callback) {
+      callback([{
+        text,
+        range: {
+          start: { x: startColumn + 1, y: 1 },
+          end: { x: endColumn + 1, y: 1 }
+        },
+        activate() {}
+      }]);
+    }
+  };
+}
+
+function linksFrom(provider: ILinkProvider): ILink[] | undefined {
+  let served: ILink[] | undefined;
+  provider.provideLinks(1, links => {
+    served = links;
+  });
+  return served;
+}
+
+describe("registerWrappedLinkProvider", () => {
+  it("moves the URL provider ahead of the wrapped built-in provider", () => {
+    const oscProvider = makeOscProvider({
+      text: "https://docs.example.com",
+      startColumn: 0,
+      endColumn: 0
+    });
+    const linkProviders: ILinkProvider[] = [oscProvider];
+    registerWrappedLinkProvider({
+      terminal: makeRegisterableTerminal({
+        row: "",
+        linkProviders
+      }),
+      openUrl() {}
+    });
+
+    // ours is at the front; the built-in provider is now wrapped, behind it.
     expect(linkProviders).toHaveLength(2);
-    expect(linkProviders[0]).not.toBe(oscProvider);
-    expect(linkProviders[1]).toBe(oscProvider);
+    expect(linkProviders[1]).not.toBe(oscProvider);
+  });
+
+  it("drops a built-in OSC-8 link whose anchor is a URL, deferring to the URL provider", () => {
+    // Claude emits `https://taki-avi.web.app.` as one OSC-8 hyperlink whose anchor
+    // keeps the sentence-ending period. The wrapped built-in provider must drop it
+    // so the trimmed period can't stay clickable behind our provider.
+    const row = "on https://taki-avi.web.app. All seven fixes ship";
+    const anchorStart = row.indexOf("https");
+    const sentencePeriod = row.indexOf(". All");
+    const linkProviders: ILinkProvider[] = [makeOscProvider({
+      text: "https://taki-avi.web.app.",
+      startColumn: anchorStart,
+      endColumn: sentencePeriod
+    })];
+    registerWrappedLinkProvider({
+      terminal: makeRegisterableTerminal({
+        row,
+        linkProviders
+      }),
+      openUrl() {}
+    });
+
+    expect(linksFrom(linkProviders[1])).toEqual([]);
+  });
+
+  it("keeps a labelled OSC-8 link whose visible anchor isn't a URL", () => {
+    const row = "See the guide for details";
+    const guideStart = row.indexOf("guide");
+    const labelLink = makeOscProvider({
+      text: "https://docs.example.com/guide",
+      startColumn: guideStart,
+      endColumn: guideStart + "guide".length - 1
+    });
+    const linkProviders: ILinkProvider[] = [labelLink];
+    registerWrappedLinkProvider({
+      terminal: makeRegisterableTerminal({
+        row,
+        linkProviders
+      }),
+      openUrl() {}
+    });
+
+    expect(linksFrom(linkProviders[1])).toHaveLength(1);
   });
 
   it("leaves registration untouched when the internals aren't shaped as expected", () => {
