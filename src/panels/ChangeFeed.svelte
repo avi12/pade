@@ -1340,6 +1340,14 @@
     --tone: #c56a1a;
   }
 
+  .tone-cpp {
+    --tone: #00599c;
+  }
+
+  .tone-c {
+    --tone: #5d8fc9;
+  }
+
   .tone-style {
     --tone: #2596be;
   }

@@ -13,6 +13,8 @@ export const FileTone = {
   JavaScript: "javascript",
   Svelte: "svelte",
   Rust: "rust",
+  Cpp: "cpp",
+  C: "c",
   Style: "style",
   Markup: "markup",
   Python: "python",
@@ -125,6 +127,47 @@ const BADGES: Record<string, FileTypeBadge> = {
     label: "GO",
     tone: FileTone.Go,
     icon: "go"
+  },
+  cpp: {
+    label: "C++",
+    tone: FileTone.Cpp,
+    icon: "cplusplus"
+  },
+  cc: {
+    label: "CC",
+    tone: FileTone.Cpp,
+    icon: "cplusplus"
+  },
+  cxx: {
+    label: "CXX",
+    tone: FileTone.Cpp,
+    icon: "cplusplus"
+  },
+  // C++ headers take the C++ mark; the plain `.h` header below stays with C.
+  hpp: {
+    label: "HPP",
+    tone: FileTone.Cpp,
+    icon: "cplusplus"
+  },
+  hh: {
+    label: "HH",
+    tone: FileTone.Cpp,
+    icon: "cplusplus"
+  },
+  hxx: {
+    label: "HXX",
+    tone: FileTone.Cpp,
+    icon: "cplusplus"
+  },
+  c: {
+    label: "C",
+    tone: FileTone.C,
+    icon: "c"
+  },
+  h: {
+    label: "H",
+    tone: FileTone.C,
+    icon: "c"
   },
   json: {
     label: "JSON",

@@ -47,6 +47,30 @@ describe("fileTypeBadge", () => {
     });
   });
 
+  it("logos the C and C++ family, with `.h` on C and C++ headers on C++", () => {
+    expect(fileTypeBadge("src/main.cpp")).toEqual({
+      label: "C++",
+      tone: FileTone.Cpp,
+      icon: "cplusplus"
+    });
+    expect(fileTypeBadge("src/util.cc").icon).toBe("cplusplus");
+    expect(fileTypeBadge("include/api.hpp")).toEqual({
+      label: "HPP",
+      tone: FileTone.Cpp,
+      icon: "cplusplus"
+    });
+    expect(fileTypeBadge("src/parser.c")).toEqual({
+      label: "C",
+      tone: FileTone.C,
+      icon: "c"
+    });
+    expect(fileTypeBadge("include/parser.h")).toEqual({
+      label: "H",
+      tone: FileTone.C,
+      icon: "c"
+    });
+  });
+
   it("reads the extension from a Windows path", () => {
     expect(fileTypeBadge("C:\\repos\\pade\\src\\lib\\diff.ts").tone).toBe(FileTone.TypeScript);
   });
