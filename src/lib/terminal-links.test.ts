@@ -484,10 +484,13 @@ describe("computeLinks", () => {
   });
 
   it("stitches host-only URL shapes (localhost, port, IPv6) across a self-wrap", () => {
+    // The continuation is the agent's indented bare URL tail — the shape a real
+    // self-wrap takes (an unrelated column-0 or spaced line is left alone; see the
+    // git-output test below).
     for (const [upper, lower, url] of [
-      ["visit http://localhost:300", "0/dashboard here", "http://localhost:3000/dashboard"],
-      ["see https://[::1]:8080/api", "/health now", "https://[::1]:8080/api/health"],
-      ["at http://192.168.1.10/adm", "in/settings ok", "http://192.168.1.10/admin/settings"]
+      ["visit http://localhost:300", "  0/dashboard", "http://localhost:3000/dashboard"],
+      ["see https://[::1]:8080/api", "  /health", "https://[::1]:8080/api/health"],
+      ["at http://192.168.1.10/adm", "  in/settings", "http://192.168.1.10/admin/settings"]
     ] as const) {
       const links = computeLinks({
         terminal: makeTerminal({
@@ -525,6 +528,48 @@ describe("computeLinks", () => {
     expect(links).toHaveLength(1);
     expect(links[0].text).toBe("https://developer.chrome.com/docs");
     expect(links[0].range.end.y).toBe(1);
+  });
+
+  it("does not glue an unrelated following line onto a URL that ends a git line", () => {
+    // Real `git push` output: each URL ends its own line well short of the edge,
+    // and the next line is a fresh `remote:` status or a `<sha>..<sha>  main`
+    // commit range — never the tail of the URL. Stripping the next row's indent
+    // and matching across the seam would fabricate `…/dependabotremote:To` and
+    // `…shortcut.gitf8506e9..01dc34e`; neither may happen.
+    const dependabot = "https://github.com/avi12/youtube-like-dislike-shortcut/security/dependabot";
+    const cloneUrl = "https://github.com/avi12/youtube-like-dislike-shortcut.git";
+    const upper = `remote:      ${dependabot}`;
+    const rows = [
+      { text: upper },
+      { text: "remote:" },
+      { text: `To ${cloneUrl}` },
+      { text: "   f8506e9..01dc34e  main -> main" }
+    ];
+    // Wide enough that every URL ends short of the right edge (the self-wrap path,
+    // not a hard wrap).
+    const columns = upper.length + 12;
+
+    const dependabotLinks = computeLinks({
+      terminal: makeTerminal({
+        rows,
+        columns
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+    expect(new Set(textsOf(dependabotLinks))).toEqual(new Set([dependabot]));
+    expectEverySpanSingleRow(dependabotLinks);
+
+    const cloneLinks = computeLinks({
+      terminal: makeTerminal({
+        rows,
+        columns
+      }),
+      bufferLineNumber: 3,
+      openUrl() {}
+    });
+    expect(new Set(textsOf(cloneLinks))).toEqual(new Set([cloneUrl]));
+    expectEverySpanSingleRow(cloneLinks);
   });
 
   it("joins two full prose rows without inventing a link", () => {

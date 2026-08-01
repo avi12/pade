@@ -340,6 +340,24 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
     return true;
   }
 
+  // The self-wrap branch is the ambiguous one: geometrically, a URL that ends
+  // short of the edge followed by an unrelated line (git's `remote:` status, a
+  // `f8506e9..01dc34e  main` commit range) looks identical to an agent that wrapped
+  // a URL at its own narrower content width. What tells them apart is the lower
+  // row's shape: an agent indents the continuation under its text block, and the
+  // continuation is one bare token (a URL has no spaces). A line that starts at
+  // column 0, or carries a space, is a fresh line — not the tail of this URL — so
+  // it is never glued on. (Soft and hard wraps are already handled above by their
+  // geometry, so a legitimately column-0 continuation still stitches through them.)
+  const lowerText = rowGlyphs({
+    line: lower,
+    content: lowerContent
+  }).text;
+  const isIndentedContinuation = lowerContent.firstColumn > 0 && isBareToken(lowerText);
+  if (!isIndentedContinuation) {
+    return false;
+  }
+
   return urlContinuesOntoLower({
     upperText: windowGlyphs({
       buffer,
@@ -347,10 +365,7 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
       topRow,
       bottomRow
     }).text,
-    lowerText: rowGlyphs({
-      line: lower,
-      content: lowerContent
-    }).text
+    lowerText
   });
 }
 
