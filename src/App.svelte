@@ -1187,17 +1187,14 @@
   // Codex and opencode have no live theme channel: their theme is fixed at
   // spawn (Codex's syntax theme and console-buffer ground; opencode's forced
   // tui-config theme — its own light/dark probe is answered by ConPTY, so the
-  // spawn-time theme is the only truthful one). Claude has the live ?997 relay,
-  // but its `auto` theme is still chosen from COLORFGBG at spawn: a running
-  // session doesn't reliably adopt a flip through the report, and the rows it has
-  // already painted keep their old colors regardless — so a scheme change only
-  // truly takes on a respawn. After a flip a running one therefore keeps painting
-  // the OLD scheme. Restart the sessions that are sitting idle, each resuming its
-  // own recorded conversation (`codex resume <uuid>` / `opencode --continue` via
-  // agent_resume_args; Claude via its `--session-id`, so it needs no resume args);
-  // a busy agent is left alone rather than severed mid-task — it re-themes on its
-  // next natural launch.
-  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Codex, AgentId.Opencode]);
+  // spawn-time theme is the only truthful one). They resume cleanly right after a
+  // kill (`codex resume <uuid>` / `opencode --continue`), so a scheme flip can
+  // respawn an idle one in place. Claude is deliberately NOT here: its `--session-id`
+  // respawn races the just-killed process for the session and fast-exits, and a
+  // last-session exit that fast reads as a failed start — bouncing the whole
+  // workspace to onboarding. It keeps following the live ?997 relay instead; a
+  // running session that doesn't adopt a flip re-themes on its next natural launch.
+  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
   let lastAgentThemedScheme = appearance.scheme;
   $effect(() => {
     const { scheme } = appearance;
