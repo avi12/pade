@@ -27,11 +27,15 @@ const HANDOFF_SETTLE_MS = 3_000;
 // write, not on the full timeout).
 const HANDOFF_DOC_POLL_MS = 1_000;
 const USAGE_EXHAUSTED_PERCENTAGE = 95;
-// After pasting the request, the submitting Enter is re-sent until the agent is
-// seen working. A TUI's post-paste guard swallows the Enter that arrives in the
-// same burst as the paste, so the first one often doesn't take; each retry sends
-// only the Enter (never re-pastes), spaced enough for the agent to react.
-const HANDOFF_SUBMIT_ATTEMPTS = 4;
+// After pasting the request, let the composer SETTLE, then re-send the submitting
+// Enter until the agent is seen working. A TUI's post-paste guard swallows any
+// Enter that arrives in the same burst as the paste — and Codex's guard outlasts a
+// rapid retry burst (all four back-to-back Enters were eaten, leaving the request
+// unsent in the composer). A settled composer submits on a single Enter (verified
+// live), so wait out the paste before the first one, then retry — Enter only,
+// never re-pasting — over a window wide enough for the slower guard.
+const HANDOFF_SUBMIT_SETTLE_MS = 1_200;
+const HANDOFF_SUBMIT_ATTEMPTS = 6;
 const HANDOFF_SUBMIT_CONFIRM_MS = 1_500;
 // How often the successor is checked for having finished its first turn (the
 // doc is certainly consumed by then), and how long before we stop watching.
@@ -341,12 +345,13 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
-  // Deliver the request as a paste, then submit with a SEPARATE Enter — re-sent
-  // until the agent starts working. A TUI guards against the Enter that
-  // immediately follows a bracketed paste (so a pasted multi-line block isn't
-  // submitted by accident), silently swallowing a one-shot paste+CR and leaving
-  // the request unsent in the composer. Re-sending only the Enter clears the
-  // guard without duplicating the pasted text.
+  // Deliver the request as a paste, let it settle, then submit with a SEPARATE
+  // Enter — re-sent until the agent starts working. A TUI guards against the Enter
+  // that immediately follows a bracketed paste (so a pasted multi-line block isn't
+  // submitted by accident); Codex's guard outlasts a back-to-back retry burst, so
+  // a one-shot paste+CR (or a rapid CR flurry) leaves the request unsent in the
+  // composer. Waiting out the paste first, then re-sending only the Enter, clears
+  // the guard without duplicating the pasted text.
   async function submitHandoffRequest({ session, doc, reason }: {
     session: AgentSession;
     doc: string;
@@ -361,6 +366,7 @@ export function createAutoHandoff(host: HandoffHost) {
         })
       )
     });
+    await afterDelay(HANDOFF_SUBMIT_SETTLE_MS);
 
     for (let attempt = 0; attempt < HANDOFF_SUBMIT_ATTEMPTS; attempt += 1) {
       await pty.write({
