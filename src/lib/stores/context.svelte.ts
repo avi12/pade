@@ -210,14 +210,27 @@ export function observeContextScreen({ id, text }: {
  *  1M session at a twentieth of its life. */
 const FALLBACK_WINDOW_TOKENS = 1_000_000;
 
-/** The percent the agent's own consumed-tokens counter implies, or null until
- *  a counter has been seen at all. */
-function tokensDerivedPercentage(signal: ContextSignal): number | null {
+/** The percent the agent's own consumed-tokens counter implies, or null until a
+ *  counter has been seen at all. `allowFallback` guesses the window (1M) when the
+ *  agent never announced one — fine for the display gauge, but NOT for ending a
+ *  session: `reportedTokens` is a sticky max of every "N tokens" ever on screen,
+ *  so one tool-output count (a Gemini response's token total in an AI project)
+ *  pins it high, and dividing that by a guessed window fires a false handoff on an
+ *  agent, like Codex, that prints no window banner. Ending a session needs a real
+ *  denominator, so the handoff path passes `allowFallback: false`. */
+function tokensDerivedPercentage({ signal, allowFallback }: {
+  signal: ContextSignal;
+  allowFallback: boolean;
+}): number | null {
   if (signal.reportedTokens === 0) {
     return null;
   }
 
-  const window = signal.windowTokens || FALLBACK_WINDOW_TOKENS;
+  const window = signal.windowTokens ?? (allowFallback ? FALLBACK_WINDOW_TOKENS : null);
+  if (window === null) {
+    return null;
+  }
+
   return Math.min(100, (signal.reportedTokens / window) * 100);
 }
 
@@ -233,7 +246,10 @@ export function contextPercentage(id: string): number | null {
     return signal.parsedPercentage;
   }
 
-  const derived = tokensDerivedPercentage(signal);
+  const derived = tokensDerivedPercentage({
+    signal,
+    allowFallback: true
+  });
   if (derived !== null) {
     return derived;
   }
@@ -265,7 +281,10 @@ export function measuredContextPercentage(id: string): number | null {
     return null;
   }
 
-  return signal.parsedPercentage ?? tokensDerivedPercentage(signal);
+  return signal.parsedPercentage ?? tokensDerivedPercentage({
+    signal,
+    allowFallback: false
+  });
 }
 
 /** Forget a session's context when it ends. */

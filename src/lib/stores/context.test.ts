@@ -284,15 +284,20 @@ describe("measuredContextPercentage — derived from the tokens counter", () => 
     expect(measuredContextPercentage("tokens-max")).toBeCloseTo(23.353);
   });
 
-  it("assumes the largest window when the banner was never seen — under-reports, never cycles early", () => {
+  it("never ends a session on a guessed window — no banner leaves the handoff signal null", () => {
     observeContextScreen({
       id: "tokens-no-window",
       text: "191867 tokens"
     });
 
-    // 191,867 over the 1M fallback ≈ 19% — a 200k session reads low rather
-    // than a 1M session reading five times too high.
-    expect(measuredContextPercentage("tokens-no-window")).toBeCloseTo(19.1867);
+    // Without an announced window a lone token count can't be trusted as context —
+    // it may be a tool-output total (a Gemini response's token count in an AI
+    // project), and dividing it by a guessed 1M window fired a false handoff on
+    // Codex, which prints no window banner. So the session-ending signal stays
+    // null...
+    expect(measuredContextPercentage("tokens-no-window")).toBeNull();
+    // ...while the display-only gauge may still estimate against the 1M fallback.
+    expect(contextPercentage("tokens-no-window")).toBeCloseTo(19.1867);
   });
 
   it("never mistakes a used/limit ratio's limit side for consumption", () => {
@@ -338,9 +343,10 @@ describe("observeContextScreen", () => {
       chunk: "[10C1.0k tokens)[38;140H97% contex[1C used[40;3H"
     });
 
-    // The split word defeats the % parser, but the intact per-turn tokens
-    // counter still yields a (tiny) tokens-derived measurement.
-    expect(measuredContextPercentage("screen-split")).toBeCloseTo(0.1);
+    // The split word defeats the % parser, and without an announced window the
+    // lone token counter can't end a session, so the handoff signal stays null
+    // until the screen row below delivers the intact percentage.
+    expect(measuredContextPercentage("screen-split")).toBeNull();
 
     // The rendered screen row always holds the full phrase.
     observeContextScreen({
