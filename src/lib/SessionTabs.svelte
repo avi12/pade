@@ -5,6 +5,7 @@
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { rovingMenu } from "@/lib/roving-menu";
   import { effective } from "@/lib/prefs.svelte";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/context.svelte";
   import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
@@ -488,7 +489,7 @@
           openAddMenu();
         }}
       >+</button>
-      <ul id="add-session-menu" style:position-anchor="--add-session-anchor" class="menu popover-menu" popover>
+      <ul id="add-session-menu" style:position-anchor="--add-session-anchor" class="menu popover-menu" popover {@attach rovingMenu}>
         <li class="menu-separator">Launch an agent</li>
         {#each agents as agent (agent.id)}
           <li>
