@@ -287,6 +287,26 @@ export function measuredContextPercentage(id: string): number | null {
   });
 }
 
+/** Seed a session's context window from an out-of-band source — the model's
+ *  advertised window, looked up online — when the agent's own `(N context)`
+ *  banner never reached the parser (a re-attached session whose banner was
+ *  trimmed from the replay). Never overrides a window the banner DID supply, so
+ *  a live reading always wins. */
+export function seedContextWindow({ id, windowTokens }: {
+  id: string;
+  windowTokens: number;
+}): void {
+  const previous = signals.get(id) ?? EMPTY_SIGNAL;
+  if (previous.windowTokens !== null) {
+    return;
+  }
+
+  signals.set(id, {
+    ...previous,
+    windowTokens
+  });
+}
+
 /** Forget a session's context when it ends. */
 export function dropContext(id: string): void {
   signals.delete(id);

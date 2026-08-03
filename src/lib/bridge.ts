@@ -313,6 +313,14 @@ export const pty = {
     command: string;
     cwd: string;
   }) => call("agent_resume_args", z.array(z.string()), { ...args }),
+  /** The context-window size (tokens) the session's model advertises, read from
+   *  its on-disk model + the live models.dev catalog — the fallback for a
+   *  re-attached session whose startup `(N context)` banner has been trimmed out
+   *  of the replay. `null` when the model or the catalog can't be resolved. */
+  contextWindow: (args: {
+    command: string;
+    conversationId?: string;
+  }) => call("agent_context_window", z.number().nullable(), { ...args }),
   onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
   onExit: (callback: (id: string) => void) =>
     on("pty://exit", PtyExit, payload => callback(payload.id))

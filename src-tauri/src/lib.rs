@@ -9,6 +9,7 @@ mod gitignore;
 mod ide;
 mod mcp;
 mod members;
+mod model_window;
 mod naming;
 mod os;
 mod provision;
@@ -156,6 +157,7 @@ pub fn run() {
             pty::pty_list,
             recovery::recovery_arm,
             resume::agent_resume_args,
+            model_window::agent_context_window,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

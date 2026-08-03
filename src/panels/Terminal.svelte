@@ -14,7 +14,7 @@
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { dropContext, observeContext, observeContextScreen } from "@/lib/stores/context.svelte";
+  import { dropContext, observeContext, observeContextScreen, seedContextWindow } from "@/lib/stores/context.svelte";
   import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
@@ -250,6 +250,29 @@
 
   async function writeSchemeReport() {
     await writeToPty(colorSchemeReport(appearance.scheme));
+  }
+
+  // Recover the context window from the session's model when its startup banner
+  // isn't in the replay (a long re-attached session). The backend reads the model
+  // off disk and sizes it from the live models.dev catalog. `seedContextWindow`
+  // never overrides a window the banner did supply, so a fresh session's live
+  // reading always wins. On any failure the window simply stays unknown — the
+  // gauge reads "measuring…", never a wrong number.
+  async function seedContextWindowFromModel() {
+    try {
+      const windowTokens = await pty.contextWindow({
+        command: session.agent.command,
+        conversationId: session.conversationId
+      });
+      if (windowTokens !== null) {
+        seedContextWindow({
+          id: session.id,
+          windowTokens
+        });
+      }
+    } catch {
+      // Leave the window unknown; a guessed number could end a session wrongly.
+    }
   }
 
   async function reportSchemeToSubscribedAgent() {
@@ -1564,6 +1587,10 @@
 
     pendingChunks.length = 0;
     replayed = true;
+
+    // Fill the context window from the model if the replay's banner didn't (a
+    // long re-attached session); the seed no-ops when the banner already set it.
+    seedContextWindowFromModel();
 
     if (history.alternate) {
       repaintAgent();
