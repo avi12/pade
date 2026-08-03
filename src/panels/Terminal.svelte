@@ -20,7 +20,8 @@
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
-  import { isPromptNewlineShortcut, PROMPT_NEWLINE, submittedPrompt } from "@/lib/terminal-input";
+  import { afterDelay } from "@/lib/delay";
+  import { isPromptNewlineShortcut, pastedText, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { terminalFlushMode, TerminalFlushMode } from "@/lib/terminal-output";
@@ -412,6 +413,11 @@
   // `working` here means the agent is genuinely processing the prompt, not just
   // echoing the paste.
   const PROMPT_ECHO_VERIFY_MS = 2_000;
+  // Let a fresh bracketed paste land in the composer before the submitting Enter,
+  // so the TUI's post-paste guard doesn't fold the CR into the paste burst and
+  // leave the prompt sitting unsent (a combined paste+CR is exactly what stranded
+  // a handoff successor's prompt, typed but never submitted).
+  const PROMPT_SUBMIT_SETTLE_MS = 1_200;
   const PROMPT_MAX_ATTEMPTS = 8;
   let promptAttempts = 0;
   // A submit is written and waiting for its 2000ms verdict. The idle handler
@@ -467,7 +473,19 @@
     });
     promptAttempts += 1;
     awaitingVerify = true;
-    await writeToPty(pasteLanded ? ENTER : submittedPrompt(session.initialPrompt));
+    if (pasteLanded) {
+      // The paste already reached the composer; only its submitting Enter was
+      // swallowed, so re-send that alone — never re-paste over the standing text.
+      await writeToPty(ENTER);
+    } else {
+      // Fresh delivery: paste, let the composer SETTLE, then submit with a
+      // SEPARATE Enter. A one-shot paste+CR rides a single burst and the TUI's
+      // post-paste guard eats the CR; the settle is what makes the Enter land on
+      // this first attempt instead of leaning on the retry/verify to recover.
+      await writeToPty(pastedText(session.initialPrompt));
+      await afterDelay(PROMPT_SUBMIT_SETTLE_MS);
+      await writeToPty(ENTER);
+    }
     // Verify shortly. Still `working` at 2000ms means the agent took the prompt
     // up and is running it — delivery is done, so latch it (this is what stops a
     // handoff successor, whose first turn scrolls the echo out of `recentOutput`,
