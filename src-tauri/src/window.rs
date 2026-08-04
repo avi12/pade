@@ -46,6 +46,32 @@ pub fn paint_surface(window: &WebviewWindow) {
 /// The frontend event carrying an OS theme flip's authoritative scheme.
 pub const THEME_CHANGED_EVENT: &str = "theme://changed";
 
+/// The frontend's `appearance.scheme` for a resolved OS theme. The one mapping
+/// both the startup read and the flip event go through, so a window can never
+/// start on one spelling and flip to another.
+fn scheme_for(theme: Theme) -> &'static str {
+    match theme {
+        Theme::Dark => "dark",
+        // `Theme` is `#[non_exhaustive]`; treat light and anything new as light.
+        _ => "light",
+    }
+}
+
+/// This window's OS theme right now, for the frontend to seed its scheme with at
+/// startup.
+///
+/// `WebView2`'s `prefers-color-scheme` can still answer *light* while the window
+/// is already dark — it resolves after the first script runs — and the flip event
+/// above only fires on a genuine *change*, so nothing ever corrects that first
+/// answer. A session spawned in that window then themes its agent for the wrong
+/// scheme for the life of the process (Claude reads `$COLORFGBG` at spawn; see
+/// `theming`). Reading the native theme closes the gap. Pure registry lookup, so
+/// it stays sync.
+#[tauri::command]
+pub fn window_theme(window: Window) -> &'static str {
+    window.theme().map_or("light", scheme_for)
+}
+
 /// React to a runtime OS theme flip. `WebView2` does not reliably deliver the
 /// `prefers-color-scheme` change to a window that stays *focused/visible* — the
 /// frontend's media query can go stale with no visibility/focus transition to
@@ -58,11 +84,7 @@ pub fn on_theme_changed(window: &Window, theme: Theme) {
         let _ = webview.set_background_color(Some(surface_for(theme)));
     }
 
-    let scheme = match theme {
-        Theme::Dark => "dark",
-        _ => "light",
-    };
-    let _ = window.emit_to(window.label(), THEME_CHANGED_EVENT, scheme);
+    let _ = window.emit_to(window.label(), THEME_CHANGED_EVENT, scheme_for(theme));
 }
 
 /// Per-window state the switcher reads: which project each window has open (keyed

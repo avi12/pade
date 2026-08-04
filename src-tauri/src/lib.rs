@@ -147,6 +147,7 @@ pub fn run() {
             window::window_list,
             window::window_reorder,
             window::window_focus_label,
+            window::window_theme,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

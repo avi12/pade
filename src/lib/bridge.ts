@@ -33,6 +33,7 @@ import {
   RunnerExit,
   RunnerInfo,
   SaveMigration,
+  Scheme,
   Settings,
   StatusEntry,
   TaskGroup,
@@ -41,7 +42,7 @@ import {
   WindowInfo,
   WorkspaceMember
 } from "@/lib/types";
-import type { Prefs, Scheme, WindowMode } from "@/lib/types";
+import type { Prefs, WindowMode } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -205,6 +206,10 @@ export const windows = {
     listen("windows://changed", () => handler()),
   /** Focus a specific open window by its label; true if it existed and focused. */
   focus: (label: string) => call("window_focus_label", z.boolean(), { label }),
+  /** This window's OS theme, straight from the native side — the authoritative
+   *  answer at startup, where WebView2's `prefers-color-scheme` can still say
+   *  light in an already-dark window (see `window.rs`). */
+  theme: () => call("window_theme", Scheme),
   /** Intercept this window's close (the title-bar X): the handler runs to
    *  completion first — the graceful-leave hook — and only then is the window
    *  destroyed (Tauri's own onCloseRequested contract when nothing prevents).

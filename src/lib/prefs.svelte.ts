@@ -2,7 +2,7 @@
 // persisted settings, applied to the document root as CSS custom properties and
 // a theme-mode data attribute, and saved back through the bridge.
 
-import { workspace } from "@/lib/bridge";
+import { windows, workspace } from "@/lib/bridge";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/prefs-bounds";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings.svelte";
@@ -56,15 +56,28 @@ export const effective = {
 
 const osDark = matchMedia("(prefers-color-scheme: dark)");
 
+/** What the OS is showing, in one place. Seeded from the native window theme at
+ *  startup and moved only by the two OS signals (the media query, the native flip
+ *  event) — every "is the system dark?" question resolves through this, never by
+ *  re-reading `osDark.matches` at the point of use.
+ *
+ *  The seed matters: WebView2 can answer `prefers-color-scheme: light` in a window
+ *  that is already dark, because it resolves after the first script runs. Whoever
+ *  read the media query in that window got "light" and nothing ever corrected it —
+ *  the flip event only fires on a genuine change. A session spawned in that gap
+ *  themed its agent light for the whole life of the process (Claude reads
+ *  `$COLORFGBG` once, at spawn). */
+let systemScheme: Scheme = osDark.matches ? "dark" : "light";
+
 /** The concrete scheme currently applied — reactive so consumers like the
  *  terminal can re-theme when it changes. */
-export const appearance = $state<{ scheme: Scheme }>({ scheme: osDark.matches ? "dark" : "light" });
+export const appearance = $state<{ scheme: Scheme }>({ scheme: systemScheme });
 
 /** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
 function resolvedScheme(): Scheme {
   const mode = effective.themeMode;
   if (mode === "system") {
-    return osDark.matches ? "dark" : "light";
+    return systemScheme;
   }
 
   return mode;
@@ -90,23 +103,31 @@ function apply() {
   document.documentElement.style.setProperty("--ui-scale", String(effective.uiScale));
 }
 
-// Re-apply when the OS theme flips while we're following it.
-osDark.addEventListener("change", () => {
+/** Record what the OS is showing and re-apply if we're following it. The scheme
+ *  is recorded even on a fixed light/dark mode, so switching back to "system"
+ *  lands on the OS's current answer rather than a stale one. */
+function installSystemScheme(scheme: Scheme): void {
+  systemScheme = scheme;
   if (effective.themeMode === "system") {
     apply();
   }
+}
+
+// Re-apply when the OS theme flips while we're following it.
+osDark.addEventListener("change", event => {
+  installSystemScheme(event.matches ? "dark" : "light");
 });
 
 // A PADE window parked on another virtual desktop (or minimized) is hidden, and
 // Chromium freezes a hidden page: the `change` above never fires for an OS flip
 // made while it was away, and it is NOT re-fired on thaw — so the scheme silently
 // goes stale and the agent keeps painting the old one. Reconcile on the way back
-// to visible: apply() re-reads osDark.matches live, so a missed flip re-themes
-// xterm and relays the ?997 report through the terminal's own effects. Keyed on
+// to visible by re-reading the media query live, so a missed flip re-themes xterm
+// and relays the ?997 report through the terminal's own effects. Keyed on
 // visibility, not focus, so it fires the instant the desktop is switched back.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && effective.themeMode === "system") {
-    apply();
+  if (document.visibilityState === "visible") {
+    installSystemScheme(osDark.matches ? "dark" : "light");
   }
 });
 
@@ -131,16 +152,27 @@ async function watchSystemTheme(): Promise<void> {
 
   systemThemeWatched = true;
   await listen<string>(OS_THEME_CHANGED_EVENT, event => {
-    if (effective.themeMode !== "system") {
-      return;
-    }
-
-    installScheme(event.payload === "dark" ? "dark" : "light");
+    installSystemScheme(event.payload === "dark" ? "dark" : "light");
   });
+}
+
+/** Seed the OS scheme from the native window before anything reads it. The media
+ *  query alone is not enough at startup: WebView2 can answer "light" in a window
+ *  that is already dark, and only a genuine flip would ever correct it — so the
+ *  first session spawned would theme its agent for the wrong scheme permanently.
+ *  Best-effort: a failed probe keeps the media query's answer. */
+async function adoptNativeSystemScheme(): Promise<void> {
+  try {
+    installSystemScheme(await windows.theme());
+  } catch {
+    // Native theme unavailable (an older backend, a probe failure) — the
+    // media-query seed above stands, and a later flip still corrects it.
+  }
 }
 
 export async function loadPrefs(): Promise<void> {
   await watchSystemTheme();
+  await adoptNativeSystemScheme();
   await workspace.settings();
 }
 
