@@ -1,13 +1,22 @@
 //! Force each installed agent's own UI theme to match ADE's light/dark scheme.
 //!
 //! Why spawn-time signals and not the terminal protocol: an agent's `auto` theme
-//! follows the *terminal* — Claude Code queries the background color (OSC 11) at
-//! startup and listens for color-scheme reports (DECSET 2031 → `CSI ?997;n`) —
-//! but Windows `ConPTY` consumes the startup query on the way through, so the
-//! agent cannot learn ADE's initial palette from xterm. The frontend applies a
-//! fallback at spawn, then relays the DECSET 2031 `?997` report directly through
-//! the PTY whenever the app palette changes; that live input path reaches the
-//! already-running Claude process without replacing its conversation.
+//! follows the *terminal* — Claude Code resolves its scheme as
+//! `live override ?? $COLORFGBG ?? dark`, and the live override is only ever set
+//! by the answer to an OSC 11 background-color query. On Windows that query
+//! never reaches the terminal emulator, so the override is never set and
+//! `$COLORFGBG` — read once, from the process environment — decides the scheme
+//! for the whole life of the session.
+//!
+//! **The DECSET 2031 `?997` relay therefore cannot re-theme a running Claude on
+//! Windows, and it is a mistake to read it as if it could.** Measured against the
+//! real binary under a real `ConPTY` (see `docs/terminal-rendering.md`): Claude
+//! does subscribe with `?2031h`, but its report handler *discards the scheme the
+//! report carries* and re-probes with OSC 11 instead — the report is only a
+//! doorbell. Ringing it produced no query on the wire at all, at startup or
+//! after, so there is nothing a terminal-side OSC 11 handler could answer.
+//! Everything a live session shows follows from the env it was spawned with;
+//! a scheme flip reaches it on its next launch, not before.
 //!
 //! What does work is the tier *above* the probe: PADE creates Claude's registered
 //! project-local `theme:auto` seed before launch, then its detection reads

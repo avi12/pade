@@ -320,6 +320,22 @@ will "verify" the wrong code.
 4. **Reaching for a different terminal library.** The library was never the
    problem; the screen buffer was. The one xterm bug that is real got a five-line
    patch.
+5. **Expecting the DECSET 2031 `?997` relay to re-theme a running Claude.** It
+   does not, on Windows, and the code reads as though it does. Claude's theme is
+   `live override ?? $COLORFGBG ?? dark`; the override is set *only* by the answer
+   to an OSC 11 background-color query, and its `?997` handler **throws away the
+   scheme the report carries** and re-probes instead — the report is a doorbell,
+   not the news. Measured against the real binary under a real `ConPTY` (harness:
+   `portable-pty`, answer XTVERSION/kitty/DA1/DA2/CPR, accept the trust gate, wait
+   for `?1049h`, then send `CSI ?997;2n`): Claude subscribes with `?2031h`, emits
+   **OSC 0 and nothing else**, and rang-doorbell produced **zero** OSC 11 queries
+   in 30s. So there is nothing for a terminal-side OSC 11 handler to answer —
+   writing one is dead code here (tried, measured, reverted). A session's scheme
+   is decided by the `$COLORFGBG` it was spawned with and cannot change while it
+   runs. The only lever for a live flip is a **restart**, which is what
+   `SPAWN_THEMED_AGENTS` does for Codex and opencode and which Claude is
+   deliberately excluded from (its `--session-id` respawn races the just-killed
+   process and bounces the workspace to onboarding).
 
 ## Harness — how to measure this yourself
 

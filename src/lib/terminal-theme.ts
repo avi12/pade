@@ -2,16 +2,19 @@
 // always be truthful and never silently dropped.
 //
 // PADE's decision on agent/app theme sync: PADE follows the OS scheme end-to-end
-// (prefs resolve themeMode "system" via matchMedia; theme.css carries full light
-// and dark palettes; Terminal.svelte re-themes xterm when the scheme flips), and
-// the agent follows the TERMINAL, not the OS. Claude Code's `auto` theme asks
-// the terminal for its background color at startup (with COLORFGBG as fallback),
-// then enables DECSET 2031 for live changes. Windows ConPTY swallows the startup
-// query before xterm sees it, and xterm does not emit a color-scheme report just
-// because this theme object changes. Terminal.svelte therefore relays the
-// standard `CSI ?997;<dark|light>n` report directly to Claude after it applies
-// this palette. Keeping these colors truthful is what makes that live report
-// meaningful.
+// (prefs seed from the native window theme, then follow it; theme.css carries
+// full light and dark palettes; Terminal.svelte re-themes xterm when the scheme
+// flips), and the agent follows the TERMINAL, not the OS.
+//
+// What that buys an already-running agent on Windows is: nothing. Claude Code's
+// `auto` theme resolves as `live override ?? $COLORFGBG ?? dark`, the override is
+// only set by an OSC 11 background-color answer, and that query never reaches the
+// terminal here — so the scheme is fixed by the environment the session was
+// spawned with. Terminal.svelte still relays the standard
+// `CSI ?997;<dark|light>n` report (harmless, and the documented channel), but
+// measurement says it does not move a live Claude — see `theming.rs` and
+// `docs/terminal-rendering.md`. Keeping these colors truthful matters for what
+// the user reads, not for what the agent believes.
 //
 // Truthful requires parse-safe. xterm's color parser takes `#hex` (alpha
 // included) and legacy comma `rgb()`/`rgba()` directly; every other format falls
