@@ -21,24 +21,46 @@ about how a resize must behave. They are opposites, and ADE hosts both.
 
 ## What ADE runs Claude Code as
 
-Its **fullscreen renderer**, on the alternate screen — the polished TUI: flicker-free
-output, mouse support, selection that copies itself. The registry forces it:
+**Whatever the user's own `tui` setting says.** ADE sets no renderer env for Claude —
+exactly as Windows Terminal sets none. Claude's schema offers two:
 
-```
-CLAUDE_CODE_NO_FLICKER=1
-```
+| `tui` | Renderer | Who owns the scrollback |
+| --- | --- | --- |
+| `fullscreen` | alt-screen, flicker-free (≡ `CLAUDE_CODE_NO_FLICKER=1`) | **Claude**, virtualized inside itself |
+| `default` | the classic main-screen one | **the terminal** |
 
-by env rather than the `tui` setting, so it does not depend on — and cannot be undone
-by — whatever the user's own Claude config says. (`CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`
-is the opposite lever: it forces the classic main-screen renderer, and takes precedence
-over both this and the `tui` setting.)
+ADE used to force `CLAUDE_CODE_NO_FLICKER=1` by env "so it cannot be undone by whatever
+the user's own Claude config says". Overriding the user's renderer choice is not ADE's
+call to make — and it is the choice that decides who owns the scrollback, which decides
+what a wheel tick costs:
 
-**The cost is real and was chosen deliberately.** On the alternate screen a resize
-cannot flow like a web page: the agent owns the pixels, it repaints in whole rows, and
-no emulator-side trick reaches that — the content is on the far side of the PTY. The
-"reflow like a document" machinery below is therefore *not* dead code: it is what runs
-for every session on the normal screen, and it is what would run for Claude Code again
-the moment someone flips the renderer back.
+- **`fullscreen`** — the conversation lives inside Claude, so the terminal holds nothing
+  to scroll. Every tick becomes a request: xterm → SGR mouse report → IPC → PTY → a whole
+  agent repaint → back through IPC → DOM. Measured **~31ms per notch** on an idle session
+  in the live app, and worse while the agent is also streaming.
+- **`default`** — xterm owns the document and a tick is a local viewport scroll.
+
+**Precedence, and the trap it sets:** `CLAUDE_CODE_NO_FLICKER` beats the `tui` setting, and
+a `settings.json` `env` block sets that variable for *every* Claude, in every terminal. So
+a user whose settings say `tui: "default"` can still be running fullscreen everywhere and
+not know it — check the `env` block before concluding anything about which renderer is in
+play. (`CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` is the hard opposite lever: it beats both.)
+
+**Do not explain a Windows-Terminal-versus-ADE difference by the screen mode without
+checking that.** Measured on the wire (`portable-pty` harness, plus the live app over CDP),
+the input side is *identical* to Windows Terminal: xterm emits exactly one SGR report per
+wheel notch, the same one-per-`WHEEL_DELTA` that `mouseInput.cpp`'s
+`_mouseInputState.accumulatedDelta` produces. There is nothing to port. When both terminals
+run the same renderer, what is left is the repaint path itself — ConPTY straight into an
+in-process buffer and a dedicated D3D render thread, against ADE's two IPC hops, JSON, a V8
+script compile, zod, the per-chunk sniffers, and a DOM rebuild.
+
+**The alternate-screen cost is still real, and still paid by anyone who chooses
+`fullscreen`.** A resize there cannot flow like a web page: the agent owns the pixels, it
+repaints in whole rows, and no emulator-side trick reaches that — the content is on the
+far side of the PTY. Codex and any pager an agent opens still land there too, so none of
+the machinery below is dead code; the "reflow like a document" rules are simply what
+Claude now gets by default.
 
 ## The three rules on the NORMAL screen
 

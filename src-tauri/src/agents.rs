@@ -84,14 +84,16 @@ pub struct ProjectThemeSeed {
 /// Known agent backends, in preferred display order. The plain shell is always
 /// offered last as a universal fallback.
 ///
-/// **Forcing fullscreen.** ADE's terminal host is tuned for agents that own the
-/// terminal's ALTERNATE screen — a full TUI (see the `claude`/`codex` entries and
+/// **Forcing fullscreen.** ADE's terminal host runs both screens (see
 /// `docs/terminal-rendering.md`). Where a CLI can be pinned to alt-screen *per
 /// launch*, ADE does so through whichever field the CLI already exposes — and never
 /// a user-global config file, which would leak ADE's choice into the user's other
-/// terminals: Claude via `env` (`CLAUDE_CODE_NO_FLICKER=1`); Codex and Copilot via
-/// `session_args` (`-c tui.alternate_screen=always` / `--alt-screen on`), each
-/// overriding a saved default that could otherwise drop to inline. Grok and
+/// terminals: Codex and Copilot via `session_args`
+/// (`-c tui.alternate_screen=always` / `--alt-screen on`), each overriding a saved
+/// default that could otherwise drop to inline. **Claude is deliberately not
+/// forced** — it is the one agent whose renderer decides who owns the *scrollback*,
+/// and taking that from the terminal is what makes scrolling cost a round trip
+/// through the agent (see its entry below). Grok and
 /// Antigravity already render alt-screen by default on a local terminal and expose
 /// no safe per-launch override (only a slash command or a user-global settings
 /// file), so ADE leaves them as-is; aider is a line-oriented REPL with no fullscreen
@@ -133,15 +135,30 @@ const REGISTRY: &[AgentDefinition] = &[
         // id (non-interactive), so ADE can restart a specific session and land
         // back in its own conversation — see `session_id_flag`.
         session_id_flag: Some("--session-id"),
-        // Claude Code's fullscreen renderer: it takes over the terminal's ALTERNATE
-        // screen and owns every row of it, which is what buys the polished TUI —
-        // flicker-free output, mouse support, selection that copies itself. ADE wants
-        // that, and `Terminal.svelte` knows how to host it (a resize there waits for
-        // the drag to settle and then moves the grid and the agent together; see
-        // docs/terminal-rendering.md).
+        // ADE does NOT force Claude's renderer — this is the one agent where the
+        // choice is the user's, because it decides who owns the scrollback.
         //
-        // Forced per invocation, so the user's own Claude config stays untouched.
-        env: &[("CLAUDE_CODE_NO_FLICKER", "1")],
+        // Claude's `tui` setting picks between two renderers: `fullscreen` (the
+        // alt-screen one, equivalent to `CLAUDE_CODE_NO_FLICKER=1`, with its own
+        // *virtualized* scrollback) and `default` (the classic main-screen one).
+        // ADE used to force fullscreen by env precisely so the user's setting could
+        // not undo it. That is not ADE's call: on the alternate screen the
+        // conversation lives inside Claude, so the terminal holds nothing to scroll
+        // and every wheel tick has to become a request. Measured in the live app,
+        // per notch: **31ms** round-tripping through IPC, the PTY, a whole agent
+        // repaint and back, against **9ms** on the main screen, where xterm owns the
+        // document and the tick is a local viewport scroll.
+        //
+        // `CLAUDE_CODE_NO_FLICKER` outranks the `tui` setting, and a user's
+        // `settings.json` `env` block sets it for every Claude everywhere — so a
+        // config reading `tui: "default"` can still be fullscreen in every terminal.
+        // Check the `env` block before blaming ADE for a session's renderer.
+        //
+        // So: set nothing, exactly as Windows Terminal sets nothing, and let Claude
+        // resolve its own `tui`. A user who wants the polished fullscreen TUI sets
+        // `tui: "fullscreen"` and gets it (the alt-screen host in `Terminal.svelte`
+        // is unchanged and still runs for Codex, pagers, and that choice).
+        env: &[],
         // Claude's box follows its `theme` settings key, not the terminal probe.
         needs_light_console_fix: false,
     },
@@ -614,7 +631,10 @@ mod tests {
             oneshot_invocation("grok"),
             Some(&["--no-auto-update", "-p"][..])
         );
-        assert_eq!(spawn_env("claude"), &[("CLAUDE_CODE_NO_FLICKER", "1")]);
+        // Claude's renderer is the user's choice, not ADE's: forcing the
+        // alt-screen one moves the scrollback inside the agent, and every wheel
+        // tick then round-trips through it instead of scrolling locally.
+        assert!(spawn_env("claude").is_empty());
     }
 
     /// opencode's whole registry surface: `run` is its headless one-shot,

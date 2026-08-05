@@ -200,12 +200,16 @@ of the emulator — and ADE hosts both, so `Terminal.svelte` watches
 | `SIGWINCH` | **Width only**, debounced; the height never. An inline document wraps to the width, but how much of it you can see is the terminal's business — and every `SIGWINCH` makes the agent re-lay-out (dropping a line, which steps the text above it) and reprint its whole static history (a per-frame drag left **52** orphaned conversations in the scrollback) | **Cols and rows, immediately.** A size the program has not heard is a row nobody paints |
 | Grid anchor | Top while the conversation fits, bottom once it scrolls — pinning the end you are looking at, so the sub-cell remainder and the row xterm scrolls away cancel out | **Top.** The program's frame is rigid, so the unpinned edge is the one that jumps a row on every boundary: pinning the top nails the conversation (measured: not one pixel of movement across three row changes) and leaves the remainder as an invisible strip of terminal background at the bottom. While the program is catching up the grid can be taller than the pane, which would cut its status line off — so it is scaled to fit (~3% at worst), back to exactly 1 the moment it catches up |
 
-ADE runs Claude Code **fullscreen** (`CLAUDE_CODE_NO_FLICKER=1` in the registry): the
-polished TUI, with mouse support and flicker-free output. The cost is deliberate — on
-the alternate screen a resize cannot flow like a web page, because the content is on
-the far side of the PTY. The normal-screen column is not dead code: it is what every
-shell session runs, and what Claude Code runs again the moment the renderer is flipped
-back.
+ADE runs Claude Code **however the user's own `tui` setting says** — it sets no renderer
+env, exactly as Windows Terminal sets none. It used to force `CLAUDE_CODE_NO_FLICKER=1`,
+and that choice decides who owns the *scrollback*, which decides what a wheel tick costs:
+measured in the live app, **31ms per notch on the alternate screen** (the tick has to
+become a request — mouse report → IPC → PTY → whole agent repaint → IPC → DOM) against
+**9ms on the normal screen** (a local xterm viewport scroll). Both columns are live: Codex,
+pagers, and anyone choosing `tui: "fullscreen"` still get the alternate screen and every
+rule in its column. Note `CLAUDE_CODE_NO_FLICKER` beats the `tui` setting and a
+`settings.json` `env` block sets it globally — so check that before concluding which
+renderer a session is on.
 
 One xterm patch backs this (`patches/@xterm__xterm@…`), making a row resize a lossless
 round trip. Stock, a **shrink** `pop()`s the line below the cursor — while its own
