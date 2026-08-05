@@ -278,6 +278,40 @@
       </div>
     </section>
 
+    <section class="discord">
+      <h3 class="card-label">Discord</h3>
+      <label class="check">
+        <span class="checkbox">
+          <input
+            checked={effective.discordPresence}
+            onchange={e => updatePrefs({ discordPresence: e.currentTarget.checked })}
+            type="checkbox"
+          />
+          <span class="box" aria-hidden="true"><Icon name="check" /></span>
+        </span>
+        <span class="field-text">
+          <span class="field-label">Show my activity</span>
+          <span class="field-hint">Reports “Playing PADE” on your Discord profile</span>
+        </span>
+      </label>
+      <label class="check" class:disabled={!effective.discordPresence}>
+        <span class="checkbox">
+          <input
+            checked={effective.discordShowProject}
+            disabled={!effective.discordPresence}
+            onchange={e => updatePrefs({ discordShowProject: e.currentTarget.checked })}
+            type="checkbox"
+          />
+          <span class="box" aria-hidden="true"><Icon name="check" /></span>
+        </span>
+        <span class="field-text">
+          <span class="field-label">Include the project name</span>
+          <span class="field-hint">Adds the open project and its language icon</span>
+        </span>
+      </label>
+      <p class="field-hint">Requires the Discord desktop app running on this computer.</p>
+    </section>
+
     {#if files.length}
       <span class="card-label">Project files</span>
     {/if}
@@ -331,7 +365,8 @@
 
   /* ── Appearance card ──────────────────────────────────────────────────────── */
   .appearance,
-  .performance {
+  .performance,
+  .discord {
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -354,6 +389,30 @@
     align-items: center;
     min-inline-size: 0;
     cursor: pointer;
+  }
+
+  /* ── Discord card ─────────────────────────────────────────────────────────── */
+  .discord {
+    /* Two checkbox rows and a note read tighter than the 16px card rhythm. */
+    gap: 10px;
+
+    .check {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-inline-size: 0;
+      cursor: pointer;
+
+      /* The dependent row dims until presence is on — it has no effect until
+         then, and its checkbox is disabled to match. */
+      &.disabled {
+        cursor: default;
+
+        .field-label {
+          color: var(--on-surface-variant);
+        }
+      }
+    }
   }
 
   .restart {

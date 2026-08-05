@@ -519,14 +519,14 @@
 
   // ── Discord Rich Presence ────────────────────────────────────────────────────
   // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
-  // state→bridge mapping lives in lib/discord-presence (SoC). Reads settings.prefs
-  // (refreshed on boot and every project open), the same source the other
-  // picker-managed prefs use here, so a toggle in the picker takes effect the moment
-  // a project opens. The two flags are $derived so the effect only re-sends when
-  // presence, the project-name toggle, or the open project actually change — not on
-  // every unrelated settings reassignment (a pin, an editor rule).
-  const discordEnabled = $derived(settings.prefs.discordPresence === true);
-  const discordShowProject = $derived(settings.prefs.discordShowProject !== false);
+  // state→bridge mapping lives in lib/discord-presence (SoC). Both flags resolve
+  // through `effective` — the one home for their defaults, shared with the Config
+  // panel's toggles — so a change there reaches the presence the moment it lands.
+  // $derived so the effect only re-sends when presence, the project-name toggle, or
+  // the open project actually change — not on every unrelated settings reassignment
+  // (a pin, an editor rule).
+  const discordEnabled = $derived(effective.discordPresence);
+  const discordShowProject = $derived(effective.discordShowProject);
   // The open project's language, shown VS-Code-style as a small overlay icon +
   // status line. Fetched only while presence will actually show it, and refreshed
   // on a project switch.

@@ -51,6 +51,14 @@ export const effective = {
   },
   get softwareRender(): boolean {
     return prefs.softwareRender === true;
+  },
+  /** Opt-in: nothing is published to Discord unless explicitly enabled. */
+  get discordPresence(): boolean {
+    return prefs.discordPresence === true;
+  },
+  /** On by default, but only reachable once presence itself is on. */
+  get discordShowProject(): boolean {
+    return prefs.discordShowProject !== false;
   }
 };
 

@@ -17,7 +17,6 @@
   } from "@/lib/types";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
-  import DiscordSection from "@/panels/picker/DiscordSection.svelte";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
@@ -160,17 +159,6 @@
       autoNameTemp: on
     });
   }
-  async function setDiscordPresence(on: boolean) {
-    await updatePrefs({
-      discordPresence: on
-    });
-  }
-  async function setDiscordShowProject(on: boolean) {
-    await updatePrefs({
-      discordShowProject: on
-    });
-  }
-
   function scan(root: string): Promise<ProjectEntry[]> {
     return workspace.scan(root).catch((): ProjectEntry[] => []);
   }
@@ -332,12 +320,6 @@
         />
 
         <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
-
-        <DiscordSection
-          ondiscordpresence={setDiscordPresence}
-          ondiscordshowproject={setDiscordShowProject}
-          prefs={settings.prefs}
-        />
 
         <RecentSection
           {ides}
