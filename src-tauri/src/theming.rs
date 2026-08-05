@@ -15,8 +15,10 @@
 //! report carries* and re-probes with OSC 11 instead — the report is only a
 //! doorbell. Ringing it produced no query on the wire at all, at startup or
 //! after, so there is nothing a terminal-side OSC 11 handler could answer.
-//! Everything a live session shows follows from the env it was spawned with;
-//! a scheme flip reaches it on its next launch, not before.
+//! Everything a live session shows follows from the env it was spawned with, so
+//! a flip reaches it only by relaunching the process — which is what the
+//! frontend does (App's `restartSpawnThemedAgents` respawns the idle sessions of
+//! every spawn-themed agent, Claude included, each resuming its conversation).
 //!
 //! What does work is the tier *above* the probe: PADE creates Claude's registered
 //! project-local `theme:auto` seed before launch, then its detection reads

@@ -1184,17 +1184,22 @@
     activeId = relaid.activeId;
   }
 
-  // Codex and opencode have no live theme channel: their theme is fixed at
-  // spawn (Codex's syntax theme and console-buffer ground; opencode's forced
-  // tui-config theme — its own light/dark probe is answered by ConPTY, so the
-  // spawn-time theme is the only truthful one). They resume cleanly right after a
-  // kill (`codex resume <uuid>` / `opencode --continue`), so a scheme flip can
-  // respawn an idle one in place. Claude is deliberately NOT here: its `--session-id`
-  // respawn races the just-killed process for the session and fast-exits, and a
-  // last-session exit that fast reads as a failed start — bouncing the whole
-  // workspace to onboarding. It keeps following the live ?997 relay instead; a
-  // running session that doesn't adopt a flip re-themes on its next natural launch.
-  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
+  // NO agent has a live theme channel on Windows — a scheme is fixed at spawn and
+  // cannot be moved after it: Codex's syntax theme and console-buffer ground,
+  // opencode's forced tui-config theme, and Claude's `$COLORFGBG` (its DECSET 2031
+  // `?997` report only asks it to re-probe OSC 11, a query that never reaches the
+  // terminal — see docs/terminal-rendering.md). So a flip is followed the only way
+  // it can be: respawn the idle ones, each resuming its own conversation
+  // (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`; Claude
+  // through the `--session-id` its session is already pinned to).
+  //
+  // Claude used to be excluded because that respawn "races the just-killed process
+  // and fast-exits", which read as a failed start and bounced the workspace to
+  // onboarding. Re-measured against Claude 2.1.220 with a portable-pty harness —
+  // start, kill, respawn on the same `--session-id` at 0ms / 250ms / 1500ms — and
+  // all three survive and reach their TUI. The race is gone; the exclusion was
+  // outliving it.
+  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Codex, AgentId.Opencode]);
   let lastAgentThemedScheme = appearance.scheme;
   $effect(() => {
     const { scheme } = appearance;

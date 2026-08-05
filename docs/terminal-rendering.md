@@ -365,10 +365,22 @@ will "verify" the wrong code.
    in 30s. So there is nothing for a terminal-side OSC 11 handler to answer —
    writing one is dead code here (tried, measured, reverted). A session's scheme
    is decided by the `$COLORFGBG` it was spawned with and cannot change while it
-   runs. The only lever for a live flip is a **restart**, which is what
-   `SPAWN_THEMED_AGENTS` does for Codex and opencode and which Claude is
-   deliberately excluded from (its `--session-id` respawn races the just-killed
-   process and bounces the workspace to onboarding).
+   runs. The only lever for a live flip is a **restart** — `SPAWN_THEMED_AGENTS`,
+   which now includes Claude (see below).
+6. **Keeping Claude out of the flip-restart because of the `--session-id` race.**
+   It was real once: the respawn raced the just-killed process for the session,
+   fast-exited, and a last-session exit that fast read as a failed start and
+   bounced the workspace to onboarding. Re-measured against Claude 2.1.220 with a
+   `portable-pty` harness — start a session, kill it, respawn on the *same*
+   `--session-id` after 0ms / 250ms / 1500ms — and **all three survive and reach
+   their TUI**. The exclusion was outliving the bug, so Claude now re-themes on a
+   flip like Codex and opencode. Re-run the harness before assuming either way; an
+   agent CLI's startup behaviour is not a fixed point.
+
+   Still open, and it applies to all three: a session that is **busy** when the
+   scheme flips is skipped (`isSessionIdle` gates the restart) and keeps its spawn
+   scheme until it next restarts. Closing that means waiting on `whenSessionIdle`
+   per session and re-checking the scheme hasn't flipped back before firing.
 
 ## Harness — how to measure this yourself
 
