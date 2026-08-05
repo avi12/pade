@@ -24,7 +24,11 @@
   import { isPromptNewlineShortcut, pastedText, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
-  import { terminalFlushMode, TerminalFlushMode } from "@/lib/terminal-output";
+  import {
+    terminalFlushMode,
+    TerminalFlushMode,
+    wheelScrollsTerminalDocument
+  } from "@/lib/terminal-output";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
   import { SessionStatus } from "@/lib/types";
@@ -1388,9 +1392,16 @@
     // fullscreen agent repainting in place — so forward the scroll it understands.
     let wheelCarry = 0;
     terminal.attachCustomWheelEventHandler(e => {
-      noteTerminalScroll();
       const agentOwnsMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
       const hasNativeScrollback = terminal.buffer.active.baseY > 0;
+
+      // Only a tick that moves xterm's own document may hold output back; a tick
+      // the agent receives as input must not, or the repaint that IS the scroll
+      // is what gets deferred (see wheelScrollsTerminalDocument).
+      if (wheelScrollsTerminalDocument({ agentOwnsMouse, hasNativeScrollback })) {
+        noteTerminalScroll();
+      }
+
       if (agentOwnsMouse || hasNativeScrollback) {
         return true;
       }

@@ -173,10 +173,21 @@ and context state, while adjacent bytes are joined before xterm sees them. A
 shown terminal in the focused window flushes once per animation frame while it
 is at the live bottom. Hidden tabs, unfocused windows, and a terminal whose user
 is reading scrollback flush every 250ms. Returning to the live bottom restores
-frame cadence immediately. An active wheel gesture defers xterm writes until
-120ms of quiet, with a one-second ceiling for a continuous gesture; then one
-coalesced write catches up. Ordering and every byte are kept, but a token stream
+frame cadence immediately. Ordering and every byte are kept, but a token stream
 cannot force DOM parsing and paint into the middle of scroll frames.
+
+**The wheel deferral is only for a tick that scrolls xterm's own document.** An
+active wheel gesture there defers xterm writes until 120ms of quiet, with a
+one-second ceiling for a continuous gesture, then one coalesced write catches up.
+It must *not* apply when the agent has grabbed the mouse (every fullscreen TUI:
+Claude, Codex, a pager) or when the tick is forwarded as PageUp/PageDown — there
+the wheel is **input**, and the frame the agent paints back *is* the scroll.
+Deferring it withholds the scroll itself: the agent answered every tick in a few
+ms while the terminal sat on the frames, so a continuous gesture repainted about
+**once per second** instead of once per frame. That was the "PADE's terminal lags
+when I scroll, Windows Terminal doesn't" report — not renderer cost, a policy
+applied one branch too wide. Gated on `wheelScrollsTerminalDocument`
+(`lib/terminal-output`).
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;
