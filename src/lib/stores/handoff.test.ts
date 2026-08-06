@@ -11,7 +11,14 @@ import {
 } from "@/lib/stores/handoff.svelte";
 import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal-input";
 import type { Agent, AgentSession } from "@/lib/types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest";
 
 const bridgeMocks = vi.hoisted(() => ({
   kill: vi.fn<(id: string) => Promise<void>>(),
@@ -241,7 +248,8 @@ describe("createAutoHandoff", () => {
     };
     let sessions = [predecessor];
     const lifecycle: string[] = [];
-    let finishKill = () => {};
+    function killNotYetAwaited(): void {}
+    let finishKill: () => void = killNotYetAwaited;
     bridgeMocks.kill.mockImplementation(async () => {
       lifecycle.push("kill-started");
       await new Promise<void>(resolve => {
