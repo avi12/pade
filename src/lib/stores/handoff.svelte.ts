@@ -190,6 +190,14 @@ export interface HandoffHost {
   /** The open project's root dir — where the handoff doc lands (and is
    *  deleted from once the successor has consumed it). */
   projectDirectory: () => string;
+  /** End a session's process as a DELIBERATE close.
+   *
+   *  It must go through the shell, not `pty.kill` from here: the shell treats an
+   *  unannounced exit of the last session as the user quitting the agent and
+   *  respawns a replacement. A handoff kill that skipped that flag raced its own
+   *  exit event — the respawn landed a bare extra tab and stole the active pane
+   *  from the successor being seeded right behind it. */
+  endSession: (id: string) => Promise<void>;
   /** Drop an ended session from the shell's tab strip and panes. */
   removeSession: (id: string) => void;
   /** Start the successor agent seeded to continue from the handoff doc.
@@ -473,7 +481,7 @@ export function createAutoHandoff(host: HandoffHost) {
 
     // 2. End the session, 3. start the successor seeded to continue.
     const { cwd } = session;
-    await pty.kill(session.id);
+    await host.endSession(session.id);
     host.removeSession(session.id);
     dropSessionStatus(session.id);
     dropContext(session.id);

@@ -1369,9 +1369,20 @@
     thresholdPercentage: () => effective.handoffPercentage,
     slugSource: () => projectLabel,
     projectDirectory: () => currentProject,
+    // Announced close: without the flag, this kill's own exit event reaches
+    // handleSessionExit as "the agent quit on its own" and respawns a
+    // replacement — a bare extra tab that also steals the active pane from the
+    // successor being seeded right behind it. Held until removeSession has
+    // dropped the id, so a late exit event finds neither the flag nor the
+    // session.
+    async endSession(id) {
+      closingByHand.add(id);
+      await pty.kill(id).catch(() => {});
+    },
     removeSession(id) {
       sessions = sessions.filter(session => session.id !== id);
       paneIds = paneIds.filter(paneId => paneId !== id);
+      closingByHand.delete(id);
     },
     launchSuccessor({ agent, cwd, initialPrompt, predecessorId }) {
       const successorId = launch({

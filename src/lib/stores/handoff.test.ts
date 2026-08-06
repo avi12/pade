@@ -257,6 +257,11 @@ describe("createAutoHandoff", () => {
       thresholdPercentage: () => 90,
       slugSource: () => "pade",
       projectDirectory: () => "C:/repositories/pade",
+      // The shell's announced-close path: it flags the kill so its own exit
+      // event isn't read as the agent quitting (which would respawn a bare tab).
+      async endSession(id) {
+        await bridgeMocks.kill(id);
+      },
       removeSession(id) {
         lifecycle.push("predecessor-removed");
         sessions = sessions.filter(session => session.id !== id);
@@ -281,6 +286,59 @@ describe("createAutoHandoff", () => {
       "predecessor-removed",
       "successor-launched"
     ]);
+    handoff.dispose();
+  });
+
+  it("ends the predecessor through the shell so its exit isn't read as the agent quitting", async () => {
+    const predecessor: AgentSession = {
+      id: "old-session",
+      agent: {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude"
+      },
+      cwd: "C:/repositories/pade"
+    };
+    let sessions = [predecessor];
+
+    // The shell respawns a replacement when the LAST session exits unannounced.
+    // Killing straight through the bridge left that flag unset, so the handoff's
+    // own kill raced its exit event into a bare extra tab that also stole the
+    // active pane from the successor. Model it: an exit is only "announced" if
+    // the handoff went through endSession first.
+    let announced = false;
+    let spuriousRespawns = 0;
+    bridgeMocks.kill.mockImplementation(async (id: string) => {
+      // The exit event lands while the kill is still settling — before the
+      // shell has had a chance to drop the session.
+      const stillListed = sessions.some(session => session.id === id);
+      if (!announced && stillListed) {
+        spuriousRespawns += 1;
+      }
+    });
+
+    const handoff = createAutoHandoff({
+      sessions: () => sessions,
+      availableAgents: () => [predecessor.agent],
+      isOptedOut: () => false,
+      thresholdPercentage: () => 90,
+      slugSource: () => "pade",
+      projectDirectory: () => "C:/repositories/pade",
+      async endSession(id) {
+        announced = true;
+        await bridgeMocks.kill(id);
+      },
+      removeSession(id) {
+        sessions = sessions.filter(session => session.id !== id);
+        announced = false;
+      },
+      launchSuccessor: () => "new-session"
+    });
+
+    handoff.force(predecessor);
+    await vi.waitFor(() => expect(sessions).toHaveLength(0));
+
+    expect(spuriousRespawns).toBe(0);
     handoff.dispose();
   });
 });
