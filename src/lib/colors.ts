@@ -6,6 +6,25 @@
 
 const VAR_REF = /^var\(\s*(--[\w-]+)\s*\)$/;
 const MAX_TRACE_DEPTH = 8;
+export const OPAQUE_ALPHA = 1;
+const COMPONENTS_BEFORE_ALPHA = 3;
+
+/** The alpha of a computed color, so a caller can tell an opaque surface from a
+ *  see-through one. `rgb(r, g, b)` / `color(srgb r g b)` carry no alpha and are
+ *  opaque, `rgba(…, a)` / `color(srgb … / a)` carry it fourth, and `transparent`
+ *  (or any value without numeric components) is fully clear. */
+export function colorAlpha(color: string): number {
+  const components = color.match(/[\d.]+/g);
+  if (!components) {
+    return 0;
+  }
+
+  if (components.length <= COMPONENTS_BEFORE_ALPHA) {
+    return OPAQUE_ALPHA;
+  }
+
+  return parseFloat(components[COMPONENTS_BEFORE_ALPHA]);
+}
 
 /** Is `value` something the engine accepts as a color (so the swatch is real,
  *  never a broken/empty box)? Doubles as the trust-boundary check on file text. */

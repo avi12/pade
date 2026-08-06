@@ -33,6 +33,7 @@
 // `tick` so the reordered re-render and the inline-style teardown coincide in one
 // frame (no flash).
 
+import { colorAlpha, OPAQUE_ALPHA } from "@/lib/colors";
 import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/reorder";
 import { tick } from "svelte";
 
@@ -135,6 +136,13 @@ const SIBLING_SECONDS = 0.24;
  *  `--shadow-color` matches). */
 const LIFT_SHADOW = "0 18px 44px var(--shadow-color)";
 const LIFT_SHADOW_FADED = "0 18px 44px transparent";
+/** A lifted item floats over its siblings, so it has to be opaque. Rows that
+ *  paint no surface of their own (the app menu's window and pinned-project rows
+ *  are transparent until hovered) would otherwise let the sibling sliding
+ *  underneath read straight through them — two rows' text superimposed. One tone
+ *  above the `--surface-2` menu they sit in; a tab pill or runner card that
+ *  already paints its own surface keeps it. */
+const LIFT_BACKGROUND = "var(--surface-3)";
 const LIFTED_Z_INDEX = "130";
 const SHIELD_Z_INDEX = "120";
 const LIFTED_RADIUS = "0.75rem";
@@ -152,6 +160,13 @@ interface Sibling {
 
 function prefersReducedMotion(): boolean {
   return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
+
+/** Whether the item already draws a surface the lift can float on, so the engine
+ *  only paints `LIFT_BACKGROUND` under the rows that draw none. */
+function paintsOwnSurface(element: HTMLElement): boolean {
+  const { backgroundColor, backgroundImage } = getComputedStyle(element);
+  return backgroundImage !== "none" || colorAlpha(backgroundColor) >= OPAQUE_ALPHA;
 }
 
 // Only one drag may run at a time — a second press while one is live (including
@@ -382,6 +397,10 @@ export function beginReorder(options: BeginReorderOptions): void {
         style.pointerEvents = "none";
         style.cursor = "grabbing";
         style.borderRadius = LIFTED_RADIUS;
+
+        if (!paintsOwnSurface(siblings[index].element)) {
+          style.background = LIFT_BACKGROUND;
+        }
       } else {
         style.transition = reduce ? "none" : `translate ${SIBLING_SECONDS}s var(--ease)`;
       }
@@ -453,6 +472,7 @@ export function beginReorder(options: BeginReorderOptions): void {
       style.translate = "";
       style.zIndex = "";
       style.position = "";
+      style.background = "";
       style.boxShadow = "";
       style.pointerEvents = "";
       style.cursor = "";

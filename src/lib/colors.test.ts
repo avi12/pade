@@ -1,4 +1,4 @@
-import { collectVars, resolveColor } from "@/lib/colors";
+import { collectVars, colorAlpha, OPAQUE_ALPHA, resolveColor } from "@/lib/colors";
 import { describe, expect, it, vi } from "vitest";
 
 // `resolveColor` gates on `CSS.supports("color", …)`, which Node lacks. A
@@ -65,5 +65,38 @@ describe("resolveColor", () => {
 
   it("returns null for an unknown var() with no document to fall back to", () => {
     expect(resolveColor("var(--missing)", new Map())).toBeNull();
+  });
+});
+
+// The drag engine paints a surface under a lifted row only when the row draws
+// none of its own — a see-through lift lets the sibling sliding underneath read
+// straight through it. That decision is this alpha read.
+describe("colorAlpha", () => {
+  it("reads a legacy rgb() triple as fully opaque", () => {
+    expect(colorAlpha("rgb(20, 24, 31)")).toBe(OPAQUE_ALPHA);
+  });
+
+  it("reads a space-separated rgb() triple as fully opaque", () => {
+    expect(colorAlpha("rgb(20 24 31)")).toBe(OPAQUE_ALPHA);
+  });
+
+  it("reads the fourth component of an rgba() as its alpha", () => {
+    expect(colorAlpha("rgba(20, 24, 31, 0.4)")).toBe(0.4);
+  });
+
+  it("reads a fully transparent rgba() as clear", () => {
+    expect(colorAlpha("rgba(0, 0, 0, 0)")).toBe(0);
+  });
+
+  it("reads the keyword transparent as clear", () => {
+    expect(colorAlpha("transparent")).toBe(0);
+  });
+
+  it("reads a color(srgb …) with no alpha as fully opaque", () => {
+    expect(colorAlpha("color(srgb 0.1 0.2 0.3)")).toBe(OPAQUE_ALPHA);
+  });
+
+  it("reads the slash alpha of a color(srgb … / a)", () => {
+    expect(colorAlpha("color(srgb 0.1 0.2 0.3 / 0.5)")).toBe(0.5);
   });
 });
