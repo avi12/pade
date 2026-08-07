@@ -1193,16 +1193,18 @@
   // `?997` report only asks it to re-probe OSC 11, a query that never reaches the
   // terminal — see docs/terminal-rendering.md). So a flip is followed the only way
   // it can be: respawn the idle ones, each resuming its own conversation
-  // (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`; Claude
-  // through the `--session-id` its session is already pinned to).
+  // (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`).
   //
-  // Claude used to be excluded because that respawn "races the just-killed process
-  // and fast-exits", which read as a failed start and bounced the workspace to
-  // onboarding. Re-measured against Claude 2.1.220 with a portable-pty harness —
-  // start, kill, respawn on the same `--session-id` at 0ms / 250ms / 1500ms — and
-  // all three survive and reach their TUI. The race is gone; the exclusion was
-  // outliving it.
-  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Codex, AgentId.Opencode]);
+  // Claude is NOT one of them, and this is the second time that has been settled.
+  // It has no resume args of its own — it is respawned onto the `--session-id` the
+  // dead process was just pinned to, and in the live app that lands on a blank
+  // pane stuck at "Starting…", the session wedged rather than re-themed. A
+  // portable-pty harness that starts/kills/respawns on the same id at 0ms / 250ms
+  // / 1500ms says all three survive; the app says otherwise, and the app is the
+  // one the user has to use. Wedging a working session is a far worse outcome than
+  // an agent whose syntax colours lag until its next natural launch, so Claude
+  // keeps its spawn theme and re-themes when it is next started by hand.
+  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
 
   // The scheme each live session's agent was actually spawned under — the one
   // answer to "is this agent painted in the wrong scheme", so a session that

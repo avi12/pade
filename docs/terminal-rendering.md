@@ -383,15 +383,19 @@ will "verify" the wrong code.
    instantly, so the give-up beats anything the host can inject. A host that
    holds the fence open cannot exist — conhost owns that reply. Do not re-try
    this without first re-measuring whether ConPTY still swallows the query.
-6. **Keeping Claude out of the flip-restart because of the `--session-id` race.**
-   It was real once: the respawn raced the just-killed process for the session,
-   fast-exited, and a last-session exit that fast read as a failed start and
-   bounced the workspace to onboarding. Re-measured against Claude 2.1.220 with a
-   `portable-pty` harness — start a session, kill it, respawn on the *same*
-   `--session-id` after 0ms / 250ms / 1500ms — and **all three survive and reach
-   their TUI**. The exclusion was outliving the bug, so Claude now re-themes on a
-   flip like Codex and opencode. Re-run the harness before assuming either way; an
-   agent CLI's startup behaviour is not a fixed point.
+6. **Putting Claude *into* the flip-restart because a harness says the
+   `--session-id` race is gone.** It isn't, where it counts. Codex and opencode
+   are respawned onto real resume args (`codex resume <uuid>`,
+   `opencode --session <id>`); Claude has none, so it is respawned onto the same
+   `--session-id` the process just killed was pinned to. A `portable-pty` harness
+   — start, kill, respawn on that id at 0ms / 250ms / 1500ms — reports all three
+   surviving to their TUI, and on the strength of that Claude was added to
+   `SPAWN_THEMED_AGENTS`. In the live app the very next flip left a **blank pane
+   stuck at "Starting…"**: the session wedged instead of re-theming. Twice now
+   (2026-08-01, 2026-08-07) this has been tried and reverted. The harness is
+   measuring a narrower thing than the app does — believe the app. Wedging a
+   working session is worse than colours that lag, so Claude keeps its spawn
+   theme and re-themes at its next launch by hand.
 
    Closed since: a session that is **busy** when the scheme flips can't be
    respawned then — that would sever the turn in flight — so App holds the flip
@@ -399,8 +403,9 @@ will "verify" the wrong code.
    timeout, since there is nothing to give up for). `sessionSpawnScheme` records
    the scheme each session actually launched under, so a session that sat out a
    flip *and its way back* is never restarted for nothing. Until that idle
-   moment the agent keeps painting its spawn scheme — a busy Claude showing dark
-   diffs on a light terminal is this, not a bug in the relay.
+   moment the agent keeps painting its spawn scheme. For Claude, which is not in
+   the set at all, that is the whole story: dark diffs on a light terminal until
+   it is next launched, and nothing on Windows can close that gap safely.
 
 ## Harness — how to measure this yourself
 
