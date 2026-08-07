@@ -64,17 +64,20 @@ function settleIdleWaiters(id: string): void {
 /** Resolve once the session reaches an idle prompt, exits, or is dropped — the
  *  graceful-leave gate: a deliberate leave (project switch, back to the picker)
  *  waits here before killing, so no mid-flight work is severed. `timeoutMs`
- *  caps the wait so a wedged agent can never trap the user on the way out. */
+ *  caps the wait so a wedged agent can never trap the user on the way out; omit
+ *  it when the waiter has nothing to give up for (the deferred agent re-theme,
+ *  which simply has no business acting while a turn is in flight) — the session
+ *  ending settles it either way. */
 export function whenSessionIdle({ id, timeoutMs }: {
   id: string;
-  timeoutMs: number;
+  timeoutMs?: number;
 }): Promise<void> {
   if (isSessionIdle(id)) {
     return Promise.resolve();
   }
 
   return new Promise(resolve => {
-    const timer = setTimeout(() => {
+    const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
       const remaining = (idleWaiters.get(id) ?? []).filter(waiter => waiter !== settle);
       if (remaining.length > 0) {
         idleWaiters.set(id, remaining);

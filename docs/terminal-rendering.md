@@ -367,6 +367,22 @@ will "verify" the wrong code.
    is decided by the `$COLORFGBG` it was spawned with and cannot change while it
    runs. The only lever for a live flip is a **restart** — `SPAWN_THEMED_AGENTS`,
    which now includes Claude (see below).
+
+   **Nor does pushing the answer it never asked for.** The obvious next idea —
+   the query is unwinnable, but the *answer* is just a matched report, so ring
+   the doorbell and hand over `OSC 11;rgb:…` in the same write — is also dead,
+   measured against 2.1.220 (harness: `portable-pty`, one fresh session per
+   variant, answering DA1 the way a real terminal does; all three deliveries —
+   one write, two writes, answer alone — repainted **nothing**). The formats are
+   right (its parser is `/^\x1b\[\?997;([12])n$/` and
+   `/^\x1b\](\d+);(.*?)(?:\x07|\x1b\\)$/`), and the queued query really would
+   match. What kills it is the **fence**: the probe is
+   `Promise.all([send(query), flush()])`, `flush()` writes a DA1 (`ESC [ c`)
+   sentinel, and any DA1 answer resolves every query queued before it with
+   *undefined*. On Windows the pseudoconsole answers DA1 itself, locally and
+   instantly, so the give-up beats anything the host can inject. A host that
+   holds the fence open cannot exist — conhost owns that reply. Do not re-try
+   this without first re-measuring whether ConPTY still swallows the query.
 6. **Keeping Claude out of the flip-restart because of the `--session-id` race.**
    It was real once: the respawn raced the just-killed process for the session,
    fast-exited, and a last-session exit that fast read as a failed start and
@@ -377,10 +393,14 @@ will "verify" the wrong code.
    flip like Codex and opencode. Re-run the harness before assuming either way; an
    agent CLI's startup behaviour is not a fixed point.
 
-   Still open, and it applies to all three: a session that is **busy** when the
-   scheme flips is skipped (`isSessionIdle` gates the restart) and keeps its spawn
-   scheme until it next restarts. Closing that means waiting on `whenSessionIdle`
-   per session and re-checking the scheme hasn't flipped back before firing.
+   Closed since: a session that is **busy** when the scheme flips can't be
+   respawned then — that would sever the turn in flight — so App holds the flip
+   and applies it at the session's next idle prompt (`whenSessionIdle` with no
+   timeout, since there is nothing to give up for). `sessionSpawnScheme` records
+   the scheme each session actually launched under, so a session that sat out a
+   flip *and its way back* is never restarted for nothing. Until that idle
+   moment the agent keeps painting its spawn scheme — a busy Claude showing dark
+   diffs on a light terminal is this, not a bug in the relay.
 
 ## Harness — how to measure this yourself
 

@@ -152,6 +152,25 @@ describe("whenSessionIdle", () => {
     expect(await settled(wait)).toBe(true);
   });
 
+  it("waits as long as the turn takes when no timeout caps it", async () => {
+    // The deferred agent re-theme has nothing to give up for — it simply must
+    // not respawn a session mid-turn, so it holds until the turn really ends.
+    setSessionStatus({
+      id: "s1",
+      status: SessionStatus.enum.working
+    });
+    const wait = whenSessionIdle({ id: "s1" });
+
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(await settled(wait)).toBe(false);
+
+    setSessionStatus({
+      id: "s1",
+      status: SessionStatus.enum.ready
+    });
+    expect(await settled(wait)).toBe(true);
+  });
+
   it("settles every waiter on one session, once each", async () => {
     setSessionStatus({
       id: "s1",

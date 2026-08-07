@@ -71,6 +71,7 @@
     Ide,
     McpChange,
     OpenTarget,
+    Scheme,
     TaskGroup
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
@@ -974,6 +975,7 @@
     sessions = sessions.filter(session => session.id !== id);
     paneIds = paneIds.filter(paneId => paneId !== id);
     sessionLaunchedAt.delete(id);
+    sessionSpawnScheme.delete(id);
     dropSessionStatus(id);
     dropSessionLabel(id);
     dropNaming(id);
@@ -1170,6 +1172,7 @@
       });
       sessionLaunchedAt.set(restartedId, Date.now());
       sessionLaunchedAt.delete(target.id);
+      sessionSpawnScheme.delete(target.id);
       closingByHand.delete(target.id);
     }
 
@@ -1200,6 +1203,22 @@
   // all three survive and reach their TUI. The race is gone; the exclusion was
   // outliving it.
   const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Codex, AgentId.Opencode]);
+
+  // The scheme each live session's agent was actually spawned under — the one
+  // answer to "is this agent painted in the wrong scheme", so a session that
+  // sat out one flip and its way back is never restarted for nothing. Recorded
+  // once per session as it appears (a restart re-keys, so the replacement
+  // records the scheme it really launched with) and dropped with the session.
+  const sessionSpawnScheme = new SvelteMap<string, Scheme>();
+  $effect(() => {
+    const { scheme } = appearance;
+    for (const session of sessions) {
+      if (!sessionSpawnScheme.has(session.id)) {
+        sessionSpawnScheme.set(session.id, scheme);
+      }
+    }
+  });
+
   let lastAgentThemedScheme = appearance.scheme;
   $effect(() => {
     const { scheme } = appearance;
@@ -1211,8 +1230,40 @@
     restartSpawnThemedAgents();
   });
 
+  // A session mid-turn must not be respawned — that would sever the work in
+  // flight — so its flip is held until it reaches an idle prompt, which is the
+  // first moment the agent can be relaunched into the new scheme. Without this,
+  // a busy agent kept painting its old scheme (dark diffs on a light terminal)
+  // until the user happened to restart it by hand.
+  const awaitingRetheme = new SvelteSet<string>();
+
+  async function rethemeWhenIdle(id: string) {
+    if (awaitingRetheme.has(id)) {
+      return;
+    }
+
+    awaitingRetheme.add(id);
+    await whenSessionIdle({ id });
+    awaitingRetheme.delete(id);
+
+    const stillOpen = sessions.some(session => session.id === id);
+    if (stillOpen) {
+      await restartSpawnThemedAgents();
+    }
+  }
+
   async function restartSpawnThemedAgents() {
-    const targets = sessions.filter(session => SPAWN_THEMED_AGENTS.has(session.agent.id) && isSessionIdle(session.id));
+    const mismatched = sessions.filter(
+      session =>
+        SPAWN_THEMED_AGENTS.has(session.agent.id) && sessionSpawnScheme.get(session.id) !== appearance.scheme
+    );
+    for (const session of mismatched) {
+      if (!isSessionIdle(session.id)) {
+        rethemeWhenIdle(session.id);
+      }
+    }
+
+    const targets = mismatched.filter(session => isSessionIdle(session.id));
     if (targets.length === 0) {
       return;
     }
