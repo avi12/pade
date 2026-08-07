@@ -9,6 +9,7 @@
   import { afterDelay } from "@/lib/delay";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
+  import { errorMessage } from "@/lib/errors";
   import { isEditingText } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
   import { isTrustGate, promptEchoed } from "@/lib/initial-prompt";
@@ -1536,16 +1537,32 @@
     }
 
     agentColumns = terminal.cols;
-    await pty.spawn({
-      id: session.id,
-      command: session.agent.command,
-      cwd: session.cwd ?? null,
-      cols: agentColumns,
-      rows: terminal.rows,
-      args: session.args,
-      scheme: appearance.scheme,
-      conversationId: session.conversationId
-    });
+    // A spawn that fails used to abandon the rest of this mount silently, and the
+    // pane sat on "Starting…" for as long as the app ran — no process, no error,
+    // no way to tell a wedged session from a slow one. Say what happened and mark
+    // the session not-running, so the pane stops lying and a graceful leave never
+    // waits on it.
+    try {
+      await pty.spawn({
+        id: session.id,
+        command: session.agent.command,
+        cwd: session.cwd ?? null,
+        cols: agentColumns,
+        rows: terminal.rows,
+        args: session.args,
+        scheme: appearance.scheme,
+        conversationId: session.conversationId
+      });
+    } catch (error) {
+      status = SessionStatus.enum.exited;
+      showToast(
+        `Couldn't start ${session.agent.label} — ${errorMessage({
+          error,
+          fallback: "the terminal session failed to start"
+        })}`
+      );
+      return;
+    }
 
     // Paint whatever the session has already said. A spawn for a session that is
     // still running is a no-op, so this terminal may be attaching to a conversation
