@@ -654,8 +654,14 @@ function makeOscProvider({ text, startColumn, endColumn }: {
       callback([{
         text,
         range: {
-          start: { x: startColumn + 1, y: 1 },
-          end: { x: endColumn + 1, y: 1 }
+          start: {
+            x: startColumn + 1,
+            y: 1
+          },
+          end: {
+            x: endColumn + 1,
+            y: 1
+          }
         },
         activate() {}
       }]);

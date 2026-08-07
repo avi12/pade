@@ -116,6 +116,7 @@ function apply() {
  *  lands on the OS's current answer rather than a stale one. */
 function installSystemScheme(scheme: Scheme): void {
   systemScheme = scheme;
+
   if (effective.themeMode === "system") {
     apply();
   }

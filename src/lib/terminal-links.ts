@@ -733,10 +733,12 @@ function deferUrlsFrom({ terminal, provider }: {
           return;
         }
 
-        callback(links.filter(link => !anchorIsUrl({
-          terminal,
-          link
-        })));
+        callback(
+          links.filter(link => !anchorIsUrl({
+            terminal,
+            link
+          }))
+        );
       });
     }
   };

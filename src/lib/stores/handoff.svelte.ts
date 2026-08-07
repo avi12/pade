@@ -578,6 +578,7 @@ export function createAutoHandoff(host: HandoffHost) {
         const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
         if (status === SessionStatus.enum.working) {
           consecutiveWorking += 1;
+
           if (consecutiveWorking >= 2) {
             sawSustainedWork = true;
           }

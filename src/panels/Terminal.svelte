@@ -6,6 +6,7 @@
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
   import { AgentId } from "@/lib/agent-icon";
   import { clipboard, os, pty } from "@/lib/bridge";
+  import { afterDelay } from "@/lib/delay";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
   import { isEditingText } from "@/lib/focus";
@@ -20,15 +21,10 @@
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
-  import { afterDelay } from "@/lib/delay";
   import { isPromptNewlineShortcut, pastedText, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
-  import {
-    terminalFlushMode,
-    TerminalFlushMode,
-    wheelScrollsTerminalDocument
-  } from "@/lib/terminal-output";
+  import { terminalFlushMode, TerminalFlushMode, wheelScrollsTerminalDocument } from "@/lib/terminal-output";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
   import { SessionStatus } from "@/lib/types";
@@ -276,7 +272,7 @@
         });
       }
     } catch {
-      // Leave the window unknown; a guessed number could end a session wrongly.
+    // Leave the window unknown; a guessed number could end a session wrongly.
     }
   }
 
@@ -477,6 +473,7 @@
     });
     promptAttempts += 1;
     awaitingVerify = true;
+
     if (pasteLanded) {
       // The paste already reached the composer; only its submitting Enter was
       // swallowed, so re-send that alone — never re-paste over the standing text.
@@ -490,6 +487,7 @@
       await afterDelay(PROMPT_SUBMIT_SETTLE_MS);
       await writeToPty(ENTER);
     }
+
     // Verify shortly. Still `working` at 2000ms means the agent took the prompt
     // up and is running it — delivery is done, so latch it (this is what stops a
     // handoff successor, whose first turn scrolls the echo out of `recentOutput`,
@@ -1394,11 +1392,13 @@
     terminal.attachCustomWheelEventHandler(e => {
       const agentOwnsMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
       const hasNativeScrollback = terminal.buffer.active.baseY > 0;
-
       // Only a tick that moves xterm's own document may hold output back; a tick
       // the agent receives as input must not, or the repaint that IS the scroll
       // is what gets deferred (see wheelScrollsTerminalDocument).
-      if (wheelScrollsTerminalDocument({ agentOwnsMouse, hasNativeScrollback })) {
+      if (wheelScrollsTerminalDocument({
+        agentOwnsMouse,
+        hasNativeScrollback
+      })) {
         noteTerminalScroll();
       }
 
