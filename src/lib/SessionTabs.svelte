@@ -697,20 +697,19 @@
     }
 
     /* The ✦ AI-name toggle — hidden until the tab is hovered or active, and
-       pinned visible (primary) while auto-naming is on for the session. */
+       pinned visible (primary) while auto-naming is on for the session. Only the
+       icon fades: the slot is reserved on every pill, hovered or not. A slot that
+       opened on hover grew its pill by 24px and pushed every pill to its right —
+       so crossing a neighbour on the way to this one slid the target out from
+       under the pointer as that neighbour collapsed again, and the click landed
+       on the × beside it. Fixed geometry also makes the off-layout mirror measure
+       the width the pill really renders at. */
     .ai-wrap {
       display: inline-flex;
       flex: none;
       align-items: center;
       block-size: 26px;
-      inline-size: 0;
-      transition: inline-size 140ms var(--ease);
-
-      .tab:hover &,
-      .tab.active &,
-      &.on {
-        inline-size: 24px;
-      }
+      inline-size: 24px;
     }
 
     .ai {
@@ -726,6 +725,11 @@
       color: var(--on-surface-variant);
       opacity: 0%;
       cursor: pointer;
+
+      /* Its slot always exists, so while the icon is invisible the press belongs
+         to the pill — a tap (which never hovers) must not hit a control it
+         cannot see. */
+      pointer-events: none;
       transition:
         opacity 140ms var(--ease),
         color 140ms var(--ease);
@@ -734,6 +738,7 @@
       .tab:hover .ai-wrap &,
       .tab.active .ai-wrap & {
         opacity: 85%;
+        pointer-events: auto;
       }
 
       /* The tooltip belongs to `.ai-wrap`, outside this faded icon button, so
@@ -749,6 +754,7 @@
       .ai-wrap.on & {
         color: var(--primary);
         opacity: 100%;
+        pointer-events: auto;
       }
     }
 
