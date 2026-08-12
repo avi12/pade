@@ -35,20 +35,20 @@
 
 <style>
   .overflow-tooltip {
+    position: fixed;
+
     /* Reset the UA popover box, then position off the trigger's anchor. */
     inset: auto;
-    margin: 0;
-    border: 0;
-    overflow: visible;
-
-    position: fixed;
     inset-block-start: anchor(bottom);
-    justify-self: anchor-center;
     z-index: 200;
+    justify-self: anchor-center;
+    overflow: visible;
     inline-size: max-content;
     max-inline-size: min(320px, 90vw);
+    margin: 0;
     margin-block-start: 6px;
     padding: 4px 9px;
+    border: 0;
     border-radius: var(--radius-small);
     background: var(--surface-3);
     color: var(--on-surface);
@@ -62,11 +62,11 @@
     overflow-wrap: anywhere;
     box-shadow: 0 6px 20px var(--shadow-color);
     pointer-events: none;
+    animation: overflow-tooltip-fade 120ms var(--ease) both;
 
     /* Flip above the trigger near the viewport bottom — reuses theme.css's
        shared try so the flipped gap matches the [data-tooltip] bubble. */
     position-try-fallbacks: --tooltip-flip-up;
-    animation: overflow-tooltip-fade 120ms var(--ease) both;
   }
 
   @keyframes overflow-tooltip-fade {

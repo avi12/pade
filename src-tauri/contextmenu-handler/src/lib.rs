@@ -31,7 +31,7 @@ use std::ptr::null_mut;
 use std::sync::atomic::{AtomicIsize, AtomicPtr, Ordering};
 
 use windows::Win32::Foundation::{
-    CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, E_FAIL, E_NOTIMPL, E_POINTER, ERROR_SUCCESS,
+    CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, ERROR_SUCCESS, E_FAIL, E_NOTIMPL, E_POINTER,
     HINSTANCE, HMODULE, S_FALSE, S_OK,
 };
 use windows::Win32::System::Com::{CoTaskMemFree, IBindCtx, IClassFactory, IClassFactory_Impl};

@@ -57,8 +57,7 @@ pub fn watch_process_failed(
     let webview = unsafe { controller.CoreWebView2() }?;
     let consecutive_unresponsive = AtomicU32::new(0);
     let handler = ProcessFailedEventHandler::create(Box::new(
-        move |sender: Option<ICoreWebView2>,
-              args: Option<ICoreWebView2ProcessFailedEventArgs>| {
+        move |sender: Option<ICoreWebView2>, args: Option<ICoreWebView2ProcessFailedEventArgs>| {
             let Some(args) = args else { return Ok(()) };
             let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
             // SAFETY: `args` is live for the duration of the callback and the
