@@ -31,6 +31,20 @@ export const FeedDiff = z.object({
 });
 export type FeedDiff = z.infer<typeof FeedDiff>;
 
+/** What this window's Change Feed watch is doing: the root it is armed on
+ *  (`null` = no live watch), when it armed, and how many changes it has
+ *  surfaced versus dropped as ignored since. The feed holds nothing from before
+ *  `armedAt` — the backend replays nothing — so the panel states all of it when
+ *  the list is empty rather than leaving "nothing changed" and "nothing is
+ *  watched" looking identical. */
+export const WatchStatus = z.object({
+  root: z.string().nullable(),
+  armedAt: z.number().nullable(),
+  surfaced: z.number(),
+  ignored: z.number()
+});
+export type WatchStatus = z.infer<typeof WatchStatus>;
+
 /** The manifest family that confirms a directory as a package (workspace
  *  member discovery — a folder is a package IFF it holds its own manifest). */
 export const Ecosystem = z.enum(["javascript", "rust", "go", "python"]);

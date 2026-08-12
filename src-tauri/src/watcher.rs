@@ -25,6 +25,10 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 struct ProjectWatcher {
     root: PathBuf,
     canonical_root: PathBuf,
+    /// When this watch was armed (epoch ms) — the "watching since" the feed
+    /// states in its empty panel, since the feed only ever holds changes made
+    /// after that moment (nothing replays what happened before it).
+    armed_at: u128,
     _watcher: RecommendedWatcher,
 }
 
@@ -77,6 +81,14 @@ struct WindowWatch {
     /// server membership drive automatic handoff; same-membership content edits
     /// arm frontend reload-failure recovery.
     mcp_servers: Mutex<HashMap<PathBuf, crate::mcp::McpSnapshot>>,
+    /// Changes surfaced to the window since the watch was armed, and changes the
+    /// ignore rules dropped. An empty feed is otherwise ambiguous — a quiet
+    /// project and a watch whose every event is being filtered look identical —
+    /// so [`watch_status`] reports both and the panel says which it is. Atomics,
+    /// not a lock: the notify callback bumps them on every event it handles.
+    /// Both reset when the watch re-arms.
+    surfaced: AtomicU64,
+    ignored: AtomicU64,
 }
 
 #[derive(Default)]
@@ -783,6 +795,10 @@ pub async fn watch_start(
     if let Ok(mut cache) = watch.git_ignore_cache.lock() {
         cache.clear();
     }
+    // The panel reports both counts against "watching since", so they belong to
+    // this arming alone.
+    watch.surfaced.store(0, Ordering::Relaxed);
+    watch.ignored.store(0, Ordering::Relaxed);
 
     // Decide how this root's ignored files are recognized before arming the
     // watcher, so the very first change is already filtered. Computed while `root`
@@ -818,6 +834,7 @@ pub async fn watch_start(
     *guard = Some(ProjectWatcher {
         root,
         canonical_root,
+        armed_at: now_ms(),
         _watcher: watcher,
     });
     Ok(())
@@ -1230,6 +1247,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
 
     for path in event.paths {
         if ignored(&path) {
+            watch.ignored.fetch_add(1, Ordering::Relaxed);
             continue;
         }
         // Both the directory test and the atomic-write check need metadata.
@@ -1275,6 +1293,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // repo never shells git for node_modules/target and each surviving path is
         // git-checked at most once (memoized).
         if excluded_by_ignore_policy(&watch, &path) {
+            watch.ignored.fetch_add(1, Ordering::Relaxed);
             continue;
         }
 
@@ -1341,7 +1360,50 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             removed,
             ts: now_ms(),
         };
+        watch.surfaced.fetch_add(1, Ordering::Relaxed);
         let _ = app.emit_to(label, FEED_CHANGE_EVENT, event);
+    }
+}
+
+/// What this window's Change Feed watch is doing right now — the panel states it
+/// verbatim when the feed is empty, so "nothing has changed yet" is never
+/// mistaken for "nothing is being watched".
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchStatus {
+    /// The root the watch is armed on; `None` when this window has no live watch.
+    root: Option<String>,
+    /// Epoch ms the watch was armed — the feed holds nothing from before it.
+    armed_at: Option<u128>,
+    /// Changes surfaced to this window since arming.
+    surfaced: u64,
+    /// Changes the ignore rules dropped since arming. A climbing count under an
+    /// empty feed says the watch is alive and the rules are eating everything.
+    ignored: u64,
+}
+
+/// This window's live watch state (see [`WatchStatus`]). A pure in-memory
+/// registry read, so it stays synchronous.
+#[tauri::command]
+pub fn watch_status(window: WebviewWindow, state: State<'_, WatcherState>) -> WatchStatus {
+    let Some(watch) = window_watch(&state, window.label()) else {
+        return WatchStatus {
+            root: None,
+            armed_at: None,
+            surfaced: 0,
+            ignored: 0,
+        };
+    };
+    let armed = watch.watcher.lock().ok().and_then(|guard| {
+        guard
+            .as_ref()
+            .map(|active| (active.root.to_string_lossy().into_owned(), active.armed_at))
+    });
+    WatchStatus {
+        root: armed.as_ref().map(|(root, _)| root.clone()),
+        armed_at: armed.map(|(_, armed_at)| armed_at),
+        surfaced: watch.surfaced.load(Ordering::Relaxed),
+        ignored: watch.ignored.load(Ordering::Relaxed),
     }
 }
 

@@ -163,6 +163,7 @@ pub fn run() {
             runner::runner_stop,
             runner::runner_list,
             watcher::watch_start,
+            watcher::watch_status,
             watcher::watch_dirs,
             watcher::feed_diff,
             watcher::feed_image,

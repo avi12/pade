@@ -27,3 +27,22 @@ const TIMESTAMP = new Intl.DateTimeFormat(undefined, {
 export function formatTimestamp(epochMilliseconds: number): string {
   return TIMESTAMP.format(new Date(epochMilliseconds));
 }
+
+/** How long ago `stamp` was, at second → minute → hour granularity ("41s",
+ *  "3m", "2h"). One home for every relative age the UI prints — the Change
+ *  Feed's card labels and its "watching since" line read the same clock. */
+export function formatAge({ stamp, now }: {
+  stamp: number;
+  now: number;
+}): string {
+  const seconds = Math.max(0, Math.round((now - stamp) / 1000));
+  if (seconds < 60) {
+    return `${formatCount(seconds)}s`;
+  }
+
+  if (seconds < 3600) {
+    return `${formatCount(Math.round(seconds / 60))}m`;
+  }
+
+  return `${formatCount(Math.round(seconds / 3600))}h`;
+}

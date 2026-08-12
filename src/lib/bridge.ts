@@ -39,6 +39,7 @@ import {
   TaskGroup,
   TaskManifestDescriptor,
   Usage,
+  WatchStatus,
   WindowInfo,
   WorkspaceMember
 } from "@/lib/types";
@@ -345,6 +346,9 @@ export const feed = {
    *  on screen, not the process's cwd. Idempotent per root; a call for a new root
    *  re-roots the watcher (drops the old one, clears its per-file bookkeeping). */
   start: (path: string) => run("watch_start", { root: path }),
+  /** What this window's watch is doing right now (see `WatchStatus`) — read by
+   *  the feed's empty panel so it can say what it is watching and since when. */
+  status: () => call("watch_status", WatchStatus),
   /** The card's git-free preview for a path: the watch session's first-touch
    *  baseline vs the file's current content (`null` when nothing was snapshotted
    *  — binary, too large, or a path with no captured baseline). The frontend

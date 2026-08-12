@@ -4,8 +4,9 @@
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import DiffView from "@/lib/DiffView.svelte";
+  import { watchSummary } from "@/lib/feed-status";
   import { fileExtension, fileTypeBadge } from "@/lib/file-type";
-  import { formatCount, formatTimestamp } from "@/lib/format";
+  import { formatAge, formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { markdownDocument, sandboxedHtmlDocument } from "@/lib/markdown";
   import {
@@ -23,7 +24,7 @@
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import type { FeedDiff, WorkspaceMember } from "@/lib/types";
+  import type { FeedDiff, WatchStatus, WorkspaceMember } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
   import { flip } from "svelte/animate";
@@ -251,6 +252,8 @@
       loadBranch(workspace),
       loadRemote(workspace),
       loadMembers(workspace),
+      // What the backend is actually watching, so an empty feed can say why.
+      loadWatchStatus(),
       // Editors come from the shared store's cache on a mere remount (a side-panel
       // switch); a fetch only runs when nothing is cached for this project yet.
       ensureEditors(workspace)
@@ -523,25 +526,78 @@
     stamp: number;
     now: number;
   }) {
-    const seconds = Math.max(0, Math.round((now - stamp) / 1000));
-    if (seconds < 60) {
-      return `${formatCount(seconds)}s ago`;
+    return `${formatAge({
+      stamp,
+      now
+    })} ago`;
+  }
+
+  // ── The empty panel's self-description ──────────────────────────────────────
+  // An empty list is ambiguous: nothing changed, the watch is on another
+  // project, or there is no watch. The backend knows which (watch_status), so
+  // the panel states it instead of always saying "waiting for edits". Read on
+  // mount / project switch, and again whenever the window is looked at again —
+  // the moment the answer could have gone stale unnoticed.
+  let watchStatus = $state<WatchStatus | null>(null);
+  let arming = $state(false);
+
+  // Never rejects: a diagnostic that fails must not take the panel's other loads
+  // (branch, members, editors) down with it, so the failure is surfaced as a
+  // toast and the summary falls back to its not-known-yet wording.
+  async function loadWatchStatus() {
+    try {
+      watchStatus = await feed.status();
+    } catch (error) {
+      watchStatus = null;
+      showToast(`Change Feed status unavailable — ${String(error)}`);
+    }
+  }
+
+  const emptySummary = $derived(
+    watchSummary({
+      status: watchStatus,
+      project,
+      now
+    })
+  );
+
+  // The retry the stalled states offer: arm the watch on the open project again
+  // and re-read what the backend then reports.
+  async function armWatch() {
+    arming = true;
+    try {
+      await feed.start(project);
+    } catch (error) {
+      // The backend's refusal names the path and the reason — the one thing
+      // worth reading when a project can't be watched.
+      showToast(String(error));
     }
 
-    if (seconds < 3600) {
-      return `${formatCount(Math.round(seconds / 60))}m ago`;
-    }
-
-    return `${formatCount(Math.round(seconds / 3600))}h ago`;
+    await loadWatchStatus();
+    arming = false;
   }
 </script>
 
+<svelte:document
+  onvisibilitychange={async () => {
+    if (!document.hidden && feedStore.events.length === 0) {
+      await loadWatchStatus();
+    }
+  }}
+/>
+
 <div class="feed">
   {#if feedStore.events.length === 0}
-    <p class="empty">
-      Waiting for edits. Ask the agent to change a file and it appears here —
-      what changed, and how much.
-    </p>
+    <div class="empty">
+      <p class="empty-headline">{emptySummary.headline}</p>
+      <p class="empty-detail">{emptySummary.detail}</p>
+      {#if emptySummary.stalled}
+        <button class="arm" disabled={arming} onclick={armWatch}>
+          {#if arming}
+            Arming…{:else}Watch this project{/if}
+        </button>
+      {/if}
+    </div>
   {:else}
     <div class="toolbar">
       <div class="typefilter menu-host">
@@ -894,10 +950,44 @@
   }
 
   .empty {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
     margin: 16px;
     color: var(--on-surface-variant);
     font-size: 13px;
     line-height: 1.5;
+
+    .empty-headline {
+      margin: 0;
+      color: var(--on-surface);
+      font-weight: 600;
+    }
+
+    .empty-detail {
+      margin: 0;
+    }
+
+    /* Only shown when there is nothing watching this project — the one state
+       the reader can act on. */
+    .arm {
+      margin-block-start: 4px;
+      padding: 5px 14px;
+      border: none;
+      border-radius: 999px;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 60%;
+        cursor: default;
+      }
+    }
   }
 
   .toolbar {
