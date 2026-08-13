@@ -1,45 +1,44 @@
 //! Force each installed agent's own UI theme to match ADE's light/dark scheme.
 //!
-//! Why spawn-time signals and not the terminal protocol: an agent's `auto` theme
-//! follows the *terminal* — Claude Code resolves its scheme as
-//! `live override ?? $COLORFGBG ?? dark`, and the live override is only ever set
-//! by the answer to an OSC 11 background-color query. On Windows that query
-//! never reaches the terminal emulator, so the override is never set and
-//! `$COLORFGBG` — read once, from the process environment — decides the scheme
-//! for the whole life of the session.
+//! Why a file and spawn-time signals, and never the terminal protocol: an
+//! agent's `auto` theme follows the *terminal* — Claude Code resolves its scheme
+//! as `live override ?? $COLORFGBG ?? dark`, and the live override is only ever
+//! set by the answer to an OSC 11 background-color query. On Windows that query
+//! never reaches the terminal emulator, so the override is never set and an
+//! `auto` theme is frozen at whatever the environment said on launch day. ADE
+//! therefore never leaves an agent on `auto`: it names the theme itself.
 //!
-//! **The DECSET 2031 `?997` relay therefore cannot re-theme a running Claude on
-//! Windows, and it is a mistake to read it as if it could.** Measured against the
-//! real binary under a real `ConPTY` (see `docs/terminal-rendering.md`): Claude
-//! does subscribe with `?2031h`, but its report handler *discards the scheme the
+//! **The DECSET 2031 `?997` relay cannot re-theme a running agent on Windows,
+//! and it is a mistake to read it as if it could.** Measured against the real
+//! binary under a real `ConPTY` (see `docs/terminal-rendering.md`): Claude does
+//! subscribe with `?2031h`, but its report handler *discards the scheme the
 //! report carries* and re-probes with OSC 11 instead — the report is only a
-//! doorbell. Ringing it produced no query on the wire at all, at startup or
-//! after, so there is nothing a terminal-side OSC 11 handler could answer.
-//! Everything a live session shows follows from the env it was spawned with, so
-//! a flip reaches it only by relaunching the process — which is what the
-//! frontend does (App's `restartSpawnThemedAgents` respawns the idle sessions of
-//! every spawn-themed agent, Claude included, each resuming its conversation).
+//! doorbell. The doorbell arrives (the agent's own debug log records a query
+//! attempt within a second of it), but the query it provokes never escapes
+//! `ConPTY`, so no terminal-side handler can answer it. Neither can one answer
+//! blind: an unsolicited OSC 11 reply written into the PTY does not reach the
+//! agent's parser either. Both were measured, twice, on 2.1.220 and 2.1.227.
 //!
-//! What does work is the tier *above* the probe: PADE creates Claude's registered
-//! project-local `theme:auto` seed before launch, then its detection reads
-//! `$COLORFGBG` before it ever sends OSC 11. The other CLIs expose their own
-//! spawn-time env or launch-arg knobs — and for a CLI with neither (opencode),
-//! a whole TUI-config file selected per spawn via an env var, naming a custom
-//! per-scheme theme whose colors are plain strings so the poisoned probe stops
-//! mattering (a mid-session flip re-themes by respawn, not a live signal). So
-//! every agent is themed at spawn — per
-//! session, never via a user-global config file that would leak ADE's choice
-//! into the user's other terminals. The registry may also declare a project-local
-//! adaptive-theme seed for future launches; PADE creates it only when absent and
-//! never merges into or overwrites user settings. This avoids the stale fixed
-//! light/dark keys the old file-driven mechanism left behind. A spawn-time theme
-//! cannot follow a mid-session scheme flip. ADE re-themes xterm's palette in
-//! place to preserve the running conversation; the agent receives its own
-//! spawn-time syntax choice on the next natural launch.
+//! **What re-themes a RUNNING session is a theme file the agent watches.** Claude
+//! Code re-renders when a theme *definition* it is using changes on disk, so ADE
+//! owns one definition (`~/.claude/themes/pade.json`), selects it per session
+//! with `--settings` — never by writing a settings file of the user's — and
+//! rewrites it on every scheme flip. Measured: an idle session repaints into the
+//! other scheme within a second, with its conversation untouched. That is
+//! `SpawnSelectedLiveTheme`, and `publish_live_themes` is what writes it.
+//!
+//! Every other CLI is themed at spawn only, through whichever knob it exposes:
+//! per-scheme env (aider, cursor-agent), per-scheme launch args (codex), or — for
+//! a CLI with neither (opencode) — a whole TUI-config file selected per spawn via
+//! an env var, naming a custom per-scheme theme whose colors are plain strings so
+//! the ConPTY-poisoned probe stops mattering. All of it is per session, never via
+//! a user-global config file that would leak ADE's choice into the user's other
+//! terminals. A spawn-time theme cannot follow a mid-session flip, so for those
+//! agents the frontend respawns the idle ones (App's `restartSpawnThemedAgents`,
+//! each resuming its own conversation) while ADE re-themes xterm's palette in
+//! place.
 
 use serde::Deserialize;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// ADE's resolved appearance — the frontend's `appearance.scheme`, on the wire.
@@ -48,38 +47,6 @@ use std::path::{Path, PathBuf};
 pub enum Scheme {
     Light,
     Dark,
-}
-
-pub struct ProjectThemeRequest<'a> {
-    pub command: &'a str,
-    pub root: &'a Path,
-}
-
-/// Seed an agent's registered project-local adaptive theme when absent. The
-/// registry owns native paths/content; this layer provides one create-only file
-/// operation. Existing user-owned settings are never merged or overwritten.
-pub fn ensure_project_theme(request: ProjectThemeRequest<'_>) -> std::io::Result<bool> {
-    let Some(seed) = crate::agents::project_theme_seed(request.command) else {
-        return Ok(false);
-    };
-
-    let path = request.root.join(seed.relative_path);
-    if path.exists() {
-        return Ok(false);
-    }
-
-    let Some(parent) = path.parent() else {
-        return Ok(false);
-    };
-    std::fs::create_dir_all(parent)?;
-    match OpenOptions::new().write(true).create_new(true).open(path) {
-        Ok(mut file) => {
-            file.write_all(seed.contents.as_bytes())?;
-            Ok(true)
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
-        Err(error) => Err(error),
-    }
 }
 
 impl Scheme {
@@ -131,6 +98,25 @@ pub enum ThemeConfig {
         light: Option<&'static str>,
         dark: Option<&'static str>,
     },
+    /// Select a PADE-owned theme *definition* at spawn, and re-theme every
+    /// RUNNING session by rewriting that definition — the one live theme channel
+    /// any agent exposes on Windows (Claude Code, which watches its user theme
+    /// directory and re-renders when a definition in use changes).
+    ///
+    /// The odd one out of this enum, and deliberately so: `args` only *name* the
+    /// theme, so they carry no scheme and never change. The scheme lives in the
+    /// file's contents, which is exactly what lets a flip reach a session that is
+    /// already running — every other variant can only be read at launch.
+    SpawnSelectedLiveTheme {
+        /// Launch args that select the definition for this session alone (a
+        /// `--settings` JSON string), so no settings file of the user's has to
+        /// name it and their own terminals are untouched.
+        args: &'static [&'static str],
+        /// The definition's path under the user's home — PADE owns this file.
+        relative_path: &'static str,
+        light: &'static str,
+        dark: &'static str,
+    },
 }
 
 /// The per-scheme environment to spawn `command` with (empty for an agent
@@ -142,7 +128,12 @@ pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'st
             Scheme::Light => light,
             Scheme::Dark => dark,
         },
-        Some(ThemeConfig::SpawnArgs { .. } | ThemeConfig::SpawnTuiConfig { .. }) | None => &[],
+        Some(
+            ThemeConfig::SpawnArgs { .. }
+            | ThemeConfig::SpawnTuiConfig { .. }
+            | ThemeConfig::SpawnSelectedLiveTheme { .. },
+        )
+        | None => &[],
     }
 }
 
@@ -155,8 +146,52 @@ pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
             Scheme::Light => light,
             Scheme::Dark => dark,
         },
+        // Scheme-independent by design: these args name the definition, and its
+        // contents — not the argv — carry the scheme (see the variant's doc).
+        Some(ThemeConfig::SpawnSelectedLiveTheme { args, .. }) => args,
         Some(ThemeConfig::SpawnEnv { .. } | ThemeConfig::SpawnTuiConfig { .. }) | None => &[],
     }
+}
+
+/// Write every live-theme definition for `scheme`, repainting every running
+/// session that selected one. Called on a scheme flip (`agent_theme_publish`)
+/// and before each spawn, so a launching session finds the definition already
+/// describing the current scheme. `write_if_stale` keeps an unchanged scheme
+/// from touching the file — the agent watches it, and a no-op rewrite would
+/// make it re-render for nothing.
+pub fn publish_live_themes(scheme: Scheme) -> std::io::Result<()> {
+    let Some(home) = crate::util::home_dir() else {
+        return Err(std::io::Error::other("no home directory"));
+    };
+
+    for command in crate::agents::commands() {
+        let Some(ThemeConfig::SpawnSelectedLiveTheme {
+            relative_path,
+            light,
+            dark,
+            ..
+        }) = crate::agents::theme_config(command)
+        else {
+            continue;
+        };
+        let contents = match scheme {
+            Scheme::Light => light,
+            Scheme::Dark => dark,
+        };
+        write_if_stale(&home.join(relative_path), contents)?;
+    }
+
+    Ok(())
+}
+
+/// Re-theme every running live-themed session to `scheme`. The frontend calls
+/// this the moment ADE's appearance flips; the agent's own file watcher does the
+/// rest, so a conversation in flight is never restarted to follow the theme.
+// `async` so Tauri runs it off the main thread: it writes to disk, and a
+// synchronous command would do that on the Win32 message pump.
+#[tauri::command]
+pub async fn agent_theme_publish(scheme: Scheme) -> Result<(), String> {
+    publish_live_themes(scheme).map_err(|error| error.to_string())
 }
 
 /// The custom opencode themes a `SpawnTuiConfig` selects — one per scheme. Every
@@ -262,44 +297,78 @@ pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, Strin
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_project_theme, materialize_tui_config, spawn_args, spawn_env, spawn_tui_config_env,
-        ProjectThemeRequest, Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON,
-        PADE_LIGHT_THEME_FILE, PADE_LIGHT_THEME_JSON,
+        materialize_tui_config, spawn_args, spawn_env, spawn_tui_config_env, write_if_stale,
+        Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON, PADE_LIGHT_THEME_FILE,
+        PADE_LIGHT_THEME_JSON,
     };
 
+    fn claude_live_theme() -> (&'static str, &'static str, &'static str, &'static str) {
+        let Some(ThemeConfig::SpawnSelectedLiveTheme {
+            args,
+            relative_path,
+            light,
+            dark,
+        }) = crate::agents::theme_config("claude")
+        else {
+            panic!("claude should carry a live theme definition");
+        };
+        let selector = args.last().copied().expect("the --settings payload");
+        (selector, relative_path, light, dark)
+    }
+
+    /// The `custom:` selector, the definition's file stem and the `name` inside
+    /// it must agree, or the agent resolves the launch arg to a theme that does
+    /// not exist and silently falls back. Three literals, one invariant — worth
+    /// a test rather than a comment.
     #[test]
-    fn claude_project_theme_is_seeded_once_without_overwriting() {
-        let scratch =
-            std::env::temp_dir().join(format!("pade-claude-theme-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&scratch);
+    fn the_live_theme_selector_names_the_file_it_writes() {
+        let (selector, relative_path, light, dark) = claude_live_theme();
+        assert_eq!(selector, r#"{"theme":"custom:pade"}"#);
+        assert!(relative_path.ends_with("/pade.json"), "{relative_path}");
+        for contents in [light, dark] {
+            assert!(contents.contains(r#""name":"pade""#), "{contents}");
+        }
+    }
 
-        assert!(!ensure_project_theme(ProjectThemeRequest {
-            command: "opencode",
-            root: &scratch,
-        })
-        .expect("unregistered seed"));
-        assert!(!scratch.exists());
-
-        assert!(ensure_project_theme(ProjectThemeRequest {
-            command: "claude",
-            root: &scratch,
-        })
-        .expect("seed theme"));
-        let settings = scratch.join(".claude/settings.local.json");
+    /// The scheme lives in the definition's contents — the launch args that
+    /// select it are the same on both schemes, which is what lets a flip reach a
+    /// session that is already running.
+    #[test]
+    fn a_live_theme_carries_its_scheme_in_the_file_not_the_argv() {
+        let (_, _, light, dark) = claude_live_theme();
+        assert!(light.contains(r#""base":"light""#), "{light}");
+        assert!(dark.contains(r#""base":"dark""#), "{dark}");
         assert_eq!(
-            std::fs::read_to_string(&settings).expect("read theme"),
-            "{\n  \"theme\": \"auto\"\n}\n"
+            spawn_args("claude", Scheme::Light),
+            spawn_args("claude", Scheme::Dark)
         );
+        assert!(!spawn_args("claude", Scheme::Light).is_empty());
+    }
 
-        std::fs::write(&settings, "{\n  \"theme\": \"dark\"\n}\n").expect("replace fixture");
-        assert!(!ensure_project_theme(ProjectThemeRequest {
-            command: "claude",
-            root: &scratch,
-        })
-        .expect("preserve theme"));
+    /// The agent watches the definition, so republishing an unchanged scheme
+    /// must not touch the file — a rewrite it can see is a repaint it does not
+    /// need.
+    #[test]
+    fn republishing_an_unchanged_theme_leaves_the_file_alone() {
+        let scratch = std::env::temp_dir().join(format!("pade-live-theme-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let path = scratch.join("themes").join("pade.json");
+
+        write_if_stale(&path, r#"{"base":"dark"}"#).expect("first write");
+        let written = std::fs::metadata(&path)
+            .and_then(|metadata| metadata.modified())
+            .expect("first mtime");
+
+        write_if_stale(&path, r#"{"base":"dark"}"#).expect("identical rewrite");
+        let unchanged = std::fs::metadata(&path)
+            .and_then(|metadata| metadata.modified())
+            .expect("second mtime");
+        assert_eq!(written, unchanged);
+
+        write_if_stale(&path, r#"{"base":"light"}"#).expect("scheme flip");
         assert_eq!(
-            std::fs::read_to_string(settings).expect("read preserved theme"),
-            "{\n  \"theme\": \"dark\"\n}\n"
+            std::fs::read_to_string(&path).expect("read flipped theme"),
+            r#"{"base":"light"}"#
         );
         std::fs::remove_dir_all(scratch).expect("scratch cleanup");
     }
@@ -318,7 +387,7 @@ mod tests {
         assert_eq!(spawn_args("codex", Scheme::Light), *light);
         assert_eq!(spawn_args("codex", Scheme::Dark), *dark);
         assert_ne!(light, dark);
-        assert!(spawn_args("claude", Scheme::Light).is_empty());
+        assert!(spawn_args("aider", Scheme::Light).is_empty());
         assert!(spawn_args("pnpm", Scheme::Dark).is_empty());
     }
 
@@ -327,24 +396,24 @@ mod tests {
     #[test]
     fn spawn_env_routes_each_scheme_to_its_registry_side() {
         let ThemeConfig::SpawnEnv { light, dark } =
-            crate::agents::theme_config("claude").expect("claude is env-themed")
+            crate::agents::theme_config("aider").expect("aider is env-themed")
         else {
-            panic!("claude should force its theme via SpawnEnv");
+            panic!("aider should force its theme via SpawnEnv");
         };
-        assert_eq!(spawn_env("claude", Scheme::Light), *light);
-        assert_eq!(spawn_env("claude", Scheme::Dark), *dark);
+        assert_eq!(spawn_env("aider", Scheme::Light), *light);
+        assert_eq!(spawn_env("aider", Scheme::Dark), *dark);
         assert_ne!(light, dark);
         assert!(spawn_env("codex", Scheme::Light).is_empty());
         assert!(spawn_env("pnpm", Scheme::Dark).is_empty());
     }
 
-    /// Claude's theme rides `$COLORFGBG` — the first tier of its `auto`
-    /// detection, and the only one that survives `ConPTY`. Both sides must set it,
-    /// and the background field (after the `;`) must name the scheme's ground.
+    /// A live-themed agent carries no theme *env*: its scheme travels in the
+    /// definition file, so nothing scheme-shaped may leak into the environment
+    /// and go stale the moment the user flips.
     #[test]
-    fn claude_signals_its_scheme_through_colorfgbg() {
-        assert_eq!(spawn_env("claude", Scheme::Light), &[("COLORFGBG", "0;15")]);
-        assert_eq!(spawn_env("claude", Scheme::Dark), &[("COLORFGBG", "15;0")]);
+    fn a_live_themed_agent_has_no_theme_env() {
+        assert!(spawn_env("claude", Scheme::Light).is_empty());
+        assert!(spawn_env("claude", Scheme::Dark).is_empty());
     }
 
     /// A file-themed agent (opencode) carries no theme env or args through the

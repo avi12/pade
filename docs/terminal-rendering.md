@@ -363,10 +363,13 @@ will "verify" the wrong code.
    for `?1049h`, then send `CSI ?997;2n`): Claude subscribes with `?2031h`, emits
    **OSC 0 and nothing else**, and rang-doorbell produced **zero** OSC 11 queries
    in 30s. So there is nothing for a terminal-side OSC 11 handler to answer —
-   writing one is dead code here (tried, measured, reverted). A session's scheme
-   is decided by the `$COLORFGBG` it was spawned with and cannot change while it
-   runs. The only lever for a live flip is a **restart** — `SPAWN_THEMED_AGENTS`,
-   which now includes Claude (see below).
+   writing one is dead code here (tried, measured, reverted). Re-measured on
+   2.1.227 with the agent's own `--debug` log as the witness: the doorbell *does*
+   arrive (a query attempt is logged within a second of it) and every attempt ends
+   `OSC 11 query … got no response`. An `auto` session's scheme is therefore
+   decided by the `$COLORFGBG` it was spawned with and cannot change while it
+   runs — which is why ADE no longer leaves Claude on `auto` at all. **The live
+   lever is a theme file, not the protocol** (see below).
 
    **Nor does pushing the answer it never asked for.** The obvious next idea —
    the query is unwinnable, but the *answer* is just a matched report, so ring
@@ -383,6 +386,27 @@ will "verify" the wrong code.
    instantly, so the give-up beats anything the host can inject. A host that
    holds the fence open cannot exist — conhost owns that reply. Do not re-try
    this without first re-measuring whether ConPTY still swallows the query.
+
+   **The fence has one gap, and it is still not enough.** With `TMUX`/`STY` in the
+   environment the probe takes a different shape — `Promise.race([send(query),
+   2s timeout])`, DCS-wrapped, no DA1 sentinel — so an answer inside that window
+   would win. Measured on 2.1.227 with `STY` set: the query still never reaches
+   the PTY master, and an answer written blind into the window changes nothing,
+   because ConPTY drops OSC on the way *in* as well. CSI does get through (the
+   `?997` doorbell proves it); OSC does not, in either direction.
+
+   **What DOES re-theme a running session: the theme definition it is using.**
+   Claude watches its user theme directory and re-renders when a definition in use
+   changes, so ADE owns one (`~/.claude/themes/pade.json`), selects it per session
+   with `--settings '{"theme":"custom:pade"}'` — never by writing a settings file
+   of the user's — and rewrites it on every scheme flip. Measured on 2.1.227: an
+   idle session repainted from the dark palette to the light one **unprompted,
+   within 5s**, matching a light-spawned control exactly, with the conversation
+   untouched. That is `ThemeConfig::SpawnSelectedLiveTheme` and
+   `theming::publish_live_themes`. Note what carries the scheme: the file's
+   *contents*. The launch args only name it, so they are identical on both
+   schemes — that split is the whole reason a flip can reach a process that is
+   already running.
 6. **Putting Claude *into* the flip-restart because a harness says the
    `--session-id` race is gone.** It isn't, where it counts. Codex and opencode
    are respawned onto real resume args (`codex resume <uuid>`,
@@ -394,8 +418,10 @@ will "verify" the wrong code.
    stuck at "Starting…"**: the session wedged instead of re-theming. Twice now
    (2026-08-01, 2026-08-07) this has been tried and reverted. The harness is
    measuring a narrower thing than the app does — believe the app. Wedging a
-   working session is worse than colours that lag, so Claude keeps its spawn
-   theme and re-themes at its next launch by hand.
+   working session is worse than colours that lag. **Settled for good since
+   2026-08-13:** Claude follows a flip through its watched theme definition, so
+   there is no longer anything to gain by restarting it. `SPAWN_THEMED_AGENTS` is
+   Codex and opencode, and Claude must never be added to it.
 
    Closed since: a session that is **busy** when the scheme flips can't be
    respawned then — that would sever the turn in flight — so App holds the flip

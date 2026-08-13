@@ -157,6 +157,7 @@ pub fn run() {
             pty::pty_history,
             pty::pty_list,
             recovery::recovery_arm,
+            theming::agent_theme_publish,
             resume::agent_resume_args,
             model_window::agent_context_window,
             runner::runner_start,

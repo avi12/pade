@@ -110,7 +110,13 @@ function on<T>(
 
 /** Detected agent backends. */
 export const agents = {
-  detect: () => call("agents_detect", z.array(Agent))
+  detect: () => call("agents_detect", z.array(Agent)),
+  /** Re-theme every RUNNING session of a live-themed agent (Claude Code) by
+   *  rewriting the theme definition it watches. Call it on every scheme flip:
+   *  the agent repaints itself, so a conversation in flight never restarts to
+   *  follow the app's appearance. Agents without a live channel keep their
+   *  spawn theme until they relaunch (see theming.rs). */
+  publishTheme: (scheme: Scheme) => run("agent_theme_publish", { scheme })
 };
 
 /** External IDE integration. */

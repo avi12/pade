@@ -47,14 +47,10 @@ struct AgentDefinition {
     /// which these flags do NOT dismiss (ADE accepts that separately — see the
     /// frontend's initial-prompt delivery).
     session_args: &'static [&'static str],
-    /// How to force this agent's own UI theme to ADE's scheme via its config
-    /// file — the terminal protocol can't carry it through `ConPTY` (see
-    /// `theming.rs`). `None` for a CLI with no known theme setting.
+    /// How to force this agent's own UI theme to ADE's scheme — the terminal
+    /// protocol can't carry it through `ConPTY` (see `theming.rs`). `None` for a
+    /// CLI with no known theme setting.
     theme_config: Option<ThemeConfig>,
-    /// Optional project-local adaptive-theme seed for later launches. Created
-    /// only when absent; never merged or overwritten. The registry owns each
-    /// agent's native path and syntax.
-    project_theme_seed: Option<ProjectThemeSeed>,
     /// The flag that binds a session to a caller-chosen conversation id
     /// (`claude --session-id <uuid>`): it creates a fresh conversation with that
     /// id, and a later spawn with the same id *resumes* that exact one —
@@ -75,11 +71,17 @@ struct AgentDefinition {
     needs_light_console_fix: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProjectThemeSeed {
-    pub relative_path: &'static str,
-    pub contents: &'static str,
-}
+/// The PADE-owned Claude theme. Claude Code watches its user theme directory and
+/// re-renders when a definition in use changes, so ONE file PADE rewrites is a
+/// live channel into every running session. The definition is inert until a
+/// session selects it, and only PADE's own sessions do — through `--settings`,
+/// per launch, so no file of the user's names it and their own terminals are
+/// untouched. The `custom:` selector, the file stem and the `name` inside the
+/// file must agree; `theming::tests` asserts they do.
+const PADE_CLAUDE_THEME_PATH: &str = ".claude/themes/pade.json";
+const PADE_CLAUDE_THEME_SETTINGS: &str = r#"{"theme":"custom:pade"}"#;
+const PADE_CLAUDE_LIGHT_THEME: &str = r#"{"name":"pade","base":"light","overrides":{}}"#;
+const PADE_CLAUDE_DARK_THEME: &str = r#"{"name":"pade","base":"dark","overrides":{}}"#;
 
 /// Known agent backends, in preferred display order. The plain shell is always
 /// offered last as a universal fallback.
@@ -115,21 +117,20 @@ const REGISTRY: &[AgentDefinition] = &[
         command: "claude",
         aliases: &[],
         oneshot: Some(&["-p"]),
-        // Bypass every per-tool/edit approval. The project-theme seed below is
-        // created before this process launches, so even a brand-new project has
-        // Claude's adaptive mode active on its first frame. The trust gate remains
+        // Bypass every per-tool/edit approval. The trust gate remains
         // frontend-owned.
         session_args: &["--dangerously-skip-permissions"],
-        // Claude's forced `auto` theme reads `$COLORFGBG` before its OSC 11
-        // background probe (which ConPTY swallows), so this spawn-time pair is
-        // the reliable initial scheme signal. The live ?997 relay handles flips.
-        theme_config: Some(ThemeConfig::SpawnEnv {
-            light: &[("COLORFGBG", "0;15")],
-            dark: &[("COLORFGBG", "15;0")],
-        }),
-        project_theme_seed: Some(ProjectThemeSeed {
-            relative_path: ".claude/settings.local.json",
-            contents: "{\n  \"theme\": \"auto\"\n}\n",
+        // The one agent ADE can re-theme WITHOUT relaunching it: the session
+        // launches on ADE's own theme definition, and rewriting that definition
+        // repaints every live session. Measured against 2.1.227 under a real
+        // ConPTY — a rewrite repaints an idle session within a second, where the
+        // `theme` *setting* is read once at mount and the OSC 11 answer its
+        // `?997` doorbell asks for never escapes ConPTY (docs/terminal-rendering.md).
+        theme_config: Some(ThemeConfig::SpawnSelectedLiveTheme {
+            args: &["--settings", PADE_CLAUDE_THEME_SETTINGS],
+            relative_path: PADE_CLAUDE_THEME_PATH,
+            light: PADE_CLAUDE_LIGHT_THEME,
+            dark: PADE_CLAUDE_DARK_THEME,
         }),
         // `--session-id <uuid>` creates-or-continues the conversation with that
         // id (non-interactive), so ADE can restart a specific session and land
@@ -238,7 +239,6 @@ const REGISTRY: &[AgentDefinition] = &[
             light: &["-c", "tui.theme=catppuccin-latte"],
             dark: &["-c", "tui.theme=catppuccin-mocha"],
         }),
-        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         // Codex paints its input composer box from the detected terminal
@@ -279,7 +279,6 @@ const REGISTRY: &[AgentDefinition] = &[
             light: Some(OPENCODE_LIGHT_TUI_CONFIG),
             dark: Some(OPENCODE_DARK_TUI_CONFIG),
         }),
-        project_theme_seed: None,
         // `--session <id>` only *continues* an existing session; it cannot create
         // one with a caller-chosen id, so restart-to-resume has no handle here.
         session_id_flag: None,
@@ -318,7 +317,6 @@ const REGISTRY: &[AgentDefinition] = &[
         // forcing it would mean writing the USER-level ~/.copilot/settings.json,
         // which would leak ADE's scheme into every other terminal. Left alone.
         theme_config: None,
-        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -339,7 +337,6 @@ const REGISTRY: &[AgentDefinition] = &[
         // The settings reference lists no theme/color/appearance key at all;
         // its TUI inherits the terminal palette.
         theme_config: None,
-        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -357,7 +354,6 @@ const REGISTRY: &[AgentDefinition] = &[
         // restart to apply, and only "dark" is documented verbatim — not enough
         // verified surface to force safely.
         theme_config: None,
-        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -378,7 +374,6 @@ const REGISTRY: &[AgentDefinition] = &[
             light: &[("TERM_THEME", "light")],
             dark: &[],
         }),
-        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -398,7 +393,6 @@ const REGISTRY: &[AgentDefinition] = &[
             light: &[("AIDER_LIGHT_MODE", "true")],
             dark: &[("AIDER_DARK_MODE", "true")],
         }),
-        project_theme_seed: None,
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
@@ -469,11 +463,10 @@ pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
     definition(command).and_then(|agent| agent.theme_config.as_ref())
 }
 
-/// Project-local adaptive-theme seed for `command`, when its CLI exposes a
-/// documented project setting safe to create without choosing a fixed palette.
-/// The theming layer owns the generic create-only file operation.
-pub fn project_theme_seed(command: &str) -> Option<ProjectThemeSeed> {
-    definition(command).and_then(|agent| agent.project_theme_seed)
+/// Every registered agent's command, in registry order — so a cross-agent sweep
+/// (theming's live-theme publish) walks the registry instead of naming agents.
+pub fn commands() -> impl Iterator<Item = &'static str> {
+    REGISTRY.iter().map(|agent| agent.command)
 }
 
 /// Whether `command`'s input composer box follows the *detected* terminal
@@ -569,13 +562,14 @@ mod tests {
         assert!(session_id_flag("powershell.exe").is_none());
     }
 
-    /// Claude and the other env-themed CLIs declare spawn pairs; Codex declares
-    /// launch args.
+    /// Claude declares the live definition (the only agent that can be re-themed
+    /// without relaunching); the env-themed CLIs declare spawn pairs; Codex
+    /// declares launch args.
     #[test]
     fn theme_mechanisms_match_each_agent() {
         assert!(matches!(
             theme_config("claude"),
-            Some(ThemeConfig::SpawnEnv { .. })
+            Some(ThemeConfig::SpawnSelectedLiveTheme { .. })
         ));
         assert!(matches!(
             theme_config("aider"),

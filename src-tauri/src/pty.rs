@@ -591,6 +591,13 @@ fn build_command(
         for (key, value) in crate::theming::spawn_tui_config_env(&program, scheme) {
             process.env(key, value);
         }
+        // …and the live theme definition the launch args are about to select
+        // (Claude), written before the process starts so its first frame already
+        // paints in ADE's scheme. A flip later rewrites this same file, which is
+        // what re-themes the session without restarting it.
+        if let Err(error) = crate::theming::publish_live_themes(scheme) {
+            eprintln!("theming: could not publish the live theme ({error}); {program} starts on its own default");
+        }
     }
     // ADE's terminal renders the full 16-colour ANSI palette (see terminal-theme.ts),
     // but a CLI can't tell from inside a bare ConPTY: Ink/chalk/supports-color probe
@@ -710,17 +717,6 @@ pub async fn pty_spawn(
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::current_dir().ok());
     let spawn_cwd = dir.as_ref().map(|path| path.to_string_lossy().into_owned());
-
-    if let (Some(command), Some(root)) = (command.as_deref(), dir.as_deref()) {
-        if let Err(error) =
-            crate::theming::ensure_project_theme(crate::theming::ProjectThemeRequest {
-                command,
-                root,
-            })
-        {
-            eprintln!("theming: could not seed {command} project theme: {error}");
-        }
-    }
 
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
