@@ -30,12 +30,15 @@ writes.
   sessions stay mounted so scrollback survives; the grid refits on layout change.
 - R1.1.6 ✅ Per-tab **status dot** — starting / working (pulses) / ready (halo) /
   exited, shared from each terminal's idle detection via a `lib/stores` store.
-- R1.1.7 ✅ **Session persistence across an accidental reload** — the window
-  persists its pane mapping (sessionStorage) and boot re-attaches whatever the
-  backend still hosts (`pty_list` ∩ snapshot), replaying `pty_history` per pane;
-  the `w=` window query is kept rewritten to the project actually on screen so a
-  reload never routes off a stale spawn intent. Never across an app restart:
-  sessionStorage dies with the window, and the backend kills all PTYs on exit.
+- R1.1.7 ✅ **Session persistence across an accidental reload or a webview
+  crash** — the window persists its pane mapping (localStorage, keyed by window
+  label) and boot re-attaches whatever the backend still hosts (`pty_list` ∩
+  snapshot), replaying `pty_history` per pane; the `w=` window query is kept
+  rewritten to the project actually on screen so a reload never routes off a
+  stale spawn intent. The key survives the *rebuilt* webview a crash recovery
+  hands the window, which sessionStorage did not — that gap orphaned live PTYs
+  behind a freshly spawned agent. Still never across an app restart: the backend
+  kills all PTYs on exit, so the intersection is empty and the snapshot cleared.
 - R1.1.8 ✅ **Intent-based leave** — a deliberate leave (project switch, back to
   the picker, closing the window) kills the project's agents *gracefully*: it
   waits per session for the idle prompt (`sessionStatus === ready`, the

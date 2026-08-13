@@ -15,11 +15,25 @@ import {
   vi
 } from "vitest";
 
-// A minimal sessionStorage double — vitest runs in node, which has none.
+// Minimal localStorage and Tauri-window doubles — vitest runs in node, which
+// has neither. The label is what the snapshot key is scoped to.
 const backing = new Map<string, string>();
+const KEY = "pade.session-snapshot:main";
+function stubWindowLabel(label: string) {
+  vi.stubGlobal("window", {
+    __TAURI_INTERNALS__: {
+      metadata: {
+        currentWindow: {
+          label
+        }
+      }
+    }
+  });
+}
 beforeEach(() => {
   backing.clear();
-  vi.stubGlobal("sessionStorage", {
+  stubWindowLabel("main");
+  vi.stubGlobal("localStorage", {
     getItem: (key: string) => backing.get(key) ?? null,
     setItem(key: string, value: string) {
       backing.set(key, value);
@@ -68,8 +82,26 @@ describe("save / read round trip", () => {
       activeId: "a"
     });
 
-    const stored = backing.get("pade.session-snapshot") ?? "";
+    const stored = backing.get(KEY) ?? "";
     expect(stored).not.toContain("build me a thing");
+  });
+
+  it("keys the snapshot by window label, so a crash-rebuilt window finds its own", () => {
+    saveSessionSnapshot({
+      project: "C:\\repos\\pade",
+      sessions: [session("a")],
+      paneIds: ["a"],
+      activeId: "a"
+    });
+    expect([...backing.keys()]).toEqual([KEY]);
+
+    // A sibling window reads nothing of this one's — and rebuilding the crashed
+    // window (same label, fresh webview) still finds the mapping, which is what
+    // sessionStorage lost.
+    stubWindowLabel("w-2");
+    expect(readSessionSnapshot()).toBeNull();
+    stubWindowLabel("main");
+    expect(readSessionSnapshot()?.sessions[0]?.id).toBe("a");
   });
 
   it("clears instead of saving when there is nothing to re-attach", () => {
@@ -100,10 +132,10 @@ describe("save / read round trip", () => {
   it("reads null when the snapshot is absent, garbage, or the wrong shape", () => {
     expect(readSessionSnapshot()).toBeNull();
 
-    backing.set("pade.session-snapshot", "{not json");
+    backing.set(KEY, "{not json");
     expect(readSessionSnapshot()).toBeNull();
 
-    backing.set("pade.session-snapshot", JSON.stringify({ project: "x" }));
+    backing.set(KEY, JSON.stringify({ project: "x" }));
     expect(readSessionSnapshot()).toBeNull();
   });
 

@@ -1,19 +1,33 @@
-// Re-attach after an accidental WebView reload — the session-persistence seam.
+// Re-attach after the window loses its webview — the session-persistence seam.
 //
-// The pane-mapping snapshot lives in sessionStorage: it survives a reload of
-// the same window (F5, a dropped HMR socket, a crash recovery) but dies with
-// the window, so a deliberate app restart never resurrects agents the user
-// meant to end. The backend's PtyState stays the sole authority on *liveness*:
-// restore only re-attaches sessions `pty_list` still hosts, and a deliberate
-// leave kills its PTYs first — so nothing survives the intersection and no
-// separate "leave intent" flag is needed.
+// Two things take the UI away while the agents keep running: an accidental
+// reload (F5, a dropped HMR socket) and a dead WebView2 browser process, which
+// `recovery.rs` answers by destroying the window and rebuilding it under the
+// same label and URL. The rebuild is why the pane-mapping snapshot is stored
+// per window label in localStorage and not in sessionStorage: sessionStorage
+// dies with the webview, so a rebuilt window booted with no record of what it
+// owned, spawned a fresh agent, and left the live PTYs orphaned in the backend
+// — running, billing, reachable by nothing.
+//
+// Outliving the webview is safe because liveness is never this module's claim
+// to make. The backend's PtyState stays the sole authority: restore only
+// re-attaches sessions `pty_list` still hosts, and it lists only the ones this
+// window owns. A deliberate leave kills its PTYs first and app exit kills them
+// all — so nothing survives the intersection, a snapshot left behind by an
+// earlier run finds nothing live and is cleared, and no separate "leave intent"
+// flag is needed.
 
-import { pty } from "@/lib/bridge";
+import { pty, windows } from "@/lib/bridge";
 import { Agent } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { z } from "zod";
 
-const SNAPSHOT_STORAGE_KEY = "pade.session-snapshot";
+/** Where this window's snapshot lives. Keyed by window label so a sibling
+ *  window never reads (or overwrites) another's pane mapping, and so the
+ *  crash-rebuilt window — same label — finds its own. */
+function snapshotStorageKey(): string {
+  return `pade.session-snapshot:${windows.label()}`;
+}
 
 /** One persisted session — `AgentSession` minus `initialPrompt`, which was
  *  already submitted into the live conversation (restoring it would make the
@@ -65,17 +79,17 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
     paneIds: [...paneIds],
     activeId
   };
-  sessionStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot));
+  localStorage.setItem(snapshotStorageKey(), JSON.stringify(snapshot));
 }
 
 export function clearSessionSnapshot(): void {
-  sessionStorage.removeItem(SNAPSHOT_STORAGE_KEY);
+  localStorage.removeItem(snapshotStorageKey());
 }
 
 /** The persisted snapshot, or `null` when absent or malformed. Storage is a
  *  trust boundary like any other — the payload is zod-validated on the way in. */
 export function readSessionSnapshot(): SessionSnapshot | null {
-  const raw = sessionStorage.getItem(SNAPSHOT_STORAGE_KEY);
+  const raw = localStorage.getItem(snapshotStorageKey());
   if (raw === null) {
     return null;
   }

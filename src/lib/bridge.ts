@@ -87,6 +87,13 @@ function run(command: string, args?: Record<string, unknown>): Promise<void> {
   return invoke(command, args);
 }
 
+/** This window's Tauri label — the id the backend scopes its per-window state
+ *  to (PTY ownership, targeted emits), and stable across a crash-recovery
+ *  rebuild, which recreates the webview under the same label. */
+function windowLabel(): string {
+  return getCurrentWindow().label;
+}
+
 /** Subscribe to an event, validating each payload. Scoped to this window's own
  *  label so a sibling window's targeted emit (the backend routes each window's
  *  file-watch changes back to it with `emit_to`) never leaks into this feed;
@@ -97,7 +104,7 @@ function on<T>(
   callback: (payload: T) => void
 ): Promise<UnlistenFn> {
   return listen(event, received => callback(schema.parse(received.payload)), {
-    target: getCurrentWindow().label
+    target: windowLabel()
   });
 }
 
@@ -183,6 +190,9 @@ export const windows = {
     mode: WindowMode;
     path?: string;
   }) => run("window_create", { ...args }),
+  /** This window's label — the key the backend owns its sessions by, and what
+   *  anything outliving the webview (the session snapshot) must be scoped to. */
+  label: windowLabel,
   /** Set this window's OS title (title bar + taskbar) — the one place the UI
    *  drives Tauri's window title, so no surface recomputes it independently. */
   setTitle: (title: string) => getCurrentWindow().setTitle(title),

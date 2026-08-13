@@ -14,7 +14,7 @@ Everything PADE keeps, it keeps **locally on your machine**:
   rules, appearance, and feature toggles, stored in PADE's configuration
   directory (`%APPDATA%\pade` on Windows).
 - **Session snapshots** — which agent sessions were open in a window, so a
-  reload can restore them.
+  reload or a webview crash can restore them.
 - **Workspace files** — throwaway workspaces you create live under the same
   configuration directory until you save or discard them.
 

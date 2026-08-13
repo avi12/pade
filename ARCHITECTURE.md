@@ -157,19 +157,24 @@ the stream, so a frontend already listening to the live feed while it asks for t
 history can tell which chunks that history already contains from which are new.
 
 That attach path is also what makes a whole-window reload survivable. The shell
-persists its pane mapping (project + sessions + layout) in sessionStorage
-(`session-restore`), and boots by intersecting it with the backend's live roster
-(`pty_list`): whatever is still running is re-adopted pane by pane and replayed —
-so an accidental reload (F5, a crash recovery) lands back inside the project
-instead of orphaning invisible agents behind a picker. Liveness is never
-persisted, only *read*: a **deliberate** leave (switching project, going back to
-the picker, closing the window — the shell intercepts the close via
-`onCloseRequested` and lets the window go only once its sessions are dealt with)
-first waits for each session to go idle (`whenSessionIdle` — the `ready`
-output-quiet signal, so nothing mid-flight is severed; the agent's own auto-save
-plus `/resume` cover continuity) and then kills its PTYs, which is exactly why
-nothing survives the next boot's intersection. And because sessionStorage dies
-with the window, an app restart never resurrects agents the user meant to end.
+persists its pane mapping (project + sessions + layout) under its window label
+in localStorage (`session-restore`), and boots by intersecting it with the
+backend's live roster (`pty_list`): whatever is still running is re-adopted pane
+by pane and replayed — so an accidental reload (F5, a crash recovery) lands back
+inside the project instead of orphaning invisible agents behind a picker.
+Liveness is never persisted, only *read*: a **deliberate** leave (switching
+project, going back to the picker, closing the window — the shell intercepts the
+close via `onCloseRequested` and lets the window go only once its sessions are
+dealt with) first waits for each session to go idle (`whenSessionIdle` — the
+`ready` output-quiet signal, so nothing mid-flight is severed; the agent's own
+auto-save plus `/resume` cover continuity) and then kills its PTYs, which is
+exactly why nothing survives the next boot's intersection. The intersection is
+the whole safety story, so the snapshot is free to outlive the webview: an app
+restart kills every PTY, so a snapshot left behind by an earlier run matches
+nothing live and is cleared instead of resurrecting agents the user meant to
+end. It must outlive it, because a crashed window is rebuilt with a *fresh*
+webview — sessionStorage went with the old one, and the record of which sessions
+the window owned went with it.
 
 The backend leans on that same seam for **`WebView2` crash auto-recovery**
 (`recovery.rs`): each window's frontend arms it on boot via `recovery_arm`
