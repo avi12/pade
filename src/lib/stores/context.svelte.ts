@@ -287,11 +287,22 @@ export function measuredContextPercentage(id: string): number | null {
   });
 }
 
+/** Is this session's context window established — the denominator every
+ *  agent-vouched reading needs? Until it is, {@link measuredContextPercentage}
+ *  answers null however many tokens the agent has reported, and auto-handoff
+ *  stays disarmed. The out-of-band seed below is the only source when the agent
+ *  prints no window banner, and it can only answer once the agent has recorded
+ *  its model on disk — so its caller re-attempts while this is false. */
+export function contextWindowKnown(id: string): boolean {
+  return (signals.get(id)?.windowTokens ?? null) !== null;
+}
+
 /** Seed a session's context window from an out-of-band source — the model's
  *  advertised window, looked up online — when the agent's own `(N context)`
  *  banner never reached the parser (a re-attached session whose banner was
- *  trimmed from the replay). Never overrides a window the banner DID supply, so
- *  a live reading always wins. */
+ *  trimmed from the replay, or an agent that stopped printing one at all).
+ *  Never overrides a window the banner DID supply, so a live reading always
+ *  wins. */
 export function seedContextWindow({ id, windowTokens }: {
   id: string;
   windowTokens: number;

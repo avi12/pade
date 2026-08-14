@@ -16,7 +16,13 @@
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { dropContext, observeContext, observeContextScreen, seedContextWindow } from "@/lib/stores/context.svelte";
+  import {
+    contextWindowKnown,
+    dropContext,
+    observeContext,
+    observeContextScreen,
+    seedContextWindow
+  } from "@/lib/stores/context.svelte";
   import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
@@ -33,7 +39,7 @@
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
 
   const {
     session, active = false, shown = true, removable = false,
@@ -254,13 +260,36 @@
     await writeToPty(colorSchemeReport(appearance.scheme));
   }
 
-  // Recover the context window from the session's model when its startup banner
-  // isn't in the replay (a long re-attached session). The backend reads the model
-  // off disk and sizes it from the live models.dev catalog. `seedContextWindow`
-  // never overrides a window the banner did supply, so a fresh session's live
-  // reading always wins. On any failure the window simply stays unknown — the
-  // gauge reads "measuring…", never a wrong number.
+  // Recover the context window from the session's model when the agent's own
+  // banner never supplies one. The backend reads the model off disk and sizes it
+  // from the live models.dev catalog. `seedContextWindow` never overrides a
+  // window the banner did supply, so a live reading always wins. On any failure
+  // the window simply stays unknown — the gauge reads "measuring…", never a
+  // wrong number.
+  //
+  // This has to be RE-ATTEMPTED, not fired once at mount, and that is the whole
+  // reason auto-handoff silently never armed on a fresh Claude session. The
+  // window is no longer in the banner at all (2.1.227 prints "Fable 5 with xhigh
+  // effort · Claude Max", where it once printed "Opus 4.8 (1M context)"), so the
+  // model lookup is the ONLY source — and the model is read from Claude's own
+  // session log, which carries no `"model"` field until its first assistant turn
+  // has been written. A mount-time attempt therefore always lands too early on a
+  // fresh session, leaves the window null, and `measuredContextPercentage` — the
+  // one signal auto-handoff may act on — answers null for the rest of that
+  // session's life. It came good only if the component happened to remount later
+  // (an HMR reload), which is exactly how the bug was reported.
+  let seedingContextWindow = false;
+
+  function contextWindowStillNeeded(): boolean {
+    return !seedingContextWindow && !contextWindowKnown(session.id);
+  }
+
   async function seedContextWindowFromModel() {
+    if (!contextWindowStillNeeded()) {
+      return;
+    }
+
+    seedingContextWindow = true;
     try {
       const windowTokens = await pty.contextWindow({
         command: session.agent.command,
@@ -274,6 +303,8 @@
       }
     } catch {
     // Leave the window unknown; a guessed number could end a session wrongly.
+    } finally {
+      seedingContextWindow = false;
     }
   }
 
@@ -514,6 +545,21 @@
       id: session.id,
       status
     });
+  });
+
+  // Keep asking for the context window until the answer exists (see
+  // seedContextWindowFromModel). A session settling back to `ready` is the event
+  // to hang this off: the agent has just finished a turn, which is exactly when
+  // it has recorded the model this lookup reads — where a mount-time attempt is
+  // always too early on a fresh session. Untracked so the effect follows the
+  // status alone: the context store it reads is rewritten on every chunk of
+  // output, and subscribing to that would re-run this per chunk.
+  $effect(() => {
+    if (status !== SessionStatus.enum.ready) {
+      return;
+    }
+
+    untrack(seedContextWindowFromModel);
   });
 
   // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.
@@ -1633,10 +1679,6 @@
 
     pendingChunks.length = 0;
     replayed = true;
-
-    // Fill the context window from the model if the replay's banner didn't (a
-    // long re-attached session); the seed no-ops when the banner already set it.
-    seedContextWindowFromModel();
 
     if (history.alternate) {
       repaintAgent();
