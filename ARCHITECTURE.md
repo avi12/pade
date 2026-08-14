@@ -226,6 +226,35 @@ conversation off the top and left the pane full of dead space.
 `docs/terminal-rendering.md` has the measurements and the approaches that were
 tried and rejected.
 
+### Right-to-left text sits on top of the grid, not inside it
+
+A terminal cell holds one glyph and a grid is ordered left to right, so Arabic and
+Hebrew break both halves of that: their letters *join* into different forms depending
+on their neighbours, and they read the other way. xterm paints them cell by cell —
+disconnected, and backwards (`מידע נוסף` comes out `ףסונ עדימ`).
+
+ADE does not rewrite the stream to fix this, and does not reshape or reorder a single
+character itself. The buffer keeps exactly what the agent wrote, and an **overlay**
+(`TerminalRtl`) draws the right-to-left parts on top, handing each one to the browser
+as a single string so its own bidi algorithm and OpenType shaping do the work.
+
+Two decisions carry it:
+
+- **Runs, not lines.** Only the columns that actually read right to left are covered
+  (`terminal-rtl`), anchored to exactly those cells. A whole-line overlay would drag a
+  TUI's box borders and aligned columns off the grid with it; a run leaves every other
+  pixel as xterm painted it, and a frame glyph ends a run so a border is never swept
+  into one.
+- **Nothing downstream sees it.** The overlay is `pointer-events: none` and
+  `aria-hidden`, so selection, links, clicks, the copied text, the context parser and
+  the accessibility tree all still read the agent's own logical order. Reordering the
+  *stream* instead — the obvious approach, and the one a VS Code extension has to take —
+  would corrupt every one of those, and cannot work on the alternate screen at all,
+  which is where ADE's agents live.
+
+Cost when there is no such text: one string and one regex per visible row, and not even
+that until a session has printed a right-to-left character at least once.
+
 ### Opening a project in an editor
 
 "Open in editor" forks on **how the editor runs**. A GUI editor (VS Code,
@@ -290,6 +319,7 @@ responsibility, and who it collaborates with.
 | `src/lib/commitModal/DiffPane.svelte` | Path bar + the selected file's diff with loading / failed / large-file states (presentation only) | `DiffView` |
 | `src/lib/DiffView.svelte` | The one renderer for a parsed diff, unified or split — line washes, hunk headers, a per-side old/new line-number gutter (tabular, unselectable), `data-newline` hooks; every line prints in full (long lines wrap, never clip or side-scroll); callers own the scroll container and interactivity | `diff`, `ColorText`; used by `ChangeFeed`, `vcs/ChangesSection`, `commitModal/DiffPane` |
 | `src/lib/ConfirmDialog.svelte` | Shared in-app confirmation prompt (native `<dialog>`): destructive prompt with caller-owned busy + error states — replaces the OS popup. Two shells around one card: the default modal `showModal()`, or — with `nested` — a `<dialog>`-as-popover opened inside an already-open menu popover, so that menu stays visible (dimmed) behind it instead of being force-closed (`showModal()` closes every open popover) | `Icon` |
+| `src/lib/TerminalRtl.svelte` | The right-to-left overlay for one terminal: reads the runs `terminal-rtl` marks out of xterm's buffer and draws each one over exactly the cells it covers, as a single string the browser shapes and reorders itself. Cell-anchored, not line-anchored, so everything around a run stays pixel-identical to what xterm painted; colours resolve through the same ANSI tokens as xterm's palette, so it follows a scheme flip. Latched off until its session has actually printed right-to-left text, and `pointer-events: none` throughout — selection, links, clicks, copied text and every output parser still see xterm's own logical-order buffer | `terminal-rtl`, `terminal-theme`, `Terminal` |
 | `src/lib/SessionBadge.svelte`, `Icon`, `Logo`, `BrandMark`, `ColorText` | Small presentational atoms | — |
 
 ## Frontend — extracted concerns (logic modules)
@@ -334,6 +364,7 @@ responsibility, and who it collaborates with.
 | `src/lib/terminal-links.ts` | Clickable-URL link provider for xterm: rejoins soft-wrapped (`isWrapped`), hard-wrapped (a full row → glyph at column 0), and **self-wrapped** (upper row ends mid-URL, lower row resumes it — a fullscreen agent wrapping at a content width narrower than a wide terminal) rows so a wrapped URL hovers/activates in full instead of truncating. **Promoted above xterm's built-in OSC-8 provider** (xterm picks the lowest-index provider under the cursor; an agent that emits a URL as an OSC-8 hyperlink — Claude, OpenCode — would otherwise get that provider's agent-tagged range: a single self-wrapped row, or the wrapping parens) so the regex-parsed range wins for URL-shaped links; labelled OSC-8 links fall through to the built-in provider. A wrapped URL is returned as **one link per row** (a tight single-row range hugging that row's glyphs, all carrying the full URL text and its full span list) — a single multi-row range would make xterm treat the blank padding a self-wrapping agent leaves before the wrap as part of the link (clickable, and edge-filled by the built-in underline). The built-in underline is turned off (`decorations.underline`); on hover the provider **paints its own underline** (`.terminal-link-underline` divs appended into the xterm screen, positioned from cell geometry) over **every** span, so hovering any part underlines the whole URL tightly — no edge padding, and consistent over an agent's own SGR link styling. The self-wrap continuation test is **shape-agnostic**: it joins the two rows and asks whether a URL match crosses the seam (never inspecting how the upper row ends, which the pattern's trailing-punctuation trim makes unreliable for hosts like `…greenhouse.`), so it holds for host-only / `localhost` / IPv6 `[::1]` / IP / port / fragment URLs. The seam test runs against the whole growing window (not just the adjacent row) and walks up through a URL's scheme-less inner rows, so a URL wrapped across **three or more** rows rejoins whole from a hover on any of them. Both behaviours are pinned by a property test that splits a URL-shape corpus (incl. `%XX` escapes, `?`/`&`) at every wrap position. URL pattern / validity / cell back-mapping ported from `@xterm/addon-web-links` | `Terminal` |
 | `src/lib/terminal-theme.ts` | Pure design-tokens → xterm theme mapping, every color converted to parse-safe hex (`xtermSafeColor`: modern `hsl()` → `#rrggbb[aa]` — xterm's own parser silently drops any non-opaque color outside `#hex`/legacy `rgb()`, which lost the alpha selection token). Keeps the terminal surface truthful to PADE's scheme — for the user's eyes. A running agent never follows this palette through the protocol on Windows: the OSC 11 answer that would carry it never crosses ConPTY in either direction, so `Terminal`'s DECSET 2031 `?997` relay stays (documented, harmless) but moves nothing. What moves a live Claude is its watched theme definition, rewritten by `theming.rs` | `Terminal`, `terminal-color-scheme` |
 | `src/lib/terminal-output.ts` | Pure terminal-paint budget policy: a shown terminal in the focused window flushes on the next animation frame; hidden or unfocused terminals use the bounded background cadence | `Terminal` |
+| `src/lib/terminal-rtl.ts` | Pure right-to-left segmentation: which COLUMNS of a row read right to left (Arabic, Hebrew, Syriac, Thaana, N'Ko, Adlam — matched by Unicode Script property, not a hand-kept range table), split into the styled spans and caret/selection boundaries the overlay draws. Runs end at a strong left-to-right letter and at a **frame glyph** (box drawing / geometric shapes / Powerline), so a TUI's borders are never swept into a reordered run; interior neutrals stay inside a run (prose) up to a padding-width gap (a table column). Reshapes and reorders nothing — the browser owns the bidi algorithm and the shaping | `TerminalRtl`, `Terminal` |
 | `src/lib/settings.svelte.ts` | One DOM-free reactive frontend authority for the full backend `Settings` value and its stable `prefs` view. Every settings-bearing bridge response is versioned and adopted by replacement here, so App and ProjectPicker only read this store | `App`, `ProjectPicker`, `bridge`, `prefs.svelte` |
 | `src/lib/prefs.svelte.ts` | Effective preference defaults and browser appearance application; preference writes are queued field patches through the bridge and every adopted settings response triggers appearance reapplication | `App`, panels, `settings.svelte` |
 | `src/lib/prefs-bounds.ts` | The one home for preference numeric bounds (side-panel width min/max/default/max-fraction, UI-scale min/max/step). A plain leaf module so the `Prefs` zod schema (`types`), the Config stepper, and App's side-panel clamp all validate against the same numbers instead of re-spelling them | `types`, `prefs.svelte`, `ConfigPanel`, `App` |

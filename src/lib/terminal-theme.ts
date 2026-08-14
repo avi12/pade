@@ -50,6 +50,40 @@ export const ANSI_COLOR_TOKENS = [
   "--terminal-bright-white"
 ] as const;
 
+// The 240 slots above the 16 named ones are not a palette anyone chose — they are
+// a formula every terminal computes the same way: a 6×6×6 colour cube, then a
+// 24-step grey ramp. Spelling them out as a table would be 240 magic numbers.
+const COLOR_CUBE_FIRST = 16;
+const COLOR_CUBE_SIDE = 6;
+/** The six levels a cube channel can take — deliberately not linear; this is the
+ *  ramp xterm and every other terminal use. */
+const COLOR_CUBE_LEVELS = [0, 95, 135, 175, 215, 255] as const;
+const GREY_RAMP_FIRST = 232;
+const GREY_RAMP_BASE = 8;
+const GREY_RAMP_STEP = 10;
+
+/** An ANSI colour index as a CSS colour. The first 16 resolve through the design
+ *  tokens ({@link ANSI_COLOR_TOKENS}) so they follow the app's light/dark scheme
+ *  exactly as xterm's own palette does; the rest are the standard 256-colour
+ *  formula, which is scheme-independent by definition. */
+export function ansiPaletteColor({ index }: { index: number }): string {
+  const token = ANSI_COLOR_TOKENS[index];
+  if (token) {
+    return `var(${token})`;
+  }
+
+  if (index >= GREY_RAMP_FIRST) {
+    const level = GREY_RAMP_BASE + (index - GREY_RAMP_FIRST) * GREY_RAMP_STEP;
+    return `rgb(${level} ${level} ${level})`;
+  }
+
+  const offset = index - COLOR_CUBE_FIRST;
+  const red = COLOR_CUBE_LEVELS[Math.floor(offset / (COLOR_CUBE_SIDE * COLOR_CUBE_SIDE)) % COLOR_CUBE_SIDE];
+  const green = COLOR_CUBE_LEVELS[Math.floor(offset / COLOR_CUBE_SIDE) % COLOR_CUBE_SIDE];
+  const blue = COLOR_CUBE_LEVELS[offset % COLOR_CUBE_SIDE];
+  return `rgb(${red} ${green} ${blue})`;
+}
+
 /** xterm's 16 ANSI theme slots, in the same order as {@link ANSI_COLOR_TOKENS}. */
 const ANSI_THEME_KEYS = [
   "black",

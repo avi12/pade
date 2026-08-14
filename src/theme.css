@@ -119,6 +119,13 @@
   --font-ui: var(--font-ui-base);
   --font-monospace: var(--font-monospace-base);
 
+  /* Appended after the monospace stack for right-to-left text (lib/TerminalRtl).
+     Programming fonts carry no Arabic or Hebrew at all, so those runs would fall
+     back to whatever the platform picked — naming the faces keeps a terminal's
+     Arabic legible and consistent instead of leaving it to chance. Installed
+     with the OS, so nothing is fetched at runtime. */
+  --font-rtl-fallback: "Segoe UI", "Noto Sans Arabic", "Noto Sans Hebrew", "Tahoma", sans-serif;
+
   /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
      still tracks the user's browser zoom (1rem), and --ui-scale (set from the
      uiScale pref in lib/prefs) is the user's zoom knob. rem/em-sized UI and

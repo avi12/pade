@@ -32,8 +32,10 @@
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { terminalFlushMode, TerminalFlushMode, wheelScrollsTerminalDocument } from "@/lib/terminal-output";
+  import { containsRtl } from "@/lib/terminal-rtl";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
   import { xtermTheme } from "@/lib/terminal-theme";
+  import TerminalRtl from "@/lib/TerminalRtl.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -117,11 +119,25 @@
     data: string;
     settle: () => void;
   }> = [];
-  // The terminal exists and is attached — reactive, so the focus effect below can
-  // wait for it (the terminal is built inside an async onMount, well after the
-  // first effects have already run).
-  let attached = $state(false);
+  // The terminal once it is built and attached — reactive, so the effects below
+  // (and the right-to-left overlay) can wait for it, since it is created inside
+  // an async onMount long after the first effects have run. Its presence IS
+  // "attached": one value rather than a flag kept beside it.
+  let attachedTerminal = $state<Terminal | undefined>();
   let windowFocused = $state(document.hasFocus());
+  // This session has printed right-to-left text at least once, so its rows are
+  // worth scanning (see lib/TerminalRtl). A latch, never unset: the text stays in
+  // the scrollback. Until it flips, an English-only session does no scanning and
+  // renders no overlay at all.
+  let rightToLeftSeen = $state(false);
+  /** This pane holds the keyboard, so its cursor is the live one. */
+  const keyboardHere = $derived(active && windowFocused);
+
+  function watchForRightToLeft(text: string) {
+    if (!rightToLeftSeen && containsRtl(text)) {
+      rightToLeftSeen = true;
+    }
+  }
   // xterm's DOM renderer is the remaining output hot path. Join token-sized PTY
   // chunks before writing: one write per display frame in front, and a bounded
   // live cadence in the background so another app never competes with dozens of
@@ -611,8 +627,8 @@
   // agent button in onboarding) and the agent looks like it is ignoring you: you
   // have to click into the pane before it will hear a single key.
   $effect(() => {
-    if (active && attached) {
-      terminal.focus();
+    if (active && attachedTerminal) {
+      attachedTerminal.focus();
     }
   });
 
@@ -627,8 +643,8 @@
     windowFocused = true;
     scheduleTerminalOutputFlush();
 
-    if (active && attached && !isEditingText(document.activeElement)) {
-      terminal.focus();
+    if (active && attachedTerminal && !isEditingText(document.activeElement)) {
+      attachedTerminal.focus();
     }
   }
 
@@ -649,11 +665,11 @@
   // not need a cursor-blink paint loop or foreground output cadence until the
   // user can see it again.
   $effect(() => {
-    if (!attached) {
+    if (!attachedTerminal) {
       return;
     }
 
-    terminal.options.cursorBlink = shown && windowFocused;
+    attachedTerminal.options.cursorBlink = shown && windowFocused;
     scheduleTerminalOutputFlush();
   });
 
@@ -1199,7 +1215,7 @@
       }
     });
     terminal.open(host);
-    attached = true;
+    attachedTerminal = terminal;
 
     // Make URLs in the output clickable — the agent's OAuth sign-in links, docs
     // pointers. xterm's stock web-links addon only rejoins soft-wrapped rows, so
@@ -1243,6 +1259,7 @@
 
       queueTerminalOutput(chunk.data);
       relayColorSchemeAfterSubscribe(chunk.data);
+      watchForRightToLeft(chunk.data);
       markActivity();
       // Track how full this agent's context window is (drives auto-handoff).
       // Only on the normal screen: a fullscreen agent repaints its whole frame
@@ -1643,6 +1660,7 @@
 
       terminal.write(history.data);
       relayColorSchemeAfterSubscribe(history.data);
+      watchForRightToLeft(history.data);
       // The replayed history holds the spawn-time banner (window size) and the
       // latest counters a fresh attach would otherwise never see — parse-only,
       // never the byte estimate: these are replayed bytes, not new output.
@@ -1749,7 +1767,13 @@
   </header>
   <div class="terminal-padding">
     <div bind:this={viewport} class="terminal-viewport" class:anchor-bottom={anchorBottom}>
-      <div bind:this={host} style:scale={`1 ${squeeze}`} class="terminal-host"></div>
+      <div bind:this={host} style:scale={`1 ${squeeze}`} class="terminal-host">
+        <TerminalRtl
+          enabled={rightToLeftSeen}
+          focused={keyboardHere}
+          terminal={attachedTerminal}
+        />
+      </div>
     </div>
   </div>
 </div>
@@ -1842,6 +1866,7 @@
        moving the text you are reading. At rest the scale is exactly 1: text stays crisp
        and clicks map at native cell size. */
     .terminal-host {
+      position: relative; /* the containing block for the right-to-left overlay */
       flex: none;
       transform-origin: top left;
     }

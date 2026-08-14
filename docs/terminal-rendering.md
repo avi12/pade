@@ -250,6 +250,67 @@ exactly **1** the moment the agent catches up. Every settled state is unscaled, 
 text is crisp and clicks map true; the scale exists only in the moments the agent is
 behind, and it is what stops the lag being visible at all.
 
+## Right-to-left text: an overlay, never the stream
+
+Arabic and Hebrew break the two things a terminal grid assumes — one glyph per cell,
+and left to right. Their letters join into initial/medial/final forms depending on
+neighbours, and they read the other way, so xterm paints them disconnected and
+backwards. Measured in the live app, Claude Code printed `מידע נוסף` as `ףסונ עדימ`.
+
+**The stream is not the place to fix it.** The obvious design — reshape and reorder
+the PTY bytes on the way in (what `ar-terminal` does for VS Code, and what an
+extension has no other choice about) — is wrong *here*, for reasons that are specific
+to what ADE does with its buffer:
+
+- It bails on the **alternate screen**, which is where ADE's agents live. A fullscreen
+  TUI addresses cells by column; reordering its output moves text out from under its
+  own cursor arithmetic.
+- Everything downstream reads the buffer: `getSelection` (the copied text), the link
+  provider, the context parser, the choice-prompt and usage sniffers. Reordered bytes
+  corrupt all of them at once — a user would copy visually-ordered gibberish.
+- It requires hand-rolling the bidi algorithm and Arabic shaping tables. The browser
+  already has both, correct and maintained.
+
+So: the buffer keeps the agent's own logical order, and an overlay draws over it.
+
+**Runs, not lines.** `lib/terminal-rtl` marks only the columns that read right to left,
+and `lib/TerminalRtl` positions one box over exactly those cells. A whole-line overlay
+(the `ar-terminal` shape) re-renders the entire row proportionally, which drags a TUI's
+box borders and aligned columns off the grid. Two rules keep a run honest:
+
+- a **frame glyph** (box drawing, geometric shapes, Powerline) ends a run — the bidi
+  algorithm calls those neutral and would happily reorder a border into the middle of
+  a sentence. Measured: `│ عربي داخل صندوق │` renders with both borders at their exact
+  columns and the Arabic joined and reordered between them.
+- interior neutrals stay *inside* a run up to a padding-width gap. A single space is
+  prose — splitting there would reorder each word on its own and the sentence would
+  read backwards — while a wide gap is an agent aligning a table, where joining would
+  let one column's text slide into the next.
+
+Three things to know before changing it:
+
+- **Position the run box with physical `top`/`left`.** The box is itself
+  `direction: rtl`, and logical insets resolve against the box's own direction — as
+  `inset-inline-start` every run measured from the pane's *right* edge and stacked
+  there instead of over its cells. A cell grid has no writing mode: column 0 is the
+  leftmost cell whatever is printed in it.
+- **The caret and the selection are markers between spans, not measured x positions.**
+  A logical column means nothing once a line has been reordered, so the run's text is
+  split at those boundaries and the browser lays them out with the text. No
+  measurement exists to disagree with the glyphs.
+- **Every span boundary is a broken join.** Arabic does not shape across an element
+  boundary, so the run is split only where the styling genuinely changes (and at the
+  caret/selection edges). Don't split per cell — that is the disconnected rendering
+  this exists to fix.
+
+Programming fonts carry no Arabic or Hebrew at all, so the overlay appends
+`--font-rtl-fallback` (theme.css) after the terminal stack rather than leaving the
+platform to pick.
+
+Cost when a session has no such text: one `translateToString` and one regex per visible
+row — and not even that until the session has printed a right-to-left character once
+(`rightToLeftSeen` latches off the PTY stream, so an English-only session never scans).
+
 ## Attaching to a session already in flight
 
 A PTY has no scrollback of its own, so a terminal that mounts onto a running session —
