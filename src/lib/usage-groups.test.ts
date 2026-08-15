@@ -1,6 +1,12 @@
 import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
-import { buildGroups, buildKindLegend, findSpotlight, severityBreakdown } from "@/lib/usage-groups";
+import {
+  buildGroups,
+  buildKindLegend,
+  findSpotlight,
+  severityBreakdown,
+  usageResetTime
+} from "@/lib/usage-groups";
 import type { Level, SeveritySlice } from "@/lib/usage-groups";
 import { describe, expect, it } from "vitest";
 
@@ -469,5 +475,25 @@ describe("panel view-model skips unknown agents", () => {
     const legend = buildKindLegend(groups);
 
     expect(legend.map(entry => entry.short)).toEqual(["S", "W", "O"]);
+  });
+});
+
+describe("usageResetTime", () => {
+  it("parses a reset time, trimming the endpoint's microseconds", () => {
+    expect(usageResetTime("2026-08-15T09:30:00.123456Z"))
+      .toBe(Date.parse("2026-08-15T09:30:00.123Z"));
+  });
+
+  // `resetsAt` is nullish — a vendor states a reset only when it knows one — and
+  // this used to throw on the absent cases. Thrown from an effect, that took the
+  // whole effect batch with it and left a mounting terminal stuck at "Starting…".
+  it("answers NaN for a reset time the vendor never gave, instead of throwing", () => {
+    expect(usageResetTime(null)).toBeNaN();
+    expect(usageResetTime(undefined)).toBeNaN();
+    expect(usageResetTime("")).toBeNaN();
+  });
+
+  it("answers NaN for an unparseable reset time", () => {
+    expect(usageResetTime("whenever")).toBeNaN();
   });
 });

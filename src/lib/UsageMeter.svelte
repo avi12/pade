@@ -138,7 +138,7 @@
     const resetTimes = [...accounts.values()]
       .flatMap(account => account?.windows ?? [])
       .map(window => window.resetsAt)
-      .filter((value): value is string => value !== undefined)
+      .filter((value): value is string => Boolean(value))
       .map(value => ({
         value,
         time: usageResetTime(value)

@@ -72,7 +72,19 @@ function clamp(value: number): number {
 
 // Normalize the endpoint's microsecond timestamps to ms so every engine parses
 // them identically — otherwise the countdown can drift.
-export function usageResetTime(iso: string): number {
+//
+// Total by construction: a window's `resetsAt` is `nullish` (the vendor states a
+// reset time only when it knows one), so this takes the absent cases too and
+// answers NaN, which every caller already filters through `Number.isFinite`.
+// It used to demand a `string`, and one caller's filter excluded `undefined` but
+// not `null` — the null reached `.replace` and threw *inside an effect*, which
+// takes the whole effect batch down with it: a terminal mounting in the same
+// flush never got its xterm and sat at "Starting…" forever.
+export function usageResetTime(iso: string | null | undefined): number {
+  if (!iso) {
+    return Number.NaN;
+  }
+
   return new Date(iso.replace(/(\.\d{3})\d+/, "$1")).getTime();
 }
 
