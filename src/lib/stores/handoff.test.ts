@@ -163,7 +163,8 @@ describe("pickSuccessor", () => {
     return {
       id,
       label: id,
-      command: id
+      command: id,
+      reordersBidi: false
     };
   }
 
@@ -216,12 +217,14 @@ describe("pickHandoffSuccessor", () => {
   const claude: Agent = {
     id: "claude",
     label: "Claude Code",
-    command: "claude"
+    command: "claude",
+    reordersBidi: true
   };
   const codex: Agent = {
     id: "codex",
     label: "Codex",
-    command: "codex"
+    command: "codex",
+    reordersBidi: false
   };
 
   it("pins a configuration handoff to the governed agent", async () => {
@@ -242,7 +245,8 @@ describe("createAutoHandoff", () => {
       agent: {
         id: "claude",
         label: "Claude Code",
-        command: "claude"
+        command: "claude",
+        reordersBidi: true
       },
       cwd: "C:/repositories/pade"
     };
@@ -303,7 +307,8 @@ describe("createAutoHandoff", () => {
       agent: {
         id: "claude",
         label: "Claude Code",
-        command: "claude"
+        command: "claude",
+        reordersBidi: true
       },
       cwd: "C:/repositories/pade"
     };

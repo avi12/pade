@@ -248,6 +248,10 @@ Two decisions carry it:
   that follows the phrase, since that number is reordered with it — and is laid out in
   the grid's own left-to-right base direction, so it starts at its first column instead
   of hanging off its last.
+- **Only for agents that write logical order.** Claude Code runs the bidi algorithm
+  over its own rows before writing them, so its output is already visual and
+  reordering it again reads backwards. `reorders_bidi` in the `agents.rs` registry
+  says which agents do this, and the terminal never turns the overlay on for them.
 - **Nothing downstream sees it.** The overlay is `pointer-events: none` and
   `aria-hidden`, so selection, links, clicks, the copied text, the context parser and
   the accessibility tree all still read the agent's own logical order. Reordering the

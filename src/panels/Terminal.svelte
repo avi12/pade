@@ -134,7 +134,14 @@
   const keyboardHere = $derived(active && windowFocused);
 
   function watchForRightToLeft(text: string) {
-    if (!rightToLeftSeen && containsRtl(text)) {
+    // An agent that reorders its own output has already done the browser's job,
+    // and doing it twice reads backwards — so for those the latch never flips and
+    // the overlay never exists (see `reordersBidi` in agents.rs).
+    if (rightToLeftSeen || session.agent.reordersBidi) {
+      return;
+    }
+
+    if (containsRtl(text)) {
       rightToLeftSeen = true;
     }
   }

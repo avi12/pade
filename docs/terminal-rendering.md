@@ -255,7 +255,19 @@ behind, and it is what stops the lag being visible at all.
 Arabic and Hebrew break the two things a terminal grid assumes — one glyph per cell,
 and left to right. Their letters join into initial/medial/final forms depending on
 neighbours, and they read the other way, so xterm paints them disconnected and
-backwards. Measured in the live app, Claude Code printed `מידע נוסף` as `ףסונ עדימ`.
+backwards.
+
+**First, find out who is doing the reordering.** This is the trap the whole feature
+fell into, and it costs a day: *correctly rendered* right-to-left text always looks
+reversed when you transcribe the glyphs left to right, because that is the order they
+sit in. `מידע נוסף` rendered correctly reads `ףסונ עדימ` off the screen — the same
+string you would write down if it were broken. **A screenshot cannot tell you which
+one you are looking at.** The only honest test is to compare two sources that cannot
+both be wrong: the terminal buffer's *code points*
+(`row.textContent`, escaped to `\uXXXX` so nothing can re-order them on the way out)
+against what the agent actually wrote (its own transcript in
+`~/.claude/projects/<slug>/<session-id>.jsonl`). If the buffer holds `ךו…`
+where the transcript holds `מת…`, the agent shipped visual order.
 
 **The stream is not the place to fix it.** The obvious design — reshape and reorder
 the PTY bytes on the way in (what `ar-terminal` does for VS Code, and what an
@@ -316,6 +328,44 @@ Three things to know before changing it:
 Programming fonts carry no Arabic or Hebrew at all, so the overlay appends
 `--font-rtl-fallback` (theme.css) after the terminal stack rather than leaving the
 platform to pick.
+
+### Claude Code already did it, so the overlay stands down
+
+Measured 2026-08-16 against 2.1.227: **Claude Code reorders its own right-to-left
+text before it writes it.** The buffer held `ךותמ`/`בלש` while the same session's
+transcript held `מתוך`/`שלב` — the CLI splits each row into per-character cells, runs
+`bidi-js` over the row with an **`auto`** paragraph direction, and reverses the cells
+by embedding level. In the binary:
+
+```js
+class BidiGate { needed; isNeeded(){ if (this.needed === undefined) this.needed = true; return this.needed } }
+function reorderCells(cells) {
+  if (!gate.isNeeded() || cells.length === 0) return cells;
+  const text = cells.map(c => c.value.replace(/[؜‪-‮⁦-⁩]/g, "�")).join("");
+  if (!/[֐-׿…܀-ݏ]/u.test(text)) return cells;
+  const { levels } = bidi.getEmbeddingLevels(text, "auto");
+  /* reverse runs of cells, level by level */
+}
+```
+
+Two consequences:
+
+- **`auto` is why a bullet flips.** The paragraph direction comes from the row's first
+  strong character, so `- <hebrew>: 11.01.2027` is laid out right-to-left as a whole:
+  the `- ` marker lands at the row's right edge and the date at its left. That is the
+  correct bidi result, and it is Claude's, not ours.
+- **There is no switch.** `isNeeded()` caches `true` and nothing in the bundle ever
+  assigns `false` — no env var, no setting, no terminal capability query. Do not go
+  looking for one again without re-checking the bundle first.
+
+So reordering it a second time is what put it back into logical order on screen, which
+is what a reader sees as backwards. `reorders_bidi` in the `agents.rs` registry marks
+these agents and `Terminal.svelte` never latches `rightToLeftSeen` for them — the
+overlay is not merely hidden, it never exists. The cost is Arabic *shaping* in Claude
+sessions: the letters are in the right order but unjoined, because un-reversing them to
+shape and re-reversing to place is a bidi implementation of our own, which is exactly
+what this design refuses to own. Every other agent, and any shell, still gets the
+overlay.
 
 Cost when a session has no such text: one `translateToString` and one regex per visible
 row — and not even that until the session has printed a right-to-left character once

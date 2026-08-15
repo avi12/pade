@@ -22,7 +22,8 @@ function makeSession({ agentId, label, sessionId }: {
     agent: {
       id: agentId,
       label: label ?? agentId,
-      command: agentId
+      command: agentId,
+      reordersBidi: false
     }
   };
 }

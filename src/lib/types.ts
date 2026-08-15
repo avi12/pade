@@ -150,7 +150,13 @@ export type ConfigFile = z.infer<typeof ConfigFile>;
 export const Agent = z.object({
   id: z.string(),
   label: z.string(),
-  command: z.string()
+  command: z.string(),
+  /** This CLI applies the bidi algorithm to its own output, so what reaches the
+   *  terminal is already in visual order and must be painted, not reordered again
+   *  (agents.rs owns which ones — the terminal's right-to-left overlay reads it).
+   *  Defaulted rather than required: a session persisted before the field existed
+   *  still parses, and "no" is the safe answer for an unknown agent. */
+  reordersBidi: z.boolean().default(false)
 });
 export type Agent = z.infer<typeof Agent>;
 

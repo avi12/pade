@@ -69,6 +69,21 @@ struct AgentDefinition {
     /// the scheme is light. `true` for Codex; `false` for CLIs whose box follows a
     /// config/env theme (Claude, aider, cursor) or that inherit the palette.
     needs_light_console_fix: bool,
+    /// Whether this CLI runs the Unicode bidirectional algorithm over its OWN
+    /// output, so the Arabic and Hebrew that reaches the terminal is already in
+    /// **visual** order rather than the logical order a program normally writes.
+    ///
+    /// It inverts what the terminal must do. ADE's right-to-left overlay
+    /// (`lib/terminal-rtl`) hands a run to the browser and lets it reorder —
+    /// correct for every program that writes logical order, and exactly wrong
+    /// here, because reordering already-reordered text puts it back the way it
+    /// started and the reader sees the sentence backwards. So the overlay is not
+    /// drawn for these agents: their output is already right, and the terminal's
+    /// job is to paint it cell for cell.
+    ///
+    /// Measured, never assumed — the running app's buffer read against the
+    /// agent's own transcript (see `docs/terminal-rendering.md`).
+    reorders_bidi: bool,
 }
 
 /// The PADE-owned Claude theme. Claude Code watches its user theme directory and
@@ -162,6 +177,12 @@ const REGISTRY: &[AgentDefinition] = &[
         env: &[],
         // Claude's box follows its `theme` settings key, not the terminal probe.
         needs_light_console_fix: false,
+        // Claude Code reorders its own Arabic and Hebrew before it writes them:
+        // it splits each row into cells, runs bidi-js over the row with an `auto`
+        // paragraph direction, and reverses the cells by embedding level. Measured
+        // on 2.1.227 — unconditional, and the gate it consults has no path that
+        // answers no, so nothing ADE can pass turns it off.
+        reorders_bidi: true,
     },
     AgentDefinition {
         id: ID_CODEX,
@@ -247,6 +268,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // clashes and no clean channel can fix it. `pty.rs` forces the console
         // buffer light before Codex probes it (Windows + light scheme only).
         needs_light_console_fix: true,
+        reorders_bidi: false,
     },
     AgentDefinition {
         id: ID_OPENCODE,
@@ -287,6 +309,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // still paint from the console buffer — so a light ADE keeps the
         // console-buffer flip (like Codex) to stop dark flashes on reflow.
         needs_light_console_fix: true,
+        reorders_bidi: false,
     },
     AgentDefinition {
         id: ID_COPILOT,
@@ -320,6 +343,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
+        reorders_bidi: false,
     },
     AgentDefinition {
         id: ID_GROK,
@@ -340,6 +364,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
+        reorders_bidi: false,
     },
     AgentDefinition {
         id: ID_ANTIGRAVITY,
@@ -357,6 +382,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
+        reorders_bidi: false,
     },
     AgentDefinition {
         id: ID_CURSOR,
@@ -377,6 +403,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
+        reorders_bidi: false,
     },
     AgentDefinition {
         id: ID_AIDER,
@@ -396,6 +423,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_id_flag: None,
         env: &[],
         needs_light_console_fix: false,
+        reorders_bidi: false,
     },
 ];
 
@@ -484,6 +512,10 @@ pub struct Agent {
     id: String,
     label: String,
     command: String,
+    /// Carried to the frontend because the TERMINAL is what has to act on it —
+    /// the right-to-left overlay stands down for an agent that has already
+    /// reordered its own output.
+    reorders_bidi: bool,
 }
 
 /// Every installed agent backend. The shell fallback is appended so the list is
@@ -510,6 +542,7 @@ fn detect_installed() -> Vec<Agent> {
             id: agent.id.into(),
             label: agent.label.into(),
             command: agent.command.into(),
+            reorders_bidi: agent.reorders_bidi,
         })
         .collect();
 
@@ -522,6 +555,8 @@ fn detect_installed() -> Vec<Agent> {
         id: "shell".into(),
         label: "Terminal (shell)".into(),
         command: shell.into(),
+        // A shell writes whatever the program it runs writes: logical order.
+        reorders_bidi: false,
     });
     found
 }
@@ -530,7 +565,7 @@ fn detect_installed() -> Vec<Agent> {
 mod tests {
     use super::{
         installed_names, needs_light_console_fix, oneshot_invocation, session_args,
-        session_id_flag, spawn_env, theme_config,
+        session_id_flag, spawn_env, theme_config, REGISTRY,
     };
     use crate::theming::ThemeConfig;
 
@@ -669,5 +704,20 @@ mod tests {
         assert!(needs_light_console_fix("opencode"));
         // Installed under its own name only — no installer aliases.
         assert_eq!(installed_names("opencode"), vec!["opencode"]);
+    }
+
+    #[test]
+    fn only_claude_is_known_to_reorder_its_own_right_to_left_text() {
+        // Measured on 2.1.227: Claude Code runs the bidi algorithm over each row
+        // before writing it, so the terminal must paint that row, not reorder it
+        // again. Every other entry writes logical order like a normal program —
+        // and an unknown command answers no, which is the safe way round: the
+        // overlay reorders, which is right for logical order.
+        let reorders: Vec<&str> = REGISTRY
+            .iter()
+            .filter(|agent| agent.reorders_bidi)
+            .map(|agent| agent.command)
+            .collect();
+        assert_eq!(reorders, vec!["claude"]);
     }
 }

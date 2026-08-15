@@ -5,12 +5,14 @@ import { describe, expect, it } from "vitest";
 const claude = {
   id: "claude",
   label: "Claude Code",
-  command: "claude"
+  command: "claude",
+  reordersBidi: true
 };
 const codex = {
   id: "codex",
   label: "Codex",
-  command: "codex"
+  command: "codex",
+  reordersBidi: false
 };
 
 function session(overrides: Partial<AgentSession> & { id: string }): AgentSession {

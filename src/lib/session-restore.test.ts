@@ -51,7 +51,8 @@ function session(id: string, extra: Partial<AgentSession> = {}): AgentSession {
     agent: {
       id: "claude",
       label: "Claude Code",
-      command: "claude"
+      command: "claude",
+      reordersBidi: true
     },
     ...extra
   };

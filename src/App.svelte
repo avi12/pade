@@ -1866,7 +1866,9 @@
                 agent: {
                   id: `editor-${editor.id}`,
                   label: editor.label,
-                  command: editor.command
+                  command: editor.command,
+                  // A terminal editor writes logical order like any other program.
+                  reordersBidi: false
                 },
                 // Inherit the active session's worktree, if any, else the project dir.
                 cwd: sessions.find(session => session.id === activeId)?.cwd,
