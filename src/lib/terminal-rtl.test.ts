@@ -109,6 +109,20 @@ describe("rtlRuns", () => {
     ]);
   });
 
+  it("carries a number the phrase pulls along with it", () => {
+    expect(columnsOf("מועד: 11.01.2027")).toEqual([{
+      startColumn: 0,
+      endColumn: 16
+    }]);
+  });
+
+  it("leaves a number that comes before any right-to-left text alone", () => {
+    expect(columnsOf("2027 עדכון")).toEqual([{
+      startColumn: 5,
+      endColumn: 10
+    }]);
+  });
+
   it("finds nothing in a row with no right-to-left text", () => {
     expect(columnsOf("● Read 90 lines")).toEqual([]);
   });

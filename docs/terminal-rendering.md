@@ -286,14 +286,24 @@ box borders and aligned columns off the grid. Two rules keep a run honest:
   prose — splitting there would reorder each word on its own and the sentence would
   read backwards — while a wide gap is an agent aligning a table, where joining would
   let one column's text slide into the next.
+- a **digit continues a run but cannot open one**. Digits are *weak* in the bidi
+  algorithm: a number that follows right-to-left text is carried along and reordered
+  with it, so leaving `11.01.2027` out of the run that ends at `ביותר` left the phrase
+  reading one way and the date it belongs to sitting at the row's other end. A number
+  with nothing right-to-left before it reads left to right like the rest of the row,
+  which is why it may not start one.
 
 Three things to know before changing it:
 
-- **Position the run box with physical `top`/`left`.** The box is itself
-  `direction: rtl`, and logical insets resolve against the box's own direction — as
-  `inset-inline-start` every run measured from the pane's *right* edge and stacked
-  there instead of over its cells. A cell grid has no writing mode: column 0 is the
-  leftmost cell whatever is printed in it.
+- **The run box carries the terminal's own `direction: ltr`, not `rtl`.** The browser
+  reads the characters and reorders them itself; the base direction only decides where
+  the result is *anchored*. Claiming `rtl` anchored every run to its last column, so a
+  phrase narrower than its cells hung off the right with a hole in front of it —
+  `  - ` then a blank third of a row, then the Hebrew. With the grid's own direction
+  the run starts at its first column and reads away from there, exactly as the same
+  string does in any browser. Position it with physical `top`/`left` regardless: a cell
+  grid has no writing mode (column 0 is the leftmost cell whatever is printed in it),
+  and `inset-inline-start` would resolve against the box's own direction.
 - **The caret and the selection are markers between spans, not measured x positions.**
   A logical column means nothing once a line has been reordered, so the run's text is
   split at those boundaries and the browser lays them out with the text. No

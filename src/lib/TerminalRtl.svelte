@@ -127,14 +127,16 @@
   }
 
   /* One run, anchored to exactly the cells it covers.
-     `direction: rtl` makes it a right-to-left paragraph — which is what it is,
-     by construction — and `isolate` keeps it from reordering anything around it.
-     The letter-spacing xterm uses to hold every glyph to one cell would pull the
-     joins apart, so this text is spaced normally and covers the cells instead.
-     Physical `top`/`left` on purpose: a cell grid has no writing mode (column 0
-     is the leftmost cell whatever is printed in it), and logical insets resolve
-     against this box's OWN direction — as `inset-inline-start` every run
-     measured from the pane's right edge and stacked there. */
+     `direction: ltr` is the TERMINAL's own direction, not a claim about the text:
+     the browser reads the run's characters and reorders them itself, and giving it
+     the same base direction the grid has is what makes the result identical to the
+     rest of the row — the run starts at its first column and reads away from
+     there, instead of hanging off its last one with a hole in front of it.
+     `isolate` keeps it from reordering anything around it. The letter-spacing
+     xterm uses to hold every glyph to one cell would pull the joins apart, so this
+     text is spaced normally and covers the cells instead. Physical `top`/`left` on
+     purpose: a cell grid has no writing mode — column 0 is the leftmost cell
+     whatever is printed in it. */
   .rtl-run {
     position: absolute;
     top: var(--run-top);
@@ -146,7 +148,7 @@
     text-align: start;
     white-space: pre;
     unicode-bidi: isolate;
-    direction: rtl;
+    direction: ltr;
 
     .rtl-text {
       background: var(--part-background);

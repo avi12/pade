@@ -31,6 +31,13 @@ const RTL_SCRIPT =
  *  match here means "a letter that reads left to right", which ends a run. */
 const LTR_LETTER = /\p{L}/u;
 
+/** A digit. The bidi algorithm calls these *weak*: a number that follows
+ *  right-to-left text is carried along by it and reordered with it, which is why
+ *  `מועד … ביותר: 11.01.2027` puts the date at the phrase's far end. So a digit
+ *  continues a run — but it cannot open one, because a number with no
+ *  right-to-left text before it reads left to right like the rest of the row. */
+const DIGIT = /\p{Nd}/u;
+
 // Box drawing through geometric shapes, plus the Powerline private-use block: the
 // glyphs a TUI draws its FRAME with. They are symbols, so the bidi algorithm calls
 // them neutral and would happily carry them inside a right-to-left run and move
@@ -46,7 +53,9 @@ const POWERLINE_LAST = 0xe0bf;
 const CellDirection = {
   Rtl: "rtl",
   Ltr: "ltr",
-  /** Spaces, punctuation, digits — they take the direction of their neighbours. */
+  /** A digit: it cannot start a run, but it belongs to one it follows. */
+  Weak: "weak",
+  /** Spaces and punctuation — they take the direction of their neighbours. */
   Neutral: "neutral",
   /** A frame glyph: layout, and a hard end to any run. */
   Frame: "frame"
@@ -84,6 +93,10 @@ function cellDirection(text: string): CellDirection {
     return CellDirection.Ltr;
   }
 
+  if (DIGIT.test(text)) {
+    return CellDirection.Weak;
+  }
+
   return CellDirection.Neutral;
 }
 
@@ -99,44 +112,50 @@ export interface ColumnRange {
   readonly endColumn: number;
 }
 
-/** The columns of one row that read right to left, in column order. A run always
- *  begins and ends on a right-to-left character — the neutrals around it belong to
- *  the text on either side, and covering them would hide cells needlessly. */
+/** The columns of one row that read right to left, in column order. A run opens on
+ *  a right-to-left character and closes on the last cell the bidi algorithm would
+ *  still carry with it — a right-to-left character or a digit. The neutrals around
+ *  that belong to the text on either side, and covering them would hide cells
+ *  needlessly. */
 export function rtlRuns({ cells }: { cells: readonly string[] }): ColumnRange[] {
   const runs: ColumnRange[] = [];
-  let firstStrong = -1;
-  let lastStrong = -1;
-  let neutralsSinceStrong = 0;
+  let firstRtl = -1;
+  let lastCarried = -1;
+  let neutralsSinceCarried = 0;
 
   function closeRun() {
-    if (firstStrong >= 0) {
+    if (firstRtl >= 0) {
       runs.push({
-        startColumn: firstStrong,
-        endColumn: lastStrong + 1
+        startColumn: firstRtl,
+        endColumn: lastCarried + 1
       });
     }
 
-    firstStrong = -1;
-    lastStrong = -1;
-    neutralsSinceStrong = 0;
+    firstRtl = -1;
+    lastCarried = -1;
+    neutralsSinceCarried = 0;
   }
 
   for (let column = 0; column < cells.length; column++) {
     const direction = cellDirection(cells[column] ?? "");
-    if (direction === CellDirection.Rtl) {
-      if (firstStrong < 0) {
-        firstStrong = column;
+    const opensRun = direction === CellDirection.Rtl;
+    const continuesRun = direction === CellDirection.Weak && firstRtl >= 0;
+    if (opensRun || continuesRun) {
+      if (firstRtl < 0) {
+        firstRtl = column;
       }
 
-      lastStrong = column;
-      neutralsSinceStrong = 0;
+      lastCarried = column;
+      neutralsSinceCarried = 0;
       continue;
     }
 
-    if (direction === CellDirection.Neutral) {
-      neutralsSinceStrong += 1;
+    // A digit before any right-to-left text reads left to right like the rest of
+    // the row, so it neither opens a run nor widens the gap inside one.
+    if (direction === CellDirection.Weak || direction === CellDirection.Neutral) {
+      neutralsSinceCarried += 1;
 
-      if (neutralsSinceStrong > RUN_NEUTRAL_GAP_LIMIT) {
+      if (neutralsSinceCarried > RUN_NEUTRAL_GAP_LIMIT) {
         closeRun();
       }
 
