@@ -1,9 +1,16 @@
 // Reflect known-task runs the agent starts (SoC: cross-component state in
-// lib/stores). We can't see the agent's child processes — only its PTY text —
-// so this is best-effort: when a line in a session's output looks like an
-// invocation of a known task's command, that task shows as "running" in the
-// Tasks panel and an attached dock card tracks its process. The panel status
-// clears when the agent turn ends; the card follows process liveness instead.
+// lib/stores). PADE never spawned these processes and can't see the agent's
+// children — only its PTY text — so a line that looks like an invocation of a
+// known task's command is what starts the tracking: it attaches a dock card,
+// and the Tasks panel reads "running" off that card.
+//
+// ONE definition of running, and it is the process. The panel used to keep its
+// own flag that cleared when the agent's TURN ended, so `pnpm lint` sat there
+// reading RUNNING for as long as the agent kept working afterwards — minutes
+// after it had exited. Detection can only ever say a task STARTED; whether it is
+// still running is a question about a process, and `runners` already asks it
+// (`session_task_running`, every few seconds) to decide when to drop the card.
+// The panel now reads that same answer instead of guessing alongside it.
 
 import { pty } from "@/lib/bridge";
 import { attachRunner, runnerRows } from "@/lib/stores/runners.svelte";
@@ -12,7 +19,7 @@ import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/taskCatalog.
 import { isTaskInvocation } from "@/lib/task-detect";
 import { SessionStatus, type TaskGroup } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { SvelteMap } from "svelte/reactivity";
 
 /** Joins a task key's two parts. NUL can appear in neither a path nor a shell
  *  command, so the composed key can never collide with a real dir/command pair. */
@@ -26,32 +33,26 @@ export function taskKey({ directory, command }: {
   return `${directory}${KEY_SEPARATOR}${command}`;
 }
 
-/** Task keys currently reflected as running. */
-const running = new SvelteSet<string>();
-/** The task each session is currently running, so we can clear on idle/exit. */
+/** The task each session has already been seen starting, so a fullscreen TUI
+ *  repainting the same invocation line every frame attaches it once rather than
+ *  once per frame. Not a record of what is *running* — that is the runner row. */
 const bySession = new SvelteMap<string, string>();
 
-/** Whether a task (by key) is currently running (reactive). */
+/** Whether a task (by key) is currently running (reactive) — a live runner row,
+ *  which for an agent-started task means a live process under the agent's tree. */
 export function isTaskRunning(key: string): boolean {
-  return running.has(key) || runnerRows().some(row =>
+  return runnerRows().some(row =>
     !row.done && taskKey({
       directory: row.cwd,
       command: row.command
     }) === key);
 }
 
+/** Forget that this session started a task, so its next invocation attaches
+ *  again. Called when the agent's turn ends or its session exits — by then the
+ *  line that triggered detection is no longer being repainted. */
 function clearSessionTask(sessionId: string): void {
-  const key = bySession.get(sessionId);
-  if (key === undefined) {
-    return;
-  }
-
   bySession.delete(sessionId);
-  // Only drop the running flag if no other session is running the same task.
-  const stillRunning = [...bySession.values()].includes(key);
-  if (!stillRunning) {
-    running.delete(key);
-  }
 }
 
 function markSessionTask({ sessionId, key }: {
@@ -62,9 +63,7 @@ function markSessionTask({ sessionId, key }: {
     return false;
   }
 
-  clearSessionTask(sessionId); // one foreground task per session
-  bySession.set(sessionId, key);
-  running.add(key);
+  bySession.set(sessionId, key); // one foreground task per session
   return true;
 }
 

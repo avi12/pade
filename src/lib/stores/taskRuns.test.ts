@@ -1,5 +1,5 @@
-import { runnerRows } from "@/lib/stores/runners.svelte";
-import { initTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
+import { runnerRows, stopRunner } from "@/lib/stores/runners.svelte";
+import { initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/taskRuns.svelte";
 import { SessionStatus } from "@/lib/types";
 import {
   beforeEach,
@@ -28,7 +28,8 @@ vi.mock("@/lib/bridge", () => ({
       return () => undefined;
     },
     onExit: async () => () => undefined,
-    sessionTaskRunning: async () => true
+    sessionTaskRunning: async () => true,
+    sessionTaskStop: async () => true
   },
   tasks: {
     descriptors: async () => [],
@@ -64,5 +65,30 @@ describe("task run detection", () => {
     mocks.onData?.(chunk);
 
     expect(runnerRows()).toHaveLength(1);
+  });
+
+  it("stops reporting a task as running the moment its row goes, turn or no turn", async () => {
+    await initTaskRunDetection(() => "demo");
+    const key = taskKey({
+      directory: "demo",
+      command: "cargo check"
+    });
+
+    mocks.onData?.({
+      id: "session-2",
+      data: "Bash(cargo check)\n"
+    });
+    expect(isTaskRunning(key)).toBe(true);
+
+    // The row is what tracks the process — the liveness poll drops it when the
+    // process exits, and `stopRunner` drops it on demand. Either way the panel
+    // has to follow it, and NOT hold the badge until the agent's turn ends:
+    // `sessionStatus` is mocked as `working` for the whole file, so a status-based
+    // flag would still read as running here.
+    for (const row of runnerRows()) {
+      await stopRunner(row.id);
+    }
+
+    expect(isTaskRunning(key)).toBe(false);
   });
 });
