@@ -361,7 +361,55 @@ Two consequences:
 So reordering it a second time is what put it back into logical order on screen, which
 is what a reader sees as backwards. `reorders_bidi` in the `agents.rs` registry marks
 these agents and `Terminal.svelte` never latches `rightToLeftSeen` for them — the
-overlay is not merely hidden, it never exists. The cost is Arabic *shaping* in Claude
+overlay is not merely hidden, it never exists.
+
+**Standing the overlay down was not enough, because the BROWSER reorders xterm's rows
+too.** With the overlay gone the Hebrew was still backwards, and the reason is that a
+DOM row is text in a `<div>`: left alone, the browser runs the bidi algorithm over it
+and moves the cells. Measured with `Range.getBoundingClientRect()` per character — the
+only way to see what is *painted* rather than what is in the DOM — the buffer's `ךותמ`
+came out at descending x, i.e. painted `מתוך`. So `Terminal.svelte` pins the grid:
+
+```css
+:global(.xterm-rows > div),
+:global(.xterm-rows span) { unicode-bidi: isolate-override; direction: ltr; }
+```
+
+**Yes, MDN says not to do this** — *"intended for Document Type Definition (DTD)
+designers. Web designers and similar authors should not override it."* That warning is
+about **prose**, where directionality is the content's own semantics and belongs in
+`dir` / `<bdo>` markup; the CSS is merely how the browser implements that markup, and
+hand-setting it detaches the meaning from the content. The property is not off-limits,
+markup is just the front door — the HTML spec's own rendering rules are written in it:
+`bdo, bdo[dir] { unicode-bidi: isolate-override }`, and
+`div { unicode-bidi: isolate }`, which is why an xterm row was an isolate before we
+touched it.
+
+The markup that says what is meant here is exactly `<bdo>`: *these characters are
+already in the order I want them drawn.* We cannot use it — xterm generates the rows,
+so a real `<bdo>` per span means patching its row factory on the hottest path in the
+app to arrive at the same computed style. So the rule applies the identical
+declaration the UA would. Nothing semantic is lost either way: `.xterm-rows` is
+`aria-hidden` and xterm keeps its own accessibility buffer in logical order.
+
+Three more things about that rule, each of which cost a measurement:
+
+- **`isolate-override`, not `plaintext` or `isolate`.** Only the override half says
+  "reordering is strictly in sequence according to `direction`; the implicit part of
+  the bidirectional algorithm is ignored". `plaintext` only changes how the base
+  direction is *detected* and still reorders; `isolate` only stops the element
+  influencing its siblings. `isolate-override` is both, and is what `<bdo>` maps to.
+- **The spans need it as well as the row.** A block container's override reaches its
+  inline-level descendants but not those inside *another* block container, and xterm
+  gives every styled span `display: inline-block`. Overriding only `.xterm-rows > div`
+  changes nothing.
+- **A stylesheet change does not re-lay-out rows that already exist.** Injecting the
+  rule over CDP leaves the rows on screen exactly as they were and reads as "the fix
+  does nothing"; replacing a row node proves it works. Verify after xterm has
+  re-rendered, or reload.
+
+With the grid pinned, right-to-left text is reordered in exactly one place: the agent
+(when it does its own) or the overlay (when it doesn't). Never both, never neither. The cost is Arabic *shaping* in Claude
 sessions: the letters are in the right order but unjoined, because un-reversing them to
 shape and re-reversing to place is a bidi implementation of our own, which is exactly
 what this design refuses to own. Every other agent, and any shell, still gets the

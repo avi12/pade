@@ -1878,4 +1878,45 @@
       transform-origin: top left;
     }
   }
+
+  /* A row of xterm's DOM renderer is a CELL GRID, not a paragraph: column N holds
+     the Nth cell whatever was printed into it. Left alone the browser runs the
+     bidi algorithm over the row's text and moves those cells, which is wrong
+     twice over. An agent that ordered its own right-to-left text (agents.rs
+     `reorders_bidi`) has it undone, and the reader gets the sentence backwards —
+     measured: the buffer's `ךותמ` was painted `מתוך`. And for every other agent it
+     competes with the overlay, which anchors each run to the columns xterm was
+     supposed to have painted. Overriding it makes the grid honest, and leaves
+     exactly one place where right-to-left text is ever reordered: the overlay, or
+     the agent itself.
+
+     MDN tells authors not to set `unicode-bidi` themselves, and for documents it
+     is right: in prose, directionality is the content's own semantics and belongs
+     in `dir`/`<bdo>` markup, which the browser then implements in CSS. This is not
+     prose — and the markup that says what is meant here IS `<bdo>`: "the characters
+     inside are already in the order I want them drawn". The HTML spec's rendering
+     rules define that element as `bdo, bdo[dir] { unicode-bidi: isolate-override }`,
+     which is the declaration below. xterm generates these rows itself, so wrapping
+     every span in a real `<bdo>` would mean patching its row factory — on the
+     hottest path in the app — to arrive at the same computed style. (The same
+     rendering rules are why a row is an isolate already: `div { unicode-bidi:
+     isolate }`. And `.xterm-rows` carries `aria-hidden`, with xterm keeping its own
+     accessibility buffer in logical order, so no semantics are being papered over.)
+
+     `isolate-override` rather than `plaintext`, which only changes how the base
+     direction is *detected* and still reorders, or `isolate`, which only stops the
+     element influencing its siblings. `direction` is named rather than inherited
+     because the override's whole meaning is "in sequence according to `direction`"
+     — the guarantee has to be local to be a guarantee.
+
+     Both the row and its spans need it. A block container's override reaches its
+     inline-level descendants but NOT those inside another block container, and
+     xterm gives every styled span `display: inline-block` — so each one is its own
+     bidi paragraph that the row's override cannot reach into. Measured: with the
+     row alone overridden, `ךותמ` still painted as `מתוך`. */
+  :global(.xterm-rows > div),
+  :global(.xterm-rows span) {
+    unicode-bidi: isolate-override;
+    direction: ltr;
+  }
 </style>
