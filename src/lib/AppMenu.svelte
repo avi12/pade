@@ -13,6 +13,7 @@
   } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
+  import { arrowFocus, rovingMenu } from "@/lib/roving-menu";
   import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
   import { AddRootStatus, WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
@@ -27,6 +28,9 @@
   // row. New windows and the full picker sit below. In-window switches funnel
   // through `onopen`; pin/remove/reorder persist via parent callbacks and the
   // shared settings authority; window focus + the list use the bridge directly.
+  // Up/Down walk the project items in the order they read — window rows, the
+  // filter field, then pinned/recent rows: every stop is tagged
+  // `data-arrow-stop`, and `arrowFocus` moves focus between them.
   const {
     path,
     label,
@@ -540,7 +544,7 @@
   <div
     id="application-menu"
     style:position-anchor="--application-menu-anchor"
-    class="menu popover-menu"
+    class="menu popover-menu" {@attach arrowFocus("[data-arrow-stop]")}
     ontoggle={async e => {
       menuOpen = (e as ToggleEvent).newState === "open";
 
@@ -656,6 +660,7 @@
             <button
               class="open-window-row"
               class:current={windowRow.isCurrent}
+              data-arrow-stop
               onclick={() => {
                 if (!windowRow.isCurrent) {
                   hide();
@@ -690,6 +695,7 @@
         id="application-menu-query"
         aria-label="Switch project by name or path"
         autocomplete="off"
+        data-arrow-stop
         onkeydown={e => {
           if (e.key !== "Enter") {
             return;
@@ -720,7 +726,7 @@
         popovertarget={menuId}
         type="button"
       ><Icon name="more" size={16} /></button>
-      <div id={menuId} class="row-menu popover-menu" popover role="menu">
+      <div id={menuId} class="row-menu popover-menu" {@attach rovingMenu} popover role="menu">
         <button
           class="menu-item" onclick={() => animateListChange(() => ontogglepin({
             path: project,
@@ -769,6 +775,7 @@
         class="project-row-main"
         class:current
         aria-checked={current}
+        data-arrow-stop
         onclick={e => pick(project, e)}
         role="menuitemradio"
         type="button"
