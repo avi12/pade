@@ -45,8 +45,8 @@
     overflow: visible;
     inline-size: max-content;
     max-inline-size: min(320px, 90vw);
-    margin: 0;
-    margin-block-start: 6px;
+    margin-block: var(--tooltip-gap) 0;
+    margin-inline: var(--tooltip-edge-gutter);
     padding: 4px 9px;
     border: 0;
     border-radius: var(--radius-small);
@@ -65,7 +65,8 @@
     animation: overflow-tooltip-fade 120ms var(--ease) both;
 
     /* Flip above the trigger near the viewport bottom — reuses theme.css's
-       shared try so the flipped gap matches the [data-tooltip] bubble. */
+       shared try, and its gap/gutter tokens above, so this bubble and the
+       [data-tooltip] pseudo are placed identically. */
     position-try-fallbacks: --tooltip-flip-up;
   }
 

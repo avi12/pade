@@ -106,6 +106,15 @@
   --radius-large: 20px;
   --radius-extra-large: 28px;
 
+  /* Tooltip bubble geometry, shared by the `[data-tooltip]` pseudo below and the
+     top-layer bubble (OverflowTooltipLayer) so the two can never drift: the gap
+     that clears the trigger, and the inset that keeps a bubble anchored to an
+     edge-hugging trigger (the switcher's drag grip) off the window edge —
+     `anchor-center` clamps the MARGIN box into the viewport, so the inline
+     margin *is* that gutter. */
+  --tooltip-gap: 6px;
+  --tooltip-edge-gutter: 8px;
+
   /* M3 emphasized easing, plus a spring that overshoots for expressive,
      spatial motion (cards rising, chips popping, menus springing open). */
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -457,7 +466,8 @@ textarea {
     justify-self: anchor-center;
     inline-size: max-content;
     max-inline-size: min(320px, 90vw);
-    margin-block-start: 6px;
+    margin-block-start: var(--tooltip-gap);
+    margin-inline: var(--tooltip-edge-gutter);
     padding: 4px 9px;
     border-radius: var(--radius-small);
     background: var(--surface-3);
@@ -498,10 +508,10 @@ textarea {
 }
 
 /* Flip above the trigger only when there's no room below (the dock, low panel
-   rows) — same 6px gap on the other side so the bubble still clears the control. */
+   rows) — same gap on the other side so the bubble still clears the control. */
 @position-try --tooltip-flip-up {
   inset-block: auto anchor(top);
-  margin-block: 0 6px;
+  margin-block: 0 var(--tooltip-gap);
 }
 
 /* The bubble toggles display, so give its shown state a from-opacity for the
