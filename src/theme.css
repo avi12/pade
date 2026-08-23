@@ -437,7 +437,14 @@ textarea {
    single hovered bubble is ever positioned; `display` + `@starting-style`
    (allow-discrete) keep the fade. For the same reason never gate tooltips with a
    document-level `body:has(…)` — it forces a full-tree recalc on every layout
-   change. */
+   change.
+
+   LIMIT: `fixed` only escapes as far as its containing block. An ancestor with a
+   `view-transition-name`, a transform/filter, or `content-visibility` becomes that
+   containing block *and* a stacking context, so there the bubble is clipped or
+   painted under whatever follows the ancestor. Those triggers use the shared
+   top-layer bubble instead — `{@attach tooltip(…)}` from `@/lib/truncation-tooltip`
+   — not this pseudo. */
 [data-tooltip] {
   position: relative;
 

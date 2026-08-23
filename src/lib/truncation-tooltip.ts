@@ -62,9 +62,14 @@ function overflowTooltip(textToShow: (element: HTMLElement) => string): Attachme
 
 /** Attachment that always surfaces `tooltip` on hover/focus, through the shared
  *  top-level bubble. Use this instead of a `data-tooltip` pseudo whenever the
- *  trigger sits inside a scroll container or a `[popover]`/`content-visibility`
- *  ancestor, where the `position: fixed` pseudo would be clipped or painted
- *  behind the scrolled content (the launcher's recent list is one). */
+ *  trigger sits inside a scroll container, a `[popover]`/`content-visibility`
+ *  ancestor, or an element carrying a `view-transition-name` — each of those
+ *  makes the ancestor a containing block (and stacking context) for the
+ *  `position: fixed` pseudo, so the bubble is clipped, or trapped in the
+ *  ancestor's paint order and occluded by whatever follows it. The launcher's
+ *  recent list is one; the switcher's drag grips (their row is named for the
+ *  reorder morph) are another, where the bubble showed *underneath* the next
+ *  row's icon and text. */
 export function tooltip(text: TooltipText): Attachment<HTMLElement> {
   return overflowTooltip(() => resolve(text));
 }

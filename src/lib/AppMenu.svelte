@@ -13,7 +13,7 @@
   } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
-  import { truncationTooltip } from "@/lib/truncation-tooltip";
+  import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
   import { AddRootStatus, WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
@@ -641,9 +641,8 @@
           >
             {#if windowsReorderable}
               <span
-                class="grip"
+                class="grip" {@attach tooltip("Drag to reorder")}
                 aria-hidden="true"
-                data-tooltip="Drag to reorder"
                 onpointerdown={e => beginReorder({
                   e,
                   itemSelector: "[data-window-id]",
@@ -816,9 +815,8 @@
           >
             {#if pinsReorderable}
               <span
-                class="grip"
+                class="grip" {@attach tooltip("Drag to reorder")}
                 aria-hidden="true"
-                data-tooltip="Drag to reorder"
                 onpointerdown={e => beginReorder({
                   e,
                   itemSelector: "[data-pin-id]",
