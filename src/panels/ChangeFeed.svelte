@@ -303,13 +303,14 @@
   // project and the "File type" filter narrow to a set of file extensions.
   let activeGroupId = $state<string | null>(null);
 
-  // A card's dir line ellipsizes in the narrow panel; only while actually
-  // clipped does the bubble appear — and it carries the FULL absolute path,
-  // since what the clipped relative dir hides is exactly what the reader
-  // couldn't see.
-  function clippedPathTooltip(path: string) {
+  // Lines that ellipsize in the narrow panel — a card's dir line, a group
+  // header's project name — grow a bubble only while actually clipped, so an
+  // already-readable line never carries a redundant one. The dir line passes the
+  // FULL absolute path, since what the clipped relative dir hides is exactly
+  // what the reader couldn't see.
+  function clippedTextTooltip(text: string) {
     return truncationTooltip({
-      tooltip: path
+      tooltip: text
     });
   }
 
@@ -692,7 +693,7 @@
         <section class="group">
           <header class="group-header">
             <span class="badge {group.role}">{roleLabel(group.role)}</span>
-            <span class="group-name">{group.name}</span>
+            <span class="group-name" {@attach clippedTextTooltip(group.name)}>{group.name}</span>
             {#if branch}
               <span class="group-branch"><Icon name="branch" size={12} />{branch}</span>
             {/if}
@@ -780,7 +781,7 @@
                   </span>
                   <span class="summary">{event.summary}</span>
                   <span class="meta">
-                    <span class="path" {@attach clippedPathTooltip(event.path)}>{relativeDirectory(event.path)}</span>
+                    <span class="path" {@attach clippedTextTooltip(event.path)}>{relativeDirectory(event.path)}</span>
                     <span class="statistics">
                       {#if event.added}
                         <span class="add">+{formatCount(event.added)}</span>
