@@ -95,8 +95,16 @@ struct AgentDefinition {
 /// file must agree; `theming::tests` asserts they do.
 const PADE_CLAUDE_THEME_PATH: &str = ".claude/themes/pade.json";
 const PADE_CLAUDE_THEME_SETTINGS: &str = r#"{"theme":"custom:pade"}"#;
-const PADE_CLAUDE_LIGHT_THEME: &str = r#"{"name":"pade","base":"light","overrides":{}}"#;
-const PADE_CLAUDE_DARK_THEME: &str = r#"{"name":"pade","base":"dark","overrides":{}}"#;
+/// The base is the **ANSI** one on purpose. Claude renders an `-ansi` theme in
+/// the terminal's own sixteen colours rather than in truecolor of its own, and
+/// those sixteen are exactly what PADE paints (`--terminal-*`: the app palette,
+/// or the Windows Terminal scheme the user chose for it). So the agent tracks
+/// the terminal's colours continuously — a scheme swap repaints it on the next
+/// frame with nothing published at all, because the bytes it already wrote name
+/// colour *slots*, and the slots moved. Only light-vs-dark still has to be
+/// written here, and that is what this file carries.
+const PADE_CLAUDE_LIGHT_THEME: &str = r#"{"name":"pade","base":"light-ansi","overrides":{}}"#;
+const PADE_CLAUDE_DARK_THEME: &str = r#"{"name":"pade","base":"dark-ansi","overrides":{}}"#;
 
 /// Known agent backends, in preferred display order. The plain shell is always
 /// offered last as a universal fallback.

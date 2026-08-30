@@ -19,6 +19,14 @@
 //! blind: an unsolicited OSC 11 reply written into the PTY does not reach the
 //! agent's parser either. Both were measured, twice, on 2.1.220 and 2.1.227.
 //!
+//! **The palette itself needs no channel at all.** PADE's Claude theme names an
+//! **ANSI** base, so Claude paints in the terminal's own sixteen colours rather
+//! than in truecolor of its own — and those sixteen are what PADE sets
+//! (`--terminal-*`: the app palette, or the Windows Terminal scheme chosen for
+//! the terminal). Changing that scheme moves the slots under bytes the agent
+//! has already written, so a running session repaints in the new colours on the
+//! next frame with nothing published. Only light-vs-dark still has to be told.
+//!
 //! **What re-themes a RUNNING session is a theme file the agent watches.** Claude
 //! Code re-renders when a theme *definition* it is using changes on disk, so ADE
 //! owns one definition (`~/.claude/themes/pade.json`), selects it per session
@@ -336,8 +344,8 @@ mod tests {
     #[test]
     fn a_live_theme_carries_its_scheme_in_the_file_not_the_argv() {
         let (_, _, light, dark) = claude_live_theme();
-        assert!(light.contains(r#""base":"light""#), "{light}");
-        assert!(dark.contains(r#""base":"dark""#), "{dark}");
+        assert!(light.contains(r#""base":"light-ansi""#), "{light}");
+        assert!(dark.contains(r#""base":"dark-ansi""#), "{dark}");
         assert_eq!(
             spawn_args("claude", Scheme::Light),
             spawn_args("claude", Scheme::Dark)
