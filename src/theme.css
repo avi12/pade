@@ -292,17 +292,22 @@
    Terminal slots stay verbatim hex on the night face, because those sixteen ARE
    the scheme.
 
-   Three things are borrowed from how the well-known IDE cyberpunk themes
-   (SynthWave '84, Tokyo Night, the VS Code 2077 ports) are built, because a
-   terminal scheme alone has no answer for them — it describes one surface,
-   and an IDE has a dozen. First, the CHROME is not the terminal's black: it
-   is a violet-tinted elevation ramp that drifts further toward magenta as it
-   rises, leaving `--code-background` the deepest layer on screen, so the
-   terminal reads as the thing you are looking into rather than as more
-   background. Second, focus glows: `--focus-glow` puts a neon bloom around
-   the focused control (the base theme leaves it `none`). Third, the caret is
-   the scheme's own #fcee0a — which is exactly the one slot the Cyberpunk
-   2077 scheme spends its yellow on. */
+   The CHROME does not come from the terminal scheme — that scheme describes
+   one surface and an IDE has a dozen. It comes from the GAME's own HUD, the
+   shard/journal screen: near-black with a cold teal cast, where nothing is a
+   filled plate. Structure there is drawn entirely in glowing cyan hairlines,
+   so the elevation ramp barely lifts — a panel reads as glass over the ground
+   rather than as a lighter slab — while `--code-background` stays the deepest
+   layer on screen, so the terminal is still the thing you are looking into.
+   (An earlier pass built this ramp the way the IDE cyberpunk themes do, as a
+   violet drift toward magenta. That is a good IDE theme and the wrong game:
+   the HUD has no violet in it, and a tinted slab is exactly what it refuses
+   to draw.)
+
+   Two details come with the HUD: `--focus-glow` puts a neon bloom around the
+   focused control (the base theme leaves it `none`), and the caret is the
+   scheme's own #fcee0a — exactly the one slot the Cyberpunk 2077 scheme
+   spends its yellow on. */
 :root[data-palette="cyberpunk"][data-theme="dark"] {
   --seed-hue: 184deg;
   --primary: hsl(184deg 100% 50%);
@@ -318,19 +323,19 @@
   --context-ok: hsl(184deg 100% 50%);
   --context-warning: hsl(56deg 97% 55%);
   --context-critical: hsl(345deg 100% 62%);
-  --surface: hsl(258deg 28% 10%);
-  --surface-1: hsl(258deg 25% 14%);
-  --surface-2: hsl(260deg 22% 18%);
-  --surface-3: hsl(263deg 20% 25%);
-  --on-surface: hsl(199deg 44% 89%);
-  --on-surface-variant: hsl(264deg 20% 74%);
-  --outline: hsl(186deg 55% 34%);
-  --shadow-color: hsl(300deg 85% 4% / 65%);
+  --surface: hsl(191deg 42% 4%);
+  --surface-1: hsl(191deg 38% 6%);
+  --surface-2: hsl(190deg 34% 9%);
+  --surface-3: hsl(190deg 30% 14%);
+  --on-surface: hsl(186deg 55% 90%);
+  --on-surface-variant: hsl(187deg 26% 66%);
+  --outline: hsl(185deg 88% 44%);
+  --shadow-color: hsl(191deg 90% 2% / 70%);
   --primary-shadow: hsl(184deg 100% 50% / 45%);
   --focus-glow: 0 0 0 1px hsl(184deg 100% 50% / 40%), 0 0 14px hsl(184deg 100% 50% / 45%);
   --scanline: hsl(184deg 100% 50% / 5%);
-  --control-edge: color-mix(in sRGB, var(--primary) 28%, transparent);
-  --code-background: hsl(240deg 29% 5%);
+  --control-edge: color-mix(in sRGB, var(--primary) 42%, transparent);
+  --code-background: hsl(193deg 55% 2%);
   --code-foreground: hsl(199deg 44% 89%);
   --terminal-black: #14141f;
   --terminal-red: #ff003c;
