@@ -617,10 +617,28 @@
    around it. Both of the app's tab kinds — the side panel's `[role="tab"]` and
    the session strip's `.tab` — take it from one rule, so "selected" can never
    mean two different things. `:not(:focus-visible)` keeps this out of the focus
-   ring's way, exactly as the control-frame rule above does. */
-:root[data-palette="cyberpunk"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
-  background-color: color-mix(in sRGB, var(--primary) 10%, var(--surface-1));
-  color: var(--primary);
+   ring's way, exactly as the control-frame rule above does.
+
+   This re-points the TOKEN PAIR rather than setting `background-color` and
+   `color`, and the difference is not cosmetic. Every component that draws a
+   selected thing — this tab, the side tabs, the overflow menu's rows — reads
+   `--primary-container` for its plate and `--on-primary-container` for the ink
+   on that plate, as a pair. Overriding only the plate from out here flipped the
+   background dark while each component's own descendant rule kept painting the
+   label in the near-black meant for a bright cyan fill, and the active tab's
+   name went unreadable. Re-pointing both halves keeps the pair honest, reaches
+   descendants no theme selector should have to know about, and carries any
+   consumer added later along with it.
+
+   Night face only — the one HUD rule that is. The day face spends the brand
+   yellow in exactly one place, the selected slab with black text on it, and
+   that slab is the only thing on paper that reads as Cyberpunk at all (see the
+   light block above). Framing it instead of filling it would take the day face
+   its single mark to buy a look that needs near-black to work. */
+:root[data-palette="cyberpunk"][data-theme="dark"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
+  --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
+  --on-primary-container: var(--primary);
+
   outline-color: var(--primary);
   text-shadow: var(--hairline-glow);
 }
