@@ -6,7 +6,7 @@
   import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
   import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from "@/lib/prefs-bounds";
-  import { effective, prefs, updatePrefs } from "@/lib/prefs.svelte";
+  import { chooseThemeMode, effective, updatePrefs } from "@/lib/prefs.svelte";
   import { isMarkdownPath } from "@/lib/preview";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { type ConfigFile, ThemeMode } from "@/lib/types";
@@ -68,6 +68,11 @@
       name: "Fira Code",
       value: "Fira Code",
       family: "\"Fira Code\", ui-monospace, monospace"
+    },
+    {
+      name: "Share Tech Mono",
+      value: "Share Tech Mono",
+      family: "\"Share Tech Mono\", ui-monospace, monospace"
     }
   ] as const satisfies readonly {
     name: string;
@@ -75,7 +80,7 @@
     family: string;
   }[];
 
-  const selectedMonospaceFont = $derived(prefs.monoFont ?? "");
+  const selectedMonospaceFont = $derived(effective.monoFontName);
 
   const scalePercent = $derived(formatPercent(effective.uiScale * 100));
 
@@ -175,7 +180,7 @@
               class="option"
               class:on={effective.themeMode === option.mode}
               aria-pressed={effective.themeMode === option.mode}
-              onclick={() => updatePrefs({ themeMode: option.mode })}
+              onclick={() => chooseThemeMode(option.mode)}
             >
               <Icon name={option.icon} />
               <span>{option.label}</span>

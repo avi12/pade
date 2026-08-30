@@ -1,4 +1,10 @@
-import { followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
+import {
+  adoptedMonospaceFace,
+  followsSystemScheme,
+  PALETTE_MONOSPACE_FACE,
+  paletteOfMode,
+  resolveAppearance
+} from "@/lib/theme-mode";
 import { ThemeMode, ThemePalette } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -54,5 +60,56 @@ describe("followsSystemScheme", () => {
     expect(followsSystemScheme(ThemeMode.enum.cyberpunk)).toBe(true);
     expect(followsSystemScheme(ThemeMode.enum.light)).toBe(false);
     expect(followsSystemScheme(ThemeMode.enum.dark)).toBe(false);
+  });
+});
+
+describe("PALETTE_MONOSPACE_FACE", () => {
+  it("leaves the default palette on the theme's own stack and gives Cyberpunk a face", () => {
+    expect(PALETTE_MONOSPACE_FACE[ThemePalette.enum.default]).toBeNull();
+    expect(PALETTE_MONOSPACE_FACE[ThemePalette.enum.cyberpunk]).toBe("Share Tech Mono");
+  });
+});
+
+describe("adoptedMonospaceFace", () => {
+  const cyberpunkFace = PALETTE_MONOSPACE_FACE[ThemePalette.enum.cyberpunk]!;
+
+  it("takes the skin's own face when the skin ships one", () => {
+    for (const current of [null, undefined, "", "JetBrains Mono"]) {
+      expect(
+        adoptedMonospaceFace({
+          mode: ThemeMode.enum.cyberpunk,
+          current
+        })
+      ).toBe(cyberpunkFace);
+    }
+  });
+
+  it("releases a face that came from a skin when leaving it", () => {
+    expect(
+      adoptedMonospaceFace({
+        mode: ThemeMode.enum.light,
+        current: cyberpunkFace
+      })
+    ).toBeNull();
+  });
+
+  it("leaves a font the user chose themselves alone", () => {
+    for (const current of ["JetBrains Mono", "", null, undefined]) {
+      expect(
+        adoptedMonospaceFace({
+          mode: ThemeMode.enum.dark,
+          current
+        })
+      ).toBeUndefined();
+    }
+  });
+});
+
+describe("paletteOfMode", () => {
+  it("is the skin axis alone — only Cyberpunk names one", () => {
+    expect(paletteOfMode(ThemeMode.enum.cyberpunk)).toBe(ThemePalette.enum.cyberpunk);
+    for (const mode of [ThemeMode.enum.light, ThemeMode.enum.dark, ThemeMode.enum.system]) {
+      expect(paletteOfMode(mode)).toBe(ThemePalette.enum.default);
+    }
   });
 });

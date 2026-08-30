@@ -8,7 +8,7 @@ import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/prefs-bounds";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings.svelte";
 import { chosenTerminalScheme, loadTerminalSchemes } from "@/lib/stores/terminalSchemes.svelte";
 import { schemeOfBackground, TERMINAL_PALETTE_PROPERTIES, terminalPaletteProperties } from "@/lib/terminal-palette";
-import { followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
+import { adoptedMonospaceFace, followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
 import {
   type DiffStyle,
   type Prefs,
@@ -19,7 +19,6 @@ import {
 } from "@/lib/types";
 import { listen } from "@tauri-apps/api/event";
 
-export { prefs } from "@/lib/settings.svelte";
 export {
   SIDE_PANEL_DEFAULT_WIDTH,
   SIDE_PANEL_MAX_FRACTION,
@@ -46,6 +45,10 @@ export const effective = {
   },
   get diffStyle(): DiffStyle {
     return prefs.diffStyle ?? "unified";
+  },
+  /** The terminal font pick, as a name; "" = theme.css's stack as written. */
+  get monoFontName(): string {
+    return prefs.monoFont ?? "";
   },
   get monospaceFamily(): string {
     // The base stack lives once in theme.css (--font-monospace-base); resolve it to
@@ -259,6 +262,24 @@ export async function loadPrefs(): Promise<void> {
   // terminal scheme instead of flashing the app palette first.
   await loadTerminalSchemes();
   await workspace.settings();
+}
+
+/** Adopt a theme, taking its terminal face with it. A skin that ships a font
+ *  (Cyberpunk) sets it as the font pick rather than quietly outranking one, so
+ *  the change shows up in the font grid and stays the user's to change
+ *  afterwards; leaving that skin releases the face again. `lib/theme-mode` owns
+ *  the rule, including when a pick is the user's own and must be left alone. */
+export async function chooseThemeMode(mode: ThemeMode): Promise<void> {
+  const face = adoptedMonospaceFace({
+    mode,
+    current: prefs.monoFont
+  });
+  const patch: Partial<Prefs> = { themeMode: mode };
+  if (face !== undefined) {
+    patch.monoFont = face;
+  }
+
+  await updatePrefs(patch);
 }
 
 /** Merge a change, apply it immediately, then persist. */
