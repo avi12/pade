@@ -619,7 +619,12 @@
   // already-running process and redraws its own TUI without a restart or
   // context loss.
   $effect(() => {
-    if (!terminal || !paintedPalette) {
+    // Read the palette BEFORE the guard: `terminal` is not reactive, so a guard
+    // that short-circuits on it would run once at mount (when there is no
+    // terminal yet), never reach this read, and leave the effect subscribed to
+    // nothing at all — a palette change would then repaint no terminal, ever.
+    const painted = paintedPalette;
+    if (!terminal || !painted) {
       return;
     }
 
