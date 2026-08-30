@@ -6,7 +6,14 @@ import { windows, workspace } from "@/lib/bridge";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/prefs-bounds";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings.svelte";
-import type { DiffStyle, Prefs, Scheme, ThemeMode } from "@/lib/types";
+import { followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
+import {
+  type DiffStyle,
+  type Prefs,
+  type Scheme,
+  type ThemeMode,
+  ThemePalette
+} from "@/lib/types";
 import { listen } from "@tauri-apps/api/event";
 
 export { prefs } from "@/lib/settings.svelte";
@@ -77,33 +84,43 @@ const osDark = matchMedia("(prefers-color-scheme: dark)");
  *  `$COLORFGBG` once, at spawn). */
 let systemScheme: Scheme = osDark.matches ? "dark" : "light";
 
-/** The concrete scheme currently applied — reactive so consumers like the
- *  terminal can re-theme when it changes. */
-export const appearance = $state<{ scheme: Scheme }>({ scheme: systemScheme });
+/** What is currently painted — the concrete light/dark scheme and the palette
+ *  layered over it — reactive so consumers like the terminal can re-theme when
+ *  either moves. `lib/theme-mode` owns the mode → pair rule. */
+export const appearance = $state<{
+  scheme: Scheme;
+  palette: ThemePalette;
+}>({
+  scheme: systemScheme,
+  palette: ThemePalette.enum.default
+});
 
-/** Resolve "system" to the concrete scheme so the CSS needs only one dark block. */
-function resolvedScheme(): Scheme {
-  const mode = effective.themeMode;
-  if (mode === "system") {
-    return systemScheme;
-  }
-
-  return mode;
-}
-
-/** Apply a concrete scheme to the reactive store and the `<html>` data-theme in one
- *  place — the single home for "the applied scheme is X", used by both the media-
- *  query path and the native OS-theme event. */
-function installScheme(scheme: Scheme): void {
+/** Apply a resolved appearance to the reactive store and the `<html>` data
+ *  attributes in one place — the single home for "what is painted right now",
+ *  used by both the media-query path and the native OS-theme event. */
+function installAppearance({
+  scheme,
+  palette
+}: {
+  scheme: Scheme;
+  palette: ThemePalette;
+}): void {
   appearance.scheme = scheme;
+  appearance.palette = palette;
   document.documentElement.dataset.theme = scheme;
+  document.documentElement.dataset.palette = palette;
 }
 
 function apply() {
   // Fonts are bound declaratively in the template (style:--font-ui / --font-monospace).
   // Theme mode stays here: it must sit on <html> for the pre-paint flash guard
   // and to cover anything rendered outside the app root.
-  installScheme(resolvedScheme());
+  installAppearance(
+    resolveAppearance({
+      mode: effective.themeMode,
+      systemScheme
+    })
+  );
   // Font scaling follows video-time-manager: the root font is `100% * --ui-scale`
   // (the user's browser base, times their zoom preference — never a fixed px that
   // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
@@ -117,7 +134,7 @@ function apply() {
 function installSystemScheme(scheme: Scheme): void {
   systemScheme = scheme;
 
-  if (effective.themeMode === "system") {
+  if (followsSystemScheme(effective.themeMode)) {
     apply();
   }
 }

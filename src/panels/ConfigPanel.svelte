@@ -33,6 +33,11 @@
       mode: ThemeMode.enum.system,
       label: "Auto",
       icon: "monitor"
+    },
+    {
+      mode: ThemeMode.enum.cyberpunk,
+      label: "Cyberpunk",
+      icon: "bolt"
     }
   ] as const satisfies readonly {
     mode: ThemeMode;
@@ -458,7 +463,11 @@
   /* Theme — segmented single-select (buttons + aria-pressed, per the app's
      shared segmented pattern). */
   .segmented {
-    display: flex;
+    /* auto-fit rather than a fixed track count: the four themes sit in one row
+       in a wide side panel and fold to two rows as the user drags it narrow,
+       with no breakpoint to keep in sync with the panel's width. */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     gap: 4px;
     padding: 4px;
     border-radius: 12px;
@@ -466,7 +475,6 @@
 
     .option {
       display: inline-flex;
-      flex: 1;
       gap: 6px;
       justify-content: center;
       align-items: center;

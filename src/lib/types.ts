@@ -328,8 +328,17 @@ export const WindowInfo = z.object({
 });
 export type WindowInfo = z.infer<typeof WindowInfo>;
 
-export const ThemeMode = z.enum(["system", "light", "dark"]);
+/** The theme the user picks, as one list of four. Three of them name a
+ *  light/dark scheme ("system" = whatever the OS is showing); `cyberpunk` names
+ *  a {@link ThemePalette} instead and takes its scheme from the OS like
+ *  "system" does. `lib/theme-mode` resolves a mode into that pair. */
+export const ThemeMode = z.enum(["system", "light", "dark", "cyberpunk"]);
 export type ThemeMode = z.infer<typeof ThemeMode>;
+
+/** The token set painting the app — the skin axis, worn by the document root as
+ *  `data-palette` and layered over the light/dark tokens in theme.css. */
+export const ThemePalette = z.enum(["default", "cyberpunk"]);
+export type ThemePalette = z.infer<typeof ThemePalette>;
 
 /** The concrete appearance `ThemeMode` resolves to ("system" → the OS answer).
  *  Applied to the document root, the terminal palette, and — over the wire —

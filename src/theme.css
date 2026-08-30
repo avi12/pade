@@ -201,6 +201,126 @@
   color-scheme: dark;
 }
 
+/* Cyberpunk 2077 — the fourth theme option, a palette rather than a scheme.
+   `lib/theme-mode` gives it the OS's light/dark (like Auto) and tags the root
+   `data-palette="cyberpunk"`, so the skin has a night face and a day face and
+   the two blocks below define exactly the same tokens — neither leaks into the
+   other, and each is selected by its own `data-theme`, never by source order.
+
+   Night city: brand yellow #fcee0a on near-black violet, lit by cyan #00f0ff
+   and hot magenta #d300c5. The terminal slots are the Cyberpunk 2077 terminal
+   scheme's own hexes, kept verbatim so the palette is the one the scheme is
+   known by rather than an approximation of it. */
+:root[data-palette="cyberpunk"][data-theme="dark"] {
+  --seed-hue: 187deg;
+  --primary: hsl(55deg 97% 52%);
+  --on-primary: hsl(250deg 45% 6%);
+  --primary-container: hsl(320deg 100% 20%);
+  --on-primary-container: hsl(52deg 100% 82%);
+  --tertiary: hsl(165deg 100% 55%);
+  --tertiary-wash: hsl(165deg 100% 50% / 16%);
+  --warning: hsl(52deg 97% 55%);
+  --warning-wash: hsl(52deg 97% 55% / 16%);
+  --critical: hsl(346deg 100% 62%);
+  --critical-wash: hsl(346deg 100% 55% / 18%);
+  --context-ok: hsl(187deg 100% 50%);
+  --context-warning: hsl(52deg 97% 55%);
+  --context-critical: hsl(340deg 100% 62%);
+  --surface: hsl(245deg 33% 6%);
+  --surface-1: hsl(245deg 30% 9%);
+  --surface-2: hsl(245deg 28% 13%);
+  --surface-3: hsl(248deg 26% 19%);
+  --on-surface: hsl(197deg 55% 89%);
+  --on-surface-variant: hsl(199deg 20% 66%);
+  --outline: hsl(300deg 30% 28%);
+  --shadow-color: hsl(300deg 90% 4% / 60%);
+  --primary-shadow: hsl(52deg 97% 52% / 45%);
+  --code-background: hsl(245deg 35% 5%);
+  --code-foreground: hsl(197deg 55% 89%);
+  --terminal-black: #14141f;
+  --terminal-red: #ff003c;
+  --terminal-green: #00ff9f;
+  --terminal-yellow: #fcee0a;
+  --terminal-blue: #00b8ff;
+  --terminal-magenta: #d300c5;
+  --terminal-cyan: #00f0ff;
+  --terminal-white: #b8c9d1;
+  --terminal-bright-black: #4e5e6b;
+  --terminal-bright-red: #ff3e6e;
+  --terminal-bright-green: #5cffc4;
+  --terminal-bright-yellow: #fff95b;
+  --terminal-bright-blue: #5cd7ff;
+  --terminal-bright-magenta: #ff4fe1;
+  --terminal-bright-cyan: #8bfaff;
+  --terminal-bright-white: #f2fbff;
+  --terminal-selection: hsl(320deg 100% 45% / 30%);
+  --syntax-comment: hsl(220deg 15% 52%);
+  --syntax-keyword: hsl(310deg 100% 70%);
+  --syntax-string: hsl(165deg 100% 60%);
+  --syntax-number: hsl(52deg 97% 62%);
+  --syntax-function: hsl(187deg 100% 62%);
+  --syntax-property: hsl(199deg 100% 72%);
+
+  color-scheme: dark;
+}
+
+/* Daylight corpo: the same neon signature read on paper — pale yellow-white
+   surfaces, near-black violet ink, and the accents pushed dark enough to stay
+   legible on them (a #fcee0a-on-white button would be unreadable, so magenta
+   leads and the brand yellow becomes the container wash). */
+:root[data-palette="cyberpunk"][data-theme="light"] {
+  --seed-hue: 187deg;
+  --primary: hsl(320deg 100% 38%);
+  --on-primary: hsl(52deg 100% 96%);
+  --primary-container: hsl(52deg 100% 78%);
+  --on-primary-container: hsl(300deg 90% 18%);
+  --tertiary: hsl(178deg 100% 26%);
+  --tertiary-wash: hsl(178deg 100% 35% / 18%);
+  --warning: hsl(38deg 100% 38%);
+  --warning-wash: hsl(48deg 100% 50% / 22%);
+  --critical: hsl(346deg 100% 42%);
+  --critical-wash: hsl(346deg 100% 50% / 14%);
+  --context-ok: hsl(190deg 100% 30%);
+  --context-warning: hsl(38deg 100% 40%);
+  --context-critical: hsl(346deg 100% 45%);
+  --surface: hsl(52deg 60% 97%);
+  --surface-1: hsl(52deg 45% 94%);
+  --surface-2: hsl(50deg 35% 90%);
+  --surface-3: hsl(48deg 28% 85%);
+  --on-surface: hsl(250deg 35% 12%);
+  --on-surface-variant: hsl(250deg 12% 38%);
+  --outline: hsl(300deg 20% 78%);
+  --shadow-color: hsl(300deg 40% 25% / 22%);
+  --primary-shadow: hsl(320deg 100% 45% / 40%);
+  --code-background: hsl(52deg 55% 95%);
+  --code-foreground: hsl(250deg 35% 14%);
+  --terminal-black: #1a1a26;
+  --terminal-red: #c4002e;
+  --terminal-green: #007a4d;
+  --terminal-yellow: #8a7a00;
+  --terminal-blue: #0067a8;
+  --terminal-magenta: #a3009a;
+  --terminal-cyan: #007d8a;
+  --terminal-white: #6b7480;
+  --terminal-bright-black: #565f6b;
+  --terminal-bright-red: #e00038;
+  --terminal-bright-green: #00915c;
+  --terminal-bright-yellow: #a08e00;
+  --terminal-bright-blue: #0080cc;
+  --terminal-bright-magenta: #c400b8;
+  --terminal-bright-cyan: #0098a8;
+  --terminal-bright-white: #1a1a26;
+  --terminal-selection: hsl(320deg 100% 45% / 20%);
+  --syntax-comment: hsl(250deg 12% 48%);
+  --syntax-keyword: hsl(320deg 100% 38%);
+  --syntax-string: hsl(178deg 100% 24%);
+  --syntax-number: hsl(38deg 100% 36%);
+  --syntax-function: hsl(200deg 100% 32%);
+  --syntax-property: hsl(190deg 100% 28%);
+
+  color-scheme: light;
+}
+
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the
    agent chips in the picker and onboarding; a component opts in by colouring its
    icon with `var(--agent-brand, currentColor)`. The session tabs never set
