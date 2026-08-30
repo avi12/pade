@@ -399,6 +399,79 @@ pub fn read_json(path: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&raw).ok()
 }
 
+/// Read a JSONC file — the dialect Windows Terminal and VS Code write, where
+/// `//` and `/* … */` comments and a trailing comma before a closing brace or
+/// bracket are all legal. `read_json` is the right reader for strict JSON; this
+/// one is for a file a *human* edits, where the comments the vendor's own
+/// template ships with would otherwise make the file unreadable.
+pub fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&strip_jsonc_sugar(&raw)).ok()
+}
+
+/// Rewrite JSONC as plain JSON: comments dropped, trailing commas dropped, and
+/// everything inside a string left exactly as written (a `//` in a URL is not a
+/// comment, and neither is a `,` in a label).
+fn strip_jsonc_sugar(raw: &str) -> String {
+    let mut json = String::with_capacity(raw.len());
+    let mut characters = raw.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+
+    while let Some(character) = characters.next() {
+        if in_string {
+            json.push(character);
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match character {
+            '"' => {
+                in_string = true;
+                json.push(character);
+            }
+            '/' if characters.peek() == Some(&'/') => {
+                // A line comment ends at the newline, which is kept so the rest
+                // of the file keeps the line structure the user wrote.
+                for skipped in characters.by_ref() {
+                    if skipped == '\n' {
+                        json.push('\n');
+                        break;
+                    }
+                }
+            }
+            '/' if characters.peek() == Some(&'*') => {
+                characters.next();
+                let mut star_seen = false;
+                for skipped in characters.by_ref() {
+                    if star_seen && skipped == '/' {
+                        break;
+                    }
+                    star_seen = skipped == '*';
+                }
+            }
+            '}' | ']' => {
+                while json.ends_with(char::is_whitespace) {
+                    json.pop();
+                }
+                if json.ends_with(',') {
+                    json.pop();
+                }
+                json.push(character);
+            }
+            _ => json.push(character),
+        }
+    }
+
+    json
+}
+
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
 pub fn home_dir() -> Option<PathBuf> {
@@ -454,7 +527,7 @@ pub fn encode_project(path: &str) -> String {
 mod tests {
     #[cfg(windows)]
     use super::expand_env;
-    use super::{find_in, owner_access, OwnerAccess};
+    use super::{find_in, owner_access, strip_jsonc_sugar, OwnerAccess};
     use std::fs;
     use std::path::PathBuf;
     use std::slice;
@@ -510,6 +583,28 @@ mod tests {
     fn find_in_reports_a_command_that_is_not_installed() {
         let dir = scratch("empty", &[]);
         assert_eq!(find_in(slice::from_ref(&dir), CODEX_NAMES), None);
+    }
+
+    /// The whole point of the JSONC reader: a settings file a human edits keeps
+    /// its comments, and the `//` inside a URL is not one of them.
+    #[test]
+    fn strip_jsonc_sugar_drops_comments_but_never_touches_a_string() {
+        let raw = concat!(
+            "{\n",
+            "  // the schema link is a comment magnet\n",
+            "  \"$schema\": \"https://aka.ms/terminal-profiles-schema\",\n",
+            "  /* block comments too */\n",
+            "  \"quoted\": \"a // b /* c */ d\",\n",
+            "  \"escaped\": \"a \\\" // still a string\",\n",
+            "  \"trailing\": [1, 2,],\n",
+            "}\n"
+        );
+        let parsed: serde_json::Value =
+            serde_json::from_str(&strip_jsonc_sugar(raw)).expect("JSONC parses once relaxed");
+        assert_eq!(parsed["$schema"], "https://aka.ms/terminal-profiles-schema");
+        assert_eq!(parsed["quoted"], "a // b /* c */ d");
+        assert_eq!(parsed["escaped"], "a \" // still a string");
+        assert_eq!(parsed["trailing"], serde_json::json!([1, 2]));
     }
 
     /// The registry hands back `PATH` as a `REG_EXPAND_SZ`, so a directory only

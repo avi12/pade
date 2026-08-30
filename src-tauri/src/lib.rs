@@ -19,6 +19,7 @@ mod refs;
 mod resume;
 mod runner;
 mod tasks;
+mod terminal_schemes;
 mod theming;
 mod usage;
 mod util;
@@ -191,6 +192,7 @@ pub fn run() {
             config::config_read,
             tasks::tasks_descriptors,
             tasks::tasks_list,
+            terminal_schemes::terminal_schemes,
             usage::usage_get,
             usage::usage_account,
             usage::usage_account_agent,
