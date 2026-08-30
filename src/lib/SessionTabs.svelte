@@ -688,6 +688,14 @@
       padding-block: 6px;
       padding-inline: 12px 4px;
       border: none;
+
+      /* The pill's leading cap, mirroring the trailing one on .close-button:
+         this button is the pill's first child and would otherwise square off
+         the corner the pill rounds (or, under a palette that bevels it, cuts)
+         away — and a corner is hit-tested against the shape it is GIVEN, so a
+         square child inside a shaped parent takes clicks from air. */
+      border-end-start-radius: 999px;
+      border-start-start-radius: 999px;
       background: transparent;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
