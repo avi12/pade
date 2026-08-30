@@ -4,6 +4,7 @@
 
 import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { SIDE_PANEL_MAX_WIDTH, SIDE_PANEL_MIN_WIDTH, UI_SCALE_MAX, UI_SCALE_MIN } from "@/lib/prefs-bounds";
+import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
 import { z } from "zod";
 
 export const ChangeKind = z.enum(["created", "modified", "deleted"]);
@@ -346,6 +347,31 @@ export type ThemePalette = z.infer<typeof ThemePalette>;
 export const Scheme = z.enum(["light", "dark"]);
 export type Scheme = z.infer<typeof Scheme>;
 
+/** One Windows Terminal colour scheme, as the backend hands it over
+ *  (`terminal_schemes`): the surface colours plus the 16 ANSI slots in ANSI
+ *  order — the order `ANSI_COLOR_TOKENS` maps onto the `--terminal-*` design
+ *  tokens, so an index here IS the SGR colour. `cursor` and `selection` are
+ *  absent in several shipped schemes; `lib/terminal-palette` derives those. */
+export const TerminalScheme = z.object({
+  name: z.string(),
+  background: z.string(),
+  foreground: z.string(),
+  cursor: z.string().nullish(),
+  selection: z.string().nullish(),
+  ansi: z.array(z.string()).length(ANSI_COLOR_TOKENS.length)
+});
+export type TerminalScheme = z.infer<typeof TerminalScheme>;
+
+/** The terminal colour scheme chosen for each app scheme, by name. Two slots
+ *  rather than one so the terminal can follow light/dark exactly as the app
+ *  does — a light scheme by day, a dark one by night. An empty slot (or a name
+ *  no longer in the catalogue) means "paint from the app theme's own tokens". */
+const TerminalSchemeChoice = z.object({
+  light: z.string().nullish(),
+  dark: z.string().nullish()
+});
+export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
+
 export const DiffStyle = z.enum(["unified", "split"]);
 export type DiffStyle = z.infer<typeof DiffStyle>;
 
@@ -357,6 +383,9 @@ export const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
   themeMode: ThemeMode.nullish(),
+  /** Windows Terminal colour schemes to paint the terminal with, one per app
+   *  scheme. Absent on a side = that scheme uses the app theme's own palette. */
+  terminalSchemes: TerminalSchemeChoice.nullish(),
   diffStyle: DiffStyle.nullish(),
   startMode: StartMode.nullish(),
   /** Auto-name temp workspaces once the agent has done real work (default on). */

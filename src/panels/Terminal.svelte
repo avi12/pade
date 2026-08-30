@@ -280,7 +280,7 @@
   const NEWLINE_VIA_RAW_LF_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
 
   async function writeSchemeReport() {
-    await writeToPty(colorSchemeReport(appearance.scheme));
+    await writeToPty(colorSchemeReport(appearance.terminalScheme));
   }
 
   // Recover the context window from the session's model when the agent's own
@@ -605,19 +605,21 @@
     fitToPane();
   });
 
-  // Re-theme xterm whenever the app scheme changes. The terminal palette changes
-  // in place, so it is safe for every live session. An agent that subscribed to
-  // DECSET 2031 color-scheme reports (Claude's `auto` theme, opencode's `system`
-  // theme) also gets the standard report relayed through its PTY after
-  // repainting: xterm does not emit one merely because `options.theme` changed.
-  // It reaches the already-running process and redraws its own TUI without a
-  // restart or context loss.
+  // Everything that decides the terminal's colours, as one value: the app scheme
+  // (the tokens theme.css installs) and the chosen Windows Terminal scheme (the
+  // tokens lib/prefs installs over them). Reading it is what subscribes the
+  // effect below, so a light/dark flip and a change of scheme both re-theme.
+  const paintedPalette = $derived(`${appearance.scheme}/${appearance.terminalPalette ?? ""}`);
+
+  // Re-theme xterm whenever that changes. The palette changes in place, so it is
+  // safe for every live session. An agent that subscribed to DECSET 2031
+  // color-scheme reports (Claude's `auto` theme, opencode's `system` theme) also
+  // gets the standard report relayed through its PTY after repainting: xterm
+  // does not emit one merely because `options.theme` changed. It reaches the
+  // already-running process and redraws its own TUI without a restart or
+  // context loss.
   $effect(() => {
-    // Reading the scheme is what subscribes this effect to it, so a light/dark
-    // flip re-runs and re-reads the palette; readXtermTheme pulls the live CSS
-    // tokens the flipped scheme installed.
-    const { scheme } = appearance;
-    if (!terminal || !scheme) {
+    if (!terminal || !paintedPalette) {
       return;
     }
 
@@ -1620,7 +1622,7 @@
         cols: agentColumns,
         rows: terminal.rows,
         args: session.args,
-        scheme: appearance.scheme,
+        scheme: appearance.terminalScheme,
         conversationId: session.conversationId
       });
     } catch (error) {

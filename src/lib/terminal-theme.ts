@@ -176,7 +176,7 @@ export function xtermTheme({ readToken }: { readToken: (name: string) => string 
   return {
     background: color("--code-background"),
     foreground: color("--code-foreground"),
-    cursor: color("--primary"),
+    cursor: color("--terminal-cursor"),
     selectionBackground: color("--terminal-selection"),
     ...ansiColors
   };

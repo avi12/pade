@@ -6,11 +6,14 @@ import { windows, workspace } from "@/lib/bridge";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/prefs-bounds";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings.svelte";
+import { chosenTerminalScheme, loadTerminalSchemes } from "@/lib/stores/terminalSchemes.svelte";
+import { schemeOfBackground, TERMINAL_PALETTE_PROPERTIES, terminalPaletteProperties } from "@/lib/terminal-palette";
 import { followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
 import {
   type DiffStyle,
   type Prefs,
   type Scheme,
+  type TerminalSchemeChoice,
   type ThemeMode,
   ThemePalette
 } from "@/lib/types";
@@ -29,6 +32,12 @@ function withChosenFont(chosen: string | null | undefined, baseVariable: string)
   const base = getComputedStyle(document.documentElement).getPropertyValue(baseVariable).trim();
   return chosen ? `"${chosen}", ${base}` : base;
 }
+
+/** Nothing chosen on either side — the terminal follows the app theme. */
+const NO_TERMINAL_SCHEMES: TerminalSchemeChoice = {
+  light: null,
+  dark: null
+};
 
 /** Effective values with defaults resolved (for consumers that need a concrete value). */
 export const effective = {
@@ -49,6 +58,11 @@ export const effective = {
   },
   get uiScale(): number {
     return prefs.uiScale ?? 1;
+  },
+  /** The Windows Terminal colour scheme chosen per app scheme (`lib/stores/
+   *  terminalSchemes` resolves a name to the scheme itself). */
+  get terminalSchemes(): TerminalSchemeChoice {
+    return prefs.terminalSchemes ?? NO_TERMINAL_SCHEMES;
   },
   get sidePanelWidth(): number {
     return prefs.sidePanelWidth ?? SIDE_PANEL_DEFAULT_WIDTH;
@@ -90,9 +104,19 @@ let systemScheme: Scheme = osDark.matches ? "dark" : "light";
 export const appearance = $state<{
   scheme: Scheme;
   palette: ThemePalette;
+  /** The name of the Windows Terminal scheme painting the terminal, or `null`
+   *  when it follows the app theme. Reading it is what re-themes xterm when the
+   *  user picks another one. */
+  terminalPalette: string | null;
+  /** Light or dark as the TERMINAL is painted — the chosen scheme's own
+   *  background when there is one, else the app's. This, never `scheme`, is what
+   *  an agent is told: it paints into the terminal, not into the app chrome. */
+  terminalScheme: Scheme;
 }>({
   scheme: systemScheme,
-  palette: ThemePalette.enum.default
+  palette: ThemePalette.enum.default,
+  terminalPalette: null,
+  terminalScheme: systemScheme
 });
 
 /** Apply a resolved appearance to the reactive store and the `<html>` data
@@ -111,6 +135,37 @@ function installAppearance({
   document.documentElement.dataset.palette = palette;
 }
 
+/** Paint the terminal from the scheme chosen for `scheme`, or hand it back to
+ *  the app theme's own `--terminal-*` tokens when there is none. Writing the
+ *  tokens rather than talking to xterm is what keeps every ANSI surface (the
+ *  terminal, the runner dock) on one palette. */
+function installTerminalPalette(scheme: Scheme): void {
+  const chosen = chosenTerminalScheme({
+    choice: prefs.terminalSchemes,
+    scheme
+  });
+  const root = document.documentElement.style;
+  if (!chosen) {
+    for (const property of TERMINAL_PALETTE_PROPERTIES) {
+      root.removeProperty(property);
+    }
+
+    appearance.terminalPalette = null;
+    appearance.terminalScheme = scheme;
+    return;
+  }
+
+  for (const [property, color] of terminalPaletteProperties(chosen)) {
+    root.setProperty(property, color);
+  }
+
+  appearance.terminalPalette = chosen.name;
+  appearance.terminalScheme = schemeOfBackground({
+    color: chosen.background,
+    fallback: scheme
+  });
+}
+
 function apply() {
   // Fonts are bound declaratively in the template (style:--font-ui / --font-monospace).
   // Theme mode stays here: it must sit on <html> for the pre-paint flash guard
@@ -126,6 +181,7 @@ function apply() {
   // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
   // ≥16px unit from it. rem/em UI and the terminal scale from the one knob.
   document.documentElement.style.setProperty("--ui-scale", String(effective.uiScale));
+  installTerminalPalette(appearance.scheme);
 }
 
 /** Record what the OS is showing and re-apply if we're following it. The scheme
@@ -199,6 +255,9 @@ async function adoptNativeSystemScheme(): Promise<void> {
 export async function loadPrefs(): Promise<void> {
   await watchSystemTheme();
   await adoptNativeSystemScheme();
+  // Before the settings land, so the first apply() already resolves a persisted
+  // terminal scheme instead of flashing the app palette first.
+  await loadTerminalSchemes();
   await workspace.settings();
 }
 

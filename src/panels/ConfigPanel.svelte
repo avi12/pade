@@ -11,6 +11,7 @@
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { type ConfigFile, ThemeMode } from "@/lib/types";
   import { HandoffPercent, parseInput } from "@/lib/validate";
+  import TerminalColours from "@/panels/config/TerminalColours.svelte";
 
   // Only the config files relevant to the active agent are listed.
   const { agent }: { agent: string } = $props();
@@ -204,6 +205,8 @@
           {/each}
         </div>
       </div>
+
+      <TerminalColours />
 
       <div class="field-row">
         <span class="field-text">

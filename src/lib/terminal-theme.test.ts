@@ -50,7 +50,7 @@ describe("xtermTheme", () => {
   const tokens: Record<string, string> = {
     "--code-background": "hsl(214deg 40% 6%)",
     "--code-foreground": "hsl(210deg 20% 85%)",
-    "--primary": "hsl(210deg 90% 68%)",
+    "--terminal-cursor": "hsl(210deg 90% 68%)",
     "--terminal-selection": "hsl(210deg 90% 66% / 28%)"
   };
 
@@ -59,7 +59,7 @@ describe("xtermTheme", () => {
   it("maps the code surface and cursor tokens onto xterm's slots", () => {
     expect(theme.background).toBe(xtermSafeColor(tokens["--code-background"]!));
     expect(theme.foreground).toBe(xtermSafeColor(tokens["--code-foreground"]!));
-    expect(theme.cursor).toBe(xtermSafeColor(tokens["--primary"]!));
+    expect(theme.cursor).toBe(xtermSafeColor(tokens["--terminal-cursor"]!));
   });
 
   it("hands xterm an alpha selection it can actually parse (8-digit hex)", () => {

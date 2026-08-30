@@ -38,6 +38,7 @@ import {
   StatusEntry,
   TaskGroup,
   TaskManifestDescriptor,
+  TerminalScheme,
   Usage,
   WatchStatus,
   WindowInfo,
@@ -562,6 +563,13 @@ export const usage = {
 export const config = {
   list: (agent: string) => call("config_list", z.array(ConfigFile), { agent }),
   read: (rel: string) => call("config_read", z.string(), { rel })
+};
+
+/** Terminal appearance — the Windows Terminal colour schemes PADE can paint its
+ *  own terminal with: the ones Windows Terminal ships (vendored) merged with the
+ *  ones the user wrote into their own settings. */
+export const terminal = {
+  schemes: () => call("terminal_schemes", z.array(TerminalScheme))
 };
 
 /** Workspace & projects channel. */

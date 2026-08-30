@@ -92,6 +92,11 @@
   --terminal-bright-white: hsl(214deg 30% 14%);
   --terminal-selection: hsl(210deg 90% 45% / 22%);
 
+  /* The caret. Defined once, in terms of the accent, so it follows every scheme
+     and palette; a chosen Windows Terminal scheme overwrites this token with its
+     own cursor colour (lib/terminal-palette). */
+  --terminal-cursor: var(--primary);
+
   /* Syntax-highlight palette for the code / config / diff viewers. */
   --syntax-comment: hsl(214deg 12% 48%);
   --syntax-keyword: hsl(265deg 55% 52%);

@@ -1214,7 +1214,7 @@
   // records the scheme it really launched with) and dropped with the session.
   const sessionSpawnScheme = new SvelteMap<string, Scheme>();
   $effect(() => {
-    const { scheme } = appearance;
+    const scheme = appearance.terminalScheme;
     for (const session of sessions) {
       if (!sessionSpawnScheme.has(session.id)) {
         sessionSpawnScheme.set(session.id, scheme);
@@ -1222,9 +1222,9 @@
     }
   });
 
-  let lastAgentThemedScheme = appearance.scheme;
+  let lastAgentThemedScheme = appearance.terminalScheme;
   $effect(() => {
-    const { scheme } = appearance;
+    const scheme = appearance.terminalScheme;
     if (scheme === lastAgentThemedScheme) {
       return;
     }
@@ -1266,7 +1266,8 @@
   async function restartSpawnThemedAgents() {
     const mismatched = sessions.filter(
       session =>
-        SPAWN_THEMED_AGENTS.has(session.agent.id) && sessionSpawnScheme.get(session.id) !== appearance.scheme
+        SPAWN_THEMED_AGENTS.has(session.agent.id) &&
+          sessionSpawnScheme.get(session.id) !== appearance.terminalScheme
     );
     for (const session of mismatched) {
       if (!isSessionIdle(session.id)) {
