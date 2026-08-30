@@ -109,6 +109,20 @@ describe("terminalPaletteProperties", () => {
     expect(properties.get("--terminal-cursor")).toBe(solarizedDark.foreground);
   });
 
+  it("hands the syntax roles the slots the scheme already spends on them", () => {
+    // The code viewers share `--code-background` with the terminal, so a scheme
+    // that moves the paper has to move the ink with it.
+    const properties = terminalPaletteProperties(solarizedDark);
+    expect(properties.get("--syntax-keyword")).toBe(solarizedDark.ansi[5]);
+    expect(properties.get("--syntax-string")).toBe(solarizedDark.ansi[2]);
+    expect(properties.get("--syntax-number")).toBe(solarizedDark.ansi[3]);
+    expect(properties.get("--syntax-function")).toBe(solarizedDark.ansi[4]);
+    expect(properties.get("--syntax-property")).toBe(solarizedDark.ansi[6]);
+    // Comments take bright black — the muted grey every palette reserves for
+    // them — and never a bright colour, which a light scheme spends on greys.
+    expect(properties.get("--syntax-comment")).toBe(solarizedDark.ansi[8]);
+  });
+
   it("writes exactly the properties the uninstall clears", () => {
     // The two lists have to agree or picking "follow the app theme" again would
     // leave a stray token behind, painting half of one palette over the other.

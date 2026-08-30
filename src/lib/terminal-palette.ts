@@ -20,6 +20,26 @@ const CODE_FOREGROUND = "--code-foreground";
 const TERMINAL_CURSOR = "--terminal-cursor";
 const TERMINAL_SELECTION = "--terminal-selection";
 
+/** The syntax roles, each named by the terminal token whose colour it takes —
+ *  the ANSI slot a palette already spends on that role. The code viewers paint
+ *  from these AND from `--code-background`, one surface with the terminal, so a
+ *  scheme that moved the background has to move these too; otherwise it leaves
+ *  the app theme's inks on someone else's paper (a light theme's dark syntax on
+ *  a scheme's near-black, which is simply unreadable).
+ *
+ *  Deliberately the standard slots and not the bright ones: a light scheme
+ *  (Solarized Light) spends its bright slots on greys, so the bright set would
+ *  hand half the syntax palette the same colour. Comments are the exception —
+ *  bright black IS the muted grey every palette reserves for them. */
+const SYNTAX_TOKEN_SOURCES = [
+  ["--syntax-comment", "--terminal-bright-black"],
+  ["--syntax-keyword", "--terminal-magenta"],
+  ["--syntax-string", "--terminal-green"],
+  ["--syntax-number", "--terminal-yellow"],
+  ["--syntax-function", "--terminal-blue"],
+  ["--syntax-property", "--terminal-cyan"]
+] as const satisfies readonly (readonly [string, (typeof ANSI_COLOR_TOKENS)[number]])[];
+
 /** Every property an installed scheme writes — and therefore exactly what has
  *  to be removed again to hand the terminal back to the app theme. */
 export const TERMINAL_PALETTE_PROPERTIES = [
@@ -27,6 +47,7 @@ export const TERMINAL_PALETTE_PROPERTIES = [
   CODE_FOREGROUND,
   TERMINAL_CURSOR,
   TERMINAL_SELECTION,
+  ...SYNTAX_TOKEN_SOURCES.map(([token]) => token),
   ...ANSI_COLOR_TOKENS
 ] as const;
 
@@ -132,6 +153,10 @@ export function terminalPaletteProperties(scheme: TerminalScheme): Map<string, s
   ]);
   for (let index = 0; index < ANSI_COLOR_TOKENS.length; index++) {
     properties.set(ANSI_COLOR_TOKENS[index], scheme.ansi[index]);
+  }
+
+  for (const [token, source] of SYNTAX_TOKEN_SOURCES) {
+    properties.set(token, scheme.ansi[ANSI_COLOR_TOKENS.indexOf(source)]);
   }
 
   return properties;
