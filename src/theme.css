@@ -368,6 +368,28 @@
   color-scheme: light;
 }
 
+/* Cyberpunk's shape language: corners are CUT, not rounded. `corner-shape:
+   bevel` reinterprets every radius in the app as a chamfer, and the scale below
+   runs the cut down one diagonal — `0 <size>` is the two-value border-radius
+   form, so the top-right and bottom-left corners are chamfered and the other
+   two stay square. That asymmetry is the geometry the game's HUD is drawn in,
+   and it is what tells a Cyberpunk control from a Material one at a glance.
+
+   Both faces share it (shape is not light or dark), and no component changes:
+   every card, button, menu and field already takes its corner from these four
+   tokens, while the pill-shaped controls (a 999px radius) become slant-ended
+   slabs on their own — a bevel that big simply cuts the whole end off. */
+:root[data-palette="cyberpunk"] {
+  --radius-small: 0 5px;
+  --radius-medium: 0 9px;
+  --radius-large: 0 12px;
+  --radius-extra-large: 0 16px;
+}
+
+:root[data-palette="cyberpunk"] * {
+  corner-shape: bevel;
+}
+
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the
    agent chips in the picker and onboarding; a component opts in by colouring its
    icon with `var(--agent-brand, currentColor)`. The session tabs never set
