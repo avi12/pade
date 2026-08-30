@@ -329,6 +329,7 @@
   --primary-shadow: hsl(184deg 100% 50% / 45%);
   --focus-glow: 0 0 0 1px hsl(184deg 100% 50% / 40%), 0 0 14px hsl(184deg 100% 50% / 45%);
   --scanline: hsl(184deg 100% 50% / 5%);
+  --control-edge: color-mix(in sRGB, var(--primary) 28%, transparent);
   --code-background: hsl(240deg 29% 5%);
   --code-foreground: hsl(199deg 44% 89%);
   --terminal-black: #14141f;
@@ -373,56 +374,73 @@
    drops to the companion. Red and amber keep the alarm and the warning to
    themselves, and the brand yellow stays where the scheme spends it: the caret
    and the highlight wash. */
+
+/* Daylight. Cyberpunk is a dark-first look by construction — neon reads as
+   emitted light only against near-black — so the day face cannot be the night
+   one lifted. It is the game's OTHER register: the corpo document. Ink and
+   hairlines do the structure, on neutral paper with no tint of its own; the
+   accent is spent, not spread.
+
+   Which is what the two earlier attempts got wrong. A cyan lead on cyan-white
+   paper read as a clinic. A hot magenta lead read as candy, because a saturated
+   pink at high lightness IS candy on white however correct its contrast — and
+   pink hairlines around every control only sharpened that. So: a deep crimson (the
+   game's neon pink-red, darkened until it is a colour and not a glow) for the
+   accents, near-black hairlines for the frames, and the brand yellow spent in
+   exactly one place — the selected slab, black text on it, which is the mark
+   the game is known by and the only thing that reads as Cyberpunk on paper.
+   Red-orange keeps the alarm, amber the warning, cyan the companion. */
 :root[data-palette="cyberpunk"][data-theme="light"] {
-  --seed-hue: 320deg;
-  --primary: hsl(320deg 100% 36%);
-  --on-primary: hsl(300deg 100% 98%);
-  --primary-container: hsl(320deg 100% 39%);
-  --on-primary-container: hsl(300deg 100% 98%);
+  --seed-hue: 344deg;
+  --primary: hsl(344deg 90% 34%);
+  --on-primary: hsl(0deg 0% 100%);
+  --primary-container: hsl(52deg 100% 56%);
+  --on-primary-container: hsl(250deg 28% 12%);
   --tertiary: hsl(187deg 100% 23%);
-  --tertiary-wash: hsl(187deg 100% 40% / 16%);
-  --warning: hsl(38deg 100% 26%);
-  --warning-wash: hsl(52deg 100% 50% / 30%);
-  --critical: hsl(0deg 88% 40%);
-  --critical-wash: hsl(0deg 88% 50% / 14%);
+  --tertiary-wash: hsl(187deg 100% 35% / 16%);
+  --warning: hsl(42deg 100% 26%);
+  --warning-wash: hsl(52deg 100% 56% / 32%);
+  --critical: hsl(8deg 88% 40%);
+  --critical-wash: hsl(8deg 88% 50% / 14%);
   --context-ok: hsl(187deg 100% 29%);
-  --context-warning: hsl(38deg 100% 32%);
-  --context-critical: hsl(0deg 88% 44%);
-  --surface: hsl(255deg 30% 97%);
-  --surface-1: hsl(253deg 26% 94%);
-  --surface-2: hsl(251deg 22% 91%);
-  --surface-3: hsl(250deg 20% 86%);
-  --on-surface: hsl(250deg 30% 12%);
-  --on-surface-variant: hsl(250deg 13% 38%);
-  --outline: hsl(255deg 15% 74%);
-  --shadow-color: hsl(300deg 40% 25% / 20%);
-  --primary-shadow: hsl(320deg 100% 40% / 40%);
-  --focus-glow: 0 0 0 1px hsl(320deg 100% 36% / 32%), 0 0 12px hsl(320deg 100% 40% / 34%);
-  --scanline: hsl(250deg 30% 12% / 5%);
-  --code-background: hsl(255deg 30% 96%);
-  --code-foreground: hsl(250deg 30% 14%);
-  --terminal-black: hsl(250deg 30% 12%);
+  --context-warning: hsl(42deg 100% 32%);
+  --context-critical: hsl(8deg 88% 44%);
+  --surface: hsl(250deg 12% 97%);
+  --surface-1: hsl(250deg 11% 94%);
+  --surface-2: hsl(248deg 10% 91%);
+  --surface-3: hsl(248deg 9% 86%);
+  --on-surface: hsl(250deg 28% 12%);
+  --on-surface-variant: hsl(250deg 10% 36%);
+  --outline: hsl(250deg 14% 60%);
+  --control-edge: color-mix(in sRGB, var(--on-surface) 24%, transparent);
+  --shadow-color: hsl(250deg 30% 20% / 20%);
+  --primary-shadow: hsl(344deg 90% 38% / 40%);
+  --focus-glow: 0 0 0 1px hsl(344deg 90% 34% / 32%), 0 0 12px hsl(344deg 90% 40% / 32%);
+  --scanline: hsl(250deg 28% 12% / 5%);
+  --code-background: hsl(250deg 12% 96%);
+  --code-foreground: hsl(250deg 28% 14%);
+  --terminal-black: hsl(250deg 28% 12%);
   --terminal-red: hsl(346deg 100% 38%);
   --terminal-green: hsl(157deg 100% 25%);
   --terminal-yellow: hsl(50deg 100% 30%);
   --terminal-blue: hsl(197deg 100% 33%);
   --terminal-magenta: hsl(304deg 100% 33%);
   --terminal-cyan: hsl(184deg 100% 26%);
-  --terminal-white: hsl(250deg 12% 45%);
-  --terminal-bright-black: hsl(250deg 10% 40%);
+  --terminal-white: hsl(250deg 10% 45%);
+  --terminal-bright-black: hsl(250deg 8% 40%);
   --terminal-bright-red: hsl(345deg 100% 44%);
   --terminal-bright-green: hsl(158deg 100% 29%);
   --terminal-bright-yellow: hsl(53deg 100% 34%);
   --terminal-bright-blue: hsl(195deg 100% 38%);
   --terminal-bright-magenta: hsl(310deg 100% 40%);
   --terminal-bright-cyan: hsl(183deg 100% 30%);
-  --terminal-bright-white: hsl(250deg 30% 12%);
-  --terminal-selection: hsl(320deg 100% 45% / 20%);
+  --terminal-bright-white: hsl(250deg 28% 12%);
+  --terminal-selection: hsl(344deg 90% 40% / 18%);
   --terminal-cursor: hsl(50deg 100% 30%);
-  --syntax-comment: hsl(250deg 12% 44%);
-  --syntax-keyword: hsl(320deg 100% 38%);
+  --syntax-comment: hsl(250deg 10% 44%);
+  --syntax-keyword: hsl(330deg 85% 36%);
   --syntax-string: hsl(157deg 100% 23%);
-  --syntax-number: hsl(38deg 100% 28%);
+  --syntax-number: hsl(42deg 100% 28%);
   --syntax-function: hsl(187deg 100% 25%);
   --syntax-property: hsl(197deg 100% 30%);
 
@@ -451,10 +469,6 @@
      doesn't carry still renders in the app's own face rather than a system
      fallback. */
   --font-ui-base: "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
-
-  /* The lit hairline every control carries. Derived from the accent, so it
-     resolves per face without being spelled twice. */
-  --control-edge: color-mix(in sRGB, var(--primary) 28%, transparent);
 }
 
 /* Cyberpunk's controls are framed plates, not tinted pills — which is what
