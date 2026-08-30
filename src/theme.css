@@ -203,40 +203,48 @@
 
 /* Cyberpunk 2077 — the fourth theme option, a palette rather than a scheme.
    `lib/theme-mode` gives it the OS's light/dark (like Auto) and tags the root
-   `data-palette="cyberpunk"`, so the skin has a night face and a day face and
-   the two blocks below define exactly the same tokens — neither leaks into the
-   other, and each is selected by its own `data-theme`, never by source order.
+   `data-palette="cyberpunk"`, so the skin has a night face and a day face; the
+   two blocks define exactly the same tokens and each is selected by its own
+   `data-theme`, so neither depends on source order to win.
 
-   Night city: brand yellow #fcee0a on near-black violet, lit by cyan #00f0ff
-   and hot magenta #d300c5. The terminal slots are the Cyberpunk 2077 terminal
-   scheme's own hexes, kept verbatim so the palette is the one the scheme is
-   known by rather than an approximation of it. */
+   Every colour in both faces comes from ONE source: the Cyberpunk 2077 Windows
+   Terminal colour scheme — background #0a0a12, foreground #d6e7ef, the neons
+   #ff003c / #00ff9f / #fcee0a / #00b8ff / #d300c5 / #00f0ff, and the #4a0e2c
+   selection. The night face wears them as written. The day face keeps every hue
+   and swaps the roles the scheme itself defines: its brightWhite #f2fbff
+   becomes the paper, its background becomes the ink, and each neon drops in
+   lightness until it reads on paper — same palette, daylight. The one place the
+   day face changes its mind is the lead colour: yellow on white is unreadable
+   as text or as a button, but black-on-yellow is the mark the game is known by,
+   so the brand yellow becomes the container block and the scheme's cyan leads.
+   Terminal slots stay verbatim hex on the night face, because those sixteen ARE
+   the scheme. */
 :root[data-palette="cyberpunk"][data-theme="dark"] {
-  --seed-hue: 187deg;
-  --primary: hsl(55deg 97% 52%);
-  --on-primary: hsl(250deg 45% 6%);
-  --primary-container: hsl(320deg 100% 20%);
-  --on-primary-container: hsl(52deg 100% 82%);
-  --tertiary: hsl(165deg 100% 55%);
-  --tertiary-wash: hsl(165deg 100% 50% / 16%);
-  --warning: hsl(52deg 97% 55%);
-  --warning-wash: hsl(52deg 97% 55% / 16%);
-  --critical: hsl(346deg 100% 62%);
-  --critical-wash: hsl(346deg 100% 55% / 18%);
-  --context-ok: hsl(187deg 100% 50%);
-  --context-warning: hsl(52deg 97% 55%);
-  --context-critical: hsl(340deg 100% 62%);
-  --surface: hsl(245deg 33% 6%);
-  --surface-1: hsl(245deg 30% 9%);
-  --surface-2: hsl(245deg 28% 13%);
-  --surface-3: hsl(248deg 26% 19%);
-  --on-surface: hsl(197deg 55% 89%);
-  --on-surface-variant: hsl(199deg 20% 66%);
-  --outline: hsl(300deg 30% 28%);
-  --shadow-color: hsl(300deg 90% 4% / 60%);
-  --primary-shadow: hsl(52deg 97% 52% / 45%);
-  --code-background: hsl(245deg 35% 5%);
-  --code-foreground: hsl(197deg 55% 89%);
+  --seed-hue: 184deg;
+  --primary: hsl(56deg 97% 51%);
+  --on-primary: hsl(240deg 30% 6%);
+  --primary-container: hsl(330deg 68% 20%);
+  --on-primary-container: hsl(56deg 97% 82%);
+  --tertiary: hsl(157deg 100% 50%);
+  --tertiary-wash: hsl(157deg 100% 45% / 16%);
+  --warning: hsl(56deg 97% 55%);
+  --warning-wash: hsl(56deg 97% 51% / 16%);
+  --critical: hsl(346deg 100% 60%);
+  --critical-wash: hsl(346deg 100% 50% / 18%);
+  --context-ok: hsl(184deg 100% 50%);
+  --context-warning: hsl(56deg 97% 55%);
+  --context-critical: hsl(345deg 100% 62%);
+  --surface: hsl(240deg 29% 6%);
+  --surface-1: hsl(240deg 26% 9%);
+  --surface-2: hsl(240deg 23% 13%);
+  --surface-3: hsl(240deg 20% 19%);
+  --on-surface: hsl(199deg 44% 89%);
+  --on-surface-variant: hsl(199deg 21% 72%);
+  --outline: hsl(207deg 16% 32%);
+  --shadow-color: hsl(240deg 60% 2% / 60%);
+  --primary-shadow: hsl(56deg 97% 51% / 45%);
+  --code-background: hsl(240deg 29% 5%);
+  --code-foreground: hsl(199deg 44% 89%);
   --terminal-black: #14141f;
   --terminal-red: #ff003c;
   --terminal-green: #00ff9f;
@@ -253,70 +261,66 @@
   --terminal-bright-magenta: #ff4fe1;
   --terminal-bright-cyan: #8bfaff;
   --terminal-bright-white: #f2fbff;
-  --terminal-selection: hsl(320deg 100% 45% / 30%);
-  --syntax-comment: hsl(220deg 15% 52%);
-  --syntax-keyword: hsl(310deg 100% 70%);
-  --syntax-string: hsl(165deg 100% 60%);
-  --syntax-number: hsl(52deg 97% 62%);
-  --syntax-function: hsl(187deg 100% 62%);
-  --syntax-property: hsl(199deg 100% 72%);
+  --terminal-selection: hsl(330deg 68% 40% / 45%);
+  --syntax-comment: hsl(207deg 16% 52%);
+  --syntax-keyword: hsl(304deg 100% 68%);
+  --syntax-string: hsl(157deg 100% 60%);
+  --syntax-number: hsl(56deg 97% 62%);
+  --syntax-function: hsl(184deg 100% 60%);
+  --syntax-property: hsl(197deg 100% 66%);
 
   color-scheme: dark;
 }
 
-/* Daylight corpo: the same neon signature read on paper — pale yellow-white
-   surfaces, near-black violet ink, and the accents pushed dark enough to stay
-   legible on them (a #fcee0a-on-white button would be unreadable, so magenta
-   leads and the brand yellow becomes the container wash). */
 :root[data-palette="cyberpunk"][data-theme="light"] {
-  --seed-hue: 187deg;
-  --primary: hsl(320deg 100% 38%);
-  --on-primary: hsl(52deg 100% 96%);
-  --primary-container: hsl(52deg 100% 78%);
-  --on-primary-container: hsl(300deg 90% 18%);
-  --tertiary: hsl(178deg 100% 26%);
-  --tertiary-wash: hsl(178deg 100% 35% / 18%);
-  --warning: hsl(38deg 100% 38%);
-  --warning-wash: hsl(48deg 100% 50% / 22%);
-  --critical: hsl(346deg 100% 42%);
+  --seed-hue: 184deg;
+  --primary: hsl(184deg 100% 24%);
+  --on-primary: hsl(199deg 100% 97%);
+  --primary-container: hsl(56deg 97% 60%);
+  --on-primary-container: hsl(240deg 30% 8%);
+  --tertiary: hsl(304deg 100% 33%);
+  --tertiary-wash: hsl(304deg 100% 45% / 14%);
+  --warning: hsl(45deg 100% 32%);
+  --warning-wash: hsl(56deg 97% 51% / 32%);
+  --critical: hsl(346deg 100% 40%);
   --critical-wash: hsl(346deg 100% 50% / 14%);
-  --context-ok: hsl(190deg 100% 30%);
-  --context-warning: hsl(38deg 100% 40%);
+  --context-ok: hsl(184deg 100% 28%);
+  --context-warning: hsl(45deg 100% 38%);
   --context-critical: hsl(346deg 100% 45%);
-  --surface: hsl(52deg 60% 97%);
-  --surface-1: hsl(52deg 45% 94%);
-  --surface-2: hsl(50deg 35% 90%);
-  --surface-3: hsl(48deg 28% 85%);
-  --on-surface: hsl(250deg 35% 12%);
-  --on-surface-variant: hsl(250deg 12% 38%);
-  --outline: hsl(300deg 20% 78%);
-  --shadow-color: hsl(300deg 40% 25% / 22%);
-  --primary-shadow: hsl(320deg 100% 45% / 40%);
-  --code-background: hsl(52deg 55% 95%);
-  --code-foreground: hsl(250deg 35% 14%);
-  --terminal-black: #1a1a26;
-  --terminal-red: #c4002e;
-  --terminal-green: #007a4d;
-  --terminal-yellow: #8a7a00;
-  --terminal-blue: #0067a8;
-  --terminal-magenta: #a3009a;
-  --terminal-cyan: #007d8a;
-  --terminal-white: #6b7480;
-  --terminal-bright-black: #565f6b;
-  --terminal-bright-red: #e00038;
-  --terminal-bright-green: #00915c;
-  --terminal-bright-yellow: #a08e00;
-  --terminal-bright-blue: #0080cc;
-  --terminal-bright-magenta: #c400b8;
-  --terminal-bright-cyan: #0098a8;
-  --terminal-bright-white: #1a1a26;
-  --terminal-selection: hsl(320deg 100% 45% / 20%);
-  --syntax-comment: hsl(250deg 12% 48%);
-  --syntax-keyword: hsl(320deg 100% 38%);
-  --syntax-string: hsl(178deg 100% 24%);
-  --syntax-number: hsl(38deg 100% 36%);
-  --syntax-function: hsl(200deg 100% 32%);
-  --syntax-property: hsl(190deg 100% 28%);
+  --surface: hsl(199deg 100% 97%);
+  --surface-1: hsl(199deg 60% 94%);
+  --surface-2: hsl(199deg 40% 90%);
+  --surface-3: hsl(199deg 30% 85%);
+  --on-surface: hsl(240deg 30% 10%);
+  --on-surface-variant: hsl(207deg 16% 36%);
+  --outline: hsl(199deg 21% 77%);
+  --shadow-color: hsl(240deg 40% 20% / 22%);
+  --primary-shadow: hsl(184deg 100% 32% / 45%);
+  --code-background: hsl(199deg 70% 96%);
+  --code-foreground: hsl(240deg 30% 12%);
+  --terminal-black: hsl(240deg 22% 10%);
+  --terminal-red: hsl(346deg 100% 38%);
+  --terminal-green: hsl(157deg 100% 25%);
+  --terminal-yellow: hsl(50deg 100% 30%);
+  --terminal-blue: hsl(197deg 100% 33%);
+  --terminal-magenta: hsl(304deg 100% 33%);
+  --terminal-cyan: hsl(184deg 100% 26%);
+  --terminal-white: hsl(199deg 20% 45%);
+  --terminal-bright-black: hsl(207deg 16% 40%);
+  --terminal-bright-red: hsl(345deg 100% 44%);
+  --terminal-bright-green: hsl(158deg 100% 29%);
+  --terminal-bright-yellow: hsl(53deg 100% 34%);
+  --terminal-bright-blue: hsl(195deg 100% 38%);
+  --terminal-bright-magenta: hsl(310deg 100% 40%);
+  --terminal-bright-cyan: hsl(183deg 100% 30%);
+  --terminal-bright-white: hsl(240deg 25% 12%);
+  --terminal-selection: hsl(330deg 68% 40% / 22%);
+  --syntax-comment: hsl(207deg 16% 45%);
+  --syntax-keyword: hsl(304deg 100% 36%);
+  --syntax-string: hsl(157deg 100% 24%);
+  --syntax-number: hsl(45deg 100% 32%);
+  --syntax-function: hsl(184deg 100% 26%);
+  --syntax-property: hsl(197deg 100% 30%);
 
   color-scheme: light;
 }
