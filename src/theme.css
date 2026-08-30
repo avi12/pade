@@ -307,8 +307,9 @@
    Two details come with the HUD: `--focus-glow` puts a neon bloom around the
    focused control (the base theme leaves it `none`), and the caret is the
    scheme's own #fcee0a — exactly the one slot the Cyberpunk 2077 scheme
-   spends its yellow on. The rest of that yellow goes to the bezel further
-   down, which is where the HUD spends it too. */
+   spends its yellow on, and now the only one: the amber frame this palette
+   briefly wore at the viewport edge is gone, so the caret is the whole of the
+   yellow budget. */
 :root[data-palette="cyberpunk"][data-theme="dark"] {
   --seed-hue: 184deg;
   --primary: hsl(184deg 100% 50%);
@@ -488,24 +489,12 @@
      fallback. */
   --font-ui-base: "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
 
-  /* The bezel: the amber the game frames every full-screen panel in — the
-     scheme's own #fcee0a pulled down to the warmer, dirtier gold the frame is
-     actually drawn in, so it reads as anodised metal beside the caret's pure
-     yellow. It sits in the SHARED block because a frame is shape, not light:
-     it is the one part of the HUD that survives on paper, and the day face
-     wants it for exactly the reason the night face does.
-
-     The hairline is the other structural material, and it does NOT sit here —
-     each face declares its own alongside its colours, because on paper the
-     bloom is precisely what has to go. See both blocks above. */
-
   /* The active tab's corner ticks: how long each L-bracket's arms are, and how
-     far the whole mark floats off the frame. */
+     far the whole mark floats off the frame. The structural stroke they are cut
+     from is NOT declared here — each face states its own alongside its colours,
+     because on paper the bloom is precisely what has to go. */
   --crop-mark-length: 6px;
   --crop-mark-inset: 3px;
-  --bezel: hsl(43deg 88% 52%);
-  --bezel-dim: hsl(40deg 80% 34%);
-  --bezel-glow: hsl(43deg 95% 55% / 45%);
 }
 
 /* Cyberpunk's controls are framed plates, not tinted pills — which is what
@@ -548,61 +537,16 @@
 
 /* ── The HUD ────────────────────────────────────────────────────────────────
    Everything from here down is the game's shard/journal screen rather than a
-   dark theme with neon in it. Four things carry that read, and they are the
-   four the screen is built from: an amber bezel around the whole frame, cyan
-   hairlines doing the structure, the active thing FRAMED rather than filled,
-   and a bloom on the cyan so a 1px line reads as emitted light. */
+   dark theme with neon in it. Three things carry that read: cyan hairlines
+   doing the structure, the active thing FRAMED rather than filled, and a bloom
+   on the cyan so a 1px line reads as emitted light.
 
-/* The bezel. The game frames its full-screen panels in an amber band with two
-   tabs down the left edge, and that frame is the single most recognisable
-   thing on screen — so PADE wears it at the viewport edge. Kept to a hairline
-   plus its bloom rather than the game's ~14px band: this frame sits around a
-   working IDE all day, and at the game's weight it would both eat the edge and
-   shout. Fixed and inert (`pointer-events: none`), so it costs no layout and
-   nothing under it changes behaviour; the two pseudos are the root's, leaving
-   `body`'s pair to the scanlines. Below the top layer, so menus and dialogs
-   still open clean over it.
-
-   SQUARE corners, deliberately, even though the game's are chamfered and every
-   other surface in this palette is. A chamfer only reads when the thing behind
-   the diagonal is actually cut away, and this frame is an overlay on a square
-   OS window: cutting its corners left the app's own square corner poking out
-   past each diagonal as a hard, unframed wedge. The honest options were to fake
-   the cut by painting four triangles of ground over those wedges, or to stop
-   claiming a shape the window does not have. This takes the second — the
-   chamfer stays where the element genuinely owns its outline (tabs, cards,
-   buttons, chips), and the one element whose outline belongs to Windows draws
-   itself straight. */
-:root[data-palette="cyberpunk"]::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  border: 3px solid var(--bezel);
-  box-shadow:
-    inset 0 0 0 2px hsl(193deg 60% 3% / 92%),
-    0 0 0 1px var(--bezel-dim),
-    0 0 20px var(--bezel-glow),
-    inset 0 0 28px hsl(43deg 95% 55% / 10%);
-  pointer-events: none;
-}
-
-/* The bezel's left-edge tabs — two short amber studs, the detail that tells the
-   game's frame from a plain glowing border. Drawn as two background layers on
-   one inert strip so they cost a single element. */
-:root[data-palette="cyberpunk"]::after {
-  content: "";
-  position: fixed;
-  inset-block: 0;
-  inset-inline-start: 0;
-  z-index: 2;
-  inline-size: 7px;
-  background:
-    linear-gradient(var(--bezel) 0 0) 0 34% / 100% 34px no-repeat,
-    linear-gradient(var(--bezel) 0 0) 0 60% / 100% 20px no-repeat;
-  filter: drop-shadow(0 0 5px var(--bezel-glow));
-  pointer-events: none;
-}
+   A fourth was tried and removed — the amber bezel the game draws around every
+   full-screen panel, worn here at the viewport edge. It is the most
+   recognisable thing on that screen and it still did not belong: the game's
+   frame surrounds one panel you open and close, while this one surrounded the
+   whole editor permanently, which is a very loud thing to sit inside all day.
+   The palette keeps the HUD's structure and spends nothing on its furniture. */
 
 /* The chrome's own edges are the HUD's brightest lines: the bar the tabs sit
    in, and the seam the side panel hangs off. These are the strokes the game
