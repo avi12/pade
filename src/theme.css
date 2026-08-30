@@ -215,21 +215,22 @@
    Every colour in both faces comes from ONE source: the Cyberpunk 2077 Windows
    Terminal colour scheme — background #0a0a12, foreground #d6e7ef, the neons
    #ff003c / #00ff9f / #fcee0a / #00b8ff / #d300c5 / #00f0ff, and the #4a0e2c
-   selection. The night face wears them as written. The day face keeps every hue
-   and swaps the roles the scheme itself defines: its brightWhite #f2fbff
-   becomes the paper, its background becomes the ink, and each neon drops in
-   lightness until it reads on paper — same palette, daylight. The one place the
-   day face changes its mind is the lead colour: yellow on white is unreadable
-   as text or as a button, but black-on-yellow is the mark the game is known by,
-   so the brand yellow becomes the container block and the scheme's cyan leads.
+   selection. The night face wears them as written, in the scheme's OWN
+   proportions: cyan leads, the selection is the container, the foreground is
+   the ink, and yellow stays what it is there — one accent (the caret, a
+   warning), never the lead, because as a primary it floods every chip and
+   button with a colour the scheme spends a single slot on. The day face keeps
+   every hue and swaps the roles the scheme itself defines: its brightWhite
+   #f2fbff becomes the paper, its background becomes the ink, and each neon
+   drops in lightness until it reads on paper — same palette, daylight.
    Terminal slots stay verbatim hex on the night face, because those sixteen ARE
    the scheme. */
 :root[data-palette="cyberpunk"][data-theme="dark"] {
   --seed-hue: 184deg;
-  --primary: hsl(56deg 97% 51%);
+  --primary: hsl(184deg 100% 50%);
   --on-primary: hsl(240deg 30% 6%);
   --primary-container: hsl(330deg 68% 20%);
-  --on-primary-container: hsl(56deg 97% 82%);
+  --on-primary-container: hsl(199deg 44% 89%);
   --tertiary: hsl(157deg 100% 50%);
   --tertiary-wash: hsl(157deg 100% 45% / 16%);
   --warning: hsl(56deg 97% 55%);
@@ -247,7 +248,7 @@
   --on-surface-variant: hsl(199deg 21% 72%);
   --outline: hsl(207deg 16% 32%);
   --shadow-color: hsl(240deg 60% 2% / 60%);
-  --primary-shadow: hsl(56deg 97% 51% / 45%);
+  --primary-shadow: hsl(184deg 100% 50% / 45%);
   --code-background: hsl(240deg 29% 5%);
   --code-foreground: hsl(199deg 44% 89%);
   --terminal-black: #14141f;
@@ -281,8 +282,8 @@
   --seed-hue: 184deg;
   --primary: hsl(184deg 100% 24%);
   --on-primary: hsl(199deg 100% 97%);
-  --primary-container: hsl(56deg 97% 60%);
-  --on-primary-container: hsl(240deg 30% 8%);
+  --primary-container: hsl(184deg 62% 84%);
+  --on-primary-container: hsl(186deg 100% 13%);
   --tertiary: hsl(304deg 100% 33%);
   --tertiary-wash: hsl(304deg 100% 45% / 14%);
   --warning: hsl(45deg 100% 32%);
