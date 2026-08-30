@@ -498,6 +498,11 @@
      The hairline is the other structural material, and it does NOT sit here —
      each face declares its own alongside its colours, because on paper the
      bloom is precisely what has to go. See both blocks above. */
+
+  /* The active tab's corner ticks: how long each L-bracket's arms are, and how
+     far the whole mark floats off the frame. */
+  --crop-mark-length: 6px;
+  --crop-mark-inset: 3px;
   --bezel: hsl(43deg 88% 52%);
   --bezel-dim: hsl(40deg 80% 34%);
   --bezel-glow: hsl(43deg 95% 55% / 45%);
@@ -612,6 +617,20 @@
   box-shadow: var(--hairline-glow);
 }
 
+/* The tab row is the one place the HUD does NOT chamfer. Every panel, chip and
+   button on that screen is cut, but its tabs are plain rectangles in a 1px
+   stroke — the row reads as a strip of framed cards, and the slant that suits a
+   standalone pill is exactly what stops a row of them lining up. So both tab
+   kinds drop the pill radius here — the session tab together with the segment
+   buttons that actually draw its ends, since squaring only the container left
+   the slant on the `.pick` and close halves that form the visible outline —
+   while everything else in the palette keeps its chamfer. This is also what
+   lets the corner ticks below land: a tick aimed at a corner that has been cut
+   away lands mid-chamfer and reads as a rendering fault. */
+:root[data-palette="cyberpunk"] :is([role="tab"], .tab, .tab button) {
+  border-radius: 0;
+}
+
 /* Active means FRAMED, not filled. The app's selected tab is a solid slab of
    accent; the HUD's is a dark plate with the frame and the label brightened
    around it. Both of the app's tab kinds — the side panel's `[role="tab"]` and
@@ -639,6 +658,40 @@
   --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
   --on-primary-container: var(--primary);
 
+  /* The corner ticks. The HUD crops the active tab with four short L-brackets
+     floating just inside its frame, and that mark — not a fill — is how the row
+     says which card you are on. Eight background layers make the four brackets,
+     each a 1px horizontal and a 1px vertical stroke meeting in one corner, held
+     far enough off the outline to read as a separate mark rather than as a
+     thicker border. */
+  background-image:
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0),
+    linear-gradient(var(--primary) 0 0);
+  background-position:
+    left var(--crop-mark-inset) top var(--crop-mark-inset),
+    left var(--crop-mark-inset) top var(--crop-mark-inset),
+    right var(--crop-mark-inset) top var(--crop-mark-inset),
+    right var(--crop-mark-inset) top var(--crop-mark-inset),
+    left var(--crop-mark-inset) bottom var(--crop-mark-inset),
+    left var(--crop-mark-inset) bottom var(--crop-mark-inset),
+    right var(--crop-mark-inset) bottom var(--crop-mark-inset),
+    right var(--crop-mark-inset) bottom var(--crop-mark-inset);
+  background-size:
+    var(--crop-mark-length) 1px,
+    1px var(--crop-mark-length),
+    var(--crop-mark-length) 1px,
+    1px var(--crop-mark-length),
+    var(--crop-mark-length) 1px,
+    1px var(--crop-mark-length),
+    var(--crop-mark-length) 1px,
+    1px var(--crop-mark-length);
+  background-repeat: no-repeat;
   outline-color: var(--primary);
   text-shadow: var(--hairline-glow);
 }
