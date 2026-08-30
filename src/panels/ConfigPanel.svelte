@@ -372,6 +372,10 @@
   .appearance,
   .performance,
   .discord {
+    /* The cards answer their own layout questions: the side panel is
+       drag-resizable, so anything that reflows on width asks the card
+       (@container), never the viewport. */
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -463,11 +467,20 @@
   /* Theme — segmented single-select (buttons + aria-pressed, per the app's
      shared segmented pattern). */
   .segmented {
-    /* auto-fit rather than a fixed track count: the four themes sit in one row
-       in a wide side panel and fold to two rows as the user drags it narrow,
-       with no breakpoint to keep in sync with the panel's width. */
+    /* Four themes: a 2×2 block, and one row once there is room for four
+       labels. Both sides are container queries, mutually exclusive, because
+       a plain fallback declaration would sit AFTER the nested at-rule and
+       win over it. Asked of the card, not the viewport — the side panel is
+       drag-resizable, so a media query would answer about the wrong box. */
+    @container (inline-size < 460px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @container (inline-size >= 460px) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     gap: 4px;
     padding: 4px;
     border-radius: 12px;
