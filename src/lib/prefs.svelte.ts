@@ -56,8 +56,18 @@ export const effective = {
     // prepend a chosen font, so the fallback list is never re-spelled here.
     return withChosenFont(prefs.monoFont, "--font-monospace-base");
   },
-  get uiFamily(): string {
-    return withChosenFont(prefs.uiFont, "--font-ui-base");
+  /** The UI stack for CSS: a chosen face in front of the theme's own stack, left
+   *  as a `var()` rather than resolved — nothing paints UI text to a canvas, and
+   *  keeping the reference live is what lets a palette that brings its own face
+   *  (Cyberpunk is set in Rajdhani, the game's) take effect without this getter
+   *  re-running. `null` when nothing is chosen: the root's `--font-ui` already
+   *  IS that stack, so the binding is simply dropped. */
+  get uiFamily(): string | null {
+    if (!prefs.uiFont) {
+      return null;
+    }
+
+    return `"${prefs.uiFont}", var(--font-ui-base)`;
   },
   get uiScale(): number {
     return prefs.uiScale ?? 1;
