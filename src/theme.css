@@ -307,8 +307,8 @@
   --seed-hue: 184deg;
   --primary: hsl(184deg 100% 50%);
   --on-primary: hsl(240deg 30% 6%);
-  --primary-container: hsl(330deg 68% 20%);
-  --on-primary-container: hsl(199deg 44% 89%);
+  --primary-container: hsl(184deg 100% 46%);
+  --on-primary-container: hsl(240deg 45% 6%);
   --tertiary: hsl(157deg 100% 50%);
   --tertiary-wash: hsl(157deg 100% 45% / 16%);
   --warning: hsl(56deg 97% 55%);
@@ -324,7 +324,7 @@
   --surface-3: hsl(263deg 20% 25%);
   --on-surface: hsl(199deg 44% 89%);
   --on-surface-variant: hsl(264deg 20% 74%);
-  --outline: hsl(292deg 24% 30%);
+  --outline: hsl(186deg 55% 34%);
   --shadow-color: hsl(300deg 85% 4% / 65%);
   --primary-shadow: hsl(184deg 100% 50% / 45%);
   --focus-glow: 0 0 0 1px hsl(184deg 100% 50% / 40%), 0 0 14px hsl(184deg 100% 50% / 45%);
@@ -363,8 +363,8 @@
   --seed-hue: 184deg;
   --primary: hsl(184deg 100% 24%);
   --on-primary: hsl(199deg 100% 97%);
-  --primary-container: hsl(184deg 62% 84%);
-  --on-primary-container: hsl(186deg 100% 13%);
+  --primary-container: hsl(184deg 100% 46%);
+  --on-primary-container: hsl(240deg 45% 8%);
   --tertiary: hsl(304deg 100% 33%);
   --tertiary-wash: hsl(304deg 100% 45% / 14%);
   --warning: hsl(45deg 100% 32%);
@@ -380,7 +380,7 @@
   --surface-3: hsl(262deg 30% 86%);
   --on-surface: hsl(240deg 30% 10%);
   --on-surface-variant: hsl(264deg 16% 38%);
-  --outline: hsl(280deg 22% 79%);
+  --outline: hsl(186deg 45% 62%);
   --shadow-color: hsl(292deg 45% 22% / 20%);
   --primary-shadow: hsl(184deg 100% 32% / 45%);
   --focus-glow: 0 0 0 1px hsl(184deg 100% 30% / 30%), 0 0 12px hsl(184deg 100% 35% / 32%);
@@ -437,6 +437,30 @@
      doesn't carry still renders in the app's own face rather than a system
      fallback. */
   --font-ui-base: "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+
+  /* The lit hairline every control carries. Derived from the accent, so it
+     resolves per face without being spelled twice. */
+  --control-edge: color-mix(in sRGB, var(--primary) 28%, transparent);
+}
+
+/* Cyberpunk's controls are framed plates, not tinted pills — which is what
+   the colours and the chamfer alone still left underneath. An `outline` drawn
+   one pixel inside gives every control that frame without a border's layout
+   cost, and without touching `box-shadow`, which components use for their own
+   selected-row markers. Focused controls are excluded outright so the focus
+   ring is never the thing this overrides.
+
+   The panel tabs also take the game's uppercase-with-tracking treatment. Only
+   those: every other label in the app is a project, file or session name, and
+   shouting someone's data back at them is not a theme. */
+:root[data-palette="cyberpunk"] :is(button, [role="tab"], input, select, textarea):not(:focus-visible) {
+  outline: 1px solid var(--control-edge);
+  outline-offset: -1px;
+}
+
+:root[data-palette="cyberpunk"] [role="tab"] {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* Scanlines. Every surface in Night City is drawn behind a CRT sweep, and one
