@@ -704,9 +704,9 @@
       cursor: pointer;
     }
 
-    /* The ✦ AI-name toggle — hidden until the tab is hovered or active, and
-       pinned visible (primary) while auto-naming is on for the session. Only the
-       icon fades: the slot is reserved on every pill, hovered or not. A slot that
+    /* The ✦ AI-name toggle — subdued on every pill, brighter on the one being
+       used, and primary while auto-naming is on for the session. The slot is
+       reserved on every pill, hovered or not. A slot that
        opened on hover grew its pill by 24px and pushed every pill to its right —
        so crossing a neighbour on the way to this one slid the target out from
        under the pointer as that neighbour collapsed again, and the click landed
@@ -731,22 +731,21 @@
       border: none;
       background: transparent;
       color: var(--on-surface-variant);
-      opacity: 0%;
-      cursor: pointer;
 
-      /* Its slot always exists, so while the icon is invisible the press belongs
-         to the pill — a tap (which never hovers) must not hit a control it
-         cannot see. */
-      pointer-events: none;
+      /* Subdued rather than absent, matching the × beside it: renaming a session
+         you are NOT in is exactly when this is wanted, and an icon that only
+         exists once you hover cannot be found without hunting for it — or, on a
+         touch screen, at all. */
+      opacity: 60%;
+      cursor: pointer;
       transition:
         opacity 140ms var(--ease),
         color 140ms var(--ease);
 
-      /* Revealed when the tab is hovered or active. */
+      /* Brighter on the pill being used. */
       .tab:hover .ai-wrap &,
       .tab.active .ai-wrap & {
         opacity: 85%;
-        pointer-events: auto;
       }
 
       /* The tooltip belongs to `.ai-wrap`, outside this faded icon button, so
@@ -758,11 +757,10 @@
         opacity: 100%;
       }
 
-      /* Pinned visible while auto-naming is on for this session. */
+      /* Pinned bright while auto-naming is on for this session. */
       .ai-wrap.on & {
         color: var(--primary);
         opacity: 100%;
-        pointer-events: auto;
       }
     }
 
