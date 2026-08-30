@@ -307,7 +307,8 @@
    Two details come with the HUD: `--focus-glow` puts a neon bloom around the
    focused control (the base theme leaves it `none`), and the caret is the
    scheme's own #fcee0a — exactly the one slot the Cyberpunk 2077 scheme
-   spends its yellow on. */
+   spends its yellow on. The rest of that yellow goes to the bezel further
+   down, which is where the HUD spends it too. */
 :root[data-palette="cyberpunk"][data-theme="dark"] {
   --seed-hue: 184deg;
   --primary: hsl(184deg 100% 50%);
@@ -335,6 +336,12 @@
   --focus-glow: 0 0 0 1px hsl(184deg 100% 50% / 40%), 0 0 14px hsl(184deg 100% 50% / 45%);
   --scanline: hsl(184deg 100% 50% / 5%);
   --control-edge: color-mix(in sRGB, var(--primary) 42%, transparent);
+
+  /* The HUD's structural stroke: the cyan every line on the game's screen is
+     drawn in, and the bloom that makes a 1px stroke read as emitted light
+     rather than as a printed rule. */
+  --hairline: var(--primary);
+  --hairline-glow: 0 0 6px color-mix(in sRGB, var(--primary) 45%, transparent);
   --code-background: hsl(193deg 55% 2%);
   --code-foreground: hsl(199deg 44% 89%);
   --terminal-black: #14141f;
@@ -418,6 +425,12 @@
   --on-surface-variant: hsl(250deg 10% 36%);
   --outline: hsl(250deg 14% 60%);
   --control-edge: color-mix(in sRGB, var(--on-surface) 24%, transparent);
+
+  /* Same structural stroke, no bloom. Neon reads as emitted light only against
+     near-black; on paper the same glow is a smudge, so the day face draws its
+     hairlines in ink and spends nothing on the halo. */
+  --hairline: var(--outline);
+  --hairline-glow: none;
   --shadow-color: hsl(250deg 30% 20% / 20%);
   --primary-shadow: hsl(344deg 90% 38% / 40%);
   --focus-glow: 0 0 0 1px hsl(344deg 90% 34% / 32%), 0 0 12px hsl(344deg 90% 40% / 32%);
@@ -474,6 +487,20 @@
      doesn't carry still renders in the app's own face rather than a system
      fallback. */
   --font-ui-base: "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+
+  /* The bezel: the amber the game frames every full-screen panel in — the
+     scheme's own #fcee0a pulled down to the warmer, dirtier gold the frame is
+     actually drawn in, so it reads as anodised metal beside the caret's pure
+     yellow. It sits in the SHARED block because a frame is shape, not light:
+     it is the one part of the HUD that survives on paper, and the day face
+     wants it for exactly the reason the night face does.
+
+     The hairline is the other structural material, and it does NOT sit here —
+     each face declares its own alongside its colours, because on paper the
+     bloom is precisely what has to go. See both blocks above. */
+  --bezel: hsl(43deg 88% 52%);
+  --bezel-dim: hsl(40deg 80% 34%);
+  --bezel-glow: hsl(43deg 95% 55% / 45%);
 }
 
 /* Cyberpunk's controls are framed plates, not tinted pills — which is what
@@ -512,6 +539,93 @@
 
 :root[data-palette="cyberpunk"] * {
   corner-shape: bevel;
+}
+
+/* ── The HUD ────────────────────────────────────────────────────────────────
+   Everything from here down is the game's shard/journal screen rather than a
+   dark theme with neon in it. Four things carry that read, and they are the
+   four the screen is built from: an amber bezel around the whole frame, cyan
+   hairlines doing the structure, the active thing FRAMED rather than filled,
+   and a bloom on the cyan so a 1px line reads as emitted light. */
+
+/* The bezel. The game frames its full-screen panels in a chamfered amber band
+   with two tabs down the left edge, and that frame is the single most
+   recognisable thing on screen — so PADE wears it at the viewport edge. Kept
+   to a hairline plus its bloom rather than the game's ~14px band: this frame
+   sits around a working IDE all day, and at the game's weight it would both
+   eat the edge and shout. Fixed and inert (`pointer-events: none`), so it
+   costs no layout and nothing under it changes behaviour; the two pseudos are
+   the root's, leaving `body`'s pair to the scanlines. Below the top layer, so
+   menus and dialogs still open clean over it. */
+:root[data-palette="cyberpunk"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  border: 3px solid var(--bezel);
+
+  /* All four corners, which is why this is a literal and not `--radius-*`: the
+     shape scale chamfers one diagonal and leaves the other square, and a frame
+     cut on one diagonal reads as a mistake rather than as the game's bezel. */
+  border-radius: 24px;
+  box-shadow:
+    inset 0 0 0 2px hsl(193deg 60% 3% / 92%),
+    0 0 0 1px var(--bezel-dim),
+    0 0 20px var(--bezel-glow),
+    inset 0 0 28px hsl(43deg 95% 55% / 10%);
+  pointer-events: none;
+  corner-shape: bevel;
+}
+
+/* The bezel's left-edge tabs — two short amber studs, the detail that tells the
+   game's frame from a plain glowing border. Drawn as two background layers on
+   one inert strip so they cost a single element. */
+:root[data-palette="cyberpunk"]::after {
+  content: "";
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 2;
+  inline-size: 7px;
+  background:
+    linear-gradient(var(--bezel) 0 0) 0 34% / 100% 34px no-repeat,
+    linear-gradient(var(--bezel) 0 0) 0 60% / 100% 20px no-repeat;
+  filter: drop-shadow(0 0 5px var(--bezel-glow));
+  pointer-events: none;
+}
+
+/* The chrome's own edges are the HUD's brightest lines: the bar the tabs sit
+   in, and the seam the side panel hangs off. These are the strokes the game
+   draws at full intensity, and the only ones that get the bloom. */
+:root[data-palette="cyberpunk"] :is(.topbar, .panel-head) {
+  border-block-end: 1px solid var(--hairline);
+  box-shadow: var(--hairline-glow);
+}
+
+:root[data-palette="cyberpunk"] .side-pane {
+  border-inline-start: 1px solid var(--hairline);
+  box-shadow: var(--hairline-glow);
+}
+
+/* Active means FRAMED, not filled. The app's selected tab is a solid slab of
+   accent; the HUD's is a dark plate with the frame and the label brightened
+   around it. Both of the app's tab kinds — the side panel's `[role="tab"]` and
+   the session strip's `.tab` — take it from one rule, so "selected" can never
+   mean two different things. `:not(:focus-visible)` keeps this out of the focus
+   ring's way, exactly as the control-frame rule above does. */
+:root[data-palette="cyberpunk"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
+  background-color: color-mix(in sRGB, var(--primary) 10%, var(--surface-1));
+  color: var(--primary);
+  outline-color: var(--primary);
+  text-shadow: var(--hairline-glow);
+}
+
+/* The bloom. Only the chrome's own labels emit — the tab row, the panel title,
+   the branch and project pills. Deliberately NOT `*`: the terminal and the diff
+   viewers are thousands of spans, and a text-shadow on each is both a paint
+   cost and, at that density, a blur. */
+:root[data-palette="cyberpunk"] :is([role="tab"], .panel-title, .topbar button) {
+  text-shadow: var(--hairline-glow);
 }
 
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the
