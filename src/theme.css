@@ -375,19 +375,19 @@
    and the highlight wash. */
 :root[data-palette="cyberpunk"][data-theme="light"] {
   --seed-hue: 320deg;
-  --primary: hsl(320deg 100% 42%);
+  --primary: hsl(320deg 100% 36%);
   --on-primary: hsl(300deg 100% 98%);
-  --primary-container: hsl(320deg 100% 44%);
+  --primary-container: hsl(320deg 100% 39%);
   --on-primary-container: hsl(300deg 100% 98%);
-  --tertiary: hsl(187deg 100% 30%);
+  --tertiary: hsl(187deg 100% 23%);
   --tertiary-wash: hsl(187deg 100% 40% / 16%);
-  --warning: hsl(38deg 100% 38%);
+  --warning: hsl(38deg 100% 26%);
   --warning-wash: hsl(52deg 100% 50% / 30%);
-  --critical: hsl(0deg 88% 44%);
+  --critical: hsl(0deg 88% 40%);
   --critical-wash: hsl(0deg 88% 50% / 14%);
-  --context-ok: hsl(187deg 100% 32%);
-  --context-warning: hsl(38deg 100% 40%);
-  --context-critical: hsl(0deg 88% 46%);
+  --context-ok: hsl(187deg 100% 29%);
+  --context-warning: hsl(38deg 100% 32%);
+  --context-critical: hsl(0deg 88% 44%);
   --surface: hsl(255deg 30% 97%);
   --surface-1: hsl(253deg 26% 94%);
   --surface-2: hsl(251deg 22% 91%);
@@ -396,8 +396,8 @@
   --on-surface-variant: hsl(250deg 13% 38%);
   --outline: hsl(255deg 15% 74%);
   --shadow-color: hsl(300deg 40% 25% / 20%);
-  --primary-shadow: hsl(320deg 100% 45% / 40%);
-  --focus-glow: 0 0 0 1px hsl(320deg 100% 42% / 30%), 0 0 12px hsl(320deg 100% 45% / 32%);
+  --primary-shadow: hsl(320deg 100% 40% / 40%);
+  --focus-glow: 0 0 0 1px hsl(320deg 100% 36% / 32%), 0 0 12px hsl(320deg 100% 40% / 34%);
   --scanline: hsl(250deg 30% 12% / 5%);
   --code-background: hsl(255deg 30% 96%);
   --code-foreground: hsl(250deg 30% 14%);
@@ -419,11 +419,11 @@
   --terminal-bright-white: hsl(250deg 30% 12%);
   --terminal-selection: hsl(320deg 100% 45% / 20%);
   --terminal-cursor: hsl(50deg 100% 30%);
-  --syntax-comment: hsl(250deg 12% 46%);
-  --syntax-keyword: hsl(320deg 100% 40%);
-  --syntax-string: hsl(157deg 100% 24%);
-  --syntax-number: hsl(38deg 100% 34%);
-  --syntax-function: hsl(187deg 100% 28%);
+  --syntax-comment: hsl(250deg 12% 44%);
+  --syntax-keyword: hsl(320deg 100% 38%);
+  --syntax-string: hsl(157deg 100% 23%);
+  --syntax-number: hsl(38deg 100% 28%);
+  --syntax-function: hsl(187deg 100% 25%);
   --syntax-property: hsl(197deg 100% 30%);
 
   color-scheme: light;
