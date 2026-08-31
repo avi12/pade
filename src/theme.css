@@ -430,16 +430,16 @@
   --seed-hue: 187deg;
   --primary: hsl(187deg 100% 25%);
   --on-primary: hsl(0deg 0% 100%);
-  --primary-container: hsl(187deg 90% 38%);
-  --on-primary-container: hsl(196deg 55% 9%);
+  --primary-container: hsl(188deg 95% 26%);
+  --on-primary-container: hsl(186deg 62% 96%);
   --tertiary: hsl(157deg 100% 24%);
   --tertiary-wash: hsl(157deg 100% 32% / 16%);
-  --warning: hsl(38deg 100% 29%);
-  --warning-wash: hsl(38deg 95% 45% / 20%);
+  --warning: hsl(26deg 95% 33%);
+  --warning-wash: hsl(26deg 95% 48% / 20%);
   --critical: hsl(346deg 85% 41%);
   --critical-wash: hsl(346deg 85% 50% / 14%);
   --context-ok: hsl(187deg 100% 27%);
-  --context-warning: hsl(38deg 100% 32%);
+  --context-warning: hsl(26deg 95% 36%);
   --context-critical: hsl(346deg 85% 44%);
   --surface: hsl(190deg 40% 96%);
   --surface-1: hsl(190deg 36% 93%);
@@ -482,7 +482,7 @@
   --syntax-comment: hsl(195deg 17% 42%);
   --syntax-keyword: hsl(304deg 72% 38%);
   --syntax-string: hsl(157deg 100% 24%);
-  --syntax-number: hsl(38deg 100% 29%);
+  --syntax-number: hsl(28deg 95% 32%);
   --syntax-function: hsl(187deg 100% 26%);
   --syntax-property: hsl(206deg 100% 34%);
 
@@ -662,6 +662,25 @@
   background-repeat: no-repeat;
   outline-color: var(--primary);
   text-shadow: var(--hairline-glow);
+}
+
+/* The day face fills the selected tab with a deep teal, which flips everything
+   inside it to light-on-dark — but only the label and the close cross read the
+   container's on-colour. The agent icon and the AI-rename sparkle take
+   `--on-surface-variant`, and that icon takes the context-window gauge instead
+   once a reading exists. Those are inks picked for pale paper: on this fill they
+   land at 1.1:1, which is invisible, not merely dim.
+
+   Re-pointed as TOKENS rather than as rules on each element, so the fix lands
+   where those components already look and carries anything added to the tab
+   later. The gauge keeps three distinguishable steps — it still has to say how
+   full the context is, not merely be legible. */
+:root[data-palette="cyberpunk"][data-theme="light"] :is([role="tab"][aria-selected="true"], .tab.active) {
+  --on-surface: var(--on-primary-container);
+  --on-surface-variant: hsl(186deg 52% 88%);
+  --context-ok: hsl(186deg 62% 84%);
+  --context-warning: hsl(30deg 95% 76%);
+  --context-critical: hsl(348deg 95% 82%);
 }
 
 /* The bloom. Only the chrome's own labels emit — the tab row, the panel title,
@@ -1404,3 +1423,4 @@ textarea {
     --scroll-fade-bottom: rgb(0 0 0);
   }
 }
+
