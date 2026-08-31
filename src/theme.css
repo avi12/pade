@@ -407,9 +407,19 @@
      harshest pairing a light theme can pick, and it is what the corpo-document
      face used.
 
-   The brand yellow keeps the one slot it had: the selected slab, black text on
-   it. That slab is the only thing on paper that reads as Cyberpunk at a glance,
-   which is why the night face's framed-tab treatment is scoped away from here.
+   No yellow in the chrome. An earlier pass kept the brand yellow for the
+   selected slab, reasoning it was the one mark that read as Cyberpunk on paper —
+   but a saturated yellow fill is the loudest thing a light theme can put on
+   screen, and next to a turquoise ground it reads as a different palette
+   breaking in rather than as the same one. The slab is cyan now, which is what
+   the night face fills it with too, so "selected" means one colour on both
+   faces. The caret follows: on the night face it is the scheme's own #fcee0a,
+   the single slot Cyberpunk 2077 spends its yellow on, and here it is the lead.
+
+   Yellow survives in exactly two places, both of which would lose meaning
+   without it: `--warning` (with `--context-warning`), where amber is the
+   severity step between fine and critical, and the terminal's ANSI yellow pair
+   with `--syntax-number`, where a CLI printing SGR 3 must actually get yellow.
 
    `--code-background` inverts its role with the ground. On the night face it is
    the deepest layer on screen; here it is the lightest, so the terminal still
@@ -420,12 +430,12 @@
   --seed-hue: 187deg;
   --primary: hsl(187deg 100% 25%);
   --on-primary: hsl(0deg 0% 100%);
-  --primary-container: hsl(52deg 100% 56%);
-  --on-primary-container: hsl(199deg 34% 14%);
+  --primary-container: hsl(187deg 90% 38%);
+  --on-primary-container: hsl(196deg 55% 9%);
   --tertiary: hsl(157deg 100% 24%);
   --tertiary-wash: hsl(157deg 100% 32% / 16%);
   --warning: hsl(38deg 100% 29%);
-  --warning-wash: hsl(52deg 100% 56% / 30%);
+  --warning-wash: hsl(38deg 95% 45% / 20%);
   --critical: hsl(346deg 85% 41%);
   --critical-wash: hsl(346deg 85% 50% / 14%);
   --context-ok: hsl(187deg 100% 27%);
@@ -468,7 +478,7 @@
   --terminal-bright-cyan: hsl(187deg 90% 31%);
   --terminal-bright-white: hsl(196deg 36% 16%);
   --terminal-selection: hsl(187deg 100% 35% / 20%);
-  --terminal-cursor: hsl(45deg 100% 31%);
+  --terminal-cursor: hsl(187deg 100% 30%);
   --syntax-comment: hsl(195deg 17% 42%);
   --syntax-keyword: hsl(304deg 72% 38%);
   --syntax-string: hsl(157deg 100% 24%);
@@ -606,11 +616,12 @@
    descendants no theme selector should have to know about, and carries any
    consumer added later along with it.
 
-   Night face only — the one HUD rule that is. The day face spends the brand
-   yellow in exactly one place, the selected slab with black text on it, and
-   that slab is the only thing on paper that reads as Cyberpunk at all (see the
-   light block above). Framing it instead of filling it would take the day face
-   its single mark to buy a look that needs near-black to work. */
+   Night face only — the one HUD rule that is. Framing works because the plate
+   behind it is near-black: the frame is the brightest thing in the cell, and
+   the corner ticks read as light against it. On paper there is no near-black to
+   frame against, so the same treatment collapses into a hairline box around
+   pale ink. The day face fills instead, in the same cyan, so "selected" is one
+   colour on both faces even though it is drawn two ways. */
 :root[data-palette="cyberpunk"][data-theme="dark"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
   --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
   --on-primary-container: var(--primary);
