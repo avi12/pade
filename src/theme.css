@@ -373,95 +373,103 @@
   color-scheme: dark;
 }
 
-/* Daylight. Cyberpunk is a dark-first look by construction — neon reads as
-   emitted light only against near-black — so the day face cannot be the night
-   one lifted. It is the game's OTHER register: the corpo document. Paper
-   with a cool violet cast rather than a tint of the accent (cyan-white paper
-   under a cyan lead is why this read as a clinic), near-black ink, and
-   hairlines dark enough to draw the frame.
+/* Daylight, in the game's own colours. Cyberpunk is a dark-first look by
+   construction — neon reads as emitted light only against near-black — so the
+   day face cannot be the night one lifted. Two earlier attempts answered that by
+   changing the palette instead: a hot magenta lead (candy), then a deep crimson
+   "corpo document" register that dropped the game's cyan altogether. Both traded
+   away the thing that makes this palette Cyberpunk.
 
-   The lead changes with the ground, and this is the game's own answer: its
-   interface takes a neon pink-red as the primary and pairs it with cyan. On
-   white the cyan is the half that washes out, so here the hot magenta leads —
-   the scheme's own #d300c5, darkened until white sits on it at AA — and cyan
-   drops to the companion. Red and amber keep the alarm and the warning to
-   themselves, and the brand yellow stays where the scheme spends it: the caret
-   and the highlight wash. */
+   So this face keeps every hue the night face uses and changes only their
+   LIGHTNESS. Cyan still leads, because it leads in the game's own interface;
+   green, yellow, magenta and red keep their slots. Each is pulled down until it
+   is a colour rather than a glow, which is the whole difference between neon on
+   black and the same neon on paper.
 
-/* Daylight. Cyberpunk is a dark-first look by construction — neon reads as
-   emitted light only against near-black — so the day face cannot be the night
-   one lifted. It is the game's OTHER register: the corpo document. Ink and
-   hairlines do the structure, on neutral paper with no tint of its own; the
-   accent is spent, not spread.
+   The "clinic" failure the first attempt hit was never the cyan lead — it was
+   cyan-white PAPER under it, one hue doing both ground and accent. Here the
+   paper is a plain blue-grey with no cyan in it, so the lead has something
+   neutral to sit on. Two light schemes settled the rest, and both are worth
+   naming because their answers are not obvious:
 
-   Which is what the two earlier attempts got wrong. A cyan lead on cyan-white
-   paper read as a clinic. A hot magenta lead read as candy, because a saturated
-   pink at high lightness IS candy on white however correct its contrast — and
-   pink hairlines around every control only sharpened that. So: a deep crimson (the
-   game's neon pink-red, darkened until it is a colour and not a glow) for the
-   accents, near-black hairlines for the frames, and the brand yellow spent in
-   exactly one place — the selected slab, black text on it, which is the mark
-   the game is known by and the only thing that reads as Cyberpunk on paper.
-   Red-orange keeps the alarm, amber the warning, cyan the companion. */
+   - Selenized (a rebuild of Solarized in CIE L*a*b*) equalises the PERCEPTUAL
+     lightness of every accent, so no colour is harder to read than its
+     neighbour. That is why the hues below do not share an HSL lightness: blue
+     and green sit lower, magenta and red higher, because matching numbers there
+     would leave the blues muddy and the reds shouting.
+   - Catppuccin Latte pairs a cool near-white base with ink that is a
+     desaturated slate rather than black. Near-black on near-white is the
+     harshest pairing a light theme can pick, and it is what the corpo-document
+     face used.
+
+   The brand yellow keeps the one slot it had: the selected slab, black text on
+   it. That slab is the only thing on paper that reads as Cyberpunk at a glance,
+   which is why the night face's framed-tab treatment is scoped away from here.
+
+   `--code-background` inverts its role with the ground. On the night face it is
+   the deepest layer on screen; here it is the lightest, so the terminal still
+   reads as the surface you are looking into rather than a panel sitting on top.
+   A chosen Windows Terminal scheme still overrides all sixteen slots plus the
+   surface (lib/terminal-palette) — that is the user's pick and it wins. */
 :root[data-palette="cyberpunk"][data-theme="light"] {
-  --seed-hue: 344deg;
-  --primary: hsl(344deg 90% 34%);
+  --seed-hue: 187deg;
+  --primary: hsl(187deg 100% 25%);
   --on-primary: hsl(0deg 0% 100%);
   --primary-container: hsl(52deg 100% 56%);
-  --on-primary-container: hsl(250deg 28% 12%);
-  --tertiary: hsl(187deg 100% 23%);
-  --tertiary-wash: hsl(187deg 100% 35% / 16%);
-  --warning: hsl(42deg 100% 26%);
-  --warning-wash: hsl(52deg 100% 56% / 32%);
-  --critical: hsl(8deg 88% 40%);
-  --critical-wash: hsl(8deg 88% 50% / 14%);
-  --context-ok: hsl(187deg 100% 29%);
-  --context-warning: hsl(42deg 100% 32%);
-  --context-critical: hsl(8deg 88% 44%);
-  --surface: hsl(250deg 12% 97%);
-  --surface-1: hsl(250deg 11% 94%);
-  --surface-2: hsl(248deg 10% 91%);
-  --surface-3: hsl(248deg 9% 86%);
-  --on-surface: hsl(250deg 28% 12%);
-  --on-surface-variant: hsl(250deg 10% 36%);
-  --outline: hsl(250deg 14% 60%);
-  --control-edge: color-mix(in sRGB, var(--on-surface) 24%, transparent);
+  --on-primary-container: hsl(199deg 34% 14%);
+  --tertiary: hsl(157deg 100% 24%);
+  --tertiary-wash: hsl(157deg 100% 32% / 16%);
+  --warning: hsl(38deg 100% 29%);
+  --warning-wash: hsl(52deg 100% 56% / 30%);
+  --critical: hsl(346deg 85% 41%);
+  --critical-wash: hsl(346deg 85% 50% / 14%);
+  --context-ok: hsl(187deg 100% 27%);
+  --context-warning: hsl(38deg 100% 32%);
+  --context-critical: hsl(346deg 85% 44%);
+  --surface: hsl(210deg 20% 97%);
+  --surface-1: hsl(210deg 18% 94%);
+  --surface-2: hsl(209deg 16% 90%);
+  --surface-3: hsl(209deg 14% 84%);
+  --on-surface: hsl(199deg 28% 19%);
+  --on-surface-variant: hsl(200deg 14% 39%);
+  --outline: hsl(206deg 16% 70%);
+  --control-edge: color-mix(in sRGB, var(--primary) 40%, transparent);
 
-  /* Same structural stroke, no bloom. Neon reads as emitted light only against
-     near-black; on paper the same glow is a smudge, so the day face draws its
-     hairlines in ink and spends nothing on the halo. */
+  /* Same structural stroke as the night face, no bloom. Neon reads as emitted
+     light only against near-black; on paper the same glow is a smudge, so the
+     day face draws its hairlines in ink and spends nothing on the halo. */
   --hairline: var(--outline);
   --hairline-glow: none;
-  --shadow-color: hsl(250deg 30% 20% / 20%);
-  --primary-shadow: hsl(344deg 90% 38% / 40%);
-  --focus-glow: 0 0 0 1px hsl(344deg 90% 34% / 32%), 0 0 12px hsl(344deg 90% 40% / 32%);
-  --scanline: hsl(250deg 28% 12% / 5%);
-  --code-background: hsl(250deg 12% 96%);
-  --code-foreground: hsl(250deg 28% 14%);
-  --terminal-black: hsl(250deg 28% 12%);
-  --terminal-red: hsl(346deg 100% 38%);
-  --terminal-green: hsl(157deg 100% 25%);
-  --terminal-yellow: hsl(50deg 100% 30%);
-  --terminal-blue: hsl(197deg 100% 33%);
-  --terminal-magenta: hsl(304deg 100% 33%);
-  --terminal-cyan: hsl(184deg 100% 26%);
-  --terminal-white: hsl(250deg 10% 45%);
-  --terminal-bright-black: hsl(250deg 8% 40%);
-  --terminal-bright-red: hsl(345deg 100% 44%);
-  --terminal-bright-green: hsl(158deg 100% 29%);
-  --terminal-bright-yellow: hsl(53deg 100% 34%);
-  --terminal-bright-blue: hsl(195deg 100% 38%);
-  --terminal-bright-magenta: hsl(310deg 100% 40%);
-  --terminal-bright-cyan: hsl(183deg 100% 30%);
-  --terminal-bright-white: hsl(250deg 28% 12%);
-  --terminal-selection: hsl(344deg 90% 40% / 18%);
-  --terminal-cursor: hsl(50deg 100% 30%);
-  --syntax-comment: hsl(250deg 10% 44%);
-  --syntax-keyword: hsl(330deg 85% 36%);
-  --syntax-string: hsl(157deg 100% 23%);
-  --syntax-number: hsl(42deg 100% 28%);
-  --syntax-function: hsl(187deg 100% 25%);
-  --syntax-property: hsl(197deg 100% 30%);
+  --shadow-color: hsl(202deg 32% 22% / 18%);
+  --primary-shadow: hsl(187deg 100% 30% / 35%);
+  --focus-glow: 0 0 0 1px hsl(187deg 100% 30% / 34%), 0 0 12px hsl(187deg 100% 34% / 28%);
+  --scanline: hsl(199deg 28% 19% / 4%);
+  --code-background: hsl(210deg 28% 98%);
+  --code-foreground: hsl(199deg 28% 19%);
+  --terminal-black: hsl(200deg 24% 26%);
+  --terminal-red: hsl(346deg 85% 40%);
+  --terminal-green: hsl(157deg 100% 24%);
+  --terminal-yellow: hsl(45deg 100% 28%);
+  --terminal-blue: hsl(206deg 100% 35%);
+  --terminal-magenta: hsl(304deg 78% 38%);
+  --terminal-cyan: hsl(187deg 100% 26%);
+  --terminal-white: hsl(202deg 15% 42%);
+  --terminal-bright-black: hsl(202deg 12% 41%);
+  --terminal-bright-red: hsl(346deg 85% 46%);
+  --terminal-bright-green: hsl(157deg 90% 29%);
+  --terminal-bright-yellow: hsl(45deg 95% 33%);
+  --terminal-bright-blue: hsl(206deg 95% 41%);
+  --terminal-bright-magenta: hsl(304deg 72% 45%);
+  --terminal-bright-cyan: hsl(187deg 90% 31%);
+  --terminal-bright-white: hsl(199deg 28% 19%);
+  --terminal-selection: hsl(187deg 100% 35% / 20%);
+  --terminal-cursor: hsl(45deg 100% 31%);
+  --syntax-comment: hsl(202deg 12% 45%);
+  --syntax-keyword: hsl(304deg 72% 38%);
+  --syntax-string: hsl(157deg 100% 24%);
+  --syntax-number: hsl(38deg 100% 29%);
+  --syntax-function: hsl(187deg 100% 26%);
+  --syntax-property: hsl(206deg 100% 34%);
 
   color-scheme: light;
 }
