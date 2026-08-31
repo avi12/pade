@@ -762,6 +762,18 @@
         color: var(--primary);
         opacity: 100%;
       }
+
+      /* On the active pill the fill IS the primary container, so the accent
+         every state above reaches for is the same colour as the ground beneath
+         it — on a palette whose container is dark that measured 1.01:1, which
+         is invisible rather than merely dim. Each of those states takes the
+         container's on-colour here instead, the way the × beside it already
+         does. */
+      .tab.active .ai-wrap &,
+      .tab.active .ai-wrap &:hover,
+      .tab.active .ai-wrap.on & {
+        color: var(--on-primary-container);
+      }
     }
 
     /* Inline rename field, sized like the label it replaces. */

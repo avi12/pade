@@ -674,12 +674,20 @@
    Re-pointed as TOKENS rather than as rules on each element, so the fix lands
    where those components already look and carries anything added to the tab
    later. The gauge keeps three distinguishable steps — it still has to say how
-   full the context is, not merely be legible. */
+   full the context is, not merely be legible.
+
+   `--on-surface` is deliberately NOT among them. Nothing on the slab reads it,
+   and re-pointing it reached somewhere it had no business: the tooltip bubble
+   is a `position: fixed` pseudo-element of the sparkle button, so it inherits
+   these tokens while floating over the page ground rather than over the fill —
+   and it paints `color: var(--on-surface)`. Inverting that token here turned
+   the bubble's text near-white on its own pale surface. A token re-point
+   travels the whole subtree, pseudo-elements included, so it has to name only
+   what the fill actually sits behind. */
 :root[data-palette="cyberpunk"][data-theme="light"] :is([role="tab"][aria-selected="true"], .tab.active) {
-  --on-surface: var(--on-primary-container);
   --on-surface-variant: hsl(186deg 52% 88%);
-  --context-ok: hsl(186deg 62% 84%);
-  --context-warning: hsl(30deg 95% 76%);
+  --context-ok: hsl(186deg 62% 87%);
+  --context-warning: hsl(30deg 95% 79%);
   --context-critical: hsl(348deg 95% 82%);
 }
 
@@ -1432,4 +1440,3 @@ textarea {
     --scroll-fade-bottom: rgb(0 0 0);
   }
 }
-
