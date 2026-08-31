@@ -1362,6 +1362,14 @@
 
     &:hover,
     &:focus-visible {
+      /* The kind icon falls back to the muted ink when a project has no
+         detected language (a plain folder), and that ink was picked against the
+         row's resting surface — on this fill it is dim at best, and invisible
+         where the container is dark. Re-point the token it already reads rather
+         than overriding its colour, so a real brand mark (Rust's orange, Go's
+         cyan) still wears its own. */
+      --on-surface-variant: var(--on-primary-container);
+
       background: var(--primary-container);
       color: var(--on-primary-container);
       outline: none;
