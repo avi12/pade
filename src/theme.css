@@ -386,11 +386,16 @@
    is a colour rather than a glow, which is the whole difference between neon on
    black and the same neon on paper.
 
-   The "clinic" failure the first attempt hit was never the cyan lead — it was
-   cyan-white PAPER under it, one hue doing both ground and accent. Here the
-   paper is a plain blue-grey with no cyan in it, so the lead has something
-   neutral to sit on. Two light schemes settled the rest, and both are worth
-   naming because their answers are not obvious:
+   The paper carries the same turquoise cast the night face's surfaces do, so
+   the two faces read as one palette rather than a neon theme and a grey one.
+   The first attempt at a cyan lead DID fail on tinted paper — but it failed
+   because paper and accent sat at the same lightness, leaving nothing to
+   separate ground from ink. Here they are 80 points of lightness apart: the
+   paper is a pale mint, the lead a deep teal, and the warm brand yellow on the
+   selected slab keeps the whole thing off a single-hue reading. That is the
+   Solarized arrangement — a tinted ground with ink dark enough to sit on it —
+   in this palette's own hue. Two light schemes settled the rest, and both are
+   worth naming because their answers are not obvious:
 
    - Selenized (a rebuild of Solarized in CIE L*a*b*) equalises the PERCEPTUAL
      lightness of every accent, so no colour is harder to read than its
@@ -426,13 +431,13 @@
   --context-ok: hsl(187deg 100% 27%);
   --context-warning: hsl(38deg 100% 32%);
   --context-critical: hsl(346deg 85% 44%);
-  --surface: hsl(210deg 20% 97%);
-  --surface-1: hsl(210deg 18% 94%);
-  --surface-2: hsl(209deg 16% 90%);
-  --surface-3: hsl(209deg 14% 84%);
-  --on-surface: hsl(199deg 28% 19%);
-  --on-surface-variant: hsl(200deg 14% 39%);
-  --outline: hsl(206deg 16% 70%);
+  --surface: hsl(190deg 40% 96%);
+  --surface-1: hsl(190deg 36% 93%);
+  --surface-2: hsl(190deg 32% 88%);
+  --surface-3: hsl(191deg 28% 81%);
+  --on-surface: hsl(196deg 36% 16%);
+  --on-surface-variant: hsl(195deg 22% 35%);
+  --outline: hsl(192deg 26% 65%);
   --control-edge: color-mix(in sRGB, var(--primary) 40%, transparent);
 
   /* Same structural stroke as the night face, no bloom. Neon reads as emitted
@@ -440,31 +445,31 @@
      day face draws its hairlines in ink and spends nothing on the halo. */
   --hairline: var(--outline);
   --hairline-glow: none;
-  --shadow-color: hsl(202deg 32% 22% / 18%);
+  --shadow-color: hsl(194deg 40% 18% / 18%);
   --primary-shadow: hsl(187deg 100% 30% / 35%);
   --focus-glow: 0 0 0 1px hsl(187deg 100% 30% / 34%), 0 0 12px hsl(187deg 100% 34% / 28%);
-  --scanline: hsl(199deg 28% 19% / 4%);
-  --code-background: hsl(210deg 28% 98%);
-  --code-foreground: hsl(199deg 28% 19%);
-  --terminal-black: hsl(200deg 24% 26%);
+  --scanline: hsl(196deg 36% 16% / 4%);
+  --code-background: hsl(190deg 48% 97%);
+  --code-foreground: hsl(196deg 36% 16%);
+  --terminal-black: hsl(196deg 30% 24%);
   --terminal-red: hsl(346deg 85% 40%);
   --terminal-green: hsl(157deg 100% 24%);
   --terminal-yellow: hsl(45deg 100% 28%);
   --terminal-blue: hsl(206deg 100% 35%);
   --terminal-magenta: hsl(304deg 78% 38%);
   --terminal-cyan: hsl(187deg 100% 26%);
-  --terminal-white: hsl(202deg 15% 42%);
-  --terminal-bright-black: hsl(202deg 12% 41%);
+  --terminal-white: hsl(195deg 20% 40%);
+  --terminal-bright-black: hsl(195deg 17% 39%);
   --terminal-bright-red: hsl(346deg 85% 46%);
   --terminal-bright-green: hsl(157deg 90% 29%);
   --terminal-bright-yellow: hsl(45deg 95% 33%);
   --terminal-bright-blue: hsl(206deg 95% 41%);
   --terminal-bright-magenta: hsl(304deg 72% 45%);
   --terminal-bright-cyan: hsl(187deg 90% 31%);
-  --terminal-bright-white: hsl(199deg 28% 19%);
+  --terminal-bright-white: hsl(196deg 36% 16%);
   --terminal-selection: hsl(187deg 100% 35% / 20%);
   --terminal-cursor: hsl(45deg 100% 31%);
-  --syntax-comment: hsl(202deg 12% 45%);
+  --syntax-comment: hsl(195deg 17% 42%);
   --syntax-keyword: hsl(304deg 72% 38%);
   --syntax-string: hsl(157deg 100% 24%);
   --syntax-number: hsl(38deg 100% 29%);
