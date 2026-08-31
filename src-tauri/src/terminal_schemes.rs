@@ -1,12 +1,14 @@
 //! The Windows Terminal colour schemes PADE offers for its own terminal.
 //!
-//! Two sources, one catalogue. The schemes Windows Terminal *ships* live in a
+//! Three sources, one catalogue. The schemes Windows Terminal *ships* live in a
 //! `defaults.json` compiled into the app package, which PADE cannot count on
 //! being installed or readable — so they are vendored here as an asset
-//! (principle #10: nothing fetched at runtime). The schemes the user *wrote*
-//! come from their own `settings.json`, read live so a scheme they add shows up
-//! without a PADE release. A user scheme wins over a shipped one of the same
-//! name, because that is exactly what Windows Terminal itself does with it.
+//! (principle #10: nothing fetched at runtime). A short *curated* list adds the
+//! schemes that asset leaves out, in the same vocabulary. The schemes the user
+//! *wrote* come from their own `settings.json`, read live so a scheme they add
+//! shows up without a PADE release. Later sources win on a name collision, so a
+//! user scheme beats a curated one and a curated one beats a shipped one —
+//! which is exactly what Windows Terminal itself does with a user override.
 //!
 //! On the wire the palette is an ANSI-indexed array rather than Windows
 //! Terminal's twenty named colour fields: index *is* the SGR colour, which is
@@ -21,6 +23,15 @@ use std::path::{Path, PathBuf};
 /// The shipped schemes, vendored from Windows Terminal's own `defaults.json`
 /// (MIT). Regenerate from an installed Windows Terminal to pick up new ones.
 const BUNDLED_SCHEMES: &str = include_str!("../assets/windows-terminal-schemes.json");
+
+/// Schemes Windows Terminal does not ship, kept in their own asset so
+/// regenerating [`BUNDLED_SCHEMES`] from an installed Windows Terminal can never
+/// drop them. Currently the two light schemes worth offering: Selenized Light
+/// (Solarized rebuilt in CIE L*a*b*, which fixes the low contrast Solarized
+/// Light is criticised for) and Catppuccin Latte. The vendored asset carries
+/// only three light schemes, all of them dated, and a light app theme with a
+/// near-black terminal is the mismatch this closes.
+const CURATED_SCHEMES: &str = include_str!("../assets/curated-terminal-schemes.json");
 
 /// One colour scheme in PADE's vocabulary.
 #[derive(Serialize, Clone, PartialEq, Eq, Debug)]
@@ -150,12 +161,19 @@ fn user_settings_paths() -> Vec<PathBuf> {
     ]
 }
 
-/// The merged catalogue, by name — the user's own schemes last so they win.
-/// Sorted by construction (`BTreeMap`), which is the order the picker shows.
+/// Every scheme in one vendored asset, or nothing when it will not parse — an
+/// asset is data, and a broken one must not take the catalogue down with it.
+fn schemes_in_asset(asset: &str) -> Vec<TerminalScheme> {
+    schemes_from_values(serde_json::from_str(asset).unwrap_or_default())
+}
+
+/// The merged catalogue, by name — later sources overwrite earlier ones, so the
+/// user's own schemes win over curated, and curated over shipped. Sorted by
+/// construction (`BTreeMap`), which is the order the picker shows.
 fn catalogue(settings_paths: &[PathBuf]) -> Vec<TerminalScheme> {
-    let bundled: Vec<serde_json::Value> = serde_json::from_str(BUNDLED_SCHEMES).unwrap_or_default();
-    let mut by_name: BTreeMap<String, TerminalScheme> = schemes_from_values(bundled)
+    let mut by_name: BTreeMap<String, TerminalScheme> = schemes_in_asset(BUNDLED_SCHEMES)
         .into_iter()
+        .chain(schemes_in_asset(CURATED_SCHEMES))
         .map(|scheme| (scheme.name.clone(), scheme))
         .collect();
 
@@ -178,7 +196,7 @@ pub async fn terminal_schemes() -> Vec<TerminalScheme> {
 
 #[cfg(test)]
 mod tests {
-    use super::{catalogue, schemes_in_settings, BUNDLED_SCHEMES};
+    use super::{catalogue, schemes_in_settings, TerminalScheme, BUNDLED_SCHEMES};
     use std::path::PathBuf;
 
     fn scratch(name: &str) -> PathBuf {
@@ -208,6 +226,57 @@ mod tests {
         // Several shipped schemes name no selection colour at all.
         assert!(campbell.selection.is_none());
         assert!(BUNDLED_SCHEMES.contains("Solarized Light"));
+    }
+
+    /// Relative luminance per WCAG, so "is this scheme light?" is a measurement
+    /// rather than a guess from the hex digits.
+    fn luminance(hex: &str) -> f64 {
+        let hex = hex.trim_start_matches('#');
+        let channel = |offset: usize| {
+            let byte = u8::from_str_radix(&hex[offset..offset + 2], 16).expect("hex pair");
+            let value = f64::from(byte) / 255.0;
+            if value <= 0.03928 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+    }
+
+    fn named<'a>(schemes: &'a [TerminalScheme], name: &str) -> &'a TerminalScheme {
+        schemes
+            .iter()
+            .find(|scheme| scheme.name == name)
+            .unwrap_or_else(|| panic!("{name} is in the catalogue"))
+    }
+
+    /// The curated asset exists because the vendored one ships almost no usable
+    /// light schemes. If these ever stopped being light, it would defeat the
+    /// whole point of carrying them.
+    #[test]
+    fn the_curated_schemes_are_light_and_in_the_catalogue() {
+        let schemes = catalogue(&[]);
+
+        for name in ["Selenized Light", "Catppuccin Latte"] {
+            let scheme = named(&schemes, name);
+            assert!(
+                luminance(&scheme.background) > 0.5,
+                "{name} background {} is not light",
+                scheme.background
+            );
+            assert!(
+                luminance(&scheme.foreground) < 0.2,
+                "{name} foreground {} is not dark enough to read on it",
+                scheme.foreground
+            );
+        }
+
+        let selenized = named(&schemes, "Selenized Light");
+        assert_eq!(selenized.background, "#FBF3DB");
+        assert_eq!(selenized.ansi[1], "#D2212D");
+        assert_eq!(selenized.ansi[15], "#3A4D53");
+        assert_eq!(selenized.cursor.as_deref(), Some("#3A4D53"));
     }
 
     /// A name the user also defines is theirs, not ours — the same precedence
