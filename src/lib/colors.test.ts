@@ -1,4 +1,11 @@
-import { collectVars, colorAlpha, OPAQUE_ALPHA, resolveColor } from "@/lib/colors";
+import {
+  collectVars,
+  colorAlpha,
+  hexLuminance,
+  isDarkSurface,
+  OPAQUE_ALPHA,
+  resolveColor
+} from "@/lib/colors";
 import { describe, expect, it, vi } from "vitest";
 
 // `resolveColor` gates on `CSS.supports("color", …)`, which Node lacks. A
@@ -98,5 +105,44 @@ describe("colorAlpha", () => {
 
   it("reads the slash alpha of a color(srgb … / a)", () => {
     expect(colorAlpha("color(srgb 0.1 0.2 0.3 / 0.5)")).toBe(0.5);
+  });
+});
+
+describe("hexLuminance", () => {
+  it("anchors at black and white", () => {
+    expect(hexLuminance("#000000")).toBe(0);
+    expect(hexLuminance("#ffffff")).toBe(1);
+  });
+
+  it("expands the short hex form", () => {
+    expect(hexLuminance("#fff")).toBe(hexLuminance("#ffffff"));
+    expect(hexLuminance("#000")).toBe(hexLuminance("#000000"));
+  });
+
+  it("weights green far above blue", () => {
+    const green = hexLuminance("#00ff00") ?? 0;
+    const blue = hexLuminance("#0000ff") ?? 0;
+    expect(green).toBeGreaterThan(blue);
+  });
+
+  it("returns null for anything that is not a hex colour", () => {
+    expect(hexLuminance("rgb(0, 0, 0)")).toBeNull();
+    expect(hexLuminance("var(--surface)")).toBeNull();
+    expect(hexLuminance("#12345")).toBeNull();
+    expect(hexLuminance("")).toBeNull();
+  });
+});
+
+describe("isDarkSurface", () => {
+  it("splits the schemes the picker actually offers", () => {
+    // The two ends of PADE's own catalogue.
+    expect(isDarkSurface("#01000D")).toBe(true); // the "CyberPunk" scheme
+    expect(isDarkSurface("#0C0C0C")).toBe(true); // Campbell
+    expect(isDarkSurface("#FBF3DB")).toBe(false); // Selenized Light
+    expect(isDarkSurface("#EFF1F5")).toBe(false); // Catppuccin Latte
+  });
+
+  it("makes no claim about a value it cannot measure", () => {
+    expect(isDarkSurface("not a colour")).toBe(false);
   });
 });

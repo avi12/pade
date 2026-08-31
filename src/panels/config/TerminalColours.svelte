@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective, updatePrefs } from "@/lib/prefs.svelte";
-  import type { Scheme } from "@/lib/types";
+  import { Scheme } from "@/lib/types";
+  import SchemeMismatchNote from "@/panels/config/SchemeMismatchNote.svelte";
   import TerminalSchemePicker from "@/panels/config/TerminalSchemePicker.svelte";
 
   // Which Windows Terminal colour scheme paints the terminal. The pick is stored
@@ -70,20 +71,22 @@
       id="terminal-scheme-light"
       label="Light"
       onpick={name => pickFor({
-        scheme: "light",
+        scheme: Scheme.enum.light,
         name
       })}
       value={effective.terminalSchemes.light ?? null}
     />
+    <SchemeMismatchNote face={Scheme.enum.light} />
     <TerminalSchemePicker
       id="terminal-scheme-dark"
       label="Dark"
       onpick={name => pickFor({
-        scheme: "dark",
+        scheme: Scheme.enum.dark,
         name
       })}
       value={effective.terminalSchemes.dark ?? null}
     />
+    <SchemeMismatchNote face={Scheme.enum.dark} />
   {:else}
     <TerminalSchemePicker id="terminal-scheme" label="" onpick={pickForBoth} value={activeChoice} />
   {/if}
