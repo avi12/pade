@@ -683,6 +683,15 @@
   --context-critical: hsl(348deg 95% 82%);
 }
 
+/* The app menu's rows switch, they do not ease. Every other palette cross-fades
+   a row's colour and fill over 120ms, which reads as soft on a HUD: this screen
+   snaps between states, and a row that fades in under the cursor is the one
+   place that softness is most visible. Named rows rather than every menu,
+   because this is the list you actually scan. */
+:root[data-palette="cyberpunk"] :is(.open-window-row, .project-row-main, .project-row-kebab) {
+  transition: none;
+}
+
 /* The bloom. Only the chrome's own labels emit — the tab row, the panel title,
    the branch and project pills. Deliberately NOT `*`: the terminal and the diff
    viewers are thousands of spans, and a text-shadow on each is both a paint
