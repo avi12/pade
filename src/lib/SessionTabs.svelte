@@ -757,8 +757,17 @@
         opacity: 100%;
       }
 
-      /* Pinned bright while auto-naming is on for this session. */
+      /* Pinned bright while auto-naming is on for this session, and backed by a
+         tinted plate. The plate is what actually carries the on/off state: the
+         brightening alone leans on the icon's COLOUR differing between the two,
+         and on the active pill it cannot — the accent this icon reaches for is
+         the pill's own fill, so both states resolve to the container's
+         on-colour and only a 15-point opacity step separates them. Mixed from
+         `currentcolor`, so it reads on the pale row and the filled pill alike
+         without either needing to know which one it is sitting on. */
       .ai-wrap.on & {
+        border-radius: var(--radius-small);
+        background: color-mix(in sRGB, currentColor 22%, transparent);
         color: var(--primary);
         opacity: 100%;
       }
