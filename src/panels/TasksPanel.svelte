@@ -174,7 +174,7 @@
   .kind {
     padding-block: 2px;
     padding-inline: 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;
@@ -238,7 +238,7 @@
       flex: none;
       block-size: 7px;
       inline-size: 7px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--tertiary);
       animation: pulse 1100ms var(--ease) infinite;
     }
@@ -266,7 +266,7 @@
     padding-block: 5px;
     padding-inline: 15px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary);
     color: var(--on-primary);
     font: inherit;

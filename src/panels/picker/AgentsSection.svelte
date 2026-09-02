@@ -126,7 +126,7 @@
 
   .agent-skeleton {
     block-size: 35px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     animation: pulse 1100ms var(--ease) infinite;
 

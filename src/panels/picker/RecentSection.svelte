@@ -93,7 +93,7 @@
     align-items: center;
     padding: 4px 8px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface-variant);
     font: inherit;
@@ -163,7 +163,7 @@
   .temp-tag {
     flex: none;
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;
@@ -209,7 +209,7 @@
       flex: none;
       padding: 6px 14px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--primary);
       color: var(--on-primary);
       font: inherit;

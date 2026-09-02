@@ -976,7 +976,7 @@
       margin-block-start: 4px;
       padding: 5px 14px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--primary-container);
       color: var(--on-primary-container);
       font-family: inherit;
@@ -1013,7 +1013,7 @@
     padding-block: 4px;
     padding-inline: 10px 12px;
     border: 1px solid var(--outline);
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     font-family: inherit;
@@ -1143,7 +1143,7 @@
     margin-inline-start: auto;
     padding: 4px 12px;
     border: 1px solid var(--outline);
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     font-family: inherit;
@@ -1187,7 +1187,7 @@
     align-items: center;
     padding: 4px 11px;
     border: 1px solid var(--outline);
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
     font-size: 12px;
@@ -1297,7 +1297,7 @@
     flex: none;
     min-inline-size: 20px;
     padding: 1px 7px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
     font-size: 10.5px;
@@ -1600,12 +1600,12 @@
     margin: 0;
     padding: 3px;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
 
     label {
       padding: 4px 11px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       color: var(--on-surface-variant);
       font-weight: 600;
       font-size: 11px;
@@ -1659,7 +1659,7 @@
     align-items: center;
     block-size: 26px;
     inline-size: 26px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     color: var(--on-surface-variant);
     cursor: pointer;
 

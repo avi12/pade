@@ -197,7 +197,7 @@
     align-items: center;
     block-size: 44px;
     inline-size: 44px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary-container);
     color: var(--on-primary-container);
 
@@ -253,7 +253,7 @@
     padding-block: 10px;
     padding-inline: 20px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     font: inherit;
     font-weight: 700;
     font-size: 13px;

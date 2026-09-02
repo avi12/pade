@@ -437,7 +437,7 @@
     padding-block: 7px;
     padding-inline: 12px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary-container);
     color: var(--on-primary-container);
     font: inherit;
@@ -730,7 +730,7 @@
     flex: none;
     padding-block: 2px;
     padding-inline: 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;

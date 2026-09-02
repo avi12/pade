@@ -266,7 +266,7 @@
     .branch-dot {
       block-size: 6px;
       inline-size: 6px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--tertiary);
     }
 
@@ -296,7 +296,7 @@
     .separator {
       block-size: 4px;
       inline-size: 4px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--outline);
     }
 
@@ -327,7 +327,7 @@
     padding-block: 8px;
     padding-inline: 14px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     font: inherit;
@@ -354,7 +354,7 @@
     block-size: 34px;
     inline-size: 34px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
     cursor: pointer;

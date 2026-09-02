@@ -92,7 +92,7 @@
       flex: none;
       padding-block: 3px;
       padding-inline: 9px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--warning-wash);
       color: var(--warning);
       font-weight: 700;
@@ -147,7 +147,7 @@
       padding-block: 8px;
       padding-inline: 15px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--primary);
       color: var(--on-primary);
       font: inherit;

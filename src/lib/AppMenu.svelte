@@ -948,7 +948,7 @@
     padding-block: 5px;
     padding-inline: 11px 10px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface);
     white-space: nowrap;
@@ -997,7 +997,7 @@
     flex: none;
     padding-block: 1px;
     padding-inline: 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-family: var(--font-ui);
@@ -1293,7 +1293,7 @@
       padding-block: 2px;
       padding-inline: 7px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: transparent;
       color: var(--on-surface-variant);
       font: inherit;

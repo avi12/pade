@@ -216,11 +216,17 @@
      glow (cyberpunk) turns it on by redefining this one token. */
   --focus-glow: none;
 
-  /* M3 shape scale */
+  /* M3 shape scale. `--radius-full` is the pill — the fully-rounded end every
+     chip, badge and segmented control in the app wears. It is a token and not a
+     literal `999px` for the same reason the other four are: a palette has to be
+     able to re-point the whole scale, and a skin whose controls are cut rather
+     than rounded (cyberpunk) cannot do that if two thirds of the app spells its
+     corner out by hand. */
   --radius-small: 8px;
   --radius-medium: 14px;
   --radius-large: 20px;
   --radius-extra-large: 28px;
+  --radius-full: 999px;
 
   /* Tooltip bubble geometry, shared by the `[data-tooltip]` pseudo below and the
      top-layer bubble (OverflowTooltipLayer) so the two can never drift: the gap
@@ -576,10 +582,8 @@
 
    Two sizes, not four steps — "corners come from chamfers, not radii", so the
    scale collapses onto the skin's own pair: 7px on anything you click, 12px on
-   anything that holds content. The four token names stay because every card,
-   button, menu and field in the app already resolves its corner through them;
-   the pill-shaped controls (a 999px radius) become slant-ended slabs on their
-   own, since a bevel that big simply cuts the whole end off.
+   anything that holds content. The token names stay because every card, button,
+   menu and field in the app already resolves its corner through them.
 
    Both faces share all of it — shape is not light or dark. */
 :root[data-palette="cyberpunk"] {
@@ -998,7 +1002,7 @@ textarea {
 
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background-color: color-mix(in sRGB, currentColor 28%, transparent);
   background-clip: padding-box;
 }

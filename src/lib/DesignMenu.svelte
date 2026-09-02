@@ -66,7 +66,7 @@
     align-items: center;
     padding: 7px 13px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     font: inherit;

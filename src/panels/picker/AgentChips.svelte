@@ -51,7 +51,7 @@
     align-items: center;
     padding: 8px 16px;
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     font: inherit;

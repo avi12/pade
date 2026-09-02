@@ -134,7 +134,7 @@
     display: inline-flex;
     flex-shrink: 0;
     align-items: stretch;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
   }
 
@@ -145,7 +145,7 @@
     padding-block: 7px;
     padding-inline: 13px 10px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface);
     font: inherit;

@@ -373,7 +373,7 @@
     padding-block: 4px;
     padding-inline: 11px 9px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     cursor: pointer;
@@ -490,7 +490,7 @@
         flex: none;
         block-size: 6px;
         inline-size: 6px;
-        border-radius: 999px;
+        border-radius: var(--radius-full);
         background: var(--severity-color);
       }
     }
@@ -586,7 +586,7 @@
         flex: none;
         block-size: 8px;
         inline-size: 8px;
-        border-radius: 999px;
+        border-radius: var(--radius-full);
         background: var(--severity-color);
       }
 
@@ -602,7 +602,7 @@
       overflow: clip;
       block-size: 6px;
       margin-block-end: 15px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-3);
     }
 
@@ -678,14 +678,14 @@
       display: block;
       overflow: clip;
       block-size: 8px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-3);
     }
 
     .track-fill {
       display: block;
       block-size: 100%;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--severity-color);
       transition: inline-size 300ms var(--ease), background 300ms var(--ease);
     }
@@ -823,14 +823,14 @@
       display: block;
       overflow: clip;
       block-size: 7px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-3);
     }
 
     .limit-fill {
       display: block;
       block-size: 100%;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--severity-color);
       transition: inline-size 300ms var(--ease), background 300ms var(--ease);
     }

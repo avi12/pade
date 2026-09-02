@@ -93,7 +93,7 @@
   .n {
     padding-block: 1px;
     padding-inline: 7px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     font-weight: 700;

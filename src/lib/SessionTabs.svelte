@@ -588,7 +588,7 @@
       block-size: 22px;
       inline-size: 22px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-2);
       cursor: pointer;
       transition: background 150ms var(--ease);
@@ -614,7 +614,7 @@
       block-size: 22px;
       padding-inline: 9px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-2);
       color: var(--on-surface-variant);
       font-weight: 700;
@@ -647,7 +647,7 @@
     .tab {
       display: inline-flex;
       align-items: center;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-2);
 
       /* The pill body is a drag handle (reorder / split); a touch-drag must
@@ -812,7 +812,7 @@
     .agent-icon {
       display: inline-flex;
       flex: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       color: var(--context-ok);
       transition: color 300ms var(--ease);
 
@@ -861,7 +861,7 @@
       flex: none;
       block-size: 8px;
       inline-size: 8px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--on-surface-variant);
 
       &.working {
@@ -926,7 +926,7 @@
     block-size: 30px;
     inline-size: 30px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
     font-size: 18px;

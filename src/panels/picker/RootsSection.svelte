@@ -384,7 +384,7 @@
     /* Pushed to the row's end, past the path + count. */
     margin-inline-start: auto;
     padding: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
 

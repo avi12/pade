@@ -72,7 +72,7 @@
     block-size: 32px;
     inline-size: 32px;
     padding: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface-variant);
     cursor: pointer;

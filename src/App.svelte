@@ -2263,7 +2263,7 @@
     padding-block: 4px;
     padding-inline: 9px 10px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface);
     white-space: nowrap;
@@ -2377,7 +2377,7 @@
     flex-shrink: 0;
     gap: 2px;
     padding: 3px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
 
     button {
@@ -2386,7 +2386,7 @@
       align-items: center;
       padding: 6px 12px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: transparent;
       color: var(--on-surface-variant);
       font: inherit;
@@ -2479,7 +2479,7 @@
     .panel-resize-bar {
       block-size: 36px;
       inline-size: 2px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--outline);
       transition: background 150ms var(--ease), block-size 150ms var(--ease);
 
@@ -2546,7 +2546,7 @@
 
   .panel-count {
     padding: 2px 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 700;
@@ -2561,7 +2561,7 @@
     inline-size: 28px;
     margin-inline-start: auto;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-2);
     color: var(--on-surface-variant);
     cursor: pointer;
@@ -2634,7 +2634,7 @@
       align-items: center;
       padding-block: 6px;
       padding-inline: 14px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--primary-container);
       color: var(--on-primary-container);
       font-weight: 700;
@@ -2720,7 +2720,7 @@
     align-items: center;
     max-inline-size: min(560px, 90vw);
     padding: 10px 18px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 600;
@@ -2733,7 +2733,7 @@
       flex: none;
       block-size: 8px;
       inline-size: 8px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--primary);
       animation: pulse 1100ms var(--ease) infinite;
     }
@@ -2751,7 +2751,7 @@
     padding-block: 10px;
     padding-inline: 18px;
     border: 1px solid var(--outline);
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface);
     font-weight: 600;
@@ -2796,7 +2796,7 @@
     max-inline-size: min(560px, 90vw);
     padding: 12px 20px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary);
     color: var(--on-primary);
     font: inherit;

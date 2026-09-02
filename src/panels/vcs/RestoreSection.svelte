@@ -171,7 +171,7 @@
       padding-block: 8px;
       padding-inline: 14px;
       border: 1px solid var(--outline);
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-2);
       color: var(--on-surface);
       font: inherit;
@@ -188,7 +188,7 @@
       padding-block: 8px;
       padding-inline: 16px;
       border: none;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--primary);
       color: var(--on-primary);
       font-weight: 700;
@@ -296,14 +296,14 @@
       overflow: hidden;
       block-size: 4px;
       inline-size: 48px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--surface-3);
     }
 
     .fill {
       display: block;
       block-size: 100%;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--tertiary);
     }
 

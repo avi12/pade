@@ -275,7 +275,7 @@
     .grabber {
       block-size: 3px;
       inline-size: 36px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--outline);
     }
   }
@@ -298,7 +298,7 @@
   .count {
     padding-block: 2px;
     padding-inline: 8px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary-container);
     color: var(--on-primary-container);
     font-weight: 700;
@@ -361,7 +361,7 @@
     flex: none;
     padding-block: 2px;
     padding-inline: 8px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-weight: 700;
@@ -384,7 +384,7 @@
     flex: none;
     block-size: 8px;
     inline-size: 8px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--primary);
     animation: pulse 1100ms var(--ease) infinite;
 
@@ -421,7 +421,7 @@
     block-size: 24px;
     inline-size: 24px;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface-variant);
     cursor: pointer;
@@ -467,7 +467,7 @@
     flex: none;
     padding-block: 2px;
     padding-inline: 7px;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--tertiary-wash);
     color: var(--tertiary);
     font-weight: 700;

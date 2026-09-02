@@ -846,7 +846,7 @@
     inline-size: 28px;
     padding: 0;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface-variant);
     cursor: pointer;

@@ -51,7 +51,7 @@
       flex: none;
       block-size: 9px;
       inline-size: 9px;
-      border-radius: 999px;
+      border-radius: var(--radius-full);
       background: var(--on-surface-variant);
     }
 

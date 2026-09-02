@@ -1834,7 +1834,7 @@
     inline-size: 24px;
     margin-inline-start: auto;
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface-variant);
     cursor: pointer;
