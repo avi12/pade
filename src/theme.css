@@ -585,12 +585,21 @@
    anything that holds content. The token names stay because every card, button,
    menu and field in the app already resolves its corner through them.
 
+   `--radius-full` is the one that matters most and was the one getting it
+   wrong. The console zeroes `--shape-full` outright, so a pill under that skin
+   is a RECTANGLE with two corners cut. Left at 999px here it met
+   `corner-shape: bevel` and became a hexagon — a bevel that big cuts the whole
+   end off — which is a different shape language wearing the same colours, and
+   it is what every chip, tab and badge in the app was drawn as. It takes the
+   control chamfer now, like every other thing you click.
+
    Both faces share all of it — shape is not light or dark. */
 :root[data-palette="cyberpunk"] {
   --radius-small: 7px 0;
   --radius-medium: 7px 0;
   --radius-large: 12px 0;
   --radius-extra-large: 12px 0;
+  --radius-full: 7px 0;
 
   /* Motion snaps rather than eases. The skin's own curve and its short end of
      the duration scale: a HUD acknowledges an input, it does not glide. */
