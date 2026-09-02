@@ -595,11 +595,16 @@
 
    Both faces share all of it — shape is not light or dark. */
 :root[data-palette="cyberpunk"] {
-  --radius-small: 7px 0;
-  --radius-medium: 7px 0;
-  --radius-large: 12px 0;
-  --radius-extra-large: 12px 0;
-  --radius-full: 7px 0;
+  /* The two lengths the whole chassis is cut from, so a rule that needs the
+     chamfer on ONE corner (a segmented control's cap, below) and the shorthand
+     that cuts a diagonal both read the same number. */
+  --chamfer-control: 7px;
+  --chamfer-container: 12px;
+  --radius-small: var(--chamfer-control) 0;
+  --radius-medium: var(--chamfer-control) 0;
+  --radius-large: var(--chamfer-container) 0;
+  --radius-extra-large: var(--chamfer-container) 0;
+  --radius-full: var(--chamfer-control) 0;
 
   /* Motion snaps rather than eases. The skin's own curve and its short end of
      the duration scale: a HUD acknowledges an input, it does not glide. */
@@ -646,8 +651,30 @@
   outline-offset: -1px;
 }
 
-:root[data-palette="cyberpunk"] .tab button {
+:root[data-palette="cyberpunk"] .tab button:not(:focus-visible) {
   outline: none;
+}
+
+/* A segmented control's caps follow the container's cut, not their own. Each
+   end button rounds BOTH corners on its side so that a child never squares off
+   a corner the parent shaped — a corner is hit-tested against the shape it is
+   given, so a square child inside a shaped parent takes clicks from air (see
+   SessionTabs). Rounding is the right instinct and the wrong amount here: this
+   palette cuts ONE diagonal, top-left and bottom-right, so a cap that cuts both
+   corners on its side puts a bevel where the container has none — and at the
+   999px those caps ask for, that bevel collapses to half the control's height.
+   A 26px tab came out a parallelogram.
+
+   Each cap takes the chamfer on the corner its container actually cuts, and
+   nothing on the other. */
+:root[data-palette="cyberpunk"] :is(.tab .pick) {
+  border-end-start-radius: 0;
+  border-start-start-radius: var(--chamfer-control);
+}
+
+:root[data-palette="cyberpunk"] :is(.tab .close-button, .ide-more) {
+  border-end-end-radius: var(--chamfer-control);
+  border-start-end-radius: 0;
 }
 
 :root[data-palette="cyberpunk"] [role="tab"] {
