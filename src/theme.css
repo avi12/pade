@@ -800,35 +800,32 @@
   --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
   --on-primary-container: var(--primary);
 
-  /* The corner ticks. The HUD crops the active tab with four short L-brackets
+  /* The corner ticks. The HUD crops the active tab with short L-brackets
      floating just inside its frame, and that mark — not a fill — is how the row
-     says which card you are on. Eight background layers make the four brackets,
-     each a 1px horizontal and a 1px vertical stroke meeting in one corner, held
-     far enough off the outline to read as a separate mark rather than as a
-     thicker border. */
+     says which card you are on.
+
+     TWO brackets, not four, and specifically the two on the corners this
+     palette leaves SQUARE. The chamfer cuts top-left and bottom-right, so a
+     tick aimed at either of those lands on the diagonal and comes out sliced —
+     the mark and the shape competing for the same corner. Top-right and
+     bottom-left have a corner to sit in, so the ticks go there. The two
+     diagonals end up complementary rather than fighting: the chamfer takes one,
+     the brackets take the other.
+
+     Four background layers make the two brackets, each a 1px horizontal and a
+     1px vertical stroke meeting in one corner, held far enough off the outline
+     to read as a separate mark rather than as a thicker border. */
   background-image:
-    linear-gradient(var(--primary) 0 0),
-    linear-gradient(var(--primary) 0 0),
-    linear-gradient(var(--primary) 0 0),
-    linear-gradient(var(--primary) 0 0),
     linear-gradient(var(--primary) 0 0),
     linear-gradient(var(--primary) 0 0),
     linear-gradient(var(--primary) 0 0),
     linear-gradient(var(--primary) 0 0);
   background-position:
-    left var(--crop-mark-inset) top var(--crop-mark-inset),
-    left var(--crop-mark-inset) top var(--crop-mark-inset),
     right var(--crop-mark-inset) top var(--crop-mark-inset),
     right var(--crop-mark-inset) top var(--crop-mark-inset),
     left var(--crop-mark-inset) bottom var(--crop-mark-inset),
-    left var(--crop-mark-inset) bottom var(--crop-mark-inset),
-    right var(--crop-mark-inset) bottom var(--crop-mark-inset),
-    right var(--crop-mark-inset) bottom var(--crop-mark-inset);
+    left var(--crop-mark-inset) bottom var(--crop-mark-inset);
   background-size:
-    var(--crop-mark-length) 1px,
-    1px var(--crop-mark-length),
-    var(--crop-mark-length) 1px,
-    1px var(--crop-mark-length),
     var(--crop-mark-length) 1px,
     1px var(--crop-mark-length),
     var(--crop-mark-length) 1px,
