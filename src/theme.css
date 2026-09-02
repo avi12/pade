@@ -619,19 +619,35 @@
   --crop-mark-inset: 3px;
 }
 
-/* Cyberpunk's controls are framed plates, not tinted pills — which is what
-   the colours and the chamfer alone still left underneath. An `outline` drawn
-   one pixel inside gives every control that frame without a border's layout
-   cost, and without touching `box-shadow`, which components use for their own
+/* Cyberpunk's controls are framed plates, not tinted pills — which is what the
+   colours and the chamfer alone still left underneath. An `outline` drawn one
+   pixel inside gives every control that frame without a border's layout cost,
+   and without touching `box-shadow`, which components use for their own
    selected-row markers. Focused controls are excluded outright so the focus
    ring is never the thing this overrides.
+
+   `.tab` joins the list because the session tab is a DIV wrapping three
+   buttons, so the frame was landing on the three parts instead of the whole —
+   three flush boxes with no chamfer between them, which is what the control
+   looked like rather than one cut plate. The container carries the frame now
+   and its parts carry none: the console draws one chamfered shape per control,
+   never boxes inside boxes.
+
+   One pixel, not two. Two is the CARD weight — what the console spends on
+   panels, dialogs and the top bar — and putting it on every control turned
+   a tab into a stack of heavy tiles. Its own buttons carry no border
+   at all; its segmented tabs carry one pixel.
 
    The panel tabs also take the game's uppercase-with-tracking treatment. Only
    those: every other label in the app is a project, file or session name, and
    shouting someone's data back at them is not a theme. */
-:root[data-palette="cyberpunk"] :is(button, [role="tab"], input, select, textarea):not(:focus-visible) {
-  outline: 2px solid var(--control-edge);
-  outline-offset: -2px;
+:root[data-palette="cyberpunk"] :is(button, [role="tab"], .tab, input, select, textarea):not(:focus-visible) {
+  outline: 1px solid var(--control-edge);
+  outline-offset: -1px;
+}
+
+:root[data-palette="cyberpunk"] .tab button {
+  outline: none;
 }
 
 :root[data-palette="cyberpunk"] [role="tab"] {
@@ -704,20 +720,6 @@
   background-position: bottom left;
   background-size: 100% 4px;
   background-repeat: no-repeat;
-}
-
-/* The tab row is the one place the HUD does NOT chamfer. Every panel, chip and
-   button on that screen is cut, but its tabs are plain rectangles in a 1px
-   stroke — the row reads as a strip of framed cards, and the slant that suits a
-   standalone pill is exactly what stops a row of them lining up. So both tab
-   kinds drop the pill radius here — the session tab together with the segment
-   buttons that actually draw its ends, since squaring only the container left
-   the slant on the `.pick` and close halves that form the visible outline —
-   while everything else in the palette keeps its chamfer. This is also what
-   lets the corner ticks below land: a tick aimed at a corner that has been cut
-   away lands mid-chamfer and reads as a rendering fault. */
-:root[data-palette="cyberpunk"] :is([role="tab"], .tab, .tab button) {
-  border-radius: 0;
 }
 
 /* Active means FRAMED, not filled. The app's selected tab is a solid slab of
