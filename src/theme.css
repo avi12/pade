@@ -844,6 +844,26 @@
   transition: none;
 }
 
+/* The "ready" halo — an agent idle and awaiting you. The component draws it as
+   a 3px spread ring, and a spread follows the element's corner shape: under this
+   palette that turns a soft halo into a hard chamfered frame around a 12px
+   glyph, which reads as a stray box rather than as a state.
+
+   Each face states the signal in the register it actually has, which is the
+   same split the selected tab already makes. Night lights the mark — a blur has
+   no edge for the chamfer to find, and a lit glyph is what "awake" looks like on
+   a HUD. Day has no glow to spend (its whole claim is that outlines carry the
+   structure), so it backs the mark with a tinted plate instead: still a hard
+   edge, but a filled one, which is a badge rather than a frame. */
+:root[data-palette="cyberpunk"][data-theme="dark"] .agent-icon.ready {
+  box-shadow: 0 0 8px var(--tertiary);
+}
+
+:root[data-palette="cyberpunk"][data-theme="light"] .agent-icon.ready {
+  background: var(--tertiary-wash);
+  box-shadow: none;
+}
+
 /* The bloom. Only the chrome's own labels emit — the tab row, the panel title,
    the branch and project pills. Deliberately NOT `*`: the terminal and the diff
    viewers are thousands of spans, and a text-shadow on each is both a paint
