@@ -1,4 +1,10 @@
-import { findResultLabel, isFindShortcut } from "@/lib/terminal-find";
+import {
+  FindOption,
+  findResultLabel,
+  isFindShortcut,
+  isSearchablePattern,
+  matchFindOptionChord
+} from "@/lib/terminal-find";
 import { describe, expect, it } from "vitest";
 
 function chord(overrides: Partial<{
@@ -103,6 +109,17 @@ describe("findResultLabel", () => {
     ).toBe("12 of 12");
   });
 
+  it("says a half-written pattern is not a search that found nothing", () => {
+    expect(
+      findResultLabel({
+        term: "(unclosed",
+        resultIndex: -1,
+        resultCount: 0,
+        searchable: false
+      })
+    ).toBe("Bad pattern");
+  });
+
   it("shows the total alone once the addon stops tracking which match is active", () => {
     expect(
       findResultLabel({
@@ -111,5 +128,102 @@ describe("findResultLabel", () => {
         resultCount: 1000
       })
     ).toBe("1000 matches");
+  });
+});
+
+describe("matchFindOptionChord", () => {
+  it("flips a toggle on Alt + its letter", () => {
+    expect(
+      matchFindOptionChord(
+        chord({
+          key: "c",
+          altKey: true
+        })
+      )
+    ).toBe(FindOption.CaseSensitive);
+    expect(
+      matchFindOptionChord(
+        chord({
+          key: "W",
+          altKey: true
+        })
+      )
+    ).toBe(FindOption.WholeWord);
+    expect(
+      matchFindOptionChord(
+        chord({
+          key: "r",
+          altKey: true
+        })
+      )
+    ).toBe(FindOption.Regex);
+  });
+
+  it("leaves a plain letter to be typed into the box", () => {
+    expect(matchFindOptionChord(chord({ key: "c" }))).toBeNull();
+  });
+
+  it("ignores Ctrl+Alt — that is AltGr, which types characters people search for", () => {
+    expect(
+      matchFindOptionChord(
+        chord({
+          key: "c",
+          altKey: true,
+          ctrlKey: true
+        })
+      )
+    ).toBeNull();
+  });
+
+  it("is null for a letter no toggle claims", () => {
+    expect(
+      matchFindOptionChord(
+        chord({
+          key: "q",
+          altKey: true
+        })
+      )
+    ).toBeNull();
+  });
+});
+
+describe("isSearchablePattern", () => {
+  it("takes any literal, however regex-shaped", () => {
+    expect(
+      isSearchablePattern({
+        term: "cargo build (release",
+        regex: false
+      })
+    ).toBe(true);
+  });
+
+  it("accepts a pattern that compiles", () => {
+    expect(
+      isSearchablePattern({
+        term: "error:s+d+",
+        regex: true
+      })
+    ).toBe(true);
+  });
+
+  it("rejects one that is still being typed", () => {
+    expect(
+      isSearchablePattern({
+        term: "(unclosed",
+        regex: true
+      })
+    ).toBe(false);
+    expect(
+      isSearchablePattern({
+        term: "[a-",
+        regex: true
+      })
+    ).toBe(false);
+    expect(
+      isSearchablePattern({
+        term: "a**",
+        regex: true
+      })
+    ).toBe(false);
   });
 });

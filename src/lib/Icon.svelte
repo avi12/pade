@@ -10,17 +10,17 @@
   // `string` to the type system, so the name union can't be derived from them.
   const ICON_NAMES = [
     "activity", "alert", "android", "androidstudio", "antigravity", "bolt", "branch", "c",
-    "check", "checks", "chevronDown", "chevronUp", "claude", "clion", "clock", "close",
-    "code", "codex", "columns",
+    "caseSensitive", "check", "checks", "chevronDown", "chevronUp", "claude", "clion",
+    "clock", "close", "code", "codex", "columns",
     "copilot", "cplusplus", "csharp", "css", "cursor", "external", "feed",
     "folder", "folderPlus", "git", "github", "go", "goland", "grip", "grok",
     "history", "html", "idea", "image", "java", "javascript", "json",
     "markdown", "maximize", "minimize", "monitor", "moon", "more", "opencode", "pencil",
-    "php", "phpstorm", "plus", "pycharm", "python", "refresh", "rider", "ruby",
-    "rubymine", "rust", "rustrover", "search", "shell", "sliders", "sparkles",
+    "php", "phpstorm", "plus", "pycharm", "python", "refresh", "regex", "rider",
+    "ruby", "rubymine", "rust", "rustrover", "search", "shell", "sliders", "sparkles",
     "star", "sublime", "sun", "svelte", "swap", "terminal", "toml", "trash",
-    "typescript", "visualstudio", "vscode", "webstorm", "window", "windowPlus",
-    "yaml", "zed"
+    "typescript", "visualstudio", "vscode", "webstorm", "wholeWord", "window",
+    "windowPlus", "yaml", "zed"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
 

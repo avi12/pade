@@ -60,7 +60,11 @@ writes.
 - R1.1.11 ✅ **Find in the terminal** — Ctrl+F opens a find bar over the focused
   pane instead of sending a raw ^F to the agent: incremental search as you type,
   every match washed and the active one lit, a "3 of 12" readout, Enter /
-  Shift+Enter to step, Escape to close and hand the keyboard back. It searches
+  Shift+Enter to step, Escape to close and hand the keyboard back. Three toggles
+  decide how the term is matched — **match case** (Alt+C), **whole word**
+  (Alt+W) and **regular expression** (Alt+R) — and each pane keeps its own, so a
+  refined search survives closing the bar. A pattern that is still half-typed
+  reads as "Bad pattern" rather than a search that found nothing. It searches
   the terminal's own buffer — a shell's full scrollback, and the visible frame
   while a fullscreen agent holds the alternate screen (that agent's transcript
   lives in its process, not in the terminal document).

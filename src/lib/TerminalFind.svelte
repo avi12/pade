@@ -15,7 +15,16 @@
   import { errorMessage } from "@/lib/errors";
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
-  import { FindDirection, findResultLabel, isFindShortcut } from "@/lib/terminal-find";
+  import {
+    defaultFindOptions,
+    FIND_OPTION_TOGGLES,
+    FindDirection,
+    findResultLabel,
+    isFindShortcut,
+    isSearchablePattern,
+    matchFindOptionChord
+  } from "@/lib/terminal-find";
+  import type { FindOption } from "@/lib/terminal-find";
   import { rootTokenReader, xtermSearchDecorations } from "@/lib/terminal-theme";
   import { parseInput, TerminalFindTerm } from "@/lib/validate";
   import type { SearchAddon } from "@xterm/addon-search";
@@ -35,16 +44,27 @@
 
   let open = $state(false);
   let term = $state("");
+  // How the term is matched. Kept for the life of the pane, so a search you
+  // refine (case on, regex on) survives closing and re-opening the bar.
+  const matching = $state(defaultFindOptions());
   let resultIndex = $state(-1);
   let resultCount = $state(0);
   let input = $state<HTMLInputElement>();
   let searchAddon: SearchAddon | undefined;
 
+  const searchable = $derived(
+    isSearchablePattern({
+      term,
+      regex: matching.regex
+    })
+  );
+
   const label = $derived(
     findResultLabel({
       term,
       resultIndex,
-      resultCount
+      resultCount,
+      searchable
     })
   );
 
@@ -84,12 +104,14 @@
     }
 
     // The box is a free-text field like any other: what reaches the search
-    // engine is what the schema passed, never the raw input value.
+    // engine is what the schema passed, never the raw input value. A regex the
+    // user is still halfway through typing is held back the same way — it would
+    // throw inside the engine on the keystroke that reached it.
     const query = parseInput({
       schema: TerminalFindTerm,
       raw: term
     });
-    if (query === null) {
+    if (query === null || !searchable) {
       addon.clearDecorations();
       resultIndex = -1;
       resultCount = 0;
@@ -97,6 +119,7 @@
     }
 
     const options = {
+      ...matching,
       decorations: xtermSearchDecorations({ readToken: rootTokenReader() }),
       incremental
     };
@@ -119,6 +142,24 @@
 
   async function step(direction: FindDirection): Promise<void> {
     await runSearch({ direction });
+  }
+
+  // Re-run the current search from scratch. The addon's highlighted set has to be
+  // cleared first, because only a changed TERM invalidates it: `findNext` stores
+  // the options it was handed and then asks whether they changed by comparing
+  // that same object against itself, so a flipped rule (and the recoloured
+  // decorations a palette flip wants) would otherwise leave the old highlights
+  // and the old count standing while only the active match moved.
+  async function researchFromScratch(): Promise<void> {
+    searchAddon?.clearDecorations();
+    await searchAsTyped();
+  }
+
+  // Flipping a toggle re-runs the search under the new rule, so the highlights
+  // and the count answer the question the bar is now asking.
+  async function toggleMatching(option: FindOption): Promise<void> {
+    matching[option] = !matching[option];
+    await researchFromScratch();
   }
 
   /** Open the bar (or bring the caret back to it) with the previous term
@@ -147,7 +188,7 @@
       return;
     }
 
-    untrack(searchAsTyped);
+    untrack(researchFromScratch);
   });
 
   onDestroy(() => {
@@ -178,6 +219,13 @@
           return;
         }
 
+        const toggled = matchFindOptionChord(e);
+        if (toggled) {
+          e.preventDefault();
+          await toggleMatching(toggled);
+          return;
+        }
+
         if (e.key !== "Enter") {
           return;
         }
@@ -190,7 +238,24 @@
       type="text"
       bind:value={term}
     />
-    <output class="count">{label}</output>
+    <span class="toggles">
+      {#each FIND_OPTION_TOGGLES as toggle (toggle.option)}
+        <button
+          class="toggle"
+          aria-label={toggle.label}
+          aria-pressed={matching[toggle.option]}
+          data-tooltip={`${toggle.label} · Alt+${toggle.chordKey.toUpperCase()}`}
+          onclick={async () => {
+            await toggleMatching(toggle.option);
+            input?.focus();
+          }}
+          type="button"
+        >
+          <Icon name={toggle.icon} size={14} />
+        </button>
+      {/each}
+    </span>
+    <output class="count" class:unsearchable={!searchable}>{label}</output>
     <button
       class="step"
       aria-label="Previous match"
@@ -283,6 +348,21 @@
       text-align: end;
     }
 
+    .toggles {
+      display: inline-flex;
+      flex: none;
+      gap: 2px;
+      align-items: center;
+    }
+
+    /* A pressed toggle is a filled plate, not a tinted glyph: the bar is small
+       and sits over live output, so "this rule is on" has to survive being read
+       at a glance against whatever the agent happens to be painting behind it. */
+    .toggle[aria-pressed="true"] {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+
     button {
       display: inline-flex;
       flex: none;
@@ -306,6 +386,12 @@
         opacity: 40%;
         cursor: default;
       }
+    }
+
+    /* A half-typed pattern is not a result — say so in the warning colour rather
+       than let "No matches" imply the terminal was searched and came up empty. */
+    .count.unsearchable {
+      color: var(--warning);
     }
 
     .dismiss:hover {
