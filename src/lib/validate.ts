@@ -32,6 +32,11 @@ export const FolderPath = z.string().trim().min(1).max(4096);
 /** A session tab's display name — a short single-line label. */
 export const SessionName = z.string().trim().min(1).max(60);
 
+/** What the terminal's find bar searches for — kept verbatim (no trim: a leading
+ *  or trailing space is a legitimate thing to look for in output), capped so a
+ *  pasted file can't be handed to the search engine keystroke by keystroke. */
+export const TerminalFindTerm = z.string().min(1).max(200);
+
 // ── Clone URLs — the one home for their shape knowledge (schema + helpers). ──
 
 /** The URL-proper forms git clones over, validated by zod's own URL parser and

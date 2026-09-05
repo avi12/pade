@@ -24,6 +24,7 @@
 // and was silently replaced by xterm's default (a white wash, invisible on the
 // light scheme). So every token is converted to hex before xterm sees it.
 
+import type { ISearchOptions } from "@xterm/addon-search";
 import type { ITheme } from "@xterm/xterm";
 
 /** The 16 ANSI palette slots as their `--terminal-*` design-token names, in ANSI
@@ -180,4 +181,37 @@ export function xtermTheme({ readToken }: { readToken: (name: string) => string 
     selectionBackground: color("--terminal-selection"),
     ...ansiColors
   };
+}
+
+/** The find bar's highlight colours, taken from the same tokens as the rest of
+ *  the terminal's palette so a search follows the scheme along with everything
+ *  else. The two washes are theme.css's (`--terminal-find-*`, where the reason
+ *  they must stay translucent is written down); the active match takes the
+ *  accent as a 1px edge on top, which is the one mark that can be solid without
+ *  hiding the word underneath it. */
+export function xtermSearchDecorations({ readToken }: {
+  readToken: (name: string) => string;
+}): NonNullable<ISearchOptions["decorations"]> {
+  function color(name: string): string {
+    return xtermSafeColor(readToken(name));
+  }
+
+  const match = color("--terminal-find-match");
+  const activeMatch = color("--terminal-find-active");
+  return {
+    matchBackground: match,
+    matchOverviewRuler: match,
+    activeMatchBackground: activeMatch,
+    activeMatchBorder: color("--primary"),
+    activeMatchColorOverviewRuler: activeMatch
+  };
+}
+
+/** Read design tokens off the document root. The one DOM read behind every
+ *  terminal colour — the theme and the search highlights resolve their tokens
+ *  through it, so neither can end up reading a different root than the other.
+ *  Returned as a reader so the mappings above stay pure and testable. */
+export function rootTokenReader(): (name: string) => string {
+  const style = getComputedStyle(document.documentElement);
+  return name => style.getPropertyValue(name).trim();
 }

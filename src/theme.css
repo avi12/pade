@@ -198,6 +198,15 @@
   --terminal-bright-white: hsl(214deg 30% 14%);
   --terminal-selection: hsl(210deg 90% 45% / 22%);
 
+  /* Find-in-terminal (lib/TerminalFind). Both are washes, never solids: the
+     addon draws every other match UNDER the row's glyphs but the active one
+     OVER them, so an opaque active colour would blank out the very word the
+     search just found. Amber because that is what a reader already expects a
+     match to look like — the palette's own warning hue, one step and two steps
+     up in strength so "one of these" and "this one" separate at a glance. */
+  --terminal-find-match: hsl(28deg 90% 45% / 26%);
+  --terminal-find-active: hsl(28deg 90% 45% / 60%);
+
   /* The caret. Defined once, in terms of the accent, so it follows every scheme
      and palette; a chosen Windows Terminal scheme overwrites this token with its
      own cursor colour (lib/terminal-palette). */
@@ -313,6 +322,8 @@
   --terminal-bright-cyan: hsl(190deg 75% 68%);
   --terminal-bright-white: hsl(var(--seed-hue) 24% 94%);
   --terminal-selection: hsl(210deg 90% 66% / 28%);
+  --terminal-find-match: hsl(28deg 90% 58% / 24%);
+  --terminal-find-active: hsl(28deg 90% 58% / 58%);
   --syntax-comment: hsl(214deg 14% 56%);
   --syntax-keyword: hsl(265deg 70% 76%);
   --syntax-string: hsl(160deg 50% 62%);
@@ -421,6 +432,8 @@
   --terminal-bright-cyan: #8bfaff;
   --terminal-bright-white: #f2fbff;
   --terminal-selection: hsl(330deg 68% 40% / 45%);
+  --terminal-find-match: hsl(39deg 100% 65% / 22%);
+  --terminal-find-active: hsl(39deg 100% 65% / 58%);
   --terminal-cursor: #fcee0a;
   --syntax-comment: #698a9c;
   --syntax-keyword: #c77dff;
@@ -556,6 +569,8 @@
   --terminal-bright-cyan: #00668f;
   --terminal-bright-white: #06182b;
   --terminal-selection: rgb(0 179 230 / 30%);
+  --terminal-find-match: hsl(26deg 95% 48% / 24%);
+  --terminal-find-active: hsl(26deg 95% 48% / 58%);
   --terminal-cursor: #00527a;
   --syntax-comment: #456781;
   --syntax-keyword: #5b3fd6;

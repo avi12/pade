@@ -57,6 +57,13 @@ writes.
 - R1.1.10 ✅ Closing a visible session tab uses the same collapse animation from
   its close button, middle-click, Ctrl+W, or Ctrl+F4. Reduced-motion mode still
   removes it immediately.
+- R1.1.11 ✅ **Find in the terminal** — Ctrl+F opens a find bar over the focused
+  pane instead of sending a raw ^F to the agent: incremental search as you type,
+  every match washed and the active one lit, a "3 of 12" readout, Enter /
+  Shift+Enter to step, Escape to close and hand the keyboard back. It searches
+  the terminal's own buffer — a shell's full scrollback, and the visible frame
+  while a fullscreen agent holds the alternate screen (that agent's transcript
+  lives in its process, not in the terminal document).
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).

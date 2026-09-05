@@ -28,13 +28,15 @@
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
+  import { isFindShortcut } from "@/lib/terminal-find";
   import { isPromptNewlineShortcut, pastedText, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { terminalFlushMode, TerminalFlushMode, wheelScrollsTerminalDocument } from "@/lib/terminal-output";
   import { containsRtl } from "@/lib/terminal-rtl";
   import { accumulateWheelNotches } from "@/lib/terminal-scroll";
-  import { xtermTheme } from "@/lib/terminal-theme";
+  import { rootTokenReader, xtermTheme } from "@/lib/terminal-theme";
+  import TerminalFind from "@/lib/TerminalFind.svelte";
   import TerminalRtl from "@/lib/TerminalRtl.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
@@ -124,6 +126,9 @@
   // an async onMount long after the first effects have run. Its presence IS
   // "attached": one value rather than a flag kept beside it.
   let attachedTerminal = $state<Terminal | undefined>();
+  // The pane's find bar (lib/TerminalFind), bound so Ctrl+F can ask it to open.
+  // Null until the component has mounted itself.
+  let findBar = $state<{ reveal: () => Promise<void> } | null>(null);
   let windowFocused = $state(document.hasFocus());
   // This session has printed right-to-left text at least once, so its rows are
   // worth scanning (see lib/TerminalRtl). A latch, never unset: the text stays in
@@ -1401,6 +1406,7 @@
     //    xterm still sends ^C (SIGINT) to interrupt the agent.
     //  • Ctrl+V → paste the clipboard (xterm would otherwise send a raw ^V, and
     //    only the WebView's right-click menu pasted).
+    //  • Ctrl+F → the pane's find bar (lib/TerminalFind), not a raw ^F.
     //  • Ctrl+Backspace → ^W (erase word). xterm's legacy encoding for the
     //    chord is ^H, indistinguishable from a bare backspace to a TUI reading
     //    plain bytes (Windows Terminal gets away with it via win32-input-mode,
@@ -1453,6 +1459,12 @@
       if (isDeleteWordChord) {
         event.preventDefault();
         writeToPty(ERASE_WORD);
+        return false;
+      }
+
+      if (isFindShortcut(event)) {
+        event.preventDefault();
+        openFindBar();
         return false;
       }
 
@@ -1756,8 +1768,14 @@
   // module's job — lib/terminal-theme, which also documents the app↔agent
   // theme-sync decision.
   function readXtermTheme() {
-    const style = getComputedStyle(document.documentElement);
-    return xtermTheme({ readToken: name => style.getPropertyValue(name).trim() });
+    return xtermTheme({ readToken: rootTokenReader() });
+  }
+
+  // Ctrl+F searches this pane's output instead of reaching the agent as a raw
+  // ^F (which a shell reads as "forward one character"). The bar owns its own
+  // open state; the pane only asks for it and takes the keyboard back after.
+  async function openFindBar(): Promise<void> {
+    await findBar?.reveal();
   }
 </script>
 
@@ -1789,6 +1807,12 @@
         />
       </div>
     </div>
+    <TerminalFind
+      bind:this={findBar}
+      onclose={() => attachedTerminal?.focus()}
+      palette={paintedPalette}
+      terminal={attachedTerminal}
+    />
   </div>
 </div>
 
@@ -1850,6 +1874,7 @@
      count toward the fit — it lifts the output off every pane edge (canon:
      12px top, 8px right, 8px bottom, 14px left). */
   .terminal-padding {
+    position: relative; /* the containing block for the find bar */
     flex: 1;
     min-block-size: 0;
     padding-block: 12px 8px;
