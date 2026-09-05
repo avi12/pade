@@ -944,16 +944,18 @@
     }
 
     /* While any control inside is focused, the group's border becomes the
-       single focus indicator; the inner text field drops its own outline
-       (theme.css rings every :focus-visible) so the two don't double up. The
-       input lives inside the child PathCombobox, so `:global` reaches it —
-       still bounded by the scoped `.new-project-location:focus-within` prefix. */
+       single focus indicator; the inner text field drops its own outline AND
+       the glow behind it (theme.css rings every :focus-visible and, on a dark
+       palette, blooms it) so the two don't double up. The input lives inside
+       the child PathCombobox, so `:global` reaches it — still bounded by the
+       scoped `.new-project-location:focus-within` prefix. */
     &:focus-within {
       border-color: var(--primary);
     }
 
     &:focus-within :global(input) {
       outline: none;
+      box-shadow: none;
     }
 
     /* An OS drag hovering the field — signal it will accept the drop. */
@@ -991,6 +993,16 @@
     font-size: 13px;
     line-height: 1.5;
     resize: vertical;
+
+    /* theme.css rings every `:focus-visible` two pixels OUTSIDE the box, which
+       on a field that already carries a frame draws a second box around the
+       first. Cut the ring into the field's own edge instead: the plate reads as
+       one shape, thickened while focused — and the glow, which would ring the
+       outside again, stays off. */
+    &:focus-visible {
+      outline-offset: -2px;
+      box-shadow: none;
+    }
   }
 
   .actions {
