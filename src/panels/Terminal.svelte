@@ -190,8 +190,8 @@
   let sigwinchTimer: ReturnType<typeof setTimeout> | undefined;
   // Flow control for the alternate screen (see altFit): the agent is repainting the size
   // we last gave it, the size the pane has reached since, and the timers that decide when
-  // that repaint is done — plus whether we ever gave up waiting, which means the frame on
-  // screen may be torn and owes a full repaint when the drag stops.
+  // that repaint is done. Whether it kept up or not, the settled gesture ends with a
+  // full repaint (see terminal.onResize) — that is what makes a torn frame heal.
   let awaitingRepaint = false;
   let altFitTimer: ReturnType<typeof setTimeout> | undefined;
   let lastAltFitAt = 0;
@@ -203,7 +203,6 @@
     | undefined;
   let repaintQuietTimer: ReturnType<typeof setTimeout> | undefined;
   let repaintWatchdog: ReturnType<typeof setTimeout> | undefined;
-  let missedRepaint = false;
   // A repaint nudge resizes the grid itself, so it comes back through the resize path —
   // this is what stops it queueing another repaint off the back of its own.
   let repainting = false;
@@ -1115,9 +1114,8 @@
     terminal.resize(columns, rows);
     clearTimeout(repaintWatchdog);
     repaintWatchdog = setTimeout(() => {
-      // It never answered. Whatever is on screen may be torn, so the gesture owes a full
-      // repaint once it stops (see terminal.onResize).
-      missedRepaint = true;
+      // It never answered. Let the next size through anyway; the settled gesture ends
+      // with a forced repaint regardless (see terminal.onResize).
       finishRepaint();
     }, ALT_REPAINT_TIMEOUT_MS);
   }
@@ -1567,9 +1565,17 @@
       // not heard is a row nobody paints. The grid only reaches it at a pace the agent
       // can keep up with in the first place (see altFit).
       //
-      // If we ever gave up waiting for one of its repaints, the frame on screen may be
-      // torn, so the gesture owes it a full repaint once the pane stops moving. Otherwise
-      // it kept up, and forcing one would only make the drag end with a needless blink.
+      // Then, once the pane stops moving, ask for a full repaint — every time, not
+      // only when we gave up waiting for one. Answering the SIGWINCH is not the same
+      // as redrawing the whole screen: the agent erases the rows its own model says
+      // it last wrote, and a size change is exactly what makes that model wrong, so
+      // rows it no longer accounts for keep whatever they held. Measured on a live
+      // Claude after the task dock opened: a tool result from an earlier frame
+      // ("host … / packaged: no / this build: 1.1.0") sat under the live composer for
+      // fifteen minutes of repaints, with the composer's own line ending in the tail
+      // of the row underneath it. It never healed on its own; one resize did. The
+      // nudge costs a double repaint at the end of a gesture — cheap next to a frame
+      // that stays torn until the user happens to resize the pane again.
       if (onAlternateScreen) {
         clearTimeout(sigwinchTimer);
         sizeAgent({
@@ -1577,11 +1583,8 @@
           rows
         });
 
-        if (missedRepaint && !repainting) {
-          sigwinchTimer = setTimeout(() => {
-            missedRepaint = false;
-            repaintAgent();
-          }, SIGWINCH_SETTLE_MS);
+        if (!repainting) {
+          sigwinchTimer = setTimeout(repaintAgent, SIGWINCH_SETTLE_MS);
         }
 
         return;

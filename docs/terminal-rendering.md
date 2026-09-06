@@ -221,9 +221,17 @@ Three more traps found the hard way:
 
 - A drag that ends inside the minimum interval still has to land its last size — nothing
   else will come back to collect it, so the parked fit needs its own timer.
-- If we ever give up waiting for a repaint (`ALT_REPAINT_TIMEOUT_MS`), the frame may be
-  torn, and the gesture owes it a **full repaint** when it stops. Only then — forcing one
-  after every drag just makes it end with a needless blink.
+- Every settled gesture owes the agent a **full repaint** (`repaintAgent`), not just the
+  ones where we gave up waiting (`ALT_REPAINT_TIMEOUT_MS`). Answering the SIGWINCH is not
+  redrawing the screen: the agent erases the rows *its own model* says it last wrote, and
+  a size change is exactly what makes that model wrong — rows it no longer accounts for
+  keep whatever they held. Measured 2026-09-06 on a live Claude after the task dock
+  opened: a tool result from an earlier frame (`host …` / `packaged: no` / `this build:
+  1.1.0`) sat under the live composer through fifteen minutes of repaints, the composer's
+  own line ending in the tail of the row underneath it (`…merge into mainknolcjgad`). It
+  never healed; one resize did. The earlier rule — nudge only after a missed repaint,
+  because forcing one "ends the drag with a needless blink" — bought that blink at the
+  price of a frame that stays torn until the user happens to resize the pane again.
 - Switching screens must immediately re-send the size, because on the normal screen we
   deliberately let the agent's idea of the height go stale.
 
