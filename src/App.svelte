@@ -20,6 +20,7 @@
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
+  import MemberSwitcher from "@/lib/MemberSwitcher.svelte";
   import { collapsePane } from "@/lib/motion";
   import OverflowTooltipLayer from "@/lib/OverflowTooltipLayer.svelte";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
@@ -62,6 +63,7 @@
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
+  import { activeMemberPath, loadWorkspaceMembers, refreshMemberBranches } from "@/lib/stores/workspaceMembers.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
   import { pastedText, referencedSnippet } from "@/lib/terminal-input";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
@@ -80,7 +82,7 @@
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // Which top-level screen is showing. A closed set defined once, compared
@@ -518,6 +520,34 @@
     refreshTaskRunDetection();
   });
 
+  // What this workspace is made of — nested checkouts and declared packages, as
+  // one list (stores/workspaceMembers). Keyed on the project so an in-window
+  // switch re-discovers them; the member switcher, the branch pill and the
+  // Change Feed's grouping all read that one list.
+  $effect(() => {
+    const project = currentProject;
+    if (!project) {
+      return;
+    }
+
+    untrack(discoverWorkspaceMembers);
+  });
+
+  async function discoverWorkspaceMembers() {
+    await loadWorkspaceMembers(currentProject);
+  }
+
+  // The branch pill reports the member the switcher points at, so picking a
+  // nested checkout re-reads its branch, its branch list and its remote.
+  $effect(() => {
+    const member = activeMemberPath();
+    if (!member) {
+      return;
+    }
+
+    untrack(loadBranches);
+  });
+
   // ── Discord Rich Presence ────────────────────────────────────────────────────
   // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
   // state→bridge mapping lives in lib/discord-presence (SoC). Both flags resolve
@@ -768,8 +798,10 @@
       initialPrompt: options.initialPrompt,
       // Never leave an agent to inherit the backend process cwd: another PADE
       // window may switch that shared process to a different project while this
-      // terminal is mounting. Worktrees still override the window project.
-      cwd: options.cwd ?? currentProject,
+      // terminal is mounting. Worktrees still override the window project, and a
+      // multi-part workspace starts its agents in the member the top bar points
+      // at — the root until you pick another (see stores/workspaceMembers).
+      cwd: options.cwd ?? activeMemberPath(),
       branch: options.branch,
       args: options.args,
       // A stable id for this conversation, distinct from the session `id` (which
@@ -928,11 +960,12 @@
     selectSession(sessions[nextIndex].id);
   }
 
-  // Load branches for the current repo (empty when not a git project), and the
-  // checked-out branch the top-bar pill shows.
+  // Load branches for the repo the top bar points at — the workspace root, or
+  // the nested checkout the member switcher selected — and the checked-out
+  // branch its pill shows. A workspace with one member reads exactly as before.
   async function loadBranches() {
-    const project = currentProject;
-    if (!project) {
+    const member = activeMemberPath();
+    if (!member) {
       branches = [];
       currentBranch = "";
       hasRemote = false;
@@ -940,18 +973,18 @@
     }
 
     const [next, heads, remote] = await Promise.all([
-      vcs.branches(project).catch((): string[] => []),
-      vcs.branchOf([project]).catch((): Record<string, string> => ({})),
-      vcs.remoteUrl(project).catch((): string | null => null)
+      vcs.branches(member).catch((): string[] => []),
+      vcs.branchOf([member]).catch((): Record<string, string> => ({})),
+      vcs.remoteUrl(member).catch((): string | null => null)
     ]);
-    // A project switch can outrun this read. Keep the branch list attached to
-    // the project it came from instead of flashing another window's repository.
-    if (project !== currentProject) {
+    // A project (or member) switch can outrun this read. Keep the branch list
+    // attached to what it came from instead of flashing another repository's.
+    if (member !== activeMemberPath()) {
       return;
     }
 
     branches = next;
-    currentBranch = heads[project] ?? "";
+    currentBranch = heads[member] ?? "";
     hasRemote = remote !== null;
   }
 
@@ -959,7 +992,9 @@
   // the open project re-fetches what it shows (git://state carries no payload).
   let unlistenGitState: (() => void) | undefined;
   async function subscribeToGitState() {
-    unlistenGitState = await vcs.onStateChanged(() => loadBranches());
+    unlistenGitState = await vcs.onStateChanged(async () => {
+      await Promise.all([loadBranches(), refreshMemberBranches()]);
+    });
   }
   onMount(() => {
     subscribeToGitState();
@@ -1819,6 +1854,9 @@
             recentProjects={settings.recentProjects}
             roots={settings.roots}
           />
+          <!-- Only rendered when the workspace has more than one part; a plain
+               single-repo project keeps the top bar exactly as it was. -->
+          <MemberSwitcher root={currentProject} />
           {#if currentBranch}
             <!-- Plain click opens Git; Ctrl/Cmd-click follows the remote branch —
                  but only when there IS a remote, so a local-only repo doesn't
@@ -1861,7 +1899,7 @@
                key the Change Feed also reads — SSOT), while the launcher opens
                the active session's worktree when one is focused. -->
           <IdeMenu
-            cwd={sessions.find(session => session.id === activeId)?.cwd ?? currentProject}
+            cwd={sessions.find(session => session.id === activeId)?.cwd ?? activeMemberPath()}
             onterminaleditor={(editor: Ide) =>
               launch({
                 agent: {
@@ -1905,7 +1943,7 @@
             // the other sessions. Uses the active session's agent (or the first).
             const agent = sessions.find(session => session.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
             const cwd = await vcs.worktreeAdd({
-              cwd: currentProject,
+              cwd: activeMemberPath(),
               branch,
               create: false
             });

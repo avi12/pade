@@ -1,15 +1,23 @@
-//! Manifest-driven workspace member discovery for the Change Feed's grouping.
+//! Workspace member discovery — the parts a workspace is actually made of.
 //!
-//! A folder is a package IFF it holds its own manifest — never because of its
-//! name. One walk builds a manifest census (every directory holding a real
-//! package manifest, dependency/build/VCS noise pruned); the root's
-//! workspace-defining files (`pnpm-workspace.yaml`, `package.json`
-//! `"workspaces"`, `Cargo.toml` `[workspace]`, `go.work`, `pyproject.toml`
-//! `[tool.uv.workspace]`) contribute include/exclude member patterns; and a
-//! census directory becomes a member only when an include pattern matches it
-//! and no exclude does. The root itself is always a member, so every changed
-//! file has an enclosing bucket. Read-only; the frontend does the
-//! longest-prefix file→member assignment (`change-groups.ts`).
+//! A member is one of two things, and one walk finds both:
+//!
+//! * a **package**, IFF the directory holds its own manifest — never because of
+//!   its name. The root's workspace-defining files (`pnpm-workspace.yaml`,
+//!   `package.json` `"workspaces"`, `Cargo.toml` `[workspace]`, `go.work`,
+//!   `pyproject.toml` `[tool.uv.workspace]`) contribute include/exclude member
+//!   patterns, and a census directory becomes a package member only when an
+//!   include pattern matches it and no exclude does.
+//! * a **repository**, IFF the directory holds its own `.git` — a checkout
+//!   nested inside the workspace (a multi-repo folder, a submodule, a
+//!   worktree). No pattern has to claim it: nobody declares these anywhere, and
+//!   a checkout with its own branch and history is part of the workspace
+//!   whether or not a manifest agrees.
+//!
+//! The root itself is always the first member, so every changed file has an
+//! enclosing bucket. Read-only; the frontend does the longest-prefix
+//! file→member assignment (`change-groups.ts`) and reads the same list for the
+//! member switcher, its branch chips and the feed's per-group branch.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -41,6 +49,11 @@ const MANIFESTS: &[(&str, Ecosystem)] = &[
 /// dot-directories (`.git`, `.venv`, …) are pruned separately.
 const PRUNED_DIRECTORIES: &[&str] = &["node_modules", "target", "dist", "build", "vendor"];
 
+/// What marks a directory as its own checkout — a directory in a normal clone,
+/// a FILE in a worktree or submodule (it points at the real git dir). The walk
+/// tests the name, never the kind, so all three count.
+const GIT_MARKER: &str = ".git";
+
 /// One confirmed workspace member, ready for the frontend's longest-prefix
 /// bucket assignment.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -50,9 +63,13 @@ pub struct Member {
     pub path: String,
     /// The package name its manifest declares, when it declares one.
     pub name: Option<String>,
-    /// The manifest family that confirmed it; `None` only for a root that has
-    /// no manifest at all (kept so every file still has a bucket).
+    /// The manifest family that confirmed it; `None` for a checkout with no
+    /// manifest, and for a root that has neither (kept so every file still has
+    /// a bucket).
     pub ecosystem: Option<Ecosystem>,
+    /// It holds its own `.git`, so it has a branch, a status and a history of
+    /// its own. The frontend shows git chrome only where this is true.
+    pub repository: bool,
 }
 
 /// Manifest-confirmed members of the workspace at `root` (the open project),
@@ -66,44 +83,57 @@ pub async fn members_list(root: String) -> Result<Vec<Member>, String> {
     Ok(discover_members(root))
 }
 
-/// Every confirmed member: the root, plus each census directory that the
-/// declared member patterns include (all includes first, then excludes
-/// subtract — negation is order-sensitive in every ecosystem).
+/// Every confirmed member: the root, plus each census directory that is either
+/// its own checkout or a package the declared patterns include (all includes
+/// first, then excludes subtract — negation is order-sensitive in every
+/// ecosystem).
 fn discover_members(root: &Path) -> Vec<Member> {
-    let census = manifest_census(root);
+    let census = census(root);
     let patterns = collect_patterns(root);
 
-    let root_manifest = census.get("");
+    let found_root = census.get("");
     let mut members = vec![Member {
         path: String::new(),
-        name: root_manifest.and_then(|found| found.name.clone()),
-        ecosystem: root_manifest.map(|found| found.ecosystem),
+        name: found_root.and_then(Found::manifest_name),
+        ecosystem: found_root.and_then(Found::ecosystem),
+        repository: found_root.is_some_and(|found| found.repository),
     }];
     for (path, found) in &census {
         if path.is_empty() {
             continue;
         }
-        let included = patterns
-            .include
-            .iter()
-            .any(|pattern| glob_match(pattern, path));
-        if !included {
-            continue;
-        }
-        let excluded = patterns
-            .exclude
-            .iter()
-            .any(|pattern| glob_match(pattern, path));
-        if excluded {
+        if !found.repository && !declared_package(path, &patterns, found) {
             continue;
         }
         members.push(Member {
             path: path.clone(),
-            name: found.name.clone(),
-            ecosystem: Some(found.ecosystem),
+            name: found.manifest_name(),
+            ecosystem: found.ecosystem(),
+            repository: found.repository,
         });
     }
     members
+}
+
+/// Whether the root's workspace files claim this directory as a member package.
+/// A directory with no manifest is not a package, so nothing can claim it.
+fn declared_package(path: &str, patterns: &MemberPatterns, found: &Found) -> bool {
+    if found.manifest.is_none() {
+        return false;
+    }
+
+    let included = patterns
+        .include
+        .iter()
+        .any(|pattern| glob_match(pattern, path));
+    if !included {
+        return false;
+    }
+
+    !patterns
+        .exclude
+        .iter()
+        .any(|pattern| glob_match(pattern, path))
 }
 
 /// A directory the census confirmed as a package.
@@ -112,10 +142,28 @@ struct FoundManifest {
     name: Option<String>,
 }
 
+/// What a walked directory turned out to be: a package, a checkout, or both.
+/// A directory that is neither is never recorded.
+struct Found {
+    manifest: Option<FoundManifest>,
+    repository: bool,
+}
+
+impl Found {
+    fn manifest_name(&self) -> Option<String> {
+        self.manifest.as_ref().and_then(|found| found.name.clone())
+    }
+
+    fn ecosystem(&self) -> Option<Ecosystem> {
+        self.manifest.as_ref().map(|found| found.ecosystem)
+    }
+}
+
 /// Walk once from the root recording every directory that holds a real package
-/// manifest, pruning noise directories and hidden directories during the walk
-/// (a greedy member glob must never sweep in `node_modules`).
-fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
+/// manifest or its own `.git`, pruning noise directories and hidden directories
+/// during the walk (a greedy member glob must never sweep in `node_modules`).
+/// A nested checkout is still walked into — a repo can hold packages of its own.
+fn census(root: &Path) -> BTreeMap<String, Found> {
     let mut found = BTreeMap::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(directory) = stack.pop() {
@@ -123,9 +171,11 @@ fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
             continue;
         };
         let mut file_names = Vec::new();
+        let mut repository = false;
         for entry in entries.flatten() {
             let file_name = entry.file_name();
             let name = file_name.to_string_lossy().into_owned();
+            repository = repository || name == GIT_MARKER;
             if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
                 let is_noise = name.starts_with('.') || PRUNED_DIRECTORIES.contains(&name.as_str());
                 if !is_noise {
@@ -137,15 +187,19 @@ fn manifest_census(root: &Path) -> BTreeMap<String, FoundManifest> {
         }
         let manifest = MANIFESTS
             .iter()
-            .find(|(manifest, _)| file_names.iter().any(|name| name == manifest));
-        let Some((manifest_name, ecosystem)) = manifest else {
-            continue;
-        };
-        found.insert(
-            relative_display(root, &directory),
-            FoundManifest {
+            .find(|(manifest, _)| file_names.iter().any(|name| name == manifest))
+            .map(|(manifest_name, ecosystem)| FoundManifest {
                 ecosystem: *ecosystem,
                 name: package_name(&directory.join(manifest_name), *ecosystem),
+            });
+        if manifest.is_none() && !repository {
+            continue;
+        }
+        found.insert(
+            relative_display(root, &directory),
+            Found {
+                manifest,
+                repository,
             },
         );
     }
@@ -728,6 +782,111 @@ mod tests {
             .expect("frontend member");
         assert_eq!(frontend.name.as_deref(), Some("@poll/frontend"));
         assert_eq!(frontend.ecosystem, Some(Ecosystem::JavaScript));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_nested_checkout_is_a_member_with_no_manifest_at_all() {
+        // Nobody declares these anywhere — a folder of cloned repos has no
+        // workspace file to list them — so `.git` alone has to confirm one.
+        let root = scratch_root("nested-checkout");
+        write(&root, "companion/.git/HEAD", "ref: refs/heads/main\n");
+        write(&root, "docs/readme.md", "not a member");
+
+        let members = discover_members(&root);
+        let paths: Vec<&str> = members.iter().map(|member| member.path.as_str()).collect();
+        assert_eq!(paths, ["", "companion"]);
+        let companion = members
+            .iter()
+            .find(|member| member.path == "companion")
+            .expect("companion member");
+        assert!(companion.repository);
+        assert_eq!(companion.name, None);
+        assert_eq!(companion.ecosystem, None);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_worktree_or_submodule_dot_git_file_counts_too() {
+        // A worktree and a submodule keep a `.git` FILE pointing at the real git
+        // dir, so the walk tests the name and never the kind.
+        let root = scratch_root("git-file");
+        write(
+            &root,
+            "external/sdk/.git",
+            "gitdir: ../../.git/modules/sdk\n",
+        );
+
+        let members = discover_members(&root);
+        let paths: Vec<&str> = members.iter().map(|member| member.path.as_str()).collect();
+        assert_eq!(paths, ["", "external/sdk"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_checkout_the_workspace_patterns_exclude_is_still_a_member() {
+        // Cargo's `exclude` speaks about packages in ITS build, which says
+        // nothing about a checkout's right to exist in the workspace.
+        let root = scratch_root("excluded-checkout");
+        write(
+            &root,
+            "Cargo.toml",
+            "[workspace]\nmembers = [\"crates/*\"]\nexclude = [\"crates/legacy\"]\n",
+        );
+        write(
+            &root,
+            "crates/legacy/Cargo.toml",
+            "[package]\nname = \"legacy\"\n",
+        );
+        write(&root, "crates/legacy/.git/HEAD", "ref: refs/heads/main\n");
+
+        let members = discover_members(&root);
+        let legacy = members
+            .iter()
+            .find(|member| member.path == "crates/legacy")
+            .expect("legacy member");
+        assert!(legacy.repository);
+        assert_eq!(legacy.name.as_deref(), Some("legacy"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_package_that_is_also_a_checkout_reports_both() {
+        let root = scratch_root("package-and-checkout");
+        write(&root, "pnpm-workspace.yaml", "packages:\n  - frontend\n");
+        write(&root, "package.json", r#"{ "name": "root" }"#);
+        write(&root, ".git/HEAD", "ref: refs/heads/main\n");
+        write(&root, "frontend/package.json", r#"{ "name": "web" }"#);
+        write(&root, "frontend/.git/HEAD", "ref: refs/heads/main\n");
+
+        let members = discover_members(&root);
+        let root_member = members.first().expect("root member");
+        assert_eq!(root_member.path, "");
+        assert!(root_member.repository);
+
+        let frontend = members
+            .iter()
+            .find(|member| member.path == "frontend")
+            .expect("frontend member");
+        assert!(frontend.repository);
+        assert_eq!(frontend.name.as_deref(), Some("web"));
+        assert_eq!(frontend.ecosystem, Some(Ecosystem::JavaScript));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_workspace_with_no_git_reports_a_root_that_is_no_repository() {
+        let root = scratch_root("no-git");
+        write(&root, "package.json", r#"{ "name": "solo" }"#);
+
+        let members = discover_members(&root);
+        assert_eq!(members.len(), 1);
+        assert!(!members[0].repository);
 
         let _ = fs::remove_dir_all(&root);
     }

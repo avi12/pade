@@ -69,6 +69,16 @@ writes.
   while a fullscreen agent holds the alternate screen (that agent's transcript
   lives in its process, not in the terminal document).
 
+- R1.1.12 ✅ **A workspace can be more than one repo.** PADE discovers what a
+  workspace is made of — every nested checkout (its own `.git`: a multi-repo
+  folder, a submodule, a worktree) and every declared package (a monorepo's
+  members) — as one list. When there is more than one, the top bar grows a member
+  switcher: each entry shows its branch when it is a checkout, and the one you
+  pick is what the branch pill reports and where a new agent tab, a worktree
+  launch and the editor open. The Change Feed labels each group with the branch
+  of the checkout its files are actually in. A single-repo workspace is unchanged
+  — no switcher, one branch pill, exactly as before.
+
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).
 - R1.2.2 Each event → a card: filename, path, kind, ± line delta, plain summary.

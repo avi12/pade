@@ -146,15 +146,17 @@ describe("groupChanges", () => {
   });
 });
 
-function member({ path, name = null, ecosystem = "javascript" }: {
+function member({ path, name = null, ecosystem = "javascript", repository = false }: {
   path: string;
   name?: string | null;
   ecosystem?: WorkspaceMember["ecosystem"];
+  repository?: boolean;
 }): WorkspaceMember {
   return {
     path,
     name,
-    ecosystem
+    ecosystem,
+    repository
   };
 }
 

@@ -58,7 +58,10 @@ export type Ecosystem = z.infer<typeof Ecosystem>;
 export const WorkspaceMember = z.object({
   path: z.string(),
   name: z.string().nullable(),
-  ecosystem: Ecosystem.nullable()
+  ecosystem: Ecosystem.nullable(),
+  /** It holds its own `.git` — a checkout nested in the workspace, with a
+   *  branch and a history of its own. Only these carry git chrome. */
+  repository: z.boolean()
 });
 export type WorkspaceMember = z.infer<typeof WorkspaceMember>;
 

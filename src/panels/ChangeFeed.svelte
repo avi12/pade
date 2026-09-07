@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { feed, ide, members, vcs } from "@/lib/bridge";
+  import { feed, ide, vcs } from "@/lib/bridge";
   import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
@@ -23,8 +23,14 @@
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
+  import {
+    branchOfMember,
+    pathOfMember,
+    workspaceMembers as storedMembers
+  } from "@/lib/stores/workspaceMembers.svelte";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import type { FeedDiff, WatchStatus, WorkspaceMember } from "@/lib/types";
+  import type { FeedDiff, WatchStatus } from "@/lib/types";
+  import { repositoryOfGroup } from "@/lib/workspace-members";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
   import { flip } from "svelte/animate";
@@ -46,17 +52,21 @@
   // the feed has no terminal tab to route it into, so it's skipped here.
   const revealEditor = $derived(windowedEditorFor({ path: project }));
 
-  // The workspace's current git branch (all groups share the one repo/HEAD), for
-  // the group-header subtitle. Empty for a non-repo / detached-HEAD workspace.
-  let branchByPath = $state<Record<string, string>>({});
-  const branch = $derived(branchByPath[project]);
-
-  async function loadBranch(root: string) {
-    try {
-      branchByPath = await vcs.branchOf([root]);
-    } catch {
-      branchByPath = {};
+  // Each group's git branch, for its header subtitle — the branch of the
+  // checkout the group's files actually live in, which for a monorepo package is
+  // the workspace's own repo and for a nested checkout is its own. Empty for a
+  // non-repo / detached-HEAD workspace. The branches ride the shared member
+  // store, so the feed and the top bar can never report different HEADs.
+  function branchOfGroup(groupId: string): string | undefined {
+    const repository = repositoryOfGroup({
+      groupId,
+      members: workspaceMembers
+    });
+    if (!repository) {
+      return undefined;
     }
+
+    return branchOfMember(pathOfMember(repository));
   }
 
   // "Sync all" only makes sense when there's a remote to fast-forward from — a
@@ -80,18 +90,11 @@
     }
   }
 
-  // Manifest-confirmed workspace members (backend census) — the grouping ground
-  // truth change-groups prefers over folder-name conventions. Refetched on a
-  // project switch; a failure just leaves the convention fallback in charge.
-  let workspaceMembers = $state<WorkspaceMember[]>([]);
-
-  async function loadMembers(root: string) {
-    try {
-      workspaceMembers = await members.list(root);
-    } catch {
-      workspaceMembers = [];
-    }
-  }
+  // The workspace's members (backend census: a package by its manifest, a
+  // checkout by its own `.git`) — the grouping ground truth change-groups
+  // prefers over folder-name conventions. App discovers them once per project
+  // into the shared store; with none, the convention fallback stays in charge.
+  const workspaceMembers = $derived(storedMembers());
 
   // "Sync all" (fast-forward pull) in-flight guard — disables the button and
   // spins its icon so a slow fetch can't be double-fired.
@@ -227,7 +230,6 @@
       }
     }, 1000);
     unlistenGitState = await vcs.onStateChanged(() => {
-      loadBranch(project);
       loadRemote(project);
     });
   });
@@ -244,14 +246,13 @@
   // the open project), so the feed just subscribes to its stream above — no need
   // to arm it here.
 
-  // The workspace's git subtitle, remote gating, manifest members, and editors,
-  // loaded together (concurrently) on mount and on a project switch. Each callee
-  // owns its own error handling, so the gathered promise never rejects.
+  // The workspace's remote gating, watch status and editors, loaded together
+  // (concurrently) on mount and on a project switch. Each callee owns its own
+  // error handling, so the gathered promise never rejects. The members and their
+  // branches are not here: they belong to the shared store App fills.
   async function loadWorkspaceState(workspace: string): Promise<void> {
     await Promise.all([
-      loadBranch(workspace),
       loadRemote(workspace),
-      loadMembers(workspace),
       // What the backend is actually watching, so an empty feed can say why.
       loadWatchStatus(),
       // Editors come from the shared store's cache on a mere remount (a side-panel
@@ -690,6 +691,7 @@
 
     <div class="cards scroll-fade">
       {#each visibleGroups as group (group.id)}
+        {@const branch = branchOfGroup(group.id)}
         <section class="group">
           <header class="group-header">
             <span class="badge {group.role}">{roleLabel(group.role)}</span>
