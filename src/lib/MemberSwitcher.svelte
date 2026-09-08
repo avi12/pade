@@ -14,7 +14,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import {
-    activeMemberPath,
+    activeMemberIn,
     branchOfMember,
     pathOfMember,
     selectMember,
@@ -39,7 +39,7 @@
         }),
         branch: branchOfMember(path),
         repository: member.repository,
-        current: path === activeMemberPath()
+        current: path === activeMemberIn(root)
       };
     })
   );

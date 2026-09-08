@@ -63,7 +63,7 @@
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
-  import { activeMemberPath, loadWorkspaceMembers, refreshMemberBranches } from "@/lib/stores/workspaceMembers.svelte";
+  import { activeMemberIn, loadWorkspaceMembers, refreshMemberBranches } from "@/lib/stores/workspaceMembers.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
   import { pastedText, referencedSnippet } from "@/lib/terminal-input";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
@@ -540,7 +540,7 @@
   // The branch pill reports the member the switcher points at, so picking a
   // nested checkout re-reads its branch, its branch list and its remote.
   $effect(() => {
-    const member = activeMemberPath();
+    const member = activeMemberIn(currentProject);
     if (!member) {
       return;
     }
@@ -801,7 +801,7 @@
       // terminal is mounting. Worktrees still override the window project, and a
       // multi-part workspace starts its agents in the member the top bar points
       // at — the root until you pick another (see stores/workspaceMembers).
-      cwd: options.cwd ?? activeMemberPath(),
+      cwd: options.cwd ?? activeMemberIn(currentProject),
       branch: options.branch,
       args: options.args,
       // A stable id for this conversation, distinct from the session `id` (which
@@ -964,7 +964,7 @@
   // the nested checkout the member switcher selected — and the checked-out
   // branch its pill shows. A workspace with one member reads exactly as before.
   async function loadBranches() {
-    const member = activeMemberPath();
+    const member = activeMemberIn(currentProject);
     if (!member) {
       branches = [];
       currentBranch = "";
@@ -979,7 +979,7 @@
     ]);
     // A project (or member) switch can outrun this read. Keep the branch list
     // attached to what it came from instead of flashing another repository's.
-    if (member !== activeMemberPath()) {
+    if (member !== activeMemberIn(currentProject)) {
       return;
     }
 
@@ -1899,7 +1899,7 @@
                key the Change Feed also reads — SSOT), while the launcher opens
                the active session's worktree when one is focused. -->
           <IdeMenu
-            cwd={sessions.find(session => session.id === activeId)?.cwd ?? activeMemberPath()}
+            cwd={sessions.find(session => session.id === activeId)?.cwd ?? activeMemberIn(currentProject)}
             onterminaleditor={(editor: Ide) =>
               launch({
                 agent: {
@@ -1943,7 +1943,7 @@
             // the other sessions. Uses the active session's agent (or the first).
             const agent = sessions.find(session => session.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
             const cwd = await vcs.worktreeAdd({
-              cwd: activeMemberPath(),
+              cwd: activeMemberIn(currentProject),
               branch,
               create: false
             });

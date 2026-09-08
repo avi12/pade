@@ -43,9 +43,17 @@ export function branchOfMember(path: string): string | undefined {
 }
 
 /** The member the workspace is pointed at — the directory a new agent tab, a
- *  worktree launch or the editor opens in. Falls back to the workspace root. */
-export function activeMemberPath(): string {
-  return active || root;
+ *  worktree launch or the editor opens in — answered against the project the
+ *  caller means.
+ *
+ *  The guard is the whole point: opening a project launches its first agent
+ *  immediately, well before the census comes back, and a store still holding the
+ *  workspace just left must not answer for this one. Unguarded it returned a
+ *  stale member — or, on the first project of a session, the empty string, which
+ *  spawns the agent in the user's home directory instead of the project. */
+export function activeMemberIn(projectRoot: string): string {
+  const belongsToProject = root === projectRoot && active.length > 0;
+  return belongsToProject ? active : projectRoot;
 }
 
 /** Point the workspace at one of its members. */
