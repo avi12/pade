@@ -221,6 +221,13 @@ Three more traps found the hard way:
 
 - A drag that ends inside the minimum interval still has to land its last size — nothing
   else will come back to collect it, so the parked fit needs its own timer.
+- The nudge must come back to the size the pane implies **at the end of it**, never the
+  row count it captured at the start. The flow control parks a fit while the agent is
+  repainting and applies it the moment the agent goes quiet — which can land inside the
+  nudge's 180 ms — and restoring the captured count then overwrites it, with nothing to
+  re-fit afterwards because the pane's own size never changed again. Measured on a freshly
+  opened window: a 107-row grid in a 55-row pane, legible only because the squeeze scaled
+  it to half height. `paneGrid()` is the one measurement both the fit and the restore read.
 - Every settled gesture owes the agent a **full repaint** (`repaintAgent`), not just the
   ones where we gave up waiting (`ALT_REPAINT_TIMEOUT_MS`). Answering the SIGWINCH is not
   redrawing the screen: the agent erases the rows *its own model* says it last wrote, and

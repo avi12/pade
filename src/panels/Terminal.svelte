@@ -1051,7 +1051,15 @@
     repainting = true;
     grid.resize(columns, Math.max(1, rows - 1));
     setTimeout(() => {
-      grid.resize(columns, rows);
+      // Come back to the size the pane implies NOW, not the one captured when the
+      // nudge started. A fit that lands inside these 180ms — the flow control
+      // parks a fit while the agent is repainting and applies it the moment the
+      // agent goes quiet — would otherwise be overwritten by a stale row count,
+      // and nothing re-fits afterwards because the pane's own size never changed
+      // again. Measured on a freshly opened window: a grid left at 107 rows in a
+      // 55-row pane, legible only because the squeeze scaled it to half height.
+      const fitted = paneGrid();
+      grid.resize(fitted?.columns ?? columns, fitted?.rows ?? rows);
       repainting = false;
     }, REPAINT_NUDGE_MS);
   }
@@ -1154,32 +1162,49 @@
   // No transform anywhere, so text stays crisp and clicks map at native cell size.
   // `terminal.dimensions.css.cell` is the font metric, independent of the current grid,
   // so there's no circular measurement.
-  function fitToPane() {
+  // The grid this pane implies right now, in whole cells — the one measurement
+  // behind both the fit and the repaint nudge's restore, so the two can never
+  // disagree about the size the pane is actually asking for. Undefined while the
+  // pane has no usable size: a dock/panel can briefly leave its flex sibling with
+  // no measured space while the browser resolves the new layout, and clamping
+  // that transient to a 2x1 terminal desynchronises a TUI permanently (Codex
+  // treats it as a real resize). The caller keeps the last truthful grid instead.
+  function paneGrid(): {
+    columns: number;
+    rows: number;
+  } | undefined {
     if (!terminal || !viewport) {
-      return;
+      return undefined;
     }
 
-    const liveCell = terminal.dimensions?.css.cell;
-    const liveCellIsUsable = liveCell !== undefined && liveCell.width > 0 && liveCell.height > 0;
-    const cell = liveCellIsUsable ? liveCell : undefined;
-    if (!cell) {
-      return;
+    const cell = terminal.dimensions?.css.cell;
+    const cellIsUsable = cell !== undefined && cell.width > 0 && cell.height > 0;
+    if (!cellIsUsable) {
+      return undefined;
     }
 
     const availableWidth = viewport.clientWidth - SCROLLBAR_WIDTH;
     const columns = Math.floor(availableWidth / cell.width);
     const rows = Math.floor(viewport.clientHeight / cell.height);
-    // A dock/panel can briefly leave its flex sibling with no measured space
-    // while the browser resolves the new layout. Never clamp that transient to
-    // a 2x1 terminal: Codex treats it as a real resize and its TUI can become
-    // permanently desynchronised. Keep the last truthful grid until the pane
-    // has enough cells to be usable again.
     const MIN_USABLE_COLS = 20;
     const MIN_USABLE_ROWS = 4;
     if (columns < MIN_USABLE_COLS || rows < MIN_USABLE_ROWS) {
+      return undefined;
+    }
+
+    return {
+      columns,
+      rows
+    };
+  }
+
+  function fitToPane() {
+    const fitted = paneGrid();
+    if (!terminal || !fitted) {
       return;
     }
 
+    const { columns, rows } = fitted;
     const grid = terminal;
     // The normal screen reflows every frame: xterm owns the document there, so it can
     // rewrap the text itself as fast as the drag moves.
