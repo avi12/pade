@@ -176,6 +176,8 @@ pub fn run() {
             vcs::status::vcs_diff,
             vcs::branches::vcs_branches,
             vcs::branches::vcs_branch_of,
+            vcs::branches::vcs_remote_branches,
+            vcs::branches::vcs_switch_branch,
             vcs::pull::vcs_pull,
             vcs::inspect::vcs_commit,
             vcs::inspect::vcs_commit_diff,
