@@ -4,6 +4,7 @@
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
   import DiffView from "@/lib/DiffView.svelte";
+  import { errorHeadline } from "@/lib/error-text";
   import { watchSummary } from "@/lib/feed-status";
   import { fileExtension, fileTypeBadge } from "@/lib/file-type";
   import { formatAge, formatCount, formatTimestamp } from "@/lib/format";
@@ -661,8 +662,12 @@
               const outcome = await vcs.pull(project);
               showToast(outcome.message);
             } catch (error) {
-              const text = error instanceof Error ? error.message : String(error);
-              showToast(text.split("\n")[0] || "Sync failed.");
+              showToast(
+                errorHeadline({
+                  error,
+                  fallback: "Sync failed."
+                })
+              );
             } finally {
               syncing = false;
             }
