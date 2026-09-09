@@ -409,6 +409,11 @@
   --hairline-glow: 0 0 14px rgb(0 229 255 / 35%);
   --shadow-color: rgb(3 8 14 / 76%);
 
+  /* How a plate that floats free of the chassis — a menu — sits off the page.
+     Night lights its own edge and drops it deep; the day face states the same
+     token as a hard offset with no blur, the printed register it takes all its
+     depth from. */
+  --plate-shadow: var(--hairline-glow), 0 18px 44px var(--shadow-color);
   --primary-shadow: rgb(0 229 255 / 40%);
   --focus-glow: 0 0 0 1px rgb(0 229 255 / 50%), 0 0 14px rgb(0 229 255 / 45%);
   --scanline: rgb(0 229 255 / 3.5%);
@@ -547,6 +552,7 @@
   --hairline-glow: none;
   --focus-glow: none;
   --shadow-color: rgb(6 24 43 / 18%);
+  --plate-shadow: 6px 6px 0 var(--shadow-color);
   --primary-shadow: rgb(6 24 43 / 26%);
   --scanline: rgb(6 24 43 / 4%);
   --stripe: #00b3e6;
@@ -851,13 +857,82 @@
   text-shadow: var(--hairline-glow);
 }
 
-/* The app menu's rows switch, they do not ease. Every other palette cross-fades
-   a row's colour and fill over 120ms, which reads as soft on a HUD: this screen
-   snaps between states, and a row that fades in under the cursor is the one
-   place that softness is most visible. Named rows rather than every menu,
-   because this is the list you actually scan. */
-:root[data-palette="cyberpunk"] :is(.open-window-row, .project-row-main, .project-row-kebab) {
+/* ── The menus ──────────────────────────────────────────────────────────────
+   A popover is a CONTAINER, so it takes what the skin spends on containers: the
+   12px cut and the two-pixel frame the top bar, the panel seam and every dialog
+   already wear. The shared shell draws a one-pixel hairline and a 40px blur
+   under it — the M3 card the other palettes want, and a soft-edged box is the
+   one thing a HUD never is. The blur goes with it: the depth comes from the
+   face's own plate shadow, lit at night and stamped in daylight.
+
+   What was actually wrong is inside the box. The control-frame rule above
+   outlines every `button` in the app, and a menu is a stack of buttons, so each
+   row arrived wearing its own frame inside the menu's frame — the boxes inside
+   boxes the console never draws, and exactly what `.tab` was fixed for. The
+   frame belongs to the plate. Rows carry nothing until the cursor is on one,
+   and then that row takes it: the frame moves with you rather than being
+   everywhere at once, which is the same "active means framed" the selected tab
+   states. Fields keep theirs — a place to type has to read as one. */
+:root[data-palette="cyberpunk"] .popover-menu {
+  border: 2px solid var(--hairline);
+  border-radius: var(--radius-large);
+  box-shadow: var(--plate-shadow);
+}
+
+:root[data-palette="cyberpunk"] .popover-menu :is(button, [role="menuitem"]):not(:focus-visible) {
+  outline: none;
+}
+
+:root[data-palette="cyberpunk"] .popover-menu :is(button, [role="menuitem"]):hover:not(:focus-visible) {
+  outline: 1px solid var(--hairline);
+  outline-offset: -1px;
+}
+
+/* Menu rows switch, they do not ease. Every other palette cross-fades a row's
+   colour and fill over 120ms, which reads as soft on a HUD: this screen snaps
+   between states, and a row that fades in under the cursor is the one place
+   that softness is most visible. */
+:root[data-palette="cyberpunk"] .popover-menu :is(button, a, [role="menuitem"]) {
   transition: none;
+}
+
+/* A section label is a titled section, so it takes the console's signature: the
+   44px accent stub riding a rule under the title, the same mark `.panel-head`
+   carries. It is set in the skin's mono face — a label naming a group is the
+   instrument's own writing, not someone's project or file name, which is the
+   line this palette draws about shouting text back at people.
+
+   That leaves the rule above it redundant: a divider immediately followed by a
+   label is one statement said twice, and the label is the half that says which
+   group starts here. The divider stays wherever it separates without naming —
+   the actions under a list — and there it goes full-bleed to the frame, led by
+   the same stub, so every rule inside a menu starts on the accent. */
+:root[data-palette="cyberpunk"] :is(.menu-separator, .list-head) {
+  border-block-end: 2px solid var(--outline);
+  background-image: linear-gradient(90deg, var(--stripe) 0 44px, transparent 44px);
+  background-position: bottom left;
+  background-size: 100% 4px;
+  background-repeat: no-repeat;
+  font-family: var(--font-monospace);
+}
+
+/* Room for the rule the label now carries. The app menu's sticky heads set
+   their own spacing against the list that scrolls under them. */
+:root[data-palette="cyberpunk"] .menu-separator {
+  margin-block: 8px 4px;
+  padding-block: 2px 6px;
+}
+
+:root[data-palette="cyberpunk"] .menu-divider {
+  block-size: 2px;
+
+  /* Out to the frame: the shell's own 6px of padding, cancelled. */
+  margin-inline: -6px;
+  background: linear-gradient(90deg, var(--stripe) 0 44px, var(--outline) 44px);
+}
+
+:root[data-palette="cyberpunk"] .menu-divider:has(+ .menu-separator) {
+  display: none;
 }
 
 /* The "ready" halo — an agent idle and awaiting you. The component draws it as
@@ -884,7 +959,7 @@
    the branch and project pills. Deliberately NOT `*`: the terminal and the diff
    viewers are thousands of spans, and a text-shadow on each is both a paint
    cost and, at that density, a blur. */
-:root[data-palette="cyberpunk"] :is([role="tab"], .panel-title, .topbar button) {
+:root[data-palette="cyberpunk"] :is([role="tab"], .panel-title, .topbar button, .menu-separator, .list-head) {
   text-shadow: var(--hairline-glow);
 }
 
