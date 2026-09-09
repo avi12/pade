@@ -451,6 +451,15 @@ export const vcs = {
   /** Current HEAD branch per project path (path → branch), for the switcher's
    *  per-project branch chip. Non-repo / detached paths are omitted. */
   branchOf: (paths: string[]) => call("vcs_branch_of", z.record(z.string(), z.string()), { paths }),
+  /** Branches only a remote has so far, under their short name — switching to
+   *  one lets git create the local tracking branch. */
+  remoteBranches: (cwd: string) => call("vcs_remote_branches", z.array(z.string()), { cwd }),
+  /** Check `branch` out in `cwd`; resolves to the branch HEAD ended on. Throws
+   *  git's own refusal (uncommitted work, branch held by another worktree). */
+  switchBranch: (args: {
+    cwd: string;
+    branch: string;
+  }) => call("vcs_switch_branch", z.string(), { ...args }),
   /** Fast-forward the open workspace from `origin` (never a merge commit).
    *  Resolves `refusedDirty` when the tree has uncommitted tracked changes;
    *  throws git's message when the branch has diverged (no fast-forward). */

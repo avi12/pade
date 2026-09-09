@@ -132,11 +132,19 @@ writes.
   root in the system browser, while a plain click still opens the project menu.
   A missing remote or opener failure is surfaced instead of silently doing
   nothing.
-- R1.4.3b ✅ Ctrl/Cmd-clicking the branch pill follows that branch on its remote;
-  plain click still opens the Git panel. Provider routes are registry-driven
-  (GitHub, GitLab, Bitbucket, Codeberg/Gitea, Azure DevOps), with unknown hosts
-  falling back safely to the repository root. The remote's default branch also
-  opens the repository root rather than a redundant branch-tree page.
+- R1.4.3b ✅ Ctrl/Cmd-clicking the branch pill follows that branch on its remote.
+  Provider routes are registry-driven (GitHub, GitLab, Bitbucket, Codeberg/Gitea,
+  Azure DevOps), with unknown hosts falling back safely to the repository root.
+  The remote's default branch also opens the repository root rather than a
+  redundant branch-tree page.
+- R1.4.3c ✅ **Switch branch from the branch pill** — it drops the repo's local
+  branches (current one marked) plus the branches only a remote has yet, which
+  check out as a local tracking branch on the way in, so a fresh clone can reach
+  work it never checked out. Git's own refusal — uncommitted changes in the way,
+  a branch already held by another worktree — is what the toast says. The pill,
+  the member chips and the feed follow HEAD wherever it moved (`git://state`).
+  Working a branch *beside* the current one, rather than in place, stays the new-
+  agent menu's worktree launch.
 - R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/diff.ts`; wash tokens).
 - R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
 - R1.4.6 ⏳ Manual commit path (agent-oriented by default, not exclusive).

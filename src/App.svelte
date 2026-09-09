@@ -2,6 +2,7 @@
   import { AgentId } from "@/lib/agent-icon";
   import AppMenu from "@/lib/AppMenu.svelte";
   import { createAutoNamer } from "@/lib/auto-name";
+  import BranchSwitcher from "@/lib/BranchSwitcher.svelte";
   import {
     agents as agentsApi,
     feed,
@@ -105,6 +106,9 @@
   let currentProject = $state<string>("");
   // Local branches when the project is a git repo — enables per-branch agents.
   let branches = $state<string[]>([]);
+  // Branches only the remote has so far — offered by the branch switcher, which
+  // lets git create the local tracking branch on the way in.
+  let remoteBranches = $state<string[]>([]);
   // The project's checked-out branch — the top-bar branch pill (empty when the
   // project isn't a git repo or HEAD is detached).
   let currentBranch = $state("");
@@ -967,13 +971,15 @@
     const member = activeMemberIn(currentProject);
     if (!member) {
       branches = [];
+      remoteBranches = [];
       currentBranch = "";
       hasRemote = false;
       return;
     }
 
-    const [next, heads, remote] = await Promise.all([
+    const [next, onlyRemote, heads, remote] = await Promise.all([
       vcs.branches(member).catch((): string[] => []),
+      vcs.remoteBranches(member).catch((): string[] => []),
       vcs.branchOf([member]).catch((): Record<string, string> => ({})),
       vcs.remoteUrl(member).catch((): string | null => null)
     ]);
@@ -984,6 +990,7 @@
     }
 
     branches = next;
+    remoteBranches = onlyRemote;
     currentBranch = heads[member] ?? "";
     hasRemote = remote !== null;
   }
@@ -1387,6 +1394,7 @@
   function releaseProject() {
     currentProject = "";
     branches = [];
+    remoteBranches = [];
     currentBranch = "";
     pendingPrompt = undefined;
     windows.registerProject("");
@@ -1857,36 +1865,26 @@
           <!-- Only rendered when the workspace has more than one part; a plain
                single-repo project keeps the top bar exactly as it was. -->
           <MemberSwitcher root={currentProject} />
-          {#if currentBranch}
-            <!-- Plain click opens Git; Ctrl/Cmd-click follows the remote branch —
-                 but only when there IS a remote, so a local-only repo doesn't
-                 offer to open a browser it can't. -->
-            <button
-              class="branch-pill"
-              data-tooltip={hasRemote
-                ? "Current branch · Ctrl-click opens on remote"
-                : "Current branch"}
-              onclick={async e => {
-                if (hasRemote && (e.ctrlKey || e.metaKey)) {
-                  await openRepositoryTarget({
-                    project: currentProject,
-                    branch: currentBranch
-                  });
-                  return;
-                }
-
-                side = Side.vcs;
-              }}
-            >
-              <span class="branch-pill-icon" aria-hidden="true"><Icon name="branch" size={13} /></span>
-              <span class="branch-pill-name">{currentBranch}</span>
-              {#if hasRemote}
-                <!-- Only shown with a remote: the affordance that Ctrl-click opens
-                     the branch on its remote provider. -->
-                <span class="branch-pill-launch" aria-hidden="true"><Icon name="external" size={11} /></span>
-              {/if}
-            </button>
-          {/if}
+          <!-- The branch HEAD is on, and the menu that moves it: every local
+               branch plus the ones only the remote has yet. Reports on the same
+               member the branch list was read for. -->
+          <BranchSwitcher
+            {branches}
+            current={currentBranch}
+            cwd={activeMemberIn(currentProject)}
+            {hasRemote}
+            onopengit={() => (side = Side.vcs)}
+            onopenremote={async () => {
+              await openRepositoryTarget({
+                project: currentProject,
+                branch: currentBranch
+              });
+            }}
+            onrefresh={async () => {
+              await Promise.all([loadBranches(), refreshMemberBranches()]);
+            }}
+            {remoteBranches}
+          />
           <span class="chrome-spacer"></span>
 
           <UsageMeter {sessions} />
@@ -2287,72 +2285,6 @@
     gap: clamp(8px, 1vw, 12px);
     align-items: center;
     min-inline-size: 0;
-  }
-
-  /* The checked-out branch, pilled beside the project button (design's branch
-     chip) — click opens the Git panel. */
-  .branch-pill {
-    display: inline-flex;
-    flex-shrink: 0;
-    gap: 6px;
-    align-items: center;
-    min-inline-size: 0;
-    max-inline-size: 14rem;
-    padding-block: 4px;
-    padding-inline: 9px 10px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface);
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background 150ms var(--ease);
-
-    @media (prefers-reduced-motion: reduce) {
-      .branch-pill-launch {
-        transition: color 150ms var(--ease);
-      }
-
-      &:hover .branch-pill-launch {
-        translate: none;
-      }
-    }
-
-    &:hover {
-      background: var(--surface-3);
-    }
-
-    .branch-pill-icon {
-      display: inline-flex;
-      flex-shrink: 0;
-      color: var(--on-surface-variant);
-    }
-
-    .branch-pill-name {
-      overflow: hidden;
-      min-inline-size: 0;
-      font-family: var(--font-monospace);
-      font-weight: 700;
-      font-size: 12px;
-      text-overflow: ellipsis;
-    }
-
-    /* Trailing open-on-remote affordance (remote repos only). Quiet at rest;
-       on hover it lifts to the accent and nudges up-and-out — an M3-expressive
-       cue that Ctrl-click launches the branch on its remote. */
-    .branch-pill-launch {
-      display: inline-flex;
-      flex-shrink: 0;
-      color: var(--on-surface-variant);
-      transition:
-        color 150ms var(--ease),
-        translate 150ms var(--ease);
-    }
-
-    &:hover .branch-pill-launch {
-      color: var(--primary);
-      translate: 1px -1px;
-    }
   }
 
   /* Pushes the action cluster to the right edge of the chrome row. */
