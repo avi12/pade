@@ -231,26 +231,6 @@
     min-inline-size: 240px;
     position-area: bottom span-right;
 
-    .menu-separator {
-      margin-block: 6px 2px;
-      padding-block: 2px 4px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* Hairline between the local branches, the remote-only ones, and the
-       actions below them. */
-    .menu-divider {
-      block-size: 1px;
-      margin-block: 6px;
-      margin-inline: 8px;
-      background: var(--outline);
-    }
-
     .branch-row,
     .action-row {
       display: flex;

@@ -622,13 +622,13 @@
           {/if}
         </form>
       </div>
-      <div class="separator"></div>
+      <div class="menu-divider"></div>
     {/if}
 
     <!-- Open PADE windows — in creation order, which is also the cycle order for
        Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
-      <div class="eyebrow section">Open windows</div>
+      <div class="menu-separator">Open windows</div>
       <!-- Own container so the scoped view transition (animateWindowListChange)
            morphs just these rows when the order changes — locally or when another
            window's reorder broadcasts. -->
@@ -685,7 +685,7 @@
           </div>
         {/each}
       </div>
-      <div class="separator"></div>
+      <div class="menu-divider"></div>
     {/if}
 
     <!-- Filter / quick-switch -->
@@ -749,7 +749,7 @@
           <span class="menu-item-icon"><Icon name="close" size={15} /></span>
           <span>Remove from list</span>
         </button>
-        <div class="separator"></div>
+        <div class="menu-divider"></div>
         <button
           class="menu-item critical" onclick={() => {
             deleteError = "";
@@ -863,7 +863,7 @@
       {/if}
     </div>
 
-    <div class="separator"></div>
+    <div class="menu-divider"></div>
 
     <button
       class="action" onclick={() => {
@@ -875,9 +875,9 @@
       <span class="subtitle">All projects &amp; clone</span>
     </button>
 
-    <div class="separator"></div>
+    <div class="menu-divider"></div>
 
-    <div class="eyebrow section">New window</div>
+    <div class="menu-separator">New window</div>
     <button class="action" onclick={() => spawn({ mode: WindowMode.enum.empty })} role="menuitem" type="button">
       <span class="lead accent"><Icon name="windowPlus" /></span>
       <span class="grow">Empty window</span>
@@ -1579,23 +1579,6 @@
     strong {
       color: var(--on-surface);
     }
-  }
-
-  .separator {
-    block-size: 1px;
-    margin-block: 6px;
-    margin-inline: 8px;
-    background: var(--outline);
-  }
-
-  .eyebrow.section {
-    padding-block: 6px 4px;
-    padding-inline: 10px;
-    color: var(--on-surface-variant);
-    font-weight: 700;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   .action {

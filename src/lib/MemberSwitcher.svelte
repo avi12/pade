@@ -59,7 +59,7 @@
       <span class="caret">▾</span>
     </button>
     <ul id="member-menu" style:position-anchor="--member-anchor" class="member-list popover-menu" popover>
-      <li class="hint">Open agents and editors in</li>
+      <li class="menu-separator">Open agents and editors in</li>
       {#each entries as entry (entry.path)}
         <li>
           <button
@@ -128,16 +128,6 @@
   .member-list {
     min-inline-size: 240px;
     position-area: bottom span-right;
-
-    .hint {
-      padding-block: 6px 4px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
 
     .member-row {
       display: flex;

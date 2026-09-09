@@ -967,25 +967,6 @@
       }
     }
 
-    .menu-separator {
-      margin-block: 6px 2px;
-      padding-block: 2px 4px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* Hairline between the agent list and the worktree-branch group. */
-    .menu-divider {
-      block-size: 1px;
-      margin-block: 6px;
-      margin-inline: 8px;
-      background: var(--outline);
-    }
-
     /* Leading glyph tints: agents read primary, branches read tertiary (git). */
     .launch-icon {
       display: inline-flex;

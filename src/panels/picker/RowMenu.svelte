@@ -29,7 +29,7 @@
     popovertarget={identifier}
   ><Icon name="more" /></button>
   <ul id={identifier} style:position-anchor="--{identifier}" class="menu popover-menu" popover>
-    <li class="head">Reveal</li>
+    <li class="menu-separator">Reveal</li>
     <li>
       <button class="menu-item" onclick={() => os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">
         <Icon name="folder" /><span class="menu-item-text">Open in Files</span>
@@ -41,7 +41,8 @@
       </button>
     </li>
     {#if lifecycle.isOwned(path)}
-      <li class="head separator">Workspace</li>
+      <li class="menu-divider" role="separator"></li>
+      <li class="menu-separator">Workspace</li>
       <li>
         <button
           class="menu-item"

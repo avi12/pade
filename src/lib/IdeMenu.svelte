@@ -80,7 +80,7 @@
     ><span class="caret">▾</span></button>
 
     <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
-      <li class="hint">Open in editor</li>
+      <li class="menu-separator">Open in editor</li>
       {#each ides as editor, index (editor.id)}
         <li>
           <button
@@ -109,7 +109,7 @@
           </button>
         </li>
       {/each}
-      <li class="separator" role="separator"></li>
+      <li class="menu-divider" role="separator"></li>
       <li>
         <button onclick={() => os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
           <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
@@ -208,24 +208,6 @@
     position-area: bottom span-left;
 
     /* Uppercase section header at the top of the list. */
-    .hint {
-      padding-block: 6px 4px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* Hairline divider before the reveal action. */
-    .separator {
-      block-size: 1px;
-      margin-block: 6px;
-      margin-inline: 8px;
-      background: var(--outline);
-    }
-
     li button {
       display: flex;
       gap: 10px;

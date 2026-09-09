@@ -408,6 +408,7 @@
   --hairline: #00e5ff;
   --hairline-glow: 0 0 14px rgb(0 229 255 / 35%);
   --shadow-color: rgb(3 8 14 / 76%);
+
   --primary-shadow: rgb(0 229 255 / 40%);
   --focus-glow: 0 0 0 1px rgb(0 229 255 / 50%), 0 0 14px rgb(0 229 255 / 45%);
   --scanline: rgb(0 229 255 / 3.5%);
@@ -1553,6 +1554,40 @@ textarea {
   list-style: none;
   box-shadow: 0 16px 40px var(--shadow-color);
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+}
+
+/* The two things every menu puts BETWEEN its rows, and the one home for both.
+   Six menus had each written the same uppercase label rule into their own
+   `\3c style>` under three different names (`.menu-separator`, `.hint`, `.head`)
+   and the same hairline under two more (`.menu-divider`, `.separator`), so a
+   change to how a menu is sectioned meant six edits — and the picker's row menu,
+   which never wrote either, simply had none.
+
+   A label names the group under it; a divider only separates. A group that has
+   both wants the label alone (the label carries its own rule under the skins
+   that draw one), so put the divider before a label only where the sections
+   genuinely need the extra beat. */
+.menu-separator {
+  margin-block: 6px 2px;
+  padding-block: 2px 4px;
+  padding-inline: 10px;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  /* A menu that opens on a label has nothing above it to be spaced from. */
+  &:first-child {
+    margin-block-start: 0;
+  }
+}
+
+.menu-divider {
+  block-size: 1px;
+  margin-block: 6px;
+  margin-inline: 8px;
+  background: var(--outline);
 }
 
 /* ── Scroll-fade ───────────────────────────────────────────────────────────────

@@ -2329,17 +2329,6 @@
         color: var(--on-primary-container);
       }
     }
-
-    .menu-separator {
-      margin-block: 6px 2px;
-      padding-block: 2px 4px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
   }
 
   .segmented-control {

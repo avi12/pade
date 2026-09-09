@@ -35,7 +35,7 @@
       <Icon name="sparkles" /> Design<span class="caret">▾</span>
     </button>
     <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list popover-menu" popover>
-      <li class="hint">Open a design-to-code tool</li>
+      <li class="menu-separator">Open a design-to-code tool</li>
       {#each tools as tool (tool.id)}
         <li>
           <button onclick={() => design.open(tool.id)} popovertarget="design-menu" popovertargetaction="hide">
@@ -89,16 +89,6 @@
   .design-list {
     min-inline-size: 230px;
     position-area: bottom span-left;
-
-    .hint {
-      padding-block: 6px 4px;
-      padding-inline: 10px;
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
 
     li button {
       display: flex;
