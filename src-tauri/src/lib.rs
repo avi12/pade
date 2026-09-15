@@ -99,6 +99,7 @@ pub fn run() {
         .setup(|app| {
             workspace::migrate_from_ade(); // one-time ade → pade data migration
             let handle = app.handle();
+            workspace::init(handle);
             pty::init(handle);
             runner::init(handle);
             watcher::init(handle);

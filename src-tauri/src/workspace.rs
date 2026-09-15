@@ -14,10 +14,11 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 /// How many recently-opened projects to remember.
 const RECENT_PROJECT_LIMIT: usize = 20;
@@ -26,6 +27,21 @@ static SETTINGS_REPOSITORY: SettingsRepository = SettingsRepository {
     path: None,
 };
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+/// Broadcast that the persisted settings moved, so every window re-reads them —
+/// the one home for the event name the frontend `workspace.onChanged` listens on.
+const SETTINGS_CHANGED_EVENT: &str = "settings://changed";
+
+/// The handle the settings broadcast emits through. Settings are process-wide but
+/// each webview holds its own copy, so a mutation made in one window has to reach
+/// the others; `update_settings` is not a command and has no window of its own to
+/// emit from, hence this one handle, planted at startup by [`init`].
+static APP: OnceLock<AppHandle> = OnceLock::new();
+
+/// Hand this module the app handle it broadcasts settings changes through.
+pub fn init(app: &AppHandle) {
+    let _ = APP.set(app.clone());
+}
 
 /// Files/dirs that mark a directory as a project worth listing.
 const MARKERS: &[&str] = &[
@@ -44,7 +60,7 @@ const MARKERS: &[&str] = &[
 
 /// An editor the user located by executable path — first-class alongside the
 /// PATH-detected ones. `command` for launching is the absolute `path`.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AddedEditor {
     /// Stable, unique id in the merged editor list (e.g. `added-code`).
@@ -60,7 +76,7 @@ pub struct AddedEditor {
 /// auto-handoff, …) is defined once in the TS zod `Prefs` schema and round-trips
 /// verbatim through `passthrough` — so a new UI-only pref never means editing
 /// this struct, and Rust never duplicates a type the frontend already owns.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Prefs {
     /// Editor-rules engine: project-kind → IDE id. When a project's primary kind
@@ -86,7 +102,7 @@ pub struct Prefs {
     pub passthrough: BTreeMap<String, serde_json::Value>,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     /// Root directories the user has added to browse for projects.
@@ -191,6 +207,12 @@ struct SettingsRepository {
     path: Option<PathBuf>,
 }
 
+/// The settings after a mutation, plus whether that mutation moved anything.
+struct Update {
+    settings: Settings,
+    changed: bool,
+}
+
 impl SettingsRepository {
     fn path(&self) -> Result<PathBuf, String> {
         self.path.clone().map_or_else(settings_path, Ok)
@@ -215,18 +237,27 @@ impl SettingsRepository {
         self.load_unlocked()
     }
 
+    /// Applies `mutate` and persists the result, reporting whether the settings
+    /// actually moved — a mutation that changes nothing (the recurring prune of a
+    /// list with nothing to forget) must not announce a change, or two windows
+    /// refreshing off each other's announcements would never settle.
     fn update(
         &self,
         mutate: impl FnOnce(&mut Settings) -> Result<(), String>,
-    ) -> Result<Settings, String> {
+    ) -> Result<Update, String> {
         let _guard = self
             .lock
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut settings = self.load_unlocked();
+        let before = self.load_unlocked();
+        let mut settings = before.clone();
         mutate(&mut settings)?;
-        self.save_unlocked(&settings)?;
-        Ok(settings)
+        let changed = settings != before;
+        if changed {
+            self.save_unlocked(&settings)?;
+        }
+
+        Ok(Update { settings, changed })
     }
 
     fn save_unlocked(&self, settings: &Settings) -> Result<(), String> {
@@ -250,10 +281,28 @@ pub(crate) fn load() -> Settings {
     SETTINGS_REPOSITORY.load()
 }
 
+/// App-wide notify that the shared settings moved, so every window re-reads them
+/// instead of holding a copy that is already wrong. Payload-free: each window
+/// re-reads through its own `settings_get`, which keeps one adoption path (and
+/// its ordering guard) for local and remote changes alike. Silent with no handle
+/// planted — a unit test has no running app to emit through.
+fn broadcast_settings_changed() {
+    let Some(app) = APP.get() else { return };
+    let _ = app.emit(SETTINGS_CHANGED_EVENT, ());
+}
+
+/// Every settings mutation funnels through here, so this is also the one place
+/// that can tell the *other* windows their copy went stale — a project deleted
+/// from one window's switcher stays listed in the next window's until it does.
 fn update_settings(
     mutate: impl FnOnce(&mut Settings) -> Result<(), String>,
 ) -> Result<Settings, String> {
-    SETTINGS_REPOSITORY.update(mutate)
+    let update = SETTINGS_REPOSITORY.update(mutate)?;
+    if update.changed {
+        broadcast_settings_changed();
+    }
+
+    Ok(update.settings)
 }
 
 /// The directory PADE launched into, and whether it came from an explicit request.
@@ -1314,6 +1363,37 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&base).expect("clean empty migrate fixture");
+    }
+
+    #[test]
+    fn a_mutation_that_moves_nothing_reports_no_change() {
+        let path = std::env::temp_dir().join(format!(
+            "pade-settings-no-change-{}.json",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let repository = SettingsRepository {
+            lock: std::sync::Mutex::new(()),
+            path: Some(path.clone()),
+        };
+
+        let added = repository
+            .update(|settings| {
+                settings.roots.push("root".to_string());
+                Ok(())
+            })
+            .expect("add a root");
+        assert!(added.changed, "adding a root moves the settings");
+
+        let pruned = repository.update(|_| Ok(())).expect("prune nothing");
+        assert!(
+            !pruned.changed,
+            "a prune with nothing to forget must stay silent, or two windows \
+             refreshing off each other's announcements would never settle"
+        );
+        assert_eq!(pruned.settings.roots, ["root"]);
+
+        std::fs::remove_file(path).expect("clean no-change fixture");
     }
 
     #[test]

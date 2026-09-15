@@ -488,6 +488,26 @@
     await initTaskRunDetection(() => currentProject);
   });
 
+  // Adopt settings another window changed — it deleted a workspace, renamed one,
+  // toggled a pin — so this window's switcher and picker never list a project
+  // that is already gone. Best-effort: owns its try/catch because an event
+  // handler can't await, and a failed re-read simply keeps what is on screen.
+  async function adoptSharedSettings() {
+    try {
+      await workspace.settings();
+    } catch {
+    // A transient read failure leaves the settings already adopted in place.
+    }
+  }
+  let unlistenSettings: (() => void) | undefined;
+  async function subscribeToSettingsChanges() {
+    unlistenSettings = await workspace.onChanged(adoptSharedSettings);
+  }
+  onMount(() => {
+    subscribeToSettingsChanges();
+    return () => unlistenSettings?.();
+  });
+
   // Hand off affected agent sessions when the project's MCP servers change.
   let unlistenMcp: (() => void) | undefined;
   async function subscribeToMcpChanges() {

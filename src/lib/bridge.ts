@@ -585,6 +585,13 @@ export const terminal = {
 export const workspace = {
   context: () => call("launch_context", LaunchContext),
   settings: () => callSettings("settings_get"),
+  /** The shared settings changed in SOME window — a project deleted or renamed, a
+   *  pin toggled, a preference saved. Each window holds its own copy, so without
+   *  this a switcher keeps listing a workspace another window already threw away.
+   *  A bare `listen` (not the window-scoped `on`) since the backend broadcasts to
+   *  all; the handler re-reads through `settings`, the one adoption path. */
+  onChanged: (handler: () => void): Promise<UnlistenFn> =>
+    listen("settings://changed", () => handler()),
   /** Add a root folder. `create` asks the backend to `create_dir_all` a missing
    *  path before adding it; the discriminated outcome says whether it was added,
    *  is missing (so the caller can offer to create it), or names a file. */
