@@ -12,7 +12,13 @@
 import { agentIconName } from "@/lib/agent-icon";
 import type { IconName } from "@/lib/Icon.svelte";
 import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
-import type { AccountUsage, Agent, AgentSession, UsageWindow } from "@/lib/types";
+import type {
+  AccountUsage,
+  Agent,
+  AgentSession,
+  CreditBalance,
+  UsageWindow
+} from "@/lib/types";
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
  *  past 75%, red past 90% — no green, per the design's usage semantics. */
@@ -33,6 +39,9 @@ export type Limit = {
   /** A single-letter mono code shown in the trigger pills, legend + rows
    *  ("S", "W", "O"). */
   kindShort: string;
+  /** The prepaid usage-credits balance ("$46.89") on the credits row; empty on
+   *  every other row, and whenever extra usage is off. */
+  balance: string;
 };
 
 export type AgentGroup = {
@@ -207,12 +216,33 @@ function windowPresentation(window: UsageWindow): {
     };
   }
 
+  if (window.kind === UsageWindowKind.enum.credits) {
+    return {
+      label: "Extra usage",
+      sub: "monthly spend",
+      kindShort: "E"
+    };
+  }
+
   const sub = window.kind === UsageWindowKind.enum.model ? "weekly" : "";
   return {
     label: window.label,
     sub,
     kindShort: labelShort(window.label)
   };
+}
+
+// A credits balance in its own currency, locale-formatted ("$46.89"), or "" when
+// there is none to show.
+function formatBalance(balance: CreditBalance | null | undefined): string {
+  if (!balance) {
+    return "";
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: balance.currency
+  }).format(balance.amount);
 }
 
 // An agent's real rate-limit windows off its account — every window the endpoint
@@ -243,11 +273,13 @@ function buildLimits({ account, now }: {
     }
 
     const presentation = windowPresentation(window);
+    const isCreditsCap = window.kind === UsageWindowKind.enum.credits;
     limits.push({
       label: presentation.label,
       sub: presentation.sub,
       kind: window.kind,
       kindShort: presentation.kindShort,
+      balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
       percentage: value,
       level: limitLevel(value),
       reset: resetCountdown({

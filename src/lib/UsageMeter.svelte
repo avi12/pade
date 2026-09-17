@@ -326,11 +326,17 @@
                       <span style:inline-size="{limit.percentage}%" class="limit-fill"></span>
                     </span>
                     <output class="limit-percent">{formatPercent(limit.percentage)}</output>
-                    <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
-                      {#if limit.reset}
-                        <Icon name="clock" />{limit.reset}
-                      {/if}
-                    </span>
+                    {#if limit.balance}
+                      <span class="limit-balance" data-tooltip="Usage credits left">
+                        <Icon name="wallet" />{limit.balance}
+                      </span>
+                    {:else}
+                      <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
+                        {#if limit.reset}
+                          <Icon name="clock" />{limit.reset}
+                        {/if}
+                      </span>
+                    {/if}
                   </div>
                 {/each}
               </div>
@@ -844,8 +850,10 @@
       text-align: end;
     }
 
-    /* Clock + live "in …" countdown, right-aligned to the card edge. */
-    .limit-reset {
+    /* Clock + live "in …" countdown — or, on the extra-usage row, the credits
+       balance — right-aligned to the card edge. */
+    .limit-reset,
+    .limit-balance {
       display: inline-flex;
       gap: 3px;
       align-items: center;

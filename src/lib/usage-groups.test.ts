@@ -1,4 +1,4 @@
-import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
+import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
 import {
   buildGroups,
@@ -130,6 +130,63 @@ describe("buildGroups", () => {
     });
 
     expect(groups.map(group => group.id)).toEqual(["claude"]);
+  });
+
+  describe("the extra-usage row", () => {
+    const creditsCap: UsageWindow = {
+      key: "extra_usage",
+      kind: UsageWindowKind.enum.credits,
+      label: "Extra usage",
+      utilization: 56.665
+    };
+
+    function extraUsageRow(overrides: Partial<AccountUsage>) {
+      const [group] = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [sessionWindow(), creditsCap],
+            ...overrides
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+      return group.limits.find(limit => limit.kind === UsageWindowKind.enum.credits);
+    }
+
+    it("shows the credits balance while extra usage is on", () => {
+      const row = extraUsageRow({
+        credits: CreditsState.enum.available,
+        creditBalance: {
+          amount: 46.89,
+          currency: "USD"
+        }
+      });
+      expect(row?.label).toBe("Extra usage");
+      expect(row?.kindShort).toBe("E");
+      expect(row?.balance).toContain("46.89");
+    });
+
+    it("shows no balance when there is none — extra usage is off", () => {
+      const row = extraUsageRow({ credits: CreditsState.enum.off });
+      expect(row?.balance).toBe("");
+    });
+
+    it("never puts a balance on another row", () => {
+      const [group] = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            creditBalance: {
+              amount: 46.89,
+              currency: "USD"
+            }
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+      expect(group.limits.map(limit => limit.balance)).toEqual(["", ""]);
+    });
   });
 
   it("hides an untouched opaque feature cap but keeps it once used", () => {

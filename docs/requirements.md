@@ -168,6 +168,10 @@ writes.
   clear immediately, and the meter bypasses its normal cache once to fetch the
   new window instead of displaying stale usage until the next poll.
   🔭 burn-rate warning.
+- R1.6.3 ✅ Claude's **extra usage** row (the monthly spend cap on usage credits)
+  shows the prepaid **credits balance** left — only while extra usage is on; the
+  balance is read from the organization's `prepaid/credits` endpoint in that case
+  alone, so an account with extra usage off never shows (or fetches) one.
 
 ### 1.6a Auto-handoff (✅)
 - R1.6a.1 ✅ Track each session's **context-window** fill — parse the agent CLI's

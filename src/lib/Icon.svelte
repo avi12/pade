@@ -19,7 +19,7 @@
     "php", "phpstorm", "plus", "pycharm", "python", "refresh", "regex", "rider",
     "ruby", "rubymine", "rust", "rustrover", "search", "shell", "sliders", "sparkles",
     "star", "sublime", "sun", "svelte", "swap", "terminal", "toml", "trash",
-    "typescript", "visualstudio", "vscode", "webstorm", "wholeWord", "window",
+    "typescript", "visualstudio", "vscode", "wallet", "webstorm", "wholeWord", "window",
     "windowPlus", "yaml", "zed"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
