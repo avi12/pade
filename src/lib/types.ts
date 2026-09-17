@@ -466,6 +466,12 @@ export const Settings = z.object({
 });
 export type Settings = z.infer<typeof Settings>;
 
+/** Who names a workspace (`workspace_set_label`): the auto-namer, whose kebab-case
+ *  suggestion only lands on an unlabelled workspace, or the user relabelling it in
+ *  PADE, whose text is kept as typed and always wins. */
+export const LabelSource = z.enum(["auto", "manual"]);
+export type LabelSource = z.infer<typeof LabelSource>;
+
 /** How `workspace_add_root` resolved. `added` carries the refreshed settings;
  *  `missing` (the path doesn't exist and creation wasn't requested) and
  *  `notADirectory` (the path names a file) are the two "didn't add" outcomes the

@@ -12,6 +12,7 @@
     shortDisplayName
   } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
+  import RelabelDialog from "@/lib/RelabelDialog.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { arrowFocus, rovingMenu } from "@/lib/roving-menu";
   import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
@@ -109,6 +110,10 @@
   let deletePending = $state<string | null>(null);
   let deleteBusy = $state(false);
   let deleteError = $state("");
+
+  // The temp workspace whose PADE-only label is being edited — nested over this
+  // menu like the delete prompt, so the switcher stays in view behind it.
+  let relabelTarget = $state<string | null>(null);
 
   // ── Save-this-workspace (temp → real project) ───────────────────────────────
   // Name the throwaway workspace and pick which saved root receives it. One root
@@ -564,6 +569,14 @@
         <div class="save-head">
           <span class="temporary">temp</span>
           <span class="save-title">Save this workspace</span>
+          <button
+            class="save-relabel"
+            data-tooltip="Rename it in PADE only — the folder keeps its path"
+            onclick={() => {
+              relabelTarget = path;
+            }}
+            type="button"
+          ><Icon name="pencil" size={13} /> Relabel</button>
         </div>
         <p class="save-hint">Name it and pick a root to keep it beyond this session.</p>
         <form
@@ -740,6 +753,19 @@
           <span>{#if pinned}
             Unpin from top{:else}Pin to top{/if}</span>
         </button>
+        {#if isTemporaryWorkspace(project)}
+          <button
+            class="menu-item" onclick={() => {
+              relabelTarget = project;
+            }}
+            popovertarget={menuId}
+            popovertargetaction="hide"
+            role="menuitem"
+            type="button">
+            <span class="menu-item-icon"><Icon name="pencil" size={15} /></span>
+            <span>Relabel in PADE</span>
+          </button>
+        {/if}
         <button
           class="menu-item" onclick={() => animateListChange(() => onremoverecent(project))}
           popovertarget={menuId}
@@ -932,6 +958,17 @@
         </div>
       </ConfirmDialog>
     {/if}
+
+    {#if relabelTarget}
+      <RelabelDialog
+        currentLabel={labels[relabelTarget] ?? ""}
+        nested
+        onclose={() => {
+          relabelTarget = null;
+        }}
+        path={relabelTarget}
+      />
+    {/if}
   </div>
 </span>
 
@@ -1036,6 +1073,33 @@
     .save-title {
       font-weight: 700;
       font-size: 12px;
+    }
+
+    /* Rename-in-PADE-only, tucked at the head's end: a quiet text button, so the
+       card's primary action stays Save. */
+    .save-relabel {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      margin-inline-start: auto;
+      padding-block: 3px;
+      padding-inline: 8px;
+      border: none;
+      border-radius: var(--radius-full);
+      background: transparent;
+      color: var(--on-surface-variant);
+      font: inherit;
+      font-weight: 600;
+      font-size: 11px;
+      cursor: pointer;
+      transition:
+        background 150ms var(--ease),
+        color 150ms var(--ease);
+
+      &:hover {
+        background: var(--surface-3);
+        color: var(--on-surface);
+      }
     }
 
     .save-hint {

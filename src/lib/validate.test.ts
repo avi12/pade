@@ -8,9 +8,28 @@ import {
   ProjectName,
   repositoryFolderName,
   RestoreQuery,
-  SessionName
+  SessionName,
+  WorkspaceLabel
 } from "@/lib/validate";
 import { describe, expect, it } from "vitest";
+
+describe("WorkspaceLabel", () => {
+  it("keeps free text that a folder name couldn't hold", () => {
+    expect(
+      parseInput({
+        schema: WorkspaceLabel,
+        raw: "  Voice test: Hebrew / English  "
+      })
+    ).toBe("Voice test: Hebrew / English");
+    expect(WorkspaceLabel.safeParse("קול עברי").success).toBe(true);
+  });
+
+  it("refuses a second line and an overlong label", () => {
+    expect(WorkspaceLabel.safeParse("first\nsecond").success).toBe(false);
+    expect(WorkspaceLabel.safeParse("a".repeat(61)).success).toBe(false);
+    expect(WorkspaceLabel.safeParse("a".repeat(60)).success).toBe(true);
+  });
+});
 
 describe("parseInput", () => {
   it("returns the trimmed value when the schema accepts", () => {

@@ -438,8 +438,8 @@ fn dominant_stem(files: &[String]) -> Option<String> {
 // ── Sanitizer (shared) ──────────────────────────────────────────────────────
 
 /// Normalize a raw candidate to a safe, short kebab-case label. `None` if nothing
-/// usable survives. Shared with `workspace_set_label` so hand-set and derived
-/// names go through the same gate.
+/// usable survives. Shared with `workspace_set_label`, which runs every auto-name
+/// through it (a label the user types in PADE is kept as typed instead).
 pub(crate) fn sanitize(raw: &str) -> Option<String> {
     let first = raw.trim().lines().next().unwrap_or("").to_lowercase();
     let mut kebab = String::with_capacity(first.len());

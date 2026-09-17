@@ -242,6 +242,12 @@ writes.
   applied as a **display label**, never a disk rename — the live agent holds the
   workspace as its cwd, which the OS (Windows) locks against rename. Toggle in the
   picker; disabled via `prefs.autoNameTemp`.
+- R1.9.3a ✅ **Relabel in PADE** — the user can give a temp workspace any label
+  (one line, ≤ 60 characters, any script) from the top-bar switcher (the row's
+  kebab, or the Save card's Relabel button) or the picker's Recent row menu. Like
+  auto-naming it is display-only — the folder keeps its path — and a label the
+  user sets always wins: auto-naming never replaces an existing label, enforced
+  in the backend as it saves.
 - R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token —
   seam in place (`copilot.rs`), not yet wired; see the auto-naming handoff doc.
 - R1.9.5 ✅ **Move / rename re-points every linked reference** (`refs.rs`). Moving

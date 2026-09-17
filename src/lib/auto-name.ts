@@ -1,13 +1,15 @@
 // Auto-name a temp workspace once the agent has produced real work. After a
 // few distinct files change, ask the agent (or a heuristic) for a friendly
 // label and apply it. Fires once per workspace; never blocks or renames on
-// disk — the label is display-only. The app shell provides the current
+// disk — the label is display-only, and never replaces a label the workspace
+// already has (the backend re-checks that as it saves, so a name the user set
+// while the namer was thinking still wins). The app shell provides the current
 // project / prefs / settings sink via `AutoNameHost` and owns the mount
 // lifecycle; the watcher subscription lives here.
 
 import { feed, workspace } from "@/lib/bridge";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/paths";
-import { ChangeKind } from "@/lib/types";
+import { ChangeKind, LabelSource } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
@@ -91,7 +93,8 @@ export function createAutoNamer(host: AutoNameHost) {
 
     await workspace.setLabel({
       path: project,
-      name
+      name,
+      source: LabelSource.enum.auto
     });
   }
 

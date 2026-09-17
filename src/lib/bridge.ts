@@ -44,7 +44,7 @@ import {
   WindowInfo,
   WorkspaceMember
 } from "@/lib/types";
-import type { Prefs, WindowMode } from "@/lib/types";
+import type { LabelSource, Prefs, WindowMode } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -631,10 +631,12 @@ export const workspace = {
     newName: string;
     root?: string;
   }) => call("workspace_save_migrate", SaveMigration, { ...args }),
-  /** Set a friendly display label (no disk rename). */
+  /** Set a friendly display label (no disk rename). An `auto` name never replaces
+   *  an existing label; a `manual` one always does. */
   setLabel: (args: {
     path: string;
     name: string;
+    source: LabelSource;
   }) => callSettings("workspace_set_label", { ...args }),
   /** Suggest a name for a temp workspace via the agent CLI, else a heuristic. */
   autoname: (args: {

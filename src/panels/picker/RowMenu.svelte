@@ -1,11 +1,12 @@
 <script lang="ts">
   import { os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { isTemporaryWorkspace } from "@/lib/paths";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
 
   // Trailing kebab + actions popover for one project row: reveal in Files /
-  // Terminal, and — for PADE-owned workspaces — the rename / move / delete
-  // lifecycle. Opening in an editor is its own visible row button
+  // Terminal, and — for PADE-owned workspaces — the relabel (temp only) / rename /
+  // move / delete lifecycle. Opening in an editor is its own visible row button
   // (OpenInEditorButton), so it isn't repeated here. Chrome comes from
   // picker/chrome.css.
   const { path, scope, lifecycle }: {
@@ -43,6 +44,18 @@
     {#if lifecycle.isOwned(path)}
       <li class="menu-divider" role="separator"></li>
       <li class="menu-separator">Workspace</li>
+      {#if isTemporaryWorkspace(path)}
+        <li>
+          <button
+            class="menu-item"
+            onclick={() => lifecycle.startRelabel(path)}
+            popovertarget={identifier}
+            popovertargetaction="hide"
+          >
+            <Icon name="pencil" /><span class="menu-item-text">Relabel in PADE</span>
+          </button>
+        </li>
+      {/if}
       <li>
         <button
           class="menu-item"

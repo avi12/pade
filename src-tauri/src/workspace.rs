@@ -122,9 +122,10 @@ pub struct Settings {
     /// these may be renamed/moved/deleted — never a real project the user owns.
     #[serde(default)]
     pub owned_workspaces: Vec<String>,
-    /// Friendly display names for workspaces, keyed by absolute path. Auto-derived
-    /// for temp workspaces and shown instead of the `temp-<stamp>` folder name. A
-    /// label never touches the directory on disk (the live agent locks its cwd).
+    /// Friendly display names for workspaces, keyed by absolute path — auto-derived
+    /// for temp workspaces, or set by the user in PADE (see [`LabelSource`]), and
+    /// shown instead of the `temp-<stamp>` folder name. A label never touches the
+    /// directory on disk (the live agent locks its cwd).
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
     /// Appearance & editor preferences.
@@ -721,17 +722,68 @@ fn retarget(settings: &mut Settings, from: &str, to: &str) {
     }
 }
 
+/// Who names a workspace — which decides both how the name is cleaned and whether
+/// it may replace a label the workspace already carries.
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LabelSource {
+    /// The auto-namer's suggestion: kebab-cased through `naming::sanitize`, and
+    /// applied only to a workspace with no label yet, so it never replaces a name
+    /// the user chose.
+    Auto,
+    /// The user relabelling a workspace in PADE: kept as typed, and always applied.
+    Manual,
+}
+
+/// The longest label a user may give a workspace, in characters.
+const MAXIMUM_MANUAL_LABEL_CHARACTERS: usize = 60;
+
+/// A user-typed label as it will be shown — trimmed; `None` when empty, longer
+/// than the cap, or carrying a control character (a newline included), since a
+/// label is one line of chrome text.
+fn manual_label(raw: &str) -> Option<String> {
+    let label = raw.trim();
+    let has_control_character = label.chars().any(char::is_control);
+    let too_long = label.chars().count() > MAXIMUM_MANUAL_LABEL_CHARACTERS;
+    (!label.is_empty() && !has_control_character && !too_long).then(|| label.to_string())
+}
+
+/// Record `label` for `path` — unless it's an auto-name and the workspace is
+/// already labelled, in which case the existing name (the user's own, or an
+/// earlier auto-name) stands.
+fn apply_label(
+    labels: &mut BTreeMap<String, String>,
+    path: String,
+    label: String,
+    source: LabelSource,
+) {
+    let keeps_existing_label = source == LabelSource::Auto && labels.contains_key(&path);
+    if !keeps_existing_label {
+        labels.insert(path, label);
+    }
+}
+
 /// Set a friendly display label for an ADE-owned workspace. Non-destructive: the
 /// directory keeps its `temp-<stamp>` name on disk (the live agent holds it as
-/// cwd, which the OS locks against rename); only the shown name changes.
+/// cwd, which the OS locks against rename); only the shown name changes. The
+/// auto-name check-and-set happens under the settings lock, so an auto-name that
+/// lands after the user relabelled can't overwrite their choice.
 #[tauri::command]
-pub fn workspace_set_label(path: String, name: String) -> Result<Settings, String> {
-    let label = crate::naming::sanitize(&name).ok_or("invalid name")?;
+pub fn workspace_set_label(
+    path: String,
+    name: String,
+    source: LabelSource,
+) -> Result<Settings, String> {
+    let label = match source {
+        LabelSource::Auto => crate::naming::sanitize(&name),
+        LabelSource::Manual => manual_label(&name),
+    }
+    .ok_or("invalid name")?;
     update_settings(|settings| {
         if !is_ade_owned(settings, &path) {
             return Err("only ADE-created workspaces can be labeled".into());
         }
-        settings.labels.insert(path, label);
+        apply_label(&mut settings.labels, path, label, source);
         Ok(())
     })
 }
@@ -1230,11 +1282,74 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_prefs_patch, canonical_dedup, canonical_path, copy_tree_skipping_dependencies,
-        validated_child_path, Prefs, SettingsRepository,
+        apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
+        copy_tree_skipping_dependencies, manual_label, validated_child_path, LabelSource, Prefs,
+        SettingsRepository,
     };
+    use std::collections::BTreeMap;
     use std::path::Path;
     use std::sync::Arc;
+
+    const TEMP_WORKSPACE: &str = r"C:\Users\avi\AppData\Roaming\pade\workspaces\temp-42";
+
+    #[test]
+    fn a_manual_label_keeps_what_the_user_typed() {
+        assert_eq!(
+            manual_label("  Hebrew voice — take 2 ").as_deref(),
+            Some("Hebrew voice — take 2")
+        );
+        assert_eq!(manual_label("קול עברי").as_deref(), Some("קול עברי"));
+    }
+
+    #[test]
+    fn a_manual_label_refuses_blank_multiline_and_overlong_text() {
+        assert_eq!(manual_label("   "), None);
+        assert_eq!(manual_label("first line\nsecond line"), None);
+        assert_eq!(manual_label(&"a".repeat(61)), None);
+        assert_eq!(manual_label(&"א".repeat(60)), Some("א".repeat(60)));
+    }
+
+    #[test]
+    fn an_auto_name_never_replaces_an_existing_label() {
+        let mut labels = BTreeMap::from([(TEMP_WORKSPACE.to_string(), "my-name".to_string())]);
+
+        apply_label(
+            &mut labels,
+            TEMP_WORKSPACE.to_string(),
+            "brave-otter".to_string(),
+            LabelSource::Auto,
+        );
+
+        assert_eq!(labels[TEMP_WORKSPACE], "my-name");
+    }
+
+    #[test]
+    fn an_auto_name_labels_an_unlabelled_workspace() {
+        let mut labels = BTreeMap::new();
+
+        apply_label(
+            &mut labels,
+            TEMP_WORKSPACE.to_string(),
+            "brave-otter".to_string(),
+            LabelSource::Auto,
+        );
+
+        assert_eq!(labels[TEMP_WORKSPACE], "brave-otter");
+    }
+
+    #[test]
+    fn a_manual_label_replaces_an_auto_name() {
+        let mut labels = BTreeMap::from([(TEMP_WORKSPACE.to_string(), "brave-otter".to_string())]);
+
+        apply_label(
+            &mut labels,
+            TEMP_WORKSPACE.to_string(),
+            "Voice experiments".to_string(),
+            LabelSource::Manual,
+        );
+
+        assert_eq!(labels[TEMP_WORKSPACE], "Voice experiments");
+    }
 
     #[cfg(windows)]
     #[test]
@@ -1293,7 +1408,7 @@ mod tests {
     #[test]
     fn preference_patch_removes_a_null_optional_key() {
         let mut prefs = Prefs {
-            passthrough: std::collections::BTreeMap::from([(
+            passthrough: BTreeMap::from([(
                 "themeMode".to_string(),
                 serde_json::Value::String("dark".to_string()),
             )]),

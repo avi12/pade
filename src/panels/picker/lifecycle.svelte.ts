@@ -1,6 +1,7 @@
 // Owned-workspace lifecycle shared by the picker's Recent and Root sections:
-// delete, move (→ permanent, still deletable), and rename (→ promoted into the
-// primary project root) with the inline-rename form state. One instance lives
+// delete, move (→ permanent, still deletable), rename (→ promoted into the
+// primary project root) with the inline-rename form state, and which temp
+// workspace is being relabelled in PADE (its folder untouched). One instance lives
 // in ProjectPicker and is handed to both sections and their row menus, so a
 // rename started from either list drives the same form — and one delete
 // confirmation dialog serves both.
@@ -34,6 +35,7 @@ export type WorkspaceLifecycle = ReturnType<typeof createWorkspaceLifecycle>;
 export function createWorkspaceLifecycle(host: LifecycleHost) {
   let renaming = $state<string | null>(null);
   let renameValue = $state("");
+  let relabelTarget = $state<string | null>(null);
   let deleteTarget = $state<string | null>(null);
   let deleting = $state(false);
   let deleteError = $state<string | null>(null);
@@ -41,6 +43,16 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   function startRename(path: string) {
     renaming = path;
     renameValue = baseName(path);
+  }
+
+  // Relabel (PADE-only name, folder untouched) is its own prompt — RelabelDialog,
+  // rendered by the picker — so the lifecycle only tracks which row asked for it.
+  function startRelabel(path: string) {
+    relabelTarget = path;
+  }
+
+  function finishRelabel() {
+    relabelTarget = null;
   }
 
   function cancelRename() {
@@ -153,6 +165,12 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     get renaming() {
       return renaming;
     },
+    /** The temp workspace awaiting a PADE-only relabel (null = no prompt). */
+    get relabelTarget() {
+      return relabelTarget;
+    },
+    startRelabel,
+    finishRelabel,
     get renameValue() {
       return renameValue;
     },

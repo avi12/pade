@@ -62,7 +62,7 @@
               {#if isTemporaryWorkspace(path)}
                 <span
                   class="temp-tag"
-                  {@attach tooltip("Auto-named by the agent — the folder keeps its path")}
+                  {@attach tooltip("Its label lives in PADE — the folder keeps its path")}
                 >temp</span>
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>

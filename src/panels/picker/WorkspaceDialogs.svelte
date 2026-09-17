@@ -1,11 +1,12 @@
 <script lang="ts">
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { displayName } from "@/lib/paths";
+  import RelabelDialog from "@/lib/RelabelDialog.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
 
-  // The owned-workspace lifecycle's prompts, raised from either list's row menu —
-  // today the delete confirmation. One of each for the whole picker, rendered
-  // outside its scrolling page.
+  // The owned-workspace lifecycle's prompts, raised from either list's row menu:
+  // the delete confirmation and the PADE-only relabel. One of each for the whole
+  // picker, rendered outside its scrolling page.
   const { lifecycle, labels }: {
     lifecycle: WorkspaceLifecycle;
     /** Friendly display labels per path — the one source every row reads. */
@@ -34,6 +35,14 @@
       <p class="tip">Hold <kbd>Shift</kbd> when clicking Delete to skip this next time.</p>
     </div>
   </ConfirmDialog>
+{/if}
+
+{#if lifecycle.relabelTarget}
+  <RelabelDialog
+    currentLabel={labels[lifecycle.relabelTarget] ?? ""}
+    onclose={() => lifecycle.finishRelabel()}
+    path={lifecycle.relabelTarget}
+  />
 {/if}
 
 <style>

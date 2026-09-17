@@ -32,6 +32,16 @@ export const FolderPath = z.string().trim().min(1).max(4096);
 /** A session tab's display name — a short single-line label. */
 export const SessionName = z.string().trim().min(1).max(60);
 
+/** A name the user gives a workspace inside PADE (its folder keeps its own name):
+ *  any text on one line, so unlike `ProjectName` path characters and non-Latin
+ *  script are fine. The backend (`workspace::manual_label`) enforces the same. */
+export const WorkspaceLabel = z
+  .string()
+  .trim()
+  .min(1, "Give it a label.")
+  .max(60, "Keep it under 60 characters.")
+  .regex(/^\P{Cc}+$/u, "A label is a single line.");
+
 /** What the terminal's find bar searches for — kept verbatim (no trim: a leading
  *  or trailing space is a legitimate thing to look for in output), capped so a
  *  pasted file can't be handed to the search engine keystroke by keystroke. */
