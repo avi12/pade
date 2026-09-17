@@ -42,6 +42,7 @@
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { settings } from "@/lib/settings.svelte";
+  import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff, successorPrompt } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
@@ -1039,6 +1040,7 @@
     sessionLaunchedAt.delete(id);
     sessionSpawnScheme.delete(id);
     dropSessionStatus(id);
+    dropAgentActivity(id);
     dropSessionLabel(id);
     dropNaming(id);
     dropUsageLimit(id);

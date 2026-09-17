@@ -15,6 +15,7 @@
   import { isTrustGate, promptEchoed } from "@/lib/initial-prompt";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
+  import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import {
     contextWindowKnown,
@@ -1309,6 +1310,12 @@
       relayColorSchemeAfterSubscribe(chunk.data);
       watchForRightToLeft(chunk.data);
       markActivity();
+      // What the agent itself says about its work — a turn or background agents
+      // and workflows — read from its title (gates session-ending flows).
+      observeAgentActivity({
+        id: session.id,
+        chunk: chunk.data
+      });
       // Track how full this agent's context window is (drives auto-handoff).
       // Only on the normal screen: a fullscreen agent repaints its whole frame
       // on every spinner tick, so counting those bytes balloons the estimate
@@ -1727,6 +1734,11 @@
       observeContextScreen({
         id: session.id,
         text: history.data
+      });
+      // The latest title in the replay is the agent's current activity report.
+      observeAgentActivity({
+        id: session.id,
+        chunk: history.data
       });
 
       // A session with history was already running before this terminal
