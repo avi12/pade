@@ -435,7 +435,7 @@ responsibility, and who it collaborates with.
 | `src/panels/ConfigPanel.svelte` | Read-only view of the active agent's config files plus the app's own preference cards — **Appearance** (theme — the four-option picker `theme-mode` resolves, terminal colours, terminal font, font size, auto-handoff threshold), **Performance** (software rendering, which persists through the shared prefs store and offers an explicit restart because WebView2's `--disable-gpu` switch is launch-only), and **Discord** (rich-presence opt-in + the project-name row it gates). Every toggle reads its default from `prefs.svelte`'s `effective` and writes through `updatePrefs`, so the panel and the consumer (`App`'s presence effect) can never disagree about what "unset" means |
 | `src/panels/config/TerminalSchemePicker.svelte` | One "which colour scheme paints the terminal" control: a trigger carrying the pick's preview strip, and a native popover of the whole catalogue. Rendered once when a single pick covers both schemes, twice (Light / Dark) when the user asks the terminal to match the app theme — that switch is view state derived from whether the two persisted picks differ, never a third preference that could disagree with them |
 | `src/panels/Onboarding.svelte` | Agent picker shown after the last session is closed or exits — never on the way into a project |
-| `src/panels/ProjectPicker.svelte` | Picker orchestrator: reads the shared settings authority, owns project-list refresh + the shared workspace lifecycle, hosts the delete `ConfirmDialog`, and keeps the page live — it watches the parents of its rows (`dirs`) and re-prunes on any change, so a folder deleted outside PADE leaves the list on its own; composes the sections below |
+| `src/panels/ProjectPicker.svelte` | Picker orchestrator: reads the shared settings authority, owns project-list refresh + the shared workspace lifecycle, hosts its prompts (`WorkspaceDialogs`), and keeps the page live — it watches the parents of its rows (`dirs`) and re-prunes on any change, so a folder deleted outside PADE leaves the list on its own; composes the sections below |
 
 ### Git-panel sections (`src/panels/vcs/`)
 
@@ -460,7 +460,8 @@ responsibility, and who it collaborates with.
 | `EditorsSection.svelte` | Editor-rules engine rows — kinds fetched from the backend `ide_kinds` registry (web/python/java/go/rust/android plus C/C++, C#/.NET, PHP, Ruby), each row led by its language logo (`language-icon`) — + popover selects whose trigger and options carry the editor's brand mark (`ide-icon`) + "Add editor…" by executable path (validated, inline status) |
 | `RootsSection.svelte` | Root folders: add (typed path with live, existence-driven validation via the shared `PathCombobox` directory autocomplete, or the native picker) / remove + detected projects per root |
 | `RowMenu.svelte` | Shared kebab popover: reveal actions + owned-workspace lifecycle entries |
-| `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; owns the delete confirmation state (target / in-flight / error) that `ProjectPicker` renders as one `ConfirmDialog` |
+| `lifecycle.svelte.ts` | Owned-workspace rename/move/delete flows + inline-rename form state, shared by Recent and Roots; owns the delete confirmation state (target / in-flight / error) that `WorkspaceDialogs` renders as one `ConfirmDialog` |
+| `WorkspaceDialogs.svelte` | The lifecycle's prompts, one of each for the whole picker — the delete `ConfirmDialog` |
 
 ## Rust core (`src-tauri/src/`)
 

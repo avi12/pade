@@ -1,8 +1,7 @@
 <script lang="ts">
   import BrandMark from "@/lib/BrandMark.svelte";
   import { dirs, ide, workspace } from "@/lib/bridge";
-  import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
-  import { displayName, isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
+  import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
   import { updatePrefs } from "@/lib/prefs.svelte";
   import { settings } from "@/lib/settings.svelte";
   import { AddRootStatus, StartMode } from "@/lib/types";
@@ -23,6 +22,7 @@
   import QuickStartSection from "@/panels/picker/QuickStartSection.svelte";
   import RecentSection from "@/panels/picker/RecentSection.svelte";
   import RootsSection from "@/panels/picker/RootsSection.svelte";
+  import WorkspaceDialogs from "@/panels/picker/WorkspaceDialogs.svelte";
   import { onDestroy, onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
@@ -359,30 +359,9 @@
   </div>
 </div>
 
-<!-- Delete confirmation for an owned workspace, raised from either list's row
-     menu. It lives here (outside .picker) as the lifecycle's single dialog. -->
-{#if lifecycle.deleteTarget}
-  <ConfirmDialog
-    busy={lifecycle.deleting}
-    busyLabel="Deleting…"
-    confirmLabel="Delete workspace"
-    danger
-    error={lifecycle.deleteError}
-    icon="trash"
-    oncancel={() => lifecycle.cancelDelete()}
-    onconfirm={async () => await lifecycle.confirmDelete()}
-    title="Delete this workspace?"
-  >
-    <div class="delete-body">
-      <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
-      <p class="target">
-        <span class="target-name">{displayName(lifecycle.deleteTarget, settings.labels)}</span>
-        <code>{lifecycle.deleteTarget}</code>
-      </p>
-      <p class="tip">Hold <kbd>Shift</kbd> when clicking Delete to skip this next time.</p>
-    </div>
-  </ConfirmDialog>
-{/if}
+<!-- The lifecycle's prompts, raised from either list's row menu — outside .picker
+     so they never scroll with the page. -->
+<WorkspaceDialogs labels={settings.labels} {lifecycle} />
 
 <style>
   .picker {
@@ -455,50 +434,5 @@
 
   /* Editor-rules rows live in picker/EditorsSection.svelte. */
 
-  /* Body of the delete-confirmation dialog (its chrome is ConfirmDialog's). */
-  .delete-body {
-    p {
-      margin: 0;
-    }
-
-    .target {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-block-start: 14px;
-      padding: 10px 12px;
-      border-radius: var(--radius-medium);
-      background: var(--surface-2);
-    }
-
-    .target-name {
-      color: var(--on-surface);
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    code {
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 11px;
-      overflow-wrap: anywhere;
-    }
-
-    .tip {
-      margin-block-start: 12px;
-      font-size: 12px;
-    }
-
-    kbd {
-      padding-block: 2px;
-      padding-inline: 6px;
-      border-radius: var(--radius-small);
-      background: var(--surface-3);
-      color: var(--on-surface);
-      font-family: var(--font-ui);
-      font-weight: 600;
-      font-size: 11px;
-    }
-  }
+  /* The delete + relabel prompts live in picker/WorkspaceDialogs.svelte. */
 </style>
