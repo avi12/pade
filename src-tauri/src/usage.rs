@@ -298,6 +298,57 @@ pub struct UsageWindow {
     resets_at: Option<String>,
 }
 
+/// The top-level key under which Claude's account response describes its
+/// pay-as-you-go usage credits ("extra usage").
+const CREDITS_KEY: &str = "extra_usage";
+/// A monthly credits cap this far consumed has nothing left to carry work.
+const CREDITS_SPENT_PERCENTAGE: f64 = 100.0;
+
+/// The state of pay-as-you-go usage credits ("extra usage"). The auto-resume
+/// scheduler reads it to continue a limit-stopped session the moment credits can
+/// carry it — turned on server-side, which the CLI itself never notices.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CreditsState {
+    /// Turned off.
+    Off,
+    /// Turned on, with room left under the monthly cap (or no cap at all).
+    Available,
+    /// Turned on, but unable to carry work now: the monthly cap is spent, or the
+    /// account names a reason they're held back.
+    Unavailable,
+}
+
+/// The credits state an account response describes, or `None` when it carries no
+/// credits object at all (every adapter but Claude's, or a Claude response that
+/// omits it).
+fn credits_state(response: &serde_json::Value) -> Option<CreditsState> {
+    let credits = response.get(CREDITS_KEY)?;
+    let enabled = credits
+        .get("is_enabled")
+        .and_then(serde_json::Value::as_bool)?;
+    if !enabled {
+        return Some(CreditsState::Off);
+    }
+
+    let cap_spent = credits
+        .get("utilization")
+        .and_then(serde_json::Value::as_f64)
+        .is_some_and(|utilization| utilization >= CREDITS_SPENT_PERCENTAGE);
+    let spend_limit_reached = credits
+        .get("spend_limit_reached")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let held_back = credits
+        .get("disabled_reason")
+        .is_some_and(serde_json::Value::is_string);
+    if cap_spent || spend_limit_reached || held_back {
+        Some(CreditsState::Unavailable)
+    } else {
+        Some(CreditsState::Available)
+    }
+}
+
 /// Stable identities for the underlying billing account behind each adapter, so
 /// the frontend can dedupe agents that share one subscription (Codex + opencode
 /// both bill the same `ChatGPT` account) — one identity per account, never per
@@ -321,6 +372,9 @@ pub struct AccountUsage {
     /// `BILLING_ACCOUNT_*` ids), so two agents on one subscription are never
     /// counted twice. `None` when the adapter can't name the account.
     account: Option<String>,
+    /// Whether usage credits are on and can carry work past an exhausted window.
+    /// `None` for an account with no credits concept.
+    credits: Option<CreditsState>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -455,6 +509,7 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         plan,
         source: "oauth:api.anthropic.com".to_string(),
         account: Some(BILLING_ACCOUNT_ANTHROPIC.to_string()),
+        credits: credits_state(&response),
     })
 }
 
@@ -649,6 +704,7 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
         plan,
         source: "oauth:chatgpt.com".to_string(),
         account: Some(BILLING_ACCOUNT_CHATGPT.to_string()),
+        credits: None,
     })
 }
 
@@ -862,6 +918,7 @@ fn fetch_copilot_account_usage() -> Option<AccountUsage> {
         plan: "Copilot".to_string(),
         source: COPILOT_LOCAL_SOURCE.to_string(),
         account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
+        credits: None,
     })
 }
 
@@ -890,6 +947,7 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
         plan,
         source: "oauth:api.github.com".to_string(),
         account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
+        credits: None,
     })
 }
 
@@ -1069,6 +1127,7 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
         plan: "Antigravity".to_string(),
         source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
         account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
+        credits: None,
     })
 }
 
@@ -1102,6 +1161,7 @@ fn fetch_cursor_account_usage() -> Option<AccountUsage> {
         plan: "Cursor".to_string(),
         source: "local:cursor".to_string(),
         account: Some(BILLING_ACCOUNT_CURSOR.to_string()),
+        credits: None,
     })
 }
 
@@ -1144,10 +1204,10 @@ fn auth_file_has_login(path: &std::path::Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        collect_codex_windows, collect_copilot_windows, collect_windows, humanize_key,
-        humanize_window_seconds, is_safe_header_token, unix_seconds_to_iso8601, usage_from_account,
-        AccountUsage, HeadlineWindow, UsageAgent, UsageWindow, UsageWindowKind,
-        BILLING_ACCOUNT_GOOGLE,
+        collect_codex_windows, collect_copilot_windows, collect_windows, credits_state,
+        humanize_key, humanize_window_seconds, is_safe_header_token, unix_seconds_to_iso8601,
+        usage_from_account, AccountUsage, CreditsState, HeadlineWindow, UsageAgent, UsageWindow,
+        UsageWindowKind, BILLING_ACCOUNT_GOOGLE,
     };
     use crate::agents::{ID_CODEX, ID_OPENCODE};
 
@@ -1204,6 +1264,84 @@ mod tests {
         assert_eq!(windows[0].kind, UsageWindowKind::Opaque);
         assert_eq!(windows[0].key, "thirty_day");
         assert_eq!(windows[0].label, "Thirty day");
+    }
+
+    #[test]
+    fn credits_turned_on_with_room_are_available() {
+        // The real shape, probed live from a Max account with credits on.
+        let response = serde_json::json!({
+            "extra_usage": {
+                "is_enabled": true,
+                "monthly_limit": 20000,
+                "used_credits": 11333,
+                "utilization": 56.665,
+                "currency": "USD",
+                "decimal_places": 2,
+                "disabled_reason": null,
+                "user_disabled": false,
+                "spend_limit_reached": false
+            }
+        });
+
+        assert_eq!(credits_state(&response), Some(CreditsState::Available));
+    }
+
+    #[test]
+    fn uncapped_credits_are_available() {
+        let response = serde_json::json!({
+            "extra_usage": {
+                "is_enabled": true,
+                "monthly_limit": null,
+                "used_credits": null,
+                "utilization": null
+            }
+        });
+
+        assert_eq!(credits_state(&response), Some(CreditsState::Available));
+    }
+
+    #[test]
+    fn spent_credits_are_unavailable() {
+        let response = serde_json::json!({
+            "extra_usage": { "is_enabled": true, "monthly_limit": 5000, "utilization": 100.0 }
+        });
+
+        assert_eq!(credits_state(&response), Some(CreditsState::Unavailable));
+    }
+
+    #[test]
+    fn credits_held_back_by_the_account_are_unavailable() {
+        let reached = serde_json::json!({
+            "extra_usage": { "is_enabled": true, "utilization": 40.0, "spend_limit_reached": true }
+        });
+        let disabled = serde_json::json!({
+            "extra_usage": {
+                "is_enabled": true,
+                "utilization": 40.0,
+                "disabled_reason": "org_level_disabled_until"
+            }
+        });
+
+        assert_eq!(credits_state(&reached), Some(CreditsState::Unavailable));
+        assert_eq!(credits_state(&disabled), Some(CreditsState::Unavailable));
+    }
+
+    #[test]
+    fn credits_turned_off_are_off_even_with_a_stale_cap_reading() {
+        let response = serde_json::json!({
+            "extra_usage": { "is_enabled": false, "monthly_limit": 5000, "utilization": 12.0 }
+        });
+
+        assert_eq!(credits_state(&response), Some(CreditsState::Off));
+    }
+
+    #[test]
+    fn a_response_without_credits_has_no_credits_state() {
+        let without_key = serde_json::json!({ "five_hour": { "utilization": 40.0 } });
+        let null_credits = serde_json::json!({ "extra_usage": null });
+
+        assert_eq!(credits_state(&without_key), None);
+        assert_eq!(credits_state(&null_credits), None);
     }
 
     #[test]
@@ -1441,6 +1579,7 @@ mod tests {
             plan: "Copilot business".to_string(),
             source: "oauth:api.github.com".to_string(),
             account: None,
+            credits: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1473,6 +1612,7 @@ mod tests {
             plan: "Copilot".to_string(),
             source: "oauth:api.github.com".to_string(),
             account: None,
+            credits: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1505,6 +1645,7 @@ mod tests {
             plan: "Claude Pro".to_string(),
             source: "oauth:api.anthropic.com".to_string(),
             account: None,
+            credits: None,
             windows: vec![UsageWindow {
                 key: "five_hour".to_string(),
                 kind: UsageWindowKind::Session,
@@ -1530,6 +1671,7 @@ mod tests {
             source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
             windows: Vec::new(),
             account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
+            credits: None,
         };
 
         let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);

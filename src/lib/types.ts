@@ -296,6 +296,13 @@ export const UsageWindow = z.object({
 });
 export type UsageWindow = z.infer<typeof UsageWindow>;
 
+/** The state of pay-as-you-go usage credits (Claude's "extra usage"): `off`;
+ *  `available` — on, with room left under the monthly cap, so they carry work past
+ *  an exhausted window; `unavailable` — on, but the cap is spent or the account
+ *  holds them back. */
+export const CreditsState = z.enum(["off", "available", "unavailable"]);
+export type CreditsState = z.infer<typeof CreditsState>;
+
 /** Live account usage — every rate-limit window the endpoint returns (session,
  *  weekly, and any per-model or other windows), plus the plan label. `null` when
  *  offline / the local token is missing or expired. */
@@ -306,7 +313,11 @@ export const AccountUsage = z.object({
   /** Stable identity of the underlying billing account (e.g. Codex and opencode
    *  both bill one ChatGPT subscription), so the meter never counts the same
    *  account twice. Absent when the adapter can't name the account. */
-  account: z.string().nullish()
+  account: z.string().nullish(),
+  /** Whether usage credits are on and can carry work past an exhausted window —
+   *  what lets a limit-stopped session continue before its reset. Absent for an
+   *  account with no credits concept. */
+  credits: CreditsState.nullish()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
 
