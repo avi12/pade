@@ -6,17 +6,19 @@
 // retry would only stall again, so we hand off to a fresh successor agent (the
 // auto-handoff flow) and stop. The loop ends the moment the session is working
 // again (the nudge took, or it self-recovered) or its tab is gone. Opt-out rides
-// the same prefs.autoResume switch as usage-limit auto-resume. The machinery
-// mirrors lib/stores/usageResume: this module owns detection, the retry loop and
-// teardown, while the app shell supplies sessions and the handoff through
-// `RetryHost` and drives the scan from a component `$effect`.
+// the same prefs.autoResume switch as usage-limit auto-resume. This module owns
+// detection and what a retry does; the timers, note and scan are the shared
+// lib/stores/recoveryLoop, and the app shell supplies sessions and the handoff
+// through `RecoveryHost` and drives the scan from a component `$effect`.
 
 import { pty } from "@/lib/bridge";
 import { measuredContextPercentage } from "@/lib/stores/context.svelte";
+import { createRecoveryLoop } from "@/lib/stores/recoveryLoop.svelte";
+import type { RecoveryHost } from "@/lib/stores/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { SvelteMap } from "svelte/reactivity";
 
 /** How often a stuck session is nudged to continue. */
 const RETRY_MS = 30_000;
@@ -83,65 +85,17 @@ export function dropApiError(id: string): void {
   hits.delete(id);
 }
 
-/** What the app shell provides. */
-export interface RetryHost {
-  sessions: () => AgentSession[];
-  /** Whether the user opted out (shares prefs.autoResume with usage auto-resume). */
-  isOptedOut: () => boolean;
-  /** The percent-of-context past which a retry hands off instead — the
-   *  resolved prefs.handoffPct (`effective.handoffPercentage`). */
-  thresholdPercentage: () => number;
-  /** Hand a session off to a fresh agent now (the auto-handoff flow) — used when
-   *  the context window is too full for another retry to get anywhere. */
-  forceHandoff: (session: AgentSession) => void;
-}
-
-/** Status line shown while a session's retry loop is pending. */
-function retryNote(session: AgentSession): string {
-  return `${session.agent.label} stopped on an API error — retrying…`;
-}
-
 /** The auto-retry machinery, scoped to one app shell. The shell calls `check()`
  *  from a `$effect` and `dispose()` on destroy; `note` is the status line to show
  *  while a retry is pending ("" when idle). */
-export function createApiErrorRetry(host: RetryHost) {
-  let note = $state("");
-  let disposed = false;
-  const timers = new SvelteMap<string, ReturnType<typeof setTimeout>>();
-
-  function clearTimer(id: string) {
-    const timer = timers.get(id);
-    if (timer === undefined) {
-      return;
-    }
-
-    clearTimeout(timer);
-    timers.delete(id);
-  }
-
-  // End one session's retry loop: drop its timer + hit, and clear the shared note
-  // once nothing else is pending.
-  function stop(id: string) {
-    clearTimer(id);
-    hits.delete(id);
-
-    if (timers.size === 0) {
-      note = "";
-    }
-  }
-
-  function scheduleRetry(session: AgentSession) {
-    if (disposed) {
-      return;
-    }
-
-    note = retryNote(session);
-    timers.set(
-      session.id, setTimeout(async () => {
-        await retry(session);
-      }, RETRY_MS)
-    );
-  }
+export function createApiErrorRetry(host: RecoveryHost) {
+  const loop = createRecoveryLoop({
+    host,
+    hits,
+    firstDelay: RETRY_MS,
+    tick: retry,
+    pendingNote: session => `${session.agent.label} stopped on an API error — retrying…`
+  });
 
   // One retry tick, RETRY_MS after the last. A session halted by an API error
   // sits idle at its prompt (`ready`), so the moment it reports `working` again
@@ -151,26 +105,18 @@ export function createApiErrorRetry(host: RetryHost) {
   // so we hand off to a fresh agent and stop.
   async function retry(session: AgentSession) {
     const id = session.id;
-    timers.delete(id);
-
-    const stillHere = host.sessions().some(session => session.id === id);
-    if (!stillHere) {
-      stop(id);
-      return;
-    }
-
     const status = sessionStatus(id);
     const recovered = status === SessionStatus.enum.working;
     const dead = status === SessionStatus.enum.exited;
-    if (recovered || dead) {
-      stop(id);
+    if (!loop.isOpen(id) || recovered || dead) {
+      loop.forget(id);
       return;
     }
 
     const percentage = measuredContextPercentage(id);
     const hasRoom = percentage === null || percentage < host.thresholdPercentage();
     if (!hasRoom) {
-      stop(id);
+      loop.forget(id);
       host.forceHandoff(session);
       return;
     }
@@ -179,49 +125,18 @@ export function createApiErrorRetry(host: RetryHost) {
       id,
       data: "continue\r"
     }).catch(() => {});
-    scheduleRetry(session);
-  }
-
-  // Scan for freshly errored sessions and start their retry loop; prune state for
-  // sessions that no longer exist.
-  function check() {
-    if (host.isOptedOut()) {
-      return;
-    }
-
-    const alive = new SvelteSet(host.sessions().map(session => session.id));
-    for (const id of [...hits.keys(), ...timers.keys()]) {
-      if (!alive.has(id)) {
-        stop(id);
-      }
-    }
-
-    for (const session of host.sessions()) {
-      const hit = hits.get(session.id);
-      if (!hit || hit.scheduled) {
-        continue;
-      }
-
-      hits.set(session.id, { scheduled: true });
-      scheduleRetry(session);
-    }
-  }
-
-  function dispose() {
-    disposed = true;
-    for (const timer of timers.values()) {
-      clearTimeout(timer);
-    }
-
-    timers.clear();
+    loop.schedule({
+      session,
+      delay: RETRY_MS
+    });
   }
 
   return {
     /** Status line shown while a retry is pending ("" when idle). */
     get note() {
-      return note;
+      return loop.note;
     },
-    check,
-    dispose
+    check: loop.check,
+    dispose: loop.dispose
   };
 }
