@@ -59,11 +59,14 @@
   });
 
   // The nested popover doesn't move focus on show the way showModal does, so land
-  // it on Cancel — the safe default for a destructive prompt.
+  // it on the body's own `data-initial-focus` field when it has one (a prompt that
+  // asks for text), else on Cancel — the safe default for a destructive prompt.
   $effect(() => {
     if (scrimElement && !scrimElement.matches(":popover-open")) {
       scrimElement.showPopover();
-      scrimElement.querySelector<HTMLElement>(".cancel")?.focus();
+      const initialFocus = scrimElement.querySelector<HTMLElement>("[data-initial-focus]")
+        ?? scrimElement.querySelector<HTMLElement>(".cancel");
+      initialFocus?.focus();
     }
   });
 </script>
