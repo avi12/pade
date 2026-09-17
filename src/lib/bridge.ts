@@ -553,9 +553,6 @@ export const tasks = {
  *  windows. */
 export const usage = {
   get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
-  /** Live claude.ai usage windows (5-hour session + 7-day weekly) via the OAuth
-   *  endpoint — the same numbers `claude /usage` shows. */
-  account: () => call("usage_account", AccountUsage.nullable()),
   /** Live usage windows for a specific agent (`claude`, `codex`) — each read from
    *  that vendor's own usage endpoint with its locally-stored token. `null` for an
    *  agent with no usable local usage signal. */

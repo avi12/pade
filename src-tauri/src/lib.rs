@@ -197,7 +197,6 @@ pub fn run() {
             tasks::tasks_list,
             terminal_schemes::terminal_schemes,
             usage::usage_get,
-            usage::usage_account,
             usage::usage_account_agent,
             naming::project_autoname,
             naming::session_generate_name,

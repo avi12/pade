@@ -405,24 +405,13 @@ impl AccountUsageRequest {
     }
 }
 
-/// Live account usage windows, mirroring claude.ai. `None` when offline, `curl` is
-/// unavailable, or the token is missing/expired (Claude Code refreshes it on its
-/// next run). Cached ~3 min to respect the endpoint's per-token limit.
+/// Live account usage windows for a specific agent (`claude`, `codex`) — what the
+/// per-agent meter renders and the auto-resume scheduler reads. `None` for an
+/// agent we have no usage adapter for, or when its token / network isn't
+/// available (offline, `curl` missing, or a token expired until the agent's next
+/// run refreshes it).
 // `async` + `spawn_blocking` for the same reason as [`usage_get`]: a cache miss
 // is a bounded-but-slow curl request that must never run on the UI thread.
-#[tauri::command]
-pub async fn usage_account() -> Option<AccountUsage> {
-    tauri::async_runtime::spawn_blocking(|| {
-        account_usage_for(AccountUsageRequest::cached(UsageAgent::Claude))
-    })
-    .await
-    .ok()
-    .flatten()
-}
-
-/// Live account usage windows for a specific agent (`claude`, `codex`) — what the
-/// per-agent meter renders. `None` for an agent we have no usage adapter for, or
-/// when its token / network isn't available.
 #[tauri::command]
 pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<AccountUsage> {
     tauri::async_runtime::spawn_blocking(move || {
