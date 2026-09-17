@@ -5,17 +5,21 @@
 // while its context window still has room; once the window is nearly full another
 // retry would only stall again, so we hand off to a fresh successor agent (the
 // auto-handoff flow) and stop. The loop ends the moment the session is working
-// again (the nudge took, or it self-recovered) or its tab is gone. Opt-out rides
-// the same prefs.autoResume switch as usage-limit auto-resume. This module owns
-// detection and what a retry does; the timers, note and scan are the shared
-// lib/stores/recoveryLoop, and the app shell supplies sessions and the handoff
-// through `RecoveryHost` and drives the scan from a component `$effect`.
+// again (the nudge took, or it self-recovered), its tab is gone, or the stop
+// turns out to be a usage limit — Claude Code reports that as "an API error"
+// too, and nudging a limited session only hits the limit again, so waiting it
+// out belongs to lib/stores/usageResume. Opt-out rides the same prefs.autoResume
+// switch as usage-limit auto-resume. This module owns detection and what a retry
+// does; the timers, note and scan are the shared lib/stores/recoveryLoop, and the
+// app shell supplies sessions and the handoff through `RecoveryHost` and drives
+// the scan from a component `$effect`.
 
 import { pty } from "@/lib/bridge";
 import { measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { createRecoveryLoop } from "@/lib/stores/recoveryLoop.svelte";
 import type { RecoveryHost } from "@/lib/stores/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
+import { CONTINUE_PROMPT, hasUsageLimit, isUsageLimitStop } from "@/lib/stores/usageResume.svelte";
 import { SessionStatus } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
@@ -59,19 +63,19 @@ const hits = new SvelteMap<string, ApiErrorHit>();
 
 /** Whether a chunk of agent output is a transient API-side stop worth retrying —
  *  an "API Error", an overloaded/500/502/503/529 server error, or a dropped
- *  connection. Never the usage-limit "limit reached" message (auto-resume's). */
+ *  connection. Never a usage limit, even one worded as an API error (auto-resume's). */
 export function parseApiError({ text }: { text: string }): boolean {
-  return API_ERROR_RE.test(text);
+  return API_ERROR_RE.test(text) && !isUsageLimitStop(text);
 }
 
 /** Feed a chunk of a session's PTY output through the API-error sniffer. A TUI
  *  repaints its error on every frame, so a session already marked (or already
- *  scheduled for retry) is left alone. */
+ *  scheduled for retry) is left alone, as is one waiting out a usage limit. */
 export function observeApiError({ id, chunk }: {
   id: string;
   chunk: string;
 }): void {
-  if (hits.has(id)) {
+  if (hits.has(id) || hasUsageLimit(id)) {
     return;
   }
 
@@ -100,15 +104,16 @@ export function createApiErrorRetry(host: RecoveryHost) {
   // One retry tick, RETRY_MS after the last. A session halted by an API error
   // sits idle at its prompt (`ready`), so the moment it reports `working` again
   // the nudge took hold (or it self-recovered) and we stop; an `exited` PTY can't
-  // be retried, so we give up. Otherwise, while the context window has room we
-  // type "continue"; once it's nearly full another retry would only stall again,
-  // so we hand off to a fresh agent and stop.
+  // be retried, so we give up; a stop the usage-limit sniffer has since claimed
+  // is waited out there, never nudged. Otherwise, while the context window has
+  // room we type "continue"; once it's nearly full another retry would only stall
+  // again, so we hand off to a fresh agent and stop.
   async function retry(session: AgentSession) {
     const id = session.id;
     const status = sessionStatus(id);
     const recovered = status === SessionStatus.enum.working;
     const dead = status === SessionStatus.enum.exited;
-    if (!loop.isOpen(id) || recovered || dead) {
+    if (!loop.isOpen(id) || recovered || dead || hasUsageLimit(id)) {
       loop.forget(id);
       return;
     }
@@ -123,7 +128,7 @@ export function createApiErrorRetry(host: RecoveryHost) {
 
     await pty.write({
       id,
-      data: "continue\r"
+      data: CONTINUE_PROMPT
     }).catch(() => {});
     loop.schedule({
       session,

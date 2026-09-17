@@ -196,7 +196,8 @@ writes.
   itself never notices. If the agent's screen already shows a turn running ("esc
   to interrupt" — its own auto-continue or the user got there first) nothing is
   typed. Otherwise **"continue"** goes into the same session while its context
-  has room, the **auto-handoff flow** takes over when it doesn't.
+  has room, the **auto-handoff flow** takes over when it doesn't. The API-error
+  auto-retry never claims a usage-limit stop, even one worded as an API error.
   Opt-out via `prefs.autoResume` (default on).
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
