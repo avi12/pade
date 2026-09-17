@@ -233,10 +233,12 @@ fn codex_tier_label_usage() -> Option<Usage> {
 // whatever windows the response carries rather than hardcoding a fixed few.
 // ---------------------------------------------------------------------------
 
+/// The claude.ai OAuth API Claude Code reads its account state from.
+const CLAUDE_OAUTH_API: &str = "https://api.anthropic.com/api/oauth";
 /// The undocumented endpoint Claude Code's `/usage` reads. It requires the
 /// `claude-code/<version>` User-Agent (any other UA lands in an aggressively
 /// rate-limited bucket) and is safe at ~180s intervals — hence the cache below.
-const OAUTH_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
+const OAUTH_USAGE_PATH: &str = "/usage";
 const USAGE_UA: &str = "claude-code/1.0.128";
 const USAGE_CACHE_SECONDS: u64 = 170;
 
@@ -248,16 +250,17 @@ const WEEKLY_WINDOW_KEY: &str = "seven_day";
 
 /// The semantic kind of a rate-limit window. The endpoint returns a handful of
 /// named windows (the 5-hour `five_hour` session, the 7-day `seven_day` weekly
-/// all-models cap) plus per-model caps under `limits[]`; we classify each so the
-/// meter can label it and the auto-resume scheduler can match the window a CLI
-/// named. A named window we don't recognize passes through as `Opaque` — surfaced
-/// honestly, never dropped.
+/// all-models cap, the `extra_usage` monthly spend cap on usage credits) plus
+/// per-model caps under `limits[]`; we classify each so the meter can label it and
+/// the auto-resume scheduler can match the window a CLI named. A named window we
+/// don't recognize passes through as `Opaque` — surfaced honestly, never dropped.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum UsageWindowKind {
     Session,
     Weekly,
     Model,
+    Credits,
     Opaque,
 }
 
@@ -267,18 +270,20 @@ impl UsageWindowKind {
         match key {
             SESSION_WINDOW_KEY => Self::Session,
             WEEKLY_WINDOW_KEY => Self::Weekly,
+            CREDITS_KEY => Self::Credits,
             _ => Self::Opaque,
         }
     }
 
     /// Stable render + match order: session, then the weekly all-models cap, then
-    /// per-model caps, then anything unrecognized.
+    /// per-model caps, then the credits spend cap, then anything unrecognized.
     fn order(self) -> u8 {
         match self {
             Self::Session => 0,
             Self::Weekly => 1,
             Self::Model => 2,
-            Self::Opaque => 3,
+            Self::Credits => 3,
+            Self::Opaque => 4,
         }
     }
 }
@@ -349,6 +354,16 @@ fn credits_state(response: &serde_json::Value) -> Option<CreditsState> {
     }
 }
 
+/// A prepaid usage-credits balance, ready to show.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CreditBalance {
+    /// What's left to spend, in the currency's major units (dollars, not cents).
+    amount: f64,
+    /// The ISO 4217 currency code (`USD`).
+    currency: String,
+}
+
 /// Stable identities for the underlying billing account behind each adapter, so
 /// the frontend can dedupe agents that share one subscription (Codex + opencode
 /// both bill the same `ChatGPT` account) — one identity per account, never per
@@ -375,6 +390,9 @@ pub struct AccountUsage {
     /// Whether usage credits are on and can carry work past an exhausted window.
     /// `None` for an account with no credits concept.
     credits: Option<CreditsState>,
+    /// The prepaid usage-credits balance. Read only while credits are on, so it is
+    /// present exactly when extra usage is enabled (and the balance was reachable).
+    credit_balance: Option<CreditBalance>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -484,7 +502,11 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         .and_then(serde_json::Value::as_str)
         .map_or_else(|| "Claude".to_string(), |tier| format!("Claude {tier}"));
 
-    let body = curl_oauth_usage(token)?;
+    let body = curl_claude_oauth(&ClaudeOauthGet {
+        path: OAUTH_USAGE_PATH,
+        token,
+        organization: None,
+    })?;
     let response: serde_json::Value = serde_json::from_str(&body).ok()?;
 
     let windows = collect_windows(&response);
@@ -493,13 +515,64 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         return None;
     }
 
+    let credits = credits_state(&response);
+    let credits_on = credits.is_some_and(|state| state != CreditsState::Off);
+    let credit_balance = credits_on.then(|| claude_credit_balance(token)).flatten();
+
     Some(AccountUsage {
         windows,
         plan,
         source: "oauth:api.anthropic.com".to_string(),
         account: Some(BILLING_ACCOUNT_ANTHROPIC.to_string()),
-        credits: credits_state(&response),
+        credits,
+        credit_balance,
     })
+}
+
+/// Claude Code's profile, `~/.claude.json`, which records the signed-in account's
+/// organization.
+const CLAUDE_PROFILE_REL: &str = ".claude.json";
+
+/// The signed-in Claude account's organization uuid, from Claude Code's profile.
+fn claude_organization() -> Option<String> {
+    let profile = read_json(&home_dir()?.join(CLAUDE_PROFILE_REL))?;
+    profile
+        .pointer("/oauthAccount/organizationUuid")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
+/// The organization's prepaid usage-credits balance, from the endpoint Claude
+/// Code's `/usage-credits` reads. Only asked for while credits are on.
+fn claude_credit_balance(token: &str) -> Option<CreditBalance> {
+    let organization = claude_organization()?;
+    let path = format!("/organizations/{organization}/prepaid/credits");
+    let body = curl_claude_oauth(&ClaudeOauthGet {
+        path: &path,
+        token,
+        organization: Some(&organization),
+    })?;
+    credit_balance(&serde_json::from_str(&body).ok()?)
+}
+
+/// Where a prepaid balance response states its amount — in money, or in credits.
+const BALANCE_KINDS: [&str; 2] = ["money", "credits"];
+
+/// The prepaid balance a `prepaid/credits` response describes: its minor-unit
+/// amount scaled by its own exponent, in its currency. `None` for any other shape.
+fn credit_balance(response: &serde_json::Value) -> Option<CreditBalance> {
+    let currency = response
+        .get("currency")
+        .and_then(serde_json::Value::as_str)?
+        .to_string();
+    let balance = response.get("balance")?;
+    let amount = BALANCE_KINDS.iter().find_map(|kind| {
+        let entry = balance.get(kind).filter(|entry| !entry.is_null())?;
+        let minor_units = i32::try_from(entry.get("amount_minor")?.as_i64()?).ok()?;
+        let exponent = i32::try_from(entry.get("exponent")?.as_u64()?).ok()?;
+        Some(f64::from(minor_units) / 10_f64.powi(exponent))
+    })?;
+    Some(CreditBalance { amount, currency })
 }
 
 /// Every rate-limit window the account response carries, in a stable order: the
@@ -598,24 +671,43 @@ fn is_safe_header_token(token: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
 }
 
-/// GET the usage endpoint via `curl`, feeding every header (incl. the bearer
-/// token) through a `--config` file on stdin so the token never appears in the
-/// process arguments. `--fail` turns an HTTP error status into a non-zero exit.
+/// One GET against a claude.ai OAuth endpoint: its path under
+/// [`CLAUDE_OAUTH_API`], the bearer token, and — for an organization-scoped
+/// endpoint — the organization uuid it is addressed to.
+struct ClaudeOauthGet<'request> {
+    path: &'request str,
+    token: &'request str,
+    organization: Option<&'request str>,
+}
+
+/// GET a claude.ai OAuth endpoint via `curl`, feeding every header (incl. the
+/// bearer token) through a `--config` file on stdin so the token never appears in
+/// the process arguments. `--fail` turns an HTTP error status into a non-zero exit.
 ///
-/// The token is interpolated into a quoted `header = "…"` config directive, so we
-/// reject anything outside the OAuth-token character set — see
+/// The token and organization uuid are interpolated into quoted config directives,
+/// so we reject anything outside the OAuth-token character set — see
 /// [`is_safe_header_token`].
-fn curl_oauth_usage(token: &str) -> Option<String> {
-    if !is_safe_header_token(token) {
+fn curl_claude_oauth(request: &ClaudeOauthGet) -> Option<String> {
+    let ClaudeOauthGet {
+        path,
+        token,
+        organization,
+    } = request;
+    let organization_is_safe = organization.is_none_or(is_safe_header_token);
+    if !is_safe_header_token(token) || !organization_is_safe {
         return None;
     }
 
+    let organization_header = organization.map_or_else(String::new, |organization| {
+        format!("header = \"x-organization-uuid: {organization}\"\n")
+    });
     let config = format!(
-        "silent\nshow-error\nfail\nmax-time = 12\nurl = \"{OAUTH_USAGE_URL}\"\n\
+        "silent\nshow-error\nfail\nmax-time = 12\nurl = \"{CLAUDE_OAUTH_API}{path}\"\n\
          header = \"Authorization: Bearer {token}\"\n\
          header = \"anthropic-beta: oauth-2025-04-20\"\n\
          header = \"User-Agent: {USAGE_UA}\"\n\
-         header = \"Content-Type: application/json\"\n"
+         header = \"Content-Type: application/json\"\n\
+         {organization_header}"
     );
     curl_get_json(&config)
 }
@@ -694,6 +786,7 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
         source: "oauth:chatgpt.com".to_string(),
         account: Some(BILLING_ACCOUNT_CHATGPT.to_string()),
         credits: None,
+        credit_balance: None,
     })
 }
 
@@ -908,6 +1001,7 @@ fn fetch_copilot_account_usage() -> Option<AccountUsage> {
         source: COPILOT_LOCAL_SOURCE.to_string(),
         account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
         credits: None,
+        credit_balance: None,
     })
 }
 
@@ -937,6 +1031,7 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
         source: "oauth:api.github.com".to_string(),
         account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
         credits: None,
+        credit_balance: None,
     })
 }
 
@@ -1117,6 +1212,7 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
         source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
         account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
         credits: None,
+        credit_balance: None,
     })
 }
 
@@ -1151,6 +1247,7 @@ fn fetch_cursor_account_usage() -> Option<AccountUsage> {
         source: "local:cursor".to_string(),
         account: Some(BILLING_ACCOUNT_CURSOR.to_string()),
         credits: None,
+        credit_balance: None,
     })
 }
 
@@ -1193,10 +1290,10 @@ fn auth_file_has_login(path: &std::path::Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        collect_codex_windows, collect_copilot_windows, collect_windows, credits_state,
-        humanize_key, humanize_window_seconds, is_safe_header_token, unix_seconds_to_iso8601,
-        usage_from_account, AccountUsage, CreditsState, HeadlineWindow, UsageAgent, UsageWindow,
-        UsageWindowKind, BILLING_ACCOUNT_GOOGLE,
+        collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
+        credits_state, humanize_key, humanize_window_seconds, is_safe_header_token,
+        unix_seconds_to_iso8601, usage_from_account, AccountUsage, CreditsState, HeadlineWindow,
+        UsageAgent, UsageWindow, UsageWindowKind, BILLING_ACCOUNT_GOOGLE,
     };
     use crate::agents::{ID_CODEX, ID_OPENCODE};
 
@@ -1322,6 +1419,59 @@ mod tests {
         });
 
         assert_eq!(credits_state(&response), Some(CreditsState::Off));
+    }
+
+    #[test]
+    fn a_prepaid_balance_reads_in_major_units() {
+        // The real `prepaid/credits` shape, probed live (trimmed of its tranches).
+        let response = serde_json::json!({
+            "amount": 4689,
+            "currency": "USD",
+            "balance": { "money": null, "credits": { "amount_minor": 4689, "exponent": 2 } },
+            "balance_credits": 46,
+            "auto_reload_settings": { "enabled": true }
+        });
+
+        let balance = credit_balance(&response).expect("a balance");
+
+        assert!((balance.amount - 46.89).abs() < 1e-9);
+        assert_eq!(balance.currency, "USD");
+    }
+
+    #[test]
+    fn a_money_balance_and_its_own_exponent_are_honored() {
+        let response = serde_json::json!({
+            "currency": "JPY",
+            "balance": { "money": { "amount_minor": 1200, "exponent": 0 }, "credits": null }
+        });
+
+        let balance = credit_balance(&response).expect("a balance");
+
+        assert!((balance.amount - 1200.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_body_without_a_balance_has_none() {
+        let error_body = serde_json::json!({ "error": { "message": "not found" } });
+        let no_amount =
+            serde_json::json!({ "currency": "USD", "balance": { "money": null, "credits": null } });
+
+        assert_eq!(credit_balance(&error_body), None);
+        assert_eq!(credit_balance(&no_amount), None);
+    }
+
+    #[test]
+    fn the_extra_usage_cap_is_the_credits_window() {
+        let response = serde_json::json!({
+            "extra_usage": { "is_enabled": true, "utilization": 56.665 },
+            "five_hour": { "utilization": 100.0 }
+        });
+
+        let windows = collect_windows(&response);
+
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].kind, UsageWindowKind::Session);
+        assert_eq!(windows[1].kind, UsageWindowKind::Credits);
     }
 
     #[test]
@@ -1569,6 +1719,7 @@ mod tests {
             source: "oauth:api.github.com".to_string(),
             account: None,
             credits: None,
+            credit_balance: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1602,6 +1753,7 @@ mod tests {
             source: "oauth:api.github.com".to_string(),
             account: None,
             credits: None,
+            credit_balance: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1635,6 +1787,7 @@ mod tests {
             source: "oauth:api.anthropic.com".to_string(),
             account: None,
             credits: None,
+            credit_balance: None,
             windows: vec![UsageWindow {
                 key: "five_hour".to_string(),
                 kind: UsageWindowKind::Session,
@@ -1661,6 +1814,7 @@ mod tests {
             windows: Vec::new(),
             account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
             credits: None,
+            credit_balance: None,
         };
 
         let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);

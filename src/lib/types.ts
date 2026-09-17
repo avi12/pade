@@ -274,10 +274,11 @@ export const Usage = z.object({
 export type Usage = z.infer<typeof Usage>;
 
 /** The semantic kind of a rate-limit window. The account endpoint returns a
- *  handful of named windows (the 5-hour session, the 7-day weekly all-models cap)
- *  plus any per-model caps; the backend classifies each. A named window it doesn't
- *  recognize arrives as `opaque` — surfaced honestly, never dropped. */
-export const UsageWindowKind = z.enum(["session", "weekly", "model", "opaque"]);
+ *  handful of named windows (the 5-hour session, the 7-day weekly all-models cap,
+ *  the monthly spend cap on usage credits) plus any per-model caps; the backend
+ *  classifies each. A named window it doesn't recognize arrives as `opaque` —
+ *  surfaced honestly, never dropped. */
+export const UsageWindowKind = z.enum(["session", "weekly", "model", "credits", "opaque"]);
 export type UsageWindowKind = z.infer<typeof UsageWindowKind>;
 
 /** One live rate-limit window mirrored from the same claude.ai OAuth usage
@@ -303,6 +304,14 @@ export type UsageWindow = z.infer<typeof UsageWindow>;
 export const CreditsState = z.enum(["off", "available", "unavailable"]);
 export type CreditsState = z.infer<typeof CreditsState>;
 
+/** A prepaid usage-credits balance: what's left, in the currency's major units. */
+const CreditBalance = z.object({
+  amount: z.number(),
+  /** ISO 4217 code (`USD`). */
+  currency: z.string()
+});
+export type CreditBalance = z.infer<typeof CreditBalance>;
+
 /** Live account usage — every rate-limit window the endpoint returns (session,
  *  weekly, and any per-model or other windows), plus the plan label. `null` when
  *  offline / the local token is missing or expired. */
@@ -317,7 +326,10 @@ export const AccountUsage = z.object({
   /** Whether usage credits are on and can carry work past an exhausted window —
    *  what lets a limit-stopped session continue before its reset. Absent for an
    *  account with no credits concept. */
-  credits: CreditsState.nullish()
+  credits: CreditsState.nullish(),
+  /** The prepaid usage-credits balance — present only while extra usage is on
+   *  (the backend reads it in that case alone). */
+  creditBalance: CreditBalance.nullish()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
 
