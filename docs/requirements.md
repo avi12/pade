@@ -182,6 +182,16 @@ writes.
   wait for the watcher to see it, end the session, and launch a successor seeded
   to resume from that doc. Opt-out via `prefs.autoHandoff` (default on).
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
+- R1.6a.2a ✅ **A handoff never severs background work.** Idle means the agent
+  itself reports nothing in flight — no turn, background agent or dynamic
+  workflow — read from its terminal title (`lib/stores/agentActivity.svelte.ts`;
+  Claude Code's `◐`/`◑` busy glyph vs its `✳` idle glyph), not just quiet output:
+  an unfocused Claude Code stops ticking its spinner, so a session waiting on a
+  workflow looks idle. Every handoff path — the threshold scan, the usage-recovery
+  `force`, and the MCP-change restart — waits for that report to clear, however
+  long, both before asking for the doc and before ending the session, and shows
+  a status note while it waits. An agent that announces no such glyph falls back
+  to the output-quiet gate alone.
 - R1.6a.3 ✅ **Consumed docs are retired** — once the successor finishes its
   first turn (it has certainly read the doc by then), the app deletes the
   `continue-*.md` via the narrow `handoff_doc_delete` seam (bare handoff-doc

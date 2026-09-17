@@ -1,3 +1,4 @@
+import { dropAgentActivity, observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
 import {
   createAutoHandoff,
   handoffDocName,
@@ -22,6 +23,10 @@ import {
 
 const bridgeMocks = vi.hoisted(() => ({
   kill: vi.fn<(id: string) => Promise<void>>(),
+  write: vi.fn<(options: {
+    id: string;
+    data: string;
+  }) => Promise<void>>(),
   probePath: vi.fn<(path: string) => Promise<{ isFile: boolean }>>(),
   deleteHandoffDoc: vi.fn<() => Promise<void>>()
 }));
@@ -32,7 +37,7 @@ vi.mock("@/lib/bridge", () => ({
   },
   pty: {
     kill: bridgeMocks.kill,
-    write: vi.fn()
+    write: bridgeMocks.write
   },
   usage: {
     get: vi.fn().mockResolvedValue(null)
@@ -353,5 +358,114 @@ describe("createAutoHandoff", () => {
 
     expect(spuriousRespawns).toBe(0);
     handoff.dispose();
+  });
+
+  it("holds a handoff until the agent's background work finishes", async () => {
+    const ESCAPE = "\u001b";
+    const BELL = "\u0007";
+    const predecessor: AgentSession = {
+      id: "workflow-session",
+      agent: {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude",
+        reordersBidi: true
+      },
+      cwd: "C:/repositories/pade"
+    };
+    let sessions = [predecessor];
+    const launched: string[] = [];
+    // A dynamic workflow is running: the session is quiet, but Claude Code's title
+    // still carries its busy glyph.
+    observeAgentActivity({
+      id: predecessor.id,
+      chunk: `${ESCAPE}]0;◐ Finish the curriculum repair${BELL}`
+    });
+
+    const handoff = createAutoHandoff({
+      sessions: () => sessions,
+      availableAgents: () => [predecessor.agent],
+      isOptedOut: () => false,
+      thresholdPercentage: () => 90,
+      slugSource: () => "pade",
+      projectDirectory: () => "C:/repositories/pade",
+      async endSession(id) {
+        await bridgeMocks.kill(id);
+      },
+      removeSession(id) {
+        sessions = sessions.filter(session => session.id !== id);
+      },
+      launchSuccessor() {
+        launched.push("successor");
+        return "successor-session";
+      }
+    });
+
+    handoff.force(predecessor);
+    await vi.waitFor(() => expect(handoff.note).toContain("once its running work finishes"));
+    expect(bridgeMocks.write).not.toHaveBeenCalled();
+    expect(bridgeMocks.kill).not.toHaveBeenCalled();
+
+    observeAgentActivity({
+      id: predecessor.id,
+      chunk: `${ESCAPE}]0;✳ Finish the curriculum repair${BELL}`
+    });
+    await vi.waitFor(() => expect(launched).toEqual(["successor"]));
+    expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id);
+
+    handoff.dispose();
+    dropAgentActivity(predecessor.id);
+  });
+
+  it("holds a near-limit session back in the scan while its agent reports work", async () => {
+    const ESCAPE = "\u001b";
+    const BELL = "\u0007";
+    const session: AgentSession = {
+      id: "scanned-session",
+      agent: {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude",
+        reordersBidi: true
+      },
+      cwd: "C:/repositories/pade"
+    };
+    observeAgentActivity({
+      id: session.id,
+      chunk: `${ESCAPE}]0;◑ Waiting on a workflow${BELL}`
+    });
+
+    const launched: string[] = [];
+    const handoff = createAutoHandoff({
+      sessions: () => [session],
+      availableAgents: () => [session.agent],
+      isOptedOut: () => false,
+      thresholdPercentage: () => 90,
+      slugSource: () => "pade",
+      projectDirectory: () => "C:/repositories/pade",
+      endSession: bridgeMocks.kill,
+      removeSession() {},
+      launchSuccessor() {
+        launched.push("successor");
+        return "successor-session";
+      }
+    });
+
+    handoff.check();
+    expect(handoff.note).toBe("Claude Code context at 100% — handing off once its running work finishes…");
+    await Promise.resolve();
+    expect(bridgeMocks.kill).not.toHaveBeenCalled();
+    expect(launched).toEqual([]);
+
+    observeAgentActivity({
+      id: session.id,
+      chunk: `${ESCAPE}]0;✳ Waiting on a workflow${BELL}`
+    });
+    handoff.check();
+    await vi.waitFor(() => expect(launched).toEqual(["successor"]));
+    expect(bridgeMocks.kill).toHaveBeenCalledWith(session.id);
+
+    handoff.dispose();
+    dropAgentActivity(session.id);
   });
 });

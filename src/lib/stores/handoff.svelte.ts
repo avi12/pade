@@ -8,8 +8,14 @@
 // selection, the settle-wait for the doc, resource teardown — while the app
 // shell supplies its session list, its available-agent pool and launch through
 // `HandoffHost` and drives the scan from a component `$effect`.
+//
+// A handoff ends the session, and with it everything the agent still has running
+// in the background — a dynamic workflow, background agents. So no handoff starts,
+// and none ends a session, while the agent itself reports work in flight
+// (lib/stores/agentActivity); it waits for that work to finish, however long.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
+import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.svelte";
 import { dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal-input";
@@ -227,9 +233,35 @@ function persistentMarker(sessionId: string): string {
   return `${HANDOFF_MARKER_PREFIX}${sessionId}`;
 }
 
+/** What the near-limit scan does with one session. */
+const ScanVerdict = {
+  leave: "leave",
+  holdBack: "hold-back",
+  handOff: "hand-off"
+} as const;
+type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
+
+/** The status line while a handoff waits for the agent's running work — a turn,
+ *  background agents, a dynamic workflow — to finish. */
+function waitingForWorkNote({ session, reason }: {
+  session: AgentSession;
+  reason: HandoffReason;
+}): string {
+  const agent = session.agent.label;
+  if (reason === HandoffReason.ConfigurationChange) {
+    return `MCP servers changed — ${agent} restarts once its running work finishes…`;
+  }
+
+  const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
+  return `${agent} context at ${measuredPercentage}% — handing off once its running work finishes…`;
+}
+
 export function createAutoHandoff(host: HandoffHost) {
   const handingOff = new SvelteSet<string>();
   let note = $state("");
+  // The scan's own line for a session over threshold that it holds back because
+  // the agent still has work running; an in-flight handoff's `note` wins over it.
+  let deferredNote = $state("");
 
   function markHandingOff(sessionId: string) {
     handingOff.add(sessionId);
@@ -389,6 +421,24 @@ export function createAutoHandoff(host: HandoffHost) {
     }
   }
 
+  // Hold the handoff until the agent reports no work in flight, so ending the
+  // session never severs a workflow or background agent it is still running.
+  // Resolves whether the session is still here to hand off.
+  async function waitForRunningWork({ session, reason }: {
+    session: AgentSession;
+    reason: HandoffReason;
+  }): Promise<boolean> {
+    if (agentReportsBusy(session.id)) {
+      note = waitingForWorkNote({
+        session,
+        reason
+      });
+      await whenAgentSettled(session.id);
+    }
+
+    return host.sessions().some(candidate => candidate.id === session.id);
+  }
+
   // Only cycle when there's quota to spare — a handoff itself costs tokens. An
   // unknown quota (tier-only) counts as "enough" so the feature still works.
   async function hasEnoughUsage(agent: string): Promise<boolean> {
@@ -404,6 +454,16 @@ export function createAutoHandoff(host: HandoffHost) {
     session: AgentSession;
     reason: HandoffReason;
   }) {
+    const stillHereBeforeRequest = await waitForRunningWork({
+      session,
+      reason
+    });
+    if (!stillHereBeforeRequest) {
+      unmarkHandingOff(session.id);
+      note = "";
+      return;
+    }
+
     // Same agent while it still has headroom; otherwise cross over to the first
     // other available agent that does. No agent with headroom → stay marked so we
     // don't re-check each tick; skip this cycle.
@@ -479,7 +539,18 @@ export function createAutoHandoff(host: HandoffHost) {
       }
     }
 
-    // 2. End the session, 3. start the successor seeded to continue.
+    // 2. End the session — once the agent has finished the handoff turn and
+    // anything it started meanwhile — 3. start the successor seeded to continue.
+    const stillHereBeforeEnd = await waitForRunningWork({
+      session,
+      reason
+    });
+    if (!stillHereBeforeEnd) {
+      unmarkHandingOff(session.id);
+      note = "";
+      return;
+    }
+
     const { cwd } = session;
     await host.endSession(session.id);
     host.removeSession(session.id);
@@ -599,52 +670,76 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
+  // What the scan does with one session: leave it, hold it back for the agent's
+  // running work, or start its handoff.
+  function scanVerdict(session: AgentSession): ScanVerdict {
+    // A handoff actively running in THIS module instance owns the session.
+    if (handingOff.has(session.id)) {
+      return ScanVerdict.leave;
+    }
+
+    // A persistent marker with no live handoff is one whose async flow died
+    // between marking and the kill/launch — a window reload, an HMR swap, or a
+    // crash mid-handoff. It leaves the session stranded: the doc is written but
+    // the id never reset, and the old code skipped it forever on that very
+    // marker. Resume instead — runHandoff's already-written probe short-circuits
+    // onto the doc it already wrote, straight to the reset. A session with no
+    // marker starts a fresh handoff only once it is over threshold.
+    const resuming = sessionStorage.getItem(persistentMarker(session.id)) !== null;
+    const percentage = measuredContextPercentage(session.id);
+    const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
+    if (!resuming && !nearLimit) {
+      return ScanVerdict.leave;
+    }
+
+    // Never cut in on the agent's own running work: a turn, or background agents
+    // and a dynamic workflow a quiet, `ready`-looking session is still waiting on.
+    // The agent reporting it done re-runs the scan.
+    if (agentReportsBusy(session.id)) {
+      return ScanVerdict.holdBack;
+    }
+
+    // Never cut in on a working agent — only reset one sitting idle.
+    const sittingIdle = sessionStatus(session.id) === SessionStatus.enum.ready;
+    return sittingIdle ? ScanVerdict.handOff : ScanVerdict.leave;
+  }
+
   // Scan for sessions to hand off: those newly over the context threshold, and any
   // whose earlier handoff was interrupted before it could reset.
   function check() {
     if (host.isOptedOut()) {
+      deferredNote = "";
       return;
     }
 
+    let heldBack = "";
     for (const session of host.sessions()) {
-      // A handoff actively running in THIS module instance owns the session.
-      if (handingOff.has(session.id)) {
+      const verdict = scanVerdict(session);
+      if (verdict === ScanVerdict.holdBack) {
+        heldBack ||= waitingForWorkNote({
+          session,
+          reason: HandoffReason.ContextLimit
+        });
         continue;
       }
 
-      // Never cut in on a working agent — only reset one sitting idle.
-      if (sessionStatus(session.id) !== SessionStatus.enum.ready) {
-        continue;
+      if (verdict === ScanVerdict.handOff) {
+        markHandingOff(session.id);
+        runHandoff({
+          session,
+          reason: HandoffReason.ContextLimit
+        });
       }
-
-      // A persistent marker with no live handoff is one whose async flow died
-      // between marking and the kill/launch — a window reload, an HMR swap, or a
-      // crash mid-handoff. It leaves the session stranded: the doc is written but
-      // the id never reset, and the old code skipped it forever on that very
-      // marker. Resume instead — runHandoff's already-written probe short-circuits
-      // onto the doc it already wrote, straight to the reset. A session with no
-      // marker starts a fresh handoff only once it is over threshold.
-      const resuming = sessionStorage.getItem(persistentMarker(session.id)) !== null;
-      if (!resuming) {
-        const percentage = measuredContextPercentage(session.id);
-        const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
-        if (!nearLimit) {
-          continue;
-        }
-      }
-
-      markHandingOff(session.id);
-      runHandoff({
-        session,
-        reason: HandoffReason.ContextLimit
-      });
     }
+
+    deferredNote = heldBack;
   }
 
   // Hand a session off right now — the usage-resume flow calls this at window
   // reset when the context is too full to just continue. Same single-flight
   // guard as the scan, none of its idle/threshold gates: the caller has
-  // already decided this session must cycle.
+  // already decided this session must cycle. It still waits for the agent's
+  // running work to finish before asking for the doc (see handoff).
   function force(session: AgentSession) {
     if (isHandingOff(session.id)) {
       return;
@@ -687,9 +782,10 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   return {
-    /** Status line shown while a handoff is in flight ("" when idle). */
+    /** Status line shown while a handoff is in flight or held back for the agent's
+     *  running work ("" when idle). */
     get note() {
-      return note;
+      return note || deferredNote;
     },
     check,
     force,
