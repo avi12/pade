@@ -183,14 +183,21 @@ writes.
   `continue-*.md` via the narrow `handoff_doc_delete` seam (bare handoff-doc
   names only), so completed handoffs never litter the project.
 - R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usageResume.svelte.ts`) —
-  the PTY sniffer spots the CLI's "limit reached" stop message (never the softer
-  "approaching" warning), confirms against the OAuth usage window (a healthy
-  window means stale scrollback), and schedules the session to resume when the
-  window resets (the API's to-the-second `resets_at` stamp first — the same
-  endpoint the usage meter reads — else the message's own "resets 3am" clock,
-  else a retry probe): **"continue"** into the same session while
-  its context has room, the **auto-handoff flow** when it doesn't. Opt-out via
-  `prefs.autoResume` (default on).
+  the sniffer spots the CLI's usage-limit stop in the PTY stream and the rendered
+  screen ("You've hit your session limit · resets 5:30pm", "limit reached", a
+  spend-capped stop, the rate_limit/429 failure — never the softer "approaching"
+  warning), confirms it against the agent's own account usage (a healthy window
+  means stale scrollback), then **waits — it never nudges a limited session**.
+  While waiting it re-reads the account every minute (the backend caches the
+  endpoint ~3 min) and continues the session **once**, the moment it can run
+  again: the window resets (the API's to-the-second `resets_at`; the message's
+  own clock only when the account is unreadable), or **usage credits are turned
+  on server-side** (`extra_usage` → `CreditsState.available`), which the CLI
+  itself never notices. If the agent's screen already shows a turn running ("esc
+  to interrupt" — its own auto-continue or the user got there first) nothing is
+  typed. Otherwise **"continue"** goes into the same session while its context
+  has room, the **auto-handoff flow** takes over when it doesn't.
+  Opt-out via `prefs.autoResume` (default on).
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,

@@ -26,7 +26,7 @@
   import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
-  import { observeUsageLimit } from "@/lib/stores/usageResume.svelte";
+  import { observeUsageLimit, observeUsageLimitScreen } from "@/lib/stores/usageResume.svelte";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
   import { isFindShortcut } from "@/lib/terminal-find";
   import { isPromptNewlineShortcut, pastedText, PROMPT_NEWLINE } from "@/lib/terminal-input";
@@ -792,9 +792,10 @@
     scheduleTerminalOutputFlush();
   }
 
-  // Context is derived from agent output, not viewport movement. Sampling after
-  // xterm has processed a write keeps mouse-wheel/scrollbar renders presentation-
-  // only while still reading the complete screen that cursor-motion TUIs paint.
+  // Context — and a usage-limit stop, with whether a turn is running — is derived
+  // from agent output, not viewport movement. Sampling after xterm has processed a
+  // write keeps mouse-wheel/scrollbar renders presentation-only while still reading
+  // the complete screen that cursor-motion TUIs paint.
   function observeContextScreenAfterWrite() {
     contextScreenTimer = undefined;
 
@@ -812,9 +813,14 @@
       }
     }
 
+    const screen = rows.join("\n");
     observeContextScreen({
       id: session.id,
-      text: rows.join("\n")
+      text: screen
+    });
+    observeUsageLimitScreen({
+      id: session.id,
+      text: screen
     });
   }
 
