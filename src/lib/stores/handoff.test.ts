@@ -475,6 +475,86 @@ describe("createAutoHandoff", () => {
     dropAgentActivity(predecessor.id);
   });
 
+  // The handoff doc is the whole session's work. Retiring it on anything short of
+  // the successor's own first turn is how one got deleted unread: the successor
+  // printed an update banner, rejected the model its account was configured for,
+  // and its boot output alone looked like a finished turn.
+  describe("retiring the handoff doc", () => {
+    const ESCAPE = "\u001b";
+    const BELL = "\u0007";
+    const predecessor: AgentSession = {
+      id: "old-session",
+      agent: {
+        id: "claude",
+        label: "Claude Code",
+        command: "claude",
+        reordersBidi: true
+      },
+      cwd: "C:/repositories/pade"
+    };
+
+    // The waits here are minutes long; fake timers run them in place.
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    function handoffTo(successorId: string) {
+      let sessions = [predecessor, {
+        ...predecessor,
+        id: successorId
+      }];
+      return createAutoHandoff({
+        sessions: () => sessions,
+        availableAgents: () => [predecessor.agent],
+        isOptedOut: () => false,
+        thresholdPercentage: () => 90,
+        slugSource: () => "pade",
+        projectDirectory: () => "C:/repositories/pade",
+        endSession: bridgeMocks.kill,
+        removeSession(id) {
+          sessions = sessions.filter(session => session.id !== id);
+        },
+        launchSuccessor: () => successorId
+      });
+    }
+
+    it("deletes the doc once the successor's own turn has finished", async () => {
+      const handoff = handoffTo("reading-successor");
+      handoff.force(predecessor);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id);
+
+      observeAgentActivity({
+        id: "reading-successor",
+        chunk: `${ESCAPE}]0;◐ Reading the handoff${BELL}`
+      });
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(bridgeMocks.deleteHandoffDoc).not.toHaveBeenCalled();
+
+      observeAgentActivity({
+        id: "reading-successor",
+        chunk: `${ESCAPE}]0;✳ Reading the handoff${BELL}`
+      });
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(bridgeMocks.deleteHandoffDoc).toHaveBeenCalled();
+
+      handoff.dispose();
+      dropAgentActivity("reading-successor");
+    });
+
+    it("keeps the doc when the successor never reports a turn", async () => {
+      const handoff = handoffTo("broken-successor");
+      handoff.force(predecessor);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id);
+
+      // Ten minutes of a successor that boots, errors and reports nothing.
+      await vi.advanceTimersByTimeAsync(11 * 60_000);
+      expect(bridgeMocks.deleteHandoffDoc).not.toHaveBeenCalled();
+
+      handoff.dispose();
+    });
+  });
+
   it("holds a near-limit session back in the scan while its agent reports work", async () => {
     const ESCAPE = "\u001b";
     const BELL = "\u0007";

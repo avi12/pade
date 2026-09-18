@@ -585,14 +585,17 @@ export function createAutoHandoff(host: HandoffHost) {
     });
     note = "";
 
-    // 4. The doc's job ends with the handoff: once the successor has finished
-    // its first turn (it has certainly read the doc by then), delete it so
-    // consumed handoffs never litter the project.
-    await waitForSuccessorSettled(successorId);
-    await workspace.deleteHandoffDoc({
-      dir: host.projectDirectory(),
-      name: doc
-    });
+    // 4. The doc's job ends once the successor has really used it, so consumed
+    // handoffs never litter the project. Anything short of that keeps the doc:
+    // losing a handoff nobody read costs the whole session's work, where a
+    // leftover file costs one `rm`.
+    const consumed = await waitForFirstTurn(successorId);
+    if (consumed) {
+      await workspace.deleteHandoffDoc({
+        dir: host.projectDirectory(),
+        name: doc
+      });
+    }
   }
 
   // Ask `session`'s agent to write its handoff doc and resolve once the doc is on
@@ -646,40 +649,32 @@ export function createAutoHandoff(host: HandoffHost) {
     }
   }
 
-  // Resolve once the successor has genuinely worked its first turn and gone ready
-  // — or the deadline passes, or it disappears. The doc is deleted the moment this
-  // resolves, so the "worked" test must be the REAL doc-reading turn, not a
-  // transient blip: a fresh session flips to `working` for a beat on boot, and
-  // again on each initial-prompt paste-echo, then settles back to `ready` within
-  // one poll. Counting a single such blip as "first turn done" deleted the handoff
-  // doc while the successor was still trying to read it — the reported "agent
-  // couldn't retrieve the file". So only SUSTAINED work — `working` on two
-  // consecutive polls — arms the settle; a doc-reading turn stays working across
-  // polls, while a boot/paste blip never spans two. A fast turn that we miss simply
-  // falls to the deadline, which deletes the doc long after it was safely consumed
-  // — late cleanup, never an early delete.
-  function waitForSuccessorSettled(id: string): Promise<void> {
+  // True once the successor has really run its first turn — the turn that reads
+  // the doc. Only the agent's OWN report counts (stores/agentActivity: busy while
+  // a turn runs, idle when it ends). PADE's session status can't stand in for it:
+  // it reads any output as work, and a successor that merely booted noisily and
+  // then fell over — a CLI printing an update banner and rejecting its configured
+  // model — looked exactly like a finished turn, which deleted the handoff doc it
+  // had never read. Anything else (an agent that reports no activity at all, a
+  // session that disappears, a first turn still running at the deadline) answers
+  // false, and the doc stays.
+  function waitForFirstTurn(id: string): Promise<boolean> {
     return new Promise(resolve => {
-      let consecutiveWorking = 0;
-      let sawSustainedWork = false;
+      let sawTurn = false;
       const startedAt = Date.now();
       function poll() {
-        const status = sessionStatus(id);
-        const gone = !host.sessions().some(session => session.id === id);
-        const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
-        if (status === SessionStatus.enum.working) {
-          consecutiveWorking += 1;
-
-          if (consecutiveWorking >= 2) {
-            sawSustainedWork = true;
-          }
-        } else {
-          consecutiveWorking = 0;
+        const busy = agentReportsBusy(id);
+        sawTurn ||= busy;
+        const turnFinished = sawTurn && !busy;
+        if (turnFinished) {
+          resolve(true);
+          return;
         }
 
-        const settled = sawSustainedWork && status === SessionStatus.enum.ready;
-        if (settled || gone || expired) {
-          resolve();
+        const gone = !host.sessions().some(session => session.id === id);
+        const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
+        if (gone || expired) {
+          resolve(false);
           return;
         }
 

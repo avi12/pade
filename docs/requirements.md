@@ -197,10 +197,15 @@ writes.
   long, both before asking for the doc and before ending the session, and shows
   a status note while it waits. An agent that announces no such glyph falls back
   to the output-quiet gate alone.
-- R1.6a.3 ✅ **Consumed docs are retired** — once the successor finishes its
-  first turn (it has certainly read the doc by then), the app deletes the
-  `continue-*.md` via the narrow `handoff_doc_delete` seam (bare handoff-doc
-  names only), so completed handoffs never litter the project.
+- R1.6a.3 ✅ **Consumed docs are retired — and only consumed ones** — when the
+  successor's own activity report shows its first turn ran and finished (it has
+  certainly read the doc by then), the app deletes the `continue-*.md` via the
+  narrow `handoff_doc_delete` seam (bare handoff-doc names only), so completed
+  handoffs never litter the project. Nothing else retires a doc: a successor that
+  reports no turn — an agent that announces no activity, one that fell over on
+  boot (a CLI rejecting the model its account is configured for), a session that
+  disappears, a first turn still running at the deadline — keeps its doc, because
+  a handoff deleted unread costs the whole session's work.
 - R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usageResume.svelte.ts`) —
   the sniffer spots the CLI's usage-limit stop in the PTY stream and the rendered
   screen ("You've hit your session limit · resets 5:30pm", "limit reached", a
