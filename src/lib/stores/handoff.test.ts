@@ -176,12 +176,21 @@ describe("hasUsageHeadroom", () => {
     ).toBe(true);
   });
 
-  it("counts a spent quota as headroom while usage credits carry it", () => {
+  it("keeps an agent whose quota is nearly — but not fully — spent", () => {
     // What sent a handoff to another agent while Claude could still work: its
-    // weekly cap read 96%, but extra usage was on with room under its own cap.
+    // weekly cap read 96%, which is quota left, not quota gone.
     expect(
       hasUsageHeadroom({
         usedPercentage: 96,
+        credits: CreditsState.enum.off
+      })
+    ).toBe(true);
+  });
+
+  it("counts a spent quota as headroom while usage credits carry it", () => {
+    expect(
+      hasUsageHeadroom({
+        usedPercentage: 100,
         credits: CreditsState.enum.available
       })
     ).toBe(true);
@@ -190,7 +199,7 @@ describe("hasUsageHeadroom", () => {
   it("has none when the quota is spent and credits cannot carry it", () => {
     expect(
       hasUsageHeadroom({
-        usedPercentage: 96,
+        usedPercentage: 100,
         credits: CreditsState.enum.unavailable
       })
     ).toBe(false);

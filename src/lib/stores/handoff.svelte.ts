@@ -32,7 +32,10 @@ const HANDOFF_SETTLE_MS = 3_000;
 // for a doc the change feed ignores (so the cycle proceeds seconds after the
 // write, not on the full timeout).
 const HANDOFF_DOC_POLL_MS = 1_000;
-const USAGE_EXHAUSTED_PERCENTAGE = 95;
+// A quota counts as spent only when the vendor says it is fully spent. Anything
+// below that is still usable: a weekly cap at 96% has work left in it, and
+// changing agents over it costs far more than the few percent it saves.
+const USAGE_SPENT_PERCENTAGE = 100;
 // After pasting the request, let the composer SETTLE, then re-send the submitting
 // Enter until the agent is seen working. A TUI's post-paste guard swallows any
 // Enter that arrives in the same burst as the paste — and Codex's guard outlasts a
@@ -132,9 +135,11 @@ export function successorPrompt(doc: string): string {
 }
 
 /** Whether an agent can still do work: its headline quota isn't spent, or usage
- *  credits carry it past that cap (an exhausted weekly window is no obstacle
- *  while extra usage is on and has room). An unknown quota — a tier-label account
- *  with no numbers — counts as "enough" so the feature still works. */
+ *  credits carry it past that cap (a spent weekly window is no obstacle while
+ *  extra usage is on and has room). An unknown quota — a tier-label account with
+ *  no numbers — counts as "enough" so the feature still works. This is what keeps
+ *  a handoff with the same agent: only an agent that truly cannot work hands its
+ *  session to a different one. */
 export function hasUsageHeadroom({ usedPercentage, credits }: {
   usedPercentage: number | null | undefined;
   credits: CreditsState | null | undefined;
@@ -143,7 +148,7 @@ export function hasUsageHeadroom({ usedPercentage, credits }: {
     return true;
   }
 
-  const quotaLeft = usedPercentage < USAGE_EXHAUSTED_PERCENTAGE;
+  const quotaLeft = usedPercentage < USAGE_SPENT_PERCENTAGE;
   return quotaLeft || credits === CreditsState.enum.available;
 }
 

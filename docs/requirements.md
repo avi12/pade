@@ -183,8 +183,9 @@ writes.
   to resume from that doc. Opt-out via `prefs.autoHandoff` (default on).
   The successor is the **same agent** while it has usage headroom, and only
   crosses over to another installed agent when it doesn't. Headroom means its
-  headline quota is under 95% **or usage credits can carry it past that cap** —
-  an exhausted weekly window with extra usage on is no reason to change agent.
+  headline quota is **not fully spent** (96% used is quota left, not quota gone)
+  **or usage credits can carry it past that cap** — only an agent that truly
+  cannot work hands its session to a different one.
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
 - R1.6a.2a ✅ **A handoff never severs background work.** Idle means the agent
   itself reports nothing in flight — no turn, background agent or dynamic
