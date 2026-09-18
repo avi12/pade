@@ -241,7 +241,9 @@ function formatBalance(balance: CreditBalance | null | undefined): string {
 
   return new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: balance.currency
+    currency: balance.currency,
+    // The bare symbol: a locale away from the currency's home spells it "US$124.72".
+    currencyDisplay: "narrowSymbol"
   }).format(balance.amount);
 }
 
