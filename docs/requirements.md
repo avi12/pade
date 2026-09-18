@@ -181,6 +181,10 @@ writes.
   (usage gate), **hand off automatically**: ask it to write `continue-<slug>.md`,
   wait for the watcher to see it, end the session, and launch a successor seeded
   to resume from that doc. Opt-out via `prefs.autoHandoff` (default on).
+  The successor is the **same agent** while it has usage headroom, and only
+  crosses over to another installed agent when it doesn't. Headroom means its
+  headline quota is under 95% **or usage credits can carry it past that cap** —
+  an exhausted weekly window with extra usage on is no reason to change agent.
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
 - R1.6a.2a ✅ **A handoff never severs background work.** Idle means the agent
   itself reports nothing in flight — no turn, background agent or dynamic

@@ -6,11 +6,13 @@ import {
   HandoffReason,
   handoffRequestBody,
   handoffSlug,
+  hasUsageHeadroom,
   pickHandoffSuccessor,
   pickSuccessor,
   successorPrompt
 } from "@/lib/stores/handoff.svelte";
 import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal-input";
+import { CreditsState } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import {
   afterEach,
@@ -40,7 +42,8 @@ vi.mock("@/lib/bridge", () => ({
     write: bridgeMocks.write
   },
   usage: {
-    get: vi.fn().mockResolvedValue(null)
+    get: vi.fn().mockResolvedValue(null),
+    accountFor: vi.fn().mockResolvedValue(null)
   },
   workspace: {
     probePath: bridgeMocks.probePath,
@@ -160,6 +163,52 @@ describe("handoff prompts", () => {
     expect(successorPrompt(documentName)).toBe(
       `Read ${documentName} to continue the work where the previous session left off.`
     );
+  });
+});
+
+describe("hasUsageHeadroom", () => {
+  it("keeps an agent whose quota still has room", () => {
+    expect(
+      hasUsageHeadroom({
+        usedPercentage: 93,
+        credits: CreditsState.enum.off
+      })
+    ).toBe(true);
+  });
+
+  it("counts a spent quota as headroom while usage credits carry it", () => {
+    // What sent a handoff to another agent while Claude could still work: its
+    // weekly cap read 96%, but extra usage was on with room under its own cap.
+    expect(
+      hasUsageHeadroom({
+        usedPercentage: 96,
+        credits: CreditsState.enum.available
+      })
+    ).toBe(true);
+  });
+
+  it("has none when the quota is spent and credits cannot carry it", () => {
+    expect(
+      hasUsageHeadroom({
+        usedPercentage: 96,
+        credits: CreditsState.enum.unavailable
+      })
+    ).toBe(false);
+    expect(
+      hasUsageHeadroom({
+        usedPercentage: 100,
+        credits: null
+      })
+    ).toBe(false);
+  });
+
+  it("treats an unknown quota as enough", () => {
+    expect(
+      hasUsageHeadroom({
+        usedPercentage: null,
+        credits: null
+      })
+    ).toBe(true);
   });
 });
 

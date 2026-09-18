@@ -19,7 +19,7 @@ import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.s
 import { dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal-input";
-import { SessionStatus } from "@/lib/types";
+import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -129,6 +129,22 @@ export function handoffPrompt({ doc, reason }: {
  *  submitting ENTER itself (see panels/Terminal.svelte, lib/initial-prompt). */
 export function successorPrompt(doc: string): string {
   return `Read ${doc} to continue the work where the previous session left off.`;
+}
+
+/** Whether an agent can still do work: its headline quota isn't spent, or usage
+ *  credits carry it past that cap (an exhausted weekly window is no obstacle
+ *  while extra usage is on and has room). An unknown quota — a tier-label account
+ *  with no numbers — counts as "enough" so the feature still works. */
+export function hasUsageHeadroom({ usedPercentage, credits }: {
+  usedPercentage: number | null | undefined;
+  credits: CreditsState | null | undefined;
+}): boolean {
+  if (usedPercentage == null) {
+    return true;
+  }
+
+  const quotaLeft = usedPercentage < USAGE_EXHAUSTED_PERCENTAGE;
+  return quotaLeft || credits === CreditsState.enum.available;
 }
 
 /** Pick the agent that should take over. The current agent stays on while it
@@ -439,15 +455,14 @@ export function createAutoHandoff(host: HandoffHost) {
     return host.sessions().some(candidate => candidate.id === session.id);
   }
 
-  // Only cycle when there's quota to spare — a handoff itself costs tokens. An
-  // unknown quota (tier-only) counts as "enough" so the feature still works.
+  // Only cycle when there's quota to spare — a handoff itself costs tokens.
   async function hasEnoughUsage(agent: string): Promise<boolean> {
     const quota = await usage.get(agent).catch(() => null);
-    if (!quota || quota.usedPct == null) {
-      return true;
-    }
-
-    return quota.usedPct < USAGE_EXHAUSTED_PERCENTAGE;
+    const account = await usage.accountFor({ agent }).catch(() => null);
+    return hasUsageHeadroom({
+      usedPercentage: quota?.usedPct,
+      credits: account?.credits
+    });
   }
 
   async function handoff({ session, reason }: {
