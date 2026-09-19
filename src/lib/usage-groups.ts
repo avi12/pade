@@ -11,7 +11,7 @@
 
 import { agentIconName } from "@/lib/agent-icon";
 import type { IconName } from "@/lib/Icon.svelte";
-import { SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
+import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type {
   AccountUsage,
   Agent,
@@ -42,6 +42,11 @@ export type Limit = {
   /** The prepaid usage-credits balance ("$46.89") on the credits row; empty on
    *  every other row, and whenever extra usage is off. */
   balance: string;
+  /** Whether this limit is the extra usage that can carry work past a spent
+   *  window — the credits row while credits are on and usable. False on every
+   *  other row, and on a credits row that is off or held back, which carries
+   *  nothing and so never outranks the window that stopped. */
+  carriesWork: boolean;
 };
 
 export type AgentGroup = {
@@ -184,12 +189,99 @@ function shortName(label: string): string {
   return label.replace(/\s+(code|cli)$/i, "").trim() || label;
 }
 
+/** A quota counts as spent only when the vendor says it is fully spent. Anything
+ *  below that is still usable: a weekly cap at 96% has work left in it, and
+ *  moving that work elsewhere costs far more than the few percent it saves. */
+export const USAGE_SPENT_PERCENTAGE = 100;
+
+// Where a limit sits in the "what actually stops work" order, which the meter
+// ranks by before it ranks by percentage.
+const LimitPriority = {
+  /** Extra usage while every real window still has room: spending credits never
+   *  stops an agent, so a part-spent spend cap is not what anyone is about to
+   *  hit — 79% of the monthly spend beside a session window at 44% is headroom. */
+  headroom: 0,
+  /** A session / weekly / per-model window: the real walls. */
+  window: 1,
+  /** Extra usage once a real window IS spent and credits carry the work: the
+   *  spend cap is then the last thing between the agent and a stop. */
+  carrying: 2
+} as const;
+
+type LimitPriorityValue = (typeof LimitPriority)[keyof typeof LimitPriority];
+
+function limitPriority({ limit, limits }: {
+  limit: Limit;
+  limits: Limit[];
+}): LimitPriorityValue {
+  const isCreditsCap = limit.kind === UsageWindowKind.enum.credits;
+  if (!isCreditsCap) {
+    return LimitPriority.window;
+  }
+
+  const spentWindowRidesOnCredits = limit.carriesWork
+    && limits.some(other => other.kind !== UsageWindowKind.enum.credits
+      && other.percentage >= USAGE_SPENT_PERCENTAGE);
+  return spentWindowRidesOnCredits ? LimitPriority.carrying : LimitPriority.headroom;
+}
+
+// A limit paired with its priority, so the ranking below is written once and
+// reused across agents (the spotlight compares each agent's winner).
+type RankedLimit = {
+  limit: Limit;
+  priority: LimitPriorityValue;
+};
+
+function rank({ limit, limits }: {
+  limit: Limit;
+  limits: Limit[];
+}): RankedLimit {
+  return {
+    limit,
+    priority: limitPriority({
+      limit,
+      limits
+    })
+  };
+}
+
+// The one comparison behind every "worst" in this module: priority first, then
+// the more-consumed limit.
+function outranks({ candidate, incumbent }: {
+  candidate: RankedLimit;
+  incumbent: RankedLimit;
+}): boolean {
+  if (candidate.priority !== incumbent.priority) {
+    return candidate.priority > incumbent.priority;
+  }
+
+  return candidate.limit.percentage > incumbent.limit.percentage;
+}
+
+function worstRanked(limits: Limit[]): RankedLimit | null {
+  let worst: RankedLimit | null = null;
+  for (const limit of limits) {
+    const candidate = rank({
+      limit,
+      limits
+    });
+    if (!worst || outranks({
+      candidate,
+      incumbent: worst
+    })) {
+      worst = candidate;
+    }
+  }
+
+  return worst;
+}
+
 /** The worst-consumed limit in a set — drives an agent's chip/pill color and the
- *  panel's "closest to a limit" signal. `null` for an agent with no limits. */
+ *  panel's "closest to a limit" signal. Ranked by `LimitPriority` before
+ *  percentage, so extra usage never crowds out the windows that actually stop
+ *  work. `null` for an agent with no limits. */
 export function worstLimit(limits: Limit[]): Limit | null {
-  return limits.length > 0
-    ? limits.reduce((maximum, limit) => (limit.percentage > maximum.percentage ? limit : maximum))
-    : null;
+  return worstRanked(limits)?.limit ?? null;
 }
 
 // A window's presentation for the meter: its display label, sub-caption, and
@@ -282,6 +374,7 @@ function buildLimits({ account, now }: {
       kind: window.kind,
       kindShort: presentation.kindShort,
       balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
+      carriesWork: isCreditsCap && account.credits === CreditsState.enum.available,
       percentage: value,
       level: limitLevel(value),
       reset: resetCountdown({
@@ -436,18 +529,22 @@ export type Spotlight = {
 
 export function findSpotlight(agents: AgentGroup[]): Spotlight | null {
   let closest: Spotlight | null = null;
+  let closestRanked: RankedLimit | null = null;
   for (const agent of agents) {
-    if (agent.limits.length === 0) {
+    const candidate = worstRanked(agent.limits);
+    if (!candidate) {
       continue;
     }
 
-    for (const limit of agent.limits) {
-      if (!closest || limit.percentage > closest.limit.percentage) {
-        closest = {
-          agent,
-          limit
-        };
-      }
+    if (!closestRanked || outranks({
+      candidate,
+      incumbent: closestRanked
+    })) {
+      closestRanked = candidate;
+      closest = {
+        agent,
+        limit: candidate.limit
+      };
     }
   }
 

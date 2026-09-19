@@ -21,6 +21,7 @@ import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
+import { USAGE_SPENT_PERCENTAGE } from "@/lib/usage-groups";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -32,10 +33,6 @@ const HANDOFF_SETTLE_MS = 3_000;
 // for a doc the change feed ignores (so the cycle proceeds seconds after the
 // write, not on the full timeout).
 const HANDOFF_DOC_POLL_MS = 1_000;
-// A quota counts as spent only when the vendor says it is fully spent. Anything
-// below that is still usable: a weekly cap at 96% has work left in it, and
-// changing agents over it costs far more than the few percent it saves.
-const USAGE_SPENT_PERCENTAGE = 100;
 // After pasting the request, let the composer SETTLE, then re-send the submitting
 // Enter until the agent is seen working. A TUI's post-paste guard swallows any
 // Enter that arrives in the same burst as the paste — and Codex's guard outlasts a

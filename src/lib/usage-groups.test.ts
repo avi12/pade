@@ -529,6 +529,99 @@ describe("panel view-model skips unknown agents", () => {
     expect(spotlight?.limit.percentage).toBe(96);
   });
 
+  describe("extra usage against the real windows", () => {
+    function claudeWith({ sessionPercentage, creditsPercentage, credits }: {
+      sessionPercentage: number;
+      creditsPercentage: number;
+      credits?: CreditsState;
+    }) {
+      return buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            credits: credits ?? CreditsState.enum.available,
+            windows: [
+              sessionWindow({ utilization: sessionPercentage }),
+              weeklyWindow({ utilization: 18 }),
+              {
+                key: "extra_usage",
+                kind: UsageWindowKind.enum.credits,
+                label: "Extra usage",
+                utilization: creditsPercentage
+              }
+            ]
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+    }
+
+    // Spending credits never stops the agent, so a part-spent spend cap is not
+    // what anyone is about to hit — the session window at 44% is.
+    it("spotlights the session window over a part-spent credits cap", () => {
+      const spotlight = findSpotlight(
+        claudeWith({
+          sessionPercentage: 44,
+          creditsPercentage: 79
+        })
+      );
+
+      expect(spotlight?.limit.kind).toBe(UsageWindowKind.enum.session);
+      expect(spotlight?.limit.percentage).toBe(44);
+    });
+
+    it("leaves the agent healthy while only extra usage is high", () => {
+      const slices = severityBreakdown(
+        claudeWith({
+          sessionPercentage: 44,
+          creditsPercentage: 79
+        })
+      );
+
+      expect(
+        countAt({
+          slices,
+          level: "normal"
+        })
+      ).toBe(1);
+      expect(
+        countAt({
+          slices,
+          level: "warn"
+        })
+      ).toBe(0);
+    });
+
+    // Once a real window is out, the credits carrying the work ARE the last thing
+    // between the agent and a stop, so the spend cap takes the spotlight.
+    it("spotlights extra usage once a real window is spent", () => {
+      const spotlight = findSpotlight(
+        claudeWith({
+          sessionPercentage: 100,
+          creditsPercentage: 79
+        })
+      );
+
+      expect(spotlight?.limit.kind).toBe(UsageWindowKind.enum.credits);
+      expect(spotlight?.limit.percentage).toBe(79);
+    });
+
+    // Credits that are off or held back carry nothing, so the spent window is
+    // still the wall.
+    it("keeps the spent window in the spotlight when credits cannot carry it", () => {
+      const spotlight = findSpotlight(
+        claudeWith({
+          sessionPercentage: 100,
+          creditsPercentage: 79,
+          credits: CreditsState.enum.off
+        })
+      );
+
+      expect(spotlight?.limit.kind).toBe(UsageWindowKind.enum.session);
+      expect(spotlight?.limit.percentage).toBe(100);
+    });
+  });
+
   it("builds the kind legend only from agents with limits", () => {
     const legend = buildKindLegend(groups);
 
