@@ -571,7 +571,7 @@
           <span class="save-title">Save this workspace</span>
           <button
             class="save-relabel"
-            data-tooltip="Rename it in PADE only — the folder keeps its path"
+            {@attach tooltip("Rename it in PADE only — the folder keeps its path")}
             onclick={() => {
               relabelTarget = path;
             }}
