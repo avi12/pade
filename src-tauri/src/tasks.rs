@@ -4,14 +4,15 @@
 //! list `naming.rs` walks by) for the manifests it understands, extracts each
 //! one's runnable tasks, and hands the frontend a run command per task.
 //! Monorepo-aware (one group per manifest found) and multi-language: npm,
-//! cargo, make, python, cmake, dotnet, msbuild, go, gradle and maven.
+//! cargo, make, python, cmake (lists and presets), meson, ninja, bazel, xmake,
+//! premake, scons, qmake, dotnet, msbuild, go, gradle and maven.
 //! Read-only; nothing is executed here — the UI opens a terminal.
 
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::util::is_noise_directory;
+use crate::util::{is_noise_directory, is_on_path, read_jsonc};
 
 /// One runnable task: a display `name` and the shell `command` that runs it.
 #[derive(Serialize)]
@@ -29,8 +30,9 @@ pub struct TaskGroup {
     manifest: String,
     /// Absolute directory the tasks run in.
     dir: String,
-    /// Manifest family: "npm" | "cargo" | "make" | "python" | "cmake" |
-    /// "dotnet" | "msbuild" | "go" | "gradle" | "maven".
+    /// Manifest family: "npm" | "cargo" | "make" | "python" | "cmake" | "meson"
+    /// | "ninja" | "bazel" | "xmake" | "premake" | "scons" | "qmake" | "dotnet"
+    /// | "msbuild" | "go" | "gradle" | "maven".
     kind: String,
     tasks: Vec<Task>,
 }
@@ -68,12 +70,20 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
 }
 
 /// Describe every manifest understood by [`tasks_list`], in discovery order.
+/// Deduplicated: two families can recognise the same token — a solution is read
+/// by both the .NET and the MSVC extractor — and the frontend wants the tokens,
+/// not the registry rows.
 #[tauri::command]
 pub fn tasks_descriptors() -> Vec<TaskManifestDescriptor> {
-    MANIFESTS
-        .iter()
-        .flat_map(|definition| definition.matcher.descriptors())
-        .collect()
+    let mut descriptors: Vec<TaskManifestDescriptor> = Vec::new();
+    for definition in MANIFESTS {
+        for descriptor in definition.matcher.descriptors() {
+            if !descriptors.contains(&descriptor) {
+                descriptors.push(descriptor);
+            }
+        }
+    }
+    descriptors
 }
 
 /// Walk the project (bounded depth, skipping noise) and yield every directory
@@ -152,8 +162,10 @@ struct ManifestDefinition {
 }
 
 /// A solution names its projects instead of holding them, so both the .NET and
-/// the MSVC family can claim one; each extractor reads it to decide.
+/// the MSVC family can claim one; each extractor reads it to decide. `.slnx` is
+/// the newer XML form of the same file.
 const SOLUTION_EXTENSION: &str = ".sln";
+const SOLUTION_EXTENSIONS: &[&str] = &[SOLUTION_EXTENSION, ".slnx"];
 /// Native C++ projects build through `MSBuild` — `dotnet` cannot build one.
 const NATIVE_PROJECT_EXTENSION: &str = ".vcxproj";
 
@@ -184,12 +196,56 @@ const MANIFESTS: &[ManifestDefinition] = &[
         extract: cmake_tasks,
     },
     ManifestDefinition {
-        matcher: ManifestMatch::Extensions(&[SOLUTION_EXTENSION, ".csproj", ".fsproj"]),
+        matcher: ManifestMatch::Names(&["CMakePresets.json", "CMakeUserPresets.json"]),
+        kind: "cmake",
+        extract: cmake_preset_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["meson.build"]),
+        kind: "meson",
+        extract: meson_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["build.ninja"]),
+        kind: "ninja",
+        extract: ninja_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["MODULE.bazel", "WORKSPACE.bazel", "WORKSPACE"]),
+        kind: "bazel",
+        extract: bazel_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["xmake.lua"]),
+        kind: "xmake",
+        extract: xmake_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["premake5.lua"]),
+        kind: "premake",
+        extract: premake_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["SConstruct"]),
+        kind: "scons",
+        extract: scons_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Extensions(&[".pro"]),
+        kind: "qmake",
+        extract: qmake_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Extensions(&[".sln", ".slnx", ".csproj", ".fsproj", ".vbproj"]),
         kind: "dotnet",
         extract: dotnet_tasks,
     },
     ManifestDefinition {
-        matcher: ManifestMatch::Extensions(&[NATIVE_PROJECT_EXTENSION, SOLUTION_EXTENSION]),
+        matcher: ManifestMatch::Extensions(&[
+            NATIVE_PROJECT_EXTENSION,
+            SOLUTION_EXTENSION,
+            ".slnx",
+        ]),
         kind: "msbuild",
         extract: msbuild_tasks,
     },
@@ -433,13 +489,16 @@ fn quoted_file_name(path: &Path) -> String {
     format!("\"{name}\"")
 }
 
-/// Whether a path ends in `extension` (given lowercased, dot included).
-fn has_extension(path: &Path, extension: &str) -> bool {
-    path.file_name().is_some_and(|name| {
-        name.to_string_lossy()
-            .to_ascii_lowercase()
-            .ends_with(extension)
-    })
+/// Whether a path is a solution file — the `.sln` a project list lives in, or
+/// its newer `.slnx` form.
+fn is_solution(path: &Path) -> bool {
+    let Some(name) = path.file_name() else {
+        return false;
+    };
+    let name = name.to_string_lossy().to_ascii_lowercase();
+    SOLUTION_EXTENSIONS
+        .iter()
+        .any(|extension| name.ends_with(extension))
 }
 
 /// Whether a solution lists a native C++ project. A `.sln` is just a list of
@@ -456,24 +515,99 @@ fn references_native_project(path: &Path) -> bool {
 /// Only a list that declares its own `project()` is a buildable root; the ones
 /// `add_subdirectory` pulls in are part of their parent's build, and offering
 /// to configure those would hand the user three commands that fail.
+///
+/// Release reaches the two generator families at different moments: a
+/// single-config generator (Makefiles, Ninja) takes the build type at configure
+/// time, a multi-config one (Visual Studio) at build time — and each ignores the
+/// other's spelling, so both are offered. `ctest` needs the configuration named
+/// on a multi-config tree, or it finds no tests at all.
 fn cmake_tasks(path: &Path) -> Vec<Task> {
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return Vec::new();
-    };
-    if !declares_cmake_project(&text) {
+    if !declares_project(path) {
         return Vec::new();
     }
+    let test = if cfg!(windows) {
+        "ctest --test-dir build -C Debug"
+    } else {
+        "ctest --test-dir build"
+    };
     vec![
         task("configure", "cmake -S . -B build".to_string()),
+        task(
+            "configure (Release)",
+            "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release".to_string(),
+        ),
         task("build", "cmake --build build".to_string()),
-        task("test", "ctest --test-dir build".to_string()),
+        task(
+            "build (Release)",
+            "cmake --build build --config Release".to_string(),
+        ),
+        task("test", test.to_string()),
     ]
 }
 
-/// The pure scan behind [`cmake_tasks`]: whether `CMake` text calls `project(…)`
-/// outside a comment. `CMake` commands are case-insensitive and may put space
-/// before the parenthesis.
-fn declares_cmake_project(text: &str) -> bool {
+/// `CMakePresets.json` / `CMakeUserPresets.json` — the configurations the
+/// project itself declares. A preset already carries its generator, build type
+/// and cache, so it is a truer "build this project" than the generic trio
+/// above. Hidden presets are the building blocks other presets inherit from,
+/// never a configuration anyone selects.
+fn cmake_preset_tasks(path: &Path) -> Vec<Task> {
+    let Some(json) = read_jsonc(path) else {
+        return Vec::new();
+    };
+    let mut tasks = Vec::new();
+    for (field, verb, command) in [
+        ("configurePresets", "configure", "cmake --preset"),
+        ("buildPresets", "build", "cmake --build --preset"),
+        ("testPresets", "test", "ctest --preset"),
+    ] {
+        let Some(presets) = json.get(field).and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        for preset in presets {
+            let is_hidden = preset
+                .get("hidden")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let Some(name) = preset.get("name").and_then(serde_json::Value::as_str) else {
+                continue;
+            };
+            if is_hidden || name.is_empty() {
+                continue;
+            }
+            tasks.push(task(
+                &format!("{verb} ({name})"),
+                format!("{command} \"{name}\""),
+            ));
+        }
+    }
+    tasks
+}
+
+/// `meson.build` — set up a `build/` tree, compile it, run its tests. Same
+/// shape as `CMake`, including the rule that a `subdir()` child is not a root.
+fn meson_tasks(path: &Path) -> Vec<Task> {
+    if !declares_project(path) {
+        return Vec::new();
+    }
+    vec![
+        task("setup", "meson setup build".to_string()),
+        task("compile", "meson compile -C build".to_string()),
+        task("test", "meson test -C build".to_string()),
+    ]
+}
+
+/// Whether a `CMake` or `Meson` file declares its own `project(…)` outside a
+/// comment — both spell a build root the same way, are case-insensitive, and
+/// allow a space before the parenthesis.
+fn declares_project(path: &Path) -> bool {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    text_declares_project(&text)
+}
+
+/// The pure scan behind [`declares_project`].
+fn text_declares_project(text: &str) -> bool {
     text.lines()
         .map(str::trim_start)
         .filter(|line| !line.starts_with('#'))
@@ -485,20 +619,148 @@ fn declares_cmake_project(text: &str) -> bool {
         .any(|rest| rest.trim_start().starts_with('('))
 }
 
-/// A `.sln`, `.csproj` or `.fsproj` — the standard `dotnet` verbs against that
-/// one file. A solution has no single entry point to `run`, and a solution of
-/// native C++ projects is `MSBuild`'s, not the SDK's.
+/// A generated `build.ninja` — the build it describes, and its clean tool. It
+/// usually sits in a build directory the scan prunes, so this surfaces only
+/// where a project keeps its ninja file in the tree.
+fn ninja_tasks(_path: &Path) -> Vec<Task> {
+    vec![
+        task("build", "ninja".to_string()),
+        task("clean", "ninja -t clean".to_string()),
+    ]
+}
+
+/// `MODULE.bazel` / `WORKSPACE` — the workspace-wide verbs. `//...` is every
+/// target in the workspace, which is what a workspace-level build means; `run`
+/// needs one named target, so it stays the user's to type.
+fn bazel_tasks(_path: &Path) -> Vec<Task> {
+    [
+        ("build", "bazel build //..."),
+        ("test", "bazel test //..."),
+        ("clean", "bazel clean"),
+    ]
+    .into_iter()
+    .map(|(name, command)| task(name, command.to_string()))
+    .collect()
+}
+
+/// `xmake.lua` — xmake drives the whole cycle itself, and the build mode is its
+/// own step: `xmake f -m release` sticks until it is changed again. `-y` answers
+/// the package-install confirmation, which a project with `add_requires` stops
+/// on — a one-click task must never wedge waiting on stdin.
+fn xmake_tasks(_path: &Path) -> Vec<Task> {
+    [
+        ("build", "xmake build -y"),
+        ("switch to release", "xmake f -m release -y"),
+        ("run", "xmake run -y"),
+        ("test", "xmake test -y"),
+        ("clean", "xmake clean"),
+    ]
+    .into_iter()
+    .map(|(name, command)| task(name, command.to_string()))
+    .collect()
+}
+
+/// `premake5.lua` — premake generates the real build files, so its tasks are
+/// the generators, one per toolchain worth offering on either platform. There is
+/// no `clean` action in premake5 (it was premake4's and was never ported), and
+/// `gmake2` is only a deprecated alias of `gmake` since 5.0-beta5.
+fn premake_tasks(_path: &Path) -> Vec<Task> {
+    [
+        ("generate (gmake)", "premake5 gmake"),
+        ("generate (vs2022)", "premake5 vs2022"),
+    ]
+    .into_iter()
+    .map(|(name, command)| task(name, command.to_string()))
+    .collect()
+}
+
+/// `SConstruct` — scons builds the default targets, and cleans with `-c`.
+fn scons_tasks(_path: &Path) -> Vec<Task> {
+    vec![
+        task("build", "scons".to_string()),
+        task("clean", "scons -c".to_string()),
+    ]
+}
+
+/// A Qt project file. `.pro` is a common extension outside Qt, so the file has
+/// to look like one first: qmake writes the makefile, and make builds it —
+/// `nmake` on Windows, where qmake targets MSVC.
+fn qmake_tasks(path: &Path) -> Vec<Task> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    if !looks_like_qmake_project(&text) {
+        return Vec::new();
+    }
+    let make = make_program();
+    vec![
+        task("configure", format!("qmake {}", quoted_file_name(path))),
+        task("build", make.to_string()),
+        task("clean", format!("{make} clean")),
+    ]
+}
+
+/// What builds a qmake-generated makefile here. On Windows that depends on the
+/// Qt kit, not on the OS: MSVC's `nmake` lives in a developer prompt, while a
+/// MinGW kit ships `mingw32-make` — so ask PATH rather than assume, and fall
+/// back to the MSVC name it is normally built with.
+fn make_program() -> &'static str {
+    if !cfg!(windows) {
+        return "make";
+    }
+
+    if is_on_path("nmake") {
+        return "nmake";
+    }
+
+    if is_on_path("mingw32-make") {
+        return "mingw32-make";
+    }
+
+    "nmake"
+}
+
+/// The pure scan behind [`qmake_tasks`]: whether the file assigns one of
+/// qmake's own variables, which a `.pro` from any other tool will not.
+fn looks_like_qmake_project(text: &str) -> bool {
+    const QMAKE_VARIABLES: &[&str] = &["TEMPLATE", "TARGET", "QT", "SOURCES", "HEADERS", "CONFIG"];
+    text.lines().map(str::trim_start).any(|line| {
+        QMAKE_VARIABLES.iter().any(|variable| {
+            line.strip_prefix(variable)
+                .is_some_and(|rest| rest.trim_start().starts_with(['=', '+', '-']))
+        })
+    })
+}
+
+/// A solution or a `.csproj` / `.fsproj` / `.vbproj` — the standard `dotnet`
+/// verbs against that one file, in both configurations. A solution has no
+/// single entry point to `run` or watch, and a solution of native C++ projects
+/// is `MSBuild`'s, not the SDK's.
 fn dotnet_tasks(path: &Path) -> Vec<Task> {
-    let is_solution = has_extension(path, SOLUTION_EXTENSION);
-    if is_solution && references_native_project(path) {
+    let solution = is_solution(path);
+    if solution && references_native_project(path) {
         return Vec::new();
     }
     let target = quoted_file_name(path);
-    let mut tasks = vec![task("build", format!("dotnet build {target}"))];
-    if !is_solution {
+    let mut tasks = vec![
+        task("build", format!("dotnet build {target}")),
+        task(
+            "build (Release)",
+            format!("dotnet build {target} -c Release"),
+        ),
+    ];
+    if !solution {
         tasks.push(task("run", format!("dotnet run --project {target}")));
+        tasks.push(task(
+            "watch",
+            format!("dotnet watch --non-interactive --project {target} run"),
+        ));
     }
     tasks.push(task("test", format!("dotnet test {target}")));
+    tasks.push(task(
+        "publish",
+        format!("dotnet publish {target} -c Release"),
+    ));
     tasks.push(task("restore", format!("dotnet restore {target}")));
     tasks.push(task("clean", format!("dotnet clean {target}")));
     tasks
@@ -508,16 +770,22 @@ fn dotnet_tasks(path: &Path) -> Vec<Task> {
 /// `MSBuild`. `Debug` is the configuration Visual Studio opens with, so it is the
 /// one a "build" here means.
 fn msbuild_tasks(path: &Path) -> Vec<Task> {
-    let is_solution = has_extension(path, SOLUTION_EXTENSION);
-    if is_solution && !references_native_project(path) {
+    if is_solution(path) && !references_native_project(path) {
         return Vec::new();
     }
     let target = quoted_file_name(path);
     vec![
-        task("build", format!("msbuild {target} -p:Configuration=Debug")),
+        task(
+            "build",
+            format!("msbuild {target} -restore -p:Configuration=Debug"),
+        ),
+        task(
+            "build (Release)",
+            format!("msbuild {target} -restore -p:Configuration=Release"),
+        ),
         task(
             "rebuild",
-            format!("msbuild {target} -t:Rebuild -p:Configuration=Debug"),
+            format!("msbuild {target} -restore -t:Rebuild -p:Configuration=Debug"),
         ),
         task("clean", format!("msbuild {target} -t:Clean")),
     ]
@@ -602,10 +870,11 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        cargo_tasks, declares_cmake_project, dotnet_tasks, go_tasks, gradle_tasks, make_target,
-        make_tasks_from_text, msbuild_tasks, python_tasks_from_text, quoted_file_name,
-        relative_display, tasks_descriptors, ManifestMatch, PackageManager, Task,
-        TaskManifestDescriptor, GRADLE, MAVEN,
+        cargo_tasks, cmake_preset_tasks, dotnet_tasks, go_tasks, gradle_tasks,
+        looks_like_qmake_project, make_target, make_tasks_from_text, msbuild_tasks,
+        python_tasks_from_text, quoted_file_name, relative_display, tasks_descriptors,
+        text_declares_project, ManifestMatch, PackageManager, Task, TaskManifestDescriptor, GRADLE,
+        MAVEN,
     };
 
     fn names(tasks: &[Task]) -> Vec<&str> {
@@ -645,6 +914,19 @@ mod tests {
     }
 
     #[test]
+    fn a_token_two_families_share_is_listed_once() {
+        let descriptors = tasks_descriptors();
+        let solutions = descriptors
+            .iter()
+            .filter(|descriptor| {
+                matches!(descriptor, TaskManifestDescriptor::Extension { value } if *value == ".sln")
+            })
+            .count();
+
+        assert_eq!(solutions, 1);
+    }
+
+    #[test]
     fn a_manifest_is_recognised_whatever_its_case() {
         assert!(ManifestMatch::Names(&["Cargo.toml"]).matches("cargo.toml"));
         assert!(ManifestMatch::Extensions(&[".csproj"]).matches("renderer.csproj"));
@@ -660,46 +942,104 @@ mod tests {
     }
 
     #[test]
-    fn cmake_lists_declare_a_project_whatever_the_case_or_spacing() {
-        assert!(declares_cmake_project(
+    fn a_build_root_declares_a_project_whatever_the_case_or_spacing() {
+        assert!(text_declares_project(
             "cmake_minimum_required(VERSION 3.20)
 PROJECT (demo)
 "
         ));
-        assert!(declares_cmake_project("project(demo LANGUAGES CXX)"));
+        assert!(text_declares_project("project(demo LANGUAGES CXX)"));
+        assert!(text_declares_project("project('demo', 'cpp')"));
     }
 
     #[test]
-    fn a_cmake_subdirectory_list_declares_no_project_of_its_own() {
+    fn a_subdirectory_list_declares_no_project_of_its_own() {
         let text = "# part of the parent build
 add_library(core STATIC core.cpp)
 ";
-        assert!(!declares_cmake_project(text));
+        assert!(!text_declares_project(text));
     }
 
     #[test]
-    fn a_dotnet_project_can_be_run_but_a_solution_cannot() {
+    fn cmake_presets_become_tasks_and_hidden_ones_do_not() {
+        let directory = scratch_directory("cmake-presets");
+        let presets = directory.join("CMakePresets.json");
+        std::fs::write(
+            &presets,
+            r#"{
+              "version": 6,
+              "configurePresets": [
+                { "name": "base", "hidden": true },
+                { "name": "windows-debug" }
+              ],
+              "buildPresets": [{ "name": "windows-debug" }],
+              "testPresets": [{ "name": "windows-debug" }]
+            }"#,
+        )
+        .expect("write presets");
+
+        let tasks = cmake_preset_tasks(&presets);
+        assert_eq!(
+            names(&tasks),
+            [
+                "configure (windows-debug)",
+                "build (windows-debug)",
+                "test (windows-debug)"
+            ]
+        );
+        assert_eq!(tasks[1].command, "cmake --build --preset \"windows-debug\"");
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn a_qt_project_file_is_told_apart_from_any_other_dot_pro() {
+        assert!(looks_like_qmake_project("TEMPLATE = app"));
+        assert!(looks_like_qmake_project("SOURCES += main.cpp"));
+        assert!(!looks_like_qmake_project("parent(tom, bob)."));
+    }
+
+    #[test]
+    fn a_dotnet_project_can_be_run_and_watched_but_a_solution_cannot() {
         let project = dotnet_tasks(Path::new("app/Renderer.csproj"));
         assert_eq!(
             names(&project),
-            ["build", "run", "test", "restore", "clean"]
+            [
+                "build",
+                "build (Release)",
+                "run",
+                "watch",
+                "test",
+                "publish",
+                "restore",
+                "clean"
+            ]
         );
         assert_eq!(
-            project[1].command,
-            "dotnet run --project \"Renderer.csproj\""
+            project[3].command,
+            "dotnet watch --non-interactive --project \"Renderer.csproj\" run"
+        );
+        assert_eq!(
+            project[5].command,
+            "dotnet publish \"Renderer.csproj\" -c Release"
         );
 
         let directory = scratch_directory("managed-solution");
-        let solution = directory.join("App.sln");
+        let solution = directory.join("App.slnx");
         std::fs::write(
             &solution,
-            "Project(\"{FAE04EC0}\") = \"App\", \"App.csproj\"
-",
+            "<Solution><Project Path=\"App.csproj\" /></Solution>",
         )
         .expect("write solution");
         assert_eq!(
             names(&dotnet_tasks(&solution)),
-            ["build", "test", "restore", "clean"]
+            [
+                "build",
+                "build (Release)",
+                "test",
+                "publish",
+                "restore",
+                "clean"
+            ]
         );
         std::fs::remove_dir_all(&directory).ok();
     }
@@ -710,15 +1050,14 @@ add_library(core STATIC core.cpp)
         let solution = directory.join("Engine.sln");
         std::fs::write(
             &solution,
-            "Project(\"{8BC9CEB8}\") = \"Engine\", \"Engine/Engine.vcxproj\"
-",
+            "Project(\"{8BC9CEB8}\") = \"Engine\", \"Engine/Engine.vcxproj\"",
         )
         .expect("write solution");
 
         assert!(dotnet_tasks(&solution).is_empty());
         assert_eq!(
             names(&msbuild_tasks(&solution)),
-            ["build", "rebuild", "clean"]
+            ["build", "build (Release)", "rebuild", "clean"]
         );
         std::fs::remove_dir_all(&directory).ok();
     }
@@ -728,7 +1067,7 @@ add_library(core STATIC core.cpp)
         let tasks = msbuild_tasks(Path::new("Engine.vcxproj"));
         assert_eq!(
             tasks[0].command,
-            "msbuild \"Engine.vcxproj\" -p:Configuration=Debug"
+            "msbuild \"Engine.vcxproj\" -restore -p:Configuration=Debug"
         );
     }
 
