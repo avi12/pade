@@ -357,10 +357,17 @@ writes.
   side-by-side panel form.
 - R1.10.3 ✅ **Agent usage meter** — shipped as the top-bar meter; see 1.6.
 - R1.10.4 ✅ **Task-runner dock** — runnable tasks parsed from manifests
-  (`package.json` scripts, Cargo/Make/pyproject) launch as tracked **runners**
+  (`package.json` scripts, Cargo/Make/pyproject, the C++ build systems, .NET,
+  Go, Gradle/Maven) launch as tracked **runners**
   (`runner.rs`, `std::process`) that stream their output live into a bottom dock
   (not a throwaway tab), with stop and **pipe-output-into-an-agent** (via the PTY).
   Auto-synced with the files; monorepo-aware (multiple manifests).
+  A project's own verbs are read **from the manifest the panel watches, never
+  from what it imports**: `<Target Name="…">` counts in a `.csproj`, but the same
+  target moved into a `Directory.Build.targets` or `Package.targets` beside it
+  does not appear — nothing watches that file, so the list would go stale the
+  moment it changed. A project that wants its target on the panel declares it in
+  the project file.
 - R1.10.5 ✅ **Discord Rich Presence** — report PADE on the user's Discord profile
   as **"Playing PADE"** (`discord.rs`, pure-`std` IPC over Discord's local socket —
   no crate), with an **opt-in toggle** and an **option to show the open project's

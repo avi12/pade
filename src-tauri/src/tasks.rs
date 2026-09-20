@@ -763,7 +763,134 @@ fn dotnet_tasks(path: &Path) -> Vec<Task> {
     ));
     tasks.push(task("restore", format!("dotnet restore {target}")));
     tasks.push(task("clean", format!("dotnet clean {target}")));
+    for name in declared_targets(path) {
+        tasks.push(task(&name, format!("dotnet build {target} -t:{name}")));
+    }
     tasks
+}
+
+/// The verbs above, under the target names `MSBuild` answers them by — a project
+/// that overrides one of these is offering nothing the list does not have.
+const STANDARD_TARGETS: &[&str] = &[
+    "build", "rebuild", "clean", "restore", "publish", "pack", "test", "run", "watch",
+];
+
+/// The targets a project declares for itself, which are what a `.csproj` has
+/// instead of npm's scripts: `dotnet build <project> -t:<name>` runs one.
+///
+/// Read out of the manifest itself — the file the panel already watches — and
+/// deliberately NOT out of what it imports: the registry decides which files the
+/// frontend watches, and a `Directory.Build.targets` beside the project is not
+/// one of them, so a target read from there would be listed once and then never
+/// refresh when it changed. A project that wants its target on the panel
+/// declares it in the project file.
+fn declared_targets(path: &Path) -> Vec<String> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    entry_point_targets(&text)
+}
+
+/// The pure scan behind [`declared_targets`]: one project file's own entry
+/// points, in the order it declares them. A target is an entry point — something
+/// a person would click — unless it is internal (`_` by `MSBuild`'s own
+/// convention), a hook that already runs as part of another build
+/// (`BeforeTargets` / `AfterTargets`), or a standard verb the group already
+/// offers.
+fn entry_point_targets(text: &str) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for element in elements(text, "Target") {
+        let Some(name) = attribute(&element, "Name") else {
+            continue;
+        };
+        let is_entry_point = !name.starts_with('_')
+            && attribute(&element, "BeforeTargets").is_none()
+            && attribute(&element, "AfterTargets").is_none()
+            && !STANDARD_TARGETS.contains(&name.to_ascii_lowercase().as_str())
+            && !names.contains(&name);
+        if is_entry_point {
+            names.push(name);
+        }
+    }
+    names
+}
+
+/// Every named element's attribute text, tag by tag rather than line by line:
+/// `MSBuild` lets one element's attributes span several lines. The closing `>` is
+/// looked for outside quotes, since XML leaves `>` legal inside an attribute
+/// value (a `Condition` comparing versions writes one).
+fn elements(text: &str, name: &str) -> Vec<String> {
+    let opening = format!("<{name}");
+    let mut elements = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find(&opening) {
+        let after = &rest[start + opening.len()..];
+        let is_this_element = after.starts_with([' ', '\t', '\r', '\n', '>', '/']);
+        let Some(end) = element_end(after) else {
+            break;
+        };
+        if is_this_element {
+            elements.push(after[..end].to_string());
+        }
+        rest = &after[end + 1..];
+    }
+    elements
+}
+
+/// Where an element's attribute text ends: the first `>` that is not inside a
+/// quoted attribute value.
+fn element_end(text: &str) -> Option<usize> {
+    let mut quote: Option<char> = None;
+    for (index, character) in text.char_indices() {
+        let Some(open) = quote else {
+            if character == '>' {
+                return Some(index);
+            }
+
+            if matches!(character, '"' | '\'') {
+                quote = Some(character);
+            }
+
+            continue;
+        };
+        if character == open {
+            quote = None;
+        }
+    }
+    None
+}
+
+/// One attribute's value out of an element's attribute text, matching the whole
+/// name so `Name` never reads `BeforeTargets`' value or its own `TargetName`
+/// neighbour. Both quote styles are legal XML.
+fn attribute(element: &str, name: &str) -> Option<String> {
+    let mut rest = element;
+    while let Some(start) = rest.find(name) {
+        let is_whole_name = rest[..start]
+            .chars()
+            .next_back()
+            .is_none_or(char::is_whitespace);
+        let after = rest[start + name.len()..].trim_start();
+        rest = &rest[start + name.len()..];
+        if !is_whole_name {
+            continue;
+        }
+        let Some(value) = after.strip_prefix('=') else {
+            continue;
+        };
+        let value = value.trim_start();
+        let Some(quote) = value
+            .chars()
+            .next()
+            .filter(|character| matches!(character, '"' | '\''))
+        else {
+            continue;
+        };
+        let value = &value[quote.len_utf8()..];
+        let end = value.find(quote)?;
+        return Some(value[..end].trim().to_string()).filter(|value| !value.is_empty());
+    }
+    None
 }
 
 /// A `.vcxproj`, or the solution that carries one: native C++ builds through
@@ -870,11 +997,11 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        cargo_tasks, cmake_preset_tasks, dotnet_tasks, go_tasks, gradle_tasks,
-        looks_like_qmake_project, make_target, make_tasks_from_text, msbuild_tasks,
-        python_tasks_from_text, quoted_file_name, relative_display, tasks_descriptors,
-        text_declares_project, ManifestMatch, PackageManager, Task, TaskManifestDescriptor, GRADLE,
-        MAVEN,
+        cargo_tasks, cmake_preset_tasks, declared_targets, dotnet_tasks, entry_point_targets,
+        go_tasks, gradle_tasks, looks_like_qmake_project, make_target, make_tasks_from_text,
+        msbuild_tasks, python_tasks_from_text, quoted_file_name, relative_display,
+        tasks_descriptors, text_declares_project, ManifestMatch, PackageManager, Task,
+        TaskManifestDescriptor, GRADLE, MAVEN,
     };
 
     fn names(tasks: &[Task]) -> Vec<&str> {
@@ -1042,6 +1169,76 @@ add_library(core STATIC core.cpp)
             ]
         );
         std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn a_project_lists_its_own_targets_after_the_standard_verbs() {
+        let directory = scratch_directory("project-targets");
+        let project = directory.join("App.csproj");
+        std::fs::write(
+            &project,
+            concat!(
+                "<Project Sdk=\"Microsoft.NET.Sdk\">\n",
+                "  <Import Project=\"Package.targets\" />\n",
+                "  <Target Name=\"Package\">\n    <Message Text=\"pack\" />\n  </Target>\n",
+                "  <Target\n      Name=\"PackageShare\"\n      DependsOnTargets=\"Package\">\n  </Target>\n",
+                "  <Target Name=\"_Stamp\" />\n",
+                "  <Target Name=\"VerifyNativePayload\" BeforeTargets=\"BeforeBuild\" />\n",
+                "  <Target Name=\"Publish\" />\n",
+                "  <Target Name=\"Package\" />\n",
+                "</Project>\n"
+            ),
+        )
+        .expect("write project");
+        std::fs::write(
+            directory.join("Package.targets"),
+            "<Project><Target Name=\"Imported\" /></Project>",
+        )
+        .expect("write imported targets");
+
+        let tasks = dotnet_tasks(&project);
+        assert_eq!(
+            names(&tasks),
+            [
+                "build",
+                "build (Release)",
+                "run",
+                "watch",
+                "test",
+                "publish",
+                "restore",
+                "clean",
+                "Package",
+                "PackageShare"
+            ]
+        );
+        assert_eq!(tasks[8].command, "dotnet build \"App.csproj\" -t:Package");
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn a_target_hidden_in_an_imported_file_stays_out_because_nothing_watches_it() {
+        let text = concat!(
+            "<Project><Import Project=\"Package.targets\" />",
+            "<Target Name=\"Own\" /></Project>"
+        );
+
+        assert_eq!(entry_point_targets(text), ["Own"]);
+    }
+
+    #[test]
+    fn an_attribute_is_matched_whole_and_may_hold_a_greater_than() {
+        let text = concat!(
+            "<Target Name=\"Ship\" Condition=\"'$(Version)' > '1'\" TargetName=\"decoy\" />",
+            "<Target Name=\"After\" AfterTargets=\"Build\" />"
+        );
+
+        assert_eq!(entry_point_targets(text), ["Ship"]);
+    }
+
+    #[test]
+    fn a_project_that_cannot_be_read_contributes_no_targets() {
+        assert!(declared_targets(Path::new("nowhere/Absent.csproj")).is_empty());
     }
 
     #[test]
