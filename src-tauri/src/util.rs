@@ -6,6 +6,32 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// Directories no project walk is ever interested in: dependency trees and
+/// build output. One home for the list, because two walks read it — the
+/// autonamer's file census (`naming.rs`) and the task-manifest scan
+/// (`tasks.rs`) — and a directory worth skipping in one is worth skipping in
+/// the other. Hidden directories are skipped separately by each walk, so `.git`
+/// and friends need no entry here.
+pub const SKIPPED_DIRECTORIES: &[&str] = &[
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    "bin",
+    "obj",
+    "out",
+    "vendor",
+    ".git",
+    ".svelte-kit",
+    ".vite",
+];
+
+/// Whether a directory name is one a project walk skips: build output, a
+/// dependency tree, or any hidden directory.
+pub fn is_noise_directory(name: &str) -> bool {
+    name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name)
+}
+
 /// Whether a caller may use an id in a process-global resource registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OwnerAccess {

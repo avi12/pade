@@ -1,26 +1,17 @@
 //! Task runner: discover runnable tasks from a project's manifests.
 //!
-//! Scans the open project (bounded depth, skipping build/dep noise — mirrors
-//! `naming.rs`'s walk) for the manifests it understands, extracts each one's
-//! runnable tasks, and hands the frontend a run command per task. Monorepo-aware
-//! (one group per manifest found) and multi-language (npm / cargo / make /
-//! python). Read-only; nothing is executed here — the UI opens a terminal.
+//! Scans the open project (bounded depth, skipping build/dep noise — the same
+//! list `naming.rs` walks by) for the manifests it understands, extracts each
+//! one's runnable tasks, and hands the frontend a run command per task.
+//! Monorepo-aware (one group per manifest found) and multi-language: npm,
+//! cargo, make, python, cmake, dotnet, msbuild, go, gradle and maven.
+//! Read-only; nothing is executed here — the UI opens a terminal.
 
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-/// Directories never worth scanning for manifests (build output, VCS, deps).
-/// Mirrors `naming.rs`'s `SKIPPED_DIRECTORIES`; hidden directories are skipped separately.
-const SKIPPED_DIRECTORIES: &[&str] = &[
-    "node_modules",
-    "target",
-    "dist",
-    "build",
-    ".git",
-    ".svelte-kit",
-    ".vite",
-];
+use crate::util::is_noise_directory;
 
 /// One runnable task: a display `name` and the shell `command` that runs it.
 #[derive(Serialize)]
@@ -95,10 +86,7 @@ fn manifest_directories(root: &Path) -> Vec<PathBuf> {
         };
         for entry in entries.flatten() {
             let name = entry.file_name();
-            let name = name.to_string_lossy();
-            let is_noise_directory =
-                name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name.as_ref());
-            if is_noise_directory {
+            if is_noise_directory(&name.to_string_lossy()) {
                 continue;
             }
             let path = entry.path();

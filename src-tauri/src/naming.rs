@@ -23,6 +23,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::agents::{oneshot_invocation, program};
+use crate::util::is_noise_directory;
 
 /// What a namer works from: the workspace's files (relative, `/`-joined) and an
 /// optional first task prompt.
@@ -35,17 +36,6 @@ pub(crate) struct NameContext {
 pub(crate) trait Namer {
     fn suggest(&self, context: &NameContext) -> Option<String>;
 }
-
-/// Directories never worth scanning for a name (build output, VCS, deps).
-const SKIPPED_DIRECTORIES: &[&str] = &[
-    "node_modules",
-    "target",
-    "dist",
-    "build",
-    ".git",
-    ".svelte-kit",
-    ".vite",
-];
 
 /// Suggest a name for the workspace at `path`, driven by `agent` (its command).
 /// Read-only; returns `None` when nothing sensible can be derived. Runs the
@@ -224,8 +214,7 @@ fn gather_files(directory: &Path) -> Vec<String> {
             }
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            let is_noise = name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name.as_ref());
-            if is_noise {
+            if is_noise_directory(&name) {
                 continue;
             }
             let path = entry.path();
