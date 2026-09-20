@@ -2496,8 +2496,15 @@
   }
 
   /* One shared header for every panel (DRY) — title + optional count + optional
-     refresh. The panels below own only their scroll body. */
+     refresh. The panels below own only their scroll body.
+
+     Every header is the same height whether or not its panel publishes a
+     refresh action: the title row reserves a control's worth of space, so Tasks
+     and Git (which have the button) no longer stand 8px taller than Feed and
+     Config (which don't), and switching panels never nudges the body down. */
   .panel-head {
+    --panel-head-control-size: 28px;
+
     display: flex;
     flex-shrink: 0;
     gap: 8px;
@@ -2517,6 +2524,7 @@
     display: flex;
     gap: 9px;
     align-items: center;
+    min-block-size: var(--panel-head-control-size);
 
     h2 {
       margin: 0;
@@ -2538,8 +2546,8 @@
   .panel-refresh {
     display: grid;
     place-items: center;
-    block-size: 28px;
-    inline-size: 28px;
+    block-size: var(--panel-head-control-size);
+    inline-size: var(--panel-head-control-size);
     margin-inline-start: auto;
     border: none;
     border-radius: var(--radius-full);
