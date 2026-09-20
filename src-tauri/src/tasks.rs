@@ -29,18 +29,24 @@ pub struct TaskGroup {
     manifest: String,
     /// Absolute directory the tasks run in.
     dir: String,
-    /// Manifest family: "npm" | "cargo" | "make" | "python".
+    /// Manifest family: "npm" | "cargo" | "make" | "python" | "cmake" |
+    /// "dotnet" | "msbuild" | "go" | "gradle" | "maven".
     kind: String,
     tasks: Vec<Task>,
 }
 
-/// One supported task manifest exposed to the frontend for refresh filtering
-/// and empty-state copy. The registry below remains the sole authority.
+/// One token the frontend watches for (so a manifest landing on disk refreshes
+/// the panel) and names in the empty state. A manifest is recognised either by
+/// an exact file name or by an extension, and the frontend has to know which so
+/// it can match a changed path the same way this module does. The registry
+/// below remains the sole authority for both.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskManifestDescriptor {
-    file: &'static str,
-    label: &'static str,
+#[serde(tag = "match", rename_all = "camelCase")]
+pub enum TaskManifestDescriptor {
+    /// An exact file name: `package.json`.
+    Name { value: &'static str },
+    /// A file extension, dot included: `.csproj`.
+    Extension { value: &'static str },
 }
 
 /// List every runnable task in `cwd`, grouped by manifest. The caller supplies
@@ -66,7 +72,7 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
 pub fn tasks_descriptors() -> Vec<TaskManifestDescriptor> {
     MANIFESTS
         .iter()
-        .map(ManifestDefinition::descriptor)
+        .flat_map(|definition| definition.matcher.descriptors())
         .collect()
 }
 
@@ -98,69 +104,143 @@ fn manifest_directories(root: &Path) -> Vec<PathBuf> {
     directories
 }
 
-/// One manifest ADE understands: its filename, its family, and how to parse its
-/// tasks. The registry (`MANIFESTS`) is the single source of truth.
-struct ManifestDefinition {
-    file: &'static str,
-    label: &'static str,
-    kind: &'static str,
-    extract: fn(&Path) -> Vec<Task>,
+/// How a file in a scanned directory is recognised as a manifest. Most
+/// ecosystems name their manifest exactly (`package.json`); the .NET and MSVC
+/// ones name it after the project instead (`Renderer.csproj`), so those match
+/// on extension and every matching file in the directory becomes its own group.
+#[derive(Clone, Copy, Debug)]
+enum ManifestMatch {
+    Names(&'static [&'static str]),
+    Extensions(&'static [&'static str]),
 }
 
-impl ManifestDefinition {
-    fn descriptor(&self) -> TaskManifestDescriptor {
-        TaskManifestDescriptor {
-            file: self.file,
-            label: self.label,
+impl ManifestMatch {
+    /// Whether `file_name` (lowercased once by the caller) is this manifest.
+    fn matches(self, file_name: &str) -> bool {
+        match self {
+            ManifestMatch::Names(names) => names
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(file_name)),
+            ManifestMatch::Extensions(extensions) => extensions
+                .iter()
+                .any(|extension| file_name.ends_with(extension)),
+        }
+    }
+
+    /// The tokens the frontend needs: one descriptor per name or extension.
+    fn descriptors(self) -> Vec<TaskManifestDescriptor> {
+        match self {
+            ManifestMatch::Names(names) => names
+                .iter()
+                .map(|name| TaskManifestDescriptor::Name { value: name })
+                .collect(),
+            ManifestMatch::Extensions(extensions) => extensions
+                .iter()
+                .map(|extension| TaskManifestDescriptor::Extension { value: extension })
+                .collect(),
         }
     }
 }
 
+/// One manifest ADE understands: how its file is recognised, its family, and
+/// how to read its tasks. The registry (`MANIFESTS`) is the single source of
+/// truth — the frontend's watched tokens and empty state are derived from it.
+struct ManifestDefinition {
+    matcher: ManifestMatch,
+    kind: &'static str,
+    extract: fn(&Path) -> Vec<Task>,
+}
+
+/// A solution names its projects instead of holding them, so both the .NET and
+/// the MSVC family can claim one; each extractor reads it to decide.
+const SOLUTION_EXTENSION: &str = ".sln";
+/// Native C++ projects build through `MSBuild` — `dotnet` cannot build one.
+const NATIVE_PROJECT_EXTENSION: &str = ".vcxproj";
+
 const MANIFESTS: &[ManifestDefinition] = &[
     ManifestDefinition {
-        file: "package.json",
-        label: "package.json",
+        matcher: ManifestMatch::Names(&["package.json"]),
         kind: "npm",
         extract: npm_tasks,
     },
     ManifestDefinition {
-        file: "Cargo.toml",
-        label: "Cargo.toml",
+        matcher: ManifestMatch::Names(&["Cargo.toml"]),
         kind: "cargo",
         extract: cargo_tasks,
     },
     ManifestDefinition {
-        file: "Makefile",
-        label: "a Makefile",
+        matcher: ManifestMatch::Names(&["Makefile"]),
         kind: "make",
         extract: make_tasks,
     },
     ManifestDefinition {
-        file: "pyproject.toml",
-        label: "pyproject.toml",
+        matcher: ManifestMatch::Names(&["pyproject.toml"]),
         kind: "python",
         extract: python_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["CMakeLists.txt"]),
+        kind: "cmake",
+        extract: cmake_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Extensions(&[SOLUTION_EXTENSION, ".csproj", ".fsproj"]),
+        kind: "dotnet",
+        extract: dotnet_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Extensions(&[NATIVE_PROJECT_EXTENSION, SOLUTION_EXTENSION]),
+        kind: "msbuild",
+        extract: msbuild_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["go.mod"]),
+        kind: "go",
+        extract: go_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["build.gradle", "build.gradle.kts"]),
+        kind: "gradle",
+        extract: gradle_tasks,
+    },
+    ManifestDefinition {
+        matcher: ManifestMatch::Names(&["pom.xml"]),
+        kind: "maven",
+        extract: maven_tasks,
     },
 ];
 
 /// Extract this directory's manifests into `groups` (a monorepo dir can hold
-/// several — e.g. a `package.json` and a `Cargo.toml` side by side).
+/// several — e.g. a `package.json` and a `Cargo.toml` side by side, or three
+/// sibling `.csproj` files). One `read_dir` serves every definition, since an
+/// extension match has to see the directory's real file names anyway.
 fn collect_group(root: &Path, dir: &Path, groups: &mut Vec<TaskGroup>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut file_names: Vec<String> = entries
+        .flatten()
+        .filter(|entry| entry.path().is_file())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    file_names.sort();
     for definition in MANIFESTS {
-        let path = dir.join(definition.file);
-        if !path.is_file() {
-            continue;
+        for file_name in file_names
+            .iter()
+            .filter(|name| definition.matcher.matches(&name.to_ascii_lowercase()))
+        {
+            let path = dir.join(file_name);
+            let tasks = (definition.extract)(&path);
+            if tasks.is_empty() {
+                continue;
+            }
+            groups.push(TaskGroup {
+                manifest: relative_display(root, &path),
+                dir: dir.to_string_lossy().into_owned(),
+                kind: definition.kind.to_string(),
+                tasks,
+            });
         }
-        let tasks = (definition.extract)(&path);
-        if tasks.is_empty() {
-            continue;
-        }
-        groups.push(TaskGroup {
-            manifest: relative_display(root, &path),
-            dir: dir.to_string_lossy().into_owned(),
-            kind: definition.kind.to_string(),
-            tasks,
-        });
     }
 }
 
@@ -335,42 +415,354 @@ fn python_tasks_from_text(text: &str) -> Vec<Task> {
     tasks
 }
 
+/// One task, from the name shown in the panel and the command behind it.
+fn task(name: &str, command: String) -> Task {
+    Task {
+        name: name.to_string(),
+        command,
+    }
+}
+
+/// The manifest's own file name, quoted for the command line: a directory can
+/// hold several `.csproj` files, so every command names the one it builds, and
+/// project names contain spaces often enough to need the quotes.
+fn quoted_file_name(path: &Path) -> String {
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    format!("\"{name}\"")
+}
+
+/// Whether a path ends in `extension` (given lowercased, dot included).
+fn has_extension(path: &Path, extension: &str) -> bool {
+    path.file_name().is_some_and(|name| {
+        name.to_string_lossy()
+            .to_ascii_lowercase()
+            .ends_with(extension)
+    })
+}
+
+/// Whether a solution lists a native C++ project. A `.sln` is just a list of
+/// project files, so this is what separates the two families that can claim
+/// one: `MSBuild` builds the native solutions, `dotnet` the managed ones.
+fn references_native_project(path: &Path) -> bool {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    text.to_ascii_lowercase().contains(NATIVE_PROJECT_EXTENSION)
+}
+
+/// `CMakeLists.txt` — configure into a `build/` tree, build it, run its tests.
+/// Only a list that declares its own `project()` is a buildable root; the ones
+/// `add_subdirectory` pulls in are part of their parent's build, and offering
+/// to configure those would hand the user three commands that fail.
+fn cmake_tasks(path: &Path) -> Vec<Task> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    if !declares_cmake_project(&text) {
+        return Vec::new();
+    }
+    vec![
+        task("configure", "cmake -S . -B build".to_string()),
+        task("build", "cmake --build build".to_string()),
+        task("test", "ctest --test-dir build".to_string()),
+    ]
+}
+
+/// The pure scan behind [`cmake_tasks`]: whether `CMake` text calls `project(…)`
+/// outside a comment. `CMake` commands are case-insensitive and may put space
+/// before the parenthesis.
+fn declares_cmake_project(text: &str) -> bool {
+    text.lines()
+        .map(str::trim_start)
+        .filter(|line| !line.starts_with('#'))
+        .filter_map(|line| {
+            line.to_ascii_lowercase()
+                .strip_prefix("project")
+                .map(str::to_string)
+        })
+        .any(|rest| rest.trim_start().starts_with('('))
+}
+
+/// A `.sln`, `.csproj` or `.fsproj` — the standard `dotnet` verbs against that
+/// one file. A solution has no single entry point to `run`, and a solution of
+/// native C++ projects is `MSBuild`'s, not the SDK's.
+fn dotnet_tasks(path: &Path) -> Vec<Task> {
+    let is_solution = has_extension(path, SOLUTION_EXTENSION);
+    if is_solution && references_native_project(path) {
+        return Vec::new();
+    }
+    let target = quoted_file_name(path);
+    let mut tasks = vec![task("build", format!("dotnet build {target}"))];
+    if !is_solution {
+        tasks.push(task("run", format!("dotnet run --project {target}")));
+    }
+    tasks.push(task("test", format!("dotnet test {target}")));
+    tasks.push(task("restore", format!("dotnet restore {target}")));
+    tasks.push(task("clean", format!("dotnet clean {target}")));
+    tasks
+}
+
+/// A `.vcxproj`, or the solution that carries one: native C++ builds through
+/// `MSBuild`. `Debug` is the configuration Visual Studio opens with, so it is the
+/// one a "build" here means.
+fn msbuild_tasks(path: &Path) -> Vec<Task> {
+    let is_solution = has_extension(path, SOLUTION_EXTENSION);
+    if is_solution && !references_native_project(path) {
+        return Vec::new();
+    }
+    let target = quoted_file_name(path);
+    vec![
+        task("build", format!("msbuild {target} -p:Configuration=Debug")),
+        task(
+            "rebuild",
+            format!("msbuild {target} -t:Rebuild -p:Configuration=Debug"),
+        ),
+        task("clean", format!("msbuild {target} -t:Clean")),
+    ]
+}
+
+/// `go.mod` — the module-wide verbs. `./...` is every package under the module,
+/// which is what a module-level build or test means.
+fn go_tasks(_path: &Path) -> Vec<Task> {
+    [
+        ("build", "go build ./..."),
+        ("run", "go run ."),
+        ("test", "go test ./..."),
+        ("vet", "go vet ./..."),
+    ]
+    .into_iter()
+    .map(|(name, command)| task(name, command.to_string()))
+    .collect()
+}
+
+/// A build tool whose projects usually commit a wrapper script that pins the
+/// tool's version — the JVM pair. Running the wrapper is the point of shipping
+/// it, so it wins over whatever is on PATH.
+struct WrappedTool {
+    windows_script: &'static str,
+    unix_script: &'static str,
+    on_path: &'static str,
+}
+
+const GRADLE: WrappedTool = WrappedTool {
+    windows_script: "gradlew.bat",
+    unix_script: "gradlew",
+    on_path: "gradle",
+};
+
+const MAVEN: WrappedTool = WrappedTool {
+    windows_script: "mvnw.cmd",
+    unix_script: "mvnw",
+    on_path: "mvn",
+};
+
+impl WrappedTool {
+    /// What to type in `dir`: the committed wrapper, named with an explicit
+    /// relative path because the working directory is not on PATH, else the
+    /// tool itself.
+    fn launcher(&self, dir: &Path) -> String {
+        let script = if cfg!(windows) {
+            self.windows_script
+        } else {
+            self.unix_script
+        };
+        if dir.join(script).is_file() {
+            return format!(".{}{script}", std::path::MAIN_SEPARATOR);
+        }
+        self.on_path.to_string()
+    }
+}
+
+/// `build.gradle` / `build.gradle.kts` — the lifecycle tasks every Gradle build
+/// has, whatever plugins it applies.
+fn gradle_tasks(path: &Path) -> Vec<Task> {
+    tool_tasks(path, &GRADLE, &["build", "test", "clean"])
+}
+
+/// `pom.xml` — the Maven lifecycle phases a build always answers to.
+fn maven_tasks(path: &Path) -> Vec<Task> {
+    tool_tasks(path, &MAVEN, &["compile", "test", "package", "clean"])
+}
+
+/// The shared shape of both JVM extractors: `<launcher> <verb>`, resolved
+/// against the manifest's own directory.
+fn tool_tasks(path: &Path, tool: &WrappedTool, verbs: &[&str]) -> Vec<Task> {
+    let dir = path.parent().unwrap_or(path);
+    let launcher = tool.launcher(dir);
+    verbs
+        .iter()
+        .map(|verb| task(verb, format!("{launcher} {verb}")))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
     use super::{
-        cargo_tasks, make_target, make_tasks_from_text, python_tasks_from_text, relative_display,
-        tasks_descriptors, PackageManager, Task, TaskManifestDescriptor,
+        cargo_tasks, declares_cmake_project, dotnet_tasks, go_tasks, gradle_tasks, make_target,
+        make_tasks_from_text, msbuild_tasks, python_tasks_from_text, quoted_file_name,
+        relative_display, tasks_descriptors, ManifestMatch, PackageManager, Task,
+        TaskManifestDescriptor, GRADLE, MAVEN,
     };
 
     fn names(tasks: &[Task]) -> Vec<&str> {
         tasks.iter().map(|task| task.name.as_str()).collect()
     }
 
+    /// A scratch directory unique to this test process.
+    fn scratch_directory(name: &str) -> std::path::PathBuf {
+        let directory = std::env::temp_dir().join(format!(
+            "pade-tasks-{name}-{process}",
+            process = std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        directory
+    }
+
     #[test]
-    fn descriptors_preserve_registry_order_and_display_labels() {
+    fn descriptors_name_every_manifest_token_in_registry_order() {
+        let descriptors = tasks_descriptors();
+
         assert_eq!(
-            tasks_descriptors(),
-            [
-                TaskManifestDescriptor {
-                    file: "package.json",
-                    label: "package.json",
-                },
-                TaskManifestDescriptor {
-                    file: "Cargo.toml",
-                    label: "Cargo.toml",
-                },
-                TaskManifestDescriptor {
-                    file: "Makefile",
-                    label: "a Makefile",
-                },
-                TaskManifestDescriptor {
-                    file: "pyproject.toml",
-                    label: "pyproject.toml",
-                },
-            ]
+            descriptors.first(),
+            Some(&TaskManifestDescriptor::Name {
+                value: "package.json"
+            })
         );
+        assert!(descriptors.contains(&TaskManifestDescriptor::Name {
+            value: "CMakeLists.txt"
+        }));
+        assert!(descriptors.contains(&TaskManifestDescriptor::Extension { value: ".csproj" }));
+        assert!(descriptors.contains(&TaskManifestDescriptor::Extension { value: ".vcxproj" }));
+        assert!(descriptors.contains(&TaskManifestDescriptor::Name { value: "go.mod" }));
+        assert!(descriptors.contains(&TaskManifestDescriptor::Name {
+            value: "build.gradle.kts"
+        }));
+        assert!(descriptors.contains(&TaskManifestDescriptor::Name { value: "pom.xml" }));
+    }
+
+    #[test]
+    fn a_manifest_is_recognised_whatever_its_case() {
+        assert!(ManifestMatch::Names(&["Cargo.toml"]).matches("cargo.toml"));
+        assert!(ManifestMatch::Extensions(&[".csproj"]).matches("renderer.csproj"));
+        assert!(!ManifestMatch::Extensions(&[".csproj"]).matches("renderer.csproj.user"));
+    }
+
+    #[test]
+    fn a_command_names_the_manifest_it_builds_even_with_spaces_in_it() {
+        assert_eq!(
+            quoted_file_name(Path::new("src/My App.csproj")),
+            "\"My App.csproj\""
+        );
+    }
+
+    #[test]
+    fn cmake_lists_declare_a_project_whatever_the_case_or_spacing() {
+        assert!(declares_cmake_project(
+            "cmake_minimum_required(VERSION 3.20)
+PROJECT (demo)
+"
+        ));
+        assert!(declares_cmake_project("project(demo LANGUAGES CXX)"));
+    }
+
+    #[test]
+    fn a_cmake_subdirectory_list_declares_no_project_of_its_own() {
+        let text = "# part of the parent build
+add_library(core STATIC core.cpp)
+";
+        assert!(!declares_cmake_project(text));
+    }
+
+    #[test]
+    fn a_dotnet_project_can_be_run_but_a_solution_cannot() {
+        let project = dotnet_tasks(Path::new("app/Renderer.csproj"));
+        assert_eq!(
+            names(&project),
+            ["build", "run", "test", "restore", "clean"]
+        );
+        assert_eq!(
+            project[1].command,
+            "dotnet run --project \"Renderer.csproj\""
+        );
+
+        let directory = scratch_directory("managed-solution");
+        let solution = directory.join("App.sln");
+        std::fs::write(
+            &solution,
+            "Project(\"{FAE04EC0}\") = \"App\", \"App.csproj\"
+",
+        )
+        .expect("write solution");
+        assert_eq!(
+            names(&dotnet_tasks(&solution)),
+            ["build", "test", "restore", "clean"]
+        );
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn a_native_solution_belongs_to_msbuild_and_a_managed_one_does_not() {
+        let directory = scratch_directory("native-solution");
+        let solution = directory.join("Engine.sln");
+        std::fs::write(
+            &solution,
+            "Project(\"{8BC9CEB8}\") = \"Engine\", \"Engine/Engine.vcxproj\"
+",
+        )
+        .expect("write solution");
+
+        assert!(dotnet_tasks(&solution).is_empty());
+        assert_eq!(
+            names(&msbuild_tasks(&solution)),
+            ["build", "rebuild", "clean"]
+        );
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn a_native_project_builds_the_configuration_visual_studio_opens_with() {
+        let tasks = msbuild_tasks(Path::new("Engine.vcxproj"));
+        assert_eq!(
+            tasks[0].command,
+            "msbuild \"Engine.vcxproj\" -p:Configuration=Debug"
+        );
+    }
+
+    #[test]
+    fn go_modules_offer_the_module_wide_verbs() {
+        let tasks = go_tasks(Path::new("go.mod"));
+        assert_eq!(names(&tasks), ["build", "run", "test", "vet"]);
+        assert_eq!(tasks[2].command, "go test ./...");
+    }
+
+    #[test]
+    fn a_jvm_build_runs_its_committed_wrapper_and_falls_back_to_the_tool_on_path() {
+        let directory = scratch_directory("gradle-wrapper");
+        let script_name = if cfg!(windows) {
+            GRADLE.windows_script
+        } else {
+            GRADLE.unix_script
+        };
+        let manifest = directory.join("build.gradle");
+        std::fs::write(directory.join(script_name), "").expect("write wrapper");
+
+        let separator = std::path::MAIN_SEPARATOR;
+        assert_eq!(
+            gradle_tasks(&manifest)[0].command,
+            format!(".{separator}{script_name} build")
+        );
+
+        std::fs::remove_file(directory.join(script_name)).expect("remove wrapper");
+        assert_eq!(
+            gradle_tasks(&manifest)[0].command,
+            format!("{} build", GRADLE.on_path)
+        );
+        assert_eq!(MAVEN.on_path, "mvn");
+        std::fs::remove_dir_all(&directory).ok();
     }
 
     #[test]

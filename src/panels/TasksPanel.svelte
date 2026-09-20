@@ -21,23 +21,7 @@
   const snapshot = $derived(taskCatalog.snapshot);
   const groups = $derived(snapshot.groups);
   const error = $derived(snapshot.error);
-  const manifestExamples = $derived(
-    formatManifestExamples(
-      snapshot.descriptors.map(descriptor => descriptor.label)
-    )
-  );
-
-  function formatManifestExamples(labels: string[]): string {
-    if (labels.length === 0) {
-      return "a supported manifest";
-    }
-
-    if (labels.length === 1) {
-      return labels[0];
-    }
-
-    return `${labels.slice(0, -1).join(", ")}, or ${labels.at(-1)}`;
-  }
+  const manifests = $derived(snapshot.descriptors);
 
   async function refresh(workspace = project): Promise<void> {
     await taskCatalog.refresh(workspace);
@@ -62,9 +46,16 @@
   {#if error}
     <p class="empty">Could not read project tasks.</p>
   {:else if groups.length === 0}
-    <p class="empty">
-      No runnable tasks found. Add a manifest — {manifestExamples} — and its tasks appear here.
-    </p>
+    <div class="empty">
+      <p>No runnable tasks here. They appear as soon as the project carries one of these:</p>
+      {#if manifests.length > 0}
+        <ul class="manifest-list">
+          {#each manifests as manifest (manifest.value)}
+            <li>{manifest.value}</li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
   {:else}
     <div class="scroll">
       <!-- A manifest appearing/vanishing glides its whole group in/out; a script
@@ -139,10 +130,39 @@
   }
 
   .empty {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     margin: 16px;
     color: var(--on-surface-variant);
     font-size: 13px;
     line-height: 1.5;
+
+    p {
+      margin: 0;
+    }
+  }
+
+  /* The manifests the backend reads, straight from its registry — a wrapped set
+     of tokens rather than a comma-run, because the list is long enough that a
+     sentence stops being readable at panel width. */
+  .manifest-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      padding-block: 2px;
+      padding-inline: 8px;
+      border-radius: var(--radius-small);
+      background: var(--surface-3);
+      color: var(--on-surface);
+      font-family: var(--font-monospace);
+      font-size: 12px;
+    }
   }
 
   .scroll {

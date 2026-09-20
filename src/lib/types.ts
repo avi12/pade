@@ -205,16 +205,36 @@ export type Task = z.infer<typeof Task>;
 export const TaskGroup = z.object({
   manifest: z.string(),
   dir: z.string(),
-  kind: z.enum(["npm", "cargo", "make", "python"]),
+  kind: z.enum([
+    "npm",
+    "cargo",
+    "make",
+    "python",
+    "cmake",
+    "dotnet",
+    "msbuild",
+    "go",
+    "gradle",
+    "maven"
+  ]),
   tasks: z.array(Task)
 });
 export type TaskGroup = z.infer<typeof TaskGroup>;
 
-/** A backend-supported task manifest and its user-facing empty-state label. */
-export const TaskManifestDescriptor = z.object({
-  file: z.string().min(1),
-  label: z.string().min(1)
-});
+/** A token the backend recognises a task manifest by: an exact file name
+ *  (`package.json`) or an extension (`.csproj`). The panel lists these in its
+ *  empty state, and the catalog matches a changed path against them the same
+ *  way the backend matches a directory entry. */
+export const TaskManifestDescriptor = z.discriminatedUnion("match", [
+  z.object({
+    match: z.literal("name"),
+    value: z.string().min(1)
+  }),
+  z.object({
+    match: z.literal("extension"),
+    value: z.string().min(1)
+  })
+]);
 export type TaskManifestDescriptor = z.infer<typeof TaskManifestDescriptor>;
 
 export const Ide = z.object({

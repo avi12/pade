@@ -26,6 +26,25 @@ const defaultDependencies: TaskCatalogDependencies = {
   onChange: callback => feed.onChange(event => callback(event.path))
 };
 
+/** Whether a changed path is one of the manifests the backend reads — an exact
+ *  file name, or a file carrying a manifest extension. Case-insensitive, like
+ *  the backend's own match: a `.CSPROJ` is still a project. */
+function isManifestPath({ descriptors, path }: {
+  descriptors: TaskManifestDescriptor[];
+  path: string;
+}): boolean {
+  const name = baseName(path).toLowerCase();
+  for (const descriptor of descriptors) {
+    const value = descriptor.value.toLowerCase();
+    const matched = descriptor.match === "name" ? name === value : name.endsWith(value);
+    if (matched) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function createTaskCatalog(
   dependencies: TaskCatalogDependencies = defaultDependencies
 ) {
@@ -95,9 +114,11 @@ export function createTaskCatalog(
   async function start(): Promise<void> {
     try {
       const descriptors = await dependencies.descriptors();
-      const manifestFiles = descriptors.map(descriptor => descriptor.file);
       const nextUnlisten = await dependencies.onChange(path => {
-        if (manifestFiles.includes(baseName(path))) {
+        if (isManifestPath({
+          descriptors,
+          path
+        })) {
           refreshAfterManifestChange();
         }
       });

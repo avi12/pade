@@ -118,19 +118,71 @@ describe("task catalog", () => {
     }]);
   });
 
+  it("re-scans when a watched manifest changes, by name or by extension", async () => {
+    let listCalls = 0;
+    let notify: ((path: string) => void) | undefined;
+    const catalog = createTaskCatalog({
+      descriptors: async () => [
+        {
+          match: "name",
+          value: "package.json"
+        },
+        {
+          match: "extension",
+          value: ".csproj"
+        }
+      ],
+      async list() {
+        listCalls += 1;
+        return [];
+      },
+      async onChange(callback) {
+        notify = callback;
+        return () => undefined;
+      }
+    });
+    await catalog.initialize(() => "demo");
+    expect(listCalls).toBe(1);
+
+    notify?.("C:/demo/package.json");
+    notify?.("C:/demo/src/Renderer.CSPROJ");
+    await Promise.resolve();
+
+    expect(listCalls).toBe(3);
+
+    notify?.("C:/demo/src/Renderer.csproj.user");
+    notify?.("C:/demo/README.md");
+    await Promise.resolve();
+
+    expect(listCalls).toBe(3);
+  });
+
   it("validates descriptor fields at the frontend boundary", () => {
     expect(
       TaskManifestDescriptor.parse({
-        file: "Makefile",
-        label: "a Makefile"
+        match: "name",
+        value: "Makefile"
       })
     ).toEqual({
-      file: "Makefile",
-      label: "a Makefile"
+      match: "name",
+      value: "Makefile"
+    });
+    expect(
+      TaskManifestDescriptor.parse({
+        match: "extension",
+        value: ".csproj"
+      })
+    ).toEqual({
+      match: "extension",
+      value: ".csproj"
     });
     expect(() => TaskManifestDescriptor.parse({
-      file: "",
-      label: "Makefile"
+      match: "name",
+      value: ""
+    })).toThrow();
+    expect(() => TaskManifestDescriptor.parse({
+      match: "glob",
+      value: "*.csproj"
     })).toThrow();
   });
 
@@ -139,8 +191,8 @@ describe("task catalog", () => {
     let activeListeners = 0;
     const catalog = createTaskCatalog({
       descriptors: async () => [{
-        file: "Makefile",
-        label: "a Makefile"
+        match: "name",
+        value: "Makefile"
       }],
       list: async () => [],
       async onChange() {
