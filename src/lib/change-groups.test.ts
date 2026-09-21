@@ -145,6 +145,67 @@ describe("groupChanges", () => {
     expect(groups.map(group => group.id)).toEqual(["."]);
   });
 
+  it("collapses a run of changes to one file into a single card", () => {
+    const [group] = groupChanges({
+      workspaceRoot: ROOT,
+      events: [
+        change({
+          path: `${ROOT}/src/App.svelte`,
+          added: 4,
+          timestamp: 30
+        }),
+        change({
+          path: `${ROOT}/src/App.svelte`,
+          added: 6,
+          removed: 2,
+          timestamp: 20
+        }),
+        change({
+          path: `${ROOT}/src/other.ts`,
+          added: 1,
+          timestamp: 10
+        })
+      ]
+    });
+
+    expect(group.events).toHaveLength(3);
+    expect(group.entries).toHaveLength(2);
+    expect(group.entries[0]).toMatchObject({
+      repeats: 2,
+      added: 10,
+      removed: 2
+    });
+    expect(group.entries[0].event.ts).toBe(30);
+    expect(group.entries[1].repeats).toBe(1);
+  });
+
+  it("only folds a run — a file changed again later is its own card", () => {
+    const [group] = groupChanges({
+      workspaceRoot: ROOT,
+      events: [
+        change({
+          path: `${ROOT}/src/App.svelte`,
+          timestamp: 30
+        }),
+        change({
+          path: `${ROOT}/src/other.ts`,
+          timestamp: 20
+        }),
+        change({
+          path: `${ROOT}/src/App.svelte`,
+          timestamp: 10
+        })
+      ]
+    });
+
+    expect(group.entries.map(entry => entry.event.path)).toEqual([
+      `${ROOT}/src/App.svelte`,
+      `${ROOT}/src/other.ts`,
+      `${ROOT}/src/App.svelte`
+    ]);
+    expect(group.entries.every(entry => entry.repeats === 1)).toBe(true);
+  });
+
   it("orders groups by their most-recent change", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,

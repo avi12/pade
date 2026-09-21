@@ -715,7 +715,8 @@
             <span class="group-count">{formatCount(group.events.length)}</span>
           </header>
           <ul class="grouplist">
-            {#each group.events as event (event.id)}
+            {#each group.entries as entry (entry.event.id)}
+              {@const event = entry.event}
               {@const isOpen = expandedId === event.id}
               {@const badge = fileTypeBadge(event.path)}
               {@const isImage = isImagePath(event.path)}
@@ -786,15 +787,23 @@
                       now
                     })}</span>
                   </span>
-                  <span class="summary">{event.summary}</span>
+                  <span class="summary">
+                    {event.summary}
+                    {#if entry.repeats > 1}
+                      <span
+                        class="repeats"
+                        data-tooltip="{formatCount(entry.repeats)} changes to this file in a row"
+                      >×{formatCount(entry.repeats)}</span>
+                    {/if}
+                  </span>
                   <span class="meta">
                     <span class="path" {@attach clippedTextTooltip(event.path)}>{relativeDirectory(event.path)}</span>
                     <span class="statistics">
-                      {#if event.added}
-                        <span class="add">+{formatCount(event.added)}</span>
+                      {#if entry.added}
+                        <span class="add">+{formatCount(entry.added)}</span>
                       {/if}
-                      {#if event.removed}
-                        <span class="deletion">−{formatCount(event.removed)}</span>
+                      {#if entry.removed}
+                        <span class="deletion">−{formatCount(entry.removed)}</span>
                       {/if}
                     </span>
                   </span>
@@ -1499,11 +1508,25 @@
   }
 
   .summary {
-    display: block;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
     margin-block: 5px 0;
     margin-inline: 0;
     color: var(--on-surface);
     font-size: 13px;
+  }
+
+  /* How many changes in a row this one card stands for. Quiet by default — it
+     is a count, not a state — and tabular so it doesn't jitter as it climbs. */
+  .repeats {
+    padding-block: 1px;
+    padding-inline: 6px;
+    border-radius: var(--radius-full);
+    background: var(--surface-3);
+    color: var(--on-surface-variant);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
   }
 
   .meta {
