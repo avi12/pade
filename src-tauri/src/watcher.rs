@@ -698,21 +698,20 @@ fn read_preview_text(root: &Path, path: &Path) -> Result<Option<String>, ()> {
     String::from_utf8(bytes).map(Some).map_err(|_| ())
 }
 
-fn summarize(kind: ChangeKind, path: &Path, added: usize, removed: usize) -> String {
-    let name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("file");
+/// What happened to the file, for the line under its name on a feed card. The
+/// name is deliberately absent: the card prints it directly above, and a summary
+/// that repeated it made every card say the same thing twice.
+fn summarize(kind: ChangeKind, added: usize, removed: usize) -> String {
     match kind {
-        ChangeKind::Created => format!("New file {name}"),
-        ChangeKind::Deleted => format!("Deleted {name}"),
+        ChangeKind::Created => "New file".to_string(),
+        ChangeKind::Deleted => "Deleted".to_string(),
         ChangeKind::Modified => {
             if added > 0 && removed == 0 {
-                format!("Grew {name} by {added} line{}", plural(added))
+                format!("Grew by {added} line{}", plural(added))
             } else if removed > 0 && added == 0 {
-                format!("Trimmed {removed} line{} from {name}", plural(removed))
+                format!("Trimmed {removed} line{}", plural(removed))
             } else {
-                format!("Edited {name}")
+                "Edited".to_string()
             }
         }
     }
@@ -1353,7 +1352,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         let id = format!("{}-{}", now_ms(), COUNTER.fetch_add(1, Ordering::Relaxed));
         let event = ChangeEvent {
             id,
-            summary: summarize(kind, &path, added, removed),
+            summary: summarize(kind, added, removed),
             path: path_string,
             kind: kind.as_str().to_string(),
             added,
@@ -1631,7 +1630,7 @@ mod tests {
         base64_encode, drain_burst, git_dir_lifecycle_changed, git_state_dirs,
         ignored_by_static_dirs, image_mime_type, is_git_dir_entry, is_git_state_file, line_count,
         line_delta, manifest_ignore_dirs, mcp_membership_changed, read_authorized_file,
-        read_preview_text, reclassify, resolve_watch_root, static_ignore_dirs, surfaces,
+        read_preview_text, reclassify, resolve_watch_root, static_ignore_dirs, summarize, surfaces,
         unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
     use std::collections::HashSet;
@@ -1639,6 +1638,16 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::mpsc::channel;
     use std::time::Duration;
+
+    #[test]
+    fn a_summary_says_what_happened_without_repeating_the_file_name() {
+        assert_eq!(summarize(ChangeKind::Created, 0, 0), "New file");
+        assert_eq!(summarize(ChangeKind::Deleted, 0, 0), "Deleted");
+        assert_eq!(summarize(ChangeKind::Modified, 42, 0), "Grew by 42 lines");
+        assert_eq!(summarize(ChangeKind::Modified, 1, 0), "Grew by 1 line");
+        assert_eq!(summarize(ChangeKind::Modified, 0, 3), "Trimmed 3 lines");
+        assert_eq!(summarize(ChangeKind::Modified, 5, 2), "Edited");
+    }
 
     #[test]
     fn creating_or_deleting_an_empty_mcp_file_changes_membership_state() {
