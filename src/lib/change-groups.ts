@@ -92,7 +92,17 @@ function projectOf({ path, workspaceRoot, repository }: {
     return repository;
   }
 
-  const isScopedMember = segments[1].startsWith("@") && segments.length >= 3;
+  // A member is a FOLDER under the container: `app/Ui/Dialog.cs` belongs to Ui,
+  // while `app/WindowChrome.cs` is a file sitting in the container itself and
+  // belongs to the repo. Without the check every loose file under `app/` became
+  // its own one-file "project", which is a chip per file across the filter row.
+  const isScopedMember = segments[1].startsWith("@");
+  const memberSegmentCount = isScopedMember ? 3 : 2;
+  const memberIsDirectory = segments.length > memberSegmentCount;
+  if (!memberIsDirectory) {
+    return repository;
+  }
+
   const member = isScopedMember ? `${segments[1]}/${segments[2]}` : segments[1];
   return {
     id: `${container}/${member}`,

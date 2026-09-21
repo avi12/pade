@@ -120,6 +120,31 @@ describe("groupChanges", () => {
     expect(ids).toEqual([".", "packages/hooks"]);
   });
 
+  // any-stt's shape: `app/` holds folders AND loose files. Every loose file used
+  // to become its own one-file "project", which is a filter chip per file.
+  it("keeps a loose file in a container folder out of its own group", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      events: [
+        change({ path: `${ROOT}/app/Ui/Dialog.cs` }),
+        change({ path: `${ROOT}/app/WindowChrome.cs` }),
+        change({ path: `${ROOT}/app/Platform/Shared.g.cs` })
+      ]
+    });
+
+    expect(groups.map(group => group.id).toSorted()).toEqual([".", "app/Platform", "app/Ui"]);
+    expect(groups.find(group => group.id === ".")?.events).toHaveLength(1);
+  });
+
+  it("keeps a loose file beside a scoped member out of its own group", () => {
+    const groups = groupChanges({
+      workspaceRoot: ROOT,
+      events: [change({ path: `${ROOT}/packages/@acme/README.md` })]
+    });
+
+    expect(groups.map(group => group.id)).toEqual(["."]);
+  });
+
   it("orders groups by their most-recent change", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
