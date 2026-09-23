@@ -167,7 +167,16 @@
      so the menu behind stays visible (dimmed) yet un-clickable and there's no
      fit-content ::backdrop for clicks to leak through. `display` is gated on
      :popover-open (beating the UA `dialog:not([open])` display:none) so it centres
-     the card only while shown. */
+     the card only while shown.
+
+     It opts out of the shared `[popover]` entrance (theme.css). That entrance
+     lifts and scales a menu in — `scale: 0.95 → 1`, `translate: 0 -10px → 0` —
+     which is right for a box anchored to its trigger and wrong for a box that IS
+     the window: scaling a full-viewport scrim grows the dim out of the centre
+     and leaves a lit margin all round while it runs (measured: the bottom band
+     reached its final tone ~50ms after the middle). A scrim only fades, so the
+     identity values are restored here and `scale`/`translate` are dropped from
+     the transition — including the @starting-style that seeds the 0.95. */
   .scrim {
     position: fixed;
     inset: 0;
@@ -181,15 +190,30 @@
     border: none;
     background: color-mix(in sRGB, var(--shadow-color) 70%, hsl(214deg 40% 4% / 55%));
     color: inherit;
+    transition:
+      opacity 160ms var(--ease),
+      overlay 200ms allow-discrete,
+      display 200ms allow-discrete;
+    scale: 1;
+    translate: none;
     animation: fadein 160ms var(--ease);
 
     &:popover-open {
       display: grid;
       place-items: center;
+      scale: 1;
+      translate: none;
     }
 
     .dialog {
       margin: 0;
+    }
+  }
+
+  @starting-style {
+    .scrim:popover-open {
+      scale: 1;
+      translate: none;
     }
   }
 
