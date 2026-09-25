@@ -90,6 +90,45 @@ describe("contextPercentage via observeContext", () => {
     expect(contextPercentage("claude-anchored-left")).toBe(66);
   });
 
+  it("inverts Claude's everyday '23% until auto-compact' countdown", () => {
+    observeContextScreen({
+      id: "claude-until-compact",
+      text: "✻ Fluttering… (15m 28s · ↓ 52.7k tokens)   23% until auto-compact"
+    });
+
+    expect(measuredContextPercentage("claude-until-compact")).toBe(77);
+  });
+
+  it("reads Claude's 'Context low (N% remaining)' as remaining, not used", () => {
+    observeContextScreen({
+      id: "claude-context-low",
+      text: "Context low (12% remaining) · Run /compact to compact & continue"
+    });
+
+    expect(measuredContextPercentage("claude-context-low")).toBe(88);
+  });
+
+  it("still reads a low-context warning the update banner clipped short", () => {
+    // Both share one right-aligned, overflow-hidden row: "Update available!
+    // Run: winget upgrade Anthropic.ClaudeCode" cuts the warning's tail off,
+    // and the loose `context … N%` arm then read the remaining 12 as 12% used.
+    observeContextScreen({
+      id: "claude-clipped-low",
+      text: "Context low (12% rema   Update available! Run: winget upgrade Anthropic.ClaudeCode"
+    });
+
+    expect(measuredContextPercentage("claude-clipped-low")).toBe(88);
+  });
+
+  it("reads Claude's '34% context used' as used", () => {
+    observeContextScreen({
+      id: "claude-context-used",
+      text: "34% context used"
+    });
+
+    expect(measuredContextPercentage("claude-context-used")).toBe(34);
+  });
+
   it("computes the percent from a used/limit token ratio", () => {
     observeContext({
       id: "ratio-plain",

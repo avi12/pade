@@ -61,6 +61,18 @@ const FOOTER_USED_RE = /[\d,.]+\s*(?:k|m)?\s*\((\d{1,3})\s*%\)\s*ctrl\+p/;
 // OpenCode's status sidebar, when its pieces land contiguously (a narrow
 // pane, a copy-paste): "Context 14,479 tokens 3% used".
 const SIDEBAR_USED_RE = /context\s+[\d,.]+\s*(?:k|m)?\s*tokens\s+(\d{1,3})\s*%\s*used/;
+// Claude Code's low-context warning: "Context low (12% remaining) · Run
+// /compact to compact & continue". Its own arm ahead of the loose USED_RE
+// below, which would otherwise read the *remaining* 12 as 12% USED — an 88%
+// full session reported as nearly empty. The anchor stops at the percent so a
+// clipped line still parses: that warning shares one right-aligned,
+// overflow-hidden row with the auto-updater, and "Update available! Run: winget
+// upgrade Anthropic.ClaudeCode" is long enough to cut the tail off it.
+const CONTEXT_LOW_RE = /context\s+low\s*\(\s*(\d{1,3})\s*%/;
+// Claude Code's everyday indicator, and the one form carrying no "left" or
+// "remaining" for REMAINING_RE to anchor on — the auto-compact phrase is the
+// anchor instead. Counts DOWN to compaction, so it reads as remaining.
+const UNTIL_COMPACT_RE = /(\d{1,3})\s*%\s*until\s+auto-?\s*compact/;
 // The bare "left … N%" arm needs a context/window anchor: an agent transcript
 // can carry arbitrary pasted content (CSS with `left:` and percentages dumped
 // by a tool call), and an unanchored match there read as "context nearly full"
@@ -94,6 +106,18 @@ function parseUsedPercentage(text: string): number | null {
   if (sidebarUsed) {
     const percentage = Number(sidebarUsed[1]);
     return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
+  }
+
+  const contextLow = lower.match(CONTEXT_LOW_RE);
+  if (contextLow) {
+    const percentage = Number(contextLow[1]);
+    return Number.isFinite(percentage) ? Math.max(0, 100 - percentage) : null;
+  }
+
+  const untilCompact = lower.match(UNTIL_COMPACT_RE);
+  if (untilCompact) {
+    const percentage = Number(untilCompact[1]);
+    return Number.isFinite(percentage) ? Math.max(0, 100 - percentage) : null;
   }
 
   const remaining = lower.match(REMAINING_RE);
