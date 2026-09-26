@@ -17,13 +17,7 @@
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import {
-    contextWindowKnown,
-    dropContext,
-    observeContext,
-    observeContextScreen,
-    seedContextWindow
-  } from "@/lib/stores/context.svelte";
+  import { dropContext, observeContext, observeContextScreen, observeSessionLog } from "@/lib/stores/context.svelte";
   import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
@@ -288,51 +282,43 @@
     await writeToPty(colorSchemeReport(appearance.terminalScheme));
   }
 
-  // Recover the context window from the session's model when the agent's own
-  // banner never supplies one. The backend reads the model off disk and sizes it
-  // from the live models.dev catalog. `seedContextWindow` never overrides a
-  // window the banner did supply, so a live reading always wins. On any failure
-  // the window simply stays unknown — the gauge reads "measuring…", never a
+  // Read how full the context window is from the agent's own session log. Both
+  // halves come off disk — the newest turn's token accounting, and the window its
+  // recorded model advertises — so the reading holds no matter what the terminal
+  // is or isn't painting. On any failure the store simply keeps what it had; the
+  // gauge reads "measuring…" or falls back to the screen signals, never a
   // wrong number.
   //
-  // This has to be RE-ATTEMPTED, not fired once at mount, and that is the whole
-  // reason auto-handoff silently never armed on a fresh Claude session. The
-  // window is no longer in the banner at all (2.1.227 prints "Fable 5 with xhigh
-  // effort · Claude Max", where it once printed "Opus 4.8 (1M context)"), so the
-  // model lookup is the ONLY source — and the model is read from Claude's own
-  // session log, which carries no `"model"` field until its first assistant turn
-  // has been written. A mount-time attempt therefore always lands too early on a
-  // fresh session, leaves the window null, and `measuredContextPercentage` — the
-  // one signal auto-handoff may act on — answers null for the rest of that
-  // session's life. It came good only if the component happened to remount later
-  // (an HMR reload), which is exactly how the bug was reported.
-  let seedingContextWindow = false;
+  // This has to be RE-READ every turn, not fired once at mount. The fill grows
+  // all session long, and the log carries no `"model"` field (nor any usage)
+  // until the first assistant turn has been written — so a mount-time attempt
+  // always lands too early on a fresh session and would leave
+  // `measuredContextPercentage`, the one signal auto-handoff may act on, null for
+  // the rest of that session's life.
+  let readingSessionLog = false;
 
-  function contextWindowStillNeeded(): boolean {
-    return !seedingContextWindow && !contextWindowKnown(session.id);
-  }
-
-  async function seedContextWindowFromModel() {
-    if (!contextWindowStillNeeded()) {
+  async function readContextFromSessionLog() {
+    if (readingSessionLog) {
       return;
     }
 
-    seedingContextWindow = true;
+    readingSessionLog = true;
     try {
-      const windowTokens = await pty.contextWindow({
+      const context = await pty.sessionContext({
         command: session.agent.command,
         conversationId: session.conversationId
       });
-      if (windowTokens !== null) {
-        seedContextWindow({
+      if (context !== null) {
+        observeSessionLog({
           id: session.id,
-          windowTokens
+          usedTokens: context.usedTokens,
+          windowTokens: context.windowTokens
         });
       }
     } catch {
-    // Leave the window unknown; a guessed number could end a session wrongly.
+    // Leave the reading as it was; a guessed number could end a session wrongly.
     } finally {
-      seedingContextWindow = false;
+      readingSessionLog = false;
     }
   }
 
@@ -575,19 +561,19 @@
     });
   });
 
-  // Keep asking for the context window until the answer exists (see
-  // seedContextWindowFromModel). A session settling back to `ready` is the event
-  // to hang this off: the agent has just finished a turn, which is exactly when
-  // it has recorded the model this lookup reads — where a mount-time attempt is
-  // always too early on a fresh session. Untracked so the effect follows the
-  // status alone: the context store it reads is rewritten on every chunk of
-  // output, and subscribing to that would re-run this per chunk.
+  // Re-read the context fill off the session log (see readContextFromSessionLog).
+  // A session settling back to `ready` is the event to hang this off — no timer
+  // needed: the agent has just finished a turn, which is both when the log has
+  // grown and when the flows that gate on the fill (auto-handoff, usage-resume)
+  // next look at it. Untracked so the effect follows the status alone: the
+  // context store it writes is rewritten on every chunk of output, and
+  // subscribing to that would re-run this per chunk.
   $effect(() => {
     if (status !== SessionStatus.enum.ready) {
       return;
     }
 
-    untrack(seedContextWindowFromModel);
+    untrack(readContextFromSessionLog);
   });
 
   // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.

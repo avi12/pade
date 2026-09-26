@@ -269,6 +269,14 @@ export const contextMenu = {
   unregister: () => run("context_menu_unregister")
 };
 
+/** How full a session's context window is, as the agent's own session log
+ *  accounts for it. Declared here — the only place it's read — rather than in
+ *  the shared types module. */
+const SessionContext = z.object({
+  usedTokens: z.number().nullable(),
+  windowTokens: z.number().nullable()
+});
+
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
  *  so a listener can route to the right terminal. */
 export const pty = {
@@ -336,14 +344,15 @@ export const pty = {
     command: string;
     cwd: string;
   }) => call("agent_resume_args", z.array(z.string()), { ...args }),
-  /** The context-window size (tokens) the session's model advertises, read from
-   *  its on-disk model + the live models.dev catalog — the fallback for a
-   *  re-attached session whose startup `(N context)` banner has been trimmed out
-   *  of the replay. `null` when the model or the catalog can't be resolved. */
-  contextWindow: (args: {
+  /** How full the session's context window is, read from the agent's own session
+   *  log rather than its terminal: the tokens its newest turn occupies, and the
+   *  window its recorded model advertises (via the live models.dev catalog).
+   *  Either half is `null` when it can't be resolved, and the whole payload is
+   *  `null` for an agent that keeps no readable log. */
+  sessionContext: (args: {
     command: string;
     conversationId?: string;
-  }) => call("agent_context_window", z.number().nullable(), { ...args }),
+  }) => call("agent_session_context", SessionContext.nullable(), { ...args }),
   onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
   onExit: (callback: (id: string) => void) =>
     on("pty://exit", PtyExit, payload => callback(payload.id))

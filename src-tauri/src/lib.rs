@@ -9,7 +9,6 @@ mod gitignore;
 mod ide;
 mod mcp;
 mod members;
-mod model_window;
 mod naming;
 mod os;
 mod provision;
@@ -18,6 +17,7 @@ mod recovery;
 mod refs;
 mod resume;
 mod runner;
+mod session_context;
 mod tasks;
 mod terminal_schemes;
 mod theming;
@@ -161,7 +161,7 @@ pub fn run() {
             recovery::recovery_arm,
             theming::agent_theme_publish,
             resume::agent_resume_args,
-            model_window::agent_context_window,
+            session_context::agent_session_context,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

@@ -3,7 +3,8 @@ import {
   dropContext,
   measuredContextPercentage,
   observeContext,
-  observeContextScreen
+  observeContextScreen,
+  observeSessionLog
 } from "@/lib/stores/context.svelte";
 import { describe, expect, it } from "vitest";
 
@@ -416,6 +417,88 @@ describe("observeContextScreen", () => {
     });
 
     expect(contextPercentage("screen-no-chars")).toBeNull();
+  });
+});
+
+describe("observeSessionLog", () => {
+  it("reports the log's own fill as measured, not as an estimate", () => {
+    observeSessionLog({
+      id: "log-only",
+      usedTokens: 473_970,
+      windowTokens: 1_000_000
+    });
+
+    expect(measuredContextPercentage("log-only")).toBeCloseTo(47.397);
+    expect(contextPercentage("log-only")).toBeCloseTo(47.397);
+  });
+
+  it("outranks a stale screen reading", () => {
+    observeContextScreen({
+      id: "log-beats-screen",
+      text: "68% until auto-compact"
+    });
+    observeSessionLog({
+      id: "log-beats-screen",
+      usedTokens: 470_000,
+      windowTokens: 1_000_000
+    });
+
+    expect(measuredContextPercentage("log-beats-screen")).toBe(47);
+  });
+
+  it("outranks the sticky tokens counter that produced the wrong gauge", () => {
+    observeContextScreen({
+      id: "log-beats-counter",
+      text: "Opus 5 (1M context) · ↓ 320k tokens"
+    });
+    expect(measuredContextPercentage("log-beats-counter")).toBe(32);
+
+    observeSessionLog({
+      id: "log-beats-counter",
+      usedTokens: 473_970,
+      windowTokens: 1_000_000
+    });
+
+    expect(measuredContextPercentage("log-beats-counter")).toBeCloseTo(47.397);
+  });
+
+  it("stays silent until both halves of the fraction are known", () => {
+    observeSessionLog({
+      id: "log-half",
+      usedTokens: 120_000,
+      windowTokens: null
+    });
+
+    expect(measuredContextPercentage("log-half")).toBeNull();
+  });
+
+  it("never overrides a window the agent's own banner supplied", () => {
+    observeContext({
+      id: "log-keeps-banner",
+      chunk: "Opus 5 (200k context)"
+    });
+    observeSessionLog({
+      id: "log-keeps-banner",
+      usedTokens: 100_000,
+      windowTokens: 1_000_000
+    });
+
+    expect(measuredContextPercentage("log-keeps-banner")).toBe(50);
+  });
+
+  it("takes the newer turn's count and keeps the window it already had", () => {
+    observeSessionLog({
+      id: "log-newer-turn",
+      usedTokens: 200_000,
+      windowTokens: 1_000_000
+    });
+    observeSessionLog({
+      id: "log-newer-turn",
+      usedTokens: 450_000,
+      windowTokens: null
+    });
+
+    expect(measuredContextPercentage("log-newer-turn")).toBe(45);
   });
 });
 

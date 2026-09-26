@@ -1,12 +1,16 @@
 // Context-window tracking per session (SoC: shared state in lib/stores). Powers
 // auto-handoff: when an agent nears its context limit we hand off to a fresh one.
 //
-// Two signals:
-//   1. Parse the agent CLI's own context indicator out of the PTY stream (exact,
+// Three signals, strongest first:
+//   1. The agent's own session log, read off disk by `session_context.rs` — the
+//      `usage` block of its newest turn against its model's real window. Exact,
+//      independent of anything the terminal paints, and available from the first
+//      turn onward, so it outranks everything below whenever it answers.
+//   2. Parse the agent CLI's own context indicator out of the PTY stream (exact,
 //      but coupled to that CLI's output — heuristic, tune against real output).
-//      This is the ONLY signal an automated decision may act on — see
-//      `measuredContextPercentage`.
-//   2. Estimate from the bytes seen through the PTY (rough, agent-agnostic). A
+//      Claude Code only prints one in the last ~3% of the window, so for most of
+//      a session this is silent; it stays as the answer for agents with no log.
+//   3. Estimate from the bytes seen through the PTY (rough, agent-agnostic). A
 //      fullscreen agent repaints its whole frame on every spinner tick, so this
 //      over-counts badly and must never end a session; it feeds only the soft
 //      tab gauge (`contextPercentage`), never auto-handoff / resume / retry.
@@ -19,6 +23,9 @@ const CHARACTERS_PER_TOKEN = 4;
 const DEFAULT_CONTEXT_LIMIT = 200_000;
 
 interface ContextSignal {
+  /** Tokens the agent's own session log says the conversation occupies — the
+   *  authoritative reading, written by the agent itself every turn. */
+  loggedTokens: number | null;
   /** Percent of context used, parsed from the agent's own output (0..100). */
   parsedPercentage: number | null;
   /** The window size the agent announced ("Opus 4.8 (1M context)"), tokens. */
@@ -145,6 +152,7 @@ function parseUsedPercentage(text: string): number | null {
 }
 
 const EMPTY_SIGNAL: ContextSignal = {
+  loggedTokens: null,
   parsedPercentage: null,
   windowTokens: null,
   reportedTokens: 0,
@@ -189,6 +197,7 @@ function absorb({ id, text, characters }: {
   const parsed = parseUsedPercentage(text);
   const tokens = parseTokenSignals(text);
   signals.set(id, {
+    ...previous,
     parsedPercentage: parsed ?? previous.parsedPercentage,
     windowTokens: tokens.windowTokens ?? previous.windowTokens,
     reportedTokens: Math.max(tokens.reportedTokens, previous.reportedTokens),
@@ -258,12 +267,28 @@ function tokensDerivedPercentage({ signal, allowFallback }: {
   return Math.min(100, (signal.reportedTokens / window) * 100);
 }
 
-/** The session's context usage percent (parsed if known, else estimated), or
- *  null when nothing has been observed yet. */
+/** The percent the agent's own session log implies, or null until both halves of
+ *  the fraction are known. The strongest signal there is: the agent wrote both
+ *  numbers itself, so nothing here depends on what its TUI happened to paint. */
+function loggedPercentage(signal: ContextSignal): number | null {
+  if (signal.loggedTokens === null || signal.windowTokens === null) {
+    return null;
+  }
+
+  return Math.min(100, (signal.loggedTokens / signal.windowTokens) * 100);
+}
+
+/** The session's context usage percent (logged if known, else parsed, else
+ *  estimated), or null when nothing has been observed yet. */
 export function contextPercentage(id: string): number | null {
   const signal = signals.get(id);
   if (!signal) {
     return null;
+  }
+
+  const logged = loggedPercentage(signal);
+  if (logged !== null) {
+    return logged;
   }
 
   if (signal.parsedPercentage !== null) {
@@ -286,59 +311,52 @@ export function contextPercentage(id: string): number | null {
   return Math.min(100, (tokens / DEFAULT_CONTEXT_LIMIT) * 100);
 }
 
-/** The session's context fill from the agent's OWN reported indicator (the
- *  parsed signal alone), or null when it hasn't printed one yet. Unlike
- *  `contextPercentage` this never falls back to the byte estimate — that estimate
- *  counts every byte a fullscreen agent repaints (spinners, elapsed-time ticks,
- *  whole-frame redraws), so it balloons far past real usage and must never end a
- *  session. Auto-handoff, usage-resume, and API-error retry all gate on this, so
- *  they act only on a fill the agent itself vouches for; a `null` reads as "room
- *  to spare" everywhere, the safe default.
+/** The session's context fill as the AGENT ITSELF accounts for it, or null when
+ *  it has vouched for nothing yet. Unlike `contextPercentage` this never falls
+ *  back to the byte estimate — that estimate counts every byte a fullscreen
+ *  agent repaints (spinners, elapsed-time ticks, whole-frame redraws), so it
+ *  balloons far past real usage and must never end a session. Auto-handoff,
+ *  usage-resume, and API-error retry all gate on this, so they act only on a fill
+ *  the agent itself vouches for; a `null` reads as "room to spare" everywhere,
+ *  the safe default.
  *
- *  Two agent-vouched sources: the % indicator when the agent prints one, else
- *  the consumed-tokens counter against the announced window. The latter is
- *  what makes a low handoff threshold workable — the agent only prints its own
- *  % near the limit, but the tokens counter runs from the first turn. */
+ *  Three agent-vouched sources, strongest first: the session log's own token
+ *  accounting, the % indicator when the agent prints one, then the consumed-
+ *  tokens counter against the announced window. The log is what makes a low
+ *  handoff threshold workable — a screen-scraped counter can only see what the
+ *  TUI chose to paint, and Claude paints no percentage at all until the last
+ *  ~3% of the window. */
 export function measuredContextPercentage(id: string): number | null {
   const signal = signals.get(id);
   if (!signal) {
     return null;
   }
 
-  return signal.parsedPercentage ?? tokensDerivedPercentage({
+  return loggedPercentage(signal) ?? signal.parsedPercentage ?? tokensDerivedPercentage({
     signal,
     allowFallback: false
   });
 }
 
-/** Is this session's context window established — the denominator every
- *  agent-vouched reading needs? Until it is, {@link measuredContextPercentage}
- *  answers null however many tokens the agent has reported, and auto-handoff
- *  stays disarmed. The out-of-band seed below is the only source when the agent
- *  prints no window banner, and it can only answer once the agent has recorded
- *  its model on disk — so its caller re-attempts while this is false. */
-export function contextWindowKnown(id: string): boolean {
-  return (signals.get(id)?.windowTokens ?? null) !== null;
-}
-
-/** Seed a session's context window from an out-of-band source — the model's
- *  advertised window, looked up online — when the agent's own `(N context)`
- *  banner never reached the parser (a re-attached session whose banner was
- *  trimmed from the replay, or an agent that stopped printing one at all).
- *  Never overrides a window the banner DID supply, so a live reading always
- *  wins. */
-export function seedContextWindow({ id, windowTokens }: {
+/** Record what the agent's own session log says about this session: the tokens
+ *  its newest turn occupies, and the window its model advertises. Both halves
+ *  are optional — a session whose first turn isn't written yet has no usage, and
+ *  an unreachable model catalog leaves the window unknown — and each is folded in
+ *  only when it answers, so a later reading never erases an earlier one.
+ *
+ *  The window never overrides one the agent's own `(N context)` banner supplied,
+ *  so a live reading still wins; the token count always overwrites, because a
+ *  newer turn is strictly better than the turn before it. */
+export function observeSessionLog({ id, usedTokens, windowTokens }: {
   id: string;
-  windowTokens: number;
+  usedTokens: number | null;
+  windowTokens: number | null;
 }): void {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
-  if (previous.windowTokens !== null) {
-    return;
-  }
-
   signals.set(id, {
     ...previous,
-    windowTokens
+    loggedTokens: usedTokens ?? previous.loggedTokens,
+    windowTokens: previous.windowTokens ?? windowTokens
   });
 }
 
