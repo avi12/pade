@@ -377,9 +377,11 @@
    always wore (#ff003c / #00ff9f / #fcee0a / #00b8ff / #d300c5 / #00f0ff), with
    two slots lifted off verbatim because verbatim was unreadable: brightBlack,
    the grey every palette reserves for comments, measured 2.99:1 on the code
-   surface, and magenta 4.36:1. The day face re-derives all sixteen in the
-   dashboard's own hues at paper lightness. Both faces are measured across every
-   token pair, and nothing ships below 4.5:1.
+   surface, and magenta 4.36:1. The day face re-derives all sixteen from those
+   same scheme hues at paper lightness — hue held, lightness dropped until the
+   slot clears AA on the day code surface — so the two faces stay one palette
+   seen under two lights. Both are measured across every token pair, and nothing
+   ships below 4.5:1.
 
    The caret stays the scheme's #fcee0a on the night face — the one slot
    Cyberpunk 2077 spends its yellow on, and the whole of the yellow budget now
@@ -566,21 +568,30 @@
   --grid-line: rgb(0 121 168 / 5%);
   --code-background: #edf5fc;
   --code-foreground: #06182b;
+
+  /* The day ANSI palette is the night one at paper lightness: each slot keeps
+     the HUE of its `[data-theme="dark"]` twin and only drops lightness until it
+     clears AA on --code-background. Re-picking "a readable dark green" per slot
+     instead is how the two faces drift into different palettes — the day green
+     had gone teal (176deg against the night's 157deg) and the day magenta had
+     gone indigo (251deg against 304deg), so the same agent output read as a
+     different product by daylight. Standard slots land near 5.4:1, the bright
+     pair near 4.6:1, which is what keeps bright reading as the emphasis step. */
   --terminal-black: #06182b;
-  --terminal-red: #c4004e;
-  --terminal-green: #00736b;
-  --terminal-yellow: hsl(45deg 100% 25%);
-  --terminal-blue: #00658d;
-  --terminal-magenta: #5b3fd6;
-  --terminal-cyan: #00527a;
+  --terminal-red: #c9002f;
+  --terminal-green: #007247;
+  --terminal-yellow: #6c6501;
+  --terminal-blue: #006b94;
+  --terminal-magenta: #b113a6;
+  --terminal-cyan: #006f75;
   --terminal-white: #d5e4f0;
   --terminal-bright-black: #2a4a66;
-  --terminal-bright-red: #d9155e;
-  --terminal-bright-green: #00857c;
-  --terminal-bright-yellow: hsl(45deg 95% 33%);
-  --terminal-bright-blue: #0089bd;
-  --terminal-bright-magenta: #6a4de0;
-  --terminal-bright-cyan: #00668f;
+  --terminal-bright-red: #dd0037;
+  --terminal-bright-green: #007e51;
+  --terminal-bright-yellow: #767100;
+  --terminal-bright-blue: #00779e;
+  --terminal-bright-magenta: #cc00a9;
+  --terminal-bright-cyan: #007b80;
   --terminal-bright-white: #ffffff;
   --terminal-selection: rgb(0 179 230 / 30%);
   --terminal-find-match: hsl(26deg 95% 48% / 24%);
