@@ -122,10 +122,22 @@ export async function startRunner({ label, kind, command, cwd }: {
   }
 }
 
-/** How often an attached runner checks whether the agent's task is still alive.
- *  A poll, not an event: a process the agent owns has no exit signal PADE hears. */
-const ATTACHED_POLL_MS = 4000;
+/** How often PADE asks the OS whether a task the agent started is still alive.
+ *  A poll, not an event: a process the agent owns has no exit signal PADE hears.
+ *  The one cadence for that question — `taskRuns` throttles its own checks to it
+ *  too, so a repainted invocation line can never ask the process tree faster. */
+export const TASK_LIVENESS_POLL_MS = 4000;
 let attachedPoll: ReturnType<typeof setInterval> | undefined;
+
+/** The attached row already tracking `command` for this session, if any. One
+ *  lookup serving both the idempotent attach below and `taskRuns`, which skips
+ *  asking the OS about a task the dock is already showing. */
+export function attachedRunner({ sessionId, command }: {
+  sessionId: string;
+  command: string;
+}): RunnerRow | undefined {
+  return rows.find(row => row.attached?.sessionId === sessionId && row.command === command);
+}
 
 /** Track a task the agent started as an ATTACHED runner: a dock card with a Stop
  *  that kills the agent's process, but no captured output (PADE never owned it).
@@ -138,7 +150,10 @@ export function attachRunner({ sessionId, label, kind, command, cwd }: {
   command: string;
   cwd: string;
 }): string {
-  const existing = rows.find(row => row.attached?.sessionId === sessionId && row.command === command);
+  const existing = attachedRunner({
+    sessionId,
+    command
+  });
   if (existing) {
     return existing.id;
   }
@@ -171,7 +186,7 @@ function ensureAttachedPoll(): void {
 
   attachedPoll = setInterval(async () => {
     await reconcileAttachedRunners();
-  }, ATTACHED_POLL_MS);
+  }, TASK_LIVENESS_POLL_MS);
 }
 
 /** Drop each attached row whose task is no longer running — it finished, or its
