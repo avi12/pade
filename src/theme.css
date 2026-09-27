@@ -178,8 +178,15 @@
 
   /* Terminal ANSI palette (Terminal.svelte feeds these to xterm). Agent CLIs
      paint with these 16 slots, and xterm's defaults suit only a dark screen —
-     on the light scheme every colour is re-picked dark enough to read on the
-     light code surface ("white" included: it means "plain text", not #fff). */
+     on the light scheme every CHROMATIC colour is re-picked dark enough to read
+     on the light code surface.
+
+     The black/white pair is the exception and stays literal: a CLI addresses
+     those two as backgrounds as much as text (Claude's bash bar is SGR 107 on
+     30 — bright-white ground, black ink), so re-picking white dark turns every
+     such bar into a black slab in daylight. Legibility of a light slot used as
+     TEXT is not this palette's job: Terminal.svelte's `minimumContrastRatio`
+     nudges it to WCAG AA against whatever it lands on. */
   --terminal-black: hsl(214deg 30% 20%);
   --terminal-red: hsl(352deg 72% 44%);
   --terminal-green: hsl(160deg 60% 28%);
@@ -187,7 +194,7 @@
   --terminal-blue: hsl(210deg 90% 42%);
   --terminal-magenta: hsl(265deg 55% 48%);
   --terminal-cyan: hsl(190deg 75% 30%);
-  --terminal-white: hsl(214deg 12% 55%);
+  --terminal-white: hsl(var(--seed-hue) 24% 89%);
   --terminal-bright-black: hsl(214deg 12% 46%);
   --terminal-bright-red: hsl(352deg 75% 38%);
   --terminal-bright-green: hsl(160deg 65% 24%);
@@ -195,7 +202,7 @@
   --terminal-bright-blue: hsl(210deg 95% 38%);
   --terminal-bright-magenta: hsl(265deg 60% 44%);
   --terminal-bright-cyan: hsl(190deg 80% 26%);
-  --terminal-bright-white: hsl(214deg 30% 14%);
+  --terminal-bright-white: hsl(var(--seed-hue) 40% 99%);
   --terminal-selection: hsl(210deg 90% 45% / 22%);
 
   /* Find-in-terminal (lib/TerminalFind). Both are washes, never solids: the
@@ -566,7 +573,7 @@
   --terminal-blue: #00658d;
   --terminal-magenta: #5b3fd6;
   --terminal-cyan: #00527a;
-  --terminal-white: #456781;
+  --terminal-white: #d5e4f0;
   --terminal-bright-black: #2a4a66;
   --terminal-bright-red: #d9155e;
   --terminal-bright-green: #00857c;
@@ -574,7 +581,7 @@
   --terminal-bright-blue: #0089bd;
   --terminal-bright-magenta: #6a4de0;
   --terminal-bright-cyan: #00668f;
-  --terminal-bright-white: #06182b;
+  --terminal-bright-white: #ffffff;
   --terminal-selection: rgb(0 179 230 / 30%);
   --terminal-find-match: hsl(26deg 95% 48% / 24%);
   --terminal-find-active: hsl(26deg 95% 48% / 58%);
