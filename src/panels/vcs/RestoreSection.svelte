@@ -310,7 +310,6 @@
     .percent {
       color: var(--on-surface-variant);
       font-size: 11px;
-      font-variant-numeric: tabular-nums;
     }
   }
 </style>

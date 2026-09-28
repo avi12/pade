@@ -98,7 +98,6 @@
     color: var(--on-surface);
     font-weight: 700;
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
 
   .dot {

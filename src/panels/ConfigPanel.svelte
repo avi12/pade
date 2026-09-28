@@ -643,7 +643,6 @@
       min-inline-size: 44px;
       font-weight: 700;
       font-size: 12px;
-      font-variant-numeric: tabular-nums;
       text-align: center;
     }
   }
@@ -691,7 +690,6 @@
       font: inherit;
       font-weight: 700;
       font-size: 12px;
-      font-variant-numeric: tabular-nums;
       text-align: end;
     }
   }

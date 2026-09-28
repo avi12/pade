@@ -303,7 +303,6 @@
     color: var(--on-primary-container);
     font-weight: 700;
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
 
   .spacer {

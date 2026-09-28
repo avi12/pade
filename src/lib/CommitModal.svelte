@@ -286,11 +286,6 @@
       margin-block: 7px 0;
       color: var(--on-surface-variant);
       font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .file-count {
-      font-variant-numeric: tabular-nums;
     }
 
     .separator {
@@ -303,13 +298,11 @@
     .add {
       color: var(--tertiary);
       font-weight: 600;
-      font-variant-numeric: tabular-nums;
     }
 
     .deletion {
       color: var(--critical);
       font-weight: 600;
-      font-variant-numeric: tabular-nums;
     }
   }
 

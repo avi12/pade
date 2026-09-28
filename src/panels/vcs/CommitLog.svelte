@@ -217,7 +217,6 @@
       align-items: center;
       margin-inline-start: auto;
       font-weight: 600;
-      font-variant-numeric: tabular-nums;
     }
 
     .add {

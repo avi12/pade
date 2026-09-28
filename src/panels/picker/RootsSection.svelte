@@ -369,7 +369,6 @@
     color: var(--on-surface-variant);
     font-weight: 600;
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 

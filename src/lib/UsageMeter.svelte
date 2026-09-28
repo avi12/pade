@@ -468,7 +468,6 @@
         color: var(--severity-color);
         font-weight: 700;
         font-size: 12px;
-        font-variant-numeric: tabular-nums;
       }
     }
 
@@ -490,7 +489,6 @@
       color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 11px;
-      font-variant-numeric: tabular-nums;
 
       .overflow-dot {
         flex: none;
@@ -569,7 +567,6 @@
       margin-block-start: 1px;
       color: var(--on-surface-variant);
       font-size: 11px;
-      font-variant-numeric: tabular-nums;
     }
 
     .severity-counts {
@@ -594,10 +591,6 @@
         inline-size: 8px;
         border-radius: var(--radius-full);
         background: var(--severity-color);
-      }
-
-      .severity-value {
-        font-variant-numeric: tabular-nums;
       }
     }
 
@@ -667,7 +660,6 @@
         font-weight: 800;
         font-size: 22px;
         line-height: 1;
-        font-variant-numeric: tabular-nums;
       }
 
       .spotlight-reset {
@@ -675,7 +667,6 @@
         margin-block-start: 7px;
         color: var(--on-surface-variant);
         font-size: 11px;
-        font-variant-numeric: tabular-nums;
       }
     }
 
@@ -846,7 +837,6 @@
       color: var(--severity-color);
       font-weight: 700;
       font-size: 11.5px;
-      font-variant-numeric: tabular-nums;
       text-align: end;
     }
 
@@ -860,7 +850,6 @@
       justify-self: end;
       color: var(--on-surface-variant);
       font-size: 10px;
-      font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
 

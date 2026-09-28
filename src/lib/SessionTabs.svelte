@@ -619,7 +619,6 @@
       color: var(--on-surface-variant);
       font-weight: 700;
       font-size: 11px;
-      font-variant-numeric: tabular-nums;
       cursor: pointer;
       transition: color 150ms var(--ease), background 150ms var(--ease);
 

@@ -111,7 +111,6 @@
   .agent-status {
     color: var(--on-surface-variant);
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 

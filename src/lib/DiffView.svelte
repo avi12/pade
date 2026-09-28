@@ -80,8 +80,8 @@
   /* A line-number gutter runs down the inline-start edge of every code row:
      two columns (old, new) in the unified view, one per side in split. It's
      top-aligned so the numbers sit against the first visual line of a wrapped
-     row, muted, tabular so digits never jitter, and unselectable so dragging to
-     select code (for send-to-agent) never grabs the numbers. */
+     row, muted, and unselectable so dragging to select code (for send-to-agent)
+     never grabs the numbers. */
   .gutter {
     display: flex;
     flex: none;
@@ -89,7 +89,6 @@
     justify-content: flex-end;
     padding-inline-end: 10px;
     color: var(--on-surface-variant);
-    font-variant-numeric: tabular-nums;
     text-align: end;
     white-space: nowrap;
     opacity: 55%;

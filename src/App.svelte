@@ -2540,7 +2540,6 @@
     color: var(--on-primary-container);
     font-weight: 700;
     font-size: 12px;
-    font-variant-numeric: tabular-nums;
   }
 
   .panel-refresh {

@@ -1046,10 +1046,6 @@
       font-size: 10px;
       transition: rotate 200ms var(--ease);
     }
-
-    .label {
-      font-variant-numeric: tabular-nums;
-    }
   }
 
   /* Anchored below the chip. Uses the shared .popover-menu shell for its flip
@@ -1147,7 +1143,6 @@
 
       .count {
         color: var(--on-surface-variant);
-        font-variant-numeric: tabular-nums;
       }
     }
   }
@@ -1224,7 +1219,6 @@
     }
 
     .count {
-      font-variant-numeric: tabular-nums;
       opacity: 75%;
     }
   }
@@ -1295,7 +1289,6 @@
     color: var(--on-surface-variant);
     font-family: var(--font-monospace);
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
@@ -1306,7 +1299,6 @@
     font-family: var(--font-monospace);
     font-weight: 600;
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
 
   .group-count {
@@ -1317,7 +1309,6 @@
     background: var(--surface-2);
     color: var(--on-surface-variant);
     font-size: 10.5px;
-    font-variant-numeric: tabular-nums;
     text-align: center;
   }
 
@@ -1504,7 +1495,6 @@
     margin-left: auto;
     color: var(--on-surface-variant);
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
 
   .summary {
@@ -1518,7 +1508,7 @@
   }
 
   /* How many changes in a row this one card stands for. Quiet by default — it
-     is a count, not a state — and tabular so it doesn't jitter as it climbs. */
+     is a count, not a state. */
   .repeats {
     padding-block: 1px;
     padding-inline: 6px;
@@ -1526,7 +1516,6 @@
     background: var(--surface-3);
     color: var(--on-surface-variant);
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
 
   .meta {
@@ -1550,7 +1539,6 @@
     gap: 8px;
     margin-inline-start: auto;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
   }
 
   .add {

@@ -216,7 +216,6 @@
       padding-inline-start: 2px;
       font-weight: 600;
       font-size: 10px;
-      font-variant-numeric: tabular-nums;
     }
 
     .add {

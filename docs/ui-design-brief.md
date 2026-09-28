@@ -70,7 +70,7 @@ Pill everywhere it reads as an action; generous radii on containers.
 - **Mono font:** `JetBrains Mono`, then `Cascadia Code`, `ui-monospace` — for paths, code, commands, filenames, SHAs, the terminal.
 - **Expressive display:** page titles use a large, tight, bold clamp — `clamp(24px, 4vw, 36px)`, weight 700–800, letter-spacing `-0.02em`, `text-wrap: balance`.
 - Body ~14px; secondary 12–13px; metadata 11px. Section eyebrows/labels: 11–12px, UPPERCASE, letter-spacing `0.06–0.08em`, in `on-surface-var`.
-- Numbers that align in columns use `tabular-nums`.
+- Every number is tabular. `font-variant-numeric: tabular-nums` is set once on `body` and inherited, and any UI stack whose lead face ships no `tnum` (Chakra Petch, Rajdhani) leads with a digit-only `@font-face` that does — otherwise the property is silently inert.
 
 ### 1.4 Motion
 

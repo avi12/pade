@@ -336,15 +336,14 @@
       }
     }
 
-    /* The count changes on every keystroke — tabular figures keep it from
-       shuffling the buttons sideways as the digits change. */
+    /* The count changes on every keystroke, so it also reserves its width —
+       tabular figures alone still let "1 of 9" become "10 of 99". */
     .count {
       flex: none;
       min-inline-size: 8ch;
       color: var(--on-surface-variant);
       font-family: var(--font-monospace);
       font-size: 11px;
-      font-variant-numeric: tabular-nums;
       text-align: end;
     }
 
