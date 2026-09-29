@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent-icon";
+  import { aiNamingEnabled } from "@/lib/ai-naming-scope";
   import AppMenu from "@/lib/AppMenu.svelte";
   import { createAutoNamer } from "@/lib/auto-name";
   import BranchSwitcher from "@/lib/BranchSwitcher.svelte";
@@ -59,7 +60,7 @@
     reconcileChoiceAttention
   } from "@/lib/stores/sessionAttention.svelte";
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
-  import { dropNaming, transferNaming } from "@/lib/stores/sessionNaming.svelte";
+  import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
   import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
@@ -628,6 +629,28 @@
     return () => autoNamer.dispose();
   });
 
+  // Whether this window names its session tabs with AI — the project's own choice
+  // when it has one, else the global default (lib/ai-naming-scope).
+  const namesSessionsWithAi = $derived(
+    aiNamingEnabled({
+      prefs: settings.prefs,
+      project: currentProject
+    })
+  );
+
+  // Apply that setting to every tab already open, and again whenever it changes —
+  // including when this window switches project, since the new project may answer
+  // differently. `sessions` is read untracked on purpose: this effect exists to
+  // follow the SETTING, and re-running it on every tab open or close would undo a
+  // ✦ the user had just flipped by hand. New tabs are seeded in `launch` instead.
+  $effect(() => {
+    const on = namesSessionsWithAi;
+    applyNamingToAll({
+      sessions: untrack(() => sessions),
+      on
+    });
+  });
+
   // Send-from-IDE bridge (lib/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
@@ -835,6 +858,13 @@
       conversationId: crypto.randomUUID()
     };
     sessions.push(session);
+    // A new tab is born under the window's setting — the same one the effect
+    // above applies to the tabs already open.
+    setNaming({
+      id: session.id,
+      agent: session.agent.command,
+      on: namesSessionsWithAi
+    });
     sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
     paneIds = options.split ? [...paneIds, session.id] : [session.id];
@@ -2197,7 +2227,7 @@
                 {/await}
               {:else if side === Side.config}
                 {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
-                  <ConfigPanel agent={activeAgent} />
+                  <ConfigPanel agent={activeAgent} project={currentProject} />
                 {:catch}
                   <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
                 {/await}

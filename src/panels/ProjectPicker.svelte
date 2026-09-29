@@ -159,6 +159,11 @@
       autoNameTemp: on
     });
   }
+  async function setAiNaming(on: boolean) {
+    await updatePrefs({
+      aiSessionNaming: on
+    });
+  }
   function scan(root: string): Promise<ProjectEntry[]> {
     return workspace.scan(root).catch((): ProjectEntry[] => []);
   }
@@ -319,7 +324,12 @@
           bind:createIn={createRoot}
         />
 
-        <OnLaunchSection onautoname={setAutoName} onstartmode={setStartMode} prefs={settings.prefs} />
+        <OnLaunchSection
+          onainaming={setAiNaming}
+          onautoname={setAutoName}
+          onstartmode={setStartMode}
+          prefs={settings.prefs}
+        />
 
         <RecentSection
           {ides}

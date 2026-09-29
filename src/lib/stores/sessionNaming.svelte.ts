@@ -1,7 +1,8 @@
 // AI session-naming state machine (SoC: cross-component state in lib/stores).
 //
-// Clicking a tab's ✦ button toggles auto-naming for that session. When on, the
-// rules are:
+// Auto-naming is turned on per session, either by the tab's ✦ button or in bulk
+// by the window's setting (lib/ai-naming-scope decides that from the project and
+// global preferences; the app shell applies it here). When on, the rules are:
 //   1. generate immediately — but only while the agent is actively working;
 //   2. refresh the name every 30s while it keeps working;
 //   3. when it stops (goes idle or exits), generate one final name, then pause;
@@ -73,15 +74,21 @@ export function isNaming(id: string): boolean {
   return naming.has(id);
 }
 
-/** Toggle auto-naming. Turning it on names immediately only while the agent is
- *  working (rule 1); the refresh and stop/continue handling live in the effect
- *  below. Turning it off clears the timer and keeps the last label. */
-export function toggleNaming({ id, agent }: {
+/** Turn auto-naming on or off for one session. Turning it on names immediately
+ *  only while the agent is working (rule 1); the refresh and stop/continue
+ *  handling live in the effect below. Turning it off clears the timer and keeps
+ *  the last label. Idempotent, so re-applying the same setting is free. */
+export function setNaming({ id, agent, on }: {
   id: string;
   agent: string;
+  on: boolean;
 }): void {
-  if (naming.has(id)) {
+  if (!on) {
     dropNaming(id);
+    return;
+  }
+
+  if (naming.has(id)) {
     return;
   }
 
@@ -93,6 +100,40 @@ export function toggleNaming({ id, agent }: {
 
   if (sessionStatus(id) === SessionStatus.enum.working) {
     generate(id);
+  }
+}
+
+/** Flip auto-naming for one session — what the tab's ✦ button does. */
+export function toggleNaming({ id, agent }: {
+  id: string;
+  agent: string;
+}): void {
+  setNaming({
+    id,
+    agent,
+    on: !naming.has(id)
+  });
+}
+
+/** Apply the window's naming setting to every session it currently holds. This
+ *  is deliberately a bulk assignment, not a default that per-tab ✦ toggles layer
+ *  on top of: changing the setting is the user saying "these tabs", so it also
+ *  overrules a tab they had flipped by hand. */
+export function applyNamingToAll({ sessions, on }: {
+  sessions: readonly {
+    id: string;
+    agent: {
+      command: string;
+    };
+  }[];
+  on: boolean;
+}): void {
+  for (const session of sessions) {
+    setNaming({
+      id: session.id,
+      agent: session.agent.command,
+      on
+    });
   }
 }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { globalNaming } from "@/lib/ai-naming-scope";
   import { contextMenu } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import { rovingTablist } from "@/lib/roving-tabs";
@@ -10,14 +11,16 @@
   // the Windows Explorer "Open in PADE" context-menu toggle. Pref persistence
   // reaches shared settings through the parent; the context-menu toggle is
   // self-contained (per-user registry via the bridge, no settings involved).
-  const { prefs, onstartmode, onautoname }: {
+  const { prefs, onstartmode, onautoname, onainaming }: {
     prefs: Prefs;
     onstartmode: (mode: StartMode) => void;
     onautoname: (on: boolean) => void;
+    onainaming: (on: boolean) => void;
   } = $props();
 
   const startMode = $derived(prefs.startMode ?? StartMode.enum.temp);
   const autoName = $derived(prefs.autoNameTemp !== false);
+  const aiNaming = $derived(globalNaming(prefs));
 
   // Explorer "Open in PADE" folder context menu (Windows-only, per-user).
   // `null` until the registry answers — the row waits for it so the checkbox
@@ -89,6 +92,8 @@
   {/snippet}
 
   {@render toggleRow(autoName, onautoname, "Auto-name temp workspaces once the agent starts working")}
+  {@render toggleRow(aiNaming, onainaming, "Name session tabs with AI, in every project")}
+  <p class="scope-hint">A single project can opt in or out of this in its Config panel.</p>
   {#if isWindows && ctxMenuOn !== null}
     {@render toggleRow(ctxMenuOn, setContextMenu, "Add “Open in PADE” to the folder right-click menu")}
     {#if contextMenuError}
@@ -123,6 +128,15 @@
     align-items: center;
     font-size: 13px;
     cursor: pointer;
+  }
+
+  /* Sits under the checkbox it qualifies, indented past the box so it reads as
+     that row's footnote rather than a fourth setting. */
+  .scope-hint {
+    margin-block: -2px 0;
+    margin-inline-start: 30px;
+    color: var(--on-surface-variant);
+    font-size: 12px;
   }
 
   /* Modern-menu registration failure (e.g. Developer Mode off). A tonal warning

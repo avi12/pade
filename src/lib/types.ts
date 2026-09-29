@@ -443,6 +443,12 @@ export const Prefs = z.object({
   startMode: StartMode.nullish(),
   /** Auto-name temp workspaces once the agent has done real work (default on). */
   autoNameTemp: z.boolean().nullish(),
+  /** Name session tabs with AI from what the agent is doing — the global default
+   *  for every window. Opt-in: off unless explicitly true. */
+  aiSessionNaming: z.boolean().nullish(),
+  /** Per-project overrides of `aiSessionNaming` — project path → on/off. A
+   *  project with no entry follows the global default. */
+  aiSessionNamingProjects: z.record(z.string(), z.boolean()).nullish(),
   /** Per project-kind editor rules — kind (e.g. "web", "rust") → IDE id. */
   ideRules: z.record(z.string(), z.string()).nullish(),
   /** IDE id to open when no rule matches the project kind. */

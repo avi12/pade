@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { globalNaming, projectNamingChoice, withProjectNamingChoice } from "@/lib/ai-naming-scope";
   import { config, os } from "@/lib/bridge";
   import { collectVars } from "@/lib/colors";
   import ColorText from "@/lib/ColorText.svelte";
@@ -8,13 +9,63 @@
   import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from "@/lib/prefs-bounds";
   import { chooseThemeMode, effective, updatePrefs } from "@/lib/prefs.svelte";
   import { isMarkdownPath } from "@/lib/preview";
+  import { prefs } from "@/lib/settings.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { type ConfigFile, ThemeMode } from "@/lib/types";
   import { HandoffPercent, parseInput } from "@/lib/validate";
   import TerminalColours from "@/panels/config/TerminalColours.svelte";
 
-  // Only the config files relevant to the active agent are listed.
-  const { agent }: { agent: string } = $props();
+  // Only the config files relevant to the active agent are listed. `project` is
+  // what scopes the per-project settings below to this window's workspace.
+  const { agent, project }: {
+    agent: string;
+    project: string;
+  } = $props();
+
+  // ── Session tabs card ───────────────────────────────────────────────────────
+  // The project scope of "name session tabs with AI". Three states, because the
+  // absence of a project choice is itself a state: it follows the picker's global
+  // default, and picking `Global` is the only way back to it.
+  const namingChoice = $derived(
+    projectNamingChoice({
+      prefs,
+      project
+    })
+  );
+  const globalNamingWord = $derived.by(() => {
+    if (globalNaming(prefs)) {
+      return "on";
+    }
+
+    return "off";
+  });
+  const namingScopes = [
+    {
+      choice: undefined,
+      label: "Global"
+    },
+    {
+      choice: true,
+      label: "On"
+    },
+    {
+      choice: false,
+      label: "Off"
+    }
+  ] as const satisfies readonly {
+    choice: boolean | undefined;
+    label: string;
+  }[];
+
+  async function chooseNamingScope(choice: boolean | undefined): Promise<void> {
+    await updatePrefs({
+      aiSessionNamingProjects: withProjectNamingChoice({
+        prefs,
+        project,
+        choice
+      })
+    });
+  }
 
   // ── Appearance card ─────────────────────────────────────────────────────────
   // Theme mode, terminal font, and UI zoom — each bound to a persisted pref via
@@ -270,6 +321,37 @@
       </div>
     </section>
 
+    <section class="session-tabs">
+      <h3 class="card-label">Session tabs</h3>
+      <div class="naming-row">
+        <span class="field-text">
+          <span class="field-label">Name tabs with AI</span>
+          <span class="field-hint">
+            Each tab is renamed from what its agent is doing, refreshed while it works.
+          </span>
+        </span>
+        <div class="segmented naming-scope" aria-label="Name tabs with AI, in this project" role="group">
+          {#each namingScopes as scope (scope.label)}
+            <button
+              class="option"
+              class:on={namingChoice === scope.choice}
+              aria-pressed={namingChoice === scope.choice}
+              onclick={async () => await chooseNamingScope(scope.choice)}
+            >{scope.label}</button>
+          {/each}
+        </div>
+      </div>
+      <p class="field-hint">
+        {#if namingChoice === undefined}
+          Following the global setting, which is {globalNamingWord}. Change it for every project in the
+          project picker.
+        {:else}
+          Set for this project only — the global setting is {globalNamingWord}. Pick
+          <strong>Global</strong> to follow it again.
+        {/if}
+      </p>
+    </section>
+
     <section class="performance">
       <h3 class="card-label">Performance</h3>
       <div class="software-render-row">
@@ -378,6 +460,7 @@
 
   /* ── Appearance card ──────────────────────────────────────────────────────── */
   .appearance,
+  .session-tabs,
   .performance,
   .discord {
     /* The cards answer their own layout questions: the side panel is
@@ -398,6 +481,35 @@
     gap: 12px;
     justify-content: space-between;
     align-items: center;
+  }
+
+  /* ── Session tabs card ────────────────────────────────────────────────────── */
+  .session-tabs {
+    /* The setting, its scope control and the line naming what it inherits read
+       as one block, tighter than the 16px card rhythm. */
+    gap: 10px;
+
+    .naming-row {
+      /* Label beside the control while the panel is wide; stacked once the drag
+         handle takes that room away. Asked of the card, never the viewport. */
+      @container (inline-size < 400px) {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Three equal scopes, always in one row — they are short words, and stacking
+       them would read as three settings rather than one choice. */
+    .naming-scope {
+      flex: none;
+      grid-template-columns: repeat(3, 1fr);
+      min-inline-size: 170px;
+    }
   }
 
   .software-render-check {
