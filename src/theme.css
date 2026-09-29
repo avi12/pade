@@ -668,6 +668,13 @@
      because on paper the bloom is precisely what has to go. */
   --crop-mark-length: 6px;
   --crop-mark-inset: 3px;
+
+  /* The accent stub riding the rule under a titled header — fixed length, so it
+     reads as a mark rather than a progress bar however wide the header is. One
+     home for it: the panel header and the cards inside it draw the same stub,
+     and only the rule's weight separates the two levels. */
+  --header-stub-length: 44px;
+  --header-stub-weight: 4px;
 }
 
 /* Cyberpunk's controls are framed plates, not tinted pills — which is what the
@@ -788,11 +795,24 @@
    itself, which on this skin is ink. Drawn as a background layer on the
    existing rule rather than a pseudo-element, so it cannot collide with the
    header's own content. */
-:root[data-palette="cyberpunk"] .panel-head {
-  background-image: linear-gradient(90deg, var(--stripe) 0 44px, transparent 44px);
+:root[data-palette="cyberpunk"] :is(.panel-head, .card-label) {
+  background-image: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
   background-position: bottom left;
-  background-size: 100% 4px;
+  background-size: 100% var(--header-stub-weight);
   background-repeat: no-repeat;
+}
+
+/* The same mark one level down, on the label of every card inside a panel. The
+   console groups controls by drawing the group, not by spacing it: a titled
+   block with a rule under its name reads as one unit of settings, where four
+   unlabelled stacks of rows read as a list of twelve controls. The panel header
+   above keeps its 4px rule; a card's is 2px, so the hierarchy is in the weight
+   of the rule rather than in a second colour. */
+:root[data-palette="cyberpunk"] .card-label {
+  --header-stub-weight: 2px;
+
+  padding-block-end: 7px;
+  border-block-end: 2px solid var(--hairline);
 }
 
 /* The day face fills the selected tab with the console's bright cyan, and that
