@@ -132,26 +132,6 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* The same file again, restricted to the ten digits, so the Cyberpunk UI stack
-   can lead with it and every number in the app comes from a face whose figures
-   are all one width.
-
-   `font-variant-numeric: tabular-nums` cannot do that here: it asks the font for
-   a `tnum` feature, and neither Chakra Petch nor Rajdhani ships one — measured,
-   a digit's advance varies by 27% of the font size in Chakra Petch with the
-   property set, so every count, percentage and timer re-flows as it ticks.
-   Share Tech Mono is monospaced by construction and is already this palette's
-   own face, so borrowing its digits reads as the skin rather than as a second
-   typeface. Letters are untouched: the range stops at U+0039. */
-@font-face {
-  font-family: "Cyberpunk Numerals";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("./fonts/share-tech-mono-latin.woff2") format("woff2");
-  unicode-range: U+0030-0039;
-}
-
 :root {
   --seed-hue: 210deg;
 
@@ -674,10 +654,13 @@
      Rajdhani stays behind it (the game's own face, still vendored) and then
      Figtree, so anything Chakra Petch's latin subset doesn't carry still
      renders in one of the app's own faces rather than a system fallback.
-     Cyberpunk Numerals sits in front of all of them and covers nothing but the
-     ten digits — the only way to get fixed-width figures out of a stack whose
-     lead faces have no `tnum` (see the @font-face). */
-  --font-ui-base: "Cyberpunk Numerals", "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+
+     Chakra Petch and Rajdhani ship no `tnum`, so the app-wide
+     `font-variant-numeric: tabular-nums` is inert on this palette — the skin's
+     own letterforms win that trade. A number that genuinely must not move (a
+     column of figures, a running timer) sets `--font-monospace`, which is
+     fixed-width outright. */
+  --font-ui-base: "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
 
   /* The active tab's corner ticks: how long each L-bracket's arms are, and how
      far the whole mark floats off the frame. The structural stroke they are cut

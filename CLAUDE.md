@@ -178,11 +178,11 @@ These are non-negotiable for all work in this repo.
      written short (`ui`, `id`, `url`). Applies in TS, Rust, and CSS alike.
    - Tabular numerals are the app-wide default, declared once on `body` in
      `theme.css` and inherited — never re-declare `font-variant-numeric` on a
-     component. The property only asks the font for a `tnum` feature, so a UI
-     stack whose lead face lacks one (Chakra Petch, Rajdhani) also needs a
-     digit-only `@font-face` in front of it; the Cyberpunk palette has one.
-     Adding a face to a UI stack means checking that its figures are fixed-width
-     or giving it the same treatment.
+     component. Note it only *asks* the font for a `tnum` feature and nothing
+     warns when the feature is missing: Figtree honors it, Chakra Petch and
+     Rajdhani do not, so it is inert on the Cyberpunk palette. That is accepted —
+     the skin keeps its own letterforms. Where digits genuinely must not move,
+     set `--font-monospace` on that element, which is fixed-width outright.
    - Icons live in SVG only: every pictographic icon is an individual `.svg` file
      in `src/lib/icons/` (its one authoritative home) — never a hardcoded path
      string — loaded by `Icon.svelte` and rendered via `<Icon name="…" />`. Never
