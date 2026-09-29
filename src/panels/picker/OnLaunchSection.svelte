@@ -1,5 +1,6 @@
 <script lang="ts">
   import { contextMenu } from "@/lib/bridge";
+  import Icon from "@/lib/Icon.svelte";
   import { rovingTablist } from "@/lib/roving-tabs";
   import { StartMode } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
@@ -31,6 +32,24 @@
       ctxMenuOn = await contextMenu.status();
     }
   }
+
+  // Registering the Explorer menu can fail where the others cannot (the modern
+  // Win11 entry needs Developer Mode), so this row reports back instead of just
+  // flipping — and always re-reads the registry, which is the real answer.
+  async function setContextMenu(on: boolean): Promise<void> {
+    contextMenuError = "";
+    try {
+      if (on) {
+        await contextMenu.register();
+      } else {
+        await contextMenu.unregister();
+      }
+    } catch (caughtError) {
+      contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
+    }
+
+    ctxMenuOn = await contextMenu.status();
+  }
   onMount(() => {
     loadContextMenu();
   });
@@ -57,42 +76,21 @@
       >This picker</button>
     </div>
   </div>
-  <label class="check">
-    <span class="checkbox">
-      <input checked={autoName} onchange={e => onautoname(e.currentTarget.checked)} type="checkbox" />
-      <span class="box" aria-hidden="true">
-        <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-      </span>
-    </span>
-    <span>Auto-name temp workspaces once the agent starts working</span>
-  </label>
-  {#if isWindows && ctxMenuOn !== null}
+  <!-- One home for this section's checkbox row: the box chrome, the tick and the
+       caption, so a new toggle is a line of markup rather than a fourth copy. -->
+  {#snippet toggleRow(checked: boolean, onchange: (on: boolean) => void, caption: string)}
     <label class="check">
       <span class="checkbox">
-        <input
-          checked={ctxMenuOn}
-          onchange={async e => {
-            const on = e.currentTarget.checked;
-            contextMenuError = "";
-            try {
-              if (on) {
-                await contextMenu.register();
-              } else {
-                await contextMenu.unregister();
-              }
-            } catch (caughtError) {
-              contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
-            }
-            ctxMenuOn = await contextMenu.status();
-          }}
-          type="checkbox"
-        />
-        <span class="box" aria-hidden="true">
-          <svg fill="none" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
-        </span>
+        <input {checked} onchange={e => onchange(e.currentTarget.checked)} type="checkbox" />
+        <span class="box" aria-hidden="true"><Icon name="check" /></span>
       </span>
-      <span>Add “Open in PADE” to the folder right-click menu</span>
+      <span>{caption}</span>
     </label>
+  {/snippet}
+
+  {@render toggleRow(autoName, onautoname, "Auto-name temp workspaces once the agent starts working")}
+  {#if isWindows && ctxMenuOn !== null}
+    {@render toggleRow(ctxMenuOn, setContextMenu, "Add “Open in PADE” to the folder right-click menu")}
     {#if contextMenuError}
       <p class="context-menu-error" role="alert">{contextMenuError}</p>
     {/if}
