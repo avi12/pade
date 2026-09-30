@@ -653,14 +653,10 @@ fn line_count(path: &Path) -> Option<usize> {
 /// back to "No preview available" rather than holding megabytes per touched path.
 const MAX_PREVIEW_BYTES: u64 = 512 * 1024;
 
-/// Resolve `path`, require its target to remain under `root`, then read through
-/// one handle. Metadata and content therefore describe the same opened file, and
-/// a file that grows after the metadata check is still bounded by the read cap.
-fn read_authorized_file(
-    root: &Path,
-    path: &Path,
-    maximum_bytes: u64,
-) -> Result<Option<Vec<u8>>, ()> {
+/// Resolve `path` to its real target and require that target to remain under
+/// `root`, so a symlink or reparse point can't turn a preview into a read of an
+/// arbitrary file. `Ok(None)` when the path is gone.
+fn authorize_path(root: &Path, path: &Path) -> Result<Option<PathBuf>, ()> {
     let resolved = match std::fs::canonicalize(path) {
         Ok(resolved) => resolved,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -669,6 +665,20 @@ fn read_authorized_file(
     if !resolved.starts_with(root) {
         return Err(());
     }
+    Ok(Some(resolved))
+}
+
+/// [`authorize_path`], then read through one handle. Metadata and content
+/// therefore describe the same opened file, and a file that grows after the
+/// metadata check is still bounded by the read cap.
+fn read_authorized_file(
+    root: &Path,
+    path: &Path,
+    maximum_bytes: u64,
+) -> Result<Option<Vec<u8>>, ()> {
+    let Some(resolved) = authorize_path(root, path)? else {
+        return Ok(None);
+    };
 
     let mut file = std::fs::File::open(resolved).map_err(|_| ())?;
     let metadata = file.metadata().map_err(|_| ())?;
@@ -1470,11 +1480,8 @@ pub async fn feed_text(
     let Some(watch) = window_watch(&state, window.label()) else {
         return Ok(None);
     };
-    {
-        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
-        if !baselines.contains_key(Path::new(&path)) {
-            return Ok(None);
-        }
+    if !was_surfaced(&watch, Path::new(&path))? {
+        return Ok(None);
     }
 
     let Some(canonical_root) = canonical_watch_root(&watch) else {
@@ -1547,6 +1554,20 @@ fn base64_encode(bytes: &[u8]) -> String {
     encoded
 }
 
+/// A `data:<mime>;base64,<bytes>` URL — the one shape every inline media preview
+/// hands the frontend, so it renders with a plain `src` and no asset protocol.
+fn data_url(mime: &str, bytes: &[u8]) -> String {
+    format!("data:{mime};base64,{}", base64_encode(bytes))
+}
+
+/// Whether this window's watch surfaced `path` this session (it holds a
+/// baseline entry for it). The gate every preview command passes first, so none
+/// of them can be turned into a reader of an arbitrary file off disk.
+fn was_surfaced(watch: &WindowWatch, path: &Path) -> Result<bool, String> {
+    let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
+    Ok(baselines.contains_key(path))
+}
+
 /// A Change Feed card's inline image preview: the changed image file's bytes as a
 /// ready-to-use `data:` URL, so the frontend renders it with a plain `<img src>`
 /// and needs no asset protocol or extra capability (mirrors `feed_diff`'s flow).
@@ -1574,11 +1595,8 @@ pub async fn feed_image(
     let Some(watch) = window_watch(&state, window.label()) else {
         return Ok(None);
     };
-    {
-        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
-        if !baselines.contains_key(Path::new(&path)) {
-            return Ok(None);
-        }
+    if !was_surfaced(&watch, Path::new(&path))? {
+        return Ok(None);
     }
 
     let file = Path::new(&path);
@@ -1593,7 +1611,7 @@ pub async fn feed_image(
     };
 
     Ok(Some(FeedImage {
-        data_url: format!("data:{mime};base64,{}", base64_encode(&bytes)),
+        data_url: data_url(mime, &bytes),
     }))
 }
 
