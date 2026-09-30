@@ -8,6 +8,7 @@ mod discord;
 mod gitignore;
 mod ide;
 mod mcp;
+mod media;
 mod members;
 mod naming;
 mod os;
@@ -171,6 +172,7 @@ pub fn run() {
             watcher::feed_diff,
             watcher::feed_image,
             watcher::feed_text,
+            watcher::feed_video,
             watcher::feed_ignored,
             vcs::status::vcs_status,
             vcs::log::vcs_log,

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { feed, ide, vcs } from "@/lib/bridge";
+  import { feed, FeedVideoKind, ide, vcs } from "@/lib/bridge";
+  import type { FeedVideo } from "@/lib/bridge";
   import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
@@ -19,7 +20,7 @@
   } from "@/lib/motion";
   import { baseName, parentDirectory, relativeToRoot } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
-  import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
+  import { isHtmlPath, isImagePath, isMarkdownPath, isVideoPath } from "@/lib/preview";
   import { ensureEditors, windowedEditorFor } from "@/lib/stores/editors.svelte";
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
@@ -144,9 +145,33 @@
   // Fetched lazily on first expand, exactly like the diff cache — a feed full of
   // image changes never fetches them all at once, only the card being opened.
   const imageCache = new SvelteMap<string, string | null>();
+  // Transcoded video previews per event id, fetched lazily like the image cache.
+  // A transcode takes a moment, so a video card expands at once and shows a
+  // "Transcoding…" state until its entry lands.
+  const videoCache = new SvelteMap<string, FeedVideo | null>();
   // Ids whose diff fetch failed, so a re-opened previously-failed card shows
   // "Couldn't load" rather than the empty-cache "No preview" message.
   const failedIds = new SvelteSet<string>();
+
+  // Fill `cache` for `id` from `load` once, recording a failure instead of
+  // rejecting — the shared lazy fetch behind every media preview.
+  async function loadPreviewOnce<Preview>({ cache, id, load }: {
+    cache: SvelteMap<string, Preview | null>;
+    id: string;
+    load: () => Promise<Preview | null>;
+  }): Promise<void> {
+    if (cache.has(id)) {
+      return;
+    }
+
+    try {
+      cache.set(id, await load());
+      failedIds.delete(id);
+    } catch {
+      failedIds.add(id);
+      cache.set(id, null);
+    }
+  }
 
   // A markdown/HTML card shows a Code|Preview toggle: Code is the diff (the
   // feed's core purpose, so the default), Preview is the rendered result in a
@@ -720,6 +745,8 @@
               {@const isOpen = expandedId === event.id}
               {@const badge = fileTypeBadge(event.path)}
               {@const isImage = isImagePath(event.path)}
+              {@const isVideo = isVideoPath(event.path)}
+              {@const isMedia = isImage || isVideo}
               {@const canPreview = isMarkdownPath(event.path) || isHtmlPath(event.path)}
               {@const pane = paneOf(event.id)}
               <li class="card {event.kind}" class:open={isOpen}>
@@ -738,18 +765,25 @@
                     // rendered preview (a data URL) instead of the baseline diff, also
                     // BEFORE expanding so the reveal measures the final height.
                     if (isImage) {
-                      if (!imageCache.has(event.id)) {
-                        try {
-                          const preview = await feed.image({ path: event.path });
-                          imageCache.set(event.id, preview?.dataUrl ?? null);
-                          failedIds.delete(event.id);
-                        } catch {
-                          failedIds.add(event.id);
-                          imageCache.set(event.id, null);
-                        }
-                      }
-
+                      await loadPreviewOnce({
+                        cache: imageCache,
+                        id: event.id,
+                        load: async () => (await feed.image({ path: event.path }))?.dataUrl ?? null
+                      });
                       expandedId = event.id;
+                      return;
+                    }
+
+                    // A video card expands at once: its clip is transcoded on demand,
+                    // too slow to hold the reveal for, so the card shows a
+                    // transcoding state until the clip lands.
+                    if (isVideo) {
+                      expandedId = event.id;
+                      await loadPreviewOnce({
+                        cache: videoCache,
+                        id: event.id,
+                        load: () => feed.video({ path: event.path })
+                      });
                       return;
                     }
 
@@ -833,7 +867,7 @@
                         })}</span>
                       </button>
                       <span class="spacer"></span>
-                      {#if canPreview || (!isImage && pane === PreviewPane.code && hasPreview)}
+                      {#if canPreview || (!isMedia && pane === PreviewPane.code && hasPreview)}
                         <div class="pane-toggles">
                           {#if canPreview}
                             <fieldset class="segmented-control">
@@ -857,7 +891,7 @@
                                 />Preview</label>
                             </fieldset>
                           {/if}
-                          {#if !isImage && pane === PreviewPane.code && hasPreview}
+                          {#if !isMedia && pane === PreviewPane.code && hasPreview}
                             <fieldset class="segmented-control">
                               <legend class="visually-hidden">Diff view</legend>
                               <label>
@@ -891,13 +925,32 @@
                     {#if isImage}
                       {@const imageUrl = imageCache.get(event.id)}
                       {#if imageUrl}
-                        <div class="image-wrapper">
+                        <div class="media-wrapper">
                           <img alt={baseName(event.path)} loading="lazy" src={imageUrl} />
                         </div>
                       {:else if isErrored}
                         <p class="state">Couldn't load the image.</p>
                       {:else}
                         <p class="state">No image preview available.</p>
+                      {/if}
+                    {:else if isVideo}
+                      {@const video = videoCache.get(event.id)}
+                      {#if video?.kind === FeedVideoKind.enum.ready}
+                        <div class="media-wrapper">
+                          <!-- Muted + looping so an opened card plays like a moving
+                               thumbnail; the controls unmute or scrub it. -->
+                          <video autoplay controls loop muted playsinline src={video.dataUrl}></video>
+                        </div>
+                      {:else if video?.kind === FeedVideoKind.enum.noTranscoder}
+                        <p class="state">Install ffmpeg to preview videos.</p>
+                      {:else if videoCache.has(event.id)}
+                        {#if isErrored}
+                          <p class="state">Couldn't load the video.</p>
+                        {:else}
+                          <p class="state">No video preview available.</p>
+                        {/if}
+                      {:else}
+                        <p class="state">Transcoding preview…</p>
                       {/if}
                     {:else if canPreview && pane === PreviewPane.preview}
                       {@const documentSource = previewDocCache.get(event.id)}
@@ -1715,7 +1768,7 @@
   @media (prefers-reduced-motion: no-preference) {
     .preview,
     .render,
-    .image-wrapper {
+    .media-wrapper {
       @starting-style {
         opacity: 0%;
         translate: 0 8px;
@@ -1738,10 +1791,10 @@
     background: var(--surface-1);
   }
 
-  /* Image preview: the rendered picture in place of a text diff. A subtle
+  /* Image/video preview: the picture or clip in place of a text diff. A subtle
      checkerboard (a token-tinted `color-mix`, so it adapts to light/dark on its
      own) sits under it, letting transparent PNG/SVG regions read in both themes. */
-  .image-wrapper {
+  .media-wrapper {
     --checker: color-mix(in sRGB, var(--on-surface) 7%, transparent);
 
     display: grid;
@@ -1762,7 +1815,8 @@
       -8px 0;
     background-size: 16px 16px;
 
-    img {
+    img,
+    video {
       object-fit: contain;
       block-size: auto;
       max-block-size: 276px;

@@ -1,5 +1,19 @@
-import { isHtmlPath, isImagePath, isMarkdownPath } from "@/lib/preview";
+import { isHtmlPath, isImagePath, isMarkdownPath, isVideoPath } from "@/lib/preview";
 import { describe, expect, it } from "vitest";
+
+describe("isVideoPath", () => {
+  it("recognises video extensions case-insensitively", () => {
+    expect(isVideoPath("clips/demo.mp4")).toBe(true);
+    expect(isVideoPath("Screen Recording.MOV")).toBe(true);
+    expect(isVideoPath("take.mkv")).toBe(true);
+  });
+
+  it("rejects images, archives, and extensionless paths", () => {
+    expect(isVideoPath("poster.png")).toBe(false);
+    expect(isVideoPath("clip.mp4.zip")).toBe(false);
+    expect(isVideoPath("README")).toBe(false);
+  });
+});
 
 describe("isImagePath", () => {
   it("recognises image extensions case-insensitively", () => {

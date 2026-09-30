@@ -1,6 +1,7 @@
 // Which Change Feed changes are previewable, and as what, decided by file
 // extension. The single authoritative TS home for every previewable-file
-// extension set — images (rendered inline via `<img src>`), markdown (rendered
+// extension set — images (rendered inline via `<img src>`), videos (an
+// ffmpeg-transcoded clip in a `<video>`), markdown (rendered
 // to HTML), and HTML (rendered as-is) — so the classifiers can never disagree
 // about which renderer a card routes to. The image list mirrors the backend's
 // IMAGE_MIME_TYPES (watcher.rs), where each extension is also mapped to its MIME
@@ -24,6 +25,23 @@ const ImageExtension = z.enum([
   "svg"
 ]);
 
+/** The video file extensions the Change Feed previews as a transcoded clip. Its
+ *  backend mirror is VIDEO_EXTENSIONS (media.rs), kept in sync by hand. */
+const VideoExtension = z.enum([
+  "mp4",
+  "m4v",
+  "mov",
+  "webm",
+  "mkv",
+  "avi",
+  "wmv",
+  "flv",
+  "mpg",
+  "mpeg",
+  "ogv",
+  "3gp"
+]);
+
 /** The markdown extensions the Change Feed can render to a preview. */
 const MarkdownExtension = z.enum(["md", "markdown"]);
 
@@ -31,6 +49,7 @@ const MarkdownExtension = z.enum(["md", "markdown"]);
 const HtmlExtension = z.enum(["html", "htm"]);
 
 const IMAGE_EXTENSIONS: readonly string[] = ImageExtension.options;
+const VIDEO_EXTENSIONS: readonly string[] = VideoExtension.options;
 const MARKDOWN_EXTENSIONS: readonly string[] = MarkdownExtension.options;
 const HTML_EXTENSIONS: readonly string[] = HtmlExtension.options;
 
@@ -38,6 +57,12 @@ const HTML_EXTENSIONS: readonly string[] = HtmlExtension.options;
 export function isImagePath(path: string): boolean {
   const extension = pathExtension(path);
   return extension !== null && IMAGE_EXTENSIONS.includes(extension);
+}
+
+/** Whether `path`'s extension names a previewable video. */
+export function isVideoPath(path: string): boolean {
+  const extension = pathExtension(path);
+  return extension !== null && VIDEO_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names a markdown document. */

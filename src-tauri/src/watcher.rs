@@ -1615,6 +1615,58 @@ pub async fn feed_image(
     }))
 }
 
+/// A Change Feed card's video preview, tagged by `kind` so the card can tell
+/// "here is a clip" from "install ffmpeg to see one".
+#[derive(Debug, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum FeedVideo {
+    /// A short transcoded clip as a `data:` URL — directly usable as a `<video>` source.
+    Ready { data_url: String },
+    /// `ffmpeg` isn't installed, so no clip can be made.
+    NoTranscoder,
+}
+
+/// The video preview for `path`: its opening seconds transcoded by ffmpeg into a
+/// small MP4 (see [`crate::media`]). `None` when `path` is not a video, was not
+/// surfaced by this window's watch this session, is gone, or ffmpeg couldn't
+/// read it. Gated and root-confined exactly like [`feed_image`]; the transcode
+/// runs on a blocking thread so a slow video never stalls the async runtime.
+#[tauri::command]
+pub async fn feed_video(
+    window: WebviewWindow,
+    state: State<'_, WatcherState>,
+    path: String,
+) -> Result<Option<FeedVideo>, String> {
+    let Some(watch) = window_watch(&state, window.label()) else {
+        return Ok(None);
+    };
+    let file = Path::new(&path);
+    if !crate::media::is_video(file) || !was_surfaced(&watch, file)? {
+        return Ok(None);
+    }
+    let Some(canonical_root) = canonical_watch_root(&watch) else {
+        return Ok(None);
+    };
+    let Ok(Some(source)) = authorize_path(&canonical_root, file) else {
+        return Ok(None);
+    };
+
+    let clip = tauri::async_runtime::spawn_blocking(move || crate::media::preview_clip(&source))
+        .await
+        .map_err(|e| e.to_string())?;
+    match clip {
+        Ok(bytes) => Ok(Some(FeedVideo::Ready {
+            data_url: data_url(crate::media::PREVIEW_CLIP_MIME, &bytes),
+        })),
+        Err(crate::media::ClipError::NoTranscoder) => Ok(Some(FeedVideo::NoTranscoder)),
+        Err(crate::media::ClipError::Failed) => Ok(None),
+    }
+}
+
 /// The subset of `paths` the current ignore policy excludes — how the frontend
 /// re-filters the Change Feed it already rendered after `feed://ignore-changed`
 /// (events for now-ignored paths are dropped; never-recorded ones can't be

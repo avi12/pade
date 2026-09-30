@@ -366,6 +366,21 @@ const FeedImage = z.object({
   dataUrl: z.string()
 });
 
+/** How a Change Feed video preview turned out: a transcoded clip, or no clip
+ *  because ffmpeg isn't installed. */
+export const FeedVideoKind = z.enum(["ready", "noTranscoder"]);
+
+/** A Change Feed video preview: an ffmpeg-transcoded clip as a `data:` URL for a
+ *  plain `<video src>`, or word that ffmpeg is missing (see `feed.video`). */
+const FeedVideo = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal(FeedVideoKind.enum.ready),
+    dataUrl: z.string()
+  }),
+  z.object({ kind: z.literal(FeedVideoKind.enum.noTranscoder) })
+]);
+export type FeedVideo = z.infer<typeof FeedVideo>;
+
 /** Change Feed / filesystem watcher channel. */
 export const feed = {
   /** Watch `path` — the open workspace's root — so the feed follows the project
@@ -390,6 +405,13 @@ export const feed = {
   image: ({ path }: {
     path: string;
   }) => call("feed_image", FeedImage.nullable(), { path }),
+  /** The video preview for a video path: its opening seconds transcoded by the
+   *  user's ffmpeg into a small MP4 `data:` URL, or `noTranscoder` when ffmpeg
+   *  isn't installed. `null` when the path isn't a video, is gone, or ffmpeg
+   *  couldn't read it. Takes a moment — the backend transcodes on demand. */
+  video: ({ path }: {
+    path: string;
+  }) => call("feed_video", FeedVideo.nullable(), { path }),
   /** The current text of a watched markdown/HTML path, for the card's Preview
    *  toggle (the file rendered as it is now). `null` when the path wasn't
    *  snapshotted this session, is gone, or is binary / over the backend's size
