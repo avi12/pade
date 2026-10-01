@@ -46,6 +46,21 @@ describe("fileTypeBadge", () => {
     expect(fileTypeBadge("src/app/app.component.ts").icon).toBe("angular");
     expect(fileTypeBadge("src/app/app.component.html").icon).toBe("angular");
     expect(fileTypeBadge("app/Http/Kernel.php").icon).toBe("php");
+  });
+
+  it("recognises tool files by their whole name before their extension", () => {
+    expect(fileTypeBadge("Dockerfile").icon).toBe("docker");
+    expect(fileTypeBadge("Dockerfile.dev").icon).toBe("docker");
+    expect(fileTypeBadge("docker-compose.yml").icon).toBe("docker");
+    expect(fileTypeBadge(".env.local").icon).toBe("env");
+    expect(fileTypeBadge("pnpm-lock.yaml").icon).toBe("lock");
+    expect(fileTypeBadge("package-lock.json").icon).toBe("lock");
+    expect(fileTypeBadge("Cargo.lock").icon).toBe("lock");
+    expect(fileTypeBadge("package.json").icon).toBe("npm");
+    expect(fileTypeBadge("tsconfig.json").icon).toBe("json");
+    expect(fileTypeBadge("app/build.gradle.kts").icon).toBe("gradle");
+    expect(fileTypeBadge("pom.xml").icon).toBe("xml");
+    expect(fileTypeBadge("db/schema.sql").icon).toBe("sql");
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
       tone: FileTone.TypeScript,

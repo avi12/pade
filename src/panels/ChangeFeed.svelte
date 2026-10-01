@@ -1571,6 +1571,50 @@
     --tone: #5391fe;
   }
 
+  .tone-xml {
+    --tone: #e37933;
+  }
+
+  .tone-sql {
+    --tone: #336791;
+  }
+
+  .tone-csv {
+    --tone: #217346;
+  }
+
+  .tone-env {
+    --tone: #c9a227;
+  }
+
+  .tone-lock {
+    --tone: #8a94a6;
+  }
+
+  .tone-batch {
+    --tone: #4d8f1e;
+  }
+
+  .tone-docker {
+    --tone: #2496ed;
+  }
+
+  .tone-graphql {
+    --tone: #e10098;
+  }
+
+  .tone-prisma {
+    --tone: #5a67d8;
+  }
+
+  .tone-gradle {
+    --tone: #1f7a8c;
+  }
+
+  .tone-npm {
+    --tone: #cb3837;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }

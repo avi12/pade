@@ -40,6 +40,17 @@ export const FileTone = {
   Zig: "zig",
   Perl: "perl",
   PowerShell: "powershell",
+  Xml: "xml",
+  Sql: "sql",
+  Csv: "csv",
+  Env: "env",
+  Lock: "lock",
+  Batch: "batch",
+  Docker: "docker",
+  GraphQL: "graphql",
+  Prisma: "prisma",
+  Gradle: "gradle",
+  Npm: "npm",
   Data: "data",
   Doc: "doc",
   Shell: "shell",
@@ -57,6 +68,53 @@ export interface FileTypeBadge {
    *  renders this in place of the text `label`. Absent for logoless types. */
   icon?: IconName;
 }
+
+// Badges reached from several extensions and/or name rules — one home each.
+const XML_BADGE: FileTypeBadge = {
+  label: "XML",
+  tone: FileTone.Xml,
+  icon: "xml"
+};
+const SQL_BADGE: FileTypeBadge = {
+  label: "SQL",
+  tone: FileTone.Sql,
+  icon: "sql"
+};
+const BATCH_BADGE: FileTypeBadge = {
+  label: "BAT",
+  tone: FileTone.Batch,
+  icon: "batch"
+};
+const GRAPHQL_BADGE: FileTypeBadge = {
+  label: "GQL",
+  tone: FileTone.GraphQL,
+  icon: "graphql"
+};
+const GRADLE_BADGE: FileTypeBadge = {
+  label: "GRDL",
+  tone: FileTone.Gradle,
+  icon: "gradle"
+};
+const DOCKER_BADGE: FileTypeBadge = {
+  label: "DOCK",
+  tone: FileTone.Docker,
+  icon: "docker"
+};
+const LOCK_BADGE: FileTypeBadge = {
+  label: "LOCK",
+  tone: FileTone.Lock,
+  icon: "lock"
+};
+const NPM_BADGE: FileTypeBadge = {
+  label: "NPM",
+  tone: FileTone.Npm,
+  icon: "npm"
+};
+const ANGULAR_BADGE: FileTypeBadge = {
+  label: "NG",
+  tone: FileTone.Angular,
+  icon: "angular"
+};
 
 // Extension → badge. The authoritative extension table; anything absent falls
 // back to a neutral chip of the extension itself. Multi-colour marks (TS, JS,
@@ -398,18 +456,65 @@ const BADGES: Record<string, FileTypeBadge> = {
     label: "IMG",
     tone: FileTone.Image,
     icon: "image"
-  }
+  },
+  xml: XML_BADGE,
+  xsd: XML_BADGE,
+  xsl: XML_BADGE,
+  xslt: XML_BADGE,
+  plist: XML_BADGE,
+  csproj: XML_BADGE,
+  props: XML_BADGE,
+  sql: SQL_BADGE,
+  psql: SQL_BADGE,
+  mysql: SQL_BADGE,
+  csv: {
+    label: "CSV",
+    tone: FileTone.Csv,
+    icon: "csv"
+  },
+  tsv: {
+    label: "TSV",
+    tone: FileTone.Csv,
+    icon: "csv"
+  },
+  bat: BATCH_BADGE,
+  cmd: BATCH_BADGE,
+  graphql: GRAPHQL_BADGE,
+  gql: GRAPHQL_BADGE,
+  graphqls: GRAPHQL_BADGE,
+  prisma: {
+    label: "PRSM",
+    tone: FileTone.Prisma,
+    icon: "prisma"
+  },
+  gradle: GRADLE_BADGE,
+  dockerfile: DOCKER_BADGE,
+  lock: LOCK_BADGE,
+  lockb: LOCK_BADGE
 };
 
-// Framework files that share a plain extension (`.php`, `.ts`, `.html`) but are
-// named by a compound suffix. Checked before the extension table so a Blade view
-// shows Laravel rather than PHP.
-const SUFFIX_BADGES: readonly {
-  suffix: string;
+/** How a name rule compares its `pattern` against a lower-cased file name. */
+const NameMatch = {
+  Exact: "exact",
+  Prefix: "prefix",
+  Suffix: "suffix"
+} as const;
+type NameMatch = (typeof NameMatch)[keyof typeof NameMatch];
+
+interface NameRule {
+  match: NameMatch;
+  pattern: string;
   badge: FileTypeBadge;
-}[] = [
+}
+
+// Files identified by their whole name rather than their extension: tool files
+// (`Dockerfile`, `.env.local`, lockfiles named `.yaml`/`.json`) and framework
+// files that share a plain extension (`.blade.php`, `.component.ts`). Checked
+// before the extension table, so `pnpm-lock.yaml` is a lockfile, not YAML.
+const NAME_RULES: readonly NameRule[] = [
   {
-    suffix: ".blade.php",
+    match: NameMatch.Suffix,
+    pattern: ".blade.php",
     badge: {
       label: "BLADE",
       tone: FileTone.Laravel,
@@ -417,22 +522,119 @@ const SUFFIX_BADGES: readonly {
     }
   },
   {
-    suffix: ".component.ts",
+    match: NameMatch.Suffix,
+    pattern: ".component.ts",
+    badge: ANGULAR_BADGE
+  },
+  {
+    match: NameMatch.Suffix,
+    pattern: ".component.html",
+    badge: ANGULAR_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "dockerfile",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Prefix,
+    pattern: "dockerfile.",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".dockerignore",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "docker-compose.yml",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "docker-compose.yaml",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "compose.yml",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "compose.yaml",
+    badge: DOCKER_BADGE
+  },
+  {
+    match: NameMatch.Prefix,
+    pattern: ".env",
     badge: {
-      label: "NG",
-      tone: FileTone.Angular,
-      icon: "angular"
+      label: "ENV",
+      tone: FileTone.Env,
+      icon: "env"
     }
   },
   {
-    suffix: ".component.html",
-    badge: {
-      label: "NG",
-      tone: FileTone.Angular,
-      icon: "angular"
-    }
+    match: NameMatch.Exact,
+    pattern: "package-lock.json",
+    badge: LOCK_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "pnpm-lock.yaml",
+    badge: LOCK_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "package.json",
+    badge: NPM_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".npmrc",
+    badge: NPM_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".npmignore",
+    badge: NPM_BADGE
+  },
+  {
+    match: NameMatch.Suffix,
+    pattern: ".gradle.kts",
+    badge: GRADLE_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "gradle.properties",
+    badge: GRADLE_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "gradlew",
+    badge: GRADLE_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "gradlew.bat",
+    badge: GRADLE_BADGE
   }
 ];
+
+function nameRuleMatches({ rule, lowerName }: {
+  rule: NameRule;
+  lowerName: string;
+}): boolean {
+  switch (rule.match) {
+    case NameMatch.Exact:
+      return lowerName === rule.pattern;
+    case NameMatch.Prefix:
+      return lowerName.startsWith(rule.pattern);
+    case NameMatch.Suffix:
+      return lowerName.endsWith(rule.pattern);
+  }
+}
 
 /** A path's lower-case final extension without its dot, or null for a dotfile,
  * extensionless name, or trailing dot. Shared by all extension classifiers. */
@@ -457,6 +659,15 @@ export function fileExtension(path: string): string {
  *  or extensionless file gets a neutral chip from its own name. */
 export function fileTypeBadge(path: string): FileTypeBadge {
   const name = baseName(path);
+  const lowerName = name.toLowerCase();
+  const nameRule = NAME_RULES.find(rule => nameRuleMatches({
+    rule,
+    lowerName
+  }));
+  if (nameRule) {
+    return nameRule.badge;
+  }
+
   const extension = pathExtension(path);
   if (!extension) {
     const stem = name.replace(/^\./, "").slice(0, 3).toUpperCase();
@@ -464,12 +675,6 @@ export function fileTypeBadge(path: string): FileTypeBadge {
       label: stem.length > 0 ? stem : "FILE",
       tone: FileTone.Neutral
     };
-  }
-
-  const lowerName = name.toLowerCase();
-  const suffixMatch = SUFFIX_BADGES.find(({ suffix }) => lowerName.endsWith(suffix));
-  if (suffixMatch) {
-    return suffixMatch.badge;
   }
 
   return BADGES[extension] ?? {
