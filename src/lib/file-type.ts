@@ -51,6 +51,7 @@ export const FileTone = {
   Prisma: "prisma",
   Gradle: "gradle",
   Npm: "npm",
+  Git: "git",
   Data: "data",
   Doc: "doc",
   Shell: "shell",
@@ -114,6 +115,41 @@ const ANGULAR_BADGE: FileTypeBadge = {
   label: "NG",
   tone: FileTone.Angular,
   icon: "angular"
+};
+const IMAGE_BADGE: FileTypeBadge = {
+  label: "IMG",
+  tone: FileTone.Image,
+  icon: "image"
+};
+const HTML_BADGE: FileTypeBadge = {
+  label: "HTML",
+  tone: FileTone.Markup,
+  icon: "html"
+};
+const STYLE_BADGE: FileTypeBadge = {
+  label: "CSS",
+  tone: FileTone.Style,
+  icon: "css"
+};
+const JSON_BADGE: FileTypeBadge = {
+  label: "JSON",
+  tone: FileTone.Data,
+  icon: "json"
+};
+const SHELL_BADGE: FileTypeBadge = {
+  label: "SH",
+  tone: FileTone.Shell,
+  icon: "shell"
+};
+const CONFIG_BADGE: FileTypeBadge = {
+  label: "CFG",
+  tone: FileTone.Data,
+  icon: "sliders"
+};
+const GIT_BADGE: FileTypeBadge = {
+  label: "GIT",
+  tone: FileTone.Git,
+  icon: "git"
 };
 
 // Extension → badge. The authoritative extension table; anything absent falls
@@ -457,6 +493,43 @@ const BADGES: Record<string, FileTypeBadge> = {
     tone: FileTone.Image,
     icon: "image"
   },
+  avif: IMAGE_BADGE,
+  bmp: IMAGE_BADGE,
+  ico: IMAGE_BADGE,
+  tif: IMAGE_BADGE,
+  tiff: IMAGE_BADGE,
+  htm: HTML_BADGE,
+  xhtml: HTML_BADGE,
+  less: STYLE_BADGE,
+  styl: STYLE_BADGE,
+  pcss: STYLE_BADGE,
+  json5: JSON_BADGE,
+  jsonl: JSON_BADGE,
+  ndjson: JSON_BADGE,
+  geojson: JSON_BADGE,
+  webmanifest: JSON_BADGE,
+  zsh: SHELL_BADGE,
+  fish: SHELL_BADGE,
+  ini: CONFIG_BADGE,
+  cfg: CONFIG_BADGE,
+  conf: CONFIG_BADGE,
+  properties: CONFIG_BADGE,
+  xaml: {
+    label: "XAML",
+    tone: FileTone.Xml,
+    icon: "xml"
+  },
+  axaml: {
+    label: "XAML",
+    tone: FileTone.Xml,
+    icon: "xml"
+  },
+  resx: XML_BADGE,
+  config: XML_BADGE,
+  nuspec: XML_BADGE,
+  vbproj: XML_BADGE,
+  fsproj: XML_BADGE,
+  targets: XML_BADGE,
   xml: XML_BADGE,
   xsd: XML_BADGE,
   xsl: XML_BADGE,
@@ -619,6 +692,26 @@ const NAME_RULES: readonly NameRule[] = [
     match: NameMatch.Exact,
     pattern: "gradlew.bat",
     badge: GRADLE_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".gitignore",
+    badge: GIT_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".gitattributes",
+    badge: GIT_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".gitmodules",
+    badge: GIT_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".editorconfig",
+    badge: CONFIG_BADGE
   }
 ];
 

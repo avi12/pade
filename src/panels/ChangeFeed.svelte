@@ -1615,6 +1615,10 @@
     --tone: #cb3837;
   }
 
+  .tone-git {
+    --tone: #f05032;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }

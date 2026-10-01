@@ -61,6 +61,12 @@ describe("fileTypeBadge", () => {
     expect(fileTypeBadge("app/build.gradle.kts").icon).toBe("gradle");
     expect(fileTypeBadge("pom.xml").icon).toBe("xml");
     expect(fileTypeBadge("db/schema.sql").icon).toBe("sql");
+    expect(fileTypeBadge("Views/MainWindow.xaml").icon).toBe("xml");
+    expect(fileTypeBadge(".gitignore").icon).toBe("git");
+    expect(fileTypeBadge(".editorconfig").icon).toBe("sliders");
+    expect(fileTypeBadge("config.ini").icon).toBe("sliders");
+    expect(fileTypeBadge(".github/workflows/ci.yml").icon).toBe("yaml");
+    expect(fileTypeBadge("Cargo.toml").icon).toBe("toml");
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
       tone: FileTone.TypeScript,
@@ -127,8 +133,8 @@ describe("fileTypeBadge", () => {
   });
 
   it("handles a dotfile and an extensionless file", () => {
-    expect(fileTypeBadge(".gitignore")).toEqual({
-      label: "GIT",
+    expect(fileTypeBadge(".prettierrc")).toEqual({
+      label: "PRE",
       tone: FileTone.Neutral
     });
     expect(fileTypeBadge("Makefile")).toEqual({
