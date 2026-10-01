@@ -1491,6 +1491,26 @@
     --tone: #41b883;
   }
 
+  .tone-react {
+    --tone: #149eca;
+  }
+
+  .tone-angular {
+    --tone: #dd0031;
+  }
+
+  .tone-astro {
+    --tone: #bc52ee;
+  }
+
+  .tone-laravel {
+    --tone: #ff2d20;
+  }
+
+  .tone-rails {
+    --tone: #cc0000;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }

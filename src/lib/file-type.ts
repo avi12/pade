@@ -13,6 +13,11 @@ export const FileTone = {
   JavaScript: "javascript",
   Svelte: "svelte",
   Vue: "vue",
+  React: "react",
+  Angular: "angular",
+  Astro: "astro",
+  Laravel: "laravel",
+  Rails: "rails",
   Rust: "rust",
   Cpp: "cpp",
   C: "c",
@@ -51,8 +56,8 @@ const BADGES: Record<string, FileTypeBadge> = {
   },
   tsx: {
     label: "TSX",
-    tone: FileTone.TypeScript,
-    icon: "typescript"
+    tone: FileTone.React,
+    icon: "react"
   },
   mts: {
     label: "TS",
@@ -71,8 +76,8 @@ const BADGES: Record<string, FileTypeBadge> = {
   },
   jsx: {
     label: "JSX",
-    tone: FileTone.JavaScript,
-    icon: "javascript"
+    tone: FileTone.React,
+    icon: "react"
   },
   mjs: {
     label: "JS",
@@ -93,6 +98,16 @@ const BADGES: Record<string, FileTypeBadge> = {
     label: "VUE",
     tone: FileTone.Vue,
     icon: "vue"
+  },
+  astro: {
+    label: "ASTRO",
+    tone: FileTone.Astro,
+    icon: "astro"
+  },
+  erb: {
+    label: "ERB",
+    tone: FileTone.Rails,
+    icon: "rails"
   },
   rs: {
     label: "RS",
@@ -256,6 +271,39 @@ const BADGES: Record<string, FileTypeBadge> = {
   }
 };
 
+// Framework files that share a plain extension (`.php`, `.ts`, `.html`) but are
+// named by a compound suffix. Checked before the extension table so a Blade view
+// shows Laravel rather than PHP.
+const SUFFIX_BADGES: readonly {
+  suffix: string;
+  badge: FileTypeBadge;
+}[] = [
+  {
+    suffix: ".blade.php",
+    badge: {
+      label: "BLADE",
+      tone: FileTone.Laravel,
+      icon: "laravel"
+    }
+  },
+  {
+    suffix: ".component.ts",
+    badge: {
+      label: "NG",
+      tone: FileTone.Angular,
+      icon: "angular"
+    }
+  },
+  {
+    suffix: ".component.html",
+    badge: {
+      label: "NG",
+      tone: FileTone.Angular,
+      icon: "angular"
+    }
+  }
+];
+
 /** A path's lower-case final extension without its dot, or null for a dotfile,
  * extensionless name, or trailing dot. Shared by all extension classifiers. */
 export function pathExtension(path: string): string | null {
@@ -286,6 +334,12 @@ export function fileTypeBadge(path: string): FileTypeBadge {
       label: stem.length > 0 ? stem : "FILE",
       tone: FileTone.Neutral
     };
+  }
+
+  const lowerName = name.toLowerCase();
+  const suffixMatch = SUFFIX_BADGES.find(({ suffix }) => lowerName.endsWith(suffix));
+  if (suffixMatch) {
+    return suffixMatch.badge;
   }
 
   return BADGES[extension] ?? {

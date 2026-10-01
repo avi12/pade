@@ -30,6 +30,20 @@ describe("fileTypeBadge", () => {
       tone: FileTone.Vue,
       icon: "vue"
     });
+    expect(fileTypeBadge("src/App.tsx")).toEqual({
+      label: "TSX",
+      tone: FileTone.React,
+      icon: "react"
+    });
+    expect(fileTypeBadge("src/pages/index.astro").icon).toBe("astro");
+    expect(fileTypeBadge("app/views/home/index.html.erb").icon).toBe("rails");
+  });
+
+  it("recognises framework files by their compound suffix", () => {
+    expect(fileTypeBadge("resources/views/Welcome.Blade.php").icon).toBe("laravel");
+    expect(fileTypeBadge("src/app/app.component.ts").icon).toBe("angular");
+    expect(fileTypeBadge("src/app/app.component.html").icon).toBe("angular");
+    expect(fileTypeBadge("app/Http/Kernel.php").icon).toBeUndefined();
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
       tone: FileTone.TypeScript,
