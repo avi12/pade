@@ -12,6 +12,7 @@ export const FileTone = {
   TypeScript: "typescript",
   JavaScript: "javascript",
   Svelte: "svelte",
+  Vue: "vue",
   Rust: "rust",
   Cpp: "cpp",
   C: "c",
@@ -87,6 +88,11 @@ const BADGES: Record<string, FileTypeBadge> = {
     label: "SV",
     tone: FileTone.Svelte,
     icon: "svelte"
+  },
+  vue: {
+    label: "VUE",
+    tone: FileTone.Vue,
+    icon: "vue"
   },
   rs: {
     label: "RS",

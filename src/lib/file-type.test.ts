@@ -25,6 +25,11 @@ describe("fileTypeBadge", () => {
       tone: FileTone.Svelte,
       icon: "svelte"
     });
+    expect(fileTypeBadge("src/components/App.vue")).toEqual({
+      label: "VUE",
+      tone: FileTone.Vue,
+      icon: "vue"
+    });
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
       tone: FileTone.TypeScript,

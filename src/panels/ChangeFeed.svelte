@@ -1487,6 +1487,10 @@
     --tone: #e0701c;
   }
 
+  .tone-vue {
+    --tone: #41b883;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }
