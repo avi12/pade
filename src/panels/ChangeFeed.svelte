@@ -1511,6 +1511,22 @@
     --tone: #cc0000;
   }
 
+  .tone-php {
+    --tone: #777bb3;
+  }
+
+  .tone-java {
+    --tone: #e76f00;
+  }
+
+  .tone-csharp {
+    --tone: #9b4f96;
+  }
+
+  .tone-ruby {
+    --tone: #cc342d;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }

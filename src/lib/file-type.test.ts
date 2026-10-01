@@ -43,7 +43,7 @@ describe("fileTypeBadge", () => {
     expect(fileTypeBadge("resources/views/Welcome.Blade.php").icon).toBe("laravel");
     expect(fileTypeBadge("src/app/app.component.ts").icon).toBe("angular");
     expect(fileTypeBadge("src/app/app.component.html").icon).toBe("angular");
-    expect(fileTypeBadge("app/Http/Kernel.php").icon).toBeUndefined();
+    expect(fileTypeBadge("app/Http/Kernel.php").icon).toBe("php");
     expect(fileTypeBadge("src/lib/bridge.ts")).toEqual({
       label: "TS",
       tone: FileTone.TypeScript,

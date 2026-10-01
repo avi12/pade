@@ -25,6 +25,10 @@ export const FileTone = {
   Markup: "markup",
   Python: "python",
   Go: "go",
+  Php: "php",
+  Java: "java",
+  CSharp: "csharp",
+  Ruby: "ruby",
   Data: "data",
   Doc: "doc",
   Shell: "shell",
@@ -148,6 +152,31 @@ const BADGES: Record<string, FileTypeBadge> = {
     label: "GO",
     tone: FileTone.Go,
     icon: "go"
+  },
+  php: {
+    label: "PHP",
+    tone: FileTone.Php,
+    icon: "php"
+  },
+  java: {
+    label: "JAVA",
+    tone: FileTone.Java,
+    icon: "java"
+  },
+  cs: {
+    label: "C#",
+    tone: FileTone.CSharp,
+    icon: "csharp"
+  },
+  rb: {
+    label: "RB",
+    tone: FileTone.Ruby,
+    icon: "ruby"
+  },
+  rake: {
+    label: "RAKE",
+    tone: FileTone.Ruby,
+    icon: "ruby"
   },
   cpp: {
     label: "C++",
