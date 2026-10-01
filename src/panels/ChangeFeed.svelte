@@ -1527,6 +1527,50 @@
     --tone: #cc342d;
   }
 
+  .tone-kotlin {
+    --tone: #7f52ff;
+  }
+
+  .tone-swift {
+    --tone: #f05138;
+  }
+
+  .tone-dart {
+    --tone: #0175c2;
+  }
+
+  .tone-lua {
+    --tone: #5470d6;
+  }
+
+  .tone-scala {
+    --tone: #dc322f;
+  }
+
+  .tone-elixir {
+    --tone: #8e5bb5;
+  }
+
+  .tone-haskell {
+    --tone: #5d4f85;
+  }
+
+  .tone-r {
+    --tone: #276dc3;
+  }
+
+  .tone-zig {
+    --tone: #f7a41d;
+  }
+
+  .tone-perl {
+    --tone: #0073a1;
+  }
+
+  .tone-powershell {
+    --tone: #5391fe;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }

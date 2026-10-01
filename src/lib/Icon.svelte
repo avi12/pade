@@ -13,15 +13,15 @@
     "bolt", "branch", "c",
     "caseSensitive", "check", "checks", "chevronDown", "chevronUp", "claude", "clion",
     "clock", "close", "code", "codex", "columns",
-    "copilot", "cplusplus", "csharp", "css", "cursor", "external", "feed",
-    "folder", "folderPlus", "git", "github", "go", "goland", "grip", "grok",
-    "history", "html", "idea", "image", "java", "javascript", "json", "laravel",
-    "markdown", "maximize", "minimize", "monitor", "moon", "more", "opencode", "pencil",
-    "php", "phpstorm", "plus", "pycharm", "python", "rails", "react", "refresh", "regex", "rider",
-    "ruby", "rubymine", "rust", "rustrover", "search", "shell", "sliders", "sparkles",
-    "star", "sublime", "sun", "svelte", "swap", "terminal", "toml", "trash",
-    "typescript", "visualstudio", "vscode", "vue", "wallet", "webstorm", "wholeWord", "window",
-    "windowPlus", "yaml", "zed"
+    "copilot", "cplusplus", "csharp", "css", "cursor", "dart", "elixir", "external", "feed",
+    "folder", "folderPlus", "git", "github", "go", "goland", "grip", "grok", "haskell",
+    "history", "html", "idea", "image", "java", "javascript", "json", "kotlin", "laravel",
+    "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "opencode", "pencil",
+    "perl", "php", "phpstorm", "plus", "powershell", "pycharm", "python", "r", "rails", "react",
+    "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search",
+    "shell", "sliders", "sparkles", "star", "sublime", "sun", "svelte", "swap", "swift",
+    "terminal", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",
+    "webstorm", "wholeWord", "window", "windowPlus", "yaml", "zed", "zig"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
 

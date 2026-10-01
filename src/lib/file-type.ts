@@ -29,6 +29,17 @@ export const FileTone = {
   Java: "java",
   CSharp: "csharp",
   Ruby: "ruby",
+  Kotlin: "kotlin",
+  Swift: "swift",
+  Dart: "dart",
+  Lua: "lua",
+  Scala: "scala",
+  Elixir: "elixir",
+  Haskell: "haskell",
+  R: "r",
+  Zig: "zig",
+  Perl: "perl",
+  PowerShell: "powershell",
   Data: "data",
   Doc: "doc",
   Shell: "shell",
@@ -178,6 +189,96 @@ const BADGES: Record<string, FileTypeBadge> = {
     tone: FileTone.Ruby,
     icon: "ruby"
   },
+  kt: {
+    label: "KT",
+    tone: FileTone.Kotlin,
+    icon: "kotlin"
+  },
+  kts: {
+    label: "KTS",
+    tone: FileTone.Kotlin,
+    icon: "kotlin"
+  },
+  swift: {
+    label: "SWIFT",
+    tone: FileTone.Swift,
+    icon: "swift"
+  },
+  dart: {
+    label: "DART",
+    tone: FileTone.Dart,
+    icon: "dart"
+  },
+  lua: {
+    label: "LUA",
+    tone: FileTone.Lua,
+    icon: "lua"
+  },
+  scala: {
+    label: "SCALA",
+    tone: FileTone.Scala,
+    icon: "scala"
+  },
+  sc: {
+    label: "SC",
+    tone: FileTone.Scala,
+    icon: "scala"
+  },
+  ex: {
+    label: "EX",
+    tone: FileTone.Elixir,
+    icon: "elixir"
+  },
+  exs: {
+    label: "EXS",
+    tone: FileTone.Elixir,
+    icon: "elixir"
+  },
+  hs: {
+    label: "HS",
+    tone: FileTone.Haskell,
+    icon: "haskell"
+  },
+  lhs: {
+    label: "LHS",
+    tone: FileTone.Haskell,
+    icon: "haskell"
+  },
+  r: {
+    label: "R",
+    tone: FileTone.R,
+    icon: "r"
+  },
+  rmd: {
+    label: "RMD",
+    tone: FileTone.R,
+    icon: "r"
+  },
+  zig: {
+    label: "ZIG",
+    tone: FileTone.Zig,
+    icon: "zig"
+  },
+  pl: {
+    label: "PL",
+    tone: FileTone.Perl,
+    icon: "perl"
+  },
+  pm: {
+    label: "PM",
+    tone: FileTone.Perl,
+    icon: "perl"
+  },
+  psm1: {
+    label: "PS",
+    tone: FileTone.PowerShell,
+    icon: "powershell"
+  },
+  psd1: {
+    label: "PS",
+    tone: FileTone.PowerShell,
+    icon: "powershell"
+  },
   cpp: {
     label: "C++",
     tone: FileTone.Cpp,
@@ -270,8 +371,8 @@ const BADGES: Record<string, FileTypeBadge> = {
   },
   ps1: {
     label: "PS1",
-    tone: FileTone.Shell,
-    icon: "shell"
+    tone: FileTone.PowerShell,
+    icon: "powershell"
   },
   png: {
     label: "IMG",

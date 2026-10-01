@@ -37,6 +37,8 @@ describe("fileTypeBadge", () => {
     });
     expect(fileTypeBadge("src/pages/index.astro").icon).toBe("astro");
     expect(fileTypeBadge("app/views/home/index.html.erb").icon).toBe("rails");
+    expect(fileTypeBadge("app/src/Main.kt").icon).toBe("kotlin");
+    expect(fileTypeBadge("scripts/build.ps1").icon).toBe("powershell");
   });
 
   it("recognises framework files by their compound suffix", () => {
