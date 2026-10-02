@@ -1711,6 +1711,14 @@
   // Highlight → agent bridge: a selection in a side panel is injected into the
   // active session's input.
   let selection = $state("");
+  const AFTER_PATH_SEPARATOR = /(?<=[\\/])/;
+  const WHITESPACE = /\s/;
+  const selectionSegments = $derived(
+    selection.split(AFTER_PATH_SEPARATOR).map(text => ({
+      text,
+      isPathPart: !WHITESPACE.test(text)
+    }))
+  );
 
   function snippetLineElement(node: Node | null): HTMLElement | null {
     const element = node instanceof Element ? node : node?.parentElement;
@@ -2276,8 +2284,12 @@
         >
           <Icon name="send" />
           <span class="label">Send to agent</span>
-          <!-- Truncation is pure CSS (.preview: max-inline-size + ellipsis). -->
-          <span class="preview">{selection}</span>
+          <!-- A long path wraps only after a separator — each folder name stays
+               whole (no split at a hyphen); the line cap is pure CSS. -->
+          <span class="preview"
+          >{#each selectionSegments as segment, index (index)}<span class:path-part={segment.isPathPart}
+          >{segment.text}</span><wbr />{/each}</span
+          >
         </button>
       {/if}
     </div>
@@ -2815,15 +2827,16 @@
     display: inline-flex;
     gap: 10px;
     align-items: center;
-    max-inline-size: min(560px, 90vw);
+    max-inline-size: min(880px, 100vw - 48px);
     padding: 12px 20px;
     border: none;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-large);
     background: var(--primary);
     color: var(--on-primary);
     font: inherit;
     font-weight: 700;
     font-size: 14px;
+    text-align: start;
     box-shadow: 0 10px 30px var(--primary-shadow);
     cursor: pointer;
     translate: -50% 0;
@@ -2834,15 +2847,23 @@
       white-space: nowrap;
     }
 
+    /* Whole path on as many lines as it needs; a long code selection is capped
+       at whole lines so the button never towers over the terminal. */
     .preview {
       overflow: hidden;
+      max-block-size: 6lh;
       min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 500;
       font-size: 12px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
       opacity: 85%;
+
+      .path-part {
+        white-space: nowrap;
+      }
     }
   }
 </style>
