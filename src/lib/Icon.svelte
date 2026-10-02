@@ -19,7 +19,7 @@
     "history", "html", "idea", "image", "java", "javascript", "json", "kotlin", "laravel",
     "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
     "opencode", "pencil", "perl", "php", "phpstorm", "plus", "powershell", "prisma", "pycharm", "python", "r", "rails", "react",
-    "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search",
+    "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search", "send",
     "shell", "sliders", "sparkles", "sql", "star", "sublime", "sun", "svelte", "swap", "swift",
     "terminal", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",
     "webstorm", "wholeWord", "window", "windowPlus", "xml", "yaml", "zed", "zig"

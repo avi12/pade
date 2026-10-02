@@ -2274,7 +2274,8 @@
             focusTerminalPane(activeId);
           }}
         >
-          ◆ Send to agent
+          <Icon name="send" />
+          <span class="label">Send to agent</span>
           <!-- Truncation is pure CSS (.preview: max-inline-size + ellipsis). -->
           <span class="preview">{selection}</span>
         </button>
@@ -2785,21 +2786,24 @@
   }
 
   /* FAB entrance: drops in from below and bounces up into place. Bakes the
-     translateX(-50%) centering into every step since it animates transform. */
+     -50% centering into every step since it animates `translate`. */
   @keyframes send-pop {
     0% {
       opacity: 0%;
-      transform: translateX(-50%) translateY(12px) scale(0.88);
+      scale: 0.88;
+      translate: -50% 12px;
     }
 
     65% {
       opacity: 100%;
-      transform: translateX(-50%) translateY(-4px) scale(1.03);
+      scale: 1.03;
+      translate: -50% -4px;
     }
 
     100% {
       opacity: 100%;
-      transform: translateX(-50%) translateY(0) scale(1);
+      scale: 1;
+      translate: -50% 0;
     }
   }
 
@@ -2822,11 +2826,17 @@
     font-size: 14px;
     box-shadow: 0 10px 30px var(--primary-shadow);
     cursor: pointer;
-    transform: translateX(-50%);
+    translate: -50% 0;
     animation: send-pop 220ms var(--ease);
+
+    .label {
+      flex: none;
+      white-space: nowrap;
+    }
 
     .preview {
       overflow: hidden;
+      min-inline-size: 0;
       font-family: var(--font-monospace);
       font-weight: 500;
       font-size: 12px;
