@@ -31,7 +31,7 @@
     workspaceMembers as storedMembers
   } from "@/lib/stores/workspaceMembers.svelte";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import type { FeedDiff, WatchStatus } from "@/lib/types";
+  import type { ChangeEvent, FeedDiff, WatchStatus } from "@/lib/types";
   import { repositoryOfGroup } from "@/lib/workspace-members";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
@@ -309,6 +309,62 @@
   const unifiedLines = $derived(cachedLines ?? []);
   const hasPreview = $derived(unifiedLines.length > 0);
 
+  // Fill the preview cache for one card — the picture for an image, the clip for
+  // a video, else the baseline diff — once per event id. Every callee records
+  // its own failure, so this never rejects.
+  async function loadCardPreview({ id, path }: {
+    id: string;
+    path: string;
+  }): Promise<void> {
+    if (isImagePath(path)) {
+      await loadPreviewOnce({
+        cache: imageCache,
+        id,
+        load: async () => (await feed.image({ path }))?.dataUrl ?? null
+      });
+      return;
+    }
+
+    if (isVideoPath(path)) {
+      await loadPreviewOnce({
+        cache: videoCache,
+        id,
+        load: () => feed.video({ path })
+      });
+      return;
+    }
+
+    if (diffCache.has(id)) {
+      return;
+    }
+
+    try {
+      // Git-free preview: the backend hands over the session baseline and the
+      // current content; the shared parse+render path draws the diff (or the
+      // whole file when the baseline landed late — see previewLines).
+      const preview = await feed.diff({ path });
+      diffCache.set(id, previewLines(preview));
+      failedIds.delete(id);
+    } catch {
+      failedIds.add(id);
+      diffCache.set(id, []);
+    }
+  }
+
+  // Move the open card to a newer revision of its file only once that
+  // revision's preview is cached, so it never flashes "No preview available".
+  // The user may have closed or switched cards meanwhile — then stay put.
+  async function followNewestRevision({ staleId, newest }: {
+    staleId: string;
+    newest: ChangeEvent;
+  }): Promise<void> {
+    await loadCardPreview(newest);
+    const isStillOnStaleCard = expandedId === staleId;
+    if (isStillOnStaleCard) {
+      expandedId = newest.id;
+    }
+  }
+
   // An open card is a view of one revision, not merely one path. When the agent
   // writes that same path again, the old card is now stale; follow the newest
   // event automatically so the expanded preview always shows the live change.
@@ -320,7 +376,10 @@
 
     const newestForPath = feedStore.events.find(event => event.path === open.path);
     if (newestForPath && newestForPath.id !== open.id) {
-      expandedId = newestForPath.id;
+      followNewestRevision({
+        staleId: open.id,
+        newest: newestForPath
+      });
     }
   });
 
@@ -761,49 +820,19 @@
                       return;
                     }
 
-                    // An image card renders the picture, not a text diff — fetch its
-                    // rendered preview (a data URL) instead of the baseline diff, also
-                    // BEFORE expanding so the reveal measures the final height.
-                    if (isImage) {
-                      await loadPreviewOnce({
-                        cache: imageCache,
-                        id: event.id,
-                        load: async () => (await feed.image({ path: event.path }))?.dataUrl ?? null
-                      });
-                      expandedId = event.id;
-                      return;
-                    }
-
                     // A video card expands at once: its clip is transcoded on demand,
                     // too slow to hold the reveal for, so the card shows a
                     // transcoding state until the clip lands.
                     if (isVideo) {
                       expandedId = event.id;
-                      await loadPreviewOnce({
-                        cache: videoCache,
-                        id: event.id,
-                        load: () => feed.video({ path: event.path })
-                      });
+                      await loadCardPreview(event);
                       return;
                     }
 
-                    // Load the diff BEFORE expanding so the reveal measures the card's
+                    // Load the preview BEFORE expanding so the reveal measures the card's
                     // full height and glides straight to it. Expanding first would animate
                     // to the pre-diff height, then jump when the async diff lands.
-                    if (!diffCache.has(event.id)) {
-                      try {
-                        // Git-free preview: the backend hands over the session baseline and
-                        // the current content; the shared parse+render path draws the diff
-                        // (or the whole file when the baseline landed late — see previewLines).
-                        const preview = await feed.diff({ path: event.path });
-                        diffCache.set(event.id, previewLines(preview));
-                        failedIds.delete(event.id);
-                      } catch {
-                        failedIds.add(event.id);
-                        diffCache.set(event.id, []);
-                      }
-                    }
-
+                    await loadCardPreview(event);
                     expandedId = event.id;
                   }}
                 >
