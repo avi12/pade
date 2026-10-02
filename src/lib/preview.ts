@@ -48,7 +48,59 @@ const MarkdownExtension = z.enum(["md", "markdown"]);
 /** The HTML extensions the Change Feed can render (inertly) as a preview. */
 const HtmlExtension = z.enum(["html", "htm"]);
 
+/** Binary file extensions a text editor cannot usefully open — executables,
+ *  libraries, archives, office documents, fonts, audio and databases. The feed
+ *  reveals these in the file manager instead of handing them to the editor. */
+const BinaryExtension = z.enum([
+  "exe",
+  "dll",
+  "msi",
+  "sys",
+  "so",
+  "dylib",
+  "bin",
+  "o",
+  "obj",
+  "lib",
+  "a",
+  "pdb",
+  "class",
+  "jar",
+  "war",
+  "pyc",
+  "wasm",
+  "node",
+  "zip",
+  "7z",
+  "rar",
+  "tar",
+  "gz",
+  "tgz",
+  "bz2",
+  "xz",
+  "iso",
+  "dmg",
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "ttf",
+  "otf",
+  "woff",
+  "woff2",
+  "mp3",
+  "wav",
+  "flac",
+  "ogg",
+  "db",
+  "sqlite"
+]);
+
 const IMAGE_EXTENSIONS: readonly string[] = ImageExtension.options;
+const BINARY_EXTENSIONS: readonly string[] = BinaryExtension.options;
 const VIDEO_EXTENSIONS: readonly string[] = VideoExtension.options;
 const MARKDOWN_EXTENSIONS: readonly string[] = MarkdownExtension.options;
 const HTML_EXTENSIONS: readonly string[] = HtmlExtension.options;
@@ -69,6 +121,12 @@ export function isVideoPath(path: string): boolean {
 export function isMarkdownPath(path: string): boolean {
   const extension = pathExtension(path);
   return extension !== null && MARKDOWN_EXTENSIONS.includes(extension);
+}
+
+/** Whether `path`'s extension names a binary file a text editor can't open. */
+export function isBinaryPath(path: string): boolean {
+  const extension = pathExtension(path);
+  return extension !== null && BINARY_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names an HTML document. */

@@ -167,6 +167,8 @@ export const ide = {
 /** OS integrations — reveal a project in the file manager or a terminal. */
 export const os = {
   explorer: (path: string) => run("open_in_explorer", { path }),
+  /** Show a file selected in its folder — never opens or runs the file itself. */
+  reveal: (path: string) => run("reveal_in_explorer", { path }),
   terminal: (path: string) => run("open_in_terminal", { path }),
   /** Open an http(s) URL in the system's default browser. */
   openUrl: (url: string) => run("open_url", { url }),

@@ -140,6 +140,7 @@ pub fn run() {
             ide::ide_open_file,
             members::members_list,
             os::open_in_explorer,
+            os::reveal_in_explorer,
             os::open_in_terminal,
             os::open_url,
             os::restart,

@@ -1,6 +1,8 @@
 //! OS integrations — reveal a project in the system file manager or a terminal,
 //! open a URL in the default browser, or restart PADE.
 
+use crate::util;
+use std::path::Path;
 use std::process::Command;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
@@ -43,6 +45,47 @@ pub async fn open_in_explorer(path: String) -> Result<(), String> {
         Command::new("xdg-open").arg(&path).spawn()
     };
     result.map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Show `path` selected in the platform file manager without opening it — the
+/// safe way to surface a binary, since an `.exe` handed to Explorer would run.
+#[tauri::command]
+pub async fn reveal_in_explorer(path: String) -> Result<(), String> {
+    let target = Path::new(&path);
+    if !target.exists() {
+        return Err(format!("{path} no longer exists"));
+    }
+    reveal_command(target)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(windows)]
+fn reveal_command(target: &Path) -> Command {
+    use std::os::windows::process::CommandExt;
+    let mut command = util::command("explorer");
+    // Explorer parses `/select,` itself and wants the path quoted after the
+    // comma, which std's argument quoting cannot express — hence the raw arg.
+    // It also rejects forward slashes there.
+    let windows_path = target.display().to_string().replace('/', "\\");
+    command.raw_arg(format!("/select,\"{windows_path}\""));
+    command
+}
+
+#[cfg(target_os = "macos")]
+fn reveal_command(target: &Path) -> Command {
+    let mut command = util::command("open");
+    command.arg("-R").arg(target);
+    command
+}
+
+/// Linux file managers share no "select this file" flag, so open its folder.
+#[cfg(all(unix, not(target_os = "macos")))]
+fn reveal_command(target: &Path) -> Command {
+    let mut command = util::command("xdg-open");
+    command.arg(target.parent().unwrap_or(target));
+    command
 }
 
 /// Open a terminal rooted at `path`. Prefers Windows Terminal, falling back to

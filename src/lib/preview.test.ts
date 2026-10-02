@@ -1,5 +1,25 @@
-import { isHtmlPath, isImagePath, isMarkdownPath, isVideoPath } from "@/lib/preview";
+import {
+  isBinaryPath,
+  isHtmlPath,
+  isImagePath,
+  isMarkdownPath,
+  isVideoPath
+} from "@/lib/preview";
 import { describe, expect, it } from "vitest";
+
+describe("isBinaryPath", () => {
+  it("recognises executables, archives and documents case-insensitively", () => {
+    expect(isBinaryPath("target/release/pade.EXE")).toBe(true);
+    expect(isBinaryPath("dist/bundle.zip")).toBe(true);
+    expect(isBinaryPath("docs/spec.pdf")).toBe(true);
+  });
+
+  it("leaves text files and extensionless paths to the editor", () => {
+    expect(isBinaryPath("src/main.rs")).toBe(false);
+    expect(isBinaryPath("notes.txt")).toBe(false);
+    expect(isBinaryPath("Makefile")).toBe(false);
+  });
+});
 
 describe("isVideoPath", () => {
   it("recognises video extensions case-insensitively", () => {

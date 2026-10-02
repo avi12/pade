@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { feed, FeedVideoKind, ide, vcs } from "@/lib/bridge";
+  import {
+    feed,
+    FeedVideoKind,
+    ide,
+    os,
+    vcs
+  } from "@/lib/bridge";
   import type { FeedVideo } from "@/lib/bridge";
   import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
@@ -20,7 +26,13 @@
   } from "@/lib/motion";
   import { baseName, parentDirectory, relativeToRoot } from "@/lib/paths";
   import { effective } from "@/lib/prefs.svelte";
-  import { isHtmlPath, isImagePath, isMarkdownPath, isVideoPath } from "@/lib/preview";
+  import {
+    isBinaryPath,
+    isHtmlPath,
+    isImagePath,
+    isMarkdownPath,
+    isVideoPath
+  } from "@/lib/preview";
   import { ensureEditors, windowedEditorFor } from "@/lib/stores/editors.svelte";
   import { feedStore, retarget } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
@@ -415,8 +427,8 @@
   // keep the ranked editor's name live past the attachment's mount.
   function revealTooltip(path: string) {
     return truncationTooltip({
-      tooltip: () => (revealEditor ? `Open in ${revealEditor.label} · ${path}` : path),
-      restingTooltip: () => (revealEditor ? `Open in ${revealEditor.label}` : ""),
+      tooltip: () => (openAction(path) ? `${openAction(path)} · ${path}` : path),
+      restingTooltip: () => openAction(path),
       measureSelector: ".file-path"
     });
   }
@@ -527,12 +539,19 @@
     });
   });
 
-  function openInEditor({ path, line }: {
+  // A binary file (an .exe, an archive) means nothing in a text editor, so it is
+  // shown selected in its folder instead; every other file opens in the editor.
+  async function openChangedFile({ path, line }: {
     path: string;
     line?: number;
-  }) {
+  }): Promise<void> {
+    if (isBinaryPath(path)) {
+      await os.reveal(path);
+      return;
+    }
+
     if (revealEditor) {
-      ide.openFile({
+      await ide.openFile({
         command: revealEditor.command,
         project,
         file: path,
@@ -541,15 +560,25 @@
     }
   }
 
+  // The verb on a card's open button — the one source its tooltip and its
+  // enabled state read, so both follow the same editor-or-folder decision.
+  function openAction(path: string): string {
+    if (isBinaryPath(path)) {
+      return "Show in folder";
+    }
+
+    return revealEditor ? `Open in ${revealEditor.label}` : "";
+  }
+
   // Clicking the diff body (or the filename) opens the file in the selected
   // editor, jumped to the first changed line. The launcher hands the file to the
   // already-open editor when one is running, so it navigates there in place.
   const revealTip = $derived(revealEditor ? `Reveal in ${revealEditor.label}` : "No editor detected");
   const revealLine = $derived(firstChangedLine(unifiedLines));
-  function revealDiff({ path, event }: {
+  async function revealDiff({ path, event }: {
     path: string;
     event: MouseEvent;
-  }) {
+  }): Promise<void> {
     // A drag to select text (for send-to-agent) must not also open the file.
     const selection = getSelection();
     if (selection && !selection.isCollapsed) {
@@ -561,17 +590,17 @@
     const lineElement =
       target instanceof Element ? target.closest<HTMLElement>("[data-newline]") : null;
     const line = lineElement ? Number(lineElement.dataset.newline) : revealLine;
-    openInEditor({
+    await openChangedFile({
       path,
       line
     });
   }
-  function onDiffKey({ event, path }: {
+  async function onDiffKey({ event, path }: {
     event: KeyboardEvent;
     path: string;
-  }) {
+  }): Promise<void> {
     if (event.key === "Enter") {
-      openInEditor({
+      await openChangedFile({
         path,
         line: revealLine
       });
@@ -878,8 +907,8 @@
                       <button
                         class="file-button"
                         {@attach revealTooltip(event.path)}
-                        disabled={!revealEditor}
-                        onclick={() => openInEditor({
+                        disabled={!openAction(event.path)}
+                        onclick={() => openChangedFile({
                           path: event.path,
                           line: revealLine
                         })}
