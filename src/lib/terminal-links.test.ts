@@ -16,9 +16,16 @@ const emptyBuffer = {
   }
 };
 
+// What xterm's `getChars` reads back for a cell nothing was ever printed into.
+const UNWRITTEN = "";
+
+// Stands in, inside a mock row's text, for an unwritten cell mid-row — the gap a
+// program leaves when it moves the cursor (`ESC[1C`) instead of printing a space.
+const UNWRITTEN_MARKER = "\u0000";
+
 // A tiny stand-in for xterm's buffer: each row is a plain string plus an
 // optional soft-wrap flag. `getCell` mirrors the real API — a column past the
-// row's text reads back empty, exactly like an unwritten cell.
+// row's text, or one holding `UNWRITTEN_MARKER`, reads back as an unwritten cell.
 interface MockRow {
   text: string;
   wrapped?: boolean;
@@ -39,7 +46,11 @@ function makeTerminal({ rows, columns }: {
       length: columns,
       getCell(column: number) {
         return {
-          getChars: () => row.text[column] ?? ""
+          getChars() {
+            const character = row.text[column] ?? UNWRITTEN;
+            return character === UNWRITTEN_MARKER ? UNWRITTEN : character;
+          },
+          getWidth: () => 1
         };
       }
     };
@@ -216,6 +227,22 @@ describe("computeLinks", () => {
         y: 1
       }
     });
+  });
+
+  it("ends a URL at a word gap the program skipped with a cursor move", () => {
+    const url = "https://discord.gg/3uGzdhYfNB";
+    const gap = UNWRITTEN_MARKER;
+    const links = computeLinks({
+      terminal: makeTerminal({
+        rows: [{ text: `server:${gap}${url}.${gap}That's${gap}the${gap}link` }],
+        columns: 80
+      }),
+      bufferLineNumber: 1,
+      openUrl() {}
+    });
+
+    expect(textsOf(links)).toEqual([url]);
+    expect(links[0].range.end.x).toBe(8 + url.length);
   });
 
   it("rejoins a URL the terminal soft-wrapped onto column 0, as one span per row", () => {
@@ -625,7 +652,10 @@ function makeRegisterableTerminal({ row, linkProviders }: {
           return {
             isWrapped: false,
             getCell(column: number) {
-              return { getChars: () => row[column] ?? "" };
+              return {
+                getChars: () => row[column] ?? "",
+                getWidth: () => 1
+              };
             }
           };
         }

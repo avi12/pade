@@ -88,6 +88,7 @@ interface LogicalLine {
 // satisfies it structurally.
 interface LinkCell {
   getChars(): string;
+  getWidth(): number;
 }
 interface LinkLine {
   isWrapped: boolean;
@@ -174,6 +175,24 @@ function reachesRightEdge({ content, columns }: {
   return content.lastColumn >= columns - 1 - RIGHT_EDGE_SLACK;
 }
 
+// The trailing half of a wide glyph is the one cell xterm gives zero width.
+const WIDE_GLYPH_TRAILING_HALF_WIDTH = 0;
+
+// The text a cell contributes to a row: nothing for the trailing half of a wide
+// glyph (its leading half already carries the character), a space for an
+// unwritten cell, and its glyphs otherwise. An unwritten cell mid-row is a gap
+// the program skipped with a cursor move rather than a printed space — Claude's
+// Ink renderer emits `ESC[1C` between words — so it must still read as a word
+// break, or the URL regex runs straight through `….` into the next word.
+function cellText(cell: LinkCell | undefined): string {
+  if (!cell || cell.getWidth() === WIDE_GLYPH_TRAILING_HALF_WIDTH) {
+    return EMPTY_CELL;
+  }
+
+  const characters = cell.getChars();
+  return characters === EMPTY_CELL ? BLANK_CELL : characters;
+}
+
 // One row's glyphs from its first to its last visible column, plus the source
 // column each character came from. The single home for turning a row's content
 // span into text — both the logical-line builder and the URL-continuation test
@@ -188,12 +207,7 @@ function rowGlyphs({ line, content }: {
   let text = "";
   const columns: number[] = [];
   for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
-    const characters = line.getCell(column)?.getChars();
-    const isTrailingWideHalf = characters === undefined || characters === EMPTY_CELL;
-    if (isTrailingWideHalf) {
-      continue;
-    }
-
+    const characters = cellText(line.getCell(column));
     text += characters;
     for (let offset = 0; offset < characters.length; offset += 1) {
       columns.push(column);
@@ -709,7 +723,7 @@ function anchorIsUrl({ terminal, link }: {
   const lastColumn = onOneRow ? link.range.end.x - 1 : terminal.cols - 1;
   let anchor = "";
   for (let column = firstColumn; column <= lastColumn; column += 1) {
-    anchor += line.getCell(column)?.getChars() ?? EMPTY_CELL;
+    anchor += cellText(line.getCell(column));
   }
 
   const match = anchor.match(URL_PATTERN);
