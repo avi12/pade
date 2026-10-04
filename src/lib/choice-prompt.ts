@@ -10,7 +10,7 @@ import { stripAnsi } from "@/lib/ansi";
 
 /** The selection-cursor glyph Claude Code (Ink's select prompt) draws next to
  *  the highlighted option — U+276F, distinct from the input line's plain ">". */
-const SELECTION_CURSOR = "❯";
+export const SELECTION_CURSOR = "❯";
 
 // A numbered option token — "1." / "12)" — counted loosely (no surrounding
 // whitespace required) so a framebuffer that joins the rows without a newline

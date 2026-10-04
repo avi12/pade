@@ -1,42 +1,54 @@
-import { isTrustGate, promptEchoed } from "@/lib/initial-prompt";
+import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/initial-prompt";
 import { describe, expect, it } from "vitest";
 
-// Claude Code's first-run gate, roughly as it paints it (cursor on the default).
-const TRUST_GATE = [
-  "Quick safety check: Is this a project you created or one you trust?",
-  "Claude Code'll be able to read, edit, and execute files here.",
-  "❯ 1. Yes, I trust this folder",
-  "  2. No, exit",
-  "Enter to confirm · Esc to cancel"
-].join("\n");
+// Claude Code 2.1.286's first-run gate as rendered: unnumbered options, with the
+// cursor starting on "No, exit" ABOVE the accepting option.
+const GATE_HEADER = [
+  " Accessing workspace:",
+  "",
+  " Quick safety check: Is this a project you created or one you trust?",
+  " Claude Code'll be able to read, edit, and execute files here.",
+  ""
+];
+const GATE_FOOTER = ["", " Enter to confirm · Esc to cancel"];
 
-describe("isTrustGate", () => {
-  it("recognizes the trust-folder gate", () => {
-    expect(isTrustGate(TRUST_GATE)).toBe(true);
+function gate(options: string[]): string[] {
+  return [...GATE_HEADER, ...options, ...GATE_FOOTER];
+}
+
+describe("trustGateKey", () => {
+  it("steps down when the cursor starts on 'No, exit' above the trust option", () => {
+    expect(trustGateKey(gate([" ❯ No, exit", "   Yes, I trust this folder"]))).toBe(TrustGateKey.Down);
   });
 
-  it("sees it through ANSI colour codes", () => {
-    const coloured = `\x1b[1m❯ 1.\x1b[0m Yes, I \x1b[33mtrust\x1b[0m this folder\n  2. No, exit`;
-    expect(isTrustGate(coloured)).toBe(true);
+  it("confirms once the cursor sits on the trust option", () => {
+    expect(trustGateKey(gate(["   No, exit", " ❯ Yes, I trust this folder"]))).toBe(TrustGateKey.Confirm);
+  });
+
+  it("confirms the older numbered gate whose default is already trust", () => {
+    expect(trustGateKey(gate([" ❯ 1. Yes, I trust this folder", "   2. No, exit"]))).toBe(TrustGateKey.Confirm);
+  });
+
+  it("steps up when the trust option sits above the cursor", () => {
+    expect(trustGateKey(gate(["   1. Yes, I trust this folder", " ❯ 2. No, exit"]))).toBe(TrustGateKey.Up);
   });
 
   it("ignores a real multiple-choice question the agent asks later", () => {
-    // A genuine choice prompt — must NOT auto-accept; the user answers this one.
-    const question = "❯ 1. Overwrite the file\n  2. Keep both\n  3. Cancel";
-    expect(isTrustGate(question)).toBe(false);
+    // A genuine choice prompt — must NOT auto-answer; the user answers this one.
+    expect(trustGateKey(["❯ 1. Overwrite the file", "  2. Keep both", "  3. Cancel"])).toBeNull();
   });
 
   it("ignores prose that merely mentions trust", () => {
-    expect(isTrustGate("I don't trust this regex, let me rewrite it.")).toBe(false);
+    expect(trustGateKey(["I don't trust this regex, let me rewrite it.", "❯ "])).toBeNull();
   });
 
-  it("ignores the input line's plain prompt caret", () => {
-    // The REPL's own "> " is not the U+276F selection cursor of a menu.
-    expect(isTrustGate("> do you trust this? type your answer")).toBe(false);
+  it("ignores the REPL's input cursor far from a quoted gate line", () => {
+    const rows = ["Claude asked: Yes, I trust this folder", ...Array.from({ length: 10 }, () => ""), "❯ Try something"];
+    expect(trustGateKey(rows)).toBeNull();
   });
 
-  it("is false for empty output", () => {
-    expect(isTrustGate("")).toBe(false);
+  it("is null for an empty screen", () => {
+    expect(trustGateKey([])).toBeNull();
   });
 });
 

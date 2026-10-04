@@ -12,7 +12,7 @@
   import { errorMessage } from "@/lib/errors";
   import { isEditingText } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
-  import { isTrustGate, promptEchoed } from "@/lib/initial-prompt";
+  import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/initial-prompt";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
@@ -170,14 +170,22 @@
   // Initial-prompt delivery (see lib/initial-prompt). A fresh agent gates on a
   // "trust this folder?" prompt before its input line is live, so the first
   // prompt can't just be fired on mount — it would land in the menu or sit unsent.
-  // Instead we watch the stream: accept the trust gate the moment it appears,
-  // then once the agent has settled quiet at its REPL, paste the prompt and
-  // submit it. Both steps run at most once.
+  // Instead we watch the rendered screen: walk the trust gate's selection to
+  // "Yes, I trust this folder" and confirm it, then once the agent has settled
+  // quiet at its REPL, paste the prompt and submit it.
   let promptDelivered = false;
-  let trustAccepted = false;
-  // A rolling tail of recent output, so the ready-time check can tell whether the
-  // trust gate is still on screen — a backstop for a gate frame that arrived split
-  // across chunks and slipped the per-chunk check.
+  // Whether the last screen sample showed the trust gate. Delivery holds while it
+  // does — a prompt pasted into the gate's menu is lost.
+  let trustGateOnScreen = false;
+  // Keys sent to walk and confirm the gate, bounded so a gate whose layout we
+  // misread can't be keyed at forever — the user answers it by hand instead.
+  let trustGateKeysSent = 0;
+  const TRUST_GATE_MAX_KEYS = 6;
+  // A key was sent and the agent hasn't repainted since, so the screen still
+  // shows the gate as it was BEFORE the key — acting on it would double-step.
+  let trustGateAwaitingRepaint = false;
+  // A rolling tail of recent output, so delivery can tell whether the prompt's
+  // paste has echoed back in the composer.
   let recentOutput = "";
   const RECENT_OUTPUT_CAP = 8_000;
 
@@ -367,6 +375,10 @@
   // Carriage return — the "Enter" a CLI reads as "submit this line".
   const ENTER = "\r";
 
+  // The Up/Down arrow keys (CSI A / CSI B) — how a select menu's cursor moves.
+  const CURSOR_UP = `${CONTROL_SEQUENCE_INTRODUCER}A`;
+  const CURSOR_DOWN = `${CONTROL_SEQUENCE_INTRODUCER}B`;
+
   // ^W (ETB) — the line discipline's "erase word backward". Sent for
   // Ctrl+Backspace, whose legacy byte (^H) a TUI can't tell from a bare
   // backspace; see the key-handler comment.
@@ -427,22 +439,44 @@
     }, IDLE_MS);
   }
 
-  // Watch a fresh session's boot output for the first-run trust gate and accept
-  // its default ("Yes, I trust this folder") the instant it appears, so the
-  // prompt delivered next lands at the REPL and not in the menu. Runs only while
-  // a first prompt is still pending, and accepts at most once.
+  // Keep the tail of a fresh session's output while its first prompt is pending,
+  // for delivery's echo check; any output also means the agent has repainted
+  // since the last trust-gate key.
   function watchInitialPrompt(data: string) {
     if (!session.initialPrompt || promptDelivered) {
       return;
     }
 
     recentOutput = (recentOutput + data).slice(-RECENT_OUTPUT_CAP);
+    trustGateAwaitingRepaint = false;
+  }
 
-    if (!trustAccepted && isTrustGate(recentOutput)) {
-      trustAccepted = true;
-      recentOutput = ""; // the gate's gone once accepted — don't re-trip on its stale frame
-      writeToPty(ENTER);
+  const TRUST_GATE_KEY_BYTES = {
+    [TrustGateKey.Confirm]: ENTER,
+    [TrustGateKey.Down]: CURSOR_DOWN,
+    [TrustGateKey.Up]: CURSOR_UP
+  } as const satisfies Record<TrustGateKey, string>;
+
+  // Answer the first-run trust gate from the rendered screen: step its selection
+  // onto "Yes, I trust this folder", then confirm — so the prompt delivered next
+  // lands at the REPL and not in the menu. Runs only while a first prompt is
+  // still pending; one key per repaint.
+  async function answerTrustGate(rows: readonly string[]) {
+    if (!session.initialPrompt || promptDelivered) {
+      return;
     }
+
+    const key = trustGateKey(rows);
+    trustGateOnScreen = key !== null;
+    const mayPressKey = trustGateOnScreen && !trustGateAwaitingRepaint
+      && trustGateKeysSent < TRUST_GATE_MAX_KEYS;
+    if (!key || !mayPressKey) {
+      return;
+    }
+
+    trustGateKeysSent += 1;
+    trustGateAwaitingRepaint = true;
+    await writeToPty(TRUST_GATE_KEY_BYTES[key]);
   }
 
   // A freshly-spawned TUI can paint its whole splash while not yet READING
@@ -484,16 +518,9 @@
       return;
     }
 
-    // Backstop: a gate frame split across chunks can slip watchInitialPrompt but
-    // still sits in the rolling tail — accept it here and wait for the next settle
-    // rather than pasting into the menu.
-    if (isTrustGate(recentOutput)) {
-      if (!trustAccepted) {
-        trustAccepted = true;
-        await writeToPty(ENTER);
-      }
-
-      recentOutput = "";
+    // The gate is still up — answerTrustGate (or the user) clears it, and the
+    // agent's repaint settles back to ready, which re-runs this.
+    if (trustGateOnScreen) {
       return;
     }
 
@@ -800,6 +827,7 @@
       }
     }
 
+    answerTrustGate(rows);
     const screen = rows.join("\n");
     observeContextScreen({
       id: session.id,
