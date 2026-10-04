@@ -6,8 +6,9 @@
 // panel is closed and survive its remount.
 
 import { feed } from "@/lib/bridge";
+import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed-snapshot";
 import { baseName } from "@/lib/paths";
-import type { ChangeEvent } from "@/lib/types";
+import type { ChangeEvent, WatchStatus } from "@/lib/types";
 
 // Newest first. Capped so a busy agent session can't grow this unbounded.
 const CAP = 300;
@@ -28,6 +29,26 @@ let currentProject: string | null = null;
 // The stream is subscribed exactly once for the process lifetime.
 let subscribed = false;
 
+// The backend watch the accumulated events came from, learned on retarget. A
+// reload saves the feed under it and restores only into that same watch (see
+// feed-snapshot).
+let liveWatch: WatchStatus | null = null;
+
+// Hand the feed to the reloaded page. `pagehide` is the last synchronous moment
+// before the webview drops this page, so the save happens once per unload rather
+// than re-serializing up to CAP events on every change.
+function saveFeedOnUnload(): void {
+  if (!liveWatch?.root || liveWatch.armedAt === null) {
+    return;
+  }
+
+  saveFeedSnapshot({
+    root: liveWatch.root,
+    armedAt: liveWatch.armedAt,
+    events: feedStore.events
+  });
+}
+
 /** Subscribe once to the backend feed stream. Idempotent — a second call is a
  *  no-op — and never unsubscribed, so events accumulate across panel remounts. */
 async function startFeedSubscription(): Promise<void> {
@@ -36,6 +57,7 @@ async function startFeedSubscription(): Promise<void> {
   }
 
   subscribed = true;
+  addEventListener("pagehide", saveFeedOnUnload);
   try {
     await feed.onChange(event => {
       const isScratchFile = TEMP_FILE.test(baseName(event.path));
@@ -64,7 +86,33 @@ async function startFeedSubscription(): Promise<void> {
   } catch {
     // Re-arm on a failed subscribe so a later retarget can try again.
     subscribed = false;
+    removeEventListener("pagehide", saveFeedOnUnload);
   }
+}
+
+// Learn the watch now feeding `project`, and — after a reload — put back the
+// events that same watch had already surfaced, behind any that arrived since.
+async function adoptLiveWatch(project: string): Promise<void> {
+  try {
+    liveWatch = await feed.status();
+  } catch {
+    liveWatch = null;
+    return;
+  }
+
+  const restored = eventsForLiveWatch({
+    snapshot: readFeedSnapshot(),
+    watch: liveWatch,
+    project
+  });
+  const isStillThisProject = project === currentProject;
+  if (restored.length === 0 || !isStillThisProject) {
+    return;
+  }
+
+  const arrivedSince = new Set(feedStore.events.map(event => event.id));
+  const earlier = restored.filter(event => !arrivedSince.has(event.id));
+  feedStore.events = [...feedStore.events, ...earlier].slice(0, CAP);
 }
 
 /** Point the feed at `project`, clearing accumulated events when it differs from
@@ -83,4 +131,5 @@ export function retarget(project: string): void {
 
   currentProject = project;
   feedStore.events = [];
+  adoptLiveWatch(project);
 }
