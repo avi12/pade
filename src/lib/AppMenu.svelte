@@ -15,6 +15,7 @@
   import RelabelDialog from "@/lib/RelabelDialog.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { arrowFocus, rovingMenu } from "@/lib/roving-menu";
+  import { invalidateProjectBranches, observeProjectBranch, projectBranch } from "@/lib/stores/projectBranches.svelte";
   import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
   import { AddRootStatus, WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
@@ -92,9 +93,8 @@
   } = $props();
 
   let filter = $state("");
-  // Branches and the open-window list are fetched when the menu opens. Language
+  // The open-window list is fetched when the menu opens. Branch chips and language
   // icons load independently, only as their rows become visible.
-  let branches = $state<Record<string, string>>({});
   let windowRows = $state<WindowInfo[]>([]);
   // Whether the popover is open — the moment a row first has a real width, so the
   // per-row truncation tooltips (re)measure then rather than while hidden.
@@ -315,38 +315,19 @@
     return `window-row-${label.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 
-  // Fetch open windows and branches. Language kinds are deliberately absent:
-  // ProjectKindIcon batches only visible rows and never waits on Git processes.
-  async function loadBranches(windowPaths: string[]) {
-    const paths = [
-      ...new Set([path, ...pinnedProjects, ...recentProjects, ...windowPaths])
-    ].filter(Boolean);
-    if (paths.length === 0) {
-      return;
-    }
-
+  // Fetch the open windows. Branches and language kinds are deliberately absent:
+  // both load per row, only as rows become visible (see visiblePathBatch).
+  async function loadOpenWindows() {
     try {
-      branches = await vcs.branchOf(paths);
+      windowRows = await windows.list();
     } catch {
-    // Preserve last-known branches; icon detection remains independent.
+    // Keep the last-known rows; the next open or change event retries.
     }
-  }
-
-  async function loadMeta() {
-    let openWindows: WindowInfo[];
-    try {
-      openWindows = await windows.list();
-    } catch {
-      return;
-    }
-    windowRows = openWindows;
-    await loadBranches(openWindows.map(window => window.path));
   }
 
   // Live cross-window sync: another window changed the open-windows set/order (a
   // drag-reorder landed there), so reflect it here with the same scoped morph the
-  // pinned/recent list uses. Only the row ORDER is animated — the branch fetch is
-  // slow and would freeze the snapshotted menu, so it runs after the transition.
+  // pinned/recent list uses.
   async function onWindowsChanged() {
     if (!menuOpen) {
       return;
@@ -363,7 +344,6 @@
       windowRows = openWindows;
       await tick();
     });
-    await loadBranches(openWindows.map(window => window.path));
   }
 
   // Persist a drag-reordered window order to the one backend source (which drives
@@ -376,7 +356,7 @@
       return row ? [row] : [];
     });
     await windows.reorder(labels);
-    await loadMeta();
+    await loadOpenWindows();
   }
 
   function hide() {
@@ -489,13 +469,13 @@
   });
 
   // Keep the branch chips honest while the switcher is on screen: a branch
-  // switch or git init in any listed project re-fetches the row metadata. A
-  // closed menu skips the fetch — it reloads on every open anyway.
+  // switch or git init in any listed project re-asks for the visible rows. A
+  // closed menu skips it — opening invalidates them anyway.
   let unlistenGitState: UnlistenFn | undefined;
   onMount(async () => {
     unlistenGitState = await vcs.onStateChanged(() => {
       if (menuOpen) {
-        loadMeta();
+        invalidateProjectBranches();
       }
     });
   });
@@ -556,7 +536,8 @@
       if (menuOpen) {
         prefillSaveName();
         focusFilter();
-        await loadMeta();
+        invalidateProjectBranches();
+        await loadOpenWindows();
       }
     }}
     popover
@@ -797,9 +778,11 @@
     <!-- The row's main button (logo, name, branch, path), shared by both sections. -->
     {#snippet rowMain(project: string)}
       {@const current = isCurrent(project)}
+      {@const branch = projectBranch(project)}
       <button
         class="project-row-main"
         class:current
+        {@attach observeProjectBranch({ path: project })}
         aria-checked={current}
         data-arrow-stop
         onclick={e => pick(project, e)}
@@ -815,10 +798,10 @@
             {/if}
           </span>
           <span class="project-row-metadata">
-            {#if branches[project]}
+            {#if branch}
               <span class="branch">
                 <span class="branch-icon" aria-hidden="true"><Icon name="branch" size={11} /></span>
-                {branches[project]}
+                {branch}
               </span>
             {/if}
             <span
@@ -1375,9 +1358,14 @@
     }
   }
 
+  /* The recent list is unbounded, so a row scrolled out of the list skips layout
+     and paint entirely; `auto` remembers each row's real height once rendered, and
+     the fallback is one row's measured height, so the scrollbar stays true. */
   .project-row {
+    contain-intrinsic-block-size: auto 41.5px;
     position: relative;
     display: flex;
+    content-visibility: auto;
     gap: 2px;
     align-items: center;
   }

@@ -122,6 +122,13 @@
     margin: 0;
     padding: 0;
     list-style: none;
+
+    /* The recent list is unbounded, so a row out of view skips layout and paint
+       entirely; `auto` remembers each row's real height once rendered. */
+    > .row {
+      contain-intrinsic-block-size: auto 40px;
+      content-visibility: auto;
+    }
   }
 
   /* Recent row — pill button, mono name, truncating path; fills on hover. */
