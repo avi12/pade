@@ -9,6 +9,10 @@ describe("stripAnsi", () => {
     expect(stripAnsi(`${ESC}[31mred${ESC}[0m${ESC}[2A`)).toBe("red");
   });
 
+  it("keeps a cursor-forward skip as the blank gap it leaves", () => {
+    expect(stripAnsi(`Yes,${ESC}[CI${ESC}[1Ctrust${ESC}[3Cthis`)).toBe("Yes, I trust   this");
+  });
+
   it("leaves ordinary text untouched", () => {
     expect(stripAnsi("plain 1. text")).toBe("plain 1. text");
   });

@@ -25,9 +25,26 @@ const ANSI_ESCAPE_RE = new RegExp(
 // control byte sits in the source.
 const CSI_SGR_RE = new RegExp("^\\u001b\\[([0-9;]*)m$");
 
-/** Strip ANSI/control sequences from a chunk of terminal output. */
+// Cursor Forward (CUF): ESC [ <count> C. Claude's Ink renderer skips over a cell
+// that is already blank with this instead of printing a space, so on a fresh
+// screen every gap between words arrives as a cursor move.
+const CURSOR_FORWARD_RE = new RegExp("\\u001b\\[(\\d*)C", "g");
+const CURSOR_FORWARD_DEFAULT_COUNT = 1;
+// A ceiling on the gap one cursor move expands to, so a garbage count can't
+// allocate an unbounded string — wider than any real terminal row.
+const CURSOR_FORWARD_MAX_COUNT = 1_000;
+
+function cursorForwardGap(_sequence: string, count: string): string {
+  const columns = count === "" ? CURSOR_FORWARD_DEFAULT_COUNT : parseInt(count, 10);
+  return " ".repeat(Math.min(columns, CURSOR_FORWARD_MAX_COUNT));
+}
+
+/** Strip ANSI/control sequences from a chunk of terminal output, keeping a
+ *  cursor-forward skip as the blank gap it leaves on screen — or text matchers
+ *  would see `Yes,Itrustthisfolder` where the screen reads "Yes, I trust this
+ *  folder". */
 export function stripAnsi(text: string): string {
-  return text.replaceAll(ANSI_ESCAPE_RE, "");
+  return text.replaceAll(CURSOR_FORWARD_RE, cursorForwardGap).replaceAll(ANSI_ESCAPE_RE, "");
 }
 
 /** A run of text sharing one set of SGR styles. Colours resolve to `var(--terminal-*)`
