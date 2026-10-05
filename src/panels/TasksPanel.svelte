@@ -181,17 +181,26 @@
   }
 
   .group {
+    --group-space-above: 4px;
+
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-block-start: 4px;
+    margin-block-start: var(--group-space-above);
   }
 
   /* Each manifest's header sticks to the top of the list while its tasks scroll
      under it, until the next group's header pushes it out — sticky is bounded by
      its own .group. It bleeds over the list's padding (inline and the top edge)
-     with the side pane's own surface, so no row peeks out beside or above it. */
+     with the side pane's own surface, so no row peeks out beside or above it.
+     The space above its label is the same pinned as at rest: the header's box
+     reaches up over the list padding and the group's spacing (negative margin)
+     and takes that space back as padding, so the label never moves when it
+     sticks — only the surface behind it starts covering the rows. */
   .group h3 {
+    --header-padding-block: 4px;
+    --space-above-header: calc(var(--scroll-padding-block) + var(--group-space-above));
+
     position: sticky;
     inset-block-start: calc(-1 * var(--scroll-padding-block));
     z-index: 1;
@@ -199,8 +208,9 @@
     gap: 8px;
     align-items: center;
     margin: 0;
+    margin-block-start: calc(-1 * var(--space-above-header));
     margin-inline: calc(-1 * var(--scroll-padding-inline));
-    padding-block: 4px;
+    padding-block: calc(var(--space-above-header) + var(--header-padding-block)) var(--header-padding-block);
     padding-inline: var(--scroll-padding-inline);
     background: var(--surface);
   }
