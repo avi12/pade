@@ -93,8 +93,10 @@ pub fn run() {
         .on_window_event(|window, event| {
             // WebView2 doesn't reliably fire the frontend's prefers-color-scheme
             // change for a window that stays focused; the native ThemeChanged does.
-            if let tauri::WindowEvent::ThemeChanged(theme) = event {
-                window::on_theme_changed(window, *theme);
+            match event {
+                tauri::WindowEvent::ThemeChanged(theme) => window::on_theme_changed(window, *theme),
+                tauri::WindowEvent::Destroyed => window::on_destroyed(window),
+                _ => {}
             }
         })
         .setup(|app| {

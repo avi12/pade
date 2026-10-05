@@ -3,22 +3,25 @@
   import { contextMenu } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import { rovingTablist } from "@/lib/roving-tabs";
-  import { StartMode } from "@/lib/types";
+  import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
   import { onMount } from "svelte";
 
-  // "On launch" preferences: the no-project start mode, temp auto-naming, and
-  // the Windows Explorer "Open in PADE" context-menu toggle. Pref persistence
-  // reaches shared settings through the parent; the context-menu toggle is
-  // self-contained (per-user registry via the bridge, no settings involved).
-  const { prefs, onstartmode, onautoname, onainaming }: {
+  // "On launch" preferences: the no-project start mode, unused-temp cleanup,
+  // temp auto-naming, and the Windows Explorer "Open in PADE" context-menu
+  // toggle. Pref persistence reaches shared settings through the parent; the
+  // context-menu toggle is self-contained (per-user registry via the bridge, no
+  // settings involved).
+  const { prefs, onstartmode, ontempcleanup, onautoname, onainaming }: {
     prefs: Prefs;
     onstartmode: (mode: StartMode) => void;
+    ontempcleanup: (days: number | null) => void;
     onautoname: (on: boolean) => void;
     onainaming: (on: boolean) => void;
   } = $props();
 
   const startMode = $derived(prefs.startMode ?? StartMode.enum.temp);
+  const tempCleanupDays = $derived(prefs.tempCleanupDays ?? null);
   const autoName = $derived(prefs.autoNameTemp !== false);
   const aiNaming = $derived(globalNaming(prefs));
 
@@ -77,6 +80,23 @@
         role="tab"
         tabindex={startMode === StartMode.enum.picker ? 0 : -1}
       >This picker</button>
+    </div>
+  </div>
+  <div class="startmode">
+    <span class="sm-label">Delete temp workspaces unused for</span>
+    <div class="pill-tabs" role="tablist" use:rovingTablist>
+      {#each TEMP_CLEANUP_DAY_CHOICES as days (days)}
+        <button
+          class="pill-tab"
+          aria-selected={tempCleanupDays === days}
+          onclick={() => ontempcleanup(days)}
+          role="tab"
+          tabindex={tempCleanupDays === days ? 0 : -1}
+        >
+          {#if days === null}
+            Off{:else}{days} days{/if}
+        </button>
+      {/each}
     </div>
   </div>
   <!-- One home for this section's checkbox row: the box chrome, the tick and the

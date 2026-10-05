@@ -250,11 +250,15 @@ writes.
   deleted, moved (→ permanent), or renamed (→ promoted into the primary root).
 - R1.9.2a ✅ **Throwaway lifecycle** — when the last session of a temp workspace
   that never earned a name ends (tab closed by hand, or the agent terminated),
-  the window returns to the project picker and the folder is deleted. An
-  auto-named temp holds real work and keeps the normal last-session behavior
-  (respawn / agent picker). Backend: a per-session reaper thread notices a
-  self-exited agent (Windows conhost never EOFs the PTY reader on its own) and
-  drops the session, which is what fires `pty://exit`.
+  the window returns to the project picker; the folder is kept. An auto-named
+  temp keeps the normal last-session behavior (respawn / agent picker).
+  Backend: a per-session reaper thread notices a self-exited agent (Windows
+  conhost never EOFs the PTY reader on its own) and drops the session, which is
+  what fires `pty://exit`.
+- R1.9.2b ✅ **Unused-temp cleanup** — the picker's "On launch" section offers
+  Off / 7 / 30 / 90 days (default Off). A temp workspace unused that long — not
+  opened, and not open in any window — is deleted on the next picker refresh;
+  pinned temps are never deleted.
 - R1.9.3 ✅ **Auto-naming** — after first meaningful activity (≈3 distinct files
   changed) a temp workspace gets a short, human-readable name: the installed agent
   CLI one-shot (`claude -p …`, cross-platform) → local heuristic (package/Cargo

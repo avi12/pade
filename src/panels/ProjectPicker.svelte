@@ -154,6 +154,12 @@
       startMode: mode
     });
   }
+  async function setTempCleanup(days: number | null) {
+    await updatePrefs({
+      tempCleanupDays: days
+    });
+    await refreshProjects();
+  }
   async function setAutoName(on: boolean) {
     await updatePrefs({
       autoNameTemp: on
@@ -328,6 +334,7 @@
           onainaming={setAiNaming}
           onautoname={setAutoName}
           onstartmode={setStartMode}
+          ontempcleanup={setTempCleanup}
           prefs={settings.prefs}
         />
 

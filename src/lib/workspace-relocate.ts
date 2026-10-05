@@ -41,9 +41,8 @@ export interface RelocateHost {
   /** Mark these sessions as deliberately closing BEFORE they are killed, so the
    *  shell's PTY-exit handler treats their exits as intentional — not as an agent
    *  the user quit. Without this, killing the last agent of an unnamed temp
-   *  workspace makes the exit handler discard the whole workspace (delete the
-   *  folder + jump to the picker) mid-relocation — the very folder rename is
-   *  saving. */
+   *  workspace makes the exit handler jump to the picker mid-relocation, giving
+   *  up the very workspace the rename is saving. */
   markClosing: (ids: ReadonlySet<string>) => void;
   /** Drop the killed sessions from tabs/panes and re-point the active one. */
   removeSessions: (ids: ReadonlySet<string>) => void;
@@ -87,7 +86,7 @@ export function createRelocator(host: RelocateHost) {
       }));
 
     // Claim these exits as deliberate before killing, so the shell doesn't read a
-    // killed temp agent as "the user quit" and discard the workspace we're saving.
+    // killed temp agent as "the user quit" and leave the workspace we're saving.
     const lockingIds = new Set(locking.map(session => session.id));
     host.markClosing(lockingIds);
 

@@ -133,11 +133,11 @@
   // the switcher's open-window rows) reads this one `shortDisplayName` so none of
   // them recomputes the last-two-segments split independently and drifts.
   const projectLabel = $derived(shortDisplayName(currentProject, settings.labels));
-  // A temp workspace that never earned a name is still a throwaway: when its
-  // last session ends, the window returns to the picker and the folder is
-  // deleted (see discardTempWorkspace). One that was auto-named holds real
-  // work, so it keeps the normal last-session behavior instead.
-  const isDiscardableTemp = $derived(isTemp && !currentLabel);
+  // A temp workspace that never earned a name: when its last session ends, the
+  // window returns to the picker rather than respawning an agent. Its folder is
+  // kept — only the unused-temp cleanup setting ever deletes it. One that was
+  // auto-named keeps the normal last-session behavior instead.
+  const isUnnamedTemp = $derived(isTemp && !currentLabel);
   // Active agent id — used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(session => session.id === activeId)?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
@@ -526,7 +526,7 @@
   // rows show. The empty picker and a throwaway temp that never earned a name stay
   // the bare product name. Driven off the project store, so it re-titles on every
   // open, switch, and close.
-  const hasNamedProject = $derived(currentProject !== "" && !isDiscardableTemp);
+  const hasNamedProject = $derived(currentProject !== "" && !isUnnamedTemp);
   $effect(() => {
     const workspace = displayName(currentProject, settings.labels);
     windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
@@ -754,12 +754,8 @@
 
     // Switching this window to another project: the old project's agents don't
     // come along. Kill them before entering, so no session keeps running — and
-    // cwd-locking — a workspace this window has left. Leaving a never-named
-    // temp workspace behind also discards it, exactly like ending its last
-    // session would (see discardTempWorkspace).
+    // cwd-locking — a workspace this window has left.
     await runExclusiveLeave(async () => {
-      const previousProject = currentProject;
-      const leavesDiscardableTemp = isDiscardableTemp;
       await closeWorkspaceGracefully();
 
       await workspace.open(target.path);
@@ -771,14 +767,6 @@
         newProject: target.created === true
       });
       await loadBranches();
-
-      if (leavesDiscardableTemp) {
-        try {
-          await workspace.delete(previousProject);
-        } catch {
-          showToast("Couldn't delete the temp workspace folder.");
-        }
-      }
     });
   }
 
@@ -1124,7 +1112,7 @@
   // Tear down every session at once — the project-switch path. Each PTY is
   // killed (reaping its child, so the old workspace's cwd lock is released)
   // and its exit event is claimed as a hand-close so the exit handler never
-  // races this with a respawn or a discard.
+  // races this with a respawn or a return to the picker.
   async function closeAllSessions() {
     const ids = sessions.map(session => session.id);
     for (const id of ids) {
@@ -1156,16 +1144,16 @@
     detachSession(session.id);
     closingByHand.delete(session.id);
 
-    // An unnamed temporary workspace has nothing worth keeping, so its last
-    // hand-closed tab returns directly to the project picker. A real project
-    // always stays usable: replace its final closed tab with a fresh one of the
-    // same agent rather than dropping the user into onboarding.
+    // An unnamed temporary workspace's last hand-closed tab returns directly to
+    // the project picker. A real project always stays usable: replace its final
+    // closed tab with a fresh one of the same agent rather than dropping the
+    // user into onboarding.
     if (sessions.length > 0) {
       return;
     }
 
-    if (isDiscardableTemp) {
-      await discardTempWorkspace();
+    if (isUnnamedTemp) {
+      returnToPicker();
       return;
     }
 
@@ -1195,10 +1183,10 @@
       return;
     }
 
-    // The agent quitting in a still-unnamed temp workspace ends the throwaway
-    // session: no respawn, no agent picker — back to the project picker.
-    if (isDiscardableTemp) {
-      await discardTempWorkspace();
+    // The agent quitting in a still-unnamed temp workspace ends the session:
+    // no respawn, no agent picker — back to the project picker.
+    if (isUnnamedTemp) {
+      returnToPicker();
       return;
     }
 
@@ -1454,37 +1442,19 @@
 
   // "Switch project" — a DELIBERATE leave to the picker. The project's agents
   // and task runners do not idle invisibly behind it: runners stop immediately,
-  // then agents are killed once they reach an idle prompt. A never-named temp
-  // workspace is discarded exactly as ending its last session would.
+  // then agents are killed once they reach an idle prompt.
   async function leaveToPicker() {
     await runExclusiveLeave(async () => {
       await closeWorkspaceGracefully();
-
-      if (isDiscardableTemp) {
-        await discardTempWorkspace();
-        return;
-      }
-
-      releaseProject();
-      switchToPicker();
+      returnToPicker();
     });
   }
 
-  // Ending the last session of a never-named temp workspace throws the whole
-  // workspace away: this window hands itself back to the project picker and the
-  // folder is deleted. The backend releases the cwd lock first (workspace_delete
-  // chdirs the process out), and every PTY under it is already dead — both close
-  // paths kill/reap theirs before calling here.
-  async function discardTempWorkspace() {
-    const path = currentProject;
+  // Hand the project back and show the picker. Every caller has already
+  // killed/reaped the project's PTYs, so nothing keeps running in it.
+  function returnToPicker() {
     releaseProject();
     switchToPicker();
-
-    try {
-      await workspace.delete(path);
-    } catch {
-      showToast("Couldn't delete the temp workspace folder.");
-    }
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────

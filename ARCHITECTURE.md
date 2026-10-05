@@ -69,7 +69,7 @@ stateDiagram-v2
   loading --> picker: no project (opt-in)
   picker --> ready: project opened (best agent launches outright)
   ready --> onboarding: last session closed / exited
-  ready --> picker: last session ends in a never-named temp workspace (folder deleted)
+  ready --> picker: last session ends in a never-named temp workspace (folder kept)
   onboarding --> ready: agent chosen
 ```
 
@@ -79,9 +79,14 @@ into the workspace. `onboarding` is the *afterwards* screen, shown when the
 last session is hand-closed or exits without a respawn. A **temp workspace
 that never earned a name** skips both the respawn and onboarding: ending its
 last session (closing the tab, or the agent quitting) hands the window back to
-the picker and deletes the throwaway folder (`workspace_delete` — the backend
-chdirs out first, so the cwd lock is released). One that was auto-named holds
-real work and keeps the normal behavior.
+the picker; one that was auto-named keeps the normal behavior. Leaving never
+deletes a temp folder. Only the opt-in **unused-temp cleanup**
+(`prefs.tempCleanupDays`) does: the backend stamps a temp's last use in
+`workspaceLastUsed` when a window opens it, leaves it (`window_register_project`
+sees the previous path) or closes (`WindowEvent::Destroyed`), and every picker
+refresh's `workspace_prune` deletes the temps idle past the window, skipping
+ones open in a live window or pinned. A temp seen with no stamp has its clock
+started, so turning the setting on never deletes anything at once.
 
 ### Finding an installed agent
 

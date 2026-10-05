@@ -432,6 +432,10 @@ export type DiffStyle = z.infer<typeof DiffStyle>;
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;
 
+/** The idle windows offered for deleting unused temp workspaces, in days.
+ *  `null` is the "Off" choice: temp workspaces stay until removed by hand. */
+export const TEMP_CLEANUP_DAY_CHOICES = [null, 7, 30, 90] as const;
+
 export const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
@@ -443,6 +447,9 @@ export const Prefs = z.object({
   startMode: StartMode.nullish(),
   /** Auto-name temp workspaces once the agent has done real work (default on). */
   autoNameTemp: z.boolean().nullish(),
+  /** Delete a temp workspace once it has gone unused this many days. Absent =
+   *  off. Read by the backend's picker-refresh sweep (`workspace_prune`). */
+  tempCleanupDays: z.number().int().positive().nullish(),
   /** Name session tabs with AI from what the agent is doing — the global default
    *  for every window. Opt-in: off unless explicitly true. */
   aiSessionNaming: z.boolean().nullish(),

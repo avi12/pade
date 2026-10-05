@@ -116,6 +116,53 @@ impl WindowProjects {
     }
 }
 
+/// Whether two paths name the same project, however each was spelled.
+pub(crate) fn same_path(left: &str, right: &str) -> bool {
+    normalize(left) == normalize(right)
+}
+
+/// The projects open in a live window right now — an entry whose window has
+/// since closed is skipped.
+pub(crate) fn open_projects(app: &AppHandle) -> Vec<String> {
+    let state = app.state::<WindowProjects>();
+    let Ok(projects) = state.projects.lock() else {
+        return Vec::new();
+    };
+    projects
+        .iter()
+        .filter(|(label, path)| !path.is_empty() && app.get_webview_window(label).is_some())
+        .map(|(_, path)| path.clone())
+        .collect()
+}
+
+/// Stamp a project a window just left, off the calling thread — the stamp is a
+/// settings-file write and these callers run on the main thread.
+fn mark_left_in_background(path: String) {
+    if path.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = crate::workspace::mark_left(&path) {
+            eprintln!("[pade] could not record leaving {path}: {error}");
+        }
+    });
+}
+
+/// A window closed: it no longer holds its project, and that project was in use
+/// until this moment.
+pub fn on_destroyed(window: &Window) {
+    let state = window.state::<WindowProjects>();
+    let previous = state
+        .projects
+        .lock()
+        .ok()
+        .and_then(|mut projects| projects.remove(window.label()));
+    if let Some(previous) = previous {
+        mark_left_in_background(previous);
+        broadcast_windows_changed(window.app_handle());
+    }
+}
+
 /// Canonicalize a path for cross-window comparison — `/`-separated, no trailing
 /// slash, lowercased on case-insensitive Windows.
 fn normalize(path: &str) -> String {
@@ -147,10 +194,13 @@ pub fn window_register_project(
     state: tauri::State<WindowProjects>,
     path: String,
 ) {
-    if let Ok(mut projects) = state.projects.lock() {
+    let previous = state.projects.lock().ok().and_then(|mut projects| {
         // Stored verbatim so the switcher's "Open windows" list can show the real
         // path/name; comparison normalizes on read (see `window_focus_project`).
-        projects.insert(window.label().to_string(), path);
+        projects.insert(window.label().to_string(), path.clone())
+    });
+    if let Some(previous) = previous.filter(|previous| !same_path(previous, &path)) {
+        mark_left_in_background(previous);
     }
     broadcast_windows_changed(window.app_handle());
 }

@@ -93,6 +93,10 @@ pub struct Prefs {
     /// Merged into the detected editor list so they show up in every menu.
     #[serde(default)]
     pub added_editors: Vec<AddedEditor>,
+    /// Delete a temp workspace once it has gone unused for this many days;
+    /// absent keeps every temp workspace until the user removes it.
+    #[serde(default)]
+    pub temp_cleanup_days: Option<u32>,
     /// Frontend-owned preferences Rust never acts on, kept verbatim so they
     /// survive a load/save round-trip. `flatten` captures every key not named
     /// above; the TS zod schema is their single source of truth.
@@ -126,6 +130,10 @@ pub struct Settings {
     /// directory on disk (the live agent locks its cwd).
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
+    /// When each temp workspace was last opened or left (Unix milliseconds),
+    /// keyed by canonical path — what the unused-temp cleanup measures against.
+    #[serde(default)]
+    pub workspace_last_used: BTreeMap<String, u64>,
     /// Appearance & editor preferences.
     #[serde(default)]
     pub prefs: Prefs,
@@ -610,7 +618,7 @@ fn is_temp_workspace(path: &str) -> bool {
         return false;
     }
 
-    let Ok(workspaces) = ensure_config_dir().map(|directory| directory.join("workspaces")) else {
+    let Ok(workspaces) = workspaces_directory() else {
         return false;
     };
     std::fs::canonicalize(target)
@@ -640,8 +648,122 @@ pub fn is_owned(path: &str) -> bool {
 /// switcher keeps a long list cheap by loading each row's details only on screen.
 fn record_recent(settings: &mut Settings, path: &str) {
     let path = canonical_path(path);
+    stamp_if_temp(settings, &path);
     settings.recent_projects.retain(|project| project != &path);
     settings.recent_projects.insert(0, path);
+}
+
+/// The directory every temp workspace is created in.
+fn workspaces_directory() -> Result<PathBuf, String> {
+    Ok(ensure_config_dir()?.join("workspaces"))
+}
+
+const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;
+
+fn now_milliseconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|elapsed| u64::try_from(elapsed.as_millis()).ok())
+        .unwrap_or(0)
+}
+
+/// Record that a temp workspace was just used, restarting its cleanup clock.
+/// Anything that is not a temp workspace is never cleaned up, so it is not
+/// tracked.
+fn stamp_if_temp(settings: &mut Settings, path: &str) {
+    if is_temp_workspace(path) {
+        settings
+            .workspace_last_used
+            .insert(canonical_path(path), now_milliseconds());
+    }
+}
+
+/// A window just left `path` (switched away or closed), so a temp workspace's
+/// cleanup clock starts from now rather than from when it was opened.
+pub(crate) fn mark_left(path: &str) -> Result<(), String> {
+    update_settings(|settings| {
+        stamp_if_temp(settings, path);
+        Ok(())
+    })?;
+    Ok(())
+}
+
+/// Every temp workspace folder on disk, whether or not the lists remember it.
+fn temp_workspaces_on_disk() -> Vec<String> {
+    let Ok(entries) = workspaces_directory()
+        .and_then(|directory| std::fs::read_dir(directory).map_err(|e| e.to_string()))
+    else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| canonical_path(&entry.path().to_string_lossy()))
+        .filter(|path| is_temp_workspace(path))
+        .collect()
+}
+
+/// The temp workspaces past the cleanup window: last used more than `days` ago,
+/// and neither open in a window nor pinned. A temp with no recorded use yet is
+/// never expired — the sweep starts its clock instead.
+fn expired_temps(
+    settings: &Settings,
+    temps: &[String],
+    open_projects: &[String],
+    now: u64,
+) -> Vec<String> {
+    let Some(days) = settings.prefs.temp_cleanup_days else {
+        return Vec::new();
+    };
+    let window = u64::from(days) * MILLISECONDS_PER_DAY;
+    let is_open = |path: &str| {
+        open_projects
+            .iter()
+            .any(|open| crate::window::same_path(open, path))
+    };
+    let is_pinned = |path: &str| {
+        settings
+            .pinned_projects
+            .iter()
+            .any(|pinned| crate::window::same_path(pinned, path))
+    };
+    temps
+        .iter()
+        .filter(|path| {
+            settings
+                .workspace_last_used
+                .get(path.as_str())
+                .is_some_and(|last_used| now.saturating_sub(*last_used) > window)
+        })
+        .filter(|path| !is_open(path) && !is_pinned(path))
+        .cloned()
+        .collect()
+}
+
+/// Delete every temp workspace that has gone unused past the user's cleanup
+/// window. A temp seen for the first time gets its clock started now, so
+/// turning the setting on never deletes anything right away. A folder that
+/// cannot be removed yet (a process still holds it) is retried on the next
+/// sweep.
+fn delete_unused_temps(open_projects: &[String]) -> Result<(), String> {
+    let temps = temp_workspaces_on_disk();
+    let now = now_milliseconds();
+    let settings = update_settings(|settings| {
+        for temp in &temps {
+            settings
+                .workspace_last_used
+                .entry(temp.clone())
+                .or_insert(now);
+        }
+        Ok(())
+    })?;
+    for path in expired_temps(&settings, &temps, open_projects, now) {
+        if let Err(error) = delete_directory(&path) {
+            eprintln!("[pade] unused temp workspace {path} not deleted yet: {error}");
+        }
+    }
+    Ok(())
 }
 
 /// Delete a consumed auto-handoff doc. The one file-deletion seam the frontend
@@ -685,9 +807,7 @@ pub async fn workspace_temp() -> Result<String, String> {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or(0);
-    let dir = ensure_config_dir()?
-        .join("workspaces")
-        .join(format!("temp-{stamp}"));
+    let dir = workspaces_directory()?.join(format!("temp-{stamp}"));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.to_string_lossy().into_owned();
 
@@ -1043,13 +1163,18 @@ fn has_vanished(path: &str) -> bool {
     !path.exists() && path.parent().is_some_and(Path::exists)
 }
 
-/// Forget every remembered path whose folder is gone, and hand back the settings
-/// the picker should now show. Called on every picker refresh — including the ones
+/// Delete the temp workspaces that went unused past the cleanup window, forget
+/// every remembered path whose folder is gone, and hand back the settings the
+/// picker should now show. Called on every picker refresh — including the ones
 /// its directory watcher triggers — so a workspace deleted in Explorer, by a
 /// script, or from a terminal leaves the page like one deleted from the menu.
 #[tauri::command]
-pub async fn workspace_prune() -> Result<Settings, String> {
+pub async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
+    delete_unused_temps(&crate::window::open_projects(&app))?;
     update_settings(|settings| {
+        settings
+            .workspace_last_used
+            .retain(|path, _| !has_vanished(path));
         settings.recent_projects.retain(|path| !has_vanished(path));
         settings.pinned_projects.retain(|path| !has_vanished(path));
         settings.owned_workspaces.retain(|path| !has_vanished(path));
@@ -1081,6 +1206,7 @@ fn forget_directory(settings: &mut Settings, path: &str) {
     settings.pinned_projects.retain(|entry| entry != path);
     settings.owned_workspaces.retain(|entry| entry != path);
     settings.labels.remove(path);
+    settings.workspace_last_used.remove(path);
 }
 
 /// Delete an ADE-owned workspace directory and forget it.
@@ -1282,14 +1408,64 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 mod tests {
     use super::{
         apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
-        copy_tree_skipping_dependencies, manual_label, validated_child_path, LabelSource, Prefs,
-        SettingsRepository,
+        copy_tree_skipping_dependencies, expired_temps, manual_label, validated_child_path,
+        LabelSource, Prefs, Settings, SettingsRepository, MILLISECONDS_PER_DAY,
     };
     use std::collections::BTreeMap;
     use std::path::Path;
     use std::sync::Arc;
 
     const TEMP_WORKSPACE: &str = r"C:\Users\avi\AppData\Roaming\pade\workspaces\temp-42";
+    const NOW: u64 = 1000 * MILLISECONDS_PER_DAY;
+
+    fn cleanup_settings(days: Option<u32>, days_since_use: u64) -> Settings {
+        let mut settings = Settings::default();
+        settings.prefs.temp_cleanup_days = days;
+        settings.workspace_last_used.insert(
+            TEMP_WORKSPACE.to_string(),
+            NOW - days_since_use * MILLISECONDS_PER_DAY,
+        );
+        settings
+    }
+
+    fn expired(settings: &Settings, open_projects: &[String]) -> Vec<String> {
+        expired_temps(settings, &[TEMP_WORKSPACE.to_string()], open_projects, NOW)
+    }
+
+    #[test]
+    fn a_temp_unused_past_the_window_expires() {
+        assert_eq!(
+            expired(&cleanup_settings(Some(30), 31), &[]),
+            [TEMP_WORKSPACE]
+        );
+    }
+
+    #[test]
+    fn a_temp_used_within_the_window_is_kept() {
+        assert!(expired(&cleanup_settings(Some(30), 29), &[]).is_empty());
+    }
+
+    #[test]
+    fn cleanup_off_keeps_every_temp() {
+        assert!(expired(&cleanup_settings(None, 365), &[]).is_empty());
+    }
+
+    #[test]
+    fn a_temp_never_seen_used_is_kept() {
+        let mut settings = cleanup_settings(Some(1), 0);
+        settings.workspace_last_used.clear();
+        assert!(expired(&settings, &[]).is_empty());
+    }
+
+    #[test]
+    fn an_open_or_pinned_temp_is_kept_however_old() {
+        let open = [TEMP_WORKSPACE.to_string()];
+        assert!(expired(&cleanup_settings(Some(1), 365), &open).is_empty());
+
+        let mut pinned = cleanup_settings(Some(1), 365);
+        pinned.pinned_projects.push(TEMP_WORKSPACE.to_string());
+        assert!(expired(&pinned, &[]).is_empty());
+    }
 
     #[test]
     fn a_manual_label_keeps_what_the_user_typed() {
