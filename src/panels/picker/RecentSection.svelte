@@ -3,7 +3,7 @@
   import LastAccessed from "@/lib/LastAccessed.svelte";
   import { collapseRow } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace } from "@/lib/paths";
-  import { tooltip } from "@/lib/truncation-tooltip";
+  import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
   import type { Ide } from "@/lib/types";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
@@ -73,7 +73,10 @@
                 <span class="project-tag">project</span>
               {/if}
               <span class="recent-name">{displayName(path, labels)}</span>
-              <span class="recent-path">{path}</span>
+              <span
+                class="recent-path" {@attach truncationTooltip({
+                  tooltip: path
+                })}>{path}</span>
               <LastAccessed now={shownAt} {path} />
             </button>
             <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
