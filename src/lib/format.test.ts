@@ -1,4 +1,4 @@
-import { formatCount, formatPercent, formatTimestamp } from "@/lib/format";
+import { formatAge, formatCount, formatPercent, formatTimestamp } from "@/lib/format";
 import { describe, expect, it } from "vitest";
 
 // The wrappers delegate localisation to Intl, so these assertions pin what the
@@ -48,5 +48,31 @@ describe("formatTimestamp", () => {
 
   it("distinguishes two different instants", () => {
     expect(formatTimestamp(0)).not.toBe(formatTimestamp(1_000_000_000_000));
+  });
+});
+
+describe("formatAge", () => {
+  const now = 10_000_000_000;
+  function secondsAgo(seconds: number): string {
+    return formatAge({
+      stamp: now - seconds * 1000,
+      now
+    });
+  }
+
+  it("steps from seconds through minutes and hours to days", () => {
+    expect(secondsAgo(41)).toBe("41s");
+    expect(secondsAgo(3 * 60)).toBe("3m");
+    expect(secondsAgo(2 * 3600)).toBe("2h");
+    expect(secondsAgo(5 * 86_400)).toBe("5d");
+  });
+
+  it("switches to days at a full day", () => {
+    expect(secondsAgo(86_399)).toBe("24h");
+    expect(secondsAgo(86_400)).toBe("1d");
+  });
+
+  it("never prints a negative age for a stamp in the future", () => {
+    expect(secondsAgo(-30)).toBe("0s");
   });
 });

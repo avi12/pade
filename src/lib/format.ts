@@ -28,21 +28,30 @@ export function formatTimestamp(epochMilliseconds: number): string {
   return TIMESTAMP.format(new Date(epochMilliseconds));
 }
 
-/** How long ago `stamp` was, at second → minute → hour granularity ("41s",
- *  "3m", "2h"). One home for every relative age the UI prints — the Change
- *  Feed's card labels and its "watching since" line read the same clock. */
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
+const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
+
+/** How long ago `stamp` was, at second → minute → hour → day granularity
+ *  ("41s", "3m", "2h", "5d"). One home for every relative age the UI prints —
+ *  the Change Feed's card labels, its "watching since" line, and a project's
+ *  last access in the switcher read the same clock. */
 export function formatAge({ stamp, now }: {
   stamp: number;
   now: number;
 }): string {
   const seconds = Math.max(0, Math.round((now - stamp) / 1000));
-  if (seconds < 60) {
+  if (seconds < SECONDS_PER_MINUTE) {
     return `${formatCount(seconds)}s`;
   }
 
-  if (seconds < 3600) {
-    return `${formatCount(Math.round(seconds / 60))}m`;
+  if (seconds < SECONDS_PER_HOUR) {
+    return `${formatCount(Math.round(seconds / SECONDS_PER_MINUTE))}m`;
   }
 
-  return `${formatCount(Math.round(seconds / 3600))}h`;
+  if (seconds < SECONDS_PER_DAY) {
+    return `${formatCount(Math.round(seconds / SECONDS_PER_HOUR))}h`;
+  }
+
+  return `${formatCount(Math.round(seconds / SECONDS_PER_DAY))}d`;
 }
