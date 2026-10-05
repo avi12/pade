@@ -166,14 +166,17 @@
   }
 
   .scroll {
+    --scroll-padding-block: 8px;
+    --scroll-padding-inline: 10px;
+
     display: flex;
     flex: 1;
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
     min-block-size: 0;
-    padding-block: 8px;
-    padding-inline: 10px;
+    padding-block: var(--scroll-padding-block);
+    padding-inline: var(--scroll-padding-inline);
     animation: panel-swap 280ms var(--ease);
   }
 
@@ -184,11 +187,22 @@
     margin-block-start: 4px;
   }
 
+  /* Each manifest's header sticks to the top of the list while its tasks scroll
+     under it, until the next group's header pushes it out — sticky is bounded by
+     its own .group. It bleeds over the list's padding (inline and the top edge)
+     with the side pane's own surface, so no row peeks out beside or above it. */
   .group h3 {
+    position: sticky;
+    inset-block-start: calc(-1 * var(--scroll-padding-block));
+    z-index: 1;
     display: flex;
     gap: 8px;
     align-items: center;
     margin: 0;
+    margin-inline: calc(-1 * var(--scroll-padding-inline));
+    padding-block: 4px;
+    padding-inline: var(--scroll-padding-inline);
+    background: var(--surface);
   }
 
   .kind {
