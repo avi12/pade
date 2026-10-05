@@ -317,19 +317,21 @@
     font-weight: 700;
     font-size: 12px;
     cursor: pointer;
-    transition: opacity 140ms var(--ease);
+    transition: background 140ms var(--ease);
 
+    /* Dim by mixing the fill, not with opacity: opacity below 100% makes the
+       button a stacking context, which traps its tooltip under the pinned
+       manifest header. */
     &:hover {
-      opacity: 90%;
+      background: color-mix(in sRGB, var(--primary) 90%, var(--surface));
     }
 
     /* The long pipe-explainer would overflow the panel's right edge with the
-       global centered-below tooltip — anchor it to this button's trailing edge
-       and float it above instead. */
+       global centered-below tooltip — align it to this button's trailing edge
+       instead. */
     &::after {
-      inset-block: auto calc(100% + 6px);
-      inset-inline: auto 0;
-      translate: 0 0;
+      inset-inline: auto anchor(right);
+      justify-self: auto;
     }
   }
 </style>
