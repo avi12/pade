@@ -20,8 +20,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-/// How many recently-opened projects to remember.
-const RECENT_PROJECT_LIMIT: usize = 20;
 static SETTINGS_REPOSITORY: SettingsRepository = SettingsRepository {
     lock: Mutex::new(()),
     path: None,
@@ -637,12 +635,13 @@ pub fn is_owned(path: &str) -> bool {
     is_ade_owned(&load(), path)
 }
 
-/// Push a path to the front of the recent list (canonicalized, deduped, capped).
+/// Push a path to the front of the recent list (canonicalized, deduped). The list
+/// is unbounded — every project ever opened stays until removed or cleared; the
+/// switcher keeps a long list cheap by loading each row's details only on screen.
 fn record_recent(settings: &mut Settings, path: &str) {
     let path = canonical_path(path);
     settings.recent_projects.retain(|project| project != &path);
     settings.recent_projects.insert(0, path);
-    settings.recent_projects.truncate(RECENT_PROJECT_LIMIT);
 }
 
 /// Delete a consumed auto-handoff doc. The one file-deletion seam the frontend
