@@ -130,8 +130,9 @@ pub struct Settings {
     /// directory on disk (the live agent locks its cwd).
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
-    /// When each temp workspace was last opened or left (Unix milliseconds),
-    /// keyed by canonical path — what the unused-temp cleanup measures against.
+    /// When each project was last opened or left (Unix milliseconds), keyed by
+    /// canonical path — the switcher's "last accessed" time, and what the
+    /// unused-temp cleanup measures a temp workspace's idleness against.
     #[serde(default)]
     pub workspace_last_used: BTreeMap<String, u64>,
     /// Appearance & editor preferences.
@@ -648,7 +649,7 @@ pub fn is_owned(path: &str) -> bool {
 /// switcher keeps a long list cheap by loading each row's details only on screen.
 fn record_recent(settings: &mut Settings, path: &str) {
     let path = canonical_path(path);
-    stamp_if_temp(settings, &path);
+    stamp_used(settings, &path);
     settings.recent_projects.retain(|project| project != &path);
     settings.recent_projects.insert(0, path);
 }
@@ -668,22 +669,19 @@ fn now_milliseconds() -> u64 {
         .unwrap_or(0)
 }
 
-/// Record that a temp workspace was just used, restarting its cleanup clock.
-/// Anything that is not a temp workspace is never cleaned up, so it is not
-/// tracked.
-fn stamp_if_temp(settings: &mut Settings, path: &str) {
-    if is_temp_workspace(path) {
-        settings
-            .workspace_last_used
-            .insert(canonical_path(path), now_milliseconds());
-    }
+/// Record that a project was just used — its "last accessed" time, and for a
+/// temp workspace the restart of its cleanup clock.
+fn stamp_used(settings: &mut Settings, path: &str) {
+    settings
+        .workspace_last_used
+        .insert(canonical_path(path), now_milliseconds());
 }
 
-/// A window just left `path` (switched away or closed), so a temp workspace's
-/// cleanup clock starts from now rather than from when it was opened.
+/// A window just left `path` (switched away or closed), so its last access is
+/// now rather than when it was opened.
 pub(crate) fn mark_left(path: &str) -> Result<(), String> {
     update_settings(|settings| {
-        stamp_if_temp(settings, path);
+        stamp_used(settings, path);
         Ok(())
     })?;
     Ok(())
@@ -824,7 +822,7 @@ pub async fn workspace_temp() -> Result<String, String> {
 }
 
 /// Replace a path across recent + owned lists (used when a workspace moves). The
-/// display label, if any, follows the path to its new key.
+/// display label and last-access time, if any, follow the path to its new key.
 fn retarget(settings: &mut Settings, from: &str, to: &str) {
     for list in [
         &mut settings.recent_projects,
@@ -838,6 +836,11 @@ fn retarget(settings: &mut Settings, from: &str, to: &str) {
     }
     if let Some(label) = settings.labels.remove(from) {
         settings.labels.insert(to.to_string(), label);
+    }
+    if let Some(last_used) = settings.workspace_last_used.remove(from) {
+        settings
+            .workspace_last_used
+            .insert(to.to_string(), last_used);
     }
 }
 

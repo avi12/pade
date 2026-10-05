@@ -81,9 +81,11 @@ that never earned a name** skips both the respawn and onboarding: ending its
 last session (closing the tab, or the agent quitting) hands the window back to
 the picker; one that was auto-named keeps the normal behavior. Leaving never
 deletes a temp folder. Only the opt-in **unused-temp cleanup**
-(`prefs.tempCleanupDays`) does: the backend stamps a temp's last use in
+(`prefs.tempCleanupDays`) does: the backend stamps every project's last use in
 `workspaceLastUsed` when a window opens it, leaves it (`window_register_project`
-sees the previous path) or closes (`WindowEvent::Destroyed`), and every picker
+sees the previous path) or closes (`WindowEvent::Destroyed`) — the same stamp
+the launcher's Recent list and the switcher show as "last accessed"
+(`LastAccessed.svelte`) — and every picker
 refresh's `workspace_prune` deletes the temps idle past the window, skipping
 ones open in a live window or pinned. A temp seen with no stamp has its clock
 started, so turning the setting on never deletes anything at once.

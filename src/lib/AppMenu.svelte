@@ -3,6 +3,7 @@
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
+  import LastAccessed from "@/lib/LastAccessed.svelte";
   import Logo from "@/lib/Logo.svelte";
   import {
     childPath,
@@ -99,6 +100,9 @@
   // Whether the popover is open — the moment a row first has a real width, so the
   // per-row truncation tooltips (re)measure then rather than while hidden.
   let menuOpen = $state(false);
+  // When the menu last opened — the instant every row's "last accessed" age is
+  // measured against, so the ages are fresh on each open without a ticking clock.
+  let openedAt = $state(Date.now());
   // The rows container, so list mutations animate through a view transition
   // scoped to *just* this element (never the document — that would snapshot the
   // live-repainting terminal and ghost it).
@@ -534,6 +538,7 @@
       menuOpen = (e as ToggleEvent).newState === "open";
 
       if (menuOpen) {
+        openedAt = Date.now();
         prefillSaveName();
         focusFilter();
         invalidateProjectBranches();
@@ -808,6 +813,7 @@
               class="project-row-path" {@attach truncationTooltip({
                 tooltip: project
               })}>{project}</span>
+            <LastAccessed now={openedAt} path={project} />
           </span>
         </span>
         {#if current}
@@ -1453,6 +1459,8 @@
   }
 
   .project-row-metadata {
+    --last-accessed-font-size: 9px;
+
     display: flex;
     gap: 7px;
     align-items: center;
@@ -1492,6 +1500,8 @@
   .project-row-main:focus-visible .project-row-metadata,
   .project-row-main:hover .project-row-metadata .branch,
   .project-row-main:focus-visible .project-row-metadata .branch {
+    --last-accessed-color: currentColor;
+
     color: inherit;
   }
 

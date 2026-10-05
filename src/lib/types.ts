@@ -502,6 +502,9 @@ export const Settings = z.object({
   ownedWorkspaces: z.array(z.string()).default([]),
   /** Friendly display names for workspaces, keyed by absolute path. */
   labels: z.record(z.string(), z.string()).default({}),
+  /** When each project was last opened or left (Unix ms), keyed by canonical
+   *  path — the switcher's "last accessed" time. */
+  workspaceLastUsed: z.record(z.string(), z.number()).default({}),
   prefs: Prefs.default({})
 });
 export type Settings = z.infer<typeof Settings>;

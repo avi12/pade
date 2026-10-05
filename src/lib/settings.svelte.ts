@@ -10,6 +10,7 @@ export const settings = $state<Settings>({
   pinnedProjects: [],
   ownedWorkspaces: [],
   labels: {},
+  workspaceLastUsed: {},
   prefs
 });
 

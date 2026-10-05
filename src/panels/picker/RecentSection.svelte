@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import LastAccessed from "@/lib/LastAccessed.svelte";
   import { collapseRow } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace } from "@/lib/paths";
   import { tooltip } from "@/lib/truncation-tooltip";
@@ -27,6 +28,10 @@
     onopen: (target: { path: string }) => void;
     onclear: () => void;
   } = $props();
+
+  // The moment the list was shown, so every row's "last accessed" age is
+  // measured against the same instant.
+  const shownAt = Date.now();
 </script>
 
 {#if recentProjects.length > 0}
@@ -69,6 +74,7 @@
               {/if}
               <span class="recent-name">{displayName(path, labels)}</span>
               <span class="recent-path">{path}</span>
+              <LastAccessed now={shownAt} {path} />
             </button>
             <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
             <RowMenu {lifecycle} {path} scope="recent" />
