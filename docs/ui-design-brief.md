@@ -70,7 +70,7 @@ Pill everywhere it reads as an action; generous radii on containers.
 - **Mono font:** `JetBrains Mono`, then `Cascadia Code`, `ui-monospace` — for paths, code, commands, filenames, SHAs, the terminal.
 - **Expressive display:** page titles use a large, tight, bold clamp — `clamp(24px, 4vw, 36px)`, weight 700–800, letter-spacing `-0.02em`, `text-wrap: balance`.
 - Body ~14px; secondary 12–13px; metadata 11px. Section eyebrows/labels: 11–12px, UPPERCASE, letter-spacing `0.06–0.08em`, in `on-surface-var`.
-- `font-variant-numeric: tabular-nums` is set once on `body` and inherited — never per component. It only asks the font for a `tnum` feature, and nothing warns when there is none: Figtree honors it, Chakra Petch and Rajdhani do not, so it is inert on the Cyberpunk palette. Where digits truly must not move, set the element in the mono font.
+- `font-variant-numeric: tabular-nums` is set once on `body` and inherited — never per component. It only asks the font for a `tnum` feature, and nothing warns when there is none: Figtree honors it, Chakra Petch and Rajdhani do not, so the Cyberpunk UI stack leads with "Oxanium Digits" — Oxanium's 0–9 only, one width at every weight — and letters stay Chakra Petch.
 
 ### 1.4 Motion
 

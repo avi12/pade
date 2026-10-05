@@ -180,9 +180,11 @@ These are non-negotiable for all work in this repo.
      `theme.css` and inherited — never re-declare `font-variant-numeric` on a
      component. Note it only *asks* the font for a `tnum` feature and nothing
      warns when the feature is missing: Figtree honors it, Chakra Petch and
-     Rajdhani do not, so it is inert on the Cyberpunk palette. That is accepted —
-     the skin keeps its own letterforms. Where digits genuinely must not move,
-     set `--font-monospace` on that element, which is fixed-width outright.
+     Rajdhani do not. So the Cyberpunk UI stack leads with "Oxanium Digits", a
+     digit-only face (`unicode-range: U+0030-0039`) whose figures are one width
+     at every weight; letters stay Chakra Petch. A new UI font must be measured
+     the same way (equal digit advances with `tabular-nums` set) before it leads
+     a stack.
    - Icons live in SVG only: every pictographic icon is an individual `.svg` file
      in `src/lib/icons/` (its one authoritative home) — never a hardcoded path
      string — loaded by `Icon.svelte` and rendered via `<Icon name="…" />`. Never

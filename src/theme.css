@@ -132,6 +132,20 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Oxanium's ten digits, for the Cyberpunk UI stack to lead with. Chakra Petch
+   ships no `tnum`, so its figures differ in width and every count, percentage
+   and timer re-flows as it ticks; Oxanium's are one width at every weight, and
+   its squared, chamfered shapes sit with Chakra Petch's letters as one skin. The
+   file is subset to U+0030-0039 (variable, 200–800). */
+@font-face {
+  font-family: "Oxanium Digits";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("./fonts/oxanium-digits.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+}
+
 :root {
   --seed-hue: 210deg;
 
@@ -655,12 +669,10 @@
      Figtree, so anything Chakra Petch's latin subset doesn't carry still
      renders in one of the app's own faces rather than a system fallback.
 
-     Chakra Petch and Rajdhani ship no `tnum`, so the app-wide
-     `font-variant-numeric: tabular-nums` is inert on this palette — the skin's
-     own letterforms win that trade. A number that genuinely must not move (a
-     column of figures, a running timer) sets `--font-monospace`, which is
-     fixed-width outright. */
-  --font-ui-base: "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+     Oxanium Digits sits in front of them all and covers nothing but 0–9, so
+     every number is fixed-width while every letter stays Chakra Petch (see its
+     @font-face). */
+  --font-ui-base: "Oxanium Digits", "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
 
   /* The active tab's corner ticks: how long each L-bracket's arms are, and how
      far the whole mark floats off the frame. The structural stroke they are cut
