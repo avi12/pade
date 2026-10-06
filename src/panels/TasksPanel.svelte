@@ -93,12 +93,12 @@
               }}
             >
               <div class="meta">
+                <!-- The running marker trails the name, so starting a task never
+                     shifts its name off the column the other names share. -->
                 <span class="task-name">
-                  {#if runningNow}
-                    <span class="run-dot" aria-hidden="true"></span>
-                  {/if}
                   {task.name}
                   {#if runningNow}
+                    <span class="run-dot" aria-hidden="true"></span>
                     <output class="run-tag">running</output>
                   {/if}
                 </span>
