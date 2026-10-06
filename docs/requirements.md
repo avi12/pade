@@ -123,6 +123,11 @@ writes.
 - R1.3.3 ✅ Programmatic clipboard, selection, and runner-output sends use
   bracketed-paste framing without Enter, so embedded newlines cannot submit shell
   commands. Only explicit prompt-delivery flows append a separate Enter.
+- R1.3.4 ✅ **Files into the composer** — Ctrl+V with an image on the clipboard
+  pastes the saved PNG's path, and files dragged from Explorer or an IDE onto a
+  terminal pane paste their paths (quoted when they hold a space, space
+  separated). The target pane is outlined while a file hovers over it, so a
+  split shows which agent will receive the drop.
 
 ### 1.4 Version-control review panel (✅ core, 🚧 verbs)
 - R1.4.1 Behind a git seam (MVP: `git` CLI; `git2`/`gix`/jj later 🔭).

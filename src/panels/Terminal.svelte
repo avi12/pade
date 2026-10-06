@@ -5,8 +5,9 @@
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
   import { AgentId } from "@/lib/agent-icon";
-  import { clipboard, os, pty } from "@/lib/bridge";
+  import { clipboard, dragDrop, os, pty } from "@/lib/bridge";
   import { afterDelay } from "@/lib/delay";
+  import { isDragOverElement } from "@/lib/drag-position";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
   import { errorMessage } from "@/lib/errors";
@@ -24,7 +25,7 @@
   import { observeUsageLimit, observeUsageLimitScreen } from "@/lib/stores/usageResume.svelte";
   import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
   import { isFindShortcut } from "@/lib/terminal-find";
-  import { isPromptNewlineShortcut, pastedText, PROMPT_NEWLINE } from "@/lib/terminal-input";
+  import { isPromptNewlineShortcut, pastedText, pathsAsPromptText, PROMPT_NEWLINE } from "@/lib/terminal-input";
   import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
   import { registerWrappedLinkProvider } from "@/lib/terminal-links";
   import { terminalFlushMode, TerminalFlushMode, wheelScrollsTerminalDocument } from "@/lib/terminal-output";
@@ -102,6 +103,9 @@
   let terminal: Terminal;
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
+  let fileDropUnlisteners: UnlistenFn[] = [];
+  // A file dragged from Explorer or an IDE is hovering over this pane.
+  let fileDragOver = $state(false);
   let resizeObserver: ResizeObserver | undefined;
   // Guards the async onMount against a teardown that runs before its awaits
   // settle: onDestroy sets this, and each awaited step bails so no listener is
@@ -1410,6 +1414,12 @@
 
     exitUnlisten = exitListener;
 
+    await listenForFileDrops();
+
+    if (destroyed) {
+      return;
+    }
+
     // Send keystrokes to this session's PTY.
     terminal.onData(data => {
       const isFocusReport = data === FOCUS_IN || data === FOCUS_OUT;
@@ -1430,11 +1440,10 @@
     async function pasteClipboard() {
       try {
         // An image on the clipboard beats text: the backend saves it as a PNG
-        // and the pasted *path* is what agent composers attach. The trailing
-        // space makes the path a complete token for the agent's parser.
+        // and the pasted *path* is what agent composers attach.
         const imagePath = await clipboard.saveImage();
         if (imagePath) {
-          terminal.paste(`${imagePath} `);
+          terminal.paste(pathsAsPromptText([imagePath]));
           return;
         }
 
@@ -1798,6 +1807,9 @@
     destroyed = true;
     unlisten?.();
     exitUnlisten?.();
+    for (const stopListening of fileDropUnlisteners) {
+      stopListening();
+    }
     clearTimeout(idleTimer);
     clearTimeout(promptVerifyTimer);
     clearTimeout(sigwinchTimer);
@@ -1831,6 +1843,46 @@
     return xtermTheme({ readToken: rootTokenReader() });
   }
 
+  // Files dragged in from Explorer or an IDE land in the composer as their
+  // paths, exactly like a Ctrl+V'd image: the agent attaches an image path and
+  // reads any other path as a file reference. Tauri's native drag events carry
+  // the absolute paths the web drag API withholds, and every pane hears every
+  // drop in the window, so each one claims only a drop on its own viewport.
+  async function listenForFileDrops(): Promise<void> {
+    const listeners = await Promise.all([
+      dragDrop.onOver(({ position }) => {
+        fileDragOver = isDragOverElement({
+          element: viewport,
+          position
+        });
+      }),
+      dragDrop.onLeave(() => {
+        fileDragOver = false;
+      }),
+      dragDrop.onDrop(({ paths, position }) => {
+        fileDragOver = false;
+        const landsHere = paths.length > 0 && isDragOverElement({
+          element: viewport,
+          position
+        });
+        if (!landsHere) {
+          return;
+        }
+
+        terminal.paste(pathsAsPromptText(paths));
+        terminal.focus();
+      })
+    ]);
+    if (destroyed) {
+      for (const stopListening of listeners) {
+        stopListening();
+      }
+      return;
+    }
+
+    fileDropUnlisteners = listeners;
+  }
+
   // Ctrl+F searches this pane's output instead of reaching the agent as a raw
   // ^F (which a shell reads as "forward one character"). The bar owns its own
   // open state; the pane only asks for it and takes the keyboard back after.
@@ -1858,7 +1910,12 @@
     {/if}
   </header>
   <div class="terminal-padding">
-    <div bind:this={viewport} class="terminal-viewport" class:anchor-bottom={anchorBottom}>
+    <div
+      bind:this={viewport}
+      class="terminal-viewport"
+      class:anchor-bottom={anchorBottom}
+      class:file-drag-over={fileDragOver}
+    >
       <div bind:this={host} style:scale={`1 ${squeeze}`} class="terminal-host">
         <TerminalRtl
           enabled={rightToLeftSeen}
@@ -1957,6 +2014,23 @@
 
     &.anchor-bottom {
       justify-content: flex-end;
+    }
+
+    /* The pane a dragged file will land in, so a split shows which agent gets it.
+       An overlay rather than an outline: xterm's positioned host would paint
+       over an outline drawn on the viewport itself. */
+    &.file-drag-over {
+      position: relative;
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        border: 2px dashed var(--primary);
+        background: color-mix(in sRGB, var(--primary) 8%, transparent);
+        pointer-events: none;
+      }
     }
 
     /* xterm mounts here at its natural whole-cell size, scaled only while a grid that is

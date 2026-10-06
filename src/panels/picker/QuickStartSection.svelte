@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dragDrop, os, vcs, workspace } from "@/lib/bridge";
+  import { isDragOverElement } from "@/lib/drag-position";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow, expandRow } from "@/lib/motion";
@@ -238,18 +239,17 @@
 
   // Does a native drag sit over the Local tab's folder field? The panels
   // overlay each other, so the tab gate matters as much as the geometry (the
-  // clone URL input occupies the same spot). Tauri reports physical pixels;
-  // rects are CSS pixels.
-  function isOverLocalField({ x, y }: DragPosition): boolean {
+  // clone URL input occupies the same spot).
+  function isOverLocalField(position: DragPosition): boolean {
     const row = localInput?.closest(".new-project-location");
     if (tab !== StartTab.local || !row) {
       return false;
     }
 
-    const rectangle = row.getBoundingClientRect();
-    const cssX = x / devicePixelRatio;
-    const cssY = y / devicePixelRatio;
-    return cssX >= rectangle.left && cssX <= rectangle.right && cssY >= rectangle.top && cssY <= rectangle.bottom;
+    return isDragOverElement({
+      element: row,
+      position
+    });
   }
   // The latest probe, tagged with the path it described — only a settled probe
   // (disk knowledge about the *current* text) gates the button or complains.

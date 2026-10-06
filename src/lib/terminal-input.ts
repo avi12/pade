@@ -31,6 +31,19 @@ export function pastedText(text: string): string {
   return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
 }
 
+const PATH_SEPARATOR = " ";
+const PATH_QUOTE = "\"";
+
+/** File paths as typed into an agent's composer — the form a pasted clipboard
+ *  image and a file dropped onto the terminal both arrive in. A path holding a
+ *  space is quoted so it stays one token (as Windows Terminal does on a drop),
+ *  and the trailing space ends the last token so the agent's parser picks it up
+ *  as a complete path (an image path is then attached). */
+export function pathsAsPromptText(paths: readonly string[]): string {
+  const tokens = paths.map(path => (path.includes(PATH_SEPARATOR) ? `${PATH_QUOTE}${path}${PATH_QUOTE}` : path));
+  return `${tokens.join(PATH_SEPARATOR)}${PATH_SEPARATOR}`;
+}
+
 /** Add source coordinates to code copied from an inline diff so the agent can
  * locate the selection without inferring its file or line range. */
 export function referencedSnippet({ path, anchorLine, focusLine, snippet }: {

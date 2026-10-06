@@ -3,11 +3,28 @@ import {
   BRACKETED_PASTE_START,
   isPromptNewlineShortcut,
   pastedText,
+  pathsAsPromptText,
   PROMPT_NEWLINE,
   referencedSnippet,
   submittedPrompt
 } from "@/lib/terminal-input";
 import { describe, expect, it } from "vitest";
+
+describe("pathsAsPromptText", () => {
+  it("ends a lone path with a space so the agent reads it as a complete token", () => {
+    expect(pathsAsPromptText([String.raw`C:\temp\shot.png`])).toBe(String.raw`C:\temp\shot.png `);
+  });
+
+  it("quotes a path holding a space so it stays one token", () => {
+    expect(pathsAsPromptText([String.raw`C:\My Files\a.png`])).toBe(String.raw`"C:\My Files\a.png" `);
+  });
+
+  it("separates several dropped paths with spaces", () => {
+    expect(pathsAsPromptText([String.raw`C:\a.txt`, String.raw`C:\b c\d.md`])).toBe(
+      String.raw`C:\a.txt "C:\b c\d.md" `
+    );
+  });
+});
 
 describe("submittedPrompt", () => {
   it("wraps the prompt in paste markers with the submitting Enter OUTSIDE them", () => {
