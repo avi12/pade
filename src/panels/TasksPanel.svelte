@@ -308,7 +308,11 @@
      on one letter per step (RUNNING is seven) under a power-on flicker, and the
      dot blinks hard rather than breathing — the skin snaps, it does not glide. */
   :global(:root[data-palette="cyberpunk"]) .task-name {
+    /* The skin bevels every corner, and a full-size chamfer on a 7px dot cuts
+       it down to a diagonal line — so the dot was invisible here. A 2px bevel
+       keeps it a solid HUD pip. */
     .run-dot {
+      border-radius: 2px;
       animation:
         run-dot-pop 160ms steps(2, jump-end) both,
         blink 1000ms steps(1, jump-end) 160ms infinite;
