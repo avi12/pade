@@ -29,10 +29,25 @@ let currentProject: string | null = null;
 // The stream is subscribed exactly once for the process lifetime.
 let subscribed = false;
 
-// The backend watch the accumulated events came from, learned on retarget. A
-// reload saves the feed under it and restores only into that same watch (see
-// feed-snapshot).
+// The backend watch the accumulated events came from. A reload saves the feed
+// under it and restores only into that same watch (see feed-snapshot). Learned on
+// retarget, and again on the first event when that was too early: a freshly
+// opened window's panel retargets before `feed.start` has armed the watch, so
+// the first answer carries no root — and with no identity to save under, the
+// unload save skipped and an F5 emptied the feed.
 let liveWatch: WatchStatus | null = null;
+
+async function learnLiveWatch(): Promise<void> {
+  try {
+    liveWatch = await feed.status();
+  } catch {
+    liveWatch = null;
+  }
+}
+
+function knowsLiveWatch(): boolean {
+  return liveWatch !== null && liveWatch.armedAt !== null && liveWatch.root === currentProject;
+}
 
 // Hand the feed to the reloaded page. `pagehide` is the last synchronous moment
 // before the webview drops this page, so the save happens once per unload rather
@@ -66,6 +81,12 @@ async function startFeedSubscription(): Promise<void> {
       }
 
       feedStore.events = [event, ...feedStore.events].slice(0, CAP);
+
+      // An event proves the watch is armed, so an identity missed at retarget
+      // can be learned now.
+      if (!knowsLiveWatch()) {
+        learnLiveWatch();
+      }
     });
     // The ignore rules are live: editing (or creating, or deleting) a .gitignore
     // — and a mid-session `git init` — re-filters what the feed already shows, so
@@ -93,10 +114,9 @@ async function startFeedSubscription(): Promise<void> {
 // Learn the watch now feeding `project`, and — after a reload — put back the
 // events that same watch had already surfaced, behind any that arrived since.
 async function adoptLiveWatch(project: string): Promise<void> {
-  try {
-    liveWatch = await feed.status();
-  } catch {
-    liveWatch = null;
+  await learnLiveWatch();
+
+  if (!liveWatch) {
     return;
   }
 
