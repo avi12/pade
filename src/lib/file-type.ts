@@ -52,6 +52,11 @@ export const FileTone = {
   Gradle: "gradle",
   Npm: "npm",
   Git: "git",
+  Shader: "shader",
+  Build: "build",
+  Llvm: "llvm",
+  License: "license",
+  Windows: "windows",
   Data: "data",
   Doc: "doc",
   Shell: "shell",
@@ -150,6 +155,34 @@ const GIT_BADGE: FileTypeBadge = {
   label: "GIT",
   tone: FileTone.Git,
   icon: "git"
+};
+// GPU shader sources: GLSL and its per-stage extensions, plus HLSL, WGSL and Metal.
+const SHADER_BADGE: FileTypeBadge = {
+  label: "GLSL",
+  tone: FileTone.Shader,
+  icon: "shader"
+};
+// Build-system files: Meson, CMake, Make, Ninja.
+const BUILD_BADGE: FileTypeBadge = {
+  label: "BLD",
+  tone: FileTone.Build,
+  icon: "build"
+};
+const LLVM_BADGE: FileTypeBadge = {
+  label: "LLVM",
+  tone: FileTone.Llvm,
+  icon: "llvm"
+};
+const LICENSE_BADGE: FileTypeBadge = {
+  label: "LIC",
+  tone: FileTone.License,
+  icon: "license"
+};
+// Windows linker inputs: module-definition exports and symbol lists.
+const LINKER_BADGE: FileTypeBadge = {
+  label: "LINK",
+  tone: FileTone.Windows,
+  icon: "link"
 };
 
 // Extension → badge. The authoritative extension table; anything absent falls
@@ -451,7 +484,13 @@ const BADGES: Record<string, FileTypeBadge> = {
   },
   txt: {
     label: "TXT",
-    tone: FileTone.Doc
+    tone: FileTone.Doc,
+    icon: "text"
+  },
+  log: {
+    label: "LOG",
+    tone: FileTone.Doc,
+    icon: "text"
   },
   sh: {
     label: "SH",
@@ -563,8 +602,43 @@ const BADGES: Record<string, FileTypeBadge> = {
   gradle: GRADLE_BADGE,
   dockerfile: DOCKER_BADGE,
   lock: LOCK_BADGE,
-  lockb: LOCK_BADGE
+  lockb: LOCK_BADGE,
+  glsl: SHADER_BADGE,
+  vert: SHADER_BADGE,
+  frag: SHADER_BADGE,
+  geom: SHADER_BADGE,
+  comp: SHADER_BADGE,
+  tesc: SHADER_BADGE,
+  tese: SHADER_BADGE,
+  mesh: SHADER_BADGE,
+  task: SHADER_BADGE,
+  rgen: SHADER_BADGE,
+  rchit: SHADER_BADGE,
+  rahit: SHADER_BADGE,
+  rmiss: SHADER_BADGE,
+  rint: SHADER_BADGE,
+  rcall: SHADER_BADGE,
+  hlsl: SHADER_BADGE,
+  hlsli: SHADER_BADGE,
+  fx: SHADER_BADGE,
+  wgsl: SHADER_BADGE,
+  metal: SHADER_BADGE,
+  cmake: BUILD_BADGE,
+  mk: BUILD_BADGE,
+  ninja: BUILD_BADGE,
+  wrap: BUILD_BADGE,
+  def: LINKER_BADGE,
+  sym: LINKER_BADGE,
+  rc: {
+    label: "RC",
+    tone: FileTone.Windows,
+    icon: "window"
+  }
 };
+
+// Template suffixes: `version.h.in` is a C header waiting to be configured, so it
+// takes the badge of the file it generates (`version.h`).
+const TEMPLATE_EXTENSIONS: ReadonlySet<string> = new Set(["in", "template", "tmpl", "tpl", "dist", "sample", "example"]);
 
 /** How a name rule compares its `pattern` against a lower-cased file name. */
 const NameMatch = {
@@ -712,6 +786,66 @@ const NAME_RULES: readonly NameRule[] = [
     match: NameMatch.Exact,
     pattern: ".editorconfig",
     badge: CONFIG_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "meson.build",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "meson_options.txt",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "meson.options",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".wraplock",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "cmakelists.txt",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "makefile",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: "gnumakefile",
+    badge: BUILD_BADGE
+  },
+  {
+    match: NameMatch.Prefix,
+    pattern: ".clang-",
+    badge: LLVM_BADGE
+  },
+  {
+    match: NameMatch.Exact,
+    pattern: ".clangd",
+    badge: LLVM_BADGE
+  },
+  {
+    match: NameMatch.Prefix,
+    pattern: "license",
+    badge: LICENSE_BADGE
+  },
+  {
+    match: NameMatch.Prefix,
+    pattern: "licence",
+    badge: LICENSE_BADGE
+  },
+  {
+    match: NameMatch.Prefix,
+    pattern: "copying",
+    badge: LICENSE_BADGE
   }
 ];
 
@@ -768,6 +902,12 @@ export function fileTypeBadge(path: string): FileTypeBadge {
       label: stem.length > 0 ? stem : "FILE",
       tone: FileTone.Neutral
     };
+  }
+
+  const generatedName = name.slice(0, -(extension.length + 1));
+  const isTemplateOfTypedFile = TEMPLATE_EXTENSIONS.has(extension) && pathExtension(generatedName) !== null;
+  if (isTemplateOfTypedFile) {
+    return fileTypeBadge(generatedName);
   }
 
   return BADGES[extension] ?? {

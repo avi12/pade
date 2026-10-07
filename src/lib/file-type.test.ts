@@ -137,9 +137,39 @@ describe("fileTypeBadge", () => {
       label: "PRE",
       tone: FileTone.Neutral
     });
-    expect(fileTypeBadge("Makefile")).toEqual({
-      label: "MAK",
+    expect(fileTypeBadge("Procfile")).toEqual({
+      label: "PRO",
       tone: FileTone.Neutral
     });
+  });
+
+  it("gives every GLSL stage and other shader languages the shader glyph", () => {
+    for (const shader of ["a.glsl", "a.vert", "a.frag", "a.comp", "a.geom", "a.tesc", "a.hlsl", "a.wgsl"]) {
+      expect(fileTypeBadge(`src/d3d11/shaders/${shader}`).icon).toBe("shader");
+    }
+  });
+
+  it("recognises build-system files by name before their extension", () => {
+    for (const buildFile of ["meson.build", "src/meson.build", "meson_options.txt", "CMakeLists.txt", "Makefile", "rules.mk", "subprojects/zlib.wrap"]) {
+      expect(fileTypeBadge(buildFile).icon).toBe("build");
+    }
+  });
+
+  it("marks LLVM tool configs, licenses, plain text and Windows build inputs", () => {
+    expect(fileTypeBadge(".clang-format").icon).toBe("llvm");
+    expect(fileTypeBadge(".clang-tidy").icon).toBe("llvm");
+    expect(fileTypeBadge("LICENSE").icon).toBe("license");
+    expect(fileTypeBadge("LICENSE.md").icon).toBe("license");
+    expect(fileTypeBadge("COPYING").icon).toBe("license");
+    expect(fileTypeBadge("build-win64.txt").icon).toBe("text");
+    expect(fileTypeBadge("src/dxgi/dxgi.def").icon).toBe("link");
+    expect(fileTypeBadge("src/dxgi/dxgi.sym").icon).toBe("link");
+    expect(fileTypeBadge("src/dxgi/version.rc").icon).toBe("window");
+  });
+
+  it("badges a template by the file it generates", () => {
+    expect(fileTypeBadge("version.h.in")).toEqual(fileTypeBadge("version.h"));
+    expect(fileTypeBadge("config.json.template").icon).toBe("json");
+    expect(fileTypeBadge("build.in").label).toBe("IN");
   });
 });

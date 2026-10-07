@@ -1677,6 +1677,26 @@
     --tone: #f05032;
   }
 
+  .tone-shader {
+    --tone: #5586a4;
+  }
+
+  .tone-build {
+    --tone: #3a8f6b;
+  }
+
+  .tone-llvm {
+    --tone: #6b8cc4;
+  }
+
+  .tone-license {
+    --tone: #b08d2b;
+  }
+
+  .tone-windows {
+    --tone: #0078d4;
+  }
+
   .tone-rust {
     --tone: #c56a1a;
   }

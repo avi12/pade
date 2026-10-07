@@ -10,18 +10,18 @@
   // `string` to the type system, so the name union can't be derived from them.
   const ICON_NAMES = [
     "activity", "alert", "android", "androidstudio", "angular", "antigravity", "astro",
-    "batch", "bolt", "branch", "c",
+    "batch", "bolt", "branch", "build", "c",
     "caseSensitive", "check", "checks", "chevronDown", "chevronUp", "claude", "clion",
     "clock", "close", "code", "codex", "columns",
     "copilot", "cplusplus", "csharp", "css", "csv", "cursor", "dart", "docker", "elixir",
     "env", "external", "feed", "folder", "folderPlus", "git", "github", "go", "goland",
     "gradle", "graphql", "grip", "grok", "haskell",
     "history", "html", "idea", "image", "java", "javascript", "json", "kotlin", "laravel",
-    "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
+    "license", "link", "llvm", "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
     "opencode", "pencil", "perl", "php", "phpstorm", "plus", "powershell", "prisma", "pycharm", "python", "r", "rails", "react",
     "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search", "send",
-    "shell", "sliders", "sparkles", "sql", "star", "sublime", "sun", "svelte", "swap", "swift",
-    "terminal", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",
+    "shader", "shell", "sliders", "sparkles", "sql", "star", "sublime", "sun", "svelte", "swap", "swift",
+    "terminal", "text", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",
     "webstorm", "wholeWord", "window", "windowPlus", "xml", "yaml", "zed", "zig"
   ] as const;
   export type IconName = (typeof ICON_NAMES)[number];
