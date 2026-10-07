@@ -223,7 +223,8 @@ rule in its column. Note `CLAUDE_CODE_NO_FLICKER` beats the `tui` setting and a
 `settings.json` `env` block sets it globally — so check that before concluding which
 renderer a session is on.
 
-One xterm patch backs this (`patches/@xterm__xterm@…`), making a row resize a lossless
+One xterm patch backs this (`patches/@xterm__xterm@…`; it also keeps a parser
+exception from freezing the write queue for good, see `docs/terminal-rendering.md`), making a row resize a lossless
 round trip. Stock, a **shrink** `pop()`s the line below the cursor — while its own
 comment claims that line is blank — which destroyed the agent's `accept edits` hint;
 and a **grow** refuses to reclaim the scrollback whenever anything sits below the

@@ -8,7 +8,7 @@ overrides:
   fast-uri: 3.1.4
 
 patchedDependencies:
-  '@xterm/xterm@6.1.0-beta.288': 94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a
+  '@xterm/xterm@6.1.0-beta.288': 5b7def1b6cf66ed87d63bc154bf362c3b0b1667ec209a31d16f740916ad1dee5
 
 importers:
 
@@ -28,10 +28,10 @@ importers:
         version: 2.3.2
       '@xterm/addon-search':
         specifier: 0.17.0-beta.288
-        version: 0.17.0-beta.288(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))
+        version: 0.17.0-beta.288(@xterm/xterm@6.1.0-beta.288(patch_hash=5b7def1b6cf66ed87d63bc154bf362c3b0b1667ec209a31d16f740916ad1dee5))
       '@xterm/xterm':
         specifier: 6.1.0-beta.288
-        version: 6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)
+        version: 6.1.0-beta.288(patch_hash=5b7def1b6cf66ed87d63bc154bf362c3b0b1667ec209a31d16f740916ad1dee5)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -3180,11 +3180,11 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@xterm/addon-search@0.17.0-beta.288(@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a))':
+  '@xterm/addon-search@0.17.0-beta.288(@xterm/xterm@6.1.0-beta.288(patch_hash=5b7def1b6cf66ed87d63bc154bf362c3b0b1667ec209a31d16f740916ad1dee5))':
     dependencies:
-      '@xterm/xterm': 6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)
+      '@xterm/xterm': 6.1.0-beta.288(patch_hash=5b7def1b6cf66ed87d63bc154bf362c3b0b1667ec209a31d16f740916ad1dee5)
 
-  '@xterm/xterm@6.1.0-beta.288(patch_hash=94f36a435f8778e2d57429fee4159da7ef4e3b427a84083be00c9efdea62a53a)': {}
+  '@xterm/xterm@6.1.0-beta.288(patch_hash=5b7def1b6cf66ed87d63bc154bf362c3b0b1667ec209a31d16f740916ad1dee5)': {}
 
   acorn-jsx@5.3.2(acorn@8.17.0):
     dependencies:

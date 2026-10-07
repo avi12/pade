@@ -520,6 +520,24 @@ of silently no-op'ing. After any `pnpm patch` / `pnpm install`, clear
 `node_modules/.vite` and restart, or Vite serves a stale pre-patch bundle and you
 will "verify" the wrong code.
 
+### One throwing chunk froze the terminal forever
+
+xterm parses writes through a queue (`WriteBuffer`). `_innerWrite` loops over the
+queued chunks, and `write()` only schedules that loop when the queue was *empty*.
+If the parser throws on a chunk (seen live: `Cannot set properties of undefined
+(setting 'isWrapped')`), the exception escapes the loop with the failed chunk still
+at the head, and nothing reschedules it. Every later `write()` sees a non-empty
+queue, appends, and returns. **The pane freezes for good while the agent keeps
+running** and the backend keeps recording its output. The sync path (the first
+write after user input runs inside `write()`) and the scheduled path both stall.
+Measured in the webview with a CSI handler that throws: stock, the next write's
+callback never fires; patched, it fires and the text lands.
+
+Patched: the `_action` call in that loop is wrapped so an exception is rethrown on
+a microtask (still reported to the console, as xterm already does for async
+handlers) and the chunk counts as processed. One bad chunk now costs a torn frame,
+which the agent's next paint covers, instead of the terminal.
+
 ## Do not repeat these — all tried, all measured, all rejected
 
 1. **CSS `scale` to stretch the grid over the sub-cell remainder.** Pins both
