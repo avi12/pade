@@ -57,7 +57,7 @@ struct AgentDefinition {
     /// non-interactively. That is what lets ADE terminate a specific session and
     /// bring back ITS conversation (e.g. after the project's `.mcp.json` changed),
     /// not merely the most recent. `None` for a CLI with no equivalent.
-    session_id_flag: Option<&'static str>,
+    session_id_flag: Option<SessionIdFlag>,
     /// Environment the CLI needs to render the way ADE embeds it. Empty for most.
     env: &'static [(&'static str, &'static str)],
     /// Whether this CLI paints its own UI (its input composer box) from the
@@ -84,6 +84,26 @@ struct AgentDefinition {
     /// Measured, never assumed — the running app's buffer read against the
     /// agent's own transcript (see `docs/terminal-rendering.md`).
     reorders_bidi: bool,
+}
+
+/// How a CLI takes the conversation id it should pin a session to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionIdFlag {
+    /// The flag, then the id as its own argument: `--session-id <id>`.
+    Separate(&'static str),
+    /// The flag and id joined with `=`: `--resume=<id>` — for a flag whose value
+    /// is optional, where a separate id would be read as a prompt.
+    Joined(&'static str),
+}
+
+impl SessionIdFlag {
+    /// The arguments that pin a session to `conversation_id`.
+    pub fn arguments(self, conversation_id: &str) -> Vec<String> {
+        match self {
+            Self::Separate(flag) => vec![flag.to_string(), conversation_id.to_string()],
+            Self::Joined(flag) => vec![format!("{flag}={conversation_id}")],
+        }
+    }
 }
 
 /// The PADE-owned Claude theme. Claude Code watches its user theme directory and
@@ -158,7 +178,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // `--session-id <uuid>` creates-or-continues the conversation with that
         // id (non-interactive), so ADE can restart a specific session and land
         // back in its own conversation — see `session_id_flag`.
-        session_id_flag: Some("--session-id"),
+        session_id_flag: Some(SessionIdFlag::Separate("--session-id")),
         // ADE does NOT force Claude's renderer — this is the one agent where the
         // choice is the user's, because it decides who owns the scrollback.
         //
@@ -348,7 +368,11 @@ const REGISTRY: &[AgentDefinition] = &[
         // forcing it would mean writing the USER-level ~/.copilot/settings.json,
         // which would leak ADE's scheme into every other terminal. Left alone.
         theme_config: None,
-        session_id_flag: None,
+        // `--resume=<uuid>` starts a NEW session under that id when none exists
+        // and resumes it on a later spawn (verified on 1.0.34) — which is also
+        // how `running_model` finds this session's event log by name. Joined,
+        // because `--resume` alone opens the session picker.
+        session_id_flag: Some(SessionIdFlag::Joined("--resume")),
         env: &[],
         needs_light_console_fix: false,
         reorders_bidi: false,
@@ -488,7 +512,7 @@ pub fn session_args(command: &str) -> &'static [&'static str] {
 /// e.g. `--session-id` for Claude. `None` for a CLI with no equivalent, in which
 /// case ADE can't target a specific conversation and won't try. See
 /// `session_id_flag` on the registry entry.
-pub fn session_id_flag(command: &str) -> Option<&'static str> {
+pub fn session_id_flag(command: &str) -> Option<SessionIdFlag> {
     definition(command).and_then(|agent| agent.session_id_flag)
 }
 
@@ -600,7 +624,14 @@ mod tests {
     /// be targeted, so ADE leaves them out of the restart-to-resume flow.
     #[test]
     fn only_agents_with_a_session_id_flag_can_be_resumed_by_id() {
-        assert_eq!(session_id_flag("claude"), Some("--session-id"));
+        assert_eq!(
+            session_id_flag("claude").map(|flag| flag.arguments("id")),
+            Some(vec!["--session-id".to_string(), "id".to_string()])
+        );
+        assert_eq!(
+            session_id_flag("copilot").map(|flag| flag.arguments("id")),
+            Some(vec!["--resume=id".to_string()])
+        );
         assert!(session_id_flag("codex").is_none());
         assert!(session_id_flag("powershell.exe").is_none());
     }

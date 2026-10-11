@@ -550,8 +550,7 @@ fn build_command(
     if let (Some(flag), Some(conversation_id)) =
         (crate::agents::session_id_flag(&program), conversation_id)
     {
-        leading_args.push(flag.to_string());
-        leading_args.push(conversation_id.to_string());
+        leading_args.extend(flag.arguments(conversation_id));
     }
 
     // Windows + light scheme only: some agents (Codex) paint their input composer
