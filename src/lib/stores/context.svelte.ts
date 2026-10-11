@@ -15,6 +15,7 @@
 //      over-counts badly and must never end a session; it feeds only the soft
 //      tab gauge (`contextPercentage`), never auto-handoff / resume / retry.
 
+import { modelName } from "@/lib/model-label";
 import { SvelteMap } from "svelte/reactivity";
 
 /** Rough characters-per-token ratio for the PTY-estimate fallback. */
@@ -39,6 +40,15 @@ interface ContextSignal {
   /** The model the newest logged turn ran on (`claude-opus-5-5`). */
   model: string | null;
   /** The reasoning effort that turn ran at (`high`), when the model has one. */
+  effort: string | null;
+  /** The model the agent's start-up banner announced ("Opus 5 with high
+   *  effort") — the only reading before the first turn reaches the log. */
+  bannerModel: RunningModel | null;
+}
+
+/** A session's running model as a person reads it, with its effort. */
+export interface RunningModel {
+  name: string;
   effort: string | null;
 }
 
@@ -162,8 +172,26 @@ const EMPTY_SIGNAL: ContextSignal = {
   reportedTokens: 0,
   characters: 0,
   model: null,
-  effort: null
+  effort: null,
+  bannerModel: null
 };
+
+// Claude Code's start-up banner line: "Opus 5 with high effort · Claude Max".
+// The effort phrase is required, so a model name merely mentioned in the
+// transcript ("try Opus 5") is never read as the one running.
+const BANNER_MODEL_RE = /\b(Opus|Sonnet|Haiku|Fable)\s+(\d+(?:\.\d+)?)\s+with\s+(\w+)\s+effort\b/;
+
+function parseBannerModel(text: string): RunningModel | null {
+  const banner = text.match(BANNER_MODEL_RE);
+  if (!banner) {
+    return null;
+  }
+
+  return {
+    name: `${banner[1]} ${banner[2]}`,
+    effort: banner[3]
+  };
+}
 
 /** The announced window size and the largest consumed-tokens counter in a
  *  piece of agent text ("null"/0 when absent). */
@@ -207,7 +235,8 @@ function absorb({ id, text, characters }: {
     parsedPercentage: parsed ?? previous.parsedPercentage,
     windowTokens: tokens.windowTokens ?? previous.windowTokens,
     reportedTokens: Math.max(tokens.reportedTokens, previous.reportedTokens),
-    characters: previous.characters + characters
+    characters: previous.characters + characters,
+    bannerModel: parseBannerModel(text) ?? previous.bannerModel
   });
 }
 
@@ -372,19 +401,20 @@ export function observeSessionLog({ id, usedTokens, windowTokens, model = null, 
   });
 }
 
-/** The model and effort the session's newest logged turn ran on, or null until
- *  the agent has logged one. */
-export function sessionModel(id: string): {
-  model: string;
-  effort: string | null;
-} | null {
+/** The model and effort the session runs on: what its newest logged turn ran
+ *  on, else what its start-up banner announced, else null. */
+export function sessionModel(id: string): RunningModel | null {
   const signal = signals.get(id);
-  if (!signal || signal.model === null) {
+  if (!signal) {
     return null;
   }
 
+  if (signal.model === null) {
+    return signal.bannerModel;
+  }
+
   return {
-    model: signal.model,
+    name: modelName(signal.model),
     effort: signal.effort
   };
 }

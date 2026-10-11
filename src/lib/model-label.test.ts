@@ -21,7 +21,7 @@ describe("modelLabel", () => {
   it("adds the effort when the model has one", () => {
     expect(
       modelLabel({
-        model: "claude-opus-5-5",
+        name: "Opus 5.5",
         effort: "high"
       })
     ).toBe("Opus 5.5 · high");
@@ -30,7 +30,7 @@ describe("modelLabel", () => {
   it("is just the name without an effort", () => {
     expect(
       modelLabel({
-        model: "claude-opus-5-5",
+        name: "Opus 5.5",
         effort: null
       })
     ).toBe("Opus 5.5");

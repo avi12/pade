@@ -23,11 +23,10 @@ export function modelName(model: string): string {
   return versionParts.length === 0 ? name : `${name} ${versionParts.join(".")}`;
 }
 
-/** The model and its effort as one short tag: "Opus 5.5 · high". */
-export function modelLabel({ model, effort }: {
-  model: string;
+/** A model's human name and its effort as one short tag: "Opus 5.5 · high". */
+export function modelLabel({ name, effort }: {
+  name: string;
   effort: string | null;
 }): string {
-  const name = modelName(model);
   return effort === null ? name : `${name} · ${effort}`;
 }

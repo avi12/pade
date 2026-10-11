@@ -531,7 +531,7 @@ describe("sessionModel", () => {
     });
 
     expect(sessionModel("model-switch")).toEqual({
-      model: "claude-haiku-4-5-20251001",
+      name: "Haiku 4.5",
       effort: null
     });
   });
@@ -551,9 +551,49 @@ describe("sessionModel", () => {
     });
 
     expect(sessionModel("model-kept")).toEqual({
+      name: "Opus 5.5",
+      effort: "medium"
+    });
+  });
+
+  it("reads the start-up banner before the first turn is logged", () => {
+    observeContextScreen({
+      id: "model-banner",
+      text: "Claude Code v2.1.292  Opus 5 with high effort · Claude Max"
+    });
+
+    expect(sessionModel("model-banner")).toEqual({
+      name: "Opus 5",
+      effort: "high"
+    });
+  });
+
+  it("lets the first logged turn outrank the banner", () => {
+    observeContextScreen({
+      id: "model-banner-then-log",
+      text: "Opus 5 with high effort"
+    });
+    observeSessionLog({
+      id: "model-banner-then-log",
+      usedTokens: 1_000,
+      windowTokens: null,
       model: "claude-opus-5-5",
       effort: "medium"
     });
+
+    expect(sessionModel("model-banner-then-log")).toEqual({
+      name: "Opus 5.5",
+      effort: "medium"
+    });
+  });
+
+  it("never reads a model merely mentioned in the transcript", () => {
+    observeContext({
+      id: "model-mentioned",
+      chunk: "you could try Opus 5 for this"
+    });
+
+    expect(sessionModel("model-mentioned")).toBeNull();
   });
 });
 
