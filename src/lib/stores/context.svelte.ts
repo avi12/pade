@@ -36,6 +36,10 @@ interface ContextSignal {
   reportedTokens: number;
   /** Cumulative PTY characters seen — the estimate fallback. */
   characters: number;
+  /** The model the newest logged turn ran on (`claude-opus-5-5`). */
+  model: string | null;
+  /** The reasoning effort that turn ran at (`high`), when the model has one. */
+  effort: string | null;
 }
 
 const signals = new SvelteMap<string, ContextSignal>();
@@ -156,7 +160,9 @@ const EMPTY_SIGNAL: ContextSignal = {
   parsedPercentage: null,
   windowTokens: null,
   reportedTokens: 0,
-  characters: 0
+  characters: 0,
+  model: null,
+  effort: null
 };
 
 /** The announced window size and the largest consumed-tokens counter in a
@@ -346,18 +352,41 @@ export function measuredContextPercentage(id: string): number | null {
  *
  *  The window never overrides one the agent's own `(N context)` banner supplied,
  *  so a live reading still wins; the token count always overwrites, because a
- *  newer turn is strictly better than the turn before it. */
-export function observeSessionLog({ id, usedTokens, windowTokens }: {
+ *  newer turn is strictly better than the turn before it — and so do the model
+ *  and effort, which follow a mid-session switch. */
+export function observeSessionLog({ id, usedTokens, windowTokens, model = null, effort = null }: {
   id: string;
   usedTokens: number | null;
   windowTokens: number | null;
+  model?: string | null;
+  effort?: string | null;
 }): void {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
+  const hasLoggedTurn = model !== null;
   signals.set(id, {
     ...previous,
     loggedTokens: usedTokens ?? previous.loggedTokens,
-    windowTokens: previous.windowTokens ?? windowTokens
+    windowTokens: previous.windowTokens ?? windowTokens,
+    model: model ?? previous.model,
+    effort: hasLoggedTurn ? effort : previous.effort
   });
+}
+
+/** The model and effort the session's newest logged turn ran on, or null until
+ *  the agent has logged one. */
+export function sessionModel(id: string): {
+  model: string;
+  effort: string | null;
+} | null {
+  const signal = signals.get(id);
+  if (!signal || signal.model === null) {
+    return null;
+  }
+
+  return {
+    model: signal.model,
+    effort: signal.effort
+  };
 }
 
 /** Forget a session's context when it ends. */

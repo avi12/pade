@@ -5,9 +5,10 @@
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { modelLabel } from "@/lib/model-label";
   import { effective } from "@/lib/prefs.svelte";
   import { rovingMenu } from "@/lib/roving-menu";
-  import { contextPercentage, measuredContextPercentage } from "@/lib/stores/context.svelte";
+  import { contextPercentage, measuredContextPercentage, sessionModel } from "@/lib/stores/context.svelte";
   import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
@@ -330,6 +331,7 @@
 {/snippet}
 
 {#snippet tabInner(session: AgentSession)}
+  {@const running = sessionModel(session.id)}
   {#if editingId === session.id}
     <span class="rename">
       {@render statusGlyph(session)}
@@ -370,6 +372,9 @@
     >
       {@render statusGlyph(session)}
       <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
+      {#if running !== null}
+        <span class="model">{modelLabel(running)}</span>
+      {/if}
     </button>
     <span
       class="ai-wrap"
@@ -701,6 +706,13 @@
       font-size: 12px;
       white-space: nowrap;
       cursor: pointer;
+    }
+
+    /* The model and effort the agent's newest turn ran on — a quieter tag after
+       the name, so the label still leads. */
+    .model {
+      font-size: 10px;
+      opacity: 70%;
     }
 
     /* The ✦ AI-name toggle — subdued on every pill, brighter on the one being

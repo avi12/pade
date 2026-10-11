@@ -62,17 +62,24 @@ struct CatalogLimit {
     context: Option<u64>,
 }
 
-/// One line of an agent session log — only the shape the token accounting lives
-/// in. Every other field is ignored.
+/// One line of an agent session log — only the shape the token accounting and
+/// the turn's model and effort live in. Every other field is ignored.
 #[derive(Debug, Deserialize)]
 struct LogLine {
     message: Option<LogMessage>,
+    /// The reasoning effort the session runs at, stamped beside every turn.
+    effort: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct LogMessage {
+    model: Option<String>,
     usage: Option<TokenUsage>,
 }
+
+/// Claude's placeholder model on turns it writes itself (an API error, an
+/// interrupt) — not a model anything ran on.
+const SYNTHETIC_MODEL: &str = "<synthetic>";
 
 /// The token accounting an assistant turn records. Every count is optional
 /// because the same log carries other message shapes. The wire names all carry
@@ -106,15 +113,24 @@ impl TokenUsage {
     }
 }
 
-/// A session's context fill as the agent itself accounts for it. Each half is
-/// optional: a session whose first turn hasn't been written yet has a model but
-/// no usage, and a catalog that can't be reached leaves the window unknown
-/// while the used count is still good.
-#[derive(Debug, Clone, Copy, Serialize)]
+/// A session's context fill as the agent itself accounts for it, plus the model
+/// and effort its newest turn ran on. Every field is optional: a session whose
+/// first turn hasn't been written yet has no usage or model, and a catalog that
+/// can't be reached leaves the window unknown while the used count is still good.
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionContext {
     used_tokens: Option<u64>,
     window_tokens: Option<u64>,
+    model: Option<String>,
+    effort: Option<String>,
+}
+
+/// What a turn ran on, as the log records it.
+#[derive(Debug, PartialEq, Eq)]
+struct TurnProfile {
+    model: String,
+    effort: Option<String>,
 }
 
 /// The session's context fill, or `None` when the agent keeps no readable log
@@ -126,9 +142,12 @@ pub async fn agent_session_context(
 ) -> Option<SessionContext> {
     tauri::async_runtime::spawn_blocking(move || {
         let log = claude_session_log(&command, conversation_id.as_deref())?;
+        let turn = newest_in_log(&log, newest_turn_in);
         Some(SessionContext {
-            used_tokens: newest_occupied_tokens(&log),
+            used_tokens: newest_in_log(&log, newest_occupied_in),
             window_tokens: first_model_field(&log).and_then(|model| window_for_model(&model)),
+            model: turn.as_ref().map(|turn| turn.model.clone()),
+            effort: turn.and_then(|turn| turn.effort),
         })
     })
     .await
@@ -158,15 +177,15 @@ fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<Pa
     None
 }
 
-/// The context fill recorded by the newest turn in the log, found by scanning
+/// What `find` reads off the newest turn that carries it, found by scanning
 /// backwards from the end so the answer costs a tail read rather than a full
 /// parse of a transcript that grows all session long.
-fn newest_occupied_tokens(log: &Path) -> Option<u64> {
+fn newest_in_log<T>(log: &Path, find: impl Fn(&str) -> Option<T>) -> Option<T> {
     let length = std::fs::metadata(log).ok()?.len();
     for scan in TAIL_SCAN_BYTES {
         let tail = read_tail(log, scan)?;
-        if let Some(occupied) = newest_occupied_in(&tail) {
-            return Some(occupied);
+        if let Some(found) = find(&tail) {
+            return Some(found);
         }
 
         if scan >= length {
@@ -199,6 +218,22 @@ fn newest_occupied_in(lines: &str) -> Option<u64> {
             .message?
             .usage?
             .occupied()
+    })
+}
+
+/// The model and effort of the newest real turn in a chunk of JSON lines — the
+/// newest, not the first, so a mid-session `/model` or `/effort` switch shows.
+fn newest_turn_in(lines: &str) -> Option<TurnProfile> {
+    lines.lines().rev().find_map(|line| {
+        let parsed = serde_json::from_str::<LogLine>(line).ok()?;
+        let model = parsed
+            .message?
+            .model
+            .filter(|model| model != SYNTHETIC_MODEL)?;
+        Some(TurnProfile {
+            model,
+            effort: parsed.effort,
+        })
     })
 }
 
@@ -268,7 +303,7 @@ fn fetch_catalog() -> Option<HashMap<String, u64>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{model_field, newest_occupied_in, CatalogProvider};
+    use super::{model_field, newest_occupied_in, newest_turn_in, CatalogProvider, TurnProfile};
     use std::collections::HashMap;
 
     fn assistant_line(input: u64, cache_read: u64, cache_write: u64, output: u64) -> String {
@@ -317,6 +352,42 @@ mod tests {
     fn a_log_with_no_usage_yet_yields_none() {
         let lines = r#"{"type":"user","message":{"role":"user","content":"hello"}}"#;
         assert_eq!(newest_occupied_in(lines), None);
+    }
+
+    #[test]
+    fn the_newest_turn_names_the_model_and_effort_it_ran_on() {
+        let lines = [
+            r#"{"type":"assistant","effort":"high","message":{"model":"claude-opus-5-5"}}"#,
+            r#"{"type":"assistant","effort":"medium","message":{"model":"claude-fable-5-1"}}"#,
+            r#"{"type":"user","message":{"role":"user","content":"next"}}"#,
+        ]
+        .join("\n");
+        assert_eq!(
+            newest_turn_in(&lines),
+            Some(TurnProfile {
+                model: "claude-fable-5-1".to_string(),
+                effort: Some("medium".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn a_synthetic_turn_never_reads_as_the_running_model() {
+        let lines = [
+            r#"{"type":"assistant","effort":"high","message":{"model":"claude-opus-5-5"}}"#,
+            r#"{"type":"assistant","message":{"model":"<synthetic>"}}"#,
+        ]
+        .join("\n");
+        assert_eq!(
+            newest_turn_in(&lines).map(|turn| turn.model).as_deref(),
+            Some("claude-opus-5-5")
+        );
+    }
+
+    #[test]
+    fn a_turn_without_an_effort_still_names_its_model() {
+        let line = r#"{"type":"assistant","message":{"model":"claude-haiku-4-5-20251001"}}"#;
+        assert_eq!(newest_turn_in(line).and_then(|turn| turn.effort), None);
     }
 
     #[test]

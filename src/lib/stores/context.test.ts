@@ -4,7 +4,8 @@ import {
   measuredContextPercentage,
   observeContext,
   observeContextScreen,
-  observeSessionLog
+  observeSessionLog,
+  sessionModel
 } from "@/lib/stores/context.svelte";
 import { describe, expect, it } from "vitest";
 
@@ -499,6 +500,60 @@ describe("observeSessionLog", () => {
     });
 
     expect(measuredContextPercentage("log-newer-turn")).toBe(45);
+  });
+});
+
+describe("sessionModel", () => {
+  it("is null until the log has named a model", () => {
+    observeSessionLog({
+      id: "model-unknown",
+      usedTokens: null,
+      windowTokens: null
+    });
+
+    expect(sessionModel("model-unknown")).toBeNull();
+  });
+
+  it("follows a mid-session model and effort switch", () => {
+    observeSessionLog({
+      id: "model-switch",
+      usedTokens: 1_000,
+      windowTokens: null,
+      model: "claude-opus-5-5",
+      effort: "high"
+    });
+    observeSessionLog({
+      id: "model-switch",
+      usedTokens: 2_000,
+      windowTokens: null,
+      model: "claude-haiku-4-5-20251001",
+      effort: null
+    });
+
+    expect(sessionModel("model-switch")).toEqual({
+      model: "claude-haiku-4-5-20251001",
+      effort: null
+    });
+  });
+
+  it("keeps the last model through a reading with no turn in it", () => {
+    observeSessionLog({
+      id: "model-kept",
+      usedTokens: 1_000,
+      windowTokens: null,
+      model: "claude-opus-5-5",
+      effort: "medium"
+    });
+    observeSessionLog({
+      id: "model-kept",
+      usedTokens: 1_500,
+      windowTokens: null
+    });
+
+    expect(sessionModel("model-kept")).toEqual({
+      model: "claude-opus-5-5",
+      effort: "medium"
+    });
   });
 });
 

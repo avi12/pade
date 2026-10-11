@@ -324,7 +324,9 @@
         observeSessionLog({
           id: session.id,
           usedTokens: context.usedTokens,
-          windowTokens: context.windowTokens
+          windowTokens: context.windowTokens,
+          model: context.model,
+          effort: context.effort
         });
       }
     } catch {

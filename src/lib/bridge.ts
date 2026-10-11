@@ -272,11 +272,13 @@ export const contextMenu = {
 };
 
 /** How full a session's context window is, as the agent's own session log
- *  accounts for it. Declared here — the only place it's read — rather than in
- *  the shared types module. */
+ *  accounts for it, plus the model and effort its newest turn ran on. Declared
+ *  here — the only place it's read — rather than in the shared types module. */
 const SessionContext = z.object({
   usedTokens: z.number().nullable(),
-  windowTokens: z.number().nullable()
+  windowTokens: z.number().nullable(),
+  model: z.string().nullable(),
+  effort: z.string().nullable()
 });
 
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
@@ -348,9 +350,10 @@ export const pty = {
   }) => call("agent_resume_args", z.array(z.string()), { ...args }),
   /** How full the session's context window is, read from the agent's own session
    *  log rather than its terminal: the tokens its newest turn occupies, and the
-   *  window its recorded model advertises (via the live models.dev catalog).
-   *  Either half is `null` when it can't be resolved, and the whole payload is
-   *  `null` for an agent that keeps no readable log. */
+   *  window its recorded model advertises (via the live models.dev catalog) —
+   *  plus the model and effort that newest turn ran on. Each field is `null`
+   *  when it can't be resolved, and the whole payload is `null` for an agent
+   *  that keeps no readable log. */
   sessionContext: (args: {
     command: string;
     conversationId?: string;
