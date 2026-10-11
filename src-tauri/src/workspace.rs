@@ -350,7 +350,7 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
 /// a `WebView2` concept.
 #[cfg(windows)]
 pub(crate) fn webview_data_dir() -> Option<PathBuf> {
-    let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from)?;
+    let base = crate::util::pade_data_dir()?;
     let launch = launch_directory().path;
     let canonical = std::fs::canonicalize(&launch).unwrap_or(launch);
     let key = canonical.to_string_lossy().to_lowercase();
@@ -363,11 +363,7 @@ pub(crate) fn webview_data_dir() -> Option<PathBuf> {
         || "project".to_string(),
         |name| name.to_string_lossy().into_owned(),
     );
-    Some(
-        base.join("pade")
-            .join("webview2")
-            .join(format!("{name}-{digest:016x}")),
-    )
+    Some(base.join("webview2").join(format!("{name}-{digest:016x}")))
 }
 
 #[tauri::command]

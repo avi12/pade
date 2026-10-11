@@ -498,6 +498,15 @@ fn strip_jsonc_sugar(raw: &str) -> String {
     json
 }
 
+/// PADE's own per-user data folder: `%LOCALAPPDATA%\pade` on Windows,
+/// `~/.pade` elsewhere. The one place every PADE-owned folder hangs off.
+pub fn pade_data_dir() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("pade"));
+    }
+    Some(home_dir()?.join(".pade"))
+}
+
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
 pub fn home_dir() -> Option<PathBuf> {
