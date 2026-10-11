@@ -1019,6 +1019,14 @@
   text-shadow: var(--hairline-glow);
 }
 
+/* text-shadow inherits, and a top-bar menu is mounted inside its trigger
+   button — so without this every row, path and timestamp in the menu took the
+   label's bloom, and a 14px halo around 11px text reads as a blur, not a glow.
+   A menu is its own surface; only its section headings emit. */
+:root[data-palette="cyberpunk"] [popover] :not(.menu-separator, .list-head) {
+  text-shadow: none;
+}
+
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the
    agent chips in the picker and onboarding; a component opts in by colouring its
    icon with `var(--agent-brand, currentColor)`. The session tabs never set
