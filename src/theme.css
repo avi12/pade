@@ -910,7 +910,6 @@
     1px var(--crop-mark-length);
   background-repeat: no-repeat;
   outline-color: var(--primary);
-  text-shadow: var(--hairline-glow);
 }
 
 /* ── The menus ──────────────────────────────────────────────────────────────
@@ -1009,22 +1008,6 @@
 :root[data-palette="cyberpunk"][data-theme="light"] .agent-icon.ready {
   background: var(--tertiary-wash);
   box-shadow: none;
-}
-
-/* The bloom. Only the chrome's own labels emit — the tab row, the panel title,
-   the branch and project pills. Deliberately NOT `*`: the terminal and the diff
-   viewers are thousands of spans, and a text-shadow on each is both a paint
-   cost and, at that density, a blur. */
-:root[data-palette="cyberpunk"] :is([role="tab"], .panel-title, .topbar button, .menu-separator, .list-head) {
-  text-shadow: var(--hairline-glow);
-}
-
-/* text-shadow inherits, and a top-bar menu is mounted inside its trigger
-   button — so without this every row, path and timestamp in the menu took the
-   label's bloom, and a 14px halo around 11px text reads as a blur, not a glow.
-   A menu is its own surface; only its section headings emit. */
-:root[data-palette="cyberpunk"] [popover] :not(.menu-separator, .list-head) {
-  text-shadow: none;
 }
 
 /* Agent brand tints — each coding agent's signature colour. Used only to tint the

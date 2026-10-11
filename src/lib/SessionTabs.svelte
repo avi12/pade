@@ -712,10 +712,6 @@
        the name, so the label still leads. */
     .model {
       font-size: 10px;
-
-      /* The active pill's label bloom would inherit here, and at this size a
-         halo is a smudge. */
-      text-shadow: none;
       opacity: 70%;
     }
 
