@@ -103,6 +103,7 @@
   let terminal: Terminal;
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
+  let claudeStateUnlisten: UnlistenFn | undefined;
   let fileDropUnlisteners: UnlistenFn[] = [];
   // A file dragged from Explorer or an IDE is hovering over this pane.
   let fileDragOver = $state(false);
@@ -307,14 +308,28 @@
   // always lands too early on a fresh session and would leave
   // `measuredContextPercentage`, the one signal auto-handoff may act on, null for
   // the rest of that session's life.
+  //
+  // A request that lands mid-read is not dropped but queued for one more pass:
+  // a `/model` switch reported while the idle read is in flight would otherwise
+  // be lost until the next turn.
   let readingSessionLog = false;
+  let rereadSessionLog = false;
 
   async function readContextFromSessionLog() {
     if (readingSessionLog) {
+      rereadSessionLog = true;
       return;
     }
 
     readingSessionLog = true;
+    do {
+      rereadSessionLog = false;
+      await readSessionLogOnce();
+    } while (rereadSessionLog);
+    readingSessionLog = false;
+  }
+
+  async function readSessionLogOnce() {
     try {
       const context = await pty.sessionContext({
         command: session.agent.command,
@@ -331,8 +346,6 @@
       }
     } catch {
     // Leave the reading as it was; a guessed number could end a session wrongly.
-    } finally {
-      readingSessionLog = false;
     }
   }
 
@@ -1416,6 +1429,20 @@
 
     exitUnlisten = exitListener;
 
+    const claudeStateListener = await pty.onClaudeStateChanged(async sessionId => {
+      const isClaude = session.agent.id === AgentId.Claude;
+      const concernsThisSession = isClaude && (sessionId === null || sessionId === session.conversationId);
+      if (concernsThisSession) {
+        await readContextFromSessionLog();
+      }
+    });
+    if (destroyed) {
+      claudeStateListener();
+      return;
+    }
+
+    claudeStateUnlisten = claudeStateListener;
+
     await listenForFileDrops();
 
     if (destroyed) {
@@ -1809,6 +1836,7 @@
     destroyed = true;
     unlisten?.();
     exitUnlisten?.();
+    claudeStateUnlisten?.();
     for (const stopListening of fileDropUnlisteners) {
       stopListening();
     }

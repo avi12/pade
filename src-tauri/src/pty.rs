@@ -540,6 +540,9 @@ fn build_command(
             leading_args.push(arg.to_string());
         }
     }
+    // Claude reports its model and effort through hooks that ride in the same
+    // `--settings` layer as the theme — see claude_state.rs.
+    crate::claude_state::attach_hooks(&program, &mut leading_args);
     // Bind the session to ADE's stable conversation id (`--session-id <uuid>`), so a
     // later spawn with the same id resumes THIS conversation rather than the most
     // recent — how ADE restarts one specific session (e.g. after `.mcp.json`

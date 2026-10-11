@@ -1,4 +1,5 @@
 mod agents;
+mod claude_state;
 mod clipboard;
 mod config;
 mod contextmenu;
@@ -37,6 +38,12 @@ use tauri::Manager;
 #[allow(clippy::too_many_lines)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Launched by a Claude hook to record a session's model and effort: do that
+    // and exit before anything of the app (a window, a lowered priority) starts.
+    if claude_state::run_hook_sink_if_requested() {
+        return;
+    }
+
     // WebView2 browser switches, composed before any window (and thus any
     // WebView2 environment) is created.
     #[cfg(windows)]
@@ -106,6 +113,7 @@ pub fn run() {
             pty::init(handle);
             runner::init(handle);
             watcher::init(handle);
+            claude_state::init(handle);
             app.manage(window::WindowProjects::default());
             app.manage(discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop

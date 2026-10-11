@@ -281,6 +281,10 @@ const SessionContext = z.object({
   effort: z.string().nullable()
 });
 
+const ClaudeStateChanged = z.object({
+  sessionId: z.string().nullable()
+});
+
 /** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
  *  so a listener can route to the right terminal. */
 export const pty = {
@@ -358,6 +362,12 @@ export const pty = {
     command: string;
     conversationId?: string;
   }) => call("agent_session_context", SessionContext.nullable(), { ...args }),
+  /** A Claude session's model or effort may have changed: its hooks reported
+   *  (`sessionId` is its conversation id), or the user's settings changed,
+   *  which can move any session's effort (`sessionId` null). Re-read
+   *  `sessionContext` for the sessions it names. */
+  onClaudeStateChanged: (callback: (sessionId: string | null) => void) =>
+    on("claude-state://changed", ClaudeStateChanged, payload => callback(payload.sessionId)),
   onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
   onExit: (callback: (id: string) => void) =>
     on("pty://exit", PtyExit, payload => callback(payload.id))

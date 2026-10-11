@@ -133,21 +133,36 @@ struct TurnProfile {
     effort: Option<String>,
 }
 
-/// The session's context fill, or `None` when the agent keeps no readable log
-/// for it. Off the UI thread: it reads a file and may make a network call.
+/// The session's context fill and running model, or `None` for an agent other
+/// than Claude. Off the UI thread: it reads files and may make a network call.
 #[tauri::command]
 pub async fn agent_session_context(
     command: String,
     conversation_id: Option<String>,
 ) -> Option<SessionContext> {
     tauri::async_runtime::spawn_blocking(move || {
-        let log = claude_session_log(&command, conversation_id.as_deref())?;
-        let turn = newest_in_log(&log, newest_turn_in);
+        if command != ID_CLAUDE {
+            return None;
+        }
+        let conversation_id = conversation_id?;
+        let log = claude_session_log(&command, Some(&conversation_id));
+        // The hooks speak for the live session; the log is the fallback for a
+        // session launched before PADE attached them.
+        let running = crate::claude_state::running_model(&conversation_id).or_else(|| {
+            let turn = newest_in_log(log.as_deref()?, newest_turn_in)?;
+            Some((turn.model, turn.effort))
+        });
+        let (model, effort) = running.map_or((None, None), |(model, effort)| (Some(model), effort));
         Some(SessionContext {
-            used_tokens: newest_in_log(&log, newest_occupied_in),
-            window_tokens: first_model_field(&log).and_then(|model| window_for_model(&model)),
-            model: turn.as_ref().map(|turn| turn.model.clone()),
-            effort: turn.and_then(|turn| turn.effort),
+            used_tokens: log
+                .as_deref()
+                .and_then(|log| newest_in_log(log, newest_occupied_in)),
+            window_tokens: log
+                .as_deref()
+                .and_then(first_model_field)
+                .and_then(|model| window_for_model(&model)),
+            model,
+            effort,
         })
     })
     .await

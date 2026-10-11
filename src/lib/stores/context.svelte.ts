@@ -37,13 +37,12 @@ interface ContextSignal {
   reportedTokens: number;
   /** Cumulative PTY characters seen — the estimate fallback. */
   characters: number;
-  /** The model the newest logged turn ran on (`claude-opus-5-5`). */
+  /** The model the session runs (`claude-opus-5`), as Claude's own hooks
+   *  reported it — or, for a session launched before those, its newest logged
+   *  turn. Never read off the terminal. */
   model: string | null;
-  /** The reasoning effort that turn ran at (`high`), when the model has one. */
+  /** The reasoning effort it runs at (`high`), when the model has one. */
   effort: string | null;
-  /** The model the agent's start-up banner announced ("Opus 5 with high
-   *  effort") — the only reading before the first turn reaches the log. */
-  bannerModel: RunningModel | null;
 }
 
 /** A session's running model as a person reads it, with its effort. */
@@ -172,26 +171,8 @@ const EMPTY_SIGNAL: ContextSignal = {
   reportedTokens: 0,
   characters: 0,
   model: null,
-  effort: null,
-  bannerModel: null
+  effort: null
 };
-
-// Claude Code's start-up banner line: "Opus 5 with high effort · Claude Max".
-// The effort phrase is required, so a model name merely mentioned in the
-// transcript ("try Opus 5") is never read as the one running.
-const BANNER_MODEL_RE = /\b(Opus|Sonnet|Haiku|Fable)\s+(\d+(?:\.\d+)?)\s+with\s+(\w+)\s+effort\b/;
-
-function parseBannerModel(text: string): RunningModel | null {
-  const banner = text.match(BANNER_MODEL_RE);
-  if (!banner) {
-    return null;
-  }
-
-  return {
-    name: `${banner[1]} ${banner[2]}`,
-    effort: banner[3]
-  };
-}
 
 /** The announced window size and the largest consumed-tokens counter in a
  *  piece of agent text ("null"/0 when absent). */
@@ -235,8 +216,7 @@ function absorb({ id, text, characters }: {
     parsedPercentage: parsed ?? previous.parsedPercentage,
     windowTokens: tokens.windowTokens ?? previous.windowTokens,
     reportedTokens: Math.max(tokens.reportedTokens, previous.reportedTokens),
-    characters: previous.characters + characters,
-    bannerModel: parseBannerModel(text) ?? previous.bannerModel
+    characters: previous.characters + characters
   });
 }
 
@@ -401,16 +381,12 @@ export function observeSessionLog({ id, usedTokens, windowTokens, model = null, 
   });
 }
 
-/** The model and effort the session runs on: what its newest logged turn ran
- *  on, else what its start-up banner announced, else null. */
+/** The model and effort the session runs on, or null until Claude has
+ *  reported one. */
 export function sessionModel(id: string): RunningModel | null {
   const signal = signals.get(id);
-  if (!signal) {
+  if (!signal || signal.model === null) {
     return null;
-  }
-
-  if (signal.model === null) {
-    return signal.bannerModel;
   }
 
   return {

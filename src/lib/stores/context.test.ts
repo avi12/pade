@@ -556,44 +556,17 @@ describe("sessionModel", () => {
     });
   });
 
-  it("reads the start-up banner before the first turn is logged", () => {
+  it("never takes the model from what the terminal shows", () => {
     observeContextScreen({
-      id: "model-banner",
+      id: "model-on-screen",
       text: "Claude Code v2.1.292  Opus 5 with high effort · Claude Max"
     });
-
-    expect(sessionModel("model-banner")).toEqual({
-      name: "Opus 5",
-      effort: "high"
-    });
-  });
-
-  it("lets the first logged turn outrank the banner", () => {
-    observeContextScreen({
-      id: "model-banner-then-log",
-      text: "Opus 5 with high effort"
-    });
-    observeSessionLog({
-      id: "model-banner-then-log",
-      usedTokens: 1_000,
-      windowTokens: null,
-      model: "claude-opus-5-5",
-      effort: "medium"
-    });
-
-    expect(sessionModel("model-banner-then-log")).toEqual({
-      name: "Opus 5.5",
-      effort: "medium"
-    });
-  });
-
-  it("never reads a model merely mentioned in the transcript", () => {
     observeContext({
-      id: "model-mentioned",
+      id: "model-on-screen",
       chunk: "you could try Opus 5 for this"
     });
 
-    expect(sessionModel("model-mentioned")).toBeNull();
+    expect(sessionModel("model-on-screen")).toBeNull();
   });
 });
 
