@@ -27,6 +27,7 @@
     observeSessionLog
   } from "@/lib/stores/context.svelte";
   import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
+  import { ensureModelOptions } from "@/lib/stores/modelOptions.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import { observeUsageLimit, observeUsageLimitScreen } from "@/lib/stores/usageResume.svelte";
@@ -353,6 +354,7 @@
           model: running.model,
           effort: running.effort
         });
+        await ensureModelOptions(session.agent.command);
       }
     } catch (error) {
       // The tag keeps what it showed; the next report or turn reads again.
@@ -1441,20 +1443,7 @@
 
     exitUnlisten = exitListener;
 
-    const runningModelListener = await pty.onRunningModelChanged(async sessionId => {
-      const concernsThisSession = sessionId === null || sessionId === session.conversationId;
-      if (concernsThisSession) {
-        await readRunningModel();
-      }
-    });
-    if (destroyed) {
-      runningModelListener();
-      return;
-    }
-
-    runningModelUnlisten = runningModelListener;
-    await readRunningModel();
-
+    await listenForRunningModel();
     await listenForFileDrops();
 
     if (destroyed) {
@@ -1890,6 +1879,25 @@
   // reads any other path as a file reference. Tauri's native drag events carry
   // the absolute paths the web drag API withholds, and every pane hears every
   // drop in the window, so each one claims only a drop on its own viewport.
+  // Follow the running model: re-read the moment the backend says this
+  // session's report — or a settings file every session reads — changed, and
+  // read once now for the tag's first frame.
+  async function listenForRunningModel(): Promise<void> {
+    const listener = await pty.onRunningModelChanged(async sessionId => {
+      const concernsThisSession = sessionId === null || sessionId === session.conversationId;
+      if (concernsThisSession) {
+        await readRunningModel();
+      }
+    });
+    if (destroyed) {
+      listener();
+      return;
+    }
+
+    runningModelUnlisten = listener;
+    await readRunningModel();
+  }
+
   async function listenForFileDrops(): Promise<void> {
     const listeners = await Promise.all([
       dragDrop.onOver(({ position }) => {

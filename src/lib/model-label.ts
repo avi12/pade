@@ -16,7 +16,7 @@ const CLAUDE_EFFORT_LADDER = ["low", "medium", "high", "xhigh", "max"] as const;
 const OPENAI_EFFORT_LADDER = ["minimal", "low", "medium", "high", "xhigh"] as const;
 
 /** The id without a `provider/` prefix. */
-function bareModel(model: string): string {
+export function bareModel(model: string): string {
   return model.slice(model.lastIndexOf(PROVIDER_SEPARATOR) + 1);
 }
 
@@ -39,18 +39,22 @@ export function modelName(model: string): string {
 }
 
 /** Where an effort level sits on its model's ladder: `step` of `steps`, 1-based.
- *  Null for a level no ladder knows, so the caller shows the word instead. */
-export function effortStep({ model, effort }: {
+ *  `ladder` is the model's own levels from its agent's catalog, when known —
+ *  it wins; otherwise the family's usual ladder stands in. Null for a level no
+ *  ladder knows, so the caller shows the word instead. */
+export function effortStep({ model, effort, ladder = [] }: {
   model: string;
   effort: string;
+  ladder?: readonly string[];
 }): {
   step: number;
   steps: number;
 } | null {
   const isClaudeModel = bareModel(model).startsWith(CLAUDE_PREFIX);
-  const ladders: readonly (readonly string[])[] = isClaudeModel
+  const familyLadders: readonly (readonly string[])[] = isClaudeModel
     ? [CLAUDE_EFFORT_LADDER, OPENAI_EFFORT_LADDER]
     : [OPENAI_EFFORT_LADDER, CLAUDE_EFFORT_LADDER];
+  const ladders = ladder.length > 0 ? [ladder, ...familyLadders] : familyLadders;
   for (const ladder of ladders) {
     const index = ladder.indexOf(effort.toLowerCase());
     if (index !== -1) {

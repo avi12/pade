@@ -11,7 +11,8 @@
 use std::path::PathBuf;
 
 use super::{
-    hook_command, modified_millis, newer, read_session_state, HookShell, RunningModel, Saved,
+    hook_command, modified_millis, newer, read_session_state, EffortOption, HookShell, ModelOption,
+    RunningModel, Saved,
 };
 
 /// The flag that hands Claude a settings layer for this launch alone.
@@ -96,6 +97,91 @@ fn logged_turn(conversation_id: &str) -> Option<RunningModel> {
     })
 }
 
+/// The catalog surface Claude Code's own `/model` picker reads.
+const CATALOG_SURFACE_SUFFIX: &str = "-cc.json";
+
+/// The models Claude Code itself lists, from the catalog it caches under
+/// `~/.claude/cache/model-catalog` — names, effort levels with their labels,
+/// and the recommended level, exactly as its picker shows them.
+pub(super) fn options() -> Vec<ModelOption> {
+    let Some(catalog) = newest_catalog() else {
+        return Vec::new();
+    };
+    let Some(models) = catalog
+        .pointer("/catalog/config/models")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return Vec::new();
+    };
+    models.iter().filter_map(model_option).collect()
+}
+
+fn model_option(model: &serde_json::Value) -> Option<ModelOption> {
+    let id = model.get("id")?.as_str()?;
+    let effort_options = model
+        .pointer("/thinking/effort_options")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let efforts = effort_options
+        .iter()
+        .filter_map(|option| {
+            let effort = option.get("id")?.as_str()?;
+            Some(EffortOption {
+                id: effort.to_string(),
+                name: option
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or(effort)
+                    .to_string(),
+            })
+        })
+        .collect();
+    let recommended_effort = effort_options
+        .iter()
+        .find(|option| {
+            option
+                .pointer("/badge/message")
+                .and_then(serde_json::Value::as_str)
+                == Some(RECOMMENDED_BADGE)
+        })
+        .and_then(|option| option.get("id")?.as_str())
+        .map(str::to_string);
+    Some(ModelOption {
+        id: id.to_string(),
+        name: model
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(id)
+            .to_string(),
+        efforts,
+        recommended_effort,
+    })
+}
+
+/// The badge Claude puts on the level it recommends for a model.
+const RECOMMENDED_BADGE: &str = "Recommended";
+
+fn newest_catalog() -> Option<serde_json::Value> {
+    let directory = settings_directory()?.join("cache").join("model-catalog");
+    let newest = std::fs::read_dir(directory)
+        .ok()?
+        .flatten()
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .ends_with(CATALOG_SURFACE_SUFFIX)
+        })
+        .max_by_key(|entry| {
+            entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .ok()
+        })?;
+    serde_json::from_str(&std::fs::read_to_string(newest.path()).ok()?).ok()
+}
+
 pub(super) fn settings_directory() -> Option<PathBuf> {
     Some(crate::util::home_dir()?.join(".claude"))
 }
@@ -129,7 +215,29 @@ fn effort_for_model(settings: &serde_json::Value, model: &str) -> Option<String>
 
 #[cfg(test)]
 mod tests {
-    use super::{effort_for_model, merge_settings};
+    use super::{effort_for_model, merge_settings, model_option};
+
+    #[test]
+    fn reads_a_catalog_model_with_its_labelled_effort_ladder() {
+        let model = serde_json::json!({
+            "id": "claude-opus-5-5",
+            "name": "Opus 5.5",
+            "thinking": { "type": "effort", "effort_options": [
+                { "id": "low", "name": "Low" },
+                { "id": "medium", "name": "Medium", "badge": { "message": "Recommended" } },
+                { "id": "xhigh", "name": "Extra" }
+            ] }
+        });
+        let option = model_option(&model).expect("an option");
+        let labels: Vec<_> = option
+            .efforts
+            .iter()
+            .map(|effort| effort.name.as_str())
+            .collect();
+        assert_eq!(option.name, "Opus 5.5");
+        assert_eq!(labels, ["Low", "Medium", "Extra"]);
+        assert_eq!(option.recommended_effort.as_deref(), Some("medium"));
+    }
 
     #[test]
     fn a_models_own_level_outranks_the_global_one() {

@@ -3,13 +3,12 @@
   import { ContextLevel, contextLevel } from "@/lib/context-level";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
-  import EffortBars from "@/lib/EffortBars.svelte";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { effortStep, modelLabel } from "@/lib/model-label";
+  import ModelTag from "@/lib/ModelTag.svelte";
   import { effective } from "@/lib/prefs.svelte";
   import { rovingMenu } from "@/lib/roving-menu";
-  import { contextPercentage, measuredContextPercentage, sessionModel } from "@/lib/stores/context.svelte";
+  import { contextPercentage, measuredContextPercentage } from "@/lib/stores/context.svelte";
   import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
@@ -332,7 +331,6 @@
 {/snippet}
 
 {#snippet tabInner(session: AgentSession)}
-  {@const running = sessionModel(session.id)}
   {#if editingId === session.id}
     <span class="rename">
       {@render statusGlyph(session)}
@@ -373,20 +371,7 @@
     >
       {@render statusGlyph(session)}
       <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
-      {#if running !== null}
-        {@const effort = running.effort === null ? null : effortStep({
-          model: running.id,
-          effort: running.effort
-        })}
-        <span class="model" aria-label={modelLabel(running)} data-tooltip={modelLabel(running)}>
-          {running.name}
-          {#if effort !== null}
-            <EffortBars step={effort.step} steps={effort.steps} />
-          {:else if running.effort !== null}
-            · {running.effort}
-          {/if}
-        </span>
-      {/if}
+      <ModelTag {session} />
     </button>
     <span
       class="ai-wrap"
@@ -661,6 +646,10 @@
     }
 
     .tab {
+      /* The ModelTag's effort bars light in the accent — and on the active
+         pill, whose fill IS the accent, in the pill's on-colour (below). */
+      --effort-lit: var(--primary);
+
       display: inline-flex;
       align-items: center;
       border-radius: var(--radius-full);
@@ -677,6 +666,8 @@
       }
 
       &.active {
+        --effort-lit: currentColor;
+
         background: var(--primary-container);
       }
 
@@ -718,25 +709,6 @@
       font-size: 12px;
       white-space: nowrap;
       cursor: pointer;
-    }
-
-    /* The model and effort the agent's newest turn ran on — a quieter tag after
-       the name, so the label still leads. */
-
-    /* The running model, then its effort as rising bars lit in the accent —
-       on the active pill the accent IS the fill, so they ride its on-colour. */
-    .model {
-      --effort-lit: var(--primary);
-
-      display: inline-flex;
-      gap: 5px;
-      align-items: center;
-      font-size: 10px;
-      opacity: 80%;
-    }
-
-    .tab.active .model {
-      --effort-lit: currentColor;
     }
 
     /* The ✦ AI-name toggle — subdued on every pill, brighter on the one being

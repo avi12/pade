@@ -69,6 +69,53 @@ pub async fn agent_running_model(command: String, conversation_id: String) -> Op
         .flatten()
 }
 
+/// One model an agent offers, as its own catalog describes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelOption {
+    id: String,
+    /// The agent's own display name ("Opus 5.5"), or the id when it has none.
+    name: String,
+    /// The effort levels this model takes, lowest first — empty for a model
+    /// without one.
+    efforts: Vec<EffortOption>,
+    /// The level the agent recommends for this model, when it names one.
+    recommended_effort: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EffortOption {
+    id: String,
+    /// The agent's own label ("Extra" for Claude's `xhigh`), else the id.
+    name: String,
+}
+
+impl EffortOption {
+    fn plain(id: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            name: id.to_string(),
+        }
+    }
+}
+
+/// The models `command` offers to switch to, from the agent's own local
+/// catalog. Empty for an agent PADE can't read one for. Off the UI thread: it
+/// reads files.
+#[tauri::command]
+pub async fn agent_model_options(command: String) -> Vec<ModelOption> {
+    tauri::async_runtime::spawn_blocking(move || match command.as_str() {
+        ID_CLAUDE => claude::options(),
+        ID_CODEX => codex::options(),
+        ID_COPILOT => copilot::options(),
+        ID_OPENCODE => opencode::options(),
+        _ => Vec::new(),
+    })
+    .await
+    .unwrap_or_default()
+}
+
 fn read(command: &str, conversation_id: &str) -> Option<RunningModel> {
     if !is_plain_id(conversation_id) {
         return None;

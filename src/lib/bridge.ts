@@ -117,7 +117,11 @@ export const agents = {
    *  the agent repaints itself, so a conversation in flight never restarts to
    *  follow the app's appearance. Agents without a live channel keep their
    *  spawn theme until they relaunch (see theming.rs). */
-  publishTheme: (scheme: Scheme) => run("agent_theme_publish", { scheme })
+  publishTheme: (scheme: Scheme) => run("agent_theme_publish", { scheme }),
+  /** The models `command` offers to switch to, from the agent's own local
+   *  catalog (names, effort levels, the recommended level). Empty for an agent
+   *  PADE can't read a catalog for. */
+  modelOptions: (command: string) => call("agent_model_options", z.array(ModelOption), { command })
 };
 
 /** External IDE integration. */
@@ -278,6 +282,22 @@ const SessionContext = z.object({
   usedTokens: z.number().nullable(),
   windowTokens: z.number().nullable()
 });
+
+/** One model an agent offers to switch to, as its own local catalog describes
+ *  it — effort levels lowest first (with the agent's labels), empty for a
+ *  model without one. */
+const ModelOption = z.object({
+  id: z.string(),
+  name: z.string(),
+  efforts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string()
+    })
+  ),
+  recommendedEffort: z.string().nullable()
+});
+export type ModelOption = z.infer<typeof ModelOption>;
 
 /** The model and reasoning effort a session runs, as the agent reported it. */
 const RunningModel = z.object({

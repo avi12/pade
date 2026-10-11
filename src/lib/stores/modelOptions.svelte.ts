@@ -1,0 +1,49 @@
+// Each agent's switchable models, from the agent's own local catalog (see
+// running_model.rs): names, effort levels, the recommended level. Loaded once
+// per agent and refreshed whenever a model menu opens, so a catalog the agent
+// re-fetched in the meantime shows up.
+
+import { agents } from "@/lib/bridge";
+import type { ModelOption } from "@/lib/bridge";
+import { bareModel } from "@/lib/model-label";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
+
+const optionsByAgent = new SvelteMap<string, ModelOption[]>();
+
+/** Fetch `command`'s catalog into the store. Rejects when the backend call
+ *  fails; the previous options stay in place. */
+async function loadModelOptions(command: string): Promise<void> {
+  optionsByAgent.set(command, await agents.modelOptions(command));
+}
+
+const requested = new SvelteSet<string>();
+
+/** Load `command`'s catalog the first time anything asks for it — the tab's
+ *  bars need the running model's own ladder without waiting for a menu. */
+export async function ensureModelOptions(command: string): Promise<void> {
+  if (requested.has(command)) {
+    return;
+  }
+
+  requested.add(command);
+  try {
+    await loadModelOptions(command);
+  } catch (error) {
+    requested.delete(command);
+    console.warn(`pade: could not load ${command}'s model catalog`, error);
+  }
+}
+
+/** The models `command` offers, empty until loaded. */
+function modelOptions(command: string): ModelOption[] {
+  return optionsByAgent.get(command) ?? [];
+}
+
+/** The catalog entry for a running model. A reported id may carry a
+ *  `provider/` prefix the catalog doesn't, or the reverse, so both forms match. */
+export function modelOption({ command, model }: {
+  command: string;
+  model: string;
+}): ModelOption | undefined {
+  return modelOptions(command).find(option => option.id === model || bareModel(option.id) === bareModel(model));
+}

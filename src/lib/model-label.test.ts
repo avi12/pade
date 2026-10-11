@@ -85,6 +85,19 @@ describe("effortStep", () => {
       })
     ).toBeNull();
   });
+
+  it("climbs the model's own catalog ladder when it has one", () => {
+    expect(
+      effortStep({
+        model: "gpt-5.6-terra",
+        effort: "max",
+        ladder: ["low", "medium", "high", "xhigh", "max", "ultra"]
+      })
+    ).toEqual({
+      step: 5,
+      steps: 6
+    });
+  });
 });
 
 describe("modelLabel", () => {

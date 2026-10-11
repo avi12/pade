@@ -10,7 +10,7 @@
 
 use std::path::PathBuf;
 
-use super::{read_session_state, state_file, RunningModel};
+use super::{read_session_state, state_file, EffortOption, ModelOption, RunningModel};
 
 const CONFIG_CONTENT_VARIABLE: &str = "OPENCODE_CONFIG_CONTENT";
 const STATE_FILE_VARIABLE: &str = "PADE_MODEL_STATE_FILE";
@@ -115,16 +115,97 @@ pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
 
 /// The model the user's global config names — what a fresh session opens on.
 fn configured_model() -> Option<RunningModel> {
+    Some(RunningModel {
+        model: configured_model_id()?,
+        effort: None,
+    })
+}
+
+fn configured_model_id() -> Option<String> {
     let path = crate::util::home_dir()?
         .join(".config")
         .join("opencode")
         .join(CONFIG_FILE);
-    let config: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
-    Some(RunningModel {
-        model: config.get("model")?.as_str()?.to_string(),
-        effort: None,
-    })
+    let config = read_json(&path)?;
+    Some(config.get("model")?.as_str()?.to_string())
+}
+
+fn read_json(path: &std::path::Path) -> Option<serde_json::Value> {
+    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
+}
+
+/// The reasoning-option kind whose values are effort levels.
+const EFFORT_OPTION_KIND: &str = "effort";
+
+/// The models the user reaches for — the configured one, favourites and
+/// recents from the picker state `OpenCode` saves — each described by the
+/// models.dev catalog it caches (name, effort values).
+pub(super) fn options() -> Vec<ModelOption> {
+    let Some(home) = crate::util::home_dir() else {
+        return Vec::new();
+    };
+    let picker_state = read_json(
+        &home
+            .join(".local")
+            .join("state")
+            .join("opencode")
+            .join("model.json"),
+    );
+    let catalog = read_json(&home.join(".cache").join("opencode").join("models.json"));
+
+    let favourites_then_recents = ["favorite", "recent"].into_iter().flat_map(|list| {
+        picker_state
+            .as_ref()
+            .and_then(|state| state.get(list)?.as_array().cloned())
+            .unwrap_or_default()
+    });
+    let mut ids: Vec<String> = configured_model_id().into_iter().collect();
+    for entry in favourites_then_recents {
+        let (Some(provider), Some(model)) = (
+            entry.get("providerID").and_then(serde_json::Value::as_str),
+            entry.get("modelID").and_then(serde_json::Value::as_str),
+        ) else {
+            continue;
+        };
+        let id = format!("{provider}/{model}");
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    ids.into_iter()
+        .map(|id| describe(&id, catalog.as_ref()))
+        .collect()
+}
+
+fn describe(id: &str, catalog: Option<&serde_json::Value>) -> ModelOption {
+    let entry = id
+        .split_once('/')
+        .and_then(|(provider, model)| catalog?.get(provider)?.get("models")?.get(model));
+    let efforts = entry
+        .and_then(|entry| entry.get("reasoning_options")?.as_array())
+        .and_then(|options| {
+            options.iter().find(|option| {
+                option.get("type").and_then(serde_json::Value::as_str) == Some(EFFORT_OPTION_KIND)
+            })
+        })
+        .and_then(|option| option.get("values")?.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(EffortOption::plain)
+                .collect()
+        })
+        .unwrap_or_default();
+    ModelOption {
+        id: id.to_string(),
+        name: entry
+            .and_then(|entry| entry.get("name")?.as_str())
+            .unwrap_or(id)
+            .to_string(),
+        efforts,
+        recommended_effort: None,
+    }
 }
 
 #[cfg(test)]

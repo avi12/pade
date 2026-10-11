@@ -9,7 +9,7 @@
 
 use std::path::{Path, PathBuf};
 
-use super::RunningModel;
+use super::{EffortOption, ModelOption, RunningModel};
 
 const EVENT_LOG: &str = "events.jsonl";
 const MODEL_CHANGE: &str = "session.model_change";
@@ -41,6 +41,56 @@ fn newest_model_in(lines: &str) -> Option<RunningModel> {
         }
         None
     })
+}
+
+/// The reasoning levels `copilot --effort` accepts (its `--help`, 1.0.34).
+const EFFORT_LEVELS: [&str; 4] = ["low", "medium", "high", "xhigh"];
+/// How many recent sessions to mine for models — enough to cover what the
+/// user switches between without reading every log ever written.
+const RECENT_SESSIONS: usize = 20;
+
+/// Copilot keeps no model catalog on disk, so the options are the models its
+/// recent sessions actually ran, newest first.
+pub(super) fn options() -> Vec<ModelOption> {
+    let Some(root) = session_root() else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+    let mut sessions: Vec<_> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let log = entry.path().join(EVENT_LOG);
+            let modified = std::fs::metadata(&log)
+                .and_then(|metadata| metadata.modified())
+                .ok()?;
+            Some((modified, log))
+        })
+        .collect();
+    sessions.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+
+    let mut models: Vec<String> = Vec::new();
+    for (_, log) in sessions.into_iter().take(RECENT_SESSIONS) {
+        if let Some(model) = crate::util::newest_in_tail(&log, newest_model_in) {
+            if !models.contains(&model.model) {
+                models.push(model.model);
+            }
+        }
+    }
+    models
+        .into_iter()
+        .map(|model| ModelOption {
+            name: model.clone(),
+            id: model,
+            efforts: EFFORT_LEVELS
+                .iter()
+                .copied()
+                .map(EffortOption::plain)
+                .collect(),
+            recommended_effort: None,
+        })
+        .collect()
 }
 
 /// `~/.copilot/session-state`, one folder per session.

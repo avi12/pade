@@ -175,6 +175,7 @@ pub fn run() {
             resume::agent_resume_args,
             session_context::agent_session_context,
             running_model::agent_running_model,
+            running_model::agent_model_options,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

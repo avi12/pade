@@ -14,8 +14,8 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 use super::{
-    hook_command, modified_millis, newer, read_session_state, timestamp_millis, HookShell,
-    RunningModel, Saved,
+    hook_command, modified_millis, newer, read_session_state, timestamp_millis, EffortOption,
+    HookShell, ModelOption, RunningModel, Saved,
 };
 
 const CONFIG_FLAG: &str = "-c";
@@ -183,6 +183,50 @@ fn saved_settings() -> SavedSettings {
     }
 }
 
+/// Codex's cached model catalog — what its own `/model` picker lists.
+const MODELS_CACHE_FILE: &str = "models_cache.json";
+/// A catalog model the picker shows (others are hidden or internal).
+const LISTED_VISIBILITY: &str = "list";
+
+/// The models Codex's own picker lists, each with the reasoning levels it
+/// supports and its default level.
+pub(super) fn options() -> Vec<ModelOption> {
+    let Some(catalog) = settings_directory()
+        .and_then(|directory| std::fs::read_to_string(directory.join(MODELS_CACHE_FILE)).ok())
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+    else {
+        return Vec::new();
+    };
+    let Some(models) = catalog.get("models").and_then(serde_json::Value::as_array) else {
+        return Vec::new();
+    };
+    models.iter().filter_map(model_option).collect()
+}
+
+fn model_option(model: &serde_json::Value) -> Option<ModelOption> {
+    let text = |key: &str| model.get(key).and_then(serde_json::Value::as_str);
+    if text("visibility") != Some(LISTED_VISIBILITY) {
+        return None;
+    }
+    let id = text("slug")?;
+    let efforts = model
+        .get("supported_reasoning_levels")
+        .and_then(serde_json::Value::as_array)
+        .map(|levels| {
+            levels
+                .iter()
+                .filter_map(|level| level.get("effort")?.as_str().map(EffortOption::plain))
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(ModelOption {
+        id: id.to_string(),
+        name: text("display_name").unwrap_or(id).to_string(),
+        efforts,
+        recommended_effort: text("default_reasoning_level").map(str::to_string),
+    })
+}
+
 /// `$CODEX_HOME`, else `~/.codex`.
 pub(super) fn settings_directory() -> Option<PathBuf> {
     std::env::var_os("CODEX_HOME")
@@ -196,7 +240,27 @@ pub(super) fn is_settings_file(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fingerprint, newest_turn_in};
+    use super::{fingerprint, model_option, newest_turn_in};
+
+    #[test]
+    fn lists_only_models_the_picker_shows() {
+        let listed = serde_json::json!({
+            "slug": "gpt-5.6-terra", "display_name": "GPT-5.6-Terra", "visibility": "list",
+            "default_reasoning_level": "medium",
+            "supported_reasoning_levels": [{ "effort": "low" }, { "effort": "ultra" }]
+        });
+        let hidden = serde_json::json!({ "slug": "gpt-reserve", "visibility": "hide" });
+        let option = model_option(&listed).expect("a listed model");
+        let levels: Vec<_> = option
+            .efforts
+            .iter()
+            .map(|effort| effort.id.as_str())
+            .collect();
+        assert_eq!(option.name, "GPT-5.6-Terra");
+        assert_eq!(levels, ["low", "ultra"]);
+        assert_eq!(option.recommended_effort.as_deref(), Some("medium"));
+        assert!(model_option(&hidden).is_none());
+    }
 
     #[test]
     fn fingerprints_a_hook_the_way_codex_does() {
