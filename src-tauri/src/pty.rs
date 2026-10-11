@@ -540,9 +540,11 @@ fn build_command(
             leading_args.push(arg.to_string());
         }
     }
-    // Claude reports its model and effort through hooks that ride in the same
-    // `--settings` layer as the theme — see claude_state.rs.
-    crate::claude_state::attach_hooks(&program, &mut leading_args);
+    // The agent reports its model and effort out of band (hooks, a plugin) —
+    // see running_model.rs. Its arguments join the list; its environment is
+    // applied with the rest below.
+    let model_report_env =
+        crate::running_model::attach(&program, conversation_id, &mut leading_args);
     // Bind the session to ADE's stable conversation id (`--session-id <uuid>`), so a
     // later spawn with the same id resumes THIS conversation rather than the most
     // recent — how ADE restarts one specific session (e.g. after `.mcp.json`
@@ -579,6 +581,9 @@ fn build_command(
     // it through to the agent it launches. Keyed by the command ADE knows (`codex`),
     // not the file it resolved to (`…\codex-x86_64-pc-windows-msvc.exe`).
     for (key, value) in crate::agents::spawn_env(&program) {
+        process.env(key, value);
+    }
+    for (key, value) in model_report_env {
         process.env(key, value);
     }
     // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the

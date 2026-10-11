@@ -272,16 +272,20 @@ export const contextMenu = {
 };
 
 /** How full a session's context window is, as the agent's own session log
- *  accounts for it, plus the model and effort its newest turn ran on. Declared
- *  here — the only place it's read — rather than in the shared types module. */
+ *  accounts for it. Declared here — the only place it's read — rather than in
+ *  the shared types module. */
 const SessionContext = z.object({
   usedTokens: z.number().nullable(),
-  windowTokens: z.number().nullable(),
-  model: z.string().nullable(),
+  windowTokens: z.number().nullable()
+});
+
+/** The model and reasoning effort a session runs, as the agent reported it. */
+const RunningModel = z.object({
+  model: z.string(),
   effort: z.string().nullable()
 });
 
-const ClaudeStateChanged = z.object({
+const RunningModelChanged = z.object({
   sessionId: z.string().nullable()
 });
 
@@ -354,20 +358,26 @@ export const pty = {
   }) => call("agent_resume_args", z.array(z.string()), { ...args }),
   /** How full the session's context window is, read from the agent's own session
    *  log rather than its terminal: the tokens its newest turn occupies, and the
-   *  window its recorded model advertises (via the live models.dev catalog) —
-   *  plus the model and effort that newest turn ran on. Each field is `null`
-   *  when it can't be resolved, and the whole payload is `null` for an agent
-   *  that keeps no readable log. */
+   *  window its recorded model advertises (via the live models.dev catalog).
+   *  Either half is `null` when it can't be resolved, and the whole payload is
+   *  `null` for an agent that keeps no readable log. */
   sessionContext: (args: {
     command: string;
     conversationId?: string;
   }) => call("agent_session_context", SessionContext.nullable(), { ...args }),
-  /** A Claude session's model or effort may have changed: its hooks reported
-   *  (`sessionId` is its conversation id), or the user's settings changed,
-   *  which can move any session's effort (`sessionId` null). Re-read
-   *  `sessionContext` for the sessions it names. */
-  onClaudeStateChanged: (callback: (sessionId: string | null) => void) =>
-    on("claude-state://changed", ClaudeStateChanged, payload => callback(payload.sessionId)),
+  /** The model and effort the session runs, as the agent itself reported it
+   *  (hooks, its own session log, a plugin — never its terminal). `null` when
+   *  the agent has reported nothing PADE can read. */
+  runningModel: (args: {
+    command: string;
+    conversationId: string;
+  }) => call("agent_running_model", RunningModel.nullable(), { ...args }),
+  /** A session's model or effort may have changed: the agent reported
+   *  (`sessionId` is its conversation id), or a settings file every session of
+   *  an agent reads changed (`sessionId` null). Re-read `runningModel` for the
+   *  sessions it names. */
+  onRunningModelChanged: (callback: (sessionId: string | null) => void) =>
+    on("agent-model://changed", RunningModelChanged, payload => callback(payload.sessionId)),
   onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
   onExit: (callback: (id: string) => void) =>
     on("pty://exit", PtyExit, payload => callback(payload.id))

@@ -24,13 +24,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::agents::ID_CLAUDE;
-use crate::util::home_dir;
+use crate::util::{home_dir, newest_in_tail};
 
 /// The live model catalog. Public, unauthenticated JSON: provider → model id →
 /// `limit.context` (the window in tokens).
@@ -38,13 +38,6 @@ const MODELS_CATALOG_URL: &str = "https://models.dev/api.json";
 /// Refresh the catalog at most this often, so a session that re-reads its
 /// context on every turn doesn't refetch 3 MB each time.
 const CATALOG_TTL: Duration = Duration::from_secs(6 * 60 * 60);
-
-/// How much of a session log's tail to scan for the newest `usage` block,
-/// widening only when the smaller read came up empty. A turn is usually a few
-/// KB, but one carrying a large tool result can be far longer — and this runs
-/// on every idle, so the common case must not pull a multi-megabyte transcript
-/// into memory.
-const TAIL_SCAN_BYTES: [u64; 3] = [64 * 1024, 1024 * 1024, 8 * 1024 * 1024];
 
 /// One provider block of the models.dev catalog — only the field we read.
 #[derive(Debug, Deserialize)]
@@ -113,61 +106,49 @@ impl TokenUsage {
     }
 }
 
-/// A session's context fill as the agent itself accounts for it, plus the model
-/// and effort its newest turn ran on. Every field is optional: a session whose
-/// first turn hasn't been written yet has no usage or model, and a catalog that
-/// can't be reached leaves the window unknown while the used count is still good.
-#[derive(Debug, Clone, Serialize)]
+/// A session's context fill as the agent itself accounts for it. Each half is
+/// optional: a session whose first turn hasn't been written yet has a model but
+/// no usage, and a catalog that can't be reached leaves the window unknown
+/// while the used count is still good.
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionContext {
     used_tokens: Option<u64>,
     window_tokens: Option<u64>,
-    model: Option<String>,
-    effort: Option<String>,
 }
 
 /// What a turn ran on, as the log records it.
 #[derive(Debug, PartialEq, Eq)]
-struct TurnProfile {
-    model: String,
-    effort: Option<String>,
+pub struct TurnProfile {
+    pub model: String,
+    pub effort: Option<String>,
 }
 
-/// The session's context fill and running model, or `None` for an agent other
-/// than Claude. Off the UI thread: it reads files and may make a network call.
+/// The session's context fill, or `None` when the agent keeps no readable log
+/// for it. Off the UI thread: it reads a file and may make a network call.
 #[tauri::command]
 pub async fn agent_session_context(
     command: String,
     conversation_id: Option<String>,
 ) -> Option<SessionContext> {
     tauri::async_runtime::spawn_blocking(move || {
-        if command != ID_CLAUDE {
-            return None;
-        }
-        let conversation_id = conversation_id?;
-        let log = claude_session_log(&command, Some(&conversation_id));
-        // The hooks speak for the live session; the log is the fallback for a
-        // session launched before PADE attached them.
-        let running = crate::claude_state::running_model(&conversation_id).or_else(|| {
-            let turn = newest_in_log(log.as_deref()?, newest_turn_in)?;
-            Some((turn.model, turn.effort))
-        });
-        let (model, effort) = running.map_or((None, None), |(model, effort)| (Some(model), effort));
+        let log = claude_session_log(&command, conversation_id.as_deref())?;
         Some(SessionContext {
-            used_tokens: log
-                .as_deref()
-                .and_then(|log| newest_in_log(log, newest_occupied_in)),
-            window_tokens: log
-                .as_deref()
-                .and_then(first_model_field)
-                .and_then(|model| window_for_model(&model)),
-            model,
-            effort,
+            used_tokens: newest_in_tail(&log, newest_occupied_in),
+            window_tokens: first_model_field(&log).and_then(|model| window_for_model(&model)),
         })
     })
     .await
     .ok()
     .flatten()
+}
+
+/// The model and effort Claude's own log says the newest real turn of
+/// `conversation_id` ran on — the fallback for a session launched before PADE
+/// attached its hooks (see `running_model`).
+pub fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
+    let log = claude_session_log(ID_CLAUDE, Some(conversation_id))?;
+    newest_in_tail(&log, newest_turn_in)
 }
 
 /// The session log Claude keeps for `conversation_id`, at
@@ -190,39 +171,6 @@ fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<Pa
     }
 
     None
-}
-
-/// What `find` reads off the newest turn that carries it, found by scanning
-/// backwards from the end so the answer costs a tail read rather than a full
-/// parse of a transcript that grows all session long.
-fn newest_in_log<T>(log: &Path, find: impl Fn(&str) -> Option<T>) -> Option<T> {
-    let length = std::fs::metadata(log).ok()?.len();
-    for scan in TAIL_SCAN_BYTES {
-        let tail = read_tail(log, scan)?;
-        if let Some(found) = find(&tail) {
-            return Some(found);
-        }
-
-        if scan >= length {
-            return None;
-        }
-    }
-
-    None
-}
-
-/// The last `bytes` of a file, lossily decoded. The read can start mid-line and
-/// even mid-character; both are harmless, because the caller parses whole JSON
-/// lines and a truncated first line simply fails to parse.
-fn read_tail(log: &Path, bytes: u64) -> Option<String> {
-    let mut file = File::open(log).ok()?;
-    let length = file.metadata().ok()?.len();
-    file.seek(SeekFrom::Start(length.saturating_sub(bytes)))
-        .ok()?;
-
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).ok()?;
-    Some(String::from_utf8_lossy(&buffer).into_owned())
 }
 
 /// The newest complete usage total in a chunk of JSON lines.

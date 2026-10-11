@@ -6,6 +6,7 @@
   // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
   import { AgentId } from "@/lib/agent-icon";
   import { clipboard, dragDrop, os, pty } from "@/lib/bridge";
+  import { coalesced } from "@/lib/coalesce";
   import { afterDelay } from "@/lib/delay";
   import { isDragOverElement } from "@/lib/drag-position";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
@@ -18,7 +19,13 @@
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { dropContext, observeContext, observeContextScreen, observeSessionLog } from "@/lib/stores/context.svelte";
+  import {
+    dropContext,
+    observeContext,
+    observeContextScreen,
+    observeRunningModel,
+    observeSessionLog
+  } from "@/lib/stores/context.svelte";
   import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
   import { setSessionStatus } from "@/lib/stores/sessions.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
@@ -103,7 +110,7 @@
   let terminal: Terminal;
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
-  let claudeStateUnlisten: UnlistenFn | undefined;
+  let runningModelUnlisten: UnlistenFn | undefined;
   let fileDropUnlisteners: UnlistenFn[] = [];
   // A file dragged from Explorer or an IDE is hovering over this pane.
   let fileDragOver = $state(false);
@@ -308,28 +315,7 @@
   // always lands too early on a fresh session and would leave
   // `measuredContextPercentage`, the one signal auto-handoff may act on, null for
   // the rest of that session's life.
-  //
-  // A request that lands mid-read is not dropped but queued for one more pass:
-  // a `/model` switch reported while the idle read is in flight would otherwise
-  // be lost until the next turn.
-  let readingSessionLog = false;
-  let rereadSessionLog = false;
-
-  async function readContextFromSessionLog() {
-    if (readingSessionLog) {
-      rereadSessionLog = true;
-      return;
-    }
-
-    readingSessionLog = true;
-    do {
-      rereadSessionLog = false;
-      await readSessionLogOnce();
-    } while (rereadSessionLog);
-    readingSessionLog = false;
-  }
-
-  async function readSessionLogOnce() {
+  const readContextFromSessionLog = coalesced(async () => {
     try {
       const context = await pty.sessionContext({
         command: session.agent.command,
@@ -339,15 +325,40 @@
         observeSessionLog({
           id: session.id,
           usedTokens: context.usedTokens,
-          windowTokens: context.windowTokens,
-          model: context.model,
-          effort: context.effort
+          windowTokens: context.windowTokens
         });
       }
     } catch {
     // Leave the reading as it was; a guessed number could end a session wrongly.
     }
-  }
+  });
+
+  // Read the model and effort the agent itself reported (see running_model.rs) —
+  // at mount, when a turn ends, and the moment the backend says a report or a
+  // settings file changed. Coalesced so a switch reported mid-read still lands.
+  const readRunningModel = coalesced(async () => {
+    const conversationId = session.conversationId;
+    if (conversationId === undefined) {
+      return;
+    }
+
+    try {
+      const running = await pty.runningModel({
+        command: session.agent.command,
+        conversationId
+      });
+      if (running !== null) {
+        observeRunningModel({
+          id: session.id,
+          model: running.model,
+          effort: running.effort
+        });
+      }
+    } catch (error) {
+      // The tag keeps what it showed; the next report or turn reads again.
+      console.warn("pade: could not read the running model", error);
+    }
+  });
 
   async function reportSchemeToSubscribedAgent() {
     const listensWithoutHandshake =
@@ -620,6 +631,7 @@
     }
 
     untrack(readContextFromSessionLog);
+    untrack(readRunningModel);
   });
 
   // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.
@@ -1429,19 +1441,19 @@
 
     exitUnlisten = exitListener;
 
-    const claudeStateListener = await pty.onClaudeStateChanged(async sessionId => {
-      const isClaude = session.agent.id === AgentId.Claude;
-      const concernsThisSession = isClaude && (sessionId === null || sessionId === session.conversationId);
+    const runningModelListener = await pty.onRunningModelChanged(async sessionId => {
+      const concernsThisSession = sessionId === null || sessionId === session.conversationId;
       if (concernsThisSession) {
-        await readContextFromSessionLog();
+        await readRunningModel();
       }
     });
     if (destroyed) {
-      claudeStateListener();
+      runningModelListener();
       return;
     }
 
-    claudeStateUnlisten = claudeStateListener;
+    runningModelUnlisten = runningModelListener;
+    await readRunningModel();
 
     await listenForFileDrops();
 
@@ -1836,7 +1848,7 @@
     destroyed = true;
     unlisten?.();
     exitUnlisten?.();
-    claudeStateUnlisten?.();
+    runningModelUnlisten?.();
     for (const stopListening of fileDropUnlisteners) {
       stopListening();
     }

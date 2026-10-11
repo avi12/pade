@@ -1,5 +1,4 @@
 mod agents;
-mod claude_state;
 mod clipboard;
 mod config;
 mod contextmenu;
@@ -19,6 +18,7 @@ mod recovery;
 mod refs;
 mod resume;
 mod runner;
+mod running_model;
 mod session_context;
 mod tasks;
 mod terminal_schemes;
@@ -38,9 +38,9 @@ use tauri::Manager;
 #[allow(clippy::too_many_lines)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Launched by a Claude hook to record a session's model and effort: do that
+    // Launched by an agent's hook to record a session's model and effort: do that
     // and exit before anything of the app (a window, a lowered priority) starts.
-    if claude_state::run_hook_sink_if_requested() {
+    if running_model::run_hook_sink_if_requested() {
         return;
     }
 
@@ -113,7 +113,7 @@ pub fn run() {
             pty::init(handle);
             runner::init(handle);
             watcher::init(handle);
-            claude_state::init(handle);
+            running_model::init(handle);
             app.manage(window::WindowProjects::default());
             app.manage(discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop
@@ -174,6 +174,7 @@ pub fn run() {
             theming::agent_theme_publish,
             resume::agent_resume_args,
             session_context::agent_session_context,
+            running_model::agent_running_model,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

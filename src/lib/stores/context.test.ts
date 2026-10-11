@@ -4,6 +4,7 @@ import {
   measuredContextPercentage,
   observeContext,
   observeContextScreen,
+  observeRunningModel,
   observeSessionLog,
   sessionModel
 } from "@/lib/stores/context.svelte";
@@ -504,7 +505,7 @@ describe("observeSessionLog", () => {
 });
 
 describe("sessionModel", () => {
-  it("is null until the log has named a model", () => {
+  it("is null until the agent has reported a model", () => {
     observeSessionLog({
       id: "model-unknown",
       usedTokens: null,
@@ -515,17 +516,13 @@ describe("sessionModel", () => {
   });
 
   it("follows a mid-session model and effort switch", () => {
-    observeSessionLog({
+    observeRunningModel({
       id: "model-switch",
-      usedTokens: 1_000,
-      windowTokens: null,
       model: "claude-opus-5-5",
       effort: "high"
     });
-    observeSessionLog({
+    observeRunningModel({
       id: "model-switch",
-      usedTokens: 2_000,
-      windowTokens: null,
       model: "claude-haiku-4-5-20251001",
       effort: null
     });
@@ -537,11 +534,9 @@ describe("sessionModel", () => {
     });
   });
 
-  it("keeps the last model through a reading with no turn in it", () => {
-    observeSessionLog({
+  it("keeps the model through a context reading", () => {
+    observeRunningModel({
       id: "model-kept",
-      usedTokens: 1_000,
-      windowTokens: null,
       model: "claude-opus-5-5",
       effort: "medium"
     });

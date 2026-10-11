@@ -37,9 +37,8 @@ interface ContextSignal {
   reportedTokens: number;
   /** Cumulative PTY characters seen — the estimate fallback. */
   characters: number;
-  /** The model the session runs (`claude-opus-5`), as Claude's own hooks
-   *  reported it — or, for a session launched before those, its newest logged
-   *  turn. Never read off the terminal. */
+  /** The model the session runs (`claude-opus-5`), as the agent itself
+   *  reported it (see running_model.rs). Never read off the terminal. */
   model: string | null;
   /** The reasoning effort it runs at (`high`), when the model has one. */
   effort: string | null;
@@ -363,27 +362,37 @@ export function measuredContextPercentage(id: string): number | null {
  *
  *  The window never overrides one the agent's own `(N context)` banner supplied,
  *  so a live reading still wins; the token count always overwrites, because a
- *  newer turn is strictly better than the turn before it — and so do the model
- *  and effort, which follow a mid-session switch. */
-export function observeSessionLog({ id, usedTokens, windowTokens, model = null, effort = null }: {
+ *  newer turn is strictly better than the turn before it. */
+export function observeSessionLog({ id, usedTokens, windowTokens }: {
   id: string;
   usedTokens: number | null;
   windowTokens: number | null;
-  model?: string | null;
-  effort?: string | null;
 }): void {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
-  const hasLoggedTurn = model !== null;
   signals.set(id, {
     ...previous,
     loggedTokens: usedTokens ?? previous.loggedTokens,
-    windowTokens: previous.windowTokens ?? windowTokens,
-    model: model ?? previous.model,
-    effort: hasLoggedTurn ? effort : previous.effort
+    windowTokens: previous.windowTokens ?? windowTokens
   });
 }
 
-/** The model and effort the session runs on, or null until Claude has
+/** Record the model and effort the agent itself reported for this session.
+ *  Each reading replaces the last whole — the agent reports both together, and
+ *  a model switch can drop the effort (a model without one). */
+export function observeRunningModel({ id, model, effort }: {
+  id: string;
+  model: string;
+  effort: string | null;
+}): void {
+  const previous = signals.get(id) ?? EMPTY_SIGNAL;
+  signals.set(id, {
+    ...previous,
+    model,
+    effort
+  });
+}
+
+/** The model and effort the session runs on, or null until the agent has
  *  reported one. */
 export function sessionModel(id: string): RunningModel | null {
   const signal = signals.get(id);
