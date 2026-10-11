@@ -1,4 +1,4 @@
-import { modelLabel, modelName } from "@/lib/model-label";
+import { effortStep, modelLabel, modelName } from "@/lib/model-label";
 import { describe, expect, it } from "vitest";
 
 describe("modelName", () => {
@@ -11,20 +11,90 @@ describe("modelName", () => {
     expect(modelName("claude-haiku-4-5-20251001")).toBe("Haiku 4.5");
   });
 
-  it("shows any other id exactly as logged", () => {
+  it("drops a provider prefix", () => {
+    expect(modelName("anthropic/claude-opus-5")).toBe("Opus 5");
+    expect(modelName("openai/gpt-5.6-sol")).toBe("gpt-5.6-sol");
+  });
+
+  it("shows any other id exactly as reported", () => {
     expect(modelName("gpt-5.6-sol")).toBe("gpt-5.6-sol");
     expect(modelName("claude-opus-5-5-preview")).toBe("claude-opus-5-5-preview");
   });
 });
 
+describe("effortStep", () => {
+  it("places a Claude level on Claude's ladder", () => {
+    expect(
+      effortStep({
+        model: "claude-opus-5",
+        effort: "high"
+      })
+    ).toEqual({
+      step: 3,
+      steps: 5
+    });
+    expect(
+      effortStep({
+        model: "claude-opus-5",
+        effort: "max"
+      })
+    ).toEqual({
+      step: 5,
+      steps: 5
+    });
+  });
+
+  it("places an OpenAI level on the OpenAI ladder", () => {
+    expect(
+      effortStep({
+        model: "gpt-5.6-sol",
+        effort: "minimal"
+      })
+    ).toEqual({
+      step: 1,
+      steps: 5
+    });
+    expect(
+      effortStep({
+        model: "openai/gpt-5.6-sol",
+        effort: "xhigh"
+      })
+    ).toEqual({
+      step: 5,
+      steps: 5
+    });
+  });
+
+  it("falls back to the other ladder for a level only it has", () => {
+    expect(
+      effortStep({
+        model: "gpt-5.6-sol",
+        effort: "max"
+      })
+    ).toEqual({
+      step: 5,
+      steps: 5
+    });
+  });
+
+  it("is null for a level no ladder knows", () => {
+    expect(
+      effortStep({
+        model: "claude-opus-5",
+        effort: "balanced"
+      })
+    ).toBeNull();
+  });
+});
+
 describe("modelLabel", () => {
-  it("adds the effort when the model has one", () => {
+  it("names the effort when the model has one", () => {
     expect(
       modelLabel({
         name: "Opus 5.5",
         effort: "high"
       })
-    ).toBe("Opus 5.5 · high");
+    ).toBe("Opus 5.5 · high effort");
   });
 
   it("is just the name without an effort", () => {

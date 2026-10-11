@@ -45,8 +45,10 @@ interface ContextSignal {
   effort: string | null;
 }
 
-/** A session's running model as a person reads it, with its effort. */
+/** A session's running model — its id, and its name as a person reads it —
+ *  with its effort. */
 export interface RunningModel {
+  id: string;
   name: string;
   effort: string | null;
 }
@@ -390,6 +392,7 @@ export function sessionModel(id: string): RunningModel | null {
   }
 
   return {
+    id: signal.model,
     name: modelName(signal.model),
     effort: signal.effort
   };

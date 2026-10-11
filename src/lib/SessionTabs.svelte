@@ -3,9 +3,10 @@
   import { ContextLevel, contextLevel } from "@/lib/context-level";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import type { DragHint } from "@/lib/drag-reorder";
+  import EffortBars from "@/lib/EffortBars.svelte";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { modelLabel } from "@/lib/model-label";
+  import { effortStep, modelLabel } from "@/lib/model-label";
   import { effective } from "@/lib/prefs.svelte";
   import { rovingMenu } from "@/lib/roving-menu";
   import { contextPercentage, measuredContextPercentage, sessionModel } from "@/lib/stores/context.svelte";
@@ -373,7 +374,18 @@
       {@render statusGlyph(session)}
       <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
       {#if running !== null}
-        <span class="model">{modelLabel(running)}</span>
+        {@const effort = running.effort === null ? null : effortStep({
+          model: running.id,
+          effort: running.effort
+        })}
+        <span class="model" aria-label={modelLabel(running)} data-tooltip={modelLabel(running)}>
+          {running.name}
+          {#if effort !== null}
+            <EffortBars step={effort.step} steps={effort.steps} />
+          {:else if running.effort !== null}
+            · {running.effort}
+          {/if}
+        </span>
       {/if}
     </button>
     <span
@@ -710,9 +722,21 @@
 
     /* The model and effort the agent's newest turn ran on — a quieter tag after
        the name, so the label still leads. */
+
+    /* The running model, then its effort as rising bars lit in the accent —
+       on the active pill the accent IS the fill, so they ride its on-colour. */
     .model {
+      --effort-lit: var(--primary);
+
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
       font-size: 10px;
-      opacity: 70%;
+      opacity: 80%;
+    }
+
+    .tab.active .model {
+      --effort-lit: currentColor;
     }
 
     /* The ✦ AI-name toggle — subdued on every pill, brighter on the one being

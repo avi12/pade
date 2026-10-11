@@ -531,6 +531,7 @@ describe("sessionModel", () => {
     });
 
     expect(sessionModel("model-switch")).toEqual({
+      id: "claude-haiku-4-5-20251001",
       name: "Haiku 4.5",
       effort: null
     });
@@ -551,6 +552,7 @@ describe("sessionModel", () => {
     });
 
     expect(sessionModel("model-kept")).toEqual({
+      id: "claude-opus-5-5",
       name: "Opus 5.5",
       effort: "medium"
     });
