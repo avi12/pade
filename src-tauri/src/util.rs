@@ -498,6 +498,19 @@ fn strip_jsonc_sugar(raw: &str) -> String {
     json
 }
 
+/// Write `contents` to `path` only when the file is missing or differs, so a
+/// spawn never churns the disk (or file-watcher events) with identical bytes.
+pub fn write_if_stale(path: &Path, contents: &str) -> std::io::Result<()> {
+    let is_current = std::fs::read_to_string(path).is_ok_and(|existing| existing == contents);
+    if is_current {
+        return Ok(());
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, contents)
+}
+
 /// PADE's own per-user data folder: `%LOCALAPPDATA%\pade` on Windows,
 /// `~/.pade` elsewhere. The one place every PADE-owned folder hangs off.
 pub fn pade_data_dir() -> Option<PathBuf> {

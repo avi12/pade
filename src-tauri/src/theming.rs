@@ -49,6 +49,8 @@
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
+use crate::util::write_if_stale;
+
 /// ADE's resolved appearance — the frontend's `appearance.scheme`, on the wire.
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -213,19 +215,6 @@ const PADE_LIGHT_THEME_FILE: &str = "pade-light.json";
 const PADE_LIGHT_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.json","theme":{"primary":"#4078f2","secondary":"#a626a4","accent":"#0184bc","error":"#e45649","warning":"#c18401","success":"#50a14f","info":"#0184bc","text":"#383a42","textMuted":"#696c77","background":"#fafafa","backgroundPanel":"#f0f0f1","backgroundElement":"#e5e5e6","border":"#d4d4d5","borderActive":"#a0a1a7","borderSubtle":"#e5e5e6","diffAdded":"#50a14f","diffRemoved":"#e45649","diffContext":"#696c77","diffHunkHeader":"#696c77","diffHighlightAdded":"#2d6b2c","diffHighlightRemoved":"#a8342a","diffAddedBg":"#e8f5e9","diffRemovedBg":"#fdecea","diffContextBg":"#fafafa","diffLineNumber":"#d4d4d5","diffAddedLineNumberBg":"#d7ecd8","diffRemovedLineNumberBg":"#f8d7d3","markdownText":"#383a42","markdownHeading":"#a626a4","markdownLink":"#4078f2","markdownLinkText":"#0184bc","markdownCode":"#50a14f","markdownBlockQuote":"#696c77","markdownEmph":"#c18401","markdownStrong":"#383a42","markdownHorizontalRule":"#d4d4d5","markdownListItem":"#4078f2","markdownListEnumeration":"#0184bc","markdownImage":"#4078f2","markdownImageText":"#0184bc","markdownCodeBlock":"#383a42","syntaxComment":"#a0a1a7","syntaxKeyword":"#a626a4","syntaxFunction":"#4078f2","syntaxVariable":"#e45649","syntaxString":"#50a14f","syntaxNumber":"#986801","syntaxType":"#c18401","syntaxOperator":"#0184bc","syntaxPunctuation":"#383a42"}}"##;
 const PADE_DARK_THEME_FILE: &str = "pade-dark.json";
 const PADE_DARK_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.json","theme":{"primary":"#61afef","secondary":"#c678dd","accent":"#56b6c2","error":"#e06c75","warning":"#e5c07b","success":"#98c379","info":"#56b6c2","text":"#abb2bf","textMuted":"#828997","background":"#282c34","backgroundPanel":"#21252b","backgroundElement":"#2c313a","border":"#3e4451","borderActive":"#5c6370","borderSubtle":"#2c313a","diffAdded":"#98c379","diffRemoved":"#e06c75","diffContext":"#828997","diffHunkHeader":"#828997","diffHighlightAdded":"#6cbe6c","diffHighlightRemoved":"#e06c75","diffAddedBg":"#2b3328","diffRemovedBg":"#3a2a2a","diffContextBg":"#282c34","diffLineNumber":"#4b5263","diffAddedLineNumberBg":"#33402f","diffRemovedLineNumberBg":"#463131","markdownText":"#abb2bf","markdownHeading":"#c678dd","markdownLink":"#61afef","markdownLinkText":"#56b6c2","markdownCode":"#98c379","markdownBlockQuote":"#828997","markdownEmph":"#e5c07b","markdownStrong":"#abb2bf","markdownHorizontalRule":"#3e4451","markdownListItem":"#61afef","markdownListEnumeration":"#56b6c2","markdownImage":"#61afef","markdownImageText":"#56b6c2","markdownCodeBlock":"#abb2bf","syntaxComment":"#5c6370","syntaxKeyword":"#c678dd","syntaxFunction":"#61afef","syntaxVariable":"#e06c75","syntaxString":"#98c379","syntaxNumber":"#d19a66","syntaxType":"#e5c07b","syntaxOperator":"#56b6c2","syntaxPunctuation":"#abb2bf"}}"##;
-
-/// Write `contents` to `path` only when the file is missing or differs, so a
-/// spawn never churns the disk (or file-watcher events) with identical bytes.
-fn write_if_stale(path: &Path, contents: &str) -> std::io::Result<()> {
-    let is_current = std::fs::read_to_string(path).is_ok_and(|existing| existing == contents);
-    if is_current {
-        return Ok(());
-    }
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(path, contents)
-}
 
 /// Write the pade-namespaced theme + the per-scheme tui config, returning the
 /// tui-config path to expose via the env variable. `themes_dir` is opencode's
