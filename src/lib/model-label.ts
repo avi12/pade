@@ -85,15 +85,20 @@ export function effortStep({ model, effort, ladder = [] }: {
   return null;
 }
 
-/** How hot an effort runs, from 0 (its ladder's lowest) to 1 (its highest) -
- *  the point on the cool-to-hot colour ramp it is drawn in. A one-level
- *  ladder has nowhere to climb, so its only level is the top. */
-export function effortHeat({ step, steps }: {
+/** How many distinct effort colours the theme defines (`--effort-tone-1..5`). */
+const EFFORT_TONES = 5;
+
+/** Which of the theme's effort colours a level is drawn in, 1 (coolest) to
+ *  `EFFORT_TONES` (hottest): its place on its ladder, spread over the tones
+ *  so a ladder's lowest and highest always land on the two ends. A one-level
+ *  ladder has nowhere to climb, so its only level is the hottest. */
+export function effortTone({ step, steps }: {
   step: number;
   steps: number;
 }) {
   const hasRange = steps > 1;
-  return hasRange ? (step - 1) / (steps - 1) : 1;
+  const heat = hasRange ? (step - 1) / (steps - 1) : 1;
+  return Math.round(heat * (EFFORT_TONES - 1)) + 1;
 }
 
 /** A model's human name and its effort as one line: "Opus 5.5 · high effort". */

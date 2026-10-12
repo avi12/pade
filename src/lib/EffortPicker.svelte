@@ -4,7 +4,7 @@
 
   import type { ModelOption } from "@/lib/bridge";
   import EffortTint from "@/lib/EffortTint.svelte";
-  import { effortHeat } from "@/lib/model-label";
+  import { effortTone } from "@/lib/model-label";
 
   const { efforts, current, recommended, onpick }: {
     efforts: ModelOption["efforts"];
@@ -20,7 +20,7 @@
   {#each efforts as effort, index (effort.id)}
     {@const isCurrent = current === effort.id}
     {@const isRecommended = recommended === effort.id}
-    {@const heat = effortHeat({
+    {@const tone = effortTone({
       step: index + 1,
       steps: efforts.length
     })}
@@ -32,7 +32,7 @@
       data-tooltip={isRecommended ? `${effort.name} - recommended` : effort.name}
       onclick={async () => await onpick(effort.id)}
     >
-      <EffortTint {heat} isFilled>{effort.name}</EffortTint>
+      <EffortTint isFilled {tone}>{effort.name}</EffortTint>
     </button>
   {/each}
 </div>

@@ -6,7 +6,7 @@
 
   import EffortTint from "@/lib/EffortTint.svelte";
   import Icon from "@/lib/Icon.svelte";
-  import { effortHeat, effortStep, modelLabel } from "@/lib/model-label";
+  import { effortStep, effortTone, modelLabel } from "@/lib/model-label";
   import { sessionModel } from "@/lib/stores/context.svelte";
   import { modelOption } from "@/lib/stores/modelOptions.svelte";
   import type { AgentSession } from "@/lib/types";
@@ -42,7 +42,7 @@
 
     return modelAndEffort;
   });
-  const heat = $derived.by(() => {
+  const tone = $derived.by(() => {
     if (running === null || running.effort === null) {
       return null;
     }
@@ -60,7 +60,7 @@
       return null;
     }
 
-    return effortHeat(step);
+    return effortTone(step);
   });
 </script>
 
@@ -74,7 +74,7 @@
     onclick={async () => await onopen()}
     popovertarget={menuId}
   >
-    <EffortTint {heat}>
+    <EffortTint {tone}>
       {running.name}
       {#if running.ultracode}
         <Icon name="bolt" size={12} />

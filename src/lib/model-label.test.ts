@@ -1,7 +1,7 @@
 import {
   bareModel,
-  effortHeat,
   effortStep,
+  effortTone,
   modelLabel,
   modelName
 } from "@/lib/model-label";
@@ -117,35 +117,30 @@ describe("effortStep", () => {
   });
 });
 
-describe("effortHeat", () => {
-  it("runs from cool at the lowest level to hot at the highest", () => {
-    expect(
-      effortHeat({
-        step: 1,
-        steps: 5
-      })
-    ).toBe(0);
-    expect(
-      effortHeat({
-        step: 3,
-        steps: 5
-      })
-    ).toBe(0.5);
-    expect(
-      effortHeat({
-        step: 5,
-        steps: 5
-      })
-    ).toBe(1);
+describe("effortTone", () => {
+  it("gives each level of a five-level ladder its own tone", () => {
+    const tones = [1, 2, 3, 4, 5].map(step => effortTone({
+      step,
+      steps: 5
+    }));
+    expect(tones).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it("draws a one-level ladder's only level hot", () => {
+  it("spans the coolest to the hottest tone on a shorter ladder", () => {
+    const tones = [1, 2, 3, 4].map(step => effortTone({
+      step,
+      steps: 4
+    }));
+    expect(tones).toEqual([1, 2, 4, 5]);
+  });
+
+  it("draws a one-level ladder's only level hottest", () => {
     expect(
-      effortHeat({
+      effortTone({
         step: 1,
         steps: 1
       })
-    ).toBe(1);
+    ).toBe(5);
   });
 });
 

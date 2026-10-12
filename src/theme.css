@@ -161,12 +161,14 @@
   --critical: hsl(352deg 72% 50%);
   --critical-wash: hsl(352deg 72% 55% / 14%);
 
-  /* Reasoning effort - green → amber → red for how hard a model thinks (see
-     lib/EffortTint). Saturated past the status hues so a tab's model name
-     reads its effort at a glance, yet dark enough to stay legible as text. */
-  --effort-low: hsl(145deg 85% 30%);
-  --effort-mid: hsl(36deg 100% 40%);
-  --effort-high: hsl(350deg 90% 46%);
+  /* Reasoning effort - five tones, coolest to hottest: blue, green, amber,
+     red, purple (see lib/EffortTint). Hues set far apart so neighbouring
+     levels never read alike, and dark enough to stay legible as text. */
+  --effort-tone-1: hsl(215deg 85% 45%);
+  --effort-tone-2: hsl(150deg 80% 30%);
+  --effort-tone-3: hsl(38deg 100% 38%);
+  --effort-tone-4: hsl(5deg 85% 48%);
+  --effort-tone-5: hsl(285deg 70% 48%);
 
   /* Context-window fuel gauge — a blue→amber→red ramp for how full an agent's
      context is (see lib/contextLevel). Its own scale, distinct from the
@@ -320,9 +322,11 @@
   --warning-wash: hsl(28deg 90% 58% / 16%);
   --critical: hsl(352deg 80% 70%);
   --critical-wash: hsl(352deg 80% 60% / 16%);
-  --effort-low: hsl(145deg 75% 58%);
-  --effort-mid: hsl(42deg 100% 60%);
-  --effort-high: hsl(350deg 100% 68%);
+  --effort-tone-1: hsl(212deg 95% 70%);
+  --effort-tone-2: hsl(145deg 70% 58%);
+  --effort-tone-3: hsl(45deg 100% 60%);
+  --effort-tone-4: hsl(5deg 95% 66%);
+  --effort-tone-5: hsl(290deg 85% 75%);
   --context-ok: hsl(212deg 90% 66%);
   --context-warning: hsl(45deg 95% 60%);
   --context-critical: hsl(2deg 85% 66%);
@@ -422,9 +426,11 @@
   --warning-wash: rgb(255 194 77 / 16%);
   --critical: #ff2a4d;
   --critical-wash: rgb(255 42 77 / 18%);
-  --effort-low: #39ff88;
-  --effort-mid: #ffc400;
-  --effort-high: #ff2a6d;
+  --effort-tone-1: #7a8cff;
+  --effort-tone-2: #39ff88;
+  --effort-tone-3: #ffd400;
+  --effort-tone-4: #ff4d2e;
+  --effort-tone-5: #e040ff;
   --context-ok: #00e5ff;
   --context-warning: #ffc24d;
   --context-critical: #ff2a4d;
@@ -563,9 +569,11 @@
   --critical-wash: rgb(196 0 78 / 12%);
 
   /* Ink-dark so the effort still writes on the cyan active-tab fill. */
-  --effort-low: #00753a;
-  --effort-mid: #a34a00;
-  --effort-high: #c4003c;
+  --effort-tone-1: #1f4fd1;
+  --effort-tone-2: #00753a;
+  --effort-tone-3: #8a5a00;
+  --effort-tone-4: #c42000;
+  --effort-tone-5: #8a1fb8;
   --context-ok: #00668f;
   --context-warning: hsl(26deg 95% 36%);
   --context-critical: #c4004e;
