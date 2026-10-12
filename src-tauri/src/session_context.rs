@@ -71,7 +71,7 @@ struct LogMessage {
 }
 
 /// Claude's placeholder model on turns it writes itself (an API error, an
-/// interrupt) — not a model anything ran on.
+/// interrupt) - not a model anything ran on.
 const SYNTHETIC_MODEL: &str = "<synthetic>";
 
 /// The token accounting an assistant turn records. Every count is optional
@@ -144,7 +144,7 @@ pub async fn agent_session_context(
 }
 
 /// The model and effort Claude's own log says the newest real turn of
-/// `conversation_id` ran on — the fallback for a session launched before PADE
+/// `conversation_id` ran on - the fallback for a session launched before PADE
 /// attached its hooks (see `running_model`).
 pub fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
     let log = claude_session_log(ID_CLAUDE, Some(conversation_id))?;
@@ -184,19 +184,21 @@ fn newest_occupied_in(lines: &str) -> Option<u64> {
     })
 }
 
-/// The model and effort of the newest real turn in a chunk of JSON lines — the
+/// The model and effort of the newest real turn in a chunk of JSON lines - the
 /// newest, not the first, so a mid-session `/model` or `/effort` switch shows.
 fn newest_turn_in(lines: &str) -> Option<TurnProfile> {
-    lines.lines().rev().find_map(|line| {
-        let parsed = serde_json::from_str::<LogLine>(line).ok()?;
-        let model = parsed
-            .message?
-            .model
-            .filter(|model| model != SYNTHETIC_MODEL)?;
-        Some(TurnProfile {
-            model,
-            effort: parsed.effort,
-        })
+    lines.lines().rev().find_map(turn_from_line)
+}
+
+/// The turn one log line records, unless it has no model or Claude wrote it
+/// itself.
+fn turn_from_line(line: &str) -> Option<TurnProfile> {
+    let parsed = serde_json::from_str::<LogLine>(line).ok()?;
+    let model = parsed.message?.model?;
+    let is_real_turn = model != SYNTHETIC_MODEL;
+    is_real_turn.then_some(TurnProfile {
+        model,
+        effort: parsed.effort,
     })
 }
 

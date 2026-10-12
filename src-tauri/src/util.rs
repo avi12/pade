@@ -500,7 +500,7 @@ fn strip_jsonc_sugar(raw: &str) -> String {
 
 /// How much of an append-only log's tail to scan for the newest entry that
 /// answers, widening only when the smaller read came up empty. An entry is
-/// usually a few KB, but one carrying a large tool result can be far longer —
+/// usually a few KB, but one carrying a large tool result can be far longer -
 /// and these scans run on every idle, so the common case must not pull a
 /// multi-megabyte transcript into memory.
 const TAIL_SCAN_BYTES: [u64; 3] = [64 * 1024, 1024 * 1024, 8 * 1024 * 1024];
@@ -511,13 +511,14 @@ const TAIL_SCAN_BYTES: [u64; 3] = [64 * 1024, 1024 * 1024, 8 * 1024 * 1024];
 /// the tail as text and should search its lines newest first.
 pub fn newest_in_tail<T>(log: &Path, find: impl Fn(&str) -> Option<T>) -> Option<T> {
     let length = std::fs::metadata(log).ok()?.len();
-    for scan in TAIL_SCAN_BYTES {
-        let tail = read_tail(log, scan)?;
+    for scan_bytes in TAIL_SCAN_BYTES {
+        let tail = read_tail(log, scan_bytes)?;
         if let Some(found) = find(&tail) {
             return Some(found);
         }
 
-        if scan >= length {
+        let has_read_whole_file = scan_bytes >= length;
+        if has_read_whole_file {
             return None;
         }
     }

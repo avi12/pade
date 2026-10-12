@@ -91,7 +91,7 @@ struct AgentDefinition {
 pub enum SessionIdFlag {
     /// The flag, then the id as its own argument: `--session-id <id>`.
     Separate(&'static str),
-    /// The flag and id joined with `=`: `--resume=<id>` — for a flag whose value
+    /// The flag and id joined with `=`: `--resume=<id>` - for a flag whose value
     /// is optional, where a separate id would be read as a prompt.
     Joined(&'static str),
 }

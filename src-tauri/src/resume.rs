@@ -185,14 +185,14 @@ fn opencode_session_id(output: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// The extra launch arguments that reopen the agent's recorded conversation —
-/// `["resume", "<uuid>"]` for Codex, `["--session", "<ses_…>"]` for opencode —
+/// The extra launch arguments that reopen the agent's recorded conversation -
+/// `["resume", "<uuid>"]` for Codex, `["--session", "<ses_…>"]` for opencode -
 /// empty when the agent has no resume mechanism ADE can drive (Claude and
 /// Copilot are pinned at spawn by PADE's own id instead) or nothing is
 /// recorded. The session the agent itself reported for `conversation_id` wins
-/// (exact — see `running_model`); otherwise the newest one recorded in `cwd`.
+/// (exact - see `running_model`); otherwise the newest one recorded in `cwd`.
 // `async` so Tauri runs this on its worker pool: a synchronous command runs on
-// the MAIN thread, and the opencode lookup shells out — when that child wedged
+// the MAIN thread, and the opencode lookup shells out - when that child wedged
 // (pre-timeout), the whole window stopped pumping messages ("Not Responding").
 // The lookup itself is additionally time-bounded; async keeps even the bounded
 // wait off the UI thread.
@@ -209,21 +209,14 @@ pub async fn agent_resume_args(
         return arguments;
     }
 
-    if command == ID_OPENCODE {
-        return match opencode_session_for_cwd(&cwd) {
-            Some(session_id) => vec!["--session".to_string(), session_id],
-            None => Vec::new(),
-        };
-    }
-
-    if command != ID_CODEX {
-        return Vec::new();
-    }
-
-    match codex_session_for_cwd(&cwd) {
-        Some(session_id) => vec!["resume".to_string(), session_id],
-        None => Vec::new(),
-    }
+    let newest_in_cwd = match command.as_str() {
+        ID_OPENCODE => opencode_session_for_cwd(&cwd),
+        ID_CODEX => codex_session_for_cwd(&cwd),
+        _ => None,
+    };
+    newest_in_cwd
+        .and_then(|session_id| crate::running_model::session_resume_arguments(&command, session_id))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

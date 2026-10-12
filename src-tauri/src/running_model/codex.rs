@@ -1,14 +1,18 @@
-//! Codex: trusted hooks passed with `-c`, its per-turn rollout, and
+//! Codex adapter: trusted hooks passed with `-c`, its per-turn rollout log, and
 //! `config.toml`.
 //!
-//! `SessionStart`, `UserPromptSubmit` and `Stop` hooks carry the model and the
-//! session's rollout path. Hooks from `-c` only run once trusted, so the launch
-//! also trusts exactly PADE's own three — by the fingerprint Codex itself
-//! computes — never `--dangerously-bypass-hook-trust`, which would trust a
-//! repository's hooks too. No hook carries the effort: the rollout's newest
-//! `turn_context` does, written at the start of every turn. `/model` saves the
-//! model and effort into `config.toml` at once, so a switch shows before the
-//! next turn. Measured against Codex 0.161.
+//! Reporting: `SessionStart`, `UserPromptSubmit` and `Stop` hooks carry the
+//! model and the path of the session's rollout (Codex's own transcript). Hooks
+//! from `-c` only run once trusted, so the launch also trusts exactly PADE's own
+//! three - by the fingerprint Codex itself computes - never
+//! `--dangerously-bypass-hook-trust`, which would trust a repository's hooks
+//! too.
+//!
+//! Reading: no hook carries the effort, but the rollout's newest `turn_context`
+//! line does, written at the start of every turn. `/model` saves the model and
+//! effort into `config.toml` at once, so a switch shows before the next turn.
+//!
+//! Measured against Codex 0.161.
 
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -20,7 +24,11 @@ use super::{
 
 const CONFIG_FLAG: &str = "-c";
 const SETTINGS_FILE: &str = "config.toml";
-/// How long Codex may run a hook — fixed, because it is part of the trust
+/// Codex's cached model catalog - what its own `/model` picker lists.
+const MODELS_CACHE_FILE: &str = "models_cache.json";
+/// A catalog model the picker shows (others are hidden or internal).
+const LISTED_VISIBILITY: &str = "list";
+/// How long Codex may run a hook - fixed, because it is part of the trust
 /// fingerprint.
 const HOOK_TIMEOUT_SECONDS: u64 = 30;
 /// The config layer Codex files every `-c` override under, which the trust
@@ -40,40 +48,127 @@ const HOOK_EVENTS: [(&str, &str); 3] = [
     ("Stop", "stop"),
 ];
 
+/// Add the `-c` overrides that register PADE's hooks and mark them trusted.
 pub(super) fn attach(arguments: &mut Vec<String>) {
+    let Some(command) = hook_command(hook_shell()) else {
+        return;
+    };
+    arguments.push(CONFIG_FLAG.to_string());
+    arguments.push(format!("hooks={{{}}}", hook_entries(&command)));
+    arguments.push(CONFIG_FLAG.to_string());
+    arguments.push(format!("hooks.state={{{}}}", trust_entries(&command)));
+}
+
+/// `-c` overrides that run a picked model and effort for one launch - unlike
+/// `/model`, they never reach `config.toml`.
+pub(super) fn choice_overrides(
+    model: Option<&str>,
+    effort: Option<&str>,
+) -> Vec<(&'static str, String)> {
+    let mut overrides = Vec::new();
+    if let Some(model) = model {
+        overrides.push((CONFIG_FLAG, format!("model={}", toml_string(model))));
+    }
+    if let Some(effort) = effort {
+        let setting = format!("model_reasoning_effort={}", toml_string(effort));
+        overrides.push((CONFIG_FLAG, setting));
+    }
+    overrides
+}
+
+/// The session's model and effort: the newest of what its hooks and rollout
+/// reported and what `/model` last saved. Codex opens its session - and fires
+/// its first hook - only at the first prompt, so until then the saved settings
+/// are what it will run.
+pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
+    let state = read_session_state(conversation_id).unwrap_or_default();
+    let turn = state
+        .transcript
+        .as_deref()
+        .and_then(|transcript| crate::util::newest_in_tail(Path::new(transcript), newest_turn_in));
+    let saved = saved_settings();
+
+    let hook_model = state.model.as_deref().map(|model| (model, state.model_at));
+    let turn_model = turn.as_ref().map(|turn| (turn.model.as_str(), turn.at));
+    let reported_model = [hook_model, turn_model]
+        .into_iter()
+        .flatten()
+        .max_by_key(|(_, at)| *at);
+    let model = newer(reported_model, saved.model.as_ref(), 0)?;
+
+    // A turn's effort, or one PADE launched the session with - whichever is newer.
+    let turned_effort = turn
+        .as_ref()
+        .and_then(|turn| Some((turn.effort.as_deref()?, turn.at)));
+    let launched_effort = state
+        .effort
+        .as_deref()
+        .map(|effort| (effort, state.effort_at));
+    let reported_effort = [turned_effort, launched_effort]
+        .into_iter()
+        .flatten()
+        .max_by_key(|(_, at)| *at);
+    Some(RunningModel {
+        effort: newer(reported_effort, saved.effort.as_ref(), 0),
+        model,
+    })
+}
+
+/// The models Codex's own picker lists, each with the reasoning levels it
+/// supports and its default level.
+pub(super) fn options() -> Vec<ModelOption> {
+    let Some(catalog) = read_models_cache() else {
+        return Vec::new();
+    };
+    let Some(models) = catalog.get("models").and_then(serde_json::Value::as_array) else {
+        return Vec::new();
+    };
+    models.iter().filter_map(model_option).collect()
+}
+
+/// `$CODEX_HOME`, else `~/.codex`.
+pub(super) fn settings_directory() -> Option<PathBuf> {
+    std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .or_else(|| Some(crate::util::home_dir()?.join(".codex")))
+}
+
+pub(super) fn is_settings_file(name: &str) -> bool {
+    name == SETTINGS_FILE
+}
+
+fn hook_shell() -> HookShell {
     // Codex runs hook commands through PowerShell on Windows (measured).
-    let shell = if cfg!(windows) {
+    if cfg!(windows) {
         HookShell::PowerShell
     } else {
         HookShell::Posix
-    };
-    let Some(command) = hook_command(shell) else {
-        return;
-    };
-    let quoted_command = toml_string(&command);
+    }
+}
 
+/// `SessionStart=[...],UserPromptSubmit=[...],Stop=[...]`, each running
+/// `command`.
+fn hook_entries(command: &str) -> String {
+    let quoted_command = toml_string(command);
     let handler = format!(
         "[{{hooks=[{{type=\"command\",command={quoted_command},timeout={HOOK_TIMEOUT_SECONDS}}}]}}]"
     );
-    let hooks = HOOK_EVENTS
-        .iter()
-        .map(|(event, _)| format!("{event}={handler}"))
-        .collect::<Vec<_>>()
-        .join(",");
-    let trust = HOOK_EVENTS
-        .iter()
-        .map(|(_, trust_name)| {
-            let key = toml_string(&format!("{OVERRIDE_LAYER}:{trust_name}:0:0"));
-            let hash = toml_string(&fingerprint(trust_name, &command));
-            format!("{key}={{trusted_hash={hash}}}")
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    let mut entries = Vec::new();
+    for (event, _) in HOOK_EVENTS {
+        entries.push(format!("{event}={handler}"));
+    }
+    entries.join(",")
+}
 
-    arguments.push(CONFIG_FLAG.to_string());
-    arguments.push(format!("hooks={{{hooks}}}"));
-    arguments.push(CONFIG_FLAG.to_string());
-    arguments.push(format!("hooks.state={{{trust}}}"));
+/// One `"<layer>:<event>:0:0"={trusted_hash="sha256:..."}` per hook.
+fn trust_entries(command: &str) -> String {
+    let mut entries = Vec::new();
+    for (_, trust_name) in HOOK_EVENTS {
+        let key = toml_string(&format!("{OVERRIDE_LAYER}:{trust_name}:0:0"));
+        let hash = toml_string(&fingerprint(trust_name, command));
+        entries.push(format!("{key}={{trusted_hash={hash}}}"));
+    }
+    entries.join(",")
 }
 
 /// The fingerprint Codex trusts a hook group by: sha256 of its compact JSON,
@@ -93,52 +188,8 @@ fn fingerprint(trust_name: &str, command: &str) -> String {
     format!("sha256:{digest:x}")
 }
 
-/// `-c` overrides that run a picked model and effort for one launch — unlike
-/// `/model`, they never reach `config.toml`.
-pub(super) fn choice_overrides(
-    model: Option<&str>,
-    effort: Option<&str>,
-) -> Vec<(&'static str, String)> {
-    [
-        model.map(|model| format!("model={}", toml_string(model))),
-        effort.map(|effort| format!("model_reasoning_effort={}", toml_string(effort))),
-    ]
-    .into_iter()
-    .flatten()
-    .map(|setting| (CONFIG_FLAG, setting))
-    .collect()
-}
-
 fn toml_string(value: &str) -> String {
     toml::Value::String(value.to_string()).to_string()
-}
-
-/// The session's model and effort: the newest of what its hooks and rollout
-/// reported and what `/model` last saved. Codex opens its session — and fires
-/// its first hook — only at the first prompt, so until then the saved settings
-/// are what it will run.
-pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
-    let state = read_session_state(conversation_id).unwrap_or_default();
-    let turn = state
-        .transcript
-        .as_deref()
-        .and_then(|transcript| crate::util::newest_in_tail(Path::new(transcript), newest_turn_in));
-    let saved = saved_settings();
-
-    let hooked = state.model.as_deref().map(|model| (model, state.model_at));
-    let turned = turn.as_ref().map(|turn| (turn.model.as_str(), turn.at));
-    let reported_model = [hooked, turned]
-        .into_iter()
-        .flatten()
-        .max_by_key(|(_, at)| *at);
-    let model = newer(reported_model, saved.model.as_ref(), 0)?;
-    let reported_effort = turn
-        .as_ref()
-        .and_then(|turn| Some((turn.effort.as_deref()?, turn.at)));
-    Some(RunningModel {
-        effort: newer(reported_effort, saved.effort.as_ref(), 0),
-        model,
-    })
 }
 
 /// A rollout's newest turn: what it ran on, and when.
@@ -150,20 +201,24 @@ struct Turn {
 }
 
 fn newest_turn_in(lines: &str) -> Option<Turn> {
-    lines.lines().rev().find_map(|line| {
-        let entry: serde_json::Value = serde_json::from_str(line).ok()?;
-        if entry.get("type")?.as_str()? != TURN_CONTEXT {
-            return None;
-        }
-        let payload = entry.get("payload")?;
-        let text = |pointer: &str| payload.pointer(pointer).and_then(serde_json::Value::as_str);
-        Some(Turn {
-            model: text("/model")?.to_string(),
-            effort: text("/effort")
-                .or_else(|| text("/collaboration_mode/settings/reasoning_effort"))
-                .map(str::to_string),
-            at: timestamp_millis(entry.get("timestamp")?.as_str()?)?,
-        })
+    lines.lines().rev().find_map(turn_from_line)
+}
+
+/// The turn one rollout line describes, when it is a `turn_context` line.
+fn turn_from_line(line: &str) -> Option<Turn> {
+    let entry: serde_json::Value = serde_json::from_str(line).ok()?;
+    let is_turn_context = entry.get("type")?.as_str()? == TURN_CONTEXT;
+    if !is_turn_context {
+        return None;
+    }
+    let payload = entry.get("payload")?;
+    let text = |pointer: &str| payload.pointer(pointer).and_then(serde_json::Value::as_str);
+    Some(Turn {
+        model: text("/model")?.to_string(),
+        effort: text("/effort")
+            .or_else(|| text("/collaboration_mode/settings/reasoning_effort"))
+            .map(str::to_string),
+        at: timestamp_millis(entry.get("timestamp")?.as_str()?)?,
     })
 }
 
@@ -181,10 +236,7 @@ fn saved_settings() -> SavedSettings {
     let Some(saved_at) = modified_millis(&path) else {
         return SavedSettings::default();
     };
-    let Some(config) = std::fs::read_to_string(&path)
-        .ok()
-        .and_then(|text| text.parse::<toml::Table>().ok())
-    else {
+    let Some(config) = read_toml(&path) else {
         return SavedSettings::default();
     };
     let saved = |key: &str| {
@@ -199,59 +251,41 @@ fn saved_settings() -> SavedSettings {
     }
 }
 
-/// Codex's cached model catalog — what its own `/model` picker lists.
-const MODELS_CACHE_FILE: &str = "models_cache.json";
-/// A catalog model the picker shows (others are hidden or internal).
-const LISTED_VISIBILITY: &str = "list";
+fn read_toml(path: &Path) -> Option<toml::Table> {
+    std::fs::read_to_string(path).ok()?.parse().ok()
+}
 
-/// The models Codex's own picker lists, each with the reasoning levels it
-/// supports and its default level.
-pub(super) fn options() -> Vec<ModelOption> {
-    let Some(catalog) = settings_directory()
-        .and_then(|directory| std::fs::read_to_string(directory.join(MODELS_CACHE_FILE)).ok())
-        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-    else {
-        return Vec::new();
-    };
-    let Some(models) = catalog.get("models").and_then(serde_json::Value::as_array) else {
-        return Vec::new();
-    };
-    models.iter().filter_map(model_option).collect()
+fn read_models_cache() -> Option<serde_json::Value> {
+    let path = settings_directory()?.join(MODELS_CACHE_FILE);
+    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
 }
 
 fn model_option(model: &serde_json::Value) -> Option<ModelOption> {
     let text = |key: &str| model.get(key).and_then(serde_json::Value::as_str);
-    if text("visibility") != Some(LISTED_VISIBILITY) {
+    let is_listed = text("visibility") == Some(LISTED_VISIBILITY);
+    if !is_listed {
         return None;
     }
     let id = text("slug")?;
-    let efforts = model
-        .get("supported_reasoning_levels")
-        .and_then(serde_json::Value::as_array)
-        .map(|levels| {
-            levels
-                .iter()
-                .filter_map(|level| level.get("effort")?.as_str().map(EffortOption::plain))
-                .collect()
-        })
-        .unwrap_or_default();
     Some(ModelOption {
         id: id.to_string(),
         name: text("display_name").unwrap_or(id).to_string(),
-        efforts,
+        efforts: supported_efforts(model),
         recommended_effort: text("default_reasoning_level").map(str::to_string),
     })
 }
 
-/// `$CODEX_HOME`, else `~/.codex`.
-pub(super) fn settings_directory() -> Option<PathBuf> {
-    std::env::var_os("CODEX_HOME")
-        .map(PathBuf::from)
-        .or_else(|| Some(crate::util::home_dir()?.join(".codex")))
-}
-
-pub(super) fn is_settings_file(name: &str) -> bool {
-    name == SETTINGS_FILE
+fn supported_efforts(model: &serde_json::Value) -> Vec<EffortOption> {
+    let Some(levels) = model
+        .get("supported_reasoning_levels")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return Vec::new();
+    };
+    levels
+        .iter()
+        .filter_map(|level| level.get("effort")?.as_str().map(EffortOption::plain))
+        .collect()
 }
 
 #[cfg(test)]

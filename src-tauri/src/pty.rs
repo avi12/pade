@@ -541,7 +541,7 @@ fn build_command(
             leading_args.push(arg.to_string());
         }
     }
-    // The agent reports its model and effort out of band (hooks, a plugin) —
+    // The agent reports its model and effort out of band (hooks, a plugin) -
     // see running_model.rs. Its arguments join the list; its environment is
     // applied with the rest below.
     let model_report_env =
@@ -689,7 +689,7 @@ pub async fn pty_spawn(
     // CLI supports it (`claude --session-id`). Absent for a shell/editor.
     conversation_id: Option<String>,
     // A model and effort picked from the tab for THIS launch alone (a restart
-    // that applies a switch) — passed as launch flags, never saved as the
+    // that applies a switch) - passed as launch flags, never saved as the
     // agent's default. See running_model.rs.
     model_choice: Option<crate::running_model::ModelChoice>,
 ) -> Result<(), String> {
@@ -995,7 +995,7 @@ pub async fn pty_write(
     write_input(&state, window.label(), &id, &data)
 }
 
-/// Type `data` into session `id` as if from its keyboard — the one path every
+/// Type `data` into session `id` as if from its keyboard - the one path every
 /// PTY input takes, so the size limit and window ownership hold for all.
 pub fn write_input(
     state: &PtyState,
@@ -1003,18 +1003,18 @@ pub fn write_input(
     id: &str,
     data: &str,
 ) -> Result<(), String> {
-    if data.len() > MAX_PTY_INPUT_BYTES {
+    let is_too_large = data.len() > MAX_PTY_INPUT_BYTES;
+    if is_too_large {
         return Err("PTY input exceeds its size limit".into());
     }
     let Some(pty) = owned_pty(state, window_label, id)? else {
         return Ok(());
     };
-    let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;
+    let mut writer = pty.writer.lock().map_err(|error| error.to_string())?;
     writer
         .write_all(data.as_bytes())
-        .map_err(|e| e.to_string())?;
-    writer.flush().map_err(|e| e.to_string())?;
-    Ok(())
+        .map_err(|error| error.to_string())?;
+    writer.flush().map_err(|error| error.to_string())
 }
 
 #[tauri::command]
