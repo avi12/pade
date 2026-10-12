@@ -151,6 +151,11 @@ pub fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
     newest_in_tail(&log, newest_turn_in)
 }
 
+/// Where Claude keeps `conversation_id`'s transcript, when it has one yet.
+pub fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
+    claude_session_log(ID_CLAUDE, Some(conversation_id))
+}
+
 /// The session log Claude keeps for `conversation_id`, at
 /// `~/.claude/projects/<encoded-cwd>/<conversation-id>.jsonl`. The id is unique,
 /// so the project directory is matched by scanning rather than by re-deriving

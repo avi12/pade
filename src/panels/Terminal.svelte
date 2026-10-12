@@ -357,7 +357,8 @@
       observeRunningModel({
         id: session.id,
         model: running.model,
-        effort: running.effort
+        effort: running.effort,
+        ultracode: running.ultracode
       });
       await ensureModelOptions(session.agent.command);
     } catch (error) {

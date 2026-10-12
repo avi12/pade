@@ -140,15 +140,29 @@ pub enum SwitchOutcome {
     NeedsRestart,
 }
 
+/// What a session runs, plus the session-wide mode that rides on its effort.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionModel {
+    #[serde(flatten)]
+    running: RunningModel,
+    /// Claude's Ultracode (multi-agent orchestration) is on for the session.
+    ultracode: bool,
+}
+
 /// The model and effort `command`'s session `conversation_id` is running, or
 /// `None` when the agent has reported nothing PADE can read. Off the UI thread:
 /// it reads files.
 #[tauri::command]
-pub async fn agent_running_model(command: String, conversation_id: String) -> Option<RunningModel> {
-    tauri::async_runtime::spawn_blocking(move || read(&command, &conversation_id))
-        .await
-        .ok()
-        .flatten()
+pub async fn agent_running_model(command: String, conversation_id: String) -> Option<SessionModel> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let running = read(&command, &conversation_id)?;
+        let ultracode = command == ID_CLAUDE && claude::is_ultracode_on(&conversation_id);
+        Some(SessionModel { running, ultracode })
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// The models `command` offers to switch to, from the agent's own local

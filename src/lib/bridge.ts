@@ -305,7 +305,9 @@ export const SwitchOutcome = z.enum(["applied", "needsRestart"]);
 /** The model and reasoning effort a session runs, as the agent reported it. */
 const RunningModel = z.object({
   model: z.string(),
-  effort: z.string().nullable()
+  effort: z.string().nullable(),
+  /** Claude's Ultracode (multi-agent orchestration) is on for the session. */
+  ultracode: z.boolean()
 });
 
 const RunningModelChanged = z.object({

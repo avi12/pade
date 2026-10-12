@@ -515,22 +515,25 @@ describe("sessionModel", () => {
     expect(sessionModel("model-unknown")).toBeNull();
   });
 
-  it("follows a mid-session model and effort switch", () => {
+  it("follows a mid-session model, effort and Ultracode switch", () => {
     observeRunningModel({
       id: "model-switch",
       model: "claude-opus-5-5",
-      effort: "high"
+      effort: "high",
+      ultracode: false
     });
     observeRunningModel({
       id: "model-switch",
       model: "claude-haiku-4-5-20251001",
-      effort: null
+      effort: null,
+      ultracode: true
     });
 
     expect(sessionModel("model-switch")).toEqual({
       id: "claude-haiku-4-5-20251001",
       name: "Haiku 4.5",
-      effort: null
+      effort: null,
+      ultracode: true
     });
   });
 
@@ -538,7 +541,8 @@ describe("sessionModel", () => {
     observeRunningModel({
       id: "model-kept",
       model: "claude-opus-5-5",
-      effort: "medium"
+      effort: "medium",
+      ultracode: false
     });
     observeSessionLog({
       id: "model-kept",
@@ -549,7 +553,8 @@ describe("sessionModel", () => {
     expect(sessionModel("model-kept")).toEqual({
       id: "claude-opus-5-5",
       name: "Opus 5.5",
-      effort: "medium"
+      effort: "medium",
+      ultracode: false
     });
   });
 

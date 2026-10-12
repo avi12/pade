@@ -30,7 +30,18 @@ const SETTINGS_FILE: &str = "settings.json";
 const SWITCH_KEYS: [&str; 2] = ["model", "modelSettings"];
 /// The hook events that only report, by Claude's wire names - run async, so a
 /// hook never holds a turn up.
-const REPORTING_EVENTS: [&str; 3] = ["SessionStart", "PostModelSwitch", "Stop"];
+/// `UserPromptSubmit` reports nothing new itself; its write is what makes the tab
+/// re-read right after a prompt, when Claude records whether Ultracode is on.
+const REPORTING_EVENTS: [&str; 4] = [
+    "SessionStart",
+    "UserPromptSubmit",
+    "PostModelSwitch",
+    "Stop",
+];
+/// The transcript entries Claude writes when Ultracode turns on (repeated every
+/// few turns while it stays on) and off. Only written as a prompt is sent.
+const ULTRACODE_ENTER: &str = "ultra_effort_enter";
+const ULTRACODE_EXIT: &str = "ultra_effort_exit";
 /// Claude asks this hook before switching models; its answer can skip the
 /// "Switch model?" confirmation, so it runs in step (not async).
 pub(super) const PRE_MODEL_SWITCH: &str = "PreModelSwitch";
@@ -393,6 +404,38 @@ fn grant_switch_permission(conversation_id: &str) {
 
 /// A session launched before PADE attached its hooks: the newest turn Claude's
 /// own log records.
+/// Whether Ultracode is on for the session: the newest Ultracode entry in its
+/// transcript is an enter (Claude Code uses the same rule to decide when to
+/// write the exit). No entry means it was never turned on.
+pub(super) fn is_ultracode_on(conversation_id: &str) -> bool {
+    // The hooks name the transcript; finding it by id is the fallback.
+    let reported_transcript = read_session_state(conversation_id)
+        .and_then(|state| state.transcript)
+        .map(PathBuf::from);
+    let Some(transcript) =
+        reported_transcript.or_else(|| crate::session_context::claude_transcript(conversation_id))
+    else {
+        return false;
+    };
+    crate::util::newest_in_tail(&transcript, newest_ultracode_entry)
+        .is_some_and(|entry| entry == ULTRACODE_ENTER)
+}
+
+fn newest_ultracode_entry(lines: &str) -> Option<&'static str> {
+    lines.lines().rev().find_map(|line| {
+        let is_candidate = line.contains(ULTRACODE_ENTER) || line.contains(ULTRACODE_EXIT);
+        if !is_candidate {
+            return None;
+        }
+        let entry: serde_json::Value = serde_json::from_str(line).ok()?;
+        match entry.pointer("/attachment/type")?.as_str()? {
+            ULTRACODE_ENTER => Some(ULTRACODE_ENTER),
+            ULTRACODE_EXIT => Some(ULTRACODE_EXIT),
+            _ => None,
+        }
+    })
+}
+
 fn logged_turn(conversation_id: &str) -> Option<RunningModel> {
     let turn = crate::session_context::logged_claude_turn(conversation_id)?;
     Some(RunningModel {
@@ -493,7 +536,33 @@ fn effort_for_model(settings: &serde_json::Value, model: &str) -> Option<String>
 
 #[cfg(test)]
 mod tests {
-    use super::{effort_for_model, merge_settings, model_option, revert_switch_keys};
+    use super::{
+        effort_for_model, merge_settings, model_option, newest_ultracode_entry, revert_switch_keys,
+        ULTRACODE_ENTER, ULTRACODE_EXIT,
+    };
+
+    #[test]
+    fn the_newest_ultracode_entry_decides_whether_it_is_on() {
+        let enter = r#"{"type":"attachment","attachment":{"type":"ultra_effort_enter","reminderType":"full"}}"#;
+        let exit = r#"{"type":"attachment","attachment":{"type":"ultra_effort_exit"}}"#;
+        let prompt = r#"{"type":"user","message":{"role":"user","content":"go"}}"#;
+        assert_eq!(
+            newest_ultracode_entry(&[enter, prompt].join("\n")),
+            Some(ULTRACODE_ENTER)
+        );
+        assert_eq!(
+            newest_ultracode_entry(&[enter, exit, prompt].join("\n")),
+            Some(ULTRACODE_EXIT)
+        );
+        assert_eq!(newest_ultracode_entry(prompt), None);
+    }
+
+    #[test]
+    fn a_prompt_merely_mentioning_ultracode_is_not_an_entry() {
+        let mention =
+            r#"{"type":"user","message":{"role":"user","content":"what is ultra_effort_enter?"}}"#;
+        assert_eq!(newest_ultracode_entry(mention), None);
+    }
 
     #[test]
     fn a_switch_is_reverted_key_by_key_and_other_edits_survive() {
