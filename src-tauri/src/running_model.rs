@@ -129,13 +129,48 @@ fn read(command: &str, conversation_id: &str) -> Option<RunningModel> {
     }
 }
 
-/// Prepare a launch of `program` so it reports its model: adapter arguments
-/// are added to `arguments`, and the environment to set is returned.
+/// A model and effort picked from the tab, for one session alone.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelChoice {
+    model: Option<String>,
+    effort: Option<String>,
+}
+
+/// Longest model id or effort level a choice may carry — catalog ids are a few
+/// dozen characters; this only bounds what reaches a command line.
+const MAXIMUM_CHOICE_LENGTH: usize = 128;
+
+impl ModelChoice {
+    /// Whether every part is a short, plain token — safe to put on a command
+    /// line or type into a session.
+    pub fn is_well_formed(&self) -> bool {
+        [&self.model, &self.effort]
+            .into_iter()
+            .flatten()
+            .all(|value| {
+                !value.is_empty()
+                    && value.len() <= MAXIMUM_CHOICE_LENGTH
+                    && value.chars().all(|character| {
+                        character.is_ascii_alphanumeric()
+                            || matches!(character, '-' | '_' | '.' | '/' | ':' | '[' | ']')
+                    })
+            })
+    }
+}
+
+/// Prepare a launch of `program` so it reports its model — and, when a model
+/// was picked for this session, runs it: adapter arguments are added to
+/// `arguments`, and the environment to set is returned.
 pub fn attach(
     program: &str,
     conversation_id: Option<&str>,
+    choice: Option<&ModelChoice>,
     arguments: &mut Vec<String>,
 ) -> Vec<(String, String)> {
+    if let Some(choice) = choice.filter(|choice| choice.is_well_formed()) {
+        arguments.extend(launch_arguments(program, choice));
+    }
     let Some(conversation_id) = conversation_id.filter(|id| is_plain_id(id)) else {
         return Vec::new();
     };
@@ -153,6 +188,89 @@ pub fn attach(
     environment
 }
 
+/// How a picked model reaches a running session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SwitchOutcome {
+    /// Switched in place — the process, its draft and its running work kept.
+    Applied,
+    /// The agent can't switch in place; relaunch it on its conversation with
+    /// the choice as launch flags (`attach`) once it is idle.
+    NeedsRestart,
+}
+
+/// Apply a model and effort picked from the tab to a running session. Claude
+/// switches in place (typed commands, confirmed through its settings file);
+/// every other agent answers `NeedsRestart`. Off the UI thread: it types,
+/// waits on a file, and restores the user's saved default.
+#[tauri::command]
+pub async fn agent_apply_model(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: String,
+    command: String,
+    conversation_id: String,
+    choice: ModelChoice,
+) -> Result<SwitchOutcome, String> {
+    let is_live = command == ID_CLAUDE;
+    if !is_live {
+        return Ok(SwitchOutcome::NeedsRestart);
+    }
+    if !choice.is_well_formed() || !is_plain_id(&conversation_id) {
+        return Err("that model choice isn't valid".into());
+    }
+
+    let owner = window.label().to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let ptys = app.state::<crate::pty::PtyState>();
+        let type_keys = |keys: &str| crate::pty::write_input(&ptys, &owner, &session_id, keys);
+        claude::apply_live(&conversation_id, &choice, &type_keys).map(|()| SwitchOutcome::Applied)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// The launch flags that run `choice` for one session without saving it as
+/// the agent's default (each verified on the versions in the module note).
+fn launch_arguments(program: &str, choice: &ModelChoice) -> Vec<String> {
+    let model = choice.model.as_deref();
+    let effort = choice.effort.as_deref();
+    let flag_pairs: Vec<(&str, String)> = match program {
+        ID_CLAUDE | ID_COPILOT => [
+            model.map(|model| ("--model", model.to_string())),
+            effort.map(|effort| ("--effort", effort.to_string())),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
+        ID_CODEX => codex::choice_overrides(model, effort),
+        // OpenCode's TUI takes no effort flag; the variant follows the model's
+        // own default until picked inside it.
+        ID_OPENCODE => model
+            .map(|model| ("-m", model.to_string()))
+            .into_iter()
+            .collect(),
+        _ => Vec::new(),
+    };
+    flag_pairs
+        .into_iter()
+        .flat_map(|(flag, value)| [flag.to_string(), value])
+        .collect()
+}
+
+/// The arguments that reopen `command`'s session for `conversation_id` by the
+/// agent's own session id, as its hooks or plugin reported it — exact, unlike
+/// guessing the newest conversation in the working directory. `None` when the
+/// agent pins sessions by PADE's id already (Claude, Copilot) or never reported.
+pub fn resume_arguments(command: &str, conversation_id: &str) -> Option<Vec<String>> {
+    let agent_session = read_session_state(conversation_id)?.agent_session?;
+    match command {
+        ID_CODEX => Some(vec!["resume".to_string(), agent_session]),
+        ID_OPENCODE => Some(vec!["--session".to_string(), agent_session]),
+        _ => None,
+    }
+}
+
 /// What hooks and plugins have reported for one session, each value stamped
 /// with when it was reported (milliseconds since the epoch).
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,6 +282,9 @@ struct SessionState {
     effort_at: u64,
     /// The agent's own transcript for this session, when its hooks name one.
     transcript: Option<String>,
+    /// The agent's own id for this session (a Codex thread, an `OpenCode`
+    /// session) — what resuming it takes.
+    agent_session: Option<String>,
 }
 
 /// A value the agent saved to a settings file, dated by that file's last write.
@@ -215,6 +336,18 @@ fn record_hook_report() -> Result<(), String> {
         .ok()
         .or_else(|| report.get("session_id")?.as_str().map(str::to_string))
         .ok_or("the report names no session")?;
+    let is_switch_request = report
+        .get("hook_event_name")
+        .and_then(serde_json::Value::as_str)
+        == Some(claude::PRE_MODEL_SWITCH);
+    if is_switch_request {
+        // Not a report: Claude asks whether to switch. PADE answers only for a
+        // switch it started itself; any other one gets Claude's own prompt.
+        if claude::consume_switch_permission(&conversation_id) {
+            println!("{}", claude::ALLOW_MODEL_SWITCH);
+        }
+        return Ok(());
+    }
     let path = state_file(&conversation_id).ok_or("no PADE data directory")?;
     let next = fold(read_state(&path).unwrap_or_default(), &report, now_millis());
     write_state(&path, &next).map_err(|error| error.to_string())
@@ -239,6 +372,9 @@ fn fold(state: SessionState, report: &serde_json::Value, now: u64) -> SessionSta
     }
     if let Some(transcript) = text("/transcript_path") {
         next.transcript = Some(transcript.to_string());
+    }
+    if let Some(agent_session) = text("/session_id") {
+        next.agent_session = Some(agent_session.to_string());
     }
     next
 }
@@ -468,7 +604,60 @@ fn prune_expired(directory: &Path) {
 
 #[cfg(test)]
 mod tests {
-    use super::{fold, newer, timestamp_millis, Saved, SessionState};
+    use super::{
+        fold, launch_arguments, newer, timestamp_millis, ModelChoice, Saved, SessionState,
+    };
+
+    fn choice(model: Option<&str>, effort: Option<&str>) -> ModelChoice {
+        ModelChoice {
+            model: model.map(str::to_string),
+            effort: effort.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn each_agent_gets_its_own_launch_flags_for_a_choice() {
+        let picked = choice(Some("claude-sonnet-5-5"), Some("low"));
+        assert_eq!(
+            launch_arguments("claude", &picked),
+            ["--model", "claude-sonnet-5-5", "--effort", "low"]
+        );
+        assert_eq!(
+            launch_arguments("codex", &choice(Some("gpt-5.6-terra"), Some("high"))),
+            [
+                "-c",
+                "model=\"gpt-5.6-terra\"",
+                "-c",
+                "model_reasoning_effort=\"high\""
+            ]
+        );
+        assert_eq!(
+            launch_arguments(
+                "opencode",
+                &choice(Some("openai/gpt-5.6-sol"), Some("high"))
+            ),
+            ["-m", "openai/gpt-5.6-sol"]
+        );
+        assert_eq!(launch_arguments("aider", &picked), Vec::<String>::new());
+    }
+
+    #[test]
+    fn only_plain_tokens_make_a_well_formed_choice() {
+        assert!(choice(Some("openai/gpt-5.6-sol"), Some("xhigh")).is_well_formed());
+        assert!(choice(Some("opus[1m]"), None).is_well_formed());
+        assert!(!choice(Some("opus; rm -rf"), None).is_well_formed());
+        assert!(!choice(None, Some("")).is_well_formed());
+    }
+
+    #[test]
+    fn a_report_records_the_agents_own_session_id() {
+        let state = fold(
+            SessionState::default(),
+            &serde_json::json!({ "session_id": "01a12d15", "model": "gpt-5.6-terra" }),
+            10,
+        );
+        assert_eq!(state.agent_session.as_deref(), Some("01a12d15"));
+    }
 
     fn report(json: &str) -> serde_json::Value {
         serde_json::from_str(json).expect("a valid report")

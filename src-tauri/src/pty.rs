@@ -504,6 +504,7 @@ fn build_command(
     command: Option<String>,
     scheme: Option<crate::theming::Scheme>,
     conversation_id: Option<&str>,
+    model_choice: Option<&crate::running_model::ModelChoice>,
 ) -> CommandBuilder {
     let program = command
         .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
@@ -544,7 +545,7 @@ fn build_command(
     // see running_model.rs. Its arguments join the list; its environment is
     // applied with the rest below.
     let model_report_env =
-        crate::running_model::attach(&program, conversation_id, &mut leading_args);
+        crate::running_model::attach(&program, conversation_id, model_choice, &mut leading_args);
     // Bind the session to ADE's stable conversation id (`--session-id <uuid>`), so a
     // later spawn with the same id resumes THIS conversation rather than the most
     // recent — how ADE restarts one specific session (e.g. after `.mcp.json`
@@ -687,6 +688,10 @@ pub async fn pty_spawn(
     // A stable conversation id to pin/resume this session to, for an agent whose
     // CLI supports it (`claude --session-id`). Absent for a shell/editor.
     conversation_id: Option<String>,
+    // A model and effort picked from the tab for THIS launch alone (a restart
+    // that applies a switch) — passed as launch flags, never saved as the
+    // agent's default. See running_model.rs.
+    model_choice: Option<crate::running_model::ModelChoice>,
 ) -> Result<(), String> {
     let owner = window.label().to_string();
     let exceeds_argument_limits = args.as_ref().is_some_and(|arguments| {
@@ -698,7 +703,10 @@ pub async fn pty_spawn(
         || cwd.as_ref().is_some_and(|value| value.len() > 4096)
         || conversation_id
             .as_ref()
-            .is_some_and(|value| value.len() > 256);
+            .is_some_and(|value| value.len() > 256)
+        || model_choice
+            .as_ref()
+            .is_some_and(|choice| !choice.is_well_formed());
     let invalid_dimensions =
         cols == 0 || rows == 0 || cols > MAXIMUM_PTY_DIMENSION || rows > MAXIMUM_PTY_DIMENSION;
     if exceeds_argument_limits || exceeds_string_limits || invalid_dimensions {
@@ -728,7 +736,12 @@ pub async fn pty_spawn(
     // Remembered on the session so `pty_list` can report what it runs and where
     // — the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
-    let mut process = build_command(command, scheme, conversation_id.as_deref());
+    let mut process = build_command(
+        command,
+        scheme,
+        conversation_id.as_deref(),
+        model_choice.as_ref(),
+    );
     for arg in args.unwrap_or_default() {
         process.arg(arg);
     }
@@ -979,10 +992,21 @@ pub async fn pty_write(
     id: String,
     data: String,
 ) -> Result<(), String> {
+    write_input(&state, window.label(), &id, &data)
+}
+
+/// Type `data` into session `id` as if from its keyboard — the one path every
+/// PTY input takes, so the size limit and window ownership hold for all.
+pub fn write_input(
+    state: &PtyState,
+    window_label: &str,
+    id: &str,
+    data: &str,
+) -> Result<(), String> {
     if data.len() > MAX_PTY_INPUT_BYTES {
         return Err("PTY input exceeds its size limit".into());
     }
-    let Some(pty) = owned_pty(&state, window.label(), &id)? else {
+    let Some(pty) = owned_pty(state, window_label, id)? else {
         return Ok(());
     };
     let mut writer = pty.writer.lock().map_err(|e| e.to_string())?;

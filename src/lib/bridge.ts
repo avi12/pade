@@ -44,7 +44,7 @@ import {
   WindowInfo,
   WorkspaceMember
 } from "@/lib/types";
-import type { LabelSource, Prefs, WindowMode } from "@/lib/types";
+import type { LabelSource, ModelChoice, Prefs, WindowMode } from "@/lib/types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -299,6 +299,9 @@ const ModelOption = z.object({
 });
 export type ModelOption = z.infer<typeof ModelOption>;
 
+/** How a picked model reaches a running session (see `pty.applyModel`). */
+export const SwitchOutcome = z.enum(["applied", "needsRestart"]);
+
 /** The model and reasoning effort a session runs, as the agent reported it. */
 const RunningModel = z.object({
   model: z.string(),
@@ -325,8 +328,20 @@ export const pty = {
     /** Stable conversation id to pin/resume the session to (`claude
      *  --session-id`), so a restart lands back in THIS conversation. */
     conversationId?: string;
+    /** A model / effort picked for this session alone — launch flags, never
+     *  the agent's saved default (see running_model.rs). */
+    modelChoice?: ModelChoice;
   }) =>
     run("pty_spawn", { ...args }),
+  /** Apply a model / effort picked from the tab to the running session.
+   *  `applied`: switched in place (Claude). `needsRestart`: the agent only
+   *  takes a model at launch — relaunch it on its conversation. */
+  applyModel: (args: {
+    sessionId: string;
+    command: string;
+    conversationId: string;
+    choice: ModelChoice;
+  }) => call("agent_apply_model", SwitchOutcome, { ...args }),
   write: (args: {
     id: string;
     data: string;
@@ -375,6 +390,9 @@ export const pty = {
   resumeArgs: (args: {
     command: string;
     cwd: string;
+    /** The PADE conversation — when the agent reported its own session id for
+     *  it, that exact session is resumed rather than the newest in `cwd`. */
+    conversationId?: string;
   }) => call("agent_resume_args", z.array(z.string()), { ...args }),
   /** How full the session's context window is, read from the agent's own session
    *  log rather than its terminal: the tokens its newest turn occupies, and the

@@ -93,6 +93,22 @@ fn fingerprint(trust_name: &str, command: &str) -> String {
     format!("sha256:{digest:x}")
 }
 
+/// `-c` overrides that run a picked model and effort for one launch — unlike
+/// `/model`, they never reach `config.toml`.
+pub(super) fn choice_overrides(
+    model: Option<&str>,
+    effort: Option<&str>,
+) -> Vec<(&'static str, String)> {
+    [
+        model.map(|model| format!("model={}", toml_string(model))),
+        effort.map(|effort| format!("model_reasoning_effort={}", toml_string(effort))),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|setting| (CONFIG_FLAG, setting))
+    .collect()
+}
+
 fn toml_string(value: &str) -> String {
     toml::Value::String(value.to_string()).to_string()
 }

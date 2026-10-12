@@ -47,6 +47,7 @@
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff, successorPrompt } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
+  import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/modelSwitch.svelte";
   import {
     armNewProjectDetection,
     disposeNewProjectDetection,
@@ -75,6 +76,7 @@
     AgentSession,
     Ide,
     McpChange,
+    ModelChoice,
     OpenTarget,
     Scheme,
     TaskGroup
@@ -827,11 +829,15 @@
     args?: string[];
     /** Add alongside the current panes (split) instead of replacing them. */
     split?: boolean;
+    /** A model / effort to run this session on (a successor keeping its
+     *  predecessor's pick). */
+    modelChoice?: ModelChoice;
   }): string {
     const session: AgentSession = {
       id: crypto.randomUUID(),
       agent: options.agent,
       initialPrompt: options.initialPrompt,
+      modelChoice: options.modelChoice,
       // Never leave an agent to inherit the backend process cwd: another PADE
       // window may switch that shared process to a different project while this
       // terminal is mounting. Worktrees still override the window project, and a
@@ -1513,10 +1519,16 @@
       closingByHand.delete(id);
     },
     launchSuccessor({ agent, cwd, initialPrompt, predecessorId }) {
+      // The successor keeps the model picked for its predecessor — including
+      // one picked while this handoff was under way — unless a usage
+      // crossover hands the work to a different agent.
+      const predecessor = sessions.find(session => session.id === predecessorId);
+      const isSameAgent = predecessor?.agent.id === agent.id;
       const successorId = launch({
         agent,
         cwd,
-        initialPrompt
+        initialPrompt,
+        modelChoice: predecessor !== undefined && isSameAgent ? choiceForSuccessor(predecessor) : undefined
       });
       // Carry the ✦ auto-naming toggle to the successor so a handed-off session
       // keeps it on; the successor's own agent command names it (it may differ on
@@ -1530,6 +1542,42 @@
     }
   });
   $effect(() => autoHandoff.check());
+
+  // A model / effort picked from a tab: applied in place where the agent can
+  // take it, else by relaunching the session on its own conversation once it
+  // is quiet — the same in-place restart a spawn-time theme change uses.
+  const modelSwitcher = createModelSwitcher({
+    isHandingOff: id => autoHandoff.isHandingOff(id),
+    rememberChoice({ id, choice }) {
+      sessions = sessions.map(session => session.id === id ? {
+        ...session,
+        modelChoice: {
+          ...session.modelChoice,
+          ...choice
+        }
+      } : session);
+    },
+    async relaunch(id) {
+      const target = sessions.find(session => session.id === id);
+      if (target === undefined) {
+        return;
+      }
+
+      const resumeArgs = await pty.resumeArgs({
+        command: target.agent.command,
+        cwd: target.cwd ?? currentProject,
+        conversationId: target.conversationId
+      });
+      sessions = sessions.map(session => session.id === id && resumeArgs.length > 0 ? {
+        ...session,
+        args: resumeArgs
+      } : session);
+      showToast(`Switching ${target.agent.label}'s model - resuming its conversation`);
+      await restartSessions([target]);
+    },
+    isOpen: id => sessions.some(session => session.id === id),
+    report: message => showToast(message)
+  });
   onDestroy(() => autoHandoff.dispose());
 
   async function recoverFailedMcpReload(session: AgentSession) {
@@ -1981,6 +2029,7 @@
               branch
             });
           }}
+          onmodelchoice={async pick => await modelSwitcher.request(pick)}
           onreorder={reorderSessions}
           onselect={selectSession}
           onsplit={splitDrop}

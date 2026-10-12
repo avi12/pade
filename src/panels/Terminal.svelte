@@ -1734,7 +1734,8 @@
         rows: terminal.rows,
         args: session.args,
         scheme: appearance.terminalScheme,
-        conversationId: session.conversationId
+        conversationId: session.conversationId,
+        modelChoice: session.modelChoice
       });
     } catch (error) {
       status = SessionStatus.enum.exited;
@@ -1884,8 +1885,8 @@
   // read once now for the tag's first frame.
   async function listenForRunningModel(): Promise<void> {
     const listener = await pty.onRunningModelChanged(async sessionId => {
-      const concernsThisSession = sessionId === null || sessionId === session.conversationId;
-      if (concernsThisSession) {
+      const isAboutThisSession = sessionId === null || sessionId === session.conversationId;
+      if (isAboutThisSession) {
         await readRunningModel();
       }
     });

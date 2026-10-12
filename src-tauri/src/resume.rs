@@ -13,6 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use crate::agents;
+use crate::agents::{ID_CODEX, ID_OPENCODE};
 use crate::util::{command, home_dir};
 
 /// How many of the newest rollout files are worth inspecting before giving up.
@@ -184,27 +185,38 @@ fn opencode_session_id(output: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// The extra launch arguments that reopen the agent's recorded conversation for
-/// `cwd` — `["resume", "<uuid>"]` for Codex with a matching rollout,
-/// `["--session", "<ses_…>"]` for opencode with a recorded session in that
-/// directory, empty when the agent has no resume mechanism ADE can drive
-/// (Claude is pinned at spawn via `--session-id` instead) or nothing is
-/// recorded.
+/// The extra launch arguments that reopen the agent's recorded conversation —
+/// `["resume", "<uuid>"]` for Codex, `["--session", "<ses_…>"]` for opencode —
+/// empty when the agent has no resume mechanism ADE can drive (Claude and
+/// Copilot are pinned at spawn by PADE's own id instead) or nothing is
+/// recorded. The session the agent itself reported for `conversation_id` wins
+/// (exact — see `running_model`); otherwise the newest one recorded in `cwd`.
 // `async` so Tauri runs this on its worker pool: a synchronous command runs on
 // the MAIN thread, and the opencode lookup shells out — when that child wedged
 // (pre-timeout), the whole window stopped pumping messages ("Not Responding").
 // The lookup itself is additionally time-bounded; async keeps even the bounded
 // wait off the UI thread.
 #[tauri::command]
-pub async fn agent_resume_args(command: String, cwd: String) -> Vec<String> {
-    if command == "opencode" {
+pub async fn agent_resume_args(
+    command: String,
+    cwd: String,
+    conversation_id: Option<String>,
+) -> Vec<String> {
+    let reported = conversation_id.as_deref().and_then(|conversation_id| {
+        crate::running_model::resume_arguments(&command, conversation_id)
+    });
+    if let Some(arguments) = reported {
+        return arguments;
+    }
+
+    if command == ID_OPENCODE {
         return match opencode_session_for_cwd(&cwd) {
             Some(session_id) => vec!["--session".to_string(), session_id],
             None => Vec::new(),
         };
     }
 
-    if command != "codex" {
+    if command != ID_CODEX {
         return Vec::new();
     }
 

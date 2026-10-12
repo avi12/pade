@@ -17,6 +17,7 @@
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.svelte";
 import { dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
+import { isModelSwitchApplying } from "@/lib/stores/modelSwitch.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
@@ -711,6 +712,13 @@ export function createAutoHandoff(host: HandoffHost) {
       return ScanVerdict.holdBack;
     }
 
+    // Nor on a model switch being applied: both type into the session, and a
+    // switch that relaunches it would end the very session being handed off.
+    // The switch lands first; the scan comes back to the switched session.
+    if (isModelSwitchApplying(session.id)) {
+      return ScanVerdict.holdBack;
+    }
+
     // Never cut in on a working agent — only reset one sitting idle.
     const sittingIdle = sessionStatus(session.id) === SessionStatus.enum.ready;
     return sittingIdle ? ScanVerdict.handOff : ScanVerdict.leave;
@@ -801,6 +809,7 @@ export function createAutoHandoff(host: HandoffHost) {
     },
     check,
     force,
+    isHandingOff,
     restartForConfiguration,
     writeHandoffDoc,
     dispose

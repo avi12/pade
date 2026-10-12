@@ -40,12 +40,18 @@ const SnapshotSession = z.object({
   args: z.array(z.string()).optional(),
   // Kept so a session that re-attached after a reload can still be restarted
   // back into its own conversation when its MCP config later changes.
-  conversationId: z.string().optional()
+  conversationId: z.string().optional(),
+  // A model picked for this session alone survives a reload, so its next
+  // relaunch keeps running it.
+  modelChoice: z.object({
+    model: z.string().optional(),
+    effort: z.string().optional()
+  }).optional()
 });
 
 /** What a window needs to re-attach after a reload: the open project and the
  *  session/pane layout it was showing. */
-export const SessionSnapshot = z.object({
+const SessionSnapshot = z.object({
   project: z.string().min(1),
   sessions: z.array(SnapshotSession).min(1),
   paneIds: z.array(z.string()),
@@ -68,13 +74,14 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
 
   const snapshot: SessionSnapshot = {
     project,
-    sessions: sessions.map(({ id, agent, cwd, branch, args, conversationId }) => ({
+    sessions: sessions.map(({ id, agent, cwd, branch, args, conversationId, modelChoice }) => ({
       id,
       agent,
       cwd,
       branch,
       args,
-      conversationId
+      conversationId,
+      modelChoice
     })),
     paneIds: [...paneIds],
     activeId

@@ -31,7 +31,7 @@ export const PadeModel = async () => {
     const effort = variant && variant !== "default" ? variant : null;
     const model = providerID ? `${providerID}/${modelID}` : modelID;
     try {
-      writeFileSync(file, JSON.stringify({ model, modelAt: now, effort, effortAt: now }));
+      writeFileSync(file, JSON.stringify({ model, modelAt: now, effort, effortAt: now, agentSession: current }));
     } catch (error) {
       console.error("pade: could not record the model", error);
     }

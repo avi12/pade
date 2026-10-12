@@ -34,8 +34,19 @@ export async function ensureModelOptions(command: string): Promise<void> {
   }
 }
 
+/** Re-read `command`'s catalog — a model menu opening, which should show what
+ *  the agent fetched since. A failure keeps the options already loaded. */
+export async function refreshModelOptions(command: string): Promise<void> {
+  requested.add(command);
+  try {
+    await loadModelOptions(command);
+  } catch (error) {
+    console.warn(`pade: could not refresh ${command}'s model catalog`, error);
+  }
+}
+
 /** The models `command` offers, empty until loaded. */
-function modelOptions(command: string): ModelOption[] {
+export function modelOptions(command: string): ModelOption[] {
   return optionsByAgent.get(command) ?? [];
 }
 

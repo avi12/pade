@@ -176,6 +176,7 @@ pub fn run() {
             session_context::agent_session_context,
             running_model::agent_running_model,
             running_model::agent_model_options,
+            running_model::agent_apply_model,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,

@@ -5,17 +5,19 @@
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import ModelMenu from "@/lib/ModelMenu.svelte";
   import ModelTag from "@/lib/ModelTag.svelte";
   import { effective } from "@/lib/prefs.svelte";
   import { rovingMenu } from "@/lib/roving-menu";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/context.svelte";
+  import { refreshModelOptions } from "@/lib/stores/modelOptions.svelte";
   import { awaitingChoice } from "@/lib/stores/sessionAttention.svelte";
   import { sessionLabel, setSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { isNaming, toggleNaming } from "@/lib/stores/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/sessions.svelte";
   import { ADD_SLOT, packTabs } from "@/lib/tab-fit";
   import { TAB_SHORTCUTS, TabAction } from "@/lib/tab-shortcuts";
-  import type { Agent, AgentSession } from "@/lib/types";
+  import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
   import { parseInput, SessionName } from "@/lib/validate";
   import { cubicOut } from "svelte/easing";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -37,6 +39,7 @@
     onreorder,
     onsplit,
     ondraghint,
+    onmodelchoice,
     popPaneActive = false
   }: {
     sessions: AgentSession[];
@@ -63,7 +66,16 @@
     }) => void;
     /** Live drag state, so App can paint the panes' "drop here" overlay. */
     ondraghint?: (hint: DragHint | null) => void;
+    /** A model / effort was picked from a tab's model menu — apply it. */
+    onmodelchoice: (pick: {
+      session: AgentSession;
+      choice: ModelChoice;
+    }) => Promise<void>;
   } = $props();
+
+  const MODEL_MENU_ID = "model-menu";
+  let modelMenuSessionId = $state<string | null>(null);
+  const modelMenuSession = $derived(sessions.find(session => session.id === modelMenuSessionId));
 
   const newTabShortcut = TAB_SHORTCUTS[TabAction.New];
   const launchMenuShortcut = TAB_SHORTCUTS[TabAction.LaunchMenu];
@@ -330,7 +342,9 @@
   ><Icon name={agentIconName(session.agent.id)} size={14} /></span>
 {/snippet}
 
-{#snippet tabInner(session: AgentSession)}
+<!-- `isMirror`: the off-layout measuring copy, which must never claim the
+     model menu's anchor (two anchors of one name pin the menu to the wrong pill). -->
+{#snippet tabInner(session: AgentSession, isMirror = false)}
   {#if editingId === session.id}
     <span class="rename">
       {@render statusGlyph(session)}
@@ -371,8 +385,16 @@
     >
       {@render statusGlyph(session)}
       <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
-      <ModelTag {session} />
     </button>
+    <ModelTag
+      anchored={!isMirror && modelMenuSessionId === session.id}
+      menuId={MODEL_MENU_ID}
+      onopen={async () => {
+        modelMenuSessionId = session.id;
+        await refreshModelOptions(session.agent.command);
+      }}
+      {session}
+    />
     <span
       class="ai-wrap"
       class:on={isNaming(session.id)}
@@ -525,10 +547,30 @@
   <span bind:this={measureElement} class="tab-measure" aria-hidden="true">
     {#each sessions as session (session.id)}
       <div class="tab" class:active={session.id === activeId} class:shown={paneIds.includes(session.id)}>
-        {@render tabInner(session)}
+        {@render tabInner(session, true)}
       </div>
     {/each}
   </span>
+
+  <!-- One model menu for the whole strip, hung off whichever tab's model tag
+       opened it. -->
+  <div
+    id={MODEL_MENU_ID}
+    style:position-anchor="--model-menu-anchor"
+    class="menu popover-menu model-menu"
+    {@attach rovingMenu}
+    popover
+  >
+    {#if modelMenuSession !== undefined}
+      <ModelMenu
+        onchoose={async choice => await onmodelchoice({
+          session: modelMenuSession,
+          choice
+        })}
+        session={modelMenuSession}
+      />
+    {/if}
+  </div>
 </nav>
 
 <style>

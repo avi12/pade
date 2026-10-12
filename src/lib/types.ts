@@ -660,6 +660,16 @@ export interface AgentSession {
    *  outlives the session `id`, which is re-keyed to remount the terminal on a
    *  restart. Only meaningful for an agent whose CLI supports it. */
   conversationId?: string;
+  /** A model and/or effort picked from the tab for THIS session alone. Every
+   *  launch of the session carries it as launch flags, so a restart or a
+   *  successor keeps running it; the agent's saved default is never touched. */
+  modelChoice?: ModelChoice;
+}
+
+/** A model and/or reasoning effort picked for one session. */
+export interface ModelChoice {
+  model?: string;
+  effort?: string;
 }
 
 /** A registered project MCP config changed. `membershipChanged` distinguishes
