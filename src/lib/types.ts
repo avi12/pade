@@ -428,6 +428,14 @@ export type StartMode = z.infer<typeof StartMode>;
  *  `null` is the "Off" choice: temp workspaces stay until removed by hand. */
 export const TEMP_CLEANUP_DAY_CHOICES = [null, 7, 30, 90] as const;
 
+/** A model and/or reasoning effort picked for one session, or as a workspace's
+ *  default for one agent. */
+export const ModelChoice = z.object({
+  model: z.string().optional(),
+  effort: z.string().optional()
+});
+export type ModelChoice = z.infer<typeof ModelChoice>;
+
 const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
@@ -452,6 +460,10 @@ const Prefs = z.object({
   ideRules: z.record(z.string(), z.string()).nullish(),
   /** IDE id to open when no rule matches the project kind. */
   ideFallback: z.string().nullish(),
+  /** Per-workspace starting model and effort for each agent - project path →
+   *  agent id → choice. A new session of that agent in that project starts on
+   *  it; an agent with no entry starts on its own default. */
+  agentModelProjects: z.record(z.string(), z.record(z.string(), ModelChoice)).nullish(),
   /** Explicit per-project editor picks — canonical project path → IDE id. A
    *  pick from the workspace's editor menu; outranks every rule for that
    *  project (`ide_suggest` puts it first). */
@@ -664,12 +676,6 @@ export interface AgentSession {
    *  launch of the session carries it as launch flags, so a restart or a
    *  successor keeps running it; the agent's saved default is never touched. */
   modelChoice?: ModelChoice;
-}
-
-/** A model and/or reasoning effort picked for one session. */
-export interface ModelChoice {
-  model?: string;
-  effort?: string;
 }
 
 /** A registered project MCP config changed. `membershipChanged` distinguishes

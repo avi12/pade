@@ -1,0 +1,48 @@
+// Where a new session's starting model is decided (one pure resolution, no UI,
+// no store), the same shape as the per-project AI-naming choice:
+//
+//   workspace default  (prefs.agentModelProjects[project][agent])  - the Config panel
+//   the agent's own    (no entry)                                  - its saved default
+//
+// Absence is the only way back to the agent's own default, so clearing writes
+// the key away rather than freezing whatever the agent happened to run.
+
+import type { ModelChoice, Prefs } from "@/lib/types";
+
+/** The workspace's starting model for `agent`, or `undefined` to start on the
+ *  agent's own default. */
+export function projectModelDefault({ prefs, project, agent }: {
+  prefs: Prefs;
+  project: string;
+  agent: string;
+}) {
+  return prefs.agentModelProjects?.[project]?.[agent];
+}
+
+/** The `agentModelProjects` record with this workspace's `agent` default set to
+ *  `choice`, or dropped when `choice` picks nothing (and the workspace dropped
+ *  once it has no defaults left). */
+export function withProjectModelDefault({ prefs, project, agent, choice }: {
+  prefs: Prefs;
+  project: string;
+  agent: string;
+  choice: ModelChoice | undefined;
+}) {
+  const projectDefaults = { ...prefs.agentModelProjects?.[project] };
+  const isCleared = choice === undefined || (choice.model === undefined && choice.effort === undefined);
+  if (isCleared) {
+    delete projectDefaults[agent];
+  } else {
+    projectDefaults[agent] = choice;
+  }
+
+  const next = { ...prefs.agentModelProjects };
+  const hasDefaults = Object.keys(projectDefaults).length > 0;
+  if (hasDefaults) {
+    next[project] = projectDefaults;
+  } else {
+    delete next[project];
+  }
+
+  return next;
+}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent-icon";
+  import { projectModelDefault } from "@/lib/agent-model-scope";
   import { aiNamingEnabled } from "@/lib/ai-naming-scope";
   import AppMenu from "@/lib/AppMenu.svelte";
   import { createAutoNamer } from "@/lib/auto-name";
@@ -837,7 +838,13 @@
       id: crypto.randomUUID(),
       agent: options.agent,
       initialPrompt: options.initialPrompt,
-      modelChoice: options.modelChoice,
+      // An explicit choice (a successor keeping its predecessor's) wins;
+      // otherwise the workspace's starting model for this agent, if it set one.
+      modelChoice: options.modelChoice ?? projectModelDefault({
+        prefs: settings.prefs,
+        project: currentProject,
+        agent: options.agent.id
+      }),
       // Never leave an agent to inherit the backend process cwd: another PADE
       // window may switch that shared process to a different project while this
       // terminal is mounting. Worktrees still override the window project, and a
@@ -2254,7 +2261,7 @@
                 {/await}
               {:else if side === Side.config}
                 {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
-                  <ConfigPanel agent={activeAgent} project={currentProject} />
+                  <ConfigPanel agent={activeAgent} agents={realAgents} project={currentProject} />
                 {:catch}
                   <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
                 {/await}

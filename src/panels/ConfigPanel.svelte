@@ -11,14 +11,17 @@
   import { isMarkdownPath } from "@/lib/preview";
   import { prefs } from "@/lib/settings.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
-  import { type ConfigFile, ThemeMode } from "@/lib/types";
+  import { type Agent, type ConfigFile, ThemeMode } from "@/lib/types";
   import { HandoffPercent, parseInput } from "@/lib/validate";
+  import AgentModelDefaults from "@/panels/config/AgentModelDefaults.svelte";
   import TerminalColours from "@/panels/config/TerminalColours.svelte";
 
   // Only the config files relevant to the active agent are listed. `project` is
   // what scopes the per-project settings below to this window's workspace.
-  const { agent, project }: {
+  const { agent, agents, project }: {
     agent: string;
+    /** The installed agents - the only ones a starting model is offered for. */
+    agents: Agent[];
     project: string;
   } = $props();
 
@@ -350,6 +353,14 @@
           <strong>Global</strong> to follow it again.
         {/if}
       </p>
+    </section>
+
+    <section class="models">
+      <h3 class="card-label">Starting model</h3>
+      <p class="field-hint">
+        New sessions in this workspace start on these - each tab can still switch from its model tag
+      </p>
+      <AgentModelDefaults {agents} {project} />
     </section>
 
     <section class="performance">

@@ -18,7 +18,7 @@
 // flag is needed.
 
 import { pty, windows } from "@/lib/bridge";
-import { Agent } from "@/lib/types";
+import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { z } from "zod";
 
@@ -43,10 +43,7 @@ const SnapshotSession = z.object({
   conversationId: z.string().optional(),
   // A model picked for this session alone survives a reload, so its next
   // relaunch keeps running it.
-  modelChoice: z.object({
-    model: z.string().optional(),
-    effort: z.string().optional()
-  }).optional()
+  modelChoice: ModelChoice.optional()
 });
 
 /** What a window needs to re-attach after a reload: the open project and the
