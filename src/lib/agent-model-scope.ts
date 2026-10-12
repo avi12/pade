@@ -19,6 +19,21 @@ export function projectModelDefault({ prefs, project, agent }: {
   return prefs.agentModelProjects?.[project]?.[agent];
 }
 
+/** What a new session starts on: an explicit choice (a handoff successor
+ *  keeping its predecessor's) wins, else the workspace's default for the agent. */
+export function startingModelChoice({ explicit, prefs, project, agent }: {
+  explicit: ModelChoice | undefined;
+  prefs: Prefs;
+  project: string;
+  agent: string;
+}) {
+  return explicit ?? projectModelDefault({
+    prefs,
+    project,
+    agent
+  });
+}
+
 /** The `agentModelProjects` record with this workspace's `agent` default set to
  *  `choice`, or dropped when `choice` picks nothing (and the workspace dropped
  *  once it has no defaults left). */

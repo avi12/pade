@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent-icon";
-  import { projectModelDefault } from "@/lib/agent-model-scope";
+  import { startingModelChoice } from "@/lib/agent-model-scope";
   import { aiNamingEnabled } from "@/lib/ai-naming-scope";
   import AppMenu from "@/lib/AppMenu.svelte";
   import { createAutoNamer } from "@/lib/auto-name";
@@ -838,9 +838,8 @@
       id: crypto.randomUUID(),
       agent: options.agent,
       initialPrompt: options.initialPrompt,
-      // An explicit choice (a successor keeping its predecessor's) wins;
-      // otherwise the workspace's starting model for this agent, if it set one.
-      modelChoice: options.modelChoice ?? projectModelDefault({
+      modelChoice: startingModelChoice({
+        explicit: options.modelChoice,
         prefs: settings.prefs,
         project: currentProject,
         agent: options.agent.id
