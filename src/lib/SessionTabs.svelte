@@ -469,7 +469,7 @@
           {#each moreSessions as session (session.id)}
             <li class="more-item" class:active={session.id === activeId}>
               <button
-                class="more-pick"
+                class="menu-item more-pick"
                 onclick={() => onselect(session.id)}
                 popovertarget="overflow-session-menu"
                 popovertargetaction="hide"
@@ -481,7 +481,7 @@
                 <span class="more-label">{sessionLabel(session.id) ?? session.agent.label}</span>
               </button>
               <button
-                class="more-close-button"
+                class="menu-item more-close-button"
                 aria-label="Close session"
                 data-tooltip="Close session"
                 onclick={() => onclose(session)}
@@ -518,6 +518,7 @@
         {#each agents as agent (agent.id)}
           <li>
             <button
+              class="menu-item"
               onclick={() => onlaunch(agent)}
               popovertarget="add-session-menu"
               popovertargetaction="hide"
@@ -530,7 +531,7 @@
           {#each branches as branch (branch)}
             <li>
               <button
-                class="branch-item"
+                class="menu-item branch-item"
                 onclick={async () => await onlaunchbranch(branch)}
                 popovertarget="add-session-menu"
                 popovertargetaction="hide"
@@ -988,33 +989,11 @@
     }
   }
 
-  /* Shell comes from the shared .popover-menu; only width and anchor side
-     live here. */
+  /* Shell and rows come from the shared .popover-menu and .menu-item; only
+     width and anchor side live here. */
   .menu {
     min-inline-size: 220px;
     position-area: bottom span-right;
-
-    li button {
-      display: flex;
-      gap: 9px;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
-      transition: color 120ms var(--ease), background 120ms var(--ease);
-
-      &:hover {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-    }
 
     /* Leading glyph tints: agents read primary, branches read tertiary (git). */
     .launch-icon {
@@ -1050,8 +1029,8 @@
       border-radius: var(--radius-small);
 
       /* The whole row washes neutral surface-3 on hover (canon); the inner pick
-         button carries no fill of its own — so it cancels the shared menu-item
-         primary hover below. */
+         button carries no fill of its own — so it cancels the shared .menu-item
+         primary hover. */
       &:not(.active):hover {
         background: var(--surface-3);
       }

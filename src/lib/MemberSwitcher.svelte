@@ -63,7 +63,7 @@
       {#each entries as entry (entry.path)}
         <li>
           <button
-            class="member-row"
+            class="menu-item member-row"
             class:current={entry.current}
             onclick={() => selectMember(entry.path)}
             popovertarget="member-menu"
@@ -123,30 +123,19 @@
     }
   }
 
-  /* Shell comes from the shared .popover-menu; only width and anchor side
-     live here. */
+  /* Shell and rows come from the shared .popover-menu and .menu-item; only
+     width, anchor side and the row's quieter hover live here. */
   .member-list {
     min-inline-size: 240px;
     position-area: bottom span-right;
 
     .member-row {
-      display: flex;
       gap: 12px;
       justify-content: space-between;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
 
       &:hover {
         background: var(--surface-2);
+        color: var(--on-surface);
       }
 
       &.current {

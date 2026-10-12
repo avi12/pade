@@ -1684,6 +1684,39 @@ textarea {
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
 }
 
+/* The row every menu is a stack of, and its one home. Six menus had each
+   written the same full-width, transparent, primary-on-hover button into their
+   own `\3c style>` under four different selectors (`li button`, `.branch-row`,
+   `.member-row`, `.menu-item`), so a change to how a menu row reads meant six
+   edits that never quite landed the same.
+
+   It is written inside the shell so it outranks a section's blanket `button`
+   rule (the picker's filled buttons) without either knowing about the other.
+   A menu keeps only what genuinely varies: its gap, a mono face for refs, and
+   its current / active states. Its scoped selector outranks this one, so a
+   menu that re-colours a row at rest owns that row's hover colour too. */
+.popover-menu .menu-item {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  inline-size: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+  transition: color 120ms var(--ease), background 120ms var(--ease);
+
+  &:hover {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+}
+
 /* The two things every menu puts BETWEEN its rows, and the one home for both.
    Six menus had each written the same uppercase label rule into their own
    `\3c style>` under three different names (`.menu-separator`, `.hint`, `.head`)

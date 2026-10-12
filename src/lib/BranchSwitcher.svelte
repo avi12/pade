@@ -111,7 +111,7 @@
       {#each branches as branch (branch)}
         <li>
           <button
-            class="branch-row"
+            class="menu-item branch-row"
             class:current={branch === current}
             onclick={async () => await switchTo(branch)}
             popovertarget="branch-menu"
@@ -133,7 +133,7 @@
         {#each remoteBranches as branch (branch)}
           <li>
             <button
-              class="branch-row remote"
+              class="menu-item branch-row remote"
               onclick={async () => await switchTo(branch)}
               popovertarget="branch-menu"
               popovertargetaction="hide"
@@ -149,7 +149,7 @@
       {#if hasRemote}
         <li>
           <button
-            class="action-row"
+            class="menu-item action-row"
             onclick={async () => await onopenremote()}
             popovertarget="branch-menu"
             popovertargetaction="hide"
@@ -158,7 +158,7 @@
       {/if}
       <li>
         <button
-          class="action-row"
+          class="menu-item action-row"
           onclick={() => onopengit()}
           popovertarget="branch-menu"
           popovertargetaction="hide"
@@ -223,35 +223,17 @@
     }
   }
 
-  /* Shell comes from the shared .popover-menu; only width, anchor side and the
-     row styles live here. Long branch lists scroll inside the menu. */
+  /* Shell and rows come from the shared .popover-menu and .menu-item; only
+     width, anchor side and what each row adds live here. Long branch lists
+     scroll inside the menu. */
   .branch-menu {
     overflow-y: auto;
     max-block-size: min(60vh, 420px);
     min-inline-size: 240px;
     position-area: bottom span-right;
 
-    .branch-row,
-    .action-row {
-      display: flex;
+    .menu-item {
       gap: 8px;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
-      transition: color 120ms var(--ease), background 120ms var(--ease);
-
-      &:hover {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
     }
 
     /* A ref reads as data — the mono face, like every other branch name in the
@@ -289,6 +271,10 @@
     .action-row {
       color: var(--on-surface-variant);
       font-size: 12px;
+
+      &:hover {
+        color: var(--on-primary-container);
+      }
     }
   }
 </style>

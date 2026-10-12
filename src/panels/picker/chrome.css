@@ -86,29 +86,12 @@
   min-inline-size: 250px;
   position-area: bottom span-left;
 
+  /* The row itself is the shared .menu-item. The current selection takes the
+     same primary-container fill its hover does, per the design canon (brief
+     §4.8/§5: selected/active anything = primary-container), and keeps its
+     primary checkmark (`.tick`) as a brighter accent on the tinted row. */
   .menu-item {
-    display: flex;
     gap: 10px;
-    align-items: center;
-    inline-size: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
-    font-size: 13px;
-    text-align: start;
-    cursor: pointer;
-
-    /* Hover + current selection fill with primary-container per the design
-       canon (brief §4.8/§5: selected/active anything = primary-container). The
-       selection keeps its primary checkmark (`.tick`) as a brighter accent on
-       the tinted row. */
-    &:hover {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
 
     &.picked {
       background: var(--primary-container);

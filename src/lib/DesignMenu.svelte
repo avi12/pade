@@ -38,7 +38,12 @@
       <li class="menu-separator">Open a design-to-code tool</li>
       {#each tools as tool (tool.id)}
         <li>
-          <button onclick={() => design.open(tool.id)} popovertarget="design-menu" popovertargetaction="hide">
+          <button
+            class="menu-item"
+            onclick={() => design.open(tool.id)}
+            popovertarget="design-menu"
+            popovertargetaction="hide"
+          >
             <span class="tool">
               <Icon name="star" />{tool.label}
               {#if tool.recommended}
@@ -84,32 +89,15 @@
     }
   }
 
-  /* Shell comes from the shared .popover-menu; only width and anchor side
-     live here. */
+  /* Shell and rows come from the shared .popover-menu and .menu-item; only
+     width, anchor side and the tool / vendor split live here. */
   .design-list {
     min-inline-size: 230px;
     position-area: bottom span-left;
 
-    li button {
-      display: flex;
+    .menu-item {
       gap: 10px;
       justify-content: space-between;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
-
-      &:hover {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
 
       .tool {
         display: flex;

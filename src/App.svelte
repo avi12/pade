@@ -2113,12 +2113,17 @@
               data-tooltip="Split — add an agent instance"
               popovertarget="pane-menu"
             ><Icon name="columns" /></button>
-            <ul id="pane-menu" style:position-anchor="--pane-anchor" class="menu pane-menu" popover>
+            <ul id="pane-menu" style:position-anchor="--pane-anchor" class="pane-menu popover-menu" popover>
               {#if splitCandidates.length > 0}
                 <li class="menu-separator">Add to split</li>
                 {#each splitCandidates as session (session.id)}
                   <li>
-                    <button onclick={() => addPane(session.id)} popovertarget="pane-menu" popovertargetaction="hide">
+                    <button
+                      class="menu-item"
+                      onclick={() => addPane(session.id)}
+                      popovertarget="pane-menu"
+                      popovertargetaction="hide"
+                    >
                       <Icon name="terminal" /> {session.agent.label}
                     </button>
                   </li>
@@ -2128,6 +2133,7 @@
               {#each agents as agent (agent.id)}
                 <li>
                   <button
+                    class="menu-item"
                     onclick={() => launch({
                       agent,
                       split: true
@@ -2381,44 +2387,6 @@
   .chrome-spacer {
     flex: 1 1 0;
     min-inline-size: 0;
-  }
-
-  /* Native popover (light-dismiss on outside click) anchored to its button. */
-  .menu {
-    position: absolute;
-    inset: auto;
-    min-inline-size: 220px;
-    margin-block: 6px 0;
-    margin-inline: 0;
-    padding: 6px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-2);
-    list-style: none;
-    box-shadow: 0 16px 40px var(--shadow-color);
-    position-area: bottom span-right;
-
-    li button {
-      display: flex;
-      gap: 9px;
-      align-items: center;
-      inline-size: 100%;
-      padding: 8px 10px;
-      border: none;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 13px;
-      text-align: start;
-      cursor: pointer;
-      transition: color 120ms var(--ease), background 120ms var(--ease);
-
-      &:hover {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-    }
   }
 
   .segmented-control {
@@ -2747,8 +2715,10 @@
     }
   }
 
-  /* The split menu opens to the left since its trigger sits at the right edge. */
+  /* Shell and rows come from the shared .popover-menu and .menu-item; the split
+     menu opens to the left since its trigger sits at the right edge. */
   .pane-menu {
+    min-inline-size: 220px;
     position-area: bottom span-left;
   }
 
