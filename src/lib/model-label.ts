@@ -18,14 +18,29 @@ const NOT_FOUND = -1;
 const CLAUDE_EFFORT_LADDER = ["low", "medium", "high", "xhigh", "max"] as const;
 const OPENAI_EFFORT_LADDER = ["minimal", "low", "medium", "high", "xhigh"] as const;
 
-/** The id without a `provider/` prefix. */
+/** Claude's context-window variant, `claude-opus-5-5[1m]` - the same model as
+ *  far as its catalog and effort ladder go. */
+const CONTEXT_VARIANT = /\[([^\]]+)\]$/;
+
+/** The id without a `provider/` prefix or a `[1m]` context variant - the form
+ *  the agents' catalogs list. */
 export function bareModel(model: string) {
-  return model.slice(model.lastIndexOf(PROVIDER_SEPARATOR) + 1);
+  return model.slice(model.lastIndexOf(PROVIDER_SEPARATOR) + 1).replace(CONTEXT_VARIANT, "");
 }
 
-/** The human name for a reported model id. */
+/** The human name for a reported model id, with its context variant when it
+ *  has one: `claude-opus-5-5[1m]` → "Opus 5.5 1M". */
 export function modelName(model: string) {
-  const bare = bareModel(model);
+  const name = familyName(bareModel(model));
+  const contextVariant = CONTEXT_VARIANT.exec(model)?.[1];
+  if (contextVariant === undefined) {
+    return name;
+  }
+
+  return `${name} ${contextVariant.toUpperCase()}`;
+}
+
+function familyName(bare: string) {
   if (!bare.startsWith(CLAUDE_PREFIX)) {
     return bare;
   }

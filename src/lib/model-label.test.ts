@@ -1,10 +1,27 @@
-import { effortHeat, effortStep, modelLabel, modelName } from "@/lib/model-label";
+import {
+  bareModel,
+  effortHeat,
+  effortStep,
+  modelLabel,
+  modelName
+} from "@/lib/model-label";
 import { describe, expect, it } from "vitest";
+
+describe("bareModel", () => {
+  it("drops the provider prefix and the context variant", () => {
+    expect(bareModel("anthropic/claude-opus-5")).toBe("claude-opus-5");
+    expect(bareModel("claude-opus-5-5[1m]")).toBe("claude-opus-5-5");
+  });
+});
 
 describe("modelName", () => {
   it("reads a Claude id as family and dotted version", () => {
     expect(modelName("claude-opus-5-5")).toBe("Opus 5.5");
     expect(modelName("claude-fable-5-1")).toBe("Fable 5.1");
+  });
+
+  it("names the context variant", () => {
+    expect(modelName("claude-opus-5-5[1m]")).toBe("Opus 5.5 1M");
   });
 
   it("drops the release date", () => {
