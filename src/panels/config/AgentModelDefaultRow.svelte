@@ -18,34 +18,17 @@
   const AGENT_DEFAULT = "";
 
   const options = $derived(modelOptions(agent.command));
+  const selectedModel = $derived(chosen?.model ?? AGENT_DEFAULT);
   const chosenOption = $derived(
     modelOption({
       command: agent.command,
-      model: chosen?.model ?? AGENT_DEFAULT
+      model: selectedModel
     })
   );
   const efforts = $derived(chosenOption?.efforts ?? []);
   const recommendedEffort = $derived(chosenOption?.recommendedEffort ?? null);
-  const selectedModel = $derived(chosen?.model ?? AGENT_DEFAULT);
   const selectedEffort = $derived(chosen?.effort ?? null);
   const selectId = $derived(`model-default-${agent.id}`);
-
-  async function saveModel(model: string) {
-    const isAgentDefault = model === AGENT_DEFAULT;
-    if (isAgentDefault) {
-      await onsave(undefined);
-      return;
-    }
-
-    await onsave({ model });
-  }
-
-  async function saveEffort(effort: string) {
-    await onsave({
-      ...chosen,
-      effort
-    });
-  }
 </script>
 
 <li class="agent-default">
@@ -53,7 +36,11 @@
     <span class="agent-name"><Icon name={agentIconName(agent.id)} size={14} />{agent.label}</span>
     <select
       id={selectId}
-      onchange={async e => await saveModel(e.currentTarget.value)}
+      onchange={async e => {
+        const model = e.currentTarget.value;
+        const isAgentDefault = model === AGENT_DEFAULT;
+        await onsave(isAgentDefault ? undefined : { model });
+      }}
       value={selectedModel}
     >
       <option value={AGENT_DEFAULT}>Its own default</option>
@@ -66,7 +53,10 @@
     <EffortPicker
       current={selectedEffort}
       {efforts}
-      onpick={saveEffort}
+      onpick={async effort => await onsave({
+        ...chosen,
+        effort
+      })}
       recommended={recommendedEffort}
     />
   {/if}

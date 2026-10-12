@@ -284,7 +284,7 @@ const SessionContext = z.object({
 });
 
 /** One model an agent offers to switch to, as its own local catalog describes
- *  it — effort levels lowest first (with the agent's labels), empty for a
+ *  it - effort levels lowest first (with the agent's labels), empty for a
  *  model without one. */
 const ModelOption = z.object({
   id: z.string(),
@@ -335,7 +335,7 @@ export const pty = {
     run("pty_spawn", { ...args }),
   /** Apply a model / effort picked from the tab to the running session.
    *  `applied`: switched in place (Claude). `needsRestart`: the agent only
-   *  takes a model at launch — relaunch it on its conversation. */
+   *  takes a model at launch - relaunch it on its conversation. */
   applyModel: (args: {
     sessionId: string;
     command: string;
@@ -404,7 +404,7 @@ export const pty = {
     conversationId?: string;
   }) => call("agent_session_context", SessionContext.nullable(), { ...args }),
   /** The model and effort the session runs, as the agent itself reported it
-   *  (hooks, its own session log, a plugin — never its terminal). `null` when
+   *  (hooks, its own session log, a plugin - never its terminal). `null` when
    *  the agent has reported nothing PADE can read. */
   runningModel: (args: {
     command: string;

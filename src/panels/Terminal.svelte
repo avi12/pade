@@ -304,15 +304,15 @@
   }
 
   // Read how full the context window is from the agent's own session log. Both
-  // halves come off disk — the newest turn's token accounting, and the window its
-  // recorded model advertises — so the reading holds no matter what the terminal
-  // is or isn't painting. On any failure the store simply keeps what it had; the
-  // gauge reads "measuring…" or falls back to the screen signals, never a
-  // wrong number.
+  // halves come off disk - the newest turn's token accounting, and the window its
+  // recorded model advertises - so the reading holds no matter what the terminal
+  // is or isn't painting. On any failure the store simply keeps what it had (a
+  // guessed number could end a session wrongly); the gauge reads "measuring…" or
+  // falls back to the screen signals, never a wrong number.
   //
   // This has to be RE-READ every turn, not fired once at mount. The fill grows
   // all session long, and the log carries no `"model"` field (nor any usage)
-  // until the first assistant turn has been written — so a mount-time attempt
+  // until the first assistant turn has been written - so a mount-time attempt
   // always lands too early on a fresh session and would leave
   // `measuredContextPercentage`, the one signal auto-handoff may act on, null for
   // the rest of that session's life.
@@ -322,19 +322,21 @@
         command: session.agent.command,
         conversationId: session.conversationId
       });
-      if (context !== null) {
-        observeSessionLog({
-          id: session.id,
-          usedTokens: context.usedTokens,
-          windowTokens: context.windowTokens
-        });
+      if (context === null) {
+        return;
       }
-    } catch {
-    // Leave the reading as it was; a guessed number could end a session wrongly.
+
+      observeSessionLog({
+        id: session.id,
+        usedTokens: context.usedTokens,
+        windowTokens: context.windowTokens
+      });
+    } catch (error) {
+      console.warn("pade: could not read the session's context fill", error);
     }
   });
 
-  // Read the model and effort the agent itself reported (see running_model.rs) —
+  // Read the model and effort the agent itself reported (see running_model.rs) -
   // at mount, when a turn ends, and the moment the backend says a report or a
   // settings file changed. Coalesced so a switch reported mid-read still lands.
   const readRunningModel = coalesced(async () => {
@@ -348,14 +350,16 @@
         command: session.agent.command,
         conversationId
       });
-      if (running !== null) {
-        observeRunningModel({
-          id: session.id,
-          model: running.model,
-          effort: running.effort
-        });
-        await ensureModelOptions(session.agent.command);
+      if (running === null) {
+        return;
       }
+
+      observeRunningModel({
+        id: session.id,
+        model: running.model,
+        effort: running.effort
+      });
+      await ensureModelOptions(session.agent.command);
     } catch (error) {
       // The tag keeps what it showed; the next report or turn reads again.
       console.warn("pade: could not read the running model", error);
@@ -1875,30 +1879,30 @@
     return xtermTheme({ readToken: rootTokenReader() });
   }
 
-  // Files dragged in from Explorer or an IDE land in the composer as their
-  // paths, exactly like a Ctrl+V'd image: the agent attaches an image path and
-  // reads any other path as a file reference. Tauri's native drag events carry
-  // the absolute paths the web drag API withholds, and every pane hears every
-  // drop in the window, so each one claims only a drop on its own viewport.
-  // Follow the running model: re-read the moment the backend says this
-  // session's report — or a settings file every session reads — changed, and
-  // read once now for the tag's first frame.
-  async function listenForRunningModel(): Promise<void> {
-    const listener = await pty.onRunningModelChanged(async sessionId => {
+  // Re-read the moment the backend says this session's report - or a settings
+  // file every session reads - changed, and read once now for the tag's first
+  // frame.
+  async function listenForRunningModel() {
+    const unlisten = await pty.onRunningModelChanged(async sessionId => {
       const isAboutThisSession = sessionId === null || sessionId === session.conversationId;
       if (isAboutThisSession) {
         await readRunningModel();
       }
     });
     if (destroyed) {
-      listener();
+      unlisten();
       return;
     }
 
-    runningModelUnlisten = listener;
+    runningModelUnlisten = unlisten;
     await readRunningModel();
   }
 
+  // Files dragged in from Explorer or an IDE land in the composer as their
+  // paths, exactly like a Ctrl+V'd image: the agent attaches an image path and
+  // reads any other path as a file reference. Tauri's native drag events carry
+  // the absolute paths the web drag API withholds, and every pane hears every
+  // drop in the window, so each one claims only a drop on its own viewport.
   async function listenForFileDrops(): Promise<void> {
     const listeners = await Promise.all([
       dragDrop.onOver(({ position }) => {

@@ -1,3 +1,4 @@
+import { AgentId } from "@/lib/agent-icon";
 import { projectModelDefault, withProjectModelDefault } from "@/lib/agent-model-scope";
 import type { Prefs } from "@/lib/types";
 import { describe, expect, it } from "vitest";
@@ -10,7 +11,7 @@ describe("projectModelDefault", () => {
       projectModelDefault({
         prefs: {},
         project: PROJECT,
-        agent: "claude"
+        agent: AgentId.Claude
       })
     ).toBeUndefined();
   });
@@ -19,7 +20,7 @@ describe("projectModelDefault", () => {
     const prefs: Prefs = {
       agentModelProjects: {
         [PROJECT]: {
-          claude: {
+          [AgentId.Claude]: {
             model: "claude-opus-5-5",
             effort: "high"
           }
@@ -31,7 +32,7 @@ describe("projectModelDefault", () => {
       projectModelDefault({
         prefs,
         project: PROJECT,
-        agent: "claude"
+        agent: AgentId.Claude
       })
     ).toEqual({
       model: "claude-opus-5-5",
@@ -41,7 +42,7 @@ describe("projectModelDefault", () => {
       projectModelDefault({
         prefs,
         project: PROJECT,
-        agent: "codex"
+        agent: AgentId.Codex
       })
     ).toBeUndefined();
   });
@@ -52,7 +53,7 @@ describe("withProjectModelDefault", () => {
     const prefs: Prefs = {
       agentModelProjects: {
         [PROJECT]: {
-          codex: {
+          [AgentId.Codex]: {
             model: "gpt-5.6-terra"
           }
         }
@@ -63,17 +64,17 @@ describe("withProjectModelDefault", () => {
       withProjectModelDefault({
         prefs,
         project: PROJECT,
-        agent: "claude",
+        agent: AgentId.Claude,
         choice: {
           model: "claude-fable-5-1"
         }
       })
     ).toEqual({
       [PROJECT]: {
-        codex: {
+        [AgentId.Codex]: {
           model: "gpt-5.6-terra"
         },
-        claude: {
+        [AgentId.Claude]: {
           model: "claude-fable-5-1"
         }
       }
@@ -84,7 +85,7 @@ describe("withProjectModelDefault", () => {
     const prefs: Prefs = {
       agentModelProjects: {
         [PROJECT]: {
-          claude: {
+          [AgentId.Claude]: {
             model: "claude-opus-5-5"
           }
         }
@@ -95,7 +96,7 @@ describe("withProjectModelDefault", () => {
       withProjectModelDefault({
         prefs,
         project: PROJECT,
-        agent: "claude",
+        agent: AgentId.Claude,
         choice: {}
       })
     ).toEqual({});

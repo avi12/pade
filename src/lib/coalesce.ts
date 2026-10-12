@@ -2,25 +2,24 @@
 // that lands while a run is in flight queues exactly one more pass, so the
 // last request is always answered by a run that started after it.
 
-/** `task` wrapped so overlapping calls coalesce into at most one extra run. */
-export function coalesced(task: () => Promise<void>): () => Promise<void> {
-  let running = false;
-  let requestedDuringRun = false;
+export function coalesced(task: () => Promise<void>) {
+  let isRunning = false;
+  let isRequestedDuringRun = false;
 
   return async function run() {
-    if (running) {
-      requestedDuringRun = true;
+    if (isRunning) {
+      isRequestedDuringRun = true;
       return;
     }
 
-    running = true;
+    isRunning = true;
     try {
       do {
-        requestedDuringRun = false;
+        isRequestedDuringRun = false;
         await task();
-      } while (requestedDuringRun);
+      } while (isRequestedDuringRun);
     } finally {
-      running = false;
+      isRunning = false;
     }
   };
 }

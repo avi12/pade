@@ -1,6 +1,6 @@
 <script lang="ts">
   // A model's effort ladder as one row of buttons, each showing the rising bars
-  // filled to its own level — so the row climbs exactly like a tab's tag.
+  // filled to its own level - so the row climbs exactly like a tab's tag.
 
   import type { ModelOption } from "@/lib/bridge";
   import EffortBars from "@/lib/EffortBars.svelte";
@@ -13,21 +13,18 @@
     recommended: string | null;
     onpick: (effort: string) => Promise<void>;
   } = $props();
-
-  function tooltip(effort: ModelOption["efforts"][number]): string {
-    const isRecommended = effort.id === recommended;
-    return isRecommended ? `${effort.name} - recommended` : effort.name;
-  }
 </script>
 
 <div class="efforts" aria-label="Reasoning effort" role="group">
   {#each efforts as effort, index (effort.id)}
+    {@const isCurrent = current === effort.id}
+    {@const isRecommended = recommended === effort.id}
     <button
       class="effort"
-      class:current={current === effort.id}
-      class:recommended={recommended === effort.id}
-      aria-pressed={current === effort.id}
-      data-tooltip={tooltip(effort)}
+      class:current={isCurrent}
+      class:recommended={isRecommended}
+      aria-pressed={isCurrent}
+      data-tooltip={isRecommended ? `${effort.name} - recommended` : effort.name}
       onclick={async () => await onpick(effort.id)}
     >
       <EffortBars step={index + 1} steps={efforts.length} />

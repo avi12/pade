@@ -1,5 +1,5 @@
 <script lang="ts">
-  // An effort level as rising bars — `step` of `steps` lit, each bar taller than
+  // An effort level as rising bars - `step` of `steps` lit, each bar taller than
   // the last, so "more thinking" reads at a glance the way signal strength does.
   // Purely visual: the caller carries the words in its tooltip / label.
   const { step, steps }: {

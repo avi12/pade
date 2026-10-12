@@ -15,15 +15,16 @@
 
 <ul class="models">
   {#each options as option (option.id)}
+    {@const isCurrent = current === option.id}
     <li>
       <button
         class="model-row"
-        class:current={current === option.id}
-        aria-pressed={current === option.id}
+        class:current={isCurrent}
+        aria-pressed={isCurrent}
         onclick={async () => await onpick(option.id)}
       >
         <span class="check">
-          {#if current === option.id}
+          {#if isCurrent}
             <Icon name="check" size={12} />
           {/if}
         </span>

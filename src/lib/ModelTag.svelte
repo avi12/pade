@@ -3,6 +3,7 @@
   // rising bars on that model's own ladder (from its agent's catalog), with the
   // exact words in the tooltip. A button: it opens the tab strip's model menu.
   // Nothing renders until the agent has reported.
+
   import EffortBars from "@/lib/EffortBars.svelte";
   import { effortStep, modelLabel } from "@/lib/model-label";
   import { sessionModel } from "@/lib/stores/context.svelte";
@@ -18,15 +19,17 @@
     onopen: () => Promise<void>;
   } = $props();
 
+  const MODEL_MENU_ANCHOR = "--model-menu-anchor";
+
   const running = $derived(sessionModel(session.id));
-  const anchorName = $derived.by(() => {
-    if (anchored) {
-      return "--model-menu-anchor";
+  const label = $derived.by(() => {
+    if (running === null) {
+      return "";
     }
 
-    return undefined;
+    return modelLabel(running);
   });
-  const effort = $derived.by(() => {
+  const effortStepShown = $derived.by(() => {
     if (running === null || running.effort === null) {
       return null;
     }
@@ -41,9 +44,8 @@
       ladder
     });
   });
-  // An effort no ladder knows is spelled out instead of drawn.
-  const effortWord = $derived.by(() => {
-    const isDrawn = effort !== null;
+  const unladderedEffortWord = $derived.by(() => {
+    const isDrawn = effortStepShown !== null;
     if (isDrawn || running === null || running.effort === null) {
       return "";
     }
@@ -54,25 +56,25 @@
 
 {#if running !== null}
   <button
-    style:anchor-name={anchorName}
+    style:anchor-name={anchored ? MODEL_MENU_ANCHOR : undefined}
     class="model"
-    aria-label={`${modelLabel(running)} - change model or effort`}
+    aria-label={`${label} - change model or effort`}
     data-noreorder
-    data-tooltip={`${modelLabel(running)} · click to change`}
+    data-tooltip={`${label} · click to change`}
     onclick={async () => await onopen()}
     popovertarget={menuId}
   >
     {running.name}
-    {#if effort === null}
-      {effortWord}
+    {#if effortStepShown === null}
+      {unladderedEffortWord}
     {:else}
-      <EffortBars step={effort.step} steps={effort.steps} />
+      <EffortBars step={effortStepShown.step} steps={effortStepShown.steps} />
     {/if}
   </button>
 {/if}
 
 <style>
-  /* Reads as part of the pill's label, not as a separate control — until it is
+  /* Reads as part of the pill's label, not as a separate control - until it is
      hovered. Its effort bars light in --effort-lit, which the pill sets. */
   .model {
     display: inline-flex;

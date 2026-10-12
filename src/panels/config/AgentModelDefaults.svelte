@@ -17,7 +17,7 @@
     project: string;
   } = $props();
 
-  const configurable = $derived(agents.filter(agent => modelOptions(agent.command).length > 0));
+  const configurableAgents = $derived(agents.filter(agent => modelOptions(agent.command).length > 0));
 
   onMount(async () => {
     for (const agent of agents) {
@@ -26,11 +26,11 @@
   });
 </script>
 
-{#if configurable.length === 0}
+{#if configurableAgents.length === 0}
   <p class="field-hint">No installed agent shares a model list yet</p>
 {:else}
   <ul class="agent-defaults">
-    {#each configurable as agent (agent.id)}
+    {#each configurableAgents as agent (agent.id)}
       <AgentModelDefaultRow
         {agent}
         chosen={projectModelDefault({

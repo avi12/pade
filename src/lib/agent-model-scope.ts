@@ -51,13 +51,13 @@ export function withProjectModelDefault({ prefs, project, agent, choice }: {
     projectDefaults[agent] = choice;
   }
 
-  const next = { ...prefs.agentModelProjects };
+  const nextProjects = { ...prefs.agentModelProjects };
   const hasDefaults = Object.keys(projectDefaults).length > 0;
   if (hasDefaults) {
-    next[project] = projectDefaults;
+    nextProjects[project] = projectDefaults;
   } else {
-    delete next[project];
+    delete nextProjects[project];
   }
 
-  return next;
+  return nextProjects;
 }

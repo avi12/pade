@@ -4,6 +4,7 @@
   // with the same rising bars the tab shows, so menu and tag read alike. A pick
   // goes to `onchoose`, which applies it the moment the agent can take it (see
   // stores/modelSwitch).
+
   import EffortPicker from "@/lib/EffortPicker.svelte";
   import { modelLabel, modelName } from "@/lib/model-label";
   import ModelPicker from "@/lib/ModelPicker.svelte";
@@ -17,8 +18,7 @@
     onchoose: (choice: ModelChoice) => Promise<void>;
   } = $props();
 
-  // What a pending switch is waiting for, in the user's words.
-  const WAIT_NOTES: Record<SwitchWait, string> = {
+  const WAITING_FOR_NOTES: Record<SwitchWait, string> = {
     [SwitchWait.applying]: "applying…",
     [SwitchWait.quiet]: "resumes on it once the agent is idle",
     [SwitchWait.successor]: "the session taking over from the handoff starts on it"
@@ -52,7 +52,7 @@
       name: modelName(shownModel ?? ""),
       effort: shownEffort
     });
-    return `${shown} - ${WAIT_NOTES[pending.waitingFor]}`;
+    return `${shown} - ${WAITING_FOR_NOTES[pending.waitingFor]}`;
   });
 </script>
 

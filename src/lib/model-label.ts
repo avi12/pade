@@ -6,28 +6,31 @@
 
 const CLAUDE_PREFIX = "claude-";
 const PROVIDER_SEPARATOR = "/";
+const ID_PART_SEPARATOR = "-";
+const VERSION_SEPARATOR = ".";
 const RELEASE_DATE = /^\d{8}$/;
 const VERSION_PART = /^\d+$/;
+const NOT_FOUND = -1;
 
-/** Each model family's effort levels, lowest first — the ladder its five
+/** Each model family's effort levels, lowest first - the ladder its five
  *  bars climb. Claude's own levels, and the OpenAI reasoning levels that
  *  Codex, Copilot and OpenCode's OpenAI models use. */
 const CLAUDE_EFFORT_LADDER = ["low", "medium", "high", "xhigh", "max"] as const;
 const OPENAI_EFFORT_LADDER = ["minimal", "low", "medium", "high", "xhigh"] as const;
 
 /** The id without a `provider/` prefix. */
-export function bareModel(model: string): string {
+export function bareModel(model: string) {
   return model.slice(model.lastIndexOf(PROVIDER_SEPARATOR) + 1);
 }
 
 /** The human name for a reported model id. */
-export function modelName(model: string): string {
+export function modelName(model: string) {
   const bare = bareModel(model);
   if (!bare.startsWith(CLAUDE_PREFIX)) {
     return bare;
   }
 
-  const [family, ...rest] = bare.slice(CLAUDE_PREFIX.length).split("-");
+  const [family, ...rest] = bare.slice(CLAUDE_PREFIX.length).split(ID_PART_SEPARATOR);
   const versionParts = rest.filter(part => !RELEASE_DATE.test(part));
   const isClaudeShape = family !== undefined && family !== "" && versionParts.every(part => VERSION_PART.test(part));
   if (!isClaudeShape) {
@@ -35,32 +38,31 @@ export function modelName(model: string): string {
   }
 
   const name = family.charAt(0).toUpperCase() + family.slice(1);
-  return versionParts.length === 0 ? name : `${name} ${versionParts.join(".")}`;
+  const isVersioned = versionParts.length > 0;
+  return isVersioned ? `${name} ${versionParts.join(VERSION_SEPARATOR)}` : name;
 }
 
 /** Where an effort level sits on its model's ladder: `step` of `steps`, 1-based.
- *  `ladder` is the model's own levels from its agent's catalog, when known —
+ *  `ladder` is the model's own levels from its agent's catalog, when known -
  *  it wins; otherwise the family's usual ladder stands in. Null for a level no
  *  ladder knows, so the caller shows the word instead. */
 export function effortStep({ model, effort, ladder = [] }: {
   model: string;
   effort: string;
   ladder?: readonly string[];
-}): {
-  step: number;
-  steps: number;
-} | null {
+}) {
   const isClaudeModel = bareModel(model).startsWith(CLAUDE_PREFIX);
   const familyLadders: readonly (readonly string[])[] = isClaudeModel
     ? [CLAUDE_EFFORT_LADDER, OPENAI_EFFORT_LADDER]
     : [OPENAI_EFFORT_LADDER, CLAUDE_EFFORT_LADDER];
-  const ladders = ladder.length > 0 ? [ladder, ...familyLadders] : familyLadders;
-  for (const ladder of ladders) {
-    const index = ladder.indexOf(effort.toLowerCase());
-    if (index !== -1) {
+  const hasOwnLadder = ladder.length > 0;
+  const ladders = hasOwnLadder ? [ladder, ...familyLadders] : familyLadders;
+  for (const candidate of ladders) {
+    const index = candidate.indexOf(effort.toLowerCase());
+    if (index !== NOT_FOUND) {
       return {
         step: index + 1,
-        steps: ladder.length
+        steps: candidate.length
       };
     }
   }
@@ -72,6 +74,6 @@ export function effortStep({ model, effort, ladder = [] }: {
 export function modelLabel({ name, effort }: {
   name: string;
   effort: string | null;
-}): string {
+}) {
   return effort === null ? name : `${name} · ${effort} effort`;
 }

@@ -9,35 +9,33 @@ import { bareModel } from "@/lib/model-label";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const optionsByAgent = new SvelteMap<string, ModelOption[]>();
+const requestedCommands = new SvelteSet<string>();
 
-/** Fetch `command`'s catalog into the store. Rejects when the backend call
- *  fails; the previous options stay in place. */
-async function loadModelOptions(command: string): Promise<void> {
+/** Rejects when the backend call fails; the previous options stay in place. */
+async function loadModelOptions(command: string) {
   optionsByAgent.set(command, await agents.modelOptions(command));
 }
 
-const requested = new SvelteSet<string>();
-
-/** Load `command`'s catalog the first time anything asks for it — the tab's
+/** Load `command`'s catalog the first time anything asks for it - the tab's
  *  bars need the running model's own ladder without waiting for a menu. */
-export async function ensureModelOptions(command: string): Promise<void> {
-  if (requested.has(command)) {
+export async function ensureModelOptions(command: string) {
+  if (requestedCommands.has(command)) {
     return;
   }
 
-  requested.add(command);
+  requestedCommands.add(command);
   try {
     await loadModelOptions(command);
   } catch (error) {
-    requested.delete(command);
+    requestedCommands.delete(command);
     console.warn(`pade: could not load ${command}'s model catalog`, error);
   }
 }
 
-/** Re-read `command`'s catalog — a model menu opening, which should show what
+/** Re-read `command`'s catalog - a model menu opening, which should show what
  *  the agent fetched since. A failure keeps the options already loaded. */
-export async function refreshModelOptions(command: string): Promise<void> {
-  requested.add(command);
+export async function refreshModelOptions(command: string) {
+  requestedCommands.add(command);
   try {
     await loadModelOptions(command);
   } catch (error) {
@@ -46,7 +44,7 @@ export async function refreshModelOptions(command: string): Promise<void> {
 }
 
 /** The models `command` offers, empty until loaded. */
-export function modelOptions(command: string): ModelOption[] {
+export function modelOptions(command: string) {
   return optionsByAgent.get(command) ?? [];
 }
 
@@ -55,6 +53,7 @@ export function modelOptions(command: string): ModelOption[] {
 export function modelOption({ command, model }: {
   command: string;
   model: string;
-}): ModelOption | undefined {
-  return modelOptions(command).find(option => option.id === model || bareModel(option.id) === bareModel(model));
+}) {
+  const bare = bareModel(model);
+  return modelOptions(command).find(option => option.id === model || bareModel(option.id) === bare);
 }

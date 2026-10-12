@@ -44,14 +44,6 @@ interface ContextSignal {
   effort: string | null;
 }
 
-/** A session's running model — its id, and its name as a person reads it —
- *  with its effort. */
-export interface RunningModel {
-  id: string;
-  name: string;
-  effort: string | null;
-}
-
 const signals = new SvelteMap<string, ContextSignal>();
 
 /** Scale a token count like "123", "45k", "1m" to an absolute number. */
@@ -377,13 +369,13 @@ export function observeSessionLog({ id, usedTokens, windowTokens }: {
 }
 
 /** Record the model and effort the agent itself reported for this session.
- *  Each reading replaces the last whole — the agent reports both together, and
+ *  Each reading replaces the last whole - the agent reports both together, and
  *  a model switch can drop the effort (a model without one). */
 export function observeRunningModel({ id, model, effort }: {
   id: string;
   model: string;
   effort: string | null;
-}): void {
+}) {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
   signals.set(id, {
     ...previous,
@@ -392,11 +384,11 @@ export function observeRunningModel({ id, model, effort }: {
   });
 }
 
-/** The model and effort the session runs on, or null until the agent has
- *  reported one. */
-export function sessionModel(id: string): RunningModel | null {
+/** The session's running model - its id, and its name as a person reads it -
+ *  with its effort, or null until the agent has reported one. */
+export function sessionModel(id: string) {
   const signal = signals.get(id);
-  if (!signal || signal.model === null) {
+  if (signal === undefined || signal.model === null) {
     return null;
   }
 
