@@ -161,6 +161,13 @@
   --critical: hsl(352deg 72% 50%);
   --critical-wash: hsl(352deg 72% 55% / 14%);
 
+  /* Reasoning effort - green → amber → red for how hard a model thinks (see
+     lib/EffortTint). Saturated past the status hues so a tab's model name
+     reads its effort at a glance, yet dark enough to stay legible as text. */
+  --effort-low: hsl(145deg 85% 30%);
+  --effort-mid: hsl(36deg 100% 40%);
+  --effort-high: hsl(350deg 90% 46%);
+
   /* Context-window fuel gauge — a blue→amber→red ramp for how full an agent's
      context is (see lib/contextLevel). Its own scale, distinct from the
      blue/orange/pink severity above, so a filling context reads like a traffic
@@ -313,6 +320,9 @@
   --warning-wash: hsl(28deg 90% 58% / 16%);
   --critical: hsl(352deg 80% 70%);
   --critical-wash: hsl(352deg 80% 60% / 16%);
+  --effort-low: hsl(145deg 75% 58%);
+  --effort-mid: hsl(42deg 100% 60%);
+  --effort-high: hsl(350deg 100% 68%);
   --context-ok: hsl(212deg 90% 66%);
   --context-warning: hsl(45deg 95% 60%);
   --context-critical: hsl(2deg 85% 66%);
@@ -412,6 +422,9 @@
   --warning-wash: rgb(255 194 77 / 16%);
   --critical: #ff2a4d;
   --critical-wash: rgb(255 42 77 / 18%);
+  --effort-low: #39ff88;
+  --effort-mid: #ffc400;
+  --effort-high: #ff2a6d;
   --context-ok: #00e5ff;
   --context-warning: #ffc24d;
   --context-critical: #ff2a4d;
@@ -548,6 +561,11 @@
   --warning-wash: hsl(26deg 95% 48% / 20%);
   --critical: #c4004e;
   --critical-wash: rgb(196 0 78 / 12%);
+
+  /* Ink-dark so the effort still writes on the cyan active-tab fill. */
+  --effort-low: #00753a;
+  --effort-mid: #a34a00;
+  --effort-high: #c4003c;
   --context-ok: #00668f;
   --context-warning: hsl(26deg 95% 36%);
   --context-critical: #c4004e;

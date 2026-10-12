@@ -70,6 +70,17 @@ export function effortStep({ model, effort, ladder = [] }: {
   return null;
 }
 
+/** How hot an effort runs, from 0 (its ladder's lowest) to 1 (its highest) -
+ *  the point on the cool-to-hot colour ramp it is drawn in. A one-level
+ *  ladder has nowhere to climb, so its only level is the top. */
+export function effortHeat({ step, steps }: {
+  step: number;
+  steps: number;
+}) {
+  const hasRange = steps > 1;
+  return hasRange ? (step - 1) / (steps - 1) : 1;
+}
+
 /** A model's human name and its effort as one line: "Opus 5.5 · high effort". */
 export function modelLabel({ name, effort }: {
   name: string;

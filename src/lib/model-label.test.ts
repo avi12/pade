@@ -1,4 +1,4 @@
-import { effortStep, modelLabel, modelName } from "@/lib/model-label";
+import { effortHeat, effortStep, modelLabel, modelName } from "@/lib/model-label";
 import { describe, expect, it } from "vitest";
 
 describe("modelName", () => {
@@ -97,6 +97,38 @@ describe("effortStep", () => {
       step: 5,
       steps: 6
     });
+  });
+});
+
+describe("effortHeat", () => {
+  it("runs from cool at the lowest level to hot at the highest", () => {
+    expect(
+      effortHeat({
+        step: 1,
+        steps: 5
+      })
+    ).toBe(0);
+    expect(
+      effortHeat({
+        step: 3,
+        steps: 5
+      })
+    ).toBe(0.5);
+    expect(
+      effortHeat({
+        step: 5,
+        steps: 5
+      })
+    ).toBe(1);
+  });
+
+  it("draws a one-level ladder's only level hot", () => {
+    expect(
+      effortHeat({
+        step: 1,
+        steps: 1
+      })
+    ).toBe(1);
   });
 });
 

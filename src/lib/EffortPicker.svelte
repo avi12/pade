@@ -1,9 +1,10 @@
 <script lang="ts">
-  // A model's effort ladder as one row of buttons, each showing the rising bars
-  // filled to its own level - so the row climbs exactly like a tab's tag.
+  // A model's effort ladder as one row of buttons, each showing its level as the
+  // chip in the colour a tab tints its model name - so the row runs cool to hot.
 
   import type { ModelOption } from "@/lib/bridge";
-  import EffortBars from "@/lib/EffortBars.svelte";
+  import EffortTint from "@/lib/EffortTint.svelte";
+  import { effortHeat } from "@/lib/model-label";
 
   const { efforts, current, recommended, onpick }: {
     efforts: ModelOption["efforts"];
@@ -19,6 +20,10 @@
   {#each efforts as effort, index (effort.id)}
     {@const isCurrent = current === effort.id}
     {@const isRecommended = recommended === effort.id}
+    {@const heat = effortHeat({
+      step: index + 1,
+      steps: efforts.length
+    })}
     <button
       class="effort"
       class:current={isCurrent}
@@ -27,8 +32,7 @@
       data-tooltip={isRecommended ? `${effort.name} - recommended` : effort.name}
       onclick={async () => await onpick(effort.id)}
     >
-      <EffortBars step={index + 1} steps={efforts.length} />
-      <span class="effort-name">{effort.name}</span>
+      <EffortTint {heat} isFilled>{effort.name}</EffortTint>
     </button>
   {/each}
 </div>
@@ -44,17 +48,14 @@
   }
 
   .effort {
-    --effort-lit: var(--primary);
-
     display: grid;
-    gap: 4px;
     justify-items: center;
     padding: 6px 4px;
     border: 1px solid transparent;
     border-radius: var(--radius-small);
     background: transparent;
-    color: var(--on-surface-variant);
-    font: inherit;
+    font-family: var(--font-monospace);
+    font-size: 10px;
     cursor: pointer;
 
     &:hover {
@@ -62,22 +63,13 @@
     }
 
     &.current {
-      --effort-lit: currentColor;
-
       border-color: var(--primary);
-      background: var(--primary-container);
-      color: var(--on-primary-container);
+      background: var(--surface-3);
     }
 
-    &.recommended .effort-name {
+    &.recommended {
       text-decoration: underline dotted;
       text-underline-offset: 3px;
-    }
-
-    .effort-name {
-      font-family: var(--font-monospace);
-      font-size: 10px;
-      white-space: nowrap;
     }
   }
 </style>

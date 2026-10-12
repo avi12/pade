@@ -1,7 +1,7 @@
 <script lang="ts">
   // The model + effort menu a tab's model tag opens. Models come from the
-  // agent's own catalog; the effort row climbs the shown model's own ladder
-  // with the same rising bars the tab shows, so menu and tag read alike. A pick
+  // agent's own catalog; the effort row runs the shown model's own ladder in
+  // chips in the colours the tab tints its name, so menu and tag read alike. A pick
   // goes to `onchoose`, which applies it the moment the agent can take it (see
   // stores/modelSwitch).
 

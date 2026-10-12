@@ -689,10 +689,6 @@
     }
 
     .tab {
-      /* The ModelTag's effort bars light in the accent — and on the active
-         pill, whose fill IS the accent, in the pill's on-colour (below). */
-      --effort-lit: var(--primary);
-
       display: inline-flex;
       align-items: center;
       border-radius: var(--radius-full);
@@ -709,8 +705,6 @@
       }
 
       &.active {
-        --effort-lit: currentColor;
-
         background: var(--primary-container);
       }
 

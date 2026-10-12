@@ -1,12 +1,12 @@
 <script lang="ts">
-  // A tab's running model and effort: the model's name, then its effort as
-  // rising bars on that model's own ladder (from its agent's catalog), with the
+  // A tab's running model and effort: the model's name, coloured by how high its
+  // effort sits on that model's own ladder (from its agent's catalog), with the
   // exact words in the tooltip. A button: it opens the tab strip's model menu.
   // Nothing renders until the agent has reported.
 
-  import EffortBars from "@/lib/EffortBars.svelte";
+  import EffortTint from "@/lib/EffortTint.svelte";
   import Icon from "@/lib/Icon.svelte";
-  import { effortStep, modelLabel } from "@/lib/model-label";
+  import { effortHeat, effortStep, modelLabel } from "@/lib/model-label";
   import { sessionModel } from "@/lib/stores/context.svelte";
   import { modelOption } from "@/lib/stores/modelOptions.svelte";
   import type { AgentSession } from "@/lib/types";
@@ -42,7 +42,7 @@
 
     return modelAndEffort;
   });
-  const effortStepShown = $derived.by(() => {
+  const heat = $derived.by(() => {
     if (running === null || running.effort === null) {
       return null;
     }
@@ -51,19 +51,16 @@
       command: session.agent.command,
       model: running.id
     })?.efforts.map(option => option.id);
-    return effortStep({
+    const step = effortStep({
       model: running.id,
       effort: running.effort,
       ladder
     });
-  });
-  const unladderedEffortWord = $derived.by(() => {
-    const isDrawn = effortStepShown !== null;
-    if (isDrawn || running === null || running.effort === null) {
-      return "";
+    if (step === null) {
+      return null;
     }
 
-    return `· ${running.effort}`;
+    return effortHeat(step);
   });
 </script>
 
@@ -77,33 +74,18 @@
     onclick={async () => await onopen()}
     popovertarget={menuId}
   >
-    {running.name}
-    {#if effortStepShown === null}
-      {unladderedEffortWord}
-    {:else}
-      <EffortBars step={effortStepShown.step} steps={effortStepShown.steps} />
-    {/if}
-    {#if running.ultracode}
-      <span class="ultracode"><Icon name="bolt" size={14} /></span>
-    {/if}
+    <EffortTint {heat}>
+      {running.name}
+      {#if running.ultracode}
+        <Icon name="bolt" size={12} />
+      {/if}
+    </EffortTint>
   </button>
 {/if}
 
 <style>
-  /* Ultracode rides on the effort: a bolt in the same lit colour as the bars,
-     so "maximum effort, many agents" reads as one mark. */
-  .ultracode {
-    display: inline-flex;
-    color: var(--effort-lit, currentColor);
-
-    /* Full strength even though the tag around it is dimmed - it is the one
-       mark that says the session is running many agents. */
-    opacity: 100%;
-    filter: drop-shadow(0 0 0.5px currentColor);
-  }
-
   /* Reads as part of the pill's label, not as a separate control - until it is
-     hovered. Its effort bars light in --effort-lit, which the pill sets. */
+     hovered. */
   .model {
     display: inline-flex;
     gap: 5px;
@@ -115,16 +97,12 @@
     color: inherit;
     font-family: var(--font-monospace);
     font-size: 10px;
-    opacity: 80%;
     cursor: pointer;
-    transition:
-      opacity 120ms var(--ease),
-      background-color 120ms var(--ease);
+    transition: background-color 120ms var(--ease);
 
     &:hover,
     &:focus-visible {
       background: color-mix(in sRGB, currentColor 14%, transparent);
-      opacity: 100%;
     }
   }
 </style>
