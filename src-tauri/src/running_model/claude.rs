@@ -524,14 +524,28 @@ fn saved_effort(model: &str) -> Option<Saved> {
     })
 }
 
+/// A model's own level is looked up under its exact id, then without a
+/// context-window variant: `claude-opus-5-5[1m]` shares `claude-opus-5-5`'s.
 fn effort_for_model(settings: &serde_json::Value, model: &str) -> Option<String> {
-    settings
-        .get("modelSettings")
-        .and_then(|models| models.get(model))
-        .and_then(|entry| entry.get("effortLevel"))
+    let model_settings = settings.get("modelSettings");
+    let own_level = |id: &str| {
+        model_settings
+            .and_then(|models| models.get(id))
+            .and_then(|entry| entry.get("effortLevel"))
+    };
+    own_level(model)
+        .or_else(|| own_level(without_context_variant(model)))
         .or_else(|| settings.get("effortLevel"))
         .and_then(serde_json::Value::as_str)
         .map(str::to_string)
+}
+
+/// `claude-opus-5-5[1m]` → `claude-opus-5-5`.
+fn without_context_variant(model: &str) -> &str {
+    model
+        .strip_suffix(']')
+        .and_then(|rest| rest.rsplit_once('['))
+        .map_or(model, |(base, _variant)| base)
 }
 
 #[cfg(test)]
@@ -628,6 +642,18 @@ mod tests {
         assert_eq!(
             effort_for_model(&settings, "claude-fable-5-1").as_deref(),
             Some("xhigh")
+        );
+    }
+
+    #[test]
+    fn a_context_variant_shares_its_models_level() {
+        let settings = serde_json::json!({
+            "effortLevel": "xhigh",
+            "modelSettings": { "claude-opus-5-5": { "effortLevel": "medium" } }
+        });
+        assert_eq!(
+            effort_for_model(&settings, "claude-opus-5-5[1m]").as_deref(),
+            Some("medium")
         );
     }
 
