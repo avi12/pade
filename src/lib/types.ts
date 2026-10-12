@@ -8,7 +8,6 @@ import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
 import { z } from "zod";
 
 export const ChangeKind = z.enum(["created", "modified", "deleted"]);
-export type ChangeKind = z.infer<typeof ChangeKind>;
 
 export const ChangeEvent = z.object({
   id: z.string(),
@@ -48,8 +47,7 @@ export type WatchStatus = z.infer<typeof WatchStatus>;
 
 /** The manifest family that confirms a directory as a package (workspace
  *  member discovery — a folder is a package IFF it holds its own manifest). */
-export const Ecosystem = z.enum(["javascript", "rust", "go", "python"]);
-export type Ecosystem = z.infer<typeof Ecosystem>;
+const Ecosystem = z.enum(["javascript", "rust", "go", "python"]);
 
 /** One manifest-confirmed workspace member: its repo-relative `/`-joined
  *  directory (`""` = the root), the name its manifest declares (`null` when it
@@ -96,7 +94,7 @@ export const Commit = z.object({
 export type Commit = z.infer<typeof Commit>;
 
 /** One file changed by a commit, with its per-file line counts. */
-export const CommitFileEntry = z.object({
+const CommitFileEntry = z.object({
   path: z.string(),
   kind: VcsKind,
   additions: z.number(),
@@ -133,15 +131,13 @@ export type RestoreCandidate = z.infer<typeof RestoreCandidate>;
  *  upstream commits, `alreadyUpToDate` had nothing to fetch, and `refusedDirty`
  *  bailed because the working tree has uncommitted changes to tracked files. A
  *  branch that diverged from upstream (no fast-forward) throws instead. */
-export const PullStatus = z.enum(["updated", "alreadyUpToDate", "refusedDirty"]);
-export type PullStatus = z.infer<typeof PullStatus>;
+const PullStatus = z.enum(["updated", "alreadyUpToDate", "refusedDirty"]);
 
 /** The result of `vcs.pull`: the outcome plus a short human line for the toast. */
 export const PullOutcome = z.object({
   status: PullStatus,
   message: z.string()
 });
-export type PullOutcome = z.infer<typeof PullOutcome>;
 
 export const ConfigFile = z.object({
   name: z.string(),
@@ -195,11 +191,10 @@ export type OpenTarget = {
 };
 
 /** One runnable task parsed from a project manifest. */
-export const Task = z.object({
+const Task = z.object({
   name: z.string(),
   command: z.string()
 });
-export type Task = z.infer<typeof Task>;
 
 /** The tasks extracted from one manifest (package.json, Cargo.toml, …). */
 export const TaskGroup = z.object({
@@ -268,12 +263,11 @@ export const EditorKind = z.object({
 export type EditorKind = z.infer<typeof EditorKind>;
 
 /** An editor the user located by executable path (merged into detection). */
-export const AddedEditor = z.object({
+const AddedEditor = z.object({
   id: z.string(),
   label: z.string(),
   path: z.string()
 });
-export type AddedEditor = z.infer<typeof AddedEditor>;
 
 /** An AI design/UI-generation tool, ranked for the active agent. */
 export const DesignTool = z.object({
@@ -298,7 +292,6 @@ export const Usage = z.object({
   /** Where the figure came from — so the UI stays honest about it. */
   source: z.string()
 });
-export type Usage = z.infer<typeof Usage>;
 
 /** The semantic kind of a rate-limit window. The account endpoint returns a
  *  handful of named windows (the 5-hour session, the 7-day weekly all-models cap,
@@ -311,7 +304,7 @@ export type UsageWindowKind = z.infer<typeof UsageWindowKind>;
 /** One live rate-limit window mirrored from the same claude.ai OAuth usage
  *  endpoint Claude Code's `/usage` reads: a stable `key`, its `kind`, a human
  *  `label`, the 0..100 `utilization`, and an ISO-8601 reset time when known. */
-export const UsageWindow = z.object({
+const UsageWindow = z.object({
   /** Stable identity from the API (`five_hour`, `seven_day`, or a model name). */
   key: z.string(),
   kind: UsageWindowKind,
@@ -364,7 +357,6 @@ export const LaunchContext = z.object({
   hasProject: z.boolean(),
   cwd: z.string()
 });
-export type LaunchContext = z.infer<typeof LaunchContext>;
 
 export const ProjectEntry = z.object({
   name: z.string(),
@@ -436,7 +428,7 @@ export type StartMode = z.infer<typeof StartMode>;
  *  `null` is the "Off" choice: temp workspaces stay until removed by hand. */
 export const TEMP_CLEANUP_DAY_CHOICES = [null, 7, 30, 90] as const;
 
-export const Prefs = z.object({
+const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
   themeMode: ThemeMode.nullish(),
@@ -520,7 +512,6 @@ export type LabelSource = z.infer<typeof LabelSource>;
  *  `notADirectory` (the path names a file) are the two "didn't add" outcomes the
  *  picker acts on — prompting to create, or showing an inline error. */
 export const AddRootStatus = z.enum(["added", "missing", "notADirectory"]);
-export type AddRootStatus = z.infer<typeof AddRootStatus>;
 
 export const AddRootOutcome = z.discriminatedUnion("status", [
   z.object({
@@ -539,7 +530,6 @@ export const SaveMigration = z.object({
   path: z.string(),
   install: z.string().nullable()
 });
-export type SaveMigration = z.infer<typeof SaveMigration>;
 
 /** A live probe of the path being typed into the add-root field. Instead of
  *  regex-guessing whether the text is a valid path, the backend just checks the
@@ -586,7 +576,7 @@ export type PtyChunk = z.infer<typeof PtyChunk>;
 /** Physical (device-pixel) cursor position carried by the window's native
  *  drag-and-drop events — divide by devicePixelRatio before comparing with
  *  CSS-pixel rects. */
-export const DragPosition = z.object({
+const DragPosition = z.object({
   x: z.number(),
   y: z.number()
 });
@@ -614,10 +604,8 @@ export const PtyHistory = z.object({
   seq: z.number(),
   alternate: z.boolean()
 });
-export type PtyHistory = z.infer<typeof PtyHistory>;
 
 export const PtyExit = z.object({ id: z.string() });
-export type PtyExit = z.infer<typeof PtyExit>;
 
 /** One live PTY session the backend still hosts (`pty_list`) — the re-attach
  *  roster after a WebView reload. A listed session is alive by construction.
@@ -630,7 +618,6 @@ export const PtySession = z.object({
   /** The directory it was spawned into — its workspace mapping. */
   cwd: z.string().nullable()
 });
-export type PtySession = z.infer<typeof PtySession>;
 
 /** A tracked task-runner (dock) and its stream event payloads. */
 export const RunnerInfo = z.object({
@@ -639,7 +626,6 @@ export const RunnerInfo = z.object({
   cwd: z.string().nullable(),
   startedAt: z.number()
 });
-export type RunnerInfo = z.infer<typeof RunnerInfo>;
 
 export const RunnerStream = z.enum(["stdout", "stderr"]);
 export type RunnerStream = z.infer<typeof RunnerStream>;
