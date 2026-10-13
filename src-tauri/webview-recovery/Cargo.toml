@@ -18,8 +18,8 @@ publish = false
 # Pinned to the exact versions already in the lockfile via wry/Tauri, so no
 # second copy compiles and the COM interface types are identical to the ones
 # `tauri::webview::PlatformWebview` hands out (minimize-dependencies).
-webview2-com = "0.38"
-windows-core = "0.61"
+webview2-com = "0.39"
+windows-core = "0.62"
 
 # Same strict bar as the main crate (rust-best-practices), but this crate MUST
 # allow unsafe: COM event registration is FFI. Everything else stays pedantic.

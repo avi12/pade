@@ -13,7 +13,7 @@ license = "Apache-2.0"
 publish = false
 
 [target."cfg(windows)".dependencies]
-windows = { version = "0.61", features = ["Win32_System_Threading"] }
+windows = { version = "0.62", features = ["Win32_System_Threading"] }
 
 [lints.rust]
 unused_qualifications = "warn"
