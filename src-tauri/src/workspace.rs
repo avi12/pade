@@ -513,7 +513,7 @@ pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
             path: path.to_string_lossy().into_owned(),
         })
         .collect();
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    entries.sort_by_key(|a| a.name.to_lowercase());
     Ok(entries)
 }
 
@@ -799,8 +799,7 @@ pub fn workspace_open(path: String) -> Result<(), String> {
 pub async fn workspace_temp() -> Result<String, String> {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or(0);
+        .map_or(0, |duration| duration.as_millis());
     let dir = workspaces_directory()?.join(format!("temp-{stamp}"));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.to_string_lossy().into_owned();
@@ -1410,6 +1409,7 @@ mod tests {
         copy_tree_skipping_dependencies, expired_temps, manual_label, validated_child_path,
         LabelSource, Prefs, Settings, SettingsRepository, MILLISECONDS_PER_DAY,
     };
+    use crate::test_support::assert_empty;
     use std::collections::BTreeMap;
     use std::path::Path;
     use std::sync::Arc;
@@ -1441,29 +1441,29 @@ mod tests {
 
     #[test]
     fn a_temp_used_within_the_window_is_kept() {
-        assert!(expired(&cleanup_settings(Some(30), 29), &[]).is_empty());
+        assert_empty(&expired(&cleanup_settings(Some(30), 29), &[]));
     }
 
     #[test]
     fn cleanup_off_keeps_every_temp() {
-        assert!(expired(&cleanup_settings(None, 365), &[]).is_empty());
+        assert_empty(&expired(&cleanup_settings(None, 365), &[]));
     }
 
     #[test]
     fn a_temp_never_seen_used_is_kept() {
         let mut settings = cleanup_settings(Some(1), 0);
         settings.workspace_last_used.clear();
-        assert!(expired(&settings, &[]).is_empty());
+        assert_empty(&expired(&settings, &[]));
     }
 
     #[test]
     fn an_open_or_pinned_temp_is_kept_however_old() {
         let open = [TEMP_WORKSPACE.to_string()];
-        assert!(expired(&cleanup_settings(Some(1), 365), &open).is_empty());
+        assert_empty(&expired(&cleanup_settings(Some(1), 365), &open));
 
         let mut pinned = cleanup_settings(Some(1), 365);
         pinned.pinned_projects.push(TEMP_WORKSPACE.to_string());
-        assert!(expired(&pinned, &[]).is_empty());
+        assert_empty(&expired(&pinned, &[]));
     }
 
     #[test]

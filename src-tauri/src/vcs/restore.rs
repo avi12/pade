@@ -30,8 +30,7 @@ const DAY_SECONDS: u64 = 86_400;
 fn now_unix() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |duration| duration.as_secs())
 }
 
 /// Split a string into lowercase alphanumeric-ish tokens (whitespace-separated).

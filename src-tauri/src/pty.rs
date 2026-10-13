@@ -1146,6 +1146,7 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_empty;
 
     fn process(process_id: u32, parent_process_id: u32, command_line: &str) -> ProcessInfo {
         ProcessInfo {
@@ -1189,7 +1190,7 @@ mod tests {
     #[test]
     fn task_processes_never_returns_the_agent_root() {
         let processes = vec![process(100, 1, "claude pnpm dev")];
-        assert!(task_processes(&processes, 100, "pnpm dev").is_empty());
+        assert_empty(&task_processes(&processes, 100, "pnpm dev"));
     }
 
     fn history_with(chunks: &[&str]) -> (Arc<Mutex<History>>, u64) {
@@ -1333,14 +1334,14 @@ mod tests {
         pending.extend_from_slice(tail);
         let second = drain_decoded(&mut pending);
         assert_eq!(second, "\u{e9} au lait");
-        assert!(pending.is_empty());
+        assert_empty(&pending);
     }
 
     #[test]
     fn drain_decoded_replaces_genuinely_invalid_bytes() {
         let mut pending = vec![b'o', b'k', 0xFF, b'!'];
         assert_eq!(drain_decoded(&mut pending), "ok\u{FFFD}!");
-        assert!(pending.is_empty());
+        assert_empty(&pending);
     }
 
     #[test]

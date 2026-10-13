@@ -625,8 +625,7 @@ fn line_delta(old: Option<usize>, new: Option<usize>) -> (usize, usize) {
 fn now_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or(0)
+        .map_or(0, |duration| duration.as_millis())
 }
 
 fn line_count(path: &Path) -> Option<usize> {
@@ -1703,6 +1702,7 @@ mod tests {
         read_preview_text, reclassify, resolve_watch_root, static_ignore_dirs, summarize, surfaces,
         unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
+    use crate::test_support::assert_empty;
     use std::collections::HashSet;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1969,7 +1969,7 @@ mod tests {
 
     #[test]
     fn an_unrecognized_file_implies_no_ignore_dirs() {
-        assert!(manifest_ignore_dirs("README.md").is_empty());
+        assert_empty(manifest_ignore_dirs("README.md"));
     }
 
     #[test]
@@ -2059,7 +2059,7 @@ mod tests {
     #[test]
     fn a_workspace_without_git_yields_no_state_dirs() {
         let dir = scratch("git-state-bare");
-        assert!(git_state_dirs(&dir).is_empty());
+        assert_empty(&git_state_dirs(&dir));
         let _ = fs::remove_dir_all(&dir);
     }
 

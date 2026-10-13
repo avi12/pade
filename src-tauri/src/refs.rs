@@ -451,9 +451,7 @@ fn remap_link(link: &Path, old: &str, new: &str) {
     };
     // A link to a directory must be recreated as a dir link (junction on
     // Windows); resolve through the link to learn what it points at.
-    let is_target_directory = std::fs::metadata(link)
-        .map(|metadata| metadata.is_dir())
-        .unwrap_or(true);
+    let is_target_directory = std::fs::metadata(link).map_or(true, |metadata| metadata.is_dir());
     recreate_link(link, &remapped, is_target_directory);
 }
 
@@ -508,8 +506,7 @@ fn recreate_link(link: &Path, target: &str, is_target_directory: bool) {
             .arg(link)
             .arg(target)
             .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
+            .is_ok_and(|output| output.status.success())
     } else {
         symlink_file(target, link).is_ok()
     };

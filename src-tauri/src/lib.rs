@@ -22,6 +22,8 @@ mod running_model;
 mod session_context;
 mod tasks;
 mod terminal_schemes;
+#[cfg(test)]
+mod test_support;
 mod theming;
 mod usage;
 mod util;

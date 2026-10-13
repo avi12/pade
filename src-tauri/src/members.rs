@@ -574,6 +574,7 @@ fn characters_match(pattern: &[char], text: &[char]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::assert_empty;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -655,7 +656,7 @@ mod tests {
         let mut patterns = MemberPatterns::default();
         package_json_patterns(text, &mut patterns);
         assert_eq!(patterns.include, ["apps/*"]);
-        assert!(patterns.exclude.is_empty());
+        assert_empty(&patterns.exclude);
     }
 
     #[test]

@@ -599,6 +599,7 @@ mod tests {
         installed_names, needs_light_console_fix, oneshot_invocation, session_args,
         session_id_flag, spawn_env, theme_config, REGISTRY,
     };
+    use crate::test_support::assert_empty;
     use crate::theming::ThemeConfig;
 
     #[test]
@@ -613,9 +614,9 @@ mod tests {
     #[test]
     fn an_unknown_command_is_only_ever_itself() {
         assert_eq!(installed_names("pnpm"), vec!["pnpm"]);
-        assert!(spawn_env("pnpm").is_empty());
+        assert_empty(spawn_env("pnpm"));
         assert!(oneshot_invocation("pnpm").is_none());
-        assert!(session_args("pnpm").is_empty());
+        assert_empty(session_args("pnpm"));
         assert!(theme_config("pnpm").is_none());
         assert!(session_id_flag("pnpm").is_none());
     }
@@ -684,9 +685,9 @@ mod tests {
             session_args("copilot"),
             &["--allow-all-tools", "--alt-screen", "on"]
         );
-        assert!(session_args("powershell.exe").is_empty());
+        assert_empty(session_args("powershell.exe"));
         // Keyed by the canonical command, not the file an installer laid down.
-        assert!(session_args("codex-x86_64-pc-windows-msvc").is_empty());
+        assert_empty(session_args("codex-x86_64-pc-windows-msvc"));
     }
 
     /// Per-agent knowledge stays keyed by the canonical command, never by the
@@ -702,7 +703,7 @@ mod tests {
         // Claude's renderer is the user's choice, not ADE's: forcing the
         // alt-screen one moves the scrollback inside the agent, and every wheel
         // tick then round-trips through it instead of scrolling locally.
-        assert!(spawn_env("claude").is_empty());
+        assert_empty(spawn_env("claude"));
     }
 
     /// opencode's whole registry surface: `run` is its headless one-shot,
@@ -737,7 +738,7 @@ mod tests {
         // `--session <id>` only continues an existing session, so opencode has
         // no restart-to-resume handle.
         assert!(session_id_flag("opencode").is_none());
-        assert!(spawn_env("opencode").is_empty());
+        assert_empty(spawn_env("opencode"));
         // ConPTY resize refills paint from the console buffer, so a light ADE
         // keeps the console-buffer flip (like Codex).
         assert!(needs_light_console_fix("opencode"));

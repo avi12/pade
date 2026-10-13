@@ -298,6 +298,7 @@ mod tests {
         Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON, PADE_LIGHT_THEME_FILE,
         PADE_LIGHT_THEME_JSON,
     };
+    use crate::test_support::{assert_empty, assert_not_empty};
 
     fn claude_live_theme() -> (&'static str, &'static str, &'static str, &'static str) {
         let Some(ThemeConfig::SpawnSelectedLiveTheme {
@@ -339,7 +340,7 @@ mod tests {
             spawn_args("claude", Scheme::Light),
             spawn_args("claude", Scheme::Dark)
         );
-        assert!(!spawn_args("claude", Scheme::Light).is_empty());
+        assert_not_empty(spawn_args("claude", Scheme::Light));
     }
 
     /// The agent watches the definition, so republishing an unchanged scheme
@@ -384,8 +385,8 @@ mod tests {
         assert_eq!(spawn_args("codex", Scheme::Light), *light);
         assert_eq!(spawn_args("codex", Scheme::Dark), *dark);
         assert_ne!(light, dark);
-        assert!(spawn_args("aider", Scheme::Light).is_empty());
-        assert!(spawn_args("pnpm", Scheme::Dark).is_empty());
+        assert_empty(spawn_args("aider", Scheme::Light));
+        assert_empty(spawn_args("pnpm", Scheme::Dark));
     }
 
     /// The env-themed accessor likewise reads from the registry SSOT; an
@@ -400,8 +401,8 @@ mod tests {
         assert_eq!(spawn_env("aider", Scheme::Light), *light);
         assert_eq!(spawn_env("aider", Scheme::Dark), *dark);
         assert_ne!(light, dark);
-        assert!(spawn_env("codex", Scheme::Light).is_empty());
-        assert!(spawn_env("pnpm", Scheme::Dark).is_empty());
+        assert_empty(spawn_env("codex", Scheme::Light));
+        assert_empty(spawn_env("pnpm", Scheme::Dark));
     }
 
     /// A live-themed agent carries no theme *env*: its scheme travels in the
@@ -409,16 +410,16 @@ mod tests {
     /// and go stale the moment the user flips.
     #[test]
     fn a_live_themed_agent_has_no_theme_env() {
-        assert!(spawn_env("claude", Scheme::Light).is_empty());
-        assert!(spawn_env("claude", Scheme::Dark).is_empty());
+        assert_empty(spawn_env("claude", Scheme::Light));
+        assert_empty(spawn_env("claude", Scheme::Dark));
     }
 
     /// A file-themed agent (opencode) carries no theme env or args through the
     /// static accessors — its whole signal is the tui-config env pair.
     #[test]
     fn a_file_themed_agent_has_no_static_theme_env_or_args() {
-        assert!(spawn_env("opencode", Scheme::Light).is_empty());
-        assert!(spawn_args("opencode", Scheme::Light).is_empty());
+        assert_empty(spawn_env("opencode", Scheme::Light));
+        assert_empty(spawn_args("opencode", Scheme::Light));
     }
 
     /// Materializing a tui config writes both files idempotently — the additive
@@ -463,10 +464,10 @@ mod tests {
     /// env pair; a non-file-themed command and an unknown command yield nothing.
     #[test]
     fn tui_config_env_fires_for_the_file_themed_agent_on_both_schemes() {
-        assert!(!spawn_tui_config_env("opencode", Scheme::Light).is_empty());
-        assert!(!spawn_tui_config_env("opencode", Scheme::Dark).is_empty());
-        assert!(spawn_tui_config_env("claude", Scheme::Light).is_empty());
-        assert!(spawn_tui_config_env("pnpm", Scheme::Light).is_empty());
+        assert_not_empty(&spawn_tui_config_env("opencode", Scheme::Light));
+        assert_not_empty(&spawn_tui_config_env("opencode", Scheme::Dark));
+        assert_empty(&spawn_tui_config_env("claude", Scheme::Light));
+        assert_empty(&spawn_tui_config_env("pnpm", Scheme::Light));
     }
 
     /// Each scheme has its own truthful theme: the dark palette is a distinct

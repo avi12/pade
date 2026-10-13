@@ -12,7 +12,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 
 /// Saved pastes older than this are pruned on the next paste, so the folder
 /// stays bounded while a path pasted into a long-running session keeps working.
-const RETAIN_FOR: Duration = Duration::from_secs(3 * 24 * 60 * 60);
+const RETAIN_FOR: Duration = Duration::from_hours(72);
 
 /// The stable folder every clipboard-image paste lands in.
 fn paste_dir() -> PathBuf {
@@ -87,6 +87,7 @@ pub async fn clipboard_image_save(app: tauri::AppHandle) -> Result<Option<String
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_empty;
 
     fn seconds(count: u64) -> Duration {
         Duration::from_secs(count)
@@ -96,7 +97,7 @@ mod tests {
     fn a_fresh_paste_is_kept() {
         let now = SystemTime::now();
         let entries = vec![(PathBuf::from("paste-1.png"), now - seconds(60))];
-        assert!(stale_paths(&entries, now).is_empty());
+        assert_empty(&stale_paths(&entries, now));
     }
 
     #[test]
@@ -118,6 +119,6 @@ mod tests {
     fn a_future_timestamp_is_never_stale() {
         let now = SystemTime::now();
         let entries = vec![(PathBuf::from("paste-future.png"), now + seconds(60))];
-        assert!(stale_paths(&entries, now).is_empty());
+        assert_empty(&stale_paths(&entries, now));
     }
 }

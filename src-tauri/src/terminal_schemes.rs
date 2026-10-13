@@ -197,6 +197,7 @@ pub async fn terminal_schemes() -> Vec<TerminalScheme> {
 #[cfg(test)]
 mod tests {
     use super::{catalogue, schemes_in_settings, TerminalScheme, BUNDLED_SCHEMES};
+    use crate::test_support::assert_empty;
     use std::path::PathBuf;
 
     fn scratch(name: &str) -> PathBuf {
@@ -349,7 +350,7 @@ mod tests {
     #[test]
     fn a_missing_settings_file_contributes_nothing() {
         let absent = std::env::temp_dir().join("pade-no-such-windows-terminal.json");
-        assert!(schemes_in_settings(&absent).is_empty());
+        assert_empty(&schemes_in_settings(&absent));
         assert_eq!(catalogue(&[absent]).len(), catalogue(&[]).len());
     }
 }

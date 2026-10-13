@@ -490,8 +490,7 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
     if let Some(expires_at) = oauth.get("expiresAt").and_then(serde_json::Value::as_u64) {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|elapsed| elapsed.as_millis())
-            .unwrap_or(0);
+            .map_or(0, |elapsed| elapsed.as_millis());
         if u128::from(expires_at) <= now_ms {
             return None;
         }

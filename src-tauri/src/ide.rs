@@ -673,7 +673,7 @@ fn git_linguist_attributes(
     let listing = String::from_utf8_lossy(&output.stdout);
     let values: Vec<&str> = listing.split('\0').collect();
     let mut attributes = BTreeMap::new();
-    for record in values.chunks_exact(3) {
+    for record in values.as_chunks::<3>().0 {
         attributes
             .entry(record[0].to_string())
             .or_insert_with(LinguistAttributes::default)
@@ -958,7 +958,7 @@ pub fn ide_remove_editor(id: String) -> Result<crate::workspace::Settings, Strin
 
 /// Whether any direct child of `dir` has the given extension (case-insensitive).
 fn has_extension(directory: &std::path::Path, extension: &str) -> bool {
-    std::fs::read_dir(directory).ok().is_some_and(|entries| {
+    std::fs::read_dir(directory).is_ok_and(|entries| {
         entries.flatten().any(|entry| {
             entry
                 .path()
@@ -1647,6 +1647,7 @@ mod tests {
         required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
         ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
     };
+    use crate::test_support::assert_not_empty;
 
     fn is_general_purpose_editor(id: &str) -> bool {
         REGISTRY
@@ -1930,7 +1931,7 @@ mod tests {
     fn an_unclassified_project_only_suggests_general_purpose_editors() {
         let suggested = suggestible_editor_ids(&std::collections::BTreeMap::new(), &[]);
 
-        assert!(!suggested.is_empty());
+        assert_not_empty(&suggested);
         assert!(suggested.iter().all(|id| is_general_purpose_editor(id)));
     }
 

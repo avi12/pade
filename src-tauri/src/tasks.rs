@@ -994,6 +994,7 @@ fn tool_tasks(path: &Path, tool: &WrappedTool, verbs: &[&str]) -> Vec<Task> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::assert_empty;
     use std::path::Path;
 
     use super::{
@@ -1238,7 +1239,7 @@ add_library(core STATIC core.cpp)
 
     #[test]
     fn a_project_that_cannot_be_read_contributes_no_targets() {
-        assert!(declared_targets(Path::new("nowhere/Absent.csproj")).is_empty());
+        assert_empty(&declared_targets(Path::new("nowhere/Absent.csproj")));
     }
 
     #[test]

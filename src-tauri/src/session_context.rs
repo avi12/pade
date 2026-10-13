@@ -37,7 +37,7 @@ use crate::util::{home_dir, newest_in_tail};
 const MODELS_CATALOG_URL: &str = "https://models.dev/api.json";
 /// Refresh the catalog at most this often, so a session that re-reads its
 /// context on every turn doesn't refetch 3 MB each time.
-const CATALOG_TTL: Duration = Duration::from_secs(6 * 60 * 60);
+const CATALOG_TTL: Duration = Duration::from_hours(6);
 
 /// One provider block of the models.dev catalog — only the field we read.
 #[derive(Debug, Deserialize)]
