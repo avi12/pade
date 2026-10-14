@@ -10,6 +10,7 @@
 // through its per-agent account entry — no agent is special-cased here.
 
 import { agentIconName } from "@/lib/agent-icon";
+import { formatPercent } from "@/lib/format";
 import type { IconName } from "@/lib/Icon.svelte";
 import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type {
@@ -24,6 +25,10 @@ import type {
  *  past 75%, red past 90% — no green, per the design's usage semantics. */
 export type Level = "normal" | "warn" | "crit";
 
+/** The key the account response files extra usage under (`usage.rs`'s
+ *  `CREDITS_KEY`), given to the row an uncapped allowance has no window for. */
+const UNCAPPED_CREDITS_KEY = "extra_usage";
+
 export type Limit = {
   label: string;
   sub: string;
@@ -32,6 +37,9 @@ export type Limit = {
    *  shown on hover over the countdown; empty when the reset time is unknown. */
   resetAt: string;
   percentage: number;
+  /** What the row reads as: its percentage ("57%"), or — on an extra-usage row
+   *  with no monthly cap, so no percentage — the month's spend ("$259.18"). */
+  reading: string;
   level: Level;
   /** The window's semantic kind (session / weekly / model / opaque), straight
    *  from the account payload's classification. */
@@ -339,6 +347,22 @@ function formatBalance(balance: CreditBalance | null | undefined): string {
   }).format(balance.amount);
 }
 
+// Extra usage with no monthly cap has no window — nothing to run out of — but
+// its spend is still worth seeing, so it gets a row at 0% that reads as money.
+function uncappedCreditsWindows(account: AccountUsage): UsageWindow[] {
+  const hasCreditsWindow = account.windows.some(window => window.kind === UsageWindowKind.enum.credits);
+  if (!account.uncappedSpend || hasCreditsWindow) {
+    return [];
+  }
+
+  return [{
+    key: UNCAPPED_CREDITS_KEY,
+    kind: UsageWindowKind.enum.credits,
+    label: "Extra usage",
+    utilization: 0
+  }];
+}
+
 // An agent's real rate-limit windows off its account — every window the endpoint
 // returned (session, weekly, per-model, and any others), in the order it sent
 // them. A named window (session/weekly/model) is shown even at 0% — an unused
@@ -351,7 +375,7 @@ function buildLimits({ account, now }: {
   now: number;
 }): Limit[] {
   const limits: Limit[] = [];
-  for (const window of account.windows) {
+  for (const window of [...account.windows, ...uncappedCreditsWindows(account)]) {
     // A utilization belongs to the window that ended at `resetsAt`. Once that
     // boundary passes, retaining it is knowingly stale; render the new window's
     // zero baseline while UsageMeter forces a fresh vendor read.
@@ -376,6 +400,7 @@ function buildLimits({ account, now }: {
       balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
       carriesWork: isCreditsCap && account.credits === CreditsState.enum.available,
       percentage: value,
+      reading: isCreditsCap && account.uncappedSpend ? formatBalance(account.uncappedSpend) : formatPercent(value),
       level: limitLevel(value),
       reset: resetCountdown({
         iso: window.resetsAt,

@@ -354,11 +354,12 @@ fn credits_state(response: &serde_json::Value) -> Option<CreditsState> {
     }
 }
 
-/// A prepaid usage-credits balance, ready to show.
+/// An amount of usage credits — a prepaid balance, or a month's spend — ready
+/// to show.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CreditBalance {
-    /// What's left to spend, in the currency's major units (dollars, not cents).
+    /// The amount in the currency's major units (dollars, not cents).
     amount: f64,
     /// The ISO 4217 currency code (`USD`).
     currency: String,
@@ -393,6 +394,9 @@ pub struct AccountUsage {
     /// The prepaid usage-credits balance. Read only while credits are on, so it is
     /// present exactly when extra usage is enabled (and the balance was reachable).
     credit_balance: Option<CreditBalance>,
+    /// What usage credits have cost this month when no monthly cap is set. With
+    /// no cap there is no percentage to show, so the meter shows this instead.
+    uncapped_spend: Option<CreditBalance>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -525,6 +529,7 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         account: Some(BILLING_ACCOUNT_ANTHROPIC.to_string()),
         credits,
         credit_balance,
+        uncapped_spend: uncapped_credits_spend(&response),
     })
 }
 
@@ -572,6 +577,27 @@ fn credit_balance(response: &serde_json::Value) -> Option<CreditBalance> {
         Some(f64::from(minor_units) / 10_f64.powi(exponent))
     })?;
     Some(CreditBalance { amount, currency })
+}
+
+/// What usage credits have cost this month, when they are on with no monthly
+/// cap: `used_credits` in minor units, scaled by the response's own
+/// `decimal_places`. `None` while a cap is set — its percentage says it — and
+/// for any other shape.
+fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance> {
+    let credits = response.get(CREDITS_KEY)?;
+    let enabled = credits.get("is_enabled")?.as_bool()?;
+    let has_cap = !credits.get("monthly_limit")?.is_null();
+    if !enabled || has_cap {
+        return None;
+    }
+
+    let minor_units = i32::try_from(credits.get("used_credits")?.as_i64()?).ok()?;
+    let exponent = i32::try_from(credits.get("decimal_places")?.as_u64()?).ok()?;
+    let currency = credits.get("currency")?.as_str()?.to_string();
+    Some(CreditBalance {
+        amount: f64::from(minor_units) / 10_f64.powi(exponent),
+        currency,
+    })
 }
 
 /// Every rate-limit window the account response carries, in a stable order: the
@@ -786,6 +812,7 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
         account: Some(BILLING_ACCOUNT_CHATGPT.to_string()),
         credits: None,
         credit_balance: None,
+        uncapped_spend: None,
     })
 }
 
@@ -1001,6 +1028,7 @@ fn fetch_copilot_account_usage() -> Option<AccountUsage> {
         account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
         credits: None,
         credit_balance: None,
+        uncapped_spend: None,
     })
 }
 
@@ -1031,6 +1059,7 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
         account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
         credits: None,
         credit_balance: None,
+        uncapped_spend: None,
     })
 }
 
@@ -1212,6 +1241,7 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
         account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
         credits: None,
         credit_balance: None,
+        uncapped_spend: None,
     })
 }
 
@@ -1247,6 +1277,7 @@ fn fetch_cursor_account_usage() -> Option<AccountUsage> {
         account: Some(BILLING_ACCOUNT_CURSOR.to_string()),
         credits: None,
         credit_balance: None,
+        uncapped_spend: None,
     })
 }
 
@@ -1291,8 +1322,9 @@ mod tests {
     use super::{
         collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
         credits_state, humanize_key, humanize_window_seconds, is_safe_header_token,
-        unix_seconds_to_iso8601, usage_from_account, AccountUsage, CreditsState, HeadlineWindow,
-        UsageAgent, UsageWindow, UsageWindowKind, BILLING_ACCOUNT_GOOGLE,
+        uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account, AccountUsage,
+        CreditsState, HeadlineWindow, UsageAgent, UsageWindow, UsageWindowKind,
+        BILLING_ACCOUNT_GOOGLE,
     };
     use crate::agents::{ID_CODEX, ID_OPENCODE};
 
@@ -1457,6 +1489,52 @@ mod tests {
 
         assert_eq!(credit_balance(&error_body), None);
         assert_eq!(credit_balance(&no_amount), None);
+    }
+
+    #[test]
+    fn uncapped_credits_report_their_spend() {
+        // The real shape, probed live from a Max account with no monthly cap.
+        let response = serde_json::json!({
+            "extra_usage": {
+                "is_enabled": true,
+                "monthly_limit": null,
+                "used_credits": 25918,
+                "utilization": null,
+                "currency": "USD",
+                "decimal_places": 2,
+                "disabled_reason": null,
+                "spend_limit_reached": false
+            }
+        });
+
+        let spend = uncapped_credits_spend(&response).expect("a spend");
+        assert!((spend.amount - 259.18).abs() < 1e-9);
+        assert_eq!(spend.currency, "USD");
+    }
+
+    #[test]
+    fn capped_or_disabled_credits_report_no_spend() {
+        let capped = serde_json::json!({
+            "extra_usage": {
+                "is_enabled": true,
+                "monthly_limit": 20000,
+                "used_credits": 11333,
+                "currency": "USD",
+                "decimal_places": 2
+            }
+        });
+        let disabled = serde_json::json!({
+            "extra_usage": {
+                "is_enabled": false,
+                "monthly_limit": null,
+                "used_credits": 0,
+                "currency": "USD",
+                "decimal_places": 2
+            }
+        });
+
+        assert_eq!(uncapped_credits_spend(&capped), None);
+        assert_eq!(uncapped_credits_spend(&disabled), None);
     }
 
     #[test]
@@ -1719,6 +1797,7 @@ mod tests {
             account: None,
             credits: None,
             credit_balance: None,
+            uncapped_spend: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1753,6 +1832,7 @@ mod tests {
             account: None,
             credits: None,
             credit_balance: None,
+            uncapped_spend: None,
             windows: vec![
                 UsageWindow {
                     key: "a".to_string(),
@@ -1787,6 +1867,7 @@ mod tests {
             account: None,
             credits: None,
             credit_balance: None,
+            uncapped_spend: None,
             windows: vec![UsageWindow {
                 key: "five_hour".to_string(),
                 kind: UsageWindowKind::Session,
@@ -1814,6 +1895,7 @@ mod tests {
             account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
             credits: None,
             credit_balance: None,
+            uncapped_spend: None,
         };
 
         let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);

@@ -349,7 +349,10 @@ export const AccountUsage = z.object({
   credits: CreditsState.nullish(),
   /** The prepaid usage-credits balance — present only while extra usage is on
    *  (the backend reads it in that case alone). */
-  creditBalance: CreditBalance.nullish()
+  creditBalance: CreditBalance.nullish(),
+  /** What usage credits have cost this month when no monthly cap is set — the
+   *  extra-usage row shows it in place of the percentage it cannot have. */
+  uncappedSpend: CreditBalance.nullish()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
 

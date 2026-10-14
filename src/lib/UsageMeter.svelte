@@ -1,6 +1,6 @@
 <script lang="ts">
   import { usage as usageApi } from "@/lib/bridge";
-  import { formatCount, formatPercent } from "@/lib/format";
+  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import {
@@ -87,7 +87,7 @@
   const ariaLabel = $derived(
     groups.length > 0
       ? `Usage — ${groups
-        .map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${formatPercent(limit.percentage)}`).join(", ")}`)
+        .map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`)
         .join("; ")}`
       : "Usage details"
   );
@@ -204,7 +204,7 @@
                     class:warning={limit.level === "warn"}
                   >
                     <span class="agent-pill-kind">{limit.kindShort}</span>
-                    <span class="agent-pill-percent">{formatPercent(limit.percentage)}</span>
+                    <span class="agent-pill-percent">{limit.reading}</span>
                   </span>
                 {/each}
               </span>
@@ -277,7 +277,7 @@
                 <span class="spotlight-title">{spotlight.agent.name} · {spotlight.limit.label}</span>
               </span>
             </span>
-            <output class="spotlight-percent">{formatPercent(spotlight.limit.percentage)}</output>
+            <output class="spotlight-percent">{spotlight.limit.reading}</output>
           </div>
           <span class="track">
             <span style:inline-size="{spotlight.limit.percentage}%" class="track-fill"></span>
@@ -325,7 +325,7 @@
                     <span class="limit-track">
                       <span style:inline-size="{limit.percentage}%" class="limit-fill"></span>
                     </span>
-                    <output class="limit-percent">{formatPercent(limit.percentage)}</output>
+                    <output class="limit-percent">{limit.reading}</output>
                     {#if limit.balance}
                       <span class="limit-balance" data-tooltip="Usage credits left">
                         <Icon name="wallet" />{limit.balance}

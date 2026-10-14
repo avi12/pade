@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
 import {
@@ -165,6 +166,33 @@ describe("buildGroups", () => {
       expect(row?.label).toBe("Extra usage");
       expect(row?.kindShort).toBe("E");
       expect(row?.balance).toContain("46.89");
+    });
+
+    it("reads as its percentage while a monthly cap is set", () => {
+      const row = extraUsageRow({ credits: CreditsState.enum.available });
+      expect(row?.reading).toBe(formatPercent(56.665));
+    });
+
+    it("reads as the month's spend when no monthly cap is set", () => {
+      const [group] = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [sessionWindow()],
+            credits: CreditsState.enum.available,
+            uncappedSpend: {
+              amount: 259.18,
+              currency: "USD"
+            }
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+      const row = group.limits.find(limit => limit.kind === UsageWindowKind.enum.credits);
+
+      expect(row?.kindShort).toBe("E");
+      expect(row?.reading).toContain("259.18");
+      expect(row?.percentage).toBe(0);
     });
 
     it("shows no balance when there is none — extra usage is off", () => {
