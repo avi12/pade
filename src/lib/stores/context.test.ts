@@ -1,4 +1,5 @@
 import {
+  compactionHeadroom,
   contextPercentage,
   dropContext,
   measuredContextPercentage,
@@ -84,22 +85,45 @@ describe("contextPercentage via observeContext", () => {
     expect(measuredContextPercentage("css-junk")).toBeNull();
   });
 
-  it("still inverts Claude's anchored 'context left until auto-compact' form", () => {
+  it("never reads Claude's countdown to compaction as a share of the window", () => {
+    observeContextScreen({
+      id: "claude-until-compact",
+      text: "✻ Fluttering… (15m 28s · ↓ 52.7k tokens)   2% until auto-compact"
+    });
     observeContext({
       id: "claude-anchored-left",
       chunk: "Context left until auto-compact: 34%"
     });
 
-    expect(contextPercentage("claude-anchored-left")).toBe(66);
+    expect(measuredContextPercentage("claude-until-compact")).toBeNull();
+    expect(measuredContextPercentage("claude-anchored-left")).toBeNull();
   });
 
-  it("inverts Claude's everyday '23% until auto-compact' countdown", () => {
+  it("reads Claude's countdown to compaction as its compaction headroom", () => {
     observeContextScreen({
-      id: "claude-until-compact",
-      text: "✻ Fluttering… (15m 28s · ↓ 52.7k tokens)   23% until auto-compact"
+      id: "claude-headroom",
+      text: "✻ Fluttering… (15m 28s · ↓ 52.7k tokens)   2% until auto-compact"
+    });
+    expect(compactionHeadroom("claude-headroom")).toBe(2);
+
+    observeContextScreen({
+      id: "claude-headroom-anchored",
+      text: "Context left until auto-compact: 34%"
+    });
+    expect(compactionHeadroom("claude-headroom-anchored")).toBe(34);
+  });
+
+  it("clears the compaction headroom once the countdown leaves the screen", () => {
+    observeContextScreen({
+      id: "claude-compacted",
+      text: "4% until auto-compact"
+    });
+    observeContextScreen({
+      id: "claude-compacted",
+      text: "✻ Compacted"
     });
 
-    expect(measuredContextPercentage("claude-until-compact")).toBe(77);
+    expect(compactionHeadroom("claude-compacted")).toBeNull();
   });
 
   it("reads Claude's 'Context low (N% remaining)' as remaining, not used", () => {

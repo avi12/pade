@@ -10,6 +10,8 @@
 //      but coupled to that CLI's output — heuristic, tune against real output).
 //      Claude Code only prints one in the last ~3% of the window, so for most of
 //      a session this is silent; it stays as the answer for agents with no log.
+//      Claude's "N% until auto-compact" is NOT one: it counts down to its own
+//      compaction point, so it is kept apart as `compactionHeadroom`.
 //   3. Estimate from the bytes seen through the PTY (rough, agent-agnostic). A
 //      fullscreen agent repaints its whole frame on every spinner tick, so this
 //      over-counts badly and must never end a session; it feeds only the soft
@@ -29,6 +31,11 @@ interface ContextSignal {
   loggedTokens: number | null;
   /** Percent of context used, parsed from the agent's own output (0..100). */
   parsedPercentage: number | null;
+  /** Percent left before the agent compacts its own conversation — Claude's
+   *  "N% until auto-compact". It counts down to the compaction point, which can
+   *  sit far below the window, so it is never read as a share of the window.
+   *  Read off the whole screen only, so it clears once the countdown is gone. */
+  compactionHeadroom: number | null;
   /** The window size the agent announced ("Opus 4.8 (1M context)"), tokens. */
   windowTokens: number | null;
   /** Running maximum of the agent's own "N tokens" consumed counter. A max,
@@ -84,10 +91,13 @@ const SIDEBAR_USED_RE = /context\s+[\d,.]+\s*(?:k|m)?\s*tokens\s+(\d{1,3})\s*%\s
 // overflow-hidden row with the auto-updater, and "Update available! Run: winget
 // upgrade Anthropic.ClaudeCode" is long enough to cut the tail off it.
 const CONTEXT_LOW_RE = /context\s+low\s*\(\s*(\d{1,3})\s*%/;
-// Claude Code's everyday indicator, and the one form carrying no "left" or
-// "remaining" for REMAINING_RE to anchor on — the auto-compact phrase is the
-// anchor instead. Counts DOWN to compaction, so it reads as remaining.
-const UNTIL_COMPACT_RE = /(\d{1,3})\s*%\s*until\s+auto-?\s*compact/;
+// Claude Code's countdown to its own compaction, in both of its wordings: "23%
+// until auto-compact" and "Context left until auto-compact: 23%". It measures
+// the room left before the compaction point, not the window — a 1M session can
+// compact at 300k — so it feeds `compactionHeadroom` and is stripped before
+// the percent-used parse, which would otherwise read "2% until" as 98% full.
+const COMPACTION_HEADROOM_RE = /(\d{1,3})\s*%\s*until\s+auto-?\s*compact|left\s+until\s+auto-?\s*compact\s*:?\s*(\d{1,3})\s*%/;
+const COMPACTION_HEADROOM_STRIP_RE = new RegExp(COMPACTION_HEADROOM_RE.source, "g");
 // The bare "left … N%" arm needs a context/window anchor: an agent transcript
 // can carry arbitrary pasted content (CSS with `left:` and percentages dumped
 // by a tool call), and an unanchored match there read as "context nearly full"
@@ -107,61 +117,72 @@ const WINDOW_RE = /\((\d+(?:\.\d+)?)\s*(k|m)\s*context\)/;
 const TOKENS_RE = /(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\s*tokens\b/g;
 const RATIO_STRIP_RE = /[\d,.]+\s*(?:k|m)?\s*\/\s*[\d,.]+\s*(?:k|m)?\s*tokens\b/g;
 
+// The single-percent indicators, strongest first, and whether each counts what
+// is used or what is left.
+const PERCENT_INDICATORS = [
+  {
+    pattern: FOOTER_USED_RE,
+    isRemaining: false
+  },
+  {
+    pattern: SIDEBAR_USED_RE,
+    isRemaining: false
+  },
+  {
+    pattern: CONTEXT_LOW_RE,
+    isRemaining: true
+  },
+  {
+    pattern: REMAINING_RE,
+    isRemaining: true
+  },
+  {
+    pattern: USED_RE,
+    isRemaining: false
+  }
+] as const;
+
 /** Best-effort parse of a context "percent used" from a chunk of agent output. */
 function parseUsedPercentage(text: string): number | null {
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replaceAll(COMPACTION_HEADROOM_STRIP_RE, "");
 
-  const footerUsed = lower.match(FOOTER_USED_RE);
-  if (footerUsed) {
-    const percentage = Number(footerUsed[1]);
-    return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
-  }
-
-  const sidebarUsed = lower.match(SIDEBAR_USED_RE);
-  if (sidebarUsed) {
-    const percentage = Number(sidebarUsed[1]);
-    return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
-  }
-
-  const contextLow = lower.match(CONTEXT_LOW_RE);
-  if (contextLow) {
-    const percentage = Number(contextLow[1]);
-    return Number.isFinite(percentage) ? Math.max(0, 100 - percentage) : null;
-  }
-
-  const untilCompact = lower.match(UNTIL_COMPACT_RE);
-  if (untilCompact) {
-    const percentage = Number(untilCompact[1]);
-    return Number.isFinite(percentage) ? Math.max(0, 100 - percentage) : null;
-  }
-
-  const remaining = lower.match(REMAINING_RE);
-  if (remaining) {
-    const percentage = Number(remaining[1] ?? remaining[2]);
-    return Number.isFinite(percentage) ? Math.max(0, 100 - percentage) : null;
-  }
-
-  const used = lower.match(USED_RE);
-  if (used) {
-    const percentage = Number(used[1] ?? used[2]);
-    return Number.isFinite(percentage) ? Math.min(100, percentage) : null;
-  }
-
-  const ratio = lower.match(RATIO_RE);
-  if (ratio) {
-    const usedTokens = scaleTokens(ratio[1], ratio[2]);
-    const limitTokens = scaleTokens(ratio[3], ratio[4]);
-    if (usedTokens !== null && limitTokens !== null && limitTokens > 0) {
-      return Math.min(100, (usedTokens / limitTokens) * 100);
+  for (const { pattern, isRemaining } of PERCENT_INDICATORS) {
+    const indicator = lower.match(pattern);
+    if (!indicator) {
+      continue;
     }
+
+    const percentage = Number(indicator[1] ?? indicator[2]);
+    if (!Number.isFinite(percentage)) {
+      return null;
+    }
+
+    return isRemaining ? Math.max(0, 100 - percentage) : Math.min(100, percentage);
   }
 
-  return null;
+  return parseRatioPercentage(lower);
+}
+
+/** The percent a "used / limit tokens" ratio implies, or null without one. */
+function parseRatioPercentage(lower: string): number | null {
+  const ratio = lower.match(RATIO_RE);
+  if (!ratio) {
+    return null;
+  }
+
+  const usedTokens = scaleTokens(ratio[1], ratio[2]);
+  const limitTokens = scaleTokens(ratio[3], ratio[4]);
+  if (usedTokens === null || limitTokens === null || limitTokens <= 0) {
+    return null;
+  }
+
+  return Math.min(100, (usedTokens / limitTokens) * 100);
 }
 
 const EMPTY_SIGNAL: ContextSignal = {
   loggedTokens: null,
   parsedPercentage: null,
+  compactionHeadroom: null,
   windowTokens: null,
   reportedTokens: 0,
   characters: 0,
@@ -244,6 +265,33 @@ export function observeContextScreen({ id, text }: {
     text,
     characters: 0
   });
+
+  const previous = signals.get(id) ?? EMPTY_SIGNAL;
+  const compactionHeadroom = parseCompactionHeadroom(text);
+  if (compactionHeadroom !== previous.compactionHeadroom) {
+    signals.set(id, {
+      ...previous,
+      compactionHeadroom
+    });
+  }
+}
+
+/** The percent left until the agent compacts its conversation, or null when
+ *  no countdown is on screen. */
+function parseCompactionHeadroom(text: string): number | null {
+  const countdown = text.toLowerCase().match(COMPACTION_HEADROOM_RE);
+  if (!countdown) {
+    return null;
+  }
+
+  const percentage = Number(countdown[1] ?? countdown[2]);
+  return Number.isFinite(percentage) ? percentage : null;
+}
+
+/** How much room the agent says is left before it compacts its own
+ *  conversation (percent), or null when it shows no countdown. */
+export function compactionHeadroom(id: string): number | null {
+  return signals.get(id)?.compactionHeadroom ?? null;
 }
 
 /** When the window banner was never seen (it paints once at spawn and can be
