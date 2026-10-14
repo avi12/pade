@@ -5,6 +5,8 @@ import {
   buildGroups,
   buildKindLegend,
   findSpotlight,
+  justResetLimits,
+  limitPercentages,
   severityBreakdown,
   usageResetTime
 } from "@/lib/usage-groups";
@@ -693,5 +695,54 @@ describe("usageResetTime", () => {
 
   it("answers NaN for an unparseable reset time", () => {
     expect(usageResetTime("whenever")).toBeNaN();
+  });
+});
+
+describe("justResetLimits", () => {
+  const now = Date.UTC(2026, 0, 1);
+
+  function readingOf(weeklyUtilization: number) {
+    return limitPercentages(
+      buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [sessionWindow({ utilization: 40 }), weeklyWindow({ utilization: weeklyUtilization })]
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      })
+    );
+  }
+
+  it("spots a weekly limit that started over", () => {
+    expect([...justResetLimits({
+      previous: readingOf(100),
+      current: readingOf(0)
+    })]).toEqual(["claude:Weekly"]);
+  });
+
+  it("ignores usage that only climbed, or barely moved", () => {
+    expect(
+      justResetLimits({
+        previous: readingOf(60),
+        current: readingOf(65)
+      }).size
+    ).toBe(0);
+    expect(
+      justResetLimits({
+        previous: readingOf(60),
+        current: readingOf(55)
+      }).size
+    ).toBe(0);
+  });
+
+  it("has nothing to compare on the first reading", () => {
+    expect(
+      justResetLimits({
+        previous: new Map(),
+        current: readingOf(0)
+      }).size
+    ).toBe(0);
   });
 });

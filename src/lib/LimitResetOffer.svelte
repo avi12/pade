@@ -3,13 +3,14 @@
   // for free"). The offer and its confirmation live in stores/limitReset, shared
   // with the collapsed meter's chip.
   import Icon from "@/lib/Icon.svelte";
+  import { revealBlock } from "@/lib/motion";
   import { askToResetLimits, limitResetOffer, limitResetSummary } from "@/lib/stores/limitReset.svelte";
 
   const offer = $derived(limitResetOffer());
 </script>
 
 {#if offer}
-  <div class="limit-reset-offer" data-tooltip={offer.label}>
+  <div class="limit-reset-offer" data-tooltip={offer.label} transition:revealBlock>
     <Icon name="refresh" />
     <span class="offer-text">
       Free limit reset

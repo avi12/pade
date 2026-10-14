@@ -129,6 +129,21 @@ export function expandRow(node: Element, { duration = 220 }: { duration?: number
  *  space instead of snapping shut. The inline-axis mirror of {@link collapseRow}
  *  (which does the block axis), for `out:collapsePane` on a pane slot. */
 export function collapsePane(node: Element, { duration = 260 }: { duration?: number } = {}) {
+  return slideInline(node, duration);
+}
+
+/** In/out transition for an inline item that comes and goes in a flex row (a
+ *  usage pill's extra-usage segment, its reset chip): it opens and closes its
+ *  width — and the gap it holds — while it fades, so its neighbours glide
+ *  aside instead of jumping. */
+export function growInline(node: Element, { duration = 240 }: { duration?: number } = {}) {
+  return slideInline(node, duration);
+}
+
+/** Inline-axis collapse geometry shared by {@link collapsePane} and
+ *  {@link growInline}: Svelte drives `progress` 1→0 on the way out and 0→1 on
+ *  the way in, so one builder serves both. */
+function slideInline(node: Element, duration: number) {
   const { width } = node.getBoundingClientRect();
   const gap = node.parentElement
     ? parseFloat(getComputedStyle(node.parentElement).columnGap) || 0

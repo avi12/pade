@@ -5,6 +5,7 @@
   import Icon from "@/lib/Icon.svelte";
   import LimitResetConfirm from "@/lib/LimitResetConfirm.svelte";
   import LimitResetOffer from "@/lib/LimitResetOffer.svelte";
+  import { growInline } from "@/lib/motion";
   import {
     askToResetLimits,
     limitResetOffer,
@@ -16,6 +17,9 @@
     buildGroups,
     buildKindLegend,
     findSpotlight,
+    justResetLimits,
+    limitKey,
+    limitPercentages,
     severityBreakdown,
     usageResetTime,
     worstLimit
@@ -134,6 +138,29 @@
     untrack(refreshLimitResetOffer);
   });
 
+  // Limits that just started over — on schedule or by a spent free reset — so
+  // their numbers can flash. Compared reading to reading; the set is replaced on
+  // every new reading, which also clears it for the next reset of the same limit.
+  let justReset = $state<ReadonlySet<string>>(new Set());
+  let previousPercentages = new Map<string, number>();
+  $effect(() => {
+    const current = limitPercentages(groups);
+    justReset = justResetLimits({
+      previous: previousPercentages,
+      current
+    });
+    previousPercentages = current;
+  });
+
+  function hasJustReset({ agentId, limit }: Parameters<typeof limitKey>[0]): boolean {
+    return justReset.has(
+      limitKey({
+        agentId,
+        limit
+      })
+    );
+  }
+
   async function refreshAccountsNow() {
     accounts = await loadAccounts({ forceRefresh: true });
   }
@@ -230,7 +257,12 @@
                   <span
                     class="agent-pill-limit severity"
                     class:critical={limit.level === "crit"}
+                    class:just-reset={hasJustReset({
+                      agentId: group.id,
+                      limit
+                    })}
                     class:warning={limit.level === "warn"}
+                    transition:growInline
                   >
                     <span class="agent-pill-kind">{limit.kindShort}</span>
                     <span class="agent-pill-percent">{limit.reading}</span>
@@ -241,7 +273,7 @@
               <span class="agent-pill-dash">—</span>
             {/if}
             {#if group.id === AgentId.Claude && showsResetInPill}
-              <span class="reset-face reset-slot" aria-hidden="true">{@render resetLabel()}</span>
+              <span class="reset-face reset-slot" aria-hidden="true" transition:growInline>{@render resetLabel()}</span>
             {/if}
           </span>
         {/each}
@@ -309,7 +341,13 @@
                 <span class="spotlight-title">{spotlight.agent.name} · {spotlight.limit.label}</span>
               </span>
             </span>
-            <output class="spotlight-percent">{spotlight.limit.reading}</output>
+            <output
+              class="spotlight-percent"
+              class:just-reset={hasJustReset({
+                agentId: spotlight.agent.id,
+                limit: spotlight.limit
+              })}
+            >{spotlight.limit.reading}</output>
           </div>
           <span class="track">
             <span style:inline-size="{spotlight.limit.percentage}%" class="track-fill"></span>
@@ -359,6 +397,10 @@
                     </span>
                     <output
                       class="limit-percent"
+                      class:just-reset={hasJustReset({
+                        agentId: group.id,
+                        limit
+                      })}
                       data-tooltip={limit.isUncapped ? "Spent on extra usage this month" : undefined}
                     >{limit.reading}</output>
                     {#if limit.balance}
@@ -394,6 +436,7 @@
       data-tooltip="Free limit reset available · {limitResetSummary()}"
       onclick={askToResetLimits}
       type="button"
+      transition:growInline
     >{@render resetLabel()}</button>
   {/if}
 
@@ -408,6 +451,30 @@
   .usage-wrap {
     position: relative;
     flex-shrink: 0;
+  }
+
+  /* A limit that just started over — its scheduled reset, or a free reset spent
+     on it — flashes once: the number pops while a primary wash fades behind it,
+     so a sudden drop to 0% reads as a refill rather than a glitch. */
+  .just-reset {
+    animation: limit-refill 900ms var(--ease) both;
+  }
+
+  @keyframes limit-refill {
+    0% {
+      background-color: transparent;
+      scale: 1;
+    }
+
+    25% {
+      background-color: color-mix(in oklch, var(--primary) 38%, transparent);
+      scale: 1.2;
+    }
+
+    100% {
+      background-color: transparent;
+      scale: 1;
+    }
   }
 
   /* A free reset waiting to be spent, shown in Claude's pill because it is
@@ -425,6 +492,7 @@
     font-weight: 700;
     font-size: 10.5px;
     line-height: 1.4;
+    white-space: nowrap;
   }
 
   .reset-slot {
@@ -551,7 +619,9 @@
       flex-direction: column;
       gap: 1px;
       align-items: center;
+      border-radius: var(--radius-small);
       line-height: 1;
+      white-space: nowrap;
 
       .agent-pill-kind {
         color: var(--on-surface-variant);

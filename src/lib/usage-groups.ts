@@ -561,6 +561,57 @@ export type Spotlight = {
   limit: Limit;
 };
 
+/** How far a limit has to fall between two readings to count as having reset.
+ *  Usage only climbs within a window, so a fall this size means it started over
+ *  — its scheduled reset, or a free reset spent on it. */
+const RESET_FALL_PERCENTAGE = 10;
+
+/** A limit's identity across readings: its agent and its label. */
+export function limitKey({ agentId, limit }: {
+  agentId: string;
+  limit: Limit;
+}): string {
+  return `${agentId}:${limit.label}`;
+}
+
+/** Every capped limit's percentage, by {@link limitKey} — the reading the next
+ *  one is compared with to spot a reset. */
+export function limitPercentages(groups: AgentGroup[]): Map<string, number> {
+  const percentages = new Map<string, number>();
+  for (const group of groups) {
+    for (const limit of group.limits) {
+      if (!limit.isUncapped) {
+        percentages.set(
+          limitKey({
+            agentId: group.id,
+            limit
+          }), limit.percentage
+        );
+      }
+    }
+  }
+
+  return percentages;
+}
+
+/** The limits that just reset: those that fell by {@link RESET_FALL_PERCENTAGE}
+ *  or more since the previous reading. */
+export function justResetLimits({ previous, current }: {
+  previous: ReadonlyMap<string, number>;
+  current: ReadonlyMap<string, number>;
+}): Set<string> {
+  const reset = new Set<string>();
+  for (const [key, percentage] of current) {
+    const before = previous.get(key);
+    const fell = before !== undefined && before - percentage >= RESET_FALL_PERCENTAGE;
+    if (fell) {
+      reset.add(key);
+    }
+  }
+
+  return reset;
+}
+
 export function findSpotlight(agents: AgentGroup[]): Spotlight | null {
   let closest: Spotlight | null = null;
   let closestRanked: RankedLimit | null = null;
