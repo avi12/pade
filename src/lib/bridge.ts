@@ -20,6 +20,8 @@ import {
   FeedDiff,
   Ide,
   LaunchContext,
+  LimitReset,
+  LimitResetOutcome,
   McpChange,
   PathProbe,
   ProjectEntry,
@@ -658,7 +660,12 @@ export const usage = {
   }) => call("usage_account_agent", AccountUsage.nullable(), {
     agent,
     forceRefresh
-  })
+  }),
+  /** The free usage-limit reset Claude's account can spend now (claude.ai's
+   *  "Reset for free"), or `null` when it has none. */
+  limitResetOffer: () => call("limit_reset_offer", LimitReset.nullable()),
+  /** Spend that reset: clears the account's usage limits. Cannot be undone. */
+  claimLimitReset: (grantId: string) => call("limit_reset_claim", LimitResetOutcome, { grantId })
 };
 
 /** Agent config channel — reads the CLI's own config files, never shadows them. */

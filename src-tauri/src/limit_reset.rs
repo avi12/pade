@@ -1,0 +1,271 @@
+//! Claude's free usage-limit resets: a grant the account is given (a launch
+//! promotion, say) that clears its session and weekly limits once, on demand.
+//! claude.ai shows it as "Limit resets → Reset for free"; this offers the same
+//! button in PADE's usage meter.
+//!
+//! Both calls are the ones Claude Code itself makes. The offer is the `cedar_ember`
+//! block of the OAuth usage endpoint — which answers only a caller that names
+//! itself as a current Claude Code (any other client is an ineligible
+//! "surface"), so the request carries the installed version. The claim is a POST
+//! naming the grant and a fresh request id, so a retried claim is never counted
+//! twice. Spending a grant cannot be undone; the frontend confirms first.
+
+use serde::{Deserialize, Serialize};
+
+use crate::usage::{
+    claude_access_token, claude_cli_version, claude_organization, curl_get_json,
+    is_safe_header_token,
+};
+
+/// The reset program's name, both as the usage query flag and in the claim.
+const RESET_PROGRAM: &str = "cedar_ember";
+const OFFER_URL: &str = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1";
+const CLAIM_API: &str = "https://api.anthropic.com/api/organizations";
+
+/// The reset an account can spend now: the grant the server names as next.
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitReset {
+    grant_id: String,
+    /// The grant's own description ("Claude Opus 5.5 launch: one usage-limit
+    /// reset for Pro and Max").
+    label: String,
+    resets_left: u32,
+    /// When the grant expires, ISO-8601.
+    ends_at: Option<String>,
+    /// The windows a reset clears (`five_hour`, `seven_day`, …).
+    clears: Vec<String>,
+}
+
+/// What a claim did, as the server reports it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct LimitResetOutcome {
+    /// Whether the limits were actually reset.
+    reset: bool,
+    /// The server's verdict (`reset`, `already_used`, `ineligible`, …).
+    result: String,
+    /// Why it did not reset, when it says.
+    reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ResetStatus {
+    eligible: bool,
+    next_grant_id: Option<String>,
+    #[serde(default)]
+    grants: Vec<Grant>,
+}
+
+#[derive(Deserialize)]
+struct Grant {
+    id: String,
+    label: String,
+    resets_left: u32,
+    ends_at: Option<String>,
+    #[serde(default)]
+    clears: Vec<String>,
+    usable_now: bool,
+}
+
+/// The reset the account can spend now, or `None` when it has none (or Claude
+/// isn't signed in, or the endpoint can't be reached).
+#[tauri::command]
+pub async fn limit_reset_offer() -> Option<LimitReset> {
+    tauri::async_runtime::spawn_blocking(fetch_offer)
+        .await
+        .ok()
+        .flatten()
+}
+
+/// Spend `grant_id` to reset the account's usage limits.
+#[tauri::command]
+pub async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, String> {
+    tauri::async_runtime::spawn_blocking(move || claim(&grant_id))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn fetch_offer() -> Option<LimitReset> {
+    let body = curl_get_json(&request_config(&Request {
+        url: OFFER_URL,
+        token: &claude_access_token()?,
+        user_agent: &claude_cli_user_agent()?,
+        body: None,
+    })?)?;
+    let response: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let status = serde_json::from_value(response.get(RESET_PROGRAM)?.clone()).ok()?;
+    offered_reset(status)
+}
+
+fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
+    if !is_grant_id(grant_id) {
+        return Err(format!("not a reset grant id: {grant_id}"));
+    }
+
+    let token = claude_access_token().ok_or("Claude is not signed in")?;
+    let organization = claude_organization()
+        .filter(|organization| is_safe_header_token(organization))
+        .ok_or("no Claude organization")?;
+    let user_agent = claude_cli_user_agent().ok_or("Claude Code's version is unknown")?;
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let body = serde_json::json!({
+        "program": RESET_PROGRAM,
+        "grant_id": grant_id,
+        "request_id": request_id,
+    })
+    .to_string();
+    let url = format!("{CLAIM_API}/{organization}/reset_rate_limits");
+    let config = request_config(&Request {
+        url: &url,
+        token: &token,
+        user_agent: &user_agent,
+        body: Some(&body),
+    })
+    .ok_or("unsafe request")?;
+    let response = curl_get_json(&config).ok_or("the reset request failed")?;
+    serde_json::from_str(&response).map_err(|error| error.to_string())
+}
+
+/// The grant the server names as next, while the account may spend it now.
+fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
+    if !status.eligible {
+        return None;
+    }
+
+    let next_grant_id = status.next_grant_id?;
+    let grant = status
+        .grants
+        .into_iter()
+        .find(|grant| grant.id == next_grant_id)?;
+    let is_spendable = grant.usable_now && grant.resets_left > 0;
+    is_spendable.then_some(LimitReset {
+        grant_id: grant.id,
+        label: grant.label,
+        resets_left: grant.resets_left,
+        ends_at: grant.ends_at,
+        clears: grant.clears,
+    })
+}
+
+/// The shape Claude Code itself accepts for a grant id — also what keeps it
+/// safe inside the request body.
+fn is_grant_id(grant_id: &str) -> bool {
+    let has_valid_length = (1..=40).contains(&grant_id.len());
+    has_valid_length
+        && grant_id.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        })
+}
+
+/// How Claude Code names itself, with the installed version.
+fn claude_cli_user_agent() -> Option<String> {
+    let version = claude_cli_version()?;
+    let is_version = !version.is_empty()
+        && version
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte == b'.');
+    is_version.then(|| format!("claude-cli/{version} (external, cli)"))
+}
+
+struct Request<'request> {
+    url: &'request str,
+    token: &'request str,
+    user_agent: &'request str,
+    body: Option<&'request str>,
+}
+
+/// A curl `--config` document for `request`, the token riding in it rather
+/// than the arguments. `None` when the token could break out of its quotes.
+fn request_config(request: &Request) -> Option<String> {
+    let Request {
+        url,
+        token,
+        user_agent,
+        body,
+    } = request;
+    if !is_safe_header_token(token) {
+        return None;
+    }
+
+    let post = body.map_or_else(String::new, |body| {
+        let quoted = body.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("request = \"POST\"\ndata = \"{quoted}\"\n")
+    });
+    Some(format!(
+        "silent\nshow-error\nfail\nmax-time = 20\nurl = \"{url}\"\n\
+         header = \"Authorization: Bearer {token}\"\n\
+         header = \"anthropic-beta: oauth-2025-04-20\"\n\
+         header = \"User-Agent: {user_agent}\"\n\
+         header = \"Content-Type: application/json\"\n\
+         {post}"
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_grant_id, offered_reset, LimitReset, ResetStatus};
+
+    fn status(json: &serde_json::Value) -> ResetStatus {
+        serde_json::from_value(json.clone()).expect("a status")
+    }
+
+    #[test]
+    fn offers_the_next_grant_while_it_is_usable() {
+        // The real shape, probed live from a Max account.
+        let offer = offered_reset(status(&serde_json::json!({
+            "eligible": true,
+            "at_limit": true,
+            "grants": [{
+                "id": "opus55-launch-promax-20260921",
+                "label": "Claude Opus 5.5 launch: one usage-limit reset for Pro and Max",
+                "resets_total": 1,
+                "resets_left": 1,
+                "ends_at": "2026-10-22T16:00:00+00:00",
+                "clears": ["five_hour", "seven_day", "seven_day_overage_included"],
+                "usable_now": true
+            }],
+            "next_grant_id": "opus55-launch-promax-20260921"
+        })));
+
+        assert_eq!(
+            offer,
+            Some(LimitReset {
+                grant_id: "opus55-launch-promax-20260921".to_string(),
+                label: "Claude Opus 5.5 launch: one usage-limit reset for Pro and Max".to_string(),
+                resets_left: 1,
+                ends_at: Some("2026-10-22T16:00:00+00:00".to_string()),
+                clears: vec![
+                    "five_hour".to_string(),
+                    "seven_day".to_string(),
+                    "seven_day_overage_included".to_string()
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn offers_nothing_to_an_ineligible_or_spent_account() {
+        let ineligible = status(&serde_json::json!({
+            "eligible": false,
+            "ineligible_reason": "surface",
+            "grants": [],
+            "next_grant_id": null
+        }));
+        let spent = status(&serde_json::json!({
+            "eligible": true,
+            "grants": [{ "id": "g", "label": "g", "resets_left": 0, "usable_now": true }],
+            "next_grant_id": "g"
+        }));
+
+        assert_eq!(offered_reset(ineligible), None);
+        assert_eq!(offered_reset(spent), None);
+    }
+
+    #[test]
+    fn a_grant_id_is_lowercase_word_characters_only() {
+        assert!(is_grant_id("opus55-launch-promax-20260921"));
+        assert!(!is_grant_id("bad\"id"));
+        assert!(!is_grant_id(""));
+    }
+}

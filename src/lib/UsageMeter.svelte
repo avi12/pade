@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { AgentId } from "@/lib/agent-icon";
   import { usage as usageApi } from "@/lib/bridge";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import LimitResetOffer from "@/lib/LimitResetOffer.svelte";
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import {
     buildGroups,
@@ -340,6 +342,12 @@
                   </div>
                 {/each}
               </div>
+            {/if}
+            {#if group.id === AgentId.Claude}
+              <LimitResetOffer
+                onreset={async () => {
+                  accounts = await loadAccounts({ forceRefresh: true });
+                }} />
             {/if}
           </li>
         {/each}

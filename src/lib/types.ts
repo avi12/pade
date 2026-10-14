@@ -356,6 +356,28 @@ export const AccountUsage = z.object({
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
 
+/** A free usage-limit reset Claude's account can spend now — a grant (a launch
+ *  promotion) that clears its limits once, on demand. */
+export const LimitReset = z.object({
+  grantId: z.string(),
+  /** The grant's own description. */
+  label: z.string(),
+  resetsLeft: z.number(),
+  /** When the grant expires, ISO-8601. */
+  endsAt: z.string().nullish(),
+  /** The window keys a reset clears (`five_hour`, `seven_day`, …). */
+  clears: z.array(z.string())
+});
+export type LimitReset = z.infer<typeof LimitReset>;
+
+/** What spending a reset did, as the server reports it. */
+export const LimitResetOutcome = z.object({
+  reset: z.boolean(),
+  /** The server's verdict (`reset`, `already_used`, `ineligible`, …). */
+  result: z.string(),
+  reason: z.string().nullish()
+});
+
 export const LaunchContext = z.object({
   hasProject: z.boolean(),
   cwd: z.string()

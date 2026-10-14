@@ -7,6 +7,7 @@ mod design;
 mod discord;
 mod gitignore;
 mod ide;
+mod limit_reset;
 mod mcp;
 mod media;
 mod members;
@@ -216,6 +217,8 @@ pub fn run() {
             terminal_schemes::terminal_schemes,
             usage::usage_get,
             usage::usage_account_agent,
+            limit_reset::limit_reset_offer,
+            limit_reset::limit_reset_claim,
             naming::project_autoname,
             naming::session_generate_name,
             workspace::launch_context,
