@@ -10,11 +10,14 @@
 //! naming the grant and a fresh request id, so a retried claim is never counted
 //! twice. Spending a grant cannot be undone; the frontend confirms first.
 
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
 use serde::{Deserialize, Serialize};
 
 use crate::usage::{
     claude_access_token, claude_cli_version, claude_organization, curl_get_json,
-    is_safe_header_token,
+    is_safe_header_token, USAGE_CACHE_SECONDS,
 };
 
 /// The reset program's name, both as the usage query flag and in the claim.
@@ -86,16 +89,61 @@ pub async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, St
         .map_err(|error| error.to_string())?
 }
 
+/// How long one reading of the offer is reused. It comes off the same
+/// rate-limited usage endpoint as the meter, which is re-read every few
+/// minutes; asking on every reading as well got the endpoint refusing both.
+const OFFER_CACHE_TTL: Duration = Duration::from_secs(USAGE_CACHE_SECONDS);
+
+/// The last offer the endpoint answered, and when.
+static OFFER_CACHE: Mutex<Option<(Instant, Option<LimitReset>)>> = Mutex::new(None);
+
+/// The offer, from the cache while it is fresh. A failed request (offline, or
+/// the endpoint refusing a burst) keeps the last answer rather than hiding an
+/// offer the account still holds.
 fn fetch_offer() -> Option<LimitReset> {
-    let body = curl_get_json(&request_config(&Request {
+    let cached = OFFER_CACHE.lock().ok().and_then(|guard| guard.clone());
+    if let Some((read_at, offer)) = &cached {
+        if read_at.elapsed() < OFFER_CACHE_TTL {
+            return offer.clone();
+        }
+    }
+
+    let Ok(offer) = request_offer() else {
+        return cached.and_then(|(_, offer)| offer);
+    };
+    if let Ok(mut guard) = OFFER_CACHE.lock() {
+        *guard = Some((Instant::now(), offer.clone()));
+    }
+    offer
+}
+
+/// Forget the cached offer, so the next read asks again — after a claim.
+fn forget_offer() {
+    if let Ok(mut guard) = OFFER_CACHE.lock() {
+        *guard = None;
+    }
+}
+
+/// The offer request got no answer: offline, signed out, or refused.
+#[derive(Debug)]
+struct OfferUnanswered;
+
+/// Ask the endpoint for the offer — `Ok(None)` when it answered that there is
+/// nothing to spend.
+fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
+    let config = request_config(&Request {
         url: OFFER_URL,
-        token: &claude_access_token()?,
-        user_agent: &claude_cli_user_agent()?,
+        token: &claude_access_token().ok_or(OfferUnanswered)?,
+        user_agent: &claude_cli_user_agent().ok_or(OfferUnanswered)?,
         body: None,
-    })?)?;
-    let response: serde_json::Value = serde_json::from_str(&body).ok()?;
-    let status = serde_json::from_value(response.get(RESET_PROGRAM)?.clone()).ok()?;
-    offered_reset(status)
+    })
+    .ok_or(OfferUnanswered)?;
+    let body = curl_get_json(&config).ok_or(OfferUnanswered)?;
+    let response: serde_json::Value = serde_json::from_str(&body).map_err(|_| OfferUnanswered)?;
+    Ok(response
+        .get(RESET_PROGRAM)
+        .and_then(|status| serde_json::from_value(status.clone()).ok())
+        .and_then(offered_reset))
 }
 
 fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
@@ -124,6 +172,7 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
     })
     .ok_or("unsafe request")?;
     let response = curl_get_json(&config).ok_or("the reset request failed")?;
+    forget_offer();
     serde_json::from_str(&response).map_err(|error| error.to_string())
 }
 

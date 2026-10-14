@@ -240,7 +240,7 @@ const CLAUDE_OAUTH_API: &str = "https://api.anthropic.com/api/oauth";
 /// rate-limited bucket) and is safe at ~180s intervals — hence the cache below.
 const OAUTH_USAGE_PATH: &str = "/usage";
 const USAGE_UA: &str = "claude-code/1.0.128";
-const USAGE_CACHE_SECONDS: u64 = 170;
+pub(crate) const USAGE_CACHE_SECONDS: u64 = 170;
 
 /// The two named top-level windows we give product names to; every other named
 /// window the endpoint returns is surfaced generically as
