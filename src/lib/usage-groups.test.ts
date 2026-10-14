@@ -195,6 +195,25 @@ describe("buildGroups", () => {
       expect(row?.percentage).toBe(0);
     });
 
+    it("never spotlights an uncapped spend over the window that ran out", () => {
+      const groups = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [weeklyWindow({ utilization: 100 })],
+            credits: CreditsState.enum.available,
+            uncappedSpend: {
+              amount: 298.57,
+              currency: "USD"
+            }
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+
+      expect(findSpotlight(groups)?.limit.label).toBe("Weekly");
+    });
+
     it("shows no balance when there is none — extra usage is off", () => {
       const row = extraUsageRow({ credits: CreditsState.enum.off });
       expect(row?.balance).toBe("");

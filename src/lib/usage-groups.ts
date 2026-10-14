@@ -55,6 +55,9 @@ export type Limit = {
    *  other row, and on a credits row that is off or held back, which carries
    *  nothing and so never outranks the window that stopped. */
   carriesWork: boolean;
+  /** Extra usage with no monthly cap: nothing to run out of, so it reads as the
+   *  month's spend and is never the limit anything is close to. */
+  isUncapped: boolean;
 };
 
 export type AgentGroup = {
@@ -227,6 +230,10 @@ function limitPriority({ limit, limits }: {
     return LimitPriority.window;
   }
 
+  if (limit.isUncapped) {
+    return LimitPriority.headroom;
+  }
+
   const spentWindowRidesOnCredits = limit.carriesWork
     && limits.some(other => other.kind !== UsageWindowKind.enum.credits
       && other.percentage >= USAGE_SPENT_PERCENTAGE);
@@ -392,6 +399,7 @@ function buildLimits({ account, now }: {
 
     const presentation = windowPresentation(window);
     const isCreditsCap = window.kind === UsageWindowKind.enum.credits;
+    const isUncapped = isCreditsCap && Boolean(account.uncappedSpend);
     limits.push({
       label: presentation.label,
       sub: presentation.sub,
@@ -400,7 +408,8 @@ function buildLimits({ account, now }: {
       balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
       carriesWork: isCreditsCap && account.credits === CreditsState.enum.available,
       percentage: value,
-      reading: isCreditsCap && account.uncappedSpend ? formatBalance(account.uncappedSpend) : formatPercent(value),
+      isUncapped,
+      reading: isUncapped ? formatBalance(account.uncappedSpend) : formatPercent(value),
       level: limitLevel(value),
       reset: resetCountdown({
         iso: window.resetsAt,

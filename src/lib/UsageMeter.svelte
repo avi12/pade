@@ -327,10 +327,13 @@
                     <span class="limit-track">
                       <span style:inline-size="{limit.percentage}%" class="limit-fill"></span>
                     </span>
-                    <output class="limit-percent">{limit.reading}</output>
+                    <output
+                      class="limit-percent"
+                      data-tooltip={limit.isUncapped ? "Spent on extra usage this month" : undefined}
+                    >{limit.reading}</output>
                     {#if limit.balance}
-                      <span class="limit-balance" data-tooltip="Usage credits left">
-                        <Icon name="wallet" />{limit.balance}
+                      <span class="limit-balance" data-tooltip="Prepaid usage credits left to spend">
+                        <Icon name="wallet" />{limit.balance} left
                       </span>
                     {:else}
                       <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
