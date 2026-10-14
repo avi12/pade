@@ -483,14 +483,11 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
     Some(fresh)
 }
 
-fn fetch_claude_account_usage() -> Option<AccountUsage> {
-    let json = read_json(&claude_credentials_path()?)?;
-    let oauth = json.get("claudeAiOauth")?;
-    let token = oauth
-        .get("accessToken")
-        .and_then(serde_json::Value::as_str)?;
-
-    // Don't spend a request on a token we already know is stale.
+/// Claude Code's stored OAuth login, while its token has not expired — a
+/// request on a token already known to be stale is wasted.
+fn live_claude_oauth() -> Option<serde_json::Value> {
+    let mut json = read_json(&claude_credentials_path()?)?;
+    let oauth = json.get_mut("claudeAiOauth")?.take();
     if let Some(expires_at) = oauth.get("expiresAt").and_then(serde_json::Value::as_u64) {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -499,6 +496,23 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
             return None;
         }
     }
+
+    Some(oauth)
+}
+
+/// Claude Code's OAuth access token, while it is still live.
+pub(crate) fn claude_access_token() -> Option<String> {
+    live_claude_oauth()?
+        .get("accessToken")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
+fn fetch_claude_account_usage() -> Option<AccountUsage> {
+    let oauth = live_claude_oauth()?;
+    let token = oauth
+        .get("accessToken")
+        .and_then(serde_json::Value::as_str)?;
 
     let plan = oauth
         .get("subscriptionType")
@@ -537,13 +551,24 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
 /// organization.
 const CLAUDE_PROFILE_REL: &str = ".claude.json";
 
-/// The signed-in Claude account's organization uuid, from Claude Code's profile.
-fn claude_organization() -> Option<String> {
+/// A string field of Claude Code's profile, by JSON pointer.
+fn claude_profile_field(pointer: &str) -> Option<String> {
     let profile = read_json(&home_dir()?.join(CLAUDE_PROFILE_REL))?;
     profile
-        .pointer("/oauthAccount/organizationUuid")
+        .pointer(pointer)
         .and_then(serde_json::Value::as_str)
         .map(str::to_string)
+}
+
+/// The signed-in Claude account's organization uuid, from Claude Code's profile.
+pub(crate) fn claude_organization() -> Option<String> {
+    claude_profile_field("/oauthAccount/organizationUuid")
+}
+
+/// The installed Claude Code's version, as its profile last recorded it (the
+/// release notes it last showed, which it shows on every update).
+pub(crate) fn claude_cli_version() -> Option<String> {
+    claude_profile_field("/lastReleaseNotesSeen")
 }
 
 /// The organization's prepaid usage-credits balance, from the endpoint Claude
@@ -690,7 +715,7 @@ fn humanize_key(key: &str) -> String {
 /// (config-file directive injection). We therefore accept only the OAuth-token
 /// character set — non-empty, ASCII alphanumerics plus `.`, `_`, `-` — and
 /// reject everything else.
-fn is_safe_header_token(token: &str) -> bool {
+pub(crate) fn is_safe_header_token(token: &str) -> bool {
     !token.is_empty()
         && token
             .bytes()
@@ -742,7 +767,7 @@ fn curl_claude_oauth(request: &ClaudeOauthGet) -> Option<String> {
 /// every `header`, including the bearer token) by feeding it on stdin — so the
 /// token never appears in the process arguments. The shared transport behind both
 /// vendors' usage calls; each builds its own header set above.
-fn curl_get_json(config: &str) -> Option<String> {
+pub(crate) fn curl_get_json(config: &str) -> Option<String> {
     let mut child = crate::util::command("curl")
         .arg("--config")
         .arg("-")
