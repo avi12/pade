@@ -591,11 +591,12 @@ fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance>
         return None;
     }
 
-    let minor_units = i32::try_from(credits.get("used_credits")?.as_i64()?).ok()?;
+    // Sent as a float ("29025.0"), though it counts whole minor units.
+    let minor_units = credits.get("used_credits")?.as_f64()?;
     let exponent = i32::try_from(credits.get("decimal_places")?.as_u64()?).ok()?;
     let currency = credits.get("currency")?.as_str()?.to_string();
     Some(CreditBalance {
-        amount: f64::from(minor_units) / 10_f64.powi(exponent),
+        amount: minor_units / 10_f64.powi(exponent),
         currency,
     })
 }
@@ -1498,7 +1499,7 @@ mod tests {
             "extra_usage": {
                 "is_enabled": true,
                 "monthly_limit": null,
-                "used_credits": 25918,
+                "used_credits": 25918.0,
                 "utilization": null,
                 "currency": "USD",
                 "decimal_places": 2,
