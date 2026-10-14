@@ -3,7 +3,14 @@
   import { usage as usageApi } from "@/lib/bridge";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import LimitResetConfirm from "@/lib/LimitResetConfirm.svelte";
   import LimitResetOffer from "@/lib/LimitResetOffer.svelte";
+  import {
+    askToResetLimits,
+    limitResetOffer,
+    limitResetSummary,
+    refreshLimitResetOffer
+  } from "@/lib/stores/limitReset.svelte";
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import {
     buildGroups,
@@ -14,7 +21,7 @@
     worstLimit
   } from "@/lib/usage-groups";
   import type { AgentGroup, Level } from "@/lib/usage-groups";
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
 
   // The running agent sessions — one usage group per distinct coding agent among
@@ -109,6 +116,26 @@
       ] as const)
     );
     return new Map(entries);
+  }
+
+  const resetOffer = $derived(limitResetOffer());
+  // The chip sits in Claude's pill, so it shows only while that pill does (not
+  // folded into the "+N" overflow).
+  const showsResetInPill = $derived(resetOffer !== null && pillGroups.some(group => group.id === AgentId.Claude));
+
+  // Each new Claude usage reading re-checks the free reset, so the offer follows
+  // the meter's own refresh instead of keeping a timer of its own.
+  const claudeAccount = $derived(accounts.get(AgentId.Claude));
+  $effect(() => {
+    if (claudeAccount === undefined) {
+      return;
+    }
+
+    untrack(refreshLimitResetOffer);
+  });
+
+  async function refreshAccountsNow() {
+    accounts = await loadAccounts({ forceRefresh: true });
   }
 
   async function refreshAtResetBoundary() {
@@ -212,6 +239,9 @@
               </span>
             {:else}
               <span class="agent-pill-dash">—</span>
+            {/if}
+            {#if group.id === AgentId.Claude && showsResetInPill}
+              <span class="reset-face reset-slot" aria-hidden="true">{@render resetLabel()}</span>
             {/if}
           </span>
         {/each}
@@ -347,11 +377,7 @@
               </div>
             {/if}
             {#if group.id === AgentId.Claude}
-              <LimitResetOffer
-                account={accounts.get(AgentId.Claude)}
-                onreset={async () => {
-                  accounts = await loadAccounts({ forceRefresh: true });
-                }} />
+              <LimitResetOffer />
             {/if}
           </li>
         {/each}
@@ -360,11 +386,70 @@
       <p class="empty">No usage to show yet — sign in to Claude Code to load your limits.</p>
     {/if}
   </div>
+
+  {#if showsResetInPill}
+    <button
+      class="reset-face reset-chip"
+      aria-label="Free limit reset available — {limitResetSummary()}"
+      data-tooltip="Free limit reset available · {limitResetSummary()}"
+      onclick={askToResetLimits}
+      type="button"
+    >{@render resetLabel()}</button>
+  {/if}
+
+  <LimitResetConfirm onreset={refreshAccountsNow} />
 </span>
+
+{#snippet resetLabel()}
+  <Icon name="refresh" size={11} />Reset
+{/snippet}
 
 <style>
   .usage-wrap {
+    position: relative;
     flex-shrink: 0;
+  }
+
+  /* A free reset waiting to be spent, shown in Claude's pill because it is
+     Claude's. The trigger is a button and can't hold another, so the pill keeps
+     an invisible slot of the chip's exact size and the real chip — a sibling of
+     the trigger — is anchored over it. */
+  .reset-face {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    padding-block: 1px;
+    padding-inline: 6px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-full);
+    font-weight: 700;
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+
+  .reset-slot {
+    visibility: hidden;
+    anchor-name: --reset-slot;
+  }
+
+  .reset-chip {
+    position: absolute;
+    inset: anchor(top) anchor(right) anchor(bottom) anchor(left);
+    z-index: 1;
+    justify-content: center;
+    background: color-mix(in oklch, var(--primary) 16%, transparent);
+    color: var(--primary);
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+    position-anchor: --reset-slot;
+
+    /* The slot is invisible by design; the default (anchors-visible) would hide
+       the chip along with it. */
+    position-visibility: always;
+
+    &:hover {
+      background: color-mix(in oklch, var(--primary) 30%, transparent);
+    }
   }
 
   /* Severity color, shared: the level class sets --severity-color (and a faint --severity-wash
