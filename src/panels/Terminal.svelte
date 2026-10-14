@@ -20,6 +20,7 @@
   import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import {
+    compactionHeadroom,
     dropContext,
     observeContext,
     observeContextScreen,
@@ -639,6 +640,17 @@
 
     untrack(readContextFromSessionLog);
     untrack(readRunningModel);
+  });
+
+  // A turn can run for an hour, so turn ends alone leave the reading stale right
+  // when it matters most. The agent's countdown to compaction ticking is the
+  // mid-turn event: it only shows near the end, and each tick means the log grew.
+  $effect(() => {
+    if (compactionHeadroom(session.id) === null) {
+      return;
+    }
+
+    untrack(readContextFromSessionLog);
   });
 
   // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.
