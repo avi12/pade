@@ -348,6 +348,7 @@
             {/if}
             {#if group.id === AgentId.Claude}
               <LimitResetOffer
+                account={accounts.get(AgentId.Claude)}
                 onreset={async () => {
                   accounts = await loadAccounts({ forceRefresh: true });
                 }} />

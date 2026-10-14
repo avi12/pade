@@ -7,10 +7,13 @@
   import { errorMessage } from "@/lib/errors";
   import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import type { LimitReset } from "@/lib/types";
-  import { onMount } from "svelte";
+  import type { AccountUsage, LimitReset } from "@/lib/types";
+  import { untrack } from "svelte";
 
-  const { onreset }: {
+  const { account, onreset }: {
+    /** Claude's latest usage reading — each new one re-checks the offer, so it
+     *  follows the meter's own refresh instead of keeping a timer of its own. */
+    account: AccountUsage | null | undefined;
     /** Re-read the account once its limits were reset. */
     onreset: () => Promise<void>;
   } = $props();
@@ -44,7 +47,13 @@
     offer = await usageApi.limitResetOffer().catch(() => null);
   }
 
-  onMount(loadOffer);
+  $effect(() => {
+    if (account === undefined) {
+      return;
+    }
+
+    untrack(loadOffer);
+  });
 </script>
 
 {#if offer}
