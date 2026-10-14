@@ -7,6 +7,7 @@ import {
   limitResetSummary,
   refreshLimitResetOffer
 } from "@/lib/stores/limitReset.svelte";
+import { showToast, toastText } from "@/lib/stores/toast.svelte";
 import type { LimitReset } from "@/lib/types";
 import {
   beforeEach,
@@ -97,5 +98,22 @@ describe("the free limit reset", () => {
 
     expect(limitResetConfirmation().failure).toBeTruthy();
     expect(limitResetConfirmation().isOpen).toBe(true);
+  });
+});
+
+describe("announcing a free limit reset", () => {
+  it("toasts the first time a reset shows up, and not again for the same one", async () => {
+    const freshReset = {
+      ...launchReset,
+      grantId: "another-launch-grant"
+    };
+    bridgeMocks.limitResetOffer.mockResolvedValue(freshReset);
+
+    await refreshLimitResetOffer();
+    expect(toastText()).toContain("free usage-limit reset is available");
+
+    showToast("");
+    await refreshLimitResetOffer();
+    expect(toastText()).toBe("");
   });
 });

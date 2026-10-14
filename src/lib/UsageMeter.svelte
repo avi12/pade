@@ -509,6 +509,11 @@
     color: var(--primary);
     cursor: pointer;
     transition: background 150ms var(--ease);
+
+    /* A reset is worth knowing about the moment it lands: as the chip appears
+       it pops, then a ring pulses out from it a few times. A CSS animation runs
+       on insertion, so this plays exactly when the offer shows up. */
+    animation: reset-arrive 1200ms var(--ease) 3;
     position-anchor: --reset-slot;
 
     /* The slot is invisible by design; the default (anchors-visible) would hide
@@ -517,6 +522,26 @@
 
     &:hover {
       background: color-mix(in oklch, var(--primary) 30%, transparent);
+    }
+  }
+
+  @keyframes reset-arrive {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 70%, transparent);
+      scale: 1;
+    }
+
+    20% {
+      scale: 1.15;
+    }
+
+    45% {
+      scale: 1;
+    }
+
+    100% {
+      box-shadow: 0 0 0 10px transparent;
+      scale: 1;
     }
   }
 

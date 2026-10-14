@@ -6,6 +6,7 @@
 import { usage as usageApi } from "@/lib/bridge";
 import { errorMessage } from "@/lib/errors";
 import { formatCount } from "@/lib/format";
+import { showToast } from "@/lib/stores/toast.svelte";
 import type { LimitReset } from "@/lib/types";
 
 let offer = $state<LimitReset | null>(null);
@@ -49,6 +50,22 @@ export function limitResetConfirmation() {
 /** Re-read the offer — on each of the meter's usage readings, and after a claim. */
 export async function refreshLimitResetOffer(): Promise<void> {
   offer = await usageApi.limitResetOffer().catch(() => null);
+  announceNewOffer();
+}
+
+// A toast the first time each grant shows up, so a reset that lands mid-session
+// is noticed even with the meter out of view; never again for the same grant.
+let announcedGrantId: string | null = null;
+
+function announceNewOffer() {
+  const grantId = offer?.grantId ?? null;
+  const isNewOffer = grantId !== null && grantId !== announcedGrantId;
+  if (!isNewOffer) {
+    return;
+  }
+
+  announcedGrantId = grantId;
+  showToast("A free usage-limit reset is available — click Reset on Claude's usage meter");
 }
 
 /** Open the confirmation for spending the offered reset. */
