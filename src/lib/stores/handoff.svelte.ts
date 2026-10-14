@@ -13,10 +13,14 @@
 // in the background — a dynamic workflow, background agents. So no handoff starts,
 // and none ends a session, while the agent itself reports work in flight
 // (lib/stores/agentActivity); it waits for that work to finish, however long.
+// The one exception is an agent about to compact its own conversation: waiting
+// for its turn to end would let the compaction run first and lose the detail a
+// handoff exists to keep, so the request goes in mid-turn — the agent picks it
+// up between steps — and the session ends once the doc is on disk.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.svelte";
-import { dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
+import { compactionHeadroom, dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/modelSwitch.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal-input";
@@ -48,6 +52,10 @@ const HANDOFF_SUBMIT_CONFIRM_MS = 1_500;
 // doc is certainly consumed by then), and how long before we stop watching.
 const SUCCESSOR_POLL_MS = 3_000;
 const SUCCESSOR_DEADLINE_MS = 10 * 60_000;
+// The agent's own countdown to compaction (percent left) at which the handoff
+// stops waiting for the turn to end. Claude counts down a percent every few
+// thousand tokens, and writing the doc itself takes a turn's worth of room.
+const COMPACTION_IMMINENT_PERCENTAGE = 5;
 
 export const HandoffReason = {
   ContextLimit: "context-limit",
@@ -256,7 +264,8 @@ function persistentMarker(sessionId: string): string {
 const ScanVerdict = {
   leave: "leave",
   holdBack: "hold-back",
-  handOff: "hand-off"
+  handOff: "hand-off",
+  handOffMidTurn: "hand-off-mid-turn"
 } as const;
 type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
 
@@ -272,7 +281,48 @@ function waitingForWorkNote({ session, reason }: {
   }
 
   const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
-  return `${agent} context at ${measuredPercentage}% — handing off once its running work finishes…`;
+  return `${agent} context at ${measuredPercentage}% — handing off once its running work finishes, or just before it auto-compacts…`;
+}
+
+function isOverThreshold({ sessionId, thresholdPercentage }: {
+  sessionId: string;
+  thresholdPercentage: number;
+}): boolean {
+  const percentage = measuredContextPercentage(sessionId);
+  return percentage !== null && percentage >= thresholdPercentage;
+}
+
+function isAboutToCompact(sessionId: string): boolean {
+  const headroom = compactionHeadroom(sessionId);
+  return headroom !== null && headroom <= COMPACTION_IMMINENT_PERCENTAGE;
+}
+
+/** The status line while a handoff is under way. The context note states the
+ *  measured number: an unquantified "nearly full" reads as a lie whenever the
+ *  user is looking at a different (or fresher) session than the one that hit
+ *  the threshold. */
+function handingOffNote({ session, reason, isMidTurn, successorAgent }: {
+  session: AgentSession;
+  reason: HandoffReason;
+  isMidTurn: boolean;
+  successorAgent: Agent;
+}): string {
+  const agent = session.agent.label;
+  if (reason === HandoffReason.ConfigurationChange) {
+    return `MCP servers changed — ${agent} is writing a handoff before restarting…`;
+  }
+
+  if (isMidTurn) {
+    return `${agent} is about to auto-compact — handing off before it does…`;
+  }
+
+  const isCrossover = successorAgent.id !== session.agent.id;
+  if (isCrossover) {
+    return `${agent} is out of usage — handing off to ${successorAgent.label}…`;
+  }
+
+  const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
+  return `${agent} context at ${measuredPercentage}% — handing off to a fresh agent…`;
 }
 
 export function createAutoHandoff(host: HandoffHost) {
@@ -455,7 +505,28 @@ export function createAutoHandoff(host: HandoffHost) {
       await whenAgentSettled(session.id);
     }
 
-    return host.sessions().some(candidate => candidate.id === session.id);
+    return isStillOpen(session.id);
+  }
+
+  // The same gate, skipped when the handoff has to beat the agent's own
+  // compaction: then the running turn is exactly what it must not wait for.
+  async function waitForRunningWorkUnlessMidTurn({ session, reason, isMidTurn }: {
+    session: AgentSession;
+    reason: HandoffReason;
+    isMidTurn: boolean;
+  }): Promise<boolean> {
+    if (isMidTurn) {
+      return isStillOpen(session.id);
+    }
+
+    return waitForRunningWork({
+      session,
+      reason
+    });
+  }
+
+  function isStillOpen(sessionId: string): boolean {
+    return host.sessions().some(candidate => candidate.id === sessionId);
   }
 
   // Only cycle when there's quota to spare — a handoff itself costs tokens.
@@ -468,13 +539,65 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
-  async function handoff({ session, reason }: {
+  // Ask for the handoff doc and resolve whether it is on disk — unless a
+  // previous attempt already produced it: a request sent to a busy agent gets
+  // queued and answered long after the wait below expired, so a retry must
+  // consume the doc that late answer wrote instead of asking for a second one.
+  async function requestHandoffDoc({ session, doc, reason }: {
+    session: AgentSession;
+    doc: string;
+    reason: HandoffReason;
+  }): Promise<boolean> {
+    const docPath = `${host.projectDirectory()}/${doc}`;
+    const existing = await workspace.probePath(docPath).catch(() => null);
+    if (existing?.isFile === true) {
+      return true;
+    }
+
+    await submitHandoffRequest({
+      session,
+      doc,
+      reason
+    });
+
+    if (await waitForFile(doc)) {
+      return true;
+    }
+
+    // Never cycle without the doc actually on disk: killing the session and
+    // seeding a successor onto a file that was never written strands the
+    // successor with nothing to read (and the conversation it was meant to
+    // continue is gone). The watcher can also simply have missed the write
+    // (an ignored path, a torn-down subscription), so a timeout gets one
+    // direct disk probe before giving up. On a genuine no-doc, leave the
+    // session running but UNMARK it: the request usually sits queued in a
+    // busy agent, and the next scan that finds the session ready again
+    // retries — the probe above then short-circuits onto the doc the late
+    // answer wrote, so the cycle completes instead of dying here forever.
+    const probe = await workspace.probePath(docPath).catch(() => null);
+    if (probe?.isFile === true) {
+      return true;
+    }
+
+    const attempts = (handoffAttempts.get(session.id) ?? 0) + 1;
+    handoffAttempts.set(session.id, attempts);
+
+    if (attempts < HANDOFF_ATTEMPT_LIMIT) {
+      unmarkHandingOff(session.id);
+    }
+
+    return false;
+  }
+
+  async function handoff({ session, reason, isMidTurn }: {
     session: AgentSession;
     reason: HandoffReason;
+    isMidTurn: boolean;
   }) {
-    const stillHereBeforeRequest = await waitForRunningWork({
+    const stillHereBeforeRequest = await waitForRunningWorkUnlessMidTurn({
       session,
-      reason
+      reason,
+      isMidTurn
     });
     if (!stillHereBeforeRequest) {
       unmarkHandingOff(session.id);
@@ -499,69 +622,30 @@ export function createAutoHandoff(host: HandoffHost) {
       source: host.slugSource(),
       sessionId: session.id
     });
-    const isCrossover = successorAgent.id !== session.agent.id;
-    // The context note states the measured number: an unquantified "nearly
-    // full" reads as a lie whenever the user is looking at a different (or
-    // fresher) session than the one that hit the threshold.
-    const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
-    if (reason === HandoffReason.ConfigurationChange) {
-      note = `MCP servers changed — ${session.agent.label} is writing a handoff before restarting…`;
-    } else {
-      note = isCrossover
-        ? `${session.agent.label} is out of usage — handing off to ${successorAgent.label}…`
-        : `${session.agent.label} context at ${measuredPercentage}% — handing off to a fresh agent…`;
-    }
+    note = handingOffNote({
+      session,
+      reason,
+      isMidTurn,
+      successorAgent
+    });
 
-    // 1. Ask the agent to write the handoff doc, then wait for it to land —
-    // unless a previous attempt already produced it: a request sent to a busy
-    // agent gets queued and answered long after the wait below expired, so a
-    // retry must consume the doc that late answer wrote instead of asking for
-    // a second one.
-    const existing = await workspace
-      .probePath(`${host.projectDirectory()}/${doc}`)
-      .catch(() => null);
-    const alreadyWritten = existing?.isFile === true;
-    if (!alreadyWritten) {
-      await submitHandoffRequest({
-        session,
-        doc,
-        reason
-      });
-      const watcherSawDoc = await waitForFile(doc);
-      // Never cycle without the doc actually on disk: killing the session and
-      // seeding a successor onto a file that was never written strands the
-      // successor with nothing to read (and the conversation it was meant to
-      // continue is gone). The watcher can also simply have missed the write
-      // (an ignored path, a torn-down subscription), so a timeout gets one
-      // direct disk probe before giving up. On a genuine no-doc, leave the
-      // session running but UNMARK it: the request usually sits queued in a
-      // busy agent, and the next scan that finds the session ready again
-      // retries — the probe above then short-circuits onto the doc the late
-      // answer wrote, so the cycle completes instead of dying here forever.
-      if (!watcherSawDoc) {
-        const probe = await workspace
-          .probePath(`${host.projectDirectory()}/${doc}`)
-          .catch(() => null);
-        const docOnDisk = probe?.isFile === true;
-        if (!docOnDisk) {
-          const attempts = (handoffAttempts.get(session.id) ?? 0) + 1;
-          handoffAttempts.set(session.id, attempts);
-
-          if (attempts < HANDOFF_ATTEMPT_LIMIT) {
-            unmarkHandingOff(session.id);
-          }
-
-          note = "";
-          return;
-        }
-      }
+    // 1. Ask the agent to write the handoff doc, then wait for it to land.
+    const hasDoc = await requestHandoffDoc({
+      session,
+      doc,
+      reason
+    });
+    if (!hasDoc) {
+      note = "";
+      return;
     }
 
     // 2. End the session — once the agent has finished the handoff turn and
     // anything it started meanwhile — 3. start the successor seeded to continue.
-    const stillHereBeforeEnd = await waitForRunningWork({
+    const stillHereBeforeEnd = await waitForRunningWorkUnlessMidTurn({
       session,
-      reason
+      reason,
+      isMidTurn
     });
     if (!stillHereBeforeEnd) {
       unmarkHandingOff(session.id);
@@ -632,14 +716,16 @@ export function createAutoHandoff(host: HandoffHost) {
   // best-effort: swallow any failure (including deleting a doc the agent never
   // wrote on the timeout path) and clear the in-flight marker + note so a later
   // scan can retry.
-  async function runHandoff({ session, reason }: {
+  async function runHandoff({ session, reason, isMidTurn = false }: {
     session: AgentSession;
     reason: HandoffReason;
+    isMidTurn?: boolean;
   }) {
     try {
       await handoff({
         session,
-        reason
+        reason,
+        isMidTurn
       });
     } catch {
       unmarkHandingOff(session.id);
@@ -699,29 +785,35 @@ export function createAutoHandoff(host: HandoffHost) {
     // onto the doc it already wrote, straight to the reset. A session with no
     // marker starts a fresh handoff only once it is over threshold.
     const resuming = sessionStorage.getItem(persistentMarker(session.id)) !== null;
-    const percentage = measuredContextPercentage(session.id);
-    const nearLimit = percentage !== null && percentage >= host.thresholdPercentage();
-    if (!resuming && !nearLimit) {
+    const nearLimit = isOverThreshold({
+      sessionId: session.id,
+      thresholdPercentage: host.thresholdPercentage()
+    });
+    const isCompactionImminent = isAboutToCompact(session.id);
+    if (!resuming && !nearLimit && !isCompactionImminent) {
       return ScanVerdict.leave;
     }
 
-    // Never cut in on the agent's own running work: a turn, or background agents
-    // and a dynamic workflow a quiet, `ready`-looking session is still waiting on.
-    // The agent reporting it done re-runs the scan.
-    if (agentReportsBusy(session.id)) {
-      return ScanVerdict.holdBack;
-    }
-
-    // Nor on a model switch being applied: both type into the session, and a
-    // switch that relaunches it would end the very session being handed off.
-    // The switch lands first; the scan comes back to the switched session.
+    // A model switch being applied always goes first: both type into the
+    // session, and a switch that relaunches it would end the very session being
+    // handed off. The scan comes back to the switched session.
     if (isModelSwitchApplying(session.id)) {
       return ScanVerdict.holdBack;
     }
 
-    // Never cut in on a working agent — only reset one sitting idle.
+    if (isCompactionImminent) {
+      return ScanVerdict.handOffMidTurn;
+    }
+
+    // Otherwise never cut in on the agent's own running work: a turn, or
+    // background agents and a dynamic workflow a quiet, `ready`-looking session
+    // is still waiting on. The agent reporting it done re-runs the scan.
+    if (agentReportsBusy(session.id)) {
+      return ScanVerdict.holdBack;
+    }
+
     const sittingIdle = sessionStatus(session.id) === SessionStatus.enum.ready;
-    return sittingIdle ? ScanVerdict.handOff : ScanVerdict.leave;
+    return sittingIdle ? ScanVerdict.handOff : ScanVerdict.holdBack;
   }
 
   // Scan for sessions to hand off: those newly over the context threshold, and any
@@ -743,11 +835,12 @@ export function createAutoHandoff(host: HandoffHost) {
         continue;
       }
 
-      if (verdict === ScanVerdict.handOff) {
+      if (verdict === ScanVerdict.handOff || verdict === ScanVerdict.handOffMidTurn) {
         markHandingOff(session.id);
         runHandoff({
           session,
-          reason: HandoffReason.ContextLimit
+          reason: HandoffReason.ContextLimit,
+          isMidTurn: verdict === ScanVerdict.handOffMidTurn
         });
       }
     }

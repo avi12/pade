@@ -1,4 +1,5 @@
 import { dropAgentActivity, observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
+import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import {
   createAutoHandoff,
   handoffDocName,
@@ -11,8 +12,9 @@ import {
   pickSuccessor,
   successorPrompt
 } from "@/lib/stores/handoff.svelte";
+import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { BRACKETED_PASTE_END, PROMPT_SUBMIT } from "@/lib/terminal-input";
-import { CreditsState } from "@/lib/types";
+import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import {
   afterEach,
@@ -52,6 +54,7 @@ vi.mock("@/lib/bridge", () => ({
 }));
 
 vi.mock("@/lib/stores/context.svelte", () => ({
+  compactionHeadroom: vi.fn().mockReturnValue(null),
   dropContext: vi.fn(),
   measuredContextPercentage: vi.fn().mockReturnValue(100)
 }));
@@ -590,7 +593,7 @@ describe("createAutoHandoff", () => {
     });
 
     handoff.check();
-    expect(handoff.note).toBe("Claude Code context at 100% — handing off once its running work finishes…");
+    expect(handoff.note).toBe(WAITING_NOTE);
     await Promise.resolve();
     expect(bridgeMocks.kill).not.toHaveBeenCalled();
     expect(launched).toEqual([]);
@@ -606,4 +609,64 @@ describe("createAutoHandoff", () => {
     handoff.dispose();
     dropAgentActivity(session.id);
   });
+
+  it("says it is waiting while a near-limit session's turn runs", () => {
+    vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.working);
+    const handoff = createAutoHandoff(scanHost(scannedSession));
+
+    handoff.check();
+
+    expect(handoff.note).toBe(WAITING_NOTE);
+    expect(bridgeMocks.kill).not.toHaveBeenCalled();
+    handoff.dispose();
+    vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.ready);
+  });
+
+  it("hands off mid-turn once the agent is about to auto-compact", async () => {
+    const ESCAPE = "\u001b";
+    const BELL = "\u0007";
+    observeAgentActivity({
+      id: scannedSession.id,
+      chunk: `${ESCAPE}]0;◑ Working${BELL}`
+    });
+    vi.mocked(measuredContextPercentage).mockReturnValue(40);
+    vi.mocked(compactionHeadroom).mockReturnValue(2);
+    const handoff = createAutoHandoff(scanHost(scannedSession));
+
+    handoff.check();
+
+    await vi.waitFor(() => expect(bridgeMocks.kill).toHaveBeenCalledWith(scannedSession.id));
+    handoff.dispose();
+    dropAgentActivity(scannedSession.id);
+    vi.mocked(measuredContextPercentage).mockReturnValue(100);
+    vi.mocked(compactionHeadroom).mockReturnValue(null);
+  });
 });
+
+const WAITING_NOTE =
+  "Claude Code context at 100% — handing off once its running work finishes, or just before it auto-compacts…";
+
+const scannedSession: AgentSession = {
+  id: "mid-turn-session",
+  agent: {
+    id: "claude",
+    label: "Claude Code",
+    command: "claude",
+    reordersBidi: true
+  },
+  cwd: "C:/repositories/pade"
+};
+
+function scanHost(session: AgentSession) {
+  return {
+    sessions: () => [session],
+    availableAgents: () => [session.agent],
+    isOptedOut: () => false,
+    thresholdPercentage: () => 60,
+    slugSource: () => "pade",
+    projectDirectory: () => "C:/repositories/pade",
+    endSession: bridgeMocks.kill,
+    removeSession() {},
+    launchSuccessor: () => "successor-session"
+  };
+}
