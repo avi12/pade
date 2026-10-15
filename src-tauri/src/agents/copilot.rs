@@ -71,19 +71,20 @@ pub(crate) fn suggest_session_name(transcript: &str) -> Option<String> {
 /// socket. `None` if the bootstrap fails or sets no cookie.
 fn start_guest_session() -> Option<String> {
     let response = ureq::post(START_URL)
-        .set("user-agent", USER_AGENT)
-        .set("origin", ORIGIN)
-        .set("referer", "https://copilot.microsoft.com/")
-        .set("accept-language", "en-US,en;q=0.9")
-        .call()
+        .header("user-agent", USER_AGENT)
+        .header("origin", ORIGIN)
+        .header("referer", "https://copilot.microsoft.com/")
+        .header("accept-language", "en-US,en;q=0.9")
+        .send_empty()
         .ok()?;
 
     // Keep each cookie's "name=value", dropping its attributes, and rejoin - the
     // socket only needs the pairs.
     let cookie = response
-        .all("set-cookie")
+        .headers()
+        .get_all("set-cookie")
         .iter()
-        .filter_map(|entry| entry.split(';').next())
+        .filter_map(|entry| entry.to_str().ok()?.split(';').next())
         .collect::<Vec<_>>()
         .join("; ");
     (!cookie.is_empty()).then_some(cookie)

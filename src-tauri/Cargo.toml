@@ -46,7 +46,7 @@ png = "0.18"
 # minimal blocking HTTPS client for the one bootstrap POST (both on the same
 # rustls stack, no OpenSSL); `sha2` solves the hashcash proof-of-work; `uuid`
 # mints the clientSessionId. All pure-Rust, no new native/DLL surface.
-ureq = { version = "2", default-features = false, features = ["tls"] }
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 tungstenite = { version = "0.30", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
 sha2 = "0.11"
 uuid = { version = "1", features = ["v4"] }

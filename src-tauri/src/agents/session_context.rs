@@ -254,7 +254,8 @@ fn fetch_catalog() -> Option<HashMap<String, u64>> {
     let body = ureq::get(MODELS_CATALOG_URL)
         .call()
         .ok()?
-        .into_string()
+        .body_mut()
+        .read_to_string()
         .ok()?;
     let providers: HashMap<String, CatalogProvider> = serde_json::from_str(&body).ok()?;
 
