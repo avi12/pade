@@ -9,13 +9,19 @@ const DRAG_THRESHOLD = 5;
 /** Press-and-drag a pill by its body to reorder the strip (past a 5px
  *  threshold), or drag it down over the terminal panes to open it as a split.
  *  The close / AI buttons and the rename field carry `data-noreorder`, so a
- *  press on them is theirs; a plain press-and-release still selects. */
-export function beginTabDrag({ e, onreorder, ondraghint, onsplit }: {
+ *  press on them is theirs; a plain press-and-release still selects. Never
+ *  while a pill is being renamed. */
+export function beginTabDrag({ e, isRenaming, onreorder, ondraghint, onsplit }: {
   e: PointerEvent;
+  isRenaming: boolean;
   onreorder?: (orderedIds: string[]) => void;
   ondraghint?: (hint: DragHint | null) => void;
   onsplit?: (drop: Pick<DropOutside, "id" | "pointerX" | "pointerY">) => void;
 }) {
+  if (isRenaming) {
+    return;
+  }
+
   beginReorder({
     e,
     itemSelector: `[${SESSION_TAB_ATTRIBUTE}]`,

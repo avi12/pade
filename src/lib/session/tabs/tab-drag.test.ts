@@ -41,7 +41,10 @@ describe("beginTabDrag", () => {
   });
 
   it("drags the strip's pills horizontally, leaving their controls alone", () => {
-    beginTabDrag({ e: PRESS });
+    beginTabDrag({
+      e: PRESS,
+      isRenaming: false
+    });
 
     expect(startedOptions()).toMatchObject({
       e: PRESS,
@@ -60,6 +63,7 @@ describe("beginTabDrag", () => {
     const onsplit = vi.fn();
     beginTabDrag({
       e: PRESS,
+      isRenaming: false,
       onreorder,
       ondraghint,
       onsplit
@@ -76,7 +80,10 @@ describe("beginTabDrag", () => {
   });
 
   it("tolerates a strip that listens to none of the drag's outcomes", () => {
-    beginTabDrag({ e: PRESS });
+    beginTabDrag({
+      e: PRESS,
+      isRenaming: false
+    });
 
     const options = startedOptions();
 
@@ -85,5 +92,14 @@ describe("beginTabDrag", () => {
       options.onHint?.(null);
       options.onDropOutside?.(DROP);
     }).not.toThrow();
+  });
+
+  it("never starts a drag while a pill is being renamed", () => {
+    beginTabDrag({
+      e: PRESS,
+      isRenaming: true
+    });
+
+    expect(mocks.beginReorder).not.toHaveBeenCalled();
   });
 });
