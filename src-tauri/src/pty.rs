@@ -161,15 +161,25 @@ fn command_matches(command_line: &str, command: &str) -> bool {
 /// and match are unit-testable without enumerating the live system. `root` (the
 /// agent itself) is never included, so a Stop can never kill the agent.
 fn task_processes(processes: &[ProcessInfo], root: u32, command: &str) -> Vec<u32> {
+    // Index children by parent once, so the walk is linear in the snapshot
+    // rather than a full rescan per visited process.
+    let mut children: HashMap<u32, Vec<u32>> = HashMap::new();
+    for process in processes {
+        let is_own_parent = process.process_id == process.parent_process_id;
+        if !is_own_parent {
+            children
+                .entry(process.parent_process_id)
+                .or_default()
+                .push(process.process_id);
+        }
+    }
+
     let mut descendants: HashSet<u32> = HashSet::new();
     let mut frontier = vec![root];
     while let Some(parent) = frontier.pop() {
-        for process in processes {
-            if process.parent_process_id == parent
-                && process.process_id != process.parent_process_id
-                && descendants.insert(process.process_id)
-            {
-                frontier.push(process.process_id);
+        for &child in children.get(&parent).into_iter().flatten() {
+            if descendants.insert(child) {
+                frontier.push(child);
             }
         }
     }
@@ -484,10 +494,12 @@ fn drain_decoded(pending: &mut Vec<u8>) -> String {
     }
 }
 
+/// Borrowed, so the pump emits each chunk without copying the session id or
+/// the decoded text it already holds.
 #[derive(Serialize, Clone)]
-struct Chunk {
-    id: String,
-    data: String,
+struct Chunk<'a> {
+    id: &'a str,
+    data: &'a str,
     /// This chunk's position in the session's stream - see `History`.
     seq: u64,
 }
@@ -780,10 +792,91 @@ pub async fn pty_spawn(
         }
     }
 
-    let pair = open_pty(rows, cols)?;
+    // Opening a PTY, writing theme files and spawning an agent all block on the
+    // operating system, so they run on the blocking pool rather than an async
+    // worker. Only the registry lock publishes the completed session, so existing
+    // panes remain responsive while a new CLI starts.
+    let launch = SessionLaunch {
+        owner: owner.clone(),
+        command,
+        cwd,
+        columns: cols,
+        rows,
+        arguments: args.unwrap_or_default(),
+        scheme,
+        conversation_id,
+        model_choice,
+    };
+    let StartedSession {
+        pty,
+        reader,
+        transcript,
+        history,
+    } = tauri::async_runtime::spawn_blocking(move || start_session(launch))
+        .await
+        .map_err(|error| error.to_string())??;
+
+    // A concurrent duplicate is ended here, which terminates the unregistered
+    // child through `Pty::drop`.
+    let duplicate = {
+        let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let existing = session_access(&sessions, &id, &owner).map(|found| found.is_some());
+        let is_vacant = existing == Ok(false);
+        if is_vacant {
+            sessions.insert(id.clone(), pty);
+            None
+        } else {
+            Some((pty, existing))
+        }
+    };
+    if let Some((pty, existing)) = duplicate {
+        end_session(Some(pty)).await?;
+        return existing.map(|_| ());
+    }
+
+    spawn_session_output_pump(app.clone(), owner, id.clone(), reader, transcript, history);
+
+    // Reap the agent when it exits on its own. The reader thread's EOF alone
+    // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
+    // the master pipe open after the child dies, so the read blocks forever, no
+    // exit ever reaches the frontend, and the dead session's conhost lingers.
+    // Poll the child instead; once it has exited, drop the session - that closes
+    // the ConPTY, which EOFs the reader, whose existing end-of-pump emit is the
+    // one authoritative source of `pty://exit` (DRY). A hand-closed session
+    // (`pty_kill`) is already out of the map, which ends this thread too.
+    spawn_session_exit_monitor(app, id);
+    Ok(())
+}
+
+/// Everything `start_session` needs, moved onto the blocking pool whole.
+struct SessionLaunch {
+    owner: String,
+    command: Option<String>,
+    cwd: Option<String>,
+    columns: u16,
+    rows: u16,
+    arguments: Vec<String>,
+    scheme: Option<Scheme>,
+    conversation_id: Option<String>,
+    model_choice: Option<crate::running_model::ModelChoice>,
+}
+
+/// A spawned session not yet published, plus the halves its output pump owns.
+struct StartedSession {
+    pty: Arc<Pty>,
+    reader: Box<dyn Read + Send>,
+    transcript: Arc<Mutex<String>>,
+    history: Arc<Mutex<History>>,
+}
+
+/// Open a PTY and spawn the session's program in it. Blocking: run it off the
+/// async workers.
+fn start_session(launch: SessionLaunch) -> Result<StartedSession, String> {
+    let pair = open_pty(launch.rows, launch.columns)?;
 
     // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
-    let directory = cwd
+    let directory = launch
+        .cwd
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::current_dir().ok());
     let spawn_cwd = directory
@@ -792,14 +885,14 @@ pub async fn pty_spawn(
 
     // Remembered on the session so `pty_list` can report what it runs and where
     // - the roster a reloaded frontend re-attaches its panes against.
-    let spawn_command = command.clone();
+    let spawn_command = launch.command.clone();
     let mut process = build_command(
-        command,
-        scheme,
-        conversation_id.as_deref(),
-        model_choice.as_ref(),
+        launch.command,
+        launch.scheme,
+        launch.conversation_id.as_deref(),
+        launch.model_choice.as_ref(),
     );
-    process.args(args.unwrap_or_default());
+    process.args(launch.arguments);
     if let Some(directory) = directory {
         process.cwd(directory);
     }
@@ -815,7 +908,7 @@ pub async fn pty_spawn(
     let transcript = Arc::new(Mutex::new(String::new()));
     let history = Arc::new(Mutex::new(History::default()));
     let pty = Arc::new(Pty {
-        owner: owner.clone(),
+        owner: launch.owner,
         master: Mutex::new(pair.master),
         writer: Mutex::new(writer),
         child: Mutex::new(child),
@@ -824,34 +917,21 @@ pub async fn pty_spawn(
         transcript: Arc::clone(&transcript),
         history: Arc::clone(&history),
     });
+    Ok(StartedSession {
+        pty,
+        reader,
+        transcript,
+        history,
+    })
+}
 
-    // Opening a PTY and spawning an agent can block on the operating system. Only
-    // take the registry lock to publish the completed session, so existing panes
-    // remain responsive while a new CLI starts. A concurrent duplicate is dropped
-    // here, which terminates the unregistered child through `Pty::drop`.
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    let existing = session_access(&sessions, &id, &owner).map(|found| found.is_some());
-    let is_vacant = existing == Ok(false);
-    if !is_vacant {
-        drop(sessions);
-        drop(pty);
-        return existing.map(|_| ());
-    }
-    sessions.insert(id.clone(), pty);
-    drop(sessions);
-
-    spawn_session_output_pump(app.clone(), owner, id.clone(), reader, transcript, history);
-
-    // Reap the agent when it exits on its own. The reader thread's EOF alone
-    // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
-    // the master pipe open after the child dies, so the read blocks forever, no
-    // exit ever reaches the frontend, and the dead session's conhost lingers.
-    // Poll the child instead; once it has exited, drop the session - that closes
-    // the ConPTY, which EOFs the reader, whose existing end-of-pump emit is the
-    // one authoritative source of `pty://exit` (DRY). A hand-closed session
-    // (`pty_kill`) is already out of the map, which ends this thread too.
-    spawn_session_exit_monitor(app, id);
-    Ok(())
+/// Release a session handle on the blocking pool: the last handle's `Drop`
+/// kills and reaps the process tree, a blocking `taskkill` wait on Windows.
+/// Awaited, so the caller still returns only once the cwd is unlocked.
+async fn end_session(pty: Option<Arc<Pty>>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || drop(pty))
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// Pump one session's output after it has been published in the registry. A chunk
@@ -882,8 +962,8 @@ fn spawn_session_output_pump(
                         &owner,
                         PTY_DATA_EVENT,
                         Chunk {
-                            id: id.clone(),
-                            data,
+                            id: &id,
+                            data: &data,
                             seq,
                         },
                     );
@@ -1093,12 +1173,12 @@ pub async fn pty_kill(
     state: State<'_, PtyState>,
     id: String,
 ) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    session_access(&sessions, &id, window.label())?;
-    let pty = sessions.remove(&id);
-    drop(sessions);
-    drop(pty);
-    Ok(())
+    let pty = {
+        let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+        session_access(&sessions, &id, window.label())?;
+        sessions.remove(&id)
+    };
+    end_session(pty).await
 }
 
 /// The agent session's root process id, owner-checked. `None` when the session is gone or
@@ -1232,6 +1312,18 @@ mod tests {
             process(400, 1, "pnpm dev"),               // an UNRELATED sibling outside the agent
         ];
         assert_eq!(task_processes(&processes, 100, "pnpm dev"), vec![200]);
+    }
+
+    #[test]
+    fn task_processes_walks_every_generation_and_survives_a_self_parented_process() {
+        let processes = vec![
+            process(0, 0, "pnpm dev"),            // the idle process is its own parent
+            process(100, 0, "claude"),            // the agent (root)
+            process(200, 100, "bash"),            // a child shell
+            process(300, 200, "cmd /c pnpm dev"), // a grandchild running the task
+            process(400, 300, "pnpm dev"),        // and its own child
+        ];
+        assert_eq!(task_processes(&processes, 100, "pnpm dev"), vec![300, 400]);
     }
 
     #[test]
@@ -1389,6 +1481,21 @@ mod tests {
         let mut pending = vec![b'o', b'k', 0xFF, b'!'];
         assert_eq!(drain_decoded(&mut pending), "ok\u{FFFD}!");
         assert_empty(&pending);
+    }
+
+    /// The `pty://data` payload is the frontend contract; borrowing its fields
+    /// must not change the wire shape.
+    #[test]
+    fn a_chunk_serializes_as_id_data_and_sequence() {
+        let chunk = Chunk {
+            id: "session",
+            data: "hello",
+            seq: 7,
+        };
+        assert_eq!(
+            serde_json::to_value(&chunk).expect("serializable"),
+            serde_json::json!({ "id": "session", "data": "hello", "seq": 7 })
+        );
     }
 
     #[test]
