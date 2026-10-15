@@ -25,7 +25,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::gitignore::segments_match;
+use crate::glob::segments_match;
 
 /// The package ecosystems whose manifests confirm a directory as a package.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]

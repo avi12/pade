@@ -6,6 +6,7 @@ mod copilot;
 mod design;
 mod discord;
 mod gitignore;
+mod glob;
 mod ide;
 mod limit_reset;
 mod mcp;

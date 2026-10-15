@@ -12,6 +12,8 @@
 //! directory that is ignored ignores everything below it - matching git, where
 //! a file can't be re-included under an excluded directory.
 
+use crate::glob::{segment_matches, segments_match};
+
 /// One parsed `.gitignore` pattern.
 struct Pattern {
     /// The `/`-split glob segments (anchored) or the bare-name glob (floating).
@@ -119,51 +121,6 @@ impl Pattern {
         target
             .last()
             .is_some_and(|name| segment_matches(&self.segments[0], name))
-    }
-}
-
-/// The pattern segment that spans any number of path segments.
-const ANY_DEPTH_SEGMENT: &str = "**";
-
-/// Whether glob `pattern` segments match `path` segments exactly: `**` spans
-/// any number of segments, `*`/`?` stay within one. The one segment-aware glob
-/// matcher, shared with workspace member patterns (`members.rs`), whose
-/// workspace tools use the same semantics.
-pub(crate) fn segments_match<Segment: AsRef<str>>(pattern: &[Segment], path: &[&str]) -> bool {
-    let Some((head, rest)) = pattern.split_first() else {
-        return path.is_empty();
-    };
-    if head.as_ref() == ANY_DEPTH_SEGMENT {
-        return (0..=path.len()).any(|skip| segments_match(rest, &path[skip..]));
-    }
-    path.split_first().is_some_and(|(first, tail)| {
-        segment_matches(head.as_ref(), first) && segments_match(rest, tail)
-    })
-}
-
-/// Glob-match one segment: `*` any run, `?` any single character, else literal.
-/// Walks both strings by character boundary in place, so the watcher's
-/// per-event check allocates nothing.
-fn segment_matches(pattern: &str, name: &str) -> bool {
-    let mut pattern_characters = pattern.chars();
-    let mut name_characters = name.chars();
-    match pattern_characters.next() {
-        None => name.is_empty(),
-        Some('*') => {
-            let rest = pattern_characters.as_str();
-            name.char_indices()
-                .map(|(offset, _)| offset)
-                .chain(std::iter::once(name.len()))
-                .any(|offset| segment_matches(rest, &name[offset..]))
-        }
-        Some('?') => {
-            name_characters.next().is_some()
-                && segment_matches(pattern_characters.as_str(), name_characters.as_str())
-        }
-        Some(literal) => {
-            name_characters.next() == Some(literal)
-                && segment_matches(pattern_characters.as_str(), name_characters.as_str())
-        }
     }
 }
 
