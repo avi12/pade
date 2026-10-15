@@ -456,6 +456,7 @@
   /* ── Appearance card ──────────────────────────────────────────────────────── */
   .appearance,
   .session-tabs,
+  .models,
   .performance,
   .discord {
     /* The cards answer their own layout questions: the side panel is
