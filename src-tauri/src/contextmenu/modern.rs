@@ -13,6 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
+use super::current_executable;
 use crate::util::command;
 
 /// Package identity `Name` - must equal `<Identity Name>` in `AppxManifest.xml`.
@@ -29,6 +30,15 @@ const EXECUTABLE_PLACEHOLDER: &str = "{{EXECUTABLE}}";
 /// The handler DLL that must sit beside the executable - produced by
 /// `cargo build -p contextmenu-handler` into the shared `target/` dir.
 const HANDLER_DLL: &str = "contextmenu_handler.dll";
+
+/// The filled-in manifest's file name in the external location.
+const MANIFEST_FILE: &str = "AppxManifest.xml";
+
+/// The folder the manifest's logos are read from, in the external location.
+const ASSETS_DIRECTORY: &str = "Assets";
+
+/// The HRESULT `Add-AppxPackage` fails with when Developer Mode is off.
+const DEVELOPER_MODE_OFF_ERROR: &str = "0x80073CFF";
 
 /// Logos the manifest references (relative to the external location). Embedded from
 /// the app icons and written into `Assets\` at register time: `(file name, bytes)`.
@@ -55,14 +65,14 @@ pub fn register() -> Result<(), String> {
         return Err(format!(
             "the modern-menu handler is not next to PADE (expected {}). \
              Build it once with `cargo build -p contextmenu-handler` \
-             (its DLL lands beside pade.exe), then try again.",
+             (its DLL lands beside pade.exe), then try again",
             handler.display()
         ));
     }
     materialize(&location)?;
     let script = format!(
         "Add-AppxPackage -Register {} -ExternalLocation {}",
-        quote(&location.join("AppxManifest.xml")),
+        quote(&location.join(MANIFEST_FILE)),
         quote(&location),
     );
     interpret(&powershell(&script)?)
@@ -81,8 +91,8 @@ pub fn unregister() -> Result<(), String> {
         format!("Get-AppxPackage -Name '{PACKAGE_NAME}' | Remove-AppxPackage -ErrorAction Stop");
     let result = interpret(&powershell(&script)?);
     if let Ok(location) = external_location() {
-        let _ = std::fs::remove_file(location.join("AppxManifest.xml"));
-        let _ = std::fs::remove_dir_all(location.join("Assets"));
+        let _ = std::fs::remove_file(location.join(MANIFEST_FILE));
+        let _ = std::fs::remove_dir_all(location.join(ASSETS_DIRECTORY));
     }
     result
 }
@@ -97,8 +107,7 @@ pub fn is_registered() -> bool {
 /// The external-location directory: where PADE's own executable lives, and where
 /// the handler DLL, the written manifest and the `Assets\` logos must all sit.
 fn external_location() -> Result<PathBuf, String> {
-    std::env::current_exe()
-        .map_err(|e| e.to_string())?
+    current_executable()?
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| "cannot determine the executable's directory".to_string())
@@ -107,8 +116,7 @@ fn external_location() -> Result<PathBuf, String> {
 /// The running executable's file name (e.g. `pade.exe`), for the manifest's
 /// `Application@Executable` - the file the sparse package's identity is granted to.
 fn executable_name() -> Result<String, String> {
-    std::env::current_exe()
-        .map_err(|e| e.to_string())?
+    current_executable()?
         .file_name()
         .and_then(|name| name.to_str())
         .map(String::from)
@@ -118,8 +126,8 @@ fn executable_name() -> Result<String, String> {
 /// Write the filled-in manifest and the logo assets into the external location.
 fn materialize(location: &Path) -> Result<(), String> {
     let manifest = MANIFEST_TEMPLATE.replace(EXECUTABLE_PLACEHOLDER, &executable_name()?);
-    std::fs::write(location.join("AppxManifest.xml"), manifest).map_err(|e| e.to_string())?;
-    let assets = location.join("Assets");
+    std::fs::write(location.join(MANIFEST_FILE), manifest).map_err(|e| e.to_string())?;
+    let assets = location.join(ASSETS_DIRECTORY);
     std::fs::create_dir_all(&assets).map_err(|e| e.to_string())?;
     for (name, bytes) in ASSETS {
         std::fs::write(assets.join(name), bytes).map_err(|e| e.to_string())?;
@@ -144,12 +152,12 @@ fn interpret(output: &Output) -> Result<(), String> {
     }
     let mut message = String::from_utf8_lossy(&output.stderr).into_owned();
     message.push_str(&String::from_utf8_lossy(&output.stdout));
-    let developer_mode_off =
-        message.contains("0x80073CFF") || message.to_lowercase().contains("developer");
-    if developer_mode_off {
+    let is_developer_mode_off =
+        message.contains(DEVELOPER_MODE_OFF_ERROR) || message.to_lowercase().contains("developer");
+    if is_developer_mode_off {
         return Err(
             "The Windows 11 right-click menu needs Developer Mode turned on \
-             (Settings → System → For developers → Developer Mode), then try again."
+             (Settings → System → For developers → Developer Mode), then try again"
                 .to_string(),
         );
     }
