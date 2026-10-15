@@ -47,6 +47,7 @@
   import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
+  import { dropUsageAdapt } from "@/lib/stores/usage/usageAdapt.svelte";
   import { createUsagePacing, dropUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
   import {
@@ -1049,6 +1050,7 @@
     dropNaming(id);
     dropUsageLimit(id);
     dropUsagePacing(id);
+    dropUsageAdapt(id);
     dropApiError(id);
     dropChoiceAttention(id);
   }
@@ -1503,14 +1505,17 @@
   onDestroy(() => usageResume.dispose());
 
   // ── Usage pacing ───────────────────────────────────────────────────────────
-  // A working agent far ahead of its usage window's budget line is asked to
-  // pause; once the line catches up it continues, or waits for the user's
-  // Continue in the note below, as the pacing mode says - and continues on its
-  // own as the window is about to reset (lib/stores/usage/usagePacing).
+  // A working agent that would spend its usage window long before the reset is
+  // stepped down to a cheaper effort or model, slowed, or stopped - and picked
+  // back up as the Config settings say (lib/stores/usage/usagePacing).
   const usagePacing = createUsagePacing({
     sessions: () => sessions,
     mode: () => effective.pacingMode,
-    isHandingOff: id => autoHandoff.isHandingOff(id)
+    action: () => effective.pacingAction,
+    isAdapting: () => effective.pacingAdapt,
+    isHandingOff: id => autoHandoff.isHandingOff(id),
+    switchModel: async pick => await modelSwitcher.request(pick),
+    announce: message => showToast(message)
   });
   $effect(() => usagePacing.check());
   onDestroy(() => usagePacing.dispose());

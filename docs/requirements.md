@@ -247,7 +247,17 @@ writes.
   Within 10 minutes of a reset a window pauses no one (95% with 9 minutes left
   runs on), while the weekly window is paced in its own right. Usage credits
   carrying the account turn pacing off. A user who restarts a paused agent by
-  hand is not paused again until it is back under the line.
+  hand is not paused again until it is back under the line. The Config panel
+  also picks **what** pacing does (`prefs.pacingAction`): **Stop** as above, or
+  **Slow down** - a short rest sized so stretches of work and rest average out
+  to a pace that lasts (rest = stretch × (time left / runway − 1), at least 5
+  minutes), then "continue" on its own. With **Turn effort and model down
+  first** (`prefs.pacingAdapt`, `lib/stores/usage/usageAdapt.svelte.ts`) an
+  agent over pace is first stepped one notch cheaper - its effort, then a
+  cheaper model (`lib/model/model-cost.ts`) - through the same switch a tab's
+  model pick uses; it climbs back the way it came once its runway reaches 1.5
+  times the time left, and returns to the user's own choice as the window is
+  about to reset. A choice the user makes in between is theirs to keep.
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,

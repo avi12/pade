@@ -9,7 +9,7 @@
   import { chooseThemeMode, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
-  import { type Agent, type ConfigFile, PacingMode, ThemeMode } from "@/lib/types";
+  import { type Agent, type ConfigFile, ThemeMode } from "@/lib/types";
   import Checkbox from "@/lib/ui/Checkbox.svelte";
   import Segmented from "@/lib/ui/Segmented.svelte";
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
@@ -17,6 +17,7 @@
   import { HandoffPercent, parseInput } from "@/lib/validate";
   import AgentModelDefaults from "@/panels/config/AgentModelDefaults.svelte";
   import TerminalColours from "@/panels/config/TerminalColours.svelte";
+  import UsagePacingSettings from "@/panels/config/UsagePacingSettings.svelte";
 
   // Only the config files relevant to the active agent are listed. `project` is
   // what scopes the per-project settings below to this window's workspace.
@@ -98,28 +99,6 @@
     }
   ] as const satisfies readonly {
     value: ThemeMode;
-    label: string;
-    icon: IconName;
-  }[];
-
-  const pacingOptions = [
-    {
-      value: PacingMode.enum.ask,
-      label: "Ask me",
-      icon: "clock"
-    },
-    {
-      value: PacingMode.enum.continue,
-      label: "Continue",
-      icon: "refresh"
-    },
-    {
-      value: PacingMode.enum.off,
-      label: "Off",
-      icon: "close"
-    }
-  ] as const satisfies readonly {
-    value: PacingMode;
     label: string;
     icon: IconName;
   }[];
@@ -342,21 +321,7 @@
         </div>
       </div>
 
-      <div class="field">
-        <span class="field-text">
-          <span class="field-label">Usage pacing</span>
-          <span class="field-hint">
-            Pauses an agent spending its usage too fast. With room again it asks you or
-            continues - and always continues just before the reset
-          </span>
-        </span>
-        <Segmented
-          chosen={effective.pacingMode}
-          label="Usage pacing"
-          onchoose={mode => updatePrefs({ usagePacing: mode })}
-          options={pacingOptions}
-        />
-      </div>
+      <UsagePacingSettings />
     </section>
 
     <section class="session-tabs">

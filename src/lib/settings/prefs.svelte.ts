@@ -15,6 +15,7 @@ import {
 } from "@/lib/terminal/terminal-palette";
 import {
   DiffStyle,
+  PacingAction,
   PacingMode,
   type Prefs,
   Scheme,
@@ -103,6 +104,12 @@ export const effective = {
   },
   get pacingMode() {
     return prefs.usagePacing ?? PacingMode.enum.ask;
+  },
+  get pacingAction() {
+    return prefs.pacingAction ?? PacingAction.enum.stop;
+  },
+  get pacingAdapt() {
+    return prefs.pacingAdapt === true;
   },
   get softwareRender() {
     return prefs.softwareRender === true;
