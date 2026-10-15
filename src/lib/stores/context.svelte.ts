@@ -2,12 +2,12 @@
 // auto-handoff: when an agent nears its context limit we hand off to a fresh one.
 //
 // Three signals, strongest first:
-//   1. The agent's own session log, read off disk by `session_context.rs` — the
+//   1. The agent's own session log, read off disk by `session_context.rs` - the
 //      `usage` block of its newest turn against its model's real window. Exact,
 //      independent of anything the terminal paints, and available from the first
 //      turn onward, so it outranks everything below whenever it answers.
 //   2. Parse the agent CLI's own context indicator out of the PTY stream (exact,
-//      but coupled to that CLI's output — heuristic, tune against real output).
+//      but coupled to that CLI's output - heuristic, tune against real output).
 //      Claude Code only prints one in the last ~3% of the window, so for most of
 //      a session this is silent; it stays as the answer for agents with no log.
 //      Claude's "N% until auto-compact" is NOT one: it counts down to its own
@@ -26,12 +26,12 @@ const CHARACTERS_PER_TOKEN = 4;
 const DEFAULT_CONTEXT_LIMIT = 200_000;
 
 interface ContextSignal {
-  /** Tokens the agent's own session log says the conversation occupies — the
+  /** Tokens the agent's own session log says the conversation occupies - the
    *  authoritative reading, written by the agent itself every turn. */
   loggedTokens: number | null;
   /** Percent of context used, parsed from the agent's own output (0..100). */
   parsedPercentage: number | null;
-  /** Percent left before the agent compacts its own conversation — Claude's
+  /** Percent left before the agent compacts its own conversation - Claude's
    *  "N% until auto-compact". It counts down to the compaction point, which can
    *  sit far below the window, so it is never read as a share of the window.
    *  Read off the whole screen only, so it clears once the countdown is gone. */
@@ -42,7 +42,7 @@ interface ContextSignal {
    *  not the latest: the screen also carries small per-turn counters ("↓ 83
    *  tokens"), and the session total only grows until the session cycles. */
   reportedTokens: number;
-  /** Cumulative PTY characters seen — the estimate fallback. */
+  /** Cumulative PTY characters seen - the estimate fallback. */
   characters: number;
   /** The model the session runs (`claude-opus-5`), as the agent itself
    *  reported it (see running_model.rs). Never read off the terminal. */
@@ -75,7 +75,7 @@ function scaleTokens(numberText: string, suffix: string | undefined): number | n
 
 // Match the common shapes an agent CLI prints and normalize to "percent USED".
 // OpenCode's footer prints its own percent-of-window on one row, uniquely
-// anchored by the hint that follows it — "342.4K (68%)  ctrl+p commands".
+// anchored by the hint that follows it - "342.4K (68%)  ctrl+p commands".
 // The one indicator that never splits: the status sidebar's "Context …
 // tokens … % used" spans separate terminal rows with main-pane text
 // interleaved between them, so a joined-rows parse misses it live.
@@ -85,7 +85,7 @@ const FOOTER_USED_RE = /[\d,.]+\s*(?:k|m)?\s*\((\d{1,3})\s*%\)\s*ctrl\+p/;
 const SIDEBAR_USED_RE = /context\s+[\d,.]+\s*(?:k|m)?\s*tokens\s+(\d{1,3})\s*%\s*used/;
 // Claude Code's low-context warning: "Context low (12% remaining) · Run
 // /compact to compact & continue". Its own arm ahead of the loose USED_RE
-// below, which would otherwise read the *remaining* 12 as 12% USED — an 88%
+// below, which would otherwise read the *remaining* 12 as 12% USED - an 88%
 // full session reported as nearly empty. The anchor stops at the percent so a
 // clipped line still parses: that warning shares one right-aligned,
 // overflow-hidden row with the auto-updater, and "Update available! Run: winget
@@ -93,20 +93,20 @@ const SIDEBAR_USED_RE = /context\s+[\d,.]+\s*(?:k|m)?\s*tokens\s+(\d{1,3})\s*%\s
 const CONTEXT_LOW_RE = /context\s+low\s*\(\s*(\d{1,3})\s*%/;
 // Claude Code's countdown to its own compaction, in both of its wordings: "23%
 // until auto-compact" and "Context left until auto-compact: 23%". It measures
-// the room left before the compaction point, not the window — a 1M session can
-// compact at 300k — so it feeds `compactionHeadroom` and is stripped before
+// the room left before the compaction point, not the window - a 1M session can
+// compact at 300k - so it feeds `compactionHeadroom` and is stripped before
 // the percent-used parse, which would otherwise read "2% until" as 98% full.
 const COMPACTION_HEADROOM_RE = /(\d{1,3})\s*%\s*until\s+auto-?\s*compact|left\s+until\s+auto-?\s*compact\s*:?\s*(\d{1,3})\s*%/;
 const COMPACTION_HEADROOM_STRIP_RE = new RegExp(COMPACTION_HEADROOM_RE.source, "g");
 // The bare "left … N%" arm needs a context/window anchor: an agent transcript
 // can carry arbitrary pasted content (CSS with `left:` and percentages dumped
 // by a tool call), and an unanchored match there read as "context nearly full"
-// on a session that was at 3% — a false handoff.
+// on a session that was at 3% - a false handoff.
 const REMAINING_RE = /(\d{1,3})\s*%\s*(?:context\s*)?(?:left|remaining)|(?:context|window)[^%\d]{0,24}(?:left|remaining)[^%\d]{0,24}(\d{1,3})\s*%/;
 const USED_RE = /(\d{1,3})\s*%\s*context|context[^%\d]{0,24}(\d{1,3})\s*%/;
 const RATIO_RE = /([\d,]+)\s*(k|m)?\s*\/\s*([\d,]+)\s*(k|m)?\s*tokens/;
 
-// The window size the agent announces in its banner — "Opus 4.8 (1M context)",
+// The window size the agent announces in its banner - "Opus 4.8 (1M context)",
 // "(200K context)". The one anchor that turns a raw consumed-tokens counter
 // into a percent, since agents only print their own % indicator near the limit
 // while a low threshold needs the fill long before that.
@@ -251,8 +251,8 @@ export function observeContext({ id, chunk }: {
 
 /** Feed rendered screen text (xterm buffer rows) through the parsed signal
  *  only. A TUI's cursor-motion optimizations can split a word across the wire
- *  — Claude paints "97% contex", skips the unchanged "t" cell with a
- *  cursor-forward, then " used" — so the stream never carries the phrase the
+ *  - Claude paints "97% contex", skips the unchanged "t" cell with a
+ *  cursor-forward, then " used" - so the stream never carries the phrase the
  *  parser needs. The screen always does; this is the reliable source for the
  *  parsed percent. Never counts toward the byte estimate: these are repainted
  *  cells, not new output. */
@@ -296,7 +296,7 @@ export function compactionHeadroom(id: string): number | null {
 
 /** When the window banner was never seen (it paints once at spawn and can be
  *  trimmed out of a long session's replayable history), assume the LARGEST
- *  window an agent runs — deliberately under-reporting. A small window assumed
+ *  window an agent runs - deliberately under-reporting. A small window assumed
  *  large delays the tokens-derived handoff but the agent's own % indicator
  *  still fires it near the limit; a large window assumed small would cycle a
  *  1M session at a twentieth of its life. */
@@ -304,7 +304,7 @@ const FALLBACK_WINDOW_TOKENS = 1_000_000;
 
 /** The percent the agent's own consumed-tokens counter implies, or null until a
  *  counter has been seen at all. `allowFallback` guesses the window (1M) when the
- *  agent never announced one — fine for the display gauge, but NOT for ending a
+ *  agent never announced one - fine for the display gauge, but NOT for ending a
  *  session: `reportedTokens` is a sticky max of every "N tokens" ever on screen,
  *  so one tool-output count (a Gemini response's token total in an AI project)
  *  pins it high, and dividing that by a guessed window fires a false handoff on an
@@ -372,7 +372,7 @@ export function contextPercentage(id: string): number | null {
 
 /** The session's context fill as the AGENT ITSELF accounts for it, or null when
  *  it has vouched for nothing yet. Unlike `contextPercentage` this never falls
- *  back to the byte estimate — that estimate counts every byte a fullscreen
+ *  back to the byte estimate - that estimate counts every byte a fullscreen
  *  agent repaints (spinners, elapsed-time ticks, whole-frame redraws), so it
  *  balloons far past real usage and must never end a session. Auto-handoff,
  *  usage-resume, and API-error retry all gate on this, so they act only on a fill
@@ -382,7 +382,7 @@ export function contextPercentage(id: string): number | null {
  *  Three agent-vouched sources, strongest first: the session log's own token
  *  accounting, the % indicator when the agent prints one, then the consumed-
  *  tokens counter against the announced window. The log is what makes a low
- *  handoff threshold workable — a screen-scraped counter can only see what the
+ *  handoff threshold workable - a screen-scraped counter can only see what the
  *  TUI chose to paint, and Claude paints no percentage at all until the last
  *  ~3% of the window. */
 export function measuredContextPercentage(id: string): number | null {
@@ -399,8 +399,8 @@ export function measuredContextPercentage(id: string): number | null {
 
 /** Record what the agent's own session log says about this session: the tokens
  *  its newest turn occupies, and the window its model advertises. Both halves
- *  are optional — a session whose first turn isn't written yet has no usage, and
- *  an unreachable model catalog leaves the window unknown — and each is folded in
+ *  are optional - a session whose first turn isn't written yet has no usage, and
+ *  an unreachable model catalog leaves the window unknown - and each is folded in
  *  only when it answers, so a later reading never erases an earlier one.
  *
  *  The window never overrides one the agent's own `(N context)` banner supplied,

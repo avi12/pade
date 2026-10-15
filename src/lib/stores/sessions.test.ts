@@ -19,7 +19,7 @@ import {
 // timeout path without real waiting.
 async function settled(promise: Promise<void>): Promise<boolean> {
   let resolved = false;
-  // Observe resolution without blocking on it — `settled` returns after two
+  // Observe resolution without blocking on it - `settled` returns after two
   // microtask turns whether or not the promise resolved (the point is to tell
   // an already-settled promise from a pending one, so it can't be awaited here).
   async function markResolved(): Promise<void> {
@@ -153,7 +153,7 @@ describe("whenSessionIdle", () => {
   });
 
   it("waits as long as the turn takes when no timeout caps it", async () => {
-    // The deferred agent re-theme has nothing to give up for — it simply must
+    // The deferred agent re-theme has nothing to give up for - it simply must
     // not respawn a session mid-turn, so it holds until the turn really ends.
     setSessionStatus({
       id: "s1",

@@ -179,7 +179,7 @@ describe("hasUsageHeadroom", () => {
     ).toBe(true);
   });
 
-  it("keeps an agent whose quota is nearly — but not fully — spent", () => {
+  it("keeps an agent whose quota is nearly - but not fully - spent", () => {
     // What sent a handoff to another agent while Claude could still work: its
     // weekly cap read 96%, which is quota left, not quota gone.
     expect(
@@ -388,7 +388,7 @@ describe("createAutoHandoff", () => {
     let announced = false;
     let spuriousRespawns = 0;
     bridgeMocks.kill.mockImplementation(async (id: string) => {
-      // The exit event lands while the kill is still settling — before the
+      // The exit event lands while the kill is still settling - before the
       // shell has had a chance to drop the session.
       const stillListed = sessions.some(session => session.id === id);
       if (!announced && stillListed) {
@@ -644,7 +644,7 @@ describe("createAutoHandoff", () => {
 });
 
 const WAITING_NOTE =
-  "Claude Code context at 100% — handing off once its running work finishes, or just before it auto-compacts…";
+  "Claude Code context at 100% - handing off once its running work finishes, or just before it auto-compacts…";
 
 const scannedSession: AgentSession = {
   id: "mid-turn-session",

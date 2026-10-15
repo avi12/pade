@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 // A fixed "now": 2026-07-17 10:00 local time.
 const NOW = new Date(2026, 6, 17, 10, 0, 0, 0).getTime();
 
-// A fullscreen TUI's "move the cursor one column right" — what it paints between
+// A fullscreen TUI's "move the cursor one column right" - what it paints between
 // words instead of a space.
 const ESCAPE = "\u001b";
 const CURSOR_FORWARD = `${ESCAPE}[1C`;
@@ -110,7 +110,7 @@ describe("parseLimitHit", () => {
       now: NOW
     });
     expect(hit?.window).toBe(LimitWindow.weekly);
-    expect(hit?.resetAt).toBeNull(); // a date, not a clock — API supplies it
+    expect(hit?.resetAt).toBeNull(); // a date, not a clock - API supplies it
   });
 
   it("ignores the softer approaching warning", () => {
@@ -228,7 +228,7 @@ describe("assessLimit", () => {
     ).toBe(LimitVerdict.runnable);
   });
 
-  it("calls a message the account never backed stale — a healthy window or credits already on", () => {
+  it("calls a message the account never backed stale - a healthy window or credits already on", () => {
     expect(
       assessLimit({
         hit: freshlySniffed,
@@ -293,7 +293,7 @@ describe("parseResetClock", () => {
         text: "resets at 3:30am",
         now: NOW
       })
-    ).toBe(new Date(2026, 6, 18, 3, 30, 0, 0).getTime()); // 3:30am is past — tomorrow
+    ).toBe(new Date(2026, 6, 18, 3, 30, 0, 0).getTime()); // 3:30am is past - tomorrow
   });
 
   it("yields null when no clock is named", () => {

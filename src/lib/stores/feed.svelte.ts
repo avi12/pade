@@ -1,6 +1,6 @@
 // Persistent accumulation of the Change Feed's events (SoC: cross-component state
 // lives in lib/stores). ChangeFeed mounts and unmounts as the side panel switches,
-// so keeping the feed in component-local state emptied it on every switch — the
+// so keeping the feed in component-local state emptied it on every switch - the
 // backend keeps no replay. This module owns the single live subscription to the
 // feed stream, started once and never torn down, so events keep arriving while the
 // panel is closed and survive its remount.
@@ -14,12 +14,12 @@ import type { ChangeEvent, WatchStatus } from "@/lib/types";
 const CAP = 300;
 
 // Editor/tool scratch files that churn during an atomic save (write to a temp
-// name, then rename over the target) — noise, not real changes. Match the shapes
+// name, then rename over the target) - noise, not real changes. Match the shapes
 // the feed sees: a `.tmp.` infix, a `_tmp_` scratch name, a vim swap, a trailing
 // `~` backup, or a long numeric atomic-save suffix.
 const TEMP_FILE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
 
-/** The live feed — newest-first and capped. Reactive, so the panel re-renders as
+/** The live feed - newest-first and capped. Reactive, so the panel re-renders as
  *  events land whether or not it is currently mounted. */
 export const feedStore = $state<{ events: ChangeEvent[] }>({ events: [] });
 
@@ -33,7 +33,7 @@ let subscribed = false;
 // under it and restores only into that same watch (see feed-snapshot). Learned on
 // retarget, and again on the first event when that was too early: a freshly
 // opened window's panel retargets before `feed.start` has armed the watch, so
-// the first answer carries no root — and with no identity to save under, the
+// the first answer carries no root - and with no identity to save under, the
 // unload save skipped and an F5 emptied the feed.
 let liveWatch: WatchStatus | null = null;
 
@@ -64,8 +64,8 @@ function saveFeedOnUnload(): void {
   });
 }
 
-/** Subscribe once to the backend feed stream. Idempotent — a second call is a
- *  no-op — and never unsubscribed, so events accumulate across panel remounts. */
+/** Subscribe once to the backend feed stream. Idempotent - a second call is a
+ *  no-op - and never unsubscribed, so events accumulate across panel remounts. */
 async function startFeedSubscription(): Promise<void> {
   if (subscribed) {
     return;
@@ -89,7 +89,7 @@ async function startFeedSubscription(): Promise<void> {
       }
     });
     // The ignore rules are live: editing (or creating, or deleting) a .gitignore
-    // — and a mid-session `git init` — re-filters what the feed already shows, so
+    // - and a mid-session `git init` - re-filters what the feed already shows, so
     // a path the project just started ignoring drops out instead of lingering.
     // The backend is the one authority on "ignored" (git's own rules in a repo,
     // the root .gitignore + tech inference otherwise); the store only asks.
@@ -111,7 +111,7 @@ async function startFeedSubscription(): Promise<void> {
   }
 }
 
-// Learn the watch now feeding `project`, and — after a reload — put back the
+// Learn the watch now feeding `project`, and - after a reload - put back the
 // events that same watch had already surfaced, behind any that arrived since.
 async function adoptLiveWatch(project: string): Promise<void> {
   await learnLiveWatch();
@@ -141,8 +141,8 @@ async function adoptLiveWatch(project: string): Promise<void> {
  *  from a `project`-keyed effect. */
 export function retarget(project: string): void {
   // Arming the singleton subscription is a self-contained side effect with no
-  // follow-up here — the store reacts as events land, and startFeedSubscription
-  // owns its own error handling — so a lazy call with no await is safe.
+  // follow-up here - the store reacts as events land, and startFeedSubscription
+  // owns its own error handling - so a lazy call with no await is safe.
   startFeedSubscription();
 
   if (project === currentProject) {

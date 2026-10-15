@@ -1,9 +1,9 @@
 // Usage-limit auto-resume: when an agent CLI stops because a usage window is
-// exhausted ("You've hit your session limit · resets 5:30pm"), wait — never
+// exhausted ("You've hit your session limit · resets 5:30pm"), wait - never
 // nudge. Every "continue" typed into a limited session only hits the limit again,
 // and cancels Claude Code's own wait for the reset. The session is continued
 // once, the moment it can run again: its window resets, or usage credits are
-// turned on for the account — which the CLI itself never notices. The account
+// turned on for the account - which the CLI itself never notices. The account
 // usage endpoint answers both, so a waiting session re-reads it every POLL_MS.
 // "continue" goes into the same session while its context window has room; the
 // auto-handoff flow takes over when it doesn't. Opt-out via prefs.autoResume.
@@ -23,7 +23,7 @@ import { CreditsState, SessionStatus } from "@/lib/types";
 import type { AccountUsage, AgentSession } from "@/lib/types";
 import { SvelteDate, SvelteMap } from "svelte/reactivity";
 
-/** The usage windows an agent CLI can exhaust — which one names the reset time. */
+/** The usage windows an agent CLI can exhaust - which one names the reset time. */
 export const LimitWindow = {
   session: "session",
   weekly: "weekly"
@@ -32,13 +32,13 @@ export type LimitWindow = (typeof LimitWindow)[keyof typeof LimitWindow];
 
 /** What the account says about a session stopped on a usage limit. */
 export const LimitVerdict = {
-  /** The window is exhausted and no credits carry the session — keep waiting. */
+  /** The window is exhausted and no credits carry the session - keep waiting. */
   blocked: "blocked",
   /** The account can't say (offline, expired token) and no known reset has passed. */
   unknown: "unknown",
   /** It can run again: its window reset, or usage credits now carry it. */
   runnable: "runnable",
-  /** The account never showed the session blocked — the message was a stale
+  /** The account never showed the session blocked - the message was a stale
    *  repaint of scrollback. */
   stale: "stale"
 } as const;
@@ -47,10 +47,10 @@ export type LimitVerdict = (typeof LimitVerdict)[keyof typeof LimitVerdict];
 /** The prompt that picks a stopped agent's work back up. */
 export const CONTINUE_PROMPT = `continue${PROMPT_SUBMIT}`;
 
-/** A window counts as exhausted from here — the account is the judge, since the
+/** A window counts as exhausted from here - the account is the judge, since the
  *  sniffer also sees stale stop messages repainted from scrollback. */
 const EXHAUSTED_PERCENTAGE = 95;
-/** When the account can't be read, the reset clock alone decides — a little after
+/** When the account can't be read, the reset clock alone decides - a little after
  *  it, so the window has actually rolled over. */
 const RESET_BUFFER_MS = 90_000;
 /** How often a waiting session re-reads its account. The backend caches that read
@@ -62,10 +62,10 @@ const POLL_MS = 60_000;
 const SETTLED_QUIET_MS = 5 * 60_000;
 
 // The CLI's own stop message is the trigger, in each phrasing Claude Code has
-// used — "You've hit your session limit · resets 5:30pm", "Usage limit reached ·
+// used - "You've hit your session limit · resets 5:30pm", "Usage limit reached ·
 // continuing automatically at 5:30pm", "5-hour limit reached ∙ resets 3am", and
 // "You've hit your monthly spend limit · … your session limit resets 5:30pm" (the
-// window is out AND the credits carrying it hit their cap) — plus the rate_limit /
+// window is out AND the credits carrying it hit their cap) - plus the rate_limit /
 // HTTP 429 error a limited request fails with. Never the softer "approaching…"
 // warning, nor a fast-mode limit. A fullscreen TUI moves the cursor instead of
 // printing spaces, so with the escapes stripped words can arrive run together:
@@ -77,8 +77,8 @@ const LIMIT_STOP_RE = new RegExp(
   "i"
 );
 const RESET_CLOCK_RE = /resets?\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
-// An agent TUI shows how to interrupt only while a turn is running — Claude Code's
-// "esc to interrupt", Codex's "Esc to interrupt", opencode's "esc interrupt" — in
+// An agent TUI shows how to interrupt only while a turn is running - Claude Code's
+// "esc to interrupt", Codex's "Esc to interrupt", opencode's "esc interrupt" - in
 // its status rows at the foot of the screen. Only those rows are read, so the same
 // words quoted in the transcript above never count.
 const TURN_RUNNING_RE = /esc\s*(?:to\s*)?interrupt/i;
@@ -89,7 +89,7 @@ interface LimitHit {
   /** The best-known reset instant: the account's to-the-second stamp once read,
    *  else the clock the CLI message printed, else null. */
   resetAt: number | null;
-  /** The account has shown this session blocked — from then on a healthy window
+  /** The account has shown this session blocked - from then on a healthy window
    *  or credits turning on mean it can run again, not that the message was stale. */
   confirmed: boolean;
   scheduled: boolean;
@@ -150,13 +150,13 @@ export function parseResetClock({ text, now }: {
   });
 }
 
-/** Whether a chunk of agent output carries a usage-limit stop — the classifier
+/** Whether a chunk of agent output carries a usage-limit stop - the classifier
  *  API-error auto-retry defers to, so the two never claim the same session. */
 export function isUsageLimitStop(text: string): boolean {
   return LIMIT_STOP_RE.test(stripAnsi(text));
 }
 
-/** Whether a chunk of agent output is the CLI's usage-limit stop message — and
+/** Whether a chunk of agent output is the CLI's usage-limit stop message - and
  *  which window it names, with the reset clock it prints. Null for everything else
  *  (including the softer "approaching usage limit" warning). */
 export function parseLimitHit({ text, now }: {
@@ -206,7 +206,7 @@ function accountResetAt({ hit, account }: {
 
 /** Judge a stopped session against its account: still blocked, runnable again
  *  (its window reset, or credits carry it), stale (the account never showed it
- *  blocked), or unknown (the account can't say — the reset clock decides). */
+ *  blocked), or unknown (the account can't say - the reset clock decides). */
 export function assessLimit({ hit, account, now }: {
   hit: Pick<LimitHit, "window" | "resetAt" | "confirmed">;
   account: AccountUsage | null;
@@ -232,7 +232,7 @@ export function assessLimit({ hit, account, now }: {
 }
 
 // Record a stop message found in a session's output, unless the session is already
-// waiting or its last message was just settled — a TUI repaints its stop message
+// waiting or its last message was just settled - a TUI repaints its stop message
 // on every frame.
 function sniffStop({ id, text }: {
   id: string;
@@ -275,8 +275,8 @@ export function observeUsageLimit({ id, chunk }: {
 }
 
 /** Feed a session's rendered screen (xterm viewport rows) through the sniffer. The
- *  screen carries what the wire can split — a TUI skips unchanged cells with cursor
- *  moves — and, for a waiting session, whether a turn is running right now. */
+ *  screen carries what the wire can split - a TUI skips unchanged cells with cursor
+ *  moves - and, for a waiting session, whether a turn is running right now. */
 export function observeUsageLimitScreen({ id, text }: {
   id: string;
   text: string;
@@ -311,11 +311,11 @@ function waitingNote({ session, resetAt }: {
 }): string {
   const agent = session.agent.label;
   if (resetAt === null) {
-    return `${agent} hit its usage limit — resuming when it resets, or once usage credits can cover it.`;
+    return `${agent} hit its usage limit - resuming when it resets, or once usage credits can cover it.`;
   }
 
   const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(resetAt);
-  return `${agent} hit its usage limit — resuming at ${clock}, or sooner if usage credits can cover it.`;
+  return `${agent} hit its usage limit - resuming at ${clock}, or sooner if usage credits can cover it.`;
 }
 
 /** The account the session's agent bills against. An IPC failure reads as "the
@@ -346,7 +346,7 @@ export function createUsageResume(host: RecoveryHost) {
     quietUntil.set(id, Date.now() + SETTLED_QUIET_MS);
   }
 
-  // Continue a session that can run again — unless it already is: the agent's own
+  // Continue a session that can run again - unless it already is: the agent's own
   // auto-continue at the reset, or the user, got there first, and a "continue"
   // typed into a running turn would queue a stray one behind it. Room left in the
   // context window → the same session continues; nearly full → it would stall
@@ -400,7 +400,7 @@ export function createUsageResume(host: RecoveryHost) {
     });
   }
 
-  // One look at a waiting session: read its account and act on the verdict —
+  // One look at a waiting session: read its account and act on the verdict -
   // settle a stale message, continue a runnable session, or keep waiting.
   async function assess(session: AgentSession) {
     const id = session.id;

@@ -1,7 +1,7 @@
 // Per-session display-label overrides (SoC: cross-component state lives in
 // lib/stores). A session tab shows its agent's default label until an AI or
 // manual rename sets a custom one here; the map keeps reads reactive. Ephemeral
-// — dropped when the tab closes.
+// - dropped when the tab closes.
 
 import { SvelteMap } from "svelte/reactivity";
 

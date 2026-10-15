@@ -1,7 +1,7 @@
 // Shared lazy, per-project lookups for project rows (the language icon, the
 // branch chip). One IntersectionObserver per lookup watches every row; paths
 // whose rows become visible coalesce into one backend batch, and one reactive
-// cache feeds every surface — so a list of any length only ever asks the backend
+// cache feeds every surface - so a list of any length only ever asks the backend
 // about the rows actually on screen, never one call per row and never the whole
 // list up front.
 
@@ -18,7 +18,7 @@ export interface VisiblePathBatch<Value> {
   refresh(path: string): Promise<Value | null | undefined>;
   /** Attachment that requests a path only once its row becomes visible. */
   observe(args: { path: string }): (element: Element) => () => void;
-  /** Forget every cached value and re-request the rows still on screen — for a
+  /** Forget every cached value and re-request the rows still on screen - for a
    *  value that changes under us (a branch switch) without an event per path. */
   invalidate(): void;
 }

@@ -1,4 +1,4 @@
-// Transient status toast — a bottom-center pill that auto-dismisses. Reused by
+// Transient status toast - a bottom-center pill that auto-dismisses. Reused by
 // the send-from-IDE bridge and window-open actions; one timer, so a new toast
 // resets the countdown rather than stacking. SoC: cross-component state lives
 // in lib/stores; the app shell only renders `toastText()`.

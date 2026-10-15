@@ -1,12 +1,12 @@
 // Auto-retry on API error: when an agent CLI turn stops abruptly on a transient
-// server-side failure — "API Error: 529", an overloaded_error, a 500/502/503, a
-// dropped connection — nudge it to pick the work back up rather than leaving it
+// server-side failure - "API Error: 529", an overloaded_error, a 500/502/503, a
+// dropped connection - nudge it to pick the work back up rather than leaving it
 // wedged at the prompt. Every RETRY_MS we type "continue" into the stuck session
 // while its context window still has room; once the window is nearly full another
 // retry would only stall again, so we hand off to a fresh successor agent (the
 // auto-handoff flow) and stop. The loop ends the moment the session is working
 // again (the nudge took, or it self-recovered), its tab is gone, or the stop
-// turns out to be a usage limit — Claude Code reports that as "an API error"
+// turns out to be a usage limit - Claude Code reports that as "an API error"
 // too, and nudging a limited session only hits the limit again, so waiting it
 // out belongs to lib/stores/usageResume. Opt-out rides the same prefs.autoResume
 // switch as usage-limit auto-resume. This module owns detection and what a retry
@@ -30,11 +30,11 @@ const RETRY_MS = 30_000;
 /** HTTP server-error status codes an abruptly-stopped agent turn surfaces. */
 const SERVER_ERROR_STATUS = [500, 502, 503, 529] as const;
 
-/** Phrase signals of an API-side failure. Deliberately NOT "limit reached" — a
+/** Phrase signals of an API-side failure. Deliberately NOT "limit reached" - a
  *  usage window running out is auto-resume's job (lib/stores/usageResume). */
 const API_ERROR_SIGNALS = [
   "api error",
-  "overloaded_error", // the API's 529 payload type — not the bare English word
+  "overloaded_error", // the API's 529 payload type - not the bare English word
   "internal server error",
   "bad gateway",
   "service unavailable",
@@ -61,7 +61,7 @@ interface ApiErrorHit {
 
 const hits = new SvelteMap<string, ApiErrorHit>();
 
-/** Whether a chunk of agent output is a transient API-side stop worth retrying —
+/** Whether a chunk of agent output is a transient API-side stop worth retrying -
  *  an "API Error", an overloaded/500/502/503/529 server error, or a dropped
  *  connection. Never a usage limit, even one worded as an API error (auto-resume's). */
 export function parseApiError({ text }: { text: string }): boolean {
@@ -98,7 +98,7 @@ export function createApiErrorRetry(host: RecoveryHost) {
     hits,
     firstDelay: RETRY_MS,
     tick: retry,
-    pendingNote: session => `${session.agent.label} stopped on an API error — retrying…`
+    pendingNote: session => `${session.agent.label} stopped on an API error - retrying…`
   });
 
   // One retry tick, RETRY_MS after the last. A session halted by an API error

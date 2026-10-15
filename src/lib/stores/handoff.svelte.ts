@@ -4,19 +4,19 @@
 // has usage headroom (a context-driven handoff); when the current agent is
 // tapped out, the handoff crosses over to the first other available agent that
 // does (Claude→Codex, generalized to any agents). Opt-out via prefs.autoHandoff;
-// fires once per session. This module owns the machinery — thresholds, successor
-// selection, the settle-wait for the doc, resource teardown — while the app
+// fires once per session. This module owns the machinery - thresholds, successor
+// selection, the settle-wait for the doc, resource teardown - while the app
 // shell supplies its session list, its available-agent pool and launch through
 // `HandoffHost` and drives the scan from a component `$effect`.
 //
 // A handoff ends the session, and with it everything the agent still has running
-// in the background — a dynamic workflow, background agents. So no handoff starts,
+// in the background - a dynamic workflow, background agents. So no handoff starts,
 // and none ends a session, while the agent itself reports work in flight
 // (lib/stores/agentActivity); it waits for that work to finish, however long.
 // The one exception is an agent about to compact its own conversation: waiting
 // for its turn to end would let the compaction run first and lose the detail a
-// handoff exists to keep, so the request goes in mid-turn — the agent picks it
-// up between steps — and the session ends once the doc is on disk.
+// handoff exists to keep, so the request goes in mid-turn - the agent picks it
+// up between steps - and the session ends once the doc is on disk.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.svelte";
@@ -34,17 +34,17 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 // timeout that beats the write used to strand the successor without a doc.
 const HANDOFF_DOC_TIMEOUT_MS = 300_000;
 const HANDOFF_SETTLE_MS = 3_000;
-// How often to stat the handoff doc on disk while waiting — the reliable detector
+// How often to stat the handoff doc on disk while waiting - the reliable detector
 // for a doc the change feed ignores (so the cycle proceeds seconds after the
 // write, not on the full timeout).
 const HANDOFF_DOC_POLL_MS = 1_000;
 // After pasting the request, let the composer SETTLE, then re-send the submitting
 // Enter until the agent is seen working. A TUI's post-paste guard swallows any
-// Enter that arrives in the same burst as the paste — and Codex's guard outlasts a
+// Enter that arrives in the same burst as the paste - and Codex's guard outlasts a
 // rapid retry burst (all four back-to-back Enters were eaten, leaving the request
 // unsent in the composer). A settled composer submits on a single Enter (verified
-// live), so wait out the paste before the first one, then retry — Enter only,
-// never re-pasting — over a window wide enough for the slower guard.
+// live), so wait out the paste before the first one, then retry - Enter only,
+// never re-pasting - over a window wide enough for the slower guard.
 const HANDOFF_SUBMIT_SETTLE_MS = 1_200;
 const HANDOFF_SUBMIT_ATTEMPTS = 6;
 const HANDOFF_SUBMIT_CONFIRM_MS = 1_500;
@@ -64,7 +64,7 @@ export const HandoffReason = {
 } as const;
 type HandoffReason = typeof HandoffReason[keyof typeof HandoffReason];
 
-/** The one sentence that opens the handoff request, per reason — the SSOT so the
+/** The one sentence that opens the handoff request, per reason - the SSOT so the
  *  wording never drifts and adding a reason is one entry, not a new branch. */
 const HANDOFF_TRIGGER: Record<HandoffReason, string> = {
   [HandoffReason.ContextLimit]: "Your context window is nearly full.",
@@ -83,7 +83,7 @@ export function handoffSlug(source: string): string {
   return slug || "session";
 }
 
-/** The leading segment of a session's UUID — a short, stable per-session token
+/** The leading segment of a session's UUID - a short, stable per-session token
  *  that keeps the handoff doc name unique without dragging the whole id into a
  *  filename. Falls back to a generic token for a non-UUID id. */
 function sessionToken(sessionId: string): string {
@@ -94,7 +94,7 @@ function sessionToken(sessionId: string): string {
  *  project: two agents open in the SAME project must never share one
  *  `continue-<project>.md`. When they did, one session's doc-write fired the
  *  other session's `waitForFile` (it matches on file name alone), tearing the
- *  wrong — usually idle — session down; the project slug keeps the name
+ *  wrong - usually idle - session down; the project slug keeps the name
  *  human-readable, the session token keeps it collision-free. */
 export function handoffDocName({ source, sessionId }: {
   source: string;
@@ -103,14 +103,14 @@ export function handoffDocName({ source, sessionId }: {
   return `continue-${handoffSlug(source)}-${sessionToken(sessionId)}.md`;
 }
 
-/** The handoff request's text, without any paste framing or submit keystroke —
+/** The handoff request's text, without any paste framing or submit keystroke -
  *  what the agent is asked to do. The store pastes this and submits it with a
  *  separate, retried Enter (see `submitHandoffRequest`). */
 export function handoffRequestBody({ doc, reason }: {
   doc: string;
   reason: HandoffReason;
 }): string {
-  return `${HANDOFF_TRIGGER[reason]} Please write a concise handoff to ${doc} — the current state, what you've completed, and the exact next steps to continue — then stop.`;
+  return `${HANDOFF_TRIGGER[reason]} Please write a concise handoff to ${doc} - the current state, what you've completed, and the exact next steps to continue - then stop.`;
 }
 
 export function handoffPrompt({ doc, reason }: {
@@ -126,12 +126,12 @@ export function handoffPrompt({ doc, reason }: {
 }
 
 /** Seed for the fresh successor: read ONLY the handoff doc and continue. The
- *  whole point of a handoff is a small, clean context — so it deliberately does
+ *  whole point of a handoff is a small, clean context - so it deliberately does
  *  NOT ask the successor to also read CLAUDE.md or earlier continue-*.md files.
  *  The agent auto-loads its project memory (CLAUDE.md) on its own, and re-reading
  *  stale handoffs would bloat the very context the handoff exists to reset. The
  *  doc must therefore be self-sufficient: current state + exact next steps.
- *  Agent-agnostic — it names a file on disk, not any one agent's memory system.
+ *  Agent-agnostic - it names a file on disk, not any one agent's memory system.
  *
  *  No trailing carriage return: this rides in as the successor session's
  *  initialPrompt, and the terminal's initial-prompt delivery appends the
@@ -142,8 +142,8 @@ export function successorPrompt(doc: string): string {
 
 /** Whether an agent can still do work: its headline quota isn't spent, or usage
  *  credits carry it past that cap (a spent weekly window is no obstacle while
- *  extra usage is on and has room). An unknown quota — a tier-label account with
- *  no numbers — counts as "enough" so the feature still works. This is what keeps
+ *  extra usage is on and has room). An unknown quota - a tier-label account with
+ *  no numbers - counts as "enough" so the feature still works. This is what keeps
  *  a handoff with the same agent: only an agent that truly cannot work hands its
  *  session to a different one. */
 export function hasUsageHeadroom({ usedPercentage, credits }: {
@@ -159,10 +159,10 @@ export function hasUsageHeadroom({ usedPercentage, credits }: {
 }
 
 /** Pick the agent that should take over. The current agent stays on while it
- *  still has usage headroom (the context-driven handoff — context near full but
+ *  still has usage headroom (the context-driven handoff - context near full but
  *  the agent can keep going). Once it's out of headroom, the first OTHER
  *  available agent that has headroom takes over (a usage crossover). `null` when
- *  no agent has headroom — the caller stays marked and skips this cycle. */
+ *  no agent has headroom - the caller stays marked and skips this cycle. */
 export async function pickSuccessor({ current, available, hasHeadroom }: {
   current: Agent;
   available: Agent[];
@@ -209,18 +209,18 @@ export async function pickHandoffSuccessor({ reason, current, available, hasHead
  *  the scan re-runs as the session list / prefs / context stores change. */
 export interface HandoffHost {
   sessions: () => AgentSession[];
-  /** The agents installed and available to take over — the crossover pool for a
+  /** The agents installed and available to take over - the crossover pool for a
    *  usage failover. The current agent is excluded at selection time. */
   availableAgents: () => Agent[];
   /** Whether the user opted out via prefs.autoHandoff. */
   isOptedOut: () => boolean;
-  /** The percent-of-context that triggers the cycle — the resolved
+  /** The percent-of-context that triggers the cycle - the resolved
    *  prefs.handoffPct (`effective.handoffPercentage`), read per scan so a Config
    *  change applies without a restart. */
   thresholdPercentage: () => number;
   /** Source text for the handoff-doc slug (workspace label or short dir). */
   slugSource: () => string;
-  /** The open project's root dir — where the handoff doc lands (and is
+  /** The open project's root dir - where the handoff doc lands (and is
    *  deleted from once the successor has consumed it). */
   projectDirectory: () => string;
   /** End a session's process as a DELIBERATE close.
@@ -228,7 +228,7 @@ export interface HandoffHost {
    *  It must go through the shell, not `pty.kill` from here: the shell treats an
    *  unannounced exit of the last session as the user quitting the agent and
    *  respawns a replacement. A handoff kill that skipped that flag raced its own
-   *  exit event — the respawn landed a bare extra tab and stole the active pane
+   *  exit event - the respawn landed a bare extra tab and stole the active pane
    *  from the successor being seeded right behind it. */
   endSession: (id: string) => Promise<void>;
   /** Drop an ended session from the shell's tab strip and panes. */
@@ -251,7 +251,7 @@ export interface HandoffHost {
 // The in-flight marker's durable twin. The in-memory set dies with the module
 // (a window reload, an HMR swap of anything in its import chain), and a scan
 // running on the fresh instance re-prompted a session whose handoff request
-// was already sitting in the agent's queue — the user watched the same
+// was already sitting in the agent's queue - the user watched the same
 // request queue twice. sessionStorage survives both resets and still scopes
 // to this window's lifetime, matching the sessions themselves.
 const HANDOFF_MARKER_PREFIX = "pade-handoff-inflight:";
@@ -269,19 +269,19 @@ const ScanVerdict = {
 } as const;
 type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
 
-/** The status line while a handoff waits for the agent's running work — a turn,
- *  background agents, a dynamic workflow — to finish. */
+/** The status line while a handoff waits for the agent's running work - a turn,
+ *  background agents, a dynamic workflow - to finish. */
 function waitingForWorkNote({ session, reason }: {
   session: AgentSession;
   reason: HandoffReason;
 }): string {
   const agent = session.agent.label;
   if (reason === HandoffReason.ConfigurationChange) {
-    return `MCP servers changed — ${agent} restarts once its running work finishes…`;
+    return `MCP servers changed - ${agent} restarts once its running work finishes…`;
   }
 
   const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
-  return `${agent} context at ${measuredPercentage}% — handing off once its running work finishes, or just before it auto-compacts…`;
+  return `${agent} context at ${measuredPercentage}% - handing off once its running work finishes, or just before it auto-compacts…`;
 }
 
 function isOverThreshold({ sessionId, thresholdPercentage }: {
@@ -309,20 +309,20 @@ function handingOffNote({ session, reason, isMidTurn, successorAgent }: {
 }): string {
   const agent = session.agent.label;
   if (reason === HandoffReason.ConfigurationChange) {
-    return `MCP servers changed — ${agent} is writing a handoff before restarting…`;
+    return `MCP servers changed - ${agent} is writing a handoff before restarting…`;
   }
 
   if (isMidTurn) {
-    return `${agent} is about to auto-compact — handing off before it does…`;
+    return `${agent} is about to auto-compact - handing off before it does…`;
   }
 
   const isCrossover = successorAgent.id !== session.agent.id;
   if (isCrossover) {
-    return `${agent} is out of usage — handing off to ${successorAgent.label}…`;
+    return `${agent} is out of usage - handing off to ${successorAgent.label}…`;
   }
 
   const measuredPercentage = Math.round(measuredContextPercentage(session.id) ?? 0);
-  return `${agent} context at ${measuredPercentage}% — handing off to a fresh agent…`;
+  return `${agent} context at ${measuredPercentage}% - handing off to a fresh agent…`;
 }
 
 export function createAutoHandoff(host: HandoffHost) {
@@ -354,7 +354,7 @@ export function createAutoHandoff(host: HandoffHost) {
   const handoffAttempts = new SvelteMap<string, number>();
 
   // In-flight waitForFile resources. A handoff can pend up to 120s, so its
-  // feed listener + timers must be torn down if the shell unmounts first —
+  // feed listener + timers must be torn down if the shell unmounts first -
   // otherwise the watcher subscription and timers leak. Tracked here so
   // dispose() can clear every still-pending wait.
   const pendingUnlistens = new SvelteSet<UnlistenFn>();
@@ -370,7 +370,7 @@ export function createAutoHandoff(host: HandoffHost) {
 
   // Resolve `true` once the doc named `name` exists in the project, `false` when
   // the deadline passes without it. Two detectors race: the watcher's change
-  // event (fast, but SILENT for a doc the feed ignores — a gitignored
+  // event (fast, but SILENT for a doc the feed ignores - a gitignored
   // `continue-*.md` never emits, which used to strand the cycle on the full
   // timeout), and a direct disk poll (authoritative regardless of ignore rules).
   // Whichever sees it first wins.
@@ -455,7 +455,7 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   // Deliver the request as a paste, let it settle, then submit with a SEPARATE
-  // Enter — re-sent until the agent starts working. A TUI guards against the Enter
+  // Enter - re-sent until the agent starts working. A TUI guards against the Enter
   // that immediately follows a bracketed paste (so a pasted multi-line block isn't
   // submitted by accident); Codex's guard outlasts a back-to-back retry burst, so
   // a one-shot paste+CR (or a rapid CR flurry) leaves the request unsent in the
@@ -529,7 +529,7 @@ export function createAutoHandoff(host: HandoffHost) {
     return host.sessions().some(candidate => candidate.id === sessionId);
   }
 
-  // Only cycle when there's quota to spare — a handoff itself costs tokens.
+  // Only cycle when there's quota to spare - a handoff itself costs tokens.
   async function hasEnoughUsage(agent: string): Promise<boolean> {
     const quota = await usage.get(agent).catch(() => null);
     const account = await usage.accountFor({ agent }).catch(() => null);
@@ -539,7 +539,7 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
-  // Ask for the handoff doc and resolve whether it is on disk — unless a
+  // Ask for the handoff doc and resolve whether it is on disk - unless a
   // previous attempt already produced it: a request sent to a busy agent gets
   // queued and answered long after the wait below expired, so a retry must
   // consume the doc that late answer wrote instead of asking for a second one.
@@ -572,7 +572,7 @@ export function createAutoHandoff(host: HandoffHost) {
     // direct disk probe before giving up. On a genuine no-doc, leave the
     // session running but UNMARK it: the request usually sits queued in a
     // busy agent, and the next scan that finds the session ready again
-    // retries — the probe above then short-circuits onto the doc the late
+    // retries - the probe above then short-circuits onto the doc the late
     // answer wrote, so the cycle completes instead of dying here forever.
     const probe = await workspace.probePath(docPath).catch(() => null);
     if (probe?.isFile === true) {
@@ -640,8 +640,8 @@ export function createAutoHandoff(host: HandoffHost) {
       return;
     }
 
-    // 2. End the session — once the agent has finished the handoff turn and
-    // anything it started meanwhile — 3. start the successor seeded to continue.
+    // 2. End the session - once the agent has finished the handoff turn and
+    // anything it started meanwhile - 3. start the successor seeded to continue.
     const stillHereBeforeEnd = await waitForRunningWorkUnlessMidTurn({
       session,
       reason,
@@ -681,7 +681,7 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   // Ask `session`'s agent to write its handoff doc and resolve once the doc is on
-  // disk — the reusable core of the handoff, WITHOUT the kill/launch. The
+  // disk - the reusable core of the handoff, WITHOUT the kill/launch. The
   // workspace-save flow uses it: the doc is written into the temp workspace, rides
   // along in the copy to the saved project, and the successor there is seeded to
   // continue from it. Returns the doc's file name, or null when the agent never
@@ -733,12 +733,12 @@ export function createAutoHandoff(host: HandoffHost) {
     }
   }
 
-  // True once the successor has really run its first turn — the turn that reads
+  // True once the successor has really run its first turn - the turn that reads
   // the doc. Only the agent's OWN report counts (stores/agentActivity: busy while
   // a turn runs, idle when it ends). PADE's session status can't stand in for it:
   // it reads any output as work, and a successor that merely booted noisily and
-  // then fell over — a CLI printing an update banner and rejecting its configured
-  // model — looked exactly like a finished turn, which deleted the handoff doc it
+  // then fell over - a CLI printing an update banner and rejecting its configured
+  // model - looked exactly like a finished turn, which deleted the handoff doc it
   // had never read. Anything else (an agent that reports no activity at all, a
   // session that disappears, a first turn still running at the deadline) answers
   // false, and the doc stays.
@@ -778,10 +778,10 @@ export function createAutoHandoff(host: HandoffHost) {
     }
 
     // A persistent marker with no live handoff is one whose async flow died
-    // between marking and the kill/launch — a window reload, an HMR swap, or a
+    // between marking and the kill/launch - a window reload, an HMR swap, or a
     // crash mid-handoff. It leaves the session stranded: the doc is written but
     // the id never reset, and the old code skipped it forever on that very
-    // marker. Resume instead — runHandoff's already-written probe short-circuits
+    // marker. Resume instead - runHandoff's already-written probe short-circuits
     // onto the doc it already wrote, straight to the reset. A session with no
     // marker starts a fresh handoff only once it is over threshold.
     const resuming = sessionStorage.getItem(persistentMarker(session.id)) !== null;
@@ -848,7 +848,7 @@ export function createAutoHandoff(host: HandoffHost) {
     deferredNote = heldBack;
   }
 
-  // Hand a session off right now — the usage-resume flow calls this at window
+  // Hand a session off right now - the usage-resume flow calls this at window
   // reset when the context is too full to just continue. Same single-flight
   // guard as the scan, none of its idle/threshold gates: the caller has
   // already decided this session must cycle. It still waits for the agent's

@@ -51,7 +51,7 @@ vi.mock("@/lib/bridge", () => ({
   }
 }));
 
-/** Let the detector's liveness check and its attach settle — it is fired from a
+/** Let the detector's liveness check and its attach settle - it is fired from a
  *  synchronous PTY handler, so the row can only appear on a later turn of the
  *  event loop. Used where the assertion is that NOTHING attached; a positive
  *  assertion waits for the row instead. */
@@ -100,7 +100,7 @@ describe("task run detection", () => {
 
     // The line stays on a fullscreen agent's screen forever. Attaching on the
     // text alone made the card appear here, the liveness poll drop it, and the
-    // next repaint bring it back — flickering the dock and resizing the terminal.
+    // next repaint bring it back - flickering the dock and resizing the terminal.
     expect(runnerRows()).toHaveLength(0);
   });
 
@@ -117,7 +117,7 @@ describe("task run detection", () => {
     });
     await vi.waitFor(() => expect(isTaskRunning(key)).toBe(true));
 
-    // The row is what tracks the process — the liveness poll drops it when the
+    // The row is what tracks the process - the liveness poll drops it when the
     // process exits, and `stopRunner` drops it on demand. Either way the panel
     // has to follow it, and NOT hold the badge until the agent's turn ends.
     for (const row of runnerRows()) {

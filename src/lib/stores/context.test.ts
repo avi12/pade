@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 // The parser is internal, so every case drives it through the public API:
-// observe a chunk, read the percent back. Each test uses its own session id —
+// observe a chunk, read the percent back. Each test uses its own session id -
 // the store keeps module-level state, and fresh ids keep tests independent.
 
 describe("contextPercentage via observeContext", () => {
@@ -253,7 +253,7 @@ describe("contextPercentage via observeContext", () => {
   });
 });
 
-describe("measuredContextPercentage — the signal automated decisions gate on", () => {
+describe("measuredContextPercentage - the signal automated decisions gate on", () => {
   it("returns null for a session never observed", () => {
     expect(measuredContextPercentage("measured-never")).toBeNull();
   });
@@ -267,24 +267,24 @@ describe("measuredContextPercentage — the signal automated decisions gate on",
     expect(measuredContextPercentage("measured-parsed")).toBe(92);
   });
 
-  it("stays null on the byte estimate alone — the estimate never ends a session", () => {
+  it("stays null on the byte estimate alone - the estimate never ends a session", () => {
     observeContext({
       id: "measured-estimate-only",
       chunk: "x".repeat(1_000_000)
     });
 
-    // The soft gauge reads full from the bytes, but the measured signal — the
-    // one auto-handoff/resume/retry act on — refuses to guess.
+    // The soft gauge reads full from the bytes, but the measured signal - the
+    // one auto-handoff/resume/retry act on - refuses to guess.
     expect(contextPercentage("measured-estimate-only")).toBe(100);
     expect(measuredContextPercentage("measured-estimate-only")).toBeNull();
   });
 });
 
 // Claude Code runs at up to a 1M-token window; the agent reports usage relative
-// to its OWN window, so the parsed percent is window-agnostic — 92% of 1M trips
+// to its OWN window, so the parsed percent is window-agnostic - 92% of 1M trips
 // the auto-handoff exactly as 92% of 200k would. These pin that the near-limit
 // signal auto-handoff gates on lands in the required 90–95% band for a 1M window.
-describe("measuredContextPercentage — 1M context window near the limit", () => {
+describe("measuredContextPercentage - 1M context window near the limit", () => {
   it("reads a near-full 1M window (920k/1M) as ≥ the 90% handoff threshold, within 90–95%", () => {
     observeContext({
       id: "ctx-1m-near",
@@ -297,7 +297,7 @@ describe("measuredContextPercentage — 1M context window near the limit", () =>
     expect(percentage).toBeLessThanOrEqual(95);
   });
 
-  it("parses a '5% context left' readout on a 1M window into 95% used — still in band", () => {
+  it("parses a '5% context left' readout on a 1M window into 95% used - still in band", () => {
     observeContext({
       id: "ctx-1m-left",
       chunk: "5% context left until compaction"
@@ -319,7 +319,7 @@ describe("measuredContextPercentage — 1M context window near the limit", () =>
 // A low handoff threshold needs the fill long before the agent prints its own
 // % indicator, so the consumed-tokens counter against the announced window is
 // the second agent-vouched source.
-describe("measuredContextPercentage — derived from the tokens counter", () => {
+describe("measuredContextPercentage - derived from the tokens counter", () => {
   it("divides the reported total by the announced window", () => {
     observeContextScreen({
       id: "tokens-derived",
@@ -333,7 +333,7 @@ describe("measuredContextPercentage — derived from the tokens counter", () => 
     expect(measuredContextPercentage("tokens-derived")).toBeCloseTo(30);
   });
 
-  it("keeps the largest counter seen — small per-turn counts never regress it", () => {
+  it("keeps the largest counter seen - small per-turn counts never regress it", () => {
     observeContextScreen({
       id: "tokens-max",
       text: "(200K context)"
@@ -350,13 +350,13 @@ describe("measuredContextPercentage — derived from the tokens counter", () => 
     expect(measuredContextPercentage("tokens-max")).toBeCloseTo(23.353);
   });
 
-  it("never ends a session on a guessed window — no banner leaves the handoff signal null", () => {
+  it("never ends a session on a guessed window - no banner leaves the handoff signal null", () => {
     observeContextScreen({
       id: "tokens-no-window",
       text: "191867 tokens"
     });
 
-    // Without an announced window a lone token count can't be trusted as context —
+    // Without an announced window a lone token count can't be trusted as context -
     // it may be a tool-output total (a Gemini response's token count in an AI
     // project), and dividing it by a guessed 1M window fired a false handoff on
     // Codex, which prints no window banner. So the session-ending signal stays
@@ -436,7 +436,7 @@ describe("observeContextScreen", () => {
     expect(measuredContextPercentage("screen-sticky")).toBe(91);
   });
 
-  it("never inflates the byte estimate — repainted cells are not new output", () => {
+  it("never inflates the byte estimate - repainted cells are not new output", () => {
     observeContextScreen({
       id: "screen-no-chars",
       text: "plain row with no indicator at all".repeat(100)

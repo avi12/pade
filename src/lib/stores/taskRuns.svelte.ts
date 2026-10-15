@@ -1,12 +1,12 @@
 // Reflect known-task runs the agent starts (SoC: cross-component state in
 // lib/stores). PADE never spawned these processes and can't see the agent's
-// children — only its PTY text — so a line that looks like an invocation of a
+// children - only its PTY text - so a line that looks like an invocation of a
 // known task's command is what starts the tracking: it attaches a dock card,
 // and the Tasks panel reads "running" off that card.
 //
 // ONE definition of running, and it is the process. The panel used to keep its
 // own flag that cleared when the agent's TURN ended, so `pnpm lint` sat there
-// reading RUNNING for as long as the agent kept working afterwards — minutes
+// reading RUNNING for as long as the agent kept working afterwards - minutes
 // after it had exited. Detection can only ever say a task STARTED; whether it is
 // still running is a question about a process, and `runners` already asks it
 // (`session_task_running`) to decide when to drop the card. The panel now reads
@@ -16,7 +16,7 @@
 // for as long as it is on screen, so the `Bash(pnpm journeys)` line of a task that
 // finished hours ago keeps arriving as fresh PTY text. Attaching on the text alone
 // made the dock card appear, the liveness poll drop it a few seconds later, and
-// the next repaint bring it straight back — a card flickering on a ~4s cycle, and
+// the next repaint bring it straight back - a card flickering on a ~4s cycle, and
 // with it a 132px dock that resized the terminal under the user's cursor every
 // time. So detection nominates; the process tree decides.
 
@@ -46,7 +46,7 @@ export function taskKey({ directory, command }: {
  *  as the question can be usefully asked. */
 const lastLivenessCheck = new SvelteMap<string, number>();
 
-/** Whether a task (by key) is currently running (reactive) — a live runner row,
+/** Whether a task (by key) is currently running (reactive) - a live runner row,
  *  which for an agent-started task means a live process under the agent's tree. */
 export function isTaskRunning(key: string): boolean {
   return runnerRows().some(row =>
@@ -56,7 +56,7 @@ export function isTaskRunning(key: string): boolean {
     }) === key);
 }
 
-/** Drop a dead session's throttle entries — nothing can be running under a PTY
+/** Drop a dead session's throttle entries - nothing can be running under a PTY
  *  that has exited, and a fresh session must be free to ask again at once. */
 function forgetSession(sessionId: string): void {
   const prefix = `${sessionId}${KEY_SEPARATOR}`;
@@ -92,7 +92,7 @@ export function knownTaskCommands(snapshot: TaskCatalogSnapshot): KnownTaskComma
     })));
 }
 
-/** Give a detected task a dock card — but only once the OS agrees a process is
+/** Give a detected task a dock card - but only once the OS agrees a process is
  *  actually running it. Never rejects, so the PTY handler can fire it and move
  *  on: a failed check simply means "not running", which is also the safe answer.
  *

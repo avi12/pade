@@ -3,12 +3,12 @@
 // Auto-naming is turned on per session, either by the tab's ✦ button or in bulk
 // by the window's setting (lib/ai-naming-scope decides that from the project and
 // global preferences; the app shell applies it here). When on, the rules are:
-//   1. generate immediately — but only while the agent is actively working;
+//   1. generate immediately - but only while the agent is actively working;
 //   2. refresh the name every 30s while it keeps working;
 //   3. when it stops (goes idle or exits), generate one final name, then pause;
 //   4. when work resumes, the 30s refresh restarts.
 // Every generate is throttled to at most once per 30s per session, so a flurry of
-// status edges — a quick stop/resume, or a status flicker while a long task runs —
+// status edges - a quick stop/resume, or a status flicker while a long task runs -
 // can never rename faster than that cadence (rule 3's stop-name is skipped when it
 // falls within 30s of the last). The name is produced backend-side from the
 // session's rolling transcript.
@@ -103,7 +103,7 @@ export function setNaming({ id, agent, on }: {
   }
 }
 
-/** Flip auto-naming for one session — what the tab's ✦ button does. */
+/** Flip auto-naming for one session - what the tab's ✦ button does. */
 export function toggleNaming({ id, agent }: {
   id: string;
   agent: string;
@@ -138,7 +138,7 @@ export function applyNamingToAll({ sessions, on }: {
 }
 
 /** Carry a session's auto-naming toggle to a new id when the session is reset in
- *  place under a fresh id — a restart re-key or a handoff to a successor — so the
+ *  place under a fresh id - a restart re-key or a handoff to a successor - so the
  *  ✦ toggle the user turned on survives the reset instead of silently reverting to
  *  off. The successor's OWN agent command is stored (it can differ from the
  *  predecessor on a handoff crossover, e.g. Claude→Codex), and the old id's

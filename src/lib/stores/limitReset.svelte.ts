@@ -1,6 +1,6 @@
 // Claude's free usage-limit reset (claude.ai's "Reset for free"), shared by the
-// two places that offer it — the collapsed usage meter's chip and the row in its
-// menu — so both show the same offer and open the one confirmation. Spending a
+// two places that offer it - the collapsed usage meter's chip and the row in its
+// menu - so both show the same offer and open the one confirmation. Spending a
 // reset can't be undone, so asking for one only opens that confirmation.
 
 import { usage as usageApi } from "@/lib/bridge";
@@ -47,7 +47,7 @@ export function limitResetConfirmation() {
   };
 }
 
-/** Re-read the offer — on each of the meter's usage readings, and after a claim. */
+/** Re-read the offer - on each of the meter's usage readings, and after a claim. */
 export async function refreshLimitResetOffer(): Promise<void> {
   offer = await usageApi.limitResetOffer().catch(() => null);
   announceNewOffer();
@@ -65,7 +65,7 @@ function announceNewOffer() {
   }
 
   announcedGrantId = grantId;
-  showToast("A free usage-limit reset is available — click Reset on Claude's usage meter");
+  showToast("A free usage-limit reset is available - click Reset on Claude's usage meter");
 }
 
 /** Open the confirmation for spending the offered reset. */

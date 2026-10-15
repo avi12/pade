@@ -1,4 +1,4 @@
-// Shared lazy project-kind detection for project rows — the language icon. Rides
+// Shared lazy project-kind detection for project rows - the language icon. Rides
 // the visible-row batch (see visiblePathBatch), so only rows on screen are probed.
 
 import { ide } from "@/lib/bridge";

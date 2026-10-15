@@ -26,7 +26,7 @@ const defaultDependencies: TaskCatalogDependencies = {
   onChange: callback => feed.onChange(event => callback(event.path))
 };
 
-/** Whether a changed path is one of the manifests the backend reads — an exact
+/** Whether a changed path is one of the manifests the backend reads - an exact
  *  file name, or a file carrying a manifest extension. Case-insensitive, like
  *  the backend's own match: a `.CSPROJ` is still a project. */
 function isManifestPath({ descriptors, path }: {

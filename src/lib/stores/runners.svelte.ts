@@ -42,8 +42,8 @@ export interface RunnerRow {
   /** True once the process exited with a non-zero code (failure). */
   failed: boolean;
   /** Set when this row tracks a task the AGENT started (detected in its output),
-   *  not one PADE spawned. Such a row has NO captured output — the task runs in the
-   *  agent's own terminal, which PADE can't tee — but its Stop kills the real
+   *  not one PADE spawned. Such a row has NO captured output - the task runs in the
+   *  agent's own terminal, which PADE can't tee - but its Stop kills the real
    *  process tree, and a liveness poll drops the row when the process exits. */
   attached?: {
     sessionId: string;
@@ -124,7 +124,7 @@ export async function startRunner({ label, kind, command, cwd }: {
 
 /** How often PADE asks the OS whether a task the agent started is still alive.
  *  A poll, not an event: a process the agent owns has no exit signal PADE hears.
- *  The one cadence for that question — `taskRuns` throttles its own checks to it
+ *  The one cadence for that question - `taskRuns` throttles its own checks to it
  *  too, so a repainted invocation line can never ask the process tree faster. */
 export const TASK_LIVENESS_POLL_MS = 4000;
 let attachedPoll: ReturnType<typeof setInterval> | undefined;
@@ -189,7 +189,7 @@ function ensureAttachedPoll(): void {
   }, TASK_LIVENESS_POLL_MS);
 }
 
-/** Drop each attached row whose task is no longer running — it finished, or its
+/** Drop each attached row whose task is no longer running - it finished, or its
  *  agent session exited (which kills the tree). Stops the poll when none remain. */
 async function reconcileAttachedRunners(): Promise<void> {
   for (const row of rows.filter(item => item.attached)) {

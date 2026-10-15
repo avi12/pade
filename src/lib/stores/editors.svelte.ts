@@ -1,6 +1,6 @@
 // The one frontend home for "which editor is this project's?" (DRY/SSOT).
-// Every surface that shows or launches the project's editor — the top-bar
-// IdeMenu and the Change Feed's reveal — reads the ranked list from here, so
+// Every surface that shows or launches the project's editor - the top-bar
+// IdeMenu and the Change Feed's reveal - reads the ranked list from here, so
 // the two can never drift apart (a top bar saying "VS Code" while the feed
 // reveals in WebStorm). The backend `ide_suggest` owns the actual resolution
 // (explicit per-project choice → rules → coverage ranking); this store owns the
@@ -10,7 +10,7 @@ import { ide } from "@/lib/bridge";
 import type { Ide } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
 
-/** Ranked editors per project directory — `editorsFor(project)[0]` is *the*
+/** Ranked editors per project directory - `editorsFor(project)[0]` is *the*
  *  project's editor, mirroring `ide_suggest`'s array-order contract. This is the
  *  ONLY reactive map here: `editorsFor` is read in the UI, so a completed fetch
  *  must re-render the surfaces showing it. */
@@ -23,7 +23,7 @@ const rankedByProject = new SvelteMap<string, Ide[]>();
  *  Deliberately a plain `Map`, NOT a `SvelteMap`: it is internal bookkeeping the
  *  UI never reads. `refreshEditors` both reads (`get`) and writes (`set`/`delete`)
  *  it, so a reactive version leaked as a dependency of any `$effect` that called
- *  the trigger functions — every completed fetch re-invalidated the effect and
+ *  the trigger functions - every completed fetch re-invalidated the effect and
  *  kicked off the next fetch, an ~2 Hz `ide_suggest` loop that pegged the backend.
  *  A non-reactive map makes the trigger functions reactivity-transparent. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: reactive here causes an effect loop
@@ -32,11 +32,11 @@ const inFlight = new Map<string, Promise<void>>();
 /** Identity of the newest fetch per project. A superseded fetch (an explicit
  *  pick landed while its census ran) finds a different token here when it
  *  resolves and discards its pre-pick ranking instead of publishing it. Plain
- *  `Map` for the same reason as `inFlight` — bookkeeping, never rendered. */
+ *  `Map` for the same reason as `inFlight` - bookkeeping, never rendered. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping, must not be reactive
 const currentFetchToken = new Map<string, symbol>();
 
-/** The ranked editors for `project` — reactive; empty until resolved. */
+/** The ranked editors for `project` - reactive; empty until resolved. */
 export function editorsFor(project: string): Ide[] {
   return rankedByProject.get(project) ?? [];
 }
@@ -57,7 +57,7 @@ export function hasWindowedEditor(editors: Ide[]): boolean {
   return firstWindowedEditor(editors) !== undefined;
 }
 
-/** The project's windowed editor — the first non-terminal editor in its ranked
+/** The project's windowed editor - the first non-terminal editor in its ranked
  *  list (the store's per-project ranking, reactive). `fallback` covers the beat
  *  before a project's own census has resolved: a caller already holding a ranked
  *  list (a picker row's props) passes it so the button still resolves a target. */
@@ -112,7 +112,7 @@ export function refreshEditors(project: string): Promise<void> {
   return fetch;
 }
 
-/** Resolve only when nothing is cached yet — a remounting panel (the Change
+/** Resolve only when nothing is cached yet - a remounting panel (the Change
  *  Feed re-enters the DOM on every side-panel switch) reuses the cached list
  *  instead of re-running the project census. */
 export function ensureEditors(project: string): Promise<void> {
@@ -138,7 +138,7 @@ export async function chooseEditor({ project, editorId }: {
     // The pick didn't persist; the current ranking is still valid as-is.
     return;
   }
-  // A census already running read the prefs before the pick landed — dropping
+  // A census already running read the prefs before the pick landed - dropping
   // its in-flight entry makes the refresh below start a fresh fetch (with a
   // new token) instead of coalescing onto the stale pre-pick one.
   inFlight.delete(project);

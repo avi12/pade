@@ -17,7 +17,7 @@ export function terminalSchemes(): readonly TerminalScheme[] {
 
 /** Load the catalogue. Called once at startup, before the first `apply()`, so a
  *  persisted choice paints on the very first frame instead of after a flash of
- *  the app palette. A failure leaves the list empty — every scheme then
+ *  the app palette. A failure leaves the list empty - every scheme then
  *  resolves to "follow the app theme", which is the honest fallback. */
 export async function loadTerminalSchemes(): Promise<void> {
   try {
@@ -29,7 +29,7 @@ export async function loadTerminalSchemes(): Promise<void> {
   }
 }
 
-/** The scheme chosen for `scheme`, or `null` for "follow the app theme" — which
+/** The scheme chosen for `scheme`, or `null` for "follow the app theme" - which
  *  is also the answer when the name no longer names anything, so a scheme the
  *  user deleted from Windows Terminal degrades instead of painting a ghost. */
 export function chosenTerminalScheme({

@@ -3,10 +3,10 @@
 // The backend finds the parts (src-tauri/members.rs: a package by its manifest,
 // a checkout by its own `.git`); this store owns the single fetch per project,
 // the branch each checkout is on, and which member the workspace is currently
-// pointed at. Every surface that shows or acts on a member reads it from here —
+// pointed at. Every surface that shows or acts on a member reads it from here -
 // the top bar's switcher and branch pill, the Change Feed's grouping and its
 // per-group branch, and the working directory a new agent or an editor opens in
-// — so a workspace can never be two different shapes in two places at once.
+// - so a workspace can never be two different shapes in two places at once.
 //
 // The pure half (where a member lives, what to call it) is `lib/workspace-members`.
 
@@ -19,7 +19,7 @@ let list = $state<WorkspaceMember[]>([]);
 /** HEAD branch per member, keyed by the member's absolute path. Only checkouts
  *  appear: `vcs_branch_of` omits a path that isn't a repo or is detached. */
 let branchByPath = $state<Record<string, string>>({});
-/** The member every "where does this start?" decision points at — always a real
+/** The member every "where does this start?" decision points at - always a real
  *  member path, defaulting to the workspace root. */
 let active = $state("");
 
@@ -42,14 +42,14 @@ export function branchOfMember(path: string): string | undefined {
   return branchByPath[path];
 }
 
-/** The member the workspace is pointed at — the directory a new agent tab, a
- *  worktree launch or the editor opens in — answered against the project the
+/** The member the workspace is pointed at - the directory a new agent tab, a
+ *  worktree launch or the editor opens in - answered against the project the
  *  caller means.
  *
  *  The guard is the whole point: opening a project launches its first agent
  *  immediately, well before the census comes back, and a store still holding the
  *  workspace just left must not answer for this one. Unguarded it returned a
- *  stale member — or, on the first project of a session, the empty string, which
+ *  stale member - or, on the first project of a session, the empty string, which
  *  spawns the agent in the user's home directory instead of the project. */
 export function activeMemberIn(projectRoot: string): string {
   const belongsToProject = root === projectRoot && active.length > 0;
@@ -83,7 +83,7 @@ export async function loadWorkspaceMembers(projectRoot: string): Promise<void> {
   await refreshMemberBranches();
 }
 
-/** Re-read every checkout's HEAD — on load, and again whenever git state moves
+/** Re-read every checkout's HEAD - on load, and again whenever git state moves
  *  (a branch switch, a `git init`, a fresh clone inside the workspace). */
 export async function refreshMemberBranches(): Promise<void> {
   const asked = root;

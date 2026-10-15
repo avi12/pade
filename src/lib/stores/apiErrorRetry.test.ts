@@ -28,7 +28,7 @@ describe("parseApiError", () => {
     expect(parseApiError({ text: "econnreset".toUpperCase() })).toBe(true);
   });
 
-  // The usage-limit message is auto-resume's to own — this sniffer must never
+  // The usage-limit message is auto-resume's to own - this sniffer must never
   // claim it, or the two features would fight over the same stopped session.
   describe("never fires on a usage limit", () => {
     it.each([
@@ -36,7 +36,7 @@ describe("parseApiError", () => {
       "Claude usage limit reached. Your limit will reset at 3pm.",
       "weekly limit reached ∙ resets Oct 14",
       "Approaching usage limit · resets at 3pm",
-      // Claude Code words a limited request as an API error — still a usage limit.
+      // Claude Code words a limited request as an API error - still a usage limit.
       "Agent terminated early due to an API error: You've hit your session limit · resets 5:30pm (error type rate_limit, HTTP 429)",
       "API Error: 429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\"}}"
     ])("ignores %j", text => {

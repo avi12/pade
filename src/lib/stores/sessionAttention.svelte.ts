@@ -3,8 +3,8 @@
 // component state lives in lib/stores). When one is pending on a tab that isn't
 // in front, SessionTabs flashes that tab's status indicator red to grab
 // attention. Detection sniffs the PTY stream directly through the shared bridge
-// channel — the same "watch a chunk of output" shape as the usage-limit /
-// API-error sniffers — because Terminal owns the render path and this store only
+// channel - the same "watch a chunk of output" shape as the usage-limit /
+// API-error sniffers - because Terminal owns the render path and this store only
 // needs to watch for the prompt, never to touch the terminal.
 
 import { pty } from "@/lib/bridge";
@@ -19,7 +19,7 @@ const awaiting = new SvelteMap<string, boolean>();
 
 // Whether a flagged session has since settled to `ready`. A later `working` then
 // reads as "the user answered", as opposed to the working burst that PAINTED the
-// prompt (which is when we flag it) — that must not clear the flag. Read only by
+// prompt (which is when we flag it) - that must not clear the flag. Read only by
 // the reconcile transition, never the rendered UI (a SvelteSet so the store keeps
 // one reactive-collection type; nothing subscribes to it).
 const settledReady = new SvelteSet<string>();
@@ -57,7 +57,7 @@ function clear(id: string): void {
 }
 
 /** Reconcile the pending flag against the session's live status and whether it is
- *  the one in front — call from an `$effect` so it re-runs as focus / status
+ *  the one in front - call from an `$effect` so it re-runs as focus / status
  *  change. It stops the flashing when:
  *   - the tab is the active one (the user is now looking at it), or
  *   - the agent went back to `working` after settling `ready` (answered), or

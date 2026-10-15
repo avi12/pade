@@ -1,4 +1,4 @@
-// Shared lazy branch lookup for project rows — the switcher's branch chip. Rides
+// Shared lazy branch lookup for project rows - the switcher's branch chip. Rides
 // the visible-row batch (see visiblePathBatch): `vcs_branch_of` runs git once per
 // path, so asking about only the rows on screen keeps an unbounded recent list
 // as cheap to open as a short one.

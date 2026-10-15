@@ -1,4 +1,4 @@
-// The bookkeeping every automatic-recovery loop shares — usage-limit auto-resume
+// The bookkeeping every automatic-recovery loop shares - usage-limit auto-resume
 // (lib/stores/usageResume) and API-error auto-retry (lib/stores/apiErrorRetry):
 // one pending timer per session, the status note the app shell shows while any is
 // pending, the scan that starts a freshly flagged session and forgets one whose
@@ -13,10 +13,10 @@ export interface RecoveryHost {
   sessions: () => AgentSession[];
   /** Whether the user opted out via prefs.autoResume. */
   isOptedOut: () => boolean;
-  /** The percent-of-context past which recovery hands off instead — the resolved
+  /** The percent-of-context past which recovery hands off instead - the resolved
    *  prefs.handoffPct (`effective.handoffPercentage`). */
   thresholdPercentage: () => number;
-  /** Hand a session off to a fresh agent now (the auto-handoff flow) — for a
+  /** Hand a session off to a fresh agent now (the auto-handoff flow) - for a
    *  session whose context window is too full to keep going. */
   forceHandoff: (session: AgentSession) => void;
 }
@@ -139,7 +139,7 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
     set note(text: string) {
       note = text;
     },
-    /** Whether the loop was torn down — an in-flight tick must not reschedule. */
+    /** Whether the loop was torn down - an in-flight tick must not reschedule. */
     get disposed() {
       return disposed;
     },

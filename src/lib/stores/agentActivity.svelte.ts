@@ -1,15 +1,15 @@
 // Agent-reported activity: whether the agent itself says it still has work in
-// flight — a running turn, or work it delegated and is waiting on (background
+// flight - a running turn, or work it delegated and is waiting on (background
 // agents, dynamic workflows). PADE's own session status can't tell: it reads
 // output quiet as `ready`, and a session waiting on background work can sit
 // quiet for many minutes. The agent's terminal title can tell.
 //
-// Claude Code prefixes its title with a glyph from its own busy state — "◐"/"◑"
+// Claude Code prefixes its title with a glyph from its own busy state - "◐"/"◑"
 // while a turn runs OR any background agent, remote agent, teammate or dynamic
 // workflow is still going, "✳" once none is. It alternates the busy frames only
 // while its terminal has focus, so an unfocused session goes quiet mid-workflow
 // (what let a handoff end one), but the glyph itself is rewritten on every change
-// of that state — an event, not a poll. Coupled to the CLI's observable title
+// of that state - an event, not a poll. Coupled to the CLI's observable title
 // (verified against Claude Code 2.1.268), the same deliberate, documented Hyrum
 // dependency as the context-percent and usage-limit parsers. An agent that
 // announces no such glyph reports nothing, and every gate built on it stays open.
@@ -36,7 +36,7 @@ const TITLE_SEQUENCE_RE = new RegExp("\\u001b\\][02];([^\\u0007\\u001b]*)(?:\\u0
 const SEQUENCE_START = "]";
 const BELL = "";
 const STRING_TERMINATOR = "\\";
-/** An unterminated title longer than this is not a title — stop carrying it. */
+/** An unterminated title longer than this is not a title - stop carrying it. */
 const MAXIMUM_CARRIED_LENGTH = 1024;
 
 /** The activity a title announces, or null when it carries no activity glyph. */
@@ -82,7 +82,7 @@ const activities = new SvelteMap<string, AgentActivity>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per output chunk, never rendered
 const carriedSequences = new Map<string, string>();
 // Pending `whenAgentSettled` resolvers, settled the moment the agent stops
-// reporting busy (or the session is dropped). Event-driven — no polling.
+// reporting busy (or the session is dropped). Event-driven - no polling.
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- resolver bookkeeping, never rendered
 const settleWaiters = new Map<string, (() => void)[]>();
 
@@ -129,14 +129,14 @@ export function observeAgentActivity({ id, chunk }: {
   }
 }
 
-/** Whether the agent itself reports work in flight — a running turn or delegated
+/** Whether the agent itself reports work in flight - a running turn or delegated
  *  background work (reactive). False for an agent that announces nothing. */
 export function agentReportsBusy(id: string): boolean {
   return activities.get(id) === AgentActivity.busy;
 }
 
 /** Resolve once the agent no longer reports work in flight, or its session is
- *  dropped — the gate every session-ending flow waits behind, so none severs a
+ *  dropped - the gate every session-ending flow waits behind, so none severs a
  *  running workflow or background agent. Resolves at once for an agent that
  *  reports nothing. */
 export function whenAgentSettled(id: string): Promise<void> {

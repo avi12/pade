@@ -1,6 +1,6 @@
 // Shell-owned header for the side panel. Each panel publishes its live count and
 // (optionally) a refresh action here; the single header in App's <aside> renders
-// them, so there is one header instead of one per panel (DRY — the panels own
+// them, so there is one header instead of one per panel (DRY - the panels own
 // only their scroll body). SoC: cross-component state lives in lib/stores.
 
 type PanelHeader = {

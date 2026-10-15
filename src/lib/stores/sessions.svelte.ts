@@ -10,7 +10,7 @@ import { SvelteMap } from "svelte/reactivity";
 const statuses = new SvelteMap<string, SessionStatus>();
 
 // Pending `whenSessionIdle` resolvers, settled the moment the session's status
-// turns idle (or the session is dropped). Event-driven — no polling. A
+// turns idle (or the session is dropped). Event-driven - no polling. A
 // SvelteMap only for consistency in a rune module; nothing renders from it.
 const idleWaiters = new SvelteMap<string, (() => void)[]>();
 
@@ -26,7 +26,7 @@ export function setSessionStatus({ id, status }: {
   }
 }
 
-/** Read a session's status (reactive) — defaults to `starting` until known. */
+/** Read a session's status (reactive) - defaults to `starting` until known. */
 export function sessionStatus(id: string): SessionStatus {
   return statuses.get(id) ?? SessionStatus.enum.starting;
 }
@@ -43,7 +43,7 @@ function isIdleStatus(status: SessionStatus): boolean {
 }
 
 /** Is the session at an idle prompt (or already gone)? `ready` is the real idle
- *  signal — the Terminal's output-quiet detector — never child-process counting,
+ *  signal - the Terminal's output-quiet detector - never child-process counting,
  *  which mis-reads persistent MCP servers as work in flight. */
 export function isSessionIdle(id: string): boolean {
   return isIdleStatus(sessionStatus(id));
@@ -61,12 +61,12 @@ function settleIdleWaiters(id: string): void {
   }
 }
 
-/** Resolve once the session reaches an idle prompt, exits, or is dropped — the
+/** Resolve once the session reaches an idle prompt, exits, or is dropped - the
  *  graceful-leave gate: a deliberate leave (project switch, back to the picker)
  *  waits here before killing, so no mid-flight work is severed. `timeoutMs`
  *  caps the wait so a wedged agent can never trap the user on the way out; omit
  *  it when the waiter has nothing to give up for (the deferred agent re-theme,
- *  which simply has no business acting while a turn is in flight) — the session
+ *  which simply has no business acting while a turn is in flight) - the session
  *  ending settles it either way. */
 export function whenSessionIdle({ id, timeoutMs }: {
   id: string;
