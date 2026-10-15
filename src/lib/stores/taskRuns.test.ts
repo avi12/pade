@@ -55,7 +55,7 @@ vi.mock("@/lib/bridge", () => ({
  *  synchronous PTY handler, so the row can only appear on a later turn of the
  *  event loop. Used where the assertion is that NOTHING attached; a positive
  *  assertion waits for the row instead. */
-async function settle(): Promise<void> {
+async function settle() {
   await new Promise(resolve => setTimeout(resolve, 0));
 }
 

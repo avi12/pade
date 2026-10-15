@@ -25,24 +25,10 @@ vi.mock("@/lib/bridge", () => ({
   }
 }));
 
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolvePromise: ((value: T) => void) | undefined;
-  const promise = new Promise<T>(resolve => {
-    resolvePromise = resolve;
-  });
-  return {
-    promise,
-    resolve: value => resolvePromise?.(value)
-  };
-}
-
 function group({ project, command }: {
   project: string;
   command: string;
-}): TaskGroup {
+}) {
   return {
     manifest: "package.json",
     dir: project,
@@ -51,15 +37,15 @@ function group({ project, command }: {
       name: command,
       command
     }]
-  };
+  } satisfies TaskGroup;
 }
 
 describe("task catalog", () => {
   it("rejects a stale project response that finishes last", async () => {
     let project = "alpha";
     let listCalls = 0;
-    const alpha = deferred<TaskGroup[]>();
-    const beta = deferred<TaskGroup[]>();
+    const alpha = Promise.withResolvers<TaskGroup[]>();
+    const beta = Promise.withResolvers<TaskGroup[]>();
     const catalog = createTaskCatalog({
       descriptors: async () => [],
       async list(workspace) {

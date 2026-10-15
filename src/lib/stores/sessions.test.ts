@@ -17,12 +17,12 @@ import {
 
 // Each promise resolution needs a microtask turn; fake timers cover the
 // timeout path without real waiting.
-async function settled(promise: Promise<void>): Promise<boolean> {
+async function settled(promise: Promise<void>) {
   let resolved = false;
   // Observe resolution without blocking on it - `settled` returns after two
   // microtask turns whether or not the promise resolved (the point is to tell
   // an already-settled promise from a pending one, so it can't be awaited here).
-  async function markResolved(): Promise<void> {
+  async function markResolved() {
     try {
       await promise;
       resolved = true;

@@ -11,17 +11,6 @@ const mocks = vi.hoisted(() => ({
   projectKinds: vi.fn<(paths: string[]) => Promise<Record<string, string>>>()
 }));
 
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>(promiseResolve => {
-    resolve = promiseResolve;
-  });
-  return {
-    promise,
-    resolve
-  };
-}
-
 vi.mock("@/lib/bridge", () => ({
   ide: {
     projectKinds: mocks.projectKinds
@@ -77,8 +66,8 @@ describe("project kind batches", () => {
 
   it("does not let an older lazy batch overwrite a forced refresh", async () => {
     const path = "C:\\projects\\refresh-race";
-    const lazyResponse = deferred<Record<string, string>>();
-    const refreshResponse = deferred<Record<string, string>>();
+    const lazyResponse = Promise.withResolvers<Record<string, string>>();
+    const refreshResponse = Promise.withResolvers<Record<string, string>>();
     mocks.projectKinds
       .mockReturnValueOnce(lazyResponse.promise)
       .mockReturnValueOnce(refreshResponse.promise);
@@ -97,7 +86,7 @@ describe("project kind batches", () => {
 
   it("does not queue a lazy batch over an active forced refresh", async () => {
     const path = "C:\\projects\\refresh-first";
-    const refreshResponse = deferred<Record<string, string>>();
+    const refreshResponse = Promise.withResolvers<Record<string, string>>();
     mocks.projectKinds.mockReturnValueOnce(refreshResponse.promise);
 
     const refresh = refreshProjectKind(path);
@@ -112,8 +101,8 @@ describe("project kind batches", () => {
 
   it("publishes only the newest forced refresh for a path", async () => {
     const path = "C:\\projects\\two-refreshes";
-    const olderResponse = deferred<Record<string, string>>();
-    const newerResponse = deferred<Record<string, string>>();
+    const olderResponse = Promise.withResolvers<Record<string, string>>();
+    const newerResponse = Promise.withResolvers<Record<string, string>>();
     mocks.projectKinds
       .mockReturnValueOnce(olderResponse.promise)
       .mockReturnValueOnce(newerResponse.promise);

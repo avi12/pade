@@ -225,13 +225,13 @@ describe("hasUsageHeadroom", () => {
 });
 
 describe("pickSuccessor", () => {
-  function agent(id: string): Agent {
+  function agent(id: string) {
     return {
       id,
       label: id,
       command: id,
       reordersBidi: false
-    };
+    } satisfies Agent;
   }
 
   const claude = agent("claude");
@@ -318,7 +318,7 @@ describe("createAutoHandoff", () => {
     };
     let sessions = [predecessor];
     const lifecycle: string[] = [];
-    function killNotYetAwaited(): void {}
+    function killNotYetAwaited() {}
     let finishKill: () => void = killNotYetAwaited;
     bridgeMocks.kill.mockImplementation(async () => {
       lifecycle.push("kill-started");

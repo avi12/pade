@@ -165,7 +165,7 @@ describe("assessLimit", () => {
   function account({ sessionUtilization, credits }: {
     sessionUtilization: number;
     credits?: CreditsState;
-  }): AccountUsage {
+  }) {
     return {
       windows: [
         {
@@ -179,7 +179,7 @@ describe("assessLimit", () => {
       plan: "Claude max",
       source: "oauth:api.anthropic.com",
       credits
-    };
+    } satisfies AccountUsage;
   }
 
   const waiting = {

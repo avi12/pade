@@ -13,7 +13,7 @@ const ESCAPE = "";
 const BELL = "";
 const STRING_TERMINATOR = `${ESCAPE}\\`;
 
-function titleSequence(title: string): string {
+function titleSequence(title: string) {
   return `${ESCAPE}]0;${title}${BELL}`;
 }
 
