@@ -41,9 +41,21 @@ pub fn init(app: &AppHandle) {
     let _ = APP.set(app.clone());
 }
 
+/// PADE's directory under the OS config base, and the `ade` one it replaced.
+const CONFIG_DIRECTORY: &str = "pade";
+const LEGACY_CONFIG_DIRECTORY: &str = "ade";
+/// The settings file inside [`CONFIG_DIRECTORY`].
+const SETTINGS_FILE: &str = "settings.json";
+/// The folder inside [`CONFIG_DIRECTORY`] every temp workspace is created in,
+/// and the name prefix each one carries.
+const WORKSPACES_DIRECTORY: &str = "workspaces";
+const TEMP_WORKSPACE_PREFIX: &str = "temp-";
+/// What marks a directory as a git checkout.
+const GIT_DIRECTORY: &str = ".git";
+
 /// Files/dirs that mark a directory as a project worth listing.
-const MARKERS: &[&str] = &[
-    ".git",
+const PROJECT_MARKERS: &[&str] = &[
+    GIT_DIRECTORY,
     ".hg",
     ".jj",
     "package.json",
@@ -169,9 +181,9 @@ fn config_base() -> Result<PathBuf, String> {
 
 /// PADE's config directory, created on disk if missing.
 pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
-    let dir = config_base()?.join("pade");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir)
+    let directory = config_base()?.join(CONFIG_DIRECTORY);
+    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    Ok(directory)
 }
 
 /// One-time migration from the old `ade` config dir to `pade`: move the whole
@@ -179,35 +191,40 @@ pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
 /// in the history so recents/temp workspaces keep working. Idempotent.
 pub fn migrate_from_ade() {
     let Ok(base) = config_base() else { return };
-    let old = base.join("ade");
-    let new = base.join("pade");
-    if new.exists() || !old.exists() {
-        return; // already migrated, or nothing to migrate
+    let old = base.join(LEGACY_CONFIG_DIRECTORY);
+    let new = base.join(CONFIG_DIRECTORY);
+    let is_already_migrated = new.exists();
+    if is_already_migrated || !old.exists() {
+        return;
     }
     if std::fs::rename(&old, &new).is_err() {
         return;
     }
 
     // Rewrite paths that pointed inside the old dir (temp workspaces, worktrees).
-    let (old_s, new_s) = (
-        old.to_string_lossy().to_string(),
-        new.to_string_lossy().to_string(),
-    );
-    let fix = |p: &String| p.replace(&old_s, &new_s);
+    let old_text = old.to_string_lossy();
+    let new_text = new.to_string_lossy();
+    let migrate_all = |paths: &mut Vec<String>| {
+        for path in paths.iter_mut() {
+            *path = path.replace(old_text.as_ref(), &new_text);
+        }
+    };
     let _ = update_settings(|settings| {
-        settings.recent_projects = settings.recent_projects.iter().map(fix).collect();
-        settings.owned_workspaces = settings.owned_workspaces.iter().map(fix).collect();
-        settings.roots = settings.roots.iter().map(fix).collect();
+        migrate_all(&mut settings.recent_projects);
+        migrate_all(&mut settings.owned_workspaces);
+        migrate_all(&mut settings.roots);
         Ok(())
     });
 }
 
 fn settings_path() -> Result<PathBuf, String> {
-    Ok(ensure_config_dir()?.join("settings.json"))
+    Ok(ensure_config_dir()?.join(SETTINGS_FILE))
 }
 
-fn is_project(dir: &Path) -> bool {
-    MARKERS.iter().any(|marker| dir.join(marker).exists())
+fn is_project(directory: &Path) -> bool {
+    PROJECT_MARKERS
+        .iter()
+        .any(|marker| directory.join(marker).exists())
 }
 
 struct SettingsRepository {
@@ -328,9 +345,12 @@ pub(crate) struct LaunchDirectory {
 /// context menu - is an explicit request to open that project; otherwise it is the
 /// process working directory.
 pub(crate) fn launch_directory() -> LaunchDirectory {
-    if let Some(dir) = std::env::args().skip(1).find(|arg| Path::new(arg).is_dir()) {
+    let directory_argument = std::env::args()
+        .skip(1)
+        .find(|argument| Path::new(argument).is_dir());
+    if let Some(directory) = directory_argument {
         return LaunchDirectory {
-            path: PathBuf::from(dir),
+            path: PathBuf::from(directory),
             explicit: true,
         };
     }
@@ -350,6 +370,12 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
 /// a `WebView2` concept.
 #[cfg(windows)]
 pub(crate) fn webview_data_dir() -> Option<PathBuf> {
+    use std::borrow::Cow;
+
+    const WEBVIEW_DATA_DIRECTORY: &str = "webview2";
+    /// The folder-name stem for a launch directory with no name (a drive root).
+    const UNNAMED_PROJECT: &str = "project";
+
     let base = crate::util::pade_data_dir()?;
     let launch = launch_directory().path;
     let canonical = std::fs::canonicalize(&launch).unwrap_or(launch);
@@ -359,11 +385,15 @@ pub(crate) fn webview_data_dir() -> Option<PathBuf> {
     std::hash::Hash::hash(&key, &mut hasher);
     let digest = std::hash::Hasher::finish(&hasher);
 
-    let name = canonical.file_name().map_or_else(
-        || "project".to_string(),
-        |name| name.to_string_lossy().into_owned(),
-    );
-    Some(base.join("webview2").join(format!("{name}-{digest:016x}")))
+    let name = canonical
+        .file_name()
+        .map_or(Cow::Borrowed(UNNAMED_PROJECT), |name| {
+            name.to_string_lossy()
+        });
+    Some(
+        base.join(WEBVIEW_DATA_DIRECTORY)
+            .join(format!("{name}-{digest:016x}")),
+    )
 }
 
 #[tauri::command]
@@ -420,18 +450,22 @@ pub(crate) fn validated_child_path(root: &Path, name: &str) -> Result<PathBuf, S
 
     #[cfg(windows)]
     {
+        /// Device names Windows reserves whatever the extension.
+        const RESERVED_DEVICE_NAMES: [&str; 4] = ["CON", "PRN", "AUX", "NUL"];
+        /// Port names Windows reserves when followed by one digit from 1 to 9.
+        const RESERVED_PORT_PREFIXES: [&str; 2] = ["COM", "LPT"];
+
         let stem = name
             .split('.')
             .next()
             .unwrap_or_default()
             .to_ascii_uppercase();
-        let is_reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-            || stem
-                .strip_prefix("COM")
-                .or_else(|| stem.strip_prefix("LPT"))
-                .is_some_and(|number| {
-                    matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-                });
+        let is_reserved_port = RESERVED_PORT_PREFIXES.iter().any(|prefix| {
+            stem.strip_prefix(prefix).is_some_and(
+                |number| matches!(number.as_bytes(), [digit] if (b'1'..=b'9').contains(digit)),
+            )
+        });
+        let is_reserved = RESERVED_DEVICE_NAMES.contains(&stem.as_str()) || is_reserved_port;
         if name.contains(':') || name.ends_with(['.', ' ']) || is_reserved {
             return Err("folder name is reserved by Windows".into());
         }
@@ -495,6 +529,9 @@ pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
     })
 }
 
+/// Shown for a project folder whose name is not valid UTF-8.
+const UNREADABLE_NAME: &str = "?";
+
 /// Immediate sub-directories of `root` that look like projects.
 #[tauri::command]
 pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
@@ -507,13 +544,13 @@ pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
             name: path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .unwrap_or("?")
+                .unwrap_or(UNREADABLE_NAME)
                 .to_string(),
-            is_git: path.join(".git").exists(),
+            is_git: path.join(GIT_DIRECTORY).exists(),
             path: path.to_string_lossy().into_owned(),
         })
         .collect();
-    entries.sort_by_key(|a| a.name.to_lowercase());
+    entries.sort_by_key(|entry| entry.name.to_lowercase());
     Ok(entries)
 }
 
@@ -610,7 +647,7 @@ fn is_temp_workspace(path: &str) -> bool {
     let has_temp_name = target
         .file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with("temp-"));
+        .is_some_and(|name| name.starts_with(TEMP_WORKSPACE_PREFIX));
     if !has_temp_name {
         return false;
     }
@@ -634,6 +671,15 @@ fn is_ade_owned(settings: &Settings, path: &str) -> bool {
         || is_temp_workspace(path)
 }
 
+/// Refuse an operation on a workspace ADE did not create, naming the refused
+/// operation in the message the UI shows (e.g. `"moved"`).
+fn require_ade_owned(settings: &Settings, path: &str, refused: &str) -> Result<(), String> {
+    if is_ade_owned(settings, path) {
+        return Ok(());
+    }
+    Err(format!("only ADE-created workspaces can be {refused}"))
+}
+
 /// Public ownership check for the naming module: is this an ADE-owned workspace
 /// (so it's safe to scan and label)?
 pub fn is_owned(path: &str) -> bool {
@@ -652,7 +698,7 @@ fn record_recent(settings: &mut Settings, path: &str) {
 
 /// The directory every temp workspace is created in.
 fn workspaces_directory() -> Result<PathBuf, String> {
-    Ok(ensure_config_dir()?.join("workspaces"))
+    Ok(ensure_config_dir()?.join(WORKSPACES_DIRECTORY))
 }
 
 const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;
@@ -760,16 +806,20 @@ fn delete_unused_temps(open_projects: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// The name prefix and extension of every doc auto-handoff writes.
+const HANDOFF_DOC_PREFIX: &str = "continue-";
+const HANDOFF_DOC_EXTENSION: &str = "md";
+
 /// Delete a consumed auto-handoff doc. The one file-deletion seam the frontend
 /// has, so it can only ever remove what auto-handoff itself created: a bare
 /// `continue-*.md` name (no path separators) directly inside `dir`. A doc that
 /// is already gone is fine - the goal is its absence.
 #[tauri::command]
 pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String> {
-    let is_handoff_doc = name.starts_with("continue-")
+    let is_handoff_doc = name.starts_with(HANDOFF_DOC_PREFIX)
         && Path::new(&name)
             .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
+            .is_some_and(|extension| extension.eq_ignore_ascii_case(HANDOFF_DOC_EXTENSION))
         && !name.contains(['/', '\\']);
     if !is_handoff_doc {
         return Err("only a continue-*.md handoff doc can be deleted".into());
@@ -797,12 +847,10 @@ pub fn workspace_open(path: String) -> Result<(), String> {
 /// choosing a project, then switch to a real one whenever they like.
 #[tauri::command]
 pub async fn workspace_temp() -> Result<String, String> {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_millis());
-    let dir = workspaces_directory()?.join(format!("temp-{stamp}"));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let path = dir.to_string_lossy().into_owned();
+    let directory =
+        workspaces_directory()?.join(format!("{TEMP_WORKSPACE_PREFIX}{}", now_milliseconds()));
+    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    let path = directory.to_string_lossy().into_owned();
 
     // Mark it ADE-owned so it can later be renamed/moved/deleted.
     update_settings(|settings| {
@@ -929,9 +977,7 @@ pub fn workspace_set_label(
     }
     .ok_or("invalid name")?;
     update_settings(|settings| {
-        if !is_ade_owned(settings, &path) {
-            return Err("only ADE-created workspaces can be labeled".into());
-        }
+        require_ade_owned(settings, &path, "labeled")?;
         apply_label(&mut settings.labels, path, label, source);
         Ok(())
     })
@@ -945,10 +991,7 @@ pub async fn workspace_move(
     from: String,
     dest_dir: String,
 ) -> Result<String, String> {
-    let settings = load();
-    if !is_ade_owned(&settings, &from) {
-        return Err("only ADE-created workspaces can be moved".into());
-    }
+    require_ade_owned(&load(), &from, "moved")?;
     let name = Path::new(&from)
         .file_name()
         .ok_or("bad source path")?
@@ -1072,9 +1115,7 @@ pub async fn workspace_rename(
     root: Option<String>,
 ) -> Result<String, String> {
     let settings = load();
-    if !is_ade_owned(&settings, &from) {
-        return Err("only ADE-created workspaces can be renamed".into());
-    }
+    require_ade_owned(&settings, &from, "renamed")?;
     let root = resolve_save_root(&settings, root)?;
     let destination = validated_child_path(Path::new(&root), &new_name)?;
     relocate_folder(&app, &from, &destination, MovedLabel::Drop).await
@@ -1138,9 +1179,7 @@ pub async fn workspace_save_migrate(
     root: Option<String>,
 ) -> Result<SaveMigration, String> {
     let settings = load();
-    if !is_ade_owned(&settings, &from) {
-        return Err("only ADE-created workspaces can be saved".into());
-    }
+    require_ade_owned(&settings, &from, "saved")?;
     let root = resolve_save_root(&settings, root)?;
     let destination = validated_child_path(Path::new(&root), &new_name)?;
     let destination_string = destination.to_string_lossy().into_owned();
@@ -1177,10 +1216,27 @@ pub async fn workspace_save_migrate(
     })
 }
 
-/// How many times to re-try a delete that lost a race with Windows, and how long
-/// to wait between attempts.
-const DELETE_ATTEMPTS: u32 = 10;
-const DELETE_RETRY: Duration = Duration::from_millis(100);
+/// How many times to re-try a delete or rename that lost a race with Windows,
+/// and how long to wait between attempts.
+const SHARING_RACE_ATTEMPTS: u32 = 10;
+const SHARING_RACE_RETRY_DELAY: Duration = Duration::from_millis(100);
+
+/// Run `operation` until it succeeds or the attempts run out, sleeping between
+/// tries - the one retry loop behind every folder delete and rename that can
+/// race Windows closing a killed process's last handle.
+fn retry_through_sharing_race(
+    mut operation: impl FnMut() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let mut attempt = 1;
+    loop {
+        match operation() {
+            Ok(()) => return Ok(()),
+            Err(error) if attempt == SHARING_RACE_ATTEMPTS => return Err(error),
+            Err(_) => std::thread::sleep(SHARING_RACE_RETRY_DELAY),
+        }
+        attempt += 1;
+    }
+}
 
 /// Step the process out of a folder it is about to lose. Opening a project points
 /// the whole process at it - `workspace_open` chdirs - and on Windows the current
@@ -1209,19 +1265,14 @@ fn leave_if_inside(path: &Path) {
 /// handles asynchronously: a process can be gone while its last handle is still
 /// open, and a delete in that window fails with "used by another process".
 /// Retrying briefly turns that race into a wait instead of an error.
-fn remove_dir_all_patiently(path: &str) -> std::io::Result<()> {
-    for attempt in 1..=DELETE_ATTEMPTS {
-        match std::fs::remove_dir_all(path) {
-            Ok(()) => return Ok(()),
-            // Already gone (deleted outside PADE): the folder is in the state the
-            // caller asked for, so this is a success - and the entry still on the
-            // Recent list gets forgotten instead of being stuck there forever.
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
-            Err(_) => std::thread::sleep(DELETE_RETRY),
-        }
-    }
-    Ok(())
+fn remove_dir_all_patiently(path: &Path) -> std::io::Result<()> {
+    retry_through_sharing_race(|| match std::fs::remove_dir_all(path) {
+        // Already gone (deleted outside PADE): the folder is in the state the
+        // caller asked for, so this is a success - and the entry still on the
+        // Recent list gets forgotten instead of being stuck there forever.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        outcome => outcome,
+    })
 }
 
 /// Rename a directory, riding out the same Windows sharing violation a delete
@@ -1231,14 +1282,7 @@ fn remove_dir_all_patiently(path: &str) -> std::io::Result<()> {
 /// asynchronously. The caller must step the process out first (`leave_if_inside`);
 /// retrying briefly then turns the lingering-handle race into a wait, not an error.
 fn rename_patiently(from: &Path, destination: &Path) -> std::io::Result<()> {
-    for attempt in 1..=DELETE_ATTEMPTS {
-        match std::fs::rename(from, destination) {
-            Ok(()) => return Ok(()),
-            Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
-            Err(_) => std::thread::sleep(DELETE_RETRY),
-        }
-    }
-    Ok(())
+    retry_through_sharing_race(|| std::fs::rename(from, destination))
 }
 
 /// Has this folder been deleted out from under us? Only if its parent is still
@@ -1284,7 +1328,7 @@ fn delete_directory(path: &str) -> Result<(), String> {
         return Err("a filesystem root cannot be deleted".into());
     }
     leave_if_inside(&target);
-    remove_dir_all_patiently(&target.to_string_lossy()).map_err(|e| e.to_string())?;
+    remove_dir_all_patiently(&target).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1299,10 +1343,7 @@ fn forget_directory(settings: &mut Settings, path: &str) {
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
 pub async fn workspace_delete(path: String) -> Result<Settings, String> {
-    let settings = load();
-    if !is_ade_owned(&settings, &path) {
-        return Err("only ADE-created workspaces can be deleted".into());
-    }
+    require_ade_owned(&load(), &path, "deleted")?;
     delete_directory(&path)?;
     update_settings(|settings| {
         forget_directory(settings, &path);
@@ -1495,8 +1536,9 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 mod tests {
     use super::{
         apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
-        copy_tree_skipping_dependencies, expired_temps, manual_label, validated_child_path,
-        LabelSource, Prefs, Settings, SettingsRepository, MILLISECONDS_PER_DAY,
+        copy_tree_skipping_dependencies, expired_temps, manual_label, retry_through_sharing_race,
+        validated_child_path, LabelSource, Prefs, Settings, SettingsRepository,
+        MILLISECONDS_PER_DAY,
     };
     use crate::test_support::assert_empty;
     use std::collections::BTreeMap;
@@ -1666,6 +1708,39 @@ mod tests {
             validated_child_path(root, "project").expect("valid child"),
             root.join("project")
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn child_paths_reject_windows_device_names_but_not_lookalikes() {
+        let root = Path::new("root");
+        for name in [
+            "con",
+            "Nul.txt",
+            "COM1",
+            "lpt9.log",
+            "name:stream",
+            "trailing.",
+        ] {
+            assert!(validated_child_path(root, name).is_err(), "accepted {name}");
+        }
+        for name in ["COM0", "COM10", "console", "LPT", "auxiliary"] {
+            assert!(validated_child_path(root, name).is_ok(), "refused {name}");
+        }
+    }
+
+    #[test]
+    fn the_sharing_race_retry_stops_at_the_first_success() {
+        let mut calls = 0;
+        let outcome = retry_through_sharing_race(|| {
+            calls += 1;
+            if calls < 3 {
+                return Err(std::io::Error::other("still held"));
+            }
+            Ok(())
+        });
+        assert!(outcome.is_ok());
+        assert_eq!(calls, 3);
     }
 
     #[test]
