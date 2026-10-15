@@ -1,9 +1,6 @@
 <script lang="ts">
   import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
   import { createAutoNamer } from "@/lib/agent/auto-name";
-  import Icon from "@/lib/Icon.svelte";
-  import DesignMenu from "@/lib/ide/DesignMenu.svelte";
-  import IdeMenu from "@/lib/ide/IdeMenu.svelte";
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { onWindowCloseRequested, setWindowTitle } from "@/lib/ipc/platform";
   import { startingModelChoice } from "@/lib/model/agent-model-scope";
@@ -22,15 +19,16 @@
   import SessionTabs, { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
   import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
   import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
-  import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
+  import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
   import BootSplash from "@/lib/shell/BootSplash.svelte";
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
   import { animatePaneIn, paneDropAt } from "@/lib/shell/pane-dom";
   import RecoveryNotes from "@/lib/shell/RecoveryNotes.svelte";
+  import ShellChrome from "@/lib/shell/ShellChrome.svelte";
   import ShellToast from "@/lib/shell/ShellToast.svelte";
-  import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
+  import { Side } from "@/lib/shell/side-panels";
   import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
   import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
   import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
@@ -70,14 +68,9 @@
   import type { Agent, AgentSession, ModelChoice, OpenTarget } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
-  import UsageMeter from "@/lib/usage/UsageMeter.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
   import { FolderPath, parseInput } from "@/lib/validate";
-  import BranchSwitcher from "@/lib/vcs/BranchSwitcher.svelte";
-  import { openRepositoryTarget } from "@/lib/vcs/repository-links";
-  import AppMenu from "@/lib/workspace/AppMenu.svelte";
-  import MemberSwitcher from "@/lib/workspace/MemberSwitcher.svelte";
   import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
   import { createRelocator } from "@/lib/workspace/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
@@ -1379,137 +1372,65 @@
   {:else if phase === Phase.Ready}
     <div class="shell">
       <header class="topbar">
-        <!-- Chrome row: project menu on the left, actions pushed right. Session
-             tabs live on their own full-width row below so they get the whole
-             width and only spill to "+N" on genuine overflow. -->
-        <div class="chrome">
-          <AppMenu
-            {isTemp}
-            label={projectLabel}
-            labels={settings.labels}
-            onaddroot={async rootPath => await addRoot({
-              path: rootPath,
-              create: false
+        <ShellChrome
+          {activeAgent}
+          {activeSession}
+          {isTemp}
+          label={projectLabel}
+          ondelete={async projectPath => {
+            // "Delete directory" - a destructive removal of a real project's
+            // folder. The switcher owns the confirmation UI (so it stays open and
+            // animates the row out); here we just release the folder (killing
+            // any session holding it) and delete it, letting the refreshed
+            // settings flow back. Rejects with its message so the switcher can
+            // surface it in the still-open prompt.
+            await relocator.removeDirectory(projectPath);
+          }}
+          onopen={projectPath => openProject({ path: projectPath })}
+          onrenamefolder={relocator.renameFolder}
+          onsavetemp={async ({ name, root }) => await saveTempWorkspace({
+            name,
+            root,
+            host: {
+              project: currentProject,
+              sessionIds: sessions.map(session => session.id),
+              continuing: activeSession ?? sessions[0],
+              writeHandoffDoc: autoHandoff.writeHandoffDoc,
+              reroot: path => (currentProject = path),
+              launch,
+              closeSessions
+            }
+          })}
+          onswitch={async () => {
+            // "Switch project" - a DELIBERATE leave to the picker. The project's
+            // agents and task runners do not idle invisibly behind it: runners
+            // stop immediately, then agents are killed once they reach an idle
+            // prompt.
+            await runExclusiveLeave(async () => {
+              await closeWorkspaceGracefully();
+              returnToPicker();
+            });
+          }}
+          onterminaleditor={editor =>
+            launch({
+              agent: {
+                id: `editor-${editor.id}`,
+                label: editor.label,
+                command: editor.command,
+                // A terminal editor writes logical order like any other program.
+                reordersBidi: false
+              },
+              // Inherit the active session's worktree, if any, else the project dir.
+              cwd: activeSession?.cwd,
+              // Open the working directory in the editor.
+              args: ["."],
+              split: true
             })}
-            onclearrecent={async () => {
-              // Clear the recent-projects history (pins survive).
-              await sendSettingsMessage(Command.workspaceClearRecent);
-            }}
-            ondelete={async projectPath => {
-              // "Delete directory" - a destructive removal of a real project's
-              // folder. The switcher owns the confirmation UI (so it stays open and
-              // animates the row out); here we just release the folder (killing
-              // any session holding it) and delete it, letting the refreshed
-              // settings flow back. Rejects with its message so the switcher can
-              // surface it in the still-open prompt.
-              await relocator.removeDirectory(projectPath);
-            }}
-            onopen={projectPath => openProject({ path: projectPath })}
-            onremoverecent={async projectPath => {
-              // Forget a project from the switcher's lists (folder untouched).
-              await sendSettingsMessage(Command.workspaceRemoveRecent, { path: projectPath });
-            }}
-            onrenamefolder={relocator.renameFolder}
-            onreorderpins={async paths => {
-              await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
-            }}
-            onsavetemp={async ({ name, root }) => await saveTempWorkspace({
-              name,
-              root,
-              host: {
-                project: currentProject,
-                sessionIds: sessions.map(session => session.id),
-                continuing: activeSession ?? sessions[0],
-                writeHandoffDoc: autoHandoff.writeHandoffDoc,
-                reroot: path => (currentProject = path),
-                launch,
-                closeSessions
-              }
-            })}
-            onswitch={async () => {
-              // "Switch project" - a DELIBERATE leave to the picker. The project's
-              // agents and task runners do not idle invisibly behind it: runners
-              // stop immediately, then agents are killed once they reach an idle
-              // prompt.
-              await runExclusiveLeave(async () => {
-                await closeWorkspaceGracefully();
-                returnToPicker();
-              });
-            }}
-            ontogglepin={async target => {
-              // The settings request adopts the response.
-              await sendSettingsMessage(Command.workspaceSetPinned, target);
-            }}
-            path={currentProject}
-            pinnedProjects={settings.pinnedProjects}
-            recentProjects={settings.recentProjects}
-            roots={settings.roots}
-          />
-          <!-- Only rendered when the workspace has more than one part; a plain
-               single-repo project keeps the top bar exactly as it was. -->
-          <MemberSwitcher root={currentProject} />
-          <!-- The branch HEAD is on, and the menu that moves it: every local
-               branch plus the ones only the remote has yet. Reports on the same
-               member the branch list was read for. -->
-          <BranchSwitcher
-            branches={repository.branches}
-            current={repository.currentBranch}
-            cwd={activeMemberIn(currentProject)}
-            hasRemote={repository.hasRemote}
-            onopengit={() => (side = Side.Vcs)}
-            onopenremote={async () => {
-              await openRepositoryTarget({
-                project: currentProject,
-                branch: repository.currentBranch
-              });
-            }}
-            onrefresh={async () => {
-              await Promise.all([repository.load(), refreshMemberBranches()]);
-            }}
-            remoteBranches={repository.remoteBranches}
-          />
-          <span class="chrome-spacer"></span>
-
-          <UsageMeter {sessions} />
-          <DesignMenu agent={activeAgent} />
-          <!-- Open a console editor (Neovim/Vim/Helix) in its own terminal tab,
-               split beside the agent so you can watch and edit at once. GUI editors
-               go through the OS (ide.open); these need a real TTY, which only a PADE
-               terminal gives. -->
-          <!-- The editor is resolved for the *project* (the shared editors-store
-               key the Change Feed also reads - SSOT), while the launcher opens
-               the active session's worktree when one is focused. -->
-          <IdeMenu
-            cwd={activeSession?.cwd ?? activeMemberIn(currentProject)}
-            onterminaleditor={editor =>
-              launch({
-                agent: {
-                  id: `editor-${editor.id}`,
-                  label: editor.label,
-                  command: editor.command,
-                  // A terminal editor writes logical order like any other program.
-                  reordersBidi: false
-                },
-                // Inherit the active session's worktree, if any, else the project dir.
-                cwd: activeSession?.cwd,
-                // Open the working directory in the editor.
-                args: ["."],
-                split: true
-              })}
-            project={currentProject}
-          />
-
-          <div class="segmented-control" aria-label="Side panels" role="tablist">
-            {#each SIDE_PANEL_TABS as tab (tab.id)}
-              <button
-                aria-selected={side === tab.id}
-                data-tooltip={tab.label}
-                onclick={() => (side = side === tab.id ? null : tab.id)}
-                role="tab"
-              ><Icon name={tab.icon} /> <span>{tab.short}</span></button>
-            {/each}
-          </div>
-        </div>
+          project={currentProject}
+          {repository}
+          {sessions}
+          bind:side
+        />
 
         <SessionTabs
           bind:this={sessionTabsHandle}
@@ -1660,52 +1581,6 @@
     padding-inline: clamp(10px, 1.6vw, 16px);
     border-block-end: 1px solid var(--outline);
     background: var(--surface-1);
-  }
-
-  /* First row: project menu + usage/design/IDE/panel actions. Its own labels
-     fold to icons when it gets tight, independent of the tabs row below. */
-  .chrome {
-    display: flex;
-    gap: clamp(8px, 1vw, 12px);
-    align-items: center;
-    min-inline-size: 0;
-  }
-
-  /* Pushes the action cluster to the right edge of the chrome row. */
-  .chrome-spacer {
-    flex: 1 1 0;
-    min-inline-size: 0;
-  }
-
-  .segmented-control {
-    display: inline-flex;
-    flex-shrink: 0;
-    gap: 2px;
-    padding: 3px;
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-
-    button {
-      display: inline-flex;
-      gap: 6px;
-      align-items: center;
-      padding: 6px 12px;
-      border: none;
-      border-radius: var(--radius-full);
-      background: transparent;
-      color: var(--on-surface-variant);
-      font: inherit;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background 200ms var(--ease), color 200ms var(--ease);
-    }
-
-    /* Selected tab - matched by state, not by qualifying the button type. */
-    [aria-selected="true"] {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
   }
 
   .body {
