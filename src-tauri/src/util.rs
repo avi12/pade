@@ -67,8 +67,9 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW - the child gets no console window.
-        command.creation_flags(0x0800_0000);
+        /// The child gets no console window.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
     }
     command
 }
@@ -227,7 +228,9 @@ fn live_path_directories() -> Vec<PathBuf> {
     ];
     KEYS.iter()
         .filter_map(|key| registry_string(key, "Path"))
-        .flat_map(|value| std::env::split_paths(&expand_env(&value)).collect::<Vec<PathBuf>>())
+        .flat_map(|value| {
+            std::env::split_paths(&expand_environment_variables(&value)).collect::<Vec<PathBuf>>()
+        })
         .collect()
 }
 
@@ -269,7 +272,7 @@ fn registry_string(key: &str, name: &str) -> Option<String> {
 /// Expand `%VAR%` references against the process environment. An unset variable
 /// is left verbatim (the resulting path simply won't exist, and is skipped).
 #[cfg(windows)]
-fn expand_env(value: &str) -> String {
+fn expand_environment_variables(value: &str) -> String {
     let mut expanded = String::with_capacity(value.len());
     let mut rest = value;
     while let Some(open) = rest.find('%') {
@@ -358,16 +361,16 @@ fn windows_package_directories(_home: &Path) -> Vec<PathBuf> {
     Vec::new()
 }
 
-/// The first of `names` that exists as an executable in `dirs`. Name-major on
+/// The first of `names` that exists as an executable in `directories`. Name-major on
 /// purpose: the caller passes its preferred name first and every directory is
 /// tried for it before falling back to an alternate spelling.
-pub fn find_in(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
+pub fn find_in(directories: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
     let extensions = executable_extensions();
     names.iter().find_map(|name| {
-        dirs.iter().find_map(|dir| {
+        directories.iter().find_map(|directory| {
             extensions
                 .iter()
-                .map(|extension| dir.join(format!("{name}{extension}")))
+                .map(|extension| directory.join(format!("{name}{extension}")))
                 .find(|candidate| is_executable(candidate))
         })
     })
@@ -380,9 +383,10 @@ pub fn find_in(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
 fn executable_extensions() -> Vec<String> {
     let mut extensions = vec![String::new()];
     if cfg!(windows) {
-        let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+        let path_extensions =
+            std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
         extensions.extend(
-            pathext
+            path_extensions
                 .split(';')
                 .map(str::trim)
                 .filter(|extension| extension.starts_with('.'))
@@ -449,25 +453,25 @@ pub fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
 fn strip_jsonc_sugar(raw: &str) -> String {
     let mut json = String::with_capacity(raw.len());
     let mut characters = raw.chars().peekable();
-    let mut in_string = false;
-    let mut escaped = false;
+    let mut is_in_string = false;
+    let mut is_escaped = false;
 
     while let Some(character) = characters.next() {
-        if in_string {
+        if is_in_string {
             json.push(character);
-            if escaped {
-                escaped = false;
+            if is_escaped {
+                is_escaped = false;
             } else if character == '\\' {
-                escaped = true;
+                is_escaped = true;
             } else if character == '"' {
-                in_string = false;
+                is_in_string = false;
             }
             continue;
         }
 
         match character {
             '"' => {
-                in_string = true;
+                is_in_string = true;
                 json.push(character);
             }
             '/' if characters.peek() == Some(&'/') => {
@@ -482,12 +486,12 @@ fn strip_jsonc_sugar(raw: &str) -> String {
             }
             '/' if characters.peek() == Some(&'*') => {
                 characters.next();
-                let mut star_seen = false;
+                let mut is_after_star = false;
                 for skipped in characters.by_ref() {
-                    if star_seen && skipped == '/' {
+                    if is_after_star && skipped == '/' {
                         break;
                     }
-                    star_seen = skipped == '*';
+                    is_after_star = skipped == '*';
                 }
             }
             '}' | ']' => {
@@ -583,8 +587,8 @@ pub fn since_unix_epoch() -> Duration {
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
 pub fn home_dir() -> Option<PathBuf> {
-    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(var).map(PathBuf::from)
+    let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(variable).map(PathBuf::from)
 }
 
 /// Percent-encode `value` per RFC 3986: the unreserved set (`A–Z a–z 0–9 - _ . ~`)
@@ -697,7 +701,7 @@ mod project_encoding_tests {
 #[cfg(test)]
 mod tests {
     #[cfg(windows)]
-    use super::expand_env;
+    use super::expand_environment_variables;
     use super::{find_in, owner_access, strip_jsonc_sugar, OwnerAccess};
     use std::fs;
     use std::path::PathBuf;
@@ -705,11 +709,11 @@ mod tests {
 
     /// A scratch directory populated with empty, executable `files`.
     fn scratch(name: &str, files: &[&str]) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("pade-search-{name}"));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("create scratch dir");
+        let directory = std::env::temp_dir().join(format!("pade-search-{name}"));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).expect("create scratch dir");
         for file in files {
-            let path = dir.join(file);
+            let path = directory.join(file);
             fs::write(&path, b"").expect("create scratch file");
             #[cfg(unix)]
             {
@@ -718,7 +722,7 @@ mod tests {
                     .expect("mark scratch file executable");
             }
         }
-        dir
+        directory
     }
 
     const CODEX_NAMES: &[&str] = &["codex", "codex-x86_64-pc-windows-msvc"];
@@ -734,26 +738,26 @@ mod tests {
     fn find_in_falls_back_to_an_alias() {
         // What winget's Codex package actually looks like: no `codex` anywhere,
         // only the release binary under its target-triple name.
-        let dir = scratch("alias", &["codex-x86_64-pc-windows-msvc"]);
+        let directory = scratch("alias", &["codex-x86_64-pc-windows-msvc"]);
         assert_eq!(
-            find_in(slice::from_ref(&dir), CODEX_NAMES),
-            Some(dir.join("codex-x86_64-pc-windows-msvc"))
+            find_in(slice::from_ref(&directory), CODEX_NAMES),
+            Some(directory.join("codex-x86_64-pc-windows-msvc"))
         );
     }
 
     #[test]
     fn find_in_prefers_the_canonical_name_over_an_alias() {
-        let dir = scratch("canonical", &["codex", "codex-x86_64-pc-windows-msvc"]);
+        let directory = scratch("canonical", &["codex", "codex-x86_64-pc-windows-msvc"]);
         assert_eq!(
-            find_in(slice::from_ref(&dir), CODEX_NAMES),
-            Some(dir.join("codex"))
+            find_in(slice::from_ref(&directory), CODEX_NAMES),
+            Some(directory.join("codex"))
         );
     }
 
     #[test]
     fn find_in_reports_a_command_that_is_not_installed() {
-        let dir = scratch("empty", &[]);
-        assert_eq!(find_in(slice::from_ref(&dir), CODEX_NAMES), None);
+        let directory = scratch("empty", &[]);
+        assert_eq!(find_in(slice::from_ref(&directory), CODEX_NAMES), None);
     }
 
     /// The whole point of the JSONC reader: a settings file a human edits keeps
@@ -785,7 +789,7 @@ mod tests {
     fn expand_env_resolves_known_variables_and_leaves_unknown_ones() {
         let home = std::env::var("USERPROFILE").expect("USERPROFILE is always set on Windows");
         assert_eq!(
-            expand_env(r"%USERPROFILE%\bin;%PADE_UNSET_VAR%\bin"),
+            expand_environment_variables(r"%USERPROFILE%\bin;%PADE_UNSET_VAR%\bin"),
             format!(r"{home}\bin;%PADE_UNSET_VAR%\bin")
         );
     }
