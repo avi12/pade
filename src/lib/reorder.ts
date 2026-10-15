@@ -5,7 +5,7 @@
 // the DOM imperatively; this module owns only the array/index math on drop.
 
 /** Which half of a target pane a dragged tab lands on. Its own closed set - the
- *  panel-side `Side` in `App.svelte` names a different concern, so no literal is
+ *  panel-side `Side` in `@/lib/side-panels` names a different concern, so no literal is
  *  shared. Lives here (not `types.ts`, which is IPC payloads) because it's a
  *  parameter of `paneInsertIndex` and a UI-only concern. */
 export const DropSide = {
