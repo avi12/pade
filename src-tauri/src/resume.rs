@@ -4,8 +4,8 @@
 //! `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-…-<uuid>.jsonl`, whose first
 //! line is a `session_meta` carrying the session's `cwd` and how it was
 //! started. ADE has no way to *choose* that id at spawn (unlike Claude's
-//! `--session-id`), so when a session must respawn — a scheme flip re-theming
-//! an arg-themed CLI — the newest interactive rollout for the same working
+//! `--session-id`), so when a session must respawn - a scheme flip re-theming
+//! an arg-themed CLI - the newest interactive rollout for the same working
 //! directory is the conversation to reopen with `codex resume <uuid>`.
 
 use std::fs::File;
@@ -23,7 +23,7 @@ use crate::util::{command, home_dir};
 const NEWEST_ROLLOUTS_INSPECTED: usize = 32;
 
 /// The newest interactive Codex session recorded for `cwd`, as the session id
-/// `codex resume` accepts. `None` when nothing matches — the caller then spawns
+/// `codex resume` accepts. `None` when nothing matches - the caller then spawns
 /// a fresh conversation.
 fn codex_session_for_cwd(cwd: &str) -> Option<String> {
     let sessions_directory = home_dir()?.join(".codex").join("sessions");
@@ -83,7 +83,7 @@ fn normalized(path: &str) -> String {
         .to_lowercase()
 }
 
-/// Pull the session id out of one `session_meta` line — only when it records an
+/// Pull the session id out of one `session_meta` line - only when it records an
 /// interactive session (a `codex exec` oneshot has `"source":"exec"` and cannot
 /// be resumed into a TUI conversation) in the wanted working directory.
 /// Field extraction over full JSON parsing: the meta line drags in the entire
@@ -113,22 +113,22 @@ fn json_string_field(json: &str, key: &str) -> Option<String> {
 }
 
 /// How long the `opencode db` lookup may take before ADE gives up and spawns a
-/// fresh conversation instead. The child can stall indefinitely — a wedged
+/// fresh conversation instead. The child can stall indefinitely - a wedged
 /// sqlite lock from another opencode process, or its CLI deciding to wait on
-/// stdin — and a resume flag is never worth a hang.
+/// stdin - and a resume flag is never worth a hang.
 const OPENCODE_DB_LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// The newest recorded opencode session for `cwd`, read through opencode's own
 /// `db` subcommand so ADE takes no sqlite dependency for one lookup. Only a
 /// session that actually exists is worth a resume flag: a blind `--continue`
 /// makes opencode walk its legacy session history, which currently throws a
-/// user-visible "unexpected server error" on Windows (opencode #28486) — and
+/// user-visible "unexpected server error" on Windows (opencode #28486) - and
 /// a never-prompted session records nothing, so there is nothing to reopen.
 /// opencode stores `directory` with forward slashes; compare the normalized,
 /// case-folded forms.
 ///
-/// stdin is explicitly closed — with anything readable attached, `opencode db`
-/// can drop into its interactive sqlite shell and wait forever — and the wait
+/// stdin is explicitly closed - with anything readable attached, `opencode db`
+/// can drop into its interactive sqlite shell and wait forever - and the wait
 /// is bounded: on timeout the child is killed and the session spawns fresh.
 fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
     let program = agents::program("opencode")?;
@@ -175,7 +175,7 @@ fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
     opencode_session_id(&output?)
 }
 
-/// The session id in `opencode db`'s tab-separated output — a header line
+/// The session id in `opencode db`'s tab-separated output - a header line
 /// (`id`) followed by at most one `ses_…` row.
 fn opencode_session_id(output: &str) -> Option<String> {
     output

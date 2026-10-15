@@ -2,19 +2,19 @@
 //!
 //! A throwaway workspace starts life as `temp-<stamp>`. Once the agent has done
 //! real work in it, ADE derives a short, human-readable name and stores it as a
-//! *display label* — never a disk rename: the live agent process holds the temp
+//! *display label* - never a disk rename: the live agent process holds the temp
 //! dir as its cwd, which Windows locks against rename. The label surfaces in the
 //! topbar and the Recent list.
 //!
 //! Naming is layered and swappable behind the `Namer` trait. Session naming tries
 //! the anonymous Copilot guest chat first, then the session's own agent CLI;
 //! project naming (from a file list) uses the agent CLI then a local heuristic:
-//!   1. anonymous Copilot (`copilot.rs`) — a `copilot.microsoft.com` guest chat,
+//!   1. anonymous Copilot (`copilot.rs`) - a `copilot.microsoft.com` guest chat,
 //!      no account, cross-platform; session naming only, best-effort (falls
 //!      through when offline / region- or Turnstile-gated);
-//!   2. the installed agent CLI, one-shot headless (`claude -p …`) — reuses the
+//!   2. the installed agent CLI, one-shot headless (`claude -p …`) - reuses the
 //!      user's subscription, no extra auth;
-//!   3. a local heuristic (package/Cargo name, README heading, dominant file) —
+//!   3. a local heuristic (package/Cargo name, README heading, dominant file) -
 //!      the always-on fallback for project naming.
 
 use std::io::Read;
@@ -71,14 +71,14 @@ pub async fn session_generate_name(
 /// Minimum transcript length before a session name is worth generating.
 const MINIMUM_SESSION_NAME_INPUT_LENGTH: usize = 40;
 
-/// How long to let a name source run before giving up — one home for the timeout
+/// How long to let a name source run before giving up - one home for the timeout
 /// shared by the agent-CLI invocations and the Copilot chat namer.
 pub(crate) const NAME_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn session_name(transcript: &str, agent: &str) -> Option<String> {
     // A fullscreen-TUI agent (Claude, Codex, opencode) repaints its ENTIRE
-    // screen on every tick, so the raw tail is one frame — status bar, spinner,
-    // key hints — stamped dozens of times, drowning the actual conversation. That
+    // screen on every tick, so the raw tail is one frame - status bar, spinner,
+    // key hints - stamped dozens of times, drowning the actual conversation. That
     // is how a job-search session got named "terminal-loading-animation": the
     // namer saw mostly the loading chrome. Collapse to distinct content lines
     // first so the namer reads what was SAID, not one frame's UI amplified.
@@ -87,10 +87,10 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
         return None;
     }
 
-    // Copilot first (anonymous copilot.microsoft.com guest chat — no account,
+    // Copilot first (anonymous copilot.microsoft.com guest chat - no account,
     // no local CLI, cross-platform), then the session's own agent CLI. Copilot
-    // yields `None` whenever it's unavailable — offline, region-gated, or the
-    // Cloudflare Turnstile gate on the first message — so naming quietly falls
+    // yields `None` whenever it's unavailable - offline, region-gated, or the
+    // Cloudflare Turnstile gate on the first message - so naming quietly falls
     // back to `claude -p` / `codex exec` and never blocks on it.
     if let Some(name) = crate::copilot::CopilotNamer
         .suggest_session(&readable)
@@ -104,7 +104,7 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
 
 /// Collapse a fullscreen-TUI transcript to its distinct content lines, in
 /// first-seen order. An alt-screen agent repaints the whole screen each tick, so
-/// the raw stream is the same frame repeated — keeping each trimmed line once
+/// the raw stream is the same frame repeated - keeping each trimmed line once
 /// removes that repaint amplification (the static chrome and the spinner appear
 /// a single time) and leaves the variety of what was actually said.
 fn readable_transcript(transcript: &str) -> String {
@@ -122,7 +122,7 @@ fn readable_transcript(transcript: &str) -> String {
     lines.join("\n")
 }
 
-/// The trailing `max` bytes of `text`, snapped to a char boundary — most recent
+/// The trailing `max` bytes of `text`, snapped to a char boundary - most recent
 /// context matters most and keeps the prompt bounded.
 fn tail(text: &str, maximum_length: usize) -> &str {
     if text.len() <= maximum_length {
@@ -138,13 +138,13 @@ fn tail(text: &str, maximum_length: usize) -> &str {
 pub(crate) fn session_naming_prompt(transcript: &str) -> String {
     let mut prompt = String::from(
         "Below is the recent terminal transcript of a coding-agent session. Ignore the terminal \
-         interface itself — spinners, loading/progress indicators, status bars, key hints, token \
+         interface itself - spinners, loading/progress indicators, status bars, key hints, token \
          counts, borders. Name the underlying task or topic the user and agent are working on. \
          Suggest a concise, descriptive name in kebab-case (2-4 lowercase words joined by hyphens) \
          capturing what the session is about.\n\n---\n",
     );
     prompt.push_str(tail(transcript, 4000));
-    prompt.push_str("\n---\n\nReply with ONLY the name — no quotes, no explanation.");
+    prompt.push_str("\n---\n\nReply with ONLY the name - no quotes, no explanation.");
     prompt
 }
 
@@ -161,7 +161,7 @@ fn session_name_via_agent(agent: &str, transcript: &str) -> Option<String> {
 }
 
 fn autoname(path: &str, agent: &str) -> Option<String> {
-    // Only ever name ADE's own workspaces — never walk a real project's tree.
+    // Only ever name ADE's own workspaces - never walk a real project's tree.
     if !crate::workspace::is_owned(path) {
         return None;
     }
@@ -189,7 +189,7 @@ fn autoname(path: &str, agent: &str) -> Option<String> {
         directory: directory.to_path_buf(),
     }));
 
-    // First namer whose candidate survives sanitizing wins (lazy — later sources
+    // First namer whose candidate survives sanitizing wins (lazy - later sources
     // only run if earlier ones yield nothing usable).
     namers
         .iter()
@@ -236,7 +236,7 @@ fn gather_files(directory: &Path) -> Vec<String> {
 
 /// Ask the installed agent to name the project via its one-shot headless mode.
 struct AgentCliNamer {
-    /// The resolved executable — see `agents::program`.
+    /// The resolved executable - see `agents::program`.
     command: PathBuf,
     args: &'static [&'static str],
     cwd: PathBuf,
@@ -270,7 +270,7 @@ fn naming_prompt(context: &NameContext) -> String {
         prompt.push_str("\n\nInitial task: ");
         prompt.push_str(task);
     }
-    prompt.push_str("\n\nReply with ONLY the name — no quotes, no explanation.");
+    prompt.push_str("\n\nReply with ONLY the name - no quotes, no explanation.");
     prompt
 }
 
@@ -297,7 +297,7 @@ fn extract_name(output: &str) -> Option<String> {
 /// Run an agent CLI headless: `command args… prompt` (optionally in `cwd`),
 /// capture its reply within [`NAME_TIMEOUT`], and pull a raw name candidate out.
 /// Resolving the executable (`agents::program`) and sanitizing the result are the
-/// caller's job — this is the shared invoke-and-extract sequence (DRY).
+/// caller's job - this is the shared invoke-and-extract sequence (DRY).
 fn run_agent_prompt(
     command: &Path,
     args: &[&str],
@@ -375,7 +375,7 @@ fn package_name(directory: &Path) -> Option<String> {
 
 fn cargo_name(directory: &Path) -> Option<String> {
     let text = read_file(directory, "Cargo.toml")?;
-    // Light scan — the first `name = "…"` (the [package] name) is enough here.
+    // Light scan - the first `name = "…"` (the [package] name) is enough here.
     text.lines()
         .map(str::trim)
         .find_map(|line| {

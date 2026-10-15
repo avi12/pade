@@ -1,7 +1,7 @@
 //! Anonymous Copilot (`copilot.microsoft.com`) as a session-name source.
 //!
 //! This talks to consumer Copilot's chat WebSocket directly, as an anonymous
-//! *guest* — no Microsoft account, no bundled SDK, no browser. The flow (verified
+//! *guest* - no Microsoft account, no bundled SDK, no browser. The flow (verified
 //! against the `reverse-engineer-copliot` reference):
 //!
 //!   1. `POST /c/api/start` → mints the `__Host-copilot-anon` cookie that
@@ -16,7 +16,7 @@
 //! Best-effort by design: the first message can be gated by Cloudflare Turnstile
 //! (a bot check a headless client can't clear) or by region/consent rules. Every
 //! failure path returns `None`, so `naming.rs` falls back to the agent CLI
-//! (`claude -p` / `codex exec`) — Copilot is a lighter-weight *preferred* source,
+//! (`claude -p` / `codex exec`) - Copilot is a lighter-weight *preferred* source,
 //! never a hard dependency. Runs on the naming worker thread (`spawn_blocking`),
 //! so the blocking HTTP/WS calls never touch the UI thread.
 
@@ -33,7 +33,7 @@ use crate::naming::{session_naming_prompt, NameContext, Namer, NAME_TIMEOUT};
 const ORIGIN: &str = "https://copilot.microsoft.com";
 const START_URL: &str = "https://copilot.microsoft.com/c/api/start";
 const CHAT_URL: &str = "wss://copilot.microsoft.com/c/api/chat?api-version=2";
-/// An Edge-on-Windows UA — the client Copilot's guest surface expects to see.
+/// An Edge-on-Windows UA - the client Copilot's guest surface expects to see.
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
      (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0";
 
@@ -43,7 +43,7 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 const MAX_HASHCASH_DIFFICULTY: u32 = 24;
 
 /// How long to block on any single socket read before looping back to re-check
-/// the overall deadline — so a silent server can't wedge the naming worker.
+/// the overall deadline - so a silent server can't wedge the naming worker.
 const SOCKET_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
 
 pub struct CopilotNamer;
@@ -76,7 +76,7 @@ fn start_guest_session() -> Option<String> {
         .call()
         .ok()?;
 
-    // Keep each cookie's "name=value", dropping its attributes, and rejoin — the
+    // Keep each cookie's "name=value", dropping its attributes, and rejoin - the
     // socket only needs the pairs.
     let cookie = response
         .all("set-cookie")
@@ -211,7 +211,7 @@ fn run_chat(prompt: &str) -> Option<String> {
                 }
             }
             // `done` ends the turn; `error` (e.g. Turnstile → `invalid-event`)
-            // means the guest path is walled right now — bail to the CLI fallback.
+            // means the guest path is walled right now - bail to the CLI fallback.
             Some("done" | "error") => break,
             _ => {}
         }
@@ -223,7 +223,7 @@ fn run_chat(prompt: &str) -> Option<String> {
 }
 
 /// Solve and answer a `hashcash` challenge frame. A `null`/non-hashcash challenge
-/// (seen on some guest sessions) needs no proof — the caller just proceeds to
+/// (seen on some guest sessions) needs no proof - the caller just proceeds to
 /// send. Returns `None` only when a hashcash we should have solved was refused.
 fn answer_challenge(
     socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,

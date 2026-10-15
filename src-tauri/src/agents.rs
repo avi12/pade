@@ -2,7 +2,7 @@
 //!
 //! ADE is agent-agnostic: it discovers which agent CLIs are installed and lets
 //! the user launch, switch, and combine them. Adding a backend is one entry in
-//! REGISTRY — nothing else in the app hard-codes "claude".
+//! REGISTRY - nothing else in the app hard-codes "claude".
 
 use std::path::PathBuf;
 
@@ -11,7 +11,7 @@ use serde::Serialize;
 use crate::theming::ThemeConfig;
 use crate::util::{find_in, search_dirs};
 
-/// Canonical registry ids — the one authoritative spelling of each agent's id
+/// Canonical registry ids - the one authoritative spelling of each agent's id
 /// (`session.agent.id`). The REGISTRY entries below read from these, as do the
 /// other modules that must name an agent (`usage`, `config`), so the vocabulary
 /// has a single home and can never drift between them.
@@ -27,7 +27,7 @@ pub const ID_AIDER: &str = "aider";
 struct AgentDefinition {
     id: &'static str,
     label: &'static str,
-    /// The executable to look for and run — the name the CLI's own docs use, and
+    /// The executable to look for and run - the name the CLI's own docs use, and
     /// the one ADE stores and shows.
     command: &'static str,
     /// Other executable names the same CLI is installed under. Installers don't
@@ -41,19 +41,19 @@ struct AgentDefinition {
     /// headless mode we can drive.
     oneshot: Option<&'static [&'static str]>,
     /// Args that launch an *interactive* session in the CLI's "skip every
-    /// permission prompt" / yolo mode, so ADE drives the agent autonomously —
+    /// permission prompt" / yolo mode, so ADE drives the agent autonomously -
     /// no per-tool, per-edit approval stops. Empty for a CLI with no such flag.
     /// Distinct from `oneshot` (headless) and from the first-run trust gate,
-    /// which these flags do NOT dismiss (ADE accepts that separately — see the
+    /// which these flags do NOT dismiss (ADE accepts that separately - see the
     /// frontend's initial-prompt delivery).
     session_args: &'static [&'static str],
-    /// How to force this agent's own UI theme to ADE's scheme — the terminal
+    /// How to force this agent's own UI theme to ADE's scheme - the terminal
     /// protocol can't carry it through `ConPTY` (see `theming.rs`). `None` for a
     /// CLI with no known theme setting.
     theme_config: Option<ThemeConfig>,
     /// The flag that binds a session to a caller-chosen conversation id
     /// (`claude --session-id <uuid>`): it creates a fresh conversation with that
-    /// id, and a later spawn with the same id *resumes* that exact one —
+    /// id, and a later spawn with the same id *resumes* that exact one -
     /// non-interactively. That is what lets ADE terminate a specific session and
     /// bring back ITS conversation (e.g. after the project's `.mcp.json` changed),
     /// not merely the most recent. `None` for a CLI with no equivalent.
@@ -74,14 +74,14 @@ struct AgentDefinition {
     /// **visual** order rather than the logical order a program normally writes.
     ///
     /// It inverts what the terminal must do. ADE's right-to-left overlay
-    /// (`lib/terminal-rtl`) hands a run to the browser and lets it reorder —
+    /// (`lib/terminal-rtl`) hands a run to the browser and lets it reorder -
     /// correct for every program that writes logical order, and exactly wrong
     /// here, because reordering already-reordered text puts it back the way it
     /// started and the reader sees the sentence backwards. So the overlay is not
     /// drawn for these agents: their output is already right, and the terminal's
     /// job is to paint it cell for cell.
     ///
-    /// Measured, never assumed — the running app's buffer read against the
+    /// Measured, never assumed - the running app's buffer read against the
     /// agent's own transcript (see `docs/terminal-rendering.md`).
     reorders_bidi: bool,
 }
@@ -109,7 +109,7 @@ impl SessionIdFlag {
 /// The PADE-owned Claude theme. Claude Code watches its user theme directory and
 /// re-renders when a definition in use changes, so ONE file PADE rewrites is a
 /// live channel into every running session. The definition is inert until a
-/// session selects it, and only PADE's own sessions do — through `--settings`,
+/// session selects it, and only PADE's own sessions do - through `--settings`,
 /// per launch, so no file of the user's names it and their own terminals are
 /// untouched. The `custom:` selector, the file stem and the `name` inside the
 /// file must agree; `theming::tests` asserts they do.
@@ -119,7 +119,7 @@ const PADE_CLAUDE_THEME_SETTINGS: &str = r#"{"theme":"custom:pade"}"#;
 /// the terminal's own sixteen colours rather than in truecolor of its own, and
 /// those sixteen are exactly what PADE paints (`--terminal-*`: the app palette,
 /// or the Windows Terminal scheme the user chose for it). So the agent tracks
-/// the terminal's colours continuously — a scheme swap repaints it on the next
+/// the terminal's colours continuously - a scheme swap repaints it on the next
 /// frame with nothing published at all, because the bytes it already wrote name
 /// colour *slots*, and the slots moved. Only light-vs-dark still has to be
 /// written here, and that is what this file carries.
@@ -131,19 +131,19 @@ const PADE_CLAUDE_DARK_THEME: &str = r#"{"name":"pade","base":"dark-ansi","overr
 ///
 /// **Forcing fullscreen.** ADE's terminal host runs both screens (see
 /// `docs/terminal-rendering.md`). Where a CLI can be pinned to alt-screen *per
-/// launch*, ADE does so through whichever field the CLI already exposes — and never
+/// launch*, ADE does so through whichever field the CLI already exposes - and never
 /// a user-global config file, which would leak ADE's choice into the user's other
 /// terminals: Codex and Copilot via `session_args`
 /// (`-c tui.alternate_screen=always` / `--alt-screen on`), each overriding a saved
 /// default that could otherwise drop to inline. **Claude is deliberately not
-/// forced** — it is the one agent whose renderer decides who owns the *scrollback*,
+/// forced** - it is the one agent whose renderer decides who owns the *scrollback*,
 /// and taking that from the terminal is what makes scrolling cost a round trip
 /// through the agent (see its entry below). Grok and
 /// Antigravity already render alt-screen by default on a local terminal and expose
 /// no safe per-launch override (only a slash command or a user-global settings
 /// file), so ADE leaves them as-is; aider is a line-oriented REPL with no fullscreen
-/// mode; cursor-agent's rendering is undocumented — none of those three is forced.
-/// The TUI configs `OPENCODE_TUI_CONFIG` points opencode at — one per scheme,
+/// mode; cursor-agent's rendering is undocumented - none of those three is forced.
+/// The TUI configs `OPENCODE_TUI_CONFIG` points opencode at - one per scheme,
 /// each selecting the matching PADE-owned plain-string theme (theming.rs
 /// materializes both definitions). Plain-string, not adaptive, so the render is
 /// truthful regardless of opencode's ConPTY-answered light/dark probe; a flip
@@ -166,7 +166,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // The one agent ADE can re-theme WITHOUT relaunching it: the session
         // launches on ADE's own theme definition, and rewriting that definition
         // repaints every live session. Measured against 2.1.227 under a real
-        // ConPTY — a rewrite repaints an idle session within a second, where the
+        // ConPTY - a rewrite repaints an idle session within a second, where the
         // `theme` *setting* is read once at mount and the OSC 11 answer its
         // `?997` doorbell asks for never escapes ConPTY (docs/terminal-rendering.md).
         theme_config: Some(ThemeConfig::SpawnSelectedLiveTheme {
@@ -177,9 +177,9 @@ const REGISTRY: &[AgentDefinition] = &[
         }),
         // `--session-id <uuid>` creates-or-continues the conversation with that
         // id (non-interactive), so ADE can restart a specific session and land
-        // back in its own conversation — see `session_id_flag`.
+        // back in its own conversation - see `session_id_flag`.
         session_id_flag: Some(SessionIdFlag::Separate("--session-id")),
-        // ADE does NOT force Claude's renderer — this is the one agent where the
+        // ADE does NOT force Claude's renderer - this is the one agent where the
         // choice is the user's, because it decides who owns the scrollback.
         //
         // Claude's `tui` setting picks between two renderers: `fullscreen` (the
@@ -194,7 +194,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // document and the tick is a local viewport scroll.
         //
         // `CLAUDE_CODE_NO_FLICKER` outranks the `tui` setting, and a user's
-        // `settings.json` `env` block sets it for every Claude everywhere — so a
+        // `settings.json` `env` block sets it for every Claude everywhere - so a
         // config reading `tui: "default"` can still be fullscreen in every terminal.
         // Check the `env` block before blaming ADE for a session's renderer.
         //
@@ -208,7 +208,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // Claude Code reorders its own Arabic and Hebrew before it writes them:
         // it splits each row into cells, runs bidi-js over the row with an `auto`
         // paragraph direction, and reverses the cells by embedding level. Measured
-        // on 2.1.227 — unconditional, and the gate it consults has no path that
+        // on 2.1.227 - unconditional, and the gate it consults has no path that
         // answers no, so nothing ADE can pass turns it off.
         reorders_bidi: true,
     },
@@ -217,7 +217,7 @@ const REGISTRY: &[AgentDefinition] = &[
         label: "Codex",
         command: "codex",
         // OpenAI publishes Codex as bare release binaries named by target triple,
-        // and winget's package installs one verbatim — so on a winget machine the
+        // and winget's package installs one verbatim - so on a winget machine the
         // only `codex` there is answers to `codex-x86_64-pc-windows-msvc`.
         aliases: &[
             "codex-x86_64-pc-windows-msvc",
@@ -229,10 +229,10 @@ const REGISTRY: &[AgentDefinition] = &[
         ],
         oneshot: Some(&["exec"]),
         // `--yolo` is the alias; the explicit form states what it waives. It also
-        // drops the sandbox — the price of a fully autonomous run.
+        // drops the sandbox - the price of a fully autonomous run.
         //
         // `-c tui.alternate_screen=always` forces Codex fullscreen on the terminal's
-        // ALTERNATE screen, like Claude — which is what `Terminal.svelte` is tuned to
+        // ALTERNATE screen, like Claude - which is what `Terminal.svelte` is tuned to
         // host (its wheel handler forwards a wheel tick as PageUp/PageDown for a
         // fullscreen agent with no xterm scrollback, and Codex scrolls its transcript
         // on PageUp/PageDown). Codex's default `auto` mode drops to inline rendering
@@ -240,7 +240,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // NOT fullscreen and unscrollable in ADE; `always` overrides that heuristic
         // (see openai/codex `AltScreenMode`). The `-c` override applies to THIS spawn
         // only and never rewrites the user's `~/.codex/config.toml`. This is not
-        // scheme-dependent, so it's a constant launch arg here — not in `theme_config`
+        // scheme-dependent, so it's a constant launch arg here - not in `theme_config`
         // (which is scheme-keyed) and not on the `codex exec` oneshot (which renders
         // no TUI); `session_args` is interactive-session-only, so this is its home.
         session_args: &[
@@ -249,30 +249,30 @@ const REGISTRY: &[AgentDefinition] = &[
             "tui.alternate_screen=always",
         ],
         // `[tui] theme` selects one of Codex's bundled *syntax-highlight* themes
-        // (syntect/two_face) — code spans, diffs, markdown. Codex reads it once at
+        // (syntect/two_face) - code spans, diffs, markdown. Codex reads it once at
         // startup and has no live light/dark toggle, so ADE forces it per launch
         // with the global `-c tui.theme=<name>` override: it wins over
         // `~/.codex/config.toml` for THIS spawn only, never rewriting the user's
-        // chosen theme on disk. The two names are Codex's own adaptive defaults —
+        // chosen theme on disk. The two names are Codex's own adaptive defaults -
         // what it auto-selects for a light vs dark terminal background (see
-        // openai/codex `highlight.rs` `adaptive_default_theme_selection`) — so
+        // openai/codex `highlight.rs` `adaptive_default_theme_selection`) - so
         // ADE's scheme wins with Codex's own neutral picks.
         //
         // What `tui.theme` does NOT control: the input composer / user-message box
         // background. Codex fills that from `style::user_message_bg(default_bg())`
-        // — a tint blended over the *detected terminal background*, not the syntax
+        // - a tint blended over the *detected terminal background*, not the syntax
         // theme (openai/codex `style.rs`; verified: a user's own light
         // `inspired-github` global theme still yields a dark composer box on ADE).
         // `default_bg()` comes from a terminal probe (`terminal_probe.rs`): an
         // OSC 10/11 query, then a `GetConsoleScreenBufferInfoEx` fallback. Under
         // Windows ConPTY both resolve to the pseudoconsole's hard-coded BLACK
-        // buffer regardless of ADE's scheme — the OSC query is answered by ConPTY
+        // buffer regardless of ADE's scheme - the OSC query is answered by ConPTY
         // itself (never reaching ADE's xterm, matching theming.rs's live finding),
         // and the console buffer's background is Black (empirically confirmed via
         // portable-pty: `GetConsoleScreenBufferInfoEx` reports index-0 Black, and
         // it is unaffected by an OSC 11 SET written to the pty master). So on a
         // light ADE the composer box would stay dark, and no env/args/config/OSC
-        // channel can feed Codex a light `default_bg` on Windows — only a
+        // channel can feed Codex a light `default_bg` on Windows - only a
         // child-side console write can. ADE does exactly that via the
         // `needs_light_console_fix` flag below: `pty.rs` prefixes the Windows
         // light-scheme launch with `cmd /c color F0 & …`, which flips the console
@@ -292,7 +292,7 @@ const REGISTRY: &[AgentDefinition] = &[
         env: &[],
         // Codex paints its input composer box from the detected terminal
         // background (`default_bg()`), which under Windows ConPTY is the
-        // pseudoconsole's hard-coded BLACK buffer — so on a light ADE the box
+        // pseudoconsole's hard-coded BLACK buffer - so on a light ADE the box
         // clashes and no clean channel can fix it. `pty.rs` forces the console
         // buffer light before Codex probes it (Windows + light scheme only).
         needs_light_console_fix: true,
@@ -304,21 +304,21 @@ const REGISTRY: &[AgentDefinition] = &[
         command: "opencode",
         aliases: &[],
         // `opencode run <message>` answers one prompt headlessly and exits, with
-        // the prompt appended as the final arg — the shape auto-naming drives.
+        // the prompt appended as the final arg - the shape auto-naming drives.
         oneshot: Some(&["run"]),
-        // `--auto` auto-approves every permission not explicitly denied —
+        // `--auto` auto-approves every permission not explicitly denied -
         // opencode's yolo switch. Its TUI owns the alternate screen by default,
         // so no fullscreen pin is needed.
         session_args: &["--auto"],
         // opencode exposes no per-launch theme flag or env var, and it decides
-        // light vs dark ONLY from OSC 10/11 query replies — which under Windows
+        // light vs dark ONLY from OSC 10/11 query replies - which under Windows
         // ConPTY are answered by the console layer's hard-coded black buffer, so
         // its mode probe always reads dark and no env var, config key, or later
         // `?997` report flips it (verified: on a light ADE an adaptive theme
         // still rendered its dark variant). The fix sidesteps mode detection:
         // `OPENCODE_TUI_CONFIG` points opencode at a PADE-owned tui config that
         // merges OVER the user's own ~/.config/opencode/tui.json (user file
-        // order=1, env file order=2 — keybinds survive, only `theme` is
+        // order=1, env file order=2 - keybinds survive, only `theme` is
         // overridden), selecting a plain-string PADE theme for THIS spawn's
         // scheme (`pade-light` or `pade-dark`; theming.rs materializes both).
         // Plain strings render verbatim, so the broken probe can't spoil them. A
@@ -334,7 +334,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_id_flag: None,
         env: &[],
         // The `pade-light` theme fixes the colors, but ConPTY resize refills
-        // still paint from the console buffer — so a light ADE keeps the
+        // still paint from the console buffer - so a light ADE keeps the
         // console-buffer flip (like Codex) to stop dark flashes on reflow.
         needs_light_console_fix: true,
         reorders_bidi: false,
@@ -355,11 +355,11 @@ const REGISTRY: &[AgentDefinition] = &[
         // has been flaky; tool approval is the friction that matters for a run.)
         //
         // `--alt-screen on` forces Copilot fullscreen on the terminal's ALTERNATE
-        // screen, like Claude and Codex — the mode `Terminal.svelte` is tuned to host.
+        // screen, like Claude and Codex - the mode `Terminal.svelte` is tuned to host.
         // Alt-screen is Copilot's default for interactive sessions, but the CLI
         // persists display preferences to the user-level `~/.copilot/settings.json`
         // (a user can turn alt-screen off and it sticks), so `on` pins it for THIS
-        // spawn and can't be undone by the saved config — the same reasoning as
+        // spawn and can't be undone by the saved config - the same reasoning as
         // Codex forcing `tui.alternate_screen=always` over its `auto` default. The
         // flag is documented in Copilot CLI's command reference (default `on`); it
         // rides `session_args` after the tool-approval flag, its authoritative home.
@@ -369,7 +369,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // which would leak ADE's scheme into every other terminal. Left alone.
         theme_config: None,
         // `--resume=<uuid>` starts a NEW session under that id when none exists
-        // and resumes it on a later spawn (verified on 1.0.34) — which is also
+        // and resumes it on a later spawn (verified on 1.0.34) - which is also
         // how `running_model` finds this session's event log by name. Joined,
         // because `--resume` alone opens the session picker.
         session_id_flag: Some(SessionIdFlag::Joined("--resume")),
@@ -385,7 +385,7 @@ const REGISTRY: &[AgentDefinition] = &[
         // xAI's Grok Build answers a single prompt with `-p <PROMPT>`, the same
         // shape as Claude. `--no-auto-update` goes first because a one-shot naming
         // run is exactly the headless, automated case the CLI's own docs say to
-        // pass it for — it skips the background update check that would otherwise
+        // pass it for - it skips the background update check that would otherwise
         // risk blowing NAME_TIMEOUT before the name comes back.
         oneshot: Some(&["--no-auto-update", "-p"]),
         // xAI Grok Build's "auto-approve all tool executions" (alias `--yolo`).
@@ -404,11 +404,11 @@ const REGISTRY: &[AgentDefinition] = &[
         command: "antigravity",
         aliases: &[],
         oneshot: None,
-        // No verified bypass flag for this CLI yet — left off rather than guess a
+        // No verified bypass flag for this CLI yet - left off rather than guess a
         // wrong flag (an unknown flag makes the whole session fail to launch).
         session_args: &[],
         // Its `colorScheme` lives in the USER-level settings file, needs a
-        // restart to apply, and only "dark" is documented verbatim — not enough
+        // restart to apply, and only "dark" is documented verbatim - not enough
         // verified surface to force safely.
         theme_config: None,
         session_id_flag: None,
@@ -427,7 +427,7 @@ const REGISTRY: &[AgentDefinition] = &[
         session_args: &["--force"],
         // No documented theme setting; Cursor staff recommend TERM_THEME=light
         // on light-background terminals (fixes an invisible input cursor). The
-        // dark side needs no help — its palette assumes a dark terminal.
+        // dark side needs no help - its palette assumes a dark terminal.
         theme_config: Some(ThemeConfig::SpawnEnv {
             light: &[("TERM_THEME", "light")],
             dark: &[],
@@ -478,8 +478,8 @@ fn installed_names(command: &str) -> Vec<&str> {
 
 /// The executable to actually run for `command`, or `None` if it isn't installed.
 ///
-/// Everything that needs a real program goes through here — detection, spawning a
-/// session, running a headless one-shot — so an agent is found and launched by the
+/// Everything that needs a real program goes through here - detection, spawning a
+/// session, running a headless one-shot - so an agent is found and launched by the
 /// same rules, and an install ADE can *see* is always one it can *run*. Resolving
 /// to an absolute path (rather than handing a bare name to the child process) is
 /// what lets a session start from a directory that only the live PATH knows about.
@@ -499,7 +499,7 @@ pub fn spawn_env(command: &str) -> &'static [(&'static str, &'static str)] {
     definition(command).map_or(&[], |agent| agent.env)
 }
 
-/// Args to launch an interactive session of `command` with — the CLI's
+/// Args to launch an interactive session of `command` with - the CLI's
 /// skip-every-permission ("yolo") flag(s), so ADE runs it autonomously. Empty for
 /// an unknown command or a plain shell (which has nothing to bypass), so `pty.rs`
 /// stays agent-agnostic.
@@ -508,7 +508,7 @@ pub fn session_args(command: &str) -> &'static [&'static str] {
 }
 
 /// The flag that pins `command`'s session to a caller-chosen conversation id
-/// (and resumes that exact conversation on a later spawn with the same id) —
+/// (and resumes that exact conversation on a later spawn with the same id) -
 /// e.g. `--session-id` for Claude. `None` for a CLI with no equivalent, in which
 /// case ADE can't target a specific conversation and won't try. See
 /// `session_id_flag` on the registry entry.
@@ -523,7 +523,7 @@ pub fn theme_config(command: &str) -> Option<&'static ThemeConfig> {
     definition(command).and_then(|agent| agent.theme_config.as_ref())
 }
 
-/// Every registered agent's command, in registry order — so a cross-agent sweep
+/// Every registered agent's command, in registry order - so a cross-agent sweep
 /// (theming's live-theme publish) walks the registry instead of naming agents.
 pub fn commands() -> impl Iterator<Item = &'static str> {
     REGISTRY.iter().map(|agent| agent.command)
@@ -544,7 +544,7 @@ pub struct Agent {
     id: String,
     label: String,
     command: String,
-    /// Carried to the frontend because the TERMINAL is what has to act on it —
+    /// Carried to the frontend because the TERMINAL is what has to act on it -
     /// the right-to-left overlay stands down for an agent that has already
     /// reordered its own output.
     reorders_bidi: bool,
@@ -555,7 +555,7 @@ pub struct Agent {
 ///
 /// Async + `spawn_blocking`: detection reads the live PATH and stats a few hundred
 /// candidate files, which is slow enough that running it synchronously would block
-/// Tauri's main thread — and the main thread also drives Windows' window move loop,
+/// Tauri's main thread - and the main thread also drives Windows' window move loop,
 /// so a sync detect fired on window-focus stalls dragging. Off-thread it can't.
 #[tauri::command]
 pub async fn agents_detect() -> Vec<Agent> {
@@ -565,7 +565,7 @@ pub async fn agents_detect() -> Vec<Agent> {
 }
 
 fn detect_installed() -> Vec<Agent> {
-    // One search path for the whole sweep — it costs a registry read to build.
+    // One search path for the whole sweep - it costs a registry read to build.
     let directories = search_dirs();
     let mut found: Vec<Agent> = REGISTRY
         .iter()
@@ -609,7 +609,7 @@ mod tests {
         assert!(names.contains(&"codex-x86_64-pc-windows-msvc"));
     }
 
-    /// A command ADE has no entry for — a task runner, an editor — resolves under
+    /// A command ADE has no entry for - a task runner, an editor - resolves under
     /// its own name and carries no agent baggage.
     #[test]
     fn an_unknown_command_is_only_ever_itself() {
@@ -708,7 +708,7 @@ mod tests {
 
     /// opencode's whole registry surface: `run` is its headless one-shot,
     /// `--auto` its skip-permissions mode, and its `system` theme follows the
-    /// terminal — but `ConPTY` poisons the OSC 10/11 probe its light/dark
+    /// terminal - but `ConPTY` poisons the OSC 10/11 probe its light/dark
     /// detection rides, so a light ADE forces the mode-independent `pade-light`
     /// theme via a per-spawn `OPENCODE_TUI_CONFIG` file while dark needs no
     /// override. No session-id handle.
@@ -726,7 +726,7 @@ mod tests {
         };
         assert_eq!(*variable, "OPENCODE_TUI_CONFIG");
         // Each scheme selects its own plain-string pade theme (both defined, so a
-        // dark ADE is truthful too — a flip re-themes by respawn).
+        // dark ADE is truthful too - a flip re-themes by respawn).
         assert_eq!(
             *light,
             Some(r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#)
@@ -742,7 +742,7 @@ mod tests {
         // ConPTY resize refills paint from the console buffer, so a light ADE
         // keeps the console-buffer flip (like Codex).
         assert!(needs_light_console_fix("opencode"));
-        // Installed under its own name only — no installer aliases.
+        // Installed under its own name only - no installer aliases.
         assert_eq!(installed_names("opencode"), vec!["opencode"]);
     }
 
@@ -750,7 +750,7 @@ mod tests {
     fn only_claude_is_known_to_reorder_its_own_right_to_left_text() {
         // Measured on 2.1.227: Claude Code runs the bidi algorithm over each row
         // before writing it, so the terminal must paint that row, not reorder it
-        // again. Every other entry writes logical order like a normal program —
+        // again. Every other entry writes logical order like a normal program -
         // and an unknown command answers no, which is the safe way round: the
         // overlay reorders, which is right for logical order.
         let reorders: Vec<&str> = REGISTRY

@@ -1,12 +1,12 @@
 //! Task-runner dock: headless command execution with captured output.
 //!
 //! Unlike the PTY host (which runs interactive agents in a real pseudo-terminal),
-//! a runner is fire-and-forget output capture — dev servers, build scripts, test
+//! a runner is fire-and-forget output capture - dev servers, build scripts, test
 //! watchers. It runs the command through the platform shell with stdout and
 //! stderr piped *separately*, streaming each line to the frontend tagged with the
 //! runner id and which stream it came from. There is no PTY, but a child still
 //! writes its own ANSI/SGR colour codes into the pipe (a dev server's coloured
-//! banner) — the pipe strips nothing, so the frontend renders those colours
+//! banner) - the pipe strips nothing, so the frontend renders those colours
 //! (`lib/ansi` → the shared terminal palette) rather than showing raw escapes.
 //!
 //! Multi-runner: each task runs under a caller-chosen id so several can run at
@@ -100,7 +100,7 @@ pub struct RunnerInfo {
 }
 
 /// Which pipe a captured line came from. Mirrors the frontend's
-/// `z.enum(["stdout", "stderr"])` — one authoritative home for the two names.
+/// `z.enum(["stdout", "stderr"])` - one authoritative home for the two names.
 #[derive(Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 enum RunnerStream {
@@ -166,8 +166,8 @@ struct PumpArgs<R: BufRead> {
 /// text following the last carriage return (the whole line when there is none). A
 /// build tool draws its progress bar by rewriting one line with `\r` (`Building
 /// 417/462\rBuilding 418/462\r…`), so a single `\n`-terminated line can carry
-/// hundreds of frames; this pane is not a terminal, so it keeps only the last —
-/// what a terminal would show — instead of the `\r`-joined blob that renders as a
+/// hundreds of frames; this pane is not a terminal, so it keeps only the last -
+/// what a terminal would show - instead of the `\r`-joined blob that renders as a
 /// tiled wall of frames.
 fn last_carriage_frame(line: &str) -> &str {
     line.rsplit('\r').next().unwrap_or(line)
@@ -205,7 +205,7 @@ fn pump_stream<R: BufRead>(
 ///
 /// Idempotent: if a runner with `id` is already live, returns `Ok(())` without
 /// spawning a second one (mirrors `pty_spawn`).
-// `async`: spawning a process is blocking OS work — a synchronous command runs
+// `async`: spawning a process is blocking OS work - a synchronous command runs
 // it on the MAIN thread, stalling the message pump.
 #[tauri::command]
 pub async fn runner_start(
@@ -276,7 +276,7 @@ pub async fn runner_start(
             match poll {
                 // Exited: report the code (`None` if killed by a signal).
                 Ok(Ok(Some(status))) => break status.code(),
-                // Still running — release the lock and poll again shortly.
+                // Still running - release the lock and poll again shortly.
                 Ok(Ok(None)) => std::thread::sleep(std::time::Duration::from_millis(100)),
                 // A wait error or a poisoned lock: stop waiting, report unknown code.
                 Ok(Err(_)) | Err(_) => break None,
@@ -344,7 +344,7 @@ fn stop_process_tree(child: &mut Child) {
 
 /// Stop a task and drop it from the map.
 // `async`, and the registry lock is released before the process-tree kill (a
-// blocking `taskkill` wait on Windows) — only the removed runner's own child
+// blocking `taskkill` wait on Windows) - only the removed runner's own child
 // lock is held while it dies, so other runners stay reachable meanwhile.
 #[tauri::command]
 pub async fn runner_stop(

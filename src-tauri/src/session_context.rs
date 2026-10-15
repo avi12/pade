@@ -3,7 +3,7 @@
 //!
 //! The terminal is not a reliable source for this. Claude Code only renders its
 //! context indicator once a session is within 20k tokens of the compaction
-//! threshold — roughly the last 3% of the window — so for the whole life of a
+//! threshold - roughly the last 3% of the window - so for the whole life of a
 //! normal session there is simply no percentage on screen to parse, and the
 //! frontend's byte/token fallbacks answer with something unrelated to the real
 //! fill. The agent's own session log carries the truth on every turn: the
@@ -17,7 +17,7 @@
 //!
 //! Only Claude is resolved here on purpose. Codex records its model too, but it
 //! writes no per-turn token accounting this can read, and its only on-screen
-//! counters come from tool output — handing it a window would re-arm the false
+//! counters come from tool output - handing it a window would re-arm the false
 //! handoff fixed in `context.svelte.ts` (a stray tool-output token ÷ a real
 //! window). It needs its own trustworthy source first.
 
@@ -39,7 +39,7 @@ const MODELS_CATALOG_URL: &str = "https://models.dev/api.json";
 /// context on every turn doesn't refetch 3 MB each time.
 const CATALOG_TTL: Duration = Duration::from_hours(6);
 
-/// One provider block of the models.dev catalog — only the field we read.
+/// One provider block of the models.dev catalog - only the field we read.
 #[derive(Debug, Deserialize)]
 struct CatalogProvider {
     models: HashMap<String, CatalogModel>,
@@ -55,7 +55,7 @@ struct CatalogLimit {
     context: Option<u64>,
 }
 
-/// One line of an agent session log — only the shape the token accounting and
+/// One line of an agent session log - only the shape the token accounting and
 /// the turn's model and effort live in. Every other field is ignored.
 #[derive(Debug, Deserialize)]
 struct LogLine {
@@ -76,7 +76,7 @@ const SYNTHETIC_MODEL: &str = "<synthetic>";
 
 /// The token accounting an assistant turn records. Every count is optional
 /// because the same log carries other message shapes. The wire names all carry
-/// a `_tokens` suffix this struct drops — the type already says what they count.
+/// a `_tokens` suffix this struct drops - the type already says what they count.
 #[derive(Debug, Deserialize)]
 struct TokenUsage {
     #[serde(rename = "input_tokens")]
@@ -91,7 +91,7 @@ struct TokenUsage {
 
 impl TokenUsage {
     /// What the conversation occupies after this turn: everything the next
-    /// request re-sends — the uncached input, the cached prefix it reads back,
+    /// request re-sends - the uncached input, the cached prefix it reads back,
     /// the prefix it just wrote, and the reply it just produced. Cache reads
     /// dominate a long session, which is why a counter of streamed tokens alone
     /// under-reports the fill so badly.
@@ -207,7 +207,7 @@ fn turn_from_line(line: &str) -> Option<TurnProfile> {
     })
 }
 
-/// The first `"model":"…"` value in a JSON-lines log — Claude stamps it on every
+/// The first `"model":"…"` value in a JSON-lines log - Claude stamps it on every
 /// assistant turn, so an early line carries it and the scan stops there instead
 /// of reading a multi-megabyte transcript whole.
 fn first_model_field(log: &Path) -> Option<String> {
@@ -231,7 +231,7 @@ fn model_field(line: &str) -> Option<String> {
 }
 
 /// The catalog flattened to model id → context window, cached for the run. A
-/// model resold by several providers collapses to the largest reported window —
+/// model resold by several providers collapses to the largest reported window -
 /// its true size, not a reseller's tighter cap.
 static CATALOG: Mutex<Option<(Instant, HashMap<String, u64>)>> = Mutex::new(None);
 

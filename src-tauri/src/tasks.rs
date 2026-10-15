@@ -1,12 +1,12 @@
 //! Task runner: discover runnable tasks from a project's manifests.
 //!
-//! Scans the open project (bounded depth, skipping build/dep noise — the same
+//! Scans the open project (bounded depth, skipping build/dep noise - the same
 //! list `naming.rs` walks by) for the manifests it understands, extracts each
 //! one's runnable tasks, and hands the frontend a run command per task.
 //! Monorepo-aware (one group per manifest found) and multi-language: npm,
 //! cargo, make, python, cmake (lists and presets), meson, ninja, bazel, xmake,
 //! premake, scons, qmake, dotnet, msbuild, go, gradle and maven.
-//! Read-only; nothing is executed here — the UI opens a terminal.
+//! Read-only; nothing is executed here - the UI opens a terminal.
 
 use std::path::{Path, PathBuf};
 
@@ -70,8 +70,8 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
 }
 
 /// Describe every manifest understood by [`tasks_list`], in discovery order.
-/// Deduplicated: two families can recognise the same token — a solution is read
-/// by both the .NET and the MSVC extractor — and the frontend wants the tokens,
+/// Deduplicated: two families can recognise the same token - a solution is read
+/// by both the .NET and the MSVC extractor - and the frontend wants the tokens,
 /// not the registry rows.
 #[tauri::command]
 pub fn tasks_descriptors() -> Vec<TaskManifestDescriptor> {
@@ -154,7 +154,7 @@ impl ManifestMatch {
 
 /// One manifest ADE understands: how its file is recognised, its family, and
 /// how to read its tasks. The registry (`MANIFESTS`) is the single source of
-/// truth — the frontend's watched tokens and empty state are derived from it.
+/// truth - the frontend's watched tokens and empty state are derived from it.
 struct ManifestDefinition {
     matcher: ManifestMatch,
     kind: &'static str,
@@ -166,7 +166,7 @@ struct ManifestDefinition {
 /// the newer XML form of the same file.
 const SOLUTION_EXTENSION: &str = ".sln";
 const SOLUTION_EXTENSIONS: &[&str] = &[SOLUTION_EXTENSION, ".slnx"];
-/// Native C++ projects build through `MSBuild` — `dotnet` cannot build one.
+/// Native C++ projects build through `MSBuild` - `dotnet` cannot build one.
 const NATIVE_PROJECT_EXTENSION: &str = ".vcxproj";
 
 const MANIFESTS: &[ManifestDefinition] = &[
@@ -267,7 +267,7 @@ const MANIFESTS: &[ManifestDefinition] = &[
 ];
 
 /// Extract this directory's manifests into `groups` (a monorepo dir can hold
-/// several — e.g. a `package.json` and a `Cargo.toml` side by side, or three
+/// several - e.g. a `package.json` and a `Cargo.toml` side by side, or three
 /// sibling `.csproj` files). One `read_dir` serves every definition, since an
 /// extension match has to see the directory's real file names anyway.
 fn collect_group(root: &Path, dir: &Path, groups: &mut Vec<TaskGroup>) {
@@ -310,7 +310,7 @@ fn relative_display(root: &Path, path: &Path) -> String {
 
 // ── Manifest parsers ─────────────────────────────────────────────────────────
 
-/// `package.json` — each `scripts` key is a task; the package manager is picked
+/// `package.json` - each `scripts` key is a task; the package manager is picked
 /// from the lockfile in the same directory (pnpm/yarn/npm).
 fn npm_tasks(path: &Path) -> Vec<Task> {
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -373,7 +373,7 @@ impl PackageManager {
     }
 }
 
-/// `Cargo.toml` — the standard cargo verbs, always available for a crate.
+/// `Cargo.toml` - the standard cargo verbs, always available for a crate.
 fn cargo_tasks(_path: &Path) -> Vec<Task> {
     ["build", "test", "run", "check", "clippy"]
         .into_iter()
@@ -384,7 +384,7 @@ fn cargo_tasks(_path: &Path) -> Vec<Task> {
         .collect()
 }
 
-/// `Makefile` — each target line (`^name:`), skipping directives (`.PHONY` etc.)
+/// `Makefile` - each target line (`^name:`), skipping directives (`.PHONY` etc.)
 /// and duplicates. Light scan, no makefile grammar.
 fn make_tasks(path: &Path) -> Vec<Task> {
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -430,7 +430,7 @@ fn make_target(line: &str) -> Option<String> {
     Some(head.to_string())
 }
 
-/// `pyproject.toml` — console-script keys under `[project.scripts]` or
+/// `pyproject.toml` - console-script keys under `[project.scripts]` or
 /// `[tool.poetry.scripts]`; the command is the script name itself. Light line
 /// scan (no toml crate). Empty if neither table has entries.
 fn python_tasks(path: &Path) -> Vec<Task> {
@@ -489,7 +489,7 @@ fn quoted_file_name(path: &Path) -> String {
     format!("\"{name}\"")
 }
 
-/// Whether a path is a solution file — the `.sln` a project list lives in, or
+/// Whether a path is a solution file - the `.sln` a project list lives in, or
 /// its newer `.slnx` form.
 fn is_solution(path: &Path) -> bool {
     let Some(name) = path.file_name() else {
@@ -511,14 +511,14 @@ fn references_native_project(path: &Path) -> bool {
     text.to_ascii_lowercase().contains(NATIVE_PROJECT_EXTENSION)
 }
 
-/// `CMakeLists.txt` — configure into a `build/` tree, build it, run its tests.
+/// `CMakeLists.txt` - configure into a `build/` tree, build it, run its tests.
 /// Only a list that declares its own `project()` is a buildable root; the ones
 /// `add_subdirectory` pulls in are part of their parent's build, and offering
 /// to configure those would hand the user three commands that fail.
 ///
 /// Release reaches the two generator families at different moments: a
 /// single-config generator (Makefiles, Ninja) takes the build type at configure
-/// time, a multi-config one (Visual Studio) at build time — and each ignores the
+/// time, a multi-config one (Visual Studio) at build time - and each ignores the
 /// other's spelling, so both are offered. `ctest` needs the configuration named
 /// on a multi-config tree, or it finds no tests at all.
 fn cmake_tasks(path: &Path) -> Vec<Task> {
@@ -545,7 +545,7 @@ fn cmake_tasks(path: &Path) -> Vec<Task> {
     ]
 }
 
-/// `CMakePresets.json` / `CMakeUserPresets.json` — the configurations the
+/// `CMakePresets.json` / `CMakeUserPresets.json` - the configurations the
 /// project itself declares. A preset already carries its generator, build type
 /// and cache, so it is a truer "build this project" than the generic trio
 /// above. Hidden presets are the building blocks other presets inherit from,
@@ -583,7 +583,7 @@ fn cmake_preset_tasks(path: &Path) -> Vec<Task> {
     tasks
 }
 
-/// `meson.build` — set up a `build/` tree, compile it, run its tests. Same
+/// `meson.build` - set up a `build/` tree, compile it, run its tests. Same
 /// shape as `CMake`, including the rule that a `subdir()` child is not a root.
 fn meson_tasks(path: &Path) -> Vec<Task> {
     if !declares_project(path) {
@@ -597,7 +597,7 @@ fn meson_tasks(path: &Path) -> Vec<Task> {
 }
 
 /// Whether a `CMake` or `Meson` file declares its own `project(…)` outside a
-/// comment — both spell a build root the same way, are case-insensitive, and
+/// comment - both spell a build root the same way, are case-insensitive, and
 /// allow a space before the parenthesis.
 fn declares_project(path: &Path) -> bool {
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -619,7 +619,7 @@ fn text_declares_project(text: &str) -> bool {
         .any(|rest| rest.trim_start().starts_with('('))
 }
 
-/// A generated `build.ninja` — the build it describes, and its clean tool. It
+/// A generated `build.ninja` - the build it describes, and its clean tool. It
 /// usually sits in a build directory the scan prunes, so this surfaces only
 /// where a project keeps its ninja file in the tree.
 fn ninja_tasks(_path: &Path) -> Vec<Task> {
@@ -629,7 +629,7 @@ fn ninja_tasks(_path: &Path) -> Vec<Task> {
     ]
 }
 
-/// `MODULE.bazel` / `WORKSPACE` — the workspace-wide verbs. `//...` is every
+/// `MODULE.bazel` / `WORKSPACE` - the workspace-wide verbs. `//...` is every
 /// target in the workspace, which is what a workspace-level build means; `run`
 /// needs one named target, so it stays the user's to type.
 fn bazel_tasks(_path: &Path) -> Vec<Task> {
@@ -643,10 +643,10 @@ fn bazel_tasks(_path: &Path) -> Vec<Task> {
     .collect()
 }
 
-/// `xmake.lua` — xmake drives the whole cycle itself, and the build mode is its
+/// `xmake.lua` - xmake drives the whole cycle itself, and the build mode is its
 /// own step: `xmake f -m release` sticks until it is changed again. `-y` answers
 /// the package-install confirmation, which a project with `add_requires` stops
-/// on — a one-click task must never wedge waiting on stdin.
+/// on - a one-click task must never wedge waiting on stdin.
 fn xmake_tasks(_path: &Path) -> Vec<Task> {
     [
         ("build", "xmake build -y"),
@@ -660,7 +660,7 @@ fn xmake_tasks(_path: &Path) -> Vec<Task> {
     .collect()
 }
 
-/// `premake5.lua` — premake generates the real build files, so its tasks are
+/// `premake5.lua` - premake generates the real build files, so its tasks are
 /// the generators, one per toolchain worth offering on either platform. There is
 /// no `clean` action in premake5 (it was premake4's and was never ported), and
 /// `gmake2` is only a deprecated alias of `gmake` since 5.0-beta5.
@@ -674,7 +674,7 @@ fn premake_tasks(_path: &Path) -> Vec<Task> {
     .collect()
 }
 
-/// `SConstruct` — scons builds the default targets, and cleans with `-c`.
+/// `SConstruct` - scons builds the default targets, and cleans with `-c`.
 fn scons_tasks(_path: &Path) -> Vec<Task> {
     vec![
         task("build", "scons".to_string()),
@@ -683,7 +683,7 @@ fn scons_tasks(_path: &Path) -> Vec<Task> {
 }
 
 /// A Qt project file. `.pro` is a common extension outside Qt, so the file has
-/// to look like one first: qmake writes the makefile, and make builds it —
+/// to look like one first: qmake writes the makefile, and make builds it -
 /// `nmake` on Windows, where qmake targets MSVC.
 fn qmake_tasks(path: &Path) -> Vec<Task> {
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -702,7 +702,7 @@ fn qmake_tasks(path: &Path) -> Vec<Task> {
 
 /// What builds a qmake-generated makefile here. On Windows that depends on the
 /// Qt kit, not on the OS: MSVC's `nmake` lives in a developer prompt, while a
-/// MinGW kit ships `mingw32-make` — so ask PATH rather than assume, and fall
+/// MinGW kit ships `mingw32-make` - so ask PATH rather than assume, and fall
 /// back to the MSVC name it is normally built with.
 fn make_program() -> &'static str {
     if !cfg!(windows) {
@@ -732,7 +732,7 @@ fn looks_like_qmake_project(text: &str) -> bool {
     })
 }
 
-/// A solution or a `.csproj` / `.fsproj` / `.vbproj` — the standard `dotnet`
+/// A solution or a `.csproj` / `.fsproj` / `.vbproj` - the standard `dotnet`
 /// verbs against that one file, in both configurations. A solution has no
 /// single entry point to `run` or watch, and a solution of native C++ projects
 /// is `MSBuild`'s, not the SDK's.
@@ -769,7 +769,7 @@ fn dotnet_tasks(path: &Path) -> Vec<Task> {
     tasks
 }
 
-/// The verbs above, under the target names `MSBuild` answers them by — a project
+/// The verbs above, under the target names `MSBuild` answers them by - a project
 /// that overrides one of these is offering nothing the list does not have.
 const STANDARD_TARGETS: &[&str] = &[
     "build", "rebuild", "clean", "restore", "publish", "pack", "test", "run", "watch",
@@ -778,7 +778,7 @@ const STANDARD_TARGETS: &[&str] = &[
 /// The targets a project declares for itself, which are what a `.csproj` has
 /// instead of npm's scripts: `dotnet build <project> -t:<name>` runs one.
 ///
-/// Read out of the manifest itself — the file the panel already watches — and
+/// Read out of the manifest itself - the file the panel already watches - and
 /// deliberately NOT out of what it imports: the registry decides which files the
 /// frontend watches, and a `Directory.Build.targets` beside the project is not
 /// one of them, so a target read from there would be listed once and then never
@@ -792,8 +792,8 @@ fn declared_targets(path: &Path) -> Vec<String> {
 }
 
 /// The pure scan behind [`declared_targets`]: one project file's own entry
-/// points, in the order it declares them. A target is an entry point — something
-/// a person would click — unless it is internal (`_` by `MSBuild`'s own
+/// points, in the order it declares them. A target is an entry point - something
+/// a person would click - unless it is internal (`_` by `MSBuild`'s own
 /// convention), a hook that already runs as part of another build
 /// (`BeforeTargets` / `AfterTargets`), or a standard verb the group already
 /// offers.
@@ -918,7 +918,7 @@ fn msbuild_tasks(path: &Path) -> Vec<Task> {
     ]
 }
 
-/// `go.mod` — the module-wide verbs. `./...` is every package under the module,
+/// `go.mod` - the module-wide verbs. `./...` is every package under the module,
 /// which is what a module-level build or test means.
 fn go_tasks(_path: &Path) -> Vec<Task> {
     [
@@ -933,7 +933,7 @@ fn go_tasks(_path: &Path) -> Vec<Task> {
 }
 
 /// A build tool whose projects usually commit a wrapper script that pins the
-/// tool's version — the JVM pair. Running the wrapper is the point of shipping
+/// tool's version - the JVM pair. Running the wrapper is the point of shipping
 /// it, so it wins over whatever is on PATH.
 struct WrappedTool {
     windows_script: &'static str,
@@ -970,13 +970,13 @@ impl WrappedTool {
     }
 }
 
-/// `build.gradle` / `build.gradle.kts` — the lifecycle tasks every Gradle build
+/// `build.gradle` / `build.gradle.kts` - the lifecycle tasks every Gradle build
 /// has, whatever plugins it applies.
 fn gradle_tasks(path: &Path) -> Vec<Task> {
     tool_tasks(path, &GRADLE, &["build", "test", "clean"])
 }
 
-/// `pom.xml` — the Maven lifecycle phases a build always answers to.
+/// `pom.xml` - the Maven lifecycle phases a build always answers to.
 fn maven_tasks(path: &Path) -> Vec<Task> {
     tool_tasks(path, &MAVEN, &["compile", "test", "package", "clean"])
 }

@@ -1,6 +1,6 @@
 //! PTY host: runs agent CLIs unmodified in real pseudo-terminals.
 //!
-//! ToS-clean by construction — the ADE only reads a PTY's output stream and
+//! ToS-clean by construction - the ADE only reads a PTY's output stream and
 //! writes the user's keystrokes back in. It never scripts around the agent.
 //!
 //! Multi-session: each agent runs in its own PTY keyed by a session id, so the
@@ -31,23 +31,23 @@ pub struct Pty {
     master: Mutex<Box<dyn MasterPty + Send>>,
     writer: Mutex<Box<dyn Write + Send>>,
     /// The agent process itself. Held so that ending a session can end the
-    /// process — see `Drop`.
+    /// process - see `Drop`.
     child: Mutex<Box<dyn Child + Send + Sync>>,
     /// The command the spawn asked for (the agent's canonical name, e.g.
-    /// `claude`) — `None` when the spawn fell through to the default shell.
+    /// `claude`) - `None` when the spawn fell through to the default shell.
     /// Kept so `pty_list` can tell a reloaded frontend what each session runs.
     command: Option<String>,
-    /// The directory the session was spawned into — its workspace mapping.
+    /// The directory the session was spawned into - its workspace mapping.
     cwd: Option<String>,
-    /// Rolling, ANSI-stripped tail of this session's output — the context the
+    /// Rolling, ANSI-stripped tail of this session's output - the context the
     /// AI session-namer reads. Its own lock so the read thread never contends
     /// with the sessions map.
     transcript: Arc<Mutex<String>>,
     /// Everything the terminal would need to paint this session from scratch.
     /// A PTY has no scrollback of its own: whatever the frontend never received,
     /// or received and then threw away, is gone. So a terminal that attaches to a
-    /// session already in flight — a remounted component, a reloaded window, a
-    /// reopened tab — has nothing to draw and sits blank while the agent, quite
+    /// session already in flight - a remounted component, a reloaded window, a
+    /// reopened tab - has nothing to draw and sits blank while the agent, quite
     /// happily, waits for input. Keeping the raw stream is what lets it catch up.
     history: Arc<Mutex<History>>,
 }
@@ -56,8 +56,8 @@ impl Drop for Pty {
     /// Ending a session has to end its whole process *tree*. Dropping the PTY only
     /// hangs the child up, and a shell (or an agent mid-task) can outlive that.
     /// Worse, on Windows `Child::kill` terminates the immediate child alone, so
-    /// the agent's own descendants — the shell it runs under, a `node`, a tool it
-    /// spawned — survive and keep the working directory locked, and the workspace
+    /// the agent's own descendants - the shell it runs under, a `node`, a tool it
+    /// spawned - survive and keep the working directory locked, and the workspace
     /// can then be neither deleted nor moved ("used by another process", os error
     /// 32). Kill the tree first (while it's still walkable from the child), then
     /// reap the immediate child, so the folder is free the moment the session ends.
@@ -78,7 +78,7 @@ impl Drop for Pty {
 /// Terminate a process and every descendant it spawned. `Child::kill` reaches
 /// only the immediate child, so an agent's grandchildren live on and hold the
 /// workspace cwd; `taskkill /T` walks the tree from `process_id` and ends them all, `/F`
-/// forces it. Best-effort — a process already gone just makes this a no-op.
+/// forces it. Best-effort - a process already gone just makes this a no-op.
 /// Shelled out through `util::command` so it inherits `CREATE_NO_WINDOW`.
 #[cfg(windows)]
 fn kill_process_tree(process_id: u32) {
@@ -88,7 +88,7 @@ fn kill_process_tree(process_id: u32) {
 }
 
 /// One running process from a system snapshot: its id, its parent's id, and the
-/// command line it was launched with — the minimum needed to walk the tree and
+/// command line it was launched with - the minimum needed to walk the tree and
 /// recognise the task an agent started.
 #[derive(Debug, Clone)]
 struct ProcessInfo {
@@ -103,7 +103,7 @@ fn collapse_whitespace(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// A shell separator or quote — anything that is not part of a command token.
+/// A shell separator or quote - anything that is not part of a command token.
 fn is_command_boundary(character: char) -> bool {
     matches!(
         character,
@@ -111,7 +111,7 @@ fn is_command_boundary(character: char) -> bool {
     )
 }
 
-/// Whether `command_line` runs `command` as a whole token run — bounded on both
+/// Whether `command_line` runs `command` as a whole token run - bounded on both
 /// sides by a shell separator. A bounded substring match, so it fires when the
 /// shell wraps the command (`bash -c "pnpm dev"`, a `cd … &&` prefix, a redirect)
 /// yet never mistakes `pnpm dev` for a run of `pnpm dev:prod`.
@@ -140,7 +140,7 @@ fn command_matches(command_line: &str, command: &str) -> bool {
     false
 }
 
-/// The processes under `root` whose command line runs `command` — the subtree an
+/// The processes under `root` whose command line runs `command` - the subtree an
 /// agent spawned for a known task. Pure over a process snapshot so the tree-walk
 /// and match are unit-testable without enumerating the live system. `root` (the
 /// agent itself) is never included, so a Stop can never kill the agent.
@@ -213,7 +213,7 @@ fn snapshot_processes() -> Result<Vec<ProcessInfo>, String> {
 }
 
 /// Find and kill the subtree(s) an agent spawned for `command`, anywhere under its
-/// process `root`. Returns whether anything matched. Windows only — the snapshot
+/// process `root`. Returns whether anything matched. Windows only - the snapshot
 /// and the tree-kill both go through Windows tooling.
 #[cfg(windows)]
 fn stop_task_tree(root: u32, command: &str) -> Result<bool, String> {
@@ -232,7 +232,7 @@ fn stop_task_tree(_root: u32, _command: &str) -> Result<bool, String> {
 }
 
 /// Whether any process under `root` still runs `command`. Snapshot-and-match with
-/// no kill — the read half of [`stop_task_tree`], used to poll an attached task's
+/// no kill - the read half of [`stop_task_tree`], used to poll an attached task's
 /// liveness. Windows only.
 #[cfg(windows)]
 fn task_running(root: u32, command: &str) -> Result<bool, String> {
@@ -278,10 +278,10 @@ macro_rules! control_sequence {
     };
 }
 
-/// DEC private mode 1049 — the alternate screen. A program sets the mode (`h`)
+/// DEC private mode 1049 - the alternate screen. A program sets the mode (`h`)
 /// to take the screen over and resets it (`l`) to give it back. Wire constants
 /// shared with `Terminal.svelte`, which writes the enter sequence when
-/// replaying an alternate-screen history — the two sides must change together.
+/// replaying an alternate-screen history - the two sides must change together.
 const ENTER_ALTERNATE_SCREEN: &str = control_sequence!("?1049h");
 const LEAVE_ALTERNATE_SCREEN: &str = control_sequence!("?1049l");
 
@@ -293,11 +293,11 @@ const TRANSCRIPT_CAPACITY: usize = 16 * 1024;
 const CHILD_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// How much raw output to keep per session for replay. Bigger than the transcript
-/// because this is the unstripped stream — escape codes and repaints included.
+/// because this is the unstripped stream - escape codes and repaints included.
 const HISTORY_CAPACITY: usize = 512 * 1024;
 
 /// The event carrying a session's raw output chunk to its owning window. This name
-/// is the frontend contract (`src/lib/bridge.ts`) — the two sides must agree.
+/// is the frontend contract (`src/lib/bridge.ts`) - the two sides must agree.
 const PTY_DATA_EVENT: &str = "pty://data";
 
 /// The event announcing a session's process exited (EOF or read error).
@@ -410,8 +410,8 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
     }
 
     if buffer.data.len() - buffer.start > HISTORY_CAPACITY {
-        // Walk the cap overflow to a char boundary BEFORE slicing — landing inside
-        // a multibyte character would panic — then cut just past the first line
+        // Walk the cap overflow to a char boundary BEFORE slicing - landing inside
+        // a multibyte character would panic - then cut just past the first line
         // break so a replay starts on a whole line. A tail with no line break at
         // all is dropped entirely rather than replayed torn.
         let mut overflow = buffer.start + (buffer.data.len() - buffer.start - HISTORY_CAPACITY);
@@ -436,7 +436,7 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
 }
 
 /// Decode the completed UTF-8 prefix of `pending` and consume it, leaving an
-/// incomplete trailing character in place — a PTY read can split one across two
+/// incomplete trailing character in place - a PTY read can split one across two
 /// chunks, and decoding the halves separately would turn both into U+FFFD.
 /// Genuinely invalid bytes become one U+FFFD each and are consumed.
 fn drain_decoded(pending: &mut Vec<u8>) -> String {
@@ -472,7 +472,7 @@ fn drain_decoded(pending: &mut Vec<u8>) -> String {
 struct Chunk {
     id: String,
     data: String,
-    /// This chunk's position in the session's stream — see `History`.
+    /// This chunk's position in the session's stream - see `History`.
     seq: u64,
 }
 
@@ -496,8 +496,8 @@ struct Exit {
 /// environment that agent needs (the registry knows; this module doesn't).
 ///
 /// The command is exec'd by absolute path when we can find one. Left as a bare
-/// name it would be resolved by the PTY against *our* inherited PATH — the same
-/// stale copy that hides a freshly-installed agent from detection — so a CLI ADE
+/// name it would be resolved by the PTY against *our* inherited PATH - the same
+/// stale copy that hides a freshly-installed agent from detection - so a CLI ADE
 /// had just listed as available could fail to start. Unresolvable commands (a task
 /// runner, a shell) pass through untouched, for the PTY to resolve as before.
 fn build_command(
@@ -526,13 +526,13 @@ fn build_command(
     // or the Windows light-console wrapper below.
     let mut leading_args: Vec<String> = Vec::new();
     // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives it
-    // autonomously — no per-tool/edit approval stops. Empty for a shell or an
+    // autonomously - no per-tool/edit approval stops. Empty for a shell or an
     // unknown command.
     for arg in crate::agents::session_args(&program) {
         leading_args.push(arg.to_string());
     }
     // Per-scheme theme arguments for arg-themed CLIs (codex's global
-    // `-c tui.theme=…`), so the agent's TUI starts on ADE's current appearance —
+    // `-c tui.theme=…`), so the agent's TUI starts on ADE's current appearance -
     // see theming.rs. Interactive spawn path only; the oneshot `codex exec` renders
     // no TUI. A global option, so its order among the flags doesn't matter. Empty
     // for a shell, an unknown command, or an agent themed by file/env instead.
@@ -548,7 +548,7 @@ fn build_command(
         crate::running_model::attach(&program, conversation_id, model_choice, &mut leading_args);
     // Bind the session to ADE's stable conversation id (`--session-id <uuid>`), so a
     // later spawn with the same id resumes THIS conversation rather than the most
-    // recent — how ADE restarts one specific session (e.g. after `.mcp.json`
+    // recent - how ADE restarts one specific session (e.g. after `.mcp.json`
     // changed). Only for an agent whose CLI supports it; a shell/editor ignores it.
     if let (Some(flag), Some(conversation_id)) =
         (crate::agents::session_id_flag(&program), conversation_id)
@@ -562,7 +562,7 @@ fn build_command(
     // change (see agents.rs). The one lever is a child-side console write, so ADE
     // prefixes `cmd /c color F0 & …` to flip the buffer light before the agent
     // probes it. Applied at spawn: a later scheme flip won't recolor an
-    // already-running box (acceptable — every spawn-time theme signal works this
+    // already-running box (acceptable - every spawn-time theme signal works this
     // way). Every other case (dark scheme, non-Windows, agents that don't need it)
     // spawns the agent unchanged.
     let force_light_console = cfg!(target_os = "windows")
@@ -588,7 +588,7 @@ fn build_command(
         process.env(key, value);
     }
     // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the
-    // agent starts matching ADE's current appearance — see theming.rs.
+    // agent starts matching ADE's current appearance - see theming.rs.
     if let Some(scheme) = scheme {
         for (key, value) in crate::theming::spawn_env(&program, scheme) {
             process.env(key, value);
@@ -611,13 +611,13 @@ fn build_command(
     // but a CLI can't tell from inside a bare ConPTY: Ink/chalk/supports-color probe
     // for a colour-capable terminal (TERM, COLORTERM, an isatty check) and, finding a
     // Windows pseudoconsole that advertises none of them, fall back to MONOCHROME
-    // output — Claude Code's banner and every agent's colour go grey. These two are
+    // output - Claude Code's banner and every agent's colour go grey. These two are
     // the escape hatch supports-color honours: FORCE_COLOR pins the level regardless
     // of the isatty result, COLORTERM names truecolor so 24-bit SGR is emitted.
     process.env("FORCE_COLOR", "3");
     process.env("COLORTERM", "truecolor");
     // Claude Code stamps every subprocess it spawns with CLAUDE_CODE_CHILD_SESSION,
-    // and a bare `ConPTY` forwards it verbatim — so when ADE is itself launched from
+    // and a bare `ConPTY` forwards it verbatim - so when ADE is itself launched from
     // inside a Claude Code session, the agent ADE spawns inherits the marker, reads
     // itself as a nested child, and disables transcript saving (no --resume, no
     // history). An agent ADE launches is always its own top-level session, so ADE
@@ -632,7 +632,7 @@ fn build_command(
 }
 
 /// Wrap `executable` + `arguments` as `cmd /c color F0 & <executable> <arguments…>` so the `ConPTY` console
-/// buffer reads as a light background *before* the launched agent probes it — ADE's
+/// buffer reads as a light background *before* the launched agent probes it - ADE's
 /// Windows fix for Codex's terminal-background-derived composer box (see
 /// `build_command` and `agents::needs_light_console_fix`). `color F0` sets the
 /// buffer to black-on-white, which `GetConsoleScreenBufferInfoEx` (the probe's
@@ -640,7 +640,7 @@ fn build_command(
 ///
 /// Each token is a *separate* argv entry on purpose: portable-pty quotes each with
 /// standard Windows (`CommandLineToArgvW`) rules, which for tokens without embedded
-/// quotes is exactly what `cmd.exe` parses — a spaced exe path becomes one `"…"`
+/// quotes is exactly what `cmd.exe` parses - a spaced exe path becomes one `"…"`
 /// token, and the bare `&` stays cmd's command separator. Building one pre-quoted
 /// shell string instead would be double-escaped by portable-pty and mis-parsed by
 /// cmd.
@@ -667,7 +667,7 @@ fn open_pty(rows: u16, columns: u16) -> Result<PtyPair, String> {
 }
 
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
-// these are Tauri-injected (app, state), not caller-supplied — grouping them
+// these are Tauri-injected (app, state), not caller-supplied - grouping them
 // would only obscure the IPC shape the frontend sends.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
@@ -734,7 +734,7 @@ pub async fn pty_spawn(
     let spawn_cwd = dir.as_ref().map(|path| path.to_string_lossy().into_owned());
 
     // Remembered on the session so `pty_list` can report what it runs and where
-    // — the roster a reloaded frontend re-attaches its panes against.
+    // - the roster a reloaded frontend re-attaches its panes against.
     let spawn_command = command.clone();
     let mut process = build_command(
         command,
@@ -797,7 +797,7 @@ pub async fn pty_spawn(
     // can't be relied on for that: on Windows the ConPTY host (conhost) keeps
     // the master pipe open after the child dies, so the read blocks forever, no
     // exit ever reaches the frontend, and the dead session's conhost lingers.
-    // Poll the child instead; once it has exited, drop the session — that closes
+    // Poll the child instead; once it has exited, drop the session - that closes
     // the ConPTY, which EOFs the reader, whose existing end-of-pump emit is the
     // one authoritative source of `pty://exit` (DRY). A hand-closed session
     // (`pty_kill`) is already out of the map, which ends this thread too.
@@ -839,7 +839,7 @@ fn spawn_session_output_pump(
                         },
                     );
                 }
-                // EOF (agent exited) or a read error — end the pump.
+                // EOF (agent exited) or a read error - end the pump.
                 _ => break,
             }
         }
@@ -892,7 +892,7 @@ fn spawn_session_exit_monitor(app: AppHandle, id: String) {
     });
 }
 
-/// One live PTY session as `pty_list` reports it: what it runs (`command` — the
+/// One live PTY session as `pty_list` reports it: what it runs (`command` - the
 /// spawn request's agent name, `None` for the default-shell fallback) and where
 /// (`cwd`). Deliberately no idleness signal: the frontend's session-status
 /// store (the output-quiet detector) is the one authority on idle, and a second
@@ -905,7 +905,7 @@ pub struct SessionInfo {
     cwd: Option<String>,
 }
 
-/// Every session the backend still hosts — the roster a reloaded frontend
+/// Every session the backend still hosts - the roster a reloaded frontend
 /// intersects its persisted pane mapping with to re-attach instead of booting
 /// blind (the accidental-reload incident: live PTYs kept running invisibly with
 /// no way back). A listed session is alive by construction: the reaper drops a
@@ -930,7 +930,7 @@ pub fn pty_list(window: WebviewWindow, state: State<PtyState>) -> Vec<SessionInf
 }
 
 /// Everything a terminal needs to paint a session it is attaching to mid-flight,
-/// plus the sequence number of the last chunk already inside it — so a frontend that
+/// plus the sequence number of the last chunk already inside it - so a frontend that
 /// was listening while it asked can tell which chunks it caught are duplicates and
 /// which are genuinely new. Empty for an unknown session.
 #[tauri::command]
@@ -1068,7 +1068,7 @@ pub async fn pty_kill(
 }
 
 /// The agent session's root PID, owner-checked. `None` when the session is gone or
-/// has no live process — a caller treats that as "nothing to stop / not running".
+/// has no live process - a caller treats that as "nothing to stop / not running".
 /// Resolves under the registry lock and releases it (plus the child lock) before
 /// returning, so the caller's blocking process work never holds either.
 fn session_root_pid(state: &PtyState, owner: &str, id: &str) -> Result<Option<u32>, String> {
@@ -1080,7 +1080,7 @@ fn session_root_pid(state: &PtyState, owner: &str, id: &str) -> Result<Option<u3
 }
 
 /// Stop a known task an agent started from the Tasks list. PADE never spawned the
-/// process — the agent ran it in its own PTY — so this locates the matching
+/// process - the agent ran it in its own PTY - so this locates the matching
 /// subtree under the agent's own process tree and kills it. Agent-agnostic: it
 /// keys on the OS process tree and the task command, nothing agent-specific.
 /// Returns whether a matching process was found and killed.
@@ -1100,7 +1100,7 @@ pub async fn session_task_stop(
         .map_err(|error| error.to_string())?
 }
 
-/// Whether a known task the agent started is still running — a live process under
+/// Whether a known task the agent started is still running - a live process under
 /// the agent's tree whose command line runs `command`. Lets an attached runner
 /// reflect a task that outlives the agent's turn (a dev server) and drop itself
 /// once the process exits, without PADE ever having owned it.
@@ -1129,7 +1129,7 @@ fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>
     }
 }
 
-/// Terminate every live session — called as the app exits so no agent lingers
+/// Terminate every live session - called as the app exits so no agent lingers
 /// after the window is gone and every workspace cwd-lock is freed.
 pub fn kill_all(state: &PtyState) {
     if let Ok(mut sessions) = state.0.lock() {
@@ -1209,7 +1209,7 @@ mod tests {
 
     /// The Windows light-console wrapper must lead with `cmd /c color F0 &`, keep
     /// the agent's absolute path as ONE argv token even with spaces, and preserve
-    /// every following arg verbatim — this is the quoting-risk surface the fix
+    /// every following arg verbatim - this is the quoting-risk surface the fix
     /// rides on.
     #[test]
     fn light_console_command_round_trips_the_path_and_args() {
@@ -1240,7 +1240,7 @@ mod tests {
             ]
         );
         // The spaced path is a single token (portable-pty quotes it at spawn), not
-        // split — the whole point of separate argv entries.
+        // split - the whole point of separate argv entries.
         assert!(assembled.contains(&executable.to_string()));
     }
 
@@ -1313,7 +1313,7 @@ mod tests {
     #[test]
     fn trimming_never_slices_inside_a_multibyte_character() {
         // Overflow the cap so the cut position lands inside the run of
-        // multibyte characters — slicing there would panic before the fix.
+        // multibyte characters - slicing there would panic before the fix.
         let multibyte = "é".repeat(HISTORY_CAPACITY / 2);
         let (history, _) = history_with(&[multibyte.as_str(), multibyte.as_str()]);
         let (data, _) = snapshot(&history);
