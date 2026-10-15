@@ -488,7 +488,7 @@ export const members = {
  *  deleted outside PADE - so the list can catch up on its own. */
 export const dirs = {
   watch: (paths: string[]) => run("watch_dirs", { dirs: paths }),
-  onChange: (callback: () => void) => on("dirs://changed", z.null(), () => callback())
+  onChange: (callback: () => void) => on("directories://changed",z.null(), () => callback())
 };
 
 /** Native OS drag-and-drop onto the window. Tauri intercepts the webview's
