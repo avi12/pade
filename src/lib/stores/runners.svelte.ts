@@ -25,7 +25,7 @@ interface RunnerLine {
   stream: RunnerStream;
 }
 
-interface RunnerRow {
+export interface RunnerRow {
   id: string;
   /** The backend process id for the current run. A re-run spawns under a fresh
    * one so a stale exit event from the replaced process can never mark the new
