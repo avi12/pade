@@ -17,7 +17,11 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-static COUNTER: AtomicU64 = AtomicU64::new(0);
+static CHANGE_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+/// How long after one event for a path its next one is dropped: editors emit a
+/// burst of events per save.
+const SAVE_BURST_DEBOUNCE: Duration = Duration::from_millis(150);
 
 /// The Change Feed's live watcher plus the root it is armed on. The root is what
 /// lets `watch_start` detect a project switch and re-arm; the watcher handle is
@@ -120,10 +124,11 @@ pub fn release_watches_under(app: &AppHandle, folder: &Path) {
         return;
     };
     let state = app.state::<WatcherState>();
-    let watches: Vec<Arc<WindowWatch>> = match state.windows.lock() {
-        Ok(windows) => windows.values().cloned().collect(),
-        Err(_) => return,
+    let Ok(windows) = state.windows.lock() else {
+        return;
     };
+    let watches: Vec<Arc<WindowWatch>> = windows.values().cloned().collect();
+    drop(windows);
     for watch in watches {
         let is_inside = canonical_watch_root(&watch).is_some_and(|root| root.starts_with(&folder));
         if !is_inside {
@@ -164,9 +169,10 @@ fn prune_closed_windows(app: &AppHandle, state: &WatcherState) {
     }
 }
 
-/// The kind of filesystem change, in the exact wire strings the frontend reads.
-/// One authoritative home for the `"created"`/`"modified"`/`"deleted"` literals.
-#[derive(Clone, Copy)]
+/// The kind of filesystem change. Serializes to the exact lowercase wire
+/// strings the frontend reads - the one authoritative home for those literals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 enum ChangeKind {
     Created,
     Modified,
@@ -183,15 +189,6 @@ impl ChangeKind {
             _ => None,
         }
     }
-
-    /// The serialized string for this kind - the only place the literals live.
-    fn as_str(self) -> &'static str {
-        match self {
-            ChangeKind::Created => "created",
-            ChangeKind::Modified => "modified",
-            ChangeKind::Deleted => "deleted",
-        }
-    }
 }
 
 #[derive(Serialize, Clone)]
@@ -199,7 +196,7 @@ impl ChangeKind {
 struct ChangeEvent {
     id: String,
     path: String,
-    kind: String,
+    kind: ChangeKind,
     added: usize,
     removed: usize,
     summary: String,
@@ -208,10 +205,10 @@ struct ChangeEvent {
 
 /// The git metadata entry a workspace gains when `git init` runs - the one
 /// authoritative spelling of the `.git` name.
-const GIT_DIR_NAME: &str = ".git";
+const GIT_DIRECTORY_NAME: &str = ".git";
 
-const IGNORED: &[&str] = &[
-    GIT_DIR_NAME,
+const ALWAYS_IGNORED_DIRECTORIES: &[&str] = &[
+    GIT_DIRECTORY_NAME,
     "node_modules",
     "target",
     "dist",
@@ -221,13 +218,13 @@ const IGNORED: &[&str] = &[
     ".vite",
 ];
 
-fn ignored(path: &Path) -> bool {
-    path_component_matches(path, |name| IGNORED.contains(&name))
+fn is_always_ignored(path: &Path) -> bool {
+    path_component_matches(path, |name| ALWAYS_IGNORED_DIRECTORIES.contains(&name))
 }
 
 /// Whether any component of `path` names an ignored directory, decided by the
 /// `is_ignored_name` predicate. One authoritative component scan shared by the
-/// always-on baseline [`ignored`] pre-filter (against the [`IGNORED`] slice) and
+/// always-on baseline [`ignored`] pre-filter (against the [`ALWAYS_IGNORED_DIRECTORIES`] slice) and
 /// static-mode exclusion (against a tech-inferred [`HashSet`]).
 fn path_component_matches(path: &Path, is_ignored_name: impl Fn(&str) -> bool) -> bool {
     path.components()
@@ -235,9 +232,9 @@ fn path_component_matches(path: &Path, is_ignored_name: impl Fn(&str) -> bool) -
         .any(is_ignored_name)
 }
 
-/// Static-mode exclusion: whether `path` lies under any directory named in `dirs`.
-fn ignored_by_static_dirs(path: &Path, dirs: &HashSet<String>) -> bool {
-    path_component_matches(path, |name| dirs.contains(name))
+/// Static-mode exclusion: whether `path` lies under any directory named in `directories`.
+fn is_under_static_ignore_directory(path: &Path, directories: &HashSet<String>) -> bool {
+    path_component_matches(path, |name| directories.contains(name))
 }
 
 /// How the Change Feed decides a path is "ignored", fixed once per watch root by
@@ -248,7 +245,7 @@ fn ignored_by_static_dirs(path: &Path, dirs: &HashSet<String>) -> bool {
 /// and negation rules - exactly what the user's git already ignores, rather than a
 /// brittle hand-rolled parse. A folder that is not a git repo has none of those
 /// tools, so it falls back to a set of directory names inferred from the manifest
-/// files at the root (see [`manifest_ignore_dirs`]) unioned with the [`IGNORED`]
+/// files at the root (see [`manifest_ignore_directories`]) unioned with the [`ALWAYS_IGNORED_DIRECTORIES`]
 /// baseline - plus the root `.gitignore`'s own rules when the folder has one (a
 /// scaffolded project knows what it will generate before its `git init` runs).
 ///
@@ -263,7 +260,7 @@ enum IgnorePolicy {
     /// these tech-inferred directories, or that the root `.gitignore` ignores.
     Static {
         root: PathBuf,
-        dirs: HashSet<String>,
+        directories: HashSet<String>,
         rules: crate::gitignore::Rules,
     },
 }
@@ -394,7 +391,7 @@ fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &P
 /// per-ecosystem generated directory. Matched by exact file name, or by extension
 /// for the .NET project/solution manifests. Returns an empty slice for a file that
 /// implies nothing.
-fn manifest_ignore_dirs(file_name: &str) -> &'static [&'static str] {
+fn manifest_ignore_directories(file_name: &str) -> &'static [&'static str] {
     const NODE: &[&str] = &[
         "node_modules",
         "dist",
@@ -447,25 +444,28 @@ fn manifest_ignore_dirs(file_name: &str) -> &'static [&'static str] {
     }
 }
 
-/// The set of directory names to exclude in static mode: the [`IGNORED`] baseline
+/// The set of directory names to exclude in static mode: the [`ALWAYS_IGNORED_DIRECTORIES`] baseline
 /// (so static mode is never weaker than the always-on pre-filter) unioned with the
 /// ignore directories implied by every manifest file sitting directly in `root`.
 /// One cheap one-level directory scan, run once per `watch_start`.
-fn static_ignore_dirs(root: &Path) -> HashSet<String> {
-    let mut dirs: HashSet<String> = IGNORED.iter().map(|&name| name.to_string()).collect();
+fn static_ignore_directories(root: &Path) -> HashSet<String> {
+    let mut directories: HashSet<String> = ALWAYS_IGNORED_DIRECTORIES
+        .iter()
+        .map(|&name| name.to_string())
+        .collect();
     let Ok(entries) = std::fs::read_dir(root) else {
-        return dirs;
+        return directories;
     };
     for entry in entries.flatten() {
         let file_name = entry.file_name();
         let Some(name) = file_name.to_str() else {
             continue;
         };
-        for &directory in manifest_ignore_dirs(name) {
-            dirs.insert(directory.to_string());
+        for &directory in manifest_ignore_directories(name) {
+            directories.insert(directory.to_string());
         }
     }
-    dirs
+    directories
 }
 
 fn is_gitignore_file(path: &Path) -> bool {
@@ -488,7 +488,7 @@ fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
         .unwrap_or_default();
     IgnorePolicy::Static {
         root: root.to_path_buf(),
-        dirs: static_ignore_dirs(root),
+        directories: static_ignore_directories(root),
         rules,
     }
 }
@@ -524,16 +524,21 @@ fn refresh_ignore_policy(app: &AppHandle, watch: &WindowWatch, label: &str) {
 /// `watch_start` to the static tech-inference fallback instead. Runs git against
 /// `root` (not PADE's process cwd) so it reflects the watched project.
 fn is_git_work_tree(root: &Path) -> bool {
-    let Ok(output) = crate::util::command("git")
-        .arg("-C")
-        .arg(root)
-        .arg("rev-parse")
-        .arg("--is-inside-work-tree")
+    let Ok(output) = git_in(root)
+        .args(["rev-parse", "--is-inside-work-tree"])
         .output()
     else {
         return false;
     };
     output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true"
+}
+
+/// A `git -C <root>` command: every git query here runs against the watched
+/// project, never PADE's process cwd.
+fn git_in(root: &Path) -> std::process::Command {
+    let mut command = crate::util::command("git");
+    command.arg("-C").arg(root);
+    command
 }
 
 /// Whether the watch root's ignore policy excludes `path` from the Change Feed.
@@ -548,8 +553,13 @@ fn excluded_by_ignore_policy(watch: &WindowWatch, path: &Path) -> bool {
         };
         match guard.as_ref() {
             None => return false,
-            Some(IgnorePolicy::Static { root, dirs, rules }) => {
-                return ignored_by_static_dirs(path, dirs) || gitignore_excludes(root, rules, path);
+            Some(IgnorePolicy::Static {
+                root,
+                directories,
+                rules,
+            }) => {
+                return is_under_static_ignore_directory(path, directories)
+                    || gitignore_excludes(root, rules, path);
             }
             Some(IgnorePolicy::Git { root }) => root.clone(),
         }
@@ -596,12 +606,8 @@ fn git_excludes_path(watch: &WindowWatch, root: &Path, path: &Path) -> bool {
 /// spawn failure resolves to `false` so a fault never hides a real change. Scoped to
 /// `root` via `-C`, never PADE's process cwd.
 fn git_check_ignore(root: &Path, path: &Path) -> bool {
-    let Ok(output) = crate::util::command("git")
-        .arg("-C")
-        .arg(root)
-        .arg("check-ignore")
-        .arg("-q")
-        .arg("--")
+    let Ok(output) = git_in(root)
+        .args(["check-ignore", "-q", "--"])
         .arg(path)
         .output()
     else {
@@ -649,7 +655,7 @@ fn line_delta(old: Option<usize>, new: Option<usize>) -> (usize, usize) {
     }
 }
 
-fn now_ms() -> u128 {
+fn now_milliseconds() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_millis())
@@ -869,7 +875,7 @@ pub async fn watch_start(
     *guard = Some(ProjectWatcher {
         root,
         canonical_root,
-        armed_at: now_ms(),
+        armed_at: now_milliseconds(),
         _watcher: watcher,
     });
     Ok(())
@@ -904,7 +910,7 @@ enum GitStateMessage {
     StateTouched,
     /// A `.git` entry appeared or disappeared, so the watcher must switch
     /// between the root sentinel and the repo's state directories.
-    GitDirChanged,
+    GitDirectoryChanged,
     /// A `.gitignore` in an ANCESTOR of the watch root was touched (the
     /// recursive feed watch only sees the root's own subtree, but a workspace
     /// deeper than the repo toplevel inherits every ancestor's rules) - the
@@ -932,13 +938,13 @@ fn is_git_state_file(path: &Path) -> bool {
 }
 
 /// Whether `path` names a `.git` entry (the thing `git init` creates).
-fn is_git_dir_entry(path: &Path) -> bool {
-    path.file_name().and_then(|name| name.to_str()) == Some(GIT_DIR_NAME)
+fn is_git_directory_entry(path: &Path) -> bool {
+    path.file_name().and_then(|name| name.to_str()) == Some(GIT_DIRECTORY_NAME)
 }
 
-fn git_dir_lifecycle_changed(kind: EventKind, paths: &[PathBuf]) -> bool {
+fn git_directory_lifecycle_changed(kind: EventKind, paths: &[PathBuf]) -> bool {
     matches!(kind, EventKind::Create(_) | EventKind::Remove(_))
-        && paths.iter().any(|path| is_git_dir_entry(path))
+        && paths.iter().any(|path| is_git_directory_entry(path))
 }
 
 /// The directories holding the workspace's `HEAD` and `config`, each to be
@@ -947,25 +953,23 @@ fn git_dir_lifecycle_changed(kind: EventKind, paths: &[PathBuf]) -> bool {
 /// elsewhere: `HEAD` sits in the resolved git dir and `config` in the common
 /// dir, so both are watched (deduplicated when they coincide). Empty when the
 /// workspace has no git yet.
-fn git_state_dirs(root: &Path) -> Vec<PathBuf> {
-    let git_entry = root.join(GIT_DIR_NAME);
+fn git_state_directories(root: &Path) -> Vec<PathBuf> {
+    let git_entry = root.join(GIT_DIRECTORY_NAME);
     if git_entry.is_dir() {
         return vec![git_entry];
     }
     if !git_entry.is_file() {
         return Vec::new();
     }
-    resolved_git_dirs(root)
+    resolved_git_directories(root)
 }
 
 /// Ask git where a `.git`-file workspace's real git dir and common dir live
 /// (`--path-format=absolute` keeps both absolute regardless of git's cwd). Any
 /// failure resolves to no dirs - the state watcher then stays quiet rather than
 /// watching a guessed location.
-fn resolved_git_dirs(root: &Path) -> Vec<PathBuf> {
-    let Ok(output) = crate::util::command("git")
-        .arg("-C")
-        .arg(root)
+fn resolved_git_directories(root: &Path) -> Vec<PathBuf> {
+    let Ok(output) = git_in(root)
         .args([
             "rev-parse",
             "--path-format=absolute",
@@ -979,23 +983,23 @@ fn resolved_git_dirs(root: &Path) -> Vec<PathBuf> {
     if !output.status.success() {
         return Vec::new();
     }
-    unique_dirs(String::from_utf8_lossy(&output.stdout).lines())
+    unique_directories(String::from_utf8_lossy(&output.stdout).lines())
 }
 
 /// Distinct, order-preserving directories from git's line-per-dir output.
-fn unique_dirs<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> {
-    let mut dirs: Vec<PathBuf> = Vec::new();
+fn unique_directories<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> {
+    let mut directories: Vec<PathBuf> = Vec::new();
     for line in lines {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
-        let dir = PathBuf::from(trimmed);
-        if !dirs.contains(&dir) {
-            dirs.push(dir);
+        let directory = PathBuf::from(trimmed);
+        if !directories.contains(&directory) {
+            directories.push(directory);
         }
     }
-    dirs
+    directories
 }
 
 /// Arm (or re-arm) the live-git-state watch for `root`, replacing any previous
@@ -1026,12 +1030,17 @@ fn rearm_git_state_locked(
     // watcher reporting another root's repo.
     *slot = None;
 
-    let dirs = git_state_dirs(root);
+    let directories = git_state_directories(root);
     let (sender, receiver) = channel::<GitStateMessage>();
-    let armed = if dirs.is_empty() {
+    let armed = if directories.is_empty() {
         watch_for_git_init(root, sender)
     } else {
-        watch_git_state(root, &dirs, &gitignore_ancestor_dirs(root), sender)
+        watch_git_state(
+            root,
+            &directories,
+            &gitignore_ancestor_directories(root),
+            sender,
+        )
     };
     let Ok(watcher) = armed else {
         return;
@@ -1051,9 +1060,9 @@ fn watch_for_git_init(
 ) -> notify::Result<RecommendedWatcher> {
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
         let Ok(event) = result else { return };
-        let git_dir_appeared = git_dir_lifecycle_changed(event.kind, &event.paths);
-        if git_dir_appeared {
-            let _ = sender.send(GitStateMessage::GitDirChanged);
+        let git_directory_appeared = git_directory_lifecycle_changed(event.kind, &event.paths);
+        if git_directory_appeared {
+            let _ = sender.send(GitStateMessage::GitDirectoryChanged);
         }
     })?;
     watcher.watch(root, RecursiveMode::NonRecursive)?;
@@ -1069,8 +1078,8 @@ fn watch_for_git_init(
 /// `FETCH_HEAD`, sibling files, …) before they cost anything.
 fn watch_git_state(
     root: &Path,
-    dirs: &[PathBuf],
-    ancestor_dirs: &[PathBuf],
+    directories: &[PathBuf],
+    ancestor_directories: &[PathBuf],
     sender: Sender<GitStateMessage>,
 ) -> notify::Result<RecommendedWatcher> {
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
@@ -1081,16 +1090,16 @@ fn watch_git_state(
         if event.paths.iter().any(|path| is_gitignore_file(path)) {
             let _ = sender.send(GitStateMessage::IgnoreRulesTouched);
         }
-        if git_dir_lifecycle_changed(event.kind, &event.paths) {
-            let _ = sender.send(GitStateMessage::GitDirChanged);
+        if git_directory_lifecycle_changed(event.kind, &event.paths) {
+            let _ = sender.send(GitStateMessage::GitDirectoryChanged);
         }
     })?;
-    for dir in dirs {
-        watcher.watch(dir, RecursiveMode::NonRecursive)?;
+    for directory in directories {
+        watcher.watch(directory, RecursiveMode::NonRecursive)?;
     }
-    for dir in ancestor_dirs {
+    for directory in ancestor_directories {
         // Best-effort: an unwatchable ancestor only costs its rules' liveness.
-        let _ = watcher.watch(dir, RecursiveMode::NonRecursive);
+        let _ = watcher.watch(directory, RecursiveMode::NonRecursive);
     }
     watcher.watch(root, RecursiveMode::NonRecursive)?;
     Ok(watcher)
@@ -1100,7 +1109,7 @@ fn watch_git_state(
 /// dirs included, the root itself excluded - its own subtree is already
 /// watched recursively) whose `.gitignore` files apply to the workspace. Empty
 /// when the root IS the toplevel, or when there is no repo.
-fn gitignore_ancestor_dirs(root: &Path) -> Vec<PathBuf> {
+fn gitignore_ancestor_directories(root: &Path) -> Vec<PathBuf> {
     let Some(toplevel) = repo_toplevel(root) else {
         return Vec::new();
     };
@@ -1114,9 +1123,7 @@ fn gitignore_ancestor_dirs(root: &Path) -> Vec<PathBuf> {
 /// The repo work-tree toplevel for `root`, normalized to native components
 /// (git prints forward slashes on Windows). `None` outside a repo.
 fn repo_toplevel(root: &Path) -> Option<PathBuf> {
-    let output = crate::util::command("git")
-        .arg("-C")
-        .arg(root)
+    let output = git_in(root)
         .args(["rev-parse", "--show-toplevel"])
         .output()
         .ok()?;
@@ -1200,7 +1207,7 @@ fn drain_burst(
     let mut burst = GitStateBurst::default();
     let mut fold = |message: GitStateMessage| match message {
         GitStateMessage::StateTouched => burst.state_touched = true,
-        GitStateMessage::GitDirChanged => burst.rearm = true,
+        GitStateMessage::GitDirectoryChanged => burst.rearm = true,
         GitStateMessage::IgnoreRulesTouched => burst.ignore_touched = true,
     };
     fold(first);
@@ -1213,7 +1220,7 @@ fn drain_burst(
 /// Announces that a picker-watched folder's contents changed (a project row
 /// appeared or disappeared). Payload-free. This name is the frontend contract
 /// (`src/lib/bridge.ts`).
-const DIRS_CHANGED_EVENT: &str = "dirs://changed";
+const DIRECTORIES_CHANGED_EVENT: &str = "directories://changed";
 
 /// Watch a set of folders (non-recursively) and report when anything inside one
 /// appears or disappears - the project picker's eyes. It hands over the *parents*
@@ -1245,15 +1252,15 @@ pub async fn watch_dirs(
         // project are the Change Feed's business, not the picker's. Routed to the
         // owning window alone so a sibling's picker doesn't rescan on our news.
         if matches!(event.kind, EventKind::Create(_) | EventKind::Remove(_)) {
-            let _ = app_handle.emit_to(&callback_label, DIRS_CHANGED_EVENT, ());
+            let _ = app_handle.emit_to(&callback_label, DIRECTORIES_CHANGED_EVENT, ());
         }
     })
     .map_err(|e| e.to_string())?;
 
-    for dir in dirs {
+    for directory in dirs {
         // A folder that is already gone isn't an error - that's precisely the news
         // the caller is listening for, and the next re-arm won't ask for it again.
-        let _ = watcher.watch(Path::new(&dir), RecursiveMode::NonRecursive);
+        let _ = watcher.watch(Path::new(&directory), RecursiveMode::NonRecursive);
     }
 
     guard.insert(label, watcher);
@@ -1281,7 +1288,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
     });
 
     for path in event.paths {
-        if ignored(&path) {
+        if is_always_ignored(&path) {
             watch.ignored.fetch_add(1, Ordering::Relaxed);
             continue;
         }
@@ -1340,7 +1347,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             let now = Instant::now();
             let within_debounce = seen
                 .get(&path)
-                .is_some_and(|previous| now.duration_since(*previous) < Duration::from_millis(150));
+                .is_some_and(|previous| now.duration_since(*previous) < SAVE_BURST_DEBOUNCE);
             if within_debounce {
                 continue;
             }
@@ -1384,16 +1391,20 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             delta
         };
 
-        let path_string = path.to_string_lossy().to_string();
-        let id = format!("{}-{}", now_ms(), COUNTER.fetch_add(1, Ordering::Relaxed));
+        let path_string = path.to_string_lossy().into_owned();
+        let id = format!(
+            "{}-{}",
+            now_milliseconds(),
+            CHANGE_EVENT_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        );
         let event = ChangeEvent {
             id,
             summary: summarize(kind, added, removed),
             path: path_string,
-            kind: kind.as_str().to_string(),
+            kind,
             added,
             removed,
-            ts: now_ms(),
+            ts: now_milliseconds(),
         };
         watch.surfaced.fetch_add(1, Ordering::Relaxed);
         let _ = app.emit_to(label, FEED_CHANGE_EVENT, event);
@@ -1403,7 +1414,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
 /// What this window's Change Feed watch is doing right now - the panel states it
 /// verbatim when the feed is empty, so "nothing has changed yet" is never
 /// mistaken for "nothing is being watched".
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WatchStatus {
     /// The root the watch is armed on; `None` when this window has no live watch.
@@ -1422,12 +1433,7 @@ pub struct WatchStatus {
 #[tauri::command]
 pub fn watch_status(window: WebviewWindow, state: State<'_, WatcherState>) -> WatchStatus {
     let Some(watch) = window_watch(&state, window.label()) else {
-        return WatchStatus {
-            root: None,
-            armed_at: None,
-            surfaced: 0,
-            ignored: 0,
-        };
+        return WatchStatus::default();
     };
     let armed = watch.watcher.lock().ok().and_then(|guard| {
         guard
@@ -1542,10 +1548,9 @@ const IMAGE_MIME_TYPES: &[(&str, &str)] = &[
 /// preview, else `None`. Case-insensitive on the extension.
 fn image_mime_type(path: &Path) -> Option<&'static str> {
     let extension = path.extension().and_then(|name| name.to_str())?;
-    let lowercased = extension.to_ascii_lowercase();
     IMAGE_MIME_TYPES
         .iter()
-        .find(|(name, _)| *name == lowercased)
+        .find(|(name, _)| name.eq_ignore_ascii_case(extension))
         .map(|(_, mime)| *mime)
 }
 
@@ -1708,7 +1713,7 @@ pub async fn feed_ignored(
         .into_iter()
         .filter(|candidate| {
             let path = Path::new(candidate);
-            ignored(path)
+            is_always_ignored(path)
                 || watch
                     .as_ref()
                     .is_some_and(|watch| excluded_by_ignore_policy(watch, path))
@@ -1723,11 +1728,12 @@ pub fn init(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::{
-        base64_encode, drain_burst, git_dir_lifecycle_changed, git_state_dirs,
-        ignored_by_static_dirs, image_mime_type, is_git_dir_entry, is_git_state_file, line_count,
-        line_delta, manifest_ignore_dirs, mcp_membership_changed, read_authorized_file,
-        read_preview_text, reclassify, resolve_watch_root, static_ignore_dirs, summarize, surfaces,
-        unique_dirs, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
+        base64_encode, drain_burst, git_directory_lifecycle_changed, git_state_directories,
+        image_mime_type, is_git_directory_entry, is_git_state_file,
+        is_under_static_ignore_directory, line_count, line_delta, manifest_ignore_directories,
+        mcp_membership_changed, read_authorized_file, read_preview_text, reclassify,
+        resolve_watch_root, static_ignore_directories, summarize, surfaces, unique_directories,
+        ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
     use crate::test_support::assert_empty;
     use std::collections::HashSet;
@@ -1744,6 +1750,19 @@ mod tests {
         assert_eq!(summarize(ChangeKind::Modified, 1, 0), "Grew by 1 line");
         assert_eq!(summarize(ChangeKind::Modified, 0, 3), "Trimmed 3 lines");
         assert_eq!(summarize(ChangeKind::Modified, 5, 2), "Edited");
+    }
+
+    #[test]
+    fn change_kinds_serialize_to_the_lowercase_wire_strings() {
+        let kinds = [
+            ChangeKind::Created,
+            ChangeKind::Modified,
+            ChangeKind::Deleted,
+        ];
+        assert_eq!(
+            serde_json::to_string(&kinds).expect("serialize kinds"),
+            r#"["created","modified","deleted"]"#
+        );
     }
 
     #[test]
@@ -1828,80 +1847,81 @@ mod tests {
 
     /// A scratch directory unique to this test process; removed by the caller.
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("pade-watcher-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("create scratch dir");
-        dir
+        let directory =
+            std::env::temp_dir().join(format!("pade-watcher-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).expect("create scratch directory");
+        directory
     }
 
     #[test]
     fn read_preview_text_returns_utf8_file_contents() {
-        let dir = scratch("text");
-        let file = dir.join("a.txt");
+        let directory = scratch("text");
+        let file = directory.join("a.txt");
         fs::write(&file, b"line one\nline two\n").expect("write file");
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
         assert_eq!(
             read_preview_text(&canonical_root, &file)
                 .expect("read preview")
                 .as_deref(),
             Some("line one\nline two\n"),
         );
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn read_preview_text_skips_binary_content() {
-        let dir = scratch("binary");
-        let file = dir.join("a.bin");
+        let directory = scratch("binary");
+        let file = directory.join("a.bin");
         fs::write(&file, b"before\x00after").expect("write file");
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
         assert!(read_preview_text(&canonical_root, &file).is_err());
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn read_preview_text_skips_files_over_the_cap() {
-        let dir = scratch("large");
-        let file = dir.join("a.txt");
+        let directory = scratch("large");
+        let file = directory.join("a.txt");
         let over_capacity = usize::try_from(MAX_PREVIEW_BYTES).expect("capacity fits usize") + 1;
         fs::write(&file, vec![b'x'; over_capacity]).expect("write file");
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
         assert!(read_preview_text(&canonical_root, &file).is_err());
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn read_preview_text_is_none_for_a_missing_path() {
-        let dir = scratch("missing");
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let directory = scratch("missing");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
         assert_eq!(
-            read_preview_text(&canonical_root, &dir.join("nope.txt")),
+            read_preview_text(&canonical_root, &directory.join("nope.txt")),
             Ok(None)
         );
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn preview_reads_reject_a_target_outside_the_watch_root() {
-        let dir = scratch("authorized-root");
+        let directory = scratch("authorized-root");
         let outside = scratch("authorized-outside").join("secret.txt");
         fs::write(&outside, b"secret").expect("write outside file");
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
 
         assert!(read_authorized_file(&canonical_root, &outside, MAX_PREVIEW_BYTES).is_err());
 
         let outside_dir = outside.parent().expect("outside file has parent");
         let _ = fs::remove_dir_all(outside_dir);
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[cfg(any(unix, windows))]
     #[test]
     fn preview_reads_reject_a_symlink_or_reparse_point_escape() {
-        let dir = scratch("symlink-root");
+        let directory = scratch("symlink-root");
         let outside_dir = scratch("symlink-outside");
         let outside = outside_dir.join("secret.txt");
-        let link = dir.join("escape.txt");
+        let link = directory.join("escape.txt");
         fs::write(&outside, b"secret").expect("write outside file");
 
         #[cfg(unix)]
@@ -1909,118 +1929,118 @@ mod tests {
         #[cfg(windows)]
         if std::os::windows::fs::symlink_file(&outside, &link).is_err() {
             let _ = fs::remove_dir_all(&outside_dir);
-            let _ = fs::remove_dir_all(&dir);
+            let _ = fs::remove_dir_all(&directory);
             return;
         }
 
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
         assert!(read_authorized_file(&canonical_root, &link, MAX_PREVIEW_BYTES).is_err());
 
         let _ = fs::remove_dir_all(&outside_dir);
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn preview_reads_enforce_the_image_cap_from_the_open_handle() {
-        let dir = scratch("image-cap");
-        let file = dir.join("large.png");
+        let directory = scratch("image-cap");
+        let file = directory.join("large.png");
         let opened = fs::File::create(&file).expect("create image");
         opened
             .set_len(MAX_IMAGE_BYTES + 1)
             .expect("extend image beyond cap");
-        let canonical_root = fs::canonicalize(&dir).expect("canonicalize root");
+        let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
 
         assert!(read_authorized_file(&canonical_root, &file, MAX_IMAGE_BYTES).is_err());
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn line_count_matches_string_lines_and_rejects_invalid_utf8() {
-        let dir = scratch("line-count");
-        let text = dir.join("source.txt");
+        let directory = scratch("line-count");
+        let text = directory.join("source.txt");
         fs::write(&text, b"one\ntwo\n\n").expect("write text file");
         assert_eq!(line_count(&text), Some(3));
 
-        let binary = dir.join("binary.bin");
+        let binary = directory.join("binary.bin");
         fs::write(&binary, b"before\xffafter").expect("write binary file");
         assert_eq!(line_count(&binary), None);
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn resolve_watch_root_accepts_an_existing_directory() {
-        let dir = scratch("root");
-        let path = dir.to_string_lossy();
+        let directory = scratch("root");
+        let path = directory.to_string_lossy();
         assert!(resolve_watch_root(&path).is_ok_and(|root| root.is_dir()));
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn resolve_watch_root_rejects_a_missing_path() {
-        let dir = scratch("root-missing");
-        let path = dir.join("nope").to_string_lossy().into_owned();
+        let directory = scratch("root-missing");
+        let path = directory.join("nope").to_string_lossy().into_owned();
         assert!(resolve_watch_root(&path).is_err());
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn resolve_watch_root_rejects_a_file() {
-        let dir = scratch("root-file");
-        let file = dir.join("a.txt");
+        let directory = scratch("root-file");
+        let file = directory.join("a.txt");
         fs::write(&file, b"x").expect("write file");
         let path = file.to_string_lossy().into_owned();
         assert!(resolve_watch_root(&path).is_err());
-        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn a_node_manifest_maps_to_node_modules_and_friends() {
-        let dirs = manifest_ignore_dirs("package.json");
-        assert!(dirs.contains(&"node_modules"));
-        assert!(dirs.contains(&"dist"));
+        let directories = manifest_ignore_directories("package.json");
+        assert!(directories.contains(&"node_modules"));
+        assert!(directories.contains(&"dist"));
         // A lockfile alone implies the same node ignore set.
-        assert!(manifest_ignore_dirs("pnpm-lock.yaml").contains(&"node_modules"));
+        assert!(manifest_ignore_directories("pnpm-lock.yaml").contains(&"node_modules"));
     }
 
     #[test]
     fn a_cargo_manifest_maps_to_target() {
-        assert!(manifest_ignore_dirs("Cargo.toml").contains(&"target"));
+        assert!(manifest_ignore_directories("Cargo.toml").contains(&"target"));
     }
 
     #[test]
     fn a_dotnet_project_file_maps_to_bin_and_obj_by_extension() {
-        let dirs = manifest_ignore_dirs("MyApp.csproj");
-        assert!(dirs.contains(&"bin"));
-        assert!(dirs.contains(&"obj"));
+        let directories = manifest_ignore_directories("MyApp.csproj");
+        assert!(directories.contains(&"bin"));
+        assert!(directories.contains(&"obj"));
     }
 
     #[test]
     fn an_unrecognized_file_implies_no_ignore_dirs() {
-        assert_empty(manifest_ignore_dirs("README.md"));
+        assert_empty(manifest_ignore_directories("README.md"));
     }
 
     #[test]
     fn static_ignore_dirs_unions_manifest_dirs_with_the_baseline() {
-        let dir = scratch("static-node");
-        fs::write(dir.join("package.json"), b"{}").expect("write manifest");
-        let dirs = static_ignore_dirs(&dir);
-        assert!(dirs.contains("node_modules"));
+        let directory = scratch("static-node");
+        fs::write(directory.join("package.json"), b"{}").expect("write manifest");
+        let directories = static_ignore_directories(&directory);
+        assert!(directories.contains("node_modules"));
         // The baseline is always present, so static mode never weakens the
         // always-on pre-filter.
-        assert!(dirs.contains(".git"));
-        assert!(dirs.contains("target"));
-        let _ = fs::remove_dir_all(&dir);
+        assert!(directories.contains(".git"));
+        assert!(directories.contains("target"));
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn static_ignore_dirs_for_a_bare_folder_is_just_the_baseline() {
-        let dir = scratch("static-bare");
-        let dirs = static_ignore_dirs(&dir);
-        assert!(dirs.contains(".git"));
-        assert!(dirs.contains("node_modules"));
+        let directory = scratch("static-bare");
+        let directories = static_ignore_directories(&directory);
+        assert!(directories.contains(".git"));
+        assert!(directories.contains("node_modules"));
         // No manifest present, so nothing beyond the baseline is added.
-        assert!(!dirs.contains(".gradle"));
-        let _ = fs::remove_dir_all(&dir);
+        assert!(!directories.contains(".gradle"));
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
@@ -2039,23 +2059,23 @@ mod tests {
 
     #[test]
     fn only_a_dot_git_entry_announces_the_repo_appearing() {
-        assert!(is_git_dir_entry(Path::new(r"C:\repo\.git")));
-        assert!(!is_git_dir_entry(Path::new(r"C:\repo\.gitignore")));
-        assert!(!is_git_dir_entry(Path::new(r"C:\repo\src")));
+        assert!(is_git_directory_entry(Path::new(r"C:\repo\.git")));
+        assert!(!is_git_directory_entry(Path::new(r"C:\repo\.gitignore")));
+        assert!(!is_git_directory_entry(Path::new(r"C:\repo\src")));
     }
 
     #[test]
     fn git_directory_creation_and_removal_both_rearm_the_detector() {
         let paths = vec![PathBuf::from(r"C:\repo\.git")];
-        assert!(git_dir_lifecycle_changed(
+        assert!(git_directory_lifecycle_changed(
             notify::EventKind::Create(notify::event::CreateKind::Any),
             &paths
         ));
-        assert!(git_dir_lifecycle_changed(
+        assert!(git_directory_lifecycle_changed(
             notify::EventKind::Remove(notify::event::RemoveKind::Any),
             &paths
         ));
-        assert!(!git_dir_lifecycle_changed(
+        assert!(!git_directory_lifecycle_changed(
             notify::EventKind::Modify(notify::event::ModifyKind::Any),
             &paths
         ));
@@ -2063,10 +2083,11 @@ mod tests {
 
     #[test]
     fn unique_dirs_trims_dedupes_and_skips_empty_lines() {
-        let dirs =
-            unique_dirs([" C:/repo/.git ", "", "C:/repo/.git", "C:/common/.git"].into_iter());
+        let directories = unique_directories(
+            [" C:/repo/.git ", "", "C:/repo/.git", "C:/common/.git"].into_iter(),
+        );
         assert_eq!(
-            dirs,
+            directories,
             vec![
                 PathBuf::from("C:/repo/.git"),
                 PathBuf::from("C:/common/.git")
@@ -2076,18 +2097,18 @@ mod tests {
 
     #[test]
     fn a_workspace_with_a_git_dir_watches_exactly_that_dir() {
-        let dir = scratch("git-state-repo");
-        let git_dir = dir.join(".git");
-        fs::create_dir_all(&git_dir).expect("create .git dir");
-        assert_eq!(git_state_dirs(&dir), vec![git_dir]);
-        let _ = fs::remove_dir_all(&dir);
+        let directory = scratch("git-state-repo");
+        let git_dir = directory.join(".git");
+        fs::create_dir_all(&git_dir).expect("create .git directory");
+        assert_eq!(git_state_directories(&directory), vec![git_dir]);
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
     fn a_workspace_without_git_yields_no_state_dirs() {
-        let dir = scratch("git-state-bare");
-        assert_empty(&git_state_dirs(&dir));
-        let _ = fs::remove_dir_all(&dir);
+        let directory = scratch("git-state-bare");
+        assert_empty(&git_state_directories(&directory));
+        let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
@@ -2109,7 +2130,7 @@ mod tests {
     fn a_burst_coalesces_every_distinct_effect() {
         let (sender, receiver) = channel::<GitStateMessage>();
         sender
-            .send(GitStateMessage::GitDirChanged)
+            .send(GitStateMessage::GitDirectoryChanged)
             .expect("send buffered message");
         sender
             .send(GitStateMessage::IgnoreRulesTouched)
@@ -2167,17 +2188,17 @@ mod tests {
 
     #[test]
     fn a_path_under_an_ignored_directory_is_excluded_in_static_mode() {
-        let mut dirs = HashSet::new();
-        dirs.insert("node_modules".to_string());
+        let mut directories = HashSet::new();
+        directories.insert("node_modules".to_string());
         let path = Path::new("project/node_modules/react/index.js");
-        assert!(ignored_by_static_dirs(path, &dirs));
+        assert!(is_under_static_ignore_directory(path, &directories));
     }
 
     #[test]
     fn a_normal_source_path_is_not_excluded_in_static_mode() {
-        let mut dirs = HashSet::new();
-        dirs.insert("node_modules".to_string());
+        let mut directories = HashSet::new();
+        directories.insert("node_modules".to_string());
         let path = Path::new("project/src/app.ts");
-        assert!(!ignored_by_static_dirs(path, &dirs));
+        assert!(!is_under_static_ignore_directory(path, &directories));
     }
 }
