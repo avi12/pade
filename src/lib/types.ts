@@ -105,15 +105,16 @@ const CommitFileEntry = z.object({
 export type CommitFileEntry = z.infer<typeof CommitFileEntry>;
 
 /** A single commit's full detail: message body, branch, and per-file stats.
- *  Reuses `Commit`'s field names for the shared header fields. */
-export const CommitDetail = z.object({
-  id: z.string(),
-  short: z.string(),
-  summary: z.string(),
+ *  Reuses `Commit`'s header fields. */
+export const CommitDetail = Commit.pick({
+  id: true,
+  short: true,
+  summary: true,
+  author: true,
+  when: true
+}).extend({
   /** The commit message body (everything after the subject); empty if none. */
   body: z.string(),
-  author: z.string(),
-  when: z.string(),
   /** Current HEAD branch name (empty on a detached HEAD). */
   branch: z.string(),
   files: z.array(CommitFileEntry),
@@ -167,7 +168,7 @@ export const SHELL_AGENT_ID = "shell";
 /** The launchable coding agents - every detected agent except the shell fallback.
  *  The one home for "which agents are real", so the app top bar, the picker's
  *  agents list, and quick-start can't drift on what counts as launchable. */
-export function realAgents(agents: readonly Agent[]): Agent[] {
+export function realAgents(agents: readonly Agent[]) {
   return agents.filter(agent => agent.id !== SHELL_AGENT_ID);
 }
 
@@ -177,6 +178,10 @@ export function realAgents(agents: readonly Agent[]): Agent[] {
  *  bridge, and the New-window menu can't drift. */
 export const WindowMode = z.enum(["empty", "temp", "open"]);
 export type WindowMode = z.infer<typeof WindowMode>;
+
+/** Which way `window_focus_relative` steps through the open windows. */
+const WindowDirection = z.enum(["previous", "next"]);
+export type WindowDirection = z.infer<typeof WindowDirection>;
 
 /** Where the picker hands a chosen or freshly-created project back to the app:
  *  the project path, plus - for a create - an optional first prompt to seed and
@@ -714,3 +719,63 @@ export const McpChange = z.object({
   membershipChanged: z.boolean()
 });
 export type McpChange = z.infer<typeof McpChange>;
+
+/** How full a session's context window is, as the agent's own session log
+ *  accounts for it. */
+export const SessionContext = z.object({
+  usedTokens: z.number().nullable(),
+  windowTokens: z.number().nullable()
+});
+
+/** One model an agent offers to switch to, as its own local catalog describes
+ *  it - effort levels lowest first (with the agent's labels), empty for a
+ *  model without one. */
+export const ModelOption = z.object({
+  id: z.string(),
+  name: z.string(),
+  efforts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string()
+    })
+  ),
+  recommendedEffort: z.string().nullable()
+});
+export type ModelOption = z.infer<typeof ModelOption>;
+
+/** How a picked model reaches a running session (see `pty.applyModel`). */
+export const SwitchOutcome = z.enum(["applied", "needsRestart"]);
+
+/** The model and reasoning effort a session runs, as the agent reported it. */
+export const RunningModel = z.object({
+  model: z.string(),
+  effort: z.string().nullable(),
+  /** Claude's Ultracode (multi-agent orchestration) is on for the session. */
+  ultracode: z.boolean()
+});
+
+export const RunningModelChanged = z.object({
+  sessionId: z.string().nullable()
+});
+
+/** A Change Feed image preview: the file's bytes as a ready-to-use `data:` URL,
+ *  so the card renders it with a plain `<img src>`. The whole payload is nullable
+ *  at the boundary (see `feed.image`). */
+export const FeedImage = z.object({
+  dataUrl: z.string()
+});
+
+/** How a Change Feed video preview turned out: a transcoded clip, or no clip
+ *  because ffmpeg isn't installed. */
+export const FeedVideoKind = z.enum(["ready", "noTranscoder"]);
+
+/** A Change Feed video preview: an ffmpeg-transcoded clip as a `data:` URL for a
+ *  plain `<video src>`, or word that ffmpeg is missing (see `feed.video`). */
+export const FeedVideo = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal(FeedVideoKind.enum.ready),
+    dataUrl: z.string()
+  }),
+  z.object({ kind: z.literal(FeedVideoKind.enum.noTranscoder) })
+]);
+export type FeedVideo = z.infer<typeof FeedVideo>;
