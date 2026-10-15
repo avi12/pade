@@ -14,8 +14,21 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::window::Color;
 use tauri::{
-    AppHandle, Emitter, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window,
+    AppHandle, Emitter, Manager, PhysicalSize, Theme, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, Window, Wry,
 };
+
+use crate::theming::Scheme;
+
+/// The window the app starts with (see `tauri.conf.json`).
+pub(crate) const MAIN_WINDOW_LABEL: &str = "main";
+/// Every app window's title.
+const WINDOW_TITLE: &str = "PADE";
+/// The smallest an app window may be resized to, in logical pixels.
+const MINIMUM_WINDOW_WIDTH: f64 = 720.0;
+const MINIMUM_WINDOW_HEIGHT: f64 = 480.0;
+/// The label prefix of every spawned window (`w-1`, `w-2`, …).
+const SPAWNED_LABEL_PREFIX: &str = "w-";
 
 /// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
 /// dark schemes. Painted as the webview background at window creation so a window
@@ -26,12 +39,22 @@ use tauri::{
 const SURFACE_LIGHT: Color = Color(248, 250, 251, 255); // hsl(210deg 30% 98%)
 const SURFACE_DARK: Color = Color(14, 20, 27, 255); // hsl(214deg 30% 8%)
 
-/// The surface color matching a resolved OS theme.
-pub(crate) fn surface_for(theme: Theme) -> Color {
+/// The frontend's `appearance.scheme` for a resolved OS theme. The one mapping
+/// the startup read, the flip event and the surface paint all go through, so a
+/// window can never start on one scheme and flip to another.
+fn scheme_for(theme: Theme) -> Scheme {
     match theme {
-        Theme::Dark => SURFACE_DARK,
+        Theme::Dark => Scheme::Dark,
         // `Theme` is `#[non_exhaustive]`; treat light and anything new as light.
-        _ => SURFACE_LIGHT,
+        _ => Scheme::Light,
+    }
+}
+
+/// The surface color matching a resolved OS theme.
+fn surface_for(theme: Theme) -> Color {
+    match scheme_for(theme) {
+        Scheme::Light => SURFACE_LIGHT,
+        Scheme::Dark => SURFACE_DARK,
     }
 }
 
@@ -46,17 +69,6 @@ pub fn paint_surface(window: &WebviewWindow) {
 /// The frontend event carrying an OS theme flip's authoritative scheme.
 pub const THEME_CHANGED_EVENT: &str = "theme://changed";
 
-/// The frontend's `appearance.scheme` for a resolved OS theme. The one mapping
-/// both the startup read and the flip event go through, so a window can never
-/// start on one spelling and flip to another.
-fn scheme_for(theme: Theme) -> &'static str {
-    match theme {
-        Theme::Dark => "dark",
-        // `Theme` is `#[non_exhaustive]`; treat light and anything new as light.
-        _ => "light",
-    }
-}
-
 /// This window's OS theme right now, for the frontend to seed its scheme with at
 /// startup.
 ///
@@ -68,8 +80,8 @@ fn scheme_for(theme: Theme) -> &'static str {
 /// `theming`). Reading the native theme closes the gap. Pure registry lookup, so
 /// it stays sync.
 #[tauri::command]
-pub fn window_theme(window: Window) -> &'static str {
-    window.theme().map_or("light", scheme_for)
+pub fn window_theme(window: Window) -> Scheme {
+    window.theme().map_or(Scheme::Light, scheme_for)
 }
 
 /// React to a runtime OS theme flip. `WebView2` does not reliably deliver the
@@ -85,6 +97,53 @@ pub fn on_theme_changed(window: &Window, theme: Theme) {
     }
 
     let _ = window.emit_to(window.label(), THEME_CHANGED_EVENT, scheme_for(theme));
+}
+
+/// What a new app window copies from an existing one so it opens looking
+/// identical: its theme (for the surface paint), size and decorations. Each part
+/// is optional because each probe of a live window can fail on its own.
+pub(crate) struct WindowLook {
+    theme: Option<Theme>,
+    size: Option<PhysicalSize<u32>>,
+    is_decorated: Option<bool>,
+}
+
+impl WindowLook {
+    pub(crate) fn of(window: &WebviewWindow) -> Self {
+        Self {
+            theme: window.theme().ok(),
+            size: window.inner_size().ok(),
+            is_decorated: window.is_decorated().ok(),
+        }
+    }
+}
+
+/// A builder for a PADE app window with `label` at `url`, titled and bounded
+/// like every other, and dressed in `look` when there is one to copy. The one
+/// home for app-window chrome, shared by a spawned window and a crash rebuild.
+pub(crate) fn app_window_builder<'app>(
+    app: &'app AppHandle,
+    label: &str,
+    url: WebviewUrl,
+    look: Option<&WindowLook>,
+) -> WebviewWindowBuilder<'app, Wry, AppHandle> {
+    let mut builder = WebviewWindowBuilder::new(app, label, url)
+        .title(WINDOW_TITLE)
+        .min_inner_size(MINIMUM_WINDOW_WIDTH, MINIMUM_WINDOW_HEIGHT);
+    let Some(look) = look else {
+        return builder;
+    };
+    // Open in-theme, avoiding a white flash on a dark desktop.
+    if let Some(theme) = look.theme {
+        builder = builder.background_color(surface_for(theme));
+    }
+    if let Some(size) = look.size {
+        builder = builder.inner_size(f64::from(size.width), f64::from(size.height));
+    }
+    if let Some(is_decorated) = look.is_decorated {
+        builder = builder.decorations(is_decorated);
+    }
+    builder
 }
 
 /// Per-window state the switcher reads: which project each window has open (keyed
@@ -113,6 +172,14 @@ impl WindowProjects {
             .filter(|path| !path.is_empty())
             .cloned()
             .ok_or_else(|| "this window has no registered project".to_string())
+    }
+
+    /// A copy of the explicit switcher order, so sorting never holds the lock.
+    fn order_snapshot(&self) -> Vec<String> {
+        self.order
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
     }
 }
 
@@ -166,8 +233,8 @@ pub fn on_destroyed(window: &Window) {
 /// Canonicalize a path for cross-window comparison - `/`-separated, no trailing
 /// slash, lowercased on case-insensitive Windows.
 fn normalize(path: &str) -> String {
-    let trimmed = path.replace('\\', "/");
-    let trimmed = trimmed.trim_end_matches('/');
+    let forward_slashed = path.replace('\\', "/");
+    let trimmed = forward_slashed.trim_end_matches('/');
     if cfg!(windows) {
         trimmed.to_lowercase()
     } else {
@@ -185,6 +252,12 @@ const WINDOWS_CHANGED_EVENT: &str = "windows://changed";
 /// reflects it at once instead of only on its next open.
 fn broadcast_windows_changed(app: &AppHandle) {
     let _ = app.emit(WINDOWS_CHANGED_EVENT, ());
+}
+
+/// Restore and focus `window`, reporting whether it took focus.
+fn bring_to_front(window: &WebviewWindow) -> bool {
+    let _ = window.unminimize();
+    window.set_focus().is_ok()
 }
 
 /// Record the project the calling window now has open.
@@ -216,22 +289,23 @@ pub fn window_focus_project(
     path: String,
 ) -> bool {
     let target = normalize(&path);
-    let me = window.label().to_string();
+    let current_label = window.label();
     let candidates: Vec<String> = {
         let Ok(projects) = state.projects.lock() else {
             return false;
         };
         projects
             .iter()
-            .filter(|(label, project)| **label != me && normalize(project) == target)
+            .filter(|(label, project)| {
+                label.as_str() != current_label && normalize(project) == target
+            })
             .map(|(label, _)| label.clone())
             .collect()
     };
 
     for label in candidates {
         if let Some(target_window) = app.get_webview_window(&label) {
-            let _ = target_window.unminimize();
-            let _ = target_window.set_focus();
+            bring_to_front(&target_window);
             return true;
         }
         // The window is gone - drop its stale entry.
@@ -252,17 +326,17 @@ pub enum CycleDirection {
     Next,
 }
 
-/// Stable creation-order sort key: the startup `main` window first (0), then each
+/// Stable creation-order sort key: the startup main window first (0), then each
 /// spawned `w-{n}` by its sequence number. An unrecognised label sorts last so a
 /// stray window never breaks the cycle. Lexicographic sorting would misplace
 /// `w-10` before `w-2`; the numeric parse keeps them in creation order.
 fn order_key(label: &str) -> u32 {
-    if label == "main" {
+    if label == MAIN_WINDOW_LABEL {
         return 0;
     }
     label
-        .strip_prefix("w-")
-        .and_then(|seq| seq.parse::<u32>().ok())
+        .strip_prefix(SPAWNED_LABEL_PREFIX)
+        .and_then(|sequence| sequence.parse::<u32>().ok())
         .unwrap_or(u32::MAX)
 }
 
@@ -280,6 +354,14 @@ fn window_sort_key(label: &str, order: &[String]) -> (usize, u32, String) {
     (explicit, order_key(label), label.to_string())
 }
 
+/// Every live window's label, in switcher order.
+fn sorted_live_labels(app: &AppHandle, state: &WindowProjects) -> Vec<String> {
+    let order = state.order_snapshot();
+    let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
+    labels.sort_by_cached_key(|label| window_sort_key(label, &order));
+    labels
+}
+
 /// Record the user's explicit "Open windows" order (the drag-reordered labels) so
 /// both `window_list` and `window_focus_relative` sort by it - one source of truth
 /// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
@@ -290,6 +372,15 @@ pub fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, label
         *order = labels;
     }
     broadcast_windows_changed(&app);
+}
+
+/// The index `direction` lands on from `current` among `count` windows, wrapping
+/// around at both ends.
+fn cycled_index(current: usize, count: usize, direction: CycleDirection) -> usize {
+    match direction {
+        CycleDirection::Next => (current + 1) % count,
+        CycleDirection::Previous => (current + count - 1) % count,
+    }
 }
 
 /// Focus the previous/next open PADE window, wrapping around at the ends, in the
@@ -306,33 +397,18 @@ pub fn window_focus_relative(
     state: tauri::State<WindowProjects>,
     direction: CycleDirection,
 ) -> bool {
-    let order = state
-        .order
-        .lock()
-        .map(|guard| guard.clone())
-        .unwrap_or_default();
-    let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
-    labels.sort_by_cached_key(|label| window_sort_key(label, &order));
-
-    let me = window.label();
-    let Some(current) = labels.iter().position(|label| label == me) else {
+    let labels = sorted_live_labels(&app, &state);
+    let Some(current) = labels.iter().position(|label| label == window.label()) else {
         return false;
     };
-    let count = labels.len();
-    if count < 2 {
+    let is_only_window = labels.len() < 2;
+    if is_only_window {
         return false;
     }
 
-    let target_index = match direction {
-        CycleDirection::Next => (current + 1) % count,
-        CycleDirection::Previous => (current + count - 1) % count,
-    };
-
-    let Some(target) = app.get_webview_window(&labels[target_index]) else {
-        return false;
-    };
-    let _ = target.unminimize();
-    target.set_focus().is_ok()
+    let target_label = &labels[cycled_index(current, labels.len(), direction)];
+    app.get_webview_window(target_label)
+        .is_some_and(|target| bring_to_front(&target))
 }
 
 /// One open PADE window and the project it has: its unique `label` (the id the
@@ -357,24 +433,16 @@ pub fn window_list(
     window: WebviewWindow,
     state: tauri::State<WindowProjects>,
 ) -> Vec<WindowInfo> {
-    let me = window.label();
     let projects = state
         .projects
         .lock()
         .map(|guard| guard.clone())
         .unwrap_or_default();
-    let order = state
-        .order
-        .lock()
-        .map(|guard| guard.clone())
-        .unwrap_or_default();
-    let mut labels: Vec<String> = app.webview_windows().into_keys().collect();
-    labels.sort_by_cached_key(|label| window_sort_key(label, &order));
-    labels
+    sorted_live_labels(&app, &state)
         .into_iter()
         .filter_map(|label| {
             let path = projects.get(&label)?.clone();
-            let is_current = label.as_str() == me;
+            let is_current = label == window.label();
             Some(WindowInfo {
                 label,
                 path,
@@ -388,35 +456,43 @@ pub fn window_list(
 /// rows. Returns true when that window existed and took focus.
 #[tauri::command]
 pub fn window_focus_label(app: AppHandle, label: String) -> bool {
-    let Some(target) = app.get_webview_window(&label) else {
-        return false;
-    };
-    let _ = target.unminimize();
-    target.set_focus().is_ok()
+    app.get_webview_window(&label)
+        .is_some_and(|target| bring_to_front(&target))
 }
 
-/// Monotonic counter for unique window labels (`w-1`, `w-2`, …). Labels must be
+/// The next spawned window's sequence number (`w-1`, `w-2`, …). Labels must be
 /// unique per app run; a simple atomic is enough and needs no dependency.
-static WINDOW_SEQ: AtomicU32 = AtomicU32::new(1);
+static NEXT_WINDOW_SEQUENCE: AtomicU32 = AtomicU32::new(1);
 
-/// The launch intents a spawned window can carry, in the exact `w=` query strings
-/// the frontend router reads. One authoritative home for the mode literals.
-enum LaunchMode {
+/// The launch intents a spawned window can carry. One authoritative home for the
+/// mode literals and the `w=` query strings the frontend router reads.
+enum LaunchMode<'path> {
     Empty,
     Temp,
-    Open,
+    Open(&'path str),
 }
 
-impl LaunchMode {
+impl<'path> LaunchMode<'path> {
     /// Resolve the requested `mode` + optional `path` into a launch intent. A
     /// present `path` always means "open that project", regardless of `mode`.
-    fn resolve(mode: &str, path: Option<&str>) -> Self {
-        if path.is_some() {
-            return LaunchMode::Open;
+    fn resolve(mode: &str, path: Option<&'path str>) -> Self {
+        if let Some(path) = path {
+            return Self::Open(path);
         }
         match mode {
-            "temp" => LaunchMode::Temp,
-            _ => LaunchMode::Empty,
+            "temp" => Self::Temp,
+            _ => Self::Empty,
+        }
+    }
+
+    /// The query string the frontend router boots from.
+    fn query(&self) -> String {
+        match self {
+            Self::Empty => "w=empty".to_string(),
+            Self::Temp => "w=temp".to_string(),
+            Self::Open(path) => {
+                format!("w=open&path={}", crate::util::percent_encode(path, b""))
+            }
         }
     }
 }
@@ -438,57 +514,29 @@ pub async fn window_create(
     mode: String,
     path: Option<String>,
 ) -> Result<(), String> {
-    let query = match LaunchMode::resolve(&mode, path.as_deref()) {
-        LaunchMode::Empty => "w=empty".to_string(),
-        LaunchMode::Temp => "w=temp".to_string(),
-        // `path` is Some here by construction of `resolve`.
-        LaunchMode::Open => {
-            let encoded = crate::util::percent_encode(path.as_deref().unwrap_or_default(), b"");
-            format!("w=open&path={encoded}")
-        }
-    };
+    let query = LaunchMode::resolve(&mode, path.as_deref()).query();
+    let sequence = NEXT_WINDOW_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let label = format!("{SPAWNED_LABEL_PREFIX}{sequence}");
+    let url = WebviewUrl::App(format!("index.html?{query}").into());
+    let main_look = app
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .map(|main| WindowLook::of(&main));
 
-    let seq = WINDOW_SEQ.fetch_add(1, Ordering::Relaxed);
-    let label = format!("w-{seq}");
-    let url = format!("index.html?{query}");
-
-    let mut builder =
-        WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into())).title("PADE");
-
-    // Clone the main window's sizing/decorations so a spawned window matches it.
-    if let Some(main) = app.get_webview_window("main") {
-        // Open in-theme like the main window, avoiding a white flash on dark.
-        if let Ok(theme) = main.theme() {
-            builder = builder.background_color(surface_for(theme));
-        }
-        if let Ok(size) = main.inner_size() {
-            #[allow(clippy::cast_precision_loss)]
-            {
-                builder = builder.inner_size(f64::from(size.width), f64::from(size.height));
-            }
-        }
-        if let Ok(decorated) = main.is_decorated() {
-            builder = builder.decorations(decorated);
-        }
-    }
-
-    // Build visible: the builder's `background_color` above already paints the
-    // themed surface at creation, so there's no white flash to hide. (Building
-    // hidden and calling `show()` here left the window invisible - a freshly
-    // built webview window doesn't reliably show from within the command.)
-    let window = builder
-        .min_inner_size(720.0, 480.0)
+    // Build visible: the builder's background color already paints the themed
+    // surface at creation, so there's no white flash to hide. (Building hidden
+    // and calling `show()` here left the window invisible - a freshly built
+    // webview window doesn't reliably show from within the command.) Crash
+    // recovery arms once the window's frontend boots and calls `recovery_arm`
+    // with its live URL (see recovery.rs).
+    app_window_builder(&app, &label, url, main_look.as_ref())
         .build()
-        .map_err(|e| e.to_string())?;
-    // Crash recovery arms once the window's frontend boots and calls
-    // `recovery_arm` with its live URL (see recovery.rs).
-    let _ = window;
-    Ok(())
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{order_key, window_sort_key};
+    use super::{cycled_index, order_key, window_sort_key, CycleDirection, LaunchMode};
 
     /// Sort the live window labels the way `window_list`/`window_focus_relative` do,
     /// given the user's explicit order - the behaviour both commands share.
@@ -532,5 +580,23 @@ mod tests {
     fn creation_order_key_parses_sequence_numerically() {
         assert_eq!(order_key("main"), 0);
         assert!(order_key("w-2") < order_key("w-10"));
+    }
+
+    #[test]
+    fn cycling_wraps_around_at_both_ends() {
+        assert_eq!(cycled_index(2, 3, CycleDirection::Next), 0);
+        assert_eq!(cycled_index(0, 3, CycleDirection::Previous), 2);
+        assert_eq!(cycled_index(1, 3, CycleDirection::Next), 2);
+    }
+
+    #[test]
+    fn a_path_always_opens_that_project_whatever_the_mode() {
+        assert_eq!(LaunchMode::resolve("temp", None).query(), "w=temp");
+        assert_eq!(LaunchMode::resolve("empty", None).query(), "w=empty");
+        assert_eq!(LaunchMode::resolve("anything", None).query(), "w=empty");
+        assert_eq!(
+            LaunchMode::resolve("temp", Some(r"C:\my project")).query(),
+            "w=open&path=C%3A%5Cmy%20project"
+        );
     }
 }

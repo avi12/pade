@@ -46,13 +46,13 @@
 //! each resuming its own conversation) while ADE re-themes xterm's palette in
 //! place.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::util::write_if_stale;
 
 /// ADE's resolved appearance - the frontend's `appearance.scheme`, on the wire.
-#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Scheme {
     Light,

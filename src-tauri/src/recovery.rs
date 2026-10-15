@@ -78,11 +78,9 @@ pub fn recovery_arm(window: WebviewWindow, url: String) {
 /// so recovery is visually seamless.
 #[cfg(windows)]
 struct Placement {
+    look: crate::window::WindowLook,
     position: Option<tauri::PhysicalPosition<i32>>,
-    size: Option<tauri::PhysicalSize<u32>>,
-    maximized: bool,
-    decorated: Option<bool>,
-    theme: Option<tauri::Theme>,
+    is_maximized: bool,
 }
 
 /// Replace `label`'s window after its browser process died. Runs inside the
@@ -97,11 +95,9 @@ fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
         return;
     };
     let placement = Placement {
+        look: crate::window::WindowLook::of(&dead),
         position: dead.outer_position().ok(),
-        size: dead.inner_size().ok(),
-        maximized: dead.is_maximized().unwrap_or(false),
-        decorated: dead.is_decorated().ok(),
-        theme: dead.theme().ok(),
+        is_maximized: dead.is_maximized().unwrap_or(false),
     };
     PENDING_RECREATES.fetch_add(1, Ordering::Relaxed);
     // destroy(), not close(): close asks the frontend to confirm via its
@@ -124,7 +120,7 @@ fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
 fn rebuild(app: &tauri::AppHandle, label: &str, url: &tauri::Url, placement: &Placement) {
     use std::time::Duration;
 
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+    use tauri::{Manager, WebviewUrl};
 
     // The destroy is processed by the event loop only after the COM callback
     // returns, so the label frees up moments later; there is no event for
@@ -142,29 +138,25 @@ fn rebuild(app: &tauri::AppHandle, label: &str, url: &tauri::Url, placement: &Pl
         return;
     }
 
-    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url.clone()))
-        .title("PADE")
-        .min_inner_size(720.0, 480.0);
-    if let Some(theme) = placement.theme {
-        builder = builder.background_color(crate::window::surface_for(theme));
-    }
-    if let Some(size) = placement.size {
-        builder = builder.inner_size(f64::from(size.width), f64::from(size.height));
-    }
+    let mut builder = crate::window::app_window_builder(
+        app,
+        label,
+        WebviewUrl::External(url.clone()),
+        Some(&placement.look),
+    );
     if let Some(position) = placement.position {
         builder = builder.position(f64::from(position.x), f64::from(position.y));
     }
-    if let Some(decorated) = placement.decorated {
-        builder = builder.decorations(decorated);
-    }
-    match builder.build() {
-        Ok(window) => {
-            if placement.maximized {
-                let _ = window.maximize();
-            }
-            // No explicit re-arm: the replacement's frontend boots from the
-            // real app URL and calls `recovery_arm` itself, like any window.
+    // No explicit re-arm once built: the replacement's frontend boots from the
+    // real app URL and calls `recovery_arm` itself, like any window.
+    let window = match builder.build() {
+        Ok(window) => window,
+        Err(error) => {
+            eprintln!("webview crash recovery: rebuilding {label} failed: {error}");
+            return;
         }
-        Err(error) => eprintln!("webview crash recovery: rebuilding {label} failed: {error}"),
+    };
+    if placement.is_maximized {
+        let _ = window.maximize();
     }
 }

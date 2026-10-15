@@ -122,7 +122,7 @@ pub fn run() {
             // Paint the main window in-theme before showing it, so a dark desktop
             // doesn't flash a white webview before the UI first renders. The window
             // is created hidden (see tauri.conf.json) and shown here once themed.
-            if let Some(main) = app.get_webview_window("main") {
+            if let Some(main) = app.get_webview_window(window::MAIN_WINDOW_LABEL) {
                 window::paint_surface(&main);
                 let _ = main.show();
                 // Crash recovery arms from the FRONTEND (`recovery_arm` with
