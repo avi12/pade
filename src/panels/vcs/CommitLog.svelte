@@ -17,7 +17,7 @@
 
   let openCommit = $state<CommitDetail | null>(null);
   let remoteUrl = $state<string | null>(null);
-  let logElement = $state<HTMLElement | null>(null);
+  let elLog = $state<HTMLElement | null>(null);
   let unlistenGitState: UnlistenFn | undefined;
 
   async function loadRemoteUrl(workspace = project) {
@@ -86,7 +86,7 @@
 
   async function focusCommit(index: number) {
     await tick();
-    logElement?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
+    elLog?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
   }
 
   function fileLabel(count: number) {
@@ -96,7 +96,7 @@
 
 <section class="group log">
   <h3>Recent commits</h3>
-  <ul bind:this={logElement} class="log-list">
+  <ul bind:this={elLog} class="log-list">
     {#each commits as commit, index (commit.id)}
       <li>
         <button

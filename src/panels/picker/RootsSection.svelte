@@ -45,7 +45,7 @@
     path: "",
     result: emptyPathProbe
   });
-  let inputElement = $state<HTMLInputElement | null>(null);
+  let elInput = $state<HTMLInputElement | null>(null);
 
   const trimmedRoot = $derived(newRoot.trim());
   const hasValue = $derived(trimmedRoot.length > 0);
@@ -132,7 +132,7 @@
   /** Focus the add-root field - how the quick-start form's "New root folder…"
    *  menu option lands the user here. Focus itself scrolls the field into view. */
   export function focusAddRoot() {
-    inputElement?.focus();
+    elInput?.focus();
   }
 
   // Add the settled path, creating the folder when it doesn't exist yet (the
@@ -180,7 +180,7 @@
           placeholder="C:\repositories  ·  paste or start typing a folder path"
           bind:value={newRoot}
           bind:probe
-          bind:inputElement
+          bind:elInput
         />
       </div>
       <!-- Native folder picker (Tauri dialog) - nicer than pasting a path. It

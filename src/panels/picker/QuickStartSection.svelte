@@ -81,16 +81,16 @@
     }
   ];
   let tab = $state<StartTab>(StartTab.create);
-  let card = $state<HTMLDivElement | null>(null);
+  let elCard = $state<HTMLDivElement | null>(null);
   // The panels container and the height it should occupy - the open panel's
   // own measured height, kept current by a ResizeObserver so the container
   // glides (CSS transition) on tab switches AND when the open panel itself
   // grows or shrinks (a credentials panel appearing, an error line).
-  let panelsElement = $state<HTMLDivElement | null>(null);
+  let elPanels = $state<HTMLDivElement | null>(null);
   let panelsHeight = $state<number | null>(null);
 
   $effect(() => {
-    const body = panelsElement;
+    const body = elPanels;
     // Re-arm on every tab switch - the observer must follow the newly-open slot,
     // selected by the active tab so this effect re-runs whenever it changes.
     const openSlot = body?.querySelector(`.slot[data-tab="${tab}"]`);
@@ -121,7 +121,7 @@
   // first field still showing it is the first one awaiting input; fall back to the
   // first field when all are filled.
   function focusFirstEmptyField() {
-    const panel = card?.querySelector<HTMLElement>(".open .panel");
+    const panel = elCard?.querySelector<HTMLElement>(".open .panel");
     if (!panel) {
       return;
     }
@@ -233,7 +233,7 @@
 
   // ── Local - open an existing folder ───────────────────────────────────────
   let localPath = $state("");
-  let localInput = $state<HTMLInputElement | null>(null);
+  let elLocalInput = $state<HTMLInputElement | null>(null);
   // True while an OS drag hovers the Local field - the drop-affordance state.
   let dropReady = $state(false);
 
@@ -241,7 +241,7 @@
   // overlay each other, so the tab gate matters as much as the geometry (the
   // clone URL input occupies the same spot).
   function isOverLocalField(position: DragPosition) {
-    const row = localInput?.closest(".new-project-location");
+    const row = elLocalInput?.closest(".new-project-location");
     if (tab !== StartTab.local || !row) {
       return false;
     }
@@ -376,7 +376,7 @@
       }
 
       localPath = path;
-      localInput?.focus();
+      elLocalInput?.focus();
     });
 
     // The New tab is open on arrival - land the caret in its first empty field
@@ -450,7 +450,7 @@
 
 <section class="get-started">
   <h2>Get started</h2>
-  <div bind:this={card} class="card">
+  <div bind:this={elCard} class="card">
     <div class="pill-tabs" aria-label="How to open a project" role="tablist" use:rovingTablist>
       {#each TABS as { id, label, icon } (id)}
         <button
@@ -486,7 +486,7 @@
          container's height glides to the open panel's measured size. Panels
          keep their typed state across switches. -->
     <div
-      bind:this={panelsElement}
+      bind:this={elPanels}
       style:block-size={panelsHeight === null ? "auto" : `${panelsHeight}px`}
       class="panels"
     >
@@ -669,7 +669,7 @@
                 placeholder="C:\repositories\my-app  ·  or drop a folder here"
                 bind:value={localPath}
                 bind:probe={localProbe}
-                bind:inputElement={localInput}
+                bind:elInput={elLocalInput}
               />
               <button
                 class="browse"

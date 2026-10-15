@@ -25,7 +25,7 @@
     id,
     inputClass = "",
     placeholder = "",
-    inputElement = $bindable(null)
+    elInput = $bindable(null)
   }: {
     value?: string;
     probe?: TaggedPathProbe;
@@ -36,7 +36,7 @@
     id?: string;
     inputClass?: string;
     placeholder?: string;
-    inputElement?: HTMLInputElement | null;
+    elInput?: HTMLInputElement | null;
   } = $props();
 
   const listboxId = $derived(`${name}-suggestions`);
@@ -56,7 +56,7 @@
     directory: string;
     index: number;
   } | null = null;
-  let listElement = $state<HTMLUListElement | null>(null);
+  let elList = $state<HTMLUListElement | null>(null);
 
   // The OS path separator - appended when a highlighted suggestion is Tab-accepted
   // so the user can keep drilling into its sub-folders. The webview has no
@@ -101,7 +101,7 @@
   // opens on input/focus rather than a popovertarget click, so it's shown and
   // hidden imperatively; the `:popover-open` guard keeps show/hidePopover idempotent.
   $effect(() => {
-    const list = listElement;
+    const list = elList;
     if (!list) {
       return;
     }
@@ -146,7 +146,7 @@
   /** Focus the field - how a host lands the user here (the quick-start form's
    *  "New root folder…" jump, or a folder dropped on the local field). */
   export function focus() {
-    inputElement?.focus();
+    elInput?.focus();
   }
 
   // Adopt a suggested directory - shared by the listbox rows and the Enter key,
@@ -156,12 +156,12 @@
     listOpen = false;
     activeIndex = -1;
     lastSelected = null;
-    inputElement?.focus();
+    elInput?.focus();
   }
 </script>
 
 <input
-  bind:this={inputElement}
+  bind:this={elInput}
   {id}
   style:anchor-name={anchorName}
   class="path-input {inputClass}"
@@ -224,7 +224,7 @@
      clip through the edge. Shown/hidden via showPopover/hidePopover from the
      `listVisible` effect (a typeahead opens on typing, not a popovertarget click). -->
 <ul
-  bind:this={listElement}
+  bind:this={elList}
   id={listboxId}
   style:position-anchor={anchorName}
   class="suggestions"

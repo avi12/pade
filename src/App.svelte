@@ -174,7 +174,7 @@
   // unit-tested. (`Side` names the side panels - a different concern.)
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
-  let panesElement = $state<HTMLElement>();
+  let elPanes = $state<HTMLElement>();
   // Live drag state from the tab strip; drives the "drop here" overlay + halves.
   let dragHint = $state<DragHint | null>(null);
   const dragOverPanes = $derived(dragHint?.outside === true);
@@ -202,7 +202,7 @@
     x: number;
     y: number;
   }) {
-    const slots = [...panesElement?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? []];
+    const slots = [...elPanes?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? []];
     const panes = slots
       .filter(slot => paneIds.includes(slot.dataset.paneId ?? ""))
       .map(slot => ({
@@ -224,6 +224,10 @@
   const AGENT_REDETECT_INTERVAL_MS = 30_000;
   // How long a split member takes to collapse out (out:collapsePane).
   const SPLIT_PANE_COLLAPSE_MS = 260;
+  // The spring a pane joining a split enters with (animatePaneIn).
+  const PANE_ENTER_ANIMATION = "pane-enter 340ms var(--spring)";
+  // The tab strip's launch dropdown (SessionTabs owns the element).
+  const ADD_SESSION_MENU_ID = "add-session-menu";
 
   onMount(async () => {
     try {
@@ -862,19 +866,19 @@
   // replay it. Mirrors the design's imperative `animatePaneIn`.
   async function animatePaneIn(id: string) {
     await tick();
-    const slot = panesElement?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
-    if (!slot) {
+    const elSlot = elPanes?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
+    if (!elSlot) {
       return;
     }
 
-    slot.style.animation = "none";
+    elSlot.style.animation = "none";
     // Force a synchronous reflow between clearing and re-setting the animation so
     // re-adding the same pane restarts the run; getBoundingClientRect flushes
     // layout the same as reading offsetWidth, but as a call it isn't a bare
     // "unused expression" (nor an unused local, which a discard const would be).
-    slot.getBoundingClientRect();
-    slot.style.animation = "pane-enter 340ms var(--spring)";
-    slot.addEventListener("animationend", () => (slot.style.animation = ""), { once: true });
+    elSlot.getBoundingClientRect();
+    elSlot.style.animation = PANE_ENTER_ANIMATION;
+    elSlot.addEventListener("animationend", () => (elSlot.style.animation = ""), { once: true });
   }
 
   // Show an already-running session alongside the current pane(s) - a split-add,
@@ -926,13 +930,13 @@
       return;
     }
 
-    const menu = document.getElementById("add-session-menu");
-    if (!(menu instanceof HTMLElement) || menu.matches(":popover-open")) {
+    const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
+    if (!(elMenu instanceof HTMLElement) || elMenu.matches(":popover-open")) {
       return;
     }
 
-    menu.showPopover();
-    menu.querySelector<HTMLButtonElement>("button")?.focus();
+    elMenu.showPopover();
+    elMenu.querySelector<HTMLButtonElement>("button")?.focus();
   }
 
   // Ctrl+W / Ctrl+F4 - close the active session.
@@ -1771,7 +1775,7 @@
         class:with-side={side !== null}
         data-resizing={isResizingSidePanel || undefined}
       >
-        <section bind:this={panesElement} class="pane terminal-pane" data-panes>
+        <section bind:this={elPanes} class="pane terminal-pane" data-panes>
           <!-- A tab dragged over the panes reads as "open in split" - a dashed
                primary frame invites the drop; each pane then shows the left/right
                half the pointer is over (below). -->

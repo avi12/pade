@@ -107,8 +107,8 @@
     });
   }
 
-  let host: HTMLDivElement;
-  let viewport: HTMLDivElement;
+  let elHost: HTMLDivElement;
+  let elViewport: HTMLDivElement;
   let terminal: Terminal;
   let unlisten: UnlistenFn | undefined;
   let exitUnlisten: UnlistenFn | undefined;
@@ -971,12 +971,12 @@
   // they meet.
   function updateSqueeze() {
     const cell = terminal?.dimensions?.css.cell;
-    if (!terminal || !viewport || !cell || !(cell.height > 0)) {
+    if (!terminal || !elViewport || !cell || !(cell.height > 0)) {
       return;
     }
 
     const gridHeight = terminal.rows * cell.height;
-    const paneHeight = viewport.clientHeight;
+    const paneHeight = elViewport.clientHeight;
     squeeze = gridHeight > paneHeight && gridHeight > 0 ? paneHeight / gridHeight : 1;
   }
 
@@ -1241,7 +1241,7 @@
   // that transient to a 2x1 terminal desynchronises a TUI permanently (Codex
   // treats it as a real resize). The caller keeps the last truthful grid instead.
   function paneGrid() {
-    if (!terminal || !viewport) {
+    if (!terminal || !elViewport) {
       return undefined;
     }
 
@@ -1251,9 +1251,9 @@
       return undefined;
     }
 
-    const availableWidth = viewport.clientWidth - SCROLLBAR_WIDTH;
+    const availableWidth = elViewport.clientWidth - SCROLLBAR_WIDTH;
     const columns = Math.floor(availableWidth / cell.width);
-    const rows = Math.floor(viewport.clientHeight / cell.height);
+    const rows = Math.floor(elViewport.clientHeight / cell.height);
     const MIN_USABLE_COLS = 20;
     const MIN_USABLE_ROWS = 4;
     if (columns < MIN_USABLE_COLS || rows < MIN_USABLE_ROWS) {
@@ -1324,7 +1324,7 @@
         }
       }
     });
-    terminal.open(host);
+    terminal.open(elHost);
     attachedTerminal = terminal;
 
     // Make URLs in the output clickable - the agent's OAuth sign-in links, docs
@@ -1726,7 +1726,7 @@
         fitToPane();
       });
     });
-    resizeObserver.observe(viewport);
+    resizeObserver.observe(elViewport);
 
     // Spawn the chosen agent in a real PTY.
     if (destroyed) {
@@ -1917,7 +1917,7 @@
     const listeners = await Promise.all([
       dragDrop.onOver(({ position }) => {
         fileDragOver = isDragOverElement({
-          element: viewport,
+          element: elViewport,
           position
         });
       }),
@@ -1927,7 +1927,7 @@
       dragDrop.onDrop(({ paths, position }) => {
         fileDragOver = false;
         const landsHere = paths.length > 0 && isDragOverElement({
-          element: viewport,
+          element: elViewport,
           position
         });
         if (!landsHere) {
@@ -1976,12 +1976,12 @@
   </header>
   <div class="terminal-padding">
     <div
-      bind:this={viewport}
+      bind:this={elViewport}
       class="terminal-viewport"
       class:anchor-bottom={anchorBottom}
       class:file-drag-over={fileDragOver}
     >
-      <div bind:this={host} style:scale={`1 ${squeeze}`} class="terminal-host">
+      <div bind:this={elHost} style:scale={`1 ${squeeze}`} class="terminal-host">
         <TerminalRtl
           enabled={rightToLeftSeen}
           focused={keyboardHere}
