@@ -30,6 +30,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::agents::ID_CLAUDE;
+use crate::resume::json_string_field;
 use crate::util::{home_dir, newest_in_tail};
 
 /// The live model catalog. Public, unauthenticated JSON: provider → model id →
@@ -168,14 +169,11 @@ fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<Pa
 
     let projects = home_dir()?.join(".claude").join("projects");
     let log_name = format!("{}.jsonl", conversation_id?);
-    for project in std::fs::read_dir(projects).ok()?.flatten() {
-        let log = project.path().join(&log_name);
-        if log.is_file() {
-            return Some(log);
-        }
-    }
-
-    None
+    std::fs::read_dir(projects)
+        .ok()?
+        .flatten()
+        .map(|project| project.path().join(&log_name))
+        .find(|log| log.is_file())
 }
 
 /// The newest complete usage total in a chunk of JSON lines.
@@ -211,24 +209,18 @@ fn turn_from_line(line: &str) -> Option<TurnProfile> {
 /// assistant turn, so an early line carries it and the scan stops there instead
 /// of reading a multi-megabyte transcript whole.
 fn first_model_field(log: &Path) -> Option<String> {
-    let reader = BufReader::new(File::open(log).ok()?);
-    for line in reader.lines().map_while(Result::ok) {
-        if let Some(model) = model_field(&line) {
-            return Some(model);
-        }
-    }
-
-    None
+    BufReader::new(File::open(log).ok()?)
+        .lines()
+        .map_while(Result::ok)
+        .find_map(|line| model_field(&line))
 }
 
 /// The value of a `"model":"…"` pair in one line of JSON, without a full parse.
 fn model_field(line: &str) -> Option<String> {
-    const MARKER: &str = "\"model\":\"";
-    let start = line.find(MARKER)? + MARKER.len();
-    let rest = &line[start..];
-    let end = rest.find('"')?;
-    Some(rest[..end].to_string())
+    json_string_field(line, MODEL_FIELD)
 }
+
+const MODEL_FIELD: &str = "model";
 
 /// The catalog flattened to model id → context window, cached for the run. A
 /// model resold by several providers collapses to the largest reported window -
