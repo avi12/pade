@@ -23,6 +23,7 @@
     emphasized,
     expandRow,
     flipDuration,
+    prefersReducedMotion,
     revealBlock
   } from "@/lib/motion";
   import { baseName, parentDirectory, relativeToRoot } from "@/lib/paths";
@@ -138,8 +139,7 @@
       return;
     }
 
-    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion || !document.startViewTransition) {
+    if (prefersReducedMotion() || !document.startViewTransition) {
       diffMode = mode;
       return;
     }

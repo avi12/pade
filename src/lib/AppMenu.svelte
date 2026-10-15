@@ -6,6 +6,7 @@
   import { Key } from "@/lib/keys";
   import LastAccessed from "@/lib/LastAccessed.svelte";
   import Logo from "@/lib/Logo.svelte";
+  import { prefersReducedMotion } from "@/lib/motion";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import RelabelDialog from "@/lib/RelabelDialog.svelte";
@@ -303,8 +304,7 @@
     elList: ScopedTransitionList | null;
     mutate: () => Promise<void>;
   }) {
-    const isReducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (isReducedMotion || !elList?.startViewTransition) {
+    if (prefersReducedMotion() || !elList?.startViewTransition) {
       await mutate();
       return;
     }

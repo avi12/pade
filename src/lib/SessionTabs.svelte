@@ -13,6 +13,7 @@
   import { Key } from "@/lib/keys";
   import ModelMenu from "@/lib/ModelMenu.svelte";
   import ModelTag, { MODEL_MENU_ANCHOR } from "@/lib/ModelTag.svelte";
+  import { motionDuration } from "@/lib/motion";
   import { effective } from "@/lib/prefs.svelte";
   import { rovingMenu } from "@/lib/roving-menu";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/context.svelte";
@@ -195,13 +196,6 @@
   // hidden in the overflow still surfaces on the trigger.
   const overflowAwaiting = $derived(moreSessions.some(session => isAwaitingChoice(session.id)));
 
-  // Whether motion is suppressed - gates the tab-close out-transition below. Tab
-  // reordering is animated by the drag engine's spring-settle (drag-reorder), not
-  // a framework FLIP, so the pills carry no `animate:flip` (it would fight the
-  // engine's own settle).
-  const isReducedMotion =
-    typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-
   // The last tab's agent - a plain "+" click launches another of the same kind;
   // Ctrl/Cmd-click opens the full launch menu instead.
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
@@ -248,15 +242,17 @@
 
   // Collapse a closing pill (width + fade), pinning its height so the label
   // reflow can't grow the row. Height/width are read once as the outro begins.
+  // Tab reordering is animated by the drag engine's spring-settle, not a
+  // framework FLIP, so the pills carry no `animate:flip` (it would fight it).
   function collapse(elTab: HTMLElement, { id }: { id: string }): TransitionConfig {
-    if (isReducedMotion || !closingIds.has(id)) {
+    if (!closingIds.has(id)) {
       return { duration: 0 };
     }
 
     const width = elTab.offsetWidth;
     const height = elTab.offsetHeight;
     return {
-      duration: COLLAPSE_DURATION,
+      duration: motionDuration(COLLAPSE_DURATION),
       easing: cubicOut,
       css: t =>
         `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +

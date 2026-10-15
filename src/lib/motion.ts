@@ -79,7 +79,8 @@ export function emphasized(progress: number) {
   });
 }
 
-function motionDuration(milliseconds: number) {
+/** A JS-driven transition's duration, collapsed to 0 under reduced motion. */
+export function motionDuration(milliseconds: number) {
   return prefersReducedMotion() ? 0 : milliseconds;
 }
 
