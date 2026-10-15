@@ -3,39 +3,20 @@
   // A terminal has TWO screens and they invert every rule: the normal screen
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
-  // program to repaint). lib/terminal/terminalFit owns that policy.
-  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+  // program to repaint). lib/terminal/terminalFit owns that policy, and
+  // lib/terminal/terminalSession the live session behind this view.
   import { appearance, effective } from "@/lib/settings/prefs.svelte";
-  import { compactionHeadroom, dropContext, observeContextScreen } from "@/lib/stores/agent/context.svelte";
-  import { dropMcpReload } from "@/lib/stores/agent/mcpReload.svelte";
+  import { compactionHeadroom } from "@/lib/stores/agent/context.svelte";
   import { setSessionStatus } from "@/lib/stores/session/sessions.svelte";
-  import { showToast } from "@/lib/stores/ui/toast.svelte";
-  import { observeUsageLimitScreen } from "@/lib/stores/usage/usageResume.svelte";
-  import { observeAgentOutput, observeReplayedOutput } from "@/lib/terminal/agent-output";
-  import { createTerminal, currentXtermTheme, terminalFontSize } from "@/lib/terminal/create-terminal";
-  import { listenForFileDrops } from "@/lib/terminal/file-drop";
-  import { createInitialPromptDelivery } from "@/lib/terminal/initial-prompt-delivery";
-  import { createPtyStream } from "@/lib/terminal/pty-stream";
-  import { createPtyWriter } from "@/lib/terminal/pty-writer";
-  import { createScreenSampler, viewportRows } from "@/lib/terminal/screen-sampler";
-  import { createSessionReadings } from "@/lib/terminal/session-readings";
-  import { createSessionActivity } from "@/lib/terminal/sessionActivity.svelte";
-  import { colorSchemeReport, createColorSchemeRelay } from "@/lib/terminal/terminal-color-scheme";
-  import { pathsAsPromptText } from "@/lib/terminal/terminal-input";
-  import { attachKeyOverrides, attachWheelForwarding } from "@/lib/terminal/terminal-keys";
-  import { createTerminalOutputScheduler } from "@/lib/terminal/terminal-output-scheduler";
-  import { containsRtl } from "@/lib/terminal/terminal-rtl";
-  import { ENTER_ALTERNATE_SCREEN, isFocusReport } from "@/lib/terminal/terminal-sequences";
+  import { currentXtermTheme, terminalFontSize } from "@/lib/terminal/create-terminal";
   import TerminalFind from "@/lib/terminal/TerminalFind.svelte";
-  import { createTerminalFit, Screen } from "@/lib/terminal/terminalFit.svelte";
   import TerminalRtl from "@/lib/terminal/TerminalRtl.svelte";
+  import { createTerminalSession } from "@/lib/terminal/terminalSession.svelte";
   import TerminalSessionBar from "@/lib/terminal/TerminalSessionBar.svelte";
   import { SessionStatus } from "@/lib/types";
-  import type { AgentSession, PtyChunk } from "@/lib/types";
+  import type { AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import { isEditingText } from "@/lib/ui/focus";
-  import { errorMessage } from "@/lib/util/errors";
-  import type { UnlistenFn } from "@tauri-apps/api/event";
   import type { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
   import { onDestroy, onMount, untrack } from "svelte";
@@ -70,144 +51,35 @@
     onexit?: (id: string) => void;
   } = $props();
 
-  const CONTEXT_SCREEN_SAMPLE_MS = 1000;
-
   let elHost: HTMLDivElement;
   let elViewport: HTMLDivElement;
-  let terminal: Terminal;
-  const listeners: UnlistenFn[] = [];
-  // A file dragged from Explorer or an IDE is hovering over this pane.
-  let isFileDragOver = $state(false);
-  // Guards the async onMount against a teardown that runs before its awaits
-  // settle: onDestroy sets this, and each awaited step bails so no listener is
-  // registered after unmount and no write hits a disposed terminal.
-  let isDestroyed = false;
   // The terminal once it is built and attached - reactive, so the effects below
   // (and the right-to-left overlay) can wait for it, since it is created inside
-  // an async onMount long after the first effects have run. Its presence IS
-  // "attached": one value rather than a flag kept beside it.
+  // onMount long after the first effects have run. Its presence IS "attached":
+  // one value rather than a flag kept beside it.
   let attachedTerminal = $state<Terminal | undefined>();
   // The pane's find bar (lib/terminal/TerminalFind), bound so Ctrl+F can ask it to open.
   // Null until the component has mounted itself.
   let findBar = $state<{ reveal: () => Promise<void> } | null>(null);
   let isWindowFocused = $state(document.hasFocus());
-  // This session has printed right-to-left text at least once, so its rows are
-  // worth scanning (see lib/terminal/TerminalRtl). A latch, never unset: the text stays in
-  // the scrollback. Until it flips, an English-only session does no scanning and
-  // renders no overlay at all.
-  let isRightToLeftSeen = $state(false);
   /** This pane holds the keyboard, so its cursor is the live one. */
   const isKeyboardHere = $derived(isActive && isWindowFocused);
 
-  const activity = createSessionActivity({ onSettled: () => delivery.deliverIfReady() });
-  const writeToPty = createPtyWriter({
-    send: data => sendMessage(Command.ptyWrite, {
-      id: session.id,
-      data
+  const pane = createTerminalSession({
+    session: () => session,
+    view: () => ({
+      isShown,
+      isWindowFocused
     }),
-    onTransportLost: () => activity.markExited()
+    openFind: () => findBar?.reveal(),
+    onexit: id => onexit?.(id)
   });
-  // A new-project first prompt is NOT sent on mount: a fresh agent gates on a
-  // "trust this folder?" prompt before its input is live, so it's delivered once
-  // the agent has accepted that gate and settled at its REPL.
-  const delivery = createInitialPromptDelivery({
-    prompt: () => session.initialPrompt,
-    write: writeToPty,
-    isWorking: () => activity.status === SessionStatus.enum.working
-  });
-  const colorScheme = createColorSchemeRelay({
-    agentId: () => session.agent.id,
-    report: () => writeToPty(colorSchemeReport(appearance.terminalScheme))
-  });
-  const readings = createSessionReadings(() => session);
-  const fit = createTerminalFit({
-    terminal: () => terminal,
-    viewport: () => elViewport,
-    // Fire-and-forget resize: the session may have exited between measuring and
-    // resizing, and a dropped resize on a dead PTY is harmless.
-    resizeAgent: async ({ columns, rows }) => {
-      try {
-        await sendMessage(Command.ptyResize, {
-          id: session.id,
-          cols: columns,
-          rows
-        });
-      } catch {
-        // A failed IPC write means this WebView can no longer reach the session;
-        // reflect that rather than pretending the grid is still live.
-        activity.markExited();
-      }
-    },
-    noteResize: () => activity.noteResize()
-  });
-  const screenSampler = createScreenSampler({
-    intervalMs: CONTEXT_SCREEN_SAMPLE_MS,
-    sample: () => {
-      if (!terminal) {
-        return;
-      }
-
-      const rows = viewportRows(terminal);
-      delivery.answerTrustGate(rows);
-      const screen = rows.join("\n");
-      observeContextScreen({
-        id: session.id,
-        text: screen
-      });
-      observeUsageLimitScreen({
-        id: session.id,
-        text: screen
-      });
-    }
-  });
-  const output = createTerminalOutputScheduler({
-    write: queued => {
-      terminal.write(queued, () => screenSampler.request());
-      fit.noteRepaintProgress();
-    },
-    flushContext: () => {
-      const buffer = terminal?.buffer.active;
-      const isReadingScrollback = buffer !== undefined && buffer.type !== Screen.Alternate
-        && buffer.viewportY < buffer.baseY;
-      return {
-        isShown,
-        isWindowFocused,
-        isReadingScrollback
-      };
-    }
-  });
-
-  function watchForRightToLeft(text: string) {
-    // An agent that reorders its own output has already done the browser's job,
-    // and doing it twice reads backwards - so for those the latch never flips and
-    // the overlay never exists (see `reordersBidi` in agents.rs).
-    if (isRightToLeftSeen || session.agent.reordersBidi) {
-      return;
-    }
-
-    if (containsRtl(text)) {
-      isRightToLeftSeen = true;
-    }
-  }
-
-  // Keep a listener that registered; one that lands after teardown is dropped at once.
-  function keepListening(unlisteners: UnlistenFn[]) {
-    if (isDestroyed) {
-      for (const stopListening of unlisteners) {
-        stopListening();
-      }
-      return false;
-    }
-
-    listeners.push(...unlisteners);
-    return true;
-  }
 
   // Publish status to the shared store so the top-bar tab shows a matching dot.
   $effect(() => {
     setSessionStatus({
       id: session.id,
-      status: activity.status
+      status: pane.activity.status
     });
   });
 
@@ -219,12 +91,12 @@
   // context store it writes is rewritten on every chunk of output, and
   // subscribing to that would re-run this per chunk.
   $effect(() => {
-    if (activity.status !== SessionStatus.enum.ready) {
+    if (pane.activity.status !== SessionStatus.enum.ready) {
       return;
     }
 
-    untrack(readings.readContextFromSessionLog);
-    untrack(readings.readRunningModel);
+    untrack(pane.readings.readContextFromSessionLog);
+    untrack(pane.readings.readRunningModel);
   });
 
   // A turn can run for an hour, so turn ends alone leave the reading stale right
@@ -235,20 +107,21 @@
       return;
     }
 
-    untrack(readings.readContextFromSessionLog);
+    untrack(pane.readings.readContextFromSessionLog);
   });
 
   // Live-update the terminal font (family + zoom) when the preference changes.
   $effect(() => {
     const family = effective.monospaceFamily;
     const fontSize = terminalFontSize();
+    const terminal = pane.terminal;
     if (!terminal) {
       return;
     }
 
     terminal.options.fontFamily = family;
     terminal.options.fontSize = fontSize;
-    fit.fitToPane();
+    pane.fit.fitToPane();
   });
 
   // Everything that decides the terminal's colours, as one value: the app scheme
@@ -265,17 +138,18 @@
   // already-running process and redraws its own TUI without a restart or
   // context loss.
   $effect(() => {
-    // Read the palette BEFORE the guard: `terminal` is not reactive, so a guard
-    // that short-circuits on it would run once at mount (when there is no
+    // Read the palette BEFORE the guard: `pane.terminal` is not reactive, so a
+    // guard that short-circuits on it would run once at mount (when there is no
     // terminal yet), never reach this read, and leave the effect subscribed to
     // nothing at all - a palette change would then repaint no terminal, ever.
     const painted = paintedPalette;
+    const terminal = pane.terminal;
     if (!terminal || !painted) {
       return;
     }
 
     terminal.options.theme = currentXtermTheme();
-    colorScheme.relayChange();
+    pane.colorScheme.relayChange();
   });
 
   // Hand the keyboard to the session in front - the moment it launches, and again
@@ -298,255 +172,22 @@
     }
 
     attachedTerminal.options.cursorBlink = isShown && isWindowFocused;
-    output.schedule();
+    pane.output.schedule();
   });
-
-  // Stream this session's PTY output into the terminal; each chunk is a sign of
-  // life that resets the idle → ready timer. Parked until the history replay is
-  // in (see lib/terminal/pty-stream).
-  function consume(chunk: PtyChunk) {
-    // The terminal may already be disposed if a late chunk arrives during
-    // teardown; skip the write rather than throw.
-    if (isDestroyed || !terminal) {
-      return;
-    }
-
-    output.queue(chunk.data);
-    colorScheme.observe(chunk.data);
-    watchForRightToLeft(chunk.data);
-    activity.markActivity();
-    observeAgentOutput({
-      id: session.id,
-      chunk: chunk.data,
-      isOnNormalScreen: terminal.buffer.active.type !== Screen.Alternate
-    });
-    // Accept the first-run trust gate so the pending first prompt can land.
-    delivery.watchOutput(chunk.data);
-  }
-
-  const stream = createPtyStream(consume);
-
-  // Subscribe to this session's events. Events are filtered by id so sibling
-  // sessions don't cross-write. False when the pane was torn down meanwhile.
-  async function listenToSession() {
-    const isDataListening = keepListening([
-      await onMessage(EventType.ptyData, ({ data: chunk }) => {
-        if (chunk.id === session.id) {
-          stream.accept(chunk);
-        }
-      })
-    ]);
-    if (!isDataListening) {
-      return false;
-    }
-
-    const isExitListening = keepListening([
-      await onMessage(EventType.ptyExit, ({ data: { id } }) => {
-        if (id !== session.id) {
-          return;
-        }
-
-        delivery.cancel();
-        activity.markExited();
-        onexit?.(session.id);
-      })
-    ]);
-    if (!isExitListening) {
-      return false;
-    }
-
-    // Read the running model once now for the tag's first frame, then on every change.
-    if (keepListening([await readings.listenForModelChanges()])) {
-      await readings.readRunningModel();
-    }
-
-    keepListening(
-      await listenForFileDrops({
-        element: () => elViewport,
-        onHoverChange: isOver => {
-          isFileDragOver = isOver;
-        },
-        onDrop: paths => {
-          terminal.paste(pathsAsPromptText(paths));
-          terminal.focus();
-        }
-      })
-    );
-    return !isDestroyed;
-  }
-
-  // Wire the terminal's own events: keystrokes out to the PTY, the key and wheel
-  // overrides, and every change of scroll, screen and size.
-  function attachTerminalEvents() {
-    terminal.onData(data => {
-      if (isFocusReport(data)) {
-        return;
-      }
-
-      activity.noteInput(data);
-      writeToPty(data);
-    });
-    attachKeyOverrides({
-      terminal,
-      agentId: () => session.agent.id,
-      write: writeToPty,
-      openFind: () => findBar?.reveal()
-    });
-    attachWheelForwarding({
-      terminal,
-      write: writeToPty,
-      onDocumentScroll: () => output.noteScroll()
-    });
-
-    // The document can outgrow the pane with no resize involved - the agent simply
-    // prints past the last row - and that is the moment the grid must re-pin.
-    terminal.onScroll(() => {
-      fit.updateAnchor();
-      output.schedule();
-    });
-    terminal.buffer.onBufferChange(() => {
-      if (fit.syncScreen(terminal)) {
-        colorScheme.reportToSubscribedAgent();
-      }
-    });
-    terminal.onResize(({ cols: columns, rows }) => fit.handleGridResize({
-      columns,
-      rows
-    }));
-    fit.observePane(elViewport);
-  }
-
-  // Spawn the chosen agent in a real PTY. False when it failed to start, or the
-  // pane was torn down meanwhile.
-  async function spawnAgent() {
-    fit.noteAgentColumns(terminal.cols);
-    // A spawn that fails used to abandon the rest of this mount silently, and the
-    // pane sat on "Starting…" for as long as the app ran - no process, no error,
-    // no way to tell a wedged session from a slow one. Say what happened and mark
-    // the session not-running, so the pane stops lying and a graceful leave never
-    // waits on it.
-    try {
-      await sendMessage(Command.ptySpawn, {
-        id: session.id,
-        command: session.agent.command,
-        cwd: session.cwd ?? null,
-        cols: terminal.cols,
-        rows: terminal.rows,
-        args: session.args,
-        scheme: appearance.terminalScheme,
-        conversationId: session.conversationId,
-        modelChoice: session.modelChoice
-      });
-    } catch (error) {
-      activity.markExited();
-      showToast(
-        `Couldn't start ${session.agent.label} - ${errorMessage({
-          error,
-          fallback: "the terminal session failed to start"
-        })}`
-      );
-      return false;
-    }
-
-    return !isDestroyed;
-  }
-
-  // Paint whatever the session has already said. A spawn for a session that is
-  // still running is a no-op, so this terminal may be attaching to a conversation
-  // already in flight - a remounted component, a reloaded window - and a PTY keeps
-  // no scrollback of its own: with nothing replayed, the pane just sits blank while
-  // the agent waits, quite happily, for input. For a fresh spawn the history is
-  // empty and this costs nothing. Live chunks that arrived meanwhile were parked
-  // and go in after it (see lib/terminal/pty-stream).
-  async function replayHistory() {
-    const history = await sendMessage(Command.ptyHistory, { id: session.id });
-    if (isDestroyed) {
-      return;
-    }
-
-    if (history.data) {
-      await paintHistory(history);
-    }
-
-    stream.goLive(history.seq);
-
-    if (history.alternate) {
-      fit.repaintAgent();
-    }
-  }
-
-  async function paintHistory({ data, alternate }: {
-    data: string;
-    alternate: boolean;
-  }) {
-    // A fullscreen program's history is not a document, it is a stream of edits to a
-    // framebuffer - and once the buffer has been trimmed, the edits that built the
-    // frame are half gone, so replaying it paints a torn one. Switch to the alternate
-    // screen anyway (so the replay lands there, and the pane never flashes the wrong
-    // buffer), then ask the program to repaint itself: it re-renders on a SIGWINCH,
-    // and it is the only thing that can. Its own frame is the source of truth.
-    if (alternate) {
-      terminal.write(ENTER_ALTERNATE_SCREEN);
-    }
-
-    terminal.write(data);
-    colorScheme.observe(data);
-    watchForRightToLeft(data);
-    observeReplayedOutput({
-      id: session.id,
-      data
-    });
-
-    // A session with history was already running before this terminal
-    // attached - any handshake happened at its own startup, usually trimmed
-    // out of the replay, so the watcher above never sees it. Report the
-    // current scheme to the agents known to listen: their spawn-time
-    // COLORFGBG (or a spawn that predates it) may disagree with the palette
-    // this app is painting.
-    await colorScheme.reportToSubscribedAgent();
-
-    // It sits at its prompt, not "starting". A normal-screen session at rest
-    // says nothing more after the replay (replayed bytes never pass through
-    // markActivity), so left unseeded the status would read "starting" forever
-    // and the graceful leave gating on idleness would treat a perfectly quiet
-    // session as busy. Fresh output still flips it to "working" through the
-    // live-chunk path.
-    activity.markAttached();
-  }
 
   onMount(async () => {
-    terminal = createTerminal(elHost);
-    attachedTerminal = terminal;
-    fit.fitToPane();
-
-    const isListening = await listenToSession();
-    if (!isListening) {
-      return;
-    }
-
-    attachTerminalEvents();
-    const isSpawned = await spawnAgent();
-    if (!isSpawned) {
-      return;
-    }
-
-    await replayHistory();
+    const grid = pane.open({
+      elHost,
+      elPane: elViewport
+    });
+    attachedTerminal = grid;
+    await pane.start({
+      grid,
+      elPane: elViewport
+    });
   });
 
-  onDestroy(() => {
-    isDestroyed = true;
-    for (const stopListening of listeners) {
-      stopListening();
-    }
-    activity.dispose();
-    delivery.cancel();
-    fit.dispose();
-    output.dispose();
-    screenSampler.dispose();
-    dropContext(session.id);
-    dropMcpReload(session.id);
-    terminal?.dispose();
-  });
+  onDestroy(() => pane.dispose());
 </script>
 
 <!-- Returning to this window - the Ctrl+Alt+[ / ] window cycle, an alt-tab, a
@@ -562,7 +203,7 @@
   }}
   onfocus={() => {
     isWindowFocused = true;
-    output.schedule();
+    pane.output.schedule();
 
     if (isActive && attachedTerminal && !isEditingText(document.activeElement)) {
       attachedTerminal.focus();
@@ -578,18 +219,18 @@
     {onremove}
     {onreorder}
     {session}
-    status={activity.status}
+    status={pane.activity.status}
   />
   <div class="terminal-padding">
     <div
       bind:this={elViewport}
       class="terminal-viewport"
-      class:anchor-bottom={fit.isBottomAnchored}
-      class:file-drag-over={isFileDragOver}
+      class:anchor-bottom={pane.fit.isBottomAnchored}
+      class:file-drag-over={pane.isFileDragOver}
     >
-      <div bind:this={elHost} style:scale={`1 ${fit.squeeze}`} class="terminal-host">
+      <div bind:this={elHost} style:scale={`1 ${pane.fit.squeeze}`} class="terminal-host">
         <TerminalRtl
-          isEnabled={isRightToLeftSeen}
+          isEnabled={pane.isRightToLeftSeen}
           isFocused={isKeyboardHere}
           terminal={attachedTerminal}
         />
