@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { measuredAgentCount, severityClass } from "@/lib/usage/meter/usage-meter";
   import { type AgentGroup, severityBreakdown } from "@/lib/usage/usage-groups";
-  import { measuredAgentCount, severityClass } from "@/lib/usage/usage-meter";
   import { formatCount, formatQuantity } from "@/lib/util/format";
 
   // The details panel's head: a title with the running count, a tally of agents

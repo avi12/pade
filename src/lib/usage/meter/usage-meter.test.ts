@@ -1,5 +1,4 @@
 import { type AccountUsage, UsageWindowKind } from "@/lib/types";
-import { type AgentGroup, Level, type Limit, limitKey } from "@/lib/usage/usage-groups";
 import {
   groupSeverityClass,
   hasClaudePill,
@@ -12,7 +11,8 @@ import {
   triggerPillGroups,
   USAGE_PANEL_LABEL,
   usageAriaLabel
-} from "@/lib/usage/usage-meter";
+} from "@/lib/usage/meter/usage-meter";
+import { type AgentGroup, Level, type Limit, limitKey } from "@/lib/usage/usage-groups";
 import { describe, expect, it } from "vitest";
 
 function makeLimit({ label, level }: {

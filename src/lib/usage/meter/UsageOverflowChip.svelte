@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { overflowCount, overflowLevel, severityClass } from "@/lib/usage/meter/usage-meter";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
-  import { overflowCount, overflowLevel, severityClass } from "@/lib/usage/usage-meter";
   import { formatCount, formatQuantity } from "@/lib/util/format";
 
   // The trigger's "+N" for the agents past its pills: a muted count, with a

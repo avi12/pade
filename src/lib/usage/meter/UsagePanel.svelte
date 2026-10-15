@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { USAGE_MENU_ANCHOR, USAGE_MENU_ID, USAGE_PANEL_LABEL } from "@/lib/usage/meter/usage-meter";
+  import UsageAgentCard from "@/lib/usage/meter/UsageAgentCard.svelte";
+  import UsageKindLegend from "@/lib/usage/meter/UsageKindLegend.svelte";
+  import UsageSpotlight from "@/lib/usage/meter/UsageSpotlight.svelte";
+  import UsageSummary from "@/lib/usage/meter/UsageSummary.svelte";
   import { type AgentGroup, findSpotlight } from "@/lib/usage/usage-groups";
-  import { USAGE_MENU_ANCHOR, USAGE_MENU_ID, USAGE_PANEL_LABEL } from "@/lib/usage/usage-meter";
-  import UsageAgentCard from "@/lib/usage/UsageAgentCard.svelte";
-  import UsageKindLegend from "@/lib/usage/UsageKindLegend.svelte";
-  import UsageSpotlight from "@/lib/usage/UsageSpotlight.svelte";
-  import UsageSummary from "@/lib/usage/UsageSummary.svelte";
 
   // The meter's details popover: the summary, the limit closest to its cap, and
   // a card per running agent under a legend of the kind codes.

@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
+  import { severityClass } from "@/lib/usage/meter/usage-meter";
   import type { Limit } from "@/lib/usage/usage-groups";
-  import { severityClass } from "@/lib/usage/usage-meter";
 
   // One limit in an agent card: kind badge, bar, percent, then its countdown -
   // or, on the extra-usage row, the credits balance. The row lays out on the

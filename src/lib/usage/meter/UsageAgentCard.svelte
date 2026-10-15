@@ -2,9 +2,9 @@
   import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import LimitResetOffer from "@/lib/usage/LimitResetOffer.svelte";
+  import { groupSeverityClass, isJustReset } from "@/lib/usage/meter/usage-meter";
+  import UsageLimitRow from "@/lib/usage/meter/UsageLimitRow.svelte";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
-  import { groupSeverityClass, isJustReset } from "@/lib/usage/usage-meter";
-  import UsageLimitRow from "@/lib/usage/UsageLimitRow.svelte";
 
   // One agent in the details panel: its name and plan, then a full-width bar row
   // per active limit.

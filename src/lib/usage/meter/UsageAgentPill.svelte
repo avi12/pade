@@ -2,8 +2,8 @@
   import { AgentId } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import { growInline } from "@/lib/ui/motion";
+  import { groupSeverityClass, isJustReset, NO_READING, severityClass } from "@/lib/usage/meter/usage-meter";
   import type { AgentGroup } from "@/lib/usage/usage-groups";
-  import { groupSeverityClass, isJustReset, NO_READING, severityClass } from "@/lib/usage/usage-meter";
   import type { Snippet } from "svelte";
 
   // One agent in the trigger: icon + short name, then a stack per limit (the

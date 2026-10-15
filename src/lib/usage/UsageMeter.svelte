@@ -11,10 +11,10 @@
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
   import LimitResetConfirm from "@/lib/usage/LimitResetConfirm.svelte";
+  import { hasClaudePill, pendingResetBoundaries } from "@/lib/usage/meter/usage-meter";
+  import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";
+  import UsageTrigger from "@/lib/usage/meter/UsageTrigger.svelte";
   import { buildGroups, justResetLimits, limitPercentages } from "@/lib/usage/usage-groups";
-  import { hasClaudePill, pendingResetBoundaries } from "@/lib/usage/usage-meter";
-  import UsagePanel from "@/lib/usage/UsagePanel.svelte";
-  import UsageTrigger from "@/lib/usage/UsageTrigger.svelte";
   import { settledValue } from "@/lib/util/settled";
   import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";

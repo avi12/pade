@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type { AgentGroup } from "@/lib/usage/usage-groups";
   import {
     NO_READING,
     triggerPillGroups,
     USAGE_MENU_ANCHOR,
     USAGE_MENU_ID,
     usageAriaLabel
-  } from "@/lib/usage/usage-meter";
-  import UsageAgentPill from "@/lib/usage/UsageAgentPill.svelte";
-  import UsageOverflowChip from "@/lib/usage/UsageOverflowChip.svelte";
+  } from "@/lib/usage/meter/usage-meter";
+  import UsageAgentPill from "@/lib/usage/meter/UsageAgentPill.svelte";
+  import UsageOverflowChip from "@/lib/usage/meter/UsageOverflowChip.svelte";
+  import type { AgentGroup } from "@/lib/usage/usage-groups";
   import type { Snippet } from "svelte";
 
   // The meter's always-visible face: one pill per agent and a "+N" chip for the
