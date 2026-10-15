@@ -6,7 +6,7 @@ import { fileExtension } from "@/lib/feed/file-type";
 import type { ChangeEvent } from "@/lib/types";
 import { formatCount } from "@/lib/util/format";
 
-interface ExtensionCount {
+export interface ExtensionCount {
   extension: string;
   count: number;
 }

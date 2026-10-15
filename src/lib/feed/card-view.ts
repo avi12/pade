@@ -16,7 +16,7 @@ export const CardViewKind = {
 } as const;
 
 /** A card whose preview is its picture or clip. */
-interface MediaView {
+export interface MediaView {
   kind: typeof CardViewKind.Image | typeof CardViewKind.Video;
   url: string;
 }

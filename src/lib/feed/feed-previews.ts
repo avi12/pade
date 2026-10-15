@@ -147,3 +147,5 @@ export function createFeedPreviews() {
     paneOf: (id: string) => paneById.get(id) ?? PreviewPane.Code
   };
 }
+
+export type FeedPreviews = ReturnType<typeof createFeedPreviews>;
