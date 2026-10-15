@@ -22,3 +22,7 @@ export const refreshProjectKind = projectKinds.refresh;
 
 /** Shared attachment that detects a project only when its row becomes visible. */
 export const observeProjectKind = projectKinds.observe;
+
+/** Re-detect every cached project as its row shows, keeping the old icon until
+ *  the answer lands - a project's language can change while PADE runs. */
+export const revalidateProjectKinds = projectKinds.revalidate;

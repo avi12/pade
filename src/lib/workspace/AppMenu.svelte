@@ -9,6 +9,7 @@
     observeProjectBranch,
     projectBranch
   } from "@/lib/stores/workspace/projectBranches.svelte";
+  import { revalidateProjectKinds } from "@/lib/stores/workspace/projectKinds.svelte";
   import { WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import { Axis, beginReorder } from "@/lib/ui/drag-reorder";
@@ -431,6 +432,7 @@
         openedAt = Date.now();
         focusFilter();
         invalidateProjectBranches();
+        revalidateProjectKinds();
         await loadOpenWindows();
       }
     }}

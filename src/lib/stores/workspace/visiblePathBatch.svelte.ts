@@ -28,6 +28,9 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   const refreshRequests = new Map<string, symbol>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
   const pending = new Set<string>();
+  // Cached values still shown, but re-asked the next time their row is on screen.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
+  const staleKeys = new Set<string>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- observer bookkeeping, never rendered
   const visibleCounts = new Map<string, number>();
   const observed = new WeakMap<Element, {
@@ -42,6 +45,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     key: string;
     value: Value | null;
   }) {
+    staleKeys.delete(key);
     values.set(key, value);
 
     if (values.size <= cacheLimit) {
@@ -108,7 +112,8 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   /** Queue one path through the shared batch (non-visual consumers, tests). */
   function request(path: string) {
     const key = normalizePath(path);
-    if (values.has(key) || refreshRequests.has(key)) {
+    const isFresh = values.has(key) && !staleKeys.has(key);
+    if (isFresh || refreshRequests.has(key)) {
       return;
     }
 
@@ -238,11 +243,25 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     }
   }
 
+  /** Keep showing every cached value but re-ask the backend for each one, the
+   *  rows on screen now and the rest once they scroll into view - for a value
+   *  that may have changed (a project gaining a `tsconfig.json`) where blanking
+   *  it while it reloads would only flicker. */
+  function revalidate() {
+    for (const key of values.keys()) {
+      staleKeys.add(key);
+    }
+    for (const key of visibleCounts.keys()) {
+      request(originalPaths.get(key) ?? key);
+    }
+  }
+
   return {
     value,
     request,
     refresh,
     observe,
-    invalidate
+    invalidate,
+    revalidate
   };
 }

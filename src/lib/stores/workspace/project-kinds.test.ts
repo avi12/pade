@@ -1,4 +1,9 @@
-import { projectKind, refreshProjectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
+import {
+  projectKind,
+  refreshProjectKind,
+  requestProjectKind,
+  revalidateProjectKinds
+} from "@/lib/stores/workspace/projectKinds.svelte";
 import {
   beforeEach,
   describe,
@@ -123,5 +128,26 @@ describe("project kind batches", () => {
     olderResponse.resolve({ [path]: "web" });
     await expect(olderRefresh).resolves.toBe("rust");
     expect(projectKind(path)).toBe("rust");
+  });
+
+  it("re-detects a cached project after a revalidation, keeping the old kind meanwhile", async () => {
+    const path = "C:\\projects\\gains-tsconfig";
+    const redetection = Promise.withResolvers<Record<string, string>>();
+    mocks.projectKinds
+      .mockResolvedValueOnce({ [path]: "web" })
+      .mockReturnValueOnce(redetection.promise);
+    requestProjectKind(path);
+    await vi.waitFor(() => expect(projectKind(path)).toBe("web"));
+
+    revalidateProjectKinds();
+    requestProjectKind(path);
+    await vi.waitFor(() => expect(mocks.projectKinds).toHaveBeenCalledTimes(2));
+    expect(projectKind(path)).toBe("web");
+
+    redetection.resolve({ [path]: "typescript" });
+    await vi.waitFor(() => expect(projectKind(path)).toBe("typescript"));
+    requestProjectKind(path);
+    await Promise.resolve();
+    expect(mocks.projectKinds).toHaveBeenCalledTimes(2);
   });
 });
