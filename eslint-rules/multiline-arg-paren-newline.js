@@ -9,12 +9,12 @@
  *     })
  *   );
  *
- * Direct callbacks, object literals, and array literals are excluded — they
+ * Direct callbacks, object literals, and array literals are excluded - they
  * conventionally stay inline with the call:
  *
- *   foo({ key: value });        // OK — ObjectExpression
- *   untrack(() => { ... });     // OK — ArrowFunctionExpression
- *   new Promise(resolve => {})  // OK — ArrowFunctionExpression
+ *   foo({ key: value });        // OK - ObjectExpression
+ *   untrack(() => { ... });     // OK - ArrowFunctionExpression
+ *   new Promise(resolve => {})  // OK - ArrowFunctionExpression
  */
 
 const inlineArgumentTypes = new Set([

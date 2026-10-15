@@ -15,7 +15,7 @@
     onpick: (path: string) => void;
   } = $props();
 
-  // A one-letter kind badge with its own tint — reuse the panel's status colors.
+  // A one-letter kind badge with its own tint - reuse the panel's status colors.
   const KIND_BADGE: Record<VcsKind, string> = {
     [VcsKind.enum.created]: "A",
     [VcsKind.enum.untracked]: "A",
@@ -153,7 +153,7 @@
       background: var(--surface-2);
     }
 
-    /* Inset primary ring (canon) — an outer outline would be clipped by the
+    /* Inset primary ring (canon) - an outer outline would be clipped by the
        file list's own overflow. */
     &:focus-visible {
       outline: none;
@@ -172,7 +172,7 @@
       min-inline-size: 0;
     }
 
-    /* Per-kind tint on the one-letter badge — mirrors the panel status squares. */
+    /* Per-kind tint on the one-letter badge - mirrors the panel status squares. */
     .kind {
       flex: none;
       padding-block: 1px;

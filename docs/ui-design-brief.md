@@ -1,18 +1,18 @@
-# PADE — UI Design Brief
+# PADE - UI Design Brief
 
 A complete visual + interaction spec of PADE's UI, written to hand to an AI design
-tool. **The entire product must be designed in Material 3 Expressive** (see §1 — it
+tool. **The entire product must be designed in Material 3 Expressive** (see §1 - it
 is non-negotiable and drives every color, shape, type, and motion choice below).
 
 ---
 
 ## 0. What PADE is
 
-PADE ("Power ADE" — an **Agentic Development Environment**) is a desktop app that
+PADE ("Power ADE" - an **Agentic Development Environment**) is a desktop app that
 wraps an AI coding-agent CLI (Claude Code, Codex, …) running **unmodified in a real
 terminal**, and builds a comprehension-first GUI around it. The user stays the
 owner while the agent writes: a live terminal on the left, glanceable review panels
-on the right. Calm, focused, developer-grade — never noisy.
+on the right. Calm, focused, developer-grade - never noisy.
 
 **Platform:** desktop (Windows-first), with one or more resizable project windows,
 each min 720×480 and default 1200×800. Dense but breathable. Keyboard- and
@@ -20,7 +20,7 @@ mouse-driven.
 
 ---
 
-## 1. Design language — Material 3 Expressive (REQUIRED)
+## 1. Design language - Material 3 Expressive (REQUIRED)
 
 Hand-authored M3 Expressive tokens. Light + dark schemes derived from **one blue
 seed hue (210°)**; the app follows the OS theme automatically (no toggle). Use
@@ -49,7 +49,7 @@ All values are HSL. Two full schemes.
 | **outline** | `hsl(214 15% 82%)` | `hsl(214 15% 28%)` | hairline dividers (1px), used sparingly |
 | **code-bg / code-fg** | `hsl(210 30% 96%)` / `hsl(214 30% 20%)` | `hsl(214 40% 6%)` / `hsl(210 20% 85%)` | terminal + diff/code surfaces |
 
-Neutrals are **blue-tinted** (210–214° hue), never pure grey — this is deliberate,
+Neutrals are **blue-tinted** (210–214° hue), never pure grey - this is deliberate,
 part of the M3 tonal system seeded from the blue primary. Prefer stepping between
 `surface`→`surface-1`→`surface-2`→`surface-3` for elevation instead of drop shadows
 (shadows appear only on floating popovers).
@@ -58,19 +58,19 @@ part of the M3 tonal system seeded from the blue primary. Prefer stepping betwee
 
 Pill everywhere it reads as an action; generous radii on containers.
 
-- **small** `8px` — rows, small tags, tooltips, inline chips
-- **medium** `14px` — panels' inner cards, code/diff blocks, inputs
-- **large** `20px` — primary cards (agent options, temp-start card)
-- **x-large** `28px` — hero/onboarding card
-- **full pill** `999px` — buttons, chips, tabs, badges, usage meter, segmented control, icon buttons, count bubbles
+- **small** `8px` - rows, small tags, tooltips, inline chips
+- **medium** `14px` - panels' inner cards, code/diff blocks, inputs
+- **large** `20px` - primary cards (agent options, temp-start card)
+- **x-large** `28px` - hero/onboarding card
+- **full pill** `999px` - buttons, chips, tabs, badges, usage meter, segmented control, icon buttons, count bubbles
 
 ### 1.3 Typography
 
 - **UI font:** `Google Sans`, then `Segoe UI`, `system-ui` (expressive, friendly geometric sans).
-- **Mono font:** `JetBrains Mono`, then `Cascadia Code`, `ui-monospace` — for paths, code, commands, filenames, SHAs, the terminal.
-- **Expressive display:** page titles use a large, tight, bold clamp — `clamp(24px, 4vw, 36px)`, weight 700–800, letter-spacing `-0.02em`, `text-wrap: balance`.
+- **Mono font:** `JetBrains Mono`, then `Cascadia Code`, `ui-monospace` - for paths, code, commands, filenames, SHAs, the terminal.
+- **Expressive display:** page titles use a large, tight, bold clamp - `clamp(24px, 4vw, 36px)`, weight 700–800, letter-spacing `-0.02em`, `text-wrap: balance`.
 - Body ~14px; secondary 12–13px; metadata 11px. Section eyebrows/labels: 11–12px, UPPERCASE, letter-spacing `0.06–0.08em`, in `on-surface-var`.
-- `font-variant-numeric: tabular-nums` is set once on `body` and inherited — never per component. It only asks the font for a `tnum` feature, and nothing warns when there is none: Figtree honors it, Chakra Petch and Rajdhani do not, so the Cyberpunk UI stack leads with "Oxanium Digits" — Oxanium's 0–9 only, one width at every weight — and letters stay Chakra Petch.
+- `font-variant-numeric: tabular-nums` is set once on `body` and inherited - never per component. It only asks the font for a `tnum` feature, and nothing warns when there is none: Figtree honors it, Chakra Petch and Rajdhani do not, so the Cyberpunk UI stack leads with "Oxanium Digits" - Oxanium's 0–9 only, one width at every weight - and letters stay Chakra Petch.
 
 ### 1.4 Motion
 
@@ -93,12 +93,12 @@ Pill everywhere it reads as an action; generous radii on containers.
 
 Three top-level "phases" render full-window, one at a time:
 
-1. **Onboarding** — pick an agent (only when several are installed).
-2. **Project picker** — choose/create a project (on demand, or on launch if opted in).
-3. **Workspace (ready)** — the main working screen.
+1. **Onboarding** - pick an agent (only when several are installed).
+2. **Project picker** - choose/create a project (on demand, or on launch if opted in).
+3. **Workspace (ready)** - the main working screen.
 
 The **Workspace** is a vertical stack: a **top bar** (fixed height) over a **body**
-that is a two-column grid — a **terminal pane** (flexible, left) and an optional
+that is a two-column grid - a **terminal pane** (flexible, left) and an optional
 **side panel** (right, `minmax(320px, 420px)`). On narrow widths (<720px) the side
 panel drops below the terminal (rows `1fr 40%`).
 
@@ -106,7 +106,7 @@ panel drops below the terminal (rows `1fr 40%`).
 
 ## 3. Screens
 
-### 3.1 Onboarding — "Choose an agent"
+### 3.1 Onboarding - "Choose an agent"
 
 Full-window, centered, on a soft radial gradient (`surface-1`→`surface`). A single
 **x-large (28px) card** on `surface-1`, max 560px:
@@ -121,7 +121,7 @@ Full-window, centered, on a soft radial gradient (`surface-1`→`surface`). A si
   `primary-container`, text→`on-primary-container`, adds a 1px primary border, and
   animates over 200ms.
 
-### 3.2 Project picker — "Open a project"
+### 3.2 Project picker - "Open a project"
 
 Full-window, scrollable, same radial-gradient ground. A centered column
 (`min(680px, 100%)`), sections stacked with 28px gaps:
@@ -131,7 +131,7 @@ Full-window, scrollable, same radial-gradient ground. A centered column
   - A prominent **"Start in a temp workspace"** card (large radius, filled with
     `primary-container`, 1px primary border, a `✦` glyph, a strong title + small
     subtitle). Hover brightens.
-  - **"On launch with no project"** — a small label + a **pill segmented toggle**
+  - **"On launch with no project"** - a small label + a **pill segmented toggle**
     with two options: *Temp workspace* | *This picker* (selected segment filled
     `primary-container`).
   - Two **checkbox rows** (accent-colored checkboxes, `primary`): "Auto-name temp
@@ -140,15 +140,15 @@ Full-window, scrollable, same radial-gradient ground. A centered column
 - **Recent section** (if any): header "Recent" + a small ghost **"Clear"** button
   (trash icon, turns `crit` on hover). A list of **recent rows**: each is a wide
   ghost button showing an optional small **`temp`** pill tag, the **display name**
-  (mono, 13px — a friendly auto-derived label when present, else the folder name),
+  (mono, 13px - a friendly auto-derived label when present, else the folder name),
   and the **full path** (11px, `on-surface-var`, truncates). Hover fills
   `surface-2`. A trailing **kebab (⋯) button** opens a native popover menu:
-  *Open in Files*, *Open in Terminal*, *Open in <IDE>*, and — for PADE-owned
-  workspaces — a divider then *Rename to a project*, *Move…*, and a `crit`-tinted
+  *Open in Files*, *Open in Terminal*, *Open in <IDE>*, and - for PADE-owned
+  workspaces - a divider then *Rename to a project*, *Move…*, and a `crit`-tinted
   *Delete workspace*. Inline rename swaps the row for a small text field + Save/Cancel.
 - **Default agent section** (if >1 real agent): title + hint + a row of **choice
   chips** (pills); the selected one is `primary-container` with a primary border.
-- **Root folders section:** an add row — a mono text input (placeholder
+- **Root folders section:** an add row - a mono text input (placeholder
   `C:\repositories  ·  paste a folder path`), a **"Browse…"** outline button
   (folder icon), and a filled **"Add root"** button (disabled until non-empty).
   Below, each root shows a mono code path + a small **×** remove button, and a list
@@ -157,14 +157,14 @@ Full-window, scrollable, same radial-gradient ground. A centered column
   Each project row also has the same kebab menu. Empty roots read "No projects
   found in this folder."
 - **New project section** (if any root): a root `<select>`, a `project-name` input,
-  a 3-row textarea ("First prompt for the agent (optional) — …"), and a filled
+  a 3-row textarea ("First prompt for the agent (optional) - …"), and a filled
   **"Create & open"** button.
 
 All inputs: 14px, `surface-2` fill, 1px `outline`, 14px radius, mono for path fields.
 All primary buttons: filled `primary`/`on-primary`, pill or 14px radius, 600 weight,
 50% opacity when disabled.
 
-### 3.3 Workspace — the main screen
+### 3.3 Workspace - the main screen
 
 #### Top bar
 
@@ -172,31 +172,31 @@ A single-row bar on `surface-1` with a 1px `outline` bottom divider,
 `padding: 8px 16px`, `gap: 12px`, items vertically centered, horizontally scrollable
 if cramped. Left→right:
 
-1. **Brand** `◆ PADE` — primary, bold, letter-spacing 0.02em.
-2. **Project name button** — a ghost button (mono, 13px) separated by a left 1px
+1. **Brand** `◆ PADE` - primary, bold, letter-spacing 0.02em.
+2. **Project name button** - a ghost button (mono, 13px) separated by a left 1px
    divider. Shows an optional small **`temp`** pill (uppercase, `surface-3`), the
    **directory name or friendly label** (truncates at ~32ch), and a **`switch`**
    hint in primary that fades in on hover (opens the Project picker). Tooltip = full path.
-3. **Session tabs** (`nav`, "Agent sessions") — one **pill tab** per running agent
+3. **Session tabs** (`nav`, "Agent sessions") - one **pill tab** per running agent
    session: the active tab is filled `primary-container` with 600-weight
    `on-primary-container` text; inactive tabs are `surface-2`. Each tab = a label
    button + a **× close** button (turns `crit` on hover).
    - A round **`+` add button** (30px pill, `surface-2`) opens a **native popover
-     menu** listing every installed agent to launch, and — when the project is a
-     git repo — a divider "On a branch — new worktree" followed by each branch (git
+     menu** listing every installed agent to launch, and - when the project is a
+     git repo - a divider "On a branch - new worktree" followed by each branch (git
      icon) to spawn an agent on its own worktree.
 4. **Spacer** (pushes the rest right).
-5. **Usage meter** — see §4.6.
-6. **Design menu** — a pill button `✦ Design ▾` (`surface-2`); see §4.4.
-7. **IDE menu** — a pill button `⇱ Open in <best-fit IDE> ▾` (`surface-2`); its
+5. **Usage meter** - see §4.6.
+6. **Design menu** - a pill button `✦ Design ▾` (`surface-2`); see §4.4.
+7. **IDE menu** - a pill button `⇱ Open in <best-fit IDE> ▾` (`surface-2`); its
    drop-down is always available, lists installed compatible editors with the
    project-type best-match tagged "best fit", and ends with **Reveal in file
    explorer**.
-8. **Side-panel segmented control** — a pill-grouped `role="tablist"` of four
+8. **Side-panel segmented control** - a pill-grouped `role="tablist"` of four
    tabs, each an icon+label: **Change Feed**, **Git**, **Tasks**, **Config**. The
    selected tab is filled `primary-container`. Clicking the active one closes the panel.
 
-#### Body — terminal pane (left)
+#### Body - terminal pane (left)
 
 Fills the remaining space. Contains the active agent's **terminal** (xterm.js):
 
@@ -207,7 +207,7 @@ Fills the remaining space. Contains the active agent's **terminal** (xterm.js):
   edges (only 8px top/left inset), mono, DOM-rendered, no scrollbar. All sessions
   stay mounted; only the active one is visible so scrollback survives switching.
 
-#### Body — side panel (right)
+#### Body - side panel (right)
 
 When open, an `aside` on `surface` with a 1px left divider, showing one of four
 panels (§4.1–4.3, §4.5). Each panel has a small header (`h2`, 15px) + a scroll area.
@@ -239,16 +239,16 @@ lines"); a meta row with the directory (mono, 11px) and a stat (`+N` tertiary /
 Header "Version control" + a round **⟳ refresh** icon button. If not a repo: a calm
 empty line. Otherwise a scroll area with grouped sections:
 
-- **Unreviewed** (unstaged) — header with a **tertiary dot** + count pill. Rows: a
-  small **status square** (18px, 8px radius, white glyph — `C` created/untracked =
+- **Unreviewed** (unstaged) - header with a **tertiary dot** + count pill. Rows: a
+  small **status square** (18px, 8px radius, white glyph - `C` created/untracked =
   tertiary, `M`/`R` modified/renamed = primary, `D` deleted = crit) + filename
   (mono). Selected row = `primary-container`.
-- **Staged** — same, header with a **primary dot**.
-- **Diff viewer** (when a file is selected): a 14px-radius bordered block — a mono
+- **Staged** - same, header with a **primary dot**.
+- **Diff viewer** (when a file is selected): a 14px-radius bordered block - a mono
   title bar (`surface-2`) over a `code-bg` `<pre>` where **added lines** get a
   translucent tertiary wash, **removed** a translucent crit wash, and **hunk/meta**
   lines read in `on-surface-var`. Max-height ~320px, scrolls.
-- **Recent commits** — a list: short **SHA** (mono, primary), summary, and
+- **Recent commits** - a list: short **SHA** (mono, primary), summary, and
   `author · relative-time` (11px, `on-surface-var`).
 
 "Working tree clean." when empty.
@@ -268,7 +268,7 @@ that launches it in a new terminal tab. Auto-refreshes when a manifest changes.
 
 Pill button `✦ Design ▾`. Opens a **native popover** (rounded, `surface-2`, soft
 shadow): a small hint "Open a design-to-code tool", then a ranked list of AI
-UI-generation tools — **Claude, Google Stitch, Vercel v0, Figma Make**. Each item
+UI-generation tools - **Claude, Google Stitch, Vercel v0, Figma Make**. Each item
 shows the tool **name** + its **vendor** (11px, right-aligned). The tool whose
 vendor matches the **active agent** is pinned first and tagged **"best fit"**
 (tertiary, uppercase). Picking one opens that tool's live UI in a companion PADE
@@ -280,7 +280,7 @@ Header "Agent config". A list of the active agent's config files, each row: a sm
 uppercase **kind pill** (`instructions` = tertiary-tinted, `mcp` = primary-tinted,
 `settings` = `surface-3`) + the relative path (mono); absent files are dimmed (45%)
 and disabled, tagged "absent". Selecting an existing file shows a read-only mono
-viewer on `code-bg` (14px radius) + a note "Read-only in the MVP — edits will write
+viewer on `code-bg` (14px radius) + a note "Read-only in the MVP - edits will write
 back to this same file."
 
 ### 4.6 Usage meter (top bar)
@@ -289,15 +289,15 @@ A compact pill (`surface-2`). When a precise percent is known: a small rounded
 **track** (46×6px, `surface-3`) with a **fill** (primary; turns **warn/amber** at
 ≥80%), then `NN%` (tabular-nums) and an optional ` · resets 3d/5h`. When only a plan
 tier is known: just the tier label (e.g. "Claude max"). When nothing is known: a
-muted **"usage —"** with a tooltip explaining why. Fill animates on change (300ms).
+muted **"usage -"** with a tooltip explaining why. Fill animates on change (300ms).
 
 ### 4.7 Session badge (status)
 
 An inline row: a **status dot** + optional mono label + a state phrase.
-- **starting** — neutral dot, "Starting…"
-- **working** — **primary** dot, **pulsing**, "Working"
-- **ready** — **tertiary** dot with a soft halo, "Ready — waiting for you" (phrase in tertiary, bold)
-- **exited** — neutral dot, "Done — session ended"
+- **starting** - neutral dot, "Starting…"
+- **working** - **primary** dot, **pulsing**, "Working"
+- **ready** - **tertiary** dot with a soft halo, "Ready - waiting for you" (phrase in tertiary, bold)
+- **exited** - neutral dot, "Done - session ended"
 
 ### 4.8 Popover menus & tooltips (shared)
 
@@ -312,7 +312,7 @@ min width; items are full-width ghost buttons (8px radius) that fill
 ## 5. Interaction & state summary
 
 - **Selection → action:** selecting text in any side panel reveals the send-to-agent FAB.
-- **Everything glanceable:** color encodes meaning consistently — tertiary = good/created/ready, primary = active/modified/working, crit = deleted/destructive, warn = high usage.
+- **Everything glanceable:** color encodes meaning consistently - tertiary = good/created/ready, primary = active/modified/working, crit = deleted/destructive, warn = high usage.
 - **Selected/active** anything = `primary-container` fill.
 - **Hover** ghost items = `surface-2`; hover menu items = `primary-container`.
 - **Empty states** are a single calm sentence in `on-surface-var`, never an error tone unless truly an error.

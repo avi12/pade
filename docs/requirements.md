@@ -1,4 +1,4 @@
-# ADE — Software Requirements (MVP)
+# ADE - Software Requirements (MVP)
 
 Status legend: ✅ done · 🚧 in progress · ⏳ planned (MVP) · 🔭 later
 
@@ -7,7 +7,7 @@ Status legend: ✅ done · 🚧 in progress · ⏳ planned (MVP) · 🔭 later
 ADE wraps an agent CLI running **unmodified** in an integrated terminal and builds
 a comprehension-first GUI around it. It uses the user's existing subscription (no
 token metering) and stays ToS-clean by only reading the PTY stream and typing into
-it. Core mission: cure "code-blindness" — the user stays the owner while the agent
+it. Core mission: cure "code-blindness" - the user stays the owner while the agent
 writes.
 
 ## 1. Functional requirements
@@ -25,24 +25,24 @@ writes.
   until 120ms of quiet (at most one second) so incoming tokens do not block it.
 - R1.1.3 Bi-directional: stream output in, send keystrokes/resize out.
 - R1.1.4 Command configurable via `ADE_AGENT_CMD` (default: platform shell).
-- R1.1.5 ✅ **Split panes** — show multiple agent sessions side by side (add an
+- R1.1.5 ✅ **Split panes** - show multiple agent sessions side by side (add an
   existing session or launch a new instance into the split; remove a pane). All
   sessions stay mounted so scrollback survives; the grid refits on layout change.
-- R1.1.6 ✅ Per-tab **status dot** — starting / working (pulses) / ready (halo) /
+- R1.1.6 ✅ Per-tab **status dot** - starting / working (pulses) / ready (halo) /
   exited, shared from each terminal's idle detection via a `lib/stores` store.
 - R1.1.7 ✅ **Session persistence across an accidental reload or a webview
-  crash** — the window persists its pane mapping (localStorage, keyed by window
+  crash** - the window persists its pane mapping (localStorage, keyed by window
   label) and boot re-attaches whatever the backend still hosts (`pty_list` ∩
   snapshot), replaying `pty_history` per pane; the `w=` window query is kept
   rewritten to the project actually on screen so a reload never routes off a
   stale spawn intent. The key survives the *rebuilt* webview a crash recovery
-  hands the window, which sessionStorage did not — that gap orphaned live PTYs
+  hands the window, which sessionStorage did not - that gap orphaned live PTYs
   behind a freshly spawned agent. Still never across an app restart: the backend
   kills all PTYs on exit, so the intersection is empty and the snapshot cleared.
-- R1.1.8 ✅ **Intent-based leave** — a deliberate leave (project switch, back to
+- R1.1.8 ✅ **Intent-based leave** - a deliberate leave (project switch, back to
   the picker, closing the window) kills the project's agents *gracefully*: it
   waits per session for the idle prompt (`sessionStatus === ready`, the
-  output-quiet signal — never child-process counting, which mis-reads persistent
+  output-quiet signal - never child-process counting, which mis-reads persistent
   MCP servers), capped at 30s, so nothing mid-flight is severed; the agent's
   auto-save + `/resume` cover continuity. The window close is intercepted
   (`onCloseRequested`) so the X waits the same way before the window is
@@ -57,27 +57,27 @@ writes.
 - R1.1.10 ✅ Closing a visible session tab uses the same collapse animation from
   its close button, middle-click, Ctrl+W, or Ctrl+F4. Reduced-motion mode still
   removes it immediately.
-- R1.1.11 ✅ **Find in the terminal** — Ctrl+F opens a find bar over the focused
+- R1.1.11 ✅ **Find in the terminal** - Ctrl+F opens a find bar over the focused
   pane instead of sending a raw ^F to the agent: incremental search as you type,
   every match washed and the active one lit, a "3 of 12" readout, Enter /
   Shift+Enter to step, Escape to close and hand the keyboard back. Three toggles
-  decide how the term is matched — **match case** (Alt+C), **whole word**
-  (Alt+W) and **regular expression** (Alt+R) — and each pane keeps its own, so a
+  decide how the term is matched - **match case** (Alt+C), **whole word**
+  (Alt+W) and **regular expression** (Alt+R) - and each pane keeps its own, so a
   refined search survives closing the bar. A pattern that is still half-typed
   reads as "Bad pattern" rather than a search that found nothing. It searches
-  the terminal's own buffer — a shell's full scrollback, and the visible frame
+  the terminal's own buffer - a shell's full scrollback, and the visible frame
   while a fullscreen agent holds the alternate screen (that agent's transcript
   lives in its process, not in the terminal document).
 
 - R1.1.12 ✅ **A workspace can be more than one repo.** PADE discovers what a
-  workspace is made of — every nested checkout (its own `.git`: a multi-repo
+  workspace is made of - every nested checkout (its own `.git`: a multi-repo
   folder, a submodule, a worktree) and every declared package (a monorepo's
-  members) — as one list. When there is more than one, the top bar grows a member
+  members) - as one list. When there is more than one, the top bar grows a member
   switcher: each entry shows its branch when it is a checkout, and the one you
   pick is what the branch pill reports and where a new agent tab, a worktree
   launch and the editor open. The Change Feed labels each group with the branch
   of the checkout its files are actually in. A single-repo workspace is unchanged
-  — no switcher, one branch pill, exactly as before.
+  - no switcher, one branch pill, exactly as before.
 
 ### 1.2 Change Feed (✅ core, 🚧 depth)
 - R1.2.1 Filesystem watcher emits an event per save (`notify`).
@@ -87,13 +87,13 @@ writes.
   **Unified / Split** toggle and open-in-editor; cached per path. 🔭 agent intent.
 - R1.2.5 ✅ The watcher follows the open workspace: switching projects re-roots
   it (`ChangeFeed` passes the open project's path to `watch_start`, which re-arms
-  on that explicit root — never the process's cwd, which can drift from it).
+  on that explicit root - never the process's cwd, which can drift from it).
 - R1.2.6 ✅ Every diff surface (feed card, Git panel, commit modal) prints each
   code line **in full**: long lines wrap (`DiffView.svelte`), never clip or hide
   behind a horizontal scroll; the diff stays hunks + context, never the whole file.
 - R1.2.7 ✅ **Exclude what the project ignores.** Beyond the always-on build/VCS
   noise list, the watcher skips ignored paths via an ignore policy fixed per
-  `watch_start`: in a git work tree it defers to git itself (`git check-ignore` —
+  `watch_start`: in a git work tree it defers to git itself (`git check-ignore` -
   nested `.gitignore`, `.git/info/exclude`, global excludes, negations), and with
   no git it falls back to **technology-common ignore directories inferred from the
   root manifests** (`package.json`→`node_modules`…, `Cargo.toml`→`target`, Python /
@@ -102,7 +102,7 @@ writes.
   `.gitignore` changes.
 - R1.2.8 ✅ **Language logos on cards.** Each change card leads with the file's
   **brand logo** (a local `.svg` in `src/lib/icons`, rendered via `Icon.svelte`)
-  instead of a text chip — multi-colour marks (TS/JS/Python…) keep their brand
+  instead of a text chip - multi-colour marks (TS/JS/Python…) keep their brand
   fills, single-colour marks and format glyphs take the card's language tone. An
   unrecognised type falls back to the text badge, so every row stays tagged.
 - R1.2.9 ✅ **The feed survives panel switches.** Events accumulate in a persistent
@@ -123,7 +123,7 @@ writes.
 - R1.3.3 ✅ Programmatic clipboard, selection, and runner-output sends use
   bracketed-paste framing without Enter, so embedded newlines cannot submit shell
   commands. Only explicit prompt-delivery flows append a separate Enter.
-- R1.3.4 ✅ **Files into the composer** — Ctrl+V with an image on the clipboard
+- R1.3.4 ✅ **Files into the composer** - Ctrl+V with an image on the clipboard
   pastes the saved PNG's path, and files dragged from Explorer or an IDE onto a
   terminal pane paste their paths (quoted when they hold a space, space
   separated). The target pane is outlined while a file hovers over it, so a
@@ -142,18 +142,18 @@ writes.
   Azure DevOps), with unknown hosts falling back safely to the repository root.
   The remote's default branch also opens the repository root rather than a
   redundant branch-tree page.
-- R1.4.3c ✅ **Switch branch from the branch pill** — it drops the repo's local
+- R1.4.3c ✅ **Switch branch from the branch pill** - it drops the repo's local
   branches (current one marked) plus the branches only a remote has yet, which
   check out as a local tracking branch on the way in, so a fresh clone can reach
-  work it never checked out. Git's own refusal — uncommitted changes in the way,
-  a branch already held by another worktree — is what the toast says. The pill,
+  work it never checked out. Git's own refusal - uncommitted changes in the way,
+  a branch already held by another worktree - is what the toast says. The pill,
   the member chips and the feed follow HEAD wherever it moved (`git://state`).
   Working a branch *beside* the current one, rather than in place, stays the new-
   agent menu's worktree launch.
 - R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/code/diff.ts`; wash tokens).
 - R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
 - R1.4.6 ⏳ Manual commit path (agent-oriented by default, not exclusive).
-- R1.4.7 ✅ **Restore a version** — a plain-language description ranks prior commits
+- R1.4.7 ✅ **Restore a version** - a plain-language description ranks prior commits
   (fuzzy token overlap + time hints) and checks the chosen one out **non-
   destructively** on a `pade/restore-<sha>` branch (never a hard reset; dirty-tree
   errors surface). 🔭 `git bisect` oracle plugs into the same `run_git` seam.
@@ -164,7 +164,7 @@ writes.
 - R1.5.3 🔭 Interrupt/redirect individual nodes.
 
 ### 1.6 Usage meter (✅ meter, 🔭 burn-rate)
-- R1.6.1 ✅ Adapt to the running agents — the top-bar meter groups quota **per
+- R1.6.1 ✅ Adapt to the running agents - the top-bar meter groups quota **per
   running agent**; agents without a reliable source show an honest "unknown".
 - R1.6.2 ✅ Show % used and reset time. For Claude: the live 5-hour + weekly
   windows from the vendor's OAuth usage endpoint (the local token, cached, no
@@ -174,12 +174,12 @@ writes.
   new window instead of displaying stale usage until the next poll.
   🔭 burn-rate warning.
 - R1.6.3 ✅ Claude's **extra usage** row (the monthly spend cap on usage credits)
-  shows the prepaid **credits balance** left — only while extra usage is on; the
+  shows the prepaid **credits balance** left - only while extra usage is on; the
   balance is read from the organization's `prepaid/credits` endpoint in that case
   alone, so an account with extra usage off never shows (or fetches) one.
 
 ### 1.6a Auto-handoff (✅)
-- R1.6a.1 ✅ Track each session's **context-window** fill — parse the agent CLI's
+- R1.6a.1 ✅ Track each session's **context-window** fill - parse the agent CLI's
   own indicator from the PTY stream (`lib/stores/agent/context.svelte.ts`), with a
   conservative byte-estimate fallback.
 - R1.6a.2 ✅ Near the limit (≥90%), while the agent is idle and quota allows
@@ -189,41 +189,41 @@ writes.
   The successor is the **same agent** while it has usage headroom, and only
   crosses over to another installed agent when it doesn't. Headroom means its
   headline quota is **not fully spent** (96% used is quota left, not quota gone)
-  **or usage credits can carry it past that cap** — only an agent that truly
+  **or usage credits can carry it past that cap** - only an agent that truly
   cannot work hands its session to a different one.
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
 - R1.6a.2a ✅ **A handoff never severs background work.** Idle means the agent
-  itself reports nothing in flight — no turn, background agent or dynamic
-  workflow — read from its terminal title (`lib/stores/agent/agentActivity.svelte.ts`;
+  itself reports nothing in flight - no turn, background agent or dynamic
+  workflow - read from its terminal title (`lib/stores/agent/agentActivity.svelte.ts`;
   Claude Code's `◐`/`◑` busy glyph vs its `✳` idle glyph), not just quiet output:
   an unfocused Claude Code stops ticking its spinner, so a session waiting on a
-  workflow looks idle. Every handoff path — the threshold scan, the usage-recovery
-  `force`, and the MCP-change restart — waits for that report to clear, however
+  workflow looks idle. Every handoff path - the threshold scan, the usage-recovery
+  `force`, and the MCP-change restart - waits for that report to clear, however
   long, both before asking for the doc and before ending the session, and shows
   a status note while it waits. An agent that announces no such glyph falls back
   to the output-quiet gate alone.
-- R1.6a.3 ✅ **Consumed docs are retired — and only consumed ones** — when the
+- R1.6a.3 ✅ **Consumed docs are retired - and only consumed ones** - when the
   successor's own activity report shows its first turn ran and finished (it has
   certainly read the doc by then), the app deletes the `continue-*.md` via the
   narrow `handoff_doc_delete` seam (bare handoff-doc names only), so completed
   handoffs never litter the project. Nothing else retires a doc: a successor that
-  reports no turn — an agent that announces no activity, one that fell over on
+  reports no turn - an agent that announces no activity, one that fell over on
   boot (a CLI rejecting the model its account is configured for), a session that
-  disappears, a first turn still running at the deadline — keeps its doc, because
+  disappears, a first turn still running at the deadline - keeps its doc, because
   a handoff deleted unread costs the whole session's work.
-- R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usage/usageResume.svelte.ts`) —
+- R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usage/usageResume.svelte.ts`) -
   the sniffer spots the CLI's usage-limit stop in the PTY stream and the rendered
   screen ("You've hit your session limit · resets 5:30pm", "limit reached", a
-  spend-capped stop, the rate_limit/429 failure — never the softer "approaching"
+  spend-capped stop, the rate_limit/429 failure - never the softer "approaching"
   warning), confirms it against the agent's own account usage (a healthy window
-  means stale scrollback), then **waits — it never nudges a limited session**.
+  means stale scrollback), then **waits - it never nudges a limited session**.
   While waiting it re-reads the account every minute (the backend caches the
   endpoint ~3 min) and continues the session **once**, the moment it can run
   again: the window resets (the API's to-the-second `resets_at`; the message's
   own clock only when the account is unreadable), or **usage credits are turned
   on server-side** (`extra_usage` → `CreditsState.available`), which the CLI
   itself never notices. If the agent's screen already shows a turn running ("esc
-  to interrupt" — its own auto-continue or the user got there first) nothing is
+  to interrupt" - its own auto-continue or the user got there first) nothing is
   typed. Otherwise **"continue"** goes into the same session while its context
   has room, the **auto-handoff flow** takes over when it doesn't. The API-error
   auto-retry never claims a usage-limit stop, even one worded as an API error.
@@ -253,45 +253,45 @@ writes.
   workspace** (default) or the project picker (opt-in `startMode`).
 - R1.9.2 Temp workspaces live under the config dir; ADE-owned, so they can be
   deleted, moved (→ permanent), or renamed (→ promoted into the primary root).
-- R1.9.2a ✅ **Throwaway lifecycle** — when the last session of a temp workspace
+- R1.9.2a ✅ **Throwaway lifecycle** - when the last session of a temp workspace
   that never earned a name ends (tab closed by hand, or the agent terminated),
   the window returns to the project picker; the folder is kept. An auto-named
   temp keeps the normal last-session behavior (respawn / agent picker).
   Backend: a per-session reaper thread notices a self-exited agent (Windows
   conhost never EOFs the PTY reader on its own) and drops the session, which is
   what fires `pty://exit`.
-- R1.9.2b ✅ **Unused-temp cleanup** — the picker's "On launch" section offers
-  Off / 7 / 30 / 90 days (default Off). A temp workspace unused that long — not
-  opened, and not open in any window — is deleted on the next picker refresh;
+- R1.9.2b ✅ **Unused-temp cleanup** - the picker's "On launch" section offers
+  Off / 7 / 30 / 90 days (default Off). A temp workspace unused that long - not
+  opened, and not open in any window - is deleted on the next picker refresh;
   pinned temps are never deleted.
-- R1.9.3 ✅ **Auto-naming** — after first meaningful activity (≈3 distinct files
+- R1.9.3 ✅ **Auto-naming** - after first meaningful activity (≈3 distinct files
   changed) a temp workspace gets a short, human-readable name: the installed agent
   CLI one-shot (`claude -p …`, cross-platform) → local heuristic (package/Cargo
   name, README heading, dominant file) as the always-on fallback. The name is
-  applied as a **display label**, never a disk rename — the live agent holds the
+  applied as a **display label**, never a disk rename - the live agent holds the
   workspace as its cwd, which the OS (Windows) locks against rename. Toggle in the
   picker; disabled via `prefs.autoNameTemp`.
-- R1.9.3a ✅ **Relabel in PADE** — the user can give a temp workspace any label
+- R1.9.3a ✅ **Relabel in PADE** - the user can give a temp workspace any label
   (one line, ≤ 60 characters, any script) from the top-bar switcher (the row's
   kebab, or the Save card's Relabel button) or the picker's Recent row menu. Like
-  auto-naming it is display-only — the folder keeps its path — and a label the
+  auto-naming it is display-only - the folder keeps its path - and a label the
   user sets always wins: auto-naming never replaces an existing label, enforced
   in the backend as it saves.
-- R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token —
+- R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token -
   seam in place (`copilot.rs`), not yet wired; see the auto-naming handoff doc.
 - R1.9.5 ✅ **Move / rename re-points every linked reference** (`refs.rs`). Moving
   or renaming a workspace rewrites the old→new path everywhere it's remembered:
   the agent memory dir (`~/.claude/projects/<encoded-cwd>`; Codex/Gemini TODO),
   IDE recents **gated on the project's marker dir** (`.idea` → JetBrains recents +
-  `.idea/*.xml`; `.vscode` → VS Code; `.vscode`/`.cursor` → Cursor — `storage.json`
+  `.idea/*.xml`; `.vscode` → VS Code; `.vscode`/`.cursor` → Cursor - `storage.json`
   + the `state.vscdb` SQLite recents, via `rusqlite`), and **node_modules** links
   with absolute targets under the old path (pnpm junctions via `mklink /J`).
-- R1.9.6 ✅ **Live-agent lock handling on move/rename** — an agent holding the dir
+- R1.9.6 ✅ **Live-agent lock handling on move/rename** - an agent holding the dir
   as cwd locks it (Windows). PADE kills the sessions under it (remembering the
   live ones), does the move/rename, then **resumes** the live ones on the new path
   seeded with `continue`; idle/exited sessions stay closed.
 - R1.9.7 ✅ **IntelliJ-style path completion** in the add-root field: while the
-  suggestion list shows, exactly one option is always selected — the top by
+  suggestion list shows, exactly one option is always selected - the top by
   default, and across re-filters by the formula
   `next = survivorIndex ≥ 0 ? survivorIndex : min(previousIndex, lastIndex)`
   (a surviving option keeps its selection at its new position; a vanished one
@@ -299,38 +299,38 @@ writes.
   accepts and drills into sub-folders; a cleared field forgets the selection.
 - R1.9.8 ✅ Selecting a root (adding one in Root folders) auto-fills it as the
   Get started card's **Location** (shared by the New and Clone tabs); removing
-  that root clears it. The chosen root prints in full — a long path wraps in
+  that root clears it. The chosen root prints in full - a long path wraps in
   the Location row, never truncates.
-- R1.9.9 ✅ **Get started card** — one tabbed card, three ways in, behind an
-  ARIA pill tablist (arrow keys switch tabs — `lib/rovingTabs.ts` — and Tab
+- R1.9.9 ✅ **Get started card** - one tabbed card, three ways in, behind an
+  ARIA pill tablist (arrow keys switch tabs - `lib/rovingTabs.ts` - and Tab
   moves into the active panel's inputs; a pointer click on a tab focuses the
-  panel's first input; panels stay mounted — typed state survives switching —
+  panel's first input; panels stay mounted - typed state survives switching -
   and swap as an in-place cross-fade while the body's height glides to the
   open panel's measured size):
-  - **New** — root select + project name + optional first prompt → "Create &
+  - **New** - root select + project name + optional first prompt → "Create &
     open"; a blank name (or the quiet "…or start a throwaway temp workspace"
     button) falls through to a temp workspace. Replaces the old separate
     temp-workspace card.
-  - **Local** — open an existing folder: monospace path input with Browse…
+  - **Local** - open an existing folder: monospace path input with Browse…
     (Tauri dialog); "Open project" is existence-gated through the debounced
     `workspace_probe_path` check. A folder dragged from Explorer or an IDE
     onto the field fills its path (native Tauri drag-drop events carry the
     absolute paths the web API withholds; the field highlights while a drag
     hovers it).
-  - **Clone** — gated on git being installed (`vcs_git_installed`; when
+  - **Clone** - gated on git being installed (`vcs_git_installed`; when
     missing, a warning card offers "Install Git…" and "Re-check"). Repository
     URL + "Clone into" the same root select; the typed URL is probed live
-    (`vcs_probe_remote` — a debounced `git ls-remote`) and the folder name
+    (`vcs_probe_remote` - a debounced `git ls-remote`) and the folder name
     auto-fills only once the repository answers, until edited. An
     unreachable repository says so under the field. An SSH-style URL with no
     SSH key on disk
-    (`vcs_has_ssh_key`) falls back to an HTTPS-credentials panel — the
+    (`vcs_has_ssh_key`) falls back to an HTTPS-credentials panel - the
     credentials are used for that one `git clone` and **never persisted** (the
     saved remote is scrubbed back to the clean URL; error text is sanitized;
     `GIT_TERMINAL_PROMPT=0` prevents hidden prompts).
 
 ### 1.10 External tool launchers (✅)
-- R1.10.1 **IDE menu** — open the active project in an installed editor (`ide.rs`;
+- R1.10.1 **IDE menu** - open the active project in an installed editor (`ide.rs`;
   VS Code + its forks (Cursor, Antigravity, Windsurf, VSCodium), JetBrains
   family, Zed, Sublime…). ✅ Ranked by project kind, and ✅ a user-set
   **editor-rules** engine (project kind → chosen editor + a fallback, persisted
@@ -357,15 +357,15 @@ writes.
   workspace listens to the existing filesystem feed until its first registered
   project marker appears; that same cached result updates language consumers,
   refreshes editor ranking once, and retires the detector without polling.
-- R1.10.2 ✅ **Design menu** — an AI design/UI-generation tool as a design-to-code
+- R1.10.2 ✅ **Design menu** - an AI design/UI-generation tool as a design-to-code
   companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
   **ranked for the active agent** (the vendor-matched tool is pinned first);
   one registry entry per product (DRY). Opens in a reused **companion PADE
-  window** (a native Tauri webview — all four sites block iframes via
+  window** (a native Tauri webview - all four sites block iframes via
   `X-Frame-Options`, so in-page embedding is impossible). 🔭 a docked
   side-by-side panel form.
-- R1.10.3 ✅ **Agent usage meter** — shipped as the top-bar meter; see 1.6.
-- R1.10.4 ✅ **Task-runner dock** — runnable tasks parsed from manifests
+- R1.10.3 ✅ **Agent usage meter** - shipped as the top-bar meter; see 1.6.
+- R1.10.4 ✅ **Task-runner dock** - runnable tasks parsed from manifests
   (`package.json` scripts, Cargo/Make/pyproject, the C++ build systems, .NET,
   Go, Gradle/Maven) launch as tracked **runners**
   (`runner.rs`, `std::process`) that stream their output live into a bottom dock
@@ -374,11 +374,11 @@ writes.
   A project's own verbs are read **from the manifest the panel watches, never
   from what it imports**: `<Target Name="…">` counts in a `.csproj`, but the same
   target moved into a `Directory.Build.targets` or `Package.targets` beside it
-  does not appear — nothing watches that file, so the list would go stale the
+  does not appear - nothing watches that file, so the list would go stale the
   moment it changed. A project that wants its target on the panel declares it in
   the project file.
-- R1.10.5 ✅ **Discord Rich Presence** — report PADE on the user's Discord profile
-  as **"Playing PADE"** (`discord.rs`, pure-`std` IPC over Discord's local socket —
+- R1.10.5 ✅ **Discord Rich Presence** - report PADE on the user's Discord profile
+  as **"Playing PADE"** (`discord.rs`, pure-`std` IPC over Discord's local socket -
   no crate), with an **opt-in toggle** and an **option to show the open project's
   name** (both in the picker's settings). Best-effort: with Discord closed the
   backend fails quietly and the UI never sees it. The connection is reused and the
@@ -389,17 +389,17 @@ writes.
 
 ## 2. Non-functional requirements
 
-- R2.1 **Performance** — native core (Rust); web build reuses logic as WASM,
+- R2.1 **Performance** - native core (Rust); web build reuses logic as WASM,
   renders via WebGPU. Small binary (`opt-level=s`, LTO, strip).
-- R2.2 **Theming** — Material 3 Expressive, light/dark graded, follows OS. Tokens
+- R2.2 **Theming** - Material 3 Expressive, light/dark graded, follows OS. Tokens
   only; alternate skins (🔭) swap the token set.
-- R2.3 **Fonts** — JetBrains Mono (code/terminal), **Figtree** (expressive UI sans),
+- R2.3 **Fonts** - JetBrains Mono (code/terminal), **Figtree** (expressive UI sans),
   both **self-hosted** `woff2` (no runtime CDN); configurable.
-- R2.4 **UI** — simple by default (terminal + feed); other panels summon-on-demand;
+- R2.4 **UI** - simple by default (terminal + feed); other panels summon-on-demand;
   🔭 multi-monitor tear-off (native windows).
-- R2.5 **i18n** — 🔭 full Unicode + RTL (Hebrew/Arabic bidi).
-- R2.6 **Deployment** — one codebase → desktop (Tauri) and 🔭 web (headless core).
-- R2.7 **Open source** — Apache-2.0; TS plugin SDK (🔭); public RFCs.
+- R2.5 **i18n** - 🔭 full Unicode + RTL (Hebrew/Arabic bidi).
+- R2.6 **Deployment** - one codebase → desktop (Tauri) and 🔭 web (headless core).
+- R2.7 **Open source** - Apache-2.0; TS plugin SDK (🔭); public RFCs.
 
 ## 3. Architecture (SoC map)
 

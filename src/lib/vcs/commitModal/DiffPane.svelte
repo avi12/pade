@@ -4,7 +4,7 @@
   import Icon from "@/lib/Icon.svelte";
 
   // The commit modal's right pane: path bar + the selected file's unified diff,
-  // with the loading / failed / large-file states. Presentation only — the
+  // with the loading / failed / large-file states. Presentation only - the
   // modal owns the fetch, cache and state machine and hands the results down.
   const {
     name,
@@ -19,7 +19,7 @@
     name: string;
     diffLines: DiffLine[];
     loading: boolean;
-    /** A fetch/parse failure — distinct from a big file, never conflated. */
+    /** A fetch/parse failure - distinct from a big file, never conflated. */
     loadFailed: boolean;
     /** Binary / very large: git emits no textual diff, so we show the note. */
     isBigFile: boolean;
