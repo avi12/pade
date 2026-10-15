@@ -16,8 +16,8 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 
 use crate::usage::{
-    claude_access_token, claude_cli_version, claude_organization, claude_usage_url,
-    curl_claude_oauth, is_safe_header_token, ClaudeOauthRequest, CLAUDE_API, USAGE_CACHE_TTL,
+    claude_access_token, claude_usage_url, curl_claude_oauth, is_safe_header_token,
+    ClaudeOauthRequest, ClaudeProfile, CLAUDE_API, USAGE_CACHE_TTL,
 };
 
 /// The reset program's name, both as the usage query flag and in the claim.
@@ -135,7 +135,10 @@ fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
     let body = curl_claude_oauth(&ClaudeOauthRequest {
         url: &url,
         token: &claude_access_token().ok_or(OfferUnanswered)?,
-        user_agent: &claude_cli_user_agent().ok_or(OfferUnanswered)?,
+        user_agent: &ClaudeProfile::read()
+            .as_ref()
+            .and_then(claude_cli_user_agent)
+            .ok_or(OfferUnanswered)?,
         organization: None,
         json_body: None,
         timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
@@ -144,7 +147,7 @@ fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
     let response: serde_json::Value = serde_json::from_str(&body).map_err(|_| OfferUnanswered)?;
     Ok(response
         .get(RESET_PROGRAM)
-        .and_then(|status| serde_json::from_value(status.clone()).ok())
+        .and_then(|status| ResetStatus::deserialize(status).ok())
         .and_then(offered_reset))
 }
 
@@ -157,10 +160,16 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
     if !is_safe_header_token(&token) {
         return Err("unsafe request".to_string());
     }
-    let organization = claude_organization()
+    let profile = ClaudeProfile::read();
+    let organization = profile
+        .as_ref()
+        .and_then(ClaudeProfile::organization)
         .filter(|organization| is_safe_header_token(organization))
         .ok_or("no Claude organization")?;
-    let user_agent = claude_cli_user_agent().ok_or("Claude Code's version is unknown")?;
+    let user_agent = profile
+        .as_ref()
+        .and_then(claude_cli_user_agent)
+        .ok_or("Claude Code's version is unknown")?;
     let request_id = uuid::Uuid::new_v4().to_string();
     let body = serde_json::json!({
         "program": RESET_PROGRAM,
@@ -214,8 +223,8 @@ fn is_grant_id(grant_id: &str) -> bool {
 }
 
 /// How Claude Code names itself, with the installed version.
-fn claude_cli_user_agent() -> Option<String> {
-    let version = claude_cli_version()?;
+fn claude_cli_user_agent(profile: &ClaudeProfile) -> Option<String> {
+    let version = profile.cli_version()?;
     let is_version = !version.is_empty()
         && version
             .bytes()

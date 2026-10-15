@@ -596,36 +596,44 @@ const COPILOT_OAUTH_SOURCE: &str = "oauth:api.github.com";
 /// organization.
 const CLAUDE_PROFILE_RELATIVE_PATH: &str = ".claude.json";
 
-/// A string field of Claude Code's profile, by JSON pointer.
-fn claude_profile_field(pointer: &str) -> Option<String> {
-    let profile = read_json(&home_dir()?.join(CLAUDE_PROFILE_RELATIVE_PATH))?;
-    profile
-        .pointer(pointer)
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string)
-}
+/// Claude Code's profile, parsed once. The file also carries every project's
+/// history and grows large, so a caller needing several fields reads it once
+/// and asks this rather than re-reading per field.
+pub(crate) struct ClaudeProfile(serde_json::Value);
 
-/// The signed-in Claude account's organization uuid, from Claude Code's profile.
-pub(crate) fn claude_organization() -> Option<String> {
-    claude_profile_field("/oauthAccount/organizationUuid")
-}
+impl ClaudeProfile {
+    /// The profile on disk, or `None` when Claude Code has not written one.
+    pub(crate) fn read() -> Option<Self> {
+        read_json(&home_dir()?.join(CLAUDE_PROFILE_RELATIVE_PATH)).map(Self)
+    }
 
-/// The installed Claude Code's version, as its profile last recorded it (the
-/// release notes it last showed, which it shows on every update).
-pub(crate) fn claude_cli_version() -> Option<String> {
-    claude_profile_field("/lastReleaseNotesSeen")
+    fn field(&self, pointer: &str) -> Option<&str> {
+        self.0.pointer(pointer).and_then(serde_json::Value::as_str)
+    }
+
+    /// The signed-in Claude account's organization uuid.
+    pub(crate) fn organization(&self) -> Option<&str> {
+        self.field("/oauthAccount/organizationUuid")
+    }
+
+    /// The installed Claude Code's version, as the profile last recorded it (the
+    /// release notes it last showed, which it shows on every update).
+    pub(crate) fn cli_version(&self) -> Option<&str> {
+        self.field("/lastReleaseNotesSeen")
+    }
 }
 
 /// The organization's prepaid usage-credits balance, from the endpoint Claude
 /// Code's `/usage-credits` reads. Only asked for while credits are on.
 fn claude_credit_balance(token: &str) -> Option<CreditBalance> {
-    let organization = claude_organization()?;
+    let profile = ClaudeProfile::read()?;
+    let organization = profile.organization()?;
     let url =
         format!("{CLAUDE_API}{CLAUDE_OAUTH_PATH}/organizations/{organization}/prepaid/credits");
     let body = read_claude_usage_endpoint(&ClaudeUsageRead {
         url: &url,
         token,
-        organization: Some(&organization),
+        organization: Some(organization),
     })?;
     credit_balance(&serde_json::from_str(&body).ok()?)
 }
@@ -1441,8 +1449,8 @@ mod tests {
         collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
         credits_state, curl_config, humanize_key, humanize_window_seconds, is_safe_header_token,
         uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account, AccountUsage,
-        BillingAccount, CreditsState, CurlRequest, HeadlineWindow, Usage, UsageAgent, UsageWindow,
-        UsageWindowKind,
+        BillingAccount, ClaudeProfile, CreditsState, CurlRequest, HeadlineWindow, Usage,
+        UsageAgent, UsageWindow, UsageWindowKind,
     };
     use crate::agents::{ID_CODEX, ID_OPENCODE};
 
@@ -1786,6 +1794,22 @@ mod tests {
         assert_eq!(humanize_window_seconds(604_800), "Weekly");
         assert_eq!(humanize_window_seconds(86_400), "1-day");
         assert_eq!(humanize_window_seconds(3_600), "1-hour");
+    }
+
+    #[test]
+    fn one_profile_read_answers_both_the_organization_and_the_version() {
+        let profile = ClaudeProfile(serde_json::json!({
+            "oauthAccount": { "organizationUuid": "ef60a6fb-ea18-46d3-a019-46012137d46e" },
+            "lastReleaseNotesSeen": "2.1.227",
+            "projects": {}
+        }));
+
+        assert_eq!(
+            profile.organization(),
+            Some("ef60a6fb-ea18-46d3-a019-46012137d46e")
+        );
+        assert_eq!(profile.cli_version(), Some("2.1.227"));
+        assert_eq!(ClaudeProfile(serde_json::json!({})).organization(), None);
     }
 
     #[test]
