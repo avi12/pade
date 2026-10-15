@@ -10,6 +10,9 @@
   import ModelTag, { MODEL_MENU_ANCHOR } from "@/lib/model/ModelTag.svelte";
   import { ADD_SLOT, packTabs } from "@/lib/session/tab-fit";
   import { TAB_SHORTCUTS, TabAction } from "@/lib/session/tab-shortcuts";
+  import { contextTooltip } from "@/lib/session/tabs/context-tooltip";
+  import { collapseTab } from "@/lib/session/tabs/tab-collapse";
+  import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
   import { refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
@@ -18,18 +21,14 @@
   import { isNaming, toggleNaming } from "@/lib/stores/session/sessionNaming.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
-  import { Axis, beginReorder } from "@/lib/ui/drag-reorder";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import { Key } from "@/lib/ui/keys";
-  import { motionDuration } from "@/lib/ui/motion";
   import { rovingMenu } from "@/lib/ui/roving-menu";
   import { ContextLevel, contextLevel } from "@/lib/usage/context-level";
   import PacingBadge from "@/lib/usage/PacingBadge.svelte";
-  import { formatCount, formatPercent } from "@/lib/util/format";
+  import { formatCount } from "@/lib/util/format";
   import { parseInput, SessionName } from "@/lib/validate";
-  import { cubicOut } from "svelte/easing";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
-  import type { TransitionConfig } from "svelte/transition";
 
   // The session tab strip: full pills for the sessions that fit, status dots
   // for the next few, a "+N" popover for the rest (packing in lib/session/tab-fit), the
@@ -89,11 +88,6 @@
   // `MouseEvent.button` for the wheel button, which closes a pill.
   const MIDDLE_BUTTON = 1;
   const AUXCLICK_EVENT = "auxclick";
-  // Pixels a pill must travel before a press becomes a drag.
-  const DRAG_THRESHOLD = 5;
-  const COLLAPSE_DURATION = 240;
-  // How far a collapsing pill tucks under its neighbour as it closes.
-  const COLLAPSE_TUCK = 6;
 
   let modelMenuSessionId = $state<string | null>(null);
   const modelMenuSession = $derived(sessions.find(session => session.id === modelMenuSessionId));
@@ -241,24 +235,18 @@
     closeTab(session);
   }
 
-  // Collapse a closing pill (width + fade), pinning its height so the label
-  // reflow can't grow the row. Height/width are read once as the outro begins.
-  // Tab reordering is animated by the drag engine's spring-settle, not a
-  // framework FLIP, so the pills carry no `animate:flip` (it would fight it).
-  function collapse(elTab: HTMLElement, { id }: { id: string }): TransitionConfig {
+  // Collapse a closing pill; its size is read once as the outro begins. Tab
+  // reordering is animated by the drag engine's spring-settle, not a framework
+  // FLIP, so the pills carry no `animate:flip` (it would fight it).
+  function collapse(elTab: HTMLElement, { id }: { id: string }) {
     if (!closingIds.has(id)) {
       return { duration: 0 };
     }
 
-    const width = elTab.offsetWidth;
-    const height = elTab.offsetHeight;
-    return {
-      duration: motionDuration(COLLAPSE_DURATION),
-      easing: cubicOut,
-      css: t =>
-        `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +
-          `opacity: ${t}; margin-inline-start: ${(t - 1) * COLLAPSE_TUCK}px;`
-    };
+    return collapseTab({
+      width: elTab.offsetWidth,
+      height: elTab.offsetHeight
+    });
   }
 
   // ── Inline manual rename ────────────────────────────────────────────────────
@@ -295,47 +283,6 @@
     elInput.focus();
     elInput.select();
   }
-
-  // Press-and-drag a pill by its body to reorder the strip (past a 5px threshold),
-  // or drag it down over the terminal panes to open it as a split. The close / AI
-  // buttons and the rename field carry `data-noreorder`, so a press on them is
-  // theirs; a plain press-and-release still selects. Never while renaming.
-  function startTabDrag(e: PointerEvent) {
-    if (editingId !== null) {
-      return;
-    }
-
-    beginReorder({
-      e,
-      itemSelector: "[data-session-tab]",
-      idAttribute: "data-session-tab",
-      axis: Axis.Horizontal,
-      threshold: DRAG_THRESHOLD,
-      ignoreSelector: "[data-noreorder]",
-      onCommit: ids => onreorder?.(ids),
-      onHint: hint => ondraghint?.(hint),
-      outsideSelector: "[data-panes]",
-      onDropOutside: drop => onsplit?.(drop)
-    });
-  }
-
-  // The glyph tooltip states only what it can vouch for: the agent's own
-  // reported percent reads as fact; the byte estimate over-counts a fullscreen
-  // agent's repaints badly (see lib/stores/agent/context), so it is labeled the
-  // rough estimate it is instead of masquerading as a measurement.
-  function contextTooltip(id: string) {
-    const measured = measuredContextPercentage(id);
-    if (measured !== null) {
-      return `${formatPercent(measured)} of context window used`;
-    }
-
-    const estimate = contextPercentage(id);
-    if (estimate === null) {
-      return "Context window - measuring…";
-    }
-
-    return `≈${formatPercent(estimate)} of context window used - rough estimate`;
-  }
 </script>
 
 <!-- The tab's leading glyph: the agent's brand mark, tinted by how full its
@@ -353,7 +300,10 @@
     class:critical={level === ContextLevel.Critical}
     class:unknown={percentage === null}
     class:warning={level === ContextLevel.Warning}
-    data-tooltip={contextTooltip(session.id)}
+    data-tooltip={contextTooltip({
+      measured: measuredContextPercentage(session.id),
+      estimate: percentage
+    })}
   ><Icon name={agentIconName(session.agent.id)} size={14} /></span>
 {/snippet}
 
@@ -451,7 +401,19 @@
         class:shown={paneIds.includes(session.id)}
         data-session-tab={session.id}
         onoutroend={() => closingIds.delete(session.id)}
-        onpointerdown={startTabDrag}
+        onpointerdown={e => {
+          // Never drag while renaming.
+          if (editingId !== null) {
+            return;
+          }
+
+          beginTabDrag({
+            e,
+            onreorder,
+            ondraghint,
+            onsplit
+          });
+        }}
         out:collapse={{ id: session.id }}
       >
         {@render tabInner(session)}
