@@ -15,11 +15,29 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtyPair,
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
+use crate::agents::DEFAULT_SHELL;
+use crate::theming::Scheme;
 use crate::util::{owner_access, OwnerAccess};
 
 const MAXIMUM_SESSIONS_PER_WINDOW: usize = 32;
 const MAXIMUM_PTY_DIMENSION: u16 = 1_000;
-const MAX_PTY_INPUT_BYTES: usize = 1024 * 1024;
+const MAXIMUM_PTY_INPUT_BYTES: usize = 1024 * 1024;
+/// Bounds on what a spawn request may carry, so a malformed IPC call can never
+/// hand the OS an unbounded command line. The id and path bounds are shared with
+/// the task-runner dock (`runner.rs`), which validates the same kinds of field.
+pub(crate) const MAXIMUM_SESSION_ID_BYTES: usize = 128;
+pub(crate) const MAXIMUM_PATH_BYTES: usize = 4096;
+const MAXIMUM_SPAWN_ARGUMENTS: usize = 64;
+const MAXIMUM_CONVERSATION_ID_BYTES: usize = 256;
+
+/// The error every owner check answers a window that reaches for another
+/// window's session with.
+const FOREIGN_SESSION_ERROR: &str = "PTY belongs to another window";
+
+/// Overrides the program a session runs when the spawn names none.
+const AGENT_COMMAND_OVERRIDE_VARIABLE: &str = "ADE_AGENT_CMD";
+/// The login shell outside Windows, when the spawn names no command.
+const UNIX_SHELL_VARIABLE: &str = "SHELL";
 
 /// All live PTY sessions, keyed by session id.
 #[derive(Default)]
@@ -62,10 +80,10 @@ impl Drop for Pty {
     /// 32). Kill the tree first (while it's still walkable from the child), then
     /// reap the immediate child, so the folder is free the moment the session ends.
     fn drop(&mut self) {
-        let child = match self.child.get_mut() {
-            Ok(child) => child,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+        let child = self
+            .child
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         #[cfg(windows)]
         if let Some(process_id) = child.process_id() {
             kill_process_tree(process_id);
@@ -122,22 +140,20 @@ fn command_matches(command_line: &str, command: &str) -> bool {
         return false;
     }
 
-    for (start, matched) in haystack.match_indices(needle.as_str()) {
-        let end = start + matched.len();
-        let before_ok = haystack[..start]
-            .chars()
-            .next_back()
-            .is_none_or(is_command_boundary);
-        let after_ok = haystack[end..]
-            .chars()
-            .next()
-            .is_none_or(is_command_boundary);
-        if before_ok && after_ok {
-            return true;
-        }
-    }
-
-    false
+    haystack
+        .match_indices(needle.as_str())
+        .any(|(start, matched)| {
+            let end = start + matched.len();
+            let is_bounded_before = haystack[..start]
+                .chars()
+                .next_back()
+                .is_none_or(is_command_boundary);
+            let is_bounded_after = haystack[end..]
+                .chars()
+                .next()
+                .is_none_or(is_command_boundary);
+            is_bounded_before && is_bounded_after
+        })
 }
 
 /// The processes under `root` whose command line runs `command` - the subtree an
@@ -308,48 +324,48 @@ const PTY_EXIT_EVENT: &str = "pty://exit";
 /// control bytes, keeping printable characters, newlines, and tabs.
 fn strip_ansi(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
-    let mut chars = input.chars().peekable();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\u{1b}' => match chars.peek() {
-                Some('[') => {
-                    chars.next();
-                    // CSI: parameters until a final byte in @…~.
-                    while let Some(&param) = chars.peek() {
-                        chars.next();
-                        if ('@'..='~').contains(&param) {
-                            break;
-                        }
-                    }
-                }
-                Some(']') => {
-                    chars.next();
-                    // OSC: until BEL or the ST (ESC \) terminator.
-                    while let Some(&param) = chars.peek() {
-                        chars.next();
-                        if param == '\u{7}' {
-                            break;
-                        }
-                        if param == '\u{1b}' {
-                            if chars.peek() == Some(&'\\') {
-                                chars.next();
-                            }
-                            break;
-                        }
-                    }
-                }
-                Some(_) => {
-                    chars.next();
-                }
-                None => {}
+    let mut characters = input.chars().peekable();
+    while let Some(character) = characters.next() {
+        match character {
+            ESCAPE => match characters.next() {
+                Some('[') => skip_control_sequence(&mut characters),
+                Some(']') => skip_operating_system_command(&mut characters),
+                Some(_) | None => {}
             },
             '\r' => {}
-            '\n' | '\t' => output.push(ch),
-            other if u32::from(other) < 0x20 => {}
-            other => output.push(other),
+            '\n' | '\t' => output.push(character),
+            control if control < FIRST_PRINTABLE => {}
+            printable => output.push(printable),
         }
     }
     output
+}
+
+const ESCAPE: char = '\u{1b}';
+const BELL: char = '\u{7}';
+/// Everything below the space is a C0 control byte.
+const FIRST_PRINTABLE: char = ' ';
+
+/// Skip a CSI body: parameters up to and including a final byte in `@`..=`~`.
+fn skip_control_sequence(characters: &mut impl Iterator<Item = char>) {
+    for character in characters.by_ref() {
+        if ('@'..='~').contains(&character) {
+            break;
+        }
+    }
+}
+
+/// Skip an OSC body: up to and including BEL or the ST (`ESC \`) terminator.
+fn skip_operating_system_command(characters: &mut std::iter::Peekable<impl Iterator<Item = char>>) {
+    while let Some(character) = characters.next() {
+        if character == BELL {
+            break;
+        }
+        if character == ESCAPE {
+            characters.next_if_eq(&'\\');
+            break;
+        }
+    }
 }
 
 /// Append cleaned output to a session's transcript, trimming the front to
@@ -502,19 +518,13 @@ struct Exit {
 /// runner, a shell) pass through untouched, for the PTY to resolve as before.
 fn build_command(
     command: Option<String>,
-    scheme: Option<crate::theming::Scheme>,
+    scheme: Option<Scheme>,
     conversation_id: Option<&str>,
     model_choice: Option<&crate::running_model::ModelChoice>,
 ) -> CommandBuilder {
     let program = command
-        .or_else(|| std::env::var("ADE_AGENT_CMD").ok())
-        .unwrap_or_else(|| {
-            if cfg!(windows) {
-                "powershell.exe".into()
-            } else {
-                std::env::var("SHELL").unwrap_or_else(|_| "bash".into())
-            }
-        });
+        .or_else(|| std::env::var(AGENT_COMMAND_OVERRIDE_VARIABLE).ok())
+        .unwrap_or_else(default_shell);
     let executable = crate::agents::program(&program).map_or_else(
         || program.clone(),
         |path| path.to_string_lossy().into_owned(),
@@ -523,29 +533,18 @@ fn build_command(
     // The agent's leading arguments, in the order they must appear; caller-supplied
     // args (e.g. a terminal editor's project path) are appended by `pty_spawn`
     // after this. Assembled up front so the same list feeds either a direct spawn
-    // or the Windows light-console wrapper below.
-    let mut leading_args: Vec<String> = Vec::new();
-    // Launch the agent in its skip-every-permission ("yolo") mode so ADE drives it
-    // autonomously - no per-tool/edit approval stops. Empty for a shell or an
-    // unknown command.
-    for arg in crate::agents::session_args(&program) {
-        leading_args.push(arg.to_string());
-    }
-    // Per-scheme theme arguments for arg-themed CLIs (codex's global
-    // `-c tui.theme=…`), so the agent's TUI starts on ADE's current appearance -
-    // see theming.rs. Interactive spawn path only; the oneshot `codex exec` renders
-    // no TUI. A global option, so its order among the flags doesn't matter. Empty
-    // for a shell, an unknown command, or an agent themed by file/env instead.
-    if let Some(scheme) = scheme {
-        for arg in crate::theming::spawn_args(&program, scheme) {
-            leading_args.push(arg.to_string());
-        }
-    }
+    // or the Windows light-console wrapper.
+    let mut leading_arguments = agent_launch_arguments(&program, scheme);
     // The agent reports its model and effort out of band (hooks, a plugin) -
-    // see running_model.rs. Its arguments join the list; its environment is
-    // applied with the rest below.
-    let model_report_env =
-        crate::running_model::attach(&program, conversation_id, model_choice, &mut leading_args);
+    // see running_model.rs. Its arguments join the list (merging into a
+    // `--settings` layer the theme arguments may already carry); its environment
+    // is applied with the rest.
+    let model_report_environment = crate::running_model::attach(
+        &program,
+        conversation_id,
+        model_choice,
+        &mut leading_arguments,
+    );
     // Bind the session to ADE's stable conversation id (`--session-id <uuid>`), so a
     // later spawn with the same id resumes THIS conversation rather than the most
     // recent - how ADE restarts one specific session (e.g. after `.mcp.json`
@@ -553,82 +552,138 @@ fn build_command(
     if let (Some(flag), Some(conversation_id)) =
         (crate::agents::session_id_flag(&program), conversation_id)
     {
-        leading_args.extend(flag.arguments(conversation_id));
+        leading_arguments.extend(flag.arguments(conversation_id));
     }
 
-    // Windows + light scheme only: some agents (Codex) paint their input composer
-    // box from the *detected* terminal background, which under ConPTY is the
-    // pseudoconsole's hard-coded BLACK buffer no env/arg/config/OSC channel can
-    // change (see agents.rs). The one lever is a child-side console write, so ADE
-    // prefixes `cmd /c color F0 & …` to flip the buffer light before the agent
-    // probes it. Applied at spawn: a later scheme flip won't recolor an
-    // already-running box (acceptable - every spawn-time theme signal works this
-    // way). Every other case (dark scheme, non-Windows, agents that don't need it)
-    // spawns the agent unchanged.
-    let force_light_console = cfg!(target_os = "windows")
-        && scheme == Some(crate::theming::Scheme::Light)
-        && crate::agents::needs_light_console_fix(&program);
-    let mut process = if force_light_console {
-        light_console_command(&executable, &leading_args)
-    } else {
-        let mut process = CommandBuilder::new(&executable);
-        for arg in &leading_args {
-            process.arg(arg);
-        }
-        process
+    let mut process = launcher(&program, &executable, scheme, &leading_arguments);
+    apply_agent_environment(&mut process, &program, scheme, model_report_environment);
+    apply_terminal_capabilities(&mut process);
+    process
+}
+
+/// The platform shell a session runs when nothing names a program: the login
+/// `$SHELL` outside Windows, else the registry's default shell.
+fn default_shell() -> String {
+    if cfg!(windows) {
+        return DEFAULT_SHELL.into();
+    }
+    std::env::var(UNIX_SHELL_VARIABLE).unwrap_or_else(|_| DEFAULT_SHELL.into())
+}
+
+/// The arguments every interactive launch of `program` leads with: its
+/// skip-every-permission ("yolo") mode, so ADE drives it autonomously with no
+/// per-tool/edit approval stops, then the per-scheme theme arguments of an
+/// arg-themed CLI (codex's global `-c tui.theme=…`) so its TUI starts on ADE's
+/// current appearance (see theming.rs). Interactive spawn path only; the oneshot
+/// `codex exec` renders no TUI. Empty for a shell or an unknown command.
+fn agent_launch_arguments(program: &str, scheme: Option<Scheme>) -> Vec<String> {
+    let theme_arguments = scheme.map_or(&[][..], |scheme| {
+        crate::theming::spawn_args(program, scheme)
+    });
+    crate::agents::session_args(program)
+        .iter()
+        .chain(theme_arguments)
+        .map(ToString::to_string)
+        .collect()
+}
+
+/// The process to spawn for `executable` + `arguments`.
+///
+/// Windows + light scheme only: some agents (Codex) paint their input composer
+/// box from the *detected* terminal background, which under `ConPTY` is the
+/// pseudoconsole's hard-coded BLACK buffer no env/arg/config/OSC channel can
+/// change (see agents.rs). The one lever is a child-side console write, so ADE
+/// prefixes `cmd /c color F0 & …` to flip the buffer light before the agent
+/// probes it. Applied at spawn: a later scheme flip won't recolor an
+/// already-running box (acceptable - every spawn-time theme signal works this
+/// way). Every other case (dark scheme, non-Windows, agents that don't need it)
+/// spawns the agent unchanged.
+fn launcher(
+    program: &str,
+    executable: &str,
+    scheme: Option<Scheme>,
+    arguments: &[String],
+) -> CommandBuilder {
+    let is_light_console_forced = cfg!(target_os = "windows")
+        && scheme == Some(Scheme::Light)
+        && crate::agents::needs_light_console_fix(program);
+    if is_light_console_forced {
+        return light_console_command(executable, arguments);
+    }
+    let mut process = CommandBuilder::new(executable);
+    process.args(arguments);
+    process
+}
+
+/// The environment `program` needs, applied to whichever process ADE spawns; a
+/// `cmd.exe` wrapper passes it through to the agent it launches. Keyed by the
+/// command ADE knows (`codex`), not the file it resolved to
+/// (`…\codex-x86_64-pc-windows-msvc.exe`).
+fn apply_agent_environment(
+    process: &mut CommandBuilder,
+    program: &str,
+    scheme: Option<Scheme>,
+    model_report_environment: Vec<(String, String)>,
+) {
+    for (key, value) in crate::agents::spawn_env(program) {
+        process.env(key, value);
+    }
+    for (key, value) in model_report_environment {
+        process.env(key, value);
+    }
+    let Some(scheme) = scheme else {
+        return;
     };
-
-    // Environment goes on whichever process ADE spawns; a `cmd.exe` wrapper passes
-    // it through to the agent it launches. Keyed by the command ADE knows (`codex`),
-    // not the file it resolved to (`…\codex-x86_64-pc-windows-msvc.exe`).
-    for (key, value) in crate::agents::spawn_env(&program) {
-        process.env(key, value);
-    }
-    for (key, value) in model_report_env {
-        process.env(key, value);
-    }
     // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the
     // agent starts matching ADE's current appearance - see theming.rs.
-    if let Some(scheme) = scheme {
-        for (key, value) in crate::theming::spawn_env(&program, scheme) {
-            process.env(key, value);
-        }
-        // …and the tui-config file pair for file-themed CLIs (opencode):
-        // theming.rs materializes the config on disk and returns the env pair
-        // pointing at it. Filesystem I/O happens here, before any session lock.
-        for (key, value) in crate::theming::spawn_tui_config_env(&program, scheme) {
-            process.env(key, value);
-        }
-        // …and the live theme definition the launch args are about to select
-        // (Claude), written before the process starts so its first frame already
-        // paints in ADE's scheme. A flip later rewrites this same file, which is
-        // what re-themes the session without restarting it.
-        if let Err(error) = crate::theming::publish_live_themes(scheme) {
-            eprintln!("theming: could not publish the live theme ({error}); {program} starts on its own default");
-        }
+    for (key, value) in crate::theming::spawn_env(program, scheme) {
+        process.env(key, value);
     }
-    // ADE's terminal renders the full 16-colour ANSI palette (see terminal-theme.ts),
-    // but a CLI can't tell from inside a bare ConPTY: Ink/chalk/supports-color probe
-    // for a colour-capable terminal (TERM, COLORTERM, an isatty check) and, finding a
-    // Windows pseudoconsole that advertises none of them, fall back to MONOCHROME
-    // output - Claude Code's banner and every agent's colour go grey. These two are
-    // the escape hatch supports-color honours: FORCE_COLOR pins the level regardless
-    // of the isatty result, COLORTERM names truecolor so 24-bit SGR is emitted.
-    process.env("FORCE_COLOR", "3");
-    process.env("COLORTERM", "truecolor");
-    // Claude Code stamps every subprocess it spawns with CLAUDE_CODE_CHILD_SESSION,
-    // and a bare `ConPTY` forwards it verbatim - so when ADE is itself launched from
-    // inside a Claude Code session, the agent ADE spawns inherits the marker, reads
-    // itself as a nested child, and disables transcript saving (no --resume, no
-    // history). An agent ADE launches is always its own top-level session, so ADE
-    // clears the inherited marker before spawn.
-    process.env_remove("CLAUDE_CODE_CHILD_SESSION");
-    // ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
-    // tell from inside a bare ConPTY: Ink/terminal-link probe the environment
-    // (TERM_PROGRAM, VTE version) and silently fall back to plain text when nothing
-    // matches. This is the escape hatch those probes honor.
-    process.env("FORCE_HYPERLINK", "1");
-    process
+    // …and the tui-config file pair for file-themed CLIs (opencode):
+    // theming.rs materializes the config on disk and returns the env pair
+    // pointing at it. Filesystem I/O happens here, before any session lock.
+    for (key, value) in crate::theming::spawn_tui_config_env(program, scheme) {
+        process.env(key, value);
+    }
+    // …and the live theme definition the launch args are about to select
+    // (Claude), written before the process starts so its first frame already
+    // paints in ADE's scheme. A flip later rewrites this same file, which is
+    // what re-themes the session without restarting it.
+    if let Err(error) = crate::theming::publish_live_themes(scheme) {
+        eprintln!("theming: could not publish the live theme ({error}); {program} starts on its own default");
+    }
+}
+
+/// ADE's terminal renders the full 16-colour ANSI palette (see terminal-theme.ts),
+/// but a CLI can't tell from inside a bare `ConPTY`: Ink/chalk/supports-color probe
+/// for a colour-capable terminal (TERM, COLORTERM, an isatty check) and, finding a
+/// Windows pseudoconsole that advertises none of them, fall back to MONOCHROME
+/// output - Claude Code's banner and every agent's colour go grey. These two are
+/// the escape hatch supports-color honours: `FORCE_COLOR` pins the level
+/// regardless of the isatty result, `COLORTERM` names truecolor so 24-bit SGR is
+/// emitted.
+const COLOR_ENVIRONMENT: [(&str, &str); 2] = [("FORCE_COLOR", "3"), ("COLORTERM", "truecolor")];
+/// ADE's terminal renders OSC 8 hyperlinks (xterm + linkHandler), but a CLI can't
+/// tell from inside a bare `ConPTY`: Ink/terminal-link probe the environment
+/// (`TERM_PROGRAM`, VTE version) and silently fall back to plain text when
+/// nothing matches. This is the escape hatch those probes honor.
+const HYPERLINK_ENVIRONMENT: (&str, &str) = ("FORCE_HYPERLINK", "1");
+/// Claude Code stamps every subprocess it spawns with this marker, and a bare
+/// `ConPTY` forwards it verbatim - so when ADE is itself launched from inside a
+/// Claude Code session, the agent ADE spawns inherits the marker, reads itself as
+/// a nested child, and disables transcript saving (no --resume, no history). An
+/// agent ADE launches is always its own top-level session, so ADE clears it.
+const CHILD_SESSION_MARKER_VARIABLE: &str = "CLAUDE_CODE_CHILD_SESSION";
+
+/// Tell the CLI what ADE's terminal can render, which it cannot probe through a
+/// bare `ConPTY`, and clear the nested-session marker it must not inherit.
+fn apply_terminal_capabilities(process: &mut CommandBuilder) {
+    for (key, value) in COLOR_ENVIRONMENT {
+        process.env(key, value);
+    }
+    process.env_remove(CHILD_SESSION_MARKER_VARIABLE);
+    let (key, value) = HYPERLINK_ENVIRONMENT;
+    process.env(key, value);
 }
 
 /// Wrap `executable` + `arguments` as `cmd /c color F0 & <executable> <arguments…>` so the `ConPTY` console
@@ -645,24 +700,20 @@ fn build_command(
 /// shell string instead would be double-escaped by portable-pty and mis-parsed by
 /// cmd.
 fn light_console_command(executable: &str, arguments: &[String]) -> CommandBuilder {
-    let mut command = CommandBuilder::new("cmd.exe");
-    for token in ["/c", "color", "F0", "&", executable] {
-        command.arg(token);
-    }
-    for argument in arguments {
-        command.arg(argument);
-    }
+    let mut command = CommandBuilder::new(CONSOLE_HOST);
+    command.args(LIGHT_CONSOLE_PREFIX);
+    command.arg(executable);
+    command.args(arguments);
     command
 }
 
+const CONSOLE_HOST: &str = "cmd.exe";
+/// `cmd /c color F0 &` - black-on-white, then whatever follows the separator.
+const LIGHT_CONSOLE_PREFIX: [&str; 4] = ["/c", "color", "F0", "&"];
+
 fn open_pty(rows: u16, columns: u16) -> Result<PtyPair, String> {
     native_pty_system()
-        .openpty(PtySize {
-            rows,
-            cols: columns,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
+        .openpty(pty_size(rows, columns))
         .map_err(|e| e.to_string())
 }
 
@@ -684,7 +735,7 @@ pub async fn pty_spawn(
     // editor). Empty/absent for a plain agent or shell session.
     args: Option<Vec<String>>,
     // ADE's resolved appearance at spawn time, for env-themed CLIs (theming.rs).
-    scheme: Option<crate::theming::Scheme>,
+    scheme: Option<Scheme>,
     // A stable conversation id to pin/resume this session to, for an agent whose
     // CLI supports it (`claude --session-id`). Absent for a shell/editor.
     conversation_id: Option<String>,
@@ -695,29 +746,33 @@ pub async fn pty_spawn(
 ) -> Result<(), String> {
     let owner = window.label().to_string();
     let exceeds_argument_limits = args.as_ref().is_some_and(|arguments| {
-        arguments.len() > 64 || arguments.iter().any(|argument| argument.len() > 4096)
+        arguments.len() > MAXIMUM_SPAWN_ARGUMENTS
+            || arguments
+                .iter()
+                .any(|argument| argument.len() > MAXIMUM_PATH_BYTES)
     });
-    let exceeds_string_limits = id.len() > 128
+    let exceeds_string_limits = id.len() > MAXIMUM_SESSION_ID_BYTES
         || id.chars().any(char::is_control)
-        || command.as_ref().is_some_and(|value| value.len() > 4096)
-        || cwd.as_ref().is_some_and(|value| value.len() > 4096)
+        || command
+            .as_ref()
+            .is_some_and(|value| value.len() > MAXIMUM_PATH_BYTES)
+        || cwd
+            .as_ref()
+            .is_some_and(|value| value.len() > MAXIMUM_PATH_BYTES)
         || conversation_id
             .as_ref()
-            .is_some_and(|value| value.len() > 256)
+            .is_some_and(|value| value.len() > MAXIMUM_CONVERSATION_ID_BYTES)
         || model_choice
             .as_ref()
             .is_some_and(|choice| !choice.is_well_formed());
-    let invalid_dimensions =
-        cols == 0 || rows == 0 || cols > MAXIMUM_PTY_DIMENSION || rows > MAXIMUM_PTY_DIMENSION;
-    if exceeds_argument_limits || exceeds_string_limits || invalid_dimensions {
+    if exceeds_argument_limits || exceeds_string_limits || !are_valid_dimensions(cols, rows) {
         return Err("PTY request exceeds its input limits".into());
     }
     {
         let sessions = state.0.lock().map_err(|e| e.to_string())?;
-        match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
-            OwnerAccess::Owned => return Ok(()),
-            OwnerAccess::Foreign => return Err("PTY belongs to another window".into()),
-            OwnerAccess::Vacant => {}
+        let is_already_live = session_access(&sessions, &id, &owner)?.is_some();
+        if is_already_live {
+            return Ok(());
         }
         let owner_session_count = sessions.values().filter(|pty| pty.owner == owner).count();
         if owner_session_count >= MAXIMUM_SESSIONS_PER_WINDOW {
@@ -728,10 +783,12 @@ pub async fn pty_spawn(
     let pair = open_pty(rows, cols)?;
 
     // An explicit cwd (e.g. a per-branch worktree) overrides the process dir.
-    let dir = cwd
+    let directory = cwd
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::current_dir().ok());
-    let spawn_cwd = dir.as_ref().map(|path| path.to_string_lossy().into_owned());
+    let spawn_cwd = directory
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned());
 
     // Remembered on the session so `pty_list` can report what it runs and where
     // - the roster a reloaded frontend re-attaches its panes against.
@@ -742,11 +799,9 @@ pub async fn pty_spawn(
         conversation_id.as_deref(),
         model_choice.as_ref(),
     );
-    for arg in args.unwrap_or_default() {
-        process.arg(arg);
-    }
-    if let Some(dir) = dir {
-        process.cwd(dir);
+    process.args(args.unwrap_or_default());
+    if let Some(directory) = directory {
+        process.cwd(directory);
     }
 
     let child = pair
@@ -775,18 +830,12 @@ pub async fn pty_spawn(
     // remain responsive while a new CLI starts. A concurrent duplicate is dropped
     // here, which terminates the unregistered child through `Pty::drop`.
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    match owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), &owner) {
-        OwnerAccess::Owned => {
-            drop(sessions);
-            drop(pty);
-            return Ok(());
-        }
-        OwnerAccess::Foreign => {
-            drop(sessions);
-            drop(pty);
-            return Err("PTY belongs to another window".into());
-        }
-        OwnerAccess::Vacant => {}
+    let existing = session_access(&sessions, &id, &owner).map(|found| found.is_some());
+    let is_vacant = existing == Ok(false);
+    if !is_vacant {
+        drop(sessions);
+        drop(pty);
+        return existing.map(|_| ());
     }
     sessions.insert(id.clone(), pty);
     drop(sessions);
@@ -865,11 +914,11 @@ fn spawn_session_exit_monitor(app: AppHandle, id: String) {
         let Some(pty) = pty else {
             break;
         };
-        let still_running = pty
+        let is_still_running = pty
             .child
             .lock()
             .is_ok_and(|mut child| matches!(child.try_wait(), Ok(None)));
-        if still_running {
+        if is_still_running {
             continue;
         }
         // A caller can kill and immediately recreate an id. Only remove the
@@ -916,7 +965,7 @@ pub fn pty_list(window: WebviewWindow, state: State<PtyState>) -> Vec<SessionInf
     let Ok(sessions) = state.0.lock() else {
         return Vec::new();
     };
-    let mut infos: Vec<SessionInfo> = sessions
+    let mut roster: Vec<SessionInfo> = sessions
         .iter()
         .filter(|(_, pty)| pty.owner == owner)
         .map(|(id, pty)| SessionInfo {
@@ -925,8 +974,9 @@ pub fn pty_list(window: WebviewWindow, state: State<PtyState>) -> Vec<SessionInf
             cwd: pty.cwd.clone(),
         })
         .collect();
-    infos.sort_by(|a, b| a.id.cmp(&b.id));
-    infos
+    drop(sessions);
+    roster.sort_unstable_by(|left, right| left.id.cmp(&right.id));
+    roster
 }
 
 /// Everything a terminal needs to paint a session it is attaching to mid-flight,
@@ -939,17 +989,7 @@ pub fn pty_history(
     state: State<PtyState>,
     id: String,
 ) -> Result<HistorySnapshot, String> {
-    let owner = window.label();
-    let pty = {
-        let sessions = state.0.lock().map_err(|e| e.to_string())?;
-        if owner_access(sessions.get(&id).map(|pty| pty.owner.as_str()), owner)
-            == OwnerAccess::Foreign
-        {
-            return Err("PTY belongs to another window".into());
-        }
-        sessions.get(&id).cloned()
-    };
-    let Some(pty) = pty else {
+    let Some(pty) = owned_pty(&state, window.label(), &id)? else {
         return Ok(HistorySnapshot::default());
     };
     Ok(pty
@@ -966,16 +1006,7 @@ pub fn pty_history(
 /// Read a session's current transcript, or an empty string if it is unknown or
 /// the lock is poisoned. The context the AI session-namer summarises.
 pub fn transcript_of(state: &PtyState, owner: &str, id: &str) -> Result<String, String> {
-    let pty = {
-        let sessions = state.0.lock().map_err(|e| e.to_string())?;
-        if owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner)
-            == OwnerAccess::Foreign
-        {
-            return Err("PTY belongs to another window".into());
-        }
-        sessions.get(id).cloned()
-    };
-    let Some(pty) = pty else {
+    let Some(pty) = owned_pty(state, owner, id)? else {
         return Ok(String::new());
     };
     Ok(pty
@@ -1003,7 +1034,7 @@ pub fn write_input(
     id: &str,
     data: &str,
 ) -> Result<(), String> {
-    let is_too_large = data.len() > MAX_PTY_INPUT_BYTES;
+    let is_too_large = data.len() > MAXIMUM_PTY_INPUT_BYTES;
     if is_too_large {
         return Err("PTY input exceeds its size limit".into());
     }
@@ -1025,23 +1056,32 @@ pub async fn pty_resize(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    if cols == 0 || rows == 0 || cols > MAXIMUM_PTY_DIMENSION || rows > MAXIMUM_PTY_DIMENSION {
+    if !are_valid_dimensions(cols, rows) {
         return Err("PTY dimensions are outside the allowed range".into());
     }
     let Some(pty) = owned_pty(&state, window.label(), &id)? else {
         return Ok(());
     };
-    pty.master
-        .lock()
-        .map_err(|e| e.to_string())?
-        .resize(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    let master = pty.master.lock().map_err(|e| e.to_string())?;
+    master
+        .resize(pty_size(rows, cols))
+        .map_err(|e| e.to_string())
+}
+
+/// Whether a terminal size is one a PTY can be opened or resized to.
+fn are_valid_dimensions(columns: u16, rows: u16) -> bool {
+    let range = 1..=MAXIMUM_PTY_DIMENSION;
+    range.contains(&columns) && range.contains(&rows)
+}
+
+/// A character-cell size; the pixel size is unused by every backend ADE runs.
+fn pty_size(rows: u16, columns: u16) -> PtySize {
+    PtySize {
+        rows,
+        cols: columns,
+        pixel_width: 0,
+        pixel_height: 0,
+    }
 }
 
 /// Close a session: dropping it kills and reaps the agent process (see `Pty`'s
@@ -1054,24 +1094,18 @@ pub async fn pty_kill(
     id: String,
 ) -> Result<(), String> {
     let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if owner_access(
-        sessions.get(&id).map(|pty| pty.owner.as_str()),
-        window.label(),
-    ) == OwnerAccess::Foreign
-    {
-        return Err("PTY belongs to another window".into());
-    }
+    session_access(&sessions, &id, window.label())?;
     let pty = sessions.remove(&id);
     drop(sessions);
     drop(pty);
     Ok(())
 }
 
-/// The agent session's root PID, owner-checked. `None` when the session is gone or
+/// The agent session's root process id, owner-checked. `None` when the session is gone or
 /// has no live process - a caller treats that as "nothing to stop / not running".
 /// Resolves under the registry lock and releases it (plus the child lock) before
 /// returning, so the caller's blocking process work never holds either.
-fn session_root_pid(state: &PtyState, owner: &str, id: &str) -> Result<Option<u32>, String> {
+fn session_root_process_id(state: &PtyState, owner: &str, id: &str) -> Result<Option<u32>, String> {
     let Some(pty) = owned_pty(state, owner, id)? else {
         return Ok(None);
     };
@@ -1091,7 +1125,7 @@ pub async fn session_task_stop(
     id: String,
     command: String,
 ) -> Result<bool, String> {
-    let Some(root) = session_root_pid(state.inner(), window.label(), &id)? else {
+    let Some(root) = session_root_process_id(state.inner(), window.label(), &id)? else {
         return Ok(false);
     };
 
@@ -1111,7 +1145,7 @@ pub async fn session_task_running(
     id: String,
     command: String,
 ) -> Result<bool, String> {
-    let Some(root) = session_root_pid(state.inner(), window.label(), &id)? else {
+    let Some(root) = session_root_process_id(state.inner(), window.label(), &id)? else {
         return Ok(false);
     };
 
@@ -1120,12 +1154,25 @@ pub async fn session_task_running(
         .map_err(|error| error.to_string())?
 }
 
+/// Session `id` when `owner` may use it, released from the registry lock so the
+/// caller's PTY or process work never holds it. `None` for an unknown id.
 fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
     let sessions = state.0.lock().map_err(|e| e.to_string())?;
-    match owner_access(sessions.get(id).map(|pty| pty.owner.as_str()), owner) {
-        OwnerAccess::Vacant => Ok(None),
-        OwnerAccess::Owned => Ok(sessions.get(id).cloned()),
-        OwnerAccess::Foreign => Err("PTY belongs to another window".into()),
+    Ok(session_access(&sessions, id, owner)?.cloned())
+}
+
+/// The one owner check every session command makes: the session when `owner`
+/// spawned it, `None` when no session has the id, an error when another window
+/// owns it.
+fn session_access<'a>(
+    sessions: &'a HashMap<String, Arc<Pty>>,
+    id: &str,
+    owner: &str,
+) -> Result<Option<&'a Arc<Pty>>, String> {
+    let session = sessions.get(id);
+    match owner_access(session.map(|pty| pty.owner.as_str()), owner) {
+        OwnerAccess::Vacant | OwnerAccess::Owned => Ok(session),
+        OwnerAccess::Foreign => Err(FOREIGN_SESSION_ERROR.into()),
     }
 }
 
@@ -1300,7 +1347,7 @@ mod tests {
         let (data, _) = snapshot(&history);
         assert!(data.len() <= HISTORY_CAPACITY);
         assert!(data.starts_with('x'), "replay starts on a whole line");
-        assert_eq!(seq, over_capacity as u64);
+        assert_eq!(seq, u64::try_from(over_capacity).expect("a small count"));
     }
 
     #[test]
@@ -1342,6 +1389,28 @@ mod tests {
         let mut pending = vec![b'o', b'k', 0xFF, b'!'];
         assert_eq!(drain_decoded(&mut pending), "ok\u{FFFD}!");
         assert_empty(&pending);
+    }
+
+    #[test]
+    fn strip_ansi_drops_control_and_operating_system_sequences() {
+        let painted =
+            "\x1b[1;32mgreen\x1b[0m\r\n\x1b]0;title\x07tab\there\x1b]8;;url\x1b\\link\x1bMx\x01";
+        assert_eq!(strip_ansi(painted), "green\ntab\therelinkx");
+    }
+
+    #[test]
+    fn strip_ansi_tolerates_a_sequence_cut_off_at_the_end() {
+        assert_eq!(strip_ansi("text\x1b"), "text");
+        assert_eq!(strip_ansi("text\x1b[12"), "text");
+        assert_eq!(strip_ansi("text\x1b]0;unterminated"), "text");
+    }
+
+    #[test]
+    fn dimensions_must_be_positive_and_bounded() {
+        assert!(are_valid_dimensions(80, 24));
+        assert!(are_valid_dimensions(MAXIMUM_PTY_DIMENSION, 1));
+        assert!(!are_valid_dimensions(0, 24));
+        assert!(!are_valid_dimensions(80, MAXIMUM_PTY_DIMENSION + 1));
     }
 
     #[test]
