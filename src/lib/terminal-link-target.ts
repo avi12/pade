@@ -14,6 +14,12 @@ type TerminalLinkDestination = {
   value: string;
 };
 
+const WEB_PROTOCOLS = new Set(["https:", "http:"]);
+const FILE_PROTOCOL = "file:";
+const LOCAL_HOSTS = new Set(["", "localhost"]);
+/** A file URL's pathname on Windows: `/C:/…`, the drive behind a leading slash. */
+const WINDOWS_DRIVE_PATHNAME = /^\/[A-Za-z]:\//;
+
 /**
  * Return the safe OS destination for an OSC-8 target. Network links remain
  * browser links; local `file:` links with no remote host open in Explorer.
@@ -22,7 +28,7 @@ type TerminalLinkDestination = {
 export function terminalLinkDestination(uri: string) {
   try {
     const url = new URL(uri);
-    if (url.protocol === "https:" || url.protocol === "http:") {
+    if (WEB_PROTOCOLS.has(url.protocol)) {
       return {
         kind: TerminalLinkTarget.browser,
         value: uri
@@ -31,13 +37,14 @@ export function terminalLinkDestination(uri: string) {
 
     // A remote `file://server/share` URL is not a local workspace path. Never
     // turn an agent-provided terminal link into a network-share navigation.
-    if (url.protocol !== "file:" || (url.hostname !== "" && url.hostname !== "localhost")) {
+    const isLocalFile = url.protocol === FILE_PROTOCOL && LOCAL_HOSTS.has(url.hostname);
+    if (!isLocalFile) {
       return null;
     }
 
     let path = decodeURIComponent(url.pathname);
-    // A file URL on Windows is `/C:/…`; Explorer expects the drive to lead.
-    if (/^\/[A-Za-z]:\//.test(path)) {
+    // Explorer expects the drive to lead, with Windows separators.
+    if (WINDOWS_DRIVE_PATHNAME.test(path)) {
       path = path.slice(1).replaceAll("/", "\\");
     }
 

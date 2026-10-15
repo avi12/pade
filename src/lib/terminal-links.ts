@@ -33,14 +33,21 @@ import { z } from "zod";
 // paths detect exactly the same links. Its trailing character class excludes
 // sentence punctuation, so a URL ending a sentence doesn't swallow the period.
 const URL_PATTERN = /(https?|HTTPS?):[/]{2}[^\s"'!*(){}|\\^<>`]*[^\s"':,.!?{}|\\^~[\]`()<>]/;
+/** The same pattern for walking every URL in a text with `matchAll`, which
+ *  iterates on its own copy so no `lastIndex` leaks between calls. */
+const URL_PATTERN_GLOBAL = new RegExp(URL_PATTERN.source, "g");
+
+/** The scheme+`//` that anchors a URL. */
+const URL_SCHEME = /(https?):[/]{2}/i;
+const WHITESPACE = /\s/;
 
 // Ceiling on how many characters we stitch across, matching the addon's own
 // guard so a runaway match can't scan the whole scrollback.
-const MAX_WINDOW_CHARS = 2048;
+const MAXIMUM_WINDOW_CHARACTERS = 2048;
 
 // Ceiling on how many rows one logical line may span - a second guard on runaway
 // expansion when many full rows sit back to back.
-const MAX_LOGICAL_ROWS = 20;
+const MAXIMUM_LOGICAL_ROWS = 20;
 
 // How many columns short of the last physical column still counts as reaching
 // the edge: Claude often wraps a column shy of the true margin.
@@ -50,6 +57,8 @@ const RIGHT_EDGE_SLACK = 1;
 // either of which is skipped when measuring a row's glyph span.
 const BLANK_CELL = " ";
 const EMPTY_CELL = "";
+/** "No visible column found yet" while scanning a row. */
+const NO_COLUMN = -1;
 
 // The Unicode Box Drawing (U+2500–U+257F) and Block Elements (U+2580–U+259F)
 // blocks. These are frame glyphs, never URL content: a `─` rule under a link, or
@@ -132,8 +141,8 @@ function rowContent({ line, columns }: {
   line: LinkLine;
   columns: number;
 }) {
-  let firstColumn = -1;
-  let lastColumn = -1;
+  let firstColumn = NO_COLUMN;
+  let lastColumn = NO_COLUMN;
   for (let column = 0; column < columns; column += 1) {
     const characters = line.getCell(column)?.getChars();
     const isBlank = characters === undefined || characters === BLANK_CELL || characters === EMPTY_CELL;
@@ -141,14 +150,14 @@ function rowContent({ line, columns }: {
       continue;
     }
 
-    if (firstColumn === -1) {
+    if (firstColumn === NO_COLUMN) {
       firstColumn = column;
     }
 
     lastColumn = column;
   }
 
-  if (firstColumn === -1) {
+  if (firstColumn === NO_COLUMN) {
     return null;
   }
 
@@ -216,7 +225,7 @@ function rowGlyphs({ line, content }: {
 // treat the lower row as continuing it, so a fresh line whose first glyph merely
 // happens to be a URL byte (Claude's `%` tool-call marker, then a space) isn't
 // glued onto the URL above.
-const MIN_URL_CONTINUATION = 2;
+const MINIMUM_URL_CONTINUATION = 2;
 
 // Whether a URL begins on the upper row and runs across the boundary into the
 // lower row - the tell-tale of a program that self-wrapped a URL at a content
@@ -227,18 +236,16 @@ const MIN_URL_CONTINUATION = 2;
 // and letting the URL regex match across the seam is shape-agnostic - it holds
 // for host-only, `localhost`, IPv6 `[::1]`, bare IPs, ports, and fragments alike.
 // A qualifying match must start on the upper row and reach at least
-// `MIN_URL_CONTINUATION` chars past the boundary.
+// `MINIMUM_URL_CONTINUATION` chars past the boundary.
 function urlContinuesOntoLower({ upperText, lowerText }: {
   upperText: string;
   lowerText: string;
 }) {
   const boundary = upperText.length;
-  const joined = upperText + lowerText;
-  const pattern = new RegExp(URL_PATTERN.source, "g");
-  for (let match = pattern.exec(joined); match !== null; match = pattern.exec(joined)) {
-    const startsOnUpperRow = match.index < boundary;
-    const reachesIntoLowerRow = match.index + match[0].length >= boundary + MIN_URL_CONTINUATION;
-    if (startsOnUpperRow && reachesIntoLowerRow) {
+  for (const match of (upperText + lowerText).matchAll(URL_PATTERN_GLOBAL)) {
+    const isStartingOnUpperRow = match.index < boundary;
+    const isReachingIntoLowerRow = match.index + match[0].length >= boundary + MINIMUM_URL_CONTINUATION;
+    if (isStartingOnUpperRow && isReachingIntoLowerRow) {
       return true;
     }
   }
@@ -246,17 +253,17 @@ function urlContinuesOntoLower({ upperText, lowerText }: {
   return false;
 }
 
-// The scheme+`//` that anchors a URL. A window that already contains it holds the
-// URL's start; one that doesn't is a bare fragment whose start lies further up.
+// A window that already contains a URL scheme holds the URL's start; one that
+// doesn't is a bare fragment whose start lies further up.
 function hasScheme(text: string) {
-  return /(https?):[/]{2}/i.test(text);
+  return URL_SCHEME.test(text);
 }
 
 // A whitespace-free token - what every INNER row of a wrapped URL is (URLs never
 // contain spaces), and what prose never is. Lets the upward walk cross a URL's
 // scheme-less continuation rows to the row that starts it.
 function isBareToken(text: string) {
-  return text.length > 0 && !/\s/.test(text);
+  return text.length > 0 && !WHITESPACE.test(text);
 }
 
 // The glyphs of rows `topRow..bottomRow` flattened into one string with a parallel
@@ -272,7 +279,7 @@ function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
 }) {
   let text = "";
   const cells: CellPosition[] = [];
-  for (let row = topRow; row <= bottomRow && text.length < MAX_WINDOW_CHARS; row += 1) {
+  for (let row = topRow; row <= bottomRow && text.length < MAXIMUM_WINDOW_CHARACTERS; row += 1) {
     const line = buffer.getLine(row);
     if (!line) {
       continue;
@@ -290,11 +297,11 @@ function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
       line,
       content
     });
-    for (let index = 0; index < glyphs.text.length && text.length < MAX_WINDOW_CHARS; index += 1) {
-      text += glyphs.text[index];
+    for (let i = 0; i < glyphs.text.length && text.length < MAXIMUM_WINDOW_CHARACTERS; i += 1) {
+      text += glyphs.text[i];
       cells.push({
         row,
-        column: glyphs.columns[index]
+        column: glyphs.columns[i]
       });
     }
   }
@@ -445,7 +452,7 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
 
   while (
     topRow > 0
-    && bottomRow - topRow + 1 < MAX_LOGICAL_ROWS
+    && bottomRow - topRow + 1 < MAXIMUM_LOGICAL_ROWS
     && continuesAbove({
       buffer,
       columns,
@@ -457,7 +464,7 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
   }
 
   while (
-    bottomRow - topRow + 1 < MAX_LOGICAL_ROWS
+    bottomRow - topRow + 1 < MAXIMUM_LOGICAL_ROWS
     && continuesBelow({
       buffer,
       columns,
@@ -534,43 +541,39 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
     columns: terminal.cols,
     anchorRow: bufferLineNumber - 1
   });
-  // A fresh global copy per call so `lastIndex` never leaks between lines.
-  const pattern = new RegExp(URL_PATTERN.source, "g");
-
   const links: WrappedLink[] = [];
-  let match = pattern.exec(text);
-  while (match) {
+  for (const match of text.matchAll(URL_PATTERN_GLOBAL)) {
     const uri = match[0];
-    if (isUrl(uri)) {
-      const spans = rowSpans(cells.slice(match.index, match.index + uri.length));
-      for (const span of spans) {
-        links.push({
-          text: uri,
-          // Ranges are 1-based and end-inclusive; source columns are 0-based, so
-          // every edge gains 1.
-          range: {
-            start: {
-              x: span.startColumn + 1,
-              y: span.row + 1
-            },
-            end: {
-              x: span.endColumn + 1,
-              y: span.row + 1
-            }
-          },
-          // Built-in underline off - the provider paints its own over every span
-          // (see `withHoverUnderline`); keep the pointer cursor so it reads as a link.
-          decorations: {
-            underline: false,
-            pointerCursor: true
-          },
-          spans,
-          activate: (_event: MouseEvent, activatedUri: string) => openUrl(activatedUri)
-        });
-      }
+    if (!isUrl(uri)) {
+      continue;
     }
 
-    match = pattern.exec(text);
+    const spans = rowSpans(cells.slice(match.index, match.index + uri.length));
+    for (const span of spans) {
+      links.push({
+        text: uri,
+        // Ranges are 1-based and end-inclusive; source columns are 0-based, so
+        // every edge gains 1.
+        range: {
+          start: {
+            x: span.startColumn + 1,
+            y: span.row + 1
+          },
+          end: {
+            x: span.endColumn + 1,
+            y: span.row + 1
+          }
+        },
+        // Built-in underline off - the provider paints its own over every span
+        // (see `withHoverUnderline`); keep the pointer cursor so it reads as a link.
+        decorations: {
+          underline: false,
+          pointerCursor: true
+        },
+        spans,
+        activate: (_event, activatedUri) => openUrl(activatedUri)
+      });
+    }
   }
 
   return links;
@@ -593,20 +596,23 @@ interface RegisterableTerminal {
   registerLinkProvider(provider: ILinkProvider): unknown;
 }
 
+const XTERM_SCREEN_SELECTOR = ".xterm-screen";
+const UNDERLINE_CLASS = "terminal-link-underline";
+
 // xterm's screen element and its cell geometry, or null before the terminal has
 // mounted. The screen is exactly `cols × rows` cells with no padding, so a cell's
 // pixel size is just the screen size over the grid - no need to reach into
 // xterm's private render service.
 function screenGeometry(terminal: RegisterableTerminal) {
-  const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
-  if (!screen) {
+  const elScreen = terminal.element?.querySelector<HTMLElement>(XTERM_SCREEN_SELECTOR);
+  if (!elScreen) {
     return null;
   }
 
   return {
-    screen,
-    cellWidth: screen.clientWidth / terminal.cols,
-    cellHeight: screen.clientHeight / terminal.rows
+    elScreen,
+    cellWidth: elScreen.clientWidth / terminal.cols,
+    cellHeight: elScreen.clientHeight / terminal.rows
   };
 }
 
@@ -624,19 +630,19 @@ function paintUnderline({ terminal, spans }: {
   }
 
   const viewportRow = terminal.buffer.active.viewportY;
-  const painted: HTMLElement[] = [];
+  const elUnderlines: HTMLElement[] = [];
   for (const span of spans) {
-    const underline = document.createElement("div");
-    underline.className = "terminal-link-underline";
-    underline.style.left = `${span.startColumn * geometry.cellWidth}px`;
-    underline.style.top = `${(span.row - viewportRow) * geometry.cellHeight}px`;
-    underline.style.width = `${(span.endColumn - span.startColumn + 1) * geometry.cellWidth}px`;
-    underline.style.height = `${geometry.cellHeight}px`;
-    geometry.screen.appendChild(underline);
-    painted.push(underline);
+    const elUnderline = document.createElement("div");
+    elUnderline.className = UNDERLINE_CLASS;
+    elUnderline.style.left = `${span.startColumn * geometry.cellWidth}px`;
+    elUnderline.style.top = `${(span.row - viewportRow) * geometry.cellHeight}px`;
+    elUnderline.style.width = `${(span.endColumn - span.startColumn + 1) * geometry.cellWidth}px`;
+    elUnderline.style.height = `${geometry.cellHeight}px`;
+    geometry.elScreen.appendChild(elUnderline);
+    elUnderlines.push(elUnderline);
   }
 
-  return painted;
+  return elUnderlines;
 }
 
 // xterm's ordered list of link providers - its own OSC-8 provider is registered
@@ -707,8 +713,8 @@ function anchorIsUrl({ terminal, link }: {
   }
 
   const firstColumn = link.range.start.x - 1;
-  const onOneRow = link.range.end.y === link.range.start.y;
-  const lastColumn = onOneRow ? link.range.end.x - 1 : terminal.cols - 1;
+  const isOnOneRow = link.range.end.y === link.range.start.y;
+  const lastColumn = isOnOneRow ? link.range.end.x - 1 : terminal.cols - 1;
   let anchor = "";
   for (let column = firstColumn; column <= lastColumn; column += 1) {
     anchor += cellText(line.getCell(column));
@@ -767,18 +773,18 @@ function overrideOscUrlLinks({ terminal, provider }: {
   }
 
   const { linkProviders } = service;
-  for (let index = 0; index < linkProviders.length; index += 1) {
-    if (linkProviders[index] !== provider) {
-      linkProviders[index] = deferUrlsFrom({
+  for (const [i, builtIn] of linkProviders.entries()) {
+    if (builtIn !== provider) {
+      linkProviders[i] = deferUrlsFrom({
         terminal,
-        provider: linkProviders[index]
+        provider: builtIn
       });
     }
   }
 
-  const index = linkProviders.indexOf(provider);
-  if (index > 0) {
-    linkProviders.splice(index, 1);
+  const iProvider = linkProviders.indexOf(provider);
+  if (iProvider > 0) {
+    linkProviders.splice(iProvider, 1);
     linkProviders.unshift(provider);
   }
 }
@@ -822,13 +828,13 @@ function withHoverUnderline({ terminal, link }: {
   terminal: RegisterableTerminal;
   link: WrappedLink;
 }) {
-  let painted: HTMLElement[] = [];
+  let elUnderlines: HTMLElement[] = [];
   function clear() {
-    for (const underline of painted) {
-      underline.remove();
+    for (const elUnderline of elUnderlines) {
+      elUnderline.remove();
     }
 
-    painted = [];
+    elUnderlines = [];
   }
 
   return {
@@ -838,7 +844,7 @@ function withHoverUnderline({ terminal, link }: {
     activate: link.activate,
     hover() {
       clear();
-      painted = paintUnderline({
+      elUnderlines = paintUnderline({
         terminal,
         spans: link.spans
       });
