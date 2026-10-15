@@ -126,6 +126,28 @@ const PADE_CLAUDE_THEME_SETTINGS: &str = r#"{"theme":"custom:pade"}"#;
 const PADE_CLAUDE_LIGHT_THEME: &str = r#"{"name":"pade","base":"light-ansi","overrides":{}}"#;
 const PADE_CLAUDE_DARK_THEME: &str = r#"{"name":"pade","base":"dark-ansi","overrides":{}}"#;
 
+/// The TUI configs `OPENCODE_TUI_CONFIG` points opencode at - one per scheme,
+/// each selecting the matching PADE-owned plain-string theme (theming.rs
+/// materializes both definitions). Plain-string, not adaptive, so the render is
+/// truthful regardless of opencode's ConPTY-answered light/dark probe; a flip
+/// re-themes by respawn (App's `restartSpawnThemedAgents`).
+const OPENCODE_LIGHT_TUI_CONFIG: &str =
+    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#;
+const OPENCODE_DARK_TUI_CONFIG: &str =
+    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-dark"}"#;
+
+/// The platform shell a session falls back to when no agent is named - the
+/// one spelling both the spawn fallback (`pty.rs`) and the detected
+/// "Terminal (shell)" entry read.
+pub(crate) const DEFAULT_SHELL: &str = if cfg!(windows) {
+    "powershell.exe"
+} else {
+    "bash"
+};
+/// The registry id and label of the always-offered shell entry.
+const SHELL_ID: &str = "shell";
+const SHELL_LABEL: &str = "Terminal (shell)";
+
 /// Known agent backends, in preferred display order. The plain shell is always
 /// offered last as a universal fallback.
 ///
@@ -143,16 +165,6 @@ const PADE_CLAUDE_DARK_THEME: &str = r#"{"name":"pade","base":"dark-ansi","overr
 /// no safe per-launch override (only a slash command or a user-global settings
 /// file), so ADE leaves them as-is; aider is a line-oriented REPL with no fullscreen
 /// mode; cursor-agent's rendering is undocumented - none of those three is forced.
-/// The TUI configs `OPENCODE_TUI_CONFIG` points opencode at - one per scheme,
-/// each selecting the matching PADE-owned plain-string theme (theming.rs
-/// materializes both definitions). Plain-string, not adaptive, so the render is
-/// truthful regardless of opencode's ConPTY-answered light/dark probe; a flip
-/// re-themes by respawn (App's `restartSpawnThemedAgents`).
-const OPENCODE_LIGHT_TUI_CONFIG: &str =
-    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-light"}"#;
-const OPENCODE_DARK_TUI_CONFIG: &str =
-    r#"{"$schema":"https://opencode.ai/tui.json","theme":"pade-dark"}"#;
-
 const REGISTRY: &[AgentDefinition] = &[
     AgentDefinition {
         id: ID_CLAUDE,
@@ -578,15 +590,10 @@ fn detect_installed() -> Vec<Agent> {
         })
         .collect();
 
-    let shell = if cfg!(windows) {
-        "powershell.exe"
-    } else {
-        "bash"
-    };
     found.push(Agent {
-        id: "shell".into(),
-        label: "Terminal (shell)".into(),
-        command: shell.into(),
+        id: SHELL_ID.into(),
+        label: SHELL_LABEL.into(),
+        command: DEFAULT_SHELL.into(),
         // A shell writes whatever the program it runs writes: logical order.
         reorders_bidi: false,
     });
