@@ -2,8 +2,8 @@
   import Icon from "@/lib/Icon.svelte";
   import { layoutWithoutPane } from "@/lib/session/pane-layout";
   import { DropSide } from "@/lib/session/reorder";
-  import { animatePaneIn, paneDropAt } from "@/lib/shell/pane-dom";
-  import SplitMenu from "@/lib/shell/SplitMenu.svelte";
+  import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
+  import SplitMenu from "@/lib/shell/screen/SplitMenu.svelte";
   import type { Agent, AgentSession } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import { collapsePane } from "@/lib/ui/motion";

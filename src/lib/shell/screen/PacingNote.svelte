@@ -1,5 +1,5 @@
 <script lang="ts">
-  import StatusPill from "@/lib/shell/StatusPill.svelte";
+  import StatusPill from "@/lib/shell/screen/StatusPill.svelte";
   import type { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
 
   type UsagePacing = ReturnType<typeof createUsagePacing>;

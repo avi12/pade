@@ -7,9 +7,10 @@
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
-  import BootSplash from "@/lib/shell/BootSplash.svelte";
   import { clearDiscordPresence } from "@/lib/shell/discord-presence";
-  import { animatePaneIn } from "@/lib/shell/pane-dom";
+  import BootSplash from "@/lib/shell/screen/BootSplash.svelte";
+  import { animatePaneIn } from "@/lib/shell/screen/pane-dom";
+  import WorkspaceScreen from "@/lib/shell/screen/WorkspaceScreen.svelte";
   import { registerSessionShortcuts } from "@/lib/shell/session-shortcuts";
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
   import { Side } from "@/lib/shell/side-panels";
@@ -18,7 +19,6 @@
   import WindowEvents from "@/lib/shell/WindowEvents.svelte";
   import { startWindowServices } from "@/lib/shell/windowServices.svelte";
   import { createWindowSessions } from "@/lib/shell/windowSessions.svelte";
-  import WorkspaceScreen from "@/lib/shell/WorkspaceScreen.svelte";
   import { stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import {

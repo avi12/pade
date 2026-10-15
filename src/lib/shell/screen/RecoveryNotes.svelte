@@ -1,6 +1,6 @@
 <script lang="ts">
-  import PacingNote from "@/lib/shell/PacingNote.svelte";
-  import StatusPill from "@/lib/shell/StatusPill.svelte";
+  import PacingNote from "@/lib/shell/screen/PacingNote.svelte";
+  import StatusPill from "@/lib/shell/screen/StatusPill.svelte";
   import type { createUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
 
   // The status pill an automatic recovery (handoff, usage resume, API-error

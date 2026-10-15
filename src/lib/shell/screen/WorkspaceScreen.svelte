@@ -5,13 +5,13 @@
   import SessionTabs from "@/lib/session/SessionTabs.svelte";
   import { SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
   import type { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
-  import { animatePaneIn, paneDropAt } from "@/lib/shell/pane-dom";
-  import RecoveryNotes from "@/lib/shell/RecoveryNotes.svelte";
+  import { animatePaneIn, paneDropAt } from "@/lib/shell/screen/pane-dom";
+  import RecoveryNotes from "@/lib/shell/screen/RecoveryNotes.svelte";
+  import ShellChrome from "@/lib/shell/screen/ShellChrome.svelte";
+  import ShellToast from "@/lib/shell/screen/ShellToast.svelte";
+  import TerminalPanes from "@/lib/shell/screen/TerminalPanes.svelte";
   import type { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
-  import ShellChrome from "@/lib/shell/ShellChrome.svelte";
-  import ShellToast from "@/lib/shell/ShellToast.svelte";
   import type { Side } from "@/lib/shell/side-panels";
-  import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
   import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
   import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
