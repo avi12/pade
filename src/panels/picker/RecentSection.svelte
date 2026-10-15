@@ -72,14 +72,21 @@
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
               {/if}
-              <span class="recent-name">{displayName(path, labels)}</span>
+              <span class="recent-name">{displayName({
+                path,
+                labels
+              })}</span>
               <span
                 class="recent-path" {@attach truncationTooltip({
                   tooltip: path
                 })}>{path}</span>
               <LastAccessed now={shownAt} {path} />
             </button>
-            <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
+            <OpenInEditorButton
+              name={displayName({
+                path,
+                labels
+              })} {ides} {path} />
             <RowMenu {lifecycle} {path} scope="recent" />
           {/if}
         </li>

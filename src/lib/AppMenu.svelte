@@ -146,7 +146,10 @@
     }
 
     return (
-      displayName(project, labels).toLowerCase().includes(query) ||
+      displayName({
+        path: project,
+        labels
+      }).toLowerCase().includes(query) ||
       project.toLowerCase().includes(query)
     );
   }
@@ -497,7 +500,10 @@
               type="button"
             >
               <ProjectKindIcon path={windowRow.path} />
-              <span class="open-window-row-name">{shortDisplayName(windowRow.path, labels)}</span>
+              <span class="open-window-row-name">{shortDisplayName({
+                path: windowRow.path,
+                labels
+              })}</span>
               {#if isTemporaryWorkspace(windowRow.path)}
                 <TempBadge />
               {/if}
@@ -549,7 +555,10 @@
       <button
         class="project-row-kebab"
         aria-haspopup="menu"
-        aria-label={`Options for ${displayName(project, labels)}`}
+        aria-label={`Options for ${displayName({
+          path: project,
+          labels
+        })}`}
         popovertarget={menuId}
         type="button"
       ><Icon name="more" size={16} /></button>
@@ -641,7 +650,10 @@
         <ProjectKindIcon path={project} />
         <span class="project-row-body">
           <span class="project-row-name-line">
-            <span class="project-row-name">{displayName(project, labels)}</span>
+            <span class="project-row-name">{displayName({
+              path: project,
+              labels
+            })}</span>
             {#if isTemporaryWorkspace(project)}
               <TempBadge />
             {/if}
@@ -793,7 +805,10 @@
         <div class="directory-delete-body">
           <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
           <p class="target">
-            <span class="target-name">{displayName(target, labels)}</span>
+            <span class="target-name">{displayName({
+              path: target,
+              labels
+            })}</span>
             <code>{target}</code>
           </p>
         </div>

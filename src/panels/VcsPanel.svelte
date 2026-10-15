@@ -31,7 +31,7 @@
     try {
       const [nextEntries, nextCommits] = await Promise.all([
         vcs.status(workspace),
-        vcs.log(workspace)
+        vcs.log({ cwd: workspace })
       ]);
       // A late response for the prior project must not repaint this panel after
       // the window has switched to another workspace.

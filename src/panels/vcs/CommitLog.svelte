@@ -60,7 +60,10 @@
 
   async function inspectCommit(commit: Commit) {
     try {
-      openCommit = await vcs.commit(project, commit.id);
+      openCommit = await vcs.commit({
+        cwd: project,
+        sha: commit.id
+      });
     } catch {
       openCommit = null;
     }

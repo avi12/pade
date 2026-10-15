@@ -94,7 +94,10 @@ function presenceActivity({ isEnabled, isProjectShown, project, labels, kind }: 
   }
 
   return {
-    details: `Working on ${displayName(project, labels)}`,
+    details: `Working on ${displayName({
+      path: project,
+      labels
+    })}`,
     ...languageFields(kind)
   };
 }

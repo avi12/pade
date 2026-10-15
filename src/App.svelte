@@ -140,7 +140,12 @@
   // in the tooltip). Every surface (top-bar chip, slug source, window title, and
   // the switcher's open-window rows) reads this one `shortDisplayName` so none of
   // them recomputes the last-two-segments split independently and drifts.
-  const projectLabel = $derived(shortDisplayName(currentProject, settings.labels));
+  const projectLabel = $derived(
+    shortDisplayName({
+      path: currentProject,
+      labels: settings.labels
+    })
+  );
   // A temp workspace that never earned a name: when its last session ends, the
   // window returns to the picker rather than respawning an agent. Its folder is
   // kept - only the unused-temp cleanup setting ever deletes it. One that was
@@ -487,7 +492,10 @@
   // open, switch, and close.
   const hasNamedProject = $derived(currentProject !== "" && !isUnnamedTemp);
   $effect(() => {
-    const workspace = displayName(currentProject, settings.labels);
+    const workspace = displayName({
+      path: currentProject,
+      labels: settings.labels
+    });
     windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 
