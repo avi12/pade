@@ -230,14 +230,24 @@ static CATALOG: Mutex<Option<(Instant, HashMap<String, u64>)>> = Mutex::new(None
 /// The window models.dev reports for `model`, refreshing the catalog when the
 /// cached copy has aged past the TTL.
 fn window_for_model(model: &str) -> Option<u64> {
-    let mut cache = CATALOG.lock().ok()?;
-    let fresh =
-        matches!(cache.as_ref(), Some((fetched_at, _)) if fetched_at.elapsed() < CATALOG_TTL);
-    if !fresh {
-        *cache = Some((Instant::now(), fetch_catalog()?));
+    {
+        let cache = CATALOG.lock().ok()?;
+        if let Some((fetched_at, windows)) = cache.as_ref() {
+            let is_fresh = fetched_at.elapsed() < CATALOG_TTL;
+            if is_fresh {
+                return windows.get(model).copied();
+            }
+        }
     }
 
-    cache.as_ref()?.1.get(model).copied()
+    // The fetch is a multi-megabyte network call; it runs with the cache
+    // unlocked so a slow models.dev never queues every other session's read
+    // behind it. Two sessions racing past a stale cache may both fetch - the
+    // later write simply wins, and both answers are equally fresh.
+    let windows = fetch_catalog()?;
+    let window = windows.get(model).copied();
+    *CATALOG.lock().ok()? = Some((Instant::now(), windows));
+    window
 }
 
 /// Fetch and flatten the models.dev catalog to model id → largest context window.
