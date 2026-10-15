@@ -5,7 +5,7 @@
   import type { Ide } from "@/lib/types";
 
   // A picker row's "open this project in your editor" button. It stays a plain,
-  // static button — the project's configured ranking is loaded only when clicked
+  // static button - the project's configured ranking is loaded only when clicked
   // through the same shared store Change Feed uses, never per row on render, so a
   // rootful of rows never blocks the UI. Shown whenever a GUI editor is installed
   // (a console editor needs a TTY the picker lacks, so it launches from the
@@ -18,7 +18,7 @@
   } = $props();
 
   const hasGuiEditor = $derived(hasWindowedEditor(ides));
-  // True only while a click's best-fit lookup is in flight — the button reflects
+  // True only while a click's best-fit lookup is in flight - the button reflects
   // it (disabled + dimmed) so the ~second `ide.suggest` takes doesn't read as a
   // dead click, and a second click can't stack another lookup.
   let busy = $state(false);
@@ -62,7 +62,7 @@
 
 <style>
   /* Per-row quick action: open the project in its best-fit editor (resolved on
-     click) — the visible twin of the workspace topbar's "Open in <editor>" button,
+     click) - the visible twin of the workspace topbar's "Open in <editor>" button,
      so a project opens in your editor without going through the ⋯ menu. */
   .open-ide {
     display: inline-flex;

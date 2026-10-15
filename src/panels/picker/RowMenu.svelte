@@ -5,14 +5,14 @@
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
 
   // Trailing kebab + actions popover for one project row: reveal in Files /
-  // Terminal, and — for PADE-owned workspaces — the relabel (temp only) / rename /
+  // Terminal, and - for PADE-owned workspaces - the relabel (temp only) / rename /
   // move / delete lifecycle. Opening in an editor is its own visible row button
   // (OpenInEditorButton), so it isn't repeated here. Chrome comes from
   // picker/chrome.css.
   const { path, scope, lifecycle }: {
     path: string;
     /** Disambiguates a path shown in more than one section (Recent AND under
-     *  its root) — the same path would otherwise mint duplicate popover ids
+     *  its root) - the same path would otherwise mint duplicate popover ids
      *  and clicking one kebab would open the wrong menu. */
     scope: string;
     lifecycle: WorkspaceLifecycle;

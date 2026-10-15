@@ -26,7 +26,7 @@
   import { onDestroy, onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
-  // browse the projects inside them, open one, or create a new one — then hand
+  // browse the projects inside them, open one, or create a new one - then hand
   // the chosen project path (and optional first prompt) back to the app.
   const {
     agents,
@@ -52,7 +52,7 @@
 
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   // Whether the first settings load has landed. The sections render only then,
-  // so every control is born showing the persisted preference — never a
+  // so every control is born showing the persisted preference - never a
   // defaults flash that snaps to the real values a beat later.
   let loaded = $state(false);
   let ides = $state<Ide[]>([]);
@@ -112,7 +112,7 @@
     ides = await ide.detect();
   }
 
-  // Re-scan every root's projects into projectsByRoot — the cheap part of a
+  // Re-scan every root's projects into projectsByRoot - the cheap part of a
   // reload (a handful of directory reads), shared by both refresh paths.
   function scanRoots(): Promise<Record<string, ProjectEntry[]>> {
     return Promise.all(
@@ -120,10 +120,10 @@
     ).then(Object.fromEntries);
   }
 
-  // Light reload: the project lists only — prune the settings, re-scan the roots.
+  // Light reload: the project lists only - prune the settings, re-scan the roots.
   // A workspace delete/rename/move, and a folder appearing or vanishing under a
   // watched root, change the projects but never the machine's installed editors,
-  // so re-detecting those here (≈1.8s of registry/PATH probing — `ide.detect` +
+  // so re-detecting those here (≈1.8s of registry/PATH probing - `ide.detect` +
   // `ide.kindOptions`) would stall the picker for nothing. The lifecycle ops and
   // the folder watcher use this; only mount and the Editors "Reload" button pay
   // for a full editor re-detect.
@@ -178,7 +178,7 @@
   // the picker (adding one in Root folders) fills the create location too.
   let createRoot = $state("");
 
-  // The Root folders section instance — the create-form's "New root folder…"
+  // The Root folders section instance - the create-form's "New root folder…"
   // option jumps to its add field through this handle.
   let rootsSection = $state<{ focusAddRoot: () => void } | null>(null);
 
@@ -202,7 +202,7 @@
   }
 
   // Only an `added` outcome carries settings for the bridge to adopt and scans
-  // the new root — `missing`/`notADirectory` are handed back
+  // the new root - `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
   async function addRoot(path: string, { create }: {
     create: boolean;
@@ -247,13 +247,13 @@
   }
 
   // Owned-workspace lifecycle (rename/move/delete + the inline-rename form
-  // state) — one instance shared by the Recent rows and the root-project rows.
+  // state) - one instance shared by the Recent rows and the root-project rows.
   const lifecycle = createWorkspaceLifecycle({
     isOwned,
     onmove: target => onmove(target),
     onrename: target => onrename(target),
     ondelete: path => ondelete(path),
-    // A rename/move/delete changes the project lists, not the installed editors —
+    // A rename/move/delete changes the project lists, not the installed editors -
     // so catch the lists up cheaply, without re-probing the machine for editors.
     refresh: refreshProjects
   });
@@ -279,14 +279,14 @@
   });
 
   // The filesystem answers in bursts (one delete lands as several events), so the
-  // rescan is debounced — one refresh per settled change, not one per event.
+  // rescan is debounced - one refresh per settled change, not one per event.
   let rescan: ReturnType<typeof setTimeout> | undefined;
   let unlisten: (() => void) | undefined;
 
   function rescanSoon() {
     clearTimeout(rescan);
     // A folder appearing/vanishing under a watched root only moves projects
-    // around — the light refresh, not a full editor re-detect.
+    // around - the light refresh, not a full editor re-detect.
     rescan = setTimeout(refreshProjects, 250);
   }
 
@@ -376,7 +376,7 @@
   </div>
 </div>
 
-<!-- The lifecycle's prompts, raised from either list's row menu — outside .picker
+<!-- The lifecycle's prompts, raised from either list's row menu - outside .picker
      so they never scroll with the page. -->
 <WorkspaceDialogs labels={settings.labels} {lifecycle} />
 
@@ -407,7 +407,7 @@
     animation: rise 420ms var(--ease);
   }
 
-  /* The settings-fed sections, mounted together once loaded — same column
+  /* The settings-fed sections, mounted together once loaded - same column
      rhythm as .inner, rising in as one block. */
   .sections {
     display: flex;

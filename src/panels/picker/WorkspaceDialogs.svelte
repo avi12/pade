@@ -9,7 +9,7 @@
   // picker, rendered outside its scrolling page.
   const { lifecycle, labels }: {
     lifecycle: WorkspaceLifecycle;
-    /** Friendly display labels per path — the one source every row reads. */
+    /** Friendly display labels per path - the one source every row reads. */
     labels: Record<string, string>;
   } = $props();
 </script>

@@ -3,7 +3,7 @@
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
 
-  // A radiogroup of agent choice-chips — one pill per agent, its brand glyph
+  // A radiogroup of agent choice-chips - one pill per agent, its brand glyph
   // leading the label, the selected one edged in primary over its container.
   // Shared by the picker's Default-agent section and the create form's
   // per-launch Agent row (DRY); `compact` trims the padding for the denser
@@ -41,7 +41,7 @@
     gap: 8px;
   }
 
-  /* Choice chips — pills; selected gets a primary edge over its container, with
+  /* Choice chips - pills; selected gets a primary edge over its container, with
      the agent's own glyph leading the label. The glyph carries the agent's brand
      colour (--agent-brand, set per data-agent in theme.css); a monochrome-brand
      agent has none and its glyph follows the label colour. */

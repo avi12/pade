@@ -50,23 +50,23 @@
   import { flip } from "svelte/animate";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
-  // The open project's root dir — lets an editor open a change in the window
+  // The open project's root dir - lets an editor open a change in the window
   // that already has this project, at the right line.
   const { project }: { project: string } = $props();
 
   // The feed events live in a persistent store (lib/stores/feed) that owns the one
-  // live subscription, so switching side panels away and back keeps the feed —
+  // live subscription, so switching side panels away and back keeps the feed -
   // this component only reads and renders them.
 
-  // The project's ranked editors, read from the shared store (SSOT — the same
+  // The project's ranked editors, read from the shared store (SSOT - the same
   // list the top-bar IdeMenu shows, so a reveal here and the launcher there can
   // never name different editors). The reveal uses the first *windowed* editor:
-  // a console editor (Neovim/Vim/Helix) can't run detached — handing it to the
-  // OS launcher spawns an invisible orphan that locks the workspace cwd — and
+  // a console editor (Neovim/Vim/Helix) can't run detached - handing it to the
+  // OS launcher spawns an invisible orphan that locks the workspace cwd - and
   // the feed has no terminal tab to route it into, so it's skipped here.
   const revealEditor = $derived(windowedEditorFor({ path: project }));
 
-  // Each group's git branch, for its header subtitle — the branch of the
+  // Each group's git branch, for its header subtitle - the branch of the
   // checkout the group's files actually live in, which for a monorepo package is
   // the workspace's own repo and for a nested checkout is its own. Empty for a
   // non-repo / detached-HEAD workspace. The branches ride the shared member
@@ -83,7 +83,7 @@
     return branchOfMember(pathOfMember(repository));
   }
 
-  // "Sync all" only makes sense when there's a remote to fast-forward from — a
+  // "Sync all" only makes sense when there's a remote to fast-forward from - a
   // fresh local project (git-init'd but no origin) or a non-repo has nothing to
   // pull. `remoteUrl` is null with no remote and rejects outside a repo, so the
   // button stays hidden in both cases and appears only for a repo with a remote.
@@ -105,15 +105,15 @@
   }
 
   // The workspace's members (backend census: a package by its manifest, a
-  // checkout by its own `.git`) — the grouping ground truth change-groups
+  // checkout by its own `.git`) - the grouping ground truth change-groups
   // prefers over folder-name conventions. App discovers them once per project
   // into the shared store; with none, the convention fallback stays in charge.
   const workspaceMembers = $derived(storedMembers());
 
-  // "Sync all" (fast-forward pull) in-flight guard — disables the button and
+  // "Sync all" (fast-forward pull) in-flight guard - disables the button and
   // spins its icon so a slow fetch can't be double-fired.
   let syncing = $state(false);
-  // Whether the workspace has a git remote to sync from — gates the whole button
+  // Whether the workspace has a git remote to sync from - gates the whole button
   // (see loadRemote). A fresh local project or a non-repo has nothing to pull.
   let hasRemote = $state(false);
 
@@ -149,12 +149,12 @@
     });
   }
   // Cache raw parsed lines per event id so re-opening a card never refetches.
-  // Keyed by id (not path) so repeated edits to the same file — distinct events
-  // sharing a path — each render their own diff rather than the stale first one.
+  // Keyed by id (not path) so repeated edits to the same file - distinct events
+  // sharing a path - each render their own diff rather than the stale first one.
   const diffCache = new SvelteMap<string, DiffLine[]>();
   // Rendered image previews per event id: the data URL for an image card, or
   // `null` when the backend has nothing to show (gone, or over its size cap).
-  // Fetched lazily on first expand, exactly like the diff cache — a feed full of
+  // Fetched lazily on first expand, exactly like the diff cache - a feed full of
   // image changes never fetches them all at once, only the card being opened.
   const imageCache = new SvelteMap<string, string | null>();
   // Transcoded video previews per event id, fetched lazily like the image cache.
@@ -166,7 +166,7 @@
   const failedIds = new SvelteSet<string>();
 
   // Fill `cache` for `id` from `load` once, recording a failure instead of
-  // rejecting — the shared lazy fetch behind every media preview.
+  // rejecting - the shared lazy fetch behind every media preview.
   async function loadPreviewOnce<Preview>({ cache, id, load }: {
     cache: SvelteMap<string, Preview | null>;
     id: string;
@@ -196,7 +196,7 @@
   const paneById = new SvelteMap<string, PreviewPane>();
   // The sandbox-ready srcdoc per card id (a full HTML document for markdown, the
   // raw file text for HTML), or `null` when its text couldn't be fetched.
-  // Fetched lazily the first time a card switches to Preview — exactly like the
+  // Fetched lazily the first time a card switches to Preview - exactly like the
   // image cache, so a feed of docs never fetches them all at once.
   const previewDocCache = new SvelteMap<string, string | null>();
 
@@ -205,7 +205,7 @@
   }
 
   // The iframe srcdoc for a file's current text: markdown is rendered to a full
-  // themed document, an HTML file is shown as-is (both inert — see the sandboxed
+  // themed document, an HTML file is shown as-is (both inert - see the sandboxed
   // iframe below).
   function previewDocument({ path, text }: {
     path: string;
@@ -250,7 +250,7 @@
   // A reactive clock so relative timestamps ("3m ago") tick forward on their own.
   let now = $state(Date.now());
   let clock: ReturnType<typeof setInterval> | undefined;
-  // The live git-state subscription — a branch switch, remote change, or git
+  // The live git-state subscription - a branch switch, remote change, or git
   // init in the workspace re-reads the branch subtitle without a remount.
   let unlistenGitState: UnlistenFn | undefined;
 
@@ -281,7 +281,7 @@
   });
 
   // The file-watcher itself is started and re-rooted app-wide by App (keyed on
-  // the open project), so the feed just subscribes to its stream above — no need
+  // the open project), so the feed just subscribes to its stream above - no need
   // to arm it here.
 
   // The workspace's remote gating, watch status and editors, loaded together
@@ -302,7 +302,7 @@
   // Re-read the workspace branch on mount and whenever the window switches
   // projects, and point the persistent feed at the current project so a workspace
   // switch clears stale events even if the panel was closed during the switch.
-  // Reacts to `project` — the loads write state this effect doesn't read, and the
+  // Reacts to `project` - the loads write state this effect doesn't read, and the
   // editors store's trigger functions are reactivity-transparent (its bookkeeping
   // maps are non-reactive on purpose), so this fires per workspace, never per tick.
   $effect(() => {
@@ -321,8 +321,8 @@
   const unifiedLines = $derived(cachedLines ?? []);
   const hasPreview = $derived(unifiedLines.length > 0);
 
-  // Fill the preview cache for one card — the picture for an image, the clip for
-  // a video, else the baseline diff — once per event id. Every callee records
+  // Fill the preview cache for one card - the picture for an image, the clip for
+  // a video, else the baseline diff - once per event id. Every callee records
   // its own failure, so this never rejects.
   async function loadCardPreview({ id, path }: {
     id: string;
@@ -353,7 +353,7 @@
     try {
       // Git-free preview: the backend hands over the session baseline and the
       // current content; the shared parse+render path draws the diff (or the
-      // whole file when the baseline landed late — see previewLines).
+      // whole file when the baseline landed late - see previewLines).
       const preview = await feed.diff({ path });
       diffCache.set(id, previewLines(preview));
       failedIds.delete(id);
@@ -365,7 +365,7 @@
 
   // Move the open card to a newer revision of its file only once that
   // revision's preview is cached, so it never flashes "No preview available".
-  // The user may have closed or switched cards meanwhile — then stay put.
+  // The user may have closed or switched cards meanwhile - then stay put.
   async function followNewestRevision({ staleId, newest }: {
     staleId: string;
     newest: ChangeEvent;
@@ -397,12 +397,12 @@
 
   // ── Grouping + filters ──────────────────────────────────────────────────────
   // Bucket the feed by project (manifest members first, folder-name convention
-  // as the fallback — see change-groups), and let the chip row narrow to one
+  // as the fallback - see change-groups), and let the chip row narrow to one
   // project and the "File type" filter narrow to a set of file extensions.
   let activeGroupId = $state<string | null>(null);
 
-  // Lines that ellipsize in the narrow panel — a card's dir line, a group
-  // header's project name — grow a bubble only while actually clipped, so an
+  // Lines that ellipsize in the narrow panel - a card's dir line, a group
+  // header's project name - grow a bubble only while actually clipped, so an
   // already-readable line never carries a redundant one. The dir line passes the
   // FULL absolute path, since what the clipped relative dir hides is exactly
   // what the reader couldn't see.
@@ -413,7 +413,7 @@
   }
 
   // The dir line reads root-anchored relative to the open project ("/backend/convex"),
-  // "/" for a file at the root — the absolute prefix is the workspace's own
+  // "/" for a file at the root - the absolute prefix is the workspace's own
   // constant noise and lives in the tooltip instead.
   function relativeDirectory(path: string): string {
     return relativeToRoot({
@@ -423,7 +423,7 @@
   }
 
   // The expanded card's reveal button: with its path clipped the tooltip
-  // carries action + full path; readable, just the action hint — the thunks
+  // carries action + full path; readable, just the action hint - the thunks
   // keep the ranked editor's name live past the attachment's mount.
   function revealTooltip(path: string) {
     return truncationTooltip({
@@ -438,7 +438,7 @@
     count: number;
   }
 
-  // The per-extension tally over the live feed — the one source both the filter
+  // The per-extension tally over the live feed - the one source both the filter
   // popover's counts and its filtering read (SSOT), computed once here rather
   // than re-derived at each call site. Sorted by count, then name, so the
   // busiest types lead and the order is stable.
@@ -458,7 +458,7 @@
   });
 
   // Opt-in file-type filter: the extensions the user has ticked. An empty set is
-  // the default and means "no filter — show every type", so a checkbox is empty
+  // the default and means "no filter - show every type", so a checkbox is empty
   // by default and the feed stays fully visible until a type is picked.
   const selectedExtensions = new SvelteSet<string>();
 
@@ -560,7 +560,7 @@
     }
   }
 
-  // The verb on a card's open button — the one source its tooltip and its
+  // The verb on a card's open button - the one source its tooltip and its
   // enabled state read, so both follow the same editor-or-folder decision.
   function openAction(path: string): string {
     if (isBinaryPath(path)) {
@@ -609,12 +609,12 @@
 
   // Turn the backend's session-baseline pair into diff lines to render. Normally
   // that's the baseline→current diff. But a file the watcher first saw a beat
-  // AFTER it was written baselines equal to its current content — the write beat
-  // the first watch poll — so that diff is empty even though the card counts real
+  // AFTER it was written baselines equal to its current content - the write beat
+  // the first watch poll - so that diff is empty even though the card counts real
   // growth ("Grew by N lines"). Rather than strand it on "No preview available",
   // fall back to previewing the whole current file: everything a file created this
   // session holds IS new, so the full content is the honest preview. A deletion
-  // (empty `after`) keeps its real removal diff — no fallback.
+  // (empty `after`) keeps its real removal diff - no fallback.
   function previewLines(preview: FeedDiff | null): DiffLine[] {
     if (!preview) {
       return [];
@@ -652,7 +652,7 @@
   // An empty list is ambiguous: nothing changed, the watch is on another
   // project, or there is no watch. The backend knows which (watch_status), so
   // the panel states it instead of always saying "waiting for edits". Read on
-  // mount / project switch, and again whenever the window is looked at again —
+  // mount / project switch, and again whenever the window is looked at again -
   // the moment the answer could have gone stale unnoticed.
   let watchStatus = $state<WatchStatus | null>(null);
   let arming = $state(false);
@@ -665,7 +665,7 @@
       watchStatus = await feed.status();
     } catch (error) {
       watchStatus = null;
-      showToast(`Change Feed status unavailable — ${String(error)}`);
+      showToast(`Change Feed status unavailable - ${String(error)}`);
     }
   }
 
@@ -684,7 +684,7 @@
     try {
       await feed.start(project);
     } catch (error) {
-      // The backend's refusal names the path and the reason — the one thing
+      // The backend's refusal names the path and the reason - the one thing
       // worth reading when a project can't be watched.
       showToast(String(error));
     }
@@ -916,7 +916,7 @@
                         <Icon name="external" size={14} />
                         <!-- Usually clipped in this narrow panel; the tooltip then carries
                              the full path with the open-in action, and just the action when
-                             the path already reads in full — the shared CSS `[data-tooltip]`
+                             the path already reads in full - the shared CSS `[data-tooltip]`
                              bubble, which caps at 320px + wraps and anchor-positions with a
                              flip-up fallback. -->
                         <span class="file-path">{relativeToRoot({
@@ -1016,7 +1016,7 @@
                         <!-- The untrusted markdown/HTML render is quarantined in a
                              sandboxed iframe with NO allow-scripts and NO
                              allow-same-origin: it runs no scripts, has an opaque
-                             origin, and can't reach the parent — the web analog of
+                             origin, and can't reach the parent - the web analog of
                              PowerToys' locked-down WebView2. `srcdoc` keeps it fully
                              inline (no external ref under the CSP). -->
                         <iframe
@@ -1097,7 +1097,7 @@
       margin: 0;
     }
 
-    /* Only shown when there is nothing watching this project — the one state
+    /* Only shown when there is nothing watching this project - the one state
        the reader can act on. */
     .arm {
       margin-block-start: 4px;
@@ -1390,7 +1390,7 @@
     white-space: nowrap;
   }
 
-  /* Git-branch subtitle beside the group name — leads with the branch glyph, to
+  /* Git-branch subtitle beside the group name - leads with the branch glyph, to
      match the switcher's branch chip; muted so the project name stays primary. */
   .group-branch {
     display: inline-flex;
@@ -1441,7 +1441,7 @@
        scrollbar honest until a card has rendered once and remembers its own. */
     content-visibility: auto;
 
-    /* Never let the scroller's flex column squash a card to fit — an
+    /* Never let the scroller's flex column squash a card to fit - an
        overflowing feed scrolls; cards keep their natural height. */
     flex-shrink: 0;
     overflow: hidden;
@@ -1770,7 +1770,7 @@
     font-size: 13px;
   }
 
-  /* How many changes in a row this one card stands for. Quiet by default — it
+  /* How many changes in a row this one card stands for. Quiet by default - it
      is a count, not a state. */
   .repeats {
     padding-block: 1px;
@@ -1830,7 +1830,7 @@
     background: var(--surface-2);
   }
 
-  /* The two segmented controls stack — Code|Preview above Unified|Split — so a
+  /* The two segmented controls stack - Code|Preview above Unified|Split - so a
      previewable diff reads its view choices top-to-bottom, right-aligned. */
   .pane-toggles {
     display: flex;
@@ -1907,7 +1907,7 @@
     }
 
     /* The radio drives state and stays keyboard-reachable, but the pill label is
-       the visible affordance — so hide the native dot without removing it. */
+       the visible affordance - so hide the native dot without removing it. */
     input {
       position: absolute;
       overflow: hidden;
@@ -1968,13 +1968,13 @@
     cursor: pointer;
 
     /* Scopes the unified↔split View Transition to the diff body (only one card
-       is ever open, so the name is unique) — the rest of the app stays still. */
+       is ever open, so the name is unique) - the rest of the app stays still. */
     view-transition-name: diff-body;
   }
 
   /* Cross-fade the Code↔Preview swap: whichever pane mounts fades and slides up
      from its `@starting-style`. Pure CSS on the entering element (never a View
-     Transition — that would snapshot and ghost the sandboxed preview iframe). */
+     Transition - that would snapshot and ghost the sandboxed preview iframe). */
   @media (prefers-reduced-motion: no-preference) {
     .preview,
     .render,

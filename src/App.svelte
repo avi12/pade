@@ -109,28 +109,28 @@
   // classic single pane; more = a split view. Always a subset of `sessions`.
   let paneIds = $state<string[]>([]);
   let currentProject = $state<string>("");
-  // Local branches when the project is a git repo — enables per-branch agents.
+  // Local branches when the project is a git repo - enables per-branch agents.
   let branches = $state<string[]>([]);
-  // Branches only the remote has so far — offered by the branch switcher, which
+  // Branches only the remote has so far - offered by the branch switcher, which
   // lets git create the local tracking branch on the way in.
   let remoteBranches = $state<string[]>([]);
-  // The project's checked-out branch — the top-bar branch pill (empty when the
+  // The project's checked-out branch - the top-bar branch pill (empty when the
   // project isn't a git repo or HEAD is detached).
   let currentBranch = $state("");
-  // Whether the repo has a remote — a local-only repo has nothing to open in a
+  // Whether the repo has a remote - a local-only repo has nothing to open in a
   // browser, so the pill's Ctrl-click-opens-on-remote affordance is suppressed.
   let hasRemote = $state(false);
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
-  // Agents excluding the always-present shell fallback — this count decides
+  // Agents excluding the always-present shell fallback - this count decides
   // whether we auto-launch or onboard.
   const realAgents = $derived(toRealAgents(agents));
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
   const currentLabel = $derived(settings.labels[currentProject]);
-  // The one label for the open project — a friendly name when assigned, else the
+  // The one label for the open project - a friendly name when assigned, else the
   // compact "parent/leaf" directory (legible without eating the topbar; full path
   // in the tooltip). Every surface (top-bar chip, slug source, window title, and
   // the switcher's open-window rows) reads this one `shortDisplayName` so none of
@@ -138,10 +138,10 @@
   const projectLabel = $derived(shortDisplayName(currentProject, settings.labels));
   // A temp workspace that never earned a name: when its last session ends, the
   // window returns to the picker rather than respawning an agent. Its folder is
-  // kept — only the unused-temp cleanup setting ever deletes it. One that was
+  // kept - only the unused-temp cleanup setting ever deletes it. One that was
   // auto-named keeps the normal last-session behavior instead.
   const isUnnamedTemp = $derived(isTemp && !currentLabel);
-  // Active agent id — used to show only its relevant config files.
+  // Active agent id - used to show only its relevant config files.
   const activeAgent = $derived(sessions.find(session => session.id === activeId)?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
@@ -151,7 +151,7 @@
   // The terminal slots render in this order: the shown panes first, in `paneIds`
   // order (so a pane-header drag that reorders `paneIds` reorders the view), then
   // the hidden sessions. Keyed by id, so a reorder moves DOM nodes rather than
-  // remounting — every terminal keeps its scrollback.
+  // remounting - every terminal keeps its scrollback.
   const bySessionId = $derived(new Map(sessions.map(session => [session.id, session] as const)));
   const orderedSessions = $derived.by(() => {
     const shown = paneIds
@@ -163,8 +163,8 @@
 
   // ── Tab drag → reorder / split ──────────────────────────────────────────────
   // `DropSide` (which half of a pane a dragged tab lands on) and the drop's index
-  // math live in `@/lib/reorder` — DOM-free and unit-tested. (The `Side` above
-  // names the side panels — a different concern, no bare literals shared.)
+  // math live in `@/lib/reorder` - DOM-free and unit-tested. (The `Side` above
+  // names the side panels - a different concern, no bare literals shared.)
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
   let panesElement = $state<HTMLElement>();
@@ -172,13 +172,13 @@
   let dragHint = $state<DragHint | null>(null);
   const dragOverPanes = $derived(dragHint?.outside === true);
 
-  // True while a split pane's header is dragged up over the tab strip — the mirror
+  // True while a split pane's header is dragged up over the tab strip - the mirror
   // gesture: the strip lights as a "drop → new tab" target and the drop pops the
   // pane out of the split (see the Terminal panes' `onremove`). Reported by the
   // dragged pane's Terminal via the same engine hint the tab-split path uses.
   let paneDragOverTabs = $state(false);
 
-  // Which pane + side the drag is currently over — the highlighted drop half.
+  // Which pane + side the drag is currently over - the highlighted drop half.
   const splitTarget = $derived.by(() => (dragOverPanes && dragHint
     ? paneDropAt({
       x: dragHint.pointerX,
@@ -189,7 +189,7 @@
     return splitTarget?.id === id ? splitTarget.side : null;
   }
 
-  // The shown pane under a point, and which half of it — used both for the live
+  // The shown pane under a point, and which half of it - used both for the live
   // highlight and for the actual drop, so the two never disagree (DRY).
   function paneDropAt({ x, y }: {
     x: number;
@@ -274,7 +274,7 @@
   }
 
   // Agent detection runs a subprocess per agent, so cap how long the boot waits
-  // on it — a stall must never freeze the splash. An empty list just routes to
+  // on it - a stall must never freeze the splash. An empty list just routes to
   // onboarding, and the redetect interval fills it in shortly after.
   const BOOT_DETECT_TIMEOUT_MS = 6_000;
 
@@ -291,7 +291,7 @@
       agents = detected;
 
       // An accidental reload (F5, a crash recovery) re-attaches this window to
-      // the agents still running in the backend — before any query routing,
+      // the agents still running in the backend - before any query routing,
       // whose `w=` went stale the moment the user moved on inside the window
       // (the incident: a `?w=empty` window living in a project rebooted to the
       // picker and orphaned its live PTYs, unreachable).
@@ -327,8 +327,8 @@
         });
       }
     } catch {
-      // Never strand the user on the splash — fall back to the project picker.
-      showToast("Startup hit a snag — pick a project to continue.");
+      // Never strand the user on the splash - fall back to the project picker.
+      showToast("Startup hit a snag - pick a project to continue.");
       phase = Phase.project;
     }
   });
@@ -356,7 +356,7 @@
       return false;
     }
 
-    // query.get("path") is a trust boundary — validate before opening.
+    // query.get("path") is a trust boundary - validate before opening.
     const path = parseInput({
       schema: FolderPath,
       raw: query.get("path")
@@ -370,9 +370,9 @@
   }
 
   // Re-attach the live sessions an accidental reload orphaned. The snapshot
-  // (sessionStorage — survives a reload, dies with the window) says which panes
+  // (sessionStorage - survives a reload, dies with the window) says which panes
   // this window was showing; `pty_list` says which of them the backend still
-  // hosts, and only that intersection is restored — a deliberate leave killed
+  // hosts, and only that intersection is restored - a deliberate leave killed
   // its PTYs, so nothing survives it and boot proceeds normally. Each restored
   // pane re-attaches through Terminal's existing path: spawn is a no-op for a
   // running session and `pty_history` replays the conversation.
@@ -386,7 +386,7 @@
       await workspace.open(snapshot.project);
     } catch {
       // The project vanished while the window was reloading (deleted, moved,
-      // unmounted). Boot falls through to the picker — so kill the snapshot's
+      // unmounted). Boot falls through to the picker - so kill the snapshot's
       // still-live sessions rather than leave them running unreachably, which
       // would recreate the very invisible-agent incident restore exists to fix.
       await Promise.all(
@@ -413,7 +413,7 @@
   }
 
   // Persist this window's pane mapping so a reload can re-attach it (above).
-  // Never while still booting — the effect's first run lands before the restore
+  // Never while still booting - the effect's first run lands before the restore
   // has read the snapshot, and would wipe it. Once live, an empty project or
   // session list clears the snapshot instead: nothing to re-attach.
   $effect(() => {
@@ -430,10 +430,10 @@
   });
 
   // The address is state too: `w=` is what a reload re-routes off, and it went
-  // stale the moment the user moved on from what the window was spawned for —
+  // stale the moment the user moved on from what the window was spawned for -
   // a `?w=empty` picker window living inside a project rebooted to the picker
   // (the incident), a `?w=temp` one minted a second throwaway. Keep the query
-  // telling the truth — the project on screen, else the picker — so even a
+  // telling the truth - the project on screen, else the picker - so even a
   // snapshot-less reload (all sessions had exited) lands on the right screen.
   $effect(() => {
     if (phase === Phase.loading) {
@@ -449,13 +449,13 @@
   });
 
   // Re-detect installed agents so the picker reflects an agent the user just
-  // installed or removed — when the app becomes visible again (they switched back
+  // installed or removed - when the app becomes visible again (they switched back
   // from installing one, see the `visibilitychange` below) and on a slow poll as a
   // fallback. Detection spawns a process per agent, so it must stay off the drag
   // path: page visibility never changes while dragging a window that stays on
   // screen, unlike window focus which a title-bar drag churns and lagged.
   // Best-effort: owns its try/catch so a transient failure just keeps the
-  // current list — the poll and the visibility signal both fire it and neither
+  // current list - the poll and the visibility signal both fire it and neither
   // can await, so it must never reject.
   async function redetectAgents() {
     try {
@@ -475,9 +475,9 @@
   });
 
   // Arm WebView2 crash auto-recovery with this boot's real URL. The frontend
-  // is the one party that always knows it — a backend capture at window
+  // is the one party that always knows it - a backend capture at window
   // creation raced navigation and once rebuilt a crashed window onto
-  // about:blank — and a recovery-rebuilt window re-arms itself right here.
+  // about:blank - and a recovery-rebuilt window re-arms itself right here.
   onMount(async () => {
     await recovery.arm(location.href);
   });
@@ -493,8 +493,8 @@
     await initTaskRunDetection(() => currentProject);
   });
 
-  // Adopt settings another window changed — it deleted a workspace, renamed one,
-  // toggled a pin — so this window's switcher and picker never list a project
+  // Adopt settings another window changed - it deleted a workspace, renamed one,
+  // toggled a pin - so this window's switcher and picker never list a project
   // that is already gone. Best-effort: owns its try/catch because an event
   // handler can't await, and a failed re-read simply keeps what is on screen.
   async function adoptSharedSettings() {
@@ -524,8 +524,8 @@
   });
 
   // Name the OS window (title bar + taskbar) `PADE - <workspace>`, where the
-  // workspace is the open project's own folder name — the part after the slash,
-  // honoring a friendly label — reusing the same `displayName` leaf the switcher
+  // workspace is the open project's own folder name - the part after the slash,
+  // honoring a friendly label - reusing the same `displayName` leaf the switcher
   // rows show. The empty picker and a throwaway temp that never earned a name stay
   // the bare product name. Driven off the project store, so it re-titles on every
   // open, switch, and close.
@@ -535,8 +535,8 @@
     windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 
-  // Watch the open project's files app-wide — not only while the Change Feed is
-  // open — so the Tasks panel auto-updates on a manifest/script edit, and the
+  // Watch the open project's files app-wide - not only while the Change Feed is
+  // open - so the Tasks panel auto-updates on a manifest/script edit, and the
   // task-run and auto-name subscribers see changes from the moment a project
   // opens. Keyed on the project so it re-roots on an in-window switch; the
   // backend is idempotent, so a repeat call for the same root is a no-op.
@@ -549,7 +549,7 @@
     refreshTaskRunDetection();
   });
 
-  // What this workspace is made of — nested checkouts and declared packages, as
+  // What this workspace is made of - nested checkouts and declared packages, as
   // one list (stores/workspaceMembers). Keyed on the project so an in-window
   // switch re-discovers them; the member switcher, the branch pill and the
   // Change Feed's grouping all read that one list.
@@ -580,10 +580,10 @@
   // ── Discord Rich Presence ────────────────────────────────────────────────────
   // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
   // state→bridge mapping lives in lib/discord-presence (SoC). Both flags resolve
-  // through `effective` — the one home for their defaults, shared with the Config
-  // panel's toggles — so a change there reaches the presence the moment it lands.
+  // through `effective` - the one home for their defaults, shared with the Config
+  // panel's toggles - so a change there reaches the presence the moment it lands.
   // $derived so the effect only re-sends when presence, the project-name toggle, or
-  // the open project actually change — not on every unrelated settings reassignment
+  // the open project actually change - not on every unrelated settings reassignment
   // (a pin, an editor rule).
   const discordEnabled = $derived(effective.discordPresence);
   const discordShowProject = $derived(effective.discordShowProject);
@@ -597,7 +597,7 @@
     }
   });
   // Presence follows the FOCUSED window: every PADE window shares one Discord
-  // connection (one process), so only the focused window publishes — switching
+  // connection (one process), so only the focused window publishes - switching
   // windows switches the reported project, and an unfocused window never
   // overwrites the focused one's status. A blur sends nothing; the window
   // gaining focus overwrites.
@@ -632,7 +632,7 @@
     return () => autoNamer.dispose();
   });
 
-  // Whether this window names its session tabs with AI — the project's own choice
+  // Whether this window names its session tabs with AI - the project's own choice
   // when it has one, else the global default (lib/ai-naming-scope).
   const namesSessionsWithAi = $derived(
     aiNamingEnabled({
@@ -641,7 +641,7 @@
     })
   );
 
-  // Apply that setting to every tab already open, and again whenever it changes —
+  // Apply that setting to every tab already open, and again whenever it changes -
   // including when this window switches project, since the new project may answer
   // differently. `sessions` is read untracked on purpose: this effect exists to
   // follow the SETTING, and re-running it on every tab open or close would undo a
@@ -665,7 +665,7 @@
   });
 
   // Tab shortcuts (lib/tab-shortcuts): capture-phase so they win over a focused
-  // agent terminal — new tab, launch menu, close, and next/previous cycling.
+  // agent terminal - new tab, launch menu, close, and next/previous cycling.
   onMount(() =>
     registerTabShortcuts({
       newTab,
@@ -679,7 +679,7 @@
 
   // Pane shortcuts (lib/pane-shortcuts), active while a tab is split into panes:
   // Ctrl+[ / Ctrl+] cycle the active pane (wrapping), Ctrl+Alt+1..9 jump to the
-  // nth, and Ctrl+Alt+W closes the active pane's session — the slot then animates
+  // nth, and Ctrl+Alt+W closes the active pane's session - the slot then animates
   // out via `out:collapsePane`, and closing the sole pane closes the tab. Selecting
   // a pane only moves focus within the split (never collapses it, unlike a tab
   // click). Capture-phase like the tab shortcuts so they beat a focused terminal.
@@ -700,7 +700,7 @@
   // close, let every agent reach an idle prompt, kill them, and only then let
   // the window go (Tauri destroys it once the handler settles unprevented).
   // While a leave is already in flight the gate skips the wait, so a second
-  // X-click closes immediately — graceful, never a trap; the backend's
+  // X-click closes immediately - graceful, never a trap; the backend's
   // exit-time kill_all reaps whatever that force-close leaves behind.
   let unlistenCloseRequested: (() => void) | undefined;
   async function interceptWindowClose() {
@@ -724,7 +724,7 @@
   // up to GRACEFUL_LEAVE_TIMEOUT_MS while it stays fully interactive, so a
   // second switch/leave starting inside that window would interleave two
   // kill → open → launch sequences over the same session list. Later attempts
-  // are dropped, not queued — the first leave is already taking the user away.
+  // are dropped, not queued - the first leave is already taking the user away.
   let leaveInFlight = false;
   async function runExclusiveLeave(leave: () => Promise<void>): Promise<void> {
     if (leaveInFlight) {
@@ -741,13 +741,13 @@
 
   async function openProject(target: OpenTarget) {
     // If another window already has this project open, focus it instead of
-    // opening a second copy here — the picker window stays put.
+    // opening a second copy here - the picker window stays put.
     if (await windows.focusProject(target.path)) {
       return;
     }
 
     // Picking the project this window already has open is a return, not a
-    // reopen — the live sessions stay exactly as they were.
+    // reopen - the live sessions stay exactly as they were.
     const isReturnToCurrent =
       normalizePath(target.path) === normalizePath(currentProject) && sessions.length > 0;
     if (isReturnToCurrent) {
@@ -756,8 +756,8 @@
     }
 
     // Switching this window to another project: the old project's agents don't
-    // come along. Kill them before entering, so no session keeps running — and
-    // cwd-locking — a workspace this window has left.
+    // come along. Kill them before entering, so no session keeps running - and
+    // cwd-locking - a workspace this window has left.
     await runExclusiveLeave(async () => {
       await closeWorkspaceGracefully();
 
@@ -774,7 +774,7 @@
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
-  // else launch the best installed agent outright — opening a project always
+  // else launch the best installed agent outright - opening a project always
   // lands in the workspace, never on a blocking chooser. The agent picker
   // still appears after a hand-closed or exited last session, where "what
   // next?" is a genuine question. (Reused for every entry path.)
@@ -814,7 +814,7 @@
 
   // A pane that was one of several in a live split when its session detached
   // collapses its width so the survivors glide across to fill (out:collapsePane).
-  // Every other removal — a sole-pane tab close above all — swaps instantly: with
+  // Every other removal - a sole-pane tab close above all - swaps instantly: with
   // nothing beside it, a collapsing pane would only crush the surviving terminal
   // to near-zero width and let it reflow back out, a needless squeeze. So just
   // genuine split members are recorded here (and dropped again on `outroend`);
@@ -826,14 +826,14 @@
     initialPrompt?: string;
     cwd?: string;
     branch?: string;
-    /** Extra command args — the project path when running a terminal editor. */
+    /** Extra command args - the project path when running a terminal editor. */
     args?: string[];
     /** Add alongside the current panes (split) instead of replacing them. */
     split?: boolean;
     /** A model / effort to run this session on (a successor keeping its
      *  predecessor's pick). */
     modelChoice?: ModelChoice;
-    /** The conversation to carry on — a session resumed after its folder
+    /** The conversation to carry on - a session resumed after its folder
      *  moved; a new one otherwise. */
     conversationId?: string;
   }): string {
@@ -851,17 +851,17 @@
       // window may switch that shared process to a different project while this
       // terminal is mounting. Worktrees still override the window project, and a
       // multi-part workspace starts its agents in the member the top bar points
-      // at — the root until you pick another (see stores/workspaceMembers).
+      // at - the root until you pick another (see stores/workspaceMembers).
       cwd: options.cwd ?? activeMemberIn(currentProject),
       branch: options.branch,
       args: options.args,
       // A stable id for this conversation, distinct from the session `id` (which
       // is re-keyed to remount the terminal on a restart). Pins the agent's own
-      // conversation so a restart resumes THIS one — see restartForMcpChange.
+      // conversation so a restart resumes THIS one - see restartForMcpChange.
       conversationId: options.conversationId ?? crypto.randomUUID()
     };
     sessions.push(session);
-    // A new tab is born under the window's setting — the same one the effect
+    // A new tab is born under the window's setting - the same one the effect
     // above applies to the tabs already open.
     setNaming({
       id: session.id,
@@ -885,14 +885,14 @@
   // Collapsing a split is deliberately instant (as the design is): a View
   // Transition here would scale the surviving pane's snapshot as it grows to
   // fill, ghosting the old half-width terminal text over the reflowed full-width
-  // grid — the platform morph can't track a terminal that repaints on resize.
+  // grid - the platform morph can't track a terminal that repaints on resize.
   function selectSession(id: string) {
     activeId = id;
     paneIds = [id];
   }
 
   // A split pane's header was dragged onto the tab strip: pop that pane out of
-  // the split into its own tab — the split collapses to it and it shows
+  // the split into its own tab - the split collapses to it and it shows
   // fullscreen as the active tab (the mirror of dragging a tab down into the
   // panes to split it). Distinct from the pane's × button below, which only
   // drops the pane from the split and keeps a remaining pane active.
@@ -905,8 +905,8 @@
   }
 
   // Spring just the added pane in from its trailing edge (pane-enter). Fired on
-  // the one slot that joined a split — never on a plain tab open / close / switch,
-  // which stay instant — so it can't run on every show the way a CSS rule on
+  // the one slot that joined a split - never on a plain tab open / close / switch,
+  // which stay instant - so it can't run on every show the way a CSS rule on
   // `.shown` would (that wiped the terminal in on any tab change). Clears the
   // inline animation once it settles so a later show/hide of the same slot can't
   // replay it. Mirrors the design's imperative `animatePaneIn`.
@@ -927,7 +927,7 @@
     slot.addEventListener("animationend", () => (slot.style.animation = ""), { once: true });
   }
 
-  // Show an already-running session alongside the current pane(s) — a split-add,
+  // Show an already-running session alongside the current pane(s) - a split-add,
   // so the newcomer springs in (animatePaneIn).
   function addPane(id: string) {
     if (!paneIds.includes(id)) {
@@ -938,7 +938,7 @@
     activeId = id;
   }
 
-  // Drop a pane from the split — never the last visible one.
+  // Drop a pane from the split - never the last visible one.
   function removePane(id: string) {
     if (!canRemovePane) {
       return;
@@ -982,7 +982,7 @@
     menu.querySelector<HTMLButtonElement>("button")?.focus();
   }
 
-  // Ctrl+W / Ctrl+F4 — close the active session.
+  // Ctrl+W / Ctrl+F4 - close the active session.
   function closeActiveTab() {
     const active = sessions.find(session => session.id === activeId);
     if (!active) {
@@ -997,7 +997,7 @@
     close(active);
   }
 
-  // Ctrl+number — jump straight to a tab by position (Ctrl+9 = the last one).
+  // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
   // The matcher only ever hands back an index that exists, so the guard is
   // belt-and-suspenders; selection reuses the same make-active path as a click.
   function selectTabByIndex(index: number) {
@@ -1007,7 +1007,7 @@
     }
   }
 
-  // Ctrl+Tab / Alt+Arrow — cycle the active tab, wrapping at the ends.
+  // Ctrl+Tab / Alt+Arrow - cycle the active tab, wrapping at the ends.
   function stepSession(delta: number) {
     if (sessions.length === 0) {
       return;
@@ -1018,8 +1018,8 @@
     selectSession(sessions[nextIndex].id);
   }
 
-  // Load branches for the repo the top bar points at — the workspace root, or
-  // the nested checkout the member switcher selected — and the checked-out
+  // Load branches for the repo the top bar points at - the workspace root, or
+  // the nested checkout the member switcher selected - and the checked-out
   // branch its pill shows. A workspace with one member reads exactly as before.
   async function loadBranches() {
     const member = activeMemberIn(currentProject);
@@ -1090,16 +1090,16 @@
   }
 
   // How long a deliberate leave waits for a busy agent to reach an idle prompt
-  // before killing it anyway — graceful, but never a trap behind a wedged agent.
+  // before killing it anyway - graceful, but never a trap behind a wedged agent.
   const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
 
   // A DELIBERATE leave (switching project, going back to the picker) ends every
-  // session — but gracefully: wait for each to reach an idle prompt first
-  // (sessionStatus ready, the output-quiet signal — never child-process
+  // session - but gracefully: wait for each to reach an idle prompt first
+  // (sessionStatus ready, the output-quiet signal - never child-process
   // counting, which mis-reads persistent MCP servers) so nothing mid-flight is
   // severed; the agent auto-saves, so /resume covers continuity. The wait runs
   // before any phase change, while the Terminals are still mounted and
-  // publishing status. An accidental reload records no leave — its sessions
+  // publishing status. An accidental reload records no leave - its sessions
   // stay alive and the next boot re-attaches them (session-restore).
   async function closeAllSessionsGracefully() {
     const hasBusySession = sessions.some(session => !isSessionIdle(session.id));
@@ -1124,7 +1124,7 @@
     await closeAllSessionsGracefully();
   }
 
-  // Tear down every session at once — the project-switch path. Each PTY is
+  // Tear down every session at once - the project-switch path. Each PTY is
   // killed (reaping its child, so the old workspace's cwd lock is released)
   // and its exit event is claimed as a hand-close so the exit handler never
   // races this with a respawn or a return to the picker.
@@ -1175,7 +1175,7 @@
     launch({ agent: session.agent });
   }
 
-  // The PTY exited on its own — e.g. the user pressed Ctrl-C to quit the agent.
+  // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
   async function handleSessionExit(id: string) {
     const isClosingByHand = closingByHand.has(id);
     if (isClosingByHand) {
@@ -1199,7 +1199,7 @@
     }
 
     // The agent quitting in a still-unnamed temp workspace ends the session:
-    // no respawn, no agent picker — back to the project picker.
+    // no respawn, no agent picker - back to the project picker.
     if (isUnnamedTemp) {
       returnToPicker();
       return;
@@ -1214,7 +1214,7 @@
     }
   }
 
-  // A project's MCP servers changed (a server added or removed — the backend
+  // A project's MCP servers changed (a server added or removed - the backend
   // fires only on a real membership change, never a value-only edit). Each
   // affected agent first writes a handoff document, then a fresh instance of the
   // SAME agent launches from it. The fresh process reads the changed MCP config;
@@ -1232,11 +1232,11 @@
 
     if (!change.membershipChanged) {
       armMcpReloadRecovery(targets.map(target => target.id));
-      showToast("MCP server settings changed — reload them in the agent; PADE will recover if it fails");
+      showToast("MCP server settings changed - reload them in the agent; PADE will recover if it fails");
       return;
     }
 
-    showToast(`MCP servers changed — preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
+    showToast(`MCP servers changed - preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
     await Promise.all(
       targets.map(async target => {
         await autoHandoff.restartForConfiguration(target);
@@ -1244,7 +1244,7 @@
     );
   }
 
-  // Kill the targets and re-key them to fresh ids in place — each terminal
+  // Kill the targets and re-key them to fresh ids in place - each terminal
   // remounts, respawns its agent (resuming its conversation via the session id),
   // and the pane layout follows. The shared core behind every in-place restart
   // (spawn-time theme changes).
@@ -1285,17 +1285,17 @@
   }
 
   // Claude Code is re-themed in place: `agents.publishTheme` rewrites the theme
-  // definition its sessions were launched on, and it repaints itself — no
+  // definition its sessions were launched on, and it repaints itself - no
   // restart, no lost turn. Every OTHER agent's scheme is fixed at spawn and
   // cannot be moved after it: Codex's syntax theme and console-buffer ground, and
   // opencode's forced tui-config theme (its DECSET 2031 `?997` report only asks an
-  // agent to re-probe OSC 11, a query that never reaches the terminal — see
+  // agent to re-probe OSC 11, a query that never reaches the terminal - see
   // docs/terminal-rendering.md). So for those two a flip is followed the only way
   // it can be: respawn the idle ones, each resuming its own conversation
   // (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`).
   //
   // Claude must NEVER join them, and this is the second time that has been settled.
-  // It has no resume args of its own — it is respawned onto the `--session-id` the
+  // It has no resume args of its own - it is respawned onto the `--session-id` the
   // dead process was just pinned to, and in the live app that lands on a blank
   // pane stuck at "Starting…", the session wedged rather than re-themed. A
   // portable-pty harness that starts/kills/respawns on the same id at 0ms / 250ms
@@ -1304,7 +1304,7 @@
   // its watched theme definition instead, without being restarted at all.
   const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
 
-  // The scheme each live session's agent was actually spawned under — the one
+  // The scheme each live session's agent was actually spawned under - the one
   // answer to "is this agent painted in the wrong scheme", so a session that
   // sat out one flip and its way back is never restarted for nothing. Recorded
   // once per session as it appears (a restart re-keys, so the replacement
@@ -1338,8 +1338,8 @@
     await restartSpawnThemedAgents();
   }
 
-  // A session mid-turn must not be respawned — that would sever the work in
-  // flight — so its flip is held until it reaches an idle prompt, which is the
+  // A session mid-turn must not be respawned - that would sever the work in
+  // flight - so its flip is held until it reaches an idle prompt, which is the
   // first moment the agent can be relaunched into the new scheme. Without this,
   // a busy agent kept painting its old scheme (dark diffs on a light terminal)
   // until the user happened to restart it by hand.
@@ -1404,7 +1404,7 @@
 
     const restartedLabel =
       targets.length === 1 ? targets[0].agent.label : `${targets.length} sessions`;
-    showToast(`Theme changed — restarting ${restartedLabel} to match`);
+    showToast(`Theme changed - restarting ${restartedLabel} to match`);
     await restartSessions(targets);
   }
 
@@ -1428,7 +1428,7 @@
     await workspace.setPinnedOrder(paths);
   }
 
-  // "Delete directory" from the switcher — a destructive removal of a real
+  // "Delete directory" from the switcher - a destructive removal of a real
   // project's folder. The switcher owns the confirmation UI (so it stays open and
   // animates the row out); here we just release the folder (killing any session
   // holding it) and delete it, letting the refreshed settings flow back. Rejects
@@ -1445,7 +1445,7 @@
   }
 
   // Hand the project back: this window no longer claims it, so another window
-  // (or this one, later) can open it fresh — no picker tries to focus us here.
+  // (or this one, later) can open it fresh - no picker tries to focus us here.
   function releaseProject() {
     currentProject = "";
     branches = [];
@@ -1455,7 +1455,7 @@
     windows.registerProject("");
   }
 
-  // "Switch project" — a DELIBERATE leave to the picker. The project's agents
+  // "Switch project" - a DELIBERATE leave to the picker. The project's agents
   // and task runners do not idle invisibly behind it: runners stop immediately,
   // then agents are killed once they reach an idle prompt.
   async function leaveToPicker() {
@@ -1520,7 +1520,7 @@
     projectDirectory: () => currentProject,
     // Announced close: without the flag, this kill's own exit event reaches
     // handleSessionExit as "the agent quit on its own" and respawns a
-    // replacement — a bare extra tab that also steals the active pane from the
+    // replacement - a bare extra tab that also steals the active pane from the
     // successor being seeded right behind it. Held until removeSession has
     // dropped the id, so a late exit event finds neither the flag nor the
     // session.
@@ -1534,8 +1534,8 @@
       closingByHand.delete(id);
     },
     launchSuccessor({ agent, cwd, initialPrompt, predecessorId }) {
-      // The successor keeps the model picked for its predecessor — including
-      // one picked while this handoff was under way — unless a usage
+      // The successor keeps the model picked for its predecessor - including
+      // one picked while this handoff was under way - unless a usage
       // crossover hands the work to a different agent.
       const predecessor = sessions.find(session => session.id === predecessorId);
       const isSameAgent = predecessor?.agent.id === agent.id;
@@ -1560,7 +1560,7 @@
 
   // A model / effort picked from a tab: applied in place where the agent can
   // take it, else by relaunching the session on its own conversation once it
-  // is quiet — the same in-place restart a spawn-time theme change uses.
+  // is quiet - the same in-place restart a spawn-time theme change uses.
   const modelSwitcher = createModelSwitcher({
     isHandingOff: id => autoHandoff.isHandingOff(id),
     rememberChoice({ id, choice }) {
@@ -1597,7 +1597,7 @@
 
   async function recoverFailedMcpReload(session: AgentSession) {
     dropMcpReload(session.id);
-    showToast(`${session.agent.label} couldn't reload MCP — preparing a handoff`);
+    showToast(`${session.agent.label} couldn't reload MCP - preparing a handoff`);
     await autoHandoff.restartForConfiguration(session);
   }
 
@@ -1614,7 +1614,7 @@
 
   // ── Usage-limit auto-resume ────────────────────────────────────────────────
   // A session stopped by an exhausted usage window resumes the moment the
-  // window resets — "continue" into the same session while its context has
+  // window resets - "continue" into the same session while its context has
   // room, the handoff flow above when it doesn't (lib/stores/usageResume).
   const automaticRecoveryHost = {
     sessions: () => sessions,
@@ -1702,7 +1702,7 @@
   let resizingSidePanel = $state(false);
   const SIDE_PANEL_NUDGE = 16;
 
-  // Adopt a width persisted in prefs (e.g. loaded at boot, or reset) — but never
+  // Adopt a width persisted in prefs (e.g. loaded at boot, or reset) - but never
   // while a drag is live, so the pointer stays in charge of the frame.
   $effect(() => {
     const persisted = effective.sidePanelWidth;
@@ -1723,7 +1723,7 @@
     }
   }
 
-  // Clamp a proposed width to [min, 60% of the body] — the same ceiling the CSS
+  // Clamp a proposed width to [min, 60% of the body] - the same ceiling the CSS
   // clamp enforces, so keyboard and pointer agree.
   function clampSidePanelWidth(proposed: number): number {
     const body = document.querySelector<HTMLElement>(".body");
@@ -1807,7 +1807,7 @@
     windowFocused = true;
   }}
   onkeydowncapture={e => {
-    // Dev-only: F5 / Ctrl+Shift+R reloads the WebView — the escape hatch when
+    // Dev-only: F5 / Ctrl+Shift+R reloads the WebView - the escape hatch when
     // Vite's HMR socket drops (a Tauri window wires no reload of its own). Ctrl+R
     // is left to the terminal's shell reverse-search. Stripped from prod builds.
     if (import.meta.env.DEV) {
@@ -1907,7 +1907,7 @@
                 : null;
 
               // 2. Copy the temp workspace (handoff doc included) into the saved
-              //    root while its agent keeps running — a copy only READS files, so
+              //    root while its agent keeps running - a copy only READS files, so
               //    it never trips the watcher/cwd handle a rename does.
               const migration = await workspace.saveMigrate({
                 from: savingProject,
@@ -1918,7 +1918,7 @@
               // 3. Re-root the window to the saved project, then start its agent in
               //    the SAME tab pointing at the new dir (launch replaces the panes),
               //    seeded to continue the handoff, BEFORE tearing the temp session
-              //    down — so the tab transitions straight to the successor with no
+              //    down - so the tab transitions straight to the successor with no
               //    dead gap. The old session is then killed and the temp deleted.
               currentProject = migration.path;
 
@@ -1988,7 +1988,7 @@
                go through the OS (ide.open); these need a real TTY, which only a PADE
                terminal gives. -->
           <!-- The editor is resolved for the *project* (the shared editors-store
-               key the Change Feed also reads — SSOT), while the launcher opens
+               key the Change Feed also reads - SSOT), while the launcher opens
                the active session's worktree when one is focused. -->
           <IdeMenu
             cwd={sessions.find(session => session.id === activeId)?.cwd ?? activeMemberIn(currentProject)}
@@ -2064,7 +2064,7 @@
         data-resizing={resizingSidePanel || undefined}
       >
         <section bind:this={panesElement} class="pane terminal-pane" data-panes>
-          <!-- A tab dragged over the panes reads as "open in split" — a dashed
+          <!-- A tab dragged over the panes reads as "open in split" - a dashed
                primary frame invites the drop; each pane then shows the left/right
                half the pointer is over (below). -->
           {#if dragOverPanes}
@@ -2085,7 +2085,7 @@
                   data-pane-id={session.id}
                   onfocusin={() => {
                     // Focusing a split pane makes it the active one, so activeId
-                    // always names the last agent the user touched — the pane a
+                    // always names the last agent the user touched - the pane a
                     // window-refocus (Ctrl+Alt+[ / ]) then hands the keyboard back to.
                     if (paneIds.includes(session.id)) {
                       activeId = session.id;
@@ -2119,8 +2119,8 @@
             <button
               style:anchor-name="--pane-anchor"
               class="add-pane menu-trigger"
-              aria-label="Split — add an agent instance"
-              data-tooltip="Split — add an agent instance"
+              aria-label="Split - add an agent instance"
+              data-tooltip="Split - add an agent instance"
               popovertarget="pane-menu"
             ><Icon name="columns" /></button>
             <ul id="pane-menu" style:position-anchor="--pane-anchor" class="pane-menu popover-menu" popover>
@@ -2296,7 +2296,7 @@
       {/if}
 
       {#if toastText()}
-        <!-- <output> already carries role=status — a transient bottom pill that
+        <!-- <output> already carries role=status - a transient bottom pill that
              auto-dismisses via the showToast timer. -->
         <output class="toast">
           <span class="toast-icon"><Icon name="external" /></span>
@@ -2325,7 +2325,7 @@
         >
           <Icon name="send" />
           <span class="label">Send to agent</span>
-          <!-- A long path wraps only after a separator — each folder name stays
+          <!-- A long path wraps only after a separator - each folder name stays
                whole (no split at a hyphen); the line cap is pure CSS. -->
           <span class="preview"
           >{#each selectionSegments as segment, index (index)}<span class:path-part={segment.isPathPart}
@@ -2342,7 +2342,7 @@
     </div>
   {/if}
 
-  <!-- One top-level bubble for every truncation tooltip — rendered here so it
+  <!-- One top-level bubble for every truncation tooltip - rendered here so it
        escapes any panel/popover clipping or scroll-width inflation. -->
   <OverflowTooltipLayer />
 </div>
@@ -2352,7 +2352,7 @@
     block-size: 100%;
   }
 
-  /* Booting ground — a centered, gently pulsing brand mark on the app surface
+  /* Booting ground - a centered, gently pulsing brand mark on the app surface
      so a loading window reads as PADE, never a blank white void. */
   .booting {
     display: grid;
@@ -2423,7 +2423,7 @@
       transition: background 200ms var(--ease), color 200ms var(--ease);
     }
 
-    /* Selected tab — matched by state, not by qualifying the button type. */
+    /* Selected tab - matched by state, not by qualifying the button type. */
     [aria-selected="true"] {
       background: var(--primary-container);
       color: var(--on-primary-container);
@@ -2431,7 +2431,7 @@
   }
 
   .body {
-    /* The side column's resolved width — one authoritative expression the grid
+    /* The side column's resolved width - one authoritative expression the grid
        track and the drag divider both read, so they can never clamp differently. */
     --side-panel-track:
       clamp(
@@ -2446,7 +2446,7 @@
 
     /* Explicit full-height row track: without it the implicit row is `auto`
        (content-sized), so the terminal shrinks with the window but never grows
-       back — the resize observer only fires on the shrink. */
+       back - the resize observer only fires on the shrink. */
     grid-template-rows: 1fr;
     grid-template-columns: 1fr;
     min-block-size: 0;
@@ -2465,7 +2465,7 @@
       }
     }
 
-    /* A live drag drives the frame directly — any transition would lag it behind
+    /* A live drag drives the frame directly - any transition would lag it behind
        the pointer, so it is switched off for the duration of the drag. */
     &[data-resizing] {
       transition: none;
@@ -2541,7 +2541,7 @@
     animation: panel-in 340ms var(--ease);
   }
 
-  /* One shared header for every panel (DRY) — title + optional count + optional
+  /* One shared header for every panel (DRY) - title + optional count + optional
      refresh. The panels below own only their scroll body.
 
      Every header is the same height whether or not its panel publishes a
@@ -2616,7 +2616,7 @@
 
   /* All sessions stay mounted so their scrollback survives switching; only the
      sessions in the current split are laid out (side by side). A hidden slot is
-     NOT `display:none` — that would zero its ResizeObserver and shrink the
+     NOT `display:none` - that would zero its ResizeObserver and shrink the
      background PTY to a 2×1 grid, which some agents (Codex) exit on. Instead it
      is lifted out of flow over the whole pane and turned invisible, so it keeps
      a real, full-pane layout size: the background PTY stays sized to exactly what
@@ -2636,7 +2636,7 @@
     min-inline-size: 0;
     border-inline-end: 1px solid var(--outline);
 
-    /* A pane appearing is deliberately instant — opening, closing, or switching a
+    /* A pane appearing is deliberately instant - opening, closing, or switching a
        tab must not animate the terminal (it would read as a needless wipe). Only a
        genuine split-ADD springs its newcomer in, fired imperatively on that one
       slot via animatePaneIn (pane-enter), never here on every `.shown`. */
@@ -2649,7 +2649,7 @@
   }
 
   /* Dashed primary frame over the whole panes area while a tab is dragged onto
-     it — the invitation to open the session as a split. */
+     it - the invitation to open the session as a split. */
   .drop-overlay {
     position: absolute;
     inset: 8px;
@@ -2677,7 +2677,7 @@
     }
   }
 
-  /* The half of a pane the pointer is over — where the dropped session will land
+  /* The half of a pane the pointer is over - where the dropped session will land
      (left = before this pane, right = after). A primary wash plus a solid edge. */
   .drop-half {
     position: absolute;
@@ -2738,14 +2738,14 @@
       grid-template-columns: 1fr;
     }
 
-    /* Stacked top/bottom below this width — a vertical col-resize divider no
+    /* Stacked top/bottom below this width - a vertical col-resize divider no
        longer maps to the layout, so hide it. */
     .panel-resize {
       display: none;
     }
   }
 
-  /* Auto-handoff banner — a calm status pill while a session hands off. */
+  /* Auto-handoff banner - a calm status pill while a session hands off. */
   .handoff-note {
     position: fixed;
     inset-block-start: 60px;
@@ -2775,7 +2775,7 @@
     }
   }
 
-  /* Transient status toast — sits just above the send FAB, auto-dismissed. */
+  /* Transient status toast - sits just above the send FAB, auto-dismissed. */
   .toast {
     position: fixed;
     inset-block-end: 72px;

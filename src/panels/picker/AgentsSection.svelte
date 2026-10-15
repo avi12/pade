@@ -7,8 +7,8 @@
   import AgentChips from "@/panels/picker/AgentChips.svelte";
 
   // Default-agent section: owns its own agent list so it can re-detect
-  // (Reload) without needing a new prop from the parent. It's seeded from —
-  // and kept in sync with — the `agents` prop; a rescan flag drives the
+  // (Reload) without needing a new prop from the parent. It's seeded from -
+  // and kept in sync with - the `agents` prop; a rescan flag drives the
   // spinning refresh icon + skeleton chips. The default-agent choice persists
   // through the parent via `onpick` and lands in the shared settings authority.
   const { agents, defaultAgent, onpick }: {
@@ -114,7 +114,7 @@
     white-space: nowrap;
   }
 
-  /* The Reload pill (.rescan) is shared chrome — see picker/chrome.css. */
+  /* The Reload pill (.rescan) is shared chrome - see picker/chrome.css. */
 
   /* Skeleton chips while the first scan runs. */
   .agent-skeletons {

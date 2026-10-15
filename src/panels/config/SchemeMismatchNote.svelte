@@ -5,14 +5,14 @@
   import { terminalSchemes } from "@/lib/stores/terminalSchemes.svelte";
   import { Scheme } from "@/lib/types";
 
-  // Says when a face's terminal-scheme pick fights the app scheme it paints — a
+  // Says when a face's terminal-scheme pick fights the app scheme it paints - a
   // dark scheme parked on Light, or a light one on Dark.
   //
   // The control this sits under promises "a light scheme by day, a dark one by
   // night", and nothing checked that the picks keep that promise: a dark scheme
   // in the Light slot silently leaves a near-black terminal inside a white app,
   // which reads as the theme failing to switch rather than as a choice. Only
-  // ever said, never overridden — pinning a dark terminal under a light app is a
+  // ever said, never overridden - pinning a dark terminal under a light app is a
   // legitimate thing to want, and the pick is the user's.
   //
   // Its own component so the judgement and its wording live in one place rather
@@ -20,7 +20,7 @@
   const { face }: { face: Scheme } = $props();
 
   /** The chosen scheme for this face, resolved through the same catalogue store
-   *  the picker renders from — so the scheme judged here and the one shown in
+   *  the picker renders from - so the scheme judged here and the one shown in
    *  the row beside it are always one answer, never two. */
   const chosen = $derived.by(() => {
     const name = effective.terminalSchemes[face];
@@ -38,10 +38,10 @@
     }
 
     if (schemeIsDark) {
-      return "Dark scheme — the terminal stays dark by day";
+      return "Dark scheme - the terminal stays dark by day";
     }
 
-    return "Light scheme — the terminal stays light by night";
+    return "Light scheme - the terminal stays light by night";
   });
 </script>
 

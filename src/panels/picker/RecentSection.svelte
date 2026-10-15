@@ -67,7 +67,7 @@
               {#if isTemporaryWorkspace(path)}
                 <span
                   class="temp-tag"
-                  {@attach tooltip("Its label lives in PADE — the folder keeps its path")}
+                  {@attach tooltip("Its label lives in PADE - the folder keeps its path")}
                 >temp</span>
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
@@ -118,7 +118,7 @@
     }
   }
 
-  /* Tighter than the shared 12px picker-section gap — canon groups the head and
+  /* Tighter than the shared 12px picker-section gap - canon groups the head and
      rows at 8px, and the rows sit 8px apart. */
   .recent {
     gap: 8px;
@@ -140,7 +140,7 @@
     }
   }
 
-  /* Recent row — pill button, mono name, truncating path; fills on hover. */
+  /* Recent row - pill button, mono name, truncating path; fills on hover. */
   .recent-item {
     display: flex;
     gap: 10px;
@@ -197,7 +197,7 @@
     text-transform: uppercase;
   }
 
-  /* Inline rename — a bordered field with Save (primary) + Cancel. */
+  /* Inline rename - a bordered field with Save (primary) + Cancel. */
   .rename {
     display: flex;
     flex-wrap: wrap;

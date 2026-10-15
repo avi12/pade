@@ -7,7 +7,7 @@
 
   const { project }: { project: string } = $props();
 
-  // Restore a version — natural-language query → ranked prior commits →
+  // Restore a version - natural-language query → ranked prior commits →
   // checkout. Self-contained: the checkout touches the working tree, so the
   // panel's watcher-driven refresh picks up the result on its own.
   let restoreQuery = $state("");
@@ -55,7 +55,7 @@
     }
   }
 
-  // Confidence as a 0..100 percentage — scores run 0..≈1.5, clamped for display.
+  // Confidence as a 0..100 percentage - scores run 0..≈1.5, clamped for display.
   function confidencePercentage(score: number): number {
     return Math.round(Math.min(score / 1.5, 1) * 100);
   }
@@ -129,7 +129,7 @@
   {:else if searching}
     <p class="hint">Searching your history…</p>
   {:else if restoreQuery.trim() && !restoreDone && !restoreError}
-    <p class="hint">No matching version found — try describing it differently.</p>
+    <p class="hint">No matching version found - try describing it differently.</p>
   {/if}
 </section>
 

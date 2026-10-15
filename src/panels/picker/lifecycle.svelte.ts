@@ -3,7 +3,7 @@
 // primary project root) with the inline-rename form state, and which temp
 // workspace is being relabelled in PADE (its folder untouched). One instance lives
 // in ProjectPicker and is handed to both sections and their row menus, so a
-// rename started from either list drives the same form — and one delete
+// rename started from either list drives the same form - and one delete
 // confirmation dialog serves both.
 
 import { errorMessage } from "@/lib/errors";
@@ -24,7 +24,7 @@ export interface LifecycleHost {
     from: string;
     newName: string;
   }) => Promise<string>;
-  /** Delete the folder — via the app's relocator, so the sessions holding it as
+  /** Delete the folder - via the app's relocator, so the sessions holding it as
    *  cwd are killed first and the removal isn't blocked by their lock. */
   ondelete: (path: string) => Promise<Settings>;
   refresh: () => Promise<void>;
@@ -45,8 +45,8 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     renameValue = baseName(path);
   }
 
-  // Relabel (PADE-only name, folder untouched) is its own prompt — RelabelDialog,
-  // rendered by the picker — so the lifecycle only tracks which row asked for it.
+  // Relabel (PADE-only name, folder untouched) is its own prompt - RelabelDialog,
+  // rendered by the picker - so the lifecycle only tracks which row asked for it.
   function startRelabel(path: string) {
     relabelTarget = path;
   }
@@ -95,7 +95,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   // Delete is confirmed in-app (ConfirmDialog, rendered by the picker) rather
   // than by an OS popup, so the three states of the flow live here: which path
   // is awaiting confirmation, whether its removal is in flight, and why it
-  // failed — the folder can still be held open from outside PADE, and that
+  // failed - the folder can still be held open from outside PADE, and that
   // reason belongs in front of the user instead of a swallowed rejection.
   function requestDelete(path: string) {
     deleteTarget = path;
@@ -177,7 +177,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     set renameValue(value: string) {
       renameValue = value;
     },
-    /** Live rename validation — the schema's message and the Save gate share
+    /** Live rename validation - the schema's message and the Save gate share
      *  one check, so an invalid name can't reach a silent no-op rename. */
     get renameError() {
       return nameError(renameValue);

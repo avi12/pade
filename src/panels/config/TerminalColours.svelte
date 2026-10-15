@@ -42,7 +42,7 @@
 <div class="field">
   <span class="field-text">
     <span class="field-label">Terminal colours</span>
-    <span class="field-hint">Windows Terminal schemes — the ones it ships and your own</span>
+    <span class="field-hint">Windows Terminal schemes - the ones it ships and your own</span>
   </span>
   <label class="check">
     <span class="checkbox">

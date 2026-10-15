@@ -40,7 +40,7 @@
   onMount(async () => {
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether remote links
-    // exist — re-read the remote the moment the live git state changes.
+    // exist - re-read the remote the moment the live git state changes.
     unlistenGitState = await vcs.onStateChanged(async () => await loadRemoteUrl());
   });
 
@@ -78,7 +78,7 @@
         await os.openUrl(commitUrl);
       }
     } catch {
-    // Opening the commit externally is best-effort — a missing remote or a
+    // Opening the commit externally is best-effort - a missing remote or a
       // failed browser launch must not surface as an error here.
     }
   }

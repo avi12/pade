@@ -55,27 +55,27 @@
     onremove, onpopout, onreorder, onexit, ondraghint
   }: {
     session: AgentSession;
-    /** The session the keyboard belongs to — the one tab (or split pane) in front. */
+    /** The session the keyboard belongs to - the one tab (or split pane) in front. */
     active?: boolean;
     /** This pane is in the current split (laid out and visible). A background
         tab's pane stays mounted at full size but `visibility: hidden`, so only
-        `shown` — never geometry — can tell the two apart for cursor blinking. */
+        `shown` - never geometry - can tell the two apart for cursor blinking. */
     shown?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
     removable?: boolean;
-    /** Remove this pane from the split — the trailing × button. The other pane(s)
+    /** Remove this pane from the split - the trailing × button. The other pane(s)
         stay shown; the removed session lives on as a background tab. */
     onremove?: () => void;
-    /** Pop this pane out of the split into its own tab — its header was dragged up
+    /** Pop this pane out of the split into its own tab - its header was dragged up
         onto the tab strip. Collapses the split to this session (shown fullscreen,
         active); the mirror of dragging a tab down onto the panes to split it. */
     onpopout?: () => void;
-    /** A drag of this pane's header reordered the split — commit the new order. */
+    /** A drag of this pane's header reordered the split - commit the new order. */
     onreorder?: (orderedIds: string[]) => void;
     /** Live pane-drag state, so App can light the tab strip's "drop → new tab"
         zone while this header is dragged over it (`hint.outside`). */
     ondraghint?: (hint: DragHint | null) => void;
-    /** The PTY exited on its own (the agent quit, e.g. via Ctrl-C) — so App can
+    /** The PTY exited on its own (the agent quit, e.g. via Ctrl-C) - so App can
         auto-close this tab (and respawn the agent if it was the last one). */
     onexit?: (id: string) => void;
   } = $props();
@@ -86,7 +86,7 @@
   // `[data-pane-id]` slot the engine reorders lives in App, one level up from this
   // header; `closest` reaches it across the component boundary. The remove button
   // carries `data-noreorder` so pressing it stays a click. Only a pane in a live
-  // split reorders — `removable` is true exactly then, so a lone pane's header
+  // split reorders - `removable` is true exactly then, so a lone pane's header
   // never lifts with nothing to sort.
   function startPaneDrag(e: PointerEvent) {
     if (!removable) {
@@ -130,7 +130,7 @@
     data: string;
     settle: () => void;
   }> = [];
-  // The terminal once it is built and attached — reactive, so the effects below
+  // The terminal once it is built and attached - reactive, so the effects below
   // (and the right-to-left overlay) can wait for it, since it is created inside
   // an async onMount long after the first effects have run. Its presence IS
   // "attached": one value rather than a flag kept beside it.
@@ -149,7 +149,7 @@
 
   function watchForRightToLeft(text: string) {
     // An agent that reorders its own output has already done the browser's job,
-    // and doing it twice reads backwards — so for those the latch never flips and
+    // and doing it twice reads backwards - so for those the latch never flips and
     // the overlay never exists (see `reordersBidi` in agents.rs).
     if (rightToLeftSeen || session.agent.reordersBidi) {
       return;
@@ -183,20 +183,20 @@
 
   // Initial-prompt delivery (see lib/initial-prompt). A fresh agent gates on a
   // "trust this folder?" prompt before its input line is live, so the first
-  // prompt can't just be fired on mount — it would land in the menu or sit unsent.
+  // prompt can't just be fired on mount - it would land in the menu or sit unsent.
   // Instead we watch the rendered screen: walk the trust gate's selection to
   // "Yes, I trust this folder" and confirm it, then once the agent has settled
   // quiet at its REPL, paste the prompt and submit it.
   let promptDelivered = false;
   // Whether the last screen sample showed the trust gate. Delivery holds while it
-  // does — a prompt pasted into the gate's menu is lost.
+  // does - a prompt pasted into the gate's menu is lost.
   let trustGateOnScreen = false;
   // Keys sent to walk and confirm the gate, bounded so a gate whose layout we
-  // misread can't be keyed at forever — the user answers it by hand instead.
+  // misread can't be keyed at forever - the user answers it by hand instead.
   let trustGateKeysSent = 0;
   const TRUST_GATE_MAX_KEYS = 6;
   // A key was sent and the agent hasn't repainted since, so the screen still
-  // shows the gate as it was BEFORE the key — acting on it would double-step.
+  // shows the gate as it was BEFORE the key - acting on it would double-step.
   let trustGateAwaitingRepaint = false;
   // A rolling tail of recent output, so delivery can tell whether the prompt's
   // paste has echoed back in the composer.
@@ -208,7 +208,7 @@
   // Flow control for the alternate screen (see altFit): the agent is repainting the size
   // we last gave it, the size the pane has reached since, and the timers that decide when
   // that repaint is done. Whether it kept up or not, the settled gesture ends with a
-  // full repaint (see terminal.onResize) — that is what makes a torn frame heal.
+  // full repaint (see terminal.onResize) - that is what makes a torn frame heal.
   let awaitingRepaint = false;
   let altFitTimer: ReturnType<typeof setTimeout> | undefined;
   let lastAltFitAt = 0;
@@ -220,7 +220,7 @@
     | undefined;
   let repaintQuietTimer: ReturnType<typeof setTimeout> | undefined;
   let repaintWatchdog: ReturnType<typeof setTimeout> | undefined;
-  // A repaint nudge resizes the grid itself, so it comes back through the resize path —
+  // A repaint nudge resizes the grid itself, so it comes back through the resize path -
   // this is what stops it queueing another repaint off the back of its own.
   let repainting = false;
   // How long the PTY must fall quiet before a working session settles back to
@@ -228,20 +228,20 @@
   // outlast the *slowest periodic repaint* a long-running task emits, or the badge
   // flickers. A dev server started by the agent (e.g. `pnpm netlify` → Vite) keeps
   // Claude repainting its elapsed-time counter ("1m 1s", "1m 2s", …) about once a
-  // second and dribbles the odd log line — if this window were shorter than that
+  // second and dribbles the odd log line - if this window were shorter than that
   // ~1 s cadence, the status would drop to "ready" in the gap after each tick and
   // snap back to "working" on the next, a ~1 Hz flicker. Sitting above 1 s, one
   // periodic tick re-arms the timer before it fires, so the session stays steadily
   // "working" for the whole command and only settles ~1.5 s after output truly
   // stops. The cost is the "ready" badge on a normal quiet turn appears ~0.8 s
-  // later than the old 700 ms — an acceptable trade for no flicker.
+  // later than the old 700 ms - an acceptable trade for no flicker.
   const IDLE_MS = 1500;
   // How long the grid must hold still before the agent is told its new width. Long
   // enough that one drag gesture is one SIGWINCH, short enough to feel immediate.
   const SIGWINCH_SETTLE_MS = 150;
   // How long the nudged size is held before it is put back, when asking a fullscreen
   // agent to repaint (see repaintAgent). It must outlast the agent's own coalescing of
-  // resize events, or it processes the two as one and paints for the wrong size —
+  // resize events, or it processes the two as one and paints for the wrong size -
   // measured at 40ms, that left its frame a row short (the hint under its prompt).
   const REPAINT_NUDGE_MS = 180;
   // A frame the agent has gone quiet for this long is a frame it has finished painting.
@@ -254,12 +254,12 @@
   // …and if it says nothing at all for this long, stop waiting. Something is wrong (or
   // the resize genuinely changed nothing) and the drag must not stall on it.
   const ALT_REPAINT_TIMEOUT_MS = 400;
-  // The width the agent is currently wrapping its output to — the PTY's spawn width,
+  // The width the agent is currently wrapping its output to - the PTY's spawn width,
   // then whatever we last sent it. A resize that leaves this alone is a resize the
   // agent never needs to hear about (see terminal.onResize).
   let agentColumns = 0;
   // A resize makes the agent repaint; output within this window after one is
-  // treated as that repaint's echo, not fresh activity — so revealing a hidden
+  // treated as that repaint's echo, not fresh activity - so revealing a hidden
   // pane (which refits it) can't flash the badge from "ready" to "working".
   const RESIZE_SETTLE_MS = 400;
   let lastResizeAt = 0;
@@ -271,13 +271,13 @@
 
   // Written into xterm, not to the agent, when re-attaching to a session that is
   // already painting the alternate screen. Wire constant shared with pty.rs, which
-  // detects this exact sequence to set `history.alternate` — change them together.
+  // detects this exact sequence to set `history.alternate` - change them together.
   const ENTER_ALTERNATE_SCREEN = `${CONTROL_SEQUENCE_INTRODUCER}${ALTERNATE_SCREEN_PRIVATE_MODE}${SET_MODE}`;
 
   // A PTY read can cut a control sequence in half, so retain one complete
   // sequence's worth of tail while looking for the agent's DECSET 2031 handshake
   // (Claude's `auto` theme subscribes). Any agent that enables the channel gets
-  // the truthful scheme report — the handshake itself is the opt-in, not the
+  // the truthful scheme report - the handshake itself is the opt-in, not the
   // agent's id.
   const COLOR_SCHEME_ENABLE_LENGTH = "\x1b[?2031h".length;
   let colorSchemeNotificationTail = "";
@@ -287,15 +287,15 @@
   // (Claude's `auto` theme, opencode's renderer). The re-attach path treats
   // them as subscribed even when the handshake was trimmed out of the replayed
   // history. (The report only carries the scheme; opencode's own light/dark
-  // *detection* is spawn-themed instead — see agents.rs — because its mode
+  // *detection* is spawn-themed instead - see agents.rs - because its mode
   // probe is answered by ConPTY, not by ADE.)
   const SCHEME_SUBSCRIBED_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
 
   // Agents whose Shift+Enter newline must arrive as a raw Ctrl+J (LF, 0x0a)
   // rather than a bracketed paste of it (see the Shift+Enter branch below):
-  //  • Claude Code — Ctrl+J is its documented always-works insert-newline; a
+  //  • Claude Code - Ctrl+J is its documented always-works insert-newline; a
   //    bracketed paste of a lone LF does NOT register in its composer.
-  //  • OpenCode — reacts to ANY paste event by consulting the OS clipboard (a
+  //  • OpenCode - reacts to ANY paste event by consulting the OS clipboard (a
   //    lingering image would attach alongside the newline); a raw LF is its own
   //    ctrl+j insert-newline binding, so the newline lands without a paste.
   const NEWLINE_VIA_RAW_LF_AGENTS = new Set<string>([AgentId.Claude, AgentId.Opencode]);
@@ -397,11 +397,11 @@
 
   // Wheel-scroll a fullscreen agent's own transcript. Claude Code's renderer
   // repaints its UI in place (cursor addressing) rather than appending lines, so
-  // the earlier conversation lives inside the agent, not in xterm's buffer — there
+  // the earlier conversation lives inside the agent, not in xterm's buffer - there
   // is nothing in xterm's scrollback for a wheel tick to reveal. The agent scrolls
   // its transcript a half-page per PageUp/PageDown and says so on screen ("use
   // PgUp/PgDn to scroll"); the arrow keys the terminal would otherwise emit for a
-  // wheel tick instead walk the prompt's input history — the well-known hijack
+  // wheel tick instead walk the prompt's input history - the well-known hijack
   // (claude-code#65833). So a wheel tick with nothing to reveal is forwarded as
   // PageUp/PageDown. CSI 5 ~ / CSI 6 ~.
   const PAGE_UP_PARAMETER = "5";
@@ -410,14 +410,14 @@
   const PAGE_UP = `${CONTROL_SEQUENCE_INTRODUCER}${PAGE_UP_PARAMETER}${TILDE_FINAL_BYTE}`;
   const PAGE_DOWN = `${CONTROL_SEQUENCE_INTRODUCER}${PAGE_DOWN_PARAMETER}${TILDE_FINAL_BYTE}`;
 
-  // Carriage return — the "Enter" a CLI reads as "submit this line".
+  // Carriage return - the "Enter" a CLI reads as "submit this line".
   const ENTER = "\r";
 
-  // The Up/Down arrow keys (CSI A / CSI B) — how a select menu's cursor moves.
+  // The Up/Down arrow keys (CSI A / CSI B) - how a select menu's cursor moves.
   const CURSOR_UP = `${CONTROL_SEQUENCE_INTRODUCER}A`;
   const CURSOR_DOWN = `${CONTROL_SEQUENCE_INTRODUCER}B`;
 
-  // ^W (ETB) — the line discipline's "erase word backward". Sent for
+  // ^W (ETB) - the line discipline's "erase word backward". Sent for
   // Ctrl+Backspace, whose legacy byte (^H) a TUI can't tell from a bare
   // backspace; see the key-handler comment.
   const ERASE_WORD = "\x17";
@@ -425,7 +425,7 @@
   // Focus reports (mode 1004) xterm emits when the pane gains/loses DOM focus.
   // PADE never forwards them: a PADE pane is either front (focused) or hidden
   // (where unfocused chrome is invisible anyway), and every tab switch would
-  // otherwise make the outgoing agent repaint its chrome — output the status
+  // otherwise make the outgoing agent repaint its chrome - output the status
   // heuristic above has no way to tell from real work, flashing a ready
   // session's badge to "working". Agents simply always render as focused.
   const FOCUS_IN_FINAL_BYTE = "I";
@@ -496,7 +496,7 @@
   } as const satisfies Record<TrustGateKey, string>;
 
   // Answer the first-run trust gate from the rendered screen: step its selection
-  // onto "Yes, I trust this folder", then confirm — so the prompt delivered next
+  // onto "Yes, I trust this folder", then confirm - so the prompt delivered next
   // lands at the REPL and not in the menu. Runs only while a first prompt is
   // still pending; one key per repaint.
   async function answerTrustGate(rows: readonly string[]) {
@@ -522,12 +522,12 @@
   // first paint), so a prompt written the moment the output settles can be
   // silently swallowed. Delivery is therefore verified: after each attempt the
   // output is watched for the prompt echoing back in the composer, and until it
-  // does the attempt repeats on a short timer — a deliberate poll, since no
+  // does the attempt repeats on a short timer - a deliberate poll, since no
   // event announces "the TUI now reads input". Bounded so an agent that renders
   // the prompt unrecognizably can't be pasted at forever.
   // Longer than IDLE_MS (1500): a submit's paste-echo alone flips the session to
   // `working`, but with nothing behind it the idle timer settles it back to
-  // `ready` at 1500ms. Verifying at 2000ms therefore tells the two apart — still
+  // `ready` at 1500ms. Verifying at 2000ms therefore tells the two apart - still
   // `working` here means the agent is genuinely processing the prompt, not just
   // echoing the paste.
   const PROMPT_ECHO_VERIFY_MS = 2_000;
@@ -539,13 +539,13 @@
   const PROMPT_MAX_ATTEMPTS = 8;
   let promptAttempts = 0;
   // A submit is written and waiting for its 2000ms verdict. The idle handler
-  // fires its own re-check at IDLE_MS (1500) — before the verdict — so it must
+  // fires its own re-check at IDLE_MS (1500) - before the verdict - so it must
   // not re-enter delivery meanwhile, or it would re-paste (or prematurely latch)
   // while the verify timer is still deciding. The verify callback owns the retry.
   let awaitingVerify = false;
   let promptVerifyTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Once the agent has settled quiet — done booting, past the trust gate — paste
+  // Once the agent has settled quiet - done booting, past the trust gate - paste
   // the first prompt, then submit it and re-attempt until the agent is seen
   // working. The bracketed paste keeps the prompt's own newlines soft; the
   // submitting ENTER is sent separately (a raw write folds the CR into the paste
@@ -556,7 +556,7 @@
       return;
     }
 
-    // The gate is still up — answerTrustGate (or the user) clears it, and the
+    // The gate is still up - answerTrustGate (or the user) clears it, and the
     // agent's repaint settles back to ready, which re-runs this.
     if (trustGateOnScreen) {
       return;
@@ -568,13 +568,13 @@
       return;
     }
 
-    // The prompt echoing back means the PASTE reached the composer — NOT that it
+    // The prompt echoing back means the PASTE reached the composer - NOT that it
     // was submitted. A TUI's post-paste guard (Claude Code's especially) swallows
     // the ENTER that rides in the same burst as the bracketed paste, leaving the
     // text sitting unsent; latching on the echo alone is what stranded a handoff
     // successor with its prompt typed but never sent, so the user had to press
     // Enter by hand. A prompt already in the composer is therefore submitted with a
-    // SEPARATE ENTER — a standalone keystroke the guard can't fold into the paste —
+    // SEPARATE ENTER - a standalone keystroke the guard can't fold into the paste -
     // re-sent until the agent is seen working; only a prompt that never echoed is
     // (re)pasted. `working` past the paste-echo settle (the verify below) is the
     // one signal it truly went in.
@@ -587,7 +587,7 @@
 
     if (pasteLanded) {
       // The paste already reached the composer; only its submitting Enter was
-      // swallowed, so re-send that alone — never re-paste over the standing text.
+      // swallowed, so re-send that alone - never re-paste over the standing text.
       await writeToPty(ENTER);
     } else {
       // Fresh delivery: paste, let the composer SETTLE, then submit with a
@@ -600,10 +600,10 @@
     }
 
     // Verify shortly. Still `working` at 2000ms means the agent took the prompt
-    // up and is running it — delivery is done, so latch it (this is what stops a
+    // up and is running it - delivery is done, so latch it (this is what stops a
     // handoff successor, whose first turn scrolls the echo out of `recentOutput`,
-    // from being re-prompted). Back at `ready` means it wasn't submitted — the
-    // bundled Enter was swallowed, or the TUI wasn't reading yet — so try again
+    // from being re-prompted). Back at `ready` means it wasn't submitted - the
+    // bundled Enter was swallowed, or the TUI wasn't reading yet - so try again
     // (a separate Enter when the paste already landed, else a fresh paste).
     clearTimeout(promptVerifyTimer);
     promptVerifyTimer = setTimeout(() => {
@@ -627,7 +627,7 @@
   });
 
   // Re-read the context fill off the session log (see readContextFromSessionLog).
-  // A session settling back to `ready` is the event to hang this off — no timer
+  // A session settling back to `ready` is the event to hang this off - no timer
   // needed: the agent has just finished a turn, which is both when the log has
   // grown and when the flows that gate on the fill (auto-handoff, usage-resume)
   // next look at it. Untracked so the effect follows the status alone: the
@@ -656,7 +656,7 @@
   // xterm's font-size option is in px, so the CSS --ui-scale does not reach it.
   const TERMINAL_FONT_SIZE = 13;
 
-  // WCAG AA for body text — the floor xterm holds every foreground to against
+  // WCAG AA for body text - the floor xterm holds every foreground to against
   // the themed background (see the Terminal options).
   const MINIMUM_CONTRAST_RATIO = 4.5;
 
@@ -690,7 +690,7 @@
     // Read the palette BEFORE the guard: `terminal` is not reactive, so a guard
     // that short-circuits on it would run once at mount (when there is no
     // terminal yet), never reach this read, and leave the effect subscribed to
-    // nothing at all — a palette change would then repaint no terminal, ever.
+    // nothing at all - a palette change would then repaint no terminal, ever.
     const painted = paintedPalette;
     if (!terminal || !painted) {
       return;
@@ -703,7 +703,7 @@
     }
   });
 
-  // Hand the keyboard to the session in front — the moment it launches, and again
+  // Hand the keyboard to the session in front - the moment it launches, and again
   // whenever the user switches to it. Nothing else claims focus for a terminal, so
   // without this the keystrokes go to whatever the user last clicked (the tab, the
   // agent button in onboarding) and the agent looks like it is ignoring you: you
@@ -714,12 +714,12 @@
     }
   });
 
-  // Returning to this window — the Ctrl+Alt+[ / ] window cycle, an alt-tab, a
-  // taskbar click — puts the OS focus on the window but not back on the terminal,
+  // Returning to this window - the Ctrl+Alt+[ / ] window cycle, an alt-tab, a
+  // taskbar click - puts the OS focus on the window but not back on the terminal,
   // so the agent would ignore your first keystrokes until you click the pane.
   // Re-grab the keyboard for the front session on every window focus, so a cycled
   // window is immediately promptable. Skipped while the user is mid-typing in a
-  // real field (a rename box, the picker) — that focus must be left alone; the
+  // real field (a rename box, the picker) - that focus must be left alone; the
   // xterm helper textarea deliberately doesn't count as editing (see lib/focus).
   function handleWindowFocus() {
     windowFocused = true;
@@ -856,7 +856,7 @@
     scheduleTerminalOutputFlush();
   }
 
-  // Context — and a usage-limit stop, with whether a turn is running — is derived
+  // Context - and a usage-limit stop, with whether a turn is running - is derived
   // from agent output, not viewport movement. Sampling after xterm has processed a
   // write keeps mouse-wheel/scrollbar renders presentation-only while still reading
   // the complete screen that cursor-motion TUIs paint.
@@ -910,7 +910,7 @@
   // The two screens a terminal has, and the only thing that decides how a resize must
   // behave. ADE runs Claude Code fullscreen, on the ALTERNATE one (see agents.rs), but
   // nothing here may assume either: a plain shell, an agent with no fullscreen mode, and
-  // Claude Code itself put back with `/tui default` all live on the NORMAL screen — and
+  // Claude Code itself put back with `/tui default` all live on the NORMAL screen - and
   // every rule below is the opposite there.
   const Screen = {
     Normal: "normal",
@@ -919,7 +919,7 @@
 
   // On the alternate screen there is no document and no scrollback: it is a
   // framebuffer the agent owns and repaints, and the terminal holds nothing it could
-  // reflow. So the agent must be told the size — height included — immediately and
+  // reflow. So the agent must be told the size - height included - immediately and
   // every frame, or the rows it hasn't painted come out blank and the ones it lost are
   // truncated. Everything below keys off this.
   let onAlternateScreen = $state(false);
@@ -928,23 +928,23 @@
   // there is always a sub-cell remainder to put somewhere, and which end it belongs at
   // decides what the eye sees move:
   //
-  //   Alternate screen: the agent's frame is RIGID — conversation nailed to its first
-  //   row, prompt to its last — so whichever edge is not pinned is the one that steps a
+  //   Alternate screen: the agent's frame is RIGID - conversation nailed to its first
+  //   row, prompt to its last - so whichever edge is not pinned is the one that steps a
   //   whole row when the row count changes. Pin the TOP: the conversation, which is what
   //   you are reading and most of what is on screen, then never moves at all, and the
-  //   remainder collects at the BOTTOM as a strip of terminal background — the same
+  //   remainder collects at the BOTTOM as a strip of terminal background - the same
   //   colour as the terminal, so it is not visible as anything. Pinning the bottom
   //   instead welds the prompt to the pane's edge but makes the whole conversation
   //   sawtooth by a row on every boundary, which is exactly the "mid-step".
   //
   //   Normal screen, no scrollback yet (the conversation still fits): output starts at
   //   row 0, so pinning the TOP keeps every line at a fixed y. Resizing then moves
-  //   nothing at all — the pane just reveals or hides empty rows at the bottom.
+  //   nothing at all - the pane just reveals or hides empty rows at the bottom.
   //
   //   Normal screen with scrollback (the conversation overflows, terminal parked at
   //   the newest line): xterm scrolls the document in whole rows, so a top-pinned grid
   //   would step the text by a row each time the row count changes. Pinning the BOTTOM
-  //   instead puts every visible line at a fixed distance from the pane's bottom edge —
+  //   instead puts every visible line at a fixed distance from the pane's bottom edge -
   //   `y = paneBottom - (linesFromEnd + 1) * cellHeight`, which has no `rows` term in
   //   it. The row xterm scrolls away and the remainder the grid gains cancel out, so
   //   the text is continuous through a row boundary.
@@ -955,7 +955,7 @@
   // Vertical scale of the grid, and 1 in every settled state (see `fit`).
   let squeeze = $state(1);
 
-  // Scrollback existing at all is the signal that the document has outgrown the grid —
+  // Scrollback existing at all is the signal that the document has outgrown the grid -
   // xterm only pushes a line into scrollback then. (The alternate screen never has any,
   // and pins its top: see above.)
   function updateAnchor() {
@@ -963,7 +963,7 @@
   }
 
   // How much a grid that is momentarily too tall for its pane has to be scaled by to fit
-  // inside it — 1 whenever it fits, which is every settled state.
+  // inside it - 1 whenever it fits, which is every settled state.
   //
   // It has to be recomputed both when the PANE moves (the drag) and when the GRID does
   // (the agent catching up, which lands later, on its own schedule): either one closes
@@ -980,7 +980,7 @@
     squeeze = gridHeight > paneHeight && gridHeight > 0 ? paneHeight / gridHeight : 1;
   }
 
-  // The one place that tells the PTY how big it is (DRY — both resize paths and the
+  // The one place that tells the PTY how big it is (DRY - both resize paths and the
   // screen switch go through here). Remembering the width we sent is what lets a
   // height-only change on the normal screen be dropped entirely. Stamp the time so the
   // repaint the agent sends back isn't counted as activity (see markActivity).
@@ -1068,7 +1068,7 @@
     ptyWriteInFlight = false;
   }
 
-  // Send the current selection to the clipboard. Copy is best-effort — a
+  // Send the current selection to the clipboard. Copy is best-effort - a
   // clipboard the platform withholds must not throw into a key handler.
   async function copySelectionToClipboard() {
     try {
@@ -1101,7 +1101,7 @@
 
   // Make a fullscreen program redraw its whole frame, by resizing the terminal a row
   // and back. It owns the alternate screen and only re-lays-out when the size changes,
-  // so this is the one lever a terminal has to ask for a fresh frame — needed when
+  // so this is the one lever a terminal has to ask for a fresh frame - needed when
   // attaching to a session already in flight, whose framebuffer cannot be faithfully
   // replayed (a trimmed history is a torn frame, and the program's own model of the
   // screen is the only complete copy).
@@ -1109,7 +1109,7 @@
   // The GRID has to move, not just the PTY: a size sent to the program alone leaves
   // xterm's grid saying one thing and the program's model another, and it paints its
   // frame a row short. Resizing the grid drives `terminal.onResize`, which sends the
-  // SIGWINCH — terminal and program move together, exactly as in a real resize.
+  // SIGWINCH - terminal and program move together, exactly as in a real resize.
   function repaintAgent() {
     if (!terminal || repainting) {
       return;
@@ -1123,9 +1123,9 @@
     grid.resize(columns, Math.max(1, rows - 1));
     setTimeout(() => {
       // Come back to the size the pane implies NOW, not the one captured when the
-      // nudge started. A fit that lands inside these 180ms — the flow control
+      // nudge started. A fit that lands inside these 180ms - the flow control
       // parks a fit while the agent is repainting and applies it the moment the
-      // agent goes quiet — would otherwise be overwritten by a stale row count,
+      // agent goes quiet - would otherwise be overwritten by a stale row count,
       // and nothing re-fits afterwards because the pane's own size never changed
       // again. Measured on a freshly opened window: a grid left at 107 rows in a
       // 55-row pane, legible only because the squeeze scaled it to half height.
@@ -1135,20 +1135,20 @@
     }, REPAINT_NUDGE_MS);
   }
 
-  // Resize the grid on the ALTERNATE screen — at the pace the agent can actually paint.
+  // Resize the grid on the ALTERNATE screen - at the pace the agent can actually paint.
   //
   // Only the agent can paint a row there, and it paints by diffing against its own model
   // of the screen. Move the grid faster than it can process the SIGWINCH and that model
   // starts describing a screen which no longer exists; from then on it writes only the
   // cells it *believes* changed, so the torn frame never repairs itself. Measured with a
-  // fast drag: resizing every frame stopped it painting altogether — the pane went blank
+  // fast drag: resizing every frame stopped it painting altogether - the pane went blank
   // and stayed blank, with the process still alive and still not drawing. A fixed
   // throttle only moves the cliff (100ms survived one drag, then wedged on the third).
   //
   // But freezing the grid for the whole gesture is what makes a TUI "only update when you
   // let go". So neither: **one resize in flight at a time.** Give the agent a size, wait
   // until it has finished painting it (its output goes quiet), and only then give it the
-  // size the pane has reached in the meantime. The drag is paced by the agent itself — as
+  // size the pane has reached in the meantime. The drag is paced by the agent itself - as
   // fast as it can actually follow, never faster.
   function altFit({
     columns,
@@ -1216,7 +1216,7 @@
   }
 
   // Every chunk of output while a resize is in flight is the agent painting that resize.
-  // A gap in it means the frame is finished — that is the credit the next resize waits on.
+  // A gap in it means the frame is finished - that is the credit the next resize waits on.
   function noteRepaintProgress() {
     if (!awaitingRepaint) {
       return;
@@ -1227,13 +1227,13 @@
   }
 
   // Fit the grid to the pane, and re-pin it (above). Whole cells only, rounded down,
-  // so the grid always fits inside the pane. Never round up — the overflowing row
+  // so the grid always fits inside the pane. Never round up - the overflowing row
   // would have to be clipped, and on the normal screen buffer every row is content.
   //
   // No transform anywhere, so text stays crisp and clicks map at native cell size.
   // `terminal.dimensions.css.cell` is the font metric, independent of the current grid,
   // so there's no circular measurement.
-  // The grid this pane implies right now, in whole cells — the one measurement
+  // The grid this pane implies right now, in whole cells - the one measurement
   // behind both the fit and the repaint nudge's restore, so the two can never
   // disagree about the size the pane is actually asking for. Undefined while the
   // pane has no usable size: a dock/panel can briefly leave its flex sibling with
@@ -1289,11 +1289,11 @@
     }
 
     // The agent's frame only reaches the new size at the pace the agent can paint it, so
-    // between here and there the grid can still be TALLER than the pane — and the grid is
+    // between here and there the grid can still be TALLER than the pane - and the grid is
     // pinned at the top, which would put the overflow past the bottom edge and cut the
     // agent's status line off. Nothing may ever cut that line. So for as long as the grid
     // is too big, it is squeezed to fit; the squeeze is never more than the lag, and goes
-    // back to exactly 1 the moment the agent catches up — so a settled terminal is never
+    // back to exactly 1 the moment the agent catches up - so a settled terminal is never
     // scaled, its text is crisp, and its clicks map true.
     updateSqueeze();
     altFit({
@@ -1312,10 +1312,10 @@
       theme: readXtermTheme(),
       // Safety net for colors the palette can't remap: an agent that paints
       // truecolor picked for the opposite scheme (a pale blue on the light
-      // background) is nudged to WCAG AA against ours. Render-time only — the
+      // background) is nudged to WCAG AA against ours. Render-time only - the
       // buffer keeps the agent's true colors.
       minimumContrastRatio: MINIMUM_CONTRAST_RATIO,
-      // OSC 8 hyperlinks — the terminal's <a>: an escape-wrapped label with a
+      // OSC 8 hyperlinks - the terminal's <a>: an escape-wrapped label with a
       // hidden URL (Claude's "Security guide", "MCP documentation"). xterm
       // detects these itself but only activates them through this handler.
       // Routed through the same bridge as plain-text URLs; the Rust side still
@@ -1330,7 +1330,7 @@
     terminal.open(host);
     attachedTerminal = terminal;
 
-    // Make URLs in the output clickable — the agent's OAuth sign-in links, docs
+    // Make URLs in the output clickable - the agent's OAuth sign-in links, docs
     // pointers. xterm's stock web-links addon only rejoins soft-wrapped rows, so
     // a URL a fullscreen agent hard-wraps at the edge would open truncated; this
     // provider stitches those rows too (see terminal-links). The default handler
@@ -1374,8 +1374,8 @@
       relayColorSchemeAfterSubscribe(chunk.data);
       watchForRightToLeft(chunk.data);
       markActivity();
-      // What the agent itself says about its work — a turn or background agents
-      // and workflows — read from its title (gates session-ending flows).
+      // What the agent itself says about its work - a turn or background agents
+      // and workflows - read from its title (gates session-ending flows).
       observeAgentActivity({
         id: session.id,
         chunk: chunk.data
@@ -1435,7 +1435,7 @@
       consume(chunk);
     });
     // If we were destroyed while awaiting, this listener registered too late
-    // for onDestroy to see — tear it down now and stop.
+    // for onDestroy to see - tear it down now and stop.
     if (destroyed) {
       dataUnlisten();
       return;
@@ -1475,7 +1475,7 @@
       }
 
       // Composing keystrokes arm the echo window so their round-trip doesn't
-      // flash the status; the submitting Enter deliberately does not — the
+      // flash the status; the submitting Enter deliberately does not - the
       // burst it triggers is the agent starting real work.
       if (data !== ENTER) {
         lastKeystrokeAt = Date.now();
@@ -1497,7 +1497,7 @@
         const text = await clipboard.readText();
         if (text) {
           // paste (not write) so xterm wraps it in bracketed-paste markers when the
-          // agent has that mode on — it then treats it as pasted text, not typing.
+          // agent has that mode on - it then treats it as pasted text, not typing.
           terminal.paste(text);
         }
       } catch {
@@ -1529,7 +1529,7 @@
         event.preventDefault();
 
         if (NEWLINE_VIA_RAW_LF_AGENTS.has(session.agent.id)) {
-          // A raw Ctrl+J (LF) is the reliable insert-newline for these agents —
+          // A raw Ctrl+J (LF) is the reliable insert-newline for these agents -
           // Claude Code's always-works binding, and OpenCode's, without tripping
           // its clipboard-on-paste. A bracketed paste of a lone LF is silently
           // dropped by Claude's composer, which is why Shift+Enter did nothing.
@@ -1578,12 +1578,12 @@
     });
 
     // Wheel-scroll the agent's own transcript when xterm has nothing to scroll
-    // itself (see PAGE_UP). Defer to xterm — return true, behave as if unhooked —
+    // itself (see PAGE_UP). Defer to xterm - return true, behave as if unhooked -
     // in the two cases it can handle: a program that grabbed the mouse (Neovim, a
     // pager, an agent doing its own wheel handling) wants the wheel as a mouse
     // report, and a plain shell with real scrollback (baseY > 0) wants its own
-    // document scrolled. Otherwise the visible frame is all xterm holds — a
-    // fullscreen agent repainting in place — so forward the scroll it understands.
+    // document scrolled. Otherwise the visible frame is all xterm holds - a
+    // fullscreen agent repainting in place - so forward the scroll it understands.
     let wheelCarry = 0;
     terminal.attachCustomWheelEventHandler(e => {
       const agentOwnsMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
@@ -1618,15 +1618,15 @@
       return false;
     });
 
-    // The document can outgrow the pane with no resize involved — the agent simply
-    // prints past the last row — and that is the moment the grid must re-pin.
+    // The document can outgrow the pane with no resize involved - the agent simply
+    // prints past the last row - and that is the moment the grid must re-pin.
     terminal.onScroll(() => {
       updateAnchor();
       scheduleTerminalOutputFlush();
     });
 
     // A program that takes over the alternate screen has to be told the moment the
-    // grid changes, and told the height too — it is painting the whole framebuffer,
+    // grid changes, and told the height too - it is painting the whole framebuffer,
     // and nobody else can. Switching screens also makes the grid re-pin, and squares
     // the agent's idea of the size with ours, since on the normal screen we deliberately
     // let its height go stale (below).
@@ -1646,21 +1646,21 @@
     // Which of a resize's two numbers the agent hears depends on the screen it is on.
     //
     // ALTERNATE: both, immediately, every frame. There is no document behind that
-    // screen and no scrollback — only the agent can paint a row — so a size it hasn't
+    // screen and no scrollback - only the agent can paint a row - so a size it hasn't
     // been told is a row nobody paints (blank at the bottom, truncated at the top).
     // Never debounce this one.
     //
     // NORMAL: the width, once the drag settles, and NEVER the height. A CLI printing an
-    // inline document needs the width — that is what its text wraps to. It does not
+    // inline document needs the width - that is what its text wraps to. It does not
     // need the height: how much of a document you can see is the terminal's business,
     // and xterm already knows. Send the height anyway and every SIGWINCH makes it
-    // re-render — which is what kept a step on screen:
+    // re-render - which is what kept a step on screen:
     //
     //   - it re-lays-out its frame for the new row count and drops or adds a line, so
     //     the conversation above that line sits a full row off from the text below it.
     //     Not geometry: the document itself changing under us; and
     //   - Ink reprints its whole static history on a resize, stranding the previous
-    //     copy in the scrollback (one per SIGWINCH — a fast drag once left 52).
+    //     copy in the scrollback (one per SIGWINCH - a fast drag once left 52).
     //
     // So a vertical drag there sends nothing at all: the agent's output is untouched
     // and xterm simply reveals more or less of it, exactly like scrolling a web page.
@@ -1669,11 +1669,11 @@
       // The grid just changed, which is the other half of what the squeeze measures.
       updateSqueeze();
 
-      // Alternate screen: tell the agent at once — it owns every row, and a size it has
+      // Alternate screen: tell the agent at once - it owns every row, and a size it has
       // not heard is a row nobody paints. The grid only reaches it at a pace the agent
       // can keep up with in the first place (see altFit).
       //
-      // Then, once the pane stops moving, ask for a full repaint — every time, not
+      // Then, once the pane stops moving, ask for a full repaint - every time, not
       // only when we gave up waiting for one. Answering the SIGWINCH is not the same
       // as redrawing the whole screen: the agent erases the rows its own model says
       // it last wrote, and a size change is exactly what makes that model wrong, so
@@ -1682,7 +1682,7 @@
       // ("host … / packaged: no / this build: 1.1.0") sat under the live composer for
       // fifteen minutes of repaints, with the composer's own line ending in the tail
       // of the row underneath it. It never healed on its own; one resize did. The
-      // nudge costs a double repaint at the end of a gesture — cheap next to a frame
+      // nudge costs a double repaint at the end of a gesture - cheap next to a frame
       // that stays torn until the user happens to resize the pane again.
       if (onAlternateScreen) {
         clearTimeout(sigwinchTimer);
@@ -1714,7 +1714,7 @@
     });
 
     // Refit once per animation frame. On the normal screen that reflows the document
-    // live as you drag, the way a web page does — xterm holds the text there, so it
+    // live as you drag, the way a web page does - xterm holds the text there, so it
     // can rewrap it itself. On the alternate screen fitToPane holds the grid still
     // until the gesture ends instead (the agent owns the pixels; see there). rAF
     // coalesces a burst of resize events into one fit per frame; xterm 6.1 renders the
@@ -1738,7 +1738,7 @@
 
     agentColumns = terminal.cols;
     // A spawn that fails used to abandon the rest of this mount silently, and the
-    // pane sat on "Starting…" for as long as the app ran — no process, no error,
+    // pane sat on "Starting…" for as long as the app ran - no process, no error,
     // no way to tell a wedged session from a slow one. Say what happened and mark
     // the session not-running, so the pane stops lying and a graceful leave never
     // waits on it.
@@ -1757,7 +1757,7 @@
     } catch (error) {
       status = SessionStatus.enum.exited;
       showToast(
-        `Couldn't start ${session.agent.label} — ${errorMessage({
+        `Couldn't start ${session.agent.label} - ${errorMessage({
           error,
           fallback: "the terminal session failed to start"
         })}`
@@ -1767,14 +1767,14 @@
 
     // Paint whatever the session has already said. A spawn for a session that is
     // still running is a no-op, so this terminal may be attaching to a conversation
-    // already in flight — a remounted component, a reloaded window — and a PTY keeps
+    // already in flight - a remounted component, a reloaded window - and a PTY keeps
     // no scrollback of its own: with nothing replayed, the pane just sits blank while
     // the agent waits, quite happily, for input. For a fresh spawn the history is
     // empty and this costs nothing.
     //
     // Chunks that arrived while this was in flight were parked, not written. The
     // history is authoritative up to its `seq`, so anything at or below it is already
-    // painted and only the newer ones still need to go in — in order, and before any
+    // painted and only the newer ones still need to go in - in order, and before any
     // further live chunk is written.
     if (destroyed) {
       return;
@@ -1787,7 +1787,7 @@
 
     if (history.data) {
       // A fullscreen program's history is not a document, it is a stream of edits to a
-      // framebuffer — and once the buffer has been trimmed, the edits that built the
+      // framebuffer - and once the buffer has been trimmed, the edits that built the
       // frame are half gone, so replaying it paints a torn one. Switch to the alternate
       // screen anyway (so the replay lands there, and the pane never flashes the wrong
       // buffer), then ask the program to repaint itself: it re-renders on a SIGWINCH,
@@ -1800,7 +1800,7 @@
       relayColorSchemeAfterSubscribe(history.data);
       watchForRightToLeft(history.data);
       // The replayed history holds the spawn-time banner (window size) and the
-      // latest counters a fresh attach would otherwise never see — parse-only,
+      // latest counters a fresh attach would otherwise never see - parse-only,
       // never the byte estimate: these are replayed bytes, not new output.
       observeContextScreen({
         id: session.id,
@@ -1813,7 +1813,7 @@
       });
 
       // A session with history was already running before this terminal
-      // attached — any handshake happened at its own startup, usually trimmed
+      // attached - any handshake happened at its own startup, usually trimmed
       // out of the replay, so the watcher above never sees it. Report the
       // current scheme to the agents known to listen: their spawn-time
       // COLORFGBG (or a spawn that predates it) may disagree with the palette
@@ -1821,7 +1821,7 @@
       await reportSchemeToSubscribedAgent();
 
       // A session with history to replay was already running before this
-      // terminal attached — it sits at its prompt, not "starting". A
+      // terminal attached - it sits at its prompt, not "starting". A
       // normal-screen session at rest says nothing more after the replay
       // (replayed bytes never pass through markActivity), so left unseeded the
       // status would read "starting" forever and the graceful leave gating on
@@ -1886,7 +1886,7 @@
 
   // The DOM read lives here; the token→slot mapping and the parse-safe color
   // conversion (xterm silently drops formats its parser rejects) are the pure
-  // module's job — lib/terminal-theme, which also documents the app↔agent
+  // module's job - lib/terminal-theme, which also documents the app↔agent
   // theme-sync decision.
   function readXtermTheme() {
     return xtermTheme({ readToken: rootTokenReader() });
@@ -2032,7 +2032,7 @@
     }
   }
 
-  /* Inline remove-from-split action at the end of the bar — transparent until
+  /* Inline remove-from-split action at the end of the bar - transparent until
      hovered, then a soft crit wash (canvas line 276). */
   .remove-pane {
     display: inline-flex;
@@ -2056,7 +2056,7 @@
   }
 
   /* Visual insets live on this pad, off the measured viewport, so they never
-     count toward the fit — it lifts the output off every pane edge (canon:
+     count toward the fit - it lifts the output off every pane edge (canon:
      12px top, 8px right, 8px bottom, 14px left). */
   .terminal-padding {
     position: relative; /* the containing block for the find bar */
@@ -2069,7 +2069,7 @@
 
   /* Full-size measuring frame: fitToPane reads its client size for the cols/rows and
      pins the grid to the end of the content the terminal is actually showing (see
-     `anchorBottom`) — a fullscreen agent's frame and an unscrolled conversation pin the
+     `anchorBottom`) - a fullscreen agent's frame and an unscrolled conversation pin the
      top, a scrolled one pins the bottom. The grid is whole cells and never quite fills
      the frame, so the leftover sits as a sliver of background at the unpinned edge. */
   .terminal-viewport {
@@ -2102,7 +2102,7 @@
     }
 
     /* xterm mounts here at its natural whole-cell size, scaled only while a grid that is
-       momentarily too tall for the pane is being squeezed to fit (see `squeeze`) — from
+       momentarily too tall for the pane is being squeezed to fit (see `squeeze`) - from
        the top, so the squeeze pulls the overflowing bottom up into view rather than
        moving the text you are reading. At rest the scale is exactly 1: text stays crisp
        and clicks map at native cell size. */
@@ -2117,7 +2117,7 @@
      the Nth cell whatever was printed into it. Left alone the browser runs the
      bidi algorithm over the row's text and moves those cells, which is wrong
      twice over. An agent that ordered its own right-to-left text (agents.rs
-     `reorders_bidi`) has it undone, and the reader gets the sentence backwards —
+     `reorders_bidi`) has it undone, and the reader gets the sentence backwards -
      measured: the buffer's `ךותמ` was painted `מתוך`. And for every other agent it
      competes with the overlay, which anchors each run to the columns xterm was
      supposed to have painted. Overriding it makes the grid honest, and leaves
@@ -2127,12 +2127,12 @@
      MDN tells authors not to set `unicode-bidi` themselves, and for documents it
      is right: in prose, directionality is the content's own semantics and belongs
      in `dir`/`<bdo>` markup, which the browser then implements in CSS. This is not
-     prose — and the markup that says what is meant here IS `<bdo>`: "the characters
+     prose - and the markup that says what is meant here IS `<bdo>`: "the characters
      inside are already in the order I want them drawn". The HTML spec's rendering
      rules define that element as `bdo, bdo[dir] { unicode-bidi: isolate-override }`,
      which is the declaration below. xterm generates these rows itself, so wrapping
-     every span in a real `<bdo>` would mean patching its row factory — on the
-     hottest path in the app — to arrive at the same computed style. (The same
+     every span in a real `<bdo>` would mean patching its row factory - on the
+     hottest path in the app - to arrive at the same computed style. (The same
      rendering rules are why a row is an isolate already: `div { unicode-bidi:
      isolate }`. And `.xterm-rows` carries `aria-hidden`, with xterm keeping its own
      accessibility buffer in logical order, so no semantics are being papered over.)
@@ -2141,11 +2141,11 @@
      direction is *detected* and still reorders, or `isolate`, which only stops the
      element influencing its siblings. `direction` is named rather than inherited
      because the override's whole meaning is "in sequence according to `direction`"
-     — the guarantee has to be local to be a guarantee.
+     - the guarantee has to be local to be a guarantee.
 
      Both the row and its spans need it. A block container's override reaches its
      inline-level descendants but NOT those inside another block container, and
-     xterm gives every styled span `display: inline-block` — so each one is its own
+     xterm gives every styled span `display: inline-block` - so each one is its own
      bidi paragraph that the row's override cannot reach into. Measured: with the
      row alone overridden, `ךותמ` still painted as `מתוך`. */
   :global(.xterm-rows > div),
