@@ -317,10 +317,12 @@ export function parseAnsi(text: string) {
 
   for (const match of text.matchAll(ANSI_ESCAPE)) {
     if (match.index > runStart) {
-      segments.push(styledSegment({
-        text: text.slice(runStart, match.index),
-        style
-      }));
+      segments.push(
+        styledSegment({
+          text: text.slice(runStart, match.index),
+          style
+        })
+      );
     }
 
     const sgrMatch = CSI_SGR.exec(match[0]);
@@ -335,10 +337,12 @@ export function parseAnsi(text: string) {
   }
 
   if (runStart < text.length) {
-    segments.push(styledSegment({
-      text: text.slice(runStart),
-      style
-    }));
+    segments.push(
+      styledSegment({
+        text: text.slice(runStart),
+        style
+      })
+    );
   }
 
   if (segments.length === 0) {

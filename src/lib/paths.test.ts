@@ -179,24 +179,32 @@ describe("relativeToRoot", () => {
 
 describe("isSegmentPrefix", () => {
   it("matches whole segments only", () => {
-    expect(isSegmentPrefix({
-      prefix: ["apps", "web"],
-      segments: ["apps", "web", "src"]
-    })).toBe(true);
-    expect(isSegmentPrefix({
-      prefix: ["apps", "web"],
-      segments: ["apps", "web-admin", "src"]
-    })).toBe(false);
+    expect(
+      isSegmentPrefix({
+        prefix: ["apps", "web"],
+        segments: ["apps", "web", "src"]
+      })
+    ).toBe(true);
+    expect(
+      isSegmentPrefix({
+        prefix: ["apps", "web"],
+        segments: ["apps", "web-admin", "src"]
+      })
+    ).toBe(false);
   });
 
   it("treats an empty prefix as enclosing everything, a longer one as nothing", () => {
-    expect(isSegmentPrefix({
-      prefix: [],
-      segments: ["a"]
-    })).toBe(true);
-    expect(isSegmentPrefix({
-      prefix: ["a", "b"],
-      segments: ["a"]
-    })).toBe(false);
+    expect(
+      isSegmentPrefix({
+        prefix: [],
+        segments: ["a"]
+      })
+    ).toBe(true);
+    expect(
+      isSegmentPrefix({
+        prefix: ["a", "b"],
+        segments: ["a"]
+      })
+    ).toBe(false);
   });
 });

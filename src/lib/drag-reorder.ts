@@ -422,6 +422,7 @@ export function beginReorder(options: BeginReorderOptions) {
       style.pointerEvents = "none";
       style.cursor = GRABBING_CURSOR;
       style.borderRadius = LIFTED_RADIUS;
+
       if (!paintsOwnSurface(elItem)) {
         style.background = LIFT_BACKGROUND;
       }
