@@ -9,7 +9,7 @@ import { formatAge, formatCount } from "@/lib/format";
 import { baseName, normalizePath } from "@/lib/paths";
 import type { WatchStatus } from "@/lib/types";
 
-export interface FeedWatchSummary {
+interface FeedWatchSummary {
   /** The headline: what state the feed is in. */
   headline: string;
   /** The evidence behind it - what is watched, since when, what was hidden. */
@@ -24,31 +24,31 @@ export function watchSummary({ status, project, now }: {
   status: WatchStatus | null;
   project: string;
   now: number;
-}): FeedWatchSummary {
+}) {
   const name = baseName(project) || project;
   if (status === null) {
     return {
-      headline: "Waiting for edits.",
+      headline: "Waiting for edits",
       detail: `Checking what ${name} is watching…`,
       stalled: false
-    };
+    } satisfies FeedWatchSummary;
   }
 
   if (status.root === null) {
     return {
-      headline: "Not watching this project.",
-      detail: `No file watch is armed on ${name}, so nothing can reach the feed.`,
+      headline: "Not watching this project",
+      detail: `No file watch is armed on ${name}, so nothing can reach the feed`,
       stalled: true
-    };
+    } satisfies FeedWatchSummary;
   }
 
-  const watchesThisProject = normalizePath(status.root) === normalizePath(project);
-  if (!watchesThisProject) {
+  const isWatchingThisProject = normalizePath(status.root) === normalizePath(project);
+  if (!isWatchingThisProject) {
     return {
-      headline: "Watching a different project.",
-      detail: `The watch is armed on ${baseName(status.root) || status.root}, not ${name}.`,
+      headline: "Watching a different project",
+      detail: `The watch is armed on ${baseName(status.root) || status.root}, not ${name}`,
       stalled: true
-    };
+    } satisfies FeedWatchSummary;
   }
 
   const since = status.armedAt === null
@@ -58,11 +58,11 @@ export function watchSummary({ status, project, now }: {
       now
     })}`;
   const hidden = status.ignored > 0
-    ? ` ${formatCount(status.ignored)} hidden by this project's ignore rules.`
+    ? `. ${formatCount(status.ignored)} hidden by this project's ignore rules`
     : "";
   return {
-    headline: "No changes yet.",
-    detail: `Watching ${name} ${since} - the feed starts from the moment a project opens, and shows nothing from before it.${hidden}`,
+    headline: "No changes yet",
+    detail: `Watching ${name} ${since} - the feed starts from the moment a project opens, and shows nothing from before it${hidden}`,
     stalled: false
-  };
+  } satisfies FeedWatchSummary;
 }
