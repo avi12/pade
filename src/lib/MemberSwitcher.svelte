@@ -27,6 +27,9 @@
     root: string;
   } = $props();
 
+  const MENU_ID = "member-menu";
+  const MENU_ANCHOR = "--member-anchor";
+
   const members = $derived(workspaceMembers());
   const entries = $derived(
     members.map(member => {
@@ -38,39 +41,39 @@
           member
         }),
         branch: branchOfMember(path),
-        repository: member.repository,
-        current: path === activeMemberIn(root)
-      };
+        icon: member.repository ? "branch" : "folder",
+        isCurrent: path === activeMemberIn(root)
+      } as const;
     })
   );
-  const active = $derived(entries.find(entry => entry.current));
+  const active = $derived(entries.find(entry => entry.isCurrent));
 </script>
 
 {#if hasSeveralMembers(members)}
   <span class="menu-host">
     <button
-      style:anchor-name="--member-anchor"
+      style:anchor-name={MENU_ANCHOR}
       class="member-button menu-trigger"
       data-tooltip="Part of the workspace new agents and the editor open in"
-      popovertarget="member-menu"
+      popovertarget={MENU_ID}
     >
-      <Icon name={active?.repository ? "branch" : "folder"} size={13} />
+      <Icon name={active?.icon ?? "folder"} size={13} />
       <span class="member-name">{active?.label ?? ""}</span>
       <span class="caret">▾</span>
     </button>
-    <ul id="member-menu" style:position-anchor="--member-anchor" class="member-list popover-menu" popover>
+    <ul id={MENU_ID} style:position-anchor={MENU_ANCHOR} class="member-list popover-menu" popover>
       <li class="menu-separator">Open agents and editors in</li>
       {#each entries as entry (entry.path)}
         <li>
           <button
             class="menu-item member-row"
-            class:current={entry.current}
+            class:current={entry.isCurrent}
             onclick={() => selectMember(entry.path)}
-            popovertarget="member-menu"
+            popovertarget={MENU_ID}
             popovertargetaction="hide"
           >
             <span class="member">
-              <Icon name={entry.repository ? "branch" : "folder"} size={14} />{entry.label}
+              <Icon name={entry.icon} size={14} />{entry.label}
             </span>
             {#if entry.branch}
               <span class="member-branch">{entry.branch}</span>

@@ -10,38 +10,41 @@
   // - the tools all block iframes), never bouncing to the external browser.
   const { agent }: { agent: string } = $props();
 
+  const MENU_ID = "design-menu";
+  const MENU_ANCHOR = "--design-anchor";
+
   let tools = $state<DesignTool[]>([]);
 
   // Re-rank whenever the active agent changes; ignore a stale in-flight response.
   $effect(() => {
     const active = agent;
-    let cancelled = false;
+    let isCancelled = false;
     async function loadTools() {
-      const list = await design.tools(active);
-      if (!cancelled) {
-        tools = list;
+      const ranked = await design.tools(active);
+      if (!isCancelled) {
+        tools = ranked;
       }
     }
     loadTools();
     return () => {
-      cancelled = true;
+      isCancelled = true;
     };
   });
 </script>
 
-{#if tools.length}
+{#if tools.length > 0}
   <span class="menu-host">
-    <button style:anchor-name="--design-anchor" class="design-button menu-trigger" popovertarget="design-menu">
+    <button style:anchor-name={MENU_ANCHOR} class="design-button menu-trigger" popovertarget={MENU_ID}>
       <Icon name="sparkles" /> Design<span class="caret">▾</span>
     </button>
-    <ul id="design-menu" style:position-anchor="--design-anchor" class="design-list popover-menu" popover>
+    <ul id={MENU_ID} style:position-anchor={MENU_ANCHOR} class="design-list popover-menu" popover>
       <li class="menu-separator">Open a design-to-code tool</li>
       {#each tools as tool (tool.id)}
         <li>
           <button
             class="menu-item"
-            onclick={() => design.open(tool.id)}
-            popovertarget="design-menu"
+            onclick={async () => await design.open(tool.id)}
+            popovertarget={MENU_ID}
             popovertargetaction="hide"
           >
             <span class="tool">

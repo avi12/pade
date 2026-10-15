@@ -8,7 +8,7 @@
     label?: string;
   } = $props();
 
-  const TEXT: Record<SessionStatus, string> = {
+  const STATUS_TEXT: Record<SessionStatus, string> = {
     starting: "Starting…",
     working: "Working",
     ready: "Ready - waiting for you",
@@ -22,7 +22,7 @@
   {#if label}
     <span class="label">{label}</span>
   {/if}
-  <span class="state">{TEXT[status]}</span>
+  <span class="state">{STATUS_TEXT[status]}</span>
 </output>
 
 <style>
