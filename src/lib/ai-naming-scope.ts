@@ -12,6 +12,7 @@
 // the inherited value, which would silently freeze this project at whatever the
 // global happened to be that day.
 
+import { withRecordEntry } from "@/lib/record-entry";
 import type { Prefs } from "@/lib/types";
 
 /** Naming is opt-in - it spends agent turns, so nothing names until asked. */
@@ -22,7 +23,7 @@ export function projectNamingChoice({ prefs, project }: {
   prefs: Prefs;
   project: string;
 }) {
-  return prefs.aiSessionNamingProjects?.[project] ?? undefined;
+  return prefs.aiSessionNamingProjects?.[project];
 }
 
 /** The global default every project falls back to. */
@@ -52,12 +53,9 @@ export function withProjectNamingChoice({ prefs, project, choice }: {
   project: string;
   choice: boolean | undefined;
 }) {
-  const next = { ...prefs.aiSessionNamingProjects };
-  if (choice === undefined) {
-    delete next[project];
-    return next;
-  }
-
-  next[project] = choice;
-  return next;
+  return withRecordEntry({
+    record: prefs.aiSessionNamingProjects,
+    key: project,
+    value: choice
+  });
 }
