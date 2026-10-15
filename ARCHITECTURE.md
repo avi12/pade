@@ -818,7 +818,7 @@ The folders talk across a few seams only: `terminal::pty` spawns what the
 ### Load-bearing IPC contracts (Hyrum's Law)
 
 Beyond the zod schemas, the frontend depends on these *observable behaviors* of
-the Rust commands. They are contracts — a refactor that changes one silently
+the Rust commands. They are contracts - a refactor that changes one silently
 breaks a consumer with no type error:
 
 - **The alternate-screen wire constant is duplicated across the boundary.**
@@ -832,19 +832,19 @@ breaks a consumer with no type error:
   `history.data` is the byte-trimmed but seq-complete concatenation of chunks
   `1..=seq`. `Terminal.svelte`'s splice (`chunk.seq > history.seq`) relies on
   all four.
-- **The emitted PTY `data` is never transformed** — escape codes and all; only
+- **The emitted PTY `data` is never transformed** - escape codes and all; only
   the transcript is ANSI-stripped. xterm reconstructs state from the raw
   stream.
 - **Repo-scoped VCS commands reject outside a git repo** (never resolve with an
   empty array). That rejection is `VcsPanel`'s only repo-presence signal; a
   "lenient" `Ok(vec![])` would render a clean-repo view in a non-repo. The
-  `vcs::clone` commands are the deliberate exception — they run from the picker
+  `vcs::clone` commands are the deliberate exception - they run from the picker
   before any repo exists.
-- **`ide_suggest`'s array order is the contract** — consumers treat `ides[0]`
+- **`ide_suggest`'s array order is the contract** - consumers treat `ides[0]`
   as *the* editor for reveal/open actions. An explicit per-project pick
-  (`ide_choose_editor`) always leads that order — and is flagged `chosen` in
+  (`ide_choose_editor`) always leads that order - and is flagged `chosen` in
   the payload, so the UI badges it as the user's pick rather than the
-  auto-detected best fit — so a choice made on one surface wins on every
+  auto-detected best fit - so a choice made on one surface wins on every
   other.
 - **`vcs_remote_url` returns a host root**; `repository-links.ts` is the one
   frontend authority that maps that root to provider-specific branch and commit
@@ -854,34 +854,34 @@ breaks a consumer with no type error:
   native (`\` on Windows). The frontend's `normalizePath` (separators + case +
   trailing) is therefore the *entire* recents/dedup contract, and helpers
   split on `[\\/]`. The picker guesses the display separator from the user
-  agent — a latent coupling if PADE ships beyond Windows.
+  agent - a latent coupling if PADE ships beyond Windows.
 - **`ChangeEvent.id` is globally unique by construction** (timestamp +
-  process-global counter) and is used as a Svelte keyed-each and cache key —
+  process-global counter) and is used as a Svelte keyed-each and cache key -
   repeated edits to the same path must keep distinct ids.
 - Error-string *wording* is **not** load-bearing: the frontend never matches
   on message content, so Rust `Err(...)` strings may be reworded freely.
 - The context-percent regexes are couplings to the **agent CLI's** observable
-  output (documented at their definitions) — a deliberate, accepted Hyrum
+  output (documented at their definitions) - a deliberate, accepted Hyrum
   dependency, not a stable PADE contract.
 
 ### Windows 11 modern context menu (`src-tauri/contextmenu-handler/`)
 
 Windows 11's first-shown right-click menu only loads a context-menu handler that
 has **package identity**; a plain registry verb (the legacy menu) never reaches it.
-So the modern "Open in PADE" is a second, separate **workspace-member crate** — an
+So the modern "Open in PADE" is a second, separate **workspace-member crate** - an
 in-process COM server (`cdylib` → `contextmenu_handler.dll`) implementing
-`IExplorerCommand` — registered through a **sparse, external-location MSIX
+`IExplorerCommand` - registered through a **sparse, external-location MSIX
 manifest** (`AppxManifest.xml`). Deployment model: dev-mode, **unsigned**,
 per-user; the manifest points its external location at the folder where `pade.exe`
 already lives, so the DLL sits next to the exe (shared `target/` dir). The crate is
-**not** a dependency of `pade` — build it explicitly with
+**not** a dependency of `pade` - build it explicitly with
 `cargo build -p contextmenu-handler`. Full runbook:
 `docs/handoff-windows11-context-menu.md`.
 
 The CLSID `{C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC}` is authoritative in the handler
 crate's `lib.rs` and mirrored (braceless) in `AppxManifest.xml`.
 
-**Toggling without an Explorer restart** — Explorer caches a packaged handler once
+**Toggling without an Explorer restart** - Explorer caches a packaged handler once
 loaded, so *unregistering* the package alone leaves the cached menu entry showing
 until sign-in. Like PowerToys' File Locksmith / PowerRename, PADE **registers the
 package once and never unregisters it on toggle**; the handler instead **hides
@@ -915,16 +915,16 @@ surfaced by the picker (the legacy menu is still applied).
 
 `pnpm test` runs both sides: `test:js` (vitest, colocated `*.test.ts` next to
 each pure module) and `test:rust` (`cargo test`, colocated `#[cfg(test)]`
-modules). The pure logic extracted from components —
+modules). The pure logic extracted from components -
 `tab-fit`, `diff`, `paths`, `colors`, `format`, `reorder`, `usage-groups`, `validate`,
 `highlight`, `errors`, the context store's percent parsing,
 `auto-name`'s signal detection, `workspace-relocate`'s path remapping, `handoff`'s
 slug, `tab-shortcuts`'s chord + tab-number matching, `pane-nav`'s pane cycling +
 `pane-shortcuts`'s chord matching, `choice-prompt`'s
 multiple-choice detection, `ansi` stripping, `task-detect`'s invocation matching,
-`change-groups`' project bucketing, `file-type`'s badge mapping — is where
+`change-groups`' project bucketing, `file-type`'s badge mapping - is where
 new tests belong first: they run in milliseconds and need no window.
 
 Above the unit layer, `pnpm test:e2e` (`scripts/smoke.mjs`) is a focused
-boot-and-render gate over the real app via the WebView2 CDP port — see the
+boot-and-render gate over the real app via the WebView2 CDP port - see the
 script's header for its deliberate scope limits and current scenarios.

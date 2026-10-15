@@ -1,13 +1,13 @@
 [package]
 name = "pade"
 version = "0.0.1"
-description = "PADE — Power ADE (Agentic Development Environment)"
+description = "PADE -Power ADE (Agentic Development Environment)"
 authors = ["Avi"]
 edition = "2021"
 license = "Apache-2.0"
 
 # `pade` is also the workspace root. `contextmenu-handler` is a separate cdylib
-# (the Windows 11 modern-menu COM server) — NOT a dependency of `pade`, so a normal
+# (the Windows 11 modern-menu COM server) -NOT a dependency of `pade`, so a normal
 # `cargo build`/`tauri dev` skips it; build it explicitly with
 # `cargo build -p contextmenu-handler`. Being a member means it shares this
 # `target/` dir, so its DLL lands next to `pade.exe` (where the sparse manifest
@@ -41,7 +41,7 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 # `image` crate stays out.
 png = "0.18"
 # Anonymous Copilot (copilot.microsoft.com) session namer: a guest chat over a
-# TLS WebSocket, authorized by the cookie POST /c/api/start mints — no account,
+# TLS WebSocket, authorized by the cookie POST /c/api/start mints -no account,
 # no bundled SDK. `tungstenite` is the minimal blocking WS client; `ureq` the
 # minimal blocking HTTPS client for the one bootstrap POST (both on the same
 # rustls stack, no OpenSSL); `sha2` solves the hashcash proof-of-work; `uuid`
@@ -69,7 +69,7 @@ lto = true
 opt-level = 3
 strip = true
 
-# Strict lints — the Rust equivalent of the frontend's oxlint/eslint layers.
+# Strict lints -the Rust equivalent of the frontend's oxlint/eslint layers.
 # `cargo clippy -- -D warnings` (see the lint:rust script) turns these into
 # errors in CI/local, matching oxlint's correctness=error posture.
 [lints.rust]
@@ -83,7 +83,7 @@ pedantic = { level = "warn", priority = -1 }
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
-# Tauri #[command] fns must take owned args (String) and State by value — the
+# Tauri #[command] fns must take owned args (String) and State by value -the
 # framework deserializes into them, so pass-by-value is required here.
 needless_pass_by_value = "allow"
 # Correctness we want as hard errors even without -D warnings:
