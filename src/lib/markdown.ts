@@ -38,6 +38,7 @@ function escapeHtml(text: string) {
 /** URL schemes that carry executable content - never allowed in a rendered
  *  link or image, so a crafted document can't smuggle a script in via `href`. */
 const DANGEROUS_SCHEME = /^\s*(javascript|vbscript|data|file):/i;
+const INERT_URL = "#";
 
 /** A link/image URL made safe for an attribute: a dangerous scheme collapses to
  *  `#`, and the survivor is HTML-escaped. `data:` is refused for links (only the
@@ -45,7 +46,7 @@ const DANGEROUS_SCHEME = /^\s*(javascript|vbscript|data|file):/i;
 function safeUrl(url: string) {
   const trimmed = url.trim();
   if (DANGEROUS_SCHEME.test(trimmed)) {
-    return "#";
+    return INERT_URL;
   }
 
   return escapeHtml(trimmed);
@@ -76,67 +77,69 @@ function formatPlain(text: string) {
 
 /** A link/image span `[label](url)` or `![alt](url)`, tolerating a trailing
  *  `"title"` inside the parens (captured, then dropped). */
+const IMAGE_MARKER = "!";
+const BACKTICK = "`";
 const LINK = /(!?)\[([^\]]*)\]\(\s*([^)\s]*)(?:\s+"[^"]*")?\s*\)/g;
 
 /** Inline markup for a run of text that sits *outside* any code span: link and
  *  image spans become anchors/images with scheme-checked URLs, and the text
  *  between them is emphasis-formatted. */
 function formatText(text: string) {
-  let out = "";
-  let last = 0;
+  let html = "";
+  let previousEnd = 0;
   LINK.lastIndex = 0;
   for (let match = LINK.exec(text); match !== null; match = LINK.exec(text)) {
-    out += formatPlain(text.slice(last, match.index));
-    const isImage = match[1] === "!";
+    html += formatPlain(text.slice(previousEnd, match.index));
+    const isImage = match[1] === IMAGE_MARKER;
     const label = match[2];
     const url = safeUrl(match[3]);
     if (isImage) {
-      out += `<img src="${url}" alt="${escapeHtml(label)}">`;
+      html += `<img src="${url}" alt="${escapeHtml(label)}">`;
     } else {
-      out += `<a href="${url}">${formatPlain(label)}</a>`;
+      html += `<a href="${url}">${formatPlain(label)}</a>`;
     }
 
-    last = LINK.lastIndex;
+    previousEnd = LINK.lastIndex;
   }
 
-  out += formatPlain(text.slice(last));
-  return out;
+  html += formatPlain(text.slice(previousEnd));
+  return html;
 }
 
 /** Full inline rendering: split off code spans first - their content is only
  *  escaped, never emphasis- or link-formatted - then format the rest. A run of
  *  N backticks opens a span that the next run of exactly N backticks closes. */
 function parseInline(text: string) {
-  let out = "";
+  let html = "";
   let i = 0;
   while (i < text.length) {
-    if (text[i] !== "`") {
-      const nextTick = text.indexOf("`", i);
-      const end = nextTick === -1 ? text.length : nextTick;
-      out += formatText(text.slice(i, end));
-      i = end;
+    if (text[i] !== BACKTICK) {
+      const iNextTick = text.indexOf(BACKTICK, i);
+      const iEnd = iNextTick === -1 ? text.length : iNextTick;
+      html += formatText(text.slice(i, iEnd));
+      i = iEnd;
       continue;
     }
 
     let fenceLength = 0;
-    while (text[i + fenceLength] === "`") {
+    while (text[i + fenceLength] === BACKTICK) {
       fenceLength += 1;
     }
 
-    const fence = "`".repeat(fenceLength);
-    const closeAt = text.indexOf(fence, i + fenceLength);
-    if (closeAt === -1) {
-      out += formatText(fence);
+    const fence = BACKTICK.repeat(fenceLength);
+    const iClose = text.indexOf(fence, i + fenceLength);
+    if (iClose === -1) {
+      html += formatText(fence);
       i += fenceLength;
       continue;
     }
 
-    const code = text.slice(i + fenceLength, closeAt).trim();
-    out += `<code>${escapeHtml(code)}</code>`;
-    i = closeAt + fenceLength;
+    const code = text.slice(i + fenceLength, iClose).trim();
+    html += `<code>${escapeHtml(code)}</code>`;
+    i = iClose + fenceLength;
   }
 
-  return out;
+  return html;
 }
 
 const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
@@ -145,6 +148,14 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const BLOCKQUOTE = /^ {0,3}>\s?(.*)$/;
 const LIST_ITEM = /^( *)([-*+]|\d+[.)])\s+(.*)$/;
 const TABLE_DELIMITER = /^ *\|?[ :]*-+[ :]*(\|[ :]*-+[ :]*)*\|? *$/;
+const PIPE = "|";
+const LEADING_PIPE = /^\|/;
+const TRAILING_PIPE = /\|$/;
+const DIGIT = /\d/;
+/** A fence closes on a run of at least three of its own marker character. */
+const MINIMUM_FENCE_LENGTH = 3;
+/** The single space a list marker needs before its content. */
+const MARKER_GAP = 1;
 
 /** A cursor over the source lines, advanced by each block reader. A tiny class
  *  keeps the shared index out of every reader's signature. */
@@ -179,17 +190,18 @@ class Cursor {
 /** Split a GFM table row into its cell texts, dropping the optional leading and
  *  trailing pipes and honoring `\|` as a literal pipe inside a cell. */
 function tableCells(row: string) {
-  const trimmed = row.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const trimmed = row.trim().replace(LEADING_PIPE, "").replace(TRAILING_PIPE, "");
   const cells: string[] = [];
   let current = "";
   for (let i = 0; i < trimmed.length; i += 1) {
-    if (trimmed[i] === "\\" && trimmed[i + 1] === "|") {
-      current += "|";
+    const isEscapedPipe = trimmed[i] === "\\" && trimmed[i + 1] === PIPE;
+    if (isEscapedPipe) {
+      current += PIPE;
       i += 1;
       continue;
     }
 
-    if (trimmed[i] === "|") {
+    if (trimmed[i] === PIPE) {
       cells.push(current.trim());
       current = "";
       continue;
@@ -207,7 +219,7 @@ function renderTable(cursor: Cursor) {
   cursor.skip(); // the delimiter row
   const header = headerCells.map(cell => `<th>${parseInline(cell)}</th>`).join("");
   let body = "";
-  while (!cursor.done && cursor.peek().includes("|") && cursor.peek().trim() !== "") {
+  while (!cursor.done && cursor.peek().includes(PIPE) && cursor.peek().trim() !== "") {
     const cells = tableCells(cursor.take());
     body += `<tr>${cells.map(cell => `<td>${parseInline(cell)}</td>`).join("")}</tr>`;
   }
@@ -215,13 +227,16 @@ function renderTable(cursor: Cursor) {
   return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderFence(cursor: Cursor, fence: string) {
+function renderFence({ cursor, fence }: {
+  cursor: Cursor;
+  fence: string;
+}) {
   cursor.skip(); // opening fence
-  const marker = fence[0];
+  const closingFence = fence[0].repeat(MINIMUM_FENCE_LENGTH);
   const body: string[] = [];
   while (!cursor.done) {
     const line = cursor.peek();
-    if (line.trimStart().startsWith(marker.repeat(3))) {
+    if (line.trimStart().startsWith(closingFence)) {
       cursor.skip();
       break;
     }
@@ -243,21 +258,28 @@ function renderBlockquote(cursor: Cursor) {
 
 /** The whitespace width a nested block must clear to belong to the current list
  *  item: the item's own indent plus its marker and the space after it. */
-function itemContentIndent(indent: string, marker: string) {
-  return indent.length + marker.length + 1;
+function itemContentIndent({ indent, marker }: {
+  indent: string;
+  marker: string;
+}) {
+  return indent.length + marker.length + MARKER_GAP;
 }
 
 /** The lines belonging to one list item beyond its first: continuation and
  *  nested-block lines dedented to the item's content column, stopping at a blank
  *  line or the next same-or-shallower list marker. Advances `cursor` past them. */
-function collectItemLines(cursor: Cursor, firstLine: string, contentIndent: number) {
+function collectItemLines({ cursor, firstLine, contentIndent }: {
+  cursor: Cursor;
+  firstLine: string;
+  contentIndent: number;
+}) {
   const itemLines: string[] = [firstLine];
   cursor.skip();
   while (!cursor.done) {
     const line = cursor.peek();
-    const startsNextItem =
+    const isNextItem =
       LIST_ITEM.test(line) && (line.length - line.trimStart().length) < contentIndent;
-    if (line.trim() === "" || startsNextItem) {
+    if (line.trim() === "" || isNextItem) {
       break;
     }
 
@@ -274,7 +296,7 @@ function renderList(cursor: Cursor) {
     return "";
   }
 
-  const ordered = /\d/.test(opener[2]);
+  const isOrdered = DIGIT.test(opener[2]);
   const items: string[] = [];
   while (!cursor.done) {
     const match = LIST_ITEM.exec(cursor.peek());
@@ -282,13 +304,19 @@ function renderList(cursor: Cursor) {
       break;
     }
 
-    const contentIndent = itemContentIndent(match[1], match[2]);
-    const itemLines = collectItemLines(cursor, match[3], contentIndent);
+    const itemLines = collectItemLines({
+      cursor,
+      firstLine: match[3],
+      contentIndent: itemContentIndent({
+        indent: match[1],
+        marker: match[2]
+      })
+    });
     const body = itemLines.length > 1 ? renderBlocks(itemLines) : parseInline(itemLines[0]);
     items.push(`<li>${body}</li>`);
   }
 
-  const tag = ordered ? "ol" : "ul";
+  const tag = isOrdered ? "ol" : "ul";
   return `<${tag}>${items.join("")}</${tag}>`;
 }
 
@@ -296,7 +324,7 @@ function renderParagraph(cursor: Cursor) {
   const lines: string[] = [];
   while (!cursor.done) {
     const line = cursor.peek();
-    const endsParagraph =
+    const isParagraphEnd =
       line.trim() === "" ||
       HEADING.test(line) ||
       HORIZONTAL_RULE.test(line) ||
@@ -304,7 +332,7 @@ function renderParagraph(cursor: Cursor) {
       BLOCKQUOTE.test(line) ||
       LIST_ITEM.test(line) ||
       startsTable(cursor);
-    if (endsParagraph) {
+    if (isParagraphEnd) {
       break;
     }
 
@@ -320,7 +348,7 @@ function startsTable(cursor: Cursor) {
   const header = cursor.peek();
   const delimiter = cursor.ahead(1);
   return (
-    header.includes("|") &&
+    header.includes(PIPE) &&
     delimiter !== undefined &&
     TABLE_DELIMITER.test(delimiter) &&
     delimiter.includes("-")
@@ -339,7 +367,10 @@ function renderBlocks(lines: string[]) {
 
     const fence = FENCE.exec(line);
     if (fence) {
-      html += renderFence(cursor, fence[1]);
+      html += renderFence({
+        cursor,
+        fence: fence[1]
+      });
       continue;
     }
 
@@ -464,6 +495,30 @@ const MARKDOWN_STYLE = `
   th { font-weight: 600; background: var(--md-code-surface); }
 `;
 
+/** The Preview iframe's CSP for rendered markdown: inline styles and `data:`
+ *  images and fonts only. */
+const MARKDOWN_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:";
+
+/** The CSP for untrusted repository HTML: no network, script, frame, form, or
+ *  object load at all. */
+const SANDBOXED_HTML_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'";
+
+/** A self-contained HTML document for an iframe's `srcdoc`, stamped with
+ *  `contentSecurityPolicy` before anything else in its head. */
+function htmlDocument({ contentSecurityPolicy, head = "", body }: {
+  contentSecurityPolicy: string;
+  head?: string;
+  body: string;
+}) {
+  return (
+    "<!doctype html><html><head><meta charset=\"utf-8\">" +
+    `<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">` +
+    `${head}</head><body>${body}</body></html>`
+  );
+}
+
 /** Wrap a rendered markdown fragment in a self-contained HTML document for the
  *  Preview iframe's `srcdoc`. Everything is inlined (the strict CSP forbids
  *  external refs), and the CSP `<meta>` - the belt to the sandbox's braces -
@@ -471,25 +526,19 @@ const MARKDOWN_STYLE = `
  *  runs and no external image or font loads (PowerToys' locked-down WebView2,
  *  in a `<meta>`). */
 export function markdownDocument(source: string) {
-  const body = renderMarkdown(source);
-  const contentSecurityPolicy =
-    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:";
-  return (
-    "<!doctype html><html><head><meta charset=\"utf-8\">" +
-    `<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">` +
-    `<style>${MARKDOWN_STYLE}</style></head><body>${body}</body></html>`
-  );
+  return htmlDocument({
+    contentSecurityPolicy: MARKDOWN_CONTENT_SECURITY_POLICY,
+    head: `<style>${MARKDOWN_STYLE}</style>`,
+    body: renderMarkdown(source)
+  });
 }
 
 /** Wrap untrusted repository HTML with a policy that prevents every network,
  * script, frame, form, and object load. The iframe sandbox separately prevents
  * top-level navigation and access to the application origin. */
 export function sandboxedHtmlDocument(source: string) {
-  const contentSecurityPolicy =
-    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'";
-  return (
-    "<!doctype html><html><head><meta charset=\"utf-8\">" +
-    `<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}">` +
-    `</head><body>${source}</body></html>`
-  );
+  return htmlDocument({
+    contentSecurityPolicy: SANDBOXED_HTML_CONTENT_SECURITY_POLICY,
+    body: source
+  });
 }
