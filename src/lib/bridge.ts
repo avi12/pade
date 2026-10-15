@@ -725,6 +725,12 @@ export const workspace = {
     newName: string;
     root?: string;
   }) => call("workspace_rename", z.string(), { ...args }),
+  /** Rename any workspace's folder where it stands, carrying every agent's
+   *  memory of it and PADE's settings along. Returns the new path. */
+  renameFolder: (args: {
+    from: string;
+    newName: string;
+  }) => call("workspace_rename_folder", z.string(), { ...args }),
   /** Save a temp workspace by copying its files into a fresh saved project
    *  (skipping dependency dirs). Returns the new project dir plus the
    *  dependency-install command to run there (`null` when nothing to reinstall).

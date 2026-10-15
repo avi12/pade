@@ -111,6 +111,33 @@ fn window_watch(state: &WatcherState, label: &str) -> Option<Arc<WindowWatch>> {
     Some(Arc::clone(windows.entry(label.to_string()).or_default()))
 }
 
+/// Let go of every window's Change Feed and git-state watch on `folder` or
+/// inside it. On Windows a recursive watch holds the folder open, so it must go
+/// before the folder can be renamed; the feed re-arms on the new path the next
+/// time its window calls `watch_start`.
+pub fn release_watches_under(app: &AppHandle, folder: &Path) {
+    let Ok(folder) = std::fs::canonicalize(folder) else {
+        return;
+    };
+    let state = app.state::<WatcherState>();
+    let watches: Vec<Arc<WindowWatch>> = match state.windows.lock() {
+        Ok(windows) => windows.values().cloned().collect(),
+        Err(_) => return,
+    };
+    for watch in watches {
+        let is_inside = canonical_watch_root(&watch).is_some_and(|root| root.starts_with(&folder));
+        if !is_inside {
+            continue;
+        }
+        if let Ok(mut watcher) = watch.watcher.lock() {
+            *watcher = None;
+        }
+        if let Ok(mut git_state) = watch.git_state.lock() {
+            *git_state = None;
+        }
+    }
+}
+
 /// The canonical filesystem target this window's active watcher was armed on.
 /// Cloned under the watcher lock so preview I/O never holds that lock.
 fn canonical_watch_root(watch: &WindowWatch) -> Option<PathBuf> {

@@ -816,27 +816,59 @@ pub async fn workspace_temp() -> Result<String, String> {
     Ok(path)
 }
 
-/// Replace a path across recent + owned lists (used when a workspace moves). The
-/// display label and last-access time, if any, follow the path to its new key.
+/// The frontend-owned preferences kept per project, keyed by its path.
+const PROJECT_KEYED_PREFERENCES: [&str; 2] = ["agentModelProjects", "aiSessionNamingProjects"];
+
+/// Re-point every setting that names a project by path - the lists, and each
+/// per-project map's key - from the moved folder `from` (or a folder inside it)
+/// to where it now lives under `to`.
 fn retarget(settings: &mut Settings, from: &str, to: &str) {
     for list in [
         &mut settings.recent_projects,
         &mut settings.owned_workspaces,
+        &mut settings.pinned_projects,
     ] {
         for entry in list.iter_mut() {
-            if entry == from {
-                *entry = to.to_string();
+            if let Some(moved) = crate::refs::moved_path(entry, from, to) {
+                *entry = moved;
             }
         }
     }
-    if let Some(label) = settings.labels.remove(from) {
-        settings.labels.insert(to.to_string(), label);
+    rekey_moved(&mut settings.labels, from, to);
+    rekey_moved(&mut settings.workspace_last_used, from, to);
+    rekey_moved(&mut settings.project_agents, from, to);
+    rekey_moved(&mut settings.prefs.ide_project_choices, from, to);
+    for preference in PROJECT_KEYED_PREFERENCES {
+        let Some(serde_json::Value::Object(projects)) =
+            settings.prefs.passthrough.get_mut(preference)
+        else {
+            continue;
+        };
+        for (key, moved) in moved_keys(projects.keys(), from, to) {
+            if let Some(value) = projects.remove(&key) {
+                projects.insert(moved, value);
+            }
+        }
     }
-    if let Some(last_used) = settings.workspace_last_used.remove(from) {
-        settings
-            .workspace_last_used
-            .insert(to.to_string(), last_used);
+}
+
+/// `map` with every key under the moved folder re-keyed to its new path.
+fn rekey_moved<V>(map: &mut BTreeMap<String, V>, from: &str, to: &str) {
+    for (key, moved) in moved_keys(map.keys(), from, to) {
+        if let Some(value) = map.remove(&key) {
+            map.insert(moved, value);
+        }
     }
+}
+
+/// Each of `keys` under the moved folder, paired with its new path.
+fn moved_keys<'a>(
+    keys: impl Iterator<Item = &'a String>,
+    from: &str,
+    to: &str,
+) -> Vec<(String, String)> {
+    keys.filter_map(|key| Some((key.clone(), crate::refs::moved_path(key, from, to)?)))
+        .collect()
 }
 
 /// Who names a workspace — which decides both how the name is cleaned and whether
@@ -908,7 +940,11 @@ pub fn workspace_set_label(
 /// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
 /// directory — no longer "temp" — but stays ADE-owned so it's still deletable.
 #[tauri::command]
-pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, String> {
+pub async fn workspace_move(
+    app: AppHandle,
+    from: String,
+    dest_dir: String,
+) -> Result<String, String> {
     let settings = load();
     if !is_ade_owned(&settings, &from) {
         return Err("only ADE-created workspaces can be moved".into());
@@ -918,14 +954,81 @@ pub async fn workspace_move(from: String, dest_dir: String) -> Result<String, St
         .ok_or("bad source path")?
         .to_owned();
     let destination = Path::new(&dest_dir).join(name);
-    leave_if_inside(Path::new(&from));
-    rename_patiently(Path::new(&from), &destination).map_err(|e| e.to_string())?;
+    relocate_folder(&app, &from, &destination, MovedLabel::Keep).await
+}
+
+/// Rename the open workspace's folder where it stands - any project, not only
+/// one PADE made - carrying every agent's memory of it and PADE's own settings
+/// along. The frontend first stops the sessions working inside it: Windows
+/// refuses to rename a folder a running process stands in.
+#[tauri::command]
+pub async fn workspace_rename_folder(
+    app: AppHandle,
+    from: String,
+    new_name: String,
+) -> Result<String, String> {
+    let parent = Path::new(&from)
+        .parent()
+        .ok_or("a drive's root folder can't be renamed")?;
+    let destination = validated_child_path(parent, &new_name)?;
+    relocate_folder(&app, &from, &destination, MovedLabel::Drop).await
+}
+
+/// Whether a moved workspace keeps its display label. A rename makes the chosen
+/// folder name the one shown, so a label carried over would shadow it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MovedLabel {
+    Keep,
+    Drop,
+}
+
+/// Move the folder `from` to `destination` and everything that knows it by
+/// path along with it: PADE's own watch lets go first, then each agent's
+/// memory, the IDEs' recents and PADE's settings follow, and PADE reopens it.
+/// Off the async runtime: the rename retries while Windows closes handles, and
+/// the agents' memories are files and databases.
+async fn relocate_folder(
+    app: &AppHandle,
+    from: &str,
+    destination: &Path,
+    label: MovedLabel,
+) -> Result<String, String> {
+    let app = app.clone();
+    let from = from.to_string();
+    let destination = destination.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        relocate_folder_now(&app, &from, &destination, label)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn relocate_folder_now(
+    app: &AppHandle,
+    from: &str,
+    destination: &Path,
+    label: MovedLabel,
+) -> Result<String, String> {
+    let source = Path::new(from);
+    // A change of letter case alone renames the folder onto itself.
+    let is_same_folder = std::fs::canonicalize(source)
+        .ok()
+        .zip(std::fs::canonicalize(destination).ok())
+        .is_some_and(|(source, target)| source == target);
+    if destination.exists() && !is_same_folder {
+        return Err(format!("{} already exists", destination.display()));
+    }
+
+    crate::watcher::release_watches_under(app, source);
+    leave_if_inside(source);
+    rename_patiently(source, destination).map_err(|e| e.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
-    // Re-point external tools (Claude transcripts, IDE recents) at the new path.
-    // Best-effort and independent of the internal `retarget` below.
-    crate::refs::update_references(&from, &destination_string);
+    crate::refs::update_references(from, &destination_string);
     update_settings(|settings| {
-        retarget(settings, &from, &destination_string);
+        retarget(settings, from, &destination_string);
+        if label == MovedLabel::Drop {
+            settings.labels.remove(&destination_string);
+        }
         Ok(())
     })?;
     workspace_open(destination_string.clone())?;
@@ -963,6 +1066,7 @@ fn resolve_save_root(settings: &Settings, root: Option<String>) -> Result<String
 /// (`roots[0]`) is used.
 #[tauri::command]
 pub async fn workspace_rename(
+    app: AppHandle,
     from: String,
     new_name: String,
     root: Option<String>,
@@ -973,22 +1077,7 @@ pub async fn workspace_rename(
     }
     let root = resolve_save_root(&settings, root)?;
     let destination = validated_child_path(Path::new(&root), &new_name)?;
-    leave_if_inside(Path::new(&from));
-    rename_patiently(Path::new(&from), &destination).map_err(|e| e.to_string())?;
-    let destination_string = destination.to_string_lossy().into_owned();
-    // Re-point external tools (agent memory, IDE recents) at the new path —
-    // best-effort, independent of the internal `retarget` below.
-    crate::refs::update_references(&from, &destination_string);
-    update_settings(|settings| {
-        retarget(settings, &from, &destination_string);
-        // Promotion makes the chosen folder name the authoritative display name;
-        // drop the temp auto-name label retarget carried over so it can't shadow
-        // it (displayName reads the label first, then the folder name).
-        settings.labels.remove(&destination_string);
-        Ok(())
-    })?;
-    workspace_open(destination_string.clone())?;
-    Ok(destination_string)
+    relocate_folder(&app, &from, &destination, MovedLabel::Drop).await
 }
 
 /// The outcome of saving a temp workspace by copy-migration: where the new real
