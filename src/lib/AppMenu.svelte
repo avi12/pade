@@ -7,6 +7,7 @@
   import LastAccessed from "@/lib/LastAccessed.svelte";
   import Logo from "@/lib/Logo.svelte";
   import { prefersReducedMotion } from "@/lib/motion";
+  import { isOpenInAnotherWindow } from "@/lib/open-windows";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import RelabelDialog from "@/lib/RelabelDialog.svelte";
@@ -170,11 +171,6 @@
 
   function isCurrent(project: string) {
     return normalizePath(project) === normalizePath(path);
-  }
-  // Another window's agents hold its folder, and this window can't stop them.
-  function isOpenInAnotherWindow(project: string) {
-    return windowRows.some(windowRow => !windowRow.isCurrent
-      && normalizePath(windowRow.path) === normalizePath(project));
   }
   function identifierFrom(text: string) {
     return text.replaceAll(NON_IDENTIFIER_CHARACTERS, "-");
@@ -589,7 +585,10 @@
             <span>Relabel in PADE</span>
           </button>
         {/if}
-        {#if !isOpenInAnotherWindow(project)}
+        {#if !isOpenInAnotherWindow({
+          windowRows,
+          path: project
+        })}
           <button
             class="menu-item" onclick={() => {
               renameFolderTarget = project;
