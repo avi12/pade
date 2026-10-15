@@ -168,7 +168,7 @@ impl WindowProjects {
     pub(crate) fn project_for(&self, label: &str) -> Result<String, String> {
         self.projects
             .lock()
-            .map_err(|e| e.to_string())?
+            .map_err(|error| error.to_string())?
             .get(label)
             .filter(|path| !path.is_empty())
             .cloned()
@@ -515,7 +515,7 @@ pub async fn window_create(
     app_window_builder(&app, &label, url, main_look.as_ref())
         .build()
         .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

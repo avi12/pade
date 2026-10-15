@@ -158,13 +158,13 @@ impl AskPass {
         } else {
             format!("#!/bin/sh\nprintf '%s' \"${PASSWORD_ENVIRONMENT_VARIABLE}\"\n")
         };
-        std::fs::write(&path, script).map_err(|e| e.to_string())?;
+        std::fs::write(&path, script).map_err(|error| error.to_string())?;
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
-                .map_err(|e| e.to_string())?;
+                .map_err(|error| error.to_string())?;
         }
         Ok(Self { path })
     }
@@ -193,7 +193,7 @@ pub async fn vcs_clone(
         clone_repository(&url, &root, &name, username, password)
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|error| error.to_string())?
 }
 
 /// The credential handling + `git clone` behind [`vcs_clone`].
@@ -229,7 +229,7 @@ fn clone_repository(
         .transpose()?;
     let output = clone
         .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+        .map_err(|error| format!("failed to run git: {error}"))?;
     drop(askpass);
 
     let is_credentialed = credentials.is_some();
@@ -278,13 +278,13 @@ fn remove_credentials_from_remote(destination: &Path, clean_url: &str) -> Result
     };
 
     let sanitized = git_in_clone(&["remote", "set-url", DEFAULT_REMOTE_NAME, clean_url])
-        .map_err(|e| format!("failed to sanitize cloned remote: {e}"))?;
+        .map_err(|error| format!("failed to sanitize cloned remote: {error}"))?;
     if !sanitized.status.success() {
         discard_clone();
         return Err("could not remove credentials from the cloned remote".into());
     }
     let stored = git_in_clone(&["remote", "get-url", DEFAULT_REMOTE_NAME])
-        .map_err(|e| format!("failed to verify cloned remote: {e}"))?;
+        .map_err(|error| format!("failed to verify cloned remote: {error}"))?;
     let is_clean =
         stored.status.success() && String::from_utf8_lossy(&stored.stdout).trim() == clean_url;
     if !is_clean {

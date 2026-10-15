@@ -40,7 +40,7 @@ const WINDOWS_11_FIRST_BUILD: u32 = 22_000;
 /// The running PADE executable - the program both menus launch.
 #[cfg(windows)]
 fn current_executable() -> Result<std::path::PathBuf, String> {
-    std::env::current_exe().map_err(|e| e.to_string())
+    std::env::current_exe().map_err(|error| error.to_string())
 }
 
 /// Windows 11 is build [`WINDOWS_11_FIRST_BUILD`] or newer. Read the build from
@@ -70,7 +70,7 @@ fn edit_registry(arguments: &[&str]) -> Result<(), String> {
     let output = crate::util::command("reg")
         .args(arguments)
         .output()
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
     if output.status.success() {
         return Ok(());
     }

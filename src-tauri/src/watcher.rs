@@ -816,9 +816,9 @@ pub async fn watch_start(
     root: String,
 ) -> Result<(), String> {
     let root = resolve_watch_root(&root)?;
-    let canonical_root = std::fs::canonicalize(&root).map_err(|e| {
+    let canonical_root = std::fs::canonicalize(&root).map_err(|error| {
         format!(
-            "Change Feed can't resolve watch root {}: {e}",
+            "Change Feed can't resolve watch root {}: {error}",
             root.display()
         )
     })?;
@@ -843,7 +843,7 @@ pub async fn watch_start(
     let policy = compute_ignore_policy(&root);
     let git_state_plan = GitStatePlan::for_root(&root);
 
-    let mut guard = watch.watcher.lock().map_err(|e| e.to_string())?;
+    let mut guard = watch.watcher.lock().map_err(|error| error.to_string())?;
     if !watch.is_latest_arm_request(ticket) {
         // A newer `watch_start` has begun; it owns the arming.
         return Ok(());
@@ -896,11 +896,11 @@ pub async fn watch_start(
         let Ok(event) = result else { return };
         handle_event(&app_handle, &callback_label, event);
     })
-    .map_err(|e| e.to_string())?;
+    .map_err(|error| error.to_string())?;
 
     watcher
         .watch(&root, RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
 
     *guard = Some(ProjectWatcher {
         root,
@@ -1293,7 +1293,10 @@ pub async fn watch_dirs(
 ) -> Result<(), String> {
     let label = window.label().to_string();
     prune_closed_windows(&app, &state);
-    let mut guard = state.directory_watchers.lock().map_err(|e| e.to_string())?;
+    let mut guard = state
+        .directory_watchers
+        .lock()
+        .map_err(|error| error.to_string())?;
     // Drop this window's old watcher before opening the new one, so its handles
     // go with it; another window's picker watch is untouched.
     guard.remove(&label);
@@ -1312,7 +1315,7 @@ pub async fn watch_dirs(
             let _ = app_handle.emit_to(&callback_label, DIRECTORIES_CHANGED_EVENT, ());
         }
     })
-    .map_err(|e| e.to_string())?;
+    .map_err(|error| error.to_string())?;
 
     for directory in dirs {
         // A folder that is already gone isn't an error - that's precisely the news
@@ -1551,7 +1554,7 @@ pub async fn feed_diff(
         return Ok(None);
     };
     let before = {
-        let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
+        let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
         let Some(Some(text)) = baselines.get(Path::new(&path)) else {
             return Ok(None);
         };
@@ -1671,7 +1674,7 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
 /// baseline entry for it). The gate every preview command passes first, so none
 /// of them can be turned into a reader of an arbitrary file off disk.
 fn was_surfaced(watch: &WindowWatch, path: &Path) -> Result<bool, String> {
-    let baselines = watch.baselines.lock().map_err(|e| e.to_string())?;
+    let baselines = watch.baselines.lock().map_err(|error| error.to_string())?;
     Ok(baselines.contains_key(path))
 }
 
@@ -1764,7 +1767,7 @@ pub async fn feed_video(
 
     let clip = tauri::async_runtime::spawn_blocking(move || crate::media::preview_clip(&source))
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
     match clip {
         Ok(bytes) => Ok(Some(FeedVideo::Ready {
             data_url: data_url(crate::media::PREVIEW_CLIP_MIME, &bytes),

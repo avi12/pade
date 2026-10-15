@@ -1444,7 +1444,7 @@ fn preference_chain(
 pub async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     tauri::async_runtime::spawn_blocking(move || suggest_for(&cwd))
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
 }
 
 /// The ranking pass behind [`ide_suggest`].
@@ -1607,7 +1607,7 @@ fn spawn_launcher(command: &str, arguments: &[String]) -> Result<(), String> {
     };
     spawn
         .map(|_| ())
-        .map_err(|e| format!("failed to open {command}: {e}"))
+        .map_err(|error| format!("failed to open {command}: {error}"))
 }
 
 /// Open a path in the given IDE launcher. `path` defaults to the current project
@@ -1623,7 +1623,7 @@ pub async fn ide_open(
     let target = match path {
         Some(path) => path,
         None => std::env::current_dir()
-            .map_err(|e| e.to_string())?
+            .map_err(|error| error.to_string())?
             .to_string_lossy()
             .into_owned(),
     };

@@ -184,7 +184,7 @@ fn config_base() -> Result<PathBuf, String> {
 /// PADE's config directory, created on disk if missing.
 pub(crate) fn ensure_config_directory() -> Result<PathBuf, String> {
     let directory = config_base()?.join(CONFIG_DIRECTORY);
-    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     Ok(directory)
 }
 
@@ -248,8 +248,8 @@ impl SettingsRepository {
     fn load_unlocked(&self) -> Settings {
         let mut settings: Settings = self
             .path()
-            .and_then(|path| std::fs::read_to_string(path).map_err(|e| e.to_string()))
-            .and_then(|contents| serde_json::from_str(&contents).map_err(|e| e.to_string()))
+            .and_then(|path| std::fs::read_to_string(path).map_err(|error| error.to_string()))
+            .and_then(|contents| serde_json::from_str(&contents).map_err(|error| error.to_string()))
             .unwrap_or_default();
         settings.recent_projects = canonical_dedup(&settings.recent_projects);
         settings.pinned_projects = canonical_dedup(&settings.pinned_projects);
@@ -291,16 +291,17 @@ impl SettingsRepository {
         let path = self.path()?;
         let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let temporary = path.with_extension(format!("json.tmp-{}-{sequence}", std::process::id()));
-        let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-        let mut file = std::fs::File::create(&temporary).map_err(|e| e.to_string())?;
-        file.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
-        file.sync_all().map_err(|e| e.to_string())?;
+        let json = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
+        let mut file = std::fs::File::create(&temporary).map_err(|error| error.to_string())?;
+        file.write_all(json.as_bytes())
+            .map_err(|error| error.to_string())?;
+        file.sync_all().map_err(|error| error.to_string())?;
 
         #[cfg(windows)]
         if path.exists() {
-            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+            std::fs::remove_file(&path).map_err(|error| error.to_string())?;
         }
-        std::fs::rename(&temporary, path).map_err(|e| e.to_string())
+        std::fs::rename(&temporary, path).map_err(|error| error.to_string())
     }
 }
 
@@ -517,7 +518,7 @@ pub async fn workspace_add_root(path: String, create: bool) -> Result<AddRootOut
     if !create {
         return Ok(AddRootOutcome::Missing);
     }
-    std::fs::create_dir_all(target).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(target).map_err(|error| error.to_string())?;
     Ok(AddRootOutcome::Added {
         settings: Box::new(push_root(path)?),
     })
@@ -537,7 +538,7 @@ const UNREADABLE_NAME: &str = "?";
 /// Immediate sub-directories of `root` that look like projects.
 #[tauri::command]
 pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
-    let directory = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
+    let directory = std::fs::read_dir(&root).map_err(|error| error.to_string())?;
     let mut entries: Vec<ProjectEntry> = directory
         .filter_map(Result::ok)
         .map(|entry| entry.path())
@@ -739,7 +740,7 @@ pub(crate) fn mark_left(path: &str) -> Result<(), String> {
 /// Every temp workspace folder on disk, whether or not the lists remember it.
 fn temp_workspaces_on_disk() -> Vec<String> {
     let Ok(entries) = workspaces_directory()
-        .and_then(|directory| std::fs::read_dir(directory).map_err(|e| e.to_string()))
+        .and_then(|directory| std::fs::read_dir(directory).map_err(|error| error.to_string()))
     else {
         return Vec::new();
     };
@@ -836,7 +837,7 @@ pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String>
     }
     let path = Path::new(&dir).join(&name);
     if path.exists() {
-        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+        std::fs::remove_file(&path).map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -845,7 +846,7 @@ pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String>
 /// remember it in the recent history.
 #[tauri::command]
 pub fn workspace_open(path: String) -> Result<(), String> {
-    std::env::set_current_dir(&path).map_err(|e| e.to_string())?;
+    std::env::set_current_dir(&path).map_err(|error| error.to_string())?;
     update_settings(|settings| {
         record_recent(settings, &path);
         Ok(())
@@ -859,7 +860,7 @@ pub fn workspace_open(path: String) -> Result<(), String> {
 pub async fn workspace_temp() -> Result<String, String> {
     let directory =
         workspaces_directory()?.join(format!("{TEMP_WORKSPACE_PREFIX}{}", now_milliseconds()));
-    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let path = directory.to_string_lossy().into_owned();
 
     // Mark it ADE-owned so it can later be renamed/moved/deleted.
@@ -1053,7 +1054,7 @@ async fn relocate_folder(
         relocate_folder_now(&app, &from, &destination, label)
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|error| error.to_string())?
 }
 
 fn relocate_folder_now(
@@ -1074,7 +1075,7 @@ fn relocate_folder_now(
 
     crate::watcher::release_watches_under(app, source);
     leave_if_inside(source);
-    rename_patiently(source, destination).map_err(|e| e.to_string())?;
+    rename_patiently(source, destination).map_err(|error| error.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
     crate::refs::update_references(from, &destination_string);
     update_settings(|settings| {
@@ -1201,10 +1202,10 @@ pub async fn workspace_save_migrate(
     let copy_destination = destination.clone();
     tauri::async_runtime::spawn_blocking(move || {
         copy_tree_skipping_dependencies(Path::new(&copy_source), &copy_destination)
-            .map_err(|e| e.to_string())
+            .map_err(|error| error.to_string())
     })
     .await
-    .map_err(|e| e.to_string())??;
+    .map_err(|error| error.to_string())??;
 
     let install = crate::provision::detect_install(Path::new(&destination_string));
 
@@ -1329,16 +1330,16 @@ pub async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
 /// and its label. Shared by the owned-only `workspace_delete` and the
 /// confirmation-gated `workspace_delete_directory`.
 fn delete_directory(path: &str) -> Result<(), String> {
-    let metadata = std::fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    let metadata = std::fs::symlink_metadata(path).map_err(|error| error.to_string())?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err("only a real project directory can be deleted".into());
     }
-    let target = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+    let target = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
     if target.parent().is_none() {
         return Err("a filesystem root cannot be deleted".into());
     }
     leave_if_inside(&target);
-    remove_dir_all_patiently(&target).map_err(|e| e.to_string())?;
+    remove_dir_all_patiently(&target).map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -1369,7 +1370,7 @@ pub async fn workspace_delete(path: String) -> Result<Settings, String> {
 #[tauri::command]
 pub async fn workspace_delete_directory(path: String) -> Result<Settings, String> {
     let settings = load();
-    let target = std::fs::canonicalize(&path).map_err(|e| e.to_string())?;
+    let target = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
     let is_remembered = settings
         .recent_projects
         .iter()
@@ -1390,7 +1391,7 @@ pub async fn workspace_delete_directory(path: String) -> Result<Settings, String
 #[tauri::command]
 pub async fn workspace_create(root: String, name: String) -> Result<String, String> {
     let path = validated_child_path(Path::new(&root), &name)?;
-    std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&path).map_err(|error| error.to_string())?;
     let path_string = path.to_string_lossy().into_owned();
     workspace_open(path_string.clone())?;
     Ok(path_string)

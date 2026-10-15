@@ -126,11 +126,11 @@ fn executable_name() -> Result<String, String> {
 /// Write the filled-in manifest and the logo assets into the external location.
 fn materialize(location: &Path) -> Result<(), String> {
     let manifest = MANIFEST_TEMPLATE.replace(EXECUTABLE_PLACEHOLDER, &executable_name()?);
-    std::fs::write(location.join(MANIFEST_FILE), manifest).map_err(|e| e.to_string())?;
+    std::fs::write(location.join(MANIFEST_FILE), manifest).map_err(|error| error.to_string())?;
     let assets = location.join(ASSETS_DIRECTORY);
-    std::fs::create_dir_all(&assets).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&assets).map_err(|error| error.to_string())?;
     for (name, bytes) in ASSETS {
-        std::fs::write(assets.join(name), bytes).map_err(|e| e.to_string())?;
+        std::fs::write(assets.join(name), bytes).map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -141,7 +141,7 @@ fn powershell(script: &str) -> Result<Output, String> {
     command("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .output()
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 /// Turn a captured `PowerShell` result into `Ok`/a user-facing `Err`, translating the

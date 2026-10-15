@@ -245,7 +245,7 @@ fn rewrite_idea(new_directory: &Path, old: &str, new: &str) {
     for entry in entries.flatten() {
         let path = entry.path();
         let is_idea_file = matches!(
-            path.extension().and_then(|e| e.to_str()),
+            path.extension().and_then(|extension| extension.to_str()),
             Some("xml" | "iml")
         );
         if is_idea_file {

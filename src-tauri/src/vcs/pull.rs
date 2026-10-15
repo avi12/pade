@@ -69,7 +69,7 @@ fn is_already_up_to_date(pull_output: &str) -> bool {
 pub async fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
     tauri::async_runtime::spawn_blocking(move || fast_forward_pull(&cwd))
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|error| error.to_string())?
 }
 
 /// The dirty-check + `git pull --ff-only` pass behind [`vcs_pull`].

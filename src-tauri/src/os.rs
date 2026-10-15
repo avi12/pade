@@ -31,7 +31,7 @@ pub async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     }
     app.opener()
         .open_url(url, None::<&str>)
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 /// The only URL prefixes [`open_url`] hands to the OS.
@@ -54,7 +54,7 @@ pub async fn open_in_explorer(path: String) -> Result<(), String> {
         .arg(&path)
         .spawn()
         .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 /// Show `path` selected in the platform file manager without opening it - the
@@ -68,7 +68,7 @@ pub async fn reveal_in_explorer(path: String) -> Result<(), String> {
     reveal_command(target)
         .spawn()
         .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(windows)]
@@ -102,7 +102,7 @@ fn reveal_command(target: &Path) -> Command {
 /// the classic console; Terminal.app on macOS; `x-terminal-emulator` on Linux.
 #[tauri::command]
 pub async fn open_in_terminal(path: String) -> Result<(), String> {
-    let directory = std::fs::canonicalize(&path).map_err(|e| e.to_string())?;
+    let directory = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
     if !directory.is_dir() {
         return Err("terminal path must be an existing directory".into());
     }
@@ -127,5 +127,5 @@ pub async fn open_in_terminal(path: String) -> Result<(), String> {
             .current_dir(&directory)
             .spawn()
     };
-    spawn.map(|_| ()).map_err(|e| e.to_string())
+    spawn.map(|_| ()).map_err(|error| error.to_string())
 }

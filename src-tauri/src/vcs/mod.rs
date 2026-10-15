@@ -132,7 +132,7 @@ fn run_git(cwd: &str, arguments: &[&str]) -> Result<String, String> {
     command.args(arguments).current_dir(cwd);
     let output = harden_git(&mut command)
         .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+        .map_err(|error| format!("failed to run git: {error}"))?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
