@@ -82,33 +82,6 @@
     onexit?: (id: string) => void;
   } = $props();
 
-  // Drag the session bar to reorder the visible split panes (past a 4px
-  // threshold), or drag it up onto the tab strip to pop the pane out of the split
-  // and back to a plain tab (the mirror of dragging a tab down to split it). The
-  // `[data-pane-id]` slot the engine reorders lives in App, one level up from this
-  // header; `closest` reaches it across the component boundary. The remove button
-  // carries `data-noreorder` so pressing it stays a click. Only a pane in a live
-  // split reorders - `removable` is true exactly then, so a lone pane's header
-  // never lifts with nothing to sort.
-  function startPaneDrag(e: PointerEvent) {
-    if (!isRemovable) {
-      return;
-    }
-
-    beginReorder({
-      e,
-      itemSelector: "[data-pane-id]",
-      idAttribute: "data-pane-id",
-      axis: Axis.Horizontal,
-      threshold: 4,
-      ignoreSelector: "[data-noreorder]",
-      onCommit: ids => onreorder?.(ids),
-      onHint: hint => ondraghint?.(hint),
-      outsideSelector: "[data-tab-strip]",
-      onDropOutside: () => onpopout?.()
-    });
-  }
-
   let elHost: HTMLDivElement;
   let elViewport: HTMLDivElement;
   let terminal: Terminal;
@@ -728,27 +701,7 @@
   // window is immediately promptable. Skipped while the user is mid-typing in a
   // real field (a rename box, the picker) - that focus must be left alone; the
   // xterm helper textarea deliberately doesn't count as editing (see lib/ui/focus).
-  function handleWindowFocus() {
-    isWindowFocused = true;
-    scheduleTerminalOutputFlush();
-
-    if (isActive && attachedTerminal && !isEditingText(document.activeElement)) {
-      attachedTerminal.focus();
-    }
-  }
-
-  function handleWindowBlur() {
-    isWindowFocused = false;
-  }
-
-  $effect(() => {
-    addEventListener("focus", handleWindowFocus);
-    addEventListener("blur", handleWindowBlur);
-    return () => {
-      removeEventListener("focus", handleWindowFocus);
-      removeEventListener("blur", handleWindowBlur);
-    };
-  });
+  // (The handler itself is on <svelte:window> below.)
 
   // A hidden or unfocused terminal keeps consuming every PTY chunk, but it does
   // not need a cursor-blink paint loop or foreground output cadence until the
@@ -1569,7 +1522,10 @@
         return insertPromptNewline;
       }
 
-      return plainCtrlOverride(event) ?? (isFindShortcut(event) ? openFindBar : null);
+      // Ctrl+F searches this pane's output instead of reaching the agent as a raw
+      // ^F (which a shell reads as "forward one character"). The bar owns its own
+      // open state; the pane only asks for it and takes the keyboard back after.
+      return plainCtrlOverride(event) ?? (isFindShortcut(event) ? () => findBar?.reveal() : null);
     }
 
     terminal.attachCustomKeyEventHandler(event => {
@@ -1958,20 +1914,54 @@
 
     fileDropUnlisteners = listeners;
   }
-
-  // Ctrl+F searches this pane's output instead of reaching the agent as a raw
-  // ^F (which a shell reads as "forward one character"). The bar owns its own
-  // open state; the pane only asks for it and takes the keyboard back after.
-  async function openFindBar() {
-    await findBar?.reveal();
-  }
 </script>
+
+<svelte:window
+  onblur={() => {
+    isWindowFocused = false;
+  }}
+  onfocus={() => {
+    isWindowFocused = true;
+    scheduleTerminalOutputFlush();
+
+    if (isActive && attachedTerminal && !isEditingText(document.activeElement)) {
+      attachedTerminal.focus();
+    }
+  }}
+/>
 
 <div class="terminal-wrapper">
   <!-- Pointer-only reorder handle for the split; the remove button stays
-       keyboard-reachable, so the drag is a pure enhancement. -->
+       keyboard-reachable, so the drag is a pure enhancement. Drag the bar past a
+       4px threshold to reorder the visible split panes, or up onto the tab strip
+       to pop the pane back out to a plain tab (the mirror of dragging a tab down
+       to split it). The `[data-pane-id]` slot the engine reorders lives in App,
+       one level up; `closest` reaches it across the component boundary. The
+       remove button carries `data-noreorder` so pressing it stays a click. Only a
+       pane in a live split reorders - `isRemovable` is true exactly then. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <header class="session-bar" class:reorderable={isRemovable} onpointerdown={startPaneDrag}>
+  <header
+    class="session-bar"
+    class:reorderable={isRemovable}
+    onpointerdown={e => {
+      if (!isRemovable) {
+        return;
+      }
+
+      beginReorder({
+        e,
+        itemSelector: "[data-pane-id]",
+        idAttribute: "data-pane-id",
+        axis: Axis.Horizontal,
+        threshold: 4,
+        ignoreSelector: "[data-noreorder]",
+        onCommit: ids => onreorder?.(ids),
+        onHint: hint => ondraghint?.(hint),
+        outsideSelector: "[data-tab-strip]",
+        onDropOutside: () => onpopout?.()
+      });
+    }}
+  >
     <SessionBadge label={session.branch ? `${session.agent.label} · ${session.branch}` : session.agent.label} {status} />
     {#if isRemovable}
       <button
