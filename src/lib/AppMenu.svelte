@@ -1,30 +1,26 @@
 <script lang="ts">
-  import { vcs, windows, workspace } from "@/lib/bridge";
+  import { vcs, windows } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
+  import { Key } from "@/lib/keys";
   import LastAccessed from "@/lib/LastAccessed.svelte";
   import Logo from "@/lib/Logo.svelte";
-  import {
-    childPath,
-    displayName,
-    isTemporaryWorkspace,
-    normalizePath,
-    shortDisplayName
-  } from "@/lib/paths";
+  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import RelabelDialog from "@/lib/RelabelDialog.svelte";
   import RenameFolderDialog from "@/lib/RenameFolderDialog.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { arrowFocus, rovingMenu } from "@/lib/roving-menu";
+  import SaveWorkspaceCard from "@/lib/SaveWorkspaceCard.svelte";
   import { invalidateProjectBranches, observeProjectBranch, projectBranch } from "@/lib/stores/projectBranches.svelte";
+  import TempBadge from "@/lib/TempBadge.svelte";
+  import { ToggleState } from "@/lib/toggle-state";
   import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
-  import { AddRootStatus, WindowMode } from "@/lib/types";
+  import { WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
-  import { nameError, parseInput, ProjectName } from "@/lib/validate";
   import type { Relocator } from "@/lib/workspace-relocate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount, tick } from "svelte";
 
   // The project switcher that leads the top bar. It lists every open PADE window
@@ -33,7 +29,7 @@
   // row. New windows and the full picker sit below. In-window switches funnel
   // through `onopen`; pin/remove/reorder persist via parent callbacks and the
   // shared settings authority; window focus + the list use the bridge directly.
-  // Up/Down walk the project items in the order they read — window rows, the
+  // Up/Down walk the project items in the order they read - window rows, the
   // filter field, then pinned/recent rows: every stop is tagged
   // `data-arrow-stop`, and `arrowFocus` moves focus between them.
   const {
@@ -58,7 +54,7 @@
     path: string;
     label: string;
     isTemp: boolean;
-    /** The saved project roots — destinations the temp workspace can be saved into. */
+    /** The saved project roots - destinations the temp workspace can be saved into. */
     roots: string[];
     recentProjects: string[];
     pinnedProjects: string[];
@@ -67,7 +63,7 @@
     onopen: (path: string) => void;
     /** Open the full picker (browse every root, clone, open a folder). */
     onswitch: () => void;
-    /** Pin or unpin a project — persisted by the parent into shared settings.
+    /** Pin or unpin a project - persisted by the parent into shared settings.
      *  Resolves once settings are updated, so the switcher can wrap it in a view
      *  transition and morph the row to its new section. */
     ontogglepin: (target: {
@@ -79,11 +75,11 @@
     /** Forget one project from the switcher (recents + pins); folder untouched.
      *  Resolves when done. */
     onremoverecent: (path: string) => Promise<void>;
-    /** Delete a project's directory from disk — performs the removal and resolves
+    /** Delete a project's directory from disk - performs the removal and resolves
      *  (or throws its message). The switcher owns the confirmation UI, so it stays
      *  open behind the prompt and animates the row out when this resolves. */
     ondelete: (path: string) => Promise<void>;
-    /** Rename a project's folder on disk where it stands — resolves to its new
+    /** Rename a project's folder on disk where it stands - resolves to its new
      *  path once it moved (or throws its reason). */
     onrenamefolder: Relocator["renameFolder"];
     /** Persist a drag-reordered pin order. */
@@ -94,195 +90,57 @@
       name: string;
       root: string;
     }) => Promise<void>;
-    /** Add an existing folder as a project root — the no-roots save path.
+    /** Add an existing folder as a project root - the no-roots save path.
      *  Persisted by the parent into shared settings. */
     onaddroot: (path: string) => Promise<AddRootOutcome>;
   } = $props();
 
+  const MENU_ID = "application-menu";
+  const MENU_ANCHOR = "--application-menu-anchor";
+  const FILTER_ID = "application-menu-query";
+  const POPOVER_OPEN_SELECTOR = ":popover-open";
+  const ARROW_STOP_SELECTOR = "[data-arrow-stop]";
+  const SHORTCUT_KEY = "p";
+  // Pixels a row's grip must travel before a press becomes a drag.
+  const ROW_DRAG_THRESHOLD = 4;
+  // Anything a popover id or view-transition-name can't carry.
+  const NON_IDENTIFIER_CHARACTERS = /[^a-zA-Z0-9]/g;
+
   let filter = $state("");
+  const filterQuery = $derived(filter.trim());
   // The open-window list is fetched when the menu opens. Branch chips and language
   // icons load independently, only as their rows become visible.
   let windowRows = $state<WindowInfo[]>([]);
-  // Whether the popover is open — the moment a row first has a real width, so the
+  // Whether the popover is open - the moment a row first has a real width, so the
   // per-row truncation tooltips (re)measure then rather than while hidden.
-  let menuOpen = $state(false);
-  // When the menu last opened — the instant every row's "last accessed" age is
+  let isMenuOpen = $state(false);
+  // When the menu last opened - the instant every row's "last accessed" age is
   // measured against, so the ages are fresh on each open without a ticking clock.
   let openedAt = $state(Date.now());
   // The rows container, so list mutations animate through a view transition
-  // scoped to *just* this element (never the document — that would snapshot the
+  // scoped to *just* this element (never the document - that would snapshot the
   // live-repainting terminal and ghost it).
-  let switchListElement = $state<HTMLElement | null>(null);
-  let windowListElement = $state<HTMLElement | null>(null);
+  let elSwitchList = $state<HTMLElement | null>(null);
+  let elWindowList = $state<HTMLElement | null>(null);
 
   // The "Delete directory" confirmation lives inside this menu (a nested popover)
   // so the switcher stays visible behind it; the parent only performs the removal.
-  let deletePending = $state<string | null>(null);
-  let deleteBusy = $state(false);
+  let deleteTarget = $state<string | null>(null);
+  let isDeleting = $state(false);
   let deleteError = $state("");
 
-  // The temp workspace whose PADE-only label is being edited — nested over this
+  // The temp workspace whose PADE-only label is being edited - nested over this
   // menu like the delete prompt, so the switcher stays in view behind it.
   let relabelTarget = $state<string | null>(null);
-  // The project whose folder is being renamed on disk — nested the same way.
+  // The project whose folder is being renamed on disk - nested the same way.
   let renameFolderTarget = $state<string | null>(null);
-
-  // ── Save-this-workspace (temp → real project) ───────────────────────────────
-  // Name the throwaway workspace and pick which saved root receives it. One root
-  // saves straight into it; several list a Save button each; none offers to
-  // create a root first (native folder picker) and then saves into it.
-  // Prefilled as the menu opens with the friendly label when one exists
-  // (auto-name), never the raw temp-<stamp> folder name; anything typed sticks.
-  let saveName = $state("");
-  function prefillSaveName() {
-    const friendlyLabel = parseInput({
-      schema: ProjectName,
-      raw: label
-    });
-    const labelIsPrefillable = saveName === "" && friendlyLabel !== null && !/^temp-\d+$/.test(friendlyLabel);
-    if (labelIsPrefillable) {
-      saveName = friendlyLabel;
-    }
-  }
-  let saveBusy = $state(false);
-  let saveFailure = $state("");
-  const saveNameIssue = $derived(nameError(saveName));
-  const savableName = $derived(
-    parseInput({
-      schema: ProjectName,
-      raw: saveName
-    })
-  );
-
-  // Live disk check on each save target — the same collision guard the project
-  // picker's new-project field uses (QuickStartSection). `workspace_rename` does
-  // an `fs::rename`, which on Windows fails with a raw "os error 32/183" if the
-  // target already exists; probe `<root>/<name>` up front so a colliding name
-  // disables that root's Save with a plain reason instead of a cryptic failure.
-  // Each probe is tagged with the name it described, so an out-of-order reply
-  // never gates the current text.
-  type SaveProbe = {
-    name: string;
-    root: string;
-    exists: boolean;
-  };
-  let saveProbes = $state<SaveProbe[]>([]);
-  $effect(() => {
-    const name = savableName;
-    if (name === null || roots.length === 0) {
-      saveProbes = [];
-      return;
-    }
-
-    async function probeRoots(targetName: string) {
-      const probed = await Promise.all(
-        roots.map(async root => {
-          try {
-            const probe = await workspace.probePath(
-              childPath({
-                parent: root,
-                name: targetName
-              })
-            );
-            return {
-              name: targetName,
-              root,
-              exists: probe.isDir || probe.isFile
-            };
-          } catch {
-            // An unreachable probe leaves the plain save path — the backend
-            // still validates the final rename.
-            return {
-              name: targetName,
-              root,
-              exists: false
-            };
-          }
-        })
-      );
-      // Only believe an answer that describes the name still in the field.
-      if (targetName === savableName) {
-        saveProbes = probed;
-      }
-    }
-    probeRoots(name);
-  });
-  function saveCollides(root: string): boolean {
-    return saveProbes.some(probe => probe.root === root && probe.name === savableName && probe.exists);
-  }
-
-  // Rename into `root`; the menu closes on success (the window relocates under
-  // the saved path). A failure stays visible inside the card.
-  async function saveTempInto(root: string) {
-    if (!savableName || saveBusy) {
-      return;
-    }
-
-    saveBusy = true;
-    saveFailure = "";
-    try {
-      await onsavetemp({
-        name: savableName,
-        root
-      });
-      hide();
-    } catch (error) {
-      saveFailure = String(error);
-    } finally {
-      saveBusy = false;
-    }
-  }
-
-  // Enter in the name field saves into the PRIMARY root (roots[0]) — the same
-  // default workspace_rename uses when no root is chosen — or opens the folder
-  // picker when there are no roots yet. Respects the same gates as the primary
-  // root's button (blank/busy/collision), so Enter can't save a name that button
-  // shows disabled.
-  async function saveViaEnter() {
-    if (!savableName || saveBusy) {
-      return;
-    }
-
-    if (roots.length === 0) {
-      await createRootAndSave();
-      return;
-    }
-
-    const primaryRoot = roots[0];
-    if (saveCollides(primaryRoot)) {
-      return;
-    }
-
-    await saveTempInto(primaryRoot);
-  }
-
-  // The no-roots path: pick an existing folder as the first root, then save
-  // into it. The dialog always returns an existing directory, so any non-`added`
-  // outcome is a real failure worth showing.
-  async function createRootAndSave() {
-    const picked = await openDialog({
-      directory: true,
-      multiple: false
-    });
-    if (typeof picked !== "string") {
-      return;
-    }
-
-    const outcome = await onaddroot(picked);
-    if (outcome.status !== AddRootStatus.enum.added) {
-      saveFailure = "That folder can't be used as a root.";
-      return;
-    }
-
-    await saveTempInto(picked);
-  }
 
   const pinnedSet = $derived(new Set(pinnedProjects.map(normalizePath)));
   // Recents minus anything already pinned, so a project shows in one section only.
   const recentsOnly = $derived(recentProjects.filter(project => !pinnedSet.has(normalizePath(project))));
 
-  function matchesFilter(project: string): boolean {
-    const query = filter.trim().toLowerCase();
+  function matchesFilter(project: string) {
+    const query = filterQuery.toLowerCase();
     if (!query) {
       return true;
     }
@@ -295,41 +153,44 @@
 
   const pinnedShown = $derived(pinnedProjects.filter(matchesFilter));
   const recentShown = $derived(recentsOnly.filter(matchesFilter));
-  const noResults = $derived(
-    filter.trim().length > 0 && pinnedShown.length === 0 && recentShown.length === 0
+  const isFilterUnmatched = $derived(
+    filterQuery.length > 0 && pinnedShown.length === 0 && recentShown.length === 0
   );
-  // Pins reorder only when there's more than one and no filter narrows the set —
+  // Pins reorder only when there's more than one and no filter narrows the set -
   // the drag engine commits the visible rows, so a filtered subset would drop the
   // hidden pins from the saved order.
-  const pinsReorderable = $derived(filter.trim() === "" && pinnedProjects.length > 1);
-  // A lone window can't be reordered — mirror the pins guard so the grip only
+  const isPinListReorderable = $derived(filterQuery === "" && pinnedProjects.length > 1);
+  // A lone window can't be reordered - mirror the pins guard so the grip only
   // appears when there's more than one open window to drag among.
-  const windowsReorderable = $derived(windowRows.length > 1);
+  const isWindowListReorderable = $derived(windowRows.length > 1);
 
-  function isCurrent(project: string): boolean {
+  function isCurrent(project: string) {
     return normalizePath(project) === normalizePath(path);
   }
   // Another window's agents hold its folder, and this window can't stop them.
-  function isOpenInAnotherWindow(project: string): boolean {
+  function isOpenInAnotherWindow(project: string) {
     return windowRows.some(windowRow => !windowRow.isCurrent
       && normalizePath(windowRow.path) === normalizePath(project));
   }
+  function identifierFrom(text: string) {
+    return text.replaceAll(NON_IDENTIFIER_CHARACTERS, "-");
+  }
   // Stable, valid popover id/anchor per row kebab (sanitised from the path).
-  function rowMenuId(project: string): string {
-    return `switcher-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  function rowMenuId(project: string) {
+    return `switcher-${identifierFrom(project)}`;
   }
   // Stable, unique view-transition-name per row, so the scoped view transition
   // tracks each row across a list change and morphs it (a moved row glides to its
   // new slot) instead of cross-fading the whole list. The same project keeps the
   // same name across sections, so pinning it glides from Recent to Pinned.
-  function rowTransitionName(project: string): string {
-    return `row-${project.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  function rowTransitionName(project: string) {
+    return `row-${identifierFrom(project)}`;
   }
   // A separate namespace from `rowTransitionName`, keyed by the window's stable
   // session label: a window and a pinned row can share a project path, and two
   // elements can't carry the same view-transition-name in one transition.
-  function windowRowTransitionName(label: string): string {
-    return `window-row-${label.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+  function windowRowTransitionName(windowLabel: string) {
+    return `window-row-${identifierFrom(windowLabel)}`;
   }
 
   // Fetch the open windows. Branches and language kinds are deliberately absent:
@@ -346,7 +207,7 @@
   // drag-reorder landed there), so reflect it here with the same scoped morph the
   // pinned/recent list uses.
   async function onWindowsChanged() {
-    if (!menuOpen) {
+    if (!isMenuOpen) {
       return;
     }
 
@@ -366,35 +227,38 @@
   // Persist a drag-reordered window order to the one backend source (which drives
   // both this list and the Ctrl+Alt+[ / ] cycle), reflect it at once, then re-fetch
   // so the rows match backend truth. The drag engine hands us the new label order.
-  async function reorderWindows(labels: string[]) {
+  async function reorderWindows(windowLabels: string[]) {
     const byLabel = new Map(windowRows.map(row => [row.label, row]));
-    windowRows = labels.flatMap(labelId => {
+    windowRows = windowLabels.flatMap(labelId => {
       const row = byLabel.get(labelId);
       return row ? [row] : [];
     });
-    await windows.reorder(labels);
+    await windows.reorder(windowLabels);
     await loadOpenWindows();
   }
 
   function hide() {
-    const menu = document.getElementById("application-menu");
-    if (menu?.matches(":popover-open")) {
-      menu.hidePopover();
+    const elMenu = document.getElementById(MENU_ID);
+    if (elMenu?.matches(POPOVER_OPEN_SELECTOR)) {
+      elMenu.hidePopover();
     }
   }
 
   // Jump this window to a project (or, with Ctrl/Cmd/Shift held, open it in a new
   // window instead of switching this one).
-  function pick(project: string, e: MouseEvent) {
+  async function pick({ project, event }: {
+    project: string;
+    event: MouseEvent;
+  }) {
     hide();
 
     if (isCurrent(project)) {
       return;
     }
 
-    const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
+    const opensNewWindow = event.ctrlKey || event.metaKey || event.shiftKey;
     if (opensNewWindow) {
-      windows.create({
+      await windows.create({
         mode: WindowMode.enum.open,
         path: project
       });
@@ -404,16 +268,16 @@
     onopen(project);
   }
 
-  // Focus the filter as the menu opens: it's ready to type, and — crucially —
+  // Focus the filter as the menu opens: it's ready to type, and - crucially -
   // the trigger no longer keeps focus, so a later keypress (holding Shift for a
   // shift-click) can't flip `:focus-visible` on and paint a stray ring on it. The
   // rAF waits for the popover's top layer to lay out before the field is focusable.
   function focusFilter() {
-    requestAnimationFrame(() => document.getElementById("application-menu-query")?.focus());
+    requestAnimationFrame(() => document.getElementById(FILTER_ID)?.focus());
   }
 
   // Spawn a fresh window and dismiss the menu so it doesn't linger over the new
-  // one. `path` is optional — omitted for empty/temp modes.
+  // one. `path` is optional - omitted for empty/temp modes.
   async function spawn(args: {
     mode: WindowMode;
     path?: string;
@@ -422,25 +286,29 @@
     hide();
   }
 
-  // Run a list mutation (pin/unpin/remove/delete/clear — each an async settings
+  // Run a list mutation (pin/unpin/remove/delete/clear - each an async settings
   // update that reshapes the rows) inside a view transition scoped to *just* the
-  // rows container, so a row morphs — one moved between sections glides to its new
-  // place — instead of snapping. Scoped to this element, never `document`, so it
+  // rows container, so a row morphs - one moved between sections glides to its new
+  // place - instead of snapping. Scoped to this element, never `document`, so it
   // never snapshots the live-repainting terminal (which would ghost). Reduced
   // motion, or an engine without the scoped API, runs the mutation directly.
   type ScopedTransitionList = HTMLElement & {
     startViewTransition?: (callback: () => Promise<void>) => { updateCallbackDone: Promise<void> };
   };
 
-  async function runListTransition(list: ScopedTransitionList | null, mutate: () => Promise<void>) {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !list?.startViewTransition) {
+  async function runListTransition({ elList, mutate }: {
+    elList: ScopedTransitionList | null;
+    mutate: () => Promise<void>;
+  }) {
+    const isReducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (isReducedMotion || !elList?.startViewTransition) {
       await mutate();
       return;
     }
 
     // Resolve once the DOM has updated (so a caller like the delete flow can close
-    // its dialog then) — the transition itself keeps animating after that.
-    const transition = list.startViewTransition(async () => {
+    // its dialog then) - the transition itself keeps animating after that.
+    const transition = elList.startViewTransition(async () => {
       await mutate();
       await tick();
     });
@@ -448,33 +316,39 @@
   }
 
   async function animateListChange(mutate: () => Promise<void>) {
-    await runListTransition(switchListElement, mutate);
+    await runListTransition({
+      elList: elSwitchList,
+      mutate
+    });
   }
 
   // The Open-windows list gets the same scoped morph as the pinned/recent list,
-  // so a reorder animates in place. Its rows live outside `switchListElement`, so
-  // the transition is scoped to their own container.
+  // so a reorder animates in place. Its rows live outside `elSwitchList`, so the
+  // transition is scoped to their own container.
   async function animateWindowListChange(mutate: () => Promise<void>) {
-    await runListTransition(windowListElement, mutate);
+    await runListTransition({
+      elList: elWindowList,
+      mutate
+    });
   }
 
   // Ctrl P from anywhere opens the switcher and focuses its filter, matching the
   // shortcut the trigger and the search field advertise. It runs in the capture
-  // phase (like pane-shortcuts) so it wins over the terminal — xterm would
-  // otherwise swallow Ctrl P and send it to the agent — and the browser's print
+  // phase (like pane-shortcuts) so it wins over the terminal - xterm would
+  // otherwise swallow Ctrl P and send it to the agent - and the browser's print
   // dialog, neither of which sees the chord once it's consumed here.
   function openViaShortcut(e: KeyboardEvent) {
     const isCtrlP =
-      (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "p";
+      (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === SHORTCUT_KEY;
     if (!isCtrlP) {
       return;
     }
 
     e.preventDefault();
     e.stopImmediatePropagation();
-    const menu = document.getElementById("application-menu");
-    if (menu && !menu.matches(":popover-open")) {
-      menu.showPopover();
+    const elMenu = document.getElementById(MENU_ID);
+    if (elMenu && !elMenu.matches(POPOVER_OPEN_SELECTOR)) {
+      elMenu.showPopover();
     }
 
     focusFilter();
@@ -487,11 +361,11 @@
 
   // Keep the branch chips honest while the switcher is on screen: a branch
   // switch or git init in any listed project re-asks for the visible rows. A
-  // closed menu skips it — opening invalidates them anyway.
+  // closed menu skips it - opening invalidates them anyway.
   let unlistenGitState: UnlistenFn | undefined;
   onMount(async () => {
     unlistenGitState = await vcs.onStateChanged(() => {
-      if (menuOpen) {
+      if (isMenuOpen) {
         invalidateProjectBranches();
       }
     });
@@ -513,7 +387,7 @@
      handler runs before xterm, so it wins while the menu is open. -->
 <svelte:window
   onkeydowncapture={e => {
-    if (menuOpen && e.key === "Escape") {
+    if (isMenuOpen && e.key === Key.escape) {
       e.preventDefault();
       e.stopPropagation();
       hide();
@@ -526,9 +400,9 @@
     class="trigger menu-trigger"
     {@attach openRepositoryOnModifiedClick({ project: path })}
     aria-haspopup="menu"
-    aria-label={`Switch project · Ctrl P · Ctrl-click opens repository — ${label}`}
+    aria-label={`Switch project · Ctrl P · Ctrl-click opens repository - ${label}`}
     data-tooltip="Switch project · Ctrl-click opens repository"
-    popovertarget="application-menu"
+    popovertarget={MENU_ID}
   >
     <Logo size={18} />
     <span class="stack">
@@ -536,7 +410,7 @@
       <span class="name">
         {label}
         {#if isTemp}
-          <span class="temporary">temp</span>
+          <TempBadge />
         {/if}
       </span>
     </span>
@@ -544,15 +418,14 @@
   </button>
 
   <div
-    id="application-menu"
-    style:position-anchor="--application-menu-anchor"
-    class="menu popover-menu" {@attach arrowFocus("[data-arrow-stop]")}
+    id={MENU_ID}
+    style:position-anchor={MENU_ANCHOR}
+    class="menu popover-menu" {@attach arrowFocus(ARROW_STOP_SELECTOR)}
     ontoggle={async e => {
-      menuOpen = (e as ToggleEvent).newState === "open";
+      isMenuOpen = (e as ToggleEvent).newState === ToggleState.open;
 
-      if (menuOpen) {
+      if (isMenuOpen) {
         openedAt = Date.now();
-        prefillSaveName();
         focusFilter();
         invalidateProjectBranches();
         await loadOpenWindows();
@@ -564,87 +437,28 @@
     <!-- Save the throwaway workspace as a real project: name + destination root.
          Design's "Save this workspace" card, shown only for a temp project. -->
     {#if isTemp}
-      <div class="save-card">
-        <div class="save-head">
-          <span class="temporary">temp</span>
-          <span class="save-title">Save this workspace</span>
-          <button
-            class="save-relabel"
-            {@attach tooltip("Rename it in PADE only — the folder keeps its path")}
-            onclick={() => {
-              relabelTarget = path;
-            }}
-            type="button"
-          ><Icon name="pencil" size={13} /> Relabel</button>
-        </div>
-        <p class="save-hint">Name it and pick a root to keep it beyond this session.</p>
-        <form
-          class="save-form" onsubmit={async e => {
-            e.preventDefault();
-            await saveViaEnter();
-          }}>
-          <input
-            class="save-name"
-            aria-label="Project name"
-            autocomplete="off"
-            placeholder="project-name"
-            spellcheck="false"
-            bind:value={saveName}
-          />
-          {#if saveNameIssue}
-            <output class="save-issue">{saveNameIssue}</output>
-          {/if}
-          {#if saveFailure}
-            <output class="save-issue">{saveFailure}</output>
-          {/if}
-          {#if roots.length === 0}
-            <button
-              class="save-root"
-              disabled={!savableName || saveBusy}
-              onclick={async () => await createRootAndSave()}
-              type="button"
-            >
-              <span class="save-root-icon" aria-hidden="true"><Icon name="folderPlus" size={15} /></span>
-              <span class="save-root-path">Choose a folder for your projects…</span>
-              <span class="save-go">Create root & save →</span>
-            </button>
-          {:else}
-            <div class="save-roots">
-              {#each roots as root (root)}
-                {@const collides = saveCollides(root)}
-                <button
-                  class="save-root"
-                  class:save-root-collides={collides}
-                  disabled={!savableName || saveBusy || collides}
-                  onclick={async () => await saveTempInto(root)}
-                  type="button"
-                >
-                  <span class="save-root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
-                  <span class="save-root-path">{root}</span>
-                  <span class="save-go">
-                    {#if collides}
-                      Name taken
-                    {:else}
-                      Save →
-                    {/if}
-                  </span>
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </form>
-      </div>
+      <SaveWorkspaceCard
+        {isMenuOpen}
+        {label}
+        {onaddroot}
+        onrelabel={() => {
+          relabelTarget = path;
+        }}
+        onsaved={hide}
+        {onsavetemp}
+        {roots}
+      />
       <div class="menu-divider"></div>
     {/if}
 
-    <!-- Open PADE windows — in creation order, which is also the cycle order for
+    <!-- Open PADE windows - in creation order, which is also the cycle order for
        Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
       <div class="menu-separator">Open windows</div>
       <!-- Own container so the scoped view transition (animateWindowListChange)
-           morphs just these rows when the order changes — locally or when another
+           morphs just these rows when the order changes - locally or when another
            window's reorder broadcasts. -->
-      <div bind:this={windowListElement} class="open-window-list">
+      <div bind:this={elWindowList} class="open-window-list">
         {#each windowRows as windowRow (windowRow.label)}
           <!-- Grip (a span, so grabbing it never triggers the button's focus
                onclick) + focus button; data-window-id makes the wrapper the reorder
@@ -655,7 +469,7 @@
             class="open-window-row-item"
             data-window-id={windowRow.label}
           >
-            {#if windowsReorderable}
+            {#if isWindowListReorderable}
               <span
                 class="grip" {@attach tooltip("Drag to reorder")}
                 aria-hidden="true"
@@ -664,7 +478,7 @@
                   itemSelector: "[data-window-id]",
                   idAttribute: "data-window-id",
                   axis: Axis.Vertical,
-                  threshold: 4,
+                  threshold: ROW_DRAG_THRESHOLD,
                   onCommit: labelOrder => reorderWindows(labelOrder)
                 })}
               ><Icon name="grip" size={14} /></span>
@@ -673,10 +487,10 @@
               class="open-window-row"
               class:current={windowRow.isCurrent}
               data-arrow-stop
-              onclick={() => {
+              onclick={async () => {
                 if (!windowRow.isCurrent) {
                   hide();
-                  windows.focus(windowRow.label);
+                  await windows.focus(windowRow.label);
                 }
               }}
               role="menuitem"
@@ -685,7 +499,7 @@
               <ProjectKindIcon path={windowRow.path} />
               <span class="open-window-row-name">{shortDisplayName(windowRow.path, labels)}</span>
               {#if isTemporaryWorkspace(windowRow.path)}
-                <span class="temporary">temp</span>
+                <TempBadge />
               {/if}
               <span class="open-window-row-spacer"></span>
               {#if windowRow.isCurrent}
@@ -704,12 +518,12 @@
     <label class="search">
       <span class="lead" aria-hidden="true"><Icon name="search" size={15} /></span>
       <input
-        id="application-menu-query"
+        id={FILTER_ID}
         aria-label="Switch project by name or path"
         autocomplete="off"
         data-arrow-stop
         onkeydown={e => {
-          if (e.key !== "Enter") {
+          if (e.key !== Key.enter) {
             return;
           }
 
@@ -730,7 +544,8 @@
     </label>
 
     <!-- The row's kebab + options popover, shared by both sections. -->
-    {#snippet rowMenu(project: string, pinned: boolean, menuId: string)}
+    {#snippet rowMenu(project: string, isPinned: boolean)}
+      {@const menuId = rowMenuId(project)}
       <button
         class="project-row-kebab"
         aria-haspopup="menu"
@@ -740,16 +555,16 @@
       ><Icon name="more" size={16} /></button>
       <div id={menuId} class="row-menu popover-menu" {@attach rovingMenu} popover role="menu">
         <button
-          class="menu-item" onclick={() => animateListChange(() => ontogglepin({
+          class="menu-item" onclick={async () => await animateListChange(() => ontogglepin({
             path: project,
-            pinned: !pinned
+            pinned: !isPinned
           }))}
           popovertarget={menuId}
           popovertargetaction="hide"
           role="menuitem"
           type="button">
           <span class="menu-item-icon"><Icon name="star" size={15} /></span>
-          <span>{#if pinned}
+          <span>{#if isPinned}
             Unpin from top{:else}Pin to top{/if}</span>
         </button>
         {#if isTemporaryWorkspace(project)}
@@ -779,7 +594,7 @@
           </button>
         {/if}
         <button
-          class="menu-item" onclick={() => animateListChange(() => onremoverecent(project))}
+          class="menu-item" onclick={async () => await animateListChange(() => onremoverecent(project))}
           popovertarget={menuId}
           popovertargetaction="hide"
           role="menuitem"
@@ -791,7 +606,7 @@
         <button
           class="menu-item critical" onclick={() => {
             deleteError = "";
-            deletePending = project;
+            deleteTarget = project;
           }}
           popovertarget={menuId}
           popovertargetaction="hide"
@@ -808,15 +623,18 @@
 
     <!-- The row's main button (logo, name, branch, path), shared by both sections. -->
     {#snippet rowMain(project: string)}
-      {@const current = isCurrent(project)}
+      {@const isCurrentProject = isCurrent(project)}
       {@const branch = projectBranch(project)}
       <button
         class="project-row-main"
-        class:current
+        class:current={isCurrentProject}
         {@attach observeProjectBranch({ path: project })}
-        aria-checked={current}
+        aria-checked={isCurrentProject}
         data-arrow-stop
-        onclick={e => pick(project, e)}
+        onclick={async e => await pick({
+          project,
+          event: e
+        })}
         role="menuitemradio"
         type="button"
       >
@@ -825,7 +643,7 @@
           <span class="project-row-name-line">
             <span class="project-row-name">{displayName(project, labels)}</span>
             {#if isTemporaryWorkspace(project)}
-              <span class="temporary">temp</span>
+              <TempBadge />
             {/if}
           </span>
           <span class="project-row-metadata">
@@ -842,26 +660,25 @@
             <LastAccessed now={openedAt} path={project} />
           </span>
         </span>
-        {#if current}
+        {#if isCurrentProject}
           <span class="project-row-check" aria-hidden="true"><Icon name="check" size={15} /></span>
         {/if}
       </button>
     {/snippet}
 
-    <div bind:this={switchListElement} class="switch-list">
+    <div bind:this={elSwitchList} class="switch-list">
       {#if pinnedShown.length > 0}
         <div class="list-head"><span>Pinned</span></div>
         {#each pinnedShown as project (project)}
-          {@const menuId = rowMenuId(project)}
           <!-- view-transition-name lets the scoped view transition morph THIS row (a
                moved/removed row glides) instead of cross-fading the whole list;
                data-pin-id keeps a flat drag-sibling set for the reorder engine. -->
           <div
             style:view-transition-name={rowTransitionName(project)}
             class="project-row"
-            data-pin-id={filter.trim() === "" ? project : undefined}
+            data-pin-id={filterQuery === "" ? project : undefined}
           >
-            {#if pinsReorderable}
+            {#if isPinListReorderable}
               <span
                 class="grip" {@attach tooltip("Drag to reorder")}
                 aria-hidden="true"
@@ -870,13 +687,13 @@
                   itemSelector: "[data-pin-id]",
                   idAttribute: "data-pin-id",
                   axis: Axis.Vertical,
-                  threshold: 4,
+                  threshold: ROW_DRAG_THRESHOLD,
                   onCommit: paths => onreorderpins(paths)
                 })}
               ><Icon name="grip" size={14} /></span>
             {/if}
             {@render rowMain(project)}
-            {@render rowMenu(project, true, menuId)}
+            {@render rowMenu(project, true)}
           </div>
         {/each}
       {/if}
@@ -884,20 +701,19 @@
       {#if recentShown.length > 0}
         <div class="list-head">
           <span>Recent</span>
-          <button class="clear" onclick={() => animateListChange(() => onclearrecent())} type="button">
+          <button class="clear" onclick={async () => await animateListChange(onclearrecent)} type="button">
             <Icon name="trash" size={12} /> Clear
           </button>
         </div>
         {#each recentShown as project (project)}
-          {@const menuId = rowMenuId(project)}
           <div style:view-transition-name={rowTransitionName(project)} class="project-row">
             {@render rowMain(project)}
-            {@render rowMenu(project, false, menuId)}
+            {@render rowMenu(project, false)}
           </div>
         {/each}
       {/if}
 
-      {#if noResults}
+      {#if isFilterUnmatched}
         <div class="no-results">
           No open projects match. Try <strong>Open a project…</strong> below.
         </div>
@@ -919,12 +735,22 @@
     <div class="menu-divider"></div>
 
     <div class="menu-separator">New window</div>
-    <button class="action" onclick={() => spawn({ mode: WindowMode.enum.empty })} role="menuitem" type="button">
+    <button
+      class="action"
+      onclick={async () => await spawn({ mode: WindowMode.enum.empty })}
+      role="menuitem"
+      type="button"
+    >
       <span class="lead accent"><Icon name="windowPlus" /></span>
       <span class="grow">Empty window</span>
       <span class="kbd">Ctrl ⇧ N</span>
     </button>
-    <button class="action" onclick={() => spawn({ mode: WindowMode.enum.temp })} role="menuitem" type="button">
+    <button
+      class="action"
+      onclick={async () => await spawn({ mode: WindowMode.enum.temp })}
+      role="menuitem"
+      type="button"
+    >
       <span class="lead tertiary"><Icon name="plus" /></span>
       <span class="grow">Throwaway workspace</span>
     </button>
@@ -932,10 +758,10 @@
     <!-- Destructive "Delete directory" confirmation. Nested inside this popover so
          the switcher stays visible (dimmed) behind it; on confirm the parent removes
          the folder and the refreshed list animates the row out. -->
-    {#if deletePending}
-      {@const target = deletePending}
+    {#if deleteTarget}
+      {@const target = deleteTarget}
       <ConfirmDialog
-        busy={deleteBusy}
+        busy={isDeleting}
         busyLabel="Deleting…"
         confirmLabel="Delete directory"
         danger
@@ -943,23 +769,23 @@
         icon="trash"
         nested
         oncancel={() => {
-          if (deleteBusy) {
+          if (isDeleting) {
             return;
           }
 
-          deletePending = null;
+          deleteTarget = null;
           deleteError = "";
         }}
         onconfirm={async () => {
-          deleteBusy = true;
+          isDeleting = true;
           deleteError = "";
           try {
             await animateListChange(() => ondelete(target));
-            deletePending = null;
+            deleteTarget = null;
           } catch (error) {
-            deleteError = typeof error === "string" ? error : "Couldn’t delete that directory.";
+            deleteError = typeof error === "string" ? error : "Couldn’t delete that directory";
           } finally {
-            deleteBusy = false;
+            isDeleting = false;
           }
         }}
         title="Delete this project directory?"
@@ -1055,176 +881,7 @@
     }
   }
 
-  /* A small temp pill, reused in the trigger, the window rows, and project rows. */
-  .temporary {
-    flex: none;
-    padding-block: 1px;
-    padding-inline: 6px;
-    border-radius: var(--radius-full);
-    background: var(--surface-3);
-    color: var(--on-surface-variant);
-    font-family: var(--font-ui);
-    font-weight: 700;
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   /* Shell comes from the shared .popover-menu; width, colour and anchor side here. */
-
-  /* "Save this workspace" — the temp-promotion card leading the menu. */
-  .save-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-block: 1px 6px;
-    margin-inline: 2px;
-    padding: 10px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-medium);
-    background: var(--surface-1);
-
-    /* The <form> exists only to make Enter submit; it must not become a flex item
-       or it would swallow the card's column gap around the field and roots. */
-    .save-form {
-      display: contents;
-    }
-
-    .save-head {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .save-title {
-      font-weight: 700;
-      font-size: 12px;
-    }
-
-    /* Rename-in-PADE-only, tucked at the head's end: a quiet text button, so the
-       card's primary action stays Save. */
-    .save-relabel {
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-      margin-inline-start: auto;
-      padding-block: 3px;
-      padding-inline: 8px;
-      border: none;
-      border-radius: var(--radius-full);
-      background: transparent;
-      color: var(--on-surface-variant);
-      font: inherit;
-      font-weight: 600;
-      font-size: 11px;
-      cursor: pointer;
-      transition:
-        background 150ms var(--ease),
-        color 150ms var(--ease);
-
-      &:hover {
-        background: var(--surface-3);
-        color: var(--on-surface);
-      }
-    }
-
-    .save-hint {
-      margin: 0;
-      color: var(--on-surface-variant);
-      font-size: 10px;
-      line-height: 1.4;
-    }
-
-    .save-name {
-      inline-size: 100%;
-      padding-block: 7px;
-      padding-inline: 8px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-small);
-      background: var(--surface-2);
-      color: var(--on-surface);
-      outline: none;
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 12px;
-
-      &:focus-visible {
-        border-color: var(--primary);
-      }
-    }
-
-    .save-issue {
-      color: var(--critical);
-      font-weight: 600;
-      font-size: 10.5px;
-      line-height: 1.4;
-    }
-
-    .save-roots {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .save-root {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      inline-size: 100%;
-      padding-block: 7px;
-      padding-inline: 8px;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      text-align: start;
-      cursor: pointer;
-      transition: color 120ms var(--ease), background 120ms var(--ease);
-
-      &:hover:not(:disabled) {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-
-      &:disabled {
-        opacity: 55%;
-        cursor: default;
-      }
-
-      .save-root-icon {
-        display: inline-flex;
-        flex: none;
-        color: var(--on-surface-variant);
-      }
-
-      .save-root-path {
-        flex: 1;
-        overflow: hidden;
-        min-inline-size: 0;
-        font-family: var(--font-monospace);
-        font-weight: 600;
-        font-size: 11px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .save-go {
-        flex: none;
-        color: var(--primary);
-        font-weight: 700;
-        font-size: 10px;
-      }
-
-      &:hover:not(:disabled) .save-go {
-        color: var(--on-primary-container);
-      }
-
-      &.save-root-collides .save-go {
-        color: var(--critical);
-      }
-    }
-  }
-
   .menu {
     inline-size: 352px;
     max-inline-size: 92vw;
@@ -1413,7 +1070,7 @@
     align-items: center;
   }
 
-  /* Drag handle for a pinned row — muted, brightens on hover; touch-action:none so
+  /* Drag handle for a pinned row - muted, brightens on hover; touch-action:none so
      a touch-drag grabs the handle rather than scrolling the list. */
   .grip {
     display: inline-flex;
@@ -1459,7 +1116,7 @@
     &:focus-visible {
       /* The kind icon falls back to the muted ink when a project has no
          detected language (a plain folder), and that ink was picked against the
-         row's resting surface — on this fill it is dim at best, and invisible
+         row's resting surface - on this fill it is dim at best, and invisible
          where the container is dark. Re-point the token it already reads rather
          than overriding its colour, so a real brand mark (Rust's orange, Go's
          cyan) still wears its own. */
@@ -1514,7 +1171,7 @@
       font-size: 9px;
 
       /* The branch glyph leads the branch name, tinted tertiary like the design's
-         "vc" mark — it stays that colour on row hover (as the dot did). */
+         "vc" mark - it stays that colour on row hover (as the dot did). */
       .branch-icon {
         display: inline-flex;
         flex: none;
@@ -1553,7 +1210,7 @@
     color: inherit;
   }
 
-  /* Row kebab — the ⋮ button opening the per-row options popover. */
+  /* Row kebab - the ⋮ button opening the per-row options popover. */
   .project-row-kebab {
     display: inline-flex;
     flex: none;
@@ -1583,7 +1240,7 @@
     opacity: 100%;
   }
 
-  /* Per-row options popover — Pin/Unpin, Remove, Delete. Width is capped so the
+  /* Per-row options popover - Pin/Unpin, Remove, Delete. Width is capped so the
      Delete item's path ellipsizes (.menu-item-subtitle) instead of ballooning the menu wide
      enough to spill past the panel over the terminal. */
   .row-menu {

@@ -5,7 +5,7 @@
 
   // When a project was last opened or left, as a compact age ("3d ago") with the
   // exact time on hover. Shared by the launcher's Recent list and the switcher so
-  // both read the one backend stamp. `now` is the moment the list was shown —
+  // both read the one backend stamp. `now` is the moment the list was shown -
   // the age is a glance, not a ticking clock. Renders nothing for a project PADE
   // has no record of yet.
   const { path, now }: {

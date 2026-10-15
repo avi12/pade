@@ -1,24 +1,23 @@
 <script lang="ts">
-  import { tokenize, tokenizeMarkdown } from "@/lib/highlight";
-  import type { Token } from "@/lib/highlight";
+  import { isSyntax, tokenize, tokenizeMarkdown } from "@/lib/highlight";
 
   // Renders a snippet with lightweight syntax highlighting AND a color swatch
   // after every hex / rgb / hsl / var(--x) value. `vars` traces the file's own
   // token definitions so var(--x) swatches show the accurate color.
   //
   // This renders inside a <pre>, so whitespace is significant. Each token is a
-  // SINGLE <span> (the swatch nests inside it), so every iteration is one node —
+  // SINGLE <span> (the swatch nests inside it), so every iteration is one node -
   // the only whitespace between tokens is the each-body boundary, which Svelte
   // trims. Two sibling nodes per iteration would instead leak a space per token.
   const { text, vars, markdown = false }: {
     text: string;
     vars?: Map<string, string>;
-    /** Markdown prose gets structure-only coloring — headings, fences, inline
-     *  code — instead of the generic scanner treating prose words as keywords. */
+    /** Markdown prose gets structure-only coloring - headings, fences, inline
+     *  code - instead of the generic scanner treating prose words as keywords. */
     markdown?: boolean;
   } = $props();
 
-  const tokens = $derived.by<Token[]>(() => {
+  const tokens = $derived.by(() => {
     if (markdown) {
       return tokenizeMarkdown(text, vars);
     }
@@ -27,14 +26,7 @@
   });
 </script>
 
-{#each tokens as token, index (index)}<span
-  class:comment={token.cls === "comment"}
-  class:function={token.cls === "function"}
-  class:keyword={token.cls === "keyword"}
-  class:number={token.cls === "number"}
-  class:property={token.cls === "property"}
-  class:string={token.cls === "string"}
->{token.text}{#if token.color}
+{#each tokens as token, i (i)}<span class={isSyntax(token.cls) ? token.cls : undefined}>{token.text}{#if token.color}
   <span
     style:--swatch-color={token.color}
     class="swatch"

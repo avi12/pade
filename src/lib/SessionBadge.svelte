@@ -2,17 +2,17 @@
   import type { SessionStatus } from "@/lib/types";
 
   // Reusable across the terminal session and, later, every node in the agent
-  // tree — one place defines how a session's state looks and reads.
+  // tree - one place defines how a session's state looks and reads.
   const { status, label }: {
     status: SessionStatus;
     label?: string;
   } = $props();
 
-  const TEXT: Record<SessionStatus, string> = {
+  const STATUS_TEXT: Record<SessionStatus, string> = {
     starting: "Starting…",
     working: "Working",
-    ready: "Ready — waiting for you",
-    exited: "Done — session ended"
+    ready: "Ready - waiting for you",
+    exited: "Done - session ended"
   };
 </script>
 
@@ -22,7 +22,7 @@
   {#if label}
     <span class="label">{label}</span>
   {/if}
-  <span class="state">{TEXT[status]}</span>
+  <span class="state">{STATUS_TEXT[status]}</span>
 </output>
 
 <style>
@@ -55,8 +55,8 @@
       background: var(--on-surface-variant);
     }
 
-    /* Working: primary dot, dim-flashing (shared global @keyframes pulse) —
-       the agent is busy. Ready: a tertiary dot, steady, with a soft halo —
+    /* Working: primary dot, dim-flashing (shared global @keyframes pulse) -
+       the agent is busy. Ready: a tertiary dot, steady, with a soft halo -
        the "done, waiting for you" signal. Exited: neutral. Starting inherits
        the neutral dot above. */
     &.working .dot {

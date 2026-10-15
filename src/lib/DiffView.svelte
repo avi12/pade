@@ -3,7 +3,7 @@
   import { DiffKind, toSplitRows } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
 
-  // The one authoritative renderer for a parsed diff — unified or split —
+  // The one authoritative renderer for a parsed diff - unified or split -
   // shared by the Change Feed, the VCS panel, and the commit modal (DRY).
   // Presentation only: callers own fetching/parsing, the scroll container,
   // and any interactivity (a wrapper can delegate clicks through the
@@ -14,12 +14,18 @@
     split?: boolean;
   } = $props();
 
-  const splitRows = $derived(split ? toSplitRows(diffLines) : []);
+  const splitRows = $derived.by(() => {
+    if (!split) {
+      return [];
+    }
+
+    return toSplitRows(diffLines);
+  });
 </script>
 
 {#if split}
   <div class="split">
-    {#each splitRows as row, index (index)}
+    {#each splitRows as row, i (i)}
       {#if row.hunk}
         <div class="hunk">{row.hunkText}</div>
       {:else}
@@ -45,7 +51,7 @@
   </div>
 {:else}
   <div class="unified">
-    {#each diffLines as line, index (index)}
+    {#each diffLines as line, i (i)}
       <div
         class="line"
         class:add={line.kind === DiffKind.add}
@@ -73,7 +79,7 @@
     line-height: 1.5;
   }
 
-  /* "Fully printed": every code line is visible in full — long lines wrap
+  /* "Fully printed": every code line is visible in full - long lines wrap
      (preserving whitespace) rather than clip or hide behind a side-scroll,
      and unbroken tokens may break anywhere so nothing ever overflows. */
 
@@ -93,11 +99,11 @@
     white-space: nowrap;
     opacity: 55%;
     user-select: none;
-  }
 
-  .gutter .line-number {
-    display: inline-block;
-    min-inline-size: 2.5ch;
+    .line-number {
+      display: inline-block;
+      min-inline-size: 2.5ch;
+    }
   }
 
   .code {
@@ -107,7 +113,7 @@
     overflow-wrap: anywhere;
   }
 
-  /* content-visibility lets the engine skip layout/paint for offscreen rows —
+  /* content-visibility lets the engine skip layout/paint for offscreen rows -
      on a 9.4k-line diff (Notepad++ stress test) it cut the expand's main-thread
      block ~30% and the split toggle ~20%, with instant scrolling. The intrinsic
      size reserves one line-height (1.5 × 12px) per row to keep the scrollbar
@@ -119,24 +125,25 @@
     align-items: flex-start;
     padding-inline: var(--diff-line-padding, 12px);
     color: var(--code-foreground);
-  }
 
-  .line.add {
-    background: var(--tertiary-wash);
-  }
+    &.add {
+      background: var(--tertiary-wash);
+    }
 
-  .line.deletion {
-    background: var(--critical-wash);
-  }
+    &.deletion {
+      background: var(--critical-wash);
+    }
 
-  .line.meta {
-    color: var(--on-surface-variant);
-  }
+    &.meta {
+      color: var(--on-surface-variant);
 
-  /* A hunk/meta row has no line numbers, so its gutter reserves the same width
-     the two number columns take (2 × 2.5ch + gap) to keep the code aligned. */
-  .line.meta .gutter {
-    min-inline-size: calc(5ch + 8px);
+      /* A hunk/meta row has no line numbers, so its gutter reserves the same
+         width the two number columns take (2 × 2.5ch + gap) to keep the code
+         aligned. */
+      .gutter {
+        min-inline-size: calc(5ch + 8px);
+      }
+    }
   }
 
   .split {
@@ -160,22 +167,22 @@
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
       color: var(--code-foreground);
-    }
 
-    .cell .gutter {
-      min-inline-size: 2.5ch;
-    }
+      .gutter {
+        min-inline-size: 2.5ch;
+      }
 
-    .cell.right {
-      border-inline-end: none;
-    }
+      &.right {
+        border-inline-end: none;
+      }
 
-    .cell.filled-deletion {
-      background: var(--critical-wash);
-    }
+      &.filled-deletion {
+        background: var(--critical-wash);
+      }
 
-    .cell.filled-add {
-      background: var(--tertiary-wash);
+      &.filled-add {
+        background: var(--tertiary-wash);
+      }
     }
   }
 </style>

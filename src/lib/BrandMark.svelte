@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The PADE wordmark lockup — the logo badge beside "PADE": one shared home so
+  // The PADE wordmark lockup - the logo badge beside "PADE": one shared home so
   // every surface (onboarding card, project-picker header, …) renders the brand
   // identically (DRY); the 6px gap supplies the spacing, so there is no literal space.
   import Logo from "@/lib/Logo.svelte";

@@ -1,14 +1,14 @@
 <!--
   Draws right-to-left text over the cells xterm painted it into.
 
-  Read `lib/terminal-rtl` first — it owns both the decision of WHICH columns are
+  Read `lib/terminal-rtl` first - it owns both the decision of WHICH columns are
   right-to-left and the reading of them out of xterm's buffer. This component
   owns only the drawing: it hands each run to the browser as a single string and
   lets the browser's own bidi algorithm and OpenType shaping put the letters in
   order and join them.
 
   It is a pure overlay. The buffer, the selection, the copied text, the link
-  provider and every output parser still see the agent's logical order — so
+  provider and every output parser still see the agent's logical order - so
   nothing downstream can be confused by what is drawn here.
 -->
 <script lang="ts">
@@ -21,11 +21,11 @@
     enabled = false,
     focused = false
   }: {
-    /** Undefined until the terminal has been built and attached — the pane is
+    /** Undefined until the terminal has been built and attached - the pane is
         mounted well before that, inside an async onMount. */
     terminal: Terminal | undefined;
     /** This session has actually printed right-to-left text. Until it has, the
-        scan below never runs — an English-only session pays nothing at all. */
+        scan below never runs - an English-only session pays nothing at all. */
     enabled?: boolean;
     /** The keyboard is in this pane, so its caret is the live one. */
     focused?: boolean;
@@ -56,7 +56,7 @@
   }
 
   // xterm repainting, the viewport scrolling, the cursor moving, the grid
-  // resizing — all of it arrives as a render, which is exactly when what is on
+  // resizing - all of it arrives as a render, which is exactly when what is on
   // screen has changed. Selection is the one thing that moves without one.
   $effect(() => {
     const attached = terminal;
@@ -92,7 +92,7 @@
       style:--run-background={run.background}
       class="rtl-run"
     >
-      {#each run.parts as part, index (index)}
+      {#each run.parts as part, i (i)}
         {#if part.kind === RtlPartKind.Caret}
           <span class="rtl-caret"></span>
         {:else}
@@ -130,12 +130,12 @@
      `direction: ltr` is the TERMINAL's own direction, not a claim about the text:
      the browser reads the run's characters and reorders them itself, and giving it
      the same base direction the grid has is what makes the result identical to the
-     rest of the row — the run starts at its first column and reads away from
+     rest of the row - the run starts at its first column and reads away from
      there, instead of hanging off its last one with a hole in front of it.
      `isolate` keeps it from reordering anything around it. The letter-spacing
      xterm uses to hold every glyph to one cell would pull the joins apart, so this
      text is spaced normally and covers the cells instead. Physical `top`/`left` on
-     purpose: a cell grid has no writing mode — column 0 is the leftmost cell
+     purpose: a cell grid has no writing mode - column 0 is the leftmost cell
      whatever is printed in it. */
   .rtl-run {
     position: absolute;
@@ -180,7 +180,7 @@
     }
 
     /* Painted over the text rather than behind it, so a selection reads the same
-       whatever colours the agent chose — and costs only the one split the
+       whatever colours the agent chose - and costs only the one split the
        highlight's own edges force. */
     .selected {
       background: var(--terminal-selection);

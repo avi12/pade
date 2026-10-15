@@ -24,18 +24,18 @@
     usageResetTime,
     worstLimit
   } from "@/lib/usage-groups";
-  import type { AgentGroup, Level } from "@/lib/usage-groups";
+  import type { Level } from "@/lib/usage-groups";
   import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
 
-  // The running agent sessions — one usage group per distinct coding agent among
+  // The running agent sessions - one usage group per distinct coding agent among
   // them is derived below (App.svelte owns the list; the shell fallback and
   // terminal-editor sessions are filtered out in `buildGroups`).
   const { sessions }: { sessions: AgentSession[] } = $props();
 
   // Live account usage per agent (mirrors claude.ai / `claude /usage` and Codex's
-  // own limits): each agent's rate-limit windows — the session, weekly, and any
-  // per-model caps — read via that vendor's usage endpoint from the local token,
+  // own limits): each agent's rate-limit windows - the session, weekly, and any
+  // per-model caps - read via that vendor's usage endpoint from the local token,
   // keyed by agent id. The backend caches each (~3 min), so this polls slowly.
   let accounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
   // A ticking clock so the "resets in …" countdowns stay live between polls.
@@ -50,14 +50,43 @@
   const refreshedResetBoundaries = new SvelteSet<string>();
 
   // How many per-agent pills the trigger shows before collapsing the rest into a
-  // trailing "+N" overflow chip. Every agent renders as a pill — a single agent
+  // trailing "+N" overflow chip. Every agent renders as a pill - a single agent
   // still shows its full per-window breakdown, never a compacted chip.
   const MAX_TRIGGER_PILLS = 2;
+  const MENU_ID = "usage-menu";
+  const MENU_ANCHOR = "--usage-anchor";
+  const PANEL_LABEL = "Usage details";
+  // What a reading shows when there is nothing to read: no agents, an agent
+  // without limits, a spotlight whose reset time is unknown or already past.
+  const NO_READING = "-";
+
+  // The `.severity` modifier each level paints with; a normal level takes none.
+  const SEVERITY_CLASS: Record<Level, string | undefined> = {
+    normal: undefined,
+    warn: "warning",
+    crit: "critical"
+  };
+
+  function severityClass(level: Level | null | undefined) {
+    if (!level) {
+      return undefined;
+    }
+
+    return SEVERITY_CLASS[level];
+  }
+
+  function agentNoun(count: number) {
+    if (count === 1) {
+      return "agent";
+    }
+
+    return "agents";
+  }
 
   // One group per distinct running agent, worst-first (see usage-groups.ts). Each
   // agent carries its real limits when its account resolved; an agent with no
   // local usage signal is "unknown".
-  const groups = $derived<AgentGroup[]>(
+  const groups = $derived(
     buildGroups({
       accounts,
       sessions,
@@ -71,7 +100,7 @@
   // near its cap, else no dot.
   const hasCriticalAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "crit"));
   const hasNearAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "warn"));
-  const overflowLevel = $derived.by((): Level | null => {
+  const overflowLevel = $derived.by(() => {
     if (hasCriticalAgent) {
       return "crit";
     }
@@ -83,31 +112,44 @@
     return null;
   });
   const overflowTooltip = $derived(
-    `${formatCount(overflowCount)} more ${overflowCount === 1 ? "agent" : "agents"} — open for the full list`
+    `${formatCount(overflowCount)} more ${agentNoun(overflowCount)} - open for the full list`
   );
 
   const severitySlices = $derived(severityBreakdown(groups));
-  // Agents that actually carry a severity — the distribution bar's denominator, so
+  // Agents that actually carry a severity - the distribution bar's denominator, so
   // its segments fill it exactly (unknown agents have no severity to plot).
-  const measuredAgents = $derived(severitySlices.reduce((sum, slice) => sum + slice.count, 0));
-  const spotlight = $derived(findSpotlight(groups));
-  // The spotlight's countdown, phrased ("resets in 3h 30m"); an em-dash when its
-  // reset time is unknown or already past.
-  const spotlightReset = $derived(spotlight?.limit.reset ? `resets ${spotlight.limit.reset}` : "—");
-  const kindLegend = $derived(buildKindLegend(groups));
-  const runningLabel = $derived(`${formatCount(groups.length)} ${groups.length === 1 ? "agent" : "agents"} running`);
+  const measuredAgents = $derived.by(() => {
+    let total = 0;
+    for (const slice of severitySlices) {
+      total += slice.count;
+    }
 
-  const ariaLabel = $derived(
-    groups.length > 0
-      ? `Usage — ${groups
-        .map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`)
-        .join("; ")}`
-      : "Usage details"
-  );
+    return total;
+  });
+  const spotlight = $derived(findSpotlight(groups));
+  // The spotlight's countdown, phrased ("resets in 3h 30m").
+  const spotlightReset = $derived.by(() => {
+    if (!spotlight?.limit.reset) {
+      return NO_READING;
+    }
+
+    return `resets ${spotlight.limit.reset}`;
+  });
+  const kindLegend = $derived(buildKindLegend(groups));
+  const runningLabel = $derived(`${formatCount(groups.length)} ${agentNoun(groups.length)} running`);
+
+  const ariaLabel = $derived.by(() => {
+    if (groups.length === 0) {
+      return PANEL_LABEL;
+    }
+
+    const readings = groups.map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`);
+    return `Usage - ${readings.join("; ")}`;
+  });
 
   // Fetch each distinct running agent's account (Claude, Codex, …) in parallel,
   // keyed by agent id. An agent with no local usage signal resolves to null and
-  // renders as an "unknown" group — never fabricated.
+  // renders as an "unknown" group - never fabricated.
   async function loadAccounts({ forceRefresh = false }: { forceRefresh?: boolean } = {}) {
     const agentIds = [...new Set(sessions.map(session => session.agent.id))];
     const entries = await Promise.all(
@@ -138,7 +180,7 @@
     untrack(refreshLimitResetOffer);
   });
 
-  // Limits that just started over — on schedule or by a spent free reset — so
+  // Limits that just started over - on schedule or by a spent free reset - so
   // their numbers can flash. Compared reading to reading; the set is replaced on
   // every new reading, which also clears it for the next reset of the same limit.
   let justReset = $state<ReadonlySet<string>>(new Set());
@@ -152,13 +194,8 @@
     previousPercentages = current;
   });
 
-  function hasJustReset({ agentId, limit }: Parameters<typeof limitKey>[0]): boolean {
-    return justReset.has(
-      limitKey({
-        agentId,
-        limit
-      })
-    );
+  function hasJustReset(key: Parameters<typeof limitKey>[0]) {
+    return justReset.has(limitKey(key));
   }
 
   async function refreshAccountsNow() {
@@ -171,16 +208,16 @@
   }
 
   $effect(() => {
-    let cancelled = false;
+    let isCancelled = false;
     async function refreshAccounts() {
       const next = await loadAccounts();
-      if (!cancelled) {
+      if (!isCancelled) {
         accounts = next;
       }
     }
     refreshAccounts();
     return () => {
-      cancelled = true;
+      isCancelled = true;
     };
   });
 
@@ -229,23 +266,20 @@
 
 <span class="usage-wrap menu-host">
   <button
-    style:anchor-name="--usage-anchor"
+    style:anchor-name={MENU_ANCHOR}
     class="pill menu-trigger"
     aria-label={ariaLabel}
     data-tooltip="Usage by agent"
-    popovertarget="usage-menu"
+    popovertarget={MENU_ID}
   >
     {#if groups.length === 0}
-      <span class="none">—</span>
+      <span class="none">{NO_READING}</span>
     {:else}
       <span class="pills">
         {#each pillGroups as group (group.id)}
-          {@const groupWorst = worstLimit(group.limits)}
           <span
-            class="agent-pill severity"
-            class:critical={groupWorst?.level === "crit"}
+            class={["agent-pill severity", severityClass(worstLimit(group.limits)?.level)]}
             class:unknown={group.unknown}
-            class:warning={groupWorst?.level === "warn"}
           >
             <span class="agent-pill-id">
               <span class="agent-icon"><Icon name={group.icon} /></span>
@@ -255,13 +289,11 @@
               <span class="agent-pill-limits">
                 {#each group.limits as limit (limit.label)}
                   <span
-                    class="agent-pill-limit severity"
-                    class:critical={limit.level === "crit"}
+                    class={["agent-pill-limit severity", severityClass(limit.level)]}
                     class:just-reset={hasJustReset({
                       agentId: group.id,
                       limit
                     })}
-                    class:warning={limit.level === "warn"}
                     transition:growInline
                   >
                     <span class="agent-pill-kind">{limit.kindShort}</span>
@@ -270,7 +302,7 @@
                 {/each}
               </span>
             {:else}
-              <span class="agent-pill-dash">—</span>
+              <span class="agent-pill-dash">{NO_READING}</span>
             {/if}
             {#if group.id === AgentId.Claude && showsResetInPill}
               <span class="reset-face reset-slot" aria-hidden="true" transition:growInline>{@render resetLabel()}</span>
@@ -278,12 +310,7 @@
           </span>
         {/each}
         {#if overflowCount > 0}
-          <span
-            class="overflow-chip severity"
-            class:critical={overflowLevel === "crit"}
-            class:warning={overflowLevel === "warn"}
-            data-tooltip={overflowTooltip}
-          >
+          <span class={["overflow-chip severity", severityClass(overflowLevel)]} data-tooltip={overflowTooltip}>
             {#if overflowLevel}
               <span class="overflow-dot"></span>
             {/if}
@@ -295,7 +322,7 @@
     <span class="caret">▾</span>
   </button>
 
-  <div id="usage-menu" style:position-anchor="--usage-anchor" class="panel" aria-label="Usage details" popover role="dialog">
+  <div id={MENU_ID} style:position-anchor={MENU_ANCHOR} class="panel" aria-label={PANEL_LABEL} popover role="dialog">
     {#if groups.length > 0}
       <header class="summary">
         <div class="titles">
@@ -305,7 +332,7 @@
         <div class="severity-counts">
           {#each severitySlices as slice (slice.level)}
             {#if slice.count > 0}
-              <span class="severity-count severity" class:critical={slice.level === "crit"} class:warning={slice.level === "warn"}>
+              <span class={["severity-count severity", severityClass(slice.level)]}>
                 <span class="severity-dot"></span>
                 <span class="severity-value">{formatCount(slice.count)}</span> {slice.label}
               </span>
@@ -319,20 +346,14 @@
           {#if slice.count > 0}
             <span
               style:inline-size="{(slice.count / measuredAgents) * 100}%"
-              class="distribution-segment severity"
-              class:critical={slice.level === "crit"}
-              class:warning={slice.level === "warn"}
+              class={["distribution-segment severity", severityClass(slice.level)]}
             ></span>
           {/if}
         {/each}
       </div>
 
       {#if spotlight}
-        <section
-          class="spotlight severity"
-          class:critical={spotlight.limit.level === "crit"}
-          class:warning={spotlight.limit.level === "warn"}
-        >
+        <section class={["spotlight severity", severityClass(spotlight.limit.level)]}>
           <div class="spotlight-head">
             <span class="spotlight-id">
               <span class="agent-icon"><Icon name={spotlight.agent.icon} /></span>
@@ -371,12 +392,9 @@
 
       <ul class="agents">
         {#each groups as group (group.id)}
-          {@const groupWorst = worstLimit(group.limits)}
           <li
-            class="agent-card severity"
-            class:critical={groupWorst?.level === "crit"}
+            class={["agent-card severity", severityClass(worstLimit(group.limits)?.level)]}
             class:unknown={group.unknown}
-            class:warning={groupWorst?.level === "warn"}
           >
             <div class="agent-head">
               <span class="agent-icon"><Icon name={group.icon} /></span>
@@ -386,11 +404,7 @@
             {#if group.limits.length > 0}
               <div class="limits">
                 {#each group.limits as limit (limit.label)}
-                  <div
-                    class="limit severity"
-                    class:critical={limit.level === "crit"}
-                    class:warning={limit.level === "warn"}
-                  >
+                  <div class={["limit severity", severityClass(limit.level)]}>
                     <span class="limit-kind">{limit.kindShort}</span>
                     <span class="limit-track">
                       <span style:inline-size="{limit.percentage}%" class="limit-fill"></span>
@@ -425,14 +439,14 @@
         {/each}
       </ul>
     {:else}
-      <p class="empty">No usage to show yet — sign in to Claude Code to load your limits.</p>
+      <p class="empty">No usage to show yet - sign in to Claude Code to load your limits</p>
     {/if}
   </div>
 
   {#if showsResetInPill}
     <button
       class="reset-face reset-chip"
-      aria-label="Free limit reset available — {limitResetSummary()}"
+      aria-label="Free limit reset available - {limitResetSummary()}"
       data-tooltip="Free limit reset available · {limitResetSummary()}"
       onclick={askToResetLimits}
       type="button"
@@ -453,8 +467,8 @@
     flex-shrink: 0;
   }
 
-  /* A limit that just started over — its scheduled reset, or a free reset spent
-     on it — flashes once: the number pops while a primary wash fades behind it,
+  /* A limit that just started over - its scheduled reset, or a free reset spent
+     on it - flashes once: the number pops while a primary wash fades behind it,
      so a sudden drop to 0% reads as a refill rather than a glitch. */
   .just-reset {
     animation: limit-refill 900ms var(--ease) both;
@@ -479,8 +493,8 @@
 
   /* A free reset waiting to be spent, shown in Claude's pill because it is
      Claude's. The trigger is a button and can't hold another, so the pill keeps
-     an invisible slot of the chip's exact size and the real chip — a sibling of
-     the trigger — is anchored over it. */
+     an invisible slot of the chip's exact size and the real chip - a sibling of
+     the trigger - is anchored over it. */
   .reset-face {
     display: inline-flex;
     gap: 3px;
@@ -547,7 +561,7 @@
 
   /* Severity color, shared: the level class sets --severity-color (and a faint --severity-wash
      tint for warn/crit) once, and every bar / number / row below just reads it
-     (DRY). --severity-wash stays unset at "normal" — there is no primary wash. */
+     (DRY). --severity-wash stays unset at "normal" - there is no primary wash. */
   .severity {
     --severity-color: var(--primary);
 
@@ -701,7 +715,7 @@
     position: absolute;
     inset: auto;
 
-    /* A native [popover] defaults to overflow:auto — clip so no stray scrollbar
+    /* A native [popover] defaults to overflow:auto - clip so no stray scrollbar
        shows; the inner .agents list owns vertical scrolling. */
     overflow: clip;
     inline-size: min(29rem, 92vw);
@@ -947,7 +961,7 @@
         background: var(--severity-wash);
       }
 
-      /* An unknown agent has no severity — mute its icon so the primary blue
+      /* An unknown agent has no severity - mute its icon so the primary blue
          never reads as a (fabricated) "healthy" score. */
       &.unknown {
         --severity-color: var(--on-surface-variant);
@@ -1032,8 +1046,8 @@
       text-align: end;
     }
 
-    /* Clock + live "in …" countdown — or, on the extra-usage row, the credits
-       balance — right-aligned to the card edge. */
+    /* Clock + live "in …" countdown - or, on the extra-usage row, the credits
+       balance - right-aligned to the card edge. */
     .limit-reset,
     .limit-balance {
       display: inline-flex;

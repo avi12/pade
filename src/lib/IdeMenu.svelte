@@ -6,7 +6,7 @@
   import type { Ide } from "@/lib/types";
 
   // Opens the active project in an external editor. The ranked list comes from
-  // the shared editors store (SSOT — the same list the Change Feed's reveal
+  // the shared editors store (SSOT - the same list the Change Feed's reveal
   // reads), whose backend `ide_suggest` puts the project's editor first: an
   // explicit pick from this menu, else the best auto-detected fit. The split
   // button's primary action opens that editor directly, and the caret always
@@ -15,22 +15,25 @@
   // in a PADE terminal tab instead of through the OS.
   const { onterminaleditor, project, cwd }: {
     onterminaleditor: (editor: Ide) => void;
-    // The open project — the key the shared editor ranking is resolved under,
-    // shared with the Change Feed so the two surfaces can't drift.
+    /** The open project - the key the shared editor ranking is resolved under,
+     *  shared with the Change Feed so the two surfaces can't drift. */
     project: string;
-    // The directory the launcher opens: the active session's worktree when one
-    // is focused, else the project itself. Also the target of "Reveal in file
-    // explorer", so the selector always has that final action.
+    /** The directory the launcher opens: the active session's worktree when one
+     *  is focused, else the project itself. Also the target of "Reveal in file
+     *  explorer", so the selector always has that final action. */
     cwd: string;
   } = $props();
 
+  const MENU_ID = "ide-menu";
+  const MENU_ANCHOR = "--ide-anchor";
+
   const ides = $derived(editorsFor(project));
-  // The project's editor — an explicit pick, else the auto-detected best fit.
+  // The project's editor - an explicit pick, else the auto-detected best fit.
   const bestFit = $derived(ides[0]);
   const hasAlternatives = $derived(ides.length > 1);
 
   // Re-profile on mount and whenever the active project changes. The store
-  // coalesces this with any other surface's resolve, so the census runs once —
+  // coalesces this with any other surface's resolve, so the census runs once -
   // and its bookkeeping is non-reactive, so this reacts to `project` alone
   // (a reactive version once re-triggered here every completed fetch).
   $effect(() => {
@@ -38,13 +41,13 @@
     refreshEditors(workspace);
   });
 
-  function open(editor: Ide) {
+  async function open(editor: Ide) {
     if (editor.terminal) {
       onterminaleditor(editor);
       return;
     }
 
-    ide.open({
+    await ide.open({
       command: editor.command,
       path: cwd
     });
@@ -53,48 +56,51 @@
 
 <!-- A newly-installed editor should show up without a restart: re-detect
      whenever the app becomes visible again (the user installed one in another
-     app and switched back). Keyed off page *visibility*, not window focus — a
+     app and switched back). Keyed off page *visibility*, not window focus - a
      Windows title-bar drag churns focus, and a focus-driven re-detection
      spawned processes mid-drag and lagged the drag, whereas visibility never
      changes while you drag a window that stays on screen. -->
 <svelte:document
-  onvisibilitychange={() => {
+  onvisibilitychange={async () => {
     if (!document.hidden) {
-      refreshEditors(project);
+      await refreshEditors(project);
     }
   }}
 />
 
 {#if bestFit}
   <div class="ide menu-host">
-    <button class="ide-open" onclick={() => open(bestFit)}>
+    <button class="ide-open" onclick={async () => await open(bestFit)}>
       <span class="editor-glyph" data-brand={ideBrand(bestFit.id)}><Icon name={ideIcon(bestFit.id)} /></span>
       <span class="label">Open in {bestFit.label}</span>
     </button>
     <button
-      style:anchor-name="--ide-anchor"
+      style:anchor-name={MENU_ANCHOR}
       class="ide-more menu-trigger"
       aria-label="Switch editor or reveal in file explorer"
       data-tooltip="Switch editor or reveal in file explorer"
-      popovertarget="ide-menu"
+      popovertarget={MENU_ID}
     ><span class="caret">▾</span></button>
 
-    <ul id="ide-menu" style:position-anchor="--ide-anchor" class="ide-list popover-menu" popover>
+    <ul id={MENU_ID} style:position-anchor={MENU_ANCHOR} class="ide-list popover-menu" popover>
       <li class="menu-separator">Open in editor</li>
-      {#each ides as editor, index (editor.id)}
+      {#each ides as editor, i (editor.id)}
         <li>
           <button
-            onclick={() => {
+            onclick={async () => {
               // Picking from the list is an explicit choice: persisted, it
               // becomes the project's editor on every surface (this button and
-              // the Change Feed's reveal) until picked otherwise.
-              chooseEditor({
-                project,
-                editorId: editor.id
-              });
-              open(editor);
+              // the Change Feed's reveal) until picked otherwise. The launch
+              // doesn't wait on the save.
+              await Promise.all([
+                chooseEditor({
+                  project,
+                  editorId: editor.id
+                }),
+                open(editor)
+              ]);
             }}
-            popovertarget="ide-menu"
+            popovertarget={MENU_ID}
             popovertargetaction="hide"
           >
             <span class="name">
@@ -103,7 +109,7 @@
             </span>
             {#if editor.chosen}
               <span class="best">your pick</span>
-            {:else if index === 0 && hasAlternatives}
+            {:else if i === 0 && hasAlternatives}
               <span class="best">best fit</span>
             {/if}
           </button>
@@ -111,7 +117,7 @@
       {/each}
       <li class="menu-divider" role="separator"></li>
       <li>
-        <button onclick={() => os.explorer(cwd)} popovertarget="ide-menu" popovertargetaction="hide">
+        <button onclick={async () => await os.explorer(cwd)} popovertarget={MENU_ID} popovertargetaction="hide">
           <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
         </button>
       </li>
@@ -174,8 +180,8 @@
     align-items: center;
     padding-inline: 6px 9px;
     border: none;
-    border-end-end-radius: 999px;
-    border-start-end-radius: 999px;
+    border-end-end-radius: var(--radius-full);
+    border-start-end-radius: var(--radius-full);
     background: transparent;
     color: var(--on-surface-variant);
     cursor: pointer;
@@ -207,7 +213,6 @@
     min-inline-size: 230px;
     position-area: bottom span-left;
 
-    /* Uppercase section header at the top of the list. */
     li button {
       display: flex;
       gap: 10px;

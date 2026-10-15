@@ -1,15 +1,16 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
+  import { ToggleState } from "@/lib/toggle-state";
   import type { Snippet } from "svelte";
 
-  // Shared confirmation prompt — an in-app themed card in place of the OS popup, so
+  // Shared confirmation prompt - an in-app themed card in place of the OS popup, so
   // a destructive prompt carries rich body content and can stay open to show why
   // the action failed. Two shells around one card:
-  //   • default — a modal <dialog>: showModal() gives Esc-to-dismiss, the focus
+  //   • default - a modal <dialog>: showModal() gives Esc-to-dismiss, the focus
   //     trap and the ::backdrop scrim for free (semantic HTML over a hand-rolled
   //     trap).
-  //   • `nested` — a full-viewport `popover` opened inside an already-open menu
+  //   • `nested` - a full-viewport `popover` opened inside an already-open menu
   //     popover, so that menu stays visible (dimmed) behind the prompt instead of
   //     being force-closed (showModal() closes every open popover). The scrim IS
   //     the popover element, so a click on the dim cancels (no click-through to
@@ -46,28 +47,40 @@
     children: Snippet;
   } = $props();
 
-  const actionLabel = $derived(busy && busyLabel ? busyLabel : confirmLabel);
+  const INITIAL_FOCUS_SELECTOR = "[data-initial-focus]";
+  const CANCEL_SELECTOR = ".cancel";
+  const POPOVER_OPEN_SELECTOR = ":popover-open";
 
-  let dialogElement = $state<HTMLDialogElement | null>(null);
-  let scrimElement = $state<HTMLDialogElement | null>(null);
+  const actionLabel = $derived.by(() => {
+    if (busy && busyLabel) {
+      return busyLabel;
+    }
+
+    return confirmLabel;
+  });
+
+  let elDialog = $state<HTMLDialogElement | null>(null);
+  let elScrim = $state<HTMLDialogElement | null>(null);
 
   // Lift onto the top layer once mounted (showModal throws on an open dialog).
   $effect(() => {
-    if (dialogElement && !dialogElement.open) {
-      dialogElement.showModal();
+    if (elDialog && !elDialog.open) {
+      elDialog.showModal();
     }
   });
 
   // The nested popover doesn't move focus on show the way showModal does, so land
   // it on the body's own `data-initial-focus` field when it has one (a prompt that
-  // asks for text), else on Cancel — the safe default for a destructive prompt.
+  // asks for text), else on Cancel - the safe default for a destructive prompt.
   $effect(() => {
-    if (scrimElement && !scrimElement.matches(":popover-open")) {
-      scrimElement.showPopover();
-      const initialFocus = scrimElement.querySelector<HTMLElement>("[data-initial-focus]")
-        ?? scrimElement.querySelector<HTMLElement>(".cancel");
-      initialFocus?.focus();
+    if (!elScrim || elScrim.matches(POPOVER_OPEN_SELECTOR)) {
+      return;
     }
+
+    elScrim.showPopover();
+    const elInitialFocus = elScrim.querySelector<HTMLElement>(INITIAL_FOCUS_SELECTOR)
+      ?? elScrim.querySelector<HTMLElement>(CANCEL_SELECTOR);
+    elInitialFocus?.focus();
   });
 </script>
 
@@ -83,7 +96,16 @@
 
   <footer>
     <button class="cancel" disabled={busy} onclick={oncancel} type="button">Cancel</button>
-    <button class="confirm" disabled={busy} onclick={onconfirm} type="button">
+    <button
+      class="confirm"
+      disabled={busy}
+      onclick={async () => {
+        if (!busy) {
+          await onconfirm();
+        }
+      }}
+      type="button"
+    >
       {#if busy}
         <span class="spinner"><Icon name="refresh" size={15} /></span>
       {/if}
@@ -93,23 +115,23 @@
 {/snippet}
 
 {#if nested}
-  <!-- A <dialog> shown as a nested popover — not showModal(), which would force-close
+  <!-- A <dialog> shown as a nested popover - not showModal(), which would force-close
        the menu popover behind it. It fills the viewport as its own scrim (a fit-content
        popover's ::backdrop leaks clicks to the menu behind), so a click on the dim
        cancels without reaching the menu; Esc light-dismisses → oncancel via ontoggle.
        Being a <dialog>, the backdrop click needs no faux-interactive role. -->
   <dialog
-    bind:this={scrimElement}
+    bind:this={elScrim}
     class="scrim"
     class:danger
     aria-labelledby="confirm-title"
     onclick={e => {
-      if (e.target === scrimElement && !busy) {
+      if (e.target === elScrim && !busy) {
         oncancel();
       }
     }}
     ontoggle={e => {
-      if ((e as ToggleEvent).newState === "closed" && !busy) {
+      if ((e as ToggleEvent).newState === ToggleState.closed && !busy) {
         oncancel();
       }
     }}
@@ -119,7 +141,7 @@
   </dialog>
 {:else}
   <dialog
-    bind:this={dialogElement}
+    bind:this={elDialog}
     class="dialog"
     class:danger
     aria-labelledby="confirm-title"
@@ -135,7 +157,7 @@
     onclick={e => {
       // A modal <dialog>'s hit area spans the viewport: a click whose target is
       // the dialog itself landed on the ::backdrop, not on the card.
-      if (e.target === dialogElement && !busy) {
+      if (e.target === elDialog && !busy) {
         oncancel();
       }
     }}
@@ -170,13 +192,13 @@
      the card only while shown.
 
      It opts out of the shared `[popover]` entrance (theme.css). That entrance
-     lifts and scales a menu in — `scale: 0.95 → 1`, `translate: 0 -10px → 0` —
+     lifts and scales a menu in - `scale: 0.95 → 1`, `translate: 0 -10px → 0` -
      which is right for a box anchored to its trigger and wrong for a box that IS
      the window: scaling a full-viewport scrim grows the dim out of the centre
      and leaves a lit margin all round while it runs (measured: the bottom band
      reached its final tone ~50ms after the middle). A scrim only fades, so the
      identity values are restored here and `scale`/`translate` are dropped from
-     the transition — including the @starting-style that seeds the 0.95. */
+     the transition - including the @starting-style that seeds the 0.95. */
   .scrim {
     position: fixed;
     inset: 0;
@@ -217,7 +239,7 @@
     }
   }
 
-  /* Tonal disc behind the icon — critical wash for a destructive prompt. */
+  /* Tonal disc behind the icon - critical wash for a destructive prompt. */
   .glyph {
     display: inline-flex;
     justify-content: center;
