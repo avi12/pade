@@ -12,6 +12,7 @@ import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
 const SEND_SHORTCUT = "CommandOrControl+Alt+S";
+const PRESSED_STATE = "Pressed";
 
 /** What the app shell provides - read at each press, so the target follows the
  *  currently active session. */
@@ -26,7 +27,7 @@ export interface SendShortcutHost {
 export async function registerSendShortcut(host: SendShortcutHost) {
   await unregisterSendShortcut();
   await register(SEND_SHORTCUT, async event => {
-    if (event.state !== "Pressed") {
+    if (event.state !== PRESSED_STATE) {
       return;
     }
 
@@ -45,7 +46,12 @@ export async function registerSendShortcut(host: SendShortcutHost) {
   });
 }
 
-/** Release the global shortcut (safe when it was never registered). */
+/** Release the global shortcut. Unregistering one that was never registered
+ *  rejects, which is the expected first-mount case rather than a failure. */
 export async function unregisterSendShortcut() {
-  await unregister(SEND_SHORTCUT).catch(() => {});
+  try {
+    await unregister(SEND_SHORTCUT);
+  } catch (error) {
+    console.debug("pade: the send shortcut was not registered", error);
+  }
 }

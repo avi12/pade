@@ -13,7 +13,8 @@ import { ChangeKind, LabelSource } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
-const AUTONAME_AFTER = 3;
+const DISTINCT_FILES_BEFORE_NAMING = 3;
+const LEADING_SLASH = /^\//;
 
 /** The normalized changed path when it carries naming signal for the workspace
  *  - inside the tree and not a dotfile/dot-dir (e.g. .git, .claude) - else
@@ -28,12 +29,9 @@ export function namingSignal({ projectDirectory, changedPath }: {
     return null;
   }
 
-  const relative = touched.slice(base.length).replace(/^\//, "");
-  if (!relative || relative.split("/").some(segment => segment.startsWith("."))) {
-    return null;
-  }
-
-  return touched;
+  const relative = touched.slice(base.length).replace(LEADING_SLASH, "");
+  const isHidden = relative.split("/").some(segment => segment.startsWith("."));
+  return relative && !isHidden ? touched : null;
 }
 
 /** What the app shell provides. Reads happen per change event, so the checks
@@ -55,14 +53,38 @@ export function createAutoNamer(host: AutoNameHost) {
   const namedProjects = new Set<string>();
   let unlisten: UnlistenFn | undefined;
 
+  function isNamingCandidate(project: string) {
+    const isAlreadyNamed = namedProjects.has(project) || Boolean(host.labelOf(project));
+    return isTemporaryWorkspace(project) && !host.isOptedOut() && !isAlreadyNamed;
+  }
+
+  /** Record `touched` for `project`; how many distinct paths it has seen so far. */
+  function recordTouch({ project, touched }: {
+    project: string;
+    touched: string;
+  }) {
+    const touchedPaths = touchedByProject.get(project) ?? new Set<string>();
+    touchedPaths.add(touched);
+    touchedByProject.set(project, touchedPaths);
+    return touchedPaths.size;
+  }
+
+  /** The namer's suggestion, or null when it fails - a failed suggestion just
+   *  leaves the workspace on its temporary name. */
+  async function suggestName(project: string) {
+    try {
+      return await workspace.autoname({
+        path: project,
+        agent: host.activeAgentCommand()
+      });
+    } catch {
+      return null;
+    }
+  }
+
   async function consider(event: ChangeEvent) {
     const project = host.currentProject();
-    if (!isTemporaryWorkspace(project) || host.isOptedOut()) {
-      return;
-    }
-
-    const alreadyNamed = namedProjects.has(project) || Boolean(host.labelOf(project));
-    if (event.kind === ChangeKind.enum.deleted || alreadyNamed) {
+    if (event.kind === ChangeKind.enum.deleted || !isNamingCandidate(project)) {
       return;
     }
 
@@ -74,19 +96,16 @@ export function createAutoNamer(host: AutoNameHost) {
       return;
     }
 
-    const set = touchedByProject.get(project) ?? new Set<string>();
-    set.add(touched);
-    touchedByProject.set(project, set);
-
-    if (set.size < AUTONAME_AFTER) {
+    const distinctTouched = recordTouch({
+      project,
+      touched
+    });
+    if (distinctTouched < DISTINCT_FILES_BEFORE_NAMING) {
       return;
     }
 
     namedProjects.add(project); // guard so the naming call runs exactly once
-    const name = await workspace.autoname({
-      path: project,
-      agent: host.activeAgentCommand()
-    }).catch(() => null);
+    const name = await suggestName(project);
     if (!name || host.currentProject() !== project) {
       return;
     }
