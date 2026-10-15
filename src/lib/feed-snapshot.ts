@@ -11,6 +11,7 @@
 // changes, so liveness stays the backend's claim, never this snapshot's.
 
 import { windows } from "@/lib/bridge";
+import { readStoredJson, writeStoredJson } from "@/lib/stored-json";
 import { ChangeEvent } from "@/lib/types";
 import { z } from "zod";
 
@@ -33,26 +34,18 @@ interface LiveWatch {
 }
 
 export function saveFeedSnapshot(snapshot: FeedSnapshot) {
-  localStorage.setItem(snapshotStorageKey(), JSON.stringify(snapshot));
+  writeStoredJson({
+    key: snapshotStorageKey(),
+    value: snapshot
+  });
 }
 
-/** The persisted snapshot, or `null` when absent or malformed - storage is a
- *  trust boundary, so the payload is zod-validated on the way in. */
+/** The persisted snapshot, or `null` when absent or malformed. */
 export function readFeedSnapshot() {
-  const raw = localStorage.getItem(snapshotStorageKey());
-  if (raw === null) {
-    return null;
-  }
-
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-
-  const parsed = FeedSnapshot.safeParse(decoded);
-  return parsed.success ? parsed.data : null;
+  return readStoredJson({
+    key: snapshotStorageKey(),
+    schema: FeedSnapshot
+  });
 }
 
 /** The snapshot's events when it was collected under the watch still live for

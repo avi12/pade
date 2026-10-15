@@ -18,6 +18,7 @@
 // flag is needed.
 
 import { pty, windows } from "@/lib/bridge";
+import { readStoredJson, writeStoredJson } from "@/lib/stored-json";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { z } from "zod";
@@ -64,7 +65,8 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
   paneIds: readonly string[];
   activeId: string | null;
 }) {
-  if (project === "" || sessions.length === 0) {
+  const isNothingToReattach = project === "" || sessions.length === 0;
+  if (isNothingToReattach) {
     clearSessionSnapshot();
     return;
   }
@@ -83,30 +85,22 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
     paneIds: [...paneIds],
     activeId
   };
-  localStorage.setItem(snapshotStorageKey(), JSON.stringify(snapshot));
+  writeStoredJson({
+    key: snapshotStorageKey(),
+    value: snapshot
+  });
 }
 
 export function clearSessionSnapshot() {
   localStorage.removeItem(snapshotStorageKey());
 }
 
-/** The persisted snapshot, or `null` when absent or malformed. Storage is a
- *  trust boundary like any other - the payload is zod-validated on the way in. */
+/** The persisted snapshot, or `null` when absent or malformed. */
 export function readSessionSnapshot() {
-  const raw = localStorage.getItem(snapshotStorageKey());
-  if (raw === null) {
-    return null;
-  }
-
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-
-  const parsed = SessionSnapshot.safeParse(decoded);
-  return parsed.success ? parsed.data : null;
+  return readStoredJson({
+    key: snapshotStorageKey(),
+    schema: SessionSnapshot
+  });
 }
 
 /** The snapshot cut down to the sessions the backend still hosts - pure, so the
@@ -126,8 +120,8 @@ export function pruneToLive({ snapshot, liveIds }: {
   const shownPaneIds = snapshot.paneIds.filter(id => survivingIds.has(id));
   const paneIds = shownPaneIds.length > 0 ? shownPaneIds : [sessions[0].id];
 
-  const activeSurvived = snapshot.activeId !== null && survivingIds.has(snapshot.activeId);
-  const activeId = activeSurvived ? snapshot.activeId : (paneIds.at(-1) ?? null);
+  const hasActiveSurvived = snapshot.activeId !== null && survivingIds.has(snapshot.activeId);
+  const activeId = hasActiveSurvived ? snapshot.activeId : (paneIds.at(-1) ?? null);
 
   return {
     project: snapshot.project,
