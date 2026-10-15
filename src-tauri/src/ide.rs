@@ -4,6 +4,7 @@
 //! detects installed editors (by their CLI launcher) and opens the active
 //! project directory in the one you pick.
 
+use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
 use std::process::Stdio;
@@ -454,6 +455,10 @@ const LINGUIST_VENDORED: &str = "linguist-vendored";
 const LINGUIST_DOCUMENTATION: &str = "linguist-documentation";
 const LINGUIST_DETECTABLE: &str = "linguist-detectable";
 const LINGUIST_LANGUAGE: &str = "linguist-language";
+/// The values `git check-attr` prints for a set (`attr`) and unset (`-attr`)
+/// attribute; anything else is a string value or "unspecified".
+const GIT_ATTRIBUTE_SET: &str = "set";
+const GIT_ATTRIBUTE_UNSET: &str = "unset";
 const LINGUIST_ATTRIBUTES: &[&str] = &[
     LINGUIST_GENERATED,
     LINGUIST_VENDORED,
@@ -483,8 +488,8 @@ impl LinguistAttributes {
 
     fn set(&mut self, attribute: &str, value: &str) {
         let boolean = match value {
-            "set" => Some(true),
-            "unset" => Some(false),
+            GIT_ATTRIBUTE_SET => Some(true),
+            GIT_ATTRIBUTE_UNSET => Some(false),
             _ => None,
         };
         match attribute {
@@ -781,7 +786,7 @@ fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
         });
     }
     // User-added editors are first-class too - resolve them by their stored id.
-    added.iter().find(|e| e.id == id).cloned()
+    added.iter().find(|editor| editor.id == id).cloned()
 }
 
 /// A launchable editor family PADE recognises. Keyed off an executable's
@@ -830,21 +835,29 @@ fn editor_family(basename: &str) -> Option<Family> {
     })
 }
 
+/// The launcher extensions stripped from an executable's name to find its family.
+const LAUNCHER_EXTENSIONS: [&str; 5] = [".exe", ".cmd", ".bat", ".sh", ".app"];
+
+/// The id prefix every user-added editor carries (`added-code`), which tells
+/// it apart from a registry editor id.
+const ADDED_EDITOR_ID_PREFIX: &str = "added-";
+
+/// The switcher icon key for a web project written in TypeScript.
+const TYPESCRIPT_ICON_KEY: &str = "typescript";
+
+/// The last segment of an executable path, split on either separator.
+fn executable_file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
+}
+
 /// An executable path's lowercased basename with a known launcher extension
 /// stripped (`Code.exe` → `code`, `notepad++.exe` → `notepad++`).
 fn exe_basename(path: &str) -> String {
-    let file = path
-        .replace('\\', "/")
-        .rsplit('/')
-        .next()
-        .unwrap_or(path)
-        .to_lowercase();
-    for ext in [".exe", ".cmd", ".bat", ".sh", ".app"] {
-        if let Some(stripped) = file.strip_suffix(ext) {
-            return stripped.to_string();
-        }
-    }
-    file
+    let file = executable_file_name(path).to_lowercase();
+    LAUNCHER_EXTENSIONS
+        .iter()
+        .find_map(|extension| file.strip_suffix(extension))
+        .map_or_else(|| file.clone(), str::to_string)
 }
 
 /// The user-added editors as `Ide`s (command = the stored executable path). A
@@ -922,21 +935,17 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
     if path.is_empty() {
         return Err("Enter the full path to an editor executable.".to_string());
     }
-    let file = path
-        .replace('\\', "/")
-        .rsplit('/')
-        .next()
-        .unwrap_or(&path)
-        .to_string();
-    let Some(family) = editor_family(&exe_basename(&path)) else {
+    let basename = exe_basename(&path);
+    let Some(family) = editor_family(&basename) else {
         return Err(format!(
-            "\u{201c}{file}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
+            "\u{201c}{}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
              VS Code and its forks (Cursor, Antigravity, Windsurf, VSCodium), Zed, \
-             Sublime Text, Neovim and the JetBrains IDEs."
+             Sublime Text, Neovim and the JetBrains IDEs.",
+            executable_file_name(&path)
         ));
     };
     crate::workspace::add_editor(crate::workspace::AddedEditor {
-        id: format!("added-{}", exe_basename(&path)),
+        id: format!("{ADDED_EDITOR_ID_PREFIX}{basename}"),
         label: family.label.to_string(),
         path,
     })
@@ -1180,43 +1189,43 @@ fn ranked_editor_ids(
     source_bytes: &BTreeMap<ProjectKind, u64>,
     required_kinds: &[ProjectKind],
 ) -> Vec<String> {
-    let has_evidence = !source_bytes.is_empty() || !required_kinds.is_empty();
     let mut editors: Vec<&IdeDefinition> = REGISTRY.iter().collect();
-    editors.sort_by(|left, right| {
-        if !has_evidence {
-            return matches!(right.coverage, EditorCoverage::EveryKind)
-                .cmp(&matches!(left.coverage, EditorCoverage::EveryKind));
-        }
-        let left_source = source_bytes
-            .iter()
-            .filter(|(kind, _)| left.coverage.supports(**kind))
-            .map(|(_, bytes)| *bytes)
-            .sum::<u64>();
-        let right_source = source_bytes
-            .iter()
-            .filter(|(kind, _)| right.coverage.supports(**kind))
-            .map(|(_, bytes)| *bytes)
-            .sum::<u64>();
-        let left_required = required_kinds
-            .iter()
-            .filter(|kind| left.coverage.supports(**kind))
-            .count();
-        let right_required = required_kinds
-            .iter()
-            .filter(|kind| right.coverage.supports(**kind))
-            .count();
-        if required_kinds.is_empty() {
-            right_source
-                .cmp(&left_source)
-                .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
-        } else {
-            right_required
-                .cmp(&left_required)
-                .then_with(|| left.coverage.breadth().cmp(&right.coverage.breadth()))
-                .then_with(|| right_source.cmp(&left_source))
-        }
-    });
+    editors.sort_by_cached_key(|editor| editor_rank(editor.coverage, source_bytes, required_kinds));
     editors.iter().map(|editor| editor.id.to_string()).collect()
+}
+
+/// One editor's sort key for [`ranked_editor_ids`], best first under ascending
+/// order. With no evidence at all a general-purpose editor leads; with no
+/// required kinds, source coverage leads and narrower breadth breaks ties; with
+/// required kinds, required coverage leads, then breadth, then source coverage.
+fn editor_rank(
+    coverage: EditorCoverage,
+    source_bytes: &BTreeMap<ProjectKind, u64>,
+    required_kinds: &[ProjectKind],
+) -> (Reverse<u64>, usize, Reverse<u64>) {
+    let has_evidence = !source_bytes.is_empty() || !required_kinds.is_empty();
+    if !has_evidence {
+        let is_general = matches!(coverage, EditorCoverage::EveryKind);
+        return (Reverse(u64::from(is_general)), 0, Reverse(0));
+    }
+    let covered_source: u64 = source_bytes
+        .iter()
+        .filter(|(kind, _)| coverage.supports(**kind))
+        .map(|(_, bytes)| *bytes)
+        .sum();
+    if required_kinds.is_empty() {
+        return (Reverse(covered_source), coverage.breadth(), Reverse(0));
+    }
+    let covered_required = required_kinds
+        .iter()
+        .filter(|kind| coverage.supports(**kind))
+        .count();
+    let covered_required = u64::try_from(covered_required).unwrap_or(u64::MAX);
+    (
+        Reverse(covered_required),
+        coverage.breadth(),
+        Reverse(covered_source),
+    )
 }
 
 /// Whether a known editor covers the project's required capabilities. Declared
@@ -1282,7 +1291,7 @@ fn kind_options() -> BTreeMap<String, Vec<String>> {
     let is_present = |id: &str| installed.iter().any(|editor| editor.id == id);
     let added_ids = installed
         .iter()
-        .filter(|editor| editor.id.starts_with("added-"))
+        .filter(|editor| editor.id.starts_with(ADDED_EDITOR_ID_PREFIX))
         .map(|editor| editor.id.clone());
 
     let general = dedup_in_order(
@@ -1314,7 +1323,7 @@ fn kind_options() -> BTreeMap<String, Vec<String>> {
             );
             (definition.kind.as_str().to_string(), options)
         })
-        .chain(std::iter::once((FALLBACK_KEY.to_string(), general.clone())))
+        .chain(std::iter::once((FALLBACK_KEY.to_string(), general)))
         .collect()
 }
 
@@ -1369,7 +1378,7 @@ fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
                 .next()?;
             // A web project that uses TypeScript shows the TS badge, not JavaScript.
             let icon_key = if kind == ProjectKind::Web && uses_typescript(&roots) {
-                "typescript".to_string()
+                TYPESCRIPT_ICON_KEY.to_string()
             } else {
                 kind.as_str().to_string()
             };
@@ -1395,7 +1404,7 @@ fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
 /// launcher on PATH, or a user-added editor (its stored path is the launcher,
 /// resolved against the caller's already-loaded `added` list).
 fn is_installed(id: &str, added: &[Ide]) -> bool {
-    if id.starts_with("added-") {
+    if id.starts_with(ADDED_EDITOR_ID_PREFIX) {
         return added.iter().any(|editor| editor.id == id);
     }
     lookup(id, added).is_some_and(|editor| is_on_path(&editor.command))
@@ -1484,8 +1493,8 @@ fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
 /// registry entry or a user-added editor) is persisted.
 #[tauri::command]
 pub fn ide_choose_editor(cwd: String, id: String) -> Result<crate::workspace::Settings, String> {
-    let is_known_editor =
-        REGISTRY.iter().any(|editor| editor.id == id) || added_editors().iter().any(|e| e.id == id);
+    let is_known_editor = REGISTRY.iter().any(|editor| editor.id == id)
+        || added_editors().iter().any(|editor| editor.id == id);
     if !is_known_editor {
         return Err(format!("unknown editor id \u{201c}{id}\u{201d}"));
     }
@@ -1521,14 +1530,22 @@ fn open_args(
         // CLI docs, "Opening files and folders"). Deliberately no `-r` here:
         // combined with a folder, `-r` re-points the last-active window at the
         // folder instead of finding the project's own window.
-        (Some(OpenStyle::VsCode), Some(folder), Some(n)) => {
-            vec![folder.to_owned(), "-g".to_owned(), format!("{target}:{n}")]
+        (Some(OpenStyle::VsCode), Some(folder), Some(line_number)) => {
+            vec![
+                folder.to_owned(),
+                "-g".to_owned(),
+                format!("{target}:{line_number}"),
+            ]
         }
         (Some(OpenStyle::VsCode), Some(folder), None) => {
             vec![folder.to_owned(), "-g".to_owned(), target]
         }
-        (Some(OpenStyle::VsCode), None, Some(n)) => {
-            vec!["-r".to_owned(), "-g".to_owned(), format!("{target}:{n}")]
+        (Some(OpenStyle::VsCode), None, Some(line_number)) => {
+            vec![
+                "-r".to_owned(),
+                "-g".to_owned(),
+                format!("{target}:{line_number}"),
+            ]
         }
         // JetBrains: `idea <projectDir> [--line <n>] <file>`. The docs
         // ("Open files from the command line") only promise the single-path
@@ -1538,22 +1555,24 @@ fn open_args(
         // project), which puts the file in that project's window instead of
         // one guessed from the file's ancestors. Smoke-test per launcher
         // (Toolbox shims included) when adding a new JetBrains family entry.
-        (Some(OpenStyle::JetBrains), Some(folder), Some(n)) => vec![
+        (Some(OpenStyle::JetBrains), Some(folder), Some(line_number)) => vec![
             folder.to_owned(),
             "--line".to_owned(),
-            n.to_string(),
+            line_number.to_string(),
             target,
         ],
-        (Some(OpenStyle::JetBrains), None, Some(n)) => {
-            vec!["--line".to_owned(), n.to_string(), target]
+        (Some(OpenStyle::JetBrains), None, Some(line_number)) => {
+            vec!["--line".to_owned(), line_number.to_string(), target]
         }
         // Zed / Sublime open every listed path in one window, so the folder
         // becomes (or joins) the workspace and the colon suffix jumps inside it
         // (`zed <dir> <file>:<line>`, `subl <dir> <file>:<line>`).
-        (Some(OpenStyle::PathColon), Some(folder), Some(n)) => {
-            vec![folder.to_owned(), format!("{target}:{n}")]
+        (Some(OpenStyle::PathColon), Some(folder), Some(line_number)) => {
+            vec![folder.to_owned(), format!("{target}:{line_number}")]
         }
-        (Some(OpenStyle::PathColon), None, Some(n)) => vec![format!("{target}:{n}")],
+        (Some(OpenStyle::PathColon), None, Some(line_number)) => {
+            vec![format!("{target}:{line_number}")]
+        }
         // A line-less folder-carrying open shares one shape across JetBrains
         // and Zed/Sublime: the workspace folder, then the bare file.
         (Some(OpenStyle::JetBrains | OpenStyle::PathColon), Some(folder), None) => {
@@ -1602,7 +1621,7 @@ pub async fn ide_open(
 ) -> Result<(), String> {
     let has_path = path.is_some();
     let target = match path {
-        Some(p) => p,
+        Some(path) => path,
         None => std::env::current_dir()
             .map_err(|e| e.to_string())?
             .to_string_lossy()
