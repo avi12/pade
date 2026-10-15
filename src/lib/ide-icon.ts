@@ -1,6 +1,6 @@
 import type { IconName } from "@/lib/Icon.svelte";
 
-// The editors PADE detects — mirrors the launcher ids in src-tauri/src/ide.rs, so
+// The editors PADE detects - mirrors the launcher ids in src-tauri/src/ide.rs, so
 // no bare editor-id string leaks into the icon map (enums over magic strings).
 export const IdeId = {
   VsCode: "vscode",
@@ -23,7 +23,7 @@ export type IdeId = (typeof IdeId)[keyof typeof IdeId];
 
 // Brand mark per detected editor. Each JetBrains product carries its own
 // official icon (the full-colour gradient square, vendored from
-// github.com/JetBrains/logos) — the icon name matches the editor id.
+// github.com/JetBrains/logos) - the icon name matches the editor id.
 const IDE_ICONS: Record<string, IconName> = {
   [IdeId.VsCode]: "vscode",
   [IdeId.Cursor]: "cursor",
@@ -46,7 +46,7 @@ const FALLBACK_ICON: IconName = "code";
 const ADDED_PREFIX = "added-";
 
 // A user-added editor carries an `added-<exe-basename>` id (see ide.rs), whose
-// basename can differ from the launcher id — these aliases bridge the gap
+// basename can differ from the launcher id - these aliases bridge the gap
 // (`code` → VS Code, `subl` → Sublime, `studio` → Android Studio).
 const ALIAS_IDS: Record<string, IdeId> = {
   code: IdeId.VsCode,
@@ -55,10 +55,10 @@ const ALIAS_IDS: Record<string, IdeId> = {
   devenv: IdeId.VisualStudio
 };
 
-// Console editors have no brand mark or tint — they get the terminal glyph.
+// Console editors have no brand mark or tint - they get the terminal glyph.
 const CONSOLE_EDITOR_NAMES = ["nvim", "hx", "vim"] as const;
 
-/** The canonical editor id behind a detected or user-added id — `added-<exe>`
+/** The canonical editor id behind a detected or user-added id - `added-<exe>`
  *  basenames carry version/bit suffixes (`webstorm64`) and often contain the
  *  launcher id (`sublime_text`), so known ids match by inclusion. Null for a
  *  console editor or anything unrecognised. */
@@ -94,7 +94,7 @@ export function ideIcon(id: string): IconName {
   return isConsoleEditor ? "terminal" : FALLBACK_ICON;
 }
 
-/** The editor's brand-tint key (theme.css `[data-brand]`) — the canonical id.
+/** The editor's brand-tint key (theme.css `[data-brand]`) - the canonical id.
  *  A full-colour mark (the JetBrains products) simply ignores the tint; its
  *  fills are baked in. Undefined when there's no brand to tint (a console or
  *  unknown editor), which omits the attribute and leaves the text colour. */

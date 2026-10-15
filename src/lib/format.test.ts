@@ -2,7 +2,7 @@ import { formatAge, formatCount, formatPercent, formatTimestamp } from "@/lib/fo
 import { describe, expect, it } from "vitest";
 
 // The wrappers delegate localisation to Intl, so these assertions pin what the
-// module owns — rounding, digit preservation, suffixes — not any one locale's
+// module owns - rounding, digit preservation, suffixes - not any one locale's
 // separators (they assume only a latin-digit locale, true of dev machines).
 describe("formatCount", () => {
   it("formats a small integer as plain digits", () => {

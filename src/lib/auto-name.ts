@@ -1,7 +1,7 @@
 // Auto-name a temp workspace once the agent has produced real work. After a
 // few distinct files change, ask the agent (or a heuristic) for a friendly
 // label and apply it. Fires once per workspace; never blocks or renames on
-// disk — the label is display-only, and never replaces a label the workspace
+// disk - the label is display-only, and never replaces a label the workspace
 // already has (the backend re-checks that as it saves, so a name the user set
 // while the namer was thinking still wins). The app shell provides the current
 // project / prefs / settings sink via `AutoNameHost` and owns the mount
@@ -16,7 +16,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 const AUTONAME_AFTER = 3;
 
 /** The normalized changed path when it carries naming signal for the workspace
- *  — inside the tree and not a dotfile/dot-dir (e.g. .git, .claude) — else
+ *  - inside the tree and not a dotfile/dot-dir (e.g. .git, .claude) - else
  *  null. Doubles as the distinct-files key. */
 export function namingSignal({ projectDirectory, changedPath }: {
   projectDirectory: string;
@@ -99,8 +99,8 @@ export function createAutoNamer(host: AutoNameHost) {
   }
 
   // Subscribe to the change feed. The watcher itself is armed on the open project
-  // by the Change Feed panel — `ChangeFeed` calls `feed.start(project)`, and it is
-  // the default side panel whenever a project is open — so the namer only listens
+  // by the Change Feed panel - `ChangeFeed` calls `feed.start(project)`, and it is
+  // the default side panel whenever a project is open - so the namer only listens
   // for the changes it produces; it no longer arms on the (drift-prone) cwd.
   async function start() {
     unlisten = await feed.onChange(event => {

@@ -1,4 +1,4 @@
-// Per-agent usage grouping — the pure, DOM-free, rune-free core behind
+// Per-agent usage grouping - the pure, DOM-free, rune-free core behind
 // `UsageMeter.svelte` (mirrors the `format.ts` / `tab-fit.ts` / `colors.ts`
 // pattern: plain functions + a colocated test).
 //
@@ -7,7 +7,7 @@
 // windows through a local token (Claude Code, Codex) gets real limits + plan;
 // an agent with no usable local usage signal surfaces as an `unknown` group with
 // no limits rather than an invented figure. Each agent resolves its own windows
-// through its per-agent account entry — no agent is special-cased here.
+// through its per-agent account entry - no agent is special-cased here.
 
 import { agentIconName } from "@/lib/agent-icon";
 import { formatPercent } from "@/lib/format";
@@ -22,7 +22,7 @@ import type {
 } from "@/lib/types";
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
- *  past 75%, red past 90% — no green, per the design's usage semantics. */
+ *  past 75%, red past 90% - no green, per the design's usage semantics. */
 export type Level = "normal" | "warn" | "crit";
 
 /** The key the account response files extra usage under (`usage.rs`'s
@@ -37,8 +37,8 @@ export type Limit = {
    *  shown on hover over the countdown; empty when the reset time is unknown. */
   resetAt: string;
   percentage: number;
-  /** What the row reads as: its percentage ("57%"), or — on an extra-usage row
-   *  with no monthly cap, so no percentage — the month's spend ("$259.18"). */
+  /** What the row reads as: its percentage ("57%"), or - on an extra-usage row
+   *  with no monthly cap, so no percentage - the month's spend ("$259.18"). */
   reading: string;
   level: Level;
   /** The window's semantic kind (session / weekly / model / opaque), straight
@@ -51,7 +51,7 @@ export type Limit = {
    *  every other row, and whenever extra usage is off. */
   balance: string;
   /** Whether this limit is the extra usage that can carry work past a spent
-   *  window — the credits row while credits are on and usable. False on every
+   *  window - the credits row while credits are on and usable. False on every
    *  other row, and on a credits row that is off or held back, which carries
    *  nothing and so never outranks the window that stopped. */
   carriesWork: boolean;
@@ -61,7 +61,7 @@ export type Limit = {
 };
 
 export type AgentGroup = {
-  /** The agent registry id (`claude`, `codex`, …) — the dedupe + sort key. */
+  /** The agent registry id (`claude`, `codex`, …) - the dedupe + sort key. */
   id: string;
   name: string;
   /** `name` minus a trailing " Code" / " CLI", for the compact trigger pills. */
@@ -96,13 +96,13 @@ function clamp(value: number): number {
 }
 
 // Normalize the endpoint's microsecond timestamps to ms so every engine parses
-// them identically — otherwise the countdown can drift.
+// them identically - otherwise the countdown can drift.
 //
 // Total by construction: a window's `resetsAt` is `nullish` (the vendor states a
 // reset time only when it knows one), so this takes the absent cases too and
 // answers NaN, which every caller already filters through `Number.isFinite`.
 // It used to demand a `string`, and one caller's filter excluded `undefined` but
-// not `null` — the null reached `.replace` and threw *inside an effect*, which
+// not `null` - the null reached `.replace` and threw *inside an effect*, which
 // takes the whole effect batch down with it: a terminal mounting in the same
 // flush never got its xterm and sat at "Starting…" forever.
 export function usageResetTime(iso: string | null | undefined): number {
@@ -125,7 +125,7 @@ function resetHasPassed({ resetsAt, now }: {
   return Number.isFinite(resetMs) && resetMs <= now;
 }
 
-// Absolute reset time for the hover tooltip — weekday + date + time so a window
+// Absolute reset time for the hover tooltip - weekday + date + time so a window
 // days out reads unambiguously. Local + locale-aware, like the number formatters.
 const RESET_TIMESTAMP = new Intl.DateTimeFormat(undefined, {
   weekday: "short",
@@ -184,7 +184,7 @@ function resetCountdown({ iso, now }: {
   return `in ${seconds}s`;
 }
 
-// A single-letter mono code derived from a window's own label — the initial of
+// A single-letter mono code derived from a window's own label - the initial of
 // its first distinctive word, e.g. "Claude Opus" → "O", "Claude Fable" → "F".
 // Used for per-model and any opaque windows (session/weekly get fixed codes).
 function labelShort(name: string): string {
@@ -210,7 +210,7 @@ export const USAGE_SPENT_PERCENTAGE = 100;
 const LimitPriority = {
   /** Extra usage while every real window still has room: spending credits never
    *  stops an agent, so a part-spent spend cap is not what anyone is about to
-   *  hit — 79% of the monthly spend beside a session window at 44% is headroom. */
+   *  hit - 79% of the monthly spend beside a session window at 44% is headroom. */
   headroom: 0,
   /** A session / weekly / per-model window: the real walls. */
   window: 1,
@@ -291,7 +291,7 @@ function worstRanked(limits: Limit[]): RankedLimit | null {
   return worst;
 }
 
-/** The worst-consumed limit in a set — drives an agent's chip/pill color and the
+/** The worst-consumed limit in a set - drives an agent's chip/pill color and the
  *  panel's "closest to a limit" signal. Ranked by `LimitPriority` before
  *  percentage, so extra usage never crowds out the windows that actually stop
  *  work. `null` for an agent with no limits. */
@@ -354,7 +354,7 @@ function formatBalance(balance: CreditBalance | null | undefined): string {
   }).format(balance.amount);
 }
 
-// Extra usage with no monthly cap has no window — nothing to run out of — but
+// Extra usage with no monthly cap has no window - nothing to run out of - but
 // its spend is still worth seeing, so it gets a row at 0% that reads as money.
 function uncappedCreditsWindows(account: AccountUsage): UsageWindow[] {
   const hasCreditsWindow = account.windows.some(window => window.kind === UsageWindowKind.enum.credits);
@@ -370,9 +370,9 @@ function uncappedCreditsWindows(account: AccountUsage): UsageWindow[] {
   }];
 }
 
-// An agent's real rate-limit windows off its account — every window the endpoint
+// An agent's real rate-limit windows off its account - every window the endpoint
 // returned (session, weekly, per-model, and any others), in the order it sent
-// them. A named window (session/weekly/model) is shown even at 0% — an unused
+// them. A named window (session/weekly/model) is shown even at 0% - an unused
 // session window is a real limit worth surfacing. An OPAQUE feature cap at 0%
 // is hidden until it gains real usage, matching the vendor's own usage page
 // (ChatGPT lists only the weekly cap while its endpoint also returns untouched
@@ -424,7 +424,7 @@ function buildLimits({ account, now }: {
 
 // One group per agent: an agent with a resolved account gets its real limits +
 // plan; an agent with none is `unknown` with no limits (ADE has no honest local
-// usage signal for it). No agent is special-cased — the account decides.
+// usage signal for it). No agent is special-cased - the account decides.
 function buildAgentGroup({ agent, account, now }: {
   agent: Agent;
   account: AccountUsage | null;
@@ -472,7 +472,7 @@ function sortWorstFirst(groups: AgentGroup[]): AgentGroup[] {
  *  Distinct coding agents keyed by agent id (first occurrence wins); the shell
  *  fallback and terminal-editor (`editor-*`) sessions are excluded. Two agents
  *  whose accounts carry the same billing-account identity (Codex + opencode on
- *  one ChatGPT subscription) collapse into the first-seen agent's group — one
+ *  one ChatGPT subscription) collapse into the first-seen agent's group - one
  *  account is never shown twice. Each agent reads its own windows from
  *  `accounts` (missing/`null` ⇒ an unknown group). Sorted worst-first. */
 export function buildGroups({ accounts, sessions, now }: {
@@ -542,7 +542,7 @@ export type SeveritySlice = {
 };
 
 // Groups with no limits (unknown agents, or Claude before its usage loads) have
-// no severity, so they're skipped here — but still counted in the running total.
+// no severity, so they're skipped here - but still counted in the running total.
 export function severityBreakdown(agents: AgentGroup[]): SeveritySlice[] {
   return SEVERITY_ORDER.map(severity => ({
     level: severity.level,
@@ -563,7 +563,7 @@ export type Spotlight = {
 
 /** How far a limit has to fall between two readings to count as having reset.
  *  Usage only climbs within a window, so a fall this size means it started over
- *  — its scheduled reset, or a free reset spent on it. */
+ *  - its scheduled reset, or a free reset spent on it. */
 const RESET_FALL_PERCENTAGE = 10;
 
 /** A limit's identity across readings: its agent and its label. */
@@ -574,7 +574,7 @@ export function limitKey({ agentId, limit }: {
   return `${agentId}:${limit.label}`;
 }
 
-/** Every capped limit's percentage, by {@link limitKey} — the reading the next
+/** Every capped limit's percentage, by {@link limitKey} - the reading the next
  *  one is compared with to spot a reset. */
 export function limitPercentages(groups: AgentGroup[]): Map<string, number> {
   const percentages = new Map<string, number>();
@@ -636,7 +636,7 @@ export function findSpotlight(agents: AgentGroup[]): Spotlight | null {
   return closest;
 }
 
-// Distinct kind codes actually in play, each with the label it stands for — the
+// Distinct kind codes actually in play, each with the label it stands for - the
 // legend that decodes the trigger's mono codes.
 export type KindLegendEntry = {
   short: string;
@@ -644,7 +644,7 @@ export type KindLegendEntry = {
 };
 
 export function buildKindLegend(agents: AgentGroup[]): KindLegendEntry[] {
-  // Plain-object dedupe (not a Map — this is a pure derivation, not reactive
+  // Plain-object dedupe (not a Map - this is a pure derivation, not reactive
   // state) keyed by the short code, first label wins.
   const seen: Record<string, true> = {};
   const entries: KindLegendEntry[] = [];

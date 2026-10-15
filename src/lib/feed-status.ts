@@ -1,6 +1,6 @@
 // What the Change Feed says when it has nothing to show. The list being empty
-// has three very different causes — nothing has changed yet, the watch is armed
-// on another project, or there is no watch at all — and the panel used to word
+// has three very different causes - nothing has changed yet, the watch is armed
+// on another project, or there is no watch at all - and the panel used to word
 // all three as "Waiting for edits". This turns the backend's `WatchStatus` into
 // the sentence that names which one it is (pure, so it is tested rather than
 // eyeballed).
@@ -12,7 +12,7 @@ import type { WatchStatus } from "@/lib/types";
 export interface FeedWatchSummary {
   /** The headline: what state the feed is in. */
   headline: string;
-  /** The evidence behind it — what is watched, since when, what was hidden. */
+  /** The evidence behind it - what is watched, since when, what was hidden. */
   detail: string;
   /** No live watch on the open project: the panel offers to arm it again. */
   stalled: boolean;
@@ -62,7 +62,7 @@ export function watchSummary({ status, project, now }: {
     : "";
   return {
     headline: "No changes yet.",
-    detail: `Watching ${name} ${since} — the feed starts from the moment a project opens, and shows nothing from before it.${hidden}`,
+    detail: `Watching ${name} ${since} - the feed starts from the moment a project opens, and shows nothing from before it.${hidden}`,
     stalled: false
   };
 }

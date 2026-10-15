@@ -1,6 +1,6 @@
 // One home for turning a thrown value into something a user can read. Tauri
 // rejects an IPC call with the Rust `Err(String)`, but a bug on the way there
-// can throw anything — so every catch funnels through here instead of each
+// can throw anything - so every catch funnels through here instead of each
 // caller re-deriving the same `typeof error === "string"` check.
 
 export function errorMessage({ error, fallback }: {

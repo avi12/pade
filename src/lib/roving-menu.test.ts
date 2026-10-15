@@ -1,7 +1,7 @@
 import { nextIndex } from "@/lib/roving-menu";
 import { describe, expect, it } from "vitest";
 
-describe("nextIndex — menu arrow navigation", () => {
+describe("nextIndex - menu arrow navigation", () => {
   it("ArrowDown advances and wraps; from -1 (no item focused) lands on the first", () => {
     expect(
       nextIndex({

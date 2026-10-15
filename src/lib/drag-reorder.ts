@@ -1,32 +1,32 @@
 // The one pointer-drag engine (Tesler's Law: all the drag complexity lives here),
 // shared by the session-tab strip, the terminal pane row, and the pinned-project
 // list (DRY). One press-and-drag gesture: lift the pressed item, track the
-// pointer, slide the siblings aside to open the slot it will land in, and — on a
-// normal drop — spring the lifted item from where it was released into that slot
+// pointer, slide the siblings aside to open the slot it will land in, and - on a
+// normal drop - spring the lifted item from where it was released into that slot
 // before committing the new order. Pointer events only (no HTML5 drag API), so it
 // works the same for mouse, pen, and touch; the call sites give their handles
 // `touch-action: none` so a touch-drag never scrolls instead.
 //
 // The FEEL is the design mockup's engine, reproduced faithfully:
-//   • Spring-settle from the release point — the lifted item animates
+//   • Spring-settle from the release point - the lifted item animates
 //     (`translate .3s cubic-bezier(.34,1.35,.5,1)` with the shadow fading out) from
 //     wherever it was let go into its target slot, and the reordered array is only
 //     committed ~300ms later, once it has settled. The engine owns the whole drop
 //     animation, so the tab/pane lists must NOT also run `animate:flip` (double
-//     animation) — the parent removes it.
+//     animation) - the parent removes it.
 //   • A transparent drag shield (`data-drag-shield`) under the lifted item carries
 //     the grabbing cursor over every surface (xterm canvases included) and freezes
 //     stray interaction; it is dropped from hit-testing around each `elementFromPoint`
 //     probe so the real drop zone underneath stays reachable.
-//   • Unclip / reclip — a tab dragged OUT of the horizontally-scrolling strip would
+//   • Unclip / reclip - a tab dragged OUT of the horizontally-scrolling strip would
 //     be cut off, so on lift every clipping ancestor's overflow is forced `visible`
 //     and restored on drop.
-//   • Sticky insertion — the landing slot excludes the dragged item's *current*
+//   • Sticky insertion - the landing slot excludes the dragged item's *current*
 //     gap, so a swapped item holds until the pointer crosses the neighbour's new
 //     centre (no flicker at the boundary). Reduced motion skips the transitions.
 //
 // The DOM-free order/geometry math (`insertionIndex`, `reorderedIds`, `paneDropSide`)
-// lives in `@/lib/reorder` so it's unit-tested and shared — the which-half decision
+// lives in `@/lib/reorder` so it's unit-tested and shared - the which-half decision
 // has one home there. This module measures geometry, drives the DOM imperatively,
 // and reports every state change through `onHint` so a Svelte caller can mirror it
 // into `$state` and paint its own affordances. The deferred commit awaits Svelte's
@@ -44,7 +44,7 @@ export const Axis = {
 } as const;
 export type Axis = (typeof Axis)[keyof typeof Axis];
 
-/** A droppable-with-halves target inside the outside zone — a shown terminal pane.
+/** A droppable-with-halves target inside the outside zone - a shown terminal pane.
  *  Which half the pointer is over decides the split side. */
 export interface DropTarget {
   /** The target pane's id (its `data-pane-id`). */
@@ -60,13 +60,13 @@ export interface DragHint {
   /** The id of the item being dragged. */
   id: string;
   /** True while the pointer is over the `outsideSelector` zone and not over a
-   *  reorderable item — a drop-out (split / pop-to-tab), not an in-strip sort. */
+   *  reorderable item - a drop-out (split / pop-to-tab), not an in-strip sort. */
   outside: boolean;
   /** The pane under the pointer and the half it's over, or `null` when the pointer
    *  isn't over a pane. The engine owns this decision (via `reorder.paneDropSide`),
    *  so a caller can paint the drop half straight from it without re-hit-testing. */
   dropTarget: DropTarget | null;
-  /** Raw pointer position — retained so a caller may still hit-test its own zones,
+  /** Raw pointer position - retained so a caller may still hit-test its own zones,
    *  but `dropTarget` above is the resolved answer and should be preferred. */
   pointerX: number;
   pointerY: number;
@@ -87,7 +87,7 @@ export interface DropOutside {
 export interface BeginReorderOptions {
   /** The `pointerdown` that opens the gesture (from the drag handle). */
   e: PointerEvent;
-  /** CSS selector for a reorderable item — matched with `closest` from the press
+  /** CSS selector for a reorderable item - matched with `closest` from the press
    *  target, and used to enumerate the siblings within the item's parent. */
   itemSelector: string;
   /** Attribute on each item element holding its stable id (e.g. `data-pane-id`). */
@@ -124,7 +124,7 @@ const PANE_DROP_TARGET = {
 } as const;
 
 /** How the lifted item springs into its slot (or home) on release: a gentle
- *  overshoot — the design's drop settle, distinct from the emphasized `--ease` the
+ *  overshoot - the design's drop settle, distinct from the emphasized `--ease` the
  *  siblings slide with. No token exists for this one-off curve, so it lives here. */
 const SPRING_EASE = "cubic-bezier(0.34, 1.35, 0.5, 1)";
 const SPRING_SECONDS = 0.3;
@@ -139,7 +139,7 @@ const LIFT_SHADOW_FADED = "0 18px 44px transparent";
 /** A lifted item floats over its siblings, so it has to be opaque. Rows that
  *  paint no surface of their own (the app menu's window and pinned-project rows
  *  are transparent until hovered) would otherwise let the sibling sliding
- *  underneath read straight through them — two rows' text superimposed. One tone
+ *  underneath read straight through them - two rows' text superimposed. One tone
  *  above the `--surface-2` menu they sit in; a tab pill or runner card that
  *  already paints its own surface keeps it. */
 const LIFT_BACKGROUND = "var(--surface-3)";
@@ -169,7 +169,7 @@ function paintsOwnSurface(element: HTMLElement): boolean {
   return backgroundImage !== "none" || colorAlpha(backgroundColor) >= OPAQUE_ALPHA;
 }
 
-// Only one drag may run at a time — a second press while one is live (including
+// Only one drag may run at a time - a second press while one is live (including
 // the ~300ms settle after release) is ignored so gestures never overlap.
 let dragInProgress = false;
 
@@ -186,7 +186,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     outsideSelector,
     onDropOutside
   } = options;
-  // Primary button only — middle-click (close a tab) and right-click stay theirs.
+  // Primary button only - middle-click (close a tab) and right-click stay theirs.
   if (dragInProgress || e.button !== 0 || !(e.target instanceof Element)) {
     return;
   }
@@ -216,7 +216,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   const bodyUserSelect = bodyStyle.userSelect;
   const parentPointerEvents = parent.style.pointerEvents;
 
-  // Mutable gesture state — all snapshotted lazily once the drag actually begins.
+  // Mutable gesture state - all snapshotted lazily once the drag actually begins.
   let dragging = false;
   let siblings: Sibling[] = [];
   let centers: number[] = [];
@@ -293,7 +293,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // Slide every non-dragged sibling from its original slot to the slot at its new
   // position when the dragged item is inserted at `before` among the others. Each
   // is mapped to a real slot's geometry, so variable-width pills close and open
-  // exactly — no uniform-gap assumption. The siblings' transition is set once on
+  // exactly - no uniform-gap assumption. The siblings' transition is set once on
   // lift, so this only writes `translate`.
   function reflow(before: number): void {
     const others = originalIds.filter(id => id !== draggedId);
@@ -330,7 +330,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     return element;
   }
 
-  // The pane + half under the pointer, or null — the drop-half decision, made once
+  // The pane + half under the pointer, or null - the drop-half decision, made once
   // here (via `reorder.paneDropSide`) for both the live hint and the release.
   function resolveDropTarget(hit: Element | null, x: number): DropTarget | null {
     if (!hit) {
@@ -427,7 +427,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   }
 
   // Neutralize the scroll ancestors' clipping for the gesture, restoring each
-  // exactly as it was on drop. An escape-drag (`outsideSelector` — a tab toward
+  // exactly as it was on drop. An escape-drag (`outsideSelector` - a tab toward
   // the panes, a pane toward the strip) forces them `visible` so the lifted item
   // isn't cut off leaving its container. An in-place sort forces them `hidden`
   // instead: the translated item still extends the container's scrollable area,
@@ -580,7 +580,7 @@ export function beginReorder(options: BeginReorderOptions): void {
 
     dragging = false;
 
-    // The pressed item vanished before it could lift — nothing to settle or commit.
+    // The pressed item vanished before it could lift - nothing to settle or commit.
     if (fromIndex === -1) {
       onHint?.(null);
       dragInProgress = false;
@@ -636,7 +636,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     }, SPRING_MILLISECONDS);
   }
 
-  // A normal drop always commits the current order — even a same-slot no-op, where
+  // A normal drop always commits the current order - even a same-slot no-op, where
   // `committedOrderOnDrop` returns the full list unchanged. Skipping the commit on a
   // no-op left the caller's list out of sync with the DOM the engine had moved, and
   // a later selection reconciled against that stale order and dropped the tab; the

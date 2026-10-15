@@ -1,6 +1,6 @@
 // Motion helpers for things CSS alone can't express. An exit animation is the
 // one case: the moment a list drops an item, its element is gone from the DOM,
-// so there is nothing left for a CSS transition to run on — the leaving row has
+// so there is nothing left for a CSS transition to run on - the leaving row has
 // to be animated out by the framework before it is detached.
 //
 // theme.css disables CSS animations under `prefers-reduced-motion`, but that
@@ -26,8 +26,8 @@ function bezierAxis({ controlOne, controlTwo, curveProgress }: {
     + (curveProgress * curveProgress * curveProgress);
 }
 
-/** The M3 "emphasized" easing curve — `cubic-bezier(0.2, 0, 0, 1)`, the same
- *  motion the CSS `--ease` token carries — as an easing function for JS-driven
+/** The M3 "emphasized" easing curve - `cubic-bezier(0.2, 0, 0, 1)`, the same
+ *  motion the CSS `--ease` token carries - as an easing function for JS-driven
  *  animations (e.g. `animate:flip`), so JS motion matches the rest of the app.
  *  Solves x(t) = progress by bisection, then returns y(t). */
 export function emphasized(progress: number): number {
@@ -60,7 +60,7 @@ function motionDuration(milliseconds: number): number {
 }
 
 /** In/out transition for a block revealed inside a card (the feed's inline
- *  diff): its height — and the end-margin it brings — glides open and closed
+ *  diff): its height - and the end-margin it brings - glides open and closed
  *  while it fades, so toggling the card is a smooth glide both ways instead of
  *  an appear-then-snap. */
 export function revealBlock(node: Element, { duration = 240 }: { duration?: number } = {}) {
@@ -91,7 +91,7 @@ function slideRow(node: Element, duration: number) {
     ? parseFloat(getComputedStyle(node.parentElement).rowGap) || 0
     : 0;
   // An element's own leading margin (an error line's 6px offset) collapses in
-  // step too — left at full size it would pop the exact instant the row's
+  // step too - left at full size it would pop the exact instant the row's
   // height reaches zero.
   const marginBlockStart = parseFloat(getComputedStyle(node).marginBlockStart) || 0;
 
@@ -124,7 +124,7 @@ export function expandRow(node: Element, { duration = 220 }: { duration?: number
 }
 
 /** Out-transition for a split PANE being closed: the flex-row pane collapses its
- *  inline-size — and the column-gap it was holding — to nothing while it fades
+ *  inline-size - and the column-gap it was holding - to nothing while it fades
  *  and dips slightly in scale, so the surviving panes glide across to fill the
  *  space instead of snapping shut. The inline-axis mirror of {@link collapseRow}
  *  (which does the block axis), for `out:collapsePane` on a pane slot. */
@@ -134,7 +134,7 @@ export function collapsePane(node: Element, { duration = 260 }: { duration?: num
 
 /** In/out transition for an inline item that comes and goes in a flex row (a
  *  usage pill's extra-usage segment, its reset chip): it opens and closes its
- *  width — and the gap it holds — while it fades, so its neighbours glide
+ *  width - and the gap it holds - while it fades, so its neighbours glide
  *  aside instead of jumping. */
 export function growInline(node: Element, { duration = 240 }: { duration?: number } = {}) {
   return slideInline(node, duration);

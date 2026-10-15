@@ -3,10 +3,10 @@
 // Pure and unit-tested; the reactive per-session percentage lives in
 // lib/stores/context. Kept apart from that store so it carries no runes and can
 // be tested without a Svelte environment, and so the threshold has one home
-// (auto-handoff and the session tabs both read it — DRY).
+// (auto-handoff and the session tabs both read it - DRY).
 
 /** Percent-of-context at which the app auto-hands a session off to a fresh
- *  agent, when the user hasn't picked their own threshold (prefs.handoffPct —
+ *  agent, when the user hasn't picked their own threshold (prefs.handoffPct -
  *  `effective.handoffPercentage` is the resolved value every consumer reads). Low on
  *  purpose: quality degrades long before the window is full, so cycling early
  *  keeps the agent sharp. */
@@ -26,7 +26,7 @@ export type ContextLevel = (typeof ContextLevel)[keyof typeof ContextLevel];
 
 // How far toward the handoff threshold each step kicks in: at 75% of the way the
 // handoff is imminent (critical), at 50% it's approaching (warning). The critical
-// band has to open well before the threshold — auto-handoff fires *at* it, so a
+// band has to open well before the threshold - auto-handoff fires *at* it, so a
 // band that starts at 90% would flash red for only the last sliver before the
 // session cycles. fraction = percentage / context handoff percentage.
 const HANDOFF_IMMINENT_FRACTION = 0.75;

@@ -3,16 +3,16 @@
 // options with a highlighted selection cursor (`❯ 1. Yes` / `  2. No`). Spotting
 // it lets the session's tab flash for attention while the pick is pending (see
 // stores/sessionAttention). This is a heuristic coupled to the CLI's *observable*
-// output — deliberately conservative so ordinary numbered lists in agent prose
+// output - deliberately conservative so ordinary numbered lists in agent prose
 // never trip it. What it keys on, and its limits, are documented at the export.
 
 import { stripAnsi } from "@/lib/ansi";
 
 /** The selection-cursor glyph Claude Code (Ink's select prompt) draws next to
- *  the highlighted option — U+276F, distinct from the input line's plain ">". */
+ *  the highlighted option - U+276F, distinct from the input line's plain ">". */
 export const SELECTION_CURSOR = "❯";
 
-// A numbered option token — "1." / "12)" — counted loosely (no surrounding
+// A numbered option token - "1." / "12)" - counted loosely (no surrounding
 // whitespace required) so a framebuffer that joins the rows without a newline
 // still tallies each option.
 const NUMBERED_OPTION_RE = /\d{1,2}[.)]/g;
@@ -25,8 +25,8 @@ const CURSOR_ON_OPTION_RE = new RegExp(`${SELECTION_CURSOR}\\s{0,3}\\d{1,2}[.)]`
 const MIN_OPTIONS = 2;
 
 /** Whether a chunk of PTY output is an agent's multiple-choice prompt awaiting a
- *  pick. Conservative on purpose — it requires BOTH the selection cursor sitting
- *  on a numbered option AND two or more numbered options in view — so a plain
+ *  pick. Conservative on purpose - it requires BOTH the selection cursor sitting
+ *  on a numbered option AND two or more numbered options in view - so a plain
  *  "1. … 2. …" list in the agent's prose (no cursor) and a lone "❯ 1." never
  *  register.
  *

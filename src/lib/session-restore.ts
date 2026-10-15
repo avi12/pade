@@ -1,4 +1,4 @@
-// Re-attach after the window loses its webview — the session-persistence seam.
+// Re-attach after the window loses its webview - the session-persistence seam.
 //
 // Two things take the UI away while the agents keep running: an accidental
 // reload (F5, a dropped HMR socket) and a dead WebView2 browser process, which
@@ -7,13 +7,13 @@
 // per window label in localStorage and not in sessionStorage: sessionStorage
 // dies with the webview, so a rebuilt window booted with no record of what it
 // owned, spawned a fresh agent, and left the live PTYs orphaned in the backend
-// — running, billing, reachable by nothing.
+// - running, billing, reachable by nothing.
 //
 // Outliving the webview is safe because liveness is never this module's claim
 // to make. The backend's PtyState stays the sole authority: restore only
 // re-attaches sessions `pty_list` still hosts, and it lists only the ones this
 // window owns. A deliberate leave kills its PTYs first and app exit kills them
-// all — so nothing survives the intersection, a snapshot left behind by an
+// all - so nothing survives the intersection, a snapshot left behind by an
 // earlier run finds nothing live and is cleared, and no separate "leave intent"
 // flag is needed.
 
@@ -24,12 +24,12 @@ import { z } from "zod";
 
 /** Where this window's snapshot lives. Keyed by window label so a sibling
  *  window never reads (or overwrites) another's pane mapping, and so the
- *  crash-rebuilt window — same label — finds its own. */
+ *  crash-rebuilt window - same label - finds its own. */
 function snapshotStorageKey(): string {
   return `pade.session-snapshot:${windows.label()}`;
 }
 
-/** One persisted session — `AgentSession` minus `initialPrompt`, which was
+/** One persisted session - `AgentSession` minus `initialPrompt`, which was
  *  already submitted into the live conversation (restoring it would make the
  *  re-attached terminal send it again). */
 const SnapshotSession = z.object({
@@ -91,7 +91,7 @@ export function clearSessionSnapshot(): void {
 }
 
 /** The persisted snapshot, or `null` when absent or malformed. Storage is a
- *  trust boundary like any other — the payload is zod-validated on the way in. */
+ *  trust boundary like any other - the payload is zod-validated on the way in. */
 export function readSessionSnapshot(): SessionSnapshot | null {
   const raw = localStorage.getItem(snapshotStorageKey());
   if (raw === null) {
@@ -109,7 +109,7 @@ export function readSessionSnapshot(): SessionSnapshot | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** The snapshot cut down to the sessions the backend still hosts — pure, so the
+/** The snapshot cut down to the sessions the backend still hosts - pure, so the
  *  intersection is unit-testable. Panes and the active id are pruned with it
  *  (a survivor always ends up shown); `null` when no session survived, which is
  *  exactly what a deliberate leave (PTYs killed) looks like. */
@@ -139,7 +139,7 @@ export function pruneToLive({ snapshot, liveIds }: {
 
 /** The snapshot a reloaded window can actually re-attach to: the persisted pane
  *  mapping intersected with the backend's live-session roster (`pty_list`). A
- *  snapshot with nothing live behind it is stale — cleared and `null`. */
+ *  snapshot with nothing live behind it is stale - cleared and `null`. */
 export async function restoreLiveSnapshot(): Promise<SessionSnapshot | null> {
   const snapshot = readSessionSnapshot();
   if (!snapshot) {

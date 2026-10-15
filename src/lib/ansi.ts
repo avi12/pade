@@ -1,7 +1,7 @@
 // One home for a terminal's ANSI/control sequences: stripping them out of a chunk
 // of output (so text matchers see the glyphs a TUI wrote rather than the colour
-// and cursor-move codes interleaved with them), and — for panes that want to
-// *render* the colour instead of hide it — parsing SGR sequences into styled
+// and cursor-move codes interleaved with them), and - for panes that want to
+// *render* the colour instead of hide it - parsing SGR sequences into styled
 // segments. Both share the one matcher below, so they always agree on what an
 // escape sequence is. Built from strings (the ESC/BEL bytes written as unicode
 // escapes) so no raw control character ever sits in the source.
@@ -19,7 +19,7 @@ const ANSI_ESCAPE_RE = new RegExp(
 );
 
 // A CSI that sets graphics (SGR): ESC [ <numeric params> m. Stricter than the CSI
-// branch above — no `?` private-mode marker, no intermediates — so only a real
+// branch above - no `?` private-mode marker, no intermediates - so only a real
 // colour/weight sequence is interpreted; every other CSI (cursor moves, etc.) is
 // consumed and skipped. Built as a string (like the matcher above) so no raw
 // control byte sits in the source.
@@ -31,7 +31,7 @@ const CSI_SGR_RE = new RegExp("^\\u001b\\[([0-9;]*)m$");
 const CURSOR_FORWARD_RE = new RegExp("\\u001b\\[(\\d*)C", "g");
 const CURSOR_FORWARD_DEFAULT_COUNT = 1;
 // A ceiling on the gap one cursor move expands to, so a garbage count can't
-// allocate an unbounded string — wider than any real terminal row.
+// allocate an unbounded string - wider than any real terminal row.
 const CURSOR_FORWARD_MAX_COUNT = 1_000;
 
 function cursorForwardGap(_sequence: string, count: string): string {
@@ -40,7 +40,7 @@ function cursorForwardGap(_sequence: string, count: string): string {
 }
 
 /** Strip ANSI/control sequences from a chunk of terminal output, keeping a
- *  cursor-forward skip as the blank gap it leaves on screen — or text matchers
+ *  cursor-forward skip as the blank gap it leaves on screen - or text matchers
  *  would see `Yes,Itrustthisfolder` where the screen reads "Yes, I trust this
  *  folder". */
 export function stripAnsi(text: string): string {
@@ -93,7 +93,7 @@ const BRIGHT_BACKGROUND_START = 100;
 const BRIGHT_OFFSET = 8;
 
 /** Resolve an ANSI colour index (0–15) to the CSS custom-property reference that
- *  paints it — the single palette shared with xterm's theme. */
+ *  paints it - the single palette shared with xterm's theme. */
 function ansiColor(index: number): string {
   return `var(${ANSI_COLOR_TOKENS[index]})`;
 }
@@ -160,7 +160,7 @@ function applyExtendedColor({ style, codes, index, foreground }: {
   return index;
 }
 
-// The attribute (non-colour) SGR codes, each a mutator on the running style — a
+// The attribute (non-colour) SGR codes, each a mutator on the running style - a
 // declarative table so `applySimpleCode` stays a lookup, not a long switch.
 const ATTRIBUTE_SETTERS: ReadonlyMap<number, (style: AnsiStyle) => void> = new Map([
   [Sgr.Reset, resetStyle],
@@ -221,7 +221,7 @@ function applySimpleCode({ style, code }: {
   if (background !== null) {
     style.background = ansiColor(background);
   }
-  // Any other code is unmodelled — ignore it.
+  // Any other code is unmodelled - ignore it.
 }
 
 /** Mutate `style` per one SGR sequence's parameters (the `32;1` in `ESC[32;1m`). */

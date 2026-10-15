@@ -1,15 +1,15 @@
-// Right-to-left text in a terminal — the one place that decides WHICH COLUMNS of
+// Right-to-left text in a terminal - the one place that decides WHICH COLUMNS of
 // a row read right to left, and what to draw over them.
 //
 // A terminal grid is a left-to-right array of cells: the agent picks a column and
 // paints one glyph there. Arabic, Hebrew, Syriac and friends are neither. Their
-// letters *join* — each takes a different form depending on its neighbours — and
+// letters *join* - each takes a different form depending on its neighbours - and
 // they read right to left. So a cell-by-cell renderer paints them disconnected and
 // backwards: `مرحبا` comes out as `ا ب ح ر م`.
 //
 // Nothing here reshapes or reorders a single character. The browser already
 // implements the Unicode Bidirectional Algorithm and OpenType shaping, and it is
-// authoritative — far more so than anything we would hand-roll. This module's whole
+// authoritative - far more so than anything we would hand-roll. This module's whole
 // job is to say which columns to hand it as one string, so the buffer, the copied
 // text, the link provider and every output parser keep reading the agent's own
 // logical order, untouched.
@@ -27,21 +27,21 @@ import type { IBufferCell, IBufferLine, IBufferRange, Terminal } from "@xterm/xt
 const RTL_SCRIPT =
   /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Adlam}]/u;
 
-/** Any letter — only ever consulted after {@link RTL_SCRIPT} has said no, so a
+/** Any letter - only ever consulted after {@link RTL_SCRIPT} has said no, so a
  *  match here means "a letter that reads left to right", which ends a run. */
 const LTR_LETTER = /\p{L}/u;
 
 /** A digit. The bidi algorithm calls these *weak*: a number that follows
  *  right-to-left text is carried along by it and reordered with it, which is why
  *  `מועד … ביותר: 11.01.2027` puts the date at the phrase's far end. So a digit
- *  continues a run — but it cannot open one, because a number with no
+ *  continues a run - but it cannot open one, because a number with no
  *  right-to-left text before it reads left to right like the rest of the row. */
 const DIGIT = /\p{Nd}/u;
 
 // Box drawing through geometric shapes, plus the Powerline private-use block: the
 // glyphs a TUI draws its FRAME with. They are symbols, so the bidi algorithm calls
 // them neutral and would happily carry them inside a right-to-left run and move
-// them — turning an agent's box border inside out. They are layout, not text, so
+// them - turning an agent's box border inside out. They are layout, not text, so
 // they end a run instead. (xterm draws the same line for its own contrast rules:
 // `treatGlyphAsBackgroundColor`.)
 const BOX_DRAWING_FIRST = 0x2500;
@@ -55,7 +55,7 @@ const CellDirection = {
   Ltr: "ltr",
   /** A digit: it cannot start a run, but it belongs to one it follows. */
   Weak: "weak",
-  /** Spaces and punctuation — they take the direction of their neighbours. */
+  /** Spaces and punctuation - they take the direction of their neighbours. */
   Neutral: "neutral",
   /** A frame glyph: layout, and a hard end to any run. */
   Frame: "frame"
@@ -64,8 +64,8 @@ type CellDirection = (typeof CellDirection)[keyof typeof CellDirection];
 
 /** How many neutral cells may sit *inside* one run. A single space between words
  *  is prose and must stay inside the run, or every word would be reordered on its
- *  own and the sentence would read backwards. A wide gap is column padding — an
- *  agent aligning a table — and joining across it would let one cell's text slide
+ *  own and the sentence would read backwards. A wide gap is column padding - an
+ *  agent aligning a table - and joining across it would let one cell's text slide
  *  into the next column's space. */
 const RUN_NEUTRAL_GAP_LIMIT = 8;
 
@@ -114,7 +114,7 @@ export interface ColumnRange {
 
 /** The columns of one row that read right to left, in column order. A run opens on
  *  a right-to-left character and closes on the last cell the bidi algorithm would
- *  still carry with it — a right-to-left character or a digit. The neutrals around
+ *  still carry with it - a right-to-left character or a digit. The neutrals around
  *  that belong to the text on either side, and covering them would hide cells
  *  needlessly. */
 export function rtlRuns({ cells }: { cells: readonly string[] }): ColumnRange[] {
@@ -193,13 +193,13 @@ export const RtlPartKind = {
   Text: "text",
   /** The text cursor. It is a MARKER IN THE SEQUENCE, not a measured position:
    *  a logical column means nothing once a line has been reordered, so the caret
-   *  is placed between parts and the browser lays it out with the text — it
+   *  is placed between parts and the browser lays it out with the text - it
    *  cannot end up disagreeing with the glyphs. */
   Caret: "caret"
 } as const;
 type RtlPartKind = (typeof RtlPartKind)[keyof typeof RtlPartKind];
 
-/** A stretch of a run painted identically — the unit the browser shapes.
+/** A stretch of a run painted identically - the unit the browser shapes.
  *  Splitting is kept to the minimum the styling forces, because letters do not
  *  join across an element boundary: every extra part is a broken join. */
 export interface RtlTextPart extends RtlStyle {
@@ -218,7 +218,7 @@ export type RtlPart = RtlTextPart | RtlCaretPart;
 export interface RtlRun {
   readonly startColumn: number;
   readonly columns: number;
-  /** The run's own backdrop — its first cell's background, so the space the shaped
+  /** The run's own backdrop - its first cell's background, so the space the shaped
    *  text does not fill still matches what xterm painted underneath. */
   readonly background: string;
   readonly parts: readonly RtlPart[];
@@ -253,7 +253,7 @@ function isColumnSelected({ column, selection }: {
 }
 
 /** The part being built with this cell added, or nothing when the cell has to
- *  start a new one — a change of painting, of selection, or the caret landing
+ *  start a new one - a change of painting, of selection, or the caret landing
  *  here. */
 function extendedPart({ open, cell, selected, startsCaret }: {
   open: RtlTextPart | undefined;
@@ -331,7 +331,7 @@ function runParts({ cells, range, cursorColumn, selection }: {
     parts.push(open);
   }
 
-  // Past the run's last character — where a composer leaves it while you type.
+  // Past the run's last character - where a composer leaves it while you type.
   if (cursorColumn === range.endColumn) {
     parts.push(CARET);
   }
@@ -402,7 +402,7 @@ function cellColor({ palette, truecolor, value, fallback }: {
 }
 
 /** One xterm cell as the overlay needs it, its colours resolved through the same
- *  design tokens as xterm's own palette — so the overlay follows a light/dark
+ *  design tokens as xterm's own palette - so the overlay follows a light/dark
  *  flip with the terminal under it and never has to be rebuilt for one. */
 function rtlCell({ cell }: { cell: IBufferCell }): RtlCell {
   const foreground = cellColor({
@@ -433,7 +433,7 @@ function rtlCell({ cell }: { cell: IBufferCell }): RtlCell {
 }
 
 /** One row's cells, read through the single scratch cell xterm hands back from
- *  every `getCell` — reading a row must not allocate an object per column. */
+ *  every `getCell` - reading a row must not allocate an object per column. */
 function rowCells({ line, scratch }: {
   line: IBufferLine;
   scratch: IBufferCell;

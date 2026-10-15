@@ -3,7 +3,7 @@
 // (OverflowTooltipLayer), anchored back to the trigger by name.
 //
 // Why a shared layer instead of a per-trigger `::after`: a truncation trigger
-// often sits inside a containing block that clips or mis-sizes a fixed pseudo —
+// often sits inside a containing block that clips or mis-sizes a fixed pseudo -
 // a [popover] menu's top layer (the workspace switcher) traps the bubble and
 // inflates the menu's scroll width, and a `content-visibility` row is a
 // containing block that clips it. Rendering the bubble once, outside every such
@@ -23,7 +23,7 @@ export function showOverflowTooltip(tooltip: ActiveOverflowTooltip): void {
   overflowTooltipState.active = tooltip;
 }
 
-/** Clear only if the given trigger still owns the bubble — a stale pointerleave
+/** Clear only if the given trigger still owns the bubble - a stale pointerleave
  *  from a trigger the pointer already moved off of never hides a newer one. */
 export function clearOverflowTooltip(anchorName: string): void {
   if (overflowTooltipState.active?.anchorName === anchorName) {

@@ -216,7 +216,7 @@ describe("buildGroups", () => {
       expect(findSpotlight(groups)?.limit.label).toBe("Weekly");
     });
 
-    it("shows no balance when there is none — extra usage is off", () => {
+    it("shows no balance when there is none - extra usage is off", () => {
       const row = extraUsageRow({ credits: CreditsState.enum.off });
       expect(row?.balance).toBe("");
     });
@@ -249,7 +249,7 @@ describe("buildGroups", () => {
     }
 
     // ChatGPT's own usage page lists only the weekly cap while its endpoint
-    // also returns untouched per-feature limits — those stay hidden at 0%…
+    // also returns untouched per-feature limits - those stay hidden at 0%…
     const [untouched] = buildGroups({
       accounts: accountsFor({
         opencode: makeAccount({ windows: [weeklyWindow(), sparkCap(0)] })
@@ -379,7 +379,7 @@ describe("buildGroups", () => {
 
   it("collapses two agents sharing one billing account into the first-seen group", () => {
     // Codex and opencode both bill the same ChatGPT subscription, so their
-    // accounts carry the same identity — the meter must never show it twice.
+    // accounts carry the same identity - the meter must never show it twice.
     const chatgptAccount = makeAccount({
       windows: [weeklyWindow({ utilization: 5 })],
       plan: "Codex plus",
@@ -429,7 +429,7 @@ describe("buildGroups", () => {
     expect(opencode.limits.map(limit => limit.percentage)).toEqual([5]);
   });
 
-  it("counts every distinct agent — the few/many boundary sits at 2", () => {
+  it("counts every distinct agent - the few/many boundary sits at 2", () => {
     const twoAgents = buildGroups({
       accounts: accountsFor({ claude: makeAccount() }),
       sessions: [claudeSession(), makeSession({ agentId: "codex" })],
@@ -454,7 +454,7 @@ describe("buildGroups", () => {
 
 describe("reset countdowns", () => {
   // `buildGroups` takes `now` as a parameter (nothing reads `Date.now()`), so a
-  // fixed epoch keeps every countdown deterministic — no fake timers needed.
+  // fixed epoch keeps every countdown deterministic - no fake timers needed.
   const now = Date.UTC(2026, 0, 1);
 
   // The session limit's countdown for a given ISO reset time, via the builder.
@@ -606,7 +606,7 @@ describe("panel view-model skips unknown agents", () => {
     }
 
     // Spending credits never stops the agent, so a part-spent spend cap is not
-    // what anyone is about to hit — the session window at 44% is.
+    // what anyone is about to hit - the session window at 44% is.
     it("spotlights the session window over a part-spent credits cap", () => {
       const spotlight = findSpotlight(
         claudeWith({
@@ -684,7 +684,7 @@ describe("usageResetTime", () => {
       .toBe(Date.parse("2026-08-15T09:30:00.123Z"));
   });
 
-  // `resetsAt` is nullish — a vendor states a reset only when it knows one — and
+  // `resetsAt` is nullish - a vendor states a reset only when it knows one - and
   // this used to throw on the absent cases. Thrown from an effect, that took the
   // whole effect batch with it and left a mounting terminal stuck at "Starting…".
   it("answers NaN for a reset time the vendor never gave, instead of throwing", () => {

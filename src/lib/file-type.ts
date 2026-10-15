@@ -1,6 +1,6 @@
 // Pure file-type badge for a Change Feed card: a file's extension → a short label,
 // a colour tone, and (where the language has one) a brand-logo icon name.
-// Language-agnostic — an unrecognised extension still yields a chip (its own
+// Language-agnostic - an unrecognised extension still yields a chip (its own
 // uppercased extension), so every row is tagged even without a logo.
 
 import type { IconName } from "@/lib/Icon.svelte";
@@ -66,7 +66,7 @@ export const FileTone = {
 export type FileTone = (typeof FileTone)[keyof typeof FileTone];
 
 export interface FileTypeBadge {
-  /** 2–4 char label shown in the chip (e.g. `TS`, `CSS`) — the fallback for a
+  /** 2–4 char label shown in the chip (e.g. `TS`, `CSS`) - the fallback for a
    *  file type without a brand logo, and always present so every row is tagged. */
   label: string;
   tone: FileTone;
@@ -75,7 +75,7 @@ export interface FileTypeBadge {
   icon?: IconName;
 }
 
-// Badges reached from several extensions and/or name rules — one home each.
+// Badges reached from several extensions and/or name rules - one home each.
 const XML_BADGE: FileTypeBadge = {
   label: "XML",
   tone: FileTone.Xml,
@@ -882,7 +882,7 @@ export function fileExtension(path: string): string {
   return extension ? `.${extension}` : name;
 }
 
-/** The badge for a file path — read from its extension. A dotfile (`.gitignore`)
+/** The badge for a file path - read from its extension. A dotfile (`.gitignore`)
  *  or extensionless file gets a neutral chip from its own name. */
 export function fileTypeBadge(path: string): FileTypeBadge {
   const name = baseName(path);

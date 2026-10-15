@@ -19,12 +19,12 @@ const emptyBuffer = {
 // What xterm's `getChars` reads back for a cell nothing was ever printed into.
 const UNWRITTEN = "";
 
-// Stands in, inside a mock row's text, for an unwritten cell mid-row — the gap a
+// Stands in, inside a mock row's text, for an unwritten cell mid-row - the gap a
 // program leaves when it moves the cursor (`ESC[1C`) instead of printing a space.
 const UNWRITTEN_MARKER = "\u0000";
 
 // A tiny stand-in for xterm's buffer: each row is a plain string plus an
-// optional soft-wrap flag. `getCell` mirrors the real API — a column past the
+// optional soft-wrap flag. `getCell` mirrors the real API - a column past the
 // row's text, or one holding `UNWRITTEN_MARKER`, reads back as an unwritten cell.
 interface MockRow {
   text: string;
@@ -80,7 +80,7 @@ function textsOf(links: ILink[]): string[] {
 
 // A spread of URL shapes to split at every wrap position: schemes, host-only,
 // localhost, IPv6, bare IP, userinfo, ports, query, fragment, dotted paths, and
-// — the adversarial ones — percent-escapes (`%XX`), so a wrap that lands mid-
+// - the adversarial ones - percent-escapes (`%XX`), so a wrap that lands mid-
 // escape (`…%` | `2Fpath`, `…%2` | `Fpath`) is exercised too.
 const URL_CORPUS = [
   "https://example.com",
@@ -96,14 +96,14 @@ const URL_CORPUS = [
   "https://example.com/path/%E2%9C%93/check%20mark%21",
   "https://api.example.com/v1/items/42%2Fnested%3Fkey%3Dvalue",
   "https://example.com/feed?type=rss&sort=new&page=2",
-  // Ends on `&` (a valid URL byte the pattern keeps) — every split of it,
+  // Ends on `&` (a valid URL byte the pattern keeps) - every split of it,
   // including one that leaves the trailing `&` on its own row, must still stitch.
   "https://example.com/list?a=1&b=2&"
 ];
 
 // Every link opens the whole URL, each span stays on its own row, and the spans
-// together cover exactly the URL's glyph count — no padding cell, no dropped
-// glyph — regardless of where the wrap fell.
+// together cover exactly the URL's glyph count - no padding cell, no dropped
+// glyph - regardless of where the wrap fell.
 function expectRecoversWholeUrl({ links, url, rows, label }: {
   links: ILink[];
   url: string;
@@ -170,7 +170,7 @@ describe("computeLinks URL-shape robustness (property)", () => {
 
   it("recovers a URL self-wrapped across three rows, hovering any of them", () => {
     const url = "https://api.example.com/v1/items/42%2Fnested%3Fkey%3Dvalue";
-    // The first break stays past the scheme (`https://`, 8 chars) — a real wrap
+    // The first break stays past the scheme (`https://`, 8 chars) - a real wrap
     // width is 40–120 columns, so the scheme is never split across rows; only a
     // sub-4-column width could fragment it, which no agent produces.
     for (let first = 10; first <= url.length - 6; first += 6) {
@@ -182,7 +182,7 @@ describe("computeLinks URL-shape robustness (property)", () => {
         ];
         const columns = Math.max(...rows.map(row => row.text.length)) + 10;
         // Hovering the top (scheme), middle, or bottom row must recover the whole
-        // URL — the upward walk reaches the scheme past the scheme-less middle.
+        // URL - the upward walk reaches the scheme past the scheme-less middle.
         for (const bufferLineNumber of [1, 2, 3]) {
           expectRecoversWholeUrl({
             links: computeLinks({
@@ -420,7 +420,7 @@ describe("computeLinks", () => {
 
     expectEverySpanSingleRow(links);
     // The first URL fits on one row; the second wraps, so it contributes two
-    // per-row spans — three links, two distinct URLs.
+    // per-row spans - three links, two distinct URLs.
     expect(links).toHaveLength(3);
     expect(links[0].text).toBe(first);
     const secondSpans = links.filter(link => link.text === second);
@@ -430,7 +430,7 @@ describe("computeLinks", () => {
 
   it("keeps two rule-padded tool-call rows as separate links", () => {
     // Claude underlines a tool call by padding the row to the edge with `─`.
-    // Two stacked WebFetch rows must stay two links — the rule reaching the
+    // Two stacked WebFetch rows must stay two links - the rule reaching the
     // edge is not a wrap, and the `%` opening the lower row must not be glued
     // onto the upper URL.
     const first = "https://developer.chrome.com/docs/webstore/program_policies/#limited_use";
@@ -459,7 +459,7 @@ describe("computeLinks", () => {
     // A fullscreen agent wraps at its own content width, not the terminal's: the
     // upper row ends mid-URL well short of the (wide) physical edge, and the
     // continuation is indented under the markdown list item. The edge test can't
-    // see this wrap — the URL's own break across the rows must.
+    // see this wrap - the URL's own break across the rows must.
     const url = "https://community.getro.com/companies/greylock-2/jobs/74075143-applied-ai-engineer-founding-team";
     const rows = [
       { text: "3. Applied AI Engineer, Founding Team (https://community.getro.com/companies/greylock-2/jobs/74075143-" },
@@ -488,7 +488,7 @@ describe("computeLinks", () => {
   });
 
   it("stitches a self-wrap whose upper row ends on a domain dot", () => {
-    // The upper row ends with `.` — a character the URL pattern trims as trailing
+    // The upper row ends with `.` - a character the URL pattern trims as trailing
     // punctuation. A continuation test that inspects the ending would give up
     // here; matching across the joined seam must not. Same shape holds for any
     // ending the pattern trims (`,`, `:`, `?`).
@@ -511,7 +511,7 @@ describe("computeLinks", () => {
   });
 
   it("stitches host-only URL shapes (localhost, port, IPv6) across a self-wrap", () => {
-    // The continuation is the agent's indented bare URL tail — the shape a real
+    // The continuation is the agent's indented bare URL tail - the shape a real
     // self-wrap takes (an unrelated column-0 or spaced line is left alone; see the
     // git-output test below).
     for (const [upper, lower, url] of [
@@ -560,7 +560,7 @@ describe("computeLinks", () => {
   it("does not glue an unrelated following line onto a URL that ends a git line", () => {
     // Real `git push` output: each URL ends its own line well short of the edge,
     // and the next line is a fresh `remote:` status or a `<sha>..<sha>  main`
-    // commit range — never the tail of the URL. Stripping the next row's indent
+    // commit range - never the tail of the URL. Stripping the next row's indent
     // and matching across the seam would fabricate `…/dependabotremote:To` and
     // `…shortcut.gitf8506e9..01dc34e`; neither may happen.
     const dependabot = "https://github.com/avi12/youtube-like-dislike-shortcut/security/dependabot";
@@ -631,7 +631,7 @@ describe("computeLinks", () => {
 });
 
 // A terminal whose buffer holds a single row of text, plus a mutable provider
-// list under xterm's private `_linkProviderService` — enough for registration to
+// list under xterm's private `_linkProviderService` - enough for registration to
 // wrap and reorder the built-in providers and for the wrappers to read the row.
 function makeRegisterableTerminal({ row, linkProviders }: {
   row: string;

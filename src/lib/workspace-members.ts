@@ -1,10 +1,10 @@
-// Reading a workspace member — the pure half of `stores/workspaceMembers`.
+// Reading a workspace member - the pure half of `stores/workspaceMembers`.
 //
 // The backend finds the members (src-tauri/members.rs: a package by its
 // manifest, a checkout by its own `.git`) and reports each one as a path
-// relative to the workspace root. Everything the UI needs on top of that — where
+// relative to the workspace root. Everything the UI needs on top of that - where
 // the member actually lives on disk, what to call it, and which of them are
-// repositories worth a branch chip — is decided here, so it is testable without
+// repositories worth a branch chip - is decided here, so it is testable without
 // a backend and has exactly one home.
 
 import { baseName, childPath } from "@/lib/paths";
@@ -32,7 +32,7 @@ export function memberPath({ root, member }: {
 }
 
 /** What to call a member: the name its manifest declares, else its own folder,
- *  and for the root — which often declares nothing — the workspace's folder. */
+ *  and for the root - which often declares nothing - the workspace's folder. */
 export function memberLabel({ root, member }: {
   root: string;
   member: WorkspaceMember;
@@ -47,7 +47,7 @@ export function memberLabel({ root, member }: {
 
 /** The member a Change Feed group belongs to, or undefined for a group the
  *  convention invented (the fallback grouping runs when no member was found, and
- *  those folder names are not members — they have no branch of their own). */
+ *  those folder names are not members - they have no branch of their own). */
 export function memberOfGroup({ groupId, members }: {
   groupId: string;
   members: WorkspaceMember[];
@@ -58,7 +58,7 @@ export function memberOfGroup({ groupId, members }: {
 
 /** The checkout a member's changes actually land in: itself when it holds its
  *  own `.git`, else the deepest checkout above it. A monorepo's packages are not
- *  repositories, so they report the branch of the repo that contains them —
+ *  repositories, so they report the branch of the repo that contains them -
  *  which is the branch their commits go to. */
 export function enclosingRepository({ path, members }: {
   path: string;
@@ -85,7 +85,7 @@ export function enclosingRepository({ path, members }: {
 
 /** The checkout whose branch a Change Feed group should show. A group the
  *  folder-name convention invented belongs to no member, so it reports the
- *  workspace's own checkout — the repo those files are in. */
+ *  workspace's own checkout - the repo those files are in. */
 export function repositoryOfGroup({ groupId, members }: {
   groupId: string;
   members: WorkspaceMember[];
@@ -100,7 +100,7 @@ export function repositoryOfGroup({ groupId, members }: {
   });
 }
 
-/** Whether the workspace is made of more than one part — the switcher only earns
+/** Whether the workspace is made of more than one part - the switcher only earns
  *  its place in the top bar when there is something to switch between. */
 export function hasSeveralMembers(members: WorkspaceMember[]): boolean {
   return members.length > 1;

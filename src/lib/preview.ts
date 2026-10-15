@@ -1,8 +1,8 @@
 // Which Change Feed changes are previewable, and as what, decided by file
 // extension. The single authoritative TS home for every previewable-file
-// extension set — images (rendered inline via `<img src>`), videos (an
+// extension set - images (rendered inline via `<img src>`), videos (an
 // ffmpeg-transcoded clip in a `<video>`), markdown (rendered
-// to HTML), and HTML (rendered as-is) — so the classifiers can never disagree
+// to HTML), and HTML (rendered as-is) - so the classifiers can never disagree
 // about which renderer a card routes to. The image list mirrors the backend's
 // IMAGE_MIME_TYPES (watcher.rs), where each extension is also mapped to its MIME
 // type; the two lists are kept in sync by hand.
@@ -11,7 +11,7 @@ import { pathExtension } from "@/lib/file-type";
 import { z } from "zod";
 
 /** The image file extensions the Change Feed previews inline (lower-case, no
- *  leading dot). SVG is included — it is rendered through `<img src>` like every
+ *  leading dot). SVG is included - it is rendered through `<img src>` like every
  *  other image, never inlined as markup, so it can carry no active content. */
 const ImageExtension = z.enum([
   "png",
@@ -48,7 +48,7 @@ const MarkdownExtension = z.enum(["md", "markdown"]);
 /** The HTML extensions the Change Feed can render (inertly) as a preview. */
 const HtmlExtension = z.enum(["html", "htm"]);
 
-/** Binary file extensions a text editor cannot usefully open — executables,
+/** Binary file extensions a text editor cannot usefully open - executables,
  *  libraries, archives, office documents, fonts, audio and databases. The feed
  *  reveals these in the file manager instead of handing them to the editor. */
 const BinaryExtension = z.enum([

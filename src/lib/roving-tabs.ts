@@ -1,6 +1,6 @@
 // ARIA tabs keyboard pattern for pill tablists: the arrow keys move focus AND
 // selection to the neighboring tab (wrapping; Home/End jump to the ends),
-// while Tab itself leaves the list — the markup keeps a roving tabindex
+// while Tab itself leaves the list - the markup keeps a roving tabindex
 // (0 on the selected tab, -1 on the rest), so pressing Tab navigates into the
 // active panel's inputs instead of walking every pill.
 

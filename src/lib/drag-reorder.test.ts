@@ -1,5 +1,5 @@
 // The drag engine (`drag-reorder.ts`) is DOM-driven, but the decision it makes on
-// release — what order to commit — is the pure `committedOrderOnDrop` in
+// release - what order to commit - is the pure `committedOrderOnDrop` in
 // `@/lib/reorder`. These cover the regression it fixes: a below-threshold /
 // same-slot drop must commit the UNCHANGED full order (never a shorter list, never
 // nothing), so the caller's session list can't drift out of sync with the DOM the

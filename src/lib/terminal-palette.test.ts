@@ -118,8 +118,8 @@ describe("terminalPaletteProperties", () => {
     expect(properties.get("--syntax-number")).toBe(solarizedDark.ansi[3]);
     expect(properties.get("--syntax-function")).toBe(solarizedDark.ansi[4]);
     expect(properties.get("--syntax-property")).toBe(solarizedDark.ansi[6]);
-    // Comments take bright black — the muted grey every palette reserves for
-    // them — and never a bright colour, which a light scheme spends on greys.
+    // Comments take bright black - the muted grey every palette reserves for
+    // them - and never a bright colour, which a light scheme spends on greys.
     expect(properties.get("--syntax-comment")).toBe(solarizedDark.ansi[8]);
   });
 

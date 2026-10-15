@@ -1,5 +1,5 @@
 // Maps app state (the open project + its language + prefs) to Discord rich-presence
-// bridge calls — the one seam App.svelte drives, keeping the presence concern out
+// bridge calls - the one seam App.svelte drives, keeping the presence concern out
 // of the shell (SoC). Presence is best-effort: Discord may be closed, so IPC
 // failures are swallowed here rather than surfaced to the UI.
 
@@ -10,7 +10,7 @@ import { displayName } from "@/lib/paths";
 // PADE app (mirrors the language logos in src/lib/icons) and the human label shown
 // as the status line + icon hover. Keyed by the kind ids from language-icon.ts /
 // the Rust kind registry, plus the `typescript` narrowing a web project can report.
-// A kind absent here shows no language — just "Playing PADE / Working on <project>".
+// A kind absent here shows no language - just "Playing PADE / Working on <project>".
 const LANGUAGES: Record<string, {
   image: string;
   label: string;
@@ -61,7 +61,7 @@ const LANGUAGES: Record<string, {
   }
 };
 
-// Stop reporting entirely — used when the (focused, publishing) window closes so
+// Stop reporting entirely - used when the (focused, publishing) window closes so
 // PADE's process-wide presence doesn't linger on the last project. Best-effort,
 // like every presence call: a closed Discord must never reach the UI.
 export async function clearDiscordPresence(): Promise<void> {

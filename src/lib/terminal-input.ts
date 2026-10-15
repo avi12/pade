@@ -17,7 +17,7 @@ const TILDE_FINAL_BYTE = "~";
 
 /** The lone submitting keystroke. Sent as its own write AFTER a bracketed paste
  *  has settled, it is an unambiguous Enter the TUI can't fold into the paste
- *  burst — the reliable way to submit a composer a paste left holding text. */
+ *  burst - the reliable way to submit a composer a paste left holding text. */
 export const PROMPT_SUBMIT = "\r";
 
 export const BRACKETED_PASTE_START =
@@ -34,7 +34,7 @@ export function pastedText(text: string): string {
 const PATH_SEPARATOR = " ";
 const PATH_QUOTE = "\"";
 
-/** File paths as typed into an agent's composer — the form a pasted clipboard
+/** File paths as typed into an agent's composer - the form a pasted clipboard
  *  image and a file dropped onto the terminal both arrive in. A path holding a
  *  space is quoted so it stays one token (as Windows Terminal does on a drop),
  *  and the trailing space ends the last token so the agent's parser picks it up

@@ -1,4 +1,4 @@
-// The xterm theme is the agent's source of truth for light vs dark — so it must
+// The xterm theme is the agent's source of truth for light vs dark - so it must
 // always be truthful and never silently dropped.
 //
 // PADE's decision on agent/app theme sync: PADE follows the OS scheme end-to-end
@@ -9,17 +9,17 @@
 // What that buys an already-running agent on Windows is: nothing. Claude Code's
 // `auto` theme resolves as `live override ?? $COLORFGBG ?? dark`, the override is
 // only set by an OSC 11 background-color answer, and that query never reaches the
-// terminal here — so the scheme is fixed by the environment the session was
+// terminal here - so the scheme is fixed by the environment the session was
 // spawned with. Terminal.svelte still relays the standard
 // `CSI ?997;<dark|light>n` report (harmless, and the documented channel), but
-// measurement says it does not move a live Claude — see `theming.rs` and
+// measurement says it does not move a live Claude - see `theming.rs` and
 // `docs/terminal-rendering.md`. Keeping these colors truthful matters for what
 // the user reads, not for what the agent believes.
 //
 // Truthful requires parse-safe. xterm's color parser takes `#hex` (alpha
 // included) and legacy comma `rgb()`/`rgba()` directly; every other format falls
 // back to a canvas probe that REJECTS non-opaque colors. theme.css authors its
-// tokens in modern `hsl()` — the opaque ones survive the canvas path, but an
+// tokens in modern `hsl()` - the opaque ones survive the canvas path, but an
 // alpha token like `--terminal-selection: hsl(210deg 90% 45% / 22%)` threw there
 // and was silently replaced by xterm's default (a white wash, invisible on the
 // light scheme). So every token is converted to hex before xterm sees it.
@@ -29,7 +29,7 @@ import type { ITheme } from "@xterm/xterm";
 
 /** The 16 ANSI palette slots as their `--terminal-*` design-token names, in ANSI
  *  order (0–7 standard, 8–15 bright). The one home mapping an ANSI color index to
- *  the token that paints it — xterm's theme ({@link xtermTheme}) and the runner
+ *  the token that paints it - xterm's theme ({@link xtermTheme}) and the runner
  *  dock's SGR parser (`parseAnsi`) both read it, so the terminal and the runner
  *  output can never drift onto two different palettes. */
 export const ANSI_COLOR_TOKENS = [
@@ -51,12 +51,12 @@ export const ANSI_COLOR_TOKENS = [
   "--terminal-bright-white"
 ] as const;
 
-// The 240 slots above the 16 named ones are not a palette anyone chose — they are
+// The 240 slots above the 16 named ones are not a palette anyone chose - they are
 // a formula every terminal computes the same way: a 6×6×6 colour cube, then a
 // 24-step grey ramp. Spelling them out as a table would be 240 magic numbers.
 const COLOR_CUBE_FIRST = 16;
 const COLOR_CUBE_SIDE = 6;
-/** The six levels a cube channel can take — deliberately not linear; this is the
+/** The six levels a cube channel can take - deliberately not linear; this is the
  *  ramp xterm and every other terminal use. */
 const COLOR_CUBE_LEVELS = [0, 95, 135, 175, 215, 255] as const;
 const GREY_RAMP_FIRST = 232;
@@ -160,9 +160,9 @@ export function xtermSafeColor(raw: string): string {
 
 /** Build xterm's theme from the design tokens (the `--terminal-*` ANSI palette +
  *  code surface), every color made parse-safe. `readToken` supplies the computed
- *  value of one custom property — the caller owns the DOM read, this mapping
+ *  value of one custom property - the caller owns the DOM read, this mapping
  *  stays pure. Agent CLIs paint with these 16 slots, and xterm's own defaults
- *  only suit a dark screen — the light scheme re-picks every one dark enough to
+ *  only suit a dark screen - the light scheme re-picks every one dark enough to
  *  read. */
 export function xtermTheme({ readToken }: { readToken: (name: string) => string }): ITheme {
   function color(name: string): string {
@@ -208,7 +208,7 @@ export function xtermSearchDecorations({ readToken }: {
 }
 
 /** Read design tokens off the document root. The one DOM read behind every
- *  terminal colour — the theme and the search highlights resolve their tokens
+ *  terminal colour - the theme and the search highlights resolve their tokens
  *  through it, so neither can end up reading a different root than the other.
  *  Returned as a reader so the mappings above stay pure and testable. */
 export function rootTokenReader(): (name: string) => string {

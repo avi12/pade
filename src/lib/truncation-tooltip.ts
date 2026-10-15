@@ -20,7 +20,7 @@ let nextAnchorId = 0;
  *
  *  The tooltip renders through the shared overflow-tooltip layer rather than a
  *  local `::after`, so it is never clipped, scroll-width-inflating, or painted
- *  behind a composited scroll container's contents — a `[data-tooltip]` pseudo is
+ *  behind a composited scroll container's contents - a `[data-tooltip]` pseudo is
  *  `position: fixed`, and inside a `.picker`-style scroller Chromium paints that
  *  escaped fixed box *behind* the scrolled rows, so a following row occludes it
  *  (see overflow-tooltip.svelte). */
@@ -63,7 +63,7 @@ function overflowTooltip(textToShow: (element: HTMLElement) => string): Attachme
 /** Attachment that always surfaces `tooltip` on hover/focus, through the shared
  *  top-level bubble. Use this instead of a `data-tooltip` pseudo whenever the
  *  trigger sits inside a scroll container, a `[popover]`/`content-visibility`
- *  ancestor, or an element carrying a `view-transition-name` — each of those
+ *  ancestor, or an element carrying a `view-transition-name` - each of those
  *  makes the ancestor a containing block (and stacking context) for the
  *  `position: fixed` pseudo, so the bubble is clipped, or trapped in the
  *  ancestor's paint order and occluded by whatever follows it. The launcher's
@@ -75,14 +75,14 @@ export function tooltip(text: TooltipText): Attachment<HTMLElement> {
 }
 
 /** Attachment that surfaces `tooltip` only while the element's text is actually
- *  clipped (ellipsized) — an already-readable line never grows a redundant
+ *  clipped (ellipsized) - an already-readable line never grows a redundant
  *  bubble. `restingTooltip`, when given, is what the unclipped state shows
  *  instead (an action hint like "Open in WebStorm" stays useful without the
  *  redundant path); omitted, the unclipped state has no tooltip.
  *  `measureSelector` points at the descendant that actually ellipsizes when the
  *  clipping child differs from the hover host (a button whose inner span clips).
  *
- *  The clip check runs on `pointerenter` — the one moment that both guarantees a
+ *  The clip check runs on `pointerenter` - the one moment that both guarantees a
  *  settled layout (a mount-time measure can read a mid-layout width and brand an
  *  untruncated line clipped forever) and precedes the bubble showing. With real
  *  layout in hand the DOM's own overflow answer is exact, and re-checking per

@@ -15,7 +15,7 @@ describe("watchSummary", () => {
     expect(summary.detail).toContain("Checking");
   });
 
-  it("says so — and stalls — when no watch is armed", () => {
+  it("says so - and stalls - when no watch is armed", () => {
     const summary = watchSummary({
       status: {
         root: null,

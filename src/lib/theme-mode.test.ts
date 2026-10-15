@@ -106,7 +106,7 @@ describe("adoptedMonospaceFace", () => {
 });
 
 describe("paletteOfMode", () => {
-  it("is the skin axis alone — only Cyberpunk names one", () => {
+  it("is the skin axis alone - only Cyberpunk names one", () => {
     expect(paletteOfMode(ThemeMode.enum.cyberpunk)).toBe(ThemePalette.enum.cyberpunk);
     for (const mode of [ThemeMode.enum.light, ThemeMode.enum.dark, ThemeMode.enum.system]) {
       expect(paletteOfMode(mode)).toBe(ThemePalette.enum.default);

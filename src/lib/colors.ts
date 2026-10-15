@@ -1,6 +1,6 @@
 // Color detection + swatch resolution for the code / config / diff viewers.
-// One authoritative home (DRY) for turning a color token — hex, rgb()/rgba(),
-// hsl()/hsla(), or var(--x) — into a concrete swatch color. `var(--x)` is traced
+// One authoritative home (DRY) for turning a color token - hex, rgb()/rgba(),
+// hsl()/hsla(), or var(--x) - into a concrete swatch color. `var(--x)` is traced
 // through the file's OWN token definitions first, then the running app's computed
 // styles, so the swatch shows the real, accurate color.
 
@@ -70,7 +70,7 @@ export function resolveColor(
     return null;
   }
 
-  // The resolved value may itself be another var reference — follow it.
+  // The resolved value may itself be another var reference - follow it.
   if (value.startsWith("var(")) {
     return resolveColor(value, vars, depth + 1);
   }
@@ -79,7 +79,7 @@ export function resolveColor(
 }
 
 /** Where sRGB's transfer curve switches from its linear toe to the power
- *  segment, and the exponent of that segment — both straight from WCAG 2.x. */
+ *  segment, and the exponent of that segment - both straight from WCAG 2.x. */
 const GAMMA_TOE_LIMIT = 0.03928;
 const GAMMA_EXPONENT = 2.4;
 
@@ -123,7 +123,7 @@ export function hexLuminance(hex: string): number | null {
   return RED_WEIGHT * channel(0) + GREEN_WEIGHT * channel(1) + BLUE_WEIGHT * channel(2);
 }
 
-/** Half luminance — the split between a colour that paints a dark surface and
+/** Half luminance - the split between a colour that paints a dark surface and
  *  one that paints a light one. The only question a light/dark match asks. */
 const DARK_SURFACE_LIMIT = 0.5;
 

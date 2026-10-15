@@ -42,7 +42,7 @@ describe("isFindShortcut", () => {
   });
 
   it("leaves the modified chords for the agent", () => {
-    // Ctrl+Shift+F and Ctrl+Alt+F are an agent's own bindings — the terminal
+    // Ctrl+Shift+F and Ctrl+Alt+F are an agent's own bindings - the terminal
     // must keep forwarding them, or opening the find bar would eat them.
     expect(
       isFindShortcut(
@@ -92,7 +92,7 @@ describe("findResultLabel", () => {
     ).toBe("No matches");
   });
 
-  it("counts from one — the position readout is for a reader, not an index", () => {
+  it("counts from one - the position readout is for a reader, not an index", () => {
     expect(
       findResultLabel({
         term: "cargo",
@@ -163,7 +163,7 @@ describe("matchFindOptionChord", () => {
     expect(matchFindOptionChord(chord({ key: "c" }))).toBeNull();
   });
 
-  it("ignores Ctrl+Alt — that is AltGr, which types characters people search for", () => {
+  it("ignores Ctrl+Alt - that is AltGr, which types characters people search for", () => {
     expect(
       matchFindOptionChord(
         chord({

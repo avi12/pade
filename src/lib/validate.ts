@@ -1,12 +1,12 @@
 // User input is a trust boundary, just like an IPC response. Every free-text
 // field / form value is parsed through one of these zod schemas at the point of
-// entry — trimmed, length-capped, and shape-checked — before it reaches app
+// entry - trimmed, length-capped, and shape-checked - before it reaches app
 // logic or the backend. One authoritative home for the input schemas (DRY).
 
 import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import { z } from "zod";
 
-/** The auto-handoff threshold as typed/slid in Config — a whole percent inside
+/** The auto-handoff threshold as typed/slid in Config - a whole percent inside
  *  the allowed band (the band lives in lib/context-level, the SSOT). */
 export const HandoffPercent = z.coerce
   .number()
@@ -14,10 +14,10 @@ export const HandoffPercent = z.coerce
   .min(MINIMUM_HANDOFF_PERCENTAGE)
   .max(MAXIMUM_HANDOFF_PERCENTAGE);
 
-/** A restore-a-version query — a short natural-language description. */
+/** A restore-a-version query - a short natural-language description. */
 export const RestoreQuery = z.string().trim().min(1).max(200);
 
-/** A project / workspace name — no path separators or Windows-reserved chars
+/** A project / workspace name - no path separators or Windows-reserved chars
  *  (hyphens/underscores/dots are fine, e.g. an auto-named "brave-otter"). */
 export const ProjectName = z
   .string()
@@ -29,7 +29,7 @@ export const ProjectName = z
 /** A folder path the user typed or pasted. */
 export const FolderPath = z.string().trim().min(1).max(4096);
 
-/** A session tab's display name — a short single-line label. */
+/** A session tab's display name - a short single-line label. */
 export const SessionName = z.string().trim().min(1).max(60);
 
 /** A name the user gives a workspace inside PADE (its folder keeps its own name):
@@ -42,12 +42,12 @@ export const WorkspaceLabel = z
   .max(60, "Keep it under 60 characters.")
   .regex(/^\P{Cc}+$/u, "A label is a single line.");
 
-/** What the terminal's find bar searches for — kept verbatim (no trim: a leading
+/** What the terminal's find bar searches for - kept verbatim (no trim: a leading
  *  or trailing space is a legitimate thing to look for in output), capped so a
  *  pasted file can't be handed to the search engine keystroke by keystroke. */
 export const TerminalFindTerm = z.string().min(1).max(200);
 
-// ── Clone URLs — the one home for their shape knowledge (schema + helpers). ──
+// ── Clone URLs - the one home for their shape knowledge (schema + helpers). ──
 
 /** The URL-proper forms git clones over, validated by zod's own URL parser and
  *  pinned to git's transports. Git's scp-like `git@host:path` is NOT a URL, so
@@ -63,7 +63,7 @@ const StandardCloneUrl = z
     return !parsed.password && (parsed.protocol !== "https:" || !parsed.username);
   });
 
-/** Scp-like `git@host:path` — a `user@host` head before the first colon. */
+/** Scp-like `git@host:path` - a `user@host` head before the first colon. */
 function isScpLike(url: string): boolean {
   const colon = url.indexOf(":");
   return colon > 0 && colon < url.length - 1 && url.slice(0, colon).includes("@");
@@ -82,7 +82,7 @@ export const CloneUrl = z
 /** A git username / email for an HTTPS clone. */
 export const GitUsername = z.string().trim().min(1).max(200);
 
-/** A git password / access token — kept verbatim (no trim: it's a secret). */
+/** A git password / access token - kept verbatim (no trim: it's a secret). */
 export const GitSecret = z.string().min(1).max(500);
 
 /** Whether a clone URL authenticates over SSH (`ssh://` or scp-like `git@…`). */
@@ -91,7 +91,7 @@ export function isSshCloneUrl(url: string): boolean {
   return trimmed.startsWith("ssh://") || isScpLike(trimmed);
 }
 
-/** The folder name a clone URL suggests — its last path segment minus `.git` —
+/** The folder name a clone URL suggests - its last path segment minus `.git` -
  *  or "" while the URL doesn't resolve to a valid project name yet. */
 export function repositoryFolderName(url: string): string {
   const trimmed = url.trim().replace(/[/\\]+$/, "");
@@ -107,7 +107,7 @@ export function repositoryFolderName(url: string): string {
   return ProjectName.safeParse(name).success ? name : "";
 }
 
-/** An optional first prompt seeded to an agent — may be empty, and uncapped: it
+/** An optional first prompt seeded to an agent - may be empty, and uncapped: it
  *  is the user's own instructions, written (typed) straight into the agent's
  *  input rather than passed as an argument, so a long detailed spec is exactly
  *  the point and no length limit applies. */
@@ -125,7 +125,7 @@ export function parseInput<T>({ schema, raw }: {
 }
 
 /** Live validation for a text field: the schema's own message for a non-empty
- *  invalid value, or null. An empty field yields no message — nothing typed yet —
+ *  invalid value, or null. An empty field yields no message - nothing typed yet -
  *  so callers gate their submit on the schema separately. */
 export function fieldError({ schema, raw }: {
   schema: z.ZodType;
@@ -140,7 +140,7 @@ export function fieldError({ schema, raw }: {
 }
 
 /** Live validation for a name field (create/rename), e.g. "Name can't contain
- *  path characters." — see `fieldError`. */
+ *  path characters." - see `fieldError`. */
 export function nameError(raw: string): string | null {
   return fieldError({
     schema: ProjectName,

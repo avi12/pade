@@ -179,7 +179,7 @@ describe("groupChanges", () => {
     expect(group.entries[1].repeats).toBe(1);
   });
 
-  it("only folds a run — a file changed again later is its own card", () => {
+  it("only folds a run - a file changed again later is its own card", () => {
     const [group] = groupChanges({
       workspaceRoot: ROOT,
       events: [
@@ -252,7 +252,7 @@ const ROOT_MEMBER = member({
 });
 
 describe("groupChanges with manifest members", () => {
-  it("splits a root-level-package workspace per member — the convention's blind spot", () => {
+  it("splits a root-level-package workspace per member - the convention's blind spot", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
       members: [
@@ -304,7 +304,7 @@ describe("groupChanges with manifest members", () => {
     expect(group.id).toBe("apps/web/plugins/auth");
   });
 
-  it("compares whole segments — apps/web never captures apps/web-admin", () => {
+  it("compares whole segments - apps/web never captures apps/web-admin", () => {
     const [group] = groupChanges({
       workspaceRoot: ROOT,
       members: [ROOT_MEMBER, member({ path: "apps/web" })],

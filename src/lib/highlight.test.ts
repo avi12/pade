@@ -158,7 +158,7 @@ describe("tokenizeMarkdown", () => {
     return tokens.find(token => token.text.includes(text))?.cls;
   }
 
-  it("leaves prose plain — 'use' and 'for' are words here, not keywords", () => {
+  it("leaves prose plain - 'use' and 'for' are words here, not keywords", () => {
     const tokens = tokenizeMarkdown("use pnpm for the extension framework.");
     expect(tokens).toHaveLength(1);
     expect(tokens[0]?.cls).toBe("plain");

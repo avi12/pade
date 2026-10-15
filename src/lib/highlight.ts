@@ -1,7 +1,7 @@
 // Lightweight, dependency-free syntax highlighting for the code / config / diff
 // viewers. Language-agnostic: it classifies the token shapes common across the
-// languages PADE shows (JSON, CSS, JS/TS, Rust, Markdown, TOML, shell) — comments,
-// strings, numbers, keywords — and hands color values to the swatch resolver.
+// languages PADE shows (JSON, CSS, JS/TS, Rust, Markdown, TOML, shell) - comments,
+// strings, numbers, keywords - and hands color values to the swatch resolver.
 // Good-enough highlighting without a heavyweight grammar dependency (principle #10).
 
 import { resolveColor } from "@/lib/colors";
@@ -121,7 +121,7 @@ export function tokenize(text: string, vars?: Map<string, string>): Token[] {
     const end = start + match[0].length;
     // A plain identifier takes a role from what immediately follows: `foo(` is a
     // call; `foo:` a property/key (but not a `::` pseudo-element or a `://`
-    // scheme). This is what makes a CSS diff read — its property names and calls
+    // scheme). This is what makes a CSS diff read - its property names and calls
     // colour, not just the values that already carry a swatch.
     if (token.cls === "plain") {
       const next = text[end];
@@ -152,8 +152,8 @@ export function tokenize(text: string, vars?: Map<string, string>): Token[] {
 // ── Markdown ──────────────────────────────────────────────────────────────────
 // Prose is not code: running the generic scanner over a README colors every
 // "use", "for" and "type" like a keyword and every word before a colon like a
-// CSS property. Markdown gets its own line-based pass that colors STRUCTURE —
-// headings, fences, quotes, list markers, inline code/bold/links — and leaves
+// CSS property. Markdown gets its own line-based pass that colors STRUCTURE -
+// headings, fences, quotes, list markers, inline code/bold/links - and leaves
 // the prose itself plain. Fenced code blocks fall through to the generic
 // scanner, so a ```ts block still reads like code.
 
@@ -268,7 +268,7 @@ export function tokenizeMarkdown(text: string, vars?: Map<string, string>): Toke
 }
 
 /** Whether a token class carries a syntax color (applied via a themed CSS class
- *  in ColorText — plain text and color tokens keep the default color). */
+ *  in ColorText - plain text and color tokens keep the default color). */
 export function isSyntax(cls: TokenClass): boolean {
   return (
     cls === "comment"

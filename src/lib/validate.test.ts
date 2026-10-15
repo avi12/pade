@@ -111,7 +111,7 @@ describe("FirstPrompt", () => {
     expect(FirstPrompt.safeParse("").success).toBe(true);
   });
 
-  it("accepts a long, detailed spec uncapped — it's the user's own instructions", () => {
+  it("accepts a long, detailed spec uncapped - it's the user's own instructions", () => {
     expect(FirstPrompt.safeParse("x".repeat(50_000)).success).toBe(true);
   });
 

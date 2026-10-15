@@ -13,7 +13,7 @@ export interface PaneSelection {
 }
 
 /** The id of the pane at a 0-based position, or null when the position falls
- *  outside the split — the shared, bounds-checked lookup that the by-position
+ *  outside the split - the shared, bounds-checked lookup that the by-position
  *  pick and both wrapping steps resolve through. */
 export function paneIdAt({ paneIds, index }: {
   paneIds: readonly string[];

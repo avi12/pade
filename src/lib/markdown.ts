@@ -7,18 +7,18 @@
 // displays the result in a locked-down WebView2 (scripts disabled, all external
 // requests refused, external images blocked). PADE has no equivalent .NET
 // library, so it translates the *approach*, not the code:
-//   • Parser — a hand-rolled subset rather than a new dependency. CLAUDE.md
+//   • Parser - a hand-rolled subset rather than a new dependency. CLAUDE.md
 //     rule 10 admits a third-party parser only when it is already load-bearing;
-//     a markdown library would be brand-new supply-chain surface, so — as with
-//     the repo's hand-rolled base64 and gitignore parser — the subset is
+//     a markdown library would be brand-new supply-chain surface, so - as with
+//     the repo's hand-rolled base64 and gitignore parser - the subset is
 //     authored here. It covers the CommonMark structures a project's docs use:
 //     headings, emphasis, inline/fenced code, lists, links, images, blockquotes,
 //     rules, paragraphs, and GFM pipe tables (which PowerToys enables too).
-//   • Safety — every run of source text is HTML-escaped before it reaches the
+//   • Safety - every run of source text is HTML-escaped before it reaches the
 //     output, so raw HTML embedded in the markdown is shown as text, never
 //     injected as markup (the equivalent of Markdig's `html: false`). Link and
 //     image URLs are scheme-checked, so `javascript:`/`vbscript:` can't ride in.
-//   • Isolation — the fragment is never placed in the app DOM. It rides in a
+//   • Isolation - the fragment is never placed in the app DOM. It rides in a
 //     sandboxed iframe (see ChangeFeed), and `markdownDocument` stamps the srcdoc
 //     with a restrictive CSP (`default-src 'none'; img-src data:`) so, exactly
 //     like PowerToys, no script runs and no external image or font loads.
@@ -35,7 +35,7 @@ function escapeHtml(text: string): string {
     .replaceAll("'", "&#39;");
 }
 
-/** URL schemes that carry executable content — never allowed in a rendered
+/** URL schemes that carry executable content - never allowed in a rendered
  *  link or image, so a crafted document can't smuggle a script in via `href`. */
 const DANGEROUS_SCHEME = /^\s*(javascript|vbscript|data|file):/i;
 
@@ -103,8 +103,8 @@ function formatText(text: string): string {
   return out;
 }
 
-/** Full inline rendering: split off code spans first — their content is only
- *  escaped, never emphasis- or link-formatted — then format the rest. A run of
+/** Full inline rendering: split off code spans first - their content is only
+ *  escaped, never emphasis- or link-formatted - then format the rest. A run of
  *  N backticks opens a span that the next run of exactly N backticks closes. */
 function parseInline(text: string): string {
   let out = "";
@@ -386,7 +386,7 @@ export function renderMarkdown(source: string): string {
   return renderBlocks(lines);
 }
 
-/** The vendored, GitHub-flavoured stylesheet the Preview iframe wears — modelled
+/** The vendored, GitHub-flavoured stylesheet the Preview iframe wears - modelled
  *  on PowerToys' bundled markdown CSS, retuned to PADE's M3 palette and made
  *  theme-aware with `prefers-color-scheme` (the srcdoc is an isolated document
  *  and can't read the parent app's tokens, so the colours are declared here). */
@@ -466,7 +466,7 @@ const MARKDOWN_STYLE = `
 
 /** Wrap a rendered markdown fragment in a self-contained HTML document for the
  *  Preview iframe's `srcdoc`. Everything is inlined (the strict CSP forbids
- *  external refs), and the CSP `<meta>` — the belt to the sandbox's braces —
+ *  external refs), and the CSP `<meta>` - the belt to the sandbox's braces -
  *  refuses every request except inline styles and `data:` images, so no script
  *  runs and no external image or font loads (PowerToys' locked-down WebView2,
  *  in a `<meta>`). */

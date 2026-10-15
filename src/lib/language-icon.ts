@@ -1,6 +1,6 @@
 import type { IconName } from "@/lib/Icon.svelte";
 
-// Mirrors the project-kind ids in the Rust kind registry (src-tauri/src/ide.rs) —
+// Mirrors the project-kind ids in the Rust kind registry (src-tauri/src/ide.rs) -
 // the closed set the logo map keys off, so no bare kind string literals leak out.
 export const ProjectKind = {
   Web: "web",
@@ -45,7 +45,7 @@ function isProjectKind(value: string): value is ProjectKind {
 }
 
 /** A known project kind's language logo (or the TypeScript narrowing a web project
- *  can report), else the generic code glyph — so a backend-only kind added later
+ *  can report), else the generic code glyph - so a backend-only kind added later
  *  still renders a row without frontend changes. */
 export function languageIcon(kind: string): IconName {
   if (isProjectKind(kind)) {

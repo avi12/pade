@@ -90,7 +90,7 @@ function run(command: string, args?: Record<string, unknown>): Promise<void> {
   return invoke(command, args);
 }
 
-/** This window's Tauri label — the id the backend scopes its per-window state
+/** This window's Tauri label - the id the backend scopes its per-window state
  *  to (PTY ownership, targeted emits), and stable across a crash-recovery
  *  rebuild, which recreates the webview under the same label. */
 function windowLabel(): string {
@@ -131,7 +131,7 @@ export const ide = {
   detect: () => call("ide_detect", z.array(Ide)),
   /** Installed IDEs ordered for the given project: explicit per-project choice →
    *  rule → fallback → byte-weighted language-coverage ranking. The one source of
-   *  the project's editor — `ides[0]` is *the* editor on every surface. */
+   *  the project's editor - `ides[0]` is *the* editor on every surface. */
   suggest: (cwd: string) => call("ide_suggest", z.array(Ide), { cwd }),
   /** Persist an explicit editor pick for the project at `cwd`; it then leads
    *  every `suggest` for that project, so the choice wins on every surface. */
@@ -140,7 +140,7 @@ export const ide = {
     id: string;
   }) => callSettings("ide_choose_editor", { ...args }),
   /** The project kinds the rules engine shows (label + manifest signals), in the
-   *  backend registry's render/priority order — the frontend derives its rows here. */
+   *  backend registry's render/priority order - the frontend derives its rows here. */
   kinds: () => call("ide_kinds", z.array(EditorKind)),
   /** Editor ids suited to each project kind (kind → ordered, installed-only), so a
    *  per-kind menu offers only fitting editors (no WebStorm for an Android row). */
@@ -160,7 +160,7 @@ export const ide = {
     line?: number;
   }) => run("ide_open", { ...args }),
   /** Open a file inside its `project` workspace window (the folder rides the
-   *  launcher CLI for every family with a workspace+file form — never a bare
+   *  launcher CLI for every family with a workspace+file form - never a bare
    *  single-file window), jumping to `line` when given. */
   openFile: (args: {
     command: string;
@@ -170,10 +170,10 @@ export const ide = {
   }) => run("ide_open_file", { ...args })
 };
 
-/** OS integrations — reveal a project in the file manager or a terminal. */
+/** OS integrations - reveal a project in the file manager or a terminal. */
 export const os = {
   explorer: (path: string) => run("open_in_explorer", { path }),
-  /** Show a file selected in its folder — never opens or runs the file itself. */
+  /** Show a file selected in its folder - never opens or runs the file itself. */
   reveal: (path: string) => run("reveal_in_explorer", { path }),
   terminal: (path: string) => run("open_in_terminal", { path }),
   /** Open an http(s) URL in the system's default browser. */
@@ -182,7 +182,7 @@ export const os = {
   restart: () => run("restart")
 };
 
-/** System clipboard — read for Ctrl+V paste, write for Ctrl+C copy. */
+/** System clipboard - read for Ctrl+V paste, write for Ctrl+C copy. */
 export const clipboard = {
   readText: () => readText(),
   writeText: (text: string) => writeText(text),
@@ -192,23 +192,23 @@ export const clipboard = {
 };
 
 /** WebView2 crash auto-recovery. Armed from the frontend on every boot with
- *  its live URL — the one value a dead browser process can no longer report,
+ *  its live URL - the one value a dead browser process can no longer report,
  *  and what the rebuilt same-label window navigates back to. */
 export const recovery = {
   arm: (url: string) => run("recovery_arm", { url })
 };
 
-/** Multi-window — spawn a fresh app window targeting a project, an empty picker,
+/** Multi-window - spawn a fresh app window targeting a project, an empty picker,
  *  or a throwaway workspace. The spawned window routes off its query string. */
 export const windows = {
   create: (args: {
     mode: WindowMode;
     path?: string;
   }) => run("window_create", { ...args }),
-  /** This window's label — the key the backend owns its sessions by, and what
+  /** This window's label - the key the backend owns its sessions by, and what
    *  anything outliving the webview (the session snapshot) must be scoped to. */
   label: windowLabel,
-  /** Set this window's OS title (title bar + taskbar) — the one place the UI
+  /** Set this window's OS title (title bar + taskbar) - the one place the UI
    *  drives Tauri's window title, so no surface recomputes it independently. */
   setTitle: (title: string) => getCurrentWindow().setTitle(title),
   /** Record the project this window now has open (for focus-instead-of-reopen). */
@@ -226,32 +226,32 @@ export const windows = {
    *  The one source both this list and the Ctrl+Alt+[ / ] cycle read. */
   reorder: (labels: string[]) => run("window_reorder", { labels }),
   /** The open-windows set/order changed in SOME window (a project registered, a
-   *  drag-reorder landed) — app-wide, so every switcher refreshes live. A bare
+   *  drag-reorder landed) - app-wide, so every switcher refreshes live. A bare
    *  `listen` (not the window-scoped `on`) since the backend broadcasts to all. */
   onChanged: (handler: () => void): Promise<UnlistenFn> =>
     listen("windows://changed", () => handler()),
   /** Focus a specific open window by its label; true if it existed and focused. */
   focus: (label: string) => call("window_focus_label", z.boolean(), { label }),
-  /** This window's OS theme, straight from the native side — the authoritative
+  /** This window's OS theme, straight from the native side - the authoritative
    *  answer at startup, where WebView2's `prefers-color-scheme` can still say
    *  light in an already-dark window (see `window.rs`). */
   theme: () => call("window_theme", Scheme),
   /** Intercept this window's close (the title-bar X): the handler runs to
-   *  completion first — the graceful-leave hook — and only then is the window
+   *  completion first - the graceful-leave hook - and only then is the window
    *  destroyed (Tauri's own onCloseRequested contract when nothing prevents).
    *  Returns the unlisten function. */
   onCloseRequested: (handler: () => Promise<void>) =>
     getCurrentWindow().onCloseRequested(handler)
 };
 
-/** AI design/UI-generation tools — a roster ranked for the active agent. */
+/** AI design/UI-generation tools - a roster ranked for the active agent. */
 export const design = {
   tools: (agent: string) => call("design_tools", z.array(DesignTool), { agent }),
-  /** Open the picked tool in the companion PADE window (native — iframes blocked). */
+  /** Open the picked tool in the companion PADE window (native - iframes blocked). */
   open: (id: string) => run("design_open", { id })
 };
 
-/** Discord Rich Presence — report PADE ("Playing PADE") on the user's Discord
+/** Discord Rich Presence - report PADE ("Playing PADE") on the user's Discord
  *  profile. Best-effort: with Discord closed the backend fails quietly. */
 export const discord = {
   setActivity: ({ details, state, image, caption }: {
@@ -278,7 +278,7 @@ export const contextMenu = {
 };
 
 /** How full a session's context window is, as the agent's own session log
- *  accounts for it. Declared here — the only place it's read — rather than in
+ *  accounts for it. Declared here - the only place it's read - rather than in
  *  the shared types module. */
 const SessionContext = z.object({
   usedTokens: z.number().nullable(),
@@ -325,14 +325,14 @@ export const pty = {
     cwd: string | null;
     cols: number;
     rows: number;
-    /** Extra args for `command` — e.g. the project path for a terminal editor. */
+    /** Extra args for `command` - e.g. the project path for a terminal editor. */
     args?: string[];
-    /** ADE's resolved appearance at spawn — env-themed CLIs start matching it. */
+    /** ADE's resolved appearance at spawn - env-themed CLIs start matching it. */
     scheme?: Scheme;
     /** Stable conversation id to pin/resume the session to (`claude
      *  --session-id`), so a restart lands back in THIS conversation. */
     conversationId?: string;
-    /** A model / effort picked for this session alone — launch flags, never
+    /** A model / effort picked for this session alone - launch flags, never
      *  the agent's saved default (see running_model.rs). */
     modelChoice?: ModelChoice;
   }) =>
@@ -358,7 +358,7 @@ export const pty = {
   kill: (id: string) => run("pty_kill", { id }),
   /** Stop a known task the agent started itself (PADE never spawned it): finds the
    *  matching subtree under the agent's process tree and kills it. Resolves to
-   *  whether a matching process was found. Agent-agnostic — see `session_task_stop`. */
+   *  whether a matching process was found. Agent-agnostic - see `session_task_stop`. */
   sessionTaskStop: (args: {
     id: string;
     command: string;
@@ -370,13 +370,13 @@ export const pty = {
     id: string;
     command: string;
   }) => call("session_task_running", z.boolean(), { ...args }),
-  /** Every live session the backend still hosts — the roster a reloaded window
+  /** Every live session the backend still hosts - the roster a reloaded window
    *  intersects its persisted pane mapping with to re-attach (see
    *  `session-restore`) instead of stranding running agents invisibly. */
   list: () => call("pty_list", z.array(PtySession)),
   /** Everything a terminal needs to paint a session it is attaching to mid-flight
    *  (a remounted component, a reloaded window), and the sequence number of the last
-   *  chunk already inside it — chunks above that one arrived live and still need
+   *  chunk already inside it - chunks above that one arrived live and still need
    *  writing. A PTY has no scrollback of its own, so without this the terminal has
    *  nothing to draw and sits blank while the agent waits, quite happily, for input. */
   history: (id: string) => call("pty_history", PtyHistory, { id }),
@@ -386,7 +386,7 @@ export const pty = {
     id: string;
     agent: string;
   }) => call("session_generate_name", z.string().nullable(), { ...args }),
-  /** Launch args that reopen the agent's recorded conversation for `cwd` —
+  /** Launch args that reopen the agent's recorded conversation for `cwd` -
    *  `["resume", "<uuid>"]` for Codex (its own rollout id; ADE cannot pick one
    *  at spawn), empty when the agent has no such mechanism or no recording.
    *  Used when a session must respawn (a scheme flip re-theming an arg-themed
@@ -394,7 +394,7 @@ export const pty = {
   resumeArgs: (args: {
     command: string;
     cwd: string;
-    /** The PADE conversation — when the agent reported its own session id for
+    /** The PADE conversation - when the agent reported its own session id for
      *  it, that exact session is resumed rather than the newest in `cwd`. */
     conversationId?: string;
   }) => call("agent_resume_args", z.array(z.string()), { ...args }),
@@ -427,7 +427,7 @@ export const pty = {
 
 /** A Change Feed image preview: the file's bytes as a ready-to-use `data:` URL,
  *  so the card renders it with a plain `<img src>`. The whole payload is nullable
- *  at the boundary (see `feed.image`). Declared here — the only place it's read —
+ *  at the boundary (see `feed.image`). Declared here - the only place it's read -
  *  rather than in the shared types module. */
 const FeedImage = z.object({
   dataUrl: z.string()
@@ -450,16 +450,16 @@ export type FeedVideo = z.infer<typeof FeedVideo>;
 
 /** Change Feed / filesystem watcher channel. */
 export const feed = {
-  /** Watch `path` — the open workspace's root — so the feed follows the project
+  /** Watch `path` - the open workspace's root - so the feed follows the project
    *  on screen, not the process's cwd. Idempotent per root; a call for a new root
    *  re-roots the watcher (drops the old one, clears its per-file bookkeeping). */
   start: (path: string) => run("watch_start", { root: path }),
-  /** What this window's watch is doing right now (see `WatchStatus`) — read by
+  /** What this window's watch is doing right now (see `WatchStatus`) - read by
    *  the feed's empty panel so it can say what it is watching and since when. */
   status: () => call("watch_status", WatchStatus),
   /** The card's git-free preview for a path: the watch session's first-touch
    *  baseline vs the file's current content (`null` when nothing was snapshotted
-   *  — binary, too large, or a path with no captured baseline). The frontend
+   *  - binary, too large, or a path with no captured baseline). The frontend
    *  renders the unified diff, so untracked/ignored files preview like any other. */
   diff: ({ path }: {
     path: string;
@@ -467,7 +467,7 @@ export const feed = {
   /** The rendered image preview for an image path: the file's current bytes as a
    *  ready-to-use `data:` URL for a plain `<img src>` (no asset protocol). `null`
    *  when the path isn't a previewable image, is gone, or is over the backend's
-   *  size cap — the card then falls back to its text summary. SVG rides the same
+   *  size cap - the card then falls back to its text summary. SVG rides the same
    *  data-URL path, so its markup is never inlined into the DOM. */
   image: ({ path }: {
     path: string;
@@ -475,21 +475,21 @@ export const feed = {
   /** The video preview for a video path: its opening seconds transcoded by the
    *  user's ffmpeg into a small MP4 `data:` URL, or `noTranscoder` when ffmpeg
    *  isn't installed. `null` when the path isn't a video, is gone, or ffmpeg
-   *  couldn't read it. Takes a moment — the backend transcodes on demand. */
+   *  couldn't read it. Takes a moment - the backend transcodes on demand. */
   video: ({ path }: {
     path: string;
   }) => call("feed_video", FeedVideo.nullable(), { path }),
   /** The current text of a watched markdown/HTML path, for the card's Preview
    *  toggle (the file rendered as it is now). `null` when the path wasn't
    *  snapshotted this session, is gone, or is binary / over the backend's size
-   *  cap — the card then keeps its diff and offers no preview. */
+   *  cap - the card then keeps its diff and offers no preview. */
   text: ({ path }: {
     path: string;
   }) => call("feed_text", z.string().nullable(), { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
     on("feed://change", ChangeEvent, callback),
   /** The ignore rules changed (a `.gitignore` edited/created/deleted, or a
-   *  mid-session `git init` flipped the policy) — re-ask `ignored` about the
+   *  mid-session `git init` flipped the policy) - re-ask `ignored` about the
    *  events already shown. */
   onIgnoreChanged: (callback: () => void) => on("feed://ignore-changed", z.null(), () => callback()),
   /** The subset of `paths` the current ignore policy excludes. */
@@ -503,7 +503,7 @@ export const mcp = {
   onChanged: (callback: (change: McpChange) => void) => on("mcp://changed", McpChange, callback)
 };
 
-/** Manifest-driven workspace members — the Change Feed's grouping ground
+/** Manifest-driven workspace members - the Change Feed's grouping ground
  *  truth: one backend census walk confirms which directories are real packages
  *  and the root's workspace-defining files say which of them are members. */
 export const members = {
@@ -512,8 +512,8 @@ export const members = {
 };
 
 /** The picker's folder watcher: hand it the parents of the rows on the page and
- *  it reports whenever one of them gains or loses a child — a project created or
- *  deleted outside PADE — so the list can catch up on its own. */
+ *  it reports whenever one of them gains or loses a child - a project created or
+ *  deleted outside PADE - so the list can catch up on its own. */
 export const dirs = {
   watch: (paths: string[]) => run("watch_dirs", { dirs: paths }),
   onChange: (callback: () => void) => on("dirs://changed", z.null(), () => callback())
@@ -521,7 +521,7 @@ export const dirs = {
 
 /** Native OS drag-and-drop onto the window. Tauri intercepts the webview's
  *  file DnD (the web API never exposes absolute paths) and emits these events
- *  instead — how a folder dragged from Explorer or an IDE reaches the app. */
+ *  instead - how a folder dragged from Explorer or an IDE reaches the app. */
 export const dragDrop = {
   onOver: (callback: (payload: DragOverPayload) => void) => on("tauri://drag-over", DragOverPayload, callback),
   onDrop: (callback: (payload: DragDropPayload) => void) => on("tauri://drag-drop", DragDropPayload, callback),
@@ -549,7 +549,7 @@ export const vcs = {
   /** Current HEAD branch per project path (path → branch), for the switcher's
    *  per-project branch chip. Non-repo / detached paths are omitted. */
   branchOf: (paths: string[]) => call("vcs_branch_of", z.record(z.string(), z.string()), { paths }),
-  /** Branches only a remote has so far, under their short name — switching to
+  /** Branches only a remote has so far, under their short name - switching to
    *  one lets git create the local tracking branch. */
   remoteBranches: (cwd: string) => call("vcs_remote_branches", z.array(z.string()), { cwd }),
   /** Check `branch` out in `cwd`; resolves to the branch HEAD ended on. Throws
@@ -583,7 +583,7 @@ export const vcs = {
   defaultBranch: (cwd: string) => call("vcs_default_branch", z.string().nullable(), { cwd }),
   /** Is the `git` CLI installed? Gates the picker's Clone tab. */
   gitInstalled: () => call("vcs_git_installed", z.boolean()),
-  /** Whether an SSH private key exists — without one an `ssh://`/`git@` clone
+  /** Whether an SSH private key exists - without one an `ssh://`/`git@` clone
    *  URL can't authenticate, so the picker offers HTTPS credentials instead. */
   hasSshKey: () => call("vcs_has_ssh_key", z.boolean()),
   /** Can the current environment reach this repository (exists + access)?
@@ -616,14 +616,14 @@ export const vcs = {
     cwd: string;
     sha: string;
   }) => call("vcs_restore_checkout", z.string(), { ...args }),
-  /** Fires when the workspace's live git state changes — a branch switch (HEAD),
+  /** Fires when the workspace's live git state changes - a branch switch (HEAD),
    *  a remote added/removed (config), or `git init` creating the repo. Carries no
    *  payload on purpose: listeners re-fetch whatever git state they display, so
    *  the event can never hand them stale or partial data. */
   onStateChanged: (callback: () => void) => on("git://state", z.null(), () => callback())
 };
 
-/** Task-runner dock — a task launched as a tracked runner that streams its output.
+/** Task-runner dock - a task launched as a tracked runner that streams its output.
  *  Piping a runner's output into an agent is done in the UI via `pty.write`. */
 export const runner = {
   start: (args: {
@@ -640,18 +640,18 @@ export const runner = {
     on("runner://exit", RunnerExit, callback)
 };
 
-/** Task runner channel — runnable tasks parsed from project manifests. */
+/** Task runner channel - runnable tasks parsed from project manifests. */
 export const tasks = {
   descriptors: () => call("tasks_descriptors", z.array(TaskManifestDescriptor)),
   list: (cwd: string) => call("tasks_list", z.array(TaskGroup), { cwd })
 };
 
-/** Agent usage / quota channel — never spends message quota: local data plus a
+/** Agent usage / quota channel - never spends message quota: local data plus a
  *  cached call to the vendor's OAuth usage endpoint for the live account
  *  windows. */
 export const usage = {
   get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
-  /** Live usage windows for a specific agent (`claude`, `codex`) — each read from
+  /** Live usage windows for a specific agent (`claude`, `codex`) - each read from
    *  that vendor's own usage endpoint with its locally-stored token. `null` for an
    *  agent with no usable local usage signal. */
   accountFor: ({ agent, forceRefresh = false }: {
@@ -668,13 +668,13 @@ export const usage = {
   claimLimitReset: (grantId: string) => call("limit_reset_claim", LimitResetOutcome, { grantId })
 };
 
-/** Agent config channel — reads the CLI's own config files, never shadows them. */
+/** Agent config channel - reads the CLI's own config files, never shadows them. */
 export const config = {
   list: (agent: string) => call("config_list", z.array(ConfigFile), { agent }),
   read: (rel: string) => call("config_read", z.string(), { rel })
 };
 
-/** Terminal appearance — the Windows Terminal colour schemes PADE can paint its
+/** Terminal appearance - the Windows Terminal colour schemes PADE can paint its
  *  own terminal with: the ones Windows Terminal ships (vendored) merged with the
  *  ones the user wrote into their own settings. */
 export const terminal = {
@@ -685,7 +685,7 @@ export const terminal = {
 export const workspace = {
   context: () => call("launch_context", LaunchContext),
   settings: () => callSettings("settings_get"),
-  /** The shared settings changed in SOME window — a project deleted or renamed, a
+  /** The shared settings changed in SOME window - a project deleted or renamed, a
    *  pin toggled, a preference saved. Each window holds its own copy, so without
    *  this a switcher keeps listing a workspace another window already threw away.
    *  A bare `listen` (not the window-scoped `on`) since the backend broadcasts to
@@ -705,13 +705,13 @@ export const workspace = {
   probePath: (path: string) => call("workspace_probe_path", PathProbe, { path }),
   scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
   open: (path: string) => run("workspace_open", { path }),
-  /** Delete a consumed auto-handoff doc (`continue-*.md` in the project dir —
+  /** Delete a consumed auto-handoff doc (`continue-*.md` in the project dir -
    *  the backend refuses anything else). */
   deleteHandoffDoc: (args: {
     dir: string;
     name: string;
   }) => run("handoff_doc_delete", { ...args }),
-  /** Create a throwaway workspace, mark it owned, and open it — chdirs the
+  /** Create a throwaway workspace, mark it owned, and open it - chdirs the
    *  process and records it in Recents. Returns its path. */
   temp: () => call("workspace_temp", z.string()),
   move: (args: {
@@ -769,7 +769,7 @@ export const workspace = {
   removeRecent: (path: string) => callSettings("workspace_remove_recent", { path }),
   /** Persist a drag-reordered pin order (reorders existing pins only). */
   setPinnedOrder: (paths: string[]) => callSettings("workspace_set_pinned_order", { paths }),
-  /** Delete ANY project directory from disk and forget it — the switcher's "Delete
+  /** Delete ANY project directory from disk and forget it - the switcher's "Delete
    *  directory". The caller raises a confirmation and releases the folder first. */
   deleteDirectory: (path: string) => callSettings("workspace_delete_directory", { path }),
   setDefaultAgent: (agent: string) => callSettings("set_default_agent", { agent }),

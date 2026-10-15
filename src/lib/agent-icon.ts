@@ -1,6 +1,6 @@
 import type { IconName } from "@/lib/Icon.svelte";
 
-// Mirrors the agent ids in src-tauri/src/agents.rs — the closed set the icon map
+// Mirrors the agent ids in src-tauri/src/agents.rs - the closed set the icon map
 // keys off, so no bare id string literals leak out.
 export const AgentId = {
   Claude: "claude",
@@ -15,7 +15,7 @@ export const AgentId = {
 export type AgentId = (typeof AgentId)[keyof typeof AgentId];
 
 // Each agent's own brand mark. Unlike the stroke-based UI icons, these are filled
-// glyphs — the SVGs carry their own `fill="currentColor" stroke="none"`. Aider has
+// glyphs - the SVGs carry their own `fill="currentColor" stroke="none"`. Aider has
 // no distinct brand icon, so it isn't mapped and falls through to the terminal mark.
 const AGENT_ICONS: Record<string, IconName> = {
   [AgentId.Claude]: "claude",

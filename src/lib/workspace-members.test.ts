@@ -100,7 +100,7 @@ describe("memberOfGroup", () => {
 
   it("has nothing for a group the folder-name convention invented", () => {
     // The fallback grouping only runs when no member was found, so those names
-    // are folders, not members — they have no branch of their own to show.
+    // are folders, not members - they have no branch of their own to show.
     expect(
       memberOfGroup({
         groupId: "services/mailer",
@@ -143,7 +143,7 @@ describe("enclosingRepository", () => {
   ];
 
   it("is the workspace's own checkout for a package that has none", () => {
-    // A monorepo package commits to the repo around it — that is the branch its
+    // A monorepo package commits to the repo around it - that is the branch its
     // changes actually land on.
     expect(
       enclosingRepository({

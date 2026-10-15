@@ -1,7 +1,7 @@
-// Shared unified-diff pipeline (DRY — the Change Feed and the Git panel both
+// Shared unified-diff pipeline (DRY - the Change Feed and the Git panel both
 // render diffs). Pure, dependency-free: classify each line of a `git diff` body,
-// derive the side-by-side rows for a split view, and — for the Change Feed's
-// git-free preview — generate a unified diff between two whole texts so the same
+// derive the side-by-side rows for a split view, and - for the Change Feed's
+// git-free preview - generate a unified diff between two whole texts so the same
 // parse+render path draws a session-baseline diff exactly like a git one.
 
 /** What a single diff line represents. One authoritative set, no bare strings. */
@@ -9,7 +9,7 @@ export const DiffKind = {
   context: "context",
   add: "add",
   del: "del",
-  /** Hunk headers (@@ …) and file meta (diff/index/---/+++) — rendered muted. */
+  /** Hunk headers (@@ …) and file meta (diff/index/---/+++) - rendered muted. */
   meta: "meta"
 } as const;
 export type DiffKind = (typeof DiffKind)[keyof typeof DiffKind];
@@ -35,9 +35,9 @@ export interface SplitRow {
   leftFilled: boolean;
   right: string;
   rightFilled: boolean;
-  /** Old-file line for the left (old) side — drives the split gutter's old column. */
+  /** Old-file line for the left (old) side - drives the split gutter's old column. */
   oldLine?: number;
-  /** New-file line for the right (new) side — lets a click open at that line, and
+  /** New-file line for the right (new) side - lets a click open at that line, and
    *  drives the split gutter's new column. */
   newLine?: number;
 }
@@ -62,13 +62,13 @@ function classify(line: string): DiffKind {
   return DiffKind.context;
 }
 
-// A hunk header — `@@ -old,n +new,n @@` — where capture 1 is the old file's and
+// A hunk header - `@@ -old,n +new,n @@` - where capture 1 is the old file's and
 // capture 2 the new file's starting line, from which we count lines forward.
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
 /** Parse a raw `git diff` body into classified lines (trailing blank dropped).
  *  Context lines carry both 1-based line numbers, additions the new-file number,
- *  deletions the old-file number — the diff gutter reads them per side. */
+ *  deletions the old-file number - the diff gutter reads them per side. */
 export function parseDiff(raw: string): DiffLine[] {
   const lines = raw.split("\n");
   if (lines.length > 0 && lines[lines.length - 1] === "") {
@@ -137,7 +137,7 @@ export function parseDiff(raw: string): DiffLine[] {
 }
 
 /** The new-file line of the first added line (else the first line that exists in
- *  the new file) — where a "reveal in editor" click should land. */
+ *  the new file) - where a "reveal in editor" click should land. */
 export function firstChangedLine(lines: DiffLine[]): number | undefined {
   const firstAdd = lines.find(line => line.kind === DiffKind.add && line.newLine !== undefined);
   return (firstAdd ?? lines.find(line => line.newLine !== undefined))?.newLine;
@@ -408,7 +408,7 @@ function hunkHeader(hunk: PlacedChange[]): string {
   return `@@ -${oldStart},${oldLines.length} +${newStart},${newLines.length} @@`;
 }
 
-/** Generate a git-style unified diff between two whole texts — the Change Feed's
+/** Generate a git-style unified diff between two whole texts - the Change Feed's
  *  git-free preview (session baseline vs current content). Groups changes into
  *  hunks with up to `DIFF_CONTEXT` lines of surrounding context and emits the
  *  `@@` headers `parseDiff` reads, so the shared parse+render path draws it.
@@ -440,7 +440,7 @@ export function unifiedDiff({ before, after }: {
     };
   });
 
-  // Keep every changed line, plus the context window around each — an untouched
+  // Keep every changed line, plus the context window around each - an untouched
   // line survives only when it sits within `DIFF_CONTEXT` of some change.
   const kept = Array.from({ length: placed.length }, () => false);
   let anyChange = false;

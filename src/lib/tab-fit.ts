@@ -4,7 +4,7 @@
 // the caller (measured from an off-layout mirror row), so packing never feeds
 // back into the layout it packs against.
 
-/** Pixels between tab items — must mirror the tab strip's CSS flex gap. */
+/** Pixels between tab items - must mirror the tab strip's CSS flex gap. */
 export const TAB_GAP = 6;
 
 /** A collapsed status-dot button plus its gap. */
@@ -13,7 +13,7 @@ export const DOT_SLOT = 22 + TAB_GAP;
 /** The "+N" overflow button plus its gap. */
 export const MORE_SLOT = 34 + TAB_GAP;
 
-/** The trailing add-agent button plus its gap — always reserved at the end. */
+/** The trailing add-agent button plus its gap - always reserved at the end. */
 export const ADD_SLOT = 30 + TAB_GAP;
 
 /** How the strip splits: full pills, collapsed status dots, "+N" overflow. */
@@ -32,7 +32,7 @@ export function packTabs({ ids, widthOf, stripWidth }: {
   stripWidth: number;
 }): TabPack {
   const total = ids.reduce((sum, id, index) => sum + widthOf(id) + (index ? TAB_GAP : 0), 0);
-  // Everything fits (or we haven't measured yet) — all as full pills.
+  // Everything fits (or we haven't measured yet) - all as full pills.
   if (stripWidth === 0 || total <= stripWidth) {
     return {
       visible: [...ids],

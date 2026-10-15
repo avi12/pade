@@ -1,6 +1,6 @@
 // Send-from-IDE bridge: highlight + copy a snippet in any external editor,
 // then press the global shortcut to inject the clipboard into the active
-// agent's input — works regardless of which IDE the project is open in. The
+// agent's input - works regardless of which IDE the project is open in. The
 // app shell registers on mount and unregisters on destroy; the active session
 // comes through `SendShortcutHost` so the lookup stays live.
 
@@ -13,7 +13,7 @@ import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
 const SEND_SHORTCUT = "CommandOrControl+Alt+S";
 
-/** What the app shell provides — read at each press, so the target follows the
+/** What the app shell provides - read at each press, so the target follows the
  *  currently active session. */
 export interface SendShortcutHost {
   activeId: () => string | null;
@@ -21,7 +21,7 @@ export interface SendShortcutHost {
   activeLabel: () => string;
 }
 
-/** Register the global send shortcut (idempotent — cleans a stale registration
+/** Register the global send shortcut (idempotent - cleans a stale registration
  *  first, so an HMR re-register never doubles up). */
 export async function registerSendShortcut(host: SendShortcutHost): Promise<void> {
   await unregisterSendShortcut();

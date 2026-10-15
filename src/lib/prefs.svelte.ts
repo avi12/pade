@@ -32,7 +32,7 @@ function withChosenFont(chosen: string | null | undefined, baseVariable: string)
   return chosen ? `"${chosen}", ${base}` : base;
 }
 
-/** Nothing chosen on either side — the terminal follows the app theme. */
+/** Nothing chosen on either side - the terminal follows the app theme. */
 const NO_TERMINAL_SCHEMES: TerminalSchemeChoice = {
   light: null,
   dark: null
@@ -57,7 +57,7 @@ export const effective = {
     return withChosenFont(prefs.monoFont, "--font-monospace-base");
   },
   /** The UI stack for CSS: a chosen face in front of the theme's own stack, left
-   *  as a `var()` rather than resolved — nothing paints UI text to a canvas, and
+   *  as a `var()` rather than resolved - nothing paints UI text to a canvas, and
    *  keeping the reference live is what lets a palette that brings its own face
    *  (Cyberpunk is set in Rajdhani, the game's) take effect without this getter
    *  re-running. `null` when nothing is chosen: the root's `--font-ui` already
@@ -100,19 +100,19 @@ const osDark = matchMedia("(prefers-color-scheme: dark)");
 
 /** What the OS is showing, in one place. Seeded from the native window theme at
  *  startup and moved only by the two OS signals (the media query, the native flip
- *  event) — every "is the system dark?" question resolves through this, never by
+ *  event) - every "is the system dark?" question resolves through this, never by
  *  re-reading `osDark.matches` at the point of use.
  *
  *  The seed matters: WebView2 can answer `prefers-color-scheme: light` in a window
  *  that is already dark, because it resolves after the first script runs. Whoever
- *  read the media query in that window got "light" and nothing ever corrected it —
+ *  read the media query in that window got "light" and nothing ever corrected it -
  *  the flip event only fires on a genuine change. A session spawned in that gap
  *  themed its agent light for the whole life of the process (Claude reads
  *  `$COLORFGBG` once, at spawn). */
 let systemScheme: Scheme = osDark.matches ? "dark" : "light";
 
-/** What is currently painted — the concrete light/dark scheme and the palette
- *  layered over it — reactive so consumers like the terminal can re-theme when
+/** What is currently painted - the concrete light/dark scheme and the palette
+ *  layered over it - reactive so consumers like the terminal can re-theme when
  *  either moves. `lib/theme-mode` owns the mode → pair rule. */
 export const appearance = $state<{
   scheme: Scheme;
@@ -121,7 +121,7 @@ export const appearance = $state<{
    *  when it follows the app theme. Reading it is what re-themes xterm when the
    *  user picks another one. */
   terminalPalette: string | null;
-  /** Light or dark as the TERMINAL is painted — the chosen scheme's own
+  /** Light or dark as the TERMINAL is painted - the chosen scheme's own
    *  background when there is one, else the app's. This, never `scheme`, is what
    *  an agent is told: it paints into the terminal, not into the app chrome. */
   terminalScheme: Scheme;
@@ -133,7 +133,7 @@ export const appearance = $state<{
 });
 
 /** Apply a resolved appearance to the reactive store and the `<html>` data
- *  attributes in one place — the single home for "what is painted right now",
+ *  attributes in one place - the single home for "what is painted right now",
  *  used by both the media-query path and the native OS-theme event. */
 function installAppearance({
   scheme,
@@ -190,7 +190,7 @@ function apply() {
     })
   );
   // Font scaling follows video-time-manager: the root font is `100% * --ui-scale`
-  // (the user's browser base, times their zoom preference — never a fixed px that
+  // (the user's browser base, times their zoom preference - never a fixed px that
   // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
   // ≥16px unit from it. rem/em UI and the terminal scale from the one knob.
   document.documentElement.style.setProperty("--ui-scale", String(effective.uiScale));
@@ -215,7 +215,7 @@ osDark.addEventListener("change", event => {
 
 // A PADE window parked on another virtual desktop (or minimized) is hidden, and
 // Chromium freezes a hidden page: the `change` above never fires for an OS flip
-// made while it was away, and it is NOT re-fired on thaw — so the scheme silently
+// made while it was away, and it is NOT re-fired on thaw - so the scheme silently
 // goes stale and the agent keeps painting the old one. Reconcile on the way back
 // to visible by re-reading the media query live, so a missed flip re-themes xterm
 // and relays the ?997 report through the terminal's own effects. Keyed on
@@ -236,9 +236,9 @@ let systemThemeWatched = false;
 /** Follow the native OS theme flip. WebView2 does not reliably deliver the
  *  `prefers-color-scheme` `change` to a window that stays focused/visible, so the
  *  media-query listener (and the visibility reconcile, which only covers a window
- *  returning to view) can both miss it — the terminal then keeps the old scheme
+ *  returning to view) can both miss it - the terminal then keeps the old scheme
  *  with the window focused the whole time. Tauri's native `ThemeChanged` fires
- *  regardless; follow the scheme IT reports (authoritative — the media query's own
+ *  regardless; follow the scheme IT reports (authoritative - the media query's own
  *  value can still be stale) so a focused window re-themes at once. Armed once. */
 async function watchSystemTheme(): Promise<void> {
   if (systemThemeWatched) {
@@ -253,14 +253,14 @@ async function watchSystemTheme(): Promise<void> {
 
 /** Seed the OS scheme from the native window before anything reads it. The media
  *  query alone is not enough at startup: WebView2 can answer "light" in a window
- *  that is already dark, and only a genuine flip would ever correct it — so the
+ *  that is already dark, and only a genuine flip would ever correct it - so the
  *  first session spawned would theme its agent for the wrong scheme permanently.
  *  Best-effort: a failed probe keeps the media query's answer. */
 async function adoptNativeSystemScheme(): Promise<void> {
   try {
     installSystemScheme(await windows.theme());
   } catch {
-    // Native theme unavailable (an older backend, a probe failure) — the
+    // Native theme unavailable (an older backend, a probe failure) - the
     // media-query seed above stands, and a later flip still corrects it.
   }
 }

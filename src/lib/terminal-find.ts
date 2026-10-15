@@ -7,7 +7,7 @@
 import type { IconName } from "@/lib/Icon.svelte";
 import type { KeyChord } from "@/lib/tab-shortcuts";
 
-/** Ctrl+F over a terminal pane — open the find bar and put the caret in it.
+/** Ctrl+F over a terminal pane - open the find bar and put the caret in it.
  *  Plain Ctrl only: Ctrl+Shift+F and Ctrl+Alt+F belong to whatever the agent
  *  binds them to, and the terminal still forwards those. */
 export function isFindShortcut({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord): boolean {
@@ -22,7 +22,7 @@ export const FindDirection = {
 export type FindDirection = (typeof FindDirection)[keyof typeof FindDirection];
 
 /** How the term is matched. The names are the search addon's own option keys, so
- *  the toggled state IS the object handed to it — nothing maps in between. */
+ *  the toggled state IS the object handed to it - nothing maps in between. */
 export const FindOption = {
   CaseSensitive: "caseSensitive",
   WholeWord: "wholeWord",
@@ -71,7 +71,7 @@ export const FIND_OPTION_TOGGLES = [
   chordKey: string;
 }[];
 
-/** Alt+C / Alt+W / Alt+R flip a toggle while the caret stays in the find box —
+/** Alt+C / Alt+W / Alt+R flip a toggle while the caret stays in the find box -
  *  the browser-and-editor convention. Alt alone: Ctrl+Alt is AltGr on a European
  *  keyboard, where it types characters people search for. */
 export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord): FindOption | null {
@@ -91,7 +91,7 @@ export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }
 
 /** Whether the term can be searched for as typed. A literal always can; a
  *  half-written pattern ("(", "a{2,") cannot, and asking the engine to compile it
- *  would throw on the keystroke that got there — so the bar says so instead. */
+ *  would throw on the keystroke that got there - so the bar says so instead. */
 export function isSearchablePattern({ term, regex }: {
   term: string;
   regex: boolean;
@@ -108,7 +108,7 @@ export function isSearchablePattern({ term, regex }: {
   }
 }
 
-/** The find bar's result readout. Nothing typed yet reads as "" — a count of
+/** The find bar's result readout. Nothing typed yet reads as "" - a count of
  *  zero matches is a finding, an empty box is not. `resultIndex` is -1 when the
  *  addon has more matches than it will decorate (it stops tracking which one is
  *  active), so the total is all that can honestly be shown there. */
@@ -116,7 +116,7 @@ export function findResultLabel({ term, resultIndex, resultCount, searchable = t
   term: string;
   resultIndex: number;
   resultCount: number;
-  /** False while a regex is still half-typed — the count is stale, not zero. */
+  /** False while a regex is still half-typed - the count is stale, not zero. */
   searchable?: boolean;
 }): string {
   if (term.length === 0) {

@@ -2,25 +2,25 @@
 // across rows.
 //
 // xterm's own @xterm/addon-web-links only rejoins rows the TERMINAL soft-wrapped
-// — rows whose `isWrapped` flag is set. ADE runs Claude Code with
+// - rows whose `isWrapped` flag is set. ADE runs Claude Code with
 // CLAUDE_CODE_NO_FLICKER=1, which keeps it on the NORMAL screen (~99 columns
 // wide). Claude is an Ink/React TUI: it computes its own layout and self-wraps a
 // long URL at its content width, so the continuation row is (a) NOT flagged
-// `isWrapped`, and (b) usually INDENTED under Claude's text block — it begins at
+// `isWrapped`, and (b) usually INDENTED under Claude's text block - it begins at
 // a column well past 0, and the row above may even stop a column shy of the
 // physical edge (a right margin). The addon then sees two independent rows and
 // detects only the first row's portion, so clicking opens a truncated link.
 //
 // This provider reconstructs the logical line segment by segment instead: it
 // grows the run of rows the clicked row belongs to, joins each row's glyphs from
-// its first to its last visible column — stripping every row's leading indent
+// its first to its last visible column - stripping every row's leading indent
 // and trailing margin so the URL reconnects across the boundary with no spurious
-// space — and maps each matched URL back to the exact cells it occupies. A lower
+// space - and maps each matched URL back to the exact cells it occupies. A lower
 // row continues the upper one when the terminal soft-wrapped it; when the upper
 // row reached the right edge and the lower row has content; or when the upper row
 // ends mid-URL and the lower row resumes it. That last case matters when the
 // terminal is WIDER than the agent's content width: the agent wraps at its own
-// narrower width, so the upper row ends mid-URL far short of the physical edge —
+// narrower width, so the upper row ends mid-URL far short of the physical edge -
 // the edge test alone would miss the wrap and truncate the URL.
 //
 // The URL pattern and the URL-validity check are ported from
@@ -38,7 +38,7 @@ const URL_PATTERN = /(https?|HTTPS?):[/]{2}[^\s"'!*(){}|\\^<>`]*[^\s"':,.!?{}|\\
 // guard so a runaway match can't scan the whole scrollback.
 const MAX_WINDOW_CHARS = 2048;
 
-// Ceiling on how many rows one logical line may span — a second guard on runaway
+// Ceiling on how many rows one logical line may span - a second guard on runaway
 // expansion when many full rows sit back to back.
 const MAX_LOGICAL_ROWS = 20;
 
@@ -46,7 +46,7 @@ const MAX_LOGICAL_ROWS = 20;
 // the edge: Claude often wraps a column shy of the true margin.
 const RIGHT_EDGE_SLACK = 1;
 
-// A single space or an unwritten cell — the two ways a cell renders blank —
+// A single space or an unwritten cell - the two ways a cell renders blank -
 // either of which is skipped when measuring a row's glyph span.
 const BLANK_CELL = " ";
 const EMPTY_CELL = "";
@@ -56,8 +56,8 @@ const EMPTY_CELL = "";
 // the `▌`/`│` bar Claude's TUI draws down the left edge of a pasted block. A bar
 // on a continuation row would otherwise be joined into the logical line and cut
 // the URL match at the row boundary, so frame glyphs at a row's edges are
-// excluded from its content span (a row of nothing but frame glyphs — a
-// separator rule — thereby reads as blank and is never stitched).
+// excluded from its content span (a row of nothing but frame glyphs - a
+// separator rule - thereby reads as blank and is never stitched).
 const FRAME_GLYPH_FIRST = 0x2500;
 const FRAME_GLYPH_LAST = 0x259f;
 
@@ -102,7 +102,7 @@ interface LinkTerminal {
   buffer: { active: LinkBuffer };
 }
 
-// The `protocol//[user[:pass]@]host` prefix a real URL must start with — built
+// The `protocol//[user[:pass]@]host` prefix a real URL must start with - built
 // with guard clauses so the credential variants read top-to-bottom.
 function authorityOf(url: URL): string {
   const base = `${url.protocol}//`;
@@ -130,8 +130,8 @@ function isUrl(candidate: string): boolean {
 }
 
 // The first and last columns of a row that hold a visible non-frame glyph, or
-// null when the row is blank or all frame (a separator rule). Leading indent —
-// blanks AND a frame bar — and the trailing margin fall outside this span;
+// null when the row is blank or all frame (a separator rule). Leading indent -
+// blanks AND a frame bar - and the trailing margin fall outside this span;
 // `rawLastColumn` still records where the row truly ends, frame included.
 function rowContent({ line, columns }: {
   line: LinkLine;
@@ -166,7 +166,7 @@ function rowContent({ line, columns }: {
 // Whether a row's TEXT ran to (or within a column of) the right edge, the
 // tell-tale of a program that wrapped because it ran out of width. Frame glyphs
 // don't count: a row whose text stops mid-row and is merely padded to the edge
-// with a `─` rule (Claude's tool-call underline) did not wrap — stitching the
+// with a `─` rule (Claude's tool-call underline) did not wrap - stitching the
 // row below it would glue an unrelated line onto the URL.
 function reachesRightEdge({ content, columns }: {
   content: RowContent;
@@ -181,8 +181,8 @@ const WIDE_GLYPH_TRAILING_HALF_WIDTH = 0;
 // The text a cell contributes to a row: nothing for the trailing half of a wide
 // glyph (its leading half already carries the character), a space for an
 // unwritten cell, and its glyphs otherwise. An unwritten cell mid-row is a gap
-// the program skipped with a cursor move rather than a printed space — Claude's
-// Ink renderer emits `ESC[1C` between words — so it must still read as a word
+// the program skipped with a cursor move rather than a printed space - Claude's
+// Ink renderer emits `ESC[1C` between words - so it must still read as a word
 // break, or the URL regex runs straight through `….` into the next word.
 function cellText(cell: LinkCell | undefined): string {
   if (!cell || cell.getWidth() === WIDE_GLYPH_TRAILING_HALF_WIDTH) {
@@ -195,7 +195,7 @@ function cellText(cell: LinkCell | undefined): string {
 
 // One row's glyphs from its first to its last visible column, plus the source
 // column each character came from. The single home for turning a row's content
-// span into text — both the logical-line builder and the URL-continuation test
+// span into text - both the logical-line builder and the URL-continuation test
 // read from it, so they can never disagree on what a row's text is.
 function rowGlyphs({ line, content }: {
   line: LinkLine;
@@ -227,12 +227,12 @@ function rowGlyphs({ line, content }: {
 const MIN_URL_CONTINUATION = 2;
 
 // Whether a URL begins on the upper row and runs across the boundary into the
-// lower row — the tell-tale of a program that self-wrapped a URL at a content
+// lower row - the tell-tale of a program that self-wrapped a URL at a content
 // width narrower than the terminal. It deliberately does NOT inspect how the
 // upper row ends: the URL pattern trims a trailing `.`/`,`/`:` (it can't know a
 // `.` is a domain dot until the next row's glyphs arrive), so an ending test
 // misfires on hosts like `…greenhouse.` while passing `…view/`. Joining the rows
-// and letting the URL regex match across the seam is shape-agnostic — it holds
+// and letting the URL regex match across the seam is shape-agnostic - it holds
 // for host-only, `localhost`, IPv6 `[::1]`, bare IPs, ports, and fragments alike.
 // A qualifying match must start on the upper row and reach at least
 // `MIN_URL_CONTINUATION` chars past the boundary.
@@ -260,7 +260,7 @@ function hasScheme(text: string): boolean {
   return /(https?):[/]{2}/i.test(text);
 }
 
-// A whitespace-free token — what every INNER row of a wrapped URL is (URLs never
+// A whitespace-free token - what every INNER row of a wrapped URL is (URLs never
 // contain spaces), and what prose never is. Lets the upward walk cross a URL's
 // scheme-less continuation rows to the row that starts it.
 function isBareToken(text: string): boolean {
@@ -271,7 +271,7 @@ function isBareToken(text: string): boolean {
 // cell for every character. Each row donates only its first-to-last visible
 // column (via `rowGlyphs`), so a leading indent and a trailing margin never leak a
 // stray space into the joined URL. The single home for turning a row range into
-// text — the growth checks read its text, the caller keeps its cells.
+// text - the growth checks read its text, the caller keeps its cells.
 function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
   buffer: LinkBuffer;
   columns: number;
@@ -318,7 +318,7 @@ function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
 // ran to the right edge; and a self-wrap continues when a URL from the window (its
 // scheme is on the top row) runs across the boundary into the lower row. Testing
 // the WHOLE window, not just its last row, is what lets a URL that already spans
-// several rows keep growing — its later rows carry no scheme of their own.
+// several rows keep growing - its later rows carry no scheme of their own.
 function continuesBelow({ buffer, columns, topRow, bottomRow }: {
   buffer: LinkBuffer;
   columns: number;
@@ -360,7 +360,7 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
   // a URL at its own narrower content width. What tells them apart is the lower
   // row's shape: an agent indents the continuation under its text block, and the
   // continuation is one bare token (a URL has no spaces). A line that starts at
-  // column 0, or carries a space, is a fresh line — not the tail of this URL — so
+  // column 0, or carries a space, is a fresh line - not the tail of this URL - so
   // it is never glued on. (Soft and hard wraps are already handled above by their
   // geometry, so a legitimately column-0 continuation still stitches through them.)
   const lowerText = rowGlyphs({
@@ -383,7 +383,7 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
   });
 }
 
-// Whether the row above the window continues the same logical line — the mirror of
+// Whether the row above the window continues the same logical line - the mirror of
 // `continuesBelow`, plus one move it can't make: while the window is still a
 // scheme-less URL fragment (its start not yet reached), absorb the bare token or
 // the scheme row directly above, so a URL hovered on its LAST row still walks up
@@ -439,8 +439,8 @@ function continuesAbove({ buffer, columns, topRow, bottomRow }: {
   return !hasScheme(windowText) && (hasScheme(upperText) || isBareToken(upperText));
 }
 
-// Grow the run of rows the clicked row belongs to — up to the URL's start, then
-// down to its end — and flatten it into one string with a parallel cell for every
+// Grow the run of rows the clicked row belongs to - up to the URL's start, then
+// down to its end - and flatten it into one string with a parallel cell for every
 // character. Growing up first lets the downward walk see the scheme once a URL
 // hovered mid-way has been rejoined to its first row.
 function buildLogicalLine({ buffer, columns, anchorRow }: {
@@ -493,7 +493,7 @@ interface RowSpan {
 }
 
 // Group a URL's per-character cells into one span per row. Cells arrive in
-// reading order — left to right within a row, top to bottom across rows — so a
+// reading order - left to right within a row, top to bottom across rows - so a
 // same-row cell only ever extends the current span's end.
 function rowSpans(urlCells: CellPosition[]): RowSpan[] {
   const spans: RowSpan[] = [];
@@ -515,7 +515,7 @@ function rowSpans(urlCells: CellPosition[]): RowSpan[] {
 }
 
 // A clickable URL, plus every row-span it occupies. The `range` is this link's
-// own single row (so xterm's hit-testing stays tight — a self-wrapping agent's
+// own single row (so xterm's hit-testing stays tight - a self-wrapping agent's
 // blank padding, outside any span, is never clickable); `spans` is the whole URL
 // across all its rows, so hovering any part can underline the entire address.
 export interface WrappedLink extends ILink {
@@ -566,7 +566,7 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
               y: span.row + 1
             }
           },
-          // Built-in underline off — the provider paints its own over every span
+          // Built-in underline off - the provider paints its own over every span
           // (see `withHoverUnderline`); keep the pointer cursor so it reads as a link.
           decorations: {
             underline: false,
@@ -603,7 +603,7 @@ interface RegisterableTerminal {
 
 // xterm's screen element and its cell geometry, or null before the terminal has
 // mounted. The screen is exactly `cols × rows` cells with no padding, so a cell's
-// pixel size is just the screen size over the grid — no need to reach into
+// pixel size is just the screen size over the grid - no need to reach into
 // xterm's private render service.
 function screenGeometry(terminal: RegisterableTerminal): {
   screen: HTMLElement;
@@ -651,20 +651,20 @@ function paintUnderline({ terminal, spans }: {
   return painted;
 }
 
-// xterm's ordered list of link providers — its own OSC-8 provider is registered
+// xterm's ordered list of link providers - its own OSC-8 provider is registered
 // first at terminal construction, and this list is where its precedence lives.
 interface InternalLinkProviderService {
   linkProviders: ILinkProvider[];
 }
 
-// The shape xterm's link-provider service must have. Kept minimal — we only
+// The shape xterm's link-provider service must have. Kept minimal - we only
 // reorder the providers, so the elements stay `z.unknown()` and the guard's
 // return type brands them `ILinkProvider`.
 const LinkProviderServiceSchema = z.object({
   linkProviders: z.array(z.unknown())
 });
 
-// A Zod-backed type guard — the idiomatic v4 way to narrow an `unknown` (v4
+// A Zod-backed type guard - the idiomatic v4 way to narrow an `unknown` (v4
 // dropped `.refine` type-predicate narrowing). `safeParse` validates the shape
 // with no cast and no `z.custom`, and returning the ORIGINAL `value` keeps
 // xterm's LIVE object, so reordering its `linkProviders` reorders xterm itself.
@@ -675,8 +675,8 @@ function isLinkProviderService(value: unknown): value is InternalLinkProviderSer
 // `_core` and the service are private and unexported, so instead of a type
 // assertion (which blindly trusts the shape) the path is validated through Zod
 // at this trust boundary. The service hops stay `z.unknown()` so their values
-// pass through by REFERENCE — a cloning `z.object`/`z.array` on the array would
-// hand back a dead copy — then the guard narrows the live service. A renamed
+// pass through by REFERENCE - a cloning `z.object`/`z.array` on the array would
+// hand back a dead copy - then the guard narrows the live service. A renamed
 // field just yields null, leaving the provider where it is (still correct, only
 // lower-priority). xterm names it `_linkProviderService`; tolerate an unprefixed
 // alias across versions.
@@ -698,12 +698,12 @@ function linkProviderService(terminal: RegisterableTerminal): InternalLinkProvid
   return isLinkProviderService(service) ? service : null;
 }
 
-// Whether this built-in OSC-8 link's VISIBLE anchor is itself a URL — the
+// Whether this built-in OSC-8 link's VISIBLE anchor is itself a URL - the
 // tell-tale of an agent that emitted a plain URL as an OSC-8 hyperlink (Claude,
 // OpenCode), as opposed to a labelled link whose anchor is prose ("Security
 // guide"). The anchor's glyphs are read straight off its cells and matched with
 // the same `URL_PATTERN` + `isUrl` our provider uses, so the two never disagree on
-// what counts as a URL. A multi-row anchor is judged by its starting row alone —
+// what counts as a URL. A multi-row anchor is judged by its starting row alone -
 // the scheme and host live there, so the first row's glyphs already match. Our
 // provider trims the URL's trailing sentence punctuation while the OSC-8 anchor
 // keeps it; deferring every URL-shaped anchor to our provider is what stops
@@ -732,7 +732,7 @@ function anchorIsUrl({ terminal, link }: {
 
 // Wrap a built-in link provider so any link our URL provider already owns is
 // dropped, deferring every URL-shaped OSC-8 hyperlink to the punctuation-trimmed,
-// wrap-stitched range our provider computes — while labelled and `file:` OSC-8
+// wrap-stitched range our provider computes - while labelled and `file:` OSC-8
 // links, which our provider never matches, pass straight through to activate as
 // before.
 function deferUrlsFrom({ terminal, provider }: {
@@ -760,7 +760,7 @@ function deferUrlsFrom({ terminal, provider }: {
 
 // Make our URL provider the authority for every URL-shaped link. xterm registers
 // its own OSC-8 provider first at construction, and its resolution serves the
-// FIRST provider (by list order) that has a link under the cursor — so an agent
+// FIRST provider (by list order) that has a link under the cursor - so an agent
 // that emits a URL as an OSC-8 hyperlink (Claude, OpenCode) would otherwise be
 // served by that provider, whose range spans the whole agent-tagged anchor,
 // including a trailing sentence `.`/`,`/`)` our regex trims. This wraps every
@@ -797,7 +797,7 @@ function overrideOscUrlLinks({ terminal, provider }: {
 
 // Register a link provider that makes http(s) URLs clickable, rejoining soft-,
 // hard-, and self-wrapped rows so a wrapped URL activates and underlines in full.
-// `openUrl` receives the whole URL — route it to the system browser. It overrides
+// `openUrl` receives the whole URL - route it to the system browser. It overrides
 // xterm's built-in OSC-8 provider for URL-shaped links so an agent's OSC-8-tagged
 // URL gets the same full-URL, no-trailing-punctuation range as a plain-text one;
 // labelled OSC-8 links still reach that provider.
@@ -827,8 +827,8 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
   });
 }
 
-// Wrap a computed link so hovering paints a tight underline over the WHOLE URL —
-// every row-span, not just the hovered one — and leaving (or discarding the link)
+// Wrap a computed link so hovering paints a tight underline over the WHOLE URL -
+// every row-span, not just the hovered one - and leaving (or discarding the link)
 // removes it. The built-in underline is off, so these elements own the visual.
 function withHoverUnderline({ terminal, link }: {
   terminal: RegisterableTerminal;

@@ -1,14 +1,14 @@
 // Pure grouping of Change Feed events into project buckets, so the feed reads as
 // "what changed, per project" the way the mockup does. Ground truth first: when
 // the backend's manifest census (`bridge.members`) confirms real workspace
-// members, a change buckets under its deepest enclosing member — whole-segment
-// longest-prefix, so `apps/web` never captures `apps/web-admin` — and anything
+// members, a change buckets under its deepest enclosing member - whole-segment
+// longest-prefix, so `apps/web` never captures `apps/web-admin` - and anything
 // outside every member falls into the repo itself. Only a workspace with no
 // confirmed members falls back to the old folder-name convention (`apps/…`,
 // `packages/…`, `services/…`); a directory's name proves nothing, so a
 // root-level-package workspace (`frontend/` `backend/` `shared/` declared in
 // `pnpm-workspace.yaml`) now splits per member instead of collapsing into one
-// repo group — the gap the convention could never close.
+// repo group - the gap the convention could never close.
 
 import { baseName } from "@/lib/paths";
 import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
@@ -25,7 +25,7 @@ export type GroupRole = (typeof GroupRole)[keyof typeof GroupRole];
  *  consecutive changes to it. An agent saves a file four times in a minute and
  *  the feed showed four identical cards; it now shows one that says so. */
 export interface ChangeEntry {
-  /** The newest event of the run — the one the card names and expands. */
+  /** The newest event of the run - the one the card names and expands. */
   event: ChangeEvent;
   /** How many changes the card stands for; 1 for a lone change. */
   repeats: number;
@@ -37,7 +37,7 @@ export interface ChangeEntry {
 export interface ChangeGroup {
   /** Stable key (the container-relative project path, or `.` for the repo). */
   id: string;
-  /** Display name — the member folder, or the repo's own folder name. */
+  /** Display name - the member folder, or the repo's own folder name. */
   name: string;
   role: GroupRole;
   /** This group's events, newest first (the input order is preserved). */
@@ -177,7 +177,7 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
 
 // Consecutive changes to one file are one card. Only a RUN collapses: a file
 // touched, then another, then the first again is three moments in the feed and
-// stays three cards — what is folded away is the repetition, not the history.
+// stays three cards - what is folded away is the repetition, not the history.
 function collapseRepeats(events: ChangeEvent[]): ChangeEntry[] {
   const entries: ChangeEntry[] = [];
   for (const event of events) {
@@ -204,7 +204,7 @@ function collapseRepeats(events: ChangeEvent[]): ChangeEntry[] {
  *  With manifest-confirmed `members` (see `bridge.members`) a change goes to
  *  its deepest enclosing member; without any, the folder-name convention is the
  *  fallback. The groups are ordered by their most-recent change, so the
- *  just-touched project leads — matching the flat feed's newest-first feel. */
+ *  just-touched project leads - matching the flat feed's newest-first feel. */
 export function groupChanges({ events, workspaceRoot, members = [] }: {
   events: ChangeEvent[];
   workspaceRoot: string;

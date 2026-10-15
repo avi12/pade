@@ -1,5 +1,5 @@
 // App-level keyboard shortcuts for the agent tab strip. A single capture-phase
-// keydown listener so the shortcuts win over a focused terminal — xterm would
+// keydown listener so the shortcuts win over a focused terminal - xterm would
 // otherwise hand Ctrl+W / Ctrl+Alt+T / Ctrl+<number> etc. to the agent as raw
 // control codes. Two pure matchers do the deciding and are unit-tested:
 // `matchTabShortcut` (chord → action) and `matchTabSelection` (Ctrl+number →
@@ -85,16 +85,16 @@ export function matchTabShortcut(chord: KeyChord): TabAction | null {
   return null;
 }
 
-/** The digit keys that pick a tab by position — Ctrl+1..8 select the 1st..8th
+/** The digit keys that pick a tab by position - Ctrl+1..8 select the 1st..8th
  *  tab. Ctrl+9 is special-cased (the LAST tab, whatever the count), so it's kept
  *  out of here. This literal list is their authoritative home. */
 const TAB_NUMBER_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8"];
-/** Ctrl+9 always jumps to the last tab — the browser/terminal convention. */
+/** Ctrl+9 always jumps to the last tab - the browser/terminal convention. */
 const LAST_TAB_KEY = "9";
 
 /** Map a Ctrl+number chord to the 0-based index of the tab it selects, given how
  *  many tabs exist, or null when it isn't a tab-number chord. Ctrl+1 → first …
- *  Ctrl+8 → eighth, but only while that tab exists — a number past the last tab
+ *  Ctrl+8 → eighth, but only while that tab exists - a number past the last tab
  *  is a no-op; Ctrl+9 → the LAST tab, however many there are. Plain Ctrl only:
  *  any Shift/Alt/Meta, or no tabs at all, disqualifies it. */
 export function matchTabSelection({ chord, count }: {
@@ -125,7 +125,7 @@ export interface TabShortcutHandlers {
   previous: () => void;
   /** Activate the tab at this 0-based index (Ctrl+number). */
   selectTab: (index: number) => void;
-  /** How many session tabs currently exist — decides Ctrl+9 (last tab) and the
+  /** How many session tabs currently exist - decides Ctrl+9 (last tab) and the
    *  out-of-range no-op. */
   tabCount: () => number;
 }
@@ -153,7 +153,7 @@ export function registerTabShortcuts(handlers: TabShortcutHandlers): () => void 
     }
 
     // Leave app text fields (session rename, commit message) to their own key
-    // handling. The terminal's textarea is deliberately not exempt — these
+    // handling. The terminal's textarea is deliberately not exempt - these
     // shortcuts must work while an agent has focus, which is the common case.
     if (isEditingText(document.activeElement)) {
       return;

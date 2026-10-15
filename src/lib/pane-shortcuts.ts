@@ -1,4 +1,4 @@
-// App-level keyboard shortcuts for the split panes — the sibling of
+// App-level keyboard shortcuts for the split panes - the sibling of
 // `tab-shortcuts.ts` for panes instead of tabs. One capture-phase keydown
 // listener so the chords win over a focused terminal, which would otherwise
 // hand them to the agent as raw control codes. A pure matcher does the deciding
@@ -33,13 +33,13 @@ export type PaneShortcut =
     index: number;
   };
 
-/** The digit keys that pick a pane by position — Ctrl+Alt+1..9 select the
+/** The digit keys that pick a pane by position - Ctrl+Alt+1..9 select the
  *  1st..9th pane. This literal list is their authoritative home. */
 const PANE_NUMBER_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 /** Map a key chord to the pane action it triggers, or null when it isn't one.
  *  Ctrl+[ previous · Ctrl+] next (both plain Ctrl) · Ctrl+Alt+1..9 select that
- *  pane by position (only while it exists — a number past the last pane is a
+ *  pane by position (only while it exists - a number past the last pane is a
  *  no-op) · Ctrl+Alt+W close the active pane. Every action needs at least one
  *  pane and the exact modifier set; Meta always disqualifies. */
 export function matchPaneShortcut({ chord, paneCount }: {
@@ -51,7 +51,7 @@ export function matchPaneShortcut({ chord, paneCount }: {
     return null;
   }
 
-  // Ctrl+[ / Ctrl+] cycle the panes — plain Ctrl, off the Ctrl+Alt chords below.
+  // Ctrl+[ / Ctrl+] cycle the panes - plain Ctrl, off the Ctrl+Alt chords below.
   const isPlainCtrl = !altKey && !shiftKey;
   if (isPlainCtrl) {
     if (key === "[") {
@@ -65,7 +65,7 @@ export function matchPaneShortcut({ chord, paneCount }: {
     return null;
   }
 
-  // Everything else is a Ctrl+Alt chord (Shift absent) — deliberately off the
+  // Everything else is a Ctrl+Alt chord (Shift absent) - deliberately off the
   // plain Ctrl+number / Ctrl+W tab shortcuts so both sets coexist.
   const isCtrlAlt = altKey && !shiftKey;
   if (!isCtrlAlt) {
@@ -92,7 +92,7 @@ export interface PaneShortcutHandlers {
   selectPane: (id: string) => void;
   /** Close the active pane, animating it out (Ctrl+Alt+W). */
   closeActivePane: () => void;
-  /** The shown panes, left→right — decides wrapping and the by-position pick. */
+  /** The shown panes, left→right - decides wrapping and the by-position pick. */
   paneIds: () => readonly string[];
   /** The active pane's session id, or null when no pane is focused. */
   activeId: () => string | null;
@@ -111,7 +111,7 @@ export function registerPaneShortcuts(handlers: PaneShortcutHandlers): () => voi
     }
 
     // Leave app text fields (session rename, commit message) to their own key
-    // handling. The terminal's textarea is deliberately not exempt — these
+    // handling. The terminal's textarea is deliberately not exempt - these
     // shortcuts must work while an agent has focus, which is the common case.
     if (isEditingText(document.activeElement)) {
       return;

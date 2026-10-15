@@ -2,15 +2,15 @@
 // (wrapping; Home/End jump to the ends), from whichever item currently holds
 // focus. Section labels and separators aren't items, so they're skipped for
 // free. Sibling of `rovingTablist` (that one is horizontal and selects on move;
-// a menu is vertical and only moves focus — the click/Enter activates).
+// a menu is vertical and only moves focus - the click/Enter activates).
 //
 // Two attachments share that one keydown wiring, differing only in what a move
 // does besides focusing:
-//   • `rovingMenu` — a popover menu of plain `<button>`s. Its items carry a
+//   • `rovingMenu` - a popover menu of plain `<button>`s. Its items carry a
 //     ROVING tabindex (0 on the focused item, -1 on the rest) so a single Tab
 //     LEAVES the menu instead of walking every entry, and focus lands on the
 //     first item when the popover opens.
-//   • `arrowFocus` — a menu whose items must stay in the natural Tab order
+//   • `arrowFocus` - a menu whose items must stay in the natural Tab order
 //     because they sit among other controls (the project switcher: its rows are
 //     interleaved with per-row kebabs, and its filter field is one of the stops).
 //     Nothing but focus moves.
@@ -35,7 +35,7 @@ function bindArrowKeys({ node, itemSelector, focusItem }: {
     }
 
     // While a nested menu is up (a switcher row's kebab popover) it owns the
-    // arrow keys — wherever focus sits, this list must not move underneath it.
+    // arrow keys - wherever focus sits, this list must not move underneath it.
     const nestedMenuOpen = node.querySelector(":scope [popover]:popover-open") !== null;
     if (nestedMenuOpen) {
       return;

@@ -31,7 +31,7 @@ function isText(part: RtlPart): part is RtlTextPart {
   return part.kind === RtlPartKind.Text;
 }
 
-/** The run's parts as a readable sequence — text verbatim, the caret as `|`. */
+/** The run's parts as a readable sequence - text verbatim, the caret as `|`. */
 function sequence(parts: readonly RtlPart[]): string[] {
   return parts.map(part => isText(part) ? part.text : "|");
 }
@@ -65,7 +65,7 @@ describe("rtlRuns", () => {
     }]);
   });
 
-  it("trims the neutrals at a run's edges — they belong to the text beside them", () => {
+  it("trims the neutrals at a run's edges - they belong to the text beside them", () => {
     expect(columnsOf("  عربي  ")).toEqual([{
       startColumn: 2,
       endColumn: 6

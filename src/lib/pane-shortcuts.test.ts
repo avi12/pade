@@ -160,7 +160,7 @@ describe("matchPaneShortcut", () => {
     ).toBeNull();
   });
 
-  it("requires the exact modifier set — a stray Alt/Shift/Meta disqualifies the brackets", () => {
+  it("requires the exact modifier set - a stray Alt/Shift/Meta disqualifies the brackets", () => {
     // Ctrl+[ is plain Ctrl; Alt or Shift on it is not the previous-pane chord.
     expect(
       matchPaneShortcut({
@@ -236,7 +236,7 @@ describe("matchPaneShortcut", () => {
   });
 
   it("does not steal the tab shortcuts (plain Ctrl+9 / Ctrl+W)", () => {
-    // Plain Ctrl+9 is the tab strip's last-tab chord — panes only claim Ctrl+Alt+9.
+    // Plain Ctrl+9 is the tab strip's last-tab chord - panes only claim Ctrl+Alt+9.
     expect(
       matchPaneShortcut({
         chord: chord({
@@ -246,7 +246,7 @@ describe("matchPaneShortcut", () => {
         paneCount: 4
       })
     ).toBeNull();
-    // Plain Ctrl+W closes a tab — panes only claim Ctrl+Alt+W.
+    // Plain Ctrl+W closes a tab - panes only claim Ctrl+Alt+W.
     expect(
       matchPaneShortcut({
         chord: chord({

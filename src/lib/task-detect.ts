@@ -1,5 +1,5 @@
 // Best-effort detection of a known task's command inside an agent's terminal
-// output — the signal that lets the Tasks panel reflect a task the agent started
+// output - the signal that lets the Tasks panel reflect a task the agent started
 // as "running" (see stores/taskRuns). This must be evidence of an execution, not
 // merely an agent mentioning a command in its summary. The PTY carries ANSI colour
 // codes and agents render tool calls as `PowerShell(command)` / `Bash(command)`,
@@ -14,10 +14,10 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Whether `command` appears as a whole shell token run inside `text` — bounded on
+/** Whether `command` appears as a whole shell token run inside `text` - bounded on
  *  both sides by a command separator (start/end, whitespace, `;`, `&`, `|`, a
  *  paren, or a redirect). This is what lets `pnpm dev` match inside the way an
- *  agent actually runs it — `cd app && pnpm dev 2>&1` — while never matching a
+ *  agent actually runs it - `cd app && pnpm dev 2>&1` - while never matching a
  *  prefix of a longer command like `pnpm dev:prod`. */
 function containsCommand({ text, command }: {
   text: string;

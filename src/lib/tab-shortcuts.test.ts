@@ -35,7 +35,7 @@ describe("matchTabShortcut", () => {
         })
       )
     ).toBe(TabAction.LaunchMenu);
-    // Plain Ctrl+T is no longer a tab shortcut — it belongs to the terminal now.
+    // Plain Ctrl+T is no longer a tab shortcut - it belongs to the terminal now.
     expect(
       matchTabShortcut(
         chord({
@@ -127,7 +127,7 @@ describe("matchTabShortcut", () => {
         })
       )
     ).toBeNull();
-    // A stray Alt on a Ctrl shortcut disqualifies it — Ctrl+Alt+T is now the
+    // A stray Alt on a Ctrl shortcut disqualifies it - Ctrl+Alt+T is now the
     // launch-menu chord, so close (Ctrl+W) is the example here.
     expect(
       matchTabShortcut(
@@ -232,7 +232,7 @@ describe("matchTabSelection", () => {
     ).toBeNull();
   });
 
-  it("requires plain Ctrl — Shift / Alt / Meta or no Ctrl disqualifies", () => {
+  it("requires plain Ctrl - Shift / Alt / Meta or no Ctrl disqualifies", () => {
     expect(
       matchTabSelection({
         chord: chord({ key: "1" }),

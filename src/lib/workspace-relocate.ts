@@ -1,9 +1,9 @@
 // Move / rename / delete a workspace with cwd-lock handling. Every one of them
-// touches the folder itself — which fails while a live agent or task runner
+// touches the folder itself - which fails while a live agent or task runner
 // holds it as cwd (Windows lock). So they share one opening move: stop the
 // runners and kill the sessions under it (remembering the live ones). Move and
 // rename then run the backend op (which also re-points every external reference
-// — each agent's memory, IDE recents…) and resume each live session's own
+// - each agent's memory, IDE recents…) and resume each live session's own
 // conversation on the new path; one that was mid-turn is told to continue.
 // Delete has nothing to resume and the app simply forgets the folder.
 // Idle/exited sessions stay closed. The app shell supplies its session list,
@@ -43,12 +43,12 @@ export interface RelocateHost {
   sessions: () => AgentSession[];
   currentProject: () => string;
   /** Mark these sessions as deliberately closing BEFORE they are killed, so the
-   *  shell's PTY-exit handler treats their exits as intentional — not as an agent
+   *  shell's PTY-exit handler treats their exits as intentional - not as an agent
    *  the user quit. Without this, killing the last agent of an unnamed temp
    *  workspace makes the exit handler jump to the picker mid-relocation, giving
    *  up the very workspace the rename is saving. */
   markClosing: (ids: ReadonlySet<string>) => void;
-  /** Stop the window's task runners — they run inside the workspace too. */
+  /** Stop the window's task runners - they run inside the workspace too. */
   stopRunners: () => Promise<void>;
   /** Drop the killed sessions from tabs/panes and re-point the active one. */
   removeSessions: (ids: ReadonlySet<string>) => void;
@@ -127,7 +127,7 @@ export function createRelocator(host: RelocateHost) {
   /** One entry the `releaseLock` step captured for later resumption. */
   type ResumableSession = Awaited<ReturnType<typeof releaseLock>>[number];
 
-  /** Resume each live session's own conversation on the new path — the agent's
+  /** Resume each live session's own conversation on the new path - the agent's
    *  memory of it moved with the folder; the first reuses the current pane, the
    *  rest split beside it. */
   async function resumeSessions({ toResume, from, to }: {
@@ -235,7 +235,7 @@ export function createRelocator(host: RelocateHost) {
     });
   }
 
-  /** Rename a workspace's folder where it stands — any project, not only a
+  /** Rename a workspace's folder where it stands - any project, not only a
    *  temp one. */
   function renameFolder(target: {
     from: string;
@@ -250,7 +250,7 @@ export function createRelocator(host: RelocateHost) {
   /** Delete a workspace: same lock release (a running agent would otherwise keep
    *  the folder open and the removal would fail), then remove it. Nothing to
    *  resume, and the shell lets go of it if it was the open project. `del` is the
-   *  backend removal — owned-only for `remove`, ungated for `removeDirectory`. */
+   *  backend removal - owned-only for `remove`, ungated for `removeDirectory`. */
   async function deleteVia(path: string, del: (path: string) => Promise<Settings>): Promise<Settings> {
     await releaseLock(path);
     const settings = await del(path);
@@ -269,7 +269,7 @@ export function createRelocator(host: RelocateHost) {
     return deleteVia(path, workspace.delete);
   }
 
-  /** Delete ANY project directory from disk — the switcher's "Delete directory".
+  /** Delete ANY project directory from disk - the switcher's "Delete directory".
    *  Ungated, so it can remove a real project; the caller confirms first. */
   function removeDirectory(path: string): Promise<Settings> {
     return deleteVia(path, workspace.deleteDirectory);
