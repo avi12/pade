@@ -8,7 +8,7 @@
 
 import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
 
-const ANSI_ESCAPE_RE = new RegExp(
+const ANSI_ESCAPE = new RegExp(
   // OSC: ESC ] … terminated by BEL or ST (ESC \).
   "\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)"
     // Two-byte escapes: ESC then a single @–Z byte.
@@ -23,19 +23,21 @@ const ANSI_ESCAPE_RE = new RegExp(
 // colour/weight sequence is interpreted; every other CSI (cursor moves, etc.) is
 // consumed and skipped. Built as a string (like the matcher above) so no raw
 // control byte sits in the source.
-const CSI_SGR_RE = new RegExp("^\\u001b\\[([0-9;]*)m$");
+const CSI_SGR = new RegExp("^\\u001b\\[([0-9;]*)m$");
 
 // Cursor Forward (CUF): ESC [ <count> C. Claude's Ink renderer skips over a cell
 // that is already blank with this instead of printing a space, so on a fresh
 // screen every gap between words arrives as a cursor move.
-const CURSOR_FORWARD_RE = new RegExp("\\u001b\\[(\\d*)C", "g");
+const CURSOR_FORWARD = new RegExp("\\u001b\\[(\\d*)C", "g");
 const CURSOR_FORWARD_DEFAULT_COUNT = 1;
 // A ceiling on the gap one cursor move expands to, so a garbage count can't
 // allocate an unbounded string - wider than any real terminal row.
 const CURSOR_FORWARD_MAX_COUNT = 1_000;
+const DECIMAL_RADIX = 10;
+const PARAMETER_SEPARATOR = ";";
 
 function cursorForwardGap(_sequence: string, count: string) {
-  const columns = count === "" ? CURSOR_FORWARD_DEFAULT_COUNT : parseInt(count, 10);
+  const columns = count === "" ? CURSOR_FORWARD_DEFAULT_COUNT : parseInt(count, DECIMAL_RADIX);
   return " ".repeat(Math.min(columns, CURSOR_FORWARD_MAX_COUNT));
 }
 
@@ -44,7 +46,7 @@ function cursorForwardGap(_sequence: string, count: string) {
  *  would see `Yes,Itrustthisfolder` where the screen reads "Yes, I trust this
  *  folder". */
 export function stripAnsi(text: string) {
-  return text.replaceAll(CURSOR_FORWARD_RE, cursorForwardGap).replaceAll(ANSI_ESCAPE_RE, "");
+  return text.replaceAll(CURSOR_FORWARD, cursorForwardGap).replaceAll(ANSI_ESCAPE, "");
 }
 
 /** A run of text sharing one set of SGR styles. Colours resolve to `var(--terminal-*)`
@@ -89,13 +91,25 @@ const STANDARD_FOREGROUND_START = 30;
 const STANDARD_BACKGROUND_START = 40;
 const BRIGHT_FOREGROUND_START = 90;
 const BRIGHT_BACKGROUND_START = 100;
-// Bright colours occupy palette slots 8–15.
-const BRIGHT_OFFSET = 8;
+/** Each bank (standard, bright) holds eight colours; bright ones occupy palette
+ *  slots 8-15. */
+const COLORS_PER_BANK = 8;
+const BRIGHT_OFFSET = COLORS_PER_BANK;
+/** Parameters a `38`/`48` selector consumes after itself: `5;n`, or `2;r;g;b`. */
+const PALETTE_SELECTOR_LENGTH = 2;
+const TRUE_COLOR_SELECTOR_LENGTH = 4;
 
-/** Resolve an ANSI colour index (0–15) to the CSS custom-property reference that
+/** Resolve an ANSI colour index (0-15) to the CSS custom-property reference that
  *  paints it - the single palette shared with xterm's theme. */
-function ansiColor(index: number) {
-  return `var(${ANSI_COLOR_TOKENS[index]})`;
+function ansiColor(iColor: number) {
+  return `var(${ANSI_COLOR_TOKENS[iColor]})`;
+}
+
+function isInBank({ code, bankStart }: {
+  code: number;
+  bankStart: number;
+}) {
+  return code >= bankStart && code < bankStart + COLORS_PER_BANK;
 }
 
 /** The palette index a colour code names, or `null` if the code isn't a colour in
@@ -105,11 +119,17 @@ function colorIndexFor({ code, standardStart, brightStart }: {
   standardStart: number;
   brightStart: number;
 }) {
-  if (code >= standardStart && code <= standardStart + 7) {
+  if (isInBank({
+    code,
+    bankStart: standardStart
+  })) {
     return code - standardStart;
   }
 
-  if (code >= brightStart && code <= brightStart + 7) {
+  if (isInBank({
+    code,
+    bankStart: brightStart
+  })) {
     return code - brightStart + BRIGHT_OFFSET;
   }
 
@@ -128,36 +148,36 @@ function resetStyle(style: AnsiStyle) {
 /** Apply a `38`/`48` extended-colour selector and return the index of the last
  *  parameter it consumed, so the caller resumes after it. Truecolor is consumed
  *  but not modelled; a palette index outside 0–15 is consumed but skipped. */
-function applyExtendedColor({ style, codes, index, foreground }: {
+function applyExtendedColor({ style, codes, iCode, isForeground }: {
   style: AnsiStyle;
   codes: number[];
-  index: number;
-  foreground: boolean;
+  iCode: number;
+  isForeground: boolean;
 }) {
-  const mode = codes[index + 1];
-  if (mode === ExtendedColorMode.Palette) {
-    const paletteIndex = codes[index + 2];
-    const inPalette = paletteIndex !== undefined
-      && paletteIndex >= 0
-      && paletteIndex < ANSI_COLOR_TOKENS.length;
-    if (!inPalette) {
-      return index + 2;
-    }
-
-    if (foreground) {
-      style.color = ansiColor(paletteIndex);
-    } else {
-      style.background = ansiColor(paletteIndex);
-    }
-
-    return index + 2;
-  }
-
+  const mode = codes[iCode + 1];
   if (mode === ExtendedColorMode.TrueColor) {
-    return index + 4;
+    return iCode + TRUE_COLOR_SELECTOR_LENGTH;
   }
 
-  return index;
+  if (mode !== ExtendedColorMode.Palette) {
+    return iCode;
+  }
+
+  const iPaletteColor = codes[iCode + PALETTE_SELECTOR_LENGTH];
+  const isInPalette = iPaletteColor !== undefined
+    && iPaletteColor >= 0
+    && iPaletteColor < ANSI_COLOR_TOKENS.length;
+  if (!isInPalette) {
+    return iCode + PALETTE_SELECTOR_LENGTH;
+  }
+
+  if (isForeground) {
+    style.color = ansiColor(iPaletteColor);
+  } else {
+    style.background = ansiColor(iPaletteColor);
+  }
+
+  return iCode + PALETTE_SELECTOR_LENGTH;
 }
 
 // The attribute (non-colour) SGR codes, each a mutator on the running style - a
@@ -203,42 +223,45 @@ function applySimpleCode({ style, code }: {
     return;
   }
 
-  const foreground = colorIndexFor({
+  const iForeground = colorIndexFor({
     code,
     standardStart: STANDARD_FOREGROUND_START,
     brightStart: BRIGHT_FOREGROUND_START
   });
-  if (foreground !== null) {
-    style.color = ansiColor(foreground);
+  if (iForeground !== null) {
+    style.color = ansiColor(iForeground);
     return;
   }
 
-  const background = colorIndexFor({
+  const iBackground = colorIndexFor({
     code,
     standardStart: STANDARD_BACKGROUND_START,
     brightStart: BRIGHT_BACKGROUND_START
   });
-  if (background !== null) {
-    style.background = ansiColor(background);
+  if (iBackground !== null) {
+    style.background = ansiColor(iBackground);
   }
   // Any other code is unmodelled - ignore it.
 }
 
-/** Mutate `style` per one SGR sequence's parameters (the `32;1` in `ESC[32;1m`). */
-function applySgr({ style, params }: {
+/** Mutate `style` per one SGR sequence's parameters (the `32;1` in `ESC[32;1m`).
+ *  An empty parameter (or none at all) means reset. */
+function applySgr({ style, parameters }: {
   style: AnsiStyle;
-  params: string;
+  parameters: string;
 }) {
-  const parts = params === "" ? ["0"] : params.split(";");
-  const codes = parts.map(part => (part === "" ? 0 : parseInt(part, 10)));
-  for (let index = 0; index < codes.length; index++) {
-    const code = codes[index]!;
-    if (code === Sgr.ExtendedForeground || code === Sgr.ExtendedBackground) {
-      index = applyExtendedColor({
+  const codes = parameters === ""
+    ? [Sgr.Reset]
+    : parameters.split(PARAMETER_SEPARATOR).map(part => (part === "" ? Sgr.Reset : parseInt(part, DECIMAL_RADIX)));
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i]!;
+    const isExtendedColor = code === Sgr.ExtendedForeground || code === Sgr.ExtendedBackground;
+    if (isExtendedColor) {
+      i = applyExtendedColor({
         style,
         codes,
-        index,
-        foreground: code === Sgr.ExtendedForeground
+        iCode: i,
+        isForeground: code === Sgr.ExtendedForeground
       });
       continue;
     }
@@ -250,7 +273,10 @@ function applySgr({ style, params }: {
   }
 }
 
-function styledSegment(text: string, style: AnsiStyle) {
+function styledSegment({ text, style }: {
+  text: string;
+  style: AnsiStyle;
+}) {
   const segment: AnsiSegment = { text };
   if (style.color !== undefined) {
     segment.color = style.color;
@@ -289,25 +315,30 @@ export function parseAnsi(text: string) {
   const style: AnsiStyle = {};
   let runStart = 0;
 
-  ANSI_ESCAPE_RE.lastIndex = 0;
-  for (let match = ANSI_ESCAPE_RE.exec(text); match !== null; match = ANSI_ESCAPE_RE.exec(text)) {
+  for (const match of text.matchAll(ANSI_ESCAPE)) {
     if (match.index > runStart) {
-      segments.push(styledSegment(text.slice(runStart, match.index), style));
+      segments.push(styledSegment({
+        text: text.slice(runStart, match.index),
+        style
+      }));
     }
 
-    const sgr = CSI_SGR_RE.exec(match[0]);
-    if (sgr) {
+    const sgrMatch = CSI_SGR.exec(match[0]);
+    if (sgrMatch) {
       applySgr({
         style,
-        params: sgr[1]!
+        parameters: sgrMatch[1]!
       });
     }
 
-    runStart = ANSI_ESCAPE_RE.lastIndex;
+    runStart = match.index + match[0].length;
   }
 
   if (runStart < text.length) {
-    segments.push(styledSegment(text.slice(runStart), style));
+    segments.push(styledSegment({
+      text: text.slice(runStart),
+      style
+    }));
   }
 
   if (segments.length === 0) {
