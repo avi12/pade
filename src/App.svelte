@@ -1,30 +1,24 @@
 <script lang="ts">
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { onWindowCloseRequested } from "@/lib/ipc/platform";
-  import RunnerDock from "@/lib/runners/RunnerDock.svelte";
-  import { paneIdsAfterSplit, sessionsAfterReorder } from "@/lib/session/pane-layout";
   import { EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
   import { clearSessionSnapshot, restoreLiveSnapshot } from "@/lib/session/session-restore";
-  import SessionTabs from "@/lib/session/SessionTabs.svelte";
-  import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
+  import { effective } from "@/lib/settings/prefs.svelte";
   import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
   import BootSplash from "@/lib/shell/BootSplash.svelte";
   import { clearDiscordPresence } from "@/lib/shell/discord-presence";
-  import { animatePaneIn, paneDropAt } from "@/lib/shell/pane-dom";
-  import RecoveryNotes from "@/lib/shell/RecoveryNotes.svelte";
+  import { animatePaneIn } from "@/lib/shell/pane-dom";
   import { registerSessionShortcuts } from "@/lib/shell/session-shortcuts";
   import { createSessionAutomation } from "@/lib/shell/sessionAutomation.svelte";
-  import ShellChrome from "@/lib/shell/ShellChrome.svelte";
-  import ShellToast from "@/lib/shell/ShellToast.svelte";
   import { Side } from "@/lib/shell/side-panels";
-  import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
   import { WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
   import { syncWindowAddress } from "@/lib/shell/windowAddress.svelte";
   import WindowEvents from "@/lib/shell/WindowEvents.svelte";
   import { startWindowServices } from "@/lib/shell/windowServices.svelte";
   import { createWindowSessions } from "@/lib/shell/windowSessions.svelte";
+  import WorkspaceScreen from "@/lib/shell/WorkspaceScreen.svelte";
   import { stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import {
@@ -32,20 +26,14 @@
     disposeNewProjectDetection,
     initNewProjectDetection
   } from "@/lib/stores/workspace/new-project-detection";
-  import { activeMemberIn } from "@/lib/stores/workspace/workspaceMembers.svelte";
-  import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
-  import type { Agent, AgentSession, OpenTarget } from "@/lib/types";
-  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import type { Agent, OpenTarget } from "@/lib/types";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import { isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
-  import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
   import { createRelocator } from "@/lib/workspace/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
-  import SidePanel from "@/panels/SidePanel.svelte";
-  import SidePanelResizer from "@/panels/SidePanelResizer.svelte";
   import { onDestroy, onMount, tick } from "svelte";
 
   // Which top-level screen is showing. A closed set defined once, compared
@@ -64,19 +52,11 @@
   let pendingPrompt = $state<string | undefined>();
   // The panes container, so a drop's pointer can be hit-tested against the panes.
   let elPanes = $state<HTMLElement>();
-  let sessionTabsHandle = $state<{ closeSession: (session: AgentSession) => void } | null>(null);
-  // Live drag state from the tab strip; drives the "drop here" overlay + halves.
-  let dragHint = $state<DragHint | null>(null);
-  // True while a split pane's header is dragged up over the tab strip - the mirror
-  // gesture: the strip lights as a "drop → new tab" target and the drop pops the
-  // pane out of the split (see TerminalPanes' `onpopout`). Reported by the
-  // dragged pane's Terminal via the same engine hint the tab-split path uses.
-  let isPaneDragOverTabs = $state(false);
+  let workspaceScreen = $state<WorkspaceScreen>();
   // The open side panel (lib/shell/side-panels); `null` means none is open.
   let side = $state<Side | null>(Side.Feed);
   // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
-  let isResizingSidePanel = $state(false);
   // Only the focused window publishes Discord presence (see windowServices).
   let isWindowFocused = $state(document.hasFocus());
 
@@ -139,9 +119,6 @@
       phase = Phase.Onboarding;
     }
   });
-
-  // Active agent id - used to show only its relevant config files.
-  const activeAgent = $derived(windowSessions.activeSession?.agent.id ?? "");
 
   // Handoff, model switching, usage resume and pacing, API-error retry, MCP
   // restarts and tab attention (lib/shell/sessionAutomation).
@@ -322,8 +299,8 @@
     fallbackAgent: () => bestAgent,
     // Through its tab while the workspace is on screen, so it animates out.
     closeSession(session) {
-      if (sessionTabsHandle) {
-        sessionTabsHandle.closeSession(session);
+      if (workspaceScreen) {
+        workspaceScreen.closeSession(session);
         return;
       }
 
@@ -518,165 +495,43 @@
       path={currentProject}
     />
   {:else if phase === Phase.Ready}
-    <div class="shell">
-      <header class="topbar">
-        <ShellChrome
-          {activeAgent}
-          activeSession={windowSessions.activeSession}
-          {isTemp}
-          label={projectLabel}
-          ondelete={async projectPath => {
-            // "Delete directory" - a destructive removal of a real project's
-            // folder. The switcher owns the confirmation UI (so it stays open and
-            // animates the row out); here we just release the folder (killing
-            // any session holding it) and delete it, letting the refreshed
-            // settings flow back. Rejects with its message so the switcher can
-            // surface it in the still-open prompt.
-            await relocator.removeDirectory(projectPath);
-          }}
-          onopen={projectPath => openProject({ path: projectPath })}
-          onrenamefolder={relocator.renameFolder}
-          onsavetemp={async ({ name, root }) => await saveTempWorkspace({
-            name,
-            root,
-            host: {
-              project: currentProject,
-              sessionIds: windowSessions.sessions.map(session => session.id),
-              continuing: windowSessions.activeSession ?? windowSessions.sessions[0],
-              writeHandoffDoc: automation.writeHandoffDoc,
-              reroot: path => (currentProject = path),
-              launch: windowSessions.launch,
-              closeSessions: windowSessions.closeSessions
-            }
-          })}
-          onswitch={async () => {
-            // "Switch project" - a DELIBERATE leave to the picker. The project's
-            // agents and task runners do not idle invisibly behind it: runners
-            // stop immediately, then agents are killed once they reach an idle
-            // prompt.
-            await runExclusiveLeave(async () => {
-              await closeWorkspaceGracefully();
-              returnToPicker();
-            });
-          }}
-          onterminaleditor={editor =>
-            windowSessions.launch({
-              agent: {
-                id: `editor-${editor.id}`,
-                label: editor.label,
-                command: editor.command,
-                // A terminal editor writes logical order like any other program.
-                reordersBidi: false
-              },
-              // Inherit the active session's worktree, if any, else the project dir.
-              cwd: windowSessions.activeSession?.cwd,
-              // Open the working directory in the editor.
-              args: ["."],
-              split: true
-            })}
-          project={currentProject}
-          {repository}
-          sessions={windowSessions.sessions}
-          bind:side
-        />
-
-        <SessionTabs
-          bind:this={sessionTabsHandle}
-          activeId={windowSessions.activeId}
-          {agents}
-          branches={repository.branches}
-          onclose={windowSessions.close}
-          ondraghint={hint => (dragHint = hint)}
-          onlaunch={agent => windowSessions.launch({ agent })}
-          onlaunchbranch={async branch => {
-            // Spawn an agent on its own git worktree for `branch`, isolated from
-            // the other sessions. Uses the active session's agent (or the first).
-            const agent = windowSessions.activeSession?.agent ?? bestAgent;
-            const cwd = await sendMessage(Command.vcsWorktreeAdd, {
-              cwd: activeMemberIn(currentProject),
-              branch,
-              create: false
-            });
-            windowSessions.launch({
-              agent,
-              cwd,
-              branch
-            });
-          }}
-          onmodelchoice={async pick => await automation.requestModel(pick)}
-          onreorder={orderedIds => (windowSessions.sessions = sessionsAfterReorder({
-            sessions: windowSessions.sessions,
-            orderedIds
-          }))}
-          onselect={windowSessions.select}
-          onsplit={drop => {
-            // Show the dropped tab as a split pane on the side of the pane the
-            // pointer landed on (repositioning it if already shown).
-            const target = paneDropAt({
-              elPanes,
-              paneIds: windowSessions.paneIds,
-              x: drop.pointerX,
-              y: drop.pointerY
-            });
-            if (!target) {
-              return;
-            }
-
-            windowSessions.paneIds = paneIdsAfterSplit({
-              paneIds: windowSessions.paneIds,
-              draggedId: drop.id,
-              targetId: target.id,
-              side: target.side
-            });
-            windowSessions.activeId = drop.id;
-            animatePaneIn({
-              elPanes,
-              id: drop.id
-            });
-          }}
-          paneIds={windowSessions.paneIds}
-          popPaneActive={isPaneDragOverTabs}
-          sessions={windowSessions.sessions}
-        />
-      </header>
-
-      <main
-        style:--side-panel-width="{sidePanelWidth}px"
-        style:--side-panel-min-width="{SIDE_PANEL_MINIMUM_WIDTH}px"
-        style:--side-panel-max-fraction="{SIDE_PANEL_MAXIMUM_FRACTION * 100}%"
-        class="body"
-        class:with-side={side !== null}
-        data-resizing={isResizingSidePanel || undefined}
-      >
-        <TerminalPanes
-          {agents}
-          collapsingSplitPanes={windowSessions.collapsingSplitPanes}
-          {dragHint}
-          onexit={windowSessions.exited}
-          onlaunch={agent => windowSessions.launch({
-            agent,
-            split: true
-          })}
-          onselect={windowSessions.select}
-          sessions={windowSessions.sessions}
-          bind:elPanes
-          bind:paneIds={windowSessions.paneIds}
-          bind:activeId={windowSessions.activeId}
-          bind:isPaneDragOverTabs
-        />
-
-        {#if side !== null}
-          <SidePanelResizer bind:width={sidePanelWidth} bind:isResizing={isResizingSidePanel} />
-          <SidePanel agent={activeAgent} agents={realAgents} project={currentProject} {side} />
-        {/if}
-      </main>
-
-      <RunnerDock activeSessionId={windowSessions.activeId} />
-
-      <RecoveryNotes note={automation.note} pacing={automation.usagePacing} />
-      <ShellToast />
-      <SendSelectionButton activeId={windowSessions.activeId} />
-    </div>
+    <WorkspaceScreen
+      bind:this={workspaceScreen}
+      {agents}
+      {automation}
+      {bestAgent}
+      {isTemp}
+      ondelete={async projectPath => {
+        // "Delete directory" - a destructive removal of a real project's
+        // folder. The switcher owns the confirmation UI (so it stays open and
+        // animates the row out); here we just release the folder (killing
+        // any session holding it) and delete it, letting the refreshed
+        // settings flow back. Rejects with its message so the switcher can
+        // surface it in the still-open prompt.
+        await relocator.removeDirectory(projectPath);
+      }}
+      onopen={projectPath => openProject({ path: projectPath })}
+      onrenamefolder={relocator.renameFolder}
+      onreroot={path => (currentProject = path)}
+      onswitch={async () => {
+        // "Switch project" - a DELIBERATE leave to the picker. The project's
+        // agents and task runners do not idle invisibly behind it: runners
+        // stop immediately, then agents are killed once they reach an idle
+        // prompt.
+        await runExclusiveLeave(async () => {
+          await closeWorkspaceGracefully();
+          returnToPicker();
+        });
+      }}
+      project={currentProject}
+      {projectLabel}
+      {realAgents}
+      {repository}
+      {windowSessions}
+      bind:elPanes
+      bind:side
+      bind:sidePanelWidth
+    />
   {:else}
     <BootSplash />
   {/if}
@@ -689,72 +544,5 @@
 <style>
   .app-root {
     block-size: 100%;
-  }
-
-  .shell {
-    display: flex;
-    flex-direction: column;
-    block-size: 100%;
-  }
-
-  .topbar {
-    display: flex;
-    flex-shrink: 0;
-    flex-direction: column;
-    gap: 8px;
-    min-inline-size: 0;
-    padding-block: 8px;
-    padding-inline: clamp(10px, 1.6vw, 16px);
-    border-block-end: 1px solid var(--outline);
-    background: var(--surface-1);
-  }
-
-  .body {
-    /* The side column's resolved width - one authoritative expression the grid
-       track and the drag divider both read, so they can never clamp differently. */
-    --side-panel-track:
-      clamp(
-        var(--side-panel-min-width),
-        var(--side-panel-width),
-        var(--side-panel-max-fraction)
-      );
-
-    position: relative;
-    display: grid;
-    flex: 1;
-
-    /* Explicit full-height row track: without it the implicit row is `auto`
-       (content-sized), so the terminal shrinks with the window but never grows
-       back - the resize observer only fires on the shrink. */
-    grid-template-rows: 1fr;
-    grid-template-columns: 1fr;
-    min-block-size: 0;
-    transition: grid-template-columns 250ms var(--ease);
-
-    /* The side column follows the dragged `--side-panel-width`, clamped so it
-       never falls below its minimum nor swallows more than 60% of the window
-       (design: `Math.max(280, Math.min(width*0.6, …))`). The width tweens with
-       the emphasized easing so a double-click snap-back to the default animates. */
-    &.with-side {
-      grid-template-columns: 1fr var(--side-panel-track);
-      transition: grid-template-columns 250ms var(--ease);
-
-      @media (prefers-reduced-motion: reduce) {
-        transition: none;
-      }
-    }
-
-    /* A live drag drives the frame directly - any transition would lag it behind
-       the pointer, so it is switched off for the duration of the drag. */
-    &[data-resizing] {
-      transition: none;
-    }
-  }
-
-  @media (width <= 720px) {
-    .body.with-side {
-      grid-template-rows: 1fr 40%;
-      grid-template-columns: 1fr;
-    }
   }
 </style>
