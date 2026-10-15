@@ -1,0 +1,150 @@
+/* Shared chrome for the Get started panels (New, Open local, Clone). Plain CSS
+   (not Svelte-scoped) so one authoritative copy reaches every panel component;
+   every selector is prefixed with `.get-started` so nothing leaks past the card.
+   Imported once by QuickStartSection.svelte - the panels rely on it. */
+
+/* Zero-specificity on the class, so a panel's own scoped look (the git-missing
+   warning card's tighter gap) still wins over this base. */
+.get-started :where(.panel) {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.get-started .new-project-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.get-started .new-project-label {
+  color: var(--on-surface-variant);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.get-started .new-project-optional {
+  font-weight: 400;
+  opacity: 75%;
+}
+
+/* A "Location"-style group row: folder icon + its contents in one field. */
+.get-started .new-project-location {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+  padding-block: 4px;
+  padding-inline: 12px 4px;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-medium);
+  background: var(--surface-2);
+
+  .new-project-location-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--on-surface-variant);
+  }
+
+  .new-project-separator {
+    flex: none;
+    color: var(--on-surface-variant);
+    font-family: var(--font-monospace);
+    font-size: 13px;
+  }
+
+  /* While any control inside is focused, the group's border becomes the
+     single focus indicator; the inner text field drops its own outline AND
+     the glow behind it (theme.css rings every :focus-visible and, on a dark
+     palette, blooms it) so the two don't double up. */
+  &:focus-within {
+    border-color: var(--primary);
+  }
+
+  &:focus-within input {
+    outline: none;
+    box-shadow: none;
+  }
+
+  /* An OS drag hovering the field - signal it will accept the drop. */
+  &.drop-ready {
+    border-color: var(--primary);
+    background: var(--primary-container);
+  }
+}
+
+.get-started .new-project-name {
+  /* Wide enough for its own "project-name" placeholder (12ch + padding) so
+     the hint never clips yet shares the root's line; typing scrolls, and
+     only a genuinely long root wraps the name below. */
+  --new-project-name-padding: 6px;
+
+  flex: 1 1 calc(12ch + 2 * var(--new-project-name-padding));
+  min-inline-size: calc(12ch + 2 * var(--new-project-name-padding));
+  padding: var(--new-project-name-padding);
+  border: none;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--on-surface);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+}
+
+/* Tonal warning surface: git missing, or the SSH→HTTPS credential fallback. */
+.get-started .warning-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-medium);
+  background: var(--warning-wash);
+
+  .warning-header {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 0;
+    color: var(--on-surface);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .warning-icon {
+    display: inline-flex;
+    flex: none;
+    margin-block-start: 1px;
+    color: var(--warning);
+  }
+}
+
+.get-started .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.get-started .go {
+  align-self: start;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-medium);
+  background: var(--primary);
+  color: var(--on-primary);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 150ms var(--ease);
+
+  &:disabled {
+    opacity: 50%;
+    cursor: default;
+  }
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+}
