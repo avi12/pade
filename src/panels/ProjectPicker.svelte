@@ -1,12 +1,12 @@
 <script lang="ts">
   import BrandMark from "@/lib/BrandMark.svelte";
-  import { dirs, ide, workspace } from "@/lib/bridge";
+  import { dirs, ide, windows, workspace } from "@/lib/bridge";
   import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
   import { updatePrefs } from "@/lib/prefs.svelte";
   import { settings } from "@/lib/settings.svelte";
+  import { settledValue } from "@/lib/settled";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
-    AddRootOutcome,
     Agent,
     EditorKind,
     Ide,
@@ -14,6 +14,7 @@
     ProjectEntry,
     Settings
   } from "@/lib/types";
+  import type { Relocator } from "@/lib/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
@@ -26,13 +27,14 @@
   import { onDestroy, onMount } from "svelte";
 
   // Shown when the app wasn't launched inside a project. Manage root folders,
-  // browse the projects inside them, open one, or create a new one — then hand
+  // browse the projects inside them, open one, or create a new one - then hand
   // the chosen project path (and optional first prompt) back to the app.
   const {
     agents,
     onopen,
     onmove,
     onrename,
+    onrenamefolder,
     ondelete
   }: {
     agents: Agent[];
@@ -45,6 +47,8 @@
       from: string;
       newName: string;
     }) => Promise<string>;
+    /** Renames any project's folder where it stands, through the relocator. */
+    onrenamefolder: Relocator["renameFolder"];
     /** Deletes through the app's relocator: kills the sessions holding the
      *  folder as cwd (else the OS blocks the removal), then removes it. */
     ondelete: (path: string) => Promise<Settings>;
@@ -52,9 +56,9 @@
 
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   // Whether the first settings load has landed. The sections render only then,
-  // so every control is born showing the persisted preference — never a
+  // so every control is born showing the persisted preference - never a
   // defaults flash that snaps to the real values a beat later.
-  let loaded = $state(false);
+  let isLoaded = $state(false);
   let ides = $state<Ide[]>([]);
   // The project kinds the rules engine shows, straight from the backend registry
   // (its single home) in render/priority order.
@@ -82,25 +86,21 @@
   // Add an editor by executable path. The backend validates the executable and
   // persists it; we refresh the detected list so it appears in every menu.
   // Returns the new editor's label on success, or the rejection message.
-  async function addEditor(path: string): Promise<{
-    label: string;
-  } | {
-    error: string;
-  }> {
+  async function addEditor(path: string) {
     try {
       await ide.addEditor(path);
       ides = await ide.detect();
       const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
       return { label: added?.label ?? "Editor" };
     } catch (error) {
-      return { error: typeof error === "string" ? error : "Couldn’t add that editor." };
+      return { error: typeof error === "string" ? error : "Couldn’t add that editor" };
     }
   }
   // Re-probe the machine for installed editors (the Editors "Reload" button). The
   // detected list is shared across the picker, so refreshing it here updates every
   // section at once. Returns how many were auto-detected (added editors aren't
   // "detected") for the button's toast.
-  async function rescanEditors(): Promise<number> {
+  async function rescanEditors() {
     ides = await ide.detect();
     const addedIds = new Set((settings.prefs.addedEditors ?? []).map(editor => editor.id));
     return ides.filter(editor => !addedIds.has(editor.id)).length;
@@ -112,18 +112,17 @@
     ides = await ide.detect();
   }
 
-  // Re-scan every root's projects into projectsByRoot — the cheap part of a
+  // Re-scan every root's projects into projectsByRoot - the cheap part of a
   // reload (a handful of directory reads), shared by both refresh paths.
-  function scanRoots(): Promise<Record<string, ProjectEntry[]>> {
-    return Promise.all(
-      settings.roots.map(async root => [root, await scan(root)] as const)
-    ).then(Object.fromEntries);
+  async function scanRoots() {
+    const scanned = await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const));
+    return Object.fromEntries(scanned);
   }
 
-  // Light reload: the project lists only — prune the settings, re-scan the roots.
+  // Light reload: the project lists only - prune the settings, re-scan the roots.
   // A workspace delete/rename/move, and a folder appearing or vanishing under a
   // watched root, change the projects but never the machine's installed editors,
-  // so re-detecting those here (≈1.8s of registry/PATH probing — `ide.detect` +
+  // so re-detecting those here (≈1.8s of registry/PATH probing - `ide.detect` +
   // `ide.kindOptions`) would stall the picker for nothing. The lifecycle ops and
   // the folder watcher use this; only mount and the Editors "Reload" button pay
   // for a full editor re-detect.
@@ -170,43 +169,47 @@
       aiSessionNaming: on
     });
   }
-  function scan(root: string): Promise<ProjectEntry[]> {
-    return workspace.scan(root).catch((): ProjectEntry[] => []);
+  // A root that can't be read lists no projects.
+  async function scan(root: string) {
+    return await settledValue<ProjectEntry[]>({
+      promise: workspace.scan(root),
+      fallback: []
+    });
   }
 
   // The create-form's chosen root, owned here so selecting a root anywhere in
   // the picker (adding one in Root folders) fills the create location too.
   let createRoot = $state("");
 
-  // The Root folders section instance — the create-form's "New root folder…"
+  // The Root folders section instance - the create-form's "New root folder…"
   // option jumps to its add field through this handle.
   let rootsSection = $state<{ focusAddRoot: () => void } | null>(null);
 
   // The form's best default root: a lone root wins outright; otherwise the one
   // most recent projects live in (ties keep the earlier root).
-  function popularRoot(): string {
+  function popularRoot() {
     const { roots, recentProjects } = settings;
-    const [firstRoot] = roots;
-    if (firstRoot === undefined || roots.length === 1) {
-      return firstRoot ?? "";
+    if (roots.length <= 1) {
+      return roots[0] ?? "";
     }
 
     const recentParents = recentProjects
       .map(parentDirectory)
       .filter((parent): parent is string => parent !== null)
       .map(normalizePath);
-    function usage(root: string): number {
+    function usage(root: string) {
       return recentParents.filter(parent => parent === normalizePath(root)).length;
     }
-    return roots.reduce((best, root) => (usage(root) > usage(best) ? root : best));
+    // The sort is stable, so a tie keeps the earlier root first.
+    return roots.toSorted((first, second) => usage(second) - usage(first))[0];
   }
 
   // Only an `added` outcome carries settings for the bridge to adopt and scans
-  // the new root — `missing`/`notADirectory` are handed back
+  // the new root - `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
   async function addRoot(path: string, { create }: {
     create: boolean;
-  }): Promise<AddRootOutcome> {
+  }) {
     const outcome = await workspace.addRoot({
       path,
       create
@@ -241,19 +244,21 @@
     await workspace.setDefaultAgent(agentId);
   }
 
-  function isOwned(path: string): boolean {
+  function isOwned(path: string) {
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
     return settings.ownedWorkspaces.includes(path) || isTemporaryWorkspace(path);
   }
 
   // Owned-workspace lifecycle (rename/move/delete + the inline-rename form
-  // state) — one instance shared by the Recent rows and the root-project rows.
+  // state) - one instance shared by the Recent rows and the root-project rows.
   const lifecycle = createWorkspaceLifecycle({
     isOwned,
     onmove: target => onmove(target),
     onrename: target => onrename(target),
     ondelete: path => ondelete(path),
-    // A rename/move/delete changes the project lists, not the installed editors —
+    onrenamefolder: target => onrenamefolder(target),
+    openWindows: windows.list,
+    // A rename/move/delete changes the project lists, not the installed editors -
     // so catch the lists up cheaply, without re-probing the machine for editors.
     refresh: refreshProjects
   });
@@ -279,27 +284,36 @@
   });
 
   // The filesystem answers in bursts (one delete lands as several events), so the
-  // rescan is debounced — one refresh per settled change, not one per event.
+  // rescan is debounced - one refresh per settled change, not one per event.
   let rescan: ReturnType<typeof setTimeout> | undefined;
   let unlisten: (() => void) | undefined;
 
   function rescanSoon() {
     clearTimeout(rescan);
     // A folder appearing/vanishing under a watched root only moves projects
-    // around — the light refresh, not a full editor re-detect.
+    // around - the light refresh, not a full editor re-detect.
     rescan = setTimeout(refreshProjects, 250);
   }
 
   onMount(async () => {
     await refresh();
     createRoot ||= popularRoot();
-    loaded = true;
+    isLoaded = true;
     unlisten = await dirs.onChange(rescanSoon);
+  });
+
+  // Which projects other windows hold, kept live so their rows never offer a
+  // folder rename this window couldn't carry out.
+  let unlistenWindows: (() => void) | undefined;
+  onMount(async () => {
+    await lifecycle.loadOpenWindows();
+    unlistenWindows = await windows.onChanged(lifecycle.loadOpenWindows);
   });
 
   onDestroy(() => {
     clearTimeout(rescan);
     unlisten?.();
+    unlistenWindows?.();
     // Let the folders go: nothing should hold a handle on them once the picker is
     // no longer on screen.
     dirs.watch([]);
@@ -313,13 +327,13 @@
       <h1>Open a project</h1>
       <p class="lede">
         Pick up where you left off, drop into a throwaway workspace, or point
-        PADE at your code.
+        PADE at your code
       </p>
     </header>
 
     <!-- Painted only once the first settings load lands, so every control is
          born prefilled with the persisted preferences (no defaults flash). -->
-    {#if loaded}
+    {#if isLoaded}
       <div class="sections">
         <QuickStartSection
           {agents}
@@ -376,7 +390,7 @@
   </div>
 </div>
 
-<!-- The lifecycle's prompts, raised from either list's row menu — outside .picker
+<!-- The lifecycle's prompts, raised from either list's row menu - outside .picker
      so they never scroll with the page. -->
 <WorkspaceDialogs labels={settings.labels} {lifecycle} />
 
@@ -407,7 +421,7 @@
     animation: rise 420ms var(--ease);
   }
 
-  /* The settings-fed sections, mounted together once loaded — same column
+  /* The settings-fed sections, mounted together once loaded - same column
      rhythm as .inner, rising in as one block. */
   .sections {
     display: flex;

@@ -26,11 +26,11 @@
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount, tick } from "svelte";
 
-  // "Get started": one card, three ways in — New (create a project, or a
+  // "Get started": one card, three ways in - New (create a project, or a
   // throwaway temp workspace when the name stays blank), Local (open an
   // existing folder), Clone (git clone a repository, gated on git being
   // installed). Creation goes straight through the bridge; the chosen project
-  // path — and, for New, the optional first prompt — go back to the app
+  // path - and, for New, the optional first prompt - go back to the app
   // through `onopen`. `createIn` is bindable so the picker can fill it when a
   // root is selected elsewhere; `onnewroot` jumps to the Root folders add
   // field for a root not listed yet.
@@ -44,7 +44,7 @@
   } = $props();
 
   // The installed coding agents (the shell fallback isn't a choice), and whether
-  // there's more than one — the Agent row only earns its space when a pick is
+  // there's more than one - the Agent row only earns its space when a pick is
   // actually on offer. The chosen agent defaults to the workspace default (or the
   // best-installed), overridable per-create through the chips.
   const realAgents = $derived(toRealAgents(agents));
@@ -52,7 +52,7 @@
   let chosenAgent = $state<string | null>(null);
   const selectedAgent = $derived(chosenAgent ?? defaultAgent ?? realAgents[0]?.id ?? null);
 
-  // The three ways in — a closed set, compared against by member.
+  // The three ways in - a closed set, compared against by member.
   const StartTab = {
     create: "create",
     local: "local",
@@ -81,17 +81,17 @@
     }
   ];
   let tab = $state<StartTab>(StartTab.create);
-  let card = $state<HTMLDivElement | null>(null);
-  // The panels container and the height it should occupy — the open panel's
+  let elCard = $state<HTMLDivElement | null>(null);
+  // The panels container and the height it should occupy - the open panel's
   // own measured height, kept current by a ResizeObserver so the container
   // glides (CSS transition) on tab switches AND when the open panel itself
   // grows or shrinks (a credentials panel appearing, an error line).
-  let panelsElement = $state<HTMLDivElement | null>(null);
+  let elPanels = $state<HTMLDivElement | null>(null);
   let panelsHeight = $state<number | null>(null);
 
   $effect(() => {
-    const body = panelsElement;
-    // Re-arm on every tab switch — the observer must follow the newly-open slot,
+    const body = elPanels;
+    // Re-arm on every tab switch - the observer must follow the newly-open slot,
     // selected by the active tab so this effect re-runs whenever it changes.
     const openSlot = body?.querySelector(`.slot[data-tab="${tab}"]`);
     if (!(openSlot instanceof HTMLElement)) {
@@ -106,22 +106,22 @@
   });
 
   // The newly-open slot flips `visibility: hidden → visible` this tick, but that
-  // change only takes hold once the browser has laid it out — focusing a
+  // change only takes hold once the browser has laid it out - focusing a
   // still-hidden element is a silent no-op. Waiting two frames lets the
   // visibility actually land before we place the caret.
-  function afterVisibilityApplies(): Promise<void> {
-    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  function afterVisibilityApplies() {
+    return new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   }
 
-  // Land the caret on the first field still waiting for input — the name if it's
-  // blank, otherwise the next empty box (the first prompt) — so opening the New
+  // Land the caret on the first field still waiting for input - the name if it's
+  // blank, otherwise the next empty box (the first prompt) - so opening the New
   // tab with a name already typed drops you straight into the prompt instead of
   // re-selecting a filled field. `:placeholder-shown` is the platform's own
   // "this field is empty" state (every field here carries a placeholder), so the
   // first field still showing it is the first one awaiting input; fall back to the
   // first field when all are filled.
-  function focusFirstEmptyField(): void {
-    const panel = card?.querySelector<HTMLElement>(".open .panel");
+  function focusFirstEmptyField() {
+    const panel = elCard?.querySelector<HTMLElement>(".open .panel");
     if (!panel) {
       return;
     }
@@ -132,21 +132,21 @@
     (firstEmpty ?? panel.querySelector<HTMLElement>("input, textarea"))?.focus();
   }
 
-  // ── New — create a project (or fall through to a temp workspace) ──────────
+  // ── New - create a project (or fall through to a temp workspace) ──────────
   let createName = $state("");
   let createPrompt = $state("");
 
   // Live name validation: surface the schema's message and gate the submit on
   // the same check, so an invalid name can't reach a create() that would
-  // silently no-op. An empty name is fine — it means "temp workspace".
+  // silently no-op. An empty name is fine - it means "temp workspace".
   const createNameError = $derived(nameError(createName));
   const hasTypedName = $derived(createName.trim().length > 0);
 
   // Live disk check on the create target (probing the filesystem, never a
   // regex): the backend's create_dir_all succeeds on an existing folder, so
   // without this a name colliding with a real project would silently open that
-  // project as if freshly created. Anything already on disk under that name —
-  // directory or file — disables the create with the reason shown inline. The
+  // project as if freshly created. Anything already on disk under that name -
+  // directory or file - disables the create with the reason shown inline. The
   // probe fires on every keystroke (it's one local stat, cheap) and its answer
   // is tagged with the path it described, so an out-of-order reply never gates
   // the current text.
@@ -194,7 +194,7 @@
           isFile: probe.isFile
         };
       } catch {
-        // An unreachable probe leaves the plain create path — the backend
+        // An unreachable probe leaves the plain create path - the backend
         // still validates the final create.
         createTarget = {
           path: target,
@@ -211,7 +211,7 @@
   const createTargetExists = $derived(createTargetSettled && createTarget.isDir);
   const createTargetIsFile = $derived(createTargetSettled && createTarget.isFile);
 
-  // The settle state never gates the button — that would flash it disabled on
+  // The settle state never gates the button - that would flash it disabled on
   // every keystroke until the debounced probe answers. Typing stays enabled;
   // the submit re-probes authoritatively before creating.
   const createDisabled = $derived(
@@ -220,7 +220,7 @@
   );
 
   // Shared by the "…or start a throwaway temp workspace" button and a submit
-  // with the name left blank — the two spellings of the same intent.
+  // with the name left blank - the two spellings of the same intent.
   async function startTemp(prompt: string) {
     const path = await workspace.temp();
     onopen({
@@ -231,17 +231,17 @@
     });
   }
 
-  // ── Local — open an existing folder ───────────────────────────────────────
+  // ── Local - open an existing folder ───────────────────────────────────────
   let localPath = $state("");
-  let localInput = $state<HTMLInputElement | null>(null);
-  // True while an OS drag hovers the Local field — the drop-affordance state.
-  let dropReady = $state(false);
+  let elLocalInput = $state<HTMLInputElement | null>(null);
+  // True while an OS drag hovers the Local field - the drop-affordance state.
+  let isDropReady = $state(false);
 
   // Does a native drag sit over the Local tab's folder field? The panels
   // overlay each other, so the tab gate matters as much as the geometry (the
   // clone URL input occupies the same spot).
-  function isOverLocalField(position: DragPosition): boolean {
-    const row = localInput?.closest(".new-project-location");
+  function isOverLocalField(position: DragPosition) {
+    const row = elLocalInput?.closest(".new-project-location");
     if (tab !== StartTab.local || !row) {
       return false;
     }
@@ -251,7 +251,7 @@
       position
     });
   }
-  // The latest probe, tagged with the path it described — only a settled probe
+  // The latest probe, tagged with the path it described - only a settled probe
   // (disk knowledge about the *current* text) gates the button or complains.
   // Filled by the PathCombobox, which owns the debounced probe + autocomplete.
   let localProbe = $state<TaggedPathProbe>({
@@ -261,11 +261,15 @@
   const trimmedLocal = $derived(localPath.trim());
   const localSettled = $derived(trimmedLocal.length > 0 && localProbe.path === trimmedLocal);
   const localIsDirectory = $derived(localSettled && localProbe.result.isDir);
-  const localError = $derived(
-    localSettled && !localProbe.result.isDir ? "That folder doesn’t exist." : null
-  );
+  const localError = $derived.by(() => {
+    if (localSettled && !localProbe.result.isDir) {
+      return "That folder doesn’t exist";
+    }
 
-  // ── Clone — git clone a repository ─────────────────────────────────────────
+    return null;
+  });
+
+  // ── Clone - git clone a repository ─────────────────────────────────────────
   // `null` until the probe answers, so the panel is born knowing whether git
   // exists instead of flashing the wrong body.
   let gitInstalled = $state<boolean | null>(null);
@@ -273,13 +277,13 @@
   let cloneUrl = $state("");
   let cloneName = $state("");
   // Auto-fill the folder name from the URL only until the user edits it.
-  let cloneNameEdited = $state(false);
+  let isCloneNameEdited = $state(false);
   let cloneUsername = $state("");
   let clonePassword = $state("");
-  let cloning = $state(false);
+  let isCloning = $state(false);
   let cloneError = $state("");
 
-  // The latest reachability answer, tagged with the URL it described — the
+  // The latest reachability answer, tagged with the URL it described - the
   // folder name auto-fills only once the repository itself has answered, not
   // from URL shape alone.
   let remoteProbe = $state<{
@@ -296,7 +300,7 @@
   const remoteReachable = $derived(remoteSettled && remoteProbe.reachable);
   const remoteChecking = $derived(cloneUrlValid && !remoteSettled);
   const remoteUnreachable = $derived(remoteSettled && !remoteProbe.reachable);
-  // An SSH-style URL with no key on disk can't authenticate — offer HTTPS
+  // An SSH-style URL with no key on disk can't authenticate - offer HTTPS
   // credentials instead (the backend rewrites the URL for the clone).
   const needsCredentials = $derived(cloneUrlValid && isSshCloneUrl(cloneUrl) && !hasSshKey);
   const credentialsMissing = $derived(
@@ -304,11 +308,11 @@
     && !(GitUsername.safeParse(cloneUsername).success && GitSecret.safeParse(clonePassword).success)
   );
   const cloneDisabled = $derived(
-    !cloneUrlValid || !createIn || !cloneNameValid || credentialsMissing || cloning
+    !cloneUrlValid || !createIn || !cloneNameValid || credentialsMissing || isCloning
   );
 
   // Debounced live probe: does the typed repository exist, and can this
-  // machine's auth see it? An answer, not a guess — the same philosophy as the
+  // machine's auth see it? An answer, not a guess - the same philosophy as the
   // add-root path probe, pointed at the network.
   $effect(() => {
     const url = cloneUrl.trim();
@@ -331,7 +335,7 @@
   });
 
   $effect(() => {
-    if (cloneNameEdited) {
+    if (isCloneNameEdited) {
       return;
     }
 
@@ -355,13 +359,13 @@
   onMount(async () => {
     await checkGit();
     unlistenDragOver = await dragDrop.onOver(({ position }) => {
-      dropReady = isOverLocalField(position);
+      isDropReady = isOverLocalField(position);
     });
-    unlistenDragLeave = await dragDrop.onLeave(() => (dropReady = false));
+    unlistenDragLeave = await dragDrop.onLeave(() => (isDropReady = false));
     unlistenDragDrop = await dragDrop.onDrop(({ paths, position }) => {
       const [dropped] = paths;
       const landsOnField = dropped !== undefined && isOverLocalField(position);
-      dropReady = false;
+      isDropReady = false;
 
       if (!landsOnField) {
         return;
@@ -376,10 +380,10 @@
       }
 
       localPath = path;
-      localInput?.focus();
+      elLocalInput?.focus();
     });
 
-    // The New tab is open on arrival — land the caret in its first empty field
+    // The New tab is open on arrival - land the caret in its first empty field
     // (the same behaviour as clicking the tab), so opening the picker to start a
     // project drops you straight into the name/prompt.
     await afterVisibilityApplies();
@@ -393,7 +397,7 @@
   });
 </script>
 
-<!-- The root select — trigger + anchored menu incl. the jump-to-add action.
+<!-- The root select - trigger + anchored menu incl. the jump-to-add action.
      The New and Clone location rows each mount one (both panels stay in the
      DOM for the pure-CSS height glide), so the menu id is a parameter; the
      hosting row declares `anchor-name: --<menuId>` to pair with it. The menu
@@ -450,7 +454,7 @@
 
 <section class="get-started">
   <h2>Get started</h2>
-  <div bind:this={card} class="card">
+  <div bind:this={elCard} class="card">
     <div class="pill-tabs" aria-label="How to open a project" role="tablist" use:rovingTablist>
       {#each TABS as { id, label, icon } (id)}
         <button
@@ -461,7 +465,7 @@
             tab = id;
             // A pointer click (detail > 0) lands the user in the panel's first
             // input; arrow-key selection (a programmatic click, detail 0) keeps
-            // focus on the tab so arrowing onward still works — Tab enters.
+            // focus on the tab so arrowing onward still works - Tab enters.
             const isPointerClick = e.detail > 0;
             if (!isPointerClick) {
               return;
@@ -486,7 +490,7 @@
          container's height glides to the open panel's measured size. Panels
          keep their typed state across switches. -->
     <div
-      bind:this={panelsElement}
+      bind:this={elPanels}
       style:block-size={panelsHeight === null ? "auto" : `${panelsHeight}px`}
       class="panels"
     >
@@ -548,7 +552,7 @@
           }}
         >
           <p class="hint">
-            Name a folder to create a project — or leave the name blank for a
+            Name a folder to create a project - or leave the name blank for a
             throwaway temp workspace, auto-named once the agent starts working.
           </p>
 
@@ -584,18 +588,18 @@
               >{createNameError}</output>
             {:else if createTargetIsFile}
               <output class="field-error" in:expandRow out:collapseRow>
-                That name is taken by a file in this root.
+                That name is taken by a file in this root
               </output>
             {:else if createTargetExists}
               <output class="field-error" in:expandRow out:collapseRow>
-                This folder already exists in this root.
+                This folder already exists in this root
               </output>
             {/if}
           </div>
 
           <div class="new-project-field">
             <label class="new-project-label" for="new-project-prompt">
-              First prompt <span class="new-project-optional">— optional</span>
+              First prompt <span class="new-project-optional">- optional</span>
             </label>
             <textarea
               id="new-project-prompt"
@@ -612,7 +616,7 @@
               <AgentChips
                 agents={realAgents}
                 ariaLabel="Agent to launch"
-                compact
+                isCompact
                 onpick={id => (chosenAgent = id)}
                 selected={selectedAgent}
               />
@@ -661,7 +665,7 @@
         >
           <div class="new-project-field">
             <label class="new-project-label" for="local-path">Project folder</label>
-            <div class="new-project-location" class:drop-ready={dropReady}>
+            <div class="new-project-location" class:drop-ready={isDropReady}>
               <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
               <PathCombobox
                 id="local-path"
@@ -669,7 +673,7 @@
                 placeholder="C:\repositories\my-app  ·  or drop a folder here"
                 bind:value={localPath}
                 bind:probe={localProbe}
-                bind:inputElement={localInput}
+                bind:elInput={elLocalInput}
               />
               <button
                 class="browse"
@@ -701,7 +705,7 @@
                 <span class="warning-icon" aria-hidden="true"><Icon name="alert" size={16} /></span>
                 <strong>Git isn’t installed</strong>
               </p>
-              <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check.</p>
+              <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check</p>
               <div class="actions">
                 <button class="go" onclick={() => os.openUrl("https://git-scm.com/downloads")} type="button">
                   Install Git…
@@ -726,7 +730,7 @@
                   return;
                 }
 
-                cloning = true;
+                isCloning = true;
                 cloneError = "";
                 try {
                   const path = await vcs.clone({
@@ -744,9 +748,9 @@
                   });
                   onopen({ path });
                 } catch (error) {
-                  cloneError = typeof error === "string" ? error : "Clone failed.";
+                  cloneError = typeof error === "string" ? error : "Clone failed";
                 } finally {
-                  cloning = false;
+                  isCloning = false;
                 }
               }}
             >
@@ -763,13 +767,13 @@
                 {#if remoteChecking}
                   <output class="probe-note">Checking the repository…</output>
                 {:else if remoteUnreachable}
-                  <output class="field-error">Can’t reach that repository — check the URL or your access.</output>
+                  <output class="field-error">Can’t reach that repository - check the URL or your access</output>
                 {/if}
               </div>
 
               <div class="new-project-field">
                 <span id="clone-location-label" class="new-project-label">
-                  Clone into <span class="new-project-optional">— folder name auto-filled from the repo</span>
+                  Clone into <span class="new-project-optional">- folder name auto-filled from the repo</span>
                 </span>
                 <div
                   style:anchor-name="--new-project-root-menu-clone"
@@ -785,7 +789,7 @@
                     id="clone-name"
                     class="new-project-name"
                     autocomplete="off"
-                    oninput={() => (cloneNameEdited = true)}
+                    oninput={() => (isCloneNameEdited = true)}
                     placeholder="repo"
                     spellcheck="false"
                     bind:value={cloneName}
@@ -797,7 +801,7 @@
                 <div class="warning-card credentials">
                   <p class="warning-header">
                     <span class="warning-icon" aria-hidden="true"><Icon name="alert" size={16} /></span>
-                    <span>No SSH key set up for this host — sign in to clone over HTTPS instead.</span>
+                    <span>No SSH key set up for this host - sign in to clone over HTTPS instead</span>
                   </p>
                   <div class="new-project-field">
                     <label class="new-project-label" for="clone-user">Email or username</label>
@@ -829,7 +833,7 @@
               {/if}
 
               <button class="go" disabled={cloneDisabled} type="submit">
-                {#if cloning}
+                {#if isCloning}
                   Cloning…{:else}Clone &amp; open{/if}
               </button>
             </form>
@@ -841,7 +845,7 @@
 </section>
 
 <style>
-  /* ── Get started — one card, three tabbed ways in. ── */
+  /* ── Get started - one card, three tabbed ways in. ── */
   .card {
     display: flex;
     flex-direction: column;
@@ -867,7 +871,7 @@
   }
 
   /* All panels overlay one grid cell: a tab switch is a pure in-place
-     cross-fade — nothing slides — while the container's block-size (the open
+     cross-fade - nothing slides - while the container's block-size (the open
      panel's measured height, CSS-transitioned) glides between panel sizes.
      `visibility` rides the fade so a closed panel is untabbable/invisible
      exactly when it has faded out; the clip margin keeps focus rings visible
@@ -947,7 +951,7 @@
        single focus indicator; the inner text field drops its own outline AND
        the glow behind it (theme.css rings every :focus-visible and, on a dark
        palette, blooms it) so the two don't double up. The input lives inside
-       the child PathCombobox, so `:global` reaches it — still bounded by the
+       the child PathCombobox, so `:global` reaches it - still bounded by the
        scoped `.new-project-location:focus-within` prefix. */
     &:focus-within {
       border-color: var(--primary);
@@ -958,7 +962,7 @@
       box-shadow: none;
     }
 
-    /* An OS drag hovering the field — signal it will accept the drop. */
+    /* An OS drag hovering the field - signal it will accept the drop. */
     &.drop-ready {
       border-color: var(--primary);
       background: var(--primary-container);
@@ -997,7 +1001,7 @@
     /* theme.css rings every `:focus-visible` two pixels OUTSIDE the box, which
        on a field that already carries a frame draws a second box around the
        first. Cut the ring into the field's own edge instead: the plate reads as
-       one shape, thickened while focused — and the glow, which would ring the
+       one shape, thickened while focused - and the glow, which would ring the
        outside again, stays off. */
     &:focus-visible {
       outline-offset: -2px;
@@ -1136,7 +1140,7 @@
     }
   }
 
-  /* Root select — a native-popover custom select, like the editor selects.
+  /* Root select - a native-popover custom select, like the editor selects.
      Sized to its content (no grow): a short root shares one line with the
      name input; only a genuinely long one wraps the row. */
   .root-selector {
@@ -1150,7 +1154,7 @@
     gap: 6px;
     align-items: center;
 
-    /* Full width of the row's free space — the chosen root prints in full
+    /* Full width of the row's free space - the chosen root prints in full
        (ellipsis only at the row's own edge, never a hard cap). */
     max-inline-size: 100%;
     padding: 6px 2px;
@@ -1168,7 +1172,7 @@
       filter: none;
     }
 
-    /* The chosen root prints in full — a long path wraps (the row is
+    /* The chosen root prints in full - a long path wraps (the row is
        wrap-enabled) rather than ellipsizing behind a clipped tail. */
     .root-current {
       text-align: start;
@@ -1184,7 +1188,7 @@
     }
   }
 
-  /* Open state — the field's own extra on top of the shared `.menu-host` active
+  /* Open state - the field's own extra on top of the shared `.menu-host` active
      look (border/background/caret, from theme.css): the trigger text tints
      primary while the menu is open. Pure CSS, field-scoped. */
   .root-selector:has(.root-menu:popover-open) .root-trigger {
@@ -1195,7 +1199,7 @@
     min-inline-size: anchor-size(inline);
 
     /* Anchored to the whole Location field (not the trigger): it opens flush
-       with the field's start — the folder icon — and is at least field-wide. */
+       with the field's start - the folder icon - and is at least field-wide. */
     position-area: block-end span-inline-end;
 
     .root-option {
@@ -1205,7 +1209,7 @@
       font-size: 12px;
     }
 
-    /* The jump-to-add action — tinted primary so it reads as an action among
+    /* The jump-to-add action - tinted primary so it reads as an action among
        the plain root values, hairline-separated from them when any exist. */
     .root-new {
       gap: 8px;

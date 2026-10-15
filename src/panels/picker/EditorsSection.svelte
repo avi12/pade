@@ -7,7 +7,7 @@
   import { FolderPath, parseInput } from "@/lib/validate";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
-  // Editor-rules engine — the project kinds come from the backend registry
+  // Editor-rules engine - the project kinds come from the backend registry
   // (`ide_kinds`, priority order), one row per kind. A rule maps a kind to an
   // editor id; unmatched folders use the fallback. Each kind carries the
   // manifest files PADE looks for to classify a folder.
@@ -26,11 +26,11 @@
   }: {
     ides: Ide[];
     /** The project kinds to render rows for (label + manifest signals), straight
-        from the backend registry in its render/priority order — the single home
+        from the backend registry in its render/priority order - the single home
         of the kind list, so a new kind needs no frontend change. */
     kinds: EditorKind[];
     /** Editor ids that suit each project kind (kind → ordered, installed-only), so
-        a kind's menu offers only fitting editors — no WebStorm on an Android row. */
+        a kind's menu offers only fitting editors - no WebStorm on an Android row. */
     kindOptions: Record<string, string[]>;
     prefs: Prefs;
     onrule: (rule: {
@@ -38,20 +38,20 @@
       editorId: string;
     }) => void;
     onfallback: (editorId: string) => void;
-    /** Add an editor by executable path — resolves to its label or a rejection. */
+    /** Add an editor by executable path - resolves to its label or a rejection. */
     onaddeditor: (path: string) => Promise<{
       label: string;
     } | {
       error: string;
     }>;
-    /** Re-probe the machine for installed editors — resolves to how many were
+    /** Re-probe the machine for installed editors - resolves to how many were
         found, so the button can report the count. */
     onrescan: () => Promise<number>;
     /** Drop a user-added editor by id (removes it from every menu). */
     onremoveeditor: (id: string) => Promise<void>;
   } = $props();
 
-  // "Add editor…" flow — reveal an inline path field, validate & persist the
+  // "Add editor…" flow - reveal an inline path field, validate & persist the
   // executable through the backend, and surface an ok/error status line.
   const StatusKind = {
     Ok: "ok",
@@ -59,30 +59,30 @@
   } as const;
   type StatusKind = (typeof StatusKind)[keyof typeof StatusKind];
 
-  let adding = $state(false);
+  let isAdding = $state(false);
   let draft = $state("");
   let status = $state<{
     kind: StatusKind;
     text: string;
   } | null>(null);
-  // Re-detect in flight — flips the header's Reload button to "Detecting…".
-  let rescanning = $state(false);
+  // Re-detect in flight - flips the header's Reload button to "Detecting…".
+  let isRescanning = $state(false);
 
   // Rules/fallback live in prefs; a missing map is treated as no rules.
   const ideRules = $derived(prefs.ideRules ?? {});
   const ideFallback = $derived(prefs.ideFallback ?? ides[0]?.id ?? "");
-  // Editors the user located by executable path — shown as a removable list so a
+  // Editors the user located by executable path - shown as a removable list so a
   // stale entry can be dropped from every menu.
   const addedEditors = $derived(prefs.addedEditors ?? []);
 
-  // The detected editor behind an id — undefined when the rule points at an
+  // The detected editor behind an id - undefined when the rule points at an
   // editor that's no longer installed (the trigger then reads "Choose…", no icon).
-  function detectedEditor(editorId: string): Ide | undefined {
+  function detectedEditor(editorId: string) {
     return ides.find(editor => editor.id === editorId);
   }
   // The detected editors that suit a kind, in the backend's priority order. An
   // unknown kind (no entry) falls back to every editor rather than hiding them all.
-  function editorsForKind(kind: string): Ide[] {
+  function editorsForKind(kind: string) {
     const ids = kindOptions[kind];
     if (!ids) {
       return ides;
@@ -93,7 +93,7 @@
       .filter((editor): editor is Ide => editor !== undefined);
   }
   // Stable, valid popover id/anchor per editor select (kind or "fallback").
-  function editorSelectId(key: string): string {
+  function editorSelectId(key: string) {
     return `ide-${key.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 </script>
@@ -149,7 +149,7 @@
           </button>
         </li>
       {:else}
-        <li class="none editor-empty">No editors detected.</li>
+        <li class="none editor-empty">No editors detected</li>
       {/each}
     </ul>
   </span>
@@ -161,30 +161,30 @@
       <h2>Editors</h2>
       <p class="hint">
         PADE reads what’s in a folder and opens it in the editor you set for
-        that kind of project. Rules win over order — no shuffling a priority
+        that kind of project. Rules win over order - no shuffling a priority
         list.
       </p>
     </div>
     <button
       class="rescan"
-      class:scanning={rescanning}
+      class:scanning={isRescanning}
       aria-label="Re-detect installed editors"
       data-tooltip="Re-detect installed editors"
       onclick={async () => {
-        if (rescanning) {
+        if (isRescanning) {
           return;
         }
 
-        rescanning = true;
+        isRescanning = true;
         try {
           const found = await onrescan();
           showToast(`Re-detected ${found} editor${found === 1 ? "" : "s"} on this machine`);
         } finally {
-          rescanning = false;
+          isRescanning = false;
         }
       }}
       type="button"
-    ><Icon name="refresh" size={14} /> {#if rescanning}
+    ><Icon name="refresh" size={14} /> {#if isRescanning}
       Detecting…{:else}Reload{/if}</button>
   </div>
   <ul class="editor-rules">
@@ -219,8 +219,8 @@
       </li>
     {/each}
     <li class="editor-rule fallback">
-      <!-- The catch-all: a folder matching no single-language rule — including a
-           polyglot monorepo no one editor fully covers — carries a folder logo
+      <!-- The catch-all: a folder matching no single-language rule - including a
+           polyglot monorepo no one editor fully covers - carries a folder logo
            rather than any one language's mark. -->
       <span class="editor-label-row">
         <span class="kind-logo" aria-hidden="true">
@@ -252,11 +252,11 @@
           editor’s executable and it’ll appear in the menus above.
         </small>
       </span>
-      {#if !adding}
+      {#if !isAdding}
         <button
           class="editor-addition-button"
           onclick={() => {
-            adding = true;
+            isAdding = true;
             draft = "";
             status = null;
           }}
@@ -267,12 +267,12 @@
       {/if}
     </div>
 
-    {#if adding}
+    {#if isAdding}
       <form
         class="editor-addition-form"
         onsubmit={async e => {
           e.preventDefault();
-          // The path is a trust boundary — trim/length-cap it before it leaves the UI.
+          // The path is a trust boundary - trim/length-cap it before it leaves the UI.
           const path = parseInput({
             schema: FolderPath,
             raw: draft
@@ -280,7 +280,7 @@
           if (path === null) {
             status = {
               kind: StatusKind.Error,
-              text: "Enter the full path to an editor executable."
+              text: "Enter the full path to an editor executable"
             };
             return;
           }
@@ -299,7 +299,7 @@
             text: `${result.label} added.`
           };
           showToast(`${result.label} added`);
-          adding = false;
+          isAdding = false;
           draft = "";
         }}
       >
@@ -338,7 +338,7 @@
           <button
             class="editor-cancel"
             onclick={() => {
-              adding = false;
+              isAdding = false;
               draft = "";
               status = null;
             }}
@@ -358,7 +358,7 @@
       </output>
     {/if}
 
-    <!-- Editors located by executable path — listed so a stale one can be dropped. -->
+    <!-- Editors located by executable path - listed so a stale one can be dropped. -->
     {#if addedEditors.length > 0}
       <div class="editor-added">
         <span class="editor-added-eyebrow">Added manually</span>
@@ -389,7 +389,7 @@
 </section>
 
 <style>
-  /* ── Editor-rules engine — one tonal row per project kind, plus a dashed
+  /* ── Editor-rules engine - one tonal row per project kind, plus a dashed
      fall-back row. Each row carries a native-popover editor select. ── */
   .editor-header {
     display: flex;
@@ -435,7 +435,7 @@
       border-color 150ms var(--ease),
       background 150ms var(--ease);
 
-    /* Keep the row active while its editor menu is open — the pointer has moved
+    /* Keep the row active while its editor menu is open - the pointer has moved
        onto the top-layer popover, so :hover alone would drop off the row. */
     &:hover,
     &:has(.editor-menu:popover-open) {
@@ -448,7 +448,7 @@
     }
   }
 
-  /* The kind block flexes and shrinks so many signal chips wrap WITHIN it —
+  /* The kind block flexes and shrinks so many signal chips wrap WITHIN it -
      never pushing the editor select onto its own line below. */
   .editor-kind {
     display: flex;
@@ -464,7 +464,7 @@
     align-items: center;
   }
 
-  /* Language logo leading the kind label — muted so the panel stays calm. */
+  /* Language logo leading the kind label - muted so the panel stays calm. */
 
   /* The language's own colour (theme.css [data-brand]); an officially-black
      brand (Rust) has no tint and falls back to the muted text colour. */
@@ -479,7 +479,7 @@
     font-size: 13px;
   }
 
-  /* Per-kind manifest signals — small mono surface-3 chips. */
+  /* Per-kind manifest signals - small mono surface-3 chips. */
   .editor-signals {
     display: flex;
     flex-wrap: wrap;
@@ -515,7 +515,7 @@
     flex: none;
   }
 
-  /* Popover select trigger — pill that brightens its edge on hover. */
+  /* Popover select trigger - pill that brightens its edge on hover. */
   .editor-trigger {
     display: inline-flex;
     gap: 8px;
@@ -576,7 +576,7 @@
     padding: 8px 10px;
   }
 
-  /* ── "Add editor…" — locate an editor PADE didn't find on PATH. ── */
+  /* ── "Add editor…" - locate an editor PADE didn't find on PATH. ── */
   .editor-addition {
     display: flex;
     flex-direction: column;
@@ -619,7 +619,7 @@
     }
   }
 
-  /* Reveal button — tonal surface-3 pill that fills primary-container on hover. */
+  /* Reveal button - tonal surface-3 pill that fills primary-container on hover. */
   .editor-addition-button {
     display: inline-flex;
     flex: none;
@@ -650,7 +650,7 @@
     gap: 8px;
   }
 
-  /* Path field — mono input with a folder lead and a ghost Browse…, primary edge. */
+  /* Path field - mono input with a folder lead and a ghost Browse…, primary edge. */
   .editor-location {
     display: flex;
     gap: 4px;
@@ -746,7 +746,7 @@
     }
   }
 
-  /* Inline result — tertiary wash on success, crit wash on rejection. */
+  /* Inline result - tertiary wash on success, crit wash on rejection. */
   .editor-status {
     display: flex;
     gap: 7px;
@@ -771,7 +771,7 @@
     }
   }
 
-  /* ── "Added manually" — editors located by path, listed for removal. ── */
+  /* ── "Added manually" - editors located by path, listed for removal. ── */
   .editor-added {
     display: flex;
     flex-direction: column;
@@ -816,7 +816,7 @@
     font-size: 13px;
   }
 
-  /* "added" provenance tag — a quiet tertiary micro-label, no fill. */
+  /* "added" provenance tag - a quiet tertiary micro-label, no fill. */
   .editor-added-tag {
     flex: none;
     color: var(--tertiary);
@@ -836,7 +836,7 @@
     white-space: nowrap;
   }
 
-  /* Remove — a circle that reddens on hover, like the roots-row close button. */
+  /* Remove - a circle that reddens on hover, like the roots-row close button. */
   .editor-remove {
     display: inline-flex;
     flex: none;

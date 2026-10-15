@@ -2,6 +2,7 @@
   import { os, vcs } from "@/lib/bridge";
   import CommitModal from "@/lib/CommitModal.svelte";
   import { formatCount } from "@/lib/format";
+  import { KeyName } from "@/lib/key-names";
   import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -17,7 +18,7 @@
 
   let openCommit = $state<CommitDetail | null>(null);
   let remoteUrl = $state<string | null>(null);
-  let logElement = $state<HTMLElement | null>(null);
+  let elLog = $state<HTMLElement | null>(null);
   let unlistenGitState: UnlistenFn | undefined;
 
   async function loadRemoteUrl(workspace = project) {
@@ -40,7 +41,7 @@
   onMount(async () => {
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether remote links
-    // exist — re-read the remote the moment the live git state changes.
+    // exist - re-read the remote the moment the live git state changes.
     unlistenGitState = await vcs.onStateChanged(async () => await loadRemoteUrl());
   });
 
@@ -65,27 +66,28 @@
     }
   }
 
+  // Opening the commit externally is best-effort - a missing remote or a
+  // failed browser launch must not surface as an error here.
   async function openCommitOnRemote(commit: Commit) {
-    try {
-      const base = remoteUrl ?? (await vcs.remoteUrl(project));
-      remoteUrl = base;
+    await Promise.allSettled([openOnRemote(commit)]);
+  }
 
-      const commitUrl = repositoryCommitUrl({
-        remoteUrl: base,
-        commit: commit.id
-      });
-      if (commitUrl) {
-        await os.openUrl(commitUrl);
-      }
-    } catch {
-    // Opening the commit externally is best-effort — a missing remote or a
-      // failed browser launch must not surface as an error here.
+  async function openOnRemote(commit: Commit) {
+    const base = remoteUrl ?? (await vcs.remoteUrl(project));
+    remoteUrl = base;
+
+    const commitUrl = repositoryCommitUrl({
+      remoteUrl: base,
+      commit: commit.id
+    });
+    if (commitUrl) {
+      await os.openUrl(commitUrl);
     }
   }
 
   async function focusCommit(index: number) {
     await tick();
-    logElement?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
+    elLog?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
   }
 
   function fileLabel(count: number) {
@@ -95,7 +97,7 @@
 
 <section class="group log">
   <h3>Recent commits</h3>
-  <ul bind:this={logElement} class="log-list">
+  <ul bind:this={elLog} class="log-list">
     {#each commits as commit, index (commit.id)}
       <li>
         <button
@@ -114,8 +116,8 @@
             inspectCommit(commit);
           }}
           onkeydown={e => {
-            const isDown = e.key === "ArrowDown";
-            const isUp = e.key === "ArrowUp";
+            const isDown = e.key === KeyName.ArrowDown;
+            const isUp = e.key === KeyName.ArrowUp;
             if (isDown || isUp) {
               e.preventDefault();
               const count = commits.length;
@@ -124,7 +126,7 @@
               return;
             }
 
-            const isOpenKey = e.key === "Enter" || e.key === " ";
+            const isOpenKey = e.key === KeyName.Enter || e.key === KeyName.Space;
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               openCommitOnRemote(commit);

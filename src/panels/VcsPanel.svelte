@@ -63,7 +63,7 @@
   onMount(async () => {
     unlisten = await feed.onChange(scheduleRefresh);
     // A branch switch, remote change, or git init reshapes the status and the
-    // log without necessarily touching a watched file — refresh on it too.
+    // log without necessarily touching a watched file - refresh on it too.
     unlistenGitState = await vcs.onStateChanged(scheduleRefresh);
   });
   onDestroy(() => {
@@ -89,7 +89,7 @@
 
 <div class="version-control">
   {#if error}
-    <p class="empty">Not a Git repository, or git is unavailable.</p>
+    <p class="empty">Not a Git repository, or git is unavailable</p>
   {:else}
     <div class="scroll">
       <RestoreSection {project} />

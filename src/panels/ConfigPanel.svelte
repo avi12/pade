@@ -60,7 +60,7 @@
     label: string;
   }[];
 
-  async function chooseNamingScope(choice: boolean | undefined): Promise<void> {
+  async function chooseNamingScope(choice: boolean | undefined) {
     await updatePrefs({
       aiSessionNamingProjects: withProjectNamingChoice({
         prefs,
@@ -71,7 +71,7 @@
   }
 
   // ── Appearance card ─────────────────────────────────────────────────────────
-  // Theme mode, terminal font, and UI zoom — each bound to a persisted pref via
+  // Theme mode, terminal font, and UI zoom - each bound to a persisted pref via
   // updatePrefs (merge → apply → save through the shared store).
   const themeOptions = [
     {
@@ -138,16 +138,16 @@
 
   const scalePercent = $derived(formatPercent(effective.uiScale * 100));
 
-  async function stepScale(delta: number): Promise<void> {
+  async function stepScale(delta: number) {
     const clamped = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, effective.uiScale + delta));
     // Round to the step grid so accumulated float drift never leaks into the pref.
     await updatePrefs({ uiScale: Math.round(clamped * 100) / 100 });
   }
 
-  // Slider and number box both funnel through the input schema — the slider
+  // Slider and number box both funnel through the input schema - the slider
   // can only emit in-band values, but the free-typed number is a trust
   // boundary like any other field.
-  async function applyHandoffPercentage(raw: string): Promise<void> {
+  async function applyHandoffPercentage(raw: string) {
     const percent = parseInput({
       schema: HandoffPercent,
       raw
@@ -212,7 +212,7 @@
     })();
   });
 
-  // Config has no count or refresh — clear those slots in the shared header.
+  // Config has no count or refresh - clear those slots in the shared header.
   $effect(() => {
     setPanelHeader({
       count: null,
@@ -330,7 +330,7 @@
         <span class="field-text">
           <span class="field-label">Name tabs with AI</span>
           <span class="field-hint">
-            Each tab is renamed from what its agent is doing, refreshed while it works.
+            Each tab is renamed from what its agent is doing, refreshed while it works
           </span>
         </span>
         <div class="segmented naming-scope" aria-label="Name tabs with AI, in this project" role="group">
@@ -349,7 +349,7 @@
           Following the global setting, which is {globalNamingWord}. Change it for every project in the
           project picker.
         {:else}
-          Set for this project only — the global setting is {globalNamingWord}. Pick
+          Set for this project only - the global setting is {globalNamingWord}. Pick
           <strong>Global</strong> to follow it again.
         {/if}
       </p>
@@ -377,7 +377,7 @@
           </span>
           <span class="field-text">
             <span class="field-label">Software rendering</span>
-            <span class="field-hint">Frees the GPU for games. Applies after restart.</span>
+            <span class="field-hint">Frees the GPU for games. Applies after restart</span>
           </span>
         </label>
         <button class="restart" onclick={async () => await os.restart()} type="button">Restart PADE</button>
@@ -415,7 +415,7 @@
           <span class="field-hint">Adds the open project and its language icon</span>
         </span>
       </label>
-      <p class="field-hint">Requires the Discord desktop app running on this computer.</p>
+      <p class="field-hint">Requires the Discord desktop app running on this computer</p>
     </section>
 
     {#if files.length}
@@ -446,7 +446,7 @@
             vars={fileVars}
           /></pre>
       </div>
-      <p class="note">Read-only in the MVP — edits will write back to this same file.</p>
+      <p class="note">Read-only in the MVP - edits will write back to this same file</p>
     </section>
   </div>
 </div>
@@ -514,7 +514,7 @@
       align-items: center;
     }
 
-    /* Three equal scopes, always in one row — they are short words, and stacking
+    /* Three equal scopes, always in one row - they are short words, and stacking
        them would read as three settings rather than one choice. */
     .naming-scope {
       flex: none;
@@ -543,7 +543,7 @@
       min-inline-size: 0;
       cursor: pointer;
 
-      /* The dependent row dims until presence is on — it has no effect until
+      /* The dependent row dims until presence is on - it has no effect until
          then, and its checkbox is disabled to match. */
       &.disabled {
         cursor: default;
@@ -595,13 +595,13 @@
     font-size: 12px;
   }
 
-  /* Theme — segmented single-select (buttons + aria-pressed, per the app's
+  /* Theme - segmented single-select (buttons + aria-pressed, per the app's
      shared segmented pattern). */
   .segmented {
     /* Four themes: a 2×2 block, and one row once there is room for four
        labels. Both sides are container queries, mutually exclusive, because
        a plain fallback declaration would sit AFTER the nested at-rule and
-       win over it. Asked of the card, not the viewport — the side panel is
+       win over it. Asked of the card, not the viewport - the side panel is
        drag-resizable, so a media query would answer about the wrong box. */
     @container (inline-size < 460px) {
       grid-template-columns: repeat(2, 1fr);
@@ -647,7 +647,7 @@
     }
   }
 
-  /* Terminal font — two-column preview cards. */
+  /* Terminal font - two-column preview cards. */
   .font-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -703,7 +703,7 @@
     }
   }
 
-  /* Font size — label + stepper. */
+  /* Font size - label + stepper. */
   .field-row {
     display: flex;
     gap: 12px;
