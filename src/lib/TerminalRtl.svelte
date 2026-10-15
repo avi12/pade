@@ -92,7 +92,7 @@
       style:--run-background={run.background}
       class="rtl-run"
     >
-      {#each run.parts as part, index (index)}
+      {#each run.parts as part, i (i)}
         {#if part.kind === RtlPartKind.Caret}
           <span class="rtl-caret"></span>
         {:else}

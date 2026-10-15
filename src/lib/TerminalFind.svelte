@@ -14,6 +14,8 @@
 <script lang="ts">
   import { errorMessage } from "@/lib/errors";
   import Icon from "@/lib/Icon.svelte";
+  import type { IconName } from "@/lib/Icon.svelte";
+  import { Key } from "@/lib/keys";
   import { showToast } from "@/lib/stores/toast.svelte";
   import {
     defaultFindOptions,
@@ -42,33 +44,43 @@
     onclose: () => void;
   } = $props();
 
-  let open = $state(false);
+  // The addon's "no active match" index.
+  const NO_RESULT_INDEX = -1;
+
+  let isOpen = $state(false);
   let term = $state("");
   // How the term is matched. Kept for the life of the pane, so a search you
   // refine (case on, regex on) survives closing and re-opening the bar.
   const matching = $state(defaultFindOptions());
-  let resultIndex = $state(-1);
+  let resultIndex = $state(NO_RESULT_INDEX);
   let resultCount = $state(0);
-  let input = $state<HTMLInputElement>();
+  let elInput = $state<HTMLInputElement>();
   let searchAddon: SearchAddon | undefined;
 
-  const searchable = $derived(
+  const isSearchable = $derived(
     isSearchablePattern({
       term,
       regex: matching.regex
     })
   );
+  const hasResults = $derived(resultCount > 0);
 
   const label = $derived(
     findResultLabel({
       term,
       resultIndex,
       resultCount,
-      searchable
+      searchable: isSearchable
     })
   );
 
-  async function loadedAddon(): Promise<SearchAddon | undefined> {
+  function clearResults() {
+    searchAddon?.clearDecorations();
+    resultIndex = NO_RESULT_INDEX;
+    resultCount = 0;
+  }
+
+  async function loadedAddon() {
     if (searchAddon || !terminal) {
       return searchAddon;
     }
@@ -87,7 +99,7 @@
       showToast(
         errorMessage({
           error,
-          fallback: "Terminal search is unavailable."
+          fallback: "Terminal search is unavailable"
         })
       );
       return undefined;
@@ -97,7 +109,7 @@
   async function runSearch({ direction, incremental = false }: {
     direction: FindDirection;
     incremental?: boolean;
-  }): Promise<void> {
+  }) {
     const addon = await loadedAddon();
     if (!addon) {
       return;
@@ -111,10 +123,8 @@
       schema: TerminalFindTerm,
       raw: term
     });
-    if (query === null || !searchable) {
-      addon.clearDecorations();
-      resultIndex = -1;
-      resultCount = 0;
+    if (query === null || !isSearchable) {
+      clearResults();
       return;
     }
 
@@ -133,14 +143,14 @@
 
   // Typing keeps the caret on the match it is already sitting in (`incremental`)
   // so the view doesn't jump a screen per keystroke; Enter is what advances.
-  async function searchAsTyped(): Promise<void> {
+  async function searchAsTyped() {
     await runSearch({
       direction: FindDirection.Next,
       incremental: true
     });
   }
 
-  async function step(direction: FindDirection): Promise<void> {
+  async function step(direction: FindDirection) {
     await runSearch({ direction });
   }
 
@@ -150,33 +160,31 @@
   // that same object against itself, so a flipped rule (and the recoloured
   // decorations a palette flip wants) would otherwise leave the old highlights
   // and the old count standing while only the active match moved.
-  async function researchFromScratch(): Promise<void> {
+  async function researchFromScratch() {
     searchAddon?.clearDecorations();
     await searchAsTyped();
   }
 
   // Flipping a toggle re-runs the search under the new rule, so the highlights
   // and the count answer the question the bar is now asking.
-  async function toggleMatching(option: FindOption): Promise<void> {
+  async function toggleMatching(option: FindOption) {
     matching[option] = !matching[option];
     await researchFromScratch();
   }
 
   /** Open the bar (or bring the caret back to it) with the previous term
    *  selected, so the next keystroke replaces it and Enter repeats it. */
-  export async function reveal(): Promise<void> {
-    open = true;
+  export async function reveal() {
+    isOpen = true;
     await tick();
-    input?.focus();
-    input?.select();
+    elInput?.focus();
+    elInput?.select();
     await searchAsTyped();
   }
 
-  function close(): void {
-    open = false;
-    searchAddon?.clearDecorations();
-    resultIndex = -1;
-    resultCount = 0;
+  function close() {
+    isOpen = false;
+    clearResults();
     onclose();
   }
 
@@ -184,7 +192,7 @@
   // open highlights are repainted in the colours the rest of the app just took.
   $effect(() => {
     const painted = palette;
-    if (!open || !painted) {
+    if (!isOpen || !painted) {
       return;
     }
 
@@ -197,17 +205,39 @@
   });
 </script>
 
-{#if open}
+{#snippet stepButton({ direction, icon, label, chord }: {
+  direction: FindDirection;
+  icon: IconName;
+  label: string;
+  chord: string;
+})}
+  <button
+    class="step"
+    aria-label={label}
+    data-tooltip={`${label} · ${chord}`}
+    disabled={!hasResults}
+    onclick={async () => {
+      if (hasResults) {
+        await step(direction);
+      }
+    }}
+    type="button"
+  >
+    <Icon name={icon} size={14} />
+  </button>
+{/snippet}
+
+{#if isOpen}
   <search class="find-bar">
     <span class="lead" aria-hidden="true"><Icon name="search" size={14} /></span>
     <input
-      bind:this={input}
+      bind:this={elInput}
       aria-label="Find in terminal"
       autocapitalize="off"
       autocomplete="off"
       oninput={searchAsTyped}
       onkeydown={async e => {
-        if (e.key === "Escape") {
+        if (e.key === Key.escape) {
           e.preventDefault();
           close();
           return;
@@ -215,7 +245,7 @@
 
         if (isFindShortcut(e)) {
           e.preventDefault();
-          input?.select();
+          elInput?.select();
           return;
         }
 
@@ -226,7 +256,7 @@
           return;
         }
 
-        if (e.key !== "Enter") {
+        if (e.key !== Key.enter) {
           return;
         }
 
@@ -247,7 +277,7 @@
           data-tooltip={`${toggle.label} · Alt+${toggle.chordKey.toUpperCase()}`}
           onclick={async () => {
             await toggleMatching(toggle.option);
-            input?.focus();
+            elInput?.focus();
           }}
           type="button"
         >
@@ -255,31 +285,19 @@
         </button>
       {/each}
     </span>
-    <output class="count" class:unsearchable={!searchable}>{label}</output>
-    <button
-      class="step"
-      aria-label="Previous match"
-      data-tooltip="Previous match · Shift+Enter"
-      disabled={resultCount === 0}
-      onclick={async () => {
-        await step(FindDirection.Previous);
-      }}
-      type="button"
-    >
-      <Icon name="chevronUp" size={14} />
-    </button>
-    <button
-      class="step"
-      aria-label="Next match"
-      data-tooltip="Next match · Enter"
-      disabled={resultCount === 0}
-      onclick={async () => {
-        await step(FindDirection.Next);
-      }}
-      type="button"
-    >
-      <Icon name="chevronDown" size={14} />
-    </button>
+    <output class="count" class:unsearchable={!isSearchable}>{label}</output>
+    {@render stepButton({
+      direction: FindDirection.Previous,
+      icon: "chevronUp",
+      label: "Previous match",
+      chord: "Shift+Enter"
+    })}
+    {@render stepButton({
+      direction: FindDirection.Next,
+      icon: "chevronDown",
+      label: "Next match",
+      chord: "Enter"
+    })}
     <button
       class="dismiss"
       aria-label="Close find"
@@ -345,6 +363,13 @@
       font-family: var(--font-monospace);
       font-size: 11px;
       text-align: end;
+
+      /* A half-typed pattern is not a result - say so in the warning colour
+         rather than let "No matches" imply the terminal was searched and came
+         up empty. */
+      &.unsearchable {
+        color: var(--warning);
+      }
     }
 
     .toggles {
@@ -385,12 +410,6 @@
         opacity: 40%;
         cursor: default;
       }
-    }
-
-    /* A half-typed pattern is not a result - say so in the warning colour rather
-       than let "No matches" imply the terminal was searched and came up empty. */
-    .count.unsearchable {
-      color: var(--warning);
     }
 
     .dismiss:hover {
