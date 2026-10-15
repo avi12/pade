@@ -1,19 +1,23 @@
 // Move / rename / delete a workspace with cwd-lock handling. Every one of them
-// touches the folder itself — which fails while a live agent holds it as cwd
-// (Windows lock). So they share one opening move: kill the sessions under it
-// (remembering the live ones). Move and rename then run the backend op (which
-// also re-points every external reference — agent memory dirs, IDE recents…)
-// and resume the live sessions on the new path, seeded to continue; delete has
-// nothing to resume and the app simply forgets the folder. Idle/exited sessions
-// stay closed. The app shell supplies its session list, settings sink and
-// relaunch through `RelocateHost`.
+// touches the folder itself — which fails while a live agent or task runner
+// holds it as cwd (Windows lock). So they share one opening move: stop the
+// runners and kill the sessions under it (remembering the live ones). Move and
+// rename then run the backend op (which also re-points every external reference
+// — each agent's memory, IDE recents…) and resume each live session's own
+// conversation on the new path; one that was mid-turn is told to continue.
+// Delete has nothing to resume and the app simply forgets the folder.
+// Idle/exited sessions stay closed. The app shell supplies its session list,
+// settings sink and relaunch through `RelocateHost`.
 
 import { pty, workspace } from "@/lib/bridge";
 import { normalizePath } from "@/lib/paths";
 import { dropContext } from "@/lib/stores/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
-import type { Agent, AgentSession, Settings } from "@/lib/types";
+import type { Agent, AgentSession, ModelChoice, Settings } from "@/lib/types";
+
+/** What a resumed session that was mid-turn is told, so its turn goes on. */
+const CONTINUE_PROMPT = "continue\r";
 
 /** Whether `dir` is `base` itself or nested anywhere under it (normalized). */
 export function isUnderDirectory({ directory, base }: {
@@ -44,18 +48,26 @@ export interface RelocateHost {
    *  workspace makes the exit handler jump to the picker mid-relocation, giving
    *  up the very workspace the rename is saving. */
   markClosing: (ids: ReadonlySet<string>) => void;
+  /** Stop the window's task runners — they run inside the workspace too. */
+  stopRunners: () => Promise<void>;
   /** Drop the killed sessions from tabs/panes and re-point the active one. */
   removeSessions: (ids: ReadonlySet<string>) => void;
   /** Re-point the current project dir after the move. */
-  setCurrentProject: (path: string) => void;
-  /** Resume one displaced live session on its remapped cwd. */
+  setCurrentProject: (path: string) => Promise<void>;
+  /** Resume one displaced live session's conversation on its remapped cwd. */
   relaunch: (options: {
     agent: Agent;
     cwd: string;
-    initialPrompt: string;
+    conversationId?: string;
+    args: string[];
+    modelChoice?: ModelChoice;
+    initialPrompt?: string;
     split: boolean;
   }) => void;
 }
+
+/** The entry points `createRelocator` gives an app shell. */
+export type Relocator = ReturnType<typeof createRelocator>;
 
 /** Move/rename/delete entry points for one app shell, sharing the lock-handling
  *  flow. */
@@ -73,16 +85,28 @@ export function createRelocator(host: RelocateHost) {
   /** Free the folder: kill every session holding it (or a child) as cwd, and
    *  report the ones that were still alive so a caller can resume them. */
   async function releaseLock(from: string) {
+    const isOpenWorkspace = isUnder({
+      directory: host.currentProject(),
+      base: from
+    });
+    if (isOpenWorkspace) {
+      await host.stopRunners();
+    }
+
     const locking = host.sessions().filter(session => isUnder({
       directory: session.cwd ?? host.currentProject(),
       base: from
     }));
-    // Capture the live ones + where they were working, to resume after the move.
+    // Capture the live ones, their conversation and where they were working, to
+    // resume after the move.
     const toResume = locking
       .filter(session => sessionStatus(session.id) !== SessionStatus.enum.exited)
       .map(session => ({
         agent: session.agent,
-        oldDirectory: session.cwd ?? host.currentProject()
+        oldDirectory: session.cwd ?? host.currentProject(),
+        conversationId: session.conversationId,
+        modelChoice: session.modelChoice,
+        wasWorking: sessionStatus(session.id) === SessionStatus.enum.working
       }));
 
     // Claim these exits as deliberate before killing, so the shell doesn't read a
@@ -103,23 +127,35 @@ export function createRelocator(host: RelocateHost) {
   /** One entry the `releaseLock` step captured for later resumption. */
   type ResumableSession = Awaited<ReturnType<typeof releaseLock>>[number];
 
-  /** Resume the live sessions on the new path, seeded to continue; the first
-   *  reuses the current pane, the rest split beside it. */
-  function resumeSessions({ toResume, from, to }: {
+  /** Resume each live session's own conversation on the new path — the agent's
+   *  memory of it moved with the folder; the first reuses the current pane, the
+   *  rest split beside it. */
+  async function resumeSessions({ toResume, from, to }: {
     toResume: ResumableSession[];
     from: string;
     to: string;
-  }): void {
-    toResume.forEach((entry, index) => host.relaunch({
-      agent: entry.agent,
-      cwd: remapDirectory({
+  }): Promise<void> {
+    for (const [index, entry] of toResume.entries()) {
+      const cwd = remapDirectory({
         directory: entry.oldDirectory,
         from,
         to
-      }),
-      initialPrompt: "continue\r",
-      split: index > 0
-    }));
+      });
+      const args = await pty.resumeArgs({
+        command: entry.agent.command,
+        cwd,
+        conversationId: entry.conversationId
+      });
+      host.relaunch({
+        agent: entry.agent,
+        cwd,
+        conversationId: entry.conversationId,
+        args,
+        modelChoice: entry.modelChoice,
+        initialPrompt: entry.wasWorking ? CONTINUE_PROMPT : undefined,
+        split: index > 0
+      });
+    }
   }
 
   async function relocate({ from, run }: {
@@ -129,14 +165,20 @@ export function createRelocator(host: RelocateHost) {
     const toResume = await releaseLock(from);
 
     // Run the backend move/rename (also re-points every external reference).
-    const newPath = await run();
+    // When it fails, the folder is where it was: bring its sessions back there.
+    const newPath = await runOrResumeInPlace({
+      run,
+      toResume,
+      from
+    });
     await workspace.settings();
 
-    if (isUnder({
+    const wasOpenWorkspace = isUnder({
       directory: host.currentProject(),
       base: from
-    })) {
-      host.setCurrentProject(
+    });
+    if (wasOpenWorkspace) {
+      await host.setCurrentProject(
         remapDirectory({
           directory: host.currentProject(),
           from,
@@ -145,13 +187,30 @@ export function createRelocator(host: RelocateHost) {
       );
     }
 
-    resumeSessions({
+    await resumeSessions({
       toResume,
       from,
       to: newPath
     });
 
     return newPath;
+  }
+
+  async function runOrResumeInPlace({ run, toResume, from }: {
+    run: () => Promise<string>;
+    toResume: ResumableSession[];
+    from: string;
+  }): Promise<string> {
+    try {
+      return await run();
+    } catch (error) {
+      await resumeSessions({
+        toResume,
+        from,
+        to: from
+      });
+      throw error;
+    }
   }
 
   function move(target: {
@@ -173,6 +232,18 @@ export function createRelocator(host: RelocateHost) {
     return relocate({
       from: target.from,
       run: () => workspace.rename(target)
+    });
+  }
+
+  /** Rename a workspace's folder where it stands — any project, not only a
+   *  temp one. */
+  function renameFolder(target: {
+    from: string;
+    newName: string;
+  }): Promise<string> {
+    return relocate({
+      from: target.from,
+      run: () => workspace.renameFolder(target)
     });
   }
 
@@ -207,6 +278,7 @@ export function createRelocator(host: RelocateHost) {
   return {
     move,
     rename,
+    renameFolder,
     remove,
     removeDirectory
   };

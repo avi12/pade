@@ -14,6 +14,7 @@
   } from "@/lib/paths";
   import ProjectKindIcon from "@/lib/ProjectKindIcon.svelte";
   import RelabelDialog from "@/lib/RelabelDialog.svelte";
+  import RenameFolderDialog from "@/lib/RenameFolderDialog.svelte";
   import { openRepositoryOnModifiedClick } from "@/lib/repository-links";
   import { arrowFocus, rovingMenu } from "@/lib/roving-menu";
   import { invalidateProjectBranches, observeProjectBranch, projectBranch } from "@/lib/stores/projectBranches.svelte";
@@ -21,6 +22,7 @@
   import { AddRootStatus, WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
+  import type { Relocator } from "@/lib/workspace-relocate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { onDestroy, onMount, tick } from "svelte";
@@ -48,6 +50,7 @@
     onclearrecent,
     onremoverecent,
     ondelete,
+    onrenamefolder,
     onreorderpins,
     onsavetemp,
     onaddroot
@@ -80,6 +83,9 @@
      *  (or throws its message). The switcher owns the confirmation UI, so it stays
      *  open behind the prompt and animates the row out when this resolves. */
     ondelete: (path: string) => Promise<void>;
+    /** Rename a project's folder on disk where it stands — resolves to its new
+     *  path once it moved (or throws its reason). */
+    onrenamefolder: Relocator["renameFolder"];
     /** Persist a drag-reordered pin order. */
     onreorderpins: (paths: string[]) => void;
     /** Save the current temp workspace as a real project: rename it into `root`
@@ -118,6 +124,8 @@
   // The temp workspace whose PADE-only label is being edited — nested over this
   // menu like the delete prompt, so the switcher stays in view behind it.
   let relabelTarget = $state<string | null>(null);
+  // The project whose folder is being renamed on disk — nested the same way.
+  let renameFolderTarget = $state<string | null>(null);
 
   // ── Save-this-workspace (temp → real project) ───────────────────────────────
   // Name the throwaway workspace and pick which saved root receives it. One root
@@ -300,6 +308,11 @@
 
   function isCurrent(project: string): boolean {
     return normalizePath(project) === normalizePath(path);
+  }
+  // Another window's agents hold its folder, and this window can't stop them.
+  function isOpenInAnotherWindow(project: string): boolean {
+    return windowRows.some(windowRow => !windowRow.isCurrent
+      && normalizePath(windowRow.path) === normalizePath(project));
   }
   // Stable, valid popover id/anchor per row kebab (sanitised from the path).
   function rowMenuId(project: string): string {
@@ -752,6 +765,19 @@
             <span>Relabel in PADE</span>
           </button>
         {/if}
+        {#if !isOpenInAnotherWindow(project)}
+          <button
+            class="menu-item" onclick={() => {
+              renameFolderTarget = project;
+            }}
+            popovertarget={menuId}
+            popovertargetaction="hide"
+            role="menuitem"
+            type="button">
+            <span class="menu-item-icon"><Icon name="folder" size={15} /></span>
+            <span>Rename folder…</span>
+          </button>
+        {/if}
         <button
           class="menu-item" onclick={() => animateListChange(() => onremoverecent(project))}
           popovertarget={menuId}
@@ -956,6 +982,17 @@
           relabelTarget = null;
         }}
         path={relabelTarget}
+      />
+    {/if}
+
+    {#if renameFolderTarget}
+      <RenameFolderDialog
+        nested
+        onclose={() => {
+          renameFolderTarget = null;
+        }}
+        onrename={onrenamefolder}
+        path={renameFolderTarget}
       />
     {/if}
   </div>

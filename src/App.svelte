@@ -833,6 +833,9 @@
     /** A model / effort to run this session on (a successor keeping its
      *  predecessor's pick). */
     modelChoice?: ModelChoice;
+    /** The conversation to carry on — a session resumed after its folder
+     *  moved; a new one otherwise. */
+    conversationId?: string;
   }): string {
     const session: AgentSession = {
       id: crypto.randomUUID(),
@@ -855,7 +858,7 @@
       // A stable id for this conversation, distinct from the session `id` (which
       // is re-keyed to remount the terminal on a restart). Pins the agent's own
       // conversation so a restart resumes THIS one — see restartForMcpChange.
-      conversationId: crypto.randomUUID()
+      conversationId: options.conversationId ?? crypto.randomUUID()
     };
     sessions.push(session);
     // A new tab is born under the window's setting — the same one the effect
@@ -1492,8 +1495,14 @@
         activeId = sessions.at(-1)?.id ?? null;
       }
     },
-    setCurrentProject(path) {
+    stopRunners: stopAllRunners,
+    async setCurrentProject(path) {
       currentProject = path;
+      await windows.registerProject(path);
+      // The URL follows the project in an effect; a crash rebuild must reopen
+      // the folder where it now is.
+      await tick();
+      await recovery.arm(location.href);
     },
     relaunch: launch
   });
@@ -1882,6 +1891,7 @@
             ondelete={deleteDirectory}
             onopen={projectPath => openProject({ path: projectPath })}
             onremoverecent={removeRecentProject}
+            onrenamefolder={relocator.renameFolder}
             onreorderpins={reorderPins}
             onsavetemp={async ({ name, root }) => {
               const savingProject = currentProject;
