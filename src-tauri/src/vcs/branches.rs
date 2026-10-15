@@ -3,16 +3,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::run_git;
+use super::{run_git, HEAD_REFERENCE};
 
 /// The current HEAD branch name - the one authoritative "current branch" query,
 /// used by `vcs_commit`, the per-project branch chip, and remote resolution.
 /// `rev-parse --abbrev-ref HEAD` reports `HEAD` on a detached checkout, which
 /// (with an empty result on a non-repo) maps to `None` - no branch.
-pub(crate) fn current_branch(cwd: &str) -> Option<String> {
-    let raw = run_git(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
+pub(super) fn current_branch(cwd: &str) -> Option<String> {
+    let raw = run_git(cwd, &["rev-parse", "--abbrev-ref", HEAD_REFERENCE]).ok()?;
     let name = raw.trim();
-    if name.is_empty() || name == "HEAD" {
+    if name.is_empty() || name == HEAD_REFERENCE {
         return None;
     }
     Some(name.to_string())
@@ -75,7 +75,7 @@ pub async fn vcs_remote_branches(cwd: String) -> Result<Vec<String>, String> {
     let mut seen = BTreeSet::new();
     Ok(remote
         .into_iter()
-        .filter(|name| name != "HEAD" && !local.contains(name) && seen.insert(name.clone()))
+        .filter(|name| name != HEAD_REFERENCE && !local.contains(name) && seen.insert(name.clone()))
         .collect())
 }
 
