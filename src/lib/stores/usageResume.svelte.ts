@@ -311,11 +311,11 @@ function waitingNote({ session, resetAt }: {
 }) {
   const agent = session.agent.label;
   if (resetAt === null) {
-    return `${agent} hit its usage limit - resuming when it resets, or once usage credits can cover it.`;
+    return `${agent} hit its usage limit - resuming when it resets, or once usage credits can cover it`;
   }
 
   const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(resetAt);
-  return `${agent} hit its usage limit - resuming at ${clock}, or sooner if usage credits can cover it.`;
+  return `${agent} hit its usage limit - resuming at ${clock}, or sooner if usage credits can cover it`;
 }
 
 /** The account the session's agent bills against. An IPC failure reads as "the

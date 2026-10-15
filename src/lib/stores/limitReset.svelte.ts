@@ -102,7 +102,7 @@ export async function confirmLimitReset(onreset: () => Promise<void>) {
   } catch (error) {
     failure = errorMessage({
       error,
-      fallback: "Couldn't reach Claude to reset the limits."
+      fallback: "Couldn't reach Claude to reset the limits"
     });
   } finally {
     isClaiming = false;
