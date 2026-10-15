@@ -1504,11 +1504,12 @@
 
   // ── Usage pacing ───────────────────────────────────────────────────────────
   // A working agent far ahead of its usage window's budget line is asked to
-  // pause, and continued once the line catches up; near a reset it runs on
-  // (lib/stores/usage/usagePacing).
+  // pause; once the line catches up it continues, or waits for the user's
+  // Continue in the note below, as the pacing mode says - and continues on its
+  // own as the window is about to reset (lib/stores/usage/usagePacing).
   const usagePacing = createUsagePacing({
     sessions: () => sessions,
-    isOptedOut: () => settings.prefs.autoPace === false,
+    mode: () => effective.pacingMode,
     isHandingOff: id => autoHandoff.isHandingOff(id)
   });
   $effect(() => usagePacing.check());
@@ -1893,10 +1894,30 @@
 
       <RunnerDock activeSessionId={activeId} />
 
-      {#if autoHandoff.note || usageResume.note || apiErrorRetry.note || usagePacing.note}
+      {#if autoHandoff.note || usageResume.note || apiErrorRetry.note}
         <output class="handoff-note">
           <span class="handoff-dot"></span>
-          {autoHandoff.note || usageResume.note || apiErrorRetry.note || usagePacing.note}
+          {autoHandoff.note || usageResume.note || apiErrorRetry.note}
+        </output>
+      {:else if usagePacing.pause}
+        {@const pause = usagePacing.pause}
+        <output class="handoff-note">
+          <span class="handoff-dot"></span>
+          {pause.note}
+          {#if pause.canContinueWhenReady}
+            <button
+              class="note-action quiet" onclick={() => usagePacing.continueWhenReady(pause.id)}
+              type="button">Continue when there's room</button>
+          {/if}
+          <button
+            class="note-action" onclick={async () => await usagePacing.continueNow(pause.id)}
+            type="button">
+            {#if pause.isReady}
+              Continue
+            {:else}
+              Continue anyway
+            {/if}
+          </button>
         </output>
       {/if}
 
@@ -2207,6 +2228,30 @@
       border-radius: var(--radius-full);
       background: var(--primary);
       animation: pulse 1100ms var(--ease) infinite;
+    }
+
+    .note-action {
+      flex: none;
+      padding-block: 4px;
+      padding-inline: 12px;
+      border-radius: var(--radius-full);
+      background: var(--primary);
+      color: var(--on-primary);
+      font-weight: 600;
+
+      &:hover {
+        background: color-mix(in srgb, var(--primary) 88%, var(--on-primary));
+      }
+
+      &.quiet {
+        outline: 1px solid var(--primary);
+        background: transparent;
+        color: var(--on-primary-container);
+
+        &:hover {
+          background: color-mix(in srgb, var(--primary) 14%, transparent);
+        }
+      }
     }
   }
 

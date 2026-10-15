@@ -1,39 +1,45 @@
 // Usage pacing: a working agent that burns through a usage window well before it
-// resets is paused, and continued once the window has room for it again - so the
-// account doesn't sit locked out for hours at the end of a window. Each paced
-// window (the 5-hour session, the weekly cap) gets a budget line that starts at
-// PACE_FLOOR_PERCENTAGE when the window opens and climbs to 100% at its reset. An
-// agent at or past the line is asked to stop at its next safe point; as time
-// passes the line rises past its usage and PADE types "continue" - so a heavy run
-// is slowed into bursts, and a run far ahead of the line is stopped outright.
-// Near a reset (RESET_GRACE_MS) a window never pauses anyone: it is about to come
-// back anyway. Weekly is paced the same way, so a near-reset session window only
-// carries on while the weekly one has room. Usage credits that carry work past a
-// spent window turn pacing off for that account - the user chose to pay to keep
-// going. A user who restarts a paused agent by hand wins: that session is not
-// paused again until it falls back under the line. Opt-out via prefs.autoPace.
-// This module owns the policy and the per-session phase; the app shell supplies
-// sessions through `PacingHost` and drives the scan from a component `$effect`.
+// resets is paused, so the account doesn't sit locked out for hours at the end of
+// a window. Each paced window (the 5-hour session, the weekly cap) gets a budget
+// line that starts at PACE_FLOOR_PERCENTAGE when the window opens and climbs to
+// 100% at its reset. An agent at or past the line is asked to stop at its next
+// safe point, and PADE remembers when it stopped it - per window, across a reload.
+// Once the line climbs past its usage the session is ready, and prefs.usagePacing
+// says what happens: `continue` picks it straight back up (a heavy run slows into
+// bursts), `ask` leaves the call to the user - and, left alone, it continues on
+// its own as the window is about to reset (RESET_GRACE_MS before it). Near a reset a window never pauses anyone:
+// it is about to come back anyway. Weekly is paced the same way, so a near-reset
+// session window only carries on while the weekly one has room. Usage credits
+// that carry work past a spent window turn pacing off for that account - the user
+// chose to pay to keep going. A user who restarts a paused agent by hand wins:
+// that session is not paused again until it falls back under the line. `off`
+// paces nothing. This module owns the policy and the per-session phase; the
+// app shell supplies sessions through `PacingHost`, drives the scan from a
+// component `$effect`, and shows the pause with its Continue button.
 
 import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { windowLabel } from "@/lib/ipc/platform";
 import { agentReportsBusy } from "@/lib/stores/agent/agentActivity.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { CONTINUE_PROMPT, hasUsageLimit, readAccount } from "@/lib/stores/usage/usageResume.svelte";
-import { CreditsState, SessionStatus, UsageWindowKind } from "@/lib/types";
+import { CreditsState, PacingMode, SessionStatus, UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
 import { resetCountdown, usageResetTime } from "@/lib/usage/usage-groups";
 import { afterDelay } from "@/lib/util/delay";
 import { formatPercent } from "@/lib/util/format";
+import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
 import { SvelteMap } from "svelte/reactivity";
+import { z } from "zod";
 
 /** Where every paced window's budget line starts, the moment the window opens. */
 export const PACE_FLOOR_PERCENTAGE = 60;
 const FULL_PERCENTAGE = 100;
-/** This close to its reset a window paces no one - it will be back shortly. */
+/** This close to its reset a window paces no one - it will be back shortly - and
+ *  a session it paused continues on its own. */
 export const RESET_GRACE_MS = 10 * 60_000;
-/** A paused session continues only once the line is this far above its usage,
- *  so it doesn't pause again a minute after continuing. */
+/** A paused session is ready only once the line is this far above its usage, so
+ *  continuing doesn't pause it again a minute later. */
 const RESUME_MARGIN_PERCENTAGE = 2;
 /** How often working and paused sessions are checked against their account. The
  *  backend caches that read for ~3 minutes, so the endpoint is never hit faster. */
@@ -59,13 +65,10 @@ const PACED_WINDOWS: Partial<Record<UsageWindowKind, {
 };
 
 /** Where a paced session is: asked to stop and still finishing its step, stopped
- *  and waiting for room, or restarted by the user while over the line. */
-const PacePhase = {
-  Pausing: "pausing",
-  Paused: "paused",
-  Overridden: "overridden"
-} as const;
-type PacePhase = (typeof PacePhase)[keyof typeof PacePhase];
+ *  and waiting for room, stopped with room again (the user's call), or restarted
+ *  by the user while over the line. */
+const PacePhase = z.enum(["pausing", "paused", "ready", "overridden"]);
+type PacePhase = z.infer<typeof PacePhase>;
 
 /** The usage a window may have spent by `now`: its budget line, or null when the
  *  window isn't paced - an unpaced kind, an unknown reset, or a reset within
@@ -87,7 +90,7 @@ export function paceLine({ window, now }: {
 
 /** When a window's line next reaches `utilization` plus the resume margin - or
  *  its grace period begins, whichever comes first. */
-function resumeTime({ window, now }: {
+function readyTime({ window, now }: {
   window: UsageWindow;
   now: number;
 }) {
@@ -105,7 +108,9 @@ function resumeTime({ window, now }: {
 
 /** Judge an account's pace. `isPaused` adds the resume margin, so a paused
  *  session stays paused until the line has pulled clearly ahead. The window that
- *  holds the session longest is the one reported, with when it lets go. */
+ *  holds the session longest is the one reported: when the line lets it go
+ *  (`readyAt`), and when its reset is close enough to continue on its own
+ *  (`continueAt`). */
 export function assessPace({ account, now, isPaused }: {
   account: AccountUsage | null;
   now: number;
@@ -119,7 +124,8 @@ export function assessPace({ account, now, isPaused }: {
   const margin = isPaused ? RESUME_MARGIN_PERCENTAGE : 0;
   let binding: {
     window: UsageWindow;
-    resumeAt: number;
+    readyAt: number;
+    continueAt: number;
   } | null = null;
   for (const window of account.windows) {
     const line = paceLine({
@@ -131,14 +137,15 @@ export function assessPace({ account, now, isPaused }: {
       continue;
     }
 
-    const resumeAt = resumeTime({
+    const readyAt = readyTime({
       window,
       now
     });
-    if (binding === null || resumeAt > binding.resumeAt) {
+    if (binding === null || readyAt > binding.readyAt) {
       binding = {
         window,
-        resumeAt
+        readyAt,
+        continueAt: usageResetTime(window.resetsAt) - RESET_GRACE_MS
       };
     }
   }
@@ -146,61 +153,140 @@ export function assessPace({ account, now, isPaused }: {
   return binding;
 }
 
+function windowName(kind: UsageWindowKind) {
+  return PACED_WINDOWS[kind]?.name ?? kind;
+}
+
 /** The request that stops a working agent at its next safe point. */
 export function pauseRequest({ window, now }: {
   window: UsageWindow;
   now: number;
 }) {
-  const name = PACED_WINDOWS[window.kind]?.name ?? window.label;
   const countdown = resetCountdown({
     iso: window.resetsAt,
     now
   });
-  return `PADE usage pacing: ${formatPercent(window.utilization)} of this account's ${name} usage is spent and it resets ${countdown}, so work pauses here to spread the rest out. Finish the step you're on, leave the work easy to pick up, then stop and wait - PADE will send "continue" when there's room again.`;
+  return `PADE usage pacing: ${formatPercent(window.utilization)} of this account's ${windowName(window.kind)} usage is spent and it resets ${countdown}, so work pauses here to spread the rest out. Finish the step you're on, leave the work easy to pick up, then stop and wait - you'll be told to continue.`;
 }
 
-interface PaceState {
-  phase: PacePhase;
-  window: UsageWindow;
-  resumeAt: number;
+/** One paced session, as remembered across a reload of its window. */
+const PaceState = z.object({
+  phase: PacePhase,
+  windowKind: UsageWindowKind,
+  utilization: z.number(),
+  /** When PADE asked the session to stop. */
+  pausedAt: z.number(),
+  /** When the budget line has room for it again. */
+  readyAt: z.number(),
+  /** When its window is about to reset and it continues on its own. */
+  continueAt: z.number(),
+  /** The user chose to have this session continue the moment it has room,
+   *  whatever the pacing mode says. */
+  isContinuingWhenReady: z.boolean().default(false)
+});
+type PaceState = z.infer<typeof PaceState>;
+
+const PacedSessions = z.record(z.string(), PaceState);
+
+/** Keyed by window label, like the session snapshot, so a window rebuilt after
+ *  a crash finds the pauses of the sessions it re-attaches. */
+function pacingStorageKey() {
+  return `pade.usage-pacing:${windowLabel()}`;
 }
 
 const paced = new SvelteMap<string, PaceState>();
 
-/** Forget a session's pacing when it ends. */
-export function dropUsagePacing(id: string) {
-  paced.delete(id);
+function remember() {
+  writeStoredJson({
+    key: pacingStorageKey(),
+    value: Object.fromEntries(paced)
+  });
 }
 
-const RESUME_CLOCK = new Intl.DateTimeFormat(undefined, {
+function setPace({ id, state }: {
+  id: string;
+  state: PaceState;
+}) {
+  paced.set(id, state);
+  remember();
+}
+
+function forgetPace(id: string) {
+  if (paced.delete(id)) {
+    remember();
+  }
+}
+
+/** Forget a session's pacing when it ends. */
+export function dropUsagePacing(id: string) {
+  forgetPace(id);
+}
+
+const CLOCK = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
+const DAY_AND_CLOCK = new Intl.DateTimeFormat(undefined, {
   weekday: "short",
   hour: "numeric",
   minute: "2-digit"
 });
 
-function pacingNote({ session, state }: {
-  session: AgentSession;
-  state: PaceState;
+/** A time as said in the note - the clock alone today, with the weekday after. */
+function spokenTime({ time, now }: {
+  time: number;
+  now: number;
 }) {
-  const name = PACED_WINDOWS[state.window.kind]?.name ?? state.window.label;
-  return `${session.agent.label} paused to pace its ${name} usage (${formatPercent(state.window.utilization)}) - continuing around ${RESUME_CLOCK.format(state.resumeAt)}`;
+  const isToday = new Date(time).toDateString() === new Date(now).toDateString();
+  return isToday ? CLOCK.format(time) : DAY_AND_CLOCK.format(time);
+}
+
+/** The status line for a paced session. */
+export function pacingNote({ agent, state, isContinuingWhenReady, now }: {
+  agent: string;
+  state: Pick<PaceState, "phase" | "windowKind" | "utilization" | "pausedAt" | "readyAt" | "continueAt">;
+  /** Whether it continues as soon as it has room, not just at the reset. */
+  isContinuingWhenReady: boolean;
+  now: number;
+}) {
+  const pausedAt = spokenTime({
+    time: state.pausedAt,
+    now
+  });
+  const usage = `${windowName(state.windowKind)} usage (${formatPercent(state.utilization)})`;
+  const continuesAt = spokenTime({
+    time: isContinuingWhenReady ? state.readyAt : state.continueAt,
+    now
+  });
+  if (state.phase === PacePhase.enum.ready) {
+    return `${agent}, paused at ${pausedAt}, has room in its ${usage} again - continues on its own at ${continuesAt}`;
+  }
+
+  return `${agent} paused at ${pausedAt} to pace its ${usage} - continues on its own around ${continuesAt}`;
 }
 
 /** What the app shell provides. */
 export interface PacingHost {
   sessions: () => AgentSession[];
-  /** Whether the user opted out via prefs.autoPace. */
-  isOptedOut: () => boolean;
+  /** The resolved prefs.usagePacing, read per scan so a Config change applies
+   *  without a restart. */
+  mode: () => PacingMode;
   /** Whether the auto-handoff flow owns the session right now. */
   isHandingOff: (id: string) => boolean;
 }
 
 /** The pacing loop, scoped to one app shell. The shell calls `check()` from a
- *  `$effect` and `dispose()` on destroy; `note` is the status line shown while a
- *  session is paused ("" when none is). */
+ *  `$effect` and `dispose()` on destroy, shows `pause` while a session waits, and
+ *  calls `continueNow` when the user picks it back up. */
 export function createUsagePacing(host: PacingHost) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let isDisposed = false;
+
+  for (const [id, state] of Object.entries(
+    readStoredJson({
+      key: pacingStorageKey(),
+      schema: PacedSessions
+    }) ?? {}
+  )) {
+    paced.set(id, state);
+  }
 
   // A turn running, by the agent's own report or, for an agent that reports
   // nothing, by its output.
@@ -208,66 +294,184 @@ export function createUsagePacing(host: PacingHost) {
     return agentReportsBusy(id) || sessionStatus(id) === SessionStatus.enum.working;
   }
 
-  async function pause({ session, window, resumeAt }: {
+  async function pause({ session, window, readyAt, continueAt }: {
     session: AgentSession;
     window: UsageWindow;
-    resumeAt: number;
+    readyAt: number;
+    continueAt: number;
   }) {
-    paced.set(session.id, {
-      phase: PacePhase.Pausing,
-      window,
-      resumeAt
+    const now = Date.now();
+    setPace({
+      id: session.id,
+      state: {
+        phase: PacePhase.enum.pausing,
+        windowKind: window.kind,
+        utilization: window.utilization,
+        pausedAt: now,
+        readyAt,
+        continueAt,
+        isContinuingWhenReady: false
+      }
     });
     await submitPastedPrompt({
       id: session.id,
       text: pauseRequest({
         window,
-        now: Date.now()
+        now
       }),
       wait: afterDelay
     });
   }
 
-  // Back under the line. A session still finishing its step is left to stop
-  // first; a stopped one is continued, unless the user already took it over.
-  async function release({ session, state }: {
-    session: AgentSession;
-    state: PaceState;
-  }) {
-    const isWorkingNow = isWorking(session.id);
-    if (state.phase === PacePhase.Pausing && isWorkingNow) {
+  // Pick a paused session back up - unless it is already working: a "continue"
+  // typed into a running turn would queue a stray one behind it.
+  async function resume(id: string) {
+    forgetPace(id);
+
+    if (isWorking(id)) {
       return;
     }
 
-    paced.delete(session.id);
-    const shouldContinue = state.phase !== PacePhase.Overridden && !isWorkingNow;
+    await sendMessage(Command.ptyWrite, {
+      id,
+      data: CONTINUE_PROMPT
+    });
+  }
+
+  // Back under the line. A session still finishing its step is left to stop
+  // first; one the user took over is released; a stopped one continues at once
+  // or waits for the user, as the pacing mode says.
+  async function release({ id, state }: {
+    id: string;
+    state: PaceState;
+  }) {
+    const isWorkingNow = isWorking(id);
+    const isStillStopping = state.phase === PacePhase.enum.pausing && isWorkingNow;
+    if (isStillStopping) {
+      return;
+    }
+
+    const isTakenOver = state.phase === PacePhase.enum.overridden
+      || (state.phase === PacePhase.enum.ready && isWorkingNow);
+    if (isTakenOver) {
+      forgetPace(id);
+      return;
+    }
+
+    const shouldContinue = host.mode() === PacingMode.enum.continue || state.isContinuingWhenReady;
     if (shouldContinue) {
-      await sendMessage(Command.ptyWrite, {
-        id: session.id,
-        data: CONTINUE_PROMPT
+      await resume(id);
+      return;
+    }
+
+    setPace({
+      id,
+      state: {
+        ...state,
+        phase: PacePhase.enum.ready
+      }
+    });
+  }
+
+  // Still over the line: note the step finishing, or the user taking over.
+  function hold({ id, state, window, readyAt, continueAt }: {
+    id: string;
+    state: PaceState;
+    window: UsageWindow;
+    readyAt: number;
+    continueAt: number;
+  }) {
+    const isWorkingNow = isWorking(id);
+    let phase = state.phase;
+    if (phase === PacePhase.enum.pausing && !isWorkingNow) {
+      phase = PacePhase.enum.paused;
+    } else if (phase !== PacePhase.enum.pausing && isWorkingNow) {
+      phase = PacePhase.enum.overridden;
+    }
+
+    setPace({
+      id,
+      state: {
+        ...state,
+        phase,
+        windowKind: window.kind,
+        utilization: window.utilization,
+        readyAt,
+        continueAt
+      }
+    });
+  }
+
+  // A working session not yet paced: pause it if it is ahead of the line.
+  async function paceWorking({ session, account }: {
+    session: AgentSession;
+    account: AccountUsage | null;
+  }) {
+    const binding = assessPace({
+      account,
+      now: Date.now(),
+      isPaused: false
+    });
+    const shouldPause = binding !== null && isWorking(session.id);
+    if (shouldPause) {
+      await pause({
+        session,
+        ...binding
       });
     }
   }
 
-  // Still over the line: note the step finishing, or the user taking over.
-  function hold({ session, state, window, resumeAt }: {
-    session: AgentSession;
+  // As its window is about to reset a paused session continues on its own -
+  // unless the user took it over, which ends the pause.
+  async function continueAtReset({ id, state }: {
+    id: string;
     state: PaceState;
-    window: UsageWindow;
-    resumeAt: number;
   }) {
-    const isWorkingNow = isWorking(session.id);
-    let phase = state.phase;
-    if (phase === PacePhase.Pausing && !isWorkingNow) {
-      phase = PacePhase.Paused;
-    } else if (phase === PacePhase.Paused && isWorkingNow) {
-      phase = PacePhase.Overridden;
+    if (state.phase === PacePhase.enum.overridden) {
+      forgetPace(id);
+      return;
     }
 
-    paced.set(session.id, {
-      phase,
-      window,
-      resumeAt
+    await resume(id);
+  }
+
+  // A paced session: continue it at the reset, or move it along as the line
+  // catches up. An unreadable account leaves it as it is.
+  async function advancePaced({ id, state, account }: {
+    id: string;
+    state: PaceState;
+    account: AccountUsage | null;
+  }) {
+    const now = Date.now();
+    if (now >= state.continueAt) {
+      await continueAtReset({
+        id,
+        state
+      });
+      return;
+    }
+
+    if (account === null) {
+      return;
+    }
+
+    const binding = assessPace({
+      account,
+      now,
+      isPaused: true
+    });
+    if (binding === null) {
+      await release({
+        id,
+        state
+      });
+      return;
+    }
+
+    hold({
+      id,
+      state,
+      ...binding
     });
   }
 
@@ -275,47 +479,26 @@ export function createUsagePacing(host: PacingHost) {
     session: AgentSession;
     account: AccountUsage | null;
   }) {
-    const state = paced.get(session.id);
-    const isOwnedElsewhere = hasUsageLimit(session.id) || host.isHandingOff(session.id);
+    const id = session.id;
+    const state = paced.get(id);
+    const isOwnedElsewhere = hasUsageLimit(id) || host.isHandingOff(id);
     if (isOwnedElsewhere) {
-      paced.delete(session.id);
+      forgetPace(id);
       return;
     }
 
-    const binding = assessPace({
-      account,
-      now: Date.now(),
-      isPaused: state !== undefined
-    });
     if (state === undefined) {
-      const shouldPause = binding !== null && isWorking(session.id);
-      if (shouldPause) {
-        await pause({
-          session,
-          ...binding
-        });
-      }
-
-      return;
-    }
-
-    const isAccountSilent = account === null;
-    if (isAccountSilent) {
-      return;
-    }
-
-    if (binding === null) {
-      await release({
+      await paceWorking({
         session,
-        state
+        account
       });
       return;
     }
 
-    hold({
-      session,
+    await advancePaced({
+      id,
       state,
-      ...binding
+      account
     });
   }
 
@@ -327,7 +510,7 @@ export function createUsagePacing(host: PacingHost) {
     const open = new Set(sessions.map(session => session.id));
     for (const id of paced.keys()) {
       if (!open.has(id)) {
-        paced.delete(id);
+        forgetPace(id);
       }
     }
 
@@ -359,8 +542,10 @@ export function createUsagePacing(host: PacingHost) {
       return;
     }
 
-    if (host.isOptedOut()) {
-      paced.clear();
+    if (host.mode() === PacingMode.enum.off) {
+      for (const id of [...paced.keys()]) {
+        forgetPace(id);
+      }
     } else {
       await scan();
     }
@@ -377,20 +562,50 @@ export function createUsagePacing(host: PacingHost) {
   }
 
   return {
-    /** Status line shown while a session is paused ("" when none is). */
-    get note() {
+    /** The first session waiting on PADE or the user to continue - its id and
+     *  status line - or null when none is. */
+    get pause() {
       for (const session of host.sessions()) {
         const state = paced.get(session.id);
-        const isWaitingForRoom = state !== undefined && state.phase !== PacePhase.Overridden;
-        if (isWaitingForRoom) {
-          return pacingNote({
-            session,
-            state
-          });
+        const isWaiting = state !== undefined && state.phase !== PacePhase.enum.overridden;
+        if (!isWaiting) {
+          continue;
         }
+
+        const isReady = state.phase === PacePhase.enum.ready;
+        const isContinuingWhenReady = host.mode() === PacingMode.enum.continue || state.isContinuingWhenReady;
+        return {
+          id: session.id,
+          isReady,
+          /** Whether the user can still ask for it to continue once it has room. */
+          canContinueWhenReady: !isReady && !isContinuingWhenReady,
+          note: pacingNote({
+            agent: session.agent.label,
+            state,
+            isContinuingWhenReady,
+            now: Date.now()
+          })
+        };
       }
 
-      return "";
+      return null;
+    },
+    /** The user picks a paused session back up now. */
+    continueNow: resume,
+    /** The user has a paused session continue the moment it has room. */
+    continueWhenReady(id: string) {
+      const state = paced.get(id);
+      if (state === undefined) {
+        return;
+      }
+
+      setPace({
+        id,
+        state: {
+          ...state,
+          isContinuingWhenReady: true
+        }
+      });
     },
     /** Start the poll; reads nothing reactive, so the `$effect` runs it once. */
     check: schedule,

@@ -2,6 +2,7 @@ import {
   assessPace,
   PACE_FLOOR_PERCENTAGE,
   paceLine,
+  pacingNote,
   pauseRequest,
   RESET_GRACE_MS
 } from "@/lib/stores/usage/usagePacing.svelte";
@@ -118,7 +119,8 @@ describe("assessPace", () => {
     expect(pace?.window.kind).toBe(UsageWindowKind.enum.session);
     // Half an hour in the line stands at 64%; it reaches 65% plus the resume
     // margin 0.175 of the way through the window, 52.5 minutes in.
-    expect(pace?.resumeAt).toBe(NOW + 22.5 * MINUTE_MS);
+    expect(pace?.readyAt).toBe(NOW + 22.5 * MINUTE_MS);
+    expect(pace?.continueAt).toBe(NOW + 4.5 * HOUR_MS - RESET_GRACE_MS);
   });
 
   it("lets a session run on at 95% when the window resets in ten minutes", () => {
@@ -212,5 +214,54 @@ describe("pauseRequest", () => {
     expect(text).toContain("72%");
     expect(text).toContain("5-hour");
     expect(text).toContain("in 3h 0m");
+  });
+});
+
+describe("pacingNote", () => {
+  const paused = {
+    phase: "paused",
+    windowKind: UsageWindowKind.enum.session,
+    utilization: 72,
+    pausedAt: NOW - 20 * MINUTE_MS,
+    readyAt: NOW + HOUR_MS,
+    continueAt: NOW + 2 * HOUR_MS
+  } as const;
+
+  const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
+
+  it("says when the agent was paused and that it continues just before the reset", () => {
+    const note = pacingNote({
+      agent: "Claude",
+      state: paused,
+      isContinuingWhenReady: false,
+      now: NOW
+    });
+    expect(note).toContain(`paused at ${clock.format(paused.pausedAt)}`);
+    expect(note).toContain(`continues on its own around ${clock.format(paused.continueAt)}`);
+  });
+
+  it("names the earlier time once the session continues as soon as it has room", () => {
+    expect(
+      pacingNote({
+        agent: "Claude",
+        state: paused,
+        isContinuingWhenReady: true,
+        now: NOW
+      })
+    ).toContain(`continues on its own around ${clock.format(paused.readyAt)}`);
+  });
+
+  it("tells a ready session apart from one still waiting for room", () => {
+    expect(
+      pacingNote({
+        agent: "Claude",
+        state: {
+          ...paused,
+          phase: "ready"
+        },
+        isContinuingWhenReady: false,
+        now: NOW
+      })
+    ).toContain("has room in its 5-hour usage (72%) again");
   });
 });

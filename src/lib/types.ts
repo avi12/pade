@@ -460,6 +460,12 @@ export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
 
 export const DiffStyle = z.enum(["unified", "split"]);
 
+/** What usage pacing does once a paused agent has room again: wait for the user
+ *  (it still continues on its own as the window is about to reset), continue at
+ *  once, or never pace at all (lib/stores/usage/usagePacing). */
+export const PacingMode = z.enum(["ask", "continue", "off"]);
+export type PacingMode = z.infer<typeof PacingMode>;
+
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;
 
@@ -523,9 +529,8 @@ const Prefs = z.object({
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
   /** Pause a working agent that spends a usage window well ahead of its reset,
-   *  and continue it once the window has room again (lib/stores/usage/usagePacing).
-   *  Opt-out: on unless explicitly set to false. */
-  autoPace: z.boolean().nullish(),
+   *  and how to pick it back up. Absent = ask. */
+  usagePacing: PacingMode.nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The

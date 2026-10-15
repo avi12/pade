@@ -15,6 +15,7 @@ import {
 } from "@/lib/terminal/terminal-palette";
 import {
   DiffStyle,
+  PacingMode,
   type Prefs,
   Scheme,
   type TerminalSchemeChoice,
@@ -99,6 +100,9 @@ export const effective = {
   },
   get handoffPercentage() {
     return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PERCENTAGE;
+  },
+  get pacingMode() {
+    return prefs.usagePacing ?? PacingMode.enum.ask;
   },
   get softwareRender() {
     return prefs.softwareRender === true;

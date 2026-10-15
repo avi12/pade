@@ -9,7 +9,7 @@
   import { chooseThemeMode, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
-  import { type Agent, type ConfigFile, ThemeMode } from "@/lib/types";
+  import { type Agent, type ConfigFile, PacingMode, ThemeMode } from "@/lib/types";
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
   import { formatPercent } from "@/lib/util/format";
   import { HandoffPercent, parseInput } from "@/lib/validate";
@@ -96,6 +96,28 @@
     }
   ] as const satisfies readonly {
     mode: ThemeMode;
+    label: string;
+    icon: IconName;
+  }[];
+
+  const pacingOptions = [
+    {
+      mode: PacingMode.enum.ask,
+      label: "Ask me",
+      icon: "clock"
+    },
+    {
+      mode: PacingMode.enum.continue,
+      label: "Continue",
+      icon: "refresh"
+    },
+    {
+      mode: PacingMode.enum.off,
+      label: "Off",
+      icon: "close"
+    }
+  ] as const satisfies readonly {
+    mode: PacingMode;
     label: string;
     icon: IconName;
   }[];
@@ -320,6 +342,29 @@
               value={effective.handoffPercentage}
             />
           </span>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-text">
+          <span class="field-label">Usage pacing</span>
+          <span class="field-hint">
+            Pauses an agent spending its usage too fast. With room again it asks you or
+            continues - and always continues just before the reset
+          </span>
+        </span>
+        <div class="segmented" aria-label="Usage pacing" role="group">
+          {#each pacingOptions as option (option.mode)}
+            <button
+              class="option"
+              class:on={effective.pacingMode === option.mode}
+              aria-pressed={effective.pacingMode === option.mode}
+              onclick={() => updatePrefs({ usagePacing: option.mode })}
+            >
+              <Icon name={option.icon} />
+              <span>{option.label}</span>
+            </button>
+          {/each}
         </div>
       </div>
     </section>
