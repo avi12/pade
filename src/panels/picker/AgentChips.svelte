@@ -8,16 +8,16 @@
   // Shared by the picker's Default-agent section and the create form's
   // per-launch Agent row (DRY); `compact` trims the padding for the denser
   // in-form row.
-  const { agents, selected, onpick, ariaLabel, compact = false }: {
+  const { agents, selected, onpick, ariaLabel, isCompact = false }: {
     agents: Agent[];
     selected: string | null;
     onpick: (agentId: string) => void;
     ariaLabel: string;
-    compact?: boolean;
+    isCompact?: boolean;
   } = $props();
 </script>
 
-<div class="chips" class:compact aria-label={ariaLabel} role="radiogroup">
+<div class="chips" class:compact={isCompact} aria-label={ariaLabel} role="radiogroup">
   {#each agents as agent (agent.id)}
     {@const isSelected = selected === agent.id}
     <button

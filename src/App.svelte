@@ -151,7 +151,7 @@
   const activeAgent = $derived(activeSession?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
-  const canRemovePane = $derived(paneIds.length > 1);
+  const isSplit = $derived(paneIds.length > 1);
   const splitCandidates = $derived(sessions.filter(session => !paneIds.includes(session.id)));
 
   // The terminal slots render in this order: the shown panes first, in `paneIds`
@@ -176,7 +176,7 @@
   let elPanes = $state<HTMLElement>();
   // Live drag state from the tab strip; drives the "drop here" overlay + halves.
   let dragHint = $state<DragHint | null>(null);
-  const dragOverPanes = $derived(dragHint?.outside === true);
+  const isDragOverPanes = $derived(dragHint?.outside === true);
 
   // True while a split pane's header is dragged up over the tab strip - the mirror
   // gesture: the strip lights as a "drop → new tab" target and the drop pops the
@@ -185,12 +185,16 @@
   let isPaneDragOverTabs = $state(false);
 
   // Which pane + side the drag is currently over - the highlighted drop half.
-  const splitTarget = $derived.by(() => (dragOverPanes && dragHint
-    ? paneDropAt({
+  const splitTarget = $derived.by(() => {
+    if (!isDragOverPanes || !dragHint) {
+      return null;
+    }
+
+    return paneDropAt({
       x: dragHint.pointerX,
       y: dragHint.pointerY
-    })
-    : null));
+    });
+  });
   function dropSideFor(id: string) {
     return splitTarget?.id === id ? splitTarget.side : null;
   }
@@ -844,19 +848,6 @@
     paneIds = [id];
   }
 
-  // A split pane's header was dragged onto the tab strip: pop that pane out of
-  // the split into its own tab - the split collapses to it and it shows
-  // fullscreen as the active tab (the mirror of dragging a tab down into the
-  // panes to split it). Distinct from the pane's × button below, which only
-  // drops the pane from the split and keeps a remaining pane active.
-  function popPaneToTab(id: string) {
-    if (paneIds.length <= 1) {
-      return;
-    }
-
-    selectSession(id);
-  }
-
   // Spring just the added pane in from its trailing edge (pane-enter). Fired on
   // the one slot that joined a split - never on a plain tab open / close / switch,
   // which stay instant - so it can't run on every show the way a CSS rule on
@@ -893,7 +884,7 @@
 
   // Drop a pane from the split - never the last visible one.
   function removePane(id: string) {
-    if (!canRemovePane) {
+    if (!isSplit) {
       return;
     }
 
@@ -1778,7 +1769,7 @@
           <!-- A tab dragged over the panes reads as "open in split" - a dashed
                primary frame invites the drop; each pane then shows the left/right
                half the pointer is over (below). -->
-          {#if dragOverPanes}
+          {#if isDragOverPanes}
             <div class="drop-overlay">
               <span class="drop-badge"><Icon name="columns" /> Drop to open in split view</span>
             </div>
@@ -1811,15 +1802,23 @@
                     <div class="drop-half right"></div>
                   {/if}
                   <Terminal
-                    active={session.id === activeId && paneIds.includes(session.id)}
+                    isActive={session.id === activeId && paneIds.includes(session.id)}
+                    isRemovable={isSplit && paneIds.includes(session.id)}
+                    isShown={paneIds.includes(session.id)}
                     ondraghint={hint => (isPaneDragOverTabs = hint?.outside === true)}
                     onexit={handleSessionExit}
-                    onpopout={() => popPaneToTab(session.id)}
+                    onpopout={() => {
+                      // The pane header was dragged onto the tab strip: pop it out
+                      // of the split into its own tab, shown fullscreen and active
+                      // (the mirror of dragging a tab down onto the panes). Unlike
+                      // the pane's × it collapses the split to this session.
+                      if (isSplit) {
+                        selectSession(session.id);
+                      }
+                    }}
                     onremove={() => removePane(session.id)}
                     onreorder={ids => (paneIds = ids)}
-                    removable={canRemovePane && paneIds.includes(session.id)}
                     {session}
-                    shown={paneIds.includes(session.id)}
                   />
                 </div>
               {/each}

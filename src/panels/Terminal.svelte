@@ -51,18 +51,18 @@
   import { onDestroy, onMount, untrack } from "svelte";
 
   const {
-    session, active = false, shown = true, removable = false,
+    session, isActive = false, isShown = true, isRemovable = false,
     onremove, onpopout, onreorder, onexit, ondraghint
   }: {
     session: AgentSession;
     /** The session the keyboard belongs to - the one tab (or split pane) in front. */
-    active?: boolean;
+    isActive?: boolean;
     /** This pane is in the current split (laid out and visible). A background
         tab's pane stays mounted at full size but `visibility: hidden`, so only
         `shown` - never geometry - can tell the two apart for cursor blinking. */
-    shown?: boolean;
+    isShown?: boolean;
     /** Show a trailing remove-from-split button in the session bar. */
-    removable?: boolean;
+    isRemovable?: boolean;
     /** Remove this pane from the split - the trailing × button. The other pane(s)
         stay shown; the removed session lives on as a background tab. */
     onremove?: () => void;
@@ -89,7 +89,7 @@
   // split reorders - `removable` is true exactly then, so a lone pane's header
   // never lifts with nothing to sort.
   function startPaneDrag(e: PointerEvent) {
-    if (!removable) {
+    if (!isRemovable) {
       return;
     }
 
@@ -138,14 +138,14 @@
   // The pane's find bar (lib/TerminalFind), bound so Ctrl+F can ask it to open.
   // Null until the component has mounted itself.
   let findBar = $state<{ reveal: () => Promise<void> } | null>(null);
-  let windowFocused = $state(document.hasFocus());
+  let isWindowFocused = $state(document.hasFocus());
   // This session has printed right-to-left text at least once, so its rows are
   // worth scanning (see lib/TerminalRtl). A latch, never unset: the text stays in
   // the scrollback. Until it flips, an English-only session does no scanning and
   // renders no overlay at all.
   let isRightToLeftSeen = $state(false);
   /** This pane holds the keyboard, so its cursor is the live one. */
-  const keyboardHere = $derived(active && windowFocused);
+  const isKeyboardHere = $derived(isActive && isWindowFocused);
 
   function watchForRightToLeft(text: string) {
     // An agent that reorders its own output has already done the browser's job,
@@ -709,7 +709,7 @@
   // agent button in onboarding) and the agent looks like it is ignoring you: you
   // have to click into the pane before it will hear a single key.
   $effect(() => {
-    if (active && attachedTerminal) {
+    if (isActive && attachedTerminal) {
       attachedTerminal.focus();
     }
   });
@@ -722,16 +722,16 @@
   // real field (a rename box, the picker) - that focus must be left alone; the
   // xterm helper textarea deliberately doesn't count as editing (see lib/focus).
   function handleWindowFocus() {
-    windowFocused = true;
+    isWindowFocused = true;
     scheduleTerminalOutputFlush();
 
-    if (active && attachedTerminal && !isEditingText(document.activeElement)) {
+    if (isActive && attachedTerminal && !isEditingText(document.activeElement)) {
       attachedTerminal.focus();
     }
   }
 
   function handleWindowBlur() {
-    windowFocused = false;
+    isWindowFocused = false;
   }
 
   $effect(() => {
@@ -751,7 +751,7 @@
       return;
     }
 
-    attachedTerminal.options.cursorBlink = shown && windowFocused;
+    attachedTerminal.options.cursorBlink = isShown && isWindowFocused;
     scheduleTerminalOutputFlush();
   });
 
@@ -775,8 +775,8 @@
     }
 
     const mode = terminalFlushMode({
-      shown,
-      windowFocused,
+      shown: isShown,
+      windowFocused: isWindowFocused,
       readingScrollback: isReadingScrollback(),
       scrolling: isActivelyScrolling
     });
@@ -1960,9 +1960,9 @@
   <!-- Pointer-only reorder handle for the split; the remove button stays
        keyboard-reachable, so the drag is a pure enhancement. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <header class="session-bar" class:reorderable={removable} onpointerdown={startPaneDrag}>
+  <header class="session-bar" class:reorderable={isRemovable} onpointerdown={startPaneDrag}>
     <SessionBadge label={session.branch ? `${session.agent.label} · ${session.branch}` : session.agent.label} {status} />
-    {#if removable}
+    {#if isRemovable}
       <button
         class="remove-pane"
         aria-label="Remove from split"
@@ -1984,7 +1984,7 @@
       <div bind:this={elHost} style:scale={`1 ${squeeze}`} class="terminal-host">
         <TerminalRtl
           enabled={isRightToLeftSeen}
-          focused={keyboardHere}
+          focused={isKeyboardHere}
           terminal={attachedTerminal}
         />
       </div>

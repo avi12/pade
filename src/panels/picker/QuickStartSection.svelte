@@ -616,7 +616,7 @@
               <AgentChips
                 agents={realAgents}
                 ariaLabel="Agent to launch"
-                compact
+                isCompact
                 onpick={id => (chosenAgent = id)}
                 selected={selectedAgent}
               />
