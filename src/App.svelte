@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { AgentId } from "@/lib/agent-icon";
   import { startingModelChoice } from "@/lib/agent-model-scope";
   import { aiNamingEnabled } from "@/lib/ai-naming-scope";
   import AppMenu from "@/lib/AppMenu.svelte";
@@ -38,7 +37,6 @@
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import {
-    appearance,
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
     SIDE_PANEL_MAX_FRACTION,
@@ -55,6 +53,7 @@
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { settings } from "@/lib/settings.svelte";
   import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
+  import { createAgentRetheme } from "@/lib/stores/agentRetheme.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
   import { createAutoHandoff, successorPrompt } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
@@ -89,7 +88,6 @@
     McpChange,
     ModelChoice,
     OpenTarget,
-    Scheme,
     TaskGroup
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
@@ -1028,7 +1026,7 @@
       id
     }));
     sessionLaunchedAt.delete(id);
-    sessionSpawnScheme.delete(id);
+    agentRetheme.forget(id);
     dropSessionStatus(id);
     dropAgentActivity(id);
     dropSessionLabel(id);
@@ -1220,7 +1218,7 @@
       });
       sessionLaunchedAt.set(restartedId, Date.now());
       sessionLaunchedAt.delete(target.id);
-      sessionSpawnScheme.delete(target.id);
+      agentRetheme.forget(target.id);
       closingByHand.delete(target.id);
     }
 
@@ -1235,128 +1233,32 @@
     activeId = relaid.activeId;
   }
 
-  // Claude Code is re-themed in place: `agents.publishTheme` rewrites the theme
-  // definition its sessions were launched on, and it repaints itself - no
-  // restart, no lost turn. Every OTHER agent's scheme is fixed at spawn and
-  // cannot be moved after it: Codex's syntax theme and console-buffer ground, and
-  // opencode's forced tui-config theme (its DECSET 2031 `?997` report only asks an
-  // agent to re-probe OSC 11, a query that never reaches the terminal - see
-  // docs/terminal-rendering.md). So for those two a flip is followed the only way
-  // it can be: respawn the idle ones, each resuming its own conversation
-  // (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`).
-  //
-  // Claude must NEVER join them, and this is the second time that has been settled.
-  // It has no resume args of its own - it is respawned onto the `--session-id` the
-  // dead process was just pinned to, and in the live app that lands on a blank
-  // pane stuck at "Starting…", the session wedged rather than re-themed. A
-  // portable-pty harness that starts/kills/respawns on the same id at 0ms / 250ms
-  // / 1500ms says all three survive; the app says otherwise, and the app is the
-  // one the user has to use. It no longer matters: Claude follows the flip through
-  // its watched theme definition instead, without being restarted at all.
-  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
-
-  // The scheme each live session's agent was actually spawned under - the one
-  // answer to "is this agent painted in the wrong scheme", so a session that
-  // sat out one flip and its way back is never restarted for nothing. Recorded
-  // once per session as it appears (a restart re-keys, so the replacement
-  // records the scheme it really launched with) and dropped with the session.
-  const sessionSpawnScheme = new SvelteMap<string, Scheme>();
-  $effect(() => {
-    const scheme = appearance.terminalScheme;
-    for (const session of sessions) {
-      if (!sessionSpawnScheme.has(session.id)) {
-        sessionSpawnScheme.set(session.id, scheme);
-      }
-    }
+  // A terminal-scheme flip reaches the running agents through
+  // lib/stores/agentRetheme: Claude repaints in place, the spawn-themed agents
+  // are respawned on their own conversation once idle.
+  const agentRetheme = createAgentRetheme({
+    sessions: () => sessions,
+    currentProject: () => currentProject,
+    applyResumeArgs,
+    restartSessions
   });
+  $effect(() => agentRetheme.recordSpawnSchemes());
+  $effect(() => agentRetheme.followSchemeChange());
 
-  let lastAgentThemedScheme = appearance.terminalScheme;
-  $effect(() => {
-    const scheme = appearance.terminalScheme;
-    if (scheme === lastAgentThemedScheme) {
+  // Hand a session the args that resume its own conversation, so the restart
+  // that follows reopens it rather than starting a blank one.
+  function applyResumeArgs({ id, args }: {
+    id: string;
+    args: string[];
+  }) {
+    if (args.length === 0) {
       return;
     }
 
-    lastAgentThemedScheme = scheme;
-    followSchemeIntoAgents(scheme);
-  });
-
-  // Live-themed agents repaint where they stand; the spawn-themed ones can only
-  // be respawned. Publishing first means an agent that IS restarted also launches
-  // into the new scheme.
-  async function followSchemeIntoAgents(scheme: Scheme) {
-    await agentsApi.publishTheme(scheme);
-    await restartSpawnThemedAgents();
-  }
-
-  // A session mid-turn must not be respawned - that would sever the work in
-  // flight - so its flip is held until it reaches an idle prompt, which is the
-  // first moment the agent can be relaunched into the new scheme. Without this,
-  // a busy agent kept painting its old scheme (dark diffs on a light terminal)
-  // until the user happened to restart it by hand.
-  const awaitingRetheme = new SvelteSet<string>();
-
-  async function rethemeWhenIdle(id: string) {
-    if (awaitingRetheme.has(id)) {
-      return;
-    }
-
-    awaitingRetheme.add(id);
-    await whenSessionIdle({ id });
-    awaitingRetheme.delete(id);
-
-    const stillOpen = sessions.some(session => session.id === id);
-    if (stillOpen) {
-      await restartSpawnThemedAgents();
-    }
-  }
-
-  async function restartSpawnThemedAgents() {
-    const mismatched = sessions.filter(
-      session =>
-        SPAWN_THEMED_AGENTS.has(session.agent.id) &&
-          sessionSpawnScheme.get(session.id) !== appearance.terminalScheme
-    );
-    for (const session of mismatched) {
-      if (!isSessionIdle(session.id)) {
-        rethemeWhenIdle(session.id);
-      }
-    }
-
-    const targets = mismatched.filter(session => isSessionIdle(session.id));
-    if (targets.length === 0) {
-      return;
-    }
-
-    const resumable = await Promise.all(
-      targets.map(async target => ({
-        target,
-        resumeArgs: await pty.resumeArgs({
-          command: target.agent.command,
-          cwd: target.cwd ?? currentProject
-        })
-      }))
-    );
-
-    // Hand each restarted session its resume args BEFORE the re-key remounts
-    // its terminal, so the respawn reopens the same conversation on the new
-    // scheme instead of starting a blank one.
-    sessions = sessions.map(session => {
-      const match = resumable.find(entry => entry.target.id === session.id);
-      if (!match || match.resumeArgs.length === 0) {
-        return session;
-      }
-
-      return {
-        ...session,
-        args: match.resumeArgs
-      };
-    });
-
-    const restartedLabel =
-      targets.length === 1 ? targets[0].agent.label : `${targets.length} sessions`;
-    showToast(`Theme changed - restarting ${restartedLabel} to match`);
-    await restartSessions(targets);
+    sessions = sessions.map(session => session.id === id ? {
+      ...session,
+      args
+    } : session);
   }
 
   // Clear the recent-projects history from the switcher (pins survive).
@@ -1531,15 +1433,14 @@
         return;
       }
 
-      const resumeArgs = await pty.resumeArgs({
-        command: target.agent.command,
-        cwd: target.cwd ?? currentProject,
-        conversationId: target.conversationId
+      applyResumeArgs({
+        id,
+        args: await pty.resumeArgs({
+          command: target.agent.command,
+          cwd: target.cwd ?? currentProject,
+          conversationId: target.conversationId
+        })
       });
-      sessions = sessions.map(session => session.id === id && resumeArgs.length > 0 ? {
-        ...session,
-        args: resumeArgs
-      } : session);
       showToast(`Switching ${target.agent.label}'s model - resuming its conversation`);
       await restartSessions([target]);
     },
