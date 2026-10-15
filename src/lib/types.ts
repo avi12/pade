@@ -450,7 +450,6 @@ const TerminalSchemeChoice = z.object({
 export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
 
 export const DiffStyle = z.enum(["unified", "split"]);
-export type DiffStyle = z.infer<typeof DiffStyle>;
 
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;

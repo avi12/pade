@@ -10,10 +10,11 @@ import { chosenTerminalScheme, loadTerminalSchemes } from "@/lib/stores/terminal
 import { schemeOfBackground, TERMINAL_PALETTE_PROPERTIES, terminalPaletteProperties } from "@/lib/terminal-palette";
 import { adoptedMonospaceFace, followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
 import {
+  DiffStyle,
   type Prefs,
-  type Scheme,
+  Scheme,
   type TerminalSchemeChoice,
-  type ThemeMode,
+  ThemeMode,
   ThemePalette
 } from "@/lib/types";
 import { listen } from "@tauri-apps/api/event";
@@ -26,9 +27,19 @@ export {
 
 /** Resolve a font-stack CSS custom property (theme.css owns the fallback list) to
  *  its concrete value and prepend the user's chosen font when set. */
-function withChosenFont(chosen: string | null | undefined, baseVariable: string) {
+function withChosenFont({ chosen, baseVariable }: {
+  chosen: string | null | undefined;
+  baseVariable: string;
+}) {
   const base = getComputedStyle(document.documentElement).getPropertyValue(baseVariable).trim();
   return chosen ? `"${chosen}", ${base}` : base;
+}
+
+const DEFAULT_UI_SCALE = 1;
+const UI_SCALE_PROPERTY = "--ui-scale";
+
+function schemeOf(isDark: boolean) {
+  return isDark ? Scheme.enum.dark : Scheme.enum.light;
 }
 
 /** Nothing chosen on either side - the terminal follows the app theme. */
@@ -40,10 +51,10 @@ const NO_TERMINAL_SCHEMES: TerminalSchemeChoice = {
 /** Effective values with defaults resolved (for consumers that need a concrete value). */
 export const effective = {
   get themeMode() {
-    return prefs.themeMode ?? "system";
+    return prefs.themeMode ?? ThemeMode.enum.system;
   },
   get diffStyle() {
-    return prefs.diffStyle ?? "unified";
+    return prefs.diffStyle ?? DiffStyle.enum.unified;
   },
   /** The terminal font pick, as a name; "" = theme.css's stack as written. */
   get monoFontName() {
@@ -53,7 +64,10 @@ export const effective = {
     // The base stack lives once in theme.css (--font-monospace-base); resolve it to
     // a concrete string (xterm renders to canvas and can't resolve a `var()`) and
     // prepend a chosen font, so the fallback list is never re-spelled here.
-    return withChosenFont(prefs.monoFont, "--font-monospace-base");
+    return withChosenFont({
+      chosen: prefs.monoFont,
+      baseVariable: "--font-monospace-base"
+    });
   },
   /** The UI stack for CSS: a chosen face in front of the theme's own stack, left
    *  as a `var()` rather than resolved - nothing paints UI text to a canvas, and
@@ -69,7 +83,7 @@ export const effective = {
     return `"${prefs.uiFont}", var(--font-ui-base)`;
   },
   get uiScale() {
-    return prefs.uiScale ?? 1;
+    return prefs.uiScale ?? DEFAULT_UI_SCALE;
   },
   /** The Windows Terminal colour scheme chosen per app scheme (`lib/stores/
    *  terminalSchemes` resolves a name to the scheme itself). */
@@ -95,12 +109,14 @@ export const effective = {
   }
 };
 
-const osDark = matchMedia("(prefers-color-scheme: dark)");
+/** The media query that answers whether the OS is showing dark. */
+export const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+const darkSchemeQuery = matchMedia(DARK_SCHEME_QUERY);
 
 /** What the OS is showing, in one place. Seeded from the native window theme at
  *  startup and moved only by the two OS signals (the media query, the native flip
  *  event) - every "is the system dark?" question resolves through this, never by
- *  re-reading `osDark.matches` at the point of use.
+ *  re-reading `darkSchemeQuery.matches` at the point of use.
  *
  *  The seed matters: WebView2 can answer `prefers-color-scheme: light` in a window
  *  that is already dark, because it resolves after the first script runs. Whoever
@@ -108,7 +124,7 @@ const osDark = matchMedia("(prefers-color-scheme: dark)");
  *  the flip event only fires on a genuine change. A session spawned in that gap
  *  themed its agent light for the whole life of the process (Claude reads
  *  `$COLORFGBG` once, at spawn). */
-let systemScheme: Scheme = osDark.matches ? "dark" : "light";
+let systemScheme: Scheme = schemeOf(darkSchemeQuery.matches);
 
 /** What is currently painted - the concrete light/dark scheme and the palette
  *  layered over it - reactive so consumers like the terminal can re-theme when
@@ -192,7 +208,7 @@ function apply() {
   // (the user's browser base, times their zoom preference - never a fixed px that
   // would override OS/browser a11y sizing), and `--font-base` (theme.css) derives a
   // ≥16px unit from it. rem/em UI and the terminal scale from the one knob.
-  document.documentElement.style.setProperty("--ui-scale", String(effective.uiScale));
+  document.documentElement.style.setProperty(UI_SCALE_PROPERTY, String(effective.uiScale));
   installTerminalPalette(appearance.scheme);
 }
 
@@ -208,8 +224,8 @@ function installSystemScheme(scheme: Scheme) {
 }
 
 // Re-apply when the OS theme flips while we're following it.
-osDark.addEventListener("change", event => {
-  installSystemScheme(event.matches ? "dark" : "light");
+darkSchemeQuery.addEventListener("change", event => {
+  installSystemScheme(schemeOf(event.matches));
 });
 
 // A PADE window parked on another virtual desktop (or minimized) is hidden, and
@@ -221,7 +237,7 @@ osDark.addEventListener("change", event => {
 // visibility, not focus, so it fires the instant the desktop is switched back.
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
-    installSystemScheme(osDark.matches ? "dark" : "light");
+    installSystemScheme(schemeOf(darkSchemeQuery.matches));
   }
 });
 
@@ -230,7 +246,7 @@ registerSettingsAdoptionEffect(apply);
 /** Wire the shared name for the backend's OS-theme event (see `window.rs`
  *  `THEME_CHANGED_EVENT`). Change both together. */
 const OS_THEME_CHANGED_EVENT = "theme://changed";
-let systemThemeWatched = false;
+let isSystemThemeWatched = false;
 
 /** Follow the native OS theme flip. WebView2 does not reliably deliver the
  *  `prefers-color-scheme` `change` to a window that stays focused/visible, so the
@@ -240,13 +256,13 @@ let systemThemeWatched = false;
  *  regardless; follow the scheme IT reports (authoritative - the media query's own
  *  value can still be stale) so a focused window re-themes at once. Armed once. */
 async function watchSystemTheme() {
-  if (systemThemeWatched) {
+  if (isSystemThemeWatched) {
     return;
   }
 
-  systemThemeWatched = true;
+  isSystemThemeWatched = true;
   await listen<string>(OS_THEME_CHANGED_EVENT, event => {
-    installSystemScheme(event.payload === "dark" ? "dark" : "light");
+    installSystemScheme(schemeOf(event.payload === Scheme.enum.dark));
   });
 }
 
@@ -258,9 +274,9 @@ async function watchSystemTheme() {
 async function adoptNativeSystemScheme() {
   try {
     installSystemScheme(await windows.theme());
-  } catch {
-    // Native theme unavailable (an older backend, a probe failure) - the
-    // media-query seed above stands, and a later flip still corrects it.
+  } catch (error) {
+    // The media-query seed above stands, and a later flip still corrects it.
+    console.debug("pade: native window theme unavailable", error);
   }
 }
 

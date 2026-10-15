@@ -24,8 +24,8 @@ type Appearance = {
  *  explicit font pick still outranks it (`lib/prefs`): the palette supplies a
  *  default, not a lock. */
 export const PALETTE_MONOSPACE_FACE: Record<ThemePalette, string | null> = {
-  default: null,
-  cyberpunk: "Share Tech Mono"
+  [ThemePalette.enum.default]: null,
+  [ThemePalette.enum.cyberpunk]: "Share Tech Mono"
 };
 
 /** The palette a mode names - the skin axis on its own, which no mode takes
@@ -58,9 +58,9 @@ export function adoptedMonospaceFace({
     return face;
   }
 
-  const wearingAPaletteFace =
+  const isWearingPaletteFace =
     typeof current === "string" && Object.values(PALETTE_MONOSPACE_FACE).includes(current);
-  if (wearingAPaletteFace) {
+  if (isWearingPaletteFace) {
     return null;
   }
 
