@@ -35,6 +35,55 @@ mod workspace;
 
 use tauri::Manager;
 
+/// The value an opt-in environment switch is set to when it is on.
+#[cfg(windows)]
+const SWITCH_ON: &str = "1";
+
+/// Whether the opt-in environment switch `variable` is on.
+#[cfg(windows)]
+fn is_switch_on(variable: &str) -> bool {
+    std::env::var(variable).is_ok_and(|value| value == SWITCH_ON)
+}
+
+/// The `WebView2` browser switches and user-data folder, set as environment
+/// before any window (and thus any `WebView2` environment) is created.
+#[cfg(windows)]
+fn configure_webview2_environment() {
+    let mut browser_arguments = Vec::new();
+    // Dev-only and explicit opt-in: CDP lets any local process control the
+    // privileged webview, so a normal debug build must not expose it.
+    #[cfg(debug_assertions)]
+    if is_switch_on("PADE_ENABLE_CDP") {
+        browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*");
+    }
+    // Opt-in software rendering: when another process saturates the GPU (a
+    // game), the webview's composited frames queue behind it and every UI
+    // interaction stalls on the commits. `--disable-gpu` renders on the CPU
+    // instead, decoupling ADE from the GPU queue entirely - slower frames in
+    // absolute terms, but immune to GPU contention.
+    let is_software_render_preferred = workspace::load().prefs.passthrough.get("softwareRender")
+        == Some(&serde_json::Value::Bool(true));
+    if is_software_render_preferred || is_switch_on("PADE_SOFTWARE_RENDER") {
+        browser_arguments.push("--disable-gpu");
+    }
+    if !browser_arguments.is_empty() {
+        std::env::set_var(
+            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+            browser_arguments.join(" "),
+        );
+    }
+    // Give this instance its own WebView2 user-data folder, keyed by the launch
+    // project, so two projects open in parallel run in separate browser + GPU
+    // process trees rather than sharing one (the shared default lets one
+    // instance's GPU load compound into the other and trip a DWM reset). Unlike
+    // the additional-arguments var above (which appends), WEBVIEW2_USER_DATA_FOLDER
+    // *replaces* the folder WebView2 would otherwise derive - the supported way
+    // to override it, since `--user-data-dir` as a browser arg is ignored.
+    if let Some(folder) = workspace::webview_data_dir() {
+        std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", folder);
+    }
+}
+
 // Mostly the command registry (`generate_handler!`) + builder wiring - one long
 // but flat list, not branching logic, so the line count is expected to grow with
 // each new IPC command.
@@ -47,8 +96,6 @@ pub fn run() {
         return;
     }
 
-    // WebView2 browser switches, composed before any window (and thus any
-    // WebView2 environment) is created.
     #[cfg(windows)]
     {
         // Agents can launch CPU-heavy compilers and dev servers. Lower this
@@ -57,42 +104,7 @@ pub fn run() {
         if let Err(error) = process_priority::lower_current_process() {
             eprintln!("could not lower PADE process priority: {error}");
         }
-
-        let mut browser_arguments = Vec::new();
-        // Dev-only and explicit opt-in: CDP lets any local process control the
-        // privileged webview, so a normal debug build must not expose it.
-        #[cfg(debug_assertions)]
-        if std::env::var("PADE_ENABLE_CDP").is_ok_and(|value| value == "1") {
-            browser_arguments.push("--remote-debugging-port=9222 --remote-allow-origins=*");
-        }
-        // Opt-in software rendering: when another process saturates the GPU (a
-        // game), the webview's composited frames queue behind it and every UI
-        // interaction stalls on the commits. `--disable-gpu` renders on the CPU
-        // instead, decoupling ADE from the GPU queue entirely - slower frames in
-        // absolute terms, but immune to GPU contention.
-        let software_render_pref = workspace::load().prefs.passthrough.get("softwareRender")
-            == Some(&serde_json::Value::Bool(true));
-        let software_render = software_render_pref
-            || std::env::var("PADE_SOFTWARE_RENDER").is_ok_and(|value| value == "1");
-        if software_render {
-            browser_arguments.push("--disable-gpu");
-        }
-        if !browser_arguments.is_empty() {
-            std::env::set_var(
-                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                browser_arguments.join(" "),
-            );
-        }
-        // Give this instance its own WebView2 user-data folder, keyed by the launch
-        // project, so two projects open in parallel run in separate browser + GPU
-        // process trees rather than sharing one (the shared default lets one
-        // instance's GPU load compound into the other and trip a DWM reset). Unlike
-        // the additional-arguments var above (which appends), WEBVIEW2_USER_DATA_FOLDER
-        // *replaces* the folder WebView2 would otherwise derive - the supported way
-        // to override it, since `--user-data-dir` as a browser arg is ignored.
-        if let Some(folder) = workspace::webview_data_dir() {
-            std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", folder);
-        }
+        configure_webview2_environment();
     }
 
     tauri::Builder::default()
@@ -263,7 +275,7 @@ pub fn run() {
             // its replacement (same label, same URL) is about to be built,
             // and killing the PTYs now would defeat the recovery. An
             // explicit exit (`code` present) is always honored.
-            if code.is_none() && recovery::recreate_pending() {
+            if code.is_none() && recovery::is_recreate_pending() {
                 api.prevent_exit();
                 return;
             }

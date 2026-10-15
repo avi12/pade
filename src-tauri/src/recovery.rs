@@ -22,7 +22,7 @@ static PENDING_RECREATES: AtomicUsize = AtomicUsize::new(0);
 
 /// Whether any window is currently between destroy and rebuild, so an
 /// `ExitRequested` fired by that destroy must be vetoed.
-pub fn recreate_pending() -> bool {
+pub fn is_recreate_pending() -> bool {
     PENDING_RECREATES.load(Ordering::Relaxed) > 0
 }
 
@@ -91,18 +91,18 @@ struct Placement {
 fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
     use tauri::Manager;
 
-    let Some(dead) = app.get_webview_window(label) else {
+    let Some(crashed) = app.get_webview_window(label) else {
         return;
     };
     let placement = Placement {
-        look: crate::window::WindowLook::of(&dead),
-        position: dead.outer_position().ok(),
-        is_maximized: dead.is_maximized().unwrap_or(false),
+        look: crate::window::WindowLook::of(&crashed),
+        position: crashed.outer_position().ok(),
+        is_maximized: crashed.is_maximized().unwrap_or(false),
     };
     PENDING_RECREATES.fetch_add(1, Ordering::Relaxed);
     // destroy(), not close(): close asks the frontend to confirm via its
     // close-requested handler - an answer a dead webview can never give.
-    if dead.destroy().is_err() {
+    if crashed.destroy().is_err() {
         PENDING_RECREATES.fetch_sub(1, Ordering::Relaxed);
         return;
     }
