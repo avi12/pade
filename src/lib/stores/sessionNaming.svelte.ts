@@ -20,57 +20,90 @@ import { SessionStatus } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
 
 const REFRESH_MS = 30_000;
+/** A session's `lastGeneratedAt` before its first name, so that one always runs. */
+const NEVER_GENERATED = 0;
 
 /** Sessions with auto-naming on → the agent command used to name them. */
 const naming = new SvelteMap<string, string>();
 
 /** Non-reactive per-session runtime: the refresh timer, last-seen status, and the
- *  time of the last name generated (to throttle every generate to the 30s cadence).
- *  `0` means none yet, so the first generate always runs. */
+ *  time of the last name generated (to throttle every generate to the 30s cadence). */
 interface Controller {
   timer?: ReturnType<typeof setInterval>;
-  last: SessionStatus;
+  lastStatus: SessionStatus;
   lastGeneratedAt: number;
 }
 // Plain Map: timers/last-status are runtime bookkeeping, not reactive UI state.
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
 const controllers = new Map<string, Controller>();
 
-async function generate(id: string): Promise<void> {
-  const agent = naming.get(id);
-  if (agent === undefined) {
-    return;
-  }
-
-  // Throttle: at most one name per 30s per session, whatever triggered this
-  // (toggle-on, the interval, or a stop edge). Stamp the time up front so a
-  // concurrent trigger during the in-flight request can't slip a second one in.
+/** The session's controller when a name is due, or undefined while throttled:
+ *  at most one name per 30s per session, whatever triggered it (toggle-on, the
+ *  interval, or a stop edge). */
+function dueController(id: string) {
   const controller = controllers.get(id);
-  if (controller === undefined || Date.now() - controller.lastGeneratedAt < REFRESH_MS) {
+  const isDue = controller !== undefined && Date.now() - controller.lastGeneratedAt >= REFRESH_MS;
+  return isDue ? controller : undefined;
+}
+
+/** Label the session with a generated name, unless naming was toggled off while
+ *  the request ran. */
+function applyGeneratedName({ id, name }: {
+  id: string;
+  name: string | null;
+}) {
+  if (name === null || !naming.has(id)) {
     return;
   }
 
-  controller.lastGeneratedAt = Date.now();
+  setSessionLabel({
+    id,
+    label: name
+  });
+}
 
+async function generate(id: string) {
+  const agent = naming.get(id);
+  const controller = dueController(id);
+  if (agent === undefined || controller === undefined) {
+    return;
+  }
+
+  // Stamp the time up front so a concurrent trigger during the in-flight request
+  // can't slip a second one in.
+  controller.lastGeneratedAt = Date.now();
   try {
-    const name = await pty.generateName({
+    applyGeneratedName({
       id,
-      agent
-    });
-    // Only apply if still naming this session (it may have been toggled off).
-    if (name !== null && naming.has(id)) {
-      setSessionLabel({
+      name: await pty.generateName({
         id,
-        label: name
-      });
-    }
-  } catch {
-    // Naming is best-effort; a failed generate just skips this refresh.
+        agent
+      })
+    });
+  } catch (error) {
+    console.warn("pade: could not generate a session name, keeping the current one", error);
   }
 }
 
+/** Start naming a session with `agent`, as if it had never been named. */
+function startNaming({ id, agent }: {
+  id: string;
+  agent: string;
+}) {
+  naming.set(id, agent);
+  controllers.set(id, {
+    lastStatus: sessionStatus(id),
+    lastGeneratedAt: NEVER_GENERATED
+  });
+}
+
+function stopRefresh(controller: Controller) {
+  clearInterval(controller.timer);
+  controller.timer = undefined;
+}
+
 /** Whether AI auto-naming is on for a session (reactive). */
-export function isNaming(id: string): boolean {
+export function isNaming(id: string) {
   return naming.has(id);
 }
 
@@ -82,7 +115,7 @@ export function setNaming({ id, agent, on }: {
   id: string;
   agent: string;
   on: boolean;
-}): void {
+}) {
   if (!on) {
     dropNaming(id);
     return;
@@ -92,10 +125,9 @@ export function setNaming({ id, agent, on }: {
     return;
   }
 
-  naming.set(id, agent);
-  controllers.set(id, {
-    last: sessionStatus(id),
-    lastGeneratedAt: 0
+  startNaming({
+    id,
+    agent
   });
 
   if (sessionStatus(id) === SessionStatus.enum.working) {
@@ -107,7 +139,7 @@ export function setNaming({ id, agent, on }: {
 export function toggleNaming({ id, agent }: {
   id: string;
   agent: string;
-}): void {
+}) {
   setNaming({
     id,
     agent,
@@ -127,7 +159,7 @@ export function applyNamingToAll({ sessions, on }: {
     };
   }[];
   on: boolean;
-}): void {
+}) {
   for (const session of sessions) {
     setNaming({
       id: session.id,
@@ -148,58 +180,85 @@ export function transferNaming({ fromId, toId, agent }: {
   fromId: string;
   toId: string;
   agent: string;
-}): void {
+}) {
   if (!naming.has(fromId)) {
     return;
   }
 
   dropNaming(fromId);
-  naming.set(toId, agent);
-  controllers.set(toId, {
-    last: sessionStatus(toId),
-    lastGeneratedAt: 0
+  startNaming({
+    id: toId,
+    agent
   });
 }
 
 /** Stop auto-naming for a session and release its timer (call on tab close). */
-export function dropNaming(id: string): void {
+export function dropNaming(id: string) {
   const controller = controllers.get(id);
-  if (controller?.timer !== undefined) {
-    clearInterval(controller.timer);
+  if (controller !== undefined) {
+    stopRefresh(controller);
   }
 
   controllers.delete(id);
   naming.delete(id);
 }
 
-// Reconcile every named session against its live status: run the 30s refresh
-// while working, tear it down when stopped, and fire one final name on the
-// working→stopped edge. Re-runs whenever a named session's status changes.
+/** Run the 30s refresh while the session works, tear it down once it stops. */
+function syncRefresh({ id, controller, isWorking }: {
+  id: string;
+  controller: Controller;
+  isWorking: boolean;
+}) {
+  const isRefreshing = controller.timer !== undefined;
+  if (isWorking === isRefreshing) {
+    return;
+  }
+
+  if (isWorking) {
+    controller.timer = setInterval(async () => {
+      await generate(id);
+    }, REFRESH_MS);
+  } else {
+    stopRefresh(controller);
+  }
+}
+
+/** Bring one named session's refresh in line with its status, and fire one final
+ *  name on the working→stopped edge. */
+function reconcileNaming({ id, status }: {
+  id: string;
+  status: SessionStatus;
+}) {
+  const controller = controllers.get(id);
+  if (controller === undefined) {
+    return;
+  }
+
+  const isWorking = status === SessionStatus.enum.working;
+  const wasWorking = controller.lastStatus === SessionStatus.enum.working;
+  syncRefresh({
+    id,
+    controller,
+    isWorking
+  });
+
+  if (wasWorking && !isWorking) {
+    generate(id);
+  }
+
+  controller.lastStatus = status;
+}
+
+// Reconcile every named session against its live status. Re-runs whenever a
+// named session's status changes - the status is read here, before anything can
+// bail, so every named session stays a dependency of the effect.
 $effect.root(() => {
   $effect(() => {
     for (const id of naming.keys()) {
-      const status = sessionStatus(id);
-      const controller = controllers.get(id);
-      if (controller === undefined) {
-        continue;
-      }
-
-      const running = status === SessionStatus.enum.working;
-      const wasRunning = controller.last === SessionStatus.enum.working;
-      if (running && controller.timer === undefined) {
-        controller.timer = setInterval(async () => {
-          await generate(id);
-        }, REFRESH_MS);
-      } else if (!running && controller.timer !== undefined) {
-        clearInterval(controller.timer);
-        controller.timer = undefined;
-      }
-
-      if (!running && wasRunning) {
-        generate(id);
-      }
-
-      controller.last = status;
+      reconcileNaming({
+        id,
+        status: sessionStatus(id)
+      });
     }
   });
 });

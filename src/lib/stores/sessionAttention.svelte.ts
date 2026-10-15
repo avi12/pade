@@ -24,17 +24,17 @@ const awaiting = new SvelteMap<string, boolean>();
 // one reactive-collection type; nothing subscribes to it).
 const settledReady = new SvelteSet<string>();
 
-let listening = false;
+let isListening = false;
 
 /** Subscribe once to the PTY stream and flag any session that shows a choice
  *  prompt (call from App onMount, mirroring `ensureRunnerListeners`). A TUI
  *  repaints its prompt every frame, so a session already flagged is left alone. */
-export async function ensureChoiceAttention(): Promise<void> {
-  if (listening) {
+export async function ensureChoiceAttention() {
+  if (isListening) {
     return;
   }
 
-  listening = true;
+  isListening = true;
   await pty.onData(({ id, data }) => {
     if (awaiting.get(id) || !detectChoicePrompt(data)) {
       return;
@@ -47,11 +47,11 @@ export async function ensureChoiceAttention(): Promise<void> {
 
 /** Whether a session is waiting on the user to answer a multiple-choice prompt
  *  (reactive). */
-export function awaitingChoice(id: string): boolean {
+export function awaitingChoice(id: string) {
   return awaiting.get(id) ?? false;
 }
 
-function clear(id: string): void {
+function clear(id: string) {
   awaiting.delete(id);
   settledReady.delete(id);
 }
@@ -66,7 +66,7 @@ function clear(id: string): void {
 export function reconcileChoiceAttention({ id, isActive }: {
   id: string;
   isActive: boolean;
-}): void {
+}) {
   if (!awaiting.get(id)) {
     return;
   }
@@ -76,19 +76,37 @@ export function reconcileChoiceAttention({ id, isActive }: {
     return;
   }
 
+  reconcileBackgroundPrompt(id);
+}
+
+/** A flagged tab that isn't in front: remember it settling `ready`, and clear it
+ *  once its prompt is over. */
+function reconcileBackgroundPrompt(id: string) {
   const status = sessionStatus(id);
   if (status === SessionStatus.enum.ready) {
     settledReady.add(id);
     return;
   }
 
-  const answered = status === SessionStatus.enum.working && settledReady.has(id);
-  if (answered || status === SessionStatus.enum.exited) {
+  if (isPromptOver({
+    id,
+    status
+  })) {
     clear(id);
   }
 }
 
+/** Whether a flagged prompt is over: the agent went back to work after settling
+ *  `ready` (answered), or the session exited. */
+function isPromptOver({ id, status }: {
+  id: string;
+  status: SessionStatus;
+}) {
+  const isAnswered = status === SessionStatus.enum.working && settledReady.has(id);
+  return isAnswered || status === SessionStatus.enum.exited;
+}
+
 /** Forget a session's attention state when its tab closes. */
-export function dropChoiceAttention(id: string): void {
+export function dropChoiceAttention(id: string) {
   clear(id);
 }
