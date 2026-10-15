@@ -3,6 +3,7 @@
   import type { DiffLine } from "@/lib/code/diff";
   import DiffView from "@/lib/code/DiffView.svelte";
   import { markdownDocument, sandboxedHtmlDocument } from "@/lib/code/markdown";
+  import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
   import { groupChanges, GroupRole } from "@/lib/feed/change-groups";
   import { watchSummary } from "@/lib/feed/feed-status";
   import { fileExtension, fileTypeBadge } from "@/lib/feed/file-type";
@@ -1020,18 +1021,7 @@
                     {:else if canPreview && pane === PreviewPane.Preview}
                       {@const documentSource = previewDocCache.get(event.id)}
                       {#if documentSource}
-                        <!-- The untrusted markdown/HTML render is quarantined in a
-                             sandboxed iframe with NO allow-scripts and NO
-                             allow-same-origin: it runs no scripts, has an opaque
-                             origin, and can't reach the parent - the web analog of
-                             PowerToys' locked-down WebView2. `srcdoc` keeps it fully
-                             inline (no external ref under the CSP). -->
-                        <iframe
-                          class="render"
-                          sandbox=""
-                          srcdoc={documentSource}
-                          title="Preview of {baseName(event.path)}"
-                        ></iframe>
+                        <SandboxedPreview document={documentSource} title="Preview of {baseName(event.path)}" />
                       {:else if previewDocCache.has(event.id)}
                         {#if isErrored}
                           <p class="state">Couldn't render the preview</p>
@@ -1984,7 +1974,6 @@
      Transition - that would snapshot and ghost the sandboxed preview iframe). */
   @media (prefers-reduced-motion: no-preference) {
     .preview,
-    .render,
     .media-wrapper {
       @starting-style {
         opacity: 0%;
@@ -1995,17 +1984,6 @@
         opacity 200ms var(--ease),
         translate 200ms var(--ease);
     }
-  }
-
-  /* Rendered markdown/HTML preview: a sandboxed iframe standing in for the text
-     diff. Themed background shows while its isolated document loads (and behind a
-     transparent HTML body); the document itself carries its own light/dark CSS. */
-  .render {
-    display: block;
-    block-size: 360px;
-    inline-size: 100%;
-    border: 0;
-    background: var(--surface-1);
   }
 
   /* Image/video preview: the picture or clip in place of a text diff. A subtle
