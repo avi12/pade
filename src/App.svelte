@@ -27,7 +27,10 @@
   import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
   import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
+  import BootSplash from "@/lib/shell/BootSplash.svelte";
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
+  import RecoveryNotes from "@/lib/shell/RecoveryNotes.svelte";
+  import ShellToast from "@/lib/shell/ShellToast.svelte";
   import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
   import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
   import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
@@ -46,7 +49,7 @@
   import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
   import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
-  import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
+  import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { dropUsageAdapt } from "@/lib/stores/usage/usageAdapt.svelte";
   import { createUsagePacing, dropUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
@@ -66,7 +69,6 @@
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type { Agent, AgentSession, ModelChoice, OpenTarget } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
-  import Logo from "@/lib/ui/Logo.svelte";
   import { collapsePane } from "@/lib/ui/motion";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import UsageMeter from "@/lib/usage/UsageMeter.svelte";
@@ -1862,53 +1864,12 @@
 
       <RunnerDock activeSessionId={activeId} />
 
-      {#if autoHandoff.note || usageResume.note || apiErrorRetry.note}
-        <output class="handoff-note">
-          <span class="handoff-dot"></span>
-          {autoHandoff.note || usageResume.note || apiErrorRetry.note}
-        </output>
-      {:else if usagePacing.pauses.length > 0}
-        <div class="pacing-notes">
-          {#each usagePacing.pauses as pause (pause.id)}
-            <output class="handoff-note">
-              <span class="handoff-dot"></span>
-              {pause.note}
-              {#if pause.canContinueWhenReady}
-                <button
-                  class="note-action quiet" onclick={() => usagePacing.continueWhenReady(pause.id)}
-                  type="button">Continue when there's room</button>
-              {/if}
-              <button
-                class="note-action" onclick={async () => await usagePacing.continueNow(pause.id)}
-                type="button">
-                {#if pause.isReady}
-                  Continue
-                {:else}
-                  Continue anyway
-                {/if}
-              </button>
-            </output>
-          {/each}
-        </div>
-      {/if}
-
-      {#if toastText()}
-        <!-- <output> already carries role=status - a transient bottom pill that
-             auto-dismisses via the showToast timer. -->
-        <output class="toast">
-          <span class="toast-icon"><Icon name="external" /></span>
-          {toastText()}
-        </output>
-      {/if}
-
+      <RecoveryNotes note={autoHandoff.note || usageResume.note || apiErrorRetry.note} pacing={usagePacing} />
+      <ShellToast />
       <SendSelectionButton {activeId} />
     </div>
   {:else}
-    <!-- Loading phase: a calm branded ground so a booting window is never a
-         blank void (also the safety net if a boot step stalls). -->
-    <div class="booting">
-      <span class="brand" aria-label="PADE is starting"><Logo size={64} /></span>
-    </div>
+    <BootSplash />
   {/if}
 
   <!-- One top-level bubble for every truncation tooltip - rendered here so it
@@ -1919,20 +1880,6 @@
 <style>
   .app-root {
     block-size: 100%;
-  }
-
-  /* Booting ground - a centered, gently pulsing brand mark on the app surface
-     so a loading window reads as PADE, never a blank white void. */
-  .booting {
-    display: grid;
-    place-items: center;
-    block-size: 100%;
-    background: radial-gradient(120% 120% at 50% 0%, var(--surface-1), var(--surface));
-
-    .brand {
-      display: inline-flex;
-      animation: pulse 1400ms var(--ease) infinite;
-    }
   }
 
   .shell {
@@ -2169,105 +2116,6 @@
     .body.with-side {
       grid-template-rows: 1fr 40%;
       grid-template-columns: 1fr;
-    }
-  }
-
-  /* Auto-handoff banner - a calm status pill while a session hands off. */
-  .handoff-note {
-    position: fixed;
-    inset-block-start: 60px;
-    inset-inline-start: 50%;
-    z-index: 80;
-    display: inline-flex;
-    gap: 9px;
-    align-items: center;
-    max-inline-size: min(560px, 90vw);
-    padding: 10px 18px;
-    border-radius: var(--radius-full);
-    background: var(--primary-container);
-    color: var(--on-primary-container);
-    font-weight: 600;
-    font-size: 13px;
-    box-shadow: 0 10px 30px var(--shadow-color);
-    transform: translateX(-50%);
-    animation: pop-in 220ms var(--ease);
-
-    .handoff-dot {
-      flex: none;
-      block-size: 8px;
-      inline-size: 8px;
-      border-radius: var(--radius-full);
-      background: var(--primary);
-      animation: pulse 1100ms var(--ease) infinite;
-    }
-
-    .note-action {
-      flex: none;
-      padding-block: 4px;
-      padding-inline: 12px;
-      border-radius: var(--radius-full);
-      background: var(--primary);
-      color: var(--on-primary);
-      font-weight: 600;
-
-      &:hover {
-        background: color-mix(in sRGB, var(--primary) 88%, var(--on-primary));
-      }
-
-      &.quiet {
-        background: transparent;
-        color: var(--on-primary-container);
-        outline: 1px solid var(--primary);
-
-        &:hover {
-          background: color-mix(in sRGB, var(--primary) 14%, transparent);
-        }
-      }
-    }
-  }
-
-  /* One pacing note per paused agent, stacked where the single note sits. */
-  .pacing-notes {
-    position: fixed;
-    inset-block-start: 60px;
-    inset-inline-start: 50%;
-    z-index: 80;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-    translate: -50% 0;
-
-    .handoff-note {
-      position: static;
-      transform: none;
-    }
-  }
-
-  /* Transient status toast - sits just above the send FAB, auto-dismissed. */
-  .toast {
-    position: fixed;
-    inset-block-end: 72px;
-    inset-inline-start: 50%;
-    z-index: 85;
-    display: inline-flex;
-    gap: 9px;
-    align-items: center;
-    padding-block: 10px;
-    padding-inline: 18px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-full);
-    background: var(--surface-3);
-    color: var(--on-surface);
-    font-weight: 600;
-    font-size: 13px;
-    box-shadow: 0 12px 34px var(--shadow-color);
-    transform: translateX(-50%);
-    animation: pop-in 240ms var(--spring);
-
-    .toast-icon {
-      display: inline-flex;
-      color: var(--primary);
     }
   }
 </style>
