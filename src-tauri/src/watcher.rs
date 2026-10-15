@@ -96,6 +96,30 @@ struct WindowWatch {
     /// Both reset when the watch re-arms.
     surfaced: AtomicU64,
     ignored: AtomicU64,
+    /// The ticket of the newest `watch_start` request. `watch_start` asks git
+    /// for the new root's policy before it takes the watcher lock, so two
+    /// requests can finish out of order; only the holder of the newest ticket
+    /// may arm, which keeps "the latest project wins" on a quick switch.
+    latest_arm_request: AtomicU64,
+}
+
+impl WindowWatch {
+    /// Take a ticket for a new arming request, superseding every earlier one.
+    fn begin_arm_request(&self) -> u64 {
+        self.latest_arm_request.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// Whether no newer arming request has started since `ticket` was taken.
+    fn is_latest_arm_request(&self, ticket: u64) -> bool {
+        self.latest_arm_request.load(Ordering::SeqCst) == ticket
+    }
+
+    /// Whether the live watch is already armed on `root`.
+    fn is_watching(&self, root: &Path) -> bool {
+        self.watcher
+            .lock()
+            .is_ok_and(|guard| guard.as_ref().is_some_and(|active| active.root == root))
+    }
 }
 
 #[derive(Default)]
@@ -806,7 +830,22 @@ pub async fn watch_start(
         return Err("watcher state unavailable".to_string());
     };
 
+    let ticket = watch.begin_arm_request();
+    if watch.is_watching(&root) {
+        return Ok(());
+    }
+
+    // Ask git how this root's ignored files are recognized, and where its live
+    // state lives, before taking the watcher lock: the synchronous
+    // `watch_status` reads that lock and must never wait on a git process.
+    let policy = compute_ignore_policy(&root);
+    let git_state_plan = GitStatePlan::for_root(&root);
+
     let mut guard = watch.watcher.lock().map_err(|e| e.to_string())?;
+    if !watch.is_latest_arm_request(ticket) {
+        // A newer `watch_start` has begun; it owns the arming.
+        return Ok(());
+    }
     let already_watching_root = guard.as_ref().is_some_and(|active| active.root == root);
     if already_watching_root {
         return Ok(());
@@ -832,10 +871,8 @@ pub async fn watch_start(
     watch.surfaced.store(0, Ordering::Relaxed);
     watch.ignored.store(0, Ordering::Relaxed);
 
-    // Decide how this root's ignored files are recognized before arming the
-    // watcher, so the very first change is already filtered. Computed while `root`
-    // is still owned here, before it moves into the `ProjectWatcher` below.
-    let policy = compute_ignore_policy(&root);
+    // Install the policy before arming the watcher, so the very first change is
+    // already filtered.
     if let Ok(mut guard) = watch.ignore_policy.lock() {
         *guard = Some(policy);
     }
@@ -847,7 +884,7 @@ pub async fn watch_start(
     // The live-git-state companion watch (`HEAD`/`config` → `git://state`)
     // re-arms with the project: same lifetime and re-root cadence, but its own
     // tiny non-recursive watcher.
-    arm_git_state(&app, &label, &watch, &root);
+    arm_git_state(&app, &label, &watch, &root, &git_state_plan);
 
     // The notify callback runs on its own thread; it carries this window's label
     // so every change it detects is routed back to this window alone.
@@ -1001,11 +1038,42 @@ fn unique_directories<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> 
 /// covers), and is what lets a `git init` run *after* the project opened gain
 /// the real watch without any polling. Best-effort: a failure to arm just means
 /// git state won't live-update until the next re-root.
-fn arm_git_state(app: &AppHandle, label: &str, watch: &WindowWatch, root: &Path) {
+fn arm_git_state(
+    app: &AppHandle,
+    label: &str,
+    watch: &WindowWatch,
+    root: &Path,
+    plan: &GitStatePlan,
+) {
     let Ok(mut guard) = watch.git_state.lock() else {
         return;
     };
-    rearm_git_state_locked(app, label, root, &mut guard);
+    rearm_git_state_locked(app, label, root, plan, &mut guard);
+}
+
+/// What arming a git-state watch needs to ask git, gathered up front so the
+/// arming itself never shells out - `watch_start` asks before it takes any
+/// lock a synchronous command reads.
+struct GitStatePlan {
+    /// The dirs holding `HEAD` and `config`; empty when there is no repo yet.
+    directories: Vec<PathBuf>,
+    /// The ancestors whose `.gitignore` the workspace inherits (repo only).
+    ancestor_directories: Vec<PathBuf>,
+}
+
+impl GitStatePlan {
+    fn for_root(root: &Path) -> Self {
+        let directories = git_state_directories(root);
+        let ancestor_directories = if directories.is_empty() {
+            Vec::new()
+        } else {
+            gitignore_ancestor_directories(root)
+        };
+        Self {
+            directories,
+            ancestor_directories,
+        }
+    }
 }
 
 /// The arming body, run under the `git_state` lock (shared by `arm_git_state`
@@ -1015,23 +1083,18 @@ fn rearm_git_state_locked(
     app: &AppHandle,
     label: &str,
     root: &Path,
+    plan: &GitStatePlan,
     slot: &mut Option<GitStateWatcher>,
 ) {
     // Drop the previous watch first, so a failed re-arm can't leave a stale
     // watcher reporting another root's repo.
     *slot = None;
 
-    let directories = git_state_directories(root);
     let (sender, receiver) = channel::<GitStateMessage>();
-    let armed = if directories.is_empty() {
+    let armed = if plan.directories.is_empty() {
         watch_for_git_init(root, sender)
     } else {
-        watch_git_state(
-            root,
-            &directories,
-            &gitignore_ancestor_directories(root),
-            sender,
-        )
+        watch_git_state(root, &plan.directories, &plan.ancestor_directories, sender)
     };
     let Ok(watcher) = armed else {
         return;
@@ -1168,7 +1231,8 @@ fn spawn_git_state_coalescer(
                     return;
                 }
                 if burst.rearm {
-                    rearm_git_state_locked(&app, &label, &root, &mut guard);
+                    let plan = GitStatePlan::for_root(&root);
+                    rearm_git_state_locked(&app, &label, &root, &plan, &mut guard);
                 }
             }
             if burst.rearm || burst.ignore_touched {
@@ -1743,9 +1807,27 @@ mod tests {
         is_under_static_ignore_directory, line_count, line_delta, manifest_ignore_directories,
         mcp_config_for_path, mcp_membership_changed, read_authorized_file, read_preview_text,
         reclassify, record_first_touch_baseline, resolve_watch_root, static_ignore_directories,
-        summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES,
-        MAX_PREVIEW_BYTES,
+        summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, WindowWatch,
+        MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
     };
+
+    /// `watch_start` asks git before it locks, so a slow request can finish
+    /// after a newer one; only the newest may arm, or a quick project switch
+    /// could leave the feed watching the project the user just left.
+    #[test]
+    fn only_the_newest_arm_request_may_arm() {
+        let watch = WindowWatch::default();
+        let older = watch.begin_arm_request();
+        let newer = watch.begin_arm_request();
+        assert!(!watch.is_latest_arm_request(older));
+        assert!(watch.is_latest_arm_request(newer));
+    }
+
+    #[test]
+    fn a_fresh_window_watch_is_watching_nothing() {
+        let watch = WindowWatch::default();
+        assert!(!watch.is_watching(Path::new("C:/anything")));
+    }
     use crate::test_support::assert_empty;
     use std::collections::{HashMap, HashSet};
     use std::fs;
