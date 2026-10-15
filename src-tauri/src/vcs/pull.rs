@@ -32,9 +32,9 @@ pub struct PullOutcome {
     message: String,
 }
 
-const REFUSED_DIRTY_MESSAGE: &str = "Uncommitted changes - commit or stash before syncing.";
-const ALREADY_UP_TO_DATE_MESSAGE: &str = "Already up to date.";
-const UPDATED_MESSAGE: &str = "Synced with origin.";
+const REFUSED_DIRTY_MESSAGE: &str = "Uncommitted changes - commit or stash before syncing";
+const ALREADY_UP_TO_DATE_MESSAGE: &str = "Already up to date";
+const UPDATED_MESSAGE: &str = "Synced with origin";
 
 /// Does `git status --porcelain` output show uncommitted changes to *tracked*
 /// files? Untracked files (`??`) don't count - a fast-forward can't silently
