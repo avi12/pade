@@ -208,69 +208,11 @@
     }
   }
 
-  // Live cross-window sync: another window changed the open-windows set/order (a
-  // drag-reorder landed there), so reflect it here with the same scoped morph the
-  // pinned/recent list uses.
-  async function onWindowsChanged() {
-    if (!isMenuOpen) {
-      return;
-    }
-
-    let openWindows: WindowInfo[];
-    try {
-      openWindows = await sendMessage(Command.windowList);
-    } catch {
-      return;
-    }
-
-    await animateWindowListChange(async () => {
-      windowRows = openWindows;
-      await tick();
-    });
-  }
-
-  // Persist a drag-reordered window order to the one backend source (which drives
-  // both this list and the Ctrl+Alt+[ / ] cycle), reflect it at once, then re-fetch
-  // so the rows match backend truth. The drag engine hands us the new label order.
-  async function reorderWindows(windowLabels: string[]) {
-    const byLabel = new Map(windowRows.map(row => [row.label, row]));
-    windowRows = windowLabels.flatMap(labelId => {
-      const row = byLabel.get(labelId);
-      return row ? [row] : [];
-    });
-    await sendMessage(Command.windowReorder, { labels: windowLabels });
-    await loadOpenWindows();
-  }
-
   function hide() {
     const elMenu = document.getElementById(MENU_ID);
     if (elMenu?.matches(POPOVER_OPEN_SELECTOR)) {
       elMenu.hidePopover();
     }
-  }
-
-  // Jump this window to a project (or, with Ctrl/Cmd/Shift held, open it in a new
-  // window instead of switching this one).
-  async function pick({ project, event }: {
-    project: string;
-    event: MouseEvent;
-  }) {
-    hide();
-
-    if (isCurrent(project)) {
-      return;
-    }
-
-    const opensNewWindow = event.ctrlKey || event.metaKey || event.shiftKey;
-    if (opensNewWindow) {
-      await sendMessage(Command.windowCreate, {
-        mode: WindowMode.enum.open,
-        path: project
-      });
-      return;
-    }
-
-    onopen(project);
   }
 
   // Focus the filter as the menu opens: it's ready to type, and - crucially -
@@ -377,10 +319,27 @@
   onDestroy(() => unlistenGitState?.());
 
   // Reflect open-windows changes made in OTHER windows live (their reorder lands
-  // → this switcher morphs to match), so two open menus never disagree.
+  // → this switcher morphs to match, with the same scoped morph the pinned/recent
+  // list uses), so two open menus never disagree.
   let unlistenWindowsChanged: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenWindowsChanged = await onMessage(EventType.windowsChanged, () => onWindowsChanged());
+    unlistenWindowsChanged = await onMessage(EventType.windowsChanged, async () => {
+      if (!isMenuOpen) {
+        return;
+      }
+
+      let openWindows: WindowInfo[];
+      try {
+        openWindows = await sendMessage(Command.windowList);
+      } catch {
+        return;
+      }
+
+      await animateWindowListChange(async () => {
+        windowRows = openWindows;
+        await tick();
+      });
+    });
   });
   onDestroy(() => unlistenWindowsChanged?.());
 </script>
@@ -484,7 +443,18 @@
                   idAttribute: "data-window-id",
                   axis: Axis.Vertical,
                   threshold: ROW_DRAG_THRESHOLD,
-                  onCommit: labelOrder => reorderWindows(labelOrder)
+                  // Persist the new order to the one backend source (which drives
+                  // both this list and the Ctrl+Alt+[ / ] cycle), reflect it at
+                  // once, then re-fetch so the rows match backend truth.
+                  onCommit: async windowLabels => {
+                    const byLabel = new Map(windowRows.map(row => [row.label, row]));
+                    windowRows = windowLabels.flatMap(labelId => {
+                      const row = byLabel.get(labelId);
+                      return row ? [row] : [];
+                    });
+                    await sendMessage(Command.windowReorder, { labels: windowLabels });
+                    await loadOpenWindows();
+                  }
                 })}
               ><Icon name="grip" size={14} /></span>
             {/if}
@@ -645,10 +615,26 @@
         {@attach observeProjectBranch({ path: project })}
         aria-checked={isCurrentProject}
         data-arrow-stop
-        onclick={async e => await pick({
-          project,
-          event: e
-        })}
+        onclick={async e => {
+          hide();
+
+          if (isCurrentProject) {
+            return;
+          }
+
+          // Ctrl/Cmd/Shift opens the project in a new window instead of
+          // switching this one.
+          const opensNewWindow = e.ctrlKey || e.metaKey || e.shiftKey;
+          if (opensNewWindow) {
+            await sendMessage(Command.windowCreate, {
+              mode: WindowMode.enum.open,
+              path: project
+            });
+            return;
+          }
+
+          onopen(project);
+        }}
         role="menuitemradio"
         type="button"
       >

@@ -198,21 +198,6 @@
 
     await saveTempInto(picked);
   }
-
-  // Enter saves into the PRIMARY root (roots[0]) - the same default
-  // workspace_rename uses when no root is chosen - or opens the folder picker
-  // when there are no roots yet. It respects the same gates as the primary
-  // root's button (blank/busy/collision), so Enter can't save a name that
-  // button shows disabled.
-  async function saveViaEnter() {
-    const primaryRoot = roots.at(0);
-    if (primaryRoot === undefined) {
-      await createRootAndSave();
-      return;
-    }
-
-    await saveIntoListedRoot(primaryRoot);
-  }
 </script>
 
 <div class="save-card">
@@ -230,7 +215,18 @@
   <form
     class="save-form" onsubmit={async e => {
       e.preventDefault();
-      await saveViaEnter();
+      // Enter saves into the PRIMARY root (roots[0]) - the same default
+      // workspace_rename uses when no root is chosen - or opens the folder
+      // picker when there are no roots yet. It respects the same gates as the
+      // primary root's button (blank/busy/collision), so Enter can't save a
+      // name that button shows disabled.
+      const primaryRoot = roots.at(0);
+      if (primaryRoot === undefined) {
+        await createRootAndSave();
+        return;
+      }
+
+      await saveIntoListedRoot(primaryRoot);
     }}>
     <input
       class="save-name"
