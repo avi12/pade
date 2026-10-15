@@ -21,7 +21,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use super::{rebase_paths_in, rewrite_file_forms};
+use super::{moved_path, rewrite_file_forms};
 use crate::util::{encode_project, home_dir};
 
 /// Codex's tables that record a folder: its threads and its projects' roots.
@@ -47,13 +47,15 @@ pub(super) fn relocate_memories(old: &str, new: &str) {
     move_claude_transcripts(&home.join(".claude").join("projects"), old, new);
     rewrite_file_forms(&home.join(".claude.json"), old, new);
 
-    for database in codex_state_databases(&home.join(".codex")) {
+    let codex = home.join(".codex");
+    for database in codex_state_databases(&codex) {
         rebase_database_columns(&database, &CODEX_PATH_COLUMNS, old, new);
     }
-    rewrite_file_forms(&home.join(".codex").join("config.toml"), old, new);
+    rewrite_file_forms(&codex.join("config.toml"), old, new);
 
-    rewrite_copilot_sessions(&home.join(".copilot").join("session-state"), old, new);
-    rewrite_file_forms(&home.join(".copilot").join("config.json"), old, new);
+    let copilot = home.join(".copilot");
+    rewrite_copilot_sessions(&copilot.join("session-state"), old, new);
+    rewrite_file_forms(&copilot.join("config.json"), old, new);
 
     let opencode_database = home
         .join(".local")
@@ -90,11 +92,9 @@ fn move_claude_transcripts(projects: &Path, old: &str, new: &str) {
         } else {
             transcript_cwd(&entry.path())
         };
-        let Some(cwd) = cwd else { continue };
-        let moved_cwd = rebase_paths_in(&cwd, old, new);
-        if moved_cwd == cwd {
+        let Some(moved_cwd) = cwd.and_then(|cwd| moved_path(&cwd, old, new)) else {
             continue;
-        }
+        };
         move_into(&entry.path(), &projects.join(encode_project(&moved_cwd)));
     }
 }
@@ -227,16 +227,13 @@ fn rebase_column(
     };
     let moved: Vec<(i64, String)> = rows
         .flatten()
-        .filter_map(|(row, value)| {
-            let rebased = rebase_paths_in(&value, old, new);
-            (rebased != value).then_some((row, rebased))
-        })
+        .filter_map(|(row_id, value)| moved_path(&value, old, new).map(|moved| (row_id, moved)))
         .collect();
 
     let update = format!("UPDATE {table} SET {column} = ?1 WHERE rowid = ?2");
-    for (row, value) in moved {
-        if let Err(error) = connection.execute(&update, rusqlite::params![value, row]) {
-            eprintln!("refs: kept {table}.{column} row {row}: {error}");
+    for (row_id, value) in moved {
+        if let Err(error) = connection.execute(&update, rusqlite::params![value, row_id]) {
+            eprintln!("refs: kept {table}.{column} row {row_id}: {error}");
         }
     }
 }
