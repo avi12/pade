@@ -10,6 +10,8 @@
   import { prefs } from "@/lib/settings/settings.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { type Agent, type ConfigFile, PacingMode, ThemeMode } from "@/lib/types";
+  import Checkbox from "@/lib/ui/Checkbox.svelte";
+  import Segmented from "@/lib/ui/Segmented.svelte";
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
   import { formatPercent } from "@/lib/util/format";
   import { HandoffPercent, parseInput } from "@/lib/validate";
@@ -44,19 +46,19 @@
   });
   const namingScopes = [
     {
-      choice: undefined,
+      value: undefined,
       label: "Global"
     },
     {
-      choice: true,
+      value: true,
       label: "On"
     },
     {
-      choice: false,
+      value: false,
       label: "Off"
     }
   ] as const satisfies readonly {
-    choice: boolean | undefined;
+    value: boolean | undefined;
     label: string;
   }[];
 
@@ -75,49 +77,49 @@
   // updatePrefs (merge → apply → save through the shared store).
   const themeOptions = [
     {
-      mode: ThemeMode.enum.light,
+      value: ThemeMode.enum.light,
       label: "Light",
       icon: "sun"
     },
     {
-      mode: ThemeMode.enum.dark,
+      value: ThemeMode.enum.dark,
       label: "Dark",
       icon: "moon"
     },
     {
-      mode: ThemeMode.enum.system,
+      value: ThemeMode.enum.system,
       label: "Auto",
       icon: "monitor"
     },
     {
-      mode: ThemeMode.enum.cyberpunk,
+      value: ThemeMode.enum.cyberpunk,
       label: "Cyberpunk",
       icon: "bolt"
     }
   ] as const satisfies readonly {
-    mode: ThemeMode;
+    value: ThemeMode;
     label: string;
     icon: IconName;
   }[];
 
   const pacingOptions = [
     {
-      mode: PacingMode.enum.ask,
+      value: PacingMode.enum.ask,
       label: "Ask me",
       icon: "clock"
     },
     {
-      mode: PacingMode.enum.continue,
+      value: PacingMode.enum.continue,
       label: "Continue",
       icon: "refresh"
     },
     {
-      mode: PacingMode.enum.off,
+      value: PacingMode.enum.off,
       label: "Off",
       icon: "close"
     }
   ] as const satisfies readonly {
-    mode: PacingMode;
+    value: PacingMode;
     label: string;
     icon: IconName;
   }[];
@@ -250,18 +252,13 @@
 
       <div class="field">
         <span class="field-label">Theme</span>
-        <div class="segmented" aria-label="Theme" role="group">
-          {#each themeOptions as option (option.mode)}
-            <button
-              class="option"
-              class:on={effective.themeMode === option.mode}
-              aria-pressed={effective.themeMode === option.mode}
-              onclick={() => chooseThemeMode(option.mode)}
-            >
-              <Icon name={option.icon} />
-              <span>{option.label}</span>
-            </button>
-          {/each}
+        <div class="theme-choices">
+          <Segmented
+            chosen={effective.themeMode}
+            label="Theme"
+            onchoose={chooseThemeMode}
+            options={themeOptions}
+          />
         </div>
       </div>
 
@@ -353,19 +350,12 @@
             continues - and always continues just before the reset
           </span>
         </span>
-        <div class="segmented" aria-label="Usage pacing" role="group">
-          {#each pacingOptions as option (option.mode)}
-            <button
-              class="option"
-              class:on={effective.pacingMode === option.mode}
-              aria-pressed={effective.pacingMode === option.mode}
-              onclick={() => updatePrefs({ usagePacing: option.mode })}
-            >
-              <Icon name={option.icon} />
-              <span>{option.label}</span>
-            </button>
-          {/each}
-        </div>
+        <Segmented
+          chosen={effective.pacingMode}
+          label="Usage pacing"
+          onchoose={mode => updatePrefs({ usagePacing: mode })}
+          options={pacingOptions}
+        />
       </div>
     </section>
 
@@ -378,15 +368,13 @@
             Each tab is renamed from what its agent is doing, refreshed while it works
           </span>
         </span>
-        <div class="segmented naming-scope" aria-label="Name tabs with AI, in this project" role="group">
-          {#each namingScopes as scope (scope.label)}
-            <button
-              class="option"
-              class:on={namingChoice === scope.choice}
-              aria-pressed={namingChoice === scope.choice}
-              onclick={async () => await chooseNamingScope(scope.choice)}
-            >{scope.label}</button>
-          {/each}
+        <div class="naming-scope">
+          <Segmented
+            chosen={namingChoice}
+            label="Name tabs with AI, in this project"
+            onchoose={async choice => await chooseNamingScope(choice)}
+            options={namingScopes}
+          />
         </div>
       </div>
       <p class="field-hint">
@@ -412,14 +400,7 @@
       <h3 class="card-label">Performance</h3>
       <div class="software-render-row">
         <label class="software-render-check">
-          <span class="checkbox">
-            <input
-              checked={effective.softwareRender}
-              onchange={e => updatePrefs({ softwareRender: e.currentTarget.checked })}
-              type="checkbox"
-            />
-            <span class="box" aria-hidden="true"><Icon name="check" /></span>
-          </span>
+          <Checkbox checked={effective.softwareRender} onchange={checked => updatePrefs({ softwareRender: checked })} />
           <span class="field-text">
             <span class="field-label">Software rendering</span>
             <span class="field-hint">Frees the GPU for games. Applies after restart</span>
@@ -436,29 +417,18 @@
     <section class="discord">
       <h3 class="card-label">Discord</h3>
       <label class="check">
-        <span class="checkbox">
-          <input
-            checked={effective.discordPresence}
-            onchange={e => updatePrefs({ discordPresence: e.currentTarget.checked })}
-            type="checkbox"
-          />
-          <span class="box" aria-hidden="true"><Icon name="check" /></span>
-        </span>
+        <Checkbox checked={effective.discordPresence} onchange={checked => updatePrefs({ discordPresence: checked })} />
         <span class="field-text">
           <span class="field-label">Show my activity</span>
           <span class="field-hint">Reports “Playing PADE” on your Discord profile</span>
         </span>
       </label>
       <label class="check" class:disabled={!effective.discordPresence}>
-        <span class="checkbox">
-          <input
-            checked={effective.discordShowProject}
-            disabled={!effective.discordPresence}
-            onchange={e => updatePrefs({ discordShowProject: e.currentTarget.checked })}
-            type="checkbox"
-          />
-          <span class="box" aria-hidden="true"><Icon name="check" /></span>
-        </span>
+        <Checkbox
+          checked={effective.discordShowProject}
+          disabled={!effective.discordPresence}
+          onchange={checked => updatePrefs({ discordShowProject: checked })}
+        />
         <span class="field-text">
           <span class="field-label">Include the project name</span>
           <span class="field-hint">Adds the open project and its language icon</span>
@@ -567,7 +537,6 @@
        them would read as three settings rather than one choice. */
     .naming-scope {
       flex: none;
-      grid-template-columns: repeat(3, 1fr);
       min-inline-size: 170px;
     }
   }
@@ -644,55 +613,20 @@
     gap: 7px;
   }
 
-  /* Theme - segmented single-select (buttons + aria-pressed, per the app's
-     shared segmented pattern). */
-  .segmented {
-    /* Four themes: a 2×2 block, and one row once there is room for four
-       labels. Both sides are container queries, mutually exclusive, because
-       a plain fallback declaration would sit AFTER the nested at-rule and
-       win over it. Asked of the card, not the viewport - the side panel is
-       drag-resizable, so a media query would answer about the wrong box. */
+  /* Four themes: a 2×2 block, and one row once there is room for four labels.
+     Both sides are container queries, mutually exclusive, because a plain
+     fallback declaration would sit AFTER the nested at-rule and win over it.
+     Asked of the card, not the viewport - the side panel is drag-resizable, so a
+     media query would answer about the wrong box. */
+  .theme-choices {
     @container (inline-size < 460px) {
-      grid-template-columns: repeat(2, 1fr);
+      --segmented-columns: repeat(2, 1fr);
+      --segmented-flow: row;
     }
 
     @container (inline-size >= 460px) {
-      grid-template-columns: repeat(4, 1fr);
-    }
-
-    display: grid;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 12px;
-    background: var(--surface-2);
-
-    .option {
-      display: inline-flex;
-      gap: 6px;
-      justify-content: center;
-      align-items: center;
-      padding: 7px 8px;
-      border: none;
-      border-radius: 9px;
-      background: transparent;
-      color: var(--on-surface-variant);
-      font: inherit;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-      transition:
-        background 200ms var(--ease),
-        color 200ms var(--ease);
-
-      &:hover:not(.on) {
-        background: var(--surface-3);
-        color: var(--on-surface);
-      }
-    }
-
-    .on {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
+      --segmented-columns: repeat(4, 1fr);
+      --segmented-flow: row;
     }
   }
 
