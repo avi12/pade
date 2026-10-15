@@ -21,17 +21,18 @@ name = "contextmenu_handler"
 crate-type = ["cdylib"]
 
 [dependencies]
-# windows-rs, pinned to the same 0.61 already in the lockfile via Tauri so no
-# second copy of the crate is compiled (minimize-dependencies). Only the features
-# this handler actually calls are enabled, to keep the compile lean.
+# windows-rs, pinned to the same 0.62 already in the lockfile via Tauri/wry and
+# webview2-com so no second copy of the crate is compiled (minimize-dependencies).
+# Only the features this handler actually calls are enabled, to keep the compile
+# lean.
 #   windows-core       - core COM types (GUID/HRESULT/Interface/Ref/PWSTR).
 #   windows-implement  - the #[implement] COM-vtable macro (its generated code
 #                        references windows_core). Neither the `windows` umbrella
-#                        nor `windows-core` 0.61 expose the macro via a feature, so
+#                        nor `windows-core` 0.62 expose the macro via a feature, so
 #                        it is pulled in directly. Versions match the lockfile
-#                        (windows-core 0.61 already depends on windows-implement
+#                        (windows-core 0.62 already depends on windows-implement
 #                        0.60), so no extra copies compile.
-windows-core = "0.61"
+windows-core = "0.62"
 windows-implement = "0.60"
 #   Win32_Foundation         - HRESULT/BOOL/HMODULE + the S_*/E_*/CLASS_E_* codes
 #   Win32_System_Com         - IClassFactory, IBindCtx, CoTaskMemFree
@@ -39,7 +40,7 @@ windows-implement = "0.60"
 #   Win32_System_LibraryLoader - GetModuleFileNameW, to find pade.exe next to us
 #   Win32_System_Registry    - RegGetValueW, to read the app's show/hide flag so the
 #                              handler can hide itself when the toggle is off
-windows = { version = "0.61", features = [
+windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_System_Com",
     "Win32_UI_Shell",
