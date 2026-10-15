@@ -1,27 +1,49 @@
 <script lang="ts">
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { displayName } from "@/lib/paths";
-  import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
 
-  // The delete confirmation for the workspace a row menu asked to remove.
-  const { path, lifecycle, labels }: {
+  // The confirmation before a project folder is deleted from disk - raised by the
+  // picker's row menus and by the app menu's switcher. The caller owns the work:
+  // it passes `isBusy` while the removal runs and `error` when it fails.
+  const {
+    path,
+    labels,
+    title,
+    confirmLabel,
+    isBusy,
+    error,
+    isNested = false,
+    isSkipTipShown = false,
+    oncancel,
+    onconfirm
+  }: {
     path: string;
-    lifecycle: WorkspaceLifecycle;
     /** Friendly display labels per path - the one source every row reads. */
     labels: Record<string, string>;
+    title: string;
+    confirmLabel: string;
+    isBusy: boolean;
+    error: string | null;
+    /** Opened inside an already-open menu popover (see ConfirmDialog). */
+    isNested?: boolean;
+    /** The caller honours Shift-click on Delete as "skip this next time". */
+    isSkipTipShown?: boolean;
+    oncancel: () => void;
+    onconfirm: () => Promise<void>;
   } = $props();
 </script>
 
 <ConfirmDialog
-  busy={lifecycle.isDeleting}
+  busy={isBusy}
   busyLabel="Deleting…"
-  confirmLabel="Delete workspace"
+  {confirmLabel}
   danger
-  error={lifecycle.deleteError}
+  {error}
   icon="trash"
-  oncancel={() => lifecycle.cancelDelete()}
-  onconfirm={async () => await lifecycle.confirmDelete()}
-  title="Delete this workspace?"
+  nested={isNested}
+  {oncancel}
+  {onconfirm}
+  {title}
 >
   <div class="delete-body">
     <p>The folder and everything inside it is removed from disk. This can’t be undone</p>
@@ -32,7 +54,9 @@
       })}</span>
       <code>{path}</code>
     </p>
-    <p class="tip">Hold <kbd>Shift</kbd> when clicking Delete to skip this next time</p>
+    {#if isSkipTipShown}
+      <p class="tip">Hold <kbd>Shift</kbd> when clicking Delete to skip this next time</p>
+    {/if}
   </div>
 </ConfirmDialog>
 

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { vcs, windows } from "@/lib/bridge";
-  import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { Axis, beginReorder } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
   import { Key } from "@/lib/keys";
@@ -22,6 +21,7 @@
   import { WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import type { Relocator } from "@/lib/workspace-relocate";
+  import WorkspaceDeleteDialog from "@/lib/WorkspaceDeleteDialog.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 
@@ -771,14 +771,12 @@
          the folder and the refreshed list animates the row out. -->
     {#if deleteTarget}
       {@const target = deleteTarget}
-      <ConfirmDialog
-        busy={isDeleting}
-        busyLabel="Deleting…"
+      <WorkspaceDeleteDialog
         confirmLabel="Delete directory"
-        danger
         error={deleteError}
-        icon="trash"
-        nested
+        isBusy={isDeleting}
+        isNested
+        {labels}
         oncancel={() => {
           if (isDeleting) {
             return;
@@ -799,19 +797,9 @@
             isDeleting = false;
           }
         }}
+        path={target}
         title="Delete this project directory?"
-      >
-        <div class="directory-delete-body">
-          <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
-          <p class="target">
-            <span class="target-name">{displayName({
-              path: target,
-              labels
-            })}</span>
-            <code>{target}</code>
-          </p>
-        </div>
-      </ConfirmDialog>
+      />
     {/if}
 
     {#if relabelTarget}
@@ -1420,37 +1408,6 @@
     &:hover .kbd,
     &:focus-visible .kbd {
       color: inherit;
-    }
-  }
-
-  /* Body of the "Delete directory" confirmation (chrome is ConfirmDialog's). */
-  .directory-delete-body {
-    p {
-      margin: 0;
-    }
-
-    .target {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-block-start: 14px;
-      padding: 10px 12px;
-      border-radius: var(--radius-medium);
-      background: var(--surface-2);
-    }
-
-    .target-name {
-      color: var(--on-surface);
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    code {
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 11px;
-      overflow-wrap: anywhere;
     }
   }
 </style>

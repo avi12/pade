@@ -1,8 +1,8 @@
 <script lang="ts">
   import RelabelDialog from "@/lib/RelabelDialog.svelte";
   import RenameFolderDialog from "@/lib/RenameFolderDialog.svelte";
+  import WorkspaceDeleteDialog from "@/lib/WorkspaceDeleteDialog.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
-  import WorkspaceDeleteDialog from "@/panels/picker/WorkspaceDeleteDialog.svelte";
 
   // The workspace lifecycle's prompts, raised from either list's row menu: the
   // delete confirmation, the folder rename and the PADE-only relabel. One of
@@ -17,7 +17,17 @@
 </script>
 
 {#if lifecycle.deleteTarget}
-  <WorkspaceDeleteDialog {labels} {lifecycle} path={lifecycle.deleteTarget} />
+  <WorkspaceDeleteDialog
+    confirmLabel="Delete workspace"
+    error={lifecycle.deleteError}
+    isBusy={lifecycle.isDeleting}
+    isSkipTipShown
+    {labels}
+    oncancel={() => lifecycle.cancelDelete()}
+    onconfirm={async () => await lifecycle.confirmDelete()}
+    path={lifecycle.deleteTarget}
+    title="Delete this workspace?"
+  />
 {/if}
 
 {#if lifecycle.renameFolderTarget}
