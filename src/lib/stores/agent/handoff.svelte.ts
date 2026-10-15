@@ -18,12 +18,13 @@
 // handoff exists to keep, so the request goes in mid-turn - the agent picks it
 // up between steps - and the session ends once the doc is on disk.
 
+import { submitPastedPrompt } from "@/lib/agent/submit-prompt";
 import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
 import { compactionHeadroom, dropContext, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/session/sessions.svelte";
-import { pastedText, PROMPT_SUBMIT, submittedPrompt } from "@/lib/terminal/terminal-input";
+import { submittedPrompt } from "@/lib/terminal/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
 import type { Agent, AgentSession } from "@/lib/types";
 import { USAGE_SPENT_PERCENTAGE } from "@/lib/usage/usage-groups";
@@ -39,16 +40,6 @@ const HANDOFF_SETTLE_MS = 3_000;
 // for a doc the change feed ignores (so the cycle proceeds seconds after the
 // write, not on the full timeout).
 const HANDOFF_DOC_POLL_MS = 1_000;
-// After pasting the request, let the composer SETTLE, then re-send the submitting
-// Enter until the agent is seen working. A TUI's post-paste guard swallows any
-// Enter that arrives in the same burst as the paste - and Codex's guard outlasts a
-// rapid retry burst (all four back-to-back Enters were eaten, leaving the request
-// unsent in the composer). A settled composer submits on a single Enter (verified
-// live), so wait out the paste before the first one, then retry - Enter only,
-// never re-pasting - over a window wide enough for the slower guard.
-const HANDOFF_SUBMIT_SETTLE_MS = 1_200;
-const HANDOFF_SUBMIT_ATTEMPTS = 6;
-const HANDOFF_SUBMIT_CONFIRM_MS = 1_500;
 // How often the successor is checked for having finished its first turn (the
 // doc is certainly consumed by then), and how long before we stop watching.
 const SUCCESSOR_POLL_MS = 3_000;
@@ -510,40 +501,19 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
-  // Deliver the request as a paste, let it settle, then submit with a SEPARATE
-  // Enter - re-sent until the agent starts working. A TUI guards against the Enter
-  // that immediately follows a bracketed paste (so a pasted multi-line block isn't
-  // submitted by accident); Codex's guard outlasts a back-to-back retry burst, so
-  // a one-shot paste+CR (or a rapid CR flurry) leaves the request unsent in the
-  // composer. Waiting out the paste first, then re-sending only the Enter, clears
-  // the guard without duplicating the pasted text.
   async function submitHandoffRequest({ session, doc, reason }: {
     session: AgentSession;
     doc: string;
     reason: HandoffReason;
   }) {
-    await sendMessage(Command.ptyWrite, {
+    await submitPastedPrompt({
       id: session.id,
-      data: pastedText(
-        handoffRequestBody({
-          doc,
-          reason
-        })
-      )
+      text: handoffRequestBody({
+        doc,
+        reason
+      }),
+      wait: afterDelay
     });
-    await afterDelay(HANDOFF_SUBMIT_SETTLE_MS);
-
-    for (let attempt = 0; attempt < HANDOFF_SUBMIT_ATTEMPTS; attempt += 1) {
-      await sendMessage(Command.ptyWrite, {
-        id: session.id,
-        data: PROMPT_SUBMIT
-      });
-      await afterDelay(HANDOFF_SUBMIT_CONFIRM_MS);
-
-      if (sessionStatus(session.id) === SessionStatus.enum.working) {
-        return;
-      }
-    }
   }
 
   // Hold the handoff until the agent reports no work in flight, so ending the
