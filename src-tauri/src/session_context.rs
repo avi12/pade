@@ -30,8 +30,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::agents::ID_CLAUDE;
-use crate::resume::json_string_field;
-use crate::util::{home_dir, newest_in_tail};
+use crate::util::{home_dir, json_string_field, newest_in_tail};
 
 /// The live model catalog. Public, unauthenticated JSON: provider → model id →
 /// `limit.context` (the window in tokens).

@@ -13,7 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use crate::agents::{program, ID_CODEX, ID_OPENCODE};
-use crate::util::{command, home_dir};
+use crate::util::{command, home_dir, json_string_field};
 
 /// The rollout file extension and the `session_meta` fields read off its first
 /// line.
@@ -112,16 +112,6 @@ fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<Strin
     }
 
     json_string_field(metadata_line, SESSION_ID_FIELD)
-}
-
-/// The raw value of the first `"key":"value"` occurrence in `json`. Enough for
-/// the flat string fields the meta line carries; escaped quotes inside values
-/// don't occur in ids and the cwd's escaped backslashes are undone by the caller.
-pub(crate) fn json_string_field(json: &str, key: &str) -> Option<String> {
-    let marker = format!("\"{key}\":\"");
-    let start = json.find(&marker)? + marker.len();
-    let end = json[start..].find('"')?;
-    Some(json[start..start + end].to_string())
 }
 
 /// How long the `opencode db` lookup may take before ADE gives up and spawns a
@@ -233,7 +223,8 @@ pub async fn agent_resume_args(
 
 #[cfg(test)]
 mod tests {
-    use super::{interactive_session_id, json_string_field, normalized};
+    use super::{interactive_session_id, normalized};
+    use crate::util::json_string_field;
 
     const META: &str = r#"{"timestamp":"t","type":"session_meta","payload":{"session_id":"019f-abc","id":"019f-abc","cwd":"C:\\repositories\\avi\\proj","originator":"codex_exec","cli_version":"0.144.5","source":"exec"}}"#;
 

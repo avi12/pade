@@ -437,6 +437,18 @@ pub fn read_json(path: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&raw).ok()
 }
 
+/// The raw value of the first `"key":"value"` occurrence in `json`, without a
+/// full parse - for a JSON line too large or too private to model with serde
+/// (a Codex rollout's meta line, a transcript entry) when only a flat string
+/// field is wanted. Escaped quotes inside the value are not handled; escaped
+/// backslashes come back still escaped, for the caller to undo.
+pub(crate) fn json_string_field(json: &str, key: &str) -> Option<String> {
+    let marker = format!("\"{key}\":\"");
+    let start = json.find(&marker)? + marker.len();
+    let end = json[start..].find('"')?;
+    Some(json[start..start + end].to_string())
+}
+
 /// Read a JSONC file - the dialect Windows Terminal and VS Code write, where
 /// `//` and `/* … */` comments and a trailing comma before a closing brace or
 /// bracket are all legal. `read_json` is the right reader for strict JSON; this
