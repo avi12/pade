@@ -4,6 +4,7 @@
 
 import { feed, tasks } from "@/lib/bridge";
 import { baseName } from "@/lib/paths";
+import { ManifestMatch } from "@/lib/types";
 import type { TaskGroup, TaskManifestDescriptor } from "@/lib/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
@@ -36,7 +37,7 @@ function isManifestPath({ descriptors, path }: {
   const name = baseName(path).toLowerCase();
   return descriptors.some(descriptor => {
     const value = descriptor.value.toLowerCase();
-    return descriptor.match === "name" ? name === value : name.endsWith(value);
+    return descriptor.match === ManifestMatch.enum.name ? name === value : name.endsWith(value);
   });
 }
 

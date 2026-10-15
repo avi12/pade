@@ -237,7 +237,7 @@ export type TaskGroup = z.infer<typeof TaskGroup>;
  *  (`package.json`) or an extension (`.csproj`). The panel lists these in its
  *  empty state, and the catalog matches a changed path against them the same
  *  way the backend matches a directory entry. */
-const ManifestMatch = z.enum(["name", "extension"]);
+export const ManifestMatch = z.enum(["name", "extension"]);
 
 export const TaskManifestDescriptor = z.discriminatedUnion("match", [
   z.object({

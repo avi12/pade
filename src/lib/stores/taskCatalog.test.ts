@@ -1,6 +1,6 @@
 import { createTaskCatalog } from "@/lib/stores/taskCatalog.svelte";
 import { knownTaskCommands, taskKey } from "@/lib/stores/taskRuns.svelte";
-import { type TaskGroup, TaskManifestDescriptor } from "@/lib/types";
+import { ManifestMatch, type TaskGroup, TaskManifestDescriptor } from "@/lib/types";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/bridge", () => ({
@@ -110,11 +110,11 @@ describe("task catalog", () => {
     const catalog = createTaskCatalog({
       descriptors: async () => [
         {
-          match: "name",
+          match: ManifestMatch.enum.name,
           value: "package.json"
         },
         {
-          match: "extension",
+          match: ManifestMatch.enum.extension,
           value: ".csproj"
         }
       ],
@@ -146,24 +146,24 @@ describe("task catalog", () => {
   it("validates descriptor fields at the frontend boundary", () => {
     expect(
       TaskManifestDescriptor.parse({
-        match: "name",
+        match: ManifestMatch.enum.name,
         value: "Makefile"
       })
     ).toEqual({
-      match: "name",
+      match: ManifestMatch.enum.name,
       value: "Makefile"
     });
     expect(
       TaskManifestDescriptor.parse({
-        match: "extension",
+        match: ManifestMatch.enum.extension,
         value: ".csproj"
       })
     ).toEqual({
-      match: "extension",
+      match: ManifestMatch.enum.extension,
       value: ".csproj"
     });
     expect(() => TaskManifestDescriptor.parse({
-      match: "name",
+      match: ManifestMatch.enum.name,
       value: ""
     })).toThrow();
     expect(() => TaskManifestDescriptor.parse({
@@ -177,7 +177,7 @@ describe("task catalog", () => {
     let activeListeners = 0;
     const catalog = createTaskCatalog({
       descriptors: async () => [{
-        match: "name",
+        match: ManifestMatch.enum.name,
         value: "Makefile"
       }],
       list: async () => [],
