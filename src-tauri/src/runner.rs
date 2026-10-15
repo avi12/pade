@@ -128,9 +128,11 @@ enum RunnerStream {
 /// One captured line of output from a runner.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct RunnerData {
-    id: String,
-    data: String,
+struct RunnerData<'a> {
+    /// Borrowed, so a line is emitted without copying the runner id or the
+    /// text the reader already holds.
+    id: &'a str,
+    data: &'a str,
     /// Which stream the line came from.
     stream: RunnerStream,
 }
@@ -208,8 +210,8 @@ fn pump_stream<R: BufRead>(
             &owner,
             RUNNER_DATA_EVENT,
             RunnerData {
-                id: id.clone(),
-                data: last_carriage_frame(&data).to_string(),
+                id: &id,
+                data: last_carriage_frame(&data),
                 stream,
             },
         );
@@ -406,7 +408,22 @@ pub fn init(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::last_carriage_frame;
+    use super::{last_carriage_frame, RunnerData, RunnerStream};
+
+    /// The `runner://data` payload is the frontend contract; borrowing its
+    /// fields must not change the wire shape.
+    #[test]
+    fn a_runner_line_serializes_as_id_data_and_stream() {
+        let line = RunnerData {
+            id: "dev",
+            data: "ready",
+            stream: RunnerStream::Stderr,
+        };
+        assert_eq!(
+            serde_json::to_value(&line).expect("serializable"),
+            serde_json::json!({ "id": "dev", "data": "ready", "stream": "stderr" })
+        );
+    }
 
     #[test]
     fn keeps_the_last_frame_of_a_carriage_return_progress_line() {
