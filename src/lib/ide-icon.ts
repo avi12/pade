@@ -57,6 +57,13 @@ const ALIAS_IDS: Record<string, IdeId> = {
 
 // Console editors have no brand mark or tint - they get the terminal glyph.
 const CONSOLE_EDITOR_NAMES = ["nvim", "hx", "vim"] as const;
+const CONSOLE_EDITOR_ICON: IconName = "terminal";
+
+/** The lower-cased executable basename of a user-added editor's
+ *  `added-<exe>` id, or null for a detected editor's id. */
+function addedBasename(id: string) {
+  return id.startsWith(ADDED_PREFIX) ? id.slice(ADDED_PREFIX.length).toLowerCase() : null;
+}
 
 /** The canonical editor id behind a detected or user-added id - `added-<exe>`
  *  basenames carry version/bit suffixes (`webstorm64`) and often contain the
@@ -68,11 +75,11 @@ function canonicalIdeId(id: string) {
     return direct;
   }
 
-  if (!id.startsWith(ADDED_PREFIX)) {
+  const basename = addedBasename(id);
+  if (basename === null) {
     return null;
   }
 
-  const basename = id.slice(ADDED_PREFIX.length).toLowerCase();
   const known = Object.values(IdeId).find(value => basename.includes(value));
   if (known) {
     return known;
@@ -89,9 +96,9 @@ export function ideIcon(id: string) {
     return IDE_ICONS[canonical];
   }
 
-  const basename = id.startsWith(ADDED_PREFIX) ? id.slice(ADDED_PREFIX.length).toLowerCase() : "";
+  const basename = addedBasename(id) ?? "";
   const isConsoleEditor = CONSOLE_EDITOR_NAMES.some(name => basename.includes(name));
-  return isConsoleEditor ? "terminal" : FALLBACK_ICON;
+  return isConsoleEditor ? CONSOLE_EDITOR_ICON : FALLBACK_ICON;
 }
 
 /** The editor's brand-tint key (theme.css `[data-brand]`) - the canonical id.

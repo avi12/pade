@@ -39,6 +39,7 @@ const FALLBACK_ICON: IconName = "code";
 // not JavaScript. It's a language narrowing, not a project KIND, so it maps here
 // rather than polluting the `ProjectKind`-keyed map above.
 const TYPESCRIPT_KEY = "typescript";
+const TYPESCRIPT_ICON: IconName = "typescript";
 
 function isProjectKind(value: string): value is ProjectKind {
   return Object.hasOwn(PROJECT_KIND_ICONS, value);
@@ -52,5 +53,5 @@ export function languageIcon(kind: string) {
     return PROJECT_KIND_ICONS[kind];
   }
 
-  return kind === TYPESCRIPT_KEY ? "typescript" : FALLBACK_ICON;
+  return kind === TYPESCRIPT_KEY ? TYPESCRIPT_ICON : FALLBACK_ICON;
 }

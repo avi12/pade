@@ -28,6 +28,7 @@ export function formatTimestamp(epochMilliseconds: number) {
   return TIMESTAMP.format(new Date(epochMilliseconds));
 }
 
+const MILLISECONDS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
@@ -40,7 +41,7 @@ export function formatAge({ stamp, now }: {
   stamp: number;
   now: number;
 }) {
-  const seconds = Math.max(0, Math.round((now - stamp) / 1000));
+  const seconds = Math.max(0, Math.round((now - stamp) / MILLISECONDS_PER_SECOND));
   if (seconds < SECONDS_PER_MINUTE) {
     return `${formatCount(seconds)}s`;
   }

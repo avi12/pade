@@ -4,9 +4,13 @@
 // through the file's OWN token definitions first, then the running app's computed
 // styles, so the swatch shows the real, accurate color.
 
-const VAR_REF = /^var\(\s*(--[\w-]+)\s*\)$/;
+const VAR_REFERENCE = /^var\(\s*(--[\w-]+)\s*\)$/;
+const VAR_PREFIX = "var(";
+const TOKEN_DEFINITION = /(--[\w-]+)\s*:\s*([^;{}]+);/g;
+const NUMERIC_COMPONENT = /[\d.]+/g;
 const MAX_TRACE_DEPTH = 8;
 export const OPAQUE_ALPHA = 1;
+const TRANSPARENT_ALPHA = 0;
 const COMPONENTS_BEFORE_ALPHA = 3;
 
 /** The alpha of a computed color, so a caller can tell an opaque surface from a
@@ -14,9 +18,9 @@ const COMPONENTS_BEFORE_ALPHA = 3;
  *  opaque, `rgba(…, a)` / `color(srgb … / a)` carry it fourth, and `transparent`
  *  (or any value without numeric components) is fully clear. */
 export function colorAlpha(color: string) {
-  const components = color.match(/[\d.]+/g);
+  const components = color.match(NUMERIC_COMPONENT);
   if (!components) {
-    return 0;
+    return TRANSPARENT_ALPHA;
   }
 
   if (components.length <= COMPONENTS_BEFORE_ALPHA) {
@@ -35,19 +39,19 @@ function isColor(value: string) {
 /** Parse a `--name: value;` token map out of stylesheet-ish text, so a file that
  *  defines its own tokens (e.g. a theme.css) traces against itself first. */
 export function collectVars(text: string) {
-  const vars = new Map<string, string>();
-  for (const match of text.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)) {
-    vars.set(match[1].trim(), match[2].trim());
+  const variables = new Map<string, string>();
+  for (const match of text.matchAll(TOKEN_DEFINITION)) {
+    variables.set(match[1].trim(), match[2].trim());
   }
-  return vars;
+  return variables;
 }
 
 /** Resolve a color token to a concrete CSS color for a swatch, or `null` when it
- *  isn't a real color. Traces `var(--x)` through `vars` then the app's computed
- *  styles, following nested vars up to a small depth. */
+ *  isn't a real color. Traces `var(--x)` through `variables` then the app's
+ *  computed styles, following nested vars up to a small depth. */
 export function resolveColor(
   token: string,
-  vars?: Map<string, string>,
+  variables?: Map<string, string>,
   depth = 0
 ) {
   if (depth > MAX_TRACE_DEPTH) {
@@ -55,14 +59,15 @@ export function resolveColor(
   }
 
   const trimmed = token.trim();
-  const reference = VAR_REF.exec(trimmed);
+  const reference = VAR_REFERENCE.exec(trimmed);
   if (!reference) {
     return isColor(trimmed) ? trimmed : null;
   }
 
   const name = reference[1];
-  let value = vars?.get(name)?.trim() ?? "";
-  if (!value && typeof document !== "undefined") {
+  let value = variables?.get(name)?.trim() ?? "";
+  const isDocumentAvailable = typeof document !== "undefined";
+  if (!value && isDocumentAvailable) {
     value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
@@ -71,16 +76,19 @@ export function resolveColor(
   }
 
   // The resolved value may itself be another var reference - follow it.
-  if (value.startsWith("var(")) {
-    return resolveColor(value, vars, depth + 1);
+  if (value.startsWith(VAR_PREFIX)) {
+    return resolveColor(value, variables, depth + 1);
   }
 
   return isColor(value) ? value : null;
 }
 
-/** Where sRGB's transfer curve switches from its linear toe to the power
- *  segment, and the exponent of that segment - both straight from WCAG 2.x. */
+/** sRGB's transfer curve, straight from WCAG 2.x: a linear toe (divided by its
+ *  slope) up to the toe limit, then an offset-and-scaled power segment. */
 const GAMMA_TOE_LIMIT = 0.03928;
+const GAMMA_TOE_SLOPE = 12.92;
+const GAMMA_OFFSET = 0.055;
+const GAMMA_SCALE = 1.055;
 const GAMMA_EXPONENT = 2.4;
 
 /** Channel weights for relative luminance: the eye's sensitivity to red, green
@@ -90,7 +98,9 @@ const GREEN_WEIGHT = 0.7152;
 const BLUE_WEIGHT = 0.0722;
 
 const HEX_COLOR = /^#([\da-f]{3}|[\da-f]{6})$/i;
+const ANY_CHARACTER = /./g;
 const SHORT_HEX_LENGTH = 3;
+const HEX_DIGITS_PER_CHANNEL = 2;
 const HEX_RADIX = 16;
 const CHANNEL_MAX = 255;
 
@@ -98,8 +108,8 @@ const CHANNEL_MAX = 255;
 function linearChannel(byte: number) {
   const value = byte / CHANNEL_MAX;
   return value <= GAMMA_TOE_LIMIT
-    ? value / 12.92
-    : ((value + 0.055) / 1.055) ** GAMMA_EXPONENT;
+    ? value / GAMMA_TOE_SLOPE
+    : ((value + GAMMA_OFFSET) / GAMMA_SCALE) ** GAMMA_EXPONENT;
 }
 
 /** WCAG relative luminance (0 = black, 1 = white) of a `#rgb`/`#rrggbb` colour,
@@ -114,10 +124,11 @@ export function hexLuminance(hex: string) {
 
   const digits = match[1];
   const expanded =
-    digits.length === SHORT_HEX_LENGTH ? digits.replaceAll(/./g, digit => digit + digit) : digits;
+    digits.length === SHORT_HEX_LENGTH ? digits.replaceAll(ANY_CHARACTER, digit => digit + digit) : digits;
 
-  function channel(index: number) {
-    return linearChannel(parseInt(expanded.slice(index * 2, index * 2 + 2), HEX_RADIX));
+  function channel(iChannel: number) {
+    const start = iChannel * HEX_DIGITS_PER_CHANNEL;
+    return linearChannel(parseInt(expanded.slice(start, start + HEX_DIGITS_PER_CHANNEL), HEX_RADIX));
   }
 
   return RED_WEIGHT * channel(0) + GREEN_WEIGHT * channel(1) + BLUE_WEIGHT * channel(2);
