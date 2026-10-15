@@ -1,32 +1,34 @@
 //! Move-directory reference updater.
 //!
 //! When PADE moves a workspace folder (`old` path → `new` path), external tools
-//! that remember the old absolute path — the Claude Code transcript dir, the
-//! `JetBrains` / VS Code / Cursor "recent projects" lists — would silently lose
-//! the project. This module re-points those references so the linked tools keep
-//! working.
+//! that remember the old absolute path — each agent's memory of the project
+//! (see `agents`), the `JetBrains` / VS Code / Cursor "recent projects" lists —
+//! would silently lose the project. This module re-points those references so
+//! the linked tools keep working.
 //!
 //! It is strictly **best-effort**: every adapter swallows its own errors (a
 //! missing, absent, or locked file must never fail the move). We only ever touch
 //! data the tool already persisted locally — no network, no CLI.
 //!
-//! Gating: the Claude transcript rename is self-gated ("old encoded dir exists,
-//! new does not"). Each IDE adapter runs only when the moved directory actually
-//! carries that IDE's marker dir (e.g. `<new>/.idea`, `<new>/.vscode`), so we
-//! never rewrite recents for an IDE the project was never opened in. The IDE
-//! adapters are additionally Windows-only (that's where PADE ships); off-Windows
-//! they are no-ops so the crate still compiles everywhere.
+//! Gating: the agent adapters touch only entries for the moved folder or
+//! something inside it. Each IDE adapter runs only when the moved directory
+//! actually carries that IDE's marker dir (e.g. `<new>/.idea`, `<new>/.vscode`),
+//! so we never rewrite recents for an IDE the project was never opened in. The
+//! IDE adapters are additionally Windows-only (that's where PADE ships);
+//! off-Windows they are no-ops so the crate still compiles everywhere.
+
+mod agents;
 
 use std::path::Path;
 
-use crate::util::{encode_project, home_dir, is_on_path};
+use crate::util::is_on_path;
 
 /// Best-effort: re-point every external reference from `old` to `new` (absolute
 /// dir paths). Per-adapter errors are logged and ignored — one failing tool must
 /// never abort the others or the move itself.
 pub fn update_references(old: &str, new: &str) {
     let new_dir = Path::new(new);
-    rename_agent_memory(old, new);
+    agents::relocate_memories(old, new);
     rewrite_ide_recents(new_dir, old, new);
     fix_project_symlinks(new_dir, old, new);
     reconcile_package_manager(new_dir);
@@ -54,89 +56,85 @@ fn vscode_uri(path: &str) -> String {
     output
 }
 
-/// Replace every stored form of `old` with `new` in one pass: the raw
-/// (backslash) path, the forward-slash path, and the VS Code file-URI form.
-/// Reused across adapters so each stores paths its own way without repeating the
-/// substitution logic (DRY).
-fn replace_all_forms(haystack: &str, old: &str, new: &str) -> String {
-    haystack
-        .replace(old, new)
-        .replace(&old.replace('\\', "/"), &new.replace('\\', "/"))
-        .replace(&vscode_uri(old), &vscode_uri(new))
+/// The characters that may end a stored path to the moved folder: a separator
+/// (something inside it) or the quote, line end or text end that closes it. Any
+/// other character means a longer name - `pade-effort` is not inside `pade`.
+const PATH_END_CHARACTERS: [char; 6] = ['\\', '/', '"', '\'', '\n', '\r'];
+
+/// Re-point every stored form of the folder `old` (and of anything inside it) to
+/// `new`: the raw backslash path, its JSON-escaped form, the forward-slash path
+/// and the VS Code file-URI form. Matched case-insensitively, as Windows paths
+/// are; a match stored in lower case (Codex keys its projects that way) is
+/// written back in lower case. Shared by every adapter, so each tool's own
+/// storage format needs no substitution logic of its own.
+fn rebase_paths_in(haystack: &str, old: &str, new: &str) -> String {
+    let old = old.trim_end_matches(['\\', '/']);
+    let new = new.trim_end_matches(['\\', '/']);
+    let forms = [
+        (old.replace('\\', r"\\"), new.replace('\\', r"\\")),
+        (old.to_string(), new.to_string()),
+        (old.replace('\\', "/"), new.replace('\\', "/")),
+        (vscode_uri(old), vscode_uri(new)),
+    ];
+    let mut rebased = haystack.to_string();
+    for (old_form, new_form) in forms {
+        rebased = replace_folder(&rebased, &old_form, &new_form);
+    }
+    rebased
 }
 
-/// Read `path`, apply `replace_all_forms`, and write back only if the content
+/// Where `path` lands when the folder `old` becomes `new`: `None` unless it is
+/// that folder or inside it.
+pub fn moved_path(path: &str, old: &str, new: &str) -> Option<String> {
+    let moved = rebase_paths_in(path, old, new);
+    (moved != path).then_some(moved)
+}
+
+/// `haystack` with each folder-bounded, case-insensitive `old` swapped for `new`.
+fn replace_folder(haystack: &str, old: &str, new: &str) -> String {
+    let lower_haystack = haystack.to_ascii_lowercase();
+    let lower_old = old.to_ascii_lowercase();
+    let mut output = String::with_capacity(haystack.len());
+    let mut copied_up_to = 0;
+    for (start, _) in lower_haystack.match_indices(&lower_old) {
+        if start < copied_up_to {
+            continue;
+        }
+        let end = start + old.len();
+        let ends_the_folder = haystack[end..]
+            .chars()
+            .next()
+            .is_none_or(|next| PATH_END_CHARACTERS.contains(&next));
+        if !ends_the_folder {
+            continue;
+        }
+        let matched = &haystack[start..end];
+        let is_stored_lower_case = matched == lower_old && matched != old;
+        output.push_str(&haystack[copied_up_to..start]);
+        if is_stored_lower_case {
+            output.push_str(&new.to_ascii_lowercase());
+        } else {
+            output.push_str(new);
+        }
+        copied_up_to = end;
+    }
+    output.push_str(&haystack[copied_up_to..]);
+    output
+}
+
+/// Read `path`, apply `rebase_paths_in`, and write back only if the content
 /// actually changed. Best-effort: returns quietly on any read/write error.
-/// Shared by the plain-text adapters (`.idea`, `JetBrains` recents, VS Code
-/// `storage.json`).
+/// Shared by the plain-text adapters (`.idea`, IDE recents, agent configs).
 fn rewrite_file_forms(path: &Path, old: &str, new: &str) {
     let Ok(content) = std::fs::read_to_string(path) else {
         return;
     };
-    let updated = replace_all_forms(&content, old, new);
+    let updated = rebase_paths_in(&content, old, new);
     if updated == content {
         return;
     }
     if let Err(error) = std::fs::write(path, updated) {
         eprintln!("refs: failed to write {}: {error}", path.display());
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Agent-memory adapters — per-project agent history keyed by the cwd.
-// ---------------------------------------------------------------------------
-
-/// How to find one agent CLI's per-project memory dir. Each agent stores its
-/// history/sessions under `~/<base>/<encode(cwd)>`, so a move must rename the
-/// old encoded dir to the new. Adding an agent is one more entry in
-/// `AGENT_MEMORIES` — as long as its cwd-encoding is known.
-struct AgentMemory {
-    /// Directory under the user's home holding per-project dirs, e.g.
-    /// `.claude/projects`. Joined onto `home_dir()`.
-    base: &'static str,
-    /// Encode an absolute cwd to this agent's per-project dir name.
-    encode: fn(&str) -> String,
-}
-
-/// The agent CLIs whose per-project memory we can re-point. Concrete entries
-/// only — an agent goes here once its cwd→dir encoding is verified, never
-/// guessed (a wrong encoding would rename the wrong dir).
-const AGENT_MEMORIES: &[AgentMemory] = &[
-    // Claude Code: transcripts at ~/.claude/projects/<encoded-cwd>, where the
-    // encoding collapses `:` `\` `/` to `-` (verified on disk).
-    AgentMemory {
-        base: ".claude/projects",
-        encode: encode_project,
-    },
-    // TODO: Codex (~/.codex) — sessions live under ~/.codex/sessions but are not
-    // a simple cwd-keyed dir we could verify; left out until its layout is
-    // pinned down (guessing risks renaming the wrong directory).
-    // TODO: Gemini (~/.gemini) — ~/.gemini/tmp mixes SHA-256 hashes and plain
-    // names, with no reproducible cwd→dir encoding confirmed; left out for now.
-];
-
-/// Rename every known agent's per-project memory dir from the `old` cwd to the
-/// `new` one, so each agent's history follows the moved workspace. Runs
-/// unconditionally (no IDE marker gate); best-effort per agent. Renames only
-/// when the old dir exists and the new one does not (never clobber a target).
-fn rename_agent_memory(old: &str, new: &str) {
-    let Some(home) = home_dir() else { return };
-    for agent in AGENT_MEMORIES {
-        let base = home.join(agent.base);
-        let old_dir = base.join((agent.encode)(old));
-        let new_dir = base.join((agent.encode)(new));
-
-        let should_rename = old_dir.is_dir() && !new_dir.exists();
-        if !should_rename {
-            continue;
-        }
-        if let Err(error) = std::fs::rename(&old_dir, &new_dir) {
-            eprintln!(
-                "refs: failed to rename agent memory {} → {}: {error}",
-                old_dir.display(),
-                new_dir.display()
-            );
-        }
     }
 }
 
@@ -358,7 +356,7 @@ mod windows {
             }
         };
 
-        let updated = super::replace_all_forms(&value, old, new);
+        let updated = super::rebase_paths_in(&value, old, new);
         if updated == value {
             return;
         }
@@ -639,7 +637,7 @@ fn spawn_install(dir: &Path, command: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{remap_under, replace_all_forms, vscode_uri};
+    use super::{rebase_paths_in, remap_under, vscode_uri};
 
     #[test]
     fn vscode_uri_encodes_a_windows_path() {
@@ -650,11 +648,29 @@ mod tests {
     }
 
     #[test]
-    fn replace_all_forms_covers_raw_forward_slash_and_uri_forms() {
-        let haystack = r"raw C:\old\proj, fwd C:/old/proj, uri file:///c%3A/old/proj";
+    fn rebasing_covers_raw_escaped_forward_slash_and_uri_forms() {
+        let haystack = "raw C:\\old\\proj\n json \"C:\\\\old\\\\proj\\\\src\"\n fwd 'C:/old/proj'\n uri file:///c%3A/old/proj";
         assert_eq!(
-            replace_all_forms(haystack, r"C:\old\proj", r"C:\new\proj"),
-            r"raw C:\new\proj, fwd C:/new/proj, uri file:///c%3A/new/proj"
+            rebase_paths_in(haystack, r"C:\old\proj", r"C:\new\proj"),
+            "raw C:\\new\\proj\n json \"C:\\\\new\\\\proj\\\\src\"\n fwd 'C:/new/proj'\n uri file:///c%3A/new/proj"
+        );
+    }
+
+    #[test]
+    fn rebasing_leaves_a_sibling_whose_name_merely_starts_the_same() {
+        let haystack = r#"["C:/old/proj-effort", "C:/old/proj"]"#;
+        assert_eq!(
+            rebase_paths_in(haystack, r"C:\old\proj", r"C:\new\Proj"),
+            r#"["C:/old/proj-effort", "C:/new/Proj"]"#
+        );
+    }
+
+    #[test]
+    fn a_path_stored_in_lower_case_stays_lower_case() {
+        let haystack = r"[projects.'c:\repositories\old']";
+        assert_eq!(
+            rebase_paths_in(haystack, r"C:\repositories\old", r"C:\repositories\New"),
+            r"[projects.'c:\repositories\new']"
         );
     }
 
