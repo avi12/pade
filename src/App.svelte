@@ -52,6 +52,7 @@
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { settings } from "@/lib/settings.svelte";
+  import { settledValue } from "@/lib/settled";
   import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agentRetheme.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
@@ -333,9 +334,7 @@
       // unmounted). Boot falls through to the picker - so kill the snapshot's
       // still-live sessions rather than leave them running unreachably, which
       // would recreate the very invisible-agent incident restore exists to fix.
-      await Promise.all(
-        snapshot.sessions.map(orphan => pty.kill(orphan.id).catch(() => {}))
-      );
+      await Promise.allSettled(snapshot.sessions.map(orphan => pty.kill(orphan.id)));
       clearSessionSnapshot();
       return false;
     }
@@ -980,11 +979,24 @@
       return;
     }
 
+    // Not a git repository (or git missing) reads as no branches and no remote.
     const [next, onlyRemote, heads, remote] = await Promise.all([
-      vcs.branches(member).catch((): string[] => []),
-      vcs.remoteBranches(member).catch((): string[] => []),
-      vcs.branchOf([member]).catch((): Record<string, string> => ({})),
-      vcs.remoteUrl(member).catch((): string | null => null)
+      settledValue({
+        promise: vcs.branches(member),
+        fallback: []
+      }),
+      settledValue({
+        promise: vcs.remoteBranches(member),
+        fallback: []
+      }),
+      settledValue<Record<string, string>>({
+        promise: vcs.branchOf([member]),
+        fallback: {}
+      }),
+      settledValue<string | null>({
+        promise: vcs.remoteUrl(member),
+        fallback: null
+      })
     ]);
     // A project (or member) switch can outrun this read. Keep the branch list
     // attached to what it came from instead of flashing another repository's.
@@ -1381,7 +1393,7 @@
     // session.
     async endSession(id) {
       closingByHand.add(id);
-      await pty.kill(id).catch(() => {});
+      await Promise.allSettled([pty.kill(id)]);
     },
     removeSession(id) {
       sessions = sessions.filter(session => session.id !== id);
