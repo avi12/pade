@@ -608,7 +608,7 @@ fn write_state(path: &Path, state: &SessionState) -> std::io::Result<()> {
     std::fs::rename(partial, path)
 }
 
-fn modified_millis(path: &Path) -> Option<u64> {
+fn modified_milliseconds(path: &Path) -> Option<u64> {
     Some(milliseconds_since_unix_epoch(
         std::fs::metadata(path).ok()?.modified().ok()?,
     ))
@@ -616,7 +616,7 @@ fn modified_millis(path: &Path) -> Option<u64> {
 
 /// Milliseconds since the epoch for an RFC 3339 UTC timestamp as agents write
 /// them (`2026-10-12T01:28:38.123Z`). Hand-rolled to keep a date crate out.
-fn timestamp_millis(timestamp: &str) -> Option<u64> {
+fn timestamp_milliseconds(timestamp: &str) -> Option<u64> {
     let (date, time) = timestamp.strip_suffix('Z')?.split_once('T')?;
     let [year, month, day] = three_numbers(date, '-')?;
     let (clock, fraction) = time.split_once('.').unwrap_or((time, "0"));
@@ -744,8 +744,8 @@ fn prune_expired(directory: &Path) {
 #[cfg(test)]
 mod tests {
     use super::{
-        days_since_epoch, fold, launch_arguments, newer, timestamp_millis, ModelChoice, Saved,
-        SessionState,
+        days_since_epoch, fold, launch_arguments, newer, timestamp_milliseconds, ModelChoice,
+        Saved, SessionState,
     };
 
     fn choice(model: Option<&str>, effort: Option<&str>) -> ModelChoice {
@@ -898,16 +898,19 @@ mod tests {
 
     #[test]
     fn reads_an_agent_timestamp() {
-        assert_eq!(timestamp_millis("1970-01-01T00:00:01.500Z"), Some(1_500));
         assert_eq!(
-            timestamp_millis("2026-10-11T22:28:21.681Z"),
+            timestamp_milliseconds("1970-01-01T00:00:01.500Z"),
+            Some(1_500)
+        );
+        assert_eq!(
+            timestamp_milliseconds("2026-10-11T22:28:21.681Z"),
             Some(1_791_757_701_681)
         );
         assert_eq!(
-            timestamp_millis("2000-03-01T00:00:00Z"),
+            timestamp_milliseconds("2000-03-01T00:00:00Z"),
             Some(951_868_800_000)
         );
-        assert_eq!(timestamp_millis("not a time"), None);
+        assert_eq!(timestamp_milliseconds("not a time"), None);
     }
 
     #[test]

@@ -18,8 +18,8 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 use super::{
-    hook_command, modified_millis, newer, read_session_state, timestamp_millis, EffortOption,
-    HookShell, ModelOption, RunningModel, Saved,
+    hook_command, modified_milliseconds, newer, read_session_state, timestamp_milliseconds,
+    EffortOption, HookShell, ModelOption, RunningModel, Saved,
 };
 
 const CONFIG_FLAG: &str = "-c";
@@ -215,7 +215,7 @@ fn turn_from_line(line: &str) -> Option<Turn> {
         effort: text("/effort")
             .or_else(|| text("/collaboration_mode/settings/reasoning_effort"))
             .map(str::to_string),
-        at: timestamp_millis(entry.get("timestamp")?.as_str()?)?,
+        at: timestamp_milliseconds(entry.get("timestamp")?.as_str()?)?,
     })
 }
 
@@ -230,7 +230,7 @@ fn saved_settings() -> SavedSettings {
     let Some(path) = settings_directory().map(|directory| directory.join(SETTINGS_FILE)) else {
         return SavedSettings::default();
     };
-    let Some(saved_at) = modified_millis(&path) else {
+    let Some(saved_at) = modified_milliseconds(&path) else {
         return SavedSettings::default();
     };
     let Some(config) = read_toml(&path) else {

@@ -265,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn an_opencode_db_row_yields_its_session_id() {
+    fn an_opencode_database_row_yields_its_session_id() {
         assert_eq!(
             super::opencode_session_id("id\nses_24440494dffekcRK8jTX3XCccC\n"),
             Some("ses_24440494dffekcRK8jTX3XCccC".to_string())
@@ -273,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn an_opencode_db_result_without_a_row_yields_nothing() {
+    fn an_opencode_database_result_without_a_row_yields_nothing() {
         // Header only (no session recorded), empty output, and an error blurb
         // must all read as "nothing to resume", never as a session id.
         assert_eq!(super::opencode_session_id("id\n"), None);

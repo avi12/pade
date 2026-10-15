@@ -22,8 +22,9 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use super::{
-    hook_command, newer, read_session_state, record_choice, state_directory, timestamp_millis,
-    EffortOption, HookShell, ModelChoice, ModelOption, RunningModel, Saved, SessionState,
+    hook_command, newer, read_session_state, record_choice, state_directory,
+    timestamp_milliseconds, EffortOption, HookShell, ModelChoice, ModelOption, RunningModel, Saved,
+    SessionState,
 };
 
 /// The flag that hands Claude a settings layer for this launch alone.
@@ -244,7 +245,7 @@ fn newest_effort_set(lines: &str) -> Option<(String, u64)> {
             .split([' ', '<'])
             .next()
             .filter(|level| !level.is_empty())?;
-        let set_at = timestamp_millis(entry.get("timestamp")?.as_str()?)?;
+        let set_at = timestamp_milliseconds(entry.get("timestamp")?.as_str()?)?;
         Some((level.to_string(), set_at))
     })
 }

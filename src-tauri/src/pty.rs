@@ -481,9 +481,9 @@ fn drain_decoded(pending: &mut Vec<u8>) -> String {
                         pending.drain(..valid_end);
                         return output;
                     }
-                    Some(invalid_len) => {
+                    Some(invalid_length) => {
                         output.push('\u{FFFD}');
-                        pending.drain(..valid_end + invalid_len);
+                        pending.drain(..valid_end + invalid_length);
                     }
                 }
             }

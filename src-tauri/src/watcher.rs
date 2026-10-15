@@ -700,7 +700,7 @@ fn line_count(path: &Path) -> Option<usize> {
 /// Largest file the Change Feed will snapshot for a baseline or read for a live
 /// preview. A few hundred KB covers real source files; past it the preview falls
 /// back to "No preview available" rather than holding megabytes per touched path.
-const MAX_PREVIEW_BYTES: u64 = 512 * 1024;
+const MAXIMUM_PREVIEW_BYTES: u64 = 512 * 1024;
 
 /// Resolve `path` to its real target and require that target to remain under
 /// `root`, so a symlink or reparse point can't turn a preview into a read of an
@@ -748,7 +748,7 @@ fn read_authorized_file(
 
 /// Read an authorized `path` as UTF-8 preview text, rejecting binary content.
 fn read_preview_text(root: &Path, path: &Path) -> Result<Option<String>, ()> {
-    let Some(bytes) = read_authorized_file(root, path, MAX_PREVIEW_BYTES)? else {
+    let Some(bytes) = read_authorized_file(root, path, MAXIMUM_PREVIEW_BYTES)? else {
         return Ok(None);
     };
     if bytes.contains(&0) {
@@ -1166,7 +1166,7 @@ fn watch_git_state(
 /// watched recursively) whose `.gitignore` files apply to the workspace. Empty
 /// when the root IS the toplevel, or when there is no repo.
 fn gitignore_ancestor_directories(root: &Path) -> Vec<PathBuf> {
-    let Some(toplevel) = repo_toplevel(root) else {
+    let Some(toplevel) = repository_toplevel(root) else {
         return Vec::new();
     };
     root.ancestors()
@@ -1178,7 +1178,7 @@ fn gitignore_ancestor_directories(root: &Path) -> Vec<PathBuf> {
 
 /// The repo work-tree toplevel for `root`, normalized to native components
 /// (git prints forward slashes on Windows). `None` outside a repo.
-fn repo_toplevel(root: &Path) -> Option<PathBuf> {
+fn repository_toplevel(root: &Path) -> Option<PathBuf> {
     let output = git_in(root)
         .args(["rev-parse", "--show-toplevel"])
         .output()
@@ -1427,7 +1427,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
                 read_preview_text(canonical_root, &path)
                     .ok()
                     .flatten()
-                    .or_else(|| crate::vcs::head_file_text(root, &path, MAX_PREVIEW_BYTES))
+                    .or_else(|| crate::vcs::head_file_text(root, &path, MAXIMUM_PREVIEW_BYTES))
             }),
         });
 
@@ -1578,7 +1578,7 @@ pub async fn feed_diff(
 /// now (the diff is baseline→current; the preview is just current). `None` when
 /// the path was not surfaced by this window's watch this session (so the command
 /// can't be turned into an arbitrary file reader), is gone, or is binary / over
-/// [`MAX_PREVIEW_BYTES`] - the card then keeps its diff and offers no preview.
+/// [`MAXIMUM_PREVIEW_BYTES`] - the card then keeps its diff and offers no preview.
 #[tauri::command]
 pub async fn feed_text(
     window: WebviewWindow,
@@ -1633,7 +1633,7 @@ fn image_mime_type(path: &Path) -> Option<&'static str> {
 /// Largest image the Change Feed will inline as a data URL. A few megabytes
 /// covers real project assets; past it the preview is skipped rather than
 /// bloating the webview with megabytes of base64 for one card.
-const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+const MAXIMUM_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 
 /// Standard-alphabet (RFC 4648) base64 for the image data URL - a few lines of
 /// std rather than a new dependency (the only base64 the backend needs). Encodes
@@ -1688,7 +1688,7 @@ pub struct FeedImage {
 /// The inline image preview for `path`: its bytes as a base64 `data:` URL tagged
 /// with the extension's MIME type. `None` when `path` is not a previewable image,
 /// was not surfaced by this window's watch this session, is missing / not a
-/// regular file, or is larger than [`MAX_IMAGE_BYTES`] - the card then falls back
+/// regular file, or is larger than [`MAXIMUM_IMAGE_BYTES`] - the card then falls back
 /// to its text summary. Reads the CURRENT bytes (what the image is now); a
 /// before/after for a modified image is a deliberate non-goal here. Gated on a
 /// captured baseline like `feed_diff`, so the command can't base64 an arbitrary
@@ -1713,7 +1713,7 @@ pub async fn feed_image(
     let Some(canonical_root) = canonical_watch_root(&watch) else {
         return Ok(None);
     };
-    let Ok(Some(bytes)) = read_authorized_file(&canonical_root, file, MAX_IMAGE_BYTES) else {
+    let Ok(Some(bytes)) = read_authorized_file(&canonical_root, file, MAXIMUM_IMAGE_BYTES) else {
         return Ok(None);
     };
 
@@ -1810,7 +1810,7 @@ mod tests {
         mcp_config_for_path, mcp_membership_changed, read_authorized_file, read_preview_text,
         reclassify, record_first_touch_baseline, resolve_watch_root, static_ignore_directories,
         summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, WindowWatch,
-        MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
+        MAXIMUM_IMAGE_BYTES, MAXIMUM_PREVIEW_BYTES,
     };
 
     /// `watch_start` asks git before it locks, so a slow request can finish
@@ -2013,7 +2013,8 @@ mod tests {
     fn read_preview_text_skips_files_over_the_cap() {
         let directory = scratch("large");
         let file = directory.join("a.txt");
-        let over_capacity = usize::try_from(MAX_PREVIEW_BYTES).expect("capacity fits usize") + 1;
+        let over_capacity =
+            usize::try_from(MAXIMUM_PREVIEW_BYTES).expect("capacity fits usize") + 1;
         fs::write(&file, vec![b'x'; over_capacity]).expect("write file");
         let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
         assert!(read_preview_text(&canonical_root, &file).is_err());
@@ -2038,10 +2039,10 @@ mod tests {
         fs::write(&outside, b"secret").expect("write outside file");
         let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
 
-        assert!(read_authorized_file(&canonical_root, &outside, MAX_PREVIEW_BYTES).is_err());
+        assert!(read_authorized_file(&canonical_root, &outside, MAXIMUM_PREVIEW_BYTES).is_err());
 
-        let outside_dir = outside.parent().expect("outside file has parent");
-        let _ = fs::remove_dir_all(outside_dir);
+        let outside_directory = outside.parent().expect("outside file has parent");
+        let _ = fs::remove_dir_all(outside_directory);
         let _ = fs::remove_dir_all(&directory);
     }
 
@@ -2049,8 +2050,8 @@ mod tests {
     #[test]
     fn preview_reads_reject_a_symlink_or_reparse_point_escape() {
         let directory = scratch("symlink-root");
-        let outside_dir = scratch("symlink-outside");
-        let outside = outside_dir.join("secret.txt");
+        let outside_directory = scratch("symlink-outside");
+        let outside = outside_directory.join("secret.txt");
         let link = directory.join("escape.txt");
         fs::write(&outside, b"secret").expect("write outside file");
 
@@ -2058,15 +2059,15 @@ mod tests {
         std::os::unix::fs::symlink(&outside, &link).expect("create symlink");
         #[cfg(windows)]
         if std::os::windows::fs::symlink_file(&outside, &link).is_err() {
-            let _ = fs::remove_dir_all(&outside_dir);
+            let _ = fs::remove_dir_all(&outside_directory);
             let _ = fs::remove_dir_all(&directory);
             return;
         }
 
         let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
-        assert!(read_authorized_file(&canonical_root, &link, MAX_PREVIEW_BYTES).is_err());
+        assert!(read_authorized_file(&canonical_root, &link, MAXIMUM_PREVIEW_BYTES).is_err());
 
-        let _ = fs::remove_dir_all(&outside_dir);
+        let _ = fs::remove_dir_all(&outside_directory);
         let _ = fs::remove_dir_all(&directory);
     }
 
@@ -2076,11 +2077,11 @@ mod tests {
         let file = directory.join("large.png");
         let opened = fs::File::create(&file).expect("create image");
         opened
-            .set_len(MAX_IMAGE_BYTES + 1)
+            .set_len(MAXIMUM_IMAGE_BYTES + 1)
             .expect("extend image beyond cap");
         let canonical_root = fs::canonicalize(&directory).expect("canonicalize root");
 
-        assert!(read_authorized_file(&canonical_root, &file, MAX_IMAGE_BYTES).is_err());
+        assert!(read_authorized_file(&canonical_root, &file, MAXIMUM_IMAGE_BYTES).is_err());
         let _ = fs::remove_dir_all(&directory);
     }
 
@@ -2145,12 +2146,12 @@ mod tests {
     }
 
     #[test]
-    fn an_unrecognized_file_implies_no_ignore_dirs() {
+    fn an_unrecognized_file_implies_no_ignore_directories() {
         assert_empty(manifest_ignore_directories("README.md"));
     }
 
     #[test]
-    fn static_ignore_dirs_unions_manifest_dirs_with_the_baseline() {
+    fn static_ignore_directories_unions_manifest_directories_with_the_baseline() {
         let directory = scratch("static-node");
         fs::write(directory.join("package.json"), b"{}").expect("write manifest");
         let directories = static_ignore_directories(&directory);
@@ -2163,7 +2164,7 @@ mod tests {
     }
 
     #[test]
-    fn static_ignore_dirs_for_a_bare_folder_is_just_the_baseline() {
+    fn static_ignore_directories_for_a_bare_folder_is_just_the_baseline() {
         let directory = scratch("static-bare");
         let directories = static_ignore_directories(&directory);
         assert!(directories.contains(".git"));
@@ -2180,7 +2181,7 @@ mod tests {
     }
 
     #[test]
-    fn other_git_dir_entries_are_not_git_state_files() {
+    fn other_git_directory_entries_are_not_git_state_files() {
         assert!(!is_git_state_file(Path::new(r"C:\repo\.git\index")));
         assert!(!is_git_state_file(Path::new(r"C:\repo\.git\ORIG_HEAD")));
         assert!(!is_git_state_file(Path::new(r"C:\repo\.git\config.lock")));
@@ -2188,7 +2189,7 @@ mod tests {
     }
 
     #[test]
-    fn only_a_dot_git_entry_announces_the_repo_appearing() {
+    fn only_a_dot_git_entry_announces_the_repository_appearing() {
         assert!(is_git_directory_entry(Path::new(r"C:\repo\.git")));
         assert!(!is_git_directory_entry(Path::new(r"C:\repo\.gitignore")));
         assert!(!is_git_directory_entry(Path::new(r"C:\repo\src")));
@@ -2212,7 +2213,7 @@ mod tests {
     }
 
     #[test]
-    fn unique_dirs_trims_dedupes_and_skips_empty_lines() {
+    fn unique_directories_trims_dedupes_and_skips_empty_lines() {
         let directories = unique_directories(
             [" C:/repo/.git ", "", "C:/repo/.git", "C:/common/.git"].into_iter(),
         );
@@ -2226,16 +2227,16 @@ mod tests {
     }
 
     #[test]
-    fn a_workspace_with_a_git_dir_watches_exactly_that_dir() {
+    fn a_workspace_with_a_git_directory_watches_exactly_that_directory() {
         let directory = scratch("git-state-repo");
-        let git_dir = directory.join(".git");
-        fs::create_dir_all(&git_dir).expect("create .git directory");
-        assert_eq!(git_state_directories(&directory), vec![git_dir]);
+        let git_directory = directory.join(".git");
+        fs::create_dir_all(&git_directory).expect("create .git directory");
+        assert_eq!(git_state_directories(&directory), vec![git_directory]);
         let _ = fs::remove_dir_all(&directory);
     }
 
     #[test]
-    fn a_workspace_without_git_yields_no_state_dirs() {
+    fn a_workspace_without_git_yields_no_state_directories() {
         let directory = scratch("git-state-bare");
         assert_empty(&git_state_directories(&directory));
         let _ = fs::remove_dir_all(&directory);

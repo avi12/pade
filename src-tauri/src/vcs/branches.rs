@@ -32,8 +32,8 @@ pub async fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
 /// Every branch name one `git branch` invocation printed, in git's order and
 /// without the blank padding lines. The one place the branch list is parsed -
 /// [`vcs_branches`] and [`vcs_remote_branches`] differ only in the refs asked for.
-fn branch_names(cwd: &str, args: &[&str]) -> Result<Vec<String>, String> {
-    let raw = run_git(cwd, args)?;
+fn branch_names(cwd: &str, arguments: &[&str]) -> Result<Vec<String>, String> {
+    let raw = run_git(cwd, arguments)?;
     Ok(raw
         .lines()
         .map(str::trim)

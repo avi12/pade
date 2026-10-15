@@ -150,11 +150,11 @@ mod tests {
         let clone = base.join("clone");
         std::fs::create_dir_all(&origin).expect("test dirs");
 
-        let git = |dir: &std::path::Path, args: &[&str]| {
+        let git = |directory: &std::path::Path, arguments: &[&str]| {
             crate::util::command("git")
                 .arg("-C")
-                .arg(dir)
-                .args(args)
+                .arg(directory)
+                .args(arguments)
                 .output()
         };
         let cleanup = || {

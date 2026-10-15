@@ -35,10 +35,10 @@ pub async fn vcs_has_ssh_key() -> bool {
     let Some(home) = home_directory() else {
         return false;
     };
-    let ssh_dir = home.join(".ssh");
+    let ssh_directory = home.join(".ssh");
     SSH_KEY_NAMES
         .iter()
-        .any(|name| ssh_dir.join(name).is_file())
+        .any(|name| ssh_directory.join(name).is_file())
 }
 
 /// How long the reachability probe may spend before ADE calls the repository
@@ -94,7 +94,7 @@ fn host_and_path(url: &str) -> Option<(String, String)> {
 }
 
 /// The longest clone URL accepted at the native boundary.
-const MAX_CLONE_URL_LENGTH: usize = 2048;
+const MAXIMUM_CLONE_URL_LENGTH: usize = 2048;
 
 /// The environment variable the askpass script reads the password from, so the
 /// password never appears in a process argument.
@@ -107,7 +107,7 @@ fn is_valid_clone_url(url: &str) -> bool {
     let has_forbidden_character = url
         .chars()
         .any(|character| character.is_control() || character.is_whitespace());
-    if has_forbidden_character || url.len() > MAX_CLONE_URL_LENGTH {
+    if has_forbidden_character || url.len() > MAXIMUM_CLONE_URL_LENGTH {
         return false;
     }
     if let Ok(parsed) = Url::parse(url) {

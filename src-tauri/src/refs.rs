@@ -201,12 +201,12 @@ fn apply_jetbrains(new_directory: &Path, old: &str, new: &str) {
 }
 
 /// VS Code adapter: rewrite recents under the VS Code `globalStorage` base.
-fn apply_vscode(_new_dir: &Path, old: &str, new: &str) {
+fn apply_vscode(_new_directory: &Path, old: &str, new: &str) {
     rewrite_vscode_family(VsCodeApp::Code, old, new);
 }
 
 /// Cursor adapter: identical stores to VS Code, under the Cursor base.
-fn apply_cursor(_new_dir: &Path, old: &str, new: &str) {
+fn apply_cursor(_new_directory: &Path, old: &str, new: &str) {
     rewrite_vscode_family(VsCodeApp::Cursor, old, new);
 }
 
@@ -435,7 +435,7 @@ fn relink_directory(directory: &Path, old: &str, new: &str) {
 
 /// If `link`'s target is an absolute path under `old`, recreate it pointing at
 /// the same suffix under `new`. No-op for relative targets or targets outside
-/// `old`. `is_target_dir` decides junction-vs-file-symlink on recreation.
+/// `old`. `is_target_directory` decides junction-vs-file-symlink on recreation.
 fn remap_link(link: &Path, old: &str, new: &str) {
     let Ok(target) = std::fs::read_link(link) else {
         return;

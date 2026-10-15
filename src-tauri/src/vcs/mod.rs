@@ -39,8 +39,8 @@ const HEAD_REFERENCE: &str = "HEAD";
 
 /// The shortest abbreviated object id git prints, and the longest full one
 /// (SHA-256).
-const MIN_OBJECT_ID_LENGTH: usize = 4;
-const MAX_OBJECT_ID_LENGTH: usize = 64;
+const MINIMUM_OBJECT_ID_LENGTH: usize = 4;
+const MAXIMUM_OBJECT_ID_LENGTH: usize = 64;
 
 /// The `--format` placeholders for the header every commit listing shows -
 /// full id, short id, subject, author, relative date - in [`CommitHeader`]'s
@@ -127,9 +127,9 @@ pub(crate) fn git_in(directory: &std::path::Path) -> std::process::Command {
 /// Run Git inside one explicitly selected workspace. A Tauri process can host
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.
-fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
+fn run_git(cwd: &str, arguments: &[&str]) -> Result<String, String> {
     let mut command = crate::util::command("git");
-    command.args(args).current_dir(cwd);
+    command.args(arguments).current_dir(cwd);
     let output = harden_git(&mut command)
         .output()
         .map_err(|e| format!("failed to run git: {e}"))?;
@@ -146,20 +146,21 @@ fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
 pub(crate) fn head_file_text(
     cwd: &std::path::Path,
     path: &std::path::Path,
-    max_bytes: u64,
+    maximum_bytes: u64,
 ) -> Option<String> {
     let relative = path.strip_prefix(cwd).ok()?;
     let relative = relative.to_string_lossy().replace('\\', "/");
     let object = format!("{HEAD_REFERENCE}:{relative}");
     let text = run_git(&cwd.to_string_lossy(), &["show", "--no-textconv", &object]).ok()?;
-    let within_limit = u64::try_from(text.len()).ok()? <= max_bytes;
+    let within_limit = u64::try_from(text.len()).ok()? <= maximum_bytes;
     (within_limit && !text.contains('\0')).then_some(text)
 }
 
 /// Accept only object ids Git produced for the UI. This prevents a renderer from
 /// turning a revision position into an option such as an external-diff switch.
 fn validate_object_id(object_id: &str) -> Result<&str, String> {
-    let is_valid_length = (MIN_OBJECT_ID_LENGTH..=MAX_OBJECT_ID_LENGTH).contains(&object_id.len());
+    let is_valid_length =
+        (MINIMUM_OBJECT_ID_LENGTH..=MAXIMUM_OBJECT_ID_LENGTH).contains(&object_id.len());
     if is_valid_length && object_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Ok(object_id);
     }
