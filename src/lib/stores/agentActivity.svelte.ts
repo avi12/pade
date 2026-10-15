@@ -14,6 +14,7 @@
 // dependency as the context-percent and usage-limit parsers. An agent that
 // announces no such glyph reports nothing, and every gate built on it stays open.
 
+import { createSettleWaiters } from "@/lib/stores/settle-waiters";
 import { SvelteMap } from "svelte/reactivity";
 
 /** What an agent's own terminal title says about its work. */
@@ -79,21 +80,8 @@ const activities = new SvelteMap<string, AgentActivity>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per output chunk, never rendered
 const carriedSequences = new Map<string, string>();
 // Pending `whenAgentSettled` resolvers, settled the moment the agent stops
-// reporting busy (or the session is dropped). Event-driven - no polling.
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- resolver bookkeeping, never rendered
-const settleWaiters = new Map<string, (() => void)[]>();
-
-function settleWaitersFor(id: string) {
-  const waiters = settleWaiters.get(id);
-  if (!waiters) {
-    return;
-  }
-
-  settleWaiters.delete(id);
-  for (const settle of waiters) {
-    settle();
-  }
-}
+// reporting busy (or the session is dropped).
+const settleWaiters = createSettleWaiters();
 
 /** Feed a session's PTY output (live chunks, or the history replayed on attach)
  *  through the title reader. The latest title wins; one without an activity
@@ -122,7 +110,7 @@ export function observeAgentActivity({ id, chunk }: {
   }
 
   if (activity !== AgentActivity.busy) {
-    settleWaitersFor(id);
+    settleWaiters.settleAll(id);
   }
 }
 
@@ -142,7 +130,7 @@ export function whenAgentSettled(id: string) {
   }
 
   return new Promise<void>(resolve => {
-    settleWaiters.set(id, [...(settleWaiters.get(id) ?? []), resolve]);
+    settleWaiters.add(id, resolve);
   });
 }
 
@@ -150,5 +138,5 @@ export function whenAgentSettled(id: string) {
 export function dropAgentActivity(id: string) {
   activities.delete(id);
   carriedSequences.delete(id);
-  settleWaitersFor(id);
+  settleWaiters.settleAll(id);
 }

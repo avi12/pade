@@ -4,15 +4,15 @@
 // and a deliberate leave awaits `whenSessionIdle` so nothing mid-flight is
 // severed. A SvelteMap keeps reads reactive across components.
 
+import { createSettleWaiters } from "@/lib/stores/settle-waiters";
 import { SessionStatus } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
 
 const statuses = new SvelteMap<string, SessionStatus>();
 
 // Pending `whenSessionIdle` resolvers, settled the moment the session's status
-// turns idle (or the session is dropped). Event-driven - no polling. A
-// SvelteMap only for consistency in a rune module; nothing renders from it.
-const idleWaiters = new SvelteMap<string, (() => void)[]>();
+// turns idle (or the session is dropped).
+const idleWaiters = createSettleWaiters();
 
 /** Publish the status of a session (called by its Terminal). */
 export function setSessionStatus({ id, status }: {
@@ -22,7 +22,7 @@ export function setSessionStatus({ id, status }: {
   statuses.set(id, status);
 
   if (isIdleStatus(status)) {
-    settleIdleWaiters(id);
+    idleWaiters.settleAll(id);
   }
 }
 
@@ -35,7 +35,7 @@ export function sessionStatus(id: string) {
  *  left to sever, so any idle waiter on it settles too. */
 export function dropSessionStatus(id: string) {
   statuses.delete(id);
-  settleIdleWaiters(id);
+  idleWaiters.settleAll(id);
 }
 
 function isIdleStatus(status: SessionStatus) {
@@ -47,18 +47,6 @@ function isIdleStatus(status: SessionStatus) {
  *  which mis-reads persistent MCP servers as work in flight. */
 export function isSessionIdle(id: string) {
   return isIdleStatus(sessionStatus(id));
-}
-
-function settleIdleWaiters(id: string) {
-  const waiters = idleWaiters.get(id);
-  if (!waiters) {
-    return;
-  }
-
-  idleWaiters.delete(id);
-  for (const settle of waiters) {
-    settle();
-  }
 }
 
 /** Resolve once the session reaches an idle prompt, exits, or is dropped - the
@@ -78,13 +66,7 @@ export function whenSessionIdle({ id, timeoutMs }: {
 
   return new Promise<void>(resolve => {
     const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
-      const remaining = (idleWaiters.get(id) ?? []).filter(waiter => waiter !== settle);
-      if (remaining.length > 0) {
-        idleWaiters.set(id, remaining);
-      } else {
-        idleWaiters.delete(id);
-      }
-
+      idleWaiters.remove(id, settle);
       resolve();
     }, timeoutMs);
 
@@ -93,6 +75,6 @@ export function whenSessionIdle({ id, timeoutMs }: {
       resolve();
     }
 
-    idleWaiters.set(id, [...(idleWaiters.get(id) ?? []), settle]);
+    idleWaiters.add(id, settle);
   });
 }
