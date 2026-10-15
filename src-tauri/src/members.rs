@@ -25,6 +25,8 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::gitignore::segments_match;
+
 /// The package ecosystems whose manifests confirm a directory as a package.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -92,32 +94,29 @@ fn discover_members(root: &Path) -> Vec<Member> {
     let patterns = collect_patterns(root);
 
     let found_root = census.get("");
-    let mut members = vec![Member {
+    let root_member = Member {
         path: String::new(),
         name: found_root.and_then(Found::manifest_name),
         ecosystem: found_root.and_then(Found::ecosystem),
-        repository: found_root.is_some_and(|found| found.repository),
-    }];
-    for (path, found) in &census {
-        if path.is_empty() {
-            continue;
-        }
-        if !found.repository && !declared_package(path, &patterns, found) {
-            continue;
-        }
-        members.push(Member {
+        repository: found_root.is_some_and(|found| found.is_repository),
+    };
+    let nested_members = census
+        .iter()
+        .filter(|(path, found)| {
+            !path.is_empty() && (found.is_repository || is_declared_package(path, &patterns, found))
+        })
+        .map(|(path, found)| Member {
             path: path.clone(),
             name: found.manifest_name(),
             ecosystem: found.ecosystem(),
-            repository: found.repository,
+            repository: found.is_repository,
         });
-    }
-    members
+    std::iter::once(root_member).chain(nested_members).collect()
 }
 
 /// Whether the root's workspace files claim this directory as a member package.
 /// A directory with no manifest is not a package, so nothing can claim it.
-fn declared_package(path: &str, patterns: &MemberPatterns, found: &Found) -> bool {
+fn is_declared_package(path: &str, patterns: &MemberPatterns, found: &Found) -> bool {
     if found.manifest.is_none() {
         return false;
     }
@@ -146,7 +145,7 @@ struct FoundManifest {
 /// A directory that is neither is never recorded.
 struct Found {
     manifest: Option<FoundManifest>,
-    repository: bool,
+    is_repository: bool,
 }
 
 impl Found {
@@ -171,11 +170,11 @@ fn census(root: &Path) -> BTreeMap<String, Found> {
             continue;
         };
         let mut file_names = Vec::new();
-        let mut repository = false;
+        let mut is_repository = false;
         for entry in entries.flatten() {
             let file_name = entry.file_name();
             let name = file_name.to_string_lossy().into_owned();
-            repository = repository || name == GIT_MARKER;
+            is_repository = is_repository || name == GIT_MARKER;
             if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
                 let is_noise = name.starts_with('.') || PRUNED_DIRECTORIES.contains(&name.as_str());
                 if !is_noise {
@@ -192,14 +191,14 @@ fn census(root: &Path) -> BTreeMap<String, Found> {
                 ecosystem: *ecosystem,
                 name: package_name(&directory.join(manifest_name), *ecosystem),
             });
-        if manifest.is_none() && !repository {
+        if manifest.is_none() && !is_repository {
             continue;
         }
         found.insert(
             relative_display(root, &directory),
             Found {
                 manifest,
-                repository,
+                is_repository,
             },
         );
     }
@@ -261,13 +260,12 @@ struct MemberPatterns {
 impl MemberPatterns {
     /// File a declared pattern into include or exclude (a leading `!` negates).
     fn add(&mut self, raw: &str) {
-        match raw.trim().strip_prefix('!') {
-            Some(negated) => self.subtract(negated),
-            None => {
-                if let Some(pattern) = normalize_pattern(raw) {
-                    self.include.push(pattern);
-                }
-            }
+        if let Some(negated) = raw.trim().strip_prefix('!') {
+            self.subtract(negated);
+            return;
+        }
+        if let Some(pattern) = normalize_pattern(raw) {
+            self.include.push(pattern);
         }
     }
 
@@ -444,10 +442,8 @@ fn toml_string_array(text: &str, table: &str, key: &str) -> Vec<String> {
             }
             continue;
         }
-        if let Some(header) = trimmed.strip_prefix('[') {
-            in_table = header
-                .strip_suffix(']')
-                .is_some_and(|name| name.trim() == table);
+        if let Some(is_wanted_table) = header_names_table(trimmed, table) {
+            in_table = is_wanted_table;
             continue;
         }
         if !in_table {
@@ -467,10 +463,8 @@ fn toml_string_value(text: &str, table: &str, key: &str) -> Option<String> {
     let mut in_table = false;
     for line in text.lines() {
         let trimmed = strip_toml_comment(line).trim();
-        if let Some(header) = trimmed.strip_prefix('[') {
-            in_table = header
-                .strip_suffix(']')
-                .is_some_and(|name| name.trim() == table);
+        if let Some(is_wanted_table) = header_names_table(trimmed, table) {
+            in_table = is_wanted_table;
             continue;
         }
         if !in_table {
@@ -484,14 +478,21 @@ fn toml_string_value(text: &str, table: &str, key: &str) -> Option<String> {
     None
 }
 
+/// For a `[table]` header line, whether it opens `table`; `None` for any
+/// other line. A `[` line that never closes opens no table at all.
+fn header_names_table(trimmed_line: &str, table: &str) -> Option<bool> {
+    let header = trimmed_line.strip_prefix('[')?;
+    Some(
+        header
+            .strip_suffix(']')
+            .is_some_and(|name| name.trim() == table),
+    )
+}
+
 /// The value part of `key = value` when the line assigns exactly `key`.
-fn key_value<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+fn key_value<'line>(line: &'line str, key: &str) -> Option<&'line str> {
     let (head, value) = line.split_once('=')?;
-    if head.trim().trim_matches('"') == key {
-        Some(value)
-    } else {
-        None
-    }
+    (head.trim().trim_matches('"') == key).then_some(value)
 }
 
 /// Every `"…"` / `'…'` string literal in a line fragment.
@@ -530,7 +531,7 @@ fn strip_toml_comment(line: &str) -> &str {
     line
 }
 
-// ── Segment-aware glob matcher ───────────────────────────────────────────────
+// ── Segment-aware glob match ─────────────────────────────────────────────────
 
 /// Segment-aware glob match: `*`/`?` stay within one path segment, `**` spans
 /// any number of segments - so `packages/*` is one level and `components/**`
@@ -539,37 +540,6 @@ fn glob_match(pattern: &str, path: &str) -> bool {
     let pattern_segments: Vec<&str> = pattern.split('/').collect();
     let path_segments: Vec<&str> = path.split('/').collect();
     segments_match(&pattern_segments, &path_segments)
-}
-
-fn segments_match(pattern: &[&str], path: &[&str]) -> bool {
-    match pattern.split_first() {
-        None => path.is_empty(),
-        Some((&"**", rest)) => (0..=path.len()).any(|skip| segments_match(rest, &path[skip..])),
-        Some((head, rest)) => path.split_first().is_some_and(|(first, tail)| {
-            segment_matches(head, first) && segments_match(rest, tail)
-        }),
-    }
-}
-
-/// One path segment against one pattern segment: `*` any run of characters,
-/// `?` exactly one - neither ever crosses a `/`.
-fn segment_matches(pattern: &str, segment: &str) -> bool {
-    let pattern_characters: Vec<char> = pattern.chars().collect();
-    let segment_characters: Vec<char> = segment.chars().collect();
-    characters_match(&pattern_characters, &segment_characters)
-}
-
-fn characters_match(pattern: &[char], text: &[char]) -> bool {
-    match pattern.split_first() {
-        None => text.is_empty(),
-        Some((&'*', rest)) => (0..=text.len()).any(|skip| characters_match(rest, &text[skip..])),
-        Some((&'?', rest)) => text
-            .split_first()
-            .is_some_and(|(_, tail)| characters_match(rest, tail)),
-        Some((head, rest)) => text
-            .split_first()
-            .is_some_and(|(first, tail)| first == head && characters_match(rest, tail)),
-    }
 }
 
 #[cfg(test)]

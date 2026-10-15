@@ -122,21 +122,23 @@ impl Pattern {
     }
 }
 
-/// Whether glob `pattern` segments match `path` segments exactly; `**` spans
-/// any number of them.
-fn segments_match(pattern: &[String], path: &[&str]) -> bool {
-    match pattern.split_first() {
-        None => path.is_empty(),
-        Some((head, rest)) if head == "**" => {
-            (0..=path.len()).any(|skip| segments_match(rest, &path[skip..]))
-        }
-        Some((head, rest)) => {
-            let Some((first, tail)) = path.split_first() else {
-                return false;
-            };
-            segment_matches(head, first) && segments_match(rest, tail)
-        }
+/// The pattern segment that spans any number of path segments.
+const ANY_DEPTH_SEGMENT: &str = "**";
+
+/// Whether glob `pattern` segments match `path` segments exactly: `**` spans
+/// any number of segments, `*`/`?` stay within one. The one segment-aware glob
+/// matcher, shared with workspace member patterns (`members.rs`), whose
+/// workspace tools use the same semantics.
+pub(crate) fn segments_match<Segment: AsRef<str>>(pattern: &[Segment], path: &[&str]) -> bool {
+    let Some((head, rest)) = pattern.split_first() else {
+        return path.is_empty();
+    };
+    if head.as_ref() == ANY_DEPTH_SEGMENT {
+        return (0..=path.len()).any(|skip| segments_match(rest, &path[skip..]));
     }
+    path.split_first().is_some_and(|(first, tail)| {
+        segment_matches(head.as_ref(), first) && segments_match(rest, tail)
+    })
 }
 
 /// Glob-match one segment: `*` any run, `?` any single character, else literal.
