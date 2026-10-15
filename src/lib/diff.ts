@@ -43,19 +43,24 @@ interface SplitRow {
 }
 
 const META_PREFIXES = ["diff ", "index ", "--- ", "+++ ", "new file", "deleted file", "rename ", "similarity "];
+const HUNK_MARKER = "@@";
+const ADDED_MARKER = "+";
+const REMOVED_MARKER = "-";
+const CONTEXT_MARKER = " ";
+const LINE_MARKER = /^[+\-\s]/;
 
 function classify(line: string) {
-  const isHunkHeader = line.startsWith("@@");
+  const isHunkHeader = line.startsWith(HUNK_MARKER);
   const isFileMeta = META_PREFIXES.some(prefix => line.startsWith(prefix));
   if (isHunkHeader || isFileMeta) {
     return DiffKind.meta;
   }
 
-  if (line.startsWith("+")) {
+  if (line.startsWith(ADDED_MARKER)) {
     return DiffKind.add;
   }
 
-  if (line.startsWith("-")) {
+  if (line.startsWith(REMOVED_MARKER)) {
     return DiffKind.del;
   }
 
@@ -71,7 +76,7 @@ const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
  *  deletions the old-file number - the diff gutter reads them per side. */
 export function parseDiff(raw: string) {
   const lines = raw.split("\n");
-  if (lines.length > 0 && lines[lines.length - 1] === "") {
+  if (lines.at(-1) === "") {
     lines.pop();
   }
 
@@ -80,10 +85,10 @@ export function parseDiff(raw: string) {
   return lines.map(text => {
     const kind = classify(text);
     if (kind === DiffKind.meta) {
-      const hunk = HUNK_HEADER.exec(text);
-      if (hunk) {
-        oldLine = Number(hunk[1]);
-        newLine = Number(hunk[2]);
+      const header = HUNK_HEADER.exec(text);
+      if (header) {
+        oldLine = Number(header[1]);
+        newLine = Number(header[2]);
       }
 
       return {
@@ -145,7 +150,7 @@ export function firstChangedLine(lines: DiffLine[]) {
 
 /** Drop the leading +/-/space marker so split cells show clean source. */
 function stripMarker(text: string) {
-  return text.replace(/^[+\-\s]/, "");
+  return text.replace(LINE_MARKER, "");
 }
 
 /** Turn classified lines into side-by-side rows (naive per-line pairing, like the
@@ -237,7 +242,7 @@ function splitLines(text: string) {
   }
 
   const lines = text.split("\n");
-  if (lines[lines.length - 1] === "") {
+  if (lines.at(-1) === "") {
     lines.pop();
   }
 
@@ -263,82 +268,96 @@ function replaceChanges({ before, after }: {
   ];
 }
 
+/** The LCS table for two regions: `lengths[iBefore][iAfter]` is the length of
+ *  the longest common subsequence of `before[iBefore..]` and `after[iAfter..]`. */
+function lcsLengths({ before, after }: {
+  before: string[];
+  after: string[];
+}) {
+  const lengths = Array.from({ length: before.length + 1 }, () =>
+    Array.from({ length: after.length + 1 }, () => 0));
+  for (let iBefore = before.length - 1; iBefore >= 0; iBefore -= 1) {
+    for (let iAfter = after.length - 1; iAfter >= 0; iAfter -= 1) {
+      lengths[iBefore][iAfter] =
+        before[iBefore] === after[iAfter]
+          ? lengths[iBefore + 1][iAfter + 1] + 1
+          : Math.max(lengths[iBefore + 1][iAfter], lengths[iBefore][iAfter + 1]);
+    }
+  }
+
+  return lengths;
+}
+
+/** Walk the LCS table from the top-left, keeping shared lines and preferring a
+ *  delete over an insert on a tie, then flush whatever either side has left. */
+function backtrackChanges({ before, after, lengths }: {
+  before: string[];
+  after: string[];
+  lengths: number[][];
+}) {
+  const changes: LineChange[] = [];
+  let iBefore = 0;
+  let iAfter = 0;
+  while (iBefore < before.length && iAfter < after.length) {
+    if (before[iBefore] === after[iAfter]) {
+      changes.push({
+        operation: LineOp.keep,
+        text: before[iBefore]
+      });
+      iBefore += 1;
+      iAfter += 1;
+      continue;
+    }
+
+    const isDeleteNoWorse = lengths[iBefore + 1][iAfter] >= lengths[iBefore][iAfter + 1];
+    if (isDeleteNoWorse) {
+      changes.push({
+        operation: LineOp.delete,
+        text: before[iBefore]
+      });
+      iBefore += 1;
+      continue;
+    }
+
+    changes.push({
+      operation: LineOp.insert,
+      text: after[iAfter]
+    });
+    iAfter += 1;
+  }
+
+  return [
+    ...changes,
+    ...replaceChanges({
+      before: before.slice(iBefore),
+      after: after.slice(iAfter)
+    })
+  ];
+}
+
 /** Align two changed regions by longest common subsequence (classic DP +
  *  backtrack), or fall back to a wholesale replace when the region is too large. */
 function middleChanges({ before, after }: {
   before: string[];
   after: string[];
 }) {
-  if (before.length === 0 || after.length === 0) {
-    return replaceChanges({
-      before,
-      after
-    });
-  }
-
+  const isEitherEmpty = before.length === 0 || after.length === 0;
   const isTooLarge = before.length * after.length > MAX_DIFF_CELLS;
-  if (isTooLarge) {
+  if (isEitherEmpty || isTooLarge) {
     return replaceChanges({
       before,
       after
     });
   }
 
-  const rows = before.length;
-  const columns = after.length;
-  // lengths[row][column] = LCS length of before[row..] and after[column..].
-  const lengths = Array.from({ length: rows + 1 }, () =>
-    Array.from({ length: columns + 1 }, () => 0));
-  for (let row = rows - 1; row >= 0; row -= 1) {
-    for (let column = columns - 1; column >= 0; column -= 1) {
-      lengths[row][column] =
-        before[row] === after[column]
-          ? lengths[row + 1][column + 1] + 1
-          : Math.max(lengths[row + 1][column], lengths[row][column + 1]);
-    }
-  }
-
-  const changes: LineChange[] = [];
-  let row = 0;
-  let column = 0;
-  while (row < rows && column < columns) {
-    if (before[row] === after[column]) {
-      changes.push({
-        operation: LineOp.keep,
-        text: before[row]
-      });
-      row += 1;
-      column += 1;
-    } else if (lengths[row + 1][column] >= lengths[row][column + 1]) {
-      changes.push({
-        operation: LineOp.delete,
-        text: before[row]
-      });
-      row += 1;
-    } else {
-      changes.push({
-        operation: LineOp.insert,
-        text: after[column]
-      });
-      column += 1;
-    }
-  }
-  while (row < rows) {
-    changes.push({
-      operation: LineOp.delete,
-      text: before[row]
-    });
-    row += 1;
-  }
-  while (column < columns) {
-    changes.push({
-      operation: LineOp.insert,
-      text: after[column]
-    });
-    column += 1;
-  }
-
-  return changes;
+  return backtrackChanges({
+    before,
+    after,
+    lengths: lcsLengths({
+      before,
+      after
+    })
+  });
 }
 
 /** The full edit script from `before` to `after`, peeling the shared prefix and
@@ -385,17 +404,11 @@ interface PlacedChange extends LineChange {
   newLine: number;
 }
 
-function markerFor(operation: LineOp) {
-  if (operation === LineOp.insert) {
-    return "+";
-  }
-
-  if (operation === LineOp.delete) {
-    return "-";
-  }
-
-  return " ";
-}
+const OPERATION_MARKERS: Record<LineOp, string> = {
+  [LineOp.keep]: CONTEXT_MARKER,
+  [LineOp.insert]: ADDED_MARKER,
+  [LineOp.delete]: REMOVED_MARKER
+};
 
 /** The `@@ -old,n +new,n @@` header for one hunk. A side with no lines starts at
  *  0 (git's convention for a pure addition or deletion), which `parseDiff` reads
@@ -405,7 +418,7 @@ function hunkHeader(hunk: PlacedChange[]) {
   const newLines = hunk.filter(change => change.operation !== LineOp.delete);
   const oldStart = oldLines.length > 0 ? oldLines[0].oldLine : 0;
   const newStart = newLines.length > 0 ? newLines[0].newLine : 0;
-  return `@@ -${oldStart},${oldLines.length} +${newStart},${newLines.length} @@`;
+  return `${HUNK_MARKER} -${oldStart},${oldLines.length} +${newStart},${newLines.length} ${HUNK_MARKER}`;
 }
 
 /** Generate a git-style unified diff between two whole texts - the Change Feed's
@@ -463,25 +476,25 @@ export function unifiedDiff({ before, after }: {
 
   // Emit each contiguous run of kept lines as one hunk.
   const lines: string[] = [];
-  let index = 0;
-  while (index < placed.length) {
-    if (!kept[index]) {
-      index += 1;
+  let iStart = 0;
+  while (iStart < placed.length) {
+    if (!kept[iStart]) {
+      iStart += 1;
       continue;
     }
 
-    let end = index;
-    while (end + 1 < placed.length && kept[end + 1]) {
-      end += 1;
+    let iEnd = iStart;
+    while (iEnd + 1 < placed.length && kept[iEnd + 1]) {
+      iEnd += 1;
     }
 
-    const hunk = placed.slice(index, end + 1);
+    const hunk = placed.slice(iStart, iEnd + 1);
     lines.push(hunkHeader(hunk));
     for (const change of hunk) {
-      lines.push(markerFor(change.operation) + change.text);
+      lines.push(OPERATION_MARKERS[change.operation] + change.text);
     }
 
-    index = end + 1;
+    iStart = iEnd + 1;
   }
 
   return lines.join("\n");
