@@ -983,7 +983,7 @@ pub fn workspace_set_label(
     source: LabelSource,
 ) -> Result<Settings, String> {
     let label = match source {
-        LabelSource::Auto => crate::naming::sanitize(&name),
+        LabelSource::Auto => crate::agents::naming::sanitize(&name),
         LabelSource::Manual => manual_label(&name),
     }
     .ok_or("invalid name")?;

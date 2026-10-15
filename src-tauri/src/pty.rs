@@ -531,7 +531,7 @@ fn build_command(
     command: Option<String>,
     scheme: Option<Scheme>,
     conversation_id: Option<&str>,
-    model_choice: Option<&crate::running_model::ModelChoice>,
+    model_choice: Option<&crate::agents::running_model::ModelChoice>,
 ) -> CommandBuilder {
     let program = command
         .or_else(|| std::env::var(AGENT_COMMAND_OVERRIDE_VARIABLE).ok())
@@ -550,7 +550,7 @@ fn build_command(
     // see running_model.rs. Its arguments join the list (merging into a
     // `--settings` layer the theme arguments may already carry); its environment
     // is applied with the rest.
-    let model_report_environment = crate::running_model::attach(
+    let model_report_environment = crate::agents::running_model::attach(
         &program,
         conversation_id,
         model_choice,
@@ -753,7 +753,7 @@ pub async fn pty_spawn(
     // A model and effort picked from the tab for THIS launch alone (a restart
     // that applies a switch) - passed as launch flags, never saved as the
     // agent's default. See running_model.rs.
-    model_choice: Option<crate::running_model::ModelChoice>,
+    model_choice: Option<crate::agents::running_model::ModelChoice>,
 ) -> Result<(), String> {
     let owner = window.label().to_string();
     let exceeds_argument_limits = args.as_ref().is_some_and(|arguments| {
@@ -857,7 +857,7 @@ struct SessionLaunch {
     arguments: Vec<String>,
     scheme: Option<Scheme>,
     conversation_id: Option<String>,
-    model_choice: Option<crate::running_model::ModelChoice>,
+    model_choice: Option<crate::agents::running_model::ModelChoice>,
 }
 
 /// A spawned session not yet published, plus the halves its output pump owns.

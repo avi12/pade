@@ -3,6 +3,17 @@
 //! ADE is agent-agnostic: it discovers which agent CLIs are installed and lets
 //! the user launch, switch, and combine them. Adding a backend is one entry in
 //! REGISTRY - nothing else in the app hard-codes "claude".
+//!
+//! The submodules hold everything else that speaks to a running agent: naming
+//! a session or project (`naming`, with `copilot` as a name source), reopening
+//! its conversation (`resume`), reading its live model and effort
+//! (`running_model`) and its context fill (`session_context`).
+
+pub(crate) mod copilot;
+pub(crate) mod naming;
+pub(crate) mod resume;
+pub(crate) mod running_model;
+pub(crate) mod session_context;
 
 use std::path::PathBuf;
 

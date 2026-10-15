@@ -185,7 +185,9 @@ impl<'a> Session<'a> {
                     .as_ref()
                     .and_then(|state| state.transcript.as_ref())
                     .map(PathBuf::from)
-                    .or_else(|| crate::session_context::claude_transcript(self.conversation_id))
+                    .or_else(|| {
+                        crate::agents::session_context::claude_transcript(self.conversation_id)
+                    })
             })
             .as_deref()
     }
@@ -515,7 +517,7 @@ fn newest_ultracode_entry(lines: &str) -> Option<&'static str> {
 /// A session launched before PADE attached its hooks: the newest turn Claude's
 /// own log records.
 fn logged_turn(conversation_id: &str) -> Option<RunningModel> {
-    let turn = crate::session_context::logged_claude_turn(conversation_id)?;
+    let turn = crate::agents::session_context::logged_claude_turn(conversation_id)?;
     Some(RunningModel {
         model: turn.model,
         effort: turn.effort,

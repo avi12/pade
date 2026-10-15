@@ -109,7 +109,7 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
     // Cloudflare Turnstile gate on the first message - so naming quietly falls
     // back to `claude -p` / `codex exec` and never blocks on it.
     if let Some(name) =
-        crate::copilot::suggest_session_name(&readable).and_then(|raw| sanitize(&raw))
+        crate::agents::copilot::suggest_session_name(&readable).and_then(|raw| sanitize(&raw))
     {
         return Some(name);
     }

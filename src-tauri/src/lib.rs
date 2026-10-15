@@ -2,7 +2,6 @@ mod agents;
 mod clipboard;
 mod config;
 mod contextmenu;
-mod copilot;
 mod design;
 mod discord;
 mod gitignore;
@@ -12,16 +11,12 @@ mod limit_reset;
 mod mcp;
 mod media;
 mod members;
-mod naming;
 mod os;
 mod provision;
 mod pty;
 mod recovery;
 mod refs;
-mod resume;
 mod runner;
-mod running_model;
-mod session_context;
 mod tasks;
 mod terminal_schemes;
 #[cfg(test)]
@@ -93,7 +88,7 @@ fn configure_webview2_environment() {
 pub fn run() {
     // Launched by an agent's hook to record a session's model and effort: do that
     // and exit before anything of the app (a window, a lowered priority) starts.
-    if running_model::run_hook_sink_if_requested() {
+    if agents::running_model::run_hook_sink_if_requested() {
         return;
     }
 
@@ -129,7 +124,7 @@ pub fn run() {
             pty::init(handle);
             runner::init(handle);
             watcher::init(handle);
-            running_model::init(handle);
+            agents::running_model::init(handle);
             app.manage(window::WindowProjects::default());
             app.manage(discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop
@@ -188,11 +183,11 @@ pub fn run() {
             pty::pty_list,
             recovery::recovery_arm,
             theming::agent_theme_publish,
-            resume::agent_resume_args,
-            session_context::agent_session_context,
-            running_model::agent_running_model,
-            running_model::agent_model_options,
-            running_model::agent_apply_model,
+            agents::resume::agent_resume_args,
+            agents::session_context::agent_session_context,
+            agents::running_model::agent_running_model,
+            agents::running_model::agent_model_options,
+            agents::running_model::agent_apply_model,
             runner::runner_start,
             runner::runner_stop,
             runner::runner_list,
@@ -232,8 +227,8 @@ pub fn run() {
             usage::usage_account_agent,
             limit_reset::limit_reset_offer,
             limit_reset::limit_reset_claim,
-            naming::project_autoname,
-            naming::session_generate_name,
+            agents::naming::project_autoname,
+            agents::naming::session_generate_name,
             workspace::launch_context,
             workspace::settings_get,
             workspace::workspace_add_root,

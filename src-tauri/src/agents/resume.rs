@@ -198,7 +198,7 @@ pub async fn agent_resume_args(
     conversation_id: Option<String>,
 ) -> Vec<String> {
     let reported = conversation_id.as_deref().and_then(|conversation_id| {
-        crate::running_model::resume_arguments(&command, conversation_id)
+        crate::agents::running_model::resume_arguments(&command, conversation_id)
     });
     if let Some(arguments) = reported {
         return arguments;
@@ -210,7 +210,9 @@ pub async fn agent_resume_args(
         _ => None,
     };
     newest_in_cwd
-        .and_then(|session_id| crate::running_model::session_resume_arguments(&command, session_id))
+        .and_then(|session_id| {
+            crate::agents::running_model::session_resume_arguments(&command, session_id)
+        })
         .unwrap_or_default()
 }
 

@@ -29,7 +29,7 @@ use sha2::{Digest, Sha256};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{client::IntoClientRequest, Message, WebSocket};
 
-use crate::naming::{session_naming_prompt, NAME_TIMEOUT};
+use crate::agents::naming::{session_naming_prompt, NAME_TIMEOUT};
 
 const ORIGIN: &str = "https://copilot.microsoft.com";
 const START_URL: &str = "https://copilot.microsoft.com/c/api/start";
