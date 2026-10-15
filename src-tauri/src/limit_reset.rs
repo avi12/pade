@@ -4,26 +4,28 @@
 //! button in PADE's usage meter.
 //!
 //! Both calls are the ones Claude Code itself makes. The offer is the `cedar_ember`
-//! block of the OAuth usage endpoint — which answers only a caller that names
+//! block of the OAuth usage endpoint - which answers only a caller that names
 //! itself as a current Claude Code (any other client is an ineligible
 //! "surface"), so the request carries the installed version. The claim is a POST
 //! naming the grant and a fresh request id, so a retried claim is never counted
 //! twice. Spending a grant cannot be undone; the frontend confirms first.
 
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
 use crate::usage::{
-    claude_access_token, claude_cli_version, claude_organization, curl_get_json,
-    is_safe_header_token, USAGE_CACHE_SECONDS,
+    claude_access_token, claude_usage_url, curl_claude_oauth, is_safe_header_token,
+    ClaudeOauthRequest, ClaudeProfile, CLAUDE_API, USAGE_CACHE_TTL,
 };
 
 /// The reset program's name, both as the usage query flag and in the claim.
 const RESET_PROGRAM: &str = "cedar_ember";
-const OFFER_URL: &str = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1";
-const CLAIM_API: &str = "https://api.anthropic.com/api/organizations";
+/// How long an offer or claim request may take before curl gives up.
+const RESET_REQUEST_TIMEOUT_SECONDS: u32 = 20;
+/// The longest grant id Claude Code itself accepts.
+const MAXIMUM_GRANT_ID_LENGTH: usize = 40;
 
 /// The reset an account can spend now: the grant the server names as next.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -45,7 +47,8 @@ pub struct LimitReset {
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct LimitResetOutcome {
     /// Whether the limits were actually reset.
-    reset: bool,
+    #[serde(rename = "reset")]
+    is_reset: bool,
     /// The server's verdict (`reset`, `already_used`, `ineligible`, …).
     result: String,
     /// Why it did not reset, when it says.
@@ -54,7 +57,8 @@ pub struct LimitResetOutcome {
 
 #[derive(Deserialize)]
 struct ResetStatus {
-    eligible: bool,
+    #[serde(rename = "eligible")]
+    is_eligible: bool,
     next_grant_id: Option<String>,
     #[serde(default)]
     grants: Vec<Grant>,
@@ -68,7 +72,8 @@ struct Grant {
     ends_at: Option<String>,
     #[serde(default)]
     clears: Vec<String>,
-    usable_now: bool,
+    #[serde(rename = "usable_now")]
+    is_usable_now: bool,
 }
 
 /// The reset the account can spend now, or `None` when it has none (or Claude
@@ -89,12 +94,10 @@ pub async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, St
         .map_err(|error| error.to_string())?
 }
 
-/// How long one reading of the offer is reused. It comes off the same
-/// rate-limited usage endpoint as the meter, which is re-read every few
-/// minutes; asking on every reading as well got the endpoint refusing both.
-const OFFER_CACHE_TTL: Duration = Duration::from_secs(USAGE_CACHE_SECONDS);
-
-/// The last offer the endpoint answered, and when.
+/// The last offer the endpoint answered, and when. Cached as long as a meter
+/// reading ([`USAGE_CACHE_TTL`]): the offer comes off the same rate-limited
+/// usage endpoint, and asking on every reading as well got the endpoint
+/// refusing both.
 static OFFER_CACHE: Mutex<Option<(Instant, Option<LimitReset>)>> = Mutex::new(None);
 
 /// The offer, from the cache while it is fresh. A failed request (offline, or
@@ -103,7 +106,7 @@ static OFFER_CACHE: Mutex<Option<(Instant, Option<LimitReset>)>> = Mutex::new(No
 fn fetch_offer() -> Option<LimitReset> {
     let cached = OFFER_CACHE.lock().ok().and_then(|guard| guard.clone());
     if let Some((read_at, offer)) = &cached {
-        if read_at.elapsed() < OFFER_CACHE_TTL {
+        if read_at.elapsed() < USAGE_CACHE_TTL {
             return offer.clone();
         }
     }
@@ -117,7 +120,7 @@ fn fetch_offer() -> Option<LimitReset> {
     offer
 }
 
-/// Forget the cached offer, so the next read asks again — after a claim.
+/// Forget the cached offer, so the next read asks again - after a claim.
 fn forget_offer() {
     if let Ok(mut guard) = OFFER_CACHE.lock() {
         *guard = None;
@@ -128,21 +131,26 @@ fn forget_offer() {
 #[derive(Debug)]
 struct OfferUnanswered;
 
-/// Ask the endpoint for the offer — `Ok(None)` when it answered that there is
+/// Ask the endpoint for the offer - `Ok(None)` when it answered that there is
 /// nothing to spend.
 fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
-    let config = request_config(&Request {
-        url: OFFER_URL,
+    let url = format!("{}?{RESET_PROGRAM}=1&skip_spend=1", claude_usage_url());
+    let body = curl_claude_oauth(&ClaudeOauthRequest {
+        url: &url,
         token: &claude_access_token().ok_or(OfferUnanswered)?,
-        user_agent: &claude_cli_user_agent().ok_or(OfferUnanswered)?,
-        body: None,
+        user_agent: &ClaudeProfile::read()
+            .as_ref()
+            .and_then(claude_cli_user_agent)
+            .ok_or(OfferUnanswered)?,
+        organization: None,
+        json_body: None,
+        timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
     })
     .ok_or(OfferUnanswered)?;
-    let body = curl_get_json(&config).ok_or(OfferUnanswered)?;
     let response: serde_json::Value = serde_json::from_str(&body).map_err(|_| OfferUnanswered)?;
     Ok(response
         .get(RESET_PROGRAM)
-        .and_then(|status| serde_json::from_value(status.clone()).ok())
+        .and_then(|status| ResetStatus::deserialize(status).ok())
         .and_then(offered_reset))
 }
 
@@ -152,10 +160,19 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
     }
 
     let token = claude_access_token().ok_or("Claude is not signed in")?;
-    let organization = claude_organization()
+    if !is_safe_header_token(&token) {
+        return Err("unsafe request".to_string());
+    }
+    let profile = ClaudeProfile::read();
+    let organization = profile
+        .as_ref()
+        .and_then(ClaudeProfile::organization)
         .filter(|organization| is_safe_header_token(organization))
         .ok_or("no Claude organization")?;
-    let user_agent = claude_cli_user_agent().ok_or("Claude Code's version is unknown")?;
+    let user_agent = profile
+        .as_ref()
+        .and_then(claude_cli_user_agent)
+        .ok_or("Claude Code's version is unknown")?;
     let request_id = uuid::Uuid::new_v4().to_string();
     let body = serde_json::json!({
         "program": RESET_PROGRAM,
@@ -163,22 +180,23 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
         "request_id": request_id,
     })
     .to_string();
-    let url = format!("{CLAIM_API}/{organization}/reset_rate_limits");
-    let config = request_config(&Request {
+    let url = format!("{CLAUDE_API}/organizations/{organization}/reset_rate_limits");
+    let response = curl_claude_oauth(&ClaudeOauthRequest {
         url: &url,
         token: &token,
         user_agent: &user_agent,
-        body: Some(&body),
+        organization: None,
+        json_body: Some(&body),
+        timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
     })
-    .ok_or("unsafe request")?;
-    let response = curl_get_json(&config).ok_or("the reset request failed")?;
+    .ok_or("the reset request failed")?;
     forget_offer();
     serde_json::from_str(&response).map_err(|error| error.to_string())
 }
 
 /// The grant the server names as next, while the account may spend it now.
 fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
-    if !status.eligible {
+    if !status.is_eligible {
         return None;
     }
 
@@ -187,7 +205,7 @@ fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
         .grants
         .into_iter()
         .find(|grant| grant.id == next_grant_id)?;
-    let is_spendable = grant.usable_now && grant.resets_left > 0;
+    let is_spendable = grant.is_usable_now && grant.resets_left > 0;
     is_spendable.then_some(LimitReset {
         grant_id: grant.id,
         label: grant.label,
@@ -197,10 +215,10 @@ fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
     })
 }
 
-/// The shape Claude Code itself accepts for a grant id — also what keeps it
+/// The shape Claude Code itself accepts for a grant id - also what keeps it
 /// safe inside the request body.
 fn is_grant_id(grant_id: &str) -> bool {
-    let has_valid_length = (1..=40).contains(&grant_id.len());
+    let has_valid_length = (1..=MAXIMUM_GRANT_ID_LENGTH).contains(&grant_id.len());
     has_valid_length
         && grant_id.bytes().all(|byte| {
             byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
@@ -208,8 +226,8 @@ fn is_grant_id(grant_id: &str) -> bool {
 }
 
 /// How Claude Code names itself, with the installed version.
-fn claude_cli_user_agent() -> Option<String> {
-    let version = claude_cli_version()?;
+fn claude_cli_user_agent(profile: &ClaudeProfile) -> Option<String> {
+    let version = profile.cli_version()?;
     let is_version = !version.is_empty()
         && version
             .bytes()
@@ -217,43 +235,9 @@ fn claude_cli_user_agent() -> Option<String> {
     is_version.then(|| format!("claude-cli/{version} (external, cli)"))
 }
 
-struct Request<'request> {
-    url: &'request str,
-    token: &'request str,
-    user_agent: &'request str,
-    body: Option<&'request str>,
-}
-
-/// A curl `--config` document for `request`, the token riding in it rather
-/// than the arguments. `None` when the token could break out of its quotes.
-fn request_config(request: &Request) -> Option<String> {
-    let Request {
-        url,
-        token,
-        user_agent,
-        body,
-    } = request;
-    if !is_safe_header_token(token) {
-        return None;
-    }
-
-    let post = body.map_or_else(String::new, |body| {
-        let quoted = body.replace('\\', "\\\\").replace('"', "\\\"");
-        format!("request = \"POST\"\ndata = \"{quoted}\"\n")
-    });
-    Some(format!(
-        "silent\nshow-error\nfail\nmax-time = 20\nurl = \"{url}\"\n\
-         header = \"Authorization: Bearer {token}\"\n\
-         header = \"anthropic-beta: oauth-2025-04-20\"\n\
-         header = \"User-Agent: {user_agent}\"\n\
-         header = \"Content-Type: application/json\"\n\
-         {post}"
-    ))
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{is_grant_id, offered_reset, LimitReset, ResetStatus};
+    use super::{is_grant_id, offered_reset, LimitReset, LimitResetOutcome, ResetStatus};
 
     fn status(json: &serde_json::Value) -> ResetStatus {
         serde_json::from_value(json.clone()).expect("a status")
@@ -309,6 +293,20 @@ mod tests {
 
         assert_eq!(offered_reset(ineligible), None);
         assert_eq!(offered_reset(spent), None);
+    }
+
+    #[test]
+    fn a_claim_outcome_keeps_the_servers_field_names_on_both_sides() {
+        let outcome: LimitResetOutcome = serde_json::from_value(serde_json::json!({
+            "reset": false,
+            "result": "already_used",
+            "reason": "spent"
+        }))
+        .expect("the server's shape parses");
+
+        let wire = serde_json::to_value(&outcome).expect("serializes");
+        assert_eq!(wire["reset"], serde_json::json!(false));
+        assert_eq!(wire["result"], serde_json::json!("already_used"));
     }
 
     #[test]

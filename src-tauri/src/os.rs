@@ -1,4 +1,4 @@
-//! OS integrations — reveal a project in the system file manager or a terminal,
+//! OS integrations - reveal a project in the system file manager or a terminal,
 //! open a URL in the default browser, or restart PADE.
 
 use crate::util;
@@ -14,19 +14,19 @@ pub fn restart(app: AppHandle) {
     app.request_restart();
 }
 
-/// Open a URL in the default browser. Only http(s) schemes are allowed — this is
+/// Open a URL in the default browser. Only http(s) schemes are allowed - this is
 /// the one seam that hands a string to the OS, so we refuse anything that isn't a
 /// plain web URL (no `file:`, `javascript:`, custom handlers, etc.).
 ///
 /// Hands the URL to the platform opener (`ShellExecute` / `open` / `xdg-open`) via
 /// the Tauri opener plugin, which passes it through untouched. Shelling out to
-/// `cmd /C start` instead would let a `&` in the URL — every OAuth sign-in link
-/// has several (`?code=true&client_id=…`) — split it into commands, so the browser
+/// `cmd /C start` instead would let a `&` in the URL - every OAuth sign-in link
+/// has several (`?code=true&client_id=…`) - split it into commands, so the browser
 /// only ever received the URL up to the first `&`.
 #[tauri::command]
 pub async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
-    let scheme_ok = url.starts_with("https://") || url.starts_with("http://");
-    if !scheme_ok {
+    let is_web_url = WEB_URL_SCHEMES.iter().any(|scheme| url.starts_with(scheme));
+    if !is_web_url {
         return Err("only http(s) URLs may be opened".into());
     }
     app.opener()
@@ -34,20 +34,30 @@ pub async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Open `path` in the platform file manager (Explorer / Finder / xdg).
+/// The only URL prefixes [`open_url`] hands to the OS.
+const WEB_URL_SCHEMES: [&str; 2] = ["https://", "http://"];
+
+/// The platform file manager's launcher: Explorer, Finder (via `open`), or the
+/// desktop's default through `xdg-open`.
+const FILE_MANAGER: &str = if cfg!(windows) {
+    "explorer"
+} else if cfg!(target_os = "macos") {
+    "open"
+} else {
+    "xdg-open"
+};
+
+/// Open `path` in the platform file manager.
 #[tauri::command]
 pub async fn open_in_explorer(path: String) -> Result<(), String> {
-    let result = if cfg!(windows) {
-        Command::new("explorer").arg(&path).spawn()
-    } else if cfg!(target_os = "macos") {
-        Command::new("open").arg(&path).spawn()
-    } else {
-        Command::new("xdg-open").arg(&path).spawn()
-    };
-    result.map(|_| ()).map_err(|e| e.to_string())
+    Command::new(FILE_MANAGER)
+        .arg(&path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
-/// Show `path` selected in the platform file manager without opening it — the
+/// Show `path` selected in the platform file manager without opening it - the
 /// safe way to surface a binary, since an `.exe` handed to Explorer would run.
 #[tauri::command]
 pub async fn reveal_in_explorer(path: String) -> Result<(), String> {
@@ -64,9 +74,9 @@ pub async fn reveal_in_explorer(path: String) -> Result<(), String> {
 #[cfg(windows)]
 fn reveal_command(target: &Path) -> Command {
     use std::os::windows::process::CommandExt;
-    let mut command = util::command("explorer");
+    let mut command = util::command(FILE_MANAGER);
     // Explorer parses `/select,` itself and wants the path quoted after the
-    // comma, which std's argument quoting cannot express — hence the raw arg.
+    // comma, which std's argument quoting cannot express - hence the raw arg.
     // It also rejects forward slashes there.
     let windows_path = target.display().to_string().replace('/', "\\");
     command.raw_arg(format!("/select,\"{windows_path}\""));
@@ -75,7 +85,7 @@ fn reveal_command(target: &Path) -> Command {
 
 #[cfg(target_os = "macos")]
 fn reveal_command(target: &Path) -> Command {
-    let mut command = util::command("open");
+    let mut command = util::command(FILE_MANAGER);
     command.arg("-R").arg(target);
     command
 }
@@ -83,7 +93,7 @@ fn reveal_command(target: &Path) -> Command {
 /// Linux file managers share no "select this file" flag, so open its folder.
 #[cfg(all(unix, not(target_os = "macos")))]
 fn reveal_command(target: &Path) -> Command {
-    let mut command = util::command("xdg-open");
+    let mut command = util::command(FILE_MANAGER);
     command.arg(target.parent().unwrap_or(target));
     command
 }

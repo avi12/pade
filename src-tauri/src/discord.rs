@@ -1,4 +1,4 @@
-//! Discord Rich Presence — report PADE on the user's Discord profile.
+//! Discord Rich Presence - report PADE on the user's Discord profile.
 //!
 //! Talks the Discord desktop client's local IPC protocol directly over its
 //! per-user socket (a named pipe on Windows, a Unix domain socket elsewhere), so
@@ -13,12 +13,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 use tauri::State;
 
-/// PADE's **public** Discord application (client) id — the VS-Code-extension model:
+use crate::util::since_unix_epoch;
+
+/// PADE's **public** Discord application (client) id - the VS-Code-extension model:
 /// one app registered once by the maintainer, its id shipped in the binary, so
 /// every user gets "Playing PADE" with zero per-user setup (just the toggle). The
 /// app owns the art assets every client references: the `pade` large image plus one
@@ -31,8 +32,10 @@ const APPLICATION_ID: &str = "1530345735835619390";
 /// PADE logo). The small overlay is a per-language key the frontend supplies; an
 /// asset the app hasn't uploaded simply doesn't render, text still works.
 const ART_ASSET_KEY: &str = "pade";
+/// The large art asset's hover text.
+const ART_ASSET_CAPTION: &str = "PADE";
 
-/// The one presence command PADE sends — set (or, with a null activity, clear)
+/// The one presence command PADE sends - set (or, with a null activity, clear)
 /// the current activity. Named once so the two payload builders agree (DRY).
 const SET_ACTIVITY: &str = "SET_ACTIVITY";
 
@@ -40,10 +43,10 @@ const SET_ACTIVITY: &str = "SET_ACTIVITY";
 /// followed by the JSON payload.
 const FRAME_HEADER_LENGTH: usize = 8;
 
-/// Reject a response frame claiming more than this many payload bytes — Discord's
+/// Reject a response frame claiming more than this many payload bytes - Discord's
 /// frames are small, so an absurd length means a desynced/garbage pipe, not a
 /// real message worth allocating for.
-const MAXIMUM_FRAME_PAYLOAD: usize = 64 * 1024;
+const MAXIMUM_FRAME_PAYLOAD: u64 = 64 * 1024;
 
 /// IPC frame opcodes. Only the two PADE sends are modelled; the protocol's `Close`
 /// (2) is never written (dropping the socket is enough), so it isn't represented.
@@ -54,7 +57,7 @@ enum Opcode {
 }
 
 impl Opcode {
-    /// The on-the-wire numeric code — kept as the enum's one authoritative mapping
+    /// The on-the-wire numeric code - kept as the enum's one authoritative mapping
     /// so no bare `0`/`1` leaks into the framing.
     const fn code(self) -> u32 {
         match self {
@@ -75,11 +78,11 @@ impl<T: Read + Write + Send> DuplexStream for T {}
 /// to a message the frontend ignores.
 #[derive(Debug)]
 enum DiscordError {
-    /// No Discord IPC socket answered — the client isn't running.
+    /// No Discord IPC socket answered - the client isn't running.
     Unavailable,
     /// A frame's length is implausibly large (a corrupt/desynced pipe).
     OversizedFrame,
-    /// Underlying socket I/O failed — treated as "Discord went away".
+    /// Underlying socket I/O failed - treated as "Discord went away".
     Io(std::io::Error),
 }
 
@@ -109,7 +112,7 @@ impl From<std::io::Error> for DiscordError {
 }
 
 /// Tauri-managed presence handle. Discord's socket I/O is **blocking**, and a
-/// synchronous Tauri command runs on the main (UI) thread — so talking to the socket
+/// synchronous Tauri command runs on the main (UI) thread - so talking to the socket
 /// inline would freeze the window whenever a read stalls (Discord slow, restarting,
 /// or a half-open pipe). Instead the state owns a dedicated worker thread that holds
 /// the connection and applies presence updates serially off the UI thread; a command
@@ -126,7 +129,7 @@ enum Command {
     Clear,
 }
 
-/// Owned counterpart of [`ActivityInput`] — the worker borrows from it per send.
+/// Owned counterpart of [`ActivityInput`] - the worker borrows from it per send.
 #[derive(Default)]
 struct OwnedActivity {
     details: Option<String>,
@@ -162,7 +165,7 @@ impl DiscordState {
 
 /// The worker loop: owns the connection and applies each queued update in order,
 /// off the UI thread, until every sender is dropped (app exit). Each update's result
-/// is intentionally ignored — presence is best-effort.
+/// is intentionally ignored - presence is best-effort.
 fn run_worker(receiver: Receiver<Command>) {
     let mut presence = Presence::default();
     while let Ok(command) = receiver.recv() {
@@ -189,11 +192,13 @@ struct Presence {
 impl Presence {
     /// Publish the given activity, connecting + handshaking on first use. `details`
     /// and `state` are the two optional status lines; `image`/`caption` are an
-    /// optional small overlay icon (an art-asset key) and its hover text — the
+    /// optional small overlay icon (an art-asset key) and its hover text - the
     /// VS-Code-style language mark. All are omitted from the payload when `None`.
     fn set_activity(&mut self, fields: ActivityInput) -> Result<(), DiscordError> {
         self.ensure_connected()?;
-        let started_at = *self.started_at.get_or_insert_with(now_unix_seconds);
+        let started_at = *self
+            .started_at
+            .get_or_insert_with(|| since_unix_epoch().as_secs());
         let nonce = next_nonce();
         let ActivityInput {
             details,
@@ -214,7 +219,7 @@ impl Presence {
 
     /// Clear the activity (keeping the socket for a later re-enable) and forget the
     /// start time so the next enable starts the timer fresh. A no-op when never
-    /// connected — there's nothing on Discord to clear.
+    /// connected - there's nothing on Discord to clear.
     fn clear_activity(&mut self) -> Result<(), DiscordError> {
         self.started_at = None;
         if self.connection.is_none() {
@@ -239,7 +244,7 @@ impl Presence {
 
     /// Send one command frame and drain its reply. Any I/O failure means Discord
     /// closed the pipe (quit or restarted), so the connection and start time are
-    /// dropped — the next `set_activity` reconnects cleanly.
+    /// dropped - the next `set_activity` reconnects cleanly.
     fn exchange(&mut self, payload: &str) -> Result<(), DiscordError> {
         let outcome = self.write_command(payload);
         if outcome.is_err() {
@@ -300,7 +305,7 @@ fn activity_payload(fields: ActivityFields) -> String {
 
     let mut assets = serde_json::Map::new();
     assets.insert("large_image".to_owned(), Value::from(ART_ASSET_KEY));
-    assets.insert("large_text".to_owned(), Value::from("PADE"));
+    assets.insert("large_text".to_owned(), Value::from(ART_ASSET_CAPTION));
     if let Some(image) = image {
         assets.insert("small_image".to_owned(), Value::from(image));
     }
@@ -359,18 +364,21 @@ fn encode_frame(opcode: Opcode, payload: &[u8]) -> Result<Vec<u8>, DiscordError>
     Ok(frame)
 }
 
-/// Read exactly one response frame and discard it — PADE never inspects Discord's
+/// Read exactly one response frame and discard it - PADE never inspects Discord's
 /// replies, it only needs to keep the stream drained.
 fn read_frame(stream: &mut dyn DuplexStream) -> Result<(), DiscordError> {
     let mut header = [0u8; FRAME_HEADER_LENGTH];
     stream.read_exact(&mut header)?;
-    let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
-    let length = usize::try_from(length).map_err(|_| DiscordError::OversizedFrame)?;
+    let [_, _, _, _, length @ ..] = header;
+    let length = u64::from(u32::from_le_bytes(length));
     if length > MAXIMUM_FRAME_PAYLOAD {
         return Err(DiscordError::OversizedFrame);
     }
-    let mut payload = vec![0u8; length];
-    stream.read_exact(&mut payload)?;
+    // Drained into a sink: the reply is never inspected, so it needs no buffer.
+    let drained = std::io::copy(&mut stream.take(length), &mut std::io::sink())?;
+    if drained < length {
+        return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into());
+    }
     Ok(())
 }
 
@@ -380,54 +388,44 @@ static NONCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// within and across runs without needing a UUID crate.
 fn next_nonce() -> String {
     let count = NONCE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let millis = match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(elapsed) => elapsed.as_millis(),
-        Err(_) => 0,
-    };
-    format!("{millis}-{count}")
+    let milliseconds = since_unix_epoch().as_millis();
+    format!("{milliseconds}-{count}")
 }
 
-/// Seconds since the Unix epoch, for `timestamps.start`.
-fn now_unix_seconds() -> u64 {
-    match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(elapsed) => elapsed.as_secs(),
-        Err(_) => 0,
-    }
+/// The socket names a Discord client may listen on, first choice first: one per
+/// running client instance, `discord-ipc-0` through `discord-ipc-9`.
+fn ipc_socket_names() -> impl Iterator<Item = String> {
+    const IPC_SOCKET_SLOTS: u8 = 10;
+    (0..IPC_SOCKET_SLOTS).map(|index| format!("discord-ipc-{index}"))
 }
 
-/// Open Discord's IPC named pipe, trying `discord-ipc-0` through `-9`; the first
-/// that opens wins. A duplex message pipe opens read+write through plain
-/// `OpenOptions` — no `unsafe`. `None` when none answer (Discord isn't running).
+/// Open Discord's IPC named pipe, trying every [`ipc_socket_names`] slot; the
+/// first that opens wins. A duplex message pipe opens read+write through plain
+/// `OpenOptions` - no `unsafe`. `None` when none answer (Discord isn't running).
 #[cfg(windows)]
 fn connect() -> Option<Box<dyn DuplexStream>> {
-    for index in 0..=9 {
-        let path = format!(r"\\.\pipe\discord-ipc-{index}");
-        if let Ok(pipe) = std::fs::OpenOptions::new()
+    ipc_socket_names().find_map(|name| {
+        let pipe = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
-            .open(&path)
-        {
-            return Some(Box::new(pipe));
-        }
-    }
-    None
+            .open(format!(r"\\.\pipe\{name}"))
+            .ok()?;
+        Some(Box::new(pipe) as Box<dyn DuplexStream>)
+    })
 }
 
-/// Open Discord's IPC domain socket, trying `discord-ipc-0` through `-9` under each
-/// candidate runtime directory. `None` when none answer.
+/// Open Discord's IPC domain socket, trying every [`ipc_socket_names`] slot under
+/// each candidate runtime directory. `None` when none answer.
 #[cfg(unix)]
 fn connect() -> Option<Box<dyn DuplexStream>> {
     use std::os::unix::net::UnixStream;
 
-    for directory in socket_directories() {
-        for index in 0..=9 {
-            let path = directory.join(format!("discord-ipc-{index}"));
-            if let Ok(stream) = UnixStream::connect(&path) {
-                return Some(Box::new(stream));
-            }
-        }
-    }
-    None
+    socket_directories().into_iter().find_map(|directory| {
+        ipc_socket_names().find_map(|name| {
+            let stream = UnixStream::connect(directory.join(name)).ok()?;
+            Some(Box::new(stream) as Box<dyn DuplexStream>)
+        })
+    })
 }
 
 /// Directories the Discord socket may live in, most-specific first: the XDG
@@ -474,7 +472,10 @@ pub fn discord_clear_activity(presence: State<DiscordState>) -> Result<(), Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{activity_payload, encode_frame, ActivityFields, Opcode, FRAME_HEADER_LENGTH};
+    use super::{
+        activity_payload, encode_frame, read_frame, ActivityFields, DiscordError, Opcode,
+        FRAME_HEADER_LENGTH,
+    };
 
     #[test]
     fn frame_header_is_little_endian_opcode_then_length() {
@@ -484,6 +485,47 @@ mod tests {
         let length = u32::try_from(payload.len()).expect("length fits");
         assert_eq!(&frame[4..8], &length.to_le_bytes());
         assert_eq!(&frame[FRAME_HEADER_LENGTH..], payload);
+    }
+
+    /// A reply as Discord frames it, followed by whatever comes after it.
+    fn framed(payload: &[u8], trailing: &[u8]) -> std::io::Cursor<Vec<u8>> {
+        let mut bytes = encode_frame(Opcode::Frame, payload).expect("encodes");
+        bytes.extend_from_slice(trailing);
+        std::io::Cursor::new(bytes)
+    }
+
+    #[test]
+    fn reading_a_frame_drains_exactly_that_frame() {
+        let mut stream = framed(br#"{"evt":"READY"}"#, b"next");
+        read_frame(&mut stream).expect("a whole frame reads");
+        let position = usize::try_from(stream.position()).expect("fits");
+        assert_eq!(&stream.get_ref()[position..], b"next");
+    }
+
+    #[test]
+    fn a_truncated_or_oversized_frame_is_an_error() {
+        let mut truncated = framed(b"0123456789", b"");
+        truncated.get_mut().truncate(FRAME_HEADER_LENGTH + 4);
+        assert!(matches!(
+            read_frame(&mut truncated),
+            Err(DiscordError::Io(_))
+        ));
+
+        let mut header = Opcode::Frame.code().to_le_bytes().to_vec();
+        header.extend_from_slice(&u32::MAX.to_le_bytes());
+        let mut oversized = std::io::Cursor::new(header);
+        assert!(matches!(
+            read_frame(&mut oversized),
+            Err(DiscordError::OversizedFrame)
+        ));
+    }
+
+    #[test]
+    fn every_ipc_socket_slot_is_tried_in_order() {
+        let names: Vec<String> = super::ipc_socket_names().collect();
+        assert_eq!(names.len(), 10);
+        assert_eq!(names[0], "discord-ipc-0");
+        assert_eq!(names[9], "discord-ipc-9");
     }
 
     #[test]

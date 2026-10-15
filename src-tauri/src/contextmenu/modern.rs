@@ -1,11 +1,11 @@
-//! The Windows 11 **modern** context menu — registering PADE's sparse
+//! The Windows 11 **modern** context menu - registering PADE's sparse
 //! (external-location) MSIX package so File Explorer loads the
 //! `contextmenu_handler.dll` COM verb (`IExplorerCommand`). Dev-mode, unsigned,
 //! per-user; the sole "Open in PADE" menu on Windows 11 (the parent module skips
 //! the legacy registry keys there, so the entry isn't duplicated).
 //!
 //! Register/unregister shell out to `Add-AppxPackage -Register … -ExternalLocation`
-//! / `Remove-AppxPackage` — the documented way to (de)register a loose manifest,
+//! / `Remove-AppxPackage` - the documented way to (de)register a loose manifest,
 //! and the same "no extra dependency" posture as the rest of the codebase (we do
 //! not pull in the `WinRT` `PackageManager`). See the runbook in
 //! `docs/handoff-windows11-context-menu.md`.
@@ -13,9 +13,10 @@
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
+use super::current_executable;
 use crate::util::command;
 
-/// Package identity `Name` — must equal `<Identity Name>` in `AppxManifest.xml`.
+/// Package identity `Name` - must equal `<Identity Name>` in `AppxManifest.xml`.
 /// Used to query and to remove the package.
 const PACKAGE_NAME: &str = "PADE.ContextMenu";
 
@@ -26,9 +27,18 @@ const MANIFEST_TEMPLATE: &str = include_str!("../../contextmenu-handler/AppxMani
 /// The token the template carries where the packaged executable's file name goes.
 const EXECUTABLE_PLACEHOLDER: &str = "{{EXECUTABLE}}";
 
-/// The handler DLL that must sit beside the executable — produced by
+/// The handler DLL that must sit beside the executable - produced by
 /// `cargo build -p contextmenu-handler` into the shared `target/` dir.
 const HANDLER_DLL: &str = "contextmenu_handler.dll";
+
+/// The filled-in manifest's file name in the external location.
+const MANIFEST_FILE: &str = "AppxManifest.xml";
+
+/// The folder the manifest's logos are read from, in the external location.
+const ASSETS_DIRECTORY: &str = "Assets";
+
+/// The HRESULT `Add-AppxPackage` fails with when Developer Mode is off.
+const DEVELOPER_MODE_OFF_ERROR: &str = "0x80073CFF";
 
 /// Logos the manifest references (relative to the external location). Embedded from
 /// the app icons and written into `Assets\` at register time: `(file name, bytes)`.
@@ -45,7 +55,7 @@ const ASSETS: &[(&str, &[u8])] = &[
     ),
 ];
 
-/// Register the sparse package so the modern menu appears — the only menu PADE uses
+/// Register the sparse package so the modern menu appears - the only menu PADE uses
 /// on Windows 11. A failure here (typically Developer Mode off) is returned with a
 /// clear, user-facing message.
 pub fn register() -> Result<(), String> {
@@ -55,25 +65,25 @@ pub fn register() -> Result<(), String> {
         return Err(format!(
             "the modern-menu handler is not next to PADE (expected {}). \
              Build it once with `cargo build -p contextmenu-handler` \
-             (its DLL lands beside pade.exe), then try again.",
+             (its DLL lands beside pade.exe), then try again",
             handler.display()
         ));
     }
     materialize(&location)?;
     let script = format!(
         "Add-AppxPackage -Register {} -ExternalLocation {}",
-        quote(&location.join("AppxManifest.xml")),
+        quote(&location.join(MANIFEST_FILE)),
         quote(&location),
     );
     interpret(&powershell(&script)?)
 }
 
-/// Remove the sparse package and clean up the files we wrote. Idempotent — removing
+/// Remove the sparse package and clean up the files we wrote. Idempotent - removing
 /// a package that was never registered is a no-op success.
 ///
 /// Reserved for a future uninstall/cleanup path: the toggle-off flow now only hides the
 /// handler via its show/hide flag (the package stays registered, à la `PowerToys`), so
-/// nothing calls this yet — but full removal still belongs here for when PADE gains an
+/// nothing calls this yet - but full removal still belongs here for when PADE gains an
 /// uninstaller.
 #[allow(dead_code)]
 pub fn unregister() -> Result<(), String> {
@@ -81,8 +91,8 @@ pub fn unregister() -> Result<(), String> {
         format!("Get-AppxPackage -Name '{PACKAGE_NAME}' | Remove-AppxPackage -ErrorAction Stop");
     let result = interpret(&powershell(&script)?);
     if let Ok(location) = external_location() {
-        let _ = std::fs::remove_file(location.join("AppxManifest.xml"));
-        let _ = std::fs::remove_dir_all(location.join("Assets"));
+        let _ = std::fs::remove_file(location.join(MANIFEST_FILE));
+        let _ = std::fs::remove_dir_all(location.join(ASSETS_DIRECTORY));
     }
     result
 }
@@ -97,18 +107,16 @@ pub fn is_registered() -> bool {
 /// The external-location directory: where PADE's own executable lives, and where
 /// the handler DLL, the written manifest and the `Assets\` logos must all sit.
 fn external_location() -> Result<PathBuf, String> {
-    std::env::current_exe()
-        .map_err(|e| e.to_string())?
+    current_executable()?
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| "cannot determine the executable's directory".to_string())
 }
 
 /// The running executable's file name (e.g. `pade.exe`), for the manifest's
-/// `Application@Executable` — the file the sparse package's identity is granted to.
+/// `Application@Executable` - the file the sparse package's identity is granted to.
 fn executable_name() -> Result<String, String> {
-    std::env::current_exe()
-        .map_err(|e| e.to_string())?
+    current_executable()?
         .file_name()
         .and_then(|name| name.to_str())
         .map(String::from)
@@ -118,8 +126,8 @@ fn executable_name() -> Result<String, String> {
 /// Write the filled-in manifest and the logo assets into the external location.
 fn materialize(location: &Path) -> Result<(), String> {
     let manifest = MANIFEST_TEMPLATE.replace(EXECUTABLE_PLACEHOLDER, &executable_name()?);
-    std::fs::write(location.join("AppxManifest.xml"), manifest).map_err(|e| e.to_string())?;
-    let assets = location.join("Assets");
+    std::fs::write(location.join(MANIFEST_FILE), manifest).map_err(|e| e.to_string())?;
+    let assets = location.join(ASSETS_DIRECTORY);
     std::fs::create_dir_all(&assets).map_err(|e| e.to_string())?;
     for (name, bytes) in ASSETS {
         std::fs::write(assets.join(name), bytes).map_err(|e| e.to_string())?;
@@ -144,12 +152,12 @@ fn interpret(output: &Output) -> Result<(), String> {
     }
     let mut message = String::from_utf8_lossy(&output.stderr).into_owned();
     message.push_str(&String::from_utf8_lossy(&output.stdout));
-    let developer_mode_off =
-        message.contains("0x80073CFF") || message.to_lowercase().contains("developer");
-    if developer_mode_off {
+    let is_developer_mode_off =
+        message.contains(DEVELOPER_MODE_OFF_ERROR) || message.to_lowercase().contains("developer");
+    if is_developer_mode_off {
         return Err(
             "The Windows 11 right-click menu needs Developer Mode turned on \
-             (Settings → System → For developers → Developer Mode), then try again."
+             (Settings → System → For developers → Developer Mode), then try again"
                 .to_string(),
         );
     }

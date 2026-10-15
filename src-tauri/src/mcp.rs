@@ -4,7 +4,7 @@
 //! restarting (Claude Code re-reads `.mcp.json` at launch; there is no in-session
 //! reload). Merely editing an existing server's config the user reconnects by
 //! hand. So the watcher restarts a session only when the *set of server names*
-//! changes — this module reads that set from the config file; `watcher.rs`
+//! changes - this module reads that set from the config file; `watcher.rs`
 //! keeps the per-file baseline and diffs it. The config-file paths themselves
 //! live in `config.rs` (the one registry of known agent files).
 
@@ -25,7 +25,7 @@ pub struct McpSnapshot {
 /// The declared MCP server names in the config file at `path` (the keys of its
 /// `mcpServers` object), or `None` when the set can't be determined right now.
 ///
-/// A missing file is `Some(empty)` — every server is gone, which is a real
+/// A missing file is `Some(empty)` - every server is gone, which is a real
 /// remove. But a file that exists yet doesn't parse (a half-written save caught
 /// mid-flush) is `None`: the caller skips it and waits for the next, complete
 /// write, so a transient partial file never reads as "all servers removed".
@@ -93,7 +93,7 @@ mod tests {
         );
     }
 
-    /// Only the SET of names matters — an edit to an existing server's config
+    /// Only the SET of names matters - an edit to an existing server's config
     /// (same keys) reads as the same set, so the watcher won't restart on it.
     #[test]
     fn a_value_only_edit_keeps_the_same_set() {
@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(state.map(|value| value.names), Some(BTreeSet::new()));
     }
 
-    /// A half-written file is unknowable, not "all removed" — so the caller can
+    /// A half-written file is unknowable, not "all removed" - so the caller can
     /// wait for the complete write rather than restart on a transient.
     #[test]
     fn an_unparseable_file_is_unknown() {

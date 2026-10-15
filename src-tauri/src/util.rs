@@ -4,12 +4,12 @@ use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Directories no project walk is ever interested in: dependency trees and
-/// build output. One home for the list, because two walks read it — the
+/// build output. One home for the list, because two walks read it - the
 /// autonamer's file census (`naming.rs`) and the task-manifest scan
-/// (`tasks.rs`) — and a directory worth skipping in one is worth skipping in
+/// (`tasks.rs`) - and a directory worth skipping in one is worth skipping in
 /// the other. Hidden directories are skipped separately by each walk, so `.git`
 /// and friends need no entry here.
 pub const SKIPPED_DIRECTORIES: &[&str] = &[
@@ -51,8 +51,8 @@ pub(crate) fn owner_access(owner: Option<&str>, requester: &str) -> OwnerAccess 
 }
 
 /// A `Command` that never flashes a console window on Windows. Every background
-/// or captured-output spawn — PATH lookups, git, curl, the agent namer, task
-/// runners, registry edits — goes through this so a GUI app stays windowless
+/// or captured-output spawn - PATH lookups, git, curl, the agent namer, task
+/// runners, registry edits - goes through this so a GUI app stays windowless
 /// instead of popping a `conhost` window per spawn (e.g. on the 5s agent
 /// re-detect). Interactive terminals the user explicitly opens (`os.rs`) are
 /// spawned directly so they *do* get a window.
@@ -67,20 +67,21 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW — the child gets no console window.
-        command.creation_flags(0x0800_0000);
+        /// The child gets no console window.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
     }
     command
 }
 
-/// How often [`succeeds_within`] re-checks a child it is waiting on. Matches the
+/// How often [`exits_successfully_within`] re-checks a child it is waiting on. Matches the
 /// runner's exit-poll cadence: prompt enough for an interactive check, cheap
 /// enough to leave the child undisturbed.
 const CHILD_WAIT_POLL: Duration = Duration::from_millis(50);
 
 /// Run `command` to completion under a hard deadline, reporting only whether it
 /// exited successfully. All three standard streams are closed (the caller wants
-/// a verdict, not output — and an open stdin is exactly what lets a child wait
+/// a verdict, not output - and an open stdin is exactly what lets a child wait
 /// forever). On deadline the child is killed and the answer is `false`: a probe
 /// that can hang is never worth a hang.
 pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
@@ -91,6 +92,14 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
     let Ok(mut child) = command.spawn() else {
         return false;
     };
+    exits_successfully_within(&mut child, timeout)
+}
+
+/// Wait for a spawned `child` under a hard deadline, reporting whether it exited
+/// successfully. On deadline (or a failed wait) the child is killed and reaped
+/// and the answer is `false`. The caller owns the child's streams - one that
+/// reads its output does so on another thread while this waits.
+pub fn exits_successfully_within(child: &mut Child, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {
@@ -106,7 +115,7 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
     }
 }
 
-/// Spawn `program args` as a process that fully **outlives** ADE — used only for
+/// Spawn `program args` as a process that fully **outlives** ADE - used only for
 /// launching a GUI IDE (see `ide::spawn_launcher`), which the user expects to
 /// keep running after they close ADE.
 ///
@@ -114,13 +123,13 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
 /// its parent's console *and* its parent's Job object, and job membership is
 /// inherited transitively. A GUI app like ADE is commonly placed in a Job whose
 /// limit flags include `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so when ADE exits
-/// and its job handle closes, every process still in that job — including an IDE
-/// we merely started — is terminated. That is exactly requirement #1's failure.
+/// and its job handle closes, every process still in that job - including an IDE
+/// we merely started - is terminated. That is exactly requirement #1's failure.
 /// Three creation flags break the child out of both:
 ///
 /// - `DETACHED_PROCESS` (`0x0000_0008`): the child gets no console of its own. A
 ///   GUI IDE opens its own window and needs none, so this is the right console
-///   flag here — and it *replaces* [`command`]'s `CREATE_NO_WINDOW`, with which
+///   flag here - and it *replaces* [`command`]'s `CREATE_NO_WINDOW`, with which
 ///   it is mutually exclusive (both are console-disposition flags). No console
 ///   means no `conhost` flash, preserving [`command`]'s windowless property.
 /// - `CREATE_NEW_PROCESS_GROUP` (`0x0000_0200`): the child leads its own process
@@ -131,7 +140,7 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
 /// Robustness: `CREATE_BREAKAWAY_FROM_JOB` makes `CreateProcess` fail with
 /// `ERROR_ACCESS_DENIED` (os error 5) when ADE's job forbids breakaway (its
 /// limits lack `JOB_OBJECT_LIMIT_BREAKAWAY_OK`) or ADE is in no job at all. On
-/// that one error we retry without breakaway — still detached and in its own
+/// that one error we retry without breakaway - still detached and in its own
 /// group, which is the best we can do inside a no-breakaway job. Any other error
 /// is returned unchanged, never swallowed.
 ///
@@ -170,7 +179,7 @@ pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::R
 /// process's `PATH`, then the *live* `PATH` the OS would hand a brand-new
 /// process, then the per-user bin directories package managers install into.
 ///
-/// Why more than `PATH`: a process inherits its environment once, at launch — and
+/// Why more than `PATH`: a process inherits its environment once, at launch - and
 /// a GUI app inherits it from the Explorer session that started it, which was
 /// itself born at login. An installer's `PATH` edit lands in the registry, not in
 /// any running process, so a long-lived ADE would keep missing a CLI the user
@@ -193,7 +202,7 @@ pub fn search_dirs() -> Vec<PathBuf> {
     directories
 }
 
-/// A directory's identity for de-duping — case-insensitive on Windows, where
+/// A directory's identity for de-duping - case-insensitive on Windows, where
 /// `C:\Foo` and `c:\foo` are the same directory.
 fn directory_key(directory: &Path) -> String {
     let key = directory
@@ -219,7 +228,9 @@ fn live_path_directories() -> Vec<PathBuf> {
     ];
     KEYS.iter()
         .filter_map(|key| registry_string(key, "Path"))
-        .flat_map(|value| std::env::split_paths(&expand_env(&value)).collect::<Vec<PathBuf>>())
+        .flat_map(|value| {
+            std::env::split_paths(&expand_environment_variables(&value)).collect::<Vec<PathBuf>>()
+        })
         .collect()
 }
 
@@ -228,7 +239,7 @@ fn live_path_directories() -> Vec<PathBuf> {
     Vec::new()
 }
 
-/// The single home for reading the registry via `reg query` — no registry crate,
+/// The single home for reading the registry via `reg query` - no registry crate,
 /// per the minimize-dependencies rule. `arguments` are the tokens after `query`
 /// (a key, optionally `/v <name>`); returns the captured stdout on success, or
 /// `None` when the command can't spawn or `reg` reports a missing key. Every
@@ -261,7 +272,7 @@ fn registry_string(key: &str, name: &str) -> Option<String> {
 /// Expand `%VAR%` references against the process environment. An unset variable
 /// is left verbatim (the resulting path simply won't exist, and is skipped).
 #[cfg(windows)]
-fn expand_env(value: &str) -> String {
+fn expand_environment_variables(value: &str) -> String {
     let mut expanded = String::with_capacity(value.len());
     let mut rest = value;
     while let Some(open) = rest.find('%') {
@@ -319,7 +330,7 @@ fn package_manager_directories() -> Vec<PathBuf> {
 }
 
 /// Windows package-manager bin directories: npm's global prefix, pnpm's home,
-/// winget's shim folder — plus every winget *portable package* folder, because
+/// winget's shim folder - plus every winget *portable package* folder, because
 /// winget installs those as a directory of raw binaries and only sometimes adds
 /// one to `PATH`.
 #[cfg(windows)]
@@ -350,16 +361,16 @@ fn windows_package_directories(_home: &Path) -> Vec<PathBuf> {
     Vec::new()
 }
 
-/// The first of `names` that exists as an executable in `dirs`. Name-major on
+/// The first of `names` that exists as an executable in `directories`. Name-major on
 /// purpose: the caller passes its preferred name first and every directory is
 /// tried for it before falling back to an alternate spelling.
-pub fn find_in(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
+pub fn find_in(directories: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
     let extensions = executable_extensions();
     names.iter().find_map(|name| {
-        dirs.iter().find_map(|dir| {
+        directories.iter().find_map(|directory| {
             extensions
                 .iter()
-                .map(|extension| dir.join(format!("{name}{extension}")))
+                .map(|extension| directory.join(format!("{name}{extension}")))
                 .find(|candidate| is_executable(candidate))
         })
     })
@@ -372,9 +383,10 @@ pub fn find_in(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
 fn executable_extensions() -> Vec<String> {
     let mut extensions = vec![String::new()];
     if cfg!(windows) {
-        let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+        let path_extensions =
+            std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
         extensions.extend(
-            pathext
+            path_extensions
                 .split(';')
                 .map(str::trim)
                 .filter(|extension| extension.starts_with('.'))
@@ -385,7 +397,7 @@ fn executable_extensions() -> Vec<String> {
 }
 
 /// Is this path a file we could actually exec? (On Unix that means the execute
-/// bit is set — a readable-but-not-executable file is not a command.)
+/// bit is set - a readable-but-not-executable file is not a command.)
 fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
@@ -400,7 +412,7 @@ fn is_executable(path: &Path) -> bool {
 
 /// The executable `command` names, or `None` if it isn't installed. A command that
 /// already carries a path (`C:\…\codex.exe`) is taken as-is; a bare name is looked
-/// up across [`search_dirs`]. For a one-off lookup — a caller resolving several
+/// up across [`search_dirs`]. For a one-off lookup - a caller resolving several
 /// commands should build [`search_dirs`] once and call [`find_in`].
 pub fn resolve(command: &str) -> Option<PathBuf> {
     let given = Path::new(command);
@@ -410,7 +422,7 @@ pub fn resolve(command: &str) -> Option<PathBuf> {
     find_in(&search_dirs(), &[command])
 }
 
-/// Is `command` runnable on this machine? Sees installs made since ADE launched —
+/// Is `command` runnable on this machine? Sees installs made since ADE launched -
 /// see [`search_dirs`].
 pub fn is_on_path(command: &str) -> bool {
     resolve(command).is_some()
@@ -418,14 +430,14 @@ pub fn is_on_path(command: &str) -> bool {
 
 /// Parse a JSON file into a `serde_json::Value`, or `None` when it can't be read
 /// or isn't valid JSON. The single home for the read-then-parse pair every local
-/// credential / auth probe repeats (DRY) — an expected miss (no file, bad JSON)
+/// credential / auth probe repeats (DRY) - an expected miss (no file, bad JSON)
 /// is a plain `None`, never an error to handle.
 pub fn read_json(path: &Path) -> Option<serde_json::Value> {
     let raw = std::fs::read_to_string(path).ok()?;
     serde_json::from_str(&raw).ok()
 }
 
-/// Read a JSONC file — the dialect Windows Terminal and VS Code write, where
+/// Read a JSONC file - the dialect Windows Terminal and VS Code write, where
 /// `//` and `/* … */` comments and a trailing comma before a closing brace or
 /// bracket are all legal. `read_json` is the right reader for strict JSON; this
 /// one is for a file a *human* edits, where the comments the vendor's own
@@ -441,25 +453,25 @@ pub fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
 fn strip_jsonc_sugar(raw: &str) -> String {
     let mut json = String::with_capacity(raw.len());
     let mut characters = raw.chars().peekable();
-    let mut in_string = false;
-    let mut escaped = false;
+    let mut is_in_string = false;
+    let mut is_escaped = false;
 
     while let Some(character) = characters.next() {
-        if in_string {
+        if is_in_string {
             json.push(character);
-            if escaped {
-                escaped = false;
+            if is_escaped {
+                is_escaped = false;
             } else if character == '\\' {
-                escaped = true;
+                is_escaped = true;
             } else if character == '"' {
-                in_string = false;
+                is_in_string = false;
             }
             continue;
         }
 
         match character {
             '"' => {
-                in_string = true;
+                is_in_string = true;
                 json.push(character);
             }
             '/' if characters.peek() == Some(&'/') => {
@@ -474,12 +486,12 @@ fn strip_jsonc_sugar(raw: &str) -> String {
             }
             '/' if characters.peek() == Some(&'*') => {
                 characters.next();
-                let mut star_seen = false;
+                let mut is_after_star = false;
                 for skipped in characters.by_ref() {
-                    if star_seen && skipped == '/' {
+                    if is_after_star && skipped == '/' {
                         break;
                     }
-                    star_seen = skipped == '*';
+                    is_after_star = skipped == '*';
                 }
             }
             '}' | ']' => {
@@ -564,11 +576,19 @@ pub fn pade_data_dir() -> Option<PathBuf> {
     Some(home_dir()?.join(".pade"))
 }
 
+/// The wall-clock time since the Unix epoch, or zero for a clock set before it -
+/// a timestamp, a nonce or an expiry check never has a better answer to give.
+pub fn since_unix_epoch() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+}
+
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
 pub fn home_dir() -> Option<PathBuf> {
-    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(var).map(PathBuf::from)
+    let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(variable).map(PathBuf::from)
 }
 
 /// Percent-encode `value` per RFC 3986: the unreserved set (`A–Z a–z 0–9 - _ . ~`)
@@ -681,7 +701,7 @@ mod project_encoding_tests {
 #[cfg(test)]
 mod tests {
     #[cfg(windows)]
-    use super::expand_env;
+    use super::expand_environment_variables;
     use super::{find_in, owner_access, strip_jsonc_sugar, OwnerAccess};
     use std::fs;
     use std::path::PathBuf;
@@ -689,11 +709,11 @@ mod tests {
 
     /// A scratch directory populated with empty, executable `files`.
     fn scratch(name: &str, files: &[&str]) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("pade-search-{name}"));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("create scratch dir");
+        let directory = std::env::temp_dir().join(format!("pade-search-{name}"));
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).expect("create scratch dir");
         for file in files {
-            let path = dir.join(file);
+            let path = directory.join(file);
             fs::write(&path, b"").expect("create scratch file");
             #[cfg(unix)]
             {
@@ -702,7 +722,7 @@ mod tests {
                     .expect("mark scratch file executable");
             }
         }
-        dir
+        directory
     }
 
     const CODEX_NAMES: &[&str] = &["codex", "codex-x86_64-pc-windows-msvc"];
@@ -718,26 +738,26 @@ mod tests {
     fn find_in_falls_back_to_an_alias() {
         // What winget's Codex package actually looks like: no `codex` anywhere,
         // only the release binary under its target-triple name.
-        let dir = scratch("alias", &["codex-x86_64-pc-windows-msvc"]);
+        let directory = scratch("alias", &["codex-x86_64-pc-windows-msvc"]);
         assert_eq!(
-            find_in(slice::from_ref(&dir), CODEX_NAMES),
-            Some(dir.join("codex-x86_64-pc-windows-msvc"))
+            find_in(slice::from_ref(&directory), CODEX_NAMES),
+            Some(directory.join("codex-x86_64-pc-windows-msvc"))
         );
     }
 
     #[test]
     fn find_in_prefers_the_canonical_name_over_an_alias() {
-        let dir = scratch("canonical", &["codex", "codex-x86_64-pc-windows-msvc"]);
+        let directory = scratch("canonical", &["codex", "codex-x86_64-pc-windows-msvc"]);
         assert_eq!(
-            find_in(slice::from_ref(&dir), CODEX_NAMES),
-            Some(dir.join("codex"))
+            find_in(slice::from_ref(&directory), CODEX_NAMES),
+            Some(directory.join("codex"))
         );
     }
 
     #[test]
     fn find_in_reports_a_command_that_is_not_installed() {
-        let dir = scratch("empty", &[]);
-        assert_eq!(find_in(slice::from_ref(&dir), CODEX_NAMES), None);
+        let directory = scratch("empty", &[]);
+        assert_eq!(find_in(slice::from_ref(&directory), CODEX_NAMES), None);
     }
 
     /// The whole point of the JSONC reader: a settings file a human edits keeps
@@ -769,7 +789,7 @@ mod tests {
     fn expand_env_resolves_known_variables_and_leaves_unknown_ones() {
         let home = std::env::var("USERPROFILE").expect("USERPROFILE is always set on Windows");
         assert_eq!(
-            expand_env(r"%USERPROFILE%\bin;%PADE_UNSET_VAR%\bin"),
+            expand_environment_variables(r"%USERPROFILE%\bin;%PADE_UNSET_VAR%\bin"),
             format!(r"{home}\bin;%PADE_UNSET_VAR%\bin")
         );
     }

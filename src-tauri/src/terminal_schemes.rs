@@ -2,12 +2,12 @@
 //!
 //! Three sources, one catalogue. The schemes Windows Terminal *ships* live in a
 //! `defaults.json` compiled into the app package, which PADE cannot count on
-//! being installed or readable — so they are vendored here as an asset
+//! being installed or readable - so they are vendored here as an asset
 //! (principle #10: nothing fetched at runtime). A short *curated* list adds the
 //! schemes that asset leaves out, in the same vocabulary. The schemes the user
 //! *wrote* come from their own `settings.json`, read live so a scheme they add
 //! shows up without a PADE release. Later sources win on a name collision, so a
-//! user scheme beats a curated one and a curated one beats a shipped one —
+//! user scheme beats a curated one and a curated one beats a shipped one -
 //! which is exactly what Windows Terminal itself does with a user override.
 //!
 //! On the wire the palette is an ANSI-indexed array rather than Windows
@@ -19,6 +19,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 /// The shipped schemes, vendored from Windows Terminal's own `defaults.json`
 /// (MIT). Regenerate from an installed Windows Terminal to pick up new ones.
@@ -43,14 +44,14 @@ pub struct TerminalScheme {
     /// Absent in several shipped schemes; the frontend falls back to the
     /// foreground rather than inventing a colour.
     pub cursor: Option<String>,
-    /// Likewise absent in several — Windows Terminal composites its own default
+    /// Likewise absent in several - Windows Terminal composites its own default
     /// wash there, and PADE derives one from the foreground.
     pub selection: Option<String>,
     /// The 16 ANSI colours in ANSI order: 0–7 standard, 8–15 bright.
     pub ansi: [String; 16],
 }
 
-/// A scheme as Windows Terminal writes it — its own twenty-field vocabulary,
+/// A scheme as Windows Terminal writes it - its own twenty-field vocabulary,
 /// read from `defaults.json`, the vendored asset, and the user's settings alike.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,7 +123,7 @@ fn schemes_from_values(values: Vec<serde_json::Value>) -> Vec<TerminalScheme> {
 }
 
 /// The `schemes` array of one Windows Terminal settings file, or nothing when
-/// the file is absent or unreadable — every path below is a build that may
+/// the file is absent or unreadable - every path below is a build that may
 /// simply not be installed.
 fn schemes_in_settings(path: &Path) -> Vec<TerminalScheme> {
     let Some(serde_json::Value::Array(schemes)) = crate::util::read_jsonc(path)
@@ -138,7 +139,7 @@ fn schemes_in_settings(path: &Path) -> Vec<TerminalScheme> {
 
 /// Every settings file a Windows Terminal build keeps its user schemes in: the
 /// Store release, the Store preview, and the unpackaged (portable/`scoop`)
-/// build. All three are read — a machine can have more than one.
+/// build. All three are read - a machine can have more than one.
 fn user_settings_paths() -> Vec<PathBuf> {
     let Some(local_app_data) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else {
         return Vec::new();
@@ -161,21 +162,31 @@ fn user_settings_paths() -> Vec<PathBuf> {
     ]
 }
 
-/// Every scheme in one vendored asset, or nothing when it will not parse — an
+/// Every scheme in one vendored asset, or nothing when it will not parse - an
 /// asset is data, and a broken one must not take the catalogue down with it.
 fn schemes_in_asset(asset: &str) -> Vec<TerminalScheme> {
     schemes_from_values(serde_json::from_str(asset).unwrap_or_default())
 }
 
-/// The merged catalogue, by name — later sources overwrite earlier ones, so the
+/// The vendored schemes by name, curated over shipped. Parsed once: both assets
+/// are compiled in, so re-parsing them on every picker open would only ever
+/// produce the same map.
+fn vendored_schemes() -> &'static BTreeMap<String, TerminalScheme> {
+    static VENDORED: OnceLock<BTreeMap<String, TerminalScheme>> = OnceLock::new();
+    VENDORED.get_or_init(|| {
+        schemes_in_asset(BUNDLED_SCHEMES)
+            .into_iter()
+            .chain(schemes_in_asset(CURATED_SCHEMES))
+            .map(|scheme| (scheme.name.clone(), scheme))
+            .collect()
+    })
+}
+
+/// The merged catalogue, by name - later sources overwrite earlier ones, so the
 /// user's own schemes win over curated, and curated over shipped. Sorted by
 /// construction (`BTreeMap`), which is the order the picker shows.
 fn catalogue(settings_paths: &[PathBuf]) -> Vec<TerminalScheme> {
-    let mut by_name: BTreeMap<String, TerminalScheme> = schemes_in_asset(BUNDLED_SCHEMES)
-        .into_iter()
-        .chain(schemes_in_asset(CURATED_SCHEMES))
-        .map(|scheme| (scheme.name.clone(), scheme))
-        .collect();
+    let mut by_name = vendored_schemes().clone();
 
     for path in settings_paths {
         for scheme in schemes_in_settings(path) {
@@ -196,17 +207,19 @@ pub async fn terminal_schemes() -> Vec<TerminalScheme> {
 
 #[cfg(test)]
 mod tests {
-    use super::{catalogue, schemes_in_settings, TerminalScheme, BUNDLED_SCHEMES};
+    use super::{
+        catalogue, schemes_in_settings, vendored_schemes, TerminalScheme, BUNDLED_SCHEMES,
+    };
     use crate::test_support::assert_empty;
     use std::path::PathBuf;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
+        let directory = std::env::temp_dir().join(format!(
             "pade-terminal-schemes-{}-{name}",
             std::process::id()
         ));
-        std::fs::create_dir_all(&dir).expect("scratch dir");
-        dir.join("settings.json")
+        std::fs::create_dir_all(&directory).expect("scratch dir");
+        directory.join("settings.json")
     }
 
     /// The vendored asset is the whole catalogue on a machine with no Windows
@@ -280,7 +293,7 @@ mod tests {
         assert_eq!(selenized.cursor.as_deref(), Some("#3A4D53"));
     }
 
-    /// A name the user also defines is theirs, not ours — the same precedence
+    /// A name the user also defines is theirs, not ours - the same precedence
     /// Windows Terminal gives it.
     #[test]
     fn a_user_scheme_overrides_a_shipped_one_of_the_same_name() {
@@ -313,7 +326,10 @@ mod tests {
         assert_eq!(campbell.background, "#101010");
         assert_eq!(campbell.selection.as_deref(), Some("#264F78"));
         assert_eq!(
-            schemes.iter().filter(|s| s.name == "Campbell").count(),
+            schemes
+                .iter()
+                .filter(|scheme| scheme.name == "Campbell")
+                .count(),
             1,
             "an override replaces, never appends"
         );
@@ -343,6 +359,29 @@ mod tests {
             .map(|scheme| scheme.name)
             .collect();
         assert_eq!(names, vec!["Whole".to_string()]);
+        std::fs::remove_file(path).expect("cleanup");
+    }
+
+    /// The vendored assets are parsed once and shared, and a user override in
+    /// one catalogue never leaks into the shared map the next one starts from.
+    #[test]
+    fn the_vendored_schemes_are_parsed_once_and_never_mutated() {
+        assert!(std::ptr::eq(vendored_schemes(), vendored_schemes()));
+
+        let path = scratch("isolation");
+        std::fs::write(
+            &path,
+            r##"{"schemes":[{"name":"Campbell","background":"#123456","foreground":"#FFFFFF",
+                "black":"#0","red":"#1","green":"#2","yellow":"#3","blue":"#4",
+                "purple":"#5","cyan":"#6","white":"#7","brightBlack":"#8",
+                "brightRed":"#9","brightGreen":"#10","brightYellow":"#11",
+                "brightBlue":"#12","brightPurple":"#13","brightCyan":"#14",
+                "brightWhite":"#15"}]}"##,
+        )
+        .expect("write settings");
+        let overridden = catalogue(std::slice::from_ref(&path));
+        assert_eq!(named(&overridden, "Campbell").background, "#123456");
+        assert_eq!(named(&catalogue(&[]), "Campbell").background, "#0C0C0C");
         std::fs::remove_file(path).expect("cleanup");
     }
 

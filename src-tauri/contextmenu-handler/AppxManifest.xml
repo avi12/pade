@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  PADE "modern" (Windows 11) context-menu handler — sparse, external-location MSIX
+  PADE "modern" (Windows 11) context-menu handler - sparse, external-location MSIX
   manifest. Registered UNSIGNED, in place, with Windows Developer Mode ON:
 
       Add-AppxPackage -Register <this file> -ExternalLocation <dir with pade.exe>
@@ -13,7 +13,7 @@
 
   CLSID {C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC} is authoritative in
   contextmenu-handler/src/lib.rs; it is written WITHOUT braces here (that is what
-  com:Class@Id and desktop5:Verb@Clsid expect — verified against shipping samples).
+  com:Class@Id and desktop5:Verb@Clsid expect - verified against shipping samples).
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"

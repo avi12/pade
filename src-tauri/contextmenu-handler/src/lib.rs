@@ -1,4 +1,4 @@
-//! PADE's Windows 11 **modern** context-menu handler — an in-process COM server
+//! PADE's Windows 11 **modern** context-menu handler - an in-process COM server
 //! implementing [`IExplorerCommand`] for the "Open in PADE" verb on folders.
 //!
 //! Windows 11 shows this menu first (before "Show more options"). Unlike the
@@ -14,7 +14,7 @@
 //! `IShellItemArray` and launches the co-located `pade.exe` with it (PADE's
 //! `launch_context` opens that path as the project).
 //!
-//! COM demands `unsafe` (raw vtable pointers, FFI), so — unlike the main crate —
+//! COM demands `unsafe` (raw vtable pointers, FFI), so - unlike the main crate -
 //! `unsafe_code` is not forbidden here; every other lint stays at the strict bar.
 
 // The `#[implement]` macro expands to helper impls that trip a couple of pedantic
@@ -44,19 +44,26 @@ use windows::Win32::UI::Shell::{
 use windows_core::{w, Error, IUnknown, Interface, Ref, Result, BOOL, GUID, HRESULT, PWSTR};
 use windows_implement::implement;
 
-/// PADE's fixed context-menu CLSID. **Authoritative copy** — the exact same GUID
+/// PADE's fixed context-menu CLSID. **Authoritative copy** - the exact same GUID
 /// appears (with braces) in `../AppxManifest.xml` (`com:Class Id` and every
 /// `desktop5:Verb Clsid`) and in `src/contextmenu/modern.rs`. Change all three
 /// together. Value: `{C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC}`.
 const CLSID_OPEN_IN_PADE: GUID = GUID::from_u128(0xC6FD_5832_8BA5_4FDE_A5CC_A74C_36AD_27AC);
 
-/// `fdwReason` value Windows passes `DllMain` on load — we capture our own module
+/// `fdwReason` value Windows passes `DllMain` on load - we capture our own module
 /// handle then (named, so the `== 1` test below reads as intent).
 const DLL_PROCESS_ATTACH: u32 = 1;
 
 /// Console-suppression flag for the launched `pade.exe`; keeps a stray `conhost`
 /// window from flashing out of Explorer's process. Mirrors `pade`'s `util::command`.
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// The executable the verb launches, expected beside this DLL.
+const PADE_EXECUTABLE: &str = "pade.exe";
+
+/// The longest module path read back, in UTF-16 units - a path that fills the
+/// buffer is treated as truncated and ignored.
+const MAXIMUM_MODULE_PATH_UNITS: usize = 1024;
 
 /// This DLL's own module handle, captured in [`DllMain`], so `Invoke` can find the
 /// `pade.exe` sitting next to us. `AtomicPtr` stores the raw handle without an
@@ -90,17 +97,17 @@ impl Drop for OpenInPadeCommand {
 // (`OpenInPadeCommand_Impl`), and hands interface args as `windows::core::Ref`.
 impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
     /// The visible label. Explorer frees the returned buffer, so it must be
-    /// `CoTaskMemAlloc`'d — `SHStrDupW` copies the literal into COM task memory.
+    /// `CoTaskMemAlloc`'d - `SHStrDupW` copies the literal into COM task memory.
     fn GetTitle(&self, _items: Ref<'_, IShellItemArray>) -> Result<PWSTR> {
         unsafe { SHStrDupW(w!("Open in PADE")) }
     }
 
     /// Icon as `"path,index"`; we reuse the co-located `pade.exe`'s own icon.
     fn GetIcon(&self, _items: Ref<'_, IShellItemArray>) -> Result<PWSTR> {
-        let Some(exe) = locate_pade_exe() else {
+        let Some(executable) = locate_pade_executable() else {
             return Err(E_NOTIMPL.into());
         };
-        let reference = format!("{},0", exe.display());
+        let reference = format!("{},0", executable.display());
         unsafe { SHStrDupW(windows_core::PCWSTR(to_wide(&reference).as_ptr())) }
     }
 
@@ -114,12 +121,12 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
 
     /// Show the verb, or hide it when the app's toggle is off. Explorer calls this
     /// while building the menu, so reading the flag here (fresh, per right-click) is
-    /// what lets the picker's toggle show/hide "Open in PADE" *immediately* — even
-    /// for a handler Explorer still has cached — with no Explorer restart. This
+    /// what lets the picker's toggle show/hide "Open in PADE" *immediately* - even
+    /// for a handler Explorer still has cached - with no Explorer restart. This
     /// mirrors how `PowerToys`' File Locksmith / `PowerRename` keep their handler
     /// registered and hide it via `GetState`.
     fn GetState(&self, _items: Ref<'_, IShellItemArray>, _ok_to_be_slow: BOOL) -> Result<u32> {
-        let state = if context_menu_hidden() {
+        let state = if is_context_menu_hidden() {
             ECS_HIDDEN
         } else {
             ECS_ENABLED
@@ -129,7 +136,7 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
 
     /// Read every selected folder's filesystem path and open it in PADE.
     fn Invoke(&self, items: Ref<'_, IShellItemArray>, _context: Ref<'_, IBindCtx>) -> Result<()> {
-        let exe = locate_pade_exe().ok_or_else(|| Error::from(E_FAIL))?;
+        let executable = locate_pade_executable().ok_or_else(|| Error::from(E_FAIL))?;
         let items = items.ok()?;
         let count = unsafe { items.GetCount()? };
         for index in 0..count {
@@ -139,8 +146,8 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
             let path = unsafe { wide.to_string() };
             unsafe { CoTaskMemFree(Some(wide.as_ptr().cast::<c_void>())) };
             let Ok(path) = path else { continue };
-            // Best-effort, detached — Explorer must never block on us.
-            let _ = Command::new(&exe)
+            // Best-effort, detached - Explorer must never block on us.
+            let _ = Command::new(&executable)
                 .arg(&path)
                 .creation_flags(CREATE_NO_WINDOW)
                 .spawn();
@@ -148,7 +155,7 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
         Ok(())
     }
 
-    /// No flyout / sub-commands — a single flat verb (`ECF_DEFAULT` is `0`).
+    /// No flyout / sub-commands - a single flat verb (`ECF_DEFAULT` is `0`).
     fn GetFlags(&self) -> Result<u32> {
         Ok(0)
     }
@@ -161,9 +168,9 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
 /// Absolute path of `pade.exe`, resolved relative to this DLL (they are
 /// co-located at the sparse package's external location). Falls back to the sole
 /// `.exe` beside us so a bundle that names it `PADE.exe` still works.
-fn locate_pade_exe() -> Option<PathBuf> {
+fn locate_pade_executable() -> Option<PathBuf> {
     let directory = current_module_path()?.parent()?.to_path_buf();
-    let preferred = directory.join("pade.exe");
+    let preferred = directory.join(PADE_EXECUTABLE);
     if preferred.is_file() {
         return Some(preferred);
     }
@@ -183,7 +190,7 @@ fn current_module_path() -> Option<PathBuf> {
     if module.0.is_null() {
         return None;
     }
-    let mut buffer = [0u16; 1024];
+    let mut buffer = [0u16; MAXIMUM_MODULE_PATH_UNITS];
     let length = usize::try_from(unsafe { GetModuleFileNameW(Some(module), &mut buffer) }).ok()?;
     if length == 0 || length >= buffer.len() {
         return None;
@@ -200,7 +207,7 @@ fn to_wide(value: &str) -> Vec<u16> {
 /// `ContextMenu` = `0` when the toggle is off (and `1`, or leaves it absent, when
 /// on); we treat only an explicit `0` as hidden. Read fresh on every menu build so a
 /// toggle takes effect at once. Any read error falls back to shown.
-fn context_menu_hidden() -> bool {
+fn is_context_menu_hidden() -> bool {
     let mut value: u32 = 1;
     let mut size = u32::try_from(size_of::<u32>()).unwrap_or(4);
     let status = unsafe {
