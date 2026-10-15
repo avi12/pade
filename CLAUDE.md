@@ -249,14 +249,21 @@ These are non-negotiable for all work in this repo.
      `ICON_NAMES` in `Icon.svelte`, then reference it by name. (Bare typographic
      affordances like a `▾` disclosure caret or a `\` path separator are text, not
      icons, and stay as-is.)
-   - Inline single-use event handlers: an event handler bound in exactly one
-     place - a DOM `on*` attribute, a `<svelte:window>`/`<svelte:document>` event,
-     or a component's `on*`/callback prop - and referenced nowhere else is written
-     inline as an arrow at the binding, never hoisted to a named function. This
-     holds even for multi-statement bodies. Name the event parameter `e`
+   - Inline single-use event handlers: a function that handles an event and has
+     exactly one use - bound to a DOM `on*` attribute, a `<svelte:window>` /
+     `<svelte:document>` event or a component's `on*`/callback prop, or passed
+     to an event subscription in plain TypeScript (`onMessage(…, handler)`, an
+     `IntersectionObserver` / `ResizeObserver` / `MutationObserver` callback, a
+     one-off `addEventListener`) - is written inline as an arrow at that one
+     place, never hoisted to a named function. This holds even for
+     multi-statement bodies. Name the event parameter `e`
      (`onclick={(e) => …}`). Keep a handler named only when it is genuinely shared
      (bound or called in two or more places) or needs a stable reference (an
      `addEventListener` paired with a `removeEventListener`).
+   - Small components: a Svelte component owns one concern. When one grows past
+     ~400 lines, or its template trips the fallow complexity gate, extract its
+     cohesive sections into child components (and its pure logic into a
+     colocated `.ts` module with tests) rather than letting it keep growing.
    - Svelte `$derived`: never wrap a ternary or branching logic in `$derived(…)`
      - use `$derived.by(() => { … })` with `if`/`else` so the branches read as
      prose. Likewise, extract an `@attach` handler to a named function in the
