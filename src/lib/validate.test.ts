@@ -102,7 +102,7 @@ describe("nameError", () => {
   });
 
   it("surfaces the schema's own message for an invalid name", () => {
-    expect(nameError("a/b")).toBe("Name can't contain path characters.");
+    expect(nameError("a/b")).toBe("Name can't contain path characters");
   });
 });
 
