@@ -49,6 +49,7 @@
   import { openRepositoryTarget } from "@/lib/repository-links";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
+  import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session-exit";
   import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
   import SessionTabs from "@/lib/SessionTabs.svelte";
@@ -749,10 +750,9 @@
     });
   }
 
-  // A self-exit within RESPAWN_MIN_LIFETIME_MS of launch reads as a failed start,
-  // so we don't respawn-loop on it.
+  // When each session launched, so a self-exit right after reads as a failed
+  // start (lib/session-exit) and is not respawned into a loop.
   const sessionLaunchedAt = new SvelteMap<string, number>();
-  const RESPAWN_MIN_LIFETIME_MS = 2_000;
   // A hand-close also kills the PTY, firing the exit event; the exit handler skips
   // these so the two teardown paths don't race.
   const closingByHand = new SvelteSet<string>();
@@ -1108,59 +1108,61 @@
     detachSession(session.id);
     closingByHand.delete(session.id);
 
-    // An unnamed temporary workspace's last hand-closed tab returns directly to
-    // the project picker. A real project always stays usable: replace its final
-    // closed tab with a fresh one of the same agent rather than dropping the
-    // user into onboarding.
-    if (sessions.length > 0) {
-      return;
+    // A hand-close is never a failed start: a real project replaces its final
+    // tab with a fresh one rather than dropping the user into onboarding.
+    if (sessions.length === 0) {
+      settleEmptyWorkspace({
+        agent: session.agent,
+        isFailedStart: false
+      });
     }
-
-    if (isUnnamedTemp) {
-      returnToPicker();
-      return;
-    }
-
-    launch({ agent: session.agent });
   }
 
   // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
   async function handleSessionExit(id: string) {
-    const isClosingByHand = closingByHand.has(id);
-    if (isClosingByHand) {
+    const session = sessions.find(candidate => candidate.id === id);
+    if (closingByHand.has(id) || !session) {
       return;
     }
 
-    const session = sessions.find(candidateSession => candidateSession.id === id);
-    if (!session) {
-      return;
-    }
-
-    const { agent } = session;
     const wasLastSession = sessions.length === 1;
-    const startedAt = sessionLaunchedAt.get(id) ?? 0;
-    const failedToStart = Date.now() - startedAt <= RESPAWN_MIN_LIFETIME_MS;
+    const isExitFailedStart = didFailToStart({
+      launchedAt: sessionLaunchedAt.get(id) ?? 0,
+      now: Date.now()
+    });
     detachSession(id);
-    await pty.kill(id).catch(() => {}); // reap the backend record; the child is already gone
+    // Reap the backend record; the child is already gone, so a failure is moot.
+    await Promise.allSettled([pty.kill(id)]);
 
-    if (!wasLastSession) {
-      return;
+    if (wasLastSession) {
+      settleEmptyWorkspace({
+        agent: session.agent,
+        isFailedStart: isExitFailedStart
+      });
     }
+  }
 
-    // The agent quitting in a still-unnamed temp workspace ends the session:
-    // no respawn, no agent picker - back to the project picker.
-    if (isUnnamedTemp) {
+  // The workspace's last session just ended (lib/session-exit decides what next).
+  function settleEmptyWorkspace({ agent, isFailedStart }: {
+    agent: Agent;
+    isFailedStart: boolean;
+  }) {
+    const outcome = emptyWorkspaceOutcome({
+      isUnnamedTemp,
+      isFailedStart
+    });
+    if (outcome === EmptyWorkspaceOutcome.picker) {
       returnToPicker();
       return;
     }
 
-    const shouldRespawn = !failedToStart;
-    if (shouldRespawn) {
+    if (outcome === EmptyWorkspaceOutcome.respawn) {
       launch({ agent });
-    } else {
-      pendingPrompt = undefined;
-      phase = Phase.onboarding;
+      return;
     }
+
+    pendingPrompt = undefined;
+    phase = Phase.onboarding;
   }
 
   // A project's MCP servers changed (a server added or removed - the backend
