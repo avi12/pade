@@ -57,17 +57,6 @@ export function isTaskRunning(key: string) {
     }) === key);
 }
 
-/** Drop a dead session's throttle entries - nothing can be running under a PTY
- *  that has exited, and a fresh session must be free to ask again at once. */
-function forgetSession(sessionId: string) {
-  const prefix = `${sessionId}${KEY_SEPARATOR}`;
-  for (const checkKey of lastLivenessCheck.keys()) {
-    if (checkKey.startsWith(prefix)) {
-      lastLivenessCheck.delete(checkKey);
-    }
-  }
-}
-
 /** One runnable task as the detector needs it: its key + command for matching,
  *  plus the label/kind/dir an attached runner needs to render itself. */
 interface KnownTaskCommand {
@@ -141,28 +130,6 @@ async function attachWhenRunning({ sessionId, task }: {
   });
 }
 
-function detect({ sessionId, chunk }: {
-  sessionId: string;
-  chunk: string;
-}) {
-  const lines = chunk.split("\n");
-  for (const task of knownTaskCommands(taskCatalog.snapshot)) {
-    const isInvocation = lines.some(line => isTaskInvocation({
-      line,
-      command: task.command
-    }));
-    if (!isInvocation) {
-      continue;
-    }
-
-    attachWhenRunning({
-      sessionId,
-      task
-    });
-    return;
-  }
-}
-
 let listenerInitialization: Promise<void> | undefined;
 let listenerUnlistens: UnlistenFn[] = [];
 
@@ -170,12 +137,37 @@ async function startListeners() {
   const pendingUnlistens: UnlistenFn[] = [];
   try {
     pendingUnlistens.push(
-      await onMessage(EventType.ptyData, ({ data }) => detect({
-        sessionId: data.id,
-        chunk: data.data
-      }))
+      await onMessage(EventType.ptyData, ({ data }) => {
+        const lines = data.data.split("\n");
+        for (const task of knownTaskCommands(taskCatalog.snapshot)) {
+          const isInvocation = lines.some(line => isTaskInvocation({
+            line,
+            command: task.command
+          }));
+          if (!isInvocation) {
+            continue;
+          }
+
+          attachWhenRunning({
+            sessionId: data.id,
+            task
+          });
+          return;
+        }
+      })
     );
-    pendingUnlistens.push(await onMessage(EventType.ptyExit, ({ data }) => forgetSession(data.id)));
+    // Nothing can be running under a PTY that has exited, and a fresh session
+    // must be free to ask again at once - drop the dead session's throttle entries.
+    pendingUnlistens.push(
+      await onMessage(EventType.ptyExit, ({ data }) => {
+        const prefix = `${data.id}${KEY_SEPARATOR}`;
+        for (const checkKey of lastLivenessCheck.keys()) {
+          if (checkKey.startsWith(prefix)) {
+            lastLivenessCheck.delete(checkKey);
+          }
+        }
+      })
+    );
     listenerUnlistens = pendingUnlistens;
   } catch (caughtError) {
     for (const unlisten of pendingUnlistens) {

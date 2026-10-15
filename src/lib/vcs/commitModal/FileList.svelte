@@ -29,11 +29,6 @@
   function badge(kind: VcsKind): string {
     return KIND_BADGE[kind];
   }
-
-  async function focusTab(path: string) {
-    await tick();
-    listElement?.querySelector<HTMLElement>(`[data-file="${CSS.escape(path)}"]`)?.focus();
-  }
 </script>
 
 <nav class="files" aria-label="Changed files">
@@ -42,7 +37,7 @@
     bind:this={listElement}
     aria-labelledby="commit-file-list-label"
     aria-orientation="vertical"
-    onkeydown={e => {
+    onkeydown={async e => {
       const isVertical = e.key === Key.ArrowDown || e.key === Key.ArrowUp;
       const isEdge = e.key === Key.Home || e.key === Key.End;
       if (!isVertical && !isEdge) {
@@ -69,7 +64,8 @@
 
       const target = files[next];
       onpick(target.path);
-      focusTab(target.path);
+      await tick();
+      listElement?.querySelector<HTMLElement>(`[data-file="${CSS.escape(target.path)}"]`)?.focus();
     }}
     role="tablist"
   >

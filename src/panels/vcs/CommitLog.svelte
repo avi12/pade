@@ -58,17 +58,6 @@
     loadRemoteUrl(project);
   });
 
-  async function inspectCommit(commit: Commit) {
-    try {
-      openCommit = await sendMessage(Command.vcsCommit, {
-        cwd: project,
-        sha: commit.id
-      });
-    } catch {
-      openCommit = null;
-    }
-  }
-
   // Opening the commit externally is best-effort - a missing remote or a
   // failed browser launch must not surface as an error here.
   async function openCommitOnRemote(commit: Commit) {
@@ -87,11 +76,6 @@
       await sendMessage(Command.openUrl, { url: commitUrl });
     }
   }
-
-  async function focusCommit(index: number) {
-    await tick();
-    elLog?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
-  }
 </script>
 
 <section class="group log">
@@ -104,7 +88,7 @@
           aria-label="Commit {commit.short}: {commit.summary}, by {commit.author} {commit.when}"
           data-commit
           data-tooltip="Enter to view · Ctrl-click or Ctrl-Enter opens on remote"
-          onclick={e => {
+          onclick={async e => {
             const wantsRemote = e.ctrlKey || e.metaKey;
             if (wantsRemote) {
               e.preventDefault();
@@ -112,16 +96,24 @@
               return;
             }
 
-            inspectCommit(commit);
+            try {
+              openCommit = await sendMessage(Command.vcsCommit, {
+                cwd: project,
+                sha: commit.id
+              });
+            } catch {
+              openCommit = null;
+            }
           }}
-          onkeydown={e => {
+          onkeydown={async e => {
             const isDown = e.key === Key.ArrowDown;
             const isUp = e.key === Key.ArrowUp;
             if (isDown || isUp) {
               e.preventDefault();
               const count = commits.length;
               const next = isDown ? (index + 1) % count : (index - 1 + count) % count;
-              focusCommit(next);
+              await tick();
+              elLog?.querySelectorAll<HTMLElement>("[data-commit]")[next]?.focus();
               return;
             }
 

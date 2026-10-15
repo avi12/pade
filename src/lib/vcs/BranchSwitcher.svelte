@@ -59,28 +59,6 @@
 
     return "Switch branch";
   });
-
-  async function switchTo(branch: string) {
-    if (branch === current) {
-      return;
-    }
-
-    try {
-      const landed = await sendMessage(Command.vcsSwitchBranch, {
-        cwd,
-        branch
-      });
-      await onrefresh();
-      showToast(`Switched to ${landed}`);
-    } catch (error) {
-      showToast(
-        errorHeadline({
-          error,
-          fallback: `Could not switch to ${branch}`
-        })
-      );
-    }
-  }
 </script>
 
 <!-- One row per branch: a local one is checked when it is HEAD's, a remote-only
@@ -92,7 +70,27 @@
       class="menu-item branch-row"
       class:current={isCurrent}
       class:remote={isRemote}
-      onclick={async () => await switchTo(branch)}
+      onclick={async () => {
+        if (isCurrent) {
+          return;
+        }
+
+        try {
+          const landed = await sendMessage(Command.vcsSwitchBranch, {
+            cwd,
+            branch
+          });
+          await onrefresh();
+          showToast(`Switched to ${landed}`);
+        } catch (error) {
+          showToast(
+            errorHeadline({
+              error,
+              fallback: `Could not switch to ${branch}`
+            })
+          );
+        }
+      }}
       popovertarget={MENU_ID}
       popovertargetaction="hide"
     >
