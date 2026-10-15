@@ -8,19 +8,19 @@ describe("paneIdAt", () => {
     expect(
       paneIdAt({
         paneIds: panes,
-        index: 0
+        iPane: 0
       })
     ).toBe("a");
     expect(
       paneIdAt({
         paneIds: panes,
-        index: 2
+        iPane: 2
       })
     ).toBe("c");
     expect(
       paneIdAt({
         paneIds: panes,
-        index: 3
+        iPane: 3
       })
     ).toBe("d");
   });
@@ -29,19 +29,19 @@ describe("paneIdAt", () => {
     expect(
       paneIdAt({
         paneIds: panes,
-        index: 4
+        iPane: 4
       })
     ).toBeNull();
     expect(
       paneIdAt({
         paneIds: panes,
-        index: -1
+        iPane: -1
       })
     ).toBeNull();
     expect(
       paneIdAt({
         paneIds: [],
-        index: 0
+        iPane: 0
       })
     ).toBeNull();
   });

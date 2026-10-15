@@ -1,6 +1,6 @@
 import type { DragPosition } from "@/lib/types";
 
-/** Anything with a layout box — a DOM element, or a stand-in in a test. */
+/** Anything with a layout box - a DOM element, or a stand-in in a test. */
 interface Measurable {
   getBoundingClientRect: () => Pick<DOMRect, "left" | "right" | "top" | "bottom" | "width" | "height">;
 }
@@ -12,7 +12,7 @@ interface Measurable {
 export function isDragOverElement({ element, position }: {
   element: Measurable;
   position: DragPosition;
-}): boolean {
+}) {
   const rectangle = element.getBoundingClientRect();
   const x = position.x / devicePixelRatio;
   const y = position.y / devicePixelRatio;

@@ -1,17 +1,18 @@
 // Pure grouping of Change Feed events into project buckets, so the feed reads as
 // "what changed, per project" the way the mockup does. Ground truth first: when
 // the backend's manifest census (`bridge.members`) confirms real workspace
-// members, a change buckets under its deepest enclosing member — whole-segment
-// longest-prefix, so `apps/web` never captures `apps/web-admin` — and anything
+// members, a change buckets under its deepest enclosing member - whole-segment
+// longest-prefix, so `apps/web` never captures `apps/web-admin` - and anything
 // outside every member falls into the repo itself. Only a workspace with no
 // confirmed members falls back to the old folder-name convention (`apps/…`,
 // `packages/…`, `services/…`); a directory's name proves nothing, so a
 // root-level-package workspace (`frontend/` `backend/` `shared/` declared in
 // `pnpm-workspace.yaml`) now splits per member instead of collapsing into one
-// repo group — the gap the convention could never close.
+// repo group - the gap the convention could never close.
 
-import { baseName } from "@/lib/paths";
+import { baseName, isSegmentPrefix } from "@/lib/paths";
 import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
+import { ROOT_GROUP_ID } from "@/lib/workspace-members";
 
 /** Coarse project role driving the group's badge. One authoritative home. */
 export const GroupRole = {
@@ -24,8 +25,8 @@ export type GroupRole = (typeof GroupRole)[keyof typeof GroupRole];
 /** One card in the feed: the newest change to a file, standing for the run of
  *  consecutive changes to it. An agent saves a file four times in a minute and
  *  the feed showed four identical cards; it now shows one that says so. */
-export interface ChangeEntry {
-  /** The newest event of the run — the one the card names and expands. */
+interface ChangeEntry {
+  /** The newest event of the run - the one the card names and expands. */
   event: ChangeEvent;
   /** How many changes the card stands for; 1 for a lone change. */
   repeats: number;
@@ -34,10 +35,10 @@ export interface ChangeEntry {
   removed: number;
 }
 
-export interface ChangeGroup {
+interface ChangeGroup {
   /** Stable key (the container-relative project path, or `.` for the repo). */
   id: string;
-  /** Display name — the member folder, or the repo's own folder name. */
+  /** Display name - the member folder, or the repo's own folder name. */
   name: string;
   role: GroupRole;
   /** This group's events, newest first (the input order is preserved). */
@@ -67,6 +68,13 @@ const CONTAINER_ROLES: Record<string, GroupRole> = {
   server: GroupRole.Service
 };
 
+/** An npm-style `@scope/name` member spans two segments under its container. */
+const SCOPE_PREFIX = "@";
+/** Container folder + member folder. */
+const MEMBER_SEGMENTS = 2;
+const SCOPED_MEMBER_SEGMENTS = 3;
+const TRAILING_SLASHES = /\/+$/;
+
 interface Project {
   id: string;
   name: string;
@@ -80,9 +88,9 @@ interface Project {
 function relativeSegments({ path, workspaceRoot }: {
   path: string;
   workspaceRoot: string;
-}): string[] {
+}) {
   const forwardPath = path.replaceAll("\\", "/");
-  const forwardRoot = workspaceRoot.replaceAll("\\", "/").replace(/\/+$/, "");
+  const forwardRoot = workspaceRoot.replaceAll("\\", "/").replace(TRAILING_SLASHES, "");
   const isUnderRoot = forwardPath.toLowerCase().startsWith(`${forwardRoot.toLowerCase()}/`);
   const relative = isUnderRoot ? forwardPath.slice(forwardRoot.length + 1) : forwardPath;
   return relative.split("/").filter(segment => segment.length > 0);
@@ -96,14 +104,14 @@ function projectOf({ path, workspaceRoot, repository }: {
   path: string;
   workspaceRoot: string;
   repository: Project;
-}): Project {
+}) {
   const segments = relativeSegments({
     path,
     workspaceRoot
   });
   const container = segments[0]?.toLowerCase();
   const role = container === undefined ? undefined : CONTAINER_ROLES[container];
-  if (role === undefined || segments.length < 2) {
+  if (role === undefined || segments.length < MEMBER_SEGMENTS) {
     return repository;
   }
 
@@ -111,10 +119,10 @@ function projectOf({ path, workspaceRoot, repository }: {
   // while `app/WindowChrome.cs` is a file sitting in the container itself and
   // belongs to the repo. Without the check every loose file under `app/` became
   // its own one-file "project", which is a chip per file across the filter row.
-  const isScopedMember = segments[1].startsWith("@");
-  const memberSegmentCount = isScopedMember ? 3 : 2;
-  const memberIsDirectory = segments.length > memberSegmentCount;
-  if (!memberIsDirectory) {
+  const isScopedMember = segments[1].startsWith(SCOPE_PREFIX);
+  const memberSegmentCount = isScopedMember ? SCOPED_MEMBER_SEGMENTS : MEMBER_SEGMENTS;
+  const isMemberDirectory = segments.length > memberSegmentCount;
+  if (!isMemberDirectory) {
     return repository;
   }
 
@@ -128,7 +136,7 @@ function projectOf({ path, workspaceRoot, repository }: {
 
 // A member's badge role, read off its leading container segment when it uses a
 // conventional one; any other member (a root-level `frontend/`) is badged App.
-function memberRole(memberPath: string): GroupRole {
+function memberRole(memberPath: string) {
   const container = memberPath.split("/")[0]?.toLowerCase();
   if (container === undefined) {
     return GroupRole.App;
@@ -146,7 +154,7 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
   workspaceRoot: string;
   members: WorkspaceMember[];
   repository: Project;
-}): Project {
+}) {
   const segments = relativeSegments({
     path,
     workspaceRoot
@@ -156,9 +164,11 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
   let deepestDepth = 0;
   for (const member of members) {
     const memberSegments = member.path.toLowerCase().split("/");
-    const encloses = memberSegments.length <= segments.length
-      && memberSegments.every((segment, index) => segment === segments[index]);
-    if (encloses && memberSegments.length > deepestDepth) {
+    const isEnclosing = isSegmentPrefix({
+      prefix: memberSegments,
+      segments
+    });
+    if (isEnclosing && memberSegments.length > deepestDepth) {
       deepest = member;
       deepestDepth = memberSegments.length;
     }
@@ -177,8 +187,8 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
 
 // Consecutive changes to one file are one card. Only a RUN collapses: a file
 // touched, then another, then the first again is three moments in the feed and
-// stays three cards — what is folded away is the repetition, not the history.
-function collapseRepeats(events: ChangeEvent[]): ChangeEntry[] {
+// stays three cards - what is folded away is the repetition, not the history.
+function collapseRepeats(events: ChangeEvent[]) {
   const entries: ChangeEntry[] = [];
   for (const event of events) {
     const previous = entries.at(-1);
@@ -204,15 +214,15 @@ function collapseRepeats(events: ChangeEvent[]): ChangeEntry[] {
  *  With manifest-confirmed `members` (see `bridge.members`) a change goes to
  *  its deepest enclosing member; without any, the folder-name convention is the
  *  fallback. The groups are ordered by their most-recent change, so the
- *  just-touched project leads — matching the flat feed's newest-first feel. */
+ *  just-touched project leads - matching the flat feed's newest-first feel. */
 export function groupChanges({ events, workspaceRoot, members = [] }: {
   events: ChangeEvent[];
   workspaceRoot: string;
   members?: WorkspaceMember[];
-}): ChangeGroup[] {
+}) {
   const repositoryName = baseName(workspaceRoot) || workspaceRoot;
   const repository: Project = {
-    id: ".",
+    id: ROOT_GROUP_ID,
     name: repositoryName,
     role: GroupRole.App
   };

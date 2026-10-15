@@ -28,7 +28,7 @@ describe("pathsAsPromptText", () => {
 
 describe("submittedPrompt", () => {
   it("wraps the prompt in paste markers with the submitting Enter OUTSIDE them", () => {
-    // The Enter must be a separate keystroke after the closing marker — inside
+    // The Enter must be a separate keystroke after the closing marker - inside
     // the paste it reads as a soft newline and the prompt sits unsent.
     expect(submittedPrompt("write the handoff")).toBe(
       `${BRACKETED_PASTE_START}write the handoff${BRACKETED_PASTE_END}\r`

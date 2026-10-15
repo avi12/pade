@@ -15,7 +15,7 @@ describe("watchSummary", () => {
     expect(summary.detail).toContain("Checking");
   });
 
-  it("says so — and stalls — when no watch is armed", () => {
+  it("says so - and stalls - when no watch is armed", () => {
     const summary = watchSummary({
       status: {
         root: null,
@@ -27,7 +27,7 @@ describe("watchSummary", () => {
       now: NOW
     });
     expect(summary.stalled).toBe(true);
-    expect(summary.headline).toBe("Not watching this project.");
+    expect(summary.headline).toBe("Not watching this project");
   });
 
   it("names the other project when the watch is armed elsewhere", () => {
@@ -58,7 +58,7 @@ describe("watchSummary", () => {
       now: NOW
     });
     expect(summary.stalled).toBe(false);
-    expect(summary.headline).toBe("No changes yet.");
+    expect(summary.headline).toBe("No changes yet");
   });
 
   it("states how long it has been watching a quiet project", () => {

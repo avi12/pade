@@ -1,6 +1,6 @@
 // Pure file-type badge for a Change Feed card: a file's extension → a short label,
 // a colour tone, and (where the language has one) a brand-logo icon name.
-// Language-agnostic — an unrecognised extension still yields a chip (its own
+// Language-agnostic - an unrecognised extension still yields a chip (its own
 // uppercased extension), so every row is tagged even without a logo.
 
 import type { IconName } from "@/lib/Icon.svelte";
@@ -63,10 +63,10 @@ export const FileTone = {
   Image: "image",
   Neutral: "neutral"
 } as const;
-export type FileTone = (typeof FileTone)[keyof typeof FileTone];
+type FileTone = (typeof FileTone)[keyof typeof FileTone];
 
-export interface FileTypeBadge {
-  /** 2–4 char label shown in the chip (e.g. `TS`, `CSS`) — the fallback for a
+interface FileTypeBadge {
+  /** 2–4 char label shown in the chip (e.g. `TS`, `CSS`) - the fallback for a
    *  file type without a brand logo, and always present so every row is tagged. */
   label: string;
   tone: FileTone;
@@ -75,7 +75,7 @@ export interface FileTypeBadge {
   icon?: IconName;
 }
 
-// Badges reached from several extensions and/or name rules — one home each.
+// Badges reached from several extensions and/or name rules - one home each.
 const XML_BADGE: FileTypeBadge = {
   label: "XML",
   tone: FileTone.Xml,
@@ -849,10 +849,16 @@ const NAME_RULES: readonly NameRule[] = [
   }
 ];
 
+/** How many characters of an unknown name / extension a neutral chip shows. */
+const NAME_LABEL_LENGTH = 3;
+const EXTENSION_LABEL_LENGTH = 4;
+const FALLBACK_LABEL = "FILE";
+const LEADING_DOT = /^\./;
+
 function nameRuleMatches({ rule, lowerName }: {
   rule: NameRule;
   lowerName: string;
-}): boolean {
+}) {
   switch (rule.match) {
     case NameMatch.Exact:
       return lowerName === rule.pattern;
@@ -865,26 +871,25 @@ function nameRuleMatches({ rule, lowerName }: {
 
 /** A path's lower-case final extension without its dot, or null for a dotfile,
  * extensionless name, or trailing dot. Shared by all extension classifiers. */
-export function pathExtension(path: string): string | null {
+export function pathExtension(path: string) {
   const name = baseName(path);
-  const dot = name.lastIndexOf(".");
-  const hasExtension = dot > 0 && dot < name.length - 1;
-  return hasExtension ? name.slice(dot + 1).toLowerCase() : null;
+  const iDot = name.lastIndexOf(".");
+  const hasExtension = iDot > 0 && iDot < name.length - 1;
+  return hasExtension ? name.slice(iDot + 1).toLowerCase() : null;
 }
 
 /** A file path's type key for grouping/counting: its extension with the leading
  *  dot, lowercased (e.g. `.ts`, `.css`). A dotfile (`.gitignore`) or
  *  extensionless file keys on its own base name, so every path yields one key.
  *  The single source both the file-type filter's counts and its filtering read. */
-export function fileExtension(path: string): string {
-  const name = baseName(path);
+export function fileExtension(path: string) {
   const extension = pathExtension(path);
-  return extension ? `.${extension}` : name;
+  return extension ? `.${extension}` : baseName(path);
 }
 
-/** The badge for a file path — read from its extension. A dotfile (`.gitignore`)
+/** The badge for a file path - read from its extension. A dotfile (`.gitignore`)
  *  or extensionless file gets a neutral chip from its own name. */
-export function fileTypeBadge(path: string): FileTypeBadge {
+export function fileTypeBadge(path: string) {
   const name = baseName(path);
   const lowerName = name.toLowerCase();
   const nameRule = NAME_RULES.find(rule => nameRuleMatches({
@@ -897,9 +902,9 @@ export function fileTypeBadge(path: string): FileTypeBadge {
 
   const extension = pathExtension(path);
   if (!extension) {
-    const stem = name.replace(/^\./, "").slice(0, 3).toUpperCase();
+    const stem = name.replace(LEADING_DOT, "").slice(0, NAME_LABEL_LENGTH).toUpperCase();
     return {
-      label: stem.length > 0 ? stem : "FILE",
+      label: stem.length > 0 ? stem : FALLBACK_LABEL,
       tone: FileTone.Neutral
     };
   }
@@ -911,7 +916,7 @@ export function fileTypeBadge(path: string): FileTypeBadge {
   }
 
   return BADGES[extension] ?? {
-    label: extension.slice(0, 4).toUpperCase(),
+    label: extension.slice(0, EXTENSION_LABEL_LENGTH).toUpperCase(),
     tone: FileTone.Neutral
   };
 }

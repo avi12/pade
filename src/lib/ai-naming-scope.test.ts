@@ -61,7 +61,7 @@ describe("aiNamingEnabled", () => {
     ).toBe(true);
   });
 
-  // `false` is a real choice, not an absent one — the classic ?? / || trap, and
+  // `false` is a real choice, not an absent one - the classic ?? / || trap, and
   // the reason a project can pin itself off while the global is on.
   it("keeps a project's explicit off distinct from having no choice", () => {
     const prefs: Prefs = {

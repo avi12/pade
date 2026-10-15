@@ -5,13 +5,13 @@ const INTEGER = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0
 });
 
-/** A whole number with locale grouping — 1234 → "1,234". */
-export function formatCount(value: number): string {
+/** A whole number with locale grouping - 1234 → "1,234". */
+export function formatCount(value: number) {
   return INTEGER.format(value);
 }
 
-/** A rounded whole percent — 30.4 → "30%". */
-export function formatPercent(value: number): string {
+/** A rounded whole percent - 30.4 → "30%". */
+export function formatPercent(value: number) {
   return `${INTEGER.format(value)}%`;
 }
 
@@ -22,25 +22,26 @@ const TIMESTAMP = new Intl.DateTimeFormat(undefined, {
   timeStyle: "medium"
 });
 
-/** The exact date-time for `epochMilliseconds` — e.g. "Jul 19, 2026, 7:34:12 AM".
+/** The exact date-time for `epochMilliseconds` - e.g. "Jul 19, 2026, 7:34:12 AM".
  *  Pairs with a relative label as its hover tooltip. */
-export function formatTimestamp(epochMilliseconds: number): string {
+export function formatTimestamp(epochMilliseconds: number) {
   return TIMESTAMP.format(new Date(epochMilliseconds));
 }
 
+const MILLISECONDS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 
 /** How long ago `stamp` was, at second → minute → hour → day granularity
- *  ("41s", "3m", "2h", "5d"). One home for every relative age the UI prints —
+ *  ("41s", "3m", "2h", "5d"). One home for every relative age the UI prints -
  *  the Change Feed's card labels, its "watching since" line, and a project's
  *  last access in the switcher read the same clock. */
 export function formatAge({ stamp, now }: {
   stamp: number;
   now: number;
-}): string {
-  const seconds = Math.max(0, Math.round((now - stamp) / 1000));
+}) {
+  const seconds = Math.max(0, Math.round((now - stamp) / MILLISECONDS_PER_SECOND));
   if (seconds < SECONDS_PER_MINUTE) {
     return `${formatCount(seconds)}s`;
   }

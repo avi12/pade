@@ -1,7 +1,7 @@
-// Shared unified-diff pipeline (DRY — the Change Feed and the Git panel both
+// Shared unified-diff pipeline (DRY - the Change Feed and the Git panel both
 // render diffs). Pure, dependency-free: classify each line of a `git diff` body,
-// derive the side-by-side rows for a split view, and — for the Change Feed's
-// git-free preview — generate a unified diff between two whole texts so the same
+// derive the side-by-side rows for a split view, and - for the Change Feed's
+// git-free preview - generate a unified diff between two whole texts so the same
 // parse+render path draws a session-baseline diff exactly like a git one.
 
 /** What a single diff line represents. One authoritative set, no bare strings. */
@@ -9,7 +9,7 @@ export const DiffKind = {
   context: "context",
   add: "add",
   del: "del",
-  /** Hunk headers (@@ …) and file meta (diff/index/---/+++) — rendered muted. */
+  /** Hunk headers (@@ …) and file meta (diff/index/---/+++) - rendered muted. */
   meta: "meta"
 } as const;
 export type DiffKind = (typeof DiffKind)[keyof typeof DiffKind];
@@ -28,50 +28,55 @@ export interface DiffLine {
 
 /** One row of a side-by-side (split) view: either a full-width hunk header, or a
  *  left (old) / right (new) cell pair. `*Filled` marks the wash-tinted side. */
-export interface SplitRow {
+interface SplitRow {
   hunk: boolean;
   hunkText: string;
   left: string;
   leftFilled: boolean;
   right: string;
   rightFilled: boolean;
-  /** Old-file line for the left (old) side — drives the split gutter's old column. */
+  /** Old-file line for the left (old) side - drives the split gutter's old column. */
   oldLine?: number;
-  /** New-file line for the right (new) side — lets a click open at that line, and
+  /** New-file line for the right (new) side - lets a click open at that line, and
    *  drives the split gutter's new column. */
   newLine?: number;
 }
 
 const META_PREFIXES = ["diff ", "index ", "--- ", "+++ ", "new file", "deleted file", "rename ", "similarity "];
+const HUNK_MARKER = "@@";
+const ADDED_MARKER = "+";
+const REMOVED_MARKER = "-";
+const CONTEXT_MARKER = " ";
+const LINE_MARKER = /^[+\-\s]/;
 
-function classify(line: string): DiffKind {
-  const isHunkHeader = line.startsWith("@@");
+function classify(line: string) {
+  const isHunkHeader = line.startsWith(HUNK_MARKER);
   const isFileMeta = META_PREFIXES.some(prefix => line.startsWith(prefix));
   if (isHunkHeader || isFileMeta) {
     return DiffKind.meta;
   }
 
-  if (line.startsWith("+")) {
+  if (line.startsWith(ADDED_MARKER)) {
     return DiffKind.add;
   }
 
-  if (line.startsWith("-")) {
+  if (line.startsWith(REMOVED_MARKER)) {
     return DiffKind.del;
   }
 
   return DiffKind.context;
 }
 
-// A hunk header — `@@ -old,n +new,n @@` — where capture 1 is the old file's and
+// A hunk header - `@@ -old,n +new,n @@` - where capture 1 is the old file's and
 // capture 2 the new file's starting line, from which we count lines forward.
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 
 /** Parse a raw `git diff` body into classified lines (trailing blank dropped).
  *  Context lines carry both 1-based line numbers, additions the new-file number,
- *  deletions the old-file number — the diff gutter reads them per side. */
-export function parseDiff(raw: string): DiffLine[] {
+ *  deletions the old-file number - the diff gutter reads them per side. */
+export function parseDiff(raw: string) {
   const lines = raw.split("\n");
-  if (lines.length > 0 && lines[lines.length - 1] === "") {
+  if (lines.at(-1) === "") {
     lines.pop();
   }
 
@@ -80,10 +85,10 @@ export function parseDiff(raw: string): DiffLine[] {
   return lines.map(text => {
     const kind = classify(text);
     if (kind === DiffKind.meta) {
-      const hunk = HUNK_HEADER.exec(text);
-      if (hunk) {
-        oldLine = Number(hunk[1]);
-        newLine = Number(hunk[2]);
+      const header = HUNK_HEADER.exec(text);
+      if (header) {
+        oldLine = Number(header[1]);
+        newLine = Number(header[2]);
       }
 
       return {
@@ -137,20 +142,20 @@ export function parseDiff(raw: string): DiffLine[] {
 }
 
 /** The new-file line of the first added line (else the first line that exists in
- *  the new file) — where a "reveal in editor" click should land. */
-export function firstChangedLine(lines: DiffLine[]): number | undefined {
+ *  the new file) - where a "reveal in editor" click should land. */
+export function firstChangedLine(lines: DiffLine[]) {
   const firstAdd = lines.find(line => line.kind === DiffKind.add && line.newLine !== undefined);
   return (firstAdd ?? lines.find(line => line.newLine !== undefined))?.newLine;
 }
 
 /** Drop the leading +/-/space marker so split cells show clean source. */
-function stripMarker(text: string): string {
-  return text.replace(/^[+\-\s]/, "");
+function stripMarker(text: string) {
+  return text.replace(LINE_MARKER, "");
 }
 
 /** Turn classified lines into side-by-side rows (naive per-line pairing, like the
  *  canvas): additions on the right, deletions on the left, context on both. */
-export function toSplitRows(lines: DiffLine[]): SplitRow[] {
+export function toSplitRows(lines: DiffLine[]) {
   return lines.map(line => {
     const blank: SplitRow = {
       hunk: false,
@@ -231,13 +236,13 @@ const MAX_DIFF_CELLS = 4_000_000;
  *  newline adds no spurious empty final line, and empty text is zero lines (so an
  *  empty baseline diffs as a pure addition). Mirrors Rust's `str::lines`, keeping
  *  the two sides of a baseline diff consistent. */
-function splitLines(text: string): string[] {
+function splitLines(text: string) {
   if (text === "") {
     return [];
   }
 
   const lines = text.split("\n");
-  if (lines[lines.length - 1] === "") {
+  if (lines.at(-1) === "") {
     lines.pop();
   }
 
@@ -250,7 +255,7 @@ function splitLines(text: string): string[] {
 function replaceChanges({ before, after }: {
   before: string[];
   after: string[];
-}): LineChange[] {
+}) {
   return [
     ...before.map(text => ({
       operation: LineOp.delete,
@@ -263,82 +268,96 @@ function replaceChanges({ before, after }: {
   ];
 }
 
+/** The LCS table for two regions: `lengths[iBefore][iAfter]` is the length of
+ *  the longest common subsequence of `before[iBefore..]` and `after[iAfter..]`. */
+function lcsLengths({ before, after }: {
+  before: string[];
+  after: string[];
+}) {
+  const lengths = Array.from({ length: before.length + 1 }, () =>
+    Array.from({ length: after.length + 1 }, () => 0));
+  for (let iBefore = before.length - 1; iBefore >= 0; iBefore -= 1) {
+    for (let iAfter = after.length - 1; iAfter >= 0; iAfter -= 1) {
+      lengths[iBefore][iAfter] =
+        before[iBefore] === after[iAfter]
+          ? lengths[iBefore + 1][iAfter + 1] + 1
+          : Math.max(lengths[iBefore + 1][iAfter], lengths[iBefore][iAfter + 1]);
+    }
+  }
+
+  return lengths;
+}
+
+/** Walk the LCS table from the top-left, keeping shared lines and preferring a
+ *  delete over an insert on a tie, then flush whatever either side has left. */
+function backtrackChanges({ before, after, lengths }: {
+  before: string[];
+  after: string[];
+  lengths: number[][];
+}) {
+  const changes: LineChange[] = [];
+  let iBefore = 0;
+  let iAfter = 0;
+  while (iBefore < before.length && iAfter < after.length) {
+    if (before[iBefore] === after[iAfter]) {
+      changes.push({
+        operation: LineOp.keep,
+        text: before[iBefore]
+      });
+      iBefore += 1;
+      iAfter += 1;
+      continue;
+    }
+
+    const isDeleteNoWorse = lengths[iBefore + 1][iAfter] >= lengths[iBefore][iAfter + 1];
+    if (isDeleteNoWorse) {
+      changes.push({
+        operation: LineOp.delete,
+        text: before[iBefore]
+      });
+      iBefore += 1;
+      continue;
+    }
+
+    changes.push({
+      operation: LineOp.insert,
+      text: after[iAfter]
+    });
+    iAfter += 1;
+  }
+
+  return [
+    ...changes,
+    ...replaceChanges({
+      before: before.slice(iBefore),
+      after: after.slice(iAfter)
+    })
+  ];
+}
+
 /** Align two changed regions by longest common subsequence (classic DP +
  *  backtrack), or fall back to a wholesale replace when the region is too large. */
 function middleChanges({ before, after }: {
   before: string[];
   after: string[];
-}): LineChange[] {
-  if (before.length === 0 || after.length === 0) {
-    return replaceChanges({
-      before,
-      after
-    });
-  }
-
+}) {
+  const isEitherEmpty = before.length === 0 || after.length === 0;
   const isTooLarge = before.length * after.length > MAX_DIFF_CELLS;
-  if (isTooLarge) {
+  if (isEitherEmpty || isTooLarge) {
     return replaceChanges({
       before,
       after
     });
   }
 
-  const rows = before.length;
-  const columns = after.length;
-  // lengths[row][column] = LCS length of before[row..] and after[column..].
-  const lengths = Array.from({ length: rows + 1 }, () =>
-    Array.from({ length: columns + 1 }, () => 0));
-  for (let row = rows - 1; row >= 0; row -= 1) {
-    for (let column = columns - 1; column >= 0; column -= 1) {
-      lengths[row][column] =
-        before[row] === after[column]
-          ? lengths[row + 1][column + 1] + 1
-          : Math.max(lengths[row + 1][column], lengths[row][column + 1]);
-    }
-  }
-
-  const changes: LineChange[] = [];
-  let row = 0;
-  let column = 0;
-  while (row < rows && column < columns) {
-    if (before[row] === after[column]) {
-      changes.push({
-        operation: LineOp.keep,
-        text: before[row]
-      });
-      row += 1;
-      column += 1;
-    } else if (lengths[row + 1][column] >= lengths[row][column + 1]) {
-      changes.push({
-        operation: LineOp.delete,
-        text: before[row]
-      });
-      row += 1;
-    } else {
-      changes.push({
-        operation: LineOp.insert,
-        text: after[column]
-      });
-      column += 1;
-    }
-  }
-  while (row < rows) {
-    changes.push({
-      operation: LineOp.delete,
-      text: before[row]
-    });
-    row += 1;
-  }
-  while (column < columns) {
-    changes.push({
-      operation: LineOp.insert,
-      text: after[column]
-    });
-    column += 1;
-  }
-
-  return changes;
+  return backtrackChanges({
+    before,
+    after,
+    lengths: lcsLengths({
+      before,
+      after
+    })
+  });
 }
 
 /** The full edit script from `before` to `after`, peeling the shared prefix and
@@ -346,7 +365,7 @@ function middleChanges({ before, after }: {
 function lineChanges({ before, after }: {
   before: string[];
   after: string[];
-}): LineChange[] {
+}) {
   let head = 0;
   const sharedLimit = Math.min(before.length, after.length);
   while (head < sharedLimit && before[head] === after[head]) {
@@ -385,30 +404,24 @@ interface PlacedChange extends LineChange {
   newLine: number;
 }
 
-function markerFor(operation: LineOp): string {
-  if (operation === LineOp.insert) {
-    return "+";
-  }
-
-  if (operation === LineOp.delete) {
-    return "-";
-  }
-
-  return " ";
-}
+const OPERATION_MARKERS: Record<LineOp, string> = {
+  [LineOp.keep]: CONTEXT_MARKER,
+  [LineOp.insert]: ADDED_MARKER,
+  [LineOp.delete]: REMOVED_MARKER
+};
 
 /** The `@@ -old,n +new,n @@` header for one hunk. A side with no lines starts at
  *  0 (git's convention for a pure addition or deletion), which `parseDiff` reads
  *  as "no new-file cursor" for that side. */
-function hunkHeader(hunk: PlacedChange[]): string {
+function hunkHeader(hunk: PlacedChange[]) {
   const oldLines = hunk.filter(change => change.operation !== LineOp.insert);
   const newLines = hunk.filter(change => change.operation !== LineOp.delete);
   const oldStart = oldLines.length > 0 ? oldLines[0].oldLine : 0;
   const newStart = newLines.length > 0 ? newLines[0].newLine : 0;
-  return `@@ -${oldStart},${oldLines.length} +${newStart},${newLines.length} @@`;
+  return `${HUNK_MARKER} -${oldStart},${oldLines.length} +${newStart},${newLines.length} ${HUNK_MARKER}`;
 }
 
-/** Generate a git-style unified diff between two whole texts — the Change Feed's
+/** Generate a git-style unified diff between two whole texts - the Change Feed's
  *  git-free preview (session baseline vs current content). Groups changes into
  *  hunks with up to `DIFF_CONTEXT` lines of surrounding context and emits the
  *  `@@` headers `parseDiff` reads, so the shared parse+render path draws it.
@@ -416,7 +429,7 @@ function hunkHeader(hunk: PlacedChange[]): string {
 export function unifiedDiff({ before, after }: {
   before: string;
   after: string;
-}): string {
+}) {
   const changes = lineChanges({
     before: splitLines(before),
     after: splitLines(after)
@@ -440,48 +453,48 @@ export function unifiedDiff({ before, after }: {
     };
   });
 
-  // Keep every changed line, plus the context window around each — an untouched
+  // Keep every changed line, plus the context window around each - an untouched
   // line survives only when it sits within `DIFF_CONTEXT` of some change.
   const kept = Array.from({ length: placed.length }, () => false);
-  let anyChange = false;
-  placed.forEach((change, index) => {
+  let isAnyChange = false;
+  for (const [i, change] of placed.entries()) {
     if (change.operation === LineOp.keep) {
-      return;
+      continue;
     }
 
-    anyChange = true;
-    const from = Math.max(0, index - DIFF_CONTEXT);
-    const to = Math.min(placed.length - 1, index + DIFF_CONTEXT);
+    isAnyChange = true;
+    const from = Math.max(0, i - DIFF_CONTEXT);
+    const to = Math.min(placed.length - 1, i + DIFF_CONTEXT);
     for (let cursor = from; cursor <= to; cursor += 1) {
       kept[cursor] = true;
     }
-  });
+  }
 
-  if (!anyChange) {
+  if (!isAnyChange) {
     return "";
   }
 
   // Emit each contiguous run of kept lines as one hunk.
   const lines: string[] = [];
-  let index = 0;
-  while (index < placed.length) {
-    if (!kept[index]) {
-      index += 1;
+  let iStart = 0;
+  while (iStart < placed.length) {
+    if (!kept[iStart]) {
+      iStart += 1;
       continue;
     }
 
-    let end = index;
-    while (end + 1 < placed.length && kept[end + 1]) {
-      end += 1;
+    let iEnd = iStart;
+    while (iEnd + 1 < placed.length && kept[iEnd + 1]) {
+      iEnd += 1;
     }
 
-    const hunk = placed.slice(index, end + 1);
+    const hunk = placed.slice(iStart, iEnd + 1);
     lines.push(hunkHeader(hunk));
     for (const change of hunk) {
-      lines.push(markerFor(change.operation) + change.text);
+      lines.push(OPERATION_MARKERS[change.operation] + change.text);
     }
 
-    index = end + 1;
+    iStart = iEnd + 1;
   }
 
   return lines.join("\n");

@@ -6,7 +6,7 @@
 // is. This is the one home for turning that into the sentence a toast shows, so
 // every surface phrases a failure the same way.
 
-/** Git's severity word at the head of the line — noise once the message is in a
+/** Git's severity word at the head of the line - noise once the message is in a
  *  toast that already reads as a failure. */
 const SEVERITY_PREFIX = /^(?:fatal|error|warning):\s*/;
 
@@ -14,7 +14,7 @@ const SEVERITY_PREFIX = /^(?:fatal|error|warning):\s*/;
 export function errorHeadline({ error, fallback }: {
   error: unknown;
   fallback: string;
-}): string {
+}) {
   const text = error instanceof Error ? error.message : String(error);
   const headline = text.split("\n")[0].replace(SEVERITY_PREFIX, "").trim();
   return headline || fallback;

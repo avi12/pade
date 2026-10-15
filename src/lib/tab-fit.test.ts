@@ -1,12 +1,12 @@
 import { DOT_SLOT, MORE_SLOT, packTabs, TAB_GAP } from "@/lib/tab-fit";
 import { describe, expect, it } from "vitest";
 
-// Four 100px-wide tabs in strip order — wide enough that the tier boundaries
+// Four 100px-wide tabs in strip order - wide enough that the tier boundaries
 // land on round numbers (DOT_SLOT is 28, MORE_SLOT is 40 with the 6px gap).
 const IDS = ["a", "b", "c", "d"];
 const TOTAL = 400 + TAB_GAP * 3;
 
-function widthOf(): number {
+function widthOf() {
   return 100;
 }
 
@@ -53,7 +53,7 @@ describe("packTabs", () => {
 
   it("spends remaining room on dots before overflowing", () => {
     // Budget is 340 - 40 = 300: two pills (206) fit, and the 94px left
-    // holds two more dots — nothing has to fall into "+N".
+    // holds two more dots - nothing has to fall into "+N".
     const pack = packTabs({
       ids: IDS,
       widthOf,
@@ -110,7 +110,7 @@ describe("packTabs", () => {
 
   it("leaves a dot short of a full slot in the overflow", () => {
     // Budget 240 - 40 = 200: one pill (100), dot room 100 holds three 28px
-    // dots with 16px left — the fourth tab must overflow.
+    // dots with 16px left - the fourth tab must overflow.
     const pack = packTabs({
       ids: [...IDS, "e"],
       widthOf,

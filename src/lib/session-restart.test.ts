@@ -15,7 +15,7 @@ const codex = {
   reordersBidi: false
 };
 
-function session(overrides: Partial<AgentSession> & { id: string }): AgentSession {
+function session(overrides: Partial<AgentSession> & { id: string }) {
   return {
     agent: claude,
     conversationId: `conv-${overrides.id}`,

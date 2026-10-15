@@ -9,7 +9,7 @@ import {
   vi
 } from "vitest";
 
-// Minimal localStorage and Tauri-window doubles — vitest runs in node, which
+// Minimal localStorage and Tauri-window doubles - vitest runs in node, which
 // has neither. The label is what the snapshot key is scoped to.
 const backing = new Map<string, string>();
 function stubWindowLabel(label: string) {

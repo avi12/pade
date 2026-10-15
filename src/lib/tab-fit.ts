@@ -4,20 +4,24 @@
 // the caller (measured from an off-layout mirror row), so packing never feeds
 // back into the layout it packs against.
 
-/** Pixels between tab items — must mirror the tab strip's CSS flex gap. */
+/** Pixels between tab items - must mirror the tab strip's CSS flex gap. */
 export const TAB_GAP = 6;
 
+const DOT_BUTTON_WIDTH = 22;
+const MORE_BUTTON_WIDTH = 34;
+const ADD_BUTTON_WIDTH = 30;
+
 /** A collapsed status-dot button plus its gap. */
-export const DOT_SLOT = 22 + TAB_GAP;
+export const DOT_SLOT = DOT_BUTTON_WIDTH + TAB_GAP;
 
 /** The "+N" overflow button plus its gap. */
-export const MORE_SLOT = 34 + TAB_GAP;
+export const MORE_SLOT = MORE_BUTTON_WIDTH + TAB_GAP;
 
-/** The trailing add-agent button plus its gap — always reserved at the end. */
-export const ADD_SLOT = 30 + TAB_GAP;
+/** The trailing add-agent button plus its gap - always reserved at the end. */
+export const ADD_SLOT = ADD_BUTTON_WIDTH + TAB_GAP;
 
 /** How the strip splits: full pills, collapsed status dots, "+N" overflow. */
-export interface TabPack {
+interface TabPack {
   visible: string[];
   dots: string[];
   more: string[];
@@ -30,15 +34,20 @@ export function packTabs({ ids, widthOf, stripWidth }: {
   ids: string[];
   widthOf: (id: string) => number;
   stripWidth: number;
-}): TabPack {
-  const total = ids.reduce((sum, id, index) => sum + widthOf(id) + (index ? TAB_GAP : 0), 0);
-  // Everything fits (or we haven't measured yet) — all as full pills.
-  if (stripWidth === 0 || total <= stripWidth) {
+}) {
+  let total = 0;
+  for (const [i, id] of ids.entries()) {
+    total += widthOf(id) + (i > 0 ? TAB_GAP : 0);
+  }
+
+  const isEverythingFitting = stripWidth === 0 || total <= stripWidth;
+  // Not measured yet counts as fitting: all tabs render as full pills.
+  if (isEverythingFitting) {
     return {
       visible: [...ids],
       dots: [],
       more: []
-    };
+    } satisfies TabPack;
   }
 
   // We know we'll overflow, so reserve room for the "+N" button.
@@ -46,7 +55,7 @@ export function packTabs({ ids, widthOf, stripWidth }: {
   const visible: string[] = [];
   let used = 0;
   for (const id of ids) {
-    const next = used + widthOf(id) + (visible.length ? TAB_GAP : 0);
+    const next = used + widthOf(id) + (visible.length > 0 ? TAB_GAP : 0);
     if (next > budget) {
       break;
     }
@@ -77,5 +86,5 @@ export function packTabs({ ids, widthOf, stripWidth }: {
     visible,
     dots,
     more: rest.slice(dots.length)
-  };
+  } satisfies TabPack;
 }

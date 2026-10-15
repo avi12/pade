@@ -1,4 +1,5 @@
 import { groupChanges, GroupRole } from "@/lib/change-groups";
+import { ChangeKind } from "@/lib/types";
 import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -8,17 +9,17 @@ function change({ path, added = 0, removed = 0, timestamp = 0 }: {
   added?: number;
   removed?: number;
   timestamp?: number;
-}): ChangeEvent {
+}) {
   idCounter += 1;
   return {
     id: `e${idCounter}`,
     path,
-    kind: "modified",
+    kind: ChangeKind.enum.modified,
     added,
     removed,
     summary: `Edited ${path}`,
     ts: timestamp
-  };
+  } satisfies ChangeEvent;
 }
 
 const ROOT = "C:/repositories/avi/pade";
@@ -179,7 +180,7 @@ describe("groupChanges", () => {
     expect(group.entries[1].repeats).toBe(1);
   });
 
-  it("only folds a run — a file changed again later is its own card", () => {
+  it("only folds a run - a file changed again later is its own card", () => {
     const [group] = groupChanges({
       workspaceRoot: ROOT,
       events: [
@@ -237,7 +238,7 @@ function member({ path, name = null, ecosystem = "javascript", repository = fals
   name?: string | null;
   ecosystem?: WorkspaceMember["ecosystem"];
   repository?: boolean;
-}): WorkspaceMember {
+}) {
   return {
     path,
     name,
@@ -252,7 +253,7 @@ const ROOT_MEMBER = member({
 });
 
 describe("groupChanges with manifest members", () => {
-  it("splits a root-level-package workspace per member — the convention's blind spot", () => {
+  it("splits a root-level-package workspace per member - the convention's blind spot", () => {
     const groups = groupChanges({
       workspaceRoot: ROOT,
       members: [
@@ -304,7 +305,7 @@ describe("groupChanges with manifest members", () => {
     expect(group.id).toBe("apps/web/plugins/auth");
   });
 
-  it("compares whole segments — apps/web never captures apps/web-admin", () => {
+  it("compares whole segments - apps/web never captures apps/web-admin", () => {
     const [group] = groupChanges({
       workspaceRoot: ROOT,
       members: [ROOT_MEMBER, member({ path: "apps/web" })],

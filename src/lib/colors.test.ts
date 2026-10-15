@@ -76,7 +76,7 @@ describe("resolveColor", () => {
 });
 
 // The drag engine paints a surface under a lifted row only when the row draws
-// none of its own — a see-through lift lets the sibling sliding underneath read
+// none of its own - a see-through lift lets the sibling sliding underneath read
 // straight through it. That decision is this alpha read.
 describe("colorAlpha", () => {
   it("reads a legacy rgb() triple as fully opaque", () => {

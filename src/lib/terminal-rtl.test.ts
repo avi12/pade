@@ -1,4 +1,4 @@
-import type { RtlCell, RtlPart, RtlTextPart } from "@/lib/terminal-rtl";
+import type { RtlPart, RtlTextPart } from "@/lib/terminal-rtl";
 import {
   containsRtl,
   rowSelection,
@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 /** A row of cells from a plain string, one cell per code point (which is how a
  *  terminal buffer stores them), all painted with the defaults. */
-function row(text: string): RtlCell[] {
+function row(text: string) {
   return Array.from(text, character => ({
     text: character,
     foreground: "var(--code-foreground)",
@@ -31,8 +31,8 @@ function isText(part: RtlPart): part is RtlTextPart {
   return part.kind === RtlPartKind.Text;
 }
 
-/** The run's parts as a readable sequence — text verbatim, the caret as `|`. */
-function sequence(parts: readonly RtlPart[]): string[] {
+/** The run's parts as a readable sequence - text verbatim, the caret as `|`. */
+function sequence(parts: readonly RtlPart[]) {
   return parts.map(part => isText(part) ? part.text : "|");
 }
 
@@ -65,7 +65,7 @@ describe("rtlRuns", () => {
     }]);
   });
 
-  it("trims the neutrals at a run's edges — they belong to the text beside them", () => {
+  it("trims the neutrals at a run's edges - they belong to the text beside them", () => {
     expect(columnsOf("  عربي  ")).toEqual([{
       startColumn: 2,
       endColumn: 6

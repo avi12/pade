@@ -14,28 +14,40 @@ export const settings = $state<Settings>({
   prefs
 });
 
-function noAdoptionEffect(): void {}
+function noAdoptionEffect() {}
 let afterAdopt: () => void = noAdoptionEffect;
 
-function replaceSettings(fresh: Settings): void {
-  replaceRecord(prefs, fresh.prefs);
-  replaceRecord(settings, {
-    ...fresh,
-    prefs
+function replaceSettings(fresh: Settings) {
+  replaceRecord({
+    target: prefs,
+    fresh: fresh.prefs
+  });
+  replaceRecord({
+    target: settings,
+    fresh: {
+      ...fresh,
+      prefs
+    }
   });
   afterAdopt();
 }
 
 const settingsVersions = createVersionedAdopter<Settings>({ adopt: replaceSettings });
 
-export function registerSettingsAdoptionEffect(effect: () => void): void {
+export function registerSettingsAdoptionEffect(effect: () => void) {
   afterAdopt = effect;
 }
 
-export function beginSettingsRequest(): number {
+export function beginSettingsRequest() {
   return settingsVersions.begin();
 }
 
-export function adoptSettings(fresh: Settings, version: number): boolean {
-  return settingsVersions.adopt(fresh, version);
+export function adoptSettings({ fresh, version }: {
+  fresh: Settings;
+  version: number;
+}) {
+  return settingsVersions.adopt({
+    fresh,
+    version
+  });
 }

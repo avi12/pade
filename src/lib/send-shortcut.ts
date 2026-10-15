@@ -1,6 +1,6 @@
 // Send-from-IDE bridge: highlight + copy a snippet in any external editor,
 // then press the global shortcut to inject the clipboard into the active
-// agent's input — works regardless of which IDE the project is open in. The
+// agent's input - works regardless of which IDE the project is open in. The
 // app shell registers on mount and unregisters on destroy; the active session
 // comes through `SendShortcutHost` so the lookup stays live.
 
@@ -12,8 +12,9 @@ import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
 const SEND_SHORTCUT = "CommandOrControl+Alt+S";
+const PRESSED_STATE = "Pressed";
 
-/** What the app shell provides — read at each press, so the target follows the
+/** What the app shell provides - read at each press, so the target follows the
  *  currently active session. */
 export interface SendShortcutHost {
   activeId: () => string | null;
@@ -21,12 +22,12 @@ export interface SendShortcutHost {
   activeLabel: () => string;
 }
 
-/** Register the global send shortcut (idempotent — cleans a stale registration
+/** Register the global send shortcut (idempotent - cleans a stale registration
  *  first, so an HMR re-register never doubles up). */
-export async function registerSendShortcut(host: SendShortcutHost): Promise<void> {
+export async function registerSendShortcut(host: SendShortcutHost) {
   await unregisterSendShortcut();
   await register(SEND_SHORTCUT, async event => {
-    if (event.state !== "Pressed") {
+    if (event.state !== PRESSED_STATE) {
       return;
     }
 
@@ -45,7 +46,12 @@ export async function registerSendShortcut(host: SendShortcutHost): Promise<void
   });
 }
 
-/** Release the global shortcut (safe when it was never registered). */
-export async function unregisterSendShortcut(): Promise<void> {
-  await unregister(SEND_SHORTCUT).catch(() => {});
+/** Release the global shortcut. Unregistering one that was never registered
+ *  rejects, which is the expected first-mount case rather than a failure. */
+export async function unregisterSendShortcut() {
+  try {
+    await unregister(SEND_SHORTCUT);
+  } catch (error) {
+    console.debug("pade: the send shortcut was not registered", error);
+  }
 }

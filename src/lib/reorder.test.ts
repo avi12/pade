@@ -103,7 +103,7 @@ describe("insertionIndex", () => {
     ).toBe(1);
 
     // Now sitting in gap 1 (exclude index 1): easing back toward "b"'s OLD center
-    // (150) does NOT snap back — the index holds at 1.
+    // (150) does NOT snap back - the index holds at 1.
     expect(
       insertionIndex({
         centers,

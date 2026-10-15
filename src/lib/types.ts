@@ -23,8 +23,8 @@ export type ChangeEvent = z.infer<typeof ChangeEvent>;
 /** The Change Feed's git-free preview inputs for one path: the session's
  *  first-touch baseline snapshot (`before`) and the file's current on-disk
  *  content (`after`, empty when it is now deleted). The whole payload is nullable
- *  at the boundary — `null` = nothing to preview (binary, over the size cap, or a
- *  path with no captured baseline) — so the card shows "No preview available". */
+ *  at the boundary - `null` = nothing to preview (binary, over the size cap, or a
+ *  path with no captured baseline) - so the card shows "No preview available". */
 export const FeedDiff = z.object({
   before: z.string(),
   after: z.string()
@@ -34,7 +34,7 @@ export type FeedDiff = z.infer<typeof FeedDiff>;
 /** What this window's Change Feed watch is doing: the root it is armed on
  *  (`null` = no live watch), when it armed, and how many changes it has
  *  surfaced versus dropped as ignored since. The feed holds nothing from before
- *  `armedAt` — the backend replays nothing — so the panel states all of it when
+ *  `armedAt` - the backend replays nothing - so the panel states all of it when
  *  the list is empty rather than leaving "nothing changed" and "nothing is
  *  watched" looking identical. */
 export const WatchStatus = z.object({
@@ -46,18 +46,18 @@ export const WatchStatus = z.object({
 export type WatchStatus = z.infer<typeof WatchStatus>;
 
 /** The manifest family that confirms a directory as a package (workspace
- *  member discovery — a folder is a package IFF it holds its own manifest). */
+ *  member discovery - a folder is a package IFF it holds its own manifest). */
 const Ecosystem = z.enum(["javascript", "rust", "go", "python"]);
 
 /** One manifest-confirmed workspace member: its repo-relative `/`-joined
  *  directory (`""` = the root), the name its manifest declares (`null` when it
  *  declares none), and the manifest family that confirmed it (`null` only for
- *  a root without any manifest — kept so every file still has a bucket). */
+ *  a root without any manifest - kept so every file still has a bucket). */
 export const WorkspaceMember = z.object({
   path: z.string(),
   name: z.string().nullable(),
   ecosystem: Ecosystem.nullable(),
-  /** It holds its own `.git` — a checkout nested in the workspace, with a
+  /** It holds its own `.git` - a checkout nested in the workspace, with a
    *  branch and a history of its own. Only these carry git chrome. */
   repository: z.boolean()
 });
@@ -105,15 +105,16 @@ const CommitFileEntry = z.object({
 export type CommitFileEntry = z.infer<typeof CommitFileEntry>;
 
 /** A single commit's full detail: message body, branch, and per-file stats.
- *  Reuses `Commit`'s field names for the shared header fields. */
-export const CommitDetail = z.object({
-  id: z.string(),
-  short: z.string(),
-  summary: z.string(),
+ *  Reuses `Commit`'s header fields. */
+export const CommitDetail = Commit.pick({
+  id: true,
+  short: true,
+  summary: true,
+  author: true,
+  when: true
+}).extend({
   /** The commit message body (everything after the subject); empty if none. */
   body: z.string(),
-  author: z.string(),
-  when: z.string(),
   /** Current HEAD branch name (empty on a detached HEAD). */
   branch: z.string(),
   files: z.array(CommitFileEntry),
@@ -122,7 +123,7 @@ export const CommitDetail = z.object({
 });
 export type CommitDetail = z.infer<typeof CommitDetail>;
 
-/** A commit ranked as a candidate for "restore a version" — a Commit plus a
+/** A commit ranked as a candidate for "restore a version" - a Commit plus a
  *  0..≈1.5 fuzzy `score` (token overlap with the query, boosted by time hints). */
 export const RestoreCandidate = Commit.extend({ score: z.number() });
 export type RestoreCandidate = z.infer<typeof RestoreCandidate>;
@@ -153,33 +154,37 @@ export const Agent = z.object({
   command: z.string(),
   /** This CLI applies the bidi algorithm to its own output, so what reaches the
    *  terminal is already in visual order and must be painted, not reordered again
-   *  (agents.rs owns which ones — the terminal's right-to-left overlay reads it).
+   *  (agents.rs owns which ones - the terminal's right-to-left overlay reads it).
    *  Defaulted rather than required: a session persisted before the field existed
    *  still parses, and "no" is the safe answer for an unknown agent. */
   reordersBidi: z.boolean().default(false)
 });
 export type Agent = z.infer<typeof Agent>;
 
-/** The always-present shell fallback's agent id — the one backend-provided agent
+/** The always-present shell fallback's agent id - the one backend-provided agent
  *  that isn't a real coding agent, so it's excluded from auto-launch/onboarding. */
 export const SHELL_AGENT_ID = "shell";
 
-/** The launchable coding agents — every detected agent except the shell fallback.
+/** The launchable coding agents - every detected agent except the shell fallback.
  *  The one home for "which agents are real", so the app top bar, the picker's
  *  agents list, and quick-start can't drift on what counts as launchable. */
-export function realAgents(agents: readonly Agent[]): Agent[] {
+export function realAgents(agents: readonly Agent[]) {
   return agents.filter(agent => agent.id !== SHELL_AGENT_ID);
 }
 
-/** How a spawned window routes off its `?w=` query string — `window_create`
+/** How a spawned window routes off its `?w=` query string - `window_create`
  *  (bridge `windows.create`) encodes the target here and the Rust `window` module
  *  emits the same tokens. The one home for these literals so boot routing, the
  *  bridge, and the New-window menu can't drift. */
 export const WindowMode = z.enum(["empty", "temp", "open"]);
 export type WindowMode = z.infer<typeof WindowMode>;
 
+/** Which way `window_focus_relative` steps through the open windows. */
+const WindowDirection = z.enum(["previous", "next"]);
+export type WindowDirection = z.infer<typeof WindowDirection>;
+
 /** Where the picker hands a chosen or freshly-created project back to the app:
- *  the project path, plus — for a create — an optional first prompt to seed and
+ *  the project path, plus - for a create - an optional first prompt to seed and
  *  the agent id to launch it with (both absent when reopening an existing one). */
 export type OpenTarget = {
   path: string;
@@ -227,13 +232,15 @@ export type TaskGroup = z.infer<typeof TaskGroup>;
  *  (`package.json`) or an extension (`.csproj`). The panel lists these in its
  *  empty state, and the catalog matches a changed path against them the same
  *  way the backend matches a directory entry. */
+const ManifestMatch = z.enum(["name", "extension"]);
+
 export const TaskManifestDescriptor = z.discriminatedUnion("match", [
   z.object({
-    match: z.literal("name"),
+    match: z.literal(ManifestMatch.enum.name),
     value: z.string().min(1)
   }),
   z.object({
-    match: z.literal("extension"),
+    match: z.literal(ManifestMatch.enum.extension),
     value: z.string().min(1)
   })
 ]);
@@ -246,7 +253,7 @@ export const Ide = z.object({
   /** A console editor (Neovim, Vim, Helix) PADE opens in a terminal tab rather
    *  than launching as a detached window. */
   terminal: z.boolean().default(false),
-  /** Leads `ide_suggest`'s ranking because of an explicit per-project pick —
+  /** Leads `ide_suggest`'s ranking because of an explicit per-project pick -
    *  badged as the user's choice, not the auto-detected best fit. */
   chosen: z.boolean().default(false)
 });
@@ -281,7 +288,7 @@ export type DesignTool = z.infer<typeof DesignTool>;
 
 /** Remaining usage / quota for the active agent. Every field is optional so an
  *  adapter can surface only what it has locally; the whole payload is nullable
- *  (`null` = no reliable local signal, UI shows "usage —"). */
+ *  (`null` = no reliable local signal, UI shows "usage -"). */
 export const Usage = z.object({
   /** Percent of quota consumed, 0..100, when a precise number is known. */
   usedPct: z.number().nullish(),
@@ -289,14 +296,14 @@ export const Usage = z.object({
   label: z.string(),
   /** ISO-8601 reset time for the quota window, when known. */
   resetsAt: z.string().nullish(),
-  /** Where the figure came from — so the UI stays honest about it. */
+  /** Where the figure came from - so the UI stays honest about it. */
   source: z.string()
 });
 
 /** The semantic kind of a rate-limit window. The account endpoint returns a
  *  handful of named windows (the 5-hour session, the 7-day weekly all-models cap,
  *  the monthly spend cap on usage credits) plus any per-model caps; the backend
- *  classifies each. A named window it doesn't recognize arrives as `opaque` —
+ *  classifies each. A named window it doesn't recognize arrives as `opaque` -
  *  surfaced honestly, never dropped. */
 export const UsageWindowKind = z.enum(["session", "weekly", "model", "credits", "opaque"]);
 export type UsageWindowKind = z.infer<typeof UsageWindowKind>;
@@ -308,7 +315,7 @@ const UsageWindow = z.object({
   /** Stable identity from the API (`five_hour`, `seven_day`, or a model name). */
   key: z.string(),
   kind: UsageWindowKind,
-  /** Human name — a model's display name, or a humanized form of the key. */
+  /** Human name - a model's display name, or a humanized form of the key. */
   label: z.string(),
   /** Percent of the window consumed (0..100). */
   utilization: z.number(),
@@ -318,8 +325,8 @@ const UsageWindow = z.object({
 export type UsageWindow = z.infer<typeof UsageWindow>;
 
 /** The state of pay-as-you-go usage credits (Claude's "extra usage"): `off`;
- *  `available` — on, with room left under the monthly cap, so they carry work past
- *  an exhausted window; `unavailable` — on, but the cap is spent or the account
+ *  `available` - on, with room left under the monthly cap, so they carry work past
+ *  an exhausted window; `unavailable` - on, but the cap is spent or the account
  *  holds them back. */
 export const CreditsState = z.enum(["off", "available", "unavailable"]);
 export type CreditsState = z.infer<typeof CreditsState>;
@@ -332,7 +339,7 @@ const CreditBalance = z.object({
 });
 export type CreditBalance = z.infer<typeof CreditBalance>;
 
-/** Live account usage — every rate-limit window the endpoint returns (session,
+/** Live account usage - every rate-limit window the endpoint returns (session,
  *  weekly, and any per-model or other windows), plus the plan label. `null` when
  *  offline / the local token is missing or expired. */
 export const AccountUsage = z.object({
@@ -343,20 +350,20 @@ export const AccountUsage = z.object({
    *  both bill one ChatGPT subscription), so the meter never counts the same
    *  account twice. Absent when the adapter can't name the account. */
   account: z.string().nullish(),
-  /** Whether usage credits are on and can carry work past an exhausted window —
+  /** Whether usage credits are on and can carry work past an exhausted window -
    *  what lets a limit-stopped session continue before its reset. Absent for an
    *  account with no credits concept. */
   credits: CreditsState.nullish(),
-  /** The prepaid usage-credits balance — present only while extra usage is on
+  /** The prepaid usage-credits balance - present only while extra usage is on
    *  (the backend reads it in that case alone). */
   creditBalance: CreditBalance.nullish(),
-  /** What usage credits have cost this month when no monthly cap is set — the
+  /** What usage credits have cost this month when no monthly cap is set - the
    *  extra-usage row shows it in place of the percentage it cannot have. */
   uncappedSpend: CreditBalance.nullish()
 });
 export type AccountUsage = z.infer<typeof AccountUsage>;
 
-/** A free usage-limit reset Claude's account can spend now — a grant (a launch
+/** A free usage-limit reset Claude's account can spend now - a grant (a launch
  *  promotion) that clears its limits once, on demand. */
 export const LimitReset = z.object({
   grantId: z.string(),
@@ -406,20 +413,20 @@ export type WindowInfo = z.infer<typeof WindowInfo>;
 export const ThemeMode = z.enum(["system", "light", "dark", "cyberpunk"]);
 export type ThemeMode = z.infer<typeof ThemeMode>;
 
-/** The token set painting the app — the skin axis, worn by the document root as
+/** The token set painting the app - the skin axis, worn by the document root as
  *  `data-palette` and layered over the light/dark tokens in theme.css. */
 export const ThemePalette = z.enum(["default", "cyberpunk"]);
 export type ThemePalette = z.infer<typeof ThemePalette>;
 
 /** The concrete appearance `ThemeMode` resolves to ("system" → the OS answer).
- *  Applied to the document root, the terminal palette, and — over the wire —
+ *  Applied to the document root, the terminal palette, and - over the wire -
  *  each agent's spawn-time theme env/args (theming.rs). */
 export const Scheme = z.enum(["light", "dark"]);
 export type Scheme = z.infer<typeof Scheme>;
 
 /** One Windows Terminal colour scheme, as the backend hands it over
  *  (`terminal_schemes`): the surface colours plus the 16 ANSI slots in ANSI
- *  order — the order `ANSI_COLOR_TOKENS` maps onto the `--terminal-*` design
+ *  order - the order `ANSI_COLOR_TOKENS` maps onto the `--terminal-*` design
  *  tokens, so an index here IS the SGR colour. `cursor` and `selection` are
  *  absent in several shipped schemes; `lib/terminal-palette` derives those. */
 export const TerminalScheme = z.object({
@@ -434,7 +441,7 @@ export type TerminalScheme = z.infer<typeof TerminalScheme>;
 
 /** The terminal colour scheme chosen for each app scheme, by name. Two slots
  *  rather than one so the terminal can follow light/dark exactly as the app
- *  does — a light scheme by day, a dark one by night. An empty slot (or a name
+ *  does - a light scheme by day, a dark one by night. An empty slot (or a name
  *  no longer in the catalogue) means "paint from the app theme's own tokens". */
 const TerminalSchemeChoice = z.object({
   light: z.string().nullish(),
@@ -443,9 +450,7 @@ const TerminalSchemeChoice = z.object({
 export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
 
 export const DiffStyle = z.enum(["unified", "split"]);
-export type DiffStyle = z.infer<typeof DiffStyle>;
 
-/** Appearance & editor preferences. All optional — `null`/absent = use default. */
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;
 
@@ -461,6 +466,7 @@ export const ModelChoice = z.object({
 });
 export type ModelChoice = z.infer<typeof ModelChoice>;
 
+/** Appearance & editor preferences. All optional - `null`/absent = use default. */
 const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),
@@ -475,13 +481,13 @@ const Prefs = z.object({
   /** Delete a temp workspace once it has gone unused this many days. Absent =
    *  off. Read by the backend's picker-refresh sweep (`workspace_prune`). */
   tempCleanupDays: z.number().int().positive().nullish(),
-  /** Name session tabs with AI from what the agent is doing — the global default
+  /** Name session tabs with AI from what the agent is doing - the global default
    *  for every window. Opt-in: off unless explicitly true. */
   aiSessionNaming: z.boolean().nullish(),
-  /** Per-project overrides of `aiSessionNaming` — project path → on/off. A
+  /** Per-project overrides of `aiSessionNaming` - project path → on/off. A
    *  project with no entry follows the global default. */
   aiSessionNamingProjects: z.record(z.string(), z.boolean()).nullish(),
-  /** Per project-kind editor rules — kind (e.g. "web", "rust") → IDE id. */
+  /** Per project-kind editor rules - kind (e.g. "web", "rust") → IDE id. */
   ideRules: z.record(z.string(), z.string()).nullish(),
   /** IDE id to open when no rule matches the project kind. */
   ideFallback: z.string().nullish(),
@@ -489,7 +495,7 @@ const Prefs = z.object({
    *  agent id → choice. A new session of that agent in that project starts on
    *  it; an agent with no entry starts on its own default. */
   agentModelProjects: z.record(z.string(), z.record(z.string(), ModelChoice)).nullish(),
-  /** Explicit per-project editor picks — canonical project path → IDE id. A
+  /** Explicit per-project editor picks - canonical project path → IDE id. A
    *  pick from the workspace's editor menu; outranks every rule for that
    *  project (`ide_suggest` puts it first). */
   ideProjectChoices: z.record(z.string(), z.string()).nullish(),
@@ -503,7 +509,7 @@ const Prefs = z.object({
   /** Percent of context at which the auto-handoff cycles the session. Absent =
    *  DEFAULT_CONTEXT_HANDOFF_PERCENTAGE (lib/context-level). */
   handoffPct: z.number().min(MINIMUM_HANDOFF_PERCENTAGE).max(MAXIMUM_HANDOFF_PERCENTAGE).nullish(),
-  /** Auto-resume a usage-limited session when its window resets — "continue"
+  /** Auto-resume a usage-limited session when its window resets - "continue"
    *  in place, or hand off when the context is nearly full. Opt-out: on unless
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
@@ -525,14 +531,14 @@ export const Settings = z.object({
   defaultAgent: z.string().nullable(),
   projectAgents: z.record(z.string(), z.string()),
   recentProjects: z.array(z.string()).default([]),
-  /** Projects pinned in the switcher — kept above the recents and independent of
+  /** Projects pinned in the switcher - kept above the recents and independent of
    *  recent-history churn. */
   pinnedProjects: z.array(z.string()).default([]),
   ownedWorkspaces: z.array(z.string()).default([]),
   /** Friendly display names for workspaces, keyed by absolute path. */
   labels: z.record(z.string(), z.string()).default({}),
   /** When each project was last opened or left (Unix ms), keyed by canonical
-   *  path — the switcher's "last accessed" time. */
+   *  path - the switcher's "last accessed" time. */
   workspaceLastUsed: z.record(z.string(), z.number()).default({}),
   prefs: Prefs.default({})
 });
@@ -547,7 +553,7 @@ export type LabelSource = z.infer<typeof LabelSource>;
 /** How `workspace_add_root` resolved. `added` carries the refreshed settings;
  *  `missing` (the path doesn't exist and creation wasn't requested) and
  *  `notADirectory` (the path names a file) are the two "didn't add" outcomes the
- *  picker acts on — prompting to create, or showing an inline error. */
+ *  picker acts on - prompting to create, or showing an inline error. */
 export const AddRootStatus = z.enum(["added", "missing", "notADirectory"]);
 
 export const AddRootOutcome = z.discriminatedUnion("status", [
@@ -571,7 +577,7 @@ export const SaveMigration = z.object({
 /** A live probe of the path being typed into the add-root field. Instead of
  *  regex-guessing whether the text is a valid path, the backend just checks the
  *  filesystem: whether the path itself is a directory (`isDir`) or a file
- *  (`isFile`), and whether its parent exists (`parentExists`) — so a not-yet-made
+ *  (`isFile`), and whether its parent exists (`parentExists`) - so a not-yet-made
  *  folder in a real place reads as "will create" and a stray string reads as
  *  invalid. `suggestions` are the child directories that complete what was typed,
  *  for the autocomplete. */
@@ -592,7 +598,7 @@ export const emptyPathProbe: PathProbe = {
   suggestions: []
 };
 
-/** A probe tagged with the exact text it describes — the field only trusts the
+/** A probe tagged with the exact text it describes - the field only trusts the
  *  disk flags once `path` matches the current (trimmed) input, since the probe is
  *  async + debounced. The shape `PathCombobox` binds back to its host. */
 export type TaggedPathProbe = {
@@ -611,7 +617,7 @@ export const PtyChunk = z.object({
 export type PtyChunk = z.infer<typeof PtyChunk>;
 
 /** Physical (device-pixel) cursor position carried by the window's native
- *  drag-and-drop events — divide by devicePixelRatio before comparing with
+ *  drag-and-drop events - divide by devicePixelRatio before comparing with
  *  CSS-pixel rects. */
 const DragPosition = z.object({
   x: z.number(),
@@ -633,7 +639,7 @@ export const DragOverPayload = z.object({
 export type DragOverPayload = z.infer<typeof DragOverPayload>;
 
 /** A session's replayable output, the sequence number of the last chunk in it, and
- *  whether the program is currently painting the alternate screen — in which case
+ *  whether the program is currently painting the alternate screen - in which case
  *  the history is a stream of framebuffer edits rather than a document, and a
  *  trimmed one cannot be replayed faithfully. */
 export const PtyHistory = z.object({
@@ -644,7 +650,7 @@ export const PtyHistory = z.object({
 
 export const PtyExit = z.object({ id: z.string() });
 
-/** One live PTY session the backend still hosts (`pty_list`) — the re-attach
+/** One live PTY session the backend still hosts (`pty_list`) - the re-attach
  *  roster after a WebView reload. A listed session is alive by construction.
  *  Deliberately no idleness field: the sessions store's status signal is the
  *  one authority on idle (SSOT). */
@@ -652,7 +658,7 @@ export const PtySession = z.object({
   id: z.string(),
   /** The agent command it was spawned with (`null` = the default-shell fallback). */
   command: z.string().nullable(),
-  /** The directory it was spawned into — its workspace mapping. */
+  /** The directory it was spawned into - its workspace mapping. */
   cwd: z.string().nullable()
 });
 
@@ -685,11 +691,11 @@ export interface AgentSession {
   id: string;
   agent: Agent;
   initialPrompt?: string;
-  /** Working dir override — a per-branch git worktree, when set. */
+  /** Working dir override - a per-branch git worktree, when set. */
   cwd?: string;
   /** Branch this session works, when spawned on a worktree. */
   branch?: string;
-  /** Extra args for the command — the project path when this session runs a
+  /** Extra args for the command - the project path when this session runs a
    *  terminal editor (Neovim/Vim/Helix) instead of an agent. */
   args?: string[];
   /** A stable conversation id ADE pins the session to (`claude --session-id`),
@@ -714,3 +720,63 @@ export const McpChange = z.object({
   membershipChanged: z.boolean()
 });
 export type McpChange = z.infer<typeof McpChange>;
+
+/** How full a session's context window is, as the agent's own session log
+ *  accounts for it. */
+export const SessionContext = z.object({
+  usedTokens: z.number().nullable(),
+  windowTokens: z.number().nullable()
+});
+
+/** One model an agent offers to switch to, as its own local catalog describes
+ *  it - effort levels lowest first (with the agent's labels), empty for a
+ *  model without one. */
+export const ModelOption = z.object({
+  id: z.string(),
+  name: z.string(),
+  efforts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string()
+    })
+  ),
+  recommendedEffort: z.string().nullable()
+});
+export type ModelOption = z.infer<typeof ModelOption>;
+
+/** How a picked model reaches a running session (see `pty.applyModel`). */
+export const SwitchOutcome = z.enum(["applied", "needsRestart"]);
+
+/** The model and reasoning effort a session runs, as the agent reported it. */
+export const RunningModel = z.object({
+  model: z.string(),
+  effort: z.string().nullable(),
+  /** Claude's Ultracode (multi-agent orchestration) is on for the session. */
+  ultracode: z.boolean()
+});
+
+export const RunningModelChanged = z.object({
+  sessionId: z.string().nullable()
+});
+
+/** A Change Feed image preview: the file's bytes as a ready-to-use `data:` URL,
+ *  so the card renders it with a plain `<img src>`. The whole payload is nullable
+ *  at the boundary (see `feed.image`). */
+export const FeedImage = z.object({
+  dataUrl: z.string()
+});
+
+/** How a Change Feed video preview turned out: a transcoded clip, or no clip
+ *  because ffmpeg isn't installed. */
+export const FeedVideoKind = z.enum(["ready", "noTranscoder"]);
+
+/** A Change Feed video preview: an ffmpeg-transcoded clip as a `data:` URL for a
+ *  plain `<video src>`, or word that ffmpeg is missing (see `feed.video`). */
+export const FeedVideo = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal(FeedVideoKind.enum.ready),
+    dataUrl: z.string()
+  }),
+  z.object({ kind: z.literal(FeedVideoKind.enum.noTranscoder) })
+]);
+export type FeedVideo = z.infer<typeof FeedVideo>;

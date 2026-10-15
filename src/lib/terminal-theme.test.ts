@@ -18,7 +18,7 @@ describe("xtermSafeColor", () => {
     expect(xtermSafeColor("hsl(210deg 100% 50%)")).toBe("#0080ff");
   });
 
-  it("keeps a percent alpha as an 8-digit hex — the selection token that xterm's own parser rejected", () => {
+  it("keeps a percent alpha as an 8-digit hex - the selection token that xterm's own parser rejected", () => {
     // 22% → 0.22 × 255 ≈ 56 → 0x38.
     expect(xtermSafeColor("hsl(210deg 90% 45% / 22%)")).toMatch(/^#[0-9a-f]{6}38$/);
   });

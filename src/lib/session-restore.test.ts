@@ -15,7 +15,7 @@ import {
   vi
 } from "vitest";
 
-// Minimal localStorage and Tauri-window doubles — vitest runs in node, which
+// Minimal localStorage and Tauri-window doubles - vitest runs in node, which
 // has neither. The label is what the snapshot key is scoped to.
 const backing = new Map<string, string>();
 const KEY = "pade.session-snapshot:main";
@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function session(id: string, extra: Partial<AgentSession> = {}): AgentSession {
+function session(id: string, extra: Partial<AgentSession> = {}) {
   return {
     id,
     agent: {
@@ -96,7 +96,7 @@ describe("save / read round trip", () => {
     });
     expect([...backing.keys()]).toEqual([KEY]);
 
-    // A sibling window reads nothing of this one's — and rebuilding the crashed
+    // A sibling window reads nothing of this one's - and rebuilding the crashed
     // window (same label, fresh webview) still finds the mapping, which is what
     // sessionStorage lost.
     stubWindowLabel("w-2");
@@ -195,7 +195,7 @@ describe("pruneToLive", () => {
     expect(pruned?.activeId).toBe("c");
   });
 
-  it("is null when nothing survived — what a deliberate leave looks like", () => {
+  it("is null when nothing survived - what a deliberate leave looks like", () => {
     expect(
       pruneToLive({
         snapshot,

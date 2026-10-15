@@ -17,7 +17,7 @@ const TILDE_FINAL_BYTE = "~";
 
 /** The lone submitting keystroke. Sent as its own write AFTER a bracketed paste
  *  has settled, it is an unambiguous Enter the TUI can't fold into the paste
- *  burst — the reliable way to submit a composer a paste left holding text. */
+ *  burst - the reliable way to submit a composer a paste left holding text. */
 export const PROMPT_SUBMIT = "\r";
 
 export const BRACKETED_PASTE_START =
@@ -27,19 +27,19 @@ export const BRACKETED_PASTE_END =
 
 /** Text inserted from outside the terminal, framed so embedded newlines stay in
  * the active composer's paste instead of becoming shell Enter keystrokes. */
-export function pastedText(text: string): string {
+export function pastedText(text: string) {
   return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
 }
 
 const PATH_SEPARATOR = " ";
 const PATH_QUOTE = "\"";
 
-/** File paths as typed into an agent's composer — the form a pasted clipboard
+/** File paths as typed into an agent's composer - the form a pasted clipboard
  *  image and a file dropped onto the terminal both arrive in. A path holding a
  *  space is quoted so it stays one token (as Windows Terminal does on a drop),
  *  and the trailing space ends the last token so the agent's parser picks it up
  *  as a complete path (an image path is then attached). */
-export function pathsAsPromptText(paths: readonly string[]): string {
+export function pathsAsPromptText(paths: readonly string[]) {
   const tokens = paths.map(path => (path.includes(PATH_SEPARATOR) ? `${PATH_QUOTE}${path}${PATH_QUOTE}` : path));
   return `${tokens.join(PATH_SEPARATOR)}${PATH_SEPARATOR}`;
 }
@@ -51,19 +51,23 @@ export function referencedSnippet({ path, anchorLine, focusLine, snippet }: {
   anchorLine: number;
   focusLine: number;
   snippet: string;
-}): string {
+}) {
   const firstLine = Math.min(anchorLine, focusLine);
   const lastLine = Math.max(anchorLine, focusLine);
   return `${path}:${firstLine}-${lastLine}\n${snippet}`;
 }
 
 /** A prompt wrapped for paste-then-submit delivery to a TUI's composer. */
-export function submittedPrompt(prompt: string): string {
+export function submittedPrompt(prompt: string) {
   return `${pastedText(prompt)}${PROMPT_SUBMIT}`;
 }
 
+const ENTER_KEY = "Enter";
+
+/** Shift+Enter alone - the chord that types a newline into the composer. */
 export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,
   "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
->): boolean {
-  return event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+>) {
+  const isShiftOnly = event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+  return event.key === ENTER_KEY && isShiftOnly;
 }

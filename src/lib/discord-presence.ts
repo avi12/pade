@@ -1,5 +1,5 @@
 // Maps app state (the open project + its language + prefs) to Discord rich-presence
-// bridge calls — the one seam App.svelte drives, keeping the presence concern out
+// bridge calls - the one seam App.svelte drives, keeping the presence concern out
 // of the shell (SoC). Presence is best-effort: Discord may be closed, so IPC
 // failures are swallowed here rather than surfaced to the UI.
 
@@ -10,7 +10,7 @@ import { displayName } from "@/lib/paths";
 // PADE app (mirrors the language logos in src/lib/icons) and the human label shown
 // as the status line + icon hover. Keyed by the kind ids from language-icon.ts /
 // the Rust kind registry, plus the `typescript` narrowing a web project can report.
-// A kind absent here shows no language — just "Playing PADE / Working on <project>".
+// A kind absent here shows no language - just "Playing PADE / Working on <project>".
 const LANGUAGES: Record<string, {
   image: string;
   label: string;
@@ -61,50 +61,77 @@ const LANGUAGES: Record<string, {
   }
 };
 
-// Stop reporting entirely — used when the (focused, publishing) window closes so
-// PADE's process-wide presence doesn't linger on the last project. Best-effort,
-// like every presence call: a closed Discord must never reach the UI.
-export async function clearDiscordPresence(): Promise<void> {
-  try {
-    await discord.clearActivity();
-  } catch {
-    // Best-effort: a closed Discord (or any IPC hiccup) must never reach the UI.
-  }
-}
-
-export async function updateDiscordPresence({ enabled, showProject, project, labels, kind }: {
-  enabled: boolean;
-  showProject: boolean;
+type PresenceState = {
+  isEnabled: boolean;
+  isProjectShown: boolean;
   project: string;
   /** The workspace-label map, so a renamed (auto-named) temp workspace reports
    *  its friendly name to Discord rather than its `temp-<stamp>` folder. */
   labels: Record<string, string>;
   /** The open project's detected kind (from `ide.projectKinds`), if any. */
   kind?: string;
-}): Promise<void> {
+};
+
+/** A closed Discord (or any IPC hiccup) must never reach the UI, so a failed
+ *  presence call is only noted for whoever is debugging. */
+async function bestEffort(call: () => Promise<void>) {
   try {
-    if (!enabled) {
-      await discord.clearActivity();
-      return;
-    }
-
-    // Presence on but hiding what I'm working on → just "Playing PADE".
-    if (!(showProject && project)) {
-      await discord.setActivity({});
-      return;
-    }
-
-    // Resolve through the labels map so a renamed workspace reports its friendly
-    // name; displayName falls back to the folder name for an unlabelled path.
-    const details = `Working on ${displayName(project, labels)}`;
-    const language = kind ? LANGUAGES[kind] : undefined;
-    await discord.setActivity({
-      details,
-      state: language?.label,
-      image: language?.image,
-      caption: language?.label
-    });
-  } catch {
-    // Best-effort: a closed Discord (or any IPC hiccup) must never reach the UI.
+    await call();
+  } catch (error) {
+    console.debug("pade: Discord presence unavailable", error);
   }
+}
+
+/** The activity to report, or `null` to report none at all. */
+function presenceActivity({ isEnabled, isProjectShown, project, labels, kind }: PresenceState) {
+  if (!isEnabled) {
+    return null;
+  }
+
+  // Presence on but hiding what I'm working on → just "Playing PADE".
+  if (!isProjectShown || !project) {
+    return {};
+  }
+
+  return {
+    details: `Working on ${displayName(project, labels)}`,
+    ...languageFields(kind)
+  };
+}
+
+/** The language mark and its name for a project kind, when PADE knows one. */
+function languageFields(kind?: string) {
+  const language = kind ? LANGUAGES[kind] : undefined;
+  if (!language) {
+    return {};
+  }
+
+  return {
+    state: language.label,
+    image: language.image,
+    caption: language.label
+  };
+}
+
+// Stop reporting entirely - used when the (focused, publishing) window closes so
+// PADE's process-wide presence doesn't linger on the last project.
+export async function clearDiscordPresence() {
+  await bestEffort(() => discord.clearActivity());
+}
+
+export async function updateDiscordPresence({ enabled, showProject, project, labels, kind }: {
+  enabled: boolean;
+  showProject: boolean;
+  project: string;
+  labels: Record<string, string>;
+  kind?: string;
+}) {
+  const activity = presenceActivity({
+    isEnabled: enabled,
+    isProjectShown: showProject,
+    project,
+    labels,
+    kind
+  });
+  await bestEffort(() => (activity === null ? discord.clearActivity() : discord.setActivity(activity)));
 }

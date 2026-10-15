@@ -1,5 +1,5 @@
 // Best-effort detection of a known task's command inside an agent's terminal
-// output — the signal that lets the Tasks panel reflect a task the agent started
+// output - the signal that lets the Tasks panel reflect a task the agent started
 // as "running" (see stores/taskRuns). This must be evidence of an execution, not
 // merely an agent mentioning a command in its summary. The PTY carries ANSI colour
 // codes and agents render tool calls as `PowerShell(command)` / `Bash(command)`,
@@ -9,20 +9,28 @@
 import { stripAnsi } from "@/lib/ansi";
 
 const TOOL_NAMES = "Bash|PowerShell|Shell|Terminal";
+const REGEX_SPECIAL_CHARACTER = /[.*+?^${}()|[\]\\]/g;
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** An agent's tool-call rendering - `Bash(<command>)` / `PowerShell(<command>)` -
+ *  capturing the parentheses' contents. */
+const TOOL_CALL = new RegExp(`(?:^|\\s)(?:${TOOL_NAMES})\\(([^)]*)\\)`);
+
+/** A visible shell invocation: a prompt, then whatever was typed after it. */
+const PROMPT_LINE = /^[$#%❯>]\s*(.*)$/;
+
+function escapeRegExp(value: string) {
+  return value.replaceAll(REGEX_SPECIAL_CHARACTER, "\\$&");
 }
 
-/** Whether `command` appears as a whole shell token run inside `text` — bounded on
+/** Whether `command` appears as a whole shell token run inside `text` - bounded on
  *  both sides by a command separator (start/end, whitespace, `;`, `&`, `|`, a
  *  paren, or a redirect). This is what lets `pnpm dev` match inside the way an
- *  agent actually runs it — `cd app && pnpm dev 2>&1` — while never matching a
+ *  agent actually runs it - `cd app && pnpm dev 2>&1` - while never matching a
  *  prefix of a longer command like `pnpm dev:prod`. */
 function containsCommand({ text, command }: {
   text: string;
   command: string;
-}): boolean {
+}) {
   const bounded = new RegExp(
     `(?:^|[\\s;&|(])${escapeRegExp(command)}(?=$|[\\s;&|)<>])`
   );
@@ -38,24 +46,11 @@ function containsCommand({ text, command }: {
 export function isTaskInvocation({ line, command }: {
   line: string;
   command: string;
-}): boolean {
+}) {
   const clean = stripAnsi(line).trim();
-
-  // Agent tool-call rendering: Bash(<command>) / PowerShell(<command>). Look for
-  // the command bounded inside the parentheses' contents.
-  const toolCall = new RegExp(`(?:^|\\s)(?:${TOOL_NAMES})\\(([^)]*)\\)`);
-  const toolMatch = toolCall.exec(clean);
-  if (toolMatch && containsCommand({
-    text: toolMatch[1],
+  const invocations = [TOOL_CALL.exec(clean)?.[1], PROMPT_LINE.exec(clean)?.[1]];
+  return invocations.some(text => text !== undefined && containsCommand({
+    text,
     command
-  })) {
-    return true;
-  }
-
-  // Visible shell invocation: a prompt, then whatever the user typed after it.
-  const promptMatch = /^[$#%❯>]\s*(.*)$/.exec(clean);
-  return promptMatch !== null && containsCommand({
-    text: promptMatch[1],
-    command
-  });
+  }));
 }

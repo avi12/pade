@@ -12,7 +12,7 @@ describe("wheelScrollsTerminalDocument", () => {
       .toBe(true);
   });
 
-  it("never defers while a fullscreen agent owns the mouse — the repaint IS the scroll", () => {
+  it("never defers while a fullscreen agent owns the mouse - the repaint IS the scroll", () => {
     expect(
       wheelScrollsTerminalDocument({
         agentOwnsMouse: true,

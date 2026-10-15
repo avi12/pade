@@ -102,7 +102,7 @@ describe("nameError", () => {
   });
 
   it("surfaces the schema's own message for an invalid name", () => {
-    expect(nameError("a/b")).toBe("Name can't contain path characters.");
+    expect(nameError("a/b")).toBe("Name can't contain path characters");
   });
 });
 
@@ -111,7 +111,7 @@ describe("FirstPrompt", () => {
     expect(FirstPrompt.safeParse("").success).toBe(true);
   });
 
-  it("accepts a long, detailed spec uncapped — it's the user's own instructions", () => {
+  it("accepts a long, detailed spec uncapped - it's the user's own instructions", () => {
     expect(FirstPrompt.safeParse("x".repeat(50_000)).success).toBe(true);
   });
 

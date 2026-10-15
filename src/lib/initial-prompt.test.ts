@@ -12,7 +12,7 @@ const GATE_HEADER = [
 ];
 const GATE_FOOTER = ["", " Enter to confirm · Esc to cancel"];
 
-function gate(options: string[]): string[] {
+function gate(options: string[]) {
   return [...GATE_HEADER, ...options, ...GATE_FOOTER];
 }
 
@@ -34,7 +34,7 @@ describe("trustGateKey", () => {
   });
 
   it("ignores a real multiple-choice question the agent asks later", () => {
-    // A genuine choice prompt — must NOT auto-answer; the user answers this one.
+    // A genuine choice prompt - must NOT auto-answer; the user answers this one.
     expect(trustGateKey(["❯ 1. Overwrite the file", "  2. Keep both", "  3. Cancel"])).toBeNull();
   });
 

@@ -7,6 +7,7 @@
 // Absence is the only way back to the agent's own default, so clearing writes
 // the key away rather than freezing whatever the agent happened to run.
 
+import { withRecordEntry } from "@/lib/record-entry";
 import type { ModelChoice, Prefs } from "@/lib/types";
 
 /** The workspace's starting model for `agent`, or `undefined` to start on the
@@ -43,21 +44,16 @@ export function withProjectModelDefault({ prefs, project, agent, choice }: {
   agent: string;
   choice: ModelChoice | undefined;
 }) {
-  const projectDefaults = { ...prefs.agentModelProjects?.[project] };
   const isCleared = choice === undefined || (choice.model === undefined && choice.effort === undefined);
-  if (isCleared) {
-    delete projectDefaults[agent];
-  } else {
-    projectDefaults[agent] = choice;
-  }
-
-  const nextProjects = { ...prefs.agentModelProjects };
+  const projectDefaults = withRecordEntry({
+    record: prefs.agentModelProjects?.[project],
+    key: agent,
+    value: isCleared ? undefined : choice
+  });
   const hasDefaults = Object.keys(projectDefaults).length > 0;
-  if (hasDefaults) {
-    nextProjects[project] = projectDefaults;
-  } else {
-    delete nextProjects[project];
-  }
-
-  return nextProjects;
+  return withRecordEntry({
+    record: prefs.agentModelProjects,
+    key: project,
+    value: hasDefaults ? projectDefaults : undefined
+  });
 }
