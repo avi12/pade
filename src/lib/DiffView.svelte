@@ -14,12 +14,18 @@
     split?: boolean;
   } = $props();
 
-  const splitRows = $derived(split ? toSplitRows(diffLines) : []);
+  const splitRows = $derived.by(() => {
+    if (!split) {
+      return [];
+    }
+
+    return toSplitRows(diffLines);
+  });
 </script>
 
 {#if split}
   <div class="split">
-    {#each splitRows as row, index (index)}
+    {#each splitRows as row, i (i)}
       {#if row.hunk}
         <div class="hunk">{row.hunkText}</div>
       {:else}
@@ -45,7 +51,7 @@
   </div>
 {:else}
   <div class="unified">
-    {#each diffLines as line, index (index)}
+    {#each diffLines as line, i (i)}
       <div
         class="line"
         class:add={line.kind === DiffKind.add}
@@ -93,11 +99,11 @@
     white-space: nowrap;
     opacity: 55%;
     user-select: none;
-  }
 
-  .gutter .line-number {
-    display: inline-block;
-    min-inline-size: 2.5ch;
+    .line-number {
+      display: inline-block;
+      min-inline-size: 2.5ch;
+    }
   }
 
   .code {
@@ -119,24 +125,25 @@
     align-items: flex-start;
     padding-inline: var(--diff-line-padding, 12px);
     color: var(--code-foreground);
-  }
 
-  .line.add {
-    background: var(--tertiary-wash);
-  }
+    &.add {
+      background: var(--tertiary-wash);
+    }
 
-  .line.deletion {
-    background: var(--critical-wash);
-  }
+    &.deletion {
+      background: var(--critical-wash);
+    }
 
-  .line.meta {
-    color: var(--on-surface-variant);
-  }
+    &.meta {
+      color: var(--on-surface-variant);
 
-  /* A hunk/meta row has no line numbers, so its gutter reserves the same width
-     the two number columns take (2 × 2.5ch + gap) to keep the code aligned. */
-  .line.meta .gutter {
-    min-inline-size: calc(5ch + 8px);
+      /* A hunk/meta row has no line numbers, so its gutter reserves the same
+         width the two number columns take (2 × 2.5ch + gap) to keep the code
+         aligned. */
+      .gutter {
+        min-inline-size: calc(5ch + 8px);
+      }
+    }
   }
 
   .split {
@@ -160,22 +167,22 @@
       padding-inline: 10px;
       border-inline-end: 1px solid var(--outline);
       color: var(--code-foreground);
-    }
 
-    .cell .gutter {
-      min-inline-size: 2.5ch;
-    }
+      .gutter {
+        min-inline-size: 2.5ch;
+      }
 
-    .cell.right {
-      border-inline-end: none;
-    }
+      &.right {
+        border-inline-end: none;
+      }
 
-    .cell.filled-deletion {
-      background: var(--critical-wash);
-    }
+      &.filled-deletion {
+        background: var(--critical-wash);
+      }
 
-    .cell.filled-add {
-      background: var(--tertiary-wash);
+      &.filled-add {
+        background: var(--tertiary-wash);
+      }
     }
   }
 </style>

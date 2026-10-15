@@ -8,7 +8,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
   import { repositoryCommitUrl } from "@/lib/repository-links";
-  import type { CommitDetail, CommitFileEntry } from "@/lib/types";
+  import type { CommitDetail } from "@/lib/types";
   import { untrack } from "svelte";
 
   const { project, commit, remoteUrl, onclose }: {
@@ -24,9 +24,9 @@
   // selected and focusable from the first render, before the diff loads.
   // Seeded once from the prop (the modal is remounted per commit) - untrack makes
   // the intentional initial-only read explicit.
-  let selectedPath = $state<string>(untrack(() => commit.files[0]?.path ?? ""));
-  const selectedFile = $derived<CommitFileEntry | undefined>(
-    commit.files.find(file => file.path === selectedPath) ?? commit.files[0]
+  let selectedPath = $state(untrack(() => commit.files[0]?.path ?? ""));
+  const selectedFile = $derived(
+    commit.files.find(file => file.path === selectedPath) ?? commit.files.at(0)
   );
 
   // One file's diff, fetched on demand and cached so re-selecting never refetches.
@@ -34,7 +34,7 @@
   // markup - so a plain Map is correct; a SvelteMap would add needless reactivity
   // tracking for a value the template never observes.
   let diffLines = $state<DiffLine[]>([]);
-  let loading = $state(false);
+  let isLoading = $state(false);
   let loadFailed = $state(false);
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read imperatively, never reactively (see comment above)
   const cache = new Map<string, DiffLine[]>();
@@ -42,17 +42,30 @@
   // Binary / very large files: git emits no textual diff, so we show the note.
   // A load error is a distinct state and must not read as a big file.
   const isBigFile = $derived(
-    !loadFailed && (!!selectedFile?.binary || (!loading && diffLines.length === 0))
+    !loadFailed && (!!selectedFile?.binary || (!isLoading && diffLines.length === 0))
   );
 
-  const fileCountLabel = $derived(`${formatCount(commit.files.length)} file${commit.files.length === 1 ? "" : "s"}`);
+  const fileCountLabel = $derived.by(() => {
+    const count = formatCount(commit.files.length);
+    if (commit.files.length === 1) {
+      return `${count} file`;
+    }
+
+    return `${count} files`;
+  });
   const commitUrl = $derived(
     repositoryCommitUrl({
       remoteUrl,
       commit: commit.id
     })
   );
-  const paneName = $derived(selectedFile ? baseName(selectedFile.path) : "");
+  const paneName = $derived.by(() => {
+    if (!selectedFile) {
+      return "";
+    }
+
+    return baseName(selectedFile.path);
+  });
 
   async function loadDiff(path: string) {
     selectedPath = path;
@@ -63,7 +76,7 @@
       return;
     }
 
-    loading = true;
+    isLoading = true;
     try {
       const raw = await vcs.commitDiff({
         cwd: project,
@@ -90,7 +103,7 @@
       loadFailed = true;
     } finally {
       if (path === selectedPath) {
-        loading = false;
+        isLoading = false;
       }
     }
   }
@@ -110,13 +123,13 @@
   // ── Modal plumbing ─────────────────────────────────────────────────────────
   // A native <dialog> opened with showModal() gives Esc-to-close, a focus trap,
   // and the top-layer scrim for free (semantic HTML over a hand-rolled trap).
-  let dialogElement = $state<HTMLDialogElement | null>(null);
+  let elDialog = $state<HTMLDialogElement | null>(null);
 
   // Open the modal on the top layer and kick off the first file's diff. Guard
   // against re-opening an already-open dialog (showModal() throws otherwise).
   $effect(() => {
-    if (dialogElement && !dialogElement.open) {
-      dialogElement.showModal();
+    if (elDialog && !elDialog.open) {
+      elDialog.showModal();
     }
 
     const first = commit.files[0];
@@ -129,7 +142,7 @@
 <!-- Native modal <dialog>: Esc + focus-trap + scrim handled by the platform;
      backdrop-click closes when the hit lands on the ::backdrop, not the content. -->
 <dialog
-  bind:this={dialogElement}
+  bind:this={elDialog}
   class="dialog"
   aria-describedby="commit-metadata"
   aria-labelledby="commit-title"
@@ -138,7 +151,7 @@
     onclose();
   }}
   onclick={e => {
-    if (e.target === dialogElement) {
+    if (e.target === elDialog) {
       onclose();
     }
   }}
@@ -188,7 +201,7 @@
       {diffLines}
       {isBigFile}
       {loadFailed}
-      {loading}
+      loading={isLoading}
       onopenremote={openOnRemote}
     />
   </div>
