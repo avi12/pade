@@ -4,9 +4,12 @@
 //! because Claude honours only the LAST `--settings` flag and a second one would
 //! silently drop the live theme. `SessionStart` names the model before any
 //! prompt, `PostModelSwitch` the new one the moment `/model` runs, and `Stop`
-//! the effort a turn ran at. No hook fires on `/effort`, but it saves the level
-//! for the current model into `~/.claude/settings.json` at once, so the effort
-//! is the newer of the last `Stop` report and that saved level.
+//! the effort a turn ran at. No hook fires on `/effort`, but the session's own
+//! transcript logs the level it set, so the effort is the newer of the last
+//! `Stop` report and that logged level. The level saved in
+//! `~/.claude/settings.json` is shared by every session (and rewritten whenever
+//! PADE puts the user's default back), so it only stands in until the session
+//! reports, and from a model switch on.
 //!
 //! Switching: PADE types `/model` and `/effort` into the session, waits until
 //! Claude saves each value to its settings file, then puts the user's saved
@@ -18,8 +21,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use super::{
-    hook_command, modified_millis, newer, read_session_state, record_choice, state_directory,
-    EffortOption, HookShell, ModelChoice, ModelOption, RunningModel, Saved,
+    hook_command, newer, read_session_state, record_choice, state_directory, timestamp_millis,
+    EffortOption, HookShell, ModelChoice, ModelOption, RunningModel, Saved, SessionState,
 };
 
 /// The flag that hands Claude a settings layer for this launch alone.
@@ -42,6 +45,8 @@ const REPORTING_EVENTS: [&str; 4] = [
 /// few turns while it stays on) and off. Only written as a prompt is sent.
 const ULTRACODE_ENTER: &str = "ultra_effort_enter";
 const ULTRACODE_EXIT: &str = "ultra_effort_exit";
+/// What `/effort <level>` logs to the transcript once it took the level.
+const EFFORT_SET_OUTPUT: &str = "<local-command-stdout>Set effort level to ";
 /// Claude asks this hook before switching models; its answer can skip the
 /// "Switch model?" confirmation, so it runs in step (not async).
 pub(super) const PRE_MODEL_SWITCH: &str = "PreModelSwitch";
@@ -134,8 +139,9 @@ pub(super) fn consume_switch_permission(conversation_id: &str) -> bool {
     is_fresh
 }
 
-/// The session's model from its hook reports, and its effort as the newer of
-/// the last report and the level saved for that model.
+/// The session's model from its hook reports, and its effort as the newest of
+/// the last report and the last `/effort` its transcript logs - or the level
+/// saved for the model, before either and from a model switch on.
 pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
     let Some(state) = read_session_state(conversation_id) else {
         return logged_turn(conversation_id);
@@ -144,15 +150,53 @@ pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
         return logged_turn(conversation_id);
     };
 
-    let saved = saved_effort(&model);
     let reported = state
         .effort
         .as_deref()
         .map(|effort| (effort, state.effort_at));
+    let typed = typed_effort(conversation_id, &state);
+    let typed = typed.as_ref().map(|(effort, at)| (effort.as_str(), *at));
+    let session_effort = [reported, typed]
+        .into_iter()
+        .flatten()
+        .max_by_key(|(_, at)| *at);
+    let saved = saved_effort(&model);
     Some(RunningModel {
-        effort: newer(reported, saved.as_ref(), state.model_at),
+        effort: newer(session_effort, saved.as_ref(), state.model_at),
         model,
     })
+}
+
+/// The level the session's newest `/effort` set, and when.
+fn typed_effort(conversation_id: &str, state: &SessionState) -> Option<(String, u64)> {
+    let transcript = transcript(conversation_id, state)?;
+    crate::util::newest_in_tail(&transcript, newest_effort_set)
+}
+
+fn newest_effort_set(lines: &str) -> Option<(String, u64)> {
+    lines.lines().rev().find_map(|line| {
+        if !line.contains(EFFORT_SET_OUTPUT) {
+            return None;
+        }
+        let entry: serde_json::Value = serde_json::from_str(line).ok()?;
+        let output = entry.pointer("/message/content")?.as_str()?;
+        let level = output
+            .strip_prefix(EFFORT_SET_OUTPUT)?
+            .split([' ', '<'])
+            .next()
+            .filter(|level| !level.is_empty())?;
+        let set_at = timestamp_millis(entry.get("timestamp")?.as_str()?)?;
+        Some((level.to_string(), set_at))
+    })
+}
+
+/// The session's transcript: the one its hooks named, else found by id.
+fn transcript(conversation_id: &str, state: &SessionState) -> Option<PathBuf> {
+    state
+        .transcript
+        .as_ref()
+        .map(PathBuf::from)
+        .or_else(|| crate::session_context::claude_transcript(conversation_id))
 }
 
 /// The models Claude Code itself lists, from the catalog it caches under
@@ -408,13 +452,8 @@ fn grant_switch_permission(conversation_id: &str) {
 /// transcript is an enter (Claude Code uses the same rule to decide when to
 /// write the exit). No entry means it was never turned on.
 pub(super) fn is_ultracode_on(conversation_id: &str) -> bool {
-    // The hooks name the transcript; finding it by id is the fallback.
-    let reported_transcript = read_session_state(conversation_id)
-        .and_then(|state| state.transcript)
-        .map(PathBuf::from);
-    let Some(transcript) =
-        reported_transcript.or_else(|| crate::session_context::claude_transcript(conversation_id))
-    else {
+    let state = read_session_state(conversation_id).unwrap_or_default();
+    let Some(transcript) = transcript(conversation_id, &state) else {
         return false;
     };
     crate::util::newest_in_tail(&transcript, newest_ultracode_entry)
@@ -512,15 +551,13 @@ fn is_picker_catalog(entry: &std::fs::DirEntry) -> bool {
 }
 
 /// The effort the user's settings hold for `model`: its own
-/// `modelSettings.<model>.effortLevel`, else the global `effortLevel`.
+/// `modelSettings.<model>.effortLevel`, else the global `effortLevel`. Undated:
+/// any session - or PADE restoring the default - rewrites the file, so its last
+/// write says nothing about this session.
 fn saved_effort(model: &str) -> Option<Saved> {
-    let path = settings_file()?;
-    let saved_at = modified_millis(&path)?;
-    let settings: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&path).ok()?).ok()?;
     Some(Saved {
-        value: effort_for_model(&settings, model)?,
-        saved_at,
+        value: effort_for_model(&read_settings()?, model)?,
+        saved_at: 0,
     })
 }
 
@@ -551,9 +588,30 @@ fn without_context_variant(model: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::{
-        effort_for_model, merge_settings, model_option, newest_ultracode_entry, revert_switch_keys,
-        ULTRACODE_ENTER, ULTRACODE_EXIT,
+        effort_for_model, merge_settings, model_option, newest_effort_set, newest_ultracode_entry,
+        revert_switch_keys, ULTRACODE_ENTER, ULTRACODE_EXIT,
     };
+
+    #[test]
+    fn the_newest_effort_the_transcript_logs_is_the_sessions_own() {
+        let set = |level: &str, at: &str| {
+            format!(
+                r#"{{"type":"user","message":{{"role":"user","content":"<local-command-stdout>Set effort level to {level} (saved as your default for new sessions): Deeper</local-command-stdout>"}},"timestamp":"{at}"}}"#
+            )
+        };
+        let cancelled = r#"{"type":"user","message":{"role":"user","content":"<local-command-stdout>Cancelled</local-command-stdout>"},"timestamp":"2026-10-15T02:28:32.508Z"}"#;
+        let lines = [
+            set("low", "2026-10-15T02:20:00.000Z"),
+            set("xhigh", "2026-10-15T02:27:42.600Z"),
+            cancelled.to_string(),
+        ]
+        .join("\n");
+
+        let (level, set_at) = newest_effort_set(&lines).expect("a logged level");
+        assert_eq!(level, "xhigh");
+        assert_eq!(set_at, 1_792_031_262_600);
+        assert_eq!(newest_effort_set(cancelled), None);
+    }
 
     #[test]
     fn the_newest_ultracode_entry_decides_whether_it_is_on() {

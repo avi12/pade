@@ -54,6 +54,8 @@ const CONVERSATION_VARIABLE: &str = "PADE_CONVERSATION_ID";
 /// names the conversation, or is null when a settings file every session reads
 /// changed.
 const CHANGED_EVENT: &str = "agent-model://changed";
+/// How long after an agent saves its settings its transcript has caught up.
+const TRANSCRIPT_LOG_SETTLE: Duration = Duration::from_secs(1);
 /// A session file outlives its session so a resumed conversation still has its
 /// model; past this age nobody will resume it.
 const STATE_RETENTION: Duration = Duration::from_hours(14 * 24);
@@ -302,8 +304,13 @@ pub fn init(app: &AppHandle) {
     let watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
         let Ok(event) = result else { return };
         for path in &event.paths {
-            if let Some(payload) = changed_payload(path, &routes) {
-                let _ = emitter.emit(CHANGED_EVENT, payload);
+            let Some(payload) = changed_payload(path, &routes) else {
+                continue;
+            };
+            let is_shared_settings = payload.session_id.is_none();
+            let _ = emitter.emit(CHANGED_EVENT, payload.clone());
+            if is_shared_settings {
+                announce_again_once_logged(&emitter, payload);
             }
         }
     });
@@ -316,6 +323,17 @@ pub fn init(app: &AppHandle) {
     }
     app.manage(ModelWatch {
         _watcher: Mutex::new(watcher),
+    });
+}
+
+/// `/effort` saves the settings file and logs the level to the session's
+/// transcript, which can land a moment later and fires no event of its own -
+/// so a settings change is announced once more after that moment.
+fn announce_again_once_logged(emitter: &AppHandle, payload: ChangedPayload) {
+    let emitter = emitter.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(TRANSCRIPT_LOG_SETTLE);
+        let _ = emitter.emit(CHANGED_EVENT, payload);
     });
 }
 
