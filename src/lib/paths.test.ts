@@ -2,6 +2,7 @@ import {
   baseName,
   childPath,
   displayName,
+  isSegmentPrefix,
   isTemporaryWorkspace,
   normalizePath,
   parentDirectory,
@@ -173,5 +174,29 @@ describe("relativeToRoot", () => {
         root: "C:\\repositories\\avi\\ytm"
       })
     ).toBe("C:\\repositories\\avi\\ytm-backup\\x.ts");
+  });
+});
+
+describe("isSegmentPrefix", () => {
+  it("matches whole segments only", () => {
+    expect(isSegmentPrefix({
+      prefix: ["apps", "web"],
+      segments: ["apps", "web", "src"]
+    })).toBe(true);
+    expect(isSegmentPrefix({
+      prefix: ["apps", "web"],
+      segments: ["apps", "web-admin", "src"]
+    })).toBe(false);
+  });
+
+  it("treats an empty prefix as enclosing everything, a longer one as nothing", () => {
+    expect(isSegmentPrefix({
+      prefix: [],
+      segments: ["a"]
+    })).toBe(true);
+    expect(isSegmentPrefix({
+      prefix: ["a", "b"],
+      segments: ["a"]
+    })).toBe(false);
   });
 });

@@ -7,12 +7,17 @@
 // repositories worth a branch chip - is decided here, so it is testable without
 // a backend and has exactly one home.
 
-import { baseName, childPath } from "@/lib/paths";
+import { baseName, childPath, isSegmentPrefix } from "@/lib/paths";
 import type { WorkspaceMember } from "@/lib/types";
 
 /** The Change Feed's id for the group that IS the workspace root (see
  *  `change-groups`), which as a member is the empty relative path. */
 export const ROOT_GROUP_ID = ".";
+
+/** A member-relative path's `/` segments; the root's empty path has none. */
+function relativeSegments(path: string) {
+  return path.length > 0 ? path.split("/") : [];
+}
 
 /** Where a member lives on disk. The root member's relative path is empty, so it
  *  is the root itself; anything else joins through the one separator home
@@ -64,18 +69,19 @@ export function enclosingRepository({ path, members }: {
   path: string;
   members: WorkspaceMember[];
 }) {
-  const segments = path.length > 0 ? path.split("/") : [];
+  const segments = relativeSegments(path);
   let deepest: WorkspaceMember | undefined;
   for (const member of members) {
     if (!member.repository) {
       continue;
     }
 
-    const memberSegments = member.path.length > 0 ? member.path.split("/") : [];
-    const encloses = memberSegments.length <= segments.length
-      && memberSegments.every((segment, index) => segment === segments[index]);
+    const isEnclosing = isSegmentPrefix({
+      prefix: relativeSegments(member.path),
+      segments
+    });
     const isDeeper = deepest === undefined || member.path.length > deepest.path.length;
-    if (encloses && isDeeper) {
+    if (isEnclosing && isDeeper) {
       deepest = member;
     }
   }

@@ -10,8 +10,9 @@
 // `pnpm-workspace.yaml`) now splits per member instead of collapsing into one
 // repo group - the gap the convention could never close.
 
-import { baseName } from "@/lib/paths";
+import { baseName, isSegmentPrefix } from "@/lib/paths";
 import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
+import { ROOT_GROUP_ID } from "@/lib/workspace-members";
 
 /** Coarse project role driving the group's badge. One authoritative home. */
 export const GroupRole = {
@@ -67,6 +68,13 @@ const CONTAINER_ROLES: Record<string, GroupRole> = {
   server: GroupRole.Service
 };
 
+/** An npm-style `@scope/name` member spans two segments under its container. */
+const SCOPE_PREFIX = "@";
+/** Container folder + member folder. */
+const MEMBER_SEGMENTS = 2;
+const SCOPED_MEMBER_SEGMENTS = 3;
+const TRAILING_SLASHES = /\/+$/;
+
 interface Project {
   id: string;
   name: string;
@@ -82,7 +90,7 @@ function relativeSegments({ path, workspaceRoot }: {
   workspaceRoot: string;
 }) {
   const forwardPath = path.replaceAll("\\", "/");
-  const forwardRoot = workspaceRoot.replaceAll("\\", "/").replace(/\/+$/, "");
+  const forwardRoot = workspaceRoot.replaceAll("\\", "/").replace(TRAILING_SLASHES, "");
   const isUnderRoot = forwardPath.toLowerCase().startsWith(`${forwardRoot.toLowerCase()}/`);
   const relative = isUnderRoot ? forwardPath.slice(forwardRoot.length + 1) : forwardPath;
   return relative.split("/").filter(segment => segment.length > 0);
@@ -103,7 +111,7 @@ function projectOf({ path, workspaceRoot, repository }: {
   });
   const container = segments[0]?.toLowerCase();
   const role = container === undefined ? undefined : CONTAINER_ROLES[container];
-  if (role === undefined || segments.length < 2) {
+  if (role === undefined || segments.length < MEMBER_SEGMENTS) {
     return repository;
   }
 
@@ -111,10 +119,10 @@ function projectOf({ path, workspaceRoot, repository }: {
   // while `app/WindowChrome.cs` is a file sitting in the container itself and
   // belongs to the repo. Without the check every loose file under `app/` became
   // its own one-file "project", which is a chip per file across the filter row.
-  const isScopedMember = segments[1].startsWith("@");
-  const memberSegmentCount = isScopedMember ? 3 : 2;
-  const memberIsDirectory = segments.length > memberSegmentCount;
-  if (!memberIsDirectory) {
+  const isScopedMember = segments[1].startsWith(SCOPE_PREFIX);
+  const memberSegmentCount = isScopedMember ? SCOPED_MEMBER_SEGMENTS : MEMBER_SEGMENTS;
+  const isMemberDirectory = segments.length > memberSegmentCount;
+  if (!isMemberDirectory) {
     return repository;
   }
 
@@ -156,9 +164,11 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
   let deepestDepth = 0;
   for (const member of members) {
     const memberSegments = member.path.toLowerCase().split("/");
-    const encloses = memberSegments.length <= segments.length
-      && memberSegments.every((segment, index) => segment === segments[index]);
-    if (encloses && memberSegments.length > deepestDepth) {
+    const isEnclosing = isSegmentPrefix({
+      prefix: memberSegments,
+      segments
+    });
+    if (isEnclosing && memberSegments.length > deepestDepth) {
       deepest = member;
       deepestDepth = memberSegments.length;
     }
@@ -212,7 +222,7 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
 }) {
   const repositoryName = baseName(workspaceRoot) || workspaceRoot;
   const repository: Project = {
-    id: ".",
+    id: ROOT_GROUP_ID,
     name: repositoryName,
     role: GroupRole.App
   };

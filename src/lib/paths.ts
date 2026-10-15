@@ -3,9 +3,19 @@
 // and recognising a temporary workspace directory - reused by the app menu, the
 // project picker, the shell, and the tasks panel so the "temp" logic never drifts.
 
+const SEPARATOR = /[\\/]/;
+const TRAILING_SEPARATORS = /[\\/]+$/;
+const TRAILING_SLASHES = /\/+$/;
+/** The final separator and whatever follows it. */
+const LAST_SEGMENT = /[\\/][^\\/]*$/;
+const TEMPORARY_WORKSPACE = /[\\/]workspaces[\\/]temp-\d+$/;
+const WINDOWS_DRIVE = /^[a-z]:/i;
+/** "parent/leaf" - enough to tell projects apart without eating the top bar. */
+const SHORT_DIRECTORY_SEGMENTS = 2;
+
 /** The final path segment (folder name), or the whole path when it has none. */
 export function baseName(path: string) {
-  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+  return path.split(SEPARATOR).filter(Boolean).at(-1) ?? path;
 }
 
 /** A friendly display name: the assigned label if present, else the folder name. */
@@ -19,7 +29,7 @@ export function displayName(path: string, labels: Record<string, string>) {
  *  module-private, reached through `shortDisplayName` so the label override always
  *  applies. */
 function shortDirectory(path: string) {
-  return path.split(/[\\/]/).filter(Boolean).slice(-2).join("/");
+  return path.split(SEPARATOR).filter(Boolean).slice(-SHORT_DIRECTORY_SEGMENTS).join("/");
 }
 
 /** A friendly two-segment display name: the assigned label if present, else the
@@ -33,8 +43,8 @@ export function shortDisplayName(path: string, labels: Record<string, string>) {
  *  Watching the parent - never the folder itself - is what lets the picker see a
  *  project appear or disappear without holding a handle on it. */
 export function parentDirectory(path: string) {
-  const cut = path.replace(/[\\/]+$/, "").search(/[\\/][^\\/]*$/);
-  return cut > 0 ? path.slice(0, cut) : null;
+  const iLastSeparator = path.replace(TRAILING_SEPARATORS, "").search(LAST_SEGMENT);
+  return iLastSeparator > 0 ? path.slice(0, iLastSeparator) : null;
 }
 
 /** Compose the path of a named child under a parent directory - the one home for
@@ -48,9 +58,19 @@ export function childPath({ parent, name }: {
   return `${parent}\\${name}`;
 }
 
+/** Whether `prefix` is a whole-segment prefix of `segments` - how a workspace
+ *  member encloses a path, so `apps/web` never captures `apps/web-admin`. The
+ *  caller splits (and case-folds) both sides the same way. */
+export function isSegmentPrefix({ prefix, segments }: {
+  prefix: readonly string[];
+  segments: readonly string[];
+}) {
+  return prefix.length <= segments.length && prefix.every((segment, i) => segment === segments[i]);
+}
+
 /** Whether a path is a PADE temporary workspace (…/workspaces/temp-<stamp>). */
 export function isTemporaryWorkspace(path: string) {
-  return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
+  return TEMPORARY_WORKSPACE.test(path);
 }
 
 /** A path shown relative to a workspace root, root-anchored with a leading "/":
@@ -90,7 +110,7 @@ export function relativeToRoot({ path, root }: {
  *  distinct files. Used by the watcher, the workspace list, and the add-root
  *  dedup. */
 export function normalizePath(path: string) {
-  const separated = path.replaceAll("\\", "/").replace(/\/+$/, "");
-  const isWindowsDrivePath = /^[a-z]:/i.test(path);
+  const separated = path.replaceAll("\\", "/").replace(TRAILING_SLASHES, "");
+  const isWindowsDrivePath = WINDOWS_DRIVE.test(path);
   return isWindowsDrivePath ? separated.toLowerCase() : separated;
 }
