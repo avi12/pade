@@ -12,7 +12,7 @@
 //! directory that is ignored ignores everything below it - matching git, where
 //! a file can't be re-included under an excluded directory.
 
-use crate::glob::{segment_matches, segments_match};
+use crate::workspace::glob::{segment_matches, segments_match};
 
 /// One parsed `.gitignore` pattern.
 struct Pattern {

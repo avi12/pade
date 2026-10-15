@@ -11,7 +11,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use crate::config::McpFormat;
+use crate::workspace::config::McpFormat;
 
 /// One parseable state of an MCP config. Existence is separate from names so
 /// creating or deleting an empty config still triggers an agent reload.
@@ -61,7 +61,7 @@ pub fn snapshot(path: &Path, format: McpFormat) -> Option<McpSnapshot> {
 #[cfg(test)]
 mod tests {
     use super::{snapshot, McpSnapshot};
-    use crate::config::McpFormat;
+    use crate::workspace::config::McpFormat;
     use std::collections::BTreeSet;
 
     fn scratch(name: &str) -> std::path::PathBuf {

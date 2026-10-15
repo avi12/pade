@@ -1,27 +1,18 @@
 mod agents;
 mod clipboard;
-mod config;
 mod contextmenu;
 mod design;
 mod discord;
-mod gitignore;
-mod glob;
-mod ide;
 mod limit_reset;
-mod mcp;
 mod media;
-mod members;
 mod os;
-mod provision;
 mod recovery;
-mod refs;
 mod terminal;
 #[cfg(test)]
 mod test_support;
 mod usage;
 mod util;
 mod vcs;
-mod watcher;
 mod window;
 mod workspace;
 
@@ -119,7 +110,7 @@ pub fn run() {
             workspace::init(handle);
             terminal::pty::init(handle);
             terminal::runner::init(handle);
-            watcher::init(handle);
+            workspace::watcher::init(handle);
             agents::running_model::init(handle);
             app.manage(window::WindowProjects::default());
             app.manage(discord::DiscordState::default());
@@ -145,17 +136,17 @@ pub fn run() {
             design::design_open,
             discord::discord_set_activity,
             discord::discord_clear_activity,
-            ide::ide_detect,
-            ide::ide_add_editor,
-            ide::ide_remove_editor,
-            ide::ide_suggest,
-            ide::ide_choose_editor,
-            ide::ide_kind_options,
-            ide::ide_kinds,
-            ide::ide_project_kinds,
-            ide::ide_open,
-            ide::ide_open_file,
-            members::members_list,
+            workspace::ide::ide_detect,
+            workspace::ide::ide_add_editor,
+            workspace::ide::ide_remove_editor,
+            workspace::ide::ide_suggest,
+            workspace::ide::ide_choose_editor,
+            workspace::ide::ide_kind_options,
+            workspace::ide::ide_kinds,
+            workspace::ide::ide_project_kinds,
+            workspace::ide::ide_open,
+            workspace::ide::ide_open_file,
+            workspace::members::members_list,
             os::open_in_explorer,
             os::reveal_in_explorer,
             os::open_in_terminal,
@@ -187,14 +178,14 @@ pub fn run() {
             terminal::runner::runner_start,
             terminal::runner::runner_stop,
             terminal::runner::runner_list,
-            watcher::watch_start,
-            watcher::watch_status,
-            watcher::watch_dirs,
-            watcher::feed_diff,
-            watcher::feed_image,
-            watcher::feed_text,
-            watcher::feed_video,
-            watcher::feed_ignored,
+            workspace::watcher::watch_start,
+            workspace::watcher::watch_status,
+            workspace::watcher::watch_dirs,
+            workspace::watcher::feed_diff,
+            workspace::watcher::feed_image,
+            workspace::watcher::feed_text,
+            workspace::watcher::feed_video,
+            workspace::watcher::feed_ignored,
             vcs::status::vcs_status,
             vcs::log::vcs_log,
             vcs::status::vcs_diff,
@@ -214,8 +205,8 @@ pub fn run() {
             vcs::worktree::vcs_worktree_add,
             vcs::restore::vcs_restore_candidates,
             vcs::restore::vcs_restore_checkout,
-            config::config_list,
-            config::config_read,
+            workspace::config::config_list,
+            workspace::config::config_read,
             terminal::tasks::tasks_descriptors,
             terminal::tasks::tasks_list,
             terminal::schemes::terminal_schemes,

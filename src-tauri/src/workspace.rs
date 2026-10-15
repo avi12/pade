@@ -9,6 +9,22 @@
 //!
 //! Settings (roots, default/per-project agent) persist to the OS config dir.
 //! They are plain JSON so they can later live in a git-backed shelf for sync.
+//!
+//! The submodules cover everything else that reads or reshapes an open
+//! project: the Change Feed's watcher (`watcher`, filtering through
+//! `gitignore`, whose segment matcher `glob` it shares with `members`), the
+//! project's make-up (`members`, `ide`, `config`, `mcp`), and keeping a moved
+//! or saved workspace working (`refs`, `provision`).
+
+pub(crate) mod config;
+pub(crate) mod gitignore;
+pub(crate) mod glob;
+pub(crate) mod ide;
+pub(crate) mod mcp;
+pub(crate) mod members;
+pub(crate) mod provision;
+pub(crate) mod refs;
+pub(crate) mod watcher;
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -888,7 +904,7 @@ fn retarget(settings: &mut Settings, from: &str, to: &str) {
         &mut settings.pinned_projects,
     ] {
         for entry in list.iter_mut() {
-            if let Some(moved) = crate::refs::moved_path(entry, from, to) {
+            if let Some(moved) = refs::moved_path(entry, from, to) {
                 *entry = moved;
             }
         }
@@ -926,7 +942,7 @@ fn moved_keys<'a>(
     from: &str,
     to: &str,
 ) -> Vec<(String, String)> {
-    keys.filter_map(|key| Some((key.clone(), crate::refs::moved_path(key, from, to)?)))
+    keys.filter_map(|key| Some((key.clone(), refs::moved_path(key, from, to)?)))
         .collect()
 }
 
@@ -1073,11 +1089,11 @@ fn relocate_folder_now(
         return Err(format!("{} already exists", destination.display()));
     }
 
-    crate::watcher::release_watches_under(app, source);
+    watcher::release_watches_under(app, source);
     leave_if_inside(source);
     rename_patiently(source, destination).map_err(|error| error.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
-    crate::refs::update_references(from, &destination_string);
+    refs::update_references(from, &destination_string);
     update_settings(|settings| {
         retarget(settings, from, &destination_string);
         if label == MovedLabel::Drop {
@@ -1163,7 +1179,7 @@ fn copy_tree_skipping_dependencies(from: &Path, to: &Path) -> std::io::Result<()
         if file_type.is_dir() {
             let is_dependency = name
                 .to_str()
-                .is_some_and(crate::provision::is_dependency_directory);
+                .is_some_and(provision::is_dependency_directory);
             if is_dependency {
                 continue;
             }
@@ -1207,12 +1223,12 @@ pub async fn workspace_save_migrate(
     .await
     .map_err(|error| error.to_string())??;
 
-    let install = crate::provision::detect_install(Path::new(&destination_string));
+    let install = provision::detect_install(Path::new(&destination_string));
 
     // Re-point external tools (agent memory, IDE recents) at the copied project -
     // best-effort, independent of the settings bookkeeping below. The temp is NOT
     // moved: it stays owned/labeled until the frontend deletes it.
-    crate::refs::update_references(&from, &destination_string);
+    refs::update_references(&from, &destination_string);
     update_settings(|settings| {
         record_recent(settings, &destination_string);
         // The chosen folder name is the real project's authoritative display name;

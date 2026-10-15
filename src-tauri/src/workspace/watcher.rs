@@ -87,7 +87,7 @@ struct WindowWatch {
     /// The last parseable state of each registered MCP config. Existence and
     /// server membership drive automatic handoff; same-membership content edits
     /// arm frontend reload-failure recovery.
-    mcp_servers: Mutex<HashMap<PathBuf, crate::mcp::McpSnapshot>>,
+    mcp_servers: Mutex<HashMap<PathBuf, crate::workspace::mcp::McpSnapshot>>,
     /// Changes surfaced to the window since the watch was armed, and changes the
     /// ignore rules dropped. An empty feed is otherwise ambiguous - a quiet
     /// project and a watch whose every event is being filtered look identical -
@@ -290,7 +290,7 @@ enum IgnorePolicy {
     Static {
         root: PathBuf,
         directories: HashSet<String>,
-        rules: crate::gitignore::Rules,
+        rules: crate::workspace::gitignore::Rules,
     },
 }
 
@@ -341,15 +341,16 @@ struct McpChange {
 /// file under `root` (e.g. `<root>/.mcp.json` → `["claude"]`). `None` for any
 /// other path. Matches the full relative path, so a nested config
 /// (`.cursor/mcp.json`) can't be confused with a root one.
-fn mcp_config_for_path(root: &Path, path: &Path) -> Option<crate::config::McpConfig> {
+fn mcp_config_for_path(root: &Path, path: &Path) -> Option<crate::workspace::config::McpConfig> {
     // Compared root-relative, so the per-event check joins no paths.
     let relative = path.strip_prefix(root).ok()?;
-    crate::config::mcp_configs().find(|config| relative == Path::new(config.relative_path))
+    crate::workspace::config::mcp_configs()
+        .find(|config| relative == Path::new(config.relative_path))
 }
 
 fn mcp_membership_changed(
-    previous: &crate::mcp::McpSnapshot,
-    current: &crate::mcp::McpSnapshot,
+    previous: &crate::workspace::mcp::McpSnapshot,
+    current: &crate::workspace::mcp::McpSnapshot,
 ) -> bool {
     previous.exists != current.exists || previous.names != current.names
 }
@@ -359,12 +360,13 @@ fn mcp_membership_changed(
 /// disk rather than an empty set (which would restart on project open). Replaces
 /// any previous root's baseline.
 fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
-    let fresh: HashMap<PathBuf, crate::mcp::McpSnapshot> = crate::config::mcp_configs()
-        .filter_map(|config| {
-            let file = root.join(config.relative_path);
-            crate::mcp::snapshot(&file, config.format).map(|state| (file, state))
-        })
-        .collect();
+    let fresh: HashMap<PathBuf, crate::workspace::mcp::McpSnapshot> =
+        crate::workspace::config::mcp_configs()
+            .filter_map(|config| {
+                let file = root.join(config.relative_path);
+                crate::workspace::mcp::snapshot(&file, config.format).map(|state| (file, state))
+            })
+            .collect();
     if let Ok(mut baseline) = watch.mcp_servers.lock() {
         *baseline = fresh;
     }
@@ -379,7 +381,7 @@ fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &P
     let Some(config) = mcp_config_for_path(root, path) else {
         return;
     };
-    let Some(current) = crate::mcp::snapshot(path, config.format) else {
+    let Some(current) = crate::workspace::mcp::snapshot(path, config.format) else {
         return; // unparseable mid-write - wait for the complete save
     };
 
@@ -515,7 +517,7 @@ fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
         };
     }
     let rules = std::fs::read_to_string(root.join(GITIGNORE_FILE_NAME))
-        .map(|content| crate::gitignore::Rules::parse(&content))
+        .map(|content| crate::workspace::gitignore::Rules::parse(&content))
         .unwrap_or_default();
     IgnorePolicy::Static {
         root: root.to_path_buf(),
@@ -593,7 +595,11 @@ fn excluded_by_ignore_policy(watch: &WindowWatch, path: &Path) -> bool {
 /// Whether the static policy's `.gitignore` rules ignore `path` - matched on
 /// its root-relative, `/`-joined spelling. A path outside the root (or one that
 /// isn't valid UTF-8) can't match any rule.
-fn gitignore_excludes(root: &Path, rules: &crate::gitignore::Rules, path: &Path) -> bool {
+fn gitignore_excludes(
+    root: &Path,
+    rules: &crate::workspace::gitignore::Rules,
+    path: &Path,
+) -> bool {
     let Ok(relative) = path.strip_prefix(root) else {
         return false;
     };
@@ -1900,10 +1906,10 @@ mod tests {
 
     #[test]
     fn creating_or_deleting_an_empty_mcp_file_changes_membership_state() {
-        let missing = crate::mcp::McpSnapshot::default();
-        let empty_file = crate::mcp::McpSnapshot {
+        let missing = crate::workspace::mcp::McpSnapshot::default();
+        let empty_file = crate::workspace::mcp::McpSnapshot {
             exists: true,
-            ..crate::mcp::McpSnapshot::default()
+            ..crate::workspace::mcp::McpSnapshot::default()
         };
         assert!(mcp_membership_changed(&missing, &empty_file));
         assert!(mcp_membership_changed(&empty_file, &missing));
@@ -1911,12 +1917,12 @@ mod tests {
 
     #[test]
     fn editing_only_an_mcp_definition_does_not_change_membership_state() {
-        let previous = crate::mcp::McpSnapshot {
+        let previous = crate::workspace::mcp::McpSnapshot {
             exists: true,
             names: ["github".to_string()].into_iter().collect(),
             content: "old".to_string(),
         };
-        let current = crate::mcp::McpSnapshot {
+        let current = crate::workspace::mcp::McpSnapshot {
             content: "new".to_string(),
             ..previous.clone()
         };
