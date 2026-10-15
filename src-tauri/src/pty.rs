@@ -17,16 +17,13 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::agents::DEFAULT_SHELL;
 use crate::theming::Scheme;
-use crate::util::{owner_access, OwnerAccess};
+use crate::util::{owner_access, OwnerAccess, MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES};
 
 const MAXIMUM_SESSIONS_PER_WINDOW: usize = 32;
 const MAXIMUM_PTY_DIMENSION: u16 = 1_000;
 const MAXIMUM_PTY_INPUT_BYTES: usize = 1024 * 1024;
 /// Bounds on what a spawn request may carry, so a malformed IPC call can never
-/// hand the OS an unbounded command line. The id and path bounds are shared with
-/// the task-runner dock (`runner.rs`), which validates the same kinds of field.
-pub(crate) const MAXIMUM_SESSION_ID_BYTES: usize = 128;
-pub(crate) const MAXIMUM_PATH_BYTES: usize = 4096;
+/// hand the OS an unbounded command line (the id and path bounds live in `util`).
 const MAXIMUM_SPAWN_ARGUMENTS: usize = 64;
 const MAXIMUM_CONVERSATION_ID_BYTES: usize = 256;
 

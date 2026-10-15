@@ -32,6 +32,14 @@ pub fn is_noise_directory(name: &str) -> bool {
     name.starts_with('.') || SKIPPED_DIRECTORIES.contains(&name)
 }
 
+/// The longest session id an IPC request may carry. Shared by every registry
+/// that validates one (terminal sessions and task runners), so an id one
+/// accepts is never rejected by the other.
+pub(crate) const MAXIMUM_SESSION_ID_BYTES: usize = 128;
+/// The longest path or path-like argument an IPC request may carry, so a
+/// malformed call can never hand the OS an unbounded command line.
+pub(crate) const MAXIMUM_PATH_BYTES: usize = 4096;
+
 /// Whether a caller may use an id in a process-global resource registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OwnerAccess {

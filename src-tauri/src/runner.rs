@@ -22,8 +22,9 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-use crate::pty::{MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES};
-use crate::util::{now_milliseconds, owner_access, OwnerAccess};
+use crate::util::{
+    now_milliseconds, owner_access, OwnerAccess, MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES,
+};
 
 const MAXIMUM_RUNNERS_PER_WINDOW: usize = 32;
 const MAXIMUM_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
