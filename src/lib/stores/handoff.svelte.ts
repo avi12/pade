@@ -56,6 +56,14 @@ const SUCCESSOR_DEADLINE_MS = 10 * 60_000;
 // stops waiting for the turn to end. Claude counts down a percent every few
 // thousand tokens, and writing the doc itself takes a turn's worth of room.
 const COMPACTION_IMMINENT_PERCENTAGE = 5;
+// How many times a session may be re-asked for its handoff doc. Each retry
+// only happens once the session reads ready again, so this bounds the
+// prompt-noise for an agent that answers without ever writing the file;
+// after the last attempt the session stays marked and keeps running.
+const HANDOFF_ATTEMPT_LIMIT = 3;
+/** The doc-name token for a session id with no usable leading segment, and the
+ *  slug for a source with no usable characters. */
+const FALLBACK_NAME_PART = "session";
 
 export const HandoffReason = {
   ContextLimit: "context-limit",
@@ -80,14 +88,14 @@ export function handoffSlug(source: string) {
     .replaceAll(/[^a-z0-9-]+/gi, "-")
     .replaceAll(/^-+|-+$/g, "")
     .toLowerCase();
-  return slug || "session";
+  return slug || FALLBACK_NAME_PART;
 }
 
 /** The leading segment of a session's UUID - a short, stable per-session token
  *  that keeps the handoff doc name unique without dragging the whole id into a
  *  filename. Falls back to a generic token for a non-UUID id. */
 function sessionToken(sessionId: string) {
-  return sessionId.split("-")[0] || "session";
+  return sessionId.split("-")[0] || FALLBACK_NAME_PART;
 }
 
 /** The handoff doc's file name for one session. Unique PER SESSION, not just per
@@ -245,9 +253,6 @@ export interface HandoffHost {
   }) => string;
 }
 
-/** The auto-handoff machinery, scoped to one app shell. The shell calls
- *  `check()` from a `$effect` and `dispose()` on destroy; `note` is the status
- *  line to show while a handoff is in flight ("" when idle). */
 // The in-flight marker's durable twin. The in-memory set dies with the module
 // (a window reload, an HMR swap of anything in its import chain), and a scan
 // running on the fresh instance re-prompted a session whose handoff request
@@ -255,9 +260,22 @@ export interface HandoffHost {
 // request queue twice. sessionStorage survives both resets and still scopes
 // to this window's lifetime, matching the sessions themselves.
 const HANDOFF_MARKER_PREFIX = "pade-handoff-inflight:";
+/** The stored marker value - only its presence is ever read. */
+const HANDOFF_MARKER_VALUE = "1";
 
 function persistentMarker(sessionId: string) {
   return `${HANDOFF_MARKER_PREFIX}${sessionId}`;
+}
+
+function hasPersistentMarker(sessionId: string) {
+  return sessionStorage.getItem(persistentMarker(sessionId)) !== null;
+}
+
+/** One direct look at the disk. A failed probe reads as "not there yet", the
+ *  answer every caller already falls back on. */
+async function isFileOnDisk(path: string) {
+  const probe = await workspace.probePath(path).catch(() => null);
+  return probe?.isFile === true;
 }
 
 /** What the near-limit scan does with one session. */
@@ -325,6 +343,9 @@ function handingOffNote({ session, reason, isMidTurn, successorAgent }: {
   return `${agent} context at ${measuredPercentage}% - handing off to a fresh agent…`;
 }
 
+/** The auto-handoff machinery, scoped to one app shell. The shell calls
+ *  `check()` from a `$effect` and `dispose()` on destroy; `note` is the status
+ *  line to show while a handoff is in flight ("" when idle). */
 export function createAutoHandoff(host: HandoffHost) {
   const handingOff = new SvelteSet<string>();
   let note = $state("");
@@ -334,7 +355,7 @@ export function createAutoHandoff(host: HandoffHost) {
 
   function markHandingOff(sessionId: string) {
     handingOff.add(sessionId);
-    sessionStorage.setItem(persistentMarker(sessionId), "1");
+    sessionStorage.setItem(persistentMarker(sessionId), HANDOFF_MARKER_VALUE);
   }
 
   function unmarkHandingOff(sessionId: string) {
@@ -343,29 +364,53 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   function isHandingOff(sessionId: string) {
-    return handingOff.has(sessionId) || sessionStorage.getItem(persistentMarker(sessionId)) !== null;
+    return handingOff.has(sessionId) || hasPersistentMarker(sessionId);
   }
 
-  // How many times a session may be re-asked for its handoff doc. Each retry
-  // only happens once the session reads ready again, so this bounds the
-  // prompt-noise for an agent that answers without ever writing the file;
-  // after the last attempt the session stays marked and keeps running.
-  const HANDOFF_ATTEMPT_LIMIT = 3;
+  // Give up on this handoff for now, leaving the session free for a later scan.
+  function abandonHandoff(sessionId: string) {
+    unmarkHandingOff(sessionId);
+    note = "";
+  }
+
+  function docNameFor(sessionId: string) {
+    return handoffDocName({
+      source: host.slugSource(),
+      sessionId
+    });
+  }
+
   const handoffAttempts = new SvelteMap<string, number>();
 
-  // In-flight waitForFile resources. A handoff can pend up to 120s, so its
-  // feed listener + timers must be torn down if the shell unmounts first -
-  // otherwise the watcher subscription and timers leak. Tracked here so
-  // dispose() can clear every still-pending wait.
+  // In-flight waitForFile resources. A handoff can pend for minutes (up to
+  // HANDOFF_DOC_TIMEOUT_MS), so its feed listener + timers must be torn down if
+  // the shell unmounts first - otherwise the watcher subscription and timers
+  // leak. Tracked here so dispose() can clear every still-pending wait.
   const pendingUnlistens = new SvelteSet<UnlistenFn>();
   const pendingTimers = new SvelteSet<ReturnType<typeof setTimeout>>();
 
   // Track one timer in the pending set and return its id, so every timer we
   // create is registered for teardown in exactly one place.
-  function trackTimer(handler: () => void, delayMs: number) {
+  function trackTimer({ handler, delayMs }: {
+    handler: () => void;
+    delayMs: number;
+  }) {
     const timer = setTimeout(handler, delayMs);
     pendingTimers.add(timer);
     return timer;
+  }
+
+  function clearTrackedTimer(timer: ReturnType<typeof setTimeout> | undefined) {
+    if (timer === undefined) {
+      return;
+    }
+
+    pendingTimers.delete(timer);
+    clearTimeout(timer);
+  }
+
+  function docPathOf(name: string) {
+    return `${host.projectDirectory()}/${name}`;
   }
 
   // Resolve `true` once the doc named `name` exists in the project, `false` when
@@ -376,44 +421,46 @@ export function createAutoHandoff(host: HandoffHost) {
   // Whichever sees it first wins.
   function waitForFile(name: string) {
     return new Promise<boolean>(resolve => {
-      const docPath = `${host.projectDirectory()}/${name}`;
+      const docPath = docPathOf(name);
       let unlisten: UnlistenFn | undefined;
       let settleTimer: ReturnType<typeof setTimeout> | undefined;
       let pollTimer: ReturnType<typeof setTimeout> | undefined;
       // Single teardown path: drop the listener + every timer from the pending
       // set, cancel them, then resolve. Used by every exit (match, settle, poll,
       // timeout).
-      function finish(seen: boolean) {
+      function finish(isFound: boolean) {
         if (unlisten) {
           pendingUnlistens.delete(unlisten);
           unlisten();
         }
 
         for (const timer of [deadlineTimer, settleTimer, pollTimer]) {
-          if (timer !== undefined) {
-            pendingTimers.delete(timer);
-            clearTimeout(timer);
-          }
+          clearTrackedTimer(timer);
         }
 
-        resolve(seen);
+        resolve(isFound);
       }
 
       // Read by finish() only at call time (a timer fires well after this line),
       // so a const in the closure is safe.
-      const deadlineTimer = trackTimer(() => finish(false), HANDOFF_DOC_TIMEOUT_MS);
+      const deadlineTimer = trackTimer({
+        handler: () => finish(false),
+        delayMs: HANDOFF_DOC_TIMEOUT_MS
+      });
       const target = name.toLowerCase();
 
       // Authoritative fallback: stat the doc on disk on a slow tick, so a doc the
       // watcher never reports (ignored path) is still caught within a poll.
       async function pollDisk() {
-        const probe = await workspace.probePath(docPath).catch(() => null);
-        if (probe?.isFile === true) {
+        if (await isFileOnDisk(docPath)) {
           finish(true);
           return;
         }
 
-        pollTimer = trackTimer(pollDisk, HANDOFF_DOC_POLL_MS);
+        pollTimer = trackTimer({
+          handler: pollDisk,
+          delayMs: HANDOFF_DOC_POLL_MS
+        });
       }
 
       // Kick off the async watcher subscription from this sync Promise executor.
@@ -422,27 +469,29 @@ export function createAutoHandoff(host: HandoffHost) {
       async function subscribeToChanges() {
         try {
           unlisten = await feed.onChange(event => {
-            const seen = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
-            if (!seen) {
+            const isTarget = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
+            if (!isTarget) {
               return;
             }
 
             // Restart the short settle window on each matching change; finish only
             // fires once it goes quiet (or the deadline hits first).
-            if (settleTimer !== undefined) {
-              pendingTimers.delete(settleTimer);
-              clearTimeout(settleTimer);
-            }
-
-            settleTimer = trackTimer(() => finish(true), HANDOFF_SETTLE_MS);
+            clearTrackedTimer(settleTimer);
+            settleTimer = trackTimer({
+              handler: () => finish(true),
+              delayMs: HANDOFF_SETTLE_MS
+            });
           });
           pendingUnlistens.add(unlisten);
-        } catch {
-          // Subscription failed to arm; the disk poll and deadline still resolve.
+        } catch (error) {
+          console.warn("pade: handoff doc watch failed to arm, relying on the disk poll", error);
         }
       }
 
-      pollTimer = trackTimer(pollDisk, HANDOFF_DOC_POLL_MS);
+      pollTimer = trackTimer({
+        handler: pollDisk,
+        delayMs: HANDOFF_DOC_POLL_MS
+      });
       subscribeToChanges();
     });
   }
@@ -450,7 +499,10 @@ export function createAutoHandoff(host: HandoffHost) {
   // Resolve after the delay, tracking the timer so dispose() tears it down.
   function afterDelay(delayMs: number) {
     return new Promise<void>(resolve => {
-      trackTimer(() => resolve(), delayMs);
+      trackTimer({
+        handler: () => resolve(),
+        delayMs
+      });
     });
   }
 
@@ -543,14 +595,13 @@ export function createAutoHandoff(host: HandoffHost) {
   // previous attempt already produced it: a request sent to a busy agent gets
   // queued and answered long after the wait below expired, so a retry must
   // consume the doc that late answer wrote instead of asking for a second one.
-  async function requestHandoffDoc({ session, doc, reason }: {
+  async function askForDoc({ session, doc, reason }: {
     session: AgentSession;
     doc: string;
     reason: HandoffReason;
   }) {
-    const docPath = `${host.projectDirectory()}/${doc}`;
-    const existing = await workspace.probePath(docPath).catch(() => null);
-    if (existing?.isFile === true) {
+    const docPath = docPathOf(doc);
+    if (await isFileOnDisk(docPath)) {
       return true;
     }
 
@@ -560,22 +611,30 @@ export function createAutoHandoff(host: HandoffHost) {
       reason
     });
 
-    if (await waitForFile(doc)) {
-      return true;
-    }
+    // The watcher can simply have missed the write (an ignored path, a
+    // torn-down subscription), so a timeout gets one direct disk probe before
+    // giving up.
+    return await waitForFile(doc) || await isFileOnDisk(docPath);
+  }
 
-    // Never cycle without the doc actually on disk: killing the session and
-    // seeding a successor onto a file that was never written strands the
-    // successor with nothing to read (and the conversation it was meant to
-    // continue is gone). The watcher can also simply have missed the write
-    // (an ignored path, a torn-down subscription), so a timeout gets one
-    // direct disk probe before giving up. On a genuine no-doc, leave the
-    // session running but UNMARK it: the request usually sits queued in a
-    // busy agent, and the next scan that finds the session ready again
-    // retries - the probe above then short-circuits onto the doc the late
-    // answer wrote, so the cycle completes instead of dying here forever.
-    const probe = await workspace.probePath(docPath).catch(() => null);
-    if (probe?.isFile === true) {
+  // Never cycle without the doc actually on disk: killing the session and
+  // seeding a successor onto a file that was never written strands the
+  // successor with nothing to read (and the conversation it was meant to
+  // continue is gone). On a genuine no-doc, leave the session running but
+  // UNMARK it: the request usually sits queued in a busy agent, and the next
+  // scan that finds the session ready again retries - askForDoc's first probe
+  // then short-circuits onto the doc the late answer wrote, so the cycle
+  // completes instead of dying here forever.
+  async function requestHandoffDoc({ session, doc, reason }: {
+    session: AgentSession;
+    doc: string;
+    reason: HandoffReason;
+  }) {
+    if (await askForDoc({
+      session,
+      doc,
+      reason
+    })) {
       return true;
     }
 
@@ -594,14 +653,13 @@ export function createAutoHandoff(host: HandoffHost) {
     reason: HandoffReason;
     isMidTurn: boolean;
   }) {
-    const stillHereBeforeRequest = await waitForRunningWorkUnlessMidTurn({
+    const isStillHereBeforeRequest = await waitForRunningWorkUnlessMidTurn({
       session,
       reason,
       isMidTurn
     });
-    if (!stillHereBeforeRequest) {
-      unmarkHandingOff(session.id);
-      note = "";
+    if (!isStillHereBeforeRequest) {
+      abandonHandoff(session.id);
       return;
     }
 
@@ -618,10 +676,7 @@ export function createAutoHandoff(host: HandoffHost) {
       return;
     }
 
-    const doc = handoffDocName({
-      source: host.slugSource(),
-      sessionId: session.id
-    });
+    const doc = docNameFor(session.id);
     note = handingOffNote({
       session,
       reason,
@@ -642,14 +697,13 @@ export function createAutoHandoff(host: HandoffHost) {
 
     // 2. End the session - once the agent has finished the handoff turn and
     // anything it started meanwhile - 3. start the successor seeded to continue.
-    const stillHereBeforeEnd = await waitForRunningWorkUnlessMidTurn({
+    const isStillHereBeforeEnd = await waitForRunningWorkUnlessMidTurn({
       session,
       reason,
       isMidTurn
     });
-    if (!stillHereBeforeEnd) {
-      unmarkHandingOff(session.id);
-      note = "";
+    if (!isStillHereBeforeEnd) {
+      abandonHandoff(session.id);
       return;
     }
 
@@ -671,8 +725,8 @@ export function createAutoHandoff(host: HandoffHost) {
     // handoffs never litter the project. Anything short of that keeps the doc:
     // losing a handoff nobody read costs the whole session's work, where a
     // leftover file costs one `rm`.
-    const consumed = await waitForFirstTurn(successorId);
-    if (consumed) {
+    const isConsumed = await waitForFirstTurn(successorId);
+    if (isConsumed) {
       await workspace.deleteHandoffDoc({
         dir: host.projectDirectory(),
         name: doc
@@ -688,28 +742,13 @@ export function createAutoHandoff(host: HandoffHost) {
   // produced it (the caller falls back to a plain restart). A doc a prior attempt
   // already wrote is reused, not re-requested.
   async function writeHandoffDoc(session: AgentSession) {
-    const doc = handoffDocName({
-      source: host.slugSource(),
-      sessionId: session.id
-    });
-    const docPath = `${host.projectDirectory()}/${doc}`;
-    const existing = await workspace.probePath(docPath).catch(() => null);
-    if (existing?.isFile === true) {
-      return doc;
-    }
-
-    await submitHandoffRequest({
+    const doc = docNameFor(session.id);
+    const isWritten = await askForDoc({
       session,
       doc,
       reason: HandoffReason.Save
     });
-    const seen = await waitForFile(doc);
-    if (seen) {
-      return doc;
-    }
-
-    const probe = await workspace.probePath(docPath).catch(() => null);
-    return probe?.isFile === true ? doc : null;
+    return isWritten ? doc : null;
   }
 
   // Fire-and-forget entry point for the scan and the force path. handoff is
@@ -727,9 +766,9 @@ export function createAutoHandoff(host: HandoffHost) {
         reason,
         isMidTurn
       });
-    } catch {
-      unmarkHandingOff(session.id);
-      note = "";
+    } catch (error) {
+      console.warn(`pade: handoff of ${session.agent.label} failed, a later scan retries`, error);
+      abandonHandoff(session.id);
     }
   }
 
@@ -744,28 +783,33 @@ export function createAutoHandoff(host: HandoffHost) {
   // false, and the doc stays.
   function waitForFirstTurn(id: string) {
     return new Promise<boolean>(resolve => {
-      let sawTurn = false;
+      let hasSeenTurn = false;
       const startedAt = Date.now();
       function poll() {
-        const busy = agentReportsBusy(id);
-        sawTurn ||= busy;
-        const turnFinished = sawTurn && !busy;
-        if (turnFinished) {
+        const isBusy = agentReportsBusy(id);
+        hasSeenTurn ||= isBusy;
+        const isTurnFinished = hasSeenTurn && !isBusy;
+        if (isTurnFinished) {
           resolve(true);
           return;
         }
 
-        const gone = !host.sessions().some(session => session.id === id);
-        const expired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
-        if (gone || expired) {
+        const isExpired = Date.now() - startedAt > SUCCESSOR_DEADLINE_MS;
+        if (!isStillOpen(id) || isExpired) {
           resolve(false);
           return;
         }
 
-        trackTimer(poll, SUCCESSOR_POLL_MS);
+        trackTimer({
+          handler: poll,
+          delayMs: SUCCESSOR_POLL_MS
+        });
       }
 
-      trackTimer(poll, SUCCESSOR_POLL_MS);
+      trackTimer({
+        handler: poll,
+        delayMs: SUCCESSOR_POLL_MS
+      });
     });
   }
 
@@ -777,20 +821,9 @@ export function createAutoHandoff(host: HandoffHost) {
       return ScanVerdict.leave;
     }
 
-    // A persistent marker with no live handoff is one whose async flow died
-    // between marking and the kill/launch - a window reload, an HMR swap, or a
-    // crash mid-handoff. It leaves the session stranded: the doc is written but
-    // the id never reset, and the old code skipped it forever on that very
-    // marker. Resume instead - runHandoff's already-written probe short-circuits
-    // onto the doc it already wrote, straight to the reset. A session with no
-    // marker starts a fresh handoff only once it is over threshold.
-    const resuming = sessionStorage.getItem(persistentMarker(session.id)) !== null;
-    const nearLimit = isOverThreshold({
-      sessionId: session.id,
-      thresholdPercentage: host.thresholdPercentage()
-    });
+    const isWanted = isHandoffWanted(session.id);
     const isCompactionImminent = isAboutToCompact(session.id);
-    if (!resuming && !nearLimit && !isCompactionImminent) {
+    if (!isWanted && !isCompactionImminent) {
       return ScanVerdict.leave;
     }
 
@@ -808,12 +841,25 @@ export function createAutoHandoff(host: HandoffHost) {
     // Otherwise never cut in on the agent's own running work: a turn, or
     // background agents and a dynamic workflow a quiet, `ready`-looking session
     // is still waiting on. The agent reporting it done re-runs the scan.
-    if (agentReportsBusy(session.id)) {
-      return ScanVerdict.holdBack;
-    }
+    const isQuiet = !agentReportsBusy(session.id)
+      && sessionStatus(session.id) === SessionStatus.enum.ready;
+    return isQuiet ? ScanVerdict.handOff : ScanVerdict.holdBack;
+  }
 
-    const sittingIdle = sessionStatus(session.id) === SessionStatus.enum.ready;
-    return sittingIdle ? ScanVerdict.handOff : ScanVerdict.holdBack;
+  // A persistent marker with no live handoff is one whose async flow died
+  // between marking and the kill/launch - a window reload, an HMR swap, or a
+  // crash mid-handoff. It leaves the session stranded: the doc is written but
+  // the id never reset, and the old code skipped it forever on that very
+  // marker. Resume instead - runHandoff's already-written probe short-circuits
+  // onto the doc it already wrote, straight to the reset. A session with no
+  // marker starts a fresh handoff only once it is over threshold.
+  function isHandoffWanted(sessionId: string) {
+    const isResuming = hasPersistentMarker(sessionId);
+    const isNearLimit = isOverThreshold({
+      sessionId,
+      thresholdPercentage: host.thresholdPercentage()
+    });
+    return isResuming || isNearLimit;
   }
 
   // Scan for sessions to hand off: those newly over the context threshold, and any
@@ -824,11 +870,11 @@ export function createAutoHandoff(host: HandoffHost) {
       return;
     }
 
-    let heldBack = "";
+    let heldBackNote = "";
     for (const session of host.sessions()) {
       const verdict = scanVerdict(session);
       if (verdict === ScanVerdict.holdBack) {
-        heldBack ||= waitingForWorkNote({
+        heldBackNote ||= waitingForWorkNote({
           session,
           reason: HandoffReason.ContextLimit
         });
@@ -845,7 +891,7 @@ export function createAutoHandoff(host: HandoffHost) {
       }
     }
 
-    deferredNote = heldBack;
+    deferredNote = heldBackNote;
   }
 
   // Hand a session off right now - the usage-resume flow calls this at window
