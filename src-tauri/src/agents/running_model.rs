@@ -220,8 +220,9 @@ pub async fn agent_apply_model(
 
     let owner = window.label().to_string();
     tauri::async_runtime::spawn_blocking(move || {
-        let pty_state = app.state::<crate::pty::PtyState>();
-        let type_keys = |keys: &str| crate::pty::write_input(&pty_state, &owner, &session_id, keys);
+        let pty_state = app.state::<crate::terminal::pty::PtyState>();
+        let type_keys =
+            |keys: &str| crate::terminal::pty::write_input(&pty_state, &owner, &session_id, keys);
         claude::apply_live(&conversation_id, &choice, &type_keys).map(|()| SwitchOutcome::Applied)
     })
     .await

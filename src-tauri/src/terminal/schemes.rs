@@ -23,7 +23,7 @@ use std::sync::OnceLock;
 
 /// The shipped schemes, vendored from Windows Terminal's own `defaults.json`
 /// (MIT). Regenerate from an installed Windows Terminal to pick up new ones.
-const BUNDLED_SCHEMES: &str = include_str!("../assets/windows-terminal-schemes.json");
+const BUNDLED_SCHEMES: &str = include_str!("../../assets/windows-terminal-schemes.json");
 
 /// Schemes Windows Terminal does not ship, kept in their own asset so
 /// regenerating [`BUNDLED_SCHEMES`] from an installed Windows Terminal can never
@@ -32,7 +32,7 @@ const BUNDLED_SCHEMES: &str = include_str!("../assets/windows-terminal-schemes.j
 /// Light is criticised for) and Catppuccin Latte. The vendored asset carries
 /// only three light schemes, all of them dated, and a light app theme with a
 /// near-black terminal is the mismatch this closes.
-const CURATED_SCHEMES: &str = include_str!("../assets/curated-terminal-schemes.json");
+const CURATED_SCHEMES: &str = include_str!("../../assets/curated-terminal-schemes.json");
 
 /// One colour scheme in PADE's vocabulary.
 #[derive(Serialize, Clone, PartialEq, Eq, Debug)]

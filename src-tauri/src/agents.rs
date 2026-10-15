@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::theming::ThemeConfig;
+use crate::terminal::theming::ThemeConfig;
 use crate::util::{find_in, search_directories};
 
 /// Canonical registry ids - the one authoritative spelling of each agent's id
@@ -658,8 +658,8 @@ mod tests {
         );
         assert_eq!(resolve_codex_home(None, None), None);
     }
+    use crate::terminal::theming::ThemeConfig;
     use crate::test_support::assert_empty;
-    use crate::theming::ThemeConfig;
 
     #[test]
     fn installed_names_lead_with_the_canonical_command() {

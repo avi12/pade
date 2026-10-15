@@ -18,7 +18,7 @@ use tauri::{
     WebviewWindowBuilder, Window, Wry,
 };
 
-use crate::theming::Scheme;
+use crate::terminal::theming::Scheme;
 use crate::util::{comparable_path, same_path};
 
 /// The window the app starts with (see `tauri.conf.json`).

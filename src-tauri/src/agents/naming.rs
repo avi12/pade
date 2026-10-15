@@ -57,9 +57,9 @@ pub async fn session_generate_name(
     window: tauri::WebviewWindow,
     id: String,
     agent: String,
-    state: tauri::State<'_, crate::pty::PtyState>,
+    state: tauri::State<'_, crate::terminal::pty::PtyState>,
 ) -> Result<Option<String>, String> {
-    let transcript = crate::pty::transcript_of(&state, window.label(), &id)?;
+    let transcript = crate::terminal::pty::transcript_of(&state, window.label(), &id)?;
     Ok(
         tauri::async_runtime::spawn_blocking(move || session_name(&transcript, &agent))
             .await

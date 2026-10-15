@@ -13,15 +13,11 @@ mod media;
 mod members;
 mod os;
 mod provision;
-mod pty;
 mod recovery;
 mod refs;
-mod runner;
-mod tasks;
-mod terminal_schemes;
+mod terminal;
 #[cfg(test)]
 mod test_support;
-mod theming;
 mod usage;
 mod util;
 mod vcs;
@@ -121,8 +117,8 @@ pub fn run() {
             workspace::migrate_from_ade(); // one-time ade → pade data migration
             let handle = app.handle();
             workspace::init(handle);
-            pty::init(handle);
-            runner::init(handle);
+            terminal::pty::init(handle);
+            terminal::runner::init(handle);
             watcher::init(handle);
             agents::running_model::init(handle);
             app.manage(window::WindowProjects::default());
@@ -173,24 +169,24 @@ pub fn run() {
             window::window_reorder,
             window::window_focus_label,
             window::window_theme,
-            pty::pty_spawn,
-            pty::pty_write,
-            pty::pty_resize,
-            pty::pty_kill,
-            pty::session_task_stop,
-            pty::session_task_running,
-            pty::pty_history,
-            pty::pty_list,
+            terminal::pty::pty_spawn,
+            terminal::pty::pty_write,
+            terminal::pty::pty_resize,
+            terminal::pty::pty_kill,
+            terminal::pty::session_task_stop,
+            terminal::pty::session_task_running,
+            terminal::pty::pty_history,
+            terminal::pty::pty_list,
             recovery::recovery_arm,
-            theming::agent_theme_publish,
+            terminal::theming::agent_theme_publish,
             agents::resume::agent_resume_args,
             agents::session_context::agent_session_context,
             agents::running_model::agent_running_model,
             agents::running_model::agent_model_options,
             agents::running_model::agent_apply_model,
-            runner::runner_start,
-            runner::runner_stop,
-            runner::runner_list,
+            terminal::runner::runner_start,
+            terminal::runner::runner_stop,
+            terminal::runner::runner_list,
             watcher::watch_start,
             watcher::watch_status,
             watcher::watch_dirs,
@@ -220,9 +216,9 @@ pub fn run() {
             vcs::restore::vcs_restore_checkout,
             config::config_list,
             config::config_read,
-            tasks::tasks_descriptors,
-            tasks::tasks_list,
-            terminal_schemes::terminal_schemes,
+            terminal::tasks::tasks_descriptors,
+            terminal::tasks::tasks_list,
+            terminal::schemes::terminal_schemes,
             usage::usage_get,
             usage::usage_account_agent,
             limit_reset::limit_reset_offer,
@@ -275,8 +271,8 @@ pub fn run() {
                 api.prevent_exit();
                 return;
             }
-            if let Some(state) = handle.try_state::<pty::PtyState>() {
-                pty::kill_all(state.inner());
+            if let Some(state) = handle.try_state::<terminal::pty::PtyState>() {
+                terminal::pty::kill_all(state.inner());
             }
         });
 }

@@ -16,7 +16,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::agents::DEFAULT_SHELL;
-use crate::theming::Scheme;
+use crate::terminal::theming::Scheme;
 use crate::util::{owner_access, OwnerAccess, MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES};
 
 const MAXIMUM_SESSIONS_PER_WINDOW: usize = 32;
@@ -589,7 +589,7 @@ fn default_shell() -> String {
 /// `codex exec` renders no TUI. Empty for a shell or an unknown command.
 fn agent_launch_arguments(program: &str, scheme: Option<Scheme>) -> Vec<String> {
     let theme_arguments = scheme.map_or(&[][..], |scheme| {
-        crate::theming::spawn_arguments(program, scheme)
+        crate::terminal::theming::spawn_arguments(program, scheme)
     });
     crate::agents::session_arguments(program)
         .iter()
@@ -647,20 +647,20 @@ fn apply_agent_environment(
     };
     // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the
     // agent starts matching ADE's current appearance - see theming.rs.
-    for (key, value) in crate::theming::spawn_environment(program, scheme) {
+    for (key, value) in crate::terminal::theming::spawn_environment(program, scheme) {
         process.env(key, value);
     }
     // …and the tui-config file pair for file-themed CLIs (opencode):
     // theming.rs materializes the config on disk and returns the env pair
     // pointing at it. Filesystem I/O happens here, before any session lock.
-    for (key, value) in crate::theming::spawn_tui_config_environment(program, scheme) {
+    for (key, value) in crate::terminal::theming::spawn_tui_config_environment(program, scheme) {
         process.env(key, value);
     }
     // …and the live theme definition the launch args are about to select
     // (Claude), written before the process starts so its first frame already
     // paints in ADE's scheme. A flip later rewrites this same file, which is
     // what re-themes the session without restarting it.
-    if let Err(error) = crate::theming::publish_live_themes(scheme) {
+    if let Err(error) = crate::terminal::theming::publish_live_themes(scheme) {
         eprintln!("theming: could not publish the live theme ({error}); {program} starts on its own default");
     }
 }
