@@ -147,7 +147,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     isDeleting = true;
     deleteError = null;
     try {
-      // The bridge adopts settings first so the row leaves the Recent list (and
+      // The settings reply is adopted first so the row leaves the Recent list (and
       // animates out) before the rescan catches the root lists up.
       await host.ondelete(path);
       deleteTarget = null;

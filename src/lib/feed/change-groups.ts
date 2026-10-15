@@ -1,6 +1,6 @@
 // Pure grouping of Change Feed events into project buckets, so the feed reads as
 // "what changed, per project" the way the mockup does. Ground truth first: when
-// the backend's manifest census (`bridge.members`) confirms real workspace
+// the backend's manifest census (`members_list`) confirms real workspace
 // members, a change buckets under its deepest enclosing member - whole-segment
 // longest-prefix, so `apps/web` never captures `apps/web-admin` - and anything
 // outside every member falls into the repo itself. Only a workspace with no
@@ -211,7 +211,7 @@ function collapseRepeats(events: ChangeEvent[]) {
 }
 
 /** Bucket `events` (newest first) into project groups, summing line deltas.
- *  With manifest-confirmed `members` (see `bridge.members`) a change goes to
+ *  With manifest-confirmed `members` (see `members_list`) a change goes to
  *  its deepest enclosing member; without any, the folder-name convention is the
  *  fallback. The groups are ordered by their most-recent change, so the
  *  just-touched project leads - matching the flat feed's newest-first feel. */

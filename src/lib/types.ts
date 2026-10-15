@@ -179,9 +179,9 @@ export function realAgents(agents: readonly Agent[]) {
 }
 
 /** How a spawned window routes off its `?w=` query string - `window_create`
- *  (bridge `windows.create`) encodes the target here and the Rust `window` module
- *  emits the same tokens. The one home for these literals so boot routing, the
- *  bridge, and the New-window menu can't drift. */
+ *  encodes the target here and the Rust `window` module emits the same tokens.
+ *  The one home for these literals so boot routing, the IPC protocol, and the
+ *  New-window menu can't drift. */
 export const WindowMode = z.enum(["empty", "temp", "open"]);
 export type WindowMode = z.infer<typeof WindowMode>;
 

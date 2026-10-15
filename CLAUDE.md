@@ -5,7 +5,7 @@ These are non-negotiable for all work in this repo.
 1. **DRY - single source of truth (SSOT)** - Don't Repeat Yourself. Every piece of
    knowledge - logic, config, **and derived/displayed state** - has exactly one
    authoritative home; everything else *reads from it*, never re-derives it. Extract
-   shared logic into a single module (e.g. the Tauri IPC bridge, the M3 tokens, the
+   shared logic into a single module (e.g. the Tauri IPC messaging layer, the M3 tokens, the
    VCS abstraction) rather than copy-pasting. And when the same value is shown or
    acted on in two places - e.g. the project's chosen editor in the top-bar launcher
    and in the Change Feed's "reveal in <editor>" - both must resolve it through the
@@ -17,7 +17,13 @@ These are non-negotiable for all work in this repo.
    - Rust: PTY, watcher, VCS, usage each live in their own module; `lib.rs` only
      wires them.
    - Frontend: one Svelte component per panel; shared state in `lib/stores`, all
-     backend calls funnel through `lib/bridge.ts`. UI never talks to Tauri directly.
+     backend calls funnel through `lib/ipc` - `sendMessage(Command.x, data)` /
+     `onMessage(EventType.x, ({ data }) => …)` from `@/lib/ipc/messaging`, shaped
+     like `@webext-core/messaging`. UI never talks to Tauri directly. A new Rust
+     command or event gets its `Command` / `EventType` member, its protocol-map
+     entry and its zod schema there (the drift-guard test fails until it does);
+     a helper on top of `sendMessage` exists only when it adds behaviour (e.g.
+     `sendSettingsMessage`), never as a pass-through wrapper.
 
 3. **Tree-shaking** - keep the bundle lean. Use named ESM imports (never
    `import * as`), no side-effectful barrel files, `import type` for types, and
@@ -58,7 +64,7 @@ These are non-negotiable for all work in this repo.
      `schema.safeParse` when you need the error to show), before it reaches logic
      or the backend. Never pass a raw `input.value` onward.
    - Path aliases: import internal modules through the `@/` alias (→ `src/`) -
-     `@/lib/bridge`, `@/panels/Terminal.svelte` - never a relative `./` or `../`
+     `@/lib/ipc/messaging`, `@/panels/Terminal.svelte` - never a relative `./` or `../`
      chain. Configured once in `vite.config.ts` (`resolve.alias`) and
      `tsconfig.json` (`paths`). Third-party packages stay bare imports.
    - File names: plain `.ts` modules are **kebab-case** (`usage-groups.ts`,

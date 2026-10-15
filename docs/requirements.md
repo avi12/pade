@@ -405,7 +405,7 @@ writes.
 
 ```
 Frontend (Svelte)          Rust core (Tauri)
-  lib/bridge.ts    ──IPC──▶  pty.rs        (terminal)
+  lib/ipc/         ──IPC──▶  pty.rs        (terminal)
   lib/validate.ts            runner.rs     (task-runner dock)
   lib/code/diff.ts           watcher.rs    (change feed)
   lib/stores/*/*             vcs/          (git review + restore + clone)
@@ -413,7 +413,7 @@ Frontend (Svelte)          Rust core (Tauri)
   theme.css                  usage.rs      (subscription)
                              lib.rs        (wiring only)
 ```
-All backend access goes through `lib/bridge.ts`, zod-validated at the boundary
+All backend access goes through `lib/ipc/` (`sendMessage` / `onMessage`), zod-validated at the boundary
 (DRY). **User input** is validated the same way at entry via `lib/validate.ts`.
 Cross-component state lives in `lib/stores/*`. Each panel is one concern (SoC);
 panels lazy-load (tree-shaking). Internal modules import via the `@/` alias.

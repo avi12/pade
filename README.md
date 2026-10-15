@@ -80,7 +80,7 @@ Before cutting a release, run the quality gates: `pnpm lint` and `pnpm test`.
 
 New to the codebase? [`ARCHITECTURE.md`](ARCHITECTURE.md) is a one-read
 orientation - how the two layers (Svelte webview + Rust core) talk over the
-single `bridge.ts` IPC door, the screen phases, and a module-by-module map, with
+single `lib/ipc` messaging door, the screen phases, and a module-by-module map, with
 diagrams. Product spec lives in [`docs/requirements.md`](docs/requirements.md);
 engineering rules in [`CLAUDE.md`](CLAUDE.md).
 
