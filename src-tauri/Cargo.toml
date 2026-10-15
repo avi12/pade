@@ -35,7 +35,7 @@ serde_json = "1"
 toml = "1"
 portable-pty = "0.8"
 notify = "6"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 # PNG encoding for clipboard-image paste. Already in the tree transitively
 # (arboard → image deps), so this adds no new supply-chain surface; the heavy
 # `image` crate stays out.
