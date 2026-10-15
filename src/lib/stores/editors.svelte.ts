@@ -37,7 +37,7 @@ const inFlight = new Map<string, Promise<void>>();
 const currentFetchToken = new Map<string, symbol>();
 
 /** The ranked editors for `project` - reactive; empty until resolved. */
-export function editorsFor(project: string): Ide[] {
+export function editorsFor(project: string) {
   return rankedByProject.get(project) ?? [];
 }
 
@@ -48,12 +48,12 @@ export function editorsFor(project: string): Ide[] {
  *  tab to route it into (the Change Feed reveal, the picker's open-in button)
  *  resolve their target through here rather than each re-deriving `!terminal`,
  *  so the reveal target can never drift between them. */
-export function firstWindowedEditor(editors: Ide[]): Ide | undefined {
+function firstWindowedEditor(editors: Ide[]) {
   return editors.find(editor => !editor.terminal);
 }
 
 /** Whether a ranked list has any windowed editor to open into. */
-export function hasWindowedEditor(editors: Ide[]): boolean {
+export function hasWindowedEditor(editors: Ide[]) {
   return firstWindowedEditor(editors) !== undefined;
 }
 
@@ -64,7 +64,7 @@ export function hasWindowedEditor(editors: Ide[]): boolean {
 export function windowedEditorFor({ path, fallback }: {
   path: string;
   fallback?: Ide[];
-}): Ide | undefined {
+}) {
   const resolved = firstWindowedEditor(editorsFor(path));
   if (resolved) {
     return resolved;
@@ -76,7 +76,7 @@ export function windowedEditorFor({ path, fallback }: {
 async function fetchEditors({ project, token }: {
   project: string;
   token: symbol;
-}): Promise<void> {
+}) {
   let ranked: Ide[];
   try {
     ranked = await ide.suggest(project);
@@ -96,7 +96,7 @@ async function fetchEditors({ project, token }: {
 /** Re-resolve the project's editors now (project switch, app visibility
  *  regained, an explicit choice saved). Coalesces with a fetch already in
  *  flight for the same project. */
-export function refreshEditors(project: string): Promise<void> {
+export function refreshEditors(project: string) {
   const running = inFlight.get(project);
   if (running) {
     return running;
@@ -115,7 +115,7 @@ export function refreshEditors(project: string): Promise<void> {
 /** Resolve only when nothing is cached yet - a remounting panel (the Change
  *  Feed re-enters the DOM on every side-panel switch) reuses the cached list
  *  instead of re-running the project census. */
-export function ensureEditors(project: string): Promise<void> {
+export function ensureEditors(project: string) {
   if (rankedByProject.has(project)) {
     return Promise.resolve();
   }
@@ -128,7 +128,7 @@ export function ensureEditors(project: string): Promise<void> {
 export async function chooseEditor({ project, editorId }: {
   project: string;
   editorId: string;
-}): Promise<void> {
+}) {
   try {
     await ide.choose({
       cwd: project,

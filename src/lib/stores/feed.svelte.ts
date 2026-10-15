@@ -37,7 +37,7 @@ let subscribed = false;
 // unload save skipped and an F5 emptied the feed.
 let liveWatch: WatchStatus | null = null;
 
-async function learnLiveWatch(): Promise<void> {
+async function learnLiveWatch() {
   try {
     liveWatch = await feed.status();
   } catch {
@@ -45,14 +45,14 @@ async function learnLiveWatch(): Promise<void> {
   }
 }
 
-function knowsLiveWatch(): boolean {
+function knowsLiveWatch() {
   return liveWatch !== null && liveWatch.armedAt !== null && liveWatch.root === currentProject;
 }
 
 // Hand the feed to the reloaded page. `pagehide` is the last synchronous moment
 // before the webview drops this page, so the save happens once per unload rather
 // than re-serializing up to CAP events on every change.
-function saveFeedOnUnload(): void {
+function saveFeedOnUnload() {
   if (!liveWatch?.root || liveWatch.armedAt === null) {
     return;
   }
@@ -66,7 +66,7 @@ function saveFeedOnUnload(): void {
 
 /** Subscribe once to the backend feed stream. Idempotent - a second call is a
  *  no-op - and never unsubscribed, so events accumulate across panel remounts. */
-async function startFeedSubscription(): Promise<void> {
+async function startFeedSubscription() {
   if (subscribed) {
     return;
   }
@@ -113,7 +113,7 @@ async function startFeedSubscription(): Promise<void> {
 
 // Learn the watch now feeding `project`, and - after a reload - put back the
 // events that same watch had already surfaced, behind any that arrived since.
-async function adoptLiveWatch(project: string): Promise<void> {
+async function adoptLiveWatch(project: string) {
   await learnLiveWatch();
 
   if (!liveWatch) {
@@ -139,7 +139,7 @@ async function adoptLiveWatch(project: string): Promise<void> {
  *  the last (a workspace switch must not surface the previous project's changes).
  *  Also lazily arms the singleton subscription on first use. ChangeFeed calls this
  *  from a `project`-keyed effect. */
-export function retarget(project: string): void {
+export function retarget(project: string) {
   // Arming the singleton subscription is a self-contained side effect with no
   // follow-up here - the store reacts as events land, and startFeedSubscription
   // owns its own error handling - so a lazy call with no await is safe.

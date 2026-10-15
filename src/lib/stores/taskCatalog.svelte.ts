@@ -32,7 +32,7 @@ const defaultDependencies: TaskCatalogDependencies = {
 function isManifestPath({ descriptors, path }: {
   descriptors: TaskManifestDescriptor[];
   path: string;
-}): boolean {
+}) {
   const name = baseName(path).toLowerCase();
   for (const descriptor of descriptors) {
     const value = descriptor.value.toLowerCase();
@@ -55,7 +55,7 @@ export function createTaskCatalog(
     error: null
   });
 
-  function snapshotProject(): string {
+  function snapshotProject() {
     return snapshot.project;
   }
 
@@ -65,11 +65,11 @@ export function createTaskCatalog(
   let initialization: Promise<void> | undefined;
   let initializationError: string | null = null;
 
-  function currentProject(): string {
+  function currentProject() {
     return projectGetter();
   }
 
-  async function refresh(project = currentProject()): Promise<void> {
+  async function refresh(project = currentProject()) {
     const version = ++requestVersion;
     if (!project) {
       snapshot = {
@@ -107,11 +107,11 @@ export function createTaskCatalog(
     }
   }
 
-  async function refreshAfterManifestChange(): Promise<void> {
+  async function refreshAfterManifestChange() {
     await refresh();
   }
 
-  async function start(): Promise<void> {
+  async function start() {
     try {
       const descriptors = await dependencies.descriptors();
       const nextUnlisten = await dependencies.onChange(path => {
@@ -137,7 +137,7 @@ export function createTaskCatalog(
     }
   }
 
-  async function initialize(nextProjectGetter: () => string): Promise<void> {
+  async function initialize(nextProjectGetter: () => string) {
     projectGetter = nextProjectGetter;
 
     if (!unlisten) {
@@ -153,7 +153,7 @@ export function createTaskCatalog(
   }
 
   return {
-    get snapshot(): TaskCatalogSnapshot {
+    get snapshot() {
       return snapshot;
     },
     initialize,

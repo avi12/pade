@@ -75,7 +75,7 @@ const HANDOFF_TRIGGER: Record<HandoffReason, string> = {
 };
 
 /** A filesystem-safe slug for the handoff doc, from the workspace label/dir. */
-export function handoffSlug(source: string): string {
+export function handoffSlug(source: string) {
   const slug = source
     .replaceAll(/[^a-z0-9-]+/gi, "-")
     .replaceAll(/^-+|-+$/g, "")
@@ -86,7 +86,7 @@ export function handoffSlug(source: string): string {
 /** The leading segment of a session's UUID - a short, stable per-session token
  *  that keeps the handoff doc name unique without dragging the whole id into a
  *  filename. Falls back to a generic token for a non-UUID id. */
-function sessionToken(sessionId: string): string {
+function sessionToken(sessionId: string) {
   return sessionId.split("-")[0] || "session";
 }
 
@@ -99,7 +99,7 @@ function sessionToken(sessionId: string): string {
 export function handoffDocName({ source, sessionId }: {
   source: string;
   sessionId: string;
-}): string {
+}) {
   return `continue-${handoffSlug(source)}-${sessionToken(sessionId)}.md`;
 }
 
@@ -109,14 +109,14 @@ export function handoffDocName({ source, sessionId }: {
 export function handoffRequestBody({ doc, reason }: {
   doc: string;
   reason: HandoffReason;
-}): string {
+}) {
   return `${HANDOFF_TRIGGER[reason]} Please write a concise handoff to ${doc} - the current state, what you've completed, and the exact next steps to continue - then stop.`;
 }
 
 export function handoffPrompt({ doc, reason }: {
   doc: string;
   reason: HandoffReason;
-}): string {
+}) {
   return submittedPrompt(
     handoffRequestBody({
       doc,
@@ -136,7 +136,7 @@ export function handoffPrompt({ doc, reason }: {
  *  No trailing carriage return: this rides in as the successor session's
  *  initialPrompt, and the terminal's initial-prompt delivery appends the
  *  submitting ENTER itself (see panels/Terminal.svelte, lib/initial-prompt). */
-export function successorPrompt(doc: string): string {
+export function successorPrompt(doc: string) {
   return `Read ${doc} to continue the work where the previous session left off.`;
 }
 
@@ -149,7 +149,7 @@ export function successorPrompt(doc: string): string {
 export function hasUsageHeadroom({ usedPercentage, credits }: {
   usedPercentage: number | null | undefined;
   credits: CreditsState | null | undefined;
-}): boolean {
+}) {
   if (usedPercentage == null) {
     return true;
   }
@@ -167,7 +167,7 @@ export async function pickSuccessor({ current, available, hasHeadroom }: {
   current: Agent;
   available: Agent[];
   hasHeadroom: (agentId: string) => Promise<boolean>;
-}): Promise<Agent | null> {
+}) {
   if (await hasHeadroom(current.id)) {
     return current;
   }
@@ -193,7 +193,7 @@ export async function pickHandoffSuccessor({ reason, current, available, hasHead
   current: Agent;
   available: Agent[];
   hasHeadroom: (agentId: string) => Promise<boolean>;
-}): Promise<Agent | null> {
+}) {
   if (reason === HandoffReason.ConfigurationChange) {
     return current;
   }
@@ -256,7 +256,7 @@ export interface HandoffHost {
 // to this window's lifetime, matching the sessions themselves.
 const HANDOFF_MARKER_PREFIX = "pade-handoff-inflight:";
 
-function persistentMarker(sessionId: string): string {
+function persistentMarker(sessionId: string) {
   return `${HANDOFF_MARKER_PREFIX}${sessionId}`;
 }
 
@@ -274,7 +274,7 @@ type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
 function waitingForWorkNote({ session, reason }: {
   session: AgentSession;
   reason: HandoffReason;
-}): string {
+}) {
   const agent = session.agent.label;
   if (reason === HandoffReason.ConfigurationChange) {
     return `MCP servers changed - ${agent} restarts once its running work finishes…`;
@@ -287,12 +287,12 @@ function waitingForWorkNote({ session, reason }: {
 function isOverThreshold({ sessionId, thresholdPercentage }: {
   sessionId: string;
   thresholdPercentage: number;
-}): boolean {
+}) {
   const percentage = measuredContextPercentage(sessionId);
   return percentage !== null && percentage >= thresholdPercentage;
 }
 
-function isAboutToCompact(sessionId: string): boolean {
+function isAboutToCompact(sessionId: string) {
   const headroom = compactionHeadroom(sessionId);
   return headroom !== null && headroom <= COMPACTION_IMMINENT_PERCENTAGE;
 }
@@ -306,7 +306,7 @@ function handingOffNote({ session, reason, isMidTurn, successorAgent }: {
   reason: HandoffReason;
   isMidTurn: boolean;
   successorAgent: Agent;
-}): string {
+}) {
   const agent = session.agent.label;
   if (reason === HandoffReason.ConfigurationChange) {
     return `MCP servers changed - ${agent} is writing a handoff before restarting…`;
@@ -342,7 +342,7 @@ export function createAutoHandoff(host: HandoffHost) {
     sessionStorage.removeItem(persistentMarker(sessionId));
   }
 
-  function isHandingOff(sessionId: string): boolean {
+  function isHandingOff(sessionId: string) {
     return handingOff.has(sessionId) || sessionStorage.getItem(persistentMarker(sessionId)) !== null;
   }
 
@@ -362,7 +362,7 @@ export function createAutoHandoff(host: HandoffHost) {
 
   // Track one timer in the pending set and return its id, so every timer we
   // create is registered for teardown in exactly one place.
-  function trackTimer(handler: () => void, delayMs: number): ReturnType<typeof setTimeout> {
+  function trackTimer(handler: () => void, delayMs: number) {
     const timer = setTimeout(handler, delayMs);
     pendingTimers.add(timer);
     return timer;
@@ -374,8 +374,8 @@ export function createAutoHandoff(host: HandoffHost) {
   // `continue-*.md` never emits, which used to strand the cycle on the full
   // timeout), and a direct disk poll (authoritative regardless of ignore rules).
   // Whichever sees it first wins.
-  function waitForFile(name: string): Promise<boolean> {
-    return new Promise(resolve => {
+  function waitForFile(name: string) {
+    return new Promise<boolean>(resolve => {
       const docPath = `${host.projectDirectory()}/${name}`;
       let unlisten: UnlistenFn | undefined;
       let settleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -448,8 +448,8 @@ export function createAutoHandoff(host: HandoffHost) {
   }
 
   // Resolve after the delay, tracking the timer so dispose() tears it down.
-  function afterDelay(delayMs: number): Promise<void> {
-    return new Promise(resolve => {
+  function afterDelay(delayMs: number) {
+    return new Promise<void>(resolve => {
       trackTimer(() => resolve(), delayMs);
     });
   }
@@ -465,7 +465,7 @@ export function createAutoHandoff(host: HandoffHost) {
     session: AgentSession;
     doc: string;
     reason: HandoffReason;
-  }): Promise<void> {
+  }) {
     await pty.write({
       id: session.id,
       data: pastedText(
@@ -496,7 +496,7 @@ export function createAutoHandoff(host: HandoffHost) {
   async function waitForRunningWork({ session, reason }: {
     session: AgentSession;
     reason: HandoffReason;
-  }): Promise<boolean> {
+  }) {
     if (agentReportsBusy(session.id)) {
       note = waitingForWorkNote({
         session,
@@ -514,7 +514,7 @@ export function createAutoHandoff(host: HandoffHost) {
     session: AgentSession;
     reason: HandoffReason;
     isMidTurn: boolean;
-  }): Promise<boolean> {
+  }) {
     if (isMidTurn) {
       return isStillOpen(session.id);
     }
@@ -525,12 +525,12 @@ export function createAutoHandoff(host: HandoffHost) {
     });
   }
 
-  function isStillOpen(sessionId: string): boolean {
+  function isStillOpen(sessionId: string) {
     return host.sessions().some(candidate => candidate.id === sessionId);
   }
 
   // Only cycle when there's quota to spare - a handoff itself costs tokens.
-  async function hasEnoughUsage(agent: string): Promise<boolean> {
+  async function hasEnoughUsage(agent: string) {
     const quota = await usage.get(agent).catch(() => null);
     const account = await usage.accountFor({ agent }).catch(() => null);
     return hasUsageHeadroom({
@@ -547,7 +547,7 @@ export function createAutoHandoff(host: HandoffHost) {
     session: AgentSession;
     doc: string;
     reason: HandoffReason;
-  }): Promise<boolean> {
+  }) {
     const docPath = `${host.projectDirectory()}/${doc}`;
     const existing = await workspace.probePath(docPath).catch(() => null);
     if (existing?.isFile === true) {
@@ -687,7 +687,7 @@ export function createAutoHandoff(host: HandoffHost) {
   // continue from it. Returns the doc's file name, or null when the agent never
   // produced it (the caller falls back to a plain restart). A doc a prior attempt
   // already wrote is reused, not re-requested.
-  async function writeHandoffDoc(session: AgentSession): Promise<string | null> {
+  async function writeHandoffDoc(session: AgentSession) {
     const doc = handoffDocName({
       source: host.slugSource(),
       sessionId: session.id
@@ -742,8 +742,8 @@ export function createAutoHandoff(host: HandoffHost) {
   // had never read. Anything else (an agent that reports no activity at all, a
   // session that disappears, a first turn still running at the deadline) answers
   // false, and the doc stays.
-  function waitForFirstTurn(id: string): Promise<boolean> {
-    return new Promise(resolve => {
+  function waitForFirstTurn(id: string) {
+    return new Promise<boolean>(resolve => {
       let sawTurn = false;
       const startedAt = Date.now();
       function poll() {
@@ -771,7 +771,7 @@ export function createAutoHandoff(host: HandoffHost) {
 
   // What the scan does with one session: leave it, hold it back for the agent's
   // running work, or start its handoff.
-  function scanVerdict(session: AgentSession): ScanVerdict {
+  function scanVerdict(session: AgentSession) {
     // A handoff actively running in THIS module instance owns the session.
     if (handingOff.has(session.id)) {
       return ScanVerdict.leave;

@@ -20,12 +20,12 @@ type RunnerKind = TaskGroup["kind"];
 const MAX_LINES = 5000;
 
 /** One captured output line plus which stream it arrived on (for stderr tinting). */
-export interface RunnerLine {
+interface RunnerLine {
   text: string;
   stream: RunnerStream;
 }
 
-export interface RunnerRow {
+interface RunnerRow {
   id: string;
   /** The backend process id for the current run. A re-run spawns under a fresh
    * one so a stale exit event from the replaced process can never mark the new
@@ -54,12 +54,12 @@ let rows = $state<RunnerRow[]>([]);
 let listening = false;
 
 /** The live runners (reactive). */
-export function runnerRows(): RunnerRow[] {
+export function runnerRows() {
   return rows;
 }
 
 /** Subscribe to the backend runner stream exactly once (call from App onMount). */
-export async function ensureRunnerListeners(): Promise<void> {
+export async function ensureRunnerListeners() {
   if (listening) {
     return;
   }
@@ -97,7 +97,7 @@ export async function startRunner({ label, kind, command, cwd }: {
   kind: RunnerKind;
   command: string;
   cwd: string;
-}): Promise<void> {
+}) {
   const id = `run-${crypto.randomUUID()}`;
   rows.push({
     id,
@@ -135,7 +135,7 @@ let attachedPoll: ReturnType<typeof setInterval> | undefined;
 export function attachedRunner({ sessionId, command }: {
   sessionId: string;
   command: string;
-}): RunnerRow | undefined {
+}) {
   return rows.find(row => row.attached?.sessionId === sessionId && row.command === command);
 }
 
@@ -149,7 +149,7 @@ export function attachRunner({ sessionId, label, kind, command, cwd }: {
   kind: RunnerKind;
   command: string;
   cwd: string;
-}): string {
+}) {
   const existing = attachedRunner({
     sessionId,
     command
@@ -179,7 +179,7 @@ export function attachRunner({ sessionId, label, kind, command, cwd }: {
 
 /** Start the liveness poll if any attached row needs it; stop it once none do, so
  *  the timer lives no longer than the rows it serves. */
-function ensureAttachedPoll(): void {
+function ensureAttachedPoll() {
   if (attachedPoll !== undefined || !rows.some(row => row.attached)) {
     return;
   }
@@ -191,7 +191,7 @@ function ensureAttachedPoll(): void {
 
 /** Drop each attached row whose task is no longer running - it finished, or its
  *  agent session exited (which kills the tree). Stops the poll when none remain. */
-async function reconcileAttachedRunners(): Promise<void> {
+async function reconcileAttachedRunners() {
   for (const row of rows.filter(item => item.attached)) {
     const sessionId = row.attached?.sessionId;
     if (sessionId === undefined) {
@@ -216,7 +216,7 @@ async function reconcileAttachedRunners(): Promise<void> {
 /** The re-run divider, composed from named parts so the value reads on its own. */
 const RERUN_RULE = "─".repeat(3);
 
-function rerunDivider(): string {
+function rerunDivider() {
   const time = new Date().toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -232,7 +232,7 @@ function rerunDivider(): string {
 export async function rerunRunner({ id, preserve }: {
   id: string;
   preserve: boolean;
-}): Promise<void> {
+}) {
   const row = rows.find(item => item.id === id);
   if (!row) {
     return;
@@ -283,7 +283,7 @@ export async function rerunRunner({ id, preserve }: {
 
 /** Stop a runner and drop it from the dock. An attached runner isn't ours to
  *  stop, so kill the agent's task process tree instead of a PADE-spawned one. */
-export async function stopRunner(id: string): Promise<void> {
+export async function stopRunner(id: string) {
   const row = rows.find(item => item.id === id);
   if (!row) {
     return;
@@ -305,7 +305,7 @@ export async function stopRunner(id: string): Promise<void> {
  * must not leave a previous project's dev server running or keep its dock open
  * over the next project. Every stop is attempted even if one backend call
  * fails; rows are then cleared so late output/exit events are ignored. */
-export async function stopAllRunners(): Promise<void> {
+export async function stopAllRunners() {
   const backendIds = rows.map(row => row.backendId);
   await Promise.all(backendIds.map(backendId => runner.stop(backendId).catch(() => {})));
   rows = [];
@@ -313,7 +313,7 @@ export async function stopAllRunners(): Promise<void> {
 
 /** Commit a drag-reordered runner order (the drag engine hands us the full id
  * order on drop). Ids it doesn't know keep their rows appended in place. */
-export function setRunnerOrder(orderedIds: string[]): void {
+export function setRunnerOrder(orderedIds: string[]) {
   const reordered = orderedIds.flatMap(id => {
     const row = rows.find(item => item.id === id);
     return row ? [row] : [];
@@ -326,7 +326,7 @@ export function setRunnerOrder(orderedIds: string[]): void {
 export async function pipeRunner({ id, sessionId }: {
   id: string;
   sessionId: string;
-}): Promise<void> {
+}) {
   const row = rows.find(item => item.id === id);
   if (!row || !sessionId) {
     return;

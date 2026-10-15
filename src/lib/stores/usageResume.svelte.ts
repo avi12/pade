@@ -28,7 +28,7 @@ export const LimitWindow = {
   session: "session",
   weekly: "weekly"
 } as const;
-export type LimitWindow = (typeof LimitWindow)[keyof typeof LimitWindow];
+type LimitWindow = (typeof LimitWindow)[keyof typeof LimitWindow];
 
 /** What the account says about a session stopped on a usage limit. */
 export const LimitVerdict = {
@@ -42,7 +42,7 @@ export const LimitVerdict = {
    *  repaint of scrollback. */
   stale: "stale"
 } as const;
-export type LimitVerdict = (typeof LimitVerdict)[keyof typeof LimitVerdict];
+type LimitVerdict = (typeof LimitVerdict)[keyof typeof LimitVerdict];
 
 /** The prompt that picks a stopped agent's work back up. */
 export const CONTINUE_PROMPT = `continue${PROMPT_SUBMIT}`;
@@ -112,7 +112,7 @@ export function nextOccurrence({ hour, minute, meridiem, now }: {
   minute: number;
   meridiem: string;
   now: number;
-}): number {
+}) {
   const isPastNoon = meridiem.toLowerCase() === "pm";
   const hour24 = (hour % 12) + (isPastNoon ? 12 : 0);
   const candidate = new SvelteDate(now);
@@ -129,7 +129,7 @@ export function nextOccurrence({ hour, minute, meridiem, now }: {
 export function parseResetClock({ text, now }: {
   text: string;
   now: number;
-}): number | null {
+}) {
   const clock = text.match(RESET_CLOCK_RE);
   if (!clock) {
     return null;
@@ -152,7 +152,7 @@ export function parseResetClock({ text, now }: {
 
 /** Whether a chunk of agent output carries a usage-limit stop - the classifier
  *  API-error auto-retry defers to, so the two never claim the same session. */
-export function isUsageLimitStop(text: string): boolean {
+export function isUsageLimitStop(text: string) {
   return LIMIT_STOP_RE.test(stripAnsi(text));
 }
 
@@ -162,7 +162,7 @@ export function isUsageLimitStop(text: string): boolean {
 export function parseLimitHit({ text, now }: {
   text: string;
   now: number;
-}): Pick<LimitHit, "window" | "resetAt"> | null {
+}) {
   const plain = stripAnsi(text);
   const stop = plain.match(LIMIT_STOP_RE);
   if (!stop) {
@@ -191,7 +191,7 @@ function matchingWindow({ hit, account }: {
 function accountResetAt({ hit, account }: {
   hit: Pick<LimitHit, "window">;
   account: AccountUsage | null;
-}): number | null {
+}) {
   const stamp = matchingWindow({
     hit,
     account
@@ -211,7 +211,7 @@ export function assessLimit({ hit, account, now }: {
   hit: Pick<LimitHit, "window" | "resetAt" | "confirmed">;
   account: AccountUsage | null;
   now: number;
-}): LimitVerdict {
+}) {
   const window = matchingWindow({
     hit,
     account
@@ -258,7 +258,7 @@ function sniffStop({ id, text }: {
 }
 
 /** Whether a rendered screen shows the agent mid-turn, read from its status rows. */
-export function showsTurnRunning(screen: string): boolean {
+export function showsTurnRunning(screen: string) {
   const statusRows = screen.trimEnd().split("\n").slice(-STATUS_ROWS).join("\n");
   return TURN_RUNNING_RE.test(statusRows);
 }
@@ -267,7 +267,7 @@ export function showsTurnRunning(screen: string): boolean {
 export function observeUsageLimit({ id, chunk }: {
   id: string;
   chunk: string;
-}): void {
+}) {
   sniffStop({
     id,
     text: chunk
@@ -280,7 +280,7 @@ export function observeUsageLimit({ id, chunk }: {
 export function observeUsageLimitScreen({ id, text }: {
   id: string;
   text: string;
-}): void {
+}) {
   if (hits.has(id)) {
     turnRunningOnScreen.set(id, showsTurnRunning(text));
     return;
@@ -293,12 +293,12 @@ export function observeUsageLimitScreen({ id, text }: {
 }
 
 /** Whether a session is stopped on a usage limit this module is waiting out. */
-export function hasUsageLimit(id: string): boolean {
+export function hasUsageLimit(id: string) {
   return hits.has(id);
 }
 
 /** Forget a session's limit state when it ends. */
-export function dropUsageLimit(id: string): void {
+export function dropUsageLimit(id: string) {
   hits.delete(id);
   quietUntil.delete(id);
   turnRunningOnScreen.delete(id);
@@ -308,7 +308,7 @@ export function dropUsageLimit(id: string): void {
 function waitingNote({ session, resetAt }: {
   session: AgentSession;
   resetAt: number | null;
-}): string {
+}) {
   const agent = session.agent.label;
   if (resetAt === null) {
     return `${agent} hit its usage limit - resuming when it resets, or once usage credits can cover it.`;
@@ -320,7 +320,7 @@ function waitingNote({ session, resetAt }: {
 
 /** The account the session's agent bills against. An IPC failure reads as "the
  *  account can't say", which leaves the decision to the reset clock. */
-async function readAccount(session: AgentSession): Promise<AccountUsage | null> {
+async function readAccount(session: AgentSession) {
   try {
     return await usage.accountFor({ agent: session.agent.id });
   } catch {

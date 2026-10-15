@@ -21,7 +21,7 @@ export const AgentActivity = {
   busy: "busy",
   idle: "idle"
 } as const;
-export type AgentActivity = (typeof AgentActivity)[keyof typeof AgentActivity];
+type AgentActivity = (typeof AgentActivity)[keyof typeof AgentActivity];
 
 /** Claude Code's title spinner frames while it has work in flight, and its glyph
  *  once it has none. Each is followed by a space and the session's title. */
@@ -40,7 +40,7 @@ const STRING_TERMINATOR = "\\";
 const MAXIMUM_CARRIED_LENGTH = 1024;
 
 /** The activity a title announces, or null when it carries no activity glyph. */
-export function activityFromTitle(title: string): AgentActivity | null {
+export function activityFromTitle(title: string) {
   const announcesBusy = BUSY_TITLE_GLYPHS.some(glyph => title.startsWith(`${glyph}${GLYPH_SEPARATOR}`));
   if (announcesBusy) {
     return AgentActivity.busy;
@@ -55,10 +55,7 @@ export function activityFromTitle(title: string): AgentActivity | null {
 
 /** The titles a stretch of output sets, in order, and the unterminated title
  *  sequence it ends on (a PTY chunk can split one) to prepend to the next stretch. */
-export function readTitles(text: string): {
-  titles: string[];
-  carried: string;
-} {
+export function readTitles(text: string) {
   const titles: string[] = [];
   let consumedTo = 0;
   for (const match of text.matchAll(TITLE_SEQUENCE_RE)) {
@@ -86,7 +83,7 @@ const carriedSequences = new Map<string, string>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- resolver bookkeeping, never rendered
 const settleWaiters = new Map<string, (() => void)[]>();
 
-function settleWaitersFor(id: string): void {
+function settleWaitersFor(id: string) {
   const waiters = settleWaiters.get(id);
   if (!waiters) {
     return;
@@ -104,7 +101,7 @@ function settleWaitersFor(id: string): void {
 export function observeAgentActivity({ id, chunk }: {
   id: string;
   chunk: string;
-}): void {
+}) {
   const { titles, carried } = readTitles(`${carriedSequences.get(id) ?? ""}${chunk}`);
   if (carried) {
     carriedSequences.set(id, carried);
@@ -131,7 +128,7 @@ export function observeAgentActivity({ id, chunk }: {
 
 /** Whether the agent itself reports work in flight - a running turn or delegated
  *  background work (reactive). False for an agent that announces nothing. */
-export function agentReportsBusy(id: string): boolean {
+export function agentReportsBusy(id: string) {
   return activities.get(id) === AgentActivity.busy;
 }
 
@@ -139,18 +136,18 @@ export function agentReportsBusy(id: string): boolean {
  *  dropped - the gate every session-ending flow waits behind, so none severs a
  *  running workflow or background agent. Resolves at once for an agent that
  *  reports nothing. */
-export function whenAgentSettled(id: string): Promise<void> {
+export function whenAgentSettled(id: string) {
   if (!agentReportsBusy(id)) {
     return Promise.resolve();
   }
 
-  return new Promise(resolve => {
+  return new Promise<void>(resolve => {
     settleWaiters.set(id, [...(settleWaiters.get(id) ?? []), resolve]);
   });
 }
 
 /** Forget a session's reported activity when it ends; anything waiting on it settles. */
-export function dropAgentActivity(id: string): void {
+export function dropAgentActivity(id: string) {
   activities.delete(id);
   carriedSequences.delete(id);
   settleWaitersFor(id);

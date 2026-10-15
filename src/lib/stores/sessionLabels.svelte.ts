@@ -11,16 +11,16 @@ const labels = new SvelteMap<string, string>();
 export function setSessionLabel({ id, label }: {
   id: string;
   label: string;
-}): void {
+}) {
   labels.set(id, label);
 }
 
 /** Read a session's custom label, or undefined if none is set (reactive). */
-export function sessionLabel(id: string): string | undefined {
+export function sessionLabel(id: string) {
   return labels.get(id);
 }
 
 /** Forget a session's label when its tab closes. */
-export function dropSessionLabel(id: string): void {
+export function dropSessionLabel(id: string) {
   labels.delete(id);
 }

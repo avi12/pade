@@ -56,7 +56,7 @@ interface ContextSignal {
 const signals = new SvelteMap<string, ContextSignal>();
 
 /** Scale a token count like "123", "45k", "1m" to an absolute number. */
-function scaleTokens(numberText: string, suffix: string | undefined): number | null {
+function scaleTokens(numberText: string, suffix: string | undefined) {
   const base = Number(numberText.replaceAll(",", ""));
   if (!Number.isFinite(base)) {
     return null;
@@ -143,7 +143,7 @@ const PERCENT_INDICATORS = [
 ] as const;
 
 /** Best-effort parse of a context "percent used" from a chunk of agent output. */
-function parseUsedPercentage(text: string): number | null {
+function parseUsedPercentage(text: string) {
   const lower = text.toLowerCase().replaceAll(COMPACTION_HEADROOM_STRIP_RE, "");
 
   for (const { pattern, isRemaining } of PERCENT_INDICATORS) {
@@ -164,7 +164,7 @@ function parseUsedPercentage(text: string): number | null {
 }
 
 /** The percent a "used / limit tokens" ratio implies, or null without one. */
-function parseRatioPercentage(lower: string): number | null {
+function parseRatioPercentage(lower: string) {
   const ratio = lower.match(RATIO_RE);
   if (!ratio) {
     return null;
@@ -193,10 +193,7 @@ const EMPTY_SIGNAL: ContextSignal = {
 
 /** The announced window size and the largest consumed-tokens counter in a
  *  piece of agent text ("null"/0 when absent). */
-function parseTokenSignals(text: string): {
-  windowTokens: number | null;
-  reportedTokens: number;
-} {
+function parseTokenSignals(text: string) {
   const lower = text.toLowerCase();
 
   let windowTokens: number | null = null;
@@ -224,7 +221,7 @@ function absorb({ id, text, characters }: {
   id: string;
   text: string;
   characters: number;
-}): void {
+}) {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
   const parsed = parseUsedPercentage(text);
   const tokens = parseTokenSignals(text);
@@ -241,7 +238,7 @@ function absorb({ id, text, characters }: {
 export function observeContext({ id, chunk }: {
   id: string;
   chunk: string;
-}): void {
+}) {
   absorb({
     id,
     text: chunk,
@@ -259,7 +256,7 @@ export function observeContext({ id, chunk }: {
 export function observeContextScreen({ id, text }: {
   id: string;
   text: string;
-}): void {
+}) {
   absorb({
     id,
     text,
@@ -278,7 +275,7 @@ export function observeContextScreen({ id, text }: {
 
 /** The percent left until the agent compacts its conversation, or null when
  *  no countdown is on screen. */
-function parseCompactionHeadroom(text: string): number | null {
+function parseCompactionHeadroom(text: string) {
   const countdown = text.toLowerCase().match(COMPACTION_HEADROOM_RE);
   if (!countdown) {
     return null;
@@ -290,7 +287,7 @@ function parseCompactionHeadroom(text: string): number | null {
 
 /** How much room the agent says is left before it compacts its own
  *  conversation (percent), or null when it shows no countdown. */
-export function compactionHeadroom(id: string): number | null {
+export function compactionHeadroom(id: string) {
   return signals.get(id)?.compactionHeadroom ?? null;
 }
 
@@ -313,7 +310,7 @@ const FALLBACK_WINDOW_TOKENS = 1_000_000;
 function tokensDerivedPercentage({ signal, allowFallback }: {
   signal: ContextSignal;
   allowFallback: boolean;
-}): number | null {
+}) {
   if (signal.reportedTokens === 0) {
     return null;
   }
@@ -329,7 +326,7 @@ function tokensDerivedPercentage({ signal, allowFallback }: {
 /** The percent the agent's own session log implies, or null until both halves of
  *  the fraction are known. The strongest signal there is: the agent wrote both
  *  numbers itself, so nothing here depends on what its TUI happened to paint. */
-function loggedPercentage(signal: ContextSignal): number | null {
+function loggedPercentage(signal: ContextSignal) {
   if (signal.loggedTokens === null || signal.windowTokens === null) {
     return null;
   }
@@ -339,7 +336,7 @@ function loggedPercentage(signal: ContextSignal): number | null {
 
 /** The session's context usage percent (logged if known, else parsed, else
  *  estimated), or null when nothing has been observed yet. */
-export function contextPercentage(id: string): number | null {
+export function contextPercentage(id: string) {
   const signal = signals.get(id);
   if (!signal) {
     return null;
@@ -385,7 +382,7 @@ export function contextPercentage(id: string): number | null {
  *  handoff threshold workable - a screen-scraped counter can only see what the
  *  TUI chose to paint, and Claude paints no percentage at all until the last
  *  ~3% of the window. */
-export function measuredContextPercentage(id: string): number | null {
+export function measuredContextPercentage(id: string) {
   const signal = signals.get(id);
   if (!signal) {
     return null;
@@ -410,7 +407,7 @@ export function observeSessionLog({ id, usedTokens, windowTokens }: {
   id: string;
   usedTokens: number | null;
   windowTokens: number | null;
-}): void {
+}) {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
   signals.set(id, {
     ...previous,
@@ -454,6 +451,6 @@ export function sessionModel(id: string) {
 }
 
 /** Forget a session's context when it ends. */
-export function dropContext(id: string): void {
+export function dropContext(id: string) {
   signals.delete(id);
 }

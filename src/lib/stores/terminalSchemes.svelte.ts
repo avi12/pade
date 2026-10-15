@@ -8,10 +8,10 @@
 import { terminal } from "@/lib/bridge";
 import type { Scheme, TerminalScheme, TerminalSchemeChoice } from "@/lib/types";
 
-const catalogue = $state<{ schemes: TerminalScheme[] }>({ schemes: [] });
+const catalogue = $state<{ schemes: readonly TerminalScheme[] }>({ schemes: [] });
 
 /** Every scheme the terminal can be painted with, in the backend's order. */
-export function terminalSchemes(): readonly TerminalScheme[] {
+export function terminalSchemes() {
   return catalogue.schemes;
 }
 
@@ -19,7 +19,7 @@ export function terminalSchemes(): readonly TerminalScheme[] {
  *  persisted choice paints on the very first frame instead of after a flash of
  *  the app palette. A failure leaves the list empty - every scheme then
  *  resolves to "follow the app theme", which is the honest fallback. */
-export async function loadTerminalSchemes(): Promise<void> {
+export async function loadTerminalSchemes() {
   try {
     catalogue.schemes = await terminal.schemes();
   } catch {
@@ -38,7 +38,7 @@ export function chosenTerminalScheme({
 }: {
   choice: TerminalSchemeChoice | null | undefined;
   scheme: Scheme;
-}): TerminalScheme | null {
+}) {
   const name = choice?.[scheme];
   if (!name) {
     return null;

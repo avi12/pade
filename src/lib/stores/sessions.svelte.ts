@@ -18,7 +18,7 @@ const idleWaiters = new SvelteMap<string, (() => void)[]>();
 export function setSessionStatus({ id, status }: {
   id: string;
   status: SessionStatus;
-}): void {
+}) {
   statuses.set(id, status);
 
   if (isIdleStatus(status)) {
@@ -27,29 +27,29 @@ export function setSessionStatus({ id, status }: {
 }
 
 /** Read a session's status (reactive) - defaults to `starting` until known. */
-export function sessionStatus(id: string): SessionStatus {
+export function sessionStatus(id: string) {
   return statuses.get(id) ?? SessionStatus.enum.starting;
 }
 
 /** Forget a session's status when its tab closes. A gone session has nothing
  *  left to sever, so any idle waiter on it settles too. */
-export function dropSessionStatus(id: string): void {
+export function dropSessionStatus(id: string) {
   statuses.delete(id);
   settleIdleWaiters(id);
 }
 
-function isIdleStatus(status: SessionStatus): boolean {
+function isIdleStatus(status: SessionStatus) {
   return status === SessionStatus.enum.ready || status === SessionStatus.enum.exited;
 }
 
 /** Is the session at an idle prompt (or already gone)? `ready` is the real idle
  *  signal - the Terminal's output-quiet detector - never child-process counting,
  *  which mis-reads persistent MCP servers as work in flight. */
-export function isSessionIdle(id: string): boolean {
+export function isSessionIdle(id: string) {
   return isIdleStatus(sessionStatus(id));
 }
 
-function settleIdleWaiters(id: string): void {
+function settleIdleWaiters(id: string) {
   const waiters = idleWaiters.get(id);
   if (!waiters) {
     return;
@@ -71,12 +71,12 @@ function settleIdleWaiters(id: string): void {
 export function whenSessionIdle({ id, timeoutMs }: {
   id: string;
   timeoutMs?: number;
-}): Promise<void> {
+}) {
   if (isSessionIdle(id)) {
     return Promise.resolve();
   }
 
-  return new Promise(resolve => {
+  return new Promise<void>(resolve => {
     const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
       const remaining = (idleWaiters.get(id) ?? []).filter(waiter => waiter !== settle);
       if (remaining.length > 0) {
@@ -88,7 +88,7 @@ export function whenSessionIdle({ id, timeoutMs }: {
       resolve();
     }, timeoutMs);
 
-    function settle(): void {
+    function settle() {
       clearTimeout(timer);
       resolve();
     }

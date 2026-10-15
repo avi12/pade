@@ -16,7 +16,7 @@ const newProjects = new Set<string>();
 const markerTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let unlistenEvidence: UnlistenFn | undefined;
 
-async function detectNewProjectMarker(project: string): Promise<void> {
+async function detectNewProjectMarker(project: string) {
   markerTimers.delete(project);
   const kind = await refreshProjectKind(project);
   if (!kind) {
@@ -27,7 +27,7 @@ async function detectNewProjectMarker(project: string): Promise<void> {
   await refreshEditors(project);
 }
 
-function scheduleMarkerDetection(project: string): void {
+function scheduleMarkerDetection(project: string) {
   const previous = markerTimers.get(project);
   if (previous !== undefined) {
     clearTimeout(previous);
@@ -42,7 +42,7 @@ function scheduleMarkerDetection(project: string): void {
 
 /** Subscribe once to filesystem changes. Only newly-created workspaces are armed;
  * their cheap registry marker probe retires permanently after its first match. */
-export async function initNewProjectDetection(): Promise<void> {
+export async function initNewProjectDetection() {
   if (unlistenEvidence) {
     return;
   }
@@ -68,11 +68,11 @@ export async function initNewProjectDetection(): Promise<void> {
   }
 }
 
-export function armNewProjectDetection(project: string): void {
+export function armNewProjectDetection(project: string) {
   newProjects.add(project);
 }
 
-export function disposeNewProjectDetection(): void {
+export function disposeNewProjectDetection() {
   unlistenEvidence?.();
   unlistenEvidence = undefined;
   for (const timer of markerTimers.values()) {

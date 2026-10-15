@@ -36,7 +36,7 @@ const KEY_SEPARATOR = "\u0000";
 export function taskKey({ directory, command }: {
   directory: string;
   command: string;
-}): string {
+}) {
   return `${directory}${KEY_SEPARATOR}${command}`;
 }
 
@@ -48,7 +48,7 @@ const lastLivenessCheck = new SvelteMap<string, number>();
 
 /** Whether a task (by key) is currently running (reactive) - a live runner row,
  *  which for an agent-started task means a live process under the agent's tree. */
-export function isTaskRunning(key: string): boolean {
+export function isTaskRunning(key: string) {
   return runnerRows().some(row =>
     !row.done && taskKey({
       directory: row.cwd,
@@ -58,7 +58,7 @@ export function isTaskRunning(key: string): boolean {
 
 /** Drop a dead session's throttle entries - nothing can be running under a PTY
  *  that has exited, and a fresh session must be free to ask again at once. */
-function forgetSession(sessionId: string): void {
+function forgetSession(sessionId: string) {
   const prefix = `${sessionId}${KEY_SEPARATOR}`;
   for (const checkKey of lastLivenessCheck.keys()) {
     if (checkKey.startsWith(prefix)) {
@@ -69,7 +69,7 @@ function forgetSession(sessionId: string): void {
 
 /** One runnable task as the detector needs it: its key + command for matching,
  *  plus the label/kind/dir an attached runner needs to render itself. */
-export interface KnownTaskCommand {
+interface KnownTaskCommand {
   key: string;
   command: string;
   label: string;
@@ -78,7 +78,7 @@ export interface KnownTaskCommand {
 }
 
 /** Derive detector inputs from the exact catalog snapshot rendered by the panel. */
-export function knownTaskCommands(snapshot: TaskCatalogSnapshot): KnownTaskCommand[] {
+export function knownTaskCommands(snapshot: TaskCatalogSnapshot) {
   return snapshot.groups.flatMap(group =>
     group.tasks.map(task => ({
       key: taskKey({
@@ -102,7 +102,7 @@ export function knownTaskCommands(snapshot: TaskCatalogSnapshot): KnownTaskComma
 async function attachWhenRunning({ sessionId, task }: {
   sessionId: string;
   task: KnownTaskCommand;
-}): Promise<void> {
+}) {
   const alreadyShown = attachedRunner({
     sessionId,
     command: task.command
@@ -140,7 +140,7 @@ async function attachWhenRunning({ sessionId, task }: {
 function detect({ sessionId, chunk }: {
   sessionId: string;
   chunk: string;
-}): void {
+}) {
   const lines = chunk.split("\n");
   for (const task of knownTaskCommands(taskCatalog.snapshot)) {
     const isInvocation = lines.some(line => isTaskInvocation({
@@ -162,7 +162,7 @@ function detect({ sessionId, chunk }: {
 let listenerInitialization: Promise<void> | undefined;
 let listenerUnlistens: UnlistenFn[] = [];
 
-async function startListeners(): Promise<void> {
+async function startListeners() {
   const pendingUnlistens: UnlistenFn[] = [];
   try {
     pendingUnlistens.push(
@@ -183,7 +183,7 @@ async function startListeners(): Promise<void> {
 
 /** Start watching agent output for known-task runs. Idempotent; call once from
  *  the app shell (like the runner listeners). */
-export async function initTaskRunDetection(project: () => string): Promise<void> {
+export async function initTaskRunDetection(project: () => string) {
   await taskCatalog.initialize(project);
 
   if (listenerUnlistens.length === 0) {
@@ -200,6 +200,6 @@ export async function initTaskRunDetection(project: () => string): Promise<void>
 }
 
 /** Re-read task commands after this window switches projects. */
-export async function refreshTaskRunDetection(): Promise<void> {
+export async function refreshTaskRunDetection() {
   await taskCatalog.refresh();
 }

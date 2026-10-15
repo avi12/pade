@@ -9,26 +9,12 @@ import { normalizePath } from "@/lib/paths";
 import { SvelteMap } from "svelte/reactivity";
 
 /** One lazily-loaded, visibility-driven lookup keyed by project path. */
-export interface VisiblePathBatch<Value> {
-  /** Cached value: `undefined` while unresolved, `null` when probed empty. */
-  value(path: string): Value | null | undefined;
-  /** Queue one path through the shared batch (non-visual consumers, tests). */
-  request(path: string): void;
-  /** Probe one path immediately, bypassing the batch, and publish the result. */
-  refresh(path: string): Promise<Value | null | undefined>;
-  /** Attachment that requests a path only once its row becomes visible. */
-  observe(args: { path: string }): (element: Element) => () => void;
-  /** Forget every cached value and re-request the rows still on screen - for a
-   *  value that changes under us (a branch switch) without an event per path. */
-  invalidate(): void;
-}
-
 export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   /** Resolve a batch of paths; a path missing from the result is probed empty. */
   load: (paths: string[]) => Promise<Record<string, Value>>;
   /** Oldest entries are evicted beyond this many cached paths. */
   cacheLimit: number;
-}): VisiblePathBatch<Value> {
+}) {
   const values = new SvelteMap<string, Value | null>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
   const originalPaths = new Map<string, string>();
@@ -51,7 +37,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   function publish({ key, value }: {
     key: string;
     value: Value | null;
-  }): void {
+  }) {
     values.set(key, value);
 
     if (values.size <= cacheLimit) {
@@ -66,7 +52,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     }
   }
 
-  async function flushPending(): Promise<void> {
+  async function flushPending() {
     flushQueued = false;
 
     if (loading || pending.size === 0) {
@@ -105,7 +91,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     }
   }
 
-  function scheduleFlush(): void {
+  function scheduleFlush() {
     if (flushQueued) {
       return;
     }
@@ -114,7 +100,8 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     queueMicrotask(flushPending);
   }
 
-  function request(path: string): void {
+  /** Queue one path through the shared batch (non-visual consumers, tests). */
+  function request(path: string) {
     const key = normalizePath(path);
     if (values.has(key) || refreshRequests.has(key)) {
       return;
@@ -131,7 +118,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   function adjustVisibility({ key, becameVisible }: {
     key: string;
     becameVisible: boolean;
-  }): void {
+  }) {
     const count = visibleCounts.get(key) ?? 0;
     const next = Math.max(0, count + (becameVisible ? 1 : -1));
     if (next === 0) {
@@ -141,7 +128,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     }
   }
 
-  function rowObserver(): IntersectionObserver {
+  function rowObserver() {
     observer ??= new IntersectionObserver(entries => {
       for (const entry of entries) {
         const state = observed.get(entry.target);
@@ -163,11 +150,13 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     return observer;
   }
 
-  function value(path: string): Value | null | undefined {
+  /** Cached value: `undefined` while unresolved, `null` when probed empty. */
+  function value(path: string) {
     return values.get(normalizePath(path));
   }
 
-  async function refresh(path: string): Promise<Value | null | undefined> {
+  /** Probe one path immediately, bypassing the batch, and publish the result. */
+  async function refresh(path: string) {
     const key = normalizePath(path);
     const refreshRequest = Symbol(key);
     latestRequests.set(key, refreshRequest);
@@ -197,6 +186,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     return result;
   }
 
+  /** Attachment that requests a path only once its row becomes visible. */
   function observe({ path }: { path: string }) {
     return (element: Element) => {
       const key = normalizePath(path);
@@ -233,7 +223,9 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     };
   }
 
-  function invalidate(): void {
+  /** Forget every cached value and re-request the rows still on screen - for a
+   *  value that changes under us (a branch switch) without an event per path. */
+  function invalidate() {
     values.clear();
     for (const key of visibleCounts.keys()) {
       request(originalPaths.get(key) ?? key);

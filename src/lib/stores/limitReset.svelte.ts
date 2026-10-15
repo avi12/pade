@@ -15,13 +15,13 @@ let isClaiming = $state(false);
 let failure = $state<string | null>(null);
 
 /** The reset Claude's account can spend now, or null when it holds none. */
-export function limitResetOffer(): LimitReset | null {
+export function limitResetOffer() {
   return offer;
 }
 
 /** How many resets are left and until when ("1 left · use by Oct 22"), or ""
  *  without an offer. */
-export function limitResetSummary(): string {
+export function limitResetSummary() {
   if (!offer) {
     return "";
   }
@@ -48,7 +48,7 @@ export function limitResetConfirmation() {
 }
 
 /** Re-read the offer - on each of the meter's usage readings, and after a claim. */
-export async function refreshLimitResetOffer(): Promise<void> {
+export async function refreshLimitResetOffer() {
   offer = await usageApi.limitResetOffer().catch(() => null);
   announceNewOffer();
 }
@@ -69,13 +69,13 @@ function announceNewOffer() {
 }
 
 /** Open the confirmation for spending the offered reset. */
-export function askToResetLimits(): void {
+export function askToResetLimits() {
   failure = null;
   isConfirming = true;
 }
 
 /** Close the confirmation, unless the claim is already on its way. */
-export function cancelLimitReset(): void {
+export function cancelLimitReset() {
   if (!isClaiming) {
     isConfirming = false;
   }
@@ -83,7 +83,7 @@ export function cancelLimitReset(): void {
 
 /** Spend the offered reset. `onreset` re-reads the account once it worked, so
  *  the meter shows the cleared limits; a refusal stays open with its reason. */
-export async function confirmLimitReset(onreset: () => Promise<void>): Promise<void> {
+export async function confirmLimitReset(onreset: () => Promise<void>) {
   if (!offer) {
     return;
   }

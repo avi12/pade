@@ -14,17 +14,17 @@ const header = $state<PanelHeader>({
 });
 
 /** Publish the active panel's header bits (call from a panel `$effect`). */
-export function setPanelHeader({ count, refresh }: PanelHeader): void {
+export function setPanelHeader({ count, refresh }: PanelHeader) {
   header.count = count;
   header.refresh = refresh;
 }
 
 /** The active panel's count, or `null` when it doesn't show one. */
-export function panelCount(): number | null {
+export function panelCount() {
   return header.count;
 }
 
 /** The active panel's refresh action, or `null` when it isn't refreshable. */
-export function panelRefresh(): (() => void) | null {
+export function panelRefresh() {
   return header.refresh;
 }

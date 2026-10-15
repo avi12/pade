@@ -9,7 +9,7 @@ let toast = $state("");
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Show `message` in the toast pill, restarting the auto-dismiss countdown. */
-export function showToast(message: string): void {
+export function showToast(message: string) {
   toast = message;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
@@ -18,6 +18,6 @@ export function showToast(message: string): void {
 }
 
 /** The toast currently showing ("" when dismissed). */
-export function toastText(): string {
+export function toastText() {
   return toast;
 }

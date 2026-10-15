@@ -18,18 +18,18 @@ let root = $state("");
 let list = $state<WorkspaceMember[]>([]);
 /** HEAD branch per member, keyed by the member's absolute path. Only checkouts
  *  appear: `vcs_branch_of` omits a path that isn't a repo or is detached. */
-let branchByPath = $state<Record<string, string>>({});
+let branchByPath = $state<Partial<Record<string, string>>>({});
 /** The member every "where does this start?" decision points at - always a real
  *  member path, defaulting to the workspace root. */
 let active = $state("");
 
 /** The workspace's members, root first. Empty until a project is loaded. */
-export function workspaceMembers(): WorkspaceMember[] {
+export function workspaceMembers() {
   return list;
 }
 
 /** Where a member lives on disk. */
-export function pathOfMember(member: WorkspaceMember): string {
+export function pathOfMember(member: WorkspaceMember) {
   return memberPath({
     root,
     member
@@ -38,7 +38,7 @@ export function pathOfMember(member: WorkspaceMember): string {
 
 /** The branch a member is on, or undefined when it isn't a checkout (or is on a
  *  detached HEAD). */
-export function branchOfMember(path: string): string | undefined {
+export function branchOfMember(path: string) {
   return branchByPath[path];
 }
 
@@ -51,20 +51,20 @@ export function branchOfMember(path: string): string | undefined {
  *  workspace just left must not answer for this one. Unguarded it returned a
  *  stale member - or, on the first project of a session, the empty string, which
  *  spawns the agent in the user's home directory instead of the project. */
-export function activeMemberIn(projectRoot: string): string {
+export function activeMemberIn(projectRoot: string) {
   const belongsToProject = root === projectRoot && active.length > 0;
   return belongsToProject ? active : projectRoot;
 }
 
 /** Point the workspace at one of its members. */
-export function selectMember(path: string): void {
+export function selectMember(path: string) {
   active = path;
 }
 
 /** Load the members of `projectRoot`, then their branches. A project switch
  *  resets the selection to the root: the member you had chosen belongs to the
  *  workspace you just left. */
-export async function loadWorkspaceMembers(projectRoot: string): Promise<void> {
+export async function loadWorkspaceMembers(projectRoot: string) {
   root = projectRoot;
   active = projectRoot;
   list = [];
@@ -74,7 +74,7 @@ export async function loadWorkspaceMembers(projectRoot: string): Promise<void> {
     return;
   }
 
-  const found = await members.list(projectRoot).catch((): WorkspaceMember[] => []);
+  const found = await members.list(projectRoot).catch(() => []);
   if (root !== projectRoot) {
     return;
   }
@@ -85,7 +85,7 @@ export async function loadWorkspaceMembers(projectRoot: string): Promise<void> {
 
 /** Re-read every checkout's HEAD - on load, and again whenever git state moves
  *  (a branch switch, a `git init`, a fresh clone inside the workspace). */
-export async function refreshMemberBranches(): Promise<void> {
+export async function refreshMemberBranches() {
   const asked = root;
   const paths = list
     .filter(member => member.repository)
@@ -95,7 +95,7 @@ export async function refreshMemberBranches(): Promise<void> {
     return;
   }
 
-  const heads = await vcs.branchOf(paths).catch((): Record<string, string> => ({}));
+  const heads = await vcs.branchOf(paths).catch(() => ({}));
   if (root !== asked) {
     return;
   }

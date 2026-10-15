@@ -64,7 +64,7 @@ const hits = new SvelteMap<string, ApiErrorHit>();
 /** Whether a chunk of agent output is a transient API-side stop worth retrying -
  *  an "API Error", an overloaded/500/502/503/529 server error, or a dropped
  *  connection. Never a usage limit, even one worded as an API error (auto-resume's). */
-export function parseApiError({ text }: { text: string }): boolean {
+export function parseApiError({ text }: { text: string }) {
   return API_ERROR_RE.test(text) && !isUsageLimitStop(text);
 }
 
@@ -74,7 +74,7 @@ export function parseApiError({ text }: { text: string }): boolean {
 export function observeApiError({ id, chunk }: {
   id: string;
   chunk: string;
-}): void {
+}) {
   if (hits.has(id) || hasUsageLimit(id)) {
     return;
   }
@@ -85,7 +85,7 @@ export function observeApiError({ id, chunk }: {
 }
 
 /** Forget a session's API-error state when it ends. */
-export function dropApiError(id: string): void {
+export function dropApiError(id: string) {
   hits.delete(id);
 }
 

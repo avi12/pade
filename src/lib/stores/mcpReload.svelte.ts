@@ -14,7 +14,7 @@ const pending = new SvelteMap<string, string>();
 const failed = new SvelteSet<string>();
 
 /** Remember sessions whose same-name MCP definitions changed. */
-export function armMcpReloadRecovery(sessionIds: readonly string[]): void {
+export function armMcpReloadRecovery(sessionIds: readonly string[]) {
   for (const id of sessionIds) {
     pending.set(id, "");
     failed.delete(id);
@@ -23,7 +23,7 @@ export function armMcpReloadRecovery(sessionIds: readonly string[]): void {
 
 /** Whether terminal output reports a failed MCP reload. Exported for focused
  * tests; the live observer additionally requires a pending config edit. */
-export function parseMcpReloadFailure({ text }: { text: string }): boolean {
+export function parseMcpReloadFailure({ text }: { text: string }) {
   return FAILURE_RE.test(stripAnsi(text));
 }
 
@@ -31,7 +31,7 @@ export function parseMcpReloadFailure({ text }: { text: string }): boolean {
 export function observeMcpReload({ id, chunk }: {
   id: string;
   chunk: string;
-}): void {
+}) {
   const previous = pending.get(id);
   if (previous === undefined || failed.has(id)) {
     return;
@@ -53,12 +53,12 @@ export function observeMcpReload({ id, chunk }: {
 }
 
 /** Reactive ids whose manual/agent reload failed and need intervention. */
-export function failedMcpReloads(): string[] {
+export function failedMcpReloads() {
   return [...failed];
 }
 
 /** Clear all reload state when recovery starts or a session ends. */
-export function dropMcpReload(id: string): void {
+export function dropMcpReload(id: string) {
   pending.delete(id);
   failed.delete(id);
 }
