@@ -564,7 +564,6 @@ flowchart LR
 | Module | Responsibility | Collaborators |
 | --- | --- | --- |
 | `src/lib/ide/IdeMenu.svelte` | Split launcher for the project: opens the project's editor - resolved through the shared `stores/workspace/editors` ranking (SSOT with the Change Feed's reveal), GUI editors via the OS, console editors handed back to `App` for a terminal tab - and always exposes a drop-down whose final action reveals the project in the file explorer; picking from the list persists an explicit per-project choice (`ide_choose_editor`) that then leads the ranking everywhere | `stores/workspace/editors`, `ipc/messaging`, `settings-requests` |
-| `src/lib/ide/DesignMenu.svelte` | Quick-launch menu for AI design tools | `ipc/messaging` |
 | `src/lib/ide/ide-icon.ts` | The editors PADE detects (`IdeId`, mirroring `ide.rs`) and each one's brand mark | `IdeMenu`, `picker/EditorsSection` |
 
 ### Task runners (`src/lib/runners/`)

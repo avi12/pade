@@ -391,13 +391,9 @@ writes.
   workspace listens to the existing filesystem feed until its first registered
   project marker appears; that same cached result updates language consumers,
   refreshes editor ranking once, and retires the detector without polling.
-- R1.10.2 ✅ **Design menu** - an AI design/UI-generation tool as a design-to-code
-  companion (`design.rs`; Claude, Google Stitch, Vercel v0, Figma Make). Roster
-  **ranked for the active agent** (the vendor-matched tool is pinned first);
-  one registry entry per product (DRY). Opens in a reused **companion PADE
-  window** (a native Tauri webview - all four sites block iframes via
-  `X-Frame-Options`, so in-page embedding is impossible). 🔭 a docked
-  side-by-side panel form.
+- R1.10.2 ❌ **Design menu** - removed from the top bar (the user's call). The
+  backend's `design.rs` roster and its `design_tools` / `design_open` commands
+  go with the next backend change.
 - R1.10.3 ✅ **Agent usage meter** - shipped as the top-bar meter; see 1.6.
 - R1.10.4 ✅ **Task-runner dock** - runnable tasks parsed from manifests
   (`package.json` scripts, Cargo/Make/pyproject, the C++ build systems, .NET,

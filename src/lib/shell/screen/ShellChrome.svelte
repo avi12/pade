@@ -1,5 +1,4 @@
 <script lang="ts">
-  import DesignMenu from "@/lib/ide/DesignMenu.svelte";
   import IdeMenu from "@/lib/ide/IdeMenu.svelte";
   import { Command } from "@/lib/ipc/messaging";
   import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
@@ -29,7 +28,6 @@
     repository,
     sessions,
     activeSession,
-    activeAgent,
     side = $bindable(),
     onopen,
     onswitch,
@@ -44,8 +42,6 @@
     repository: ReturnType<typeof createActiveRepository>;
     sessions: AgentSession[];
     activeSession: AgentSession | undefined;
-    /** The active session's agent id - which design tools and config apply. */
-    activeAgent: string;
     side: Side | null;
     onopen: AppMenuProps["onopen"];
     onswitch: AppMenuProps["onswitch"];
@@ -119,7 +115,6 @@
   <span class="chrome-spacer"></span>
 
   <UsageMeter {sessions} />
-  <DesignMenu agent={activeAgent} />
   <!-- Open a console editor (Neovim/Vim/Helix) in its own terminal tab,
        split beside the agent so you can watch and edit at once. GUI editors
        go through the OS (ide.open); these need a real TTY, which only a PADE

@@ -94,7 +94,6 @@
 <div class="shell">
   <header class="topbar">
     <ShellChrome
-      {activeAgent}
       activeSession={windowSessions.activeSession}
       {isTemp}
       label={projectLabel}
