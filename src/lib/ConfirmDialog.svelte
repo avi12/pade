@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
+  import { ToggleState } from "@/lib/toggle-state";
   import type { Snippet } from "svelte";
 
   // Shared confirmation prompt - an in-app themed card in place of the OS popup, so
@@ -46,15 +47,25 @@
     children: Snippet;
   } = $props();
 
-  const actionLabel = $derived(busy && busyLabel ? busyLabel : confirmLabel);
+  const INITIAL_FOCUS_SELECTOR = "[data-initial-focus]";
+  const CANCEL_SELECTOR = ".cancel";
+  const POPOVER_OPEN_SELECTOR = ":popover-open";
 
-  let dialogElement = $state<HTMLDialogElement | null>(null);
-  let scrimElement = $state<HTMLDialogElement | null>(null);
+  const actionLabel = $derived.by(() => {
+    if (busy && busyLabel) {
+      return busyLabel;
+    }
+
+    return confirmLabel;
+  });
+
+  let elDialog = $state<HTMLDialogElement | null>(null);
+  let elScrim = $state<HTMLDialogElement | null>(null);
 
   // Lift onto the top layer once mounted (showModal throws on an open dialog).
   $effect(() => {
-    if (dialogElement && !dialogElement.open) {
-      dialogElement.showModal();
+    if (elDialog && !elDialog.open) {
+      elDialog.showModal();
     }
   });
 
@@ -62,12 +73,14 @@
   // it on the body's own `data-initial-focus` field when it has one (a prompt that
   // asks for text), else on Cancel - the safe default for a destructive prompt.
   $effect(() => {
-    if (scrimElement && !scrimElement.matches(":popover-open")) {
-      scrimElement.showPopover();
-      const initialFocus = scrimElement.querySelector<HTMLElement>("[data-initial-focus]")
-        ?? scrimElement.querySelector<HTMLElement>(".cancel");
-      initialFocus?.focus();
+    if (!elScrim || elScrim.matches(POPOVER_OPEN_SELECTOR)) {
+      return;
     }
+
+    elScrim.showPopover();
+    const elInitialFocus = elScrim.querySelector<HTMLElement>(INITIAL_FOCUS_SELECTOR)
+      ?? elScrim.querySelector<HTMLElement>(CANCEL_SELECTOR);
+    elInitialFocus?.focus();
   });
 </script>
 
@@ -83,7 +96,16 @@
 
   <footer>
     <button class="cancel" disabled={busy} onclick={oncancel} type="button">Cancel</button>
-    <button class="confirm" disabled={busy} onclick={onconfirm} type="button">
+    <button
+      class="confirm"
+      disabled={busy}
+      onclick={async () => {
+        if (!busy) {
+          await onconfirm();
+        }
+      }}
+      type="button"
+    >
       {#if busy}
         <span class="spinner"><Icon name="refresh" size={15} /></span>
       {/if}
@@ -99,17 +121,17 @@
        cancels without reaching the menu; Esc light-dismisses → oncancel via ontoggle.
        Being a <dialog>, the backdrop click needs no faux-interactive role. -->
   <dialog
-    bind:this={scrimElement}
+    bind:this={elScrim}
     class="scrim"
     class:danger
     aria-labelledby="confirm-title"
     onclick={e => {
-      if (e.target === scrimElement && !busy) {
+      if (e.target === elScrim && !busy) {
         oncancel();
       }
     }}
     ontoggle={e => {
-      if ((e as ToggleEvent).newState === "closed" && !busy) {
+      if ((e as ToggleEvent).newState === ToggleState.closed && !busy) {
         oncancel();
       }
     }}
@@ -119,7 +141,7 @@
   </dialog>
 {:else}
   <dialog
-    bind:this={dialogElement}
+    bind:this={elDialog}
     class="dialog"
     class:danger
     aria-labelledby="confirm-title"
@@ -135,7 +157,7 @@
     onclick={e => {
       // A modal <dialog>'s hit area spans the viewport: a click whose target is
       // the dialog itself landed on the ::backdrop, not on the card.
-      if (e.target === dialogElement && !busy) {
+      if (e.target === elDialog && !busy) {
         oncancel();
       }
     }}
