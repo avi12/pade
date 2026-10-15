@@ -443,8 +443,8 @@ fn remap_link(link: &Path, old: &str, new: &str) {
     let Some(target_text) = target.to_str() else {
         return;
     };
-    let Some(remapped) = remap_under(target_text, old, new) else {
-        return; // relative, or not under `old` - leave it alone
+    let Some(remapped) = moved_link_target(target_text, old, new) else {
+        return;
     };
     // A link to a directory must be recreated as a dir link (junction on
     // Windows); resolve through the link to learn what it points at.
@@ -452,24 +452,15 @@ fn remap_link(link: &Path, old: &str, new: &str) {
     recreate_link(link, &remapped, is_target_directory);
 }
 
-/// Remap an absolute `target` that sits under `old` to the same suffix under
-/// `new`; `None` if `target` is relative or not under `old`. Case-insensitive
-/// prefix match on Windows (its filesystem is), case-sensitive elsewhere.
-fn remap_under(target: &str, old: &str, new: &str) -> Option<String> {
+/// Where an absolute link `target` points once the folder `old` becomes `new`:
+/// `None` for a relative target (it survives the move as-is) or one outside
+/// `old`. Reads [`moved_path`], so a sibling that merely shares the folder's
+/// name prefix (`proj-effort` beside `proj`) is never re-pointed.
+fn moved_link_target(target: &str, old: &str, new: &str) -> Option<String> {
     if !Path::new(target).is_absolute() {
         return None;
     }
-    let starts_under_old = if cfg!(windows) {
-        target.to_lowercase().starts_with(&old.to_lowercase())
-    } else {
-        target.starts_with(old)
-    };
-    if !starts_under_old {
-        return None;
-    }
-    // Preserve the original suffix bytes (only the `old` prefix is swapped).
-    let suffix = &target[old.len()..];
-    Some(format!("{new}{suffix}"))
+    moved_path(target, old, new)
 }
 
 /// Remove the stale link at `link` and recreate it pointing at `target`. On
@@ -627,7 +618,7 @@ fn spawn_install(directory: &Path, command: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{rebase_paths_in, remap_under, vscode_uri};
+    use super::{moved_link_target, rebase_paths_in, vscode_uri};
 
     #[test]
     fn vscode_uri_encodes_a_windows_path() {
@@ -664,55 +655,54 @@ mod tests {
         );
     }
 
-    #[test]
-    fn remap_under_ignores_relative_targets() {
-        assert_eq!(remap_under("relative/path", "/old", "/new"), None);
+    /// An absolute path on this platform: `C:\…` on Windows, `/…` elsewhere.
+    fn absolute(relative: &str) -> String {
+        if cfg!(windows) {
+            format!(r"C:\{}", relative.replace('/', r"\"))
+        } else {
+            format!("/{relative}")
+        }
     }
 
-    #[cfg(windows)]
+    fn moved(target: &str) -> Option<String> {
+        moved_link_target(target, &absolute("old/proj"), &absolute("new/proj"))
+    }
+
     #[test]
-    fn remap_under_swings_a_target_under_the_old_tree() {
+    fn a_relative_link_target_is_left_alone() {
+        assert_eq!(moved("relative/path"), None);
+    }
+
+    #[test]
+    fn a_link_target_under_the_old_tree_swings_to_the_new_one() {
         assert_eq!(
-            remap_under(
-                r"C:\old\proj\node_modules\pkg",
-                r"C:\old\proj",
-                r"C:\new\proj"
-            )
-            .as_deref(),
-            Some(r"C:\new\proj\node_modules\pkg")
+            moved(&absolute("old/proj/node_modules/pkg")),
+            Some(absolute("new/proj/node_modules/pkg"))
         );
     }
 
-    #[cfg(windows)]
     #[test]
-    fn remap_under_matches_the_old_prefix_case_insensitively() {
-        assert_eq!(
-            remap_under(r"c:\OLD\proj\x", r"C:\old\proj", r"C:\new\proj").as_deref(),
-            Some(r"C:\new\proj\x")
-        );
+    fn a_link_target_outside_the_old_tree_is_left_alone() {
+        assert_eq!(moved(&absolute("elsewhere/x")), None);
     }
 
-    #[cfg(windows)]
     #[test]
-    fn remap_under_leaves_targets_outside_the_old_tree() {
+    fn a_link_into_a_sibling_sharing_the_name_prefix_is_left_alone() {
+        assert_eq!(moved(&absolute("old/proj-effort/x")), None);
+    }
+
+    #[test]
+    fn a_link_target_matches_the_old_folder_ascii_case_insensitively() {
+        assert_eq!(moved(&absolute("OLD/Proj/x")), Some(absolute("new/proj/x")));
+    }
+
+    /// The Kelvin sign lowercases to an ASCII `k` but is three bytes long, so a
+    /// Unicode-lowercased prefix match used to slice the target mid-character.
+    #[test]
+    fn a_non_ascii_lookalike_never_matches_or_panics() {
         assert_eq!(
-            remap_under(r"C:\elsewhere\x", r"C:\old\proj", r"C:\new\proj"),
+            moved_link_target(&absolute("\u{212A}/x"), &absolute("k"), &absolute("new")),
             None
         );
-    }
-
-    #[cfg(not(windows))]
-    #[test]
-    fn remap_under_swings_a_target_under_the_old_tree() {
-        assert_eq!(
-            remap_under("/old/proj/node_modules/pkg", "/old/proj", "/new/proj").as_deref(),
-            Some("/new/proj/node_modules/pkg")
-        );
-    }
-
-    #[cfg(not(windows))]
-    #[test]
-    fn remap_under_leaves_targets_outside_the_old_tree() {
-        assert_eq!(remap_under("/elsewhere/x", "/old/proj", "/new/proj"), None);
     }
 }
