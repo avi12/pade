@@ -3,24 +3,19 @@
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
   import { addRoot as requestAddRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
-  import { AddRootStatus, StartMode } from "@/lib/types";
-  import type {
-    Agent,
-    EditorKind,
-    Ide,
-    OpenTarget,
-    ProjectEntry,
-    Settings
-  } from "@/lib/types";
+  import { AddRootStatus } from "@/lib/types";
+  import type { Agent, OpenTarget, ProjectEntry, Settings } from "@/lib/types";
   import BrandMark from "@/lib/ui/BrandMark.svelte";
-  import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/util/paths";
+  import { isTemporaryWorkspace } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
   import type { Relocator } from "@/lib/workspace/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
+  import { createEditorCatalog } from "@/panels/picker/editorCatalog.svelte";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
   import { createWorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OnLaunchSection from "@/panels/picker/OnLaunchSection.svelte";
+  import { popularRoot, watchedDirectories } from "@/panels/picker/project-roots";
   import QuickStartSection from "@/panels/picker/QuickStartSection.svelte";
   import RecentSection from "@/panels/picker/RecentSection.svelte";
   import RootsSection from "@/panels/picker/RootsSection.svelte";
@@ -55,63 +50,16 @@
     ondelete: (path: string) => Promise<Settings>;
   } = $props();
 
+  const RESCAN_DEBOUNCE_MILLISECONDS = 250;
+
   let projectsByRoot = $state<Record<string, ProjectEntry[]>>({});
   // Whether the first settings load has landed. The sections render only then,
   // so every control is born showing the persisted preference - never a
   // defaults flash that snaps to the real values a beat later.
   let isLoaded = $state(false);
-  let ides = $state<Ide[]>([]);
-  // The project kinds the rules engine shows, straight from the backend registry
-  // (its single home) in render/priority order.
-  let kinds = $state<EditorKind[]>([]);
-  // Editor ids that suit each project kind (kind → ordered), so a per-kind editor
-  // menu offers only fitting editors rather than every installed one.
-  let kindOptions = $state<Record<string, string[]>>({});
-
-  async function setEditorRule({ kind, editorId }: {
-    kind: string;
-    editorId: string;
-  }) {
-    await updatePrefs({
-      ideRules: {
-        ...settings.prefs.ideRules,
-        [kind]: editorId
-      }
-    });
-  }
-  async function setEditorFallback(editorId: string) {
-    await updatePrefs({
-      ideFallback: editorId
-    });
-  }
-  // Add an editor by executable path. The backend validates the executable and
-  // persists it; we refresh the detected list so it appears in every menu.
-  // Returns the new editor's label on success, or the rejection message.
-  async function addEditor(path: string) {
-    try {
-      await sendSettingsMessage(Command.ideAddEditor, { path });
-      ides = await sendMessage(Command.ideDetect);
-      const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
-      return { label: added?.label ?? "Editor" };
-    } catch (error) {
-      return { error: typeof error === "string" ? error : "Couldn’t add that editor" };
-    }
-  }
-  // Re-probe the machine for installed editors (the Editors "Reload" button). The
-  // detected list is shared across the picker, so refreshing it here updates every
-  // section at once. Returns how many were auto-detected (added editors aren't
-  // "detected") for the button's toast.
-  async function rescanEditors() {
-    ides = await sendMessage(Command.ideDetect);
-    const addedIds = new Set((settings.prefs.addedEditors ?? []).map(editor => editor.id));
-    return ides.filter(editor => !addedIds.has(editor.id)).length;
-  }
-  // Drop a user-added editor, then refresh the detected list so it leaves every
-  // menu. The returned settings are adopted before detection refreshes.
-  async function removeEditor(id: string) {
-    await sendSettingsMessage(Command.ideRemoveEditor, { id });
-    ides = await sendMessage(Command.ideDetect);
-  }
+  // The machine's editors and project kinds - shared across the picker, so a
+  // re-detect from the Editors "Reload" button updates every section at once.
+  const editors = createEditorCatalog();
 
   // Re-scan every root's projects into projectsByRoot - the cheap part of a
   // reload (a handful of directory reads), shared by both refresh paths.
@@ -137,39 +85,13 @@
 
   // Full reload: everything, including the machine's editors + project kinds.
   async function refresh() {
-    const [, detectedIdes, detectedKinds, detectedKindOptions] = await Promise.all([
+    await Promise.all([
       sendSettingsMessage(Command.workspacePrune),
-      sendMessage(Command.ideDetect),
-      sendMessage(Command.ideKinds),
-      sendMessage(Command.ideKindOptions)
+      editors.detect()
     ]);
-    ides = detectedIdes;
-    kinds = detectedKinds;
-    kindOptions = detectedKindOptions;
     projectsByRoot = await scanRoots();
   }
 
-  async function setStartMode(mode: StartMode) {
-    await updatePrefs({
-      startMode: mode
-    });
-  }
-  async function setTempCleanup(days: number | null) {
-    await updatePrefs({
-      tempCleanupDays: days
-    });
-    await refreshProjects();
-  }
-  async function setAutoName(on: boolean) {
-    await updatePrefs({
-      autoNameTemp: on
-    });
-  }
-  async function setAiNaming(on: boolean) {
-    await updatePrefs({
-      aiSessionNaming: on
-    });
-  }
   // A root that can't be read lists no projects.
   async function scan(root: string) {
     return await settledValue<ProjectEntry[]>({
@@ -185,65 +107,6 @@
   // The Root folders section instance - the create-form's "New root folder…"
   // option jumps to its add field through this handle.
   let rootsSection = $state<{ focusAddRoot: () => void } | null>(null);
-
-  // The form's best default root: a lone root wins outright; otherwise the one
-  // most recent projects live in (ties keep the earlier root).
-  function popularRoot() {
-    const { roots, recentProjects } = settings;
-    if (roots.length <= 1) {
-      return roots[0] ?? "";
-    }
-
-    const recentParents = recentProjects
-      .map(parentDirectory)
-      .filter((parent): parent is string => parent !== null)
-      .map(normalizePath);
-    function usage(root: string) {
-      return recentParents.filter(parent => parent === normalizePath(root)).length;
-    }
-    // The sort is stable, so a tie keeps the earlier root first.
-    return roots.toSorted((first, second) => usage(second) - usage(first))[0];
-  }
-
-  // Only an `added` outcome carries settings to adopt and scans the new root -
-  // `missing`/`notADirectory` are handed back
-  // untouched so the add-row can prompt to create the folder or show an error.
-  async function addRoot(path: string, { create }: {
-    create: boolean;
-  }) {
-    const outcome = await requestAddRoot({
-      path,
-      create
-    });
-    if (outcome.status !== AddRootStatus.enum.added) {
-      return outcome;
-    }
-
-    projectsByRoot = {
-      ...projectsByRoot,
-      [path]: await scan(path)
-    };
-
-    createRoot = path;
-    return outcome;
-  }
-  async function removeRoot(path: string) {
-    await sendSettingsMessage(Command.workspaceRemoveRoot, { path });
-    const { [path]: _drop, ...rest } = projectsByRoot;
-    projectsByRoot = rest;
-
-    if (createRoot === path) {
-      createRoot = popularRoot();
-    }
-  }
-
-  async function clearRecent() {
-    await sendSettingsMessage(Command.workspaceClearRecent);
-  }
-
-  async function setMaster(agentId: string) {
-    await sendSettingsMessage(Command.setDefaultAgent, { agent: agentId });
-  }
 
   function isOwned(path: string) {
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
@@ -266,22 +129,11 @@
 
   // ── Watching the folders behind the rows ───────────────────────────────────
   // The page shouldn't go stale while it's open: a workspace deleted in Explorer
-  // or from a terminal has to leave the list too. We watch each row's PARENT (a
-  // watch holds a handle on the folder it watches, and a handle on a project is
-  // exactly what would stop that project from being deletable), plus every root,
-  // whose children are the projects it lists.
-  const watchedDirs = $derived([...new Set(
-    [
-      ...settings.roots,
-      ...settings.roots.map(parentDirectory),
-      ...settings.recentProjects.map(parentDirectory)
-    ].filter((directory): directory is string => directory !== null)
-  )]);
-
-  // Re-armed whenever that list changes; the backend replaces the previous set.
-  // Nothing downstream waits on it, so it's a genuine fire-and-forget.
+  // or from a terminal has to leave the list too. Re-armed whenever the watched
+  // list changes; the backend replaces the previous set. Nothing downstream
+  // waits on it, so it's a genuine fire-and-forget.
   $effect(() => {
-    sendMessage(Command.watchDirs, { dirs: watchedDirs });
+    sendMessage(Command.watchDirs, { dirs: watchedDirectories(settings) });
   });
 
   // The filesystem answers in bursts (one delete lands as several events), so the
@@ -289,18 +141,16 @@
   let rescan: ReturnType<typeof setTimeout> | undefined;
   let unlisten: (() => void) | undefined;
 
-  function rescanSoon() {
-    clearTimeout(rescan);
-    // A folder appearing/vanishing under a watched root only moves projects
-    // around - the light refresh, not a full editor re-detect.
-    rescan = setTimeout(refreshProjects, 250);
-  }
-
   onMount(async () => {
     await refresh();
-    createRoot ||= popularRoot();
+    createRoot ||= popularRoot(settings);
     isLoaded = true;
-    unlisten = await onMessage(EventType.directoriesChanged, () => rescanSoon());
+    unlisten = await onMessage(EventType.directoriesChanged, () => {
+      clearTimeout(rescan);
+      // A folder appearing/vanishing under a watched root only moves projects
+      // around - the light refresh, not a full editor re-detect.
+      rescan = setTimeout(refreshProjects, RESCAN_DEBOUNCE_MILLISECONDS);
+    });
   });
 
   // Which projects other windows hold, kept live so their rows never offer a
@@ -346,43 +196,81 @@
         />
 
         <OnLaunchSection
-          onainaming={setAiNaming}
-          onautoname={setAutoName}
-          onstartmode={setStartMode}
-          ontempcleanup={setTempCleanup}
+          onainaming={async on => await updatePrefs({ aiSessionNaming: on })}
+          onautoname={async on => await updatePrefs({ autoNameTemp: on })}
+          onstartmode={async mode => await updatePrefs({ startMode: mode })}
+          ontempcleanup={async days => {
+            await updatePrefs({ tempCleanupDays: days });
+            await refreshProjects();
+          }}
           prefs={settings.prefs}
         />
 
         <RecentSection
-          {ides}
+          ides={editors.ides}
           labels={settings.labels}
           {lifecycle}
-          onclear={clearRecent}
+          onclear={async () => await sendSettingsMessage(Command.workspaceClearRecent)}
           {onopen}
           recentProjects={settings.recentProjects}
         />
 
-        <AgentsSection {agents} defaultAgent={settings.defaultAgent} onpick={setMaster} />
+        <AgentsSection
+          {agents}
+          defaultAgent={settings.defaultAgent}
+          onpick={async agentId => await sendSettingsMessage(Command.setDefaultAgent, { agent: agentId })}
+        />
 
         <EditorsSection
-          {ides}
-          {kindOptions}
-          {kinds}
-          onaddeditor={addEditor}
-          onfallback={setEditorFallback}
-          onremoveeditor={removeEditor}
-          onrescan={rescanEditors}
-          onrule={setEditorRule}
+          ides={editors.ides}
+          kindOptions={editors.kindOptions}
+          kinds={editors.kinds}
+          onaddeditor={path => editors.add(path)}
+          onfallback={async editorId => await updatePrefs({ ideFallback: editorId })}
+          onremoveeditor={id => editors.remove(id)}
+          onrescan={() => editors.rescan()}
+          onrule={async ({ kind, editorId }) => await updatePrefs({
+            ideRules: {
+              ...settings.prefs.ideRules,
+              [kind]: editorId
+            }
+          })}
           prefs={settings.prefs}
         />
 
         <RootsSection
           bind:this={rootsSection}
-          {ides}
+          ides={editors.ides}
           {lifecycle}
-          onadd={addRoot}
+          onadd={async (path, { create }) => {
+            // Only an `added` outcome carries settings to adopt and scans the new
+            // root - `missing`/`notADirectory` are handed back untouched so the
+            // add-row can prompt to create the folder or show an error.
+            const outcome = await requestAddRoot({
+              path,
+              create
+            });
+            if (outcome.status !== AddRootStatus.enum.added) {
+              return outcome;
+            }
+
+            projectsByRoot = {
+              ...projectsByRoot,
+              [path]: await scan(path)
+            };
+            createRoot = path;
+            return outcome;
+          }}
           {onopen}
-          onremove={removeRoot}
+          onremove={async path => {
+            await sendSettingsMessage(Command.workspaceRemoveRoot, { path });
+            const { [path]: _drop, ...rest } = projectsByRoot;
+            projectsByRoot = rest;
+
+            if (createRoot === path) {
+              createRoot = popularRoot(settings);
+            }
+          }}
           {projectsByRoot}
           roots={settings.roots}
         />
