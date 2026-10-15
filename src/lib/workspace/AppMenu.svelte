@@ -746,6 +746,17 @@
       <span class="grow">Open a project…</span>
       <span class="subtitle">All projects &amp; clone</span>
     </button>
+    <button
+      class="action" onclick={() => {
+        renameFolderTarget = path;
+      }} role="menuitem" type="button">
+      <span class="lead"><Icon name="folder" /></span>
+      <span class="grow">Rename this folder…</span>
+      <span class="subtitle">{shortDisplayName({
+        path,
+        labels
+      })}</span>
+    </button>
 
     <div class="menu-divider"></div>
 
