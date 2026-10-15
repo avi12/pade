@@ -587,9 +587,9 @@ fn default_shell() -> String {
 /// `codex exec` renders no TUI. Empty for a shell or an unknown command.
 fn agent_launch_arguments(program: &str, scheme: Option<Scheme>) -> Vec<String> {
     let theme_arguments = scheme.map_or(&[][..], |scheme| {
-        crate::theming::spawn_args(program, scheme)
+        crate::theming::spawn_arguments(program, scheme)
     });
-    crate::agents::session_args(program)
+    crate::agents::session_arguments(program)
         .iter()
         .chain(theme_arguments)
         .map(ToString::to_string)
@@ -634,7 +634,7 @@ fn apply_agent_environment(
     scheme: Option<Scheme>,
     model_report_environment: Vec<(String, String)>,
 ) {
-    for (key, value) in crate::agents::spawn_env(program) {
+    for (key, value) in crate::agents::spawn_environment(program) {
         process.env(key, value);
     }
     for (key, value) in model_report_environment {
@@ -645,13 +645,13 @@ fn apply_agent_environment(
     };
     // Per-scheme theme environment for env-themed CLIs (aider, cursor-agent), so the
     // agent starts matching ADE's current appearance - see theming.rs.
-    for (key, value) in crate::theming::spawn_env(program, scheme) {
+    for (key, value) in crate::theming::spawn_environment(program, scheme) {
         process.env(key, value);
     }
     // …and the tui-config file pair for file-themed CLIs (opencode):
     // theming.rs materializes the config on disk and returns the env pair
     // pointing at it. Filesystem I/O happens here, before any session lock.
-    for (key, value) in crate::theming::spawn_tui_config_env(program, scheme) {
+    for (key, value) in crate::theming::spawn_tui_config_environment(program, scheme) {
         process.env(key, value);
     }
     // …and the live theme definition the launch args are about to select
@@ -1354,7 +1354,7 @@ mod tests {
     /// every following arg verbatim - this is the quoting-risk surface the fix
     /// rides on.
     #[test]
-    fn light_console_command_round_trips_the_path_and_args() {
+    fn light_console_command_round_trips_the_path_and_arguments() {
         let executable = r"C:\Program Files\codex dir\codex.exe";
         let arguments = vec![
             "--dangerously-bypass-approvals-and-sandbox".to_string(),

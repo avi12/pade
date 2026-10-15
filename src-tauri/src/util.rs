@@ -172,7 +172,7 @@ pub fn exits_successfully_within(child: &mut Child, timeout: Duration) -> bool {
 /// already independent and is re-parented to init when ADE exits, so a plain
 /// spawn suffices.
 #[cfg(windows)]
-pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::Result<Child> {
+pub fn spawn_detached(program: impl AsRef<OsStr>, arguments: &[String]) -> std::io::Result<Child> {
     use std::os::windows::process::CommandExt;
 
     const DETACHED_PROCESS: u32 = 0x0000_0008;
@@ -183,7 +183,7 @@ pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::R
     let detached = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
     let spawn = |flags: u32| {
         Command::new(&program)
-            .args(args)
+            .args(arguments)
             .creation_flags(flags)
             .spawn()
     };
@@ -195,8 +195,8 @@ pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::R
 }
 
 #[cfg(not(windows))]
-pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::Result<Child> {
-    Command::new(program).args(args).spawn()
+pub fn spawn_detached(program: impl AsRef<OsStr>, arguments: &[String]) -> std::io::Result<Child> {
+    Command::new(program).args(arguments).spawn()
 }
 
 /// Every directory an executable could live in, most authoritative first: this
@@ -845,7 +845,7 @@ mod tests {
     /// becomes searchable once its `%VAR%`s are resolved.
     #[cfg(windows)]
     #[test]
-    fn expand_env_resolves_known_variables_and_leaves_unknown_ones() {
+    fn expand_environment_resolves_known_variables_and_leaves_unknown_ones() {
         let home = std::env::var("USERPROFILE").expect("USERPROFILE is always set on Windows");
         assert_eq!(
             expand_environment_variables(r"%USERPROFILE%\bin;%PADE_UNSET_VAR%\bin"),

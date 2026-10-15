@@ -89,7 +89,7 @@ pub enum ThemeConfig {
     /// theme is env-driven and read once at startup (`pty.rs` applies these;
     /// a scheme flip reaches it on the next spawn). Either side may be empty
     /// when the CLI only needs help on one scheme.
-    SpawnEnv {
+    SpawnEnvironment {
         light: &'static [(&'static str, &'static str)],
         dark: &'static [(&'static str, &'static str)],
     },
@@ -98,7 +98,7 @@ pub enum ThemeConfig {
     /// (`pty.rs` appends these to the interactive argv; a scheme flip reaches it
     /// on the next spawn). Either side may be empty when the CLI only needs help
     /// on one scheme.
-    SpawnArgs {
+    SpawnArguments {
         light: &'static [&'static str],
         dark: &'static [&'static str],
     },
@@ -109,7 +109,7 @@ pub enum ThemeConfig {
     /// scheme selects its own plain-string PADE theme, so the render is truthful
     /// regardless of that broken probe. The per-scheme values are the config
     /// file's *contents*; `None` means the scheme needs no override.
-    /// `spawn_tui_config_env` materializes the file under PADE's own config dir
+    /// `spawn_tui_config_environment` materializes the file under PADE's own config dir
     /// and hands `pty.rs` the `(variable, path)` env pair.
     SpawnTuiConfig {
         variable: &'static str,
@@ -121,7 +121,7 @@ pub enum ThemeConfig {
     /// any agent exposes on Windows (Claude Code, which watches its user theme
     /// directory and re-renders when a definition in use changes).
     ///
-    /// The odd one out of this enum, and deliberately so: `args` only *name* the
+    /// The odd one out of this enum, and deliberately so: `arguments` only *name* the
     /// theme, so they carry no scheme and never change. The scheme lives in the
     /// file's contents, which is exactly what lets a flip reach a session that is
     /// already running - every other variant can only be read at launch.
@@ -129,7 +129,7 @@ pub enum ThemeConfig {
         /// Launch args that select the definition for this session alone (a
         /// `--settings` JSON string), so no settings file of the user's has to
         /// name it and their own terminals are untouched.
-        args: &'static [&'static str],
+        arguments: &'static [&'static str],
         /// The definition's path under the user's home - PADE owns this file.
         relative_path: &'static str,
         light: &'static str,
@@ -139,12 +139,12 @@ pub enum ThemeConfig {
 
 /// The per-scheme environment to spawn `command` with (empty for an agent
 /// whose theme is arg-driven, or unknown). `pty.rs` applies it alongside the
-/// static `agents::spawn_env`.
-pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
+/// static `agents::spawn_environment`.
+pub fn spawn_environment(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
     match crate::agents::theme_config(command) {
-        Some(ThemeConfig::SpawnEnv { light, dark }) => scheme.pick(light, dark),
+        Some(ThemeConfig::SpawnEnvironment { light, dark }) => scheme.pick(light, dark),
         Some(
-            ThemeConfig::SpawnArgs { .. }
+            ThemeConfig::SpawnArguments { .. }
             | ThemeConfig::SpawnTuiConfig { .. }
             | ThemeConfig::SpawnSelectedLiveTheme { .. },
         )
@@ -154,14 +154,16 @@ pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'st
 
 /// The per-scheme launch arguments to spawn `command` with (empty for an agent
 /// whose theme is env-driven, or unknown). `pty.rs` appends it to the
-/// interactive session's argv, alongside `agents::session_args`.
-pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
+/// interactive session's argv, alongside `agents::session_arguments`.
+pub fn spawn_arguments(command: &str, scheme: Scheme) -> &'static [&'static str] {
     match crate::agents::theme_config(command) {
-        Some(ThemeConfig::SpawnArgs { light, dark }) => scheme.pick(light, dark),
+        Some(ThemeConfig::SpawnArguments { light, dark }) => scheme.pick(light, dark),
         // Scheme-independent by design: these args name the definition, and its
         // contents - not the argv - carry the scheme (see the variant's doc).
-        Some(ThemeConfig::SpawnSelectedLiveTheme { args, .. }) => args,
-        Some(ThemeConfig::SpawnEnv { .. } | ThemeConfig::SpawnTuiConfig { .. }) | None => &[],
+        Some(ThemeConfig::SpawnSelectedLiveTheme { arguments, .. }) => arguments,
+        Some(ThemeConfig::SpawnEnvironment { .. } | ThemeConfig::SpawnTuiConfig { .. }) | None => {
+            &[]
+        }
     }
 }
 
@@ -255,7 +257,7 @@ const OPENCODE_THEMES_RELATIVE_PATH: &str = ".config/opencode/themes";
 /// I/O: `pty.rs` calls it from `build_command`, before any session lock is
 /// taken. On an I/O failure the override is dropped (the agent falls back to
 /// its own terminal-detected theme) with a diagnostic on stderr.
-pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, String)> {
+pub fn spawn_tui_config_environment(command: &str, scheme: Scheme) -> Vec<(String, String)> {
     let Some(ThemeConfig::SpawnTuiConfig {
         variable,
         light,
@@ -293,15 +295,15 @@ pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, Strin
 #[cfg(test)]
 mod tests {
     use super::{
-        materialize_tui_config, spawn_args, spawn_env, spawn_tui_config_env, write_if_stale,
-        Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON, PADE_LIGHT_THEME_FILE,
-        PADE_LIGHT_THEME_JSON,
+        materialize_tui_config, spawn_arguments, spawn_environment, spawn_tui_config_environment,
+        write_if_stale, Scheme, ThemeConfig, PADE_DARK_THEME_FILE, PADE_DARK_THEME_JSON,
+        PADE_LIGHT_THEME_FILE, PADE_LIGHT_THEME_JSON,
     };
     use crate::test_support::{assert_empty, assert_not_empty};
 
     fn claude_live_theme() -> (&'static str, &'static str, &'static str, &'static str) {
         let Some(ThemeConfig::SpawnSelectedLiveTheme {
-            args,
+            arguments,
             relative_path,
             light,
             dark,
@@ -309,7 +311,7 @@ mod tests {
         else {
             panic!("claude should carry a live theme definition");
         };
-        let selector = args.last().copied().expect("the --settings payload");
+        let selector = arguments.last().copied().expect("the --settings payload");
         (selector, relative_path, light, dark)
     }
 
@@ -336,10 +338,10 @@ mod tests {
         assert!(light.contains(r#""base":"light-ansi""#), "{light}");
         assert!(dark.contains(r#""base":"dark-ansi""#), "{dark}");
         assert_eq!(
-            spawn_args("claude", Scheme::Light),
-            spawn_args("claude", Scheme::Dark)
+            spawn_arguments("claude", Scheme::Light),
+            spawn_arguments("claude", Scheme::Dark)
         );
-        assert_not_empty(spawn_args("claude", Scheme::Light));
+        assert_not_empty(spawn_arguments("claude", Scheme::Light));
     }
 
     /// The agent watches the definition, so republishing an unchanged scheme
@@ -375,50 +377,50 @@ mod tests {
     /// exactly one place - the codex `AgentDef`); an env-themed agent and an
     /// unknown command carry no launch args.
     #[test]
-    fn spawn_args_route_each_scheme_to_its_registry_side() {
-        let ThemeConfig::SpawnArgs { light, dark } =
+    fn spawn_arguments_route_each_scheme_to_its_registry_side() {
+        let ThemeConfig::SpawnArguments { light, dark } =
             crate::agents::theme_config("codex").expect("codex is arg-themed")
         else {
-            panic!("codex should force its theme via SpawnArgs");
+            panic!("codex should force its theme via SpawnArguments");
         };
-        assert_eq!(spawn_args("codex", Scheme::Light), *light);
-        assert_eq!(spawn_args("codex", Scheme::Dark), *dark);
+        assert_eq!(spawn_arguments("codex", Scheme::Light), *light);
+        assert_eq!(spawn_arguments("codex", Scheme::Dark), *dark);
         assert_ne!(light, dark);
-        assert_empty(spawn_args("aider", Scheme::Light));
-        assert_empty(spawn_args("pnpm", Scheme::Dark));
+        assert_empty(spawn_arguments("aider", Scheme::Light));
+        assert_empty(spawn_arguments("pnpm", Scheme::Dark));
     }
 
     /// The env-themed accessor likewise reads from the registry SSOT; an
     /// arg-themed agent and an unknown command carry no theme env.
     #[test]
-    fn spawn_env_routes_each_scheme_to_its_registry_side() {
-        let ThemeConfig::SpawnEnv { light, dark } =
+    fn spawn_environment_routes_each_scheme_to_its_registry_side() {
+        let ThemeConfig::SpawnEnvironment { light, dark } =
             crate::agents::theme_config("aider").expect("aider is env-themed")
         else {
-            panic!("aider should force its theme via SpawnEnv");
+            panic!("aider should force its theme via SpawnEnvironment");
         };
-        assert_eq!(spawn_env("aider", Scheme::Light), *light);
-        assert_eq!(spawn_env("aider", Scheme::Dark), *dark);
+        assert_eq!(spawn_environment("aider", Scheme::Light), *light);
+        assert_eq!(spawn_environment("aider", Scheme::Dark), *dark);
         assert_ne!(light, dark);
-        assert_empty(spawn_env("codex", Scheme::Light));
-        assert_empty(spawn_env("pnpm", Scheme::Dark));
+        assert_empty(spawn_environment("codex", Scheme::Light));
+        assert_empty(spawn_environment("pnpm", Scheme::Dark));
     }
 
     /// A live-themed agent carries no theme *env*: its scheme travels in the
     /// definition file, so nothing scheme-shaped may leak into the environment
     /// and go stale the moment the user flips.
     #[test]
-    fn a_live_themed_agent_has_no_theme_env() {
-        assert_empty(spawn_env("claude", Scheme::Light));
-        assert_empty(spawn_env("claude", Scheme::Dark));
+    fn a_live_themed_agent_has_no_theme_environment() {
+        assert_empty(spawn_environment("claude", Scheme::Light));
+        assert_empty(spawn_environment("claude", Scheme::Dark));
     }
 
     /// A file-themed agent (opencode) carries no theme env or args through the
     /// static accessors - its whole signal is the tui-config env pair.
     #[test]
-    fn a_file_themed_agent_has_no_static_theme_env_or_args() {
-        assert_empty(spawn_env("opencode", Scheme::Light));
-        assert_empty(spawn_args("opencode", Scheme::Light));
+    fn a_file_themed_agent_has_no_static_theme_environment_or_arguments() {
+        assert_empty(spawn_environment("opencode", Scheme::Light));
+        assert_empty(spawn_arguments("opencode", Scheme::Light));
     }
 
     /// Materializing a tui config writes both files idempotently - the additive
@@ -472,11 +474,11 @@ mod tests {
     /// opencode's adaptive theme is selected on BOTH schemes, so each yields an
     /// env pair; a non-file-themed command and an unknown command yield nothing.
     #[test]
-    fn tui_config_env_fires_for_the_file_themed_agent_on_both_schemes() {
-        assert_not_empty(&spawn_tui_config_env("opencode", Scheme::Light));
-        assert_not_empty(&spawn_tui_config_env("opencode", Scheme::Dark));
-        assert_empty(&spawn_tui_config_env("claude", Scheme::Light));
-        assert_empty(&spawn_tui_config_env("pnpm", Scheme::Light));
+    fn tui_config_environment_fires_for_the_file_themed_agent_on_both_schemes() {
+        assert_not_empty(&spawn_tui_config_environment("opencode", Scheme::Light));
+        assert_not_empty(&spawn_tui_config_environment("opencode", Scheme::Dark));
+        assert_empty(&spawn_tui_config_environment("claude", Scheme::Light));
+        assert_empty(&spawn_tui_config_environment("pnpm", Scheme::Light));
     }
 
     /// Each scheme has its own truthful theme: the dark palette is a distinct

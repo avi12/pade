@@ -852,7 +852,7 @@ fn executable_file_name(path: &str) -> &str {
 
 /// An executable path's lowercased basename with a known launcher extension
 /// stripped (`Code.exe` → `code`, `notepad++.exe` → `notepad++`).
-fn exe_basename(path: &str) -> String {
+fn executable_basename(path: &str) -> String {
     let file = executable_file_name(path).to_lowercase();
     LAUNCHER_EXTENSIONS
         .iter()
@@ -867,7 +867,7 @@ fn added_editor_ides(added: Vec<crate::workspace::AddedEditor>) -> Vec<Ide> {
     added
         .into_iter()
         .map(|editor| Ide {
-            terminal: editor_family(&exe_basename(&editor.path))
+            terminal: editor_family(&executable_basename(&editor.path))
                 .is_some_and(|family| family.terminal),
             id: editor.id,
             label: editor.label,
@@ -935,7 +935,7 @@ pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String
     if path.is_empty() {
         return Err("Enter the full path to an editor executable".to_string());
     }
-    let basename = exe_basename(&path);
+    let basename = executable_basename(&path);
     let Some(family) = editor_family(&basename) else {
         return Err(format!(
             "\u{201c}{}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
@@ -1508,7 +1508,7 @@ fn open_style(command: &str) -> Option<OpenStyle> {
     if let Some(editor) = REGISTRY.iter().find(|editor| editor.command == command) {
         return Some(editor.style);
     }
-    editor_family(&exe_basename(command)).and_then(|family| family.style)
+    editor_family(&executable_basename(command)).and_then(|family| family.style)
 }
 
 /// The launcher arguments for opening `target` - jumping to `line` when one is
@@ -1517,7 +1517,7 @@ fn open_style(command: &str) -> Option<OpenStyle> {
 /// along for every family whose CLI has a workspace+file form, so the file
 /// opens *inside its project's window* - not a bare single-file window; a
 /// family with no such form keeps the plain-file behavior.
-fn open_args(
+fn open_arguments(
     command: &str,
     target: String,
     line: Option<u32>,
@@ -1594,16 +1594,16 @@ fn open_args(
 /// detached-spawn helper (DRY) so the editor breaks out of ADE's job either way.
 /// (Console editors - Neovim/Vim/Helix - never reach here; they run inside a
 /// PADE terminal tab and are meant to stay tied to ADE.)
-fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
+fn spawn_launcher(command: &str, arguments: &[String]) -> Result<(), String> {
     let is_path = command.contains('/') || command.contains('\\');
     let spawn = if cfg!(windows) && !is_path {
-        let mut shell_args = Vec::with_capacity(args.len() + 2);
-        shell_args.push(crate::util::COMMAND_SHELL_RUN_FLAG.to_owned());
-        shell_args.push(command.to_owned());
-        shell_args.extend_from_slice(args);
-        crate::util::spawn_detached(crate::util::COMMAND_SHELL, &shell_args)
+        let mut shell_arguments = Vec::with_capacity(arguments.len() + 2);
+        shell_arguments.push(crate::util::COMMAND_SHELL_RUN_FLAG.to_owned());
+        shell_arguments.push(command.to_owned());
+        shell_arguments.extend_from_slice(arguments);
+        crate::util::spawn_detached(crate::util::COMMAND_SHELL, &shell_arguments)
     } else {
-        crate::util::spawn_detached(command, args)
+        crate::util::spawn_detached(command, arguments)
     };
     spawn
         .map(|_| ())
@@ -1628,8 +1628,8 @@ pub async fn ide_open(
             .into_owned(),
     };
     // A line only applies when we were handed a file to jump into.
-    let args = open_args(&command, target, line.filter(|_| has_path), None);
-    spawn_launcher(&command, &args)
+    let arguments = open_arguments(&command, target, line.filter(|_| has_path), None);
+    spawn_launcher(&command, &arguments)
 }
 
 /// Reveal a file in the given editor, jumping to `line` when given, **inside
@@ -1648,15 +1648,15 @@ pub async fn ide_open_file(
     line: Option<u32>,
 ) -> Result<(), String> {
     let workspace = (!project.trim().is_empty()).then_some(project.as_str());
-    let args = open_args(&command, file, line, workspace);
-    spawn_launcher(&command, &args)
+    let arguments = open_arguments(&command, file, line, workspace);
+    spawn_launcher(&command, &arguments)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        census, editor_covers_project, editor_family, exe_basename, ide_kinds, open_args,
-        open_style, preference_chain, project_declarations, ranked_editor_ids,
+        census, editor_covers_project, editor_family, executable_basename, ide_kinds,
+        open_arguments, open_style, preference_chain, project_declarations, ranked_editor_ids,
         required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
         ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
     };
@@ -1896,33 +1896,33 @@ mod tests {
 
     #[test]
     fn a_browser_manifest_declares_web_without_a_package_manifest() {
-        let dir =
+        let directory =
             std::env::temp_dir().join(format!("pade-browser-manifest-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("test dir");
-        std::fs::write(dir.join("manifest.json"), "{\"manifest_version\":3}")
+        std::fs::create_dir_all(&directory).expect("test dir");
+        std::fs::write(directory.join("manifest.json"), "{\"manifest_version\":3}")
             .expect("browser manifest");
 
-        let declarations = project_declarations(&dir);
+        let declarations = project_declarations(&directory);
         assert!(declarations
             .iter()
             .any(|declaration| declaration.kinds.contains(&ProjectKind::Web)));
 
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        std::fs::remove_dir_all(&directory).expect("cleanup");
     }
 
     #[test]
     fn an_unrelated_json_manifest_does_not_declare_web() {
-        let dir =
+        let directory =
             std::env::temp_dir().join(format!("pade-generic-manifest-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("test dir");
-        std::fs::write(dir.join("manifest.json"), "{\"name\":\"artifact\"}")
+        std::fs::create_dir_all(&directory).expect("test dir");
+        std::fs::write(directory.join("manifest.json"), "{\"name\":\"artifact\"}")
             .expect("generic manifest");
 
-        assert!(!project_declarations(&dir)
+        assert!(!project_declarations(&directory)
             .iter()
             .any(|declaration| declaration.kinds.contains(&ProjectKind::Web)));
 
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        std::fs::remove_dir_all(&directory).expect("cleanup");
     }
 
     #[test]
@@ -1950,131 +1950,136 @@ mod tests {
 
     #[test]
     fn generated_content_sits_out_the_census_without_a_path_rule() {
-        let dir = std::env::temp_dir().join(format!("pade-generated-{}", std::process::id()));
-        let core = dir.join("src-tauri");
+        let directory = std::env::temp_dir().join(format!("pade-generated-{}", std::process::id()));
+        let core = directory.join("src-tauri");
         std::fs::create_dir_all(&core).expect("test dirs");
 
-        let web_src = "const value = 1;\n".repeat(200);
-        std::fs::write(dir.join("app.ts"), &web_src).expect("web file");
-        let rust_src = "fn main() {}\n".repeat(260);
-        std::fs::write(core.join("main.rs"), &rust_src).expect("rust file");
-        std::fs::write(dir.join("bundle.unknown"), vec![b'a'; 4_000_000]).expect("bundle");
+        let web_source = "const value = 1;\n".repeat(200);
+        std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
+        let rust_source = "fn main() {}\n".repeat(260);
+        std::fs::write(core.join("main.rs"), &rust_source).expect("rust file");
+        std::fs::write(directory.join("bundle.unknown"), vec![b'a'; 4_000_000]).expect("bundle");
 
         assert!(
-            source_content(&dir.join("bundle.unknown"))
+            source_content(&directory.join("bundle.unknown"))
                 .expect("bundle readable")
                 .generated
         );
-        let totals = census(&dir);
-        assert_eq!(totals.get(&ProjectKind::Web), Some(&(web_src.len() as u64)));
+        let totals = census(&directory);
+        assert_eq!(
+            totals.get(&ProjectKind::Web),
+            Some(&(web_source.len() as u64))
+        );
         assert_eq!(
             totals.get(&ProjectKind::Rust),
-            Some(&(rust_src.len() as u64))
+            Some(&(rust_source.len() as u64))
         );
 
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        std::fs::remove_dir_all(&directory).expect("cleanup");
     }
 
     #[test]
     fn the_census_honors_git_attributes_and_ignores_untracked_junk() {
-        let dir = std::env::temp_dir().join(format!("pade-gittracked-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("test dir");
+        let directory =
+            std::env::temp_dir().join(format!("pade-gittracked-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test dir");
 
-        let git = |args: &[&str]| {
+        let git = |arguments: &[&str]| {
             crate::util::command("git")
                 .arg("-C")
-                .arg(&dir)
-                .args(args)
+                .arg(&directory)
+                .args(arguments)
                 .output()
         };
         // A machine without git skips this rather than failing the suite.
         let Ok(init) = git(&["init", "-q"]) else {
-            std::fs::remove_dir_all(&dir).ok();
+            std::fs::remove_dir_all(&directory).ok();
             return;
         };
         if !init.status.success() {
-            std::fs::remove_dir_all(&dir).ok();
+            std::fs::remove_dir_all(&directory).ok();
             return;
         }
 
-        let web_src = "const value = 1;\n".repeat(400);
-        let overridden_src = "m".repeat(20_000);
-        let rust_src = "fn main() {}\n".repeat(500);
-        std::fs::write(dir.join("app.ts"), &web_src).expect("web file");
-        std::fs::write(dir.join("custom.source"), &rust_src).expect("rust override");
-        std::fs::write(dir.join("generated.ts"), "x".repeat(20_000)).expect("generated file");
-        std::fs::write(dir.join("manual.ts"), &overridden_src).expect("manual file");
+        let web_source = "const value = 1;\n".repeat(400);
+        let overridden_source = "m".repeat(20_000);
+        let rust_source = "fn main() {}\n".repeat(500);
+        std::fs::write(directory.join("app.ts"), &web_source).expect("web file");
+        std::fs::write(directory.join("custom.source"), &rust_source).expect("rust override");
+        std::fs::write(directory.join("generated.ts"), "x".repeat(20_000)).expect("generated file");
+        std::fs::write(directory.join("manual.ts"), &overridden_source).expect("manual file");
         std::fs::write(
-            dir.join(".gitattributes"),
+            directory.join(".gitattributes"),
             "generated.ts linguist-generated\ncustom.source linguist-language=Rust\nmanual.ts -linguist-generated\n",
         )
         .expect("attributes");
         let add = git(&["add", "."]).expect("git add");
         if !add.status.success() {
-            std::fs::remove_dir_all(&dir).ok();
+            std::fs::remove_dir_all(&directory).ok();
             return;
         }
 
-        std::fs::write(dir.join("bundle.js"), "x = 1;\n".repeat(120_000)).expect("untracked blob");
-        let totals = census(&dir);
+        std::fs::write(directory.join("bundle.js"), "x = 1;\n".repeat(120_000))
+            .expect("untracked blob");
+        let totals = census(&directory);
         assert_eq!(
             totals.get(&ProjectKind::Web),
-            Some(&((web_src.len() + overridden_src.len()) as u64))
+            Some(&((web_source.len() + overridden_source.len()) as u64))
         );
         assert_eq!(
             totals.get(&ProjectKind::Rust),
-            Some(&(rust_src.len() as u64))
+            Some(&(rust_source.len() as u64))
         );
 
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        std::fs::remove_dir_all(&directory).expect("cleanup");
     }
 
     #[test]
     fn a_nested_project_census_does_not_expand_to_its_git_root() {
-        let dir = std::env::temp_dir().join(format!("pade-git-scope-{}", std::process::id()));
-        let nested = dir.join("core");
+        let directory = std::env::temp_dir().join(format!("pade-git-scope-{}", std::process::id()));
+        let nested = directory.join("core");
         std::fs::create_dir_all(&nested).expect("test dirs");
 
-        let git = |args: &[&str]| {
+        let git = |arguments: &[&str]| {
             crate::util::command("git")
                 .arg("-C")
-                .arg(&dir)
-                .args(args)
+                .arg(&directory)
+                .args(arguments)
                 .output()
         };
         let Ok(init) = git(&["init", "-q"]) else {
-            std::fs::remove_dir_all(&dir).ok();
+            std::fs::remove_dir_all(&directory).ok();
             return;
         };
         if !init.status.success() {
-            std::fs::remove_dir_all(&dir).ok();
+            std::fs::remove_dir_all(&directory).ok();
             return;
         }
 
-        std::fs::write(dir.join("app.ts"), "const app = 1;\n").expect("web source");
-        let rust_src = "fn main() {}\n";
-        std::fs::write(nested.join("main.rs"), rust_src).expect("rust source");
+        std::fs::write(directory.join("app.ts"), "const app = 1;\n").expect("web source");
+        let rust_source = "fn main() {}\n";
+        std::fs::write(nested.join("main.rs"), rust_source).expect("rust source");
         let add = git(&["add", "."]).expect("git add");
         if !add.status.success() {
-            std::fs::remove_dir_all(&dir).ok();
+            std::fs::remove_dir_all(&directory).ok();
             return;
         }
 
         let totals = census(&nested);
         assert_eq!(
             totals.get(&ProjectKind::Rust),
-            Some(&(rust_src.len() as u64))
+            Some(&(rust_source.len() as u64))
         );
         assert!(!totals.contains_key(&ProjectKind::Web));
 
-        std::fs::remove_dir_all(&dir).expect("cleanup");
+        std::fs::remove_dir_all(&directory).expect("cleanup");
     }
 
     #[test]
-    fn exe_basename_strips_extension_and_lowercases() {
-        assert_eq!(exe_basename("C:\\Program Files\\Code.exe"), "code");
-        assert_eq!(exe_basename("/usr/bin/nvim"), "nvim");
-        assert_eq!(exe_basename("notepad++.exe"), "notepad++");
+    fn executable_basename_strips_extension_and_lowercases() {
+        assert_eq!(executable_basename("C:\\Program Files\\Code.exe"), "code");
+        assert_eq!(executable_basename("/usr/bin/nvim"), "nvim");
+        assert_eq!(executable_basename("notepad++.exe"), "notepad++");
     }
 
     #[test]
@@ -2140,7 +2145,7 @@ mod tests {
     #[test]
     fn vscode_style_reuses_the_window_and_jumps_to_the_line() {
         assert_eq!(
-            open_args("code", "C:/p/file.ts".to_string(), Some(12), None),
+            open_arguments("code", "C:/p/file.ts".to_string(), Some(12), None),
             ["-r", "-g", "C:/p/file.ts:12"]
         );
     }
@@ -2148,11 +2153,11 @@ mod tests {
     #[test]
     fn vscode_style_opens_the_file_inside_its_workspace() {
         assert_eq!(
-            open_args("code", "C:/p/file.ts".to_string(), Some(12), Some("C:/p")),
+            open_arguments("code", "C:/p/file.ts".to_string(), Some(12), Some("C:/p")),
             ["C:/p", "-g", "C:/p/file.ts:12"]
         );
         assert_eq!(
-            open_args("code", "C:/p/file.ts".to_string(), None, Some("C:/p")),
+            open_arguments("code", "C:/p/file.ts".to_string(), None, Some("C:/p")),
             ["C:/p", "-g", "C:/p/file.ts"]
         );
     }
@@ -2160,7 +2165,7 @@ mod tests {
     #[test]
     fn jetbrains_style_passes_the_line_flag_before_the_path() {
         assert_eq!(
-            open_args("webstorm", "C:/p/file.ts".to_string(), Some(7), None),
+            open_arguments("webstorm", "C:/p/file.ts".to_string(), Some(7), None),
             ["--line", "7", "C:/p/file.ts"]
         );
     }
@@ -2168,7 +2173,7 @@ mod tests {
     #[test]
     fn jetbrains_style_leads_with_the_project_directory() {
         assert_eq!(
-            open_args(
+            open_arguments(
                 "webstorm",
                 "C:/p/file.ts".to_string(),
                 Some(7),
@@ -2177,7 +2182,7 @@ mod tests {
             ["C:/p", "--line", "7", "C:/p/file.ts"]
         );
         assert_eq!(
-            open_args("webstorm", "C:/p/file.ts".to_string(), None, Some("C:/p")),
+            open_arguments("webstorm", "C:/p/file.ts".to_string(), None, Some("C:/p")),
             ["C:/p", "C:/p/file.ts"]
         );
     }
@@ -2185,13 +2190,13 @@ mod tests {
     #[test]
     fn visual_studio_edits_the_file_and_drops_the_line_and_workspace() {
         assert_eq!(
-            open_args("devenv", "C:/p/file.cs".to_string(), Some(42), None),
+            open_arguments("devenv", "C:/p/file.cs".to_string(), Some(42), None),
             ["/Edit", "C:/p/file.cs"]
         );
         // Its CLI has no trustworthy folder+file form, so the workspace is
         // deliberately ignored rather than guessed at.
         assert_eq!(
-            open_args("devenv", "C:/p/file.cs".to_string(), Some(42), Some("C:/p")),
+            open_arguments("devenv", "C:/p/file.cs".to_string(), Some(42), Some("C:/p")),
             ["/Edit", "C:/p/file.cs"]
         );
     }
@@ -2199,7 +2204,7 @@ mod tests {
     #[test]
     fn path_colon_style_suffixes_the_line_onto_the_path() {
         assert_eq!(
-            open_args("zed", "C:/p/file.ts".to_string(), Some(3), None),
+            open_arguments("zed", "C:/p/file.ts".to_string(), Some(3), None),
             ["C:/p/file.ts:3"]
         );
     }
@@ -2207,25 +2212,28 @@ mod tests {
     #[test]
     fn path_colon_style_opens_the_workspace_folder_alongside_the_file() {
         assert_eq!(
-            open_args("zed", "C:/p/file.ts".to_string(), Some(3), Some("C:/p")),
+            open_arguments("zed", "C:/p/file.ts".to_string(), Some(3), Some("C:/p")),
             ["C:/p", "C:/p/file.ts:3"]
         );
     }
 
     #[test]
     fn a_bare_path_passes_through_without_a_line() {
-        assert_eq!(open_args("code", "C:/p".to_string(), None, None), ["C:/p"]);
+        assert_eq!(
+            open_arguments("code", "C:/p".to_string(), None, None),
+            ["C:/p"]
+        );
     }
 
     #[test]
     fn an_unknown_launcher_gets_the_plain_path_even_with_a_line_and_workspace() {
         assert_eq!(
-            open_args("notepad", "C:/p/file.ts".to_string(), Some(9), None),
+            open_arguments("notepad", "C:/p/file.ts".to_string(), Some(9), None),
             ["C:/p/file.ts"]
         );
         // No known workspace+file form either - current behavior is kept.
         assert_eq!(
-            open_args("notepad", "C:/p/file.ts".to_string(), Some(9), Some("C:/p")),
+            open_arguments("notepad", "C:/p/file.ts".to_string(), Some(9), Some("C:/p")),
             ["C:/p/file.ts"]
         );
     }
