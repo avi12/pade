@@ -2,6 +2,7 @@
   import { workspace } from "@/lib/bridge";
   import ConfirmDialog from "@/lib/ConfirmDialog.svelte";
   import { errorMessage } from "@/lib/errors";
+  import NameField from "@/lib/NameField.svelte";
   import { LabelSource } from "@/lib/types";
   import { fieldError, WorkspaceLabel } from "@/lib/validate";
   import { untrack } from "svelte";
@@ -70,57 +71,13 @@
   onconfirm={save}
   title="Relabel this workspace"
 >
-  <form
-    class="relabel" onsubmit={async e => {
-      e.preventDefault();
-      await save();
-    }}>
-    <p>Only the name PADE shows changes — the folder keeps its path.</p>
-    <input
-      aria-label="Workspace label"
-      autocomplete="off"
-      data-initial-focus
-      onfocus={e => e.currentTarget.select()}
-      placeholder="What are you working on?"
-      spellcheck="false"
-      bind:value
-    />
-    <code>{path}</code>
-  </form>
+  <NameField
+    label="Workspace label"
+    onsubmit={save}
+    {path}
+    placeholder="What are you working on?"
+    bind:value
+  >
+    Only the name PADE shows changes — the folder keeps its path.
+  </NameField>
 </ConfirmDialog>
-
-<style>
-  .relabel {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    p {
-      margin: 0;
-    }
-
-    input {
-      padding-block: 9px;
-      padding-inline: 12px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-medium);
-      background: var(--surface-2);
-      color: var(--on-surface);
-      font: inherit;
-      font-weight: 600;
-      font-size: 14px;
-
-      &:focus-visible {
-        border-color: var(--primary);
-        outline: none;
-      }
-    }
-
-    code {
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 11px;
-      overflow-wrap: anywhere;
-    }
-  }
-</style>
