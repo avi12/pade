@@ -8,7 +8,7 @@
 //!    a real network request, but one that consumes no quota.
 //!  - Data the agent already persisted locally (e.g. the subscription tier
 //!    label) when the network / token isn't available, leaving
-//!    `used_pct`/`resets_at` `None` if the precise numbers aren't on disk.
+//!    `used_percentage`/`resets_at` `None` if the precise numbers aren't on disk.
 //!
 //! When nothing reliable is found we return `None` and the UI shows an honest
 //! "usage unavailable" state - we never fabricate numbers.
@@ -19,12 +19,12 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
 use crate::agents::{ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE};
-use crate::util::{home_dir, read_json};
+use crate::util::{home_dir, read_json, since_unix_epoch};
 
 /// The agents we can source usage for, and the one authoritative mapping from
 /// the registry id string the frontend sends (`session.agent.id`). An agent we
@@ -63,13 +63,46 @@ impl UsageAgent {
             _ => None,
         }
     }
+
+    /// Which window heads this adapter's meter - see [`HeadlineWindow`].
+    fn headline_window(self) -> HeadlineWindow {
+        match self {
+            Self::Claude => HeadlineWindow::WeeklyOnly,
+            Self::Codex | Self::Copilot | Self::Antigravity | Self::Cursor => {
+                HeadlineWindow::WeeklyOrMostConsumed
+            }
+        }
+    }
+
+    /// Read this adapter's account afresh, bypassing the cache.
+    fn fetch_account_usage(self) -> Option<AccountUsage> {
+        match self {
+            Self::Claude => fetch_claude_account_usage(),
+            Self::Codex => fetch_codex_account_usage(),
+            Self::Copilot => fetch_copilot_account_usage(),
+            Self::Antigravity => fetch_antigravity_account_usage(),
+            Self::Cursor => fetch_cursor_account_usage(),
+        }
+    }
+
+    /// The honest plan label the meter falls back to when the live account can't
+    /// be read (offline, or the token expired). The other adapters already fall
+    /// back to their local login inside the account read itself.
+    fn offline_usage(self) -> Option<Usage> {
+        match self {
+            Self::Claude => claude_tier_label_usage(),
+            Self::Codex => codex_tier_label_usage(),
+            Self::Copilot | Self::Antigravity | Self::Cursor => None,
+        }
+    }
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
     /// Percent of quota consumed, 0..100, when a precise number is known.
-    pub used_pct: Option<f64>,
+    #[serde(rename = "usedPct")]
+    pub used_percentage: Option<f64>,
     /// Short human label for the meter (e.g. a plan/tier name or a summary).
     pub label: String,
     /// When the quota window resets, as an ISO-8601 string, when known.
@@ -93,15 +126,14 @@ pub async fn usage_get(agent: String) -> Option<Usage> {
         .flatten()
 }
 
-/// The synchronous adapter dispatch behind [`usage_get`].
+/// The synchronous adapter dispatch behind [`usage_get`]: the live account
+/// windows when they can be read, else the adapter's offline plan label.
 fn usage_for(agent: &str) -> Option<Usage> {
-    match UsageAgent::from_id(agent)? {
-        UsageAgent::Claude => claude_usage(),
-        UsageAgent::Codex => codex_usage(),
-        UsageAgent::Copilot => copilot_usage(),
-        UsageAgent::Antigravity => antigravity_usage(),
-        UsageAgent::Cursor => cursor_usage(),
-    }
+    let agent = UsageAgent::from_id(agent)?;
+    let Some(account) = account_usage_for(AccountUsageRequest::cached(agent)) else {
+        return agent.offline_usage();
+    };
+    Some(usage_from_account(account, agent.headline_window()))
 }
 
 /// Which window becomes the meter's headline when the account carries no weekly
@@ -132,51 +164,55 @@ fn usage_from_account(account: AccountUsage, headline: HeadlineWindow) -> Usage 
                 .iter()
                 .max_by(|first, second| first.utilization.total_cmp(&second.utilization)),
         });
-    let (used_pct, resets_at) = chosen.map_or((None, None), |window| {
+    let (used_percentage, resets_at) = chosen.map_or((None, None), |window| {
         (Some(window.utilization), window.resets_at.clone())
     });
     Usage {
-        used_pct,
+        used_percentage,
         label: account.plan,
         resets_at,
         source: account.source,
     }
 }
 
-/// Claude usage for the meter. Prefers the live account windows (the real weekly
-/// %, mirroring claude.ai) and falls back to the honest subscription-tier label
-/// when the network / token isn't available.
-fn claude_usage() -> Option<Usage> {
-    let Some(account) = account_usage_for(AccountUsageRequest::cached(UsageAgent::Claude)) else {
-        return tier_label_usage();
-    };
-    Some(usage_from_account(account, HeadlineWindow::WeeklyOnly))
+/// The `source` naming a figure read from a local file under the home directory.
+/// Derived from the same relative path the file is read from, so path and label
+/// can never drift.
+fn local_source(relative_path: &str) -> String {
+    format!("local:{relative_path}")
 }
 
-/// The local Claude Code credentials file, `~/.claude/.credentials.json`. Its
-/// `local:…` source label is derived from the same relative path (see
-/// [`CLAUDE_CREDENTIALS_REL`]) so path and label can never drift.
-const CLAUDE_CREDENTIALS_REL: &str = ".claude/.credentials.json";
+/// A plan label: the vendor's product, then its tier when the account names one.
+fn plan_label(product: &str, tier: Option<&str>) -> String {
+    tier.map_or_else(|| product.to_string(), |tier| format!("{product} {tier}"))
+}
+
+const CLAUDE_PLAN: &str = "Claude";
+const CODEX_PLAN: &str = "Codex";
+const COPILOT_PLAN: &str = "Copilot";
+const ANTIGRAVITY_PLAN: &str = "Antigravity";
+const CURSOR_PLAN: &str = "Cursor";
+
+/// The local Claude Code credentials file, `~/.claude/.credentials.json`.
+const CLAUDE_CREDENTIALS_RELATIVE_PATH: &str = ".claude/.credentials.json";
 
 fn claude_credentials_path() -> Option<PathBuf> {
-    Some(home_dir()?.join(CLAUDE_CREDENTIALS_REL))
+    Some(home_dir()?.join(CLAUDE_CREDENTIALS_RELATIVE_PATH))
 }
 
 /// Offline fallback: just the subscription tier from the local credentials, with
 /// the precise numbers left `None`.
-fn tier_label_usage() -> Option<Usage> {
+fn claude_tier_label_usage() -> Option<Usage> {
     let json = read_json(&claude_credentials_path()?)?;
-
     let tier = json
-        .get("claudeAiOauth")
-        .and_then(|oauth| oauth.get("subscriptionType"))
+        .pointer("/claudeAiOauth/subscriptionType")
         .and_then(serde_json::Value::as_str)?;
 
     Some(Usage {
-        used_pct: None,
-        label: format!("Claude {tier}"),
+        used_percentage: None,
+        label: plan_label(CLAUDE_PLAN, Some(tier)),
         resets_at: None,
-        source: format!("local:{CLAUDE_CREDENTIALS_REL}"),
+        source: local_source(CLAUDE_CREDENTIALS_RELATIVE_PATH),
     })
 }
 
@@ -188,26 +224,11 @@ fn tier_label_usage() -> Option<Usage> {
 // and fall back to the local plan label when the token/network isn't available.
 // ---------------------------------------------------------------------------
 
-/// Codex usage for the meter. Prefers the live weekly window (falling back to the
-/// most-consumed window the endpoint returns), and the honest local plan label
-/// when the network / token isn't available.
-fn codex_usage() -> Option<Usage> {
-    let Some(account) = account_usage_for(AccountUsageRequest::cached(UsageAgent::Codex)) else {
-        return codex_tier_label_usage();
-    };
-    Some(usage_from_account(
-        account,
-        HeadlineWindow::WeeklyOrMostConsumed,
-    ))
-}
-
-/// The local Codex credentials file, `~/.codex/auth.json`. Its `local:…` source
-/// label is derived from the same relative path (see [`CODEX_AUTH_REL`]) so path
-/// and label can never drift.
-const CODEX_AUTH_REL: &str = ".codex/auth.json";
+/// The local Codex credentials file, `~/.codex/auth.json`.
+const CODEX_AUTH_RELATIVE_PATH: &str = ".codex/auth.json";
 
 fn codex_auth_path() -> Option<PathBuf> {
-    Some(home_dir()?.join(CODEX_AUTH_REL))
+    Some(home_dir()?.join(CODEX_AUTH_RELATIVE_PATH))
 }
 
 /// Offline fallback: confirm a local `ChatGPT` auth exists and surface a bare
@@ -216,15 +237,14 @@ fn codex_auth_path() -> Option<PathBuf> {
 /// stay honest and leave the precise figures `None` until the endpoint answers.
 fn codex_tier_label_usage() -> Option<Usage> {
     let json = read_json(&codex_auth_path()?)?;
-    json.get("tokens")
-        .and_then(|tokens| tokens.get("access_token"))
+    json.pointer("/tokens/access_token")
         .and_then(serde_json::Value::as_str)?;
 
     Some(Usage {
-        used_pct: None,
-        label: "Codex".to_string(),
+        used_percentage: None,
+        label: CODEX_PLAN.to_string(),
         resets_at: None,
-        source: format!("local:{CODEX_AUTH_REL}"),
+        source: local_source(CODEX_AUTH_RELATIVE_PATH),
     })
 }
 
@@ -317,8 +337,9 @@ pub struct UsageWindow {
 /// The top-level key under which Claude's account response describes its
 /// pay-as-you-go usage credits ("extra usage").
 const CREDITS_KEY: &str = "extra_usage";
-/// A monthly credits cap this far consumed has nothing left to carry work.
-const CREDITS_SPENT_PERCENTAGE: f64 = 100.0;
+/// A window or cap consumed this far has nothing left - also the scale every
+/// `utilization` is on.
+const FULL_PERCENTAGE: f64 = 100.0;
 
 /// The state of pay-as-you-go usage credits ("extra usage"). The auto-resume
 /// scheduler reads it to continue a limit-stopped session the moment credits can
@@ -340,29 +361,28 @@ pub enum CreditsState {
 /// omits it).
 fn credits_state(response: &serde_json::Value) -> Option<CreditsState> {
     let credits = response.get(CREDITS_KEY)?;
-    let enabled = credits
+    let is_enabled = credits
         .get("is_enabled")
         .and_then(serde_json::Value::as_bool)?;
-    if !enabled {
+    if !is_enabled {
         return Some(CreditsState::Off);
     }
 
-    let cap_spent = credits
+    let is_cap_spent = credits
         .get("utilization")
         .and_then(serde_json::Value::as_f64)
-        .is_some_and(|utilization| utilization >= CREDITS_SPENT_PERCENTAGE);
-    let spend_limit_reached = credits
+        .is_some_and(|utilization| utilization >= FULL_PERCENTAGE);
+    let is_spend_limit_reached = credits
         .get("spend_limit_reached")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
-    let held_back = credits
+    let is_held_back = credits
         .get("disabled_reason")
         .is_some_and(serde_json::Value::is_string);
-    if cap_spent || spend_limit_reached || held_back {
-        Some(CreditsState::Unavailable)
-    } else {
-        Some(CreditsState::Available)
+    if is_cap_spent || is_spend_limit_reached || is_held_back {
+        return Some(CreditsState::Unavailable);
     }
+    Some(CreditsState::Available)
 }
 
 /// An amount of usage credits - a prepaid balance, or a month's spend - ready
@@ -380,25 +400,30 @@ pub struct CreditBalance {
 /// the frontend can dedupe agents that share one subscription (Codex + opencode
 /// both bill the same `ChatGPT` account) - one identity per account, never per
 /// agent.
-const BILLING_ACCOUNT_ANTHROPIC: &str = "anthropic";
-const BILLING_ACCOUNT_CHATGPT: &str = "chatgpt";
-const BILLING_ACCOUNT_GITHUB: &str = "github";
-const BILLING_ACCOUNT_GOOGLE: &str = "google";
-const BILLING_ACCOUNT_CURSOR: &str = "cursor";
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum BillingAccount {
+    Anthropic,
+    Chatgpt,
+    Github,
+    Google,
+    Cursor,
+}
 
 /// Live account usage mirrored from the OAuth endpoint: every rate-limit window it
 /// returns (the session + weekly windows, any per-model caps, and any future
-/// windows), plus the plan label.
-#[derive(Serialize, Clone)]
+/// windows), plus the plan label. Its `Default` is the shape of an account with
+/// no credits concept, which every adapter but Claude's builds on.
+#[derive(Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountUsage {
     windows: Vec<UsageWindow>,
     plan: String,
     source: String,
-    /// Stable identity of the underlying billing account (one of the
-    /// `BILLING_ACCOUNT_*` ids), so two agents on one subscription are never
-    /// counted twice. `None` when the adapter can't name the account.
-    account: Option<String>,
+    /// Stable identity of the underlying billing account, so two agents on one
+    /// subscription are never counted twice. `None` when the adapter can't name
+    /// the account.
+    account: Option<BillingAccount>,
     /// Whether usage credits are on and can carry work past an exhausted window.
     /// `None` for an account with no credits concept.
     credits: Option<CreditsState>,
@@ -461,33 +486,35 @@ pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<A
     .flatten()
 }
 
-/// Live account usage for `agent`, cached ~3 min per agent to respect each
-/// endpoint's per-token limit. One cache map, keyed by agent - the single source
-/// for both the no-arg Claude command and the per-agent one above.
-fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
-    static CACHE: OnceLock<Mutex<HashMap<UsageAgent, (Instant, AccountUsage)>>> = OnceLock::new();
-    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+type AccountUsageCache = Mutex<HashMap<UsageAgent, (Instant, AccountUsage)>>;
 
-    let still_fresh = matches!(request.cache_policy, UsageCachePolicy::UseCache)
-        .then(|| {
-            cache.lock().ok().and_then(|guard| {
-                let (fetched_at, cached) = guard.get(&request.agent)?;
-                (fetched_at.elapsed() < USAGE_CACHE_TTL).then(|| cached.clone())
-            })
-        })
-        .flatten();
-    if let Some(cached) = still_fresh {
-        return Some(cached);
+/// The one cache of live account readings, keyed by agent - the single source
+/// for both commands, so a meter read and a scheduler read share one request.
+fn account_usage_cache() -> &'static AccountUsageCache {
+    static CACHE: OnceLock<AccountUsageCache> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// `agent`'s cached reading, while it is younger than [`USAGE_CACHE_TTL`].
+fn fresh_cached_account_usage(agent: UsageAgent) -> Option<AccountUsage> {
+    let guard = account_usage_cache().lock().ok()?;
+    let (fetched_at, cached) = guard.get(&agent)?;
+    (fetched_at.elapsed() < USAGE_CACHE_TTL).then(|| cached.clone())
+}
+
+/// Live account usage for `agent`, cached per agent to respect each endpoint's
+/// per-token limit. The fetch runs with the cache unlocked, so one slow vendor
+/// never holds up another agent's cached read.
+fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
+    let is_cache_allowed = matches!(request.cache_policy, UsageCachePolicy::UseCache);
+    if is_cache_allowed {
+        if let Some(cached) = fresh_cached_account_usage(request.agent) {
+            return Some(cached);
+        }
     }
 
-    let fresh = match request.agent {
-        UsageAgent::Claude => fetch_claude_account_usage(),
-        UsageAgent::Codex => fetch_codex_account_usage(),
-        UsageAgent::Copilot => fetch_copilot_account_usage(),
-        UsageAgent::Antigravity => fetch_antigravity_account_usage(),
-        UsageAgent::Cursor => fetch_cursor_account_usage(),
-    }?;
-    if let Ok(mut guard) = cache.lock() {
+    let fresh = request.agent.fetch_account_usage()?;
+    if let Ok(mut guard) = account_usage_cache().lock() {
         guard.insert(request.agent, (Instant::now(), fresh.clone()));
     }
     Some(fresh)
@@ -498,13 +525,12 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
 fn live_claude_oauth() -> Option<serde_json::Value> {
     let mut json = read_json(&claude_credentials_path()?)?;
     let oauth = json.get_mut("claudeAiOauth")?.take();
-    if let Some(expires_at) = oauth.get("expiresAt").and_then(serde_json::Value::as_u64) {
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_millis());
-        if u128::from(expires_at) <= now_ms {
-            return None;
-        }
+    let expires_at_milliseconds = oauth.get("expiresAt").and_then(serde_json::Value::as_u64);
+    let now_milliseconds = since_unix_epoch().as_millis();
+    let has_expired = expires_at_milliseconds
+        .is_some_and(|expires_at| u128::from(expires_at) <= now_milliseconds);
+    if has_expired {
+        return None;
     }
 
     Some(oauth)
@@ -524,10 +550,12 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         .get("accessToken")
         .and_then(serde_json::Value::as_str)?;
 
-    let plan = oauth
-        .get("subscriptionType")
-        .and_then(serde_json::Value::as_str)
-        .map_or_else(|| "Claude".to_string(), |tier| format!("Claude {tier}"));
+    let plan = plan_label(
+        CLAUDE_PLAN,
+        oauth
+            .get("subscriptionType")
+            .and_then(serde_json::Value::as_str),
+    );
 
     let body = read_claude_usage_endpoint(&ClaudeUsageRead {
         url: &claude_usage_url(),
@@ -543,27 +571,34 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
     }
 
     let credits = credits_state(&response);
-    let credits_on = credits.is_some_and(|state| state != CreditsState::Off);
-    let credit_balance = credits_on.then(|| claude_credit_balance(token)).flatten();
+    let is_credits_on = credits.is_some_and(|state| state != CreditsState::Off);
+    let credit_balance = is_credits_on
+        .then(|| claude_credit_balance(token))
+        .flatten();
 
     Some(AccountUsage {
         windows,
         plan,
-        source: "oauth:api.anthropic.com".to_string(),
-        account: Some(BILLING_ACCOUNT_ANTHROPIC.to_string()),
+        source: CLAUDE_OAUTH_SOURCE.to_string(),
+        account: Some(BillingAccount::Anthropic),
         credits,
         credit_balance,
         uncapped_spend: uncapped_credits_spend(&response),
     })
 }
 
+/// Where each adapter's live figures come from, for the meter's `source`.
+const CLAUDE_OAUTH_SOURCE: &str = "oauth:api.anthropic.com";
+const CODEX_OAUTH_SOURCE: &str = "oauth:chatgpt.com";
+const COPILOT_OAUTH_SOURCE: &str = "oauth:api.github.com";
+
 /// Claude Code's profile, `~/.claude.json`, which records the signed-in account's
 /// organization.
-const CLAUDE_PROFILE_REL: &str = ".claude.json";
+const CLAUDE_PROFILE_RELATIVE_PATH: &str = ".claude.json";
 
 /// A string field of Claude Code's profile, by JSON pointer.
 fn claude_profile_field(pointer: &str) -> Option<String> {
-    let profile = read_json(&home_dir()?.join(CLAUDE_PROFILE_REL))?;
+    let profile = read_json(&home_dir()?.join(CLAUDE_PROFILE_RELATIVE_PATH))?;
     profile
         .pointer(pointer)
         .and_then(serde_json::Value::as_str)
@@ -610,9 +645,24 @@ fn credit_balance(response: &serde_json::Value) -> Option<CreditBalance> {
         let entry = balance.get(kind).filter(|entry| !entry.is_null())?;
         let minor_units = i32::try_from(entry.get("amount_minor")?.as_i64()?).ok()?;
         let exponent = i32::try_from(entry.get("exponent")?.as_u64()?).ok()?;
-        Some(f64::from(minor_units) / 10_f64.powi(exponent))
+        Some(major_units(f64::from(minor_units), exponent))
     })?;
     Some(CreditBalance { amount, currency })
+}
+
+/// An amount in minor units (cents) as major units (dollars), scaled by the
+/// currency's own `exponent` of ten.
+fn major_units(minor_units: f64, exponent: i32) -> f64 {
+    const DECIMAL_BASE: f64 = 10.0;
+    minor_units / DECIMAL_BASE.powi(exponent)
+}
+
+/// A string field of a JSON object, owned.
+fn string_field(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
 }
 
 /// What usage credits have cost this month, when they are on with no monthly
@@ -621,9 +671,9 @@ fn credit_balance(response: &serde_json::Value) -> Option<CreditBalance> {
 /// for any other shape.
 fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance> {
     let credits = response.get(CREDITS_KEY)?;
-    let enabled = credits.get("is_enabled")?.as_bool()?;
+    let is_enabled = credits.get("is_enabled")?.as_bool()?;
     let has_cap = !credits.get("monthly_limit")?.is_null();
-    if !enabled || has_cap {
+    if !is_enabled || has_cap {
         return None;
     }
 
@@ -632,7 +682,7 @@ fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance>
     let exponent = i32::try_from(credits.get("decimal_places")?.as_u64()?).ok()?;
     let currency = credits.get("currency")?.as_str()?.to_string();
     Some(CreditBalance {
-        amount: minor_units / 10_f64.powi(exponent),
+        amount: major_units(minor_units, exponent),
         currency,
     })
 }
@@ -644,14 +694,11 @@ fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance>
 fn collect_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     let mut windows: Vec<UsageWindow> = response
         .as_object()
-        .map(|object| {
-            object
-                .iter()
-                .filter_map(|(key, value)| named_window(key, value))
-                .collect()
-        })
-        .unwrap_or_default();
-    windows.extend(model_windows(response));
+        .into_iter()
+        .flatten()
+        .filter_map(|(key, value)| named_window(key, value))
+        .chain(model_windows(response))
+        .collect();
     windows.sort_by_key(|window| window.kind.order());
     windows
 }
@@ -668,10 +715,7 @@ fn named_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
         kind: UsageWindowKind::from_window_key(key),
         label: humanize_key(key),
         utilization,
-        resets_at: value
-            .get("resets_at")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string),
+        resets_at: string_field(value, "resets_at"),
     })
 }
 
@@ -684,27 +728,25 @@ fn model_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     response
         .get("limits")
         .and_then(serde_json::Value::as_array)
-        .map(|rows| {
-            rows.iter()
-                .filter_map(|row| {
-                    let utilization = row.get("percent").and_then(serde_json::Value::as_f64)?;
-                    let name = row
-                        .pointer("/scope/model/display_name")
-                        .and_then(serde_json::Value::as_str)?;
-                    Some(UsageWindow {
-                        key: name.to_string(),
-                        kind: UsageWindowKind::Model,
-                        label: name.to_string(),
-                        utilization,
-                        resets_at: row
-                            .get("resets_at")
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_string),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .filter_map(model_window)
+        .collect()
+}
+
+/// One `limits[]` row as a per-model window, when it is scoped to a named model.
+fn model_window(row: &serde_json::Value) -> Option<UsageWindow> {
+    let utilization = row.get("percent").and_then(serde_json::Value::as_f64)?;
+    let name = row
+        .pointer("/scope/model/display_name")
+        .and_then(serde_json::Value::as_str)?;
+    Some(UsageWindow {
+        key: name.to_string(),
+        kind: UsageWindowKind::Model,
+        label: name.to_string(),
+        utilization,
+        resets_at: string_field(row, "resets_at"),
+    })
 }
 
 /// A human label for a named window, sentence-cased from its `snake_case` key
@@ -883,8 +925,16 @@ struct CodexLogin<'login> {
 /// window the endpoint returns into the same session/weekly kinds the meter and
 /// the auto-resume scheduler understand. Any other duration passes through as
 /// [`UsageWindowKind::Opaque`].
-const CODEX_SESSION_WINDOW_SECONDS: i64 = 5 * 60 * 60;
-const CODEX_WEEKLY_WINDOW_SECONDS: i64 = 7 * 24 * 60 * 60;
+const CODEX_SESSION_WINDOW_SECONDS: i64 = 5 * SECONDS_PER_HOUR;
+const CODEX_WEEKLY_WINDOW_SECONDS: i64 = DAYS_PER_WEEK * SECONDS_PER_DAY;
+
+const SECONDS_PER_MINUTE: i64 = 60;
+const SECONDS_PER_HOUR: i64 = 60 * SECONDS_PER_MINUTE;
+const SECONDS_PER_DAY: i64 = 24 * SECONDS_PER_HOUR;
+const DAYS_PER_WEEK: i64 = 7;
+
+/// The feature name a Codex per-feature limit falls back to when it names none.
+const CODEX_UNNAMED_FEATURE: &str = "codex";
 
 fn fetch_codex_account_usage() -> Option<AccountUsage> {
     let json = read_json(&codex_auth_path()?)?;
@@ -905,19 +955,18 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
         return None;
     }
 
-    let plan = response
-        .get("plan_type")
-        .and_then(serde_json::Value::as_str)
-        .map_or_else(|| "Codex".to_string(), |plan| format!("Codex {plan}"));
-
+    let plan = plan_label(
+        CODEX_PLAN,
+        response
+            .get("plan_type")
+            .and_then(serde_json::Value::as_str),
+    );
     Some(AccountUsage {
         windows,
         plan,
-        source: "oauth:chatgpt.com".to_string(),
-        account: Some(BILLING_ACCOUNT_CHATGPT.to_string()),
-        credits: None,
-        credit_balance: None,
-        uncapped_spend: None,
+        source: CODEX_OAUTH_SOURCE.to_string(),
+        account: Some(BillingAccount::Chatgpt),
+        ..AccountUsage::default()
     })
 }
 
@@ -926,24 +975,26 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
 /// weekly / opaque), then any per-feature `additional_rate_limits`, each surfaced
 /// opaquely under its own feature name. Ordered like the Claude windows.
 fn collect_codex_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
-    let mut windows: Vec<UsageWindow> = Vec::new();
-    if let Some(rate_limit) = response.get("rate_limit") {
-        windows.extend(codex_rate_limit_windows(rate_limit, None));
-    }
-    if let Some(additional) = response
+    let account_wide = response
+        .get("rate_limit")
+        .into_iter()
+        .flat_map(|rate_limit| codex_rate_limit_windows(rate_limit, None));
+    let per_feature = response
         .get("additional_rate_limits")
         .and_then(serde_json::Value::as_array)
-    {
-        for entry in additional {
+        .into_iter()
+        .flatten()
+        .flat_map(|entry| {
             let feature = entry
                 .get("limit_name")
                 .and_then(serde_json::Value::as_str)
-                .unwrap_or("codex");
-            if let Some(rate_limit) = entry.get("rate_limit") {
-                windows.extend(codex_rate_limit_windows(rate_limit, Some(feature)));
-            }
-        }
-    }
+                .unwrap_or(CODEX_UNNAMED_FEATURE);
+            entry
+                .get("rate_limit")
+                .into_iter()
+                .flat_map(move |rate_limit| codex_rate_limit_windows(rate_limit, Some(feature)))
+        });
+    let mut windows: Vec<UsageWindow> = account_wide.chain(per_feature).collect();
     windows.sort_by_key(|window| window.kind.order());
     windows
 }
@@ -952,18 +1003,17 @@ fn collect_codex_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
 /// windows. `feature` is `None` for the account-wide caps (classified by their
 /// duration) and `Some(name)` for a named metered feature (surfaced opaquely,
 /// so a 5-hour code-review cap isn't mislabeled the account "Session").
-fn codex_rate_limit_windows(
-    rate_limit: &serde_json::Value,
-    feature: Option<&str>,
-) -> Vec<UsageWindow> {
+fn codex_rate_limit_windows<'response>(
+    rate_limit: &'response serde_json::Value,
+    feature: Option<&'response str>,
+) -> impl Iterator<Item = UsageWindow> + 'response {
     ["primary_window", "secondary_window"]
         .into_iter()
-        .filter_map(|slot| {
+        .filter_map(move |slot| {
             rate_limit
                 .get(slot)
                 .and_then(|window| codex_window(window, feature))
         })
-        .collect()
 }
 
 /// One Codex rate-limit window (a `{ used_percent, limit_window_seconds, reset_at }`
@@ -1016,19 +1066,19 @@ fn codex_window_kind(seconds: i64) -> UsageWindowKind {
 /// → "Weekly", `86400` → "1-day"). Session/weekly windows get product names from
 /// the frontend; this is what an opaque window shows.
 fn humanize_window_seconds(seconds: i64) -> String {
-    if seconds > 0 && seconds % 86_400 == 0 {
-        let days = seconds / 86_400;
-        return if days == 7 {
-            "Weekly".to_string()
-        } else {
-            format!("{days}-day")
-        };
+    let is_whole = |unit_seconds: i64| seconds > 0 && seconds % unit_seconds == 0;
+    if is_whole(SECONDS_PER_DAY) {
+        let days = seconds / SECONDS_PER_DAY;
+        if days == DAYS_PER_WEEK {
+            return "Weekly".to_string();
+        }
+        return format!("{days}-day");
     }
-    if seconds > 0 && seconds % 3_600 == 0 {
-        return format!("{}-hour", seconds / 3_600);
+    if is_whole(SECONDS_PER_HOUR) {
+        return format!("{}-hour", seconds / SECONDS_PER_HOUR);
     }
-    if seconds > 0 && seconds % 60 == 0 {
-        return format!("{}-minute", seconds / 60);
+    if is_whole(SECONDS_PER_MINUTE) {
+        return format!("{}-minute", seconds / SECONDS_PER_MINUTE);
     }
     format!("{seconds}-second")
 }
@@ -1039,15 +1089,19 @@ fn humanize_window_seconds(seconds: i64) -> String {
 /// normalize here. Pure `std` arithmetic - Howard Hinnant's `civil_from_days`,
 /// no date crate.
 fn unix_seconds_to_iso8601(seconds: i64) -> String {
-    let days = seconds.div_euclid(86_400);
-    let seconds_of_day = seconds.rem_euclid(86_400);
-    let hour = seconds_of_day / 3_600;
-    let minute = (seconds_of_day % 3_600) / 60;
-    let second = seconds_of_day % 60;
+    // The algorithm counts from 0000-03-01, so leap days fall at a year's end.
+    const DAYS_FROM_MARCH_ZERO_TO_UNIX_EPOCH: i64 = 719_468;
+    const DAYS_PER_ERA: i64 = 146_097;
 
-    let shifted = days + 719_468;
-    let era = shifted.div_euclid(146_097);
-    let day_of_era = shifted - era * 146_097;
+    let days = seconds.div_euclid(SECONDS_PER_DAY);
+    let seconds_of_day = seconds.rem_euclid(SECONDS_PER_DAY);
+    let hour = seconds_of_day / SECONDS_PER_HOUR;
+    let minute = (seconds_of_day % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE;
+    let second = seconds_of_day % SECONDS_PER_MINUTE;
+
+    let shifted = days + DAYS_FROM_MARCH_ZERO_TO_UNIX_EPOCH;
+    let era = shifted.div_euclid(DAYS_PER_ERA);
+    let day_of_era = shifted - era * DAYS_PER_ERA;
     let year_of_era =
         (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
@@ -1111,16 +1165,6 @@ const COPILOT_EDITOR_VERSION: &str = "vscode/1.99.0";
 /// numbers) is available.
 const COPILOT_LOCAL_SOURCE: &str = "local:github-copilot";
 
-/// Copilot usage for the meter - the live premium-request window when the
-/// entitlement endpoint answers, else the honest plan label with no numbers.
-fn copilot_usage() -> Option<Usage> {
-    let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Copilot))?;
-    Some(usage_from_account(
-        account,
-        HeadlineWindow::WeeklyOrMostConsumed,
-    ))
-}
-
 /// The Copilot account: live entitlement windows when the endpoint answers,
 /// otherwise a bare plan label confirming a local token exists. `None` only when
 /// no token is reachable at all (keychain-only login, no env override, no editor
@@ -1131,13 +1175,10 @@ fn fetch_copilot_account_usage() -> Option<AccountUsage> {
         return Some(account);
     }
     Some(AccountUsage {
-        windows: Vec::new(),
-        plan: "Copilot".to_string(),
+        plan: COPILOT_PLAN.to_string(),
         source: COPILOT_LOCAL_SOURCE.to_string(),
-        account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
-        credits: None,
-        credit_balance: None,
-        uncapped_spend: None,
+        account: Some(BillingAccount::Github),
+        ..AccountUsage::default()
     })
 }
 
@@ -1154,21 +1195,16 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
         return None;
     }
 
-    let plan = response
+    let tier = response
         .get("copilot_plan")
         .and_then(serde_json::Value::as_str)
-        .map_or_else(
-            || "Copilot".to_string(),
-            |plan| format!("Copilot {}", plan.replace('_', " ")),
-        );
+        .map(|tier| tier.replace('_', " "));
     Some(AccountUsage {
         windows,
-        plan,
-        source: "oauth:api.github.com".to_string(),
-        account: Some(BILLING_ACCOUNT_GITHUB.to_string()),
-        credits: None,
-        credit_balance: None,
-        uncapped_spend: None,
+        plan: plan_label(COPILOT_PLAN, tier.as_deref()),
+        source: COPILOT_OAUTH_SOURCE.to_string(),
+        account: Some(BillingAccount::Github),
+        ..AccountUsage::default()
     })
 }
 
@@ -1180,20 +1216,14 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
 /// account-wide `quota_reset_date`. Nothing is invented - a snapshot with no
 /// derivable percentage falls away.
 fn collect_copilot_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
-    let resets_at = response
-        .get("quota_reset_date")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string);
+    let resets_at = string_field(response, "quota_reset_date");
     response
         .get("quota_snapshots")
         .and_then(serde_json::Value::as_object)
-        .map(|snapshots| {
-            snapshots
-                .iter()
-                .filter_map(|(name, snapshot)| copilot_window(name, snapshot, resets_at.clone()))
-                .collect()
-        })
-        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .filter_map(|(name, snapshot)| copilot_window(name, snapshot, resets_at.clone()))
+        .collect()
 }
 
 /// One Copilot quota snapshot as a [`UsageWindow`], or `None` when it's an
@@ -1204,11 +1234,11 @@ fn copilot_window(
     snapshot: &serde_json::Value,
     resets_at: Option<String>,
 ) -> Option<UsageWindow> {
-    if snapshot
+    let is_unlimited = snapshot
         .get("unlimited")
         .and_then(serde_json::Value::as_bool)
-        == Some(true)
-    {
+        == Some(true);
+    if is_unlimited {
         return None;
     }
     let utilization = copilot_percent_used(snapshot)?;
@@ -1229,7 +1259,7 @@ fn copilot_percent_used(snapshot: &serde_json::Value) -> Option<f64> {
         .get("percent_remaining")
         .and_then(serde_json::Value::as_f64)
     {
-        return Some(100.0 - remaining);
+        return Some(FULL_PERCENTAGE - remaining);
     }
     let remaining = snapshot
         .get("remaining")
@@ -1240,25 +1270,29 @@ fn copilot_percent_used(snapshot: &serde_json::Value) -> Option<f64> {
     if entitlement <= 0.0 {
         return None;
     }
-    Some((1.0 - remaining / entitlement) * 100.0)
+    Some((1.0 - remaining / entitlement) * FULL_PERCENTAGE)
 }
 
+/// The env overrides the Copilot CLI reads its GitHub token from, in its own
+/// precedence order.
+const COPILOT_TOKEN_VARIABLES: [&str; 3] = ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"];
+/// The editor OAuth store files, oldest layout first.
+const COPILOT_STORE_FILES: [&str; 2] = ["apps.json", "hosts.json"];
+
 /// The GitHub token to reach the Copilot entitlement endpoint with, in the
-/// precedence the CLI itself uses: the `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`/
-/// `GITHUB_TOKEN` env overrides, then the editor OAuth store on disk. The CLI's
-/// own default store is the OS keychain, which no dependency-free read can open -
-/// so a keychain-only login yields `None` here (and the plan-label fallback).
+/// precedence the CLI itself uses: the [`COPILOT_TOKEN_VARIABLES`] env
+/// overrides, then the editor OAuth store on disk. The CLI's own default store
+/// is the OS keychain, which no dependency-free read can open - so a
+/// keychain-only login yields `None` here (and the plan-label fallback).
 fn copilot_token() -> Option<String> {
-    for variable in ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"] {
-        let Ok(token) = std::env::var(variable) else {
-            continue;
-        };
-        if token.is_empty() {
-            continue;
-        }
-        return Some(token);
-    }
-    copilot_token_from_store()
+    COPILOT_TOKEN_VARIABLES
+        .into_iter()
+        .find_map(|variable| {
+            std::env::var(variable)
+                .ok()
+                .filter(|token| !token.is_empty())
+        })
+        .or_else(copilot_token_from_store)
 }
 
 /// The Copilot OAuth token from the editor store - `apps.json` (and the newer
@@ -1272,24 +1306,14 @@ fn copilot_token_from_store() -> Option<String> {
     } else {
         home.join(".config/github-copilot")
     };
-    for file in ["apps.json", "hosts.json"] {
-        let Some(json) = read_json(&directory.join(file)) else {
-            continue;
-        };
-        let Some(hosts) = json.as_object() else {
-            continue;
-        };
-        for host in hosts.values() {
-            let Some(token) = host.get("oauth_token").and_then(serde_json::Value::as_str) else {
-                continue;
-            };
-            if token.is_empty() {
-                continue;
-            }
-            return Some(token.to_string());
-        }
-    }
-    None
+    COPILOT_STORE_FILES.into_iter().find_map(|file| {
+        let json = read_json(&directory.join(file))?;
+        json.as_object()?
+            .values()
+            .filter_map(|host| host.get("oauth_token").and_then(serde_json::Value::as_str))
+            .find(|token| !token.is_empty())
+            .map(str::to_string)
+    })
 }
 
 /// GET the Copilot entitlement endpoint. It uses the `token` (not `Bearer`)
@@ -1325,35 +1349,22 @@ fn read_copilot_usage_endpoint(token: &str) -> Option<String> {
 // poll it. We confirm the local login exists and surface just the plan label.
 // ---------------------------------------------------------------------------
 
-/// Antigravity usage - the plan label when a local Google login exists, else "-".
-fn antigravity_usage() -> Option<Usage> {
-    let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Antigravity))?;
-    Some(usage_from_account(
-        account,
-        HeadlineWindow::WeeklyOrMostConsumed,
-    ))
-}
+/// The Antigravity CLI's stored Google login, under the home directory.
+const ANTIGRAVITY_TOKEN_RELATIVE_PATH: &str = ".gemini/antigravity-cli/antigravity-oauth-token";
 
 /// Confirm the Antigravity OAuth token exists on disk and surface a bare plan
 /// label with no numbers (no quota-free usage endpoint we trust). `None` when no
 /// login is present - an honest "-".
 fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
-    let token_file = home_dir()?
-        .join(".gemini")
-        .join("antigravity-cli")
-        .join("antigravity-oauth-token");
-    let json = read_json(&token_file)?;
+    let json = read_json(&home_dir()?.join(ANTIGRAVITY_TOKEN_RELATIVE_PATH))?;
     json.pointer("/token/access_token")
         .and_then(serde_json::Value::as_str)?;
 
     Some(AccountUsage {
-        windows: Vec::new(),
-        plan: "Antigravity".to_string(),
-        source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
-        account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
-        credits: None,
-        credit_balance: None,
-        uncapped_spend: None,
+        plan: ANTIGRAVITY_PLAN.to_string(),
+        source: local_source(ANTIGRAVITY_TOKEN_RELATIVE_PATH),
+        account: Some(BillingAccount::Google),
+        ..AccountUsage::default()
     })
 }
 
@@ -1367,52 +1378,47 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
 // exists and surface just the plan label.
 // ---------------------------------------------------------------------------
 
-/// Cursor usage - the plan label when a local login exists, else "-".
-fn cursor_usage() -> Option<Usage> {
-    let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Cursor))?;
-    Some(usage_from_account(
-        account,
-        HeadlineWindow::WeeklyOrMostConsumed,
-    ))
-}
+/// Where the Cursor plan label comes from: a local login, wherever it was found.
+const CURSOR_LOCAL_SOURCE: &str = "local:cursor";
+
+/// The auth files `cursor-agent` has kept its login in, by version, under the
+/// home directory. The layout drifts between versions, so every one is probed.
+const CURSOR_AUTH_RELATIVE_PATHS: [&str; 5] = [
+    ".config/cursor/auth.json",
+    ".cursor/auth.json",
+    ".config/cursor-agent/auth.json",
+    "AppData/Roaming/cursor-agent/auth.json",
+    ".cursor/cli-config.json",
+];
 
 /// Confirm a Cursor login exists on disk (or a `CURSOR_API_KEY` override) and
 /// surface a bare plan label with no numbers. `None` when no login is present.
 fn fetch_cursor_account_usage() -> Option<AccountUsage> {
-    if !cursor_login_present() {
+    if !is_cursor_login_present() {
         return None;
     }
     Some(AccountUsage {
-        windows: Vec::new(),
-        plan: "Cursor".to_string(),
-        source: "local:cursor".to_string(),
-        account: Some(BILLING_ACCOUNT_CURSOR.to_string()),
-        credits: None,
-        credit_balance: None,
-        uncapped_spend: None,
+        plan: CURSOR_PLAN.to_string(),
+        source: CURSOR_LOCAL_SOURCE.to_string(),
+        account: Some(BillingAccount::Cursor),
+        ..AccountUsage::default()
     })
 }
 
 /// Whether a Cursor login is present: the documented `CURSOR_API_KEY` override,
-/// or a stored session in one of the CLI's version-dependent auth files (a JWT
-/// under `accessToken`/`access_token`, or the `authInfo` marker the CLI writes to
-/// `cli-config.json`). We probe a candidate list because the layout drifts
-/// between `cursor-agent` versions; a wrong guess simply yields "not present".
-fn cursor_login_present() -> bool {
+/// or a stored session in one of the [`CURSOR_AUTH_RELATIVE_PATHS`] (a JWT under
+/// `accessToken`/`access_token`, or the `authInfo` marker the CLI writes to
+/// `cli-config.json`). A wrong guess simply yields "not present".
+fn is_cursor_login_present() -> bool {
     if std::env::var("CURSOR_API_KEY").is_ok_and(|key| !key.is_empty()) {
         return true;
     }
     let Some(home) = home_dir() else {
         return false;
     };
-    let candidates = [
-        home.join(".config/cursor/auth.json"),
-        home.join(".cursor/auth.json"),
-        home.join(".config/cursor-agent/auth.json"),
-        home.join("AppData/Roaming/cursor-agent/auth.json"),
-        home.join(".cursor/cli-config.json"),
-    ];
-    candidates.iter().any(|path| auth_file_has_login(path))
+    CURSOR_AUTH_RELATIVE_PATHS
+        .iter()
+        .any(|relative_path| auth_file_has_login(&home.join(relative_path)))
 }
 
 /// Whether an auth file names a stored login - a non-empty `accessToken`/
@@ -1435,8 +1441,8 @@ mod tests {
         collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
         credits_state, curl_config, humanize_key, humanize_window_seconds, is_safe_header_token,
         uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account, AccountUsage,
-        CreditsState, CurlRequest, HeadlineWindow, UsageAgent, UsageWindow, UsageWindowKind,
-        BILLING_ACCOUNT_GOOGLE,
+        BillingAccount, CreditsState, CurlRequest, HeadlineWindow, Usage, UsageAgent, UsageWindow,
+        UsageWindowKind,
     };
     use crate::agents::{ID_CODEX, ID_OPENCODE};
 
@@ -1783,6 +1789,29 @@ mod tests {
     }
 
     #[test]
+    fn the_wire_names_stay_what_the_frontend_reads() {
+        let usage = serde_json::to_value(Usage {
+            used_percentage: Some(12.5),
+            label: "Codex".to_string(),
+            resets_at: None,
+            source: "local:.codex/auth.json".to_string(),
+        })
+        .expect("usage serializes");
+        assert_eq!(usage["usedPct"], serde_json::json!(12.5));
+
+        let accounts = [
+            (BillingAccount::Anthropic, "anthropic"),
+            (BillingAccount::Chatgpt, "chatgpt"),
+            (BillingAccount::Github, "github"),
+            (BillingAccount::Google, "google"),
+            (BillingAccount::Cursor, "cursor"),
+        ];
+        for (account, wire) in accounts {
+            assert_eq!(serde_json::to_value(account).expect("serializes"), wire);
+        }
+    }
+
+    #[test]
     fn a_curl_config_carries_every_header_and_turns_a_body_into_a_quoted_post() {
         let config = curl_config(&CurlRequest {
             url: "https://example.com/reset",
@@ -1965,7 +1994,7 @@ mod tests {
         let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);
 
         // The weekly cap is the headline even when another window is hotter.
-        assert_eq!(usage.used_pct, Some(40.0));
+        assert_eq!(usage.used_percentage, Some(40.0));
         assert_eq!(usage.resets_at.as_deref(), Some("2026-08-01"));
         assert_eq!(usage.label, "Copilot business");
     }
@@ -1998,7 +2027,7 @@ mod tests {
         };
 
         assert_eq!(
-            usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed).used_pct,
+            usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed).used_percentage,
             Some(88.0)
         );
     }
@@ -2025,7 +2054,7 @@ mod tests {
 
         let usage = usage_from_account(account, HeadlineWindow::WeeklyOnly);
 
-        assert_eq!(usage.used_pct, None);
+        assert_eq!(usage.used_percentage, None);
         assert_eq!(usage.resets_at, None);
         assert_eq!(usage.label, "Claude Pro");
     }
@@ -2038,7 +2067,7 @@ mod tests {
             plan: "Antigravity".to_string(),
             source: "local:.gemini/antigravity-cli/antigravity-oauth-token".to_string(),
             windows: Vec::new(),
-            account: Some(BILLING_ACCOUNT_GOOGLE.to_string()),
+            account: Some(BillingAccount::Google),
             credits: None,
             credit_balance: None,
             uncapped_spend: None,
@@ -2046,7 +2075,7 @@ mod tests {
 
         let usage = usage_from_account(account, HeadlineWindow::WeeklyOrMostConsumed);
 
-        assert_eq!(usage.used_pct, None);
+        assert_eq!(usage.used_percentage, None);
         assert_eq!(usage.resets_at, None);
         assert_eq!(usage.label, "Antigravity");
     }

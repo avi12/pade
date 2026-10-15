@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Directories no project walk is ever interested in: dependency trees and
 /// build output. One home for the list, because two walks read it - the
@@ -562,6 +562,14 @@ pub fn pade_data_dir() -> Option<PathBuf> {
         return std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("pade"));
     }
     Some(home_dir()?.join(".pade"))
+}
+
+/// The wall-clock time since the Unix epoch, or zero for a clock set before it -
+/// a timestamp, a nonce or an expiry check never has a better answer to give.
+pub fn since_unix_epoch() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
 }
 
 /// The user's home directory, cross-platform, without pulling in a dependency
