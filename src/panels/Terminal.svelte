@@ -3,7 +3,7 @@
   // A terminal has TWO screens and they invert every rule: the normal screen
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
-  // program to repaint). `onAlternateScreen` is the flag; the doc is the policy.
+  // program to repaint). `isOnAlternateScreen` is the flag; the doc is the policy.
   import { AgentId } from "@/lib/agent-icon";
   import { clipboard, dragDrop, os, pty } from "@/lib/bridge";
   import { coalesced } from "@/lib/coalesce";
@@ -15,6 +15,7 @@
   import { isEditingText } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
   import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/initial-prompt";
+  import { KeyName } from "@/lib/key-names";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
@@ -421,6 +422,11 @@
   // Ctrl+Backspace, whose legacy byte (^H) a TUI can't tell from a bare
   // backspace; see the key-handler comment.
   const ERASE_WORD = "\x17";
+  // The terminal's own clipboard chords (Ctrl+C with a selection, Ctrl+V),
+  // matched case-insensitively.
+  const COPY_LETTER = "c";
+  const PASTE_LETTER = "v";
+  const KEYDOWN_EVENT = "keydown";
 
   // Focus reports (mode 1004) xterm emits when the pane gains/loses DOM focus.
   // PADE never forwards them: a PADE pane is either front (focused) or hidden
@@ -1383,8 +1389,8 @@
       // to a meaningless 100% within minutes (a freshly handed-off successor
       // read "≈100%"). On the alternate screen the onRender scan above carries
       // the parsed percent, and no estimate beats a saturated one.
-      const onNormalScreen = terminal.buffer.active.type !== "alternate";
-      if (onNormalScreen) {
+      const isOnNormalScreen = terminal.buffer.active.type !== Screen.Alternate;
+      if (isOnNormalScreen) {
         observeContext({
           id: session.id,
           chunk: chunk.data
@@ -1516,7 +1522,7 @@
     //    which xterm doesn't speak); ^W is the erase-word every line editor
     //    and agent already binds.
     terminal.attachCustomKeyEventHandler(event => {
-      if (event.type !== "keydown") {
+      if (event.type !== KEYDOWN_EVENT) {
         return true;
       }
 
@@ -1544,21 +1550,22 @@
 
       const isPlainCtrl = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
 
-      const isCopyChord = isPlainCtrl && (event.key === "c" || event.key === "C");
+      const letter = event.key.toLowerCase();
+      const isCopyChord = isPlainCtrl && letter === COPY_LETTER;
       if (isCopyChord && terminal.hasSelection()) {
         event.preventDefault();
         copySelectionToClipboard();
         return false;
       }
 
-      const isPasteChord = isPlainCtrl && (event.key === "v" || event.key === "V");
+      const isPasteChord = isPlainCtrl && letter === PASTE_LETTER;
       if (isPasteChord) {
         event.preventDefault();
         pasteClipboard();
         return false;
       }
 
-      const isDeleteWordChord = isPlainCtrl && event.key === "Backspace";
+      const isDeleteWordChord = isPlainCtrl && event.key === KeyName.Backspace;
       if (isDeleteWordChord) {
         event.preventDefault();
         writeToPty(ERASE_WORD);

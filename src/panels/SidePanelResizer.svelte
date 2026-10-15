@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KeyName } from "@/lib/key-names";
   import {
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
@@ -77,13 +78,13 @@
   data-tooltip="Drag to resize · double-click to reset"
   ondblclick={reset}
   onkeydown={async e => {
-    if (e.key === "ArrowLeft") {
+    if (e.key === KeyName.ArrowLeft) {
       e.preventDefault();
       await nudge(NUDGE_PIXELS);
-    } else if (e.key === "ArrowRight") {
+    } else if (e.key === KeyName.ArrowRight) {
       e.preventDefault();
       await nudge(-NUDGE_PIXELS);
-    } else if (e.key === "Home") {
+    } else if (e.key === KeyName.Home) {
       e.preventDefault();
       await reset();
     }
