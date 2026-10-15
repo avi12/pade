@@ -23,7 +23,7 @@ export function reorderedIds({ ids, fromIndex, toIndex }: {
   toIndex: number;
 }) {
   const draggedId = ids[fromIndex];
-  const rest = ids.filter((_, index) => index !== fromIndex);
+  const rest = ids.filter((_, i) => i !== fromIndex);
   return [...rest.slice(0, toIndex), draggedId, ...rest.slice(toIndex)];
 }
 
@@ -97,10 +97,10 @@ export function paneInsertIndex({ paneIds, draggedId, targetId, side }: {
   side: DropSide;
 }) {
   const base = paneIds.filter(id => id !== draggedId);
-  const targetIndex = base.indexOf(targetId);
-  if (targetIndex === -1) {
+  const iTarget = base.indexOf(targetId);
+  if (iTarget === -1) {
     return base.length;
   }
 
-  return side === DropSide.right ? targetIndex + 1 : targetIndex;
+  return side === DropSide.right ? iTarget + 1 : iTarget;
 }

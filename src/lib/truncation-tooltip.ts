@@ -12,6 +12,8 @@ function resolve(text: TooltipText) {
 // (OverflowTooltipLayer) can position itself back onto whichever one is hovered.
 let nextAnchorId = 0;
 
+const ANCHOR_NAME_PROPERTY = "anchor-name";
+
 /** Shared plumbing for both attachments: name the trigger as an anchor, then
  *  show/hide the single top-level bubble on hover/focus. `textToShow` returns the
  *  text for the current state (empty string = no bubble), so the truncation and
@@ -23,38 +25,39 @@ let nextAnchorId = 0;
  *  `position: fixed`, and inside a `.picker`-style scroller Chromium paints that
  *  escaped fixed box *behind* the scrolled rows, so a following row occludes it
  *  (see overflow-tooltip.svelte). */
-function overflowTooltip(textToShow: (element: HTMLElement) => string) {
-  return (element: HTMLElement) => {
+function overflowTooltip(textToShow: (elTrigger: HTMLElement) => string) {
+  return (elTrigger: HTMLElement) => {
     const anchorName = `--overflow-tooltip-${nextAnchorId++}`;
-    element.style.setProperty("anchor-name", anchorName);
+    elTrigger.style.setProperty(ANCHOR_NAME_PROPERTY, anchorName);
 
     function activate() {
-      const text = textToShow(element);
-      if (text) {
-        showOverflowTooltip({
-          anchorName,
-          text
-        });
-      } else {
+      const text = textToShow(elTrigger);
+      if (!text) {
         clearOverflowTooltip(anchorName);
+        return;
       }
+
+      showOverflowTooltip({
+        anchorName,
+        text
+      });
     }
 
     function deactivate() {
       clearOverflowTooltip(anchorName);
     }
 
-    element.addEventListener("pointerenter", activate);
-    element.addEventListener("pointerleave", deactivate);
-    element.addEventListener("focusin", activate);
-    element.addEventListener("focusout", deactivate);
+    elTrigger.addEventListener("pointerenter", activate);
+    elTrigger.addEventListener("pointerleave", deactivate);
+    elTrigger.addEventListener("focusin", activate);
+    elTrigger.addEventListener("focusout", deactivate);
     return () => {
       deactivate();
-      element.removeEventListener("pointerenter", activate);
-      element.removeEventListener("pointerleave", deactivate);
-      element.removeEventListener("focusin", activate);
-      element.removeEventListener("focusout", deactivate);
-      element.style.removeProperty("anchor-name");
+      elTrigger.removeEventListener("pointerenter", activate);
+      elTrigger.removeEventListener("pointerleave", deactivate);
+      elTrigger.removeEventListener("focusin", activate);
+      elTrigger.removeEventListener("focusout", deactivate);
+      elTrigger.style.removeProperty(ANCHOR_NAME_PROPERTY);
     };
   };
 }
@@ -91,9 +94,10 @@ export function truncationTooltip({ tooltip: text, restingTooltip, measureSelect
   restingTooltip?: TooltipText;
   measureSelector?: string;
 }) {
-  return overflowTooltip(element => {
-    const measured = (measureSelector ? element.querySelector(measureSelector) : null) ?? element;
-    if (measured.scrollWidth > measured.clientWidth) {
+  return overflowTooltip(elTrigger => {
+    const elMeasured = (measureSelector ? elTrigger.querySelector(measureSelector) : null) ?? elTrigger;
+    const isClipped = elMeasured.scrollWidth > elMeasured.clientWidth;
+    if (isClipped) {
       return resolve(text);
     }
 

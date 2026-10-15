@@ -7,14 +7,18 @@
 /** Pixels between tab items - must mirror the tab strip's CSS flex gap. */
 export const TAB_GAP = 6;
 
+const DOT_BUTTON_WIDTH = 22;
+const MORE_BUTTON_WIDTH = 34;
+const ADD_BUTTON_WIDTH = 30;
+
 /** A collapsed status-dot button plus its gap. */
-export const DOT_SLOT = 22 + TAB_GAP;
+export const DOT_SLOT = DOT_BUTTON_WIDTH + TAB_GAP;
 
 /** The "+N" overflow button plus its gap. */
-export const MORE_SLOT = 34 + TAB_GAP;
+export const MORE_SLOT = MORE_BUTTON_WIDTH + TAB_GAP;
 
 /** The trailing add-agent button plus its gap - always reserved at the end. */
-export const ADD_SLOT = 30 + TAB_GAP;
+export const ADD_SLOT = ADD_BUTTON_WIDTH + TAB_GAP;
 
 /** How the strip splits: full pills, collapsed status dots, "+N" overflow. */
 interface TabPack {
@@ -51,7 +55,7 @@ export function packTabs({ ids, widthOf, stripWidth }: {
   const visible: string[] = [];
   let used = 0;
   for (const id of ids) {
-    const next = used + widthOf(id) + (visible.length ? TAB_GAP : 0);
+    const next = used + widthOf(id) + (visible.length > 0 ? TAB_GAP : 0);
     if (next > budget) {
       break;
     }
