@@ -30,11 +30,32 @@ pub struct TaskGroup {
     manifest: String,
     /// Absolute directory the tasks run in.
     dir: String,
-    /// Manifest family: "npm" | "cargo" | "make" | "python" | "cmake" | "meson"
-    /// | "ninja" | "bazel" | "xmake" | "premake" | "scons" | "qmake" | "dotnet"
-    /// | "msbuild" | "go" | "gradle" | "maven".
-    kind: String,
+    kind: TaskKind,
     tasks: Vec<Task>,
+}
+
+/// A manifest family - the closed set the frontend groups and labels by,
+/// serialized as its lowercase name (`"npm"`, `"msbuild"`, ...).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum TaskKind {
+    Npm,
+    Cargo,
+    Make,
+    Python,
+    Cmake,
+    Meson,
+    Ninja,
+    Bazel,
+    Xmake,
+    Premake,
+    Scons,
+    Qmake,
+    Dotnet,
+    Msbuild,
+    Go,
+    Gradle,
+    Maven,
 }
 
 /// One token the frontend watches for (so a manifest landing on disk refreshes
@@ -63,8 +84,8 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
         ));
     }
     let mut groups = Vec::new();
-    for dir in manifest_directories(&root) {
-        collect_group(&root, &dir, &mut groups);
+    for directory in manifest_directories(&root) {
+        collect_group(&root, &directory, &mut groups);
     }
     Ok(groups)
 }
@@ -92,12 +113,12 @@ fn manifest_directories(root: &Path) -> Vec<PathBuf> {
     const MAXIMUM_DEPTH: u8 = 3;
     let mut directories = Vec::new();
     let mut stack = vec![(root.to_path_buf(), 0u8)];
-    while let Some((dir, depth)) = stack.pop() {
-        directories.push(dir.clone());
+    while let Some((directory, depth)) = stack.pop() {
+        directories.push(directory.clone());
         if depth >= MAXIMUM_DEPTH {
             continue;
         }
-        let Ok(entries) = std::fs::read_dir(&dir) else {
+        let Ok(entries) = std::fs::read_dir(&directory) else {
             continue;
         };
         for entry in entries.flatten() {
@@ -157,7 +178,7 @@ impl ManifestMatch {
 /// truth - the frontend's watched tokens and empty state are derived from it.
 struct ManifestDefinition {
     matcher: ManifestMatch,
-    kind: &'static str,
+    kind: TaskKind,
     extract: fn(&Path) -> Vec<Task>,
 }
 
@@ -165,113 +186,120 @@ struct ManifestDefinition {
 /// the MSVC family can claim one; each extractor reads it to decide. `.slnx` is
 /// the newer XML form of the same file.
 const SOLUTION_EXTENSION: &str = ".sln";
-const SOLUTION_EXTENSIONS: &[&str] = &[SOLUTION_EXTENSION, ".slnx"];
+const XML_SOLUTION_EXTENSION: &str = ".slnx";
+const SOLUTION_EXTENSIONS: &[&str] = &[SOLUTION_EXTENSION, XML_SOLUTION_EXTENSION];
 /// Native C++ projects build through `MSBuild` - `dotnet` cannot build one.
 const NATIVE_PROJECT_EXTENSION: &str = ".vcxproj";
 
 const MANIFESTS: &[ManifestDefinition] = &[
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["package.json"]),
-        kind: "npm",
+        kind: TaskKind::Npm,
         extract: npm_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["Cargo.toml"]),
-        kind: "cargo",
+        kind: TaskKind::Cargo,
         extract: cargo_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["Makefile"]),
-        kind: "make",
+        kind: TaskKind::Make,
         extract: make_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["pyproject.toml"]),
-        kind: "python",
+        kind: TaskKind::Python,
         extract: python_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["CMakeLists.txt"]),
-        kind: "cmake",
+        kind: TaskKind::Cmake,
         extract: cmake_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["CMakePresets.json", "CMakeUserPresets.json"]),
-        kind: "cmake",
+        kind: TaskKind::Cmake,
         extract: cmake_preset_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["meson.build"]),
-        kind: "meson",
+        kind: TaskKind::Meson,
         extract: meson_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["build.ninja"]),
-        kind: "ninja",
+        kind: TaskKind::Ninja,
         extract: ninja_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["MODULE.bazel", "WORKSPACE.bazel", "WORKSPACE"]),
-        kind: "bazel",
+        kind: TaskKind::Bazel,
         extract: bazel_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["xmake.lua"]),
-        kind: "xmake",
+        kind: TaskKind::Xmake,
         extract: xmake_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["premake5.lua"]),
-        kind: "premake",
+        kind: TaskKind::Premake,
         extract: premake_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["SConstruct"]),
-        kind: "scons",
+        kind: TaskKind::Scons,
         extract: scons_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Extensions(&[".pro"]),
-        kind: "qmake",
+        kind: TaskKind::Qmake,
         extract: qmake_tasks,
     },
     ManifestDefinition {
-        matcher: ManifestMatch::Extensions(&[".sln", ".slnx", ".csproj", ".fsproj", ".vbproj"]),
-        kind: "dotnet",
+        matcher: ManifestMatch::Extensions(&[
+            SOLUTION_EXTENSION,
+            XML_SOLUTION_EXTENSION,
+            ".csproj",
+            ".fsproj",
+            ".vbproj",
+        ]),
+        kind: TaskKind::Dotnet,
         extract: dotnet_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Extensions(&[
             NATIVE_PROJECT_EXTENSION,
             SOLUTION_EXTENSION,
-            ".slnx",
+            XML_SOLUTION_EXTENSION,
         ]),
-        kind: "msbuild",
+        kind: TaskKind::Msbuild,
         extract: msbuild_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["go.mod"]),
-        kind: "go",
+        kind: TaskKind::Go,
         extract: go_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["build.gradle", "build.gradle.kts"]),
-        kind: "gradle",
+        kind: TaskKind::Gradle,
         extract: gradle_tasks,
     },
     ManifestDefinition {
         matcher: ManifestMatch::Names(&["pom.xml"]),
-        kind: "maven",
+        kind: TaskKind::Maven,
         extract: maven_tasks,
     },
 ];
 
-/// Extract this directory's manifests into `groups` (a monorepo dir can hold
+/// Extract this directory's manifests into `groups` (a monorepo directory can hold
 /// several - e.g. a `package.json` and a `Cargo.toml` side by side, or three
 /// sibling `.csproj` files). One `read_dir` serves every definition, since an
 /// extension match has to see the directory's real file names anyway.
-fn collect_group(root: &Path, dir: &Path, groups: &mut Vec<TaskGroup>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
+fn collect_group(root: &Path, directory: &Path, groups: &mut Vec<TaskGroup>) {
+    let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };
     let mut file_names: Vec<String> = entries
@@ -285,15 +313,15 @@ fn collect_group(root: &Path, dir: &Path, groups: &mut Vec<TaskGroup>) {
             .iter()
             .filter(|name| definition.matcher.matches(&name.to_ascii_lowercase()))
         {
-            let path = dir.join(file_name);
+            let path = directory.join(file_name);
             let tasks = (definition.extract)(&path);
             if tasks.is_empty() {
                 continue;
             }
             groups.push(TaskGroup {
                 manifest: relative_display(root, &path),
-                dir: dir.to_string_lossy().into_owned(),
-                kind: definition.kind.to_string(),
+                dir: directory.to_string_lossy().into_owned(),
+                kind: definition.kind,
                 tasks,
             });
         }
@@ -322,8 +350,8 @@ fn npm_tasks(path: &Path) -> Vec<Task> {
     let Some(scripts) = json.get("scripts").and_then(serde_json::Value::as_object) else {
         return Vec::new();
     };
-    let dir = path.parent().unwrap_or(path);
-    let package_manager = PackageManager::detect(dir);
+    let directory = path.parent().unwrap_or(path);
+    let package_manager = PackageManager::detect(directory);
     scripts
         .keys()
         .map(|name| Task {
@@ -342,11 +370,11 @@ enum PackageManager {
 }
 
 impl PackageManager {
-    /// Detect from a lockfile in `dir`: pnpm, then yarn, else npm.
-    fn detect(dir: &Path) -> Self {
-        if dir.join("pnpm-lock.yaml").exists() {
+    /// Detect from a lockfile in `directory`: pnpm, then yarn, else npm.
+    fn detect(directory: &Path) -> Self {
+        if directory.join("pnpm-lock.yaml").exists() {
             PackageManager::Pnpm
-        } else if dir.join("yarn.lock").exists() {
+        } else if directory.join("yarn.lock").exists() {
             PackageManager::Yarn
         } else {
             PackageManager::Npm
@@ -954,16 +982,16 @@ const MAVEN: WrappedTool = WrappedTool {
 };
 
 impl WrappedTool {
-    /// What to type in `dir`: the committed wrapper, named with an explicit
+    /// What to type in `directory`: the committed wrapper, named with an explicit
     /// relative path because the working directory is not on PATH, else the
     /// tool itself.
-    fn launcher(&self, dir: &Path) -> String {
+    fn launcher(&self, directory: &Path) -> String {
         let script = if cfg!(windows) {
             self.windows_script
         } else {
             self.unix_script
         };
-        if dir.join(script).is_file() {
+        if directory.join(script).is_file() {
             return format!(".{}{script}", std::path::MAIN_SEPARATOR);
         }
         self.on_path.to_string()
@@ -984,8 +1012,8 @@ fn maven_tasks(path: &Path) -> Vec<Task> {
 /// The shared shape of both JVM extractors: `<launcher> <verb>`, resolved
 /// against the manifest's own directory.
 fn tool_tasks(path: &Path, tool: &WrappedTool, verbs: &[&str]) -> Vec<Task> {
-    let dir = path.parent().unwrap_or(path);
-    let launcher = tool.launcher(dir);
+    let directory = path.parent().unwrap_or(path);
+    let launcher = tool.launcher(directory);
     verbs
         .iter()
         .map(|verb| task(verb, format!("{launcher} {verb}")))
@@ -1001,7 +1029,7 @@ mod tests {
         cargo_tasks, cmake_preset_tasks, declared_targets, dotnet_tasks, entry_point_targets,
         go_tasks, gradle_tasks, looks_like_qmake_project, make_target, make_tasks_from_text,
         msbuild_tasks, python_tasks_from_text, quoted_file_name, relative_display,
-        tasks_descriptors, text_declares_project, ManifestMatch, PackageManager, Task,
+        tasks_descriptors, text_declares_project, ManifestMatch, PackageManager, Task, TaskKind,
         TaskManifestDescriptor, GRADLE, MAVEN,
     };
 
@@ -1039,6 +1067,15 @@ mod tests {
             value: "build.gradle.kts"
         }));
         assert!(descriptors.contains(&TaskManifestDescriptor::Name { value: "pom.xml" }));
+    }
+
+    #[test]
+    fn a_family_serializes_as_its_lowercase_name() {
+        let names: Vec<serde_json::Value> = [TaskKind::Npm, TaskKind::Cmake, TaskKind::Msbuild]
+            .into_iter()
+            .map(|kind| serde_json::to_value(kind).expect("serializable"))
+            .collect();
+        assert_eq!(names, ["npm", "cmake", "msbuild"]);
     }
 
     #[test]
