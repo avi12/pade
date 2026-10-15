@@ -3,7 +3,7 @@
 // per agent and refreshed whenever a model menu opens, so a catalog the agent
 // re-fetched in the meantime shows up.
 
-import { agents } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { bareModel } from "@/lib/model/model-label";
 import type { ModelOption } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -13,7 +13,7 @@ const requestedCommands = new SvelteSet<string>();
 
 /** Rejects when the backend call fails; the previous options stay in place. */
 async function loadModelOptions(command: string) {
-  optionsByAgent.set(command, await agents.modelOptions(command));
+  optionsByAgent.set(command, await sendMessage(Command.agentModelOptions, { command }));
 }
 
 /** Load `command`'s catalog the first time anything asks for it - the tab's

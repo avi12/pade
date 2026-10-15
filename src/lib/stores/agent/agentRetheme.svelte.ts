@@ -2,7 +2,7 @@
 // policy and its bookkeeping live here; the shell owns the sessions and lends
 // the actions that change them).
 //
-// Claude Code is re-themed in place: `agents.publishTheme` rewrites the theme
+// Claude Code is re-themed in place: `agent_theme_publish` rewrites the theme
 // definition its sessions were launched on, and it repaints itself - no
 // restart, no lost turn. Every OTHER agent's scheme is fixed at spawn and
 // cannot be moved after it: Codex's syntax theme and console-buffer ground, and
@@ -10,7 +10,7 @@
 // agent to re-probe OSC 11, a query that never reaches the terminal - see
 // docs/terminal-rendering.md). So for those two a flip is followed the only way
 // it can be: respawn the idle ones, each resuming its own conversation
-// (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`).
+// (`codex resume <uuid>` / `opencode --session <id>` via `agent_resume_args`).
 //
 // Claude must NEVER join them, and this is the second time that has been settled.
 // It has no resume args of its own - it is respawned onto the `--session-id` the
@@ -22,7 +22,7 @@
 // its watched theme definition instead, without being restarted at all.
 
 import { AgentId } from "@/lib/agent/agent-icon";
-import { agents, pty } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { appearance } from "@/lib/settings/prefs.svelte";
 import { isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -100,7 +100,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
     const resumable = await Promise.all(
       targets.map(async target => ({
         id: target.id,
-        args: await pty.resumeArgs({
+        args: await sendMessage(Command.agentResumeArgs, {
           command: target.agent.command,
           cwd: target.cwd ?? host.currentProject()
         })
@@ -119,7 +119,7 @@ export function createAgentRetheme(host: AgentRethemeHost) {
   // be respawned. Publishing first means an agent that IS restarted also
   // launches into the new scheme.
   async function followScheme(scheme: Scheme) {
-    await agents.publishTheme(scheme);
+    await sendMessage(Command.agentThemePublish, { scheme });
     await restartMismatchedAgents();
   }
 

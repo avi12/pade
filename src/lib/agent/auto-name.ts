@@ -7,7 +7,8 @@
 // project / prefs / settings sink via `AutoNameHost` and owns the mount
 // lifecycle; the watcher subscription lives here.
 
-import { feed, workspace } from "@/lib/bridge";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { ChangeKind, LabelSource } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/types";
 import { isTemporaryWorkspace, normalizePath } from "@/lib/util/paths";
@@ -73,7 +74,7 @@ export function createAutoNamer(host: AutoNameHost) {
    *  leaves the workspace on its temporary name. */
   async function suggestName(project: string) {
     try {
-      return await workspace.autoname({
+      return await sendMessage(Command.projectAutoname, {
         path: project,
         agent: host.activeAgentCommand()
       });
@@ -110,7 +111,7 @@ export function createAutoNamer(host: AutoNameHost) {
       return;
     }
 
-    await workspace.setLabel({
+    await sendSettingsMessage(Command.workspaceSetLabel, {
       path: project,
       name,
       source: LabelSource.enum.auto
@@ -118,12 +119,12 @@ export function createAutoNamer(host: AutoNameHost) {
   }
 
   // Subscribe to the change feed. The watcher itself is armed on the open project
-  // by the Change Feed panel - `ChangeFeed` calls `feed.start(project)`, and it is
-  // the default side panel whenever a project is open - so the namer only listens
+  // by the Change Feed panel - `ChangeFeed` sends `watch_start` for the project, and it
+  // is the default side panel whenever a project is open - so the namer only listens
   // for the changes it produces; it no longer arms on the (drift-prone) cwd.
   async function start() {
-    unlisten = await feed.onChange(event => {
-      consider(event);
+    unlisten = await onMessage(EventType.feedChange, ({ data }) => {
+      consider(data);
     });
   }
 

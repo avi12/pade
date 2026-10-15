@@ -4,11 +4,10 @@
 // app shell registers on mount and unregisters on destroy; the active session
 // comes through `SendShortcutHost` so the lookup stays live.
 
-import { pty } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { focusWindow, readClipboardText } from "@/lib/ipc/platform";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import { pastedText } from "@/lib/terminal/terminal-input";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
 const SEND_SHORTCUT = "CommandOrControl+Alt+S";
@@ -31,17 +30,17 @@ export async function registerSendShortcut(host: SendShortcutHost) {
       return;
     }
 
-    const text = (await readText()).trim();
+    const text = (await readClipboardText()).trim();
     const activeId = host.activeId();
     if (!text || !activeId) {
       return;
     }
 
-    await pty.write({
+    await sendMessage(Command.ptyWrite, {
       id: activeId,
       data: pastedText(text)
     });
-    await getCurrentWindow().setFocus();
+    await focusWindow();
     showToast(`Sent selection to ${host.activeLabel()}`);
   });
 }

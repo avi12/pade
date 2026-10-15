@@ -8,7 +8,7 @@
 // needs to watch for the prompt, never to touch the terminal.
 
 import { detectChoicePrompt } from "@/lib/agent/choice-prompt";
-import { pty } from "@/lib/bridge";
+import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
@@ -35,7 +35,7 @@ export async function ensureChoiceAttention() {
   }
 
   isListening = true;
-  await pty.onData(({ id, data }) => {
+  await onMessage(EventType.ptyData, ({ data: { id, data } }) => {
     if (awaiting.get(id) || !detectChoicePrompt(data)) {
       return;
     }

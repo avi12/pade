@@ -2,7 +2,7 @@
 // change refreshes, stale-request rejection, and errors; every consumer reads
 // the same accepted TaskGroup[] rather than fetching or reconstructing it.
 
-import { feed, tasks } from "@/lib/bridge";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { ManifestMatch } from "@/lib/types";
 import type { TaskGroup, TaskManifestDescriptor } from "@/lib/types";
 import { baseName } from "@/lib/util/paths";
@@ -22,9 +22,9 @@ type TaskCatalogDependencies = {
 };
 
 const defaultDependencies: TaskCatalogDependencies = {
-  descriptors: tasks.descriptors,
-  list: tasks.list,
-  onChange: callback => feed.onChange(event => callback(event.path))
+  descriptors: () => sendMessage(Command.tasksDescriptors),
+  list: project => sendMessage(Command.tasksList, { cwd: project }),
+  onChange: callback => onMessage(EventType.feedChange, ({ data }) => callback(data.path))
 };
 
 /** Whether a changed path is one of the manifests the backend reads - an exact

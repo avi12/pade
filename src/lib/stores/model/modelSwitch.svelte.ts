@@ -12,7 +12,7 @@
 // handoff is already under way is kept for the successor instead of being
 // typed into a session that is about to end (`choiceForSuccessor`).
 
-import { pty } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
 import { whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
 import { SwitchOutcome } from "@/lib/types";
@@ -119,7 +119,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
       return;
     }
 
-    const outcome = await pty.applyModel({
+    const outcome = await sendMessage(Command.agentApplyModel, {
       sessionId: session.id,
       command: session.agent.command,
       conversationId,

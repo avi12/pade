@@ -13,7 +13,7 @@
 // falls within 30s of the last). The name is produced backend-side from the
 // session's rolling transcript.
 
-import { pty } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
@@ -75,7 +75,7 @@ async function generate(id: string) {
   try {
     applyGeneratedName({
       id,
-      name: await pty.generateName({
+      name: await sendMessage(Command.sessionGenerateName, {
         id,
         agent
       })

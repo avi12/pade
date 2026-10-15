@@ -3,26 +3,15 @@ import { knownTaskCommands, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import { ManifestMatch, type TaskGroup, TaskManifestDescriptor } from "@/lib/types";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/bridge", () => ({
-  feed: {
-    onChange: async () => () => undefined
-  },
-  pty: {
-    onData: async () => () => undefined,
-    onExit: async () => () => undefined,
-    write: async () => undefined
-  },
-  runner: {
-    list: async () => [],
-    onData: async () => () => undefined,
-    onExit: async () => () => undefined,
-    start: async () => undefined,
-    stop: async () => undefined
-  },
-  tasks: {
-    descriptors: async () => [],
-    list: async () => []
-  }
+const mocks = vi.hoisted(() => ({
+  sendMessage: vi.fn(async () => undefined),
+  onMessage: vi.fn(async () => () => undefined)
+}));
+
+vi.mock("@/lib/ipc/messaging", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  sendMessage: mocks.sendMessage,
+  onMessage: mocks.onMessage
 }));
 
 function group({ project, command }: {

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { pty } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { pastedText, referencedSnippet } from "@/lib/terminal/terminal-input";
   import { focusTerminalPane } from "@/lib/ui/focus";
   import { z } from "zod";
@@ -84,7 +84,7 @@
     id: string;
     text: string;
   }) {
-    await pty.write({
+    await sendMessage(Command.ptyWrite, {
       id,
       data: pastedText(text)
     });

@@ -18,7 +18,7 @@
 // handoff exists to keep, so the request goes in mid-turn - the agent picks it
 // up between steps - and the session ends once the doc is on disk.
 
-import { feed, pty, usage, workspace } from "@/lib/bridge";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agent/agentActivity.svelte";
 import { compactionHeadroom, dropContext, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/model/modelSwitch.svelte";
@@ -234,7 +234,7 @@ export interface HandoffHost {
   projectDirectory: () => string;
   /** End a session's process as a DELIBERATE close.
    *
-   *  It must go through the shell, not `pty.kill` from here: the shell treats an
+   *  It must go through the shell, not `pty_kill` from here: the shell treats an
    *  unannounced exit of the last session as the user quitting the agent and
    *  respawns a replacement. A handoff kill that skipped that flag raced its own
    *  exit event - the respawn landed a bare extra tab and stole the active pane
@@ -276,7 +276,7 @@ function hasPersistentMarker(sessionId: string) {
  *  answer every caller already falls back on. */
 async function isFileOnDisk(path: string) {
   const probe = await settledValue({
-    promise: workspace.probePath(path),
+    promise: sendMessage(Command.workspaceProbePath, { path }),
     fallback: null
   });
   return probe?.isFile === true;
@@ -472,7 +472,7 @@ export function createAutoHandoff(host: HandoffHost) {
       // wait even if the subscription never lands.
       async function subscribeToChanges() {
         try {
-          unlisten = await feed.onChange(event => {
+          unlisten = await onMessage(EventType.feedChange, ({ data: event }) => {
             const isTarget = event.path.replaceAll("\\", "/").toLowerCase().endsWith(target);
             if (!isTarget) {
               return;
@@ -522,7 +522,7 @@ export function createAutoHandoff(host: HandoffHost) {
     doc: string;
     reason: HandoffReason;
   }) {
-    await pty.write({
+    await sendMessage(Command.ptyWrite, {
       id: session.id,
       data: pastedText(
         handoffRequestBody({
@@ -534,7 +534,7 @@ export function createAutoHandoff(host: HandoffHost) {
     await afterDelay(HANDOFF_SUBMIT_SETTLE_MS);
 
     for (let attempt = 0; attempt < HANDOFF_SUBMIT_ATTEMPTS; attempt += 1) {
-      await pty.write({
+      await sendMessage(Command.ptyWrite, {
         id: session.id,
         data: PROMPT_SUBMIT
       });
@@ -588,11 +588,14 @@ export function createAutoHandoff(host: HandoffHost) {
   // Only cycle when there's quota to spare - a handoff itself costs tokens.
   async function hasEnoughUsage(agent: string) {
     const quota = await settledValue({
-      promise: usage.get(agent),
+      promise: sendMessage(Command.usageGet, { agent }),
       fallback: null
     });
     const account = await settledValue({
-      promise: usage.accountFor({ agent }),
+      promise: sendMessage(Command.usageAccountAgent, {
+        agent,
+        forceRefresh: false
+      }),
       fallback: null
     });
     return hasUsageHeadroom({
@@ -737,7 +740,7 @@ export function createAutoHandoff(host: HandoffHost) {
     // leftover file costs one `rm`.
     const isConsumed = await waitForFirstTurn(successorId);
     if (isConsumed) {
-      await workspace.deleteHandoffDoc({
+      await sendMessage(Command.handoffDocDelete, {
         dir: host.projectDirectory(),
         name: doc
       });

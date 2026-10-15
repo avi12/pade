@@ -20,6 +20,11 @@ export function setWindowTitle(title: string) {
   return getCurrentWindow().setTitle(title);
 }
 
+/** Bring this window to the foreground. */
+export function focusWindow() {
+  return getCurrentWindow().setFocus();
+}
+
 /** Intercept this window's close (the title-bar X): the handler runs to
  *  completion first - the graceful-leave hook - and only then is the window
  *  destroyed (Tauri's own onCloseRequested contract when nothing prevents).

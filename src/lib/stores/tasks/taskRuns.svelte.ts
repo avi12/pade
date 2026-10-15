@@ -20,7 +20,7 @@
 // with it a 132px dock that resized the terminal under the user's cursor every
 // time. So detection nominates; the process tree decides.
 
-import { pty } from "@/lib/bridge";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { isTaskInvocation } from "@/lib/runners/task-detect";
 import { attachedRunner, attachRunner, runnerRows, TASK_LIVENESS_POLL_MS } from "@/lib/stores/tasks/runners.svelte";
 import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/tasks/taskCatalog.svelte";
@@ -122,7 +122,7 @@ async function attachWhenRunning({ sessionId, task }: {
 
   lastLivenessCheck.set(checkKey, now);
   const isRunning = await settledValue({
-    promise: pty.sessionTaskRunning({
+    promise: sendMessage(Command.sessionTaskRunning, {
       id: sessionId,
       command: task.command
     }),
@@ -170,12 +170,12 @@ async function startListeners() {
   const pendingUnlistens: UnlistenFn[] = [];
   try {
     pendingUnlistens.push(
-      await pty.onData(chunk => detect({
-        sessionId: chunk.id,
-        chunk: chunk.data
+      await onMessage(EventType.ptyData, ({ data }) => detect({
+        sessionId: data.id,
+        chunk: data.data
       }))
     );
-    pendingUnlistens.push(await pty.onExit(id => forgetSession(id)));
+    pendingUnlistens.push(await onMessage(EventType.ptyExit, ({ data }) => forgetSession(data.id)));
     listenerUnlistens = pendingUnlistens;
   } catch (caughtError) {
     for (const unlisten of pendingUnlistens) {

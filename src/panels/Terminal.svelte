@@ -6,8 +6,9 @@
   // program to repaint). `isOnAlternateScreen` is the flag; the doc is the policy.
   import { AgentId } from "@/lib/agent/agent-icon";
   import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/agent/initial-prompt";
-  import { clipboard, dragDrop, os, pty } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+  import { readClipboardText, writeClipboardText } from "@/lib/ipc/platform";
   import SessionBadge from "@/lib/session/SessionBadge.svelte";
   import { appearance, effective } from "@/lib/settings/prefs.svelte";
   import { observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
@@ -320,7 +321,7 @@
   // the rest of that session's life.
   const readContextFromSessionLog = coalesced(async () => {
     try {
-      const context = await pty.sessionContext({
+      const context = await sendMessage(Command.agentSessionContext, {
         command: session.agent.command,
         conversationId: session.conversationId
       });
@@ -348,7 +349,7 @@
     }
 
     try {
-      const running = await pty.runningModel({
+      const running = await sendMessage(Command.agentRunningModel, {
         command: session.agent.command,
         conversationId
       });
@@ -1015,7 +1016,7 @@
     rows: number;
   }) {
     try {
-      await pty.resize({
+      await sendMessage(Command.ptyResize, {
         id: session.id,
         cols: columns,
         rows
@@ -1051,7 +1052,7 @@
       const writes = queuedPtyWrites;
       queuedPtyWrites = [];
       try {
-        await pty.write({
+        await sendMessage(Command.ptyWrite, {
           id: session.id,
           data: writes.map(write => write.data).join("")
         });
@@ -1078,7 +1079,7 @@
   // clipboard the platform withholds must not throw into a key handler.
   async function copySelectionToClipboard() {
     try {
-      await clipboard.writeText(terminal.getSelection());
+      await writeClipboardText(terminal.getSelection());
     } catch {
       showToast("Couldn't copy the terminal selection");
     }
@@ -1096,9 +1097,9 @@
 
     try {
       if (destination.kind === TerminalLinkTarget.Explorer) {
-        await os.explorer(destination.value);
+        await sendMessage(Command.openInExplorer, { path: destination.value });
       } else {
-        await os.openUrl(destination.value);
+        await sendMessage(Command.openUrl, { url: destination.value });
       }
     } catch {
       showToast("Couldn't open that link");
@@ -1425,7 +1426,7 @@
       watchInitialPrompt(chunk.data);
     }
 
-    const dataUnlisten = await pty.onData(chunk => {
+    const dataUnlisten = await onMessage(EventType.ptyData, ({ data: chunk }) => {
       if (chunk.id !== session.id) {
         return;
       }
@@ -1446,7 +1447,7 @@
 
     unlisten = dataUnlisten;
 
-    const exitListener = await pty.onExit(id => {
+    const exitListener = await onMessage(EventType.ptyExit, ({ data: { id } }) => {
       if (id !== session.id) {
         return;
       }
@@ -1491,13 +1492,13 @@
       try {
         // An image on the clipboard beats text: the backend saves it as a PNG
         // and the pasted *path* is what agent composers attach.
-        const imagePath = await clipboard.saveImage();
+        const imagePath = await sendMessage(Command.clipboardImageSave);
         if (imagePath) {
           terminal.paste(pathsAsPromptText([imagePath]));
           return;
         }
 
-        const text = await clipboard.readText();
+        const text = await readClipboardText();
         if (text) {
           // paste (not write) so xterm wraps it in bracketed-paste markers when the
           // agent has that mode on - it then treats it as pasted text, not typing.
@@ -1750,7 +1751,7 @@
     // the session not-running, so the pane stops lying and a graceful leave never
     // waits on it.
     try {
-      await pty.spawn({
+      await sendMessage(Command.ptySpawn, {
         id: session.id,
         command: session.agent.command,
         cwd: session.cwd ?? null,
@@ -1787,7 +1788,7 @@
       return;
     }
 
-    const history = await pty.history(session.id);
+    const history = await sendMessage(Command.ptyHistory, { id: session.id });
     if (isDestroyed || !terminal) {
       return;
     }
@@ -1903,7 +1904,7 @@
   // file every session reads - changed, and read once now for the tag's first
   // frame.
   async function listenForRunningModel() {
-    const unlisten = await pty.onRunningModelChanged(async sessionId => {
+    const unlisten = await onMessage(EventType.agentModelChanged, async ({ data: { sessionId } }) => {
       const isAboutThisSession = sessionId === null || sessionId === session.conversationId;
       if (isAboutThisSession) {
         await readRunningModel();
@@ -1925,16 +1926,16 @@
   // drop in the window, so each one claims only a drop on its own viewport.
   async function listenForFileDrops() {
     const listeners = await Promise.all([
-      dragDrop.onOver(({ position }) => {
+      onMessage(EventType.dragOver, ({ data: { position } }) => {
         isFileDragOver = isDragOverElement({
           element: elViewport,
           position
         });
       }),
-      dragDrop.onLeave(() => {
+      onMessage(EventType.dragLeave, () => {
         isFileDragOver = false;
       }),
-      dragDrop.onDrop(({ paths, position }) => {
+      onMessage(EventType.dragDrop, ({ data: { paths, position } }) => {
         isFileDragOver = false;
         const landsHere = paths.length > 0 && isDragOverElement({
           element: elViewport,

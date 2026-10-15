@@ -14,7 +14,7 @@
 // app shell supplies sessions and the handoff through `RecoveryHost` and drives
 // the scan from a component `$effect`.
 
-import { pty } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -143,7 +143,7 @@ function isPastRetrying(status: SessionStatus) {
  *  next tick nudges again. */
 async function nudge(id: string) {
   try {
-    await pty.write({
+    await sendMessage(Command.ptyWrite, {
       id,
       data: CONTINUE_PROMPT
     });

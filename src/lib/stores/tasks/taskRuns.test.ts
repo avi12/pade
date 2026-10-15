@@ -1,3 +1,4 @@
+import { Command, EventType } from "@/lib/ipc/messaging";
 import { runnerRows, stopRunner } from "@/lib/stores/tasks/runners.svelte";
 import { initTaskRunDetection, isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
 import {
@@ -5,51 +6,75 @@ import {
   describe,
   expect,
   it,
+  type Mock,
   vi
 } from "vitest";
 
+type PtyChunkHandler = (chunk: {
+  id: string;
+  data: string;
+}) => void;
+
+type MessageHandler = (message: { data: unknown }) => void;
+
 const mocks = vi.hoisted<{
-  onData: ((chunk: {
-    id: string;
-    data: string;
-  }) => void) | undefined;
+  onData: PtyChunkHandler | undefined;
   taskRunning: boolean;
   runningChecks: number;
+  sendMessage: Mock<(command: Command, data?: unknown) => Promise<unknown>>;
+  onMessage: Mock<(type: EventType, handler: MessageHandler) => Promise<() => void>>;
 }>(() => ({
   onData: undefined,
   taskRunning: true,
-  runningChecks: 0
+  runningChecks: 0,
+  sendMessage: vi.fn(),
+  onMessage: vi.fn()
 }));
 
-vi.mock("@/lib/bridge", () => ({
-  feed: {
-    onChange: async () => () => undefined
-  },
-  pty: {
-    async onData(callback: typeof mocks.onData) {
-      mocks.onData = callback;
-      return () => undefined;
-    },
-    onExit: async () => () => undefined,
-    async sessionTaskRunning() {
-      mocks.runningChecks += 1;
-      return mocks.taskRunning;
-    },
-    sessionTaskStop: async () => true
-  },
-  tasks: {
-    descriptors: async () => [],
-    list: async () => [{
-      manifest: "Cargo.toml",
-      dir: "demo",
-      kind: "cargo",
-      tasks: [{
-        name: "check",
-        command: "cargo check"
-      }]
-    }]
-  }
+vi.mock("@/lib/ipc/messaging", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  sendMessage: mocks.sendMessage,
+  onMessage: mocks.onMessage
 }));
+
+const DEMO_TASKS = [{
+  manifest: "Cargo.toml",
+  dir: "demo",
+  kind: "cargo",
+  tasks: [{
+    name: "check",
+    command: "cargo check"
+  }]
+}];
+
+mocks.sendMessage.mockImplementation(async command => {
+  if (command === Command.sessionTaskRunning) {
+    mocks.runningChecks += 1;
+    return mocks.taskRunning;
+  }
+
+  if (command === Command.sessionTaskStop) {
+    return true;
+  }
+
+  if (command === Command.tasksDescriptors) {
+    return [];
+  }
+
+  if (command === Command.tasksList) {
+    return DEMO_TASKS;
+  }
+
+  return undefined;
+});
+
+mocks.onMessage.mockImplementation(async (type, handler) => {
+  if (type === EventType.ptyData) {
+    mocks.onData = chunk => handler({ data: chunk });
+  }
+
+  return () => undefined;
+});
 
 /** Let the detector's liveness check and its attach settle - it is fired from a
  *  synchronous PTY handler, so the row can only appear on a later turn of the
@@ -86,6 +111,10 @@ describe("task run detection", () => {
 
     expect(runnerRows()).toHaveLength(1);
     expect(mocks.runningChecks).toBe(1);
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.sessionTaskRunning, {
+      id: "session-1",
+      command: "cargo check"
+    });
   });
 
   it("ignores a repainted invocation whose process is long gone", async () => {

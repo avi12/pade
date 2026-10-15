@@ -17,7 +17,8 @@
 // earlier run finds nothing live and is cleared, and no separate "leave intent"
 // flag is needed.
 
-import { pty, windows } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { windowLabel } from "@/lib/ipc/platform";
 import { Agent, ModelChoice } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
@@ -27,7 +28,7 @@ import { z } from "zod";
  *  window never reads (or overwrites) another's pane mapping, and so the
  *  crash-rebuilt window - same label - finds its own. */
 function snapshotStorageKey() {
-  return `pade.session-snapshot:${windows.label()}`;
+  return `pade.session-snapshot:${windowLabel()}`;
 }
 
 /** One persisted session - `AgentSession` minus `initialPrompt`, which was
@@ -140,7 +141,7 @@ export async function restoreLiveSnapshot() {
     return null;
   }
 
-  const live = await pty.list();
+  const live = await sendMessage(Command.ptyList);
   const restorable = pruneToLive({
     snapshot,
     liveIds: new Set(live.map(session => session.id))

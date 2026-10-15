@@ -5,7 +5,7 @@
 // through it, so the list the user picks from and the palette actually painted
 // can never come from two different answers.
 
-import { terminal } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import type { Scheme, TerminalScheme, TerminalSchemeChoice } from "@/lib/types";
 
 const catalogue = $state<{ schemes: readonly TerminalScheme[] }>({ schemes: [] });
@@ -21,7 +21,7 @@ export function terminalSchemes() {
  *  resolves to "follow the app theme", which is the honest fallback. */
 export async function loadTerminalSchemes() {
   try {
-    catalogue.schemes = await terminal.schemes();
+    catalogue.schemes = await sendMessage(Command.terminalSchemes);
   } catch {
     // No catalogue (an older backend, an unreadable settings file): the picker
     // shows only "Follow the app theme" and that is what the terminal wears.

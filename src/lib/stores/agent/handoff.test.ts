@@ -1,3 +1,4 @@
+import { Command } from "@/lib/ipc/messaging";
 import { dropAgentActivity, observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
 import { compactionHeadroom, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
 import {
@@ -25,33 +26,31 @@ import {
   vi
 } from "vitest";
 
-const bridgeMocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
   kill: vi.fn<(id: string) => Promise<void>>(),
-  write: vi.fn<(options: {
-    id: string;
-    data: string;
-  }) => Promise<void>>(),
-  probePath: vi.fn<(path: string) => Promise<{ isFile: boolean }>>(),
-  deleteHandoffDoc: vi.fn<() => Promise<void>>()
+  sendMessage: vi.fn<(command: Command, data?: unknown) => Promise<unknown>>(),
+  onMessage: vi.fn()
 }));
 
-vi.mock("@/lib/bridge", () => ({
-  feed: {
-    onChange: vi.fn()
-  },
-  pty: {
-    kill: bridgeMocks.kill,
-    write: bridgeMocks.write
-  },
-  usage: {
-    get: vi.fn().mockResolvedValue(null),
-    accountFor: vi.fn().mockResolvedValue(null)
-  },
-  workspace: {
-    probePath: bridgeMocks.probePath,
-    deleteHandoffDoc: bridgeMocks.deleteHandoffDoc
-  }
+vi.mock("@/lib/ipc/messaging", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  sendMessage: mocks.sendMessage,
+  onMessage: mocks.onMessage
 }));
+
+/** The backend as the handoff sees it: every probed file is on disk, usage
+ *  reads come back empty, and writes / doc deletes simply succeed. */
+async function answerMessage(command: Command) {
+  if (command === Command.workspaceProbePath) {
+    return { isFile: true };
+  }
+
+  if (command === Command.usageGet || command === Command.usageAccountAgent) {
+    return null;
+  }
+
+  return undefined;
+}
 
 vi.mock("@/lib/stores/agent/context.svelte", () => ({
   compactionHeadroom: vi.fn().mockReturnValue(null),
@@ -66,9 +65,8 @@ vi.mock("@/lib/stores/session/sessions.svelte", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  bridgeMocks.kill.mockResolvedValue();
-  bridgeMocks.probePath.mockResolvedValue({ isFile: true });
-  bridgeMocks.deleteHandoffDoc.mockResolvedValue();
+  mocks.kill.mockResolvedValue();
+  mocks.sendMessage.mockImplementation(answerMessage);
 
   const storage = new Map<string, string>();
   vi.stubGlobal("sessionStorage", {
@@ -320,7 +318,7 @@ describe("createAutoHandoff", () => {
     const lifecycle: string[] = [];
     function killNotYetAwaited() {}
     let finishKill: () => void = killNotYetAwaited;
-    bridgeMocks.kill.mockImplementation(async () => {
+    mocks.kill.mockImplementation(async () => {
       lifecycle.push("kill-started");
       await new Promise<void>(resolve => {
         finishKill = resolve;
@@ -338,7 +336,7 @@ describe("createAutoHandoff", () => {
       // The shell's announced-close path: it flags the kill so its own exit
       // event isn't read as the agent quitting (which would respawn a bare tab).
       async endSession(id) {
-        await bridgeMocks.kill(id);
+        await mocks.kill(id);
       },
       removeSession(id) {
         lifecycle.push("predecessor-removed");
@@ -352,7 +350,7 @@ describe("createAutoHandoff", () => {
     });
 
     handoff.force(predecessor);
-    await vi.waitFor(() => expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id));
+    await vi.waitFor(() => expect(mocks.kill).toHaveBeenCalledWith(predecessor.id));
     expect(lifecycle).toEqual(["kill-started"]);
 
     finishKill();
@@ -381,13 +379,13 @@ describe("createAutoHandoff", () => {
     let sessions = [predecessor];
 
     // The shell respawns a replacement when the LAST session exits unannounced.
-    // Killing straight through the bridge left that flag unset, so the handoff's
+    // Killing straight through `pty_kill` left that flag unset, so the handoff's
     // own kill raced its exit event into a bare extra tab that also stole the
     // active pane from the successor. Model it: an exit is only "announced" if
     // the handoff went through endSession first.
     let announced = false;
     let spuriousRespawns = 0;
-    bridgeMocks.kill.mockImplementation(async (id: string) => {
+    mocks.kill.mockImplementation(async (id: string) => {
       // The exit event lands while the kill is still settling - before the
       // shell has had a chance to drop the session.
       const stillListed = sessions.some(session => session.id === id);
@@ -405,7 +403,7 @@ describe("createAutoHandoff", () => {
       projectDirectory: () => "C:/repositories/pade",
       async endSession(id) {
         announced = true;
-        await bridgeMocks.kill(id);
+        await mocks.kill(id);
       },
       removeSession(id) {
         sessions = sessions.filter(session => session.id !== id);
@@ -451,7 +449,7 @@ describe("createAutoHandoff", () => {
       slugSource: () => "pade",
       projectDirectory: () => "C:/repositories/pade",
       async endSession(id) {
-        await bridgeMocks.kill(id);
+        await mocks.kill(id);
       },
       removeSession(id) {
         sessions = sessions.filter(session => session.id !== id);
@@ -464,15 +462,15 @@ describe("createAutoHandoff", () => {
 
     handoff.force(predecessor);
     await vi.waitFor(() => expect(handoff.note).toContain("once its running work finishes"));
-    expect(bridgeMocks.write).not.toHaveBeenCalled();
-    expect(bridgeMocks.kill).not.toHaveBeenCalled();
+    expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.ptyWrite, expect.anything());
+    expect(mocks.kill).not.toHaveBeenCalled();
 
     observeAgentActivity({
       id: predecessor.id,
       chunk: `${ESCAPE}]0;✳ Finish the curriculum repair${BELL}`
     });
     await vi.waitFor(() => expect(launched).toEqual(["successor"]));
-    expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id);
+    expect(mocks.kill).toHaveBeenCalledWith(predecessor.id);
 
     handoff.dispose();
     dropAgentActivity(predecessor.id);
@@ -512,7 +510,7 @@ describe("createAutoHandoff", () => {
         thresholdPercentage: () => 90,
         slugSource: () => "pade",
         projectDirectory: () => "C:/repositories/pade",
-        endSession: bridgeMocks.kill,
+        endSession: mocks.kill,
         removeSession(id) {
           sessions = sessions.filter(session => session.id !== id);
         },
@@ -524,21 +522,25 @@ describe("createAutoHandoff", () => {
       const handoff = handoffTo("reading-successor");
       handoff.force(predecessor);
       await vi.advanceTimersByTimeAsync(20_000);
-      expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id);
+      expect(mocks.kill).toHaveBeenCalledWith(predecessor.id);
 
       observeAgentActivity({
         id: "reading-successor",
         chunk: `${ESCAPE}]0;◐ Reading the handoff${BELL}`
       });
       await vi.advanceTimersByTimeAsync(4_000);
-      expect(bridgeMocks.deleteHandoffDoc).not.toHaveBeenCalled();
+      expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.handoffDocDelete, expect.anything());
 
       observeAgentActivity({
         id: "reading-successor",
         chunk: `${ESCAPE}]0;✳ Reading the handoff${BELL}`
       });
       await vi.advanceTimersByTimeAsync(4_000);
-      expect(bridgeMocks.deleteHandoffDoc).toHaveBeenCalled();
+      expect(mocks.sendMessage).toHaveBeenCalledWith(
+        Command.handoffDocDelete, expect.objectContaining({
+          dir: "C:/repositories/pade"
+        })
+      );
 
       handoff.dispose();
       dropAgentActivity("reading-successor");
@@ -548,11 +550,11 @@ describe("createAutoHandoff", () => {
       const handoff = handoffTo("broken-successor");
       handoff.force(predecessor);
       await vi.advanceTimersByTimeAsync(20_000);
-      expect(bridgeMocks.kill).toHaveBeenCalledWith(predecessor.id);
+      expect(mocks.kill).toHaveBeenCalledWith(predecessor.id);
 
       // Ten minutes of a successor that boots, errors and reports nothing.
       await vi.advanceTimersByTimeAsync(11 * 60_000);
-      expect(bridgeMocks.deleteHandoffDoc).not.toHaveBeenCalled();
+      expect(mocks.sendMessage).not.toHaveBeenCalledWith(Command.handoffDocDelete, expect.anything());
 
       handoff.dispose();
     });
@@ -584,7 +586,7 @@ describe("createAutoHandoff", () => {
       thresholdPercentage: () => 90,
       slugSource: () => "pade",
       projectDirectory: () => "C:/repositories/pade",
-      endSession: bridgeMocks.kill,
+      endSession: mocks.kill,
       removeSession() {},
       launchSuccessor() {
         launched.push("successor");
@@ -595,7 +597,7 @@ describe("createAutoHandoff", () => {
     handoff.check();
     expect(handoff.note).toBe(WAITING_NOTE);
     await Promise.resolve();
-    expect(bridgeMocks.kill).not.toHaveBeenCalled();
+    expect(mocks.kill).not.toHaveBeenCalled();
     expect(launched).toEqual([]);
 
     observeAgentActivity({
@@ -604,7 +606,7 @@ describe("createAutoHandoff", () => {
     });
     handoff.check();
     await vi.waitFor(() => expect(launched).toEqual(["successor"]));
-    expect(bridgeMocks.kill).toHaveBeenCalledWith(session.id);
+    expect(mocks.kill).toHaveBeenCalledWith(session.id);
 
     handoff.dispose();
     dropAgentActivity(session.id);
@@ -617,7 +619,7 @@ describe("createAutoHandoff", () => {
     handoff.check();
 
     expect(handoff.note).toBe(WAITING_NOTE);
-    expect(bridgeMocks.kill).not.toHaveBeenCalled();
+    expect(mocks.kill).not.toHaveBeenCalled();
     handoff.dispose();
     vi.mocked(sessionStatus).mockReturnValue(SessionStatus.enum.ready);
   });
@@ -635,7 +637,7 @@ describe("createAutoHandoff", () => {
 
     handoff.check();
 
-    await vi.waitFor(() => expect(bridgeMocks.kill).toHaveBeenCalledWith(scannedSession.id));
+    await vi.waitFor(() => expect(mocks.kill).toHaveBeenCalledWith(scannedSession.id));
     handoff.dispose();
     dropAgentActivity(scannedSession.id);
     vi.mocked(measuredContextPercentage).mockReturnValue(100);
@@ -665,7 +667,7 @@ function scanHost(session: AgentSession) {
     thresholdPercentage: () => 60,
     slugSource: () => "pade",
     projectDirectory: () => "C:/repositories/pade",
-    endSession: bridgeMocks.kill,
+    endSession: mocks.kill,
     removeSession() {},
     launchSuccessor: () => "successor-session"
   };
