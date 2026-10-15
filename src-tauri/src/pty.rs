@@ -1393,7 +1393,7 @@ mod tests {
         assert!(crate::agents::needs_light_console_fix("codex"));
         assert!(!crate::agents::needs_light_console_fix("claude"));
         assert!(!crate::agents::needs_light_console_fix("aider"));
-        assert!(!crate::agents::needs_light_console_fix("powershell.exe"));
+        assert!(!crate::agents::needs_light_console_fix(DEFAULT_SHELL));
     }
 
     #[test]
