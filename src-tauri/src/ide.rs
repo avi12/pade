@@ -933,14 +933,14 @@ fn installed_ides() -> Vec<Ide> {
 pub fn ide_add_editor(path: String) -> Result<crate::workspace::Settings, String> {
     let path = path.trim().to_string();
     if path.is_empty() {
-        return Err("Enter the full path to an editor executable.".to_string());
+        return Err("Enter the full path to an editor executable".to_string());
     }
     let basename = exe_basename(&path);
     let Some(family) = editor_family(&basename) else {
         return Err(format!(
             "\u{201c}{}\u{201d} isn\u{2019}t a supported editor. PADE can launch \
              VS Code and its forks (Cursor, Antigravity, Windsurf, VSCodium), Zed, \
-             Sublime Text, Neovim and the JetBrains IDEs.",
+             Sublime Text, Neovim and the JetBrains IDEs",
             executable_file_name(&path)
         ));
     };
