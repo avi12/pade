@@ -146,3 +146,14 @@ export function isHtmlPath(path: string) {
     extensions: HtmlExtension
   });
 }
+
+/** Whether `path` previews as a picture or a clip rather than as text. */
+export function isMediaPath(path: string) {
+  return isImagePath(path) || isVideoPath(path);
+}
+
+/** Whether `path` is a document with a rendered Preview beside its code - a
+ *  markdown or HTML file. */
+export function isRenderablePath(path: string) {
+  return isMarkdownPath(path) || isHtmlPath(path);
+}

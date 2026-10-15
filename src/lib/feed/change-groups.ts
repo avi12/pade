@@ -25,7 +25,7 @@ export type GroupRole = (typeof GroupRole)[keyof typeof GroupRole];
 /** One card in the feed: the newest change to a file, standing for the run of
  *  consecutive changes to it. An agent saves a file four times in a minute and
  *  the feed showed four identical cards; it now shows one that says so. */
-interface ChangeEntry {
+export interface ChangeEntry {
   /** The newest event of the run - the one the card names and expands. */
   event: ChangeEvent;
   /** How many changes the card stands for; 1 for a lone change. */
@@ -35,7 +35,7 @@ interface ChangeEntry {
   removed: number;
 }
 
-interface ChangeGroup {
+export interface ChangeGroup {
   /** Stable key (the container-relative project path, or `.` for the repo). */
   id: string;
   /** Display name - the member folder, or the repo's own folder name. */

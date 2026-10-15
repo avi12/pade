@@ -3,6 +3,8 @@ import {
   isHtmlPath,
   isImagePath,
   isMarkdownPath,
+  isMediaPath,
+  isRenderablePath,
   isVideoPath
 } from "@/lib/feed/preview";
 import { describe, expect, it } from "vitest";
@@ -75,5 +77,21 @@ describe("isHtmlPath", () => {
     expect(isHtmlPath("README.md")).toBe(false);
     expect(isHtmlPath("data.xml")).toBe(false);
     expect(isHtmlPath("style.css")).toBe(false);
+  });
+});
+
+describe("isMediaPath", () => {
+  it("covers images and videos only", () => {
+    expect(isMediaPath("logo.png")).toBe(true);
+    expect(isMediaPath("demo.mp4")).toBe(true);
+    expect(isMediaPath("README.md")).toBe(false);
+  });
+});
+
+describe("isRenderablePath", () => {
+  it("covers markdown and HTML documents only", () => {
+    expect(isRenderablePath("README.md")).toBe(true);
+    expect(isRenderablePath("index.html")).toBe(true);
+    expect(isRenderablePath("main.ts")).toBe(false);
   });
 });
