@@ -4,6 +4,10 @@
 import { os, vcs } from "@/lib/bridge";
 import { showToast } from "@/lib/stores/toast.svelte";
 
+const TRAILING_SLASH = /\/$/;
+/** Azure DevOps addresses a branch as the `version` query `GB<branch>`. */
+const AZURE_BRANCH_VERSION_PREFIX = "GB";
+
 type RemoteProvider = {
   matches: (remoteUrl: URL) => boolean;
   branchUrl: (remoteUrl: URL, branch: string) => string;
@@ -15,7 +19,7 @@ function pathTargetUrl({ remoteUrl, segment, target }: {
   segment: string;
   target: string;
 }) {
-  return `${remoteUrl.toString().replace(/\/$/, "")}${segment}${encodeURIComponent(target)}`;
+  return `${remoteUrl.toString().replace(TRAILING_SLASH, "")}${segment}${encodeURIComponent(target)}`;
 }
 
 const REMOTE_PROVIDERS: readonly RemoteProvider[] = [
@@ -75,7 +79,7 @@ const REMOTE_PROVIDERS: readonly RemoteProvider[] = [
     matches: remoteUrl => remoteUrl.hostname === "dev.azure.com"
       || remoteUrl.hostname.endsWith(".visualstudio.com"),
     branchUrl(remoteUrl, branch) {
-      remoteUrl.searchParams.set("version", `GB${branch}`);
+      remoteUrl.searchParams.set("version", `${AZURE_BRANCH_VERSION_PREFIX}${branch}`);
       return remoteUrl.toString();
     },
     commitUrl: (remoteUrl, commit) => pathTargetUrl({
@@ -86,6 +90,22 @@ const REMOTE_PROVIDERS: readonly RemoteProvider[] = [
   }
 ];
 const CONVENTIONAL_DEFAULT_BRANCHES = ["main", "master"] as const;
+
+/** The remote parsed and paired with the provider that hosts it, or `null` for a
+ *  malformed URL or an unknown host. Parsed fresh per call: a provider may
+ *  rewrite the URL it is handed. */
+function knownRemote(remoteUrl: string) {
+  if (!URL.canParse(remoteUrl)) {
+    return null;
+  }
+
+  const url = new URL(remoteUrl);
+  const provider = REMOTE_PROVIDERS.find(candidate => candidate.matches(url));
+  return provider ? {
+    provider,
+    url
+  } : null;
+}
 
 /** Resolve a browsable branch URL for a known remote provider. Unknown hosts
  * safely retain the repository root until a provider entry is added. */
@@ -105,15 +125,8 @@ export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
     return remoteUrl;
   }
 
-  let parsedRemoteUrl: URL;
-  try {
-    parsedRemoteUrl = new URL(remoteUrl);
-  } catch {
-    return remoteUrl;
-  }
-
-  const provider = REMOTE_PROVIDERS.find(candidate => candidate.matches(parsedRemoteUrl));
-  return provider?.branchUrl(parsedRemoteUrl, branch) ?? remoteUrl;
+  const remote = knownRemote(remoteUrl);
+  return remote?.provider.branchUrl(remote.url, branch) ?? remoteUrl;
 }
 
 /** Resolve a commit URL through the known remote provider. Unknown or malformed
@@ -126,15 +139,8 @@ export function repositoryCommitUrl({ remoteUrl, commit }: {
     return null;
   }
 
-  let parsedRemoteUrl: URL;
-  try {
-    parsedRemoteUrl = new URL(remoteUrl);
-  } catch {
-    return null;
-  }
-
-  const provider = REMOTE_PROVIDERS.find(candidate => candidate.matches(parsedRemoteUrl));
-  return provider?.commitUrl(parsedRemoteUrl, commit) ?? null;
+  const remote = knownRemote(remoteUrl);
+  return remote?.provider.commitUrl(remote.url, commit) ?? null;
 }
 
 async function readRemoteUrl(project: string) {
