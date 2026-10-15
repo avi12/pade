@@ -9,9 +9,17 @@
 import { stripAnsi } from "@/lib/ansi";
 
 const TOOL_NAMES = "Bash|PowerShell|Shell|Terminal";
+const REGEX_SPECIAL_CHARACTER = /[.*+?^${}()|[\]\\]/g;
+
+/** An agent's tool-call rendering - `Bash(<command>)` / `PowerShell(<command>)` -
+ *  capturing the parentheses' contents. */
+const TOOL_CALL = new RegExp(`(?:^|\\s)(?:${TOOL_NAMES})\\(([^)]*)\\)`);
+
+/** A visible shell invocation: a prompt, then whatever was typed after it. */
+const PROMPT_LINE = /^[$#%❯>]\s*(.*)$/;
 
 function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replaceAll(REGEX_SPECIAL_CHARACTER, "\\$&");
 }
 
 /** Whether `command` appears as a whole shell token run inside `text` - bounded on
@@ -40,22 +48,9 @@ export function isTaskInvocation({ line, command }: {
   command: string;
 }) {
   const clean = stripAnsi(line).trim();
-
-  // Agent tool-call rendering: Bash(<command>) / PowerShell(<command>). Look for
-  // the command bounded inside the parentheses' contents.
-  const toolCall = new RegExp(`(?:^|\\s)(?:${TOOL_NAMES})\\(([^)]*)\\)`);
-  const toolMatch = toolCall.exec(clean);
-  if (toolMatch && containsCommand({
-    text: toolMatch[1],
+  const invocations = [TOOL_CALL.exec(clean)?.[1], PROMPT_LINE.exec(clean)?.[1]];
+  return invocations.some(text => text !== undefined && containsCommand({
+    text,
     command
-  })) {
-    return true;
-  }
-
-  // Visible shell invocation: a prompt, then whatever the user typed after it.
-  const promptMatch = /^[$#%❯>]\s*(.*)$/.exec(clean);
-  return promptMatch !== null && containsCommand({
-    text: promptMatch[1],
-    command
-  });
+  }));
 }
