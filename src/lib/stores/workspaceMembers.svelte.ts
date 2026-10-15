@@ -11,6 +11,7 @@
 // The pure half (where a member lives, what to call it) is `lib/workspace-members`.
 
 import { members, vcs } from "@/lib/bridge";
+import { settledValue } from "@/lib/settled";
 import type { WorkspaceMember } from "@/lib/types";
 import { memberPath } from "@/lib/workspace-members";
 
@@ -74,7 +75,10 @@ export async function loadWorkspaceMembers(projectRoot: string) {
     return;
   }
 
-  const found = await members.list(projectRoot).catch(() => []);
+  const found = await settledValue({
+    promise: members.list(projectRoot),
+    fallback: []
+  });
   if (root !== projectRoot) {
     return;
   }
@@ -95,7 +99,10 @@ export async function refreshMemberBranches() {
     return;
   }
 
-  const heads = await vcs.branchOf(paths).catch(() => ({}));
+  const heads = await settledValue({
+    promise: vcs.branchOf(paths),
+    fallback: {}
+  });
   if (root !== asked) {
     return;
   }

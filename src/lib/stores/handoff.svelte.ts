@@ -19,6 +19,7 @@
 // up between steps - and the session ends once the doc is on disk.
 
 import { feed, pty, usage, workspace } from "@/lib/bridge";
+import { settledValue } from "@/lib/settled";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.svelte";
 import { compactionHeadroom, dropContext, measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { isModelSwitchApplying } from "@/lib/stores/modelSwitch.svelte";
@@ -274,7 +275,10 @@ function hasPersistentMarker(sessionId: string) {
 /** One direct look at the disk. A failed probe reads as "not there yet", the
  *  answer every caller already falls back on. */
 async function isFileOnDisk(path: string) {
-  const probe = await workspace.probePath(path).catch(() => null);
+  const probe = await settledValue({
+    promise: workspace.probePath(path),
+    fallback: null
+  });
   return probe?.isFile === true;
 }
 
@@ -583,8 +587,14 @@ export function createAutoHandoff(host: HandoffHost) {
 
   // Only cycle when there's quota to spare - a handoff itself costs tokens.
   async function hasEnoughUsage(agent: string) {
-    const quota = await usage.get(agent).catch(() => null);
-    const account = await usage.accountFor({ agent }).catch(() => null);
+    const quota = await settledValue({
+      promise: usage.get(agent),
+      fallback: null
+    });
+    const account = await settledValue({
+      promise: usage.accountFor({ agent }),
+      fallback: null
+    });
     return hasUsageHeadroom({
       usedPercentage: quota?.usedPct,
       credits: account?.credits

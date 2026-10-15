@@ -7,6 +7,7 @@
 // single cached fetch per project and the choose-editor write-through.
 
 import { ide } from "@/lib/bridge";
+import { settledValue } from "@/lib/settled";
 import type { Ide } from "@/lib/types";
 import { SvelteMap } from "svelte/reactivity";
 
@@ -77,7 +78,10 @@ async function fetchEditors({ project, token }: {
   project: string;
   token: symbol;
 }) {
-  const ranked = await ide.suggest(project).catch(() => []);
+  const ranked = await settledValue({
+    promise: ide.suggest(project),
+    fallback: []
+  });
   const isSuperseded = currentFetchToken.get(project) !== token;
   if (isSuperseded) {
     return;

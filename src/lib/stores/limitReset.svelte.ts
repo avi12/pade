@@ -6,6 +6,7 @@
 import { usage as usageApi } from "@/lib/bridge";
 import { errorMessage } from "@/lib/errors";
 import { formatCount } from "@/lib/format";
+import { settledValue } from "@/lib/settled";
 import { showToast } from "@/lib/stores/toast.svelte";
 import type { LimitReset } from "@/lib/types";
 
@@ -49,7 +50,10 @@ export function limitResetConfirmation() {
 
 /** Re-read the offer - on each of the meter's usage readings, and after a claim. */
 export async function refreshLimitResetOffer() {
-  offer = await usageApi.limitResetOffer().catch(() => null);
+  offer = await settledValue({
+    promise: usageApi.limitResetOffer(),
+    fallback: null
+  });
   announceNewOffer();
 }
 

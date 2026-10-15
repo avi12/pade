@@ -21,6 +21,7 @@
 // time. So detection nominates; the process tree decides.
 
 import { pty } from "@/lib/bridge";
+import { settledValue } from "@/lib/settled";
 import { attachedRunner, attachRunner, runnerRows, TASK_LIVENESS_POLL_MS } from "@/lib/stores/runners.svelte";
 import { taskCatalog, type TaskCatalogSnapshot } from "@/lib/stores/taskCatalog.svelte";
 import { isTaskInvocation } from "@/lib/task-detect";
@@ -120,10 +121,13 @@ async function attachWhenRunning({ sessionId, task }: {
   }
 
   lastLivenessCheck.set(checkKey, now);
-  const isRunning = await pty.sessionTaskRunning({
-    id: sessionId,
-    command: task.command
-  }).catch(() => false);
+  const isRunning = await settledValue({
+    promise: pty.sessionTaskRunning({
+      id: sessionId,
+      command: task.command
+    }),
+    fallback: false
+  });
   if (!isRunning) {
     return;
   }

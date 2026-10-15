@@ -5,6 +5,7 @@
 // an agent is done here via pty.write (the backend has no such command by design).
 
 import { pty, runner } from "@/lib/bridge";
+import { settledValue } from "@/lib/settled";
 import { showToast } from "@/lib/stores/toast.svelte";
 import { pastedText } from "@/lib/terminal-input";
 import type { TaskGroup } from "@/lib/types";
@@ -226,10 +227,13 @@ async function reconcileAttachedRunners() {
       continue;
     }
 
-    const isRunning = await pty.sessionTaskRunning({
-      id: sessionId,
-      command: row.command
-    }).catch(() => false);
+    const isRunning = await settledValue({
+      promise: pty.sessionTaskRunning({
+        id: sessionId,
+        command: row.command
+      }),
+      fallback: false
+    });
     if (!isRunning) {
       removeRow(row.id);
     }

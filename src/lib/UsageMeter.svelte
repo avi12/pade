@@ -6,6 +6,7 @@
   import LimitResetConfirm from "@/lib/LimitResetConfirm.svelte";
   import LimitResetOffer from "@/lib/LimitResetOffer.svelte";
   import { growInline } from "@/lib/motion";
+  import { settledValue } from "@/lib/settled";
   import {
     askToResetLimits,
     limitResetOffer,
@@ -155,10 +156,13 @@
     const entries = await Promise.all(
       agentIds.map(async id => [
         id,
-        await usageApi.accountFor({
-          agent: id,
-          forceRefresh
-        }).catch(() => null)
+        await settledValue({
+          promise: usageApi.accountFor({
+            agent: id,
+            forceRefresh
+          }),
+          fallback: null
+        })
       ] as const)
     );
     return new Map(entries);
