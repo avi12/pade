@@ -3,8 +3,9 @@
 //!
 //!   * Claude Code - transcripts and auto-memory under
 //!     `~/.claude/projects/<encoded cwd>` (one folder for the workspace and one
-//!     for every folder inside it a session ran in), and its per-project
-//!     settings and trust in `~/.claude.json`;
+//!     for every folder inside it a session ran in), each moved transcript
+//!     stamped with Claude's own `relocated` record so `/resume` still lists
+//!     it, and its per-project settings and trust in `~/.claude.json`;
 //!   * Codex - its thread index (`~/.codex/state_*.sqlite`, by cwd) and project
 //!     trust in `~/.codex/config.toml`;
 //!   * Copilot - each session's `workspace.yaml` and the trusted folders in
@@ -17,7 +18,7 @@
 //! Measured against Claude Code 2.1.292, Codex 0.161, Copilot 1.0.34 and
 //! `OpenCode` 1.18.33.
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -39,6 +40,13 @@ const OPENCODE_PATH_COLUMNS: [(&str, &str); 4] = [
 const DATABASE_BUSY_WAIT: Duration = Duration::from_secs(2);
 /// How far into a transcript its first `cwd` is looked for.
 const TRANSCRIPT_HEAD_LINES: usize = 50;
+/// How far back from a transcript's end its `relocated` record is looked for,
+/// as Claude reads that record from the tail.
+const TRANSCRIPT_TAIL_BYTES: u64 = 64 * 1024;
+/// The transcript record Claude appends when a session's folder moved. `/resume`
+/// drops a session whose recorded folder isn't the one it runs in, and this
+/// record overrides the `cwd` every earlier line carries.
+const RELOCATED_RECORD_TYPE: &str = "relocated";
 
 /// Re-point every agent's memory of `old` (and of the folders inside it) to
 /// `new`. Best-effort per agent: one that isn't installed, or whose file is
@@ -98,29 +106,47 @@ fn move_claude_transcripts(projects: &Path, old: &str, new: &str) {
         let Some(moved_cwd) = cwd.and_then(|cwd| moved_path(&cwd, old, new)) else {
             continue;
         };
-        move_into(&entry.path(), &projects.join(encode_project(&moved_cwd)));
+        let destination = projects.join(encode_project(&moved_cwd));
+        move_into(&entry.path(), &destination);
+        for transcript in transcripts_in(&destination) {
+            stamp_relocated(&transcript, old, new);
+        }
     }
 }
 
-/// The working directory the first transcript in a Claude project folder names.
-fn transcript_cwd(project: &Path) -> Option<String> {
-    let entries = std::fs::read_dir(project).ok()?;
-    entries
+fn transcripts_in(project: &Path) -> impl Iterator<Item = PathBuf> {
+    std::fs::read_dir(project)
+        .into_iter()
+        .flatten()
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| {
             path.extension()
                 .is_some_and(|extension| extension == "jsonl")
         })
-        .find_map(|transcript| first_cwd(&transcript))
 }
 
-/// The one field read from a transcript line. Deserializing only this skips
-/// the rest of the line instead of building a whole JSON tree for it, which
-/// matters because a transcript line can carry an entire tool output.
+/// The working directory the first transcript in a Claude project folder names.
+fn transcript_cwd(project: &Path) -> Option<String> {
+    transcripts_in(project).find_map(|transcript| recorded_cwd(&transcript))
+}
+
+/// The fields read from a transcript line. Deserializing only these skips the
+/// rest of the line instead of building a whole JSON tree for it, which matters
+/// because a transcript line can carry an entire tool output.
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TranscriptLine {
+    #[serde(rename = "type")]
+    kind: Option<String>,
     cwd: Option<String>,
+    relocated_cwd: Option<String>,
+}
+
+/// The folder Claude considers a session to belong to: its latest `relocated`
+/// record, else the first `cwd` it logged.
+fn recorded_cwd(transcript: &Path) -> Option<String> {
+    last_relocated_cwd(transcript).or_else(|| first_cwd(transcript))
 }
 
 fn first_cwd(transcript: &Path) -> Option<String> {
@@ -130,6 +156,67 @@ fn first_cwd(transcript: &Path) -> Option<String> {
         .take(TRANSCRIPT_HEAD_LINES)
         .map_while(Result::ok)
         .find_map(|line| serde_json::from_str::<TranscriptLine>(&line).ok()?.cwd)
+}
+
+fn last_relocated_cwd(transcript: &Path) -> Option<String> {
+    let mut file = std::fs::File::open(transcript).ok()?;
+    let length = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(
+        length.saturating_sub(TRANSCRIPT_TAIL_BYTES),
+    ))
+    .ok()?;
+    let mut tail = Vec::new();
+    file.read_to_end(&mut tail).ok()?;
+    String::from_utf8_lossy(&tail)
+        .lines()
+        .rev()
+        .filter_map(|line| serde_json::from_str::<TranscriptLine>(line).ok())
+        .find(|line| line.kind.as_deref() == Some(RELOCATED_RECORD_TYPE))?
+        .relocated_cwd
+}
+
+/// Append Claude's own `relocated` record to a transcript whose folder moved,
+/// so `/resume` in the new folder keeps listing it. A transcript already
+/// recorded outside `old` is left alone, which also makes this idempotent.
+fn stamp_relocated(transcript: &Path, old: &str, new: &str) {
+    let Some(moved_cwd) = recorded_cwd(transcript).and_then(|cwd| moved_path(&cwd, old, new))
+    else {
+        return;
+    };
+    let Some(session_id) = transcript.file_stem().and_then(|stem| stem.to_str()) else {
+        return;
+    };
+    let record = serde_json::json!({
+        "type": RELOCATED_RECORD_TYPE,
+        "sessionId": session_id,
+        "relocatedCwd": moved_cwd,
+    });
+    let result = std::fs::OpenOptions::new()
+        .read(true)
+        .append(true)
+        .open(transcript)
+        .and_then(|mut file| {
+            let separator = if ends_with_newline(&mut file)? {
+                ""
+            } else {
+                "\n"
+            };
+            writeln!(file, "{separator}{record}")
+        });
+    if let Err(error) = result {
+        eprintln!("refs: failed to stamp {}: {error}", transcript.display());
+    }
+}
+
+fn ends_with_newline(file: &mut std::fs::File) -> std::io::Result<bool> {
+    let length = file.metadata()?.len();
+    if length == 0 {
+        return Ok(true);
+    }
+    file.seek(SeekFrom::Start(length - 1))?;
+    let mut last = [0];
+    file.read_exact(&mut last)?;
+    Ok(last[0] == b'\n')
 }
 
 /// Move `from` to `to`; when `to` already exists (the name was used before),
@@ -248,7 +335,9 @@ fn rebase_column(
 
 #[cfg(test)]
 mod tests {
-    use super::{first_cwd, move_claude_transcripts, rebase_database_columns};
+    use super::{
+        first_cwd, move_claude_transcripts, rebase_database_columns, recorded_cwd, stamp_relocated,
+    };
     use crate::util::encode_project;
 
     fn scratch(name: &str) -> std::path::PathBuf {
@@ -277,11 +366,42 @@ mod tests {
         move_claude_transcripts(&projects, old, new);
 
         assert!(projects.join(encode_project(new)).join("memory").is_dir());
-        assert!(projects
+        let moved = projects
             .join(encode_project(r"C:\work\editor\app"))
-            .join("a.jsonl")
-            .is_file());
-        assert!(sibling.join("b.jsonl").is_file());
+            .join("a.jsonl");
+        assert_eq!(recorded_cwd(&moved).as_deref(), Some(r"C:\work\editor\app"));
+        assert_eq!(
+            std::fs::read_to_string(sibling.join("b.jsonl")).expect("sibling"),
+            transcript(r"C:\work\pade-effort")
+        );
+    }
+
+    #[test]
+    fn a_moved_transcript_is_stamped_once_with_its_new_folder() {
+        let transcript = scratch("stamp").join("session-1.jsonl");
+        std::fs::write(
+            &transcript,
+            serde_json::json!({ "cwd": r"C:\work\pade" }).to_string(),
+        )
+        .expect("write transcript");
+
+        stamp_relocated(&transcript, r"C:\work\pade", r"C:\work\editor");
+        stamp_relocated(&transcript, r"C:\work\pade", r"C:\work\editor");
+
+        let content = std::fs::read_to_string(&transcript).expect("read transcript");
+        let lines: Vec<serde_json::Value> = content
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("json line"))
+            .collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(
+            lines[1],
+            serde_json::json!({
+                "type": "relocated",
+                "sessionId": "session-1",
+                "relocatedCwd": r"C:\work\editor",
+            })
+        );
     }
 
     #[test]
