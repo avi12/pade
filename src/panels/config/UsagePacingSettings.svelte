@@ -1,102 +1,93 @@
 <script lang="ts">
   import { effective, updatePrefs } from "@/lib/settings/prefs.svelte";
-  import { PacingAction, PacingMode } from "@/lib/types";
-  import Checkbox from "@/lib/ui/Checkbox.svelte";
+  import type { PacingSettings } from "@/lib/types";
   import Segmented from "@/lib/ui/Segmented.svelte";
+  import Select from "@/lib/ui/Select.svelte";
+  import {
+    PACING_EARLY_OPTIONS,
+    PACING_PRESETS,
+    PacingPreset,
+    pacingPreset,
+    withPreset
+  } from "@/lib/usage/pacing-policy";
+  import PacingForecast from "@/panels/config/PacingForecast.svelte";
+  import PacingSteps from "@/panels/config/PacingSteps.svelte";
 
-  // Usage pacing's settings (lib/stores/usage/usagePacing): what happens to an
-  // agent spending its usage too fast - or nothing, the pacing mode's `off` -
-  // whether its effort and model step down first, and what a stopped agent does
-  // once it has room again.
-  const actionOptions = [
-    {
-      value: PacingAction.enum.stop,
-      label: "Stop",
-      icon: "close"
-    },
-    {
-      value: PacingAction.enum.slow,
-      label: "Slow down",
-      icon: "clock"
-    },
-    {
-      value: PacingMode.enum.off,
-      label: "Off",
-      icon: "minimize"
-    }
-  ] as const;
+  // Usage pacing's settings (lib/usage/pacing-policy): a strength preset that
+  // sets every step at once, when to act, a live line for the active agent, and
+  // the steps themselves. Editing a step turns the preset into Custom.
+  const { agent }: {
+    /** The active agent, whose account the live line reads. */
+    agent: string;
+  } = $props();
 
-  const resumeOptions = [
-    {
-      value: PacingMode.enum.ask,
-      label: "Ask me",
-      icon: "more"
-    },
-    {
-      value: PacingMode.enum.continue,
-      label: "Continue",
-      icon: "refresh"
-    }
-  ] as const;
+  const MINUTES_PER_HOUR = 60;
+  const EARLY_SELECT_ID = "pacing-early";
 
-  const isOff = $derived(effective.pacingMode === PacingMode.enum.off);
-  const chosenAction = $derived.by(() => {
-    if (isOff) {
-      return PacingMode.enum.off;
+  const settings = $derived(effective.pacing);
+  const preset = $derived(pacingPreset(settings));
+  const isOn = $derived(preset !== PacingPreset.Off);
+  const presetOptions = $derived.by(() => {
+    if (preset === PacingPreset.Custom) {
+      return [...PACING_PRESETS, {
+        value: PacingPreset.Custom,
+        label: "Custom",
+        hint: "Your own set of steps"
+      }];
     }
 
-    return effective.pacingAction;
+    return [...PACING_PRESETS];
   });
+  const presetHint = $derived(presetOptions.find(option => option.value === preset)?.hint ?? "");
+  const earlyOptions = PACING_EARLY_OPTIONS.map(minutes => ({
+    value: String(minutes),
+    label: minutes < MINUTES_PER_HOUR ? `${minutes} min` : `${minutes / MINUTES_PER_HOUR} h`
+  }));
 
-  async function chooseAction(value: PacingAction | typeof PacingMode.enum.off) {
-    if (value === PacingMode.enum.off) {
-      await updatePrefs({ usagePacing: value });
-      return;
-    }
-
-    await updatePrefs({
-      pacingAction: value,
-      usagePacing: isOff ? PacingMode.enum.ask : effective.pacingMode
-    });
+  async function save(next: PacingSettings) {
+    await updatePrefs({ pacing: next });
   }
 </script>
 
 <div class="field">
-  <span class="field-text">
-    <span class="field-label">Usage pacing</span>
-    <span class="field-hint">What happens to an agent that would use up its usage long before the reset</span>
-  </span>
+  <span class="field-label">Strength</span>
   <Segmented
-    chosen={chosenAction}
-    label="Usage pacing"
-    onchoose={async value => await chooseAction(value)}
-    options={actionOptions}
+    chosen={preset}
+    label="Usage pacing strength"
+    onchoose={async value => await save(
+      withPreset({
+        settings,
+        preset: value
+      })
+    )}
+    options={presetOptions}
   />
+  <span class="field-hint">{presetHint}</span>
 </div>
 
-{#if !isOff}
-  <label class="check">
-    <Checkbox checked={effective.pacingAdapt} onchange={checked => updatePrefs({ pacingAdapt: checked })} />
-    <span class="field-text">
-      <span class="field-label">Turn effort and model down first</span>
-      <span class="field-hint">Steps back up when there's room, and back to your choice at the reset</span>
-    </span>
-  </label>
-{/if}
-
-{#if chosenAction === PacingAction.enum.stop}
-  <div class="field">
-    <span class="field-text">
-      <span class="field-label">Once a stopped agent has room</span>
-      <span class="field-hint">It always continues on its own just before the reset</span>
-    </span>
-    <Segmented
-      chosen={effective.pacingMode}
-      label="Once a stopped agent has room"
-      onchoose={value => updatePrefs({ usagePacing: value })}
-      options={resumeOptions}
+{#if isOn}
+  <label class="trigger" for={EARLY_SELECT_ID}>
+    <span class="field-label">Act when on track to run out</span>
+    <Select
+      id={EARLY_SELECT_ID}
+      onchange={async value => await save({
+        ...settings,
+        earlyMinutes: Number(value)
+      })}
+      options={earlyOptions}
+      value={String(settings.earlyMinutes)}
     />
+    <span class="field-label">early</span>
+  </label>
+
+  <PacingForecast {agent} {settings} />
+
+  <div class="field">
+    <span class="field-label">Steps, one at a time while it stays too fast</span>
+    <PacingSteps onsave={save} {settings} />
   </div>
+
+  <p class="field-hint">Every step undoes itself as room comes back, and everything reverts when the window resets</p>
 {/if}
 
 <style>
@@ -106,13 +97,6 @@
     gap: 7px;
   }
 
-  .field-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    line-height: 1.3;
-  }
-
   .field-label {
     color: var(--on-surface);
     font-weight: 600;
@@ -120,15 +104,17 @@
   }
 
   .field-hint {
+    margin: 0;
     color: var(--on-surface-variant);
     font-size: 10px;
   }
 
-  .check {
+  .trigger {
+    --select-width: 90px;
+
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     align-items: center;
-    min-inline-size: 0;
-    cursor: pointer;
   }
 </style>

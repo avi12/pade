@@ -229,36 +229,39 @@ writes.
   auto-retry never claims a usage-limit stop, even one worded as an API error.
   Opt-out via `prefs.autoResume` (default on).
 - R1.6a.5 ✅ **Usage pacing** (`lib/stores/usage/usagePacing.svelte.ts`) - a
-  working agent that spends a usage window far ahead of its reset is paused, so
-  the account isn't locked out for hours at the end of the window. Each paced
-  window (the session, the weekly cap) is judged without assuming its length -
-  a vendor can shorten its session window any day - from when it resets and how
-  fast it is spent while its agents work (the burn rate, from the account
-  readings each minute). Runway = what's left / burn rate. Past 60% used, a
-  working agent whose runway covers less than 80% of the time to 10 minutes
-  before the reset is asked to finish its current step and stop. PADE remembers
-  when it paused each session (per window, across a reload) and says so in a
-  note. Once the runway at its old pace covers all that time, the Config panel's **Usage pacing**
-  setting (`prefs.usagePacing`) decides: **Ask me** (default) waits for the
-  user, **Continue** types "continue" at once (a heavy run slows into bursts),
-  **Off** paces nothing. Either way a paused session continues on its own 10
-  minutes before its window resets. The note always offers **Continue anyway**
-  and, under Ask me, **Continue when there's room** for that one session.
-  Within 10 minutes of a reset a window pauses no one (95% with 9 minutes left
-  runs on), while the weekly window is paced in its own right. Usage credits
-  that would carry an agent past a spent window don't turn pacing off - going
-  over costs real money. A user who restarts a paused agent by
-  hand is not paused again until it is back under the line. The Config panel
-  also picks **what** pacing does (`prefs.pacingAction`): **Stop** as above, or
-  **Slow down** - a short rest sized so stretches of work and rest average out
-  to a pace that lasts (rest = stretch × (time left / runway − 1), at least 5
-  minutes), then "continue" on its own. With **Turn effort and model down
-  first** (`prefs.pacingAdapt`, `lib/stores/usage/usageAdapt.svelte.ts`) an
-  agent over pace is first stepped one notch cheaper - its effort, then a
-  cheaper model (`lib/model/model-cost.ts`) - through the same switch a tab's
-  model pick uses; it climbs back the way it came once its runway reaches 1.5
-  times the time left, and returns to the user's own choice as the window is
-  about to reset. A choice the user makes in between is theirs to keep.
+  working agent on track to run out of a usage window well before it resets is
+  held back, so the account isn't locked out for hours at the end of the window.
+  Each paced window (the session, the weekly cap) is judged without assuming its
+  length - a vendor can shorten its session window any day - from when it
+  resets and how fast it is spent while its agents work (the burn rate, from the
+  account readings each minute): runway = what's left / burn rate. Past 60%
+  used, a window on track to run out more than the chosen margin (**Act when on
+  track to run out** 15 min / 30 min / 1 h / 2 h **early**) before 10 minutes
+  ahead of its reset is over pace (`lib/usage/usage-pace.ts`). Usage credits
+  don't turn pacing off - going over costs real money.
+  The Config panel's **Usage pacing** card (`prefs.pacing`,
+  `lib/usage/pacing-policy.ts`) is a **Strength** preset - Off, Gentle (effort
+  only), Balanced (default: effort, model, rests), Strict (all four, the stop
+  asking first), or Custom once a step is edited - over a numbered list of
+  steps PADE climbs one at a time while the agent stays too fast: **1 Lower
+  effort** (a level at a time, to the bottom of its ladder), **2 Cheaper
+  model** (`lib/model/model-cost.ts`, via the same switch a tab's model pick
+  uses), **3 Rest between work** (a short rest sized so work and rest average
+  out to a lasting pace - rest = stretch × (time left / runway − 1), at least 5
+  minutes - while that needs no more rest than work, or always when Stop is
+  off), **4 Stop until there's room** (with **Ask me / Continue** for once it
+  has room). A live line shows the active agent's window, its spend, when it
+  runs out and resets, and what pacing would do now. Every step undoes itself
+  as room comes back (a cheaper effort or model steps back up once the runway
+  reaches 1.5 times the time left), and everything reverts as the window is
+  about to reset; a choice the user makes in between is theirs to keep.
+  While pacing holds an agent its tab shows **PACED n/m** (active steps of the
+  allowed ones); the badge opens why, what it runs now, when it reverts and
+  what pacing did, with **Ease one step**, **Skip this window** and, when
+  stopped or resting, **Resume now**. A stopped agent also shows the note with
+  **Continue anyway** / **Continue when there's room**. Pauses and steps are
+  remembered per window across a reload; a user who restarts a paused agent by
+  hand is not paused again until it is back on pace.
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,

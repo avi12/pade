@@ -387,8 +387,11 @@
           </span>
         </div>
       </div>
+    </section>
 
-      <UsagePacingSettings />
+    <section class="card">
+      <h3 class="card-label">Usage pacing</h3>
+      <UsagePacingSettings {agent} />
     </section>
 
     <section class="card session-tabs">

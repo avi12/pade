@@ -1,28 +1,35 @@
-// Effort and model stepping for usage pacing (prefs.pacingAdapt): an agent over
-// pace steps down one notch at a time - its effort first, then a cheaper model
-// (lib/model/model-cost) - before pacing stops or slows it, and back up the way
-// it came once it has room to spare. As the window is about to reset it goes
-// back to the user's own choice. Each step is remembered per window label, so a
-// reload keeps the way back. A choice the user makes in between is theirs:
+// Effort and model steps for usage pacing: an agent on track to run out of usage
+// is turned one notch cheaper at a time - its effort one level down (the `effort`
+// step), or a cheaper model (the `model` step, lib/model/model-cost) - and back up
+// the way it came once it has room to spare. As the window is about to reset it
+// goes back to the user's own choice. Each step is remembered per window label,
+// so a reload keeps the way back. A choice the user makes in between is theirs:
 // pacing touches a session again only while it still runs what pacing set.
 // This module owns the steps and their memory; lib/stores/usage/usagePacing
 // decides when to take them, and the app shell supplies the switch itself.
 
 import { windowLabel } from "@/lib/ipc/platform";
-import { cheaperChoice } from "@/lib/model/model-cost";
+import { cheaperModelChoice, lowerEffortChoice } from "@/lib/model/model-cost";
 import { bareModel, modelLabel, modelName } from "@/lib/model/model-label";
 import { sessionModel } from "@/lib/stores/agent/context.svelte";
 import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
-import { ModelChoice } from "@/lib/types";
+import { ModelChoice, PacingStep } from "@/lib/types";
 import type { AgentSession } from "@/lib/types";
 import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
+import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
+
+/** One step pacing took: which kind, and what the session ran before it. */
+const AdaptStep = z.object({
+  step: PacingStep,
+  previous: ModelChoice
+});
 
 /** A session pacing stepped down to a cheaper effort or model. */
 const AdaptedChoice = z.object({
-  /** What it ran before each step, oldest first - the first is the user's own
-   *  choice, and stepping back up retraces the rest. */
-  trail: z.array(ModelChoice).min(1),
+  /** Each step taken, oldest first - the first one's `previous` is the user's
+   *  own choice, and stepping back up retraces the rest. */
+  trail: z.array(AdaptStep).min(1),
   /** What pacing last set. */
   current: ModelChoice,
   /** As its window is about to reset it goes back to the user's choice. */
@@ -36,8 +43,7 @@ function adaptStorageKey() {
   return `pade.usage-adapt:${windowLabel()}`;
 }
 
-// eslint-disable-next-line svelte/prefer-svelte-reactivity -- pacing bookkeeping, never rendered
-const adapted = new Map<string, AdaptedChoice>();
+const adapted = new SvelteMap<string, AdaptedChoice>();
 
 function remember() {
   writeStoredJson({
@@ -64,6 +70,26 @@ export function dropUsageAdapt(id: string) {
   if (adapted.delete(id)) {
     remember();
   }
+}
+
+/** The steps pacing has taken on a session, oldest first (reactive). */
+export function adaptedSteps(id: string) {
+  return adapted.get(id)?.trail.map(taken => taken.step) ?? [];
+}
+
+/** What pacing has the session run now and what it ran before, as a person
+ *  reads them - null when pacing hasn't stepped it (reactive). */
+export function adaptedChoice(id: string) {
+  const choice = adapted.get(id);
+  if (choice === undefined) {
+    return null;
+  }
+
+  return {
+    current: describe(choice.current),
+    original: describe(choice.trail[0].previous),
+    restoreAt: choice.restoreAt
+  };
 }
 
 /** What the session runs, as its agent last reported it. */
@@ -152,11 +178,38 @@ export function createUsageAdapter(host: AdaptHost) {
     return choice;
   }
 
-  /** Step a session one notch cheaper. Resolves whether it could - false at the
-   *  bottom, or before its agent has reported what it runs. */
-  async function stepDown({ session, restoreAt }: {
+  /** The choice one `step` cheaper than what the session runs, or null. */
+  function cheaperBy({ step, running, command }: {
+    step: PacingStep;
+    running: ModelChoice;
+    command: string;
+  }) {
+    const options = modelOptions(command);
+    const model = running.model ?? "";
+    if (step === PacingStep.enum.effort) {
+      return lowerEffortChoice({
+        model,
+        effort: running.effort ?? null,
+        options
+      });
+    }
+
+    if (step === PacingStep.enum.model) {
+      return cheaperModelChoice({
+        model,
+        options
+      });
+    }
+
+    return null;
+  }
+
+  /** Take one `step` (effort or model) cheaper. Resolves whether it could -
+   *  false at the bottom, or before its agent has reported what it runs. */
+  async function stepDown({ session, restoreAt, step }: {
     session: AgentSession;
     restoreAt: number;
+    step: PacingStep;
   }) {
     const running = runningChoice(session.id);
     if (running === null) {
@@ -164,10 +217,10 @@ export function createUsageAdapter(host: AdaptHost) {
     }
 
     await ensureModelOptions(session.agent.command);
-    const next = cheaperChoice({
-      model: running.model,
-      effort: running.effort ?? null,
-      options: modelOptions(session.agent.command)
+    const next = cheaperBy({
+      step,
+      running,
+      command: session.agent.command
     });
     if (next === null) {
       return false;
@@ -177,7 +230,10 @@ export function createUsageAdapter(host: AdaptHost) {
     setAdapted({
       id: session.id,
       choice: {
-        trail: [...(record?.trail ?? []), running],
+        trail: [...(record?.trail ?? []), {
+          step,
+          previous: running
+        }],
         current: next,
         restoreAt: record?.restoreAt ?? restoreAt
       }
@@ -190,12 +246,13 @@ export function createUsageAdapter(host: AdaptHost) {
     return true;
   }
 
-  /** Step a stepped-down session one notch back up the way it came. */
+  /** Step a stepped-down session one notch back up the way it came. Resolves
+   *  whether there was a step to undo. */
   async function stepUp(session: AgentSession) {
     const record = pacingRecord(session.id);
-    const previous = record?.trail.at(-1);
-    if (record === undefined || previous === undefined) {
-      return;
+    const last = record?.trail.at(-1);
+    if (record === undefined || last === undefined) {
+      return false;
     }
 
     const rest = record.trail.slice(0, -1);
@@ -204,14 +261,37 @@ export function createUsageAdapter(host: AdaptHost) {
       choice: rest.length > 0 ? {
         ...record,
         trail: rest,
-        current: previous
+        current: last.previous
       } : null
     });
     await switchTo({
       session,
-      choice: previous,
+      choice: last.previous,
       why: "- its usage has room to spare again"
     });
+    return true;
+  }
+
+  /** Put one session back on the user's own choice. */
+  async function restoreSession(session: AgentSession) {
+    const record = adapted.get(session.id);
+    if (record === undefined) {
+      return;
+    }
+
+    const isUntouched = pacingRecord(session.id) !== undefined;
+    setAdapted({
+      id: session.id,
+      choice: null
+    });
+
+    if (isUntouched) {
+      await switchTo({
+        session,
+        choice: record.trail[0].previous,
+        why: "- back to its own choice"
+      });
+    }
   }
 
   /** Put sessions back on the user's own choice: those whose window is about to
@@ -224,22 +304,8 @@ export function createUsageAdapter(host: AdaptHost) {
     for (const session of sessions) {
       const record = adapted.get(session.id);
       const isDue = record !== undefined && (isEveryone || now >= record.restoreAt);
-      if (!isDue) {
-        continue;
-      }
-
-      const isUntouched = pacingRecord(session.id) !== undefined;
-      setAdapted({
-        id: session.id,
-        choice: null
-      });
-
-      if (isUntouched) {
-        await switchTo({
-          session,
-          choice: record.trail[0],
-          why: "- back to its own choice for the new window"
-        });
+      if (isDue) {
+        await restoreSession(session);
       }
     }
   }
@@ -249,6 +315,7 @@ export function createUsageAdapter(host: AdaptHost) {
     isSteppedDown: (id: string) => adapted.has(id),
     stepDown,
     stepUp,
+    restoreSession,
     restore
   };
 }

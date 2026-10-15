@@ -1510,9 +1510,7 @@
   // back up as the Config settings say (lib/stores/usage/usagePacing).
   const usagePacing = createUsagePacing({
     sessions: () => sessions,
-    mode: () => effective.pacingMode,
-    action: () => effective.pacingAction,
-    isAdapting: () => effective.pacingAdapt,
+    settings: () => effective.pacing,
     isHandingOff: id => autoHandoff.isHandingOff(id),
     switchModel: async pick => await modelSwitcher.request(pick),
     announce: message => showToast(message)

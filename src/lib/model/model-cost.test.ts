@@ -1,4 +1,4 @@
-import { cheaperChoice, costTier } from "@/lib/model/model-cost";
+import { cheaperModelChoice, costTier, lowerEffortChoice } from "@/lib/model/model-cost";
 import type { ModelOption } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -43,10 +43,10 @@ describe("costTier", () => {
   });
 });
 
-describe("cheaperChoice", () => {
-  it("turns the effort down before anything else", () => {
+describe("lowerEffortChoice", () => {
+  it("keeps the model and turns its effort down a level", () => {
     expect(
-      cheaperChoice({
+      lowerEffortChoice({
         model: "claude-opus-5-5",
         effort: "high",
         options: CLAUDE_OPTIONS
@@ -57,11 +57,29 @@ describe("cheaperChoice", () => {
     });
   });
 
-  it("moves to the next cheaper model, at its recommended level, at the bottom of the ladder", () => {
+  it("has nothing lower at the bottom of the ladder, or without an effort", () => {
     expect(
-      cheaperChoice({
+      lowerEffortChoice({
         model: "claude-opus-5-5",
         effort: "low",
+        options: CLAUDE_OPTIONS
+      })
+    ).toBeNull();
+    expect(
+      lowerEffortChoice({
+        model: "claude-haiku-4-5-20251001",
+        effort: null,
+        options: CLAUDE_OPTIONS
+      })
+    ).toBeNull();
+  });
+});
+
+describe("cheaperModelChoice", () => {
+  it("moves to the dearest cheaper model, at its recommended level", () => {
+    expect(
+      cheaperModelChoice({
+        model: "claude-opus-5-5",
         options: CLAUDE_OPTIONS
       })
     ).toEqual({
@@ -72,16 +90,14 @@ describe("cheaperChoice", () => {
 
   it("has nothing cheaper below the cheapest tier, or for a model in no known tier", () => {
     expect(
-      cheaperChoice({
+      cheaperModelChoice({
         model: "claude-haiku-4-5-20251001",
-        effort: null,
         options: CLAUDE_OPTIONS
       })
     ).toBeNull();
     expect(
-      cheaperChoice({
+      cheaperModelChoice({
         model: "gpt-5.6-sol",
-        effort: "minimal",
         options: [option({
           id: "gpt-5.6-sol",
           efforts: ["minimal", "low"]

@@ -9,10 +9,11 @@
 //     runway    = (100% - used) / burn rate
 //     time left = reset - now - RESET_GRACE_MS
 //
-// Past PACE_FLOOR_PERCENTAGE used, a runway shorter than PAUSE_RUNWAY_FRACTION
-// of the time left is over pace; a paused session is ready once its runway
-// covers all of the time left; a stepped-down one can afford its dearer choice
-// again once the runway reaches SPARE_RUNWAY_FRACTION of it. Near a reset a
+// Past PACE_FLOOR_PERCENTAGE used, a window on track to run out more than the
+// user's chosen margin (`earlyMs`) before its time is up is over pace; a paused
+// session is ready once its runway covers all of the time left; a stepped-down
+// one can afford its dearer choice again once the runway reaches
+// SPARE_RUNWAY_FRACTION of it. Near a reset a
 // window paces no one - it is about to come back anyway. Usage credits that
 // would carry an agent past a spent window don't change any of this: going over
 // costs real money, which is exactly what pacing is there to save.
@@ -28,12 +29,8 @@ const FULL_PERCENTAGE = 100;
 /** This close to its reset a window paces no one, and a session it paused
  *  continues on its own. */
 export const RESET_GRACE_MS = 10 * 60_000;
-/** A working session is over pace once its runway covers less than this share
- *  of the time left; a paused one is ready once it covers all of it. The gap
- *  keeps a continued session from pausing again a minute later. */
-const PAUSE_RUNWAY_FRACTION = 0.8;
 /** A stepped-down session steps back up only once its runway reaches this far
- *  past the reset - the gap to PAUSE_RUNWAY_FRACTION keeps it from see-sawing. */
+ *  past the reset - well clear of where it stepped down, so it doesn't see-saw. */
 const SPARE_RUNWAY_FRACTION = 1.5;
 /** Two readings further apart than this span idle time, not burn - skipped. */
 const MAXIMUM_SAMPLE_GAP_MS = 5 * 60_000;
@@ -109,16 +106,43 @@ function runwayOf({ window, rate }: {
   return rate > 0 ? (FULL_PERCENTAGE - window.utilization) / rate : Number.POSITIVE_INFINITY;
 }
 
-/** Judge an account's pace from each window's measured burn (`rateOf`). The
- *  window that holds the session longest is the one reported: when it may go on
- *  (`readyAt`, once its runway reaches the time left) and when its reset is
- *  close enough to continue on its own (`continueAt`). `isPaused` holds a
- *  paused session until its runway covers all of the time left. Null when no
- *  window holds it - and always before a burn rate is known. */
-export function assessPace({ account, now, isPaused, rateOf }: {
+/** The trigger: a window that runs out more than `earlyMs` before it runs free
+ *  (RESET_GRACE_MS before its reset) is over pace. */
+function runsOutTooEarly({ runOutAt, freeAt, earlyMs }: {
+  runOutAt: number;
+  freeAt: number;
+  earlyMs: number;
+}) {
+  return runOutAt < freeAt - earlyMs;
+}
+
+/** Whether a forecast (`paceForecast`) is over pace now - what the Config
+ *  panel's live line asks, by the same rule the pacing loop acts on. */
+export function isForecastOverPace({ forecast, earlyMs }: {
+  forecast: NonNullable<ReturnType<typeof paceForecast>>;
+  earlyMs: number;
+}) {
+  const isPacedNow = forecast.window.utilization >= PACE_FLOOR_PERCENTAGE && forecast.runOutAt !== null;
+  return isPacedNow && runsOutTooEarly({
+    runOutAt: forecast.runOutAt ?? Number.POSITIVE_INFINITY,
+    freeAt: forecast.resetAt - RESET_GRACE_MS,
+    earlyMs
+  });
+}
+
+/** Judge an account's pace from each window's measured burn (`rateOf`). A
+ *  window is over pace once it is on track to run out more than `earlyMs`
+ *  before its time is up. The window that holds the session longest is the one
+ *  reported: when it may go on (`readyAt`, once its runway reaches the time
+ *  left) and when its reset is close enough to continue on its own
+ *  (`continueAt`). `isPaused` holds a paused session until its runway covers
+ *  all of the time left. Null when no window holds it - and always before a
+ *  burn rate is known. */
+export function assessPace({ account, now, isPaused, earlyMs, rateOf }: {
   account: AccountUsage | null;
   now: number;
   isPaused: boolean;
+  earlyMs: number;
   rateOf: (window: UsageWindow) => number | null;
 }) {
   if (!account) {
@@ -145,9 +169,13 @@ export function assessPace({ account, now, isPaused, rateOf }: {
       window,
       rate
     });
-    const needed = (freeAt - now) * (isPaused ? 1 : PAUSE_RUNWAY_FRACTION);
+    const isOverPace = runsOutTooEarly({
+      runOutAt: now + runway,
+      freeAt,
+      earlyMs: isPaused ? 0 : earlyMs
+    });
     const readyAt = Math.max(now, freeAt - runway);
-    const isHolding = runway < needed && (binding === null || readyAt > binding.readyAt);
+    const isHolding = isOverPace && (binding === null || readyAt > binding.readyAt);
     if (isHolding) {
       binding = {
         window,
@@ -159,6 +187,59 @@ export function assessPace({ account, now, isPaused, rateOf }: {
   }
 
   return binding;
+}
+
+/** The window closest to running out before its reset at the measured burn -
+ *  for the Config panel's live line. `runOutAt` is null while its burn is not
+ *  yet measured (or nothing is being spent). Null when no window is paced. */
+export function paceForecast({ account, now, rateOf }: {
+  account: AccountUsage | null;
+  now: number;
+  rateOf: (window: UsageWindow) => number | null;
+}) {
+  let worst: {
+    window: UsageWindow;
+    resetAt: number;
+    runOutAt: number | null;
+  } | null = null;
+  let worstMargin = Number.POSITIVE_INFINITY;
+  for (const window of account?.windows ?? []) {
+    const resetAt = usageResetTime(window.resetsAt);
+    const isPacedKind = PACED_WINDOWS[window.kind] !== undefined && Number.isFinite(resetAt) && resetAt > now;
+    if (!isPacedKind) {
+      continue;
+    }
+
+    const rate = rateOf(window);
+    const runOutAt = rate === null || rate <= 0 ? null : now + runwayOf({
+      window,
+      rate
+    });
+    const margin = (runOutAt ?? Number.POSITIVE_INFINITY) - resetAt;
+    if (worst === null || margin < worstMargin) {
+      worst = {
+        window,
+        resetAt,
+        runOutAt
+      };
+      worstMargin = margin;
+    }
+  }
+
+  return worst;
+}
+
+/** Whether resting can bring a session back on pace - it needs no more rest
+ *  than work. Past that, a stop does the job better than rests longer than the
+ *  work between them. */
+export function isRestEnough({ readyAt, continueAt, now }: {
+  readyAt: number;
+  continueAt: number;
+  now: number;
+}) {
+  const runway = continueAt - readyAt;
+  const timeLeft = continueAt - now;
+  return timeLeft <= 2 * runway;
 }
 
 /** Whether an account could afford a dearer effort or model again: every paced

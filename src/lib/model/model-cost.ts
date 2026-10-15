@@ -1,7 +1,6 @@
-// Which way is cheaper: one step down from a model and effort level, for usage
-// pacing to spend a window more slowly. Effort comes first - the same model,
-// thinking less - and only at the bottom of its ladder does a cheaper model
-// take over. No catalog states a price, so a model's cost tier is read from the
+// Which way is cheaper, for usage pacing to spend a window more slowly: the same
+// model thinking less (one effort level down), or a cheaper model. No catalog
+// states a price, so a model's cost tier is read from the
 // family word in its id, the one thing every vendor keeps stable: Haiku and the
 // mini/nano/flash/lite lines are the cheap tier, Sonnet the middle, Opus the top.
 // A model in no known tier is never swapped, only turned down.
@@ -49,28 +48,40 @@ function cheaperModel({ model, options }: {
   return best;
 }
 
-/** One step cheaper than running `model` at `effort`: the next effort level
- *  down its own ladder, else a cheaper model at its recommended level. Null
- *  when nothing cheaper is known. */
-export function cheaperChoice({ model, effort, options }: {
+/** The same model one effort level lower, on its own ladder from the catalog -
+ *  or null at the bottom, or for a model with no effort. */
+export function lowerEffortChoice({ model, effort, options }: {
   model: string;
   effort: string | null;
   options: readonly ModelOption[];
 }) {
+  if (effort === null) {
+    return null;
+  }
+
   const bare = bareModel(model);
   const ladder = options.find(option => bareModel(option.id) === bare)?.efforts.map(level => level.id) ?? [];
-  const lower = effort === null ? null : lowerEffort({
+  const lower = lowerEffort({
     model,
     effort,
     ladder
   });
-  if (lower !== null) {
-    return {
-      model,
-      effort: lower
-    } satisfies ModelChoice;
+  if (lower === null) {
+    return null;
   }
 
+  return {
+    model,
+    effort: lower
+  } satisfies ModelChoice;
+}
+
+/** The next cheaper model at its recommended effort level - or null when no
+ *  cheaper one is known. */
+export function cheaperModelChoice({ model, options }: {
+  model: string;
+  options: readonly ModelOption[];
+}) {
   const cheaper = cheaperModel({
     model,
     options

@@ -4,7 +4,9 @@ import {
   assessPace,
   burnRate,
   hasRoomToSpare,
+  isRestEnough,
   PACE_FLOOR_PERCENTAGE,
+  paceForecast,
   pauseRequest,
   RESET_GRACE_MS,
   slowRestUntil
@@ -16,6 +18,8 @@ const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+/** The margin pacing acts on unless a test says otherwise - the default's. */
+const EARLY_MS = 30 * MINUTE_MS;
 
 /** A burn rate in the formula's units, from percent per hour. */
 function perHour(percentage: number) {
@@ -119,15 +123,17 @@ describe("burnRate", () => {
 });
 
 describe("assessPace", () => {
-  function assess({ windows, rate, isPaused = false }: {
+  function assess({ windows, rate, isPaused = false, earlyMs = EARLY_MS }: {
     windows: UsageWindow[];
     rate: number | null;
     isPaused?: boolean;
+    earlyMs?: number;
   }) {
     return assessPace({
       account: account(windows),
       now: NOW,
       isPaused,
+      earlyMs,
       rateOf: () => rate
     });
   }
@@ -144,6 +150,28 @@ describe("assessPace", () => {
     expect(pace?.window.kind).toBe(UsageWindowKind.enum.session);
     expect(pace?.readyAt).toBe(NOW + 4 * HOUR_MS - RESET_GRACE_MS - HOUR_MS);
     expect(pace?.continueAt).toBe(NOW + 4 * HOUR_MS - RESET_GRACE_MS);
+  });
+
+  it("lets a session run on while it would run out no earlier than the chosen margin", () => {
+    // 30% left at 30% an hour lasts one hour; the window runs free in 1h 20m -
+    // 20 minutes early, inside a 30-minute margin but past a 15-minute one.
+    const windows = [sessionWindow({
+      utilization: 70,
+      resetsIn: 90 * MINUTE_MS
+    })];
+    expect(
+      assess({
+        windows,
+        rate: perHour(30)
+      })
+    ).toBeNull();
+    expect(
+      assess({
+        windows,
+        rate: perHour(30),
+        earlyMs: 15 * MINUTE_MS
+      })
+    ).not.toBeNull();
   });
 
   it("needs no window length - the same burn with the reset an hour off runs on", () => {
@@ -176,7 +204,8 @@ describe("assessPace", () => {
         utilization: 95,
         resetsIn: 30 * MINUTE_MS
       })],
-      rate: perHour(30)
+      rate: perHour(30),
+      earlyMs: 5 * MINUTE_MS
     });
     // 5% at 30% an hour lasts ten minutes - enough once ten minutes stand
     // between it and the grace period.
@@ -212,7 +241,7 @@ describe("assessPace", () => {
       utilization: 70,
       resetsIn: HOUR_MS + RESET_GRACE_MS
     })];
-    // Runway 54 minutes against an hour: on pace to start, short to finish.
+    // Runway 54 minutes against an hour: inside the margin to start, short to finish.
     const rate = 30 / (54 * MINUTE_MS);
     expect(
       assess({
@@ -258,6 +287,7 @@ describe("assessPace", () => {
         },
         now: NOW,
         isPaused: false,
+        earlyMs: EARLY_MS,
         rateOf: () => perHour(60)
       })
     ).not.toBeNull();
@@ -269,9 +299,63 @@ describe("assessPace", () => {
         account: null,
         now: NOW,
         isPaused: false,
+        earlyMs: EARLY_MS,
         rateOf: () => perHour(60)
       })
     ).toBeNull();
+  });
+});
+
+describe("paceForecast", () => {
+  it("names the window closest to running dry before its reset", () => {
+    const forecast = paceForecast({
+      account: account([
+        sessionWindow({
+          utilization: 70,
+          resetsIn: 3 * HOUR_MS
+        }),
+        weeklyWindow({
+          utilization: 30,
+          resetsIn: 3 * DAY_MS
+        })
+      ]),
+      now: NOW,
+      rateOf: window => window.kind === UsageWindowKind.enum.session ? perHour(30) : perHour(1)
+    });
+    expect(forecast?.window.kind).toBe(UsageWindowKind.enum.session);
+    expect(forecast?.runOutAt).toBe(NOW + HOUR_MS);
+  });
+
+  it("has no run-out time before the burn is measured", () => {
+    expect(
+      paceForecast({
+        account: account([sessionWindow({
+          utilization: 70,
+          resetsIn: 3 * HOUR_MS
+        })]),
+        now: NOW,
+        rateOf: () => null
+      })?.runOutAt
+    ).toBeNull();
+  });
+});
+
+describe("isRestEnough", () => {
+  it("rests while no more rest than work is needed, and stops past that", () => {
+    expect(
+      isRestEnough({
+        readyAt: NOW + HOUR_MS,
+        continueAt: NOW + 2 * HOUR_MS,
+        now: NOW
+      })
+    ).toBe(true);
+    expect(
+      isRestEnough({
+        readyAt: NOW + 90 * MINUTE_MS,
+        continueAt: NOW + 2 * HOUR_MS,
+        now: NOW
+      })
+    ).toBe(false);
   });
 });
 

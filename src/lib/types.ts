@@ -460,17 +460,24 @@ export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
 
 export const DiffStyle = z.enum(["unified", "split"]);
 
-/** What usage pacing does once a paused agent has room again: wait for the user
- *  (it still continues on its own as the window is about to reset), continue at
- *  once, or never pace at all (lib/stores/usage/usagePacing). */
-export const PacingMode = z.enum(["ask", "continue", "off"]);
-export type PacingMode = z.infer<typeof PacingMode>;
+/** The steps usage pacing climbs, in order, while an agent stays on track to
+ *  run out of usage before its window resets (lib/usage/pacing-policy). */
+export const PacingStep = z.enum(["effort", "model", "rest", "stop"]);
+export type PacingStep = z.infer<typeof PacingStep>;
 
-/** What usage pacing does to an agent over pace: stop it until it has room for
- *  the rest of the window, or slow it down - short rests between stretches of
- *  work, sized so the window lasts until its reset. */
-export const PacingAction = z.enum(["stop", "slow"]);
-export type PacingAction = z.infer<typeof PacingAction>;
+/** What a stopped agent does once it has room again: wait for the user, or
+ *  continue on its own. Either way it continues just before the reset. */
+export const PacingStopThen = z.enum(["ask", "continue"]);
+
+/** Usage pacing's settings: whether it runs, which steps it may take, how early
+ *  a forecast run-out has to be before it acts, and what follows a stop. */
+const PacingSettings = z.object({
+  isOn: z.boolean(),
+  steps: z.array(PacingStep),
+  stopThen: PacingStopThen,
+  earlyMinutes: z.number().int().positive()
+});
+export type PacingSettings = z.infer<typeof PacingSettings>;
 
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;
@@ -534,16 +541,8 @@ const Prefs = z.object({
    *  in place, or hand off when the context is nearly full. Opt-out: on unless
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
-  /** Pause a working agent that spends a usage window well ahead of its reset,
-   *  and how to pick it back up. Absent = ask. */
-  usagePacing: PacingMode.nullish(),
-  /** Stop or slow down an agent over pace. Absent = stop. */
-  pacingAction: PacingAction.nullish(),
-  /** Vary an agent's effort level and model with its pace: step down - effort
-   *  first, then a cheaper model - before stopping or slowing it, back up once
-   *  it has room to spare, and back to its own choice as the window is about
-   *  to reset. Absent = off. */
-  pacingAdapt: z.boolean().nullish(),
+  /** Usage pacing's settings. Absent = the Balanced preset. */
+  pacing: PacingSettings.nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
   uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The

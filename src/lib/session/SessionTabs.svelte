@@ -24,6 +24,7 @@
   import { motionDuration } from "@/lib/ui/motion";
   import { rovingMenu } from "@/lib/ui/roving-menu";
   import { ContextLevel, contextLevel } from "@/lib/usage/context-level";
+  import PacingBadge from "@/lib/usage/PacingBadge.svelte";
   import { formatCount, formatPercent } from "@/lib/util/format";
   import { parseInput, SessionName } from "@/lib/validate";
   import { cubicOut } from "svelte/easing";
@@ -409,6 +410,7 @@
       }}
       {session}
     />
+    <PacingBadge isMeasuring={isMirror} sessionId={session.id} />
     <span
       class="ai-wrap"
       class:on={isNaming(session.id)}

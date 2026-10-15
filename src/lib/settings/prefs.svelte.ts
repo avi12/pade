@@ -15,8 +15,6 @@ import {
 } from "@/lib/terminal/terminal-palette";
 import {
   DiffStyle,
-  PacingAction,
-  PacingMode,
   type Prefs,
   Scheme,
   type TerminalSchemeChoice,
@@ -24,6 +22,7 @@ import {
   ThemePalette
 } from "@/lib/types";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
+import { DEFAULT_PACING } from "@/lib/usage/pacing-policy";
 
 export {
   SIDE_PANEL_DEFAULT_WIDTH,
@@ -102,14 +101,8 @@ export const effective = {
   get handoffPercentage() {
     return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PERCENTAGE;
   },
-  get pacingMode() {
-    return prefs.usagePacing ?? PacingMode.enum.ask;
-  },
-  get pacingAction() {
-    return prefs.pacingAction ?? PacingAction.enum.stop;
-  },
-  get pacingAdapt() {
-    return prefs.pacingAdapt === true;
+  get pacing() {
+    return prefs.pacing ?? DEFAULT_PACING;
   },
   get softwareRender() {
     return prefs.softwareRender === true;
