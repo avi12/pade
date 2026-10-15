@@ -114,9 +114,30 @@ const HSL_COLOR = new RegExp(
   "i"
 );
 
+const CHANNEL_MAX = 255;
+const HEX_RADIX = 16;
+const HEX_DIGITS_PER_CHANNEL = 2;
+const DEGREES_PER_TURN = 360;
+/** HSL → RGB walks the hue circle in six 60-degree sextants. */
+const DEGREES_PER_SEXTANT = 60;
+const SEXTANTS = DEGREES_PER_TURN / DEGREES_PER_SEXTANT;
+const PERCENT = 100;
+const PERCENT_SIGN = "%";
+
+/** The surface tokens the terminal paints with, beside the 16 ANSI ones. The
+ *  cursor has a token of its own so a scheme can name it. */
+export const CODE_BACKGROUND_TOKEN = "--code-background";
+export const CODE_FOREGROUND_TOKEN = "--code-foreground";
+export const TERMINAL_CURSOR_TOKEN = "--terminal-cursor";
+export const TERMINAL_SELECTION_TOKEN = "--terminal-selection";
+const FIND_MATCH_TOKEN = "--terminal-find-match";
+const FIND_ACTIVE_MATCH_TOKEN = "--terminal-find-active";
+const ACCENT_TOKEN = "--primary";
+
+/** A 0..1 channel as two hex digits. */
 function channelHex(value: number) {
-  const clamped = Math.min(255, Math.max(0, Math.round(value * 255)));
-  return clamped.toString(16).padStart(2, "0");
+  const clamped = Math.min(CHANNEL_MAX, Math.max(0, Math.round(value * CHANNEL_MAX)));
+  return clamped.toString(HEX_RADIX).padStart(HEX_DIGITS_PER_CHANNEL, "0");
 }
 
 /** Convert a modern `hsl()` token to `#rrggbb[aa]`; any other format (already-hex,
@@ -128,15 +149,15 @@ export function xtermSafeColor(raw: string) {
   }
 
   const [, hueRaw, saturationRaw, lightnessRaw, alphaRaw, alphaPercent] = match;
-  const hue = ((parseFloat(hueRaw) % 360) + 360) % 360;
-  const saturation = Math.min(100, parseFloat(saturationRaw)) / 100;
-  const lightness = Math.min(100, parseFloat(lightnessRaw)) / 100;
+  const hue = ((parseFloat(hueRaw) % DEGREES_PER_TURN) + DEGREES_PER_TURN) % DEGREES_PER_TURN;
+  const saturation = Math.min(PERCENT, parseFloat(saturationRaw)) / PERCENT;
+  const lightness = Math.min(PERCENT, parseFloat(lightnessRaw)) / PERCENT;
 
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const secondary = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const secondary = chroma * (1 - Math.abs(((hue / DEGREES_PER_SEXTANT) % 2) - 1));
   const base = lightness - chroma / 2;
 
-  const sextant = Math.floor(hue / 60) % 6;
+  const sextant = Math.floor(hue / DEGREES_PER_SEXTANT) % SEXTANTS;
   const [red, green, blue] = [
     [chroma, secondary, 0],
     [secondary, chroma, 0],
@@ -149,7 +170,7 @@ export function xtermSafeColor(raw: string) {
   let hex = `#${channelHex(red + base)}${channelHex(green + base)}${channelHex(blue + base)}`;
   const hasAlpha = alphaRaw !== undefined && alphaRaw !== "";
   if (hasAlpha) {
-    const alpha = alphaPercent === "%" ? parseFloat(alphaRaw) / 100 : parseFloat(alphaRaw);
+    const alpha = alphaPercent === PERCENT_SIGN ? parseFloat(alphaRaw) / PERCENT : parseFloat(alphaRaw);
     if (alpha < 1) {
       hex += channelHex(alpha);
     }
@@ -170,15 +191,15 @@ export function xtermTheme({ readToken }: { readToken: (name: string) => string 
   }
 
   const ansiColors: Partial<ITheme> = {};
-  for (let index = 0; index < ANSI_THEME_KEYS.length; index++) {
-    ansiColors[ANSI_THEME_KEYS[index]] = color(ANSI_COLOR_TOKENS[index]);
+  for (const [i, key] of ANSI_THEME_KEYS.entries()) {
+    ansiColors[key] = color(ANSI_COLOR_TOKENS[i]);
   }
 
   return {
-    background: color("--code-background"),
-    foreground: color("--code-foreground"),
-    cursor: color("--terminal-cursor"),
-    selectionBackground: color("--terminal-selection"),
+    background: color(CODE_BACKGROUND_TOKEN),
+    foreground: color(CODE_FOREGROUND_TOKEN),
+    cursor: color(TERMINAL_CURSOR_TOKEN),
+    selectionBackground: color(TERMINAL_SELECTION_TOKEN),
     ...ansiColors
   };
 }
@@ -196,13 +217,13 @@ export function xtermSearchDecorations({ readToken }: {
     return xtermSafeColor(readToken(name));
   }
 
-  const match = color("--terminal-find-match");
-  const activeMatch = color("--terminal-find-active");
+  const match = color(FIND_MATCH_TOKEN);
+  const activeMatch = color(FIND_ACTIVE_MATCH_TOKEN);
   return {
     matchBackground: match,
     matchOverviewRuler: match,
     activeMatchBackground: activeMatch,
-    activeMatchBorder: color("--primary"),
+    activeMatchBorder: color(ACCENT_TOKEN),
     activeMatchColorOverviewRuler: activeMatch
   } satisfies NonNullable<ISearchOptions["decorations"]>;
 }
