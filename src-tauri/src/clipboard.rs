@@ -62,9 +62,16 @@ fn encode_png(image: &tauri::image::Image<'_>, path: &Path) -> Result<(), String
 
 /// If the clipboard currently holds a bitmap, save it as a PNG under a stable
 /// temp folder and return the absolute path; `None` when there is no image.
-/// Async so the clipboard read + file write never block the main thread.
+/// The clipboard read, the PNG encode of a screen-sized bitmap and the file
+/// write all run on the blocking pool, never the main thread or an async worker.
 #[tauri::command]
 pub async fn clipboard_image_save(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || save_clipboard_image(&app))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn save_clipboard_image(app: &tauri::AppHandle) -> Result<Option<String>, String> {
     // The plugin reports "no image available" as an error variant, not a
     // distinct case - so any read failure means "fall back to text paste".
     let Ok(image) = app.clipboard().read_image() else {
