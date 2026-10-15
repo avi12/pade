@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  /** The tab strip's launch dropdown - App opens it by id from a shortcut. */
+  export const ADD_SESSION_MENU_ID = "add-session-menu";
+</script>
+
 <script lang="ts">
   import { agentIconName } from "@/lib/agent-icon";
   import { ContextLevel, contextLevel } from "@/lib/context-level";
@@ -75,7 +80,6 @@
   } = $props();
 
   const MODEL_MENU_ID = "model-menu";
-  const ADD_MENU_ID = "add-session-menu";
   const ADD_MENU_ANCHOR = "--add-session-anchor";
   const OVERFLOW_MENU_ID = "overflow-session-menu";
   const OVERFLOW_MENU_ANCHOR = "--overflow-session-anchor";
@@ -203,7 +207,7 @@
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
 
   function openAddMenu() {
-    const elMenu = document.getElementById(ADD_MENU_ID);
+    const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
     if (elMenu instanceof HTMLElement && !elMenu.matches(POPOVER_OPEN_SELECTOR)) {
       elMenu.showPopover();
     }
@@ -533,7 +537,7 @@
         }}
       >+</button>
       <ul
-        id={ADD_MENU_ID}
+        id={ADD_SESSION_MENU_ID}
         style:position-anchor={ADD_MENU_ANCHOR}
         class="menu popover-menu"
         {@attach rovingMenu}
@@ -545,7 +549,7 @@
             <button
               class="menu-item"
               onclick={() => onlaunch(agent)}
-              popovertarget={ADD_MENU_ID}
+              popovertarget={ADD_SESSION_MENU_ID}
               popovertargetaction="hide"
             ><span class="launch-icon"><Icon name={agentIconName(agent.id)} /></span>{agent.label}</button>
           </li>
@@ -558,7 +562,7 @@
               <button
                 class="menu-item branch-item"
                 onclick={async () => await onlaunchbranch(branch)}
-                popovertarget={ADD_MENU_ID}
+                popovertarget={ADD_SESSION_MENU_ID}
                 popovertargetaction="hide"
               ><span class="branch-icon"><Icon name="git" /></span>{branch}</button>
             </li>

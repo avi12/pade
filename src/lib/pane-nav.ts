@@ -10,7 +10,7 @@ const STEP_NEXT = 1;
 
 /** The panes shown in a split, left→right, plus which one is active. A plain
  *  object keeps navigation testable without any DOM or Svelte state. */
-export interface PaneSelection {
+interface PaneSelection {
   paneIds: readonly string[];
   activeId: string;
 }

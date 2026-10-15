@@ -43,7 +43,7 @@
   import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session-exit";
   import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
-  import SessionTabs from "@/lib/SessionTabs.svelte";
+  import SessionTabs, { ADD_SESSION_MENU_ID } from "@/lib/SessionTabs.svelte";
   import { settings } from "@/lib/settings.svelte";
   import { settledValue } from "@/lib/settled";
   import { Side, SIDE_PANEL_TABS } from "@/lib/side-panels";
@@ -234,8 +234,6 @@
   const SPLIT_PANE_COLLAPSE_MS = 260;
   // The spring a pane joining a split enters with (animatePaneIn).
   const PANE_ENTER_ANIMATION = "pane-enter 340ms var(--spring)";
-  // The tab strip's launch dropdown (SessionTabs owns the element).
-  const ADD_SESSION_MENU_ID = "add-session-menu";
 
   onMount(async () => {
     try {
