@@ -169,13 +169,62 @@ These are non-negotiable for all work in this repo.
      write a comment above an `if` to explain its condition — name the condition.
    - Full words, no abbreviations: name variables, functions, parameters, types,
      CSS classes, and CSS custom properties with complete, spelled-out words —
-     `index` not `idx`, `button` not `btn`, `element` not `el`, `previous` not
+     `index` not `idx`, `button` not `btn`, `previous` not
      `prev`, `configuration` not `cfg`, `column` not `col`, and
      `--radius-small` / `--on-surface-variant` / `--font-monospace` not
      `--r-sm` / `--on-surface-var` / `--font-mono`. A descriptive full-word name
      always beats a terse one; the only exceptions are a bare loop counter (`i`),
-     an event-handler parameter (`e`), and domain terms/initialisms conventionally
-     written short (`ui`, `id`, `url`). Applies in TS, Rust, and CSS alike.
+     an event-handler parameter (`e`), the two prefixes below, and domain
+     terms/initialisms conventionally written short (`ui`, `id`, `url`). Applies
+     in TS, Rust, and CSS alike.
+   - Naming prefixes and cases: a DOM element takes the `el` prefix
+     (`elButton`, `elTerminal`); an index takes the `i` prefix (`iSession`), or
+     a bare `i` in a loop or higher-order callback; a boolean takes `is`
+     (`isLoading`), phrased positively (`isEnabled`, never `isDisabled` /
+     `isNotEnabled`). Variables and functions are `camelCase`; module-level
+     constants are `SCREAMING_SNAKE_CASE` (Rust: its own conventions -
+     `snake_case` items, `SCREAMING_SNAKE_CASE` consts, `is_` booleans).
+   - Hardcoded values: a string becomes an enum member, or a descriptive
+     `SCREAMING_SNAKE_CASE` constant when no enum fits; a number always becomes
+     a descriptive `SCREAMING_SNAKE_CASE` constant.
+   - Inferred return types: let TypeScript infer a function's return type -
+     never write it explicitly. Likewise never annotate a callback parameter
+     whose type is already inferred from its context.
+   - Inline one-off variables (assigned once, used once) when it stays
+     readable - but keep one extracted when it names a magic value or documents
+     an otherwise opaque expression. In Svelte, inline single-use functions.
+   - Functional, shallow code: prefer pure functions and immutable data, and
+     minimize indentation (guard clauses, extracted helpers).
+   - Object params, exemptions: key/value-style accessors (first arg a key,
+     second its value/operation/options) and signatures the caller doesn't
+     control (HOF callbacks, event handlers, Promise executors, Svelte
+     snippet/action/lifecycle params, library-dictated signatures) stay
+     positional. Reuse an existing type for the object shape when one fits;
+     never invent a named type just to convert.
+   - zod for loose data: any multi-clause shape/range/format check (`typeof`
+     chains, `"x" in obj` guards, bounds combos, ad-hoc regex on external
+     payloads) becomes a module-level zod schema + `safeParse`, with bounds from
+     the existing constants via `.min()` / `.max()`. Reuse an existing schema
+     (and its `z.infer` type) before authoring one; a schema consumed only for
+     its type stays un-exported. A `safeParse` result takes one of two forms:
+     validity only - `schema.safeParse(x).success` inline or into an
+     `is`-prefixed boolean; `.data` / `.error` consumed - store it as `parsed`
+     (`parsed<Subject>` when one scope holds several) and guard on
+     `parsed.success`, never `result` / `<x>Parse`.
+   - Flow-gating buttons carry both `disabled={!condition}` and a guard in the
+     handler (`onclick={() => condition && onNext()}`), reusing the one
+     `$derived` condition.
+   - Motion always respects `prefers-reduced-motion`: CSS gets a reduced-motion
+     override, and Svelte/JS transitions collapse their duration through
+     `motion.ts`.
+   - Text: no em dashes anywhere - code, comments, docs or UI copy; use a plain
+     hyphen. UI copy is informal and has no full stop at the end of a message.
+   - After any change that removes or rewires code, run the fallow audit and
+     clean up what it flags as newly unused (imports, helpers, exports, files) by
+     hand. An export used only within its own file is an over-export: drop the
+     `export`.
+   - Directories with too many files are grouped into semantic subfolders
+     (by feature or concern), not left as one flat list.
    - Tabular numerals are the app-wide default, declared once on `body` in
      `theme.css` and inherited — never re-declare `font-variant-numeric` on a
      component. Note it only *asks* the font for a `tnum` feature and nothing
