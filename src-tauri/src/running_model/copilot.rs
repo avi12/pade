@@ -44,7 +44,7 @@ pub(super) fn options() -> Vec<ModelOption> {
 /// `~/.copilot/session-state`, one folder per session.
 pub(super) fn session_root() -> Option<PathBuf> {
     Some(
-        crate::util::home_dir()?
+        crate::util::home_directory()?
             .join(".copilot")
             .join("session-state"),
     )

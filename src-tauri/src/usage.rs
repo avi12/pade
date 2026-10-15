@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 
 use crate::agents::{ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE};
-use crate::util::{home_dir, now_milliseconds, read_json};
+use crate::util::{home_directory, now_milliseconds, read_json};
 
 /// The agents we can source usage for, and the one authoritative mapping from
 /// the registry id string the frontend sends (`session.agent.id`). An agent we
@@ -197,7 +197,7 @@ const CURSOR_PLAN: &str = "Cursor";
 const CLAUDE_CREDENTIALS_RELATIVE_PATH: &str = ".claude/.credentials.json";
 
 fn claude_credentials_path() -> Option<PathBuf> {
-    Some(home_dir()?.join(CLAUDE_CREDENTIALS_RELATIVE_PATH))
+    Some(home_directory()?.join(CLAUDE_CREDENTIALS_RELATIVE_PATH))
 }
 
 /// Offline fallback: just the subscription tier from the local credentials, with
@@ -607,7 +607,7 @@ pub(crate) struct ClaudeProfile(serde_json::Value);
 impl ClaudeProfile {
     /// The profile on disk, or `None` when Claude Code has not written one.
     pub(crate) fn read() -> Option<Self> {
-        read_json(&home_dir()?.join(CLAUDE_PROFILE_RELATIVE_PATH)).map(Self)
+        read_json(&home_directory()?.join(CLAUDE_PROFILE_RELATIVE_PATH)).map(Self)
     }
 
     fn field(&self, pointer: &str) -> Option<&str> {
@@ -1311,7 +1311,7 @@ fn copilot_token() -> Option<String> {
 /// `oauth_token`. The first token found wins. On Windows the store lives under
 /// `%USERPROFILE%\AppData\Local\github-copilot`, elsewhere `~/.config/github-copilot`.
 fn copilot_token_from_store() -> Option<String> {
-    let home = home_dir()?;
+    let home = home_directory()?;
     let directory = if cfg!(windows) {
         home.join("AppData/Local/github-copilot")
     } else {
@@ -1367,7 +1367,7 @@ const ANTIGRAVITY_TOKEN_RELATIVE_PATH: &str = ".gemini/antigravity-cli/antigravi
 /// label with no numbers (no quota-free usage endpoint we trust). `None` when no
 /// login is present - an honest "-".
 fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
-    let json = read_json(&home_dir()?.join(ANTIGRAVITY_TOKEN_RELATIVE_PATH))?;
+    let json = read_json(&home_directory()?.join(ANTIGRAVITY_TOKEN_RELATIVE_PATH))?;
     json.pointer("/token/access_token")
         .and_then(serde_json::Value::as_str)?;
 
@@ -1424,7 +1424,7 @@ fn is_cursor_login_present() -> bool {
     if std::env::var("CURSOR_API_KEY").is_ok_and(|key| !key.is_empty()) {
         return true;
     }
-    let Some(home) = home_dir() else {
+    let Some(home) = home_directory() else {
         return false;
     };
     CURSOR_AUTH_RELATIVE_PATHS

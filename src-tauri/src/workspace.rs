@@ -182,7 +182,7 @@ fn config_base() -> Result<PathBuf, String> {
 }
 
 /// PADE's config directory, created on disk if missing.
-pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
+pub(crate) fn ensure_config_directory() -> Result<PathBuf, String> {
     let directory = config_base()?.join(CONFIG_DIRECTORY);
     std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
     Ok(directory)
@@ -220,7 +220,7 @@ pub fn migrate_from_ade() {
 }
 
 fn settings_path() -> Result<PathBuf, String> {
-    Ok(ensure_config_dir()?.join(SETTINGS_FILE))
+    Ok(ensure_config_directory()?.join(SETTINGS_FILE))
 }
 
 fn is_project(directory: &Path) -> bool {
@@ -371,14 +371,14 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
 /// resolved, leaving `WebView2` on its shared default. Windows-only - the folder is
 /// a `WebView2` concept.
 #[cfg(windows)]
-pub(crate) fn webview_data_dir() -> Option<PathBuf> {
+pub(crate) fn webview_data_directory() -> Option<PathBuf> {
     use std::borrow::Cow;
 
     const WEBVIEW_DATA_DIRECTORY: &str = "webview2";
     /// The folder-name stem for a launch directory with no name (a drive root).
     const UNNAMED_PROJECT: &str = "project";
 
-    let base = crate::util::pade_data_dir()?;
+    let base = crate::util::pade_data_directory()?;
     let launch = launch_directory().path;
     let canonical = std::fs::canonicalize(&launch).unwrap_or(launch);
     let key = canonical.to_string_lossy().to_lowercase();
@@ -713,7 +713,7 @@ fn record_recent(settings: &mut Settings, path: &str) {
 
 /// The directory every temp workspace is created in.
 fn workspaces_directory() -> Result<PathBuf, String> {
-    Ok(ensure_config_dir()?.join(WORKSPACES_DIRECTORY))
+    Ok(ensure_config_directory()?.join(WORKSPACES_DIRECTORY))
 }
 
 const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;

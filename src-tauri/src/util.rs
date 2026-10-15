@@ -213,7 +213,7 @@ pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::R
 ///
 /// Built once per detect (it spawns `reg` on Windows) and passed to [`find_in`],
 /// rather than rebuilt per lookup.
-pub fn search_dirs() -> Vec<PathBuf> {
+pub fn search_directories() -> Vec<PathBuf> {
     let inherited = std::env::var_os("PATH").unwrap_or_default();
     let mut directories: Vec<PathBuf> = std::env::split_paths(&inherited).collect();
     directories.extend(live_path_directories());
@@ -334,7 +334,7 @@ fn expand_environment_variables(value: &str) -> String {
 /// themselves to `PATH` (or add it only for future login sessions), so a detect
 /// that trusted `PATH` alone would miss a perfectly working install.
 fn package_manager_directories() -> Vec<PathBuf> {
-    let Some(home) = home_dir() else {
+    let Some(home) = home_directory() else {
         return Vec::new();
     };
     // cargo, bun, deno, volta, pipx/uv, and hand-rolled `~/.local/bin` installs.
@@ -445,18 +445,18 @@ fn is_executable(path: &Path) -> bool {
 
 /// The executable `command` names, or `None` if it isn't installed. A command that
 /// already carries a path (`C:\…\codex.exe`) is taken as-is; a bare name is looked
-/// up across [`search_dirs`]. For a one-off lookup - a caller resolving several
-/// commands should build [`search_dirs`] once and call [`find_in`].
+/// up across [`search_directories`]. For a one-off lookup - a caller resolving several
+/// commands should build [`search_directories`] once and call [`find_in`].
 pub fn resolve(command: &str) -> Option<PathBuf> {
     let given = Path::new(command);
     if given.components().count() > 1 {
         return is_executable(given).then(|| given.to_path_buf());
     }
-    find_in(&search_dirs(), &[command])
+    find_in(&search_directories(), &[command])
 }
 
 /// Is `command` runnable on this machine? Sees installs made since ADE launched -
-/// see [`search_dirs`].
+/// see [`search_directories`].
 pub fn is_on_path(command: &str) -> bool {
     resolve(command).is_some()
 }
@@ -614,11 +614,11 @@ pub fn write_if_stale(path: &Path, contents: &str) -> std::io::Result<()> {
 
 /// PADE's own per-user data folder: `%LOCALAPPDATA%\pade` on Windows,
 /// `~/.pade` elsewhere. The one place every PADE-owned folder hangs off.
-pub fn pade_data_dir() -> Option<PathBuf> {
+pub fn pade_data_directory() -> Option<PathBuf> {
     if cfg!(windows) {
         return std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("pade"));
     }
-    Some(home_dir()?.join(".pade"))
+    Some(home_directory()?.join(".pade"))
 }
 
 /// The wall-clock time since the Unix epoch, or zero for a clock set before it -
@@ -645,7 +645,7 @@ pub fn now_milliseconds() -> u64 {
 
 /// The user's home directory, cross-platform, without pulling in a dependency
 /// (`USERPROFILE` on Windows, `HOME` elsewhere).
-pub fn home_dir() -> Option<PathBuf> {
+pub fn home_directory() -> Option<PathBuf> {
     let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
     std::env::var_os(variable).map(PathBuf::from)
 }

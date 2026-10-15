@@ -11,7 +11,7 @@ use std::time::Duration;
 use tauri::Url;
 
 use crate::util::{
-    command, home_dir, is_on_path, percent_encode, since_unix_epoch, succeeds_within,
+    command, home_directory, is_on_path, percent_encode, since_unix_epoch, succeeds_within,
 };
 use crate::workspace::validated_child_path;
 
@@ -32,7 +32,7 @@ const SSH_KEY_NAMES: &[&str] = &["id_ed25519", "id_ecdsa", "id_rsa", "id_dsa"];
 /// one can't authenticate, so the picker offers HTTPS credentials instead.
 #[tauri::command]
 pub async fn vcs_has_ssh_key() -> bool {
-    let Some(home) = home_dir() else {
+    let Some(home) = home_directory() else {
         return false;
     };
     let ssh_dir = home.join(".ssh");

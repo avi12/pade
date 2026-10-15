@@ -30,7 +30,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use crate::agents::ID_CLAUDE;
-use crate::util::{home_dir, json_string_field, newest_in_tail};
+use crate::util::{home_directory, json_string_field, newest_in_tail};
 
 /// The live model catalog. Public, unauthenticated JSON: provider → model id →
 /// `limit.context` (the window in tokens).
@@ -166,7 +166,7 @@ fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<Pa
         return None;
     }
 
-    let projects = home_dir()?.join(".claude").join("projects");
+    let projects = home_directory()?.join(".claude").join("projects");
     let log_name = format!("{}.jsonl", conversation_id?);
     std::fs::read_dir(projects)
         .ok()?

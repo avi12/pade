@@ -80,7 +80,7 @@ fn configure_webview2_environment() {
     // the additional-arguments var above (which appends), WEBVIEW2_USER_DATA_FOLDER
     // *replaces* the folder WebView2 would otherwise derive - the supported way
     // to override it, since `--user-data-dir` as a browser arg is ignored.
-    if let Some(folder) = workspace::webview_data_dir() {
+    if let Some(folder) = workspace::webview_data_directory() {
         std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", folder);
     }
 }

@@ -172,7 +172,7 @@ pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
 /// from touching the file - the agent watches it, and a no-op rewrite would
 /// make it re-render for nothing.
 pub fn publish_live_themes(scheme: Scheme) -> std::io::Result<()> {
-    let Some(home) = crate::util::home_dir() else {
+    let Some(home) = crate::util::home_directory() else {
         return Err(std::io::Error::other("no home directory"));
     };
 
@@ -267,12 +267,12 @@ pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, Strin
     let Some(contents) = scheme.pick(light, dark) else {
         return Vec::new();
     };
-    let Some(home) = crate::util::home_dir() else {
+    let Some(home) = crate::util::home_directory() else {
         eprintln!("theming: no home dir; spawning {command} without a theme override");
         return Vec::new();
     };
     let themes_directory = home.join(OPENCODE_THEMES_RELATIVE_PATH);
-    let config_directory = match crate::workspace::ensure_config_dir() {
+    let config_directory = match crate::workspace::ensure_config_directory() {
         Ok(directory) => directory,
         Err(error) => {
             eprintln!(

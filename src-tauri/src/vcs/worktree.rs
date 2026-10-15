@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use crate::workspace::ensure_config_dir;
+use crate::workspace::ensure_config_directory;
 
 use super::run_git;
 
@@ -23,7 +23,7 @@ pub async fn vcs_worktree_add(cwd: String, branch: String, create: bool) -> Resu
         .unwrap_or(FALLBACK_REPOSITORY_NAME);
     // Branches can contain '/', which would nest directories - flatten for the folder.
     let folder_name = branch.replace(['/', '\\'], "-");
-    let directory = ensure_config_dir()?
+    let directory = ensure_config_directory()?
         .join(WORKTREES_DIRECTORY)
         .join(repository_name)
         .join(folder_name);

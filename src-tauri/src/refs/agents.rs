@@ -24,7 +24,7 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use super::{moved_path, rewrite_file_forms};
-use crate::util::{encode_project, home_dir};
+use crate::util::{encode_project, home_directory};
 
 /// Codex's tables that record a folder: its threads and its projects' roots.
 const CODEX_PATH_COLUMNS: [(&str, &str); 2] = [("threads", "cwd"), ("project_roots", "path")];
@@ -44,7 +44,7 @@ const TRANSCRIPT_HEAD_LINES: usize = 50;
 /// `new`. Best-effort per agent: one that isn't installed, or whose file is
 /// locked, never stops the others.
 pub(super) fn relocate_memories(old: &str, new: &str) {
-    let Some(home) = home_dir() else { return };
+    let Some(home) = home_directory() else { return };
 
     move_claude_transcripts(&home.join(".claude").join("projects"), old, new);
     rewrite_file_forms(&home.join(".claude.json"), old, new);

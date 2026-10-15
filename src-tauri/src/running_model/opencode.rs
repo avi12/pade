@@ -94,7 +94,7 @@ pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
 /// recents from the picker state `OpenCode` saves - each described by the
 /// models.dev catalog it caches (name, effort values).
 pub(super) fn options() -> Vec<ModelOption> {
-    let Some(home) = crate::util::home_dir() else {
+    let Some(home) = crate::util::home_directory() else {
         return Vec::new();
     };
     let picker_state = read_json(
@@ -119,7 +119,7 @@ pub(super) fn options() -> Vec<ModelOption> {
 
 /// The plugin on disk, rewritten only when its source changed.
 fn materialize_plugin() -> Option<PathBuf> {
-    let path = crate::util::pade_data_dir()?
+    let path = crate::util::pade_data_directory()?
         .join("opencode")
         .join(PLUGIN_FILE);
     crate::util::write_if_stale(&path, PLUGIN_SOURCE).ok()?;
@@ -159,7 +159,7 @@ fn configured_model() -> Option<RunningModel> {
 }
 
 fn configured_model_id() -> Option<String> {
-    let path = crate::util::home_dir()?
+    let path = crate::util::home_directory()?
         .join(".config")
         .join("opencode")
         .join(CONFIG_FILE);

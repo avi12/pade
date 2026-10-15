@@ -562,7 +562,7 @@ fn is_plain_id(conversation_id: &str) -> bool {
 
 /// Where the sink and plugins keep one file per session.
 fn state_directory() -> Option<PathBuf> {
-    Some(crate::util::pade_data_dir()?.join(STATE_DIRECTORY_NAME))
+    Some(crate::util::pade_data_directory()?.join(STATE_DIRECTORY_NAME))
 }
 
 fn state_file(conversation_id: &str) -> Option<PathBuf> {

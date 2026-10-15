@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use crate::theming::ThemeConfig;
-use crate::util::{find_in, search_dirs};
+use crate::util::{find_in, search_directories};
 
 /// Canonical registry ids - the one authoritative spelling of each agent's id
 /// (`session.agent.id`). The REGISTRY entries below read from these, as do the
@@ -33,7 +33,7 @@ const CODEX_HOME_VARIABLE: &str = "CODEX_HOME";
 pub(crate) fn codex_home() -> Option<PathBuf> {
     resolve_codex_home(
         std::env::var_os(CODEX_HOME_VARIABLE),
-        crate::util::home_dir(),
+        crate::util::home_directory(),
     )
 }
 
@@ -519,7 +519,7 @@ fn installed_names(command: &str) -> Vec<&str> {
 /// to an absolute path (rather than handing a bare name to the child process) is
 /// what lets a session start from a directory that only the live PATH knows about.
 pub fn program(command: &str) -> Option<PathBuf> {
-    find_in(&search_dirs(), &installed_names(command))
+    find_in(&search_directories(), &installed_names(command))
 }
 
 /// How to invoke `command` headlessly for a one-shot prompt (auto-naming), if we
@@ -601,7 +601,7 @@ pub async fn agents_detect() -> Vec<Agent> {
 
 fn detect_installed() -> Vec<Agent> {
     // One search path for the whole sweep - it costs a registry read to build.
-    let directories = search_dirs();
+    let directories = search_directories();
     let mut found: Vec<Agent> = REGISTRY
         .iter()
         .filter(|agent| find_in(&directories, &installed_names(agent.command)).is_some())

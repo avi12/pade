@@ -262,7 +262,7 @@ fn rewrite_idea(new_directory: &Path, old: &str, new: &str) {
 mod windows {
     use std::path::PathBuf;
 
-    use crate::util::home_dir;
+    use crate::util::home_directory;
 
     use super::{rewrite_file_forms, VsCodeApp};
 
@@ -270,7 +270,7 @@ mod windows {
     /// (`~/AppData/Roaming/JetBrains/*/options/recentProjects.xml`) - one file per
     /// installed IDE version. Both backslash and forward-slash forms. Best-effort.
     pub(super) fn rewrite_jetbrains_recents(old: &str, new: &str) {
-        let Some(home) = home_dir() else { return };
+        let Some(home) = home_directory() else { return };
         let jetbrains = home.join("AppData").join("Roaming").join("JetBrains");
         let Ok(entries) = std::fs::read_dir(&jetbrains) else {
             return;
@@ -286,7 +286,7 @@ mod windows {
     /// The VS Code-family app's `User/globalStorage` dir, if home is known.
     fn global_storage(app: VsCodeApp) -> Option<PathBuf> {
         Some(
-            home_dir()?
+            home_directory()?
                 .join("AppData")
                 .join("Roaming")
                 .join(app.roaming_directory())
