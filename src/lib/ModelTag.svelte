@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  /** The anchor the strip's one model menu hangs off - set on whichever tag opened it. */
+  export const MODEL_MENU_ANCHOR = "--model-menu-anchor";
+</script>
+
 <script lang="ts">
   // A tab's running model and effort: the model's name, coloured by how high its
   // effort sits on that model's own ladder (from its agent's catalog), with the
@@ -19,8 +24,6 @@
     anchored: boolean;
     onopen: () => Promise<void>;
   } = $props();
-
-  const MODEL_MENU_ANCHOR = "--model-menu-anchor";
 
   const running = $derived(sessionModel(session.id));
   const anchorName = $derived.by(() => {

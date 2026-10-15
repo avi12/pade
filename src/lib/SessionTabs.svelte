@@ -5,8 +5,9 @@
   import type { DragHint } from "@/lib/drag-reorder";
   import { formatCount, formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
+  import { Key } from "@/lib/keys";
   import ModelMenu from "@/lib/ModelMenu.svelte";
-  import ModelTag from "@/lib/ModelTag.svelte";
+  import ModelTag, { MODEL_MENU_ANCHOR } from "@/lib/ModelTag.svelte";
   import { effective } from "@/lib/prefs.svelte";
   import { rovingMenu } from "@/lib/roving-menu";
   import { contextPercentage, measuredContextPercentage } from "@/lib/stores/context.svelte";
@@ -74,6 +75,20 @@
   } = $props();
 
   const MODEL_MENU_ID = "model-menu";
+  const ADD_MENU_ID = "add-session-menu";
+  const ADD_MENU_ANCHOR = "--add-session-anchor";
+  const OVERFLOW_MENU_ID = "overflow-session-menu";
+  const OVERFLOW_MENU_ANCHOR = "--overflow-session-anchor";
+  const POPOVER_OPEN_SELECTOR = ":popover-open";
+  // `MouseEvent.button` for the wheel button, which closes a pill.
+  const MIDDLE_BUTTON = 1;
+  const AUXCLICK_EVENT = "auxclick";
+  // Pixels a pill must travel before a press becomes a drag.
+  const DRAG_THRESHOLD = 5;
+  const COLLAPSE_DURATION = 240;
+  // How far a collapsing pill tucks under its neighbour as it closes.
+  const COLLAPSE_TUCK = 6;
+
   let modelMenuSessionId = $state<string | null>(null);
   const modelMenuSession = $derived(sessions.find(session => session.id === modelMenuSessionId));
 
@@ -84,33 +99,32 @@
   // The strip is bounded to the width the nav gives it. Pill widths come from
   // an off-layout mirror row (re-measured on session change / reflow) so
   // collapsing a tab never changes the numbers we packed against.
-  let stripElement = $state<HTMLElement>();
-  let measureElement = $state<HTMLElement>();
+  let elStrip = $state<HTMLElement>();
+  let elMeasure = $state<HTMLElement>();
   let stripWidth = $state(0);
   const tabWidths = new SvelteMap<string, number>();
 
   // Read each mirror pill's natural width into a fresh map (index-aligned with
   // `sessions`, since the mirror renders them in order).
   function measureTabs(sessionList: AgentSession[]) {
-    const mirror = measureElement;
-    if (!mirror) {
+    const elMirror = elMeasure;
+    if (!elMirror) {
       return;
     }
 
     tabWidths.clear();
-    sessionList.forEach((session, index) => {
-      const element = mirror.children[index];
-      if (element instanceof HTMLElement) {
-        tabWidths.set(session.id, element.offsetWidth);
+    for (const [i, session] of sessionList.entries()) {
+      const elTab = elMirror.children[i];
+      if (elTab instanceof HTMLElement) {
+        tabWidths.set(session.id, elTab.offsetWidth);
       }
-    });
+    }
   }
 
   // Sync the strip's available width, then re-measure the pills.
   function remeasureTabStrip() {
-    const strip = stripElement;
-    if (strip) {
-      stripWidth = strip.clientWidth;
+    if (elStrip) {
+      stripWidth = elStrip.clientWidth;
     }
 
     measureTabs(sessions);
@@ -127,16 +141,16 @@
   // Track the strip's available width and re-measure on any reflow (font load,
   // window resize); both the strip and the mirror are observed.
   $effect(() => {
-    const strip = stripElement;
-    if (!strip) {
+    const elObserved = elStrip;
+    if (!elObserved) {
       return;
     }
 
     const observer = new ResizeObserver(remeasureTabStrip);
-    observer.observe(strip);
+    observer.observe(elObserved);
 
-    if (measureElement) {
-      observer.observe(measureElement);
+    if (elMeasure) {
+      observer.observe(elMeasure);
     }
 
     remeasureTabStrip();
@@ -154,7 +168,7 @@
   );
 
   const bySessionId = $derived(new Map(sessions.map(session => [session.id, session] as const)));
-  function tabsFor(ids: string[]): AgentSession[] {
+  function tabsFor(ids: string[]) {
     return ids
       .map(id => bySessionId.get(id))
       .filter((session): session is AgentSession => session !== undefined);
@@ -170,7 +184,7 @@
   // A tab flashes red while its agent waits on a multiple-choice answer - but not
   // while it's the tab in front, since looking at it is what stops the flashing
   // (the reconcile in App clears the flag; this also gates the very first frame).
-  function isAwaitingChoice(id: string): boolean {
+  function isAwaitingChoice(id: string) {
     return awaitingChoice(id) && id !== activeId;
   }
   // Any collapsed-into-"+N" session waiting on a choice - so a pending prompt
@@ -181,7 +195,7 @@
   // reordering is animated by the drag engine's spring-settle (drag-reorder), not
   // a framework FLIP, so the pills carry no `animate:flip` (it would fight the
   // engine's own settle).
-  const prefersReducedMotion =
+  const isReducedMotion =
     typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // The last tab's agent - a plain "+" click launches another of the same kind;
@@ -189,9 +203,9 @@
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
 
   function openAddMenu() {
-    const menu = document.getElementById("add-session-menu");
-    if (menu instanceof HTMLElement && !menu.matches(":popover-open")) {
-      menu.showPopover();
+    const elMenu = document.getElementById(ADD_MENU_ID);
+    if (elMenu instanceof HTMLElement && !elMenu.matches(POPOVER_OPEN_SELECTOR)) {
+      elMenu.showPopover();
     }
   }
 
@@ -202,13 +216,13 @@
   // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
   // middle-click autoscroll). onmousedown suppresses the same on press.
   function onTabPointer(e: MouseEvent, session: AgentSession) {
-    if (e.button !== 1) {
+    if (e.button !== MIDDLE_BUTTON) {
       return;
     }
 
     e.preventDefault();
 
-    if (e.type === "auxclick") {
+    if (e.type === AUXCLICK_EVENT) {
       closeTab(session);
     }
   }
@@ -224,25 +238,25 @@
 
   /** Route app-level close shortcuts through the same animated seam as pointer
    * and close-button activation. */
-  export function closeSession(session: AgentSession): void {
+  export function closeSession(session: AgentSession) {
     closeTab(session);
   }
 
   // Collapse a closing pill (width + fade), pinning its height so the label
   // reflow can't grow the row. Height/width are read once as the outro begins.
-  function collapse(node: HTMLElement, { id }: { id: string }): TransitionConfig {
-    if (prefersReducedMotion || !closingIds.has(id)) {
+  function collapse(elTab: HTMLElement, { id }: { id: string }): TransitionConfig {
+    if (isReducedMotion || !closingIds.has(id)) {
       return { duration: 0 };
     }
 
-    const width = node.offsetWidth;
-    const height = node.offsetHeight;
+    const width = elTab.offsetWidth;
+    const height = elTab.offsetHeight;
     return {
-      duration: 240,
+      duration: COLLAPSE_DURATION,
       easing: cubicOut,
       css: t =>
         `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +
-          `opacity: ${t}; margin-inline-start: ${(t - 1) * 6}px;`
+          `opacity: ${t}; margin-inline-start: ${(t - 1) * COLLAPSE_TUCK}px;`
     };
   }
 
@@ -276,9 +290,9 @@
   }
 
   // Focus + select the rename field the moment it mounts.
-  function focusOnMount(node: HTMLInputElement) {
-    node.focus();
-    node.select();
+  function focusOnMount(elInput: HTMLInputElement) {
+    elInput.focus();
+    elInput.select();
   }
 
   // Press-and-drag a pill by its body to reorder the strip (past a 5px threshold),
@@ -295,7 +309,7 @@
       itemSelector: "[data-session-tab]",
       idAttribute: "data-session-tab",
       axis: Axis.Horizontal,
-      threshold: 5,
+      threshold: DRAG_THRESHOLD,
       ignoreSelector: "[data-noreorder]",
       onCommit: ids => onreorder?.(ids),
       onHint: hint => ondraghint?.(hint),
@@ -308,7 +322,7 @@
   // reported percent reads as fact; the byte estimate over-counts a fullscreen
   // agent's repaints badly (see lib/stores/context), so it is labeled the
   // rough estimate it is instead of masquerading as a measurement.
-  function contextTooltip(id: string): string {
+  function contextTooltip(id: string) {
     const measured = measuredContextPercentage(id);
     if (measured !== null) {
       return `${formatPercent(measured)} of context window used`;
@@ -350,21 +364,21 @@
       {@render statusGlyph(session)}
       <input
         class="rename-input"
+        {@attach focusOnMount}
         aria-label="Rename session"
         data-noreorder
         onblur={commitRename}
         oninput={e => (renameDraft = e.currentTarget.value)}
         onkeydown={e => {
-          if (e.key === "Enter") {
+          if (e.key === Key.enter) {
             e.preventDefault();
             commitRename();
-          } else if (e.key === "Escape") {
+          } else if (e.key === Key.escape) {
             e.preventDefault();
             editingId = null;
           }
         }}
         value={renameDraft}
-        use:focusOnMount
       />
     </span>
   {:else}
@@ -421,7 +435,7 @@
 {/snippet}
 
 <nav class="tabs" aria-label="Agent sessions">
-  <div bind:this={stripElement} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
+  <div bind:this={elStrip} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
     {#if popPaneActive}
       <span class="popout-hint" aria-hidden="true">Drop here - new tab</span>
     {/if}
@@ -458,20 +472,25 @@
     {#if hasMoreSessions}
       <span class="more-wrap menu-host">
         <button
-          style:anchor-name="--overflow-session-anchor"
+          style:anchor-name={OVERFLOW_MENU_ANCHOR}
           class="more-button menu-trigger"
           class:active={overflowHasActive}
           class:awaiting-choice={overflowAwaiting}
           aria-label="Show remaining sessions"
-          popovertarget="overflow-session-menu"
+          popovertarget={OVERFLOW_MENU_ID}
         >+{formatCount(moreSessions.length)}</button>
-        <ul id="overflow-session-menu" style:position-anchor="--overflow-session-anchor" class="menu more-menu popover-menu" popover>
+        <ul
+          id={OVERFLOW_MENU_ID}
+          style:position-anchor={OVERFLOW_MENU_ANCHOR}
+          class="menu more-menu popover-menu"
+          popover
+        >
           {#each moreSessions as session (session.id)}
             <li class="more-item" class:active={session.id === activeId}>
               <button
                 class="menu-item more-pick"
                 onclick={() => onselect(session.id)}
-                popovertarget="overflow-session-menu"
+                popovertarget={OVERFLOW_MENU_ID}
                 popovertargetaction="hide"
               >
                 <span
@@ -494,7 +513,7 @@
 
     <span class="add-wrap menu-host">
       <button
-        style:anchor-name="--add-session-anchor"
+        style:anchor-name={ADD_MENU_ANCHOR}
         class="add-button menu-trigger"
         aria-label={`New ${lastAgent?.label ?? "agent"} session - ${newTabShortcut.description}: ${newTabShortcut.label}; ${launchMenuShortcut.description}: ${launchMenuShortcut.label}`}
         data-tooltip={`New ${lastAgent?.label ?? "agent"} session · ${newTabShortcut.label} · Ctrl-click, right-click, or ${launchMenuShortcut.label} for options`}
@@ -513,14 +532,20 @@
           openAddMenu();
         }}
       >+</button>
-      <ul id="add-session-menu" style:position-anchor="--add-session-anchor" class="menu popover-menu" {@attach rovingMenu} popover>
+      <ul
+        id={ADD_MENU_ID}
+        style:position-anchor={ADD_MENU_ANCHOR}
+        class="menu popover-menu"
+        {@attach rovingMenu}
+        popover
+      >
         <li class="menu-separator">Launch an agent</li>
         {#each agents as agent (agent.id)}
           <li>
             <button
               class="menu-item"
               onclick={() => onlaunch(agent)}
-              popovertarget="add-session-menu"
+              popovertarget={ADD_MENU_ID}
               popovertargetaction="hide"
             ><span class="launch-icon"><Icon name={agentIconName(agent.id)} /></span>{agent.label}</button>
           </li>
@@ -533,7 +558,7 @@
               <button
                 class="menu-item branch-item"
                 onclick={async () => await onlaunchbranch(branch)}
-                popovertarget="add-session-menu"
+                popovertarget={ADD_MENU_ID}
                 popovertargetaction="hide"
               ><span class="branch-icon"><Icon name="git" /></span>{branch}</button>
             </li>
@@ -545,7 +570,7 @@
 
   <!-- Off-layout mirror: every tab at full width, purely for measuring. Keeps
        the active/shown classes so the measured width matches the rendered pill. -->
-  <span bind:this={measureElement} class="tab-measure" aria-hidden="true">
+  <span bind:this={elMeasure} class="tab-measure" aria-hidden="true">
     {#each sessions as session (session.id)}
       <div class="tab" class:active={session.id === activeId} class:shown={paneIds.includes(session.id)}>
         {@render tabInner(session, true)}
@@ -557,7 +582,7 @@
        opened it. -->
   <div
     id={MODEL_MENU_ID}
-    style:position-anchor="--model-menu-anchor"
+    style:position-anchor={MODEL_MENU_ANCHOR}
     class="menu popover-menu model-menu"
     {@attach rovingMenu}
     popover
