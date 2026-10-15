@@ -13,10 +13,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Mutex;
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 use tauri::State;
+
+use crate::util::since_unix_epoch;
 
 /// PADE's **public** Discord application (client) id - the VS-Code-extension model:
 /// one app registered once by the maintainer, its id shipped in the binary, so
@@ -31,6 +32,8 @@ const APPLICATION_ID: &str = "1530345735835619390";
 /// PADE logo). The small overlay is a per-language key the frontend supplies; an
 /// asset the app hasn't uploaded simply doesn't render, text still works.
 const ART_ASSET_KEY: &str = "pade";
+/// The large art asset's hover text.
+const ART_ASSET_CAPTION: &str = "PADE";
 
 /// The one presence command PADE sends - set (or, with a null activity, clear)
 /// the current activity. Named once so the two payload builders agree (DRY).
@@ -193,7 +196,9 @@ impl Presence {
     /// VS-Code-style language mark. All are omitted from the payload when `None`.
     fn set_activity(&mut self, fields: ActivityInput) -> Result<(), DiscordError> {
         self.ensure_connected()?;
-        let started_at = *self.started_at.get_or_insert_with(now_unix_seconds);
+        let started_at = *self
+            .started_at
+            .get_or_insert_with(|| since_unix_epoch().as_secs());
         let nonce = next_nonce();
         let ActivityInput {
             details,
@@ -300,7 +305,7 @@ fn activity_payload(fields: ActivityFields) -> String {
 
     let mut assets = serde_json::Map::new();
     assets.insert("large_image".to_owned(), Value::from(ART_ASSET_KEY));
-    assets.insert("large_text".to_owned(), Value::from("PADE"));
+    assets.insert("large_text".to_owned(), Value::from(ART_ASSET_CAPTION));
     if let Some(image) = image {
         assets.insert("small_image".to_owned(), Value::from(image));
     }
@@ -380,54 +385,44 @@ static NONCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// within and across runs without needing a UUID crate.
 fn next_nonce() -> String {
     let count = NONCE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let millis = match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(elapsed) => elapsed.as_millis(),
-        Err(_) => 0,
-    };
-    format!("{millis}-{count}")
+    let milliseconds = since_unix_epoch().as_millis();
+    format!("{milliseconds}-{count}")
 }
 
-/// Seconds since the Unix epoch, for `timestamps.start`.
-fn now_unix_seconds() -> u64 {
-    match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(elapsed) => elapsed.as_secs(),
-        Err(_) => 0,
-    }
+/// The socket names a Discord client may listen on, first choice first: one per
+/// running client instance, `discord-ipc-0` through `discord-ipc-9`.
+fn ipc_socket_names() -> impl Iterator<Item = String> {
+    const IPC_SOCKET_SLOTS: u8 = 10;
+    (0..IPC_SOCKET_SLOTS).map(|index| format!("discord-ipc-{index}"))
 }
 
-/// Open Discord's IPC named pipe, trying `discord-ipc-0` through `-9`; the first
-/// that opens wins. A duplex message pipe opens read+write through plain
+/// Open Discord's IPC named pipe, trying every [`ipc_socket_names`] slot; the
+/// first that opens wins. A duplex message pipe opens read+write through plain
 /// `OpenOptions` - no `unsafe`. `None` when none answer (Discord isn't running).
 #[cfg(windows)]
 fn connect() -> Option<Box<dyn DuplexStream>> {
-    for index in 0..=9 {
-        let path = format!(r"\\.\pipe\discord-ipc-{index}");
-        if let Ok(pipe) = std::fs::OpenOptions::new()
+    ipc_socket_names().find_map(|name| {
+        let pipe = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
-            .open(&path)
-        {
-            return Some(Box::new(pipe));
-        }
-    }
-    None
+            .open(format!(r"\\.\pipe\{name}"))
+            .ok()?;
+        Some(Box::new(pipe) as Box<dyn DuplexStream>)
+    })
 }
 
-/// Open Discord's IPC domain socket, trying `discord-ipc-0` through `-9` under each
-/// candidate runtime directory. `None` when none answer.
+/// Open Discord's IPC domain socket, trying every [`ipc_socket_names`] slot under
+/// each candidate runtime directory. `None` when none answer.
 #[cfg(unix)]
 fn connect() -> Option<Box<dyn DuplexStream>> {
     use std::os::unix::net::UnixStream;
 
-    for directory in socket_directories() {
-        for index in 0..=9 {
-            let path = directory.join(format!("discord-ipc-{index}"));
-            if let Ok(stream) = UnixStream::connect(&path) {
-                return Some(Box::new(stream));
-            }
-        }
-    }
-    None
+    socket_directories().into_iter().find_map(|directory| {
+        ipc_socket_names().find_map(|name| {
+            let stream = UnixStream::connect(directory.join(name)).ok()?;
+            Some(Box::new(stream) as Box<dyn DuplexStream>)
+        })
+    })
 }
 
 /// Directories the Discord socket may live in, most-specific first: the XDG
@@ -484,6 +479,14 @@ mod tests {
         let length = u32::try_from(payload.len()).expect("length fits");
         assert_eq!(&frame[4..8], &length.to_le_bytes());
         assert_eq!(&frame[FRAME_HEADER_LENGTH..], payload);
+    }
+
+    #[test]
+    fn every_ipc_socket_slot_is_tried_in_order() {
+        let names: Vec<String> = super::ipc_socket_names().collect();
+        assert_eq!(names.len(), 10);
+        assert_eq!(names[0], "discord-ipc-0");
+        assert_eq!(names[9], "discord-ipc-9");
     }
 
     #[test]
