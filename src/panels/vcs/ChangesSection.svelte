@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { vcs } from "@/lib/bridge";
   import { parseDiff } from "@/lib/code/diff";
   import DiffView from "@/lib/code/DiffView.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { DiffStyle, VcsKind } from "@/lib/types";
   import type { StatusEntry } from "@/lib/types";
@@ -38,7 +38,7 @@
     const isUntracked = entry.kind === VcsKind.enum.untracked;
     diff = isUntracked
       ? "(new file - not yet tracked)"
-      : await vcs.diff({
+      : await sendMessage(Command.vcsDiff, {
         cwd: project,
         path: entry.path,
         staged: entry.staged

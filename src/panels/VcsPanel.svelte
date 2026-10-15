@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { feed, vcs } from "@/lib/bridge";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { Commit, StatusEntry } from "@/lib/types";
   import ChangesSection from "@/panels/vcs/ChangesSection.svelte";
@@ -8,6 +8,8 @@
   import RestoreSection from "@/panels/vcs/RestoreSection.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
+
+  const COMMIT_LOG_LIMIT = 20;
 
   const { project }: { project: string } = $props();
 
@@ -30,8 +32,11 @@
 
     try {
       const [nextEntries, nextCommits] = await Promise.all([
-        vcs.status(workspace),
-        vcs.log({ cwd: workspace })
+        sendMessage(Command.vcsStatus, { cwd: workspace }),
+        sendMessage(Command.vcsLog, {
+          cwd: workspace,
+          limit: COMMIT_LOG_LIMIT
+        })
       ]);
       // A late response for the prior project must not repaint this panel after
       // the window has switched to another workspace.
@@ -61,10 +66,10 @@
   }
 
   onMount(async () => {
-    unlisten = await feed.onChange(scheduleRefresh);
+    unlisten = await onMessage(EventType.feedChange, () => scheduleRefresh());
     // A branch switch, remote change, or git init reshapes the status and the
     // log without necessarily touching a watched file - refresh on it too.
-    unlistenGitState = await vcs.onStateChanged(scheduleRefresh);
+    unlistenGitState = await onMessage(EventType.gitState, () => scheduleRefresh());
   });
   onDestroy(() => {
     unlisten?.();

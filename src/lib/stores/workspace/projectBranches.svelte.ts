@@ -3,11 +3,11 @@
 // path, so asking about only the rows on screen keeps an unbounded recent list
 // as cheap to open as a short one.
 
-import { vcs } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/visiblePathBatch.svelte";
 
 const projectBranches = createVisiblePathBatch<string>({
-  load: paths => vcs.branchOf(paths),
+  load: paths => sendMessage(Command.vcsBranchOf, { paths }),
   cacheLimit: PROJECT_ROW_CACHE_LIMIT
 });
 

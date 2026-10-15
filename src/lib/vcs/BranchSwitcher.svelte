@@ -12,8 +12,8 @@
   sentence names the obstacle.
 -->
 <script lang="ts">
-  import { vcs } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import { rovingMenu } from "@/lib/ui/roving-menu";
   import { ToggleState } from "@/lib/ui/toggle-state";
@@ -66,7 +66,7 @@
     }
 
     try {
-      const landed = await vcs.switchBranch({
+      const landed = await sendMessage(Command.vcsSwitchBranch, {
         cwd,
         branch
       });

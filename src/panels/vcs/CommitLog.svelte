@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { os, vcs } from "@/lib/bridge";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { Commit, CommitDetail } from "@/lib/types";
   import { Key } from "@/lib/ui/keys";
   import CommitModal from "@/lib/vcs/CommitModal.svelte";
@@ -23,7 +23,7 @@
 
   async function loadRemoteUrl(workspace = project) {
     try {
-      const next = await vcs.remoteUrl(workspace);
+      const next = await sendMessage(Command.vcsRemoteUrl, { cwd: workspace });
       if (workspace !== project) {
         return;
       }
@@ -42,7 +42,7 @@
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether remote links
     // exist - re-read the remote the moment the live git state changes.
-    unlistenGitState = await vcs.onStateChanged(async () => await loadRemoteUrl());
+    unlistenGitState = await onMessage(EventType.gitState, async () => await loadRemoteUrl());
   });
 
   onDestroy(() => unlistenGitState?.());
@@ -60,7 +60,7 @@
 
   async function inspectCommit(commit: Commit) {
     try {
-      openCommit = await vcs.commit({
+      openCommit = await sendMessage(Command.vcsCommit, {
         cwd: project,
         sha: commit.id
       });
@@ -76,7 +76,7 @@
   }
 
   async function openOnRemote(commit: Commit) {
-    const base = remoteUrl ?? (await vcs.remoteUrl(project));
+    const base = remoteUrl ?? (await sendMessage(Command.vcsRemoteUrl, { cwd: project }));
     remoteUrl = base;
 
     const commitUrl = repositoryCommitUrl({
@@ -84,7 +84,7 @@
       commit: commit.id
     });
     if (commitUrl) {
-      await os.openUrl(commitUrl);
+      await sendMessage(Command.openUrl, { url: commitUrl });
     }
   }
 

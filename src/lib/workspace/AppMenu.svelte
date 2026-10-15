@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { vcs, windows } from "@/lib/bridge";
   import RelabelDialog from "@/lib/dialogs/RelabelDialog.svelte";
   import RenameFolderDialog from "@/lib/dialogs/RenameFolderDialog.svelte";
   import WorkspaceDeleteDialog from "@/lib/dialogs/WorkspaceDeleteDialog.svelte";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import {
     invalidateProjectBranches,
     observeProjectBranch,
@@ -201,7 +201,7 @@
   // both load per row, only as rows become visible (see visiblePathBatch).
   async function loadOpenWindows() {
     try {
-      windowRows = await windows.list();
+      windowRows = await sendMessage(Command.windowList);
     } catch {
     // Keep the last-known rows; the next open or change event retries.
     }
@@ -217,7 +217,7 @@
 
     let openWindows: WindowInfo[];
     try {
-      openWindows = await windows.list();
+      openWindows = await sendMessage(Command.windowList);
     } catch {
       return;
     }
@@ -237,7 +237,7 @@
       const row = byLabel.get(labelId);
       return row ? [row] : [];
     });
-    await windows.reorder(windowLabels);
+    await sendMessage(Command.windowReorder, { labels: windowLabels });
     await loadOpenWindows();
   }
 
@@ -262,7 +262,7 @@
 
     const opensNewWindow = event.ctrlKey || event.metaKey || event.shiftKey;
     if (opensNewWindow) {
-      await windows.create({
+      await sendMessage(Command.windowCreate, {
         mode: WindowMode.enum.open,
         path: project
       });
@@ -286,7 +286,7 @@
     mode: WindowMode;
     path?: string;
   }) {
-    await windows.create(args);
+    await sendMessage(Command.windowCreate, args);
     hide();
   }
 
@@ -367,7 +367,7 @@
   // closed menu skips it - opening invalidates them anyway.
   let unlistenGitState: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenGitState = await vcs.onStateChanged(() => {
+    unlistenGitState = await onMessage(EventType.gitState, () => {
       if (isMenuOpen) {
         invalidateProjectBranches();
       }
@@ -379,7 +379,7 @@
   // → this switcher morphs to match), so two open menus never disagree.
   let unlistenWindowsChanged: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenWindowsChanged = await windows.onChanged(onWindowsChanged);
+    unlistenWindowsChanged = await onMessage(EventType.windowsChanged, () => onWindowsChanged());
   });
   onDestroy(() => unlistenWindowsChanged?.());
 </script>
@@ -493,7 +493,7 @@
               onclick={async () => {
                 if (!windowRow.isCurrent) {
                   hide();
-                  await windows.focus(windowRow.label);
+                  await sendMessage(Command.windowFocusLabel, { label: windowRow.label });
                 }
               }}
               role="menuitem"

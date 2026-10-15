@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { vcs } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import type { RestoreCandidate } from "@/lib/types";
   import { Key } from "@/lib/ui/keys";
   import { formatPercent } from "@/lib/util/format";
@@ -44,7 +44,7 @@
     restoreError = null;
     restoreDone = null;
     try {
-      candidates = await vcs.restoreCandidates({
+      candidates = await sendMessage(Command.vcsRestoreCandidates, {
         cwd: project,
         query
       });
@@ -99,7 +99,7 @@
             onclick={async () => {
               restoreError = null;
               try {
-                const branch = await vcs.restoreCheckout({
+                const branch = await sendMessage(Command.vcsRestoreCheckout, {
                   cwd: project,
                   sha: candidate.id
                 });

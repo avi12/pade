@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { os, vcs } from "@/lib/bridge";
   import { parseDiff } from "@/lib/code/diff";
   import type { DiffLine } from "@/lib/code/diff";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import type { CommitDetail } from "@/lib/types";
   import { baseName } from "@/lib/util/paths";
   import DiffPane from "@/lib/vcs/commitModal/DiffPane.svelte";
@@ -70,7 +70,7 @@
 
     isLoading = true;
     try {
-      const raw = await vcs.commitDiff({
+      const raw = await sendMessage(Command.vcsCommitDiff, {
         cwd: project,
         sha: commit.id,
         path
@@ -106,7 +106,7 @@
     }
 
     try {
-      await os.openUrl(commitUrl);
+      await sendMessage(Command.openUrl, { url: commitUrl });
     } catch {
     // Opening the remote is best-effort; a failed browser launch is silent.
     }

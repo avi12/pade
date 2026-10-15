@@ -1,7 +1,7 @@
 // One frontend path for opening repository and commit URLs. The backend owns
 // remote normalization; this module owns browser launch and visible failures.
 
-import { os, vcs } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 
 const TRAILING_SLASH = /\/$/;
@@ -145,7 +145,7 @@ export function repositoryCommitUrl({ remoteUrl, commit }: {
 
 async function readRemoteUrl(project: string) {
   try {
-    return await vcs.remoteUrl(project);
+    return await sendMessage(Command.vcsRemoteUrl, { cwd: project });
   } catch {
     showToast("Could not read Git remote");
     return null;
@@ -154,7 +154,7 @@ async function readRemoteUrl(project: string) {
 
 async function readDefaultBranch(project: string) {
   try {
-    return await vcs.defaultBranch(project);
+    return await sendMessage(Command.vcsDefaultBranch, { cwd: project });
   } catch {
     return null;
   }
@@ -162,7 +162,7 @@ async function readDefaultBranch(project: string) {
 
 async function launchRepositoryUrl(url: string) {
   try {
-    await os.openUrl(url);
+    await sendMessage(Command.openUrl, { url });
   } catch {
     showToast("Could not open repository in browser");
   }
