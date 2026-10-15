@@ -50,7 +50,7 @@
 
   // The workspace's members (backend census: a package by its manifest, a
   // checkout by its own `.git`) - the grouping ground truth change-groups
-  // prefers over folder-name conventions. App discovers them once per project
+  // prefers over folder-name conventions. The shell's windowServices discovers them once per project
   // into the shared store; with none, the convention fallback stays in charge.
   const workspaceMembers = $derived(storedMembers());
 
@@ -98,14 +98,14 @@
     unlistenGitState?.();
   });
 
-  // The file-watcher itself is started and re-rooted app-wide by App (keyed on
+  // The file-watcher itself is started and re-rooted by the shell's windowServices (keyed on
   // the open project), so the feed just subscribes to its stream above - no need
   // to arm it here.
 
   // The workspace's remote gating, watch status and editors, loaded together
   // (concurrently) on mount and on a project switch. Each callee owns its own
   // error handling, so the gathered promise never rejects. The members and their
-  // branches are not here: they belong to the shared store App fills.
+  // branches are not here: they belong to the shared store windowServices fills.
   async function loadWorkspaceState(workspace: string) {
     await Promise.all([
       loadRemote(workspace),

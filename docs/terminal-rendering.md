@@ -1,7 +1,8 @@
 # Terminal rendering - the two screens, and why they invert every rule
 
-Read this before touching `src/panels/Terminal.svelte` or the `env` column of the
-registry in `src-tauri/src/agents.rs`. It supersedes the resize handoffs
+Read this before touching `src/panels/Terminal.svelte`, the terminal session behind
+it (`src/lib/terminal/terminalSession.svelte.ts`, `src/lib/terminal/terminalFit.svelte.ts`)
+or the `env` column of the registry in `src-tauri/src/agents.rs`. It supersedes the resize handoffs
 (`handoff-terminal-midstep.md`, `handoff-terminal-resize.md`), which are deleted.
 Everything below is **measured** against the live app, not reasoned from first
 principles - several very plausible ideas in here turned out to be wrong, and the
@@ -64,7 +65,7 @@ Claude now gets by default.
 
 ## The three rules on the NORMAL screen
 
-All in `Terminal.svelte`. Each is load-bearing; each is measured. (For the alternate
+All in `lib/terminal/terminalFit.svelte.ts` (the cell geometry in `lib/terminal/pane-grid.ts`). Each is load-bearing; each is measured. (For the alternate
 screen - which is what Claude Code runs on today - skip to "The alternate screen
 inverts every rule".)
 
@@ -80,7 +81,7 @@ to redraw. On the normal buffer it cuts the top off the welcome box.)
 
 The grid is whole cells and the pane is not, so a sub-cell remainder always exists
 and has to go somewhere. Which end depends on what the terminal is showing -
-`anchorBottom` in the component, driven by `buffer.active.baseY > 0`:
+`isBottomAnchored` in `terminalFit.svelte.ts`, driven by `buffer.active.baseY > 0`:
 
 | State | Pin | Why |
 | --- | --- | --- |
@@ -128,8 +129,8 @@ rejected list, wearing a different hat.
 
 This is where Claude Code runs today, and the terminal can switch screens under you at
 any moment anyway - a pager or editor an agent opens, or Claude Code put back with
-`/tui default`. `Terminal.svelte` watches `buffer.onBufferChange` and keeps
-`onAlternateScreen`, and every rule flips on it:
+`/tui default`. `terminalSession.svelte.ts` watches `buffer.onBufferChange` and
+`terminalFit.svelte.ts` keeps `isOnAlternateScreen`, and every rule flips on it:
 
 | | Normal screen | Alternate screen |
 | --- | --- | --- |
@@ -165,7 +166,7 @@ painted right down to the grid's last row, so it tracks the drag live.
 
 Waiting on its repaint is necessary but **not sufficient**: the agent goes quiet
 *between* the bursts of a single repaint, so the credit comes back early and the resizes
-still pile up. `ALT_FIT_MIN_INTERVAL_MS` (250ms) is the floor on how often it may be
+still pile up. `ALT_FIT_MINIMUM_INTERVAL_MS` (250ms) is the floor on how often it may be
 disturbed at all, whatever the pane is doing.
 
 One more rule, either screen: **a hidden pane keeps a real layout size.** A
@@ -173,7 +174,7 @@ background tab's slot used to be `display: none`, so its ResizeObserver reported
 0×0; fitToPane clamped that to a 2×1 grid and SIGWINCHed the agent down to it -
 Claude shrugged it off, Codex exited (switching tabs "closed" the Codex session).
 Hidden slots are now lifted out of flow over the whole pane (`position: absolute;
-inset: 0`) and `visibility: hidden` instead (App.svelte's `.term-slot`), so a
+inset: 0`) and `visibility: hidden` instead (`TerminalPanes.svelte`'s `.terminal-slot`), so a
 background PTY stays sized to exactly what its tab will show and switching tabs
 needs no refit at all. The hidden DOM terminal still lays out but does not paint,
 and the `shown` prop disables its cursor blink loop.
@@ -375,7 +376,7 @@ Two consequences:
 
 So reordering it a second time is what put it back into logical order on screen, which
 is what a reader sees as backwards. `reorders_bidi` in the `agents.rs` registry marks
-these agents and `Terminal.svelte` never latches `rightToLeftSeen` for them - the
+these agents and `terminalSession.svelte.ts` never latches `isRightToLeftSeen` for them - the
 overlay is not merely hidden, it never exists.
 
 **Standing the overlay down was not enough, because the BROWSER reorders xterm's rows
@@ -660,7 +661,7 @@ which the agent's next paint covers, instead of the terminal.
 ## Still open
 
 - **Resume properly on relaunch.** When a session is resumed (green-dot resume,
-  `workspaceRelocate.ts`, `stores/handoff.svelte.ts`), PADE seeds the literal prompt
+  `workspace-relocate.ts`, `stores/agent/handoff.svelte.ts`), PADE seeds the literal prompt
   `"continue\r"` into a *fresh* conversation, which loses the context. It should
   launch the agent with its native resume flag instead - a `resume` column in the
   `agents.rs` registry (claude → `--continue`), mirroring `oneshot` and `env`.

@@ -57,7 +57,7 @@
       pointerX: number;
       pointerY: number;
     }) => void;
-    /** Live drag state, so App can paint the panes' "drop here" overlay. */
+    /** Live drag state, so the shell's TerminalPanes can paint the "drop here" overlay. */
     ondraghint?: (hint: DragHint | null) => void;
     /** A model / effort was picked from a tab's model menu - apply it. */
     onmodelchoice: (pick: {
@@ -156,7 +156,7 @@
 
   // A tab flashes red while its agent waits on a multiple-choice answer - but not
   // while it's the tab in front, since looking at it is what stops the flashing
-  // (the reconcile in App clears the flag; this also gates the very first frame).
+  // (the reconcile in the shell's sessionAutomation clears the flag; this also gates the very first frame).
   function isAwaitingChoice(id: string) {
     return awaitingChoice(id) && id !== activeId;
   }

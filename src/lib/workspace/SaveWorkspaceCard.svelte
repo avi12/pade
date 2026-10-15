@@ -63,7 +63,7 @@
   });
 
   // Live disk check on each save target - the same collision guard the project
-  // picker's new-project field uses (QuickStartSection) - so a colliding name
+  // picker's new-project field uses (CreateProjectPanel) - so a colliding name
   // disables that root's Save with a plain reason instead of a cryptic failure.
   let saveProbes = $state<SaveProbe[]>([]);
   $effect(() => {

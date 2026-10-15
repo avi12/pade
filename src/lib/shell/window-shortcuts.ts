@@ -1,4 +1,5 @@
-// The window-level key chords App.svelte handles in the capture phase, read
+// The window-level key chords the shell handles in the capture phase
+// (`WindowEvents.svelte`, acted on by `window-shortcut-actions`), read
 // from a key event. Pure, so each chord's exact modifiers are unit-tested.
 
 /** A window-level action a chord asks for. */

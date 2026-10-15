@@ -61,7 +61,7 @@
 
   // The OS path separator - appended when a highlighted suggestion is Tab-accepted
   // so the user can keep drilling into its sub-folders. The webview has no
-  // `path.sep`, so read the platform the way OnLaunchSection already does.
+  // `path.sep`, so read the platform the way ExplorerContextMenuToggle already does.
   const pathSeparator = navigator.userAgent.includes("Windows") ? "\\" : "/";
 
   const trimmed = $derived(value.trim());

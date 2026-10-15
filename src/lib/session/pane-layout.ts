@@ -1,13 +1,13 @@
 // Pure layout math behind the workspace's tabs and split panes: which sessions
 // exist, which are shown side by side (`paneIds`, always a subset of the
-// sessions) and which one is active. App.svelte owns that reactive state and
-// assigns what these return; the decisions themselves stay DOM-free and
+// sessions) and which one is active. The shell's `windowSessions` owns that
+// reactive state and assigns what these return; the decisions themselves stay DOM-free and
 // unit-tested, next to the index math in `@/lib/session/reorder`.
 
 import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/session/reorder";
 import type { AgentSession } from "@/lib/types";
 
-/** The workspace's tab and pane state, as App.svelte holds it. */
+/** The workspace's tab and pane state, as the shell's `windowSessions` holds it. */
 export interface PaneLayout {
   sessions: AgentSession[];
   paneIds: string[];

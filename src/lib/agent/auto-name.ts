@@ -119,8 +119,8 @@ export function createAutoNamer(host: AutoNameHost) {
   }
 
   // Subscribe to the change feed. The watcher itself is armed on the open project
-  // by the Change Feed panel - `ChangeFeed` sends `watch_start` for the project, and it
-  // is the default side panel whenever a project is open - so the namer only listens
+  // by the shell - `windowServices` sends `watch_start` whenever the window's
+  // project changes - so the namer only listens
   // for the changes it produces; it no longer arms on the (drift-prone) cwd.
   async function start() {
     unlisten = await onMessage(EventType.feedChange, ({ data }) => {

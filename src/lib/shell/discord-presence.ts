@@ -1,5 +1,5 @@
 // Maps app state (the open project + its language + prefs) to Discord rich-presence
-// commands - the one seam App.svelte drives, keeping the presence concern out
+// commands - the one seam `windowServices` drives, keeping the presence concern out
 // of the shell (SoC). Presence is best-effort: Discord may be closed, so IPC
 // failures are swallowed here rather than surfaced to the UI.
 

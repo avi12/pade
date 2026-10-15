@@ -2,7 +2,8 @@
 // place under a new session id for other spawn-time changes.
 //
 // The reactive side (killing PTYs, re-keying the live pane state, toasting) lives
-// in App.svelte, which owns that state; the error-prone decisions - WHICH
+// in the shell's `windowSessions` and `sessionAutomation`, which own that state;
+// the error-prone decisions - WHICH
 // sessions a config change affects, and HOW the pane layout re-keys - are pure
 // functions here so they can be reasoned about and unit-tested on their own.
 

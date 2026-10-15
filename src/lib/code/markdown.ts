@@ -19,7 +19,7 @@
 //     injected as markup (the equivalent of Markdig's `html: false`). Link and
 //     image URLs are scheme-checked, so `javascript:`/`vbscript:` can't ride in.
 //   • Isolation - the fragment is never placed in the app DOM. It rides in a
-//     sandboxed iframe (see ChangeFeed), and `markdownDocument` stamps the srcdoc
+//     sandboxed iframe (see SandboxedPreview), and `markdownDocument` stamps the srcdoc
 //     with a restrictive CSP (`default-src 'none'; img-src data:`) so, exactly
 //     like PowerToys, no script runs and no external image or font loads.
 

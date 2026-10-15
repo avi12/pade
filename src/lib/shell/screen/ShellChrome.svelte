@@ -18,7 +18,7 @@
   type AppMenuProps = ComponentProps<typeof AppMenu>;
 
   // The top bar's chrome row: the project menu, workspace member and branch on
-  // the left, usage, design, editor and side-panel actions pushed right. The
+  // the left, usage, editor and side-panel actions pushed right. The
   // pinned/recent lists persist straight into shared settings; everything that
   // touches this window's sessions goes back to the shell.
   let {
@@ -132,7 +132,7 @@
 </div>
 
 <style>
-  /* First row: project menu + usage/design/IDE/panel actions. Its own labels
+  /* First row: project menu + usage/IDE/panel actions. Its own labels
      fold to icons when it gets tight, independent of the tabs row below. */
   .chrome {
     display: flex;

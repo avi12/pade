@@ -9,8 +9,8 @@
 //
 // This module owns the pieces of that flow worth testing in isolation - reading
 // the trust gate off the rendered screen and confirming the prompt's echo. The
-// byte I/O and timing stay in Terminal.svelte, next to the rest of the PTY
-// plumbing.
+// byte I/O and timing live in lib/terminal/initial-prompt-delivery, which the
+// pane's terminal session drives next to the rest of the PTY plumbing.
 //
 // Coupled to the CLI's *observable* output (the gate's wording), the same
 // deliberate, documented Hyrum dependency as the context-percent regexes - not a

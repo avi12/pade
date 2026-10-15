@@ -21,7 +21,7 @@
   import { SvelteSet } from "svelte/reactivity";
 
   // The running agent sessions - one usage group per distinct coding agent among
-  // them is derived below (App.svelte owns the list; the shell fallback and
+  // them is derived below (the shell's windowSessions owns the list; the shell fallback and
   // terminal-editor sessions are filtered out in `buildGroups`).
   const { sessions }: { sessions: AgentSession[] } = $props();
 

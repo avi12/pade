@@ -100,7 +100,7 @@ export type AgentGroup = {
 };
 
 // Terminal-editor sessions (Neovim/Vim/Helix) run under an `editor-<id>` agent
-// id (see `App.svelte`); they aren't coding agents and carry no usage.
+// id (see `WorkspaceScreen.svelte`); they aren't coding agents and carry no usage.
 const EDITOR_AGENT_ID_PREFIX = "editor-";
 
 function limitLevel(percentage: number) {

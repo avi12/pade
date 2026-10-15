@@ -1,5 +1,6 @@
 // Saving a temp workspace as a real project, without a dead gap in its tab.
-// The flow lives here (SoC); App.svelte lends it the session actions it owns.
+// The flow lives here (SoC); the shell's `WorkspaceScreen` lends it the session
+// actions the shell owns.
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sendSettingsMessage } from "@/lib/settings/settings-requests";
