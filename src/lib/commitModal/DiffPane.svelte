@@ -28,7 +28,13 @@
     onopenremote: () => void;
   } = $props();
 
-  const diffAria = $derived(name ? `Diff for ${name}` : "Diff");
+  const diffAria = $derived.by(() => {
+    if (name) {
+      return `Diff for ${name}`;
+    }
+
+    return "Diff";
+  });
 </script>
 
 <div class="pane">
