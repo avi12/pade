@@ -34,8 +34,8 @@ const UNRESPONSIVE_REPORTS_BEFORE_RELOAD: u32 = 2;
 
 /// The failure's reason category, for the diagnostic log line. A missing
 /// `Args2` interface (an old runtime) just logs the kind alone.
-fn failure_reason(args: &ICoreWebView2ProcessFailedEventArgs) -> Option<i32> {
-    let extended: ICoreWebView2ProcessFailedEventArgs2 = args.cast().ok()?;
+fn failure_reason(failure: &ICoreWebView2ProcessFailedEventArgs) -> Option<i32> {
+    let extended: ICoreWebView2ProcessFailedEventArgs2 = failure.cast().ok()?;
     let mut reason = COREWEBVIEW2_PROCESS_FAILED_REASON::default();
     // SAFETY: `extended` is live for the duration of the callback and the
     // out-pointer targets a local of the exact ABI type.
@@ -57,29 +57,36 @@ pub fn watch_process_failed(
     let webview = unsafe { controller.CoreWebView2() }?;
     let consecutive_unresponsive = AtomicU32::new(0);
     let handler = ProcessFailedEventHandler::create(Box::new(
-        move |sender: Option<ICoreWebView2>, args: Option<ICoreWebView2ProcessFailedEventArgs>| {
-            let Some(args) = args else { return Ok(()) };
+        move |sender: Option<ICoreWebView2>,
+              failure: Option<ICoreWebView2ProcessFailedEventArgs>| {
+            let Some(failure) = failure else {
+                return Ok(());
+            };
             let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
-            // SAFETY: `args` is live for the duration of the callback and the
+            // SAFETY: `failure` is live for the duration of the callback and the
             // out-pointer targets a local of the exact ABI type.
-            unsafe { args.ProcessFailedKind(&raw mut kind) }?;
-            let reason = failure_reason(&args);
+            unsafe { failure.ProcessFailedKind(&raw mut kind) }?;
+            let reason = failure_reason(&failure);
             eprintln!(
                 "webview process failure: kind={} reason={:?} (dumps in the user data folder's failure reports)",
                 kind.0, reason
             );
 
-            if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE {
+            let is_renderer_hung =
+                kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE;
+            if is_renderer_hung {
                 let reports = consecutive_unresponsive.fetch_add(1, Ordering::Relaxed) + 1;
                 if reports < UNRESPONSIVE_REPORTS_BEFORE_RELOAD {
                     return Ok(());
                 }
             }
 
-            let renderer_gone = kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED
-                || kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE;
-            if renderer_gone {
-                consecutive_unresponsive.store(0, Ordering::Relaxed);
+            // Any report past this point acts on the failure, so the hang count
+            // starts over.
+            consecutive_unresponsive.store(0, Ordering::Relaxed);
+            let is_renderer_gone =
+                is_renderer_hung || kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED;
+            if is_renderer_gone {
                 if let Some(webview) = sender {
                     // SAFETY: the sender webview is still valid - only its
                     // renderer died or hung; `Reload()` is the documented recovery.
@@ -88,7 +95,6 @@ pub fn watch_process_failed(
                 return Ok(());
             }
 
-            consecutive_unresponsive.store(0, Ordering::Relaxed);
             if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED {
                 on_browser_process_gone();
             }
