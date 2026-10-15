@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
+  import { panelCount, panelRefresh } from "@/lib/stores/ui/sidePanel.svelte";
+  import { formatCount } from "@/lib/util/format";
 
   // One shared header for every side panel (DRY): title + the optional count and
   // refresh the open panel publishes through the sidePanel store.

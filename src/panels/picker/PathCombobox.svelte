@@ -1,11 +1,11 @@
 <script lang="ts">
   import { workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { Key } from "@/lib/keys";
-  import { collapseRow, expandRow, flipDuration } from "@/lib/motion";
-  import { normalizePath } from "@/lib/paths";
   import { EMPTY_PATH_PROBE } from "@/lib/types";
   import type { TaggedPathProbe } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
+  import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
+  import { normalizePath } from "@/lib/util/paths";
   import { flip } from "svelte/animate";
 
   // A folder-path text field with directory autocomplete. As the path is typed

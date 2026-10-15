@@ -4,10 +4,10 @@
   // shows up. A new session of that agent in this workspace starts on the pick;
   // the tab's own menu can still switch it afterwards.
 
-  import { projectModelDefault, withProjectModelDefault } from "@/lib/agent-model-scope";
-  import { updatePrefs } from "@/lib/prefs.svelte";
-  import { prefs } from "@/lib/settings.svelte";
-  import { ensureModelOptions, modelOptions } from "@/lib/stores/modelOptions.svelte";
+  import { projectModelDefault, withProjectModelDefault } from "@/lib/model/agent-model-scope";
+  import { updatePrefs } from "@/lib/settings/prefs.svelte";
+  import { prefs } from "@/lib/settings/settings.svelte";
+  import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent } from "@/lib/types";
   import AgentModelDefaultRow from "@/panels/config/AgentModelDefaultRow.svelte";
   import { onMount } from "svelte";

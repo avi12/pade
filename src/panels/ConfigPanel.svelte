@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { globalNaming, projectNamingChoice, withProjectNamingChoice } from "@/lib/ai-naming-scope";
+  import { globalNaming, projectNamingChoice, withProjectNamingChoice } from "@/lib/agent/ai-naming-scope";
   import { config, os } from "@/lib/bridge";
-  import { collectVars } from "@/lib/colors";
-  import ColorText from "@/lib/ColorText.svelte";
-  import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
-  import { formatPercent } from "@/lib/format";
+  import { collectVars } from "@/lib/code/colors";
+  import ColorText from "@/lib/code/ColorText.svelte";
+  import { isMarkdownPath } from "@/lib/feed/preview";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
-  import { UI_SCALE_MAXIMUM, UI_SCALE_MINIMUM, UI_SCALE_STEP } from "@/lib/prefs-bounds";
-  import { chooseThemeMode, effective, updatePrefs } from "@/lib/prefs.svelte";
-  import { isMarkdownPath } from "@/lib/preview";
-  import { prefs } from "@/lib/settings.svelte";
-  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { UI_SCALE_MAXIMUM, UI_SCALE_MINIMUM, UI_SCALE_STEP } from "@/lib/settings/prefs-bounds";
+  import { chooseThemeMode, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
+  import { prefs } from "@/lib/settings/settings.svelte";
+  import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { type Agent, type ConfigFile, ThemeMode } from "@/lib/types";
+  import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
+  import { formatPercent } from "@/lib/util/format";
   import { HandoffPercent, parseInput } from "@/lib/validate";
   import AgentModelDefaults from "@/panels/config/AgentModelDefaults.svelte";
   import TerminalColours from "@/panels/config/TerminalColours.svelte";

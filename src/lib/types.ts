@@ -2,14 +2,14 @@
 // data crossing the Rust→TS boundary is validated at runtime; the TS types are
 // inferred from them (never hand-written alongside).
 
-import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
 import {
   SIDE_PANEL_MAXIMUM_WIDTH,
   SIDE_PANEL_MINIMUM_WIDTH,
   UI_SCALE_MAXIMUM,
   UI_SCALE_MINIMUM
-} from "@/lib/prefs-bounds";
-import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
+} from "@/lib/settings/prefs-bounds";
+import { ANSI_COLOR_TOKENS } from "@/lib/terminal/terminal-theme";
+import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 import { z } from "zod";
 
 export const ChangeKind = z.enum(["created", "modified", "deleted"]);
@@ -414,7 +414,7 @@ export type WindowInfo = z.infer<typeof WindowInfo>;
 /** The theme the user picks, as one list of four. Three of them name a
  *  light/dark scheme ("system" = whatever the OS is showing); `cyberpunk` names
  *  a {@link ThemePalette} instead and takes its scheme from the OS like
- *  "system" does. `lib/theme-mode` resolves a mode into that pair. */
+ *  "system" does. `lib/settings/theme-mode` resolves a mode into that pair. */
 export const ThemeMode = z.enum(["system", "light", "dark", "cyberpunk"]);
 export type ThemeMode = z.infer<typeof ThemeMode>;
 
@@ -433,7 +433,7 @@ export type Scheme = z.infer<typeof Scheme>;
  *  (`terminal_schemes`): the surface colours plus the 16 ANSI slots in ANSI
  *  order - the order `ANSI_COLOR_TOKENS` maps onto the `--terminal-*` design
  *  tokens, so an index here IS the SGR colour. `cursor` and `selection` are
- *  absent in several shipped schemes; `lib/terminal-palette` derives those. */
+ *  absent in several shipped schemes; `lib/terminal/terminal-palette` derives those. */
 export const TerminalScheme = z.object({
   name: z.string(),
   background: z.string(),
@@ -512,7 +512,7 @@ const Prefs = z.object({
   /** Render WebView2 on the CPU after the next restart, avoiding GPU contention. */
   softwareRender: z.boolean().nullish(),
   /** Percent of context at which the auto-handoff cycles the session. Absent =
-   *  DEFAULT_CONTEXT_HANDOFF_PERCENTAGE (lib/context-level). */
+   *  DEFAULT_CONTEXT_HANDOFF_PERCENTAGE (lib/usage/context-level). */
   handoffPct: z.number().min(MINIMUM_HANDOFF_PERCENTAGE).max(MAXIMUM_HANDOFF_PERCENTAGE).nullish(),
   /** Auto-resume a usage-limited session when its window resets - "continue"
    *  in place, or hand off when the context is nearly full. Opt-out: on unless

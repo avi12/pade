@@ -1,13 +1,13 @@
 <script lang="ts">
   import { dragDrop, os, vcs, workspace } from "@/lib/bridge";
-  import { isDragOverElement } from "@/lib/drag-position";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { collapseRow, expandRow } from "@/lib/motion";
-  import { childPath } from "@/lib/paths";
-  import { rovingTablist } from "@/lib/roving-tabs";
   import { EMPTY_PATH_PROBE, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
+  import { isDragOverElement } from "@/lib/ui/drag-position";
+  import { collapseRow, expandRow } from "@/lib/ui/motion";
+  import { rovingTablist } from "@/lib/ui/roving-tabs";
+  import { childPath } from "@/lib/util/paths";
   import {
     CloneUrl,
     FirstPrompt,

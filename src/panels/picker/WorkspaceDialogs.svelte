@@ -1,7 +1,7 @@
 <script lang="ts">
-  import RelabelDialog from "@/lib/RelabelDialog.svelte";
-  import RenameFolderDialog from "@/lib/RenameFolderDialog.svelte";
-  import WorkspaceDeleteDialog from "@/lib/WorkspaceDeleteDialog.svelte";
+  import RelabelDialog from "@/lib/dialogs/RelabelDialog.svelte";
+  import RenameFolderDialog from "@/lib/dialogs/RenameFolderDialog.svelte";
+  import WorkspaceDeleteDialog from "@/lib/dialogs/WorkspaceDeleteDialog.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
 
   // The workspace lifecycle's prompts, raised from either list's row menu: the

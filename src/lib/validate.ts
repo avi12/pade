@@ -3,7 +3,7 @@
 // entry - trimmed, length-capped, and shape-checked - before it reaches app
 // logic or the backend. One authoritative home for the input schemas (DRY).
 
-import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
+import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
 import { z } from "zod";
 
 const MAXIMUM_QUERY_LENGTH = 200;
@@ -17,7 +17,7 @@ const MAXIMUM_SECRET_LENGTH = 500;
 const GIT_SUFFIX = ".git";
 
 /** The auto-handoff threshold as typed/slid in Config - a whole percent inside
- *  the allowed band (the band lives in lib/context-level, the SSOT). */
+ *  the allowed band (the band lives in lib/usage/context-level, the SSOT). */
 export const HandoffPercent = z.coerce
   .number()
   .int()

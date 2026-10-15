@@ -4,22 +4,14 @@
   // (scrollback document; never send height, debounce width) vs the alternate
   // screen (fullscreen framebuffer; send both sizes, serialize refits, ask the
   // program to repaint). `isOnAlternateScreen` is the flag; the doc is the policy.
-  import { AgentId } from "@/lib/agent-icon";
+  import { AgentId } from "@/lib/agent/agent-icon";
+  import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/agent/initial-prompt";
   import { clipboard, dragDrop, os, pty } from "@/lib/bridge";
-  import { coalesced } from "@/lib/coalesce";
-  import { afterDelay } from "@/lib/delay";
-  import { isDragOverElement } from "@/lib/drag-position";
-  import { Axis, beginReorder } from "@/lib/drag-reorder";
-  import type { DragHint } from "@/lib/drag-reorder";
-  import { errorMessage } from "@/lib/errors";
-  import { isEditingText } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
-  import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/initial-prompt";
-  import { Key } from "@/lib/keys";
-  import { appearance, effective } from "@/lib/prefs.svelte";
-  import SessionBadge from "@/lib/SessionBadge.svelte";
-  import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
-  import { observeApiError } from "@/lib/stores/apiErrorRetry.svelte";
+  import SessionBadge from "@/lib/session/SessionBadge.svelte";
+  import { appearance, effective } from "@/lib/settings/prefs.svelte";
+  import { observeAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
+  import { observeApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
   import {
     compactionHeadroom,
     dropContext,
@@ -27,25 +19,33 @@
     observeContextScreen,
     observeRunningModel,
     observeSessionLog
-  } from "@/lib/stores/context.svelte";
-  import { dropMcpReload, observeMcpReload } from "@/lib/stores/mcpReload.svelte";
-  import { ensureModelOptions } from "@/lib/stores/modelOptions.svelte";
-  import { setSessionStatus } from "@/lib/stores/sessions.svelte";
-  import { showToast } from "@/lib/stores/toast.svelte";
-  import { observeUsageLimit, observeUsageLimitScreen } from "@/lib/stores/usageResume.svelte";
-  import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal-color-scheme";
-  import { isFindShortcut } from "@/lib/terminal-find";
-  import { isPromptNewlineShortcut, pastedText, pathsAsPromptText, PROMPT_NEWLINE } from "@/lib/terminal-input";
-  import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal-link-target";
-  import { registerWrappedLinkProvider } from "@/lib/terminal-links";
-  import { terminalFlushMode, TerminalFlushMode, wheelScrollsTerminalDocument } from "@/lib/terminal-output";
-  import { containsRtl } from "@/lib/terminal-rtl";
-  import { accumulateWheelNotches } from "@/lib/terminal-scroll";
-  import { rootTokenReader, xtermTheme } from "@/lib/terminal-theme";
-  import TerminalFind from "@/lib/TerminalFind.svelte";
-  import TerminalRtl from "@/lib/TerminalRtl.svelte";
+  } from "@/lib/stores/agent/context.svelte";
+  import { dropMcpReload, observeMcpReload } from "@/lib/stores/agent/mcpReload.svelte";
+  import { ensureModelOptions } from "@/lib/stores/model/modelOptions.svelte";
+  import { setSessionStatus } from "@/lib/stores/session/sessions.svelte";
+  import { showToast } from "@/lib/stores/ui/toast.svelte";
+  import { observeUsageLimit, observeUsageLimitScreen } from "@/lib/stores/usage/usageResume.svelte";
+  import { colorSchemeReport, enablesColorSchemeNotifications } from "@/lib/terminal/terminal-color-scheme";
+  import { isFindShortcut } from "@/lib/terminal/terminal-find";
+  import { isPromptNewlineShortcut, pastedText, pathsAsPromptText, PROMPT_NEWLINE } from "@/lib/terminal/terminal-input";
+  import { terminalLinkDestination, TerminalLinkTarget } from "@/lib/terminal/terminal-link-target";
+  import { registerWrappedLinkProvider } from "@/lib/terminal/terminal-links";
+  import { terminalFlushMode, TerminalFlushMode, wheelScrollsTerminalDocument } from "@/lib/terminal/terminal-output";
+  import { containsRtl } from "@/lib/terminal/terminal-rtl";
+  import { accumulateWheelNotches } from "@/lib/terminal/terminal-scroll";
+  import { rootTokenReader, xtermTheme } from "@/lib/terminal/terminal-theme";
+  import TerminalFind from "@/lib/terminal/TerminalFind.svelte";
+  import TerminalRtl from "@/lib/terminal/TerminalRtl.svelte";
   import { SessionStatus } from "@/lib/types";
   import type { AgentSession, PtyChunk } from "@/lib/types";
+  import { isDragOverElement } from "@/lib/ui/drag-position";
+  import { Axis, beginReorder } from "@/lib/ui/drag-reorder";
+  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import { isEditingText } from "@/lib/ui/focus";
+  import { Key } from "@/lib/ui/keys";
+  import { coalesced } from "@/lib/util/coalesce";
+  import { afterDelay } from "@/lib/util/delay";
+  import { errorMessage } from "@/lib/util/errors";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { Terminal } from "@xterm/xterm";
   import "@xterm/xterm/css/xterm.css";
@@ -136,12 +136,12 @@
   // an async onMount long after the first effects have run. Its presence IS
   // "attached": one value rather than a flag kept beside it.
   let attachedTerminal = $state<Terminal | undefined>();
-  // The pane's find bar (lib/TerminalFind), bound so Ctrl+F can ask it to open.
+  // The pane's find bar (lib/terminal/TerminalFind), bound so Ctrl+F can ask it to open.
   // Null until the component has mounted itself.
   let findBar = $state<{ reveal: () => Promise<void> } | null>(null);
   let isWindowFocused = $state(document.hasFocus());
   // This session has printed right-to-left text at least once, so its rows are
-  // worth scanning (see lib/TerminalRtl). A latch, never unset: the text stays in
+  // worth scanning (see lib/terminal/TerminalRtl). A latch, never unset: the text stays in
   // the scrollback. Until it flips, an English-only session does no scanning and
   // renders no overlay at all.
   let isRightToLeftSeen = $state(false);
@@ -182,7 +182,7 @@
   let status = $state<SessionStatus>(SessionStatus.enum.starting);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Initial-prompt delivery (see lib/initial-prompt). A fresh agent gates on a
+  // Initial-prompt delivery (see lib/agent/initial-prompt). A fresh agent gates on a
   // "trust this folder?" prompt before its input line is live, so the first
   // prompt can't just be fired on mount - it would land in the menu or sit unsent.
   // Instead we watch the rendered screen: walk the trust gate's selection to
@@ -681,7 +681,7 @@
 
   // Everything that decides the terminal's colours, as one value: the app scheme
   // (the tokens theme.css installs) and the chosen Windows Terminal scheme (the
-  // tokens lib/prefs installs over them). Reading it is what subscribes the
+  // tokens lib/settings/prefs installs over them). Reading it is what subscribes the
   // effect below, so a light/dark flip and a change of scheme both re-theme.
   const paintedPalette = $derived(`${appearance.scheme}/${appearance.terminalPalette ?? ""}`);
 
@@ -726,7 +726,7 @@
   // Re-grab the keyboard for the front session on every window focus, so a cycled
   // window is immediately promptable. Skipped while the user is mid-typing in a
   // real field (a rename box, the picker) - that focus must be left alone; the
-  // xterm helper textarea deliberately doesn't count as editing (see lib/focus).
+  // xterm helper textarea deliberately doesn't count as editing (see lib/ui/focus).
   function handleWindowFocus() {
     isWindowFocused = true;
     scheduleTerminalOutputFlush();
@@ -1515,7 +1515,7 @@
     //    xterm still sends ^C (SIGINT) to interrupt the agent.
     //  • Ctrl+V → paste the clipboard (xterm would otherwise send a raw ^V, and
     //    only the WebView's right-click menu pasted).
-    //  • Ctrl+F → the pane's find bar (lib/TerminalFind), not a raw ^F.
+    //  • Ctrl+F → the pane's find bar (lib/terminal/TerminalFind), not a raw ^F.
     //  • Ctrl+Backspace → ^W (erase word). xterm's legacy encoding for the
     //    chord is ^H, indistinguishable from a bare backspace to a TUI reading
     //    plain bytes (Windows Terminal gets away with it via win32-input-mode,
@@ -1855,7 +1855,7 @@
   // A new-project first prompt is NOT sent here: a fresh agent gates on a
     // "trust this folder?" prompt before its input is live, so it's delivered by
     // watchInitialPrompt / deliverInitialPromptIfReady once the agent has
-    // accepted that gate and settled at its REPL (see lib/initial-prompt).
+    // accepted that gate and settled at its REPL (see lib/agent/initial-prompt).
   });
 
   onDestroy(() => {
@@ -1893,7 +1893,7 @@
 
   // The DOM read lives here; the token→slot mapping and the parse-safe color
   // conversion (xterm silently drops formats its parser rejects) are the pure
-  // module's job - lib/terminal-theme, which also documents the app↔agent
+  // module's job - lib/terminal/terminal-theme, which also documents the app↔agent
   // theme-sync decision.
   function readXtermTheme() {
     return xtermTheme({ readToken: rootTokenReader() });

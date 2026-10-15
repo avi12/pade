@@ -1,9 +1,9 @@
 <script lang="ts">
   import { agents as agentsApi } from "@/lib/bridge";
-  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { realAgents as toRealAgents } from "@/lib/types";
   import type { Agent } from "@/lib/types";
+  import { formatCount } from "@/lib/util/format";
   import AgentChips from "@/panels/picker/AgentChips.svelte";
 
   // Default-agent section: owns its own agent list so it can re-detect

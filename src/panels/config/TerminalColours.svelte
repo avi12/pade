@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { appearance, effective, updatePrefs } from "@/lib/prefs.svelte";
+  import { appearance, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { Scheme } from "@/lib/types";
   import SchemeMismatchNote from "@/panels/config/SchemeMismatchNote.svelte";
   import TerminalSchemePicker from "@/panels/config/TerminalSchemePicker.svelte";

@@ -1,10 +1,7 @@
 <script lang="ts">
-  import BrandMark from "@/lib/BrandMark.svelte";
   import { dirs, ide, windows, workspace } from "@/lib/bridge";
-  import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
-  import { updatePrefs } from "@/lib/prefs.svelte";
-  import { settings } from "@/lib/settings.svelte";
-  import { settledValue } from "@/lib/settled";
+  import { updatePrefs } from "@/lib/settings/prefs.svelte";
+  import { settings } from "@/lib/settings/settings.svelte";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -14,7 +11,10 @@
     ProjectEntry,
     Settings
   } from "@/lib/types";
-  import type { Relocator } from "@/lib/workspace-relocate";
+  import BrandMark from "@/lib/ui/BrandMark.svelte";
+  import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/util/paths";
+  import { settledValue } from "@/lib/util/settled";
+  import type { Relocator } from "@/lib/workspace/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";

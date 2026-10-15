@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { collapseRow } from "@/lib/motion";
-  import { normalizePath } from "@/lib/paths";
   import { AddRootStatus, EMPTY_PATH_PROBE } from "@/lib/types";
   import type { AddRootOutcome, Ide, ProjectEntry, TaggedPathProbe } from "@/lib/types";
+  import { collapseRow } from "@/lib/ui/motion";
+  import { formatQuantity } from "@/lib/util/format";
+  import { normalizePath } from "@/lib/util/paths";
   import { FolderPath, parseInput } from "@/lib/validate";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";

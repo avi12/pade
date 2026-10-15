@@ -6,12 +6,12 @@
 // rename started from either list drives the same form - and one delete
 // confirmation dialog serves both.
 
-import { errorMessage } from "@/lib/errors";
-import { isOpenInAnotherWindow } from "@/lib/open-windows";
-import { baseName } from "@/lib/paths";
 import type { Settings, WindowInfo } from "@/lib/types";
+import { errorMessage } from "@/lib/util/errors";
+import { baseName } from "@/lib/util/paths";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";
-import type { Relocator } from "@/lib/workspace-relocate";
+import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
+import type { Relocator } from "@/lib/workspace/workspace-relocate";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 /** What the picker provides: the app-level move/rename flows (which handle the

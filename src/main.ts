@@ -1,5 +1,5 @@
 import App from "@/App.svelte";
-import { DARK_SCHEME_QUERY, loadPrefs } from "@/lib/prefs.svelte";
+import { DARK_SCHEME_QUERY, loadPrefs } from "@/lib/settings/prefs.svelte";
 import { Scheme } from "@/lib/types";
 import "@/theme.css";
 import { mount } from "svelte";

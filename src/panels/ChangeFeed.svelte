@@ -1,16 +1,33 @@
 <script lang="ts">
   import { feed, ide, os, vcs } from "@/lib/bridge";
-  import { groupChanges, GroupRole } from "@/lib/change-groups";
-  import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
-  import type { DiffLine } from "@/lib/diff";
-  import DiffView from "@/lib/DiffView.svelte";
-  import { errorHeadline } from "@/lib/error-text";
-  import { watchSummary } from "@/lib/feed-status";
-  import { fileExtension, fileTypeBadge } from "@/lib/file-type";
-  import { formatAge, formatCount, formatTimestamp } from "@/lib/format";
+  import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/code/diff";
+  import type { DiffLine } from "@/lib/code/diff";
+  import DiffView from "@/lib/code/DiffView.svelte";
+  import { markdownDocument, sandboxedHtmlDocument } from "@/lib/code/markdown";
+  import { groupChanges, GroupRole } from "@/lib/feed/change-groups";
+  import { watchSummary } from "@/lib/feed/feed-status";
+  import { fileExtension, fileTypeBadge } from "@/lib/feed/file-type";
+  import {
+    isBinaryPath,
+    isHtmlPath,
+    isImagePath,
+    isMarkdownPath,
+    isVideoPath
+  } from "@/lib/feed/preview";
   import Icon from "@/lib/Icon.svelte";
-  import { Key } from "@/lib/keys";
-  import { markdownDocument, sandboxedHtmlDocument } from "@/lib/markdown";
+  import { effective } from "@/lib/settings/prefs.svelte";
+  import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
+  import { showToast } from "@/lib/stores/ui/toast.svelte";
+  import { ensureEditors, windowedEditorFor } from "@/lib/stores/workspace/editors.svelte";
+  import { feedStore, retargetFeed } from "@/lib/stores/workspace/feed.svelte";
+  import {
+    branchOfMember,
+    pathOfMember,
+    workspaceMembers as storedMembers
+  } from "@/lib/stores/workspace/workspaceMembers.svelte";
+  import { FeedVideoKind } from "@/lib/types";
+  import type { ChangeEvent, FeedDiff, FeedVideo, WatchStatus } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
   import {
     collapseRow,
     emphasized,
@@ -18,29 +35,12 @@
     flipDuration,
     prefersReducedMotion,
     revealBlock
-  } from "@/lib/motion";
-  import { baseName, parentDirectory, relativeToRoot } from "@/lib/paths";
-  import { effective } from "@/lib/prefs.svelte";
-  import {
-    isBinaryPath,
-    isHtmlPath,
-    isImagePath,
-    isMarkdownPath,
-    isVideoPath
-  } from "@/lib/preview";
-  import { ensureEditors, windowedEditorFor } from "@/lib/stores/editors.svelte";
-  import { feedStore, retargetFeed } from "@/lib/stores/feed.svelte";
-  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
-  import { showToast } from "@/lib/stores/toast.svelte";
-  import {
-    branchOfMember,
-    pathOfMember,
-    workspaceMembers as storedMembers
-  } from "@/lib/stores/workspaceMembers.svelte";
-  import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import { FeedVideoKind } from "@/lib/types";
-  import type { ChangeEvent, FeedDiff, FeedVideo, WatchStatus } from "@/lib/types";
-  import { repositoryOfGroup } from "@/lib/workspace-members";
+  } from "@/lib/ui/motion";
+  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { errorHeadline } from "@/lib/util/error-text";
+  import { formatAge, formatCount, formatTimestamp } from "@/lib/util/format";
+  import { baseName, parentDirectory, relativeToRoot } from "@/lib/util/paths";
+  import { repositoryOfGroup } from "@/lib/workspace/workspace-members";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
   import { flip } from "svelte/animate";
@@ -50,7 +50,7 @@
   // that already has this project, at the right line.
   const { project }: { project: string } = $props();
 
-  // The feed events live in a persistent store (lib/stores/feed) that owns the one
+  // The feed events live in a persistent store (lib/stores/workspace/feed) that owns the one
   // live subscription, so switching side panels away and back keeps the feed -
   // this component only reads and renders them.
 

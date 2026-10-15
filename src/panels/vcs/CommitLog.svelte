@@ -1,10 +1,10 @@
 <script lang="ts">
   import { os, vcs } from "@/lib/bridge";
-  import CommitModal from "@/lib/CommitModal.svelte";
-  import CommitStats from "@/lib/CommitStats.svelte";
-  import { Key } from "@/lib/keys";
-  import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
+  import CommitModal from "@/lib/vcs/CommitModal.svelte";
+  import CommitStats from "@/lib/vcs/CommitStats.svelte";
+  import { repositoryCommitUrl } from "@/lib/vcs/repository-links";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 

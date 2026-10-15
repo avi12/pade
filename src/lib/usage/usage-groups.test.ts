@@ -1,0 +1,748 @@
+import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
+import type { AccountUsage, UsageWindow } from "@/lib/types";
+import {
+  buildGroups,
+  buildKindLegend,
+  findSpotlight,
+  justResetLimits,
+  limitPercentages,
+  severityBreakdown,
+  usageResetTime
+} from "@/lib/usage/usage-groups";
+import type { Level, SeveritySlice } from "@/lib/usage/usage-groups";
+import { formatPercent } from "@/lib/util/format";
+import { describe, expect, it } from "vitest";
+
+// A running session bound to `agentId`; only `session.agent` matters to the
+// grouping, so the session id just needs to be distinct for the dedupe test.
+function makeSession({ agentId, label, sessionId }: {
+  agentId: string;
+  label?: string;
+  sessionId?: string;
+}) {
+  return {
+    id: sessionId ?? `session-${agentId}`,
+    agent: {
+      id: agentId,
+      label: label ?? agentId,
+      command: agentId,
+      reordersBidi: false
+    }
+  };
+}
+
+// A 5-hour session window, defaulting to 40% consumed.
+function sessionWindow(overrides: Partial<UsageWindow> = {}) {
+  return {
+    key: "five_hour",
+    kind: UsageWindowKind.enum.session,
+    label: "Session",
+    utilization: 40,
+    ...overrides
+  };
+}
+
+// A weekly all-models window, defaulting to 80% consumed.
+function weeklyWindow(overrides: Partial<UsageWindow> = {}) {
+  return {
+    key: "seven_day",
+    kind: UsageWindowKind.enum.weekly,
+    label: "Weekly",
+    utilization: 80,
+    ...overrides
+  };
+}
+
+// A per-model window carrying the model's display name as its label.
+function modelWindow({ name, utilization, resetsAt }: {
+  name: string;
+  utilization: number;
+  resetsAt?: string;
+}) {
+  return {
+    key: name,
+    kind: UsageWindowKind.enum.model,
+    label: name,
+    utilization,
+    resetsAt
+  };
+}
+
+// An account whose windows default to session (40%) + weekly (80%).
+function makeAccount(overrides: Partial<AccountUsage> = {}) {
+  return {
+    windows: [sessionWindow(), weeklyWindow()],
+    plan: "Max",
+    source: "test",
+    ...overrides
+  };
+}
+
+// The per-agent account map `buildGroups` now takes: agent id → its account (or
+// null). A missing entry means that agent has no resolved usage.
+function accountsFor(entries: Record<string, AccountUsage | null>) {
+  return new Map(Object.entries(entries));
+}
+
+const CLAUDE_LABEL = "Claude Code";
+
+function claudeSession(sessionId?: string) {
+  return makeSession({
+    agentId: "claude",
+    label: CLAUDE_LABEL,
+    sessionId
+  });
+}
+
+function countAt({ slices, level }: {
+  slices: SeveritySlice[];
+  level: Level;
+}) {
+  return slices.find(slice => slice.level === level)?.count ?? 0;
+}
+
+describe("buildGroups", () => {
+  const now = Date.UTC(2026, 0, 1);
+
+  it("dedupes agents by id, keeping the first occurrence", () => {
+    const groups = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [claudeSession("first"), claudeSession("second")],
+      now
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].id).toBe("claude");
+  });
+
+  it("excludes the shell fallback and terminal-editor sessions", () => {
+    const groups = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [
+        makeSession({
+          agentId: SHELL_AGENT_ID,
+          label: "Terminal (shell)"
+        }),
+        makeSession({
+          agentId: "editor-nvim",
+          label: "Neovim"
+        }),
+        claudeSession()
+      ],
+      now
+    });
+
+    expect(groups.map(group => group.id)).toEqual(["claude"]);
+  });
+
+  describe("the extra-usage row", () => {
+    const creditsCap: UsageWindow = {
+      key: "extra_usage",
+      kind: UsageWindowKind.enum.credits,
+      label: "Extra usage",
+      utilization: 56.665
+    };
+
+    function extraUsageRow(overrides: Partial<AccountUsage>) {
+      const [group] = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [sessionWindow(), creditsCap],
+            ...overrides
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+      return group.limits.find(limit => limit.kind === UsageWindowKind.enum.credits);
+    }
+
+    it("shows the credits balance while extra usage is on", () => {
+      const row = extraUsageRow({
+        credits: CreditsState.enum.available,
+        creditBalance: {
+          amount: 46.89,
+          currency: "USD"
+        }
+      });
+      expect(row?.label).toBe("Extra usage");
+      expect(row?.kindShort).toBe("E");
+      expect(row?.balance).toContain("46.89");
+    });
+
+    it("reads as its percentage while a monthly cap is set", () => {
+      const row = extraUsageRow({ credits: CreditsState.enum.available });
+      expect(row?.reading).toBe(formatPercent(56.665));
+    });
+
+    it("reads as the month's spend when no monthly cap is set", () => {
+      const [group] = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [sessionWindow()],
+            credits: CreditsState.enum.available,
+            uncappedSpend: {
+              amount: 259.18,
+              currency: "USD"
+            }
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+      const row = group.limits.find(limit => limit.kind === UsageWindowKind.enum.credits);
+
+      expect(row?.kindShort).toBe("E");
+      expect(row?.reading).toContain("259.18");
+      expect(row?.percentage).toBe(0);
+    });
+
+    it("never spotlights an uncapped spend over the window that ran out", () => {
+      const groups = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [weeklyWindow({ utilization: 100 })],
+            credits: CreditsState.enum.available,
+            uncappedSpend: {
+              amount: 298.57,
+              currency: "USD"
+            }
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+
+      expect(findSpotlight(groups)?.limit.label).toBe("Weekly");
+    });
+
+    it("shows no balance when there is none - extra usage is off", () => {
+      const row = extraUsageRow({ credits: CreditsState.enum.off });
+      expect(row?.balance).toBe("");
+    });
+
+    it("never puts a balance on another row", () => {
+      const [group] = buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            creditBalance: {
+              amount: 46.89,
+              currency: "USD"
+            }
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+      expect(group.limits.map(limit => limit.balance)).toEqual(["", ""]);
+    });
+  });
+
+  it("hides an untouched opaque feature cap but keeps it once used", () => {
+    function sparkCap(utilization: number) {
+      return {
+        key: "codex_GPT-5.3-Codex-Spark_604800s",
+        kind: UsageWindowKind.enum.opaque,
+        label: "GPT-5.3-Codex-Spark",
+        utilization
+      };
+    }
+
+    // ChatGPT's own usage page lists only the weekly cap while its endpoint
+    // also returns untouched per-feature limits - those stay hidden at 0%…
+    const [untouched] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({ windows: [weeklyWindow(), sparkCap(0)] })
+      }),
+      sessions: [makeSession({ agentId: "opencode" })],
+      now
+    });
+    expect(untouched.limits.map(limit => limit.kindShort)).toEqual(["W"]);
+
+    // …but a session/weekly window at 0% is still shown, and a feature cap
+    // with real usage appears.
+    const [used] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({
+          windows: [sessionWindow({ utilization: 0 }), weeklyWindow(), sparkCap(12)]
+        })
+      }),
+      sessions: [makeSession({ agentId: "opencode" })],
+      now
+    });
+    expect(used.limits.map(limit => limit.kindShort)).toEqual(["S", "W", "G"]);
+  });
+
+  it("populates the Claude group with real limits + plan from the account", () => {
+    const [claude] = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [claudeSession()],
+      now
+    });
+
+    expect(claude.isUnknown).toBe(false);
+    expect(claude.plan).toBe("Max");
+    expect(claude.icon).toBe("claude");
+    expect(claude.name).toBe(CLAUDE_LABEL);
+    expect(claude.shortName).toBe("Claude");
+    expect(claude.limits.map(limit => limit.kindShort)).toEqual(["S", "W"]);
+    expect(claude.limits.map(limit => limit.percentage)).toEqual([40, 80]);
+    expect(claude.limits.map(limit => limit.level)).toEqual(["normal", "warn"]);
+  });
+
+  it("shows a window still at 0% (an unused session), not only consumed ones", () => {
+    const [claude] = buildGroups({
+      accounts: accountsFor({
+        claude: makeAccount({
+          windows: [sessionWindow({ utilization: 0 }), weeklyWindow({ utilization: 42 })]
+        })
+      }),
+      sessions: [claudeSession()],
+      now
+    });
+
+    expect(claude.limits.map(limit => limit.kindShort)).toEqual(["S", "W"]);
+    expect(claude.limits.map(limit => limit.percentage)).toEqual([0, 42]);
+  });
+
+  it("marks an agent with no resolved account unknown, with no limits or plan", () => {
+    const [codex] = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [makeSession({
+        agentId: "codex",
+        label: "Codex"
+      })],
+      now
+    });
+
+    expect(codex.isUnknown).toBe(true);
+    expect(codex.limits).toEqual([]);
+    expect(codex.plan).toBe("");
+    expect(codex.shortName).toBe("Codex");
+  });
+
+  it("populates any agent (e.g. Codex) with real limits + plan from its account", () => {
+    const [codex] = buildGroups({
+      accounts: accountsFor({
+        codex: makeAccount({
+          windows: [weeklyWindow({ utilization: 5 })],
+          plan: "Codex plus"
+        })
+      }),
+      sessions: [makeSession({
+        agentId: "codex",
+        label: "Codex"
+      })],
+      now
+    });
+
+    expect(codex.isUnknown).toBe(false);
+    expect(codex.plan).toBe("Codex plus");
+    expect(codex.limits.map(limit => limit.kindShort)).toEqual(["W"]);
+    expect(codex.limits.map(limit => limit.percentage)).toEqual([5]);
+  });
+
+  it("keeps an agent present but unknown+empty when its account is null", () => {
+    const [claude] = buildGroups({
+      accounts: accountsFor({ claude: null }),
+      sessions: [claudeSession()],
+      now
+    });
+
+    expect(claude.id).toBe("claude");
+    expect(claude.isUnknown).toBe(true);
+    expect(claude.limits).toEqual([]);
+    expect(claude.plan).toBe("");
+  });
+
+  it("sorts agents with limits ahead of unknown ones, worst-first", () => {
+    const groups = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [
+        makeSession({
+          agentId: "codex",
+          label: "Codex"
+        }),
+        claudeSession(),
+        makeSession({
+          agentId: "aider",
+          label: "aider"
+        })
+      ],
+      now
+    });
+
+    // Claude (the only agent with limits) leads; the two unknowns sink to the
+    // end in their first-seen order (a stable sort).
+    expect(groups.map(group => group.id)).toEqual(["claude", "codex", "aider"]);
+  });
+
+  it("collapses two agents sharing one billing account into the first-seen group", () => {
+    // Codex and opencode both bill the same ChatGPT subscription, so their
+    // accounts carry the same identity - the meter must never show it twice.
+    const chatgptAccount = makeAccount({
+      windows: [weeklyWindow({ utilization: 5 })],
+      plan: "Codex plus",
+      account: "chatgpt"
+    });
+    const groups = buildGroups({
+      accounts: accountsFor({
+        codex: chatgptAccount,
+        opencode: chatgptAccount
+      }),
+      sessions: [
+        makeSession({
+          agentId: "codex",
+          label: "Codex"
+        }),
+        makeSession({
+          agentId: "opencode",
+          label: "opencode"
+        })
+      ],
+      now
+    });
+
+    expect(groups.map(group => group.id)).toEqual(["codex"]);
+    expect(groups[0].plan).toBe("Codex plus");
+  });
+
+  it("shows opencode alone with the shared account's numbers", () => {
+    const [opencode] = buildGroups({
+      accounts: accountsFor({
+        opencode: makeAccount({
+          windows: [weeklyWindow({ utilization: 5 })],
+          plan: "Codex plus",
+          account: "chatgpt"
+        })
+      }),
+      sessions: [makeSession({
+        agentId: "opencode",
+        label: "opencode"
+      })],
+      now
+    });
+
+    expect(opencode.id).toBe("opencode");
+    expect(opencode.isUnknown).toBe(false);
+    expect(opencode.plan).toBe("Codex plus");
+    expect(opencode.limits.map(limit => limit.percentage)).toEqual([5]);
+  });
+
+  it("counts every distinct agent - the few/many boundary sits at 2", () => {
+    const twoAgents = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [claudeSession(), makeSession({ agentId: "codex" })],
+      now
+    });
+    const threeAgents = buildGroups({
+      accounts: accountsFor({ claude: makeAccount() }),
+      sessions: [
+        claudeSession(),
+        makeSession({ agentId: "codex" }),
+        makeSession({ agentId: "aider" })
+      ],
+      now
+    });
+
+    // The trigger renders wide chips while the count is ≤ 2 and switches to
+    // compact pills + "+N" once it exceeds 2.
+    expect(twoAgents).toHaveLength(2);
+    expect(threeAgents).toHaveLength(3);
+  });
+});
+
+describe("reset countdowns", () => {
+  // `buildGroups` takes `now` as a parameter (nothing reads `Date.now()`), so a
+  // fixed epoch keeps every countdown deterministic - no fake timers needed.
+  const now = Date.UTC(2026, 0, 1);
+
+  // The session limit's countdown for a given ISO reset time, via the builder.
+  function fiveHourReset(resetsAt: string) {
+    const [claude] = buildGroups({
+      accounts: accountsFor({
+        claude: makeAccount({
+          windows: [sessionWindow({ resetsAt }), weeklyWindow()]
+        })
+      }),
+      sessions: [claudeSession()],
+      now
+    });
+    return claude.limits[0].reset;
+  }
+
+  it("shows days and hours when more than a day remains", () => {
+    expect(fiveHourReset("2026-01-03T05:00:00Z")).toBe("in 2d 5h");
+  });
+
+  it("shows hours and minutes when less than a day remains", () => {
+    expect(fiveHourReset("2026-01-01T03:30:00Z")).toBe("in 3h 30m");
+  });
+
+  it("shows minutes with zero-padded seconds when less than an hour remains", () => {
+    expect(fiveHourReset("2026-01-01T00:05:07Z")).toBe("in 5m 07s");
+  });
+
+  it("shows bare seconds inside the final minute", () => {
+    expect(fiveHourReset("2026-01-01T00:00:42Z")).toBe("in 42s");
+  });
+
+  it("leaves the label empty at or past the reset time", () => {
+    expect(fiveHourReset("2026-01-01T00:00:00Z")).toBe("");
+    expect(fiveHourReset("2025-12-31T23:59:00Z")).toBe("");
+  });
+
+  it("clears stale utilization and severity when the window resets", () => {
+    const [claude] = buildGroups({
+      accounts: accountsFor({
+        claude: makeAccount({
+          windows: [sessionWindow({
+            utilization: 96,
+            resetsAt: "2026-01-01T00:00:00Z"
+          })]
+        })
+      }),
+      sessions: [claudeSession()],
+      now
+    });
+    expect(claude.limits[0]).toMatchObject({
+      percentage: 0,
+      level: "normal",
+      reset: ""
+    });
+  });
+
+  it("truncates a microsecond timestamp to milliseconds before parsing", () => {
+    expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe(fiveHourReset("2026-01-01T00:01:30.123Z"));
+    expect(fiveHourReset("2026-01-01T00:01:30.123456Z")).toBe("in 1m 30s");
+  });
+});
+
+describe("panel view-model skips unknown agents", () => {
+  const now = Date.UTC(2026, 0, 1);
+  // Claude at a critical per-model cap, plus an unknown Codex agent alongside.
+  const groups = buildGroups({
+    accounts: accountsFor({
+      claude: makeAccount({
+        windows: [
+          sessionWindow(),
+          weeklyWindow({ utilization: 88 }),
+          modelWindow({
+            name: "Claude Opus",
+            utilization: 96
+          })
+        ]
+      })
+    }),
+    sessions: [claudeSession(), makeSession({
+      agentId: "codex",
+      label: "Codex"
+    })],
+    now
+  });
+
+  it("still counts the unknown agent in the running total", () => {
+    expect(groups).toHaveLength(2);
+    expect(groups.some(group => group.isUnknown)).toBe(true);
+  });
+
+  it("buckets only agents that have limits by severity", () => {
+    const slices = severityBreakdown(groups);
+
+    // Claude's worst limit is the 96% Opus cap → one critical, nothing else.
+    // Codex has no limits, so it never lands in a severity bucket.
+    expect(
+      countAt({
+        slices,
+        level: "crit"
+      })
+    ).toBe(1);
+    expect(
+      countAt({
+        slices,
+        level: "warn"
+      })
+    ).toBe(0);
+    expect(
+      countAt({
+        slices,
+        level: "normal"
+      })
+    ).toBe(0);
+  });
+
+  it("spotlights the single closest limit, ignoring unknown agents", () => {
+    const spotlight = findSpotlight(groups);
+
+    expect(spotlight?.agent.id).toBe("claude");
+    expect(spotlight?.limit.percentage).toBe(96);
+  });
+
+  describe("extra usage against the real windows", () => {
+    function claudeWith({ sessionPercentage, creditsPercentage, credits }: {
+      sessionPercentage: number;
+      creditsPercentage: number;
+      credits?: CreditsState;
+    }) {
+      return buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            credits: credits ?? CreditsState.enum.available,
+            windows: [
+              sessionWindow({ utilization: sessionPercentage }),
+              weeklyWindow({ utilization: 18 }),
+              {
+                key: "extra_usage",
+                kind: UsageWindowKind.enum.credits,
+                label: "Extra usage",
+                utilization: creditsPercentage
+              }
+            ]
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      });
+    }
+
+    // Spending credits never stops the agent, so a part-spent spend cap is not
+    // what anyone is about to hit - the session window at 44% is.
+    it("spotlights the session window over a part-spent credits cap", () => {
+      const spotlight = findSpotlight(
+        claudeWith({
+          sessionPercentage: 44,
+          creditsPercentage: 79
+        })
+      );
+
+      expect(spotlight?.limit.kind).toBe(UsageWindowKind.enum.session);
+      expect(spotlight?.limit.percentage).toBe(44);
+    });
+
+    it("leaves the agent healthy while only extra usage is high", () => {
+      const slices = severityBreakdown(
+        claudeWith({
+          sessionPercentage: 44,
+          creditsPercentage: 79
+        })
+      );
+
+      expect(
+        countAt({
+          slices,
+          level: "normal"
+        })
+      ).toBe(1);
+      expect(
+        countAt({
+          slices,
+          level: "warn"
+        })
+      ).toBe(0);
+    });
+
+    // Once a real window is out, the credits carrying the work ARE the last thing
+    // between the agent and a stop, so the spend cap takes the spotlight.
+    it("spotlights extra usage once a real window is spent", () => {
+      const spotlight = findSpotlight(
+        claudeWith({
+          sessionPercentage: 100,
+          creditsPercentage: 79
+        })
+      );
+
+      expect(spotlight?.limit.kind).toBe(UsageWindowKind.enum.credits);
+      expect(spotlight?.limit.percentage).toBe(79);
+    });
+
+    // Credits that are off or held back carry nothing, so the spent window is
+    // still the wall.
+    it("keeps the spent window in the spotlight when credits cannot carry it", () => {
+      const spotlight = findSpotlight(
+        claudeWith({
+          sessionPercentage: 100,
+          creditsPercentage: 79,
+          credits: CreditsState.enum.off
+        })
+      );
+
+      expect(spotlight?.limit.kind).toBe(UsageWindowKind.enum.session);
+      expect(spotlight?.limit.percentage).toBe(100);
+    });
+  });
+
+  it("builds the kind legend only from agents with limits", () => {
+    const legend = buildKindLegend(groups);
+
+    expect(legend.map(entry => entry.short)).toEqual(["S", "W", "O"]);
+  });
+});
+
+describe("usageResetTime", () => {
+  it("parses a reset time, trimming the endpoint's microseconds", () => {
+    expect(usageResetTime("2026-08-15T09:30:00.123456Z"))
+      .toBe(Date.parse("2026-08-15T09:30:00.123Z"));
+  });
+
+  // `resetsAt` is nullish - a vendor states a reset only when it knows one - and
+  // this used to throw on the absent cases. Thrown from an effect, that took the
+  // whole effect batch with it and left a mounting terminal stuck at "Starting…".
+  it("answers NaN for a reset time the vendor never gave, instead of throwing", () => {
+    expect(usageResetTime(null)).toBeNaN();
+    expect(usageResetTime(undefined)).toBeNaN();
+    expect(usageResetTime("")).toBeNaN();
+  });
+
+  it("answers NaN for an unparseable reset time", () => {
+    expect(usageResetTime("whenever")).toBeNaN();
+  });
+});
+
+describe("justResetLimits", () => {
+  const now = Date.UTC(2026, 0, 1);
+
+  function readingOf(weeklyUtilization: number) {
+    return limitPercentages(
+      buildGroups({
+        accounts: accountsFor({
+          claude: makeAccount({
+            windows: [sessionWindow({ utilization: 40 }), weeklyWindow({ utilization: weeklyUtilization })]
+          })
+        }),
+        sessions: [claudeSession()],
+        now
+      })
+    );
+  }
+
+  it("spots a weekly limit that started over", () => {
+    expect([...justResetLimits({
+      previous: readingOf(100),
+      current: readingOf(0)
+    })]).toEqual(["claude:Weekly"]);
+  });
+
+  it("ignores usage that only climbed, or barely moved", () => {
+    expect(
+      justResetLimits({
+        previous: readingOf(60),
+        current: readingOf(65)
+      }).size
+    ).toBe(0);
+    expect(
+      justResetLimits({
+        previous: readingOf(60),
+        current: readingOf(55)
+      }).size
+    ).toBe(0);
+  });
+
+  it("has nothing to compare on the first reading", () => {
+    expect(
+      justResetLimits({
+        previous: new Map(),
+        current: readingOf(0)
+      }).size
+    ).toBe(0);
+  });
+});

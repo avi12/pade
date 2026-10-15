@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { terminalSchemes } from "@/lib/stores/terminalSchemes.svelte";
-  import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
+  import { terminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
+  import { ANSI_COLOR_TOKENS } from "@/lib/terminal/terminal-theme";
   import type { TerminalScheme } from "@/lib/types";
 
   // One "which colour scheme paints the terminal" control: a trigger showing the
@@ -9,7 +9,7 @@
   // in the catalogue. `null` is the default - the terminal takes the app theme's
   // own palette - and it is an option in that same list rather than a special
   // case, so every row renders through one template. The catalogue comes from
-  // the shared store, so this and the palette actually painted (lib/prefs)
+  // the shared store, so this and the palette actually painted (lib/settings/prefs)
   // resolve the same list.
   const { id, label, value, onpick }: {
     /** Popover id - must be unique among the pickers on screen. */
@@ -24,7 +24,7 @@
   const FOLLOW_APP_THEME = "Follow the app theme";
 
   /** The slots the preview strip shows, named by the token that paints them, so
-   *  the ANSI index comes from the one ANSI order (lib/terminal-theme) rather
+   *  the ANSI index comes from the one ANSI order (lib/terminal/terminal-theme) rather
    *  than from a literal here. */
   const PREVIEW_TOKENS = [
     "--terminal-red",

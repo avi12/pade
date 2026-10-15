@@ -1,6 +1,6 @@
 <script lang="ts">
   import { feed, vcs } from "@/lib/bridge";
-  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { Commit, StatusEntry } from "@/lib/types";
   import ChangesSection from "@/panels/vcs/ChangesSection.svelte";
   import "@/panels/vcs/chrome.css";

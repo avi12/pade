@@ -1,11 +1,11 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import LastAccessed from "@/lib/LastAccessed.svelte";
-  import { collapseRow } from "@/lib/motion";
-  import { displayName, isTemporaryWorkspace } from "@/lib/paths";
-  import TempBadge from "@/lib/TempBadge.svelte";
-  import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
   import type { Ide } from "@/lib/types";
+  import { collapseRow } from "@/lib/ui/motion";
+  import { tooltip, truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
+  import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
+  import TempBadge from "@/lib/workspace/TempBadge.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { ideBrand, ideIcon } from "@/lib/ide-icon";
-  import { languageIcon } from "@/lib/language-icon";
-  import { showToast } from "@/lib/stores/toast.svelte";
+  import { ideBrand, ideIcon } from "@/lib/ide/ide-icon";
+  import { showToast } from "@/lib/stores/ui/toast.svelte";
   import type { EditorKind, Ide, Prefs } from "@/lib/types";
+  import { formatQuantity } from "@/lib/util/format";
   import { FolderPath, parseInput } from "@/lib/validate";
+  import { languageIcon } from "@/lib/workspace/language-icon";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
   // Editor-rules engine - the project kinds come from the backend registry

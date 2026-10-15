@@ -1,9 +1,9 @@
 <script lang="ts">
   import { vcs } from "@/lib/bridge";
-  import { formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { Key } from "@/lib/keys";
   import type { RestoreCandidate } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
+  import { formatPercent } from "@/lib/util/format";
   import { parseInput, RestoreQuery } from "@/lib/validate";
 
   const { project }: { project: string } = $props();

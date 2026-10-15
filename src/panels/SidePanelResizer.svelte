@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Key } from "@/lib/keys";
   import {
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
     SIDE_PANEL_MAXIMUM_FRACTION,
     SIDE_PANEL_MINIMUM_WIDTH,
     updatePrefs
-  } from "@/lib/prefs.svelte";
+  } from "@/lib/settings/prefs.svelte";
+  import { Key } from "@/lib/ui/keys";
 
   // Draggable divider between the terminal area and the side panel. The
   // persisted width lives in prefs (SSOT); `width` is the local mirror the drag

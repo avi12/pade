@@ -106,7 +106,7 @@ writes.
   fills, single-colour marks and format glyphs take the card's language tone. An
   unrecognised type falls back to the text badge, so every row stays tagged.
 - R1.2.9 ✅ **The feed survives panel switches.** Events accumulate in a persistent
-  store (`lib/stores/feed`) that owns the single live subscription, so switching the
+  store (`lib/stores/workspace/feed`) that owns the single live subscription, so switching the
   side panel away from the feed and back no longer empties it (the panel unmounts on
   every switch; the backend keeps no replay). Cleared on a workspace switch.
 - R1.2.10 ✅ Git state follows repository lifecycle changes. Creating or removing
@@ -150,7 +150,7 @@ writes.
   the member chips and the feed follow HEAD wherever it moved (`git://state`).
   Working a branch *beside* the current one, rather than in place, stays the new-
   agent menu's worktree launch.
-- R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/diff.ts`; wash tokens).
+- R1.4.4 ✅ Per-file colorized diff view (shared parser `lib/code/diff.ts`; wash tokens).
 - R1.4.5 ⏳ Review verbs on agent commits: approve / send-back / explain.
 - R1.4.6 ⏳ Manual commit path (agent-oriented by default, not exclusive).
 - R1.4.7 ✅ **Restore a version** — a plain-language description ranks prior commits
@@ -180,7 +180,7 @@ writes.
 
 ### 1.6a Auto-handoff (✅)
 - R1.6a.1 ✅ Track each session's **context-window** fill — parse the agent CLI's
-  own indicator from the PTY stream (`lib/stores/context.svelte.ts`), with a
+  own indicator from the PTY stream (`lib/stores/agent/context.svelte.ts`), with a
   conservative byte-estimate fallback.
 - R1.6a.2 ✅ Near the limit (≥90%), while the agent is idle and quota allows
   (usage gate), **hand off automatically**: ask it to write `continue-<slug>.md`,
@@ -194,7 +194,7 @@ writes.
   🔭 the CLI context parser is heuristic and should be tuned to the real output.
 - R1.6a.2a ✅ **A handoff never severs background work.** Idle means the agent
   itself reports nothing in flight — no turn, background agent or dynamic
-  workflow — read from its terminal title (`lib/stores/agentActivity.svelte.ts`;
+  workflow — read from its terminal title (`lib/stores/agent/agentActivity.svelte.ts`;
   Claude Code's `◐`/`◑` busy glyph vs its `✳` idle glyph), not just quiet output:
   an unfocused Claude Code stops ticking its spinner, so a session waiting on a
   workflow looks idle. Every handoff path — the threshold scan, the usage-recovery
@@ -211,7 +211,7 @@ writes.
   boot (a CLI rejecting the model its account is configured for), a session that
   disappears, a first turn still running at the deadline — keeps its doc, because
   a handoff deleted unread costs the whole session's work.
-- R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usageResume.svelte.ts`) —
+- R1.6a.4 ✅ **Usage-limit auto-resume** (`lib/stores/usage/usageResume.svelte.ts`) —
   the sniffer spots the CLI's usage-limit stop in the PTY stream and the rendered
   screen ("You've hit your session limit · resets 5:30pm", "limit reached", a
   spend-capped stop, the rate_limit/429 failure — never the softer "approaching"
@@ -407,8 +407,8 @@ writes.
 Frontend (Svelte)          Rust core (Tauri)
   lib/bridge.ts    ──IPC──▶  pty.rs        (terminal)
   lib/validate.ts            runner.rs     (task-runner dock)
-  lib/diff.ts                watcher.rs    (change feed)
-  lib/stores/*               vcs/          (git review + restore + clone)
+  lib/code/diff.ts           watcher.rs    (change feed)
+  lib/stores/*/*             vcs/          (git review + restore + clone)
   panels/*.svelte            ide.rs        (editor rules)
   theme.css                  usage.rs      (subscription)
                              lib.rs        (wiring only)

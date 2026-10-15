@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/motion";
-  import { baseName } from "@/lib/paths";
-  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
-  import { taskCatalog } from "@/lib/stores/taskCatalog.svelte";
-  import { isTaskRunning, taskKey } from "@/lib/stores/taskRuns.svelte";
+  import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
+  import { isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
+  import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { TaskGroup } from "@/lib/types";
+  import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/ui/motion";
+  import { baseName } from "@/lib/util/paths";
   import { flip } from "svelte/animate";
 
   const { project, onrun }: {

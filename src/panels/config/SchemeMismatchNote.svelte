@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { isDarkSurface } from "@/lib/colors";
+  import { isDarkSurface } from "@/lib/code/colors";
   import Icon from "@/lib/Icon.svelte";
-  import { effective } from "@/lib/prefs.svelte";
-  import { terminalSchemes } from "@/lib/stores/terminalSchemes.svelte";
+  import { effective } from "@/lib/settings/prefs.svelte";
+  import { terminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
   import { Scheme } from "@/lib/types";
 
   // Says when a face's terminal-scheme pick fights the app scheme it paints - a

@@ -3,8 +3,8 @@
 // rather than corrupting the UI. Two helpers own that contract; channels below
 // just declare command + schema.
 
-import { createSerialQueue } from "@/lib/settings-state";
-import { adoptSettings, beginSettingsRequest } from "@/lib/settings.svelte";
+import { createSerialQueue } from "@/lib/settings/settings-state";
+import { adoptSettings, beginSettingsRequest } from "@/lib/settings/settings.svelte";
 import {
   AccountUsage,
   AddRootOutcome,

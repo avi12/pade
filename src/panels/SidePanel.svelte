@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Side, SIDE_PANEL_TABS } from "@/lib/side-panels";
-  import { startRunner } from "@/lib/stores/runners.svelte";
+  import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
+  import { startRunner } from "@/lib/stores/tasks/runners.svelte";
   import type { Agent } from "@/lib/types";
+  import LazyPanel from "@/lib/ui/LazyPanel.svelte";
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
-  import LazyPanel from "@/panels/LazyPanel.svelte";
   import SidePanelHeader from "@/panels/SidePanelHeader.svelte";
 
   // The open side panel under its shared header. The Change Feed is the default

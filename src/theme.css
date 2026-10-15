@@ -162,7 +162,7 @@
   --critical-wash: hsl(352deg 72% 55% / 14%);
 
   /* Reasoning effort - five tones, coolest to hottest: blue, green, amber,
-     red, purple (see lib/EffortTint). Hues set far apart so neighbouring
+     red, purple (see lib/model/EffortTint). Hues set far apart so neighbouring
      levels never read alike, and dark enough to stay legible as text. */
   --effort-tone-1: hsl(215deg 85% 45%);
   --effort-tone-2: hsl(150deg 80% 30%);
@@ -171,7 +171,7 @@
   --effort-tone-5: hsl(285deg 70% 48%);
 
   /* Context-window fuel gauge - a blue→amber→red ramp for how full an agent's
-     context is (see lib/context-level). Its own scale, distinct from the
+     context is (see lib/usage/context-level). Its own scale, distinct from the
      blue/orange/pink severity above, so a filling context reads like a traffic
      light on each session tab. Theme-adaptive: darker/denser in light mode. */
   --context-ok: hsl(212deg 90% 46%);
@@ -228,7 +228,7 @@
   --terminal-bright-white: hsl(var(--seed-hue) 40% 99%);
   --terminal-selection: hsl(210deg 90% 45% / 22%);
 
-  /* Find-in-terminal (lib/TerminalFind). Both are washes, never solids: the
+  /* Find-in-terminal (lib/terminal/TerminalFind). Both are washes, never solids: the
      addon draws every other match UNDER the row's glyphs but the active one
      OVER them, so an opaque active colour would blank out the very word the
      search just found. Amber because that is what a reader already expects a
@@ -239,7 +239,7 @@
 
   /* The caret. Defined once, in terms of the accent, so it follows every scheme
      and palette; a chosen Windows Terminal scheme overwrites this token with its
-     own cursor colour (lib/terminal-palette). */
+     own cursor colour (lib/terminal/terminal-palette). */
   --terminal-cursor: var(--primary);
 
   /* Syntax-highlight palette for the code / config / diff viewers. */
@@ -281,7 +281,7 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 
-  /* The one authoritative home for the font stacks. lib/prefs composes a chosen
+  /* The one authoritative home for the font stacks. lib/settings/prefs composes a chosen
      UI/mono font on top of these via `var(--font-*-base)` - never re-spelling the
      fallback list - and App binds the result onto --font-ui/--font-monospace. */
   --font-ui-base: "Figtree", "Segoe UI", system-ui, sans-serif;
@@ -289,7 +289,7 @@
   --font-ui: var(--font-ui-base);
   --font-monospace: var(--font-monospace-base);
 
-  /* Appended after the monospace stack for right-to-left text (lib/TerminalRtl).
+  /* Appended after the monospace stack for right-to-left text (lib/terminal/TerminalRtl).
      Programming fonts carry no Arabic or Hebrew at all, so those runs would fall
      back to whatever the platform picked - naming the faces keeps a terminal's
      Arabic legible and consistent instead of leaving it to chance. Installed
@@ -298,7 +298,7 @@
 
   /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
      still tracks the user's browser zoom (1rem), and --ui-scale (set from the
-     uiScale pref in lib/prefs) is the user's zoom knob. rem/em-sized UI and
+     uiScale pref in lib/settings/prefs) is the user's zoom knob. rem/em-sized UI and
      the terminal derive from this one base. */
   --ui-scale: 1;
   --font-base: max(16px, 1rem);
@@ -370,7 +370,7 @@
 }
 
 /* Cyberpunk 2077 - the fourth theme option, a palette rather than a scheme.
-   `lib/theme-mode` gives it the OS's light/dark (like Auto) and tags the root
+   `lib/settings/theme-mode` gives it the OS's light/dark (like Auto) and tags the root
    `data-palette="cyberpunk"`, so the skin has a night face and a day face; the
    two blocks define exactly the same tokens and each is selected by its own
    `data-theme`, so neither depends on source order to win.
@@ -545,7 +545,7 @@
    the deepest layer on screen; here it is the lightest, so the terminal still
    reads as the surface you are looking into rather than a panel sitting on top.
    A chosen Windows Terminal scheme still overrides all sixteen slots plus the
-   surface (lib/terminal-palette) - that is the user's pick and it wins. */
+   surface (lib/terminal/terminal-palette) - that is the user's pick and it wins. */
 :root[data-palette="cyberpunk"][data-theme="light"] {
   --seed-hue: 197deg;
 
@@ -772,7 +772,7 @@ body,
   margin: 0;
 }
 
-/* Root font tracks the user's zoom pref (lib/prefs sets --ui-scale). Using % of
+/* Root font tracks the user's zoom pref (lib/settings/prefs sets --ui-scale). Using % of
    the inherited base - never a fixed px - keeps the OS/browser a11y font size
    honored; rem/em and `--font-base` sizing scale with it. */
 html {
@@ -932,7 +932,7 @@ textarea {
    `view-transition-name`, a transform/filter, or `content-visibility` becomes that
    containing block *and* a stacking context, so there the bubble is clipped or
    painted under whatever follows the ancestor. Those triggers use the shared
-   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/truncation-tooltip`
+   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/ui/truncation-tooltip`
    - not this pseudo. */
 [data-tooltip] {
   position: relative;

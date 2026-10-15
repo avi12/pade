@@ -209,7 +209,7 @@ ms while the terminal sat on the frames, so a continuous gesture repainted about
 **once per second** instead of once per frame. That was the "PADE's terminal lags
 when I scroll, Windows Terminal doesn't" report — not renderer cost, a policy
 applied one branch too wide. Gated on `wheelScrollsTerminalDocument`
-(`lib/terminal-output`).
+(`lib/terminal/terminal-output`).
 
 One final guard covers structural layout changes such as opening the task-runner
 dock. A flex layout can briefly report an undersized viewport while it settles;
@@ -300,8 +300,8 @@ to what ADE does with its buffer:
 
 So: the buffer keeps the agent's own logical order, and an overlay draws over it.
 
-**Runs, not lines.** `lib/terminal-rtl` marks only the columns that read right to left,
-and `lib/TerminalRtl` positions one box over exactly those cells. A whole-line overlay
+**Runs, not lines.** `lib/terminal/terminal-rtl` marks only the columns that read right to left,
+and `lib/terminal/TerminalRtl` positions one box over exactly those cells. A whole-line overlay
 (the `ar-terminal` shape) re-renders the entire row proportionally, which drags a TUI's
 box borders and aligned columns off the grid. Two rules keep a run honest:
 

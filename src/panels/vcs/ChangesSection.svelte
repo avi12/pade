@@ -1,12 +1,12 @@
 <script lang="ts">
   import { vcs } from "@/lib/bridge";
-  import { parseDiff } from "@/lib/diff";
-  import DiffView from "@/lib/DiffView.svelte";
-  import { formatCount } from "@/lib/format";
-  import { baseName } from "@/lib/paths";
-  import { effective } from "@/lib/prefs.svelte";
+  import { parseDiff } from "@/lib/code/diff";
+  import DiffView from "@/lib/code/DiffView.svelte";
+  import { effective } from "@/lib/settings/prefs.svelte";
   import { DiffStyle, VcsKind } from "@/lib/types";
   import type { StatusEntry } from "@/lib/types";
+  import { formatCount } from "@/lib/util/format";
+  import { baseName } from "@/lib/util/paths";
 
   // Working-tree changes: the unreviewed/staged groups and the inline diff of
   // the selected file. Agent-oriented review lives in the "unreviewed"

@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { isTemporaryWorkspace } from "@/lib/paths";
+  import { isTemporaryWorkspace } from "@/lib/util/paths";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
 
   // A row menu's actions for a PADE-owned workspace: relabel (temp only),

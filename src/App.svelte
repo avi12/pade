@@ -1,9 +1,6 @@
 <script lang="ts">
-  import { startingModelChoice } from "@/lib/agent-model-scope";
-  import { aiNamingEnabled } from "@/lib/ai-naming-scope";
-  import AppMenu from "@/lib/AppMenu.svelte";
-  import { createAutoNamer } from "@/lib/auto-name";
-  import BranchSwitcher from "@/lib/BranchSwitcher.svelte";
+  import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
+  import { createAutoNamer } from "@/lib/agent/auto-name";
   import {
     agents as agentsApi,
     feed,
@@ -14,15 +11,11 @@
     windows,
     workspace
   } from "@/lib/bridge";
-  import DesignMenu from "@/lib/DesignMenu.svelte";
-  import { clearDiscordPresence, updateDiscordPresence } from "@/lib/discord-presence";
-  import type { DragHint } from "@/lib/drag-reorder";
   import Icon from "@/lib/Icon.svelte";
-  import IdeMenu from "@/lib/IdeMenu.svelte";
-  import Logo from "@/lib/Logo.svelte";
-  import MemberSwitcher from "@/lib/MemberSwitcher.svelte";
-  import { collapsePane } from "@/lib/motion";
-  import OverflowTooltipLayer from "@/lib/OverflowTooltipLayer.svelte";
+  import DesignMenu from "@/lib/ide/DesignMenu.svelte";
+  import IdeMenu from "@/lib/ide/IdeMenu.svelte";
+  import { startingModelChoice } from "@/lib/model/agent-model-scope";
+  import RunnerDock from "@/lib/runners/RunnerDock.svelte";
   import {
     layoutWithoutPane,
     layoutWithoutSession,
@@ -31,48 +24,50 @@
     paneIdsAfterSplit,
     sessionsAfterReorder,
     wrappedIndex
-  } from "@/lib/pane-layout";
-  import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
-  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/prefs.svelte";
-  import { DropSide } from "@/lib/reorder";
-  import { openRepositoryTarget } from "@/lib/repository-links";
-  import RunnerDock from "@/lib/RunnerDock.svelte";
-  import { saveTempWorkspace } from "@/lib/save-temp-workspace";
-  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
-  import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session-exit";
-  import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
-  import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
-  import SessionTabs, { ADD_SESSION_MENU_ID } from "@/lib/SessionTabs.svelte";
-  import { settings } from "@/lib/settings.svelte";
-  import { settledValue } from "@/lib/settled";
-  import { Side, SIDE_PANEL_TABS } from "@/lib/side-panels";
-  import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
-  import { createAgentRetheme } from "@/lib/stores/agentRetheme.svelte";
-  import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
-  import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
-  import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/modelSwitch.svelte";
-  import {
-    armNewProjectDetection,
-    disposeNewProjectDetection,
-    initNewProjectDetection
-  } from "@/lib/stores/new-project-detection";
-  import { projectKind, requestProjectKind } from "@/lib/stores/projectKinds.svelte";
-  import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/runners.svelte";
+  } from "@/lib/session/pane-layout";
+  import { registerPaneShortcuts } from "@/lib/session/pane-shortcuts";
+  import { DropSide } from "@/lib/session/reorder";
+  import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
+  import { mcpRestartTargets, rekeyLayout } from "@/lib/session/session-restart";
+  import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session/session-restore";
+  import SessionTabs, { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
+  import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
+  import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
+  import { settings } from "@/lib/settings/settings.svelte";
+  import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
+  import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
+  import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
+  import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
+  import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
+  import { createApiErrorRetry, dropApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
+  import { createAutoHandoff } from "@/lib/stores/agent/handoff.svelte";
+  import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/agent/mcpReload.svelte";
+  import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/model/modelSwitch.svelte";
   import {
     dropChoiceAttention,
     ensureChoiceAttention,
     reconcileChoiceAttention
-  } from "@/lib/stores/sessionAttention.svelte";
-  import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
-  import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/sessionNaming.svelte";
-  import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
-  import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
-  import { showToast, toastText } from "@/lib/stores/toast.svelte";
-  import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
-  import { activeMemberIn, loadWorkspaceMembers, refreshMemberBranches } from "@/lib/stores/workspaceMembers.svelte";
-  import { registerTabShortcuts } from "@/lib/tab-shortcuts";
+  } from "@/lib/stores/session/sessionAttention.svelte";
+  import { dropSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
+  import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/session/sessionNaming.svelte";
+  import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
+  import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
+  import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
+  import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
+  import { createUsageResume, dropUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
+  import {
+    armNewProjectDetection,
+    disposeNewProjectDetection,
+    initNewProjectDetection
+  } from "@/lib/stores/workspace/new-project-detection";
+  import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
+  import {
+    activeMemberIn,
+    loadWorkspaceMembers,
+    refreshMemberBranches
+  } from "@/lib/stores/workspace/workspaceMembers.svelte";
+  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/send-shortcut";
+  import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type {
     Agent,
@@ -81,13 +76,22 @@
     ModelChoice,
     OpenTarget
   } from "@/lib/types";
-  import UsageMeter from "@/lib/UsageMeter.svelte";
+  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import Logo from "@/lib/ui/Logo.svelte";
+  import { collapsePane } from "@/lib/ui/motion";
+  import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
+  import UsageMeter from "@/lib/usage/UsageMeter.svelte";
+  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
+  import { settledValue } from "@/lib/util/settled";
   import { FolderPath, parseInput } from "@/lib/validate";
-  import { WindowShortcut, windowShortcutFor } from "@/lib/window-shortcuts";
-  import { createRelocator } from "@/lib/workspace-relocate";
+  import BranchSwitcher from "@/lib/vcs/BranchSwitcher.svelte";
+  import { openRepositoryTarget } from "@/lib/vcs/repository-links";
+  import AppMenu from "@/lib/workspace/AppMenu.svelte";
+  import MemberSwitcher from "@/lib/workspace/MemberSwitcher.svelte";
+  import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
+  import { createRelocator } from "@/lib/workspace/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
-  import SendSelectionButton from "@/panels/SendSelectionButton.svelte";
   import SidePanel from "@/panels/SidePanel.svelte";
   import SidePanelResizer from "@/panels/SidePanelResizer.svelte";
   import { onDestroy, onMount, tick, untrack } from "svelte";
@@ -174,7 +178,7 @@
 
   // ── Tab drag → reorder / split ──────────────────────────────────────────────
   // `DropSide` (which half of a pane a dragged tab lands on) and the drop's
-  // layout math live in `@/lib/reorder` and `@/lib/pane-layout` - DOM-free and
+  // layout math live in `@/lib/session/reorder` and `@/lib/session/pane-layout` - DOM-free and
   // unit-tested. (`Side` names the side panels - a different concern.)
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
@@ -447,7 +451,7 @@
   });
 
   // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
-  // can flash red when one is pending on it (lib/stores/sessionAttention).
+  // can flash red when one is pending on it (lib/stores/session/sessionAttention).
   onMount(async () => {
     await ensureChoiceAttention();
   });
@@ -541,7 +545,7 @@
 
   // ── Discord Rich Presence ────────────────────────────────────────────────────
   // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
-  // state→bridge mapping lives in lib/discord-presence (SoC). Both flags resolve
+  // state→bridge mapping lives in lib/shell/discord-presence (SoC). Both flags resolve
   // through `effective` - the one home for their defaults, shared with the Config
   // panel's toggles - so a change there reaches the presence the moment it lands.
   // $derived so the effect only re-sends when presence, the project-name toggle, or
@@ -581,7 +585,7 @@
   });
 
   // Auto-name a temp workspace once the agent has produced real work
-  // (lib/auto-name): after a few distinct files change, ask the agent (or a
+  // (lib/agent/auto-name): after a few distinct files change, ask the agent (or a
   // heuristic) for a friendly label. Fires once per workspace; label-only.
   const autoNamer = createAutoNamer({
     currentProject: () => currentProject,
@@ -595,7 +599,7 @@
   });
 
   // Whether this window names its session tabs with AI - the project's own choice
-  // when it has one, else the global default (lib/ai-naming-scope).
+  // when it has one, else the global default (lib/agent/ai-naming-scope).
   const namesSessionsWithAi = $derived(
     aiNamingEnabled({
       prefs: settings.prefs,
@@ -615,7 +619,7 @@
     });
   });
 
-  // Send-from-IDE bridge (lib/send-shortcut): copy in any external editor, press
+  // Send-from-IDE bridge (lib/terminal/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
     registerSendShortcut({
@@ -625,7 +629,7 @@
     return () => unregisterSendShortcut();
   });
 
-  // Tab shortcuts (lib/tab-shortcuts): capture-phase so they win over a focused
+  // Tab shortcuts (lib/session/tab-shortcuts): capture-phase so they win over a focused
   // agent terminal - new tab, launch menu, close, and next/previous cycling.
   onMount(() =>
     registerTabShortcuts({
@@ -638,7 +642,7 @@
       tabCount: () => sessions.length
     }));
 
-  // Pane shortcuts (lib/pane-shortcuts), active while a tab is split into panes:
+  // Pane shortcuts (lib/session/pane-shortcuts), active while a tab is split into panes:
   // Ctrl+[ / Ctrl+] cycle the active pane (wrapping), Ctrl+Alt+1..9 jump to the
   // nth, and Ctrl+Alt+W closes the active pane's session - the slot then animates
   // out via `out:collapsePane`, and closing the sole pane closes the tab. Selecting
@@ -768,7 +772,7 @@
   }
 
   // When each session launched, so a self-exit right after reads as a failed
-  // start (lib/session-exit) and is not respawned into a loop.
+  // start (lib/session/session-exit) and is not respawned into a loop.
   const sessionLaunchedAt = new SvelteMap<string, number>();
   // A hand-close also kills the PTY, firing the exit event; the exit handler skips
   // these so the two teardown paths don't race.
@@ -903,7 +907,7 @@
     }));
   }
 
-  // ── Tab keyboard shortcuts (lib/tab-shortcuts) ───────────────────────────────
+  // ── Tab keyboard shortcuts (lib/session/tab-shortcuts) ───────────────────────────────
   // Actions the shortcut layer drives; each is a no-op outside the ready phase.
 
   // Another tab of the last session's kind (mirrors the "+" button).
@@ -1163,7 +1167,7 @@
     }
   }
 
-  // The workspace's last session just ended (lib/session-exit decides what next).
+  // The workspace's last session just ended (lib/session/session-exit decides what next).
   function settleEmptyWorkspace({ agent, isFailedStart }: {
     agent: Agent;
     isFailedStart: boolean;
@@ -1257,7 +1261,7 @@
   }
 
   // A terminal-scheme flip reaches the running agents through
-  // lib/stores/agentRetheme: Claude repaints in place, the spawn-themed agents
+  // lib/stores/agent/agentRetheme: Claude repaints in place, the spawn-themed agents
   // are respawned on their own conversation once idle.
   const agentRetheme = createAgentRetheme({
     sessions: () => sessions,
@@ -1349,7 +1353,7 @@
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
-  // The kill → backend-op → resume flow lives in lib/workspace-relocate; this
+  // The kill → backend-op → resume flow lives in lib/workspace/workspace-relocate; this
   // shell only lends it the session list and takes back the results.
   const relocator = createRelocator({
     sessions: () => sessions,
@@ -1387,7 +1391,7 @@
 
   // ── Auto-handoff ───────────────────────────────────────────────────────────
   // Near-limit sessions hand off to a fresh agent; the machinery lives in
-  // lib/stores/handoff. The scan runs inside this $effect so it re-fires as the
+  // lib/stores/agent/handoff. The scan runs inside this $effect so it re-fires as the
   // session list, prefs and context stores change.
   const autoHandoff = createAutoHandoff({
     sessions: () => sessions,
@@ -1492,7 +1496,7 @@
   // ── Usage-limit auto-resume ────────────────────────────────────────────────
   // A session stopped by an exhausted usage window resumes the moment the
   // window resets - "continue" into the same session while its context has
-  // room, the handoff flow above when it doesn't (lib/stores/usageResume).
+  // room, the handoff flow above when it doesn't (lib/stores/usage/usageResume).
   const automaticRecoveryHost = {
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoResume === false,
@@ -1506,7 +1510,7 @@
   // ── API-error auto-retry ───────────────────────────────────────────────────
   // A session stopped by a transient API error (overloaded, a 5xx, a dropped
   // connection) is nudged with "continue" every 30s, handing off through the
-  // flow above when its context is too full to recover (lib/stores/apiErrorRetry).
+  // flow above when its context is too full to recover (lib/stores/agent/apiErrorRetry).
   const apiErrorRetry = createApiErrorRetry(automaticRecoveryHost);
   $effect(() => apiErrorRetry.check());
   onDestroy(() => apiErrorRetry.dispose());
@@ -1525,7 +1529,7 @@
     }
   });
 
-  // The open side panel (lib/side-panels); `null` means none is open.
+  // The open side panel (lib/shell/side-panels); `null` means none is open.
   let side = $state<Side | null>(Side.Feed);
   // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
@@ -1550,7 +1554,7 @@
     isWindowFocused = true;
   }}
   onkeydowncapture={async e => {
-    // The chords themselves live in lib/window-shortcuts.
+    // The chords themselves live in lib/shell/window-shortcuts.
     const shortcut = windowShortcutFor({
       event: e,
       isDevelopment: import.meta.env.DEV

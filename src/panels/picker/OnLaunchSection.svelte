@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { globalNaming } from "@/lib/ai-naming-scope";
+  import { globalNaming } from "@/lib/agent/ai-naming-scope";
   import { contextMenu } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { rovingTablist } from "@/lib/roving-tabs";
   import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
+  import { rovingTablist } from "@/lib/ui/roving-tabs";
   import { onMount } from "svelte";
 
   // "On launch" preferences: the no-project start mode, unused-temp cleanup,
