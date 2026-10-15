@@ -17,13 +17,13 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::pty::{MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES};
-use crate::util::{owner_access, OwnerAccess};
+use crate::util::{now_milliseconds, owner_access, OwnerAccess};
 
 const MAXIMUM_RUNNERS_PER_WINDOW: usize = 32;
 const MAXIMUM_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
@@ -144,15 +144,6 @@ struct RunnerExit {
     id: String,
     /// The process exit code, or `None` if it was terminated by a signal.
     code: Option<i32>,
-}
-
-/// Current Unix time in milliseconds (0 if the clock is before the epoch).
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| {
-            u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
-        })
 }
 
 /// Build the platform shell invocation for a command string, mirroring how
@@ -290,7 +281,7 @@ pub async fn runner_start(
         id,
         command,
         cwd,
-        started_at: now_millis(),
+        started_at: now_milliseconds(),
     };
     let mut runners = state.0.lock().map_err(|error| error.to_string())?;
     let access = owner_access(

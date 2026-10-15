@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 
 use crate::agents::{ID_ANTIGRAVITY, ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_CURSOR, ID_OPENCODE};
-use crate::util::{home_dir, read_json, since_unix_epoch};
+use crate::util::{home_dir, now_milliseconds, read_json};
 
 /// The agents we can source usage for, and the one authoritative mapping from
 /// the registry id string the frontend sends (`session.agent.id`). An agent we
@@ -526,9 +526,8 @@ fn live_claude_oauth() -> Option<serde_json::Value> {
     let mut json = read_json(&claude_credentials_path()?)?;
     let oauth = json.get_mut("claudeAiOauth")?.take();
     let expires_at_milliseconds = oauth.get("expiresAt").and_then(serde_json::Value::as_u64);
-    let now_milliseconds = since_unix_epoch().as_millis();
-    let has_expired = expires_at_milliseconds
-        .is_some_and(|expires_at| u128::from(expires_at) <= now_milliseconds);
+    let has_expired =
+        expires_at_milliseconds.is_some_and(|expires_at| expires_at <= now_milliseconds());
     if has_expired {
         return None;
     }

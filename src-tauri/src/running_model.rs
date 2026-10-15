@@ -40,10 +40,11 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::agents::{ID_CLAUDE, ID_CODEX, ID_COPILOT, ID_OPENCODE};
+use crate::util::{milliseconds_since_unix_epoch, now_milliseconds};
 
 /// The first argument that turns `pade.exe` into the hook sink.
 const HOOK_SINK_FLAG: &str = "--agent-hook-sink";
@@ -419,7 +420,11 @@ fn record_hook_report() -> Result<(), String> {
     }
 
     let path = state_file(&conversation_id).ok_or("no PADE data directory")?;
-    let next = fold(read_state(&path).unwrap_or_default(), &report, now_millis());
+    let next = fold(
+        read_state(&path).unwrap_or_default(),
+        &report,
+        now_milliseconds(),
+    );
     write_state(&path, &next).map_err(|error| error.to_string())
 }
 
@@ -578,7 +583,7 @@ fn record_choice(conversation_id: &str, choice: &ModelChoice) {
     let Some(path) = state_file(conversation_id) else {
         return;
     };
-    let now = now_millis();
+    let now = now_milliseconds();
     let mut state = read_state(&path).unwrap_or_default();
     if let Some(model) = &choice.model {
         state.model = Some(model.clone());
@@ -603,20 +608,10 @@ fn write_state(path: &Path, state: &SessionState) -> std::io::Result<()> {
     std::fs::rename(partial, path)
 }
 
-fn now_millis() -> u64 {
-    millis_since_epoch(SystemTime::now())
-}
-
 fn modified_millis(path: &Path) -> Option<u64> {
-    Some(millis_since_epoch(
+    Some(milliseconds_since_unix_epoch(
         std::fs::metadata(path).ok()?.modified().ok()?,
     ))
-}
-
-fn millis_since_epoch(time: SystemTime) -> u64 {
-    time.duration_since(UNIX_EPOCH).map_or(0, |since| {
-        u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
-    })
 }
 
 /// Milliseconds since the epoch for an RFC 3339 UTC timestamp as agents write

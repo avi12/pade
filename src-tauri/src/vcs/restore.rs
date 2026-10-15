@@ -1,10 +1,9 @@
 //! Restore a version - natural-language query → ranked commits → checkout.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use serde::Serialize;
 
 use super::{commit_header_format, run_git, validate_object_id, CommitHeader, FIELD_SEPARATOR};
+use crate::util::since_unix_epoch;
 
 /// A commit ranked against a natural-language restore query: the Log view's
 /// header fields plus a relevance `score`.
@@ -27,13 +26,6 @@ const WEEK_DAYS: u64 = 7;
 
 /// The branch-name prefix a restored commit is checked out under.
 const RESTORE_BRANCH_PREFIX: &str = "pade/restore-";
-
-/// Current unix time in seconds (0 if the clock predates the epoch).
-fn now_unix() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_secs())
-}
 
 /// Split a string into lowercase alphanumeric-ish tokens (whitespace-separated).
 fn tokenize(text: &str) -> Vec<String> {
@@ -128,7 +120,7 @@ pub async fn vcs_restore_candidates(
     let raw = run_git(&cwd, &["log", &format!("-n{candidate_limit}"), &format])?;
 
     let query_tokens = tokenize(&query);
-    let window = time_hint_window(&query, now_unix());
+    let window = time_hint_window(&query, since_unix_epoch().as_secs());
 
     let mut candidates: Vec<RestoreCandidate> = raw
         .lines()

@@ -11,12 +11,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
+use crate::util::now_milliseconds;
 use crate::vcs::git_in;
 
 static CHANGE_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -34,7 +35,7 @@ struct ProjectWatcher {
     /// When this watch was armed (epoch ms) - the "watching since" the feed
     /// states in its empty panel, since the feed only ever holds changes made
     /// after that moment (nothing replays what happened before it).
-    armed_at: u128,
+    armed_at: u64,
     _watcher: RecommendedWatcher,
 }
 
@@ -202,7 +203,7 @@ struct ChangeEvent {
     added: usize,
     removed: usize,
     summary: String,
-    ts: u128,
+    ts: u64,
 }
 
 /// The git metadata entry a workspace gains when `git init` runs - the one
@@ -649,12 +650,6 @@ fn line_delta(old: Option<usize>, new: Option<usize>) -> (usize, usize) {
         (Some(old_count), None) => (0, old_count),
         (None, None) => (0, 0),
     }
-}
-
-fn now_milliseconds() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_millis())
 }
 
 fn line_count(path: &Path) -> Option<usize> {
@@ -1435,7 +1430,7 @@ pub struct WatchStatus {
     /// The root the watch is armed on; `None` when this window has no live watch.
     root: Option<String>,
     /// Epoch ms the watch was armed - the feed holds nothing from before it.
-    armed_at: Option<u128>,
+    armed_at: Option<u64>,
     /// Changes surfaced to this window since arming.
     surfaced: u64,
     /// Changes the ignore rules dropped since arming. A climbing count under an

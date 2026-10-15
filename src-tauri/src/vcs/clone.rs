@@ -6,11 +6,13 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use tauri::Url;
 
-use crate::util::{command, home_dir, is_on_path, percent_encode, succeeds_within};
+use crate::util::{
+    command, home_dir, is_on_path, percent_encode, since_unix_epoch, succeeds_within,
+};
 use crate::workspace::validated_child_path;
 
 use super::DEFAULT_REMOTE_NAME;
@@ -145,10 +147,7 @@ struct AskPass {
 
 impl AskPass {
     fn create() -> Result<Self, String> {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| e.to_string())?
-            .as_nanos();
+        let suffix = since_unix_epoch().as_nanos();
         let extension = if cfg!(windows) { "cmd" } else { "sh" };
         let path = std::env::temp_dir().join(format!(
             "pade-git-askpass-{}-{suffix}.{extension}",

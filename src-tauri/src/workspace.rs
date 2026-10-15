@@ -15,10 +15,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+
+use crate::util::now_milliseconds;
 
 static SETTINGS_REPOSITORY: SettingsRepository = SettingsRepository {
     lock: Mutex::new(()),
@@ -715,14 +717,6 @@ fn workspaces_directory() -> Result<PathBuf, String> {
 }
 
 const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;
-
-fn now_milliseconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|elapsed| u64::try_from(elapsed.as_millis()).ok())
-        .unwrap_or(0)
-}
 
 /// Record that a project was just used - its "last accessed" time, and for a
 /// temp workspace the restart of its cleanup clock.

@@ -17,7 +17,7 @@ use std::thread;
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::util::since_unix_epoch;
+use crate::util::{now_milliseconds, since_unix_epoch};
 
 /// PADE's **public** Discord application (client) id - the VS-Code-extension model:
 /// one app registered once by the maintainer, its id shipped in the binary, so
@@ -388,8 +388,7 @@ static NONCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// within and across runs without needing a UUID crate.
 fn next_nonce() -> String {
     let count = NONCE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let milliseconds = since_unix_epoch().as_millis();
-    format!("{milliseconds}-{count}")
+    format!("{}-{count}", now_milliseconds())
 }
 
 /// The socket names a Discord client may listen on, first choice first: one per

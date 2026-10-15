@@ -6,9 +6,11 @@
 use std::fs;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 
 use tauri_plugin_clipboard_manager::ClipboardExt;
+
+use crate::util::now_milliseconds;
 
 /// Saved pastes older than this are pruned on the next paste, so the folder
 /// stays bounded while a path pasted into a long-running session keeps working.
@@ -82,11 +84,7 @@ fn save_clipboard_image(app: &tauri::AppHandle) -> Result<Option<String>, String
     fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
     prune_old_pastes(&directory);
 
-    let milliseconds = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?
-        .as_millis();
-    let path = directory.join(format!("paste-{milliseconds}.png"));
+    let path = directory.join(format!("paste-{}.png", now_milliseconds()));
     encode_png(&image, &path)?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
