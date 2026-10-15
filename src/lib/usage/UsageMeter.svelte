@@ -1,7 +1,7 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent/agent-icon";
-  import { usage as usageApi } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import {
     askToResetLimits,
     limitResetOffer,
@@ -157,7 +157,7 @@
       agentIds.map(async id => [
         id,
         await settledValue({
-          promise: usageApi.accountFor({
+          promise: sendMessage(Command.usageAccountAgent, {
             agent: id,
             forceRefresh
           }),

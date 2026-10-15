@@ -10,13 +10,13 @@
 // app run, a project switch, a re-armed root - never inherits another watch's
 // changes, so liveness stays the backend's claim, never this snapshot's.
 
-import { windows } from "@/lib/bridge";
+import { windowLabel } from "@/lib/ipc/platform";
 import { ChangeEvent } from "@/lib/types";
 import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
 import { z } from "zod";
 
 function snapshotStorageKey() {
-  return `pade.change-feed:${windows.label()}`;
+  return `pade.change-feed:${windowLabel()}`;
 }
 
 /** The feed as one watch accumulated it: whose watch, armed when, and its events. */

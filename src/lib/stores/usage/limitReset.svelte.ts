@@ -3,7 +3,7 @@
 // menu - so both show the same offer and open the one confirmation. Spending a
 // reset can't be undone, so asking for one only opens that confirmation.
 
-import { usage as usageApi } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { showToast } from "@/lib/stores/ui/toast.svelte";
 import type { LimitReset } from "@/lib/types";
 import { errorMessage } from "@/lib/util/errors";
@@ -51,7 +51,7 @@ export function limitResetConfirmation() {
 /** Re-read the offer - on each of the meter's usage readings, and after a claim. */
 export async function refreshLimitResetOffer() {
   offer = await settledValue({
-    promise: usageApi.limitResetOffer(),
+    promise: sendMessage(Command.limitResetOffer),
     fallback: null
   });
   announceNewOffer();
@@ -94,7 +94,7 @@ export async function confirmLimitReset(onreset: () => Promise<void>) {
 
   isClaiming = true;
   try {
-    const outcome = await usageApi.claimLimitReset(offer.grantId);
+    const outcome = await sendMessage(Command.limitResetClaim, { grantId: offer.grantId });
     if (!outcome.reset) {
       failure = `Not reset: ${outcome.reason ?? outcome.result}`;
       return;

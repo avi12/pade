@@ -1,9 +1,9 @@
 // Maps app state (the open project + its language + prefs) to Discord rich-presence
-// bridge calls - the one seam App.svelte drives, keeping the presence concern out
+// commands - the one seam App.svelte drives, keeping the presence concern out
 // of the shell (SoC). Presence is best-effort: Discord may be closed, so IPC
 // failures are swallowed here rather than surfaced to the UI.
 
-import { discord } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { displayName } from "@/lib/util/paths";
 
 // Per project-kind Discord overlay: the small art-asset key uploaded to the public
@@ -68,7 +68,7 @@ type PresenceState = {
   /** The workspace-label map, so a renamed (auto-named) temp workspace reports
    *  its friendly name to Discord rather than its `temp-<stamp>` folder. */
   labels: Record<string, string>;
-  /** The open project's detected kind (from `ide.projectKinds`), if any. */
+  /** The open project's detected kind (from `ide_project_kinds`), if any. */
   kind?: string;
 };
 
@@ -119,10 +119,15 @@ function languageFields(kind?: string) {
 // Stop reporting entirely - used when the (focused, publishing) window closes so
 // PADE's process-wide presence doesn't linger on the last project.
 export async function clearDiscordPresence() {
-  await bestEffort(() => discord.clearActivity());
+  await bestEffort(() => sendMessage(Command.discordClearActivity));
 }
 
 export async function updateDiscordPresence(presence: PresenceState) {
   const activity = presenceActivity(presence);
-  await bestEffort(() => (activity === null ? discord.clearActivity() : discord.setActivity(activity)));
+  if (activity === null) {
+    await bestEffort(() => sendMessage(Command.discordClearActivity));
+    return;
+  }
+
+  await bestEffort(() => sendMessage(Command.discordSetActivity, activity));
 }

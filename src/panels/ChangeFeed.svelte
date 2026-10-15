@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { feed, ide, os, vcs } from "@/lib/bridge";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/code/diff";
   import type { DiffLine } from "@/lib/code/diff";
   import DiffView from "@/lib/code/DiffView.svelte";
@@ -15,6 +14,7 @@
     isVideoPath
   } from "@/lib/feed/preview";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { effective } from "@/lib/settings/prefs.svelte";
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
@@ -85,7 +85,7 @@
   // button stays hidden in both cases and appears only for a repo with a remote.
   async function loadRemote(root: string) {
     try {
-      const remote = await vcs.remoteUrl(root);
+      const remote = await sendMessage(Command.vcsRemoteUrl, { cwd: root });
       if (root !== project) {
         return;
       }
@@ -223,7 +223,7 @@
     }
 
     try {
-      const text = await feed.text({ path });
+      const text = await sendMessage(Command.feedText, { path });
       if (text === null) {
         previewDocCache.set(id, null);
         return;
@@ -262,7 +262,7 @@
         now = Date.now();
       }
     }, 1000);
-    unlistenGitState = await vcs.onStateChanged(() => {
+    unlistenGitState = await onMessage(EventType.gitState, () => {
       loadRemote(project);
     });
   });
@@ -333,7 +333,7 @@
       await loadPreviewOnce({
         cache: imageCache,
         id,
-        load: async () => (await feed.image({ path }))?.dataUrl ?? null
+        load: async () => (await sendMessage(Command.feedImage, { path }))?.dataUrl ?? null
       });
       return;
     }
@@ -342,7 +342,7 @@
       await loadPreviewOnce({
         cache: videoCache,
         id,
-        load: () => feed.video({ path })
+        load: () => sendMessage(Command.feedVideo, { path })
       });
       return;
     }
@@ -355,7 +355,7 @@
       // Git-free preview: the backend hands over the session baseline and the
       // current content; the shared parse+render path draws the diff (or the
       // whole file when the baseline landed late - see previewLines).
-      const preview = await feed.diff({ path });
+      const preview = await sendMessage(Command.feedDiff, { path });
       diffCache.set(id, previewLines(preview));
       failedIds.delete(id);
     } catch {
@@ -547,12 +547,12 @@
     line?: number;
   }) {
     if (isBinaryPath(path)) {
-      await os.reveal(path);
+      await sendMessage(Command.revealInExplorer, { path });
       return;
     }
 
     if (revealEditor) {
-      await ide.openFile({
+      await sendMessage(Command.ideOpenFile, {
         command: revealEditor.command,
         project,
         file: path,
@@ -669,7 +669,7 @@
   // toast and the summary falls back to its not-known-yet wording.
   async function loadWatchStatus() {
     try {
-      watchStatus = await feed.status();
+      watchStatus = await sendMessage(Command.watchStatus);
     } catch (error) {
       watchStatus = null;
       showToast(`Change Feed status unavailable - ${String(error)}`);
@@ -689,7 +689,7 @@
   async function armWatch() {
     isArming = true;
     try {
-      await feed.start(project);
+      await sendMessage(Command.watchStart, { root: project });
     } catch (error) {
       // The backend's refusal names the path and the reason - the one thing
       // worth reading when a project can't be watched.
@@ -779,7 +779,7 @@
           onclick={async () => {
             isSyncing = true;
             try {
-              const outcome = await vcs.pull(project);
+              const outcome = await sendMessage(Command.vcsPull, { cwd: project });
               showToast(outcome.message);
             } catch (error) {
               showToast(

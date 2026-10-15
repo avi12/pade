@@ -1,19 +1,11 @@
 <script lang="ts">
   import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
   import { createAutoNamer } from "@/lib/agent/auto-name";
-  import {
-    agents as agentsApi,
-    feed,
-    mcp,
-    pty,
-    recovery,
-    vcs,
-    windows,
-    workspace
-  } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import DesignMenu from "@/lib/ide/DesignMenu.svelte";
   import IdeMenu from "@/lib/ide/IdeMenu.svelte";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+  import { onWindowCloseRequested, setWindowTitle } from "@/lib/ipc/platform";
   import { startingModelChoice } from "@/lib/model/agent-model-scope";
   import RunnerDock from "@/lib/runners/RunnerDock.svelte";
   import {
@@ -33,6 +25,7 @@
   import SessionTabs, { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
   import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
   import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
+  import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
   import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
@@ -256,12 +249,12 @@
     // list rather than blocking the routing below.
     const detecting = Promise.race([
       settledValue({
-        promise: agentsApi.detect(),
+        promise: sendMessage(Command.agentsDetect),
         fallback: []
       }),
       new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
     ]);
-    [agents] = await Promise.all([detecting, workspace.settings()]);
+    [agents] = await Promise.all([detecting, sendSettingsMessage(Command.settingsGet)]);
 
     // An accidental reload (F5, a crash recovery) re-attaches this window to
     // the agents still running in the backend - before any query routing,
@@ -282,9 +275,9 @@
   }
 
   async function bootFromLaunchContext() {
-    const context = await workspace.context();
+    const context = await sendMessage(Command.launchContext);
     if (context.hasProject) {
-      await workspace.open(context.cwd); // records it in recent history
+      await sendMessage(Command.workspaceOpen, { path: context.cwd }); // records it in recent history
       startAgentFlow({ path: context.cwd });
       await loadBranches();
       return;
@@ -304,7 +297,7 @@
 
   async function startInTempWorkspace() {
     startAgentFlow({
-      path: await workspace.temp(),
+      path: await sendMessage(Command.workspaceTemp),
       isNewProject: true
     });
   }
@@ -354,19 +347,19 @@
     }
 
     try {
-      await workspace.open(snapshot.project);
+      await sendMessage(Command.workspaceOpen, { path: snapshot.project });
     } catch {
       // The project vanished while the window was reloading (deleted, moved,
       // unmounted). Boot falls through to the picker - so kill the snapshot's
       // still-live sessions rather than leave them running unreachably, which
       // would recreate the very invisible-agent incident restore exists to fix.
-      await Promise.allSettled(snapshot.sessions.map(orphan => pty.kill(orphan.id)));
+      await Promise.allSettled(snapshot.sessions.map(orphan => sendMessage(Command.ptyKill, { id: orphan.id })));
       clearSessionSnapshot();
       return false;
     }
 
     currentProject = snapshot.project;
-    windows.registerProject(snapshot.project);
+    sendMessage(Command.windowRegisterProject, { path: snapshot.project });
     sessions = snapshot.sessions;
     paneIds = snapshot.paneIds;
     activeId = snapshot.activeId;
@@ -428,7 +421,7 @@
   // on screen.
   async function redetectAgents() {
     agents = await settledValue({
-      promise: agentsApi.detect(),
+      promise: sendMessage(Command.agentsDetect),
       fallback: agents
     });
   }
@@ -447,7 +440,7 @@
   // creation raced navigation and once rebuilt a crashed window onto
   // about:blank - and a recovery-rebuilt window re-arms itself right here.
   onMount(async () => {
-    await recovery.arm(location.href);
+    await sendMessage(Command.recoveryArm, { url: location.href });
   });
 
   // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
@@ -467,8 +460,8 @@
   // failed re-read leaves the settings already adopted in place.
   let unlistenSettings: (() => void) | undefined;
   async function subscribeToSettingsChanges() {
-    unlistenSettings = await workspace.onChanged(async () => {
-      await Promise.allSettled([workspace.settings()]);
+    unlistenSettings = await onMessage(EventType.settingsChanged, async () => {
+      await Promise.allSettled([sendSettingsMessage(Command.settingsGet)]);
     });
   }
   onMount(() => {
@@ -479,7 +472,7 @@
   // Hand off affected agent sessions when the project's MCP servers change.
   let unlistenMcp: (() => void) | undefined;
   async function subscribeToMcpChanges() {
-    unlistenMcp = await mcp.onChanged(change => restartForMcpChange(change));
+    unlistenMcp = await onMessage(EventType.mcpChanged, ({ data }) => restartForMcpChange(data));
   }
   onMount(() => {
     subscribeToMcpChanges();
@@ -498,7 +491,7 @@
       path: currentProject,
       labels: settings.labels
     });
-    windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
+    setWindowTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 
   // Watch the open project's files app-wide - not only while the Change Feed is
@@ -511,7 +504,7 @@
       return;
     }
 
-    feed.start(currentProject);
+    sendMessage(Command.watchStart, { root: currentProject });
     refreshTaskRunDetection();
   });
 
@@ -664,7 +657,7 @@
   // exit-time kill_all reaps whatever that force-close leaves behind.
   let unlistenCloseRequested: (() => void) | undefined;
   async function interceptWindowClose() {
-    unlistenCloseRequested = await windows.onCloseRequested(async () => {
+    unlistenCloseRequested = await onWindowCloseRequested(async () => {
       // This window is going away: if it's the one publishing presence (only the
       // focused window does), stop reporting so its last project doesn't linger.
       // A remaining PADE window re-publishes its own status on gaining focus.
@@ -702,7 +695,7 @@
   async function openProject(target: OpenTarget) {
     // If another window already has this project open, focus it instead of
     // opening a second copy here - the picker window stays put.
-    if (await windows.focusProject(target.path)) {
+    if (await sendMessage(Command.windowFocusProject, { path: target.path })) {
       return;
     }
 
@@ -721,8 +714,8 @@
     await runExclusiveLeave(async () => {
       await closeWorkspaceGracefully();
 
-      await workspace.open(target.path);
-      await workspace.settings(); // pick up the updated recent history
+      await sendMessage(Command.workspaceOpen, { path: target.path });
+      await sendSettingsMessage(Command.settingsGet); // pick up the updated recent history
       startAgentFlow({
         path: target.path,
         initialPrompt: target.initialPrompt,
@@ -751,7 +744,7 @@
     }
 
     // Let other windows' pickers focus this one instead of reopening the project.
-    windows.registerProject(path);
+    sendMessage(Command.windowRegisterProject, { path });
     launch({
       agent: preferredAgentFor({
         path,
@@ -992,19 +985,19 @@
     // Not a git repository (or git missing) reads as no branches and no remote.
     const [next, onlyRemote, heads, remote] = await Promise.all([
       settledValue({
-        promise: vcs.branches(member),
+        promise: sendMessage(Command.vcsBranches, { cwd: member }),
         fallback: []
       }),
       settledValue({
-        promise: vcs.remoteBranches(member),
+        promise: sendMessage(Command.vcsRemoteBranches, { cwd: member }),
         fallback: []
       }),
       settledValue<Record<string, string>>({
-        promise: vcs.branchOf([member]),
+        promise: sendMessage(Command.vcsBranchOf, { paths: [member] }),
         fallback: {}
       }),
       settledValue<string | null>({
-        promise: vcs.remoteUrl(member),
+        promise: sendMessage(Command.vcsRemoteUrl, { cwd: member }),
         fallback: null
       })
     ]);
@@ -1024,7 +1017,7 @@
   // the open project re-fetches what it shows (git://state carries no payload).
   let unlistenGitState: (() => void) | undefined;
   async function subscribeToGitState() {
-    unlistenGitState = await vcs.onStateChanged(async () => {
+    unlistenGitState = await onMessage(EventType.gitState, async () => {
       await Promise.all([loadBranches(), refreshMemberBranches()]);
     });
   }
@@ -1108,7 +1101,7 @@
       closingByHand.add(id);
     }
 
-    await Promise.all(ids.map(id => pty.kill(id)));
+    await Promise.all(ids.map(id => sendMessage(Command.ptyKill, { id })));
 
     for (const id of ids) {
       detachSession(id);
@@ -1118,9 +1111,9 @@
 
   async function close(session: AgentSession) {
     closingByHand.add(session.id);
-    await pty.kill(session.id);
+    await sendMessage(Command.ptyKill, { id: session.id });
 
-    // `pty.kill` yields to the event loop. During that gap a project switch (or
+    // `pty_kill` yields to the event loop. During that gap a project switch (or
     // another close) can already have detached this session and launched a
     // replacement. A stale close must never send that live workspace back to
     // onboarding.
@@ -1157,7 +1150,7 @@
     });
     detachSession(id);
     // Reap the backend record; the child is already gone, so a failure is moot.
-    await Promise.allSettled([pty.kill(id)]);
+    await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
 
     if (wasLastSession) {
       settleEmptyWorkspace({
@@ -1228,7 +1221,7 @@
     await Promise.all(
       targets.map(target => {
         closingByHand.add(target.id);
-        return pty.kill(target.id);
+        return sendMessage(Command.ptyKill, { id: target.id });
       })
     );
 
@@ -1290,22 +1283,22 @@
 
   // Clear the recent-projects history from the switcher (pins survive).
   async function clearRecentProjects() {
-    await workspace.clearRecent();
+    await sendSettingsMessage(Command.workspaceClearRecent);
   }
-  // Pin/unpin a project from the switcher; the bridge adopts the response.
+  // Pin/unpin a project from the switcher; the settings request adopts the response.
   async function toggleProjectPin(target: {
     path: string;
     pinned: boolean;
   }) {
-    await workspace.setPinned(target);
+    await sendSettingsMessage(Command.workspaceSetPinned, target);
   }
   // Forget a project from the switcher's lists (folder untouched).
   async function removeRecentProject(projectPath: string) {
-    await workspace.removeRecent(projectPath);
+    await sendSettingsMessage(Command.workspaceRemoveRecent, { path: projectPath });
   }
   // Persist a drag-reordered pin order from the switcher.
   async function reorderPins(paths: string[]) {
-    await workspace.setPinnedOrder(paths);
+    await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
   }
 
   // "Delete directory" from the switcher - a destructive removal of a real
@@ -1332,7 +1325,7 @@
     remoteBranches = [];
     currentBranch = "";
     pendingPrompt = undefined;
-    windows.registerProject("");
+    sendMessage(Command.windowRegisterProject, { path: "" });
   }
 
   // "Switch project" - a DELIBERATE leave to the picker. The project's agents
@@ -1380,11 +1373,11 @@
     stopRunners: stopAllRunners,
     async setCurrentProject(path) {
       currentProject = path;
-      await windows.registerProject(path);
+      await sendMessage(Command.windowRegisterProject, { path });
       // The URL follows the project in an effect; a crash rebuild must reopen
       // the folder where it now is.
       await tick();
-      await recovery.arm(location.href);
+      await sendMessage(Command.recoveryArm, { url: location.href });
     },
     relaunch: launch
   });
@@ -1408,7 +1401,7 @@
     // session.
     async endSession(id) {
       closingByHand.add(id);
-      await Promise.allSettled([pty.kill(id)]);
+      await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
     },
     removeSession(id) {
       sessions = sessions.filter(session => session.id !== id);
@@ -1462,7 +1455,7 @@
 
       applyResumeArgs({
         id,
-        args: await pty.resumeArgs({
+        args: await sendMessage(Command.agentResumeArgs, {
           command: target.agent.command,
           cwd: target.cwd ?? currentProject,
           conversationId: target.conversationId
@@ -1574,12 +1567,14 @@
     e.stopPropagation();
 
     if (shortcut === WindowShortcut.NewWindow) {
-      await windows.create({ mode: WindowMode.enum.empty });
+      await sendMessage(Command.windowCreate, { mode: WindowMode.enum.empty });
       showToast("Opened a new window");
       return;
     }
 
-    await windows.focusRelative(shortcut === WindowShortcut.PreviousWindow ? "previous" : "next");
+    await sendMessage(Command.windowFocusRelative, {
+      direction: shortcut === WindowShortcut.PreviousWindow ? "previous" : "next"
+    });
   }}
 />
 
@@ -1615,7 +1610,7 @@
             {isTemp}
             label={projectLabel}
             labels={settings.labels}
-            onaddroot={async rootPath => await workspace.addRoot({
+            onaddroot={async rootPath => await addRoot({
               path: rootPath,
               create: false
             })}
@@ -1723,7 +1718,7 @@
             // Spawn an agent on its own git worktree for `branch`, isolated from
             // the other sessions. Uses the active session's agent (or the first).
             const agent = activeSession?.agent ?? bestAgent;
-            const cwd = await vcs.worktreeAdd({
+            const cwd = await sendMessage(Command.vcsWorktreeAdd, {
               cwd: activeMemberIn(currentProject),
               branch,
               create: false

@@ -12,7 +12,7 @@
 // supplies sessions and the handoff through `RecoveryHost` and drives the scan
 // from a component `$effect`.
 
-import { pty, usage } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { createRecoveryLoop } from "@/lib/stores/agent/recoveryLoop.svelte";
 import type { RecoveryHit, RecoveryHost } from "@/lib/stores/agent/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
@@ -335,7 +335,10 @@ function waitingNote({ session, resetAt }: {
  *  account can't say", which leaves the decision to the reset clock. */
 async function readAccount(session: AgentSession) {
   try {
-    return await usage.accountFor({ agent: session.agent.id });
+    return await sendMessage(Command.usageAccountAgent, {
+      agent: session.agent.id,
+      forceRefresh: false
+    });
   } catch {
     return null;
   }
@@ -378,7 +381,7 @@ export function createUsageResume(host: RecoveryHost) {
       return;
     }
 
-    await pty.write({
+    await sendMessage(Command.ptyWrite, {
       id: session.id,
       data: CONTINUE_PROMPT
     });

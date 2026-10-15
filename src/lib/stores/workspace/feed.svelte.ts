@@ -5,8 +5,8 @@
 // feed stream, started once and never torn down, so events keep arriving while the
 // panel is closed and survive its remount.
 
-import { feed } from "@/lib/bridge";
 import { eventsForLiveWatch, readFeedSnapshot, saveFeedSnapshot } from "@/lib/feed/feed-snapshot";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import type { ChangeEvent, WatchStatus } from "@/lib/types";
 import { baseName } from "@/lib/util/paths";
 
@@ -32,14 +32,14 @@ let isSubscribed = false;
 // The backend watch the accumulated events came from. A reload saves the feed
 // under it and restores only into that same watch (see feed-snapshot). Learned on
 // retarget, and again on the first event when that was too early: a freshly
-// opened window's panel retargets before `feed.start` has armed the watch, so
+// opened window's panel retargets before `watch_start` has armed the watch, so
 // the first answer carries no root - and with no identity to save under, the
 // unload save skipped and an F5 emptied the feed.
 let liveWatch: WatchStatus | null = null;
 
 async function learnLiveWatch() {
   try {
-    liveWatch = await feed.status();
+    liveWatch = await sendMessage(Command.watchStatus);
   } catch {
     liveWatch = null;
   }
@@ -74,7 +74,7 @@ async function startFeedSubscription() {
   isSubscribed = true;
   addEventListener("pagehide", saveFeedOnUnload);
   try {
-    await feed.onChange(event => {
+    await onMessage(EventType.feedChange, ({ data: event }) => {
       const isScratchFile = TEMP_FILE_RE.test(baseName(event.path));
       if (isScratchFile) {
         return;
@@ -93,13 +93,13 @@ async function startFeedSubscription() {
     // a path the project just started ignoring drops out instead of lingering.
     // The backend is the one authority on "ignored" (git's own rules in a repo,
     // the root .gitignore + tech inference otherwise); the store only asks.
-    await feed.onIgnoreChanged(async () => {
+    await onMessage(EventType.feedIgnoreChanged, async () => {
       const paths = [...new Set(feedStore.events.map(event => event.path))];
       if (paths.length === 0) {
         return;
       }
 
-      const nowIgnored = new Set(await feed.ignored(paths));
+      const nowIgnored = new Set(await sendMessage(Command.feedIgnored, { paths }));
       if (nowIgnored.size > 0) {
         feedStore.events = feedStore.events.filter(event => !nowIgnored.has(event.path));
       }

@@ -1,3 +1,4 @@
+import { Command } from "@/lib/ipc/messaging";
 import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
 import {
   askToResetLimits,
@@ -17,16 +18,32 @@ import {
   vi
 } from "vitest";
 
-const bridgeMocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
+  sendMessage: vi.fn<(command: string, data?: unknown) => Promise<unknown>>(),
   limitResetOffer: vi.fn<() => Promise<LimitReset | null>>(),
-  claimLimitReset: vi.fn<(grantId: string) => Promise<{
+  claimLimitReset: vi.fn<() => Promise<{
     reset: boolean;
     result: string;
     reason?: string | null;
   }>>()
 }));
 
-vi.mock("@/lib/bridge", () => ({ usage: bridgeMocks }));
+vi.mock("@/lib/ipc/messaging", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/ipc/messaging")>(),
+  sendMessage: mocks.sendMessage
+}));
+
+function routeMessage(command: string) {
+  if (command === Command.limitResetOffer) {
+    return mocks.limitResetOffer();
+  }
+
+  if (command === Command.limitResetClaim) {
+    return mocks.claimLimitReset();
+  }
+
+  throw new Error(`unexpected command ${command}`);
+}
 
 const launchReset: LimitReset = {
   grantId: "opus55-launch-promax-20260921",
@@ -38,7 +55,8 @@ const launchReset: LimitReset = {
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  bridgeMocks.limitResetOffer.mockResolvedValue(launchReset);
+  mocks.sendMessage.mockImplementation(routeMessage);
+  mocks.limitResetOffer.mockResolvedValue(launchReset);
   await refreshLimitResetOffer();
   cancelLimitReset();
 });
@@ -53,28 +71,28 @@ describe("the free limit reset", () => {
     askToResetLimits();
 
     expect(limitResetConfirmation().isOpen).toBe(true);
-    expect(bridgeMocks.claimLimitReset).not.toHaveBeenCalled();
+    expect(mocks.claimLimitReset).not.toHaveBeenCalled();
   });
 
   it("spends the reset once confirmed, then re-reads the account", async () => {
-    bridgeMocks.claimLimitReset.mockResolvedValue({
+    mocks.claimLimitReset.mockResolvedValue({
       reset: true,
       result: "reset"
     });
-    bridgeMocks.limitResetOffer.mockResolvedValue(null);
+    mocks.limitResetOffer.mockResolvedValue(null);
     const onreset = vi.fn(async () => {});
     askToResetLimits();
 
     await confirmLimitReset(onreset);
 
-    expect(bridgeMocks.claimLimitReset).toHaveBeenCalledWith(launchReset.grantId);
+    expect(mocks.sendMessage).toHaveBeenCalledWith(Command.limitResetClaim, { grantId: launchReset.grantId });
     expect(onreset).toHaveBeenCalled();
     expect(limitResetConfirmation().isOpen).toBe(false);
     expect(limitResetOffer()).toBeNull();
   });
 
   it("stays open with the reason when the server refuses", async () => {
-    bridgeMocks.claimLimitReset.mockResolvedValue({
+    mocks.claimLimitReset.mockResolvedValue({
       reset: false,
       result: "ineligible",
       reason: "not_limited"
@@ -91,7 +109,7 @@ describe("the free limit reset", () => {
   });
 
   it("stays open with an error when Claude can't be reached", async () => {
-    bridgeMocks.claimLimitReset.mockRejectedValue(new Error("offline"));
+    mocks.claimLimitReset.mockRejectedValue(new Error("offline"));
     askToResetLimits();
 
     await confirmLimitReset(vi.fn(async () => {}));
@@ -107,7 +125,7 @@ describe("announcing a free limit reset", () => {
       ...launchReset,
       grantId: "another-launch-grant"
     };
-    bridgeMocks.limitResetOffer.mockResolvedValue(freshReset);
+    mocks.limitResetOffer.mockResolvedValue(freshReset);
 
     await refreshLimitResetOffer();
     expect(toastText()).toContain("free usage-limit reset is available");

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { globalNaming, projectNamingChoice, withProjectNamingChoice } from "@/lib/agent/ai-naming-scope";
-  import { config, os } from "@/lib/bridge";
   import { collectVars } from "@/lib/code/colors";
   import ColorText from "@/lib/code/ColorText.svelte";
   import { isMarkdownPath } from "@/lib/feed/preview";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { UI_SCALE_MAXIMUM, UI_SCALE_MINIMUM, UI_SCALE_STEP } from "@/lib/settings/prefs-bounds";
   import { chooseThemeMode, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
@@ -175,7 +175,7 @@
     // apply it while this file is still the selected one.
     const requested = file;
     try {
-      const text = await config.read(requested.rel);
+      const text = await sendMessage(Command.configRead, { rel: requested.rel });
       if (selected?.rel !== requested.rel) {
         return;
       }
@@ -199,7 +199,7 @@
     content = "";
     files = [];
     (async () => {
-      const listed = await config.list(requestedAgent);
+      const listed = await sendMessage(Command.configList, { agent: requestedAgent });
       if (requestedAgent !== agent) {
         return;
       }
@@ -380,7 +380,11 @@
             <span class="field-hint">Frees the GPU for games. Applies after restart</span>
           </span>
         </label>
-        <button class="restart" onclick={async () => await os.restart()} type="button">Restart PADE</button>
+        <button
+          class="restart"
+          onclick={async () => await sendMessage(Command.restart)}
+          type="button"
+        >Restart PADE</button>
       </div>
     </section>
 
