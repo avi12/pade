@@ -26,6 +26,15 @@
   import MemberSwitcher from "@/lib/MemberSwitcher.svelte";
   import { collapsePane } from "@/lib/motion";
   import OverflowTooltipLayer from "@/lib/OverflowTooltipLayer.svelte";
+  import {
+    layoutWithoutPane,
+    layoutWithoutSession,
+    layoutWithoutSessions,
+    paneAtPoint,
+    paneIdsAfterSplit,
+    sessionsAfterReorder,
+    wrappedIndex
+  } from "@/lib/pane-layout";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
   import {
@@ -36,7 +45,7 @@
     SIDE_PANEL_MIN_WIDTH,
     updatePrefs
   } from "@/lib/prefs.svelte";
-  import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
+  import { DropSide } from "@/lib/reorder";
   import { openRepositoryTarget } from "@/lib/repository-links";
   import RunnerDock from "@/lib/RunnerDock.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
@@ -162,9 +171,9 @@
   });
 
   // ── Tab drag → reorder / split ──────────────────────────────────────────────
-  // `DropSide` (which half of a pane a dragged tab lands on) and the drop's index
-  // math live in `@/lib/reorder` - DOM-free and unit-tested. (The `Side` above
-  // names the side panels - a different concern, no bare literals shared.)
+  // `DropSide` (which half of a pane a dragged tab lands on) and the drop's
+  // layout math live in `@/lib/reorder` and `@/lib/pane-layout` - DOM-free and
+  // unit-tested. (`Side` names the side panels - a different concern.)
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
   let panesElement = $state<HTMLElement>();
@@ -194,82 +203,18 @@
   function paneDropAt({ x, y }: {
     x: number;
     y: number;
-  }): {
-    id: string;
-    side: DropSide;
-  } | null {
-    const container = panesElement;
-    if (!container) {
-      return null;
-    }
-
-    for (const slot of container.querySelectorAll<HTMLElement>("[data-pane-id]")) {
-      const id = slot.getAttribute("data-pane-id");
-      if (id === null || !paneIds.includes(id)) {
-        continue;
-      }
-
-      const rectangle = slot.getBoundingClientRect();
-      const isInside = rectangle.width > 0
-        && x >= rectangle.left && x <= rectangle.right && y >= rectangle.top && y <= rectangle.bottom;
-      if (!isInside) {
-        continue;
-      }
-
-      return {
-        id,
-        side: paneDropSide({
-          pointerX: x,
-          left: rectangle.left,
-          width: rectangle.width
-        })
-      };
-    }
-
-    return null;
-  }
-
-  // A tab dropped over the panes: show its session as a split pane, on the side of
-  // the target pane the pointer landed on (repositioning it if already shown).
-  function splitDrop(drop: {
-    id: string;
-    pointerX: number;
-    pointerY: number;
   }) {
-    const target = paneDropAt({
-      x: drop.pointerX,
-      y: drop.pointerY
-    });
-    if (!target) {
-      return;
-    }
-
-    const base = paneIds.filter(id => id !== drop.id);
-    const insertAt = paneInsertIndex({
-      paneIds,
-      draggedId: drop.id,
-      targetId: target.id,
-      side: target.side
-    });
-
-    paneIds = [...base.slice(0, insertAt), drop.id, ...base.slice(insertAt)];
-    activeId = drop.id;
-    animatePaneIn(drop.id);
-  }
-
-  // A tab-strip drag committed a new order for the visible pills. They are a
-  // prefix of `sessions` (the overflow dots/+N are the tail), so slot the reordered
-  // ids back into the positions the visible set held and leave the tail put.
-  function reorderSessions(orderedIds: string[]) {
-    const inOrder = new Set(orderedIds);
-    const queue = [...orderedIds];
-    sessions = sessions.map(session => {
-      if (!inOrder.has(session.id)) {
-        return session;
-      }
-
-      const nextId = queue.shift();
-      return (nextId ? bySessionId.get(nextId) : undefined) ?? session;
+    const slots = [...panesElement?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? []];
+    const panes = slots
+      .filter(slot => paneIds.includes(slot.dataset.paneId ?? ""))
+      .map(slot => ({
+        id: slot.dataset.paneId ?? "",
+        rectangle: slot.getBoundingClientRect()
+      }));
+    return paneAtPoint({
+      panes,
+      x,
+      y
     });
   }
 
@@ -944,11 +889,14 @@
       return;
     }
 
-    paneIds = paneIds.filter(paneId => paneId !== id);
-
-    if (activeId === id) {
-      activeId = paneIds.at(-1) ?? null;
-    }
+    ({ paneIds, activeId } = layoutWithoutPane({
+      layout: {
+        sessions,
+        paneIds,
+        activeId
+      },
+      id
+    }));
   }
 
   // ── Tab keyboard shortcuts (lib/tab-shortcuts) ───────────────────────────────
@@ -1013,9 +961,12 @@
       return;
     }
 
-    const index = sessions.findIndex(session => session.id === activeId);
-    const nextIndex = (index + delta + sessions.length) % sessions.length;
-    selectSession(sessions[nextIndex].id);
+    const iNext = wrappedIndex({
+      index: sessions.findIndex(session => session.id === activeId),
+      delta,
+      count: sessions.length
+    });
+    selectSession(sessions[iNext].id);
   }
 
   // Load branches for the repo the top bar points at - the workspace root, or
@@ -1068,8 +1019,14 @@
       collapsingSplitPanes.add(id);
     }
 
-    sessions = sessions.filter(session => session.id !== id);
-    paneIds = paneIds.filter(paneId => paneId !== id);
+    ({ sessions, paneIds, activeId } = layoutWithoutSession({
+      layout: {
+        sessions,
+        paneIds,
+        activeId
+      },
+      id
+    }));
     sessionLaunchedAt.delete(id);
     sessionSpawnScheme.delete(id);
     dropSessionStatus(id);
@@ -1079,14 +1036,6 @@
     dropUsageLimit(id);
     dropApiError(id);
     dropChoiceAttention(id);
-
-    if (activeId === id) {
-      activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
-    }
-
-    if (paneIds.length === 0 && activeId) {
-      paneIds = [activeId];
-    }
   }
 
   // How long a deliberate leave waits for a busy agent to reach an idle prompt
@@ -1484,15 +1433,17 @@
       }
     },
     removeSessions(ids) {
-      sessions = sessions.filter(session => !ids.has(session.id));
-      paneIds = paneIds.filter(id => !ids.has(id));
+      ({ sessions, paneIds, activeId } = layoutWithoutSessions({
+        layout: {
+          sessions,
+          paneIds,
+          activeId
+        },
+        ids
+      }));
 
       for (const id of ids) {
         closingByHand.delete(id);
-      }
-
-      if (activeId && ids.has(activeId)) {
-        activeId = sessions.at(-1)?.id ?? null;
       }
     },
     stopRunners: stopAllRunners,
@@ -2046,9 +1997,31 @@
             });
           }}
           onmodelchoice={async pick => await modelSwitcher.request(pick)}
-          onreorder={reorderSessions}
+          onreorder={orderedIds => (sessions = sessionsAfterReorder({
+            sessions,
+            orderedIds
+          }))}
           onselect={selectSession}
-          onsplit={splitDrop}
+          onsplit={drop => {
+            // Show the dropped tab as a split pane on the side of the pane the
+            // pointer landed on (repositioning it if already shown).
+            const target = paneDropAt({
+              x: drop.pointerX,
+              y: drop.pointerY
+            });
+            if (!target) {
+              return;
+            }
+
+            paneIds = paneIdsAfterSplit({
+              paneIds,
+              draggedId: drop.id,
+              targetId: target.id,
+              side: target.side
+            });
+            activeId = drop.id;
+            animatePaneIn(drop.id);
+          }}
           {paneIds}
           popPaneActive={paneDragOverTabs}
           {sessions}
