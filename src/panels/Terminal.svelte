@@ -1521,64 +1521,67 @@
     //    plain bytes (Windows Terminal gets away with it via win32-input-mode,
     //    which xterm doesn't speak); ^W is the erase-word every line editor
     //    and agent already binds.
+    function insertPromptNewline() {
+      if (NEWLINE_VIA_RAW_LF_AGENTS.has(session.agent.id)) {
+        // A raw Ctrl+J (LF) is the reliable insert-newline for these agents -
+        // Claude Code's always-works binding, and OpenCode's, without tripping
+        // its clipboard-on-paste. A bracketed paste of a lone LF is silently
+        // dropped by Claude's composer, which is why Shift+Enter did nothing.
+        writeToPty(PROMPT_NEWLINE);
+        return;
+      }
+
+      // `paste` is deliberate: when any agent's TUI enables bracketed paste,
+      // xterm marks this as pasted text and the newline stays in its composer.
+      // Unlike CSI-u, this does not depend on an individual agent decoding a
+      // particular modified-key protocol.
+      terminal.paste(PROMPT_NEWLINE);
+    }
+
+    // The Ctrl-only chords (no Shift, Alt or Meta), by lowercased key.
+    const plainCtrlActions: Record<string, () => unknown> = {
+      [PASTE_LETTER]: pasteClipboard,
+      [KeyName.Backspace.toLowerCase()]: () => writeToPty(ERASE_WORD)
+    };
+
+    function isPlainCtrl(event: KeyboardEvent) {
+      return event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
+    }
+
+    // Ctrl+C acts only with a selection, so without one it falls through to
+    // xterm's ^C.
+    function plainCtrlAction(key: string) {
+      const lowercaseKey = key.toLowerCase();
+      if (lowercaseKey === COPY_LETTER) {
+        return terminal.hasSelection() ? copySelectionToClipboard : null;
+      }
+
+      return plainCtrlActions[lowercaseKey] ?? null;
+    }
+
+    function plainCtrlOverride(event: KeyboardEvent) {
+      return isPlainCtrl(event) ? plainCtrlAction(event.key) : null;
+    }
+
+    function keyOverride(event: KeyboardEvent) {
+      if (isPromptNewlineShortcut(event)) {
+        return insertPromptNewline;
+      }
+
+      return plainCtrlOverride(event) ?? (isFindShortcut(event) ? openFindBar : null);
+    }
+
     terminal.attachCustomKeyEventHandler(event => {
-      if (event.type !== KEYDOWN_EVENT) {
+      const override = event.type === KEYDOWN_EVENT ? keyOverride(event) : null;
+      if (!override) {
         return true;
       }
 
-      if (isPromptNewlineShortcut(event)) {
-        // preventDefault stops the browser inserting a newline into xterm's hidden
-        // textarea, which xterm would forward to the PTY as a submit.
-        event.preventDefault();
-
-        if (NEWLINE_VIA_RAW_LF_AGENTS.has(session.agent.id)) {
-          // A raw Ctrl+J (LF) is the reliable insert-newline for these agents -
-          // Claude Code's always-works binding, and OpenCode's, without tripping
-          // its clipboard-on-paste. A bracketed paste of a lone LF is silently
-          // dropped by Claude's composer, which is why Shift+Enter did nothing.
-          writeToPty(PROMPT_NEWLINE);
-          return false;
-        }
-
-        // `paste` is deliberate: when any agent's TUI enables bracketed paste,
-        // xterm marks this as pasted text and the newline stays in its composer.
-        // Unlike CSI-u, this does not depend on an individual agent decoding a
-        // particular modified-key protocol.
-        terminal.paste(PROMPT_NEWLINE);
-        return false;
-      }
-
-      const isPlainCtrl = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
-
-      const letter = event.key.toLowerCase();
-      const isCopyChord = isPlainCtrl && letter === COPY_LETTER;
-      if (isCopyChord && terminal.hasSelection()) {
-        event.preventDefault();
-        copySelectionToClipboard();
-        return false;
-      }
-
-      const isPasteChord = isPlainCtrl && letter === PASTE_LETTER;
-      if (isPasteChord) {
-        event.preventDefault();
-        pasteClipboard();
-        return false;
-      }
-
-      const isDeleteWordChord = isPlainCtrl && event.key === KeyName.Backspace;
-      if (isDeleteWordChord) {
-        event.preventDefault();
-        writeToPty(ERASE_WORD);
-        return false;
-      }
-
-      if (isFindShortcut(event)) {
-        event.preventDefault();
-        openFindBar();
-        return false;
-      }
-
-      return true;
+      // preventDefault also stops the browser inserting a newline into xterm's
+      // hidden textarea on Shift+Enter, which xterm would forward as a submit.
+      event.preventDefault();
+      override();
+      return false;
     });
 
     // Wheel-scroll the agent's own transcript when xterm has nothing to scroll
