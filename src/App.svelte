@@ -135,6 +135,9 @@
   // Agents excluding the always-present shell fallback - this count decides
   // whether we auto-launch or onboard.
   const realAgents = $derived(toRealAgents(agents));
+  // Detection order is the registry's priority order, so the first real agent
+  // is the best installed one; the shell fallback carries otherwise.
+  const bestAgent = $derived(realAgents[0] ?? agents[0]);
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
@@ -150,8 +153,9 @@
   // kept - only the unused-temp cleanup setting ever deletes it. One that was
   // auto-named keeps the normal last-session behavior instead.
   const isUnnamedTemp = $derived(isTemp && !currentLabel);
+  const activeSession = $derived(sessions.find(session => session.id === activeId));
   // Active agent id - used to show only its relevant config files.
-  const activeAgent = $derived(sessions.find(session => session.id === activeId)?.agent.id ?? "");
+  const activeAgent = $derived(activeSession?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
   const canRemovePane = $derived(paneIds.length > 1);
@@ -225,70 +229,80 @@
 
   onMount(async () => {
     try {
-      await initNewProjectDetection();
-      // Detection is best-effort: a rejection or a stall both yield an empty
-      // list rather than blocking the routing below.
-      const detecting = Promise.race([
-        agentsApi.detect().catch((): Agent[] => []),
-        new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
-      ]);
-      const [detected] = await Promise.all([detecting, workspace.settings()]);
-      agents = detected;
-
-      // An accidental reload (F5, a crash recovery) re-attaches this window to
-      // the agents still running in the backend - before any query routing,
-      // whose `w=` went stale the moment the user moved on inside the window
-      // (the incident: a `?w=empty` window living in a project rebooted to the
-      // picker and orphaned its live PTYs, unreachable).
-      const reattached = await reattachAfterReload();
-      if (reattached) {
-        return;
-      }
-
-      // A spawned window carries a `w=` query that overrides the normal cold-start.
-      // The plain main window (no query) keeps today's launch_context behavior.
-      const query = new URLSearchParams(location.search);
-      const routed = await routeFromQuery(query);
-      if (routed) {
-        return;
-      }
-
-      const context = await workspace.context();
-      const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
-      if (context.hasProject) {
-        await workspace.open(context.cwd); // records it in recent history
-        startAgentFlow({ path: context.cwd });
-        await loadBranches();
-      } else if (prefersPicker) {
-        // Opt-in: show the project picker instead of starting in a temp workspace.
-        phase = Phase.project;
-      } else {
-        // Default: start immediately in a throwaway workspace so there's no
-        // blocking picker. The user can switch any time (Switch button).
-        const temp = await workspace.temp();
-        startAgentFlow({
-          path: temp,
-          newProject: true
-        });
-      }
+      await boot();
     } catch {
       // Never strand the user on the splash - fall back to the project picker.
-      showToast("Startup hit a snag - pick a project to continue.");
+      showToast("Startup hit a snag - pick a project to continue");
       phase = Phase.project;
     }
   });
   onDestroy(disposeNewProjectDetection);
 
+  async function boot() {
+    await initNewProjectDetection();
+    // Detection is best-effort: a rejection or a stall both yield an empty
+    // list rather than blocking the routing below.
+    const detecting = Promise.race([
+      settledValue({
+        promise: agentsApi.detect(),
+        fallback: []
+      }),
+      new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
+    ]);
+    [agents] = await Promise.all([detecting, workspace.settings()]);
+
+    // An accidental reload (F5, a crash recovery) re-attaches this window to
+    // the agents still running in the backend - before any query routing,
+    // whose `w=` went stale the moment the user moved on inside the window
+    // (the incident: a `?w=empty` window living in a project rebooted to the
+    // picker and orphaned its live PTYs, unreachable).
+    if (await reattachAfterReload()) {
+      return;
+    }
+
+    // A spawned window carries a `w=` query that overrides the normal cold-start.
+    // The plain main window (no query) keeps today's launch_context behavior.
+    if (await routeFromQuery(new URLSearchParams(location.search))) {
+      return;
+    }
+
+    await bootFromLaunchContext();
+  }
+
+  async function bootFromLaunchContext() {
+    const context = await workspace.context();
+    if (context.hasProject) {
+      await workspace.open(context.cwd); // records it in recent history
+      startAgentFlow({ path: context.cwd });
+      await loadBranches();
+      return;
+    }
+
+    // Opt-in: show the project picker instead of starting in a temp workspace.
+    const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
+    if (prefersPicker) {
+      phase = Phase.project;
+      return;
+    }
+
+    // Default: start immediately in a throwaway workspace so there's no
+    // blocking picker. The user can switch any time (Switch button).
+    await startInTempWorkspace();
+  }
+
+  async function startInTempWorkspace() {
+    startAgentFlow({
+      path: await workspace.temp(),
+      isNewProject: true
+    });
+  }
+
   // Boot a spawned window from its `w=` query. Returns true when it handled the
   // launch (so the default launch_context path is skipped), false otherwise.
-  async function routeFromQuery(query: URLSearchParams): Promise<boolean> {
+  async function routeFromQuery(query: URLSearchParams) {
     const mode = query.get("w");
     if (mode === WindowMode.enum.temp) {
-      const temp = await workspace.temp();
-      startAgentFlow({
-        path: temp,
-        newProject: true
-      });
+      await startInTempWorkspace();
       return true;
     }
 
@@ -321,7 +335,7 @@
   // its PTYs, so nothing survives it and boot proceeds normally. Each restored
   // pane re-attaches through Terminal's existing path: spawn is a no-op for a
   // running session and `pty_history` replays the conversation.
-  async function reattachAfterReload(): Promise<boolean> {
+  async function reattachAfterReload() {
     const snapshot = await restoreLiveSnapshot();
     if (!snapshot) {
       return false;
@@ -568,7 +582,7 @@
     currentProject: () => currentProject,
     isOptedOut: () => settings.prefs.autoNameTemp === false,
     labelOf: path => settings.labels[path],
-    activeAgentCommand: () => sessions.find(session => session.id === activeId)?.agent.command ?? ""
+    activeAgentCommand: () => activeSession?.agent.command ?? ""
   });
   onMount(() => {
     autoNamer.start();
@@ -602,7 +616,7 @@
   onMount(() => {
     registerSendShortcut({
       activeId: () => activeId,
-      activeLabel: () => sessions.find(session => session.id === activeId)?.agent.label ?? "agent"
+      activeLabel: () => activeSession?.agent.label ?? "agent"
     });
     return () => unregisterSendShortcut();
   });
@@ -668,17 +682,17 @@
   // second switch/leave starting inside that window would interleave two
   // kill → open → launch sequences over the same session list. Later attempts
   // are dropped, not queued - the first leave is already taking the user away.
-  let leaveInFlight = false;
-  async function runExclusiveLeave(leave: () => Promise<void>): Promise<void> {
-    if (leaveInFlight) {
+  let isLeaveInFlight = false;
+  async function runExclusiveLeave(leave: () => Promise<void>) {
+    if (isLeaveInFlight) {
       return;
     }
 
-    leaveInFlight = true;
+    isLeaveInFlight = true;
     try {
       await leave();
     } finally {
-      leaveInFlight = false;
+      isLeaveInFlight = false;
     }
   }
 
@@ -710,7 +724,7 @@
         path: target.path,
         initialPrompt: target.initialPrompt,
         agentId: target.agent,
-        newProject: target.created === true
+        isNewProject: target.created === true
       });
       await loadBranches();
     });
@@ -721,30 +735,37 @@
   // lands in the workspace, never on a blocking chooser. The agent picker
   // still appears after a hand-closed or exited last session, where "what
   // next?" is a genuine question. (Reused for every entry path.)
-  function startAgentFlow({ path, initialPrompt, agentId, newProject = false }: {
+  function startAgentFlow({ path, initialPrompt, agentId, isNewProject = false }: {
     path: string;
     initialPrompt?: string;
     agentId?: string;
-    newProject?: boolean;
+    isNewProject?: boolean;
   }) {
     currentProject = path;
 
-    if (newProject) {
+    if (isNewProject) {
       armNewProjectDetection(path);
     }
 
     // Let other windows' pickers focus this one instead of reopening the project.
     windows.registerProject(path);
-    // A create-form agent pick wins outright; otherwise honor the per-project
-    // override, then the workspace default.
-    const prefId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent ?? null;
-    const preferred = prefId ? agents.find(agent => agent.id === prefId) : undefined;
-    // Detection order is the registry's priority order, so the first real
-    // agent is the best installed one; the shell fallback carries otherwise.
     launch({
-      agent: preferred ?? realAgents[0] ?? agents[0],
+      agent: preferredAgentFor({
+        path,
+        agentId
+      }) ?? bestAgent,
       initialPrompt
     });
+  }
+
+  // A create-form agent pick wins outright; otherwise honor the per-project
+  // override, then the workspace default.
+  function preferredAgentFor({ path, agentId }: {
+    path: string;
+    agentId?: string;
+  }) {
+    const preferredId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent;
+    return agents.find(agent => agent.id === preferredId);
   }
 
   // When each session launched, so a self-exit right after reads as a failed
@@ -905,7 +926,7 @@
       return;
     }
 
-    const agent = sessions.at(-1)?.agent ?? realAgents[0] ?? agents[0];
+    const agent = sessions.at(-1)?.agent ?? bestAgent;
     if (agent) {
       launch({ agent });
     }
@@ -929,17 +950,16 @@
 
   // Ctrl+W / Ctrl+F4 - close the active session.
   function closeActiveTab() {
-    const active = sessions.find(session => session.id === activeId);
-    if (!active) {
+    if (!activeSession) {
       return;
     }
 
     if (sessionTabsHandle) {
-      sessionTabsHandle.closeSession(active);
+      sessionTabsHandle.closeSession(activeSession);
       return;
     }
 
-    close(active);
+    close(activeSession);
   }
 
   // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
@@ -1747,13 +1767,10 @@
             {isTemp}
             label={projectLabel}
             labels={settings.labels}
-            onaddroot={async rootPath => {
-              const outcome = await workspace.addRoot({
-                path: rootPath,
-                create: false
-              });
-              return outcome;
-            }}
+            onaddroot={async rootPath => await workspace.addRoot({
+              path: rootPath,
+              create: false
+            })}
             onclearrecent={clearRecentProjects}
             ondelete={deleteDirectory}
             onopen={projectPath => openProject({ path: projectPath })}
@@ -1858,7 +1875,7 @@
                key the Change Feed also reads - SSOT), while the launcher opens
                the active session's worktree when one is focused. -->
           <IdeMenu
-            cwd={sessions.find(session => session.id === activeId)?.cwd ?? activeMemberIn(currentProject)}
+            cwd={activeSession?.cwd ?? activeMemberIn(currentProject)}
             onterminaleditor={(editor: Ide) =>
               launch({
                 agent: {
@@ -1869,7 +1886,7 @@
                   reordersBidi: false
                 },
                 // Inherit the active session's worktree, if any, else the project dir.
-                cwd: sessions.find(session => session.id === activeId)?.cwd,
+                cwd: activeSession?.cwd,
                 // Open the working directory in the editor.
                 args: ["."],
                 split: true
@@ -1900,7 +1917,7 @@
           onlaunchbranch={async branch => {
             // Spawn an agent on its own git worktree for `branch`, isolated from
             // the other sessions. Uses the active session's agent (or the first).
-            const agent = sessions.find(session => session.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
+            const agent = activeSession?.agent ?? bestAgent;
             const cwd = await vcs.worktreeAdd({
               cwd: activeMemberIn(currentProject),
               branch,
