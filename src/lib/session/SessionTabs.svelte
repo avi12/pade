@@ -1,35 +1,20 @@
 <script lang="ts" module>
-  /** The tab strip's launch dropdown - App opens it by id from a shortcut. */
-  export const ADD_SESSION_MENU_ID = "add-session-menu";
+  export { ADD_SESSION_MENU_ID } from "@/lib/session/tabs/LaunchMenu.svelte";
 </script>
 
 <script lang="ts">
-  import { agentIconName } from "@/lib/agent/agent-icon";
-  import Icon from "@/lib/Icon.svelte";
-  import ModelMenu from "@/lib/model/ModelMenu.svelte";
-  import ModelTag, { MODEL_MENU_ANCHOR } from "@/lib/model/ModelTag.svelte";
   import { ADD_SLOT, packTabs } from "@/lib/session/tab-fit";
-  import { TAB_SHORTCUTS, TabAction } from "@/lib/session/tab-shortcuts";
-  import { effective } from "@/lib/settings/prefs.svelte";
-  import { contextPercentage, measuredContextPercentage } from "@/lib/stores/agent/context.svelte";
-  import { refreshModelOptions } from "@/lib/stores/model/modelOptions.svelte";
+  import AddSessionMenu from "@/lib/session/tabs/AddSessionMenu.svelte";
+  import OverflowSessionMenu from "@/lib/session/tabs/OverflowSessionMenu.svelte";
+  import SessionDot from "@/lib/session/tabs/SessionDot.svelte";
+  import SessionTab from "@/lib/session/tabs/SessionTab.svelte";
+  import { collapseTab } from "@/lib/session/tabs/tab-collapse";
+  import { beginTabDrag } from "@/lib/session/tabs/tab-drag";
+  import TabModelMenu from "@/lib/session/tabs/TabModelMenu.svelte";
   import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
-  import { sessionLabel, setSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
-  import { isNaming, toggleNaming } from "@/lib/stores/session/sessionNaming.svelte";
-  import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { Agent, AgentSession, ModelChoice } from "@/lib/types";
-  import { Axis, beginReorder } from "@/lib/ui/drag-reorder";
   import type { DragHint } from "@/lib/ui/drag-reorder";
-  import { Key } from "@/lib/ui/keys";
-  import { motionDuration } from "@/lib/ui/motion";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
-  import { ContextLevel, contextLevel } from "@/lib/usage/context-level";
-  import PacingBadge from "@/lib/usage/PacingBadge.svelte";
-  import { formatCount, formatPercent } from "@/lib/util/format";
-  import { parseInput, SessionName } from "@/lib/validate";
-  import { cubicOut } from "svelte/easing";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
-  import type { TransitionConfig } from "svelte/transition";
 
   // The session tab strip: full pills for the sessions that fit, status dots
   // for the next few, a "+N" popover for the rest (packing in lib/session/tab-fit), the
@@ -81,25 +66,8 @@
     }) => Promise<void>;
   } = $props();
 
-  const MODEL_MENU_ID = "model-menu";
-  const ADD_MENU_ANCHOR = "--add-session-anchor";
-  const OVERFLOW_MENU_ID = "overflow-session-menu";
-  const OVERFLOW_MENU_ANCHOR = "--overflow-session-anchor";
-  const POPOVER_OPEN_SELECTOR = ":popover-open";
-  // `MouseEvent.button` for the wheel button, which closes a pill.
-  const MIDDLE_BUTTON = 1;
-  const AUXCLICK_EVENT = "auxclick";
-  // Pixels a pill must travel before a press becomes a drag.
-  const DRAG_THRESHOLD = 5;
-  const COLLAPSE_DURATION = 240;
-  // How far a collapsing pill tucks under its neighbour as it closes.
-  const COLLAPSE_TUCK = 6;
-
   let modelMenuSessionId = $state<string | null>(null);
   const modelMenuSession = $derived(sessions.find(session => session.id === modelMenuSessionId));
-
-  const newTabShortcut = TAB_SHORTCUTS[TabAction.New];
-  const launchMenuShortcut = TAB_SHORTCUTS[TabAction.LaunchMenu];
 
   // ── Measurement ─────────────────────────────────────────────────────────────
   // The strip is bounded to the width the nav gives it. Pill widths come from
@@ -182,7 +150,6 @@
   const visibleSessions = $derived(tabsFor(tabPack.visible));
   const dotSessions = $derived(tabsFor(tabPack.dots));
   const moreSessions = $derived(tabsFor(tabPack.more));
-  const hasMoreSessions = $derived(moreSessions.length > 0);
   const overflowHasActive = $derived(
     activeId !== null && (tabPack.dots.includes(activeId) || tabPack.more.includes(activeId))
   );
@@ -193,38 +160,14 @@
   function isAwaitingChoice(id: string) {
     return awaitingChoice(id) && id !== activeId;
   }
-  // Any collapsed-into-"+N" session waiting on a choice - so a pending prompt
-  // hidden in the overflow still surfaces on the trigger.
-  const overflowAwaiting = $derived(moreSessions.some(session => isAwaitingChoice(session.id)));
 
-  // The last tab's agent - a plain "+" click launches another of the same kind;
-  // Ctrl/Cmd-click opens the full launch menu instead.
+  // The last tab's agent - a plain "+" click launches another of the same kind.
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
-
-  function openAddMenu() {
-    const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
-    if (elMenu instanceof HTMLElement && !elMenu.matches(POPOVER_OPEN_SELECTOR)) {
-      elMenu.showPopover();
-    }
-  }
 
   // Closing a tab removes the session synchronously; the pill's collapse is a
   // Svelte out-transition. `closingIds` marks which pills left via a real close
   // so the transition only animates those - a repack-driven exit snaps instantly.
   const closingIds = new SvelteSet<string>();
-  // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
-  // middle-click autoscroll). onmousedown suppresses the same on press.
-  function onTabPointer(e: MouseEvent, session: AgentSession) {
-    if (e.button !== MIDDLE_BUTTON) {
-      return;
-    }
-
-    e.preventDefault();
-
-    if (e.type === AUXCLICK_EVENT) {
-      closeTab(session);
-    }
-  }
 
   function closeTab(session: AgentSession) {
     const hasVisiblePill = visibleSessions.some(candidateSession => candidateSession.id === session.id);
@@ -241,206 +184,44 @@
     closeTab(session);
   }
 
-  // Collapse a closing pill (width + fade), pinning its height so the label
-  // reflow can't grow the row. Height/width are read once as the outro begins.
-  // Tab reordering is animated by the drag engine's spring-settle, not a
-  // framework FLIP, so the pills carry no `animate:flip` (it would fight it).
-  function collapse(elTab: HTMLElement, { id }: { id: string }): TransitionConfig {
+  // Collapse a closing pill; its size is read once as the outro begins. Tab
+  // reordering is animated by the drag engine's spring-settle, not a framework
+  // FLIP, so the pills carry no `animate:flip` (it would fight it).
+  function collapse(elTab: HTMLElement, { id }: { id: string }) {
     if (!closingIds.has(id)) {
       return { duration: 0 };
     }
 
-    const width = elTab.offsetWidth;
-    const height = elTab.offsetHeight;
-    return {
-      duration: motionDuration(COLLAPSE_DURATION),
-      easing: cubicOut,
-      css: t =>
-        `overflow: hidden; block-size: ${height}px; inline-size: ${width * t}px;` +
-          `opacity: ${t}; margin-inline-start: ${(t - 1) * COLLAPSE_TUCK}px;`
-    };
+    return collapseTab({
+      width: elTab.offsetWidth,
+      height: elTab.offsetHeight
+    });
   }
 
-  // ── Inline manual rename ────────────────────────────────────────────────────
+  // The session whose pill shows the inline rename field.
   let editingId = $state<string | null>(null);
-  let renameDraft = $state("");
-
-  // Enter inline rename for a session, seeding the field with its current label.
-  function startRename(id: string) {
-    editingId = id;
-    renameDraft = sessionLabel(id) ?? bySessionId.get(id)?.agent.label ?? "";
-  }
-
-  function commitRename() {
-    if (editingId === null) {
-      return;
-    }
-
-    const label = parseInput({
-      schema: SessionName,
-      raw: renameDraft
-    });
-    if (label !== null) {
-      setSessionLabel({
-        id: editingId,
-        label
-      });
-    }
-
-    editingId = null;
-  }
-
-  // Focus + select the rename field the moment it mounts.
-  function focusOnMount(elInput: HTMLInputElement) {
-    elInput.focus();
-    elInput.select();
-  }
-
-  // Press-and-drag a pill by its body to reorder the strip (past a 5px threshold),
-  // or drag it down over the terminal panes to open it as a split. The close / AI
-  // buttons and the rename field carry `data-noreorder`, so a press on them is
-  // theirs; a plain press-and-release still selects. Never while renaming.
-  function startTabDrag(e: PointerEvent) {
-    if (editingId !== null) {
-      return;
-    }
-
-    beginReorder({
-      e,
-      itemSelector: "[data-session-tab]",
-      idAttribute: "data-session-tab",
-      axis: Axis.Horizontal,
-      threshold: DRAG_THRESHOLD,
-      ignoreSelector: "[data-noreorder]",
-      onCommit: ids => onreorder?.(ids),
-      onHint: hint => ondraghint?.(hint),
-      outsideSelector: "[data-panes]",
-      onDropOutside: drop => onsplit?.(drop)
-    });
-  }
-
-  // The glyph tooltip states only what it can vouch for: the agent's own
-  // reported percent reads as fact; the byte estimate over-counts a fullscreen
-  // agent's repaints badly (see lib/stores/agent/context), so it is labeled the
-  // rough estimate it is instead of masquerading as a measurement.
-  function contextTooltip(id: string) {
-    const measured = measuredContextPercentage(id);
-    if (measured !== null) {
-      return `${formatPercent(measured)} of context window used`;
-    }
-
-    const estimate = contextPercentage(id);
-    if (estimate === null) {
-      return "Context window - measuring…";
-    }
-
-    return `≈${formatPercent(estimate)} of context window used - rough estimate`;
-  }
 </script>
 
-<!-- The tab's leading glyph: the agent's brand mark, tinted by how full its
-     context window is (green→amber→red toward the auto-handoff threshold) and
-     carrying status - a working agent breathes, a ready one gets a soft halo. -->
-{#snippet statusGlyph(session: AgentSession)}
-  {@const percentage = contextPercentage(session.id)}
-  {@const level = percentage === null ? null : contextLevel({
-    percentage,
-    threshold: effective.handoffPercentage
-  })}
-  <span
-    class="agent-icon {sessionStatus(session.id)}"
-    class:awaiting-choice={isAwaitingChoice(session.id)}
-    class:critical={level === ContextLevel.Critical}
-    class:unknown={percentage === null}
-    class:warning={level === ContextLevel.Warning}
-    data-tooltip={contextTooltip(session.id)}
-  ><Icon name={agentIconName(session.agent.id)} size={14} /></span>
-{/snippet}
-
-<!-- `isMirror`: the off-layout measuring copy, which must never claim the
-     model menu's anchor (two anchors of one name pin the menu to the wrong pill). -->
-{#snippet tabInner(session: AgentSession, isMirror = false)}
-  {#if editingId === session.id}
-    <span class="rename">
-      {@render statusGlyph(session)}
-      <input
-        class="rename-input"
-        {@attach focusOnMount}
-        aria-label="Rename session"
-        data-noreorder
-        onblur={commitRename}
-        oninput={e => (renameDraft = e.currentTarget.value)}
-        onkeydown={e => {
-          if (e.key === Key.Enter) {
-            e.preventDefault();
-            commitRename();
-          } else if (e.key === Key.Escape) {
-            e.preventDefault();
-            editingId = null;
-          }
-        }}
-        value={renameDraft}
-      />
-    </span>
-  {:else}
-    <button
-      class="pick"
-      onauxclick={e => onTabPointer(e, session)}
-      onclick={() => {
-        // Finder-style: a click selects an inactive tab; clicking the already-active
-        // tab renames it (its label reads with a text caret). The reorder engine
-        // swallows the post-drag click, so dragging the active pill never renames.
-        if (session.id === activeId) {
-          startRename(session.id);
-        } else {
-          onselect(session.id);
-        }
-      }}
-      onmousedown={e => onTabPointer(e, session)}
-    >
-      {@render statusGlyph(session)}
-      <span class="label">{sessionLabel(session.id) ?? session.agent.label}</span>
-    </button>
-    <ModelTag
-      anchored={!isMirror && modelMenuSessionId === session.id}
-      menuId={MODEL_MENU_ID}
-      onopen={async () => {
-        modelMenuSessionId = session.id;
-        await refreshModelOptions(session.agent.command);
-      }}
-      {session}
-    />
-    <PacingBadge isMeasuring={isMirror} sessionId={session.id} />
-    <span
-      class="ai-wrap"
-      class:on={isNaming(session.id)}
-      data-tooltip={isNaming(session.id) ? "Auto-naming on - click to turn off" : "Auto-name this session with AI"}
-    >
-      <button
-        class="ai"
-        aria-label="Auto-name this session with AI"
-        data-noreorder
-        onclick={() => toggleNaming({
-          id: session.id,
-          agent: session.agent.command
-        })}
-      ><Icon name="sparkles" size={13} /></button>
-    </span>
-  {/if}
-  <button
-    class="close-button"
-    aria-label="Close session"
-    data-noreorder
-    data-tooltip="Close session"
-    onclick={() => closeTab(session)}
-  ><Icon name="close" size={13} /></button>
+<!-- `isMirror`: the off-layout measuring copy of the pill. -->
+{#snippet tabInner(session: AgentSession, isMirror: boolean)}
+  <SessionTab
+    isActive={session.id === activeId}
+    isAwaitingChoice={isAwaitingChoice(session.id)}
+    isEditing={editingId === session.id}
+    {isMirror}
+    isModelMenuTarget={modelMenuSessionId === session.id}
+    onclose={() => closeTab(session)}
+    onmodelopen={() => (modelMenuSessionId = session.id)}
+    onrename={() => (editingId = session.id)}
+    onrenamedone={() => (editingId = null)}
+    onselect={() => onselect(session.id)}
+    {session}
+  />
 {/snippet}
 
 <nav class="tabs" aria-label="Agent sessions">
   <div bind:this={elStrip} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
-    {#if popPaneActive}
-      <span class="popout-hint" aria-hidden="true">Drop here - new tab</span>
-    {/if}
+    <span class="popout-hint" aria-hidden="true">Drop here - new tab</span>
     {#each visibleSessions as session (session.id)}
       <!-- Pointer-only reorder handle; select/close/rename stay keyboard-reachable
            through the buttons inside, so the drag is a pure enhancement. -->
@@ -451,10 +232,16 @@
         class:shown={paneIds.includes(session.id)}
         data-session-tab={session.id}
         onoutroend={() => closingIds.delete(session.id)}
-        onpointerdown={startTabDrag}
+        onpointerdown={e => beginTabDrag({
+          e,
+          isRenaming: editingId !== null,
+          onreorder,
+          ondraghint,
+          onsplit
+        })}
         out:collapse={{ id: session.id }}
       >
-        {@render tabInner(session)}
+        {@render tabInner(session, false)}
       </div>
     {/each}
 
@@ -465,109 +252,19 @@
         aria-label={session.agent.label}
         data-tooltip={session.agent.label}
         onclick={() => onselect(session.id)}
-      ><span
-        class="dot {sessionStatus(session.id)}"
-        class:awaiting-choice={isAwaitingChoice(session.id)}
-      ></span></button>
+      ><SessionDot isAwaitingChoice={isAwaitingChoice(session.id)} sessionId={session.id} /></button>
     {/each}
 
-    {#if hasMoreSessions}
-      <span class="more-wrap menu-host">
-        <button
-          style:anchor-name={OVERFLOW_MENU_ANCHOR}
-          class="more-button menu-trigger"
-          class:active={overflowHasActive}
-          class:awaiting-choice={overflowAwaiting}
-          aria-label="Show remaining sessions"
-          popovertarget={OVERFLOW_MENU_ID}
-        >+{formatCount(moreSessions.length)}</button>
-        <ul
-          id={OVERFLOW_MENU_ID}
-          style:position-anchor={OVERFLOW_MENU_ANCHOR}
-          class="menu more-menu popover-menu"
-          popover
-        >
-          {#each moreSessions as session (session.id)}
-            <li class="more-item" class:active={session.id === activeId}>
-              <button
-                class="menu-item more-pick"
-                onclick={() => onselect(session.id)}
-                popovertarget={OVERFLOW_MENU_ID}
-                popovertargetaction="hide"
-              >
-                <span
-                  class="dot {sessionStatus(session.id)}"
-                  class:awaiting-choice={isAwaitingChoice(session.id)}
-                ></span>
-                <span class="more-label">{sessionLabel(session.id) ?? session.agent.label}</span>
-              </button>
-              <button
-                class="menu-item more-close-button"
-                aria-label="Close session"
-                data-tooltip="Close session"
-                onclick={() => onclose(session)}
-              ><Icon name="close" size={13} /></button>
-            </li>
-          {/each}
-        </ul>
-      </span>
-    {/if}
+    <OverflowSessionMenu
+      {activeId}
+      isActive={overflowHasActive}
+      {isAwaitingChoice}
+      {onclose}
+      {onselect}
+      sessions={moreSessions}
+    />
 
-    <span class="add-wrap menu-host">
-      <button
-        style:anchor-name={ADD_MENU_ANCHOR}
-        class="add-button menu-trigger"
-        aria-label={`New ${lastAgent?.label ?? "agent"} session - ${newTabShortcut.description}: ${newTabShortcut.label}; ${launchMenuShortcut.description}: ${launchMenuShortcut.label}`}
-        data-tooltip={`New ${lastAgent?.label ?? "agent"} session · ${newTabShortcut.label} · Ctrl-click, right-click, or ${launchMenuShortcut.label} for options`}
-        onclick={e => {
-          if (e.ctrlKey || e.metaKey) {
-            openAddMenu();
-            return;
-          }
-
-          if (lastAgent) {
-            onlaunch(lastAgent);
-          }
-        }}
-        oncontextmenu={e => {
-          e.preventDefault();
-          openAddMenu();
-        }}
-      >+</button>
-      <ul
-        id={ADD_SESSION_MENU_ID}
-        style:position-anchor={ADD_MENU_ANCHOR}
-        class="menu popover-menu"
-        {@attach rovingMenu}
-        popover
-      >
-        <li class="menu-separator">Launch an agent</li>
-        {#each agents as agent (agent.id)}
-          <li>
-            <button
-              class="menu-item"
-              onclick={() => onlaunch(agent)}
-              popovertarget={ADD_SESSION_MENU_ID}
-              popovertargetaction="hide"
-            ><span class="launch-icon"><Icon name={agentIconName(agent.id)} /></span>{agent.label}</button>
-          </li>
-        {/each}
-        {#if branches.length > 0}
-          <li class="menu-divider" role="separator"></li>
-          <li class="menu-separator">On a branch - new worktree</li>
-          {#each branches as branch (branch)}
-            <li>
-              <button
-                class="menu-item branch-item"
-                onclick={async () => await onlaunchbranch(branch)}
-                popovertarget={ADD_SESSION_MENU_ID}
-                popovertargetaction="hide"
-              ><span class="branch-icon"><Icon name="git" /></span>{branch}</button>
-            </li>
-          {/each}
-        {/if}
-      </ul>
-    </span>
+    <AddSessionMenu {agents} {branches} {lastAgent} {onlaunch} {onlaunchbranch} />
   </div>
 
   <!-- Off-layout mirror: every tab at full width, purely for measuring. Keeps
@@ -580,25 +277,7 @@
     {/each}
   </span>
 
-  <!-- One model menu for the whole strip, hung off whichever tab's model tag
-       opened it. -->
-  <div
-    id={MODEL_MENU_ID}
-    style:position-anchor={MODEL_MENU_ANCHOR}
-    class="menu popover-menu model-menu"
-    {@attach rovingMenu}
-    popover
-  >
-    {#if modelMenuSession !== undefined}
-      <ModelMenu
-        onchoose={async choice => await onmodelchoice({
-          session: modelMenuSession,
-          choice
-        })}
-        session={modelMenuSession}
-      />
-    {/if}
-  </div>
+  <TabModelMenu onchoose={onmodelchoice} session={modelMenuSession} />
 </nav>
 
 <style>
@@ -639,6 +318,10 @@
       font-weight: 700;
       font-size: 10px;
       white-space: nowrap;
+
+      .tab-strip:not(.drop-target) & {
+        display: none;
+      }
     }
 
     /* Off-layout copy of every full pill, measured to drive the packing. */
@@ -674,47 +357,7 @@
       }
     }
 
-    .more-wrap {
-      flex: none;
-    }
-
-    /* The "+N" overflow trigger. */
-    .more-button {
-      display: inline-flex;
-      flex: none;
-      align-items: center;
-      block-size: 22px;
-      padding-inline: 9px;
-      border: none;
-      border-radius: var(--radius-full);
-      background: var(--surface-2);
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 11px;
-      cursor: pointer;
-      transition: color 150ms var(--ease), background 150ms var(--ease);
-
-      &.active {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-
-      /* A choice pending on a session hidden in the overflow flashes the +N. */
-      &.awaiting-choice {
-        color: var(--critical);
-        animation: choice-flash 1100ms var(--ease) infinite;
-
-        @media (prefers-reduced-motion: reduce) {
-          box-shadow: 0 0 0 2px var(--critical-wash);
-          animation: none;
-        }
-      }
-
-      &:hover {
-        background: var(--surface-3);
-      }
-    }
-
+    /* The pill itself; its contents (SessionTab) style off its hover / active. */
     .tab {
       display: inline-flex;
       align-items: center;
@@ -735,382 +378,14 @@
         background: var(--primary-container);
       }
     }
-
-    .pick {
-      display: inline-flex;
-      gap: 7px;
-      align-items: center;
-      padding-block: 6px;
-      padding-inline: 12px 4px;
-      border: none;
-
-      /* The pill's leading cap, mirroring the trailing one on .close-button:
-         this button is the pill's first child and would otherwise square off
-         the corner the pill rounds (or, under a palette that bevels it, cuts)
-         away - and a corner is hit-tested against the shape it is GIVEN, so a
-         square child inside a shaped parent takes clicks from air. */
-      border-end-start-radius: 999px;
-      border-start-start-radius: 999px;
-      background: transparent;
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 12px;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
-    /* The ✦ AI-name toggle - subdued on every pill, brighter on the one being
-       used, and primary while auto-naming is on for the session. The slot is
-       reserved on every pill, hovered or not. A slot that
-       opened on hover grew its pill by 24px and pushed every pill to its right -
-       so crossing a neighbour on the way to this one slid the target out from
-       under the pointer as that neighbour collapsed again, and the click landed
-       on the × beside it. Fixed geometry also makes the off-layout mirror measure
-       the width the pill really renders at. */
-    .ai-wrap {
-      display: inline-flex;
-      flex: none;
-      align-items: center;
-      block-size: 26px;
-      inline-size: 24px;
-    }
-
-    .ai {
-      display: inline-flex;
-      flex: none;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      block-size: 26px;
-      inline-size: 24px;
-      border: none;
-      background: transparent;
-      color: var(--on-surface-variant);
-
-      /* Subdued rather than absent, matching the × beside it: renaming a session
-         you are NOT in is exactly when this is wanted, and an icon that only
-         exists once you hover cannot be found without hunting for it - or, on a
-         touch screen, at all. */
-      opacity: 60%;
-      cursor: pointer;
-      transition:
-        opacity 140ms var(--ease),
-        color 140ms var(--ease);
-
-      /* Brighter on the pill being used. */
-      .tab:hover .ai-wrap &,
-      .tab.active .ai-wrap & {
-        opacity: 85%;
-      }
-
-      /* The tooltip belongs to `.ai-wrap`, outside this faded icon button, so
-         the indicator can stay subdued without dimming or clipping its bubble. */
-      .tab:hover .ai-wrap &:hover,
-      .tab.active .ai-wrap &:hover,
-      &:hover {
-        color: var(--primary);
-        opacity: 100%;
-      }
-
-      /* Pinned bright while auto-naming is on for this session, and backed by a
-         tinted plate. The plate is what actually carries the on/off state: the
-         brightening alone leans on the icon's COLOUR differing between the two,
-         and on the active pill it cannot - the accent this icon reaches for is
-         the pill's own fill, so both states resolve to the container's
-         on-colour and only a 15-point opacity step separates them. Mixed from
-         `currentcolor`, so it reads on the pale row and the filled pill alike
-         without either needing to know which one it is sitting on. */
-      .ai-wrap.on & {
-        border-radius: var(--radius-small);
-        background: color-mix(in sRGB, currentColor 22%, transparent);
-        color: var(--primary);
-        opacity: 100%;
-      }
-
-      /* On the active pill the fill IS the primary container, so the accent
-         every state above reaches for is the same colour as the ground beneath
-         it - on a palette whose container is dark that measured 1.01:1, which
-         is invisible rather than merely dim. Each of those states takes the
-         container's on-colour here instead, the way the × beside it already
-         does. */
-      .tab.active .ai-wrap &,
-      .tab.active .ai-wrap &:hover,
-      .tab.active .ai-wrap.on & {
-        color: var(--on-primary-container);
-      }
-    }
-
-    /* Inline rename field, sized like the label it replaces. */
-    .rename {
-      display: inline-flex;
-      gap: 7px;
-      align-items: center;
-      padding-block: 6px;
-      padding-inline: 12px 4px;
-
-      .rename-input {
-        inline-size: 7.5rem;
-        min-inline-size: 0;
-        border: none;
-        background: transparent;
-        color: var(--on-surface);
-        outline: none;
-        font-family: var(--font-monospace);
-        font-weight: 700;
-        font-size: 12px;
-      }
-    }
-
-    /* Leading glyph on a full tab: the agent's brand mark, coloured by how full
-       its context window is (the --context-* gauge) and carrying status. Stands
-       in for the plain status dot, which now marks only the collapsed tiers. */
-    .agent-icon {
-      display: inline-flex;
-      flex: none;
-      border-radius: var(--radius-full);
-      color: var(--context-ok);
-      transition: color 300ms var(--ease);
-
-      &.warning {
-        color: var(--context-warning);
-      }
-
-      &.critical {
-        color: var(--context-critical);
-      }
-
-      /* No signal yet (a just-launched agent, or a non-agent terminal) - stay
-         neutral so the blue never reads as a real "plenty of room" measurement. */
-      &.unknown {
-        color: var(--on-surface-variant);
-      }
-
-      /* Working breathes; ready (idle, awaiting you) keeps the dot's soft halo.
-         The pulse dims the inner mark, never this host span: the tooltip bubble
-         is this span's ::after, and an opacity animation on the host would drag
-         the visible bubble through every breath with it. */
-      &.working > :global(svg) {
-        animation: pulse 1100ms var(--ease) infinite;
-      }
-
-      &.ready {
-        box-shadow: 0 0 0 3px var(--tertiary-wash);
-      }
-
-      /* Waiting on a multiple-choice answer - a red ring pulses out to grab the
-         eye. Reduced motion swaps the pulse for a steady red ring. */
-      &.awaiting-choice {
-        color: var(--critical);
-        animation: choice-flash 1100ms var(--ease) infinite;
-
-        @media (prefers-reduced-motion: reduce) {
-          box-shadow: 0 0 0 2px var(--critical-wash);
-          animation: none;
-        }
-      }
-    }
-
-    /* Per-session status dot - mirrors the SessionBadge states. Used now only by
-       the collapsed overflow dots and the "+N" more-menu rows. */
-    .dot {
-      flex: none;
-      block-size: 8px;
-      inline-size: 8px;
-      border-radius: var(--radius-full);
-      background: var(--on-surface-variant);
-
-      &.working {
-        background: var(--primary);
-        animation: pulse 1100ms var(--ease) infinite;
-      }
-
-      &.ready {
-        background: var(--tertiary);
-        box-shadow: 0 0 0 4px var(--tertiary-wash);
-      }
-
-      /* Same red attention pulse as the full pill's glyph, on the collapsed dot. */
-      &.awaiting-choice {
-        background: var(--critical);
-        animation: choice-flash 1100ms var(--ease) infinite;
-
-        @media (prefers-reduced-motion: reduce) {
-          box-shadow: 0 0 0 2px var(--critical-wash);
-          animation: none;
-        }
-      }
-    }
-
-    .close-button {
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      block-size: 26px;
-      inline-size: 24px;
-      border: none;
-      border-end-start-radius: 0;
-      border-end-end-radius: 999px;
-      border-start-end-radius: 999px;
-      border-start-start-radius: 0;
-      background: transparent;
-      color: var(--on-surface-variant);
-      font-size: 15px;
-      line-height: 1;
-      opacity: 60%;
-      cursor: pointer;
-      transition: color 150ms var(--ease), background 150ms var(--ease), opacity 150ms var(--ease);
-
-      &:hover {
-        background: var(--critical-wash);
-        color: var(--critical);
-        opacity: 100%;
-      }
-    }
-
-    .tab.active {
-      .pick {
-        color: var(--on-primary-container);
-        font-weight: 600;
-      }
-
-      /* The active pill's label reads with a text caret - a single click there
-         renames it (Finder-style); inactive labels inherit the pill's pointer. */
-      .label {
-        cursor: text;
-      }
-
-      /* On the active pill the close × rides the container's on-color too. */
-      .close-button {
-        color: var(--on-primary-container);
-      }
-    }
-  }
-
-  /* Groups the add trigger with its popover as one menu-host, adding no box of
-     its own so the button lays out in the strip exactly as before. */
-  .add-wrap {
-    display: contents;
-  }
-
-  .add-button {
-    display: grid;
-    flex: none;
-    place-items: center;
-    block-size: 30px;
-    inline-size: 30px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    font-size: 18px;
-    cursor: pointer;
-    transition: color 150ms var(--ease), background 150ms var(--ease);
-
-    &:hover {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
-  }
-
-  /* Shell and rows come from the shared .popover-menu and .menu-item; only
-     width and anchor side live here. */
-  .menu {
-    min-inline-size: 220px;
-    position-area: bottom span-right;
-
-    /* Leading glyph tints: agents read primary, branches read tertiary (git). */
-    .launch-icon {
-      display: inline-flex;
-      color: var(--primary);
-    }
-
-    .branch-icon {
-      display: inline-flex;
-      color: var(--tertiary);
-    }
-
-    /* Branch rows spell the branch name in the mono face. */
-    .branch-item {
-      font-family: var(--font-monospace);
-    }
-  }
-
-  /* Overflow-session popover: a compact two-column grid of the collapsed tabs. */
-  .more-menu {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 4px;
-    overflow-y: auto;
-    max-block-size: min(60vh, 420px);
-    inline-size: min(360px, 80vw);
-    min-inline-size: 0;
-    padding: 8px;
-
-    .more-item {
-      display: flex;
-      align-items: center;
-      border-radius: var(--radius-small);
-
-      /* The whole row washes neutral surface-3 on hover (canon); the inner pick
-         button carries no fill of its own - so it cancels the shared .menu-item
-         primary hover. */
-      &:not(.active):hover {
-        background: var(--surface-3);
-      }
-
-      &.active {
-        background: var(--primary-container);
-      }
-    }
-
-    .more-pick {
-      display: flex;
-      flex: 1;
-      gap: 8px;
-      align-items: center;
-      inline-size: auto;
-      min-inline-size: 0;
-      font-family: var(--font-monospace);
-      font-size: 12px;
-
-      &:hover {
-        background: transparent;
-        color: inherit;
-      }
-    }
-
-    .more-item.active .more-pick {
-      color: var(--on-primary-container);
-    }
-
-    .more-label {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .more-close-button {
-      display: inline-flex;
-      flex: none;
-      justify-content: center;
-      align-items: center;
-      block-size: 26px;
-      inline-size: 26px;
-      padding: 0;
-      color: var(--on-surface-variant);
-      font-size: 0.9375rem;
-
-      &:hover {
-        background: var(--critical-wash);
-        color: var(--critical);
-      }
-    }
   }
 
   /* Red attention ripple for a tab whose agent is waiting on a multiple-choice
-     answer (see isAwaitingChoice) - a ring pulses out from the indicator. Held
-     still (a steady red ring instead) under reduced motion, at each usage. */
-  @keyframes choice-flash {
+     answer (see isAwaitingChoice) - a ring pulses out from the indicator. Global
+     so the strip's parts (glyph, dot, "+N") share the one ripple. Held still (a
+     steady red ring instead) under reduced motion, at each usage. */
+  /* stylelint-disable-next-line keyframes-name-pattern -- Svelte's `-global-` prefix */
+  @keyframes -global-choice-flash {
     0% {
       box-shadow: 0 0 0 0 color-mix(in oklab, var(--critical) 60%, transparent);
     }
