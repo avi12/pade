@@ -770,13 +770,13 @@ fn expired_temps(
     let is_open = |path: &str| {
         open_projects
             .iter()
-            .any(|open| crate::window::same_path(open, path))
+            .any(|open| crate::util::same_path(open, path))
     };
     let is_pinned = |path: &str| {
         settings
             .pinned_projects
             .iter()
-            .any(|pinned| crate::window::same_path(pinned, path))
+            .any(|pinned| crate::util::same_path(pinned, path))
     };
     temps
         .iter()

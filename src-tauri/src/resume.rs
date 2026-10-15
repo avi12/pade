@@ -13,7 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use crate::agents::{program, ID_CODEX, ID_OPENCODE};
-use crate::util::{command, home_dir, json_string_field};
+use crate::util::{command, home_dir, json_string_field, same_path};
 
 /// The rollout file extension and the `session_meta` fields read off its first
 /// line.
@@ -40,13 +40,12 @@ fn codex_session_for_cwd(cwd: &str) -> Option<String> {
     let mut rollouts = rollout_files(&sessions_directory);
     rollouts.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
 
-    let wanted = normalized(cwd);
     rollouts
         .into_iter()
         .take(NEWEST_ROLLOUTS_INSPECTED)
         .find_map(|(_, path)| {
             let metadata_line = first_line(&path)?;
-            interactive_session_id(&metadata_line, &wanted)
+            interactive_session_id(&metadata_line, cwd)
         })
 }
 
@@ -85,14 +84,6 @@ fn first_line(path: &Path) -> Option<String> {
     Some(line)
 }
 
-/// Case- and separator-insensitive path form for comparing the rollout's
-/// recorded `cwd` with the session's.
-fn normalized(path: &str) -> String {
-    path.replace('/', "\\")
-        .trim_end_matches('\\')
-        .to_lowercase()
-}
-
 /// Pull the session id out of one `session_meta` line - only when it records an
 /// interactive session (a `codex exec` oneshot has `"source":"exec"` and cannot
 /// be resumed into a TUI conversation) in the wanted working directory.
@@ -107,7 +98,7 @@ fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<Strin
     }
 
     let cwd = json_string_field(metadata_line, CWD_FIELD)?;
-    if normalized(&cwd.replace("\\\\", "\\")) != wanted_cwd {
+    if !same_path(&cwd.replace("\\\\", "\\"), wanted_cwd) {
         return None;
     }
 
@@ -223,7 +214,7 @@ pub async fn agent_resume_args(
 
 #[cfg(test)]
 mod tests {
-    use super::{interactive_session_id, normalized};
+    use super::interactive_session_id;
     use crate::util::json_string_field;
 
     const META: &str = r#"{"timestamp":"t","type":"session_meta","payload":{"session_id":"019f-abc","id":"019f-abc","cwd":"C:\\repositories\\avi\\proj","originator":"codex_exec","cli_version":"0.144.5","source":"exec"}}"#;
@@ -231,7 +222,7 @@ mod tests {
     #[test]
     fn a_oneshot_exec_rollout_is_never_resumed() {
         assert_eq!(
-            interactive_session_id(META, &normalized("C:\\repositories\\avi\\proj")),
+            interactive_session_id(META, "C:\\repositories\\avi\\proj"),
             None
         );
     }
@@ -240,7 +231,17 @@ mod tests {
     fn an_interactive_rollout_in_the_wanted_cwd_yields_its_session_id() {
         let interactive = META.replace("\"source\":\"exec\"", "\"source\":\"tui\"");
         assert_eq!(
-            interactive_session_id(&interactive, &normalized("C:/repositories/avi/PROJ")),
+            interactive_session_id(&interactive, "C:/repositories/avi/proj/"),
+            Some("019f-abc".to_string())
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_wanted_cwd_matches_case_insensitively_on_windows() {
+        let interactive = META.replace("\"source\":\"exec\"", "\"source\":\"tui\"");
+        assert_eq!(
+            interactive_session_id(&interactive, "C:/repositories/avi/PROJ"),
             Some("019f-abc".to_string())
         );
     }
@@ -248,10 +249,7 @@ mod tests {
     #[test]
     fn a_rollout_from_another_project_is_skipped() {
         let interactive = META.replace("\"source\":\"exec\"", "\"source\":\"tui\"");
-        assert_eq!(
-            interactive_session_id(&interactive, &normalized("C:\\elsewhere")),
-            None
-        );
+        assert_eq!(interactive_session_id(&interactive, "C:\\elsewhere"), None);
     }
 
     #[test]

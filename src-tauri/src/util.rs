@@ -226,18 +226,27 @@ pub fn search_dirs() -> Vec<PathBuf> {
     directories
 }
 
-/// A directory's identity for de-duping - case-insensitive on Windows, where
-/// `C:\Foo` and `c:\foo` are the same directory.
+/// A directory's identity for de-duping (see [`comparable_path`]).
 fn directory_key(directory: &Path) -> String {
-    let key = directory
-        .to_string_lossy()
-        .trim_end_matches(['\\', '/'])
-        .to_string();
+    comparable_path(&directory.to_string_lossy())
+}
+
+/// A path's spelling-independent form for comparison - `/`-separated, no
+/// trailing slash, lowercased on Windows, where `C:\Foo` and `c:/foo/` name the
+/// same folder. The one rule every "is this the same path" check reads.
+pub(crate) fn comparable_path(path: &str) -> String {
+    let forward_slashed = path.replace('\\', "/");
+    let trimmed = forward_slashed.trim_end_matches('/');
     if cfg!(windows) {
-        key.to_lowercase()
+        trimmed.to_lowercase()
     } else {
-        key
+        trimmed.to_string()
     }
+}
+
+/// Whether two paths name the same folder, however each was spelled.
+pub(crate) fn same_path(left: &str, right: &str) -> bool {
+    comparable_path(left) == comparable_path(right)
 }
 
 /// The `PATH` a newly-launched process would get, read from where Windows keeps

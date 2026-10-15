@@ -19,6 +19,7 @@ use tauri::{
 };
 
 use crate::theming::Scheme;
+use crate::util::{comparable_path, same_path};
 
 /// The window the app starts with (see `tauri.conf.json`).
 pub(crate) const MAIN_WINDOW_LABEL: &str = "main";
@@ -183,11 +184,6 @@ impl WindowProjects {
     }
 }
 
-/// Whether two paths name the same project, however each was spelled.
-pub(crate) fn same_path(left: &str, right: &str) -> bool {
-    normalize(left) == normalize(right)
-}
-
 /// The projects open in a live window right now - an entry whose window has
 /// since closed is skipped.
 pub(crate) fn open_projects(app: &AppHandle) -> Vec<String> {
@@ -227,18 +223,6 @@ pub fn on_destroyed(window: &Window) {
     if let Some(previous) = previous {
         mark_left_in_background(previous);
         broadcast_windows_changed(window.app_handle());
-    }
-}
-
-/// Canonicalize a path for cross-window comparison - `/`-separated, no trailing
-/// slash, lowercased on case-insensitive Windows.
-fn normalize(path: &str) -> String {
-    let forward_slashed = path.replace('\\', "/");
-    let trimmed = forward_slashed.trim_end_matches('/');
-    if cfg!(windows) {
-        trimmed.to_lowercase()
-    } else {
-        trimmed.to_string()
     }
 }
 
@@ -288,7 +272,7 @@ pub fn window_focus_project(
     state: tauri::State<WindowProjects>,
     path: String,
 ) -> bool {
-    let target = normalize(&path);
+    let target = comparable_path(&path);
     let current_label = window.label();
     let candidates: Vec<String> = {
         let Ok(projects) = state.projects.lock() else {
@@ -297,7 +281,7 @@ pub fn window_focus_project(
         projects
             .iter()
             .filter(|(label, project)| {
-                label.as_str() != current_label && normalize(project) == target
+                label.as_str() != current_label && comparable_path(project) == target
             })
             .map(|(label, _)| label.clone())
             .collect()
