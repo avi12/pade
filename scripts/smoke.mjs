@@ -1,4 +1,4 @@
-// E2E smoke: boot the real app and assert its shell renders. Dependency-free —
+// E2E smoke: boot the real app and assert its shell renders. Dependency-free -
 // WebView2 speaks the Chrome DevTools Protocol when launched with a debugging
 // port, and Node ships fetch + WebSocket. Current DOM-presence scenarios:
 //
@@ -6,7 +6,7 @@
 //   2. `?w=open&path=<repo>`  → the agent chooser mounts ("Choose an agent"),
 //                               proving settings/agents IPC round-trips.
 //
-// Scope limit: CDP sees the DOM, not the OS-composited surface — this suite
+// Scope limit: CDP sees the DOM, not the OS-composited surface - this suite
 // can NOT detect compositor problems like the WebView2 resize blank (see
 // docs/handoff-webview2-resize-blank.md). It is a boot-and-render gate only.
 //
@@ -93,7 +93,7 @@ async function navigateAndExpect({ url, expression, label }) {
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     if (await evaluate(expression)) {
-      console.log(`smoke: PASS — ${label}`);
+      console.log(`smoke: PASS - ${label}`);
       return;
     }
 
@@ -103,7 +103,7 @@ async function navigateAndExpect({ url, expression, label }) {
 }
 
 function fail(label) {
-  console.error(`smoke: FAIL — ${label}`);
+  console.error(`smoke: FAIL - ${label}`);
   teardown();
   process.exit(1);
 }
@@ -115,7 +115,7 @@ function teardown() {
     return;
   }
 
-  // The pnpm shim spawns a tree (vite + cargo + the app) — kill all of it.
+  // The pnpm shim spawns a tree (vite + cargo + the app) - kill all of it.
   try {
     execSync(`taskkill /pid ${launched.pid} /T /F`, { stdio: "ignore" });
   } catch {

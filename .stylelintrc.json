@@ -14,8 +14,6 @@
     "color-no-hex": null,
     "selector-pseudo-class-no-unknown": [true, { "ignorePseudoClasses": ["global"] }],
     "unit-disallowed-list": ["s"],
-    "no-descending-specificity": null,
-    "declaration-property-value-no-unknown": null,
     "property-disallowed-list": null,
     "function-disallowed-list": null,
     "declaration-property-value-allowed-list": null,

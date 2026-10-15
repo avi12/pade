@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/motion";
-  import { baseName } from "@/lib/paths";
-  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
-  import { taskCatalog } from "@/lib/stores/taskCatalog.svelte";
-  import { isTaskRunning, taskKey } from "@/lib/stores/taskRuns.svelte";
+  import { taskCatalog } from "@/lib/stores/tasks/taskCatalog.svelte";
+  import { isTaskRunning, taskKey } from "@/lib/stores/tasks/taskRuns.svelte";
+  import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { TaskGroup } from "@/lib/types";
+  import { collapseRow, emphasized, expandRow, flipDuration } from "@/lib/ui/motion";
+  import { baseName } from "@/lib/util/paths";
   import { flip } from "svelte/animate";
 
   const { project, onrun }: {
@@ -23,7 +23,7 @@
   const error = $derived(snapshot.error);
   const manifests = $derived(snapshot.descriptors);
 
-  async function refresh(workspace = project): Promise<void> {
+  async function refresh(workspace = project) {
     await taskCatalog.refresh(workspace);
   }
 
@@ -44,7 +44,7 @@
 
 <div class="tasks">
   {#if error}
-    <p class="empty">Could not read project tasks.</p>
+    <p class="empty">Could not read project tasks</p>
   {:else if groups.length === 0}
     <div class="empty">
       <p>No runnable tasks here. They appear as soon as the project carries one of these:</p>
@@ -106,7 +106,7 @@
               </div>
               <button
                 class="run"
-                data-tooltip="Run in the dock — ◆ pipes its output to the agent"
+                data-tooltip="Run in the dock - ◆ pipes its output to the agent"
                 onclick={() => onrun({
                   label: task.name,
                   command: task.command,
@@ -143,7 +143,7 @@
     }
   }
 
-  /* The manifests the backend reads, straight from its registry — a wrapped set
+  /* The manifests the backend reads, straight from its registry - a wrapped set
      of tokens rather than a comma-run, because the list is long enough that a
      sentence stops being readable at panel width. */
   .manifest-list {
@@ -190,13 +190,13 @@
   }
 
   /* Each manifest's header sticks to the top of the list while its tasks scroll
-     under it, until the next group's header pushes it out — sticky is bounded by
+     under it, until the next group's header pushes it out - sticky is bounded by
      its own .group. It bleeds over the list's padding (inline and the top edge)
      with the side pane's own surface, so no row peeks out beside or above it.
      The space above its label is the same pinned as at rest: the header's box
      reaches up over the list padding and the group's spacing (negative margin)
      and takes that space back as padding, so the label never moves when it
-     sticks — only the surface behind it starts covering the rows. */
+     sticks - only the surface behind it starts covering the rows. */
   .group h3 {
     --header-padding-block: 4px;
     --space-above-header: calc(var(--scroll-padding-block) + var(--group-space-above));
@@ -306,10 +306,10 @@
 
   /* Cyberpunk: a HUD readout decodes instead of springing. The tag types itself
      on one letter per step (RUNNING is seven) under a power-on flicker, and the
-     dot blinks hard rather than breathing — the skin snaps, it does not glide. */
+     dot blinks hard rather than breathing - the skin snaps, it does not glide. */
   :global(:root[data-palette="cyberpunk"]) .task-name {
     /* The skin bevels every corner, and a full-size chamfer on a 7px dot cuts
-       it down to a diagonal line — so the dot was invisible here. A 2px bevel
+       it down to a diagonal line - so the dot was invisible here. A 2px bevel
        keeps it a solid HUD pip. */
     .run-dot {
       border-radius: 2px;
@@ -417,7 +417,7 @@
     }
 
     /* The long pipe-explainer would overflow the panel's right edge with the
-       global centered-below tooltip — align it to this button's trailing edge
+       global centered-below tooltip - align it to this button's trailing edge
        instead. */
     &::after {
       inset-inline: auto anchor(right);

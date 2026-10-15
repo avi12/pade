@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { globalNaming } from "@/lib/ai-naming-scope";
+  import { globalNaming } from "@/lib/agent/ai-naming-scope";
   import { contextMenu } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { rovingTablist } from "@/lib/roving-tabs";
   import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
+  import { rovingTablist } from "@/lib/ui/roving-tabs";
   import { onMount } from "svelte";
 
   // "On launch" preferences: the no-project start mode, unused-temp cleanup,
@@ -26,11 +26,11 @@
   const aiNaming = $derived(globalNaming(prefs));
 
   // Explorer "Open in PADE" folder context menu (Windows-only, per-user).
-  // `null` until the registry answers — the row waits for it so the checkbox
+  // `null` until the registry answers - the row waits for it so the checkbox
   // is born showing the real state instead of flipping a beat after paint.
   const isWindows = navigator.userAgent.includes("Windows");
   let ctxMenuOn = $state<boolean | null>(null);
-  // Surfaced when registering the modern (Win11) menu fails — typically because
+  // Surfaced when registering the modern (Win11) menu fails - typically because
   // Developer Mode is off. The legacy menu still gets added in that case.
   let contextMenuError = $state("");
   async function loadContextMenu() {
@@ -41,8 +41,8 @@
 
   // Registering the Explorer menu can fail where the others cannot (the modern
   // Win11 entry needs Developer Mode), so this row reports back instead of just
-  // flipping — and always re-reads the registry, which is the real answer.
-  async function setContextMenu(on: boolean): Promise<void> {
+  // flipping - and always re-reads the registry, which is the real answer.
+  async function setContextMenu(on: boolean) {
     contextMenuError = "";
     try {
       if (on) {
@@ -113,7 +113,7 @@
 
   {@render toggleRow(autoName, onautoname, "Auto-name temp workspaces once the agent starts working")}
   {@render toggleRow(aiNaming, onainaming, "Name session tabs with AI, in every project")}
-  <p class="scope-hint">A single project can opt in or out of this in its Config panel.</p>
+  <p class="scope-hint">A single project can opt in or out of this in its Config panel</p>
   {#if isWindows && ctxMenuOn !== null}
     {@render toggleRow(ctxMenuOn, setContextMenu, "Add “Open in PADE” to the folder right-click menu")}
     {#if contextMenuError}
@@ -129,7 +129,7 @@
     gap: 10px;
   }
 
-  /* ── On launch — checkboxes; the pill-tabs chrome is shared (chrome.css). ── */
+  /* ── On launch - checkboxes; the pill-tabs chrome is shared (chrome.css). ── */
   .startmode {
     display: flex;
     flex-wrap: wrap;

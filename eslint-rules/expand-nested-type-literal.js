@@ -5,8 +5,8 @@
  * - Any member's key name exceeds LONG_KEY_NAME_LENGTH characters
  *
  * Single-member leaf types with short keys may stay on one line:
- *   title: { simpleText: string }                    // OK — short key, leaf
- *   liveBroadcastDetails?: { isLiveNow: true; ... }  // expanded — 2 members
+ *   title: { simpleText: string }                    // OK - short key, leaf
+ *   liveBroadcastDetails?: { isLiveNow: true; ... }  // expanded - 2 members
  *
  * Expanded due to long key:
  *   mediaUstreamerRequestConfig?: {

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { collapseRow, expandRow, flipDuration } from "@/lib/motion";
-  import { normalizePath } from "@/lib/paths";
-  import { emptyPathProbe } from "@/lib/types";
+  import { EMPTY_PATH_PROBE } from "@/lib/types";
   import type { TaggedPathProbe } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
+  import { collapseRow, expandRow, flipDuration } from "@/lib/ui/motion";
+  import { normalizePath } from "@/lib/util/paths";
   import { flip } from "svelte/animate";
 
   // A folder-path text field with directory autocomplete. As the path is typed
@@ -19,24 +20,24 @@
     value = $bindable(""),
     probe = $bindable({
       path: "",
-      result: emptyPathProbe
+      result: EMPTY_PATH_PROBE
     }),
     name,
     id,
     inputClass = "",
     placeholder = "",
-    inputElement = $bindable(null)
+    elInput = $bindable(null)
   }: {
     value?: string;
     probe?: TaggedPathProbe;
-    // A unique key per instance — derives the listbox id, option ids, and the
+    // A unique key per instance - derives the listbox id, option ids, and the
     // anchor-name so two combos on one page never collide.
     name: string;
     // The input's own id, for an external `<label for=…>` to pair with.
     id?: string;
     inputClass?: string;
     placeholder?: string;
-    inputElement?: HTMLInputElement | null;
+    elInput?: HTMLInputElement | null;
   } = $props();
 
   const listboxId = $derived(`${name}-suggestions`);
@@ -46,9 +47,9 @@
     return `${name}-suggestion-${index}`;
   }
 
-  let listOpen = $state(false);
+  let isListOpen = $state(false);
   // The selected suggestion. One option is always selected while the list is
-  // visible — the reconciler effect below enforces it; -1 only while hidden.
+  // visible - the reconciler effect below enforces it; -1 only while hidden.
   let activeIndex = $state(-1);
   // What was last selected, remembered across re-filters so the reconciler can
   // follow the same folder to its new position (or fall to the nearest one).
@@ -56,9 +57,9 @@
     directory: string;
     index: number;
   } | null = null;
-  let listElement = $state<HTMLUListElement | null>(null);
+  let elList = $state<HTMLUListElement | null>(null);
 
-  // The OS path separator — appended when a highlighted suggestion is Tab-accepted
+  // The OS path separator - appended when a highlighted suggestion is Tab-accepted
   // so the user can keep drilling into its sub-folders. The webview has no
   // `path.sep`, so read the platform the way OnLaunchSection already does.
   const pathSeparator = navigator.userAgent.includes("Windows") ? "\\" : "/";
@@ -69,8 +70,14 @@
   const suggestions = $derived(
     probe.result.suggestions.filter(directory => normalizePath(directory) !== normalizePath(probe.path))
   );
-  const listVisible = $derived(listOpen && suggestions.length > 0);
-  const activeId = $derived(activeIndex >= 0 ? optionId(activeIndex) : undefined);
+  const listVisible = $derived(isListOpen && suggestions.length > 0);
+  const activeId = $derived.by(() => {
+    if (activeIndex < 0) {
+      return undefined;
+    }
+
+    return optionId(activeIndex);
+  });
 
   // Debounced backend probe: what the typed path is on disk (and whether its
   // parent exists) + directory completions. The result flows to the host via the
@@ -80,9 +87,9 @@
     if (path.length === 0) {
       probe = {
         path: "",
-        result: emptyPathProbe
+        result: EMPTY_PATH_PROBE
       };
-      // A fresh path starts a fresh selection — don't carry one across a clear.
+      // A fresh path starts a fresh selection - don't carry one across a clear.
       lastSelected = null;
       return;
     }
@@ -101,7 +108,7 @@
   // opens on input/focus rather than a popovertarget click, so it's shown and
   // hidden imperatively; the `:popover-open` guard keeps show/hidePopover idempotent.
   $effect(() => {
-    const list = listElement;
+    const list = elList;
     if (!list) {
       return;
     }
@@ -114,7 +121,7 @@
     }
   });
 
-  // Move the selection — shared by the arrow keys and the reconciler, so the
+  // Move the selection - shared by the arrow keys and the reconciler, so the
   // remembered selection always matches what's highlighted.
   function select(index: number) {
     activeIndex = index;
@@ -128,9 +135,9 @@
   //
   //   next = survivorIndex ≥ 0 ? survivorIndex : min(previousIndex, lastIndex)
   //
-  // — a surviving option is followed by value to its new position; a vanished
+  // - a surviving option is followed by value to its new position; a vanished
   // one falls to the nearest remaining position (its old index, clamped to the
-  // new end — a removed bottom selects the new bottom); no previous selection
+  // new end - a removed bottom selects the new bottom); no previous selection
   // means previousIndex 0, the top.
   $effect(() => {
     if (!listVisible) {
@@ -143,25 +150,25 @@
     select(survivorIndex >= 0 ? survivorIndex : Math.min(previousIndex, lastIndex));
   });
 
-  /** Focus the field — how a host lands the user here (the quick-start form's
+  /** Focus the field - how a host lands the user here (the quick-start form's
    *  "New root folder…" jump, or a folder dropped on the local field). */
   export function focus() {
-    inputElement?.focus();
+    elInput?.focus();
   }
 
-  // Adopt a suggested directory — shared by the listbox rows and the Enter key,
+  // Adopt a suggested directory - shared by the listbox rows and the Enter key,
   // so it stays a named function.
   function pick(directory: string) {
     value = directory;
-    listOpen = false;
+    isListOpen = false;
     activeIndex = -1;
     lastSelected = null;
-    inputElement?.focus();
+    elInput?.focus();
   }
 </script>
 
 <input
-  bind:this={inputElement}
+  bind:this={elInput}
   {id}
   style:anchor-name={anchorName}
   class="path-input {inputClass}"
@@ -170,17 +177,17 @@
   aria-controls={listboxId}
   aria-expanded={listVisible}
   autocomplete="off"
-  onblur={() => (listOpen = false)}
-  onfocus={() => (listOpen = true)}
-  oninput={() => (listOpen = true)}
+  onblur={() => (isListOpen = false)}
+  onfocus={() => (isListOpen = true)}
+  oninput={() => (isListOpen = true)}
   onkeydown={e => {
-    // Ctrl+Space re-opens the completions (IDE-style) — after an Escape, or to
+    // Ctrl+Space re-opens the completions (IDE-style) - after an Escape, or to
     // summon the current folder's children without retyping. Suppress the space
     // it would otherwise insert.
-    const isOpenListChord = e.ctrlKey && e.key === " ";
+    const isOpenListChord = e.ctrlKey && e.key === Key.Space;
     if (isOpenListChord) {
       e.preventDefault();
-      listOpen = true;
+      isListOpen = true;
       return;
     }
 
@@ -188,26 +195,26 @@
       return;
     }
 
-    if (e.key === "ArrowDown") {
+    if (e.key === Key.ArrowDown) {
       e.preventDefault();
       select((activeIndex + 1) % suggestions.length);
-    } else if (e.key === "ArrowUp") {
+    } else if (e.key === Key.ArrowUp) {
       e.preventDefault();
       select(activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1);
-    } else if (e.key === "Enter" && activeIndex >= 0) {
+    } else if (e.key === Key.Enter && activeIndex >= 0) {
       e.preventDefault();
       pick(suggestions[activeIndex]);
-    } else if (e.key === "Tab" && activeIndex >= 0) {
+    } else if (e.key === Key.Tab && activeIndex >= 0) {
       // Accept the highlighted folder and append a separator instead of moving
       // focus, then keep the list open so the debounced probe immediately starts
-      // completing that folder's sub-folders — where the selection starts fresh
+      // completing that folder's sub-folders - where the selection starts fresh
       // at the top.
       e.preventDefault();
       value = suggestions[activeIndex] + pathSeparator;
       lastSelected = null;
-      listOpen = true;
-    } else if (e.key === "Escape") {
-      listOpen = false;
+      isListOpen = true;
+    } else if (e.key === Key.Escape) {
+      isListOpen = false;
       activeIndex = -1;
       lastSelected = null;
     }
@@ -224,7 +231,7 @@
      clip through the edge. Shown/hidden via showPopover/hidePopover from the
      `listVisible` effect (a typeahead opens on typing, not a popovertarget click). -->
 <ul
-  bind:this={listElement}
+  bind:this={elList}
   id={listboxId}
   style:position-anchor={anchorName}
   class="suggestions"
@@ -251,7 +258,7 @@
 </ul>
 
 <style>
-  /* Directory autocomplete — a card of child folders shown as a top-layer popover
+  /* Directory autocomplete - a card of child folders shown as a top-layer popover
      anchored to the field. The top layer lifts it out of the picker's own scroll
      container (so it never clips), `anchor-size(width)` matches the field's width,
      and `flip-block` flips it above the field near the viewport bottom. The reveal

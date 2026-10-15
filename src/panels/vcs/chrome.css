@@ -1,9 +1,9 @@
 /* Shared chrome for the Git panel and its section components. Plain CSS (not
    Svelte-scoped) so one authoritative copy reaches every section; every
    selector is prefixed with `.version-control` so nothing leaks past the panel. Imported
-   once by VcsPanel.svelte — section components rely on it. */
+   once by VcsPanel.svelte - section components rely on it. */
 
-/* Uppercase group headers — the status groups and the commit log share them. */
+/* Uppercase group headers - the status groups and the commit log share them. */
 .version-control .group h3 {
   display: flex;
   gap: 8px;
@@ -17,7 +17,7 @@
   text-transform: uppercase;
 }
 
-/* Short commit hash — restore candidates and log rows share it. */
+/* Short commit hash - restore candidates and log rows share it. */
 .version-control .commit-hash {
   flex: none;
   color: var(--primary);

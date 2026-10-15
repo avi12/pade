@@ -1,18 +1,19 @@
 <script lang="ts">
   import { os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { isTemporaryWorkspace } from "@/lib/paths";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
+  import OwnedWorkspaceItems from "@/panels/picker/OwnedWorkspaceItems.svelte";
 
   // Trailing kebab + actions popover for one project row: reveal in Files /
-  // Terminal, and — for PADE-owned workspaces — the relabel (temp only) / rename /
-  // move / delete lifecycle. Opening in an editor is its own visible row button
+  // Terminal, renaming the folder (any project no other window holds), and - for
+  // PADE-owned workspaces - the relabel (temp only) / rename / move / delete
+  // lifecycle. Opening in an editor is its own visible row button
   // (OpenInEditorButton), so it isn't repeated here. Chrome comes from
   // picker/chrome.css.
   const { path, scope, lifecycle }: {
     path: string;
     /** Disambiguates a path shown in more than one section (Recent AND under
-     *  its root) — the same path would otherwise mint duplicate popover ids
+     *  its root) - the same path would otherwise mint duplicate popover ids
      *  and clicking one kebab would open the wrong menu. */
     scope: string;
     lifecycle: WorkspaceLifecycle;
@@ -20,6 +21,9 @@
 
   // Stable, valid popover id/anchor per row.
   const identifier = $derived(`menu-${scope}-${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`);
+  const isOwned = $derived(lifecycle.isOwned(path));
+  const isFolderRenamable = $derived(lifecycle.canRenameFolder(path));
+  const hasWorkspaceActions = $derived(isOwned || isFolderRenamable);
 </script>
 
 <span class="menu-host">
@@ -41,60 +45,24 @@
         <Icon name="terminal" /><span class="menu-item-text">Open in Terminal</span>
       </button>
     </li>
-    {#if lifecycle.isOwned(path)}
+    {#if hasWorkspaceActions}
       <li class="menu-divider" role="separator"></li>
       <li class="menu-separator">Workspace</li>
-      {#if isTemporaryWorkspace(path)}
-        <li>
-          <button
-            class="menu-item"
-            onclick={() => lifecycle.startRelabel(path)}
-            popovertarget={identifier}
-            popovertargetaction="hide"
-          >
-            <Icon name="pencil" /><span class="menu-item-text">Relabel in PADE</span>
-          </button>
-        </li>
-      {/if}
+    {/if}
+    {#if isFolderRenamable}
       <li>
         <button
           class="menu-item"
-          onclick={() => lifecycle.startRename(path)}
+          onclick={() => lifecycle.startRenameFolder(path)}
           popovertarget={identifier}
           popovertargetaction="hide"
         >
-          <Icon name="pencil" /><span class="menu-item-text">Rename to a project</span>
+          <Icon name="folder" /><span class="menu-item-text">Rename folder…</span>
         </button>
       </li>
-      <li>
-        <button
-          class="menu-item"
-          onclick={async () => await lifecycle.moveWorkspace(path)}
-          popovertarget={identifier}
-          popovertargetaction="hide"
-        >
-          <Icon name="swap" /><span class="menu-item-text">Move…</span>
-        </button>
-      </li>
-      <li>
-        <!-- Shift-click is the power-user path: it skips the confirmation and
-           deletes straight away (a failure still surfaces in the dialog). -->
-        <button
-          class="menu-item danger"
-          onclick={async e => {
-            if (e.shiftKey) {
-              await lifecycle.deleteNow(path);
-              return;
-            }
-
-            lifecycle.requestDelete(path);
-          }}
-          popovertarget={identifier}
-          popovertargetaction="hide"
-        >
-          <Icon name="trash" /><span class="menu-item-text">Delete workspace</span><kbd>⇧</kbd>
-        </button>
-      </li>
+    {/if}
+    {#if isOwned}
+      <OwnedWorkspaceItems {lifecycle} menuId={identifier} {path} />
     {/if}
   </ul>
 </span>

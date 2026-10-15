@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { appearance, effective, updatePrefs } from "@/lib/prefs.svelte";
+  import { appearance, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { Scheme } from "@/lib/types";
   import SchemeMismatchNote from "@/panels/config/SchemeMismatchNote.svelte";
   import TerminalSchemePicker from "@/panels/config/TerminalSchemePicker.svelte";
@@ -20,7 +20,7 @@
   }: {
     scheme: Scheme;
     name: string | null;
-  }): Promise<void> {
+  }) {
     await updatePrefs({
       terminalSchemes: {
         ...effective.terminalSchemes,
@@ -29,7 +29,7 @@
     });
   }
 
-  async function pickForBoth(name: string | null): Promise<void> {
+  async function pickForBoth(name: string | null) {
     await updatePrefs({
       terminalSchemes: {
         light: name,
@@ -42,7 +42,7 @@
 <div class="field">
   <span class="field-text">
     <span class="field-label">Terminal colours</span>
-    <span class="field-hint">Windows Terminal schemes — the ones it ships and your own</span>
+    <span class="field-hint">Windows Terminal schemes - the ones it ships and your own</span>
   </span>
   <label class="check">
     <span class="checkbox">

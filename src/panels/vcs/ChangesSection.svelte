@@ -1,12 +1,12 @@
 <script lang="ts">
   import { vcs } from "@/lib/bridge";
-  import { parseDiff } from "@/lib/diff";
-  import DiffView from "@/lib/DiffView.svelte";
-  import { formatCount } from "@/lib/format";
-  import { baseName } from "@/lib/paths";
-  import { effective } from "@/lib/prefs.svelte";
+  import { parseDiff } from "@/lib/code/diff";
+  import DiffView from "@/lib/code/DiffView.svelte";
+  import { effective } from "@/lib/settings/prefs.svelte";
   import { DiffStyle, VcsKind } from "@/lib/types";
   import type { StatusEntry } from "@/lib/types";
+  import { formatCount } from "@/lib/util/format";
+  import { baseName } from "@/lib/util/paths";
 
   // Working-tree changes: the unreviewed/staged groups and the inline diff of
   // the selected file. Agent-oriented review lives in the "unreviewed"
@@ -37,7 +37,7 @@
     selected = entry;
     const isUntracked = entry.kind === VcsKind.enum.untracked;
     diff = isUntracked
-      ? "(new file — not yet tracked)"
+      ? "(new file - not yet tracked)"
       : await vcs.diff({
         cwd: project,
         path: entry.path,
@@ -46,7 +46,7 @@
   }
 
   // Diff rendering funnels through the shared parser and the shared DiffView
-  // renderer (DRY) — one authoritative line classifier and one painter for the
+  // renderer (DRY) - one authoritative line classifier and one painter for the
   // Change Feed, this panel, and the commit modal.
   const diffLines = $derived(parseDiff(diff));
   const isSplit = $derived(effective.diffStyle === DiffStyle.enum.split);
@@ -77,7 +77,7 @@
 {/if}
 
 {#if !entries.length}
-  <p class="empty">Working tree clean.</p>
+  <p class="empty">Working tree clean</p>
 {/if}
 
 {#if selected}

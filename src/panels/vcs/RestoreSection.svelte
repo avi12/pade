@@ -1,20 +1,21 @@
 <script lang="ts">
   import { vcs } from "@/lib/bridge";
-  import { formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import type { RestoreCandidate } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
+  import { formatPercent } from "@/lib/util/format";
   import { parseInput, RestoreQuery } from "@/lib/validate";
 
   const { project }: { project: string } = $props();
 
-  // Restore a version — natural-language query → ranked prior commits →
+  // Restore a version - natural-language query → ranked prior commits →
   // checkout. Self-contained: the checkout touches the working tree, so the
   // panel's watcher-driven refresh picks up the result on its own.
   let restoreQuery = $state("");
   let candidates = $state<RestoreCandidate[]>([]);
   let restoreError = $state<string | null>(null);
   let restoreDone = $state<string | null>(null);
-  let searching = $state(false);
+  let isSearching = $state(false);
 
   // Reset a prior repository's search/result when this lazy component receives
   // a new project from VcsPanel.
@@ -27,7 +28,7 @@
     candidates = [];
     restoreError = null;
     restoreDone = null;
-    searching = false;
+    isSearching = false;
   });
 
   async function runRestore() {
@@ -39,7 +40,7 @@
       return;
     }
 
-    searching = true;
+    isSearching = true;
     restoreError = null;
     restoreDone = null;
     try {
@@ -51,12 +52,12 @@
       restoreError = String(error);
       candidates = [];
     } finally {
-      searching = false;
+      isSearching = false;
     }
   }
 
-  // Confidence as a 0..100 percentage — scores run 0..≈1.5, clamped for display.
-  function confidencePercentage(score: number): number {
+  // Confidence as a 0..100 percentage - scores run 0..≈1.5, clamped for display.
+  function confidencePercentage(score: number) {
     return Math.round(Math.min(score / 1.5, 1) * 100);
   }
 </script>
@@ -67,7 +68,7 @@
     <input
       aria-label="Restore to a previous version"
       onkeydown={e => {
-        const isSubmit = e.key === "Enter";
+        const isSubmit = e.key === Key.Enter;
         if (isSubmit) {
           runRestore();
         }
@@ -76,7 +77,7 @@
       type="text"
       bind:value={restoreQuery}
     />
-    <button class="go" disabled={searching} onclick={runRestore}>Restore</button>
+    <button class="go" disabled={isSearching} onclick={runRestore}>Restore</button>
   </div>
   <p class="hint">
     PADE reads your local edit history and runs <code>git bisect</code> to trace back to the matching version.
@@ -126,10 +127,10 @@
         </li>
       {/each}
     </ul>
-  {:else if searching}
+  {:else if isSearching}
     <p class="hint">Searching your history…</p>
   {:else if restoreQuery.trim() && !restoreDone && !restoreError}
-    <p class="hint">No matching version found — try describing it differently.</p>
+    <p class="hint">No matching version found - try describing it differently</p>
   {/if}
 </section>
 

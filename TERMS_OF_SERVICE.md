@@ -42,7 +42,7 @@ affiliated with or endorsed by Discord.
 
 PADE is provided **"as is"**, without warranty of any kind, as stated in the
 Apache License 2.0. To the maximum extent permitted by law, the authors are
-not liable for any damages arising from use of the software — including data
+not liable for any damages arising from use of the software - including data
 loss caused by agent actions in your workspaces.
 
 ## 6. Trademarks

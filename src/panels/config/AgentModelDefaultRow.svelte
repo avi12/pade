@@ -2,10 +2,10 @@
   // One agent's starting model for the workspace: a pick from its own catalog,
   // then the picked model's effort ladder.
 
-  import { agentIconName } from "@/lib/agent-icon";
-  import EffortPicker from "@/lib/EffortPicker.svelte";
+  import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
-  import { modelOption, modelOptions } from "@/lib/stores/modelOptions.svelte";
+  import EffortPicker from "@/lib/model/EffortPicker.svelte";
+  import { modelOption, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent, ModelChoice } from "@/lib/types";
 
   const { agent, chosen, onsave }: {

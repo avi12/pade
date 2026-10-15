@@ -1,9 +1,9 @@
 /* Shared chrome for the project picker and its section components. Plain CSS
    (not Svelte-scoped) so one authoritative copy reaches every picker section;
    every selector is prefixed with `.picker` so nothing leaks past the page.
-   Imported once by ProjectPicker.svelte — section components rely on it. */
+   Imported once by ProjectPicker.svelte - section components rely on it. */
 
-/* Section eyebrows — uppercase micro-labels. */
+/* Section eyebrows - uppercase micro-labels. */
 .picker h2 {
   margin: 0;
   color: var(--on-surface-variant);
@@ -33,7 +33,7 @@
   clip-path: inset(50%);
 }
 
-/* Inline validation message — the schema's own reason a name was rejected. */
+/* Inline validation message - the schema's own reason a name was rejected. */
 .picker .field-error {
   display: block;
   margin-block-start: 6px;
@@ -50,12 +50,7 @@
   align-items: center;
 }
 
-.picker .row > button:first-child {
-  flex: 1;
-  min-inline-size: 0;
-}
-
-/* Trailing kebab — a subtle pill circle that fills on hover. */
+/* Trailing kebab - a subtle pill circle that fills on hover. */
 .picker .kebab {
   display: inline-flex;
   flex: none;
@@ -161,7 +156,7 @@
 /* A full-width monospace path / URL input. Bare (borderless, transparent) inside
    a `.new-project-location` group row or a `PathCombobox`; `framed` gives the standalone one
    its own field chrome. Shared by the local-folder, add-root, and clone-URL
-   fields — one home for the path-field look. */
+   fields - one home for the path-field look. */
 .picker .path-input {
   flex: 1;
   min-inline-size: 0;
@@ -203,13 +198,19 @@
   }
 }
 
+/* A list row's main button takes the width its trailing kebab leaves. */
+.picker .row > button:first-child {
+  flex: 1;
+  min-inline-size: 0;
+}
+
 .picker .none {
   color: var(--on-surface-variant);
   list-style: none;
   font-size: 13px;
 }
 
-/* Re-detect ("Reload") pill — shared by the Default-agent and Editors sections.
+/* Re-detect ("Reload") pill - shared by the Default-agent and Editors sections.
    A tonal outline pill that takes the primary edge on hover; its refresh icon
    spins while a scan is in flight (`.scanning`). */
 .picker .rescan {
@@ -243,7 +244,7 @@
   }
 }
 
-/* The selected-item checkmark — a primary accent that stands out on the row's
+/* The selected-item checkmark - a primary accent that stands out on the row's
    neutral selection/hover wash. */
 .picker .tick {
   color: var(--primary);

@@ -1,0 +1,238 @@
+// The xterm theme is the agent's source of truth for light vs dark - so it must
+// always be truthful and never silently dropped.
+//
+// PADE's decision on agent/app theme sync: PADE follows the OS scheme end-to-end
+// (prefs seed from the native window theme, then follow it; theme.css carries
+// full light and dark palettes; Terminal.svelte re-themes xterm when the scheme
+// flips), and the agent follows the TERMINAL, not the OS.
+//
+// What that buys an already-running agent on Windows is: nothing. Claude Code's
+// `auto` theme resolves as `live override ?? $COLORFGBG ?? dark`, the override is
+// only set by an OSC 11 background-color answer, and that query never reaches the
+// terminal here - so the scheme is fixed by the environment the session was
+// spawned with. Terminal.svelte still relays the standard
+// `CSI ?997;<dark|light>n` report (harmless, and the documented channel), but
+// measurement says it does not move a live Claude - see `theming.rs` and
+// `docs/terminal-rendering.md`. Keeping these colors truthful matters for what
+// the user reads, not for what the agent believes.
+//
+// Truthful requires parse-safe. xterm's color parser takes `#hex` (alpha
+// included) and legacy comma `rgb()`/`rgba()` directly; every other format falls
+// back to a canvas probe that REJECTS non-opaque colors. theme.css authors its
+// tokens in modern `hsl()` - the opaque ones survive the canvas path, but an
+// alpha token like `--terminal-selection: hsl(210deg 90% 45% / 22%)` threw there
+// and was silently replaced by xterm's default (a white wash, invisible on the
+// light scheme). So every token is converted to hex before xterm sees it.
+
+import type { ISearchOptions } from "@xterm/addon-search";
+import type { ITheme } from "@xterm/xterm";
+
+/** The 16 ANSI palette slots as their `--terminal-*` design-token names, in ANSI
+ *  order (0–7 standard, 8–15 bright). The one home mapping an ANSI color index to
+ *  the token that paints it - xterm's theme ({@link xtermTheme}) and the runner
+ *  dock's SGR parser (`parseAnsi`) both read it, so the terminal and the runner
+ *  output can never drift onto two different palettes. */
+export const ANSI_COLOR_TOKENS = [
+  "--terminal-black",
+  "--terminal-red",
+  "--terminal-green",
+  "--terminal-yellow",
+  "--terminal-blue",
+  "--terminal-magenta",
+  "--terminal-cyan",
+  "--terminal-white",
+  "--terminal-bright-black",
+  "--terminal-bright-red",
+  "--terminal-bright-green",
+  "--terminal-bright-yellow",
+  "--terminal-bright-blue",
+  "--terminal-bright-magenta",
+  "--terminal-bright-cyan",
+  "--terminal-bright-white"
+] as const;
+
+// The 240 slots above the 16 named ones are not a palette anyone chose - they are
+// a formula every terminal computes the same way: a 6×6×6 colour cube, then a
+// 24-step grey ramp. Spelling them out as a table would be 240 magic numbers.
+const COLOR_CUBE_FIRST = 16;
+const COLOR_CUBE_SIDE = 6;
+/** The six levels a cube channel can take - deliberately not linear; this is the
+ *  ramp xterm and every other terminal use. */
+const COLOR_CUBE_LEVELS = [0, 95, 135, 175, 215, 255] as const;
+const GREY_RAMP_FIRST = 232;
+const GREY_RAMP_BASE = 8;
+const GREY_RAMP_STEP = 10;
+
+/** An ANSI colour index as a CSS colour. The first 16 resolve through the design
+ *  tokens ({@link ANSI_COLOR_TOKENS}) so they follow the app's light/dark scheme
+ *  exactly as xterm's own palette does; the rest are the standard 256-colour
+ *  formula, which is scheme-independent by definition. */
+export function ansiPaletteColor({ iColor }: { iColor: number }) {
+  const token = ANSI_COLOR_TOKENS[iColor];
+  if (token) {
+    return `var(${token})`;
+  }
+
+  if (iColor >= GREY_RAMP_FIRST) {
+    const level = GREY_RAMP_BASE + (iColor - GREY_RAMP_FIRST) * GREY_RAMP_STEP;
+    return `rgb(${level} ${level} ${level})`;
+  }
+
+  const offset = iColor - COLOR_CUBE_FIRST;
+  const red = COLOR_CUBE_LEVELS[Math.floor(offset / (COLOR_CUBE_SIDE * COLOR_CUBE_SIDE)) % COLOR_CUBE_SIDE];
+  const green = COLOR_CUBE_LEVELS[Math.floor(offset / COLOR_CUBE_SIDE) % COLOR_CUBE_SIDE];
+  const blue = COLOR_CUBE_LEVELS[offset % COLOR_CUBE_SIDE];
+  return `rgb(${red} ${green} ${blue})`;
+}
+
+/** xterm's 16 ANSI theme slots, in the same order as {@link ANSI_COLOR_TOKENS}. */
+const ANSI_THEME_KEYS = [
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+  "brightBlack",
+  "brightRed",
+  "brightGreen",
+  "brightYellow",
+  "brightBlue",
+  "brightMagenta",
+  "brightCyan",
+  "brightWhite"
+] as const satisfies readonly (keyof ITheme)[];
+
+const HSL_COLOR = new RegExp(
+  "^hsl\\(\\s*(-?\\d+(?:\\.\\d+)?)(?:deg)?" + // hue, `deg` optional
+    "\\s+(\\d+(?:\\.\\d+)?)%" + // saturation
+    "\\s+(\\d+(?:\\.\\d+)?)%" + // lightness
+    "(?:\\s*/\\s*(\\d*(?:\\.\\d+)?)(%?))?" + // optional `/ alpha` (number or %)
+    "\\s*\\)$",
+  "i"
+);
+
+const CHANNEL_MAXIMUM = 255;
+const HEX_RADIX = 16;
+const HEX_DIGITS_PER_CHANNEL = 2;
+const DEGREES_PER_TURN = 360;
+/** HSL → RGB walks the hue circle in six 60-degree sextants. */
+const DEGREES_PER_SEXTANT = 60;
+const SEXTANTS = DEGREES_PER_TURN / DEGREES_PER_SEXTANT;
+const PERCENT = 100;
+const PERCENT_SIGN = "%";
+
+/** The surface tokens the terminal paints with, beside the 16 ANSI ones. The
+ *  cursor has a token of its own so a scheme can name it. */
+export const CODE_BACKGROUND_TOKEN = "--code-background";
+export const CODE_FOREGROUND_TOKEN = "--code-foreground";
+export const TERMINAL_CURSOR_TOKEN = "--terminal-cursor";
+export const TERMINAL_SELECTION_TOKEN = "--terminal-selection";
+const FIND_MATCH_TOKEN = "--terminal-find-match";
+const FIND_ACTIVE_MATCH_TOKEN = "--terminal-find-active";
+const ACCENT_TOKEN = "--primary";
+
+/** A 0..1 channel as two hex digits. */
+function channelHex(value: number) {
+  const clamped = Math.min(CHANNEL_MAXIMUM, Math.max(0, Math.round(value * CHANNEL_MAXIMUM)));
+  return clamped.toString(HEX_RADIX).padStart(HEX_DIGITS_PER_CHANNEL, "0");
+}
+
+/** Convert a modern `hsl()` token to `#rrggbb[aa]`; any other format (already-hex,
+ *  `rgb()`, a future `color-mix()`) passes through for xterm's own parser. */
+export function xtermSafeColor(raw: string) {
+  const match = HSL_COLOR.exec(raw.trim());
+  if (!match) {
+    return raw;
+  }
+
+  const [, hueRaw, saturationRaw, lightnessRaw, alphaRaw, alphaPercent] = match;
+  const hue = ((parseFloat(hueRaw) % DEGREES_PER_TURN) + DEGREES_PER_TURN) % DEGREES_PER_TURN;
+  const saturation = Math.min(PERCENT, parseFloat(saturationRaw)) / PERCENT;
+  const lightness = Math.min(PERCENT, parseFloat(lightnessRaw)) / PERCENT;
+
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const secondary = chroma * (1 - Math.abs(((hue / DEGREES_PER_SEXTANT) % 2) - 1));
+  const base = lightness - chroma / 2;
+
+  const sextant = Math.floor(hue / DEGREES_PER_SEXTANT) % SEXTANTS;
+  const [red, green, blue] = [
+    [chroma, secondary, 0],
+    [secondary, chroma, 0],
+    [0, chroma, secondary],
+    [0, secondary, chroma],
+    [secondary, 0, chroma],
+    [chroma, 0, secondary]
+  ][sextant]!;
+
+  let hex = `#${channelHex(red + base)}${channelHex(green + base)}${channelHex(blue + base)}`;
+  const hasAlpha = alphaRaw !== undefined && alphaRaw !== "";
+  if (hasAlpha) {
+    const alpha = alphaPercent === PERCENT_SIGN ? parseFloat(alphaRaw) / PERCENT : parseFloat(alphaRaw);
+    if (alpha < 1) {
+      hex += channelHex(alpha);
+    }
+  }
+
+  return hex;
+}
+
+/** Build xterm's theme from the design tokens (the `--terminal-*` ANSI palette +
+ *  code surface), every color made parse-safe. `readToken` supplies the computed
+ *  value of one custom property - the caller owns the DOM read, this mapping
+ *  stays pure. Agent CLIs paint with these 16 slots, and xterm's own defaults
+ *  only suit a dark screen - the light scheme re-picks every one dark enough to
+ *  read. */
+export function xtermTheme({ readToken }: { readToken: (name: string) => string }) {
+  function color(name: string) {
+    return xtermSafeColor(readToken(name));
+  }
+
+  const ansiColors: Partial<ITheme> = {};
+  for (const [i, key] of ANSI_THEME_KEYS.entries()) {
+    ansiColors[key] = color(ANSI_COLOR_TOKENS[i]);
+  }
+
+  return {
+    background: color(CODE_BACKGROUND_TOKEN),
+    foreground: color(CODE_FOREGROUND_TOKEN),
+    cursor: color(TERMINAL_CURSOR_TOKEN),
+    selectionBackground: color(TERMINAL_SELECTION_TOKEN),
+    ...ansiColors
+  };
+}
+
+/** The find bar's highlight colours, taken from the same tokens as the rest of
+ *  the terminal's palette so a search follows the scheme along with everything
+ *  else. The two washes are theme.css's (`--terminal-find-*`, where the reason
+ *  they must stay translucent is written down); the active match takes the
+ *  accent as a 1px edge on top, which is the one mark that can be solid without
+ *  hiding the word underneath it. */
+export function xtermSearchDecorations({ readToken }: {
+  readToken: (name: string) => string;
+}) {
+  function color(name: string) {
+    return xtermSafeColor(readToken(name));
+  }
+
+  const match = color(FIND_MATCH_TOKEN);
+  const activeMatch = color(FIND_ACTIVE_MATCH_TOKEN);
+  return {
+    matchBackground: match,
+    matchOverviewRuler: match,
+    activeMatchBackground: activeMatch,
+    activeMatchBorder: color(ACCENT_TOKEN),
+    activeMatchColorOverviewRuler: activeMatch
+  } satisfies NonNullable<ISearchOptions["decorations"]>;
+}
+
+/** Read design tokens off the document root. The one DOM read behind every
+ *  terminal colour - the theme and the search highlights resolve their tokens
+ *  through it, so neither can end up reading a different root than the other.
+ *  Returned as a reader so the mappings above stay pure and testable. */
+export function rootTokenReader() {
+  const style = getComputedStyle(document.documentElement);
+  return (name: string) => style.getPropertyValue(name).trim();
+}

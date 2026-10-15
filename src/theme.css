@@ -1,8 +1,8 @@
-/* ADE — Material 3 Expressive tokens, hand-authored.
+/* ADE - Material 3 Expressive tokens, hand-authored.
    Light + dark schemes from a single blue seed; follows OS theme by default.
    This is the MVP's only skin; alternate skins swap this token set later. */
 
-/* Figtree — the expressive geometric UI sans. Self-hosted (variable, 300–900)
+/* Figtree - the expressive geometric UI sans. Self-hosted (variable, 300–900)
    so nothing is fetched from a CDN at runtime (principle #10). Two subsets:
    latin covers the app's text; latin-ext adds accented/European glyphs.
    unicode-range is one long comma list, so keep it on a single line. */
@@ -26,11 +26,11 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* Rajdhani — the typeface Cyberpunk 2077's own interface is set in (SIL OFL),
+/* Rajdhani - the typeface Cyberpunk 2077's own interface is set in (SIL OFL),
    and the palette's UI face. Condensed, squared and technical; the game uses
    Regular through Bold, so all four are vendored, latin subset, self-hosted
-   like every other face here. Static weights rather than a variable font —
-   Rajdhani ships none — which is why this is four files. */
+   like every other face here. Static weights rather than a variable font -
+   Rajdhani ships none - which is why this is four files. */
 @font-face {
   font-family: Rajdhani;
   font-style: normal;
@@ -71,7 +71,7 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Chakra Petch — the face the admin console's cyber skin is set in (SIL OFL),
+/* Chakra Petch - the face the admin console's cyber skin is set in (SIL OFL),
    and the Cyberpunk palette's UI face. Squared, technical and a little wider
    than Rajdhani, which is what makes its uppercase tracking read as machined
    rather than merely condensed. Four static weights, latin subset, self-hosted
@@ -116,7 +116,7 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Share Tech Mono — the Cyberpunk palette's terminal face (SIL OFL). Squared,
+/* Share Tech Mono - the Cyberpunk palette's terminal face (SIL OFL). Squared,
    HUD-like letterforms, the closest free monospace to the game's own lettering.
    Self-hosted like Figtree, and deliberately kept to Google's latin subset: it
    carries no box-drawing or Powerline glyphs, so restricting the range lets
@@ -162,7 +162,7 @@
   --critical-wash: hsl(352deg 72% 55% / 14%);
 
   /* Reasoning effort - five tones, coolest to hottest: blue, green, amber,
-     red, purple (see lib/EffortTint). Hues set far apart so neighbouring
+     red, purple (see lib/model/EffortTint). Hues set far apart so neighbouring
      levels never read alike, and dark enough to stay legible as text. */
   --effort-tone-1: hsl(215deg 85% 45%);
   --effort-tone-2: hsl(150deg 80% 30%);
@@ -170,8 +170,8 @@
   --effort-tone-4: hsl(5deg 85% 48%);
   --effort-tone-5: hsl(285deg 70% 48%);
 
-  /* Context-window fuel gauge — a blue→amber→red ramp for how full an agent's
-     context is (see lib/contextLevel). Its own scale, distinct from the
+  /* Context-window fuel gauge - a blue→amber→red ramp for how full an agent's
+     context is (see lib/usage/context-level). Its own scale, distinct from the
      blue/orange/pink severity above, so a filling context reads like a traffic
      light on each session tab. Theme-adaptive: darker/denser in light mode. */
   --context-ok: hsl(212deg 90% 46%);
@@ -186,27 +186,27 @@
   --outline: hsl(214deg 15% 82%);
 
   /* Shadow tint for floating surfaces (menus, modals). A fixed dark blue so it
-     reads as depth in both schemes — never color-mix(on-surface) which inverts
+     reads as depth in both schemes - never color-mix(on-surface) which inverts
      to a light "glow" in dark mode. */
   --shadow-color: hsl(214deg 30% 30% / 20%);
 
-  /* Saturated primary glow under the floating "Send to agent" action — a fixed
+  /* Saturated primary glow under the floating "Send to agent" action - a fixed
      mid-tone blue (same in both schemes, per the design) so it reads as a tinted
      halo rather than tracking the theme's lighter/darker primary. */
   --primary-shadow: hsl(var(--seed-hue) 90% 45% / 45%);
 
-  /* Terminal surface follows the theme — light in light mode. */
+  /* Terminal surface follows the theme - light in light mode. */
   --code-background: hsl(var(--seed-hue) 30% 96%);
   --code-foreground: hsl(214deg 30% 20%);
 
   /* Terminal ANSI palette (Terminal.svelte feeds these to xterm). Agent CLIs
-     paint with these 16 slots, and xterm's defaults suit only a dark screen —
+     paint with these 16 slots, and xterm's defaults suit only a dark screen -
      on the light scheme every CHROMATIC colour is re-picked dark enough to read
      on the light code surface.
 
      The black/white pair is the exception and stays literal: a CLI addresses
      those two as backgrounds as much as text (Claude's bash bar is SGR 107 on
-     30 — bright-white ground, black ink), so re-picking white dark turns every
+     30 - bright-white ground, black ink), so re-picking white dark turns every
      such bar into a black slab in daylight. Legibility of a light slot used as
      TEXT is not this palette's job: Terminal.svelte's `minimumContrastRatio`
      nudges it to WCAG AA against whatever it lands on. */
@@ -228,18 +228,18 @@
   --terminal-bright-white: hsl(var(--seed-hue) 40% 99%);
   --terminal-selection: hsl(210deg 90% 45% / 22%);
 
-  /* Find-in-terminal (lib/TerminalFind). Both are washes, never solids: the
+  /* Find-in-terminal (lib/terminal/TerminalFind). Both are washes, never solids: the
      addon draws every other match UNDER the row's glyphs but the active one
      OVER them, so an opaque active colour would blank out the very word the
      search just found. Amber because that is what a reader already expects a
-     match to look like — the palette's own warning hue, one step and two steps
+     match to look like - the palette's own warning hue, one step and two steps
      up in strength so "one of these" and "this one" separate at a glance. */
   --terminal-find-match: hsl(28deg 90% 45% / 26%);
   --terminal-find-active: hsl(28deg 90% 45% / 60%);
 
   /* The caret. Defined once, in terms of the accent, so it follows every scheme
      and palette; a chosen Windows Terminal scheme overwrites this token with its
-     own cursor colour (lib/terminal-palette). */
+     own cursor colour (lib/terminal/terminal-palette). */
   --terminal-cursor: var(--primary);
 
   /* Syntax-highlight palette for the code / config / diff viewers. */
@@ -250,12 +250,12 @@
   --syntax-function: hsl(210deg 80% 46%);
   --syntax-property: hsl(190deg 65% 36%);
 
-  /* A neon bloom around whatever holds keyboard focus. Off by default — the
+  /* A neon bloom around whatever holds keyboard focus. Off by default - the
      base theme states focus with its outline alone; a palette that wants a
      glow (cyberpunk) turns it on by redefining this one token. */
   --focus-glow: none;
 
-  /* M3 shape scale. `--radius-full` is the pill — the fully-rounded end every
+  /* M3 shape scale. `--radius-full` is the pill - the fully-rounded end every
      chip, badge and segmented control in the app wears. It is a token and not a
      literal `999px` for the same reason the other four are: a palette has to be
      able to re-point the whole scale, and a skin whose controls are cut rather
@@ -270,7 +270,7 @@
   /* Tooltip bubble geometry, shared by the `[data-tooltip]` pseudo below and the
      top-layer bubble (OverflowTooltipLayer) so the two can never drift: the gap
      that clears the trigger, and the inset that keeps a bubble anchored to an
-     edge-hugging trigger (the switcher's drag grip) off the window edge —
+     edge-hugging trigger (the switcher's drag grip) off the window edge -
      `anchor-center` clamps the MARGIN box into the viewport, so the inline
      margin *is* that gutter. */
   --tooltip-gap: 6px;
@@ -281,36 +281,36 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 
-  /* The one authoritative home for the font stacks. lib/prefs composes a chosen
-     UI/mono font on top of these via `var(--font-*-base)` — never re-spelling the
-     fallback list — and App binds the result onto --font-ui/--font-monospace. */
+  /* The one authoritative home for the font stacks. lib/settings/prefs composes a chosen
+     UI/mono font on top of these via `var(--font-*-base)` - never re-spelling the
+     fallback list - and App binds the result onto --font-ui/--font-monospace. */
   --font-ui-base: "Figtree", "Segoe UI", system-ui, sans-serif;
   --font-monospace-base: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
   --font-ui: var(--font-ui-base);
   --font-monospace: var(--font-monospace-base);
 
-  /* Appended after the monospace stack for right-to-left text (lib/TerminalRtl).
+  /* Appended after the monospace stack for right-to-left text (lib/terminal/TerminalRtl).
      Programming fonts carry no Arabic or Hebrew at all, so those runs would fall
-     back to whatever the platform picked — naming the faces keeps a terminal's
+     back to whatever the platform picked - naming the faces keeps a terminal's
      Arabic legible and consistent instead of leaving it to chance. Installed
      with the OS, so nothing is fetched at runtime. */
   --font-rtl-fallback: "Segoe UI", "Noto Sans Arabic", "Noto Sans Hebrew", "Tahoma", sans-serif;
 
   /* Font scaling (video-time-manager model): --font-base is a ≥16px unit that
      still tracks the user's browser zoom (1rem), and --ui-scale (set from the
-     uiScale pref in lib/prefs) is the user's zoom knob. rem/em-sized UI and
+     uiScale pref in lib/settings/prefs) is the user's zoom knob. rem/em-sized UI and
      the terminal derive from this one base. */
   --ui-scale: 1;
   --font-base: max(16px, 1rem);
 
-  /* Native widgets (buttons, form controls, scrollbars) follow the app theme —
+  /* Native widgets (buttons, form controls, scrollbars) follow the app theme -
      without this the UA paints its light-mode faces in dark mode. */
   color-scheme: light;
 }
 
 /* Dark tokens. The theme controller resolves "system" to a concrete light/dark
    via matchMedia and sets data-theme accordingly, so this single block covers
-   both OS-follow and an explicit dark choice (DRY — no duplicated media block). */
+   both OS-follow and an explicit dark choice (DRY - no duplicated media block). */
 :root[data-theme="dark"] {
   --primary: hsl(var(--seed-hue) 90% 68%);
   --on-primary: hsl(var(--seed-hue) 90% 12%);
@@ -369,8 +369,8 @@
   color-scheme: dark;
 }
 
-/* Cyberpunk 2077 — the fourth theme option, a palette rather than a scheme.
-   `lib/theme-mode` gives it the OS's light/dark (like Auto) and tags the root
+/* Cyberpunk 2077 - the fourth theme option, a palette rather than a scheme.
+   `lib/settings/theme-mode` gives it the OS's light/dark (like Auto) and tags the root
    `data-palette="cyberpunk"`, so the skin has a night face and a day face; the
    two blocks define exactly the same tokens and each is selected by its own
    `data-theme`, so neither depends on source order to win.
@@ -380,16 +380,16 @@
    already answered the two questions this palette kept getting wrong.
 
    First: what a light cyberpunk actually is. Its answer is an inversion, not a
-   dimming — on paper the cyan spends itself on FILLS and ink-navy does all the
+   dimming - on paper the cyan spends itself on FILLS and ink-navy does all the
    writing and all the framing, where at night cyan writes. That single move is
    what stops a day face reading as a washed-out night one, and it is why
    `--primary` is ink here and the accent shows up as `--on-primary`. The ground
    follows from it: cool concrete rather than near-white, a ramp that LIFTS as it
    rises (a card is lighter than the ground it sits on), and separation carried
-   by a full-strength ink outline rather than by a tonal step — which is what
+   by a full-strength ink outline rather than by a tonal step - which is what
    lets those steps sit as close together as they do.
 
-   Second: where the glow belongs. Night gets all of it — bloomed hairlines, a
+   Second: where the glow belongs. Night gets all of it - bloomed hairlines, a
    focus halo, cyan emphasis over dim slate rules. Day gets none, and takes its
    depth from a hard offset plate instead, the printed register where a bloom
    would only smudge.
@@ -399,19 +399,19 @@
    yellow-free), and it draws its survey grid heavier than PADE can, because
    there the grid sits behind the cards and here the overlay is above them.
 
-   The TERMINAL's sixteen ANSI slots do not come from there — a dashboard has no
+   The TERMINAL's sixteen ANSI slots do not come from there - a dashboard has no
    ANSI palette, and those slots are a contract with every CLI that prints SGR
    colour. The night face keeps the Cyberpunk 2077 Windows Terminal scheme it
    always wore (#ff003c / #00ff9f / #fcee0a / #00b8ff / #d300c5 / #00f0ff), with
    two slots lifted off verbatim because verbatim was unreadable: brightBlack,
    the grey every palette reserves for comments, measured 2.99:1 on the code
    surface, and magenta 4.36:1. The day face re-derives all sixteen from those
-   same scheme hues at paper lightness — hue held, lightness dropped until the
-   slot clears AA on the day code surface — so the two faces stay one palette
+   same scheme hues at paper lightness - hue held, lightness dropped until the
+   slot clears AA on the day code surface - so the two faces stay one palette
    seen under two lights. Both are measured across every token pair, and nothing
    ships below 4.5:1.
 
-   The caret stays the scheme's #fcee0a on the night face — the one slot
+   The caret stays the scheme's #fcee0a on the night face - the one slot
    Cyberpunk 2077 spends its yellow on, and the whole of the yellow budget now
    that the amber viewport frame is gone. */
 :root[data-palette="cyberpunk"][data-theme="dark"] {
@@ -441,7 +441,7 @@
   --on-surface: #e2f4fa;
   --on-surface-variant: #93b2c2;
 
-  /* Ordinary rules are a dim slate and only emphasis is cyan — the dashboard's
+  /* Ordinary rules are a dim slate and only emphasis is cyan - the dashboard's
      `--border` / `--border-strong` split. PADE already draws that distinction:
      `--outline` is every divider, `--hairline` is the two edges the HUD lights
      up (see the chrome rule below). */
@@ -451,7 +451,7 @@
   --hairline-glow: 0 0 14px rgb(0 229 255 / 35%);
   --shadow-color: rgb(3 8 14 / 76%);
 
-  /* How a plate that floats free of the chassis — a menu — sits off the page.
+  /* How a plate that floats free of the chassis - a menu - sits off the page.
      Night lights its own edge and drops it deep; the day face states the same
      token as a hard offset with no blur, the printed register it takes all its
      depth from. */
@@ -494,7 +494,7 @@
 }
 
 /* Daylight, in the game's own colours. Cyberpunk is a dark-first look by
-   construction — neon reads as emitted light only against near-black — so the
+   construction - neon reads as emitted light only against near-black - so the
    day face cannot be the night one lifted. Two earlier attempts answered that by
    changing the palette instead: a hot magenta lead (candy), then a deep crimson
    "corpo document" register that dropped the game's cyan altogether. Both traded
@@ -508,12 +508,12 @@
 
    The paper carries the same turquoise cast the night face's surfaces do, so
    the two faces read as one palette rather than a neon theme and a grey one.
-   The first attempt at a cyan lead DID fail on tinted paper — but it failed
+   The first attempt at a cyan lead DID fail on tinted paper - but it failed
    because paper and accent sat at the same lightness, leaving nothing to
    separate ground from ink. Here they are 80 points of lightness apart: the
    paper is a pale mint, the lead a deep teal, and the warm brand yellow on the
    selected slab keeps the whole thing off a single-hue reading. That is the
-   Solarized arrangement — a tinted ground with ink dark enough to sit on it —
+   Solarized arrangement - a tinted ground with ink dark enough to sit on it -
    in this palette's own hue. Two light schemes settled the rest, and both are
    worth naming because their answers are not obvious:
 
@@ -528,7 +528,7 @@
      face used.
 
    No yellow in the chrome. An earlier pass kept the brand yellow for the
-   selected slab, reasoning it was the one mark that read as Cyberpunk on paper —
+   selected slab, reasoning it was the one mark that read as Cyberpunk on paper -
    but a saturated yellow fill is the loudest thing a light theme can put on
    screen, and next to a turquoise ground it reads as a different palette
    breaking in rather than as the same one. The slab is cyan now, which is what
@@ -545,12 +545,12 @@
    the deepest layer on screen; here it is the lightest, so the terminal still
    reads as the surface you are looking into rather than a panel sitting on top.
    A chosen Windows Terminal scheme still overrides all sixteen slots plus the
-   surface (lib/terminal-palette) — that is the user's pick and it wins. */
+   surface (lib/terminal/terminal-palette) - that is the user's pick and it wins. */
 :root[data-palette="cyberpunk"][data-theme="light"] {
   --seed-hue: 197deg;
 
   /* Ink leads, cyan fills. On paper the dashboard spends its cyan on FILLS and
-     lets ink-navy do all the writing and all the framing — the exact inversion
+     lets ink-navy do all the writing and all the framing - the exact inversion
      of the night face, where cyan writes. It is what stops a light cyberpunk
      reading as a washed-out dark one. */
   --primary: #06182b;
@@ -578,7 +578,7 @@
   --context-warning: hsl(26deg 95% 36%);
   --context-critical: #c4004e;
 
-  /* Cool concrete, not near-white — and the ramp LIFTS as it rises, because on
+  /* Cool concrete, not near-white - and the ramp LIFTS as it rises, because on
      this skin a card is lighter than the ground it sits on. The separation is
      the ink outline's job, not a tonal step, which is why the steps can be this
      close together. */
@@ -596,7 +596,7 @@
   --control-edge: #06182b;
   --hairline: var(--outline);
 
-  /* Every glow off, and depth from a hard offset plate instead — the printed
+  /* Every glow off, and depth from a hard offset plate instead - the printed
      register the dashboard uses in daylight, where a bloom would only smudge. */
   --hairline-glow: none;
   --focus-glow: none;
@@ -612,7 +612,7 @@
   /* The day ANSI palette is the night one at paper lightness: each slot keeps
      the HUE of its `[data-theme="dark"]` twin and only drops lightness until it
      clears AA on --code-background. Re-picking "a readable dark green" per slot
-     instead is how the two faces drift into different palettes — the day green
+     instead is how the two faces drift into different palettes - the day green
      had gone teal (176deg against the night's 157deg) and the day magenta had
      gone indigo (251deg against 304deg), so the same agent output read as a
      different product by daylight. Standard slots land near 5.4:1, the bright
@@ -647,420 +647,47 @@
   color-scheme: light;
 }
 
-/* Cyberpunk's shape language: corners are CUT, not rounded. `corner-shape:
-   bevel` reinterprets every radius in the app as a chamfer, and the scale below
-   runs the cut down one diagonal — `<size> 0` is the two-value border-radius
-   form, so the TOP-LEFT and BOTTOM-RIGHT corners are chamfered and the other
-   two stay square.
-
-   That diagonal is the admin console's, and it used to be the other one here.
-   The direction is not arbitrary decoration: the skin cuts the corner the eye
-   arrives at and the corner it leaves by, so a row of controls reads as one
-   machined strip rather than as a set of independently-slanted tiles. Getting
-   it backwards is the difference between wearing the chassis and merely
-   quoting it.
-
-   Two sizes, not four steps — "corners come from chamfers, not radii", so the
-   scale collapses onto the skin's own pair: 7px on anything you click, 12px on
-   anything that holds content. The token names stay because every card, button,
-   menu and field in the app already resolves its corner through them.
-
-   `--radius-full` is the one that matters most and was the one getting it
-   wrong. The console zeroes `--shape-full` outright, so a pill under that skin
-   is a RECTANGLE with two corners cut. Left at 999px here it met
-   `corner-shape: bevel` and became a hexagon — a bevel that big cuts the whole
-   end off — which is a different shape language wearing the same colours, and
-   it is what every chip, tab and badge in the app was drawn as. It takes the
-   control chamfer now, like every other thing you click.
-
-   Both faces share all of it — shape is not light or dark. */
-:root[data-palette="cyberpunk"] {
-  /* The two lengths the whole chassis is cut from, so a rule that needs the
-     chamfer on ONE corner (a segmented control's cap, below) and the shorthand
-     that cuts a diagonal both read the same number. */
-  --chamfer-control: 7px;
-  --chamfer-container: 12px;
-  --radius-small: var(--chamfer-control) 0;
-  --radius-medium: var(--chamfer-control) 0;
-  --radius-large: var(--chamfer-container) 0;
-  --radius-extra-large: var(--chamfer-container) 0;
-  --radius-full: var(--chamfer-control) 0;
-
-  /* Motion snaps rather than eases. The skin's own curve and its short end of
-     the duration scale: a HUD acknowledges an input, it does not glide. */
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* Chakra Petch leads the UI stack — the face the console's skin is set in.
-     Rajdhani stays behind it (the game's own face, still vendored) and then
-     Figtree, so anything Chakra Petch's latin subset doesn't carry still
-     renders in one of the app's own faces rather than a system fallback.
-
-     Oxanium Digits sits in front of them all and covers nothing but 0–9, so
-     every number is fixed-width while every letter stays Chakra Petch (see its
-     @font-face). */
-  --font-ui-base: "Oxanium Digits", "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
-
-  /* The active tab's corner ticks: how long each L-bracket's arms are, and how
-     far the whole mark floats off the frame. The structural stroke they are cut
-     from is NOT declared here — each face states its own alongside its colours,
-     because on paper the bloom is precisely what has to go. */
-  --crop-mark-length: 6px;
-  --crop-mark-inset: 3px;
-
-  /* The accent stub riding the rule under a titled header — fixed length, so it
-     reads as a mark rather than a progress bar however wide the header is. One
-     home for it: the panel header and the cards inside it draw the same stub,
-     and only the rule's weight separates the two levels. */
-  --header-stub-length: 44px;
-  --header-stub-weight: 4px;
-}
-
-/* Cyberpunk's controls are framed plates, not tinted pills — which is what the
-   colours and the chamfer alone still left underneath. An `outline` drawn one
-   pixel inside gives every control that frame without a border's layout cost,
-   and without touching `box-shadow`, which components use for their own
-   selected-row markers. Focused controls are excluded outright so the focus
-   ring is never the thing this overrides.
-
-   `.tab` joins the list because the session tab is a DIV wrapping three
-   buttons, so the frame was landing on the three parts instead of the whole —
-   three flush boxes with no chamfer between them, which is what the control
-   looked like rather than one cut plate. The container carries the frame now
-   and its parts carry none: the console draws one chamfered shape per control,
-   never boxes inside boxes.
-
-   One pixel, not two. Two is the CARD weight — what the console spends on
-   panels, dialogs and the top bar — and putting it on every control turned
-   a tab into a stack of heavy tiles. Its own buttons carry no border
-   at all; its segmented tabs carry one pixel.
-
-   The panel tabs also take the game's uppercase-with-tracking treatment. Only
-   those: every other label in the app is a project, file or session name, and
-   shouting someone's data back at them is not a theme. */
-:root[data-palette="cyberpunk"] :is(button, [role="tab"], .tab, input, select, textarea):not(:focus-visible) {
-  outline: 1px solid var(--control-edge);
-  outline-offset: -1px;
-}
-
-:root[data-palette="cyberpunk"] .tab button:not(:focus-visible) {
-  outline: none;
-}
-
-/* A segmented control's caps follow the container's cut, not their own. Each
-   end button rounds BOTH corners on its side so that a child never squares off
-   a corner the parent shaped — a corner is hit-tested against the shape it is
-   given, so a square child inside a shaped parent takes clicks from air (see
-   SessionTabs). Rounding is the right instinct and the wrong amount here: this
-   palette cuts ONE diagonal, top-left and bottom-right, so a cap that cuts both
-   corners on its side puts a bevel where the container has none — and at the
-   999px those caps ask for, that bevel collapses to half the control's height.
-   A 26px tab came out a parallelogram.
-
-   Each cap takes the chamfer on the corner its container actually cuts, and
-   nothing on the other. */
-:root[data-palette="cyberpunk"] :is(.tab .pick) {
-  border-end-start-radius: 0;
-  border-start-start-radius: var(--chamfer-control);
-}
-
-:root[data-palette="cyberpunk"] :is(.tab .close-button, .ide-more) {
-  border-end-end-radius: var(--chamfer-control);
-  border-start-end-radius: 0;
-}
-
-:root[data-palette="cyberpunk"] [role="tab"] {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Atmosphere: a CRT sweep over a faint survey grid, both in one inert fixed
-   overlay. The scanline is a single-pixel band every third row; the grid is a
-   72px column rule behind it, which is what stops a large empty pane reading as
-   a flat fill. Both sit at an alpha low enough to be texture and never dimming,
-   below the top layer so menus and dialogs stay clean, and take no pointer
-   events, so nothing under them changes behaviour.
-
-   Fainter than the dashboard draws it, because the two layers are not in the
-   same place: there the grid sits on `body` BEHIND the cards, here the overlay
-   is above everything, so the same alpha would rule lines straight through
-   live code. */
-:root[data-palette="cyberpunk"] body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  background:
-    repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 72px);
-  pointer-events: none;
-}
-
-:root[data-palette="cyberpunk"] * {
-  corner-shape: bevel;
-}
-
-/* ── The HUD ────────────────────────────────────────────────────────────────
-   Everything from here down is the game's shard/journal screen rather than a
-   dark theme with neon in it. Three things carry that read: cyan hairlines
-   doing the structure, the active thing FRAMED rather than filled, and a bloom
-   on the cyan so a 1px line reads as emitted light.
-
-   A fourth was tried and removed — the amber bezel the game draws around every
-   full-screen panel, worn here at the viewport edge. It is the most
-   recognisable thing on that screen and it still did not belong: the game's
-   frame surrounds one panel you open and close, while this one surrounded the
-   whole editor permanently, which is a very loud thing to sit inside all day.
-   The palette keeps the HUD's structure and spends nothing on its furniture. */
-
-/* The chrome's own edges are the HUD's brightest lines: the bar the tabs sit
-   in, and the seam the side panel hangs off. These are the strokes the skin
-   draws at full intensity, and the only ones that get the bloom. Two pixels,
-   like every structural rule in the console — at one they read as a hairline
-   the eye skips, which is exactly what a chassis must not do. */
-:root[data-palette="cyberpunk"] :is(.topbar, .panel-head) {
-  border-block-end: 2px solid var(--hairline);
-  box-shadow: var(--hairline-glow);
-}
-
-:root[data-palette="cyberpunk"] .side-pane {
-  border-inline-start: 2px solid var(--hairline);
-  box-shadow: var(--hairline-glow);
-}
-
-/* The console's signature: a short accent stub riding the rule under every
-   panel header, always 44px whatever the header is wide. It is the one mark
-   that says "this is a titled section" without spending a colour on the title
-   itself, which on this skin is ink. Drawn as a background layer on the
-   existing rule rather than a pseudo-element, so it cannot collide with the
-   header's own content. */
-:root[data-palette="cyberpunk"] :is(.panel-head, .card-label) {
-  background-image: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
-  background-position: bottom left;
-  background-size: 100% var(--header-stub-weight);
-  background-repeat: no-repeat;
-}
-
-/* The same mark one level down, on the label of every card inside a panel. The
-   console groups controls by drawing the group, not by spacing it: a titled
-   block with a rule under its name reads as one unit of settings, where four
-   unlabelled stacks of rows read as a list of twelve controls. The panel header
-   above keeps its 4px rule; a card's is 2px, so the hierarchy is in the weight
-   of the rule rather than in a second colour. */
-:root[data-palette="cyberpunk"] .card-label {
-  --header-stub-weight: 2px;
-
-  padding-block-end: 7px;
-  border-block-end: 2px solid var(--hairline);
-}
-
-/* The day face fills the selected tab with the console's bright cyan, and that
-   fill is LIGHTER than the page it sits on. Text is fine — the label, the
-   sparkle and the close cross all read the container's ink at 12.7:1 — but the
-   agent icon takes the context-window gauge, and those three steps were picked
-   to read on concrete, not on this. Two of them landed under AA and the warning
-   step at 3.7:1.
-
-   So the gauge gets its own darker set here. It cannot simply inherit: a slab
-   that is lighter than the page needs ink pushed further down, not the same ink
-   reused. And it cannot collapse to one colour either — the gauge still has to
-   say how full the context is, so all three stay distinguishable from each
-   other as well as legible.
-
-   (An earlier version of this rule inverted them PALE, which was right when the
-   day face filled its slab with a deep teal. Adopting the console's palette
-   flipped that fill to bright cyan and left the override pointing the wrong
-   way: a near-white icon on near-white cyan, at 1.07:1.) */
-:root[data-palette="cyberpunk"][data-theme="light"] :is([role="tab"][aria-selected="true"], .tab.active) {
-  --context-ok: #00445f;
-  --context-warning: hsl(26deg 95% 26%);
-  --context-critical: #8f0039;
-}
-
-/* Active means FRAMED, not filled. The app's selected tab is a solid slab of
-   accent; the HUD's is a dark plate with the frame and the label brightened
-   around it. Both of the app's tab kinds — the side panel's `[role="tab"]` and
-   the session strip's `.tab` — take it from one rule, so "selected" can never
-   mean two different things. `:not(:focus-visible)` keeps this out of the focus
-   ring's way, exactly as the control-frame rule above does.
-
-   This re-points the TOKEN PAIR rather than setting `background-color` and
-   `color`, and the difference is not cosmetic. Every component that draws a
-   selected thing — this tab, the side tabs, the overflow menu's rows — reads
-   `--primary-container` for its plate and `--on-primary-container` for the ink
-   on that plate, as a pair. Overriding only the plate from out here flipped the
-   background dark while each component's own descendant rule kept painting the
-   label in the near-black meant for a bright cyan fill, and the active tab's
-   name went unreadable. Re-pointing both halves keeps the pair honest, reaches
-   descendants no theme selector should have to know about, and carries any
-   consumer added later along with it.
-
-   Night face only — the one HUD rule that is. Framing works because the plate
-   behind it is near-black: the frame is the brightest thing in the cell, and
-   the corner ticks read as light against it. On paper there is no near-black to
-   frame against, so the same treatment collapses into a hairline box around
-   pale ink. The day face fills instead, in the same cyan, so "selected" is one
-   colour on both faces even though it is drawn two ways. */
-:root[data-palette="cyberpunk"][data-theme="dark"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
-  --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
-  --on-primary-container: var(--primary);
-
-  /* The corner ticks. The HUD crops the active tab with short L-brackets
-     floating just inside its frame, and that mark — not a fill — is how the row
-     says which card you are on.
-
-     TWO brackets, not four, and specifically the two on the corners this
-     palette leaves SQUARE. The chamfer cuts top-left and bottom-right, so a
-     tick aimed at either of those lands on the diagonal and comes out sliced —
-     the mark and the shape competing for the same corner. Top-right and
-     bottom-left have a corner to sit in, so the ticks go there. The two
-     diagonals end up complementary rather than fighting: the chamfer takes one,
-     the brackets take the other.
-
-     Four background layers make the two brackets, each a 1px horizontal and a
-     1px vertical stroke meeting in one corner, held far enough off the outline
-     to read as a separate mark rather than as a thicker border. */
-  background-image:
-    linear-gradient(var(--primary) 0 0),
-    linear-gradient(var(--primary) 0 0),
-    linear-gradient(var(--primary) 0 0),
-    linear-gradient(var(--primary) 0 0);
-  background-position:
-    right var(--crop-mark-inset) top var(--crop-mark-inset),
-    right var(--crop-mark-inset) top var(--crop-mark-inset),
-    left var(--crop-mark-inset) bottom var(--crop-mark-inset),
-    left var(--crop-mark-inset) bottom var(--crop-mark-inset);
-  background-size:
-    var(--crop-mark-length) 1px,
-    1px var(--crop-mark-length),
-    var(--crop-mark-length) 1px,
-    1px var(--crop-mark-length);
-  background-repeat: no-repeat;
-  outline-color: var(--primary);
-}
-
-/* ── The menus ──────────────────────────────────────────────────────────────
-   A popover is a CONTAINER, so it takes what the skin spends on containers: the
-   12px cut and the two-pixel frame the top bar, the panel seam and every dialog
-   already wear. The shared shell draws a one-pixel hairline and a 40px blur
-   under it — the M3 card the other palettes want, and a soft-edged box is the
-   one thing a HUD never is. The blur goes with it: the depth comes from the
-   face's own plate shadow, lit at night and stamped in daylight.
-
-   What was actually wrong is inside the box. The control-frame rule above
-   outlines every `button` in the app, and a menu is a stack of buttons, so each
-   row arrived wearing its own frame inside the menu's frame — the boxes inside
-   boxes the console never draws, and exactly what `.tab` was fixed for. The
-   frame belongs to the plate. Rows carry nothing until the cursor is on one,
-   and then that row takes it: the frame moves with you rather than being
-   everywhere at once, which is the same "active means framed" the selected tab
-   states. Fields keep theirs — a place to type has to read as one. */
-:root[data-palette="cyberpunk"] .popover-menu {
-  border: 2px solid var(--hairline);
-  border-radius: var(--radius-large);
-  box-shadow: var(--plate-shadow);
-}
-
-:root[data-palette="cyberpunk"] .popover-menu :is(button, [role="menuitem"]):not(:focus-visible) {
-  outline: none;
-}
-
-:root[data-palette="cyberpunk"] .popover-menu :is(button, [role="menuitem"]):hover:not(:focus-visible) {
-  outline: 1px solid var(--hairline);
-  outline-offset: -1px;
-}
-
-/* Menu rows switch, they do not ease. Every other palette cross-fades a row's
-   colour and fill over 120ms, which reads as soft on a HUD: this screen snaps
-   between states, and a row that fades in under the cursor is the one place
-   that softness is most visible. */
-:root[data-palette="cyberpunk"] .popover-menu :is(button, a, [role="menuitem"]) {
-  transition: none;
-}
-
-/* A section label is a titled section, so it takes the console's signature: the
-   44px accent stub riding a rule under the title, the same mark `.panel-head`
-   carries. It is set in the skin's mono face — a label naming a group is the
-   instrument's own writing, not someone's project or file name, which is the
-   line this palette draws about shouting text back at people.
-
-   That leaves the rule above it redundant: a divider immediately followed by a
-   label is one statement said twice, and the label is the half that says which
-   group starts here. The divider stays wherever it separates without naming —
-   the actions under a list — and there it goes full-bleed to the frame, led by
-   the same stub, so every rule inside a menu starts on the accent. */
-:root[data-palette="cyberpunk"] :is(.menu-separator, .list-head) {
-  border-block-end: 2px solid var(--outline);
-  background-image: linear-gradient(90deg, var(--stripe) 0 44px, transparent 44px);
-  background-position: bottom left;
-  background-size: 100% 4px;
-  background-repeat: no-repeat;
-  font-family: var(--font-monospace);
-}
-
-/* Room for the rule the label now carries. The app menu's sticky heads set
-   their own spacing against the list that scrolls under them. */
-:root[data-palette="cyberpunk"] .menu-separator {
-  margin-block: 8px 4px;
-  padding-block: 2px 6px;
-}
-
-:root[data-palette="cyberpunk"] .menu-divider {
-  block-size: 2px;
-
-  /* Out to the frame: the shell's own 6px of padding, cancelled. */
-  margin-inline: -6px;
-  background: linear-gradient(90deg, var(--stripe) 0 44px, var(--outline) 44px);
-}
-
-:root[data-palette="cyberpunk"] .menu-divider:has(+ .menu-separator) {
-  display: none;
-}
-
-/* The "ready" halo — an agent idle and awaiting you. The component draws it as
-   a 3px spread ring, and a spread follows the element's corner shape: under this
-   palette that turns a soft halo into a hard chamfered frame around a 12px
-   glyph, which reads as a stray box rather than as a state.
-
-   Each face states the signal in the register it actually has, which is the
-   same split the selected tab already makes. Night lights the mark — a blur has
-   no edge for the chamfer to find, and a lit glyph is what "awake" looks like on
-   a HUD. Day has no glow to spend (its whole claim is that outlines carry the
-   structure), so it backs the mark with a tinted plate instead: still a hard
-   edge, but a filled one, which is a badge rather than a frame. */
-:root[data-palette="cyberpunk"][data-theme="dark"] .agent-icon.ready {
-  box-shadow: 0 0 8px var(--tertiary);
-}
-
-:root[data-palette="cyberpunk"][data-theme="light"] .agent-icon.ready {
-  background: var(--tertiary-wash);
-  box-shadow: none;
-}
-
-/* Agent brand tints — each coding agent's signature colour. Used only to tint the
+/* Agent brand tints - each coding agent's signature colour. Used only to tint the
    agent chips in the picker and onboarding; a component opts in by colouring its
    icon with `var(--agent-brand, currentColor)`. The session tabs never set
-   --agent-brand — their icon colour instead encodes context-window severity (the
+   --agent-brand - their icon colour instead encodes context-window severity (the
    --context-* gauge above), as the usage meter's icon encodes rate-limit
-   severity. Grok, Cursor and Aider are monochrome brands —
+   severity. Grok, Cursor and Aider are monochrome brands -
    they set nothing and follow the text colour. Brand hex (not theme tokens) so the
    colours stay true; the dark scheme lightens each for contrast on dark surfaces. */
 [data-agent="claude"] {
   --agent-brand: #d97757;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #e28b6d;
+  }
 }
 
 [data-agent="codex"] {
   --agent-brand: #6d5ae6;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #a99bff;
+  }
 }
 
 [data-agent="copilot"] {
   --agent-brand: #8250df;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #a371f7;
+  }
 }
 
 [data-agent="antigravity"] {
   --agent-brand: #4285f4;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #83aefc;
+  }
 }
 
-/* Language & editor brand tints — same mechanism as the agent tints above.
+/* Language & editor brand tints - same mechanism as the agent tints above.
    Languages key by their icon name (`data-brand={languageIcon(kind)}`); editors
    key by their canonical id (`data-brand={ideBrand(id)}`). A component opts in
    by colouring the icon span with `var(--brand-color, <fallback>)`.
@@ -1070,9 +697,9 @@
    their fills baked into the SVG, so a tint is a no-op there. Entries below
    cover only the genuinely single-colour brands, nesting both schemes: light is
    the official brand hex (darkened where the true hex is illegible on light
-   surfaces — the Android green); dark is lightened for contrast. Cursor stays
-   untinted — its brand is genuinely black and follows the text colour. Rust's
-   logo is black too, so it wears the colour the ecosystem knows it by — the
+   surfaces - the Android green); dark is lightened for contrast. Cursor stays
+   untinted - its brand is genuinely black and follows the text colour. Rust's
+   logo is black too, so it wears the colour the ecosystem knows it by - the
    named rust #b7410e, GitHub's Rust #dea584 in the dark scheme. */
 [data-brand="go"] {
   --brand-color: #00add8;
@@ -1130,22 +757,6 @@
   }
 }
 
-:root[data-theme="dark"] [data-agent="claude"] {
-  --agent-brand: #e28b6d;
-}
-
-:root[data-theme="dark"] [data-agent="codex"] {
-  --agent-brand: #a99bff;
-}
-
-:root[data-theme="dark"] [data-agent="copilot"] {
-  --agent-brand: #a371f7;
-}
-
-:root[data-theme="dark"] [data-agent="antigravity"] {
-  --agent-brand: #83aefc;
-}
-
 * {
   box-sizing: border-box;
   scrollbar-color: color-mix(in sRGB, currentColor 28%, transparent) transparent;
@@ -1161,8 +772,8 @@ body,
   margin: 0;
 }
 
-/* Root font tracks the user's zoom pref (lib/prefs sets --ui-scale). Using % of
-   the inherited base — never a fixed px — keeps the OS/browser a11y font size
+/* Root font tracks the user's zoom pref (lib/settings/prefs sets --ui-scale). Using % of
+   the inherited base - never a fixed px - keeps the OS/browser a11y font size
    honored; rem/em and `--font-base` sizing scale with it. */
 html {
   font-size: calc(100% * var(--ui-scale, 1));
@@ -1182,10 +793,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* A button is a themed surface, never the UA's ButtonFace — components paint
+/* A button is a themed surface, never the UA's ButtonFace - components paint
    their own backgrounds on top. (On the light theme the UA face was near-
    invisible against the light surfaces, so the missing reset only showed as
-   glaring light patches in dark mode — the design file's reset, adopted.) */
+   glaring light patches in dark mode - the design file's reset, adopted.) */
 button {
   padding: 0;
   border: none;
@@ -1208,13 +819,13 @@ textarea {
   box-shadow: var(--focus-glow);
 }
 
-/* Text selection in the primary's hue (from the design file) — the fixed
+/* Text selection in the primary's hue (from the design file) - the fixed
    mid-tone blue reads on both schemes. */
 ::selection {
   background: hsl(var(--seed-hue) 90% 55% / 35%);
 }
 
-/* Chromium/WebView scrollbar — thin, subtle; xterm's viewport otherwise shows
+/* Chromium/WebView scrollbar - thin, subtle; xterm's viewport otherwise shows
    the chunky default. Scrolling is preserved. */
 ::-webkit-scrollbar {
   block-size: 10px;
@@ -1232,18 +843,18 @@ textarea {
   background: transparent;
 }
 
-/* The terminal shows no scrollbar at all — it stays scrollable via the wheel. */
+/* The terminal shows no scrollbar at all - it stays scrollable via the wheel. */
 .xterm-viewport {
   scrollbar-width: none;
-}
 
-.xterm-viewport::-webkit-scrollbar {
-  block-size: 0;
-  inline-size: 0;
+  &::-webkit-scrollbar {
+    block-size: 0;
+    inline-size: 0;
+  }
 }
 
 /* SPA phase changes (onboarding ↔ picker ↔ workspace) cross-fade via the View
-   Transitions API — styled here in pure CSS on the M3 emphasized easing. */
+   Transitions API - styled here in pure CSS on the M3 emphasized easing. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 260ms;
@@ -1256,7 +867,7 @@ textarea {
     animation: none !important;
   }
 
-  /* The `*` reset can't reach the view-transition pseudo-tree — disable it here. */
+  /* The `*` reset can't reach the view-transition pseudo-tree - disable it here. */
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
@@ -1264,7 +875,34 @@ textarea {
   }
 }
 
-/* Tooltips — pure CSS (inspired by video-time-manager). Add data-tooltip="…"
+/* The bubble itself, one home for both tooltips: the [data-tooltip] pseudo
+   below and the top-layer bubble (OverflowTooltipLayer) read identically and
+   can never drift. Only the look lives here - each places itself, since the
+   top-layer one also has to reset the popover's own box first. */
+[data-tooltip]::after,
+.overflow-tooltip {
+  inline-size: max-content;
+  max-inline-size: min(320px, 90vw);
+  padding: 4px 9px;
+  border-radius: var(--radius-small);
+  background: var(--surface-3);
+  color: var(--on-surface);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: calc(0.6875 * var(--font-base));
+  line-height: 1.35;
+
+  /* Wrap long tooltips (a full file path) within the max-inline-size cap: the
+     trigger may set `white-space: nowrap` (the file button does), which the
+     pseudo would otherwise inherit; and a path has no spaces to break at, so
+     `overflow-wrap: anywhere` lets it break to fit rather than overflow. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 0 6px 20px var(--shadow-color);
+  pointer-events: none;
+}
+
+/* Tooltips - pure CSS (inspired by video-time-manager). Add data-tooltip="…"
    (plus an aria-label on icon-only controls) to any element and its ::after shows
    the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
    a dense, overflow:hidden toolbar's clip; `inset-block-start: anchor(bottom)` +
@@ -1272,8 +910,8 @@ textarea {
    `margin-block-start` gap, so it never rides over the control it describes; near
    the viewport bottom (the dock, low panel rows) it flips *above* via
    --tooltip-flip-up, keeping the same gap. The bubble anchors to its own trigger
-   via `position-anchor: auto` — a pseudo-element's implicit anchor is its
-   originating element — deliberately NOT a named anchor: a trigger that also
+   via `position-anchor: auto` - a pseudo-element's implicit anchor is its
+   originating element - deliberately NOT a named anchor: a trigger that also
    hosts a popover sets its own inline `anchor-name` (the IDE caret, the usage
    pill), which would override a stylesheet-side name and strand the bubble on
    top of the control. `position: relative` keeps the trigger a containing block
@@ -1283,19 +921,19 @@ textarea {
    PERF: the bubble is `display: none` until its trigger is hovered/focused. An
    always-present anchor-positioned fixed pseudo on every one of the ~30 triggers
    makes the browser re-run anchor + position-try for all of them on every
-   drag/resize frame — that is the window-drag lag (bisected to the tooltip
+   drag/resize frame - that is the window-drag lag (bisected to the tooltip
    rewrite, c9d199a). display:none keeps them out of layout at rest, so only the
    single hovered bubble is ever positioned; `display` + `@starting-style`
    (allow-discrete) keep the fade. For the same reason never gate tooltips with a
-   document-level `body:has(…)` — it forces a full-tree recalc on every layout
+   document-level `body:has(…)` - it forces a full-tree recalc on every layout
    change.
 
    LIMIT: `fixed` only escapes as far as its containing block. An ancestor with a
    `view-transition-name`, a transform/filter, or `content-visibility` becomes that
    containing block *and* a stacking context, so there the bubble is clipped or
    painted under whatever follows the ancestor. Those triggers use the shared
-   top-layer bubble instead — `{@attach tooltip(…)}` from `@/lib/truncation-tooltip`
-   — not this pseudo. */
+   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/ui/truncation-tooltip`
+   - not this pseudo. */
 [data-tooltip] {
   position: relative;
 
@@ -1306,28 +944,9 @@ textarea {
     z-index: 200;
     display: none;
     justify-self: anchor-center;
-    inline-size: max-content;
-    max-inline-size: min(320px, 90vw);
     margin-block-start: var(--tooltip-gap);
     margin-inline: var(--tooltip-edge-gutter);
-    padding: 4px 9px;
-    border-radius: var(--radius-small);
-    background: var(--surface-3);
-    color: var(--on-surface);
-    font-family: var(--font-ui);
-    font-weight: 500;
-    font-size: calc(0.6875 * var(--font-base));
-    line-height: 1.35;
-
-    /* Wrap long tooltips (a full file path) within the max-inline-size cap: the
-       trigger may set `white-space: nowrap` (the file button does), which the
-       pseudo would otherwise inherit; and a path has no spaces to break at, so
-       `overflow-wrap: anywhere` lets it break to fit rather than overflow. */
-    white-space: normal;
-    overflow-wrap: anywhere;
     opacity: 0%;
-    box-shadow: 0 6px 20px var(--shadow-color);
-    pointer-events: none;
     transition:
       opacity 120ms var(--ease),
       display 120ms allow-discrete;
@@ -1350,7 +969,7 @@ textarea {
 }
 
 /* Flip above the trigger only when there's no room below (the dock, low panel
-   rows) — same gap on the other side so the bubble still clears the control. */
+   rows) - same gap on the other side so the bubble still clears the control. */
 @position-try --tooltip-flip-up {
   inset-block: auto anchor(top);
   margin-block: 0 var(--tooltip-gap);
@@ -1370,7 +989,7 @@ textarea {
    into the top-layer menu, so the trigger flattens while the menu is still
    showing. The fix is one shared, JS-free rule for every dropdown: wrap the
    trigger and its [popover] in a `.menu-host`, tag the control `.menu-trigger`,
-   and it holds a pressed state for as long as the menu is open — the same
+   and it holds a pressed state for as long as the menu is open - the same
    surface-3 fill + primary edge + flipped caret the fields use on :hover, so all
    dropdowns read identically. New dropdowns opt in with the two class names and
    inherit the behaviour; nothing is written per component.
@@ -1489,7 +1108,7 @@ textarea {
 /* A pane springing into the split: it slides in from its trailing edge and
    reveals left-to-right (clip-path) with a soft overshoot, so an added pane
    reads as arriving rather than snapping into the flex row. Fired imperatively
-   on the added slot only (App.animatePaneIn) — a plain tab switch stays
+   on the added slot only (App.animatePaneIn) - a plain tab switch stays
    instant. */
 @keyframes pane-enter {
   0% {
@@ -1576,7 +1195,7 @@ textarea {
   }
 }
 
-/* ── Custom checkbox — shared M3 control ──────────────────────────────────────
+/* ── Custom checkbox - shared M3 control ──────────────────────────────────────
    One authoritative home (DRY) so any panel can reuse `<span class="checkbox">`. The
    box fills primary and the tick draws itself on check; reuses the check-pop
    keyframe above. */
@@ -1634,14 +1253,10 @@ textarea {
     background: var(--primary);
     scale: 1.06;
     animation: check-pop 360ms var(--spring);
-  }
 
-  input:checked + .box path {
-    stroke-dashoffset: 0;
-  }
-
-  input:not(:checked):hover + .box {
-    border-color: var(--primary);
+    path {
+      stroke-dashoffset: 0;
+    }
   }
 
   input:focus-visible + .box {
@@ -1649,11 +1264,11 @@ textarea {
     outline-offset: 2px;
     box-shadow: var(--focus-glow);
   }
-}
 
-/* Native popovers (menus) reveal with a spring; light-dismiss is handled by the
-   platform. `@starting-style` gives the enter transition its from-state, and
-   `allow-discrete` animates display/overlay so the exit plays too. */
+  input:not(:checked):hover + .box {
+    border-color: var(--primary);
+  }
+}
 
 /* The hover underline the terminal link provider paints over a URL's glyphs.
    Lives here because the elements are appended into xterm's own screen DOM
@@ -1665,6 +1280,9 @@ textarea {
   pointer-events: none;
 }
 
+/* Native popovers (menus) reveal with a spring; light-dismiss is handled by the
+   platform. `@starting-style` gives the enter transition its from-state, and
+   `allow-discrete` animates display/overlay so the exit plays too. */
 [popover] {
   margin: 0;
   opacity: 0%;
@@ -1693,7 +1311,7 @@ textarea {
 }
 
 /* Shared shell for anchored popover menus (app menu, tab menus, IDE / design
-   lists, picker row menus) — the one authoritative home for the menu box.
+   lists, picker row menus) - the one authoritative home for the menu box.
    Each menu keeps only what genuinely varies: its width, its anchor side
    (`position-area`), and its own item styles. */
 .popover-menu {
@@ -1708,38 +1326,38 @@ textarea {
   list-style: none;
   box-shadow: 0 16px 40px var(--shadow-color);
   position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
-}
 
-/* The row every menu is a stack of, and its one home. Six menus had each
-   written the same full-width, transparent, primary-on-hover button into their
-   own `\3c style>` under four different selectors (`li button`, `.branch-row`,
-   `.member-row`, `.menu-item`), so a change to how a menu row reads meant six
-   edits that never quite landed the same.
+  /* The row every menu is a stack of, and its one home. Six menus had each
+     written the same full-width, transparent, primary-on-hover button into their
+     own `\3c style>` under four different selectors (`li button`, `.branch-row`,
+     `.member-row`, `.menu-item`), so a change to how a menu row reads meant six
+     edits that never quite landed the same.
 
-   It is written inside the shell so it outranks a section's blanket `button`
-   rule (the picker's filled buttons) without either knowing about the other.
-   A menu keeps only what genuinely varies: its gap, a mono face for refs, and
-   its current / active states. Its scoped selector outranks this one, so a
-   menu that re-colours a row at rest owns that row's hover colour too. */
-.popover-menu .menu-item {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  inline-size: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: var(--radius-small);
-  background: transparent;
-  color: var(--on-surface);
-  font: inherit;
-  font-size: 13px;
-  text-align: start;
-  cursor: pointer;
-  transition: color 120ms var(--ease), background 120ms var(--ease);
+     It is written inside the shell so it outranks a section's blanket `button`
+     rule (the picker's filled buttons) without either knowing about the other.
+     A menu keeps only what genuinely varies: its gap, a mono face for refs, and
+     its current / active states. Its scoped selector outranks this one, so a
+     menu that re-colours a row at rest owns that row's hover colour too. */
+  .menu-item {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    inline-size: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: var(--on-surface);
+    font: inherit;
+    font-size: 13px;
+    text-align: start;
+    cursor: pointer;
+    transition: color 120ms var(--ease), background 120ms var(--ease);
 
-  &:hover {
-    background: var(--primary-container);
-    color: var(--on-primary-container);
+    &:hover {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
   }
 }
 
@@ -1747,7 +1365,7 @@ textarea {
    Six menus had each written the same uppercase label rule into their own
    `\3c style>` under three different names (`.menu-separator`, `.hint`, `.head`)
    and the same hairline under two more (`.menu-divider`, `.separator`), so a
-   change to how a menu is sectioned meant six edits — and the picker's row menu,
+   change to how a menu is sectioned meant six edits - and the picker's row menu,
    which never wrote either, simply had none.
 
    A label names the group under it; a divider only separates. A group that has
@@ -1779,7 +1397,7 @@ textarea {
 
 /* ── Scroll-fade ───────────────────────────────────────────────────────────────
    A reusable overflow-y scroller that hides its scrollbar and dissolves its top
-   and bottom edges into a soft gradient instead — the only overflow cue once the
+   and bottom edges into a soft gradient instead - the only overflow cue once the
    bar is gone. The fade is scroll-position-driven (`animation-timeline:
    scroll(self)`): the top edge fades in only once content sits above, the bottom
    only while content sits below. Off a scroll timeline the mask rests fully
@@ -1817,8 +1435,8 @@ textarea {
   }
 
   &::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+    block-size: 0;
+    inline-size: 0;
   }
 }
 
@@ -1839,5 +1457,394 @@ textarea {
 
   to {
     --scroll-fade-bottom: rgb(0 0 0);
+  }
+}
+
+/* Cyberpunk's shape language: corners are CUT, not rounded. `corner-shape:
+   bevel` reinterprets every radius in the app as a chamfer, and the scale below
+   runs the cut down one diagonal - `<size> 0` is the two-value border-radius
+   form, so the TOP-LEFT and BOTTOM-RIGHT corners are chamfered and the other
+   two stay square.
+
+   That diagonal is the admin console's, and it used to be the other one here.
+   The direction is not arbitrary decoration: the skin cuts the corner the eye
+   arrives at and the corner it leaves by, so a row of controls reads as one
+   machined strip rather than as a set of independently-slanted tiles. Getting
+   it backwards is the difference between wearing the chassis and merely
+   quoting it.
+
+   Two sizes, not four steps - "corners come from chamfers, not radii", so the
+   scale collapses onto the skin's own pair: 7px on anything you click, 12px on
+   anything that holds content. The token names stay because every card, button,
+   menu and field in the app already resolves its corner through them.
+
+   `--radius-full` is the one that matters most and was the one getting it
+   wrong. The console zeroes `--shape-full` outright, so a pill under that skin
+   is a RECTANGLE with two corners cut. Left at 999px here it met
+   `corner-shape: bevel` and became a hexagon - a bevel that big cuts the whole
+   end off - which is a different shape language wearing the same colours, and
+   it is what every chip, tab and badge in the app was drawn as. It takes the
+   control chamfer now, like every other thing you click.
+
+   Both faces share all of it - shape is not light or dark. */
+:root[data-palette="cyberpunk"] {
+  /* The two lengths the whole chassis is cut from, so a rule that needs the
+     chamfer on ONE corner (a segmented control's cap, below) and the shorthand
+     that cuts a diagonal both read the same number. */
+  --chamfer-control: 7px;
+  --chamfer-container: 12px;
+  --radius-small: var(--chamfer-control) 0;
+  --radius-medium: var(--chamfer-control) 0;
+  --radius-large: var(--chamfer-container) 0;
+  --radius-extra-large: var(--chamfer-container) 0;
+  --radius-full: var(--chamfer-control) 0;
+
+  /* Motion snaps rather than eases. The skin's own curve and its short end of
+     the duration scale: a HUD acknowledges an input, it does not glide. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Chakra Petch leads the UI stack - the face the console's skin is set in.
+     Rajdhani stays behind it (the game's own face, still vendored) and then
+     Figtree, so anything Chakra Petch's latin subset doesn't carry still
+     renders in one of the app's own faces rather than a system fallback.
+
+     Oxanium Digits sits in front of them all and covers nothing but 0–9, so
+     every number is fixed-width while every letter stays Chakra Petch (see its
+     @font-face). */
+  --font-ui-base: "Oxanium Digits", "Chakra Petch", "Rajdhani", "Figtree", "Segoe UI", system-ui, sans-serif;
+
+  /* The active tab's corner ticks: how long each L-bracket's arms are, and how
+     far the whole mark floats off the frame. The structural stroke they are cut
+     from is NOT declared here - each face states its own alongside its colours,
+     because on paper the bloom is precisely what has to go. */
+  --crop-mark-length: 6px;
+  --crop-mark-inset: 3px;
+
+  /* The accent stub riding the rule under a titled header - fixed length, so it
+     reads as a mark rather than a progress bar however wide the header is. One
+     home for it: the panel header and the cards inside it draw the same stub,
+     and only the rule's weight separates the two levels. */
+  --header-stub-length: 44px;
+  --header-stub-weight: 4px;
+
+  /* Cyberpunk's controls are framed plates, not tinted pills - which is what the
+     colours and the chamfer alone still left underneath. An `outline` drawn one
+     pixel inside gives every control that frame without a border's layout cost,
+     and without touching `box-shadow`, which components use for their own
+     selected-row markers. Focused controls are excluded outright so the focus
+     ring is never the thing this overrides.
+
+     `.tab` joins the list because the session tab is a DIV wrapping three
+     buttons, so the frame was landing on the three parts instead of the whole -
+     three flush boxes with no chamfer between them, which is what the control
+     looked like rather than one cut plate. The container carries the frame now
+     and its parts carry none: the console draws one chamfered shape per control,
+     never boxes inside boxes.
+
+     One pixel, not two. Two is the CARD weight - what the console spends on
+     panels, dialogs and the top bar - and putting it on every control turned
+     a tab into a stack of heavy tiles. Its own buttons carry no border
+     at all; its segmented tabs carry one pixel.
+
+     The panel tabs also take the game's uppercase-with-tracking treatment. Only
+     those: every other label in the app is a project, file or session name, and
+     shouting someone's data back at them is not a theme. */
+  :is(button, [role="tab"], .tab, input, select, textarea):not(:focus-visible) {
+    outline: 1px solid var(--control-edge);
+    outline-offset: -1px;
+  }
+
+  .tab button:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* A segmented control's caps follow the container's cut, not their own. Each
+     end button rounds BOTH corners on its side so that a child never squares off
+     a corner the parent shaped - a corner is hit-tested against the shape it is
+     given, so a square child inside a shaped parent takes clicks from air (see
+     SessionTabs). Rounding is the right instinct and the wrong amount here: this
+     palette cuts ONE diagonal, top-left and bottom-right, so a cap that cuts both
+     corners on its side puts a bevel where the container has none - and at the
+     999px those caps ask for, that bevel collapses to half the control's height.
+     A 26px tab came out a parallelogram.
+
+     Each cap takes the chamfer on the corner its container actually cuts, and
+     nothing on the other. */
+  :is(.tab .pick) {
+    border-end-start-radius: 0;
+    border-start-start-radius: var(--chamfer-control);
+  }
+
+  :is(.tab .close-button, .ide-more) {
+    border-end-end-radius: var(--chamfer-control);
+    border-start-end-radius: 0;
+  }
+
+  [role="tab"] {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Atmosphere: a CRT sweep over a faint survey grid, both in one inert fixed
+     overlay. The scanline is a single-pixel band every third row; the grid is a
+     72px column rule behind it, which is what stops a large empty pane reading as
+     a flat fill. Both sit at an alpha low enough to be texture and never dimming,
+     below the top layer so menus and dialogs stay clean, and take no pointer
+     events, so nothing under them changes behaviour.
+
+     Fainter than the dashboard draws it, because the two layers are not in the
+     same place: there the grid sits on `body` BEHIND the cards, here the overlay
+     is above everything, so the same alpha would rule lines straight through
+     live code. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background:
+      repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 72px);
+    pointer-events: none;
+  }
+
+  * {
+    corner-shape: bevel;
+  }
+
+  /* ── The HUD ────────────────────────────────────────────────────────────────
+     Everything from here down is the game's shard/journal screen rather than a
+     dark theme with neon in it. Three things carry that read: cyan hairlines
+     doing the structure, the active thing FRAMED rather than filled, and a bloom
+     on the cyan so a 1px line reads as emitted light.
+
+     A fourth was tried and removed - the amber bezel the game draws around every
+     full-screen panel, worn here at the viewport edge. It is the most
+     recognisable thing on that screen and it still did not belong: the game's
+     frame surrounds one panel you open and close, while this one surrounded the
+     whole editor permanently, which is a very loud thing to sit inside all day.
+     The palette keeps the HUD's structure and spends nothing on its furniture. */
+
+  /* The chrome's own edges are the HUD's brightest lines: the bar the tabs sit
+     in, and the seam the side panel hangs off. These are the strokes the skin
+     draws at full intensity, and the only ones that get the bloom. Two pixels,
+     like every structural rule in the console - at one they read as a hairline
+     the eye skips, which is exactly what a chassis must not do. */
+  :is(.topbar, .panel-head) {
+    border-block-end: 2px solid var(--hairline);
+    box-shadow: var(--hairline-glow);
+  }
+
+  .side-pane {
+    border-inline-start: 2px solid var(--hairline);
+    box-shadow: var(--hairline-glow);
+  }
+
+  /* The console's signature: a short accent stub riding the rule under every
+     panel header, always 44px whatever the header is wide. It is the one mark
+     that says "this is a titled section" without spending a colour on the title
+     itself, which on this skin is ink. Drawn as a background layer on the
+     existing rule rather than a pseudo-element, so it cannot collide with the
+     header's own content. */
+  :is(.panel-head, .card-label) {
+    background-image: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
+    background-position: bottom left;
+    background-size: 100% var(--header-stub-weight);
+    background-repeat: no-repeat;
+  }
+
+  /* The same mark one level down, on the label of every card inside a panel. The
+     console groups controls by drawing the group, not by spacing it: a titled
+     block with a rule under its name reads as one unit of settings, where four
+     unlabelled stacks of rows read as a list of twelve controls. The panel header
+     above keeps its 4px rule; a card's is 2px, so the hierarchy is in the weight
+     of the rule rather than in a second colour. */
+  .card-label {
+    --header-stub-weight: 2px;
+
+    padding-block-end: 7px;
+    border-block-end: 2px solid var(--hairline);
+  }
+
+  /* The day face fills the selected tab with the console's bright cyan, and that
+     fill is LIGHTER than the page it sits on. Text is fine - the label, the
+     sparkle and the close cross all read the container's ink at 12.7:1 - but the
+     agent icon takes the context-window gauge, and those three steps were picked
+     to read on concrete, not on this. Two of them landed under AA and the warning
+     step at 3.7:1.
+
+     So the gauge gets its own darker set here. It cannot simply inherit: a slab
+     that is lighter than the page needs ink pushed further down, not the same ink
+     reused. And it cannot collapse to one colour either - the gauge still has to
+     say how full the context is, so all three stay distinguishable from each
+     other as well as legible.
+
+     (An earlier version of this rule inverted them PALE, which was right when the
+     day face filled its slab with a deep teal. Adopting the console's palette
+     flipped that fill to bright cyan and left the override pointing the wrong
+     way: a near-white icon on near-white cyan, at 1.07:1.) */
+  &[data-theme="light"] :is([role="tab"][aria-selected="true"], .tab.active) {
+    --context-ok: #00445f;
+    --context-warning: hsl(26deg 95% 26%);
+    --context-critical: #8f0039;
+  }
+
+  /* Active means FRAMED, not filled. The app's selected tab is a solid slab of
+     accent; the HUD's is a dark plate with the frame and the label brightened
+     around it. Both of the app's tab kinds - the side panel's `[role="tab"]` and
+     the session strip's `.tab` - take it from one rule, so "selected" can never
+     mean two different things. `:not(:focus-visible)` keeps this out of the focus
+     ring's way, exactly as the control-frame rule above does.
+
+     This re-points the TOKEN PAIR rather than setting `background-color` and
+     `color`, and the difference is not cosmetic. Every component that draws a
+     selected thing - this tab, the side tabs, the overflow menu's rows - reads
+     `--primary-container` for its plate and `--on-primary-container` for the ink
+     on that plate, as a pair. Overriding only the plate from out here flipped the
+     background dark while each component's own descendant rule kept painting the
+     label in the near-black meant for a bright cyan fill, and the active tab's
+     name went unreadable. Re-pointing both halves keeps the pair honest, reaches
+     descendants no theme selector should have to know about, and carries any
+     consumer added later along with it.
+
+     Night face only - the one HUD rule that is. Framing works because the plate
+     behind it is near-black: the frame is the brightest thing in the cell, and
+     the corner ticks read as light against it. On paper there is no near-black to
+     frame against, so the same treatment collapses into a hairline box around
+     pale ink. The day face fills instead, in the same cyan, so "selected" is one
+     colour on both faces even though it is drawn two ways. */
+  &[data-theme="dark"] :is([role="tab"][aria-selected="true"], .tab.active):not(:focus-visible) {
+    --primary-container: color-mix(in sRGB, var(--primary) 12%, var(--surface-1));
+    --on-primary-container: var(--primary);
+
+    /* The corner ticks. The HUD crops the active tab with short L-brackets
+       floating just inside its frame, and that mark - not a fill - is how the row
+       says which card you are on.
+
+       TWO brackets, not four, and specifically the two on the corners this
+       palette leaves SQUARE. The chamfer cuts top-left and bottom-right, so a
+       tick aimed at either of those lands on the diagonal and comes out sliced -
+       the mark and the shape competing for the same corner. Top-right and
+       bottom-left have a corner to sit in, so the ticks go there. The two
+       diagonals end up complementary rather than fighting: the chamfer takes one,
+       the brackets take the other.
+
+       Four background layers make the two brackets, each a 1px horizontal and a
+       1px vertical stroke meeting in one corner, held far enough off the outline
+       to read as a separate mark rather than as a thicker border. */
+    background-image:
+      linear-gradient(var(--primary) 0 0),
+      linear-gradient(var(--primary) 0 0),
+      linear-gradient(var(--primary) 0 0),
+      linear-gradient(var(--primary) 0 0);
+    background-position:
+      right var(--crop-mark-inset) top var(--crop-mark-inset),
+      right var(--crop-mark-inset) top var(--crop-mark-inset),
+      left var(--crop-mark-inset) bottom var(--crop-mark-inset),
+      left var(--crop-mark-inset) bottom var(--crop-mark-inset);
+    background-size:
+      var(--crop-mark-length) 1px,
+      1px var(--crop-mark-length),
+      var(--crop-mark-length) 1px,
+      1px var(--crop-mark-length);
+    background-repeat: no-repeat;
+    outline-color: var(--primary);
+  }
+
+  /* ── The menus ──────────────────────────────────────────────────────────────
+     A popover is a CONTAINER, so it takes what the skin spends on containers: the
+     12px cut and the two-pixel frame the top bar, the panel seam and every dialog
+     already wear. The shared shell draws a one-pixel hairline and a 40px blur
+     under it - the M3 card the other palettes want, and a soft-edged box is the
+     one thing a HUD never is. The blur goes with it: the depth comes from the
+     face's own plate shadow, lit at night and stamped in daylight.
+
+     What was actually wrong is inside the box. The control-frame rule above
+     outlines every `button` in the app, and a menu is a stack of buttons, so each
+     row arrived wearing its own frame inside the menu's frame - the boxes inside
+     boxes the console never draws, and exactly what `.tab` was fixed for. The
+     frame belongs to the plate. Rows carry nothing until the cursor is on one,
+     and then that row takes it: the frame moves with you rather than being
+     everywhere at once, which is the same "active means framed" the selected tab
+     states. Fields keep theirs - a place to type has to read as one. */
+  .popover-menu {
+    border: 2px solid var(--hairline);
+    border-radius: var(--radius-large);
+    box-shadow: var(--plate-shadow);
+  }
+
+  .popover-menu :is(button, [role="menuitem"]):not(:focus-visible) {
+    outline: none;
+  }
+
+  .popover-menu :is(button, [role="menuitem"]):hover:not(:focus-visible) {
+    outline: 1px solid var(--hairline);
+    outline-offset: -1px;
+  }
+
+  /* Menu rows switch, they do not ease. Every other palette cross-fades a row's
+     colour and fill over 120ms, which reads as soft on a HUD: this screen snaps
+     between states, and a row that fades in under the cursor is the one place
+     that softness is most visible. */
+  .popover-menu :is(button, a, [role="menuitem"]) {
+    transition: none;
+  }
+
+  /* A section label is a titled section, so it takes the console's signature: the
+     44px accent stub riding a rule under the title, the same mark `.panel-head`
+     carries. It is set in the skin's mono face - a label naming a group is the
+     instrument's own writing, not someone's project or file name, which is the
+     line this palette draws about shouting text back at people.
+
+     That leaves the rule above it redundant: a divider immediately followed by a
+     label is one statement said twice, and the label is the half that says which
+     group starts here. The divider stays wherever it separates without naming -
+     the actions under a list - and there it goes full-bleed to the frame, led by
+     the same stub, so every rule inside a menu starts on the accent. */
+  :is(.menu-separator, .list-head) {
+    border-block-end: 2px solid var(--outline);
+    background-image: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), transparent var(--header-stub-length));
+    background-position: bottom left;
+    background-size: 100% 4px;
+    background-repeat: no-repeat;
+    font-family: var(--font-monospace);
+  }
+
+  /* Room for the rule the label now carries. The app menu's sticky heads set
+     their own spacing against the list that scrolls under them. */
+  .menu-separator {
+    margin-block: 8px 4px;
+    padding-block: 2px 6px;
+  }
+
+  .menu-divider {
+    block-size: 2px;
+
+    /* Out to the frame: the shell's own 6px of padding, cancelled. */
+    margin-inline: -6px;
+    background: linear-gradient(90deg, var(--stripe) 0 var(--header-stub-length), var(--outline) var(--header-stub-length));
+  }
+
+  .menu-divider:has(+ .menu-separator) {
+    display: none;
+  }
+
+  /* The "ready" halo - an agent idle and awaiting you. The component draws it as
+     a 3px spread ring, and a spread follows the element's corner shape: under this
+     palette that turns a soft halo into a hard chamfered frame around a 12px
+     glyph, which reads as a stray box rather than as a state.
+
+     Each face states the signal in the register it actually has, which is the
+     same split the selected tab already makes. Night lights the mark - a blur has
+     no edge for the chamfer to find, and a lit glyph is what "awake" looks like on
+     a HUD. Day has no glow to spend (its whole claim is that outlines carry the
+     structure), so it backs the mark with a tinted plate instead: still a hard
+     edge, but a filled one, which is a badge rather than a frame. */
+  &[data-theme="dark"] .agent-icon.ready {
+    box-shadow: 0 0 8px var(--tertiary);
+  }
+
+  &[data-theme="light"] .agent-icon.ready {
+    background: var(--tertiary-wash);
+    box-shadow: none;
   }
 }

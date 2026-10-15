@@ -1,10 +1,11 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
-  import { collapseRow } from "@/lib/motion";
-  import { normalizePath } from "@/lib/paths";
-  import { AddRootStatus, emptyPathProbe } from "@/lib/types";
+  import { AddRootStatus, EMPTY_PATH_PROBE } from "@/lib/types";
   import type { AddRootOutcome, Ide, ProjectEntry, TaggedPathProbe } from "@/lib/types";
+  import { collapseRow } from "@/lib/ui/motion";
+  import { formatQuantity } from "@/lib/util/format";
+  import { normalizePath } from "@/lib/util/paths";
   import { FolderPath, parseInput } from "@/lib/validate";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
@@ -17,7 +18,7 @@
   // projects detected inside each. Root persistence reaches shared settings and
   // the per-root scan stays with the parent via onadd / onremove. As the path is
   // typed, the backend is probed (debounced) for what it is on disk and for child
-  // directories to suggest — so the row says whether it will add or create the
+  // directories to suggest - so the row says whether it will add or create the
   // folder, and rejects a file, before anything is persisted.
   const { roots, projectsByRoot, ides, lifecycle, onopen, onadd, onremove }: {
     roots: string[];
@@ -31,26 +32,20 @@
     onremove: (path: string) => Promise<void>;
   } = $props();
 
-  // "1 project" / "6 projects" — count and matching noun as one string, so no
-  // template whitespace can split them.
-  function projectCountLabel(count: number): string {
-    return `${count} project${count === 1 ? "" : "s"}`;
-  }
-
   let newRoot = $state("");
   // The latest probe result, tagged with the path it was computed for so the
   // "exists" flags are only trusted once they describe the current text. Filled
   // by the PathCombobox (which owns the debounced probe + the autocomplete).
   let probe = $state<TaggedPathProbe>({
     path: "",
-    result: emptyPathProbe
+    result: EMPTY_PATH_PROBE
   });
-  let inputElement = $state<HTMLInputElement | null>(null);
+  let elInput = $state<HTMLInputElement | null>(null);
 
   const trimmedRoot = $derived(newRoot.trim());
   const hasValue = $derived(trimmedRoot.length > 0);
   // A path that differs from an existing root only by case or a trailing separator
-  // is the same folder — `C:\repositories\` is already `C:\repositories`.
+  // is the same folder - `C:\repositories\` is already `C:\repositories`.
   const alreadyRoot = $derived(
     roots.some(root => normalizePath(root) === normalizePath(trimmedRoot))
   );
@@ -59,7 +54,7 @@
   const probeSettled = $derived(hasValue && probe.path === trimmedRoot);
   const folderExists = $derived(probeSettled && probe.result.isDir);
   const typedPathIsFile = $derived(probeSettled && probe.result.isFile);
-  // A not-yet-created folder is addable only when its parent is a real directory —
+  // A not-yet-created folder is addable only when its parent is a real directory -
   // an existence check, not a regex, tells a real location from a stray string.
   const canCreate = $derived(probeSettled && !folderExists && !typedPathIsFile && probe.result.parentExists);
   const invalidLocation = $derived(
@@ -67,7 +62,13 @@
   );
 
   const willCreate = $derived(canCreate && !alreadyRoot);
-  const addLabel = $derived(willCreate ? "Create & add" : "Add root");
+  const addLabel = $derived.by(() => {
+    if (willCreate) {
+      return "Create & add";
+    }
+
+    return "Add root";
+  });
   const addDisabled = $derived(
     !probeSettled || alreadyRoot || typedPathIsFile || invalidLocation
   );
@@ -86,7 +87,7 @@
       return {
         tone: "warning",
         icon: "folder",
-        text: "Already a root folder."
+        text: "Already a root folder"
       };
     }
 
@@ -102,7 +103,7 @@
       return {
         tone: "critical",
         icon: "alert",
-        text: "That path is a file, not a folder."
+        text: "That path is a file, not a folder"
       };
     }
 
@@ -110,7 +111,7 @@
       return {
         tone: "ok",
         icon: "check",
-        text: "Folder exists — ready to add."
+        text: "Folder exists - ready to add"
       };
     }
 
@@ -118,25 +119,25 @@
       return {
         tone: "primary",
         icon: "folderPlus",
-        text: "Folder doesn’t exist — PADE will create it."
+        text: "Folder doesn’t exist - PADE will create it"
       };
     }
 
     return {
       tone: "critical",
       icon: "alert",
-      text: "That location doesn’t exist — enter a full folder path."
+      text: "That location doesn’t exist - enter a full folder path"
     };
   });
 
-  /** Focus the add-root field — how the quick-start form's "New root folder…"
+  /** Focus the add-root field - how the quick-start form's "New root folder…"
    *  menu option lands the user here. Focus itself scrolls the field into view. */
   export function focusAddRoot() {
-    inputElement?.focus();
+    elInput?.focus();
   }
 
   // Add the settled path, creating the folder when it doesn't exist yet (the
-  // button label already says which). Only an `added` outcome clears the field —
+  // button label already says which). Only an `added` outcome clears the field -
   // a file or a stray location is caught by the disabled gate + the live banner.
   // Shared by the form submit and the folder-picked-from-dialog paths.
   async function add(path: string, { create }: {
@@ -152,7 +153,7 @@
 <section class="roots">
   <h2>Root folders</h2>
   <p class="hint">
-    A root is a folder your projects live in — a home base for starting new work.
+    A root is a folder your projects live in - a home base for starting new work.
     Add one and PADE lists every project inside it below; open any in a click, and
     projects you create or clone there show up here automatically.
   </p>
@@ -180,10 +181,10 @@
           placeholder="C:\repositories  ·  paste or start typing a folder path"
           bind:value={newRoot}
           bind:probe
-          bind:inputElement
+          bind:elInput
         />
       </div>
-      <!-- Native folder picker (Tauri dialog) — nicer than pasting a path. It
+      <!-- Native folder picker (Tauri dialog) - nicer than pasting a path. It
            always returns an existing directory, so add it straight away. -->
       <button
         class="browse"
@@ -201,7 +202,7 @@
       <button class="add" disabled={addDisabled} type="submit">{addLabel}</button>
     </form>
 
-    <!-- Live status of the typed path — updated as you type: invalid shape, a
+    <!-- Live status of the typed path - updated as you type: invalid shape, a
          file, a duplicate root, an existing folder ready to add, or one PADE will
          create. Replaces a post-submit prompt so the guidance sits with the text. -->
     {#if status}
@@ -219,7 +220,10 @@
         <span class="root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
         <code class="rootpath">{root}</code>
         {#if projects.length > 0}
-          <span class="root-count">{projectCountLabel(projects.length)}</span>
+          <span class="root-count">{formatQuantity({
+            count: projects.length,
+            noun: "project"
+          })}</span>
         {/if}
         <button
           class="remove"
@@ -241,7 +245,7 @@
             <RowMenu {lifecycle} path={project.path} scope="root" />
           </li>
         {:else}
-          <li class="none">No projects found in this folder.</li>
+          <li class="none">No projects found in this folder</li>
         {/each}
       </ul>
     </div>
@@ -261,14 +265,14 @@
     gap: 8px;
   }
 
-  /* The typed-path field — holds the shared PathCombobox, which anchors its own
+  /* The typed-path field - holds the shared PathCombobox, which anchors its own
      autocomplete popover to itself, so the two stay aligned wherever it lands. */
   .combo {
     flex: 1;
     min-inline-size: 200px;
   }
 
-  /* Live status banner — a tonal M3 surface whose colour states what will happen:
+  /* Live status banner - a tonal M3 surface whose colour states what will happen:
      critical (bad path / a file), warning (already a root), ok (exists), primary
      (will be created), neutral (checking). */
   .status {
@@ -364,7 +368,7 @@
     font-size: 12px;
   }
 
-  /* How many projects the root holds — frames the list below as "what's inside". */
+  /* How many projects the root holds - frames the list below as "what's inside". */
   .root-count {
     color: var(--on-surface-variant);
     font-weight: 600;
@@ -406,7 +410,7 @@
     list-style: none;
   }
 
-  /* Detected project — tonal card; lifts into primary-container on hover. */
+  /* Detected project - tonal card; lifts into primary-container on hover. */
   .project {
     display: flex;
     gap: 10px;

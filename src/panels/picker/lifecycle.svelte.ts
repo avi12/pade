@@ -3,13 +3,15 @@
 // primary project root) with the inline-rename form state, and which temp
 // workspace is being relabelled in PADE (its folder untouched). One instance lives
 // in ProjectPicker and is handed to both sections and their row menus, so a
-// rename started from either list drives the same form — and one delete
+// rename started from either list drives the same form - and one delete
 // confirmation dialog serves both.
 
-import { errorMessage } from "@/lib/errors";
-import { baseName } from "@/lib/paths";
-import type { Settings } from "@/lib/types";
+import type { Settings, WindowInfo } from "@/lib/types";
+import { errorMessage } from "@/lib/util/errors";
+import { baseName } from "@/lib/util/paths";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";
+import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
+import type { Relocator } from "@/lib/workspace/workspace-relocate";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 /** What the picker provides: the app-level move/rename flows (which handle the
@@ -24,9 +26,13 @@ export interface LifecycleHost {
     from: string;
     newName: string;
   }) => Promise<string>;
-  /** Delete the folder — via the app's relocator, so the sessions holding it as
+  /** Delete the folder - via the app's relocator, so the sessions holding it as
    *  cwd are killed first and the removal isn't blocked by their lock. */
   ondelete: (path: string) => Promise<Settings>;
+  /** Rename any project's folder where it stands, via the app's relocator. */
+  onrenamefolder: Relocator["renameFolder"];
+  /** The open PADE windows, so a project another one holds isn't moved. */
+  openWindows: () => Promise<WindowInfo[]>;
   refresh: () => Promise<void>;
 }
 
@@ -37,16 +43,40 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   let renameValue = $state("");
   let relabelTarget = $state<string | null>(null);
   let deleteTarget = $state<string | null>(null);
-  let deleting = $state(false);
+  let isDeleting = $state(false);
   let deleteError = $state<string | null>(null);
+  let renameFolderTarget = $state<string | null>(null);
+  let windowRows = $state<WindowInfo[]>([]);
+
+  // A failed read keeps the last-known windows; the next change event retries.
+  async function loadOpenWindows() {
+    const [listing] = await Promise.allSettled([host.openWindows()]);
+    if (listing.status === "fulfilled") {
+      windowRows = listing.value;
+    }
+  }
+
+  // Another window's agents hold its folder, and the picker can't stop them.
+  function canRenameFolder(path: string) {
+    return !isOpenInAnotherWindow({
+      windowRows,
+      path
+    });
+  }
+
+  async function renameFolder(target: Parameters<Relocator["renameFolder"]>[0]) {
+    const renamed = await host.onrenamefolder(target);
+    await host.refresh();
+    return renamed;
+  }
 
   function startRename(path: string) {
     renaming = path;
     renameValue = baseName(path);
   }
 
-  // Relabel (PADE-only name, folder untouched) is its own prompt — RelabelDialog,
-  // rendered by the picker — so the lifecycle only tracks which row asked for it.
+  // Relabel (PADE-only name, folder untouched) is its own prompt - RelabelDialog,
+  // rendered by the picker - so the lifecycle only tracks which row asked for it.
   function startRelabel(path: string) {
     relabelTarget = path;
   }
@@ -95,7 +125,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   // Delete is confirmed in-app (ConfirmDialog, rendered by the picker) rather
   // than by an OS popup, so the three states of the flow live here: which path
   // is awaiting confirmation, whether its removal is in flight, and why it
-  // failed — the folder can still be held open from outside PADE, and that
+  // failed - the folder can still be held open from outside PADE, and that
   // reason belongs in front of the user instead of a swallowed rejection.
   function requestDelete(path: string) {
     deleteTarget = path;
@@ -103,7 +133,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   }
 
   function cancelDelete() {
-    if (deleting) {
+    if (isDeleting) {
       return;
     }
 
@@ -114,7 +144,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   // failure re-opens (or keeps) the dialog carrying the reason, so even a skipped
   // confirmation can't fail silently.
   async function removeWorkspace(path: string) {
-    deleting = true;
+    isDeleting = true;
     deleteError = null;
     try {
       // The bridge adopts settings first so the row leaves the Recent list (and
@@ -126,15 +156,15 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
       deleteTarget = path;
       deleteError = errorMessage({
         error,
-        fallback: "Couldn’t delete that workspace."
+        fallback: "Couldn’t delete that workspace"
       });
     } finally {
-      deleting = false;
+      isDeleting = false;
     }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget || deleting) {
+    if (!deleteTarget || isDeleting) {
       return;
     }
 
@@ -143,7 +173,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
 
   /** Shift-click on Delete: skip the confirmation and remove it straight away. */
   async function deleteNow(path: string) {
-    if (deleting) {
+    if (isDeleting) {
       return;
     }
 
@@ -155,8 +185,8 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     get deleteTarget() {
       return deleteTarget;
     },
-    get deleting() {
-      return deleting;
+    get isDeleting() {
+      return isDeleting;
     },
     get deleteError() {
       return deleteError;
@@ -171,13 +201,26 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     },
     startRelabel,
     finishRelabel,
+    /** The project awaiting a folder rename (null = no prompt). */
+    get renameFolderTarget() {
+      return renameFolderTarget;
+    },
+    startRenameFolder(path: string) {
+      renameFolderTarget = path;
+    },
+    finishRenameFolder() {
+      renameFolderTarget = null;
+    },
+    renameFolder,
+    canRenameFolder,
+    loadOpenWindows,
     get renameValue() {
       return renameValue;
     },
     set renameValue(value: string) {
       renameValue = value;
     },
-    /** Live rename validation — the schema's message and the Save gate share
+    /** Live rename validation - the schema's message and the Save gate share
      *  one check, so an invalid name can't reach a silent no-op rename. */
     get renameError() {
       return nameError(renameValue);

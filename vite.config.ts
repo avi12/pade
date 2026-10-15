@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 
 // The dev-server port has ONE home: tauri.conf.json's `devUrl` (the port the
 // packaged webview loads). Derive it here rather than repeating the literal, so
-// the two can never drift. Deliberately NOT Tauri's 1420 default — PADE hosts the
+// the two can never drift. Deliberately NOT Tauri's 1420 default - PADE hosts the
 // development of other Tauri apps, which all default to 1420, so the host yields
 // that port and takes 1430 to avoid colliding with a project launched inside it.
 const tauriConfig: {
@@ -31,9 +31,9 @@ export default defineConfig({
     watch: {
       // Files a build/check step writes but the running app never loads. Watching
       // them needlessly disturbs a live session:
-      //  • src-tauri — its locked .pdb/.exe artifacts crash the watcher (EBUSY on
+      //  • src-tauri - its locked .pdb/.exe artifacts crash the watcher (EBUSY on
       //    Windows).
-      //  • .svelte-check — `svelte-check --tsgo` regenerates a tsconfig here on
+      //  • .svelte-check - `svelte-check --tsgo` regenerates a tsconfig here on
       //    every run; Vite treats a changed tsconfig as a reason to force a FULL
       //    reload, so running the type gate against a live dev server reloaded (and
       //    could crash) the app. A static checker must never touch the app.

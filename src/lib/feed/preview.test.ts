@@ -1,0 +1,79 @@
+import {
+  isBinaryPath,
+  isHtmlPath,
+  isImagePath,
+  isMarkdownPath,
+  isVideoPath
+} from "@/lib/feed/preview";
+import { describe, expect, it } from "vitest";
+
+describe("isBinaryPath", () => {
+  it("recognises executables, archives and documents case-insensitively", () => {
+    expect(isBinaryPath("target/release/pade.EXE")).toBe(true);
+    expect(isBinaryPath("dist/bundle.zip")).toBe(true);
+    expect(isBinaryPath("docs/spec.pdf")).toBe(true);
+  });
+
+  it("leaves text files and extensionless paths to the editor", () => {
+    expect(isBinaryPath("src/main.rs")).toBe(false);
+    expect(isBinaryPath("notes.txt")).toBe(false);
+    expect(isBinaryPath("Makefile")).toBe(false);
+  });
+});
+
+describe("isVideoPath", () => {
+  it("recognises video extensions case-insensitively", () => {
+    expect(isVideoPath("clips/demo.mp4")).toBe(true);
+    expect(isVideoPath("Screen Recording.MOV")).toBe(true);
+    expect(isVideoPath("take.mkv")).toBe(true);
+  });
+
+  it("rejects images, archives, and extensionless paths", () => {
+    expect(isVideoPath("poster.png")).toBe(false);
+    expect(isVideoPath("clip.mp4.zip")).toBe(false);
+    expect(isVideoPath("README")).toBe(false);
+  });
+});
+
+describe("isImagePath", () => {
+  it("recognises image extensions case-insensitively", () => {
+    expect(isImagePath("assets/logo.png")).toBe(true);
+    expect(isImagePath("photo.JPG")).toBe(true);
+    expect(isImagePath("icon.svg")).toBe(true);
+  });
+
+  it("rejects non-images, dotfiles, and extensionless paths", () => {
+    expect(isImagePath("src/main.rs")).toBe(false);
+    expect(isImagePath(".gitignore")).toBe(false);
+    expect(isImagePath("README")).toBe(false);
+    expect(isImagePath("notes.md")).toBe(false);
+  });
+});
+
+describe("isMarkdownPath", () => {
+  it("recognises markdown extensions case-insensitively", () => {
+    expect(isMarkdownPath("README.md")).toBe(true);
+    expect(isMarkdownPath("docs/guide.markdown")).toBe(true);
+    expect(isMarkdownPath("CHANGES.MD")).toBe(true);
+  });
+
+  it("rejects other extensions", () => {
+    expect(isMarkdownPath("index.html")).toBe(false);
+    expect(isMarkdownPath("notes.txt")).toBe(false);
+    expect(isMarkdownPath("README")).toBe(false);
+  });
+});
+
+describe("isHtmlPath", () => {
+  it("recognises html extensions case-insensitively", () => {
+    expect(isHtmlPath("public/index.html")).toBe(true);
+    expect(isHtmlPath("page.htm")).toBe(true);
+    expect(isHtmlPath("INDEX.HTML")).toBe(true);
+  });
+
+  it("rejects other extensions", () => {
+    expect(isHtmlPath("README.md")).toBe(false);
+    expect(isHtmlPath("data.xml")).toBe(false);
+    expect(isHtmlPath("style.css")).toBe(false);
+  });
+});

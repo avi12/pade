@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { agentIconName } from "@/lib/agent-icon";
-  import BrandMark from "@/lib/BrandMark.svelte";
+  import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import type { Agent } from "@/lib/types";
+  import BrandMark from "@/lib/ui/BrandMark.svelte";
 
-  // Shown only when more than one agent is installed — the user picks which to
+  // Shown only when more than one agent is installed - the user picks which to
   // launch. `path` is the already-chosen workspace the agent will start in, shown
   // up front so the user knows where they're about to run. They can switch or add
   // more agents later from the session bar.
@@ -21,7 +21,7 @@
     <BrandMark />
     <h1>Choose an agent to start.</h1>
     <p class="lede">
-      Several agents are installed on this machine. Pick one to begin — you can
+      Several agents are installed on this machine. Pick one to begin - you can
       switch or run more side by side later.
     </p>
 
@@ -65,7 +65,7 @@
     border-radius: var(--radius-extra-large);
     background: var(--surface-1);
 
-    /* Floating hero surface — soft depth shadow (allowed on elevated cards),
+    /* Floating hero surface - soft depth shadow (allowed on elevated cards),
        tinted from the theme's shadow token so it tracks light/dark. */
     box-shadow: 0 24px 60px var(--shadow-color);
     animation: rise 350ms var(--ease);
@@ -90,7 +90,7 @@
     }
   }
 
-  /* The workspace the agent will start in — click to switch project. */
+  /* The workspace the agent will start in - click to switch project. */
   .cwd {
     display: flex;
     gap: 10px;
@@ -178,7 +178,7 @@
     border-radius: var(--radius-large);
     background: var(--surface-2);
 
-    /* Buttons don't inherit the page text color — set it explicitly. */
+    /* Buttons don't inherit the page text color - set it explicitly. */
     color: var(--on-surface);
     font: inherit;
     text-align: start;

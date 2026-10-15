@@ -1,6 +1,6 @@
 <script lang="ts">
   import { feed, vcs } from "@/lib/bridge";
-  import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
+  import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { Commit, StatusEntry } from "@/lib/types";
   import ChangesSection from "@/panels/vcs/ChangesSection.svelte";
   import "@/panels/vcs/chrome.css";
@@ -31,7 +31,7 @@
     try {
       const [nextEntries, nextCommits] = await Promise.all([
         vcs.status(workspace),
-        vcs.log(workspace)
+        vcs.log({ cwd: workspace })
       ]);
       // A late response for the prior project must not repaint this panel after
       // the window has switched to another workspace.
@@ -63,7 +63,7 @@
   onMount(async () => {
     unlisten = await feed.onChange(scheduleRefresh);
     // A branch switch, remote change, or git init reshapes the status and the
-    // log without necessarily touching a watched file — refresh on it too.
+    // log without necessarily touching a watched file - refresh on it too.
     unlistenGitState = await vcs.onStateChanged(scheduleRefresh);
   });
   onDestroy(() => {
@@ -89,7 +89,7 @@
 
 <div class="version-control">
   {#if error}
-    <p class="empty">Not a Git repository, or git is unavailable.</p>
+    <p class="empty">Not a Git repository, or git is unavailable</p>
   {:else}
     <div class="scroll">
       <RestoreSection {project} />

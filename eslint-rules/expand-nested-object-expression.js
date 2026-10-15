@@ -7,8 +7,8 @@
  *   expanded so the spread block is visually self-contained.
  *
  * Single-property leaf objects with primitive/identifier values may stay on one line:
- *   { signatureTimestamp }                              // OK — leaf
- *   { x: 1 }                                            // OK — leaf
+ *   { signatureTimestamp }                              // OK - leaf
+ *   { x: 1 }                                            // OK - leaf
  *
  * Expanded due to nested object:
  *   {

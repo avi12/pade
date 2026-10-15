@@ -1,18 +1,18 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { terminalSchemes } from "@/lib/stores/terminalSchemes.svelte";
-  import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
+  import { terminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
+  import { ANSI_COLOR_TOKENS } from "@/lib/terminal/terminal-theme";
   import type { TerminalScheme } from "@/lib/types";
 
   // One "which colour scheme paints the terminal" control: a trigger showing the
   // current pick with a preview strip, and a native popover listing every scheme
-  // in the catalogue. `null` is the default — the terminal takes the app theme's
-  // own palette — and it is an option in that same list rather than a special
+  // in the catalogue. `null` is the default - the terminal takes the app theme's
+  // own palette - and it is an option in that same list rather than a special
   // case, so every row renders through one template. The catalogue comes from
-  // the shared store, so this and the palette actually painted (lib/prefs)
+  // the shared store, so this and the palette actually painted (lib/settings/prefs)
   // resolve the same list.
   const { id, label, value, onpick }: {
-    /** Popover id — must be unique among the pickers on screen. */
+    /** Popover id - must be unique among the pickers on screen. */
     id: string;
     /** Which app scheme this pick applies to ("Light"/"Dark"), or "" when one
      *  pick covers both. */
@@ -24,7 +24,7 @@
   const FOLLOW_APP_THEME = "Follow the app theme";
 
   /** The slots the preview strip shows, named by the token that paints them, so
-   *  the ANSI index comes from the one ANSI order (lib/terminal-theme) rather
+   *  the ANSI index comes from the one ANSI order (lib/terminal/terminal-theme) rather
    *  than from a literal here. */
   const PREVIEW_TOKENS = [
     "--terminal-red",
@@ -37,7 +37,7 @@
   const PREVIEW_SLOTS = PREVIEW_TOKENS.map(token => ANSI_COLOR_TOKENS.indexOf(token));
 
   /** The strip shown for "follow the app theme": the app's own accent tokens,
-   *  which a terminal scheme never overwrites — so that row stays truthful about
+   *  which a terminal scheme never overwrites - so that row stays truthful about
    *  what it would paint whatever scheme is installed at the time. */
   const APP_THEME_COLORS = [
     "var(--primary)",
@@ -53,19 +53,19 @@
   const options = $derived<(TerminalScheme | null)[]>([null, ...schemes]);
   const chosen = $derived(schemes.find(scheme => scheme.name === value) ?? null);
 
-  function optionName(scheme: TerminalScheme | null): string {
+  function optionName(scheme: TerminalScheme | null) {
     return scheme?.name ?? FOLLOW_APP_THEME;
   }
 
-  function pick(scheme: TerminalScheme | null): void {
+  function pick(scheme: TerminalScheme | null) {
     onpick(scheme?.name ?? null);
   }
 
-  function previewBackground(scheme: TerminalScheme | null): string {
+  function previewBackground(scheme: TerminalScheme | null) {
     return scheme?.background ?? "var(--surface-2)";
   }
 
-  function previewColors(scheme: TerminalScheme | null): string[] {
+  function previewColors(scheme: TerminalScheme | null) {
     if (!scheme) {
       return APP_THEME_COLORS;
     }

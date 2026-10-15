@@ -1,9 +1,10 @@
 <script lang="ts">
   import { os, vcs } from "@/lib/bridge";
-  import CommitModal from "@/lib/CommitModal.svelte";
-  import { formatCount } from "@/lib/format";
-  import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
+  import { Key } from "@/lib/ui/keys";
+  import CommitModal from "@/lib/vcs/CommitModal.svelte";
+  import CommitStats from "@/lib/vcs/CommitStats.svelte";
+  import { repositoryCommitUrl } from "@/lib/vcs/repository-links";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
 
@@ -17,7 +18,7 @@
 
   let openCommit = $state<CommitDetail | null>(null);
   let remoteUrl = $state<string | null>(null);
-  let logElement = $state<HTMLElement | null>(null);
+  let elLog = $state<HTMLElement | null>(null);
   let unlistenGitState: UnlistenFn | undefined;
 
   async function loadRemoteUrl(workspace = project) {
@@ -40,7 +41,7 @@
   onMount(async () => {
     await loadRemoteUrl();
     // A `git remote add`/`remove` (or git init) flips whether remote links
-    // exist — re-read the remote the moment the live git state changes.
+    // exist - re-read the remote the moment the live git state changes.
     unlistenGitState = await vcs.onStateChanged(async () => await loadRemoteUrl());
   });
 
@@ -59,43 +60,43 @@
 
   async function inspectCommit(commit: Commit) {
     try {
-      openCommit = await vcs.commit(project, commit.id);
+      openCommit = await vcs.commit({
+        cwd: project,
+        sha: commit.id
+      });
     } catch {
       openCommit = null;
     }
   }
 
+  // Opening the commit externally is best-effort - a missing remote or a
+  // failed browser launch must not surface as an error here.
   async function openCommitOnRemote(commit: Commit) {
-    try {
-      const base = remoteUrl ?? (await vcs.remoteUrl(project));
-      remoteUrl = base;
+    await Promise.allSettled([openOnRemote(commit)]);
+  }
 
-      const commitUrl = repositoryCommitUrl({
-        remoteUrl: base,
-        commit: commit.id
-      });
-      if (commitUrl) {
-        await os.openUrl(commitUrl);
-      }
-    } catch {
-    // Opening the commit externally is best-effort — a missing remote or a
-      // failed browser launch must not surface as an error here.
+  async function openOnRemote(commit: Commit) {
+    const base = remoteUrl ?? (await vcs.remoteUrl(project));
+    remoteUrl = base;
+
+    const commitUrl = repositoryCommitUrl({
+      remoteUrl: base,
+      commit: commit.id
+    });
+    if (commitUrl) {
+      await os.openUrl(commitUrl);
     }
   }
 
   async function focusCommit(index: number) {
     await tick();
-    logElement?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
-  }
-
-  function fileLabel(count: number) {
-    return `${formatCount(count)} file${count === 1 ? "" : "s"}`;
+    elLog?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
   }
 </script>
 
 <section class="group log">
   <h3>Recent commits</h3>
-  <ul bind:this={logElement} class="log-list">
+  <ul bind:this={elLog} class="log-list">
     {#each commits as commit, index (commit.id)}
       <li>
         <button
@@ -114,8 +115,8 @@
             inspectCommit(commit);
           }}
           onkeydown={e => {
-            const isDown = e.key === "ArrowDown";
-            const isUp = e.key === "ArrowUp";
+            const isDown = e.key === Key.ArrowDown;
+            const isUp = e.key === Key.ArrowUp;
             if (isDown || isUp) {
               e.preventDefault();
               const count = commits.length;
@@ -124,7 +125,7 @@
               return;
             }
 
-            const isOpenKey = e.key === "Enter" || e.key === " ";
+            const isOpenKey = e.key === Key.Enter || e.key === Key.Space;
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               openCommitOnRemote(commit);
@@ -138,13 +139,7 @@
           <span class="c-bot">
             <span class="author-details">{commit.author} · {commit.when}</span>
             <span class="stats">
-              <span class="fn">{fileLabel(commit.files)}</span>
-              {#if commit.additions}
-                <span class="add">+{formatCount(commit.additions)}</span>
-              {/if}
-              {#if commit.deletions}
-                <span class="deletion">−{formatCount(commit.deletions)}</span>
-              {/if}
+              <CommitStats additions={commit.additions} deletions={commit.deletions} files={commit.files} />
             </span>
           </span>
         </button>
@@ -217,14 +212,6 @@
       align-items: center;
       margin-inline-start: auto;
       font-weight: 600;
-    }
-
-    .add {
-      color: var(--tertiary);
-    }
-
-    .deletion {
-      color: var(--critical);
     }
   }
 </style>

@@ -1,10 +1,6 @@
 <script lang="ts">
-  import { AgentId } from "@/lib/agent-icon";
-  import { startingModelChoice } from "@/lib/agent-model-scope";
-  import { aiNamingEnabled } from "@/lib/ai-naming-scope";
-  import AppMenu from "@/lib/AppMenu.svelte";
-  import { createAutoNamer } from "@/lib/auto-name";
-  import BranchSwitcher from "@/lib/BranchSwitcher.svelte";
+  import { aiNamingEnabled } from "@/lib/agent/ai-naming-scope";
+  import { createAutoNamer } from "@/lib/agent/auto-name";
   import {
     agents as agentsApi,
     feed,
@@ -15,92 +11,102 @@
     windows,
     workspace
   } from "@/lib/bridge";
-  import DesignMenu from "@/lib/DesignMenu.svelte";
-  import { clearDiscordPresence, updateDiscordPresence } from "@/lib/discord-presence";
-  import type { DragHint } from "@/lib/drag-reorder";
-  import { focusTerminalPane } from "@/lib/focus";
-  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import IdeMenu from "@/lib/IdeMenu.svelte";
-  import Logo from "@/lib/Logo.svelte";
-  import MemberSwitcher from "@/lib/MemberSwitcher.svelte";
-  import { collapsePane } from "@/lib/motion";
-  import OverflowTooltipLayer from "@/lib/OverflowTooltipLayer.svelte";
-  import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
-  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
+  import DesignMenu from "@/lib/ide/DesignMenu.svelte";
+  import IdeMenu from "@/lib/ide/IdeMenu.svelte";
+  import { startingModelChoice } from "@/lib/model/agent-model-scope";
+  import RunnerDock from "@/lib/runners/RunnerDock.svelte";
   import {
-    appearance,
-    effective,
-    SIDE_PANEL_DEFAULT_WIDTH,
-    SIDE_PANEL_MAX_FRACTION,
-    SIDE_PANEL_MIN_WIDTH,
-    updatePrefs
-  } from "@/lib/prefs.svelte";
-  import { DropSide, paneDropSide, paneInsertIndex } from "@/lib/reorder";
-  import { openRepositoryTarget } from "@/lib/repository-links";
-  import RunnerDock from "@/lib/RunnerDock.svelte";
-  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
-  import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
-  import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session-restore";
-  import SessionTabs from "@/lib/SessionTabs.svelte";
-  import { settings } from "@/lib/settings.svelte";
-  import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
-  import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { createAutoHandoff, successorPrompt } from "@/lib/stores/handoff.svelte";
-  import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
-  import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/modelSwitch.svelte";
-  import {
-    armNewProjectDetection,
-    disposeNewProjectDetection,
-    initNewProjectDetection
-  } from "@/lib/stores/new-project-detection";
-  import { projectKind, requestProjectKind } from "@/lib/stores/projectKinds.svelte";
-  import { ensureRunnerListeners, startRunner, stopAllRunners } from "@/lib/stores/runners.svelte";
+    layoutWithoutPane,
+    layoutWithoutSession,
+    layoutWithoutSessions,
+    paneAtPoint,
+    paneIdsAfterSplit,
+    sessionsAfterReorder,
+    wrappedIndex
+  } from "@/lib/session/pane-layout";
+  import { registerPaneShortcuts } from "@/lib/session/pane-shortcuts";
+  import { DropSide } from "@/lib/session/reorder";
+  import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
+  import { mcpRestartTargets, rekeyLayout } from "@/lib/session/session-restart";
+  import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session/session-restore";
+  import SessionTabs, { ADD_SESSION_MENU_ID } from "@/lib/session/SessionTabs.svelte";
+  import { registerTabShortcuts } from "@/lib/session/tab-shortcuts";
+  import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
+  import { settings } from "@/lib/settings/settings.svelte";
+  import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
+  import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
+  import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
+  import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
+  import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
+  import { createApiErrorRetry, dropApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
+  import { createAutoHandoff } from "@/lib/stores/agent/handoff.svelte";
+  import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/agent/mcpReload.svelte";
+  import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/model/modelSwitch.svelte";
   import {
     dropChoiceAttention,
     ensureChoiceAttention,
     reconcileChoiceAttention
-  } from "@/lib/stores/sessionAttention.svelte";
-  import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
-  import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/sessionNaming.svelte";
-  import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
-  import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
-  import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
-  import { showToast, toastText } from "@/lib/stores/toast.svelte";
-  import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
-  import { activeMemberIn, loadWorkspaceMembers, refreshMemberBranches } from "@/lib/stores/workspaceMembers.svelte";
-  import { registerTabShortcuts } from "@/lib/tab-shortcuts";
-  import { pastedText, referencedSnippet } from "@/lib/terminal-input";
+  } from "@/lib/stores/session/sessionAttention.svelte";
+  import { dropSessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
+  import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/session/sessionNaming.svelte";
+  import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/session/sessions.svelte";
+  import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
+  import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
+  import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
+  import { createUsageResume, dropUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
+  import {
+    armNewProjectDetection,
+    disposeNewProjectDetection,
+    initNewProjectDetection
+  } from "@/lib/stores/workspace/new-project-detection";
+  import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
+  import {
+    activeMemberIn,
+    loadWorkspaceMembers,
+    refreshMemberBranches
+  } from "@/lib/stores/workspace/workspaceMembers.svelte";
+  import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/send-shortcut";
+  import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type {
     Agent,
     AgentSession,
-    Ide,
     McpChange,
     ModelChoice,
-    OpenTarget,
-    Scheme,
-    TaskGroup
+    OpenTarget
   } from "@/lib/types";
-  import UsageMeter from "@/lib/UsageMeter.svelte";
+  import type { DragHint } from "@/lib/ui/drag-reorder";
+  import Logo from "@/lib/ui/Logo.svelte";
+  import { collapsePane } from "@/lib/ui/motion";
+  import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
+  import UsageMeter from "@/lib/usage/UsageMeter.svelte";
+  import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
+  import { settledValue } from "@/lib/util/settled";
   import { FolderPath, parseInput } from "@/lib/validate";
-  import { createRelocator } from "@/lib/workspace-relocate";
-  import ChangeFeed from "@/panels/ChangeFeed.svelte";
+  import BranchSwitcher from "@/lib/vcs/BranchSwitcher.svelte";
+  import { openRepositoryTarget } from "@/lib/vcs/repository-links";
+  import AppMenu from "@/lib/workspace/AppMenu.svelte";
+  import MemberSwitcher from "@/lib/workspace/MemberSwitcher.svelte";
+  import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
+  import { createRelocator } from "@/lib/workspace/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
+  import SidePanel from "@/panels/SidePanel.svelte";
+  import SidePanelResizer from "@/panels/SidePanelResizer.svelte";
   import { onDestroy, onMount, tick, untrack } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   // Which top-level screen is showing. A closed set defined once, compared
   // against by member so no bare literal leaks into the flow logic.
   const Phase = {
-    loading: "loading",
-    project: "project",
-    onboarding: "onboarding",
-    ready: "ready"
+    Loading: "loading",
+    Project: "project",
+    Onboarding: "onboarding",
+    Ready: "ready"
   } as const;
   type Phase = (typeof Phase)[keyof typeof Phase];
-  let phase = $state<Phase>(Phase.loading);
+  let phase = $state<Phase>(Phase.Loading);
   let agents = $state<Agent[]>([]);
   let sessions = $state<AgentSession[]>([]);
   let sessionTabsHandle = $state<{ closeSession: (session: AgentSession) => void } | null>(null);
@@ -109,49 +115,58 @@
   // classic single pane; more = a split view. Always a subset of `sessions`.
   let paneIds = $state<string[]>([]);
   let currentProject = $state<string>("");
-  // Local branches when the project is a git repo — enables per-branch agents.
+  // Local branches when the project is a git repo - enables per-branch agents.
   let branches = $state<string[]>([]);
-  // Branches only the remote has so far — offered by the branch switcher, which
+  // Branches only the remote has so far - offered by the branch switcher, which
   // lets git create the local tracking branch on the way in.
   let remoteBranches = $state<string[]>([]);
-  // The project's checked-out branch — the top-bar branch pill (empty when the
+  // The project's checked-out branch - the top-bar branch pill (empty when the
   // project isn't a git repo or HEAD is detached).
   let currentBranch = $state("");
-  // Whether the repo has a remote — a local-only repo has nothing to open in a
+  // Whether the repo has a remote - a local-only repo has nothing to open in a
   // browser, so the pill's Ctrl-click-opens-on-remote affordance is suppressed.
   let hasRemote = $state(false);
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
-  // Agents excluding the always-present shell fallback — this count decides
+  // Agents excluding the always-present shell fallback - this count decides
   // whether we auto-launch or onboard.
   const realAgents = $derived(toRealAgents(agents));
+  // Detection order is the registry's priority order, so the first real agent
+  // is the best installed one; the shell fallback carries otherwise.
+  const bestAgent = $derived(realAgents[0] ?? agents[0]);
   // Temp workspaces live under the config dir as .../workspaces/temp-<stamp>.
   const isTemp = $derived(isTemporaryWorkspace(currentProject));
   // Friendly auto-derived name for the current workspace, if one was assigned.
   const currentLabel = $derived(settings.labels[currentProject]);
-  // The one label for the open project — a friendly name when assigned, else the
+  // The one label for the open project - a friendly name when assigned, else the
   // compact "parent/leaf" directory (legible without eating the topbar; full path
   // in the tooltip). Every surface (top-bar chip, slug source, window title, and
   // the switcher's open-window rows) reads this one `shortDisplayName` so none of
   // them recomputes the last-two-segments split independently and drifts.
-  const projectLabel = $derived(shortDisplayName(currentProject, settings.labels));
+  const projectLabel = $derived(
+    shortDisplayName({
+      path: currentProject,
+      labels: settings.labels
+    })
+  );
   // A temp workspace that never earned a name: when its last session ends, the
   // window returns to the picker rather than respawning an agent. Its folder is
-  // kept — only the unused-temp cleanup setting ever deletes it. One that was
+  // kept - only the unused-temp cleanup setting ever deletes it. One that was
   // auto-named keeps the normal last-session behavior instead.
   const isUnnamedTemp = $derived(isTemp && !currentLabel);
-  // Active agent id — used to show only its relevant config files.
-  const activeAgent = $derived(sessions.find(session => session.id === activeId)?.agent.id ?? "");
+  const activeSession = $derived(sessions.find(session => session.id === activeId));
+  // Active agent id - used to show only its relevant config files.
+  const activeAgent = $derived(activeSession?.agent.id ?? "");
   // A pane can be removed only while more than one is shown; sessions not
   // currently shown are offered in the "add to split" menu.
-  const canRemovePane = $derived(paneIds.length > 1);
+  const isSplit = $derived(paneIds.length > 1);
   const splitCandidates = $derived(sessions.filter(session => !paneIds.includes(session.id)));
 
   // The terminal slots render in this order: the shown panes first, in `paneIds`
   // order (so a pane-header drag that reorders `paneIds` reorders the view), then
   // the hidden sessions. Keyed by id, so a reorder moves DOM nodes rather than
-  // remounting — every terminal keeps its scrollback.
+  // remounting - every terminal keeps its scrollback.
   const bySessionId = $derived(new Map(sessions.map(session => [session.id, session] as const)));
   const orderedSessions = $derived.by(() => {
     const shown = paneIds
@@ -162,193 +177,149 @@
   });
 
   // ── Tab drag → reorder / split ──────────────────────────────────────────────
-  // `DropSide` (which half of a pane a dragged tab lands on) and the drop's index
-  // math live in `@/lib/reorder` — DOM-free and unit-tested. (The `Side` above
-  // names the side panels — a different concern, no bare literals shared.)
+  // `DropSide` (which half of a pane a dragged tab lands on) and the drop's
+  // layout math live in `@/lib/session/reorder` and `@/lib/session/pane-layout` - DOM-free and
+  // unit-tested. (`Side` names the side panels - a different concern.)
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
-  let panesElement = $state<HTMLElement>();
+  let elPanes = $state<HTMLElement>();
   // Live drag state from the tab strip; drives the "drop here" overlay + halves.
   let dragHint = $state<DragHint | null>(null);
-  const dragOverPanes = $derived(dragHint?.outside === true);
+  const isDragOverPanes = $derived(dragHint?.isOutside === true);
 
-  // True while a split pane's header is dragged up over the tab strip — the mirror
+  // True while a split pane's header is dragged up over the tab strip - the mirror
   // gesture: the strip lights as a "drop → new tab" target and the drop pops the
   // pane out of the split (see the Terminal panes' `onremove`). Reported by the
   // dragged pane's Terminal via the same engine hint the tab-split path uses.
-  let paneDragOverTabs = $state(false);
+  let isPaneDragOverTabs = $state(false);
 
-  // Which pane + side the drag is currently over — the highlighted drop half.
-  const splitTarget = $derived.by(() => (dragOverPanes && dragHint
-    ? paneDropAt({
+  // Which pane + side the drag is currently over - the highlighted drop half.
+  const splitTarget = $derived.by(() => {
+    if (!isDragOverPanes || !dragHint) {
+      return null;
+    }
+
+    return paneDropAt({
       x: dragHint.pointerX,
       y: dragHint.pointerY
-    })
-    : null));
-  function dropSideFor(id: string): DropSide | null {
+    });
+  });
+  function dropSideFor(id: string) {
     return splitTarget?.id === id ? splitTarget.side : null;
   }
 
-  // The shown pane under a point, and which half of it — used both for the live
+  // The shown pane under a point, and which half of it - used both for the live
   // highlight and for the actual drop, so the two never disagree (DRY).
   function paneDropAt({ x, y }: {
     x: number;
     y: number;
-  }): {
-    id: string;
-    side: DropSide;
-  } | null {
-    const container = panesElement;
-    if (!container) {
-      return null;
-    }
-
-    for (const slot of container.querySelectorAll<HTMLElement>("[data-pane-id]")) {
-      const id = slot.getAttribute("data-pane-id");
-      if (id === null || !paneIds.includes(id)) {
-        continue;
-      }
-
-      const rectangle = slot.getBoundingClientRect();
-      const isInside = rectangle.width > 0
-        && x >= rectangle.left && x <= rectangle.right && y >= rectangle.top && y <= rectangle.bottom;
-      if (!isInside) {
-        continue;
-      }
-
-      return {
-        id,
-        side: paneDropSide({
-          pointerX: x,
-          left: rectangle.left,
-          width: rectangle.width
-        })
-      };
-    }
-
-    return null;
-  }
-
-  // A tab dropped over the panes: show its session as a split pane, on the side of
-  // the target pane the pointer landed on (repositioning it if already shown).
-  function splitDrop(drop: {
-    id: string;
-    pointerX: number;
-    pointerY: number;
   }) {
-    const target = paneDropAt({
-      x: drop.pointerX,
-      y: drop.pointerY
-    });
-    if (!target) {
-      return;
-    }
-
-    const base = paneIds.filter(id => id !== drop.id);
-    const insertAt = paneInsertIndex({
-      paneIds,
-      draggedId: drop.id,
-      targetId: target.id,
-      side: target.side
-    });
-
-    paneIds = [...base.slice(0, insertAt), drop.id, ...base.slice(insertAt)];
-    activeId = drop.id;
-    animatePaneIn(drop.id);
-  }
-
-  // A tab-strip drag committed a new order for the visible pills. They are a
-  // prefix of `sessions` (the overflow dots/+N are the tail), so slot the reordered
-  // ids back into the positions the visible set held and leave the tail put.
-  function reorderSessions(orderedIds: string[]) {
-    const inOrder = new Set(orderedIds);
-    const queue = [...orderedIds];
-    sessions = sessions.map(session => {
-      if (!inOrder.has(session.id)) {
-        return session;
-      }
-
-      const nextId = queue.shift();
-      return (nextId ? bySessionId.get(nextId) : undefined) ?? session;
+    const slots = [...elPanes?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? []];
+    const panes = slots
+      .filter(slot => paneIds.includes(slot.dataset.paneId ?? ""))
+      .map(slot => ({
+        id: slot.dataset.paneId ?? "",
+        rectangle: slot.getBoundingClientRect()
+      }));
+    return paneAtPoint({
+      panes,
+      x,
+      y
     });
   }
 
   // Agent detection runs a subprocess per agent, so cap how long the boot waits
-  // on it — a stall must never freeze the splash. An empty list just routes to
+  // on it - a stall must never freeze the splash. An empty list just routes to
   // onboarding, and the redetect interval fills it in shortly after.
   const BOOT_DETECT_TIMEOUT_MS = 6_000;
+  // The slow fallback poll behind the visibility-driven re-detect below.
+  const AGENT_REDETECT_INTERVAL_MS = 30_000;
+  // How long a split member takes to collapse out (out:collapsePane).
+  const SPLIT_PANE_COLLAPSE_MS = 260;
+  // The spring a pane joining a split enters with (animatePaneIn).
+  const PANE_ENTER_ANIMATION = "pane-enter 340ms var(--spring)";
 
   onMount(async () => {
     try {
-      await initNewProjectDetection();
-      // Detection is best-effort: a rejection or a stall both yield an empty
-      // list rather than blocking the routing below.
-      const detecting = Promise.race([
-        agentsApi.detect().catch((): Agent[] => []),
-        new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
-      ]);
-      const [detected] = await Promise.all([detecting, workspace.settings()]);
-      agents = detected;
-
-      // An accidental reload (F5, a crash recovery) re-attaches this window to
-      // the agents still running in the backend — before any query routing,
-      // whose `w=` went stale the moment the user moved on inside the window
-      // (the incident: a `?w=empty` window living in a project rebooted to the
-      // picker and orphaned its live PTYs, unreachable).
-      const reattached = await reattachAfterReload();
-      if (reattached) {
-        return;
-      }
-
-      // A spawned window carries a `w=` query that overrides the normal cold-start.
-      // The plain main window (no query) keeps today's launch_context behavior.
-      const query = new URLSearchParams(location.search);
-      const routed = await routeFromQuery(query);
-      if (routed) {
-        return;
-      }
-
-      const context = await workspace.context();
-      const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
-      if (context.hasProject) {
-        await workspace.open(context.cwd); // records it in recent history
-        startAgentFlow({ path: context.cwd });
-        await loadBranches();
-      } else if (prefersPicker) {
-        // Opt-in: show the project picker instead of starting in a temp workspace.
-        phase = Phase.project;
-      } else {
-        // Default: start immediately in a throwaway workspace so there's no
-        // blocking picker. The user can switch any time (Switch button).
-        const temp = await workspace.temp();
-        startAgentFlow({
-          path: temp,
-          newProject: true
-        });
-      }
+      await boot();
     } catch {
-      // Never strand the user on the splash — fall back to the project picker.
-      showToast("Startup hit a snag — pick a project to continue.");
-      phase = Phase.project;
+      // Never strand the user on the splash - fall back to the project picker.
+      showToast("Startup hit a snag - pick a project to continue");
+      phase = Phase.Project;
     }
   });
   onDestroy(disposeNewProjectDetection);
 
+  async function boot() {
+    await initNewProjectDetection();
+    // Detection is best-effort: a rejection or a stall both yield an empty
+    // list rather than blocking the routing below.
+    const detecting = Promise.race([
+      settledValue({
+        promise: agentsApi.detect(),
+        fallback: []
+      }),
+      new Promise<Agent[]>(resolve => setTimeout(() => resolve([]), BOOT_DETECT_TIMEOUT_MS))
+    ]);
+    [agents] = await Promise.all([detecting, workspace.settings()]);
+
+    // An accidental reload (F5, a crash recovery) re-attaches this window to
+    // the agents still running in the backend - before any query routing,
+    // whose `w=` went stale the moment the user moved on inside the window
+    // (the incident: a `?w=empty` window living in a project rebooted to the
+    // picker and orphaned its live PTYs, unreachable).
+    if (await reattachAfterReload()) {
+      return;
+    }
+
+    // A spawned window carries a `w=` query that overrides the normal cold-start.
+    // The plain main window (no query) keeps today's launch_context behavior.
+    if (await routeFromQuery(new URLSearchParams(location.search))) {
+      return;
+    }
+
+    await bootFromLaunchContext();
+  }
+
+  async function bootFromLaunchContext() {
+    const context = await workspace.context();
+    if (context.hasProject) {
+      await workspace.open(context.cwd); // records it in recent history
+      startAgentFlow({ path: context.cwd });
+      await loadBranches();
+      return;
+    }
+
+    // Opt-in: show the project picker instead of starting in a temp workspace.
+    const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
+    if (prefersPicker) {
+      phase = Phase.Project;
+      return;
+    }
+
+    // Default: start immediately in a throwaway workspace so there's no
+    // blocking picker. The user can switch any time (Switch button).
+    await startInTempWorkspace();
+  }
+
+  async function startInTempWorkspace() {
+    startAgentFlow({
+      path: await workspace.temp(),
+      isNewProject: true
+    });
+  }
+
   // Boot a spawned window from its `w=` query. Returns true when it handled the
   // launch (so the default launch_context path is skipped), false otherwise.
-  async function routeFromQuery(query: URLSearchParams): Promise<boolean> {
+  async function routeFromQuery(query: URLSearchParams) {
     const mode = query.get("w");
     if (mode === WindowMode.enum.temp) {
-      const temp = await workspace.temp();
-      startAgentFlow({
-        path: temp,
-        newProject: true
-      });
+      await startInTempWorkspace();
       return true;
     }
 
     if (mode === WindowMode.enum.empty) {
-      phase = Phase.project;
+      phase = Phase.Project;
       return true;
     }
 
@@ -356,7 +327,7 @@
       return false;
     }
 
-    // query.get("path") is a trust boundary — validate before opening.
+    // query.get("path") is a trust boundary - validate before opening.
     const path = parseInput({
       schema: FolderPath,
       raw: query.get("path")
@@ -370,13 +341,13 @@
   }
 
   // Re-attach the live sessions an accidental reload orphaned. The snapshot
-  // (sessionStorage — survives a reload, dies with the window) says which panes
+  // (sessionStorage - survives a reload, dies with the window) says which panes
   // this window was showing; `pty_list` says which of them the backend still
-  // hosts, and only that intersection is restored — a deliberate leave killed
+  // hosts, and only that intersection is restored - a deliberate leave killed
   // its PTYs, so nothing survives it and boot proceeds normally. Each restored
   // pane re-attaches through Terminal's existing path: spawn is a no-op for a
   // running session and `pty_history` replays the conversation.
-  async function reattachAfterReload(): Promise<boolean> {
+  async function reattachAfterReload() {
     const snapshot = await restoreLiveSnapshot();
     if (!snapshot) {
       return false;
@@ -386,12 +357,10 @@
       await workspace.open(snapshot.project);
     } catch {
       // The project vanished while the window was reloading (deleted, moved,
-      // unmounted). Boot falls through to the picker — so kill the snapshot's
+      // unmounted). Boot falls through to the picker - so kill the snapshot's
       // still-live sessions rather than leave them running unreachably, which
       // would recreate the very invisible-agent incident restore exists to fix.
-      await Promise.all(
-        snapshot.sessions.map(orphan => pty.kill(orphan.id).catch(() => {}))
-      );
+      await Promise.allSettled(snapshot.sessions.map(orphan => pty.kill(orphan.id)));
       clearSessionSnapshot();
       return false;
     }
@@ -407,17 +376,17 @@
       sessionLaunchedAt.set(restored.id, Date.now());
     }
 
-    phase = Phase.ready;
+    phase = Phase.Ready;
     await loadBranches();
     return true;
   }
 
   // Persist this window's pane mapping so a reload can re-attach it (above).
-  // Never while still booting — the effect's first run lands before the restore
+  // Never while still booting - the effect's first run lands before the restore
   // has read the snapshot, and would wipe it. Once live, an empty project or
   // session list clears the snapshot instead: nothing to re-attach.
   $effect(() => {
-    if (phase === Phase.loading) {
+    if (phase === Phase.Loading) {
       return;
     }
 
@@ -430,13 +399,13 @@
   });
 
   // The address is state too: `w=` is what a reload re-routes off, and it went
-  // stale the moment the user moved on from what the window was spawned for —
+  // stale the moment the user moved on from what the window was spawned for -
   // a `?w=empty` picker window living inside a project rebooted to the picker
   // (the incident), a `?w=temp` one minted a second throwaway. Keep the query
-  // telling the truth — the project on screen, else the picker — so even a
+  // telling the truth - the project on screen, else the picker - so even a
   // snapshot-less reload (all sessions had exited) lands on the right screen.
   $effect(() => {
-    if (phase === Phase.loading) {
+    if (phase === Phase.Loading) {
       return;
     }
 
@@ -449,23 +418,22 @@
   });
 
   // Re-detect installed agents so the picker reflects an agent the user just
-  // installed or removed — when the app becomes visible again (they switched back
+  // installed or removed - when the app becomes visible again (they switched back
   // from installing one, see the `visibilitychange` below) and on a slow poll as a
   // fallback. Detection spawns a process per agent, so it must stay off the drag
   // path: page visibility never changes while dragging a window that stays on
   // screen, unlike window focus which a title-bar drag churns and lagged.
-  // Best-effort: owns its try/catch so a transient failure just keeps the
-  // current list — the poll and the visibility signal both fire it and neither
-  // can await, so it must never reject.
+  // Best-effort and never rejecting - the poll and the visibility signal both
+  // fire it without awaiting - so a transient failure keeps the agents already
+  // on screen.
   async function redetectAgents() {
-    try {
-      agents = await agentsApi.detect();
-    } catch {
-    // A transient detection failure keeps the agents already on screen.
-    }
+    agents = await settledValue({
+      promise: agentsApi.detect(),
+      fallback: agents
+    });
   }
   onMount(() => {
-    const interval = setInterval(() => redetectAgents(), 30_000);
+    const interval = setInterval(() => redetectAgents(), AGENT_REDETECT_INTERVAL_MS);
     return () => clearInterval(interval);
   });
 
@@ -475,15 +443,15 @@
   });
 
   // Arm WebView2 crash auto-recovery with this boot's real URL. The frontend
-  // is the one party that always knows it — a backend capture at window
+  // is the one party that always knows it - a backend capture at window
   // creation raced navigation and once rebuilt a crashed window onto
-  // about:blank — and a recovery-rebuilt window re-arms itself right here.
+  // about:blank - and a recovery-rebuilt window re-arms itself right here.
   onMount(async () => {
     await recovery.arm(location.href);
   });
 
   // Watch the PTY stream once for the agent's multiple-choice prompts, so a tab
-  // can flash red when one is pending on it (lib/stores/sessionAttention).
+  // can flash red when one is pending on it (lib/stores/session/sessionAttention).
   onMount(async () => {
     await ensureChoiceAttention();
   });
@@ -493,20 +461,15 @@
     await initTaskRunDetection(() => currentProject);
   });
 
-  // Adopt settings another window changed — it deleted a workspace, renamed one,
-  // toggled a pin — so this window's switcher and picker never list a project
-  // that is already gone. Best-effort: owns its try/catch because an event
-  // handler can't await, and a failed re-read simply keeps what is on screen.
-  async function adoptSharedSettings() {
-    try {
-      await workspace.settings();
-    } catch {
-    // A transient read failure leaves the settings already adopted in place.
-    }
-  }
+  // Adopt settings another window changed - it deleted a workspace, renamed one,
+  // toggled a pin - so this window's switcher and picker never list a project
+  // that is already gone. Best-effort because an event handler can't await: a
+  // failed re-read leaves the settings already adopted in place.
   let unlistenSettings: (() => void) | undefined;
   async function subscribeToSettingsChanges() {
-    unlistenSettings = await workspace.onChanged(adoptSharedSettings);
+    unlistenSettings = await workspace.onChanged(async () => {
+      await Promise.allSettled([workspace.settings()]);
+    });
   }
   onMount(() => {
     subscribeToSettingsChanges();
@@ -524,19 +487,22 @@
   });
 
   // Name the OS window (title bar + taskbar) `PADE - <workspace>`, where the
-  // workspace is the open project's own folder name — the part after the slash,
-  // honoring a friendly label — reusing the same `displayName` leaf the switcher
+  // workspace is the open project's own folder name - the part after the slash,
+  // honoring a friendly label - reusing the same `displayName` leaf the switcher
   // rows show. The empty picker and a throwaway temp that never earned a name stay
   // the bare product name. Driven off the project store, so it re-titles on every
   // open, switch, and close.
   const hasNamedProject = $derived(currentProject !== "" && !isUnnamedTemp);
   $effect(() => {
-    const workspace = displayName(currentProject, settings.labels);
+    const workspace = displayName({
+      path: currentProject,
+      labels: settings.labels
+    });
     windows.setTitle(hasNamedProject ? `PADE - ${workspace}` : "PADE");
   });
 
-  // Watch the open project's files app-wide — not only while the Change Feed is
-  // open — so the Tasks panel auto-updates on a manifest/script edit, and the
+  // Watch the open project's files app-wide - not only while the Change Feed is
+  // open - so the Tasks panel auto-updates on a manifest/script edit, and the
   // task-run and auto-name subscribers see changes from the moment a project
   // opens. Keyed on the project so it re-roots on an in-window switch; the
   // backend is idempotent, so a repeat call for the same root is a no-op.
@@ -549,7 +515,7 @@
     refreshTaskRunDetection();
   });
 
-  // What this workspace is made of — nested checkouts and declared packages, as
+  // What this workspace is made of - nested checkouts and declared packages, as
   // one list (stores/workspaceMembers). Keyed on the project so an in-window
   // switch re-discovers them; the member switcher, the branch pill and the
   // Change Feed's grouping all read that one list.
@@ -579,11 +545,11 @@
 
   // ── Discord Rich Presence ────────────────────────────────────────────────────
   // Broadcast "Playing PADE" (opt-in), optionally naming the open project. The
-  // state→bridge mapping lives in lib/discord-presence (SoC). Both flags resolve
-  // through `effective` — the one home for their defaults, shared with the Config
-  // panel's toggles — so a change there reaches the presence the moment it lands.
+  // state→bridge mapping lives in lib/shell/discord-presence (SoC). Both flags resolve
+  // through `effective` - the one home for their defaults, shared with the Config
+  // panel's toggles - so a change there reaches the presence the moment it lands.
   // $derived so the effect only re-sends when presence, the project-name toggle, or
-  // the open project actually change — not on every unrelated settings reassignment
+  // the open project actually change - not on every unrelated settings reassignment
   // (a pin, an editor rule).
   const discordEnabled = $derived(effective.discordPresence);
   const discordShowProject = $derived(effective.discordShowProject);
@@ -597,19 +563,19 @@
     }
   });
   // Presence follows the FOCUSED window: every PADE window shares one Discord
-  // connection (one process), so only the focused window publishes — switching
+  // connection (one process), so only the focused window publishes - switching
   // windows switches the reported project, and an unfocused window never
   // overwrites the focused one's status. A blur sends nothing; the window
   // gaining focus overwrites.
-  let windowFocused = $state(document.hasFocus());
+  let isWindowFocused = $state(document.hasFocus());
   $effect(() => {
-    if (!windowFocused) {
+    if (!isWindowFocused) {
       return;
     }
 
     updateDiscordPresence({
-      enabled: discordEnabled,
-      showProject: discordShowProject,
+      isEnabled: discordEnabled,
+      isProjectShown: discordShowProject,
       project: currentProject,
       // Read here so a rename (a new settings.labels entry) re-runs this effect
       // and re-publishes the friendly name, not the stale temp-<stamp> folder.
@@ -619,21 +585,21 @@
   });
 
   // Auto-name a temp workspace once the agent has produced real work
-  // (lib/auto-name): after a few distinct files change, ask the agent (or a
+  // (lib/agent/auto-name): after a few distinct files change, ask the agent (or a
   // heuristic) for a friendly label. Fires once per workspace; label-only.
   const autoNamer = createAutoNamer({
     currentProject: () => currentProject,
     isOptedOut: () => settings.prefs.autoNameTemp === false,
     labelOf: path => settings.labels[path],
-    activeAgentCommand: () => sessions.find(session => session.id === activeId)?.agent.command ?? ""
+    activeAgentCommand: () => activeSession?.agent.command ?? ""
   });
   onMount(() => {
     autoNamer.start();
     return () => autoNamer.dispose();
   });
 
-  // Whether this window names its session tabs with AI — the project's own choice
-  // when it has one, else the global default (lib/ai-naming-scope).
+  // Whether this window names its session tabs with AI - the project's own choice
+  // when it has one, else the global default (lib/agent/ai-naming-scope).
   const namesSessionsWithAi = $derived(
     aiNamingEnabled({
       prefs: settings.prefs,
@@ -641,31 +607,30 @@
     })
   );
 
-  // Apply that setting to every tab already open, and again whenever it changes —
+  // Apply that setting to every tab already open, and again whenever it changes -
   // including when this window switches project, since the new project may answer
   // differently. `sessions` is read untracked on purpose: this effect exists to
   // follow the SETTING, and re-running it on every tab open or close would undo a
   // ✦ the user had just flipped by hand. New tabs are seeded in `launch` instead.
   $effect(() => {
-    const on = namesSessionsWithAi;
     applyNamingToAll({
       sessions: untrack(() => sessions),
-      on
+      isOn: namesSessionsWithAi
     });
   });
 
-  // Send-from-IDE bridge (lib/send-shortcut): copy in any external editor, press
+  // Send-from-IDE bridge (lib/terminal/send-shortcut): copy in any external editor, press
   // the global shortcut, and the clipboard lands in the active agent's input.
   onMount(() => {
     registerSendShortcut({
       activeId: () => activeId,
-      activeLabel: () => sessions.find(session => session.id === activeId)?.agent.label ?? "agent"
+      activeLabel: () => activeSession?.agent.label ?? "agent"
     });
     return () => unregisterSendShortcut();
   });
 
-  // Tab shortcuts (lib/tab-shortcuts): capture-phase so they win over a focused
-  // agent terminal — new tab, launch menu, close, and next/previous cycling.
+  // Tab shortcuts (lib/session/tab-shortcuts): capture-phase so they win over a focused
+  // agent terminal - new tab, launch menu, close, and next/previous cycling.
   onMount(() =>
     registerTabShortcuts({
       newTab,
@@ -677,9 +642,9 @@
       tabCount: () => sessions.length
     }));
 
-  // Pane shortcuts (lib/pane-shortcuts), active while a tab is split into panes:
+  // Pane shortcuts (lib/session/pane-shortcuts), active while a tab is split into panes:
   // Ctrl+[ / Ctrl+] cycle the active pane (wrapping), Ctrl+Alt+1..9 jump to the
-  // nth, and Ctrl+Alt+W closes the active pane's session — the slot then animates
+  // nth, and Ctrl+Alt+W closes the active pane's session - the slot then animates
   // out via `out:collapsePane`, and closing the sole pane closes the tab. Selecting
   // a pane only moves focus within the split (never collapses it, unlike a tab
   // click). Capture-phase like the tab shortcuts so they beat a focused terminal.
@@ -691,16 +656,11 @@
       activeId: () => activeId
     }));
 
-  async function openEmptyWindow() {
-    await windows.create({ mode: WindowMode.enum.empty });
-    showToast("Opened a new window");
-  }
-
   // Closing PADE (the title-bar X) is a deliberate leave too: intercept the
   // close, let every agent reach an idle prompt, kill them, and only then let
   // the window go (Tauri destroys it once the handler settles unprevented).
   // While a leave is already in flight the gate skips the wait, so a second
-  // X-click closes immediately — graceful, never a trap; the backend's
+  // X-click closes immediately - graceful, never a trap; the backend's
   // exit-time kill_all reaps whatever that force-close leaves behind.
   let unlistenCloseRequested: (() => void) | undefined;
   async function interceptWindowClose() {
@@ -708,7 +668,7 @@
       // This window is going away: if it's the one publishing presence (only the
       // focused window does), stop reporting so its last project doesn't linger.
       // A remaining PADE window re-publishes its own status on gaining focus.
-      if (windowFocused) {
+      if (isWindowFocused) {
         await clearDiscordPresence();
       }
 
@@ -724,40 +684,40 @@
   // up to GRACEFUL_LEAVE_TIMEOUT_MS while it stays fully interactive, so a
   // second switch/leave starting inside that window would interleave two
   // kill → open → launch sequences over the same session list. Later attempts
-  // are dropped, not queued — the first leave is already taking the user away.
-  let leaveInFlight = false;
-  async function runExclusiveLeave(leave: () => Promise<void>): Promise<void> {
-    if (leaveInFlight) {
+  // are dropped, not queued - the first leave is already taking the user away.
+  let isLeaveInFlight = false;
+  async function runExclusiveLeave(leave: () => Promise<void>) {
+    if (isLeaveInFlight) {
       return;
     }
 
-    leaveInFlight = true;
+    isLeaveInFlight = true;
     try {
       await leave();
     } finally {
-      leaveInFlight = false;
+      isLeaveInFlight = false;
     }
   }
 
   async function openProject(target: OpenTarget) {
     // If another window already has this project open, focus it instead of
-    // opening a second copy here — the picker window stays put.
+    // opening a second copy here - the picker window stays put.
     if (await windows.focusProject(target.path)) {
       return;
     }
 
     // Picking the project this window already has open is a return, not a
-    // reopen — the live sessions stay exactly as they were.
+    // reopen - the live sessions stay exactly as they were.
     const isReturnToCurrent =
       normalizePath(target.path) === normalizePath(currentProject) && sessions.length > 0;
     if (isReturnToCurrent) {
-      phase = Phase.ready;
+      phase = Phase.Ready;
       return;
     }
 
     // Switching this window to another project: the old project's agents don't
-    // come along. Kill them before entering, so no session keeps running — and
-    // cwd-locking — a workspace this window has left.
+    // come along. Kill them before entering, so no session keeps running - and
+    // cwd-locking - a workspace this window has left.
     await runExclusiveLeave(async () => {
       await closeWorkspaceGracefully();
 
@@ -767,54 +727,60 @@
         path: target.path,
         initialPrompt: target.initialPrompt,
         agentId: target.agent,
-        newProject: target.created === true
+        isNewProject: target.created === true
       });
       await loadBranches();
     });
   }
 
   // Decide how to enter a project: honor a saved per-project/default agent,
-  // else launch the best installed agent outright — opening a project always
+  // else launch the best installed agent outright - opening a project always
   // lands in the workspace, never on a blocking chooser. The agent picker
   // still appears after a hand-closed or exited last session, where "what
   // next?" is a genuine question. (Reused for every entry path.)
-  function startAgentFlow({ path, initialPrompt, agentId, newProject = false }: {
+  function startAgentFlow({ path, initialPrompt, agentId, isNewProject = false }: {
     path: string;
     initialPrompt?: string;
     agentId?: string;
-    newProject?: boolean;
+    isNewProject?: boolean;
   }) {
     currentProject = path;
 
-    if (newProject) {
+    if (isNewProject) {
       armNewProjectDetection(path);
     }
 
     // Let other windows' pickers focus this one instead of reopening the project.
     windows.registerProject(path);
-    // A create-form agent pick wins outright; otherwise honor the per-project
-    // override, then the workspace default.
-    const prefId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent ?? null;
-    const preferred = prefId ? agents.find(agent => agent.id === prefId) : undefined;
-    // Detection order is the registry's priority order, so the first real
-    // agent is the best installed one; the shell fallback carries otherwise.
     launch({
-      agent: preferred ?? realAgents[0] ?? agents[0],
+      agent: preferredAgentFor({
+        path,
+        agentId
+      }) ?? bestAgent,
       initialPrompt
     });
   }
 
-  // A self-exit within RESPAWN_MIN_LIFETIME_MS of launch reads as a failed start,
-  // so we don't respawn-loop on it.
+  // A create-form agent pick wins outright; otherwise honor the per-project
+  // override, then the workspace default.
+  function preferredAgentFor({ path, agentId }: {
+    path: string;
+    agentId?: string;
+  }) {
+    const preferredId = agentId ?? settings.projectAgents[path] ?? settings.defaultAgent;
+    return agents.find(agent => agent.id === preferredId);
+  }
+
+  // When each session launched, so a self-exit right after reads as a failed
+  // start (lib/session/session-exit) and is not respawned into a loop.
   const sessionLaunchedAt = new SvelteMap<string, number>();
-  const RESPAWN_MIN_LIFETIME_MS = 2_000;
   // A hand-close also kills the PTY, firing the exit event; the exit handler skips
   // these so the two teardown paths don't race.
   const closingByHand = new SvelteSet<string>();
 
   // A pane that was one of several in a live split when its session detached
   // collapses its width so the survivors glide across to fill (out:collapsePane).
-  // Every other removal — a sole-pane tab close above all — swaps instantly: with
+  // Every other removal - a sole-pane tab close above all - swaps instantly: with
   // nothing beside it, a collapsing pane would only crush the surviving terminal
   // to near-zero width and let it reflow back out, a needless squeeze. So just
   // genuine split members are recorded here (and dropped again on `outroend`);
@@ -826,17 +792,17 @@
     initialPrompt?: string;
     cwd?: string;
     branch?: string;
-    /** Extra command args — the project path when running a terminal editor. */
+    /** Extra command args - the project path when running a terminal editor. */
     args?: string[];
     /** Add alongside the current panes (split) instead of replacing them. */
     split?: boolean;
     /** A model / effort to run this session on (a successor keeping its
      *  predecessor's pick). */
     modelChoice?: ModelChoice;
-    /** The conversation to carry on — a session resumed after its folder
+    /** The conversation to carry on - a session resumed after its folder
      *  moved; a new one otherwise. */
     conversationId?: string;
-  }): string {
+  }) {
     const session: AgentSession = {
       id: crypto.randomUUID(),
       agent: options.agent,
@@ -851,22 +817,22 @@
       // window may switch that shared process to a different project while this
       // terminal is mounting. Worktrees still override the window project, and a
       // multi-part workspace starts its agents in the member the top bar points
-      // at — the root until you pick another (see stores/workspaceMembers).
+      // at - the root until you pick another (see stores/workspaceMembers).
       cwd: options.cwd ?? activeMemberIn(currentProject),
       branch: options.branch,
       args: options.args,
       // A stable id for this conversation, distinct from the session `id` (which
       // is re-keyed to remount the terminal on a restart). Pins the agent's own
-      // conversation so a restart resumes THIS one — see restartForMcpChange.
+      // conversation so a restart resumes THIS one - see restartForMcpChange.
       conversationId: options.conversationId ?? crypto.randomUUID()
     };
     sessions.push(session);
-    // A new tab is born under the window's setting — the same one the effect
+    // A new tab is born under the window's setting - the same one the effect
     // above applies to the tabs already open.
     setNaming({
       id: session.id,
       agent: session.agent.command,
-      on: namesSessionsWithAi
+      isOn: namesSessionsWithAi
     });
     sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
@@ -877,7 +843,7 @@
     }
 
     pendingPrompt = undefined;
-    phase = Phase.ready;
+    phase = Phase.Ready;
     return session.id;
   }
 
@@ -885,49 +851,36 @@
   // Collapsing a split is deliberately instant (as the design is): a View
   // Transition here would scale the surviving pane's snapshot as it grows to
   // fill, ghosting the old half-width terminal text over the reflowed full-width
-  // grid — the platform morph can't track a terminal that repaints on resize.
+  // grid - the platform morph can't track a terminal that repaints on resize.
   function selectSession(id: string) {
     activeId = id;
     paneIds = [id];
   }
 
-  // A split pane's header was dragged onto the tab strip: pop that pane out of
-  // the split into its own tab — the split collapses to it and it shows
-  // fullscreen as the active tab (the mirror of dragging a tab down into the
-  // panes to split it). Distinct from the pane's × button below, which only
-  // drops the pane from the split and keeps a remaining pane active.
-  function popPaneToTab(id: string) {
-    if (paneIds.length <= 1) {
-      return;
-    }
-
-    selectSession(id);
-  }
-
   // Spring just the added pane in from its trailing edge (pane-enter). Fired on
-  // the one slot that joined a split — never on a plain tab open / close / switch,
-  // which stay instant — so it can't run on every show the way a CSS rule on
+  // the one slot that joined a split - never on a plain tab open / close / switch,
+  // which stay instant - so it can't run on every show the way a CSS rule on
   // `.shown` would (that wiped the terminal in on any tab change). Clears the
   // inline animation once it settles so a later show/hide of the same slot can't
   // replay it. Mirrors the design's imperative `animatePaneIn`.
   async function animatePaneIn(id: string) {
     await tick();
-    const slot = panesElement?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
-    if (!slot) {
+    const elSlot = elPanes?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
+    if (!elSlot) {
       return;
     }
 
-    slot.style.animation = "none";
+    elSlot.style.animation = "none";
     // Force a synchronous reflow between clearing and re-setting the animation so
     // re-adding the same pane restarts the run; getBoundingClientRect flushes
     // layout the same as reading offsetWidth, but as a call it isn't a bare
     // "unused expression" (nor an unused local, which a discard const would be).
-    slot.getBoundingClientRect();
-    slot.style.animation = "pane-enter 340ms var(--spring)";
-    slot.addEventListener("animationend", () => (slot.style.animation = ""), { once: true });
+    elSlot.getBoundingClientRect();
+    elSlot.style.animation = PANE_ENTER_ANIMATION;
+    elSlot.addEventListener("animationend", () => (elSlot.style.animation = ""), { once: true });
   }
 
-  // Show an already-running session alongside the current pane(s) — a split-add,
+  // Show an already-running session alongside the current pane(s) - a split-add,
   // so the newcomer springs in (animatePaneIn).
   function addPane(id: string) {
     if (!paneIds.includes(id)) {
@@ -938,29 +891,32 @@
     activeId = id;
   }
 
-  // Drop a pane from the split — never the last visible one.
+  // Drop a pane from the split - never the last visible one.
   function removePane(id: string) {
-    if (!canRemovePane) {
+    if (!isSplit) {
       return;
     }
 
-    paneIds = paneIds.filter(paneId => paneId !== id);
-
-    if (activeId === id) {
-      activeId = paneIds.at(-1) ?? null;
-    }
+    ({ paneIds, activeId } = layoutWithoutPane({
+      layout: {
+        sessions,
+        paneIds,
+        activeId
+      },
+      id
+    }));
   }
 
-  // ── Tab keyboard shortcuts (lib/tab-shortcuts) ───────────────────────────────
+  // ── Tab keyboard shortcuts (lib/session/tab-shortcuts) ───────────────────────────────
   // Actions the shortcut layer drives; each is a no-op outside the ready phase.
 
   // Another tab of the last session's kind (mirrors the "+" button).
   function newTab() {
-    if (phase !== Phase.ready) {
+    if (phase !== Phase.Ready) {
       return;
     }
 
-    const agent = sessions.at(-1)?.agent ?? realAgents[0] ?? agents[0];
+    const agent = sessions.at(-1)?.agent ?? bestAgent;
     if (agent) {
       launch({ agent });
     }
@@ -969,35 +925,34 @@
   // Open the launch dropdown with the first agent focused, so
   // Enter fires it and Esc light-dismisses (native popover handles both).
   function openLaunchMenu() {
-    if (phase !== Phase.ready) {
+    if (phase !== Phase.Ready) {
       return;
     }
 
-    const menu = document.getElementById("add-session-menu");
-    if (!(menu instanceof HTMLElement) || menu.matches(":popover-open")) {
+    const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
+    if (!(elMenu instanceof HTMLElement) || elMenu.matches(":popover-open")) {
       return;
     }
 
-    menu.showPopover();
-    menu.querySelector<HTMLButtonElement>("button")?.focus();
+    elMenu.showPopover();
+    elMenu.querySelector<HTMLButtonElement>("button")?.focus();
   }
 
-  // Ctrl+W / Ctrl+F4 — close the active session.
+  // Ctrl+W / Ctrl+F4 - close the active session.
   function closeActiveTab() {
-    const active = sessions.find(session => session.id === activeId);
-    if (!active) {
+    if (!activeSession) {
       return;
     }
 
     if (sessionTabsHandle) {
-      sessionTabsHandle.closeSession(active);
+      sessionTabsHandle.closeSession(activeSession);
       return;
     }
 
-    close(active);
+    close(activeSession);
   }
 
-  // Ctrl+number — jump straight to a tab by position (Ctrl+9 = the last one).
+  // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
   // The matcher only ever hands back an index that exists, so the guard is
   // belt-and-suspenders; selection reuses the same make-active path as a click.
   function selectTabByIndex(index: number) {
@@ -1007,19 +962,22 @@
     }
   }
 
-  // Ctrl+Tab / Alt+Arrow — cycle the active tab, wrapping at the ends.
+  // Ctrl+Tab / Alt+Arrow - cycle the active tab, wrapping at the ends.
   function stepSession(delta: number) {
     if (sessions.length === 0) {
       return;
     }
 
-    const index = sessions.findIndex(session => session.id === activeId);
-    const nextIndex = (index + delta + sessions.length) % sessions.length;
-    selectSession(sessions[nextIndex].id);
+    const iNext = wrappedIndex({
+      index: sessions.findIndex(session => session.id === activeId),
+      delta,
+      count: sessions.length
+    });
+    selectSession(sessions[iNext].id);
   }
 
-  // Load branches for the repo the top bar points at — the workspace root, or
-  // the nested checkout the member switcher selected — and the checked-out
+  // Load branches for the repo the top bar points at - the workspace root, or
+  // the nested checkout the member switcher selected - and the checked-out
   // branch its pill shows. A workspace with one member reads exactly as before.
   async function loadBranches() {
     const member = activeMemberIn(currentProject);
@@ -1031,11 +989,24 @@
       return;
     }
 
+    // Not a git repository (or git missing) reads as no branches and no remote.
     const [next, onlyRemote, heads, remote] = await Promise.all([
-      vcs.branches(member).catch((): string[] => []),
-      vcs.remoteBranches(member).catch((): string[] => []),
-      vcs.branchOf([member]).catch((): Record<string, string> => ({})),
-      vcs.remoteUrl(member).catch((): string | null => null)
+      settledValue({
+        promise: vcs.branches(member),
+        fallback: []
+      }),
+      settledValue({
+        promise: vcs.remoteBranches(member),
+        fallback: []
+      }),
+      settledValue<Record<string, string>>({
+        promise: vcs.branchOf([member]),
+        fallback: {}
+      }),
+      settledValue<string | null>({
+        promise: vcs.remoteUrl(member),
+        fallback: null
+      })
     ]);
     // A project (or member) switch can outrun this read. Keep the branch list
     // attached to what it came from instead of flashing another repository's.
@@ -1068,10 +1039,16 @@
       collapsingSplitPanes.add(id);
     }
 
-    sessions = sessions.filter(session => session.id !== id);
-    paneIds = paneIds.filter(paneId => paneId !== id);
+    ({ sessions, paneIds, activeId } = layoutWithoutSession({
+      layout: {
+        sessions,
+        paneIds,
+        activeId
+      },
+      id
+    }));
     sessionLaunchedAt.delete(id);
-    sessionSpawnScheme.delete(id);
+    agentRetheme.forget(id);
     dropSessionStatus(id);
     dropAgentActivity(id);
     dropSessionLabel(id);
@@ -1079,27 +1056,19 @@
     dropUsageLimit(id);
     dropApiError(id);
     dropChoiceAttention(id);
-
-    if (activeId === id) {
-      activeId = paneIds.at(-1) ?? sessions.at(-1)?.id ?? null;
-    }
-
-    if (paneIds.length === 0 && activeId) {
-      paneIds = [activeId];
-    }
   }
 
   // How long a deliberate leave waits for a busy agent to reach an idle prompt
-  // before killing it anyway — graceful, but never a trap behind a wedged agent.
+  // before killing it anyway - graceful, but never a trap behind a wedged agent.
   const GRACEFUL_LEAVE_TIMEOUT_MS = 30_000;
 
   // A DELIBERATE leave (switching project, going back to the picker) ends every
-  // session — but gracefully: wait for each to reach an idle prompt first
-  // (sessionStatus ready, the output-quiet signal — never child-process
+  // session - but gracefully: wait for each to reach an idle prompt first
+  // (sessionStatus ready, the output-quiet signal - never child-process
   // counting, which mis-reads persistent MCP servers) so nothing mid-flight is
   // severed; the agent auto-saves, so /resume covers continuity. The wait runs
   // before any phase change, while the Terminals are still mounted and
-  // publishing status. An accidental reload records no leave — its sessions
+  // publishing status. An accidental reload records no leave - its sessions
   // stay alive and the next boot re-attaches them (session-restore).
   async function closeAllSessionsGracefully() {
     const hasBusySession = sessions.some(session => !isSessionIdle(session.id));
@@ -1124,12 +1093,17 @@
     await closeAllSessionsGracefully();
   }
 
-  // Tear down every session at once — the project-switch path. Each PTY is
+  // Tear down every session at once - the project-switch path. Each PTY is
   // killed (reaping its child, so the old workspace's cwd lock is released)
   // and its exit event is claimed as a hand-close so the exit handler never
   // races this with a respawn or a return to the picker.
   async function closeAllSessions() {
-    const ids = sessions.map(session => session.id);
+    await closeSessions(sessions.map(session => session.id));
+  }
+
+  // Kill these sessions' PTYs and detach them, claiming each exit event as a
+  // hand-close so the exit handler never respawns or re-routes over it.
+  async function closeSessions(ids: readonly string[]) {
     for (const id of ids) {
       closingByHand.add(id);
     }
@@ -1159,62 +1133,64 @@
     detachSession(session.id);
     closingByHand.delete(session.id);
 
-    // An unnamed temporary workspace's last hand-closed tab returns directly to
-    // the project picker. A real project always stays usable: replace its final
-    // closed tab with a fresh one of the same agent rather than dropping the
-    // user into onboarding.
-    if (sessions.length > 0) {
-      return;
+    // A hand-close is never a failed start: a real project replaces its final
+    // tab with a fresh one rather than dropping the user into onboarding.
+    if (sessions.length === 0) {
+      settleEmptyWorkspace({
+        agent: session.agent,
+        isFailedStart: false
+      });
     }
-
-    if (isUnnamedTemp) {
-      returnToPicker();
-      return;
-    }
-
-    launch({ agent: session.agent });
   }
 
-  // The PTY exited on its own — e.g. the user pressed Ctrl-C to quit the agent.
+  // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
   async function handleSessionExit(id: string) {
-    const isClosingByHand = closingByHand.has(id);
-    if (isClosingByHand) {
+    const session = sessions.find(candidate => candidate.id === id);
+    if (closingByHand.has(id) || !session) {
       return;
     }
 
-    const session = sessions.find(candidateSession => candidateSession.id === id);
-    if (!session) {
-      return;
-    }
-
-    const { agent } = session;
     const wasLastSession = sessions.length === 1;
-    const startedAt = sessionLaunchedAt.get(id) ?? 0;
-    const failedToStart = Date.now() - startedAt <= RESPAWN_MIN_LIFETIME_MS;
+    const isExitFailedStart = didFailToStart({
+      launchedAt: sessionLaunchedAt.get(id) ?? 0,
+      now: Date.now()
+    });
     detachSession(id);
-    await pty.kill(id).catch(() => {}); // reap the backend record; the child is already gone
+    // Reap the backend record; the child is already gone, so a failure is moot.
+    await Promise.allSettled([pty.kill(id)]);
 
-    if (!wasLastSession) {
-      return;
+    if (wasLastSession) {
+      settleEmptyWorkspace({
+        agent: session.agent,
+        isFailedStart: isExitFailedStart
+      });
     }
+  }
 
-    // The agent quitting in a still-unnamed temp workspace ends the session:
-    // no respawn, no agent picker — back to the project picker.
-    if (isUnnamedTemp) {
+  // The workspace's last session just ended (lib/session/session-exit decides what next).
+  function settleEmptyWorkspace({ agent, isFailedStart }: {
+    agent: Agent;
+    isFailedStart: boolean;
+  }) {
+    const outcome = emptyWorkspaceOutcome({
+      isUnnamedTemp,
+      isFailedStart
+    });
+    if (outcome === EmptyWorkspaceOutcome.Picker) {
       returnToPicker();
       return;
     }
 
-    const shouldRespawn = !failedToStart;
-    if (shouldRespawn) {
+    if (outcome === EmptyWorkspaceOutcome.Respawn) {
       launch({ agent });
-    } else {
-      pendingPrompt = undefined;
-      phase = Phase.onboarding;
+      return;
     }
+
+    pendingPrompt = undefined;
+    phase = Phase.Onboarding;
   }
 
-  // A project's MCP servers changed (a server added or removed — the backend
+  // A project's MCP servers changed (a server added or removed - the backend
   // fires only on a real membership change, never a value-only edit). Each
   // affected agent first writes a handoff document, then a fresh instance of the
   // SAME agent launches from it. The fresh process reads the changed MCP config;
@@ -1232,11 +1208,11 @@
 
     if (!change.membershipChanged) {
       armMcpReloadRecovery(targets.map(target => target.id));
-      showToast("MCP server settings changed — reload them in the agent; PADE will recover if it fails");
+      showToast("MCP server settings changed - reload them in the agent; PADE will recover if it fails");
       return;
     }
 
-    showToast(`MCP servers changed — preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
+    showToast(`MCP servers changed - preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
     await Promise.all(
       targets.map(async target => {
         await autoHandoff.restartForConfiguration(target);
@@ -1244,7 +1220,7 @@
     );
   }
 
-  // Kill the targets and re-key them to fresh ids in place — each terminal
+  // Kill the targets and re-key them to fresh ids in place - each terminal
   // remounts, respawns its agent (resuming its conversation via the session id),
   // and the pane layout follows. The shared core behind every in-place restart
   // (spawn-time theme changes).
@@ -1269,7 +1245,7 @@
       });
       sessionLaunchedAt.set(restartedId, Date.now());
       sessionLaunchedAt.delete(target.id);
-      sessionSpawnScheme.delete(target.id);
+      agentRetheme.forget(target.id);
       closingByHand.delete(target.id);
     }
 
@@ -1284,128 +1260,32 @@
     activeId = relaid.activeId;
   }
 
-  // Claude Code is re-themed in place: `agents.publishTheme` rewrites the theme
-  // definition its sessions were launched on, and it repaints itself — no
-  // restart, no lost turn. Every OTHER agent's scheme is fixed at spawn and
-  // cannot be moved after it: Codex's syntax theme and console-buffer ground, and
-  // opencode's forced tui-config theme (its DECSET 2031 `?997` report only asks an
-  // agent to re-probe OSC 11, a query that never reaches the terminal — see
-  // docs/terminal-rendering.md). So for those two a flip is followed the only way
-  // it can be: respawn the idle ones, each resuming its own conversation
-  // (`codex resume <uuid>` / `opencode --session <id>` via `resumeArgs`).
-  //
-  // Claude must NEVER join them, and this is the second time that has been settled.
-  // It has no resume args of its own — it is respawned onto the `--session-id` the
-  // dead process was just pinned to, and in the live app that lands on a blank
-  // pane stuck at "Starting…", the session wedged rather than re-themed. A
-  // portable-pty harness that starts/kills/respawns on the same id at 0ms / 250ms
-  // / 1500ms says all three survive; the app says otherwise, and the app is the
-  // one the user has to use. It no longer matters: Claude follows the flip through
-  // its watched theme definition instead, without being restarted at all.
-  const SPAWN_THEMED_AGENTS = new Set<string>([AgentId.Codex, AgentId.Opencode]);
-
-  // The scheme each live session's agent was actually spawned under — the one
-  // answer to "is this agent painted in the wrong scheme", so a session that
-  // sat out one flip and its way back is never restarted for nothing. Recorded
-  // once per session as it appears (a restart re-keys, so the replacement
-  // records the scheme it really launched with) and dropped with the session.
-  const sessionSpawnScheme = new SvelteMap<string, Scheme>();
-  $effect(() => {
-    const scheme = appearance.terminalScheme;
-    for (const session of sessions) {
-      if (!sessionSpawnScheme.has(session.id)) {
-        sessionSpawnScheme.set(session.id, scheme);
-      }
-    }
+  // A terminal-scheme flip reaches the running agents through
+  // lib/stores/agent/agentRetheme: Claude repaints in place, the spawn-themed agents
+  // are respawned on their own conversation once idle.
+  const agentRetheme = createAgentRetheme({
+    sessions: () => sessions,
+    currentProject: () => currentProject,
+    applyResumeArgs,
+    restartSessions
   });
+  $effect(() => agentRetheme.recordSpawnSchemes());
+  $effect(() => agentRetheme.followSchemeChange());
 
-  let lastAgentThemedScheme = appearance.terminalScheme;
-  $effect(() => {
-    const scheme = appearance.terminalScheme;
-    if (scheme === lastAgentThemedScheme) {
+  // Hand a session the args that resume its own conversation, so the restart
+  // that follows reopens it rather than starting a blank one.
+  function applyResumeArgs({ id, args }: {
+    id: string;
+    args: string[];
+  }) {
+    if (args.length === 0) {
       return;
     }
 
-    lastAgentThemedScheme = scheme;
-    followSchemeIntoAgents(scheme);
-  });
-
-  // Live-themed agents repaint where they stand; the spawn-themed ones can only
-  // be respawned. Publishing first means an agent that IS restarted also launches
-  // into the new scheme.
-  async function followSchemeIntoAgents(scheme: Scheme) {
-    await agentsApi.publishTheme(scheme);
-    await restartSpawnThemedAgents();
-  }
-
-  // A session mid-turn must not be respawned — that would sever the work in
-  // flight — so its flip is held until it reaches an idle prompt, which is the
-  // first moment the agent can be relaunched into the new scheme. Without this,
-  // a busy agent kept painting its old scheme (dark diffs on a light terminal)
-  // until the user happened to restart it by hand.
-  const awaitingRetheme = new SvelteSet<string>();
-
-  async function rethemeWhenIdle(id: string) {
-    if (awaitingRetheme.has(id)) {
-      return;
-    }
-
-    awaitingRetheme.add(id);
-    await whenSessionIdle({ id });
-    awaitingRetheme.delete(id);
-
-    const stillOpen = sessions.some(session => session.id === id);
-    if (stillOpen) {
-      await restartSpawnThemedAgents();
-    }
-  }
-
-  async function restartSpawnThemedAgents() {
-    const mismatched = sessions.filter(
-      session =>
-        SPAWN_THEMED_AGENTS.has(session.agent.id) &&
-          sessionSpawnScheme.get(session.id) !== appearance.terminalScheme
-    );
-    for (const session of mismatched) {
-      if (!isSessionIdle(session.id)) {
-        rethemeWhenIdle(session.id);
-      }
-    }
-
-    const targets = mismatched.filter(session => isSessionIdle(session.id));
-    if (targets.length === 0) {
-      return;
-    }
-
-    const resumable = await Promise.all(
-      targets.map(async target => ({
-        target,
-        resumeArgs: await pty.resumeArgs({
-          command: target.agent.command,
-          cwd: target.cwd ?? currentProject
-        })
-      }))
-    );
-
-    // Hand each restarted session its resume args BEFORE the re-key remounts
-    // its terminal, so the respawn reopens the same conversation on the new
-    // scheme instead of starting a blank one.
-    sessions = sessions.map(session => {
-      const match = resumable.find(entry => entry.target.id === session.id);
-      if (!match || match.resumeArgs.length === 0) {
-        return session;
-      }
-
-      return {
-        ...session,
-        args: match.resumeArgs
-      };
-    });
-
-    const restartedLabel =
-      targets.length === 1 ? targets[0].agent.label : `${targets.length} sessions`;
-    showToast(`Theme changed — restarting ${restartedLabel} to match`);
-    await restartSessions(targets);
+    sessions = sessions.map(session => session.id === id ? {
+      ...session,
+      args
+    } : session);
   }
 
   // Clear the recent-projects history from the switcher (pins survive).
@@ -1428,7 +1308,7 @@
     await workspace.setPinnedOrder(paths);
   }
 
-  // "Delete directory" from the switcher — a destructive removal of a real
+  // "Delete directory" from the switcher - a destructive removal of a real
   // project's folder. The switcher owns the confirmation UI (so it stays open and
   // animates the row out); here we just release the folder (killing any session
   // holding it) and delete it, letting the refreshed settings flow back. Rejects
@@ -1439,13 +1319,13 @@
 
   function switchToPicker() {
     document.startViewTransition(async () => {
-      phase = Phase.project;
+      phase = Phase.Project;
       await tick();
     });
   }
 
   // Hand the project back: this window no longer claims it, so another window
-  // (or this one, later) can open it fresh — no picker tries to focus us here.
+  // (or this one, later) can open it fresh - no picker tries to focus us here.
   function releaseProject() {
     currentProject = "";
     branches = [];
@@ -1455,7 +1335,7 @@
     windows.registerProject("");
   }
 
-  // "Switch project" — a DELIBERATE leave to the picker. The project's agents
+  // "Switch project" - a DELIBERATE leave to the picker. The project's agents
   // and task runners do not idle invisibly behind it: runners stop immediately,
   // then agents are killed once they reach an idle prompt.
   async function leaveToPicker() {
@@ -1473,7 +1353,7 @@
   }
 
   // ── Relocate (move / rename) with lock handling ─────────────────────────────
-  // The kill → backend-op → resume flow lives in lib/workspace-relocate; this
+  // The kill → backend-op → resume flow lives in lib/workspace/workspace-relocate; this
   // shell only lends it the session list and takes back the results.
   const relocator = createRelocator({
     sessions: () => sessions,
@@ -1484,15 +1364,17 @@
       }
     },
     removeSessions(ids) {
-      sessions = sessions.filter(session => !ids.has(session.id));
-      paneIds = paneIds.filter(id => !ids.has(id));
+      ({ sessions, paneIds, activeId } = layoutWithoutSessions({
+        layout: {
+          sessions,
+          paneIds,
+          activeId
+        },
+        ids
+      }));
 
       for (const id of ids) {
         closingByHand.delete(id);
-      }
-
-      if (activeId && ids.has(activeId)) {
-        activeId = sessions.at(-1)?.id ?? null;
       }
     },
     stopRunners: stopAllRunners,
@@ -1509,7 +1391,7 @@
 
   // ── Auto-handoff ───────────────────────────────────────────────────────────
   // Near-limit sessions hand off to a fresh agent; the machinery lives in
-  // lib/stores/handoff. The scan runs inside this $effect so it re-fires as the
+  // lib/stores/agent/handoff. The scan runs inside this $effect so it re-fires as the
   // session list, prefs and context stores change.
   const autoHandoff = createAutoHandoff({
     sessions: () => sessions,
@@ -1520,13 +1402,13 @@
     projectDirectory: () => currentProject,
     // Announced close: without the flag, this kill's own exit event reaches
     // handleSessionExit as "the agent quit on its own" and respawns a
-    // replacement — a bare extra tab that also steals the active pane from the
+    // replacement - a bare extra tab that also steals the active pane from the
     // successor being seeded right behind it. Held until removeSession has
     // dropped the id, so a late exit event finds neither the flag nor the
     // session.
     async endSession(id) {
       closingByHand.add(id);
-      await pty.kill(id).catch(() => {});
+      await Promise.allSettled([pty.kill(id)]);
     },
     removeSession(id) {
       sessions = sessions.filter(session => session.id !== id);
@@ -1534,8 +1416,8 @@
       closingByHand.delete(id);
     },
     launchSuccessor({ agent, cwd, initialPrompt, predecessorId }) {
-      // The successor keeps the model picked for its predecessor — including
-      // one picked while this handoff was under way — unless a usage
+      // The successor keeps the model picked for its predecessor - including
+      // one picked while this handoff was under way - unless a usage
       // crossover hands the work to a different agent.
       const predecessor = sessions.find(session => session.id === predecessorId);
       const isSameAgent = predecessor?.agent.id === agent.id;
@@ -1560,7 +1442,7 @@
 
   // A model / effort picked from a tab: applied in place where the agent can
   // take it, else by relaunching the session on its own conversation once it
-  // is quiet — the same in-place restart a spawn-time theme change uses.
+  // is quiet - the same in-place restart a spawn-time theme change uses.
   const modelSwitcher = createModelSwitcher({
     isHandingOff: id => autoHandoff.isHandingOff(id),
     rememberChoice({ id, choice }) {
@@ -1578,15 +1460,14 @@
         return;
       }
 
-      const resumeArgs = await pty.resumeArgs({
-        command: target.agent.command,
-        cwd: target.cwd ?? currentProject,
-        conversationId: target.conversationId
+      applyResumeArgs({
+        id,
+        args: await pty.resumeArgs({
+          command: target.agent.command,
+          cwd: target.cwd ?? currentProject,
+          conversationId: target.conversationId
+        })
       });
-      sessions = sessions.map(session => session.id === id && resumeArgs.length > 0 ? {
-        ...session,
-        args: resumeArgs
-      } : session);
       showToast(`Switching ${target.agent.label}'s model - resuming its conversation`);
       await restartSessions([target]);
     },
@@ -1597,7 +1478,7 @@
 
   async function recoverFailedMcpReload(session: AgentSession) {
     dropMcpReload(session.id);
-    showToast(`${session.agent.label} couldn't reload MCP — preparing a handoff`);
+    showToast(`${session.agent.label} couldn't reload MCP - preparing a handoff`);
     await autoHandoff.restartForConfiguration(session);
   }
 
@@ -1614,8 +1495,8 @@
 
   // ── Usage-limit auto-resume ────────────────────────────────────────────────
   // A session stopped by an exhausted usage window resumes the moment the
-  // window resets — "continue" into the same session while its context has
-  // room, the handoff flow above when it doesn't (lib/stores/usageResume).
+  // window resets - "continue" into the same session while its context has
+  // room, the handoff flow above when it doesn't (lib/stores/usage/usageResume).
   const automaticRecoveryHost = {
     sessions: () => sessions,
     isOptedOut: () => settings.prefs.autoResume === false,
@@ -1629,7 +1510,7 @@
   // ── API-error auto-retry ───────────────────────────────────────────────────
   // A session stopped by a transient API error (overloaded, a 5xx, a dropped
   // connection) is nudged with "continue" every 30s, handing off through the
-  // flow above when its context is too full to recover (lib/stores/apiErrorRetry).
+  // flow above when its context is too full to recover (lib/stores/agent/apiErrorRetry).
   const apiErrorRetry = createApiErrorRetry(automaticRecoveryHost);
   $effect(() => apiErrorRetry.check());
   onDestroy(() => apiErrorRetry.dispose());
@@ -1648,148 +1529,14 @@
     }
   });
 
-  // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
-  // defined once; `null` means no panel is open.
-  const Side = {
-    feed: "feed",
-    vcs: "vcs",
-    tasks: "tasks",
-    config: "config"
-  } as const;
-  type Side = (typeof Side)[keyof typeof Side] | null;
-  let side = $state<Side>(Side.feed);
-  function toggleSide(panel: Exclude<Side, null>) {
-    side = side === panel ? null : panel;
-  }
-
-  // One source of truth for the side panels: the segmented control shows the
-  // short label (full name in a tooltip), the shared aside header shows the full
-  // label. Count + refresh are published per-panel via the sidePanel store.
-  const PANEL_TABS = [
-    {
-      id: Side.feed,
-      icon: "activity",
-      short: "Feed",
-      label: "Change Feed"
-    },
-    {
-      id: Side.vcs,
-      icon: "branch",
-      short: "Git",
-      label: "Version control"
-    },
-    {
-      id: Side.tasks,
-      icon: "checks",
-      short: "Tasks",
-      label: "Tasks"
-    },
-    {
-      id: Side.config,
-      icon: "sliders",
-      short: "Config",
-      label: "Agent config"
-    }
-  ] as const;
-  const sideTitle = $derived(PANEL_TABS.find(tab => tab.id === side)?.label ?? "");
-
-  // ── Side-panel width (draggable divider) ────────────────────────────────────
-  // The persisted width lives in prefs (SSOT); this local mirror is what the drag
-  // moves live without a backend write per frame. The `.body` grid caps it at 60%
-  // of the window via a CSS clamp, so the terminal is never swallowed. Mirrors the
-  // design's `panelW` + `startPanelResize`/`resetPanelW`.
+  // The open side panel (lib/shell/side-panels); `null` means none is open.
+  let side = $state<Side | null>(Side.Feed);
+  // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
-  let resizingSidePanel = $state(false);
-  const SIDE_PANEL_NUDGE = 16;
-
-  // Adopt a width persisted in prefs (e.g. loaded at boot, or reset) — but never
-  // while a drag is live, so the pointer stays in charge of the frame.
-  $effect(() => {
-    const persisted = effective.sidePanelWidth;
-    if (!resizingSidePanel) {
-      sidePanelWidth = persisted;
-    }
-  });
-
-  // Persist the current width. `updatePrefs` assigns `prefs` synchronously before
-  // its first await, so calling this before clearing `resizingSidePanel` means the
-  // adopt-effect already sees the new value and won't briefly revert the drag.
-  // Owns its error so the un-awaited call can never reject.
-  async function persistSidePanelWidth() {
-    try {
-      await updatePrefs({ sidePanelWidth: Math.round(sidePanelWidth) });
-    } catch {
-    // A failed settings write just keeps the width on screen; nothing to undo.
-    }
-  }
-
-  // Clamp a proposed width to [min, 60% of the body] — the same ceiling the CSS
-  // clamp enforces, so keyboard and pointer agree.
-  function clampSidePanelWidth(proposed: number): number {
-    const body = document.querySelector<HTMLElement>(".body");
-    const ceiling = body ? Math.round(body.getBoundingClientRect().width * SIDE_PANEL_MAX_FRACTION) : proposed;
-    return Math.max(SIDE_PANEL_MIN_WIDTH, Math.min(ceiling, Math.round(proposed)));
-  }
-
-  function nudgeSidePanel(delta: number) {
-    sidePanelWidth = clampSidePanelWidth(sidePanelWidth + delta);
-    persistSidePanelWidth();
-  }
-
-  function resetSidePanelWidth() {
-    sidePanelWidth = SIDE_PANEL_DEFAULT_WIDTH;
-    persistSidePanelWidth();
-  }
-
-  // Highlight → agent bridge: a selection in a side panel is injected into the
-  // active session's input.
-  let selection = $state("");
-  const AFTER_PATH_SEPARATOR = /(?<=[\\/])/;
-  const WHITESPACE = /\s/;
-  const selectionSegments = $derived(
-    selection.split(AFTER_PATH_SEPARATOR).map(text => ({
-      text,
-      isPathPart: !WHITESPACE.test(text)
-    }))
-  );
-
-  function snippetLineElement(node: Node | null): HTMLElement | null {
-    const element = node instanceof Element ? node : node?.parentElement;
-    return element?.closest<HTMLElement>("[data-snippet-line]") ?? null;
-  }
-
-  function snippetReference(selected: Selection, text: string): string {
-    const anchor = snippetLineElement(selected.anchorNode);
-    const focus = snippetLineElement(selected.focusNode);
-    const container = anchor?.closest<HTMLElement>("[data-snippet-path]");
-    const firstLine = Number(anchor?.dataset.snippetLine);
-    const lastLine = Number(focus?.dataset.snippetLine);
-    const path = container?.dataset.snippetPath;
-    const sameSnippet = focus?.closest<HTMLElement>("[data-snippet-path]") === container;
-    const isCodeSelection =
-      path !== undefined && sameSnippet && Number.isInteger(firstLine) && Number.isInteger(lastLine);
-    if (!isCodeSelection) {
-      return text;
-    }
-
-    return referencedSnippet({
-      path,
-      anchorLine: firstLine,
-      focusLine: lastLine,
-      snippet: text
-    });
-  }
+  let isResizingSidePanel = $state(false);
 </script>
 
 <svelte:document
-  onselectionchange={() => {
-    const sel = getSelection();
-    const text = sel?.toString().trim() ?? "";
-    const inSidePanel =
-      sel?.anchorNode instanceof Node &&
-        !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
-    selection = text && inSidePanel && sel ? snippetReference(sel, text) : "";
-  }}
   onvisibilitychange={() => {
     if (!document.hidden) {
       redetectAgents();
@@ -1801,65 +1548,53 @@
      combo while the terminal has focus. -->
 <svelte:window
   onblur={() => {
-    windowFocused = false;
+    isWindowFocused = false;
   }}
   onfocus={() => {
-    windowFocused = true;
+    isWindowFocused = true;
   }}
-  onkeydowncapture={e => {
-    // Dev-only: F5 / Ctrl+Shift+R reloads the WebView — the escape hatch when
-    // Vite's HMR socket drops (a Tauri window wires no reload of its own). Ctrl+R
-    // is left to the terminal's shell reverse-search. Stripped from prod builds.
-    if (import.meta.env.DEV) {
-      const isReload =
-        e.key === "F5" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "r");
-      if (isReload) {
-        e.preventDefault();
-        location.reload();
-        return;
-      }
-    }
-
-    // Ctrl+Alt+[ / ] cycles to the previous / next open PADE window. Shift must be
-    // absent so the chord stays distinct (and off any future Ctrl+Shift variant).
-    // Still keyed off e.code, not e.key: across layouts a bracket key can carry a
-    // different character, so the layout-position code is the modifier-independent
-    // match.
-    const isCyclePreviousWindow =
-      e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketLeft";
-    const isCycleNextWindow =
-      e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketRight";
-    if (isCyclePreviousWindow || isCycleNextWindow) {
-      e.preventDefault();
-      e.stopPropagation();
-      windows.focusRelative(isCyclePreviousWindow ? "previous" : "next");
-      return;
-    }
-
-    // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut
-    // chip). stopPropagation keeps the terminal from also receiving it.
-    const isNewWindow = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n";
-    if (!isNewWindow) {
+  onkeydowncapture={async e => {
+    // The chords themselves live in lib/shell/window-shortcuts.
+    const shortcut = windowShortcutFor({
+      event: e,
+      isDevelopment: import.meta.env.DEV
+    });
+    if (shortcut === null) {
       return;
     }
 
     e.preventDefault();
+
+    if (shortcut === WindowShortcut.Reload) {
+      location.reload();
+      return;
+    }
+
+    // Keeps the terminal from also receiving the chord.
     e.stopPropagation();
-    openEmptyWindow();
+
+    if (shortcut === WindowShortcut.NewWindow) {
+      await windows.create({ mode: WindowMode.enum.empty });
+      showToast("Opened a new window");
+      return;
+    }
+
+    await windows.focusRelative(shortcut === WindowShortcut.PreviousWindow ? "previous" : "next");
   }}
 />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
-  {#if phase === Phase.project}
+  {#if phase === Phase.Project}
     <ProjectPicker
       {agents}
       ondelete={relocator.remove}
       onmove={relocator.move}
       onopen={openProject}
       onrename={relocator.rename}
+      onrenamefolder={relocator.renameFolder}
     />
-  {:else if phase === Phase.onboarding}
+  {:else if phase === Phase.Onboarding}
     <Onboarding
       {agents}
       onpick={agent => launch({
@@ -1869,7 +1604,7 @@
       onswitchproject={switchToPicker}
       path={currentProject}
     />
-  {:else if phase === Phase.ready}
+  {:else if phase === Phase.Ready}
     <div class="shell">
       <header class="topbar">
         <!-- Chrome row: project menu on the left, actions pushed right. Session
@@ -1880,75 +1615,29 @@
             {isTemp}
             label={projectLabel}
             labels={settings.labels}
-            onaddroot={async rootPath => {
-              const outcome = await workspace.addRoot({
-                path: rootPath,
-                create: false
-              });
-              return outcome;
-            }}
+            onaddroot={async rootPath => await workspace.addRoot({
+              path: rootPath,
+              create: false
+            })}
             onclearrecent={clearRecentProjects}
             ondelete={deleteDirectory}
             onopen={projectPath => openProject({ path: projectPath })}
             onremoverecent={removeRecentProject}
             onrenamefolder={relocator.renameFolder}
             onreorderpins={reorderPins}
-            onsavetemp={async ({ name, root }) => {
-              const savingProject = currentProject;
-              const previousSessionIds = sessions.map(session => session.id);
-              const activeSession =
-                sessions.find(session => session.id === activeId) ?? sessions[0];
-              const continuingAgent = activeSession?.agent;
-
-              // 1. Have the live agent dump a handoff doc INTO THE TEMP first, so
-              //    it rides along in the copy and the successor continues from it.
-              const handoffDoc = activeSession
-                ? await autoHandoff.writeHandoffDoc(activeSession)
-                : null;
-
-              // 2. Copy the temp workspace (handoff doc included) into the saved
-              //    root while its agent keeps running — a copy only READS files, so
-              //    it never trips the watcher/cwd handle a rename does.
-              const migration = await workspace.saveMigrate({
-                from: savingProject,
-                newName: name,
-                root
-              });
-
-              // 3. Re-root the window to the saved project, then start its agent in
-              //    the SAME tab pointing at the new dir (launch replaces the panes),
-              //    seeded to continue the handoff, BEFORE tearing the temp session
-              //    down — so the tab transitions straight to the successor with no
-              //    dead gap. The old session is then killed and the temp deleted.
-              currentProject = migration.path;
-
-              if (continuingAgent) {
-                launch({
-                  agent: continuingAgent,
-                  cwd: migration.path,
-                  initialPrompt: handoffDoc ? successorPrompt(handoffDoc) : undefined
-                });
+            onsavetemp={async ({ name, root }) => await saveTempWorkspace({
+              name,
+              root,
+              host: {
+                project: currentProject,
+                sessionIds: sessions.map(session => session.id),
+                continuing: activeSession ?? sessions[0],
+                writeHandoffDoc: autoHandoff.writeHandoffDoc,
+                reroot: path => (currentProject = path),
+                launch,
+                closeSessions
               }
-
-              for (const id of previousSessionIds) {
-                closingByHand.add(id);
-              }
-              await Promise.all(previousSessionIds.map(id => pty.kill(id)));
-              for (const id of previousSessionIds) {
-                detachSession(id);
-                closingByHand.delete(id);
-              }
-              await workspace.delete(savingProject).catch(() => {});
-
-              if (migration.install) {
-                await startRunner({
-                  label: "Install dependencies",
-                  kind: "npm",
-                  command: migration.install,
-                  cwd: migration.path
-                });
-              }
-            }}
+            })}
             onswitch={leaveToPicker}
             ontogglepin={toggleProjectPin}
             path={currentProject}
@@ -1967,7 +1656,7 @@
             current={currentBranch}
             cwd={activeMemberIn(currentProject)}
             {hasRemote}
-            onopengit={() => (side = Side.vcs)}
+            onopengit={() => (side = Side.Vcs)}
             onopenremote={async () => {
               await openRepositoryTarget({
                 project: currentProject,
@@ -1988,11 +1677,11 @@
                go through the OS (ide.open); these need a real TTY, which only a PADE
                terminal gives. -->
           <!-- The editor is resolved for the *project* (the shared editors-store
-               key the Change Feed also reads — SSOT), while the launcher opens
+               key the Change Feed also reads - SSOT), while the launcher opens
                the active session's worktree when one is focused. -->
           <IdeMenu
-            cwd={sessions.find(session => session.id === activeId)?.cwd ?? activeMemberIn(currentProject)}
-            onterminaleditor={(editor: Ide) =>
+            cwd={activeSession?.cwd ?? activeMemberIn(currentProject)}
+            onterminaleditor={editor =>
               launch({
                 agent: {
                   id: `editor-${editor.id}`,
@@ -2002,7 +1691,7 @@
                   reordersBidi: false
                 },
                 // Inherit the active session's worktree, if any, else the project dir.
-                cwd: sessions.find(session => session.id === activeId)?.cwd,
+                cwd: activeSession?.cwd,
                 // Open the working directory in the editor.
                 args: ["."],
                 split: true
@@ -2011,11 +1700,11 @@
           />
 
           <div class="segmented-control" aria-label="Side panels" role="tablist">
-            {#each PANEL_TABS as tab (tab.id)}
+            {#each SIDE_PANEL_TABS as tab (tab.id)}
               <button
                 aria-selected={side === tab.id}
                 data-tooltip={tab.label}
-                onclick={() => toggleSide(tab.id)}
+                onclick={() => (side = side === tab.id ? null : tab.id)}
                 role="tab"
               ><Icon name={tab.icon} /> <span>{tab.short}</span></button>
             {/each}
@@ -2033,7 +1722,7 @@
           onlaunchbranch={async branch => {
             // Spawn an agent on its own git worktree for `branch`, isolated from
             // the other sessions. Uses the active session's agent (or the first).
-            const agent = sessions.find(session => session.id === activeId)?.agent ?? realAgents[0] ?? agents[0];
+            const agent = activeSession?.agent ?? bestAgent;
             const cwd = await vcs.worktreeAdd({
               cwd: activeMemberIn(currentProject),
               branch,
@@ -2046,28 +1735,50 @@
             });
           }}
           onmodelchoice={async pick => await modelSwitcher.request(pick)}
-          onreorder={reorderSessions}
+          onreorder={orderedIds => (sessions = sessionsAfterReorder({
+            sessions,
+            orderedIds
+          }))}
           onselect={selectSession}
-          onsplit={splitDrop}
+          onsplit={drop => {
+            // Show the dropped tab as a split pane on the side of the pane the
+            // pointer landed on (repositioning it if already shown).
+            const target = paneDropAt({
+              x: drop.pointerX,
+              y: drop.pointerY
+            });
+            if (!target) {
+              return;
+            }
+
+            paneIds = paneIdsAfterSplit({
+              paneIds,
+              draggedId: drop.id,
+              targetId: target.id,
+              side: target.side
+            });
+            activeId = drop.id;
+            animatePaneIn(drop.id);
+          }}
           {paneIds}
-          popPaneActive={paneDragOverTabs}
+          popPaneActive={isPaneDragOverTabs}
           {sessions}
         />
       </header>
 
       <main
         style:--side-panel-width="{sidePanelWidth}px"
-        style:--side-panel-min-width="{SIDE_PANEL_MIN_WIDTH}px"
-        style:--side-panel-max-fraction="{SIDE_PANEL_MAX_FRACTION * 100}%"
+        style:--side-panel-min-width="{SIDE_PANEL_MINIMUM_WIDTH}px"
+        style:--side-panel-max-fraction="{SIDE_PANEL_MAXIMUM_FRACTION * 100}%"
         class="body"
         class:with-side={side !== null}
-        data-resizing={resizingSidePanel || undefined}
+        data-resizing={isResizingSidePanel || undefined}
       >
-        <section bind:this={panesElement} class="pane terminal-pane" data-panes>
-          <!-- A tab dragged over the panes reads as "open in split" — a dashed
+        <section bind:this={elPanes} class="pane terminal-pane" data-panes>
+          <!-- A tab dragged over the panes reads as "open in split" - a dashed
                primary frame invites the drop; each pane then shows the left/right
                half the pointer is over (below). -->
-          {#if dragOverPanes}
+          {#if isDragOverPanes}
             <div class="drop-overlay">
               <span class="drop-badge"><Icon name="columns" /> Drop to open in split view</span>
             </div>
@@ -2085,30 +1796,38 @@
                   data-pane-id={session.id}
                   onfocusin={() => {
                     // Focusing a split pane makes it the active one, so activeId
-                    // always names the last agent the user touched — the pane a
+                    // always names the last agent the user touched - the pane a
                     // window-refocus (Ctrl+Alt+[ / ]) then hands the keyboard back to.
                     if (paneIds.includes(session.id)) {
                       activeId = session.id;
                     }
                   }}
                   onoutroend={() => collapsingSplitPanes.delete(session.id)}
-                  out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? 260 : 0 }}
+                  out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? SPLIT_PANE_COLLAPSE_MS : 0 }}
                 >
-                  {#if dropSideFor(session.id) === DropSide.left}
+                  {#if dropSideFor(session.id) === DropSide.Left}
                     <div class="drop-half left"></div>
-                  {:else if dropSideFor(session.id) === DropSide.right}
+                  {:else if dropSideFor(session.id) === DropSide.Right}
                     <div class="drop-half right"></div>
                   {/if}
                   <Terminal
-                    active={session.id === activeId && paneIds.includes(session.id)}
-                    ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
+                    isActive={session.id === activeId && paneIds.includes(session.id)}
+                    isRemovable={isSplit && paneIds.includes(session.id)}
+                    isShown={paneIds.includes(session.id)}
+                    ondraghint={hint => (isPaneDragOverTabs = hint?.isOutside === true)}
                     onexit={handleSessionExit}
-                    onpopout={() => popPaneToTab(session.id)}
+                    onpopout={() => {
+                      // The pane header was dragged onto the tab strip: pop it out
+                      // of the split into its own tab, shown fullscreen and active
+                      // (the mirror of dragging a tab down onto the panes). Unlike
+                      // the pane's × it collapses the split to this session.
+                      if (isSplit) {
+                        selectSession(session.id);
+                      }
+                    }}
                     onremove={() => removePane(session.id)}
                     onreorder={ids => (paneIds = ids)}
-                    removable={canRemovePane && paneIds.includes(session.id)}
                     {session}
-                    shown={paneIds.includes(session.id)}
                   />
                 </div>
               {/each}
@@ -2119,8 +1838,8 @@
             <button
               style:anchor-name="--pane-anchor"
               class="add-pane menu-trigger"
-              aria-label="Split — add an agent instance"
-              data-tooltip="Split — add an agent instance"
+              aria-label="Split - add an agent instance"
+              data-tooltip="Split - add an agent instance"
               popovertarget="pane-menu"
             ><Icon name="columns" /></button>
             <ul id="pane-menu" style:position-anchor="--pane-anchor" class="pane-menu popover-menu" popover>
@@ -2158,131 +1877,8 @@
         </section>
 
         {#if side !== null}
-          <!-- Draggable divider between the terminal area and the side panel: a thin
-               bar (var(--outline)) that grows to full-height --primary on hover /
-               drag / focus. Sits on the grid boundary via the same clamp the column
-               uses; double-click resets, arrows nudge. Mirrors the design's
-               [data-resizehandle]/[data-resizebar]. -->
-          <!-- A focusable, keyboard-operable window-splitter is a valid ARIA
-               separator widget (tabindex + aria-valuenow), so the non-interactive
-               separator warnings are false positives here. -->
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <div
-            style:--side-panel-width="{sidePanelWidth}px"
-            class="panel-resize"
-            aria-label="Resize side panel (double-click to reset)"
-            aria-orientation="vertical"
-            aria-valuemin={SIDE_PANEL_MIN_WIDTH}
-            aria-valuenow={Math.round(sidePanelWidth)}
-            data-tooltip="Drag to resize · double-click to reset"
-            ondblclick={resetSidePanelWidth}
-            onkeydown={e => {
-              if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                nudgeSidePanel(SIDE_PANEL_NUDGE);
-              } else if (e.key === "ArrowRight") {
-                e.preventDefault();
-                nudgeSidePanel(-SIDE_PANEL_NUDGE);
-              } else if (e.key === "Home") {
-                e.preventDefault();
-                resetSidePanelWidth();
-              }
-            }}
-            onpointerdown={e => {
-              if (e.button !== 0 || !(e.currentTarget instanceof HTMLElement)) {
-                return;
-              }
-
-              e.preventDefault();
-              const handle = e.currentTarget;
-              handle.setPointerCapture(e.pointerId);
-              resizingSidePanel = true;
-              document.body.style.cursor = "col-resize";
-              document.body.style.userSelect = "none";
-
-              function onMove(move: PointerEvent): void {
-                const body = handle.closest<HTMLElement>(".body");
-                if (!body) {
-                  return;
-                }
-
-                const rectangle = body.getBoundingClientRect();
-                sidePanelWidth = clampSidePanelWidth(rectangle.right - move.clientX);
-              }
-              function cleanup(): void {
-                handle.removeEventListener("pointermove", onMove);
-                handle.removeEventListener("pointerup", cleanup);
-                handle.removeEventListener("pointercancel", cleanup);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-                // Persist first (updates prefs synchronously), then release the
-                // drag guard so the adopt-effect sees the final width, not the old.
-                persistSidePanelWidth();
-                resizingSidePanel = false;
-              }
-              handle.addEventListener("pointermove", onMove);
-              handle.addEventListener("pointerup", cleanup);
-              handle.addEventListener("pointercancel", cleanup);
-            }}
-            role="separator"
-            tabindex="0"
-          ><span class="panel-resize-bar" aria-hidden="true"></span></div>
-          <aside class="pane side-pane">
-            <header class="panel-head">
-              <div class="panel-title">
-                <h2>{sideTitle}</h2>
-                {#if panelCount() !== null}
-                  <span class="panel-count">{formatCount(panelCount() ?? 0)}</span>
-                {/if}
-              </div>
-              {#if panelRefresh()}
-                <button
-                  class="panel-refresh"
-                  aria-label="Refresh"
-                  data-tooltip="Refresh"
-                  onclick={() => panelRefresh()?.()}
-                >
-                  <Icon name="refresh" />
-                </button>
-              {/if}
-            </header>
-
-            <div class="panel-body">
-              {#if side === Side.feed}
-                <ChangeFeed project={currentProject} />
-              {:else if side === Side.vcs}
-                {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
-                  <VcsPanel project={currentProject} />
-                {:catch}
-                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
-                {/await}
-              {:else if side === Side.tasks}
-                {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
-                  <!-- Run a project task as a streaming runner in the dock (not a
-                       throwaway terminal tab), so its output stays visible and can
-                       be piped into an agent. -->
-                  <TasksPanel
-                    onrun={async (task: {
-                      label: string;
-                      command: string;
-                      cwd: string;
-                      kind: TaskGroup["kind"];
-                    }) => await startRunner(task)}
-                    project={currentProject}
-                  />
-                {:catch}
-                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
-                {/await}
-              {:else if side === Side.config}
-                {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
-                  <ConfigPanel agent={activeAgent} agents={realAgents} project={currentProject} />
-                {:catch}
-                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
-                {/await}
-              {/if}
-            </div>
-          </aside>
+          <SidePanelResizer bind:width={sidePanelWidth} bind:isResizing={isResizingSidePanel} />
+          <SidePanel agent={activeAgent} agents={realAgents} project={currentProject} {side} />
         {/if}
       </main>
 
@@ -2296,7 +1892,7 @@
       {/if}
 
       {#if toastText()}
-        <!-- <output> already carries role=status — a transient bottom pill that
+        <!-- <output> already carries role=status - a transient bottom pill that
              auto-dismisses via the showToast timer. -->
         <output class="toast">
           <span class="toast-icon"><Icon name="external" /></span>
@@ -2304,35 +1900,7 @@
         </output>
       {/if}
 
-      {#if selection}
-        <button
-          class="send-fab"
-          onclick={async () => {
-            if (!selection || !activeId) {
-              return;
-            }
-
-            await pty.write({
-              id: activeId,
-              data: pastedText(selection)
-            });
-            selection = "";
-            getSelection()?.removeAllRanges();
-            // The click moved focus to this button; hand it back to the agent so
-            // the sent text can be submitted (or edited) without a click into the pane.
-            focusTerminalPane(activeId);
-          }}
-        >
-          <Icon name="send" />
-          <span class="label">Send to agent</span>
-          <!-- A long path wraps only after a separator — each folder name stays
-               whole (no split at a hyphen); the line cap is pure CSS. -->
-          <span class="preview"
-          >{#each selectionSegments as segment, index (index)}<span class:path-part={segment.isPathPart}
-          >{segment.text}</span><wbr />{/each}</span
-          >
-        </button>
-      {/if}
+      <SendSelectionButton {activeId} />
     </div>
   {:else}
     <!-- Loading phase: a calm branded ground so a booting window is never a
@@ -2342,7 +1910,7 @@
     </div>
   {/if}
 
-  <!-- One top-level bubble for every truncation tooltip — rendered here so it
+  <!-- One top-level bubble for every truncation tooltip - rendered here so it
        escapes any panel/popover clipping or scroll-width inflation. -->
   <OverflowTooltipLayer />
 </div>
@@ -2352,7 +1920,7 @@
     block-size: 100%;
   }
 
-  /* Booting ground — a centered, gently pulsing brand mark on the app surface
+  /* Booting ground - a centered, gently pulsing brand mark on the app surface
      so a loading window reads as PADE, never a blank white void. */
   .booting {
     display: grid;
@@ -2423,7 +1991,7 @@
       transition: background 200ms var(--ease), color 200ms var(--ease);
     }
 
-    /* Selected tab — matched by state, not by qualifying the button type. */
+    /* Selected tab - matched by state, not by qualifying the button type. */
     [aria-selected="true"] {
       background: var(--primary-container);
       color: var(--on-primary-container);
@@ -2431,7 +1999,7 @@
   }
 
   .body {
-    /* The side column's resolved width — one authoritative expression the grid
+    /* The side column's resolved width - one authoritative expression the grid
        track and the drag divider both read, so they can never clamp differently. */
     --side-panel-track:
       clamp(
@@ -2446,7 +2014,7 @@
 
     /* Explicit full-height row track: without it the implicit row is `auto`
        (content-sized), so the terminal shrinks with the window but never grows
-       back — the resize observer only fires on the shrink. */
+       back - the resize observer only fires on the shrink. */
     grid-template-rows: 1fr;
     grid-template-columns: 1fr;
     min-block-size: 0;
@@ -2465,65 +2033,10 @@
       }
     }
 
-    /* A live drag drives the frame directly — any transition would lag it behind
+    /* A live drag drives the frame directly - any transition would lag it behind
        the pointer, so it is switched off for the duration of the drag. */
     &[data-resizing] {
       transition: none;
-    }
-  }
-
-  /* Draggable divider straddling the terminal/side-panel boundary. Positioned on
-     the grid line via the same clamp the column uses, and pulled half its width
-     left so the hit-area sits over the seam. Lives in `.body` (not the clipped
-     `.side-pane`) so it can overhang the boundary. */
-  .panel-resize {
-    position: absolute;
-    inset-block: 0;
-    inset-inline-end: var(--side-panel-track);
-    z-index: 20;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    inline-size: 11px;
-    margin-inline-end: -5.5px;
-    cursor: col-resize;
-    touch-action: none;
-
-    /* Follows the seam in step with the column tween on a double-click reset,
-       held still during a live drag (see `[data-resizing]` below). */
-    transition: inset-inline-end 250ms var(--ease);
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-
-    .body[data-resizing] & {
-      transition: none;
-    }
-
-    /* A thin pill at rest; fills to full-height primary while hovered, dragged,
-       or keyboard-focused (design's [data-resizebar] hover/active rule). */
-    .panel-resize-bar {
-      block-size: 36px;
-      inline-size: 2px;
-      border-radius: var(--radius-full);
-      background: var(--outline);
-      transition: background 150ms var(--ease), block-size 150ms var(--ease);
-
-      @media (prefers-reduced-motion: reduce) {
-        transition: none;
-      }
-    }
-
-    &:hover .panel-resize-bar,
-    &:active .panel-resize-bar,
-    &:focus-visible .panel-resize-bar {
-      block-size: 100%;
-      background: var(--primary);
-    }
-
-    &:focus-visible {
-      outline: none;
     }
   }
 
@@ -2533,90 +2046,9 @@
     min-inline-size: 0;
   }
 
-  .side-pane {
-    display: flex;
-    flex-direction: column;
-    border-inline-start: 1px solid var(--outline);
-    background: var(--surface);
-    animation: panel-in 340ms var(--ease);
-  }
-
-  /* One shared header for every panel (DRY) — title + optional count + optional
-     refresh. The panels below own only their scroll body.
-
-     Every header is the same height whether or not its panel publishes a
-     refresh action: the title row reserves a control's worth of space, so Tasks
-     and Git (which have the button) no longer stand 8px taller than Feed and
-     Config (which don't), and switching panels never nudges the body down. */
-  .panel-head {
-    --panel-head-control-size: 28px;
-
-    display: flex;
-    flex-shrink: 0;
-    gap: 8px;
-    align-items: center;
-    padding-block: 12px 10px;
-    padding-inline: 16px;
-  }
-
-  .panel-load-error {
-    margin: 16px;
-    color: var(--on-surface-variant);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  .panel-title {
-    display: flex;
-    gap: 9px;
-    align-items: center;
-    min-block-size: var(--panel-head-control-size);
-
-    h2 {
-      margin: 0;
-      font-weight: 700;
-      font-size: 15px;
-    }
-  }
-
-  .panel-count {
-    padding: 2px 9px;
-    border-radius: var(--radius-full);
-    background: var(--primary-container);
-    color: var(--on-primary-container);
-    font-weight: 700;
-    font-size: 12px;
-  }
-
-  .panel-refresh {
-    display: grid;
-    place-items: center;
-    block-size: var(--panel-head-control-size);
-    inline-size: var(--panel-head-control-size);
-    margin-inline-start: auto;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: color 140ms var(--ease), background 140ms var(--ease);
-
-    &:hover {
-      background: var(--surface-3);
-      color: var(--on-surface);
-    }
-  }
-
-  .panel-body {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-block-size: 0;
-  }
-
   /* All sessions stay mounted so their scrollback survives switching; only the
      sessions in the current split are laid out (side by side). A hidden slot is
-     NOT `display:none` — that would zero its ResizeObserver and shrink the
+     NOT `display:none` - that would zero its ResizeObserver and shrink the
      background PTY to a 2×1 grid, which some agents (Codex) exit on. Instead it
      is lifted out of flow over the whole pane and turned invisible, so it keeps
      a real, full-pane layout size: the background PTY stays sized to exactly what
@@ -2636,7 +2068,7 @@
     min-inline-size: 0;
     border-inline-end: 1px solid var(--outline);
 
-    /* A pane appearing is deliberately instant — opening, closing, or switching a
+    /* A pane appearing is deliberately instant - opening, closing, or switching a
        tab must not animate the terminal (it would read as a needless wipe). Only a
        genuine split-ADD springs its newcomer in, fired imperatively on that one
       slot via animatePaneIn (pane-enter), never here on every `.shown`. */
@@ -2649,7 +2081,7 @@
   }
 
   /* Dashed primary frame over the whole panes area while a tab is dragged onto
-     it — the invitation to open the session as a split. */
+     it - the invitation to open the session as a split. */
   .drop-overlay {
     position: absolute;
     inset: 8px;
@@ -2677,7 +2109,7 @@
     }
   }
 
-  /* The half of a pane the pointer is over — where the dropped session will land
+  /* The half of a pane the pointer is over - where the dropped session will land
      (left = before this pane, right = after). A primary wash plus a solid edge. */
   .drop-half {
     position: absolute;
@@ -2737,15 +2169,9 @@
       grid-template-rows: 1fr 40%;
       grid-template-columns: 1fr;
     }
-
-    /* Stacked top/bottom below this width — a vertical col-resize divider no
-       longer maps to the layout, so hide it. */
-    .panel-resize {
-      display: none;
-    }
   }
 
-  /* Auto-handoff banner — a calm status pill while a session hands off. */
+  /* Auto-handoff banner - a calm status pill while a session hands off. */
   .handoff-note {
     position: fixed;
     inset-block-start: 60px;
@@ -2775,7 +2201,7 @@
     }
   }
 
-  /* Transient status toast — sits just above the send FAB, auto-dismissed. */
+  /* Transient status toast - sits just above the send FAB, auto-dismissed. */
   .toast {
     position: fixed;
     inset-block-end: 72px;
@@ -2799,76 +2225,6 @@
     .toast-icon {
       display: inline-flex;
       color: var(--primary);
-    }
-  }
-
-  /* FAB entrance: drops in from below and bounces up into place. Bakes the
-     -50% centering into every step since it animates `translate`. */
-  @keyframes send-pop {
-    0% {
-      opacity: 0%;
-      scale: 0.88;
-      translate: -50% 12px;
-    }
-
-    65% {
-      opacity: 100%;
-      scale: 1.03;
-      translate: -50% -4px;
-    }
-
-    100% {
-      opacity: 100%;
-      scale: 1;
-      translate: -50% 0;
-    }
-  }
-
-  .send-fab {
-    position: fixed;
-    inset-block-end: 26px;
-    inset-inline-start: 50%;
-    z-index: 80;
-    display: inline-flex;
-    gap: 10px;
-    align-items: center;
-    max-inline-size: min(880px, 100vw - 48px);
-    padding: 12px 20px;
-    border: none;
-    border-radius: var(--radius-large);
-    background: var(--primary);
-    color: var(--on-primary);
-    font: inherit;
-    font-weight: 700;
-    font-size: 14px;
-    text-align: start;
-    box-shadow: 0 10px 30px var(--primary-shadow);
-    cursor: pointer;
-    translate: -50% 0;
-    animation: send-pop 220ms var(--ease);
-
-    .label {
-      flex: none;
-      white-space: nowrap;
-    }
-
-    /* Whole path on as many lines as it needs; a long code selection is capped
-       at whole lines so the button never towers over the terminal. */
-    .preview {
-      overflow: hidden;
-      max-block-size: 6lh;
-      min-inline-size: 0;
-      font-family: var(--font-monospace);
-      font-weight: 500;
-      font-size: 12px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      opacity: 85%;
-
-      .path-part {
-        white-space: nowrap;
-      }
     }
   }
 </style>

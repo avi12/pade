@@ -1,10 +1,11 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import LastAccessed from "@/lib/LastAccessed.svelte";
-  import { collapseRow } from "@/lib/motion";
-  import { displayName, isTemporaryWorkspace } from "@/lib/paths";
-  import { tooltip, truncationTooltip } from "@/lib/truncation-tooltip";
   import type { Ide } from "@/lib/types";
+  import { collapseRow } from "@/lib/ui/motion";
+  import { tooltip, truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
+  import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
+  import TempBadge from "@/lib/workspace/TempBadge.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";
@@ -65,21 +66,25 @@
           {:else}
             <button class="recent-item" onclick={() => onopen({ path })}>
               {#if isTemporaryWorkspace(path)}
-                <span
-                  class="temp-tag"
-                  {@attach tooltip("Its label lives in PADE — the folder keeps its path")}
-                >temp</span>
+                <TempBadge {@attach tooltip("Its label lives in PADE - the folder keeps its path")} />
               {:else if lifecycle.isOwned(path)}
                 <span class="project-tag">project</span>
               {/if}
-              <span class="recent-name">{displayName(path, labels)}</span>
+              <span class="recent-name">{displayName({
+                path,
+                labels
+              })}</span>
               <span
                 class="recent-path" {@attach truncationTooltip({
                   tooltip: path
                 })}>{path}</span>
               <LastAccessed now={shownAt} {path} />
             </button>
-            <OpenInEditorButton name={displayName(path, labels)} {ides} {path} />
+            <OpenInEditorButton
+              name={displayName({
+                path,
+                labels
+              })} {ides} {path} />
             <RowMenu {lifecycle} {path} scope="recent" />
           {/if}
         </li>
@@ -118,7 +123,7 @@
     }
   }
 
-  /* Tighter than the shared 12px picker-section gap — canon groups the head and
+  /* Tighter than the shared 12px picker-section gap - canon groups the head and
      rows at 8px, and the rows sit 8px apart. */
   .recent {
     gap: 8px;
@@ -140,7 +145,7 @@
     }
   }
 
-  /* Recent row — pill button, mono name, truncating path; fills on hover. */
+  /* Recent row - pill button, mono name, truncating path; fills on hover. */
   .recent-item {
     display: flex;
     gap: 10px;
@@ -176,18 +181,6 @@
     }
   }
 
-  .temp-tag {
-    flex: none;
-    padding: 2px 7px;
-    border-radius: var(--radius-full);
-    background: var(--surface-3);
-    color: var(--on-surface-variant);
-    font-weight: 700;
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   .project-tag {
     flex: none;
     color: var(--tertiary);
@@ -197,7 +190,7 @@
     text-transform: uppercase;
   }
 
-  /* Inline rename — a bordered field with Save (primary) + Cancel. */
+  /* Inline rename - a bordered field with Save (primary) + Cancel. */
   .rename {
     display: flex;
     flex-wrap: wrap;
