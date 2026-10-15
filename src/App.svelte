@@ -31,6 +31,7 @@
   import { Side } from "@/lib/shell/side-panels";
   import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
   import { windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
+  import { runWindowShortcut } from "@/lib/shell/window-shortcut-actions";
   import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
   import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
@@ -65,7 +66,7 @@
   } from "@/lib/stores/workspace/workspaceMembers.svelte";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/send-shortcut";
   import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
-  import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
+  import { StartMode, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, AgentSession, ModelChoice, OpenTarget } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
@@ -1314,23 +1315,13 @@
 
     e.preventDefault();
 
-    if (shortcut === WindowShortcut.Reload) {
-      location.reload();
-      return;
+    // Keeps the terminal from also receiving the chord - a reload leaves no
+    // terminal to reach.
+    if (shortcut !== WindowShortcut.Reload) {
+      e.stopPropagation();
     }
 
-    // Keeps the terminal from also receiving the chord.
-    e.stopPropagation();
-
-    if (shortcut === WindowShortcut.NewWindow) {
-      await sendMessage(Command.windowCreate, { mode: WindowMode.enum.empty });
-      showToast("Opened a new window");
-      return;
-    }
-
-    await sendMessage(Command.windowFocusRelative, {
-      direction: shortcut === WindowShortcut.PreviousWindow ? "previous" : "next"
-    });
+    await runWindowShortcut(shortcut);
   }}
 />
 
