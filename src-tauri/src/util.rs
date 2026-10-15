@@ -73,7 +73,7 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     command
 }
 
-/// How often [`succeeds_within`] re-checks a child it is waiting on. Matches the
+/// How often [`exits_successfully_within`] re-checks a child it is waiting on. Matches the
 /// runner's exit-poll cadence: prompt enough for an interactive check, cheap
 /// enough to leave the child undisturbed.
 const CHILD_WAIT_POLL: Duration = Duration::from_millis(50);
@@ -91,6 +91,14 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
     let Ok(mut child) = command.spawn() else {
         return false;
     };
+    exits_successfully_within(&mut child, timeout)
+}
+
+/// Wait for a spawned `child` under a hard deadline, reporting whether it exited
+/// successfully. On deadline (or a failed wait) the child is killed and reaped
+/// and the answer is `false`. The caller owns the child's streams - one that
+/// reads its output does so on another thread while this waits.
+pub fn exits_successfully_within(child: &mut Child, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {

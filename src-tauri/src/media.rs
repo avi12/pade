@@ -11,7 +11,7 @@
 use std::io::Read;
 use std::path::Path;
 use std::process::Stdio;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// The video extensions the Change Feed previews (lower-case, no leading dot).
 /// The one authoritative backend home for the set; its TS mirror is
@@ -36,13 +36,10 @@ const SCALE_FILTER: &str = "scale=w='min(640,trunc(iw/2)*2)':h=-2";
 
 /// Largest clip the feed will inline. Fifteen seconds at 640px lands well under
 /// it; a pathological source is cut off rather than bloating the webview.
-const MAX_CLIP_BYTES: u64 = 16 * 1024 * 1024;
+const MAXIMUM_CLIP_BYTES: u64 = 16 * 1024 * 1024;
 
 /// A transcode that runs past this is killed - a preview is never worth a hang.
 const TRANSCODE_TIMEOUT: Duration = Duration::from_secs(30);
-
-/// How often the transcode's exit is polled while waiting on it.
-const TRANSCODE_POLL: Duration = Duration::from_millis(50);
 
 /// Why no clip was produced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,7 +47,7 @@ pub enum ClipError {
     /// `ffmpeg` isn't installed, so nothing can be transcoded.
     NoTranscoder,
     /// ffmpeg ran but produced no usable clip: an unreadable or corrupt source,
-    /// a timeout, or output over [`MAX_CLIP_BYTES`].
+    /// a timeout, or output over [`MAXIMUM_CLIP_BYTES`].
     Failed,
 }
 
@@ -138,30 +135,19 @@ pub fn preview_clip(source: &Path) -> Result<Vec<u8>, ClipError> {
     let reader = std::thread::spawn(move || {
         let mut clip = Vec::new();
         let read = stdout
-            .take(MAX_CLIP_BYTES.saturating_add(1))
+            .take(MAXIMUM_CLIP_BYTES.saturating_add(1))
             .read_to_end(&mut clip);
         read.map(|_| clip)
     });
 
-    let deadline = Instant::now() + TRANSCODE_TIMEOUT;
-    let succeeded = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status.success(),
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(TRANSCODE_POLL),
-            Ok(None) | Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break false;
-            }
-        }
-    };
+    let has_succeeded = crate::util::exits_successfully_within(&mut child, TRANSCODE_TIMEOUT);
 
     let clip = reader
         .join()
         .map_err(|_| ClipError::Failed)?
         .map_err(|_| ClipError::Failed)?;
-    let is_within_cap = u64::try_from(clip.len()).is_ok_and(|length| length <= MAX_CLIP_BYTES);
-    if !succeeded || clip.is_empty() || !is_within_cap {
+    let is_within_cap = u64::try_from(clip.len()).is_ok_and(|length| length <= MAXIMUM_CLIP_BYTES);
+    if !has_succeeded || clip.is_empty() || !is_within_cap {
         return Err(ClipError::Failed);
     }
     Ok(clip)
