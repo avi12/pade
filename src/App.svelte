@@ -9,16 +9,13 @@
   import { startingModelChoice } from "@/lib/model/agent-model-scope";
   import RunnerDock from "@/lib/runners/RunnerDock.svelte";
   import {
-    layoutWithoutPane,
     layoutWithoutSession,
     layoutWithoutSessions,
-    paneAtPoint,
     paneIdsAfterSplit,
     sessionsAfterReorder,
     wrappedIndex
   } from "@/lib/session/pane-layout";
   import { registerPaneShortcuts } from "@/lib/session/pane-shortcuts";
-  import { DropSide } from "@/lib/session/reorder";
   import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
   import { mcpRestartTargets, rekeyLayout } from "@/lib/session/session-restart";
   import { clearSessionSnapshot, restoreLiveSnapshot, saveSessionSnapshot } from "@/lib/session/session-restore";
@@ -29,9 +26,11 @@
   import { settings } from "@/lib/settings/settings.svelte";
   import BootSplash from "@/lib/shell/BootSplash.svelte";
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
+  import { animatePaneIn, paneDropAt } from "@/lib/shell/pane-dom";
   import RecoveryNotes from "@/lib/shell/RecoveryNotes.svelte";
   import ShellToast from "@/lib/shell/ShellToast.svelte";
   import { Side, SIDE_PANEL_TABS } from "@/lib/shell/side-panels";
+  import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
   import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
   import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
@@ -69,7 +68,6 @@
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type { Agent, AgentSession, ModelChoice, OpenTarget } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
-  import { collapsePane } from "@/lib/ui/motion";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import UsageMeter from "@/lib/usage/UsageMeter.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
@@ -149,75 +147,20 @@
   const activeSession = $derived(sessions.find(session => session.id === activeId));
   // Active agent id - used to show only its relevant config files.
   const activeAgent = $derived(activeSession?.agent.id ?? "");
-  // A pane can be removed only while more than one is shown; sessions not
-  // currently shown are offered in the "add to split" menu.
-  const isSplit = $derived(paneIds.length > 1);
-  const splitCandidates = $derived(sessions.filter(session => !paneIds.includes(session.id)));
-
-  // The terminal slots render in this order: the shown panes first, in `paneIds`
-  // order (so a pane-header drag that reorders `paneIds` reorders the view), then
-  // the hidden sessions. Keyed by id, so a reorder moves DOM nodes rather than
-  // remounting - every terminal keeps its scrollback.
-  const bySessionId = $derived(new Map(sessions.map(session => [session.id, session] as const)));
-  const orderedSessions = $derived.by(() => {
-    const shown = paneIds
-      .map(id => bySessionId.get(id))
-      .filter((s): s is AgentSession => s !== undefined);
-    const hidden = sessions.filter(session => !paneIds.includes(session.id));
-    return [...shown, ...hidden];
-  });
-
   // ── Tab drag → reorder / split ──────────────────────────────────────────────
-  // `DropSide` (which half of a pane a dragged tab lands on) and the drop's
-  // layout math live in `@/lib/session/reorder` and `@/lib/session/pane-layout` - DOM-free and
-  // unit-tested. (`Side` names the side panels - a different concern.)
+  // The drop's layout math lives in `@/lib/session/pane-layout` and its DOM side
+  // in `@/lib/shell/pane-dom`; TerminalPanes renders the panes and the preview.
 
   // The panes container, so a drop's pointer can be hit-tested against the panes.
   let elPanes = $state<HTMLElement>();
   // Live drag state from the tab strip; drives the "drop here" overlay + halves.
   let dragHint = $state<DragHint | null>(null);
-  const isDragOverPanes = $derived(dragHint?.isOutside === true);
 
   // True while a split pane's header is dragged up over the tab strip - the mirror
   // gesture: the strip lights as a "drop → new tab" target and the drop pops the
-  // pane out of the split (see the Terminal panes' `onremove`). Reported by the
+  // pane out of the split (see TerminalPanes' `onpopout`). Reported by the
   // dragged pane's Terminal via the same engine hint the tab-split path uses.
   let isPaneDragOverTabs = $state(false);
-
-  // Which pane + side the drag is currently over - the highlighted drop half.
-  const splitTarget = $derived.by(() => {
-    if (!isDragOverPanes || !dragHint) {
-      return null;
-    }
-
-    return paneDropAt({
-      x: dragHint.pointerX,
-      y: dragHint.pointerY
-    });
-  });
-  function dropSideFor(id: string) {
-    return splitTarget?.id === id ? splitTarget.side : null;
-  }
-
-  // The shown pane under a point, and which half of it - used both for the live
-  // highlight and for the actual drop, so the two never disagree (DRY).
-  function paneDropAt({ x, y }: {
-    x: number;
-    y: number;
-  }) {
-    const slots = [...elPanes?.querySelectorAll<HTMLElement>("[data-pane-id]") ?? []];
-    const panes = slots
-      .filter(slot => paneIds.includes(slot.dataset.paneId ?? ""))
-      .map(slot => ({
-        id: slot.dataset.paneId ?? "",
-        rectangle: slot.getBoundingClientRect()
-      }));
-    return paneAtPoint({
-      panes,
-      x,
-      y
-    });
-  }
 
   // Agent detection runs a subprocess per agent, so cap how long the boot waits
   // on it - a stall must never freeze the splash. An empty list just routes to
@@ -225,10 +168,6 @@
   const BOOT_DETECT_TIMEOUT_MS = 6_000;
   // The slow fallback poll behind the visibility-driven re-detect below.
   const AGENT_REDETECT_INTERVAL_MS = 30_000;
-  // How long a split member takes to collapse out (out:collapsePane).
-  const SPLIT_PANE_COLLAPSE_MS = 260;
-  // The spring a pane joining a split enters with (animatePaneIn).
-  const PANE_ENTER_ANIMATION = "pane-enter 340ms var(--spring)";
 
   onMount(async () => {
     try {
@@ -889,7 +828,10 @@
     paneIds = options.split ? [...paneIds, session.id] : [session.id];
 
     if (options.split) {
-      animatePaneIn(session.id);
+      animatePaneIn({
+        elPanes,
+        id: session.id
+      });
     }
 
     pendingPrompt = undefined;
@@ -905,29 +847,6 @@
   function selectSession(id: string) {
     activeId = id;
     paneIds = [id];
-  }
-
-  // Spring just the added pane in from its trailing edge (pane-enter). Fired on
-  // the one slot that joined a split - never on a plain tab open / close / switch,
-  // which stay instant - so it can't run on every show the way a CSS rule on
-  // `.shown` would (that wiped the terminal in on any tab change). Clears the
-  // inline animation once it settles so a later show/hide of the same slot can't
-  // replay it. Mirrors the design's imperative `animatePaneIn`.
-  async function animatePaneIn(id: string) {
-    await tick();
-    const elSlot = elPanes?.querySelector<HTMLElement>(`[data-pane-id="${id}"]`);
-    if (!elSlot) {
-      return;
-    }
-
-    elSlot.style.animation = "none";
-    // Force a synchronous reflow between clearing and re-setting the animation so
-    // re-adding the same pane restarts the run; getBoundingClientRect flushes
-    // layout the same as reading offsetWidth, but as a call it isn't a bare
-    // "unused expression" (nor an unused local, which a discard const would be).
-    elSlot.getBoundingClientRect();
-    elSlot.style.animation = PANE_ENTER_ANIMATION;
-    elSlot.addEventListener("animationend", () => (elSlot.style.animation = ""), { once: true });
   }
 
   // Ctrl+W / Ctrl+F4 - close the active session.
@@ -1679,6 +1598,8 @@
             // Show the dropped tab as a split pane on the side of the pane the
             // pointer landed on (repositioning it if already shown).
             const target = paneDropAt({
+              elPanes,
+              paneIds,
               x: drop.pointerX,
               y: drop.pointerY
             });
@@ -1693,7 +1614,10 @@
               side: target.side
             });
             activeId = drop.id;
-            animatePaneIn(drop.id);
+            animatePaneIn({
+              elPanes,
+              id: drop.id
+            });
           }}
           {paneIds}
           popPaneActive={isPaneDragOverTabs}
@@ -1709,152 +1633,44 @@
         class:with-side={side !== null}
         data-resizing={isResizingSidePanel || undefined}
       >
-        <section bind:this={elPanes} class="pane terminal-pane" data-panes>
-          <!-- A tab dragged over the panes reads as "open in split" - a dashed
-               primary frame invites the drop; each pane then shows the left/right
-               half the pointer is over (below). -->
-          {#if isDragOverPanes}
-            <div class="drop-overlay">
-              <span class="drop-badge"><Icon name="columns" /> Drop to open in split view</span>
-            </div>
-          {/if}
-          {#if orderedSessions.length > 0}
-            <!-- xterm is the heaviest frontend dependency. Load it only when
-                 the first live session needs a pane, not while the picker/onboarding
-                 screen is starting. The keyed loop still owns the mounted terminals
-                 after that, preserving their PTY attachment and scrollback. -->
-            {#await import("@/panels/Terminal.svelte") then { default: Terminal }}
-              {#each orderedSessions as session (session.id)}
-                <div
-                  class="terminal-slot"
-                  class:shown={paneIds.includes(session.id)}
-                  data-pane-id={session.id}
-                  onfocusin={() => {
-                    // Focusing a split pane makes it the active one, so activeId
-                    // always names the last agent the user touched - the pane a
-                    // window-refocus (Ctrl+Alt+[ / ]) then hands the keyboard back to.
-                    if (paneIds.includes(session.id)) {
-                      activeId = session.id;
-                    }
-                  }}
-                  onoutroend={() => collapsingSplitPanes.delete(session.id)}
-                  out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? SPLIT_PANE_COLLAPSE_MS : 0 }}
-                >
-                  {#if dropSideFor(session.id) === DropSide.Left}
-                    <div class="drop-half left"></div>
-                  {:else if dropSideFor(session.id) === DropSide.Right}
-                    <div class="drop-half right"></div>
-                  {/if}
-                  <Terminal
-                    isActive={session.id === activeId && paneIds.includes(session.id)}
-                    isRemovable={isSplit && paneIds.includes(session.id)}
-                    isShown={paneIds.includes(session.id)}
-                    ondraghint={hint => (isPaneDragOverTabs = hint?.isOutside === true)}
-                    onexit={async id => {
-                      // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
-                      const exited = sessions.find(candidate => candidate.id === id);
-                      if (closingByHand.has(id) || !exited) {
-                        return;
-                      }
+        <TerminalPanes
+          {agents}
+          {collapsingSplitPanes}
+          {dragHint}
+          onexit={async id => {
+            // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
+            const exited = sessions.find(candidate => candidate.id === id);
+            if (closingByHand.has(id) || !exited) {
+              return;
+            }
 
-                      const wasLastSession = sessions.length === 1;
-                      const isExitFailedStart = didFailToStart({
-                        launchedAt: sessionLaunchedAt.get(id) ?? 0,
-                        now: Date.now()
-                      });
-                      detachSession(id);
-                      // Reap the backend record; the child is already gone, so a failure is moot.
-                      await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
+            const wasLastSession = sessions.length === 1;
+            const isExitFailedStart = didFailToStart({
+              launchedAt: sessionLaunchedAt.get(id) ?? 0,
+              now: Date.now()
+            });
+            detachSession(id);
+            // Reap the backend record; the child is already gone, so a failure is moot.
+            await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
 
-                      if (wasLastSession) {
-                        settleEmptyWorkspace({
-                          agent: exited.agent,
-                          isFailedStart: isExitFailedStart
-                        });
-                      }
-                    }}
-                    onpopout={() => {
-                      // The pane header was dragged onto the tab strip: pop it out
-                      // of the split into its own tab, shown fullscreen and active
-                      // (the mirror of dragging a tab down onto the panes). Unlike
-                      // the pane's × it collapses the split to this session.
-                      if (isSplit) {
-                        selectSession(session.id);
-                      }
-                    }}
-                    onremove={() => {
-                      // Drop a pane from the split - never the last visible one.
-                      if (!isSplit) {
-                        return;
-                      }
-
-                      ({ paneIds, activeId } = layoutWithoutPane({
-                        layout: {
-                          sessions,
-                          paneIds,
-                          activeId
-                        },
-                        id: session.id
-                      }));
-                    }}
-                    onreorder={ids => (paneIds = ids)}
-                    {session}
-                  />
-                </div>
-              {/each}
-            {/await}
-          {/if}
-
-          <div class="add-pane-wrap menu-host">
-            <button
-              style:anchor-name="--pane-anchor"
-              class="add-pane menu-trigger"
-              aria-label="Split - add an agent instance"
-              data-tooltip="Split - add an agent instance"
-              popovertarget="pane-menu"
-            ><Icon name="columns" /></button>
-            <ul id="pane-menu" style:position-anchor="--pane-anchor" class="pane-menu popover-menu" popover>
-              {#if splitCandidates.length > 0}
-                <li class="menu-separator">Add to split</li>
-                {#each splitCandidates as session (session.id)}
-                  <li>
-                    <button
-                      class="menu-item"
-                      onclick={() => {
-                        // Show an already-running session alongside the current
-                        // pane(s) - a split-add, so the newcomer springs in.
-                        if (!paneIds.includes(session.id)) {
-                          paneIds = [...paneIds, session.id];
-                          animatePaneIn(session.id);
-                        }
-
-                        activeId = session.id;
-                      }}
-                      popovertarget="pane-menu"
-                      popovertargetaction="hide"
-                    >
-                      <Icon name="terminal" /> {session.agent.label}
-                    </button>
-                  </li>
-                {/each}
-              {/if}
-              <li class="menu-separator">Launch a new instance</li>
-              {#each agents as agent (agent.id)}
-                <li>
-                  <button
-                    class="menu-item"
-                    onclick={() => launch({
-                      agent,
-                      split: true
-                    })}
-                    popovertarget="pane-menu"
-                    popovertargetaction="hide"
-                  >{agent.label}</button>
-                </li>
-              {/each}
-            </ul>
-          </div>
-        </section>
+            if (wasLastSession) {
+              settleEmptyWorkspace({
+                agent: exited.agent,
+                isFailedStart: isExitFailedStart
+              });
+            }
+          }}
+          onlaunch={agent => launch({
+            agent,
+            split: true
+          })}
+          onselect={selectSession}
+          {sessions}
+          bind:elPanes
+          bind:paneIds
+          bind:activeId
+          bind:isPaneDragOverTabs
+        />
 
         {#if side !== null}
           <SidePanelResizer bind:width={sidePanelWidth} bind:isResizing={isResizingSidePanel} />
@@ -1986,130 +1802,6 @@
     &[data-resizing] {
       transition: none;
     }
-  }
-
-  .pane {
-    overflow: hidden;
-    min-block-size: 0;
-    min-inline-size: 0;
-  }
-
-  /* All sessions stay mounted so their scrollback survives switching; only the
-     sessions in the current split are laid out (side by side). A hidden slot is
-     NOT `display:none` - that would zero its ResizeObserver and shrink the
-     background PTY to a 2×1 grid, which some agents (Codex) exit on. Instead it
-     is lifted out of flow over the whole pane and turned invisible, so it keeps
-     a real, full-pane layout size: the background PTY stays sized to exactly what
-     its tab will show, and switching tabs needs no refit at all. */
-  .terminal-pane {
-    position: relative;
-    display: flex;
-    align-items: stretch;
-  }
-
-  .terminal-slot {
-    position: relative;
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-block-size: 0;
-    min-inline-size: 0;
-    border-inline-end: 1px solid var(--outline);
-
-    /* A pane appearing is deliberately instant - opening, closing, or switching a
-       tab must not animate the terminal (it would read as a needless wipe). Only a
-       genuine split-ADD springs its newcomer in, fired imperatively on that one
-      slot via animatePaneIn (pane-enter), never here on every `.shown`. */
-    &:not(.shown) {
-      position: absolute;
-      inset: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-  }
-
-  /* Dashed primary frame over the whole panes area while a tab is dragged onto
-     it - the invitation to open the session as a split. */
-  .drop-overlay {
-    position: absolute;
-    inset: 8px;
-    z-index: 60;
-    display: grid;
-    place-items: center;
-    border: 2px dashed var(--primary);
-    border-radius: var(--radius-medium);
-    background: color-mix(in oklab, var(--primary) 8%, transparent);
-    pointer-events: none;
-    animation: panel-swap 160ms var(--ease);
-
-    .drop-badge {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      padding-block: 6px;
-      padding-inline: 14px;
-      border-radius: var(--radius-full);
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-      font-weight: 700;
-      font-size: 13px;
-      box-shadow: 0 6px 20px var(--shadow-color);
-    }
-  }
-
-  /* The half of a pane the pointer is over - where the dropped session will land
-     (left = before this pane, right = after). A primary wash plus a solid edge. */
-  .drop-half {
-    position: absolute;
-    inset-block: 0;
-    z-index: 58;
-    inline-size: 50%;
-    background: color-mix(in oklab, var(--primary) 16%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 40%, transparent);
-    pointer-events: none;
-
-    &.left {
-      inset-inline-start: 0;
-      border-inline-start: 3px solid var(--primary);
-    }
-
-    &.right {
-      inset-inline-end: 0;
-      border-inline-end: 3px solid var(--primary);
-    }
-  }
-
-  /* Thin strip at the right of the terminal row that opens the split menu. */
-  .add-pane-wrap {
-    display: flex;
-    flex: none;
-    align-items: stretch;
-  }
-
-  .add-pane {
-    display: inline-flex;
-    justify-content: center;
-    align-items: flex-start;
-    inline-size: 44px;
-    padding-block-start: 12px;
-    border: none;
-    border-inline-start: 1px solid var(--outline);
-    background: var(--surface-1);
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: color 150ms var(--ease), background 150ms var(--ease);
-
-    &:hover {
-      background: var(--surface-2);
-      color: var(--on-surface);
-    }
-  }
-
-  /* Shell and rows come from the shared .popover-menu and .menu-item; the split
-     menu opens to the left since its trigger sits at the right edge. */
-  .pane-menu {
-    min-inline-size: 220px;
-    position-area: bottom span-left;
   }
 
   @media (width <= 720px) {
