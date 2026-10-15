@@ -232,8 +232,8 @@ function installSystemScheme(scheme: Scheme) {
 }
 
 // Re-apply when the OS theme flips while we're following it.
-darkSchemeQuery.addEventListener("change", event => {
-  installSystemScheme(schemeOf(event.matches));
+darkSchemeQuery.addEventListener("change", e => {
+  installSystemScheme(schemeOf(e.matches));
 });
 
 // A PADE window parked on another virtual desktop (or minimized) is hidden, and

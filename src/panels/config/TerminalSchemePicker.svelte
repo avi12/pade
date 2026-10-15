@@ -53,12 +53,13 @@
   const options = $derived<(TerminalScheme | null)[]>([null, ...schemes]);
   const chosen = $derived(schemes.find(scheme => scheme.name === value) ?? null);
 
-  function optionName(scheme: TerminalScheme | null) {
-    return scheme?.name ?? FOLLOW_APP_THEME;
+  /** The pick a scheme stands for; the default row picks none. */
+  function schemeName(scheme: TerminalScheme | null) {
+    return scheme?.name ?? null;
   }
 
-  function pick(scheme: TerminalScheme | null) {
-    onpick(scheme?.name ?? null);
+  function optionName(scheme: TerminalScheme | null) {
+    return schemeName(scheme) ?? FOLLOW_APP_THEME;
   }
 
   function previewBackground(scheme: TerminalScheme | null) {
@@ -94,7 +95,7 @@
     {#each options as option (optionName(option))}
       <li>
         <button
-          onclick={() => pick(option)}
+          onclick={() => onpick(schemeName(option))}
           popovertarget={id}
           popovertargetaction="hide"
         >
