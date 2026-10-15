@@ -115,7 +115,10 @@ function expectRecoversWholeUrl({ links, url, rows, label }: {
     .sort((first, second) => first - second);
   expect(coveredRows, label).toEqual(rows);
   expectEverySpanSingleRow(links);
-  const covered = links.reduce((sum, link) => sum + (link.range.end.x - link.range.start.x + 1), 0);
+  let covered = 0;
+  for (const link of links) {
+    covered += link.range.end.x - link.range.start.x + 1;
+  }
   expect(covered, label).toBe(url.length);
 }
 

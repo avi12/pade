@@ -443,21 +443,21 @@ export function unifiedDiff({ before, after }: {
   // Keep every changed line, plus the context window around each - an untouched
   // line survives only when it sits within `DIFF_CONTEXT` of some change.
   const kept = Array.from({ length: placed.length }, () => false);
-  let anyChange = false;
-  placed.forEach((change, index) => {
+  let isAnyChange = false;
+  for (const [i, change] of placed.entries()) {
     if (change.operation === LineOp.keep) {
-      return;
+      continue;
     }
 
-    anyChange = true;
-    const from = Math.max(0, index - DIFF_CONTEXT);
-    const to = Math.min(placed.length - 1, index + DIFF_CONTEXT);
+    isAnyChange = true;
+    const from = Math.max(0, i - DIFF_CONTEXT);
+    const to = Math.min(placed.length - 1, i + DIFF_CONTEXT);
     for (let cursor = from; cursor <= to; cursor += 1) {
       kept[cursor] = true;
     }
-  });
+  }
 
-  if (!anyChange) {
+  if (!isAnyChange) {
     return "";
   }
 

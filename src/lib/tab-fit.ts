@@ -31,9 +31,14 @@ export function packTabs({ ids, widthOf, stripWidth }: {
   widthOf: (id: string) => number;
   stripWidth: number;
 }) {
-  const total = ids.reduce((sum, id, index) => sum + widthOf(id) + (index ? TAB_GAP : 0), 0);
-  // Everything fits (or we haven't measured yet) - all as full pills.
-  if (stripWidth === 0 || total <= stripWidth) {
+  let total = 0;
+  for (const [i, id] of ids.entries()) {
+    total += widthOf(id) + (i > 0 ? TAB_GAP : 0);
+  }
+
+  const isEverythingFitting = stripWidth === 0 || total <= stripWidth;
+  // Not measured yet counts as fitting: all tabs render as full pills.
+  if (isEverythingFitting) {
     return {
       visible: [...ids],
       dots: [],

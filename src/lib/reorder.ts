@@ -62,13 +62,15 @@ export function insertionIndex({ centers, fromIndex, draggedCenter }: {
   fromIndex: number;
   draggedCenter: number;
 }) {
-  let index = 0;
-  centers.forEach((center, position) => {
-    if (position !== fromIndex && center < draggedCenter) {
-      index += 1;
+  let iInsertion = 0;
+  for (const [i, center] of centers.entries()) {
+    const isBeforeDragged = i !== fromIndex && center < draggedCenter;
+    if (isBeforeDragged) {
+      iInsertion += 1;
     }
-  });
-  return index;
+  }
+
+  return iInsertion;
 }
 
 /** Which half of a target pane a pointer sits over: the left half lands the drop
