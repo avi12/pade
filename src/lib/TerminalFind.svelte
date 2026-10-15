@@ -412,7 +412,7 @@
       }
     }
 
-    .dismiss:hover {
+    .dismiss:hover:not(:disabled) {
       background: var(--critical-wash);
       color: var(--critical);
     }
