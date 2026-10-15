@@ -1,512 +1,177 @@
-// The single boundary between the UI and the Rust core (DRY + SoC).
-// Every response is validated with zod, so malformed data fails loudly here
-// rather than corrupting the UI. Two helpers own that contract; channels below
-// just declare command + schema.
+// Transitional facade over `@/lib/ipc/messaging`: the domain namespaces below
+// forward to `sendMessage` / `onMessage` (where the protocol and its schemas now
+// live) while call sites move to the messaging API directly.
 
-import { createSerialQueue } from "@/lib/settings/settings-state";
-import { adoptSettings, beginSettingsRequest } from "@/lib/settings/settings.svelte";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+import type { CommandProtocolMap } from "@/lib/ipc/messaging";
 import {
-  AccountUsage,
-  AddRootOutcome,
-  AddRootStatus,
-  Agent,
+  onWindowCloseRequested,
+  readClipboardText,
+  setWindowTitle,
+  windowLabel,
+  writeClipboardText
+} from "@/lib/ipc/platform";
+import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
+import type {
   ChangeEvent,
-  Commit,
-  CommitDetail,
-  ConfigFile,
-  DesignTool,
   DragDropPayload,
   DragOverPayload,
-  EditorKind,
-  FeedDiff,
-  FeedImage,
-  FeedVideo,
-  Ide,
-  LaunchContext,
-  LimitReset,
-  LimitResetOutcome,
   McpChange,
-  ModelOption,
-  PathProbe,
-  ProjectEntry,
-  PtyChunk,
-  PtyExit,
-  PtyHistory,
-  PtySession,
-  PullOutcome,
-  RestoreCandidate,
-  RunnerData,
-  RunnerExit,
-  RunnerInfo,
-  RunningModel,
-  RunningModelChanged,
-  SaveMigration,
-  Scheme,
-  SessionContext,
-  Settings,
-  StatusEntry,
-  SwitchOutcome,
-  TaskGroup,
-  TaskManifestDescriptor,
-  TerminalScheme,
-  Usage,
-  WatchStatus,
-  WindowInfo,
-  WorkspaceMember
-} from "@/lib/types";
-import type {
-  LabelSource,
   ModelChoice,
   Prefs,
-  WindowDirection,
-  WindowMode
+  PtyChunk,
+  RunnerData,
+  RunnerExit,
+  Scheme,
+  WindowDirection
 } from "@/lib/types";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { z } from "zod";
 
 const DEFAULT_LOG_LIMIT = 20;
 
-type CommandArgs = Record<string, unknown>;
+type CommandData<Key extends Command> = Parameters<CommandProtocolMap[Key]>[0];
 
-/** A task the agent started itself, addressed by its session and command line. */
-type SessionTask = {
-  id: string;
-  command: string;
-};
-
-/** A watched path the Change Feed asks the backend to preview. */
-type FeedPath = { path: string };
-
-/** A workspace moved under a new folder name, optionally into another saved root
- *  (omitted → the primary root). */
-type WorkspaceRename = {
-  from: string;
-  newName: string;
-  root?: string;
-};
-
-/** Invoke a command and validate its result against `schema`. Positional like
- *  Tauri's own `invoke(command, args)`, which every channel below mirrors. */
-async function call<T>(command: string, schema: z.ZodType<T>, args?: CommandArgs) {
-  return schema.parse(await invoke(command, args));
-}
-
-const enqueueSettingsRequest = createSerialQueue();
-
-/** Run a settings-returning request in the serial queue, adopting what it hands
- *  `adopt` only if no newer request has been adopted meanwhile. The version is
- *  taken at call time, so request order - not response order - decides. */
-function queueSettingsRequest<T>(request: (adopt: (fresh: Settings) => void) => Promise<T>) {
-  const version = beginSettingsRequest();
-  return enqueueSettingsRequest(() => request(fresh => adoptSettings({
-    fresh,
-    version
-  })));
-}
-
-function callSettings(command: string, args?: CommandArgs) {
-  return queueSettingsRequest(async adopt => {
-    const fresh = await call(command, Settings, args);
-    adopt(fresh);
-    return fresh;
-  });
-}
-
-function callAddRoot(args: CommandArgs) {
-  return queueSettingsRequest(async adopt => {
-    const outcome = await call("workspace_add_root", AddRootOutcome, args);
-    if (outcome.status === AddRootStatus.enum.added) {
-      adopt(outcome.settings);
-    }
-
-    return outcome;
-  });
-}
-
-/** Invoke a command that returns nothing meaningful. */
-function run(command: string, args?: CommandArgs) {
-  return invoke<void>(command, args);
-}
-
-/** This window's Tauri label - the id the backend scopes its per-window state
- *  to (PTY ownership, targeted emits), and stable across a crash-recovery
- *  rebuild, which recreates the webview under the same label. */
-function windowLabel() {
-  return getCurrentWindow().label;
-}
-
-/** Subscribe to an event, validating each payload. Scoped to this window's own
- *  label so a sibling window's targeted emit (the backend routes each window's
- *  file-watch changes back to it with `emit_to`) never leaks into this feed;
- *  an app-wide `emit` broadcast still reaches every window's scoped listener. */
-function on<T>(event: string, schema: z.ZodType<T>, callback: (payload: T) => void) {
-  return listen(event, received => callback(schema.parse(received.payload)), {
-    target: windowLabel()
-  });
-}
-
-/** Detected agent backends. */
 export const agents = {
-  detect: () => call("agents_detect", z.array(Agent)),
-  /** Re-theme every RUNNING session of a live-themed agent (Claude Code) by
-   *  rewriting the theme definition it watches. Call it on every scheme flip:
-   *  the agent repaints itself, so a conversation in flight never restarts to
-   *  follow the app's appearance. Agents without a live channel keep their
-   *  spawn theme until they relaunch (see theming.rs). */
-  publishTheme: (scheme: Scheme) => run("agent_theme_publish", { scheme }),
-  /** The models `command` offers to switch to, from the agent's own local
-   *  catalog (names, effort levels, the recommended level). Empty for an agent
-   *  PADE can't read a catalog for. */
-  modelOptions: (command: string) => call("agent_model_options", z.array(ModelOption), { command })
+  detect: () => sendMessage(Command.agentsDetect),
+  publishTheme: (scheme: Scheme) => sendMessage(Command.agentThemePublish, { scheme }),
+  modelOptions: (command: string) => sendMessage(Command.agentModelOptions, { command })
 };
 
-/** External IDE integration. */
 export const ide = {
-  detect: () => call("ide_detect", z.array(Ide)),
-  /** Installed IDEs ordered for the given project: explicit per-project choice →
-   *  rule → fallback → byte-weighted language-coverage ranking. The one source of
-   *  the project's editor - `ides[0]` is *the* editor on every surface. */
-  suggest: (cwd: string) => call("ide_suggest", z.array(Ide), { cwd }),
-  /** Persist an explicit editor pick for the project at `cwd`; it then leads
-   *  every `suggest` for that project, so the choice wins on every surface. */
-  choose: (args: {
-    cwd: string;
-    id: string;
-  }) => callSettings("ide_choose_editor", args),
-  /** The project kinds the rules engine shows (label + manifest signals), in the
-   *  backend registry's render/priority order - the frontend derives its rows here. */
-  kinds: () => call("ide_kinds", z.array(EditorKind)),
-  /** Editor ids suited to each project kind (kind → ordered, installed-only), so a
-   *  per-kind menu offers only fitting editors (no WebStorm for an Android row). */
-  kindOptions: () => call("ide_kind_options", z.record(z.string(), z.array(z.string()))),
-  /** Primary detected kind per project path (path → kind id), for the switcher's
-   *  per-project language logo. Paths with no recognised markers are omitted. */
-  projectKinds: (paths: string[]) => call("ide_project_kinds", z.record(z.string(), z.string()), { paths }),
-  /** Add an editor by its executable path. Rejects (throws the message) when the
-   *  executable isn't a supported editor; returns the refreshed settings. */
-  addEditor: (path: string) => callSettings("ide_add_editor", { path }),
-  /** Remove a user-added editor by its id; returns the refreshed settings. */
-  removeEditor: (id: string) => callSettings("ide_remove_editor", { id }),
-  open: (args: {
-    command: string;
-    path?: string;
-    /** 1-based line to jump to (only meaningful when `path` is a file). */
-    line?: number;
-  }) => run("ide_open", args),
-  /** Open a file inside its `project` workspace window (the folder rides the
-   *  launcher CLI for every family with a workspace+file form - never a bare
-   *  single-file window), jumping to `line` when given. */
-  openFile: (args: {
-    command: string;
-    project: string;
-    file: string;
-    line?: number;
-  }) => run("ide_open_file", args)
+  detect: () => sendMessage(Command.ideDetect),
+  suggest: (cwd: string) => sendMessage(Command.ideSuggest, { cwd }),
+  choose: (args: CommandData<Command.ideChooseEditor>) => sendSettingsMessage(Command.ideChooseEditor, args),
+  kinds: () => sendMessage(Command.ideKinds),
+  kindOptions: () => sendMessage(Command.ideKindOptions),
+  projectKinds: (paths: string[]) => sendMessage(Command.ideProjectKinds, { paths }),
+  addEditor: (path: string) => sendSettingsMessage(Command.ideAddEditor, { path }),
+  removeEditor: (id: string) => sendSettingsMessage(Command.ideRemoveEditor, { id }),
+  open: (args: CommandData<Command.ideOpen>) => sendMessage(Command.ideOpen, args),
+  openFile: (args: CommandData<Command.ideOpenFile>) => sendMessage(Command.ideOpenFile, args)
 };
 
-/** OS integrations - reveal a project in the file manager or a terminal. */
 export const os = {
-  explorer: (path: string) => run("open_in_explorer", { path }),
-  /** Show a file selected in its folder - never opens or runs the file itself. */
-  reveal: (path: string) => run("reveal_in_explorer", { path }),
-  terminal: (path: string) => run("open_in_terminal", { path }),
-  /** Open an http(s) URL in the system's default browser. */
-  openUrl: (url: string) => run("open_url", { url }),
-  /** Restart PADE so launch-only settings can take effect. */
-  restart: () => run("restart")
+  explorer: (path: string) => sendMessage(Command.openInExplorer, { path }),
+  reveal: (path: string) => sendMessage(Command.revealInExplorer, { path }),
+  terminal: (path: string) => sendMessage(Command.openInTerminal, { path }),
+  openUrl: (url: string) => sendMessage(Command.openUrl, { url }),
+  restart: () => sendMessage(Command.restart)
 };
 
-/** System clipboard - read for Ctrl+V paste, write for Ctrl+C copy. */
 export const clipboard = {
-  readText: () => readText(),
-  writeText: (text: string) => writeText(text),
-  /** When the clipboard holds a bitmap, the backend saves it as a PNG in a
-   *  bounded temp folder and returns the absolute path; null when text-only. */
-  saveImage: () => call("clipboard_image_save", z.string().nullable())
+  readText: () => readClipboardText(),
+  writeText: (text: string) => writeClipboardText(text),
+  saveImage: () => sendMessage(Command.clipboardImageSave)
 };
 
-/** WebView2 crash auto-recovery. Armed from the frontend on every boot with
- *  its live URL - the one value a dead browser process can no longer report,
- *  and what the rebuilt same-label window navigates back to. */
 export const recovery = {
-  arm: (url: string) => run("recovery_arm", { url })
+  arm: (url: string) => sendMessage(Command.recoveryArm, { url })
 };
 
-/** Multi-window - spawn a fresh app window targeting a project, an empty picker,
- *  or a throwaway workspace. The spawned window routes off its query string. */
 export const windows = {
-  create: (args: {
-    mode: WindowMode;
-    path?: string;
-  }) => run("window_create", args),
-  /** This window's label - the key the backend owns its sessions by, and what
-   *  anything outliving the webview (the session snapshot) must be scoped to. */
+  create: (args: CommandData<Command.windowCreate>) => sendMessage(Command.windowCreate, args),
   label: windowLabel,
-  /** Set this window's OS title (title bar + taskbar) - the one place the UI
-   *  drives Tauri's window title, so no surface recomputes it independently. */
-  setTitle: (title: string) => getCurrentWindow().setTitle(title),
-  /** Record the project this window now has open (for focus-instead-of-reopen). */
-  registerProject: (path: string) => run("window_register_project", { path }),
-  /** Focus another window already showing this project; true if one was found. */
-  focusProject: (path: string) => call("window_focus_project", z.boolean(), { path }),
-  /** Focus the previous/next open PADE window in stable creation order; true if
-   *  another window was focused (false when this is the only one). */
-  focusRelative: (direction: WindowDirection) =>
-    call("window_focus_relative", z.boolean(), { direction }),
-  /** Every open PADE window that has a project, in the user's explicit order
-   *  (= cycle order), for the switcher's "Open windows" list. */
-  list: () => call("window_list", z.array(WindowInfo)),
-  /** Persist the drag-reordered "Open windows" order (session-scoped by label).
-   *  The one source both this list and the Ctrl+Alt+[ / ] cycle read. */
-  reorder: (labels: string[]) => run("window_reorder", { labels }),
-  /** The open-windows set/order changed in SOME window (a project registered, a
-   *  drag-reorder landed) - app-wide, so every switcher refreshes live. A bare
-   *  `listen` (not the window-scoped `on`) since the backend broadcasts to all. */
-  onChanged: (handler: () => void) =>
-    listen("windows://changed", () => handler()),
-  /** Focus a specific open window by its label; true if it existed and focused. */
-  focus: (label: string) => call("window_focus_label", z.boolean(), { label }),
-  /** This window's OS theme, straight from the native side - the authoritative
-   *  answer at startup, where WebView2's `prefers-color-scheme` can still say
-   *  light in an already-dark window (see `window.rs`). */
-  theme: () => call("window_theme", Scheme),
-  /** Intercept this window's close (the title-bar X): the handler runs to
-   *  completion first - the graceful-leave hook - and only then is the window
-   *  destroyed (Tauri's own onCloseRequested contract when nothing prevents).
-   *  Returns the unlisten function. */
-  onCloseRequested: (handler: () => Promise<void>) =>
-    getCurrentWindow().onCloseRequested(handler)
+  setTitle: (title: string) => setWindowTitle(title),
+  registerProject: (path: string) => sendMessage(Command.windowRegisterProject, { path }),
+  focusProject: (path: string) => sendMessage(Command.windowFocusProject, { path }),
+  focusRelative: (direction: WindowDirection) => sendMessage(Command.windowFocusRelative, { direction }),
+  list: () => sendMessage(Command.windowList),
+  reorder: (labels: string[]) => sendMessage(Command.windowReorder, { labels }),
+  onChanged: (handler: () => void) => onMessage(EventType.windowsChanged, () => handler()),
+  focus: (label: string) => sendMessage(Command.windowFocusLabel, { label }),
+  theme: () => sendMessage(Command.windowTheme),
+  onCloseRequested: (handler: () => Promise<void>) => onWindowCloseRequested(handler)
 };
 
-/** AI design/UI-generation tools - a roster ranked for the active agent. */
 export const design = {
-  tools: (agent: string) => call("design_tools", z.array(DesignTool), { agent }),
-  /** Open the picked tool in the companion PADE window (native - iframes blocked). */
-  open: (id: string) => run("design_open", { id })
+  tools: (agent: string) => sendMessage(Command.designTools, { agent }),
+  open: (id: string) => sendMessage(Command.designOpen, { id })
 };
 
-/** Discord Rich Presence - report PADE ("Playing PADE") on the user's Discord
- *  profile. Best-effort: with Discord closed the backend fails quietly. */
 export const discord = {
-  setActivity: ({ details, state, image, caption }: {
-    details?: string;
-    state?: string;
-    /** Small overlay art-asset key (the language mark). */
-    image?: string;
-    /** Hover text for the small overlay. */
-    caption?: string;
-  }) => run("discord_set_activity", {
-    details,
-    state,
-    image,
-    caption
-  }),
-  clearActivity: () => run("discord_clear_activity")
+  setActivity: ({ details, state, image, caption }: CommandData<Command.discordSetActivity>) =>
+    sendMessage(Command.discordSetActivity, {
+      details,
+      state,
+      image,
+      caption
+    }),
+  clearActivity: () => sendMessage(Command.discordClearActivity)
 };
 
-/** Windows Explorer "Open in PADE" folder context-menu entry. */
 export const contextMenu = {
-  status: () => call("context_menu_status", z.boolean()),
-  register: () => run("context_menu_register"),
-  unregister: () => run("context_menu_unregister")
+  status: () => sendMessage(Command.contextMenuStatus),
+  register: () => sendMessage(Command.contextMenuRegister),
+  unregister: () => sendMessage(Command.contextMenuUnregister)
 };
 
-/** Terminal / PTY channel. Sessions are addressed by `id`; callbacks receive it
- *  so a listener can route to the right terminal. */
 export const pty = {
-  spawn: (args: {
-    id: string;
-    command: string | null;
-    cwd: string | null;
-    cols: number;
-    rows: number;
-    /** Extra args for `command` - e.g. the project path for a terminal editor. */
-    args?: string[];
-    /** ADE's resolved appearance at spawn - env-themed CLIs start matching it. */
-    scheme?: Scheme;
-    /** Stable conversation id to pin/resume the session to (`claude
-     *  --session-id`), so a restart lands back in THIS conversation. */
-    conversationId?: string;
-    /** A model / effort picked for this session alone - launch flags, never
-     *  the agent's saved default (see running_model.rs). */
-    modelChoice?: ModelChoice;
-  }) =>
-    run("pty_spawn", args),
-  /** Apply a model / effort picked from the tab to the running session.
-   *  `applied`: switched in place (Claude). `needsRestart`: the agent only
-   *  takes a model at launch - relaunch it on its conversation. */
+  spawn: (args: CommandData<Command.ptySpawn>) => sendMessage(Command.ptySpawn, args),
   applyModel: (args: {
     sessionId: string;
     command: string;
     conversationId: string;
     choice: ModelChoice;
-  }) => call("agent_apply_model", SwitchOutcome, args),
-  write: (args: {
-    id: string;
-    data: string;
-  }) => run("pty_write", args),
-  resize: (args: {
-    id: string;
-    cols: number;
-    rows: number;
-  }) => run("pty_resize", args),
-  kill: (id: string) => run("pty_kill", { id }),
-  /** Stop a known task the agent started itself (PADE never spawned it): finds the
-   *  matching subtree under the agent's process tree and kills it. Resolves to
-   *  whether a matching process was found. Agent-agnostic - see `session_task_stop`. */
-  sessionTaskStop: (args: SessionTask) => call("session_task_stop", z.boolean(), args),
-  /** Whether a task the agent started is still running (a live process under the
-   *  agent's tree). Lets an attached runner outlive the agent's turn and drop
-   *  itself once the process exits. */
-  sessionTaskRunning: (args: SessionTask) => call("session_task_running", z.boolean(), args),
-  /** Every live session the backend still hosts - the roster a reloaded window
-   *  intersects its persisted pane mapping with to re-attach (see
-   *  `session-restore`) instead of stranding running agents invisibly. */
-  list: () => call("pty_list", z.array(PtySession)),
-  /** Everything a terminal needs to paint a session it is attaching to mid-flight
-   *  (a remounted component, a reloaded window), and the sequence number of the last
-   *  chunk already inside it - chunks above that one arrived live and still need
-   *  writing. A PTY has no scrollback of its own, so without this the terminal has
-   *  nothing to draw and sits blank while the agent waits, quite happily, for input. */
-  history: (id: string) => call("pty_history", PtyHistory, { id }),
-  /** Ask the namer for a concise session name from its transcript (null until
-   *  there's enough conversation, or if nothing usable is produced). */
-  generateName: (args: {
-    id: string;
-    agent: string;
-  }) => call("session_generate_name", z.string().nullable(), args),
-  /** Launch args that reopen the agent's recorded conversation for `cwd` -
-   *  `["resume", "<uuid>"]` for Codex (its own rollout id; ADE cannot pick one
-   *  at spawn), empty when the agent has no such mechanism or no recording.
-   *  Used when a session must respawn (a scheme flip re-theming an arg-themed
-   *  CLI) without losing its conversation. */
-  resumeArgs: (args: {
-    command: string;
-    cwd: string;
-    /** The PADE conversation - when the agent reported its own session id for
-     *  it, that exact session is resumed rather than the newest in `cwd`. */
-    conversationId?: string;
-  }) => call("agent_resume_args", z.array(z.string()), args),
-  /** How full the session's context window is, read from the agent's own session
-   *  log rather than its terminal: the tokens its newest turn occupies, and the
-   *  window its recorded model advertises (via the live models.dev catalog).
-   *  Either half is `null` when it can't be resolved, and the whole payload is
-   *  `null` for an agent that keeps no readable log. */
-  sessionContext: (args: {
-    command: string;
-    conversationId?: string;
-  }) => call("agent_session_context", SessionContext.nullable(), args),
-  /** The model and effort the session runs, as the agent itself reported it
-   *  (hooks, its own session log, a plugin - never its terminal). `null` when
-   *  the agent has reported nothing PADE can read. */
-  async runningModel(args: {
-    command: string;
-    conversationId: string;
-  }) {
-    const running = await call("agent_running_model", RunningModel.nullable(), args);
-    if (running === null) {
-      return null;
-    }
-
-    const { ultracode, ...reported } = running;
-    return {
-      ...reported,
-      isUltracode: ultracode
-    };
-  },
-  /** A session's model or effort may have changed: the agent reported
-   *  (`sessionId` is its conversation id), or a settings file every session of
-   *  an agent reads changed (`sessionId` null). Re-read `runningModel` for the
-   *  sessions it names. */
+  }) => sendMessage(Command.agentApplyModel, args),
+  write: (args: CommandData<Command.ptyWrite>) => sendMessage(Command.ptyWrite, args),
+  resize: (args: CommandData<Command.ptyResize>) => sendMessage(Command.ptyResize, args),
+  kill: (id: string) => sendMessage(Command.ptyKill, { id }),
+  sessionTaskStop: (args: CommandData<Command.sessionTaskStop>) => sendMessage(Command.sessionTaskStop, args),
+  sessionTaskRunning: (args: CommandData<Command.sessionTaskRunning>) =>
+    sendMessage(Command.sessionTaskRunning, args),
+  list: () => sendMessage(Command.ptyList),
+  history: (id: string) => sendMessage(Command.ptyHistory, { id }),
+  generateName: (args: CommandData<Command.sessionGenerateName>) => sendMessage(Command.sessionGenerateName, args),
+  resumeArgs: (args: CommandData<Command.agentResumeArgs>) => sendMessage(Command.agentResumeArgs, args),
+  sessionContext: (args: CommandData<Command.agentSessionContext>) =>
+    sendMessage(Command.agentSessionContext, args),
+  runningModel: (args: CommandData<Command.agentRunningModel>) => sendMessage(Command.agentRunningModel, args),
   onRunningModelChanged: (callback: (sessionId: string | null) => void) =>
-    on("agent-model://changed", RunningModelChanged, payload => callback(payload.sessionId)),
-  onData: (callback: (chunk: PtyChunk) => void) => on("pty://data", PtyChunk, callback),
-  onExit: (callback: (id: string) => void) =>
-    on("pty://exit", PtyExit, payload => callback(payload.id))
+    onMessage(EventType.agentModelChanged, ({ data }) => callback(data.sessionId)),
+  onData: (callback: (chunk: PtyChunk) => void) => onMessage(EventType.ptyData, ({ data }) => callback(data)),
+  onExit: (callback: (id: string) => void) => onMessage(EventType.ptyExit, ({ data }) => callback(data.id))
 };
 
-/** Change Feed / filesystem watcher channel. */
 export const feed = {
-  /** Watch `path` - the open workspace's root - so the feed follows the project
-   *  on screen, not the process's cwd. Idempotent per root; a call for a new root
-   *  re-roots the watcher (drops the old one, clears its per-file bookkeeping). */
-  start: (path: string) => run("watch_start", { root: path }),
-  /** What this window's watch is doing right now (see `WatchStatus`) - read by
-   *  the feed's empty panel so it can say what it is watching and since when. */
-  status: () => call("watch_status", WatchStatus),
-  /** The card's git-free preview for a path: the watch session's first-touch
-   *  baseline vs the file's current content (`null` when nothing was snapshotted
-   *  - binary, too large, or a path with no captured baseline). The frontend
-   *  renders the unified diff, so untracked/ignored files preview like any other. */
-  diff: ({ path }: FeedPath) => call("feed_diff", FeedDiff.nullable(), { path }),
-  /** The rendered image preview for an image path: the file's current bytes as a
-   *  ready-to-use `data:` URL for a plain `<img src>` (no asset protocol). `null`
-   *  when the path isn't a previewable image, is gone, or is over the backend's
-   *  size cap - the card then falls back to its text summary. SVG rides the same
-   *  data-URL path, so its markup is never inlined into the DOM. */
-  image: ({ path }: FeedPath) => call("feed_image", FeedImage.nullable(), { path }),
-  /** The video preview for a video path: its opening seconds transcoded by the
-   *  user's ffmpeg into a small MP4 `data:` URL, or `noTranscoder` when ffmpeg
-   *  isn't installed. `null` when the path isn't a video, is gone, or ffmpeg
-   *  couldn't read it. Takes a moment - the backend transcodes on demand. */
-  video: ({ path }: FeedPath) => call("feed_video", FeedVideo.nullable(), { path }),
-  /** The current text of a watched markdown/HTML path, for the card's Preview
-   *  toggle (the file rendered as it is now). `null` when the path wasn't
-   *  snapshotted this session, is gone, or is binary / over the backend's size
-   *  cap - the card then keeps its diff and offers no preview. */
-  text: ({ path }: FeedPath) => call("feed_text", z.string().nullable(), { path }),
+  start: (path: string) => sendMessage(Command.watchStart, { root: path }),
+  status: () => sendMessage(Command.watchStatus),
+  diff: ({ path }: { path: string }) => sendMessage(Command.feedDiff, { path }),
+  image: ({ path }: { path: string }) => sendMessage(Command.feedImage, { path }),
+  video: ({ path }: { path: string }) => sendMessage(Command.feedVideo, { path }),
+  text: ({ path }: { path: string }) => sendMessage(Command.feedText, { path }),
   onChange: (callback: (event: ChangeEvent) => void) =>
-    on("feed://change", ChangeEvent, callback),
-  /** The ignore rules changed (a `.gitignore` edited/created/deleted, or a
-   *  mid-session `git init` flipped the policy) - re-ask `ignored` about the
-   *  events already shown. */
-  onIgnoreChanged: (callback: () => void) => on("feed://ignore-changed", z.null(), () => callback()),
-  /** The subset of `paths` the current ignore policy excludes. */
-  ignored: (paths: string[]) => call("feed_ignored", z.array(z.string()), { paths })
+    onMessage(EventType.feedChange, ({ data }) => callback(data)),
+  onIgnoreChanged: (callback: () => void) => onMessage(EventType.feedIgnoreChanged, () => callback()),
+  ignored: (paths: string[]) => sendMessage(Command.feedIgnored, { paths })
 };
 
-/** Project MCP config changes from each agent's registered file. Creation,
- *  deletion, and server membership changes require a safe handoff restart;
- *  same-name definition edits arm reload-failure recovery. */
 export const mcp = {
-  onChanged: (callback: (change: McpChange) => void) => on("mcp://changed", McpChange, callback)
+  onChanged: (callback: (change: McpChange) => void) =>
+    onMessage(EventType.mcpChanged, ({ data }) => callback(data))
 };
 
-/** Manifest-driven workspace members - the Change Feed's grouping ground
- *  truth: one backend census walk confirms which directories are real packages
- *  and the root's workspace-defining files say which of them are members. */
 export const members = {
-  /** Confirmed members of the workspace at `root`; the root itself is first. */
-  list: (root: string) => call("members_list", z.array(WorkspaceMember), { root })
+  list: (root: string) => sendMessage(Command.membersList, { root })
 };
 
-/** The picker's folder watcher: hand it the parents of the rows on the page and
- *  it reports whenever one of them gains or loses a child - a project created or
- *  deleted outside PADE - so the list can catch up on its own. */
 export const dirs = {
-  watch: (paths: string[]) => run("watch_dirs", { dirs: paths }),
-  onChange: (callback: () => void) => on("directories://changed",z.null(), () => callback())
+  watch: (paths: string[]) => sendMessage(Command.watchDirs, { dirs: paths }),
+  onChange: (callback: () => void) => onMessage(EventType.directoriesChanged, () => callback())
 };
 
-/** Native OS drag-and-drop onto the window. Tauri intercepts the webview's
- *  file DnD (the web API never exposes absolute paths) and emits these events
- *  instead - how a folder dragged from Explorer or an IDE reaches the app. */
 export const dragDrop = {
-  onOver: (callback: (payload: DragOverPayload) => void) => on("tauri://drag-over", DragOverPayload, callback),
-  onDrop: (callback: (payload: DragDropPayload) => void) => on("tauri://drag-drop", DragDropPayload, callback),
-  onLeave: (callback: () => void) => on("tauri://drag-leave", z.unknown(), () => callback())
+  onOver: (callback: (payload: DragOverPayload) => void) =>
+    onMessage(EventType.dragOver, ({ data }) => callback(data)),
+  onDrop: (callback: (payload: DragDropPayload) => void) =>
+    onMessage(EventType.dragDrop, ({ data }) => callback(data)),
+  onLeave: (callback: () => void) => onMessage(EventType.dragLeave, () => callback())
 };
 
-/** Version-control review channel. */
 export const vcs = {
-  status: (cwd: string) => call("vcs_status", z.array(StatusEntry), { cwd }),
+  status: (cwd: string) => sendMessage(Command.vcsStatus, { cwd }),
   log: ({ cwd, limit = DEFAULT_LOG_LIMIT }: {
     cwd: string;
     limit?: number;
-  }) => call("vcs_log", z.array(Commit), {
+  }) => sendMessage(Command.vcsLog, {
     cwd,
     limit
   }),
@@ -514,233 +179,96 @@ export const vcs = {
     cwd: string;
     path: string;
     staged?: boolean;
-  }) =>
-    call("vcs_diff", z.string(), {
-      cwd,
-      path,
-      staged
-    }),
-  branches: (cwd: string) => call("vcs_branches", z.array(z.string()), { cwd }),
-  /** Current HEAD branch per project path (path → branch), for the switcher's
-   *  per-project branch chip. Non-repo / detached paths are omitted. */
-  branchOf: (paths: string[]) => call("vcs_branch_of", z.record(z.string(), z.string()), { paths }),
-  /** Branches only a remote has so far, under their short name - switching to
-   *  one lets git create the local tracking branch. */
-  remoteBranches: (cwd: string) => call("vcs_remote_branches", z.array(z.string()), { cwd }),
-  /** Check `branch` out in `cwd`; resolves to the branch HEAD ended on. Throws
-   *  git's own refusal (uncommitted work, branch held by another worktree). */
-  switchBranch: (args: {
-    cwd: string;
-    branch: string;
-  }) => call("vcs_switch_branch", z.string(), args),
-  /** Fast-forward the open workspace from `origin` (never a merge commit).
-   *  Resolves `refusedDirty` when the tree has uncommitted tracked changes;
-   *  throws git's message when the branch has diverged (no fast-forward). */
-  pull: (cwd: string) => call("vcs_pull", PullOutcome, { cwd }),
-  /** One commit's message body, per-file stats, and branch. */
-  commit: (args: {
-    cwd: string;
-    sha: string;
-  }) => call("vcs_commit", CommitDetail, args),
-  /** Raw unified diff for one path within a commit. */
-  commitDiff: ({ cwd, sha, path }: {
-    cwd: string;
-    sha: string;
-    path: string;
-  }) => call("vcs_commit_diff", z.string(), {
+  }) => sendMessage(Command.vcsDiff, {
+    cwd,
+    path,
+    staged
+  }),
+  branches: (cwd: string) => sendMessage(Command.vcsBranches, { cwd }),
+  branchOf: (paths: string[]) => sendMessage(Command.vcsBranchOf, { paths }),
+  remoteBranches: (cwd: string) => sendMessage(Command.vcsRemoteBranches, { cwd }),
+  switchBranch: (args: CommandData<Command.vcsSwitchBranch>) => sendMessage(Command.vcsSwitchBranch, args),
+  pull: (cwd: string) => sendMessage(Command.vcsPull, { cwd }),
+  commit: (args: CommandData<Command.vcsCommit>) => sendMessage(Command.vcsCommit, args),
+  commitDiff: ({ cwd, sha, path }: CommandData<Command.vcsCommitDiff>) => sendMessage(Command.vcsCommitDiff, {
     cwd,
     sha,
     path
   }),
-  /** The branch-configured remote, falling back to `origin`, as a browser URL. */
-  remoteUrl: (cwd: string) => call("vcs_remote_url", z.string().nullable(), { cwd }),
-  /** The configured remote's locally-known default branch, when available. */
-  defaultBranch: (cwd: string) => call("vcs_default_branch", z.string().nullable(), { cwd }),
-  /** Is the `git` CLI installed? Gates the picker's Clone tab. */
-  gitInstalled: () => call("vcs_git_installed", z.boolean()),
-  /** Whether an SSH private key exists - without one an `ssh://`/`git@` clone
-   *  URL can't authenticate, so the picker offers HTTPS credentials instead. */
-  hasSshKey: () => call("vcs_has_ssh_key", z.boolean()),
-  /** Can the current environment reach this repository (exists + access)?
-   *  Live check behind the Clone tab's URL field. */
-  probeRemote: (url: string) => call("vcs_probe_remote", z.boolean(), { url }),
-  /** Clone `url` into `root\name`; returns the new project path. Credentials
-   *  switch the clone to HTTPS for that one command and are never persisted. */
-  clone: (args: {
-    url: string;
-    root: string;
-    name: string;
-    username?: string;
-    password?: string;
-  }) => call("vcs_clone", z.string(), args),
-  worktreeAdd: (args: {
-    cwd: string;
-    branch: string;
-    create: boolean;
-  }) =>
-    call("vcs_worktree_add", z.string(), args),
-  /** Rank prior commits by a natural-language description of the version to restore. */
-  restoreCandidates: (args: {
-    cwd: string;
-    query: string;
-    limit?: number;
-  }) =>
-    call("vcs_restore_candidates", z.array(RestoreCandidate), args),
-  /** Non-destructively check the chosen commit out on a `pade/restore-<sha>` branch. */
-  restoreCheckout: (args: {
-    cwd: string;
-    sha: string;
-  }) => call("vcs_restore_checkout", z.string(), args),
-  /** Fires when the workspace's live git state changes - a branch switch (HEAD),
-   *  a remote added/removed (config), or `git init` creating the repo. Carries no
-   *  payload on purpose: listeners re-fetch whatever git state they display, so
-   *  the event can never hand them stale or partial data. */
-  onStateChanged: (callback: () => void) => on("git://state", z.null(), () => callback())
+  remoteUrl: (cwd: string) => sendMessage(Command.vcsRemoteUrl, { cwd }),
+  defaultBranch: (cwd: string) => sendMessage(Command.vcsDefaultBranch, { cwd }),
+  gitInstalled: () => sendMessage(Command.vcsGitInstalled),
+  hasSshKey: () => sendMessage(Command.vcsHasSshKey),
+  probeRemote: (url: string) => sendMessage(Command.vcsProbeRemote, { url }),
+  clone: (args: CommandData<Command.vcsClone>) => sendMessage(Command.vcsClone, args),
+  worktreeAdd: (args: CommandData<Command.vcsWorktreeAdd>) => sendMessage(Command.vcsWorktreeAdd, args),
+  restoreCandidates: (args: CommandData<Command.vcsRestoreCandidates>) =>
+    sendMessage(Command.vcsRestoreCandidates, args),
+  restoreCheckout: (args: CommandData<Command.vcsRestoreCheckout>) => sendMessage(Command.vcsRestoreCheckout, args),
+  onStateChanged: (callback: () => void) => onMessage(EventType.gitState, () => callback())
 };
 
-/** Task-runner dock - a task launched as a tracked runner that streams its output.
- *  Piping a runner's output into an agent is done in the UI via `pty.write`. */
 export const runner = {
-  start: (args: {
-    id: string;
-    command: string;
-    cwd?: string | null;
-  }) =>
-    run("runner_start", args),
-  stop: (id: string) => run("runner_stop", { id }),
-  list: () => call("runner_list", z.array(RunnerInfo)),
-  onData: (callback: (payload: RunnerData) => void) =>
-    on("runner://data", RunnerData, callback),
-  onExit: (callback: (payload: RunnerExit) => void) =>
-    on("runner://exit", RunnerExit, callback)
+  start: (args: CommandData<Command.runnerStart>) => sendMessage(Command.runnerStart, args),
+  stop: (id: string) => sendMessage(Command.runnerStop, { id }),
+  list: () => sendMessage(Command.runnerList),
+  onData: (callback: (payload: RunnerData) => void) => onMessage(EventType.runnerData, ({ data }) => callback(data)),
+  onExit: (callback: (payload: RunnerExit) => void) => onMessage(EventType.runnerExit, ({ data }) => callback(data))
 };
 
-/** Task runner channel - runnable tasks parsed from project manifests. */
 export const tasks = {
-  descriptors: () => call("tasks_descriptors", z.array(TaskManifestDescriptor)),
-  list: (cwd: string) => call("tasks_list", z.array(TaskGroup), { cwd })
+  descriptors: () => sendMessage(Command.tasksDescriptors),
+  list: (cwd: string) => sendMessage(Command.tasksList, { cwd })
 };
 
-/** Agent usage / quota channel - never spends message quota: local data plus a
- *  cached call to the vendor's OAuth usage endpoint for the live account
- *  windows. */
 export const usage = {
-  get: (agent: string) => call("usage_get", Usage.nullable(), { agent }),
-  /** Live usage windows for a specific agent (`claude`, `codex`) - each read from
-   *  that vendor's own usage endpoint with its locally-stored token. `null` for an
-   *  agent with no usable local usage signal. */
+  get: (agent: string) => sendMessage(Command.usageGet, { agent }),
   accountFor: ({ agent, forceRefresh = false }: {
     agent: string;
     forceRefresh?: boolean;
-  }) => call("usage_account_agent", AccountUsage.nullable(), {
+  }) => sendMessage(Command.usageAccountAgent, {
     agent,
     forceRefresh
   }),
-  /** The free usage-limit reset Claude's account can spend now (claude.ai's
-   *  "Reset for free"), or `null` when it has none. */
-  limitResetOffer: () => call("limit_reset_offer", LimitReset.nullable()),
-  /** Spend that reset: clears the account's usage limits. Cannot be undone. */
-  claimLimitReset: (grantId: string) => call("limit_reset_claim", LimitResetOutcome, { grantId })
+  limitResetOffer: () => sendMessage(Command.limitResetOffer),
+  claimLimitReset: (grantId: string) => sendMessage(Command.limitResetClaim, { grantId })
 };
 
-/** Agent config channel - reads the CLI's own config files, never shadows them. */
 export const config = {
-  list: (agent: string) => call("config_list", z.array(ConfigFile), { agent }),
-  read: (relativePath: string) => call("config_read", z.string(), { rel: relativePath })
+  list: (agent: string) => sendMessage(Command.configList, { agent }),
+  read: (relativePath: string) => sendMessage(Command.configRead, { rel: relativePath })
 };
 
-/** Terminal appearance - the Windows Terminal colour schemes PADE can paint its
- *  own terminal with: the ones Windows Terminal ships (vendored) merged with the
- *  ones the user wrote into their own settings. */
 export const terminal = {
-  schemes: () => call("terminal_schemes", z.array(TerminalScheme))
+  schemes: () => sendMessage(Command.terminalSchemes)
 };
 
-/** Workspace & projects channel. */
 export const workspace = {
-  context: () => call("launch_context", LaunchContext),
-  settings: () => callSettings("settings_get"),
-  /** The shared settings changed in SOME window - a project deleted or renamed, a
-   *  pin toggled, a preference saved. Each window holds its own copy, so without
-   *  this a switcher keeps listing a workspace another window already threw away.
-   *  A bare `listen` (not the window-scoped `on`) since the backend broadcasts to
-   *  all; the handler re-reads through `settings`, the one adoption path. */
-  onChanged: (handler: () => void) =>
-    listen("settings://changed", () => handler()),
-  /** Add a root folder. `create` asks the backend to `create_dir_all` a missing
-   *  path before adding it; the discriminated outcome says whether it was added,
-   *  is missing (so the caller can offer to create it), or names a file. */
-  addRoot: (args: {
-    path: string;
-    create: boolean;
-  }) => callAddRoot(args),
-  removeRoot: (path: string) => callSettings("workspace_remove_root", { path }),
-  /** Probe a partially-typed root path: whether it already exists (as a dir or a
-   *  file), plus child-directory completions for the add-root autocomplete. */
-  probePath: (path: string) => call("workspace_probe_path", PathProbe, { path }),
-  scan: (root: string) => call("workspace_scan", z.array(ProjectEntry), { root }),
-  open: (path: string) => run("workspace_open", { path }),
-  /** Delete a consumed auto-handoff doc (`continue-*.md` in the project dir -
-   *  the backend refuses anything else). */
-  deleteHandoffDoc: (args: {
-    dir: string;
-    name: string;
-  }) => run("handoff_doc_delete", args),
-  /** Create a throwaway workspace, mark it owned, and open it - chdirs the
-   *  process and records it in Recents. Returns its path. */
-  temp: () => call("workspace_temp", z.string()),
-  move: (args: {
-    from: string;
-    destDir: string;
-  }) => call("workspace_move", z.string(), args),
-  /** Promote a temp workspace into a saved root under a new name. `root` picks
-   *  the destination among the saved roots; omitted → the primary root. */
-  rename: (args: WorkspaceRename) => call("workspace_rename", z.string(), args),
-  /** Rename any workspace's folder where it stands, carrying every agent's
-   *  memory of it and PADE's settings along. Returns the new path. */
-  renameFolder: (args: Omit<WorkspaceRename, "root">) => call("workspace_rename_folder", z.string(), args),
-  /** Save a temp workspace by copying its files into a fresh saved project
-   *  (skipping dependency dirs). Returns the new project dir plus the
-   *  dependency-install command to run there (`null` when nothing to reinstall).
-   *  `root` picks the destination among the saved roots; omitted → the primary. */
-  saveMigrate: (args: WorkspaceRename) => call("workspace_save_migrate", SaveMigration, args),
-  /** Set a friendly display label (no disk rename). An `auto` name never replaces
-   *  an existing label; a `manual` one always does. */
-  setLabel: (args: {
-    path: string;
-    name: string;
-    source: LabelSource;
-  }) => callSettings("workspace_set_label", args),
-  /** Suggest a name for a temp workspace via the agent CLI, else a heuristic. */
-  autoname: (args: {
-    path: string;
-    agent: string;
-  }) => call("project_autoname", z.string().nullable(), args),
-  delete: (path: string) => callSettings("workspace_delete", { path }),
-  /** Settings with every vanished folder forgotten (see `dirs`). */
-  prune: () => callSettings("workspace_prune"),
-  create: (args: {
-    root: string;
-    name: string;
-  }) => call("workspace_create", z.string(), args),
-  clearRecent: () => callSettings("workspace_clear_recent"),
-  /** Pin or unpin a project in the switcher; returns the refreshed settings. */
-  setPinned: (args: {
-    path: string;
-    pinned: boolean;
-  }) => callSettings("workspace_set_pinned", args),
-  /** Forget a project from the switcher (recents + pins); folder untouched. */
-  removeRecent: (path: string) => callSettings("workspace_remove_recent", { path }),
-  /** Persist a drag-reordered pin order (reorders existing pins only). */
-  setPinnedOrder: (paths: string[]) => callSettings("workspace_set_pinned_order", { paths }),
-  /** Delete ANY project directory from disk and forget it - the switcher's "Delete
-   *  directory". The caller raises a confirmation and releases the folder first. */
-  deleteDirectory: (path: string) => callSettings("workspace_delete_directory", { path }),
-  setDefaultAgent: (agent: string) => callSettings("set_default_agent", { agent }),
-  setProjectAgent: (args: {
-    path: string;
-    agent: string;
-  }) =>
-    callSettings("set_project_agent", args),
-  setPrefs: (patch: Partial<Prefs>) => callSettings("set_prefs", { patch })
+  context: () => sendMessage(Command.launchContext),
+  settings: () => sendSettingsMessage(Command.settingsGet),
+  onChanged: (handler: () => void) => onMessage(EventType.settingsChanged, () => handler()),
+  addRoot: (args: CommandData<Command.workspaceAddRoot>) => addRoot(args),
+  removeRoot: (path: string) => sendSettingsMessage(Command.workspaceRemoveRoot, { path }),
+  probePath: (path: string) => sendMessage(Command.workspaceProbePath, { path }),
+  scan: (root: string) => sendMessage(Command.workspaceScan, { root }),
+  open: (path: string) => sendMessage(Command.workspaceOpen, { path }),
+  deleteHandoffDoc: (args: CommandData<Command.handoffDocDelete>) => sendMessage(Command.handoffDocDelete, args),
+  temp: () => sendMessage(Command.workspaceTemp),
+  move: (args: CommandData<Command.workspaceMove>) => sendMessage(Command.workspaceMove, args),
+  rename: (args: CommandData<Command.workspaceRename>) => sendMessage(Command.workspaceRename, args),
+  renameFolder: (args: CommandData<Command.workspaceRenameFolder>) => sendMessage(Command.workspaceRenameFolder, args),
+  saveMigrate: (args: CommandData<Command.workspaceSaveMigrate>) => sendMessage(Command.workspaceSaveMigrate, args),
+  setLabel: (args: CommandData<Command.workspaceSetLabel>) => sendSettingsMessage(Command.workspaceSetLabel, args),
+  autoname: (args: CommandData<Command.projectAutoname>) => sendMessage(Command.projectAutoname, args),
+  delete: (path: string) => sendSettingsMessage(Command.workspaceDelete, { path }),
+  prune: () => sendSettingsMessage(Command.workspacePrune),
+  create: (args: CommandData<Command.workspaceCreate>) => sendMessage(Command.workspaceCreate, args),
+  clearRecent: () => sendSettingsMessage(Command.workspaceClearRecent),
+  setPinned: (args: CommandData<Command.workspaceSetPinned>) => sendSettingsMessage(Command.workspaceSetPinned, args),
+  removeRecent: (path: string) => sendSettingsMessage(Command.workspaceRemoveRecent, { path }),
+  setPinnedOrder: (paths: string[]) => sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths }),
+  deleteDirectory: (path: string) => sendSettingsMessage(Command.workspaceDeleteDirectory, { path }),
+  setDefaultAgent: (agent: string) => sendSettingsMessage(Command.setDefaultAgent, { agent }),
+  setProjectAgent: (args: CommandData<Command.setProjectAgent>) => sendSettingsMessage(Command.setProjectAgent, args),
+  setPrefs: (patch: Partial<Prefs>) => sendSettingsMessage(Command.setPrefs, { patch })
 };

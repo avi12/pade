@@ -139,11 +139,12 @@ export type RestoreCandidate = z.infer<typeof RestoreCandidate>;
  *  branch that diverged from upstream (no fast-forward) throws instead. */
 const PullStatus = z.enum(["updated", "alreadyUpToDate", "refusedDirty"]);
 
-/** The result of `vcs.pull`: the outcome plus a short human line for the toast. */
+/** The result of `vcs_pull`: the outcome plus a short human line for the toast. */
 export const PullOutcome = z.object({
   status: PullStatus,
   message: z.string()
 });
+export type PullOutcome = z.infer<typeof PullOutcome>;
 
 export const ConfigFile = z.object({
   name: z.string(),
@@ -304,6 +305,7 @@ export const Usage = z.object({
   /** Where the figure came from - so the UI stays honest about it. */
   source: z.string()
 });
+export type Usage = z.infer<typeof Usage>;
 
 /** The semantic kind of a rate-limit window. The account endpoint returns a
  *  handful of named windows (the 5-hour session, the 7-day weekly all-models cap,
@@ -389,11 +391,13 @@ export const LimitResetOutcome = z.object({
   result: z.string(),
   reason: z.string().nullish()
 });
+export type LimitResetOutcome = z.infer<typeof LimitResetOutcome>;
 
 export const LaunchContext = z.object({
   hasProject: z.boolean(),
   cwd: z.string()
 });
+export type LaunchContext = z.infer<typeof LaunchContext>;
 
 export const ProjectEntry = z.object({
   name: z.string(),
@@ -578,6 +582,7 @@ export const SaveMigration = z.object({
   path: z.string(),
   install: z.string().nullable()
 });
+export type SaveMigration = z.infer<typeof SaveMigration>;
 
 /** A live probe of the path being typed into the add-root field. Instead of
  *  regex-guessing whether the text is a valid path, the backend just checks the
@@ -652,8 +657,10 @@ export const PtyHistory = z.object({
   seq: z.number(),
   alternate: z.boolean()
 });
+export type PtyHistory = z.infer<typeof PtyHistory>;
 
 export const PtyExit = z.object({ id: z.string() });
+export type PtyExit = z.infer<typeof PtyExit>;
 
 /** One live PTY session the backend still hosts (`pty_list`) - the re-attach
  *  roster after a WebView reload. A listed session is alive by construction.
@@ -666,6 +673,7 @@ export const PtySession = z.object({
   /** The directory it was spawned into - its workspace mapping. */
   cwd: z.string().nullable()
 });
+export type PtySession = z.infer<typeof PtySession>;
 
 /** A tracked task-runner (dock) and its stream event payloads. */
 export const RunnerInfo = z.object({
@@ -674,6 +682,7 @@ export const RunnerInfo = z.object({
   cwd: z.string().nullable(),
   startedAt: z.number()
 });
+export type RunnerInfo = z.infer<typeof RunnerInfo>;
 
 export const RunnerStream = z.enum(["stdout", "stderr"]);
 export type RunnerStream = z.infer<typeof RunnerStream>;
@@ -732,6 +741,7 @@ export const SessionContext = z.object({
   usedTokens: z.number().nullable(),
   windowTokens: z.number().nullable()
 });
+export type SessionContext = z.infer<typeof SessionContext>;
 
 /** One model an agent offers to switch to, as its own local catalog describes
  *  it - effort levels lowest first (with the agent's labels), empty for a
@@ -749,27 +759,35 @@ export const ModelOption = z.object({
 });
 export type ModelOption = z.infer<typeof ModelOption>;
 
-/** How a picked model reaches a running session (see `pty.applyModel`). */
+/** How a picked model reaches a running session (see `agent_apply_model`). */
 export const SwitchOutcome = z.enum(["applied", "needsRestart"]);
+export type SwitchOutcome = z.infer<typeof SwitchOutcome>;
 
-/** The model and reasoning effort a session runs, as the agent reported it. */
+/** The model and reasoning effort a session runs, as the agent reported it.
+ *  The wire's `ultracode` (Claude's multi-agent orchestration is on for the
+ *  session) arrives as the boolean-named `isUltracode`. */
 export const RunningModel = z.object({
   model: z.string(),
   effort: z.string().nullable(),
-  /** Claude's Ultracode (multi-agent orchestration) is on for the session. */
   ultracode: z.boolean()
-});
+}).transform(({ ultracode, ...reported }) => ({
+  ...reported,
+  isUltracode: ultracode
+}));
+export type RunningModel = z.infer<typeof RunningModel>;
 
 export const RunningModelChanged = z.object({
   sessionId: z.string().nullable()
 });
+export type RunningModelChanged = z.infer<typeof RunningModelChanged>;
 
 /** A Change Feed image preview: the file's bytes as a ready-to-use `data:` URL,
  *  so the card renders it with a plain `<img src>`. The whole payload is nullable
- *  at the boundary (see `feed.image`). */
+ *  at the boundary (see `feed_image`). */
 export const FeedImage = z.object({
   dataUrl: z.string()
 });
+export type FeedImage = z.infer<typeof FeedImage>;
 
 /** How a Change Feed video preview turned out: a transcoded clip, or no clip
  *  because ffmpeg isn't installed. */
