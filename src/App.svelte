@@ -1899,26 +1899,29 @@
           <span class="handoff-dot"></span>
           {autoHandoff.note || usageResume.note || apiErrorRetry.note}
         </output>
-      {:else if usagePacing.pause}
-        {@const pause = usagePacing.pause}
-        <output class="handoff-note">
-          <span class="handoff-dot"></span>
-          {pause.note}
-          {#if pause.canContinueWhenReady}
-            <button
-              class="note-action quiet" onclick={() => usagePacing.continueWhenReady(pause.id)}
-              type="button">Continue when there's room</button>
-          {/if}
-          <button
-            class="note-action" onclick={async () => await usagePacing.continueNow(pause.id)}
-            type="button">
-            {#if pause.isReady}
-              Continue
-            {:else}
-              Continue anyway
-            {/if}
-          </button>
-        </output>
+      {:else if usagePacing.pauses.length > 0}
+        <div class="pacing-notes">
+          {#each usagePacing.pauses as pause (pause.id)}
+            <output class="handoff-note">
+              <span class="handoff-dot"></span>
+              {pause.note}
+              {#if pause.canContinueWhenReady}
+                <button
+                  class="note-action quiet" onclick={() => usagePacing.continueWhenReady(pause.id)}
+                  type="button">Continue when there's room</button>
+              {/if}
+              <button
+                class="note-action" onclick={async () => await usagePacing.continueNow(pause.id)}
+                type="button">
+                {#if pause.isReady}
+                  Continue
+                {:else}
+                  Continue anyway
+                {/if}
+              </button>
+            </output>
+          {/each}
+        </div>
       {/if}
 
       {#if toastText()}
@@ -2240,18 +2243,36 @@
       font-weight: 600;
 
       &:hover {
-        background: color-mix(in srgb, var(--primary) 88%, var(--on-primary));
+        background: color-mix(in sRGB, var(--primary) 88%, var(--on-primary));
       }
 
       &.quiet {
-        outline: 1px solid var(--primary);
         background: transparent;
         color: var(--on-primary-container);
+        outline: 1px solid var(--primary);
 
         &:hover {
-          background: color-mix(in srgb, var(--primary) 14%, transparent);
+          background: color-mix(in sRGB, var(--primary) 14%, transparent);
         }
       }
+    }
+  }
+
+  /* One pacing note per paused agent, stacked where the single note sits. */
+  .pacing-notes {
+    position: fixed;
+    inset-block-start: 60px;
+    inset-inline-start: 50%;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    translate: -50% 0;
+
+    .handoff-note {
+      position: static;
+      transform: none;
     }
   }
 

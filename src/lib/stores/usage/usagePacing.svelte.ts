@@ -273,7 +273,7 @@ export interface PacingHost {
 }
 
 /** The pacing loop, scoped to one app shell. The shell calls `check()` from a
- *  `$effect` and `dispose()` on destroy, shows `pause` while a session waits, and
+ *  `$effect` and `dispose()` on destroy, shows `pauses` while sessions wait, and
  *  calls `continueNow` when the user picks it back up. */
 export function createUsagePacing(host: PacingHost) {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -562,9 +562,10 @@ export function createUsagePacing(host: PacingHost) {
   }
 
   return {
-    /** The first session waiting on PADE or the user to continue - its id and
-     *  status line - or null when none is. */
-    get pause() {
+    /** Every session waiting on PADE or the user to continue - each agent paced
+     *  against its own account - with its id and status line. */
+    get pauses() {
+      const pauses = [];
       for (const session of host.sessions()) {
         const state = paced.get(session.id);
         const isWaiting = state !== undefined && state.phase !== PacePhase.enum.overridden;
@@ -574,7 +575,7 @@ export function createUsagePacing(host: PacingHost) {
 
         const isReady = state.phase === PacePhase.enum.ready;
         const isContinuingWhenReady = host.mode() === PacingMode.enum.continue || state.isContinuingWhenReady;
-        return {
+        pauses.push({
           id: session.id,
           isReady,
           /** Whether the user can still ask for it to continue once it has room. */
@@ -585,10 +586,10 @@ export function createUsagePacing(host: PacingHost) {
             isContinuingWhenReady,
             now: Date.now()
           })
-        };
+        });
       }
 
-      return null;
+      return pauses;
     },
     /** The user picks a paused session back up now. */
     continueNow: resume,
