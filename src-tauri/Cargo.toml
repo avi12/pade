@@ -48,7 +48,7 @@ png = "0.18"
 # mints the clientSessionId. All pure-Rust, no new native/DLL surface.
 ureq = { version = "2", default-features = false, features = ["tls"] }
 tungstenite = { version = "0.30", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
-sha2 = "0.10"
+sha2 = "0.11"
 uuid = { version = "1", features = ["v4"] }
 
 [target."cfg(windows)".dependencies]

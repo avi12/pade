@@ -15,6 +15,7 @@
 //! Measured against Codex 0.161.
 
 use sha2::{Digest, Sha256};
+use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
 use super::{
@@ -182,7 +183,12 @@ fn fingerprint(trust_name: &str, command: &str) -> String {
         }]
     });
     let digest = Sha256::digest(group.to_string().as_bytes());
-    format!("sha256:{digest:x}")
+    let mut fingerprint = String::from("sha256:");
+    for byte in digest {
+        // Writing into a `String` cannot fail.
+        let _ = write!(fingerprint, "{byte:02x}");
+    }
+    fingerprint
 }
 
 fn toml_string(value: &str) -> String {
