@@ -56,7 +56,7 @@
   }
 
   // Confidence as a 0..100 percentage - scores run 0..≈1.5, clamped for display.
-  function confidencePercentage(score: number): number {
+  function confidencePercentage(score: number) {
     return Math.round(Math.min(score / 1.5, 1) * 100);
   }
 </script>

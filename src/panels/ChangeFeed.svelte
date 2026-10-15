@@ -71,7 +71,7 @@
   // the workspace's own repo and for a nested checkout is its own. Empty for a
   // non-repo / detached-HEAD workspace. The branches ride the shared member
   // store, so the feed and the top bar can never report different HEADs.
-  function branchOfGroup(groupId: string): string | undefined {
+  function branchOfGroup(groupId: string) {
     const repository = repositoryOfGroup({
       groupId,
       members: workspaceMembers
@@ -171,7 +171,7 @@
     cache: SvelteMap<string, Preview | null>;
     id: string;
     load: () => Promise<Preview | null>;
-  }): Promise<void> {
+  }) {
     if (cache.has(id)) {
       return;
     }
@@ -200,7 +200,7 @@
   // image cache, so a feed of docs never fetches them all at once.
   const previewDocCache = new SvelteMap<string, string | null>();
 
-  function paneOf(id: string): PreviewPane {
+  function paneOf(id: string) {
     return paneById.get(id) ?? PreviewPane.code;
   }
 
@@ -210,7 +210,7 @@
   function previewDocument({ path, text }: {
     path: string;
     text: string;
-  }): string {
+  }) {
     return isMarkdownPath(path) ? markdownDocument(text) : sandboxedHtmlDocument(text);
   }
 
@@ -220,7 +220,7 @@
   async function showPreview({ id, path }: {
     id: string;
     path: string;
-  }): Promise<void> {
+  }) {
     paneById.set(id, PreviewPane.preview);
 
     if (previewDocCache.has(id)) {
@@ -288,7 +288,7 @@
   // (concurrently) on mount and on a project switch. Each callee owns its own
   // error handling, so the gathered promise never rejects. The members and their
   // branches are not here: they belong to the shared store App fills.
-  async function loadWorkspaceState(workspace: string): Promise<void> {
+  async function loadWorkspaceState(workspace: string) {
     await Promise.all([
       loadRemote(workspace),
       // What the backend is actually watching, so an empty feed can say why.
@@ -327,7 +327,7 @@
   async function loadCardPreview({ id, path }: {
     id: string;
     path: string;
-  }): Promise<void> {
+  }) {
     if (isImagePath(path)) {
       await loadPreviewOnce({
         cache: imageCache,
@@ -369,7 +369,7 @@
   async function followNewestRevision({ staleId, newest }: {
     staleId: string;
     newest: ChangeEvent;
-  }): Promise<void> {
+  }) {
     await loadCardPreview(newest);
     const isStillOnStaleCard = expandedId === staleId;
     if (isStillOnStaleCard) {
@@ -415,7 +415,7 @@
   // The dir line reads root-anchored relative to the open project ("/backend/convex"),
   // "/" for a file at the root - the absolute prefix is the workspace's own
   // constant noise and lives in the tooltip instead.
-  function relativeDirectory(path: string): string {
+  function relativeDirectory(path: string) {
     return relativeToRoot({
       path: parentDirectory(path) ?? path,
       root: project
@@ -523,7 +523,7 @@
     return groups.filter(group => group.id === activeGroupId);
   });
 
-  function roleLabel(role: GroupRole): string {
+  function roleLabel(role: GroupRole) {
     if (role === GroupRole.Service) {
       return "SVC";
     }
@@ -544,7 +544,7 @@
   async function openChangedFile({ path, line }: {
     path: string;
     line?: number;
-  }): Promise<void> {
+  }) {
     if (isBinaryPath(path)) {
       await os.reveal(path);
       return;
@@ -562,7 +562,7 @@
 
   // The verb on a card's open button - the one source its tooltip and its
   // enabled state read, so both follow the same editor-or-folder decision.
-  function openAction(path: string): string {
+  function openAction(path: string) {
     if (isBinaryPath(path)) {
       return "Show in folder";
     }
@@ -578,7 +578,7 @@
   async function revealDiff({ path, event }: {
     path: string;
     event: MouseEvent;
-  }): Promise<void> {
+  }) {
     // A drag to select text (for send-to-agent) must not also open the file.
     const selection = getSelection();
     if (selection && !selection.isCollapsed) {
@@ -598,7 +598,7 @@
   async function onDiffKey({ event, path }: {
     event: KeyboardEvent;
     path: string;
-  }): Promise<void> {
+  }) {
     if (event.key === "Enter") {
       await openChangedFile({
         path,
@@ -615,7 +615,7 @@
   // fall back to previewing the whole current file: everything a file created this
   // session holds IS new, so the full content is the honest preview. A deletion
   // (empty `after`) keeps its real removal diff - no fallback.
-  function previewLines(preview: FeedDiff | null): DiffLine[] {
+  function previewLines(preview: FeedDiff | null) {
     if (!preview) {
       return [];
     }

@@ -20,7 +20,7 @@
   }: {
     scheme: Scheme;
     name: string | null;
-  }): Promise<void> {
+  }) {
     await updatePrefs({
       terminalSchemes: {
         ...effective.terminalSchemes,
@@ -29,7 +29,7 @@
     });
   }
 
-  async function pickForBoth(name: string | null): Promise<void> {
+  async function pickForBoth(name: string | null) {
     await updatePrefs({
       terminalSchemes: {
         light: name,

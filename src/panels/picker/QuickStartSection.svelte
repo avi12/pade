@@ -109,8 +109,8 @@
   // change only takes hold once the browser has laid it out - focusing a
   // still-hidden element is a silent no-op. Waiting two frames lets the
   // visibility actually land before we place the caret.
-  function afterVisibilityApplies(): Promise<void> {
-    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  function afterVisibilityApplies() {
+    return new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   }
 
   // Land the caret on the first field still waiting for input - the name if it's
@@ -120,7 +120,7 @@
   // "this field is empty" state (every field here carries a placeholder), so the
   // first field still showing it is the first one awaiting input; fall back to the
   // first field when all are filled.
-  function focusFirstEmptyField(): void {
+  function focusFirstEmptyField() {
     const panel = card?.querySelector<HTMLElement>(".open .panel");
     if (!panel) {
       return;
@@ -240,7 +240,7 @@
   // Does a native drag sit over the Local tab's folder field? The panels
   // overlay each other, so the tab gate matters as much as the geometry (the
   // clone URL input occupies the same spot).
-  function isOverLocalField(position: DragPosition): boolean {
+  function isOverLocalField(position: DragPosition) {
     const row = localInput?.closest(".new-project-location");
     if (tab !== StartTab.local || !row) {
       return false;

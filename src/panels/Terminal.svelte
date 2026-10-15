@@ -827,7 +827,7 @@
     );
   }
 
-  function isReadingScrollback(): boolean {
+  function isReadingScrollback() {
     if (!terminal || terminal.buffer.active.type === Screen.Alternate) {
       return false;
     }
@@ -1026,8 +1026,8 @@
   // Each caller's promise settles after the backend accepted its bytes (or the
   // endpoint is known gone), so the boot trust-gate and initial-prompt sequence
   // remains ordered without leaving an awaiter stranded on a failed transport.
-  function writeToPty(data: string): Promise<void> {
-    return new Promise(settle => {
+  function writeToPty(data: string) {
+    return new Promise<void>(settle => {
       queuedPtyWrites.push({
         data,
         settle
@@ -1039,7 +1039,7 @@
     });
   }
 
-  async function flushPtyWrites(): Promise<void> {
+  async function flushPtyWrites() {
     ptyWriteInFlight = true;
     while (queuedPtyWrites.length > 0) {
       const writes = queuedPtyWrites;
@@ -1240,10 +1240,7 @@
   // no measured space while the browser resolves the new layout, and clamping
   // that transient to a 2x1 terminal desynchronises a TUI permanently (Codex
   // treats it as a real resize). The caller keeps the last truthful grid instead.
-  function paneGrid(): {
-    columns: number;
-    rows: number;
-  } | undefined {
+  function paneGrid() {
     if (!terminal || !viewport) {
       return undefined;
     }
@@ -1916,7 +1913,7 @@
   // reads any other path as a file reference. Tauri's native drag events carry
   // the absolute paths the web drag API withholds, and every pane hears every
   // drop in the window, so each one claims only a drop on its own viewport.
-  async function listenForFileDrops(): Promise<void> {
+  async function listenForFileDrops() {
     const listeners = await Promise.all([
       dragDrop.onOver(({ position }) => {
         fileDragOver = isDragOverElement({
@@ -1954,7 +1951,7 @@
   // Ctrl+F searches this pane's output instead of reaching the agent as a raw
   // ^F (which a shell reads as "forward one character"). The bar owns its own
   // open state; the pane only asks for it and takes the keyboard back after.
-  async function openFindBar(): Promise<void> {
+  async function openFindBar() {
     await findBar?.reveal();
   }
 </script>

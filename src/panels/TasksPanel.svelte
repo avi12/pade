@@ -23,7 +23,7 @@
   const error = $derived(snapshot.error);
   const manifests = $derived(snapshot.descriptors);
 
-  async function refresh(workspace = project): Promise<void> {
+  async function refresh(workspace = project) {
     await taskCatalog.refresh(workspace);
   }
 

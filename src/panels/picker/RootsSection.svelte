@@ -33,7 +33,7 @@
 
   // "1 project" / "6 projects" - count and matching noun as one string, so no
   // template whitespace can split them.
-  function projectCountLabel(count: number): string {
+  function projectCountLabel(count: number) {
     return `${count} project${count === 1 ? "" : "s"}`;
   }
 

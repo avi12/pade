@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
 const RENAMED = "C:\\repositories\\avi\\poll";
 
-function host(overrides: Partial<LifecycleHost> = {}): LifecycleHost {
+function host(overrides: Partial<LifecycleHost> = {}) {
   return {
     isOwned: () => false,
     onmove: vi.fn(async () => ""),

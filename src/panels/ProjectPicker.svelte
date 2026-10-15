@@ -6,7 +6,6 @@
   import { settings } from "@/lib/settings.svelte";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
-    AddRootOutcome,
     Agent,
     EditorKind,
     Ide,
@@ -86,11 +85,7 @@
   // Add an editor by executable path. The backend validates the executable and
   // persists it; we refresh the detected list so it appears in every menu.
   // Returns the new editor's label on success, or the rejection message.
-  async function addEditor(path: string): Promise<{
-    label: string;
-  } | {
-    error: string;
-  }> {
+  async function addEditor(path: string) {
     try {
       await ide.addEditor(path);
       ides = await ide.detect();
@@ -104,7 +99,7 @@
   // detected list is shared across the picker, so refreshing it here updates every
   // section at once. Returns how many were auto-detected (added editors aren't
   // "detected") for the button's toast.
-  async function rescanEditors(): Promise<number> {
+  async function rescanEditors() {
     ides = await ide.detect();
     const addedIds = new Set((settings.prefs.addedEditors ?? []).map(editor => editor.id));
     return ides.filter(editor => !addedIds.has(editor.id)).length;
@@ -118,7 +113,7 @@
 
   // Re-scan every root's projects into projectsByRoot - the cheap part of a
   // reload (a handful of directory reads), shared by both refresh paths.
-  function scanRoots(): Promise<Record<string, ProjectEntry[]>> {
+  function scanRoots() {
     return Promise.all(
       settings.roots.map(async root => [root, await scan(root)] as const)
     ).then(Object.fromEntries);
@@ -174,7 +169,7 @@
       aiSessionNaming: on
     });
   }
-  function scan(root: string): Promise<ProjectEntry[]> {
+  function scan(root: string) {
     return workspace.scan(root).catch((): ProjectEntry[] => []);
   }
 
@@ -188,7 +183,7 @@
 
   // The form's best default root: a lone root wins outright; otherwise the one
   // most recent projects live in (ties keep the earlier root).
-  function popularRoot(): string {
+  function popularRoot() {
     const { roots, recentProjects } = settings;
     const [firstRoot] = roots;
     if (firstRoot === undefined || roots.length === 1) {
@@ -199,7 +194,7 @@
       .map(parentDirectory)
       .filter((parent): parent is string => parent !== null)
       .map(normalizePath);
-    function usage(root: string): number {
+    function usage(root: string) {
       return recentParents.filter(parent => parent === normalizePath(root)).length;
     }
     return roots.reduce((best, root) => (usage(root) > usage(best) ? root : best));
@@ -210,7 +205,7 @@
   // untouched so the add-row can prompt to create the folder or show an error.
   async function addRoot(path: string, { create }: {
     create: boolean;
-  }): Promise<AddRootOutcome> {
+  }) {
     const outcome = await workspace.addRoot({
       path,
       create
@@ -245,7 +240,7 @@
     await workspace.setDefaultAgent(agentId);
   }
 
-  function isOwned(path: string): boolean {
+  function isOwned(path: string) {
     // Temp dirs are ADE-created even if predating owned-workspace tracking.
     return settings.ownedWorkspaces.includes(path) || isTemporaryWorkspace(path);
   }

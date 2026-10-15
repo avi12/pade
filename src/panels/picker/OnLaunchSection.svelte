@@ -42,7 +42,7 @@
   // Registering the Explorer menu can fail where the others cannot (the modern
   // Win11 entry needs Developer Mode), so this row reports back instead of just
   // flipping - and always re-reads the registry, which is the real answer.
-  async function setContextMenu(on: boolean): Promise<void> {
+  async function setContextMenu(on: boolean) {
     contextMenuError = "";
     try {
       if (on) {

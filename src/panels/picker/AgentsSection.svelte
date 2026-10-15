@@ -41,7 +41,7 @@
   const showEmpty = $derived(!scanning && realAgents.length === 0);
   const agentStatus = $derived(agentStatusText());
 
-  function agentStatusText(): string {
+  function agentStatusText() {
     if (scanning) {
       return "Scanning installs…";
     }

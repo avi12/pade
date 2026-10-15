@@ -53,19 +53,19 @@
   const options = $derived<(TerminalScheme | null)[]>([null, ...schemes]);
   const chosen = $derived(schemes.find(scheme => scheme.name === value) ?? null);
 
-  function optionName(scheme: TerminalScheme | null): string {
+  function optionName(scheme: TerminalScheme | null) {
     return scheme?.name ?? FOLLOW_APP_THEME;
   }
 
-  function pick(scheme: TerminalScheme | null): void {
+  function pick(scheme: TerminalScheme | null) {
     onpick(scheme?.name ?? null);
   }
 
-  function previewBackground(scheme: TerminalScheme | null): string {
+  function previewBackground(scheme: TerminalScheme | null) {
     return scheme?.background ?? "var(--surface-2)";
   }
 
-  function previewColors(scheme: TerminalScheme | null): string[] {
+  function previewColors(scheme: TerminalScheme | null) {
     if (!scheme) {
       return APP_THEME_COLORS;
     }

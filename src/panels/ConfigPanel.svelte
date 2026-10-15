@@ -60,7 +60,7 @@
     label: string;
   }[];
 
-  async function chooseNamingScope(choice: boolean | undefined): Promise<void> {
+  async function chooseNamingScope(choice: boolean | undefined) {
     await updatePrefs({
       aiSessionNamingProjects: withProjectNamingChoice({
         prefs,
@@ -138,7 +138,7 @@
 
   const scalePercent = $derived(formatPercent(effective.uiScale * 100));
 
-  async function stepScale(delta: number): Promise<void> {
+  async function stepScale(delta: number) {
     const clamped = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, effective.uiScale + delta));
     // Round to the step grid so accumulated float drift never leaks into the pref.
     await updatePrefs({ uiScale: Math.round(clamped * 100) / 100 });
@@ -147,7 +147,7 @@
   // Slider and number box both funnel through the input schema - the slider
   // can only emit in-band values, but the free-typed number is a trust
   // boundary like any other field.
-  async function applyHandoffPercentage(raw: string): Promise<void> {
+  async function applyHandoffPercentage(raw: string) {
     const percent = parseInput({
       schema: HandoffPercent,
       raw

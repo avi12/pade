@@ -77,12 +77,12 @@
 
   // The detected editor behind an id - undefined when the rule points at an
   // editor that's no longer installed (the trigger then reads "Choose…", no icon).
-  function detectedEditor(editorId: string): Ide | undefined {
+  function detectedEditor(editorId: string) {
     return ides.find(editor => editor.id === editorId);
   }
   // The detected editors that suit a kind, in the backend's priority order. An
   // unknown kind (no entry) falls back to every editor rather than hiding them all.
-  function editorsForKind(kind: string): Ide[] {
+  function editorsForKind(kind: string) {
     const ids = kindOptions[kind];
     if (!ids) {
       return ides;
@@ -93,7 +93,7 @@
       .filter((editor): editor is Ide => editor !== undefined);
   }
   // Stable, valid popover id/anchor per editor select (kind or "fallback").
-  function editorSelectId(key: string): string {
+  function editorSelectId(key: string) {
     return `ide-${key.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   }
 </script>

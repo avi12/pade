@@ -192,7 +192,7 @@
       y: dragHint.pointerY
     })
     : null));
-  function dropSideFor(id: string): DropSide | null {
+  function dropSideFor(id: string) {
     return splitTarget?.id === id ? splitTarget.side : null;
   }
 
@@ -788,7 +788,7 @@
     /** The conversation to carry on - a session resumed after its folder
      *  moved; a new one otherwise. */
     conversationId?: string;
-  }): string {
+  }) {
     const session: AgentSession = {
       id: crypto.randomUUID(),
       agent: options.agent,
