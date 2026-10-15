@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ide-icon";
   import { languageIcon } from "@/lib/language-icon";
@@ -178,7 +179,12 @@
         isRescanning = true;
         try {
           const found = await onrescan();
-          showToast(`Re-detected ${found} editor${found === 1 ? "" : "s"} on this machine`);
+          showToast(
+            `Re-detected ${formatQuantity({
+              count: found,
+              noun: "editor"
+            })} on this machine`
+          );
         } finally {
           isRescanning = false;
         }

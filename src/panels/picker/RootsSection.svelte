@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow } from "@/lib/motion";
@@ -30,12 +31,6 @@
     }) => Promise<AddRootOutcome>;
     onremove: (path: string) => Promise<void>;
   } = $props();
-
-  // "1 project" / "6 projects" - count and matching noun as one string, so no
-  // template whitespace can split them.
-  function projectCountLabel(count: number) {
-    return `${count} project${count === 1 ? "" : "s"}`;
-  }
 
   let newRoot = $state("");
   // The latest probe result, tagged with the path it was computed for so the
@@ -225,7 +220,10 @@
         <span class="root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
         <code class="rootpath">{root}</code>
         {#if projects.length > 0}
-          <span class="root-count">{projectCountLabel(projects.length)}</span>
+          <span class="root-count">{formatQuantity({
+            count: projects.length,
+            noun: "project"
+          })}</span>
         {/if}
         <button
           class="remove"

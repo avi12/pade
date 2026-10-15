@@ -4,7 +4,7 @@
   import FileList from "@/lib/commitModal/FileList.svelte";
   import { parseDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
-  import { formatCount } from "@/lib/format";
+  import { formatCount, formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
   import { repositoryCommitUrl } from "@/lib/repository-links";
@@ -45,14 +45,12 @@
     !loadFailed && (!!selectedFile?.binary || (!isLoading && diffLines.length === 0))
   );
 
-  const fileCountLabel = $derived.by(() => {
-    const count = formatCount(commit.files.length);
-    if (commit.files.length === 1) {
-      return `${count} file`;
-    }
-
-    return `${count} files`;
-  });
+  const fileCountLabel = $derived(
+    formatQuantity({
+      count: commit.files.length,
+      noun: "file"
+    })
+  );
   const commitUrl = $derived(
     repositoryCommitUrl({
       remoteUrl,

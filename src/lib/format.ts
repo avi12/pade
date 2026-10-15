@@ -10,6 +10,18 @@ export function formatCount(value: number) {
   return INTEGER.format(value);
 }
 
+const SINGULAR_COUNT = 1;
+
+/** A count with its noun as one string, so no template whitespace can split
+ *  them - "1 file", "1,234 files". `plural` defaults to the noun plus "s". */
+export function formatQuantity({ count, noun, plural = `${noun}s` }: {
+  count: number;
+  noun: string;
+  plural?: string;
+}) {
+  return `${formatCount(count)} ${count === SINGULAR_COUNT ? noun : plural}`;
+}
+
 /** A rounded whole percent - 30.4 → "30%". */
 export function formatPercent(value: number) {
   return `${INTEGER.format(value)}%`;

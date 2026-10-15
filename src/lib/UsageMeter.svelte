@@ -1,7 +1,7 @@
 <script lang="ts">
   import { AgentId } from "@/lib/agent-icon";
   import { usage as usageApi } from "@/lib/bridge";
-  import { formatCount } from "@/lib/format";
+  import { formatCount, formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import LimitResetConfirm from "@/lib/LimitResetConfirm.svelte";
   import LimitResetOffer from "@/lib/LimitResetOffer.svelte";
@@ -76,14 +76,6 @@
     return SEVERITY_CLASS[level];
   }
 
-  function agentNoun(count: number) {
-    if (count === 1) {
-      return "agent";
-    }
-
-    return "agents";
-  }
-
   // One group per distinct running agent, worst-first (see usage-groups.ts). Each
   // agent carries its real limits when its account resolved; an agent with no
   // local usage signal is "unknown".
@@ -113,7 +105,10 @@
     return null;
   });
   const overflowTooltip = $derived(
-    `${formatCount(overflowCount)} more ${agentNoun(overflowCount)} - open for the full list`
+    `${formatQuantity({
+      count: overflowCount,
+      noun: "more agent"
+    })} - open for the full list`
   );
 
   const severitySlices = $derived(severityBreakdown(groups));
@@ -137,7 +132,12 @@
     return `resets ${spotlight.limit.reset}`;
   });
   const kindLegend = $derived(buildKindLegend(groups));
-  const runningLabel = $derived(`${formatCount(groups.length)} ${agentNoun(groups.length)} running`);
+  const runningLabel = $derived(
+    `${formatQuantity({
+      count: groups.length,
+      noun: "agent"
+    })} running`
+  );
 
   const ariaLabel = $derived.by(() => {
     if (groups.length === 0) {

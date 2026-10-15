@@ -1,9 +1,51 @@
-import { formatAge, formatCount, formatPercent, formatTimestamp } from "@/lib/format";
+import {
+  formatAge,
+  formatCount,
+  formatPercent,
+  formatQuantity,
+  formatTimestamp
+} from "@/lib/format";
 import { describe, expect, it } from "vitest";
 
 // The wrappers delegate localisation to Intl, so these assertions pin what the
 // module owns - rounding, digit preservation, suffixes - not any one locale's
 // separators (they assume only a latin-digit locale, true of dev machines).
+describe("formatQuantity", () => {
+  it("keeps the noun singular for exactly one", () => {
+    expect(
+      formatQuantity({
+        count: 1,
+        noun: "file"
+      })
+    ).toBe("1 file");
+  });
+
+  it("pluralises every other count, zero included", () => {
+    expect(
+      formatQuantity({
+        count: 0,
+        noun: "file"
+      })
+    ).toBe("0 files");
+    expect(
+      formatQuantity({
+        count: 6,
+        noun: "project"
+      })
+    ).toBe("6 projects");
+  });
+
+  it("takes an irregular plural", () => {
+    expect(
+      formatQuantity({
+        count: 2,
+        noun: "match",
+        plural: "matches"
+      })
+    ).toBe("2 matches");
+  });
+});
+
 describe("formatCount", () => {
   it("formats a small integer as plain digits", () => {
     expect(formatCount(7)).toBe("7");

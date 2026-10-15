@@ -1,7 +1,7 @@
 <script lang="ts">
   import { os, vcs } from "@/lib/bridge";
   import CommitModal from "@/lib/CommitModal.svelte";
-  import { formatCount } from "@/lib/format";
+  import { formatCount, formatQuantity } from "@/lib/format";
   import { Key } from "@/lib/keys";
   import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
@@ -92,10 +92,6 @@
     await tick();
     elLog?.querySelectorAll<HTMLElement>("[data-commit]")[index]?.focus();
   }
-
-  function fileLabel(count: number) {
-    return `${formatCount(count)} file${count === 1 ? "" : "s"}`;
-  }
 </script>
 
 <section class="group log">
@@ -143,7 +139,10 @@
           <span class="c-bot">
             <span class="author-details">{commit.author} · {commit.when}</span>
             <span class="stats">
-              <span class="fn">{fileLabel(commit.files)}</span>
+              <span class="fn">{formatQuantity({
+                count: commit.files,
+                noun: "file"
+              })}</span>
               {#if commit.additions}
                 <span class="add">+{formatCount(commit.additions)}</span>
               {/if}
