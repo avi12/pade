@@ -12,9 +12,19 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-use crate::agents;
-use crate::agents::{ID_CODEX, ID_OPENCODE};
+use crate::agents::{program, ID_CODEX, ID_OPENCODE};
 use crate::util::{command, home_dir};
+
+/// The rollout file extension and the `session_meta` fields read off its first
+/// line.
+const ROLLOUT_EXTENSION: &str = "jsonl";
+const SOURCE_FIELD: &str = "source";
+const CWD_FIELD: &str = "cwd";
+const SESSION_ID_FIELD: &str = "session_id";
+/// The `source` a oneshot `codex exec` run records.
+const EXEC_SOURCE: &str = "exec";
+/// Every opencode session id starts with this.
+const OPENCODE_SESSION_PREFIX: &str = "ses_";
 
 /// How many of the newest rollout files are worth inspecting before giving up.
 /// Oneshot `codex exec` runs (auto-naming) also record rollouts, so a few
@@ -55,7 +65,7 @@ fn rollout_files(directory: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
 
         let is_rollout = path
             .extension()
-            .is_some_and(|extension| extension == "jsonl");
+            .is_some_and(|extension| extension == ROLLOUT_EXTENSION);
         if !is_rollout {
             continue;
         }
@@ -90,22 +100,24 @@ fn normalized(path: &str) -> String {
 /// base-instructions prompt, and two string fields don't justify a serde model
 /// of Codex's private schema.
 fn interactive_session_id(metadata_line: &str, wanted_cwd: &str) -> Option<String> {
-    if json_string_field(metadata_line, "source").is_some_and(|source| source == "exec") {
+    let is_oneshot =
+        json_string_field(metadata_line, SOURCE_FIELD).is_some_and(|source| source == EXEC_SOURCE);
+    if is_oneshot {
         return None;
     }
 
-    let cwd = json_string_field(metadata_line, "cwd")?;
+    let cwd = json_string_field(metadata_line, CWD_FIELD)?;
     if normalized(&cwd.replace("\\\\", "\\")) != wanted_cwd {
         return None;
     }
 
-    json_string_field(metadata_line, "session_id")
+    json_string_field(metadata_line, SESSION_ID_FIELD)
 }
 
 /// The raw value of the first `"key":"value"` occurrence in `json`. Enough for
 /// the flat string fields the meta line carries; escaped quotes inside values
 /// don't occur in ids and the cwd's escaped backslashes are undone by the caller.
-fn json_string_field(json: &str, key: &str) -> Option<String> {
+pub(crate) fn json_string_field(json: &str, key: &str) -> Option<String> {
     let marker = format!("\"{key}\":\"");
     let start = json.find(&marker)? + marker.len();
     let end = json[start..].find('"')?;
@@ -131,14 +143,14 @@ const OPENCODE_DB_LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::fro
 /// can drop into its interactive sqlite shell and wait forever - and the wait
 /// is bounded: on timeout the child is killed and the session spawns fresh.
 fn opencode_session_for_cwd(cwd: &str) -> Option<String> {
-    let program = agents::program("opencode")?;
+    let executable = program(ID_OPENCODE)?;
     let directory = cwd.replace('\\', "/").replace('\'', "''");
     let query = format!(
         "select id from session \
          where lower(replace(directory, '\\', '/')) = lower('{directory}') \
          order by time_updated desc limit 1"
     );
-    let mut child = command(program)
+    let mut child = command(executable)
         .args(["db", &query])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
@@ -181,7 +193,7 @@ fn opencode_session_id(output: &str) -> Option<String> {
     output
         .lines()
         .map(str::trim)
-        .find(|line| line.starts_with("ses_"))
+        .find(|line| line.starts_with(OPENCODE_SESSION_PREFIX))
         .map(str::to_string)
 }
 
