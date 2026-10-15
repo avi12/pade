@@ -6,12 +6,12 @@ const INTEGER = new Intl.NumberFormat(undefined, {
 });
 
 /** A whole number with locale grouping - 1234 → "1,234". */
-export function formatCount(value: number): string {
+export function formatCount(value: number) {
   return INTEGER.format(value);
 }
 
 /** A rounded whole percent - 30.4 → "30%". */
-export function formatPercent(value: number): string {
+export function formatPercent(value: number) {
   return `${INTEGER.format(value)}%`;
 }
 
@@ -24,7 +24,7 @@ const TIMESTAMP = new Intl.DateTimeFormat(undefined, {
 
 /** The exact date-time for `epochMilliseconds` - e.g. "Jul 19, 2026, 7:34:12 AM".
  *  Pairs with a relative label as its hover tooltip. */
-export function formatTimestamp(epochMilliseconds: number): string {
+export function formatTimestamp(epochMilliseconds: number) {
   return TIMESTAMP.format(new Date(epochMilliseconds));
 }
 
@@ -39,7 +39,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 export function formatAge({ stamp, now }: {
   stamp: number;
   now: number;
-}): string {
+}) {
   const seconds = Math.max(0, Math.round((now - stamp) / 1000));
   if (seconds < SECONDS_PER_MINUTE) {
     return `${formatCount(seconds)}s`;

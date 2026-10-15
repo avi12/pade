@@ -21,7 +21,7 @@ const AUTONAME_AFTER = 3;
 export function namingSignal({ projectDirectory, changedPath }: {
   projectDirectory: string;
   changedPath: string;
-}): string | null {
+}) {
   const base = normalizePath(projectDirectory);
   const touched = normalizePath(changedPath);
   if (!touched.startsWith(base)) {

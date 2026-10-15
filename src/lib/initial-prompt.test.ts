@@ -12,7 +12,7 @@ const GATE_HEADER = [
 ];
 const GATE_FOOTER = ["", " Enter to confirm · Esc to cancel"];
 
-function gate(options: string[]): string[] {
+function gate(options: string[]) {
   return [...GATE_HEADER, ...options, ...GATE_FOOTER];
 }
 

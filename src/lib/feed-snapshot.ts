@@ -14,12 +14,12 @@ import { windows } from "@/lib/bridge";
 import { ChangeEvent } from "@/lib/types";
 import { z } from "zod";
 
-function snapshotStorageKey(): string {
+function snapshotStorageKey() {
   return `pade.change-feed:${windows.label()}`;
 }
 
 /** The feed as one watch accumulated it: whose watch, armed when, and its events. */
-export const FeedSnapshot = z.object({
+const FeedSnapshot = z.object({
   root: z.string().min(1),
   armedAt: z.number(),
   events: z.array(ChangeEvent)
@@ -32,13 +32,13 @@ interface LiveWatch {
   armedAt: number | null;
 }
 
-export function saveFeedSnapshot(snapshot: FeedSnapshot): void {
+export function saveFeedSnapshot(snapshot: FeedSnapshot) {
   localStorage.setItem(snapshotStorageKey(), JSON.stringify(snapshot));
 }
 
 /** The persisted snapshot, or `null` when absent or malformed - storage is a
  *  trust boundary, so the payload is zod-validated on the way in. */
-export function readFeedSnapshot(): FeedSnapshot | null {
+export function readFeedSnapshot() {
   const raw = localStorage.getItem(snapshotStorageKey());
   if (raw === null) {
     return null;
@@ -64,7 +64,7 @@ export function eventsForLiveWatch({ snapshot, watch, project }: {
   snapshot: FeedSnapshot | null;
   watch: LiveWatch;
   project: string;
-}): ChangeEvent[] {
+}) {
   const isSameWatch = snapshot !== null
     && snapshot.root === project
     && snapshot.root === watch.root

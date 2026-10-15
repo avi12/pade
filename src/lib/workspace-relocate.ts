@@ -23,7 +23,7 @@ const CONTINUE_PROMPT = "continue\r";
 export function isUnderDirectory({ directory, base }: {
   directory: string;
   base: string;
-}): boolean {
+}) {
   const normalizedBase = normalizePath(base);
   const normalized = normalizePath(directory);
   return normalized === normalizedBase || normalized.startsWith(`${normalizedBase}/`);
@@ -34,7 +34,7 @@ export function remapDirectory({ directory, from, to }: {
   directory: string;
   from: string;
   to: string;
-}): string {
+}) {
   return to + directory.slice(from.length);
 }
 
@@ -75,7 +75,7 @@ export function createRelocator(host: RelocateHost) {
   function isUnder({ directory, base }: {
     directory: string;
     base: string;
-  }): boolean {
+  }) {
     return isUnderDirectory({
       directory,
       base
@@ -134,7 +134,7 @@ export function createRelocator(host: RelocateHost) {
     toResume: ResumableSession[];
     from: string;
     to: string;
-  }): Promise<void> {
+  }) {
     for (const [index, entry] of toResume.entries()) {
       const cwd = remapDirectory({
         directory: entry.oldDirectory,
@@ -161,7 +161,7 @@ export function createRelocator(host: RelocateHost) {
   async function relocate({ from, run }: {
     from: string;
     run: () => Promise<string>;
-  }): Promise<string> {
+  }) {
     const toResume = await releaseLock(from);
 
     // Run the backend move/rename (also re-points every external reference).
@@ -200,7 +200,7 @@ export function createRelocator(host: RelocateHost) {
     run: () => Promise<string>;
     toResume: ResumableSession[];
     from: string;
-  }): Promise<string> {
+  }) {
     try {
       return await run();
     } catch (error) {
@@ -216,7 +216,7 @@ export function createRelocator(host: RelocateHost) {
   function move(target: {
     from: string;
     destDir: string;
-  }): Promise<string> {
+  }) {
     return relocate({
       from: target.from,
       run: () => workspace.move(target)
@@ -228,7 +228,7 @@ export function createRelocator(host: RelocateHost) {
     newName: string;
     /** Destination among the saved roots; omitted → the primary root. */
     root?: string;
-  }): Promise<string> {
+  }) {
     return relocate({
       from: target.from,
       run: () => workspace.rename(target)
@@ -240,7 +240,7 @@ export function createRelocator(host: RelocateHost) {
   function renameFolder(target: {
     from: string;
     newName: string;
-  }): Promise<string> {
+  }) {
     return relocate({
       from: target.from,
       run: () => workspace.renameFolder(target)
@@ -251,7 +251,7 @@ export function createRelocator(host: RelocateHost) {
    *  the folder open and the removal would fail), then remove it. Nothing to
    *  resume, and the shell lets go of it if it was the open project. `del` is the
    *  backend removal - owned-only for `remove`, ungated for `removeDirectory`. */
-  async function deleteVia(path: string, del: (path: string) => Promise<Settings>): Promise<Settings> {
+  async function deleteVia(path: string, del: (path: string) => Promise<Settings>) {
     await releaseLock(path);
     const settings = await del(path);
     if (isUnder({
@@ -265,13 +265,13 @@ export function createRelocator(host: RelocateHost) {
   }
 
   /** Delete an ADE-owned workspace directory (the picker's delete). */
-  function remove(path: string): Promise<Settings> {
+  function remove(path: string) {
     return deleteVia(path, workspace.delete);
   }
 
   /** Delete ANY project directory from disk - the switcher's "Delete directory".
    *  Ungated, so it can remove a real project; the caller confirms first. */
-  function removeDirectory(path: string): Promise<Settings> {
+  function removeDirectory(path: string) {
     return deleteVia(path, workspace.deleteDirectory);
   }
 

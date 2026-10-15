@@ -25,7 +25,7 @@ import { z } from "zod";
 /** Where this window's snapshot lives. Keyed by window label so a sibling
  *  window never reads (or overwrites) another's pane mapping, and so the
  *  crash-rebuilt window - same label - finds its own. */
-function snapshotStorageKey(): string {
+function snapshotStorageKey() {
   return `pade.session-snapshot:${windows.label()}`;
 }
 
@@ -63,7 +63,7 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
   sessions: readonly AgentSession[];
   paneIds: readonly string[];
   activeId: string | null;
-}): void {
+}) {
   if (project === "" || sessions.length === 0) {
     clearSessionSnapshot();
     return;
@@ -86,13 +86,13 @@ export function saveSessionSnapshot({ project, sessions, paneIds, activeId }: {
   localStorage.setItem(snapshotStorageKey(), JSON.stringify(snapshot));
 }
 
-export function clearSessionSnapshot(): void {
+export function clearSessionSnapshot() {
   localStorage.removeItem(snapshotStorageKey());
 }
 
 /** The persisted snapshot, or `null` when absent or malformed. Storage is a
  *  trust boundary like any other - the payload is zod-validated on the way in. */
-export function readSessionSnapshot(): SessionSnapshot | null {
+export function readSessionSnapshot() {
   const raw = localStorage.getItem(snapshotStorageKey());
   if (raw === null) {
     return null;
@@ -116,7 +116,7 @@ export function readSessionSnapshot(): SessionSnapshot | null {
 export function pruneToLive({ snapshot, liveIds }: {
   snapshot: SessionSnapshot;
   liveIds: ReadonlySet<string>;
-}): SessionSnapshot | null {
+}) {
   const sessions = snapshot.sessions.filter(session => liveIds.has(session.id));
   if (sessions.length === 0) {
     return null;
@@ -140,7 +140,7 @@ export function pruneToLive({ snapshot, liveIds }: {
 /** The snapshot a reloaded window can actually re-attach to: the persisted pane
  *  mapping intersected with the backend's live-session roster (`pty_list`). A
  *  snapshot with nothing live behind it is stale - cleared and `null`. */
-export async function restoreLiveSnapshot(): Promise<SessionSnapshot | null> {
+export async function restoreLiveSnapshot() {
   const snapshot = readSessionSnapshot();
   if (!snapshot) {
     return null;

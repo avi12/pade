@@ -19,7 +19,7 @@ export const IdeId = {
   Sublime: "sublime",
   VisualStudio: "visualstudio"
 } as const;
-export type IdeId = (typeof IdeId)[keyof typeof IdeId];
+type IdeId = (typeof IdeId)[keyof typeof IdeId];
 
 // Brand mark per detected editor. Each JetBrains product carries its own
 // official icon (the full-colour gradient square, vendored from
@@ -62,7 +62,7 @@ const CONSOLE_EDITOR_NAMES = ["nvim", "hx", "vim"] as const;
  *  basenames carry version/bit suffixes (`webstorm64`) and often contain the
  *  launcher id (`sublime_text`), so known ids match by inclusion. Null for a
  *  console editor or anything unrecognised. */
-export function canonicalIdeId(id: string): IdeId | null {
+function canonicalIdeId(id: string) {
   const direct = Object.values(IdeId).find(value => value === id);
   if (direct) {
     return direct;
@@ -83,7 +83,7 @@ export function canonicalIdeId(id: string): IdeId | null {
 }
 
 /** A detected editor's brand mark, else the generic code glyph. */
-export function ideIcon(id: string): IconName {
+export function ideIcon(id: string) {
   const canonical = canonicalIdeId(id);
   if (canonical) {
     return IDE_ICONS[canonical];
@@ -98,6 +98,6 @@ export function ideIcon(id: string): IconName {
  *  A full-colour mark (the JetBrains products) simply ignores the tint; its
  *  fills are baked in. Undefined when there's no brand to tint (a console or
  *  unknown editor), which omits the attribute and leaves the text colour. */
-export function ideBrand(id: string): IdeId | undefined {
+export function ideBrand(id: string) {
   return canonicalIdeId(id) ?? undefined;
 }

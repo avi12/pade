@@ -26,7 +26,7 @@
 /** Escape the five characters that would otherwise be read as HTML markup, so a
  *  run of source text renders as literal text. Ampersand first, so the entity
  *  replacements it introduces aren't re-escaped. */
-function escapeHtml(text: string): string {
+function escapeHtml(text: string) {
   return text
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -42,7 +42,7 @@ const DANGEROUS_SCHEME = /^\s*(javascript|vbscript|data|file):/i;
 /** A link/image URL made safe for an attribute: a dangerous scheme collapses to
  *  `#`, and the survivor is HTML-escaped. `data:` is refused for links (only the
  *  image renderer, and only the CSP-permitted `img-src data:`, may use one). */
-function safeUrl(url: string): string {
+function safeUrl(url: string) {
   const trimmed = url.trim();
   if (DANGEROUS_SCHEME.test(trimmed)) {
     return "#";
@@ -54,7 +54,7 @@ function safeUrl(url: string): string {
 /** Turn a bare `http(s)://…` run into a link (PowerToys enables autolinking).
  *  Runs on already-escaped text, and its `[^\s<]+` stops at the first `<`, so it
  *  never reaches into an emphasis tag or an existing anchor. */
-function linkify(escaped: string): string {
+function linkify(escaped: string) {
   return escaped.replaceAll(
     /(https?:\/\/[^\s<]+)/g,
     match => `<a href="${match}">${match}</a>`
@@ -64,7 +64,7 @@ function linkify(escaped: string): string {
 /** Inline emphasis/strikethrough on a run of plain (link-free) text: escape it
  *  first, then apply the delimiter forms, then autolink. Strong before emphasis
  *  so `**bold**` isn't first eaten as two `*italic*` markers. */
-function formatPlain(text: string): string {
+function formatPlain(text: string) {
   let html = escapeHtml(text);
   html = html.replaceAll(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   html = html.replaceAll(/__([^_]+)__/g, "<strong>$1</strong>");
@@ -81,7 +81,7 @@ const LINK = /(!?)\[([^\]]*)\]\(\s*([^)\s]*)(?:\s+"[^"]*")?\s*\)/g;
 /** Inline markup for a run of text that sits *outside* any code span: link and
  *  image spans become anchors/images with scheme-checked URLs, and the text
  *  between them is emphasis-formatted. */
-function formatText(text: string): string {
+function formatText(text: string) {
   let out = "";
   let last = 0;
   LINK.lastIndex = 0;
@@ -106,7 +106,7 @@ function formatText(text: string): string {
 /** Full inline rendering: split off code spans first - their content is only
  *  escaped, never emphasis- or link-formatted - then format the rest. A run of
  *  N backticks opens a span that the next run of exactly N backticks closes. */
-function parseInline(text: string): string {
+function parseInline(text: string) {
   let out = "";
   let i = 0;
   while (i < text.length) {
@@ -153,32 +153,32 @@ class Cursor {
 
   constructor(private readonly lines: string[]) {}
 
-  get done(): boolean {
+  get done() {
     return this.index >= this.lines.length;
   }
 
-  peek(): string {
+  peek() {
     return this.lines[this.index] ?? "";
   }
 
-  ahead(offset: number): string | undefined {
+  ahead(offset: number) {
     return this.lines[this.index + offset];
   }
 
-  take(): string {
+  take() {
     const line = this.peek();
     this.index += 1;
     return line;
   }
 
-  skip(): void {
+  skip() {
     this.index += 1;
   }
 }
 
 /** Split a GFM table row into its cell texts, dropping the optional leading and
  *  trailing pipes and honoring `\|` as a literal pipe inside a cell. */
-function tableCells(row: string): string[] {
+function tableCells(row: string) {
   const trimmed = row.trim().replace(/^\|/, "").replace(/\|$/, "");
   const cells: string[] = [];
   let current = "";
@@ -202,7 +202,7 @@ function tableCells(row: string): string[] {
   return cells;
 }
 
-function renderTable(cursor: Cursor): string {
+function renderTable(cursor: Cursor) {
   const headerCells = tableCells(cursor.take());
   cursor.skip(); // the delimiter row
   const header = headerCells.map(cell => `<th>${parseInline(cell)}</th>`).join("");
@@ -215,7 +215,7 @@ function renderTable(cursor: Cursor): string {
   return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderFence(cursor: Cursor, fence: string): string {
+function renderFence(cursor: Cursor, fence: string) {
   cursor.skip(); // opening fence
   const marker = fence[0];
   const body: string[] = [];
@@ -232,7 +232,7 @@ function renderFence(cursor: Cursor, fence: string): string {
   return `<pre><code>${escapeHtml(body.join("\n"))}</code></pre>`;
 }
 
-function renderBlockquote(cursor: Cursor): string {
+function renderBlockquote(cursor: Cursor) {
   const inner: string[] = [];
   while (!cursor.done && BLOCKQUOTE.test(cursor.peek())) {
     inner.push(cursor.take().replace(BLOCKQUOTE, "$1"));
@@ -243,14 +243,14 @@ function renderBlockquote(cursor: Cursor): string {
 
 /** The whitespace width a nested block must clear to belong to the current list
  *  item: the item's own indent plus its marker and the space after it. */
-function itemContentIndent(indent: string, marker: string): number {
+function itemContentIndent(indent: string, marker: string) {
   return indent.length + marker.length + 1;
 }
 
 /** The lines belonging to one list item beyond its first: continuation and
  *  nested-block lines dedented to the item's content column, stopping at a blank
  *  line or the next same-or-shallower list marker. Advances `cursor` past them. */
-function collectItemLines(cursor: Cursor, firstLine: string, contentIndent: number): string[] {
+function collectItemLines(cursor: Cursor, firstLine: string, contentIndent: number) {
   const itemLines: string[] = [firstLine];
   cursor.skip();
   while (!cursor.done) {
@@ -268,7 +268,7 @@ function collectItemLines(cursor: Cursor, firstLine: string, contentIndent: numb
   return itemLines;
 }
 
-function renderList(cursor: Cursor): string {
+function renderList(cursor: Cursor) {
   const opener = LIST_ITEM.exec(cursor.peek());
   if (!opener) {
     return "";
@@ -292,7 +292,7 @@ function renderList(cursor: Cursor): string {
   return `<${tag}>${items.join("")}</${tag}>`;
 }
 
-function renderParagraph(cursor: Cursor): string {
+function renderParagraph(cursor: Cursor) {
   const lines: string[] = [];
   while (!cursor.done) {
     const line = cursor.peek();
@@ -316,7 +316,7 @@ function renderParagraph(cursor: Cursor): string {
 
 /** Whether the line at the cursor opens a GFM table (a header row followed by a
  *  `---|---` delimiter row with a matching pipe shape). */
-function startsTable(cursor: Cursor): boolean {
+function startsTable(cursor: Cursor) {
   const header = cursor.peek();
   const delimiter = cursor.ahead(1);
   return (
@@ -327,7 +327,7 @@ function startsTable(cursor: Cursor): boolean {
   );
 }
 
-function renderBlocks(lines: string[]): string {
+function renderBlocks(lines: string[]) {
   const cursor = new Cursor(lines);
   let html = "";
   while (!cursor.done) {
@@ -381,7 +381,7 @@ function renderBlocks(lines: string[]): string {
 /** Render markdown `source` to a safe HTML fragment (no document scaffolding).
  *  Every text run is HTML-escaped, so embedded raw HTML is shown, not executed;
  *  the fragment is only ever mounted inside the sandboxed Preview iframe. */
-export function renderMarkdown(source: string): string {
+export function renderMarkdown(source: string) {
   const lines = source.replaceAll("\r\n", "\n").replaceAll("\r", "\n").split("\n");
   return renderBlocks(lines);
 }
@@ -470,7 +470,7 @@ const MARKDOWN_STYLE = `
  *  refuses every request except inline styles and `data:` images, so no script
  *  runs and no external image or font loads (PowerToys' locked-down WebView2,
  *  in a `<meta>`). */
-export function markdownDocument(source: string): string {
+export function markdownDocument(source: string) {
   const body = renderMarkdown(source);
   const contentSecurityPolicy =
     "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:";
@@ -484,7 +484,7 @@ export function markdownDocument(source: string): string {
 /** Wrap untrusted repository HTML with a policy that prevents every network,
  * script, frame, form, and object load. The iframe sandbox separately prevents
  * top-level navigation and access to the application origin. */
-export function sandboxedHtmlDocument(source: string): string {
+export function sandboxedHtmlDocument(source: string) {
   const contentSecurityPolicy =
     "default-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'";
   return (

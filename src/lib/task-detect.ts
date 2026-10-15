@@ -10,7 +10,7 @@ import { stripAnsi } from "@/lib/ansi";
 
 const TOOL_NAMES = "Bash|PowerShell|Shell|Terminal";
 
-function escapeRegExp(value: string): string {
+function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -22,7 +22,7 @@ function escapeRegExp(value: string): string {
 function containsCommand({ text, command }: {
   text: string;
   command: string;
-}): boolean {
+}) {
   const bounded = new RegExp(
     `(?:^|[\\s;&|(])${escapeRegExp(command)}(?=$|[\\s;&|)<>])`
   );
@@ -38,7 +38,7 @@ function containsCommand({ text, command }: {
 export function isTaskInvocation({ line, command }: {
   line: string;
   command: string;
-}): boolean {
+}) {
   const clean = stripAnsi(line).trim();
 
   // Agent tool-call rendering: Bash(<command>) / PowerShell(<command>). Look for

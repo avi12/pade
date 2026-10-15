@@ -1,6 +1,6 @@
 import { formatPercent } from "@/lib/format";
 import { CreditsState, SHELL_AGENT_ID, UsageWindowKind } from "@/lib/types";
-import type { AccountUsage, AgentSession, UsageWindow } from "@/lib/types";
+import type { AccountUsage, UsageWindow } from "@/lib/types";
 import {
   buildGroups,
   buildKindLegend,
@@ -19,7 +19,7 @@ function makeSession({ agentId, label, sessionId }: {
   agentId: string;
   label?: string;
   sessionId?: string;
-}): AgentSession {
+}) {
   return {
     id: sessionId ?? `session-${agentId}`,
     agent: {
@@ -32,7 +32,7 @@ function makeSession({ agentId, label, sessionId }: {
 }
 
 // A 5-hour session window, defaulting to 40% consumed.
-function sessionWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
+function sessionWindow(overrides: Partial<UsageWindow> = {}) {
   return {
     key: "five_hour",
     kind: UsageWindowKind.enum.session,
@@ -43,7 +43,7 @@ function sessionWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
 }
 
 // A weekly all-models window, defaulting to 80% consumed.
-function weeklyWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
+function weeklyWindow(overrides: Partial<UsageWindow> = {}) {
   return {
     key: "seven_day",
     kind: UsageWindowKind.enum.weekly,
@@ -58,7 +58,7 @@ function modelWindow({ name, utilization, resetsAt }: {
   name: string;
   utilization: number;
   resetsAt?: string;
-}): UsageWindow {
+}) {
   return {
     key: name,
     kind: UsageWindowKind.enum.model,
@@ -69,7 +69,7 @@ function modelWindow({ name, utilization, resetsAt }: {
 }
 
 // An account whose windows default to session (40%) + weekly (80%).
-function makeAccount(overrides: Partial<AccountUsage> = {}): AccountUsage {
+function makeAccount(overrides: Partial<AccountUsage> = {}) {
   return {
     windows: [sessionWindow(), weeklyWindow()],
     plan: "Max",
@@ -80,13 +80,13 @@ function makeAccount(overrides: Partial<AccountUsage> = {}): AccountUsage {
 
 // The per-agent account map `buildGroups` now takes: agent id → its account (or
 // null). A missing entry means that agent has no resolved usage.
-function accountsFor(entries: Record<string, AccountUsage | null>): ReadonlyMap<string, AccountUsage | null> {
+function accountsFor(entries: Record<string, AccountUsage | null>) {
   return new Map(Object.entries(entries));
 }
 
 const CLAUDE_LABEL = "Claude Code";
 
-function claudeSession(sessionId?: string): AgentSession {
+function claudeSession(sessionId?: string) {
   return makeSession({
     agentId: "claude",
     label: CLAUDE_LABEL,
@@ -97,7 +97,7 @@ function claudeSession(sessionId?: string): AgentSession {
 function countAt({ slices, level }: {
   slices: SeveritySlice[];
   level: Level;
-}): number {
+}) {
   return slices.find(slice => slice.level === level)?.count ?? 0;
 }
 
@@ -239,7 +239,7 @@ describe("buildGroups", () => {
   });
 
   it("hides an untouched opaque feature cap but keeps it once used", () => {
-    function sparkCap(utilization: number): UsageWindow {
+    function sparkCap(utilization: number) {
       return {
         key: "codex_GPT-5.3-Codex-Spark_604800s",
         kind: UsageWindowKind.enum.opaque,
@@ -458,7 +458,7 @@ describe("reset countdowns", () => {
   const now = Date.UTC(2026, 0, 1);
 
   // The session limit's countdown for a given ISO reset time, via the builder.
-  function fiveHourReset(resetsAt: string): string {
+  function fiveHourReset(resetsAt: string) {
     const [claude] = buildGroups({
       accounts: accountsFor({
         claude: makeAccount({

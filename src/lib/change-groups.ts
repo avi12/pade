@@ -24,7 +24,7 @@ export type GroupRole = (typeof GroupRole)[keyof typeof GroupRole];
 /** One card in the feed: the newest change to a file, standing for the run of
  *  consecutive changes to it. An agent saves a file four times in a minute and
  *  the feed showed four identical cards; it now shows one that says so. */
-export interface ChangeEntry {
+interface ChangeEntry {
   /** The newest event of the run - the one the card names and expands. */
   event: ChangeEvent;
   /** How many changes the card stands for; 1 for a lone change. */
@@ -34,7 +34,7 @@ export interface ChangeEntry {
   removed: number;
 }
 
-export interface ChangeGroup {
+interface ChangeGroup {
   /** Stable key (the container-relative project path, or `.` for the repo). */
   id: string;
   /** Display name - the member folder, or the repo's own folder name. */
@@ -80,7 +80,7 @@ interface Project {
 function relativeSegments({ path, workspaceRoot }: {
   path: string;
   workspaceRoot: string;
-}): string[] {
+}) {
   const forwardPath = path.replaceAll("\\", "/");
   const forwardRoot = workspaceRoot.replaceAll("\\", "/").replace(/\/+$/, "");
   const isUnderRoot = forwardPath.toLowerCase().startsWith(`${forwardRoot.toLowerCase()}/`);
@@ -96,7 +96,7 @@ function projectOf({ path, workspaceRoot, repository }: {
   path: string;
   workspaceRoot: string;
   repository: Project;
-}): Project {
+}) {
   const segments = relativeSegments({
     path,
     workspaceRoot
@@ -128,7 +128,7 @@ function projectOf({ path, workspaceRoot, repository }: {
 
 // A member's badge role, read off its leading container segment when it uses a
 // conventional one; any other member (a root-level `frontend/`) is badged App.
-function memberRole(memberPath: string): GroupRole {
+function memberRole(memberPath: string) {
   const container = memberPath.split("/")[0]?.toLowerCase();
   if (container === undefined) {
     return GroupRole.App;
@@ -146,7 +146,7 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
   workspaceRoot: string;
   members: WorkspaceMember[];
   repository: Project;
-}): Project {
+}) {
   const segments = relativeSegments({
     path,
     workspaceRoot
@@ -178,7 +178,7 @@ function projectFromMembers({ path, workspaceRoot, members, repository }: {
 // Consecutive changes to one file are one card. Only a RUN collapses: a file
 // touched, then another, then the first again is three moments in the feed and
 // stays three cards - what is folded away is the repetition, not the history.
-function collapseRepeats(events: ChangeEvent[]): ChangeEntry[] {
+function collapseRepeats(events: ChangeEvent[]) {
   const entries: ChangeEntry[] = [];
   for (const event of events) {
     const previous = entries.at(-1);
@@ -209,7 +209,7 @@ export function groupChanges({ events, workspaceRoot, members = [] }: {
   events: ChangeEvent[];
   workspaceRoot: string;
   members?: WorkspaceMember[];
-}): ChangeGroup[] {
+}) {
   const repositoryName = baseName(workspaceRoot) || workspaceRoot;
   const repository: Project = {
     id: ".",

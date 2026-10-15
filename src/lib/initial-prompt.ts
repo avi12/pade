@@ -44,7 +44,7 @@ export type TrustGateKey = (typeof TrustGateKey)[keyof typeof TrustGateKey];
  *  partial repaints a single chunk can't be read from, and its layout is the
  *  CLI's to change: Claude Code 2.1.286 lists `❯ No, exit` FIRST with
  *  `Yes, I trust this folder` below, so a blind Enter would quit the agent. */
-export function trustGateKey(rows: readonly string[]): TrustGateKey | null {
+export function trustGateKey(rows: readonly string[]) {
   const trustRow = rows.findIndex(row => TRUST_OPTION_RE.test(row));
   if (trustRow === -1) {
     return null;
@@ -72,7 +72,7 @@ const ECHO_PREFIX_LENGTH = 24;
 
 /** Terminal text reduced to bare glyphs: ANSI stripped, all whitespace removed -
  *  so a composer that wraps the prompt across lines still matches it. */
-function collapsed(text: string): string {
+function collapsed(text: string) {
   return stripAnsi(text).replaceAll(/\s+/g, "");
 }
 
@@ -84,7 +84,7 @@ function collapsed(text: string): string {
 export function promptEchoed({ output, prompt }: {
   output: string;
   prompt: string;
-}): boolean {
+}) {
   const needle = collapsed(prompt).slice(0, ECHO_PREFIX_LENGTH);
   return needle.length > 0 && collapsed(output).includes(needle);
 }

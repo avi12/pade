@@ -16,7 +16,7 @@ export function mcpRestartTargets({ sessions, change, currentProject }: {
   sessions: readonly AgentSession[];
   change: McpChange;
   currentProject: string;
-}): AgentSession[] {
+}) {
   const changedRoot = normalizePath(change.root);
   return sessions.filter(session =>
     change.agents.includes(session.agent.id)
@@ -33,11 +33,7 @@ export function rekeyLayout({ sessions, paneIds, activeId, rekeyed }: {
   paneIds: readonly string[];
   activeId: string | null;
   rekeyed: Readonly<Record<string, string>>;
-}): {
-  sessions: AgentSession[];
-  paneIds: string[];
-  activeId: string | null;
-} {
+}) {
   return {
     sessions: sessions.map(session => {
       const restartedId = rekeyed[session.id];

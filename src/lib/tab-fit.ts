@@ -17,7 +17,7 @@ export const MORE_SLOT = 34 + TAB_GAP;
 export const ADD_SLOT = 30 + TAB_GAP;
 
 /** How the strip splits: full pills, collapsed status dots, "+N" overflow. */
-export interface TabPack {
+interface TabPack {
   visible: string[];
   dots: string[];
   more: string[];
@@ -30,7 +30,7 @@ export function packTabs({ ids, widthOf, stripWidth }: {
   ids: string[];
   widthOf: (id: string) => number;
   stripWidth: number;
-}): TabPack {
+}) {
   const total = ids.reduce((sum, id, index) => sum + widthOf(id) + (index ? TAB_GAP : 0), 0);
   // Everything fits (or we haven't measured yet) - all as full pills.
   if (stripWidth === 0 || total <= stripWidth) {
@@ -38,7 +38,7 @@ export function packTabs({ ids, widthOf, stripWidth }: {
       visible: [...ids],
       dots: [],
       more: []
-    };
+    } satisfies TabPack;
   }
 
   // We know we'll overflow, so reserve room for the "+N" button.
@@ -77,5 +77,5 @@ export function packTabs({ ids, widthOf, stripWidth }: {
     visible,
     dots,
     more: rest.slice(dots.length)
-  };
+  } satisfies TabPack;
 }

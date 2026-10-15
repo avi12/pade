@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function session(id: string, extra: Partial<AgentSession> = {}): AgentSession {
+function session(id: string, extra: Partial<AgentSession> = {}) {
   return {
     id,
     agent: {

@@ -21,7 +21,7 @@ export function wheelScrollsTerminalDocument({
 }: {
   agentOwnsMouse: boolean;
   hasNativeScrollback: boolean;
-}): boolean {
+}) {
   return !agentOwnsMouse && hasNativeScrollback;
 }
 
@@ -38,7 +38,7 @@ export function terminalFlushMode({
   windowFocused: boolean;
   readingScrollback: boolean;
   scrolling: boolean;
-}): (typeof TerminalFlushMode)[keyof typeof TerminalFlushMode] {
+}) {
   if (scrolling) {
     return TerminalFlushMode.Deferred;
   }

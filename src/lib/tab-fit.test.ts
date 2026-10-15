@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const IDS = ["a", "b", "c", "d"];
 const TOTAL = 400 + TAB_GAP * 3;
 
-function widthOf(): number {
+function widthOf() {
   return 100;
 }
 

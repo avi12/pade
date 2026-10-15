@@ -20,7 +20,7 @@ export const ROOT_GROUP_ID = ".";
 export function memberPath({ root, member }: {
   root: string;
   member: WorkspaceMember;
-}): string {
+}) {
   if (member.path.length === 0) {
     return root;
   }
@@ -36,7 +36,7 @@ export function memberPath({ root, member }: {
 export function memberLabel({ root, member }: {
   root: string;
   member: WorkspaceMember;
-}): string {
+}) {
   if (member.name) {
     return member.name;
   }
@@ -51,7 +51,7 @@ export function memberLabel({ root, member }: {
 export function memberOfGroup({ groupId, members }: {
   groupId: string;
   members: WorkspaceMember[];
-}): WorkspaceMember | undefined {
+}) {
   const path = groupId === ROOT_GROUP_ID ? "" : groupId;
   return members.find(member => member.path === path);
 }
@@ -63,7 +63,7 @@ export function memberOfGroup({ groupId, members }: {
 export function enclosingRepository({ path, members }: {
   path: string;
   members: WorkspaceMember[];
-}): WorkspaceMember | undefined {
+}) {
   const segments = path.length > 0 ? path.split("/") : [];
   let deepest: WorkspaceMember | undefined;
   for (const member of members) {
@@ -89,7 +89,7 @@ export function enclosingRepository({ path, members }: {
 export function repositoryOfGroup({ groupId, members }: {
   groupId: string;
   members: WorkspaceMember[];
-}): WorkspaceMember | undefined {
+}) {
   const member = memberOfGroup({
     groupId,
     members
@@ -102,6 +102,6 @@ export function repositoryOfGroup({ groupId, members }: {
 
 /** Whether the workspace is made of more than one part - the switcher only earns
  *  its place in the top bar when there is something to switch between. */
-export function hasSeveralMembers(members: WorkspaceMember[]): boolean {
+export function hasSeveralMembers(members: WorkspaceMember[]) {
   return members.length > 1;
 }

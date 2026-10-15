@@ -76,7 +76,7 @@ const DARK_BACKGROUND_LUMINANCE = 0.4;
 
 /** `#rgb` / `#rrggbb` → its three 0..255 channels; `null` for anything else, so
  *  a colour PADE can't read never becomes a silently wrong one. */
-function hexChannels(color: string): [number, number, number] | null {
+function hexChannels(color: string) {
   const match = HEX_COLOR.exec(color.trim());
   if (!match) {
     return null;
@@ -90,12 +90,12 @@ function hexChannels(color: string): [number, number, number] | null {
     channels.push(parseInt(perChannel === 1 ? raw + raw : raw, HEX_RADIX));
   }
 
-  return [channels[0], channels[1], channels[2]];
+  return [channels[0], channels[1], channels[2]] as const;
 }
 
 /** The same colour with an alpha channel appended, as the `#rrggbbaa` xterm's
  *  own parser accepts (see `lib/terminal-theme` on why parse-safety matters). */
-function withAlpha(color: string, alpha: number): string {
+function withAlpha(color: string, alpha: number) {
   const channels = hexChannels(color);
   if (!channels) {
     return color;
@@ -109,7 +109,7 @@ function withAlpha(color: string, alpha: number): string {
 }
 
 /** Perceived luminance, 0 (black) to 1 (white). */
-function luminance(channels: [number, number, number]): number {
+function luminance(channels: readonly [number, number, number]) {
   let total = 0;
   for (let channel = 0; channel < channels.length; channel++) {
     const value = channels[channel] / CHANNEL_MAX;
@@ -134,7 +134,7 @@ export function schemeOfBackground({
 }: {
   color: string;
   fallback: Scheme;
-}): Scheme {
+}) {
   const channels = hexChannels(color);
   if (!channels) {
     return fallback;
@@ -144,7 +144,7 @@ export function schemeOfBackground({
 }
 
 /** The custom properties this scheme installs on the document root. */
-export function terminalPaletteProperties(scheme: TerminalScheme): Map<string, string> {
+export function terminalPaletteProperties(scheme: TerminalScheme) {
   const properties = new Map<string, string>([
     [CODE_BACKGROUND, scheme.background],
     [CODE_FOREGROUND, scheme.foreground],

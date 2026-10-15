@@ -18,7 +18,7 @@ export interface PaneSelection {
 export function paneIdAt({ paneIds, index }: {
   paneIds: readonly string[];
   index: number;
-}): string | null {
+}) {
   return paneIds[index] ?? null;
 }
 
@@ -26,7 +26,7 @@ export function paneIdAt({ paneIds, index }: {
  *  ends (step -1 = previous, +1 = next). Null when the split is empty or the
  *  active id isn't among the shown panes. One wrapped-index calculation serves
  *  both directions. */
-function steppedPaneId({ paneIds, activeId, step }: PaneSelection & { step: number }): string | null {
+function steppedPaneId({ paneIds, activeId, step }: PaneSelection & { step: number }) {
   const count = paneIds.length;
   if (count === 0) {
     return null;
@@ -45,7 +45,7 @@ function steppedPaneId({ paneIds, activeId, step }: PaneSelection & { step: numb
 }
 
 /** The pane before the active one, wrapping from the first pane to the last. */
-export function previousPaneId(selection: PaneSelection): string | null {
+export function previousPaneId(selection: PaneSelection) {
   return steppedPaneId({
     ...selection,
     step: -1
@@ -53,7 +53,7 @@ export function previousPaneId(selection: PaneSelection): string | null {
 }
 
 /** The pane after the active one, wrapping from the last pane to the first. */
-export function nextPaneId(selection: PaneSelection): string | null {
+export function nextPaneId(selection: PaneSelection) {
   return steppedPaneId({
     ...selection,
     step: 1

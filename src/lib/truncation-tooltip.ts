@@ -1,11 +1,10 @@
 import { clearOverflowTooltip, showOverflowTooltip } from "@/lib/overflow-tooltip.svelte";
-import type { Attachment } from "svelte/attachments";
 
 /** A tooltip text, or a thunk for one that must stay live (e.g. it names the
  *  currently ranked editor, which can change after the attachment mounts). */
 type TooltipText = string | (() => string);
 
-function resolve(text: TooltipText): string {
+function resolve(text: TooltipText) {
   return typeof text === "function" ? text() : text;
 }
 
@@ -24,8 +23,8 @@ let nextAnchorId = 0;
  *  `position: fixed`, and inside a `.picker`-style scroller Chromium paints that
  *  escaped fixed box *behind* the scrolled rows, so a following row occludes it
  *  (see overflow-tooltip.svelte). */
-function overflowTooltip(textToShow: (element: HTMLElement) => string): Attachment<HTMLElement> {
-  return element => {
+function overflowTooltip(textToShow: (element: HTMLElement) => string) {
+  return (element: HTMLElement) => {
     const anchorName = `--overflow-tooltip-${nextAnchorId++}`;
     element.style.setProperty("anchor-name", anchorName);
 
@@ -70,7 +69,7 @@ function overflowTooltip(textToShow: (element: HTMLElement) => string): Attachme
  *  recent list is one; the switcher's drag grips (their row is named for the
  *  reorder morph) are another, where the bubble showed *underneath* the next
  *  row's icon and text. */
-export function tooltip(text: TooltipText): Attachment<HTMLElement> {
+export function tooltip(text: TooltipText) {
   return overflowTooltip(() => resolve(text));
 }
 
@@ -91,7 +90,7 @@ export function truncationTooltip({ tooltip: text, restingTooltip, measureSelect
   tooltip: TooltipText;
   restingTooltip?: TooltipText;
   measureSelector?: string;
-}): Attachment<HTMLElement> {
+}) {
   return overflowTooltip(element => {
     const measured = (measureSelector ? element.querySelector(measureSelector) : null) ?? element;
     if (measured.scrollWidth > measured.clientWidth) {

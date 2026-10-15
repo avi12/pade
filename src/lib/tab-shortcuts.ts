@@ -16,7 +16,7 @@ export const TabAction = {
   Next: "next",
   Previous: "previous"
 } as const;
-export type TabAction = (typeof TabAction)[keyof typeof TabAction];
+type TabAction = (typeof TabAction)[keyof typeof TabAction];
 
 /** The modifier + key fields a shortcut is decided from. A real KeyboardEvent
  * has these, so it is accepted structurally; a plain object keeps the matcher
@@ -75,7 +75,7 @@ export const TAB_SHORTCUTS = {
 }>;
 
 /** Map a key chord to the tab action it triggers, or null when it is not one. */
-export function matchTabShortcut(chord: KeyChord): TabAction | null {
+export function matchTabShortcut(chord: KeyChord) {
   for (const action of Object.values(TabAction)) {
     if (TAB_SHORTCUTS[action].matches(chord)) {
       return action;
@@ -100,7 +100,7 @@ const LAST_TAB_KEY = "9";
 export function matchTabSelection({ chord, count }: {
   chord: KeyChord;
   count: number;
-}): number | null {
+}) {
   const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
   const isPlainCtrl = ctrlKey && !shiftKey && !altKey && !metaKey;
   if (!isPlainCtrl || count === 0) {
@@ -131,7 +131,7 @@ export interface TabShortcutHandlers {
 }
 
 /** Register the capture-phase listener; returns the matching unregister. */
-export function registerTabShortcuts(handlers: TabShortcutHandlers): () => void {
+export function registerTabShortcuts(handlers: TabShortcutHandlers) {
   const run: Record<TabAction, () => void> = {
     [TabAction.New]: handlers.newTab,
     [TabAction.LaunchMenu]: handlers.launchMenu,

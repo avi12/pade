@@ -10,7 +10,7 @@ import type { KeyChord } from "@/lib/tab-shortcuts";
 /** Ctrl+F over a terminal pane - open the find bar and put the caret in it.
  *  Plain Ctrl only: Ctrl+Shift+F and Ctrl+Alt+F belong to whatever the agent
  *  binds them to, and the terminal still forwards those. */
-export function isFindShortcut({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord): boolean {
+export function isFindShortcut({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) {
   return key.toLowerCase() === "f" && ctrlKey && !shiftKey && !altKey && !metaKey;
 }
 
@@ -32,14 +32,15 @@ export type FindOption = (typeof FindOption)[keyof typeof FindOption];
 
 /** Which options a search runs under, all off by default: a plain substring,
  *  case-insensitive, anywhere in the line. */
-export type FindOptions = Record<FindOption, boolean>;
+type FindOptions = Record<FindOption, boolean>;
 
-export function defaultFindOptions(): FindOptions {
-  return {
+export function defaultFindOptions() {
+  const options: FindOptions = {
     [FindOption.CaseSensitive]: false,
     [FindOption.WholeWord]: false,
     [FindOption.Regex]: false
   };
+  return options;
 }
 
 /** The toggles as the bar draws them, in the order they sit in it. Glyph, label
@@ -74,7 +75,7 @@ export const FIND_OPTION_TOGGLES = [
 /** Alt+C / Alt+W / Alt+R flip a toggle while the caret stays in the find box -
  *  the browser-and-editor convention. Alt alone: Ctrl+Alt is AltGr on a European
  *  keyboard, where it types characters people search for. */
-export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord): FindOption | null {
+export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) {
   if (!altKey || ctrlKey || shiftKey || metaKey) {
     return null;
   }
@@ -95,7 +96,7 @@ export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }
 export function isSearchablePattern({ term, regex }: {
   term: string;
   regex: boolean;
-}): boolean {
+}) {
   if (!regex) {
     return true;
   }
@@ -118,7 +119,7 @@ export function findResultLabel({ term, resultIndex, resultCount, searchable = t
   resultCount: number;
   /** False while a regex is still half-typed - the count is stale, not zero. */
   searchable?: boolean;
-}): string {
+}) {
   if (term.length === 0) {
     return "";
   }

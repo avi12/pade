@@ -154,7 +154,7 @@ describe("isSyntax", () => {
 });
 
 describe("tokenizeMarkdown", () => {
-  function markdownClassOf(tokens: Token[], text: string): string | undefined {
+  function markdownClassOf(tokens: Token[], text: string) {
     return tokens.find(token => token.text.includes(text))?.cls;
   }
 

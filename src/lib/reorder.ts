@@ -21,7 +21,7 @@ export function reorderedIds({ ids, fromIndex, toIndex }: {
   ids: string[];
   fromIndex: number;
   toIndex: number;
-}): string[] {
+}) {
   const draggedId = ids[fromIndex];
   const rest = ids.filter((_, index) => index !== fromIndex);
   return [...rest.slice(0, toIndex), draggedId, ...rest.slice(toIndex)];
@@ -39,7 +39,7 @@ export function committedOrderOnDrop({ ids, fromIndex, toIndex, cancelled }: {
   fromIndex: number;
   toIndex: number;
   cancelled: boolean;
-}): string[] | null {
+}) {
   if (cancelled) {
     return null;
   }
@@ -61,7 +61,7 @@ export function insertionIndex({ centers, fromIndex, draggedCenter }: {
   centers: number[];
   fromIndex: number;
   draggedCenter: number;
-}): number {
+}) {
   let index = 0;
   centers.forEach((center, position) => {
     if (position !== fromIndex && center < draggedCenter) {
@@ -79,7 +79,7 @@ export function paneDropSide({ pointerX, left, width }: {
   pointerX: number;
   left: number;
   width: number;
-}): DropSide {
+}) {
   return pointerX < left + width / 2 ? DropSide.left : DropSide.right;
 }
 
@@ -93,7 +93,7 @@ export function paneInsertIndex({ paneIds, draggedId, targetId, side }: {
   draggedId: string;
   targetId: string;
   side: DropSide;
-}): number {
+}) {
   const base = paneIds.filter(id => id !== draggedId);
   const targetIndex = base.indexOf(targetId);
   if (targetIndex === -1) {

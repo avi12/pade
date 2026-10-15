@@ -1,4 +1,5 @@
 import { groupChanges, GroupRole } from "@/lib/change-groups";
+import { ChangeKind } from "@/lib/types";
 import type { ChangeEvent, WorkspaceMember } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 
@@ -8,17 +9,17 @@ function change({ path, added = 0, removed = 0, timestamp = 0 }: {
   added?: number;
   removed?: number;
   timestamp?: number;
-}): ChangeEvent {
+}) {
   idCounter += 1;
   return {
     id: `e${idCounter}`,
     path,
-    kind: "modified",
+    kind: ChangeKind.enum.modified,
     added,
     removed,
     summary: `Edited ${path}`,
     ts: timestamp
-  };
+  } satisfies ChangeEvent;
 }
 
 const ROOT = "C:/repositories/avi/pade";
@@ -237,7 +238,7 @@ function member({ path, name = null, ecosystem = "javascript", repository = fals
   name?: string | null;
   ecosystem?: WorkspaceMember["ecosystem"];
   repository?: boolean;
-}): WorkspaceMember {
+}) {
   return {
     path,
     name,

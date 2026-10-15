@@ -69,13 +69,13 @@ type CellDirection = (typeof CellDirection)[keyof typeof CellDirection];
  *  into the next column's space. */
 const RUN_NEUTRAL_GAP_LIMIT = 8;
 
-function isFrameGlyph(text: string): boolean {
+function isFrameGlyph(text: string) {
   const codePoint = text.codePointAt(0) ?? 0;
   const isBoxOrShape = codePoint >= BOX_DRAWING_FIRST && codePoint <= GEOMETRIC_SHAPES_LAST;
   return isBoxOrShape || (codePoint >= POWERLINE_FIRST && codePoint <= POWERLINE_LAST);
 }
 
-function cellDirection(text: string): CellDirection {
+function cellDirection(text: string) {
   // The trailing half of a wide glyph holds no characters of its own.
   if (text === "") {
     return CellDirection.Neutral;
@@ -102,7 +102,7 @@ function cellDirection(text: string): CellDirection {
 
 /** Does this text contain anything that reads right to left? The cheap latch that
  *  decides whether a session pays for the overlay at all. */
-export function containsRtl(text: string): boolean {
+export function containsRtl(text: string) {
   return RTL_SCRIPT.test(text);
 }
 
@@ -117,7 +117,7 @@ export interface ColumnRange {
  *  still carry with it - a right-to-left character or a digit. The neutrals around
  *  that belong to the text on either side, and covering them would hide cells
  *  needlessly. */
-export function rtlRuns({ cells }: { cells: readonly string[] }): ColumnRange[] {
+export function rtlRuns({ cells }: { cells: readonly string[] }) {
   const runs: ColumnRange[] = [];
   let firstRtl = -1;
   let lastCarried = -1;
@@ -229,7 +229,7 @@ const CARET: RtlCaretPart = { kind: RtlPartKind.Caret };
 function sameStyle({ part, cell }: {
   part: RtlStyle;
   cell: RtlStyle;
-}): boolean {
+}) {
   return (
     part.foreground === cell.foreground
     && part.background === cell.background
@@ -244,7 +244,7 @@ function sameStyle({ part, cell }: {
 function isColumnSelected({ column, selection }: {
   column: number;
   selection?: ColumnRange;
-}): boolean {
+}) {
   if (!selection) {
     return false;
   }
@@ -260,7 +260,7 @@ function extendedPart({ open, cell, selected, startsCaret }: {
   cell: RtlCell;
   selected: boolean;
   startsCaret: boolean;
-}): RtlTextPart | undefined {
+}) {
   if (!open || startsCaret || open.selected !== selected) {
     return undefined;
   }
@@ -285,7 +285,7 @@ function runParts({ cells, range, cursorColumn, selection }: {
   range: ColumnRange;
   cursorColumn?: number;
   selection?: ColumnRange;
-}): RtlPart[] {
+}) {
   const parts: RtlPart[] = [];
   let open: RtlTextPart | undefined;
 
@@ -347,7 +347,7 @@ export function rtlRow({ cells, cursorColumn, selection }: {
   cells: readonly RtlCell[];
   cursorColumn?: number;
   selection?: ColumnRange;
-}): RtlRun[] {
+}) {
   const runs: RtlRun[] = [];
 
   for (const range of rtlRuns({ cells: cells.map(cell => cell.text) })) {
@@ -389,7 +389,7 @@ function cellColor({ palette, truecolor, value, fallback }: {
   truecolor: boolean;
   value: number;
   fallback: string;
-}): string {
+}) {
   if (palette) {
     return ansiPaletteColor({ index: value });
   }
@@ -404,7 +404,7 @@ function cellColor({ palette, truecolor, value, fallback }: {
 /** One xterm cell as the overlay needs it, its colours resolved through the same
  *  design tokens as xterm's own palette - so the overlay follows a light/dark
  *  flip with the terminal under it and never has to be rebuilt for one. */
-function rtlCell({ cell }: { cell: IBufferCell }): RtlCell {
+function rtlCell({ cell }: { cell: IBufferCell }) {
   const foreground = cellColor({
     palette: cell.isFgPalette(),
     truecolor: cell.isFgRGB(),
@@ -437,7 +437,7 @@ function rtlCell({ cell }: { cell: IBufferCell }): RtlCell {
 function rowCells({ line, scratch }: {
   line: IBufferLine;
   scratch: IBufferCell;
-}): RtlCell[] {
+}) {
   const cells: RtlCell[] = [];
   for (let column = 0; column < line.length; column++) {
     cells.push(rtlCell({ cell: line.getCell(column, scratch) ?? scratch }));
@@ -453,7 +453,7 @@ export function rowSelection({ selection, absoluteRow, columns }: {
   selection: IBufferRange | undefined;
   absoluteRow: number;
   columns: number;
-}): ColumnRange | undefined {
+}) {
   const outsideSelection =
     !selection || absoluteRow < selection.start.y || absoluteRow > selection.end.y;
   if (outsideSelection || !selection) {
@@ -471,7 +471,7 @@ export function rowSelection({ selection, absoluteRow, columns }: {
 export function rtlViewport({ terminal, focused }: {
   terminal: Terminal;
   focused: boolean;
-}): PlacedRtlRun[] {
+}) {
   const buffer = terminal.buffer.active;
   const selection = terminal.getSelectionPosition();
   const scratch = buffer.getNullCell();

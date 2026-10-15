@@ -10,7 +10,7 @@ const XTERM_HELPER_TEXTAREA = "xterm-helper-textarea";
  *  textarea - so app shortcuts leave real form inputs (rename boxes, the picker)
  *  alone but still fire over xterm, whose helper `<textarea>` must not count as
  *  "editing" or the shortcuts would never reach a focused terminal. */
-export function isEditingText(element: Element | null): boolean {
+export function isEditingText(element: Element | null) {
   if (!(element instanceof HTMLElement)) {
     return false;
   }
@@ -30,7 +30,7 @@ export function isEditingText(element: Element | null): boolean {
  *  `<textarea>`). Used after an out-of-pane action - clicking "Send to agent"
  *  moves DOM focus to that button - so the next keystroke reaches the agent
  *  without a manual click back into the pane. No-op if the pane isn't mounted. */
-export function focusTerminalPane(paneId: string): void {
+export function focusTerminalPane(paneId: string) {
   for (const slot of document.querySelectorAll<HTMLElement>("[data-pane-id]")) {
     if (slot.getAttribute("data-pane-id") !== paneId) {
       continue;

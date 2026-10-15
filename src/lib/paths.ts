@@ -4,12 +4,12 @@
 // project picker, the shell, and the tasks panel so the "temp" logic never drifts.
 
 /** The final path segment (folder name), or the whole path when it has none. */
-export function baseName(path: string): string {
+export function baseName(path: string) {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
 }
 
 /** A friendly display name: the assigned label if present, else the folder name. */
-export function displayName(path: string, labels: Record<string, string>): string {
+export function displayName(path: string, labels: Record<string, string>) {
   return labels[path] ?? baseName(path);
 }
 
@@ -18,21 +18,21 @@ export function displayName(path: string, labels: Record<string, string>): strin
  *  without eating it. One authoritative home for the last-two-segments split -
  *  module-private, reached through `shortDisplayName` so the label override always
  *  applies. */
-function shortDirectory(path: string): string {
+function shortDirectory(path: string) {
   return path.split(/[\\/]/).filter(Boolean).slice(-2).join("/");
 }
 
 /** A friendly two-segment display name: the assigned label if present, else the
  *  compact "parent/leaf" directory (see `shortDirectory`). The top-bar project chip and
  *  the switcher's open-window rows both read it so they never drift apart. */
-export function shortDisplayName(path: string, labels: Record<string, string>): string {
+export function shortDisplayName(path: string, labels: Record<string, string>) {
   return labels[path] ?? shortDirectory(path);
 }
 
 /** The folder a path sits in, or null when it has no parent (a bare drive/root).
  *  Watching the parent - never the folder itself - is what lets the picker see a
  *  project appear or disappear without holding a handle on it. */
-export function parentDirectory(path: string): string | null {
+export function parentDirectory(path: string) {
   const cut = path.replace(/[\\/]+$/, "").search(/[\\/][^\\/]*$/);
   return cut > 0 ? path.slice(0, cut) : null;
 }
@@ -44,12 +44,12 @@ export function parentDirectory(path: string): string | null {
 export function childPath({ parent, name }: {
   parent: string;
   name: string;
-}): string {
+}) {
   return `${parent}\\${name}`;
 }
 
 /** Whether a path is a PADE temporary workspace (…/workspaces/temp-<stamp>). */
-export function isTemporaryWorkspace(path: string): boolean {
+export function isTemporaryWorkspace(path: string) {
   return /[\\/]workspaces[\\/]temp-\d+$/.test(path);
 }
 
@@ -62,7 +62,7 @@ export function isTemporaryWorkspace(path: string): boolean {
 export function relativeToRoot({ path, root }: {
   path: string;
   root: string;
-}): string {
+}) {
   const normalizedPath = normalizePath(path);
   const normalizedRoot = normalizePath(root);
   if (normalizedPath === normalizedRoot) {
@@ -89,7 +89,7 @@ export function relativeToRoot({ path, root }: {
  *  filesystem, so it keeps its case: `/home/User/x` and `/home/user/x` stay
  *  distinct files. Used by the watcher, the workspace list, and the add-root
  *  dedup. */
-export function normalizePath(path: string): string {
+export function normalizePath(path: string) {
   const separated = path.replaceAll("\\", "/").replace(/\/+$/, "");
   const isWindowsDrivePath = /^[a-z]:/i.test(path);
   return isWindowsDrivePath ? separated.toLowerCase() : separated;

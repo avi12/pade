@@ -19,13 +19,13 @@ export const overflowTooltipState = $state<{ active: ActiveOverflowTooltip | nul
   active: null
 });
 
-export function showOverflowTooltip(tooltip: ActiveOverflowTooltip): void {
+export function showOverflowTooltip(tooltip: ActiveOverflowTooltip) {
   overflowTooltipState.active = tooltip;
 }
 
 /** Clear only if the given trigger still owns the bubble - a stale pointerleave
  *  from a trigger the pointer already moved off of never hides a newer one. */
-export function clearOverflowTooltip(anchorName: string): void {
+export function clearOverflowTooltip(anchorName: string) {
   if (overflowTooltipState.active?.anchorName === anchorName) {
     overflowTooltipState.active = null;
   }

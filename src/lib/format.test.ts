@@ -53,7 +53,7 @@ describe("formatTimestamp", () => {
 
 describe("formatAge", () => {
   const now = 10_000_000_000;
-  function secondsAgo(seconds: number): string {
+  function secondsAgo(seconds: number) {
     return formatAge({
       stamp: now - seconds * 1000,
       now

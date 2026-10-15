@@ -35,7 +35,7 @@ const MIN_OPTIONS = 2;
  *  CLI using a different cursor glyph won't be detected, and it can't see a
  *  choice made off-screen. It errs toward missing a prompt over flashing a
  *  false one. */
-export function detectChoicePrompt(text: string): boolean {
+export function detectChoicePrompt(text: string) {
   if (!text.includes(SELECTION_CURSOR)) {
     return false;
   }

@@ -34,7 +34,7 @@ const CURSOR_FORWARD_DEFAULT_COUNT = 1;
 // allocate an unbounded string - wider than any real terminal row.
 const CURSOR_FORWARD_MAX_COUNT = 1_000;
 
-function cursorForwardGap(_sequence: string, count: string): string {
+function cursorForwardGap(_sequence: string, count: string) {
   const columns = count === "" ? CURSOR_FORWARD_DEFAULT_COUNT : parseInt(count, 10);
   return " ".repeat(Math.min(columns, CURSOR_FORWARD_MAX_COUNT));
 }
@@ -43,13 +43,13 @@ function cursorForwardGap(_sequence: string, count: string): string {
  *  cursor-forward skip as the blank gap it leaves on screen - or text matchers
  *  would see `Yes,Itrustthisfolder` where the screen reads "Yes, I trust this
  *  folder". */
-export function stripAnsi(text: string): string {
+export function stripAnsi(text: string) {
   return text.replaceAll(CURSOR_FORWARD_RE, cursorForwardGap).replaceAll(ANSI_ESCAPE_RE, "");
 }
 
 /** A run of text sharing one set of SGR styles. Colours resolve to `var(--terminal-*)`
  *  references from the shared palette, so they follow the OS light/dark scheme. */
-export interface AnsiSegment {
+interface AnsiSegment {
   text: string;
   color?: string;
   background?: string;
@@ -94,7 +94,7 @@ const BRIGHT_OFFSET = 8;
 
 /** Resolve an ANSI colour index (0–15) to the CSS custom-property reference that
  *  paints it - the single palette shared with xterm's theme. */
-function ansiColor(index: number): string {
+function ansiColor(index: number) {
   return `var(${ANSI_COLOR_TOKENS[index]})`;
 }
 
@@ -104,7 +104,7 @@ function colorIndexFor({ code, standardStart, brightStart }: {
   code: number;
   standardStart: number;
   brightStart: number;
-}): number | null {
+}) {
   if (code >= standardStart && code <= standardStart + 7) {
     return code - standardStart;
   }
@@ -116,7 +116,7 @@ function colorIndexFor({ code, standardStart, brightStart }: {
   return null;
 }
 
-function resetStyle(style: AnsiStyle): void {
+function resetStyle(style: AnsiStyle) {
   style.color = undefined;
   style.background = undefined;
   style.bold = undefined;
@@ -133,7 +133,7 @@ function applyExtendedColor({ style, codes, index, foreground }: {
   codes: number[];
   index: number;
   foreground: boolean;
-}): number {
+}) {
   const mode = codes[index + 1];
   if (mode === ExtendedColorMode.Palette) {
     const paletteIndex = codes[index + 2];
@@ -196,7 +196,7 @@ const ATTRIBUTE_SETTERS: ReadonlyMap<number, (style: AnsiStyle) => void> = new M
 function applySimpleCode({ style, code }: {
   style: AnsiStyle;
   code: number;
-}): void {
+}) {
   const setAttribute = ATTRIBUTE_SETTERS.get(code);
   if (setAttribute) {
     setAttribute(style);
@@ -228,7 +228,7 @@ function applySimpleCode({ style, code }: {
 function applySgr({ style, params }: {
   style: AnsiStyle;
   params: string;
-}): void {
+}) {
   const parts = params === "" ? ["0"] : params.split(";");
   const codes = parts.map(part => (part === "" ? 0 : parseInt(part, 10)));
   for (let index = 0; index < codes.length; index++) {
@@ -250,7 +250,7 @@ function applySgr({ style, params }: {
   }
 }
 
-function styledSegment(text: string, style: AnsiStyle): AnsiSegment {
+function styledSegment(text: string, style: AnsiStyle) {
   const segment: AnsiSegment = { text };
   if (style.color !== undefined) {
     segment.color = style.color;
@@ -284,7 +284,7 @@ function styledSegment(text: string, style: AnsiStyle): AnsiSegment {
  *  DOM-free; colours are `var(--terminal-*)` references resolved by CSS. Always
  *  returns at least one segment (an empty-text segment for empty/all-escape input),
  *  so a caller can render every line as a row. */
-export function parseAnsi(text: string): AnsiSegment[] {
+export function parseAnsi(text: string) {
   const segments: AnsiSegment[] = [];
   const style: AnsiStyle = {};
   let runStart = 0;

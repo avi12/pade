@@ -23,7 +23,7 @@ export interface SendShortcutHost {
 
 /** Register the global send shortcut (idempotent - cleans a stale registration
  *  first, so an HMR re-register never doubles up). */
-export async function registerSendShortcut(host: SendShortcutHost): Promise<void> {
+export async function registerSendShortcut(host: SendShortcutHost) {
   await unregisterSendShortcut();
   await register(SEND_SHORTCUT, async event => {
     if (event.state !== "Pressed") {
@@ -46,6 +46,6 @@ export async function registerSendShortcut(host: SendShortcutHost): Promise<void
 }
 
 /** Release the global shortcut (safe when it was never registered). */
-export async function unregisterSendShortcut(): Promise<void> {
+export async function unregisterSendShortcut() {
   await unregister(SEND_SHORTCUT).catch(() => {});
 }

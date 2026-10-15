@@ -10,7 +10,6 @@ import { chosenTerminalScheme, loadTerminalSchemes } from "@/lib/stores/terminal
 import { schemeOfBackground, TERMINAL_PALETTE_PROPERTIES, terminalPaletteProperties } from "@/lib/terminal-palette";
 import { adoptedMonospaceFace, followsSystemScheme, resolveAppearance } from "@/lib/theme-mode";
 import {
-  type DiffStyle,
   type Prefs,
   type Scheme,
   type TerminalSchemeChoice,
@@ -27,7 +26,7 @@ export {
 
 /** Resolve a font-stack CSS custom property (theme.css owns the fallback list) to
  *  its concrete value and prepend the user's chosen font when set. */
-function withChosenFont(chosen: string | null | undefined, baseVariable: string): string {
+function withChosenFont(chosen: string | null | undefined, baseVariable: string) {
   const base = getComputedStyle(document.documentElement).getPropertyValue(baseVariable).trim();
   return chosen ? `"${chosen}", ${base}` : base;
 }
@@ -40,17 +39,17 @@ const NO_TERMINAL_SCHEMES: TerminalSchemeChoice = {
 
 /** Effective values with defaults resolved (for consumers that need a concrete value). */
 export const effective = {
-  get themeMode(): ThemeMode {
+  get themeMode() {
     return prefs.themeMode ?? "system";
   },
-  get diffStyle(): DiffStyle {
+  get diffStyle() {
     return prefs.diffStyle ?? "unified";
   },
   /** The terminal font pick, as a name; "" = theme.css's stack as written. */
-  get monoFontName(): string {
+  get monoFontName() {
     return prefs.monoFont ?? "";
   },
-  get monospaceFamily(): string {
+  get monospaceFamily() {
     // The base stack lives once in theme.css (--font-monospace-base); resolve it to
     // a concrete string (xterm renders to canvas and can't resolve a `var()`) and
     // prepend a chosen font, so the fallback list is never re-spelled here.
@@ -62,36 +61,36 @@ export const effective = {
    *  (Cyberpunk is set in Rajdhani, the game's) take effect without this getter
    *  re-running. `null` when nothing is chosen: the root's `--font-ui` already
    *  IS that stack, so the binding is simply dropped. */
-  get uiFamily(): string | null {
+  get uiFamily() {
     if (!prefs.uiFont) {
       return null;
     }
 
     return `"${prefs.uiFont}", var(--font-ui-base)`;
   },
-  get uiScale(): number {
+  get uiScale() {
     return prefs.uiScale ?? 1;
   },
   /** The Windows Terminal colour scheme chosen per app scheme (`lib/stores/
    *  terminalSchemes` resolves a name to the scheme itself). */
-  get terminalSchemes(): TerminalSchemeChoice {
+  get terminalSchemes() {
     return prefs.terminalSchemes ?? NO_TERMINAL_SCHEMES;
   },
-  get sidePanelWidth(): number {
+  get sidePanelWidth() {
     return prefs.sidePanelWidth ?? SIDE_PANEL_DEFAULT_WIDTH;
   },
-  get handoffPercentage(): number {
+  get handoffPercentage() {
     return prefs.handoffPct ?? DEFAULT_CONTEXT_HANDOFF_PERCENTAGE;
   },
-  get softwareRender(): boolean {
+  get softwareRender() {
     return prefs.softwareRender === true;
   },
   /** Opt-in: nothing is published to Discord unless explicitly enabled. */
-  get discordPresence(): boolean {
+  get discordPresence() {
     return prefs.discordPresence === true;
   },
   /** On by default, but only reachable once presence itself is on. */
-  get discordShowProject(): boolean {
+  get discordShowProject() {
     return prefs.discordShowProject !== false;
   }
 };
@@ -141,7 +140,7 @@ function installAppearance({
 }: {
   scheme: Scheme;
   palette: ThemePalette;
-}): void {
+}) {
   appearance.scheme = scheme;
   appearance.palette = palette;
   document.documentElement.dataset.theme = scheme;
@@ -152,7 +151,7 @@ function installAppearance({
  *  the app theme's own `--terminal-*` tokens when there is none. Writing the
  *  tokens rather than talking to xterm is what keeps every ANSI surface (the
  *  terminal, the runner dock) on one palette. */
-function installTerminalPalette(scheme: Scheme): void {
+function installTerminalPalette(scheme: Scheme) {
   const chosen = chosenTerminalScheme({
     choice: prefs.terminalSchemes,
     scheme
@@ -200,7 +199,7 @@ function apply() {
 /** Record what the OS is showing and re-apply if we're following it. The scheme
  *  is recorded even on a fixed light/dark mode, so switching back to "system"
  *  lands on the OS's current answer rather than a stale one. */
-function installSystemScheme(scheme: Scheme): void {
+function installSystemScheme(scheme: Scheme) {
   systemScheme = scheme;
 
   if (followsSystemScheme(effective.themeMode)) {
@@ -240,7 +239,7 @@ let systemThemeWatched = false;
  *  with the window focused the whole time. Tauri's native `ThemeChanged` fires
  *  regardless; follow the scheme IT reports (authoritative - the media query's own
  *  value can still be stale) so a focused window re-themes at once. Armed once. */
-async function watchSystemTheme(): Promise<void> {
+async function watchSystemTheme() {
   if (systemThemeWatched) {
     return;
   }
@@ -256,7 +255,7 @@ async function watchSystemTheme(): Promise<void> {
  *  that is already dark, and only a genuine flip would ever correct it - so the
  *  first session spawned would theme its agent for the wrong scheme permanently.
  *  Best-effort: a failed probe keeps the media query's answer. */
-async function adoptNativeSystemScheme(): Promise<void> {
+async function adoptNativeSystemScheme() {
   try {
     installSystemScheme(await windows.theme());
   } catch {
@@ -265,7 +264,7 @@ async function adoptNativeSystemScheme(): Promise<void> {
   }
 }
 
-export async function loadPrefs(): Promise<void> {
+export async function loadPrefs() {
   await watchSystemTheme();
   await adoptNativeSystemScheme();
   // Before the settings land, so the first apply() already resolves a persisted
@@ -279,7 +278,7 @@ export async function loadPrefs(): Promise<void> {
  *  the change shows up in the font grid and stays the user's to change
  *  afterwards; leaving that skin releases the face again. `lib/theme-mode` owns
  *  the rule, including when a pick is the user's own and must be left alone. */
-export async function chooseThemeMode(mode: ThemeMode): Promise<void> {
+export async function chooseThemeMode(mode: ThemeMode) {
   const face = adoptedMonospaceFace({
     mode,
     current: prefs.monoFont
@@ -293,7 +292,7 @@ export async function chooseThemeMode(mode: ThemeMode): Promise<void> {
 }
 
 /** Merge a change, apply it immediately, then persist. */
-export async function updatePrefs(patch: Partial<Prefs>): Promise<void> {
+export async function updatePrefs(patch: Partial<Prefs>) {
   Object.assign(prefs, patch);
   apply();
   await workspace.setPrefs(patch);

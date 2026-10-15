@@ -9,7 +9,7 @@
 
 import { cubicOut } from "svelte/easing";
 
-function prefersReducedMotion(): boolean {
+function prefersReducedMotion() {
   return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
@@ -19,7 +19,7 @@ function bezierAxis({ controlOne, controlTwo, curveProgress }: {
   controlOne: number;
   controlTwo: number;
   curveProgress: number;
-}): number {
+}) {
   const inverse = 1 - curveProgress;
   return (3 * inverse * inverse * curveProgress * controlOne)
     + (3 * inverse * curveProgress * curveProgress * controlTwo)
@@ -30,7 +30,7 @@ function bezierAxis({ controlOne, controlTwo, curveProgress }: {
  *  motion the CSS `--ease` token carries - as an easing function for JS-driven
  *  animations (e.g. `animate:flip`), so JS motion matches the rest of the app.
  *  Solves x(t) = progress by bisection, then returns y(t). */
-export function emphasized(progress: number): number {
+export function emphasized(progress: number) {
   let low = 0;
   let high = 1;
   let adjustedProgress = progress;
@@ -55,7 +55,7 @@ export function emphasized(progress: number): number {
   });
 }
 
-function motionDuration(milliseconds: number): number {
+function motionDuration(milliseconds: number) {
   return prefersReducedMotion() ? 0 : milliseconds;
 }
 
@@ -165,6 +165,6 @@ function slideInline(node: Element, duration: number) {
 
 /** `animate:flip` duration for a reordering list row, silenced under reduced
  *  motion so survivors jump straight to their new slots. */
-export function flipDuration(milliseconds = 220): number {
+export function flipDuration(milliseconds = 220) {
   return motionDuration(milliseconds);
 }

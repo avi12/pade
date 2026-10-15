@@ -67,7 +67,7 @@ const GREY_RAMP_STEP = 10;
  *  tokens ({@link ANSI_COLOR_TOKENS}) so they follow the app's light/dark scheme
  *  exactly as xterm's own palette does; the rest are the standard 256-colour
  *  formula, which is scheme-independent by definition. */
-export function ansiPaletteColor({ index }: { index: number }): string {
+export function ansiPaletteColor({ index }: { index: number }) {
   const token = ANSI_COLOR_TOKENS[index];
   if (token) {
     return `var(${token})`;
@@ -114,14 +114,14 @@ const HSL_COLOR = new RegExp(
   "i"
 );
 
-function channelHex(value: number): string {
+function channelHex(value: number) {
   const clamped = Math.min(255, Math.max(0, Math.round(value * 255)));
   return clamped.toString(16).padStart(2, "0");
 }
 
 /** Convert a modern `hsl()` token to `#rrggbb[aa]`; any other format (already-hex,
  *  `rgb()`, a future `color-mix()`) passes through for xterm's own parser. */
-export function xtermSafeColor(raw: string): string {
+export function xtermSafeColor(raw: string) {
   const match = HSL_COLOR.exec(raw.trim());
   if (!match) {
     return raw;
@@ -164,8 +164,8 @@ export function xtermSafeColor(raw: string): string {
  *  stays pure. Agent CLIs paint with these 16 slots, and xterm's own defaults
  *  only suit a dark screen - the light scheme re-picks every one dark enough to
  *  read. */
-export function xtermTheme({ readToken }: { readToken: (name: string) => string }): ITheme {
-  function color(name: string): string {
+export function xtermTheme({ readToken }: { readToken: (name: string) => string }) {
+  function color(name: string) {
     return xtermSafeColor(readToken(name));
   }
 
@@ -191,8 +191,8 @@ export function xtermTheme({ readToken }: { readToken: (name: string) => string 
  *  hiding the word underneath it. */
 export function xtermSearchDecorations({ readToken }: {
   readToken: (name: string) => string;
-}): NonNullable<ISearchOptions["decorations"]> {
-  function color(name: string): string {
+}) {
+  function color(name: string) {
     return xtermSafeColor(readToken(name));
   }
 
@@ -204,14 +204,14 @@ export function xtermSearchDecorations({ readToken }: {
     activeMatchBackground: activeMatch,
     activeMatchBorder: color("--primary"),
     activeMatchColorOverviewRuler: activeMatch
-  };
+  } satisfies NonNullable<ISearchOptions["decorations"]>;
 }
 
 /** Read design tokens off the document root. The one DOM read behind every
  *  terminal colour - the theme and the search highlights resolve their tokens
  *  through it, so neither can end up reading a different root than the other.
  *  Returned as a reader so the mappings above stay pure and testable. */
-export function rootTokenReader(): (name: string) => string {
+export function rootTokenReader() {
   const style = getComputedStyle(document.documentElement);
-  return name => style.getPropertyValue(name).trim();
+  return (name: string) => style.getPropertyValue(name).trim();
 }

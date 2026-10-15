@@ -14,7 +14,6 @@
 //     because they sit among other controls (the project switcher: its rows are
 //     interleaved with per-row kebabs, and its filter field is one of the stops).
 //     Nothing but focus moves.
-import type { Attachment } from "svelte/attachments";
 
 /** Where a move lands: the items as found in the DOM, and the index to focus. */
 type Move = {
@@ -28,8 +27,8 @@ function bindArrowKeys({ node, itemSelector, focusItem }: {
   node: HTMLElement;
   itemSelector: string;
   focusItem: (move: Move) => void;
-}): () => void {
-  function onKeydown(event: KeyboardEvent): void {
+}) {
+  function onKeydown(event: KeyboardEvent) {
     if (!(event.target instanceof HTMLElement)) {
       return;
     }
@@ -73,8 +72,8 @@ function bindArrowKeys({ node, itemSelector, focusItem }: {
 
 /** Attachment (`{@attach rovingMenu}`) for a popover menu; its items are its
  *  descendant `<button>`s. Returns the teardown Svelte runs when it detaches. */
-export function rovingMenu(node: HTMLElement): () => void {
-  function focusItem({ items, index }: Move): void {
+export function rovingMenu(node: HTMLElement) {
+  function focusItem({ items, index }: Move) {
     for (const [position, item] of items.entries()) {
       item.tabIndex = position === index ? 0 : -1;
     }
@@ -82,7 +81,7 @@ export function rovingMenu(node: HTMLElement): () => void {
     items[index]?.focus();
   }
 
-  function onToggle(event: ToggleEvent): void {
+  function onToggle(event: ToggleEvent) {
     if (event.newState === "open") {
       focusItem({
         items: [...node.querySelectorAll<HTMLElement>("button")],
@@ -106,8 +105,8 @@ export function rovingMenu(node: HTMLElement): () => void {
 /** Attachment factory (`{@attach arrowFocus("[data-arrow-stop]")}`) for a menu
  *  whose items stay in the natural Tab order: Up/Down move focus between the
  *  `itemSelector` matches and nothing else changes. */
-export function arrowFocus(itemSelector: string): Attachment<HTMLElement> {
-  return node => bindArrowKeys({
+export function arrowFocus(itemSelector: string) {
+  return (node: HTMLElement) => bindArrowKeys({
     node,
     itemSelector,
     focusItem: ({ items, index }) => items[index]?.focus()
@@ -120,7 +119,7 @@ export function nextIndex({ key, from, count }: {
   key: string;
   from: number;
   count: number;
-}): number | null {
+}) {
   if (count === 0) {
     return null;
   }

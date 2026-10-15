@@ -79,7 +79,7 @@ export type AgentGroup = {
 const EDITOR_AGENT_ID_PREFIX = "editor-";
 
 // Severity by consumption. Applied as a CSS class downstream.
-export function limitLevel(percentage: number): Level {
+function limitLevel(percentage: number) {
   if (percentage >= 90) {
     return "crit";
   }
@@ -91,7 +91,7 @@ export function limitLevel(percentage: number): Level {
   return "normal";
 }
 
-function clamp(value: number): number {
+function clamp(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
@@ -105,7 +105,7 @@ function clamp(value: number): number {
 // not `null` - the null reached `.replace` and threw *inside an effect*, which
 // takes the whole effect batch down with it: a terminal mounting in the same
 // flush never got its xterm and sat at "Starting…" forever.
-export function usageResetTime(iso: string | null | undefined): number {
+export function usageResetTime(iso: string | null | undefined) {
   if (!iso) {
     return Number.NaN;
   }
@@ -116,7 +116,7 @@ export function usageResetTime(iso: string | null | undefined): number {
 function resetHasPassed({ resetsAt, now }: {
   resetsAt: string | null | undefined;
   now: number;
-}): boolean {
+}) {
   if (!resetsAt) {
     return false;
   }
@@ -136,7 +136,7 @@ const RESET_TIMESTAMP = new Intl.DateTimeFormat(undefined, {
 });
 
 // ISO reset time → its absolute local timestamp, or "" when unknown/unparseable.
-function resetTimestamp(iso: string | null | undefined): string {
+function resetTimestamp(iso: string | null | undefined) {
   if (!iso) {
     return "";
   }
@@ -154,7 +154,7 @@ function resetTimestamp(iso: string | null | undefined): string {
 function resetCountdown({ iso, now }: {
   iso: string | null | undefined;
   now: number;
-}): string {
+}) {
   if (!iso) {
     return "";
   }
@@ -187,7 +187,7 @@ function resetCountdown({ iso, now }: {
 // A single-letter mono code derived from a window's own label - the initial of
 // its first distinctive word, e.g. "Claude Opus" → "O", "Claude Fable" → "F".
 // Used for per-model and any opaque windows (session/weekly get fixed codes).
-function labelShort(name: string): string {
+function labelShort(name: string) {
   const tokens = name.split(/[^a-z0-9]+/i).filter(Boolean);
   const word = tokens.find(token => token.toLowerCase() !== "claude") ?? tokens[0] ?? name;
   return word.slice(0, 1).toUpperCase();
@@ -196,7 +196,7 @@ function labelShort(name: string): string {
 // The display name minus a trailing " Code" / " CLI" ("Claude Code" → "Claude",
 // "Grok CLI" → "Grok"), for the space-tight compact pills. Falls back to the
 // full label when stripping would leave nothing.
-function shortName(label: string): string {
+function shortName(label: string) {
   return label.replace(/\s+(code|cli)$/i, "").trim() || label;
 }
 
@@ -224,7 +224,7 @@ type LimitPriorityValue = (typeof LimitPriority)[keyof typeof LimitPriority];
 function limitPriority({ limit, limits }: {
   limit: Limit;
   limits: Limit[];
-}): LimitPriorityValue {
+}) {
   const isCreditsCap = limit.kind === UsageWindowKind.enum.credits;
   if (!isCreditsCap) {
     return LimitPriority.window;
@@ -250,7 +250,7 @@ type RankedLimit = {
 function rank({ limit, limits }: {
   limit: Limit;
   limits: Limit[];
-}): RankedLimit {
+}) {
   return {
     limit,
     priority: limitPriority({
@@ -265,7 +265,7 @@ function rank({ limit, limits }: {
 function outranks({ candidate, incumbent }: {
   candidate: RankedLimit;
   incumbent: RankedLimit;
-}): boolean {
+}) {
   if (candidate.priority !== incumbent.priority) {
     return candidate.priority > incumbent.priority;
   }
@@ -273,7 +273,7 @@ function outranks({ candidate, incumbent }: {
   return candidate.limit.percentage > incumbent.limit.percentage;
 }
 
-function worstRanked(limits: Limit[]): RankedLimit | null {
+function worstRanked(limits: Limit[]) {
   let worst: RankedLimit | null = null;
   for (const limit of limits) {
     const candidate = rank({
@@ -295,18 +295,14 @@ function worstRanked(limits: Limit[]): RankedLimit | null {
  *  panel's "closest to a limit" signal. Ranked by `LimitPriority` before
  *  percentage, so extra usage never crowds out the windows that actually stop
  *  work. `null` for an agent with no limits. */
-export function worstLimit(limits: Limit[]): Limit | null {
+export function worstLimit(limits: Limit[]) {
   return worstRanked(limits)?.limit ?? null;
 }
 
 // A window's presentation for the meter: its display label, sub-caption, and
 // single-letter mono code. The two named windows get product names; a per-model
 // or opaque window derives its label + code from its own backend label.
-function windowPresentation(window: UsageWindow): {
-  label: string;
-  sub: string;
-  kindShort: string;
-} {
+function windowPresentation(window: UsageWindow) {
   if (window.kind === UsageWindowKind.enum.session) {
     return {
       label: "Session",
@@ -341,7 +337,7 @@ function windowPresentation(window: UsageWindow): {
 
 // A credits balance in its own currency, locale-formatted ("$46.89"), or "" when
 // there is none to show.
-function formatBalance(balance: CreditBalance | null | undefined): string {
+function formatBalance(balance: CreditBalance | null | undefined) {
   if (!balance) {
     return "";
   }
@@ -356,7 +352,7 @@ function formatBalance(balance: CreditBalance | null | undefined): string {
 
 // Extra usage with no monthly cap has no window - nothing to run out of - but
 // its spend is still worth seeing, so it gets a row at 0% that reads as money.
-function uncappedCreditsWindows(account: AccountUsage): UsageWindow[] {
+function uncappedCreditsWindows(account: AccountUsage) {
   const hasCreditsWindow = account.windows.some(window => window.kind === UsageWindowKind.enum.credits);
   if (!account.uncappedSpend || hasCreditsWindow) {
     return [];
@@ -380,9 +376,10 @@ function uncappedCreditsWindows(account: AccountUsage): UsageWindow[] {
 function buildLimits({ account, now }: {
   account: AccountUsage;
   now: number;
-}): Limit[] {
+}) {
   const limits: Limit[] = [];
-  for (const window of [...account.windows, ...uncappedCreditsWindows(account)]) {
+  const windows: UsageWindow[] = [...account.windows, ...uncappedCreditsWindows(account)];
+  for (const window of windows) {
     // A utilization belongs to the window that ended at `resetsAt`. Once that
     // boundary passes, retaining it is knowingly stale; render the new window's
     // zero baseline while UsageMeter forces a fresh vendor read.
@@ -429,7 +426,7 @@ function buildAgentGroup({ agent, account, now }: {
   agent: Agent;
   account: AccountUsage | null;
   now: number;
-}): AgentGroup {
+}) {
   const hasUsage = account !== null;
   return {
     id: agent.id,
@@ -448,7 +445,7 @@ function buildAgentGroup({ agent, account, now }: {
 // Worst-first: agents with limits ranked by their most-consumed limit (desc);
 // agents with none (unknown, or Claude before its usage loads) sink to the end.
 // `Array.prototype.sort` is stable, so ties keep their first-seen order.
-function sortWorstFirst(groups: AgentGroup[]): AgentGroup[] {
+function sortWorstFirst(groups: AgentGroup[]) {
   return [...groups].sort((first, second) => {
     const firstWorst = worstLimit(first.limits);
     const secondWorst = worstLimit(second.limits);
@@ -479,7 +476,7 @@ export function buildGroups({ accounts, sessions, now }: {
   accounts: ReadonlyMap<string, AccountUsage | null>;
   sessions: AgentSession[];
   now: number;
-}): AgentGroup[] {
+}) {
   const groups: AgentGroup[] = [];
   const seenAgentIds = new Set<string>();
   const seenAccountIds = new Set<string>();
@@ -543,7 +540,7 @@ export type SeveritySlice = {
 
 // Groups with no limits (unknown agents, or Claude before its usage loads) have
 // no severity, so they're skipped here - but still counted in the running total.
-export function severityBreakdown(agents: AgentGroup[]): SeveritySlice[] {
+export function severityBreakdown(agents: AgentGroup[]) {
   return SEVERITY_ORDER.map(severity => ({
     level: severity.level,
     label: severity.label,
@@ -556,7 +553,7 @@ export function severityBreakdown(agents: AgentGroup[]): SeveritySlice[] {
 
 /** The single limit closest to its cap across every agent, tagged with its owner.
  *  Agents with no limits contribute nothing. */
-export type Spotlight = {
+type Spotlight = {
   agent: AgentGroup;
   limit: Limit;
 };
@@ -570,13 +567,13 @@ const RESET_FALL_PERCENTAGE = 10;
 export function limitKey({ agentId, limit }: {
   agentId: string;
   limit: Limit;
-}): string {
+}) {
   return `${agentId}:${limit.label}`;
 }
 
 /** Every capped limit's percentage, by {@link limitKey} - the reading the next
  *  one is compared with to spot a reset. */
-export function limitPercentages(groups: AgentGroup[]): Map<string, number> {
+export function limitPercentages(groups: AgentGroup[]) {
   const percentages = new Map<string, number>();
   for (const group of groups) {
     for (const limit of group.limits) {
@@ -599,7 +596,7 @@ export function limitPercentages(groups: AgentGroup[]): Map<string, number> {
 export function justResetLimits({ previous, current }: {
   previous: ReadonlyMap<string, number>;
   current: ReadonlyMap<string, number>;
-}): Set<string> {
+}) {
   const reset = new Set<string>();
   for (const [key, percentage] of current) {
     const before = previous.get(key);
@@ -612,7 +609,7 @@ export function justResetLimits({ previous, current }: {
   return reset;
 }
 
-export function findSpotlight(agents: AgentGroup[]): Spotlight | null {
+export function findSpotlight(agents: AgentGroup[]) {
   let closest: Spotlight | null = null;
   let closestRanked: RankedLimit | null = null;
   for (const agent of agents) {
@@ -638,12 +635,12 @@ export function findSpotlight(agents: AgentGroup[]): Spotlight | null {
 
 // Distinct kind codes actually in play, each with the label it stands for - the
 // legend that decodes the trigger's mono codes.
-export type KindLegendEntry = {
+type KindLegendEntry = {
   short: string;
   name: string;
 };
 
-export function buildKindLegend(agents: AgentGroup[]): KindLegendEntry[] {
+export function buildKindLegend(agents: AgentGroup[]) {
   // Plain-object dedupe (not a Map - this is a pure derivation, not reactive
   // state) keyed by the short code, first label wins.
   const seen: Record<string, true> = {};

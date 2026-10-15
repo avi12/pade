@@ -68,13 +68,13 @@ function makeTerminal({ rows, columns }: {
 
 // A wrapped URL is returned as one link per row; each must stay on a single row
 // so xterm never treats an intermediate cell (padding) as part of the link.
-function expectEverySpanSingleRow(links: ILink[]): void {
+function expectEverySpanSingleRow(links: ILink[]) {
   for (const link of links) {
     expect(link.range.start.y).toBe(link.range.end.y);
   }
 }
 
-function textsOf(links: ILink[]): string[] {
+function textsOf(links: ILink[]) {
   return links.map(link => link.text);
 }
 
@@ -109,7 +109,7 @@ function expectRecoversWholeUrl({ links, url, rows, label }: {
   url: string;
   rows: number[];
   label: string;
-}): void {
+}) {
   expect(new Set(textsOf(links)), label).toEqual(new Set([url]));
   const coveredRows = [...new Set(links.map(link => link.range.start.y))]
     .sort((first, second) => first - second);
@@ -678,7 +678,7 @@ function makeOscProvider({ text, startColumn, endColumn }: {
   text: string;
   startColumn: number;
   endColumn: number;
-}): ILinkProvider {
+}) {
   return {
     provideLinks(_bufferLineNumber, callback) {
       callback([{
@@ -696,10 +696,10 @@ function makeOscProvider({ text, startColumn, endColumn }: {
         activate() {}
       }]);
     }
-  };
+  } satisfies ILinkProvider;
 }
 
-function linksFrom(provider: ILinkProvider): ILink[] | undefined {
+function linksFrom(provider: ILinkProvider) {
   let served: ILink[] | undefined;
   provider.provideLinks(1, links => {
     served = links;

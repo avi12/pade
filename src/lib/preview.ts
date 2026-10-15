@@ -106,31 +106,31 @@ const MARKDOWN_EXTENSIONS: readonly string[] = MarkdownExtension.options;
 const HTML_EXTENSIONS: readonly string[] = HtmlExtension.options;
 
 /** Whether `path`'s extension names a previewable image. */
-export function isImagePath(path: string): boolean {
+export function isImagePath(path: string) {
   const extension = pathExtension(path);
   return extension !== null && IMAGE_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names a previewable video. */
-export function isVideoPath(path: string): boolean {
+export function isVideoPath(path: string) {
   const extension = pathExtension(path);
   return extension !== null && VIDEO_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names a markdown document. */
-export function isMarkdownPath(path: string): boolean {
+export function isMarkdownPath(path: string) {
   const extension = pathExtension(path);
   return extension !== null && MARKDOWN_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names a binary file a text editor can't open. */
-export function isBinaryPath(path: string): boolean {
+export function isBinaryPath(path: string) {
   const extension = pathExtension(path);
   return extension !== null && BINARY_EXTENSIONS.includes(extension);
 }
 
 /** Whether `path`'s extension names an HTML document. */
-export function isHtmlPath(path: string): boolean {
+export function isHtmlPath(path: string) {
   const extension = pathExtension(path);
   return extension !== null && HTML_EXTENSIONS.includes(extension);
 }

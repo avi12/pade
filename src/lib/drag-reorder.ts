@@ -158,13 +158,13 @@ interface Sibling {
   height: number;
 }
 
-function prefersReducedMotion(): boolean {
+function prefersReducedMotion() {
   return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
 /** Whether the item already draws a surface the lift can float on, so the engine
  *  only paints `LIFT_BACKGROUND` under the rows that draw none. */
-function paintsOwnSurface(element: HTMLElement): boolean {
+function paintsOwnSurface(element: HTMLElement) {
   const { backgroundColor, backgroundImage } = getComputedStyle(element);
   return backgroundImage !== "none" || colorAlpha(backgroundColor) >= OPAQUE_ALPHA;
 }
@@ -173,7 +173,7 @@ function paintsOwnSurface(element: HTMLElement): boolean {
 // the ~300ms settle after release) is ignored so gestures never overlap.
 let dragInProgress = false;
 
-export function beginReorder(options: BeginReorderOptions): void {
+export function beginReorder(options: BeginReorderOptions) {
   const {
     e,
     itemSelector,
@@ -248,11 +248,11 @@ export function beginReorder(options: BeginReorderOptions): void {
 
   // ── geometry ───────────────────────────────────────────────────────────────
 
-  function axisCenter(slot: Sibling): number {
+  function axisCenter(slot: Sibling) {
     return isHorizontal ? slot.left + slot.width / 2 : slot.top + slot.height / 2;
   }
 
-  function slotTranslate(from: Sibling, to: Sibling): string {
+  function slotTranslate(from: Sibling, to: Sibling) {
     return `${to.left - from.left}px ${to.top - from.top}px`;
   }
 
@@ -260,7 +260,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // begins, so the insertion index is always computed against a stable pre-drag
   // layout rather than the one the gaps are actively shifting. Hidden siblings
   // (display:none → zero size, e.g. an off-screen pane) aren't reorderable.
-  function snapshot(): void {
+  function snapshot() {
     siblings = [];
     for (const child of parent.children) {
       if (!(child instanceof HTMLElement) || !child.matches(itemSelector)) {
@@ -295,7 +295,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // is mapped to a real slot's geometry, so variable-width pills close and open
   // exactly - no uniform-gap assumption. The siblings' transition is set once on
   // lift, so this only writes `translate`.
-  function reflow(before: number): void {
+  function reflow(before: number) {
     const others = originalIds.filter(id => id !== draggedId);
     const order = [...others.slice(0, before), draggedId, ...others.slice(before)];
     for (let newPosition = 0; newPosition < order.length; newPosition++) {
@@ -317,7 +317,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // The element the pointer is truly over, resolved through the drag shield (and
   // through the lifted item, which already carries `pointerEvents:none`), so the
   // surface beneath both stays reachable.
-  function hitElementAt(x: number, y: number): Element | null {
+  function hitElementAt(x: number, y: number) {
     if (shield) {
       shield.style.pointerEvents = "none";
     }
@@ -332,7 +332,7 @@ export function beginReorder(options: BeginReorderOptions): void {
 
   // The pane + half under the pointer, or null - the drop-half decision, made once
   // here (via `reorder.paneDropSide`) for both the live hint and the release.
-  function resolveDropTarget(hit: Element | null, x: number): DropTarget | null {
+  function resolveDropTarget(hit: Element | null, x: number) {
     if (!hit) {
       return null;
     }
@@ -358,7 +358,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     };
   }
 
-  function updateOutsideHints(x: number, y: number): void {
+  function updateOutsideHints(x: number, y: number) {
     if (!outsideSelector) {
       return;
     }
@@ -370,7 +370,7 @@ export function beginReorder(options: BeginReorderOptions): void {
 
   // ── lift / restore ───────────────────────────────────────────────────────────
 
-  function startDrag(): void {
+  function startDrag() {
     dragging = true;
     snapshot();
 
@@ -409,7 +409,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     unclipAncestors();
   }
 
-  function raiseShield(): void {
+  function raiseShield() {
     const element = document.createElement("div");
     element.dataset.dragShield = "";
     element.style.position = "fixed";
@@ -421,7 +421,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     shield = element;
   }
 
-  function removeShield(): void {
+  function removeShield() {
     shield?.remove();
     shield = null;
   }
@@ -433,7 +433,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // instead: the translated item still extends the container's scrollable area,
   // and an `overflow: auto` ancestor (the runner dock's grid) would otherwise
   // pop scrollbars for the whole drag and settle.
-  function unclipAncestors(): void {
+  function unclipAncestors() {
     const neutral = outsideSelector ? "visible" : "hidden";
     let node: HTMLElement | null = parent;
     while (node && node !== document.body) {
@@ -456,7 +456,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     }
   }
 
-  function reclipAncestors(): void {
+  function reclipAncestors() {
     for (const { element, overflow } of overflowSaves) {
       element.style.overflow = overflow;
     }
@@ -464,7 +464,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     overflowSaves.length = 0;
   }
 
-  function clearItemStyles(): void {
+  function clearItemStyles() {
     for (const sibling of siblings) {
       const { style } = sibling.element;
       // Clear `transition` first so removing `translate` is instant, never animated.
@@ -482,7 +482,7 @@ export function beginReorder(options: BeginReorderOptions): void {
 
   // ── events ─────────────────────────────────────────────────────────────────
 
-  function onPointerMove(move: PointerEvent): void {
+  function onPointerMove(move: PointerEvent) {
     lastPointerX = move.clientX;
     lastPointerY = move.clientY;
 
@@ -531,7 +531,7 @@ export function beginReorder(options: BeginReorderOptions): void {
     });
   }
 
-  function onPointerUp(up: PointerEvent): void {
+  function onPointerUp(up: PointerEvent) {
     lastPointerX = up.clientX;
     lastPointerY = up.clientY;
 
@@ -544,11 +544,11 @@ export function beginReorder(options: BeginReorderOptions): void {
     finish(false);
   }
 
-  function onPointerCancel(): void {
+  function onPointerCancel() {
     finish(true);
   }
 
-  function onKeyDown(key: KeyboardEvent): void {
+  function onKeyDown(key: KeyboardEvent) {
     if (key.key !== "Escape") {
       return;
     }
@@ -564,7 +564,7 @@ export function beginReorder(options: BeginReorderOptions): void {
 
   // Tear down input, drop the shield, then either pop out (outside), spring home
   // (cancel), or spring into the new slot and commit (normal drop).
-  function finish(cancel: boolean): void {
+  function finish(cancel: boolean) {
     removeEventListener("pointermove", onPointerMove);
     removeEventListener("pointerup", onPointerUp);
     removeEventListener("pointercancel", onPointerCancel);
@@ -614,7 +614,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // Spring the lifted item from its release point to the target slot (the open gap,
   // or home on cancel), fading the shadow out; commit the reorder only once it has
   // settled, so nothing jumps.
-  function settleIntoSlot(cancel: boolean): void {
+  function settleIntoSlot(cancel: boolean) {
     const draggedElement = siblings[fromIndex].element;
     const settleIndex = cancel || lastBefore < 0 ? fromIndex : currentIndex;
     const target = slotTranslate(siblings[fromIndex], siblings[settleIndex]);
@@ -641,7 +641,7 @@ export function beginReorder(options: BeginReorderOptions): void {
   // no-op left the caller's list out of sync with the DOM the engine had moved, and
   // a later selection reconciled against that stale order and dropped the tab; the
   // design engine commits `lastOrder ?? ids.slice()` for exactly this reason.
-  async function finalizeCommit(cancel: boolean): Promise<void> {
+  async function finalizeCommit(cancel: boolean) {
     const order = committedOrderOnDrop({
       ids: originalIds,
       fromIndex,
@@ -668,8 +668,8 @@ export function beginReorder(options: BeginReorderOptions): void {
 // Swallow the very next click anywhere (capture phase, one shot) so a drop can't
 // double as a click. A macrotask retires the guard if the browser fires no click
 // at all (it usually doesn't after a long drag), so it never eats a later click.
-function suppressNextClick(): void {
-  function swallow(click: Event): void {
+function suppressNextClick() {
+  function swallow(click: Event) {
     click.stopPropagation();
 
     if (click.cancelable) {

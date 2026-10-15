@@ -8,7 +8,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 // A chord with every modifier off, overridden per case.
-function chord(overrides: Partial<KeyChord> = {}): KeyChord {
+function chord(overrides: Partial<KeyChord> = {}) {
   return {
     key: "",
     ctrlKey: false,
@@ -153,7 +153,7 @@ describe("matchTabShortcut", () => {
 
 describe("matchTabSelection", () => {
   // A plain Ctrl chord for the given digit key.
-  function ctrlDigit(key: string): KeyChord {
+  function ctrlDigit(key: string) {
     return chord({
       ctrlKey: true,
       key

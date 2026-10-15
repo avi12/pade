@@ -28,7 +28,7 @@ export interface DiffLine {
 
 /** One row of a side-by-side (split) view: either a full-width hunk header, or a
  *  left (old) / right (new) cell pair. `*Filled` marks the wash-tinted side. */
-export interface SplitRow {
+interface SplitRow {
   hunk: boolean;
   hunkText: string;
   left: string;
@@ -44,7 +44,7 @@ export interface SplitRow {
 
 const META_PREFIXES = ["diff ", "index ", "--- ", "+++ ", "new file", "deleted file", "rename ", "similarity "];
 
-function classify(line: string): DiffKind {
+function classify(line: string) {
   const isHunkHeader = line.startsWith("@@");
   const isFileMeta = META_PREFIXES.some(prefix => line.startsWith(prefix));
   if (isHunkHeader || isFileMeta) {
@@ -69,7 +69,7 @@ const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 /** Parse a raw `git diff` body into classified lines (trailing blank dropped).
  *  Context lines carry both 1-based line numbers, additions the new-file number,
  *  deletions the old-file number - the diff gutter reads them per side. */
-export function parseDiff(raw: string): DiffLine[] {
+export function parseDiff(raw: string) {
   const lines = raw.split("\n");
   if (lines.length > 0 && lines[lines.length - 1] === "") {
     lines.pop();
@@ -138,19 +138,19 @@ export function parseDiff(raw: string): DiffLine[] {
 
 /** The new-file line of the first added line (else the first line that exists in
  *  the new file) - where a "reveal in editor" click should land. */
-export function firstChangedLine(lines: DiffLine[]): number | undefined {
+export function firstChangedLine(lines: DiffLine[]) {
   const firstAdd = lines.find(line => line.kind === DiffKind.add && line.newLine !== undefined);
   return (firstAdd ?? lines.find(line => line.newLine !== undefined))?.newLine;
 }
 
 /** Drop the leading +/-/space marker so split cells show clean source. */
-function stripMarker(text: string): string {
+function stripMarker(text: string) {
   return text.replace(/^[+\-\s]/, "");
 }
 
 /** Turn classified lines into side-by-side rows (naive per-line pairing, like the
  *  canvas): additions on the right, deletions on the left, context on both. */
-export function toSplitRows(lines: DiffLine[]): SplitRow[] {
+export function toSplitRows(lines: DiffLine[]) {
   return lines.map(line => {
     const blank: SplitRow = {
       hunk: false,
@@ -231,7 +231,7 @@ const MAX_DIFF_CELLS = 4_000_000;
  *  newline adds no spurious empty final line, and empty text is zero lines (so an
  *  empty baseline diffs as a pure addition). Mirrors Rust's `str::lines`, keeping
  *  the two sides of a baseline diff consistent. */
-function splitLines(text: string): string[] {
+function splitLines(text: string) {
   if (text === "") {
     return [];
   }
@@ -250,7 +250,7 @@ function splitLines(text: string): string[] {
 function replaceChanges({ before, after }: {
   before: string[];
   after: string[];
-}): LineChange[] {
+}) {
   return [
     ...before.map(text => ({
       operation: LineOp.delete,
@@ -268,7 +268,7 @@ function replaceChanges({ before, after }: {
 function middleChanges({ before, after }: {
   before: string[];
   after: string[];
-}): LineChange[] {
+}) {
   if (before.length === 0 || after.length === 0) {
     return replaceChanges({
       before,
@@ -346,7 +346,7 @@ function middleChanges({ before, after }: {
 function lineChanges({ before, after }: {
   before: string[];
   after: string[];
-}): LineChange[] {
+}) {
   let head = 0;
   const sharedLimit = Math.min(before.length, after.length);
   while (head < sharedLimit && before[head] === after[head]) {
@@ -385,7 +385,7 @@ interface PlacedChange extends LineChange {
   newLine: number;
 }
 
-function markerFor(operation: LineOp): string {
+function markerFor(operation: LineOp) {
   if (operation === LineOp.insert) {
     return "+";
   }
@@ -400,7 +400,7 @@ function markerFor(operation: LineOp): string {
 /** The `@@ -old,n +new,n @@` header for one hunk. A side with no lines starts at
  *  0 (git's convention for a pure addition or deletion), which `parseDiff` reads
  *  as "no new-file cursor" for that side. */
-function hunkHeader(hunk: PlacedChange[]): string {
+function hunkHeader(hunk: PlacedChange[]) {
   const oldLines = hunk.filter(change => change.operation !== LineOp.insert);
   const newLines = hunk.filter(change => change.operation !== LineOp.delete);
   const oldStart = oldLines.length > 0 ? oldLines[0].oldLine : 0;
@@ -416,7 +416,7 @@ function hunkHeader(hunk: PlacedChange[]): string {
 export function unifiedDiff({ before, after }: {
   before: string;
   after: string;
-}): string {
+}) {
   const changes = lineChanges({
     before: splitLines(before),
     after: splitLines(after)

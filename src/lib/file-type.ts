@@ -63,9 +63,9 @@ export const FileTone = {
   Image: "image",
   Neutral: "neutral"
 } as const;
-export type FileTone = (typeof FileTone)[keyof typeof FileTone];
+type FileTone = (typeof FileTone)[keyof typeof FileTone];
 
-export interface FileTypeBadge {
+interface FileTypeBadge {
   /** 2–4 char label shown in the chip (e.g. `TS`, `CSS`) - the fallback for a
    *  file type without a brand logo, and always present so every row is tagged. */
   label: string;
@@ -852,7 +852,7 @@ const NAME_RULES: readonly NameRule[] = [
 function nameRuleMatches({ rule, lowerName }: {
   rule: NameRule;
   lowerName: string;
-}): boolean {
+}) {
   switch (rule.match) {
     case NameMatch.Exact:
       return lowerName === rule.pattern;
@@ -865,7 +865,7 @@ function nameRuleMatches({ rule, lowerName }: {
 
 /** A path's lower-case final extension without its dot, or null for a dotfile,
  * extensionless name, or trailing dot. Shared by all extension classifiers. */
-export function pathExtension(path: string): string | null {
+export function pathExtension(path: string) {
   const name = baseName(path);
   const dot = name.lastIndexOf(".");
   const hasExtension = dot > 0 && dot < name.length - 1;
@@ -876,7 +876,7 @@ export function pathExtension(path: string): string | null {
  *  dot, lowercased (e.g. `.ts`, `.css`). A dotfile (`.gitignore`) or
  *  extensionless file keys on its own base name, so every path yields one key.
  *  The single source both the file-type filter's counts and its filtering read. */
-export function fileExtension(path: string): string {
+export function fileExtension(path: string) {
   const name = baseName(path);
   const extension = pathExtension(path);
   return extension ? `.${extension}` : name;
@@ -884,7 +884,7 @@ export function fileExtension(path: string): string {
 
 /** The badge for a file path - read from its extension. A dotfile (`.gitignore`)
  *  or extensionless file gets a neutral chip from its own name. */
-export function fileTypeBadge(path: string): FileTypeBadge {
+export function fileTypeBadge(path: string) {
   const name = baseName(path);
   const lowerName = name.toLowerCase();
   const nameRule = NAME_RULES.find(rule => nameRuleMatches({

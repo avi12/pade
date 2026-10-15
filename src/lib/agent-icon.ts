@@ -12,7 +12,7 @@ export const AgentId = {
   Opencode: "opencode",
   Aider: "aider"
 } as const;
-export type AgentId = (typeof AgentId)[keyof typeof AgentId];
+type AgentId = (typeof AgentId)[keyof typeof AgentId];
 
 // Each agent's own brand mark. Unlike the stroke-based UI icons, these are filled
 // glyphs - the SVGs carry their own `fill="currentColor" stroke="none"`. Aider has
@@ -29,6 +29,6 @@ const AGENT_ICONS: Record<string, IconName> = {
 const FALLBACK_ICON: IconName = "terminal";
 
 /** A known agent's own glyph, else the generic terminal mark. */
-export function agentIconName(agentId: string): IconName {
+export function agentIconName(agentId: string) {
   return AGENT_ICONS[agentId] ?? FALLBACK_ICON;
 }

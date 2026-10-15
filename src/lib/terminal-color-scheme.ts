@@ -13,12 +13,12 @@ const LIGHT = 2;
 
 /** Report the current terminal color preference to a TUI that opted into DECSET
  * 2031 notifications. `1` is dark and `2` is light per the terminal protocol. */
-export function colorSchemeReport(scheme: Scheme): string {
+export function colorSchemeReport(scheme: Scheme) {
   const value = scheme === "dark" ? DARK : LIGHT;
   return `${CONTROL_SEQUENCE_INTRODUCER}${COLOR_SCHEME_STATUS};${value}${DEVICE_STATUS_REPORT}`;
 }
 
 /** Whether a TUI chunk enables the DEC 2031 color-scheme notification channel. */
-export function enablesColorSchemeNotifications(data: string): boolean {
+export function enablesColorSchemeNotifications(data: string) {
   return data.includes(`${CONTROL_SEQUENCE_INTRODUCER}${COLOR_SCHEME_NOTIFICATIONS}`);
 }

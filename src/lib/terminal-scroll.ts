@@ -27,7 +27,7 @@ const WheelDeltaMode = {
   Page: 2
 } as const;
 
-export interface WheelScroll {
+interface WheelScroll {
   /** Whole notches this event yields - negative scrolls up (toward earlier output). */
   notches: number;
   /** Sub-notch pixel remainder to pass back into the next call. */
@@ -41,7 +41,7 @@ function wheelDeltaPixels({
 }: {
   deltaY: number;
   deltaMode: number;
-}): number {
+}) {
   if (deltaMode === WheelDeltaMode.Line) {
     return deltaY * PIXELS_PER_WHEEL_LINE;
   }
@@ -61,7 +61,7 @@ export function accumulateWheelNotches({
   deltaY: number;
   deltaMode: number;
   carry: number;
-}): WheelScroll {
+}) {
   const total = carry + wheelDeltaPixels({
     deltaY,
     deltaMode
@@ -71,5 +71,5 @@ export function accumulateWheelNotches({
   return {
     notches,
     carry: total - whole * PIXELS_PER_NOTCH
-  };
+  } satisfies WheelScroll;
 }

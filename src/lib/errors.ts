@@ -6,7 +6,7 @@
 export function errorMessage({ error, fallback }: {
   error: unknown;
   fallback: string;
-}): string {
+}) {
   if (typeof error === "string" && error.trim()) {
     return error;
   }

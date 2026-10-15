@@ -13,7 +13,7 @@ const COMPONENTS_BEFORE_ALPHA = 3;
  *  see-through one. `rgb(r, g, b)` / `color(srgb r g b)` carry no alpha and are
  *  opaque, `rgba(…, a)` / `color(srgb … / a)` carry it fourth, and `transparent`
  *  (or any value without numeric components) is fully clear. */
-export function colorAlpha(color: string): number {
+export function colorAlpha(color: string) {
   const components = color.match(/[\d.]+/g);
   if (!components) {
     return 0;
@@ -28,13 +28,13 @@ export function colorAlpha(color: string): number {
 
 /** Is `value` something the engine accepts as a color (so the swatch is real,
  *  never a broken/empty box)? Doubles as the trust-boundary check on file text. */
-function isColor(value: string): boolean {
+function isColor(value: string) {
   return typeof CSS !== "undefined" && CSS.supports("color", value);
 }
 
 /** Parse a `--name: value;` token map out of stylesheet-ish text, so a file that
  *  defines its own tokens (e.g. a theme.css) traces against itself first. */
-export function collectVars(text: string): Map<string, string> {
+export function collectVars(text: string) {
   const vars = new Map<string, string>();
   for (const match of text.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)) {
     vars.set(match[1].trim(), match[2].trim());
@@ -49,7 +49,7 @@ export function resolveColor(
   token: string,
   vars?: Map<string, string>,
   depth = 0
-): string | null {
+) {
   if (depth > MAX_TRACE_DEPTH) {
     return null;
   }
@@ -95,7 +95,7 @@ const HEX_RADIX = 16;
 const CHANNEL_MAX = 255;
 
 /** One sRGB channel, 0–255, linearised for the luminance sum. */
-function linearChannel(byte: number): number {
+function linearChannel(byte: number) {
   const value = byte / CHANNEL_MAX;
   return value <= GAMMA_TOE_LIMIT
     ? value / 12.92
@@ -106,7 +106,7 @@ function linearChannel(byte: number): number {
  *  or `null` when the value is not one. Deliberately hex-only: the callers are
  *  Windows Terminal schemes, whose every colour field is plain hex, and taking
  *  the narrow shape keeps this honest about what it can actually answer. */
-export function hexLuminance(hex: string): number | null {
+export function hexLuminance(hex: string) {
   const match = HEX_COLOR.exec(hex.trim());
   if (!match) {
     return null;
@@ -116,7 +116,7 @@ export function hexLuminance(hex: string): number | null {
   const expanded =
     digits.length === SHORT_HEX_LENGTH ? digits.replaceAll(/./g, digit => digit + digit) : digits;
 
-  function channel(index: number): number {
+  function channel(index: number) {
     return linearChannel(parseInt(expanded.slice(index * 2, index * 2 + 2), HEX_RADIX));
   }
 
@@ -130,7 +130,7 @@ const DARK_SURFACE_LIMIT = 0.5;
 /** Whether a colour reads as a dark surface. An unparseable value is not called
  *  dark: the honest answer to "is this dark?" for something we cannot measure is
  *  "no claim", and a false warning is worse than a missing one. */
-export function isDarkSurface(hex: string): boolean {
+export function isDarkSurface(hex: string) {
   const luminance = hexLuminance(hex);
   return luminance !== null && luminance < DARK_SURFACE_LIMIT;
 }

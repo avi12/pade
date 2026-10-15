@@ -13,7 +13,7 @@ document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark
 // theme if they can't be read. Awaited so the first terminal spawn (which
 // forwards `appearance.scheme` to the agent's theme sync) never races the
 // settings load with the OS-resolved placeholder.
-async function applyPersistedPreferences(): Promise<void> {
+async function applyPersistedPreferences() {
   try {
     await loadPrefs();
   } catch {

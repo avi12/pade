@@ -21,12 +21,12 @@ const AI_NAMING_DEFAULT = false;
 export function projectNamingChoice({ prefs, project }: {
   prefs: Prefs;
   project: string;
-}): boolean | undefined {
+}) {
   return prefs.aiSessionNamingProjects?.[project] ?? undefined;
 }
 
 /** The global default every project falls back to. */
-export function globalNaming(prefs: Prefs): boolean {
+export function globalNaming(prefs: Prefs) {
   return prefs.aiSessionNaming ?? AI_NAMING_DEFAULT;
 }
 
@@ -37,7 +37,7 @@ export function globalNaming(prefs: Prefs): boolean {
 export function aiNamingEnabled({ prefs, project }: {
   prefs: Prefs;
   project: string;
-}): boolean {
+}) {
   return projectNamingChoice({
     prefs,
     project
@@ -51,7 +51,7 @@ export function withProjectNamingChoice({ prefs, project, choice }: {
   prefs: Prefs;
   project: string;
   choice: boolean | undefined;
-}): Record<string, boolean> {
+}) {
   const next = { ...prefs.aiSessionNamingProjects };
   if (choice === undefined) {
     delete next[project];

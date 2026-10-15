@@ -14,7 +14,7 @@ function pathTargetUrl({ remoteUrl, segment, target }: {
   remoteUrl: URL;
   segment: string;
   target: string;
-}): string {
+}) {
   return `${remoteUrl.toString().replace(/\/$/, "")}${segment}${encodeURIComponent(target)}`;
 }
 
@@ -93,7 +93,7 @@ export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
   remoteUrl: string;
   branch?: string;
   defaultBranch?: string | null;
-}): string {
+}) {
   if (!branch) {
     return remoteUrl;
   }
@@ -121,7 +121,7 @@ export function repositoryTargetUrl({ remoteUrl, branch, defaultBranch }: {
 export function repositoryCommitUrl({ remoteUrl, commit }: {
   remoteUrl: string | null;
   commit: string;
-}): string | null {
+}) {
   if (!remoteUrl) {
     return null;
   }
@@ -137,7 +137,7 @@ export function repositoryCommitUrl({ remoteUrl, commit }: {
   return provider?.commitUrl(parsedRemoteUrl, commit) ?? null;
 }
 
-async function readRemoteUrl(project: string): Promise<string | null> {
+async function readRemoteUrl(project: string) {
   try {
     return await vcs.remoteUrl(project);
   } catch {
@@ -146,7 +146,7 @@ async function readRemoteUrl(project: string): Promise<string | null> {
   }
 }
 
-async function readDefaultBranch(project: string): Promise<string | null> {
+async function readDefaultBranch(project: string) {
   try {
     return await vcs.defaultBranch(project);
   } catch {
@@ -154,7 +154,7 @@ async function readDefaultBranch(project: string): Promise<string | null> {
   }
 }
 
-async function launchRepositoryUrl(url: string): Promise<void> {
+async function launchRepositoryUrl(url: string) {
   try {
     await os.openUrl(url);
   } catch {
@@ -166,7 +166,7 @@ export async function openRepositoryTarget({ project, knownRemoteUrl, branch }: 
   project: string;
   knownRemoteUrl?: string | null;
   branch?: string;
-}): Promise<string | null> {
+}) {
   const remoteUrl = knownRemoteUrl || await readRemoteUrl(project);
   if (!remoteUrl) {
     showToast("No Git remote configured");
@@ -188,7 +188,7 @@ export async function openRepositoryTarget({ project, knownRemoteUrl, branch }: 
  * project's remote repository instead. */
 export function openRepositoryOnModifiedClick({ project }: { project: string }) {
   return (element: HTMLElement) => {
-    async function openWhenModified(e: MouseEvent): Promise<void> {
+    async function openWhenModified(e: MouseEvent) {
       if (!e.ctrlKey && !e.metaKey) {
         return;
       }

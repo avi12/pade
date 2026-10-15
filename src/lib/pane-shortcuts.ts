@@ -22,11 +22,11 @@ export const PaneAction = {
   SelectAt: "selectAt",
   Close: "close"
 } as const;
-export type PaneAction = (typeof PaneAction)[keyof typeof PaneAction];
+type PaneAction = (typeof PaneAction)[keyof typeof PaneAction];
 
 /** What `matchPaneShortcut` resolves a chord to: a bare action, or the
  *  by-position pick that carries the 0-based pane index to select. */
-export type PaneShortcut =
+type PaneShortcut =
   | { action: typeof PaneAction.Previous | typeof PaneAction.Next | typeof PaneAction.Close }
   | {
     action: typeof PaneAction.SelectAt;
@@ -45,7 +45,7 @@ const PANE_NUMBER_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", 
 export function matchPaneShortcut({ chord, paneCount }: {
   chord: KeyChord;
   paneCount: number;
-}): PaneShortcut | null {
+}) {
   const { key, ctrlKey, shiftKey, altKey, metaKey } = chord;
   if (paneCount === 0 || !ctrlKey || metaKey) {
     return null;
@@ -99,7 +99,7 @@ export interface PaneShortcutHandlers {
 }
 
 /** Register the capture-phase listener; returns the matching unregister. */
-export function registerPaneShortcuts(handlers: PaneShortcutHandlers): () => void {
+export function registerPaneShortcuts(handlers: PaneShortcutHandlers) {
   function onKeyDown(event: KeyboardEvent) {
     const paneIds = handlers.paneIds();
     const shortcut = matchPaneShortcut({
@@ -160,7 +160,7 @@ function resolveTargetId({ shortcut, paneIds, activeId }: {
   shortcut: PaneShortcut;
   paneIds: readonly string[];
   activeId: string | null;
-}): string | null {
+}) {
   if (shortcut.action === PaneAction.SelectAt) {
     return paneIdAt({
       paneIds,

@@ -22,7 +22,7 @@ export const ContextLevel = {
   warning: "warning",
   critical: "critical"
 } as const;
-export type ContextLevel = (typeof ContextLevel)[keyof typeof ContextLevel];
+type ContextLevel = (typeof ContextLevel)[keyof typeof ContextLevel];
 
 // How far toward the handoff threshold each step kicks in: at 75% of the way the
 // handoff is imminent (critical), at 50% it's approaching (warning). The critical
@@ -37,7 +37,7 @@ const HANDOFF_APPROACHING_FRACTION = 0.5;
 export function contextLevel({ percentage, threshold }: {
   percentage: number;
   threshold: number;
-}): ContextLevel {
+}) {
   const fraction = Math.min(percentage / threshold, 1);
   if (fraction >= HANDOFF_IMMINENT_FRACTION) {
     return ContextLevel.critical;

@@ -12,7 +12,7 @@
 import { type Scheme, ThemeMode, ThemePalette } from "@/lib/types";
 
 /** What the document root wears: the concrete scheme and the palette over it. */
-export type Appearance = {
+type Appearance = {
   scheme: Scheme;
   palette: ThemePalette;
 };
@@ -30,7 +30,7 @@ export const PALETTE_MONOSPACE_FACE: Record<ThemePalette, string | null> = {
 
 /** The palette a mode names - the skin axis on its own, which no mode takes
  *  from the OS. */
-export function paletteOfMode(mode: ThemeMode): ThemePalette {
+export function paletteOfMode(mode: ThemeMode) {
   if (mode === ThemeMode.enum.cyberpunk) {
     return ThemePalette.enum.cyberpunk;
   }
@@ -52,7 +52,7 @@ export function adoptedMonospaceFace({
 }: {
   mode: ThemeMode;
   current: string | null | undefined;
-}): string | null | undefined {
+}) {
   const face = PALETTE_MONOSPACE_FACE[paletteOfMode(mode)];
   if (face) {
     return face;
@@ -82,17 +82,17 @@ export function resolveAppearance({
 }: {
   mode: ThemeMode;
   systemScheme: Scheme;
-}): Appearance {
+}) {
   const palette = paletteOfMode(mode);
   if (followsSystemScheme(mode)) {
     return {
       scheme: systemScheme,
       palette
-    };
+    } satisfies Appearance;
   }
 
   return {
     scheme: mode,
     palette
-  };
+  } satisfies Appearance;
 }

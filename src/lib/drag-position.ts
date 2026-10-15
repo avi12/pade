@@ -12,7 +12,7 @@ interface Measurable {
 export function isDragOverElement({ element, position }: {
   element: Measurable;
   position: DragPosition;
-}): boolean {
+}) {
   const rectangle = element.getBoundingClientRect();
   const x = position.x / devicePixelRatio;
   const y = position.y / devicePixelRatio;

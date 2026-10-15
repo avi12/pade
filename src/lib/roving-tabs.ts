@@ -43,7 +43,7 @@ function nextIndex({ key, from, count }: {
   key: string;
   from: number;
   count: number;
-}): number | null {
+}) {
   switch (key) {
     case "ArrowRight":
       return (from + 1) % count;

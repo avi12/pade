@@ -14,7 +14,7 @@ const SEVERITY_PREFIX = /^(?:fatal|error|warning):\s*/;
 export function errorHeadline({ error, fallback }: {
   error: unknown;
   fallback: string;
-}): string {
+}) {
   const text = error instanceof Error ? error.message : String(error);
   const headline = text.split("\n")[0].replace(SEVERITY_PREFIX, "").trim();
   return headline || fallback;

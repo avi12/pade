@@ -7,9 +7,9 @@ export const TerminalLinkTarget = {
   browser: "browser",
   explorer: "explorer"
 } as const;
-export type TerminalLinkTarget = (typeof TerminalLinkTarget)[keyof typeof TerminalLinkTarget];
+type TerminalLinkTarget = (typeof TerminalLinkTarget)[keyof typeof TerminalLinkTarget];
 
-export type TerminalLinkDestination = {
+type TerminalLinkDestination = {
   kind: TerminalLinkTarget;
   value: string;
 };
@@ -19,14 +19,14 @@ export type TerminalLinkDestination = {
  * browser links; local `file:` links with no remote host open in Explorer.
  * Other schemes are intentionally unsupported.
  */
-export function terminalLinkDestination(uri: string): TerminalLinkDestination | null {
+export function terminalLinkDestination(uri: string) {
   try {
     const url = new URL(uri);
     if (url.protocol === "https:" || url.protocol === "http:") {
       return {
         kind: TerminalLinkTarget.browser,
         value: uri
-      };
+      } satisfies TerminalLinkDestination;
     }
 
     // A remote `file://server/share` URL is not a local workspace path. Never
@@ -45,7 +45,7 @@ export function terminalLinkDestination(uri: string): TerminalLinkDestination | 
       ? {
         kind: TerminalLinkTarget.explorer,
         value: path
-      }
+      } satisfies TerminalLinkDestination
       : null;
   } catch {
     return null;

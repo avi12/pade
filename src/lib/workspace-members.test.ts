@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = "C:\\repositories\\avi\\pade";
 
-function member(overrides: Partial<WorkspaceMember> = {}): WorkspaceMember {
+function member(overrides: Partial<WorkspaceMember> = {}) {
   return {
     path: "",
     name: null,

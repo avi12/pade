@@ -61,7 +61,7 @@ const EMPTY_CELL = "";
 const FRAME_GLYPH_FIRST = 0x2500;
 const FRAME_GLYPH_LAST = 0x259f;
 
-function isFrameGlyph(characters: string): boolean {
+function isFrameGlyph(characters: string) {
   const codePoint = characters.codePointAt(0);
   return codePoint !== undefined && codePoint >= FRAME_GLYPH_FIRST && codePoint <= FRAME_GLYPH_LAST;
 }
@@ -76,11 +76,6 @@ interface RowContent {
 interface CellPosition {
   row: number;
   column: number;
-}
-
-interface LogicalLine {
-  text: string;
-  cells: CellPosition[];
 }
 
 // The slice of xterm's `Terminal` that link computation actually reads. Narrow
@@ -104,7 +99,7 @@ interface LinkTerminal {
 
 // The `protocol//[user[:pass]@]host` prefix a real URL must start with - built
 // with guard clauses so the credential variants read top-to-bottom.
-function authorityOf(url: URL): string {
+function authorityOf(url: URL) {
   const base = `${url.protocol}//`;
   if (url.username && url.password) {
     return `${base}${url.username}:${url.password}@${url.host}`;
@@ -120,7 +115,7 @@ function authorityOf(url: URL): string {
 // The matched text really forms a URL (protocol//[user[:pass]@]host…). Ported
 // from the addon: it rejects near-misses the permissive pattern would otherwise
 // accept (a bare `https://` with no host).
-function isUrl(candidate: string): boolean {
+function isUrl(candidate: string) {
   try {
     const authority = authorityOf(new URL(candidate));
     return candidate.toLocaleLowerCase().startsWith(authority.toLocaleLowerCase());
@@ -136,7 +131,7 @@ function isUrl(candidate: string): boolean {
 function rowContent({ line, columns }: {
   line: LinkLine;
   columns: number;
-}): RowContent | null {
+}) {
   let firstColumn = -1;
   let lastColumn = -1;
   for (let column = 0; column < columns; column += 1) {
@@ -171,7 +166,7 @@ function rowContent({ line, columns }: {
 function reachesRightEdge({ content, columns }: {
   content: RowContent;
   columns: number;
-}): boolean {
+}) {
   return content.lastColumn >= columns - 1 - RIGHT_EDGE_SLACK;
 }
 
@@ -184,7 +179,7 @@ const WIDE_GLYPH_TRAILING_HALF_WIDTH = 0;
 // the program skipped with a cursor move rather than a printed space - Claude's
 // Ink renderer emits `ESC[1C` between words - so it must still read as a word
 // break, or the URL regex runs straight through `….` into the next word.
-function cellText(cell: LinkCell | undefined): string {
+function cellText(cell: LinkCell | undefined) {
   if (!cell || cell.getWidth() === WIDE_GLYPH_TRAILING_HALF_WIDTH) {
     return EMPTY_CELL;
   }
@@ -200,10 +195,7 @@ function cellText(cell: LinkCell | undefined): string {
 function rowGlyphs({ line, content }: {
   line: LinkLine;
   content: RowContent;
-}): {
-  text: string;
-  columns: number[];
-} {
+}) {
   let text = "";
   const columns: number[] = [];
   for (let column = content.firstColumn; column <= content.lastColumn; column += 1) {
@@ -239,7 +231,7 @@ const MIN_URL_CONTINUATION = 2;
 function urlContinuesOntoLower({ upperText, lowerText }: {
   upperText: string;
   lowerText: string;
-}): boolean {
+}) {
   const boundary = upperText.length;
   const joined = upperText + lowerText;
   const pattern = new RegExp(URL_PATTERN.source, "g");
@@ -256,14 +248,14 @@ function urlContinuesOntoLower({ upperText, lowerText }: {
 
 // The scheme+`//` that anchors a URL. A window that already contains it holds the
 // URL's start; one that doesn't is a bare fragment whose start lies further up.
-function hasScheme(text: string): boolean {
+function hasScheme(text: string) {
   return /(https?):[/]{2}/i.test(text);
 }
 
 // A whitespace-free token - what every INNER row of a wrapped URL is (URLs never
 // contain spaces), and what prose never is. Lets the upward walk cross a URL's
 // scheme-less continuation rows to the row that starts it.
-function isBareToken(text: string): boolean {
+function isBareToken(text: string) {
   return text.length > 0 && !/\s/.test(text);
 }
 
@@ -277,7 +269,7 @@ function windowGlyphs({ buffer, columns, topRow, bottomRow }: {
   columns: number;
   topRow: number;
   bottomRow: number;
-}): LogicalLine {
+}) {
   let text = "";
   const cells: CellPosition[] = [];
   for (let row = topRow; row <= bottomRow && text.length < MAX_WINDOW_CHARS; row += 1) {
@@ -324,7 +316,7 @@ function continuesBelow({ buffer, columns, topRow, bottomRow }: {
   columns: number;
   topRow: number;
   bottomRow: number;
-}): boolean {
+}) {
   const lower = buffer.getLine(bottomRow + 1);
   if (!lower) {
     return false;
@@ -394,7 +386,7 @@ function continuesAbove({ buffer, columns, topRow, bottomRow }: {
   columns: number;
   topRow: number;
   bottomRow: number;
-}): boolean {
+}) {
   const upper = buffer.getLine(topRow - 1);
   if (!upper) {
     return false;
@@ -447,7 +439,7 @@ function buildLogicalLine({ buffer, columns, anchorRow }: {
   buffer: LinkBuffer;
   columns: number;
   anchorRow: number;
-}): LogicalLine {
+}) {
   let topRow = anchorRow;
   let bottomRow = anchorRow;
 
@@ -495,7 +487,7 @@ interface RowSpan {
 // Group a URL's per-character cells into one span per row. Cells arrive in
 // reading order - left to right within a row, top to bottom across rows - so a
 // same-row cell only ever extends the current span's end.
-function rowSpans(urlCells: CellPosition[]): RowSpan[] {
+function rowSpans(urlCells: CellPosition[]) {
   const spans: RowSpan[] = [];
   for (const cell of urlCells) {
     const current = spans.at(-1);
@@ -518,7 +510,7 @@ function rowSpans(urlCells: CellPosition[]): RowSpan[] {
 // own single row (so xterm's hit-testing stays tight - a self-wrapping agent's
 // blank padding, outside any span, is never clickable); `spans` is the whole URL
 // across all its rows, so hovering any part can underline the entire address.
-export interface WrappedLink extends ILink {
+interface WrappedLink extends ILink {
   spans: RowSpan[];
 }
 
@@ -536,7 +528,7 @@ export function computeLinks({ terminal, bufferLineNumber, openUrl }: {
   terminal: LinkTerminal;
   bufferLineNumber: number;
   openUrl: (uri: string) => void;
-}): WrappedLink[] {
+}) {
   const { text, cells } = buildLogicalLine({
     buffer: terminal.buffer.active,
     columns: terminal.cols,
@@ -605,11 +597,7 @@ interface RegisterableTerminal {
 // mounted. The screen is exactly `cols × rows` cells with no padding, so a cell's
 // pixel size is just the screen size over the grid - no need to reach into
 // xterm's private render service.
-function screenGeometry(terminal: RegisterableTerminal): {
-  screen: HTMLElement;
-  cellWidth: number;
-  cellHeight: number;
-} | null {
+function screenGeometry(terminal: RegisterableTerminal) {
   const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
   if (!screen) {
     return null;
@@ -629,7 +617,7 @@ function screenGeometry(terminal: RegisterableTerminal): {
 function paintUnderline({ terminal, spans }: {
   terminal: RegisterableTerminal;
   spans: RowSpan[];
-}): HTMLElement[] {
+}) {
   const geometry = screenGeometry(terminal);
   if (!geometry) {
     return [];
@@ -687,7 +675,7 @@ const TerminalInternals = z.object({
   })
 });
 
-function linkProviderService(terminal: RegisterableTerminal): InternalLinkProviderService | null {
+function linkProviderService(terminal: RegisterableTerminal) {
   const parsed = TerminalInternals.safeParse(terminal);
   if (!parsed.success) {
     return null;
@@ -712,7 +700,7 @@ function linkProviderService(terminal: RegisterableTerminal): InternalLinkProvid
 function anchorIsUrl({ terminal, link }: {
   terminal: LinkTerminal;
   link: ILink;
-}): boolean {
+}) {
   const line = terminal.buffer.active.getLine(link.range.start.y - 1);
   if (!line) {
     return false;
@@ -738,7 +726,7 @@ function anchorIsUrl({ terminal, link }: {
 function deferUrlsFrom({ terminal, provider }: {
   terminal: LinkTerminal;
   provider: ILinkProvider;
-}): ILinkProvider {
+}) {
   return {
     provideLinks(bufferLineNumber, callback) {
       provider.provideLinks(bufferLineNumber, links => {
@@ -755,7 +743,7 @@ function deferUrlsFrom({ terminal, provider }: {
         );
       });
     }
-  };
+  } satisfies ILinkProvider;
 }
 
 // Make our URL provider the authority for every URL-shaped link. xterm registers
@@ -772,7 +760,7 @@ function deferUrlsFrom({ terminal, provider }: {
 function overrideOscUrlLinks({ terminal, provider }: {
   terminal: RegisterableTerminal;
   provider: ILinkProvider;
-}): void {
+}) {
   const service = linkProviderService(terminal);
   if (!service) {
     return;
@@ -804,7 +792,7 @@ function overrideOscUrlLinks({ terminal, provider }: {
 export function registerWrappedLinkProvider({ terminal, openUrl }: {
   terminal: RegisterableTerminal;
   openUrl: (uri: string) => void;
-}): void {
+}) {
   const provider: ILinkProvider = {
     provideLinks(bufferLineNumber, callback) {
       const links = computeLinks({
@@ -833,9 +821,9 @@ export function registerWrappedLinkProvider({ terminal, openUrl }: {
 function withHoverUnderline({ terminal, link }: {
   terminal: RegisterableTerminal;
   link: WrappedLink;
-}): ILink {
+}) {
   let painted: HTMLElement[] = [];
-  function clear(): void {
+  function clear() {
     for (const underline of painted) {
       underline.remove();
     }

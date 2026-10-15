@@ -14,12 +14,12 @@ export const ProjectKind = {
   Php: "php",
   Ruby: "ruby"
 } as const;
-export type ProjectKind = (typeof ProjectKind)[keyof typeof ProjectKind];
+type ProjectKind = (typeof ProjectKind)[keyof typeof ProjectKind];
 
 // Each kind's language logo, keyed by `ProjectKind` so adding a kind forces adding
 // its icon. Umbrella kinds take their most recognisable member's mark: web → the
 // JavaScript badge, .NET → the C# badge.
-export const PROJECT_KIND_ICONS: Record<ProjectKind, IconName> = {
+const PROJECT_KIND_ICONS: Record<ProjectKind, IconName> = {
   [ProjectKind.Web]: "javascript",
   [ProjectKind.Python]: "python",
   [ProjectKind.Java]: "java",
@@ -47,7 +47,7 @@ function isProjectKind(value: string): value is ProjectKind {
 /** A known project kind's language logo (or the TypeScript narrowing a web project
  *  can report), else the generic code glyph - so a backend-only kind added later
  *  still renders a row without frontend changes. */
-export function languageIcon(kind: string): IconName {
+export function languageIcon(kind: string) {
   if (isProjectKind(kind)) {
     return PROJECT_KIND_ICONS[kind];
   }
