@@ -9,7 +9,7 @@
   import { prefs } from "@/lib/settings/settings.svelte";
   import { ensureModelOptions, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent } from "@/lib/types";
-  import AgentModelDefaultRow from "@/panels/config/AgentModelDefaultRow.svelte";
+  import AgentModelDefaultRow from "@/panels/config/models/AgentModelDefaultRow.svelte";
   import { onMount } from "svelte";
 
   const { agents, project }: {

@@ -2,8 +2,8 @@
   import Icon from "@/lib/Icon.svelte";
   import { appearance, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { Scheme } from "@/lib/types";
-  import SchemeMismatchNote from "@/panels/config/SchemeMismatchNote.svelte";
-  import TerminalSchemePicker from "@/panels/config/TerminalSchemePicker.svelte";
+  import SchemeMismatchNote from "@/panels/config/appearance/SchemeMismatchNote.svelte";
+  import TerminalSchemePicker from "@/panels/config/appearance/TerminalSchemePicker.svelte";
 
   // Which Windows Terminal colour scheme paints the terminal. The pick is stored
   // per app scheme, so the terminal can follow light/dark the way the app does.

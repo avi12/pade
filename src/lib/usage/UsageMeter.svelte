@@ -11,20 +11,10 @@
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
   import LimitResetConfirm from "@/lib/usage/LimitResetConfirm.svelte";
-  import LimitResetOffer from "@/lib/usage/LimitResetOffer.svelte";
-  import {
-    buildGroups,
-    buildKindLegend,
-    findSpotlight,
-    justResetLimits,
-    Level,
-    limitKey,
-    limitPercentages,
-    severityBreakdown,
-    usageResetTime,
-    worstLimit
-  } from "@/lib/usage/usage-groups";
-  import { formatCount, formatQuantity } from "@/lib/util/format";
+  import { hasClaudePill, pendingResetBoundaries } from "@/lib/usage/meter/usage-meter";
+  import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";
+  import UsageTrigger from "@/lib/usage/meter/UsageTrigger.svelte";
+  import { buildGroups, justResetLimits, limitPercentages } from "@/lib/usage/usage-groups";
   import { settledValue } from "@/lib/util/settled";
   import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
@@ -50,32 +40,6 @@
   const RESET_SETTLE_MS = 1_000;
   const refreshedResetBoundaries = new SvelteSet<string>();
 
-  // How many per-agent pills the trigger shows before collapsing the rest into a
-  // trailing "+N" overflow chip. Every agent renders as a pill - a single agent
-  // still shows its full per-window breakdown, never a compacted chip.
-  const MAX_TRIGGER_PILLS = 2;
-  const MENU_ID = "usage-menu";
-  const MENU_ANCHOR = "--usage-anchor";
-  const PANEL_LABEL = "Usage details";
-  // What a reading shows when there is nothing to read: no agents, an agent
-  // without limits, a spotlight whose reset time is unknown or already past.
-  const NO_READING = "-";
-
-  // The `.severity` modifier each level paints with; a normal level takes none.
-  const SEVERITY_CLASS: Record<Level, string | undefined> = {
-    [Level.Normal]: undefined,
-    [Level.Warning]: "warning",
-    [Level.Critical]: "critical"
-  };
-
-  function severityClass(level: Level | null | undefined) {
-    if (!level) {
-      return undefined;
-    }
-
-    return SEVERITY_CLASS[level];
-  }
-
   // One group per distinct running agent, worst-first (see usage-groups.ts). Each
   // agent carries its real limits when its account resolved; an agent with no
   // local usage signal is "unknown".
@@ -86,67 +50,6 @@
       now
     })
   );
-
-  const pillGroups = $derived(groups.slice(0, MAX_TRIGGER_PILLS));
-  const overflowCount = $derived(Math.max(0, groups.length - MAX_TRIGGER_PILLS));
-  // The "+N" chip's severity dot: red if any agent is critical, amber if any is
-  // near its cap, else no dot.
-  const hasCriticalAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === Level.Critical));
-  const hasNearAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === Level.Warning));
-  const overflowLevel = $derived.by(() => {
-    if (hasCriticalAgent) {
-      return Level.Critical;
-    }
-
-    if (hasNearAgent) {
-      return Level.Warning;
-    }
-
-    return null;
-  });
-  const overflowTooltip = $derived(
-    `${formatQuantity({
-      count: overflowCount,
-      noun: "more agent"
-    })} - open for the full list`
-  );
-
-  const severitySlices = $derived(severityBreakdown(groups));
-  // Agents that actually carry a severity - the distribution bar's denominator, so
-  // its segments fill it exactly (unknown agents have no severity to plot).
-  const measuredAgents = $derived.by(() => {
-    let total = 0;
-    for (const slice of severitySlices) {
-      total += slice.count;
-    }
-
-    return total;
-  });
-  const spotlight = $derived(findSpotlight(groups));
-  // The spotlight's countdown, phrased ("resets in 3h 30m").
-  const spotlightReset = $derived.by(() => {
-    if (!spotlight?.limit.reset) {
-      return NO_READING;
-    }
-
-    return `resets ${spotlight.limit.reset}`;
-  });
-  const kindLegend = $derived(buildKindLegend(groups));
-  const runningLabel = $derived(
-    `${formatQuantity({
-      count: groups.length,
-      noun: "agent"
-    })} running`
-  );
-
-  const ariaLabel = $derived.by(() => {
-    if (groups.length === 0) {
-      return PANEL_LABEL;
-    }
-
-    const readings = groups.map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`);
-    return `Usage - ${readings.join("; ")}`;
-  });
 
   // Fetch each distinct running agent's account (Claude, Codex, …) in parallel,
   // keyed by agent id. An agent with no local usage signal resolves to null and
@@ -171,7 +74,7 @@
   const resetOffer = $derived(limitResetOffer());
   // The chip sits in Claude's pill, so it shows only while that pill does (not
   // folded into the "+N" overflow).
-  const showsResetInPill = $derived(resetOffer !== null && pillGroups.some(group => group.id === AgentId.Claude));
+  const showsResetInPill = $derived(resetOffer !== null && hasClaudePill(groups));
 
   // Each new Claude usage reading re-checks the free reset, so the offer follows
   // the meter's own refresh instead of keeping a timer of its own.
@@ -198,14 +101,6 @@
     previousPercentages = current;
   });
 
-  function hasJustReset(key: Parameters<typeof limitKey>[0]) {
-    return justReset.has(limitKey(key));
-  }
-
-  async function refreshAccountsNow() {
-    accounts = await loadAccounts({ forceRefresh: true });
-  }
-
   async function refreshAtResetBoundary() {
     now = Date.now();
     accounts = await loadAccounts({ forceRefresh: true });
@@ -231,35 +126,29 @@
   const clockTimer = setInterval(() => {
     now = Date.now();
   }, CLOCK_TICK_MS);
+  // Refresh the moment a window resets: at once for one that already passed,
+  // otherwise on a timer set for the soonest one ahead.
   $effect(() => {
-    const resetTimes = [...accounts.values()]
-      .flatMap(account => account?.windows ?? [])
-      .map(window => window.resetsAt)
-      .filter((value): value is string => Boolean(value))
-      .map(value => ({
-        value,
-        time: usageResetTime(value)
-      }))
-      .filter(reset => Number.isFinite(reset.time));
     const currentTime = Date.now();
-    const expired = resetTimes.find(reset => reset.time <= currentTime && !refreshedResetBoundaries.has(reset.value));
+    const { expired, next } = pendingResetBoundaries({
+      accounts,
+      refreshed: refreshedResetBoundaries,
+      now: currentTime
+    });
     if (expired) {
       refreshedResetBoundaries.add(expired.value);
       refreshAtResetBoundary();
       return;
     }
 
-    const nextReset = resetTimes
-      .filter(reset => reset.time > currentTime)
-      .sort((first, second) => first.time - second.time)[0];
-    if (!nextReset) {
+    if (!next) {
       return;
     }
 
     const timer = setTimeout(async () => {
-      refreshedResetBoundaries.add(nextReset.value);
+      refreshedResetBoundaries.add(next.value);
       await refreshAtResetBoundary();
-    }, nextReset.time - currentTime + RESET_SETTLE_MS);
+    }, next.time - currentTime + RESET_SETTLE_MS);
     return () => clearTimeout(timer);
   });
   onDestroy(() => {
@@ -269,183 +158,9 @@
 </script>
 
 <span class="usage-wrap menu-host">
-  <button
-    style:anchor-name={MENU_ANCHOR}
-    class="pill menu-trigger"
-    aria-label={ariaLabel}
-    data-tooltip="Usage by agent"
-    popovertarget={MENU_ID}
-  >
-    {#if groups.length === 0}
-      <span class="none">{NO_READING}</span>
-    {:else}
-      <span class="pills">
-        {#each pillGroups as group (group.id)}
-          <span
-            class={["agent-pill severity", severityClass(worstLimit(group.limits)?.level)]}
-            class:unknown={group.isUnknown}
-          >
-            <span class="agent-pill-id">
-              <span class="agent-icon"><Icon name={group.icon} /></span>
-              <span class="agent-pill-name">{group.shortName}</span>
-            </span>
-            {#if group.limits.length > 0}
-              <span class="agent-pill-limits">
-                {#each group.limits as limit (limit.label)}
-                  <span
-                    class={["agent-pill-limit severity", severityClass(limit.level)]}
-                    class:just-reset={hasJustReset({
-                      agentId: group.id,
-                      limit
-                    })}
-                    transition:growInline
-                  >
-                    <span class="agent-pill-kind">{limit.kindShort}</span>
-                    <span class="agent-pill-percent">{limit.reading}</span>
-                  </span>
-                {/each}
-              </span>
-            {:else}
-              <span class="agent-pill-dash">{NO_READING}</span>
-            {/if}
-            {#if group.id === AgentId.Claude && showsResetInPill}
-              <span class="reset-face reset-slot" aria-hidden="true" transition:growInline>{@render resetLabel()}</span>
-            {/if}
-          </span>
-        {/each}
-        {#if overflowCount > 0}
-          <span class={["overflow-chip severity", severityClass(overflowLevel)]} data-tooltip={overflowTooltip}>
-            {#if overflowLevel}
-              <span class="overflow-dot"></span>
-            {/if}
-            +{formatCount(overflowCount)}
-          </span>
-        {/if}
-      </span>
-    {/if}
-    <span class="caret">▾</span>
-  </button>
+  <UsageTrigger {groups} {justReset} {resetLabel} {showsResetInPill} />
 
-  <div id={MENU_ID} style:position-anchor={MENU_ANCHOR} class="panel" aria-label={PANEL_LABEL} popover role="dialog">
-    {#if groups.length > 0}
-      <header class="summary">
-        <div class="titles">
-          <h2 class="title">Usage</h2>
-          <p class="running">{runningLabel}</p>
-        </div>
-        <div class="severity-counts">
-          {#each severitySlices as slice (slice.level)}
-            {#if slice.count > 0}
-              <span class={["severity-count severity", severityClass(slice.level)]}>
-                <span class="severity-dot"></span>
-                <span class="severity-value">{formatCount(slice.count)}</span> {slice.label}
-              </span>
-            {/if}
-          {/each}
-        </div>
-      </header>
-
-      <div class="distribution">
-        {#each severitySlices as slice (slice.level)}
-          {#if slice.count > 0}
-            <span
-              style:inline-size="{(slice.count / measuredAgents) * 100}%"
-              class={["distribution-segment severity", severityClass(slice.level)]}
-            ></span>
-          {/if}
-        {/each}
-      </div>
-
-      {#if spotlight}
-        <section class={["spotlight severity", severityClass(spotlight.limit.level)]}>
-          <div class="spotlight-head">
-            <span class="spotlight-id">
-              <span class="agent-icon"><Icon name={spotlight.agent.icon} /></span>
-              <span class="spotlight-text">
-                <span class="eyebrow">Closest to a limit</span>
-                <span class="spotlight-title">{spotlight.agent.name} · {spotlight.limit.label}</span>
-              </span>
-            </span>
-            <output
-              class="spotlight-percent"
-              class:just-reset={hasJustReset({
-                agentId: spotlight.agent.id,
-                limit: spotlight.limit
-              })}
-            >{spotlight.limit.reading}</output>
-          </div>
-          <span class="track">
-            <span style:inline-size="{spotlight.limit.percentage}%" class="track-fill"></span>
-          </span>
-          <span class="spotlight-reset">{spotlightReset}</span>
-        </section>
-      {/if}
-
-      <div class="agents-head">
-        <span class="eyebrow">All agents</span>
-        {#if kindLegend.length > 0}
-          <span class="kind-legend">
-            {#each kindLegend as entry (entry.short)}
-              <span class="kind-legend-item">
-                <span class="kind-code">{entry.short}</span>{entry.name}
-              </span>
-            {/each}
-          </span>
-        {/if}
-      </div>
-
-      <ul class="agents">
-        {#each groups as group (group.id)}
-          <li
-            class={["agent-card severity", severityClass(worstLimit(group.limits)?.level)]}
-            class:unknown={group.isUnknown}
-          >
-            <div class="agent-head">
-              <span class="agent-icon"><Icon name={group.icon} /></span>
-              <span class="agent-name">{group.name}</span>
-              <span class="agent-plan">{group.plan || "usage not available locally"}</span>
-            </div>
-            {#if group.limits.length > 0}
-              <div class="limits">
-                {#each group.limits as limit (limit.label)}
-                  <div class={["limit severity", severityClass(limit.level)]}>
-                    <span class="limit-kind">{limit.kindShort}</span>
-                    <span class="limit-track">
-                      <span style:inline-size="{limit.percentage}%" class="limit-fill"></span>
-                    </span>
-                    <output
-                      class="limit-percent"
-                      class:just-reset={hasJustReset({
-                        agentId: group.id,
-                        limit
-                      })}
-                      data-tooltip={limit.isUncapped ? "Spent on extra usage this month" : undefined}
-                    >{limit.reading}</output>
-                    {#if limit.balance}
-                      <span class="limit-balance" data-tooltip="Prepaid usage credits left to spend">
-                        <Icon name="wallet" />{limit.balance} left
-                      </span>
-                    {:else}
-                      <span class="limit-reset" data-tooltip={limit.resetAt || undefined}>
-                        {#if limit.reset}
-                          <Icon name="clock" />{limit.reset}
-                        {/if}
-                      </span>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            {/if}
-            {#if group.id === AgentId.Claude}
-              <LimitResetOffer />
-            {/if}
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <p class="empty">No usage to show yet - sign in to Claude Code to load your limits</p>
-    {/if}
-  </div>
+  <UsagePanel {groups} {justReset} />
 
   {#if showsResetInPill}
     <button
@@ -458,7 +173,11 @@
     >{@render resetLabel()}</button>
   {/if}
 
-  <LimitResetConfirm onreset={refreshAccountsNow} />
+  <LimitResetConfirm
+    onreset={async () => {
+      accounts = await loadAccounts({ forceRefresh: true });
+    }}
+  />
 </span>
 
 {#snippet resetLabel()}
@@ -471,10 +190,30 @@
     flex-shrink: 0;
   }
 
+  /* The meter's shared visual language, reaching into the trigger and the panel
+     at zero specificity (`:where`) so a part's own rule still wins.
+
+     Severity color: the level class sets --severity-color (and a faint
+     --severity-wash tint for warn/crit) once, and every bar / number / row just
+     reads it. --severity-wash stays unset at "normal" - there is no primary wash. */
+  :where(.usage-wrap) :global(.severity) {
+    --severity-color: var(--primary);
+  }
+
+  :where(.usage-wrap) :global(.severity.warning) {
+    --severity-color: var(--warning);
+    --severity-wash: var(--warning-wash);
+  }
+
+  :where(.usage-wrap) :global(.severity.critical) {
+    --severity-color: var(--critical);
+    --severity-wash: var(--critical-wash);
+  }
+
   /* A limit that just started over - its scheduled reset, or a free reset spent
      on it - flashes once: the number pops while a primary wash fades behind it,
      so a sudden drop to 0% reads as a refill rather than a glitch. */
-  .just-reset {
+  :where(.usage-wrap) :global(.just-reset) {
     animation: limit-refill 900ms var(--ease) both;
   }
 
@@ -496,10 +235,10 @@
   }
 
   /* A free reset waiting to be spent, shown in Claude's pill because it is
-     Claude's. The trigger is a button and can't hold another, so the pill keeps
-     an invisible slot of the chip's exact size and the real chip - a sibling of
-     the trigger - is anchored over it. */
-  .reset-face {
+     Claude's. The trigger keeps an invisible slot of the chip's exact size and
+     the real chip - a sibling of the trigger - is anchored over it, so both
+     faces share this look. */
+  :where(.usage-wrap) :global(.reset-face) {
     display: inline-flex;
     gap: 3px;
     align-items: center;
@@ -511,11 +250,6 @@
     font-size: 10.5px;
     line-height: 1.4;
     white-space: nowrap;
-  }
-
-  .reset-slot {
-    visibility: hidden;
-    anchor-name: --reset-slot;
   }
 
   .reset-chip {
@@ -560,514 +294,6 @@
     100% {
       box-shadow: 0 0 0 10px transparent;
       scale: 1;
-    }
-  }
-
-  /* Severity color, shared: the level class sets --severity-color (and a faint --severity-wash
-     tint for warn/crit) once, and every bar / number / row below just reads it
-     (DRY). --severity-wash stays unset at "normal" - there is no primary wash. */
-  .severity {
-    --severity-color: var(--primary);
-
-    &.warning {
-      --severity-color: var(--warning);
-      --severity-wash: var(--warning-wash);
-    }
-
-    &.critical {
-      --severity-color: var(--critical);
-      --severity-wash: var(--critical-wash);
-    }
-  }
-
-  .pill {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    padding-block: 4px;
-    padding-inline: 11px 9px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface);
-    cursor: pointer;
-    transition: background 150ms var(--ease);
-
-    &:hover {
-      background: var(--surface-3);
-    }
-
-    .none {
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 12px;
-    }
-
-    .agent-icon {
-      display: inline-flex;
-      flex: none;
-      color: var(--severity-color);
-      font-size: 13px;
-    }
-
-    /* ── Per-agent pills + a "+N" overflow chip ── */
-    .pills {
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    /* One pill per agent: icon + short name, then a stack per limit (kind over pct). */
-    .agent-pill {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      padding-block: 4px;
-      padding-inline: 7px 8px;
-      border-radius: var(--radius-small);
-      background: var(--surface-1);
-
-      /* No trustworthy usage → mute the whole pill; the dash carries the meaning. */
-      &.unknown {
-        --severity-color: var(--on-surface-variant);
-      }
-    }
-
-    .agent-pill-id {
-      display: inline-flex;
-      flex: none;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .agent-pill-name {
-      overflow: hidden;
-      max-inline-size: 4rem;
-      color: var(--on-surface);
-      font-weight: 600;
-      font-size: 11px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .agent-pill-limits {
-      display: inline-flex;
-      gap: 8px;
-      align-items: stretch;
-    }
-
-    /* Each limit is a tight vertical stack: the mono kind letter over its percent. */
-    .agent-pill-limit {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 1px;
-      align-items: center;
-      border-radius: var(--radius-small);
-      line-height: 1;
-      white-space: nowrap;
-
-      .agent-pill-kind {
-        color: var(--on-surface-variant);
-        font-family: var(--font-monospace);
-        font-weight: 800;
-        font-size: 8px;
-        letter-spacing: 0.02em;
-      }
-
-      .agent-pill-percent {
-        color: var(--severity-color);
-        font-weight: 700;
-        font-size: 12px;
-      }
-    }
-
-    .agent-pill-dash {
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 11px;
-    }
-
-    /* The "+N" overflow: a muted count with a severity dot when any agent is hot. */
-    .overflow-chip {
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-      padding-block: 3px;
-      padding-inline: 7px;
-      border-radius: var(--radius-small);
-      background: var(--surface-1);
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 11px;
-
-      .overflow-dot {
-        flex: none;
-        block-size: 6px;
-        inline-size: 6px;
-        border-radius: var(--radius-full);
-        background: var(--severity-color);
-      }
-    }
-
-    .caret {
-      font-size: 10px;
-      opacity: 60%;
-    }
-  }
-
-  .panel {
-    position: absolute;
-    inset: auto;
-
-    /* A native [popover] defaults to overflow:auto - clip so no stray scrollbar
-       shows; the inner .agents list owns vertical scrolling. */
-    overflow: clip;
-    inline-size: min(29rem, 92vw);
-    margin-block-start: 6px;
-    padding: 15px;
-    border: 1px solid var(--outline);
-    border-radius: 16px;
-    background: var(--surface-2);
-    color: var(--on-surface);
-    box-shadow: 0 16px 40px var(--shadow-color);
-    position-area: bottom span-left;
-    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
-
-    /* Small uppercase section label, shared by the spotlight + "all agents". */
-    .eyebrow {
-      color: var(--on-surface-variant);
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* An agent's icon, tinted by whichever severity its context set on --severity-color. */
-    .agent-icon {
-      display: inline-flex;
-      flex: none;
-      color: var(--severity-color);
-      font-size: 15px;
-    }
-
-    /* ── Header: title + running count, plus per-severity agent tallies ── */
-    .summary {
-      display: flex;
-      gap: 12px;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-block-end: 11px;
-    }
-
-    .titles {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.15;
-    }
-
-    .title {
-      margin: 0;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: -0.01em;
-    }
-
-    .running {
-      margin: 0;
-      margin-block-start: 1px;
-      color: var(--on-surface-variant);
-      font-size: 11px;
-    }
-
-    .severity-counts {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: flex-end;
-      padding-block-start: 2px;
-    }
-
-    .severity-count {
-      display: inline-flex;
-      gap: 5px;
-      align-items: center;
-      color: var(--on-surface-variant);
-      font-weight: 600;
-      font-size: 11px;
-
-      .severity-dot {
-        flex: none;
-        block-size: 8px;
-        inline-size: 8px;
-        border-radius: var(--radius-full);
-        background: var(--severity-color);
-      }
-    }
-
-    /* ── Distribution: one pill-track split by how agents bucket on severity ── */
-    .distribution {
-      display: flex;
-      gap: 2px;
-      overflow: clip;
-      block-size: 6px;
-      margin-block-end: 15px;
-      border-radius: var(--radius-full);
-      background: var(--surface-3);
-    }
-
-    .distribution-segment {
-      min-inline-size: 2px;
-      background: var(--severity-color);
-      transition: inline-size 300ms var(--ease), background 300ms var(--ease);
-    }
-
-    /* ── Spotlight: the single limit closest to its cap across all agents ── */
-    .spotlight {
-      margin-block-end: 14px;
-      padding: 12px 13px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-medium);
-      background: var(--surface-1);
-
-      .spotlight-head {
-        display: flex;
-        gap: 10px;
-        justify-content: space-between;
-        align-items: center;
-        margin-block-end: 9px;
-      }
-
-      .spotlight-id {
-        display: inline-flex;
-        gap: 8px;
-        align-items: center;
-        min-inline-size: 0;
-      }
-
-      .spotlight-text {
-        display: flex;
-        flex-direction: column;
-        min-inline-size: 0;
-        line-height: 1.2;
-      }
-
-      .eyebrow {
-        font-size: 9px;
-        letter-spacing: 0.09em;
-      }
-
-      .spotlight-title {
-        overflow: hidden;
-        font-weight: 700;
-        font-size: 13px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .spotlight-percent {
-        flex: none;
-        color: var(--severity-color);
-        font-weight: 800;
-        font-size: 22px;
-        line-height: 1;
-      }
-
-      .spotlight-reset {
-        display: block;
-        margin-block-start: 7px;
-        color: var(--on-surface-variant);
-        font-size: 11px;
-      }
-    }
-
-    /* The spotlight's full-width progress track + its severity-colored fill. */
-    .track {
-      display: block;
-      overflow: clip;
-      block-size: 8px;
-      border-radius: var(--radius-full);
-      background: var(--surface-3);
-    }
-
-    .track-fill {
-      display: block;
-      block-size: 100%;
-      border-radius: var(--radius-full);
-      background: var(--severity-color);
-      transition: inline-size 300ms var(--ease), background 300ms var(--ease);
-    }
-
-    /* ── "All agents" heading + kind-code legend ── */
-    .agents-head {
-      display: flex;
-      gap: 8px;
-      justify-content: space-between;
-      align-items: center;
-      margin-block-end: 8px;
-    }
-
-    .kind-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px 10px;
-      justify-content: flex-end;
-    }
-
-    .kind-legend-item {
-      display: inline-flex;
-      gap: 4px;
-      align-items: center;
-      color: var(--on-surface-variant);
-      font-size: 9px;
-    }
-
-    /* The legend's mono kind code (a small filled square). */
-    .kind-code {
-      display: inline-flex;
-      flex: none;
-      justify-content: center;
-      align-items: center;
-      block-size: 14px;
-      inline-size: 14px;
-      border-radius: 4px;
-      background: var(--surface-3);
-      color: var(--on-surface);
-      font-family: var(--font-monospace);
-      font-weight: 800;
-      font-size: 8px;
-    }
-
-    /* ── Agent cards: a header, then one full-width bar row per active limit ── */
-    .agents {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      overflow-y: auto;
-      max-block-size: min(46vh, 22rem);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .agent-card {
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      padding: 11px 12px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-medium);
-      background: var(--surface-1);
-
-      /* Near/crit cards lift onto the severity wash with a matching hairline. */
-      &.warning,
-      &.critical {
-        border-color: color-mix(in sRGB, var(--severity-color) 35%, var(--outline));
-        background: var(--severity-wash);
-      }
-
-      /* An unknown agent has no severity - mute its icon so the primary blue
-         never reads as a (fabricated) "healthy" score. */
-      &.unknown {
-        --severity-color: var(--on-surface-variant);
-      }
-    }
-
-    /* Header: agent icon + name, with the plan trailing it, muted. */
-    .agent-head {
-      display: flex;
-      gap: 7px;
-      align-items: center;
-      min-inline-size: 0;
-    }
-
-    .agent-name {
-      overflow: hidden;
-      font-weight: 700;
-      font-size: 12.5px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .agent-plan {
-      overflow: hidden;
-      color: var(--on-surface-variant);
-      font-size: 10px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    /* One shared grid across every limit row so the badge / bar / percent /
-       reset columns line up down the card (each row is display: contents). */
-    .limits {
-      display: grid;
-      grid-template-columns: auto 1fr auto auto;
-      gap: 8px 9px;
-      align-items: center;
-    }
-
-    .limit {
-      display: contents;
-    }
-
-    /* A limit's single-letter kind badge (S / W / O), tinted neutral. */
-    .limit-kind {
-      display: inline-flex;
-      flex: none;
-      justify-content: center;
-      align-items: center;
-      block-size: 17px;
-      min-inline-size: 17px;
-      padding-inline: 3px;
-      border-radius: 5px;
-      background: var(--surface-3);
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-weight: 800;
-      font-size: 9px;
-    }
-
-    .limit-track {
-      display: block;
-      overflow: clip;
-      block-size: 7px;
-      border-radius: var(--radius-full);
-      background: var(--surface-3);
-    }
-
-    .limit-fill {
-      display: block;
-      block-size: 100%;
-      border-radius: var(--radius-full);
-      background: var(--severity-color);
-      transition: inline-size 300ms var(--ease), background 300ms var(--ease);
-    }
-
-    .limit-percent {
-      min-inline-size: 2.5rem;
-      color: var(--severity-color);
-      font-weight: 700;
-      font-size: 11.5px;
-      text-align: end;
-    }
-
-    /* Clock + live "in …" countdown - or, on the extra-usage row, the credits
-       balance - right-aligned to the card edge. */
-    .limit-reset,
-    .limit-balance {
-      display: inline-flex;
-      gap: 3px;
-      align-items: center;
-      justify-self: end;
-      color: var(--on-surface-variant);
-      font-size: 10px;
-      white-space: nowrap;
-    }
-
-    .empty {
-      margin: 0;
-      color: var(--on-surface-variant);
-      font-size: 12px;
-      line-height: 1.5;
     }
   }
 </style>

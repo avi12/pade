@@ -559,7 +559,7 @@ export function severityBreakdown(agents: AgentGroup[]) {
 
 /** The single limit closest to its cap across every agent, tagged with its owner.
  *  Agents with no limits contribute nothing. */
-type Spotlight = {
+export type Spotlight = {
   agent: AgentGroup;
   limit: Limit;
 };
