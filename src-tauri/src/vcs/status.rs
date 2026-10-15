@@ -5,57 +5,69 @@ use serde::Serialize;
 
 use super::{run_git, StatusKind};
 
+/// The index letter `git status --porcelain` prints for an untracked path (`??`).
+const UNTRACKED_LETTER: char = '?';
+/// The letter for "no change on this side" in a porcelain status pair.
+const UNCHANGED_LETTER: char = ' ';
+/// The letter that marks a rename, whose old path follows as the next `-z` field.
+const RENAMED_LETTER: char = 'R';
+/// Where the path starts in a porcelain record: after `XY` and one space.
+const PATH_OFFSET: usize = 3;
+
 /// A single changed path in the working tree.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusEntry {
     path: String,
-    /// created | modified | deleted | renamed | untracked
-    kind: String,
+    kind: StatusKind,
     /// Staged in the index (agent commits land here after "approve").
     staged: bool,
 }
 
 fn classify(index: char, worktree: char) -> (StatusKind, bool) {
-    // Untracked files show as "??".
-    if index == '?' {
+    if index == UNTRACKED_LETTER {
         return (StatusKind::Untracked, false);
     }
-    let staged = index != ' ';
-    let code = if staged { index } else { worktree };
-    (StatusKind::from_git_letter(code), staged)
+    let is_staged = index != UNCHANGED_LETTER;
+    let letter = if is_staged { index } else { worktree };
+    (StatusKind::from_git_letter(letter), is_staged)
 }
 
 #[tauri::command]
 pub async fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
     // NUL-delimited records survive paths with spaces/newlines.
     let raw = run_git(&cwd, &["status", "--porcelain=v1", "-z"])?;
+    Ok(parse_status(&raw))
+}
+
+/// Parse `git status --porcelain=v1 -z`: each record is `XY <path>`, and a
+/// rename record is followed by the old path in the next field, which is dropped.
+fn parse_status(raw: &str) -> Vec<StatusEntry> {
     let mut entries = Vec::new();
     let mut records = raw.split('\0');
 
     while let Some(record) = records.next() {
-        if record.len() < 3 {
+        let mut letters = record.chars();
+        let (Some(index), Some(worktree)) = (letters.next(), letters.next()) else {
             continue;
-        }
-        let bytes: Vec<char> = record.chars().collect();
-        let index = bytes[0];
-        let worktree = bytes[1];
-        let path: String = record[3..].to_string();
+        };
+        let Some(path) = record.get(PATH_OFFSET..) else {
+            continue;
+        };
 
-        // A rename record is followed by the old path in the next field; drop it.
-        let is_rename = index == 'R' || worktree == 'R';
+        let is_rename = index == RENAMED_LETTER || worktree == RENAMED_LETTER;
         if is_rename {
             records.next();
         }
 
         let (kind, staged) = classify(index, worktree);
         entries.push(StatusEntry {
-            path,
-            kind: kind.as_str().to_string(),
+            path: path.to_string(),
+            kind,
             staged,
         });
     }
-    Ok(entries)
+    entries
 }
 
 /// Raw unified diff for one path (staged or working-tree).
@@ -72,40 +84,44 @@ pub async fn vcs_diff(cwd: String, path: String, staged: bool) -> Result<String,
 
 #[cfg(test)]
 mod tests {
-    use super::classify;
+    use super::{classify, parse_status, StatusKind};
 
     #[test]
     fn untracked_is_never_staged() {
-        let (kind, staged) = classify('?', '?');
-        assert_eq!(kind.as_str(), "untracked");
-        assert!(!staged);
+        assert_eq!(classify('?', '?'), (StatusKind::Untracked, false));
     }
 
     #[test]
     fn a_worktree_edit_is_unstaged_modified() {
-        let (kind, staged) = classify(' ', 'M');
-        assert_eq!(kind.as_str(), "modified");
-        assert!(!staged);
+        assert_eq!(classify(' ', 'M'), (StatusKind::Modified, false));
     }
 
     #[test]
     fn an_index_addition_is_staged_created() {
-        let (kind, staged) = classify('A', ' ');
-        assert_eq!(kind.as_str(), "created");
-        assert!(staged);
+        assert_eq!(classify('A', ' '), (StatusKind::Created, true));
     }
 
     #[test]
     fn an_index_rename_is_staged_renamed() {
-        let (kind, staged) = classify('R', ' ');
-        assert_eq!(kind.as_str(), "renamed");
-        assert!(staged);
+        assert_eq!(classify('R', ' '), (StatusKind::Renamed, true));
     }
 
     #[test]
     fn a_worktree_deletion_is_unstaged_deleted() {
-        let (kind, staged) = classify(' ', 'D');
-        assert_eq!(kind.as_str(), "deleted");
-        assert!(!staged);
+        assert_eq!(classify(' ', 'D'), (StatusKind::Deleted, false));
+    }
+
+    #[test]
+    fn a_rename_record_drops_the_old_path_field() {
+        let entries = parse_status(" M src/app.ts\0R  src/new.ts\0src/old.ts\0?? notes.md\0");
+        let paths: Vec<&str> = entries.iter().map(|entry| entry.path.as_str()).collect();
+        assert_eq!(paths, ["src/app.ts", "src/new.ts", "notes.md"]);
+        assert_eq!(entries[1].kind, StatusKind::Renamed);
+        assert!(entries[1].staged);
+    }
+
+    #[test]
+    fn a_short_record_is_skipped() {
+        assert!(parse_status("M\0\0").is_empty());
     }
 }

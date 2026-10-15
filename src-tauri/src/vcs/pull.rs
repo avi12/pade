@@ -1,4 +1,4 @@
-//! Sync the workspace from `origin` — a strictly fast-forward `git pull`.
+//! Sync the workspace from `origin` - a strictly fast-forward `git pull`.
 //!
 //! The Change Feed's "Sync all" runs this. It never creates a merge commit
 //! (`--ff-only`) and never touches a dirty working tree: uncommitted changes to
@@ -11,13 +11,13 @@ use serde::Serialize;
 use super::run_git;
 
 /// How a sync resolved. Serializes to the camelCase wire strings the frontend's
-/// zod `PullOutcome` schema reads — the one authoritative home for the literals.
+/// zod `PullOutcome` schema reads - the one authoritative home for the literals.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum PullStatus {
     /// Fast-forwarded the branch to new upstream commits.
     Updated,
-    /// The branch already matched its upstream — nothing to fetch.
+    /// The branch already matched its upstream - nothing to fetch.
     AlreadyUpToDate,
     /// Refused: the working tree has uncommitted changes to tracked files.
     RefusedDirty,
@@ -32,12 +32,12 @@ pub struct PullOutcome {
     message: String,
 }
 
-const REFUSED_DIRTY_MESSAGE: &str = "Uncommitted changes — commit or stash before syncing.";
-const ALREADY_UP_TO_DATE_MESSAGE: &str = "Already up to date.";
-const UPDATED_MESSAGE: &str = "Synced with origin.";
+const REFUSED_DIRTY_MESSAGE: &str = "Uncommitted changes - commit or stash before syncing";
+const ALREADY_UP_TO_DATE_MESSAGE: &str = "Already up to date";
+const UPDATED_MESSAGE: &str = "Synced with origin";
 
 /// Does `git status --porcelain` output show uncommitted changes to *tracked*
-/// files? Untracked files (`??`) don't count — a fast-forward can't silently
+/// files? Untracked files (`??`) don't count - a fast-forward can't silently
 /// clobber them (git refuses the pull if it would need to overwrite one), and
 /// stray build artifacts shouldn't block a sync. Pure so it's tested without git.
 fn has_uncommitted_changes(porcelain: &str) -> bool {
@@ -60,10 +60,10 @@ fn is_already_up_to_date(pull_output: &str) -> bool {
 ///
 /// Pre-checks `git status --porcelain`: any uncommitted change to a tracked file
 /// returns `RefusedDirty` without running the pull. Otherwise it runs
-/// `git pull --ff-only` — a diverged branch (no fast-forward) errors out with
+/// `git pull --ff-only` - a diverged branch (no fast-forward) errors out with
 /// git's message rather than creating a merge commit.
 // `async` + `spawn_blocking`: the pull talks to the network for as long as the
-// fetch takes — a synchronous command would run it on the MAIN thread and freeze
+// fetch takes - a synchronous command would run it on the MAIN thread and freeze
 // the window, and a wait that long shouldn't tie up an async worker either.
 #[tauri::command]
 pub async fn vcs_pull(cwd: String) -> Result<PullOutcome, String> {
@@ -184,7 +184,7 @@ mod tests {
         let ran = git(&origin, &["add", "."])
             .and_then(|_| git(&origin, &first_commit))
             .and_then(|_| {
-                // Clone from `base` (which exists) — `git -C <clone>` would fail
+                // Clone from `base` (which exists) - `git -C <clone>` would fail
                 // before git has created the clone dir.
                 git(
                     &base,

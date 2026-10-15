@@ -1,19 +1,21 @@
-//! Commit inspection — one commit's message, per-file stats, and a file's diff.
+//! Commit inspection - one commit's message, per-file stats, and a file's diff.
 
 use std::collections::HashMap;
 
 use serde::Serialize;
 
 use super::branches::current_branch;
-use super::{run_git, validate_object_id, StatusKind, US};
+use super::{
+    commit_header_format, run_git, validate_object_id, CommitHeader, NumstatRow, StatusKind,
+    FIELD_SEPARATOR,
+};
 
 /// One file changed by a commit, with its per-file line counts.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitFileEntry {
     path: String,
-    /// created | modified | deleted | renamed | untracked
-    kind: String,
+    kind: StatusKind,
     additions: u32,
     deletions: u32,
     /// True when git reports the file as binary (line counts are meaningless).
@@ -21,17 +23,14 @@ pub struct CommitFileEntry {
 }
 
 /// A single commit's full detail: message, author/date, branch, and per-file
-/// stats. Reuses `Commit`'s field names for the shared header fields.
+/// stats. Shares the Log view's header fields through [`CommitHeader`].
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitDetail {
-    id: String,
-    short: String,
-    summary: String,
+    #[serde(flatten)]
+    header: CommitHeader,
     /// The commit message body (everything after the subject line); empty if none.
     body: String,
-    author: String,
-    when: String,
     /// The current HEAD branch name (empty on a detached HEAD).
     branch: String,
     files: Vec<CommitFileEntry>,
@@ -39,29 +38,17 @@ pub struct CommitDetail {
     deletions: u32,
 }
 
-/// Map a `--name-status` status letter to a wire status-kind string. Git uses a
-/// trailing similarity score for renames/copies (`R100`), so we match the head.
-fn status_letter_kind(code: &str) -> StatusKind {
-    StatusKind::from_git_letter(code.chars().next().unwrap_or(' '))
-}
-
 #[tauri::command]
 pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String> {
     let sha = validate_object_id(&sha)?;
     // Header + full body in one shot: subject on its own line, then the body.
-    let format = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%b");
-    let head = run_git(
-        &cwd,
-        &[
-            "show",
-            "-s",
-            &format!("--format={format}"),
-            "--end-of-options",
-            sha,
-        ],
-    )?;
-    let fields: Vec<&str> = head.trim_end_matches('\n').splitn(6, US).collect();
-    let [id, short, summary, author, when, body] = fields.as_slice() else {
+    let format = format!("--format={}{FIELD_SEPARATOR}%b", commit_header_format());
+    let head = run_git(&cwd, &["show", "-s", &format, "--end-of-options", sha])?;
+    let fields: Vec<&str> = head
+        .trim_end_matches('\n')
+        .splitn(6, FIELD_SEPARATOR)
+        .collect();
+    let Some((header, [body])) = CommitHeader::split_off(&fields) else {
         return Err("could not parse commit header".into());
     };
 
@@ -70,143 +57,90 @@ pub async fn vcs_commit(cwd: String, sha: String) -> Result<CommitDetail, String
     // which would poison the stored path and break vcs_commit_diff). --numstat's
     // record is "adds\tdels\tpath\0" normally, or "adds\tdels\t\0old\0new\0" for a
     // rename; --name-status is "code\0path\0" or "code\0old\0new\0".
-    let numstat = run_git(
-        &cwd,
-        &[
-            "show",
-            "--numstat",
-            "-z",
-            "--format=",
-            "--end-of-options",
-            sha,
-        ],
-    )?;
-    let namestat = run_git(
-        &cwd,
-        &[
-            "show",
-            "--name-status",
-            "-z",
-            "--format=",
-            "--end-of-options",
-            sha,
-        ],
-    )?;
+    let show_listing = |listing: &str| {
+        run_git(
+            &cwd,
+            &["show", listing, "-z", "--format=", "--end-of-options", sha],
+        )
+    };
+    let numstat = show_listing("--numstat")?;
+    let name_status = show_listing("--name-status")?;
+    let kinds_by_path = status_kinds_by_path(&name_status);
 
-    let kinds_by_path = status_kinds_by_path(&namestat);
-
-    let mut files: Vec<CommitFileEntry> = Vec::new();
-    let mut additions = 0u32;
-    let mut deletions = 0u32;
-
-    for record in parse_numstat_records(&numstat) {
-        let kind = kinds_by_path
-            .get(record.path)
-            .copied()
-            .unwrap_or(StatusKind::Modified);
-        additions += record.additions;
-        deletions += record.deletions;
-        files.push(CommitFileEntry {
+    let files: Vec<CommitFileEntry> = parse_numstat_records(&numstat)
+        .into_iter()
+        .map(|record| CommitFileEntry {
             path: record.path.to_string(),
-            kind: kind.as_str().to_string(),
+            kind: kinds_by_path
+                .get(record.path)
+                .copied()
+                .unwrap_or(StatusKind::Modified),
             additions: record.additions,
             deletions: record.deletions,
-            binary: record.binary,
-        });
-    }
-
-    let branch = current_branch(&cwd).unwrap_or_default();
+            binary: record.is_binary,
+        })
+        .collect();
 
     Ok(CommitDetail {
-        id: (*id).into(),
-        short: (*short).into(),
-        summary: (*summary).into(),
+        header,
         body: body.trim().to_string(),
-        author: (*author).into(),
-        when: (*when).into(),
-        branch,
+        branch: current_branch(&cwd).unwrap_or_default(),
+        additions: files.iter().map(|file| file.additions).sum(),
+        deletions: files.iter().map(|file| file.deletions).sum(),
         files,
-        additions,
-        deletions,
     })
 }
 
-/// One file's line counts from a `--numstat -z` record, keyed by the path that
-/// git reports (the NEW path for a rename).
-struct NumstatRecord<'input> {
-    path: &'input str,
-    additions: u32,
-    deletions: u32,
-    /// True when git reports the file as binary (`-` for both counts).
-    binary: bool,
+/// Skip a `-z` rename's old path and return its new one - the path both
+/// `--numstat` and `--name-status` key a renamed file on.
+fn new_path_of_rename<'text>(fields: &mut impl Iterator<Item = &'text str>) -> Option<&'text str> {
+    fields.next()?;
+    fields.next()
 }
 
-/// Parse a `git show --numstat -z` stream into per-file records. Fields are
+/// Parse a `git show --numstat -z` stream into per-file rows. Fields are
 /// NUL-separated: a normal record is one `"adds\tdels\tpath"` field; a rename is
-/// `"adds\tdels\t"` followed by the old and new path in their own fields — we
+/// `"adds\tdels\t"` followed by the old and new path in their own fields - we
 /// take the NEW path so it matches the diff and name-status keys.
-fn parse_numstat_records(numstat: &str) -> Vec<NumstatRecord<'_>> {
+fn parse_numstat_records(numstat: &str) -> Vec<NumstatRow<'_>> {
     let mut records = Vec::new();
     let mut fields = numstat.split('\0').filter(|field| !field.is_empty());
 
     while let Some(head) = fields.next() {
-        let mut columns = head.splitn(3, '\t');
-        let (Some(additions), Some(deletions), Some(path_column)) =
-            (columns.next(), columns.next(), columns.next())
-        else {
+        let Some(mut row) = NumstatRow::parse(head) else {
             continue;
         };
-
-        // An empty path column marks a rename: the old and new paths follow as
-        // their own NUL fields. Take the new path (the second of the two).
-        let path = if path_column.is_empty() {
-            let Some(_old_path) = fields.next() else {
+        let is_rename = row.path.is_empty();
+        if is_rename {
+            let Some(new_path) = new_path_of_rename(&mut fields) else {
                 break;
             };
-            let Some(new_path) = fields.next() else {
-                break;
-            };
-            new_path
-        } else {
-            path_column
-        };
-
-        let binary = additions == "-" || deletions == "-";
-        records.push(NumstatRecord {
-            path,
-            additions: additions.parse::<u32>().unwrap_or(0),
-            deletions: deletions.parse::<u32>().unwrap_or(0),
-            binary,
-        });
+            row.path = new_path;
+        }
+        records.push(row);
     }
     records
 }
 
 /// Parse a `git show --name-status -z` stream into a `new path → StatusKind` map.
 /// Fields are NUL-separated: a normal record is `"code"` then `"path"`; a rename
-/// or copy is `"code"` then the old and new path — we key on the NEW path so it
+/// or copy is `"code"` then the old and new path - we key on the NEW path so it
 /// matches the path `--numstat` reports.
-fn status_kinds_by_path(namestat: &str) -> HashMap<&str, StatusKind> {
+fn status_kinds_by_path(name_status: &str) -> HashMap<&str, StatusKind> {
     let mut kinds = HashMap::new();
-    let mut fields = namestat.split('\0').filter(|field| !field.is_empty());
+    let mut fields = name_status.split('\0').filter(|field| !field.is_empty());
 
     while let Some(code) = fields.next() {
-        let kind = status_letter_kind(code);
-        let is_rename_or_copy = matches!(code.chars().next(), Some('R' | 'C'));
-        if is_rename_or_copy {
-            let Some(_old_path) = fields.next() else {
-                break;
-            };
-            let Some(new_path) = fields.next() else {
-                break;
-            };
-            kinds.insert(new_path, kind);
+        let kind = StatusKind::from_status_code(code);
+        let path = if kind == StatusKind::Renamed {
+            new_path_of_rename(&mut fields)
         } else {
-            let Some(path) = fields.next() else {
-                break;
-            };
-            kinds.insert(path, kind);
-        }
+            fields.next()
+        };
+        let Some(path) = path else {
+            break;
+        };
+        kinds.insert(path, kind);
     }
     kinds
 }
@@ -223,7 +157,7 @@ pub async fn vcs_commit_diff(cwd: String, sha: String, path: String) -> Result<S
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_numstat_records, status_kinds_by_path, status_letter_kind};
+    use super::{parse_numstat_records, status_kinds_by_path, StatusKind};
 
     #[test]
     fn a_plain_numstat_record_keeps_its_path_and_counts() {
@@ -232,7 +166,7 @@ mod tests {
         assert_eq!(records[0].path, "src/app.ts");
         assert_eq!(records[0].additions, 3);
         assert_eq!(records[0].deletions, 2);
-        assert!(!records[0].binary);
+        assert!(!records[0].is_binary);
     }
 
     #[test]
@@ -245,7 +179,7 @@ mod tests {
     #[test]
     fn a_binary_record_is_marked_binary_with_zero_counts() {
         let records = parse_numstat_records("-\t-\tassets/logo.png\0");
-        assert!(records[0].binary);
+        assert!(records[0].is_binary);
         assert_eq!(records[0].additions, 0);
         assert_eq!(records[0].deletions, 0);
     }
@@ -253,23 +187,17 @@ mod tests {
     #[test]
     fn name_status_keys_a_rename_on_the_new_path() {
         let kinds = status_kinds_by_path("M\0src/app.ts\0R100\0src/old.ts\0src/new.ts\0");
-        assert_eq!(
-            kinds.get("src/app.ts").map(|kind| kind.as_str()),
-            Some("modified")
-        );
-        assert_eq!(
-            kinds.get("src/new.ts").map(|kind| kind.as_str()),
-            Some("renamed")
-        );
+        assert_eq!(kinds.get("src/app.ts"), Some(&StatusKind::Modified));
+        assert_eq!(kinds.get("src/new.ts"), Some(&StatusKind::Renamed));
         assert!(!kinds.contains_key("src/old.ts"));
     }
 
     #[test]
-    fn status_letters_map_to_wire_kinds() {
-        assert_eq!(status_letter_kind("A").as_str(), "created");
-        assert_eq!(status_letter_kind("D").as_str(), "deleted");
-        assert_eq!(status_letter_kind("R87").as_str(), "renamed");
-        assert_eq!(status_letter_kind("C50").as_str(), "renamed");
-        assert_eq!(status_letter_kind("M").as_str(), "modified");
+    fn status_codes_map_to_kinds() {
+        assert_eq!(StatusKind::from_status_code("A"), StatusKind::Created);
+        assert_eq!(StatusKind::from_status_code("D"), StatusKind::Deleted);
+        assert_eq!(StatusKind::from_status_code("R87"), StatusKind::Renamed);
+        assert_eq!(StatusKind::from_status_code("C50"), StatusKind::Renamed);
+        assert_eq!(StatusKind::from_status_code("M"), StatusKind::Modified);
     }
 }

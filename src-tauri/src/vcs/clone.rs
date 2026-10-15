@@ -5,14 +5,17 @@
 //! the saved remote.
 
 use std::path::{Path, PathBuf};
-
+use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use tauri::Url;
 
 use crate::util::{command, home_dir, is_on_path, percent_encode, succeeds_within};
 use crate::workspace::validated_child_path;
 
-/// Is the `git` CLI available? Gates the picker's Clone tab — without git the
+use super::DEFAULT_REMOTE_NAME;
+
+/// Is the `git` CLI available? Gates the picker's Clone tab - without git the
 /// tab shows an install prompt instead of a clone form.
 #[tauri::command]
 pub async fn vcs_git_installed() -> bool {
@@ -41,7 +44,7 @@ pub async fn vcs_has_ssh_key() -> bool {
 /// the TCP connection far longer than a live URL check is worth.
 const PROBE_REMOTE_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Is `url` a repository the current environment can actually reach — it
+/// Is `url` a repository the current environment can actually reach - it
 /// exists, and the user's auth (SSH key, credential manager) can see it?
 /// Backs the picker's live URL check: the destination folder name auto-fills
 /// only once the repository answers. Prompts are disabled and the wait is
@@ -51,7 +54,7 @@ const PROBE_REMOTE_TIMEOUT: Duration = Duration::from_secs(10);
 // must never run synchronously on the MAIN thread.
 #[tauri::command]
 pub async fn vcs_probe_remote(url: String) -> bool {
-    if !validate_clone_url(&url) {
+    if !is_valid_clone_url(&url) {
         return false;
     }
     tauri::async_runtime::spawn_blocking(move || probe_remote(&url))
@@ -62,13 +65,13 @@ pub async fn vcs_probe_remote(url: String) -> bool {
 /// The bounded `git ls-remote` behind [`vcs_probe_remote`].
 fn probe_remote(url: &str) -> bool {
     let mut ls_remote = command("git");
-    ls_remote.args(["ls-remote", "--exit-code", "--", url, "HEAD"]);
+    ls_remote.args(["ls-remote", "--exit-code", "--", url, super::HEAD_REFERENCE]);
     super::harden_git(&mut ls_remote);
     succeeds_within(ls_remote, PROBE_REMOTE_TIMEOUT)
 }
 
-/// The `host` and `path` of any supported clone URL — `https://host/path`,
-/// `ssh://git@host/path`, or scp-like `git@host:path` — or `None` when the
+/// The `host` and `path` of any supported clone URL - `https://host/path`,
+/// `ssh://git@host/path`, or scp-like `git@host:path` - or `None` when the
 /// shape isn't one of those.
 fn host_and_path(url: &str) -> Option<(String, String)> {
     let without_user = |host: &str| {
@@ -81,21 +84,28 @@ fn host_and_path(url: &str) -> Option<(String, String)> {
             return Some((without_user(host), path.to_string()));
         }
     }
-    // scp-like `git@github.com:org/repo.git` — a user@host before the colon.
+    // scp-like `git@github.com:org/repo.git` - a user@host before the colon.
     let (user_host, path) = url.split_once(':')?;
     user_host
         .contains('@')
         .then(|| (without_user(user_host), path.to_string()))
 }
 
+/// The longest clone URL accepted at the native boundary.
+const MAX_CLONE_URL_LENGTH: usize = 2048;
+
+/// The environment variable the askpass script reads the password from, so the
+/// password never appears in a process argument.
+const PASSWORD_ENVIRONMENT_VARIABLE: &str = "PADE_GIT_PASSWORD";
+
 /// Clone transports accepted at the native boundary. Plain HTTP and `git://`
 /// provide no server authentication, so the backend refuses them even if a
 /// compromised renderer bypasses the form schema.
-fn validate_clone_url(url: &str) -> bool {
+fn is_valid_clone_url(url: &str) -> bool {
     let has_forbidden_character = url
         .chars()
         .any(|character| character.is_control() || character.is_whitespace());
-    if has_forbidden_character || url.len() > 2048 {
+    if has_forbidden_character || url.len() > MAX_CLONE_URL_LENGTH {
         return false;
     }
     if let Ok(parsed) = Url::parse(url) {
@@ -115,7 +125,7 @@ fn validate_clone_url(url: &str) -> bool {
     !user.is_empty() && !host.is_empty() && !path.is_empty()
 }
 
-/// The clean `https://host/path` form of `url` — what the saved remote and any
+/// The clean `https://host/path` form of `url` - what the saved remote and any
 /// surfaced error carry when credentials were used for the clone itself.
 fn https_url(url: &str) -> Option<String> {
     host_and_path(url).map(|(host, path)| format!("https://{host}/{path}"))
@@ -145,9 +155,9 @@ impl AskPass {
             std::process::id()
         ));
         let script = if cfg!(windows) {
-            "@echo off\r\n\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -Command \"[Console]::Out.Write($env:PADE_GIT_PASSWORD)\"\r\n"
+            format!("@echo off\r\n\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -Command \"[Console]::Out.Write($env:{PASSWORD_ENVIRONMENT_VARIABLE})\"\r\n")
         } else {
-            "#!/bin/sh\nprintf '%s' \"$PADE_GIT_PASSWORD\"\n"
+            format!("#!/bin/sh\nprintf '%s' \"${PASSWORD_ENVIRONMENT_VARIABLE}\"\n")
         };
         std::fs::write(&path, script).map_err(|e| e.to_string())?;
 
@@ -171,7 +181,7 @@ impl Drop for AskPass {
 /// credentials the clone runs over HTTPS; the remote is then re-pointed at the
 /// credential-free URL so nothing secret lands in `.git/config`.
 // `async` + `spawn_blocking`: a clone runs for as long as the network transfer
-// takes — never on the MAIN thread, and too long for an async worker.
+// takes - never on the MAIN thread, and too long for an async worker.
 #[tauri::command]
 pub async fn vcs_clone(
     url: String,
@@ -195,17 +205,17 @@ fn clone_repository(
     username: Option<String>,
     password: Option<String>,
 ) -> Result<String, String> {
-    if !validate_clone_url(url) {
+    if !is_valid_clone_url(url) {
         return Err("repository URL must use HTTPS or SSH".into());
     }
     let destination = validated_child_path(Path::new(&root), name)?;
     if destination.exists() {
-        return Err("that folder already exists — pick another name".into());
+        return Err("that folder already exists - pick another name".into());
     }
 
     let credentials = username.zip(password);
     let clone_url = match &credentials {
-        Some((user, _)) => authenticated_url(url, user).ok_or("unrecognized repository URL")?,
+        Some((user, _)) => authenticated_url(url, user).ok_or(UNRECOGNIZED_URL_MESSAGE)?,
         None => url.to_string(),
     };
 
@@ -214,63 +224,80 @@ fn clone_repository(
         .args(["-c", "credential.helper=", "clone", "--", &clone_url])
         .arg(&destination);
     super::harden_git(&mut clone);
-    let askpass = if let Some((_, password)) = &credentials {
-        let askpass = AskPass::create()?;
-        clone
-            .env("GIT_ASKPASS", &askpass.path)
-            .env("GIT_ASKPASS_REQUIRE", "force")
-            .env("PADE_GIT_PASSWORD", password);
-        Some(askpass)
-    } else {
-        None
-    };
+    let askpass = credentials
+        .as_ref()
+        .map(|(_, password)| arm_askpass(&mut clone, password))
+        .transpose()?;
     let output = clone
         .output()
         .map_err(|e| format!("failed to run git: {e}"))?;
     drop(askpass);
 
-    let credentials_supplied = credentials.is_some();
+    let is_credentialed = credentials.is_some();
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        if !credentials_supplied {
+        if !is_credentialed {
             return Err(stderr);
         }
         let _ = std::fs::remove_dir_all(&destination);
         return Err(stderr.replace(&clone_url, &https_url(url).unwrap_or_default()));
     }
 
-    if !credentials_supplied {
-        return Ok(destination.to_string_lossy().into_owned());
+    if is_credentialed {
+        let clean_url = https_url(url).ok_or(UNRECOGNIZED_URL_MESSAGE)?;
+        remove_credentials_from_remote(&destination, &clean_url)?;
     }
+    Ok(destination.to_string_lossy().into_owned())
+}
 
-    let clean = https_url(url).ok_or("unrecognized repository URL")?;
-    let sanitized = command("git")
-        .arg("-C")
-        .arg(&destination)
-        .args(["remote", "set-url", "origin", &clean])
-        .output()
+const UNRECOGNIZED_URL_MESSAGE: &str = "unrecognized repository URL";
+
+/// Point `clone` at a fresh askpass script that hands git `password` from the
+/// environment. The returned guard deletes the script when dropped.
+fn arm_askpass(clone: &mut Command, password: &str) -> Result<AskPass, String> {
+    let askpass = AskPass::create()?;
+    clone
+        .env("GIT_ASKPASS", &askpass.path)
+        .env("GIT_ASKPASS_REQUIRE", "force")
+        .env(PASSWORD_ENVIRONMENT_VARIABLE, password);
+    Ok(askpass)
+}
+
+/// Re-point a credentialed clone's remote at `clean_url` and confirm it stuck,
+/// deleting the clone when either step fails so no username-bearing remote is
+/// left behind in `.git/config`.
+fn remove_credentials_from_remote(destination: &Path, clean_url: &str) -> Result<(), String> {
+    let git_in_clone = |arguments: &[&str]| {
+        command("git")
+            .arg("-C")
+            .arg(destination)
+            .args(arguments)
+            .output()
+    };
+    let discard_clone = || {
+        let _ = std::fs::remove_dir_all(destination);
+    };
+
+    let sanitized = git_in_clone(&["remote", "set-url", DEFAULT_REMOTE_NAME, clean_url])
         .map_err(|e| format!("failed to sanitize cloned remote: {e}"))?;
     if !sanitized.status.success() {
-        let _ = std::fs::remove_dir_all(&destination);
+        discard_clone();
         return Err("could not remove credentials from the cloned remote".into());
     }
-    let stored = command("git")
-        .arg("-C")
-        .arg(&destination)
-        .args(["remote", "get-url", "origin"])
-        .output()
+    let stored = git_in_clone(&["remote", "get-url", DEFAULT_REMOTE_NAME])
         .map_err(|e| format!("failed to verify cloned remote: {e}"))?;
-    if !stored.status.success() || String::from_utf8_lossy(&stored.stdout).trim() != clean {
-        let _ = std::fs::remove_dir_all(&destination);
+    let is_clean =
+        stored.status.success() && String::from_utf8_lossy(&stored.stdout).trim() == clean_url;
+    if !is_clean {
+        discard_clone();
         return Err("could not verify the credential-free cloned remote".into());
     }
-
-    Ok(destination.to_string_lossy().into_owned())
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{authenticated_url, host_and_path, https_url, validate_clone_url};
+    use super::{authenticated_url, host_and_path, https_url, is_valid_clone_url};
 
     #[test]
     fn host_and_path_reads_the_three_supported_shapes() {
@@ -296,13 +323,13 @@ mod tests {
 
     #[test]
     fn clone_urls_require_an_authenticated_transport() {
-        assert!(validate_clone_url("https://github.com/org/repo.git"));
-        assert!(validate_clone_url("ssh://git@github.com/org/repo.git"));
-        assert!(validate_clone_url("git@github.com:org/repo.git"));
-        assert!(!validate_clone_url("http://github.com/org/repo.git"));
-        assert!(!validate_clone_url("git://github.com/org/repo.git"));
-        assert!(!validate_clone_url("https://token@github.com/org/repo.git"));
-        assert!(!validate_clone_url(
+        assert!(is_valid_clone_url("https://github.com/org/repo.git"));
+        assert!(is_valid_clone_url("ssh://git@github.com/org/repo.git"));
+        assert!(is_valid_clone_url("git@github.com:org/repo.git"));
+        assert!(!is_valid_clone_url("http://github.com/org/repo.git"));
+        assert!(!is_valid_clone_url("git://github.com/org/repo.git"));
+        assert!(!is_valid_clone_url("https://token@github.com/org/repo.git"));
+        assert!(!is_valid_clone_url(
             "https://github.com/org/repo.git\n--upload-pack=bad"
         ));
     }

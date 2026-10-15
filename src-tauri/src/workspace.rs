@@ -26,7 +26,7 @@ static SETTINGS_REPOSITORY: SettingsRepository = SettingsRepository {
 };
 static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-/// Broadcast that the persisted settings moved, so every window re-reads them —
+/// Broadcast that the persisted settings moved, so every window re-reads them -
 /// the one home for the event name the frontend `workspace.onChanged` listens on.
 const SETTINGS_CHANGED_EVENT: &str = "settings://changed";
 
@@ -41,9 +41,21 @@ pub fn init(app: &AppHandle) {
     let _ = APP.set(app.clone());
 }
 
+/// PADE's directory under the OS config base, and the `ade` one it replaced.
+const CONFIG_DIRECTORY: &str = "pade";
+const LEGACY_CONFIG_DIRECTORY: &str = "ade";
+/// The settings file inside [`CONFIG_DIRECTORY`].
+const SETTINGS_FILE: &str = "settings.json";
+/// The folder inside [`CONFIG_DIRECTORY`] every temp workspace is created in,
+/// and the name prefix each one carries.
+const WORKSPACES_DIRECTORY: &str = "workspaces";
+const TEMP_WORKSPACE_PREFIX: &str = "temp-";
+/// What marks a directory as a git checkout.
+const GIT_DIRECTORY: &str = ".git";
+
 /// Files/dirs that mark a directory as a project worth listing.
-const MARKERS: &[&str] = &[
-    ".git",
+const PROJECT_MARKERS: &[&str] = &[
+    GIT_DIRECTORY,
     ".hg",
     ".jj",
     "package.json",
@@ -56,7 +68,7 @@ const MARKERS: &[&str] = &[
     "AGENTS.md",
 ];
 
-/// An editor the user located by executable path — first-class alongside the
+/// An editor the user located by executable path - first-class alongside the
 /// PATH-detected ones. `command` for launching is the absolute `path`.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -72,7 +84,7 @@ pub struct AddedEditor {
 /// The preferences ADE's own Rust code reads. Every other, frontend-owned
 /// preference (theme, fonts, `uiScale`, diff style, start mode, auto-name /
 /// auto-handoff, …) is defined once in the TS zod `Prefs` schema and round-trips
-/// verbatim through `passthrough` — so a new UI-only pref never means editing
+/// verbatim through `passthrough` - so a new UI-only pref never means editing
 /// this struct, and Rust never duplicates a type the frontend already owns.
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -84,7 +96,7 @@ pub struct Prefs {
     /// IDE id used when no `ide_rules` entry matches the project kind.
     #[serde(default)]
     pub ide_fallback: Option<String>,
-    /// Explicit per-project editor picks — canonical project path → IDE id. A
+    /// Explicit per-project editor picks - canonical project path → IDE id. A
     /// pick from the workspace's editor menu lands here and outranks every
     /// suggestion rule for that project (`ide_suggest` puts it first).
     #[serde(default)]
@@ -121,17 +133,17 @@ pub struct Settings {
     #[serde(default)]
     pub pinned_projects: Vec<String>,
     /// Paths ADE created (temp workspaces, and where they were moved to). Only
-    /// these may be renamed/moved/deleted — never a real project the user owns.
+    /// these may be renamed/moved/deleted - never a real project the user owns.
     #[serde(default)]
     pub owned_workspaces: Vec<String>,
-    /// Friendly display names for workspaces, keyed by absolute path — auto-derived
+    /// Friendly display names for workspaces, keyed by absolute path - auto-derived
     /// for temp workspaces, or set by the user in PADE (see [`LabelSource`]), and
     /// shown instead of the `temp-<stamp>` folder name. A label never touches the
     /// directory on disk (the live agent locks its cwd).
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
     /// When each project was last opened or left (Unix milliseconds), keyed by
-    /// canonical path — the switcher's "last accessed" time, and what the
+    /// canonical path - the switcher's "last accessed" time, and what the
     /// unused-temp cleanup measures a temp workspace's idleness against.
     #[serde(default)]
     pub workspace_last_used: BTreeMap<String, u64>,
@@ -169,9 +181,9 @@ fn config_base() -> Result<PathBuf, String> {
 
 /// PADE's config directory, created on disk if missing.
 pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
-    let dir = config_base()?.join("pade");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir)
+    let directory = config_base()?.join(CONFIG_DIRECTORY);
+    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    Ok(directory)
 }
 
 /// One-time migration from the old `ade` config dir to `pade`: move the whole
@@ -179,35 +191,40 @@ pub(crate) fn ensure_config_dir() -> Result<PathBuf, String> {
 /// in the history so recents/temp workspaces keep working. Idempotent.
 pub fn migrate_from_ade() {
     let Ok(base) = config_base() else { return };
-    let old = base.join("ade");
-    let new = base.join("pade");
-    if new.exists() || !old.exists() {
-        return; // already migrated, or nothing to migrate
+    let old = base.join(LEGACY_CONFIG_DIRECTORY);
+    let new = base.join(CONFIG_DIRECTORY);
+    let is_already_migrated = new.exists();
+    if is_already_migrated || !old.exists() {
+        return;
     }
     if std::fs::rename(&old, &new).is_err() {
         return;
     }
 
     // Rewrite paths that pointed inside the old dir (temp workspaces, worktrees).
-    let (old_s, new_s) = (
-        old.to_string_lossy().to_string(),
-        new.to_string_lossy().to_string(),
-    );
-    let fix = |p: &String| p.replace(&old_s, &new_s);
+    let old_text = old.to_string_lossy();
+    let new_text = new.to_string_lossy();
+    let migrate_all = |paths: &mut Vec<String>| {
+        for path in paths.iter_mut() {
+            *path = path.replace(old_text.as_ref(), &new_text);
+        }
+    };
     let _ = update_settings(|settings| {
-        settings.recent_projects = settings.recent_projects.iter().map(fix).collect();
-        settings.owned_workspaces = settings.owned_workspaces.iter().map(fix).collect();
-        settings.roots = settings.roots.iter().map(fix).collect();
+        migrate_all(&mut settings.recent_projects);
+        migrate_all(&mut settings.owned_workspaces);
+        migrate_all(&mut settings.roots);
         Ok(())
     });
 }
 
 fn settings_path() -> Result<PathBuf, String> {
-    Ok(ensure_config_dir()?.join("settings.json"))
+    Ok(ensure_config_dir()?.join(SETTINGS_FILE))
 }
 
-fn is_project(dir: &Path) -> bool {
-    MARKERS.iter().any(|marker| dir.join(marker).exists())
+fn is_project(directory: &Path) -> bool {
+    PROJECT_MARKERS
+        .iter()
+        .any(|marker| directory.join(marker).exists())
 }
 
 struct SettingsRepository {
@@ -246,7 +263,7 @@ impl SettingsRepository {
     }
 
     /// Applies `mutate` and persists the result, reporting whether the settings
-    /// actually moved — a mutation that changes nothing (the recurring prune of a
+    /// actually moved - a mutation that changes nothing (the recurring prune of a
     /// list with nothing to forget) must not announce a change, or two windows
     /// refreshing off each other's announcements would never settle.
     fn update(
@@ -293,14 +310,14 @@ pub(crate) fn load() -> Settings {
 /// instead of holding a copy that is already wrong. Payload-free: each window
 /// re-reads through its own `settings_get`, which keeps one adoption path (and
 /// its ordering guard) for local and remote changes alike. Silent with no handle
-/// planted — a unit test has no running app to emit through.
+/// planted - a unit test has no running app to emit through.
 fn broadcast_settings_changed() {
     let Some(app) = APP.get() else { return };
     let _ = app.emit(SETTINGS_CHANGED_EVENT, ());
 }
 
 /// Every settings mutation funnels through here, so this is also the one place
-/// that can tell the *other* windows their copy went stale — a project deleted
+/// that can tell the *other* windows their copy went stale - a project deleted
 /// from one window's switcher stays listed in the next window's until it does.
 fn update_settings(
     mutate: impl FnOnce(&mut Settings) -> Result<(), String>,
@@ -321,16 +338,19 @@ pub(crate) struct LaunchDirectory {
     pub explicit: bool,
 }
 
-/// Resolve the directory this instance launched into — the single source of truth
+/// Resolve the directory this instance launched into - the single source of truth
 /// for both `launch_context` (what the frontend boots into) and the per-instance
 /// `WebView2` folder keying (which project's process tree this instance owns). A
-/// directory passed as an argument — `pade <dir>` from a terminal or the folder's
-/// context menu — is an explicit request to open that project; otherwise it is the
+/// directory passed as an argument - `pade <dir>` from a terminal or the folder's
+/// context menu - is an explicit request to open that project; otherwise it is the
 /// process working directory.
 pub(crate) fn launch_directory() -> LaunchDirectory {
-    if let Some(dir) = std::env::args().skip(1).find(|arg| Path::new(arg).is_dir()) {
+    let directory_argument = std::env::args()
+        .skip(1)
+        .find(|argument| Path::new(argument).is_dir());
+    if let Some(directory) = directory_argument {
         return LaunchDirectory {
-            path: PathBuf::from(dir),
+            path: PathBuf::from(directory),
             explicit: true,
         };
     }
@@ -342,14 +362,20 @@ pub(crate) fn launch_directory() -> LaunchDirectory {
 
 /// This instance's `WebView2` user-data folder, keyed by the launch project so two
 /// projects open in parallel each run in their own browser + GPU process tree
-/// instead of sharing one — the shared default lets one instance's GPU load (and
+/// instead of sharing one - the shared default lets one instance's GPU load (and
 /// the ~16 `WebGL`-context cap) compound into the other and trip a DWM/GPU reset.
 /// Reopening the same project reuses its folder (a stable digest of the canonical
 /// path), so nothing accumulates per launch. `None` when `LOCALAPPDATA` can't be
-/// resolved, leaving `WebView2` on its shared default. Windows-only — the folder is
+/// resolved, leaving `WebView2` on its shared default. Windows-only - the folder is
 /// a `WebView2` concept.
 #[cfg(windows)]
 pub(crate) fn webview_data_dir() -> Option<PathBuf> {
+    use std::borrow::Cow;
+
+    const WEBVIEW_DATA_DIRECTORY: &str = "webview2";
+    /// The folder-name stem for a launch directory with no name (a drive root).
+    const UNNAMED_PROJECT: &str = "project";
+
     let base = crate::util::pade_data_dir()?;
     let launch = launch_directory().path;
     let canonical = std::fs::canonicalize(&launch).unwrap_or(launch);
@@ -359,11 +385,15 @@ pub(crate) fn webview_data_dir() -> Option<PathBuf> {
     std::hash::Hash::hash(&key, &mut hasher);
     let digest = std::hash::Hasher::finish(&hasher);
 
-    let name = canonical.file_name().map_or_else(
-        || "project".to_string(),
-        |name| name.to_string_lossy().into_owned(),
-    );
-    Some(base.join("webview2").join(format!("{name}-{digest:016x}")))
+    let name = canonical
+        .file_name()
+        .map_or(Cow::Borrowed(UNNAMED_PROJECT), |name| {
+            name.to_string_lossy()
+        });
+    Some(
+        base.join(WEBVIEW_DATA_DIRECTORY)
+            .join(format!("{name}-{digest:016x}")),
+    )
 }
 
 #[tauri::command]
@@ -396,7 +426,7 @@ pub enum AddRootOutcome {
     NotADirectory,
 }
 
-/// Rebuild a path from its components — collapses doubled or trailing separators
+/// Rebuild a path from its components - collapses doubled or trailing separators
 /// and forward slashes so one folder is spelled exactly one way and dedups (e.g.
 /// `C:\\a\\b`, `C:/a/b` and `C:\a\b\` all fold to `C:\a\b`), while keeping a bare
 /// drive root like `C:\` intact.
@@ -420,18 +450,22 @@ pub(crate) fn validated_child_path(root: &Path, name: &str) -> Result<PathBuf, S
 
     #[cfg(windows)]
     {
+        /// Device names Windows reserves whatever the extension.
+        const RESERVED_DEVICE_NAMES: [&str; 4] = ["CON", "PRN", "AUX", "NUL"];
+        /// Port names Windows reserves when followed by one digit from 1 to 9.
+        const RESERVED_PORT_PREFIXES: [&str; 2] = ["COM", "LPT"];
+
         let stem = name
             .split('.')
             .next()
             .unwrap_or_default()
             .to_ascii_uppercase();
-        let is_reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-            || stem
-                .strip_prefix("COM")
-                .or_else(|| stem.strip_prefix("LPT"))
-                .is_some_and(|number| {
-                    matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-                });
+        let is_reserved_port = RESERVED_PORT_PREFIXES.iter().any(|prefix| {
+            stem.strip_prefix(prefix).is_some_and(
+                |number| matches!(number.as_bytes(), [digit] if (b'1'..=b'9').contains(digit)),
+            )
+        });
+        let is_reserved = RESERVED_DEVICE_NAMES.contains(&stem.as_str()) || is_reserved_port;
         if name.contains(':') || name.ends_with(['.', ' ']) || is_reserved {
             return Err("folder name is reserved by Windows".into());
         }
@@ -440,7 +474,7 @@ pub(crate) fn validated_child_path(root: &Path, name: &str) -> Result<PathBuf, S
     Ok(root.join(name))
 }
 
-/// Canonicalize a path list and drop duplicates, keeping first-seen order — so a
+/// Canonicalize a path list and drop duplicates, keeping first-seen order - so a
 /// folder recorded twice under different spellings collapses to one entry.
 fn canonical_dedup(paths: &[String]) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
@@ -495,6 +529,9 @@ pub fn workspace_remove_root(path: String) -> Result<Settings, String> {
     })
 }
 
+/// Shown for a project folder whose name is not valid UTF-8.
+const UNREADABLE_NAME: &str = "?";
+
 /// Immediate sub-directories of `root` that look like projects.
 #[tauri::command]
 pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
@@ -507,13 +544,13 @@ pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
             name: path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .unwrap_or("?")
+                .unwrap_or(UNREADABLE_NAME)
                 .to_string(),
-            is_git: path.join(".git").exists(),
+            is_git: path.join(GIT_DIRECTORY).exists(),
             path: path.to_string_lossy().into_owned(),
         })
         .collect();
-    entries.sort_by_key(|a| a.name.to_lowercase());
+    entries.sort_by_cached_key(|entry| entry.name.to_lowercase());
     Ok(entries)
 }
 
@@ -527,17 +564,17 @@ pub struct PathProbe {
     is_dir: bool,
     /// The typed path exists but names a file, not a directory.
     is_file: bool,
-    /// The typed path's parent is an existing directory — so even though the path
+    /// The typed path's parent is an existing directory - so even though the path
     /// itself doesn't exist yet, it names a real place PADE can create it in. This
     /// is what tells a not-yet-created folder ("C:\repositories\new-app") apart
-    /// from a stray, un-locatable string — an existence check in place of a regex.
+    /// from a stray, un-locatable string - an existence check in place of a regex.
     parent_exists: bool,
     /// Absolute paths of child directories that complete the text, name-sorted
     /// and capped. Empty when nothing matches or the parent can't be read.
     suggestions: Vec<String>,
 }
 
-/// How many directory completions to offer at once — enough to be useful, few
+/// How many directory completions to offer at once - enough to be useful, few
 /// enough to stay a glance rather than a scroll.
 const SUGGESTION_LIMIT: usize = 8;
 
@@ -545,7 +582,7 @@ const SUGGESTION_LIMIT: usize = 8;
 /// empty) leaf typed so far. A trailing separator means "list everything inside
 /// this directory"; otherwise the last segment is the prefix to match. The
 /// separator is kept on a bare drive/root head so `C:\` stays absolute. `None`
-/// when there's no separator yet (e.g. a lone `C:` — nothing to complete).
+/// when there's no separator yet (e.g. a lone `C:` - nothing to complete).
 fn split_for_completion(input: &str) -> Option<(PathBuf, String)> {
     let cut = input.rfind(['\\', '/'])?;
     let (head, tail) = input.split_at(cut);
@@ -560,24 +597,27 @@ fn split_for_completion(input: &str) -> Option<(PathBuf, String)> {
 
 /// Child directories of `parent` whose name starts with `prefix` (case-insensitive),
 /// as absolute paths, name-sorted and capped at [`SUGGESTION_LIMIT`]. Collecting into
-/// a `BTreeMap` keyed by the lowercased leaf yields the sort for free — no mutable
+/// a `BTreeMap` keyed by the lowercased leaf yields the sort for free - no mutable
 /// scratch vector to sort in place.
 fn directory_completions(parent: &Path, prefix: &str) -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(parent) else {
         return Vec::new();
     };
     let needle = prefix.to_lowercase();
-    let leaf_lower = |path: &Path| {
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .to_lowercase()
-    };
+    // The name test runs first so only matching entries pay for the stat.
     entries
         .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir() && leaf_lower(path).starts_with(&needle))
-        .map(|path| (leaf_lower(&path), path))
+        .filter_map(|entry| {
+            let lowercase_leaf = entry
+                .file_name()
+                .to_str()
+                .unwrap_or_default()
+                .to_lowercase();
+            lowercase_leaf
+                .starts_with(&needle)
+                .then(|| (lowercase_leaf, entry.path()))
+        })
+        .filter(|(_, path)| path.is_dir())
         .collect::<BTreeMap<String, PathBuf>>()
         .into_values()
         .take(SUGGESTION_LIMIT)
@@ -606,25 +646,35 @@ pub async fn workspace_probe_path(path: String) -> PathProbe {
 /// A path directly under the config `.../workspaces/temp-*` is one ADE created,
 /// even if predating the `owned_workspaces` list.
 fn is_temp_workspace(path: &str) -> bool {
-    let target = Path::new(path);
-    let has_temp_name = target
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with("temp-"));
-    if !has_temp_name {
-        return false;
-    }
-
-    let Ok(workspaces) = workspaces_directory() else {
-        return false;
-    };
-    std::fs::canonicalize(target)
-        .ok()
-        .zip(std::fs::canonicalize(workspaces).ok())
-        .is_some_and(|(target, parent)| target.parent() == Some(parent.as_path()))
+    has_temp_workspace_name(path)
+        && canonical_workspaces_directory()
+            .is_some_and(|workspaces| is_temp_workspace_in(path, &workspaces))
 }
 
-/// May ADE rename/move/delete this path? Only its own workspaces — never a real
+fn has_temp_workspace_name(path: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with(TEMP_WORKSPACE_PREFIX))
+}
+
+/// The temp-workspace directory, resolved through the filesystem so a
+/// candidate's canonical parent can be compared against it.
+fn canonical_workspaces_directory() -> Option<PathBuf> {
+    workspaces_directory()
+        .ok()
+        .and_then(|workspaces| std::fs::canonicalize(workspaces).ok())
+}
+
+/// [`is_temp_workspace`] against an already-resolved workspaces directory, so a
+/// sweep over many folders resolves it once.
+fn is_temp_workspace_in(path: &str, canonical_workspaces: &Path) -> bool {
+    has_temp_workspace_name(path)
+        && std::fs::canonicalize(path)
+            .is_ok_and(|target| target.parent() == Some(canonical_workspaces))
+}
+
+/// May ADE rename/move/delete this path? Only its own workspaces - never a real
 /// project the user owns.
 fn is_ade_owned(settings: &Settings, path: &str) -> bool {
     settings
@@ -634,6 +684,15 @@ fn is_ade_owned(settings: &Settings, path: &str) -> bool {
         || is_temp_workspace(path)
 }
 
+/// Refuse an operation on a workspace ADE did not create, naming the refused
+/// operation in the message the UI shows (e.g. `"moved"`).
+fn require_ade_owned(settings: &Settings, path: &str, refused: &str) -> Result<(), String> {
+    if is_ade_owned(settings, path) {
+        return Ok(());
+    }
+    Err(format!("only ADE-created workspaces can be {refused}"))
+}
+
 /// Public ownership check for the naming module: is this an ADE-owned workspace
 /// (so it's safe to scan and label)?
 pub fn is_owned(path: &str) -> bool {
@@ -641,7 +700,7 @@ pub fn is_owned(path: &str) -> bool {
 }
 
 /// Push a path to the front of the recent list (canonicalized, deduped). The list
-/// is unbounded — every project ever opened stays until removed or cleared; the
+/// is unbounded - every project ever opened stays until removed or cleared; the
 /// switcher keeps a long list cheap by loading each row's details only on screen.
 fn record_recent(settings: &mut Settings, path: &str) {
     let path = canonical_path(path);
@@ -652,7 +711,7 @@ fn record_recent(settings: &mut Settings, path: &str) {
 
 /// The directory every temp workspace is created in.
 fn workspaces_directory() -> Result<PathBuf, String> {
-    Ok(ensure_config_dir()?.join("workspaces"))
+    Ok(ensure_config_dir()?.join(WORKSPACES_DIRECTORY))
 }
 
 const MILLISECONDS_PER_DAY: u64 = 24 * 60 * 60 * 1000;
@@ -665,7 +724,7 @@ fn now_milliseconds() -> u64 {
         .unwrap_or(0)
 }
 
-/// Record that a project was just used — its "last accessed" time, and for a
+/// Record that a project was just used - its "last accessed" time, and for a
 /// temp workspace the restart of its cleanup clock.
 fn stamp_used(settings: &mut Settings, path: &str) {
     settings
@@ -690,17 +749,20 @@ fn temp_workspaces_on_disk() -> Vec<String> {
     else {
         return Vec::new();
     };
+    let Some(canonical_workspaces) = canonical_workspaces_directory() else {
+        return Vec::new();
+    };
     entries
         .flatten()
         .filter(|entry| entry.path().is_dir())
         .map(|entry| canonical_path(&entry.path().to_string_lossy()))
-        .filter(|path| is_temp_workspace(path))
+        .filter(|path| is_temp_workspace_in(path, &canonical_workspaces))
         .collect()
 }
 
 /// The temp workspaces past the cleanup window: last used more than `days` ago,
 /// and neither open in a window nor pinned. A temp with no recorded use yet is
-/// never expired — the sweep starts its clock instead.
+/// never expired - the sweep starts its clock instead.
 fn expired_temps(
     settings: &Settings,
     temps: &[String],
@@ -760,16 +822,20 @@ fn delete_unused_temps(open_projects: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// The name prefix and extension of every doc auto-handoff writes.
+const HANDOFF_DOC_PREFIX: &str = "continue-";
+const HANDOFF_DOC_EXTENSION: &str = "md";
+
 /// Delete a consumed auto-handoff doc. The one file-deletion seam the frontend
 /// has, so it can only ever remove what auto-handoff itself created: a bare
 /// `continue-*.md` name (no path separators) directly inside `dir`. A doc that
-/// is already gone is fine — the goal is its absence.
+/// is already gone is fine - the goal is its absence.
 #[tauri::command]
 pub async fn handoff_doc_delete(dir: String, name: String) -> Result<(), String> {
-    let is_handoff_doc = name.starts_with("continue-")
+    let is_handoff_doc = name.starts_with(HANDOFF_DOC_PREFIX)
         && Path::new(&name)
             .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
+            .is_some_and(|extension| extension.eq_ignore_ascii_case(HANDOFF_DOC_EXTENSION))
         && !name.contains(['/', '\\']);
     if !is_handoff_doc {
         return Err("only a continue-*.md handoff doc can be deleted".into());
@@ -797,12 +863,10 @@ pub fn workspace_open(path: String) -> Result<(), String> {
 /// choosing a project, then switch to a real one whenever they like.
 #[tauri::command]
 pub async fn workspace_temp() -> Result<String, String> {
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_millis());
-    let dir = workspaces_directory()?.join(format!("temp-{stamp}"));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let path = dir.to_string_lossy().into_owned();
+    let directory =
+        workspaces_directory()?.join(format!("{TEMP_WORKSPACE_PREFIX}{}", now_milliseconds()));
+    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    let path = directory.to_string_lossy().into_owned();
 
     // Mark it ADE-owned so it can later be renamed/moved/deleted.
     update_settings(|settings| {
@@ -871,7 +935,7 @@ fn moved_keys<'a>(
         .collect()
 }
 
-/// Who names a workspace — which decides both how the name is cleaned and whether
+/// Who names a workspace - which decides both how the name is cleaned and whether
 /// it may replace a label the workspace already carries.
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -887,7 +951,7 @@ pub enum LabelSource {
 /// The longest label a user may give a workspace, in characters.
 const MAXIMUM_MANUAL_LABEL_CHARACTERS: usize = 60;
 
-/// A user-typed label as it will be shown — trimmed; `None` when empty, longer
+/// A user-typed label as it will be shown - trimmed; `None` when empty, longer
 /// than the cap, or carrying a control character (a newline included), since a
 /// label is one line of chrome text.
 fn manual_label(raw: &str) -> Option<String> {
@@ -897,7 +961,7 @@ fn manual_label(raw: &str) -> Option<String> {
     (!label.is_empty() && !has_control_character && !too_long).then(|| label.to_string())
 }
 
-/// Record `label` for `path` — unless it's an auto-name and the workspace is
+/// Record `label` for `path` - unless it's an auto-name and the workspace is
 /// already labelled, in which case the existing name (the user's own, or an
 /// earlier auto-name) stands.
 fn apply_label(
@@ -929,26 +993,21 @@ pub fn workspace_set_label(
     }
     .ok_or("invalid name")?;
     update_settings(|settings| {
-        if !is_ade_owned(settings, &path) {
-            return Err("only ADE-created workspaces can be labeled".into());
-        }
+        require_ade_owned(settings, &path, "labeled")?;
         apply_label(&mut settings.labels, path, label, source);
         Ok(())
     })
 }
 
 /// Move `from` into `dest_dir` (keeping its folder name). The result is a normal
-/// directory — no longer "temp" — but stays ADE-owned so it's still deletable.
+/// directory - no longer "temp" - but stays ADE-owned so it's still deletable.
 #[tauri::command]
 pub async fn workspace_move(
     app: AppHandle,
     from: String,
     dest_dir: String,
 ) -> Result<String, String> {
-    let settings = load();
-    if !is_ade_owned(&settings, &from) {
-        return Err("only ADE-created workspaces can be moved".into());
-    }
+    require_ade_owned(&load(), &from, "moved")?;
     let name = Path::new(&from)
         .file_name()
         .ok_or("bad source path")?
@@ -1054,14 +1113,14 @@ fn resolve_save_root(settings: &Settings, root: Option<String>) -> Result<String
             .roots
             .first()
             .ok_or_else(|| {
-                "add a root folder first — rename saves into the primary root".to_string()
+                "add a root folder first - rename saves into the primary root".to_string()
             })
             .cloned(),
     }
 }
 
 /// Rename a temp workspace, promoting it into a saved project root under the new
-/// name — turning it into a real project. `root` picks which saved root receives
+/// name - turning it into a real project. `root` picks which saved root receives
 /// it (it must be one of `settings.roots`); omitted, the primary root
 /// (`roots[0]`) is used.
 #[tauri::command]
@@ -1072,9 +1131,7 @@ pub async fn workspace_rename(
     root: Option<String>,
 ) -> Result<String, String> {
     let settings = load();
-    if !is_ade_owned(&settings, &from) {
-        return Err("only ADE-created workspaces can be renamed".into());
-    }
+    require_ade_owned(&settings, &from, "renamed")?;
     let root = resolve_save_root(&settings, root)?;
     let destination = validated_child_path(Path::new(&root), &new_name)?;
     relocate_folder(&app, &from, &destination, MovedLabel::Drop).await
@@ -1094,7 +1151,7 @@ pub struct SaveMigration {
 }
 
 /// Recursively copy `from` into `to`, skipping any directory whose name is a
-/// re-downloadable dependency directory (`node_modules`, `.venv`, …) — those are
+/// re-downloadable dependency directory (`node_modules`, `.venv`, …) - those are
 /// large and machine-specific, and get reinstalled afterwards. Everything else
 /// (`.git`, sources, build output) is copied verbatim, tree structure preserved.
 /// Symlinks are copied as plain files (via `std::fs::copy`, which follows the
@@ -1125,7 +1182,7 @@ fn copy_tree_skipping_dependencies(from: &Path, to: &Path) -> std::io::Result<()
 }
 
 /// Save a temp workspace as a real project by COPYING it into a saved root under
-/// `new_name`, rather than renaming it — on Windows PADE's own recursive watcher
+/// `new_name`, rather than renaming it - on Windows PADE's own recursive watcher
 /// holds the temp directory open, so a `rename`/move fails with a sharing
 /// violation, but reads are unaffected. The copy skips re-downloadable dependency
 /// directories; the returned `install` command restores them in a task pane. The
@@ -1138,9 +1195,7 @@ pub async fn workspace_save_migrate(
     root: Option<String>,
 ) -> Result<SaveMigration, String> {
     let settings = load();
-    if !is_ade_owned(&settings, &from) {
-        return Err("only ADE-created workspaces can be saved".into());
-    }
+    require_ade_owned(&settings, &from, "saved")?;
     let root = resolve_save_root(&settings, root)?;
     let destination = validated_child_path(Path::new(&root), &new_name)?;
     let destination_string = destination.to_string_lossy().into_owned();
@@ -1159,7 +1214,7 @@ pub async fn workspace_save_migrate(
 
     let install = crate::provision::detect_install(Path::new(&destination_string));
 
-    // Re-point external tools (agent memory, IDE recents) at the copied project —
+    // Re-point external tools (agent memory, IDE recents) at the copied project -
     // best-effort, independent of the settings bookkeeping below. The temp is NOT
     // moved: it stays owned/labeled until the frontend deletes it.
     crate::refs::update_references(&from, &destination_string);
@@ -1177,13 +1232,30 @@ pub async fn workspace_save_migrate(
     })
 }
 
-/// How many times to re-try a delete that lost a race with Windows, and how long
-/// to wait between attempts.
-const DELETE_ATTEMPTS: u32 = 10;
-const DELETE_RETRY: Duration = Duration::from_millis(100);
+/// How many times to re-try a delete or rename that lost a race with Windows,
+/// and how long to wait between attempts.
+const SHARING_RACE_ATTEMPTS: u32 = 10;
+const SHARING_RACE_RETRY_DELAY: Duration = Duration::from_millis(100);
+
+/// Run `operation` until it succeeds or the attempts run out, sleeping between
+/// tries - the one retry loop behind every folder delete and rename that can
+/// race Windows closing a killed process's last handle.
+fn retry_through_sharing_race(
+    mut operation: impl FnMut() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let mut attempt = 1;
+    loop {
+        match operation() {
+            Ok(()) => return Ok(()),
+            Err(error) if attempt == SHARING_RACE_ATTEMPTS => return Err(error),
+            Err(_) => std::thread::sleep(SHARING_RACE_RETRY_DELAY),
+        }
+        attempt += 1;
+    }
+}
 
 /// Step the process out of a folder it is about to lose. Opening a project points
-/// the whole process at it — `workspace_open` chdirs — and on Windows the current
+/// the whole process at it - `workspace_open` chdirs - and on Windows the current
 /// directory is an open handle: the OS refuses to delete the folder a process is
 /// standing in, however many agents have been killed. So walk out to its parent
 /// first. (The project is on its way out; the frontend drops it at the same time.)
@@ -1209,19 +1281,14 @@ fn leave_if_inside(path: &Path) {
 /// handles asynchronously: a process can be gone while its last handle is still
 /// open, and a delete in that window fails with "used by another process".
 /// Retrying briefly turns that race into a wait instead of an error.
-fn remove_dir_all_patiently(path: &str) -> std::io::Result<()> {
-    for attempt in 1..=DELETE_ATTEMPTS {
-        match std::fs::remove_dir_all(path) {
-            Ok(()) => return Ok(()),
-            // Already gone (deleted outside PADE): the folder is in the state the
-            // caller asked for, so this is a success — and the entry still on the
-            // Recent list gets forgotten instead of being stuck there forever.
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
-            Err(_) => std::thread::sleep(DELETE_RETRY),
-        }
-    }
-    Ok(())
+fn remove_dir_all_patiently(path: &Path) -> std::io::Result<()> {
+    retry_through_sharing_race(|| match std::fs::remove_dir_all(path) {
+        // Already gone (deleted outside PADE): the folder is in the state the
+        // caller asked for, so this is a success - and the entry still on the
+        // Recent list gets forgotten instead of being stuck there forever.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        outcome => outcome,
+    })
 }
 
 /// Rename a directory, riding out the same Windows sharing violation a delete
@@ -1231,14 +1298,7 @@ fn remove_dir_all_patiently(path: &str) -> std::io::Result<()> {
 /// asynchronously. The caller must step the process out first (`leave_if_inside`);
 /// retrying briefly then turns the lingering-handle race into a wait, not an error.
 fn rename_patiently(from: &Path, destination: &Path) -> std::io::Result<()> {
-    for attempt in 1..=DELETE_ATTEMPTS {
-        match std::fs::rename(from, destination) {
-            Ok(()) => return Ok(()),
-            Err(error) if attempt == DELETE_ATTEMPTS => return Err(error),
-            Err(_) => std::thread::sleep(DELETE_RETRY),
-        }
-    }
-    Ok(())
+    retry_through_sharing_race(|| std::fs::rename(from, destination))
 }
 
 /// Has this folder been deleted out from under us? Only if its parent is still
@@ -1252,8 +1312,8 @@ fn has_vanished(path: &str) -> bool {
 
 /// Delete the temp workspaces that went unused past the cleanup window, forget
 /// every remembered path whose folder is gone, and hand back the settings the
-/// picker should now show. Called on every picker refresh — including the ones
-/// its directory watcher triggers — so a workspace deleted in Explorer, by a
+/// picker should now show. Called on every picker refresh - including the ones
+/// its directory watcher triggers - so a workspace deleted in Explorer, by a
 /// script, or from a terminal leaves the page like one deleted from the menu.
 #[tauri::command]
 pub async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
@@ -1271,7 +1331,7 @@ pub async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
 }
 
 /// Remove `path` from disk (stepping the process out first, riding out the
-/// Windows sharing race) and forget it from every list — recents, pins, owned,
+/// Windows sharing race) and forget it from every list - recents, pins, owned,
 /// and its label. Shared by the owned-only `workspace_delete` and the
 /// confirmation-gated `workspace_delete_directory`.
 fn delete_directory(path: &str) -> Result<(), String> {
@@ -1284,7 +1344,7 @@ fn delete_directory(path: &str) -> Result<(), String> {
         return Err("a filesystem root cannot be deleted".into());
     }
     leave_if_inside(&target);
-    remove_dir_all_patiently(&target.to_string_lossy()).map_err(|e| e.to_string())?;
+    remove_dir_all_patiently(&target).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1299,10 +1359,7 @@ fn forget_directory(settings: &mut Settings, path: &str) {
 /// Delete an ADE-owned workspace directory and forget it.
 #[tauri::command]
 pub async fn workspace_delete(path: String) -> Result<Settings, String> {
-    let settings = load();
-    if !is_ade_owned(&settings, &path) {
-        return Err("only ADE-created workspaces can be deleted".into());
-    }
+    require_ade_owned(&load(), &path, "deleted")?;
     delete_directory(&path)?;
     update_settings(|settings| {
         forget_directory(settings, &path);
@@ -1310,7 +1367,7 @@ pub async fn workspace_delete(path: String) -> Result<Settings, String> {
     })
 }
 
-/// Delete ANY project directory from disk and forget it — the switcher's "Delete
+/// Delete ANY project directory from disk and forget it - the switcher's "Delete
 /// directory" action. Unlike `workspace_delete` this is not gated to ADE-owned
 /// workspaces, so it can remove a real project the user points at; the UI raises
 /// an explicit, path-naming confirmation before calling it, and the caller (the
@@ -1389,7 +1446,7 @@ pub fn workspace_set_pinned(path: String, pinned: bool) -> Result<Settings, Stri
     })
 }
 
-/// Forget a project from the switcher — drop it from the recent history and, if
+/// Forget a project from the switcher - drop it from the recent history and, if
 /// pinned, from the pinned list too (a pin outlives recents, so removing only the
 /// recent entry would leave the row still showing). The folder on disk is
 /// untouched, and its display label is kept so a later re-open keeps the friendly
@@ -1403,9 +1460,9 @@ pub fn workspace_remove_recent(path: String) -> Result<Settings, String> {
     })
 }
 
-/// Replace the pinned-project order with `paths` — a drag-reorder of the existing
+/// Replace the pinned-project order with `paths` - a drag-reorder of the existing
 /// pins. Reconciles rather than trusting the client: only already-pinned paths are
-/// kept (this reorders, it never adds a pin — that stays `workspace_set_pinned`),
+/// kept (this reorders, it never adds a pin - that stays `workspace_set_pinned`),
 /// and any current pin the caller omitted is appended in its existing order, so a
 /// list that raced with a toggle in another window can't silently drop a pin.
 #[tauri::command]
@@ -1438,7 +1495,7 @@ pub fn add_editor(editor: AddedEditor) -> Result<Settings, String> {
     })
 }
 
-/// Persist the user's explicit editor pick for one project — keyed by the
+/// Persist the user's explicit editor pick for one project - keyed by the
 /// canonical path so spelling variants of the same folder resolve to one entry.
 /// Returns the refreshed settings.
 pub fn set_project_editor(path: &str, editor_id: &str) -> Result<Settings, String> {
@@ -1495,8 +1552,9 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 mod tests {
     use super::{
         apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
-        copy_tree_skipping_dependencies, expired_temps, manual_label, validated_child_path,
-        LabelSource, Prefs, Settings, SettingsRepository, MILLISECONDS_PER_DAY,
+        copy_tree_skipping_dependencies, expired_temps, is_temp_workspace_in, manual_label,
+        retry_through_sharing_race, validated_child_path, LabelSource, Prefs, Settings,
+        SettingsRepository, MILLISECONDS_PER_DAY,
     };
     use crate::test_support::assert_empty;
     use std::collections::BTreeMap;
@@ -1558,8 +1616,8 @@ mod tests {
     #[test]
     fn a_manual_label_keeps_what_the_user_typed() {
         assert_eq!(
-            manual_label("  Hebrew voice — take 2 ").as_deref(),
-            Some("Hebrew voice — take 2")
+            manual_label("  Hebrew voice - take 2 ").as_deref(),
+            Some("Hebrew voice - take 2")
         );
         assert_eq!(manual_label("קול עברי").as_deref(), Some("קול עברי"));
     }
@@ -1668,6 +1726,61 @@ mod tests {
         );
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn child_paths_reject_windows_device_names_but_not_lookalikes() {
+        let root = Path::new("root");
+        for name in [
+            "con",
+            "Nul.txt",
+            "COM1",
+            "lpt9.log",
+            "name:stream",
+            "trailing.",
+        ] {
+            assert!(validated_child_path(root, name).is_err(), "accepted {name}");
+        }
+        for name in ["COM0", "COM10", "console", "LPT", "auxiliary"] {
+            assert!(validated_child_path(root, name).is_ok(), "refused {name}");
+        }
+    }
+
+    #[test]
+    fn only_a_temp_named_folder_directly_inside_the_workspaces_directory_is_temp() {
+        let scratch = std::env::temp_dir().join(format!("pade-temp-check-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let workspaces = scratch.join("workspaces");
+        for folder in ["temp-1", "project", "temp-2/temp-3"] {
+            std::fs::create_dir_all(workspaces.join(folder)).expect("create folder");
+        }
+        std::fs::create_dir_all(scratch.join("elsewhere").join("temp-4")).expect("create folder");
+        let canonical = std::fs::canonicalize(&workspaces).expect("canonical workspaces");
+        let is_temp = |relative: &str| {
+            is_temp_workspace_in(&scratch.join(relative).to_string_lossy(), &canonical)
+        };
+
+        assert!(is_temp("workspaces/temp-1"));
+        assert!(!is_temp("workspaces/project"));
+        assert!(!is_temp("workspaces/temp-2/temp-3"));
+        assert!(!is_temp("elsewhere/temp-4"));
+        assert!(!is_temp("workspaces/temp-missing"));
+        std::fs::remove_dir_all(scratch).expect("scratch cleanup");
+    }
+
+    #[test]
+    fn the_sharing_race_retry_stops_at_the_first_success() {
+        let mut calls = 0;
+        let outcome = retry_through_sharing_race(|| {
+            calls += 1;
+            if calls < 3 {
+                return Err(std::io::Error::other("still held"));
+            }
+            Ok(())
+        });
+        assert!(outcome.is_ok());
+        assert_eq!(calls, 3);
+    }
+
     #[test]
     fn preference_patch_removes_a_null_optional_key() {
         let mut prefs = Prefs {
@@ -1724,7 +1837,7 @@ mod tests {
     fn copy_of_an_empty_workspace_creates_the_destination_and_copies_nothing() {
         // Saving a workspace the user never prompted in is the same code path, not
         // a special case: an empty source copies nothing but still yields a valid
-        // (empty) destination — no error, no missing folder.
+        // (empty) destination - no error, no missing folder.
         let base = std::env::temp_dir().join(format!("pade-migrate-empty-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let from = base.join("temp-source");

@@ -1,15 +1,15 @@
 //! A small `.gitignore` matcher for workspaces git can't answer for.
 //!
 //! The Change Feed's git-mode ignore policy defers to `git check-ignore`, which
-//! is authoritative. But a workspace with no repo yet — a temp workspace the
-//! create flow just scaffolded, a folder before its `git init` — can still hold
+//! is authoritative. But a workspace with no repo yet - a temp workspace the
+//! create flow just scaffolded, a folder before its `git init` - can still hold
 //! a `.gitignore` describing exactly what its tools will generate, and the feed
 //! should honor it there too. This module parses the ROOT `.gitignore` only
 //! (nested files are a git-mode concern; git handles them itself) and matches
 //! the documented core of the syntax: comments and blanks, `!` negation with
 //! last-match-wins, trailing-`/` directory-only patterns, leading-or-inner-`/`
 //! anchoring, `*`/`?` within a segment, and `**` across segments. A parent
-//! directory that is ignored ignores everything below it — matching git, where
+//! directory that is ignored ignores everything below it - matching git, where
 //! a file can't be re-included under an excluded directory.
 
 /// One parsed `.gitignore` pattern.
@@ -34,80 +34,39 @@ pub struct Rules {
 
 impl Rules {
     /// Parse `.gitignore` content. Unsupported edges (escapes, trailing-space
-    /// significance) are simply treated literally — this backs a change feed,
+    /// significance) are simply treated literally - this backs a change feed,
     /// not git itself.
+    #[must_use]
     pub fn parse(content: &str) -> Self {
-        let mut patterns = Vec::new();
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let (negated, body) = match line.strip_prefix('!') {
-                Some(rest) => (true, rest),
-                None => (false, line),
-            };
-            let (directory_only, body) = match body.strip_suffix('/') {
-                Some(rest) => (true, rest),
-                None => (false, body),
-            };
-            let anchored = body.contains('/');
-            let body = body.strip_prefix('/').unwrap_or(body);
-            if body.is_empty() {
-                continue;
-            }
-            patterns.push(Pattern {
-                segments: body.split('/').map(str::to_string).collect(),
-                negated,
-                directory_only,
-                anchored,
-            });
+        Self {
+            patterns: content.lines().filter_map(Pattern::parse).collect(),
         }
-        Self { patterns }
     }
 
     /// Whether the rules ignore the FILE at the root-relative, `/`-joined
     /// `path`. Checks every ancestor directory first: an ignored ancestor
     /// ignores the file outright (git allows no re-include below an excluded
     /// directory); otherwise the file's own last matching pattern decides.
+    #[must_use]
     pub fn is_ignored(&self, path: &str) -> bool {
         let segments: Vec<&str> = path
             .split('/')
             .filter(|segment| !segment.is_empty())
             .collect();
-        if segments.is_empty() {
-            return false;
-        }
-        for prefix_length in 1..=segments.len() {
-            let target = &segments[..prefix_length];
-            let target_is_directory = prefix_length < segments.len();
-            if self.last_match(target, target_is_directory) == Some(Verdict::Ignored) {
-                return true;
-            }
-            if prefix_length == segments.len() {
-                return false;
-            }
-        }
-        false
+        (1..=segments.len()).any(|prefix_length| {
+            let is_directory = prefix_length < segments.len();
+            self.last_match(&segments[..prefix_length], is_directory) == Some(Verdict::Ignored)
+        })
     }
 
     /// The verdict of the last pattern matching `target`, or `None` when no
-    /// pattern matches — last-match-wins is gitignore's precedence rule.
-    fn last_match(&self, target: &[&str], target_is_directory: bool) -> Option<Verdict> {
-        let mut verdict = None;
-        for pattern in &self.patterns {
-            if pattern.directory_only && !target_is_directory {
-                continue;
-            }
-            if pattern.matches(target) {
-                verdict = Some(if pattern.negated {
-                    Verdict::Included
-                } else {
-                    Verdict::Ignored
-                });
-            }
-        }
-        verdict
+    /// pattern matches - last-match-wins is gitignore's precedence rule.
+    fn last_match(&self, target: &[&str], is_directory: bool) -> Option<Verdict> {
+        self.patterns
+            .iter()
+            .rev()
+            .find(|pattern| (is_directory || !pattern.directory_only) && pattern.matches(target))
+            .map(Pattern::verdict)
     }
 }
 
@@ -118,6 +77,40 @@ enum Verdict {
 }
 
 impl Pattern {
+    /// One `.gitignore` line, or `None` for a comment, a blank, or a pattern
+    /// that is nothing but slashes.
+    fn parse(line: &str) -> Option<Self> {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            return None;
+        }
+        let (negated, body) = line
+            .strip_prefix('!')
+            .map_or((false, line), |rest| (true, rest));
+        let (directory_only, body) = body
+            .strip_suffix('/')
+            .map_or((false, body), |rest| (true, rest));
+        let anchored = body.contains('/');
+        let body = body.strip_prefix('/').unwrap_or(body);
+        if body.is_empty() {
+            return None;
+        }
+        Some(Self {
+            segments: body.split('/').map(str::to_string).collect(),
+            negated,
+            directory_only,
+            anchored,
+        })
+    }
+
+    fn verdict(&self) -> Verdict {
+        if self.negated {
+            Verdict::Included
+        } else {
+            Verdict::Ignored
+        }
+    }
+
     fn matches(&self, target: &[&str]) -> bool {
         if self.anchored {
             return segments_match(&self.segments, target);
@@ -129,40 +122,48 @@ impl Pattern {
     }
 }
 
-/// Whether glob `pattern` segments match `path` segments exactly; `**` spans
-/// any number of them.
-fn segments_match(pattern: &[String], path: &[&str]) -> bool {
-    match pattern.split_first() {
-        None => path.is_empty(),
-        Some((head, rest)) if head == "**" => {
-            (0..=path.len()).any(|skip| segments_match(rest, &path[skip..]))
-        }
-        Some((head, rest)) => {
-            let Some((first, tail)) = path.split_first() else {
-                return false;
-            };
-            segment_matches(head, first) && segments_match(rest, tail)
-        }
+/// The pattern segment that spans any number of path segments.
+const ANY_DEPTH_SEGMENT: &str = "**";
+
+/// Whether glob `pattern` segments match `path` segments exactly: `**` spans
+/// any number of segments, `*`/`?` stay within one. The one segment-aware glob
+/// matcher, shared with workspace member patterns (`members.rs`), whose
+/// workspace tools use the same semantics.
+pub(crate) fn segments_match<Segment: AsRef<str>>(pattern: &[Segment], path: &[&str]) -> bool {
+    let Some((head, rest)) = pattern.split_first() else {
+        return path.is_empty();
+    };
+    if head.as_ref() == ANY_DEPTH_SEGMENT {
+        return (0..=path.len()).any(|skip| segments_match(rest, &path[skip..]));
     }
+    path.split_first().is_some_and(|(first, tail)| {
+        segment_matches(head.as_ref(), first) && segments_match(rest, tail)
+    })
 }
 
 /// Glob-match one segment: `*` any run, `?` any single character, else literal.
+/// Walks both strings by character boundary in place, so the watcher's
+/// per-event check allocates nothing.
 fn segment_matches(pattern: &str, name: &str) -> bool {
-    let pattern: Vec<char> = pattern.chars().collect();
-    let name: Vec<char> = name.chars().collect();
-    chars_match(&pattern, &name)
-}
-
-fn chars_match(pattern: &[char], name: &[char]) -> bool {
-    match pattern.split_first() {
+    let mut pattern_characters = pattern.chars();
+    let mut name_characters = name.chars();
+    match pattern_characters.next() {
         None => name.is_empty(),
-        Some(('*', rest)) => (0..=name.len()).any(|skip| chars_match(rest, &name[skip..])),
-        Some(('?', rest)) => name
-            .split_first()
-            .is_some_and(|(_, tail)| chars_match(rest, tail)),
-        Some((literal, rest)) => name
-            .split_first()
-            .is_some_and(|(first, tail)| first == literal && chars_match(rest, tail)),
+        Some('*') => {
+            let rest = pattern_characters.as_str();
+            name.char_indices()
+                .map(|(offset, _)| offset)
+                .chain(std::iter::once(name.len()))
+                .any(|offset| segment_matches(rest, &name[offset..]))
+        }
+        Some('?') => {
+            name_characters.next().is_some()
+                && segment_matches(pattern_characters.as_str(), name_characters.as_str())
+        }
+        Some(literal) => {
+            name_characters.next() == Some(literal)
+                && segment_matches(pattern_characters.as_str(), name_characters.as_str())
+        }
     }
 }
 
@@ -221,6 +222,15 @@ mod tests {
         assert!(rules.is_ignored("fixtures/b.snap"));
         assert!(rules.is_ignored("apps/web/cache/tmp"));
         assert!(!rules.is_ignored("apps/tmp.txt"));
+    }
+
+    #[test]
+    fn wildcards_step_over_whole_non_ascii_characters() {
+        let rules = Rules::parse("t?st-*.md\nnotes-*é\n");
+        assert!(rules.is_ignored("tést-שלום.md"));
+        assert!(rules.is_ignored("docs/notes-café"));
+        assert!(!rules.is_ignored("tst-a.md"));
+        assert!(!rules.is_ignored("notes-cafe"));
     }
 
     #[test]

@@ -21,7 +21,9 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use super::{rebase_paths_in, rewrite_file_forms};
+use serde::Deserialize;
+
+use super::{moved_path, rewrite_file_forms};
 use crate::util::{encode_project, home_dir};
 
 /// Codex's tables that record a folder: its threads and its projects' roots.
@@ -47,13 +49,15 @@ pub(super) fn relocate_memories(old: &str, new: &str) {
     move_claude_transcripts(&home.join(".claude").join("projects"), old, new);
     rewrite_file_forms(&home.join(".claude.json"), old, new);
 
-    for database in codex_state_databases(&home.join(".codex")) {
+    let codex = home.join(".codex");
+    for database in codex_state_databases(&codex) {
         rebase_database_columns(&database, &CODEX_PATH_COLUMNS, old, new);
     }
-    rewrite_file_forms(&home.join(".codex").join("config.toml"), old, new);
+    rewrite_file_forms(&codex.join("config.toml"), old, new);
 
-    rewrite_copilot_sessions(&home.join(".copilot").join("session-state"), old, new);
-    rewrite_file_forms(&home.join(".copilot").join("config.json"), old, new);
+    let copilot = home.join(".copilot");
+    rewrite_copilot_sessions(&copilot.join("session-state"), old, new);
+    rewrite_file_forms(&copilot.join("config.json"), old, new);
 
     let opencode_database = home
         .join(".local")
@@ -90,11 +94,9 @@ fn move_claude_transcripts(projects: &Path, old: &str, new: &str) {
         } else {
             transcript_cwd(&entry.path())
         };
-        let Some(cwd) = cwd else { continue };
-        let moved_cwd = rebase_paths_in(&cwd, old, new);
-        if moved_cwd == cwd {
+        let Some(moved_cwd) = cwd.and_then(|cwd| moved_path(&cwd, old, new)) else {
             continue;
-        }
+        };
         move_into(&entry.path(), &projects.join(encode_project(&moved_cwd)));
     }
 }
@@ -112,16 +114,21 @@ fn transcript_cwd(project: &Path) -> Option<String> {
         .find_map(|transcript| first_cwd(&transcript))
 }
 
+/// The one field read from a transcript line. Deserializing only this skips
+/// the rest of the line instead of building a whole JSON tree for it, which
+/// matters because a transcript line can carry an entire tool output.
+#[derive(Deserialize)]
+struct TranscriptLine {
+    cwd: Option<String>,
+}
+
 fn first_cwd(transcript: &Path) -> Option<String> {
     let file = std::fs::File::open(transcript).ok()?;
     BufReader::new(file)
         .lines()
         .take(TRANSCRIPT_HEAD_LINES)
         .map_while(Result::ok)
-        .find_map(|line| {
-            let entry: serde_json::Value = serde_json::from_str(&line).ok()?;
-            Some(entry.get("cwd")?.as_str()?.to_string())
-        })
+        .find_map(|line| serde_json::from_str::<TranscriptLine>(&line).ok()?.cwd)
 }
 
 /// Move `from` to `to`; when `to` already exists (the name was used before),
@@ -227,23 +234,20 @@ fn rebase_column(
     };
     let moved: Vec<(i64, String)> = rows
         .flatten()
-        .filter_map(|(row, value)| {
-            let rebased = rebase_paths_in(&value, old, new);
-            (rebased != value).then_some((row, rebased))
-        })
+        .filter_map(|(row_id, value)| moved_path(&value, old, new).map(|moved| (row_id, moved)))
         .collect();
 
     let update = format!("UPDATE {table} SET {column} = ?1 WHERE rowid = ?2");
-    for (row, value) in moved {
-        if let Err(error) = connection.execute(&update, rusqlite::params![value, row]) {
-            eprintln!("refs: kept {table}.{column} row {row}: {error}");
+    for (row_id, value) in moved {
+        if let Err(error) = connection.execute(&update, rusqlite::params![value, row_id]) {
+            eprintln!("refs: kept {table}.{column} row {row_id}: {error}");
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{move_claude_transcripts, rebase_database_columns};
+    use super::{first_cwd, move_claude_transcripts, rebase_database_columns};
     use crate::util::encode_project;
 
     fn scratch(name: &str) -> std::path::PathBuf {
@@ -277,6 +281,23 @@ mod tests {
             .join("a.jsonl")
             .is_file());
         assert!(sibling.join("b.jsonl").is_file());
+    }
+
+    #[test]
+    fn the_first_line_naming_a_cwd_wins() {
+        let folder = scratch("first-cwd");
+        let transcript = folder.join("session.jsonl");
+        let lines = [
+            "not json".to_string(),
+            serde_json::json!({ "type": "summary", "cwd": 7 }).to_string(),
+            serde_json::json!({ "type": "summary" }).to_string(),
+            serde_json::json!({ "cwd": r"C:\work\pade", "message": { "content": [1, 2] } })
+                .to_string(),
+            serde_json::json!({ "cwd": r"C:\work\later" }).to_string(),
+        ];
+        std::fs::write(&transcript, lines.join("\n")).expect("write transcript");
+
+        assert_eq!(first_cwd(&transcript).as_deref(), Some(r"C:\work\pade"));
     }
 
     #[test]

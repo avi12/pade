@@ -1,22 +1,24 @@
-//! Remote-URL resolution — the browsable base behind "open on GitHub".
+//! Remote-URL resolution - the browsable base behind "open on GitHub".
 
 use super::branches::current_branch;
-use super::run_git;
+use super::{run_git, DEFAULT_REMOTE_NAME, HEAD_REFERENCE};
 
-const DEFAULT_REMOTE_NAME: &str = "origin";
+/// The `branch.<name>.remote` value git writes for a branch that tracks
+/// another branch of the same repository rather than a real remote.
+const LOCAL_REPOSITORY_REMOTE: &str = ".";
 
 fn branch_remote_name(cwd: &str) -> String {
     let configured = current_branch(cwd)
         .map(|branch| format!("branch.{branch}.remote"))
         .and_then(|key| run_git(cwd, &["config", "--get", &key]).ok())
         .map(|remote| remote.trim().to_string())
-        .filter(|remote| !remote.is_empty() && remote != ".");
+        .filter(|remote| !remote.is_empty() && remote != LOCAL_REPOSITORY_REMOTE);
     configured.unwrap_or_else(|| DEFAULT_REMOTE_NAME.to_string())
 }
 
 fn remote_default_branch(cwd: &str) -> Option<String> {
     let remote = branch_remote_name(cwd);
-    let remote_head = format!("refs/remotes/{remote}/HEAD");
+    let remote_head = format!("refs/remotes/{remote}/{HEAD_REFERENCE}");
     let symbolic = run_git(cwd, &["symbolic-ref", "--short", &remote_head]).ok()?;
     symbolic
         .trim()
