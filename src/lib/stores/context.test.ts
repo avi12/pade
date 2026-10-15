@@ -544,20 +544,20 @@ describe("sessionModel", () => {
       id: "model-switch",
       model: "claude-opus-5-5",
       effort: "high",
-      ultracode: false
+      isUltracode: false
     });
     observeRunningModel({
       id: "model-switch",
       model: "claude-haiku-4-5-20251001",
       effort: null,
-      ultracode: true
+      isUltracode: true
     });
 
     expect(sessionModel("model-switch")).toEqual({
       id: "claude-haiku-4-5-20251001",
       name: "Haiku 4.5",
       effort: null,
-      ultracode: true
+      isUltracode: true
     });
   });
 
@@ -566,7 +566,7 @@ describe("sessionModel", () => {
       id: "model-kept",
       model: "claude-opus-5-5",
       effort: "medium",
-      ultracode: false
+      isUltracode: false
     });
     observeSessionLog({
       id: "model-kept",
@@ -578,7 +578,7 @@ describe("sessionModel", () => {
       id: "claude-opus-5-5",
       name: "Opus 5.5",
       effort: "medium",
-      ultracode: false
+      isUltracode: false
     });
   });
 

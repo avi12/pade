@@ -79,7 +79,7 @@ export type Limit = {
    *  window - the credits row while credits are on and usable. False on every
    *  other row, and on a credits row that is off or held back, which carries
    *  nothing and so never outranks the window that stopped. */
-  carriesWork: boolean;
+  isCarryingWork: boolean;
   /** Extra usage with no monthly cap: nothing to run out of, so it reads as the
    *  month's spend and is never the limit anything is close to. */
   isUncapped: boolean;
@@ -95,7 +95,7 @@ export type AgentGroup = {
   icon: IconName;
   /** True when ADE has no trustworthy local usage signal for this agent, so it
    *  shows no numbers (only Claude Code exposes its limits locally today). */
-  unknown: boolean;
+  isUnknown: boolean;
   limits: Limit[];
 };
 
@@ -239,7 +239,7 @@ function limitPriority({ limit, limits }: {
     return LimitPriority.headroom;
   }
 
-  const isSpentWindowRidingOnCredits = limit.carriesWork
+  const isSpentWindowRidingOnCredits = limit.isCarryingWork
     && limits.some(other => other.kind !== UsageWindowKind.enum.credits
       && other.percentage >= USAGE_SPENT_PERCENTAGE);
   return isSpentWindowRidingOnCredits ? LimitPriority.carrying : LimitPriority.headroom;
@@ -409,7 +409,7 @@ function buildLimits({ account, now }: {
       kind: window.kind,
       kindShort: presentation.kindShort,
       balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
-      carriesWork: isCreditsCap && account.credits === CreditsState.enum.available,
+      isCarryingWork: isCreditsCap && account.credits === CreditsState.enum.available,
       percentage,
       isUncapped,
       reading: isUncapped ? formatBalance(account.uncappedSpend) : formatPercent(percentage),
@@ -440,7 +440,7 @@ function buildAgentGroup({ agent, account, now }: {
     shortName: shortName(agent.label),
     plan: hasUsage ? account.plan : "",
     icon: agentIconName(agent.id),
-    unknown: !hasUsage,
+    isUnknown: !hasUsage,
     limits: hasUsage ? buildLimits({
       account,
       now

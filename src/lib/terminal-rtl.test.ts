@@ -157,7 +157,7 @@ describe("rtlRow", () => {
     });
 
     expect(sequence(run?.parts ?? [])).toEqual(["مر", "حبا"]);
-    expect(run?.parts.filter(isText).map(part => part.selected)).toEqual([true, false]);
+    expect(run?.parts.filter(isText).map(part => part.isSelected)).toEqual([true, false]);
   });
 
   it("places the caret between parts, including past the last character", () => {

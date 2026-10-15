@@ -3,7 +3,7 @@
   import type { IconName } from "@/lib/Icon.svelte";
   import { collapseRow } from "@/lib/motion";
   import { normalizePath } from "@/lib/paths";
-  import { AddRootStatus, emptyPathProbe } from "@/lib/types";
+  import { AddRootStatus, EMPTY_PATH_PROBE } from "@/lib/types";
   import type { AddRootOutcome, Ide, ProjectEntry, TaggedPathProbe } from "@/lib/types";
   import { FolderPath, parseInput } from "@/lib/validate";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
@@ -43,7 +43,7 @@
   // by the PathCombobox (which owns the debounced probe + the autocomplete).
   let probe = $state<TaggedPathProbe>({
     path: "",
-    result: emptyPathProbe
+    result: EMPTY_PATH_PROBE
   });
   let elInput = $state<HTMLInputElement | null>(null);
 

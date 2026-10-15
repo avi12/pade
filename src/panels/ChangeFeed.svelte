@@ -35,7 +35,7 @@
     isVideoPath
   } from "@/lib/preview";
   import { ensureEditors, windowedEditorFor } from "@/lib/stores/editors.svelte";
-  import { feedStore, retarget } from "@/lib/stores/feed.svelte";
+  import { feedStore, retargetFeed } from "@/lib/stores/feed.svelte";
   import { setPanelHeader } from "@/lib/stores/sidePanel.svelte";
   import { showToast } from "@/lib/stores/toast.svelte";
   import {
@@ -312,7 +312,7 @@
       return;
     }
 
-    retarget(workspace);
+    retargetFeed(workspace);
     loadWorkspaceState(workspace);
   });
 
@@ -720,7 +720,7 @@
     <div class="empty">
       <p class="empty-headline">{emptySummary.headline}</p>
       <p class="empty-detail">{emptySummary.detail}</p>
-      {#if emptySummary.stalled}
+      {#if emptySummary.isStalled}
         <button class="arm" disabled={isArming} onclick={armWatch}>
           {#if isArming}
             Arming…{:else}Watch this project{/if}

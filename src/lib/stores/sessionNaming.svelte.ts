@@ -111,12 +111,12 @@ export function isNaming(id: string) {
  *  only while the agent is working (rule 1); the refresh and stop/continue
  *  handling live in the effect below. Turning it off clears the timer and keeps
  *  the last label. Idempotent, so re-applying the same setting is free. */
-export function setNaming({ id, agent, on }: {
+export function setNaming({ id, agent, isOn }: {
   id: string;
   agent: string;
-  on: boolean;
+  isOn: boolean;
 }) {
-  if (!on) {
+  if (!isOn) {
     dropNaming(id);
     return;
   }
@@ -143,7 +143,7 @@ export function toggleNaming({ id, agent }: {
   setNaming({
     id,
     agent,
-    on: !naming.has(id)
+    isOn: !naming.has(id)
   });
 }
 
@@ -151,20 +151,20 @@ export function toggleNaming({ id, agent }: {
  *  is deliberately a bulk assignment, not a default that per-tab ✦ toggles layer
  *  on top of: changing the setting is the user saying "these tabs", so it also
  *  overrules a tab they had flipped by hand. */
-export function applyNamingToAll({ sessions, on }: {
+export function applyNamingToAll({ sessions, isOn }: {
   sessions: readonly {
     id: string;
     agent: {
       command: string;
     };
   }[];
-  on: boolean;
+  isOn: boolean;
 }) {
   for (const session of sessions) {
     setNaming({
       id: session.id,
       agent: session.agent.command,
-      on
+      isOn
     });
   }
 }

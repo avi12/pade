@@ -16,16 +16,16 @@
     activeSessionId: string | null;
   } = $props();
 
-  const isSucceeded = $derived(row.done && !row.failed);
+  const isSucceeded = $derived(row.isDone && !row.isFailed);
 
   // Human-readable status for the dot, used for both the tooltip and the
   // accessible name.
   const status = $derived.by(() => {
-    if (row.failed) {
+    if (row.isFailed) {
       return "Failed";
     }
 
-    if (row.done) {
+    if (row.isDone) {
       return "Done";
     }
 
@@ -61,7 +61,7 @@
     <span
       class="dot"
       class:done={isSucceeded}
-      class:failed={row.failed}
+      class:failed={row.isFailed}
       aria-label={status}
       data-tooltip={status}
     ></span>

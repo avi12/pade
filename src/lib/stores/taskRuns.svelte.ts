@@ -50,7 +50,7 @@ const lastLivenessCheck = new SvelteMap<string, number>();
  *  which for an agent-started task means a live process under the agent's tree. */
 export function isTaskRunning(key: string) {
   return runnerRows().some(row =>
-    !row.done && taskKey({
+    !row.isDone && taskKey({
       directory: row.cwd,
       command: row.command
     }) === key);

@@ -4,7 +4,7 @@
 
 /** A self-exit this soon after launch reads as a failed start, so the agent is
  *  not respawned into a loop. */
-export const RESPAWN_MIN_LIFETIME_MS = 2_000;
+export const RESPAWN_MINIMUM_LIFETIME_MS = 2_000;
 
 /** Where an emptied workspace goes next. */
 export const EmptyWorkspaceOutcome = {
@@ -21,7 +21,7 @@ export function didFailToStart({ launchedAt, now }: {
   launchedAt: number;
   now: number;
 }) {
-  return now - launchedAt <= RESPAWN_MIN_LIFETIME_MS;
+  return now - launchedAt <= RESPAWN_MINIMUM_LIFETIME_MS;
 }
 
 export function emptyWorkspaceOutcome({ isUnnamedTemp, isFailedStart }: {

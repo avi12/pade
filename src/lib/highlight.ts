@@ -22,7 +22,7 @@ export type TokenClass = (typeof TokenClass)[keyof typeof TokenClass];
 
 export type Token = {
   text: string;
-  cls: TokenClass;
+  tokenClass: TokenClass;
   /** Resolved swatch color, for `color` tokens. */
   color?: string;
 };
@@ -80,7 +80,7 @@ const SCANNER = new RegExp(
 function plain(text: string) {
   return {
     text,
-    cls: TokenClass.Plain
+    tokenClass: TokenClass.Plain
   };
 }
 
@@ -89,47 +89,47 @@ function plain(text: string) {
  *  `#` can read as a hex colour). Anything no rule claims is plain. */
 const MATCH_RULES: readonly {
   test: (raw: string) => boolean;
-  cls: TokenClass;
+  tokenClass: TokenClass;
 }[] = [
   {
     test: raw => COMMENT_OPENERS.some(opener => raw.startsWith(opener)) || HASH_COMMENT.test(raw),
-    cls: TokenClass.Comment
+    tokenClass: TokenClass.Comment
   },
   {
     test: raw => QUOTES.has(raw[0]),
-    cls: TokenClass.String
+    tokenClass: TokenClass.String
   },
   {
     test: raw => raw.startsWith("#") || RGB_HSL_FUNCTION.test(raw) || raw.startsWith("var("),
-    cls: TokenClass.Color
+    tokenClass: TokenClass.Color
   },
   {
     test: raw => raw.startsWith("@") || KEYWORDS.has(raw),
-    cls: TokenClass.Keyword
+    tokenClass: TokenClass.Keyword
   },
   {
     test: raw => DIGIT.test(raw),
-    cls: TokenClass.Number
+    tokenClass: TokenClass.Number
   }
 ];
 
 function classOfMatch(raw: string) {
-  return MATCH_RULES.find(rule => rule.test(raw))?.cls ?? TokenClass.Plain;
+  return MATCH_RULES.find(rule => rule.test(raw))?.tokenClass ?? TokenClass.Plain;
 }
 
 function classify(raw: string, variables?: Map<string, string>) {
-  const cls = classOfMatch(raw);
-  if (cls === TokenClass.Color) {
+  const tokenClass = classOfMatch(raw);
+  if (tokenClass === TokenClass.Color) {
     return {
       text: raw,
-      cls,
+      tokenClass,
       color: resolveColor(raw, variables) ?? undefined
     };
   }
 
   return {
     text: raw,
-    cls
+    tokenClass
   };
 }
 
@@ -164,8 +164,8 @@ export function tokenize(text: string, variables?: Map<string, string>) {
 
     const token: Token = classify(match[0], variables);
     const end = start + match[0].length;
-    if (token.cls === TokenClass.Plain) {
-      token.cls = identifierRole({
+    if (token.tokenClass === TokenClass.Plain) {
+      token.tokenClass = identifierRole({
         text,
         end
       });
@@ -222,7 +222,7 @@ function markdownProseTokens(line: string) {
     const span = match[0];
     tokens.push({
       text: span,
-      cls: inlineSpanClass(span)
+      tokenClass: inlineSpanClass(span)
     });
     previousEnd = start + span.length;
   }
@@ -239,14 +239,14 @@ function markdownLineTokens(line: string) {
   if (HEADING_LINE.test(line)) {
     return [{
       text: line,
-      cls: TokenClass.Keyword
+      tokenClass: TokenClass.Keyword
     }];
   }
 
   if (BLOCKQUOTE_LINE.test(line)) {
     return [{
       text: line,
-      cls: TokenClass.Comment
+      tokenClass: TokenClass.Comment
     }];
   }
 
@@ -258,7 +258,7 @@ function markdownLineTokens(line: string) {
   return [
     {
       text: listMarker[0],
-      cls: TokenClass.Number
+      tokenClass: TokenClass.Number
     },
     ...markdownProseTokens(line.slice(listMarker[0].length))
   ];
@@ -279,7 +279,7 @@ export function tokenizeMarkdown(text: string, variables?: Map<string, string>) 
       isInFence = !isInFence;
       tokens.push({
         text: line,
-        cls: TokenClass.Comment
+        tokenClass: TokenClass.Comment
       });
       continue;
     }
@@ -296,6 +296,6 @@ export function tokenizeMarkdown(text: string, variables?: Map<string, string>) 
 
 /** Whether a token class carries a syntax color (applied via a themed CSS class
  *  in ColorText - plain text and color tokens keep the default color). */
-export function isSyntax(cls: TokenClass) {
-  return SYNTAX_CLASSES.has(cls);
+export function isSyntax(tokenClass: TokenClass) {
+  return SYNTAX_CLASSES.has(tokenClass);
 }

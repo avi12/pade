@@ -26,12 +26,12 @@
 {#if split}
   <div class="split">
     {#each splitRows as row, i (i)}
-      {#if row.hunk}
+      {#if row.isHunk}
         <div class="hunk">{row.hunkText}</div>
       {:else}
         <div
           class="cell"
-          class:filled-deletion={row.leftFilled}
+          class:filled-deletion={row.isLeftFilled}
           data-snippet-line={row.oldLine}
         >
           <span class="gutter" aria-hidden="true">{row.oldLine ?? ""}</span>
@@ -39,7 +39,7 @@
         </div>
         <div
           class="cell right"
-          class:filled-add={row.rightFilled}
+          class:filled-add={row.isRightFilled}
           data-newline={row.newLine}
           data-snippet-line={row.newLine}
         >

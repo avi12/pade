@@ -21,8 +21,8 @@ import { listen } from "@tauri-apps/api/event";
 
 export {
   SIDE_PANEL_DEFAULT_WIDTH,
-  SIDE_PANEL_MAX_FRACTION,
-  SIDE_PANEL_MIN_WIDTH
+  SIDE_PANEL_MAXIMUM_FRACTION,
+  SIDE_PANEL_MINIMUM_WIDTH
 } from "@/lib/prefs-bounds";
 
 /** Resolve a font-stack CSS custom property (theme.css owns the fallback list) to

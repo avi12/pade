@@ -16,34 +16,34 @@ export const TerminalFlushMode = {
  * the lag: the agent answered every tick immediately while the terminal sat on
  * the frames until the gesture went quiet. */
 export function wheelScrollsTerminalDocument({
-  agentOwnsMouse,
+  isAgentOwningMouse,
   hasNativeScrollback
 }: {
-  agentOwnsMouse: boolean;
+  isAgentOwningMouse: boolean;
   hasNativeScrollback: boolean;
 }) {
-  return !agentOwnsMouse && hasNativeScrollback;
+  return !isAgentOwningMouse && hasNativeScrollback;
 }
 
 /** Foreground output tracks the display unless the user is reading scrollback;
  * background and scrolled-back output stays live at a bounded cadence so token
  * streams cannot continuously compete with another app or the user's scrolling. */
 export function terminalFlushMode({
-  shown,
-  windowFocused,
-  readingScrollback,
-  scrolling
+  isShown,
+  isWindowFocused,
+  isReadingScrollback,
+  isScrolling
 }: {
-  shown: boolean;
-  windowFocused: boolean;
-  readingScrollback: boolean;
-  scrolling: boolean;
+  isShown: boolean;
+  isWindowFocused: boolean;
+  isReadingScrollback: boolean;
+  isScrolling: boolean;
 }) {
-  if (scrolling) {
+  if (isScrolling) {
     return TerminalFlushMode.Deferred;
   }
 
-  return shown && windowFocused && !readingScrollback
+  return isShown && isWindowFocused && !isReadingScrollback
     ? TerminalFlushMode.AnimationFrame
     : TerminalFlushMode.Background;
 }

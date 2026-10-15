@@ -119,19 +119,7 @@ export async function clearDiscordPresence() {
   await bestEffort(() => discord.clearActivity());
 }
 
-export async function updateDiscordPresence({ enabled, showProject, project, labels, kind }: {
-  enabled: boolean;
-  showProject: boolean;
-  project: string;
-  labels: Record<string, string>;
-  kind?: string;
-}) {
-  const activity = presenceActivity({
-    isEnabled: enabled,
-    isProjectShown: showProject,
-    project,
-    labels,
-    kind
-  });
+export async function updateDiscordPresence(presence: PresenceState) {
+  const activity = presenceActivity(presence);
   await bestEffort(() => (activity === null ? discord.clearActivity() : discord.setActivity(activity)));
 }

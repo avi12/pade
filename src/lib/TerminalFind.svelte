@@ -60,7 +60,7 @@
   const isSearchable = $derived(
     isSearchablePattern({
       term,
-      regex: matching.regex
+      isRegex: matching.regex
     })
   );
   const hasResults = $derived(resultCount > 0);
@@ -70,7 +70,7 @@
       term,
       resultIndex,
       resultCount,
-      searchable: isSearchable
+      isSearchable
     })
   );
 

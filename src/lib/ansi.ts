@@ -32,13 +32,13 @@ const CURSOR_FORWARD = new RegExp("\\u001b\\[(\\d*)C", "g");
 const CURSOR_FORWARD_DEFAULT_COUNT = 1;
 // A ceiling on the gap one cursor move expands to, so a garbage count can't
 // allocate an unbounded string - wider than any real terminal row.
-const CURSOR_FORWARD_MAX_COUNT = 1_000;
+const CURSOR_FORWARD_MAXIMUM_COUNT = 1_000;
 const DECIMAL_RADIX = 10;
 const PARAMETER_SEPARATOR = ";";
 
 function cursorForwardGap(_sequence: string, count: string) {
   const columns = count === "" ? CURSOR_FORWARD_DEFAULT_COUNT : parseInt(count, DECIMAL_RADIX);
-  return " ".repeat(Math.min(columns, CURSOR_FORWARD_MAX_COUNT));
+  return " ".repeat(Math.min(columns, CURSOR_FORWARD_MAXIMUM_COUNT));
 }
 
 /** Strip ANSI/control sequences from a chunk of terminal output, keeping a

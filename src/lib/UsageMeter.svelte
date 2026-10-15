@@ -279,7 +279,7 @@
         {#each pillGroups as group (group.id)}
           <span
             class={["agent-pill severity", severityClass(worstLimit(group.limits)?.level)]}
-            class:unknown={group.unknown}
+            class:unknown={group.isUnknown}
           >
             <span class="agent-pill-id">
               <span class="agent-icon"><Icon name={group.icon} /></span>
@@ -394,7 +394,7 @@
         {#each groups as group (group.id)}
           <li
             class={["agent-card severity", severityClass(worstLimit(group.limits)?.level)]}
-            class:unknown={group.unknown}
+            class:unknown={group.isUnknown}
           >
             <div class="agent-head">
               <span class="agent-icon"><Icon name={group.icon} /></span>

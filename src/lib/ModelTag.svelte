@@ -39,7 +39,7 @@
     }
 
     const modelAndEffort = modelLabel(running);
-    if (running.ultracode) {
+    if (running.isUltracode) {
       return `${modelAndEffort} · Ultracode on`;
     }
 
@@ -79,7 +79,7 @@
   >
     <EffortTint {tone}>
       {running.name}
-      {#if running.ultracode}
+      {#if running.isUltracode}
         <Icon name="bolt" size={12} />
       {/if}
     </EffortTint>

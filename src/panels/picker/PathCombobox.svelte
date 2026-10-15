@@ -4,7 +4,7 @@
   import { Key } from "@/lib/keys";
   import { collapseRow, expandRow, flipDuration } from "@/lib/motion";
   import { normalizePath } from "@/lib/paths";
-  import { emptyPathProbe } from "@/lib/types";
+  import { EMPTY_PATH_PROBE } from "@/lib/types";
   import type { TaggedPathProbe } from "@/lib/types";
   import { flip } from "svelte/animate";
 
@@ -20,7 +20,7 @@
     value = $bindable(""),
     probe = $bindable({
       path: "",
-      result: emptyPathProbe
+      result: EMPTY_PATH_PROBE
     }),
     name,
     id,
@@ -87,7 +87,7 @@
     if (path.length === 0) {
       probe = {
         path: "",
-        result: emptyPathProbe
+        result: EMPTY_PATH_PROBE
       };
       // A fresh path starts a fresh selection - don't carry one across a clear.
       lastSelected = null;

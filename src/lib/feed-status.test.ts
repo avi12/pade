@@ -11,7 +11,7 @@ describe("watchSummary", () => {
       project: PROJECT,
       now: NOW
     });
-    expect(summary.stalled).toBe(false);
+    expect(summary.isStalled).toBe(false);
     expect(summary.detail).toContain("Checking");
   });
 
@@ -26,7 +26,7 @@ describe("watchSummary", () => {
       project: PROJECT,
       now: NOW
     });
-    expect(summary.stalled).toBe(true);
+    expect(summary.isStalled).toBe(true);
     expect(summary.headline).toBe("Not watching this project");
   });
 
@@ -41,7 +41,7 @@ describe("watchSummary", () => {
       project: PROJECT,
       now: NOW
     });
-    expect(summary.stalled).toBe(true);
+    expect(summary.isStalled).toBe(true);
     expect(summary.detail).toContain("taki");
     expect(summary.detail).toContain("pade");
   });
@@ -57,7 +57,7 @@ describe("watchSummary", () => {
       project: PROJECT,
       now: NOW
     });
-    expect(summary.stalled).toBe(false);
+    expect(summary.isStalled).toBe(false);
     expect(summary.headline).toBe("No changes yet");
   });
 

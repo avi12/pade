@@ -12,7 +12,7 @@ vi.stubGlobal("CSS", {
 });
 
 function classOf(text: string) {
-  return tokenize(text)[0].cls;
+  return tokenize(text)[0].tokenClass;
 }
 
 describe("tokenize", () => {
@@ -42,14 +42,14 @@ describe("tokenize", () => {
   it("resolves a hex color to its own swatch", () => {
     const [token] = tokenize("#3366ff");
 
-    expect(token.cls).toBe("color");
+    expect(token.tokenClass).toBe("color");
     expect(token.color).toBe("#3366ff");
   });
 
   it("resolves an rgb() color", () => {
     const [token] = tokenize("rgb(1, 2, 3)");
 
-    expect(token.cls).toBe("color");
+    expect(token.tokenClass).toBe("color");
     expect(token.color).toBe("rgb(1, 2, 3)");
   });
 
@@ -57,14 +57,14 @@ describe("tokenize", () => {
     const variables = new Map([["--brand", "#123456"]]);
     const [token] = tokenize("var(--brand)", variables);
 
-    expect(token.cls).toBe("color");
+    expect(token.tokenClass).toBe("color");
     expect(token.color).toBe("#123456");
   });
 
   it("leaves an unresolvable var() color without a swatch", () => {
     const [token] = tokenize("var(--missing)", new Map());
 
-    expect(token.cls).toBe("color");
+    expect(token.tokenClass).toBe("color");
     expect(token.color).toBeUndefined();
   });
 
@@ -100,13 +100,13 @@ describe("tokenize", () => {
 
   it("does not treat a `::` pseudo-element or a `://` scheme as a property", () => {
     expect(classOf("div::before")).toBe("plain");
-    expect(tokenize("https://x")[0].cls).toBe("plain");
+    expect(tokenize("https://x")[0].tokenClass).toBe("plain");
   });
 
   it("keeps a hyphenated identifier whole", () => {
     expect(tokenize("mask-image")).toEqual([{
       text: "mask-image",
-      cls: "plain"
+      tokenClass: "plain"
     }]);
   });
 
@@ -117,7 +117,7 @@ describe("tokenize", () => {
   it("emits the gaps between matches as plain runs", () => {
     const tokens = tokenize("const width = 42;");
 
-    expect(tokens.map(token => token.cls)).toEqual([
+    expect(tokens.map(token => token.tokenClass)).toEqual([
       "keyword", "plain", "plain", "plain", "number", "plain"
     ]);
   });
@@ -132,7 +132,7 @@ describe("tokenize", () => {
   it("returns a single plain token for text with no matches", () => {
     expect(tokenize("=+;")).toEqual([{
       text: "=+;",
-      cls: "plain"
+      tokenClass: "plain"
     }]);
   });
 });
@@ -155,13 +155,13 @@ describe("isSyntax", () => {
 
 describe("tokenizeMarkdown", () => {
   function markdownClassOf(tokens: Token[], text: string) {
-    return tokens.find(token => token.text.includes(text))?.cls;
+    return tokens.find(token => token.text.includes(text))?.tokenClass;
   }
 
   it("leaves prose plain - 'use' and 'for' are words here, not keywords", () => {
     const tokens = tokenizeMarkdown("use pnpm for the extension framework.");
     expect(tokens).toHaveLength(1);
-    expect(tokens[0]?.cls).toBe("plain");
+    expect(tokens[0]?.tokenClass).toBe("plain");
   });
 
   it("colors structure: headings, quotes, list markers, inline spans", () => {

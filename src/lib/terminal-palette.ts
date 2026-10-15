@@ -58,7 +58,7 @@ const DERIVED_SELECTION_ALPHA = 0.3;
 const HEX_RADIX = 16;
 /** Hex digits per channel in the long form (`#rrggbb`). */
 const HEX_DIGITS_PER_CHANNEL = 2;
-const CHANNEL_MAX = 255;
+const CHANNEL_MAXIMUM = 255;
 /** Below this perceived luminance a background reads as a dark terminal. Well
  *  clear of both ends in practice: Solarized Light lands near 0.9, Solarized
  *  Dark near 0.02. */
@@ -79,7 +79,7 @@ function withAlpha({ color, alpha }: {
     return color;
   }
 
-  return `#${channels.map(channelHex).join("")}${channelHex(Math.round(alpha * CHANNEL_MAX))}`;
+  return `#${channels.map(channelHex).join("")}${channelHex(Math.round(alpha * CHANNEL_MAXIMUM))}`;
 }
 
 /** Light or dark, as the terminal's own background answers it. This is what the

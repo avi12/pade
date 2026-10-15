@@ -139,7 +139,7 @@ async function adoptLiveWatch(project: string) {
  *  the last (a workspace switch must not surface the previous project's changes).
  *  Also lazily arms the singleton subscription on first use. ChangeFeed calls this
  *  from a `project`-keyed effect. */
-export function retarget(project: string) {
+export function retargetFeed(project: string) {
   // Arming the singleton subscription is a self-contained side effect with no
   // follow-up here - the store reacts as events land, and startFeedSubscription
   // owns its own error handling - so a lazy call with no await is safe.

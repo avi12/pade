@@ -26,7 +26,8 @@
   });
 </script>
 
-{#each tokens as token, i (i)}<span class={isSyntax(token.cls) ? token.cls : undefined}>{token.text}{#if token.color}
+{#each tokens as token, i (i)}<span class={isSyntax(token.tokenClass) ? token.tokenClass : undefined}
+>{token.text}{#if token.color}
   <span
     style:--swatch-color={token.color}
     class="swatch"

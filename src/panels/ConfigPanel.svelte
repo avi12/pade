@@ -6,7 +6,7 @@
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
   import { formatPercent } from "@/lib/format";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
-  import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from "@/lib/prefs-bounds";
+  import { UI_SCALE_MAXIMUM, UI_SCALE_MINIMUM, UI_SCALE_STEP } from "@/lib/prefs-bounds";
   import { chooseThemeMode, effective, updatePrefs } from "@/lib/prefs.svelte";
   import { isMarkdownPath } from "@/lib/preview";
   import { prefs } from "@/lib/settings.svelte";
@@ -139,7 +139,7 @@
   const scalePercent = $derived(formatPercent(effective.uiScale * 100));
 
   async function stepScale(delta: number) {
-    const clamped = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, effective.uiScale + delta));
+    const clamped = Math.min(UI_SCALE_MAXIMUM, Math.max(UI_SCALE_MINIMUM, effective.uiScale + delta));
     // Round to the step grid so accumulated float drift never leaks into the pref.
     await updatePrefs({ uiScale: Math.round(clamped * 100) / 100 });
   }
@@ -276,14 +276,14 @@
           <button
             class="step"
             aria-label="Decrease font size"
-            disabled={effective.uiScale <= UI_SCALE_MIN}
+            disabled={effective.uiScale <= UI_SCALE_MINIMUM}
             onclick={() => stepScale(-UI_SCALE_STEP)}
           >A−</button>
           <output class="scale-value">{scalePercent}</output>
           <button
             class="step step-up"
             aria-label="Increase font size"
-            disabled={effective.uiScale >= UI_SCALE_MAX}
+            disabled={effective.uiScale >= UI_SCALE_MAXIMUM}
             onclick={() => stepScale(UI_SCALE_STEP)}
           >A+</button>
         </div>

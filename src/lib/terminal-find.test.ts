@@ -115,7 +115,7 @@ describe("findResultLabel", () => {
         term: "(unclosed",
         resultIndex: -1,
         resultCount: 0,
-        searchable: false
+        isSearchable: false
       })
     ).toBe("Bad pattern");
   });
@@ -192,7 +192,7 @@ describe("isSearchablePattern", () => {
     expect(
       isSearchablePattern({
         term: "cargo build (release",
-        regex: false
+        isRegex: false
       })
     ).toBe(true);
   });
@@ -201,7 +201,7 @@ describe("isSearchablePattern", () => {
     expect(
       isSearchablePattern({
         term: "error:s+d+",
-        regex: true
+        isRegex: true
       })
     ).toBe(true);
   });
@@ -210,19 +210,19 @@ describe("isSearchablePattern", () => {
     expect(
       isSearchablePattern({
         term: "(unclosed",
-        regex: true
+        isRegex: true
       })
     ).toBe(false);
     expect(
       isSearchablePattern({
         term: "[a-",
-        regex: true
+        isRegex: true
       })
     ).toBe(false);
     expect(
       isSearchablePattern({
         term: "a**",
-        regex: true
+        isRegex: true
       })
     ).toBe(false);
   });

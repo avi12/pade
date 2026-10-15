@@ -63,7 +63,7 @@ export interface DragHint {
   id: string;
   /** True while the pointer is over the `outsideSelector` zone and not over a
    *  reorderable item - a drop-out (split / pop-to-tab), not an in-strip sort. */
-  outside: boolean;
+  isOutside: boolean;
   /** The pane under the pointer and the half it's over, or `null` when the pointer
    *  isn't over a pane. The engine owns this decision (via `reorder.paneDropSide`),
    *  so a caller can paint the drop half straight from it without re-hit-testing. */
@@ -545,7 +545,7 @@ export function beginReorder(options: BeginReorderOptions) {
     });
     onHint?.({
       id: draggedId,
-      outside: isOutside,
+      isOutside,
       dropTarget,
       pointerX: e.clientX,
       pointerY: e.clientY

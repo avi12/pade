@@ -280,7 +280,7 @@ describe("buildGroups", () => {
       now
     });
 
-    expect(claude.unknown).toBe(false);
+    expect(claude.isUnknown).toBe(false);
     expect(claude.plan).toBe("Max");
     expect(claude.icon).toBe("claude");
     expect(claude.name).toBe(CLAUDE_LABEL);
@@ -315,7 +315,7 @@ describe("buildGroups", () => {
       now
     });
 
-    expect(codex.unknown).toBe(true);
+    expect(codex.isUnknown).toBe(true);
     expect(codex.limits).toEqual([]);
     expect(codex.plan).toBe("");
     expect(codex.shortName).toBe("Codex");
@@ -336,7 +336,7 @@ describe("buildGroups", () => {
       now
     });
 
-    expect(codex.unknown).toBe(false);
+    expect(codex.isUnknown).toBe(false);
     expect(codex.plan).toBe("Codex plus");
     expect(codex.limits.map(limit => limit.kindShort)).toEqual(["W"]);
     expect(codex.limits.map(limit => limit.percentage)).toEqual([5]);
@@ -350,7 +350,7 @@ describe("buildGroups", () => {
     });
 
     expect(claude.id).toBe("claude");
-    expect(claude.unknown).toBe(true);
+    expect(claude.isUnknown).toBe(true);
     expect(claude.limits).toEqual([]);
     expect(claude.plan).toBe("");
   });
@@ -424,7 +424,7 @@ describe("buildGroups", () => {
     });
 
     expect(opencode.id).toBe("opencode");
-    expect(opencode.unknown).toBe(false);
+    expect(opencode.isUnknown).toBe(false);
     expect(opencode.plan).toBe("Codex plus");
     expect(opencode.limits.map(limit => limit.percentage)).toEqual([5]);
   });
@@ -543,7 +543,7 @@ describe("panel view-model skips unknown agents", () => {
 
   it("still counts the unknown agent in the running total", () => {
     expect(groups).toHaveLength(2);
-    expect(groups.some(group => group.unknown)).toBe(true);
+    expect(groups.some(group => group.isUnknown)).toBe(true);
   });
 
   it("buckets only agents that have limits by severity", () => {

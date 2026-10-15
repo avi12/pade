@@ -3,7 +3,12 @@
 // inferred from them (never hand-written alongside).
 
 import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/context-level";
-import { SIDE_PANEL_MAX_WIDTH, SIDE_PANEL_MIN_WIDTH, UI_SCALE_MAX, UI_SCALE_MIN } from "@/lib/prefs-bounds";
+import {
+  SIDE_PANEL_MAXIMUM_WIDTH,
+  SIDE_PANEL_MINIMUM_WIDTH,
+  UI_SCALE_MAXIMUM,
+  UI_SCALE_MINIMUM
+} from "@/lib/prefs-bounds";
 import { ANSI_COLOR_TOKENS } from "@/lib/terminal-theme";
 import { z } from "zod";
 
@@ -514,11 +519,11 @@ const Prefs = z.object({
    *  explicitly set to false. */
   autoResume: z.boolean().nullish(),
   /** UI + terminal zoom factor (0.85–1.30, step 0.05). Absent = default 1.0. */
-  uiScale: z.number().min(UI_SCALE_MIN).max(UI_SCALE_MAX).nullish(),
+  uiScale: z.number().min(UI_SCALE_MINIMUM).max(UI_SCALE_MAXIMUM).nullish(),
   /** Width, in pixels, of the resizable side panel (Feed/Git/Tasks/Config). The
    *  live layout additionally caps it at 60% of the window via a CSS clamp; this
    *  is the persisted drag target. Absent = default 380. */
-  sidePanelWidth: z.number().min(SIDE_PANEL_MIN_WIDTH).max(SIDE_PANEL_MAX_WIDTH).nullish(),
+  sidePanelWidth: z.number().min(SIDE_PANEL_MINIMUM_WIDTH).max(SIDE_PANEL_MAXIMUM_WIDTH).nullish(),
   /** Broadcast a Discord "Playing PADE" rich-presence status. Opt-in: off unless explicitly true. */
   discordPresence: z.boolean().nullish(),
   /** When presence is on, show the current project's name in the status. Default on. */
@@ -591,7 +596,7 @@ export type PathProbe = z.infer<typeof PathProbe>;
 
 /** The nothing-typed-yet probe: no disk knowledge, no completions. The shared
  *  reset every path field starts from, so an empty box never reads as a folder. */
-export const emptyPathProbe: PathProbe = {
+export const EMPTY_PATH_PROBE: PathProbe = {
   isDir: false,
   isFile: false,
   parentExists: false,

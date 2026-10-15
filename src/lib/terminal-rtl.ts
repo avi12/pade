@@ -205,7 +205,7 @@ type RtlPartKind = (typeof RtlPartKind)[keyof typeof RtlPartKind];
 export interface RtlTextPart extends RtlStyle {
   readonly kind: typeof RtlPartKind.Text;
   readonly text: string;
-  readonly selected: boolean;
+  readonly isSelected: boolean;
 }
 
 export interface RtlCaretPart {
@@ -261,7 +261,7 @@ function extendedPart({ open, cell, isSelected, isCaretStart }: {
   isSelected: boolean;
   isCaretStart: boolean;
 }) {
-  const isContinuable = open !== undefined && !isCaretStart && open.selected === isSelected;
+  const isContinuable = open !== undefined && !isCaretStart && open.isSelected === isSelected;
   if (!isContinuable || !isSameStyle({
     part: open,
     cell
@@ -320,7 +320,7 @@ function runParts({ cells, range, cursorColumn, selection }: {
     open = {
       ...cell,
       kind: RtlPartKind.Text,
-      selected: isSelected
+      isSelected
     };
   }
 
@@ -393,7 +393,7 @@ function cellColor({ isPalette, isTruecolor, value, fallback }: {
   fallback: string;
 }) {
   if (isPalette) {
-    return ansiPaletteColor({ index: value });
+    return ansiPaletteColor({ iColor: value });
   }
 
   if (isTruecolor) {
@@ -472,9 +472,9 @@ export function rowSelection({ selection, absoluteRow, columns }: {
 
 /** Every right-to-left run on screen. Rows without one cost a string and a regex;
  *  the per-cell reads happen only on the rows that actually need drawing. */
-export function rtlViewport({ terminal, focused }: {
+export function rtlViewport({ terminal, isFocused }: {
   terminal: Terminal;
-  focused: boolean;
+  isFocused: boolean;
 }) {
   const buffer = terminal.buffer.active;
   const selection = terminal.getSelectionPosition();
@@ -493,7 +493,7 @@ export function rtlViewport({ terminal, focused }: {
         line,
         scratch
       }),
-      cursorColumn: focused && row === buffer.cursorY ? buffer.cursorX : undefined,
+      cursorColumn: isFocused && row === buffer.cursorY ? buffer.cursorX : undefined,
       selection: rowSelection({
         selection,
         absoluteRow,

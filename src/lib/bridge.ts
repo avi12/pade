@@ -407,10 +407,21 @@ export const pty = {
   /** The model and effort the session runs, as the agent itself reported it
    *  (hooks, its own session log, a plugin - never its terminal). `null` when
    *  the agent has reported nothing PADE can read. */
-  runningModel: (args: {
+  async runningModel(args: {
     command: string;
     conversationId: string;
-  }) => call("agent_running_model", RunningModel.nullable(), args),
+  }) {
+    const running = await call("agent_running_model", RunningModel.nullable(), args);
+    if (running === null) {
+      return null;
+    }
+
+    const { ultracode, ...reported } = running;
+    return {
+      ...reported,
+      isUltracode: ultracode
+    };
+  },
   /** A session's model or effort may have changed: the agent reported
    *  (`sessionId` is its conversation id), or a settings file every session of
    *  an agent reads changed (`sessionId` null). Re-read `runningModel` for the

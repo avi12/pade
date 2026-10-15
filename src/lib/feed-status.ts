@@ -15,7 +15,7 @@ interface FeedWatchSummary {
   /** The evidence behind it - what is watched, since when, what was hidden. */
   detail: string;
   /** No live watch on the open project: the panel offers to arm it again. */
-  stalled: boolean;
+  isStalled: boolean;
 }
 
 /** The empty feed's honest self-description for `project`, given the window's
@@ -30,7 +30,7 @@ export function watchSummary({ status, project, now }: {
     return {
       headline: "Waiting for edits",
       detail: `Checking what ${name} is watching…`,
-      stalled: false
+      isStalled: false
     } satisfies FeedWatchSummary;
   }
 
@@ -38,7 +38,7 @@ export function watchSummary({ status, project, now }: {
     return {
       headline: "Not watching this project",
       detail: `No file watch is armed on ${name}, so nothing can reach the feed`,
-      stalled: true
+      isStalled: true
     } satisfies FeedWatchSummary;
   }
 
@@ -47,7 +47,7 @@ export function watchSummary({ status, project, now }: {
     return {
       headline: "Watching a different project",
       detail: `The watch is armed on ${baseName(status.root) || status.root}, not ${name}`,
-      stalled: true
+      isStalled: true
     } satisfies FeedWatchSummary;
   }
 
@@ -63,6 +63,6 @@ export function watchSummary({ status, project, now }: {
   return {
     headline: "No changes yet",
     detail: `Watching ${name} ${since} - the feed starts from the moment a project opens, and shows nothing from before it${hidden}`,
-    stalled: false
+    isStalled: false
   } satisfies FeedWatchSummary;
 }

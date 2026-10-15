@@ -102,11 +102,11 @@ const ANY_CHARACTER = /./g;
 const SHORT_HEX_LENGTH = 3;
 const HEX_DIGITS_PER_CHANNEL = 2;
 const HEX_RADIX = 16;
-const CHANNEL_MAX = 255;
+const CHANNEL_MAXIMUM = 255;
 
 /** One sRGB channel, 0–255, linearised for the luminance sum. */
 function linearChannel(byte: number) {
-  const value = byte / CHANNEL_MAX;
+  const value = byte / CHANNEL_MAXIMUM;
   return value <= GAMMA_TOE_LIMIT
     ? value / GAMMA_TOE_SLOPE
     : ((value + GAMMA_OFFSET) / GAMMA_SCALE) ** GAMMA_EXPONENT;

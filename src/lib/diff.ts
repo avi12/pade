@@ -27,14 +27,14 @@ export interface DiffLine {
 }
 
 /** One row of a side-by-side (split) view: either a full-width hunk header, or a
- *  left (old) / right (new) cell pair. `*Filled` marks the wash-tinted side. */
+ *  left (old) / right (new) cell pair. `is*Filled` marks the wash-tinted side. */
 interface SplitRow {
-  hunk: boolean;
+  isHunk: boolean;
   hunkText: string;
   left: string;
-  leftFilled: boolean;
+  isLeftFilled: boolean;
   right: string;
-  rightFilled: boolean;
+  isRightFilled: boolean;
   /** Old-file line for the left (old) side - drives the split gutter's old column. */
   oldLine?: number;
   /** New-file line for the right (new) side - lets a click open at that line, and
@@ -158,17 +158,17 @@ function stripMarker(text: string) {
 export function toSplitRows(lines: DiffLine[]) {
   return lines.map(line => {
     const blank: SplitRow = {
-      hunk: false,
+      isHunk: false,
       hunkText: "",
       left: "",
-      leftFilled: false,
+      isLeftFilled: false,
       right: "",
-      rightFilled: false
+      isRightFilled: false
     };
     if (line.kind === DiffKind.meta) {
       return {
         ...blank,
-        hunk: true,
+        isHunk: true,
         hunkText: line.text
       };
     }
@@ -178,7 +178,7 @@ export function toSplitRows(lines: DiffLine[]) {
       return {
         ...blank,
         right: source,
-        rightFilled: true,
+        isRightFilled: true,
         newLine: line.newLine
       };
     }
@@ -187,7 +187,7 @@ export function toSplitRows(lines: DiffLine[]) {
       return {
         ...blank,
         left: source,
-        leftFilled: true,
+        isLeftFilled: true,
         oldLine: line.oldLine
       };
     }

@@ -67,18 +67,18 @@ const GREY_RAMP_STEP = 10;
  *  tokens ({@link ANSI_COLOR_TOKENS}) so they follow the app's light/dark scheme
  *  exactly as xterm's own palette does; the rest are the standard 256-colour
  *  formula, which is scheme-independent by definition. */
-export function ansiPaletteColor({ index }: { index: number }) {
-  const token = ANSI_COLOR_TOKENS[index];
+export function ansiPaletteColor({ iColor }: { iColor: number }) {
+  const token = ANSI_COLOR_TOKENS[iColor];
   if (token) {
     return `var(${token})`;
   }
 
-  if (index >= GREY_RAMP_FIRST) {
-    const level = GREY_RAMP_BASE + (index - GREY_RAMP_FIRST) * GREY_RAMP_STEP;
+  if (iColor >= GREY_RAMP_FIRST) {
+    const level = GREY_RAMP_BASE + (iColor - GREY_RAMP_FIRST) * GREY_RAMP_STEP;
     return `rgb(${level} ${level} ${level})`;
   }
 
-  const offset = index - COLOR_CUBE_FIRST;
+  const offset = iColor - COLOR_CUBE_FIRST;
   const red = COLOR_CUBE_LEVELS[Math.floor(offset / (COLOR_CUBE_SIDE * COLOR_CUBE_SIDE)) % COLOR_CUBE_SIDE];
   const green = COLOR_CUBE_LEVELS[Math.floor(offset / COLOR_CUBE_SIDE) % COLOR_CUBE_SIDE];
   const blue = COLOR_CUBE_LEVELS[offset % COLOR_CUBE_SIDE];
@@ -114,7 +114,7 @@ const HSL_COLOR = new RegExp(
   "i"
 );
 
-const CHANNEL_MAX = 255;
+const CHANNEL_MAXIMUM = 255;
 const HEX_RADIX = 16;
 const HEX_DIGITS_PER_CHANNEL = 2;
 const DEGREES_PER_TURN = 360;
@@ -136,7 +136,7 @@ const ACCENT_TOKEN = "--primary";
 
 /** A 0..1 channel as two hex digits. */
 function channelHex(value: number) {
-  const clamped = Math.min(CHANNEL_MAX, Math.max(0, Math.round(value * CHANNEL_MAX)));
+  const clamped = Math.min(CHANNEL_MAXIMUM, Math.max(0, Math.round(value * CHANNEL_MAXIMUM)));
   return clamped.toString(HEX_RADIX).padStart(HEX_DIGITS_PER_CHANNEL, "0");
 }
 

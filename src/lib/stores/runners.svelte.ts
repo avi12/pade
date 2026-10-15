@@ -38,9 +38,9 @@ export interface RunnerRow {
   /** Captured stdout/stderr lines, in arrival order. */
   lines: RunnerLine[];
   /** True once the process has exited. */
-  done: boolean;
+  isDone: boolean;
   /** True once the process exited with a non-zero code (failure). */
-  failed: boolean;
+  isFailed: boolean;
   /** Set when this row tracks a task the AGENT started (detected in its output),
    *  not one PADE spawned. Such a row has NO captured output - the task runs in the
    *  agent's own terminal, which PADE can't tee - but its Stop kills the real
@@ -85,8 +85,8 @@ function addRow(row: Pick<RunnerRow, "id" | "label" | "kind" | "command" | "cwd"
     ...row,
     backendId: row.id,
     lines: [],
-    done: false,
-    failed: false
+    isDone: false,
+    isFailed: false
   });
 }
 
@@ -118,8 +118,8 @@ export async function ensureRunnerListeners() {
       return;
     }
 
-    row.done = true;
-    row.failed = code !== null && code !== SUCCESS_EXIT_CODE;
+    row.isDone = true;
+    row.isFailed = code !== null && code !== SUCCESS_EXIT_CODE;
   });
 }
 
@@ -282,8 +282,8 @@ export async function rerunRunner({ id, preserve }: {
     row.lines = [];
   }
 
-  row.done = false;
-  row.failed = false;
+  row.isDone = false;
+  row.isFailed = false;
   row.backendId = newRunnerId(SPAWNED_ID_PREFIX);
   try {
     await runner.stop(previousBackendId);
@@ -294,8 +294,8 @@ export async function rerunRunner({ id, preserve }: {
     });
   } catch (error) {
     // Surface the restart failure in the pane itself: crit dot + the error text.
-    row.done = true;
-    row.failed = true;
+    row.isDone = true;
+    row.isFailed = true;
     row.lines.push({
       text: String(error),
       stream: RunnerStream.enum.stderr

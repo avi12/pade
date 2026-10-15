@@ -18,17 +18,17 @@
 
   const {
     terminal,
-    enabled = false,
-    focused = false
+    isEnabled = false,
+    isFocused = false
   }: {
     /** Undefined until the terminal has been built and attached - the pane is
         mounted well before that, inside an async onMount. */
     terminal: Terminal | undefined;
     /** This session has actually printed right-to-left text. Until it has, the
         scan below never runs - an English-only session pays nothing at all. */
-    enabled?: boolean;
+    isEnabled?: boolean;
     /** The keyboard is in this pane, so its caret is the live one. */
-    focused?: boolean;
+    isFocused?: boolean;
   } = $props();
 
   let runs = $state<PlacedRtlRun[]>([]);
@@ -51,7 +51,7 @@
     fontSize = attached.options.fontSize;
     runs = rtlViewport({
       terminal: attached,
-      focused
+      isFocused
     });
   }
 
@@ -60,7 +60,7 @@
   // screen has changed. Selection is the one thing that moves without one.
   $effect(() => {
     const attached = terminal;
-    if (!enabled || !attached) {
+    if (!isEnabled || !attached) {
       runs = [];
       return;
     }
@@ -103,7 +103,7 @@
             class:bold={part.bold}
             class:dim={part.dim}
             class:italic={part.italic}
-            class:selected={part.selected}
+            class:selected={part.isSelected}
             class:strikethrough={part.strikethrough}
             class:underline={part.underline}>{part.text}</span
           >

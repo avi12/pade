@@ -3,8 +3,8 @@
   import {
     effective,
     SIDE_PANEL_DEFAULT_WIDTH,
-    SIDE_PANEL_MAX_FRACTION,
-    SIDE_PANEL_MIN_WIDTH,
+    SIDE_PANEL_MAXIMUM_FRACTION,
+    SIDE_PANEL_MINIMUM_WIDTH,
     updatePrefs
   } from "@/lib/prefs.svelte";
 
@@ -44,8 +44,8 @@
   // clamp enforces, so keyboard and pointer agree.
   function clampWidth(proposed: number) {
     const elBody = document.querySelector<HTMLElement>(BODY_SELECTOR);
-    const ceiling = elBody ? Math.round(elBody.getBoundingClientRect().width * SIDE_PANEL_MAX_FRACTION) : proposed;
-    return Math.max(SIDE_PANEL_MIN_WIDTH, Math.min(ceiling, Math.round(proposed)));
+    const ceiling = elBody ? Math.round(elBody.getBoundingClientRect().width * SIDE_PANEL_MAXIMUM_FRACTION) : proposed;
+    return Math.max(SIDE_PANEL_MINIMUM_WIDTH, Math.min(ceiling, Math.round(proposed)));
   }
 
   async function nudge(delta: number) {
@@ -73,7 +73,7 @@
   class="panel-resize"
   aria-label="Resize side panel (double-click to reset)"
   aria-orientation="vertical"
-  aria-valuemin={SIDE_PANEL_MIN_WIDTH}
+  aria-valuemin={SIDE_PANEL_MINIMUM_WIDTH}
   aria-valuenow={Math.round(width)}
   data-tooltip="Drag to resize · double-click to reset"
   ondblclick={reset}

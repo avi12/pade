@@ -2,7 +2,7 @@ import {
   didFailToStart,
   EmptyWorkspaceOutcome,
   emptyWorkspaceOutcome,
-  RESPAWN_MIN_LIFETIME_MS
+  RESPAWN_MINIMUM_LIFETIME_MS
 } from "@/lib/session-exit";
 import { describe, expect, it } from "vitest";
 
@@ -11,7 +11,7 @@ describe("didFailToStart", () => {
     expect(
       didFailToStart({
         launchedAt: 1_000,
-        now: 1_000 + RESPAWN_MIN_LIFETIME_MS
+        now: 1_000 + RESPAWN_MINIMUM_LIFETIME_MS
       })
     ).toBe(true);
   });
@@ -20,7 +20,7 @@ describe("didFailToStart", () => {
     expect(
       didFailToStart({
         launchedAt: 1_000,
-        now: 1_001 + RESPAWN_MIN_LIFETIME_MS
+        now: 1_001 + RESPAWN_MINIMUM_LIFETIME_MS
       })
     ).toBe(false);
   });

@@ -74,7 +74,7 @@
     /** A drag of this pane's header reordered the split - commit the new order. */
     onreorder?: (orderedIds: string[]) => void;
     /** Live pane-drag state, so App can light the tab strip's "drop → new tab"
-        zone while this header is dragged over it (`hint.outside`). */
+        zone while this header is dragged over it (`hint.isOutside`). */
     ondraghint?: (hint: DragHint | null) => void;
     /** The PTY exited on its own (the agent quit, e.g. via Ctrl-C) - so App can
         auto-close this tab (and respawn the agent if it was the last one). */
@@ -172,7 +172,7 @@
   let contextScreenTimer: ReturnType<typeof setTimeout> | undefined;
   let lastContextScreenSampleAt = 0;
   const SCROLL_OUTPUT_QUIET_MS = 120;
-  const SCROLL_OUTPUT_MAX_DELAY_MS = 1000;
+  const SCROLL_OUTPUT_MAXIMUM_DELAY_MS = 1000;
   let isActivelyScrolling = false;
   let scrollOutputQuietTimer: ReturnType<typeof setTimeout> | undefined;
   let scrollOutputDeadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -195,7 +195,7 @@
   // Keys sent to walk and confirm the gate, bounded so a gate whose layout we
   // misread can't be keyed at forever - the user answers it by hand instead.
   let trustGateKeysSent = 0;
-  const TRUST_GATE_MAX_KEYS = 6;
+  const TRUST_GATE_MAXIMUM_KEYS = 6;
   // A key was sent and the agent hasn't repainted since, so the screen still
   // shows the gate as it was BEFORE the key - acting on it would double-step.
   let isTrustGateAwaitingRepaint = false;
@@ -251,7 +251,7 @@
   // Waiting for its repaint alone is not enough: it goes quiet *between* the bursts of
   // one repaint, so the credit comes back early and the resizes still pile up. Measured,
   // that pile-up eventually stops it painting for good.
-  const ALT_FIT_MIN_INTERVAL_MS = 250;
+  const ALT_FIT_MINIMUM_INTERVAL_MS = 250;
   // …and if it says nothing at all for this long, stop waiting. Something is wrong (or
   // the resize genuinely changed nothing) and the drag must not stall on it.
   const ALT_REPAINT_TIMEOUT_MS = 400;
@@ -360,7 +360,7 @@
         id: session.id,
         model: running.model,
         effort: running.effort,
-        ultracode: running.ultracode
+        isUltracode: running.isUltracode
       });
       await ensureModelOptions(session.agent.command);
     } catch (error) {
@@ -513,7 +513,7 @@
     const key = trustGateKey(rows);
     isTrustGateOnScreen = key !== null;
     const mayPressKey = isTrustGateOnScreen && !isTrustGateAwaitingRepaint
-      && trustGateKeysSent < TRUST_GATE_MAX_KEYS;
+      && trustGateKeysSent < TRUST_GATE_MAXIMUM_KEYS;
     if (!key || !mayPressKey) {
       return;
     }
@@ -542,7 +542,7 @@
   // leave the prompt sitting unsent (a combined paste+CR is exactly what stranded
   // a handoff successor's prompt, typed but never submitted).
   const PROMPT_SUBMIT_SETTLE_MS = 1_200;
-  const PROMPT_MAX_ATTEMPTS = 8;
+  const PROMPT_MAXIMUM_ATTEMPTS = 8;
   let promptAttempts = 0;
   // A submit is written and waiting for its 2000ms verdict. The idle handler
   // fires its own re-check at IDLE_MS (1500) - before the verdict - so it must
@@ -568,7 +568,7 @@
       return;
     }
 
-    if (promptAttempts >= PROMPT_MAX_ATTEMPTS) {
+    if (promptAttempts >= PROMPT_MAXIMUM_ATTEMPTS) {
       isPromptDelivered = true;
       clearTimeout(promptVerifyTimer);
       return;
@@ -781,10 +781,10 @@
     }
 
     const mode = terminalFlushMode({
-      shown: isShown,
-      windowFocused: isWindowFocused,
-      readingScrollback: isReadingScrollback(),
-      scrolling: isActivelyScrolling
+      isShown,
+      isWindowFocused,
+      isReadingScrollback: isReadingScrollback(),
+      isScrolling: isActivelyScrolling
     });
     if (mode === TerminalFlushMode.Deferred) {
       cancelScheduledTerminalOutput();
@@ -829,7 +829,7 @@
     scrollOutputQuietTimer = setTimeout(finishTerminalScroll, SCROLL_OUTPUT_QUIET_MS);
     scrollOutputDeadlineTimer ??= setTimeout(
       flushLongTerminalScroll,
-      SCROLL_OUTPUT_MAX_DELAY_MS
+      SCROLL_OUTPUT_MAXIMUM_DELAY_MS
     );
   }
 
@@ -1168,7 +1168,7 @@
     }
 
     const sinceLastFit = Date.now() - lastAltFitAt;
-    if (isAwaitingRepaint || sinceLastFit < ALT_FIT_MIN_INTERVAL_MS) {
+    if (isAwaitingRepaint || sinceLastFit < ALT_FIT_MINIMUM_INTERVAL_MS) {
       pendingFit = {
         columns,
         rows
@@ -1185,7 +1185,7 @@
             altFit(next);
           }
         },
-        Math.max(0, ALT_FIT_MIN_INTERVAL_MS - sinceLastFit)
+        Math.max(0, ALT_FIT_MINIMUM_INTERVAL_MS - sinceLastFit)
       );
       return;
     }
@@ -1593,19 +1593,19 @@
     // fullscreen agent repainting in place - so forward the scroll it understands.
     let wheelCarry = 0;
     terminal.attachCustomWheelEventHandler(e => {
-      const agentOwnsMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
+      const isAgentOwningMouse = terminal.modes.mouseTrackingMode !== NO_MOUSE_TRACKING;
       const hasNativeScrollback = terminal.buffer.active.baseY > 0;
       // Only a tick that moves xterm's own document may hold output back; a tick
       // the agent receives as input must not, or the repaint that IS the scroll
       // is what gets deferred (see wheelScrollsTerminalDocument).
       if (wheelScrollsTerminalDocument({
-        agentOwnsMouse,
+        isAgentOwningMouse,
         hasNativeScrollback
       })) {
         noteTerminalScroll();
       }
 
-      if (agentOwnsMouse || hasNativeScrollback) {
+      if (isAgentOwningMouse || hasNativeScrollback) {
         return true;
       }
 
@@ -1993,8 +1993,8 @@
     >
       <div bind:this={elHost} style:scale={`1 ${squeeze}`} class="terminal-host">
         <TerminalRtl
-          enabled={isRightToLeftSeen}
-          focused={isKeyboardHere}
+          isEnabled={isRightToLeftSeen}
+          isFocused={isKeyboardHere}
           terminal={attachedTerminal}
         />
       </div>

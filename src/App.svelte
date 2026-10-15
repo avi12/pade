@@ -34,7 +34,7 @@
   } from "@/lib/pane-layout";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import { effective, SIDE_PANEL_MAX_FRACTION, SIDE_PANEL_MIN_WIDTH } from "@/lib/prefs.svelte";
+  import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/prefs.svelte";
   import { DropSide } from "@/lib/reorder";
   import { openRepositoryTarget } from "@/lib/repository-links";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -176,7 +176,7 @@
   let elPanes = $state<HTMLElement>();
   // Live drag state from the tab strip; drives the "drop here" overlay + halves.
   let dragHint = $state<DragHint | null>(null);
-  const isDragOverPanes = $derived(dragHint?.outside === true);
+  const isDragOverPanes = $derived(dragHint?.isOutside === true);
 
   // True while a split pane's header is dragged up over the tab strip - the mirror
   // gesture: the strip lights as a "drop → new tab" target and the drop pops the
@@ -564,8 +564,8 @@
     }
 
     updateDiscordPresence({
-      enabled: discordEnabled,
-      showProject: discordShowProject,
+      isEnabled: discordEnabled,
+      isProjectShown: discordShowProject,
       project: currentProject,
       // Read here so a rename (a new settings.labels entry) re-runs this effect
       // and re-publishes the friendly name, not the stale temp-<stamp> folder.
@@ -603,10 +603,9 @@
   // follow the SETTING, and re-running it on every tab open or close would undo a
   // ✦ the user had just flipped by hand. New tabs are seeded in `launch` instead.
   $effect(() => {
-    const on = namesSessionsWithAi;
     applyNamingToAll({
       sessions: untrack(() => sessions),
-      on
+      isOn: namesSessionsWithAi
     });
   });
 
@@ -823,7 +822,7 @@
     setNaming({
       id: session.id,
       agent: session.agent.command,
-      on: namesSessionsWithAi
+      isOn: namesSessionsWithAi
     });
     sessionLaunchedAt.set(session.id, Date.now());
     activeId = session.id;
@@ -1759,8 +1758,8 @@
 
       <main
         style:--side-panel-width="{sidePanelWidth}px"
-        style:--side-panel-min-width="{SIDE_PANEL_MIN_WIDTH}px"
-        style:--side-panel-max-fraction="{SIDE_PANEL_MAX_FRACTION * 100}%"
+        style:--side-panel-min-width="{SIDE_PANEL_MINIMUM_WIDTH}px"
+        style:--side-panel-max-fraction="{SIDE_PANEL_MAXIMUM_FRACTION * 100}%"
         class="body"
         class:with-side={side !== null}
         data-resizing={isResizingSidePanel || undefined}
@@ -1805,7 +1804,7 @@
                     isActive={session.id === activeId && paneIds.includes(session.id)}
                     isRemovable={isSplit && paneIds.includes(session.id)}
                     isShown={paneIds.includes(session.id)}
-                    ondraghint={hint => (isPaneDragOverTabs = hint?.outside === true)}
+                    ondraghint={hint => (isPaneDragOverTabs = hint?.isOutside === true)}
                     onexit={handleSessionExit}
                     onpopout={() => {
                       // The pane header was dragged onto the tab strip: pop it out

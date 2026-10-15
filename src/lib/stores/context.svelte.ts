@@ -57,7 +57,7 @@ interface ContextSignal {
   /** The reasoning effort it runs at (`high`), when the model has one. */
   effort: string | null;
   /** Claude's Ultracode (multi-agent orchestration) is on for the session. */
-  ultracode: boolean;
+  isUltracode: boolean;
 }
 
 const signals = new SvelteMap<string, ContextSignal>();
@@ -209,7 +209,7 @@ const EMPTY_SIGNAL: ContextSignal = {
   characters: 0,
   model: null,
   effort: null,
-  ultracode: false
+  isUltracode: false
 };
 
 /** The announced window size and the largest consumed-tokens counter in a
@@ -447,18 +447,18 @@ export function observeSessionLog({ id, usedTokens, windowTokens }: {
 /** Record the model and effort the agent itself reported for this session.
  *  Each reading replaces the last whole - the agent reports both together, and
  *  a model switch can drop the effort (a model without one). */
-export function observeRunningModel({ id, model, effort, ultracode }: {
+export function observeRunningModel({ id, model, effort, isUltracode }: {
   id: string;
   model: string;
   effort: string | null;
-  ultracode: boolean;
+  isUltracode: boolean;
 }) {
   const previous = signals.get(id) ?? EMPTY_SIGNAL;
   signals.set(id, {
     ...previous,
     model,
     effort,
-    ultracode
+    isUltracode
   });
 }
 
@@ -474,7 +474,7 @@ export function sessionModel(id: string) {
     id: signal.model,
     name: modelName(signal.model),
     effort: signal.effort,
-    ultracode: signal.ultracode
+    isUltracode: signal.isUltracode
   };
 }
 

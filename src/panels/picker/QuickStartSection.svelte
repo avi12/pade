@@ -6,7 +6,7 @@
   import { collapseRow, expandRow } from "@/lib/motion";
   import { childPath } from "@/lib/paths";
   import { rovingTablist } from "@/lib/roving-tabs";
-  import { emptyPathProbe, realAgents as toRealAgents } from "@/lib/types";
+  import { EMPTY_PATH_PROBE, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
   import {
     CloneUrl,
@@ -256,7 +256,7 @@
   // Filled by the PathCombobox, which owns the debounced probe + autocomplete.
   let localProbe = $state<TaggedPathProbe>({
     path: "",
-    result: emptyPathProbe
+    result: EMPTY_PATH_PROBE
   });
   const trimmedLocal = $derived(localPath.trim());
   const localSettled = $derived(trimmedLocal.length > 0 && localProbe.path === trimmedLocal);

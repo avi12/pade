@@ -90,26 +90,26 @@ describe("toSplitRows", () => {
   const rows = toSplitRows(parseDiff(SAMPLE));
 
   it("renders meta lines as full-width hunk rows", () => {
-    expect(rows[4].hunk).toBe(true);
+    expect(rows[4].isHunk).toBe(true);
     expect(rows[4].hunkText).toBe("@@ -1,3 +1,4 @@");
   });
 
   it("puts context on both sides, unfilled", () => {
     expect(rows[5].left).toBe("const one = 1;");
     expect(rows[5].right).toBe("const one = 1;");
-    expect(rows[5].leftFilled).toBe(false);
-    expect(rows[5].rightFilled).toBe(false);
+    expect(rows[5].isLeftFilled).toBe(false);
+    expect(rows[5].isRightFilled).toBe(false);
   });
 
   it("puts deletions on the left only, wash-tinted", () => {
     expect(rows[6].left).toBe("const two = 3;");
-    expect(rows[6].leftFilled).toBe(true);
+    expect(rows[6].isLeftFilled).toBe(true);
     expect(rows[6].right).toBe("");
   });
 
   it("puts additions on the right only, wash-tinted", () => {
     expect(rows[7].right).toBe("const two = 2;");
-    expect(rows[7].rightFilled).toBe(true);
+    expect(rows[7].isRightFilled).toBe(true);
     expect(rows[7].left).toBe("");
   });
 });

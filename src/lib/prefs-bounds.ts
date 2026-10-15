@@ -9,15 +9,15 @@
  *  mockup's `panelW:380` and its double-click reset. */
 export const SIDE_PANEL_DEFAULT_WIDTH = 380;
 /** Smallest usable side-panel width. */
-export const SIDE_PANEL_MIN_WIDTH = 280;
+export const SIDE_PANEL_MINIMUM_WIDTH = 280;
 /** Hard upper bound the persisted drag target is validated against. */
-export const SIDE_PANEL_MAX_WIDTH = 1200;
+export const SIDE_PANEL_MAXIMUM_WIDTH = 1200;
 /** The live layout additionally caps the panel at this fraction of the window so
  *  the terminal is never swallowed - the ceiling the keyboard clamp and the CSS
  *  clamp both enforce. */
-export const SIDE_PANEL_MAX_FRACTION = 0.6;
+export const SIDE_PANEL_MAXIMUM_FRACTION = 0.6;
 
 /** UI + terminal zoom factor. Absent pref = 1.0. */
-export const UI_SCALE_MIN = 0.85;
-export const UI_SCALE_MAX = 1.3;
+export const UI_SCALE_MINIMUM = 0.85;
+export const UI_SCALE_MAXIMUM = 1.3;
 export const UI_SCALE_STEP = 0.05;
