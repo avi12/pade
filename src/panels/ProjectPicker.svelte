@@ -4,6 +4,7 @@
   import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
   import { updatePrefs } from "@/lib/prefs.svelte";
   import { settings } from "@/lib/settings.svelte";
+  import { settledValue } from "@/lib/settled";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
     Agent,
@@ -113,10 +114,9 @@
 
   // Re-scan every root's projects into projectsByRoot - the cheap part of a
   // reload (a handful of directory reads), shared by both refresh paths.
-  function scanRoots() {
-    return Promise.all(
-      settings.roots.map(async root => [root, await scan(root)] as const)
-    ).then(Object.fromEntries);
+  async function scanRoots() {
+    const scanned = await Promise.all(settings.roots.map(async root => [root, await scan(root)] as const));
+    return Object.fromEntries(scanned);
   }
 
   // Light reload: the project lists only - prune the settings, re-scan the roots.
@@ -169,8 +169,12 @@
       aiSessionNaming: on
     });
   }
-  function scan(root: string) {
-    return workspace.scan(root).catch((): ProjectEntry[] => []);
+  // A root that can't be read lists no projects.
+  async function scan(root: string) {
+    return await settledValue<ProjectEntry[]>({
+      promise: workspace.scan(root),
+      fallback: []
+    });
   }
 
   // The create-form's chosen root, owned here so selecting a root anywhere in
@@ -185,9 +189,8 @@
   // most recent projects live in (ties keep the earlier root).
   function popularRoot() {
     const { roots, recentProjects } = settings;
-    const [firstRoot] = roots;
-    if (firstRoot === undefined || roots.length === 1) {
-      return firstRoot ?? "";
+    if (roots.length <= 1) {
+      return roots[0] ?? "";
     }
 
     const recentParents = recentProjects
@@ -197,7 +200,8 @@
     function usage(root: string) {
       return recentParents.filter(parent => parent === normalizePath(root)).length;
     }
-    return roots.reduce((best, root) => (usage(root) > usage(best) ? root : best));
+    // The sort is stable, so a tie keeps the earlier root first.
+    return roots.toSorted((first, second) => usage(second) - usage(first))[0];
   }
 
   // Only an `added` outcome carries settings for the bridge to adopt and scans

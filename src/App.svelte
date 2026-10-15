@@ -220,6 +220,10 @@
   // on it - a stall must never freeze the splash. An empty list just routes to
   // onboarding, and the redetect interval fills it in shortly after.
   const BOOT_DETECT_TIMEOUT_MS = 6_000;
+  // The slow fallback poll behind the visibility-driven re-detect below.
+  const AGENT_REDETECT_INTERVAL_MS = 30_000;
+  // How long a split member takes to collapse out (out:collapsePane).
+  const SPLIT_PANE_COLLAPSE_MS = 260;
 
   onMount(async () => {
     try {
@@ -405,18 +409,17 @@
   // fallback. Detection spawns a process per agent, so it must stay off the drag
   // path: page visibility never changes while dragging a window that stays on
   // screen, unlike window focus which a title-bar drag churns and lagged.
-  // Best-effort: owns its try/catch so a transient failure just keeps the
-  // current list - the poll and the visibility signal both fire it and neither
-  // can await, so it must never reject.
+  // Best-effort and never rejecting - the poll and the visibility signal both
+  // fire it without awaiting - so a transient failure keeps the agents already
+  // on screen.
   async function redetectAgents() {
-    try {
-      agents = await agentsApi.detect();
-    } catch {
-    // A transient detection failure keeps the agents already on screen.
-    }
+    agents = await settledValue({
+      promise: agentsApi.detect(),
+      fallback: agents
+    });
   }
   onMount(() => {
-    const interval = setInterval(() => redetectAgents(), 30_000);
+    const interval = setInterval(() => redetectAgents(), AGENT_REDETECT_INTERVAL_MS);
     return () => clearInterval(interval);
   });
 
@@ -446,18 +449,13 @@
 
   // Adopt settings another window changed - it deleted a workspace, renamed one,
   // toggled a pin - so this window's switcher and picker never list a project
-  // that is already gone. Best-effort: owns its try/catch because an event
-  // handler can't await, and a failed re-read simply keeps what is on screen.
-  async function adoptSharedSettings() {
-    try {
-      await workspace.settings();
-    } catch {
-    // A transient read failure leaves the settings already adopted in place.
-    }
-  }
+  // that is already gone. Best-effort because an event handler can't await: a
+  // failed re-read leaves the settings already adopted in place.
   let unlistenSettings: (() => void) | undefined;
   async function subscribeToSettingsChanges() {
-    unlistenSettings = await workspace.onChanged(adoptSharedSettings);
+    unlistenSettings = await workspace.onChanged(async () => {
+      await Promise.allSettled([workspace.settings()]);
+    });
   }
   onMount(() => {
     subscribeToSettingsChanges();
@@ -1802,7 +1800,7 @@
                     }
                   }}
                   onoutroend={() => collapsingSplitPanes.delete(session.id)}
-                  out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? 260 : 0 }}
+                  out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? SPLIT_PANE_COLLAPSE_MS : 0 }}
                 >
                   {#if dropSideFor(session.id) === DropSide.left}
                     <div class="drop-half left"></div>

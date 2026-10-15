@@ -65,21 +65,22 @@
     }
   }
 
+  // Opening the commit externally is best-effort - a missing remote or a
+  // failed browser launch must not surface as an error here.
   async function openCommitOnRemote(commit: Commit) {
-    try {
-      const base = remoteUrl ?? (await vcs.remoteUrl(project));
-      remoteUrl = base;
+    await Promise.allSettled([openOnRemote(commit)]);
+  }
 
-      const commitUrl = repositoryCommitUrl({
-        remoteUrl: base,
-        commit: commit.id
-      });
-      if (commitUrl) {
-        await os.openUrl(commitUrl);
-      }
-    } catch {
-    // Opening the commit externally is best-effort - a missing remote or a
-      // failed browser launch must not surface as an error here.
+  async function openOnRemote(commit: Commit) {
+    const base = remoteUrl ?? (await vcs.remoteUrl(project));
+    remoteUrl = base;
+
+    const commitUrl = repositoryCommitUrl({
+      remoteUrl: base,
+      commit: commit.id
+    });
+    if (commitUrl) {
+      await os.openUrl(commitUrl);
     }
   }
 
