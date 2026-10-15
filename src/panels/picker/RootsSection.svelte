@@ -67,7 +67,13 @@
   );
 
   const willCreate = $derived(canCreate && !alreadyRoot);
-  const addLabel = $derived(willCreate ? "Create & add" : "Add root");
+  const addLabel = $derived.by(() => {
+    if (willCreate) {
+      return "Create & add";
+    }
+
+    return "Add root";
+  });
   const addDisabled = $derived(
     !probeSettled || alreadyRoot || typedPathIsFile || invalidLocation
   );

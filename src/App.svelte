@@ -77,7 +77,6 @@
   import type {
     Agent,
     AgentSession,
-    Ide,
     McpChange,
     ModelChoice,
     OpenTarget
@@ -1682,7 +1681,7 @@
                the active session's worktree when one is focused. -->
           <IdeMenu
             cwd={activeSession?.cwd ?? activeMemberIn(currentProject)}
-            onterminaleditor={(editor: Ide) =>
+            onterminaleditor={editor =>
               launch({
                 agent: {
                   id: `editor-${editor.id}`,

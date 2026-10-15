@@ -70,7 +70,13 @@
     probe.result.suggestions.filter(directory => normalizePath(directory) !== normalizePath(probe.path))
   );
   const listVisible = $derived(listOpen && suggestions.length > 0);
-  const activeId = $derived(activeIndex >= 0 ? optionId(activeIndex) : undefined);
+  const activeId = $derived.by(() => {
+    if (activeIndex < 0) {
+      return undefined;
+    }
+
+    return optionId(activeIndex);
+  });
 
   // Debounced backend probe: what the typed path is on disk (and whether its
   // parent exists) + directory completions. The result flows to the host via the

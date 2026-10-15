@@ -316,7 +316,13 @@
   });
 
   const expandedEvent = $derived(feedStore.events.find(item => item.id === expandedId) ?? null);
-  const cachedLines = $derived(expandedEvent ? diffCache.get(expandedEvent.id) : undefined);
+  const cachedLines = $derived.by(() => {
+    if (!expandedEvent) {
+      return undefined;
+    }
+
+    return diffCache.get(expandedEvent.id);
+  });
   const isErrored = $derived(!!expandedEvent && failedIds.has(expandedEvent.id));
   const unifiedLines = $derived(cachedLines ?? []);
   const hasPreview = $derived(unifiedLines.length > 0);
@@ -573,7 +579,13 @@
   // Clicking the diff body (or the filename) opens the file in the selected
   // editor, jumped to the first changed line. The launcher hands the file to the
   // already-open editor when one is running, so it navigates there in place.
-  const revealTip = $derived(revealEditor ? `Reveal in ${revealEditor.label}` : "No editor detected");
+  const revealTip = $derived.by(() => {
+    if (!revealEditor) {
+      return "No editor detected";
+    }
+
+    return `Reveal in ${revealEditor.label}`;
+  });
   const revealLine = $derived(firstChangedLine(unifiedLines));
   async function revealDiff({ path, event }: {
     path: string;

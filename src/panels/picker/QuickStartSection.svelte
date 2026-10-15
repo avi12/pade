@@ -261,9 +261,13 @@
   const trimmedLocal = $derived(localPath.trim());
   const localSettled = $derived(trimmedLocal.length > 0 && localProbe.path === trimmedLocal);
   const localIsDirectory = $derived(localSettled && localProbe.result.isDir);
-  const localError = $derived(
-    localSettled && !localProbe.result.isDir ? "That folder doesn’t exist" : null
-  );
+  const localError = $derived.by(() => {
+    if (localSettled && !localProbe.result.isDir) {
+      return "That folder doesn’t exist";
+    }
+
+    return null;
+  });
 
   // ── Clone - git clone a repository ─────────────────────────────────────────
   // `null` until the probe answers, so the panel is born knowing whether git
