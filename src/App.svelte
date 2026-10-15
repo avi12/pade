@@ -17,7 +17,6 @@
   import DesignMenu from "@/lib/DesignMenu.svelte";
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/discord-presence";
   import type { DragHint } from "@/lib/drag-reorder";
-  import { focusTerminalPane } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
@@ -74,7 +73,6 @@
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
   import { activeMemberIn, loadWorkspaceMembers, refreshMemberBranches } from "@/lib/stores/workspaceMembers.svelte";
   import { registerTabShortcuts } from "@/lib/tab-shortcuts";
-  import { pastedText, referencedSnippet } from "@/lib/terminal-input";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
   import type {
     Agent,
@@ -90,6 +88,7 @@
   import { createRelocator } from "@/lib/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
+  import SendSelectionButton from "@/panels/SendSelectionButton.svelte";
   import SidePanel from "@/panels/SidePanel.svelte";
   import SidePanelResizer from "@/panels/SidePanelResizer.svelte";
   import { onDestroy, onMount, tick, untrack } from "svelte";
@@ -1534,56 +1533,9 @@
   // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
   let isResizingSidePanel = $state(false);
-
-  // Highlight → agent bridge: a selection in a side panel is injected into the
-  // active session's input.
-  let selection = $state("");
-  const AFTER_PATH_SEPARATOR = /(?<=[\\/])/;
-  const WHITESPACE = /\s/;
-  const selectionSegments = $derived(
-    selection.split(AFTER_PATH_SEPARATOR).map(text => ({
-      text,
-      isPathPart: !WHITESPACE.test(text)
-    }))
-  );
-
-  function snippetLineElement(node: Node | null): HTMLElement | null {
-    const element = node instanceof Element ? node : node?.parentElement;
-    return element?.closest<HTMLElement>("[data-snippet-line]") ?? null;
-  }
-
-  function snippetReference(selected: Selection, text: string): string {
-    const anchor = snippetLineElement(selected.anchorNode);
-    const focus = snippetLineElement(selected.focusNode);
-    const container = anchor?.closest<HTMLElement>("[data-snippet-path]");
-    const firstLine = Number(anchor?.dataset.snippetLine);
-    const lastLine = Number(focus?.dataset.snippetLine);
-    const path = container?.dataset.snippetPath;
-    const sameSnippet = focus?.closest<HTMLElement>("[data-snippet-path]") === container;
-    const isCodeSelection =
-      path !== undefined && sameSnippet && Number.isInteger(firstLine) && Number.isInteger(lastLine);
-    if (!isCodeSelection) {
-      return text;
-    }
-
-    return referencedSnippet({
-      path,
-      anchorLine: firstLine,
-      focusLine: lastLine,
-      snippet: text
-    });
-  }
 </script>
 
 <svelte:document
-  onselectionchange={() => {
-    const sel = getSelection();
-    const text = sel?.toString().trim() ?? "";
-    const inSidePanel =
-      sel?.anchorNode instanceof Node &&
-        !!document.querySelector(".side-pane")?.contains(sel.anchorNode);
-    selection = text && inSidePanel && sel ? snippetReference(sel, text) : "";
-  }}
   onvisibilitychange={() => {
     if (!document.hidden) {
       redetectAgents();
@@ -1939,35 +1891,7 @@
         </output>
       {/if}
 
-      {#if selection}
-        <button
-          class="send-fab"
-          onclick={async () => {
-            if (!selection || !activeId) {
-              return;
-            }
-
-            await pty.write({
-              id: activeId,
-              data: pastedText(selection)
-            });
-            selection = "";
-            getSelection()?.removeAllRanges();
-            // The click moved focus to this button; hand it back to the agent so
-            // the sent text can be submitted (or edited) without a click into the pane.
-            focusTerminalPane(activeId);
-          }}
-        >
-          <Icon name="send" />
-          <span class="label">Send to agent</span>
-          <!-- A long path wraps only after a separator - each folder name stays
-               whole (no split at a hyphen); the line cap is pure CSS. -->
-          <span class="preview"
-          >{#each selectionSegments as segment, index (index)}<span class:path-part={segment.isPathPart}
-          >{segment.text}</span><wbr />{/each}</span
-          >
-        </button>
-      {/if}
+      <SendSelectionButton {activeId} />
     </div>
   {:else}
     <!-- Loading phase: a calm branded ground so a booting window is never a
@@ -2292,76 +2216,6 @@
     .toast-icon {
       display: inline-flex;
       color: var(--primary);
-    }
-  }
-
-  /* FAB entrance: drops in from below and bounces up into place. Bakes the
-     -50% centering into every step since it animates `translate`. */
-  @keyframes send-pop {
-    0% {
-      opacity: 0%;
-      scale: 0.88;
-      translate: -50% 12px;
-    }
-
-    65% {
-      opacity: 100%;
-      scale: 1.03;
-      translate: -50% -4px;
-    }
-
-    100% {
-      opacity: 100%;
-      scale: 1;
-      translate: -50% 0;
-    }
-  }
-
-  .send-fab {
-    position: fixed;
-    inset-block-end: 26px;
-    inset-inline-start: 50%;
-    z-index: 80;
-    display: inline-flex;
-    gap: 10px;
-    align-items: center;
-    max-inline-size: min(880px, 100vw - 48px);
-    padding: 12px 20px;
-    border: none;
-    border-radius: var(--radius-large);
-    background: var(--primary);
-    color: var(--on-primary);
-    font: inherit;
-    font-weight: 700;
-    font-size: 14px;
-    text-align: start;
-    box-shadow: 0 10px 30px var(--primary-shadow);
-    cursor: pointer;
-    translate: -50% 0;
-    animation: send-pop 220ms var(--ease);
-
-    .label {
-      flex: none;
-      white-space: nowrap;
-    }
-
-    /* Whole path on as many lines as it needs; a long code selection is capped
-       at whole lines so the button never towers over the terminal. */
-    .preview {
-      overflow: hidden;
-      max-block-size: 6lh;
-      min-inline-size: 0;
-      font-family: var(--font-monospace);
-      font-weight: 500;
-      font-size: 12px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      opacity: 85%;
-
-      .path-part {
-        white-space: nowrap;
-      }
     }
   }
 </style>
