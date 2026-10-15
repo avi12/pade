@@ -76,7 +76,7 @@ fn runner_start_access(
         registry_id,
     }: RunnerAccessRequest<'_>,
 ) -> Result<OwnerAccess, String> {
-    let runners = state.0.lock().map_err(|e| e.to_string())?;
+    let runners = state.0.lock().map_err(|error| error.to_string())?;
     let access = owner_access(
         runners.get(registry_id).map(|runner| runner.owner.as_str()),
         owner,
@@ -261,7 +261,7 @@ pub async fn runner_start(
         process.current_dir(directory);
     }
 
-    let mut child = process.spawn().map_err(|e| e.to_string())?;
+    let mut child = process.spawn().map_err(|error| error.to_string())?;
     let stdout = child.stdout.take().ok_or("failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("failed to capture stderr")?;
 
@@ -292,7 +292,7 @@ pub async fn runner_start(
         cwd,
         started_at: now_millis(),
     };
-    let mut runners = state.0.lock().map_err(|e| e.to_string())?;
+    let mut runners = state.0.lock().map_err(|error| error.to_string())?;
     let access = owner_access(
         runners
             .get(&registry_id)
@@ -367,7 +367,7 @@ pub async fn runner_stop(
 ) -> Result<(), String> {
     let registry_id = registry_key(window.label(), &id);
     let removed = {
-        let mut runners = state.0.lock().map_err(|e| e.to_string())?;
+        let mut runners = state.0.lock().map_err(|error| error.to_string())?;
         if owner_access(
             runners
                 .get(&registry_id)
@@ -394,7 +394,7 @@ pub fn runner_list(
     window: WebviewWindow,
     state: State<RunnerState>,
 ) -> Result<Vec<RunnerInfo>, String> {
-    let runners = state.0.lock().map_err(|e| e.to_string())?;
+    let runners = state.0.lock().map_err(|error| error.to_string())?;
     Ok(runners
         .values()
         .filter(|runner| runner.owner == window.label())

@@ -41,7 +41,7 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 /// A `hashcash` difficulty this far past what the guest tier asks for (a handful
 /// of bits) means something is wrong; refuse rather than spin. 24 zero bits is
 /// already ~16M hashes.
-const MAX_HASHCASH_DIFFICULTY: u32 = 24;
+const MAXIMUM_HASHCASH_DIFFICULTY: u32 = 24;
 
 /// How long to block on any single socket read before looping back to re-check
 /// the overall deadline - so a silent server can't wedge the naming worker.
@@ -93,7 +93,7 @@ fn start_guest_session() -> Option<String> {
 /// `SHA-256(token + nonce)` begins with `difficulty` zero *bits*. `None` if the
 /// difficulty is implausibly high (guarding against an unbounded spin).
 fn solve_hashcash(token: &str, difficulty: u32) -> Option<u64> {
-    if difficulty > MAX_HASHCASH_DIFFICULTY {
+    if difficulty > MAXIMUM_HASHCASH_DIFFICULTY {
         return None;
     }
     let whole_zero_bytes = usize::try_from(difficulty / u8::BITS).ok()?;

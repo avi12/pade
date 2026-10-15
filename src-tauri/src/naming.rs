@@ -309,13 +309,13 @@ fn extract_name(output: &str) -> Option<String> {
     })
 }
 
-/// Run an agent CLI headless: `command args… prompt` (optionally in `cwd`),
+/// Run an agent CLI headless: `command arguments… prompt` (optionally in `cwd`),
 /// capture its reply within [`NAME_TIMEOUT`], and pull a raw name candidate out.
 /// Resolving the executable (`agents::program`) and sanitizing the result are the
 /// caller's job - this is the shared invoke-and-extract sequence (DRY).
 fn run_agent_prompt(
     command: &Path,
-    args: &[&str],
+    arguments: &[&str],
     cwd: Option<&Path>,
     prompt: String,
 ) -> Option<String> {
@@ -323,7 +323,7 @@ fn run_agent_prompt(
     if let Some(directory) = cwd {
         process.current_dir(directory);
     }
-    process.args(args).arg(prompt);
+    process.args(arguments).arg(prompt);
     let output = run_capture(process, NAME_TIMEOUT)?;
     extract_name(&output)
 }

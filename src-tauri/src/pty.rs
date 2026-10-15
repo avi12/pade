@@ -726,7 +726,7 @@ const LIGHT_CONSOLE_PREFIX: [&str; 4] = ["/c", "color", "F0", "&"];
 fn open_pty(rows: u16, columns: u16) -> Result<PtyPair, String> {
     native_pty_system()
         .openpty(pty_size(rows, columns))
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 // A PTY spawn is inherently wide (id, command, args, cwd, dimensions) and two of
@@ -781,7 +781,7 @@ pub async fn pty_spawn(
         return Err("PTY request exceeds its input limits".into());
     }
     {
-        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let sessions = state.0.lock().map_err(|error| error.to_string())?;
         let is_already_live = session_access(&sessions, &id, &owner)?.is_some();
         if is_already_live {
             return Ok(());
@@ -819,7 +819,7 @@ pub async fn pty_spawn(
     // A concurrent duplicate is ended here, which terminates the unregistered
     // child through `Pty::drop`.
     let duplicate = {
-        let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
         let existing = session_access(&sessions, &id, &owner).map(|found| found.is_some());
         let is_vacant = existing == Ok(false);
         if is_vacant {
@@ -900,11 +900,17 @@ fn start_session(launch: SessionLaunch) -> Result<StartedSession, String> {
     let child = pair
         .slave
         .spawn_command(process)
-        .map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
     drop(pair.slave);
 
-    let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|error| error.to_string())?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|error| error.to_string())?;
     let transcript = Arc::new(Mutex::new(String::new()));
     let history = Arc::new(Mutex::new(History::default()));
     let pty = Arc::new(Pty {
@@ -1142,10 +1148,10 @@ pub async fn pty_resize(
     let Some(pty) = owned_pty(&state, window.label(), &id)? else {
         return Ok(());
     };
-    let master = pty.master.lock().map_err(|e| e.to_string())?;
+    let master = pty.master.lock().map_err(|error| error.to_string())?;
     master
         .resize(pty_size(rows, cols))
-        .map_err(|e| e.to_string())
+        .map_err(|error| error.to_string())
 }
 
 /// Whether a terminal size is one a PTY can be opened or resized to.
@@ -1174,7 +1180,7 @@ pub async fn pty_kill(
     id: String,
 ) -> Result<(), String> {
     let pty = {
-        let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+        let mut sessions = state.0.lock().map_err(|error| error.to_string())?;
         session_access(&sessions, &id, window.label())?;
         sessions.remove(&id)
     };
@@ -1237,7 +1243,7 @@ pub async fn session_task_running(
 /// Session `id` when `owner` may use it, released from the registry lock so the
 /// caller's PTY or process work never holds it. `None` for an unknown id.
 fn owned_pty(state: &PtyState, owner: &str, id: &str) -> Result<Option<Arc<Pty>>, String> {
-    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let sessions = state.0.lock().map_err(|error| error.to_string())?;
     Ok(session_access(&sessions, id, owner)?.cloned())
 }
 
