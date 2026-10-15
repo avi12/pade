@@ -105,7 +105,7 @@
     <!-- No captured output: the task runs in the agent's own terminal,
          which PADE can't tee. The card still tracks it and can stop it. -->
     <div class="attached-note">
-      <p>Running in the agent's terminal.</p>
+      <p>Running in the agent's terminal</p>
       <p class="muted">Its output stays there - PADE didn't spawn this process. Stop ends it.</p>
     </div>
   {:else}
