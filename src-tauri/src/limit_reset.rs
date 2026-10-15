@@ -47,7 +47,8 @@ pub struct LimitReset {
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct LimitResetOutcome {
     /// Whether the limits were actually reset.
-    reset: bool,
+    #[serde(rename = "reset")]
+    is_reset: bool,
     /// The server's verdict (`reset`, `already_used`, `ineligible`, …).
     result: String,
     /// Why it did not reset, when it says.
@@ -56,7 +57,8 @@ pub struct LimitResetOutcome {
 
 #[derive(Deserialize)]
 struct ResetStatus {
-    eligible: bool,
+    #[serde(rename = "eligible")]
+    is_eligible: bool,
     next_grant_id: Option<String>,
     #[serde(default)]
     grants: Vec<Grant>,
@@ -70,7 +72,8 @@ struct Grant {
     ends_at: Option<String>,
     #[serde(default)]
     clears: Vec<String>,
-    usable_now: bool,
+    #[serde(rename = "usable_now")]
+    is_usable_now: bool,
 }
 
 /// The reset the account can spend now, or `None` when it has none (or Claude
@@ -193,7 +196,7 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
 
 /// The grant the server names as next, while the account may spend it now.
 fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
-    if !status.eligible {
+    if !status.is_eligible {
         return None;
     }
 
@@ -202,7 +205,7 @@ fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
         .grants
         .into_iter()
         .find(|grant| grant.id == next_grant_id)?;
-    let is_spendable = grant.usable_now && grant.resets_left > 0;
+    let is_spendable = grant.is_usable_now && grant.resets_left > 0;
     is_spendable.then_some(LimitReset {
         grant_id: grant.id,
         label: grant.label,
@@ -234,7 +237,7 @@ fn claude_cli_user_agent(profile: &ClaudeProfile) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_grant_id, offered_reset, LimitReset, ResetStatus};
+    use super::{is_grant_id, offered_reset, LimitReset, LimitResetOutcome, ResetStatus};
 
     fn status(json: &serde_json::Value) -> ResetStatus {
         serde_json::from_value(json.clone()).expect("a status")
@@ -290,6 +293,20 @@ mod tests {
 
         assert_eq!(offered_reset(ineligible), None);
         assert_eq!(offered_reset(spent), None);
+    }
+
+    #[test]
+    fn a_claim_outcome_keeps_the_servers_field_names_on_both_sides() {
+        let outcome: LimitResetOutcome = serde_json::from_value(serde_json::json!({
+            "reset": false,
+            "result": "already_used",
+            "reason": "spent"
+        }))
+        .expect("the server's shape parses");
+
+        let wire = serde_json::to_value(&outcome).expect("serializes");
+        assert_eq!(wire["reset"], serde_json::json!(false));
+        assert_eq!(wire["result"], serde_json::json!("already_used"));
     }
 
     #[test]
