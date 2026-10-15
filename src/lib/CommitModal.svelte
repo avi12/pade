@@ -2,9 +2,9 @@
   import { os, vcs } from "@/lib/bridge";
   import DiffPane from "@/lib/commitModal/DiffPane.svelte";
   import FileList from "@/lib/commitModal/FileList.svelte";
+  import CommitStats from "@/lib/CommitStats.svelte";
   import { parseDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
-  import { formatCount, formatQuantity } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import { baseName } from "@/lib/paths";
   import { repositoryCommitUrl } from "@/lib/repository-links";
@@ -45,12 +45,6 @@
     !loadFailed && (!!selectedFile?.binary || (!isLoading && diffLines.length === 0))
   );
 
-  const fileCountLabel = $derived(
-    formatQuantity({
-      count: commit.files.length,
-      noun: "file"
-    })
-  );
   const commitUrl = $derived(
     repositoryCommitUrl({
       remoteUrl,
@@ -166,13 +160,7 @@
       <p id="commit-metadata" class="metadata">
         <span>{commit.author} · {commit.when}</span>
         <span class="separator" aria-hidden="true"></span>
-        <span class="file-count">{fileCountLabel}</span>
-        {#if commit.additions}
-          <span class="add">+{formatCount(commit.additions)}</span>
-        {/if}
-        {#if commit.deletions}
-          <span class="deletion">−{formatCount(commit.deletions)}</span>
-        {/if}
+        <CommitStats additions={commit.additions} deletions={commit.deletions} files={commit.files.length} />
       </p>
     </div>
     <div class="actions">
@@ -304,16 +292,6 @@
       inline-size: 4px;
       border-radius: var(--radius-full);
       background: var(--outline);
-    }
-
-    .add {
-      color: var(--tertiary);
-      font-weight: 600;
-    }
-
-    .deletion {
-      color: var(--critical);
-      font-weight: 600;
     }
   }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { os, vcs } from "@/lib/bridge";
   import CommitModal from "@/lib/CommitModal.svelte";
-  import { formatCount, formatQuantity } from "@/lib/format";
+  import CommitStats from "@/lib/CommitStats.svelte";
   import { Key } from "@/lib/keys";
   import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
@@ -139,16 +139,7 @@
           <span class="c-bot">
             <span class="author-details">{commit.author} · {commit.when}</span>
             <span class="stats">
-              <span class="fn">{formatQuantity({
-                count: commit.files,
-                noun: "file"
-              })}</span>
-              {#if commit.additions}
-                <span class="add">+{formatCount(commit.additions)}</span>
-              {/if}
-              {#if commit.deletions}
-                <span class="deletion">−{formatCount(commit.deletions)}</span>
-              {/if}
+              <CommitStats additions={commit.additions} deletions={commit.deletions} files={commit.files} />
             </span>
           </span>
         </button>
@@ -221,14 +212,6 @@
       align-items: center;
       margin-inline-start: auto;
       font-weight: 600;
-    }
-
-    .add {
-      color: var(--tertiary);
-    }
-
-    .deletion {
-      color: var(--critical);
     }
   }
 </style>
