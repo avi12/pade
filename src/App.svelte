@@ -182,7 +182,7 @@
   // gesture: the strip lights as a "drop → new tab" target and the drop pops the
   // pane out of the split (see the Terminal panes' `onremove`). Reported by the
   // dragged pane's Terminal via the same engine hint the tab-split path uses.
-  let paneDragOverTabs = $state(false);
+  let isPaneDragOverTabs = $state(false);
 
   // Which pane + side the drag is currently over - the highlighted drop half.
   const splitTarget = $derived.by(() => (dragOverPanes && dragHint
@@ -1761,7 +1761,7 @@
             animatePaneIn(drop.id);
           }}
           {paneIds}
-          popPaneActive={paneDragOverTabs}
+          popPaneActive={isPaneDragOverTabs}
           {sessions}
         />
       </header>
@@ -1812,7 +1812,7 @@
                   {/if}
                   <Terminal
                     active={session.id === activeId && paneIds.includes(session.id)}
-                    ondraghint={hint => (paneDragOverTabs = hint?.outside === true)}
+                    ondraghint={hint => (isPaneDragOverTabs = hint?.outside === true)}
                     onexit={handleSessionExit}
                     onpopout={() => popPaneToTab(session.id)}
                     onremove={() => removePane(session.id)}

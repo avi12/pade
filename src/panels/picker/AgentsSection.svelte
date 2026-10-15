@@ -18,7 +18,7 @@
   } = $props();
 
   let agentList = $state<Agent[]>([]);
-  let scanning = $state(false);
+  let isScanning = $state(false);
   // The exact `agents` prop reference we last adopted. A local rescan writes a
   // fresh array into `agentList`; without this guard the effect would re-run
   // whenever `scanning` (or any other read state) changes and clobber that
@@ -37,12 +37,12 @@
   });
 
   const realAgents = $derived(toRealAgents(agentList));
-  const showSkeleton = $derived(scanning && realAgents.length === 0);
-  const showEmpty = $derived(!scanning && realAgents.length === 0);
+  const isSkeletonShown = $derived(isScanning && realAgents.length === 0);
+  const isEmptyShown = $derived(!isScanning && realAgents.length === 0);
   const agentStatus = $derived(agentStatusText());
 
   function agentStatusText() {
-    if (scanning) {
+    if (isScanning) {
       return "Scanning installs…";
     }
 
@@ -62,27 +62,27 @@
     </div>
     <button
       class="rescan"
-      class:scanning
+      class:scanning={isScanning}
       aria-label="Rescan for installed agents"
       data-tooltip="Rescan for installed agents"
       onclick={async () => {
-        scanning = true;
+        isScanning = true;
         try {
           agentList = await agentsApi.detect();
         } finally {
-          scanning = false;
+          isScanning = false;
         }
       }}
     ><Icon name="refresh" size={14} /> Reload</button>
   </div>
 
-  {#if showSkeleton}
+  {#if isSkeletonShown}
     <div class="agent-skeletons" aria-hidden="true">
       <span class="agent-skeleton"></span>
       <span style:animation-delay="0.15s" class="agent-skeleton"></span>
       <span style:animation-delay="0.3s" class="agent-skeleton"></span>
     </div>
-  {:else if showEmpty}
+  {:else if isEmptyShown}
     <p class="agent-empty">
       No supported agents were found on this machine. Install one (Claude
       Code, Codex, Gemini CLI…) then press <strong>Reload</strong>.

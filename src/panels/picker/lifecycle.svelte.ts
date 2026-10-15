@@ -43,7 +43,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   let renameValue = $state("");
   let relabelTarget = $state<string | null>(null);
   let deleteTarget = $state<string | null>(null);
-  let deleting = $state(false);
+  let isDeleting = $state(false);
   let deleteError = $state<string | null>(null);
   let renameFolderTarget = $state<string | null>(null);
   let windowRows = $state<WindowInfo[]>([]);
@@ -133,7 +133,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   }
 
   function cancelDelete() {
-    if (deleting) {
+    if (isDeleting) {
       return;
     }
 
@@ -144,7 +144,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   // failure re-opens (or keeps) the dialog carrying the reason, so even a skipped
   // confirmation can't fail silently.
   async function removeWorkspace(path: string) {
-    deleting = true;
+    isDeleting = true;
     deleteError = null;
     try {
       // The bridge adopts settings first so the row leaves the Recent list (and
@@ -159,12 +159,12 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
         fallback: "Couldn’t delete that workspace"
       });
     } finally {
-      deleting = false;
+      isDeleting = false;
     }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget || deleting) {
+    if (!deleteTarget || isDeleting) {
       return;
     }
 
@@ -173,7 +173,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
 
   /** Shift-click on Delete: skip the confirmation and remove it straight away. */
   async function deleteNow(path: string) {
-    if (deleting) {
+    if (isDeleting) {
       return;
     }
 
@@ -185,8 +185,8 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     get deleteTarget() {
       return deleteTarget;
     },
-    get deleting() {
-      return deleting;
+    get isDeleting() {
+      return isDeleting;
     },
     get deleteError() {
       return deleteError;

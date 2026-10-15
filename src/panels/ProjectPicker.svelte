@@ -58,7 +58,7 @@
   // Whether the first settings load has landed. The sections render only then,
   // so every control is born showing the persisted preference - never a
   // defaults flash that snaps to the real values a beat later.
-  let loaded = $state(false);
+  let isLoaded = $state(false);
   let ides = $state<Ide[]>([]);
   // The project kinds the rules engine shows, straight from the backend registry
   // (its single home) in render/priority order.
@@ -298,7 +298,7 @@
   onMount(async () => {
     await refresh();
     createRoot ||= popularRoot();
-    loaded = true;
+    isLoaded = true;
     unlisten = await dirs.onChange(rescanSoon);
   });
 
@@ -333,7 +333,7 @@
 
     <!-- Painted only once the first settings load lands, so every control is
          born prefilled with the persisted preferences (no defaults flash). -->
-    {#if loaded}
+    {#if isLoaded}
       <div class="sections">
         <QuickStartSection
           {agents}

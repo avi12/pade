@@ -235,7 +235,7 @@
   let localPath = $state("");
   let elLocalInput = $state<HTMLInputElement | null>(null);
   // True while an OS drag hovers the Local field - the drop-affordance state.
-  let dropReady = $state(false);
+  let isDropReady = $state(false);
 
   // Does a native drag sit over the Local tab's folder field? The panels
   // overlay each other, so the tab gate matters as much as the geometry (the
@@ -277,10 +277,10 @@
   let cloneUrl = $state("");
   let cloneName = $state("");
   // Auto-fill the folder name from the URL only until the user edits it.
-  let cloneNameEdited = $state(false);
+  let isCloneNameEdited = $state(false);
   let cloneUsername = $state("");
   let clonePassword = $state("");
-  let cloning = $state(false);
+  let isCloning = $state(false);
   let cloneError = $state("");
 
   // The latest reachability answer, tagged with the URL it described - the
@@ -308,7 +308,7 @@
     && !(GitUsername.safeParse(cloneUsername).success && GitSecret.safeParse(clonePassword).success)
   );
   const cloneDisabled = $derived(
-    !cloneUrlValid || !createIn || !cloneNameValid || credentialsMissing || cloning
+    !cloneUrlValid || !createIn || !cloneNameValid || credentialsMissing || isCloning
   );
 
   // Debounced live probe: does the typed repository exist, and can this
@@ -335,7 +335,7 @@
   });
 
   $effect(() => {
-    if (cloneNameEdited) {
+    if (isCloneNameEdited) {
       return;
     }
 
@@ -359,13 +359,13 @@
   onMount(async () => {
     await checkGit();
     unlistenDragOver = await dragDrop.onOver(({ position }) => {
-      dropReady = isOverLocalField(position);
+      isDropReady = isOverLocalField(position);
     });
-    unlistenDragLeave = await dragDrop.onLeave(() => (dropReady = false));
+    unlistenDragLeave = await dragDrop.onLeave(() => (isDropReady = false));
     unlistenDragDrop = await dragDrop.onDrop(({ paths, position }) => {
       const [dropped] = paths;
       const landsOnField = dropped !== undefined && isOverLocalField(position);
-      dropReady = false;
+      isDropReady = false;
 
       if (!landsOnField) {
         return;
@@ -665,7 +665,7 @@
         >
           <div class="new-project-field">
             <label class="new-project-label" for="local-path">Project folder</label>
-            <div class="new-project-location" class:drop-ready={dropReady}>
+            <div class="new-project-location" class:drop-ready={isDropReady}>
               <span class="new-project-location-icon" aria-hidden="true"><Icon name="folder" /></span>
               <PathCombobox
                 id="local-path"
@@ -730,7 +730,7 @@
                   return;
                 }
 
-                cloning = true;
+                isCloning = true;
                 cloneError = "";
                 try {
                   const path = await vcs.clone({
@@ -750,7 +750,7 @@
                 } catch (error) {
                   cloneError = typeof error === "string" ? error : "Clone failed";
                 } finally {
-                  cloning = false;
+                  isCloning = false;
                 }
               }}
             >
@@ -789,7 +789,7 @@
                     id="clone-name"
                     class="new-project-name"
                     autocomplete="off"
-                    oninput={() => (cloneNameEdited = true)}
+                    oninput={() => (isCloneNameEdited = true)}
                     placeholder="repo"
                     spellcheck="false"
                     bind:value={cloneName}
@@ -833,7 +833,7 @@
               {/if}
 
               <button class="go" disabled={cloneDisabled} type="submit">
-                {#if cloning}
+                {#if isCloning}
                   Cloning…{:else}Clone &amp; open{/if}
               </button>
             </form>

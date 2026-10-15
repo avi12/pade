@@ -59,14 +59,14 @@
   } as const;
   type StatusKind = (typeof StatusKind)[keyof typeof StatusKind];
 
-  let adding = $state(false);
+  let isAdding = $state(false);
   let draft = $state("");
   let status = $state<{
     kind: StatusKind;
     text: string;
   } | null>(null);
   // Re-detect in flight - flips the header's Reload button to "Detecting…".
-  let rescanning = $state(false);
+  let isRescanning = $state(false);
 
   // Rules/fallback live in prefs; a missing map is treated as no rules.
   const ideRules = $derived(prefs.ideRules ?? {});
@@ -167,24 +167,24 @@
     </div>
     <button
       class="rescan"
-      class:scanning={rescanning}
+      class:scanning={isRescanning}
       aria-label="Re-detect installed editors"
       data-tooltip="Re-detect installed editors"
       onclick={async () => {
-        if (rescanning) {
+        if (isRescanning) {
           return;
         }
 
-        rescanning = true;
+        isRescanning = true;
         try {
           const found = await onrescan();
           showToast(`Re-detected ${found} editor${found === 1 ? "" : "s"} on this machine`);
         } finally {
-          rescanning = false;
+          isRescanning = false;
         }
       }}
       type="button"
-    ><Icon name="refresh" size={14} /> {#if rescanning}
+    ><Icon name="refresh" size={14} /> {#if isRescanning}
       Detecting…{:else}Reload{/if}</button>
   </div>
   <ul class="editor-rules">
@@ -252,11 +252,11 @@
           editor’s executable and it’ll appear in the menus above.
         </small>
       </span>
-      {#if !adding}
+      {#if !isAdding}
         <button
           class="editor-addition-button"
           onclick={() => {
-            adding = true;
+            isAdding = true;
             draft = "";
             status = null;
           }}
@@ -267,7 +267,7 @@
       {/if}
     </div>
 
-    {#if adding}
+    {#if isAdding}
       <form
         class="editor-addition-form"
         onsubmit={async e => {
@@ -299,7 +299,7 @@
             text: `${result.label} added.`
           };
           showToast(`${result.label} added`);
-          adding = false;
+          isAdding = false;
           draft = "";
         }}
       >
@@ -338,7 +338,7 @@
           <button
             class="editor-cancel"
             onclick={() => {
-              adding = false;
+              isAdding = false;
               draft = "";
               status = null;
             }}

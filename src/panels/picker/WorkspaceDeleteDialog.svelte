@@ -13,7 +13,7 @@
 </script>
 
 <ConfirmDialog
-  busy={lifecycle.deleting}
+  busy={lifecycle.isDeleting}
   busyLabel="Deleting…"
   confirmLabel="Delete workspace"
   danger

@@ -14,7 +14,7 @@
   let candidates = $state<RestoreCandidate[]>([]);
   let restoreError = $state<string | null>(null);
   let restoreDone = $state<string | null>(null);
-  let searching = $state(false);
+  let isSearching = $state(false);
 
   // Reset a prior repository's search/result when this lazy component receives
   // a new project from VcsPanel.
@@ -27,7 +27,7 @@
     candidates = [];
     restoreError = null;
     restoreDone = null;
-    searching = false;
+    isSearching = false;
   });
 
   async function runRestore() {
@@ -39,7 +39,7 @@
       return;
     }
 
-    searching = true;
+    isSearching = true;
     restoreError = null;
     restoreDone = null;
     try {
@@ -51,7 +51,7 @@
       restoreError = String(error);
       candidates = [];
     } finally {
-      searching = false;
+      isSearching = false;
     }
   }
 
@@ -76,7 +76,7 @@
       type="text"
       bind:value={restoreQuery}
     />
-    <button class="go" disabled={searching} onclick={runRestore}>Restore</button>
+    <button class="go" disabled={isSearching} onclick={runRestore}>Restore</button>
   </div>
   <p class="hint">
     PADE reads your local edit history and runs <code>git bisect</code> to trace back to the matching version.
@@ -126,7 +126,7 @@
         </li>
       {/each}
     </ul>
-  {:else if searching}
+  {:else if isSearching}
     <p class="hint">Searching your history…</p>
   {:else if restoreQuery.trim() && !restoreDone && !restoreError}
     <p class="hint">No matching version found - try describing it differently</p>

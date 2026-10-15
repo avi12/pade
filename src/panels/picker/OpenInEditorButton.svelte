@@ -21,14 +21,14 @@
   // True only while a click's best-fit lookup is in flight - the button reflects
   // it (disabled + dimmed) so the ~second `ide.suggest` takes doesn't read as a
   // dead click, and a second click can't stack another lookup.
-  let busy = $state(false);
+  let isBusy = $state(false);
 
   async function openInEditor() {
-    if (busy) {
+    if (isBusy) {
       return;
     }
 
-    busy = true;
+    isBusy = true;
     try {
       await refreshEditors(path);
       const editor = windowedEditorFor({
@@ -44,7 +44,7 @@
         path
       });
     } finally {
-      busy = false;
+      isBusy = false;
     }
   }
 </script>
@@ -52,10 +52,10 @@
 {#if hasGuiEditor}
   <button
     class="open-ide"
-    class:busy
+    class:busy={isBusy}
     aria-label={`Open ${name} in editor`}
     data-tooltip="Open in editor"
-    disabled={busy}
+    disabled={isBusy}
     onclick={openInEditor}
   ><Icon name="code" size={16} /></button>
 {/if}

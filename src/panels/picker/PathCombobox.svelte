@@ -46,7 +46,7 @@
     return `${name}-suggestion-${index}`;
   }
 
-  let listOpen = $state(false);
+  let isListOpen = $state(false);
   // The selected suggestion. One option is always selected while the list is
   // visible - the reconciler effect below enforces it; -1 only while hidden.
   let activeIndex = $state(-1);
@@ -69,7 +69,7 @@
   const suggestions = $derived(
     probe.result.suggestions.filter(directory => normalizePath(directory) !== normalizePath(probe.path))
   );
-  const listVisible = $derived(listOpen && suggestions.length > 0);
+  const listVisible = $derived(isListOpen && suggestions.length > 0);
   const activeId = $derived.by(() => {
     if (activeIndex < 0) {
       return undefined;
@@ -159,7 +159,7 @@
   // so it stays a named function.
   function pick(directory: string) {
     value = directory;
-    listOpen = false;
+    isListOpen = false;
     activeIndex = -1;
     lastSelected = null;
     elInput?.focus();
@@ -176,9 +176,9 @@
   aria-controls={listboxId}
   aria-expanded={listVisible}
   autocomplete="off"
-  onblur={() => (listOpen = false)}
-  onfocus={() => (listOpen = true)}
-  oninput={() => (listOpen = true)}
+  onblur={() => (isListOpen = false)}
+  onfocus={() => (isListOpen = true)}
+  oninput={() => (isListOpen = true)}
   onkeydown={e => {
     // Ctrl+Space re-opens the completions (IDE-style) - after an Escape, or to
     // summon the current folder's children without retyping. Suppress the space
@@ -186,7 +186,7 @@
     const isOpenListChord = e.ctrlKey && e.key === " ";
     if (isOpenListChord) {
       e.preventDefault();
-      listOpen = true;
+      isListOpen = true;
       return;
     }
 
@@ -211,9 +211,9 @@
       e.preventDefault();
       value = suggestions[activeIndex] + pathSeparator;
       lastSelected = null;
-      listOpen = true;
+      isListOpen = true;
     } else if (e.key === "Escape") {
-      listOpen = false;
+      isListOpen = false;
       activeIndex = -1;
       lastSelected = null;
     }

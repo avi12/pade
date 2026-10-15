@@ -112,7 +112,7 @@
 
   // "Sync all" (fast-forward pull) in-flight guard - disables the button and
   // spins its icon so a slow fetch can't be double-fired.
-  let syncing = $state(false);
+  let isSyncing = $state(false);
   // Whether the workspace has a git remote to sync from - gates the whole button
   // (see loadRemote). A fresh local project or a non-repo has nothing to pull.
   let hasRemote = $state(false);
@@ -667,7 +667,7 @@
   // mount / project switch, and again whenever the window is looked at again -
   // the moment the answer could have gone stale unnoticed.
   let watchStatus = $state<WatchStatus | null>(null);
-  let arming = $state(false);
+  let isArming = $state(false);
 
   // Never rejects: a diagnostic that fails must not take the panel's other loads
   // (branch, members, editors) down with it, so the failure is surfaced as a
@@ -692,7 +692,7 @@
   // The retry the stalled states offer: arm the watch on the open project again
   // and re-read what the backend then reports.
   async function armWatch() {
-    arming = true;
+    isArming = true;
     try {
       await feed.start(project);
     } catch (error) {
@@ -702,7 +702,7 @@
     }
 
     await loadWatchStatus();
-    arming = false;
+    isArming = false;
   }
 </script>
 
@@ -720,8 +720,8 @@
       <p class="empty-headline">{emptySummary.headline}</p>
       <p class="empty-detail">{emptySummary.detail}</p>
       {#if emptySummary.stalled}
-        <button class="arm" disabled={arming} onclick={armWatch}>
-          {#if arming}
+        <button class="arm" disabled={isArming} onclick={armWatch}>
+          {#if isArming}
             Arming…{:else}Watch this project{/if}
         </button>
       {/if}
@@ -780,9 +780,9 @@
         <button
           class="sync"
           data-tooltip="Fast-forward this workspace from origin"
-          disabled={syncing}
+          disabled={isSyncing}
           onclick={async () => {
-            syncing = true;
+            isSyncing = true;
             try {
               const outcome = await vcs.pull(project);
               showToast(outcome.message);
@@ -794,11 +794,11 @@
                 })
               );
             } finally {
-              syncing = false;
+              isSyncing = false;
             }
           }}
         >
-          <span class="icon" class:spin={syncing}><Icon name="refresh" size={14} /></span>
+          <span class="icon" class:spin={isSyncing}><Icon name="refresh" size={14} /></span>
           Sync all
         </button>
       {/if}

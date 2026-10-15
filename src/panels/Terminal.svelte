@@ -115,17 +115,17 @@
   let runningModelUnlisten: UnlistenFn | undefined;
   let fileDropUnlisteners: UnlistenFn[] = [];
   // A file dragged from Explorer or an IDE is hovering over this pane.
-  let fileDragOver = $state(false);
+  let isFileDragOver = $state(false);
   let resizeObserver: ResizeObserver | undefined;
   // Guards the async onMount against a teardown that runs before its awaits
   // settle: onDestroy sets this, and each awaited step bails so no listener is
   // registered after unmount and no write hits a disposed terminal.
-  let destroyed = false;
+  let isDestroyed = false;
   // PTY invokes are asynchronous IPC messages. Keep one write in flight and
   // merge input that arrives while it crosses the process boundary: normal
   // keystrokes still start immediately, while paste/repeat bursts avoid a costly
   // invoke per character and cannot overtake one another.
-  let ptyWriteInFlight = false;
+  let isPtyWriteInFlight = false;
   let queuedPtyWrites: Array<{
     data: string;
     settle: () => void;
@@ -143,7 +143,7 @@
   // worth scanning (see lib/TerminalRtl). A latch, never unset: the text stays in
   // the scrollback. Until it flips, an English-only session does no scanning and
   // renders no overlay at all.
-  let rightToLeftSeen = $state(false);
+  let isRightToLeftSeen = $state(false);
   /** This pane holds the keyboard, so its cursor is the live one. */
   const keyboardHere = $derived(active && windowFocused);
 
@@ -151,12 +151,12 @@
     // An agent that reorders its own output has already done the browser's job,
     // and doing it twice reads backwards - so for those the latch never flips and
     // the overlay never exists (see `reordersBidi` in agents.rs).
-    if (rightToLeftSeen || session.agent.reordersBidi) {
+    if (isRightToLeftSeen || session.agent.reordersBidi) {
       return;
     }
 
     if (containsRtl(text)) {
-      rightToLeftSeen = true;
+      isRightToLeftSeen = true;
     }
   }
   // xterm's DOM renderer is the remaining output hot path. Join token-sized PTY
@@ -172,7 +172,7 @@
   let lastContextScreenSampleAt = 0;
   const SCROLL_OUTPUT_QUIET_MS = 120;
   const SCROLL_OUTPUT_MAX_DELAY_MS = 1000;
-  let activelyScrolling = false;
+  let isActivelyScrolling = false;
   let scrollOutputQuietTimer: ReturnType<typeof setTimeout> | undefined;
   let scrollOutputDeadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -187,17 +187,17 @@
   // Instead we watch the rendered screen: walk the trust gate's selection to
   // "Yes, I trust this folder" and confirm it, then once the agent has settled
   // quiet at its REPL, paste the prompt and submit it.
-  let promptDelivered = false;
+  let isPromptDelivered = false;
   // Whether the last screen sample showed the trust gate. Delivery holds while it
   // does - a prompt pasted into the gate's menu is lost.
-  let trustGateOnScreen = false;
+  let isTrustGateOnScreen = false;
   // Keys sent to walk and confirm the gate, bounded so a gate whose layout we
   // misread can't be keyed at forever - the user answers it by hand instead.
   let trustGateKeysSent = 0;
   const TRUST_GATE_MAX_KEYS = 6;
   // A key was sent and the agent hasn't repainted since, so the screen still
   // shows the gate as it was BEFORE the key - acting on it would double-step.
-  let trustGateAwaitingRepaint = false;
+  let isTrustGateAwaitingRepaint = false;
   // A rolling tail of recent output, so delivery can tell whether the prompt's
   // paste has echoed back in the composer.
   let recentOutput = "";
@@ -209,7 +209,7 @@
   // we last gave it, the size the pane has reached since, and the timers that decide when
   // that repaint is done. Whether it kept up or not, the settled gesture ends with a
   // full repaint (see terminal.onResize) - that is what makes a torn frame heal.
-  let awaitingRepaint = false;
+  let isAwaitingRepaint = false;
   let altFitTimer: ReturnType<typeof setTimeout> | undefined;
   let lastAltFitAt = 0;
   let pendingFit:
@@ -222,7 +222,7 @@
   let repaintWatchdog: ReturnType<typeof setTimeout> | undefined;
   // A repaint nudge resizes the grid itself, so it comes back through the resize path -
   // this is what stops it queueing another repaint off the back of its own.
-  let repainting = false;
+  let isRepainting = false;
   // How long the PTY must fall quiet before a working session settles back to
   // "ready". This is a hysteresis window, not just a debounce: it must comfortably
   // outlast the *slowest periodic repaint* a long-running task emits, or the badge
@@ -281,7 +281,7 @@
   // agent's id.
   const COLOR_SCHEME_ENABLE_LENGTH = "\x1b[?2031h".length;
   let colorSchemeNotificationTail = "";
-  let colorSchemeNotificationsEnabled = false;
+  let isColorSchemeNotificationsEnabled = false;
 
   // Agents whose TUI subscribes to DEC 2031 color-scheme reports at startup
   // (Claude's `auto` theme, opencode's renderer). The re-attach path treats
@@ -370,17 +370,17 @@
 
   async function reportSchemeToSubscribedAgent() {
     const listensWithoutHandshake =
-      !colorSchemeNotificationsEnabled && SCHEME_SUBSCRIBED_AGENTS.has(session.agent.id);
+      !isColorSchemeNotificationsEnabled && SCHEME_SUBSCRIBED_AGENTS.has(session.agent.id);
     if (!listensWithoutHandshake) {
       return;
     }
 
-    colorSchemeNotificationsEnabled = true;
+    isColorSchemeNotificationsEnabled = true;
     await writeSchemeReport();
   }
 
   function relayColorSchemeAfterSubscribe(data: string) {
-    if (colorSchemeNotificationsEnabled) {
+    if (isColorSchemeNotificationsEnabled) {
       return;
     }
 
@@ -391,7 +391,7 @@
       return;
     }
 
-    colorSchemeNotificationsEnabled = true;
+    isColorSchemeNotificationsEnabled = true;
     writeSchemeReport();
   }
 
@@ -481,12 +481,12 @@
   // for delivery's echo check; any output also means the agent has repainted
   // since the last trust-gate key.
   function watchInitialPrompt(data: string) {
-    if (!session.initialPrompt || promptDelivered) {
+    if (!session.initialPrompt || isPromptDelivered) {
       return;
     }
 
     recentOutput = (recentOutput + data).slice(-RECENT_OUTPUT_CAP);
-    trustGateAwaitingRepaint = false;
+    isTrustGateAwaitingRepaint = false;
   }
 
   const TRUST_GATE_KEY_BYTES = {
@@ -500,20 +500,20 @@
   // lands at the REPL and not in the menu. Runs only while a first prompt is
   // still pending; one key per repaint.
   async function answerTrustGate(rows: readonly string[]) {
-    if (!session.initialPrompt || promptDelivered) {
+    if (!session.initialPrompt || isPromptDelivered) {
       return;
     }
 
     const key = trustGateKey(rows);
-    trustGateOnScreen = key !== null;
-    const mayPressKey = trustGateOnScreen && !trustGateAwaitingRepaint
+    isTrustGateOnScreen = key !== null;
+    const mayPressKey = isTrustGateOnScreen && !isTrustGateAwaitingRepaint
       && trustGateKeysSent < TRUST_GATE_MAX_KEYS;
     if (!key || !mayPressKey) {
       return;
     }
 
     trustGateKeysSent += 1;
-    trustGateAwaitingRepaint = true;
+    isTrustGateAwaitingRepaint = true;
     await writeToPty(TRUST_GATE_KEY_BYTES[key]);
   }
 
@@ -542,7 +542,7 @@
   // fires its own re-check at IDLE_MS (1500) - before the verdict - so it must
   // not re-enter delivery meanwhile, or it would re-paste (or prematurely latch)
   // while the verify timer is still deciding. The verify callback owns the retry.
-  let awaitingVerify = false;
+  let isAwaitingVerify = false;
   let promptVerifyTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Once the agent has settled quiet - done booting, past the trust gate - paste
@@ -552,18 +552,18 @@
   // and leaves the prompt unsent) and re-sent on its own if the TUI's post-paste
   // guard swallowed the first one.
   async function deliverInitialPromptIfReady() {
-    if (!session.initialPrompt || promptDelivered || awaitingVerify) {
+    if (!session.initialPrompt || isPromptDelivered || isAwaitingVerify) {
       return;
     }
 
     // The gate is still up - answerTrustGate (or the user) clears it, and the
     // agent's repaint settles back to ready, which re-runs this.
-    if (trustGateOnScreen) {
+    if (isTrustGateOnScreen) {
       return;
     }
 
     if (promptAttempts >= PROMPT_MAX_ATTEMPTS) {
-      promptDelivered = true;
+      isPromptDelivered = true;
       clearTimeout(promptVerifyTimer);
       return;
     }
@@ -583,7 +583,7 @@
       prompt: session.initialPrompt
     });
     promptAttempts += 1;
-    awaitingVerify = true;
+    isAwaitingVerify = true;
 
     if (pasteLanded) {
       // The paste already reached the composer; only its submitting Enter was
@@ -607,10 +607,10 @@
     // (a separate Enter when the paste already landed, else a fresh paste).
     clearTimeout(promptVerifyTimer);
     promptVerifyTimer = setTimeout(() => {
-      awaitingVerify = false;
+      isAwaitingVerify = false;
 
       if (status === SessionStatus.enum.working) {
-        promptDelivered = true;
+        isPromptDelivered = true;
         return;
       }
 
@@ -698,7 +698,7 @@
 
     terminal.options.theme = readXtermTheme();
 
-    if (colorSchemeNotificationsEnabled) {
+    if (isColorSchemeNotificationsEnabled) {
       writeSchemeReport();
     }
   });
@@ -759,7 +759,7 @@
     terminalOutputFrame = undefined;
     terminalOutputTimer = undefined;
 
-    if (!queuedTerminalOutput || destroyed || !terminal) {
+    if (!queuedTerminalOutput || isDestroyed || !terminal) {
       return;
     }
 
@@ -778,7 +778,7 @@
       shown,
       windowFocused,
       readingScrollback: isReadingScrollback(),
-      scrolling: activelyScrolling
+      scrolling: isActivelyScrolling
     });
     if (mode === TerminalFlushMode.Deferred) {
       cancelScheduledTerminalOutput();
@@ -804,7 +804,7 @@
   }
 
   function finishTerminalScroll() {
-    activelyScrolling = false;
+    isActivelyScrolling = false;
     scrollOutputQuietTimer = undefined;
     clearTimeout(scrollOutputDeadlineTimer);
     scrollOutputDeadlineTimer = undefined;
@@ -817,7 +817,7 @@
   }
 
   function noteTerminalScroll() {
-    activelyScrolling = true;
+    isActivelyScrolling = true;
     cancelScheduledTerminalOutput();
     clearTimeout(scrollOutputQuietTimer);
     scrollOutputQuietTimer = setTimeout(finishTerminalScroll, SCROLL_OUTPUT_QUIET_MS);
@@ -863,7 +863,7 @@
   function observeContextScreenAfterWrite() {
     contextScreenTimer = undefined;
 
-    if (destroyed || !terminal) {
+    if (isDestroyed || !terminal) {
       return;
     }
 
@@ -922,7 +922,7 @@
   // reflow. So the agent must be told the size - height included - immediately and
   // every frame, or the rows it hasn't painted come out blank and the ones it lost are
   // truncated. Everything below keys off this.
-  let onAlternateScreen = $state(false);
+  let isOnAlternateScreen = $state(false);
 
   // Which edge the grid is pinned to. The grid is whole cells and the pane is not, so
   // there is always a sub-cell remainder to put somewhere, and which end it belongs at
@@ -950,7 +950,7 @@
   //   the text is continuous through a row boundary.
   //
   // Either way the remainder ends up at the unpinned edge, as a sliver of background.
-  let anchorBottom = $state(false);
+  let isBottomAnchored = $state(false);
 
   // Vertical scale of the grid, and 1 in every settled state (see `fit`).
   let squeeze = $state(1);
@@ -959,7 +959,7 @@
   // xterm only pushes a line into scrollback then. (The alternate screen never has any,
   // and pins its top: see above.)
   function updateAnchor() {
-    anchorBottom = !onAlternateScreen && (terminal?.buffer.active.baseY ?? 0) > 0;
+    isBottomAnchored = !isOnAlternateScreen && (terminal?.buffer.active.baseY ?? 0) > 0;
   }
 
   // How much a grid that is momentarily too tall for its pane has to be scaled by to fit
@@ -1033,14 +1033,14 @@
         settle
       });
 
-      if (!ptyWriteInFlight) {
+      if (!isPtyWriteInFlight) {
         flushPtyWrites();
       }
     });
   }
 
   async function flushPtyWrites() {
-    ptyWriteInFlight = true;
+    isPtyWriteInFlight = true;
     while (queuedPtyWrites.length > 0) {
       const writes = queuedPtyWrites;
       queuedPtyWrites = [];
@@ -1065,7 +1065,7 @@
         }
       }
     }
-    ptyWriteInFlight = false;
+    isPtyWriteInFlight = false;
   }
 
   // Send the current selection to the clipboard. Copy is best-effort - a
@@ -1111,7 +1111,7 @@
   // frame a row short. Resizing the grid drives `terminal.onResize`, which sends the
   // SIGWINCH - terminal and program move together, exactly as in a real resize.
   function repaintAgent() {
-    if (!terminal || repainting) {
+    if (!terminal || isRepainting) {
       return;
     }
 
@@ -1119,7 +1119,7 @@
     const { cols: columns, rows } = grid;
     // Both halves of the nudge drive terminal.onResize, which would otherwise queue another
     // repaint off the back of this one, forever.
-    repainting = true;
+    isRepainting = true;
     grid.resize(columns, Math.max(1, rows - 1));
     setTimeout(() => {
       // Come back to the size the pane implies NOW, not the one captured when the
@@ -1131,7 +1131,7 @@
       // 55-row pane, legible only because the squeeze scaled it to half height.
       const fitted = paneGrid();
       grid.resize(fitted?.columns ?? columns, fitted?.rows ?? rows);
-      repainting = false;
+      isRepainting = false;
     }, REPAINT_NUDGE_MS);
   }
 
@@ -1162,7 +1162,7 @@
     }
 
     const sinceLastFit = Date.now() - lastAltFitAt;
-    if (awaitingRepaint || sinceLastFit < ALT_FIT_MIN_INTERVAL_MS) {
+    if (isAwaitingRepaint || sinceLastFit < ALT_FIT_MIN_INTERVAL_MS) {
       pendingFit = {
         columns,
         rows
@@ -1175,7 +1175,7 @@
           const next = pendingFit;
           pendingFit = undefined;
 
-          if (next && !awaitingRepaint) {
+          if (next && !isAwaitingRepaint) {
             altFit(next);
           }
         },
@@ -1189,7 +1189,7 @@
     }
 
     lastAltFitAt = Date.now();
-    awaitingRepaint = true;
+    isAwaitingRepaint = true;
     terminal.resize(columns, rows);
     clearTimeout(repaintWatchdog);
     repaintWatchdog = setTimeout(() => {
@@ -1204,7 +1204,7 @@
   function finishRepaint() {
     clearTimeout(repaintQuietTimer);
     clearTimeout(repaintWatchdog);
-    awaitingRepaint = false;
+    isAwaitingRepaint = false;
 
     const next = pendingFit;
     pendingFit = undefined;
@@ -1218,7 +1218,7 @@
   // Every chunk of output while a resize is in flight is the agent painting that resize.
   // A gap in it means the frame is finished - that is the credit the next resize waits on.
   function noteRepaintProgress() {
-    if (!awaitingRepaint) {
+    if (!isAwaitingRepaint) {
       return;
     }
 
@@ -1276,7 +1276,7 @@
     const grid = terminal;
     // The normal screen reflows every frame: xterm owns the document there, so it can
     // rewrap the text itself as fast as the drag moves.
-    if (!onAlternateScreen) {
+    if (!isOnAlternateScreen) {
       if (columns !== grid.cols || rows !== grid.rows) {
         grid.resize(columns, rows);
       }
@@ -1358,12 +1358,12 @@
     // missing. Each chunk carries its position in the stream, so once the history is
     // in, the ones it already contains can be dropped and the rest written in order.
     const pendingChunks: PtyChunk[] = [];
-    let replayed = false;
+    let isReplayed = false;
 
     function consume(chunk: PtyChunk) {
       // The terminal may already be disposed if a late chunk arrives during
       // teardown; skip the write rather than throw.
-      if (destroyed || !terminal) {
+      if (isDestroyed || !terminal) {
         return;
       }
 
@@ -1424,7 +1424,7 @@
         return;
       }
 
-      if (!replayed) {
+      if (!isReplayed) {
         pendingChunks.push(chunk);
         return;
       }
@@ -1433,7 +1433,7 @@
     });
     // If we were destroyed while awaiting, this listener registered too late
     // for onDestroy to see - tear it down now and stop.
-    if (destroyed) {
+    if (isDestroyed) {
       dataUnlisten();
       return;
     }
@@ -1450,7 +1450,7 @@
       status = SessionStatus.enum.exited;
       onexit?.(session.id);
     });
-    if (destroyed) {
+    if (isDestroyed) {
       exitListener();
       return;
     }
@@ -1460,7 +1460,7 @@
     await listenForRunningModel();
     await listenForFileDrops();
 
-    if (destroyed) {
+    if (isDestroyed) {
       return;
     }
 
@@ -1628,10 +1628,10 @@
     // the agent's idea of the size with ours, since on the normal screen we deliberately
     // let its height go stale (below).
     terminal.buffer.onBufferChange(() => {
-      onAlternateScreen = terminal.buffer.active.type === Screen.Alternate;
+      isOnAlternateScreen = terminal.buffer.active.type === Screen.Alternate;
       updateAnchor();
 
-      if (onAlternateScreen) {
+      if (isOnAlternateScreen) {
         sizeAgent({
           columns: terminal.cols,
           rows: terminal.rows
@@ -1681,14 +1681,14 @@
       // of the row underneath it. It never healed on its own; one resize did. The
       // nudge costs a double repaint at the end of a gesture - cheap next to a frame
       // that stays torn until the user happens to resize the pane again.
-      if (onAlternateScreen) {
+      if (isOnAlternateScreen) {
         clearTimeout(sigwinchTimer);
         sizeAgent({
           columns,
           rows
         });
 
-        if (!repainting) {
+        if (!isRepainting) {
           sigwinchTimer = setTimeout(repaintAgent, SIGWINCH_SETTLE_MS);
         }
 
@@ -1729,7 +1729,7 @@
     resizeObserver.observe(elViewport);
 
     // Spawn the chosen agent in a real PTY.
-    if (destroyed) {
+    if (isDestroyed) {
       return;
     }
 
@@ -1773,12 +1773,12 @@
     // history is authoritative up to its `seq`, so anything at or below it is already
     // painted and only the newer ones still need to go in - in order, and before any
     // further live chunk is written.
-    if (destroyed) {
+    if (isDestroyed) {
       return;
     }
 
     const history = await pty.history(session.id);
-    if (destroyed || !terminal) {
+    if (isDestroyed || !terminal) {
       return;
     }
 
@@ -1836,7 +1836,7 @@
     }
 
     pendingChunks.length = 0;
-    replayed = true;
+    isReplayed = true;
 
     if (history.alternate) {
       repaintAgent();
@@ -1849,7 +1849,7 @@
   });
 
   onDestroy(() => {
-    destroyed = true;
+    isDestroyed = true;
     unlisten?.();
     exitUnlisten?.();
     runningModelUnlisten?.();
@@ -1899,7 +1899,7 @@
         await readRunningModel();
       }
     });
-    if (destroyed) {
+    if (isDestroyed) {
       unlisten();
       return;
     }
@@ -1916,16 +1916,16 @@
   async function listenForFileDrops() {
     const listeners = await Promise.all([
       dragDrop.onOver(({ position }) => {
-        fileDragOver = isDragOverElement({
+        isFileDragOver = isDragOverElement({
           element: elViewport,
           position
         });
       }),
       dragDrop.onLeave(() => {
-        fileDragOver = false;
+        isFileDragOver = false;
       }),
       dragDrop.onDrop(({ paths, position }) => {
-        fileDragOver = false;
+        isFileDragOver = false;
         const landsHere = paths.length > 0 && isDragOverElement({
           element: elViewport,
           position
@@ -1938,7 +1938,7 @@
         terminal.focus();
       })
     ]);
-    if (destroyed) {
+    if (isDestroyed) {
       for (const stopListening of listeners) {
         stopListening();
       }
@@ -1978,12 +1978,12 @@
     <div
       bind:this={elViewport}
       class="terminal-viewport"
-      class:anchor-bottom={anchorBottom}
-      class:file-drag-over={fileDragOver}
+      class:anchor-bottom={isBottomAnchored}
+      class:file-drag-over={isFileDragOver}
     >
       <div bind:this={elHost} style:scale={`1 ${squeeze}`} class="terminal-host">
         <TerminalRtl
-          enabled={rightToLeftSeen}
+          enabled={isRightToLeftSeen}
           focused={keyboardHere}
           terminal={attachedTerminal}
         />
@@ -2066,7 +2066,7 @@
 
   /* Full-size measuring frame: fitToPane reads its client size for the cols/rows and
      pins the grid to the end of the content the terminal is actually showing (see
-     `anchorBottom`) - a fullscreen agent's frame and an unscrolled conversation pin the
+     `isBottomAnchored`) - a fullscreen agent's frame and an unscrolled conversation pin the
      top, a scrolled one pins the bottom. The grid is whole cells and never quite fills
      the frame, so the leftover sits as a sliver of background at the unpinned edge. */
   .terminal-viewport {
