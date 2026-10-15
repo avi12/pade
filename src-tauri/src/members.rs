@@ -169,28 +169,30 @@ fn census(root: &Path) -> BTreeMap<String, Found> {
         let Ok(entries) = fs::read_dir(&directory) else {
             continue;
         };
-        let mut file_names = Vec::new();
+        // Index into MANIFESTS of the highest-priority manifest seen so far.
+        let mut best_manifest: Option<usize> = None;
         let mut is_repository = false;
         for entry in entries.flatten() {
             let file_name = entry.file_name();
-            let name = file_name.to_string_lossy().into_owned();
+            let name = file_name.to_string_lossy();
             is_repository = is_repository || name == GIT_MARKER;
             if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
-                let is_noise = name.starts_with('.') || PRUNED_DIRECTORIES.contains(&name.as_str());
+                let is_noise = name.starts_with('.') || PRUNED_DIRECTORIES.contains(&name.as_ref());
                 if !is_noise {
                     stack.push(entry.path());
                 }
                 continue;
             }
-            file_names.push(name);
+            if let Some(index) = MANIFESTS.iter().position(|(manifest, _)| *manifest == name) {
+                best_manifest = Some(best_manifest.map_or(index, |best| best.min(index)));
+            }
         }
-        let manifest = MANIFESTS
-            .iter()
-            .find(|(manifest, _)| file_names.iter().any(|name| name == manifest))
-            .map(|(manifest_name, ecosystem)| FoundManifest {
+        let manifest = best_manifest.and_then(|index| MANIFESTS.get(index)).map(
+            |(manifest_name, ecosystem)| FoundManifest {
                 ecosystem: *ecosystem,
                 name: package_name(&directory.join(manifest_name), *ecosystem),
-            });
+            },
+        );
         if manifest.is_none() && !is_repository {
             continue;
         }
@@ -927,6 +929,21 @@ mod tests {
         let members = discover_members(&root);
         let paths: Vec<&str> = members.iter().map(|member| member.path.as_str()).collect();
         assert_eq!(paths, ["", "crates/core"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_highest_priority_manifest_names_a_directory_whatever_the_listing_order() {
+        let root = scratch_root("manifest-priority");
+        write(&root, "pyproject.toml", "[project]\nname = \"py\"\n");
+        write(&root, "Cargo.toml", "[package]\nname = \"rs\"\n");
+        write(&root, "package.json", r#"{ "name": "js" }"#);
+        write(&root, "go.mod", "module example.com/go\n");
+
+        let members = discover_members(&root);
+        assert_eq!(members[0].ecosystem, Some(Ecosystem::JavaScript));
+        assert_eq!(members[0].name.as_deref(), Some("js"));
 
         let _ = fs::remove_dir_all(&root);
     }
