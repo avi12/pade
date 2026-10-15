@@ -62,8 +62,12 @@ export function submittedPrompt(prompt: string) {
   return `${pastedText(prompt)}${PROMPT_SUBMIT}`;
 }
 
+const ENTER_KEY = "Enter";
+
+/** Shift+Enter alone - the chord that types a newline into the composer. */
 export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,
   "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
 >) {
-  return event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+  const isShiftOnly = event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+  return event.key === ENTER_KEY && isShiftOnly;
 }

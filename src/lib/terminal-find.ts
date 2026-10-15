@@ -7,11 +7,14 @@
 import type { IconName } from "@/lib/Icon.svelte";
 import type { KeyChord } from "@/lib/tab-shortcuts";
 
+const FIND_KEY = "f";
+
 /** Ctrl+F over a terminal pane - open the find bar and put the caret in it.
  *  Plain Ctrl only: Ctrl+Shift+F and Ctrl+Alt+F belong to whatever the agent
  *  binds them to, and the terminal still forwards those. */
 export function isFindShortcut({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) {
-  return key.toLowerCase() === "f" && ctrlKey && !shiftKey && !altKey && !metaKey;
+  const isPlainCtrl = ctrlKey && !shiftKey && !altKey && !metaKey;
+  return key.toLowerCase() === FIND_KEY && isPlainCtrl;
 }
 
 /** Which way through the matches a search step moves. */
@@ -76,18 +79,13 @@ export const FIND_OPTION_TOGGLES = [
  *  the browser-and-editor convention. Alt alone: Ctrl+Alt is AltGr on a European
  *  keyboard, where it types characters people search for. */
 export function matchFindOptionChord({ key, ctrlKey, shiftKey, altKey, metaKey }: KeyChord) {
-  if (!altKey || ctrlKey || shiftKey || metaKey) {
+  const isPlainAlt = altKey && !ctrlKey && !shiftKey && !metaKey;
+  if (!isPlainAlt) {
     return null;
   }
 
   const pressed = key.toLowerCase();
-  for (const toggle of FIND_OPTION_TOGGLES) {
-    if (toggle.chordKey === pressed) {
-      return toggle.option;
-    }
-  }
-
-  return null;
+  return FIND_OPTION_TOGGLES.find(toggle => toggle.chordKey === pressed)?.option ?? null;
 }
 
 /** Whether the term can be searched for as typed. A literal always can; a
