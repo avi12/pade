@@ -1,5 +1,4 @@
 mod agents;
-mod limit_reset;
 mod platform;
 mod terminal;
 #[cfg(test)]
@@ -207,8 +206,8 @@ pub fn run() {
             terminal::schemes::terminal_schemes,
             usage::usage_get,
             usage::usage_account_agent,
-            limit_reset::limit_reset_offer,
-            limit_reset::limit_reset_claim,
+            usage::limit_reset::limit_reset_offer,
+            usage::limit_reset::limit_reset_claim,
             agents::naming::project_autoname,
             agents::naming::session_generate_name,
             workspace::launch_context,

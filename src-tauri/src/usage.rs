@@ -12,6 +12,11 @@
 //!
 //! When nothing reliable is found we return `None` and the UI shows an honest
 //! "usage unavailable" state - we never fabricate numbers.
+//!
+//! `limit_reset` adds the meter's one action: offering and claiming Claude's
+//! free usage-limit reset over the same OAuth endpoint.
+
+pub(crate) mod limit_reset;
 
 use std::collections::HashMap;
 use std::fmt::Write as _;

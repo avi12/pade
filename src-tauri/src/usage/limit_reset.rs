@@ -15,7 +15,7 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
-use crate::usage::{
+use super::{
     claude_access_token, claude_usage_url, curl_claude_oauth, is_safe_header_token,
     ClaudeOauthRequest, ClaudeProfile, CLAUDE_API, USAGE_CACHE_TTL,
 };
