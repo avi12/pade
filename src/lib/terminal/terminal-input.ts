@@ -2,6 +2,7 @@
 // than typed so xterm uses bracketed-paste mode when the running TUI enables it;
 // that preserves the newline in the agent's composer instead of submitting it.
 
+import { CONTROL_SEQUENCE_INTRODUCER, ENTER } from "@/lib/terminal/terminal-sequences";
 import { Key } from "@/lib/ui/keys";
 
 export const PROMPT_NEWLINE = "\n";
@@ -12,7 +13,6 @@ export const PROMPT_NEWLINE = "\n";
 // separate keystroke that submits it. Raw bytes with a trailing CR instead let
 // the agent fold the CR into the same burst and leave the prompt sitting
 // unsent. Wire constants composed from named parts (no obfuscated values).
-const CONTROL_SEQUENCE_INTRODUCER = "\x1b[";
 const BRACKETED_PASTE_START_PARAMETER = "200";
 const BRACKETED_PASTE_END_PARAMETER = "201";
 const TILDE_FINAL_BYTE = "~";
@@ -20,7 +20,7 @@ const TILDE_FINAL_BYTE = "~";
 /** The lone submitting keystroke. Sent as its own write AFTER a bracketed paste
  *  has settled, it is an unambiguous Enter the TUI can't fold into the paste
  *  burst - the reliable way to submit a composer a paste left holding text. */
-export const PROMPT_SUBMIT = "\r";
+export const PROMPT_SUBMIT = ENTER;
 
 export const BRACKETED_PASTE_START =
   `${CONTROL_SEQUENCE_INTRODUCER}${BRACKETED_PASTE_START_PARAMETER}${TILDE_FINAL_BYTE}`;
