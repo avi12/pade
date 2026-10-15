@@ -15,9 +15,8 @@
 // the scan from a component `$effect`.
 
 import { pty } from "@/lib/bridge";
-import { measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { createRecoveryLoop } from "@/lib/stores/recoveryLoop.svelte";
-import type { RecoveryHost } from "@/lib/stores/recoveryLoop.svelte";
+import type { RecoveryHit, RecoveryHost } from "@/lib/stores/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { CONTINUE_PROMPT, hasUsageLimit, isUsageLimitStop } from "@/lib/stores/usageResume.svelte";
 import { SessionStatus } from "@/lib/types";
@@ -55,11 +54,7 @@ const API_ERROR_RE = new RegExp(
   "i"
 );
 
-interface ApiErrorHit {
-  scheduled: boolean;
-}
-
-const hits = new SvelteMap<string, ApiErrorHit>();
+const hits = new SvelteMap<string, RecoveryHit>();
 
 /** Whether a chunk of agent output is a transient API-side stop worth retrying -
  *  an "API Error", an overloaded/500/502/503/529 server error, or a dropped
@@ -80,7 +75,7 @@ export function observeApiError({ id, chunk }: {
   }
 
   if (parseApiError({ text: chunk })) {
-    hits.set(id, { scheduled: false });
+    hits.set(id, { isScheduled: false });
   }
 }
 
@@ -110,26 +105,18 @@ export function createApiErrorRetry(host: RecoveryHost) {
   // again, so we hand off to a fresh agent and stop.
   async function retry(session: AgentSession) {
     const id = session.id;
-    const status = sessionStatus(id);
-    const recovered = status === SessionStatus.enum.working;
-    const dead = status === SessionStatus.enum.exited;
-    if (!loop.isOpen(id) || recovered || dead || hasUsageLimit(id)) {
+    if (!loop.isOpen(id) || isPastRetrying(sessionStatus(id)) || hasUsageLimit(id)) {
       loop.forget(id);
       return;
     }
 
-    const percentage = measuredContextPercentage(id);
-    const hasRoom = percentage === null || percentage < host.thresholdPercentage();
-    if (!hasRoom) {
+    if (!loop.hasContextRoom(id)) {
       loop.forget(id);
       host.forceHandoff(session);
       return;
     }
 
-    await pty.write({
-      id,
-      data: CONTINUE_PROMPT
-    }).catch(() => {});
+    await nudge(id);
     loop.schedule({
       session,
       delay: RETRY_MS
@@ -144,4 +131,23 @@ export function createApiErrorRetry(host: RecoveryHost) {
     check: loop.check,
     dispose: loop.dispose
   };
+}
+
+/** A session working again took the nudge (or self-recovered); an exited one
+ *  can't be retried. Either way the retry loop is done with it. */
+function isPastRetrying(status: SessionStatus) {
+  return status === SessionStatus.enum.working || status === SessionStatus.enum.exited;
+}
+
+/** Type "continue" into the session. A failed write is no reason to stop: the
+ *  next tick nudges again. */
+async function nudge(id: string) {
+  try {
+    await pty.write({
+      id,
+      data: CONTINUE_PROMPT
+    });
+  } catch (error) {
+    console.warn("pade: could not nudge a session stopped on an API error", error);
+  }
 }

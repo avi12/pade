@@ -185,11 +185,11 @@ describe("assessLimit", () => {
   const waiting = {
     window: LimitWindow.session,
     resetAt: RESET_AT,
-    confirmed: true
+    isConfirmed: true
   };
   const freshlySniffed = {
     ...waiting,
-    confirmed: false
+    isConfirmed: false
   };
 
   it("keeps a session with an exhausted window and no credits blocked", () => {

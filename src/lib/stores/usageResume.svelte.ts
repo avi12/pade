@@ -14,9 +14,8 @@
 
 import { stripAnsi } from "@/lib/ansi";
 import { pty, usage } from "@/lib/bridge";
-import { measuredContextPercentage } from "@/lib/stores/context.svelte";
 import { createRecoveryLoop } from "@/lib/stores/recoveryLoop.svelte";
-import type { RecoveryHost } from "@/lib/stores/recoveryLoop.svelte";
+import type { RecoveryHit, RecoveryHost } from "@/lib/stores/recoveryLoop.svelte";
 import { sessionStatus } from "@/lib/stores/sessions.svelte";
 import { PROMPT_SUBMIT } from "@/lib/terminal-input";
 import { CreditsState, SessionStatus } from "@/lib/types";
@@ -84,15 +83,14 @@ const RESET_CLOCK_RE = /resets?\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
 const TURN_RUNNING_RE = /esc\s*(?:to\s*)?interrupt/i;
 const STATUS_ROWS = 8;
 
-interface LimitHit {
+interface LimitHit extends RecoveryHit {
   window: LimitWindow;
   /** The best-known reset instant: the account's to-the-second stamp once read,
    *  else the clock the CLI message printed, else null. */
   resetAt: number | null;
   /** The account has shown this session blocked - from then on a healthy window
    *  or credits turning on mean it can run again, not that the message was stale. */
-  confirmed: boolean;
-  scheduled: boolean;
+  isConfirmed: boolean;
 }
 
 const hits = new SvelteMap<string, LimitHit>();
@@ -208,7 +206,7 @@ function accountResetAt({ hit, account }: {
  *  (its window reset, or credits carry it), stale (the account never showed it
  *  blocked), or unknown (the account can't say - the reset clock decides). */
 export function assessLimit({ hit, account, now }: {
-  hit: Pick<LimitHit, "window" | "resetAt" | "confirmed">;
+  hit: Pick<LimitHit, "window" | "resetAt" | "isConfirmed">;
   account: AccountUsage | null;
   now: number;
 }) {
@@ -228,7 +226,7 @@ export function assessLimit({ hit, account, now }: {
     return LimitVerdict.blocked;
   }
 
-  return hit.confirmed ? LimitVerdict.runnable : LimitVerdict.stale;
+  return hit.isConfirmed ? LimitVerdict.runnable : LimitVerdict.stale;
 }
 
 // Record a stop message found in a session's output, unless the session is already
@@ -251,8 +249,8 @@ function sniffStop({ id, text }: {
   if (sniffed) {
     hits.set(id, {
       ...sniffed,
-      confirmed: false,
-      scheduled: false
+      isConfirmed: false,
+      isScheduled: false
     });
   }
 }
@@ -352,17 +350,15 @@ export function createUsageResume(host: RecoveryHost) {
   // context window → the same session continues; nearly full → it would stall
   // again within a few turns, so hand off to a fresh agent instead.
   async function resume(session: AgentSession) {
-    const turnRunning = turnRunningOnScreen.get(session.id) ?? false;
-    const gone = sessionStatus(session.id) === SessionStatus.enum.exited;
+    const isTurnRunning = turnRunningOnScreen.get(session.id) ?? false;
+    const isGone = sessionStatus(session.id) === SessionStatus.enum.exited;
     settle(session.id);
 
-    if (turnRunning || gone) {
+    if (isTurnRunning || isGone) {
       return;
     }
 
-    const percentage = measuredContextPercentage(session.id);
-    const hasRoom = percentage === null || percentage < host.thresholdPercentage();
-    if (!hasRoom) {
+    if (!loop.hasContextRoom(session.id)) {
       host.forceHandoff(session);
       return;
     }
@@ -383,7 +379,7 @@ export function createUsageResume(host: RecoveryHost) {
   }) {
     const waiting = {
       ...hit,
-      confirmed: hit.confirmed || verdict === LimitVerdict.blocked,
+      isConfirmed: hit.isConfirmed || verdict === LimitVerdict.blocked,
       resetAt: accountResetAt({
         hit,
         account
@@ -411,8 +407,8 @@ export function createUsageResume(host: RecoveryHost) {
 
     const account = await readAccount(session);
     const hit = hits.get(id);
-    const droppedMeanwhile = loop.disposed || hit === undefined;
-    if (droppedMeanwhile) {
+    const isDroppedMeanwhile = loop.isDisposed || hit === undefined;
+    if (isDroppedMeanwhile) {
       return;
     }
 

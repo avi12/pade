@@ -5,6 +5,7 @@
 // tab is gone, and teardown. Each loop keeps its own detection state (a `hits` map
 // the output sniffers fill) and decides what one tick of a session does.
 
+import { measuredContextPercentage } from "@/lib/stores/context.svelte";
 import type { AgentSession } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -21,9 +22,9 @@ export interface RecoveryHost {
   forceHandoff: (session: AgentSession) => void;
 }
 
-/** A sniffed session awaiting recovery; `scheduled` once its loop has started. */
-interface RecoveryHit {
-  scheduled: boolean;
+/** A sniffed session awaiting recovery; `isScheduled` once its loop has started. */
+export interface RecoveryHit {
+  isScheduled: boolean;
 }
 
 /** One loop's timers, note and scan over its `hits`. `tick` runs a session's next
@@ -47,7 +48,7 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
   forgetState?: (id: string) => void;
 }) {
   let note = $state("");
-  let disposed = false;
+  let isDisposed = false;
   const timers = new SvelteMap<string, ReturnType<typeof setTimeout>>();
 
   function clearTimer(id: string) {
@@ -76,7 +77,7 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
     session: AgentSession;
     delay: number;
   }) {
-    if (disposed) {
+    if (isDisposed) {
       return;
     }
 
@@ -107,13 +108,13 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
 
     for (const session of host.sessions()) {
       const hit = hits.get(session.id);
-      if (!hit || hit.scheduled) {
+      if (!hit || hit.isScheduled) {
         continue;
       }
 
       hits.set(session.id, {
         ...hit,
-        scheduled: true
+        isScheduled: true
       });
       schedule({
         session,
@@ -123,7 +124,7 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
   }
 
   function dispose() {
-    disposed = true;
+    isDisposed = true;
     for (const timer of timers.values()) {
       clearTimeout(timer);
     }
@@ -140,11 +141,18 @@ export function createRecoveryLoop<Hit extends RecoveryHit>({
       note = text;
     },
     /** Whether the loop was torn down - an in-flight tick must not reschedule. */
-    get disposed() {
-      return disposed;
+    get isDisposed() {
+      return isDisposed;
     },
     /** Whether the session is still open in the app shell. */
     isOpen: (id: string) => host.sessions().some(session => session.id === id),
+    /** Whether the session's context window has room to keep going - true when
+     *  the agent has vouched for no fill yet. Below the handoff threshold, a
+     *  recovery continues the session; at or past it, the session is handed off. */
+    hasContextRoom(id: string) {
+      const percentage = measuredContextPercentage(id);
+      return percentage === null || percentage < host.thresholdPercentage();
+    },
     forget,
     schedule,
     check,
