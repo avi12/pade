@@ -64,13 +64,7 @@
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/terminal/send-shortcut";
   import SendSelectionButton from "@/lib/terminal/SendSelectionButton.svelte";
   import { StartMode, realAgents as toRealAgents, WindowMode } from "@/lib/types";
-  import type {
-    Agent,
-    AgentSession,
-    McpChange,
-    ModelChoice,
-    OpenTarget
-  } from "@/lib/types";
+  import type { Agent, AgentSession, ModelChoice, OpenTarget } from "@/lib/types";
   import type { DragHint } from "@/lib/ui/drag-reorder";
   import Logo from "@/lib/ui/Logo.svelte";
   import { collapsePane } from "@/lib/ui/motion";
@@ -471,10 +465,37 @@
     return () => unlistenSettings?.();
   });
 
-  // Hand off affected agent sessions when the project's MCP servers change.
+  // A project's MCP servers changed (a server added or removed - the backend
+  // fires only on a real membership change, never a value-only edit). Each
+  // affected agent first writes a handoff document, then a fresh instance of the
+  // SAME agent launches from it. The fresh process reads the changed MCP config;
+  // the handoff preserves work that an immediate conversation restart could
+  // interrupt. Worktrees remain scoped to their own config directory.
   let unlistenMcp: (() => void) | undefined;
   async function subscribeToMcpChanges() {
-    unlistenMcp = await onMessage(EventType.mcpChanged, ({ data }) => restartForMcpChange(data));
+    unlistenMcp = await onMessage(EventType.mcpChanged, async ({ data: change }) => {
+      const targets = mcpRestartTargets({
+        sessions,
+        change,
+        currentProject
+      });
+      if (targets.length === 0) {
+        return;
+      }
+
+      if (!change.membershipChanged) {
+        armMcpReloadRecovery(targets.map(target => target.id));
+        showToast("MCP server settings changed - reload them in the agent; PADE will recover if it fails");
+        return;
+      }
+
+      showToast(`MCP servers changed - preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
+      await Promise.all(
+        targets.map(async target => {
+          await autoHandoff.restartForConfiguration(target);
+        })
+      );
+    });
   }
   onMount(() => {
     subscribeToMcpChanges();
@@ -628,12 +649,44 @@
   // agent terminal - new tab, launch menu, close, and next/previous cycling.
   onMount(() =>
     registerTabShortcuts({
-      newTab,
-      launchMenu: openLaunchMenu,
+      // Another tab of the last session's kind (mirrors the "+" button).
+      newTab: () => {
+        if (phase !== Phase.Ready) {
+          return;
+        }
+
+        const agent = sessions.at(-1)?.agent ?? bestAgent;
+        if (agent) {
+          launch({ agent });
+        }
+      },
+      // Open the launch dropdown with the first agent focused, so
+      // Enter fires it and Esc light-dismisses (native popover handles both).
+      launchMenu: () => {
+        if (phase !== Phase.Ready) {
+          return;
+        }
+
+        const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
+        if (!(elMenu instanceof HTMLElement) || elMenu.matches(":popover-open")) {
+          return;
+        }
+
+        elMenu.showPopover();
+        elMenu.querySelector<HTMLButtonElement>("button")?.focus();
+      },
       closeTab: closeActiveTab,
       next: () => stepSession(1),
       previous: () => stepSession(-1),
-      selectTab: selectTabByIndex,
+      // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
+      // The matcher only ever hands back an index that exists, so the guard is
+      // belt-and-suspenders; selection reuses the same make-active path as a click.
+      selectTab: index => {
+        const session = sessions[index];
+        if (session) {
+          selectSession(session.id);
+        }
+      },
       tabCount: () => sessions.length
     }));
 
@@ -875,64 +928,6 @@
     elSlot.addEventListener("animationend", () => (elSlot.style.animation = ""), { once: true });
   }
 
-  // Show an already-running session alongside the current pane(s) - a split-add,
-  // so the newcomer springs in (animatePaneIn).
-  function addPane(id: string) {
-    if (!paneIds.includes(id)) {
-      paneIds = [...paneIds, id];
-      animatePaneIn(id);
-    }
-
-    activeId = id;
-  }
-
-  // Drop a pane from the split - never the last visible one.
-  function removePane(id: string) {
-    if (!isSplit) {
-      return;
-    }
-
-    ({ paneIds, activeId } = layoutWithoutPane({
-      layout: {
-        sessions,
-        paneIds,
-        activeId
-      },
-      id
-    }));
-  }
-
-  // ── Tab keyboard shortcuts (lib/session/tab-shortcuts) ───────────────────────────────
-  // Actions the shortcut layer drives; each is a no-op outside the ready phase.
-
-  // Another tab of the last session's kind (mirrors the "+" button).
-  function newTab() {
-    if (phase !== Phase.Ready) {
-      return;
-    }
-
-    const agent = sessions.at(-1)?.agent ?? bestAgent;
-    if (agent) {
-      launch({ agent });
-    }
-  }
-
-  // Open the launch dropdown with the first agent focused, so
-  // Enter fires it and Esc light-dismisses (native popover handles both).
-  function openLaunchMenu() {
-    if (phase !== Phase.Ready) {
-      return;
-    }
-
-    const elMenu = document.getElementById(ADD_SESSION_MENU_ID);
-    if (!(elMenu instanceof HTMLElement) || elMenu.matches(":popover-open")) {
-      return;
-    }
-
-    elMenu.showPopover();
-    elMenu.querySelector<HTMLButtonElement>("button")?.focus();
-  }
-
   // Ctrl+W / Ctrl+F4 - close the active session.
   function closeActiveTab() {
     if (!activeSession) {
@@ -945,16 +940,6 @@
     }
 
     close(activeSession);
-  }
-
-  // Ctrl+number - jump straight to a tab by position (Ctrl+9 = the last one).
-  // The matcher only ever hands back an index that exists, so the guard is
-  // belt-and-suspenders; selection reuses the same make-active path as a click.
-  function selectTabByIndex(index: number) {
-    const session = sessions[index];
-    if (session) {
-      selectSession(session.id);
-    }
   }
 
   // Ctrl+Tab / Alt+Arrow - cycle the active tab, wrapping at the ends.
@@ -1140,30 +1125,6 @@
     }
   }
 
-  // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
-  async function handleSessionExit(id: string) {
-    const session = sessions.find(candidate => candidate.id === id);
-    if (closingByHand.has(id) || !session) {
-      return;
-    }
-
-    const wasLastSession = sessions.length === 1;
-    const isExitFailedStart = didFailToStart({
-      launchedAt: sessionLaunchedAt.get(id) ?? 0,
-      now: Date.now()
-    });
-    detachSession(id);
-    // Reap the backend record; the child is already gone, so a failure is moot.
-    await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
-
-    if (wasLastSession) {
-      settleEmptyWorkspace({
-        agent: session.agent,
-        isFailedStart: isExitFailedStart
-      });
-    }
-  }
-
   // The workspace's last session just ended (lib/session/session-exit decides what next).
   function settleEmptyWorkspace({ agent, isFailedStart }: {
     agent: Agent;
@@ -1185,36 +1146,6 @@
 
     pendingPrompt = undefined;
     phase = Phase.Onboarding;
-  }
-
-  // A project's MCP servers changed (a server added or removed - the backend
-  // fires only on a real membership change, never a value-only edit). Each
-  // affected agent first writes a handoff document, then a fresh instance of the
-  // SAME agent launches from it. The fresh process reads the changed MCP config;
-  // the handoff preserves work that an immediate conversation restart could
-  // interrupt. Worktrees remain scoped to their own config directory.
-  async function restartForMcpChange(change: McpChange) {
-    const targets = mcpRestartTargets({
-      sessions,
-      change,
-      currentProject
-    });
-    if (targets.length === 0) {
-      return;
-    }
-
-    if (!change.membershipChanged) {
-      armMcpReloadRecovery(targets.map(target => target.id));
-      showToast("MCP server settings changed - reload them in the agent; PADE will recover if it fails");
-      return;
-    }
-
-    showToast(`MCP servers changed - preparing ${targets.length === 1 ? "an agent handoff" : `${targets.length} agent handoffs`}`);
-    await Promise.all(
-      targets.map(async target => {
-        await autoHandoff.restartForConfiguration(target);
-      })
-    );
   }
 
   // Kill the targets and re-key them to fresh ids in place - each terminal
@@ -1285,35 +1216,6 @@
     } : session);
   }
 
-  // Clear the recent-projects history from the switcher (pins survive).
-  async function clearRecentProjects() {
-    await sendSettingsMessage(Command.workspaceClearRecent);
-  }
-  // Pin/unpin a project from the switcher; the settings request adopts the response.
-  async function toggleProjectPin(target: {
-    path: string;
-    pinned: boolean;
-  }) {
-    await sendSettingsMessage(Command.workspaceSetPinned, target);
-  }
-  // Forget a project from the switcher's lists (folder untouched).
-  async function removeRecentProject(projectPath: string) {
-    await sendSettingsMessage(Command.workspaceRemoveRecent, { path: projectPath });
-  }
-  // Persist a drag-reordered pin order from the switcher.
-  async function reorderPins(paths: string[]) {
-    await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
-  }
-
-  // "Delete directory" from the switcher - a destructive removal of a real
-  // project's folder. The switcher owns the confirmation UI (so it stays open and
-  // animates the row out); here we just release the folder (killing any session
-  // holding it) and delete it, letting the refreshed settings flow back. Rejects
-  // with its message so the switcher can surface it in the still-open prompt.
-  async function deleteDirectory(projectPath: string) {
-    await relocator.removeDirectory(projectPath);
-  }
-
   function switchToPicker() {
     document.startViewTransition(async () => {
       phase = Phase.Project;
@@ -1330,16 +1232,6 @@
     currentBranch = "";
     pendingPrompt = undefined;
     sendMessage(Command.windowRegisterProject, { path: "" });
-  }
-
-  // "Switch project" - a DELIBERATE leave to the picker. The project's agents
-  // and task runners do not idle invisibly behind it: runners stop immediately,
-  // then agents are killed once they reach an idle prompt.
-  async function leaveToPicker() {
-    await runExclusiveLeave(async () => {
-      await closeWorkspaceGracefully();
-      returnToPicker();
-    });
   }
 
   // Hand the project back and show the picker. Every caller has already
@@ -1632,12 +1524,28 @@
               path: rootPath,
               create: false
             })}
-            onclearrecent={clearRecentProjects}
-            ondelete={deleteDirectory}
+            onclearrecent={async () => {
+              // Clear the recent-projects history (pins survive).
+              await sendSettingsMessage(Command.workspaceClearRecent);
+            }}
+            ondelete={async projectPath => {
+              // "Delete directory" - a destructive removal of a real project's
+              // folder. The switcher owns the confirmation UI (so it stays open and
+              // animates the row out); here we just release the folder (killing
+              // any session holding it) and delete it, letting the refreshed
+              // settings flow back. Rejects with its message so the switcher can
+              // surface it in the still-open prompt.
+              await relocator.removeDirectory(projectPath);
+            }}
             onopen={projectPath => openProject({ path: projectPath })}
-            onremoverecent={removeRecentProject}
+            onremoverecent={async projectPath => {
+              // Forget a project from the switcher's lists (folder untouched).
+              await sendSettingsMessage(Command.workspaceRemoveRecent, { path: projectPath });
+            }}
             onrenamefolder={relocator.renameFolder}
-            onreorderpins={reorderPins}
+            onreorderpins={async paths => {
+              await sendSettingsMessage(Command.workspaceSetPinnedOrder, { paths });
+            }}
             onsavetemp={async ({ name, root }) => await saveTempWorkspace({
               name,
               root,
@@ -1651,8 +1559,20 @@
                 closeSessions
               }
             })}
-            onswitch={leaveToPicker}
-            ontogglepin={toggleProjectPin}
+            onswitch={async () => {
+              // "Switch project" - a DELIBERATE leave to the picker. The project's
+              // agents and task runners do not idle invisibly behind it: runners
+              // stop immediately, then agents are killed once they reach an idle
+              // prompt.
+              await runExclusiveLeave(async () => {
+                await closeWorkspaceGracefully();
+                returnToPicker();
+              });
+            }}
+            ontogglepin={async target => {
+              // The settings request adopts the response.
+              await sendSettingsMessage(Command.workspaceSetPinned, target);
+            }}
             path={currentProject}
             pinnedProjects={settings.pinnedProjects}
             recentProjects={settings.recentProjects}
@@ -1828,7 +1748,29 @@
                     isRemovable={isSplit && paneIds.includes(session.id)}
                     isShown={paneIds.includes(session.id)}
                     ondraghint={hint => (isPaneDragOverTabs = hint?.isOutside === true)}
-                    onexit={handleSessionExit}
+                    onexit={async id => {
+                      // The PTY exited on its own - e.g. the user pressed Ctrl-C to quit the agent.
+                      const exited = sessions.find(candidate => candidate.id === id);
+                      if (closingByHand.has(id) || !exited) {
+                        return;
+                      }
+
+                      const wasLastSession = sessions.length === 1;
+                      const isExitFailedStart = didFailToStart({
+                        launchedAt: sessionLaunchedAt.get(id) ?? 0,
+                        now: Date.now()
+                      });
+                      detachSession(id);
+                      // Reap the backend record; the child is already gone, so a failure is moot.
+                      await Promise.allSettled([sendMessage(Command.ptyKill, { id })]);
+
+                      if (wasLastSession) {
+                        settleEmptyWorkspace({
+                          agent: exited.agent,
+                          isFailedStart: isExitFailedStart
+                        });
+                      }
+                    }}
                     onpopout={() => {
                       // The pane header was dragged onto the tab strip: pop it out
                       // of the split into its own tab, shown fullscreen and active
@@ -1838,7 +1780,21 @@
                         selectSession(session.id);
                       }
                     }}
-                    onremove={() => removePane(session.id)}
+                    onremove={() => {
+                      // Drop a pane from the split - never the last visible one.
+                      if (!isSplit) {
+                        return;
+                      }
+
+                      ({ paneIds, activeId } = layoutWithoutPane({
+                        layout: {
+                          sessions,
+                          paneIds,
+                          activeId
+                        },
+                        id: session.id
+                      }));
+                    }}
                     onreorder={ids => (paneIds = ids)}
                     {session}
                   />
@@ -1862,7 +1818,16 @@
                   <li>
                     <button
                       class="menu-item"
-                      onclick={() => addPane(session.id)}
+                      onclick={() => {
+                        // Show an already-running session alongside the current
+                        // pane(s) - a split-add, so the newcomer springs in.
+                        if (!paneIds.includes(session.id)) {
+                          paneIds = [...paneIds, session.id];
+                          animatePaneIn(session.id);
+                        }
+
+                        activeId = session.id;
+                      }}
                       popovertarget="pane-menu"
                       popovertargetaction="hide"
                     >
