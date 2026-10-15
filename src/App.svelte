@@ -30,6 +30,7 @@
   import ShellToast from "@/lib/shell/ShellToast.svelte";
   import { Side } from "@/lib/shell/side-panels";
   import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
+  import { windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
   import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
   import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
@@ -70,7 +71,6 @@
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
-  import { FolderPath, parseInput } from "@/lib/validate";
   import { saveTempWorkspace } from "@/lib/workspace/save-temp-workspace";
   import { createRelocator } from "@/lib/workspace/workspace-relocate";
   import Onboarding from "@/panels/Onboarding.svelte";
@@ -189,11 +189,30 @@
 
     // A spawned window carries a `w=` query that overrides the normal cold-start.
     // The plain main window (no query) keeps today's launch_context behavior.
-    if (await routeFromQuery(new URLSearchParams(location.search))) {
+    if (await routeFromAddress()) {
       return;
     }
 
     await bootFromLaunchContext();
+  }
+
+  // Boot a spawned window from its `w=` address (lib/shell/window-route). Returns
+  // true when it handled the launch, so the launch_context path is skipped.
+  async function routeFromAddress() {
+    const route = windowRouteFor(location.search);
+    if (route.kind === WindowRoute.LaunchContext) {
+      return false;
+    }
+
+    if (route.kind === WindowRoute.Temp) {
+      await startInTempWorkspace();
+    } else if (route.kind === WindowRoute.Picker) {
+      phase = Phase.Project;
+    } else {
+      await openProject({ path: route.path });
+    }
+
+    return true;
   }
 
   async function bootFromLaunchContext() {
@@ -222,37 +241,6 @@
       path: await sendMessage(Command.workspaceTemp),
       isNewProject: true
     });
-  }
-
-  // Boot a spawned window from its `w=` query. Returns true when it handled the
-  // launch (so the default launch_context path is skipped), false otherwise.
-  async function routeFromQuery(query: URLSearchParams) {
-    const mode = query.get("w");
-    if (mode === WindowMode.enum.temp) {
-      await startInTempWorkspace();
-      return true;
-    }
-
-    if (mode === WindowMode.enum.empty) {
-      phase = Phase.Project;
-      return true;
-    }
-
-    if (mode !== WindowMode.enum.open) {
-      return false;
-    }
-
-    // query.get("path") is a trust boundary - validate before opening.
-    const path = parseInput({
-      schema: FolderPath,
-      raw: query.get("path")
-    });
-    if (!path) {
-      return false;
-    }
-
-    await openProject({ path });
-    return true;
   }
 
   // Re-attach the live sessions an accidental reload orphaned. The snapshot
@@ -324,9 +312,7 @@
       return;
     }
 
-    const query = currentProject === ""
-      ? `?w=${WindowMode.enum.empty}`
-      : `?w=${WindowMode.enum.open}&path=${encodeURIComponent(currentProject)}`;
+    const query = windowQueryFor(currentProject);
     if (location.search !== query) {
       history.replaceState(null, "", query);
     }
