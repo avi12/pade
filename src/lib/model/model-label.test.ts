@@ -2,10 +2,47 @@ import {
   bareModel,
   effortStep,
   effortTone,
+  lowerEffort,
   modelLabel,
   modelName
 } from "@/lib/model/model-label";
 import { describe, expect, it } from "vitest";
+
+describe("lowerEffort", () => {
+  it("steps one level down the model's own ladder", () => {
+    expect(
+      lowerEffort({
+        model: "claude-opus-5-5",
+        effort: "high",
+        ladder: ["low", "medium", "high"]
+      })
+    ).toBe("medium");
+  });
+
+  it("falls back to the family's ladder", () => {
+    expect(
+      lowerEffort({
+        model: "gpt-5.6-sol",
+        effort: "low"
+      })
+    ).toBe("minimal");
+  });
+
+  it("has nowhere lower to go at the bottom or for an unknown level", () => {
+    expect(
+      lowerEffort({
+        model: "claude-opus-5-5",
+        effort: "low"
+      })
+    ).toBeNull();
+    expect(
+      lowerEffort({
+        model: "claude-opus-5-5",
+        effort: "turbo"
+      })
+    ).toBeNull();
+  });
+});
 
 describe("bareModel", () => {
   it("drops the provider prefix and the context variant", () => {

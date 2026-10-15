@@ -66,6 +66,28 @@ export function effortStep({ model, effort, ladder = [] }: {
   effort: string;
   ladder?: readonly string[];
 }) {
+  const found = effortOnLadder({
+    model,
+    effort,
+    ladder
+  });
+  if (found === null) {
+    return null;
+  }
+
+  return {
+    step: found.iEffort + 1,
+    steps: found.ladder.length
+  };
+}
+
+/** The ladder an effort level sits on, and where - the model's own ladder when
+ *  known, else its family's. Null for a level no ladder knows. */
+function effortOnLadder({ model, effort, ladder }: {
+  model: string;
+  effort: string;
+  ladder: readonly string[];
+}) {
   const isClaudeModel = bareModel(model).startsWith(CLAUDE_PREFIX);
   const familyLadders: readonly (readonly string[])[] = isClaudeModel
     ? [CLAUDE_EFFORT_LADDER, OPENAI_EFFORT_LADDER]
@@ -76,13 +98,32 @@ export function effortStep({ model, effort, ladder = [] }: {
     const iEffort = candidate.indexOf(effort.toLowerCase());
     if (iEffort !== NOT_FOUND) {
       return {
-        step: iEffort + 1,
-        steps: candidate.length
+        ladder: candidate,
+        iEffort
       };
     }
   }
 
   return null;
+}
+
+/** The effort level one step below `effort` on its ladder, or null at the
+ *  bottom or for a level no ladder knows. */
+export function lowerEffort({ model, effort, ladder = [] }: {
+  model: string;
+  effort: string;
+  ladder?: readonly string[];
+}) {
+  const found = effortOnLadder({
+    model,
+    effort,
+    ladder
+  });
+  if (found === null || found.iEffort === 0) {
+    return null;
+  }
+
+  return found.ladder[found.iEffort - 1];
 }
 
 /** How many distinct effort colours the theme defines (`--effort-tone-1..5`). */
