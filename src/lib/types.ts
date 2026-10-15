@@ -232,13 +232,15 @@ export type TaskGroup = z.infer<typeof TaskGroup>;
  *  (`package.json`) or an extension (`.csproj`). The panel lists these in its
  *  empty state, and the catalog matches a changed path against them the same
  *  way the backend matches a directory entry. */
+const ManifestMatch = z.enum(["name", "extension"]);
+
 export const TaskManifestDescriptor = z.discriminatedUnion("match", [
   z.object({
-    match: z.literal("name"),
+    match: z.literal(ManifestMatch.enum.name),
     value: z.string().min(1)
   }),
   z.object({
-    match: z.literal("extension"),
+    match: z.literal(ManifestMatch.enum.extension),
     value: z.string().min(1)
   })
 ]);
@@ -450,7 +452,6 @@ export type TerminalSchemeChoice = z.infer<typeof TerminalSchemeChoice>;
 export const DiffStyle = z.enum(["unified", "split"]);
 export type DiffStyle = z.infer<typeof DiffStyle>;
 
-/** Appearance & editor preferences. All optional - `null`/absent = use default. */
 export const StartMode = z.enum(["temp", "picker"]);
 export type StartMode = z.infer<typeof StartMode>;
 
@@ -466,6 +467,7 @@ export const ModelChoice = z.object({
 });
 export type ModelChoice = z.infer<typeof ModelChoice>;
 
+/** Appearance & editor preferences. All optional - `null`/absent = use default. */
 const Prefs = z.object({
   uiFont: z.string().nullish(),
   monoFont: z.string().nullish(),

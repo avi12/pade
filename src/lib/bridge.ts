@@ -637,7 +637,7 @@ export const usage = {
 /** Agent config channel - reads the CLI's own config files, never shadows them. */
 export const config = {
   list: (agent: string) => call("config_list", z.array(ConfigFile), { agent }),
-  read: (rel: string) => call("config_read", z.string(), { rel })
+  read: (relativePath: string) => call("config_read", z.string(), { rel: relativePath })
 };
 
 /** Terminal appearance - the Windows Terminal colour schemes PADE can paint its
