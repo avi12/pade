@@ -505,7 +505,8 @@ flowchart LR
 | `src/lib/code/highlight.ts` | Dependency-free syntax highlighting for code/config/diff viewers | viewers |
 | `src/lib/code/colors.ts` | Color-token detection + `var()` tracing for swatches | `ColorText`, viewers |
 | `src/lib/code/ColorText.svelte` | A snippet with lightweight syntax colouring (`highlight`) and a colour swatch after every colour value | `highlight`, `colors` |
-| `src/lib/code/markdown.ts` | A focused CommonMark-subset renderer (markdown to a safe HTML fragment) plus `markdownDocument`, the sandbox-ready document the feed's Preview iframe shows | `ChangeFeed` |
+| `src/lib/code/markdown.ts` | A focused CommonMark-subset renderer (markdown to a safe HTML fragment) plus `markdownDocument`, the sandbox-ready document a Preview iframe shows | `ChangeFeed`, `ConfigPanel` |
+| `src/lib/code/SandboxedPreview.svelte` | The one Preview iframe: a rendered markdown/HTML document in a sandbox with no scripts and an opaque origin, inline through `srcdoc`, `--preview-height` tall | `ChangeFeed`, `ConfigPanel` |
 
 ### Version control (`src/lib/vcs/`)
 

@@ -2,6 +2,8 @@
   import { globalNaming, projectNamingChoice, withProjectNamingChoice } from "@/lib/agent/ai-naming-scope";
   import { collectVars } from "@/lib/code/colors";
   import ColorText from "@/lib/code/ColorText.svelte";
+  import { markdownDocument } from "@/lib/code/markdown";
+  import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
   import { isMarkdownPath } from "@/lib/feed/preview";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
@@ -167,6 +169,27 @@
   let content = $state("");
   // Trace var(--x) swatches against the file's own token definitions first.
   const fileVars = $derived(collectVars(content));
+
+  // A markdown file reads as its source or rendered; the pick holds as the user
+  // moves between files.
+  const ViewerPane = {
+    Source: "source",
+    Preview: "preview"
+  } as const;
+  type ViewerPane = (typeof ViewerPane)[keyof typeof ViewerPane];
+  const viewerPanes = [
+    {
+      value: ViewerPane.Source,
+      label: "Source"
+    },
+    {
+      value: ViewerPane.Preview,
+      label: "Preview"
+    }
+  ] as const;
+  let viewerPane = $state<ViewerPane>(ViewerPane.Source);
+  const isMarkdownFile = $derived(isMarkdownPath(selected?.rel ?? ""));
+  const isShowingPreview = $derived(isMarkdownFile && viewerPane === ViewerPane.Preview);
 
   async function open(file: ConfigFile) {
     if (!file.exists) {
@@ -422,13 +445,29 @@
     {/each}
 
     <section class="viewer">
-      <div class="card">
-        <h3 class:placeholder={!selected}>{selected?.rel ?? "Select a file to view"}</h3>
-        <pre class="body"><ColorText
-            markdown={isMarkdownPath(selected?.rel ?? "")}
-            text={content}
-            vars={fileVars}
-          /></pre>
+      <div class="frame">
+        <div class="frame-header">
+          <h3 class:placeholder={!selected}>{selected?.rel ?? "Select a file to view"}</h3>
+          {#if isMarkdownFile}
+            <Segmented
+              chosen={viewerPane}
+              label="Show the file as"
+              onchoose={pane => {
+                viewerPane = pane;
+              }}
+              options={viewerPanes}
+            />
+          {/if}
+        </div>
+        {#if isShowingPreview}
+          <SandboxedPreview document={markdownDocument(content)} title="Preview of {selected?.rel}" />
+        {:else}
+          <pre class="body"><ColorText
+              markdown={isMarkdownFile}
+              text={content}
+              vars={fileVars}
+            /></pre>
+        {/if}
       </div>
       <p class="note">Read-only in the MVP - edits will write back to this same file</p>
     </section>
@@ -839,21 +878,35 @@
     gap: 2px;
     margin-block-start: 6px;
 
-    .card {
+    .frame {
+      --preview-height: 280px;
+
       overflow: hidden;
       border: 1px solid var(--outline);
       border-radius: var(--radius-medium);
     }
 
-    h3 {
-      margin: 0;
-      padding-block: 8px;
-      padding-inline: 12px;
+    .frame-header {
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      align-items: center;
+      padding-block: 4px;
+      padding-inline: 12px 4px;
       background: var(--surface-2);
+    }
+
+    h3 {
+      overflow: hidden;
+      min-inline-size: 0;
+      margin: 0;
+      padding-block: 4px;
       color: var(--on-surface);
       font-family: var(--font-monospace);
       font-weight: 600;
       font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .placeholder {
