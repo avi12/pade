@@ -550,7 +550,7 @@ pub async fn workspace_scan(root: String) -> Result<Vec<ProjectEntry>, String> {
             path: path.to_string_lossy().into_owned(),
         })
         .collect();
-    entries.sort_by_key(|entry| entry.name.to_lowercase());
+    entries.sort_by_cached_key(|entry| entry.name.to_lowercase());
     Ok(entries)
 }
 
@@ -604,17 +604,20 @@ fn directory_completions(parent: &Path, prefix: &str) -> Vec<String> {
         return Vec::new();
     };
     let needle = prefix.to_lowercase();
-    let leaf_lower = |path: &Path| {
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .to_lowercase()
-    };
+    // The name test runs first so only matching entries pay for the stat.
     entries
         .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir() && leaf_lower(path).starts_with(&needle))
-        .map(|path| (leaf_lower(&path), path))
+        .filter_map(|entry| {
+            let lowercase_leaf = entry
+                .file_name()
+                .to_str()
+                .unwrap_or_default()
+                .to_lowercase();
+            lowercase_leaf
+                .starts_with(&needle)
+                .then(|| (lowercase_leaf, entry.path()))
+        })
+        .filter(|(_, path)| path.is_dir())
         .collect::<BTreeMap<String, PathBuf>>()
         .into_values()
         .take(SUGGESTION_LIMIT)
@@ -643,22 +646,32 @@ pub async fn workspace_probe_path(path: String) -> PathProbe {
 /// A path directly under the config `.../workspaces/temp-*` is one ADE created,
 /// even if predating the `owned_workspaces` list.
 fn is_temp_workspace(path: &str) -> bool {
-    let target = Path::new(path);
-    let has_temp_name = target
+    has_temp_workspace_name(path)
+        && canonical_workspaces_directory()
+            .is_some_and(|workspaces| is_temp_workspace_in(path, &workspaces))
+}
+
+fn has_temp_workspace_name(path: &str) -> bool {
+    Path::new(path)
         .file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with(TEMP_WORKSPACE_PREFIX));
-    if !has_temp_name {
-        return false;
-    }
+        .is_some_and(|name| name.starts_with(TEMP_WORKSPACE_PREFIX))
+}
 
-    let Ok(workspaces) = workspaces_directory() else {
-        return false;
-    };
-    std::fs::canonicalize(target)
+/// The temp-workspace directory, resolved through the filesystem so a
+/// candidate's canonical parent can be compared against it.
+fn canonical_workspaces_directory() -> Option<PathBuf> {
+    workspaces_directory()
         .ok()
-        .zip(std::fs::canonicalize(workspaces).ok())
-        .is_some_and(|(target, parent)| target.parent() == Some(parent.as_path()))
+        .and_then(|workspaces| std::fs::canonicalize(workspaces).ok())
+}
+
+/// [`is_temp_workspace`] against an already-resolved workspaces directory, so a
+/// sweep over many folders resolves it once.
+fn is_temp_workspace_in(path: &str, canonical_workspaces: &Path) -> bool {
+    has_temp_workspace_name(path)
+        && std::fs::canonicalize(path)
+            .is_ok_and(|target| target.parent() == Some(canonical_workspaces))
 }
 
 /// May ADE rename/move/delete this path? Only its own workspaces - never a real
@@ -736,11 +749,14 @@ fn temp_workspaces_on_disk() -> Vec<String> {
     else {
         return Vec::new();
     };
+    let Some(canonical_workspaces) = canonical_workspaces_directory() else {
+        return Vec::new();
+    };
     entries
         .flatten()
         .filter(|entry| entry.path().is_dir())
         .map(|entry| canonical_path(&entry.path().to_string_lossy()))
-        .filter(|path| is_temp_workspace(path))
+        .filter(|path| is_temp_workspace_in(path, &canonical_workspaces))
         .collect()
 }
 
@@ -1536,9 +1552,9 @@ pub fn set_prefs(patch: serde_json::Map<String, serde_json::Value>) -> Result<Se
 mod tests {
     use super::{
         apply_label, apply_prefs_patch, canonical_dedup, canonical_path,
-        copy_tree_skipping_dependencies, expired_temps, manual_label, retry_through_sharing_race,
-        validated_child_path, LabelSource, Prefs, Settings, SettingsRepository,
-        MILLISECONDS_PER_DAY,
+        copy_tree_skipping_dependencies, expired_temps, is_temp_workspace_in, manual_label,
+        retry_through_sharing_race, validated_child_path, LabelSource, Prefs, Settings,
+        SettingsRepository, MILLISECONDS_PER_DAY,
     };
     use crate::test_support::assert_empty;
     use std::collections::BTreeMap;
@@ -1727,6 +1743,28 @@ mod tests {
         for name in ["COM0", "COM10", "console", "LPT", "auxiliary"] {
             assert!(validated_child_path(root, name).is_ok(), "refused {name}");
         }
+    }
+
+    #[test]
+    fn only_a_temp_named_folder_directly_inside_the_workspaces_directory_is_temp() {
+        let scratch = std::env::temp_dir().join(format!("pade-temp-check-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let workspaces = scratch.join("workspaces");
+        for folder in ["temp-1", "project", "temp-2/temp-3"] {
+            std::fs::create_dir_all(workspaces.join(folder)).expect("create folder");
+        }
+        std::fs::create_dir_all(scratch.join("elsewhere").join("temp-4")).expect("create folder");
+        let canonical = std::fs::canonicalize(&workspaces).expect("canonical workspaces");
+        let is_temp = |relative: &str| {
+            is_temp_workspace_in(&scratch.join(relative).to_string_lossy(), &canonical)
+        };
+
+        assert!(is_temp("workspaces/temp-1"));
+        assert!(!is_temp("workspaces/project"));
+        assert!(!is_temp("workspaces/temp-2/temp-3"));
+        assert!(!is_temp("elsewhere/temp-4"));
+        assert!(!is_temp("workspaces/temp-missing"));
+        std::fs::remove_dir_all(scratch).expect("scratch cleanup");
     }
 
     #[test]
