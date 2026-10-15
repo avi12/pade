@@ -1,5 +1,5 @@
 import type { ConfigFile } from "@/lib/types";
-import { isListedConfigFile } from "@/panels/config/config-files";
+import { isListedConfigFile } from "@/panels/config/files/config-files";
 import { describe, expect, it } from "vitest";
 
 const FILES: ConfigFile[] = [

@@ -1,14 +1,14 @@
 <script lang="ts">
   import { setPanelHeader } from "@/lib/stores/ui/sidePanel.svelte";
   import type { Agent } from "@/lib/types";
-  import AgentModelDefaults from "@/panels/config/AgentModelDefaults.svelte";
-  import AppearanceSettings from "@/panels/config/AppearanceSettings.svelte";
+  import AppearanceSettings from "@/panels/config/appearance/AppearanceSettings.svelte";
   import DiscordSettings from "@/panels/config/DiscordSettings.svelte";
+  import ProjectFiles from "@/panels/config/files/ProjectFiles.svelte";
+  import AgentModelDefaults from "@/panels/config/models/AgentModelDefaults.svelte";
+  import UsagePacingSettings from "@/panels/config/pacing/UsagePacingSettings.svelte";
   import PerformanceSettings from "@/panels/config/PerformanceSettings.svelte";
-  import ProjectFiles from "@/panels/config/ProjectFiles.svelte";
   import SessionTabsSettings from "@/panels/config/SessionTabsSettings.svelte";
   import SettingsCard from "@/panels/config/SettingsCard.svelte";
-  import UsagePacingSettings from "@/panels/config/UsagePacingSettings.svelte";
 
   // Only the config files relevant to the active agent are listed. `project` is
   // what scopes the per-project settings below to this window's workspace.

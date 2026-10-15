@@ -2,8 +2,8 @@
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import type { ConfigFile } from "@/lib/types";
   import { settledValue } from "@/lib/util/settled";
-  import { isListedConfigFile } from "@/panels/config/config-files";
-  import ConfigFileViewer from "@/panels/config/ConfigFileViewer.svelte";
+  import { isListedConfigFile } from "@/panels/config/files/config-files";
+  import ConfigFileViewer from "@/panels/config/files/ConfigFileViewer.svelte";
   import SectionLabel from "@/panels/config/SectionLabel.svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";

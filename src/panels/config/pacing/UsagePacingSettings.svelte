@@ -10,8 +10,8 @@
     pacingPreset,
     withPreset
   } from "@/lib/usage/pacing-policy";
-  import PacingForecast from "@/panels/config/PacingForecast.svelte";
-  import PacingSteps from "@/panels/config/PacingSteps.svelte";
+  import PacingForecast from "@/panels/config/pacing/PacingForecast.svelte";
+  import PacingSteps from "@/panels/config/pacing/PacingSteps.svelte";
 
   // Usage pacing's settings (lib/usage/pacing-policy): a strength preset that
   // sets every step at once, when to act, a live line for the active agent, and

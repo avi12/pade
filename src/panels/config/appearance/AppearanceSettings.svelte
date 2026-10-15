@@ -3,10 +3,10 @@
   import { chooseThemeMode, effective } from "@/lib/settings/prefs.svelte";
   import { ThemeMode } from "@/lib/types";
   import Segmented from "@/lib/ui/Segmented.svelte";
-  import FontSizeStepper from "@/panels/config/FontSizeStepper.svelte";
-  import HandoffThreshold from "@/panels/config/HandoffThreshold.svelte";
-  import TerminalColours from "@/panels/config/TerminalColours.svelte";
-  import TerminalFontPicker from "@/panels/config/TerminalFontPicker.svelte";
+  import FontSizeStepper from "@/panels/config/appearance/FontSizeStepper.svelte";
+  import HandoffThreshold from "@/panels/config/appearance/HandoffThreshold.svelte";
+  import TerminalColours from "@/panels/config/appearance/TerminalColours.svelte";
+  import TerminalFontPicker from "@/panels/config/appearance/TerminalFontPicker.svelte";
 
   // The Appearance card's fields: theme mode, terminal font and colours, UI zoom
   // and the handoff threshold - each bound to a persisted pref via updatePrefs
