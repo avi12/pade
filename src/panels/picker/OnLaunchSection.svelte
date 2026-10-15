@@ -1,17 +1,15 @@
 <script lang="ts">
   import { globalNaming } from "@/lib/agent/ai-naming-scope";
-  import Icon from "@/lib/Icon.svelte";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
   import { rovingTablist } from "@/lib/ui/roving-tabs";
-  import { onMount } from "svelte";
+  import ExplorerContextMenuToggle from "@/panels/picker/ExplorerContextMenuToggle.svelte";
+  import ToggleRow from "@/panels/picker/ToggleRow.svelte";
 
   // "On launch" preferences: the no-project start mode, unused-temp cleanup,
   // temp auto-naming, and the Windows Explorer "Open in PADE" context-menu
   // toggle. Pref persistence reaches shared settings through the parent; the
-  // context-menu toggle is self-contained (per-user registry via the bridge, no
-  // settings involved).
+  // context-menu toggle is self-contained (ExplorerContextMenuToggle).
   const { prefs, onstartmode, ontempcleanup, onautoname, onainaming }: {
     prefs: Prefs;
     onstartmode: (mode: StartMode) => void;
@@ -24,41 +22,6 @@
   const tempCleanupDays = $derived(prefs.tempCleanupDays ?? null);
   const autoName = $derived(prefs.autoNameTemp !== false);
   const aiNaming = $derived(globalNaming(prefs));
-
-  // Explorer "Open in PADE" folder context menu (Windows-only, per-user).
-  // `null` until the registry answers - the row waits for it so the checkbox
-  // is born showing the real state instead of flipping a beat after paint.
-  const isWindows = navigator.userAgent.includes("Windows");
-  let ctxMenuOn = $state<boolean | null>(null);
-  // Surfaced when registering the modern (Win11) menu fails - typically because
-  // Developer Mode is off. The legacy menu still gets added in that case.
-  let contextMenuError = $state("");
-  async function loadContextMenu() {
-    if (isWindows) {
-      ctxMenuOn = await sendMessage(Command.contextMenuStatus);
-    }
-  }
-
-  // Registering the Explorer menu can fail where the others cannot (the modern
-  // Win11 entry needs Developer Mode), so this row reports back instead of just
-  // flipping - and always re-reads the registry, which is the real answer.
-  async function setContextMenu(on: boolean) {
-    contextMenuError = "";
-    try {
-      if (on) {
-        await sendMessage(Command.contextMenuRegister);
-      } else {
-        await sendMessage(Command.contextMenuUnregister);
-      }
-    } catch (caughtError) {
-      contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
-    }
-
-    ctxMenuOn = await sendMessage(Command.contextMenuStatus);
-  }
-  onMount(() => {
-    loadContextMenu();
-  });
 </script>
 
 <section class="onlaunch">
@@ -99,27 +62,14 @@
       {/each}
     </div>
   </div>
-  <!-- One home for this section's checkbox row: the box chrome, the tick and the
-       caption, so a new toggle is a line of markup rather than a fourth copy. -->
-  {#snippet toggleRow(checked: boolean, onchange: (on: boolean) => void, caption: string)}
-    <label class="check">
-      <span class="checkbox">
-        <input {checked} onchange={e => onchange(e.currentTarget.checked)} type="checkbox" />
-        <span class="box" aria-hidden="true"><Icon name="check" /></span>
-      </span>
-      <span>{caption}</span>
-    </label>
-  {/snippet}
-
-  {@render toggleRow(autoName, onautoname, "Auto-name temp workspaces once the agent starts working")}
-  {@render toggleRow(aiNaming, onainaming, "Name session tabs with AI, in every project")}
+  <ToggleRow
+    caption="Auto-name temp workspaces once the agent starts working"
+    checked={autoName}
+    onchange={onautoname}
+  />
+  <ToggleRow caption="Name session tabs with AI, in every project" checked={aiNaming} onchange={onainaming} />
   <p class="scope-hint">A single project can opt in or out of this in its Config panel</p>
-  {#if isWindows && ctxMenuOn !== null}
-    {@render toggleRow(ctxMenuOn, setContextMenu, "Add “Open in PADE” to the folder right-click menu")}
-    {#if contextMenuError}
-      <p class="context-menu-error" role="alert">{contextMenuError}</p>
-    {/if}
-  {/if}
+  <ExplorerContextMenuToggle />
 </section>
 
 <style>
@@ -142,14 +92,6 @@
     font-size: 13px;
   }
 
-  .check {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    font-size: 13px;
-    cursor: pointer;
-  }
-
   /* Sits under the checkbox it qualifies, indented past the box so it reads as
      that row's footnote rather than a fourth setting. */
   .scope-hint {
@@ -157,18 +99,5 @@
     margin-inline-start: 30px;
     color: var(--on-surface-variant);
     font-size: 12px;
-  }
-
-  /* Modern-menu registration failure (e.g. Developer Mode off). A tonal warning
-     surface rather than a hard border, per M3. */
-  .context-menu-error {
-    margin-block: 2px 0;
-    margin-inline-start: 30px;
-    padding: 8px 12px;
-    border-radius: 12px;
-    background: var(--warning-wash);
-    color: var(--warning);
-    font-size: 12px;
-    line-height: 1.4;
   }
 </style>

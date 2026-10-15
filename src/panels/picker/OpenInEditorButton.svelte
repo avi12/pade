@@ -22,31 +22,6 @@
   // it (disabled + dimmed) so the ~second `ide_suggest` takes doesn't read as a
   // dead click, and a second click can't stack another lookup.
   let isBusy = $state(false);
-
-  async function openInEditor() {
-    if (isBusy) {
-      return;
-    }
-
-    isBusy = true;
-    try {
-      await refreshEditors(path);
-      const editor = windowedEditorFor({
-        path,
-        fallback: ides
-      });
-      if (!editor) {
-        return;
-      }
-
-      await sendMessage(Command.ideOpen, {
-        command: editor.command,
-        path
-      });
-    } finally {
-      isBusy = false;
-    }
-  }
 </script>
 
 {#if hasGuiEditor}
@@ -56,7 +31,30 @@
     aria-label={`Open ${name} in editor`}
     data-tooltip="Open in editor"
     disabled={isBusy}
-    onclick={openInEditor}
+    onclick={async () => {
+      if (isBusy) {
+        return;
+      }
+
+      isBusy = true;
+      try {
+        await refreshEditors(path);
+        const editor = windowedEditorFor({
+          path,
+          fallback: ides
+        });
+        if (!editor) {
+          return;
+        }
+
+        await sendMessage(Command.ideOpen, {
+          command: editor.command,
+          path
+        });
+      } finally {
+        isBusy = false;
+      }
+    }}
   ><Icon name="code" size={16} /></button>
 {/if}
 
