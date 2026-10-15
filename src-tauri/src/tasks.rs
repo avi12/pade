@@ -8,6 +8,7 @@
 //! premake, scons, qmake, dotnet, msbuild, go, gradle and maven.
 //! Read-only; nothing is executed here - the UI opens a terminal.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -74,9 +75,16 @@ pub enum TaskManifestDescriptor {
 
 /// List every runnable task in `cwd`, grouped by manifest. The caller supplies
 /// the window's workspace because multiple PADE windows share one process.
+/// The tree walk and manifest reads run on the blocking pool, off the async
+/// workers.
 #[tauri::command]
 pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
-    let root = PathBuf::from(cwd);
+    tauri::async_runtime::spawn_blocking(move || list_tasks(&PathBuf::from(cwd)))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn list_tasks(root: &Path) -> Result<Vec<TaskGroup>, String> {
     if !root.is_dir() {
         return Err(format!(
             "task workspace is not a directory: {}",
@@ -84,8 +92,8 @@ pub async fn tasks_list(cwd: String) -> Result<Vec<TaskGroup>, String> {
         ));
     }
     let mut groups = Vec::new();
-    for directory in manifest_directories(&root) {
-        collect_group(&root, &directory, &mut groups);
+    for directory in manifest_directories(root) {
+        collect_group(root, &directory, &mut groups);
     }
     Ok(groups)
 }
@@ -308,11 +316,18 @@ fn collect_group(root: &Path, directory: &Path, groups: &mut Vec<TaskGroup>) {
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .collect();
     file_names.sort();
+    // Lowercased once per file, not once per file per registry row.
+    let lowercase_names: Vec<String> = file_names
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect();
     for definition in MANIFESTS {
-        for file_name in file_names
+        let matching_names = file_names
             .iter()
-            .filter(|name| definition.matcher.matches(&name.to_ascii_lowercase()))
-        {
+            .zip(&lowercase_names)
+            .filter(|(_, lowercase)| definition.matcher.matches(lowercase))
+            .map(|(file_name, _)| file_name);
+        for file_name in matching_names {
             let path = directory.join(file_name);
             let tasks = (definition.extract)(&path);
             if tasks.is_empty() {
@@ -423,16 +438,15 @@ fn make_tasks(path: &Path) -> Vec<Task> {
 
 /// The pure scan behind [`make_tasks`]: targets from Makefile text.
 fn make_tasks_from_text(text: &str) -> Vec<Task> {
-    let mut seen = Vec::new();
+    let mut seen = HashSet::new();
     let mut tasks = Vec::new();
     for line in text.lines() {
         let Some(target) = make_target(line) else {
             continue;
         };
-        if target.starts_with('.') || seen.contains(&target) {
+        if target.starts_with('.') || !seen.insert(target.clone()) {
             continue;
         }
-        seen.push(target.clone());
         tasks.push(Task {
             command: format!("make {target}"),
             name: target,
@@ -636,13 +650,14 @@ fn declares_project(path: &Path) -> bool {
 
 /// The pure scan behind [`declares_project`].
 fn text_declares_project(text: &str) -> bool {
+    const PROJECT_KEYWORD: &str = "project";
     text.lines()
         .map(str::trim_start)
         .filter(|line| !line.starts_with('#'))
         .filter_map(|line| {
-            line.to_ascii_lowercase()
-                .strip_prefix("project")
-                .map(str::to_string)
+            let keyword = line.get(..PROJECT_KEYWORD.len())?;
+            let is_project_call = keyword.eq_ignore_ascii_case(PROJECT_KEYWORD);
+            is_project_call.then(|| &line[PROJECT_KEYWORD.len()..])
         })
         .any(|rest| rest.trim_start().starts_with('('))
 }
@@ -1115,6 +1130,9 @@ PROJECT (demo)
         ));
         assert!(text_declares_project("project(demo LANGUAGES CXX)"));
         assert!(text_declares_project("project('demo', 'cpp')"));
+        assert!(!text_declares_project("projection(demo)"));
+        assert!(!text_declares_project("proj"));
+        assert!(!text_declares_project("projé(demo)"));
     }
 
     #[test]
