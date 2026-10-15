@@ -2,7 +2,7 @@
 #
 # A standalone in-process COM server (`cdylib` → `contextmenu_handler.dll`) that
 # implements `IExplorerCommand`. Windows 11's modern right-click menu only reaches
-# a *packaged* COM handler (package identity via a sparse MSIX manifest) — there is
+# a *packaged* COM handler (package identity via a sparse MSIX manifest) - there is
 # no registry shortcut, so this cannot live in the main `pade` binary. It is its
 # own workspace member built with `cargo build -p contextmenu-handler`; the DLL
 # lands next to `pade.exe` in the shared `target/` dir and both are pointed at by
@@ -24,8 +24,8 @@ crate-type = ["cdylib"]
 # windows-rs, pinned to the same 0.61 already in the lockfile via Tauri so no
 # second copy of the crate is compiled (minimize-dependencies). Only the features
 # this handler actually calls are enabled, to keep the compile lean.
-#   windows-core       — core COM types (GUID/HRESULT/Interface/Ref/PWSTR).
-#   windows-implement  — the #[implement] COM-vtable macro (its generated code
+#   windows-core       - core COM types (GUID/HRESULT/Interface/Ref/PWSTR).
+#   windows-implement  - the #[implement] COM-vtable macro (its generated code
 #                        references windows_core). Neither the `windows` umbrella
 #                        nor `windows-core` 0.61 expose the macro via a feature, so
 #                        it is pulled in directly. Versions match the lockfile
@@ -33,11 +33,11 @@ crate-type = ["cdylib"]
 #                        0.60), so no extra copies compile.
 windows-core = "0.61"
 windows-implement = "0.60"
-#   Win32_Foundation         — HRESULT/BOOL/HMODULE + the S_*/E_*/CLASS_E_* codes
-#   Win32_System_Com         — IClassFactory, IBindCtx, CoTaskMemFree
-#   Win32_UI_Shell           — IExplorerCommand, IShellItem(Array), SHStrDupW, SIGDN
-#   Win32_System_LibraryLoader — GetModuleFileNameW, to find pade.exe next to us
-#   Win32_System_Registry    — RegGetValueW, to read the app's show/hide flag so the
+#   Win32_Foundation         - HRESULT/BOOL/HMODULE + the S_*/E_*/CLASS_E_* codes
+#   Win32_System_Com         - IClassFactory, IBindCtx, CoTaskMemFree
+#   Win32_UI_Shell           - IExplorerCommand, IShellItem(Array), SHStrDupW, SIGDN
+#   Win32_System_LibraryLoader - GetModuleFileNameW, to find pade.exe next to us
+#   Win32_System_Registry    - RegGetValueW, to read the app's show/hide flag so the
 #                              handler can hide itself when the toggle is off
 windows = { version = "0.61", features = [
     "Win32_Foundation",

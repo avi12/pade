@@ -1,11 +1,11 @@
-//! The Windows 11 **modern** context menu — registering PADE's sparse
+//! The Windows 11 **modern** context menu - registering PADE's sparse
 //! (external-location) MSIX package so File Explorer loads the
 //! `contextmenu_handler.dll` COM verb (`IExplorerCommand`). Dev-mode, unsigned,
 //! per-user; the sole "Open in PADE" menu on Windows 11 (the parent module skips
 //! the legacy registry keys there, so the entry isn't duplicated).
 //!
 //! Register/unregister shell out to `Add-AppxPackage -Register … -ExternalLocation`
-//! / `Remove-AppxPackage` — the documented way to (de)register a loose manifest,
+//! / `Remove-AppxPackage` - the documented way to (de)register a loose manifest,
 //! and the same "no extra dependency" posture as the rest of the codebase (we do
 //! not pull in the `WinRT` `PackageManager`). See the runbook in
 //! `docs/handoff-windows11-context-menu.md`.
@@ -15,7 +15,7 @@ use std::process::Output;
 
 use crate::util::command;
 
-/// Package identity `Name` — must equal `<Identity Name>` in `AppxManifest.xml`.
+/// Package identity `Name` - must equal `<Identity Name>` in `AppxManifest.xml`.
 /// Used to query and to remove the package.
 const PACKAGE_NAME: &str = "PADE.ContextMenu";
 
@@ -26,7 +26,7 @@ const MANIFEST_TEMPLATE: &str = include_str!("../../contextmenu-handler/AppxMani
 /// The token the template carries where the packaged executable's file name goes.
 const EXECUTABLE_PLACEHOLDER: &str = "{{EXECUTABLE}}";
 
-/// The handler DLL that must sit beside the executable — produced by
+/// The handler DLL that must sit beside the executable - produced by
 /// `cargo build -p contextmenu-handler` into the shared `target/` dir.
 const HANDLER_DLL: &str = "contextmenu_handler.dll";
 
@@ -45,7 +45,7 @@ const ASSETS: &[(&str, &[u8])] = &[
     ),
 ];
 
-/// Register the sparse package so the modern menu appears — the only menu PADE uses
+/// Register the sparse package so the modern menu appears - the only menu PADE uses
 /// on Windows 11. A failure here (typically Developer Mode off) is returned with a
 /// clear, user-facing message.
 pub fn register() -> Result<(), String> {
@@ -68,12 +68,12 @@ pub fn register() -> Result<(), String> {
     interpret(&powershell(&script)?)
 }
 
-/// Remove the sparse package and clean up the files we wrote. Idempotent — removing
+/// Remove the sparse package and clean up the files we wrote. Idempotent - removing
 /// a package that was never registered is a no-op success.
 ///
 /// Reserved for a future uninstall/cleanup path: the toggle-off flow now only hides the
 /// handler via its show/hide flag (the package stays registered, à la `PowerToys`), so
-/// nothing calls this yet — but full removal still belongs here for when PADE gains an
+/// nothing calls this yet - but full removal still belongs here for when PADE gains an
 /// uninstaller.
 #[allow(dead_code)]
 pub fn unregister() -> Result<(), String> {
@@ -105,7 +105,7 @@ fn external_location() -> Result<PathBuf, String> {
 }
 
 /// The running executable's file name (e.g. `pade.exe`), for the manifest's
-/// `Application@Executable` — the file the sparse package's identity is granted to.
+/// `Application@Executable` - the file the sparse package's identity is granted to.
 fn executable_name() -> Result<String, String> {
     std::env::current_exe()
         .map_err(|e| e.to_string())?

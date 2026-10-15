@@ -5,7 +5,7 @@
 //! far too large to inline as a `data:` URL. Transcoding the opening seconds to a
 //! scaled-down H.264/AAC MP4 solves both at once: any format ffmpeg reads (mov,
 //! mkv, avi, …) previews, and the clip stays a bounded size. ffmpeg is an
-//! optional external tool, never a bundled dependency — when it isn't installed
+//! optional external tool, never a bundled dependency - when it isn't installed
 //! the card says so instead of previewing.
 
 use std::io::Read;
@@ -26,7 +26,7 @@ pub const PREVIEW_CLIP_MIME: &str = "video/mp4";
 /// The executable transcoding the clip.
 const TRANSCODER: &str = "ffmpeg";
 
-/// How much of the source the clip covers — enough to see what the video is,
+/// How much of the source the clip covers - enough to see what the video is,
 /// short enough to transcode in a moment.
 const CLIP_SECONDS: &str = "15";
 
@@ -38,7 +38,7 @@ const SCALE_FILTER: &str = "scale=w='min(640,trunc(iw/2)*2)':h=-2";
 /// it; a pathological source is cut off rather than bloating the webview.
 const MAX_CLIP_BYTES: u64 = 16 * 1024 * 1024;
 
-/// A transcode that runs past this is killed — a preview is never worth a hang.
+/// A transcode that runs past this is killed - a preview is never worth a hang.
 const TRANSCODE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How often the transcode's exit is polled while waiting on it.
@@ -116,7 +116,7 @@ fn transcode_arguments(source: &Path) -> Vec<&std::ffi::OsStr> {
 }
 
 /// Transcode `source` into a preview clip ([`PREVIEW_CLIP_MIME`] bytes). Blocking
-/// — call it off the async runtime. Kills ffmpeg on [`TRANSCODE_TIMEOUT`].
+/// - call it off the async runtime. Kills ffmpeg on [`TRANSCODE_TIMEOUT`].
 pub fn preview_clip(source: &Path) -> Result<Vec<u8>, ClipError> {
     let Some(transcoder) = crate::util::resolve(TRANSCODER) else {
         return Err(ClipError::NoTranscoder);

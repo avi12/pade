@@ -2,12 +2,12 @@
 //!
 //! Under heavy load a window's `WebView2` browser process can die; the native
 //! (tao) window survives but renders a permanent black void. The backend is
-//! untouched — PTY sessions are registered per window label and the frontend
-//! re-adopts them on a same-window reload — so the webview is disposable.
+//! untouched - PTY sessions are registered per window label and the frontend
+//! re-adopts them on a same-window reload - so the webview is disposable.
 //! `guard` subscribes each window to `WebView2`'s `ProcessFailed` event (the
 //! unsafe COM side lives in the `webview-recovery` workspace crate, since this
 //! crate forbids unsafe code): a dead renderer is reloaded in place there,
-//! while a dead browser process — where every COM object is defunct — is
+//! while a dead browser process - where every COM object is defunct - is
 //! escalated here to destroy the window and rebuild it with the same label and
 //! URL, which is what lets session re-adoption kick in.
 
@@ -28,9 +28,9 @@ pub fn recreate_pending() -> bool {
 
 /// Arm crash auto-recovery for the calling window. The FRONTEND invokes this
 /// on every boot with its live `location.href`: the frontend is the one party
-/// that always knows the window's real URL — a backend capture at window
+/// that always knows the window's real URL - a backend capture at window
 /// creation raced navigation and once rebuilt a crashed window onto
-/// `about:blank` — and a rebuilt window's fresh boot re-arms its replacement
+/// `about:blank` - and a rebuilt window's fresh boot re-arms its replacement
 /// webview by the same route. Re-invocations on the same webview (an HMR
 /// full reload) stack duplicate handlers, which is harmless: a second
 /// recreate finds the label already gone, a second `Reload()` is idempotent.
@@ -88,7 +88,7 @@ struct Placement {
 /// Replace `label`'s window after its browser process died. Runs inside the
 /// COM callback on the event-loop thread: capture placement, destroy, then
 /// hand the rebuild to a worker thread (building a webview window on the
-/// event-loop thread deadlocks — see `window_create`).
+/// event-loop thread deadlocks - see `window_create`).
 #[cfg(windows)]
 fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
     use tauri::Manager;
@@ -105,7 +105,7 @@ fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
     };
     PENDING_RECREATES.fetch_add(1, Ordering::Relaxed);
     // destroy(), not close(): close asks the frontend to confirm via its
-    // close-requested handler — an answer a dead webview can never give.
+    // close-requested handler - an answer a dead webview can never give.
     if dead.destroy().is_err() {
         PENDING_RECREATES.fetch_sub(1, Ordering::Relaxed);
         return;

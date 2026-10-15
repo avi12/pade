@@ -7,9 +7,9 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 /// Directories no project walk is ever interested in: dependency trees and
-/// build output. One home for the list, because two walks read it — the
+/// build output. One home for the list, because two walks read it - the
 /// autonamer's file census (`naming.rs`) and the task-manifest scan
-/// (`tasks.rs`) — and a directory worth skipping in one is worth skipping in
+/// (`tasks.rs`) - and a directory worth skipping in one is worth skipping in
 /// the other. Hidden directories are skipped separately by each walk, so `.git`
 /// and friends need no entry here.
 pub const SKIPPED_DIRECTORIES: &[&str] = &[
@@ -51,8 +51,8 @@ pub(crate) fn owner_access(owner: Option<&str>, requester: &str) -> OwnerAccess 
 }
 
 /// A `Command` that never flashes a console window on Windows. Every background
-/// or captured-output spawn — PATH lookups, git, curl, the agent namer, task
-/// runners, registry edits — goes through this so a GUI app stays windowless
+/// or captured-output spawn - PATH lookups, git, curl, the agent namer, task
+/// runners, registry edits - goes through this so a GUI app stays windowless
 /// instead of popping a `conhost` window per spawn (e.g. on the 5s agent
 /// re-detect). Interactive terminals the user explicitly opens (`os.rs`) are
 /// spawned directly so they *do* get a window.
@@ -67,7 +67,7 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW — the child gets no console window.
+        // CREATE_NO_WINDOW - the child gets no console window.
         command.creation_flags(0x0800_0000);
     }
     command
@@ -80,7 +80,7 @@ const CHILD_WAIT_POLL: Duration = Duration::from_millis(50);
 
 /// Run `command` to completion under a hard deadline, reporting only whether it
 /// exited successfully. All three standard streams are closed (the caller wants
-/// a verdict, not output — and an open stdin is exactly what lets a child wait
+/// a verdict, not output - and an open stdin is exactly what lets a child wait
 /// forever). On deadline the child is killed and the answer is `false`: a probe
 /// that can hang is never worth a hang.
 pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
@@ -106,7 +106,7 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
     }
 }
 
-/// Spawn `program args` as a process that fully **outlives** ADE — used only for
+/// Spawn `program args` as a process that fully **outlives** ADE - used only for
 /// launching a GUI IDE (see `ide::spawn_launcher`), which the user expects to
 /// keep running after they close ADE.
 ///
@@ -114,13 +114,13 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
 /// its parent's console *and* its parent's Job object, and job membership is
 /// inherited transitively. A GUI app like ADE is commonly placed in a Job whose
 /// limit flags include `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so when ADE exits
-/// and its job handle closes, every process still in that job — including an IDE
-/// we merely started — is terminated. That is exactly requirement #1's failure.
+/// and its job handle closes, every process still in that job - including an IDE
+/// we merely started - is terminated. That is exactly requirement #1's failure.
 /// Three creation flags break the child out of both:
 ///
 /// - `DETACHED_PROCESS` (`0x0000_0008`): the child gets no console of its own. A
 ///   GUI IDE opens its own window and needs none, so this is the right console
-///   flag here — and it *replaces* [`command`]'s `CREATE_NO_WINDOW`, with which
+///   flag here - and it *replaces* [`command`]'s `CREATE_NO_WINDOW`, with which
 ///   it is mutually exclusive (both are console-disposition flags). No console
 ///   means no `conhost` flash, preserving [`command`]'s windowless property.
 /// - `CREATE_NEW_PROCESS_GROUP` (`0x0000_0200`): the child leads its own process
@@ -131,7 +131,7 @@ pub fn succeeds_within(mut command: Command, timeout: Duration) -> bool {
 /// Robustness: `CREATE_BREAKAWAY_FROM_JOB` makes `CreateProcess` fail with
 /// `ERROR_ACCESS_DENIED` (os error 5) when ADE's job forbids breakaway (its
 /// limits lack `JOB_OBJECT_LIMIT_BREAKAWAY_OK`) or ADE is in no job at all. On
-/// that one error we retry without breakaway — still detached and in its own
+/// that one error we retry without breakaway - still detached and in its own
 /// group, which is the best we can do inside a no-breakaway job. Any other error
 /// is returned unchanged, never swallowed.
 ///
@@ -170,7 +170,7 @@ pub fn spawn_detached(program: impl AsRef<OsStr>, args: &[String]) -> std::io::R
 /// process's `PATH`, then the *live* `PATH` the OS would hand a brand-new
 /// process, then the per-user bin directories package managers install into.
 ///
-/// Why more than `PATH`: a process inherits its environment once, at launch — and
+/// Why more than `PATH`: a process inherits its environment once, at launch - and
 /// a GUI app inherits it from the Explorer session that started it, which was
 /// itself born at login. An installer's `PATH` edit lands in the registry, not in
 /// any running process, so a long-lived ADE would keep missing a CLI the user
@@ -193,7 +193,7 @@ pub fn search_dirs() -> Vec<PathBuf> {
     directories
 }
 
-/// A directory's identity for de-duping — case-insensitive on Windows, where
+/// A directory's identity for de-duping - case-insensitive on Windows, where
 /// `C:\Foo` and `c:\foo` are the same directory.
 fn directory_key(directory: &Path) -> String {
     let key = directory
@@ -228,7 +228,7 @@ fn live_path_directories() -> Vec<PathBuf> {
     Vec::new()
 }
 
-/// The single home for reading the registry via `reg query` — no registry crate,
+/// The single home for reading the registry via `reg query` - no registry crate,
 /// per the minimize-dependencies rule. `arguments` are the tokens after `query`
 /// (a key, optionally `/v <name>`); returns the captured stdout on success, or
 /// `None` when the command can't spawn or `reg` reports a missing key. Every
@@ -319,7 +319,7 @@ fn package_manager_directories() -> Vec<PathBuf> {
 }
 
 /// Windows package-manager bin directories: npm's global prefix, pnpm's home,
-/// winget's shim folder — plus every winget *portable package* folder, because
+/// winget's shim folder - plus every winget *portable package* folder, because
 /// winget installs those as a directory of raw binaries and only sometimes adds
 /// one to `PATH`.
 #[cfg(windows)]
@@ -385,7 +385,7 @@ fn executable_extensions() -> Vec<String> {
 }
 
 /// Is this path a file we could actually exec? (On Unix that means the execute
-/// bit is set — a readable-but-not-executable file is not a command.)
+/// bit is set - a readable-but-not-executable file is not a command.)
 fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
@@ -400,7 +400,7 @@ fn is_executable(path: &Path) -> bool {
 
 /// The executable `command` names, or `None` if it isn't installed. A command that
 /// already carries a path (`C:\…\codex.exe`) is taken as-is; a bare name is looked
-/// up across [`search_dirs`]. For a one-off lookup — a caller resolving several
+/// up across [`search_dirs`]. For a one-off lookup - a caller resolving several
 /// commands should build [`search_dirs`] once and call [`find_in`].
 pub fn resolve(command: &str) -> Option<PathBuf> {
     let given = Path::new(command);
@@ -410,7 +410,7 @@ pub fn resolve(command: &str) -> Option<PathBuf> {
     find_in(&search_dirs(), &[command])
 }
 
-/// Is `command` runnable on this machine? Sees installs made since ADE launched —
+/// Is `command` runnable on this machine? Sees installs made since ADE launched -
 /// see [`search_dirs`].
 pub fn is_on_path(command: &str) -> bool {
     resolve(command).is_some()
@@ -418,14 +418,14 @@ pub fn is_on_path(command: &str) -> bool {
 
 /// Parse a JSON file into a `serde_json::Value`, or `None` when it can't be read
 /// or isn't valid JSON. The single home for the read-then-parse pair every local
-/// credential / auth probe repeats (DRY) — an expected miss (no file, bad JSON)
+/// credential / auth probe repeats (DRY) - an expected miss (no file, bad JSON)
 /// is a plain `None`, never an error to handle.
 pub fn read_json(path: &Path) -> Option<serde_json::Value> {
     let raw = std::fs::read_to_string(path).ok()?;
     serde_json::from_str(&raw).ok()
 }
 
-/// Read a JSONC file — the dialect Windows Terminal and VS Code write, where
+/// Read a JSONC file - the dialect Windows Terminal and VS Code write, where
 /// `//` and `/* … */` comments and a trailing comma before a closing brace or
 /// bracket are all legal. `read_json` is the right reader for strict JSON; this
 /// one is for a file a *human* edits, where the comments the vendor's own

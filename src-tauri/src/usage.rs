@@ -1,17 +1,17 @@
 //! Agent usage / quota meter.
 //!
 //! Surfaces how much of the active agent's quota is left, sourced WITHOUT
-//! spending any message quota — we never invoke the agent CLI. Two sources,
+//! spending any message quota - we never invoke the agent CLI. Two sources,
 //! best-effort per agent:
 //!  - The vendor's OAuth usage endpoint (the same numbers claude.ai shows),
-//!    called with the locally-stored access token and cached for ~3 minutes —
+//!    called with the locally-stored access token and cached for ~3 minutes -
 //!    a real network request, but one that consumes no quota.
 //!  - Data the agent already persisted locally (e.g. the subscription tier
 //!    label) when the network / token isn't available, leaving
 //!    `used_pct`/`resets_at` `None` if the precise numbers aren't on disk.
 //!
 //! When nothing reliable is found we return `None` and the UI shows an honest
-//! "usage unavailable" state — we never fabricate numbers.
+//! "usage unavailable" state - we never fabricate numbers.
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -27,7 +27,7 @@ use crate::util::{home_dir, read_json};
 
 /// The agents we can source usage for, and the one authoritative mapping from
 /// the registry id string the frontend sends (`session.agent.id`). An agent we
-/// have no usage adapter for isn't in this set, so its usage stays an honest "—".
+/// have no usage adapter for isn't in this set, so its usage stays an honest "-".
 ///
 /// Two adapter shapes live here. A *live* adapter (Claude, Codex, Copilot) reads
 /// real rate-limit windows from the vendor's own usage endpoint with the locally
@@ -35,8 +35,8 @@ use crate::util::{home_dir, read_json};
 /// usage endpoint we can rely on, so it confirms the local login exists and
 /// surfaces just the plan label with no numbers. Agents that authenticate with
 /// the user's *own* pay-as-you-go provider API key rather than a metered
-/// subscription — Grok (an xAI key) and aider (the user's OpenAI/Anthropic key) —
-/// have no plan quota at all, so they are deliberately absent and stay "—".
+/// subscription - Grok (an xAI key) and aider (the user's OpenAI/Anthropic key) -
+/// have no plan quota at all, so they are deliberately absent and stay "-".
 /// An agent id and an adapter aren't 1:1: opencode signs into the same
 /// `ChatGPT` subscription Codex does, so its id resolves to the Codex adapter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -53,7 +53,7 @@ impl UsageAgent {
         match id {
             ID_CLAUDE => Some(Self::Claude),
             // opencode authenticates against the same ChatGPT subscription Codex
-            // does, so it reads the Codex adapter — one account, one source of
+            // does, so it reads the Codex adapter - one account, one source of
             // truth.
             ID_CODEX | ID_OPENCODE => Some(Self::Codex),
             ID_COPILOT => Some(Self::Copilot),
@@ -73,15 +73,15 @@ pub struct Usage {
     pub label: String,
     /// When the quota window resets, as an ISO-8601 string, when known.
     pub resets_at: Option<String>,
-    /// Where the figure came from — so the UI can be honest about it.
+    /// Where the figure came from - so the UI can be honest about it.
     pub source: String,
 }
 
-/// Remaining usage for `agent` — live account windows when the OAuth endpoint
+/// Remaining usage for `agent` - live account windows when the OAuth endpoint
 /// is reachable, local tier label otherwise. `None` when we have no reliable
-/// signal for that agent (the UI then shows "usage —").
+/// signal for that agent (the UI then shows "usage -").
 // `async` + `spawn_blocking`: a synchronous command runs on the MAIN thread, and
-// a cache miss here is a real network request (curl, up to 12s) — long enough to
+// a cache miss here is a real network request (curl, up to 12s) - long enough to
 // stop the window pumping messages ("Not Responding"). The blocking pool keeps
 // even several concurrent per-agent fetches off the async workers too.
 #[tauri::command]
@@ -115,7 +115,7 @@ enum HeadlineWindow {
 
 /// The headline figure for an account's meter, mapping whatever windows the
 /// endpoint returned into the flat [`Usage`] the handoff logic reads: the weekly
-/// all-models cap when present, else — per `headline` — the most-consumed window,
+/// all-models cap when present, else - per `headline` - the most-consumed window,
 /// else no number at all (a tier-label account with an empty window list). The one
 /// home for the windows → [`Usage`] mapping every live and tier-label adapter
 /// reads through (DRY).
@@ -183,7 +183,7 @@ fn tier_label_usage() -> Option<Usage> {
 // Codex usage. Codex signs in with a ChatGPT account (`codex login`), storing the
 // OAuth tokens in `~/.codex/auth.json`. Its TUI reads live rate limits from the
 // same ChatGPT backend endpoint (`/backend-api/wham/usage`) the Codex CLI polls;
-// we call it the same honest way — a real request that spends no message quota —
+// we call it the same honest way - a real request that spends no message quota -
 // and fall back to the local plan label when the token/network isn't available.
 // ---------------------------------------------------------------------------
 
@@ -211,7 +211,7 @@ fn codex_auth_path() -> Option<PathBuf> {
 
 /// Offline fallback: confirm a local `ChatGPT` auth exists and surface a bare
 /// "Codex" plan label with no numbers. We don't read the plan from the local
-/// id-token — it can be stale (e.g. "free" after an upgrade to Plus) — so we
+/// id-token - it can be stale (e.g. "free" after an upgrade to Plus) - so we
 /// stay honest and leave the precise figures `None` until the endpoint answers.
 fn codex_tier_label_usage() -> Option<Usage> {
     let json = read_json(&codex_auth_path()?)?;
@@ -228,7 +228,7 @@ fn codex_tier_label_usage() -> Option<Usage> {
 }
 
 // ---------------------------------------------------------------------------
-// Live account usage — every rate-limit window claude.ai / `claude /usage` shows,
+// Live account usage - every rate-limit window claude.ai / `claude /usage` shows,
 // read from the OAuth endpoint using the local Claude Code token. We enumerate
 // whatever windows the response carries rather than hardcoding a fixed few.
 // ---------------------------------------------------------------------------
@@ -237,7 +237,7 @@ fn codex_tier_label_usage() -> Option<Usage> {
 const CLAUDE_OAUTH_API: &str = "https://api.anthropic.com/api/oauth";
 /// The undocumented endpoint Claude Code's `/usage` reads. It requires the
 /// `claude-code/<version>` User-Agent (any other UA lands in an aggressively
-/// rate-limited bucket) and is safe at ~180s intervals — hence the cache below.
+/// rate-limited bucket) and is safe at ~180s intervals - hence the cache below.
 const OAUTH_USAGE_PATH: &str = "/usage";
 const USAGE_UA: &str = "claude-code/1.0.128";
 pub(crate) const USAGE_CACHE_SECONDS: u64 = 170;
@@ -253,7 +253,7 @@ const WEEKLY_WINDOW_KEY: &str = "seven_day";
 /// all-models cap, the `extra_usage` monthly spend cap on usage credits) plus
 /// per-model caps under `limits[]`; we classify each so the meter can label it and
 /// the auto-resume scheduler can match the window a CLI named. A named window we
-/// don't recognize passes through as `Opaque` — surfaced honestly, never dropped.
+/// don't recognize passes through as `Opaque` - surfaced honestly, never dropped.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum UsageWindowKind {
@@ -291,7 +291,7 @@ impl UsageWindowKind {
 /// One rate-limit window surfaced from the account response: a stable `key`, its
 /// semantic `kind`, a human `label`, the 0..100 `utilization` percent, and an
 /// ISO-8601 reset time when known. The generic shape the meter renders and the
-/// auto-resume scheduler matches against — one entry per window the endpoint
+/// auto-resume scheduler matches against - one entry per window the endpoint
 /// actually returns, nothing invented.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -311,7 +311,7 @@ const CREDITS_SPENT_PERCENTAGE: f64 = 100.0;
 
 /// The state of pay-as-you-go usage credits ("extra usage"). The auto-resume
 /// scheduler reads it to continue a limit-stopped session the moment credits can
-/// carry it — turned on server-side, which the CLI itself never notices.
+/// carry it - turned on server-side, which the CLI itself never notices.
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CreditsState {
@@ -354,7 +354,7 @@ fn credits_state(response: &serde_json::Value) -> Option<CreditsState> {
     }
 }
 
-/// An amount of usage credits — a prepaid balance, or a month's spend — ready
+/// An amount of usage credits - a prepaid balance, or a month's spend - ready
 /// to show.
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -367,7 +367,7 @@ pub struct CreditBalance {
 
 /// Stable identities for the underlying billing account behind each adapter, so
 /// the frontend can dedupe agents that share one subscription (Codex + opencode
-/// both bill the same `ChatGPT` account) — one identity per account, never per
+/// both bill the same `ChatGPT` account) - one identity per account, never per
 /// agent.
 const BILLING_ACCOUNT_ANTHROPIC: &str = "anthropic";
 const BILLING_ACCOUNT_CHATGPT: &str = "chatgpt";
@@ -427,7 +427,7 @@ impl AccountUsageRequest {
     }
 }
 
-/// Live account usage windows for a specific agent (`claude`, `codex`) — what the
+/// Live account usage windows for a specific agent (`claude`, `codex`) - what the
 /// per-agent meter renders and the auto-resume scheduler reads. `None` for an
 /// agent we have no usage adapter for, or when its token / network isn't
 /// available (offline, `curl` missing, or a token expired until the agent's next
@@ -451,7 +451,7 @@ pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<A
 }
 
 /// Live account usage for `agent`, cached ~3 min per agent to respect each
-/// endpoint's per-token limit. One cache map, keyed by agent — the single source
+/// endpoint's per-token limit. One cache map, keyed by agent - the single source
 /// for both the no-arg Claude command and the per-agent one above.
 fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
     static CACHE: OnceLock<Mutex<HashMap<UsageAgent, (Instant, AccountUsage)>>> = OnceLock::new();
@@ -483,7 +483,7 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
     Some(fresh)
 }
 
-/// Claude Code's stored OAuth login, while its token has not expired — a
+/// Claude Code's stored OAuth login, while its token has not expired - a
 /// request on a token already known to be stale is wasted.
 fn live_claude_oauth() -> Option<serde_json::Value> {
     let mut json = read_json(&claude_credentials_path()?)?;
@@ -584,7 +584,7 @@ fn claude_credit_balance(token: &str) -> Option<CreditBalance> {
     credit_balance(&serde_json::from_str(&body).ok()?)
 }
 
-/// Where a prepaid balance response states its amount — in money, or in credits.
+/// Where a prepaid balance response states its amount - in money, or in credits.
 const BALANCE_KINDS: [&str; 2] = ["money", "credits"];
 
 /// The prepaid balance a `prepaid/credits` response describes: its minor-unit
@@ -606,7 +606,7 @@ fn credit_balance(response: &serde_json::Value) -> Option<CreditBalance> {
 
 /// What usage credits have cost this month, when they are on with no monthly
 /// cap: `used_credits` in minor units, scaled by the response's own
-/// `decimal_places`. `None` while a cap is set — its percentage says it — and
+/// `decimal_places`. `None` while a cap is set - its percentage says it - and
 /// for any other shape.
 fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance> {
     let credits = response.get(CREDITS_KEY)?;
@@ -629,7 +629,7 @@ fn uncapped_credits_spend(response: &serde_json::Value) -> Option<CreditBalance>
 /// Every rate-limit window the account response carries, in a stable order: the
 /// named top-level windows (`five_hour`, `seven_day`, and any others the endpoint
 /// adds) followed by the per-model caps under `limits[]`. Whatever the API returns
-/// — nothing is invented.
+/// - nothing is invented.
 fn collect_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     let mut windows: Vec<UsageWindow> = response
         .as_object()
@@ -645,7 +645,7 @@ fn collect_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     windows
 }
 
-/// A top-level entry as a window when it is window-shaped — an object carrying a
+/// A top-level entry as a window when it is window-shaped - an object carrying a
 /// numeric `utilization`. Non-window fields (`limits`, the plan, an error blob)
 /// have no `utilization`, so they fall away here.
 fn named_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
@@ -664,10 +664,10 @@ fn named_window(key: &str, value: &serde_json::Value) -> Option<UsageWindow> {
     })
 }
 
-/// The per-model caps under `limits[]` — each row scoped to a named model
+/// The per-model caps under `limits[]` - each row scoped to a named model
 /// (`scope.model.display_name`), which both identifies it as a per-model window
 /// and skips the unscoped session/weekly rows the array may also carry. Every
-/// window is surfaced as-is — the frontend (`usage-groups.ts`) shows them all,
+/// window is surfaced as-is - the frontend (`usage-groups.ts`) shows them all,
 /// including any still at 0%.
 fn model_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     response
@@ -697,7 +697,7 @@ fn model_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
 }
 
 /// A human label for a named window, sentence-cased from its `snake_case` key
-/// (`seven_day` → "Seven day") — the fallback the frontend shows for a window
+/// (`seven_day` → "Seven day") - the fallback the frontend shows for a window
 /// whose kind it gives no product name.
 fn humanize_key(key: &str) -> String {
     let mut label = key.replace('_', " ");
@@ -713,7 +713,7 @@ fn humanize_key(key: &str) -> String {
 /// The token is spliced verbatim inside the double quotes, so a stray quote or
 /// newline could close the string and inject an arbitrary curl directive
 /// (config-file directive injection). We therefore accept only the OAuth-token
-/// character set — non-empty, ASCII alphanumerics plus `.`, `_`, `-` — and
+/// character set - non-empty, ASCII alphanumerics plus `.`, `_`, `-` - and
 /// reject everything else.
 pub(crate) fn is_safe_header_token(token: &str) -> bool {
     !token.is_empty()
@@ -723,8 +723,8 @@ pub(crate) fn is_safe_header_token(token: &str) -> bool {
 }
 
 /// One GET against a claude.ai OAuth endpoint: its path under
-/// [`CLAUDE_OAUTH_API`], the bearer token, and — for an organization-scoped
-/// endpoint — the organization uuid it is addressed to.
+/// [`CLAUDE_OAUTH_API`], the bearer token, and - for an organization-scoped
+/// endpoint - the organization uuid it is addressed to.
 struct ClaudeOauthGet<'request> {
     path: &'request str,
     token: &'request str,
@@ -736,7 +736,7 @@ struct ClaudeOauthGet<'request> {
 /// the process arguments. `--fail` turns an HTTP error status into a non-zero exit.
 ///
 /// The token and organization uuid are interpolated into quoted config directives,
-/// so we reject anything outside the OAuth-token character set — see
+/// so we reject anything outside the OAuth-token character set - see
 /// [`is_safe_header_token`].
 fn curl_claude_oauth(request: &ClaudeOauthGet) -> Option<String> {
     let ClaudeOauthGet {
@@ -764,7 +764,7 @@ fn curl_claude_oauth(request: &ClaudeOauthGet) -> Option<String> {
 }
 
 /// Run a prepared curl `--config` document (which already carries the `url` and
-/// every `header`, including the bearer token) by feeding it on stdin — so the
+/// every `header`, including the bearer token) by feeding it on stdin - so the
 /// token never appears in the process arguments. The shared transport behind both
 /// vendors' usage calls; each builds its own header set above.
 pub(crate) fn curl_get_json(config: &str) -> Option<String> {
@@ -788,12 +788,12 @@ pub(crate) fn curl_get_json(config: &str) -> Option<String> {
 }
 
 // ---------------------------------------------------------------------------
-// Codex live account usage — the ChatGPT rate-limit windows the Codex CLI reads
+// Codex live account usage - the ChatGPT rate-limit windows the Codex CLI reads
 // from `/backend-api/wham/usage` with the locally-stored ChatGPT OAuth token.
 // ---------------------------------------------------------------------------
 
 /// The `ChatGPT` backend endpoint the Codex CLI (`codex-rs/backend-client`) polls
-/// for rate limits — it sends the `ChatGPT` `Bearer` token and the account id, and
+/// for rate limits - it sends the `ChatGPT` `Bearer` token and the account id, and
 /// answers whether or not any quota is spent, so it's safe at the same ~180s
 /// cadence as the Claude endpoint.
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
@@ -957,7 +957,7 @@ fn humanize_window_seconds(seconds: i64) -> String {
 /// A Unix timestamp (seconds since the epoch) as an ISO-8601 UTC string
 /// (`YYYY-MM-DDTHH:MM:SSZ`). Codex reports window resets as epoch seconds; the
 /// frontend countdown parses ISO strings (like the Claude windows), so we
-/// normalize here. Pure `std` arithmetic — Howard Hinnant's `civil_from_days`,
+/// normalize here. Pure `std` arithmetic - Howard Hinnant's `civil_from_days`,
 /// no date crate.
 fn unix_seconds_to_iso8601(seconds: i64) -> String {
     let days = seconds.div_euclid(86_400);
@@ -987,7 +987,7 @@ fn unix_seconds_to_iso8601(seconds: i64) -> String {
 /// GET the Codex usage endpoint via `curl`, feeding the bearer token and account
 /// id through a `--config` file on stdin so neither appears in the process
 /// arguments. Both are interpolated into quoted `header = "…"` directives, so we
-/// reject anything outside the token character set — see [`is_safe_header_token`].
+/// reject anything outside the token character set - see [`is_safe_header_token`].
 fn curl_codex_usage(token: &str, account_id: &str) -> Option<String> {
     if !is_safe_header_token(token) || !is_safe_header_token(account_id) {
         return None;
@@ -1006,12 +1006,12 @@ fn curl_codex_usage(token: &str, account_id: &str) -> Option<String> {
 // Copilot usage. GitHub's Copilot CLI signs in with a GitHub OAuth token and
 // meters "premium requests" against a monthly entitlement. The editor Copilot
 // clients read that entitlement from the internal `copilot_internal/user`
-// endpoint (the same one VS Code polls to render its usage meter) — an
+// endpoint (the same one VS Code polls to render its usage meter) - an
 // entitlement/status read that spends no premium request, so it's safe at the
 // same ~180s cadence as the Claude/Codex endpoints. We reach it with the token
 // the CLI's precedence order exposes: a `GITHUB_TOKEN`/`GH_TOKEN` env override,
 // then the editor OAuth store (`apps.json`/`hosts.json`). The CLI's own default
-// store is the OS keychain, which no std-only read can open — so when only the
+// store is the OS keychain, which no std-only read can open - so when only the
 // keychain holds the token we fall back to a bare "Copilot" plan label.
 // ---------------------------------------------------------------------------
 
@@ -1028,7 +1028,7 @@ const COPILOT_EDITOR_VERSION: &str = "vscode/1.99.0";
 /// numbers) is available.
 const COPILOT_LOCAL_SOURCE: &str = "local:github-copilot";
 
-/// Copilot usage for the meter — the live premium-request window when the
+/// Copilot usage for the meter - the live premium-request window when the
 /// entitlement endpoint answers, else the honest plan label with no numbers.
 fn copilot_usage() -> Option<Usage> {
     let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Copilot))?;
@@ -1041,7 +1041,7 @@ fn copilot_usage() -> Option<Usage> {
 /// The Copilot account: live entitlement windows when the endpoint answers,
 /// otherwise a bare plan label confirming a local token exists. `None` only when
 /// no token is reachable at all (keychain-only login, no env override, no editor
-/// OAuth store) — an honest "—".
+/// OAuth store) - an honest "-".
 fn fetch_copilot_account_usage() -> Option<AccountUsage> {
     let token = copilot_token()?;
     if let Some(account) = copilot_live_usage(&token) {
@@ -1094,7 +1094,7 @@ fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
 /// snapshot flagged `unlimited` carries no meaningful percentage, so it's
 /// skipped; every metered snapshot becomes an opaque window (a monthly
 /// entitlement, not one of the session/weekly time windows), sharing the
-/// account-wide `quota_reset_date`. Nothing is invented — a snapshot with no
+/// account-wide `quota_reset_date`. Nothing is invented - a snapshot with no
 /// derivable percentage falls away.
 fn collect_copilot_windows(response: &serde_json::Value) -> Vec<UsageWindow> {
     let resets_at = response
@@ -1163,7 +1163,7 @@ fn copilot_percent_used(snapshot: &serde_json::Value) -> Option<f64> {
 /// The GitHub token to reach the Copilot entitlement endpoint with, in the
 /// precedence the CLI itself uses: the `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`/
 /// `GITHUB_TOKEN` env overrides, then the editor OAuth store on disk. The CLI's
-/// own default store is the OS keychain, which no dependency-free read can open —
+/// own default store is the OS keychain, which no dependency-free read can open -
 /// so a keychain-only login yields `None` here (and the plan-label fallback).
 fn copilot_token() -> Option<String> {
     for variable in ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"] {
@@ -1178,7 +1178,7 @@ fn copilot_token() -> Option<String> {
     copilot_token_from_store()
 }
 
-/// The Copilot OAuth token from the editor store — `apps.json` (and the newer
+/// The Copilot OAuth token from the editor store - `apps.json` (and the newer
 /// `hosts.json`), each an object keyed by host whose values carry an
 /// `oauth_token`. The first token found wins. On Windows the store lives under
 /// `%USERPROFILE%\AppData\Local\github-copilot`, elsewhere `~/.config/github-copilot`.
@@ -1213,7 +1213,7 @@ fn copilot_token_from_store() -> Option<String> {
 /// `--config` file on stdin so it never appears in the process arguments. The
 /// endpoint uses the `token` (not `Bearer`) authorization scheme and expects an
 /// editor `User-Agent` + `Editor-Version`. Rejects anything outside the token
-/// character set — see [`is_safe_header_token`].
+/// character set - see [`is_safe_header_token`].
 fn curl_copilot_usage(token: &str) -> Option<String> {
     if !is_safe_header_token(token) {
         return None;
@@ -1235,11 +1235,11 @@ fn curl_copilot_usage(token: &str) -> Option<String> {
 // remaining-quota does surface from a private `cloudcode-pa.googleapis.com`
 // `v1internal:fetchAvailableModels` call, but that endpoint is undocumented,
 // reverse-engineered, POST-only, and known to report headroom while generation
-// is already rate-limited (a number that would mislead the meter) — so we do NOT
+// is already rate-limited (a number that would mislead the meter) - so we do NOT
 // poll it. We confirm the local login exists and surface just the plan label.
 // ---------------------------------------------------------------------------
 
-/// Antigravity usage — the plan label when a local Google login exists, else "—".
+/// Antigravity usage - the plan label when a local Google login exists, else "-".
 fn antigravity_usage() -> Option<Usage> {
     let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Antigravity))?;
     Some(usage_from_account(
@@ -1250,7 +1250,7 @@ fn antigravity_usage() -> Option<Usage> {
 
 /// Confirm the Antigravity OAuth token exists on disk and surface a bare plan
 /// label with no numbers (no quota-free usage endpoint we trust). `None` when no
-/// login is present — an honest "—".
+/// login is present - an honest "-".
 fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
     let token_file = home_dir()?
         .join(".gemini")
@@ -1277,11 +1277,11 @@ fn fetch_antigravity_account_usage() -> Option<AccountUsage> {
 // `~/.cursor/auth.json`, …). Cursor's usage does surface from `cursor.com/api/
 // usage`, but only via a reverse-engineered `WorkosCursorSessionToken` *cookie*
 // (userId::JWT) that a `CURSOR_API_KEY` can't even build, on an undocumented,
-// version-fragile endpoint — too unreliable to poll. We confirm the local login
+// version-fragile endpoint - too unreliable to poll. We confirm the local login
 // exists and surface just the plan label.
 // ---------------------------------------------------------------------------
 
-/// Cursor usage — the plan label when a local login exists, else "—".
+/// Cursor usage - the plan label when a local login exists, else "-".
 fn cursor_usage() -> Option<Usage> {
     let account = account_usage_for(AccountUsageRequest::cached(UsageAgent::Cursor))?;
     Some(usage_from_account(
@@ -1329,7 +1329,7 @@ fn cursor_login_present() -> bool {
     candidates.iter().any(|path| auth_file_has_login(path))
 }
 
-/// Whether an auth file names a stored login — a non-empty `accessToken`/
+/// Whether an auth file names a stored login - a non-empty `accessToken`/
 /// `access_token` JWT, or the `authInfo` block the CLI writes once signed in.
 fn auth_file_has_login(path: &std::path::Path) -> bool {
     let Some(json) = read_json(path) else {
@@ -1661,7 +1661,7 @@ mod tests {
 
         assert_eq!(windows.len(), 2);
         // The account weekly cap, then the named feature surfaced opaquely under
-        // its own name — never mislabeled the account "Session".
+        // its own name - never mislabeled the account "Session".
         assert_eq!(windows[0].kind, UsageWindowKind::Weekly);
         assert_eq!(windows[1].kind, UsageWindowKind::Opaque);
         assert_eq!(windows[1].label, "Code review");
@@ -1778,7 +1778,7 @@ mod tests {
 
         let windows = collect_copilot_windows(&response);
 
-        // Only the metered snapshot surfaces — the unlimited buckets carry no
+        // Only the metered snapshot surfaces - the unlimited buckets carry no
         // meaningful percentage and are skipped.
         assert_eq!(windows.len(), 1);
         assert_eq!(windows[0].kind, UsageWindowKind::Opaque);
@@ -1809,7 +1809,7 @@ mod tests {
 
     #[test]
     fn a_copilot_body_without_snapshots_yields_no_windows() {
-        // A 401 error blob is not a usage response — no snapshots, no windows.
+        // A 401 error blob is not a usage response - no snapshots, no windows.
         let error_body = serde_json::json!({ "message": "Bad credentials" });
 
         assert!(collect_copilot_windows(&error_body).is_empty());
@@ -1912,7 +1912,7 @@ mod tests {
 
     #[test]
     fn usage_from_account_leaves_a_tier_label_account_without_numbers() {
-        // The Antigravity / Cursor shape: a plan label, no windows — an honest
+        // The Antigravity / Cursor shape: a plan label, no windows - an honest
         // "we know your login, not your usage".
         let account = AccountUsage {
             plan: "Antigravity".to_string(),

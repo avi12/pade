@@ -35,7 +35,7 @@ mod workspace;
 
 use tauri::Manager;
 
-// Mostly the command registry (`generate_handler!`) + builder wiring — one long
+// Mostly the command registry (`generate_handler!`) + builder wiring - one long
 // but flat list, not branching logic, so the line count is expected to grow with
 // each new IPC command.
 #[allow(clippy::too_many_lines)]
@@ -68,7 +68,7 @@ pub fn run() {
         // Opt-in software rendering: when another process saturates the GPU (a
         // game), the webview's composited frames queue behind it and every UI
         // interaction stalls on the commits. `--disable-gpu` renders on the CPU
-        // instead, decoupling ADE from the GPU queue entirely — slower frames in
+        // instead, decoupling ADE from the GPU queue entirely - slower frames in
         // absolute terms, but immune to GPU contention.
         let software_render_pref = workspace::load().prefs.passthrough.get("softwareRender")
             == Some(&serde_json::Value::Bool(true));
@@ -88,7 +88,7 @@ pub fn run() {
         // process trees rather than sharing one (the shared default lets one
         // instance's GPU load compound into the other and trip a DWM reset). Unlike
         // the additional-arguments var above (which appends), WEBVIEW2_USER_DATA_FOLDER
-        // *replaces* the folder WebView2 would otherwise derive — the supported way
+        // *replaces* the folder WebView2 would otherwise derive - the supported way
         // to override it, since `--user-data-dir` as a browser arg is ignored.
         if let Some(folder) = workspace::webview_data_dir() {
             std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", folder);
@@ -126,7 +126,7 @@ pub fn run() {
                 window::paint_surface(&main);
                 let _ = main.show();
                 // Crash recovery arms from the FRONTEND (`recovery_arm` with
-                // its live location.href) — a backend capture here raced
+                // its live location.href) - a backend capture here raced
                 // navigation and rebuilt a crashed window onto about:blank.
             }
             Ok(())
@@ -251,7 +251,7 @@ pub fn run() {
         .expect("error while building ADE")
         .run(|handle, event| {
             // As the app exits, terminate every agent PTY so no child lingers
-            // and the workspace cwd-lock is released — letting the user reopen
+            // and the workspace cwd-lock is released - letting the user reopen
             // and pick up cleanly. The frontend has already closed its sessions
             // gracefully by now (App intercepts the window close and waits for
             // each agent's idle prompt before killing); this is the backstop

@@ -1,4 +1,4 @@
-//! OS integrations — reveal a project in the system file manager or a terminal,
+//! OS integrations - reveal a project in the system file manager or a terminal,
 //! open a URL in the default browser, or restart PADE.
 
 use crate::util;
@@ -14,14 +14,14 @@ pub fn restart(app: AppHandle) {
     app.request_restart();
 }
 
-/// Open a URL in the default browser. Only http(s) schemes are allowed — this is
+/// Open a URL in the default browser. Only http(s) schemes are allowed - this is
 /// the one seam that hands a string to the OS, so we refuse anything that isn't a
 /// plain web URL (no `file:`, `javascript:`, custom handlers, etc.).
 ///
 /// Hands the URL to the platform opener (`ShellExecute` / `open` / `xdg-open`) via
 /// the Tauri opener plugin, which passes it through untouched. Shelling out to
-/// `cmd /C start` instead would let a `&` in the URL — every OAuth sign-in link
-/// has several (`?code=true&client_id=…`) — split it into commands, so the browser
+/// `cmd /C start` instead would let a `&` in the URL - every OAuth sign-in link
+/// has several (`?code=true&client_id=…`) - split it into commands, so the browser
 /// only ever received the URL up to the first `&`.
 #[tauri::command]
 pub async fn open_url(app: AppHandle, url: String) -> Result<(), String> {
@@ -47,7 +47,7 @@ pub async fn open_in_explorer(path: String) -> Result<(), String> {
     result.map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// Show `path` selected in the platform file manager without opening it — the
+/// Show `path` selected in the platform file manager without opening it - the
 /// safe way to surface a binary, since an `.exe` handed to Explorer would run.
 #[tauri::command]
 pub async fn reveal_in_explorer(path: String) -> Result<(), String> {
@@ -66,7 +66,7 @@ fn reveal_command(target: &Path) -> Command {
     use std::os::windows::process::CommandExt;
     let mut command = util::command("explorer");
     // Explorer parses `/select,` itself and wants the path quoted after the
-    // comma, which std's argument quoting cannot express — hence the raw arg.
+    // comma, which std's argument quoting cannot express - hence the raw arg.
     // It also rejects forward slashes there.
     let windows_path = target.display().to_string().replace('/', "\\");
     command.raw_arg(format!("/select,\"{windows_path}\""));

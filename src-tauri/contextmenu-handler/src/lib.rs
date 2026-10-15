@@ -1,4 +1,4 @@
-//! PADE's Windows 11 **modern** context-menu handler — an in-process COM server
+//! PADE's Windows 11 **modern** context-menu handler - an in-process COM server
 //! implementing [`IExplorerCommand`] for the "Open in PADE" verb on folders.
 //!
 //! Windows 11 shows this menu first (before "Show more options"). Unlike the
@@ -14,7 +14,7 @@
 //! `IShellItemArray` and launches the co-located `pade.exe` with it (PADE's
 //! `launch_context` opens that path as the project).
 //!
-//! COM demands `unsafe` (raw vtable pointers, FFI), so — unlike the main crate —
+//! COM demands `unsafe` (raw vtable pointers, FFI), so - unlike the main crate -
 //! `unsafe_code` is not forbidden here; every other lint stays at the strict bar.
 
 // The `#[implement]` macro expands to helper impls that trip a couple of pedantic
@@ -44,13 +44,13 @@ use windows::Win32::UI::Shell::{
 use windows_core::{w, Error, IUnknown, Interface, Ref, Result, BOOL, GUID, HRESULT, PWSTR};
 use windows_implement::implement;
 
-/// PADE's fixed context-menu CLSID. **Authoritative copy** — the exact same GUID
+/// PADE's fixed context-menu CLSID. **Authoritative copy** - the exact same GUID
 /// appears (with braces) in `../AppxManifest.xml` (`com:Class Id` and every
 /// `desktop5:Verb Clsid`) and in `src/contextmenu/modern.rs`. Change all three
 /// together. Value: `{C6FD5832-8BA5-4FDE-A5CC-A74C36AD27AC}`.
 const CLSID_OPEN_IN_PADE: GUID = GUID::from_u128(0xC6FD_5832_8BA5_4FDE_A5CC_A74C_36AD_27AC);
 
-/// `fdwReason` value Windows passes `DllMain` on load — we capture our own module
+/// `fdwReason` value Windows passes `DllMain` on load - we capture our own module
 /// handle then (named, so the `== 1` test below reads as intent).
 const DLL_PROCESS_ATTACH: u32 = 1;
 
@@ -90,7 +90,7 @@ impl Drop for OpenInPadeCommand {
 // (`OpenInPadeCommand_Impl`), and hands interface args as `windows::core::Ref`.
 impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
     /// The visible label. Explorer frees the returned buffer, so it must be
-    /// `CoTaskMemAlloc`'d — `SHStrDupW` copies the literal into COM task memory.
+    /// `CoTaskMemAlloc`'d - `SHStrDupW` copies the literal into COM task memory.
     fn GetTitle(&self, _items: Ref<'_, IShellItemArray>) -> Result<PWSTR> {
         unsafe { SHStrDupW(w!("Open in PADE")) }
     }
@@ -114,8 +114,8 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
 
     /// Show the verb, or hide it when the app's toggle is off. Explorer calls this
     /// while building the menu, so reading the flag here (fresh, per right-click) is
-    /// what lets the picker's toggle show/hide "Open in PADE" *immediately* — even
-    /// for a handler Explorer still has cached — with no Explorer restart. This
+    /// what lets the picker's toggle show/hide "Open in PADE" *immediately* - even
+    /// for a handler Explorer still has cached - with no Explorer restart. This
     /// mirrors how `PowerToys`' File Locksmith / `PowerRename` keep their handler
     /// registered and hide it via `GetState`.
     fn GetState(&self, _items: Ref<'_, IShellItemArray>, _ok_to_be_slow: BOOL) -> Result<u32> {
@@ -139,7 +139,7 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
             let path = unsafe { wide.to_string() };
             unsafe { CoTaskMemFree(Some(wide.as_ptr().cast::<c_void>())) };
             let Ok(path) = path else { continue };
-            // Best-effort, detached — Explorer must never block on us.
+            // Best-effort, detached - Explorer must never block on us.
             let _ = Command::new(&exe)
                 .arg(&path)
                 .creation_flags(CREATE_NO_WINDOW)
@@ -148,7 +148,7 @@ impl IExplorerCommand_Impl for OpenInPadeCommand_Impl {
         Ok(())
     }
 
-    /// No flyout / sub-commands — a single flat verb (`ECF_DEFAULT` is `0`).
+    /// No flyout / sub-commands - a single flat verb (`ECF_DEFAULT` is `0`).
     fn GetFlags(&self) -> Result<u32> {
         Ok(0)
     }

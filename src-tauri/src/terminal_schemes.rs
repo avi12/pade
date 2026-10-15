@@ -2,12 +2,12 @@
 //!
 //! Three sources, one catalogue. The schemes Windows Terminal *ships* live in a
 //! `defaults.json` compiled into the app package, which PADE cannot count on
-//! being installed or readable — so they are vendored here as an asset
+//! being installed or readable - so they are vendored here as an asset
 //! (principle #10: nothing fetched at runtime). A short *curated* list adds the
 //! schemes that asset leaves out, in the same vocabulary. The schemes the user
 //! *wrote* come from their own `settings.json`, read live so a scheme they add
 //! shows up without a PADE release. Later sources win on a name collision, so a
-//! user scheme beats a curated one and a curated one beats a shipped one —
+//! user scheme beats a curated one and a curated one beats a shipped one -
 //! which is exactly what Windows Terminal itself does with a user override.
 //!
 //! On the wire the palette is an ANSI-indexed array rather than Windows
@@ -43,14 +43,14 @@ pub struct TerminalScheme {
     /// Absent in several shipped schemes; the frontend falls back to the
     /// foreground rather than inventing a colour.
     pub cursor: Option<String>,
-    /// Likewise absent in several — Windows Terminal composites its own default
+    /// Likewise absent in several - Windows Terminal composites its own default
     /// wash there, and PADE derives one from the foreground.
     pub selection: Option<String>,
     /// The 16 ANSI colours in ANSI order: 0–7 standard, 8–15 bright.
     pub ansi: [String; 16],
 }
 
-/// A scheme as Windows Terminal writes it — its own twenty-field vocabulary,
+/// A scheme as Windows Terminal writes it - its own twenty-field vocabulary,
 /// read from `defaults.json`, the vendored asset, and the user's settings alike.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,7 +122,7 @@ fn schemes_from_values(values: Vec<serde_json::Value>) -> Vec<TerminalScheme> {
 }
 
 /// The `schemes` array of one Windows Terminal settings file, or nothing when
-/// the file is absent or unreadable — every path below is a build that may
+/// the file is absent or unreadable - every path below is a build that may
 /// simply not be installed.
 fn schemes_in_settings(path: &Path) -> Vec<TerminalScheme> {
     let Some(serde_json::Value::Array(schemes)) = crate::util::read_jsonc(path)
@@ -138,7 +138,7 @@ fn schemes_in_settings(path: &Path) -> Vec<TerminalScheme> {
 
 /// Every settings file a Windows Terminal build keeps its user schemes in: the
 /// Store release, the Store preview, and the unpackaged (portable/`scoop`)
-/// build. All three are read — a machine can have more than one.
+/// build. All three are read - a machine can have more than one.
 fn user_settings_paths() -> Vec<PathBuf> {
     let Some(local_app_data) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else {
         return Vec::new();
@@ -161,13 +161,13 @@ fn user_settings_paths() -> Vec<PathBuf> {
     ]
 }
 
-/// Every scheme in one vendored asset, or nothing when it will not parse — an
+/// Every scheme in one vendored asset, or nothing when it will not parse - an
 /// asset is data, and a broken one must not take the catalogue down with it.
 fn schemes_in_asset(asset: &str) -> Vec<TerminalScheme> {
     schemes_from_values(serde_json::from_str(asset).unwrap_or_default())
 }
 
-/// The merged catalogue, by name — later sources overwrite earlier ones, so the
+/// The merged catalogue, by name - later sources overwrite earlier ones, so the
 /// user's own schemes win over curated, and curated over shipped. Sorted by
 /// construction (`BTreeMap`), which is the order the picker shows.
 fn catalogue(settings_paths: &[PathBuf]) -> Vec<TerminalScheme> {
@@ -280,7 +280,7 @@ mod tests {
         assert_eq!(selenized.cursor.as_deref(), Some("#3A4D53"));
     }
 
-    /// A name the user also defines is theirs, not ours — the same precedence
+    /// A name the user also defines is theirs, not ours - the same precedence
     /// Windows Terminal gives it.
     #[test]
     fn a_user_scheme_overrides_a_shipped_one_of_the_same_name() {

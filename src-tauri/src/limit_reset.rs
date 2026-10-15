@@ -4,7 +4,7 @@
 //! button in PADE's usage meter.
 //!
 //! Both calls are the ones Claude Code itself makes. The offer is the `cedar_ember`
-//! block of the OAuth usage endpoint — which answers only a caller that names
+//! block of the OAuth usage endpoint - which answers only a caller that names
 //! itself as a current Claude Code (any other client is an ineligible
 //! "surface"), so the request carries the installed version. The claim is a POST
 //! naming the grant and a fresh request id, so a retried claim is never counted
@@ -117,7 +117,7 @@ fn fetch_offer() -> Option<LimitReset> {
     offer
 }
 
-/// Forget the cached offer, so the next read asks again — after a claim.
+/// Forget the cached offer, so the next read asks again - after a claim.
 fn forget_offer() {
     if let Ok(mut guard) = OFFER_CACHE.lock() {
         *guard = None;
@@ -128,7 +128,7 @@ fn forget_offer() {
 #[derive(Debug)]
 struct OfferUnanswered;
 
-/// Ask the endpoint for the offer — `Ok(None)` when it answered that there is
+/// Ask the endpoint for the offer - `Ok(None)` when it answered that there is
 /// nothing to spend.
 fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
     let config = request_config(&Request {
@@ -197,7 +197,7 @@ fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
     })
 }
 
-/// The shape Claude Code itself accepts for a grant id — also what keeps it
+/// The shape Claude Code itself accepts for a grant id - also what keeps it
 /// safe inside the request body.
 fn is_grant_id(grant_id: &str) -> bool {
     let has_valid_length = (1..=40).contains(&grant_id.len());

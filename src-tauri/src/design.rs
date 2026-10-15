@@ -1,7 +1,7 @@
-//! AI design / UI-generation tools — quick-launch from PADE.
+//! AI design / UI-generation tools - quick-launch from PADE.
 //!
 //! A parallel to the IDE menu: PADE is agent-first, but sometimes you want to
-//! sketch or generate a UI in a design-to-code tool — Claude, Google Stitch,
+//! sketch or generate a UI in a design-to-code tool - Claude, Google Stitch,
 //! Vercel v0, and peers. The roster is **tied to the active agent**: the tool
 //! from the same vendor as the running agent (Claude Code → Claude, Antigravity
 //! → Stitch) is surfaced first, the rest follow as general design tools. Adding
@@ -17,7 +17,7 @@ struct DesignDefinition {
     vendor: &'static str,
     /// Where the tool lives (opened in the companion PADE window).
     url: &'static str,
-    /// Agent ids (from `agents.rs`) this tool's vendor matches — it's pinned to
+    /// Agent ids (from `agents.rs`) this tool's vendor matches - it's pinned to
     /// the top and flagged when one of them is the active agent. Empty = a
     /// general design tool, always offered but never vendor-matched.
     agents: &'static [&'static str],
@@ -90,8 +90,8 @@ pub fn design_tools(agent: String) -> Vec<DesignTool> {
 // iframes are impossible here: claude.ai / stitch / v0 / figma all send
 // `X-Frame-Options`, so the tool's live UI needs a *native* webview. An embedded
 // child webview (Tauri `unstable` multiwebview) does NOT load external content on
-// Windows/WebView2 — the create + `navigate` calls both succeed but the view
-// stays on about:blank — so we host the tool in a reusable top-level PADE window
+// Windows/WebView2 - the create + `navigate` calls both succeed but the view
+// stays on about:blank - so we host the tool in a reusable top-level PADE window
 // instead. Still in-app (never the external browser), and it sits beside the main
 // window as a side-by-side surface.
 

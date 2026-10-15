@@ -1,12 +1,12 @@
 //! Windows Explorer "Open in PADE" integration, tailored per Windows version so the
-//! entry appears in exactly one right-click menu — never duplicated.
+//! entry appears in exactly one right-click menu - never duplicated.
 //!
-//! - **Windows 11** (build 22000+): only the **modern** menu — a *packaged*
+//! - **Windows 11** (build 22000+): only the **modern** menu - a *packaged*
 //!   `IExplorerCommand` COM handler shown in Explorer's first-level menu (see the
 //!   [`modern`] submodule and the `contextmenu-handler` crate). The legacy keys are
 //!   skipped so the entry doesn't *also* show under "Show more options".
 //! - **Windows 10 and older**: only the **legacy** menu
-//!   (`HKCU\Software\Classes\Directory\…\shell\PADE`) — the classic per-user
+//!   (`HKCU\Software\Classes\Directory\…\shell\PADE`) - the classic per-user
 //!   registry entry pointing at the exe with `%V` (the folder), since there's no
 //!   modern menu to host the verb (and it needs no Developer Mode).
 //!
@@ -36,7 +36,7 @@ fn exe_path() -> Result<String, String> {
         .ok_or_else(|| "executable path is not valid UTF-8".to_string())
 }
 
-/// Windows 11 is build 22000 or newer. Read the build from the registry — no extra
+/// Windows 11 is build 22000 or newer. Read the build from the registry - no extra
 /// dependency, matching how the rest of this module talks to Windows. Anything we
 /// can't read (or a lower build) is treated as Windows 10, whose only menu is legacy.
 #[cfg(windows)]
@@ -48,7 +48,7 @@ fn is_windows_11() -> bool {
     ]) else {
         return false;
     };
-    // The value line is "CurrentBuildNumber  REG_SZ  22631" — the lone numeric token.
+    // The value line is "CurrentBuildNumber  REG_SZ  22631" - the lone numeric token.
     output
         .split_whitespace()
         .filter_map(|token| token.parse::<u32>().ok())
@@ -69,8 +69,8 @@ fn reg(args: &[&str]) -> Result<(), String> {
 }
 
 /// The show/hide flag the modern handler reads on every menu build (see the
-/// `contextmenu-handler` crate). Flipping it hides/shows "Open in PADE" at once —
-/// even for a handler Explorer still has cached — with no Explorer restart, the way
+/// `contextmenu-handler` crate). Flipping it hides/shows "Open in PADE" at once -
+/// even for a handler Explorer still has cached - with no Explorer restart, the way
 /// `PowerToys` toggles its context menus. `1`/absent = shown, `0` = hidden.
 #[cfg(windows)]
 const MENU_FLAG_KEY: &str = r"HKCU\Software\PADE";
@@ -147,7 +147,7 @@ fn legacy_registered() -> bool {
 /// Turn "Open in PADE" on for the one menu that fits this Windows version.
 ///
 /// - **Windows 11**: register the sparse package **once** (skipped when it is already
-///   registered — re-enabling is then just a flag flip, never a redeploy), clear any
+///   registered - re-enabling is then just a flag flip, never a redeploy), clear any
 ///   legacy leftover, and set the show/hide flag to shown. Mirrors `PowerToys`, which
 ///   registers its packaged handler once and thereafter only toggles a flag.
 /// - **Windows 10 and older**: add the legacy registry keys (there is no packaged
@@ -169,7 +169,7 @@ pub async fn context_menu_register() -> Result<(), String> {
 ///
 /// - **Windows 11**: only flip the handler's show/hide flag to hidden. The sparse
 ///   package stays registered, so the handler self-hides on the next menu build with no
-///   Explorer restart and no redeploy — exactly how `PowerToys`' File Locksmith /
+///   Explorer restart and no redeploy - exactly how `PowerToys`' File Locksmith /
 ///   `PowerRename` keep their handler registered and just hide it. Fully removing the
 ///   package is reserved for a future uninstall path (`modern::unregister`).
 /// - **Windows 10 and older**: remove the legacy registry keys outright (no

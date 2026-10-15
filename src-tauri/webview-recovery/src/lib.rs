@@ -6,9 +6,9 @@
 //! a dead *renderer* is healed in place with `Reload()`, a *hung* renderer
 //! only after it stays hung across consecutive reports (the event re-fires
 //! roughly every 15s while unresponsiveness lasts, and Microsoft's guidance is
-//! to pick a threshold rather than reload on the first report — a long
+//! to pick a threshold rather than reload on the first report - a long
 //! synchronous script or a busy system often recovers on its own). A dead
-//! *browser process* leaves every COM object defunct — nothing can be done on
+//! *browser process* leaves every COM object defunct - nothing can be done on
 //! this side, so it is escalated to the caller, who must rebuild the window.
 //! Every failure logs its kind/reason pair; crash dumps land in the user data
 //! folder's failure-report directory for deeper diagnosis.
@@ -27,7 +27,7 @@ use webview2_com::ProcessFailedEventHandler;
 use windows_core::Interface;
 
 /// How many consecutive unresponsive reports (one roughly every 15s) a main
-/// frame renderer gets before it is reloaded — about half a minute of true
+/// frame renderer gets before it is reloaded - about half a minute of true
 /// hang, enough for a busy system or a heavy synchronous script to recover
 /// without losing the page's state to a needless reload.
 const UNRESPONSIVE_REPORTS_BEFORE_RELOAD: u32 = 2;
@@ -81,7 +81,7 @@ pub fn watch_process_failed(
             if renderer_gone {
                 consecutive_unresponsive.store(0, Ordering::Relaxed);
                 if let Some(webview) = sender {
-                    // SAFETY: the sender webview is still valid — only its
+                    // SAFETY: the sender webview is still valid - only its
                     // renderer died or hung; `Reload()` is the documented recovery.
                     unsafe { webview.Reload() }?;
                 }
@@ -93,7 +93,7 @@ pub fn watch_process_failed(
                 on_browser_process_gone();
             }
             // GPU, utility, and frame-renderer failures recover on their own
-            // (or affect only iframes PADE does not use) — logged above, no
+            // (or affect only iframes PADE does not use) - logged above, no
             // action, per Microsoft's process-related-events guidance.
             Ok(())
         },

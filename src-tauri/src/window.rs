@@ -1,9 +1,9 @@
-//! Multi-window — spawn additional PADE app windows (Ctrl+Shift+N / app menu).
+//! Multi-window - spawn additional PADE app windows (Ctrl+Shift+N / app menu).
 //!
 //! Each new window loads the same frontend `index.html` with a query string that
 //! tells the app what to boot into (`?w=empty` picker, `?w=temp` throwaway
 //! workspace, or `?w=open&path=<enc>` a specific project). The frontend routing
-//! that reads `location.search` lives in the shell task — this module only spawns
+//! that reads `location.search` lives in the shell task - this module only spawns
 //! a window that loads the app with the right query. New windows clone the main
 //! window's sizing/decorations so they feel identical.
 
@@ -21,7 +21,7 @@ use tauri::{
 /// dark schemes. Painted as the webview background at window creation so a window
 /// opens already in-theme: `WebView2` otherwise shows an unthemed white surface
 /// until the HTML/CSS first paints, flashing white on a dark desktop. This is the
-/// native side of the token — Rust can't read the CSS custom property — so keep
+/// native side of the token - Rust can't read the CSS custom property - so keep
 /// the two in sync.
 const SURFACE_LIGHT: Color = Color(248, 250, 251, 255); // hsl(210deg 30% 98%)
 const SURFACE_DARK: Color = Color(14, 20, 27, 255); // hsl(214deg 30% 8%)
@@ -36,7 +36,7 @@ pub(crate) fn surface_for(theme: Theme) -> Color {
 }
 
 /// Paint `window`'s webview with the themed surface so it shows in-theme before
-/// the frontend renders. Best-effort — a failed theme probe leaves the default.
+/// the frontend renders. Best-effort - a failed theme probe leaves the default.
 pub fn paint_surface(window: &WebviewWindow) {
     if let Ok(theme) = window.theme() {
         let _ = window.set_background_color(Some(surface_for(theme)));
@@ -61,7 +61,7 @@ fn scheme_for(theme: Theme) -> &'static str {
 /// startup.
 ///
 /// `WebView2`'s `prefers-color-scheme` can still answer *light* while the window
-/// is already dark — it resolves after the first script runs — and the flip event
+/// is already dark - it resolves after the first script runs - and the flip event
 /// above only fires on a genuine *change*, so nothing ever corrects that first
 /// answer. A session spawned in that window then themes its agent for the wrong
 /// scheme for the life of the process (Claude reads `$COLORFGBG` at spawn; see
@@ -73,9 +73,9 @@ pub fn window_theme(window: Window) -> &'static str {
 }
 
 /// React to a runtime OS theme flip. `WebView2` does not reliably deliver the
-/// `prefers-color-scheme` change to a window that stays *focused/visible* — the
+/// `prefers-color-scheme` change to a window that stays *focused/visible* - the
 /// frontend's media query can go stale with no visibility/focus transition to
-/// reconcile off — so the native `ThemeChanged` window event is the trustworthy
+/// reconcile off - so the native `ThemeChanged` window event is the trustworthy
 /// signal. Repaint the surface in-theme and hand the resolved scheme to that
 /// window's frontend, which follows it verbatim (see prefs.svelte). Emitted only
 /// to the window that changed, so each window re-themes from its own OS theme.
@@ -89,7 +89,7 @@ pub fn on_theme_changed(window: &Window, theme: Theme) {
 
 /// Per-window state the switcher reads: which project each window has open (keyed
 /// by window label), and the user's explicit drag-reorder of the "Open windows"
-/// list. The order is session-scoped — window labels are ephemeral per app run, so
+/// list. The order is session-scoped - window labels are ephemeral per app run, so
 /// persisting it across restarts by label would be meaningless.
 #[derive(Default)]
 pub struct WindowProjects {
@@ -97,7 +97,7 @@ pub struct WindowProjects {
     /// picker focus an already-open project's window instead of opening it twice.
     projects: Mutex<HashMap<String, String>>,
     /// The user's explicit label order for the switcher list and the `Ctrl+Alt+[`/`]`
-    /// cycle — the single source both read. A live window absent from it falls back
+    /// cycle - the single source both read. A live window absent from it falls back
     /// to creation order (`order_key`) after the explicitly ordered ones.
     order: Mutex<Vec<String>>,
 }
@@ -121,7 +121,7 @@ pub(crate) fn same_path(left: &str, right: &str) -> bool {
     normalize(left) == normalize(right)
 }
 
-/// The projects open in a live window right now — an entry whose window has
+/// The projects open in a live window right now - an entry whose window has
 /// since closed is skipped.
 pub(crate) fn open_projects(app: &AppHandle) -> Vec<String> {
     let state = app.state::<WindowProjects>();
@@ -135,7 +135,7 @@ pub(crate) fn open_projects(app: &AppHandle) -> Vec<String> {
         .collect()
 }
 
-/// Stamp a project a window just left, off the calling thread — the stamp is a
+/// Stamp a project a window just left, off the calling thread - the stamp is a
 /// settings-file write and these callers run on the main thread.
 fn mark_left_in_background(path: String) {
     if path.is_empty() {
@@ -163,7 +163,7 @@ pub fn on_destroyed(window: &Window) {
     }
 }
 
-/// Canonicalize a path for cross-window comparison — `/`-separated, no trailing
+/// Canonicalize a path for cross-window comparison - `/`-separated, no trailing
 /// slash, lowercased on case-insensitive Windows.
 fn normalize(path: &str) -> String {
     let trimmed = path.replace('\\', "/");
@@ -176,7 +176,7 @@ fn normalize(path: &str) -> String {
 }
 
 /// Broadcast that the open-windows set or its order changed, so every window's
-/// switcher (`AppMenu`) can refresh its "Open windows" list live — the one home
+/// switcher (`AppMenu`) can refresh its "Open windows" list live - the one home
 /// for the event name the frontend `windows.onChanged` listens on.
 const WINDOWS_CHANGED_EVENT: &str = "windows://changed";
 
@@ -234,7 +234,7 @@ pub fn window_focus_project(
             let _ = target_window.set_focus();
             return true;
         }
-        // The window is gone — drop its stale entry.
+        // The window is gone - drop its stale entry.
         if let Ok(mut projects) = state.projects.lock() {
             projects.remove(&label);
         }
@@ -243,7 +243,7 @@ pub fn window_focus_project(
 }
 
 /// Which neighbouring window to cycle to. Mirrors the frontend
-/// `focusRelative("previous" | "next")` — one authoritative home for the two
+/// `focusRelative("previous" | "next")` - one authoritative home for the two
 /// names. `pub` because it appears in a `#[tauri::command]` signature.
 #[derive(Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -281,7 +281,7 @@ fn window_sort_key(label: &str, order: &[String]) -> (usize, u32, String) {
 }
 
 /// Record the user's explicit "Open windows" order (the drag-reordered labels) so
-/// both `window_list` and `window_focus_relative` sort by it — one source of truth
+/// both `window_list` and `window_focus_relative` sort by it - one source of truth
 /// for the switcher's order and the `Ctrl+Alt+[`/`]` cycle. Session-scoped: labels
 /// are ephemeral per app run, so there's nothing meaningful to persist to disk.
 #[tauri::command]
@@ -294,7 +294,7 @@ pub fn window_reorder(app: AppHandle, state: tauri::State<WindowProjects>, label
 
 /// Focus the previous/next open PADE window, wrapping around at the ends, in the
 /// user's explicit switcher order (drag-reordered via `window_reorder`) and
-/// creation order for any window not yet reordered — the same order the switcher's
+/// creation order for any window not yet reordered - the same order the switcher's
 /// "Open windows" list shows. Returns true when another window was focused (false
 /// when this is the only window). The calling window is injected as `window`, so
 /// the frontend passes only a direction; live windows are re-enumerated each press,
@@ -350,7 +350,7 @@ pub struct WindowInfo {
 /// yet reordered), flagging the caller as the current window. Windows with no
 /// registered project (an empty or picker window) are omitted. Drives the
 /// switcher's "Open windows" section, so its order matches the `Ctrl+Alt+[`/`]`
-/// cycle order — both read the one explicit order.
+/// cycle order - both read the one explicit order.
 #[tauri::command]
 pub fn window_list(
     app: AppHandle,
@@ -384,7 +384,7 @@ pub fn window_list(
         .collect()
 }
 
-/// Focus a specific open PADE window by label — the switcher's "Open windows"
+/// Focus a specific open PADE window by label - the switcher's "Open windows"
 /// rows. Returns true when that window existed and took focus.
 #[tauri::command]
 pub fn window_focus_label(app: AppHandle, label: String) -> bool {
@@ -426,7 +426,7 @@ impl LaunchMode {
 ///
 /// **`async` is load-bearing on Windows.** Tauri runs a synchronous command *on the
 /// event loop thread*, and building a webview window blocks that thread waiting for
-/// `WebView2` to hand the webview back — which it can only do from the event loop. The
+/// `WebView2` to hand the webview back - which it can only do from the event loop. The
 /// two wait on each other: the OS window appears (title bar, themed surface) with no
 /// webview in it, and the whole app stops pumping messages, so the blank window cannot
 /// even be closed. Tauri's own docs say it outright: "on Windows, this function
@@ -474,7 +474,7 @@ pub async fn window_create(
 
     // Build visible: the builder's `background_color` above already paints the
     // themed surface at creation, so there's no white flash to hide. (Building
-    // hidden and calling `show()` here left the window invisible — a freshly
+    // hidden and calling `show()` here left the window invisible - a freshly
     // built webview window doesn't reliably show from within the command.)
     let window = builder
         .min_inner_size(720.0, 480.0)
@@ -491,7 +491,7 @@ mod tests {
     use super::{order_key, window_sort_key};
 
     /// Sort the live window labels the way `window_list`/`window_focus_relative` do,
-    /// given the user's explicit order — the behaviour both commands share.
+    /// given the user's explicit order - the behaviour both commands share.
     fn sorted(live: &[&str], order: &[&str]) -> Vec<String> {
         let order: Vec<String> = order.iter().map(|label| (*label).to_string()).collect();
         let mut labels: Vec<String> = live.iter().map(|label| (*label).to_string()).collect();
@@ -510,7 +510,7 @@ mod tests {
 
     #[test]
     fn unknown_windows_fall_back_to_creation_order() {
-        // Only w-2 is explicitly ordered; the rest follow in creation order — and
+        // Only w-2 is explicitly ordered; the rest follow in creation order - and
         // w-2 (numeric 2) precedes w-10, which lexicographic sorting would misplace.
         assert_eq!(
             sorted(&["main", "w-2", "w-10"], &["w-2"]),

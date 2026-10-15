@@ -1,4 +1,4 @@
-//! Discord Rich Presence — report PADE on the user's Discord profile.
+//! Discord Rich Presence - report PADE on the user's Discord profile.
 //!
 //! Talks the Discord desktop client's local IPC protocol directly over its
 //! per-user socket (a named pipe on Windows, a Unix domain socket elsewhere), so
@@ -18,7 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::{json, Value};
 use tauri::State;
 
-/// PADE's **public** Discord application (client) id — the VS-Code-extension model:
+/// PADE's **public** Discord application (client) id - the VS-Code-extension model:
 /// one app registered once by the maintainer, its id shipped in the binary, so
 /// every user gets "Playing PADE" with zero per-user setup (just the toggle). The
 /// app owns the art assets every client references: the `pade` large image plus one
@@ -32,7 +32,7 @@ const APPLICATION_ID: &str = "1530345735835619390";
 /// asset the app hasn't uploaded simply doesn't render, text still works.
 const ART_ASSET_KEY: &str = "pade";
 
-/// The one presence command PADE sends — set (or, with a null activity, clear)
+/// The one presence command PADE sends - set (or, with a null activity, clear)
 /// the current activity. Named once so the two payload builders agree (DRY).
 const SET_ACTIVITY: &str = "SET_ACTIVITY";
 
@@ -40,7 +40,7 @@ const SET_ACTIVITY: &str = "SET_ACTIVITY";
 /// followed by the JSON payload.
 const FRAME_HEADER_LENGTH: usize = 8;
 
-/// Reject a response frame claiming more than this many payload bytes — Discord's
+/// Reject a response frame claiming more than this many payload bytes - Discord's
 /// frames are small, so an absurd length means a desynced/garbage pipe, not a
 /// real message worth allocating for.
 const MAXIMUM_FRAME_PAYLOAD: usize = 64 * 1024;
@@ -54,7 +54,7 @@ enum Opcode {
 }
 
 impl Opcode {
-    /// The on-the-wire numeric code — kept as the enum's one authoritative mapping
+    /// The on-the-wire numeric code - kept as the enum's one authoritative mapping
     /// so no bare `0`/`1` leaks into the framing.
     const fn code(self) -> u32 {
         match self {
@@ -75,11 +75,11 @@ impl<T: Read + Write + Send> DuplexStream for T {}
 /// to a message the frontend ignores.
 #[derive(Debug)]
 enum DiscordError {
-    /// No Discord IPC socket answered — the client isn't running.
+    /// No Discord IPC socket answered - the client isn't running.
     Unavailable,
     /// A frame's length is implausibly large (a corrupt/desynced pipe).
     OversizedFrame,
-    /// Underlying socket I/O failed — treated as "Discord went away".
+    /// Underlying socket I/O failed - treated as "Discord went away".
     Io(std::io::Error),
 }
 
@@ -109,7 +109,7 @@ impl From<std::io::Error> for DiscordError {
 }
 
 /// Tauri-managed presence handle. Discord's socket I/O is **blocking**, and a
-/// synchronous Tauri command runs on the main (UI) thread — so talking to the socket
+/// synchronous Tauri command runs on the main (UI) thread - so talking to the socket
 /// inline would freeze the window whenever a read stalls (Discord slow, restarting,
 /// or a half-open pipe). Instead the state owns a dedicated worker thread that holds
 /// the connection and applies presence updates serially off the UI thread; a command
@@ -126,7 +126,7 @@ enum Command {
     Clear,
 }
 
-/// Owned counterpart of [`ActivityInput`] — the worker borrows from it per send.
+/// Owned counterpart of [`ActivityInput`] - the worker borrows from it per send.
 #[derive(Default)]
 struct OwnedActivity {
     details: Option<String>,
@@ -162,7 +162,7 @@ impl DiscordState {
 
 /// The worker loop: owns the connection and applies each queued update in order,
 /// off the UI thread, until every sender is dropped (app exit). Each update's result
-/// is intentionally ignored — presence is best-effort.
+/// is intentionally ignored - presence is best-effort.
 fn run_worker(receiver: Receiver<Command>) {
     let mut presence = Presence::default();
     while let Ok(command) = receiver.recv() {
@@ -189,7 +189,7 @@ struct Presence {
 impl Presence {
     /// Publish the given activity, connecting + handshaking on first use. `details`
     /// and `state` are the two optional status lines; `image`/`caption` are an
-    /// optional small overlay icon (an art-asset key) and its hover text — the
+    /// optional small overlay icon (an art-asset key) and its hover text - the
     /// VS-Code-style language mark. All are omitted from the payload when `None`.
     fn set_activity(&mut self, fields: ActivityInput) -> Result<(), DiscordError> {
         self.ensure_connected()?;
@@ -214,7 +214,7 @@ impl Presence {
 
     /// Clear the activity (keeping the socket for a later re-enable) and forget the
     /// start time so the next enable starts the timer fresh. A no-op when never
-    /// connected — there's nothing on Discord to clear.
+    /// connected - there's nothing on Discord to clear.
     fn clear_activity(&mut self) -> Result<(), DiscordError> {
         self.started_at = None;
         if self.connection.is_none() {
@@ -239,7 +239,7 @@ impl Presence {
 
     /// Send one command frame and drain its reply. Any I/O failure means Discord
     /// closed the pipe (quit or restarted), so the connection and start time are
-    /// dropped — the next `set_activity` reconnects cleanly.
+    /// dropped - the next `set_activity` reconnects cleanly.
     fn exchange(&mut self, payload: &str) -> Result<(), DiscordError> {
         let outcome = self.write_command(payload);
         if outcome.is_err() {
@@ -359,7 +359,7 @@ fn encode_frame(opcode: Opcode, payload: &[u8]) -> Result<Vec<u8>, DiscordError>
     Ok(frame)
 }
 
-/// Read exactly one response frame and discard it — PADE never inspects Discord's
+/// Read exactly one response frame and discard it - PADE never inspects Discord's
 /// replies, it only needs to keep the stream drained.
 fn read_frame(stream: &mut dyn DuplexStream) -> Result<(), DiscordError> {
     let mut header = [0u8; FRAME_HEADER_LENGTH];
@@ -397,7 +397,7 @@ fn now_unix_seconds() -> u64 {
 
 /// Open Discord's IPC named pipe, trying `discord-ipc-0` through `-9`; the first
 /// that opens wins. A duplex message pipe opens read+write through plain
-/// `OpenOptions` — no `unsafe`. `None` when none answer (Discord isn't running).
+/// `OpenOptions` - no `unsafe`. `None` when none answer (Discord isn't running).
 #[cfg(windows)]
 fn connect() -> Option<Box<dyn DuplexStream>> {
     for index in 0..=9 {

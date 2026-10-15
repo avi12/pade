@@ -1,4 +1,4 @@
-//! Clipboard image capture — lets a terminal Ctrl+V paste an image into an
+//! Clipboard image capture - lets a terminal Ctrl+V paste an image into an
 //! agent session. TUIs cannot read the OS clipboard's bitmap themselves, so the
 //! standard pattern is: save the bitmap to a temp file and paste its *path*;
 //! agent composers (Claude Code, `OpenCode`) then attach the file.
@@ -66,7 +66,7 @@ fn encode_png(image: &tauri::image::Image<'_>, path: &Path) -> Result<(), String
 #[tauri::command]
 pub async fn clipboard_image_save(app: tauri::AppHandle) -> Result<Option<String>, String> {
     // The plugin reports "no image available" as an error variant, not a
-    // distinct case — so any read failure means "fall back to text paste".
+    // distinct case - so any read failure means "fall back to text paste".
     let Ok(image) = app.clipboard().read_image() else {
         return Ok(None);
     };
