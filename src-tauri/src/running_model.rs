@@ -164,9 +164,16 @@ pub struct SessionModel {
 #[tauri::command]
 pub async fn agent_running_model(command: String, conversation_id: String) -> Option<SessionModel> {
     tauri::async_runtime::spawn_blocking(move || {
+        let is_claude = command == ID_CLAUDE;
+        if is_claude && is_plain_id(&conversation_id) {
+            let (running, ultracode) = claude::read_with_ultracode(&conversation_id)?;
+            return Some(SessionModel { running, ultracode });
+        }
         let running = read(&command, &conversation_id)?;
-        let ultracode = command == ID_CLAUDE && claude::is_ultracode_on(&conversation_id);
-        Some(SessionModel { running, ultracode })
+        Some(SessionModel {
+            running,
+            ultracode: false,
+        })
     })
     .await
     .ok()

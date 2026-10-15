@@ -17,6 +17,7 @@
 //!
 //! Measured against Claude Code 2.1.292.
 
+use std::cell::OnceCell;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -29,8 +30,12 @@ use super::{
 const SETTINGS_FLAG: &str = "--settings";
 /// Claude's own user settings, where `/model` and `/effort` save their choice.
 const SETTINGS_FILE: &str = "settings.json";
-/// The settings keys `/model` and `/effort` save their choice under.
-const SWITCH_KEYS: [&str; 2] = ["model", "modelSettings"];
+/// The settings keys `/model` and `/effort` save their choice under: the
+/// model, the per-model table, and the level inside it (or at the top level).
+const MODEL_KEY: &str = "model";
+const MODEL_SETTINGS_KEY: &str = "modelSettings";
+const EFFORT_LEVEL_KEY: &str = "effortLevel";
+const SWITCH_KEYS: [&str; 2] = [MODEL_KEY, MODEL_SETTINGS_KEY];
 /// The hook events that only report, by Claude's wire names - run async, so a
 /// hook never holds a turn up.
 /// `UserPromptSubmit` reports nothing new itself; its write is what makes the tab
@@ -143,34 +148,88 @@ pub(super) fn consume_switch_permission(conversation_id: &str) -> bool {
 /// the last report and the last `/effort` its transcript logs - or the level
 /// saved for the model, before either and from a model switch on.
 pub(super) fn read(conversation_id: &str) -> Option<RunningModel> {
-    let Some(state) = read_session_state(conversation_id) else {
-        return logged_turn(conversation_id);
-    };
-    let Some(model) = state.model.clone() else {
-        return logged_turn(conversation_id);
-    };
-
-    let reported = state
-        .effort
-        .as_deref()
-        .map(|effort| (effort, state.effort_at));
-    let typed = typed_effort(conversation_id, &state);
-    let typed = typed.as_ref().map(|(effort, at)| (effort.as_str(), *at));
-    let session_effort = [reported, typed]
-        .into_iter()
-        .flatten()
-        .max_by_key(|(_, at)| *at);
-    let saved = saved_effort(&model);
-    Some(RunningModel {
-        effort: newer(session_effort, saved.as_ref(), state.model_at),
-        model,
-    })
+    Session::load(conversation_id).running_model()
 }
 
-/// The level the session's newest `/effort` set, and when.
-fn typed_effort(conversation_id: &str, state: &SessionState) -> Option<(String, u64)> {
-    let transcript = transcript(conversation_id, state)?;
-    crate::util::newest_in_tail(&transcript, newest_effort_set)
+/// What `read` answers, plus whether Ultracode is on - from one read of the
+/// session's state and one lookup of its transcript.
+pub(super) fn read_with_ultracode(conversation_id: &str) -> Option<(RunningModel, bool)> {
+    let session = Session::load(conversation_id);
+    let running = session.running_model()?;
+    Some((running, session.is_ultracode_on()))
+}
+
+/// One session's hook state and transcript, each read at most once however
+/// many questions are asked of them.
+struct Session<'a> {
+    conversation_id: &'a str,
+    state: Option<SessionState>,
+    transcript: OnceCell<Option<PathBuf>>,
+}
+
+impl<'a> Session<'a> {
+    fn load(conversation_id: &'a str) -> Self {
+        Self {
+            conversation_id,
+            state: read_session_state(conversation_id),
+            transcript: OnceCell::new(),
+        }
+    }
+
+    /// The session's transcript: the one its hooks named, else found by id.
+    fn transcript(&self) -> Option<&Path> {
+        self.transcript
+            .get_or_init(|| {
+                self.state
+                    .as_ref()
+                    .and_then(|state| state.transcript.as_ref())
+                    .map(PathBuf::from)
+                    .or_else(|| crate::session_context::claude_transcript(self.conversation_id))
+            })
+            .as_deref()
+    }
+
+    fn running_model(&self) -> Option<RunningModel> {
+        let Some((state, model)) = self
+            .state
+            .as_ref()
+            .and_then(|state| Some((state, state.model.as_ref()?)))
+        else {
+            return logged_turn(self.conversation_id);
+        };
+
+        let reported = state
+            .effort
+            .as_deref()
+            .map(|effort| (effort, state.effort_at));
+        let typed = self.typed_effort();
+        let typed = typed.as_ref().map(|(effort, at)| (effort.as_str(), *at));
+        let session_effort = [reported, typed]
+            .into_iter()
+            .flatten()
+            .max_by_key(|(_, at)| *at);
+        let saved = saved_effort(model);
+        Some(RunningModel {
+            effort: newer(session_effort, saved.as_ref(), state.model_at),
+            model: model.clone(),
+        })
+    }
+
+    /// The level the session's newest `/effort` set, and when.
+    fn typed_effort(&self) -> Option<(String, u64)> {
+        crate::util::newest_in_tail(self.transcript()?, newest_effort_set)
+    }
+
+    /// Whether Ultracode is on for the session: the newest Ultracode entry in
+    /// its transcript is an enter (Claude Code uses the same rule to decide
+    /// when to write the exit). No entry means it was never turned on.
+    fn is_ultracode_on(&self) -> bool {
+        let Some(transcript) = self.transcript() else {
+            return false;
+        };
+        crate::util::newest_in_tail(transcript, newest_ultracode_entry)
+            .is_some_and(|entry| entry == ULTRACODE_ENTER)
+    }
 }
 
 fn newest_effort_set(lines: &str) -> Option<(String, u64)> {
@@ -188,15 +247,6 @@ fn newest_effort_set(lines: &str) -> Option<(String, u64)> {
         let set_at = timestamp_millis(entry.get("timestamp")?.as_str()?)?;
         Some((level.to_string(), set_at))
     })
-}
-
-/// The session's transcript: the one its hooks named, else found by id.
-fn transcript(conversation_id: &str, state: &SessionState) -> Option<PathBuf> {
-    state
-        .transcript
-        .as_ref()
-        .map(PathBuf::from)
-        .or_else(|| crate::session_context::claude_transcript(conversation_id))
 }
 
 /// The models Claude Code itself lists, from the catalog it caches under
@@ -365,11 +415,11 @@ fn wait_until(within: Duration, has_landed: impl Fn() -> bool) -> bool {
 
 fn saved_model() -> Option<String> {
     let settings = read_settings()?;
-    Some(settings.get("model")?.as_str()?.to_string())
+    Some(settings.get(MODEL_KEY)?.as_str()?.to_string())
 }
 
 fn read_settings() -> Option<serde_json::Value> {
-    serde_json::from_str(&std::fs::read_to_string(settings_file()?).ok()?).ok()
+    crate::util::read_json(&settings_file()?)
 }
 
 /// Put back the default `/model` and `/effort` just saved over - the keys they
@@ -446,20 +496,6 @@ fn grant_switch_permission(conversation_id: &str) {
     }
 }
 
-/// A session launched before PADE attached its hooks: the newest turn Claude's
-/// own log records.
-/// Whether Ultracode is on for the session: the newest Ultracode entry in its
-/// transcript is an enter (Claude Code uses the same rule to decide when to
-/// write the exit). No entry means it was never turned on.
-pub(super) fn is_ultracode_on(conversation_id: &str) -> bool {
-    let state = read_session_state(conversation_id).unwrap_or_default();
-    let Some(transcript) = transcript(conversation_id, &state) else {
-        return false;
-    };
-    crate::util::newest_in_tail(&transcript, newest_ultracode_entry)
-        .is_some_and(|entry| entry == ULTRACODE_ENTER)
-}
-
 fn newest_ultracode_entry(lines: &str) -> Option<&'static str> {
     lines.lines().rev().find_map(|line| {
         let is_candidate = line.contains(ULTRACODE_ENTER) || line.contains(ULTRACODE_EXIT);
@@ -475,6 +511,8 @@ fn newest_ultracode_entry(lines: &str) -> Option<&'static str> {
     })
 }
 
+/// A session launched before PADE attached its hooks: the newest turn Claude's
+/// own log records.
 fn logged_turn(conversation_id: &str) -> Option<RunningModel> {
     let turn = crate::session_context::logged_claude_turn(conversation_id)?;
     Some(RunningModel {
@@ -540,7 +578,7 @@ fn newest_catalog() -> Option<serde_json::Value> {
                 .and_then(|metadata| metadata.modified())
                 .ok()
         })?;
-    serde_json::from_str(&std::fs::read_to_string(newest.path()).ok()?).ok()
+    crate::util::read_json(&newest.path())
 }
 
 fn is_picker_catalog(entry: &std::fs::DirEntry) -> bool {
@@ -564,15 +602,15 @@ fn saved_effort(model: &str) -> Option<Saved> {
 /// A model's own level is looked up under its exact id, then without a
 /// context-window variant: `claude-opus-5-5[1m]` shares `claude-opus-5-5`'s.
 fn effort_for_model(settings: &serde_json::Value, model: &str) -> Option<String> {
-    let model_settings = settings.get("modelSettings");
+    let model_settings = settings.get(MODEL_SETTINGS_KEY);
     let own_level = |id: &str| {
         model_settings
             .and_then(|models| models.get(id))
-            .and_then(|entry| entry.get("effortLevel"))
+            .and_then(|entry| entry.get(EFFORT_LEVEL_KEY))
     };
     own_level(model)
         .or_else(|| own_level(without_context_variant(model)))
-        .or_else(|| settings.get("effortLevel"))
+        .or_else(|| settings.get(EFFORT_LEVEL_KEY))
         .and_then(serde_json::Value::as_str)
         .map(str::to_string)
 }
