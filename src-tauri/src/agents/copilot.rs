@@ -262,7 +262,7 @@ fn answer_challenge(
 /// fails, so the caller aborts the turn.
 fn send_frame(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>, frame: &Value) -> Option<()> {
     let text = serde_json::to_string(frame).ok()?;
-    socket.send(Message::Text(text)).ok()
+    socket.send(Message::text(text)).ok()
 }
 
 #[cfg(test)]

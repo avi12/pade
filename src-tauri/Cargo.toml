@@ -47,7 +47,7 @@ png = "0.18"
 # rustls stack, no OpenSSL); `sha2` solves the hashcash proof-of-work; `uuid`
 # mints the clientSessionId. All pure-Rust, no new native/DLL surface.
 ureq = { version = "2", default-features = false, features = ["tls"] }
-tungstenite = { version = "0.24", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
+tungstenite = { version = "0.30", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
 
