@@ -23,7 +23,9 @@ import { SELECTION_CURSOR } from "@/lib/choice-prompt";
 // the first prompt - it's the user's own project, opened in PADE. Keying on the
 // accepting option's own wording keeps the auto-answer scoped to exactly that
 // gate, never a real question the agent asks later (which the user must answer).
-const TRUST_OPTION_RE = /\btrust this folder\b/i;
+const TRUST_OPTION = /\btrust this folder\b/i;
+const NOT_FOUND = -1;
+const WHITESPACE_RUN = /\s+/g;
 
 // The gate's options sit on adjacent rows. A selection cursor further away than
 // this belongs to something else - the REPL's own `❯` input line, which takes
@@ -45,24 +47,24 @@ export type TrustGateKey = (typeof TrustGateKey)[keyof typeof TrustGateKey];
  *  CLI's to change: Claude Code 2.1.286 lists `❯ No, exit` FIRST with
  *  `Yes, I trust this folder` below, so a blind Enter would quit the agent. */
 export function trustGateKey(rows: readonly string[]) {
-  const trustRow = rows.findIndex(row => TRUST_OPTION_RE.test(row));
-  if (trustRow === -1) {
+  const iTrustRow = rows.findIndex(row => TRUST_OPTION.test(row));
+  if (iTrustRow === NOT_FOUND) {
     return null;
   }
 
-  const firstOptionRow = Math.max(0, trustRow - MAX_OPTION_ROWS_APART);
-  const optionRows = rows.slice(firstOptionRow, trustRow + MAX_OPTION_ROWS_APART + 1);
-  const cursorOffset = optionRows.findIndex(row => row.trimStart().startsWith(SELECTION_CURSOR));
-  if (cursorOffset === -1) {
+  const iFirstOptionRow = Math.max(0, iTrustRow - MAX_OPTION_ROWS_APART);
+  const optionRows = rows.slice(iFirstOptionRow, iTrustRow + MAX_OPTION_ROWS_APART + 1);
+  const iCursorOffset = optionRows.findIndex(row => row.trimStart().startsWith(SELECTION_CURSOR));
+  if (iCursorOffset === NOT_FOUND) {
     return null;
   }
 
-  const cursorRow = firstOptionRow + cursorOffset;
-  if (cursorRow === trustRow) {
+  const iCursorRow = iFirstOptionRow + iCursorOffset;
+  if (iCursorRow === iTrustRow) {
     return TrustGateKey.Confirm;
   }
 
-  return cursorRow < trustRow ? TrustGateKey.Down : TrustGateKey.Up;
+  return iCursorRow < iTrustRow ? TrustGateKey.Down : TrustGateKey.Up;
 }
 
 /** How much of the prompt's collapsed text must reappear in the output to count
@@ -73,7 +75,7 @@ const ECHO_PREFIX_LENGTH = 24;
 /** Terminal text reduced to bare glyphs: ANSI stripped, all whitespace removed -
  *  so a composer that wraps the prompt across lines still matches it. */
 function collapsed(text: string) {
-  return stripAnsi(text).replaceAll(/\s+/g, "");
+  return stripAnsi(text).replaceAll(WHITESPACE_RUN, "");
 }
 
 /** Whether the agent's output shows the delivered prompt - the composer (or the
@@ -85,6 +87,6 @@ export function promptEchoed({ output, prompt }: {
   output: string;
   prompt: string;
 }) {
-  const needle = collapsed(prompt).slice(0, ECHO_PREFIX_LENGTH);
-  return needle.length > 0 && collapsed(output).includes(needle);
+  const echoPrefix = collapsed(prompt).slice(0, ECHO_PREFIX_LENGTH);
+  return echoPrefix.length > 0 && collapsed(output).includes(echoPrefix);
 }

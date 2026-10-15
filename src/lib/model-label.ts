@@ -40,16 +40,16 @@ export function modelName(model: string) {
   return `${name} ${contextVariant.toUpperCase()}`;
 }
 
-function familyName(bare: string) {
-  if (!bare.startsWith(CLAUDE_PREFIX)) {
-    return bare;
+function familyName(bareId: string) {
+  if (!bareId.startsWith(CLAUDE_PREFIX)) {
+    return bareId;
   }
 
-  const [family, ...rest] = bare.slice(CLAUDE_PREFIX.length).split(ID_PART_SEPARATOR);
+  const [family, ...rest] = bareId.slice(CLAUDE_PREFIX.length).split(ID_PART_SEPARATOR);
   const versionParts = rest.filter(part => !RELEASE_DATE.test(part));
   const isClaudeShape = family !== undefined && family !== "" && versionParts.every(part => VERSION_PART.test(part));
   if (!isClaudeShape) {
-    return bare;
+    return bareId;
   }
 
   const name = family.charAt(0).toUpperCase() + family.slice(1);
@@ -73,10 +73,10 @@ export function effortStep({ model, effort, ladder = [] }: {
   const hasOwnLadder = ladder.length > 0;
   const ladders = hasOwnLadder ? [ladder, ...familyLadders] : familyLadders;
   for (const candidate of ladders) {
-    const index = candidate.indexOf(effort.toLowerCase());
-    if (index !== NOT_FOUND) {
+    const iEffort = candidate.indexOf(effort.toLowerCase());
+    if (iEffort !== NOT_FOUND) {
       return {
-        step: index + 1,
+        step: iEffort + 1,
         steps: candidate.length
       };
     }

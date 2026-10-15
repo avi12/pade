@@ -18,9 +18,10 @@ export function mcpRestartTargets({ sessions, change, currentProject }: {
   currentProject: string;
 }) {
   const changedRoot = normalizePath(change.root);
-  return sessions.filter(session =>
-    change.agents.includes(session.agent.id)
-    && normalizePath(session.cwd ?? currentProject) === changedRoot);
+  return sessions.filter(session => {
+    const isGovernedAgent = change.agents.includes(session.agent.id);
+    return isGovernedAgent && normalizePath(session.cwd ?? currentProject) === changedRoot;
+  });
 }
 
 /** Apply a re-key (old session id → new id) across the pane layout: each

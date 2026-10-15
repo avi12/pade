@@ -19,7 +19,7 @@ import type { Agent, AgentSession, ModelChoice, Settings } from "@/lib/types";
 /** What a resumed session that was mid-turn is told, so its turn goes on. */
 const CONTINUE_PROMPT = "continue\r";
 
-/** Whether `dir` is `base` itself or nested anywhere under it (normalized). */
+/** Whether `directory` is `base` itself or nested anywhere under it (normalized). */
 export function isUnderDirectory({ directory, base }: {
   directory: string;
   base: string;
@@ -29,7 +29,7 @@ export function isUnderDirectory({ directory, base }: {
   return normalized === normalizedBase || normalized.startsWith(`${normalizedBase}/`);
 }
 
-/** Re-point `dir` (a path at or under `from`) to the same suffix under `to`. */
+/** Re-point `directory` (a path at or under `from`) to the same suffix under `to`. */
 export function remapDirectory({ directory, from, to }: {
   directory: string;
   from: string;
@@ -72,12 +72,9 @@ export type Relocator = ReturnType<typeof createRelocator>;
 /** Move/rename/delete entry points for one app shell, sharing the lock-handling
  *  flow. */
 export function createRelocator(host: RelocateHost) {
-  function isUnder({ directory, base }: {
-    directory: string;
-    base: string;
-  }) {
+  function isOpenWorkspaceUnder(base: string) {
     return isUnderDirectory({
-      directory,
+      directory: host.currentProject(),
       base
     });
   }
@@ -85,15 +82,11 @@ export function createRelocator(host: RelocateHost) {
   /** Free the folder: kill every session holding it (or a child) as cwd, and
    *  report the ones that were still alive so a caller can resume them. */
   async function releaseLock(from: string) {
-    const isOpenWorkspace = isUnder({
-      directory: host.currentProject(),
-      base: from
-    });
-    if (isOpenWorkspace) {
+    if (isOpenWorkspaceUnder(from)) {
       await host.stopRunners();
     }
 
-    const locking = host.sessions().filter(session => isUnder({
+    const locking = host.sessions().filter(session => isUnderDirectory({
       directory: session.cwd ?? host.currentProject(),
       base: from
     }));
@@ -106,7 +99,7 @@ export function createRelocator(host: RelocateHost) {
         oldDirectory: session.cwd ?? host.currentProject(),
         conversationId: session.conversationId,
         modelChoice: session.modelChoice,
-        wasWorking: sessionStatus(session.id) === SessionStatus.enum.working
+        isMidTurn: sessionStatus(session.id) === SessionStatus.enum.working
       }));
 
     // Claim these exits as deliberate before killing, so the shell doesn't read a
@@ -135,7 +128,7 @@ export function createRelocator(host: RelocateHost) {
     from: string;
     to: string;
   }) {
-    for (const [index, entry] of toResume.entries()) {
+    for (const [i, entry] of toResume.entries()) {
       const cwd = remapDirectory({
         directory: entry.oldDirectory,
         from,
@@ -152,8 +145,8 @@ export function createRelocator(host: RelocateHost) {
         conversationId: entry.conversationId,
         args,
         modelChoice: entry.modelChoice,
-        initialPrompt: entry.wasWorking ? CONTINUE_PROMPT : undefined,
-        split: index > 0
+        initialPrompt: entry.isMidTurn ? CONTINUE_PROMPT : undefined,
+        split: i > 0
       });
     }
   }
@@ -173,11 +166,7 @@ export function createRelocator(host: RelocateHost) {
     });
     await workspace.settings();
 
-    const wasOpenWorkspace = isUnder({
-      directory: host.currentProject(),
-      base: from
-    });
-    if (wasOpenWorkspace) {
+    if (isOpenWorkspaceUnder(from)) {
       await host.setCurrentProject(
         remapDirectory({
           directory: host.currentProject(),
@@ -213,22 +202,14 @@ export function createRelocator(host: RelocateHost) {
     }
   }
 
-  function move(target: {
-    from: string;
-    destDir: string;
-  }) {
+  function move(target: Parameters<typeof workspace.move>[0]) {
     return relocate({
       from: target.from,
       run: () => workspace.move(target)
     });
   }
 
-  function rename(target: {
-    from: string;
-    newName: string;
-    /** Destination among the saved roots; omitted → the primary root. */
-    root?: string;
-  }) {
+  function rename(target: Parameters<typeof workspace.rename>[0]) {
     return relocate({
       from: target.from,
       run: () => workspace.rename(target)
@@ -237,10 +218,7 @@ export function createRelocator(host: RelocateHost) {
 
   /** Rename a workspace's folder where it stands - any project, not only a
    *  temp one. */
-  function renameFolder(target: {
-    from: string;
-    newName: string;
-  }) {
+  function renameFolder(target: Parameters<typeof workspace.renameFolder>[0]) {
     return relocate({
       from: target.from,
       run: () => workspace.renameFolder(target)
@@ -249,15 +227,16 @@ export function createRelocator(host: RelocateHost) {
 
   /** Delete a workspace: same lock release (a running agent would otherwise keep
    *  the folder open and the removal would fail), then remove it. Nothing to
-   *  resume, and the shell lets go of it if it was the open project. `del` is the
-   *  backend removal - owned-only for `remove`, ungated for `removeDirectory`. */
-  async function deleteVia(path: string, del: (path: string) => Promise<Settings>) {
+   *  resume, and the shell lets go of it if it was the open project.
+   *  `removeFromDisk` is the backend removal - owned-only for `remove`, ungated
+   *  for `removeDirectory`. */
+  async function deleteVia({ path, removeFromDisk }: {
+    path: string;
+    removeFromDisk: (path: string) => Promise<Settings>;
+  }) {
     await releaseLock(path);
-    const settings = await del(path);
-    if (isUnder({
-      directory: host.currentProject(),
-      base: path
-    })) {
+    const settings = await removeFromDisk(path);
+    if (isOpenWorkspaceUnder(path)) {
       host.setCurrentProject("");
     }
 
@@ -266,13 +245,19 @@ export function createRelocator(host: RelocateHost) {
 
   /** Delete an ADE-owned workspace directory (the picker's delete). */
   function remove(path: string) {
-    return deleteVia(path, workspace.delete);
+    return deleteVia({
+      path,
+      removeFromDisk: workspace.delete
+    });
   }
 
   /** Delete ANY project directory from disk - the switcher's "Delete directory".
    *  Ungated, so it can remove a real project; the caller confirms first. */
   function removeDirectory(path: string) {
-    return deleteVia(path, workspace.deleteDirectory);
+    return deleteVia({
+      path,
+      removeFromDisk: workspace.deleteDirectory
+    });
   }
 
   return {

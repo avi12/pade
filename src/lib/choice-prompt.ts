@@ -15,14 +15,14 @@ export const SELECTION_CURSOR = "❯";
 // A numbered option token - "1." / "12)" - counted loosely (no surrounding
 // whitespace required) so a framebuffer that joins the rows without a newline
 // still tallies each option.
-const NUMBERED_OPTION_RE = /\d{1,2}[.)]/g;
+const NUMBERED_OPTION = /\d{1,2}[.)]/g;
 
 // The highlighted row: the selection cursor immediately before a numbered
 // option, with at most a few spaces between.
-const CURSOR_ON_OPTION_RE = new RegExp(`${SELECTION_CURSOR}\\s{0,3}\\d{1,2}[.)]`);
+const CURSOR_ON_OPTION = new RegExp(`${SELECTION_CURSOR}\\s{0,3}\\d{1,2}[.)]`);
 
 /** A single "1." can appear in prose; a real menu offers at least two options. */
-const MIN_OPTIONS = 2;
+const MINIMUM_OPTIONS = 2;
 
 /** Whether a chunk of PTY output is an agent's multiple-choice prompt awaiting a
  *  pick. Conservative on purpose - it requires BOTH the selection cursor sitting
@@ -41,10 +41,10 @@ export function detectChoicePrompt(text: string) {
   }
 
   const plain = stripAnsi(text);
-  if (!CURSOR_ON_OPTION_RE.test(plain)) {
+  if (!CURSOR_ON_OPTION.test(plain)) {
     return false;
   }
 
-  const options = plain.match(NUMBERED_OPTION_RE);
-  return options !== null && options.length >= MIN_OPTIONS;
+  const options = plain.match(NUMBERED_OPTION);
+  return options !== null && options.length >= MINIMUM_OPTIONS;
 }
