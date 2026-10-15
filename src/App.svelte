@@ -31,8 +31,7 @@
   import { Side } from "@/lib/shell/side-panels";
   import TerminalPanes from "@/lib/shell/TerminalPanes.svelte";
   import { windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
-  import { runWindowShortcut } from "@/lib/shell/window-shortcut-actions";
-  import { WindowShortcut, windowShortcutFor } from "@/lib/shell/window-shortcuts";
+  import WindowEvents from "@/lib/shell/WindowEvents.svelte";
   import { dropAgentActivity } from "@/lib/stores/agent/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agent/agentRetheme.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/agent/apiErrorRetry.svelte";
@@ -1286,44 +1285,7 @@
   let isResizingSidePanel = $state(false);
 </script>
 
-<svelte:document
-  onvisibilitychange={() => {
-    if (!document.hidden) {
-      redetectAgents();
-    }
-  }}
-/>
-<!-- Window-level shortcuts, handled in the capture phase: a focused xterm calls
-     stopPropagation on keys it handles, so a bubble-phase listener never sees the
-     combo while the terminal has focus. -->
-<svelte:window
-  onblur={() => {
-    isWindowFocused = false;
-  }}
-  onfocus={() => {
-    isWindowFocused = true;
-  }}
-  onkeydowncapture={async e => {
-    // The chords themselves live in lib/shell/window-shortcuts.
-    const shortcut = windowShortcutFor({
-      event: e,
-      isDevelopment: import.meta.env.DEV
-    });
-    if (shortcut === null) {
-      return;
-    }
-
-    e.preventDefault();
-
-    // Keeps the terminal from also receiving the chord - a reload leaves no
-    // terminal to reach.
-    if (shortcut !== WindowShortcut.Reload) {
-      e.stopPropagation();
-    }
-
-    await runWindowShortcut(shortcut);
-  }}
-/>
+<WindowEvents onvisible={redetectAgents} bind:isFocused={isWindowFocused} />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
