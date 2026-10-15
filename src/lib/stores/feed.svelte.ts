@@ -11,13 +11,13 @@ import { baseName } from "@/lib/paths";
 import type { ChangeEvent, WatchStatus } from "@/lib/types";
 
 // Newest first. Capped so a busy agent session can't grow this unbounded.
-const CAP = 300;
+const MAXIMUM_FEED_EVENTS = 300;
 
 // Editor/tool scratch files that churn during an atomic save (write to a temp
 // name, then rename over the target) - noise, not real changes. Match the shapes
 // the feed sees: a `.tmp.` infix, a `_tmp_` scratch name, a vim swap, a trailing
 // `~` backup, or a long numeric atomic-save suffix.
-const TEMP_FILE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
+const TEMP_FILE_RE = /^_tmp_|\.tmp\.|\.sw[a-z]$|~$|\.\d{7,}$/i;
 
 /** The live feed - newest-first and capped. Reactive, so the panel re-renders as
  *  events land whether or not it is currently mounted. */
@@ -27,7 +27,7 @@ export const feedStore = $state<{ events: ChangeEvent[] }>({ events: [] });
 let currentProject: string | null = null;
 
 // The stream is subscribed exactly once for the process lifetime.
-let subscribed = false;
+let isSubscribed = false;
 
 // The backend watch the accumulated events came from. A reload saves the feed
 // under it and restores only into that same watch (see feed-snapshot). Learned on
@@ -51,7 +51,7 @@ function knowsLiveWatch() {
 
 // Hand the feed to the reloaded page. `pagehide` is the last synchronous moment
 // before the webview drops this page, so the save happens once per unload rather
-// than re-serializing up to CAP events on every change.
+// than re-serializing up to MAXIMUM_FEED_EVENTS events on every change.
 function saveFeedOnUnload() {
   if (!liveWatch?.root || liveWatch.armedAt === null) {
     return;
@@ -67,20 +67,20 @@ function saveFeedOnUnload() {
 /** Subscribe once to the backend feed stream. Idempotent - a second call is a
  *  no-op - and never unsubscribed, so events accumulate across panel remounts. */
 async function startFeedSubscription() {
-  if (subscribed) {
+  if (isSubscribed) {
     return;
   }
 
-  subscribed = true;
+  isSubscribed = true;
   addEventListener("pagehide", saveFeedOnUnload);
   try {
     await feed.onChange(event => {
-      const isScratchFile = TEMP_FILE.test(baseName(event.path));
+      const isScratchFile = TEMP_FILE_RE.test(baseName(event.path));
       if (isScratchFile) {
         return;
       }
 
-      feedStore.events = [event, ...feedStore.events].slice(0, CAP);
+      feedStore.events = [event, ...feedStore.events].slice(0, MAXIMUM_FEED_EVENTS);
 
       // An event proves the watch is armed, so an identity missed at retarget
       // can be learned now.
@@ -106,7 +106,7 @@ async function startFeedSubscription() {
     });
   } catch {
     // Re-arm on a failed subscribe so a later retarget can try again.
-    subscribed = false;
+    isSubscribed = false;
     removeEventListener("pagehide", saveFeedOnUnload);
   }
 }
@@ -132,7 +132,7 @@ async function adoptLiveWatch(project: string) {
 
   const arrivedSince = new Set(feedStore.events.map(event => event.id));
   const earlier = restored.filter(event => !arrivedSince.has(event.id));
-  feedStore.events = [...feedStore.events, ...earlier].slice(0, CAP);
+  feedStore.events = [...feedStore.events, ...earlier].slice(0, MAXIMUM_FEED_EVENTS);
 }
 
 /** Point the feed at `project`, clearing accumulated events when it differs from

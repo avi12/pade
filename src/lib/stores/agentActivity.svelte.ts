@@ -42,8 +42,8 @@ const MAXIMUM_CARRIED_LENGTH = 1024;
 
 /** The activity a title announces, or null when it carries no activity glyph. */
 export function activityFromTitle(title: string) {
-  const announcesBusy = BUSY_TITLE_GLYPHS.some(glyph => title.startsWith(`${glyph}${GLYPH_SEPARATOR}`));
-  if (announcesBusy) {
+  const isAnnouncingBusy = BUSY_TITLE_GLYPHS.some(glyph => title.startsWith(`${glyph}${GLYPH_SEPARATOR}`));
+  if (isAnnouncingBusy) {
     return AgentActivity.busy;
   }
 
@@ -66,13 +66,13 @@ export function readTitles(text: string) {
 
   const lastStart = text.lastIndexOf(SEQUENCE_START);
   const tail = lastStart === -1 ? "" : text.slice(lastStart);
-  const tailTerminated = tail.includes(BELL) || tail.includes(STRING_TERMINATOR);
-  const endsMidSequence = lastStart >= consumedTo
-    && !tailTerminated
+  const isTailTerminated = tail.includes(BELL) || tail.includes(STRING_TERMINATOR);
+  const isEndingMidSequence = lastStart >= consumedTo
+    && !isTailTerminated
     && tail.length <= MAXIMUM_CARRIED_LENGTH;
   return {
     titles,
-    carried: endsMidSequence ? tail : ""
+    carried: isEndingMidSequence ? tail : ""
   };
 }
 

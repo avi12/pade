@@ -28,11 +28,11 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   const visibleCounts = new Map<string, number>();
   const observed = new WeakMap<Element, {
     key: string;
-    visible: boolean;
+    isVisible: boolean;
   }>();
   let observer: IntersectionObserver | undefined;
-  let loading = false;
-  let flushQueued = false;
+  let isLoading = false;
+  let isFlushQueued = false;
 
   function publish({ key, value }: {
     key: string;
@@ -53,9 +53,9 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   }
 
   async function flushPending() {
-    flushQueued = false;
+    isFlushQueued = false;
 
-    if (loading || pending.size === 0) {
+    if (isLoading || pending.size === 0) {
       return;
     }
 
@@ -67,23 +67,24 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
       latestRequests.set(key, request);
       return request;
     });
-    loading = true;
+    isLoading = true;
     try {
       const loaded = await load(paths);
-      for (const [index, key] of keys.entries()) {
-        if (latestRequests.get(key) !== requests[index]) {
+      for (const [i, key] of keys.entries()) {
+        if (latestRequests.get(key) !== requests[i]) {
           continue;
         }
 
         publish({
           key,
-          value: loaded[paths[index]] ?? null
+          value: loaded[paths[i]] ?? null
         });
       }
-    } catch {
-      // Leave failures unresolved so a later mount can retry.
+    } catch (error) {
+      // Leave the paths unresolved so a later mount can retry them.
+      console.warn("pade: project row lookup failed, will retry on the next mount", error);
     } finally {
-      loading = false;
+      isLoading = false;
     }
 
     if (pending.size > 0) {
@@ -92,11 +93,11 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   }
 
   function scheduleFlush() {
-    if (flushQueued) {
+    if (isFlushQueued) {
       return;
     }
 
-    flushQueued = true;
+    isFlushQueued = true;
     queueMicrotask(flushPending);
   }
 
@@ -115,12 +116,12 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     scheduleFlush();
   }
 
-  function adjustVisibility({ key, becameVisible }: {
+  function adjustVisibility({ key, isBecomingVisible }: {
     key: string;
-    becameVisible: boolean;
+    isBecomingVisible: boolean;
   }) {
     const count = visibleCounts.get(key) ?? 0;
-    const next = Math.max(0, count + (becameVisible ? 1 : -1));
+    const next = Math.max(0, count + (isBecomingVisible ? 1 : -1));
     if (next === 0) {
       visibleCounts.delete(key);
     } else {
@@ -132,14 +133,14 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
     observer ??= new IntersectionObserver(entries => {
       for (const entry of entries) {
         const state = observed.get(entry.target);
-        if (!state || state.visible === entry.isIntersecting) {
+        if (!state || state.isVisible === entry.isIntersecting) {
           continue;
         }
 
-        state.visible = entry.isIntersecting;
+        state.isVisible = entry.isIntersecting;
         adjustVisibility({
           key: state.key,
-          becameVisible: entry.isIntersecting
+          isBecomingVisible: entry.isIntersecting
         });
 
         if (entry.isIntersecting) {
@@ -174,16 +175,16 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
       }
     }
 
-    const result = loaded[path] ?? null;
+    const loadedValue = loaded[path] ?? null;
     if (latestRequests.get(key) !== refreshRequest) {
       return value(path);
     }
 
     publish({
       key,
-      value: result
+      value: loadedValue
     });
-    return result;
+    return loadedValue;
   }
 
   /** Attachment that requests a path only once its row becomes visible. */
@@ -193,28 +194,29 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
       originalPaths.set(key, path);
       const state = {
         key,
-        visible: false
+        isVisible: false
       };
       observed.set(element, state);
 
-      if (typeof IntersectionObserver === "undefined") {
-        state.visible = true;
+      const isObserverAvailable = typeof IntersectionObserver !== "undefined";
+      if (isObserverAvailable) {
+        rowObserver().observe(element);
+      } else {
+        state.isVisible = true;
         adjustVisibility({
           key,
-          becameVisible: true
+          isBecomingVisible: true
         });
         request(path);
-      } else {
-        rowObserver().observe(element);
       }
 
       return () => {
         observer?.unobserve(element);
 
-        if (state.visible) {
+        if (state.isVisible) {
           adjustVisibility({
             key,
-            becameVisible: false
+            isBecomingVisible: false
           });
         }
 

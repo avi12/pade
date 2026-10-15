@@ -36,8 +36,8 @@ function isManifestPath({ descriptors, path }: {
   const name = baseName(path).toLowerCase();
   for (const descriptor of descriptors) {
     const value = descriptor.value.toLowerCase();
-    const matched = descriptor.match === "name" ? name === value : name.endsWith(value);
-    if (matched) {
+    const isMatch = descriptor.match === "name" ? name === value : name.endsWith(value);
+    if (isMatch) {
       return true;
     }
   }

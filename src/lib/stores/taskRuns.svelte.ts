@@ -103,28 +103,28 @@ async function attachWhenRunning({ sessionId, task }: {
   sessionId: string;
   task: KnownTaskCommand;
 }) {
-  const alreadyShown = attachedRunner({
+  const isAlreadyShown = attachedRunner({
     sessionId,
     command: task.command
   }) !== undefined;
-  if (alreadyShown) {
+  if (isAlreadyShown) {
     return;
   }
 
   const checkKey = `${sessionId}${KEY_SEPARATOR}${task.key}`;
   const checkedAt = lastLivenessCheck.get(checkKey);
   const now = performance.now();
-  const askedRecently = checkedAt !== undefined && now - checkedAt < TASK_LIVENESS_POLL_MS;
-  if (askedRecently) {
+  const isAskedRecently = checkedAt !== undefined && now - checkedAt < TASK_LIVENESS_POLL_MS;
+  if (isAskedRecently) {
     return;
   }
 
   lastLivenessCheck.set(checkKey, now);
-  const running = await pty.sessionTaskRunning({
+  const isRunning = await pty.sessionTaskRunning({
     id: sessionId,
     command: task.command
   }).catch(() => false);
-  if (!running) {
+  if (!isRunning) {
     return;
   }
 

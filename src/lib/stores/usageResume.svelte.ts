@@ -82,6 +82,10 @@ const RESET_CLOCK_RE = /resets?\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
 // words quoted in the transcript above never count.
 const TURN_RUNNING_RE = /esc\s*(?:to\s*)?interrupt/i;
 const STATUS_ROWS = 8;
+/** A 12-hour clock: "3pm" is hour 3 past noon, and "12am" is midnight. */
+const HOURS_ON_A_CLOCK = 12;
+const LAST_MINUTE = 59;
+const AFTERNOON_MERIDIEM = "pm";
 
 interface LimitHit extends RecoveryHit {
   window: LimitWindow;
@@ -111,8 +115,8 @@ export function nextOccurrence({ hour, minute, meridiem, now }: {
   meridiem: string;
   now: number;
 }) {
-  const isPastNoon = meridiem.toLowerCase() === "pm";
-  const hour24 = (hour % 12) + (isPastNoon ? 12 : 0);
+  const isPastNoon = meridiem.toLowerCase() === AFTERNOON_MERIDIEM;
+  const hour24 = (hour % HOURS_ON_A_CLOCK) + (isPastNoon ? HOURS_ON_A_CLOCK : 0);
   const candidate = new SvelteDate(now);
   candidate.setHours(hour24, minute, 0, 0);
 
@@ -135,8 +139,8 @@ export function parseResetClock({ text, now }: {
 
   const hour = Number(clock[1]);
   const minute = Number(clock[2] ?? 0);
-  const withinClockRange = hour >= 1 && hour <= 12 && minute <= 59;
-  if (!withinClockRange) {
+  const isWithinClockRange = hour >= 1 && hour <= HOURS_ON_A_CLOCK && minute <= LAST_MINUTE;
+  if (!isWithinClockRange) {
     return null;
   }
 
@@ -168,9 +172,9 @@ export function parseLimitHit({ text, now }: {
   }
 
   const windowName = stop.groups?.reachedWindow ?? stop.groups?.hitWindow ?? "";
-  const namesWeekly = windowName.toLowerCase() === LimitWindow.weekly;
+  const isWeekly = windowName.toLowerCase() === LimitWindow.weekly;
   return {
-    window: namesWeekly ? LimitWindow.weekly : LimitWindow.session,
+    window: isWeekly ? LimitWindow.weekly : LimitWindow.session,
     resetAt: parseResetClock({
       text: plain,
       now
@@ -210,23 +214,34 @@ export function assessLimit({ hit, account, now }: {
   account: AccountUsage | null;
   now: number;
 }) {
-  const window = matchingWindow({
+  const usageWindow = matchingWindow({
     hit,
     account
   });
-  const creditsCarry = account?.credits === CreditsState.enum.available;
-  const accountCanTell = window !== undefined || creditsCarry;
-  if (!accountCanTell) {
-    const resetPassed = hit.resetAt !== null && now >= hit.resetAt + RESET_BUFFER_MS;
-    return resetPassed ? LimitVerdict.runnable : LimitVerdict.unknown;
+  const areCreditsCarrying = account?.credits === CreditsState.enum.available;
+  const isAccountSilent = usageWindow === undefined && !areCreditsCarrying;
+  if (isAccountSilent) {
+    return verdictByResetClock({
+      resetAt: hit.resetAt,
+      now
+    });
   }
 
-  const windowExhausted = window !== undefined && window.utilization >= EXHAUSTED_PERCENTAGE;
-  if (windowExhausted && !creditsCarry) {
+  const isWindowExhausted = (usageWindow?.utilization ?? 0) >= EXHAUSTED_PERCENTAGE;
+  if (isWindowExhausted && !areCreditsCarrying) {
     return LimitVerdict.blocked;
   }
 
   return hit.isConfirmed ? LimitVerdict.runnable : LimitVerdict.stale;
+}
+
+/** With the account silent, the reset clock alone decides - a little after it. */
+function verdictByResetClock({ resetAt, now }: {
+  resetAt: number | null;
+  now: number;
+}) {
+  const isResetPassed = resetAt !== null && now >= resetAt + RESET_BUFFER_MS;
+  return isResetPassed ? LimitVerdict.runnable : LimitVerdict.unknown;
 }
 
 // Record a stop message found in a session's output, unless the session is already
@@ -237,8 +252,8 @@ function sniffStop({ id, text }: {
   text: string;
 }) {
   const now = Date.now();
-  const settled = (quietUntil.get(id) ?? 0) > now;
-  if (hits.has(id) || settled) {
+  const isSettled = (quietUntil.get(id) ?? 0) > now;
+  if (hits.has(id) || isSettled) {
     return;
   }
 
