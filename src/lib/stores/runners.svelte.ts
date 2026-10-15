@@ -50,23 +50,55 @@ interface RunnerRow {
   };
 }
 
+/** Id prefixes: a process PADE spawned, and a task the agent started. */
+const SPAWNED_ID_PREFIX = "run";
+const ATTACHED_ID_PREFIX = "attached";
+const SUCCESS_EXIT_CODE = 0;
+
 let rows = $state<RunnerRow[]>([]);
-let listening = false;
+let isListening = false;
 
 /** The live runners (reactive). */
 export function runnerRows() {
   return rows;
 }
 
+function newRunnerId(prefix: string) {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function rowById(id: string) {
+  return rows.find(row => row.id === id);
+}
+
+function rowByBackendId(backendId: string) {
+  return rows.find(row => row.backendId === backendId);
+}
+
+function removeRow(id: string) {
+  rows = rows.filter(row => row.id !== id);
+}
+
+/** Add a fresh, still-running row for a task; its backend id starts as its id. */
+function addRow(row: Pick<RunnerRow, "id" | "label" | "kind" | "command" | "cwd" | "attached">) {
+  rows.push({
+    ...row,
+    backendId: row.id,
+    lines: [],
+    done: false,
+    failed: false
+  });
+}
+
 /** Subscribe to the backend runner stream exactly once (call from App onMount). */
 export async function ensureRunnerListeners() {
-  if (listening) {
+  if (isListening) {
     return;
   }
 
-  listening = true;
+  isListening = true;
   await runner.onData(({ id, data, stream }) => {
-    const row = rows.find(item => item.backendId === id);
+    const row = rowByBackendId(id);
     if (!row) {
       return;
     }
@@ -81,13 +113,13 @@ export async function ensureRunnerListeners() {
     }
   });
   await runner.onExit(({ id, code }) => {
-    const row = rows.find(item => item.backendId === id);
+    const row = rowByBackendId(id);
     if (!row) {
       return;
     }
 
     row.done = true;
-    row.failed = code !== null && code !== 0;
+    row.failed = code !== null && code !== SUCCESS_EXIT_CODE;
   });
 }
 
@@ -98,17 +130,13 @@ export async function startRunner({ label, kind, command, cwd }: {
   command: string;
   cwd: string;
 }) {
-  const id = `run-${crypto.randomUUID()}`;
-  rows.push({
+  const id = newRunnerId(SPAWNED_ID_PREFIX);
+  addRow({
     id,
-    backendId: id,
     label,
     kind,
     command,
-    cwd,
-    lines: [],
-    done: false,
-    failed: false
+    cwd
   });
   try {
     await runner.start({
@@ -117,7 +145,7 @@ export async function startRunner({ label, kind, command, cwd }: {
       cwd
     });
   } catch (error) {
-    rows = rows.filter(row => row.id !== id);
+    removeRow(id);
     throw error;
   }
 }
@@ -158,17 +186,13 @@ export function attachRunner({ sessionId, label, kind, command, cwd }: {
     return existing.id;
   }
 
-  const id = `attached-${crypto.randomUUID()}`;
-  rows.push({
+  const id = newRunnerId(ATTACHED_ID_PREFIX);
+  addRow({
     id,
-    backendId: id,
     label,
     kind,
     command,
     cwd,
-    lines: [],
-    done: false,
-    failed: false,
     attached: {
       sessionId
     }
@@ -177,10 +201,14 @@ export function attachRunner({ sessionId, label, kind, command, cwd }: {
   return id;
 }
 
+function hasAttachedRows() {
+  return rows.some(row => row.attached);
+}
+
 /** Start the liveness poll if any attached row needs it; stop it once none do, so
  *  the timer lives no longer than the rows it serves. */
 function ensureAttachedPoll() {
-  if (attachedPoll !== undefined || !rows.some(row => row.attached)) {
+  if (attachedPoll !== undefined || !hasAttachedRows()) {
     return;
   }
 
@@ -198,16 +226,16 @@ async function reconcileAttachedRunners() {
       continue;
     }
 
-    const running = await pty.sessionTaskRunning({
+    const isRunning = await pty.sessionTaskRunning({
       id: sessionId,
       command: row.command
     }).catch(() => false);
-    if (!running) {
-      rows = rows.filter(item => item.id !== row.id);
+    if (!isRunning) {
+      removeRow(row.id);
     }
   }
 
-  if (!rows.some(row => row.attached) && attachedPoll !== undefined) {
+  if (!hasAttachedRows() && attachedPoll !== undefined) {
     clearInterval(attachedPoll);
     attachedPoll = undefined;
   }
@@ -233,7 +261,7 @@ export async function rerunRunner({ id, preserve }: {
   id: string;
   preserve: boolean;
 }) {
-  const row = rows.find(item => item.id === id);
+  const row = rowById(id);
   if (!row) {
     return;
   }
@@ -256,7 +284,7 @@ export async function rerunRunner({ id, preserve }: {
 
   row.done = false;
   row.failed = false;
-  row.backendId = `run-${crypto.randomUUID()}`;
+  row.backendId = newRunnerId(SPAWNED_ID_PREFIX);
   try {
     await runner.stop(previousBackendId);
     await runner.start({
@@ -284,7 +312,7 @@ export async function rerunRunner({ id, preserve }: {
 /** Stop a runner and drop it from the dock. An attached runner isn't ours to
  *  stop, so kill the agent's task process tree instead of a PADE-spawned one. */
 export async function stopRunner(id: string) {
-  const row = rows.find(item => item.id === id);
+  const row = rowById(id);
   if (!row) {
     return;
   }
@@ -298,7 +326,7 @@ export async function stopRunner(id: string) {
     await runner.stop(row.backendId);
   }
 
-  rows = rows.filter(item => item.id !== id);
+  removeRow(id);
 }
 
 /** Stop and forget every runner belonging to this window. Workspace changes
@@ -306,8 +334,7 @@ export async function stopRunner(id: string) {
  * over the next project. Every stop is attempted even if one backend call
  * fails; rows are then cleared so late output/exit events are ignored. */
 export async function stopAllRunners() {
-  const backendIds = rows.map(row => row.backendId);
-  await Promise.all(backendIds.map(backendId => runner.stop(backendId).catch(() => {})));
+  await Promise.allSettled(rows.map(row => runner.stop(row.backendId)));
   rows = [];
 }
 
@@ -315,7 +342,7 @@ export async function stopAllRunners() {
  * order on drop). Ids it doesn't know keep their rows appended in place. */
 export function setRunnerOrder(orderedIds: string[]) {
   const reordered = orderedIds.flatMap(id => {
-    const row = rows.find(item => item.id === id);
+    const row = rowById(id);
     return row ? [row] : [];
   });
   const leftover = rows.filter(row => !orderedIds.includes(row.id));
@@ -327,7 +354,7 @@ export async function pipeRunner({ id, sessionId }: {
   id: string;
   sessionId: string;
 }) {
-  const row = rows.find(item => item.id === id);
+  const row = rowById(id);
   if (!row || !sessionId) {
     return;
   }
