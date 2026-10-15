@@ -46,7 +46,7 @@ const FRAME_HEADER_LENGTH: usize = 8;
 /// Reject a response frame claiming more than this many payload bytes - Discord's
 /// frames are small, so an absurd length means a desynced/garbage pipe, not a
 /// real message worth allocating for.
-const MAXIMUM_FRAME_PAYLOAD: usize = 64 * 1024;
+const MAXIMUM_FRAME_PAYLOAD: u64 = 64 * 1024;
 
 /// IPC frame opcodes. Only the two PADE sends are modelled; the protocol's `Close`
 /// (2) is never written (dropping the socket is enough), so it isn't represented.
@@ -369,13 +369,16 @@ fn encode_frame(opcode: Opcode, payload: &[u8]) -> Result<Vec<u8>, DiscordError>
 fn read_frame(stream: &mut dyn DuplexStream) -> Result<(), DiscordError> {
     let mut header = [0u8; FRAME_HEADER_LENGTH];
     stream.read_exact(&mut header)?;
-    let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
-    let length = usize::try_from(length).map_err(|_| DiscordError::OversizedFrame)?;
+    let [_, _, _, _, length @ ..] = header;
+    let length = u64::from(u32::from_le_bytes(length));
     if length > MAXIMUM_FRAME_PAYLOAD {
         return Err(DiscordError::OversizedFrame);
     }
-    let mut payload = vec![0u8; length];
-    stream.read_exact(&mut payload)?;
+    // Drained into a sink: the reply is never inspected, so it needs no buffer.
+    let drained = std::io::copy(&mut stream.take(length), &mut std::io::sink())?;
+    if drained < length {
+        return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into());
+    }
     Ok(())
 }
 
@@ -469,7 +472,10 @@ pub fn discord_clear_activity(presence: State<DiscordState>) -> Result<(), Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{activity_payload, encode_frame, ActivityFields, Opcode, FRAME_HEADER_LENGTH};
+    use super::{
+        activity_payload, encode_frame, read_frame, ActivityFields, DiscordError, Opcode,
+        FRAME_HEADER_LENGTH,
+    };
 
     #[test]
     fn frame_header_is_little_endian_opcode_then_length() {
@@ -479,6 +485,39 @@ mod tests {
         let length = u32::try_from(payload.len()).expect("length fits");
         assert_eq!(&frame[4..8], &length.to_le_bytes());
         assert_eq!(&frame[FRAME_HEADER_LENGTH..], payload);
+    }
+
+    /// A reply as Discord frames it, followed by whatever comes after it.
+    fn framed(payload: &[u8], trailing: &[u8]) -> std::io::Cursor<Vec<u8>> {
+        let mut bytes = encode_frame(Opcode::Frame, payload).expect("encodes");
+        bytes.extend_from_slice(trailing);
+        std::io::Cursor::new(bytes)
+    }
+
+    #[test]
+    fn reading_a_frame_drains_exactly_that_frame() {
+        let mut stream = framed(br#"{"evt":"READY"}"#, b"next");
+        read_frame(&mut stream).expect("a whole frame reads");
+        let position = usize::try_from(stream.position()).expect("fits");
+        assert_eq!(&stream.get_ref()[position..], b"next");
+    }
+
+    #[test]
+    fn a_truncated_or_oversized_frame_is_an_error() {
+        let mut truncated = framed(b"0123456789", b"");
+        truncated.get_mut().truncate(FRAME_HEADER_LENGTH + 4);
+        assert!(matches!(
+            read_frame(&mut truncated),
+            Err(DiscordError::Io(_))
+        ));
+
+        let mut header = Opcode::Frame.code().to_le_bytes().to_vec();
+        header.extend_from_slice(&u32::MAX.to_le_bytes());
+        let mut oversized = std::io::Cursor::new(header);
+        assert!(matches!(
+            read_frame(&mut oversized),
+            Err(DiscordError::OversizedFrame)
+        ));
     }
 
     #[test]
