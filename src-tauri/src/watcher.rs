@@ -25,7 +25,7 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 struct ProjectWatcher {
     root: PathBuf,
     canonical_root: PathBuf,
-    /// When this watch was armed (epoch ms) — the "watching since" the feed
+    /// When this watch was armed (epoch ms) - the "watching since" the feed
     /// states in its empty panel, since the feed only ever holds changes made
     /// after that moment (nothing replays what happened before it).
     armed_at: u128,
@@ -45,7 +45,7 @@ struct GitStateWatcher {
 /// One window's Change Feed watch and its per-file bookkeeping. Every PADE window
 /// opens its own workspace, but all windows share one backend process, so this
 /// state is held per window (keyed by window label in [`WatcherState`]). A single
-/// global slot could arm only one watcher at a time — a second window's
+/// global slot could arm only one watcher at a time - a second window's
 /// `watch_start` tore down the first window's watch (so its edits never surfaced)
 /// and the one live watcher's changes broadcast into every window's feed. Keyed
 /// per window, each window watches its own root and its events are emitted back
@@ -53,7 +53,7 @@ struct GitStateWatcher {
 #[derive(Default)]
 struct WindowWatch {
     watcher: Mutex<Option<ProjectWatcher>>,
-    /// The workspace's live-git-state watcher — see `arm_git_state`. Separate
+    /// The workspace's live-git-state watcher - see `arm_git_state`. Separate
     /// from the Change Feed's recursive watcher on purpose: it watches only the
     /// dir(s) holding `.git/HEAD` + `.git/config`, non-recursively, so git's
     /// object churn never reaches it.
@@ -82,8 +82,8 @@ struct WindowWatch {
     /// arm frontend reload-failure recovery.
     mcp_servers: Mutex<HashMap<PathBuf, crate::mcp::McpSnapshot>>,
     /// Changes surfaced to the window since the watch was armed, and changes the
-    /// ignore rules dropped. An empty feed is otherwise ambiguous — a quiet
-    /// project and a watch whose every event is being filtered look identical —
+    /// ignore rules dropped. An empty feed is otherwise ambiguous - a quiet
+    /// project and a watch whose every event is being filtered look identical -
     /// so [`watch_status`] reports both and the panel says which it is. Atomics,
     /// not a lock: the notify callback bumps them on every event it handles.
     /// Both reset when the watch re-arms.
@@ -97,14 +97,14 @@ pub struct WatcherState {
     /// an `Arc` so a callback can lift its window's bookkeeping out under a brief
     /// map lock, then work the fine-grained inner mutexes without holding it.
     windows: Mutex<HashMap<String, Arc<WindowWatch>>>,
-    /// The picker's folder watcher — see `watch_dirs`. Also per window: each
+    /// The picker's folder watcher - see `watch_dirs`. Also per window: each
     /// window has its own picker, watching its own folders, and its
     /// appearance/disappearance events route back only to it.
     directory_watchers: Mutex<HashMap<String, RecommendedWatcher>>,
 }
 
 /// This window's watch bookkeeping, created empty on first use. `None` only when
-/// the state lock is poisoned — a fault resolves to "no watch" so a caller bails
+/// the state lock is poisoned - a fault resolves to "no watch" so a caller bails
 /// rather than panicking on a background thread.
 fn window_watch(state: &WatcherState, label: &str) -> Option<Arc<WindowWatch>> {
     let mut windows = state.windows.lock().ok()?;
@@ -184,7 +184,7 @@ impl ChangeKind {
         }
     }
 
-    /// The serialized string for this kind — the only place the literals live.
+    /// The serialized string for this kind - the only place the literals live.
     fn as_str(self) -> &'static str {
         match self {
             ChangeKind::Created => "created",
@@ -206,7 +206,7 @@ struct ChangeEvent {
     ts: u128,
 }
 
-/// The git metadata entry a workspace gains when `git init` runs — the one
+/// The git metadata entry a workspace gains when `git init` runs - the one
 /// authoritative spelling of the `.git` name.
 const GIT_DIR_NAME: &str = ".git";
 
@@ -245,11 +245,11 @@ fn ignored_by_static_dirs(path: &Path, dirs: &HashSet<String>) -> bool {
 ///
 /// A git work tree defers to git itself via `git check-ignore`, which honors
 /// nested `.gitignore` files, `.git/info/exclude`, the global `core.excludesFile`,
-/// and negation rules — exactly what the user's git already ignores, rather than a
+/// and negation rules - exactly what the user's git already ignores, rather than a
 /// brittle hand-rolled parse. A folder that is not a git repo has none of those
 /// tools, so it falls back to a set of directory names inferred from the manifest
 /// files at the root (see [`manifest_ignore_dirs`]) unioned with the [`IGNORED`]
-/// baseline — plus the root `.gitignore`'s own rules when the folder has one (a
+/// baseline - plus the root `.gitignore`'s own rules when the folder has one (a
 /// scaffolded project knows what it will generate before its `git init` runs).
 ///
 /// The policy is NOT fixed for the watch's lifetime: any `.gitignore`
@@ -284,8 +284,8 @@ const FEED_CHANGE_EVENT: &str = "feed://change";
 // ── Live MCP config ───────────────────────────────────────────────────────────
 // A project's MCP servers live in a config file (`.mcp.json` for Claude, per
 // config.rs). A running agent only picks up an **added or removed** server by
-// restarting — Claude re-reads `.mcp.json` at launch, and there is no in-session
-// reload — while a value-only edit to an existing server the user reconnects by
+// restarting - Claude re-reads `.mcp.json` at launch, and there is no in-session
+// reload - while a value-only edit to an existing server the user reconnects by
 // hand. So the watcher restarts the affected sessions only when the *set of
 // server names* changes; the frontend does the terminate-and-resume.
 
@@ -352,7 +352,7 @@ fn detect_mcp_change(app: &AppHandle, watch: &WindowWatch, label: &str, root: &P
         return;
     };
     let Some(current) = crate::mcp::snapshot(path, config.format) else {
-        return; // unparseable mid-write — wait for the complete save
+        return; // unparseable mid-write - wait for the complete save
     };
 
     let (added, removed, membership_changed) = {
@@ -494,7 +494,7 @@ fn compute_ignore_policy(root: &Path) -> IgnorePolicy {
 }
 
 /// Recompute the ignore policy for the active watch root and forget every
-/// memoized git decision — run when the rules themselves may have changed (a
+/// memoized git decision - run when the rules themselves may have changed (a
 /// `.gitignore` edited/created/deleted anywhere under the root, or a
 /// mid-session `git init` flipping the root from static to git mode). The
 /// frontend hears [`FEED_IGNORE_EVENT`] and re-filters the events it already
@@ -557,7 +557,7 @@ fn excluded_by_ignore_policy(watch: &WindowWatch, path: &Path) -> bool {
     git_excludes_path(watch, &git_root, path)
 }
 
-/// Whether the static policy's `.gitignore` rules ignore `path` — matched on
+/// Whether the static policy's `.gitignore` rules ignore `path` - matched on
 /// its root-relative, `/`-joined spelling. A path outside the root (or one that
 /// isn't valid UTF-8) can't match any rule.
 fn gitignore_excludes(root: &Path, rules: &crate::gitignore::Rules, path: &Path) -> bool {
@@ -616,7 +616,7 @@ fn git_check_ignore(root: &Path, path: &Path) -> bool {
 /// file: an editor or tool writes the new contents under a temporary name, then
 /// renames it onto the real file. The scratch name only ever exists for an
 /// instant, so by the time its diff is fetched the file is gone and the card can
-/// only read "no preview available" — never a useful change. Detecting that by
+/// only read "no preview available" - never a useful change. Detecting that by
 /// its absence (rather than guessing temp-name shapes) catches every such file,
 /// whatever a tool happens to call it. A deletion is the one case where the file
 /// being gone *is* the event, so it always surfaces.
@@ -762,9 +762,9 @@ fn plural(count: usize) -> &'static str {
 }
 
 /// Normalize the workspace path the frontend hands `watch_start` into the Change
-/// Feed's watch root: collapse separators and `.`/`..` to one spelling — but
+/// Feed's watch root: collapse separators and `.`/`..` to one spelling - but
 /// without the Windows `\\?\` verbatim prefix `std::fs::canonicalize` would add,
-/// which would leak into every emitted change path — and confirm it is an
+/// which would leak into every emitted change path - and confirm it is an
 /// existing directory, so a drifted or bad path fails loudly here rather than
 /// silently watching the wrong tree. Mirrors workspace's `canonical_path`.
 fn resolve_watch_root(root: &str) -> Result<PathBuf, String> {
@@ -778,12 +778,12 @@ fn resolve_watch_root(root: &str) -> Result<PathBuf, String> {
     Ok(normalized)
 }
 
-/// Start (or re-root) the Change Feed's watcher on `root` — the open workspace's
+/// Start (or re-root) the Change Feed's watcher on `root` - the open workspace's
 /// path, passed explicitly by the frontend so the feed follows the project on
 /// screen rather than the process's current directory (the two normally match,
 /// but the cwd can drift from the displayed workspace). Idempotent per workspace:
 /// a repeat call for the same root keeps the live watcher, while a call after a
-/// project switch drops the old project's watcher and re-arms on the new root —
+/// project switch drops the old project's watcher and re-arms on the new root -
 /// the feed always follows the open workspace.
 #[tauri::command]
 pub async fn watch_start(
@@ -802,7 +802,7 @@ pub async fn watch_start(
     let label = window.label().to_string();
 
     // Retire the bookkeeping of any window that has since closed before taking on
-    // this one's — no per-window teardown hook fires otherwise (see
+    // this one's - no per-window teardown hook fires otherwise (see
     // `prune_closed_windows`).
     prune_closed_windows(&app, &state);
     let Some(watch) = window_watch(&state, &label) else {
@@ -879,7 +879,7 @@ pub async fn watch_start(
 // The Change Feed's branch subtitle and the remote-gated actions read git state
 // (`vcs_branch_of`, `vcs_remote_url`) that only changes when two files do:
 // `.git/HEAD` (branch switches) and `.git/config` (remotes). This watcher tells
-// the frontend the moment either changes — or the repo itself appears — so that
+// the frontend the moment either changes - or the repo itself appears - so that
 // state stays live instead of refreshing only on mount / project switch.
 
 /// The event announcing a change to the workspace's live git state. Payload-free
@@ -900,14 +900,14 @@ const GIT_STATE_FILE_NAMES: &[&str] = &["HEAD", "config"];
 /// What the git-state watcher's callback tells its coalescer thread.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GitStateMessage {
-    /// `HEAD` or `config` was touched — the displayed state changed.
+    /// `HEAD` or `config` was touched - the displayed state changed.
     StateTouched,
     /// A `.git` entry appeared or disappeared, so the watcher must switch
     /// between the root sentinel and the repo's state directories.
     GitDirChanged,
     /// A `.gitignore` in an ANCESTOR of the watch root was touched (the
     /// recursive feed watch only sees the root's own subtree, but a workspace
-    /// deeper than the repo toplevel inherits every ancestor's rules) — the
+    /// deeper than the repo toplevel inherits every ancestor's rules) - the
     /// ignore policy must refresh.
     IgnoreRulesTouched,
 }
@@ -923,8 +923,8 @@ struct GitStateBurst {
 }
 
 /// Whether `path` names one of the two git-state files. The watch is
-/// non-recursive on the git dir itself, so a matching name is a top-level entry
-/// — never something under `objects/` or `refs/`.
+/// non-recursive on the git dir itself, so a matching name is a top-level
+/// entry, never something under `objects/` or `refs/`.
 fn is_git_state_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
@@ -942,7 +942,7 @@ fn git_dir_lifecycle_changed(kind: EventKind, paths: &[PathBuf]) -> bool {
 }
 
 /// The directories holding the workspace's `HEAD` and `config`, each to be
-/// watched non-recursively. A plain repo keeps both directly in `<root>/.git` —
+/// watched non-recursively. A plain repo keeps both directly in `<root>/.git` -
 /// one dir. A linked worktree or submodule keeps a `.git` *file* pointing
 /// elsewhere: `HEAD` sits in the resolved git dir and `config` in the common
 /// dir, so both are watched (deduplicated when they coincide). Empty when the
@@ -960,7 +960,7 @@ fn git_state_dirs(root: &Path) -> Vec<PathBuf> {
 
 /// Ask git where a `.git`-file workspace's real git dir and common dir live
 /// (`--path-format=absolute` keeps both absolute regardless of git's cwd). Any
-/// failure resolves to no dirs — the state watcher then stays quiet rather than
+/// failure resolves to no dirs - the state watcher then stays quiet rather than
 /// watching a guessed location.
 fn resolved_git_dirs(root: &Path) -> Vec<PathBuf> {
     let Ok(output) = crate::util::command("git")
@@ -1001,7 +1001,7 @@ fn unique_dirs<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<PathBuf> {
 /// Arm (or re-arm) the live-git-state watch for `root`, replacing any previous
 /// one. With a repo present it watches the dir(s) holding `HEAD` and `config`;
 /// with none it watches the workspace root itself, non-recursively, purely to
-/// see a `.git` entry appear — that costs one handle on a handful of direct
+/// see a `.git` entry appear - that costs one handle on a handful of direct
 /// children (never the workspace tree, which the recursive feed watcher already
 /// covers), and is what lets a `git init` run *after* the project opened gain
 /// the real watch without any polling. Best-effort: a failure to arm just means
@@ -1063,7 +1063,7 @@ fn watch_for_git_init(
 /// The repo-present watch: report touches of `HEAD`/`config` in the state dirs,
 /// and of `.gitignore` in the root's ancestor dirs (whose rules the workspace
 /// inherits but whose events the recursive feed watch can't see). Never the
-/// whole `.git` tree — `objects/` alone turns a busy repo into an event
+/// whole `.git` tree - `objects/` alone turns a busy repo into an event
 /// firehose; a non-recursive watch on each dir sees exactly its top-level
 /// entries, and the name filters drop the rest (`index`, lockfiles,
 /// `FETCH_HEAD`, sibling files, …) before they cost anything.
@@ -1097,7 +1097,7 @@ fn watch_git_state(
 }
 
 /// The directories between the repo toplevel and the watch root (both ends'
-/// dirs included, the root itself excluded — its own subtree is already
+/// dirs included, the root itself excluded - its own subtree is already
 /// watched recursively) whose `.gitignore` files apply to the workspace. Empty
 /// when the root IS the toplevel, or when there is no repo.
 fn gitignore_ancestor_dirs(root: &Path) -> Vec<PathBuf> {
@@ -1132,14 +1132,14 @@ fn repo_toplevel(root: &Path) -> Option<PathBuf> {
 }
 
 /// One thread per armed git-state watch: collapse each burst of messages into a
-/// single `git://state` emission, and — when the burst says `git init` just ran
-/// — swap the root sentinel for the real `HEAD`/`config` watch first. The
+/// single `git://state` emission, and, when the burst says `git init` just ran,
+/// swap the root sentinel for the real `HEAD`/`config` watch first. The
 /// re-arm happens on this thread, never inside the notify callback (a watcher
 /// must not be dropped from its own event callback). The thread retires itself:
 /// re-arming (or a re-root) drops the watcher holding the channel's sender, so
 /// `recv` errors and the loop ends. Because messages buffered before that drop
 /// still arrive, each burst first confirms this thread's root is still the
-/// armed one — a superseded thread must neither re-arm nor emit for a
+/// armed one - a superseded thread must neither re-arm nor emit for a
 /// workspace the window has moved on from.
 fn spawn_git_state_coalescer(
     app: AppHandle,
@@ -1177,7 +1177,7 @@ fn spawn_git_state_coalescer(
                 // A `git init` flips the feed's ignore policy from the static
                 // fallback to git's own rules; a touched ancestor `.gitignore`
                 // changes the rules in place. Both re-filter the events already
-                // shown. Outside the `git_state` lock — the refresh takes the
+                // shown. Outside the `git_state` lock - the refresh takes the
                 // watcher/policy locks instead.
                 refresh_ignore_policy(&app, &watch, &label);
             }
@@ -1190,7 +1190,7 @@ fn spawn_git_state_coalescer(
 
 /// Keep receiving until the channel stays quiet for `window`, folding every
 /// message into the burst's distinct effects (git init creates `.git`, `HEAD`,
-/// and `config` in one quick flurry — one coalesced re-arm; a `.gitignore`
+/// and `config` in one quick flurry - one coalesced re-arm; a `.gitignore`
 /// save alongside a checkout still refreshes the rules AND re-emits state).
 fn drain_burst(
     receiver: &Receiver<GitStateMessage>,
@@ -1216,7 +1216,7 @@ fn drain_burst(
 const DIRS_CHANGED_EVENT: &str = "dirs://changed";
 
 /// Watch a set of folders (non-recursively) and report when anything inside one
-/// appears or disappears — the project picker's eyes. It hands over the *parents*
+/// appears or disappears - the project picker's eyes. It hands over the *parents*
 /// of the rows it shows, never the rows themselves: a watch holds a handle on the
 /// folder it watches, and a handle on a project would be the very thing stopping
 /// that project from being deleted. Re-arming replaces the previous set.
@@ -1251,7 +1251,7 @@ pub async fn watch_dirs(
     .map_err(|e| e.to_string())?;
 
     for dir in dirs {
-        // A folder that is already gone isn't an error — that's precisely the news
+        // A folder that is already gone isn't an error - that's precisely the news
         // the caller is listening for, and the next re-arm won't ask for it again.
         let _ = watcher.watch(Path::new(&dir), RecursiveMode::NonRecursive);
     }
@@ -1273,7 +1273,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         return;
     };
     // The active watch root, for the MCP-config and ancestor-relative checks
-    // below — the recursive watcher only ever reports paths under it.
+    // below - the recursive watcher only ever reports paths under it.
     let watch_roots = watch.watcher.lock().ok().and_then(|guard| {
         guard
             .as_ref()
@@ -1293,14 +1293,14 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             continue;
         }
         // A created/modified file that has already vanished was an atomic-write
-        // scratch file — skip it rather than surface a preview-less phantom card.
+        // scratch file - skip it rather than surface a preview-less phantom card.
         if !surfaces(kind, metadata.is_some()) {
             continue;
         }
 
         // The event kind describes the past; the disk describes now. An editor's
         // atomic save deletes the real path and renames a scratch file over it,
-        // so a Remove event routinely loses the race with the recreation —
+        // so a Remove event routinely loses the race with the recreation -
         // trusting it would card a live file as "Deleted" while its fresh
         // content produces a positive line delta. A file that exists is a
         // modification, whatever the event said.
@@ -1313,8 +1313,8 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             detect_mcp_change(app, &watch, label, root, &path);
         }
 
-        // A changed .gitignore — edited, appearing for the first time, or
-        // deleted — changes what counts as ignored, so rebuild the whole policy
+        // A changed .gitignore - edited, appearing for the first time, or
+        // deleted - changes what counts as ignored, so rebuild the whole policy
         // (fresh rules in static mode, dropped memoized decisions in git mode)
         // and tell the feed to re-filter what it already shows. The .gitignore
         // itself is not ignored, so it still surfaces as its own change.
@@ -1350,7 +1350,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // First-touch baseline for the git-free preview: the content this path
         // held the first time it changed this session. A creation baselines as
         // empty (its whole content is new this session); any other first sighting
-        // snapshots the current on-disk text — the accepted slightly-late baseline
+        // snapshots the current on-disk text - the accepted slightly-late baseline
         // (the edit that fired this very event is already on disk). Later edits,
         // and a later deletion, diff against this. `or_insert_with` runs only on
         // the first sighting, so a large file is read at most once.
@@ -1400,7 +1400,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
     }
 }
 
-/// What this window's Change Feed watch is doing right now — the panel states it
+/// What this window's Change Feed watch is doing right now - the panel states it
 /// verbatim when the feed is empty, so "nothing has changed yet" is never
 /// mistaken for "nothing is being watched".
 #[derive(Serialize)]
@@ -1408,7 +1408,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
 pub struct WatchStatus {
     /// The root the watch is armed on; `None` when this window has no live watch.
     root: Option<String>,
-    /// Epoch ms the watch was armed — the feed holds nothing from before it.
+    /// Epoch ms the watch was armed - the feed holds nothing from before it.
     armed_at: Option<u128>,
     /// Changes surfaced to this window since arming.
     surfaced: u64,
@@ -1456,7 +1456,7 @@ pub struct FeedDiff {
 /// The session-baseline diff inputs for `path`: its first-touch baseline
 /// (`before`) and current on-disk content (`after`). `None` when no baseline was
 /// captured this session, or when the baseline or the current file is binary /
-/// over the size cap — the card then shows "No preview available". Git-independent
+/// over the size cap - the card then shows "No preview available". Git-independent
 /// by construction, so an untracked or ignored file previews like any other, and a
 /// file deleted after being touched shows its baseline as a full removal.
 #[tauri::command]
@@ -1496,7 +1496,7 @@ pub async fn feed_diff(
 /// now (the diff is baseline→current; the preview is just current). `None` when
 /// the path was not surfaced by this window's watch this session (so the command
 /// can't be turned into an arbitrary file reader), is gone, or is binary / over
-/// [`MAX_PREVIEW_BYTES`] — the card then keeps its diff and offers no preview.
+/// [`MAX_PREVIEW_BYTES`] - the card then keeps its diff and offers no preview.
 #[tauri::command]
 pub async fn feed_text(
     window: WebviewWindow,
@@ -1523,7 +1523,7 @@ pub async fn feed_text(
 /// MIME type its `data:` URL carries. The one authoritative home for the
 /// extension→MIME mapping (its TS mirror is `ImageExtension` in `@/lib/preview`);
 /// an extension absent here is not treated as a previewable image. SVG is
-/// included and served as a data URL like the raster formats — the frontend
+/// included and served as a data URL like the raster formats - the frontend
 /// renders every image through `<img src>`, so untrusted SVG markup is never
 /// inlined into the DOM (no scripts run, no external refs load).
 const IMAGE_MIME_TYPES: &[(&str, &str)] = &[
@@ -1554,7 +1554,7 @@ fn image_mime_type(path: &Path) -> Option<&'static str> {
 /// bloating the webview with megabytes of base64 for one card.
 const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 
-/// Standard-alphabet (RFC 4648) base64 for the image data URL — a few lines of
+/// Standard-alphabet (RFC 4648) base64 for the image data URL - a few lines of
 /// std rather than a new dependency (the only base64 the backend needs). Encodes
 /// each three input bytes into four characters, padding a final partial group
 /// with `=`.
@@ -1580,7 +1580,7 @@ fn base64_encode(bytes: &[u8]) -> String {
     encoded
 }
 
-/// A `data:<mime>;base64,<bytes>` URL — the one shape every inline media preview
+/// A `data:<mime>;base64,<bytes>` URL - the one shape every inline media preview
 /// hands the frontend, so it renders with a plain `src` and no asset protocol.
 fn data_url(mime: &str, bytes: &[u8]) -> String {
     format!("data:{mime};base64,{}", base64_encode(bytes))
@@ -1600,14 +1600,14 @@ fn was_surfaced(watch: &WindowWatch, path: &Path) -> Result<bool, String> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeedImage {
-    /// A `data:<mime>;base64,<bytes>` URL — directly usable as an `<img>` source.
+    /// A `data:<mime>;base64,<bytes>` URL - directly usable as an `<img>` source.
     data_url: String,
 }
 
 /// The inline image preview for `path`: its bytes as a base64 `data:` URL tagged
 /// with the extension's MIME type. `None` when `path` is not a previewable image,
 /// was not surfaced by this window's watch this session, is missing / not a
-/// regular file, or is larger than [`MAX_IMAGE_BYTES`] — the card then falls back
+/// regular file, or is larger than [`MAX_IMAGE_BYTES`] - the card then falls back
 /// to its text summary. Reads the CURRENT bytes (what the image is now); a
 /// before/after for a modified image is a deliberate non-goal here. Gated on a
 /// captured baseline like `feed_diff`, so the command can't base64 an arbitrary
@@ -1650,7 +1650,7 @@ pub async fn feed_image(
     rename_all_fields = "camelCase"
 )]
 pub enum FeedVideo {
-    /// A short transcoded clip as a `data:` URL — directly usable as a `<video>` source.
+    /// A short transcoded clip as a `data:` URL - directly usable as a `<video>` source.
     Ready { data_url: String },
     /// `ffmpeg` isn't installed, so no clip can be made.
     NoTranscoder,
@@ -1693,7 +1693,7 @@ pub async fn feed_video(
     }
 }
 
-/// The subset of `paths` the current ignore policy excludes — how the frontend
+/// The subset of `paths` the current ignore policy excludes - how the frontend
 /// re-filters the Change Feed it already rendered after `feed://ignore-changed`
 /// (events for now-ignored paths are dropped; never-recorded ones can't be
 /// resurrected, they simply surface again on their next real change).
@@ -2103,7 +2103,7 @@ mod tests {
         assert!(!burst.ignore_touched);
     }
 
-    /// A busy burst asks for each distinct effect it saw — a `git init` re-arm
+    /// A busy burst asks for each distinct effect it saw - a `git init` re-arm
     /// doesn't swallow a state emit, nor a `.gitignore` refresh.
     #[test]
     fn a_burst_coalesces_every_distinct_effect() {
@@ -2152,7 +2152,7 @@ mod tests {
         assert_eq!(image_mime_type(Path::new("archive.png.zip")), None);
     }
 
-    /// The RFC 4648 test vectors — proof the hand-rolled encoder pads partial
+    /// The RFC 4648 test vectors - proof the hand-rolled encoder pads partial
     /// groups correctly (the case a data URL depends on).
     #[test]
     fn base64_encode_matches_the_rfc_vectors() {

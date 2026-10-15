@@ -12,7 +12,7 @@ use tauri::Url;
 use crate::util::{command, home_dir, is_on_path, percent_encode, succeeds_within};
 use crate::workspace::validated_child_path;
 
-/// Is the `git` CLI available? Gates the picker's Clone tab — without git the
+/// Is the `git` CLI available? Gates the picker's Clone tab - without git the
 /// tab shows an install prompt instead of a clone form.
 #[tauri::command]
 pub async fn vcs_git_installed() -> bool {
@@ -41,7 +41,7 @@ pub async fn vcs_has_ssh_key() -> bool {
 /// the TCP connection far longer than a live URL check is worth.
 const PROBE_REMOTE_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Is `url` a repository the current environment can actually reach — it
+/// Is `url` a repository the current environment can actually reach - it
 /// exists, and the user's auth (SSH key, credential manager) can see it?
 /// Backs the picker's live URL check: the destination folder name auto-fills
 /// only once the repository answers. Prompts are disabled and the wait is
@@ -67,8 +67,8 @@ fn probe_remote(url: &str) -> bool {
     succeeds_within(ls_remote, PROBE_REMOTE_TIMEOUT)
 }
 
-/// The `host` and `path` of any supported clone URL — `https://host/path`,
-/// `ssh://git@host/path`, or scp-like `git@host:path` — or `None` when the
+/// The `host` and `path` of any supported clone URL - `https://host/path`,
+/// `ssh://git@host/path`, or scp-like `git@host:path` - or `None` when the
 /// shape isn't one of those.
 fn host_and_path(url: &str) -> Option<(String, String)> {
     let without_user = |host: &str| {
@@ -81,7 +81,7 @@ fn host_and_path(url: &str) -> Option<(String, String)> {
             return Some((without_user(host), path.to_string()));
         }
     }
-    // scp-like `git@github.com:org/repo.git` — a user@host before the colon.
+    // scp-like `git@github.com:org/repo.git` - a user@host before the colon.
     let (user_host, path) = url.split_once(':')?;
     user_host
         .contains('@')
@@ -115,7 +115,7 @@ fn validate_clone_url(url: &str) -> bool {
     !user.is_empty() && !host.is_empty() && !path.is_empty()
 }
 
-/// The clean `https://host/path` form of `url` — what the saved remote and any
+/// The clean `https://host/path` form of `url` - what the saved remote and any
 /// surfaced error carry when credentials were used for the clone itself.
 fn https_url(url: &str) -> Option<String> {
     host_and_path(url).map(|(host, path)| format!("https://{host}/{path}"))
@@ -171,7 +171,7 @@ impl Drop for AskPass {
 /// credentials the clone runs over HTTPS; the remote is then re-pointed at the
 /// credential-free URL so nothing secret lands in `.git/config`.
 // `async` + `spawn_blocking`: a clone runs for as long as the network transfer
-// takes — never on the MAIN thread, and too long for an async worker.
+// takes - never on the MAIN thread, and too long for an async worker.
 #[tauri::command]
 pub async fn vcs_clone(
     url: String,
@@ -200,7 +200,7 @@ fn clone_repository(
     }
     let destination = validated_child_path(Path::new(&root), name)?;
     if destination.exists() {
-        return Err("that folder already exists — pick another name".into());
+        return Err("that folder already exists - pick another name".into());
     }
 
     let credentials = username.zip(password);

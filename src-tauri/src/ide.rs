@@ -1,4 +1,4 @@
-//! External IDE integration — open the current project in the editor of choice.
+//! External IDE integration - open the current project in the editor of choice.
 //!
 //! ADE is agentic-first, but you still reach for a full IDE sometimes. It
 //! detects installed editors (by their CLI launcher) and opens the active
@@ -108,7 +108,7 @@ impl EditorCoverage {
     }
 }
 
-/// How a launcher wants a jump-to-line request shaped on the command line —
+/// How a launcher wants a jump-to-line request shaped on the command line -
 /// verified against each editor's official CLI docs.
 #[derive(Clone, Copy)]
 enum OpenStyle {
@@ -117,7 +117,7 @@ enum OpenStyle {
     /// that project's window; without one, `-r` reuses the already-open window
     /// (so it navigates in place rather than spawning a new one).
     VsCode,
-    /// `JetBrains` family: `--line <n> file` — flags first, path last, with an
+    /// `JetBrains` family: `--line <n> file` - flags first, path last, with an
     /// optional leading project directory (`idea <dir> --line <n> file`). The
     /// launcher hands the file to the running IDE instance when one is up.
     JetBrains,
@@ -157,7 +157,7 @@ const REGISTRY: &[IdeDefinition] = &[
         style: OpenStyle::VsCode,
         coverage: EditorCoverage::EveryKind,
     },
-    // The popular VS Code forks are generalists exactly like their parent —
+    // The popular VS Code forks are generalists exactly like their parent -
     // same launcher conventions, same any-language reach.
     IdeDefinition {
         id: "antigravity",
@@ -276,7 +276,7 @@ const REGISTRY: &[IdeDefinition] = &[
     },
 ];
 
-/// A project-kind marker — something in the project root that signals the kind,
+/// A project-kind marker - something in the project root that signals the kind,
 /// and how it is probed on disk.
 enum Marker {
     /// A file with this exact name exists in the root.
@@ -438,7 +438,7 @@ const KIND_REGISTRY: &[KindDefinition] = &[
     },
 ];
 
-/// Census walk bounds — enough to weigh a real repo, bounded so the suggestion
+/// Census walk bounds - enough to weigh a real repo, bounded so the suggestion
 /// never stalls on a huge working tree.
 const CENSUS_MAXIMUM_DEPTH: usize = 5;
 const CENSUS_MAXIMUM_FILES: usize = 4000;
@@ -683,7 +683,7 @@ fn git_linguist_attributes(
 }
 
 /// Whether a directory entry is a directory, answered from the entry's own
-/// dirent data — no per-path `stat`, which a walk over thousands of entries
+/// dirent data - no per-path `stat`, which a walk over thousands of entries
 /// pays dearly for. Only a symlink (whose dirent can't tell what it points at)
 /// falls back to following the path, preserving follow-the-link semantics.
 fn is_directory_entry(entry: &std::fs::DirEntry) -> bool {
@@ -735,7 +735,7 @@ fn census_walk(
 }
 
 /// Source evidence for `cwd`. The file list is git's tracked set when `cwd` is a
-/// repo — so untracked junk and ignored build output never sway the mix — and a
+/// repo - so untracked junk and ignored build output never sway the mix - and a
 /// bounded filesystem walk otherwise. Bounded to [`CENSUS_MAXIMUM_FILES`] either
 /// way so a huge tree can't stall a suggestion.
 fn source_profile(cwd: &std::path::Path) -> SourceProfile {
@@ -774,7 +774,7 @@ fn census(cwd: &std::path::Path) -> BTreeMap<ProjectKind, u64> {
 }
 
 /// Resolve an editor id against the registry, else against the caller's
-/// already-loaded user-added editors — passed in so a suggestion pass over
+/// already-loaded user-added editors - passed in so a suggestion pass over
 /// many candidate ids reads the settings file once, not once per id.
 fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
     if let Some(editor) = REGISTRY.iter().find(|editor| editor.id == id) {
@@ -786,7 +786,7 @@ fn lookup(id: &str, added: &[Ide]) -> Option<Ide> {
             chosen: false,
         });
     }
-    // User-added editors are first-class too — resolve them by their stored id.
+    // User-added editors are first-class too - resolve them by their stored id.
     added.iter().find(|e| e.id == id).cloned()
 }
 
@@ -886,13 +886,13 @@ pub struct Ide {
     /// A console editor PADE runs inside a terminal tab (never a detached window).
     terminal: bool,
     /// True when this editor leads [`ide_suggest`]'s ranking because of an
-    /// explicit per-project pick ([`ide_choose_editor`]) — the UI badges it as
+    /// explicit per-project pick ([`ide_choose_editor`]) - the UI badges it as
     /// the user's choice rather than the auto-detected best fit.
     chosen: bool,
 }
 
 // `async` + `spawn_blocking`: detection probes every PATH/package-manager
-// directory (and `reg` on Windows) — filesystem-and-child-process work that a
+// directory (and `reg` on Windows) - filesystem-and-child-process work that a
 // synchronous command would run on the MAIN thread, freezing the window.
 #[tauri::command]
 pub async fn ide_detect() -> Vec<Ide> {
@@ -919,7 +919,7 @@ fn installed_ides() -> Vec<Ide> {
 }
 
 /// Add an editor by the full path to its executable. Validates the basename
-/// against the launchable families ({@link family}) — an unsupported executable
+/// against the launchable families ({@link family}) - an unsupported executable
 /// (e.g. `WinRAR.exe`) is rejected with a message the UI shows inline. On
 /// success the editor is persisted and appears in every editor menu.
 #[tauri::command]
@@ -975,7 +975,7 @@ fn has_extension(directory: &std::path::Path, extension: &str) -> bool {
 const IGNORED_PROBE_DIRECTORIES: &[&str] =
     &["node_modules", "target", "vendor", "dist", "build", "out"];
 
-/// The project root plus its direct child directories — everywhere a kind
+/// The project root plus its direct child directories - everywhere a kind
 /// marker may live. A hybrid app or a small monorepo keeps each side's manifest
 /// in its own folder (`src-tauri/Cargo.toml`, `backend/go.mod`), and a root-only
 /// probe would miss that whole side of the project.
@@ -1006,7 +1006,7 @@ struct ProjectDeclaration {
     kinds: Vec<ProjectKind>,
 }
 
-/// Every marker-bearing project root among already-walked probe roots — the
+/// Every marker-bearing project root among already-walked probe roots - the
 /// seam for callers that reuse one [`probe_roots`] listing across several
 /// probes instead of re-walking the workspace's children per question.
 fn declarations_in(roots: &[std::path::PathBuf]) -> Vec<ProjectDeclaration> {
@@ -1167,7 +1167,7 @@ fn required_project_kinds(
 const FALLBACK_KEY: &str = "fallback";
 
 /// Order-preserving dedup: keep each id's first appearance only. No mutable
-/// accumulator — an id survives just at the index of its first occurrence.
+/// accumulator - an id survives just at the index of its first occurrence.
 fn dedup_in_order(ids: Vec<String>) -> Vec<String> {
     ids.iter()
         .enumerate()
@@ -1324,7 +1324,7 @@ fn kind_options() -> BTreeMap<String, Vec<String>> {
         .collect()
 }
 
-/// One project kind as the editor-rules UI renders it — its id, display label,
+/// One project kind as the editor-rules UI renders it - its id, display label,
 /// and the marker signals shown under the label.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1348,13 +1348,13 @@ pub fn ide_kinds() -> Vec<KindInfo> {
         .collect()
 }
 
-/// Primary detected kind for each of `paths` — the marker-declared kind highest
-/// in the registry's priority order — for the switcher's per-project language
+/// Primary detected kind for each of `paths` - the marker-declared kind highest
+/// in the registry's priority order - for the switcher's per-project language
 /// logo. Paths with no recognised markers are omitted, so the caller falls back
 /// to a folder glyph. Marker probing only (root + one level down), so it stays
 /// cheap enough to run for a menuful of recent projects at once.
 // `async` + `spawn_blocking`: one child walk per project for a whole menuful of
-// recents is real filesystem work — off the UI thread.
+// recents is real filesystem work - off the UI thread.
 #[tauri::command]
 pub async fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
     tauri::async_runtime::spawn_blocking(move || project_kinds(paths))
@@ -1368,7 +1368,7 @@ fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
         .into_iter()
         .filter_map(|path| {
             // One child walk per project, shared by the marker probe and the
-            // TypeScript narrowing — this runs for a whole menuful of recents.
+            // TypeScript narrowing - this runs for a whole menuful of recents.
             let roots = probe_roots(std::path::Path::new(&path));
             let kind = kinds_from_declarations(&declarations_in(&roots))
                 .into_iter()
@@ -1384,7 +1384,7 @@ fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// Whether a web project uses TypeScript — a `tsconfig.json`, or a `.ts`/`.tsx`
+/// Whether a web project uses TypeScript - a `tsconfig.json`, or a `.ts`/`.tsx`
 /// source in one of the already-walked probe roots or its `src` dir. Narrows
 /// the per-project switcher icon from the JavaScript badge to the TypeScript one.
 fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
@@ -1397,7 +1397,7 @@ fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
     })
 }
 
-/// An id is worth suggesting only if it's actually launchable — a registry
+/// An id is worth suggesting only if it's actually launchable - a registry
 /// launcher on PATH, or a user-added editor (its stored path is the launcher,
 /// resolved against the caller's already-loaded `added` list).
 fn is_installed(id: &str, added: &[Ide]) -> bool {
@@ -1408,7 +1408,7 @@ fn is_installed(id: &str, added: &[Ide]) -> bool {
 }
 
 /// The user-configured editor ids that lead the suggestion ranking, in winning
-/// order. An explicit per-project choice always wins — the user pointed at that
+/// order. An explicit per-project choice always wins - the user pointed at that
 /// editor for this very project, so no coverage rule may displace it. The
 /// primary-kind rule and the fallback follow, but only while they cover the
 /// project's required kinds.
@@ -1431,12 +1431,12 @@ fn preference_chain(
 /// launcher, Change Feed reveal, picker rows) treats its first entry as *the*
 /// editor. An explicit per-project pick ([`ide_choose_editor`]) leads; then the
 /// editor-rules engine, which takes precedence only when its editor covers
-/// every required kind derived from project declarations and source ownership —
+/// every required kind derived from project declarations and source ownership -
 /// a user rule for the primary declared kind first, then the configured
 /// fallback, then evidence-weighted editor coverage. No dominant-language
 /// threshold or framework-specific detection is involved.
 // `async` + `spawn_blocking`: the source census walks the whole project and the
-// installed check probes PATH — far too much filesystem work for the UI thread.
+// installed check probes PATH - far too much filesystem work for the UI thread.
 #[tauri::command]
 pub async fn ide_suggest(cwd: String) -> Result<Vec<Ide>, String> {
     tauri::async_runtime::spawn_blocking(move || suggest_for(&cwd))
@@ -1508,11 +1508,11 @@ fn open_style(command: &str) -> Option<OpenStyle> {
     editor_family(&exe_basename(command)).and_then(|family| family.style)
 }
 
-/// The launcher arguments for opening `target` — jumping to `line` when one is
+/// The launcher arguments for opening `target` - jumping to `line` when one is
 /// given and the launcher's style is known (otherwise the path is passed as-is,
 /// which every editor accepts). With a `workspace`, the project folder rides
 /// along for every family whose CLI has a workspace+file form, so the file
-/// opens *inside its project's window* — not a bare single-file window; a
+/// opens *inside its project's window* - not a bare single-file window; a
 /// family with no such form keeps the plain-file behavior.
 fn open_args(
     command: &str,
@@ -1521,7 +1521,7 @@ fn open_args(
     workspace: Option<&str>,
 ) -> Vec<String> {
     match (open_style(command), workspace, line) {
-        // VS Code family: `code <folder> -g <file>[:<line>]` — the folder names
+        // VS Code family: `code <folder> -g <file>[:<line>]` - the folder names
         // the workspace (a window already showing it is focused, else one
         // opens) and `-g`/`--goto` jumps to the file:line inside it (VS Code
         // CLI docs, "Opening files and folders"). Deliberately no `-r` here:
@@ -1573,13 +1573,13 @@ fn open_args(
 }
 
 /// Spawn a GUI-IDE launcher with prepared arguments, **detached** so the editor
-/// outlives ADE (requirement: closing ADE must not kill the IDE — see
+/// outlives ADE (requirement: closing ADE must not kill the IDE - see
 /// [`crate::util::spawn_detached`] for the job/console reasoning). On Windows the
 /// JetBrains/VS Code launchers are `.cmd` shims, so go through `cmd /C` to
 /// resolve them the way a terminal would; an added editor's command is an
 /// absolute executable path, so spawn it directly. Both paths go through the one
 /// detached-spawn helper (DRY) so the editor breaks out of ADE's job either way.
-/// (Console editors — Neovim/Vim/Helix — never reach here; they run inside a
+/// (Console editors - Neovim/Vim/Helix - never reach here; they run inside a
 /// PADE terminal tab and are meant to stay tied to ADE.)
 fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
     let is_path = command.contains('/') || command.contains('\\');
@@ -1623,8 +1623,8 @@ pub async fn ide_open(
 /// the window that has `project` open**. Every family with a workspace+file CLI
 /// form gets the project folder alongside the file (VS Code `<dir> -g
 /// file:line`, `JetBrains` `<dir> --line n file`, Zed/Sublime `<dir>
-/// file:line`), so a cold editor opens the whole workspace at the right line —
-/// never a bare single-file window — and a running one focuses the project's
+/// file:line`), so a cold editor opens the whole workspace at the right line -
+/// never a bare single-file window - and a running one focuses the project's
 /// own window. A family with no such form (Visual Studio, Notepad++, …)
 /// receives the file alone, as before.
 #[tauri::command]
@@ -2210,7 +2210,7 @@ mod tests {
             open_args("notepad", "C:/p/file.ts".to_string(), Some(9), None),
             ["C:/p/file.ts"]
         );
-        // No known workspace+file form either — current behavior is kept.
+        // No known workspace+file form either - current behavior is kept.
         assert_eq!(
             open_args("notepad", "C:/p/file.ts".to_string(), Some(9), Some("C:/p")),
             ["C:/p/file.ts"]

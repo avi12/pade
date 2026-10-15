@@ -1,4 +1,4 @@
-//! Git worktrees — an isolated checkout per branch for per-branch agents.
+//! Git worktrees - an isolated checkout per branch for per-branch agents.
 
 use std::path::Path;
 
@@ -18,7 +18,7 @@ pub async fn vcs_worktree_add(cwd: String, branch: String, create: bool) -> Resu
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("repo");
-    // Branches can contain '/', which would nest dirs — flatten for the folder.
+    // Branches can contain '/', which would nest dirs - flatten for the folder.
     let safe = branch.replace(['/', '\\'], "-");
     let dir = ensure_config_dir()?
         .join("worktrees")

@@ -1,4 +1,4 @@
-//! Restore a version — natural-language query → ranked commits → checkout.
+//! Restore a version - natural-language query → ranked commits → checkout.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -23,7 +23,7 @@ const DEFAULT_CANDIDATE_LIMIT: u32 = 50;
 /// Boost added to a commit whose committer time falls inside a query's time hint.
 const TIME_HINT_BOOST: f32 = 0.5;
 
-/// Seconds in a day — the unit for relative time-hint windows.
+/// Seconds in a day - the unit for relative time-hint windows.
 const DAY_SECONDS: u64 = 86_400;
 
 /// Current unix time in seconds (0 if the clock predates the epoch).
@@ -58,7 +58,7 @@ impl TimeWindow {
 fn time_hint_window(query: &str, now: u64) -> Option<TimeWindow> {
     let normalized_query = query.to_lowercase();
 
-    // "N days ago" — window is that whole calendar-ish day (± around the offset).
+    // "N days ago" - window is that whole calendar-ish day (± around the offset).
     if let Some(days) = parse_days_ago(&normalized_query) {
         let offset = days.saturating_mul(DAY_SECONDS);
         let center = now.saturating_sub(offset);
@@ -193,7 +193,7 @@ pub async fn vcs_restore_candidates(
 
 /// Restore a commit non-destructively by switching to a dedicated branch.
 ///
-/// Creates (or re-enters) `pade/restore-<shortsha>` pointing at `sha` — never
+/// Creates (or re-enters) `pade/restore-<shortsha>` pointing at `sha` - never
 /// touches the working tree with `reset --hard`. Returns the branch name.
 #[tauri::command]
 pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, String> {

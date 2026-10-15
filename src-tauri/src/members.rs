@@ -1,14 +1,14 @@
-//! Workspace member discovery — the parts a workspace is actually made of.
+//! Workspace member discovery - the parts a workspace is actually made of.
 //!
 //! A member is one of two things, and one walk finds both:
 //!
-//! * a **package**, IFF the directory holds its own manifest — never because of
+//! * a **package**, IFF the directory holds its own manifest - never because of
 //!   its name. The root's workspace-defining files (`pnpm-workspace.yaml`,
 //!   `package.json` `"workspaces"`, `Cargo.toml` `[workspace]`, `go.work`,
 //!   `pyproject.toml` `[tool.uv.workspace]`) contribute include/exclude member
 //!   patterns, and a census directory becomes a package member only when an
 //!   include pattern matches it and no exclude does.
-//! * a **repository**, IFF the directory holds its own `.git` — a checkout
+//! * a **repository**, IFF the directory holds its own `.git` - a checkout
 //!   nested inside the workspace (a multi-repo folder, a submodule, a
 //!   worktree). No pattern has to claim it: nobody declares these anywhere, and
 //!   a checkout with its own branch and history is part of the workspace
@@ -49,7 +49,7 @@ const MANIFESTS: &[(&str, Ecosystem)] = &[
 /// dot-directories (`.git`, `.venv`, …) are pruned separately.
 const PRUNED_DIRECTORIES: &[&str] = &["node_modules", "target", "dist", "build", "vendor"];
 
-/// What marks a directory as its own checkout — a directory in a normal clone,
+/// What marks a directory as its own checkout - a directory in a normal clone,
 /// a FILE in a worktree or submodule (it points at the real git dir). The walk
 /// tests the name, never the kind, so all three count.
 const GIT_MARKER: &str = ".git";
@@ -85,7 +85,7 @@ pub async fn members_list(root: String) -> Result<Vec<Member>, String> {
 
 /// Every confirmed member: the root, plus each census directory that is either
 /// its own checkout or a package the declared patterns include (all includes
-/// first, then excludes subtract — negation is order-sensitive in every
+/// first, then excludes subtract - negation is order-sensitive in every
 /// ecosystem).
 fn discover_members(root: &Path) -> Vec<Member> {
     let census = census(root);
@@ -162,7 +162,7 @@ impl Found {
 /// Walk once from the root recording every directory that holds a real package
 /// manifest or its own `.git`, pruning noise directories and hidden directories
 /// during the walk (a greedy member glob must never sweep in `node_modules`).
-/// A nested checkout is still walked into — a repo can hold packages of its own.
+/// A nested checkout is still walked into - a repo can hold packages of its own.
 fn census(root: &Path) -> BTreeMap<String, Found> {
     let mut found = BTreeMap::new();
     let mut stack = vec![root.to_path_buf()];
@@ -305,7 +305,7 @@ const PATTERN_SOURCES: &[(&str, PatternParser)] = &[
 ];
 
 /// Gather member patterns from every workspace-defining file present at the
-/// root — a polyglot repo can declare several at once.
+/// root - a polyglot repo can declare several at once.
 fn collect_patterns(root: &Path) -> MemberPatterns {
     let mut patterns = MemberPatterns::default();
     for (file, parse) in PATTERN_SOURCES {
@@ -317,7 +317,7 @@ fn collect_patterns(root: &Path) -> MemberPatterns {
     patterns
 }
 
-/// `pnpm-workspace.yaml`'s flat `packages:` block list — the only shape pnpm
+/// `pnpm-workspace.yaml`'s flat `packages:` block list - the only shape pnpm
 /// documents for members, so a line scan beats a YAML dependency. `!` entries
 /// subtract.
 fn pnpm_workspace_patterns(text: &str, patterns: &mut MemberPatterns) {
@@ -342,7 +342,7 @@ fn pnpm_workspace_patterns(text: &str, patterns: &mut MemberPatterns) {
     }
 }
 
-/// `package.json` `"workspaces"` — a glob array, or Yarn-classic's
+/// `package.json` `"workspaces"` - a glob array, or Yarn-classic's
 /// `{ "packages": [...] }` object form. `!` entries subtract (Bun/Yarn).
 fn package_json_patterns(text: &str, patterns: &mut MemberPatterns) {
     let Ok(json) = serde_json::from_str::<serde_json::Value>(text) else {
@@ -385,7 +385,7 @@ fn uv_workspace_patterns(text: &str, patterns: &mut MemberPatterns) {
     }
 }
 
-/// `go.work` `use` directives — literal paths (no globs), either a single
+/// `go.work` `use` directives - literal paths (no globs), either a single
 /// `use ./dir` or a `use ( … )` block; `//` comments stripped.
 fn go_work_patterns(text: &str, patterns: &mut MemberPatterns) {
     let mut in_use_block = false;
@@ -429,7 +429,7 @@ fn strip_quotes(raw: &str) -> &str {
 // minimize-dependencies, and matching `tasks.rs`'s precedent). The census
 // confirms membership afterwards, so a permissive parse stays safe.
 
-/// The string entries of `key = [ … ]` inside `[table]` — single-line or
+/// The string entries of `key = [ … ]` inside `[table]` - single-line or
 /// multi-line arrays, `#` comments stripped quote-aware.
 fn toml_string_array(text: &str, table: &str, key: &str) -> Vec<String> {
     let mut entries = Vec::new();
@@ -533,7 +533,7 @@ fn strip_toml_comment(line: &str) -> &str {
 // ── Segment-aware glob matcher ───────────────────────────────────────────────
 
 /// Segment-aware glob match: `*`/`?` stay within one path segment, `**` spans
-/// any number of segments — so `packages/*` is one level and `components/**`
+/// any number of segments - so `packages/*` is one level and `components/**`
 /// recurses, matching the workspace tools' own semantics.
 fn glob_match(pattern: &str, path: &str) -> bool {
     let pattern_segments: Vec<&str> = pattern.split('/').collect();
@@ -552,7 +552,7 @@ fn segments_match(pattern: &[&str], path: &[&str]) -> bool {
 }
 
 /// One path segment against one pattern segment: `*` any run of characters,
-/// `?` exactly one — neither ever crosses a `/`.
+/// `?` exactly one - neither ever crosses a `/`.
 fn segment_matches(pattern: &str, segment: &str) -> bool {
     let pattern_characters: Vec<char> = pattern.chars().collect();
     let segment_characters: Vec<char> = segment.chars().collect();
@@ -789,8 +789,8 @@ mod tests {
 
     #[test]
     fn a_nested_checkout_is_a_member_with_no_manifest_at_all() {
-        // Nobody declares these anywhere — a folder of cloned repos has no
-        // workspace file to list them — so `.git` alone has to confirm one.
+        // Nobody declares these anywhere - a folder of cloned repos has no
+        // workspace file to list them - so `.git` alone has to confirm one.
         let root = scratch_root("nested-checkout");
         write(&root, "companion/.git/HEAD", "ref: refs/heads/main\n");
         write(&root, "docs/readme.md", "not a member");

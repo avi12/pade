@@ -1,14 +1,14 @@
 //! Move-directory reference updater.
 //!
 //! When PADE moves a workspace folder (`old` path → `new` path), external tools
-//! that remember the old absolute path — each agent's memory of the project
-//! (see `agents`), the `JetBrains` / VS Code / Cursor "recent projects" lists —
+//! that remember the old absolute path - each agent's memory of the project
+//! (see `agents`), the `JetBrains` / VS Code / Cursor "recent projects" lists -
 //! would silently lose the project. This module re-points those references so
 //! the linked tools keep working.
 //!
 //! It is strictly **best-effort**: every adapter swallows its own errors (a
 //! missing, absent, or locked file must never fail the move). We only ever touch
-//! data the tool already persisted locally — no network, no CLI.
+//! data the tool already persisted locally - no network, no CLI.
 //!
 //! Gating: the agent adapters touch only entries for the moved folder or
 //! something inside it. Each IDE adapter runs only when the moved directory
@@ -24,7 +24,7 @@ use std::path::Path;
 use crate::util::is_on_path;
 
 /// Best-effort: re-point every external reference from `old` to `new` (absolute
-/// dir paths). Per-adapter errors are logged and ignored — one failing tool must
+/// dir paths). Per-adapter errors are logged and ignored - one failing tool must
 /// never abort the others or the move itself.
 pub fn update_references(old: &str, new: &str) {
     let new_dir = Path::new(new);
@@ -139,7 +139,7 @@ fn rewrite_file_forms(path: &Path, old: &str, new: &str) {
 }
 
 // ---------------------------------------------------------------------------
-// IDE adapter table — marker-gated, easy to extend.
+// IDE adapter table - marker-gated, easy to extend.
 // ---------------------------------------------------------------------------
 
 /// How to re-point one IDE's stored references after a move.
@@ -178,9 +178,9 @@ const IDE_ADAPTERS: &[IdeAdapter] = &[
         marker: ".cursor",
         apply: apply_cursor,
     },
-    // TODO: Zed — recents in ~/AppData/Roaming/Zed (SQLite `db.sqlite`); marker
+    // TODO: Zed - recents in ~/AppData/Roaming/Zed (SQLite `db.sqlite`); marker
     // `.zed`. Left as a stub until its schema is pinned down.
-    // TODO: Sublime Text — session in
+    // TODO: Sublime Text - session in
     // ~/AppData/Roaming/Sublime Text/Local/Session.sublime_session; marker
     // `.sublime-project`. Left as a stub.
 ];
@@ -267,7 +267,7 @@ mod windows {
     use super::{rewrite_file_forms, VsCodeApp};
 
     /// Rewrite `old` → `new` in every `JetBrains` IDE's `recentProjects.xml`
-    /// (`~/AppData/Roaming/JetBrains/*/options/recentProjects.xml`) — one file per
+    /// (`~/AppData/Roaming/JetBrains/*/options/recentProjects.xml`) - one file per
     /// installed IDE version. Both backslash and forward-slash forms. Best-effort.
     pub(super) fn rewrite_jetbrains_recents(old: &str, new: &str) {
         let Some(home) = home_dir() else { return };
@@ -346,7 +346,7 @@ mod windows {
             |row| row.get(0),
         ) {
             Ok(value) => value,
-            // No such row / locked / other — nothing safe to do.
+            // No such row / locked / other - nothing safe to do.
             Err(error) => {
                 eprintln!(
                     "refs: could not read recents from {}: {error}",
@@ -384,16 +384,16 @@ fn rewrite_jetbrains_recents(_old: &str, _new: &str) {}
 fn rewrite_vscode_family(_app: VsCodeApp, _old: &str, _new: &str) {}
 
 // ---------------------------------------------------------------------------
-// Adapter — project-tree symlinks/junctions (cross-platform).
+// Adapter - project-tree symlinks/junctions (cross-platform).
 // ---------------------------------------------------------------------------
 
 /// Re-point every link in the moved project whose ABSOLUTE target lived under
 /// the old tree. Many toolchains plant absolute symlinks/junctions inside a
-/// project — pnpm's `node_modules`, Python's `.venv`, and others — and a link
+/// project - pnpm's `node_modules`, Python's `.venv`, and others - and a link
 /// with an absolute target under `old` dangles after the move, so we swing it to
 /// the matching path under `new`.
 ///
-/// Relative links are left untouched — they survive a move within one drive
+/// Relative links are left untouched - they survive a move within one drive
 /// (the common case), so usually nothing here changes. This handles the
 /// absolute-target edge cases: workspace/monorepo links, cross-tree links, venv
 /// interpreter links, and globally-linked packages, uniformly across techs.
@@ -406,7 +406,7 @@ fn fix_project_symlinks(new_dir: &Path, old: &str, new: &str) {
 }
 
 /// Recurse `dir`, re-pointing stale absolute links and descending only into real
-/// sub-directories (never into a link — that bounds the walk and dodges cycles).
+/// sub-directories (never into a link - that bounds the walk and dodges cycles).
 /// Skips `.git` (huge, holds no project-path links worth rewriting).
 fn relink_dir(dir: &Path, old: &str, new: &str) {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -414,7 +414,7 @@ fn relink_dir(dir: &Path, old: &str, new: &str) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        // `symlink_metadata` describes the entry itself, not its target — so a
+        // `symlink_metadata` describes the entry itself, not its target - so a
         // link reports as a link rather than as whatever it points at.
         let Ok(metadata) = std::fs::symlink_metadata(&path) else {
             continue;
@@ -445,7 +445,7 @@ fn remap_link(link: &Path, old: &str, new: &str) {
         return;
     };
     let Some(remapped) = remap_under(target_str, old, new) else {
-        return; // relative, or not under `old` — leave it alone
+        return; // relative, or not under `old` - leave it alone
     };
     // A link to a directory must be recreated as a dir link (junction on
     // Windows); resolve through the link to learn what it points at.
@@ -536,13 +536,13 @@ fn recreate_link(link: &Path, target: &str, _is_target_directory: bool) {
 }
 
 // ---------------------------------------------------------------------------
-// Adapter — package-manager reconcile (cross-platform).
+// Adapter - package-manager reconcile (cross-platform).
 // ---------------------------------------------------------------------------
 
 /// A package manager we can re-materialize after a move: if `lockfile` is present
 /// in the moved project and the manager's `tool` is on PATH, run `command` there
 /// to regenerate its (absolute-link-laden) install tree from scratch. This is the
-/// robust "easy way" that complements `fix_project_symlinks` — the fixer re-points
+/// robust "easy way" that complements `fix_project_symlinks` - the fixer re-points
 /// links in place; this rebuilds them wholesale where a manager exists.
 struct PackageManager {
     /// Lockfile whose presence marks this manager as the project's (e.g.
@@ -554,7 +554,7 @@ struct PackageManager {
     command: &'static str,
 }
 
-/// Managers we know how to reconcile, in priority order — the first whose
+/// Managers we know how to reconcile, in priority order - the first whose
 /// lockfile is present and whose tool is on PATH wins (a project uses one). The
 /// surest fix after a move is to let the manager rebuild its links/store.
 const PACKAGE_MANAGERS: &[PackageManager] = &[
@@ -573,7 +573,7 @@ const PACKAGE_MANAGERS: &[PackageManager] = &[
         tool: "yarn",
         command: "yarn install",
     },
-    // Bun's lockfile is `bun.lockb` (binary) or `bun.lock` (text, newer) — match either.
+    // Bun's lockfile is `bun.lockb` (binary) or `bun.lock` (text, newer) - match either.
     PackageManager {
         lockfile: "bun.lockb",
         tool: "bun",
@@ -590,7 +590,7 @@ const PACKAGE_MANAGERS: &[PackageManager] = &[
 /// PATH), kick off its install in the new dir to regenerate the dependency tree.
 ///
 /// Fire-and-forget by design: we **spawn detached and never wait** so the move
-/// stays fast — the install rebuilds in the background. The child handle is
+/// stays fast - the install rebuilds in the background. The child handle is
 /// dropped (never joined, never killed). Best-effort: a missing tool or spawn
 /// failure is logged and ignored, never failing the move.
 fn reconcile_package_manager(new_dir: &Path) {
@@ -600,7 +600,7 @@ fn reconcile_package_manager(new_dir: &Path) {
             continue;
         }
         spawn_install(new_dir, manager.command);
-        break; // one package manager per project — run only the first match
+        break; // one package manager per project - run only the first match
     }
 }
 
@@ -626,7 +626,7 @@ fn spawn_install(dir: &Path, command: &str) {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    // Spawn and drop the handle — detached, no wait, no kill.
+    // Spawn and drop the handle - detached, no wait, no kill.
     if let Err(error) = process.spawn() {
         eprintln!(
             "refs: failed to start `{command}` in {}: {error}",

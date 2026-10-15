@@ -57,7 +57,7 @@ pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
             continue;
         }
         // A `--numstat` row: "<adds>\t<dels>\t<path>". Fold it into the current
-        // commit. Binary files show "-\t-\t<path>" — count the file, not lines.
+        // commit. Binary files show "-\t-\t<path>" - count the file, not lines.
         let Some(commit) = commits.last_mut() else {
             continue;
         };

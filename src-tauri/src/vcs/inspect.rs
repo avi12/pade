@@ -1,4 +1,4 @@
-//! Commit inspection — one commit's message, per-file stats, and a file's diff.
+//! Commit inspection - one commit's message, per-file stats, and a file's diff.
 
 use std::collections::HashMap;
 
@@ -143,7 +143,7 @@ struct NumstatRecord<'input> {
 
 /// Parse a `git show --numstat -z` stream into per-file records. Fields are
 /// NUL-separated: a normal record is one `"adds\tdels\tpath"` field; a rename is
-/// `"adds\tdels\t"` followed by the old and new path in their own fields — we
+/// `"adds\tdels\t"` followed by the old and new path in their own fields - we
 /// take the NEW path so it matches the diff and name-status keys.
 fn parse_numstat_records(numstat: &str) -> Vec<NumstatRecord<'_>> {
     let mut records = Vec::new();
@@ -184,7 +184,7 @@ fn parse_numstat_records(numstat: &str) -> Vec<NumstatRecord<'_>> {
 
 /// Parse a `git show --name-status -z` stream into a `new path → StatusKind` map.
 /// Fields are NUL-separated: a normal record is `"code"` then `"path"`; a rename
-/// or copy is `"code"` then the old and new path — we key on the NEW path so it
+/// or copy is `"code"` then the old and new path - we key on the NEW path so it
 /// matches the path `--numstat` reports.
 fn status_kinds_by_path(namestat: &str) -> HashMap<&str, StatusKind> {
     let mut kinds = HashMap::new();

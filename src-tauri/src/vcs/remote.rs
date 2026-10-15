@@ -1,4 +1,4 @@
-//! Remote-URL resolution — the browsable base behind "open on GitHub".
+//! Remote-URL resolution - the browsable base behind "open on GitHub".
 
 use super::branches::current_branch;
 use super::run_git;

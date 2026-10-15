@@ -5,10 +5,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::run_git;
 
-/// The current HEAD branch name — the one authoritative "current branch" query,
+/// The current HEAD branch name - the one authoritative "current branch" query,
 /// used by `vcs_commit`, the per-project branch chip, and remote resolution.
 /// `rev-parse --abbrev-ref HEAD` reports `HEAD` on a detached checkout, which
-/// (with an empty result on a non-repo) maps to `None` — no branch.
+/// (with an empty result on a non-repo) maps to `None` - no branch.
 pub(crate) fn current_branch(cwd: &str) -> Option<String> {
     let raw = run_git(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
     let name = raw.trim();
@@ -30,7 +30,7 @@ pub async fn vcs_branch_of(paths: Vec<String>) -> BTreeMap<String, String> {
 }
 
 /// Every branch name one `git branch` invocation printed, in git's order and
-/// without the blank padding lines. The one place the branch list is parsed —
+/// without the blank padding lines. The one place the branch list is parsed -
 /// [`vcs_branches`] and [`vcs_remote_branches`] differ only in the refs asked for.
 fn branch_names(cwd: &str, args: &[&str]) -> Result<Vec<String>, String> {
     let raw = run_git(cwd, args)?;
@@ -42,7 +42,7 @@ fn branch_names(cwd: &str, args: &[&str]) -> Result<Vec<String>, String> {
         .collect())
 }
 
-/// The repo's local branches — the one query [`vcs_branches`] answers and
+/// The repo's local branches - the one query [`vcs_branches`] answers and
 /// [`vcs_remote_branches`] subtracts, so both read the same list.
 fn local_branches(cwd: &str) -> Result<Vec<String>, String> {
     branch_names(cwd, &["branch", "--format=%(refname:short)"])
@@ -54,8 +54,8 @@ pub async fn vcs_branches(cwd: String) -> Result<Vec<String>, String> {
     local_branches(&cwd)
 }
 
-/// Branches that exist only on a remote — `origin/feature` with no local
-/// `feature` — under their short name, so the switcher can offer the work a
+/// Branches that exist only on a remote - `origin/feature` with no local
+/// `feature` - under their short name, so the switcher can offer the work a
 /// fresh clone hasn't checked out yet. `git switch <name>` then creates the
 /// local tracking branch. `strip=3` drops `refs/remotes/<remote>/`, keeping a
 /// slashed branch name (`feat/x`) whole; `HEAD` is the remote's symbolic

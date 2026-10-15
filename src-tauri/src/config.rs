@@ -1,4 +1,4 @@
-//! Agent config respect — surface (read-only for MVP) the config files the CLI
+//! Agent config respect - surface (read-only for MVP) the config files the CLI
 //! already uses, without shadowing them. Everything stays on disk; the ADE just
 //! shows what's there. Editing writes back to the same files (planned).
 
@@ -28,7 +28,7 @@ pub enum McpFormat {
 }
 
 /// Config files/dirs the ADE knows how to surface, in display order. Only the
-/// files relevant to the active agent are shown — e.g. CLAUDE.md for Claude
+/// files relevant to the active agent are shown - e.g. CLAUDE.md for Claude
 /// Code, AGENTS.md for agents that follow that convention.
 const KNOWN: &[ConfigDefinition] = &[
     ConfigDefinition {
@@ -93,7 +93,7 @@ fn applies_to(definition: &ConfigDefinition, agent: &str) -> bool {
 
 /// One MCP-server config file the ADE surfaces: its repo-relative path and the
 /// agents whose servers it declares. The single source of truth for "which file
-/// holds a project's MCP servers" — the watcher reads this to know what to watch
+/// holds a project's MCP servers" - the watcher reads this to know what to watch
 /// for added/removed servers (`mcp.rs`).
 pub struct McpConfig {
     pub rel: &'static str,
@@ -102,7 +102,7 @@ pub struct McpConfig {
 }
 
 /// Every known project-level MCP config file (e.g. `.mcp.json` for Claude),
-/// drawn from the same [`KNOWN`] registry the config panel shows — no second
+/// drawn from the same [`KNOWN`] registry the config panel shows - no second
 /// list to drift.
 pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
     KNOWN

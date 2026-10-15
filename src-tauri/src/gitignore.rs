@@ -1,15 +1,15 @@
 //! A small `.gitignore` matcher for workspaces git can't answer for.
 //!
 //! The Change Feed's git-mode ignore policy defers to `git check-ignore`, which
-//! is authoritative. But a workspace with no repo yet — a temp workspace the
-//! create flow just scaffolded, a folder before its `git init` — can still hold
+//! is authoritative. But a workspace with no repo yet - a temp workspace the
+//! create flow just scaffolded, a folder before its `git init` - can still hold
 //! a `.gitignore` describing exactly what its tools will generate, and the feed
 //! should honor it there too. This module parses the ROOT `.gitignore` only
 //! (nested files are a git-mode concern; git handles them itself) and matches
 //! the documented core of the syntax: comments and blanks, `!` negation with
 //! last-match-wins, trailing-`/` directory-only patterns, leading-or-inner-`/`
 //! anchoring, `*`/`?` within a segment, and `**` across segments. A parent
-//! directory that is ignored ignores everything below it — matching git, where
+//! directory that is ignored ignores everything below it - matching git, where
 //! a file can't be re-included under an excluded directory.
 
 /// One parsed `.gitignore` pattern.
@@ -34,7 +34,7 @@ pub struct Rules {
 
 impl Rules {
     /// Parse `.gitignore` content. Unsupported edges (escapes, trailing-space
-    /// significance) are simply treated literally — this backs a change feed,
+    /// significance) are simply treated literally - this backs a change feed,
     /// not git itself.
     pub fn parse(content: &str) -> Self {
         let mut patterns = Vec::new();
@@ -92,7 +92,7 @@ impl Rules {
     }
 
     /// The verdict of the last pattern matching `target`, or `None` when no
-    /// pattern matches — last-match-wins is gitignore's precedence rule.
+    /// pattern matches - last-match-wins is gitignore's precedence rule.
     fn last_match(&self, target: &[&str], target_is_directory: bool) -> Option<Verdict> {
         let mut verdict = None;
         for pattern in &self.patterns {

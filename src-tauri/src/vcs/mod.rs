@@ -1,4 +1,4 @@
-//! Version-control review — Git backend.
+//! Version-control review - Git backend.
 //!
 //! MVP shells out to the `git` binary the user already has (robust, no native
 //! build deps). This module is the single seam behind which other backends
@@ -23,12 +23,12 @@ pub(crate) mod status;
 pub(crate) mod worktree;
 
 pub(crate) const US: char = '\u{1f}'; // field separator inside a record
-pub(crate) const RS: char = '\u{1e}'; // record separator — marks the start of a log entry
+pub(crate) const RS: char = '\u{1e}'; // record separator - marks the start of a log entry
 
 /// Disable every interactive credential path so a git command that reaches the
 /// network fails fast with a real error instead of hanging on an invisible
 /// terminal prompt or a credential-manager popup. The one authoritative home for
-/// this env pair — shared by [`run_git`] and the clone/probe sites.
+/// this env pair - shared by [`run_git`] and the clone/probe sites.
 pub(crate) fn harden_git(command: &mut std::process::Command) -> &mut std::process::Command {
     command
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -92,7 +92,7 @@ impl StatusKind {
     /// The change kind for a git status letter (`A`/`D`/`R`/`C`), defaulting to
     /// `Modified`. Renames and copies carry a trailing similarity score (`R100`),
     /// so callers pass the leading letter. One authoritative home for the
-    /// letter→kind mapping — shared by working-tree status and commit inspection.
+    /// letter→kind mapping - shared by working-tree status and commit inspection.
     pub(crate) fn from_git_letter(letter: char) -> StatusKind {
         match letter {
             'A' => StatusKind::Created,
@@ -102,7 +102,7 @@ impl StatusKind {
         }
     }
 
-    /// The serialized string for this kind — the only place the literals live.
+    /// The serialized string for this kind - the only place the literals live.
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             StatusKind::Created => "created",
