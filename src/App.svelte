@@ -96,13 +96,13 @@
   // Which top-level screen is showing. A closed set defined once, compared
   // against by member so no bare literal leaks into the flow logic.
   const Phase = {
-    loading: "loading",
-    project: "project",
-    onboarding: "onboarding",
-    ready: "ready"
+    Loading: "loading",
+    Project: "project",
+    Onboarding: "onboarding",
+    Ready: "ready"
   } as const;
   type Phase = (typeof Phase)[keyof typeof Phase];
-  let phase = $state<Phase>(Phase.loading);
+  let phase = $state<Phase>(Phase.Loading);
   let agents = $state<Agent[]>([]);
   let sessions = $state<AgentSession[]>([]);
   let sessionTabsHandle = $state<{ closeSession: (session: AgentSession) => void } | null>(null);
@@ -238,7 +238,7 @@
     } catch {
       // Never strand the user on the splash - fall back to the project picker.
       showToast("Startup hit a snag - pick a project to continue");
-      phase = Phase.project;
+      phase = Phase.Project;
     }
   });
   onDestroy(disposeNewProjectDetection);
@@ -286,7 +286,7 @@
     // Opt-in: show the project picker instead of starting in a temp workspace.
     const prefersPicker = settings.prefs.startMode === StartMode.enum.picker;
     if (prefersPicker) {
-      phase = Phase.project;
+      phase = Phase.Project;
       return;
     }
 
@@ -312,7 +312,7 @@
     }
 
     if (mode === WindowMode.enum.empty) {
-      phase = Phase.project;
+      phase = Phase.Project;
       return true;
     }
 
@@ -369,7 +369,7 @@
       sessionLaunchedAt.set(restored.id, Date.now());
     }
 
-    phase = Phase.ready;
+    phase = Phase.Ready;
     await loadBranches();
     return true;
   }
@@ -379,7 +379,7 @@
   // has read the snapshot, and would wipe it. Once live, an empty project or
   // session list clears the snapshot instead: nothing to re-attach.
   $effect(() => {
-    if (phase === Phase.loading) {
+    if (phase === Phase.Loading) {
       return;
     }
 
@@ -398,7 +398,7 @@
   // telling the truth - the project on screen, else the picker - so even a
   // snapshot-less reload (all sessions had exited) lands on the right screen.
   $effect(() => {
-    if (phase === Phase.loading) {
+    if (phase === Phase.Loading) {
       return;
     }
 
@@ -701,7 +701,7 @@
     const isReturnToCurrent =
       normalizePath(target.path) === normalizePath(currentProject) && sessions.length > 0;
     if (isReturnToCurrent) {
-      phase = Phase.ready;
+      phase = Phase.Ready;
       return;
     }
 
@@ -833,7 +833,7 @@
     }
 
     pendingPrompt = undefined;
-    phase = Phase.ready;
+    phase = Phase.Ready;
     return session.id;
   }
 
@@ -902,7 +902,7 @@
 
   // Another tab of the last session's kind (mirrors the "+" button).
   function newTab() {
-    if (phase !== Phase.ready) {
+    if (phase !== Phase.Ready) {
       return;
     }
 
@@ -915,7 +915,7 @@
   // Open the launch dropdown with the first agent focused, so
   // Enter fires it and Esc light-dismisses (native popover handles both).
   function openLaunchMenu() {
-    if (phase !== Phase.ready) {
+    if (phase !== Phase.Ready) {
       return;
     }
 
@@ -1166,18 +1166,18 @@
       isUnnamedTemp,
       isFailedStart
     });
-    if (outcome === EmptyWorkspaceOutcome.picker) {
+    if (outcome === EmptyWorkspaceOutcome.Picker) {
       returnToPicker();
       return;
     }
 
-    if (outcome === EmptyWorkspaceOutcome.respawn) {
+    if (outcome === EmptyWorkspaceOutcome.Respawn) {
       launch({ agent });
       return;
     }
 
     pendingPrompt = undefined;
-    phase = Phase.onboarding;
+    phase = Phase.Onboarding;
   }
 
   // A project's MCP servers changed (a server added or removed - the backend
@@ -1309,7 +1309,7 @@
 
   function switchToPicker() {
     document.startViewTransition(async () => {
-      phase = Phase.project;
+      phase = Phase.Project;
       await tick();
     });
   }
@@ -1520,7 +1520,7 @@
   });
 
   // The open side panel (lib/side-panels); `null` means none is open.
-  let side = $state<Side | null>(Side.feed);
+  let side = $state<Side | null>(Side.Feed);
   // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
   let isResizingSidePanel = $state(false);
@@ -1555,7 +1555,7 @@
 
     e.preventDefault();
 
-    if (shortcut === WindowShortcut.reload) {
+    if (shortcut === WindowShortcut.Reload) {
       location.reload();
       return;
     }
@@ -1563,19 +1563,19 @@
     // Keeps the terminal from also receiving the chord.
     e.stopPropagation();
 
-    if (shortcut === WindowShortcut.newWindow) {
+    if (shortcut === WindowShortcut.NewWindow) {
       await windows.create({ mode: WindowMode.enum.empty });
       showToast("Opened a new window");
       return;
     }
 
-    await windows.focusRelative(shortcut === WindowShortcut.previousWindow ? "previous" : "next");
+    await windows.focusRelative(shortcut === WindowShortcut.PreviousWindow ? "previous" : "next");
   }}
 />
 
 <!-- Font tokens bound declaratively; they cascade to every descendant. -->
 <div style:--font-ui={effective.uiFamily} style:--font-monospace={effective.monospaceFamily} class="app-root">
-  {#if phase === Phase.project}
+  {#if phase === Phase.Project}
     <ProjectPicker
       {agents}
       ondelete={relocator.remove}
@@ -1584,7 +1584,7 @@
       onrename={relocator.rename}
       onrenamefolder={relocator.renameFolder}
     />
-  {:else if phase === Phase.onboarding}
+  {:else if phase === Phase.Onboarding}
     <Onboarding
       {agents}
       onpick={agent => launch({
@@ -1594,7 +1594,7 @@
       onswitchproject={switchToPicker}
       path={currentProject}
     />
-  {:else if phase === Phase.ready}
+  {:else if phase === Phase.Ready}
     <div class="shell">
       <header class="topbar">
         <!-- Chrome row: project menu on the left, actions pushed right. Session
@@ -1646,7 +1646,7 @@
             current={currentBranch}
             cwd={activeMemberIn(currentProject)}
             {hasRemote}
-            onopengit={() => (side = Side.vcs)}
+            onopengit={() => (side = Side.Vcs)}
             onopenremote={async () => {
               await openRepositoryTarget({
                 project: currentProject,
@@ -1795,9 +1795,9 @@
                   onoutroend={() => collapsingSplitPanes.delete(session.id)}
                   out:collapsePane={{ duration: collapsingSplitPanes.has(session.id) ? SPLIT_PANE_COLLAPSE_MS : 0 }}
                 >
-                  {#if dropSideFor(session.id) === DropSide.left}
+                  {#if dropSideFor(session.id) === DropSide.Left}
                     <div class="drop-half left"></div>
-                  {:else if dropSideFor(session.id) === DropSide.right}
+                  {:else if dropSideFor(session.id) === DropSide.Right}
                     <div class="drop-half right"></div>
                   {/if}
                   <Terminal

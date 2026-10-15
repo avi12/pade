@@ -216,12 +216,12 @@ const LimitPriority = {
   /** Extra usage while every real window still has room: spending credits never
    *  stops an agent, so a part-spent spend cap is not what anyone is about to
    *  hit - 79% of the monthly spend beside a session window at 44% is headroom. */
-  headroom: 0,
+  Headroom: 0,
   /** A session / weekly / per-model window: the real walls. */
-  window: 1,
+  Window: 1,
   /** Extra usage once a real window IS spent and credits carry the work: the
    *  spend cap is then the last thing between the agent and a stop. */
-  carrying: 2
+  Carrying: 2
 } as const;
 
 type LimitPriorityValue = (typeof LimitPriority)[keyof typeof LimitPriority];
@@ -232,17 +232,17 @@ function limitPriority({ limit, limits }: {
 }) {
   const isCreditsCap = limit.kind === UsageWindowKind.enum.credits;
   if (!isCreditsCap) {
-    return LimitPriority.window;
+    return LimitPriority.Window;
   }
 
   if (limit.isUncapped) {
-    return LimitPriority.headroom;
+    return LimitPriority.Headroom;
   }
 
   const isSpentWindowRidingOnCredits = limit.isCarryingWork
     && limits.some(other => other.kind !== UsageWindowKind.enum.credits
       && other.percentage >= USAGE_SPENT_PERCENTAGE);
-  return isSpentWindowRidingOnCredits ? LimitPriority.carrying : LimitPriority.headroom;
+  return isSpentWindowRidingOnCredits ? LimitPriority.Carrying : LimitPriority.Headroom;
 }
 
 // A limit paired with its priority, so the ranking below is written once and

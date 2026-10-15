@@ -422,7 +422,7 @@
     style:position-anchor={MENU_ANCHOR}
     class="menu popover-menu" {@attach arrowFocus(ARROW_STOP_SELECTOR)}
     ontoggle={async e => {
-      isMenuOpen = (e as ToggleEvent).newState === ToggleState.open;
+      isMenuOpen = (e as ToggleEvent).newState === ToggleState.Open;
 
       if (isMenuOpen) {
         openedAt = Date.now();

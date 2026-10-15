@@ -6,13 +6,13 @@ export const WindowShortcut = {
   /** Dev-only: F5 / Ctrl+Shift+R reloads the WebView - the escape hatch when
    *  Vite's HMR socket drops (a Tauri window wires no reload of its own).
    *  Ctrl+R is left to the terminal's shell reverse-search. */
-  reload: "reload",
+  Reload: "reload",
   /** Ctrl+Alt+[ cycles to the previous open PADE window. */
-  previousWindow: "previousWindow",
+  PreviousWindow: "previousWindow",
   /** Ctrl+Alt+] cycles to the next open PADE window. */
-  nextWindow: "nextWindow",
+  NextWindow: "nextWindow",
   /** Ctrl+Shift+N spawns a fresh empty window (the app-menu shortcut chip). */
-  newWindow: "newWindow"
+  NewWindow: "newWindow"
 } as const;
 
 const RELOAD_KEY = "F5";
@@ -34,10 +34,10 @@ function cycleShortcut(event: ChordEvent) {
   }
 
   if (event.code === PREVIOUS_WINDOW_CODE) {
-    return WindowShortcut.previousWindow;
+    return WindowShortcut.PreviousWindow;
   }
 
-  return event.code === NEXT_WINDOW_CODE ? WindowShortcut.nextWindow : null;
+  return event.code === NEXT_WINDOW_CODE ? WindowShortcut.NextWindow : null;
 }
 
 /** The window-level action `event` asks for, or null for any other key. */
@@ -48,12 +48,12 @@ export function windowShortcutFor({ event, isDevelopment }: {
   const letter = event.key.toLowerCase();
   const isReload = event.key === RELOAD_KEY || (event.ctrlKey && event.shiftKey && letter === RELOAD_LETTER);
   if (isDevelopment && isReload) {
-    return WindowShortcut.reload;
+    return WindowShortcut.Reload;
   }
 
   const isNewWindow = event.ctrlKey && event.shiftKey && letter === NEW_WINDOW_LETTER;
   if (isNewWindow) {
-    return WindowShortcut.newWindow;
+    return WindowShortcut.NewWindow;
   }
 
   return cycleShortcut(event);

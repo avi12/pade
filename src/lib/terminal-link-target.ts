@@ -4,8 +4,8 @@
 // browser-only `open_url` command.
 
 export const TerminalLinkTarget = {
-  browser: "browser",
-  explorer: "explorer"
+  Browser: "browser",
+  Explorer: "explorer"
 } as const;
 type TerminalLinkTarget = (typeof TerminalLinkTarget)[keyof typeof TerminalLinkTarget];
 
@@ -30,7 +30,7 @@ export function terminalLinkDestination(uri: string) {
     const url = new URL(uri);
     if (WEB_PROTOCOLS.has(url.protocol)) {
       return {
-        kind: TerminalLinkTarget.browser,
+        kind: TerminalLinkTarget.Browser,
         value: uri
       } satisfies TerminalLinkDestination;
     }
@@ -50,7 +50,7 @@ export function terminalLinkDestination(uri: string) {
 
     return path
       ? {
-        kind: TerminalLinkTarget.explorer,
+        kind: TerminalLinkTarget.Explorer,
         value: path
       } satisfies TerminalLinkDestination
       : null;

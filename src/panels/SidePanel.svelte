@@ -24,15 +24,15 @@
   <SidePanelHeader {title} />
 
   <div class="panel-body">
-    {#if side === Side.feed}
+    {#if side === Side.Feed}
       <ChangeFeed {project} />
-    {:else if side === Side.vcs}
+    {:else if side === Side.Vcs}
       <LazyPanel load={() => import("@/panels/VcsPanel.svelte")}>
         {#snippet children(VcsPanel)}
           <VcsPanel {project} />
         {/snippet}
       </LazyPanel>
-    {:else if side === Side.tasks}
+    {:else if side === Side.Tasks}
       <LazyPanel load={() => import("@/panels/TasksPanel.svelte")}>
         {#snippet children(TasksPanel)}
           <!-- Run a project task as a streaming runner in the dock (not a

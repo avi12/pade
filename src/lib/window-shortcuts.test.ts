@@ -25,13 +25,13 @@ describe("windowShortcutFor", () => {
         event: functionFive,
         isDevelopment: true
       })
-    ).toBe(WindowShortcut.reload);
+    ).toBe(WindowShortcut.Reload);
     expect(
       windowShortcutFor({
         event: ctrlShiftR,
         isDevelopment: true
       })
-    ).toBe(WindowShortcut.reload);
+    ).toBe(WindowShortcut.Reload);
     expect(
       windowShortcutFor({
         event: functionFive,
@@ -63,7 +63,7 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.previousWindow);
+    ).toBe(WindowShortcut.PreviousWindow);
     expect(
       windowShortcutFor({
         event: chord({
@@ -73,7 +73,7 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.nextWindow);
+    ).toBe(WindowShortcut.NextWindow);
     expect(
       windowShortcutFor({
         event: chord({
@@ -97,6 +97,6 @@ describe("windowShortcutFor", () => {
         }),
         isDevelopment: false
       })
-    ).toBe(WindowShortcut.newWindow);
+    ).toBe(WindowShortcut.NewWindow);
   });
 });

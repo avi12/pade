@@ -54,9 +54,9 @@
 
   // The three ways in - a closed set, compared against by member.
   const StartTab = {
-    create: "create",
-    local: "local",
-    clone: "clone"
+    Create: "create",
+    Local: "local",
+    Clone: "clone"
   } as const;
   type StartTab = (typeof StartTab)[keyof typeof StartTab];
   const TABS: readonly {
@@ -65,22 +65,22 @@
     icon: IconName;
   }[] = [
     {
-      id: StartTab.create,
+      id: StartTab.Create,
       label: "New project",
       icon: "sparkles"
     },
     {
-      id: StartTab.local,
+      id: StartTab.Local,
       label: "Open local",
       icon: "folder"
     },
     {
-      id: StartTab.clone,
+      id: StartTab.Clone,
       label: "Clone repo",
       icon: "git"
     }
   ];
-  let tab = $state<StartTab>(StartTab.create);
+  let tab = $state<StartTab>(StartTab.Create);
   let elCard = $state<HTMLDivElement | null>(null);
   // The panels container and the height it should occupy - the open panel's
   // own measured height, kept current by a ResizeObserver so the container
@@ -242,7 +242,7 @@
   // clone URL input occupies the same spot).
   function isOverLocalField(position: DragPosition) {
     const row = elLocalInput?.closest(".new-project-location");
-    if (tab !== StartTab.local || !row) {
+    if (tab !== StartTab.Local || !row) {
       return false;
     }
 
@@ -494,7 +494,7 @@
       style:block-size={panelsHeight === null ? "auto" : `${panelsHeight}px`}
       class="panels"
     >
-      <div class="slot" class:open={tab === StartTab.create} data-tab={StartTab.create}>
+      <div class="slot" class:open={tab === StartTab.Create} data-tab={StartTab.Create}>
         <form
           class="panel"
           onsubmit={async e => {
@@ -647,7 +647,7 @@
           </div>
         </form>
       </div>
-      <div class="slot" class:open={tab === StartTab.local} data-tab={StartTab.local}>
+      <div class="slot" class:open={tab === StartTab.Local} data-tab={StartTab.Local}>
         <form
           class="panel"
           onsubmit={e => {
@@ -697,7 +697,7 @@
           <button class="go" disabled={!localIsDirectory} type="submit">Open project</button>
         </form>
       </div>
-      <div class="slot" class:open={tab === StartTab.clone} data-tab={StartTab.clone}>
+      <div class="slot" class:open={tab === StartTab.Clone} data-tab={StartTab.Clone}>
         {#if gitInstalled !== null}
           {#if !gitInstalled}
             <div class="panel warning-card">

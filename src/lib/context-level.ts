@@ -18,9 +18,9 @@ export const MAXIMUM_HANDOFF_PERCENTAGE = 95;
 // The three gauge steps. A closed set defined once so no bare severity literal
 // leaks into the tabs or the theme mapping (enums over magic strings).
 export const ContextLevel = {
-  ok: "ok",
-  warning: "warning",
-  critical: "critical"
+  Ok: "ok",
+  Warning: "warning",
+  Critical: "critical"
 } as const;
 type ContextLevel = (typeof ContextLevel)[keyof typeof ContextLevel];
 
@@ -40,12 +40,12 @@ export function contextLevel({ percentage, threshold }: {
 }) {
   const fraction = Math.min(percentage / threshold, 1);
   if (fraction >= HANDOFF_IMMINENT_FRACTION) {
-    return ContextLevel.critical;
+    return ContextLevel.Critical;
   }
 
   if (fraction >= HANDOFF_APPROACHING_FRACTION) {
-    return ContextLevel.warning;
+    return ContextLevel.Warning;
   }
 
-  return ContextLevel.ok;
+  return ContextLevel.Ok;
 }

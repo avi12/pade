@@ -1095,7 +1095,7 @@
     }
 
     try {
-      if (destination.kind === TerminalLinkTarget.explorer) {
+      if (destination.kind === TerminalLinkTarget.Explorer) {
         await os.explorer(destination.value);
       } else {
         await os.openUrl(destination.value);

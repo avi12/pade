@@ -25,12 +25,12 @@ describe("activityFromTitle", () => {
   it.each(["◐ Continue AVI learn math 5 units", "◑ Continue AVI learn math 5 units"])(
     "reads the spinner frame %j as busy",
     title => {
-      expect(activityFromTitle(title)).toBe(AgentActivity.busy);
+      expect(activityFromTitle(title)).toBe(AgentActivity.Busy);
     }
   );
 
   it("reads the resting glyph as idle", () => {
-    expect(activityFromTitle("✳ Sentry errors")).toBe(AgentActivity.idle);
+    expect(activityFromTitle("✳ Sentry errors")).toBe(AgentActivity.Idle);
   });
 
   it.each(["Claude Code", "pwsh", "◐Continue", "Rewriting ◐ parser", ""])(

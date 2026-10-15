@@ -19,8 +19,8 @@ import { SvelteMap } from "svelte/reactivity";
 
 /** What an agent's own terminal title says about its work. */
 export const AgentActivity = {
-  busy: "busy",
-  idle: "idle"
+  Busy: "busy",
+  Idle: "idle"
 } as const;
 type AgentActivity = (typeof AgentActivity)[keyof typeof AgentActivity];
 
@@ -44,11 +44,11 @@ const MAXIMUM_CARRIED_LENGTH = 1024;
 export function activityFromTitle(title: string) {
   const isAnnouncingBusy = BUSY_TITLE_GLYPHS.some(glyph => title.startsWith(`${glyph}${GLYPH_SEPARATOR}`));
   if (isAnnouncingBusy) {
-    return AgentActivity.busy;
+    return AgentActivity.Busy;
   }
 
   if (title.startsWith(`${IDLE_TITLE_GLYPH}${GLYPH_SEPARATOR}`)) {
-    return AgentActivity.idle;
+    return AgentActivity.Idle;
   }
 
   return null;
@@ -109,7 +109,7 @@ export function observeAgentActivity({ id, chunk }: {
     activities.set(id, activity);
   }
 
-  if (activity !== AgentActivity.busy) {
+  if (activity !== AgentActivity.Busy) {
     settleWaiters.settleAll(id);
   }
 }
@@ -117,7 +117,7 @@ export function observeAgentActivity({ id, chunk }: {
 /** Whether the agent itself reports work in flight - a running turn or delegated
  *  background work (reactive). False for an agent that announces nothing. */
 export function agentReportsBusy(id: string) {
-  return activities.get(id) === AgentActivity.busy;
+  return activities.get(id) === AgentActivity.Busy;
 }
 
 /** Resolve once the agent no longer reports work in flight, or its session is

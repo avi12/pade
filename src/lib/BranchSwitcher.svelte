@@ -137,7 +137,7 @@
       class="branch-menu popover-menu scroll-fade"
       {@attach rovingMenu}
       ontoggle={async e => {
-        if ((e as ToggleEvent).newState === ToggleState.open) {
+        if ((e as ToggleEvent).newState === ToggleState.Open) {
           await onrefresh();
         }
       }}

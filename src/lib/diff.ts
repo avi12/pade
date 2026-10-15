@@ -6,11 +6,11 @@
 
 /** What a single diff line represents. One authoritative set, no bare strings. */
 export const DiffKind = {
-  context: "context",
-  add: "add",
-  del: "del",
+  Context: "context",
+  Added: "add",
+  Removed: "del",
   /** Hunk headers (@@ …) and file meta (diff/index/---/+++) - rendered muted. */
-  meta: "meta"
+  Meta: "meta"
 } as const;
 export type DiffKind = (typeof DiffKind)[keyof typeof DiffKind];
 
@@ -53,18 +53,18 @@ function classify(line: string) {
   const isHunkHeader = line.startsWith(HUNK_MARKER);
   const isFileMeta = META_PREFIXES.some(prefix => line.startsWith(prefix));
   if (isHunkHeader || isFileMeta) {
-    return DiffKind.meta;
+    return DiffKind.Meta;
   }
 
   if (line.startsWith(ADDED_MARKER)) {
-    return DiffKind.add;
+    return DiffKind.Added;
   }
 
   if (line.startsWith(REMOVED_MARKER)) {
-    return DiffKind.del;
+    return DiffKind.Removed;
   }
 
-  return DiffKind.context;
+  return DiffKind.Context;
 }
 
 // A hunk header - `@@ -old,n +new,n @@` - where capture 1 is the old file's and
@@ -84,7 +84,7 @@ export function parseDiff(raw: string) {
   let newLine = 0; // 0 until the first hunk header sets the new-file cursor
   return lines.map(text => {
     const kind = classify(text);
-    if (kind === DiffKind.meta) {
+    if (kind === DiffKind.Meta) {
       const header = HUNK_HEADER.exec(text);
       if (header) {
         oldLine = Number(header[1]);
@@ -99,7 +99,7 @@ export function parseDiff(raw: string) {
 
     // Deletions exist only in the old file; additions only in the new; context
     // in both. Advance each side's cursor only where the line is present there.
-    if (kind === DiffKind.del) {
+    if (kind === DiffKind.Removed) {
       const number = oldLine;
       oldLine += 1;
       return number > 0 ? {
@@ -112,7 +112,7 @@ export function parseDiff(raw: string) {
       };
     }
 
-    if (kind === DiffKind.add) {
+    if (kind === DiffKind.Added) {
       const number = newLine;
       newLine += 1;
       return number > 0 ? {
@@ -144,7 +144,7 @@ export function parseDiff(raw: string) {
 /** The new-file line of the first added line (else the first line that exists in
  *  the new file) - where a "reveal in editor" click should land. */
 export function firstChangedLine(lines: DiffLine[]) {
-  const firstAdd = lines.find(line => line.kind === DiffKind.add && line.newLine !== undefined);
+  const firstAdd = lines.find(line => line.kind === DiffKind.Added && line.newLine !== undefined);
   return (firstAdd ?? lines.find(line => line.newLine !== undefined))?.newLine;
 }
 
@@ -165,7 +165,7 @@ export function toSplitRows(lines: DiffLine[]) {
       right: "",
       isRightFilled: false
     };
-    if (line.kind === DiffKind.meta) {
+    if (line.kind === DiffKind.Meta) {
       return {
         ...blank,
         isHunk: true,
@@ -174,7 +174,7 @@ export function toSplitRows(lines: DiffLine[]) {
     }
 
     const source = stripMarker(line.text);
-    if (line.kind === DiffKind.add) {
+    if (line.kind === DiffKind.Added) {
       return {
         ...blank,
         right: source,
@@ -183,7 +183,7 @@ export function toSplitRows(lines: DiffLine[]) {
       };
     }
 
-    if (line.kind === DiffKind.del) {
+    if (line.kind === DiffKind.Removed) {
       return {
         ...blank,
         left: source,
@@ -211,9 +211,9 @@ export function toSplitRows(lines: DiffLine[]) {
 /** What happened to one line going from `before` to `after`. One authoritative
  *  set, no bare strings. */
 const LineOp = {
-  keep: "keep",
-  insert: "insert",
-  delete: "delete"
+  Keep: "keep",
+  Insert: "insert",
+  Delete: "delete"
 } as const;
 type LineOp = (typeof LineOp)[keyof typeof LineOp];
 
@@ -258,11 +258,11 @@ function replaceChanges({ before, after }: {
 }) {
   return [
     ...before.map(text => ({
-      operation: LineOp.delete,
+      operation: LineOp.Delete,
       text
     })),
     ...after.map(text => ({
-      operation: LineOp.insert,
+      operation: LineOp.Insert,
       text
     }))
   ];
@@ -301,7 +301,7 @@ function backtrackChanges({ before, after, lengths }: {
   while (iBefore < before.length && iAfter < after.length) {
     if (before[iBefore] === after[iAfter]) {
       changes.push({
-        operation: LineOp.keep,
+        operation: LineOp.Keep,
         text: before[iBefore]
       });
       iBefore += 1;
@@ -312,7 +312,7 @@ function backtrackChanges({ before, after, lengths }: {
     const isDeleteNoWorse = lengths[iBefore + 1][iAfter] >= lengths[iBefore][iAfter + 1];
     if (isDeleteNoWorse) {
       changes.push({
-        operation: LineOp.delete,
+        operation: LineOp.Delete,
         text: before[iBefore]
       });
       iBefore += 1;
@@ -320,7 +320,7 @@ function backtrackChanges({ before, after, lengths }: {
     }
 
     changes.push({
-      operation: LineOp.insert,
+      operation: LineOp.Insert,
       text: after[iAfter]
     });
     iAfter += 1;
@@ -385,12 +385,12 @@ function lineChanges({ before, after }: {
 
   return [
     ...before.slice(0, head).map(text => ({
-      operation: LineOp.keep,
+      operation: LineOp.Keep,
       text
     })),
     ...middle,
     ...before.slice(before.length - tail).map(text => ({
-      operation: LineOp.keep,
+      operation: LineOp.Keep,
       text
     }))
   ];
@@ -405,17 +405,17 @@ interface PlacedChange extends LineChange {
 }
 
 const OPERATION_MARKERS: Record<LineOp, string> = {
-  [LineOp.keep]: CONTEXT_MARKER,
-  [LineOp.insert]: ADDED_MARKER,
-  [LineOp.delete]: REMOVED_MARKER
+  [LineOp.Keep]: CONTEXT_MARKER,
+  [LineOp.Insert]: ADDED_MARKER,
+  [LineOp.Delete]: REMOVED_MARKER
 };
 
 /** The `@@ -old,n +new,n @@` header for one hunk. A side with no lines starts at
  *  0 (git's convention for a pure addition or deletion), which `parseDiff` reads
  *  as "no new-file cursor" for that side. */
 function hunkHeader(hunk: PlacedChange[]) {
-  const oldLines = hunk.filter(change => change.operation !== LineOp.insert);
-  const newLines = hunk.filter(change => change.operation !== LineOp.delete);
+  const oldLines = hunk.filter(change => change.operation !== LineOp.Insert);
+  const newLines = hunk.filter(change => change.operation !== LineOp.Delete);
   const oldStart = oldLines.length > 0 ? oldLines[0].oldLine : 0;
   const newStart = newLines.length > 0 ? newLines[0].newLine : 0;
   return `${HUNK_MARKER} -${oldStart},${oldLines.length} +${newStart},${newLines.length} ${HUNK_MARKER}`;
@@ -438,11 +438,11 @@ export function unifiedDiff({ before, after }: {
   let oldLine = 0;
   let newLine = 0;
   const placed: PlacedChange[] = changes.map(change => {
-    if (change.operation !== LineOp.insert) {
+    if (change.operation !== LineOp.Insert) {
       oldLine += 1;
     }
 
-    if (change.operation !== LineOp.delete) {
+    if (change.operation !== LineOp.Delete) {
       newLine += 1;
     }
 
@@ -458,7 +458,7 @@ export function unifiedDiff({ before, after }: {
   const kept = Array.from({ length: placed.length }, () => false);
   let isAnyChange = false;
   for (const [i, change] of placed.entries()) {
-    if (change.operation === LineOp.keep) {
+    if (change.operation === LineOp.Keep) {
       continue;
     }
 

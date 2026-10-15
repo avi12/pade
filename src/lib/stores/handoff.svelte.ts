@@ -280,10 +280,10 @@ async function isFileOnDisk(path: string) {
 
 /** What the near-limit scan does with one session. */
 const ScanVerdict = {
-  leave: "leave",
-  holdBack: "hold-back",
-  handOff: "hand-off",
-  handOffMidTurn: "hand-off-mid-turn"
+  Leave: "leave",
+  HoldBack: "hold-back",
+  HandOff: "hand-off",
+  HandOffMidTurn: "hand-off-mid-turn"
 } as const;
 type ScanVerdict = (typeof ScanVerdict)[keyof typeof ScanVerdict];
 
@@ -818,24 +818,24 @@ export function createAutoHandoff(host: HandoffHost) {
   function scanVerdict(session: AgentSession) {
     // A handoff actively running in THIS module instance owns the session.
     if (handingOff.has(session.id)) {
-      return ScanVerdict.leave;
+      return ScanVerdict.Leave;
     }
 
     const isWanted = isHandoffWanted(session.id);
     const isCompactionImminent = isAboutToCompact(session.id);
     if (!isWanted && !isCompactionImminent) {
-      return ScanVerdict.leave;
+      return ScanVerdict.Leave;
     }
 
     // A model switch being applied always goes first: both type into the
     // session, and a switch that relaunches it would end the very session being
     // handed off. The scan comes back to the switched session.
     if (isModelSwitchApplying(session.id)) {
-      return ScanVerdict.holdBack;
+      return ScanVerdict.HoldBack;
     }
 
     if (isCompactionImminent) {
-      return ScanVerdict.handOffMidTurn;
+      return ScanVerdict.HandOffMidTurn;
     }
 
     // Otherwise never cut in on the agent's own running work: a turn, or
@@ -843,7 +843,7 @@ export function createAutoHandoff(host: HandoffHost) {
     // is still waiting on. The agent reporting it done re-runs the scan.
     const isQuiet = !agentReportsBusy(session.id)
       && sessionStatus(session.id) === SessionStatus.enum.ready;
-    return isQuiet ? ScanVerdict.handOff : ScanVerdict.holdBack;
+    return isQuiet ? ScanVerdict.HandOff : ScanVerdict.HoldBack;
   }
 
   // A persistent marker with no live handoff is one whose async flow died
@@ -873,7 +873,7 @@ export function createAutoHandoff(host: HandoffHost) {
     let heldBackNote = "";
     for (const session of host.sessions()) {
       const verdict = scanVerdict(session);
-      if (verdict === ScanVerdict.holdBack) {
+      if (verdict === ScanVerdict.HoldBack) {
         heldBackNote ||= waitingForWorkNote({
           session,
           reason: HandoffReason.ContextLimit
@@ -881,12 +881,12 @@ export function createAutoHandoff(host: HandoffHost) {
         continue;
       }
 
-      if (verdict === ScanVerdict.handOff || verdict === ScanVerdict.handOffMidTurn) {
+      if (verdict === ScanVerdict.HandOff || verdict === ScanVerdict.HandOffMidTurn) {
         markHandingOff(session.id);
         runHandoff({
           session,
           reason: HandoffReason.ContextLimit,
-          isMidTurn: verdict === ScanVerdict.handOffMidTurn
+          isMidTurn: verdict === ScanVerdict.HandOffMidTurn
         });
       }
     }

@@ -90,7 +90,7 @@ export function rovingMenu(elMenu: HTMLElement) {
   }
 
   function onToggle(e: ToggleEvent) {
-    if (e.newState !== ToggleState.open) {
+    if (e.newState !== ToggleState.Open) {
       return;
     }
 

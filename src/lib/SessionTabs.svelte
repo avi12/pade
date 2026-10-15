@@ -349,9 +349,9 @@
   <span
     class="agent-icon {sessionStatus(session.id)}"
     class:awaiting-choice={isAwaitingChoice(session.id)}
-    class:critical={level === ContextLevel.critical}
+    class:critical={level === ContextLevel.Critical}
     class:unknown={percentage === null}
-    class:warning={level === ContextLevel.warning}
+    class:warning={level === ContextLevel.Warning}
     data-tooltip={contextTooltip(session.id)}
   ><Icon name={agentIconName(session.agent.id)} size={14} /></span>
 {/snippet}

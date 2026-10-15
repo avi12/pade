@@ -20,9 +20,9 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 /** What a pending switch is waiting for, as the menu tells it. */
 export const SwitchWait = {
-  applying: "applying",
-  quiet: "quiet",
-  successor: "successor"
+  Applying: "applying",
+  Quiet: "quiet",
+  Successor: "successor"
 } as const;
 export type SwitchWait = (typeof SwitchWait)[keyof typeof SwitchWait];
 
@@ -136,7 +136,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
     setPending({
       id: session.id,
       choice,
-      waitingFor: SwitchWait.quiet
+      waitingFor: SwitchWait.Quiet
     });
     await relaunchWhenQuiet(session);
   }
@@ -155,7 +155,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
       setPending({
         id: session.id,
         choice: merged,
-        waitingFor: SwitchWait.successor
+        waitingFor: SwitchWait.Successor
       });
       return;
     }
@@ -163,7 +163,7 @@ export function createModelSwitcher(host: ModelSwitchHost) {
     setPending({
       id: session.id,
       choice: merged,
-      waitingFor: SwitchWait.applying
+      waitingFor: SwitchWait.Applying
     });
     applyingSessions.add(session.id);
     try {

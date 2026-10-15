@@ -26,7 +26,7 @@ describe("parseLimitHit", () => {
       text: "5-hour limit reached ∙ resets 3pm",
       now: NOW
     });
-    expect(hit?.window).toBe(LimitWindow.session);
+    expect(hit?.window).toBe(LimitWindow.Session);
     expect(hit?.resetAt).toBe(new Date(2026, 6, 17, 15, 0, 0, 0).getTime());
   });
 
@@ -35,7 +35,7 @@ describe("parseLimitHit", () => {
       text: "⎿  You've hit your session limit · resets 5:30pm (Asia/Jerusalem)",
       now: NOW
     });
-    expect(hit?.window).toBe(LimitWindow.session);
+    expect(hit?.window).toBe(LimitWindow.Session);
     expect(hit?.resetAt).toBe(new Date(2026, 6, 17, 17, 30, 0, 0).getTime());
   });
 
@@ -45,7 +45,7 @@ describe("parseLimitHit", () => {
       text,
       now: NOW
     });
-    expect(hit?.window).toBe(LimitWindow.session);
+    expect(hit?.window).toBe(LimitWindow.Session);
     expect(hit?.resetAt).toBe(new Date(2026, 6, 17, 17, 30, 0, 0).getTime());
   });
 
@@ -55,7 +55,7 @@ describe("parseLimitHit", () => {
         text: "⚠ Usage limit reached · continuing automatically at 5:30pm · esc to cancel",
         now: NOW
       })?.window
-    ).toBe(LimitWindow.session);
+    ).toBe(LimitWindow.Session);
     expect(
       parseLimitHit({
         text: "Agent terminated early due to an API error (error type rate_limit, HTTP 429)",
@@ -70,14 +70,14 @@ describe("parseLimitHit", () => {
         text: "You've hit your weekly limit · resets Sep 19",
         now: NOW
       })?.window
-    ).toBe(LimitWindow.weekly);
+    ).toBe(LimitWindow.Weekly);
     // A frame mentioning the weekly limit elsewhere is still a session stop.
     expect(
       parseLimitHit({
         text: "You've hit your session limit · /low-priority uses your weekly limit",
         now: NOW
       })?.window
-    ).toBe(LimitWindow.session);
+    ).toBe(LimitWindow.Session);
   });
 
   it("matches a spend-capped stop as the session window it names", () => {
@@ -85,7 +85,7 @@ describe("parseLimitHit", () => {
       text: "You've hit your monthly spend limit · raise it at claude.ai/settings/usage · your session limit resets 5:30pm (Asia/Jerusalem)",
       now: NOW
     });
-    expect(hit?.window).toBe(LimitWindow.session);
+    expect(hit?.window).toBe(LimitWindow.Session);
     expect(hit?.resetAt).toBe(new Date(2026, 6, 17, 17, 30, 0, 0).getTime());
   });
 
@@ -101,7 +101,7 @@ describe("parseLimitHit", () => {
       text: "Claude usage limit reached. Your limit will reset at 3pm.",
       now: NOW
     });
-    expect(hit?.window).toBe(LimitWindow.session);
+    expect(hit?.window).toBe(LimitWindow.Session);
   });
 
   it("reads a weekly stop as the weekly window", () => {
@@ -109,7 +109,7 @@ describe("parseLimitHit", () => {
       text: "weekly limit reached ∙ resets Oct 14",
       now: NOW
     });
-    expect(hit?.window).toBe(LimitWindow.weekly);
+    expect(hit?.window).toBe(LimitWindow.Weekly);
     expect(hit?.resetAt).toBeNull(); // a date, not a clock - API supplies it
   });
 
@@ -183,7 +183,7 @@ describe("assessLimit", () => {
   }
 
   const waiting = {
-    window: LimitWindow.session,
+    window: LimitWindow.Session,
     resetAt: RESET_AT,
     isConfirmed: true
   };
@@ -202,7 +202,7 @@ describe("assessLimit", () => {
         }),
         now: NOW
       })
-    ).toBe(LimitVerdict.blocked);
+    ).toBe(LimitVerdict.Blocked);
   });
 
   it("frees a waiting session the moment credits are turned on", () => {
@@ -215,7 +215,7 @@ describe("assessLimit", () => {
         }),
         now: NOW
       })
-    ).toBe(LimitVerdict.runnable);
+    ).toBe(LimitVerdict.Runnable);
   });
 
   it("frees a waiting session once its window resets", () => {
@@ -225,7 +225,7 @@ describe("assessLimit", () => {
         account: account({ sessionUtilization: 3 }),
         now: NOW
       })
-    ).toBe(LimitVerdict.runnable);
+    ).toBe(LimitVerdict.Runnable);
   });
 
   it("calls a message the account never backed stale - a healthy window or credits already on", () => {
@@ -235,7 +235,7 @@ describe("assessLimit", () => {
         account: account({ sessionUtilization: 40 }),
         now: NOW
       })
-    ).toBe(LimitVerdict.stale);
+    ).toBe(LimitVerdict.Stale);
     expect(
       assessLimit({
         hit: freshlySniffed,
@@ -245,7 +245,7 @@ describe("assessLimit", () => {
         }),
         now: NOW
       })
-    ).toBe(LimitVerdict.stale);
+    ).toBe(LimitVerdict.Stale);
   });
 
   it("leaves an unreadable account to the reset clock", () => {
@@ -256,14 +256,14 @@ describe("assessLimit", () => {
         account: null,
         now: NOW
       })
-    ).toBe(LimitVerdict.unknown);
+    ).toBe(LimitVerdict.Unknown);
     expect(
       assessLimit({
         hit: waiting,
         account: null,
         now: afterResetAndBuffer
       })
-    ).toBe(LimitVerdict.runnable);
+    ).toBe(LimitVerdict.Runnable);
     expect(
       assessLimit({
         hit: {
@@ -273,7 +273,7 @@ describe("assessLimit", () => {
         account: null,
         now: afterResetAndBuffer
       })
-    ).toBe(LimitVerdict.unknown);
+    ).toBe(LimitVerdict.Unknown);
   });
 });
 

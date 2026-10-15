@@ -9,8 +9,8 @@
  *  shared. Lives here (not `types.ts`, which is IPC payloads) because it's a
  *  parameter of `paneInsertIndex` and a UI-only concern. */
 export const DropSide = {
-  left: "left",
-  right: "right"
+  Left: "left",
+  Right: "right"
 } as const;
 export type DropSide = (typeof DropSide)[keyof typeof DropSide];
 
@@ -82,7 +82,7 @@ export function paneDropSide({ pointerX, left, width }: {
   left: number;
   width: number;
 }) {
-  return pointerX < left + width / 2 ? DropSide.left : DropSide.right;
+  return pointerX < left + width / 2 ? DropSide.Left : DropSide.Right;
 }
 
 /** Index within the base list (`paneIds` with `draggedId` removed) at which to
@@ -102,5 +102,5 @@ export function paneInsertIndex({ paneIds, draggedId, targetId, side }: {
     return base.length;
   }
 
-  return side === DropSide.right ? iTarget + 1 : iTarget;
+  return side === DropSide.Right ? iTarget + 1 : iTarget;
 }

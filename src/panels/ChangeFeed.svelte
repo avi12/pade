@@ -120,8 +120,8 @@
 
   // Inline diff viewer: only one card expands at a time.
   const DiffMode = {
-    unified: "unified",
-    split: "split"
+    Unified: "unified",
+    Split: "split"
   } as const;
   type DiffMode = (typeof DiffMode)[keyof typeof DiffMode];
 
@@ -190,8 +190,8 @@
   // feed's core purpose, so the default), Preview is the rendered result in a
   // sandboxed iframe. The chosen pane is kept per card id.
   const PreviewPane = {
-    code: "code",
-    preview: "preview"
+    Code: "code",
+    Preview: "preview"
   } as const;
   type PreviewPane = (typeof PreviewPane)[keyof typeof PreviewPane];
   const paneById = new SvelteMap<string, PreviewPane>();
@@ -202,7 +202,7 @@
   const previewDocCache = new SvelteMap<string, string | null>();
 
   function paneOf(id: string) {
-    return paneById.get(id) ?? PreviewPane.code;
+    return paneById.get(id) ?? PreviewPane.Code;
   }
 
   // The iframe srcdoc for a file's current text: markdown is rendered to a full
@@ -222,7 +222,7 @@
     id: string;
     path: string;
   }) {
-    paneById.set(id, PreviewPane.preview);
+    paneById.set(id, PreviewPane.Preview);
 
     if (previewDocCache.has(id)) {
       return;
@@ -938,7 +938,7 @@
                         })}</span>
                       </button>
                       <span class="spacer"></span>
-                      {#if canPreview || (!isMedia && pane === PreviewPane.code && hasPreview)}
+                      {#if canPreview || (!isMedia && pane === PreviewPane.Code && hasPreview)}
                         <div class="pane-toggles">
                           {#if canPreview}
                             <fieldset class="segmented-control">
@@ -946,14 +946,14 @@
                               <label>
                                 <input
                                   name="pane-{event.id}"
-                                  checked={pane === PreviewPane.code}
-                                  onchange={() => paneById.set(event.id, PreviewPane.code)}
+                                  checked={pane === PreviewPane.Code}
+                                  onchange={() => paneById.set(event.id, PreviewPane.Code)}
                                   type="radio"
                                 />Code</label>
                               <label>
                                 <input
                                   name="pane-{event.id}"
-                                  checked={pane === PreviewPane.preview}
+                                  checked={pane === PreviewPane.Preview}
                                   onchange={() => showPreview({
                                     id: event.id,
                                     path: event.path
@@ -962,21 +962,21 @@
                                 />Preview</label>
                             </fieldset>
                           {/if}
-                          {#if !isMedia && pane === PreviewPane.code && hasPreview}
+                          {#if !isMedia && pane === PreviewPane.Code && hasPreview}
                             <fieldset class="segmented-control">
                               <legend class="visually-hidden">Diff view</legend>
                               <label>
                                 <input
                                   name="diff-{event.id}"
-                                  checked={diffMode === DiffMode.unified}
-                                  onchange={() => setDiffMode(DiffMode.unified)}
+                                  checked={diffMode === DiffMode.Unified}
+                                  onchange={() => setDiffMode(DiffMode.Unified)}
                                   type="radio"
                                 />Unified</label>
                               <label>
                                 <input
                                   name="diff-{event.id}"
-                                  checked={diffMode === DiffMode.split}
-                                  onchange={() => setDiffMode(DiffMode.split)}
+                                  checked={diffMode === DiffMode.Split}
+                                  onchange={() => setDiffMode(DiffMode.Split)}
                                   type="radio"
                                 />Split</label>
                             </fieldset>
@@ -1023,7 +1023,7 @@
                       {:else}
                         <p class="state">Transcoding preview…</p>
                       {/if}
-                    {:else if canPreview && pane === PreviewPane.preview}
+                    {:else if canPreview && pane === PreviewPane.Preview}
                       {@const documentSource = previewDocCache.get(event.id)}
                       {#if documentSource}
                         <!-- The untrusted markdown/HTML render is quarantined in a
@@ -1069,7 +1069,7 @@
                         role="button"
                         tabindex="0"
                       >
-                        <DiffView diffLines={unifiedLines} split={diffMode === DiffMode.split} />
+                        <DiffView diffLines={unifiedLines} split={diffMode === DiffMode.Split} />
                       </div>
                     {/if}
                   </div>
