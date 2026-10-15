@@ -226,7 +226,7 @@
 
 <div class="configuration">
   <div class="scroll">
-    <section class="appearance">
+    <section class="card">
       <h3 class="card-label">Appearance</h3>
 
       <div class="field">
@@ -324,7 +324,7 @@
       <UsagePacingSettings />
     </section>
 
-    <section class="session-tabs">
+    <section class="card session-tabs">
       <h3 class="card-label">Session tabs</h3>
       <div class="naming-row">
         <span class="field-text">
@@ -353,7 +353,7 @@
       </p>
     </section>
 
-    <section class="models">
+    <section class="card">
       <h3 class="card-label">Starting model</h3>
       <p class="field-hint">
         New sessions in this workspace start on these - each tab can still switch from its model tag
@@ -361,7 +361,7 @@
       <AgentModelDefaults {agents} {project} />
     </section>
 
-    <section class="performance">
+    <section class="card">
       <h3 class="card-label">Performance</h3>
       <div class="software-render-row">
         <label class="software-render-check">
@@ -379,7 +379,7 @@
       </div>
     </section>
 
-    <section class="discord">
+    <section class="card discord">
       <h3 class="card-label">Discord</h3>
       <label class="check">
         <Checkbox checked={effective.discordPresence} onchange={checked => updatePrefs({ discordPresence: checked })} />
@@ -453,15 +453,14 @@
     animation: panel-swap 280ms var(--ease);
   }
 
-  /* ── Appearance card ──────────────────────────────────────────────────────── */
-  .appearance,
-  .session-tabs,
-  .models,
-  .performance,
-  .discord {
-    /* The cards answer their own layout questions: the side panel is
-       drag-resizable, so anything that reflows on width asks the card
-       (@container), never the viewport. */
+  /* ── Cards ────────────────────────────────────────────────────────────────── */
+
+  /* Every settings section is one card; a section's own class carries only what
+     sets it apart. Colours and corners come from the theme's tokens, so each
+     theme reshapes all the cards at once. The cards answer their own layout
+     questions: the side panel is drag-resizable, so anything that reflows on
+     width asks the card (@container), never the viewport. */
+  .card {
     container-type: inline-size;
     display: flex;
     flex-direction: column;
