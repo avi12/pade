@@ -6,7 +6,8 @@
 // (explicit per-project choice → rules → coverage ranking); this store owns the
 // single cached fetch per project and the choose-editor write-through.
 
-import { ide } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import type { Ide } from "@/lib/types";
 import { settledValue } from "@/lib/util/settled";
 import { SvelteMap } from "svelte/reactivity";
@@ -79,7 +80,7 @@ async function fetchEditors({ project, token }: {
   token: symbol;
 }) {
   const ranked = await settledValue({
-    promise: ide.suggest(project),
+    promise: sendMessage(Command.ideSuggest, { cwd: project }),
     fallback: []
   });
   const isSuperseded = currentFetchToken.get(project) !== token;
@@ -128,7 +129,7 @@ export async function chooseEditor({ project, editorId }: {
   editorId: string;
 }) {
   try {
-    await ide.choose({
+    await sendSettingsMessage(Command.ideChooseEditor, {
       cwd: project,
       id: editorId
     });

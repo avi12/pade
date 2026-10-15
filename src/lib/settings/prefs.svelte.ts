@@ -1,9 +1,10 @@
 // Reactive appearance/editor preferences, shared app-wide. Loaded once from the
 // persisted settings, applied to the document root as CSS custom properties and
-// a theme-mode data attribute, and saved back through the bridge.
+// a theme-mode data attribute, and saved back through `set_prefs`.
 
-import { windows, workspace } from "@/lib/bridge";
+import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
 import { SIDE_PANEL_DEFAULT_WIDTH } from "@/lib/settings/prefs-bounds";
+import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { prefs, registerSettingsAdoptionEffect } from "@/lib/settings/settings.svelte";
 import { adoptedMonospaceFace, followsSystemScheme, resolveAppearance } from "@/lib/settings/theme-mode";
 import { chosenTerminalScheme, loadTerminalSchemes } from "@/lib/stores/ui/terminalSchemes.svelte";
@@ -21,7 +22,6 @@ import {
   ThemePalette
 } from "@/lib/types";
 import { DEFAULT_CONTEXT_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
-import { listen } from "@tauri-apps/api/event";
 
 export {
   SIDE_PANEL_DEFAULT_WIDTH,
@@ -247,9 +247,6 @@ document.addEventListener("visibilitychange", () => {
 
 registerSettingsAdoptionEffect(apply);
 
-/** Wire the shared name for the backend's OS-theme event (see `window.rs`
- *  `THEME_CHANGED_EVENT`). Change both together. */
-const OS_THEME_CHANGED_EVENT = "theme://changed";
 let isSystemThemeWatched = false;
 
 /** Follow the native OS theme flip. WebView2 does not reliably deliver the
@@ -265,8 +262,8 @@ async function watchSystemTheme() {
   }
 
   isSystemThemeWatched = true;
-  await listen<string>(OS_THEME_CHANGED_EVENT, event => {
-    installSystemScheme(schemeOf(event.payload === Scheme.enum.dark));
+  await onMessage(EventType.themeChanged, ({ data }) => {
+    installSystemScheme(schemeOf(data === Scheme.enum.dark));
   });
 }
 
@@ -277,7 +274,7 @@ async function watchSystemTheme() {
  *  Best-effort: a failed probe keeps the media query's answer. */
 async function adoptNativeSystemScheme() {
   try {
-    installSystemScheme(await windows.theme());
+    installSystemScheme(await sendMessage(Command.windowTheme));
   } catch (error) {
     // The media-query seed above stands, and a later flip still corrects it.
     console.debug("pade: native window theme unavailable", error);
@@ -290,7 +287,7 @@ export async function loadPrefs() {
   // Before the settings land, so the first apply() already resolves a persisted
   // terminal scheme instead of flashing the app palette first.
   await loadTerminalSchemes();
-  await workspace.settings();
+  await sendSettingsMessage(Command.settingsGet);
 }
 
 /** Adopt a theme, taking its terminal face with it. A skin that ships a font
@@ -315,5 +312,5 @@ export async function chooseThemeMode(mode: ThemeMode) {
 export async function updatePrefs(patch: Partial<Prefs>) {
   Object.assign(prefs, patch);
   apply();
-  await workspace.setPrefs(patch);
+  await sendSettingsMessage(Command.setPrefs, { patch });
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { ide, os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import { ideBrand, ideIcon } from "@/lib/ide/ide-icon";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { chooseEditor, editorsFor, refreshEditors } from "@/lib/stores/workspace/editors.svelte";
   import type { Ide } from "@/lib/types";
 
@@ -47,7 +47,7 @@
       return;
     }
 
-    await ide.open({
+    await sendMessage(Command.ideOpen, {
       command: editor.command,
       path: cwd
     });
@@ -117,7 +117,11 @@
       {/each}
       <li class="menu-divider" role="separator"></li>
       <li>
-        <button onclick={async () => await os.explorer(cwd)} popovertarget={MENU_ID} popovertargetaction="hide">
+        <button
+          onclick={async () => await sendMessage(Command.openInExplorer, { path: cwd })}
+          popovertarget={MENU_ID}
+          popovertargetaction="hide"
+        >
           <span class="name"><Icon name="folder" /> Reveal in file explorer</span>
         </button>
       </li>

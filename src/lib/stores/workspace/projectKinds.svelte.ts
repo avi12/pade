@@ -1,11 +1,11 @@
 // Shared lazy project-kind detection for project rows - the language icon. Rides
 // the visible-row batch (see visiblePathBatch), so only rows on screen are probed.
 
-import { ide } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/workspace/visiblePathBatch.svelte";
 
 const projectKinds = createVisiblePathBatch<string>({
-  load: paths => ide.projectKinds(paths),
+  load: paths => sendMessage(Command.ideProjectKinds, { paths }),
   cacheLimit: PROJECT_ROW_CACHE_LIMIT
 });
 

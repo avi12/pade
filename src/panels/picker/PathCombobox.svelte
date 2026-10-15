@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { EMPTY_PATH_PROBE } from "@/lib/types";
   import type { TaggedPathProbe } from "@/lib/types";
   import { Key } from "@/lib/ui/keys";
@@ -95,7 +95,7 @@
     }
 
     const timer = setTimeout(async () => {
-      const result = await workspace.probePath(path);
+      const result = await sendMessage(Command.workspaceProbePath, { path });
       probe = {
         path,
         result

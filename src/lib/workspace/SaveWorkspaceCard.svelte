@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome } from "@/lib/types";
   import { tooltip } from "@/lib/ui/truncation-tooltip";
@@ -93,12 +93,12 @@
       const probed = await Promise.all(
         roots.map(async root => {
           try {
-            const probe = await workspace.probePath(
-              childPath({
+            const probe = await sendMessage(Command.workspaceProbePath, {
+              path: childPath({
                 parent: root,
                 name: targetName
               })
-            );
+            });
             return {
               name: targetName,
               root,

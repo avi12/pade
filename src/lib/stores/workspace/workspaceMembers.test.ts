@@ -10,21 +10,30 @@ import {
 const ROOT = "C:\\repositories\\avi\\pade";
 const OTHER = "C:\\repositories\\avi\\youtube-time-manager";
 
-vi.mock("@/lib/bridge", () => ({
-  members: {
-    list: vi.fn(async () => [
-      {
-        path: "",
-        name: "pade",
-        ecosystem: "javascript",
-        repository: true
+vi.mock("@/lib/ipc/messaging", async importOriginal => {
+  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  return {
+    ...messaging,
+    sendMessage: vi.fn(async (command: string) => {
+      if (command === messaging.Command.membersList) {
+        return [
+          {
+            path: "",
+            name: "pade",
+            ecosystem: "javascript",
+            repository: true
+          }
+        ];
       }
-    ])
-  },
-  vcs: {
-    branchOf: vi.fn(async () => ({}))
-  }
-}));
+
+      if (command === messaging.Command.vcsBranchOf) {
+        return {};
+      }
+
+      throw new Error(`unexpected command ${command}`);
+    })
+  };
+});
 
 describe("activeMemberIn", () => {
   beforeEach(async () => {

@@ -2,7 +2,7 @@
 // filesystem event arms a cheap marker probe; project-kind and editor stores
 // remain responsible for their own cached state.
 
-import { feed } from "@/lib/bridge";
+import { EventType, onMessage } from "@/lib/ipc/messaging";
 import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
 import { refreshProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
 import { ChangeKind } from "@/lib/types";
@@ -48,7 +48,7 @@ export async function initNewProjectDetection() {
   }
 
   try {
-    unlistenEvidence = await feed.onChange(event => {
+    unlistenEvidence = await onMessage(EventType.feedChange, ({ data: event }) => {
       if (event.kind !== ChangeKind.enum.created) {
         return;
       }

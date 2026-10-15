@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { dirs, ide, windows, workspace } from "@/lib/bridge";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { updatePrefs } from "@/lib/settings/prefs.svelte";
+  import { addRoot as requestAddRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
   import { AddRootStatus, StartMode } from "@/lib/types";
   import type {
@@ -88,8 +89,8 @@
   // Returns the new editor's label on success, or the rejection message.
   async function addEditor(path: string) {
     try {
-      await ide.addEditor(path);
-      ides = await ide.detect();
+      await sendSettingsMessage(Command.ideAddEditor, { path });
+      ides = await sendMessage(Command.ideDetect);
       const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
       return { label: added?.label ?? "Editor" };
     } catch (error) {
@@ -101,15 +102,15 @@
   // section at once. Returns how many were auto-detected (added editors aren't
   // "detected") for the button's toast.
   async function rescanEditors() {
-    ides = await ide.detect();
+    ides = await sendMessage(Command.ideDetect);
     const addedIds = new Set((settings.prefs.addedEditors ?? []).map(editor => editor.id));
     return ides.filter(editor => !addedIds.has(editor.id)).length;
   }
   // Drop a user-added editor, then refresh the detected list so it leaves every
-  // menu. The bridge adopts the returned settings before detection refreshes.
+  // menu. The returned settings are adopted before detection refreshes.
   async function removeEditor(id: string) {
-    await ide.removeEditor(id);
-    ides = await ide.detect();
+    await sendSettingsMessage(Command.ideRemoveEditor, { id });
+    ides = await sendMessage(Command.ideDetect);
   }
 
   // Re-scan every root's projects into projectsByRoot - the cheap part of a
@@ -122,25 +123,25 @@
   // Light reload: the project lists only - prune the settings, re-scan the roots.
   // A workspace delete/rename/move, and a folder appearing or vanishing under a
   // watched root, change the projects but never the machine's installed editors,
-  // so re-detecting those here (≈1.8s of registry/PATH probing - `ide.detect` +
-  // `ide.kindOptions`) would stall the picker for nothing. The lifecycle ops and
+  // so re-detecting those here (≈1.8s of registry/PATH probing - `ide_detect` +
+  // `ide_kind_options`) would stall the picker for nothing. The lifecycle ops and
   // the folder watcher use this; only mount and the Editors "Reload" button pay
   // for a full editor re-detect.
   async function refreshProjects() {
     // prune, not settings: a folder deleted outside PADE is forgotten here, so
     // its row leaves the page (collapsing out) instead of lingering as a link
     // to nothing.
-    await workspace.prune();
+    await sendSettingsMessage(Command.workspacePrune);
     projectsByRoot = await scanRoots();
   }
 
   // Full reload: everything, including the machine's editors + project kinds.
   async function refresh() {
     const [, detectedIdes, detectedKinds, detectedKindOptions] = await Promise.all([
-      workspace.prune(),
-      ide.detect(),
-      ide.kinds(),
-      ide.kindOptions()
+      sendSettingsMessage(Command.workspacePrune),
+      sendMessage(Command.ideDetect),
+      sendMessage(Command.ideKinds),
+      sendMessage(Command.ideKindOptions)
     ]);
     ides = detectedIdes;
     kinds = detectedKinds;
@@ -172,7 +173,7 @@
   // A root that can't be read lists no projects.
   async function scan(root: string) {
     return await settledValue<ProjectEntry[]>({
-      promise: workspace.scan(root),
+      promise: sendMessage(Command.workspaceScan, { root }),
       fallback: []
     });
   }
@@ -204,13 +205,13 @@
     return roots.toSorted((first, second) => usage(second) - usage(first))[0];
   }
 
-  // Only an `added` outcome carries settings for the bridge to adopt and scans
-  // the new root - `missing`/`notADirectory` are handed back
+  // Only an `added` outcome carries settings to adopt and scans the new root -
+  // `missing`/`notADirectory` are handed back
   // untouched so the add-row can prompt to create the folder or show an error.
   async function addRoot(path: string, { create }: {
     create: boolean;
   }) {
-    const outcome = await workspace.addRoot({
+    const outcome = await requestAddRoot({
       path,
       create
     });
@@ -227,7 +228,7 @@
     return outcome;
   }
   async function removeRoot(path: string) {
-    await workspace.removeRoot(path);
+    await sendSettingsMessage(Command.workspaceRemoveRoot, { path });
     const { [path]: _drop, ...rest } = projectsByRoot;
     projectsByRoot = rest;
 
@@ -237,11 +238,11 @@
   }
 
   async function clearRecent() {
-    await workspace.clearRecent();
+    await sendSettingsMessage(Command.workspaceClearRecent);
   }
 
   async function setMaster(agentId: string) {
-    await workspace.setDefaultAgent(agentId);
+    await sendSettingsMessage(Command.setDefaultAgent, { agent: agentId });
   }
 
   function isOwned(path: string) {
@@ -257,7 +258,7 @@
     onrename: target => onrename(target),
     ondelete: path => ondelete(path),
     onrenamefolder: target => onrenamefolder(target),
-    openWindows: windows.list,
+    openWindows: () => sendMessage(Command.windowList),
     // A rename/move/delete changes the project lists, not the installed editors -
     // so catch the lists up cheaply, without re-probing the machine for editors.
     refresh: refreshProjects
@@ -280,7 +281,7 @@
   // Re-armed whenever that list changes; the backend replaces the previous set.
   // Nothing downstream waits on it, so it's a genuine fire-and-forget.
   $effect(() => {
-    dirs.watch(watchedDirs);
+    sendMessage(Command.watchDirs, { dirs: watchedDirs });
   });
 
   // The filesystem answers in bursts (one delete lands as several events), so the
@@ -299,7 +300,7 @@
     await refresh();
     createRoot ||= popularRoot();
     isLoaded = true;
-    unlisten = await dirs.onChange(rescanSoon);
+    unlisten = await onMessage(EventType.directoriesChanged, () => rescanSoon());
   });
 
   // Which projects other windows hold, kept live so their rows never offer a
@@ -307,7 +308,7 @@
   let unlistenWindows: (() => void) | undefined;
   onMount(async () => {
     await lifecycle.loadOpenWindows();
-    unlistenWindows = await windows.onChanged(lifecycle.loadOpenWindows);
+    unlistenWindows = await onMessage(EventType.windowsChanged, () => lifecycle.loadOpenWindows());
   });
 
   onDestroy(() => {
@@ -316,7 +317,7 @@
     unlistenWindows?.();
     // Let the folders go: nothing should hold a handle on them once the picker is
     // no longer on screen.
-    dirs.watch([]);
+    sendMessage(Command.watchDirs, { dirs: [] });
   });
 </script>
 

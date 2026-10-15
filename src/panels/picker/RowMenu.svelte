@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { os } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OwnedWorkspaceItems from "@/panels/picker/OwnedWorkspaceItems.svelte";
 
@@ -36,12 +36,22 @@
   <ul id={identifier} style:position-anchor="--{identifier}" class="menu popover-menu" popover>
     <li class="menu-separator">Reveal</li>
     <li>
-      <button class="menu-item" onclick={() => os.explorer(path)} popovertarget={identifier} popovertargetaction="hide">
+      <button
+        class="menu-item"
+        onclick={() => sendMessage(Command.openInExplorer, { path })}
+        popovertarget={identifier}
+        popovertargetaction="hide"
+      >
         <Icon name="folder" /><span class="menu-item-text">Open in Files</span>
       </button>
     </li>
     <li>
-      <button class="menu-item" onclick={() => os.terminal(path)} popovertarget={identifier} popovertargetaction="hide">
+      <button
+        class="menu-item"
+        onclick={() => sendMessage(Command.openInTerminal, { path })}
+        popovertarget={identifier}
+        popovertargetaction="hide"
+      >
         <Icon name="terminal" /><span class="menu-item-text">Open in Terminal</span>
       </button>
     </li>

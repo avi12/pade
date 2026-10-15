@@ -9,7 +9,9 @@
 // Idle/exited sessions stay closed. The app shell supplies its session list,
 // settings sink and relaunch through `RelocateHost`.
 
-import { pty, workspace } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
+import type { CommandProtocolMap } from "@/lib/ipc/messaging";
+import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { dropContext } from "@/lib/stores/agent/context.svelte";
 import { dropSessionStatus, sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { SessionStatus } from "@/lib/types";
@@ -108,7 +110,7 @@ export function createRelocator(host: RelocateHost) {
     host.markClosing(lockingIds);
 
     for (const session of locking) {
-      await pty.kill(session.id);
+      await sendMessage(Command.ptyKill, { id: session.id });
       dropSessionStatus(session.id);
       dropContext(session.id);
     }
@@ -134,7 +136,7 @@ export function createRelocator(host: RelocateHost) {
         from,
         to
       });
-      const args = await pty.resumeArgs({
+      const args = await sendMessage(Command.agentResumeArgs, {
         command: entry.agent.command,
         cwd,
         conversationId: entry.conversationId
@@ -164,7 +166,7 @@ export function createRelocator(host: RelocateHost) {
       toResume,
       from
     });
-    await workspace.settings();
+    await sendSettingsMessage(Command.settingsGet);
 
     if (isOpenWorkspaceUnder(from)) {
       await host.setCurrentProject(
@@ -202,26 +204,26 @@ export function createRelocator(host: RelocateHost) {
     }
   }
 
-  function move(target: Parameters<typeof workspace.move>[0]) {
+  function move(target: Parameters<CommandProtocolMap[Command.workspaceMove]>[0]) {
     return relocate({
       from: target.from,
-      run: () => workspace.move(target)
+      run: () => sendMessage(Command.workspaceMove, target)
     });
   }
 
-  function rename(target: Parameters<typeof workspace.rename>[0]) {
+  function rename(target: Parameters<CommandProtocolMap[Command.workspaceRename]>[0]) {
     return relocate({
       from: target.from,
-      run: () => workspace.rename(target)
+      run: () => sendMessage(Command.workspaceRename, target)
     });
   }
 
   /** Rename a workspace's folder where it stands - any project, not only a
    *  temp one. */
-  function renameFolder(target: Parameters<typeof workspace.renameFolder>[0]) {
+  function renameFolder(target: Parameters<CommandProtocolMap[Command.workspaceRenameFolder]>[0]) {
     return relocate({
       from: target.from,
-      run: () => workspace.renameFolder(target)
+      run: () => sendMessage(Command.workspaceRenameFolder, target)
     });
   }
 
@@ -247,7 +249,7 @@ export function createRelocator(host: RelocateHost) {
   function remove(path: string) {
     return deleteVia({
       path,
-      removeFromDisk: workspace.delete
+      removeFromDisk: removedPath => sendSettingsMessage(Command.workspaceDelete, { path: removedPath })
     });
   }
 
@@ -256,7 +258,7 @@ export function createRelocator(host: RelocateHost) {
   function removeDirectory(path: string) {
     return deleteVia({
       path,
-      removeFromDisk: workspace.deleteDirectory
+      removeFromDisk: removedPath => sendSettingsMessage(Command.workspaceDeleteDirectory, { path: removedPath })
     });
   }
 

@@ -1,7 +1,8 @@
 // Saving a temp workspace as a real project, without a dead gap in its tab.
 // The flow lives here (SoC); App.svelte lends it the session actions it owns.
 
-import { workspace } from "@/lib/bridge";
+import { Command, sendMessage } from "@/lib/ipc/messaging";
+import { sendSettingsMessage } from "@/lib/settings/settings-requests";
 import { successorPrompt } from "@/lib/stores/agent/handoff.svelte";
 import { startRunner } from "@/lib/stores/tasks/runners.svelte";
 import { TaskGroup } from "@/lib/types";
@@ -41,7 +42,7 @@ export async function saveTempWorkspace({ name, root, host }: {
   // 2. Copy the temp workspace (handoff doc included) into the saved root while
   //    its agent keeps running - a copy only READS files, so it never trips the
   //    watcher/cwd handle a rename does.
-  const migration = await workspace.saveMigrate({
+  const migration = await sendMessage(Command.workspaceSaveMigrate, {
     from: host.project,
     newName: name,
     root
@@ -65,7 +66,7 @@ export async function saveTempWorkspace({ name, root, host }: {
   await host.closeSessions(host.sessionIds);
   // The project already lives on in its saved copy, so a temp that can't be
   // deleted right now is simply left in place.
-  await Promise.allSettled([workspace.delete(host.project)]);
+  await Promise.allSettled([sendSettingsMessage(Command.workspaceDelete, { path: host.project })]);
 
   if (migration.install) {
     await startRunner({

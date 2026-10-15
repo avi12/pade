@@ -17,18 +17,34 @@ const migration: {
   install: null
 };
 
-vi.mock("@/lib/bridge", () => ({
-  workspace: {
-    saveMigrate: vi.fn(async () => {
-      calls.push("copy");
-      return migration;
-    }),
-    delete: vi.fn(async () => {
-      calls.push("delete temp");
-      throw new Error("folder busy");
+vi.mock("@/lib/ipc/messaging", async importOriginal => {
+  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  return {
+    ...messaging,
+    sendMessage: vi.fn(async (command: string, data: unknown) => {
+      if (command === messaging.Command.workspaceSaveMigrate) {
+        calls.push(`copy ${JSON.stringify(data)}`);
+        return migration;
+      }
+
+      throw new Error(`unexpected command ${command}`);
     })
-  }
-}));
+  };
+});
+
+vi.mock("@/lib/settings/settings-requests", async () => {
+  const { Command } = await import("@/lib/ipc/messaging");
+  return {
+    sendSettingsMessage: vi.fn(async (command: string, data: { path: string }) => {
+      if (command === Command.workspaceDelete) {
+        calls.push(`delete ${data.path}`);
+        throw new Error("folder busy");
+      }
+
+      throw new Error(`unexpected command ${command}`);
+    })
+  };
+});
 
 vi.mock("@/lib/stores/tasks/runners.svelte", () => ({
   startRunner: vi.fn(async ({ command }: { command: string }) => {
@@ -84,11 +100,14 @@ describe("saveTempWorkspace", () => {
     });
     expect(calls).toEqual([
       "handoff",
-      "copy",
+      `copy ${JSON.stringify({
+        from: TEMP,
+        newName: "poll"
+      })}`,
       `reroot ${migration.path}`,
       "launch continue from HANDOFF.md",
       "close a,b",
-      "delete temp"
+      `delete ${TEMP}`
     ]);
   });
 

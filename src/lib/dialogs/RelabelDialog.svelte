@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { workspace } from "@/lib/bridge";
   import NameDialog from "@/lib/dialogs/NameDialog.svelte";
+  import { Command } from "@/lib/ipc/messaging";
+  import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { LabelSource } from "@/lib/types";
   import { WorkspaceLabel } from "@/lib/validate";
 
@@ -29,7 +30,7 @@
   {nested}
   {onclose}
   onsave={async name => {
-    await workspace.setLabel({
+    await sendSettingsMessage(Command.workspaceSetLabel, {
       path,
       name,
       source: LabelSource.enum.manual

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { dragDrop, os, vcs, workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
   import type { IconName } from "@/lib/Icon.svelte";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { EMPTY_PATH_PROBE, realAgents as toRealAgents } from "@/lib/types";
   import type { Agent, DragPosition, OpenTarget, TaggedPathProbe } from "@/lib/types";
   import { isDragOverElement } from "@/lib/ui/drag-position";
@@ -182,7 +182,7 @@
 
     async function probeTarget() {
       try {
-        const probe = await workspace.probePath(target);
+        const probe = await sendMessage(Command.workspaceProbePath, { path: target });
         // Only believe an answer that describes the text still in the field.
         if (target !== createTargetPath) {
           return;
@@ -222,7 +222,7 @@
   // Shared by the "…or start a throwaway temp workspace" button and a submit
   // with the name left blank - the two spellings of the same intent.
   async function startTemp(prompt: string) {
-    const path = await workspace.temp();
+    const path = await sendMessage(Command.workspaceTemp);
     onopen({
       path,
       initialPrompt: prompt || undefined,
@@ -325,7 +325,7 @@
     }
 
     const timer = setTimeout(async () => {
-      const reachable = await vcs.probeRemote(url);
+      const reachable = await sendMessage(Command.vcsProbeRemote, { url });
       remoteProbe = {
         url,
         reachable
@@ -344,7 +344,10 @@
 
   // Shared by mount and the "Re-check" button after installing git.
   async function checkGit() {
-    const [installed, keyOnDisk] = await Promise.all([vcs.gitInstalled(), vcs.hasSshKey()]);
+    const [installed, keyOnDisk] = await Promise.all([
+      sendMessage(Command.vcsGitInstalled),
+      sendMessage(Command.vcsHasSshKey)
+    ]);
     gitInstalled = installed;
     hasSshKey = keyOnDisk;
   }
@@ -358,11 +361,11 @@
 
   onMount(async () => {
     await checkGit();
-    unlistenDragOver = await dragDrop.onOver(({ position }) => {
+    unlistenDragOver = await onMessage(EventType.dragOver, ({ data: { position } }) => {
       isDropReady = isOverLocalField(position);
     });
-    unlistenDragLeave = await dragDrop.onLeave(() => (isDropReady = false));
-    unlistenDragDrop = await dragDrop.onDrop(({ paths, position }) => {
+    unlistenDragLeave = await onMessage(EventType.dragLeave, () => (isDropReady = false));
+    unlistenDragDrop = await onMessage(EventType.dragDrop, ({ data: { paths, position } }) => {
       const [dropped] = paths;
       const landsOnField = dropped !== undefined && isOverLocalField(position);
       isDropReady = false;
@@ -528,7 +531,7 @@
               parent: createIn,
               name
             });
-            const probe = await workspace.probePath(target);
+            const probe = await sendMessage(Command.workspaceProbePath, { path: target });
             createTarget = {
               path: target,
               isDir: probe.isDir,
@@ -539,7 +542,7 @@
               return;
             }
 
-            const path = await workspace.create({
+            const path = await sendMessage(Command.workspaceCreate, {
               root: createIn,
               name
             });
@@ -707,7 +710,7 @@
               </p>
               <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check</p>
               <div class="actions">
-                <button class="go" onclick={() => os.openUrl("https://git-scm.com/downloads")} type="button">
+                <button class="go" onclick={() => sendMessage(Command.openUrl, { url: "https://git-scm.com/downloads" })} type="button">
                   Install Git…
                 </button>
                 <button class="ghost" onclick={async () => await checkGit()} type="button">Re-check</button>
@@ -733,7 +736,7 @@
                 isCloning = true;
                 cloneError = "";
                 try {
-                  const path = await vcs.clone({
+                  const path = await sendMessage(Command.vcsClone, {
                     url,
                     root: createIn,
                     name,

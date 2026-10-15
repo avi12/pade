@@ -11,11 +11,19 @@ const mocks = vi.hoisted(() => ({
   projectKinds: vi.fn<(paths: string[]) => Promise<Record<string, string>>>()
 }));
 
-vi.mock("@/lib/bridge", () => ({
-  ide: {
-    projectKinds: mocks.projectKinds
-  }
-}));
+vi.mock("@/lib/ipc/messaging", async importOriginal => {
+  const messaging = await importOriginal<typeof import("@/lib/ipc/messaging")>();
+  return {
+    ...messaging,
+    sendMessage: vi.fn(async (command: string, data: { paths: string[] }) => {
+      if (command !== messaging.Command.ideProjectKinds) {
+        throw new Error(`unexpected command ${command}`);
+      }
+
+      return mocks.projectKinds(data.paths);
+    })
+  };
+});
 describe("project kind batches", () => {
   beforeEach(() => {
     mocks.projectKinds.mockReset();

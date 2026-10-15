@@ -1,7 +1,7 @@
 <script lang="ts">
   import { globalNaming } from "@/lib/agent/ai-naming-scope";
-  import { contextMenu } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { StartMode, TEMP_CLEANUP_DAY_CHOICES } from "@/lib/types";
   import type { Prefs } from "@/lib/types";
   import { rovingTablist } from "@/lib/ui/roving-tabs";
@@ -35,7 +35,7 @@
   let contextMenuError = $state("");
   async function loadContextMenu() {
     if (isWindows) {
-      ctxMenuOn = await contextMenu.status();
+      ctxMenuOn = await sendMessage(Command.contextMenuStatus);
     }
   }
 
@@ -46,15 +46,15 @@
     contextMenuError = "";
     try {
       if (on) {
-        await contextMenu.register();
+        await sendMessage(Command.contextMenuRegister);
       } else {
-        await contextMenu.unregister();
+        await sendMessage(Command.contextMenuUnregister);
       }
     } catch (caughtError) {
       contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
     }
 
-    ctxMenuOn = await contextMenu.status();
+    ctxMenuOn = await sendMessage(Command.contextMenuStatus);
   }
   onMount(() => {
     loadContextMenu();

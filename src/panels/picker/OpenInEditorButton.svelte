@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { ide } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { hasWindowedEditor, refreshEditors, windowedEditorFor } from "@/lib/stores/workspace/editors.svelte";
   import type { Ide } from "@/lib/types";
 
@@ -19,7 +19,7 @@
 
   const hasGuiEditor = $derived(hasWindowedEditor(ides));
   // True only while a click's best-fit lookup is in flight - the button reflects
-  // it (disabled + dimmed) so the ~second `ide.suggest` takes doesn't read as a
+  // it (disabled + dimmed) so the ~second `ide_suggest` takes doesn't read as a
   // dead click, and a second click can't stack another lookup.
   let isBusy = $state(false);
 
@@ -39,7 +39,7 @@
         return;
       }
 
-      await ide.open({
+      await sendMessage(Command.ideOpen, {
         command: editor.command,
         path
       });

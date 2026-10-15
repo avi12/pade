@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { agents as agentsApi } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { realAgents as toRealAgents } from "@/lib/types";
   import type { Agent } from "@/lib/types";
   import { formatCount } from "@/lib/util/format";
@@ -68,7 +68,7 @@
       onclick={async () => {
         isScanning = true;
         try {
-          agentList = await agentsApi.detect();
+          agentList = await sendMessage(Command.agentsDetect);
         } finally {
           isScanning = false;
         }

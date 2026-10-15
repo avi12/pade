@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { design } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import type { DesignTool } from "@/lib/types";
 
   // Quick-launch an AI design/UI-generation tool (Claude, Google Stitch, v0, …)
@@ -20,7 +20,7 @@
     const active = agent;
     let isCancelled = false;
     async function loadTools() {
-      const ranked = await design.tools(active);
+      const ranked = await sendMessage(Command.designTools, { agent: active });
       if (!isCancelled) {
         tools = ranked;
       }
@@ -43,7 +43,7 @@
         <li>
           <button
             class="menu-item"
-            onclick={async () => await design.open(tool.id)}
+            onclick={async () => await sendMessage(Command.designOpen, { id: tool.id })}
             popovertarget={MENU_ID}
             popovertargetaction="hide"
           >
