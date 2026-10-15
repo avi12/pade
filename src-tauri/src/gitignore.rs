@@ -140,22 +140,28 @@ fn segments_match(pattern: &[String], path: &[&str]) -> bool {
 }
 
 /// Glob-match one segment: `*` any run, `?` any single character, else literal.
+/// Walks both strings by character boundary in place, so the watcher's
+/// per-event check allocates nothing.
 fn segment_matches(pattern: &str, name: &str) -> bool {
-    let pattern: Vec<char> = pattern.chars().collect();
-    let name: Vec<char> = name.chars().collect();
-    chars_match(&pattern, &name)
-}
-
-fn chars_match(pattern: &[char], name: &[char]) -> bool {
-    match pattern.split_first() {
+    let mut pattern_characters = pattern.chars();
+    let mut name_characters = name.chars();
+    match pattern_characters.next() {
         None => name.is_empty(),
-        Some(('*', rest)) => (0..=name.len()).any(|skip| chars_match(rest, &name[skip..])),
-        Some(('?', rest)) => name
-            .split_first()
-            .is_some_and(|(_, tail)| chars_match(rest, tail)),
-        Some((literal, rest)) => name
-            .split_first()
-            .is_some_and(|(first, tail)| first == literal && chars_match(rest, tail)),
+        Some('*') => {
+            let rest = pattern_characters.as_str();
+            name.char_indices()
+                .map(|(offset, _)| offset)
+                .chain(std::iter::once(name.len()))
+                .any(|offset| segment_matches(rest, &name[offset..]))
+        }
+        Some('?') => {
+            name_characters.next().is_some()
+                && segment_matches(pattern_characters.as_str(), name_characters.as_str())
+        }
+        Some(literal) => {
+            name_characters.next() == Some(literal)
+                && segment_matches(pattern_characters.as_str(), name_characters.as_str())
+        }
     }
 }
 
@@ -214,6 +220,15 @@ mod tests {
         assert!(rules.is_ignored("fixtures/b.snap"));
         assert!(rules.is_ignored("apps/web/cache/tmp"));
         assert!(!rules.is_ignored("apps/tmp.txt"));
+    }
+
+    #[test]
+    fn wildcards_step_over_whole_non_ascii_characters() {
+        let rules = Rules::parse("t?st-*.md\nnotes-*é\n");
+        assert!(rules.is_ignored("tést-שלום.md"));
+        assert!(rules.is_ignored("docs/notes-café"));
+        assert!(!rules.is_ignored("tst-a.md"));
+        assert!(!rules.is_ignored("notes-cafe"));
     }
 
     #[test]
