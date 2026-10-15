@@ -1,11 +1,12 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { AddRootStatus } from "@/lib/types";
   import type { AddRootOutcome } from "@/lib/types";
   import { tooltip } from "@/lib/ui/truncation-tooltip";
-  import { childPath } from "@/lib/util/paths";
   import { nameError, parseInput, ProjectName } from "@/lib/validate";
+  import { isNameTakenIn, prefillableName, probeSaveTargets } from "@/lib/workspace/save-workspace-form";
+  import type { SaveProbe } from "@/lib/workspace/save-workspace-form";
+  import SaveDestinations from "@/lib/workspace/SaveDestinations.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { untrack } from "svelte";
@@ -34,10 +35,6 @@
     onrelabel: () => void;
   } = $props();
 
-  // The auto-generated folder name a temp workspace starts with - never worth
-  // prefilling, unlike a friendly label.
-  const TEMP_FOLDER_NAME = /^temp-\d+$/;
-
   // Prefilled as the menu opens with the friendly label when one exists
   // (auto-name), never the raw temp-<stamp> folder name; anything typed sticks.
   let saveName = $state("");
@@ -58,29 +55,16 @@
     }
 
     untrack(() => {
-      const friendlyLabel = parseInput({
-        schema: ProjectName,
-        raw: label
-      });
-      const isLabelPrefillable = saveName === "" && friendlyLabel !== null && !TEMP_FOLDER_NAME.test(friendlyLabel);
-      if (isLabelPrefillable) {
-        saveName = friendlyLabel;
+      const friendlyName = prefillableName(label);
+      if (saveName === "" && friendlyName !== null) {
+        saveName = friendlyName;
       }
     });
   });
 
   // Live disk check on each save target - the same collision guard the project
-  // picker's new-project field uses (QuickStartSection). `workspace_rename` does
-  // an `fs::rename`, which on Windows fails with a raw "os error 32/183" if the
-  // target already exists; probe `<root>/<name>` up front so a colliding name
+  // picker's new-project field uses (QuickStartSection) - so a colliding name
   // disables that root's Save with a plain reason instead of a cryptic failure.
-  // Each probe is tagged with the name it described, so an out-of-order reply
-  // never gates the current text.
-  type SaveProbe = {
-    name: string;
-    root: string;
-    exists: boolean;
-  };
   let saveProbes = $state<SaveProbe[]>([]);
   $effect(() => {
     const name = savableName;
@@ -90,31 +74,10 @@
     }
 
     async function probeRoots(targetName: string) {
-      const probed = await Promise.all(
-        roots.map(async root => {
-          try {
-            const probe = await sendMessage(Command.workspaceProbePath, {
-              path: childPath({
-                parent: root,
-                name: targetName
-              })
-            });
-            return {
-              name: targetName,
-              root,
-              exists: probe.isDir || probe.isFile
-            };
-          } catch {
-            // An unreachable probe leaves the plain save path - the backend
-            // still validates the final rename.
-            return {
-              name: targetName,
-              root,
-              exists: false
-            };
-          }
-        })
-      );
+      const probed = await probeSaveTargets({
+        name: targetName,
+        roots
+      });
       // Only believe an answer that describes the name still in the field.
       if (targetName === savableName) {
         saveProbes = probed;
@@ -123,20 +86,16 @@
     probeRoots(name);
   });
 
-  function isNameTakenIn(root: string) {
-    return saveProbes.some(probe => probe.root === root && probe.name === savableName && probe.exists);
+  function isTakenIn(root: string) {
+    return isNameTakenIn({
+      probes: saveProbes,
+      root,
+      name: savableName
+    });
   }
 
   function canSaveInto(root: string) {
-    return canSave && !isNameTakenIn(root);
-  }
-
-  function saveGoLabel(isTaken: boolean) {
-    if (isTaken) {
-      return "Name taken";
-    }
-
-    return "Save →";
+    return canSave && !isTakenIn(root);
   }
 
   // The live field issue, then the last failed save - either, both or none.
@@ -198,21 +157,6 @@
 
     await saveTempInto(picked);
   }
-
-  // Enter saves into the PRIMARY root (roots[0]) - the same default
-  // workspace_rename uses when no root is chosen - or opens the folder picker
-  // when there are no roots yet. It respects the same gates as the primary
-  // root's button (blank/busy/collision), so Enter can't save a name that
-  // button shows disabled.
-  async function saveViaEnter() {
-    const primaryRoot = roots.at(0);
-    if (primaryRoot === undefined) {
-      await createRootAndSave();
-      return;
-    }
-
-    await saveIntoListedRoot(primaryRoot);
-  }
 </script>
 
 <div class="save-card">
@@ -230,7 +174,18 @@
   <form
     class="save-form" onsubmit={async e => {
       e.preventDefault();
-      await saveViaEnter();
+      // Enter saves into the PRIMARY root (roots[0]) - the same default
+      // workspace_rename uses when no root is chosen - or opens the folder
+      // picker when there are no roots yet. It respects the same gates as the
+      // primary root's button (blank/busy/collision), so Enter can't save a
+      // name that button shows disabled.
+      const primaryRoot = roots.at(0);
+      if (primaryRoot === undefined) {
+        await createRootAndSave();
+        return;
+      }
+
+      await saveIntoListedRoot(primaryRoot);
     }}>
     <input
       class="save-name"
@@ -243,35 +198,14 @@
     {#each issues as issue, i (i)}
       <output class="save-issue">{issue}</output>
     {/each}
-    {#if roots.length === 0}
-      <button
-        class="save-root"
-        disabled={!canSave}
-        onclick={createRootAndSave}
-        type="button"
-      >
-        <span class="save-root-icon" aria-hidden="true"><Icon name="folderPlus" size={15} /></span>
-        <span class="save-root-path">Choose a folder for your projects…</span>
-        <span class="save-go">Create root & save →</span>
-      </button>
-    {:else}
-      <div class="save-roots">
-        {#each roots as root (root)}
-          {@const isTaken = isNameTakenIn(root)}
-          <button
-            class="save-root"
-            class:save-root-collides={isTaken}
-            disabled={!canSaveInto(root)}
-            onclick={async () => await saveIntoListedRoot(root)}
-            type="button"
-          >
-            <span class="save-root-icon" aria-hidden="true"><Icon name="folder" size={15} /></span>
-            <span class="save-root-path">{root}</span>
-            <span class="save-go">{saveGoLabel(isTaken)}</span>
-          </button>
-        {/each}
-      </div>
-    {/if}
+    <SaveDestinations
+      {canSaveInto}
+      isCreateEnabled={canSave}
+      isNameTakenIn={isTakenIn}
+      oncreateroot={createRootAndSave}
+      onsaveinto={saveIntoListedRoot}
+      {roots}
+    />
   </form>
 </div>
 
@@ -362,70 +296,6 @@
       font-weight: 600;
       font-size: 10.5px;
       line-height: 1.4;
-    }
-
-    .save-roots {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .save-root {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      inline-size: 100%;
-      padding-block: 7px;
-      padding-inline: 8px;
-      border-radius: var(--radius-small);
-      background: transparent;
-      color: var(--on-surface);
-      font: inherit;
-      text-align: start;
-      cursor: pointer;
-      transition: color 120ms var(--ease), background 120ms var(--ease);
-
-      &:hover:not(:disabled) {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
-
-      &:disabled {
-        opacity: 55%;
-        cursor: default;
-      }
-
-      .save-root-icon {
-        display: inline-flex;
-        flex: none;
-        color: var(--on-surface-variant);
-      }
-
-      .save-root-path {
-        flex: 1;
-        overflow: hidden;
-        min-inline-size: 0;
-        font-family: var(--font-monospace);
-        font-weight: 600;
-        font-size: 11px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .save-go {
-        flex: none;
-        color: var(--primary);
-        font-weight: 700;
-        font-size: 10px;
-      }
-
-      &.save-root-collides .save-go {
-        color: var(--critical);
-      }
-
-      &:hover:not(:disabled) .save-go {
-        color: var(--on-primary-container);
-      }
     }
   }
 </style>

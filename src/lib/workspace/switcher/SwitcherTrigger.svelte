@@ -1,0 +1,92 @@
+<script lang="ts">
+  import Logo from "@/lib/ui/Logo.svelte";
+  import { openRepositoryOnModifiedClick } from "@/lib/vcs/repository-links";
+  import TempBadge from "@/lib/workspace/TempBadge.svelte";
+
+  // The top bar's "Project" pill that opens the switcher popover; a
+  // Ctrl-click opens the project's repository instead.
+  const { path, label, isTemp, menuId, menuAnchor }: {
+    path: string;
+    label: string;
+    isTemp: boolean;
+    /** The switcher popover this button toggles. */
+    menuId: string;
+    /** The anchor name the popover positions itself against. */
+    menuAnchor: string;
+  } = $props();
+</script>
+
+<button
+  style:anchor-name={menuAnchor}
+  class="trigger menu-trigger"
+  {@attach openRepositoryOnModifiedClick({ project: path })}
+  aria-haspopup="menu"
+  aria-label={`Switch project · Ctrl P · Ctrl-click opens repository - ${label}`}
+  data-tooltip="Switch project · Ctrl-click opens repository"
+  popovertarget={menuId}
+>
+  <Logo size={18} />
+  <span class="stack">
+    <span class="eyebrow">Project</span>
+    <span class="name">
+      {label}
+      {#if isTemp}
+        <TempBadge />
+      {/if}
+    </span>
+  </span>
+  <span class="caret" aria-hidden="true">▾</span>
+</button>
+
+<style>
+  .trigger {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 8px;
+    align-items: center;
+    padding-block: 5px;
+    padding-inline: 11px 10px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--on-surface);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 150ms var(--ease);
+
+    &:hover {
+      background: var(--surface-2);
+    }
+
+    .stack {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      line-height: 1.1;
+    }
+
+    .eyebrow {
+      color: var(--on-surface-variant);
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .name {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      font-family: var(--font-monospace);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .caret {
+      color: var(--on-surface-variant);
+      font-weight: 600;
+      font-size: 10px;
+      opacity: 70%;
+    }
+  }
+</style>
