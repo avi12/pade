@@ -18,13 +18,13 @@
     buildKindLegend,
     findSpotlight,
     justResetLimits,
+    Level,
     limitKey,
     limitPercentages,
     severityBreakdown,
     usageResetTime,
     worstLimit
   } from "@/lib/usage-groups";
-  import type { Level } from "@/lib/usage-groups";
   import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
 
@@ -62,9 +62,9 @@
 
   // The `.severity` modifier each level paints with; a normal level takes none.
   const SEVERITY_CLASS: Record<Level, string | undefined> = {
-    normal: undefined,
-    warn: "warning",
-    crit: "critical"
+    [Level.Normal]: undefined,
+    [Level.Warning]: "warning",
+    [Level.Critical]: "critical"
   };
 
   function severityClass(level: Level | null | undefined) {
@@ -98,15 +98,15 @@
   const overflowCount = $derived(Math.max(0, groups.length - MAX_TRIGGER_PILLS));
   // The "+N" chip's severity dot: red if any agent is critical, amber if any is
   // near its cap, else no dot.
-  const hasCriticalAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "crit"));
-  const hasNearAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === "warn"));
+  const hasCriticalAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === Level.Critical));
+  const hasNearAgent = $derived(groups.some(group => worstLimit(group.limits)?.level === Level.Warning));
   const overflowLevel = $derived.by(() => {
     if (hasCriticalAgent) {
-      return "crit";
+      return Level.Critical;
     }
 
     if (hasNearAgent) {
-      return "warn";
+      return Level.Warning;
     }
 
     return null;

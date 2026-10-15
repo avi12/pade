@@ -23,7 +23,7 @@ import type {
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
  *  past 75%, red past 90% - no green, per the design's usage semantics. */
-const Level = {
+export const Level = {
   Normal: "normal",
   Warning: "warn",
   Critical: "crit"
