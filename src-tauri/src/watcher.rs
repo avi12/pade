@@ -313,7 +313,9 @@ struct McpChange {
 /// other path. Matches the full relative path, so a nested config
 /// (`.cursor/mcp.json`) can't be confused with a root one.
 fn mcp_config_for_path(root: &Path, path: &Path) -> Option<crate::config::McpConfig> {
-    crate::config::mcp_configs().find(|config| root.join(config.rel) == path)
+    // Compared root-relative, so the per-event check joins no paths.
+    let relative = path.strip_prefix(root).ok()?;
+    crate::config::mcp_configs().find(|config| relative == Path::new(config.rel))
 }
 
 fn mcp_membership_changed(
@@ -1361,20 +1363,18 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         // (the edit that fired this very event is already on disk). Later edits,
         // and a later deletion, diff against this. `or_insert_with` runs only on
         // the first sighting, so a large file is read at most once.
-        if let Ok(mut baselines) = watch.baselines.lock() {
-            baselines.entry(path.clone()).or_insert_with(|| match kind {
-                ChangeKind::Created => Some(String::new()),
-                ChangeKind::Modified => watch_roots.as_ref().and_then(|(_, canonical_root)| {
-                    read_preview_text(canonical_root, &path).ok().flatten()
-                }),
-                ChangeKind::Deleted => watch_roots.as_ref().and_then(|(root, canonical_root)| {
-                    read_preview_text(canonical_root, &path)
-                        .ok()
-                        .flatten()
-                        .or_else(|| crate::vcs::head_file_text(root, &path, MAX_PREVIEW_BYTES))
-                }),
-            });
-        }
+        record_first_touch_baseline(&watch.baselines, &path, || match kind {
+            ChangeKind::Created => Some(String::new()),
+            ChangeKind::Modified => watch_roots.as_ref().and_then(|(_, canonical_root)| {
+                read_preview_text(canonical_root, &path).ok().flatten()
+            }),
+            ChangeKind::Deleted => watch_roots.as_ref().and_then(|(root, canonical_root)| {
+                read_preview_text(canonical_root, &path)
+                    .ok()
+                    .flatten()
+                    .or_else(|| crate::vcs::head_file_text(root, &path, MAX_PREVIEW_BYTES))
+            }),
+        });
 
         let new_count = line_count(&path);
         let (added, removed) = {
@@ -1408,6 +1408,27 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
         };
         watch.surfaced.fetch_add(1, Ordering::Relaxed);
         let _ = app.emit_to(label, FEED_CHANGE_EVENT, event);
+    }
+}
+
+/// Record `path`'s first-touch baseline unless it already has one. The
+/// snapshot (a file read, or a `git show` for a deletion) runs outside the
+/// lock, so a preview command reading the baselines never waits on that I/O;
+/// the insert keeps any baseline recorded meanwhile, so the first one wins.
+fn record_first_touch_baseline(
+    baselines: &Mutex<HashMap<PathBuf, Option<String>>>,
+    path: &Path,
+    snapshot: impl FnOnce() -> Option<String>,
+) {
+    let is_recorded = baselines
+        .lock()
+        .map_or(true, |recorded| recorded.contains_key(path));
+    if is_recorded {
+        return;
+    }
+    let baseline = snapshot();
+    if let Ok(mut recorded) = baselines.lock() {
+        recorded.entry(path.to_path_buf()).or_insert(baseline);
     }
 }
 
@@ -1731,15 +1752,17 @@ mod tests {
         base64_encode, drain_burst, git_directory_lifecycle_changed, git_state_directories,
         image_mime_type, is_git_directory_entry, is_git_state_file,
         is_under_static_ignore_directory, line_count, line_delta, manifest_ignore_directories,
-        mcp_membership_changed, read_authorized_file, read_preview_text, reclassify,
-        resolve_watch_root, static_ignore_directories, summarize, surfaces, unique_directories,
-        ChangeKind, GitStateMessage, MAX_IMAGE_BYTES, MAX_PREVIEW_BYTES,
+        mcp_config_for_path, mcp_membership_changed, read_authorized_file, read_preview_text,
+        reclassify, record_first_touch_baseline, resolve_watch_root, static_ignore_directories,
+        summarize, surfaces, unique_directories, ChangeKind, GitStateMessage, MAX_IMAGE_BYTES,
+        MAX_PREVIEW_BYTES,
     };
     use crate::test_support::assert_empty;
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::mpsc::channel;
+    use std::sync::Mutex;
     use std::time::Duration;
 
     #[test]
@@ -1750,6 +1773,40 @@ mod tests {
         assert_eq!(summarize(ChangeKind::Modified, 1, 0), "Grew by 1 line");
         assert_eq!(summarize(ChangeKind::Modified, 0, 3), "Trimmed 3 lines");
         assert_eq!(summarize(ChangeKind::Modified, 5, 2), "Edited");
+    }
+
+    #[test]
+    fn the_first_baseline_wins_and_a_recorded_path_is_never_snapshotted_again() {
+        let baselines = Mutex::new(HashMap::new());
+        let path = Path::new("/project/src/app.ts");
+
+        record_first_touch_baseline(&baselines, path, || Some("first".to_string()));
+        record_first_touch_baseline(&baselines, path, || {
+            panic!("a recorded path must not be snapshotted again")
+        });
+
+        let recorded = baselines.lock().expect("baselines");
+        assert_eq!(recorded.get(path), Some(&Some("first".to_string())));
+    }
+
+    #[test]
+    fn an_unsnapshottable_first_sighting_is_still_recorded() {
+        let baselines = Mutex::new(HashMap::new());
+        let path = Path::new("/project/assets/logo.png");
+        record_first_touch_baseline(&baselines, path, || None);
+        assert_eq!(baselines.lock().expect("baselines").get(path), Some(&None));
+    }
+
+    #[test]
+    fn an_mcp_config_matches_only_its_exact_root_relative_path() {
+        let root = Path::new("/project");
+        let config = mcp_config_for_path(root, &root.join(".mcp.json")).expect("root config");
+        assert_eq!(config.rel, ".mcp.json");
+        let nested =
+            mcp_config_for_path(root, &root.join(".cursor").join("mcp.json")).expect("nested");
+        assert_eq!(nested.rel, ".cursor/mcp.json");
+        assert!(mcp_config_for_path(root, &root.join("src").join(".mcp.json")).is_none());
+        assert!(mcp_config_for_path(root, Path::new("/elsewhere/.mcp.json")).is_none());
     }
 
     #[test]
