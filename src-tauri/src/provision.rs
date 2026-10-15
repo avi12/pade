@@ -110,17 +110,15 @@ pub fn is_dependency_directory(name: &str) -> bool {
 /// everything). The first ecosystem with a marker file present wins, so the exact
 /// package manager is chosen from its lockfile.
 pub fn detect_install(directory: &Path) -> Option<String> {
-    for ecosystem in ECOSYSTEMS {
-        let recognised = ecosystem
-            .markers
-            .iter()
-            .any(|marker| directory.join(marker).is_file());
-        if recognised {
-            return Some(ecosystem.install.to_string());
-        }
-    }
-
-    None
+    ECOSYSTEMS
+        .iter()
+        .find(|ecosystem| {
+            ecosystem
+                .markers
+                .iter()
+                .any(|marker| directory.join(marker).is_file())
+        })
+        .map(|ecosystem| ecosystem.install.to_string())
 }
 
 #[cfg(test)]
