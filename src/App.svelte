@@ -1712,6 +1712,7 @@
       onmove={relocator.move}
       onopen={openProject}
       onrename={relocator.rename}
+      onrenamefolder={relocator.renameFolder}
     />
   {:else if phase === Phase.onboarding}
     <Onboarding

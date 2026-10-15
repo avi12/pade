@@ -5,8 +5,9 @@
   import OwnedWorkspaceItems from "@/panels/picker/OwnedWorkspaceItems.svelte";
 
   // Trailing kebab + actions popover for one project row: reveal in Files /
-  // Terminal, and - for PADE-owned workspaces - the relabel (temp only) / rename /
-  // move / delete lifecycle. Opening in an editor is its own visible row button
+  // Terminal, renaming the folder (any project no other window holds), and - for
+  // PADE-owned workspaces - the relabel (temp only) / rename / move / delete
+  // lifecycle. Opening in an editor is its own visible row button
   // (OpenInEditorButton), so it isn't repeated here. Chrome comes from
   // picker/chrome.css.
   const { path, scope, lifecycle }: {
@@ -20,6 +21,9 @@
 
   // Stable, valid popover id/anchor per row.
   const identifier = $derived(`menu-${scope}-${path.replaceAll(/[^a-zA-Z0-9]/g, "-")}`);
+  const isOwned = $derived(lifecycle.isOwned(path));
+  const isFolderRenamable = $derived(lifecycle.canRenameFolder(path));
+  const hasWorkspaceActions = $derived(isOwned || isFolderRenamable);
 </script>
 
 <span class="menu-host">
@@ -41,9 +45,23 @@
         <Icon name="terminal" /><span class="menu-item-text">Open in Terminal</span>
       </button>
     </li>
-    {#if lifecycle.isOwned(path)}
+    {#if hasWorkspaceActions}
       <li class="menu-divider" role="separator"></li>
       <li class="menu-separator">Workspace</li>
+    {/if}
+    {#if isFolderRenamable}
+      <li>
+        <button
+          class="menu-item"
+          onclick={() => lifecycle.startRenameFolder(path)}
+          popovertarget={identifier}
+          popovertargetaction="hide"
+        >
+          <Icon name="folder" /><span class="menu-item-text">Rename folder…</span>
+        </button>
+      </li>
+    {/if}
+    {#if isOwned}
       <OwnedWorkspaceItems {lifecycle} menuId={identifier} {path} />
     {/if}
   </ul>

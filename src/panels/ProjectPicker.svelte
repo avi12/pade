@@ -1,6 +1,6 @@
 <script lang="ts">
   import BrandMark from "@/lib/BrandMark.svelte";
-  import { dirs, ide, workspace } from "@/lib/bridge";
+  import { dirs, ide, windows, workspace } from "@/lib/bridge";
   import { isTemporaryWorkspace, normalizePath, parentDirectory } from "@/lib/paths";
   import { updatePrefs } from "@/lib/prefs.svelte";
   import { settings } from "@/lib/settings.svelte";
@@ -14,6 +14,7 @@
     ProjectEntry,
     Settings
   } from "@/lib/types";
+  import type { Relocator } from "@/lib/workspace-relocate";
   import AgentsSection from "@/panels/picker/AgentsSection.svelte";
   import "@/panels/picker/chrome.css";
   import EditorsSection from "@/panels/picker/EditorsSection.svelte";
@@ -33,6 +34,7 @@
     onopen,
     onmove,
     onrename,
+    onrenamefolder,
     ondelete
   }: {
     agents: Agent[];
@@ -45,6 +47,8 @@
       from: string;
       newName: string;
     }) => Promise<string>;
+    /** Renames any project's folder where it stands, through the relocator. */
+    onrenamefolder: Relocator["renameFolder"];
     /** Deletes through the app's relocator: kills the sessions holding the
      *  folder as cwd (else the OS blocks the removal), then removes it. */
     ondelete: (path: string) => Promise<Settings>;
@@ -253,6 +257,8 @@
     onmove: target => onmove(target),
     onrename: target => onrename(target),
     ondelete: path => ondelete(path),
+    onrenamefolder: target => onrenamefolder(target),
+    openWindows: windows.list,
     // A rename/move/delete changes the project lists, not the installed editors -
     // so catch the lists up cheaply, without re-probing the machine for editors.
     refresh: refreshProjects
@@ -297,9 +303,18 @@
     unlisten = await dirs.onChange(rescanSoon);
   });
 
+  // Which projects other windows hold, kept live so their rows never offer a
+  // folder rename this window couldn't carry out.
+  let unlistenWindows: (() => void) | undefined;
+  onMount(async () => {
+    await lifecycle.loadOpenWindows();
+    unlistenWindows = await windows.onChanged(lifecycle.loadOpenWindows);
+  });
+
   onDestroy(() => {
     clearTimeout(rescan);
     unlisten?.();
+    unlistenWindows?.();
     // Let the folders go: nothing should hold a handle on them once the picker is
     // no longer on screen.
     dirs.watch([]);

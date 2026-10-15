@@ -7,9 +7,11 @@
 // confirmation dialog serves both.
 
 import { errorMessage } from "@/lib/errors";
+import { isOpenInAnotherWindow } from "@/lib/open-windows";
 import { baseName } from "@/lib/paths";
-import type { Settings } from "@/lib/types";
+import type { Settings, WindowInfo } from "@/lib/types";
 import { nameError, parseInput, ProjectName } from "@/lib/validate";
+import type { Relocator } from "@/lib/workspace-relocate";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 /** What the picker provides: the app-level move/rename flows (which handle the
@@ -27,6 +29,10 @@ export interface LifecycleHost {
   /** Delete the folder - via the app's relocator, so the sessions holding it as
    *  cwd are killed first and the removal isn't blocked by their lock. */
   ondelete: (path: string) => Promise<Settings>;
+  /** Rename any project's folder where it stands, via the app's relocator. */
+  onrenamefolder: Relocator["renameFolder"];
+  /** The open PADE windows, so a project another one holds isn't moved. */
+  openWindows: () => Promise<WindowInfo[]>;
   refresh: () => Promise<void>;
 }
 
@@ -39,6 +45,30 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
   let deleteTarget = $state<string | null>(null);
   let deleting = $state(false);
   let deleteError = $state<string | null>(null);
+  let renameFolderTarget = $state<string | null>(null);
+  let windowRows = $state<WindowInfo[]>([]);
+
+  // A failed read keeps the last-known windows; the next change event retries.
+  async function loadOpenWindows() {
+    const [listing] = await Promise.allSettled([host.openWindows()]);
+    if (listing.status === "fulfilled") {
+      windowRows = listing.value;
+    }
+  }
+
+  // Another window's agents hold its folder, and the picker can't stop them.
+  function canRenameFolder(path: string) {
+    return !isOpenInAnotherWindow({
+      windowRows,
+      path
+    });
+  }
+
+  async function renameFolder(target: Parameters<Relocator["renameFolder"]>[0]) {
+    const renamed = await host.onrenamefolder(target);
+    await host.refresh();
+    return renamed;
+  }
 
   function startRename(path: string) {
     renaming = path;
@@ -171,6 +201,19 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
     },
     startRelabel,
     finishRelabel,
+    /** The project awaiting a folder rename (null = no prompt). */
+    get renameFolderTarget() {
+      return renameFolderTarget;
+    },
+    startRenameFolder(path: string) {
+      renameFolderTarget = path;
+    },
+    finishRenameFolder() {
+      renameFolderTarget = null;
+    },
+    renameFolder,
+    canRenameFolder,
+    loadOpenWindows,
     get renameValue() {
       return renameValue;
     },
