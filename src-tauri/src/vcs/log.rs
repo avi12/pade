@@ -2,17 +2,16 @@
 
 use serde::Serialize;
 
-use super::{run_git, RS, US};
+use super::{
+    commit_header_format, run_git, CommitHeader, NumstatRow, FIELD_SEPARATOR, RECORD_SEPARATOR,
+};
 
 /// A recent commit for the Log view.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Commit {
-    id: String,
-    short: String,
-    summary: String,
-    author: String,
-    when: String,
+    #[serde(flatten)]
+    header: CommitHeader,
     /// Lines added across the commit (sum of `--numstat`).
     additions: u32,
     /// Lines deleted across the commit.
@@ -21,92 +20,102 @@ pub struct Commit {
     files: u32,
 }
 
+impl Commit {
+    /// Fold one `--numstat` row into this commit's totals. A binary row counts
+    /// the file but adds no lines.
+    fn add_row(&mut self, row: &NumstatRow<'_>) {
+        self.additions += row.additions;
+        self.deletions += row.deletions;
+        self.files += 1;
+    }
+}
+
 #[tauri::command]
 pub async fn vcs_log(cwd: String, limit: u32) -> Result<Vec<Commit>, String> {
-    // A record-start marker (RS) precedes each commit header so we can tell a
-    // header line apart from the `--numstat` rows that follow it. The header
-    // fields are US-separated as before.
-    let format = format!("{RS}%H{US}%h{US}%s{US}%an{US}%cr");
     let raw = run_git(
         &cwd,
         &[
             "log",
             &format!("-n{limit}"),
             "--numstat",
-            &format!("--pretty=format:{format}"),
+            &format!(
+                "--pretty=format:{RECORD_SEPARATOR}{}",
+                commit_header_format()
+            ),
         ],
     )?;
+    Ok(parse_log(&raw))
+}
 
+/// Parse `git log --numstat` output where each commit header starts with the
+/// record separator and the numstat rows that follow fold into it.
+fn parse_log(raw: &str) -> Vec<Commit> {
     let mut commits: Vec<Commit> = Vec::new();
     for line in raw.lines() {
-        if let Some(header) = line.strip_prefix(RS) {
-            let fields: Vec<&str> = header.split(US).collect();
-            let [id, short, summary, author, when] = fields.as_slice() else {
-                continue;
-            };
-            commits.push(Commit {
-                id: (*id).into(),
-                short: (*short).into(),
-                summary: (*summary).into(),
-                author: (*author).into(),
-                when: (*when).into(),
-                additions: 0,
-                deletions: 0,
-                files: 0,
-            });
+        if let Some(header_line) = line.strip_prefix(RECORD_SEPARATOR) {
+            let fields: Vec<&str> = header_line.split(FIELD_SEPARATOR).collect();
+            if let Some((header, [])) = CommitHeader::split_off(&fields) {
+                commits.push(Commit {
+                    header,
+                    additions: 0,
+                    deletions: 0,
+                    files: 0,
+                });
+            }
             continue;
         }
-        // A `--numstat` row: "<adds>\t<dels>\t<path>". Fold it into the current
-        // commit. Binary files show "-\t-\t<path>" - count the file, not lines.
         let Some(commit) = commits.last_mut() else {
             continue;
         };
-        let Some((additions, deletions)) = parse_numstat(line) else {
-            continue;
-        };
-        commit.additions += additions;
-        commit.deletions += deletions;
-        commit.files += 1;
-    }
-    Ok(commits)
-}
-
-/// Parse one `git --numstat` row into `(additions, deletions)`. A row is
-/// `<adds>\t<dels>\t<path>`; binary files use `-` for both counts (→ `(0, 0)`).
-/// Returns `None` for a line that isn't a numstat row (e.g. a blank separator).
-fn parse_numstat(line: &str) -> Option<(u32, u32)> {
-    let mut columns = line.splitn(3, '\t');
-    let additions = columns.next()?;
-    let deletions = columns.next()?;
-    // The third column (path) must exist for this to be a real numstat row.
-    columns.next()?;
-    let count = |value: &str| {
-        if value == "-" {
-            0
-        } else {
-            value.parse::<u32>().unwrap_or(0)
+        if let Some(row) = NumstatRow::parse(line) {
+            commit.add_row(&row);
         }
-    };
-    Some((count(additions), count(deletions)))
+    }
+    commits
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse_numstat;
+    use super::{parse_log, FIELD_SEPARATOR, RECORD_SEPARATOR};
 
-    #[test]
-    fn parses_a_plain_numstat_row() {
-        assert_eq!(parse_numstat("3\t2\tsrc/app.ts"), Some((3, 2)));
+    fn header(id: &str) -> String {
+        let fields = [id, "abc", "subject", "Avi", "2 days ago"];
+        format!(
+            "{RECORD_SEPARATOR}{}",
+            fields.join(&FIELD_SEPARATOR.to_string())
+        )
     }
 
     #[test]
-    fn counts_a_binary_row_as_zero_lines() {
-        assert_eq!(parse_numstat("-\t-\tassets/logo.png"), Some((0, 0)));
+    fn numstat_rows_fold_into_the_commit_above_them() {
+        let raw = format!(
+            "{}\n3\t2\tsrc/app.ts\n-\t-\tassets/logo.png\n\n{}\n1\t0\tREADME.md",
+            header("first"),
+            header("second")
+        );
+        let commits = parse_log(&raw);
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].header.id, "first");
+        assert_eq!(
+            (commits[0].additions, commits[0].deletions, commits[0].files),
+            (3, 2, 2)
+        );
+        assert_eq!(
+            (commits[1].additions, commits[1].deletions, commits[1].files),
+            (1, 0, 1)
+        );
     }
 
     #[test]
-    fn rejects_a_line_without_a_path_column() {
-        assert_eq!(parse_numstat("3\t2"), None);
-        assert_eq!(parse_numstat(""), None);
+    fn a_row_without_a_path_column_is_not_counted() {
+        let raw = format!("{}\n3\t2", header("only"));
+        let commits = parse_log(&raw);
+        assert_eq!(commits[0].files, 0);
+    }
+
+    #[test]
+    fn a_malformed_header_is_skipped_with_its_rows() {
+        let raw = format!("{RECORD_SEPARATOR}broken\n3\t2\tsrc/app.ts");
+        assert!(parse_log(&raw).is_empty());
     }
 }

@@ -22,14 +22,94 @@ pub(crate) mod restore;
 pub(crate) mod status;
 pub(crate) mod worktree;
 
-pub(crate) const US: char = '\u{1f}'; // field separator inside a record
-pub(crate) const RS: char = '\u{1e}'; // record separator - marks the start of a log entry
+use serde::Serialize;
+
+/// ASCII unit separator: splits the fields inside one `--format` record.
+const FIELD_SEPARATOR: char = '\u{1f}';
+/// ASCII record separator: marks the start of a log entry, so a header line
+/// reads apart from the `--numstat` rows that follow it.
+const RECORD_SEPARATOR: char = '\u{1e}';
+
+/// The remote a fresh clone names, and the fallback when a branch has none.
+const DEFAULT_REMOTE_NAME: &str = "origin";
+
+/// The symbolic ref git prints in place of a branch name on a detached
+/// checkout, and the name of a remote's default-branch pointer.
+const HEAD_REFERENCE: &str = "HEAD";
+
+/// The shortest abbreviated object id git prints, and the longest full one
+/// (SHA-256).
+const MIN_OBJECT_ID_LENGTH: usize = 4;
+const MAX_OBJECT_ID_LENGTH: usize = 64;
+
+/// The `--format` placeholders for the header every commit listing shows -
+/// full id, short id, subject, author, relative date - in [`CommitHeader`]'s
+/// field order. A listing appends its own extra fields after these.
+fn commit_header_format() -> String {
+    ["%H", "%h", "%s", "%an", "%cr"].join(&FIELD_SEPARATOR.to_string())
+}
+
+/// The header fields shared by the Log view, commit inspection and restore
+/// candidates. Flattened into each wire type, so their JSON stays flat.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CommitHeader {
+    id: String,
+    short: String,
+    summary: String,
+    author: String,
+    when: String,
+}
+
+impl CommitHeader {
+    /// Split a record printed with [`commit_header_format`] into the header
+    /// and whatever extra fields the listing appended after it.
+    fn split_off<'fields, 'text>(
+        fields: &'fields [&'text str],
+    ) -> Option<(Self, &'fields [&'text str])> {
+        let ([id, short, summary, author, when], rest) = fields.split_first_chunk()?;
+        let header = Self {
+            id: (*id).into(),
+            short: (*short).into(),
+            summary: (*summary).into(),
+            author: (*author).into(),
+            when: (*when).into(),
+        };
+        Some((header, rest))
+    }
+}
+
+/// One `git --numstat` row: `<additions>\t<deletions>\t<path>`. Binary files
+/// print `-` for both counts, which read as zero lines. The path column is
+/// empty for a `-z` rename, whose paths follow as their own fields.
+struct NumstatRow<'row> {
+    additions: u32,
+    deletions: u32,
+    is_binary: bool,
+    path: &'row str,
+}
+
+impl<'row> NumstatRow<'row> {
+    /// `None` for a line that isn't a numstat row (e.g. a blank separator).
+    fn parse(row: &'row str) -> Option<Self> {
+        let mut columns = row.splitn(3, '\t');
+        let additions = columns.next()?;
+        let deletions = columns.next()?;
+        let path = columns.next()?;
+        Some(Self {
+            additions: additions.parse().unwrap_or(0),
+            deletions: deletions.parse().unwrap_or(0),
+            is_binary: additions == "-" || deletions == "-",
+            path,
+        })
+    }
+}
 
 /// Disable every interactive credential path so a git command that reaches the
 /// network fails fast with a real error instead of hanging on an invisible
 /// terminal prompt or a credential-manager popup. The one authoritative home for
 /// this env pair - shared by [`run_git`] and the clone/probe sites.
-pub(crate) fn harden_git(command: &mut std::process::Command) -> &mut std::process::Command {
+fn harden_git(command: &mut std::process::Command) -> &mut std::process::Command {
     command
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GCM_INTERACTIVE", "never")
@@ -38,7 +118,7 @@ pub(crate) fn harden_git(command: &mut std::process::Command) -> &mut std::proce
 /// Run Git inside one explicitly selected workspace. A Tauri process can host
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.
-pub(crate) fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
+fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     let mut command = crate::util::command("git");
     command.args(args).current_dir(cwd);
     let output = harden_git(&mut command)
@@ -61,7 +141,7 @@ pub(crate) fn head_file_text(
 ) -> Option<String> {
     let relative = path.strip_prefix(cwd).ok()?;
     let relative = relative.to_string_lossy().replace('\\', "/");
-    let object = format!("HEAD:{relative}");
+    let object = format!("{HEAD_REFERENCE}:{relative}");
     let text = run_git(&cwd.to_string_lossy(), &["show", "--no-textconv", &object]).ok()?;
     let within_limit = u64::try_from(text.len()).ok()? <= max_bytes;
     (within_limit && !text.contains('\0')).then_some(text)
@@ -69,18 +149,19 @@ pub(crate) fn head_file_text(
 
 /// Accept only object ids Git produced for the UI. This prevents a renderer from
 /// turning a revision position into an option such as an external-diff switch.
-pub(crate) fn validate_object_id(object_id: &str) -> Result<&str, String> {
-    let valid_length = (4..=64).contains(&object_id.len());
-    if valid_length && object_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+fn validate_object_id(object_id: &str) -> Result<&str, String> {
+    let is_valid_length = (MIN_OBJECT_ID_LENGTH..=MAX_OBJECT_ID_LENGTH).contains(&object_id.len());
+    if is_valid_length && object_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Ok(object_id);
     }
     Err("invalid Git object id".into())
 }
 
-/// How a working-tree path changed, in the exact wire strings the frontend reads.
-/// One authoritative home for the status-kind literals.
-#[derive(Clone, Copy)]
-pub(crate) enum StatusKind {
+/// How a working-tree path changed. Serializes to the exact lowercase wire
+/// strings the frontend reads - the one authoritative home for those literals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum StatusKind {
     Created,
     Modified,
     Deleted,
@@ -93,30 +174,62 @@ impl StatusKind {
     /// `Modified`. Renames and copies carry a trailing similarity score (`R100`),
     /// so callers pass the leading letter. One authoritative home for the
     /// letter→kind mapping - shared by working-tree status and commit inspection.
-    pub(crate) fn from_git_letter(letter: char) -> StatusKind {
+    fn from_git_letter(letter: char) -> Self {
         match letter {
-            'A' => StatusKind::Created,
-            'D' => StatusKind::Deleted,
-            'R' | 'C' => StatusKind::Renamed,
-            _ => StatusKind::Modified,
+            'A' => Self::Created,
+            'D' => Self::Deleted,
+            'R' | 'C' => Self::Renamed,
+            _ => Self::Modified,
         }
     }
 
-    /// The serialized string for this kind - the only place the literals live.
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            StatusKind::Created => "created",
-            StatusKind::Modified => "modified",
-            StatusKind::Deleted => "deleted",
-            StatusKind::Renamed => "renamed",
-            StatusKind::Untracked => "untracked",
-        }
+    /// The change kind for a whole `--name-status` code such as `R100`.
+    fn from_status_code(code: &str) -> Self {
+        Self::from_git_letter(code.chars().next().unwrap_or(' '))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{head_file_text, run_git, validate_object_id};
+    use super::{head_file_text, run_git, validate_object_id, NumstatRow, StatusKind};
+
+    #[test]
+    fn parses_a_plain_numstat_row() {
+        let row = NumstatRow::parse("3\t2\tsrc/app.ts").expect("numstat row");
+        assert_eq!(
+            (row.additions, row.deletions, row.path),
+            (3, 2, "src/app.ts")
+        );
+        assert!(!row.is_binary);
+    }
+
+    #[test]
+    fn counts_a_binary_row_as_zero_lines() {
+        let row = NumstatRow::parse("-\t-\tassets/logo.png").expect("numstat row");
+        assert_eq!((row.additions, row.deletions), (0, 0));
+        assert!(row.is_binary);
+    }
+
+    #[test]
+    fn rejects_a_line_without_a_path_column() {
+        assert!(NumstatRow::parse("3\t2").is_none());
+        assert!(NumstatRow::parse("").is_none());
+    }
+
+    #[test]
+    fn status_kinds_serialize_to_the_lowercase_wire_strings() {
+        let kinds = [
+            StatusKind::Created,
+            StatusKind::Modified,
+            StatusKind::Deleted,
+            StatusKind::Renamed,
+            StatusKind::Untracked,
+        ];
+        assert_eq!(
+            serde_json::to_string(&kinds).expect("serialize kinds"),
+            r#"["created","modified","deleted","renamed","untracked"]"#
+        );
+    }
 
     #[test]
     fn object_ids_reject_options_and_non_hex_revisions() {

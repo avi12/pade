@@ -4,18 +4,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
-use super::{run_git, validate_object_id, US};
+use super::{commit_header_format, run_git, validate_object_id, CommitHeader, FIELD_SEPARATOR};
 
-/// A commit ranked against a natural-language restore query.
-/// Mirrors `Commit`'s wire shape (camelCase) plus a relevance `score`.
+/// A commit ranked against a natural-language restore query: the Log view's
+/// header fields plus a relevance `score`.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestoreCandidate {
-    id: String,
-    short: String,
-    summary: String,
-    author: String,
-    when: String,
+    #[serde(flatten)]
+    header: CommitHeader,
     score: f32,
 }
 
@@ -25,6 +22,11 @@ const TIME_HINT_BOOST: f32 = 0.5;
 
 /// Seconds in a day - the unit for relative time-hint windows.
 const DAY_SECONDS: u64 = 86_400;
+/// How far back "last week" reaches.
+const WEEK_DAYS: u64 = 7;
+
+/// The branch-name prefix a restored commit is checked out under.
+const RESTORE_BRANCH_PREFIX: &str = "pade/restore-";
 
 /// Current unix time in seconds (0 if the clock predates the epoch).
 fn now_unix() -> u64 {
@@ -78,16 +80,17 @@ fn time_hint_window(query: &str, now: u64) -> Option<TimeWindow> {
 
     let contains_yesterday = normalized_query.contains("yesterday");
     if contains_yesterday {
+        let one_day_ago = now.saturating_sub(DAY_SECONDS);
         return Some(TimeWindow {
-            start: now.saturating_sub(2 * DAY_SECONDS),
-            end: now.saturating_sub(DAY_SECONDS),
+            start: one_day_ago.saturating_sub(DAY_SECONDS),
+            end: one_day_ago,
         });
     }
 
     let contains_last_week = normalized_query.contains("last week");
     if contains_last_week {
         return Some(TimeWindow {
-            start: now.saturating_sub(7 * DAY_SECONDS),
+            start: now.saturating_sub(WEEK_DAYS * DAY_SECONDS),
             end: now,
         });
     }
@@ -99,17 +102,10 @@ fn time_hint_window(query: &str, now: u64) -> Option<TimeWindow> {
 /// Returns the number of days, or None when the phrase isn't present.
 fn parse_days_ago(query: &str) -> Option<u64> {
     let index = query.find("days ago").or_else(|| query.find("day ago"))?;
-    // Walk back over the digits immediately preceding the phrase.
     let head = query[..index].trim_end();
-    let digits: String = head
-        .chars()
-        .rev()
-        .take_while(char::is_ascii_digit)
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect();
-    digits.parse::<u64>().ok()
+    // ASCII digits are one byte each, so the digit count is also their byte length.
+    let digit_count = head.chars().rev().take_while(char::is_ascii_digit).count();
+    head[head.len() - digit_count..].parse::<u64>().ok()
 }
 
 /// Rank recent commits against a natural-language `query`.
@@ -125,70 +121,57 @@ pub async fn vcs_restore_candidates(
 ) -> Result<Vec<RestoreCandidate>, String> {
     let candidate_limit = limit.unwrap_or(DEFAULT_CANDIDATE_LIMIT);
     // %ct is the committer unix timestamp, used for time-hint scoring.
-    let format = format!("%H{US}%h{US}%s{US}%an{US}%cr{US}%ct");
-    let raw = run_git(
-        &cwd,
-        &[
-            "log",
-            &format!("-n{candidate_limit}"),
-            &format!("--pretty=format:{format}"),
-        ],
-    )?;
+    let format = format!(
+        "--pretty=format:{}{FIELD_SEPARATOR}%ct",
+        commit_header_format()
+    );
+    let raw = run_git(&cwd, &["log", &format!("-n{candidate_limit}"), &format])?;
 
     let query_tokens = tokenize(&query);
-    let now = now_unix();
-    let window = time_hint_window(&query, now);
+    let window = time_hint_window(&query, now_unix());
 
     let mut candidates: Vec<RestoreCandidate> = raw
         .lines()
         .filter_map(|line| {
-            let fields: Vec<&str> = line.split(US).collect();
-            let [id, short, summary, author, when, committed_at] = fields.as_slice() else {
+            let fields: Vec<&str> = line.split(FIELD_SEPARATOR).collect();
+            let (header, [committed_at]) = CommitHeader::split_off(&fields)? else {
                 return None;
             };
-
-            let subject = summary.to_lowercase();
-            let matched = query_tokens
-                .iter()
-                .filter(|token| subject.contains(token.as_str()))
-                .count();
-            // Token counts are tiny (a short query vs a commit subject), so the
-            // usize→f32 conversion can't actually lose precision here.
-            #[allow(clippy::cast_precision_loss)]
-            let mut score = if query_tokens.is_empty() {
-                0.0
-            } else {
-                matched as f32 / query_tokens.len() as f32
-            };
-
-            // Time-hint boost: reward commits committed inside the hinted window.
-            let in_time_window = window
+            let is_in_time_window = window
                 .as_ref()
                 .zip(committed_at.parse::<u64>().ok())
                 .is_some_and(|(window, timestamp)| window.contains(timestamp));
-            if in_time_window {
-                score += TIME_HINT_BOOST;
-            }
-
-            Some(RestoreCandidate {
-                id: (*id).into(),
-                short: (*short).into(),
-                summary: (*summary).into(),
-                author: (*author).into(),
-                when: (*when).into(),
-                score,
-            })
+            let time_boost = if is_in_time_window {
+                TIME_HINT_BOOST
+            } else {
+                0.0
+            };
+            let score = subject_match_ratio(&header.summary, &query_tokens) + time_boost;
+            Some(RestoreCandidate { header, score })
         })
         .collect();
 
     // Stable sort by score desc; equal scores keep git-log (recency) order.
-    candidates.sort_by(|left, right| {
-        right
-            .score
-            .partial_cmp(&left.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    candidates.sort_by(|left, right| right.score.total_cmp(&left.score));
     Ok(candidates)
+}
+
+/// The fraction of `query_tokens` found as substrings of `subject`, or zero
+/// for an empty query.
+fn subject_match_ratio(subject: &str, query_tokens: &[String]) -> f32 {
+    if query_tokens.is_empty() {
+        return 0.0;
+    }
+    let subject = subject.to_lowercase();
+    let matched = query_tokens
+        .iter()
+        .filter(|token| subject.contains(token.as_str()))
+        .count();
+    // Token counts are tiny (a short query vs a commit subject), so the
+    // usize to f32 conversion can't actually lose precision here.
+    #[allow(clippy::cast_precision_loss)]
+    let ratio = matched as f32 / query_tokens.len() as f32;
+    ratio
 }
 
 /// Restore a commit non-destructively by switching to a dedicated branch.
@@ -201,7 +184,7 @@ pub async fn vcs_restore_checkout(cwd: String, sha: String) -> Result<String, St
     let short = run_git(&cwd, &["rev-parse", "--short", "--end-of-options", sha])?
         .trim()
         .to_string();
-    let branch = format!("pade/restore-{short}");
+    let branch = format!("{RESTORE_BRANCH_PREFIX}{short}");
 
     // Does the restore branch already exist? Then just switch to it.
     let branch_exists = run_git(&cwd, &["rev-parse", "--verify", "--quiet", &branch]).is_ok();
