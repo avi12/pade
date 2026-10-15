@@ -159,7 +159,7 @@ function resetTimestamp(iso: string | null | undefined) {
 
 // ISO reset time → a live "in …" countdown (largest two units), or "". Consumers
 // phrase it: the spotlight prefixes "resets", each limit row shows it as-is.
-function resetCountdown({ iso, now }: {
+export function resetCountdown({ iso, now }: {
   iso: string | null | undefined;
   now: number;
 }) {

@@ -228,6 +228,18 @@ writes.
   has room, the **auto-handoff flow** takes over when it doesn't. The API-error
   auto-retry never claims a usage-limit stop, even one worded as an API error.
   Opt-out via `prefs.autoResume` (default on).
+- R1.6a.5 ✅ **Usage pacing** (`lib/stores/usage/usagePacing.svelte.ts`) - a
+  working agent that spends a usage window far ahead of its reset is paused, so
+  the account isn't locked out for hours at the end of the window. Each paced
+  window (the 5-hour session, the weekly cap) has a budget line that starts at
+  60% when the window opens and climbs to 100% at its reset; an agent at or past
+  it is asked to finish its current step and stop, and gets **"continue"** once
+  the line has climbed 2 points past its usage - so a heavy run slows into
+  bursts, and one far ahead stops outright. Within 10 minutes of a reset a
+  window pauses no one (95% with 9 minutes left runs on), while the weekly
+  window is paced in its own right. Usage credits carrying the account turn
+  pacing off. A user who restarts a paused agent by hand is not paused again
+  until it is back under the line. Opt-out via `prefs.autoPace` (default on).
 
 ### 1.7 Config respect (✅ read, 🚧 edit)
 - R1.7.1 ✅ Read/surface agent-native project config: `CLAUDE.md`, `AGENTS.md`,

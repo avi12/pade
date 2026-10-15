@@ -333,7 +333,7 @@ function waitingNote({ session, resetAt }: {
 
 /** The account the session's agent bills against. An IPC failure reads as "the
  *  account can't say", which leaves the decision to the reset clock. */
-async function readAccount(session: AgentSession) {
+export async function readAccount(session: AgentSession) {
   try {
     return await sendMessage(Command.usageAccountAgent, {
       agent: session.agent.id,

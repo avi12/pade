@@ -47,6 +47,7 @@
   import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/tasks/runners.svelte";
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/ui/toast.svelte";
+  import { createUsagePacing, dropUsagePacing } from "@/lib/stores/usage/usagePacing.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usage/usageResume.svelte";
   import {
     armNewProjectDetection,
@@ -1047,6 +1048,7 @@
     dropSessionLabel(id);
     dropNaming(id);
     dropUsageLimit(id);
+    dropUsagePacing(id);
     dropApiError(id);
     dropChoiceAttention(id);
   }
@@ -1500,6 +1502,18 @@
   $effect(() => usageResume.check());
   onDestroy(() => usageResume.dispose());
 
+  // ── Usage pacing ───────────────────────────────────────────────────────────
+  // A working agent far ahead of its usage window's budget line is asked to
+  // pause, and continued once the line catches up; near a reset it runs on
+  // (lib/stores/usage/usagePacing).
+  const usagePacing = createUsagePacing({
+    sessions: () => sessions,
+    isOptedOut: () => settings.prefs.autoPace === false,
+    isHandingOff: id => autoHandoff.isHandingOff(id)
+  });
+  $effect(() => usagePacing.check());
+  onDestroy(() => usagePacing.dispose());
+
   // ── API-error auto-retry ───────────────────────────────────────────────────
   // A session stopped by a transient API error (overloaded, a 5xx, a dropped
   // connection) is nudged with "continue" every 30s, handing off through the
@@ -1879,10 +1893,10 @@
 
       <RunnerDock activeSessionId={activeId} />
 
-      {#if autoHandoff.note || usageResume.note || apiErrorRetry.note}
+      {#if autoHandoff.note || usageResume.note || apiErrorRetry.note || usagePacing.note}
         <output class="handoff-note">
           <span class="handoff-dot"></span>
-          {autoHandoff.note || usageResume.note || apiErrorRetry.note}
+          {autoHandoff.note || usageResume.note || apiErrorRetry.note || usagePacing.note}
         </output>
       {/if}
 
