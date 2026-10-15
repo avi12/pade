@@ -1,18 +1,27 @@
-// Usage pacing: a working agent that burns through a usage window well before it
+// Usage pacing: a working agent that would spend a usage window long before it
 // resets is paused, so the account doesn't sit locked out for hours at the end of
-// a window. Each paced window (the 5-hour session, the weekly cap) gets a budget
-// line that starts at PACE_FLOOR_PERCENTAGE when the window opens and climbs to
-// 100% at its reset. An agent at or past the line is asked to stop at its next
-// safe point, and PADE remembers when it stopped it - per window, across a reload.
-// Once the line climbs past its usage the session is ready, and prefs.usagePacing
-// says what happens: `continue` picks it straight back up (a heavy run slows into
-// bursts), `ask` leaves the call to the user - and, left alone, it continues on
-// its own as the window is about to reset (RESET_GRACE_MS before it). Near a reset a window never pauses anyone:
-// it is about to come back anyway. Weekly is paced the same way, so a near-reset
-// session window only carries on while the weekly one has room. Usage credits
+// a window. No window length is assumed - a vendor can shorten its session window
+// any day - so each paced window (the session, the weekly cap) is judged from two
+// things only: when it resets, and how fast it is being spent while its agents
+// work (the burn rate, measured from the account readings each minute). What is
+// left at that pace is the runway:
+//
+//     runway = (100% - used) / burn rate
+//     time left = reset - now - RESET_GRACE_MS
+//
+// Past PACE_FLOOR_PERCENTAGE used, a working agent whose runway covers less than
+// PAUSE_RUNWAY_FRACTION of the time left is asked to stop at its next safe point,
+// and PADE remembers when it stopped it - per window, across a reload. It is
+// ready once the runway covers all the time left: at its old pace it can then
+// work through to the reset without running out. prefs.usagePacing says what
+// happens then: `continue` picks it straight back up, `ask` leaves the call to
+// the user - and, left alone, it continues on its own as the window is about to
+// reset. Near a reset (RESET_GRACE_MS) a window never pauses anyone: it is about
+// to come back anyway. Weekly is paced the same way, so a near-reset session
+// window only carries on while the weekly one has room. Usage credits
 // that carry work past a spent window turn pacing off for that account - the user
 // chose to pay to keep going. A user who restarts a paused agent by hand wins:
-// that session is not paused again until it falls back under the line. `off`
+// that session is not paused again until it is back on pace. `off`
 // paces nothing. This module owns the policy and the per-session phase; the
 // app shell supplies sessions through `PacingHost`, drives the scan from a
 // component `$effect`, and shows the pause with its Continue button.
@@ -32,120 +41,148 @@ import { readStoredJson, writeStoredJson } from "@/lib/util/stored-json";
 import { SvelteMap } from "svelte/reactivity";
 import { z } from "zod";
 
-/** Where every paced window's budget line starts, the moment the window opens. */
+/** Below this much of a window spent, no one is paused however fast it burns. */
 export const PACE_FLOOR_PERCENTAGE = 60;
 const FULL_PERCENTAGE = 100;
 /** This close to its reset a window paces no one - it will be back shortly - and
  *  a session it paused continues on its own. */
 export const RESET_GRACE_MS = 10 * 60_000;
-/** A paused session is ready only once the line is this far above its usage, so
- *  continuing doesn't pause it again a minute later. */
-const RESUME_MARGIN_PERCENTAGE = 2;
+/** A working session pauses once its runway covers less than this share of the
+ *  time left; a paused one is ready once it covers all of it. The gap keeps a
+ *  continued session from pausing again a minute later. */
+const PAUSE_RUNWAY_FRACTION = 0.8;
 /** How often working and paused sessions are checked against their account. The
  *  backend caches that read for ~3 minutes, so the endpoint is never hit faster. */
 const POLL_MS = 60_000;
+/** Two readings further apart than this span idle time, not burn - skipped. */
+const MAXIMUM_SAMPLE_GAP_MS = 5 * 60_000;
+/** A burn rate needs at least this much working time behind it… */
+const MINIMUM_RATE_SPAN_MS = 10 * 60_000;
+/** …and only this much recent working time counts toward it. */
+const RATE_HISTORY_MS = 45 * 60_000;
 
-const HOUR_MS = 60 * 60_000;
-const DAY_MS = 24 * HOUR_MS;
-
-/** The windows paced, with how long each runs and what the prompt calls it. A
- *  window of another kind (a per-model cap, extra usage) is never paced. */
-const PACED_WINDOWS: Partial<Record<UsageWindowKind, {
-  lengthMs: number;
-  name: string;
-}>> = {
-  [UsageWindowKind.enum.session]: {
-    lengthMs: 5 * HOUR_MS,
-    name: "5-hour"
-  },
-  [UsageWindowKind.enum.weekly]: {
-    lengthMs: 7 * DAY_MS,
-    name: "weekly"
-  }
+/** The windows paced, with what the prompt calls each. A window of another kind
+ *  (a per-model cap, extra usage) is never paced. No window's length is assumed:
+ *  the reset time and the measured burn are all the formula needs, so a 5-hour
+ *  session that becomes a 3-hour one tomorrow is paced right without a change. */
+const PACED_WINDOWS: Partial<Record<UsageWindowKind, string>> = {
+  [UsageWindowKind.enum.session]: "session",
+  [UsageWindowKind.enum.weekly]: "weekly"
 };
+
+/** One reading of a window's usage, taken while one of its agents was working. */
+export interface UsageSample {
+  at: number;
+  utilization: number;
+  resetsAt: string | null | undefined;
+}
+
+/** How fast a window is being spent while its agents work, in percent per
+ *  millisecond: the rise across consecutive readings of the same window, over
+ *  the working time between them. Null until enough working time is behind it. */
+export function burnRate(samples: readonly UsageSample[]) {
+  let spent = 0;
+  let span = 0;
+  for (let i = 1; i < samples.length; i += 1) {
+    const previous = samples[i - 1];
+    const current = samples[i];
+    const gap = current.at - previous.at;
+    const isSameWindow = current.resetsAt === previous.resetsAt;
+    const isWorkingStretch = gap > 0 && gap <= MAXIMUM_SAMPLE_GAP_MS;
+    const rise = current.utilization - previous.utilization;
+    if (!isSameWindow || !isWorkingStretch || rise < 0) {
+      continue;
+    }
+
+    spent += rise;
+    span += gap;
+  }
+
+  return span >= MINIMUM_RATE_SPAN_MS ? spent / span : null;
+}
 
 /** Where a paced session is: asked to stop and still finishing its step, stopped
  *  and waiting for room, stopped with room again (the user's call), or restarted
- *  by the user while over the line. */
+ *  by the user while over pace. */
 const PacePhase = z.enum(["pausing", "paused", "ready", "overridden"]);
 type PacePhase = z.infer<typeof PacePhase>;
 
-/** The usage a window may have spent by `now`: its budget line, or null when the
- *  window isn't paced - an unpaced kind, an unknown reset, or a reset within
- *  RESET_GRACE_MS. */
-export function paceLine({ window, now }: {
-  window: Pick<UsageWindow, "kind" | "resetsAt">;
+/** Where one window stands: how long what's left lasts at the measured burn
+ *  (its runway), how long until it may run free (the time left before the grace
+ *  period), and whether it is over pace. Null for a window that isn't paced - an
+ *  unpaced kind, an unknown reset, a reset within the grace, usage under the
+ *  floor, or no burn measured yet. `isPaused` holds a paused session until its
+ *  runway reaches all the way to the grace period. */
+function windowPace({ window, rate, now, isPaused }: {
+  window: UsageWindow;
+  /** Percent per millisecond, from `burnRate`. */
+  rate: number | null;
   now: number;
+  isPaused: boolean;
 }) {
-  const paced = PACED_WINDOWS[window.kind];
-  const timeLeft = usageResetTime(window.resetsAt) - now;
-  const isPaced = paced !== undefined && Number.isFinite(timeLeft) && timeLeft > RESET_GRACE_MS;
+  const resetAt = usageResetTime(window.resetsAt);
+  const freeAt = resetAt - RESET_GRACE_MS;
+  const isPaced = PACED_WINDOWS[window.kind] !== undefined
+    && Number.isFinite(resetAt)
+    && freeAt > now
+    && window.utilization >= PACE_FLOOR_PERCENTAGE
+    && rate !== null
+    && rate > 0;
   if (!isPaced) {
     return null;
   }
 
-  const elapsedFraction = Math.min(1, Math.max(0, 1 - timeLeft / paced.lengthMs));
-  return PACE_FLOOR_PERCENTAGE + (FULL_PERCENTAGE - PACE_FLOOR_PERCENTAGE) * elapsedFraction;
+  const runway = (FULL_PERCENTAGE - window.utilization) / rate;
+  const needed = (freeAt - now) * (isPaused ? 1 : PAUSE_RUNWAY_FRACTION);
+  return {
+    isOverPace: runway < needed,
+    /** When the runway first reaches the grace period - the session may go on
+     *  then and still not run out before the reset. */
+    readyAt: Math.max(now, freeAt - runway),
+    continueAt: freeAt
+  };
 }
 
-/** When a window's line next reaches `utilization` plus the resume margin - or
- *  its grace period begins, whichever comes first. */
-function readyTime({ window, now }: {
-  window: UsageWindow;
-  now: number;
-}) {
-  const paced = PACED_WINDOWS[window.kind];
-  const resetAt = usageResetTime(window.resetsAt);
-  if (paced === undefined) {
-    return now;
-  }
-
-  const target = window.utilization + RESUME_MARGIN_PERCENTAGE;
-  const targetFraction = (target - PACE_FLOOR_PERCENTAGE) / (FULL_PERCENTAGE - PACE_FLOOR_PERCENTAGE);
-  const lineReachesTarget = resetAt - paced.lengthMs * (1 - targetFraction);
-  return Math.max(now, Math.min(lineReachesTarget, resetAt - RESET_GRACE_MS));
-}
-
-/** Judge an account's pace. `isPaused` adds the resume margin, so a paused
- *  session stays paused until the line has pulled clearly ahead. The window that
- *  holds the session longest is the one reported: when the line lets it go
+/** Judge an account's pace from each window's measured burn (`rateOf`). The
+ *  window that holds the session longest is the one reported: when it may go on
  *  (`readyAt`), and when its reset is close enough to continue on its own
  *  (`continueAt`). */
-export function assessPace({ account, now, isPaused }: {
+export function assessPace({ account, now, isPaused, rateOf }: {
   account: AccountUsage | null;
   now: number;
   isPaused: boolean;
+  rateOf: (window: UsageWindow) => number | null;
 }) {
   const areCreditsCarrying = account?.credits === CreditsState.enum.available;
   if (!account || areCreditsCarrying) {
     return null;
   }
 
-  const margin = isPaused ? RESUME_MARGIN_PERCENTAGE : 0;
   let binding: {
     window: UsageWindow;
+    rate: number;
     readyAt: number;
     continueAt: number;
   } | null = null;
   for (const window of account.windows) {
-    const line = paceLine({
+    const rate = rateOf(window);
+    const pace = windowPace({
       window,
-      now
+      rate,
+      now,
+      isPaused
     });
-    const isOverLine = line !== null && window.utilization + margin >= line;
-    if (!isOverLine) {
+    const isHolding = pace !== null && rate !== null && pace.isOverPace;
+    if (!isHolding) {
       continue;
     }
 
-    const readyAt = readyTime({
-      window,
-      now
-    });
-    if (binding === null || readyAt > binding.readyAt) {
+    if (binding === null || pace.readyAt > binding.readyAt) {
       binding = {
         window,
-        readyAt,
-        continueAt: usageResetTime(window.resetsAt) - RESET_GRACE_MS
+        rate,
+        readyAt: pace.readyAt,
+        continueAt: pace.continueAt
       };
     }
   }
@@ -154,7 +191,7 @@ export function assessPace({ account, now, isPaused }: {
 }
 
 function windowName(kind: UsageWindowKind) {
-  return PACED_WINDOWS[kind]?.name ?? kind;
+  return PACED_WINDOWS[kind] ?? kind;
 }
 
 /** The request that stops a working agent at its next safe point. */
@@ -182,7 +219,11 @@ const PaceState = z.object({
   continueAt: z.number(),
   /** The user chose to have this session continue the moment it has room,
    *  whatever the pacing mode says. */
-  isContinuingWhenReady: z.boolean().default(false)
+  isContinuingWhenReady: z.boolean().default(false),
+  /** Each holding window's burn rate when it last held the session, by window
+   *  key - a paused session burns nothing, so its readiness is judged against
+   *  the pace it was working at. */
+  rates: z.record(z.string(), z.number()).default({})
 });
 type PaceState = z.infer<typeof PaceState>;
 
@@ -220,6 +261,52 @@ function forgetPace(id: string) {
 /** Forget a session's pacing when it ends. */
 export function dropUsagePacing(id: string) {
   forgetPace(id);
+}
+
+/** Recent working readings per account window, for its burn rate. An account is
+ *  shared by every agent billing it, so their work adds up in one history. */
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
+const samples = new Map<string, UsageSample[]>();
+
+function sampleKey({ accountKey, window }: {
+  accountKey: string;
+  window: UsageWindow;
+}) {
+  return `${accountKey}:${window.key}`;
+}
+
+function recordSamples({ accountKey, account, now }: {
+  accountKey: string;
+  account: AccountUsage;
+  now: number;
+}) {
+  for (const window of account.windows) {
+    const key = sampleKey({
+      accountKey,
+      window
+    });
+    const recent = (samples.get(key) ?? []).filter(sample => sample.at >= now - RATE_HISTORY_MS);
+    recent.push({
+      at: now,
+      utilization: window.utilization,
+      resetsAt: window.resetsAt
+    });
+    samples.set(key, recent);
+  }
+}
+
+function liveRate({ accountKey, window }: {
+  accountKey: string;
+  window: UsageWindow;
+}) {
+  return burnRate(
+    samples.get(
+      sampleKey({
+        accountKey,
+        window
+      })
+    ) ?? []
+  );
 }
 
 const CLOCK = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
@@ -294,9 +381,10 @@ export function createUsagePacing(host: PacingHost) {
     return agentReportsBusy(id) || sessionStatus(id) === SessionStatus.enum.working;
   }
 
-  async function pause({ session, window, readyAt, continueAt }: {
+  async function pause({ session, window, rate, readyAt, continueAt }: {
     session: AgentSession;
     window: UsageWindow;
+    rate: number;
     readyAt: number;
     continueAt: number;
   }) {
@@ -310,7 +398,10 @@ export function createUsagePacing(host: PacingHost) {
         pausedAt: now,
         readyAt,
         continueAt,
-        isContinuingWhenReady: false
+        isContinuingWhenReady: false,
+        rates: {
+          [window.key]: rate
+        }
       }
     });
     await submitPastedPrompt({
@@ -338,7 +429,7 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  // Back under the line. A session still finishing its step is left to stop
+  // Back on pace. A session still finishing its step is left to stop
   // first; one the user took over is released; a stopped one continues at once
   // or waits for the user, as the pacing mode says.
   async function release({ id, state }: {
@@ -373,11 +464,12 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  // Still over the line: note the step finishing, or the user taking over.
-  function hold({ id, state, window, readyAt, continueAt }: {
+  // Still over pace: note the step finishing, or the user taking over.
+  function hold({ id, state, window, rate, readyAt, continueAt }: {
     id: string;
     state: PaceState;
     window: UsageWindow;
+    rate: number;
     readyAt: number;
     continueAt: number;
   }) {
@@ -397,20 +489,30 @@ export function createUsagePacing(host: PacingHost) {
         windowKind: window.kind,
         utilization: window.utilization,
         readyAt,
-        continueAt
+        continueAt,
+        rates: {
+          ...state.rates,
+          [window.key]: rate
+        }
       }
     });
   }
 
-  // A working session not yet paced: pause it if it is ahead of the line.
-  async function paceWorking({ session, account }: {
+  // A working session not yet paced: pause it if it would run out before the
+  // reset at the pace it is burning.
+  async function paceWorking({ session, account, accountKey }: {
     session: AgentSession;
     account: AccountUsage | null;
+    accountKey: string;
   }) {
     const binding = assessPace({
       account,
       now: Date.now(),
-      isPaused: false
+      isPaused: false,
+      rateOf: window => liveRate({
+        accountKey,
+        window
+      })
     });
     const shouldPause = binding !== null && isWorking(session.id);
     if (shouldPause) {
@@ -435,12 +537,13 @@ export function createUsagePacing(host: PacingHost) {
     await resume(id);
   }
 
-  // A paced session: continue it at the reset, or move it along as the line
-  // catches up. An unreadable account leaves it as it is.
-  async function advancePaced({ id, state, account }: {
+  // A paced session: continue it at the reset, or move it along as its runway
+  // reaches the reset. An unreadable account leaves it as it is.
+  async function advancePaced({ id, state, account, accountKey }: {
     id: string;
     state: PaceState;
     account: AccountUsage | null;
+    accountKey: string;
   }) {
     const now = Date.now();
     if (now >= state.continueAt) {
@@ -458,7 +561,11 @@ export function createUsagePacing(host: PacingHost) {
     const binding = assessPace({
       account,
       now,
-      isPaused: true
+      isPaused: true,
+      rateOf: window => state.rates[window.key] ?? liveRate({
+        accountKey,
+        window
+      })
     });
     if (binding === null) {
       await release({
@@ -475,9 +582,10 @@ export function createUsagePacing(host: PacingHost) {
     });
   }
 
-  async function paceSession({ session, account }: {
+  async function paceSession({ session, account, accountKey }: {
     session: AgentSession;
     account: AccountUsage | null;
+    accountKey: string;
   }) {
     const id = session.id;
     const state = paced.get(id);
@@ -490,7 +598,8 @@ export function createUsagePacing(host: PacingHost) {
     if (state === undefined) {
       await paceWorking({
         session,
-        account
+        account,
+        accountKey
       });
       return;
     }
@@ -498,7 +607,30 @@ export function createUsagePacing(host: PacingHost) {
     await advancePaced({
       id,
       state,
-      account
+      account,
+      accountKey
+    });
+  }
+
+  // Take one reading per account per scan, and only while one of its sessions
+  // works - the burn rate measures work, not idle time.
+  function sampleOnce({ session, account, accountKey, sampled, now }: {
+    session: AgentSession;
+    account: AccountUsage | null;
+    accountKey: string;
+    sampled: Set<string>;
+    now: number;
+  }) {
+    const shouldSample = account !== null && isWorking(session.id) && !sampled.has(accountKey);
+    if (!shouldSample) {
+      return;
+    }
+
+    sampled.add(accountKey);
+    recordSamples({
+      accountKey,
+      account,
+      now
     });
   }
 
@@ -516,21 +648,34 @@ export function createUsagePacing(host: PacingHost) {
 
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's reads, never rendered
     const accounts = new Map<string, Promise<AccountUsage | null>>();
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- one scan's bookkeeping, never rendered
+    const sampled = new Set<string>();
+    const now = Date.now();
     for (const session of sessions) {
       const isWorthALook = paced.has(session.id) || isWorking(session.id);
       if (!isWorthALook) {
         continue;
       }
 
-      let account = accounts.get(session.agent.id);
-      if (account === undefined) {
-        account = readAccount(session);
-        accounts.set(session.agent.id, account);
+      let pending = accounts.get(session.agent.id);
+      if (pending === undefined) {
+        pending = readAccount(session);
+        accounts.set(session.agent.id, pending);
       }
 
+      const account = await pending;
+      const accountKey = account?.account ?? session.agent.id;
+      sampleOnce({
+        session,
+        account,
+        accountKey,
+        sampled,
+        now
+      });
       await paceSession({
         session,
-        account: await account
+        account,
+        accountKey
       });
     }
   }

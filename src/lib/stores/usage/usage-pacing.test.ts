@@ -1,11 +1,12 @@
 import {
   assessPace,
+  burnRate,
   PACE_FLOOR_PERCENTAGE,
-  paceLine,
   pacingNote,
   pauseRequest,
   RESET_GRACE_MS
 } from "@/lib/stores/usage/usagePacing.svelte";
+import type { UsageSample } from "@/lib/stores/usage/usagePacing.svelte";
 import { CreditsState, UsageWindowKind } from "@/lib/types";
 import type { UsageWindow } from "@/lib/types";
 import { describe, expect, it } from "vitest";
@@ -14,6 +15,11 @@ const NOW = new Date(2026, 9, 15, 12, 0, 0, 0).getTime();
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+
+/** A burn rate in the formula's units, from percent per hour. */
+function perHour(percentage: number) {
+  return percentage / HOUR_MS;
+}
 
 function sessionWindow({ utilization, resetsIn }: {
   utilization: number;
@@ -50,95 +56,181 @@ function account(windows: UsageWindow[]) {
   };
 }
 
-describe("paceLine", () => {
-  it("starts at the floor when the window opens and climbs toward its reset", () => {
+/** One reading a minute, rising `rise` percent each. */
+function readings({ minutes, rise, resetsAt = "reset" }: {
+  minutes: number;
+  rise: number;
+  resetsAt?: string;
+}) {
+  return Array.from({ length: minutes + 1 }, (_, i) => ({
+    at: NOW + i * MINUTE_MS,
+    utilization: 60 + i * rise,
+    resetsAt
+  })) satisfies UsageSample[];
+}
+
+describe("burnRate", () => {
+  function percentPerHour(samples: UsageSample[]) {
+    const rate = burnRate(samples);
+    return rate === null ? null : rate * HOUR_MS;
+  }
+
+  it("measures how fast a window rises while its agents work", () => {
     expect(
-      paceLine({
-        window: sessionWindow({
-          utilization: 0,
-          resetsIn: 5 * HOUR_MS
-        }),
-        now: NOW
-      })
-    ).toBe(PACE_FLOOR_PERCENTAGE);
-    expect(
-      paceLine({
-        window: sessionWindow({
-          utilization: 0,
-          resetsIn: 2.5 * HOUR_MS
-        }),
-        now: NOW
-      })
-    ).toBe(80);
+      percentPerHour(
+        readings({
+          minutes: 12,
+          rise: 0.5
+        })
+      )
+    ).toBeCloseTo(30);
   });
 
-  it("paces no one within the grace before a reset", () => {
+  it("waits for ten minutes of working time before naming a rate", () => {
     expect(
-      paceLine({
-        window: sessionWindow({
-          utilization: 95,
-          resetsIn: RESET_GRACE_MS
-        }),
-        now: NOW
-      })
+      burnRate(
+        readings({
+          minutes: 9,
+          rise: 0.5
+        })
+      )
     ).toBeNull();
   });
 
-  it("leaves per-model caps and unknown resets alone", () => {
-    expect(
-      paceLine({
-        window: {
-          kind: UsageWindowKind.enum.model,
-          resetsAt: new Date(NOW + HOUR_MS).toISOString()
-        },
-        now: NOW
-      })
-    ).toBeNull();
-    expect(
-      paceLine({
-        window: {
-          kind: UsageWindowKind.enum.session,
-          resetsAt: null
-        },
-        now: NOW
-      })
-    ).toBeNull();
+  it("leaves idle gaps and a new window out of the measure", () => {
+    const working = readings({
+      minutes: 10,
+      rise: 0.5
+    });
+    const afterIdleHour = working.map(sample => ({
+      ...sample,
+      at: sample.at + HOUR_MS,
+      utilization: sample.utilization + 5
+    }));
+    const lastWorking = afterIdleHour.at(-1) ?? working[0];
+    const nextWindow = {
+      at: lastWorking.at + MINUTE_MS,
+      utilization: 1,
+      resetsAt: "next"
+    };
+    expect(percentPerHour([...working, ...afterIdleHour, nextWindow])).toBeCloseTo(30);
   });
 });
 
 describe("assessPace", () => {
-  it("pauses a session far ahead of its line with hours to go", () => {
-    const pace = assessPace({
-      account: account([sessionWindow({
-        utilization: 65,
-        resetsIn: 4.5 * HOUR_MS
-      })]),
+  function assess({ windows, rate, isPaused = false }: {
+    windows: UsageWindow[];
+    rate: number | null;
+    isPaused?: boolean;
+  }) {
+    return assessPace({
+      account: account(windows),
       now: NOW,
-      isPaused: false
+      isPaused,
+      rateOf: () => rate
     });
+  }
+
+  it("pauses a session that would run out hours before its reset", () => {
+    const pace = assess({
+      windows: [sessionWindow({
+        utilization: 70,
+        resetsIn: 4 * HOUR_MS
+      })],
+      rate: perHour(30)
+    });
+    // 30% left at 30% an hour lasts one hour; the window runs free in 3h 50m.
     expect(pace?.window.kind).toBe(UsageWindowKind.enum.session);
-    // Half an hour in the line stands at 64%; it reaches 65% plus the resume
-    // margin 0.175 of the way through the window, 52.5 minutes in.
-    expect(pace?.readyAt).toBe(NOW + 22.5 * MINUTE_MS);
-    expect(pace?.continueAt).toBe(NOW + 4.5 * HOUR_MS - RESET_GRACE_MS);
+    expect(pace?.readyAt).toBe(NOW + 4 * HOUR_MS - RESET_GRACE_MS - HOUR_MS);
+    expect(pace?.continueAt).toBe(NOW + 4 * HOUR_MS - RESET_GRACE_MS);
   });
 
-  it("lets a session run on at 95% when the window resets in ten minutes", () => {
+  it("needs no window length - the same burn with the reset an hour off runs on", () => {
     expect(
-      assessPace({
-        account: account([sessionWindow({
-          utilization: 95,
-          resetsIn: 9 * MINUTE_MS
-        })]),
-        now: NOW,
-        isPaused: false
+      assess({
+        windows: [sessionWindow({
+          utilization: 70,
+          resetsIn: 70 * MINUTE_MS
+        })],
+        rate: perHour(30)
       })
     ).toBeNull();
   });
 
-  it("still pauses near a session reset when the weekly window is ahead of its line", () => {
-    const pace = assessPace({
-      account: account([
+  it("lets a session run on at 95% when the window resets in ten minutes", () => {
+    expect(
+      assess({
+        windows: [sessionWindow({
+          utilization: 95,
+          resetsIn: 9 * MINUTE_MS
+        })],
+        rate: perHour(60)
+      })
+    ).toBeNull();
+  });
+
+  it("stops a session about to run dry half an hour out, until it can finish the stretch", () => {
+    const pace = assess({
+      windows: [sessionWindow({
+        utilization: 95,
+        resetsIn: 30 * MINUTE_MS
+      })],
+      rate: perHour(30)
+    });
+    // 5% at 30% an hour lasts ten minutes - enough once ten minutes stand
+    // between it and the grace period.
+    expect(pace?.readyAt).toBe(NOW + 10 * MINUTE_MS);
+  });
+
+  it("never pauses below the floor, however fast it burns", () => {
+    expect(
+      assess({
+        windows: [sessionWindow({
+          utilization: PACE_FLOOR_PERCENTAGE - 1,
+          resetsIn: 4 * HOUR_MS
+        })],
+        rate: perHour(90)
+      })
+    ).toBeNull();
+  });
+
+  it("never pauses before a burn rate is known", () => {
+    expect(
+      assess({
+        windows: [sessionWindow({
+          utilization: 90,
+          resetsIn: 4 * HOUR_MS
+        })],
+        rate: null
+      })
+    ).toBeNull();
+  });
+
+  it("keeps a paused session paused until its runway reaches the reset", () => {
+    const windows = [sessionWindow({
+      utilization: 70,
+      resetsIn: HOUR_MS + RESET_GRACE_MS
+    })];
+    // Runway 54 minutes against an hour: on pace to start, short to finish.
+    const rate = 30 / (54 * MINUTE_MS);
+    expect(
+      assess({
+        windows,
+        rate
+      })
+    ).toBeNull();
+    expect(
+      assess({
+        windows,
+        rate,
+        isPaused: true
+      })
+    ).not.toBeNull();
+  });
+
+  it("still pauses near a session reset when the weekly window would run dry first", () => {
+    const pace = assess({
+      windows: [
         sessionWindow({
           utilization: 95,
           resetsIn: 5 * MINUTE_MS
@@ -147,32 +239,10 @@ describe("assessPace", () => {
           utilization: 90,
           resetsIn: 3 * DAY_MS
         })
-      ]),
-      now: NOW,
-      isPaused: false
+      ],
+      rate: perHour(2)
     });
     expect(pace?.window.kind).toBe(UsageWindowKind.enum.weekly);
-  });
-
-  it("keeps a paused session paused until the line clears the resume margin", () => {
-    const window = sessionWindow({
-      utilization: 79,
-      resetsIn: 2.5 * HOUR_MS
-    });
-    expect(
-      assessPace({
-        account: account([window]),
-        now: NOW,
-        isPaused: false
-      })
-    ).toBeNull();
-    expect(
-      assessPace({
-        account: account([window]),
-        now: NOW,
-        isPaused: true
-      })
-    ).not.toBeNull();
   });
 
   it("never paces an account whose usage credits carry the work", () => {
@@ -186,7 +256,8 @@ describe("assessPace", () => {
           credits: CreditsState.enum.available
         },
         now: NOW,
-        isPaused: false
+        isPaused: false,
+        rateOf: () => perHour(60)
       })
     ).toBeNull();
   });
@@ -196,7 +267,8 @@ describe("assessPace", () => {
       assessPace({
         account: null,
         now: NOW,
-        isPaused: false
+        isPaused: false,
+        rateOf: () => perHour(60)
       })
     ).toBeNull();
   });
@@ -212,7 +284,7 @@ describe("pauseRequest", () => {
       now: NOW
     });
     expect(text).toContain("72%");
-    expect(text).toContain("5-hour");
+    expect(text).toContain("session usage");
     expect(text).toContain("in 3h 0m");
   });
 });
@@ -226,7 +298,6 @@ describe("pacingNote", () => {
     readyAt: NOW + HOUR_MS,
     continueAt: NOW + 2 * HOUR_MS
   } as const;
-
   const clock = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 
   it("says when the agent was paused and that it continues just before the reset", () => {
@@ -262,6 +333,6 @@ describe("pacingNote", () => {
         isContinuingWhenReady: false,
         now: NOW
       })
-    ).toContain("has room in its 5-hour usage (72%) again");
+    ).toContain("has room in its session usage (72%) again");
   });
 });

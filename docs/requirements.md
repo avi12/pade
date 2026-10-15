@@ -231,11 +231,14 @@ writes.
 - R1.6a.5 ✅ **Usage pacing** (`lib/stores/usage/usagePacing.svelte.ts`) - a
   working agent that spends a usage window far ahead of its reset is paused, so
   the account isn't locked out for hours at the end of the window. Each paced
-  window (the 5-hour session, the weekly cap) has a budget line that starts at
-  60% when the window opens and climbs to 100% at its reset; an agent at or past
-  it is asked to finish its current step and stop. PADE remembers when it paused
-  each session (per window, across a reload) and says so in a note. Once the
-  line has climbed 2 points past its usage, the Config panel's **Usage pacing**
+  window (the session, the weekly cap) is judged without assuming its length -
+  a vendor can shorten its session window any day - from when it resets and how
+  fast it is spent while its agents work (the burn rate, from the account
+  readings each minute). Runway = what's left / burn rate. Past 60% used, a
+  working agent whose runway covers less than 80% of the time to 10 minutes
+  before the reset is asked to finish its current step and stop. PADE remembers
+  when it paused each session (per window, across a reload) and says so in a
+  note. Once the runway at its old pace covers all that time, the Config panel's **Usage pacing**
   setting (`prefs.usagePacing`) decides: **Ask me** (default) waits for the
   user, **Continue** types "continue" at once (a heavy run slows into bursts),
   **Off** paces nothing. Either way a paused session continues on its own 10
