@@ -498,8 +498,8 @@ fn recreate_link(link: &Path, target: &str, is_target_directory: bool) {
     let result = if is_target_directory {
         // pnpm uses junctions for dir links (no admin). `mklink /J` is the only
         // no-admin way to make one; the std lib has no junction constructor.
-        crate::util::command("cmd")
-            .args(["/C", "mklink", "/J"])
+        crate::util::command(crate::util::COMMAND_SHELL)
+            .args([crate::util::COMMAND_SHELL_RUN_FLAG, "mklink", "/J"])
             .arg(link)
             .arg(target)
             .output()
@@ -602,22 +602,14 @@ fn reconcile_package_manager(new_directory: &Path) {
     }
 }
 
-/// Spawn `command` through the platform shell in `directory`, detached: on Windows
-/// `cmd /C <command>` so the `.cmd` shim resolves (mirroring `runner`/`ide`),
-/// else the command directly. Stdio is nulled so the background install doesn't
-/// tie its pipes to us; the handle is dropped so we neither wait nor kill it.
+/// Spawn `command` through the platform shell in `directory` (see
+/// [`crate::util::shell_command`]), detached. Stdio is nulled so the background
+/// install doesn't tie its pipes to us; the handle is dropped so we neither wait
+/// nor kill it.
 fn spawn_install(directory: &Path, command: &str) {
     use std::process::Stdio;
 
-    let mut process = if cfg!(windows) {
-        let mut command_process = crate::util::command("cmd");
-        command_process.args(["/C", command]);
-        command_process
-    } else {
-        let mut command_process = crate::util::command("sh");
-        command_process.args(["-c", command]);
-        command_process
-    };
+    let mut process = crate::util::shell_command(command);
     process
         .current_dir(directory)
         .stdin(Stdio::null())

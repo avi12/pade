@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -23,7 +23,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 use crate::util::{
-    now_milliseconds, owner_access, OwnerAccess, MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES,
+    now_milliseconds, owner_access, shell_command, OwnerAccess, MAXIMUM_PATH_BYTES,
+    MAXIMUM_SESSION_ID_BYTES,
 };
 
 const MAXIMUM_RUNNERS_PER_WINDOW: usize = 32;
@@ -147,23 +148,6 @@ struct RunnerExit {
     code: Option<i32>,
 }
 
-/// Build the platform shell invocation for a command string, mirroring how
-/// `ide::ide_open` reaches launchers: `cmd /C <command>` on Windows, else
-/// `sh -c <command>` so shell syntax (pipes, `&&`, `$VAR`) works either way.
-fn shell_command(command: &str) -> Command {
-    let (shell, run_flag) = if cfg!(windows) {
-        ("cmd", "/C")
-    } else {
-        ("sh", "-c")
-    };
-    let mut process = crate::util::command(shell);
-    process
-        .args([run_flag, command])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    process
-}
-
 /// Arguments for [`pump_stream`], bundled so the reader thread takes one param.
 struct PumpRequest<R: BufRead> {
     app: AppHandle,
@@ -245,6 +229,7 @@ pub async fn runner_start(
     }
 
     let mut process = shell_command(&command);
+    process.stdout(Stdio::piped()).stderr(Stdio::piped());
     let directory = cwd
         .clone()
         .map(std::path::PathBuf::from)

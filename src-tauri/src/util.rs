@@ -82,6 +82,22 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     command
 }
 
+/// The platform shell that runs a command line, and the flag that hands it one:
+/// `cmd /C` on Windows, so a `.cmd` shim (pnpm, code, idea) resolves the way a
+/// terminal would, and `sh -c` elsewhere, so shell syntax (pipes, `&&`, `$VAR`)
+/// works either way.
+pub(crate) const COMMAND_SHELL: &str = if cfg!(windows) { "cmd" } else { "sh" };
+pub(crate) const COMMAND_SHELL_RUN_FLAG: &str = if cfg!(windows) { "/C" } else { "-c" };
+
+/// A windowless [`command`] that runs `command_line` through the platform
+/// shell ([`COMMAND_SHELL`]). The caller decides the streams and working
+/// directory.
+pub fn shell_command(command_line: &str) -> Command {
+    let mut process = command(COMMAND_SHELL);
+    process.args([COMMAND_SHELL_RUN_FLAG, command_line]);
+    process
+}
+
 /// How often [`exits_successfully_within`] re-checks a child it is waiting on. Matches the
 /// runner's exit-poll cadence: prompt enough for an interactive check, cheap
 /// enough to leave the child undisturbed.

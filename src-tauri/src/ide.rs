@@ -1598,10 +1598,10 @@ fn spawn_launcher(command: &str, args: &[String]) -> Result<(), String> {
     let is_path = command.contains('/') || command.contains('\\');
     let spawn = if cfg!(windows) && !is_path {
         let mut shell_args = Vec::with_capacity(args.len() + 2);
-        shell_args.push("/C".to_owned());
+        shell_args.push(crate::util::COMMAND_SHELL_RUN_FLAG.to_owned());
         shell_args.push(command.to_owned());
         shell_args.extend_from_slice(args);
-        crate::util::spawn_detached("cmd", &shell_args)
+        crate::util::spawn_detached(crate::util::COMMAND_SHELL, &shell_args)
     } else {
         crate::util::spawn_detached(command, args)
     };
