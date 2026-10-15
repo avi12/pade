@@ -9,8 +9,10 @@ use super::{run_git, StatusKind};
 const UNTRACKED_LETTER: char = '?';
 /// The letter for "no change on this side" in a porcelain status pair.
 const UNCHANGED_LETTER: char = ' ';
-/// The letter that marks a rename, whose old path follows as the next `-z` field.
+/// The letters that mark a rename and a copy - the two records whose original
+/// path follows as the next `-z` field.
 const RENAMED_LETTER: char = 'R';
+const COPIED_LETTER: char = 'C';
 /// Where the path starts in a porcelain record: after `XY` and one space.
 const PATH_OFFSET: usize = 3;
 
@@ -41,7 +43,8 @@ pub async fn vcs_status(cwd: String) -> Result<Vec<StatusEntry>, String> {
 }
 
 /// Parse `git status --porcelain=v1 -z`: each record is `XY <path>`, and a
-/// rename record is followed by the old path in the next field, which is dropped.
+/// rename or copy record is followed by its original path in the next field,
+/// which is dropped.
 fn parse_status(raw: &str) -> Vec<StatusEntry> {
     let mut entries = Vec::new();
     let mut records = raw.split('\0');
@@ -55,8 +58,10 @@ fn parse_status(raw: &str) -> Vec<StatusEntry> {
             continue;
         };
 
-        let is_rename = index == RENAMED_LETTER || worktree == RENAMED_LETTER;
-        if is_rename {
+        let has_original_path = [index, worktree]
+            .iter()
+            .any(|letter| matches!(*letter, RENAMED_LETTER | COPIED_LETTER));
+        if has_original_path {
             records.next();
         }
 
@@ -118,6 +123,15 @@ mod tests {
         assert_eq!(paths, ["src/app.ts", "src/new.ts", "notes.md"]);
         assert_eq!(entries[1].kind, StatusKind::Renamed);
         assert!(entries[1].staged);
+    }
+
+    /// A copy record carries its source path as the next field too; reading
+    /// that field as a record of its own invented a bogus entry.
+    #[test]
+    fn a_copy_record_drops_the_original_path_field() {
+        let entries = parse_status("C  src/copy.ts\0src/original.ts\0 M src/app.ts\0");
+        let paths: Vec<&str> = entries.iter().map(|entry| entry.path.as_str()).collect();
+        assert_eq!(paths, ["src/copy.ts", "src/app.ts"]);
     }
 
     #[test]
