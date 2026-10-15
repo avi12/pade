@@ -86,7 +86,7 @@
       return {
         tone: "warning",
         icon: "folder",
-        text: "Already a root folder."
+        text: "Already a root folder"
       };
     }
 
@@ -102,7 +102,7 @@
       return {
         tone: "critical",
         icon: "alert",
-        text: "That path is a file, not a folder."
+        text: "That path is a file, not a folder"
       };
     }
 
@@ -110,7 +110,7 @@
       return {
         tone: "ok",
         icon: "check",
-        text: "Folder exists - ready to add."
+        text: "Folder exists - ready to add"
       };
     }
 
@@ -118,14 +118,14 @@
       return {
         tone: "primary",
         icon: "folderPlus",
-        text: "Folder doesn’t exist - PADE will create it."
+        text: "Folder doesn’t exist - PADE will create it"
       };
     }
 
     return {
       tone: "critical",
       icon: "alert",
-      text: "That location doesn’t exist - enter a full folder path."
+      text: "That location doesn’t exist - enter a full folder path"
     };
   });
 
@@ -241,7 +241,7 @@
             <RowMenu {lifecycle} path={project.path} scope="root" />
           </li>
         {:else}
-          <li class="none">No projects found in this folder.</li>
+          <li class="none">No projects found in this folder</li>
         {/each}
       </ul>
     </div>

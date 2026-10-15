@@ -129,7 +129,7 @@
   {:else if searching}
     <p class="hint">Searching your history…</p>
   {:else if restoreQuery.trim() && !restoreDone && !restoreError}
-    <p class="hint">No matching version found - try describing it differently.</p>
+    <p class="hint">No matching version found - try describing it differently</p>
   {/if}
 </section>
 

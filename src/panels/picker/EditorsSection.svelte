@@ -149,7 +149,7 @@
           </button>
         </li>
       {:else}
-        <li class="none editor-empty">No editors detected.</li>
+        <li class="none editor-empty">No editors detected</li>
       {/each}
     </ul>
   </span>
@@ -280,7 +280,7 @@
           if (path === null) {
             status = {
               kind: StatusKind.Error,
-              text: "Enter the full path to an editor executable."
+              text: "Enter the full path to an editor executable"
             };
             return;
           }

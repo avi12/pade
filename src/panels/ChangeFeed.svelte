@@ -778,7 +778,7 @@
               showToast(
                 errorHeadline({
                   error,
-                  fallback: "Sync failed."
+                  fallback: "Sync failed"
                 })
               );
             } finally {
@@ -987,9 +987,9 @@
                           <img alt={baseName(event.path)} loading="lazy" src={imageUrl} />
                         </div>
                       {:else if isErrored}
-                        <p class="state">Couldn't load the image.</p>
+                        <p class="state">Couldn't load the image</p>
                       {:else}
-                        <p class="state">No image preview available.</p>
+                        <p class="state">No image preview available</p>
                       {/if}
                     {:else if isVideo}
                       {@const video = videoCache.get(event.id)}
@@ -1000,12 +1000,12 @@
                           <video autoplay controls loop muted playsinline src={video.dataUrl}></video>
                         </div>
                       {:else if video?.kind === FeedVideoKind.enum.noTranscoder}
-                        <p class="state">Install ffmpeg to preview videos.</p>
+                        <p class="state">Install ffmpeg to preview videos</p>
                       {:else if videoCache.has(event.id)}
                         {#if isErrored}
-                          <p class="state">Couldn't load the video.</p>
+                          <p class="state">Couldn't load the video</p>
                         {:else}
-                          <p class="state">No video preview available.</p>
+                          <p class="state">No video preview available</p>
                         {/if}
                       {:else}
                         <p class="state">Transcoding preview…</p>
@@ -1027,18 +1027,18 @@
                         ></iframe>
                       {:else if previewDocCache.has(event.id)}
                         {#if isErrored}
-                          <p class="state">Couldn't render the preview.</p>
+                          <p class="state">Couldn't render the preview</p>
                         {:else}
-                          <p class="state">No preview available.</p>
+                          <p class="state">No preview available</p>
                         {/if}
                       {:else}
                         <p class="state">Rendering preview…</p>
                       {/if}
                     {:else if !hasPreview}
                       {#if isErrored}
-                        <p class="state">Couldn't load a preview.</p>
+                        <p class="state">Couldn't load a preview</p>
                       {:else}
-                        <p class="state">No preview available.</p>
+                        <p class="state">No preview available</p>
                       {/if}
                     {:else}
                       <div

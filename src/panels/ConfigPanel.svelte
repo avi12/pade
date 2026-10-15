@@ -330,7 +330,7 @@
         <span class="field-text">
           <span class="field-label">Name tabs with AI</span>
           <span class="field-hint">
-            Each tab is renamed from what its agent is doing, refreshed while it works.
+            Each tab is renamed from what its agent is doing, refreshed while it works
           </span>
         </span>
         <div class="segmented naming-scope" aria-label="Name tabs with AI, in this project" role="group">
@@ -377,7 +377,7 @@
           </span>
           <span class="field-text">
             <span class="field-label">Software rendering</span>
-            <span class="field-hint">Frees the GPU for games. Applies after restart.</span>
+            <span class="field-hint">Frees the GPU for games. Applies after restart</span>
           </span>
         </label>
         <button class="restart" onclick={async () => await os.restart()} type="button">Restart PADE</button>
@@ -415,7 +415,7 @@
           <span class="field-hint">Adds the open project and its language icon</span>
         </span>
       </label>
-      <p class="field-hint">Requires the Discord desktop app running on this computer.</p>
+      <p class="field-hint">Requires the Discord desktop app running on this computer</p>
     </section>
 
     {#if files.length}
@@ -446,7 +446,7 @@
             vars={fileVars}
           /></pre>
       </div>
-      <p class="note">Read-only in the MVP - edits will write back to this same file.</p>
+      <p class="note">Read-only in the MVP - edits will write back to this same file</p>
     </section>
   </div>
 </div>

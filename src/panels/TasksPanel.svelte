@@ -44,7 +44,7 @@
 
 <div class="tasks">
   {#if error}
-    <p class="empty">Could not read project tasks.</p>
+    <p class="empty">Could not read project tasks</p>
   {:else if groups.length === 0}
     <div class="empty">
       <p>No runnable tasks here. They appear as soon as the project carries one of these:</p>

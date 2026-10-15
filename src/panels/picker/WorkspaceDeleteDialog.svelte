@@ -24,12 +24,12 @@
   title="Delete this workspace?"
 >
   <div class="delete-body">
-    <p>The folder and everything inside it is removed from disk. This can’t be undone.</p>
+    <p>The folder and everything inside it is removed from disk. This can’t be undone</p>
     <p class="target">
       <span class="target-name">{displayName(path, labels)}</span>
       <code>{path}</code>
     </p>
-    <p class="tip">Hold <kbd>Shift</kbd> when clicking Delete to skip this next time.</p>
+    <p class="tip">Hold <kbd>Shift</kbd> when clicking Delete to skip this next time</p>
   </div>
 </ConfirmDialog>
 

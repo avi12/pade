@@ -262,7 +262,7 @@
   const localSettled = $derived(trimmedLocal.length > 0 && localProbe.path === trimmedLocal);
   const localIsDirectory = $derived(localSettled && localProbe.result.isDir);
   const localError = $derived(
-    localSettled && !localProbe.result.isDir ? "That folder doesn’t exist." : null
+    localSettled && !localProbe.result.isDir ? "That folder doesn’t exist" : null
   );
 
   // ── Clone - git clone a repository ─────────────────────────────────────────
@@ -584,11 +584,11 @@
               >{createNameError}</output>
             {:else if createTargetIsFile}
               <output class="field-error" in:expandRow out:collapseRow>
-                That name is taken by a file in this root.
+                That name is taken by a file in this root
               </output>
             {:else if createTargetExists}
               <output class="field-error" in:expandRow out:collapseRow>
-                This folder already exists in this root.
+                This folder already exists in this root
               </output>
             {/if}
           </div>
@@ -701,7 +701,7 @@
                 <span class="warning-icon" aria-hidden="true"><Icon name="alert" size={16} /></span>
                 <strong>Git isn’t installed</strong>
               </p>
-              <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check.</p>
+              <p class="hint">PADE needs Git to clone a repository. Install it, then press Re-check</p>
               <div class="actions">
                 <button class="go" onclick={() => os.openUrl("https://git-scm.com/downloads")} type="button">
                   Install Git…
@@ -744,7 +744,7 @@
                   });
                   onopen({ path });
                 } catch (error) {
-                  cloneError = typeof error === "string" ? error : "Clone failed.";
+                  cloneError = typeof error === "string" ? error : "Clone failed";
                 } finally {
                   cloning = false;
                 }
@@ -763,7 +763,7 @@
                 {#if remoteChecking}
                   <output class="probe-note">Checking the repository…</output>
                 {:else if remoteUnreachable}
-                  <output class="field-error">Can’t reach that repository - check the URL or your access.</output>
+                  <output class="field-error">Can’t reach that repository - check the URL or your access</output>
                 {/if}
               </div>
 
@@ -797,7 +797,7 @@
                 <div class="warning-card credentials">
                   <p class="warning-header">
                     <span class="warning-icon" aria-hidden="true"><Icon name="alert" size={16} /></span>
-                    <span>No SSH key set up for this host - sign in to clone over HTTPS instead.</span>
+                    <span>No SSH key set up for this host - sign in to clone over HTTPS instead</span>
                   </p>
                   <div class="new-project-field">
                     <label class="new-project-label" for="clone-user">Email or username</label>

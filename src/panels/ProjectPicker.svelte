@@ -93,7 +93,7 @@
       const added = settings.prefs.addedEditors?.find(editor => editor.path === path.trim());
       return { label: added?.label ?? "Editor" };
     } catch (error) {
-      return { error: typeof error === "string" ? error : "Couldn’t add that editor." };
+      return { error: typeof error === "string" ? error : "Couldn’t add that editor" };
     }
   }
   // Re-probe the machine for installed editors (the Editors "Reload" button). The
@@ -327,7 +327,7 @@
       <h1>Open a project</h1>
       <p class="lede">
         Pick up where you left off, drop into a throwaway workspace, or point
-        PADE at your code.
+        PADE at your code
       </p>
     </header>
 

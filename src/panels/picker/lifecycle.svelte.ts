@@ -156,7 +156,7 @@ export function createWorkspaceLifecycle(host: LifecycleHost) {
       deleteTarget = path;
       deleteError = errorMessage({
         error,
-        fallback: "Couldn’t delete that workspace."
+        fallback: "Couldn’t delete that workspace"
       });
     } finally {
       deleting = false;

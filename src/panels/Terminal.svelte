@@ -1074,7 +1074,7 @@
     try {
       await clipboard.writeText(terminal.getSelection());
     } catch {
-      showToast("Couldn't copy the terminal selection.");
+      showToast("Couldn't copy the terminal selection");
     }
   }
 
@@ -1084,7 +1084,7 @@
   async function openTerminalLink(uri: string) {
     const destination = terminalLinkDestination(uri);
     if (!destination) {
-      showToast("Couldn't open that link.");
+      showToast("Couldn't open that link");
       return;
     }
 
@@ -1095,7 +1095,7 @@
         await os.openUrl(destination.value);
       }
     } catch {
-      showToast("Couldn't open that link.");
+      showToast("Couldn't open that link");
     }
   }
 
@@ -1498,7 +1498,7 @@
           terminal.paste(text);
         }
       } catch {
-        showToast("Couldn't read the clipboard.");
+        showToast("Couldn't read the clipboard");
       }
     }
 

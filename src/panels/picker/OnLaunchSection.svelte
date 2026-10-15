@@ -113,7 +113,7 @@
 
   {@render toggleRow(autoName, onautoname, "Auto-name temp workspaces once the agent starts working")}
   {@render toggleRow(aiNaming, onainaming, "Name session tabs with AI, in every project")}
-  <p class="scope-hint">A single project can opt in or out of this in its Config panel.</p>
+  <p class="scope-hint">A single project can opt in or out of this in its Config panel</p>
   {#if isWindows && ctxMenuOn !== null}
     {@render toggleRow(ctxMenuOn, setContextMenu, "Add “Open in PADE” to the folder right-click menu")}
     {#if contextMenuError}

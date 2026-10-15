@@ -89,7 +89,7 @@
 
 <div class="version-control">
   {#if error}
-    <p class="empty">Not a Git repository, or git is unavailable.</p>
+    <p class="empty">Not a Git repository, or git is unavailable</p>
   {:else}
     <div class="scroll">
       <RestoreSection {project} />

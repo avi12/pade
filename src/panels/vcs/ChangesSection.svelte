@@ -77,7 +77,7 @@
 {/if}
 
 {#if !entries.length}
-  <p class="empty">Working tree clean.</p>
+  <p class="empty">Working tree clean</p>
 {/if}
 
 {#if selected}
