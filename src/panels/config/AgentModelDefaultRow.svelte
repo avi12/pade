@@ -7,6 +7,7 @@
   import EffortPicker from "@/lib/model/EffortPicker.svelte";
   import { modelOption, modelOptions } from "@/lib/stores/model/modelOptions.svelte";
   import type { Agent, ModelChoice } from "@/lib/types";
+  import Select from "@/lib/ui/Select.svelte";
 
   const { agent, chosen, onsave }: {
     agent: Agent;
@@ -17,7 +18,16 @@
 
   const AGENT_DEFAULT = "";
 
-  const options = $derived(modelOptions(agent.command));
+  const modelChoices = $derived([
+    {
+      value: AGENT_DEFAULT,
+      label: "Its own default"
+    },
+    ...modelOptions(agent.command).map(option => ({
+      value: option.id,
+      label: option.name
+    }))
+  ]);
   const selectedModel = $derived(chosen?.model ?? AGENT_DEFAULT);
   const chosenOption = $derived(
     modelOption({
@@ -34,20 +44,15 @@
 <li class="agent-default">
   <label class="agent-model" for={selectId}>
     <span class="agent-name"><Icon name={agentIconName(agent.id)} size={14} />{agent.label}</span>
-    <select
+    <Select
       id={selectId}
-      onchange={async e => {
-        const model = e.currentTarget.value;
+      onchange={async model => {
         const isAgentDefault = model === AGENT_DEFAULT;
         await onsave(isAgentDefault ? undefined : { model });
       }}
+      options={modelChoices}
       value={selectedModel}
-    >
-      <option value={AGENT_DEFAULT}>Its own default</option>
-      {#each options as option (option.id)}
-        <option value={option.id}>{option.name}</option>
-      {/each}
-    </select>
+    />
   </label>
   {#if efforts.length > 0}
     <EffortPicker
@@ -80,60 +85,6 @@
       align-items: center;
       font-weight: 600;
       font-size: 13px;
-    }
-
-    /* A customizable select, so its open list wears the theme too - the native
-       one draws a plain system list. One width for every row, so the pickers
-       line up down the card. */
-    select {
-      appearance: base-select;
-      flex: none;
-      inline-size: min(60%, 180px);
-      padding-block: 5px;
-      padding-inline: 10px;
-      border: 1px solid var(--outline);
-      border-radius: var(--radius-small);
-      background: var(--surface-2);
-      color: var(--on-surface);
-      font: inherit;
-      font-size: 12px;
-      cursor: pointer;
-      transition: border-color 140ms var(--ease);
-
-      &:hover {
-        border-color: var(--primary);
-      }
-
-      &::picker-icon {
-        color: var(--on-surface-variant);
-      }
-
-      &::picker(select) {
-        appearance: base-select;
-        padding: 4px;
-        border: 1px solid var(--outline);
-        border-radius: var(--radius-small);
-        background: var(--surface-3);
-        color: var(--on-surface);
-        box-shadow: 0 10px 30px var(--shadow-color);
-      }
-    }
-
-    option {
-      padding-block: 5px;
-      padding-inline: 8px;
-      border-radius: var(--radius-small);
-      font-size: 12px;
-
-      &:hover,
-      &:focus-visible {
-        background: var(--surface-2);
-      }
-
-      &:checked {
-        background: var(--primary-container);
-        color: var(--on-primary-container);
-      }
     }
   }
 </style>
