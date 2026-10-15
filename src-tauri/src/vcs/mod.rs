@@ -115,6 +115,15 @@ fn harden_git(command: &mut std::process::Command) -> &mut std::process::Command
         .env("GCM_INTERACTIVE", "never")
 }
 
+/// A bare `git -C <directory>` command, for callers outside `vcs` that read
+/// raw output or exit status rather than [`run_git`]'s string result. `-C`
+/// scopes it to that directory, never PADE's process cwd.
+pub(crate) fn git_in(directory: &std::path::Path) -> std::process::Command {
+    let mut command = crate::util::command("git");
+    command.arg("-C").arg(directory);
+    command
+}
+
 /// Run Git inside one explicitly selected workspace. A Tauri process can host
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.

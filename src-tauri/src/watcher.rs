@@ -17,6 +17,8 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
+use crate::vcs::git_in;
+
 static CHANGE_EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// How long after one event for a path its next one is dropped: editors emit a
@@ -533,14 +535,6 @@ fn is_git_work_tree(root: &Path) -> bool {
         return false;
     };
     output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true"
-}
-
-/// A `git -C <root>` command: every git query here runs against the watched
-/// project, never PADE's process cwd.
-fn git_in(root: &Path) -> std::process::Command {
-    let mut command = crate::util::command("git");
-    command.arg("-C").arg(root);
-    command
 }
 
 /// Whether the watch root's ignore policy excludes `path` from the Change Feed.

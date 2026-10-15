@@ -11,6 +11,7 @@ use std::process::Stdio;
 use serde::Serialize;
 
 use crate::util::is_on_path;
+use crate::vcs::git_in;
 
 /// The source-language families PADE can match against an editor's capabilities.
 /// The string identifier crosses the IPC and settings boundaries; this enum is
@@ -602,9 +603,7 @@ struct GitRepository {
 }
 
 fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
-    let root_output = crate::util::command("git")
-        .arg("-C")
-        .arg(cwd)
+    let root_output = git_in(cwd)
         .args(["rev-parse", "--show-toplevel"])
         .output()
         .ok()?;
@@ -615,9 +614,7 @@ fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
     if root.as_os_str().is_empty() {
         return None;
     }
-    let files_output = crate::util::command("git")
-        .arg("-C")
-        .arg(cwd)
+    let files_output = git_in(cwd)
         .args(["ls-files", "--cached", "--full-name", "-z"])
         .output()
         .ok()?;
@@ -639,12 +636,10 @@ fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
 /// files and Git's path-matching semantics. The fallback map is empty if Git
 /// cannot evaluate the attributes; the tracked-file census remains usable.
 fn git_linguist_attributes(
-    repository: &GitRepository,
+    repository_root: &std::path::Path,
     paths: &[String],
 ) -> BTreeMap<String, LinguistAttributes> {
-    let Ok(mut child) = crate::util::command("git")
-        .arg("-C")
-        .arg(&repository.root)
+    let Ok(mut child) = git_in(repository_root)
         .args(["check-attr", "-z", "--stdin"])
         .args(LINGUIST_ATTRIBUTES)
         .stdin(Stdio::piped())
@@ -740,16 +735,15 @@ fn census_walk(
 /// way so a huge tree can't stall a suggestion.
 fn source_profile(cwd: &std::path::Path) -> SourceProfile {
     let mut profile = SourceProfile::default();
-    if let Some(repository) = git_repository(cwd) {
-        let paths: Vec<String> = repository
-            .tracked_paths
-            .iter()
-            .take(CENSUS_MAXIMUM_FILES)
-            .cloned()
-            .collect();
-        let attributes = git_linguist_attributes(&repository, &paths);
+    if let Some(GitRepository {
+        root,
+        tracked_paths: mut paths,
+    }) = git_repository(cwd)
+    {
+        paths.truncate(CENSUS_MAXIMUM_FILES);
+        let attributes = git_linguist_attributes(&root, &paths);
         for path in &paths {
-            let absolute_path = repository.root.join(path);
+            let absolute_path = root.join(path);
             if let Some(file) = source_file_evidence(
                 &absolute_path,
                 attributes
