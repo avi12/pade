@@ -33,31 +33,10 @@
   // Surfaced when registering the modern (Win11) menu fails - typically because
   // Developer Mode is off. The legacy menu still gets added in that case.
   let contextMenuError = $state("");
-  async function loadContextMenu() {
+  onMount(async () => {
     if (isWindows) {
       ctxMenuOn = await sendMessage(Command.contextMenuStatus);
     }
-  }
-
-  // Registering the Explorer menu can fail where the others cannot (the modern
-  // Win11 entry needs Developer Mode), so this row reports back instead of just
-  // flipping - and always re-reads the registry, which is the real answer.
-  async function setContextMenu(on: boolean) {
-    contextMenuError = "";
-    try {
-      if (on) {
-        await sendMessage(Command.contextMenuRegister);
-      } else {
-        await sendMessage(Command.contextMenuUnregister);
-      }
-    } catch (caughtError) {
-      contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
-    }
-
-    ctxMenuOn = await sendMessage(Command.contextMenuStatus);
-  }
-  onMount(() => {
-    loadContextMenu();
   });
 </script>
 
@@ -115,7 +94,24 @@
   {@render toggleRow(aiNaming, onainaming, "Name session tabs with AI, in every project")}
   <p class="scope-hint">A single project can opt in or out of this in its Config panel</p>
   {#if isWindows && ctxMenuOn !== null}
-    {@render toggleRow(ctxMenuOn, setContextMenu, "Add “Open in PADE” to the folder right-click menu")}
+    {@render toggleRow(ctxMenuOn, async on => {
+      // Registering the Explorer menu can fail where the others cannot (the
+      // modern Win11 entry needs Developer Mode), so this row reports back
+      // instead of just flipping - and always re-reads the registry, which is
+      // the real answer.
+      contextMenuError = "";
+      try {
+        if (on) {
+          await sendMessage(Command.contextMenuRegister);
+        } else {
+          await sendMessage(Command.contextMenuUnregister);
+        }
+      } catch (caughtError) {
+        contextMenuError = caughtError instanceof Error ? caughtError.message : String(caughtError);
+      }
+
+      ctxMenuOn = await sendMessage(Command.contextMenuStatus);
+    }, "Add “Open in PADE” to the folder right-click menu")}
     {#if contextMenuError}
       <p class="context-menu-error" role="alert">{contextMenuError}</p>
     {/if}
