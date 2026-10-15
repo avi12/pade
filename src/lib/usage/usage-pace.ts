@@ -13,10 +13,11 @@
 // of the time left is over pace; a paused session is ready once its runway
 // covers all of the time left; a stepped-down one can afford its dearer choice
 // again once the runway reaches SPARE_RUNWAY_FRACTION of it. Near a reset a
-// window paces no one - it is about to come back anyway - and usage credits
-// carrying the account turn pacing off.
+// window paces no one - it is about to come back anyway. Usage credits that
+// would carry an agent past a spent window don't change any of this: going over
+// costs real money, which is exactly what pacing is there to save.
 
-import { CreditsState, UsageWindowKind } from "@/lib/types";
+import { UsageWindowKind } from "@/lib/types";
 import type { AccountUsage, UsageWindow } from "@/lib/types";
 import { resetCountdown, usageResetTime } from "@/lib/usage/usage-groups";
 import { formatPercent } from "@/lib/util/format";
@@ -120,8 +121,7 @@ export function assessPace({ account, now, isPaused, rateOf }: {
   isPaused: boolean;
   rateOf: (window: UsageWindow) => number | null;
 }) {
-  const areCreditsCarrying = account?.credits === CreditsState.enum.available;
-  if (!account || areCreditsCarrying) {
+  if (!account) {
     return null;
   }
 

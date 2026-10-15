@@ -246,7 +246,7 @@ describe("assessPace", () => {
     expect(pace?.window.kind).toBe(UsageWindowKind.enum.weekly);
   });
 
-  it("never paces an account whose usage credits carry the work", () => {
+  it("still paces an account whose usage credits would carry it past the limit", () => {
     expect(
       assessPace({
         account: {
@@ -260,7 +260,7 @@ describe("assessPace", () => {
         isPaused: false,
         rateOf: () => perHour(60)
       })
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it("never paces when the account can't be read", () => {

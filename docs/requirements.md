@@ -246,7 +246,8 @@ writes.
   and, under Ask me, **Continue when there's room** for that one session.
   Within 10 minutes of a reset a window pauses no one (95% with 9 minutes left
   runs on), while the weekly window is paced in its own right. Usage credits
-  carrying the account turn pacing off. A user who restarts a paused agent by
+  that would carry an agent past a spent window don't turn pacing off - going
+  over costs real money. A user who restarts a paused agent by
   hand is not paused again until it is back under the line. The Config panel
   also picks **what** pacing does (`prefs.pacingAction`): **Stop** as above, or
   **Slow down** - a short rest sized so stretches of work and rest average out
