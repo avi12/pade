@@ -77,13 +77,7 @@ async function fetchEditors({ project, token }: {
   project: string;
   token: symbol;
 }) {
-  let ranked: Ide[];
-  try {
-    ranked = await ide.suggest(project);
-  } catch {
-    ranked = [];
-  }
-
+  const ranked = await ide.suggest(project).catch(() => []);
   const isSuperseded = currentFetchToken.get(project) !== token;
   if (isSuperseded) {
     return;
@@ -104,12 +98,12 @@ export function refreshEditors(project: string) {
 
   const token = Symbol(project);
   currentFetchToken.set(project, token);
-  const fetch = fetchEditors({
+  const pendingFetch = fetchEditors({
     project,
     token
   });
-  inFlight.set(project, fetch);
-  return fetch;
+  inFlight.set(project, pendingFetch);
+  return pendingFetch;
 }
 
 /** Resolve only when nothing is cached yet - a remounting panel (the Change
@@ -134,10 +128,12 @@ export async function chooseEditor({ project, editorId }: {
       cwd: project,
       id: editorId
     });
-  } catch {
+  } catch (error) {
     // The pick didn't persist; the current ranking is still valid as-is.
+    console.warn("pade: could not save the project's editor choice", error);
     return;
   }
+
   // A census already running read the prefs before the pick landed - dropping
   // its in-flight entry makes the refresh below start a fresh fetch (with a
   // new token) instead of coalescing onto the stale pre-pick one.

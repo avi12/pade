@@ -187,9 +187,7 @@ export async function initTaskRunDetection(project: () => string) {
   await taskCatalog.initialize(project);
 
   if (listenerUnlistens.length === 0) {
-    if (!listenerInitialization) {
-      listenerInitialization = startListeners();
-    }
+    listenerInitialization ??= startListeners();
 
     try {
       await listenerInitialization;

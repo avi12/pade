@@ -2,11 +2,11 @@
 // the visible-row batch (see visiblePathBatch), so only rows on screen are probed.
 
 import { ide } from "@/lib/bridge";
-import { createVisiblePathBatch } from "@/lib/stores/visiblePathBatch.svelte";
+import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/visiblePathBatch.svelte";
 
 const projectKinds = createVisiblePathBatch<string>({
   load: paths => ide.projectKinds(paths),
-  cacheLimit: 256
+  cacheLimit: PROJECT_ROW_CACHE_LIMIT
 });
 
 /** Queue one path through the shared batch. Exposed separately from the DOM

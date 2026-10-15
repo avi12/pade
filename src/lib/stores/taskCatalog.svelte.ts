@@ -34,15 +34,10 @@ function isManifestPath({ descriptors, path }: {
   path: string;
 }) {
   const name = baseName(path).toLowerCase();
-  for (const descriptor of descriptors) {
+  return descriptors.some(descriptor => {
     const value = descriptor.value.toLowerCase();
-    const isMatch = descriptor.match === "name" ? name === value : name.endsWith(value);
-    if (isMatch) {
-      return true;
-    }
-  }
-
-  return false;
+    return descriptor.match === "name" ? name === value : name.endsWith(value);
+  });
 }
 
 export function createTaskCatalog(
@@ -141,9 +136,7 @@ export function createTaskCatalog(
     projectGetter = nextProjectGetter;
 
     if (!unlisten) {
-      if (!initialization) {
-        initialization = start();
-      }
+      initialization ??= start();
 
       await initialization;
       initialization = undefined;

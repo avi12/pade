@@ -8,6 +8,10 @@
 import { normalizePath } from "@/lib/paths";
 import { SvelteMap } from "svelte/reactivity";
 
+/** How many project paths each row lookup keeps cached - comfortably more than
+ *  a recent-projects list shows, so scrolling back never re-asks the backend. */
+export const PROJECT_ROW_CACHE_LIMIT = 256;
+
 /** One lazily-loaded, visibility-driven lookup keyed by project path. */
 export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
   /** Resolve a batch of paths; a path missing from the result is probed empty. */

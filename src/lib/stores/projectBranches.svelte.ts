@@ -4,11 +4,11 @@
 // as cheap to open as a short one.
 
 import { vcs } from "@/lib/bridge";
-import { createVisiblePathBatch } from "@/lib/stores/visiblePathBatch.svelte";
+import { createVisiblePathBatch, PROJECT_ROW_CACHE_LIMIT } from "@/lib/stores/visiblePathBatch.svelte";
 
 const projectBranches = createVisiblePathBatch<string>({
   load: paths => vcs.branchOf(paths),
-  cacheLimit: 256
+  cacheLimit: PROJECT_ROW_CACHE_LIMIT
 });
 
 /** Cached branch: `undefined` while unresolved, `null` for no repo / detached HEAD. */
