@@ -127,11 +127,9 @@ pub(super) fn options() -> Vec<ModelOption> {
     models.iter().filter_map(model_option).collect()
 }
 
-/// `$CODEX_HOME`, else `~/.codex`.
+/// Codex keeps its settings directly in its home folder.
 pub(super) fn settings_directory() -> Option<PathBuf> {
-    std::env::var_os("CODEX_HOME")
-        .map(PathBuf::from)
-        .or_else(|| Some(crate::util::home_dir()?.join(".codex")))
+    crate::agents::codex_home()
 }
 
 pub(super) fn is_settings_file(name: &str) -> bool {

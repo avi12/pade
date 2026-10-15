@@ -224,11 +224,15 @@ fn claude_tier_label_usage() -> Option<Usage> {
 // and fall back to the local plan label when the token/network isn't available.
 // ---------------------------------------------------------------------------
 
-/// The local Codex credentials file, `~/.codex/auth.json`.
+/// The local Codex credentials file as the usage source names it
+/// (`$CODEX_HOME` relocates it; see [`crate::agents::codex_home`]).
 const CODEX_AUTH_RELATIVE_PATH: &str = ".codex/auth.json";
 
+/// The credentials file's name inside Codex's home.
+const CODEX_AUTH_FILE: &str = "auth.json";
+
 fn codex_auth_path() -> Option<PathBuf> {
-    Some(home_dir()?.join(CODEX_AUTH_RELATIVE_PATH))
+    Some(crate::agents::codex_home()?.join(CODEX_AUTH_FILE))
 }
 
 /// Offline fallback: confirm a local `ChatGPT` auth exists and surface a bare

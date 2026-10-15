@@ -49,11 +49,12 @@ pub(super) fn relocate_memories(old: &str, new: &str) {
     move_claude_transcripts(&home.join(".claude").join("projects"), old, new);
     rewrite_file_forms(&home.join(".claude.json"), old, new);
 
-    let codex = home.join(".codex");
-    for database in codex_state_databases(&codex) {
-        rebase_database_columns(&database, &CODEX_PATH_COLUMNS, old, new);
+    if let Some(codex) = crate::agents::codex_home() {
+        for database in codex_state_databases(&codex) {
+            rebase_database_columns(&database, &CODEX_PATH_COLUMNS, old, new);
+        }
+        rewrite_file_forms(&codex.join("config.toml"), old, new);
     }
-    rewrite_file_forms(&codex.join("config.toml"), old, new);
 
     let copilot = home.join(".copilot");
     rewrite_copilot_sessions(&copilot.join("session-state"), old, new);

@@ -1,8 +1,8 @@
 //! Resume arguments for agents whose CLI can reopen a recorded conversation.
 //!
-//! Codex records every interactive session as a rollout file under
-//! `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-…-<uuid>.jsonl`, whose first
-//! line is a `session_meta` carrying the session's `cwd` and how it was
+//! Codex records every interactive session as a rollout file under its home
+//! (`$CODEX_HOME`, `~/.codex` by default), at
+//! `sessions/<yyyy>/<mm>/<dd>/rollout-…-<uuid>.jsonl`, whose first line is a `session_meta` carrying the session's `cwd` and how it was
 //! started. ADE has no way to *choose* that id at spawn (unlike Claude's
 //! `--session-id`), so when a session must respawn - a scheme flip re-theming
 //! an arg-themed CLI - the newest interactive rollout for the same working
@@ -12,9 +12,11 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-use crate::agents::{program, ID_CODEX, ID_OPENCODE};
-use crate::util::{command, home_dir, json_string_field, same_path};
+use crate::agents::{codex_home, program, ID_CODEX, ID_OPENCODE};
+use crate::util::{command, json_string_field, same_path};
 
+/// The folder under Codex's home that holds its rollout files.
+const CODEX_SESSIONS_DIRECTORY: &str = "sessions";
 /// The rollout file extension and the `session_meta` fields read off its first
 /// line.
 const ROLLOUT_EXTENSION: &str = "jsonl";
@@ -36,7 +38,7 @@ const NEWEST_ROLLOUTS_INSPECTED: usize = 32;
 /// `codex resume` accepts. `None` when nothing matches - the caller then spawns
 /// a fresh conversation.
 fn codex_session_for_cwd(cwd: &str) -> Option<String> {
-    let sessions_directory = home_dir()?.join(".codex").join("sessions");
+    let sessions_directory = codex_home()?.join(CODEX_SESSIONS_DIRECTORY);
     let mut rollouts = rollout_files(&sessions_directory);
     rollouts.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
 

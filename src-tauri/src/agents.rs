@@ -24,6 +24,29 @@ pub const ID_ANTIGRAVITY: &str = "antigravity";
 pub const ID_CURSOR: &str = "cursor";
 pub const ID_AIDER: &str = "aider";
 
+/// The variable that relocates Codex's whole home (config, sessions, auth).
+const CODEX_HOME_VARIABLE: &str = "CODEX_HOME";
+
+/// Codex's home folder, as Codex itself resolves it: `$CODEX_HOME`, else
+/// `~/.codex`. The one lookup every module reading Codex's files goes through,
+/// so a relocated home is honoured everywhere or nowhere.
+pub(crate) fn codex_home() -> Option<PathBuf> {
+    resolve_codex_home(
+        std::env::var_os(CODEX_HOME_VARIABLE),
+        crate::util::home_dir(),
+    )
+}
+
+/// The resolution rule behind [`codex_home`], over its two inputs.
+fn resolve_codex_home(
+    configured: Option<std::ffi::OsString>,
+    user_home: Option<PathBuf>,
+) -> Option<PathBuf> {
+    configured
+        .map(PathBuf::from)
+        .or_else(|| Some(user_home?.join(".codex")))
+}
+
 struct AgentDefinition {
     id: &'static str,
     label: &'static str,
@@ -603,9 +626,27 @@ fn detect_installed() -> Vec<Agent> {
 #[cfg(test)]
 mod tests {
     use super::{
-        installed_names, needs_light_console_fix, oneshot_invocation, session_args,
-        session_id_flag, spawn_env, theme_config, REGISTRY,
+        installed_names, needs_light_console_fix, oneshot_invocation, resolve_codex_home,
+        session_args, session_id_flag, spawn_env, theme_config, REGISTRY,
     };
+    use std::path::PathBuf;
+
+    #[test]
+    fn a_configured_codex_home_wins_over_the_default() {
+        assert_eq!(
+            resolve_codex_home(Some("D:/codex".into()), Some(PathBuf::from("C:/home"))),
+            Some(PathBuf::from("D:/codex"))
+        );
+    }
+
+    #[test]
+    fn codex_home_defaults_to_dot_codex_in_the_user_home() {
+        assert_eq!(
+            resolve_codex_home(None, Some(PathBuf::from("C:/home"))),
+            Some(PathBuf::from("C:/home").join(".codex"))
+        );
+        assert_eq!(resolve_codex_home(None, None), None);
+    }
     use crate::test_support::assert_empty;
     use crate::theming::ThemeConfig;
 
