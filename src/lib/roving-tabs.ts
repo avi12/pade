@@ -4,36 +4,39 @@
 // (0 on the selected tab, -1 on the rest), so pressing Tab navigates into the
 // active panel's inputs instead of walking every pill.
 
+import { Key } from "@/lib/focus";
+
+const TAB_SELECTOR = "[role=tab]";
+
 /** Svelte action for a `role="tablist"` element whose tabs select on click. */
-export function rovingTablist(node: HTMLElement) {
+export function rovingTablist(elTablist: HTMLElement) {
   function onKeydown(e: KeyboardEvent) {
-    const origin = e.target instanceof HTMLElement
-      ? e.target.closest<HTMLElement>("[role=tab]")
+    const elOrigin = e.target instanceof HTMLElement
+      ? e.target.closest<HTMLElement>(TAB_SELECTOR)
       : null;
-    if (!origin) {
+    if (!elOrigin) {
       return;
     }
 
-    const tabs = [...node.querySelectorAll<HTMLElement>("[role=tab]")];
-    const from = tabs.indexOf(origin);
-    const to = nextIndex({
+    const elTabs = [...elTablist.querySelectorAll<HTMLElement>(TAB_SELECTOR)];
+    const iTarget = nextIndex({
       key: e.key,
-      from,
-      count: tabs.length
+      from: elTabs.indexOf(elOrigin),
+      count: elTabs.length
     });
-    if (to === null) {
+    if (iTarget === null) {
       return;
     }
 
     e.preventDefault();
-    tabs[to].focus();
-    tabs[to].click();
+    elTabs[iTarget].focus();
+    elTabs[iTarget].click();
   }
 
-  node.addEventListener("keydown", onKeydown);
+  elTablist.addEventListener("keydown", onKeydown);
   return {
     destroy() {
-      node.removeEventListener("keydown", onKeydown);
+      elTablist.removeEventListener("keydown", onKeydown);
     }
   };
 }
@@ -45,13 +48,13 @@ function nextIndex({ key, from, count }: {
   count: number;
 }) {
   switch (key) {
-    case "ArrowRight":
+    case Key.ArrowRight:
       return (from + 1) % count;
-    case "ArrowLeft":
+    case Key.ArrowLeft:
       return (from - 1 + count) % count;
-    case "Home":
+    case Key.Home:
       return 0;
-    case "End":
+    case Key.End:
       return count - 1;
     default:
       return null;

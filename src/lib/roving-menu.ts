@@ -15,90 +15,100 @@
 //     interleaved with per-row kebabs, and its filter field is one of the stops).
 //     Nothing but focus moves.
 
+import { Key } from "@/lib/focus";
+
+const MENU_ITEM_SELECTOR = "button";
+const OPEN_NESTED_MENU_SELECTOR = ":scope [popover]:popover-open";
+const POPOVER_OPEN_STATE = "open";
+const FOCUSABLE_TAB_INDEX = 0;
+const SKIPPED_TAB_INDEX = -1;
+
 /** Where a move lands: the items as found in the DOM, and the index to focus. */
 type Move = {
-  items: HTMLElement[];
-  index: number;
+  elItems: HTMLElement[];
+  iItem: number;
 };
 
 /** The shared keydown wiring. `focusItem` performs the move, so a caller can
  *  carry extra state (the roving tabindex) alongside the focus call. */
-function bindArrowKeys({ node, itemSelector, focusItem }: {
-  node: HTMLElement;
+function bindArrowKeys({ elMenu, itemSelector, focusItem }: {
+  elMenu: HTMLElement;
   itemSelector: string;
   focusItem: (move: Move) => void;
 }) {
-  function onKeydown(event: KeyboardEvent) {
-    if (!(event.target instanceof HTMLElement)) {
+  function onKeydown(e: KeyboardEvent) {
+    if (!(e.target instanceof HTMLElement)) {
       return;
     }
 
     // While a nested menu is up (a switcher row's kebab popover) it owns the
     // arrow keys - wherever focus sits, this list must not move underneath it.
-    const nestedMenuOpen = node.querySelector(":scope [popover]:popover-open") !== null;
-    if (nestedMenuOpen) {
+    const isNestedMenuOpen = elMenu.querySelector(OPEN_NESTED_MENU_SELECTOR) !== null;
+    if (isNestedMenuOpen) {
       return;
     }
 
     // Home/End belong to a focused text field's caret; only the arrows pull
     // focus out of one.
-    const isTextEntry = event.target instanceof HTMLInputElement;
-    const isArrowKey = event.key === "ArrowDown" || event.key === "ArrowUp";
+    const isTextEntry = e.target instanceof HTMLInputElement;
+    const isArrowKey = e.key === Key.ArrowDown || e.key === Key.ArrowUp;
     if (isTextEntry && !isArrowKey) {
       return;
     }
 
-    const items = [...node.querySelectorAll<HTMLElement>(itemSelector)];
-    const origin = event.target.closest<HTMLElement>(itemSelector);
-    const index = nextIndex({
-      key: event.key,
-      from: origin ? items.indexOf(origin) : -1,
-      count: items.length
+    const elItems = [...elMenu.querySelectorAll<HTMLElement>(itemSelector)];
+    const elOrigin = e.target.closest<HTMLElement>(itemSelector);
+    const iItem = nextIndex({
+      key: e.key,
+      from: elOrigin ? elItems.indexOf(elOrigin) : -1,
+      count: elItems.length
     });
-    if (index === null) {
+    if (iItem === null) {
       return;
     }
 
-    event.preventDefault();
+    e.preventDefault();
     focusItem({
-      items,
-      index
+      elItems,
+      iItem
     });
   }
 
-  node.addEventListener("keydown", onKeydown);
-  return () => node.removeEventListener("keydown", onKeydown);
+  elMenu.addEventListener("keydown", onKeydown);
+  return () => elMenu.removeEventListener("keydown", onKeydown);
 }
 
 /** Attachment (`{@attach rovingMenu}`) for a popover menu; its items are its
  *  descendant `<button>`s. Returns the teardown Svelte runs when it detaches. */
-export function rovingMenu(node: HTMLElement) {
-  function focusItem({ items, index }: Move) {
-    for (const [position, item] of items.entries()) {
-      item.tabIndex = position === index ? 0 : -1;
+export function rovingMenu(elMenu: HTMLElement) {
+  function focusItem({ elItems, iItem }: Move) {
+    for (const [i, elItem] of elItems.entries()) {
+      elItem.tabIndex = i === iItem ? FOCUSABLE_TAB_INDEX : SKIPPED_TAB_INDEX;
     }
 
-    items[index]?.focus();
+    elItems[iItem]?.focus();
   }
 
-  function onToggle(event: ToggleEvent) {
-    if (event.newState === "open") {
-      focusItem({
-        items: [...node.querySelectorAll<HTMLElement>("button")],
-        index: 0
-      });
+  function onToggle(e: ToggleEvent) {
+    if (e.newState !== POPOVER_OPEN_STATE) {
+      return;
     }
+
+    focusItem({
+      elItems: [...elMenu.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR)],
+      iItem: 0
+    });
   }
 
   const unbindArrowKeys = bindArrowKeys({
-    node,
-    itemSelector: "button",
+    elMenu,
+    itemSelector: MENU_ITEM_SELECTOR,
     focusItem
   });
-  node.addEventListener("toggle", onToggle);
+  elMenu.addEventListener("toggle", onToggle);
   return () => {
     unbindArrowKeys();
-    node.removeEventListener("toggle", onToggle);
+    elMenu.removeEventListener("toggle", onToggle);
   };
 }
 
@@ -106,10 +116,10 @@ export function rovingMenu(node: HTMLElement) {
  *  whose items stay in the natural Tab order: Up/Down move focus between the
  *  `itemSelector` matches and nothing else changes. */
 export function arrowFocus(itemSelector: string) {
-  return (node: HTMLElement) => bindArrowKeys({
-    node,
+  return (elMenu: HTMLElement) => bindArrowKeys({
+    elMenu,
     itemSelector,
-    focusItem: ({ items, index }) => items[index]?.focus()
+    focusItem: ({ elItems, iItem }) => elItems[iItem]?.focus()
   });
 }
 
@@ -124,14 +134,15 @@ export function nextIndex({ key, from, count }: {
     return null;
   }
 
+  const isUnfocused = from < 0;
   switch (key) {
-    case "ArrowDown":
-      return from < 0 ? 0 : (from + 1) % count;
-    case "ArrowUp":
-      return from < 0 ? count - 1 : (from - 1 + count) % count;
-    case "Home":
+    case Key.ArrowDown:
+      return isUnfocused ? 0 : (from + 1) % count;
+    case Key.ArrowUp:
+      return isUnfocused ? count - 1 : (from - 1 + count) % count;
+    case Key.Home:
       return 0;
-    case "End":
+    case Key.End:
       return count - 1;
     default:
       return null;
