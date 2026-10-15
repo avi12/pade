@@ -30,7 +30,8 @@ pub struct TaskGroup {
     /// Manifest path relative to the project root (`/`-joined).
     manifest: String,
     /// Absolute directory the tasks run in.
-    dir: String,
+    #[serde(rename = "dir")]
+    directory: String,
     kind: TaskKind,
     tasks: Vec<Task>,
 }
@@ -335,7 +336,7 @@ fn collect_group(root: &Path, directory: &Path, groups: &mut Vec<TaskGroup>) {
             }
             groups.push(TaskGroup {
                 manifest: relative_display(root, &path),
-                dir: directory.to_string_lossy().into_owned(),
+                directory: directory.to_string_lossy().into_owned(),
                 kind: definition.kind,
                 tasks,
             });

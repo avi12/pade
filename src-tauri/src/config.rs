@@ -124,7 +124,7 @@ const KNOWN_CONFIG_FILES: &[ConfigDefinition] = &[
 /// holds a project's MCP servers" - the watcher reads this to know what to watch
 /// for added/removed servers (`mcp.rs`).
 pub struct McpConfig {
-    pub rel: &'static str,
+    pub relative_path: &'static str,
     pub agents: &'static [&'static str],
     pub format: McpFormat,
 }
@@ -137,7 +137,7 @@ pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
         .iter()
         .filter_map(|definition| definition.mcp_format.map(|format| (definition, format)))
         .map(|(definition, format)| McpConfig {
-            rel: definition.relative_path,
+            relative_path: definition.relative_path,
             agents: definition.agents,
             format,
         })
@@ -147,7 +147,8 @@ pub fn mcp_configs() -> impl Iterator<Item = McpConfig> {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigFile {
     name: String,
-    rel: String,
+    #[serde(rename = "rel")]
+    relative_path: String,
     kind: ConfigKind,
     exists: bool,
 }
@@ -171,7 +172,7 @@ pub async fn config_list(
         .filter(|definition| definition.applies_to(&agent))
         .map(|definition| ConfigFile {
             name: definition.file_name().to_string(),
-            rel: definition.relative_path.to_string(),
+            relative_path: definition.relative_path.to_string(),
             kind: definition.kind,
             exists: root.join(definition.relative_path).is_file(),
         })

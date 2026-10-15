@@ -284,7 +284,7 @@ pub struct History {
     /// 512 KiB tail on every PTY chunk once a session has been running for a while.
     data: String,
     start: usize,
-    seq: u64,
+    sequence: u64,
     /// Is the program currently painting the ALTERNATE screen (a fullscreen TUI, a
     /// pager)? Then this history is a stream of framebuffer edits, not a document,
     /// and replaying a trimmed one paints a torn frame. The frontend needs to know
@@ -417,7 +417,7 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
         return 0;
     };
     buffer.data.push_str(raw);
-    buffer.seq += 1;
+    buffer.sequence += 1;
 
     // Track which screen the program is on: the last switch wins; no switch keeps
     // the current screen. Judged over a window reaching back past the chunk
@@ -455,7 +455,7 @@ fn append_history(history: &Arc<Mutex<History>>, raw: &str) -> u64 {
         }
     }
 
-    buffer.seq
+    buffer.sequence
 }
 
 /// Decode the completed UTF-8 prefix of `pending` and consume it, leaving an
@@ -498,7 +498,8 @@ struct Chunk<'a> {
     id: &'a str,
     data: &'a str,
     /// This chunk's position in the session's stream - see `History`.
-    seq: u64,
+    #[serde(rename = "seq")]
+    sequence: u64,
 }
 
 /// A session's replayable output and the sequence number of the last chunk in it,
@@ -507,7 +508,8 @@ struct Chunk<'a> {
 #[serde(rename_all = "camelCase")]
 pub struct HistorySnapshot {
     data: String,
-    seq: u64,
+    #[serde(rename = "seq")]
+    sequence: u64,
     alternate: bool,
 }
 
@@ -960,14 +962,14 @@ fn spawn_session_output_pump(
                         continue;
                     }
                     append_transcript(&transcript, &strip_ansi(&data));
-                    let seq = append_history(&history, &data);
+                    let sequence = append_history(&history, &data);
                     let _ = app.emit_to(
                         &owner,
                         PTY_DATA_EVENT,
                         Chunk {
                             id: &id,
                             data: &data,
-                            seq,
+                            sequence,
                         },
                     );
                 }
@@ -1080,7 +1082,7 @@ pub fn pty_history(
         .lock()
         .map(|buffer| HistorySnapshot {
             data: buffer.data[buffer.start..].to_string(),
-            seq: buffer.seq,
+            sequence: buffer.sequence,
             alternate: buffer.alternate,
         })
         .unwrap_or_default())
@@ -1337,11 +1339,11 @@ mod tests {
 
     fn history_with(chunks: &[&str]) -> (Arc<Mutex<History>>, u64) {
         let history = Arc::new(Mutex::new(History::default()));
-        let mut seq = 0;
+        let mut sequence = 0;
         for chunk in chunks {
-            seq = append_history(&history, chunk);
+            sequence = append_history(&history, chunk);
         }
-        (history, seq)
+        (history, sequence)
     }
 
     fn snapshot(history: &Arc<Mutex<History>>) -> (String, bool) {
@@ -1438,11 +1440,14 @@ mod tests {
     fn history_trims_to_the_cap_at_a_line_break() {
         let filler = format!("{}\n", "x".repeat(1023));
         let over_capacity = HISTORY_CAPACITY / filler.len() + 2;
-        let (history, seq) = history_with(&vec![filler.as_str(); over_capacity]);
+        let (history, sequence) = history_with(&vec![filler.as_str(); over_capacity]);
         let (data, _) = snapshot(&history);
         assert!(data.len() <= HISTORY_CAPACITY);
         assert!(data.starts_with('x'), "replay starts on a whole line");
-        assert_eq!(seq, u64::try_from(over_capacity).expect("a small count"));
+        assert_eq!(
+            sequence,
+            u64::try_from(over_capacity).expect("a small count")
+        );
     }
 
     #[test]
@@ -1493,7 +1498,7 @@ mod tests {
         let chunk = Chunk {
             id: "session",
             data: "hello",
-            seq: 7,
+            sequence: 7,
         };
         assert_eq!(
             serde_json::to_value(&chunk).expect("serializable"),

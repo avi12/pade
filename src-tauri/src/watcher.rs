@@ -227,7 +227,9 @@ struct ChangeEvent {
     added: usize,
     removed: usize,
     summary: String,
-    ts: u64,
+    /// When the change surfaced, in epoch milliseconds.
+    #[serde(rename = "ts")]
+    timestamp: u64,
 }
 
 /// The git metadata entry a workspace gains when `git init` runs - the one
@@ -342,7 +344,7 @@ struct McpChange {
 fn mcp_config_for_path(root: &Path, path: &Path) -> Option<crate::config::McpConfig> {
     // Compared root-relative, so the per-event check joins no paths.
     let relative = path.strip_prefix(root).ok()?;
-    crate::config::mcp_configs().find(|config| relative == Path::new(config.rel))
+    crate::config::mcp_configs().find(|config| relative == Path::new(config.relative_path))
 }
 
 fn mcp_membership_changed(
@@ -359,7 +361,7 @@ fn mcp_membership_changed(
 fn snapshot_mcp_baseline(watch: &WindowWatch, root: &Path) {
     let fresh: HashMap<PathBuf, crate::mcp::McpSnapshot> = crate::config::mcp_configs()
         .filter_map(|config| {
-            let file = root.join(config.rel);
+            let file = root.join(config.relative_path);
             crate::mcp::snapshot(&file, config.format).map(|state| (file, state))
         })
         .collect();
@@ -1457,7 +1459,7 @@ fn handle_event(app: &AppHandle, label: &str, event: Event) {
             kind,
             added,
             removed,
-            ts: now_milliseconds(),
+            timestamp: now_milliseconds(),
         };
         watch.surfaced.fetch_add(1, Ordering::Relaxed);
         let _ = app.emit_to(label, FEED_CHANGE_EVENT, event);
@@ -1872,10 +1874,10 @@ mod tests {
     fn an_mcp_config_matches_only_its_exact_root_relative_path() {
         let root = Path::new("/project");
         let config = mcp_config_for_path(root, &root.join(".mcp.json")).expect("root config");
-        assert_eq!(config.rel, ".mcp.json");
+        assert_eq!(config.relative_path, ".mcp.json");
         let nested =
             mcp_config_for_path(root, &root.join(".cursor").join("mcp.json")).expect("nested");
-        assert_eq!(nested.rel, ".cursor/mcp.json");
+        assert_eq!(nested.relative_path, ".cursor/mcp.json");
         assert!(mcp_config_for_path(root, &root.join("src").join(".mcp.json")).is_none());
         assert!(mcp_config_for_path(root, Path::new("/elsewhere/.mcp.json")).is_none());
     }
