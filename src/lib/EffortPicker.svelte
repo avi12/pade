@@ -2,9 +2,9 @@
   // A model's effort ladder as one row of buttons, each showing its level as the
   // chip in the colour a tab tints its model name - so the row runs cool to hot.
 
-  import type { ModelOption } from "@/lib/bridge";
   import EffortTint from "@/lib/EffortTint.svelte";
   import { effortTone } from "@/lib/model-label";
+  import type { ModelOption } from "@/lib/types";
 
   const { efforts, current, recommended, onpick }: {
     efforts: ModelOption["efforts"];

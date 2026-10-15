@@ -12,9 +12,10 @@
 // handoff is already under way is kept for the successor instead of being
 // typed into a session that is about to end (`choiceForSuccessor`).
 
-import { pty, SwitchOutcome } from "@/lib/bridge";
+import { pty } from "@/lib/bridge";
 import { agentReportsBusy, whenAgentSettled } from "@/lib/stores/agentActivity.svelte";
 import { whenSessionIdle } from "@/lib/stores/sessions.svelte";
+import { SwitchOutcome } from "@/lib/types";
 import type { AgentSession, ModelChoice } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 

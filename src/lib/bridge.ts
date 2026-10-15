@@ -67,11 +67,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { z } from "zod";
 
-// Payload schemas the panels and stores import through the bridge; their home is
-// `@/lib/types`.
-export { FeedVideoKind, SwitchOutcome } from "@/lib/types";
-export type { FeedVideo, ModelOption } from "@/lib/types";
-
 const DEFAULT_LOG_LIMIT = 20;
 
 type CommandArgs = Record<string, unknown>;

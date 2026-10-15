@@ -4,8 +4,8 @@
 // re-fetched in the meantime shows up.
 
 import { agents } from "@/lib/bridge";
-import type { ModelOption } from "@/lib/bridge";
 import { bareModel } from "@/lib/model-label";
+import type { ModelOption } from "@/lib/types";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 const optionsByAgent = new SvelteMap<string, ModelOption[]>();

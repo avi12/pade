@@ -2,8 +2,8 @@
   // An agent's models as a pick list, from its own catalog: the one in use
   // checked, each with the effort level the agent recommends for it.
 
-  import type { ModelOption } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
+  import type { ModelOption } from "@/lib/types";
 
   const { options, current, onpick }: {
     options: ModelOption[];

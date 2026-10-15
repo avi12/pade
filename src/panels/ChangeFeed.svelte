@@ -1,12 +1,5 @@
 <script lang="ts">
-  import {
-    feed,
-    FeedVideoKind,
-    ide,
-    os,
-    vcs
-  } from "@/lib/bridge";
-  import type { FeedVideo } from "@/lib/bridge";
+  import { feed, ide, os, vcs } from "@/lib/bridge";
   import { groupChanges, GroupRole } from "@/lib/change-groups";
   import { firstChangedLine, parseDiff, unifiedDiff } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
@@ -45,7 +38,8 @@
     workspaceMembers as storedMembers
   } from "@/lib/stores/workspaceMembers.svelte";
   import { truncationTooltip } from "@/lib/truncation-tooltip";
-  import type { ChangeEvent, FeedDiff, WatchStatus } from "@/lib/types";
+  import { FeedVideoKind } from "@/lib/types";
+  import type { ChangeEvent, FeedDiff, FeedVideo, WatchStatus } from "@/lib/types";
   import { repositoryOfGroup } from "@/lib/workspace-members";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount, tick } from "svelte";
