@@ -16,7 +16,7 @@
   import { fileExtension, fileTypeBadge } from "@/lib/file-type";
   import { formatAge, formatCount, formatTimestamp } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { KeyName } from "@/lib/key-names";
+  import { Key } from "@/lib/keys";
   import { markdownDocument, sandboxedHtmlDocument } from "@/lib/markdown";
   import {
     collapseRow,
@@ -612,7 +612,7 @@
     event: KeyboardEvent;
     path: string;
   }) {
-    if (event.key === KeyName.Enter) {
+    if (event.key === Key.Enter) {
       await openChangedFile({
         path,
         line: revealLine

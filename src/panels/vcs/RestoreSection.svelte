@@ -2,7 +2,7 @@
   import { vcs } from "@/lib/bridge";
   import { formatPercent } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
-  import { KeyName } from "@/lib/key-names";
+  import { Key } from "@/lib/keys";
   import type { RestoreCandidate } from "@/lib/types";
   import { parseInput, RestoreQuery } from "@/lib/validate";
 
@@ -68,7 +68,7 @@
     <input
       aria-label="Restore to a previous version"
       onkeydown={e => {
-        const isSubmit = e.key === KeyName.Enter;
+        const isSubmit = e.key === Key.Enter;
         if (isSubmit) {
           runRestore();
         }

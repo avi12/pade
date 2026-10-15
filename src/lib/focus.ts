@@ -2,21 +2,6 @@
 // (tab-shortcuts, pane-shortcuts) ask "is the user typing in a field?" before
 // deciding whether to swallow a chord. One authoritative home (DRY).
 
-/** The `KeyboardEvent.key` values the app's keyboard handling reacts to - one
- *  home so the roving lists, the shortcut matchers and the drag's cancel key
- *  never spell a key twice. */
-export const Key = {
-  ArrowUp: "ArrowUp",
-  ArrowDown: "ArrowDown",
-  ArrowLeft: "ArrowLeft",
-  ArrowRight: "ArrowRight",
-  Home: "Home",
-  End: "End",
-  Escape: "Escape",
-  Tab: "Tab",
-  F4: "F4"
-} as const;
-
 /** The class xterm gives the hidden `<textarea>` that actually receives keystrokes
  *  for a terminal - the single home for that selector, shared by the queries below. */
 const XTERM_HELPER_TEXTAREA = "xterm-helper-textarea";

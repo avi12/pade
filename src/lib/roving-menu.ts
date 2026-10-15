@@ -15,11 +15,11 @@
 //     interleaved with per-row kebabs, and its filter field is one of the stops).
 //     Nothing but focus moves.
 
-import { Key } from "@/lib/focus";
+import { Key } from "@/lib/keys";
+import { ToggleState } from "@/lib/toggle-state";
 
 const MENU_ITEM_SELECTOR = "button";
 const OPEN_NESTED_MENU_SELECTOR = ":scope [popover]:popover-open";
-const POPOVER_OPEN_STATE = "open";
 const FOCUSABLE_TAB_INDEX = 0;
 const SKIPPED_TAB_INDEX = -1;
 
@@ -90,7 +90,7 @@ export function rovingMenu(elMenu: HTMLElement) {
   }
 
   function onToggle(e: ToggleEvent) {
-    if (e.newState !== POPOVER_OPEN_STATE) {
+    if (e.newState !== ToggleState.open) {
       return;
     }
 

@@ -237,7 +237,7 @@
       autocomplete="off"
       oninput={searchAsTyped}
       onkeydown={async e => {
-        if (e.key === Key.escape) {
+        if (e.key === Key.Escape) {
           e.preventDefault();
           close();
           return;
@@ -256,7 +256,7 @@
           return;
         }
 
-        if (e.key !== Key.enter) {
+        if (e.key !== Key.Enter) {
           return;
         }
 

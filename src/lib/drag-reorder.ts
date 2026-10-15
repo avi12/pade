@@ -34,7 +34,7 @@
 // frame (no flash).
 
 import { colorAlpha, OPAQUE_ALPHA } from "@/lib/colors";
-import { Key } from "@/lib/focus";
+import { Key } from "@/lib/keys";
 import { prefersReducedMotion } from "@/lib/motion";
 import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/reorder";
 import { tick } from "svelte";

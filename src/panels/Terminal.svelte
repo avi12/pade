@@ -15,7 +15,7 @@
   import { isEditingText } from "@/lib/focus";
   import Icon from "@/lib/Icon.svelte";
   import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/initial-prompt";
-  import { KeyName } from "@/lib/key-names";
+  import { Key } from "@/lib/keys";
   import { appearance, effective } from "@/lib/prefs.svelte";
   import SessionBadge from "@/lib/SessionBadge.svelte";
   import { observeAgentActivity } from "@/lib/stores/agentActivity.svelte";
@@ -1541,7 +1541,7 @@
     // The Ctrl-only chords (no Shift, Alt or Meta), by lowercased key.
     const plainCtrlActions: Record<string, () => unknown> = {
       [PASTE_LETTER]: pasteClipboard,
-      [KeyName.Backspace.toLowerCase()]: () => writeToPty(ERASE_WORD)
+      [Key.Backspace.toLowerCase()]: () => writeToPty(ERASE_WORD)
     };
 
     function isPlainCtrl(event: KeyboardEvent) {

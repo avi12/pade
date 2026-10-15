@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatCount } from "@/lib/format";
+  import { Key } from "@/lib/keys";
   import { baseName } from "@/lib/paths";
   import { VcsKind } from "@/lib/types";
   import type { CommitFileEntry } from "@/lib/types";
@@ -42,8 +43,8 @@
     aria-labelledby="commit-file-list-label"
     aria-orientation="vertical"
     onkeydown={e => {
-      const isVertical = e.key === "ArrowDown" || e.key === "ArrowUp";
-      const isEdge = e.key === "Home" || e.key === "End";
+      const isVertical = e.key === Key.ArrowDown || e.key === Key.ArrowUp;
+      const isEdge = e.key === Key.Home || e.key === Key.End;
       if (!isVertical && !isEdge) {
         return;
       }
@@ -56,11 +57,11 @@
 
       const current = files.findIndex(file => file.path === selectedPath);
       let next = current;
-      if (e.key === "ArrowDown") {
+      if (e.key === Key.ArrowDown) {
         next = (current + 1) % count;
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === Key.ArrowUp) {
         next = (current - 1 + count) % count;
-      } else if (e.key === "Home") {
+      } else if (e.key === Key.Home) {
         next = 0;
       } else {
         next = count - 1;

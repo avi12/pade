@@ -387,7 +387,7 @@
      handler runs before xterm, so it wins while the menu is open. -->
 <svelte:window
   onkeydowncapture={e => {
-    if (isMenuOpen && e.key === Key.escape) {
+    if (isMenuOpen && e.key === Key.Escape) {
       e.preventDefault();
       e.stopPropagation();
       hide();
@@ -523,7 +523,7 @@
         autocomplete="off"
         data-arrow-stop
         onkeydown={e => {
-          if (e.key !== Key.enter) {
+          if (e.key !== Key.Enter) {
             return;
           }
 

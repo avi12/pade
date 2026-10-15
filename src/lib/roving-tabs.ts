@@ -4,7 +4,7 @@
 // (0 on the selected tab, -1 on the rest), so pressing Tab navigates into the
 // active panel's inputs instead of walking every pill.
 
-import { Key } from "@/lib/focus";
+import { Key } from "@/lib/keys";
 
 const TAB_SELECTOR = "[role=tab]";
 

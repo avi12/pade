@@ -2,6 +2,8 @@
 // than typed so xterm uses bracketed-paste mode when the running TUI enables it;
 // that preserves the newline in the agent's composer instead of submitting it.
 
+import { Key } from "@/lib/keys";
+
 export const PROMPT_NEWLINE = "\n";
 
 // Bracketed-paste delivery for a whole programmatic prompt (the first prompt,
@@ -62,12 +64,10 @@ export function submittedPrompt(prompt: string) {
   return `${pastedText(prompt)}${PROMPT_SUBMIT}`;
 }
 
-const ENTER_KEY = "Enter";
-
 /** Shift+Enter alone - the chord that types a newline into the composer. */
 export function isPromptNewlineShortcut(event: Pick<KeyboardEvent,
   "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
 >) {
   const isShiftOnly = event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
-  return event.key === ENTER_KEY && isShiftOnly;
+  return event.key === Key.Enter && isShiftOnly;
 }

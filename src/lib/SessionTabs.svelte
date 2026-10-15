@@ -370,10 +370,10 @@
         onblur={commitRename}
         oninput={e => (renameDraft = e.currentTarget.value)}
         onkeydown={e => {
-          if (e.key === Key.enter) {
+          if (e.key === Key.Enter) {
             e.preventDefault();
             commitRename();
-          } else if (e.key === Key.escape) {
+          } else if (e.key === Key.Escape) {
             e.preventDefault();
             editingId = null;
           }

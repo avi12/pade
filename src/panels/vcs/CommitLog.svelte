@@ -2,7 +2,7 @@
   import { os, vcs } from "@/lib/bridge";
   import CommitModal from "@/lib/CommitModal.svelte";
   import { formatCount } from "@/lib/format";
-  import { KeyName } from "@/lib/key-names";
+  import { Key } from "@/lib/keys";
   import { repositoryCommitUrl } from "@/lib/repository-links";
   import type { Commit, CommitDetail } from "@/lib/types";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -116,8 +116,8 @@
             inspectCommit(commit);
           }}
           onkeydown={e => {
-            const isDown = e.key === KeyName.ArrowDown;
-            const isUp = e.key === KeyName.ArrowUp;
+            const isDown = e.key === Key.ArrowDown;
+            const isUp = e.key === Key.ArrowUp;
             if (isDown || isUp) {
               e.preventDefault();
               const count = commits.length;
@@ -126,7 +126,7 @@
               return;
             }
 
-            const isOpenKey = e.key === KeyName.Enter || e.key === KeyName.Space;
+            const isOpenKey = e.key === Key.Enter || e.key === Key.Space;
             if (isOpenKey && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               openCommitOnRemote(commit);

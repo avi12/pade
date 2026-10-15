@@ -1,7 +1,7 @@
 <script lang="ts">
   import { workspace } from "@/lib/bridge";
   import Icon from "@/lib/Icon.svelte";
-  import { KeyName } from "@/lib/key-names";
+  import { Key } from "@/lib/keys";
   import { collapseRow, expandRow, flipDuration } from "@/lib/motion";
   import { normalizePath } from "@/lib/paths";
   import { emptyPathProbe } from "@/lib/types";
@@ -184,7 +184,7 @@
     // Ctrl+Space re-opens the completions (IDE-style) - after an Escape, or to
     // summon the current folder's children without retyping. Suppress the space
     // it would otherwise insert.
-    const isOpenListChord = e.ctrlKey && e.key === KeyName.Space;
+    const isOpenListChord = e.ctrlKey && e.key === Key.Space;
     if (isOpenListChord) {
       e.preventDefault();
       isListOpen = true;
@@ -195,16 +195,16 @@
       return;
     }
 
-    if (e.key === KeyName.ArrowDown) {
+    if (e.key === Key.ArrowDown) {
       e.preventDefault();
       select((activeIndex + 1) % suggestions.length);
-    } else if (e.key === KeyName.ArrowUp) {
+    } else if (e.key === Key.ArrowUp) {
       e.preventDefault();
       select(activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1);
-    } else if (e.key === KeyName.Enter && activeIndex >= 0) {
+    } else if (e.key === Key.Enter && activeIndex >= 0) {
       e.preventDefault();
       pick(suggestions[activeIndex]);
-    } else if (e.key === KeyName.Tab && activeIndex >= 0) {
+    } else if (e.key === Key.Tab && activeIndex >= 0) {
       // Accept the highlighted folder and append a separator instead of moving
       // focus, then keep the list open so the debounced probe immediately starts
       // completing that folder's sub-folders - where the selection starts fresh
@@ -213,7 +213,7 @@
       value = suggestions[activeIndex] + pathSeparator;
       lastSelected = null;
       isListOpen = true;
-    } else if (e.key === KeyName.Escape) {
+    } else if (e.key === Key.Escape) {
       isListOpen = false;
       activeIndex = -1;
       lastSelected = null;
