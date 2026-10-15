@@ -36,78 +36,37 @@ impl Rules {
     /// Parse `.gitignore` content. Unsupported edges (escapes, trailing-space
     /// significance) are simply treated literally - this backs a change feed,
     /// not git itself.
+    #[must_use]
     pub fn parse(content: &str) -> Self {
-        let mut patterns = Vec::new();
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let (negated, body) = match line.strip_prefix('!') {
-                Some(rest) => (true, rest),
-                None => (false, line),
-            };
-            let (directory_only, body) = match body.strip_suffix('/') {
-                Some(rest) => (true, rest),
-                None => (false, body),
-            };
-            let anchored = body.contains('/');
-            let body = body.strip_prefix('/').unwrap_or(body);
-            if body.is_empty() {
-                continue;
-            }
-            patterns.push(Pattern {
-                segments: body.split('/').map(str::to_string).collect(),
-                negated,
-                directory_only,
-                anchored,
-            });
+        Self {
+            patterns: content.lines().filter_map(Pattern::parse).collect(),
         }
-        Self { patterns }
     }
 
     /// Whether the rules ignore the FILE at the root-relative, `/`-joined
     /// `path`. Checks every ancestor directory first: an ignored ancestor
     /// ignores the file outright (git allows no re-include below an excluded
     /// directory); otherwise the file's own last matching pattern decides.
+    #[must_use]
     pub fn is_ignored(&self, path: &str) -> bool {
         let segments: Vec<&str> = path
             .split('/')
             .filter(|segment| !segment.is_empty())
             .collect();
-        if segments.is_empty() {
-            return false;
-        }
-        for prefix_length in 1..=segments.len() {
-            let target = &segments[..prefix_length];
-            let target_is_directory = prefix_length < segments.len();
-            if self.last_match(target, target_is_directory) == Some(Verdict::Ignored) {
-                return true;
-            }
-            if prefix_length == segments.len() {
-                return false;
-            }
-        }
-        false
+        (1..=segments.len()).any(|prefix_length| {
+            let is_directory = prefix_length < segments.len();
+            self.last_match(&segments[..prefix_length], is_directory) == Some(Verdict::Ignored)
+        })
     }
 
     /// The verdict of the last pattern matching `target`, or `None` when no
     /// pattern matches - last-match-wins is gitignore's precedence rule.
-    fn last_match(&self, target: &[&str], target_is_directory: bool) -> Option<Verdict> {
-        let mut verdict = None;
-        for pattern in &self.patterns {
-            if pattern.directory_only && !target_is_directory {
-                continue;
-            }
-            if pattern.matches(target) {
-                verdict = Some(if pattern.negated {
-                    Verdict::Included
-                } else {
-                    Verdict::Ignored
-                });
-            }
-        }
-        verdict
+    fn last_match(&self, target: &[&str], is_directory: bool) -> Option<Verdict> {
+        self.patterns
+            .iter()
+            .rev()
+            .find(|pattern| (is_directory || !pattern.directory_only) && pattern.matches(target))
+            .map(Pattern::verdict)
     }
 }
 
@@ -118,6 +77,40 @@ enum Verdict {
 }
 
 impl Pattern {
+    /// One `.gitignore` line, or `None` for a comment, a blank, or a pattern
+    /// that is nothing but slashes.
+    fn parse(line: &str) -> Option<Self> {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            return None;
+        }
+        let (negated, body) = line
+            .strip_prefix('!')
+            .map_or((false, line), |rest| (true, rest));
+        let (directory_only, body) = body
+            .strip_suffix('/')
+            .map_or((false, body), |rest| (true, rest));
+        let anchored = body.contains('/');
+        let body = body.strip_prefix('/').unwrap_or(body);
+        if body.is_empty() {
+            return None;
+        }
+        Some(Self {
+            segments: body.split('/').map(str::to_string).collect(),
+            negated,
+            directory_only,
+            anchored,
+        })
+    }
+
+    fn verdict(&self) -> Verdict {
+        if self.negated {
+            Verdict::Included
+        } else {
+            Verdict::Ignored
+        }
+    }
+
     fn matches(&self, target: &[&str]) -> bool {
         if self.anchored {
             return segments_match(&self.segments, target);
