@@ -20,6 +20,7 @@
 //! never a hard dependency. Runs on the naming worker thread (`spawn_blocking`),
 //! so the blocking HTTP/WS calls never touch the UI thread.
 
+use std::fmt::Write;
 use std::net::TcpStream;
 use std::time::Instant;
 
@@ -103,11 +104,18 @@ fn solve_hashcash(token: &str, difficulty: u32) -> Option<u64> {
         0
     };
 
+    // The token prefix is hashed once and its state cloned per nonce, and the
+    // nonce is formatted into one reused buffer - this loop can run millions
+    // of times.
+    let token_state = Sha256::new_with_prefix(token.as_bytes());
+    let mut nonce_text = String::new();
     for nonce in 0u64.. {
-        let mut hasher = Sha256::new();
-        hasher.update(token.as_bytes());
-        hasher.update(nonce.to_string().as_bytes());
-        let digest = hasher.finalize();
+        nonce_text.clear();
+        write!(nonce_text, "{nonce}").ok()?;
+        let digest = token_state
+            .clone()
+            .chain_update(nonce_text.as_bytes())
+            .finalize();
 
         let are_whole_bytes_zero = digest[..whole_zero_bytes].iter().all(|byte| *byte == 0);
         let are_leftover_bits_zero =
@@ -275,6 +283,21 @@ mod tests {
             digest[0], 0,
             "8 leading zero bits means the first byte is zero"
         );
+    }
+
+    #[test]
+    fn solve_hashcash_finds_the_smallest_nonce_for_a_partial_byte() {
+        let difficulty = 4;
+        let nonce = solve_hashcash("token", difficulty).expect("a nonce exists for 4 bits");
+        let leading_nibble = |candidate: u64| {
+            Sha256::new()
+                .chain_update(b"token")
+                .chain_update(candidate.to_string().as_bytes())
+                .finalize()[0]
+                >> 4
+        };
+        assert_eq!(leading_nibble(nonce), 0);
+        assert!((0..nonce).all(|smaller| leading_nibble(smaller) != 0));
     }
 
     #[test]
