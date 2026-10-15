@@ -119,33 +119,33 @@ export interface ColumnRange {
  *  needlessly. */
 export function rtlRuns({ cells }: { cells: readonly string[] }) {
   const runs: ColumnRange[] = [];
-  let firstRtl = -1;
-  let lastCarried = -1;
+  let firstRtlColumn = -1;
+  let lastCarriedColumn = -1;
   let neutralsSinceCarried = 0;
 
   function closeRun() {
-    if (firstRtl >= 0) {
+    if (firstRtlColumn >= 0) {
       runs.push({
-        startColumn: firstRtl,
-        endColumn: lastCarried + 1
+        startColumn: firstRtlColumn,
+        endColumn: lastCarriedColumn + 1
       });
     }
 
-    firstRtl = -1;
-    lastCarried = -1;
+    firstRtlColumn = -1;
+    lastCarriedColumn = -1;
     neutralsSinceCarried = 0;
   }
 
   for (let column = 0; column < cells.length; column++) {
     const direction = cellDirection(cells[column] ?? "");
-    const opensRun = direction === CellDirection.Rtl;
-    const continuesRun = direction === CellDirection.Weak && firstRtl >= 0;
-    if (opensRun || continuesRun) {
-      if (firstRtl < 0) {
-        firstRtl = column;
+    const isOpeningRun = direction === CellDirection.Rtl;
+    const isContinuingRun = direction === CellDirection.Weak && firstRtlColumn >= 0;
+    if (isOpeningRun || isContinuingRun) {
+      if (firstRtlColumn < 0) {
+        firstRtlColumn = column;
       }
 
-      lastCarried = column;
+      lastCarriedColumn = column;
       neutralsSinceCarried = 0;
       continue;
     }
@@ -226,7 +226,7 @@ export interface RtlRun {
 
 const CARET: RtlCaretPart = { kind: RtlPartKind.Caret };
 
-function sameStyle({ part, cell }: {
+function isSameStyle({ part, cell }: {
   part: RtlStyle;
   cell: RtlStyle;
 }) {
@@ -255,17 +255,14 @@ function isColumnSelected({ column, selection }: {
 /** The part being built with this cell added, or nothing when the cell has to
  *  start a new one - a change of painting, of selection, or the caret landing
  *  here. */
-function extendedPart({ open, cell, selected, startsCaret }: {
+function extendedPart({ open, cell, isSelected, isCaretStart }: {
   open: RtlTextPart | undefined;
   cell: RtlCell;
-  selected: boolean;
-  startsCaret: boolean;
+  isSelected: boolean;
+  isCaretStart: boolean;
 }) {
-  if (!open || startsCaret || open.selected !== selected) {
-    return undefined;
-  }
-
-  if (!sameStyle({
+  const isContinuable = open !== undefined && !isCaretStart && open.selected === isSelected;
+  if (!isContinuable || !isSameStyle({
     part: open,
     cell
   })) {
@@ -296,16 +293,16 @@ function runParts({ cells, range, cursorColumn, selection }: {
       continue;
     }
 
-    const selected = isColumnSelected({
+    const isSelected = isColumnSelected({
       column,
       selection
     });
-    const startsCaret = column === cursorColumn;
+    const isCaretStart = column === cursorColumn;
     const extended = extendedPart({
       open,
       cell,
-      selected,
-      startsCaret
+      isSelected,
+      isCaretStart
     });
     if (extended) {
       open = extended;
@@ -316,14 +313,14 @@ function runParts({ cells, range, cursorColumn, selection }: {
       parts.push(open);
     }
 
-    if (startsCaret) {
+    if (isCaretStart) {
       parts.push(CARET);
     }
 
     open = {
       ...cell,
       kind: RtlPartKind.Text,
-      selected
+      selected: isSelected
     };
   }
 
@@ -383,19 +380,24 @@ const DEFAULT_FOREGROUND = "var(--code-foreground)";
 const DEFAULT_BACKGROUND = "var(--code-background)";
 /** Truecolor arrives as one 24-bit number. */
 const TRUECOLOR_HEX_LENGTH = 6;
+const HEX_RADIX = 16;
+/** xterm paints an invisible cell blank; the run still needs its width. */
+const INVISIBLE_CELL_TEXT = " ";
+/** `translateToString`'s flag for dropping the row's trailing whitespace. */
+const TRIM_TRAILING_WHITESPACE = true;
 
-function cellColor({ palette, truecolor, value, fallback }: {
-  palette: boolean;
-  truecolor: boolean;
+function cellColor({ isPalette, isTruecolor, value, fallback }: {
+  isPalette: boolean;
+  isTruecolor: boolean;
   value: number;
   fallback: string;
 }) {
-  if (palette) {
+  if (isPalette) {
     return ansiPaletteColor({ index: value });
   }
 
-  if (truecolor) {
-    return `#${value.toString(16).padStart(TRUECOLOR_HEX_LENGTH, "0")}`;
+  if (isTruecolor) {
+    return `#${value.toString(HEX_RADIX).padStart(TRUECOLOR_HEX_LENGTH, "0")}`;
   }
 
   return fallback;
@@ -406,24 +408,23 @@ function cellColor({ palette, truecolor, value, fallback }: {
  *  flip with the terminal under it and never has to be rebuilt for one. */
 function rtlCell({ cell }: { cell: IBufferCell }) {
   const foreground = cellColor({
-    palette: cell.isFgPalette(),
-    truecolor: cell.isFgRGB(),
+    isPalette: cell.isFgPalette(),
+    isTruecolor: cell.isFgRGB(),
     value: cell.getFgColor(),
     fallback: DEFAULT_FOREGROUND
   });
   const background = cellColor({
-    palette: cell.isBgPalette(),
-    truecolor: cell.isBgRGB(),
+    isPalette: cell.isBgPalette(),
+    isTruecolor: cell.isBgRGB(),
     value: cell.getBgColor(),
     fallback: DEFAULT_BACKGROUND
   });
-  const inverse = cell.isInverse() !== 0;
+  const isInverse = cell.isInverse() !== 0;
 
   return {
-    // xterm paints an invisible cell blank; the run still needs its width.
-    text: cell.isInvisible() !== 0 ? " " : cell.getChars(),
-    foreground: inverse ? background : foreground,
-    background: inverse ? foreground : background,
+    text: cell.isInvisible() !== 0 ? INVISIBLE_CELL_TEXT : cell.getChars(),
+    foreground: isInverse ? background : foreground,
+    background: isInverse ? foreground : background,
     bold: cell.isBold() !== 0,
     dim: cell.isDim() !== 0,
     italic: cell.isItalic() !== 0,
@@ -454,9 +455,12 @@ export function rowSelection({ selection, absoluteRow, columns }: {
   absoluteRow: number;
   columns: number;
 }) {
-  const outsideSelection =
-    !selection || absoluteRow < selection.start.y || absoluteRow > selection.end.y;
-  if (outsideSelection || !selection) {
+  if (!selection) {
+    return undefined;
+  }
+
+  const isOutsideSelection = absoluteRow < selection.start.y || absoluteRow > selection.end.y;
+  if (isOutsideSelection) {
     return undefined;
   }
 
@@ -480,7 +484,7 @@ export function rtlViewport({ terminal, focused }: {
   for (let row = 0; row < terminal.rows; row++) {
     const absoluteRow = buffer.viewportY + row;
     const line = buffer.getLine(absoluteRow);
-    if (!line || !containsRtl(line.translateToString(true))) {
+    if (!line || !containsRtl(line.translateToString(TRIM_TRAILING_WHITESPACE))) {
       continue;
     }
 
