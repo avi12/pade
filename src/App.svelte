@@ -24,6 +24,7 @@
   import { effective, SIDE_PANEL_MAXIMUM_FRACTION, SIDE_PANEL_MINIMUM_WIDTH } from "@/lib/settings/prefs.svelte";
   import { addRoot, sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { settings } from "@/lib/settings/settings.svelte";
+  import { createActiveRepository } from "@/lib/shell/activeRepository.svelte";
   import BootSplash from "@/lib/shell/BootSplash.svelte";
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/shell/discord-presence";
   import { animatePaneIn, paneDropAt } from "@/lib/shell/pane-dom";
@@ -104,17 +105,8 @@
   // classic single pane; more = a split view. Always a subset of `sessions`.
   let paneIds = $state<string[]>([]);
   let currentProject = $state<string>("");
-  // Local branches when the project is a git repo - enables per-branch agents.
-  let branches = $state<string[]>([]);
-  // Branches only the remote has so far - offered by the branch switcher, which
-  // lets git create the local tracking branch on the way in.
-  let remoteBranches = $state<string[]>([]);
-  // The project's checked-out branch - the top-bar branch pill (empty when the
-  // project isn't a git repo or HEAD is detached).
-  let currentBranch = $state("");
-  // Whether the repo has a remote - a local-only repo has nothing to open in a
-  // browser, so the pill's Ctrl-click-opens-on-remote affordance is suppressed.
-  let hasRemote = $state(false);
+  // The repository the top bar points at and its branches (lib/shell/activeRepository).
+  const repository = createActiveRepository({ project: () => currentProject });
   // Carried through the agent picker so a new-project prompt survives onboarding.
   let pendingPrompt = $state<string | undefined>();
 
@@ -216,7 +208,7 @@
     if (context.hasProject) {
       await sendMessage(Command.workspaceOpen, { path: context.cwd }); // records it in recent history
       startAgentFlow({ path: context.cwd });
-      await loadBranches();
+      await repository.load();
       return;
     }
 
@@ -307,7 +299,7 @@
     }
 
     phase = Phase.Ready;
-    await loadBranches();
+    await repository.load();
     return true;
   }
 
@@ -497,7 +489,7 @@
       return;
     }
 
-    untrack(loadBranches);
+    untrack(repository.load);
   });
 
   // ── Discord Rich Presence ────────────────────────────────────────────────────
@@ -718,7 +710,7 @@
         agentId: target.agent,
         isNewProject: target.created === true
       });
-      await loadBranches();
+      await repository.load();
     });
   }
 
@@ -877,56 +869,12 @@
     selectSession(sessions[iNext].id);
   }
 
-  // Load branches for the repo the top bar points at - the workspace root, or
-  // the nested checkout the member switcher selected - and the checked-out
-  // branch its pill shows. A workspace with one member reads exactly as before.
-  async function loadBranches() {
-    const member = activeMemberIn(currentProject);
-    if (!member) {
-      branches = [];
-      remoteBranches = [];
-      currentBranch = "";
-      hasRemote = false;
-      return;
-    }
-
-    // Not a git repository (or git missing) reads as no branches and no remote.
-    const [next, onlyRemote, heads, remote] = await Promise.all([
-      settledValue({
-        promise: sendMessage(Command.vcsBranches, { cwd: member }),
-        fallback: []
-      }),
-      settledValue({
-        promise: sendMessage(Command.vcsRemoteBranches, { cwd: member }),
-        fallback: []
-      }),
-      settledValue<Record<string, string>>({
-        promise: sendMessage(Command.vcsBranchOf, { paths: [member] }),
-        fallback: {}
-      }),
-      settledValue<string | null>({
-        promise: sendMessage(Command.vcsRemoteUrl, { cwd: member }),
-        fallback: null
-      })
-    ]);
-    // A project (or member) switch can outrun this read. Keep the branch list
-    // attached to what it came from instead of flashing another repository's.
-    if (member !== activeMemberIn(currentProject)) {
-      return;
-    }
-
-    branches = next;
-    remoteBranches = onlyRemote;
-    currentBranch = heads[member] ?? "";
-    hasRemote = remote !== null;
-  }
-
   // Keep the branch pill honest: a branch switch, git init, or remote change in
   // the open project re-fetches what it shows (git://state carries no payload).
   let unlistenGitState: (() => void) | undefined;
   async function subscribeToGitState() {
     unlistenGitState = await onMessage(EventType.gitState, async () => {
-      await Promise.all([loadBranches(), refreshMemberBranches()]);
+      await Promise.all([repository.load(), refreshMemberBranches()]);
     });
   }
   onMount(() => {
@@ -1148,9 +1096,7 @@
   // (or this one, later) can open it fresh - no picker tries to focus us here.
   function releaseProject() {
     currentProject = "";
-    branches = [];
-    remoteBranches = [];
-    currentBranch = "";
+    repository.clear();
     pendingPrompt = undefined;
     sendMessage(Command.windowRegisterProject, { path: "" });
   }
@@ -1506,21 +1452,21 @@
                branch plus the ones only the remote has yet. Reports on the same
                member the branch list was read for. -->
           <BranchSwitcher
-            {branches}
-            current={currentBranch}
+            branches={repository.branches}
+            current={repository.currentBranch}
             cwd={activeMemberIn(currentProject)}
-            {hasRemote}
+            hasRemote={repository.hasRemote}
             onopengit={() => (side = Side.Vcs)}
             onopenremote={async () => {
               await openRepositoryTarget({
                 project: currentProject,
-                branch: currentBranch
+                branch: repository.currentBranch
               });
             }}
             onrefresh={async () => {
-              await Promise.all([loadBranches(), refreshMemberBranches()]);
+              await Promise.all([repository.load(), refreshMemberBranches()]);
             }}
-            {remoteBranches}
+            remoteBranches={repository.remoteBranches}
           />
           <span class="chrome-spacer"></span>
 
@@ -1569,7 +1515,7 @@
           bind:this={sessionTabsHandle}
           {activeId}
           {agents}
-          {branches}
+          branches={repository.branches}
           onclose={close}
           ondraghint={hint => (dragHint = hint)}
           onlaunch={agent => launch({ agent })}
