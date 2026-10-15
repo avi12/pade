@@ -67,6 +67,14 @@ impl Scheme {
             Scheme::Dark => "dark",
         }
     }
+
+    /// Whichever of a per-scheme pair belongs to this scheme.
+    fn pick<T>(self, light: T, dark: T) -> T {
+        match self {
+            Scheme::Light => light,
+            Scheme::Dark => dark,
+        }
+    }
 }
 
 /// How one agent's theme is forced - registry knowledge, declared per agent in
@@ -134,10 +142,7 @@ pub enum ThemeConfig {
 /// static `agents::spawn_env`.
 pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'static str)] {
     match crate::agents::theme_config(command) {
-        Some(ThemeConfig::SpawnEnv { light, dark }) => match scheme {
-            Scheme::Light => light,
-            Scheme::Dark => dark,
-        },
+        Some(ThemeConfig::SpawnEnv { light, dark }) => scheme.pick(light, dark),
         Some(
             ThemeConfig::SpawnArgs { .. }
             | ThemeConfig::SpawnTuiConfig { .. }
@@ -152,10 +157,7 @@ pub fn spawn_env(command: &str, scheme: Scheme) -> &'static [(&'static str, &'st
 /// interactive session's argv, alongside `agents::session_args`.
 pub fn spawn_args(command: &str, scheme: Scheme) -> &'static [&'static str] {
     match crate::agents::theme_config(command) {
-        Some(ThemeConfig::SpawnArgs { light, dark }) => match scheme {
-            Scheme::Light => light,
-            Scheme::Dark => dark,
-        },
+        Some(ThemeConfig::SpawnArgs { light, dark }) => scheme.pick(light, dark),
         // Scheme-independent by design: these args name the definition, and its
         // contents - not the argv - carry the scheme (see the variant's doc).
         Some(ThemeConfig::SpawnSelectedLiveTheme { args, .. }) => args,
@@ -184,11 +186,7 @@ pub fn publish_live_themes(scheme: Scheme) -> std::io::Result<()> {
         else {
             continue;
         };
-        let contents = match scheme {
-            Scheme::Light => light,
-            Scheme::Dark => dark,
-        };
-        write_if_stale(&home.join(relative_path), contents)?;
+        write_if_stale(&home.join(relative_path), scheme.pick(light, dark))?;
     }
 
     Ok(())
@@ -217,8 +215,8 @@ const PADE_DARK_THEME_FILE: &str = "pade-dark.json";
 const PADE_DARK_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.json","theme":{"primary":"#61afef","secondary":"#c678dd","accent":"#56b6c2","error":"#e06c75","warning":"#e5c07b","success":"#98c379","info":"#56b6c2","text":"#abb2bf","textMuted":"#828997","background":"#282c34","backgroundPanel":"#21252b","backgroundElement":"#2c313a","border":"#3e4451","borderActive":"#5c6370","borderSubtle":"#2c313a","diffAdded":"#98c379","diffRemoved":"#e06c75","diffContext":"#828997","diffHunkHeader":"#828997","diffHighlightAdded":"#6cbe6c","diffHighlightRemoved":"#e06c75","diffAddedBg":"#2b3328","diffRemovedBg":"#3a2a2a","diffContextBg":"#282c34","diffLineNumber":"#4b5263","diffAddedLineNumberBg":"#33402f","diffRemovedLineNumberBg":"#463131","markdownText":"#abb2bf","markdownHeading":"#c678dd","markdownLink":"#61afef","markdownLinkText":"#56b6c2","markdownCode":"#98c379","markdownBlockQuote":"#828997","markdownEmph":"#e5c07b","markdownStrong":"#abb2bf","markdownHorizontalRule":"#3e4451","markdownListItem":"#61afef","markdownListEnumeration":"#56b6c2","markdownImage":"#61afef","markdownImageText":"#56b6c2","markdownCodeBlock":"#abb2bf","syntaxComment":"#5c6370","syntaxKeyword":"#c678dd","syntaxFunction":"#61afef","syntaxVariable":"#e06c75","syntaxString":"#98c379","syntaxNumber":"#d19a66","syntaxType":"#e5c07b","syntaxOperator":"#56b6c2","syntaxPunctuation":"#abb2bf"}}"##;
 
 /// Write the pade-namespaced theme + the per-scheme tui config, returning the
-/// tui-config path to expose via the env variable. `themes_dir` is opencode's
-/// user theme directory and `config_dir` PADE's own config dir - injected so
+/// tui-config path to expose via the env variable. `themes_directory` is opencode's
+/// user theme directory and `config_directory` PADE's own config dir - injected so
 /// tests exercise this against temp dirs.
 ///
 /// Why writing into the *user's* opencode themes dir doesn't violate the
@@ -232,18 +230,24 @@ const PADE_DARK_THEME_JSON: &str = r##"{"$schema":"https://opencode.ai/theme.jso
 fn materialize_tui_config(
     contents: &str,
     scheme: Scheme,
-    themes_dir: &Path,
-    config_dir: &Path,
+    themes_directory: &Path,
+    config_directory: &Path,
 ) -> std::io::Result<PathBuf> {
     write_if_stale(
-        &themes_dir.join(PADE_LIGHT_THEME_FILE),
+        &themes_directory.join(PADE_LIGHT_THEME_FILE),
         PADE_LIGHT_THEME_JSON,
     )?;
-    write_if_stale(&themes_dir.join(PADE_DARK_THEME_FILE), PADE_DARK_THEME_JSON)?;
-    let tui_config_path = config_dir.join(format!("opencode-tui-{}.json", scheme.as_str()));
+    write_if_stale(
+        &themes_directory.join(PADE_DARK_THEME_FILE),
+        PADE_DARK_THEME_JSON,
+    )?;
+    let tui_config_path = config_directory.join(format!("opencode-tui-{}.json", scheme.as_str()));
     write_if_stale(&tui_config_path, contents)?;
     Ok(tui_config_path)
 }
+
+/// opencode's user theme directory, under the home directory.
+const OPENCODE_THEMES_RELATIVE_PATH: &str = ".config/opencode/themes";
 
 /// The per-scheme `(variable, path)` env pair for a file-themed CLI (opencode),
 /// with the referenced files freshly materialized on disk - empty for other
@@ -260,21 +264,16 @@ pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, Strin
     else {
         return Vec::new();
     };
-    let contents = match scheme {
-        Scheme::Light => light,
-        Scheme::Dark => dark,
-    };
-    let Some(contents) = contents else {
+    let Some(contents) = scheme.pick(light, dark) else {
         return Vec::new();
     };
-    let Some(themes_dir) =
-        crate::util::home_dir().map(|home| home.join(".config").join("opencode").join("themes"))
-    else {
+    let Some(home) = crate::util::home_dir() else {
         eprintln!("theming: no home dir; spawning {command} without a theme override");
         return Vec::new();
     };
-    let config_dir = match crate::workspace::ensure_config_dir() {
-        Ok(dir) => dir,
+    let themes_directory = home.join(OPENCODE_THEMES_RELATIVE_PATH);
+    let config_directory = match crate::workspace::ensure_config_dir() {
+        Ok(directory) => directory,
         Err(error) => {
             eprintln!(
                 "theming: no config dir ({error}); spawning {command} without a theme override"
@@ -282,7 +281,7 @@ pub fn spawn_tui_config_env(command: &str, scheme: Scheme) -> Vec<(String, Strin
             return Vec::new();
         }
     };
-    match materialize_tui_config(contents, scheme, &themes_dir, &config_dir) {
+    match materialize_tui_config(contents, scheme, &themes_directory, &config_directory) {
         Ok(path) => vec![(variable.to_string(), path.to_string_lossy().into_owned())],
         Err(error) => {
             eprintln!("theming: {error}; spawning {command} without a theme override");
@@ -429,32 +428,42 @@ mod tests {
     #[test]
     fn materialize_writes_theme_and_config_and_skips_identical_rewrites() {
         let scratch = std::env::temp_dir().join(format!("pade-theming-{}", std::process::id()));
-        let themes_dir = scratch.join("themes");
-        let config_dir = scratch.join("config");
+        let themes_directory = scratch.join("themes");
+        let config_directory = scratch.join("config");
         let contents = r#"{"theme":"pade-light"}"#;
 
-        let path = materialize_tui_config(contents, Scheme::Light, &themes_dir, &config_dir)
-            .expect("first materialize succeeds");
-        assert_eq!(path, config_dir.join("opencode-tui-light.json"));
+        let path = materialize_tui_config(
+            contents,
+            Scheme::Light,
+            &themes_directory,
+            &config_directory,
+        )
+        .expect("first materialize succeeds");
+        assert_eq!(path, config_directory.join("opencode-tui-light.json"));
         assert_eq!(
             std::fs::read_to_string(&path).expect("config written"),
             contents
         );
         assert_eq!(
-            std::fs::read_to_string(themes_dir.join(PADE_LIGHT_THEME_FILE))
+            std::fs::read_to_string(themes_directory.join(PADE_LIGHT_THEME_FILE))
                 .expect("light theme written"),
             PADE_LIGHT_THEME_JSON
         );
         assert_eq!(
-            std::fs::read_to_string(themes_dir.join(PADE_DARK_THEME_FILE))
+            std::fs::read_to_string(themes_directory.join(PADE_DARK_THEME_FILE))
                 .expect("dark theme written"),
             PADE_DARK_THEME_JSON
         );
 
         // A second run with identical contents is a no-op rewrite-wise: the
         // files keep their bytes and the same path comes back.
-        let again = materialize_tui_config(contents, Scheme::Light, &themes_dir, &config_dir)
-            .expect("second materialize succeeds");
+        let again = materialize_tui_config(
+            contents,
+            Scheme::Light,
+            &themes_directory,
+            &config_directory,
+        )
+        .expect("second materialize succeeds");
         assert_eq!(again, path);
 
         std::fs::remove_dir_all(&scratch).expect("scratch cleanup");
