@@ -94,6 +94,7 @@
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import { FolderPath, parseInput } from "@/lib/validate";
+  import { WindowShortcut, windowShortcutFor } from "@/lib/window-shortcuts";
   import { createRelocator } from "@/lib/workspace-relocate";
   import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
@@ -559,9 +560,9 @@
   // windows switches the reported project, and an unfocused window never
   // overwrites the focused one's status. A blur sends nothing; the window
   // gaining focus overwrites.
-  let windowFocused = $state(document.hasFocus());
+  let isWindowFocused = $state(document.hasFocus());
   $effect(() => {
-    if (!windowFocused) {
+    if (!isWindowFocused) {
       return;
     }
 
@@ -649,11 +650,6 @@
       activeId: () => activeId
     }));
 
-  async function openEmptyWindow() {
-    await windows.create({ mode: WindowMode.enum.empty });
-    showToast("Opened a new window");
-  }
-
   // Closing PADE (the title-bar X) is a deliberate leave too: intercept the
   // close, let every agent reach an idle prompt, kill them, and only then let
   // the window go (Tauri destroys it once the handler settles unprevented).
@@ -666,7 +662,7 @@
       // This window is going away: if it's the one publishing presence (only the
       // focused window does), stop reporting so its last project doesn't linger.
       // A remaining PADE window re-publishes its own status on gaining focus.
-      if (windowFocused) {
+      if (isWindowFocused) {
         await clearDiscordPresence();
       }
 
@@ -1693,51 +1689,38 @@
      combo while the terminal has focus. -->
 <svelte:window
   onblur={() => {
-    windowFocused = false;
+    isWindowFocused = false;
   }}
   onfocus={() => {
-    windowFocused = true;
+    isWindowFocused = true;
   }}
-  onkeydowncapture={e => {
-    // Dev-only: F5 / Ctrl+Shift+R reloads the WebView - the escape hatch when
-    // Vite's HMR socket drops (a Tauri window wires no reload of its own). Ctrl+R
-    // is left to the terminal's shell reverse-search. Stripped from prod builds.
-    if (import.meta.env.DEV) {
-      const isReload =
-        e.key === "F5" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "r");
-      if (isReload) {
-        e.preventDefault();
-        location.reload();
-        return;
-      }
-    }
-
-    // Ctrl+Alt+[ / ] cycles to the previous / next open PADE window. Shift must be
-    // absent so the chord stays distinct (and off any future Ctrl+Shift variant).
-    // Still keyed off e.code, not e.key: across layouts a bracket key can carry a
-    // different character, so the layout-position code is the modifier-independent
-    // match.
-    const isCyclePreviousWindow =
-      e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketLeft";
-    const isCycleNextWindow =
-      e.ctrlKey && e.altKey && !e.shiftKey && e.code === "BracketRight";
-    if (isCyclePreviousWindow || isCycleNextWindow) {
-      e.preventDefault();
-      e.stopPropagation();
-      windows.focusRelative(isCyclePreviousWindow ? "previous" : "next");
-      return;
-    }
-
-    // Ctrl+Shift+N spawns a fresh empty window (mirrors the app-menu shortcut
-    // chip). stopPropagation keeps the terminal from also receiving it.
-    const isNewWindow = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n";
-    if (!isNewWindow) {
+  onkeydowncapture={async e => {
+    // The chords themselves live in lib/window-shortcuts.
+    const shortcut = windowShortcutFor({
+      event: e,
+      isDevelopment: import.meta.env.DEV
+    });
+    if (shortcut === null) {
       return;
     }
 
     e.preventDefault();
+
+    if (shortcut === WindowShortcut.reload) {
+      location.reload();
+      return;
+    }
+
+    // Keeps the terminal from also receiving the chord.
     e.stopPropagation();
-    openEmptyWindow();
+
+    if (shortcut === WindowShortcut.newWindow) {
+      await windows.create({ mode: WindowMode.enum.empty });
+      showToast("Opened a new window");
+      return;
+    }
+
+    await windows.focusRelative(shortcut === WindowShortcut.previousWindow ? "previous" : "next");
   }}
 />
 
