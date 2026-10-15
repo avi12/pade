@@ -46,6 +46,7 @@
   import { DropSide } from "@/lib/reorder";
   import { openRepositoryTarget } from "@/lib/repository-links";
   import RunnerDock from "@/lib/RunnerDock.svelte";
+  import { saveTempWorkspace } from "@/lib/save-temp-workspace";
   import { registerSendShortcut, unregisterSendShortcut } from "@/lib/send-shortcut";
   import { didFailToStart, EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session-exit";
   import { mcpRestartTargets, rekeyLayout } from "@/lib/session-restart";
@@ -56,7 +57,7 @@
   import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agentRetheme.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
-  import { createAutoHandoff, successorPrompt } from "@/lib/stores/handoff.svelte";
+  import { createAutoHandoff } from "@/lib/stores/handoff.svelte";
   import { armMcpReloadRecovery, dropMcpReload, failedMcpReloads } from "@/lib/stores/mcpReload.svelte";
   import { choiceForSuccessor, createModelSwitcher } from "@/lib/stores/modelSwitch.svelte";
   import {
@@ -1108,7 +1109,12 @@
   // and its exit event is claimed as a hand-close so the exit handler never
   // races this with a respawn or a return to the picker.
   async function closeAllSessions() {
-    const ids = sessions.map(session => session.id);
+    await closeSessions(sessions.map(session => session.id));
+  }
+
+  // Kill these sessions' PTYs and detach them, claiming each exit event as a
+  // hand-close so the exit handler never respawns or re-routes over it.
+  async function closeSessions(ids: readonly string[]) {
     for (const id of ids) {
       closingByHand.add(id);
     }
@@ -1777,62 +1783,19 @@
             onremoverecent={removeRecentProject}
             onrenamefolder={relocator.renameFolder}
             onreorderpins={reorderPins}
-            onsavetemp={async ({ name, root }) => {
-              const savingProject = currentProject;
-              const previousSessionIds = sessions.map(session => session.id);
-              const activeSession =
-                sessions.find(session => session.id === activeId) ?? sessions[0];
-              const continuingAgent = activeSession?.agent;
-
-              // 1. Have the live agent dump a handoff doc INTO THE TEMP first, so
-              //    it rides along in the copy and the successor continues from it.
-              const handoffDoc = activeSession
-                ? await autoHandoff.writeHandoffDoc(activeSession)
-                : null;
-
-              // 2. Copy the temp workspace (handoff doc included) into the saved
-              //    root while its agent keeps running - a copy only READS files, so
-              //    it never trips the watcher/cwd handle a rename does.
-              const migration = await workspace.saveMigrate({
-                from: savingProject,
-                newName: name,
-                root
-              });
-
-              // 3. Re-root the window to the saved project, then start its agent in
-              //    the SAME tab pointing at the new dir (launch replaces the panes),
-              //    seeded to continue the handoff, BEFORE tearing the temp session
-              //    down - so the tab transitions straight to the successor with no
-              //    dead gap. The old session is then killed and the temp deleted.
-              currentProject = migration.path;
-
-              if (continuingAgent) {
-                launch({
-                  agent: continuingAgent,
-                  cwd: migration.path,
-                  initialPrompt: handoffDoc ? successorPrompt(handoffDoc) : undefined
-                });
+            onsavetemp={async ({ name, root }) => await saveTempWorkspace({
+              name,
+              root,
+              host: {
+                project: currentProject,
+                sessionIds: sessions.map(session => session.id),
+                continuing: activeSession ?? sessions[0],
+                writeHandoffDoc: autoHandoff.writeHandoffDoc,
+                reroot: path => (currentProject = path),
+                launch,
+                closeSessions
               }
-
-              for (const id of previousSessionIds) {
-                closingByHand.add(id);
-              }
-              await Promise.all(previousSessionIds.map(id => pty.kill(id)));
-              for (const id of previousSessionIds) {
-                detachSession(id);
-                closingByHand.delete(id);
-              }
-              await workspace.delete(savingProject).catch(() => {});
-
-              if (migration.install) {
-                await startRunner({
-                  label: "Install dependencies",
-                  kind: "npm",
-                  command: migration.install,
-                  cwd: migration.path
-                });
-              }
-            }}
+            })}
             onswitch={leaveToPicker}
             ontogglepin={toggleProjectPin}
             path={currentProject}
