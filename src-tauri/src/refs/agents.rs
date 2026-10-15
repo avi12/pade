@@ -21,6 +21,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use serde::Deserialize;
+
 use super::{moved_path, rewrite_file_forms};
 use crate::util::{encode_project, home_dir};
 
@@ -112,16 +114,21 @@ fn transcript_cwd(project: &Path) -> Option<String> {
         .find_map(|transcript| first_cwd(&transcript))
 }
 
+/// The one field read from a transcript line. Deserializing only this skips
+/// the rest of the line instead of building a whole JSON tree for it, which
+/// matters because a transcript line can carry an entire tool output.
+#[derive(Deserialize)]
+struct TranscriptLine {
+    cwd: Option<String>,
+}
+
 fn first_cwd(transcript: &Path) -> Option<String> {
     let file = std::fs::File::open(transcript).ok()?;
     BufReader::new(file)
         .lines()
         .take(TRANSCRIPT_HEAD_LINES)
         .map_while(Result::ok)
-        .find_map(|line| {
-            let entry: serde_json::Value = serde_json::from_str(&line).ok()?;
-            Some(entry.get("cwd")?.as_str()?.to_string())
-        })
+        .find_map(|line| serde_json::from_str::<TranscriptLine>(&line).ok()?.cwd)
 }
 
 /// Move `from` to `to`; when `to` already exists (the name was used before),
@@ -240,7 +247,7 @@ fn rebase_column(
 
 #[cfg(test)]
 mod tests {
-    use super::{move_claude_transcripts, rebase_database_columns};
+    use super::{first_cwd, move_claude_transcripts, rebase_database_columns};
     use crate::util::encode_project;
 
     fn scratch(name: &str) -> std::path::PathBuf {
@@ -274,6 +281,23 @@ mod tests {
             .join("a.jsonl")
             .is_file());
         assert!(sibling.join("b.jsonl").is_file());
+    }
+
+    #[test]
+    fn the_first_line_naming_a_cwd_wins() {
+        let folder = scratch("first-cwd");
+        let transcript = folder.join("session.jsonl");
+        let lines = [
+            "not json".to_string(),
+            serde_json::json!({ "type": "summary", "cwd": 7 }).to_string(),
+            serde_json::json!({ "type": "summary" }).to_string(),
+            serde_json::json!({ "cwd": r"C:\work\pade", "message": { "content": [1, 2] } })
+                .to_string(),
+            serde_json::json!({ "cwd": r"C:\work\later" }).to_string(),
+        ];
+        std::fs::write(&transcript, lines.join("\n")).expect("write transcript");
+
+        assert_eq!(first_cwd(&transcript).as_deref(), Some(r"C:\work\pade"));
     }
 
     #[test]
