@@ -44,21 +44,21 @@
   }: {
     sessions: AgentSession[];
     activeId: string | null;
-    /** Sessions currently shown side by side — their pills read as "shown". */
+    /** Sessions currently shown side by side - their pills read as "shown". */
     paneIds: string[];
     agents: Agent[];
-    /** A split pane's header is being dragged over the strip — light it as a
+    /** A split pane's header is being dragged over the strip - light it as a
      *  "drop to pop the pane out as a tab" target, mirroring the split overlay. */
     popPaneActive?: boolean;
-    /** Local branches when the project is a git repo — offered as worktrees. */
+    /** Local branches when the project is a git repo - offered as worktrees. */
     branches: string[];
     onselect: (id: string) => void;
     onclose: (session: AgentSession) => void;
     onlaunch: (agent: Agent) => void;
     onlaunchbranch: (branch: string) => Promise<void>;
-    /** A drag reordered the visible pills — commit the new session order. */
+    /** A drag reordered the visible pills - commit the new session order. */
     onreorder?: (orderedIds: string[]) => void;
-    /** A pill was dropped over the terminal panes — open it as a split there. */
+    /** A pill was dropped over the terminal panes - open it as a split there. */
     onsplit?: (drop: {
       id: string;
       pointerX: number;
@@ -66,7 +66,7 @@
     }) => void;
     /** Live drag state, so App can paint the panes' "drop here" overlay. */
     ondraghint?: (hint: DragHint | null) => void;
-    /** A model / effort was picked from a tab's model menu — apply it. */
+    /** A model / effort was picked from a tab's model menu - apply it. */
     onmodelchoice: (pick: {
       session: AgentSession;
       choice: ModelChoice;
@@ -167,24 +167,24 @@
     activeId !== null && (tabPack.dots.includes(activeId) || tabPack.more.includes(activeId))
   );
 
-  // A tab flashes red while its agent waits on a multiple-choice answer — but not
+  // A tab flashes red while its agent waits on a multiple-choice answer - but not
   // while it's the tab in front, since looking at it is what stops the flashing
   // (the reconcile in App clears the flag; this also gates the very first frame).
   function isAwaitingChoice(id: string): boolean {
     return awaitingChoice(id) && id !== activeId;
   }
-  // Any collapsed-into-"+N" session waiting on a choice — so a pending prompt
+  // Any collapsed-into-"+N" session waiting on a choice - so a pending prompt
   // hidden in the overflow still surfaces on the trigger.
   const overflowAwaiting = $derived(moreSessions.some(session => isAwaitingChoice(session.id)));
 
-  // Whether motion is suppressed — gates the tab-close out-transition below. Tab
+  // Whether motion is suppressed - gates the tab-close out-transition below. Tab
   // reordering is animated by the drag engine's spring-settle (drag-reorder), not
   // a framework FLIP, so the pills carry no `animate:flip` (it would fight the
   // engine's own settle).
   const prefersReducedMotion =
     typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // The last tab's agent — a plain "+" click launches another of the same kind;
+  // The last tab's agent - a plain "+" click launches another of the same kind;
   // Ctrl/Cmd-click opens the full launch menu instead.
   const lastAgent = $derived(sessions.at(-1)?.agent ?? agents[0]);
 
@@ -197,7 +197,7 @@
 
   // Closing a tab removes the session synchronously; the pill's collapse is a
   // Svelte out-transition. `closingIds` marks which pills left via a real close
-  // so the transition only animates those — a repack-driven exit snaps instantly.
+  // so the transition only animates those - a repack-driven exit snaps instantly.
   const closingIds = new SvelteSet<string>();
   // Middle-click anywhere on a pill closes it (preventDefault stops the browser's
   // middle-click autoscroll). onmousedown suppresses the same on press.
@@ -316,16 +316,16 @@
 
     const estimate = contextPercentage(id);
     if (estimate === null) {
-      return "Context window — measuring…";
+      return "Context window - measuring…";
     }
 
-    return `≈${formatPercent(estimate)} of context window used — rough estimate`;
+    return `≈${formatPercent(estimate)} of context window used - rough estimate`;
   }
 </script>
 
 <!-- The tab's leading glyph: the agent's brand mark, tinted by how full its
      context window is (green→amber→red toward the auto-handoff threshold) and
-     carrying status — a working agent breathes, a ready one gets a soft halo. -->
+     carrying status - a working agent breathes, a ready one gets a soft halo. -->
 {#snippet statusGlyph(session: AgentSession)}
   {@const percentage = contextPercentage(session.id)}
   {@const level = percentage === null ? null : contextLevel({
@@ -398,7 +398,7 @@
     <span
       class="ai-wrap"
       class:on={isNaming(session.id)}
-      data-tooltip={isNaming(session.id) ? "Auto-naming on — click to turn off" : "Auto-name this session with AI"}
+      data-tooltip={isNaming(session.id) ? "Auto-naming on - click to turn off" : "Auto-name this session with AI"}
     >
       <button
         class="ai"
@@ -423,7 +423,7 @@
 <nav class="tabs" aria-label="Agent sessions">
   <div bind:this={stripElement} class="tab-strip" class:drop-target={popPaneActive} data-tab-strip>
     {#if popPaneActive}
-      <span class="popout-hint" aria-hidden="true">Drop here — new tab</span>
+      <span class="popout-hint" aria-hidden="true">Drop here - new tab</span>
     {/if}
     {#each visibleSessions as session (session.id)}
       <!-- Pointer-only reorder handle; select/close/rename stay keyboard-reachable
@@ -496,7 +496,7 @@
       <button
         style:anchor-name="--add-session-anchor"
         class="add-button menu-trigger"
-        aria-label={`New ${lastAgent?.label ?? "agent"} session — ${newTabShortcut.description}: ${newTabShortcut.label}; ${launchMenuShortcut.description}: ${launchMenuShortcut.label}`}
+        aria-label={`New ${lastAgent?.label ?? "agent"} session - ${newTabShortcut.description}: ${newTabShortcut.label}; ${launchMenuShortcut.description}: ${launchMenuShortcut.label}`}
         data-tooltip={`New ${lastAgent?.label ?? "agent"} session · ${newTabShortcut.label} · Ctrl-click, right-click, or ${launchMenuShortcut.label} for options`}
         onclick={e => {
           if (e.ctrlKey || e.metaKey) {
@@ -527,7 +527,7 @@
         {/each}
         {#if branches.length > 0}
           <li class="menu-divider" role="separator"></li>
-          <li class="menu-separator">On a branch — new worktree</li>
+          <li class="menu-separator">On a branch - new worktree</li>
           {#each branches as branch (branch)}
             <li>
               <button
@@ -583,7 +583,7 @@
     align-items: center;
     min-inline-size: 0;
 
-    /* The visible, bounded strip — pills/dots/+N clip here rather than wrap. */
+    /* The visible, bounded strip - pills/dots/+N clip here rather than wrap. */
     .tab-strip {
       display: flex;
       flex: 1;
@@ -713,7 +713,7 @@
         font-weight: 600;
       }
 
-      /* The active pill's label reads with a text caret — a single click there
+      /* The active pill's label reads with a text caret - a single click there
          renames it (Finder-style); inactive labels inherit the pill's pointer. */
       &.active .label {
         cursor: text;
@@ -736,7 +736,7 @@
       /* The pill's leading cap, mirroring the trailing one on .close-button:
          this button is the pill's first child and would otherwise square off
          the corner the pill rounds (or, under a palette that bevels it, cuts)
-         away — and a corner is hit-tested against the shape it is GIVEN, so a
+         away - and a corner is hit-tested against the shape it is GIVEN, so a
          square child inside a shaped parent takes clicks from air. */
       border-end-start-radius: 999px;
       border-start-start-radius: 999px;
@@ -748,10 +748,10 @@
       cursor: pointer;
     }
 
-    /* The ✦ AI-name toggle — subdued on every pill, brighter on the one being
+    /* The ✦ AI-name toggle - subdued on every pill, brighter on the one being
        used, and primary while auto-naming is on for the session. The slot is
        reserved on every pill, hovered or not. A slot that
-       opened on hover grew its pill by 24px and pushed every pill to its right —
+       opened on hover grew its pill by 24px and pushed every pill to its right -
        so crossing a neighbour on the way to this one slid the target out from
        under the pointer as that neighbour collapsed again, and the click landed
        on the × beside it. Fixed geometry also makes the off-layout mirror measure
@@ -778,7 +778,7 @@
 
       /* Subdued rather than absent, matching the × beside it: renaming a session
          you are NOT in is exactly when this is wanted, and an icon that only
-         exists once you hover cannot be found without hunting for it — or, on a
+         exists once you hover cannot be found without hunting for it - or, on a
          touch screen, at all. */
       opacity: 60%;
       cursor: pointer;
@@ -804,7 +804,7 @@
       /* Pinned bright while auto-naming is on for this session, and backed by a
          tinted plate. The plate is what actually carries the on/off state: the
          brightening alone leans on the icon's COLOUR differing between the two,
-         and on the active pill it cannot — the accent this icon reaches for is
+         and on the active pill it cannot - the accent this icon reaches for is
          the pill's own fill, so both states resolve to the container's
          on-colour and only a 15-point opacity step separates them. Mixed from
          `currentcolor`, so it reads on the pale row and the filled pill alike
@@ -818,7 +818,7 @@
 
       /* On the active pill the fill IS the primary container, so the accent
          every state above reaches for is the same colour as the ground beneath
-         it — on a palette whose container is dark that measured 1.01:1, which
+         it - on a palette whose container is dark that measured 1.01:1, which
          is invisible rather than merely dim. Each of those states takes the
          container's on-colour here instead, the way the × beside it already
          does. */
@@ -868,7 +868,7 @@
         color: var(--context-critical);
       }
 
-      /* No signal yet (a just-launched agent, or a non-agent terminal) — stay
+      /* No signal yet (a just-launched agent, or a non-agent terminal) - stay
          neutral so the blue never reads as a real "plenty of room" measurement. */
       &.unknown {
         color: var(--on-surface-variant);
@@ -886,7 +886,7 @@
         box-shadow: 0 0 0 3px var(--tertiary-wash);
       }
 
-      /* Waiting on a multiple-choice answer — a red ring pulses out to grab the
+      /* Waiting on a multiple-choice answer - a red ring pulses out to grab the
          eye. Reduced motion swaps the pulse for a steady red ring. */
       &.awaiting-choice {
         color: var(--critical);
@@ -899,7 +899,7 @@
       }
     }
 
-    /* Per-session status dot — mirrors the SessionBadge states. Used now only by
+    /* Per-session status dot - mirrors the SessionBadge states. Used now only by
        the collapsed overflow dots and the "+N" more-menu rows. */
     .dot {
       flex: none;
@@ -1023,7 +1023,7 @@
       border-radius: var(--radius-small);
 
       /* The whole row washes neutral surface-3 on hover (canon); the inner pick
-         button carries no fill of its own — so it cancels the shared .menu-item
+         button carries no fill of its own - so it cancels the shared .menu-item
          primary hover. */
       &:not(.active):hover {
         background: var(--surface-3);
@@ -1079,7 +1079,7 @@
   }
 
   /* Red attention ripple for a tab whose agent is waiting on a multiple-choice
-     answer (see isAwaitingChoice) — a ring pulses out from the indicator. Held
+     answer (see isAwaitingChoice) - a ring pulses out from the indicator. Held
      still (a steady red ring instead) under reduced motion, at each usage. */
   @keyframes choice-flash {
     0% {

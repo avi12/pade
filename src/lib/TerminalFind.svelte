@@ -1,10 +1,10 @@
 <!--
-  Find-in-terminal — the Ctrl+F bar that floats over a pane's output.
+  Find-in-terminal - the Ctrl+F bar that floats over a pane's output.
 
   What it searches is xterm's ACTIVE buffer: a shell's scrollback when the
   session has one, and just the visible frame while an agent holds the alternate
   screen (a fullscreen TUI keeps its transcript in its own process, not in the
-  terminal's document — see docs/terminal-rendering.md). The searching itself is
+  terminal's document - see docs/terminal-rendering.md). The searching itself is
   xterm's own search addon, loaded on first open so a session that never searches
   never pays for it.
 
@@ -36,9 +36,9 @@
     terminal: Terminal | undefined;
     /** Everything that decides the terminal's colours, as one value. A change
         re-runs the live search so the highlights are re-drawn in the new
-        scheme — the addon paints with the options it was last given. */
+        scheme - the addon paints with the options it was last given. */
     palette: string;
-    /** The bar closed — the pane takes the keyboard back. */
+    /** The bar closed - the pane takes the keyboard back. */
     onclose: () => void;
   } = $props();
 
@@ -105,7 +105,7 @@
 
     // The box is a free-text field like any other: what reaches the search
     // engine is what the schema passed, never the raw input value. A regex the
-    // user is still halfway through typing is held back the same way — it would
+    // user is still halfway through typing is held back the same way - it would
     // throw inside the engine on the keystroke that reached it.
     const query = parseInput({
       schema: TerminalFindTerm,
@@ -336,7 +336,7 @@
       }
     }
 
-    /* The count changes on every keystroke, so it also reserves its width —
+    /* The count changes on every keystroke, so it also reserves its width -
        tabular figures alone still let "1 of 9" become "10 of 99". */
     .count {
       flex: none;
@@ -387,7 +387,7 @@
       }
     }
 
-    /* A half-typed pattern is not a result — say so in the warning colour rather
+    /* A half-typed pattern is not a result - say so in the warning colour rather
        than let "No matches" imply the terminal was searched and came up empty. */
     .count.unsearchable {
       color: var(--warning);

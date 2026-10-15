@@ -16,7 +16,7 @@
     nested?: boolean;
     /** Rename the folder; resolves once it moved, throws its reason otherwise. */
     onrename: Relocator["renameFolder"];
-    /** Close the prompt — after the rename, or on cancel. */
+    /** Close the prompt - after the rename, or on cancel. */
     onclose: () => void;
   } = $props();
 

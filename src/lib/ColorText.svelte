@@ -7,14 +7,14 @@
   // token definitions so var(--x) swatches show the accurate color.
   //
   // This renders inside a <pre>, so whitespace is significant. Each token is a
-  // SINGLE <span> (the swatch nests inside it), so every iteration is one node —
+  // SINGLE <span> (the swatch nests inside it), so every iteration is one node -
   // the only whitespace between tokens is the each-body boundary, which Svelte
   // trims. Two sibling nodes per iteration would instead leak a space per token.
   const { text, vars, markdown = false }: {
     text: string;
     vars?: Map<string, string>;
-    /** Markdown prose gets structure-only coloring — headings, fences, inline
-     *  code — instead of the generic scanner treating prose words as keywords. */
+    /** Markdown prose gets structure-only coloring - headings, fences, inline
+     *  code - instead of the generic scanner treating prose words as keywords. */
     markdown?: boolean;
   } = $props();
 

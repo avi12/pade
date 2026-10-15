@@ -1,5 +1,5 @@
 <script lang="ts">
-  // PADE brand mark — a three-blade fan on a dark rounded badge. One
+  // PADE brand mark - a three-blade fan on a dark rounded badge. One
   // authoritative home for the logo (DRY) so every surface renders it
   // identically; sits inline beside the "PADE" wordmark in place of the old ◆.
   const { size = 20 }: {

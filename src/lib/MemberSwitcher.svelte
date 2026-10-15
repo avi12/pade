@@ -4,7 +4,7 @@
   A workspace is not always one thing: it can hold nested checkouts (a multi-repo
   folder, a submodule) and declared packages (a monorepo's members). The backend
   finds both (src-tauri/members.rs) and `stores/workspaceMembers` holds the list;
-  this is the one control that lets you say which of them "here" means — the
+  this is the one control that lets you say which of them "here" means - the
   branch the pill beside it reports, and the directory a new agent tab or the
   editor opens in.
 
@@ -23,7 +23,7 @@
   import { hasSeveralMembers, memberLabel } from "@/lib/workspace-members";
 
   const { root }: {
-    /** The open project — the root member's own directory. */
+    /** The open project - the root member's own directory. */
     root: string;
   } = $props();
 
@@ -153,7 +153,7 @@
       white-space: nowrap;
     }
 
-    /* The branch reads as data, not prose — mono, like every other ref in the
+    /* The branch reads as data, not prose - mono, like every other ref in the
        app, and quiet enough that the member's own name still leads. */
     .member-branch {
       flex-shrink: 0;

@@ -6,7 +6,7 @@
   import type { Ide } from "@/lib/types";
 
   // Opens the active project in an external editor. The ranked list comes from
-  // the shared editors store (SSOT — the same list the Change Feed's reveal
+  // the shared editors store (SSOT - the same list the Change Feed's reveal
   // reads), whose backend `ide_suggest` puts the project's editor first: an
   // explicit pick from this menu, else the best auto-detected fit. The split
   // button's primary action opens that editor directly, and the caret always
@@ -15,7 +15,7 @@
   // in a PADE terminal tab instead of through the OS.
   const { onterminaleditor, project, cwd }: {
     onterminaleditor: (editor: Ide) => void;
-    // The open project — the key the shared editor ranking is resolved under,
+    // The open project - the key the shared editor ranking is resolved under,
     // shared with the Change Feed so the two surfaces can't drift.
     project: string;
     // The directory the launcher opens: the active session's worktree when one
@@ -25,12 +25,12 @@
   } = $props();
 
   const ides = $derived(editorsFor(project));
-  // The project's editor — an explicit pick, else the auto-detected best fit.
+  // The project's editor - an explicit pick, else the auto-detected best fit.
   const bestFit = $derived(ides[0]);
   const hasAlternatives = $derived(ides.length > 1);
 
   // Re-profile on mount and whenever the active project changes. The store
-  // coalesces this with any other surface's resolve, so the census runs once —
+  // coalesces this with any other surface's resolve, so the census runs once -
   // and its bookkeeping is non-reactive, so this reacts to `project` alone
   // (a reactive version once re-triggered here every completed fetch).
   $effect(() => {
@@ -53,7 +53,7 @@
 
 <!-- A newly-installed editor should show up without a restart: re-detect
      whenever the app becomes visible again (the user installed one in another
-     app and switched back). Keyed off page *visibility*, not window focus — a
+     app and switched back). Keyed off page *visibility*, not window focus - a
      Windows title-bar drag churns focus, and a focus-driven re-detection
      spawned processes mid-drag and lagged the drag, whereas visibility never
      changes while you drag a window that stays on screen. -->

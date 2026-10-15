@@ -12,18 +12,18 @@
   } from "@/lib/stores/runners.svelte";
   import { RunnerStream } from "@/lib/types";
 
-  // The active agent session — pipe target for a runner's output.
+  // The active agent session - pipe target for a runner's output.
   const { activeSessionId }: {
     activeSessionId: string | null;
   } = $props();
 
   const rows = $derived(runnerRows());
-  // A lone runner has nothing to sort — its header only becomes a drag handle
+  // A lone runner has nothing to sort - its header only becomes a drag handle
   // (grab cursor + tooltip) once a second card exists, like every other list.
   const reorderable = $derived(rows.length > 1);
 
   // NOTE: the feed-toggle chip and the per-runner maximize/float control from the
-  // canvas are backend/planned — deferred until the runner backend supports them.
+  // canvas are backend/planned - deferred until the runner backend supports them.
 
   // Dock height, drag-resizable from the top grip. Clamped so the dock can never
   // swallow the whole window nor collapse below a usable minimum.
@@ -49,7 +49,7 @@
   });
 
   // When every card is an ATTACHED runner (a task the AGENT runs, tracked but not
-  // owned), the dock carries no streaming output — just a one-line note — so it
+  // owned), the dock carries no streaming output - just a one-line note - so it
   // stays compact instead of taking the full streaming height and needlessly
   // squeezing the terminal above it (which, while a busy agent hasn't repainted at
   // the new size, shows squished). Any spawned runner restores the resizable height.
@@ -219,7 +219,7 @@
                  which PADE can't tee. The card still tracks it and can stop it. -->
             <div class="attached-note">
               <p>Running in the agent's terminal.</p>
-              <p class="muted">Its output stays there — PADE didn't spawn this process. Stop ends it.</p>
+              <p class="muted">Its output stays there - PADE didn't spawn this process. Stop ends it.</p>
             </div>
           {:else}
             <div
@@ -333,14 +333,14 @@
     min-block-size: 168px;
     background: var(--surface-1);
 
-    /* An attached card has only a short note, no output pane — it must not hold
+    /* An attached card has only a short note, no output pane - it must not hold
        the streaming-output floor, or a compact attached-only dock can't shrink. */
     &.attached {
       min-block-size: 0;
     }
   }
 
-  /* The bar doubles as the drag-to-reorder handle for its runner — but only
+  /* The bar doubles as the drag-to-reorder handle for its runner - but only
      once a second card exists to sort against. */
   .bar {
     display: flex;
@@ -475,7 +475,7 @@
     text-transform: uppercase;
   }
 
-  /* Stand-in for the output pane on an attached runner — there is nothing to
+  /* Stand-in for the output pane on an attached runner - there is nothing to
      stream, so it explains why rather than showing an empty terminal. */
   .attached-note {
     display: flex;
@@ -505,7 +505,7 @@
     animation: line-in 180ms var(--ease);
 
     /* stderr in a crit tint so failures read at a glance. It's the base colour the
-       spans inherit — an SGR foreground colour overrides it per segment. */
+       spans inherit - an SGR foreground colour overrides it per segment. */
     &.error {
       color: color-mix(in sRGB, var(--critical) 82%, var(--code-foreground));
     }

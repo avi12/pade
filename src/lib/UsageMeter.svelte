@@ -28,14 +28,14 @@
   import { onDestroy, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
 
-  // The running agent sessions — one usage group per distinct coding agent among
+  // The running agent sessions - one usage group per distinct coding agent among
   // them is derived below (App.svelte owns the list; the shell fallback and
   // terminal-editor sessions are filtered out in `buildGroups`).
   const { sessions }: { sessions: AgentSession[] } = $props();
 
   // Live account usage per agent (mirrors claude.ai / `claude /usage` and Codex's
-  // own limits): each agent's rate-limit windows — the session, weekly, and any
-  // per-model caps — read via that vendor's usage endpoint from the local token,
+  // own limits): each agent's rate-limit windows - the session, weekly, and any
+  // per-model caps - read via that vendor's usage endpoint from the local token,
   // keyed by agent id. The backend caches each (~3 min), so this polls slowly.
   let accounts = $state<ReadonlyMap<string, AccountUsage | null>>(new Map());
   // A ticking clock so the "resets in …" countdowns stay live between polls.
@@ -50,7 +50,7 @@
   const refreshedResetBoundaries = new SvelteSet<string>();
 
   // How many per-agent pills the trigger shows before collapsing the rest into a
-  // trailing "+N" overflow chip. Every agent renders as a pill — a single agent
+  // trailing "+N" overflow chip. Every agent renders as a pill - a single agent
   // still shows its full per-window breakdown, never a compacted chip.
   const MAX_TRIGGER_PILLS = 2;
 
@@ -83,23 +83,23 @@
     return null;
   });
   const overflowTooltip = $derived(
-    `${formatCount(overflowCount)} more ${overflowCount === 1 ? "agent" : "agents"} — open for the full list`
+    `${formatCount(overflowCount)} more ${overflowCount === 1 ? "agent" : "agents"} - open for the full list`
   );
 
   const severitySlices = $derived(severityBreakdown(groups));
-  // Agents that actually carry a severity — the distribution bar's denominator, so
+  // Agents that actually carry a severity - the distribution bar's denominator, so
   // its segments fill it exactly (unknown agents have no severity to plot).
   const measuredAgents = $derived(severitySlices.reduce((sum, slice) => sum + slice.count, 0));
   const spotlight = $derived(findSpotlight(groups));
   // The spotlight's countdown, phrased ("resets in 3h 30m"); an em-dash when its
   // reset time is unknown or already past.
-  const spotlightReset = $derived(spotlight?.limit.reset ? `resets ${spotlight.limit.reset}` : "—");
+  const spotlightReset = $derived(spotlight?.limit.reset ? `resets ${spotlight.limit.reset}` : "-");
   const kindLegend = $derived(buildKindLegend(groups));
   const runningLabel = $derived(`${formatCount(groups.length)} ${groups.length === 1 ? "agent" : "agents"} running`);
 
   const ariaLabel = $derived(
     groups.length > 0
-      ? `Usage — ${groups
+      ? `Usage - ${groups
         .map(group => `${group.name} ${group.limits.map(limit => `${limit.label} ${limit.reading}`).join(", ")}`)
         .join("; ")}`
       : "Usage details"
@@ -107,7 +107,7 @@
 
   // Fetch each distinct running agent's account (Claude, Codex, …) in parallel,
   // keyed by agent id. An agent with no local usage signal resolves to null and
-  // renders as an "unknown" group — never fabricated.
+  // renders as an "unknown" group - never fabricated.
   async function loadAccounts({ forceRefresh = false }: { forceRefresh?: boolean } = {}) {
     const agentIds = [...new Set(sessions.map(session => session.agent.id))];
     const entries = await Promise.all(
@@ -138,7 +138,7 @@
     untrack(refreshLimitResetOffer);
   });
 
-  // Limits that just started over — on schedule or by a spent free reset — so
+  // Limits that just started over - on schedule or by a spent free reset - so
   // their numbers can flash. Compared reading to reading; the set is replaced on
   // every new reading, which also clears it for the next reset of the same limit.
   let justReset = $state<ReadonlySet<string>>(new Set());
@@ -236,7 +236,7 @@
     popovertarget="usage-menu"
   >
     {#if groups.length === 0}
-      <span class="none">—</span>
+      <span class="none">-</span>
     {:else}
       <span class="pills">
         {#each pillGroups as group (group.id)}
@@ -270,7 +270,7 @@
                 {/each}
               </span>
             {:else}
-              <span class="agent-pill-dash">—</span>
+              <span class="agent-pill-dash">-</span>
             {/if}
             {#if group.id === AgentId.Claude && showsResetInPill}
               <span class="reset-face reset-slot" aria-hidden="true" transition:growInline>{@render resetLabel()}</span>
@@ -425,14 +425,14 @@
         {/each}
       </ul>
     {:else}
-      <p class="empty">No usage to show yet — sign in to Claude Code to load your limits.</p>
+      <p class="empty">No usage to show yet - sign in to Claude Code to load your limits.</p>
     {/if}
   </div>
 
   {#if showsResetInPill}
     <button
       class="reset-face reset-chip"
-      aria-label="Free limit reset available — {limitResetSummary()}"
+      aria-label="Free limit reset available - {limitResetSummary()}"
       data-tooltip="Free limit reset available · {limitResetSummary()}"
       onclick={askToResetLimits}
       type="button"
@@ -453,8 +453,8 @@
     flex-shrink: 0;
   }
 
-  /* A limit that just started over — its scheduled reset, or a free reset spent
-     on it — flashes once: the number pops while a primary wash fades behind it,
+  /* A limit that just started over - its scheduled reset, or a free reset spent
+     on it - flashes once: the number pops while a primary wash fades behind it,
      so a sudden drop to 0% reads as a refill rather than a glitch. */
   .just-reset {
     animation: limit-refill 900ms var(--ease) both;
@@ -479,8 +479,8 @@
 
   /* A free reset waiting to be spent, shown in Claude's pill because it is
      Claude's. The trigger is a button and can't hold another, so the pill keeps
-     an invisible slot of the chip's exact size and the real chip — a sibling of
-     the trigger — is anchored over it. */
+     an invisible slot of the chip's exact size and the real chip - a sibling of
+     the trigger - is anchored over it. */
   .reset-face {
     display: inline-flex;
     gap: 3px;
@@ -547,7 +547,7 @@
 
   /* Severity color, shared: the level class sets --severity-color (and a faint --severity-wash
      tint for warn/crit) once, and every bar / number / row below just reads it
-     (DRY). --severity-wash stays unset at "normal" — there is no primary wash. */
+     (DRY). --severity-wash stays unset at "normal" - there is no primary wash. */
   .severity {
     --severity-color: var(--primary);
 
@@ -701,7 +701,7 @@
     position: absolute;
     inset: auto;
 
-    /* A native [popover] defaults to overflow:auto — clip so no stray scrollbar
+    /* A native [popover] defaults to overflow:auto - clip so no stray scrollbar
        shows; the inner .agents list owns vertical scrolling. */
     overflow: clip;
     inline-size: min(29rem, 92vw);
@@ -947,7 +947,7 @@
         background: var(--severity-wash);
       }
 
-      /* An unknown agent has no severity — mute its icon so the primary blue
+      /* An unknown agent has no severity - mute its icon so the primary blue
          never reads as a (fabricated) "healthy" score. */
       &.unknown {
         --severity-color: var(--on-surface-variant);
@@ -1032,8 +1032,8 @@
       text-align: end;
     }
 
-    /* Clock + live "in …" countdown — or, on the extra-usage row, the credits
-       balance — right-aligned to the card edge. */
+    /* Clock + live "in …" countdown - or, on the extra-usage row, the credits
+       balance - right-aligned to the card edge. */
     .limit-reset,
     .limit-balance {
       display: inline-flex;

@@ -4,11 +4,11 @@
   The pill names the branch HEAD is on for the part of the workspace the top bar
   points at (`MemberSwitcher` picks that part; `App` reads the branches for it).
   Opening it lists every branch the repo can switch to: the local ones, then the
-  ones only the remote has so far — `git switch <name>` creates the local
+  ones only the remote has so far - `git switch <name>` creates the local
   tracking branch for those, so a fresh clone can reach work it never checked out.
 
-  A switch git refuses — uncommitted work in the way, or a branch already held by
-  another worktree — surfaces git's own sentence in the toast, because that
+  A switch git refuses - uncommitted work in the way, or a branch already held by
+  another worktree - surfaces git's own sentence in the toast, because that
   sentence names the obstacle.
 -->
 <script lang="ts">
@@ -129,7 +129,7 @@
 
       {#if remoteBranches.length > 0}
         <li class="menu-divider" role="separator"></li>
-        <li class="menu-separator">On the remote — checks out a local copy</li>
+        <li class="menu-separator">On the remote - checks out a local copy</li>
         {#each remoteBranches as branch (branch)}
           <li>
             <button
@@ -176,7 +176,7 @@
   }
 
   /* The checked-out branch, pilled beside the project button (design's branch
-     chip) — click opens the branch list. */
+     chip) - click opens the branch list. */
   .branch-pill {
     display: inline-flex;
     flex-shrink: 0;
@@ -236,7 +236,7 @@
       gap: 8px;
     }
 
-    /* A ref reads as data — the mono face, like every other branch name in the
+    /* A ref reads as data - the mono face, like every other branch name in the
        app. The check column keeps every name on the same start edge. */
     .branch-row {
       font-family: var(--font-monospace);
@@ -267,7 +267,7 @@
       white-space: nowrap;
     }
 
-    /* The two prose actions under the refs — sentence case, not mono. */
+    /* The two prose actions under the refs - sentence case, not mono. */
     .action-row {
       color: var(--on-surface-variant);
       font-size: 12px;

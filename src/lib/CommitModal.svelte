@@ -22,7 +22,7 @@
 
   // Selected file within the commit; seeded to the first file so its tab is
   // selected and focusable from the first render, before the diff loads.
-  // Seeded once from the prop (the modal is remounted per commit) — untrack makes
+  // Seeded once from the prop (the modal is remounted per commit) - untrack makes
   // the intentional initial-only read explicit.
   let selectedPath = $state<string>(untrack(() => commit.files[0]?.path ?? ""));
   const selectedFile = $derived<CommitFileEntry | undefined>(
@@ -30,8 +30,8 @@
   );
 
   // One file's diff, fetched on demand and cached so re-selecting never refetches.
-  // The cache is only ever read imperatively inside loadDiff — never in reactive
-  // markup — so a plain Map is correct; a SvelteMap would add needless reactivity
+  // The cache is only ever read imperatively inside loadDiff - never in reactive
+  // markup - so a plain Map is correct; a SvelteMap would add needless reactivity
   // tracking for a value the template never observes.
   let diffLines = $state<DiffLine[]>([]);
   let loading = $state(false);
@@ -80,7 +80,7 @@
       cache.set(path, parsed);
       diffLines = parsed;
     } catch {
-      // A fetch/parse failure is an error, not a big file — surface it as such
+      // A fetch/parse failure is an error, not a big file - surface it as such
       // and never cache, so re-selecting retries instead of showing stale empty.
       if (path !== selectedPath) {
         return;

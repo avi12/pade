@@ -11,7 +11,7 @@
     placeholder?: string;
     path: string;
     onsubmit: () => Promise<void>;
-    /** What the name changes — shown above the field. */
+    /** What the name changes - shown above the field. */
     children: Snippet;
   } = $props();
 </script>

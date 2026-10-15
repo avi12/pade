@@ -33,7 +33,7 @@
   // row. New windows and the full picker sit below. In-window switches funnel
   // through `onopen`; pin/remove/reorder persist via parent callbacks and the
   // shared settings authority; window focus + the list use the bridge directly.
-  // Up/Down walk the project items in the order they read — window rows, the
+  // Up/Down walk the project items in the order they read - window rows, the
   // filter field, then pinned/recent rows: every stop is tagged
   // `data-arrow-stop`, and `arrowFocus` moves focus between them.
   const {
@@ -58,7 +58,7 @@
     path: string;
     label: string;
     isTemp: boolean;
-    /** The saved project roots — destinations the temp workspace can be saved into. */
+    /** The saved project roots - destinations the temp workspace can be saved into. */
     roots: string[];
     recentProjects: string[];
     pinnedProjects: string[];
@@ -67,7 +67,7 @@
     onopen: (path: string) => void;
     /** Open the full picker (browse every root, clone, open a folder). */
     onswitch: () => void;
-    /** Pin or unpin a project — persisted by the parent into shared settings.
+    /** Pin or unpin a project - persisted by the parent into shared settings.
      *  Resolves once settings are updated, so the switcher can wrap it in a view
      *  transition and morph the row to its new section. */
     ontogglepin: (target: {
@@ -79,11 +79,11 @@
     /** Forget one project from the switcher (recents + pins); folder untouched.
      *  Resolves when done. */
     onremoverecent: (path: string) => Promise<void>;
-    /** Delete a project's directory from disk — performs the removal and resolves
+    /** Delete a project's directory from disk - performs the removal and resolves
      *  (or throws its message). The switcher owns the confirmation UI, so it stays
      *  open behind the prompt and animates the row out when this resolves. */
     ondelete: (path: string) => Promise<void>;
-    /** Rename a project's folder on disk where it stands — resolves to its new
+    /** Rename a project's folder on disk where it stands - resolves to its new
      *  path once it moved (or throws its reason). */
     onrenamefolder: Relocator["renameFolder"];
     /** Persist a drag-reordered pin order. */
@@ -94,7 +94,7 @@
       name: string;
       root: string;
     }) => Promise<void>;
-    /** Add an existing folder as a project root — the no-roots save path.
+    /** Add an existing folder as a project root - the no-roots save path.
      *  Persisted by the parent into shared settings. */
     onaddroot: (path: string) => Promise<AddRootOutcome>;
   } = $props();
@@ -103,14 +103,14 @@
   // The open-window list is fetched when the menu opens. Branch chips and language
   // icons load independently, only as their rows become visible.
   let windowRows = $state<WindowInfo[]>([]);
-  // Whether the popover is open — the moment a row first has a real width, so the
+  // Whether the popover is open - the moment a row first has a real width, so the
   // per-row truncation tooltips (re)measure then rather than while hidden.
   let menuOpen = $state(false);
-  // When the menu last opened — the instant every row's "last accessed" age is
+  // When the menu last opened - the instant every row's "last accessed" age is
   // measured against, so the ages are fresh on each open without a ticking clock.
   let openedAt = $state(Date.now());
   // The rows container, so list mutations animate through a view transition
-  // scoped to *just* this element (never the document — that would snapshot the
+  // scoped to *just* this element (never the document - that would snapshot the
   // live-repainting terminal and ghost it).
   let switchListElement = $state<HTMLElement | null>(null);
   let windowListElement = $state<HTMLElement | null>(null);
@@ -121,10 +121,10 @@
   let deleteBusy = $state(false);
   let deleteError = $state("");
 
-  // The temp workspace whose PADE-only label is being edited — nested over this
+  // The temp workspace whose PADE-only label is being edited - nested over this
   // menu like the delete prompt, so the switcher stays in view behind it.
   let relabelTarget = $state<string | null>(null);
-  // The project whose folder is being renamed on disk — nested the same way.
+  // The project whose folder is being renamed on disk - nested the same way.
   let renameFolderTarget = $state<string | null>(null);
 
   // ── Save-this-workspace (temp → real project) ───────────────────────────────
@@ -154,7 +154,7 @@
     })
   );
 
-  // Live disk check on each save target — the same collision guard the project
+  // Live disk check on each save target - the same collision guard the project
   // picker's new-project field uses (QuickStartSection). `workspace_rename` does
   // an `fs::rename`, which on Windows fails with a raw "os error 32/183" if the
   // target already exists; probe `<root>/<name>` up front so a colliding name
@@ -190,7 +190,7 @@
               exists: probe.isDir || probe.isFile
             };
           } catch {
-            // An unreachable probe leaves the plain save path — the backend
+            // An unreachable probe leaves the plain save path - the backend
             // still validates the final rename.
             return {
               name: targetName,
@@ -233,8 +233,8 @@
     }
   }
 
-  // Enter in the name field saves into the PRIMARY root (roots[0]) — the same
-  // default workspace_rename uses when no root is chosen — or opens the folder
+  // Enter in the name field saves into the PRIMARY root (roots[0]) - the same
+  // default workspace_rename uses when no root is chosen - or opens the folder
   // picker when there are no roots yet. Respects the same gates as the primary
   // root's button (blank/busy/collision), so Enter can't save a name that button
   // shows disabled.
@@ -298,11 +298,11 @@
   const noResults = $derived(
     filter.trim().length > 0 && pinnedShown.length === 0 && recentShown.length === 0
   );
-  // Pins reorder only when there's more than one and no filter narrows the set —
+  // Pins reorder only when there's more than one and no filter narrows the set -
   // the drag engine commits the visible rows, so a filtered subset would drop the
   // hidden pins from the saved order.
   const pinsReorderable = $derived(filter.trim() === "" && pinnedProjects.length > 1);
-  // A lone window can't be reordered — mirror the pins guard so the grip only
+  // A lone window can't be reordered - mirror the pins guard so the grip only
   // appears when there's more than one open window to drag among.
   const windowsReorderable = $derived(windowRows.length > 1);
 
@@ -404,7 +404,7 @@
     onopen(project);
   }
 
-  // Focus the filter as the menu opens: it's ready to type, and — crucially —
+  // Focus the filter as the menu opens: it's ready to type, and - crucially -
   // the trigger no longer keeps focus, so a later keypress (holding Shift for a
   // shift-click) can't flip `:focus-visible` on and paint a stray ring on it. The
   // rAF waits for the popover's top layer to lay out before the field is focusable.
@@ -413,7 +413,7 @@
   }
 
   // Spawn a fresh window and dismiss the menu so it doesn't linger over the new
-  // one. `path` is optional — omitted for empty/temp modes.
+  // one. `path` is optional - omitted for empty/temp modes.
   async function spawn(args: {
     mode: WindowMode;
     path?: string;
@@ -422,10 +422,10 @@
     hide();
   }
 
-  // Run a list mutation (pin/unpin/remove/delete/clear — each an async settings
+  // Run a list mutation (pin/unpin/remove/delete/clear - each an async settings
   // update that reshapes the rows) inside a view transition scoped to *just* the
-  // rows container, so a row morphs — one moved between sections glides to its new
-  // place — instead of snapping. Scoped to this element, never `document`, so it
+  // rows container, so a row morphs - one moved between sections glides to its new
+  // place - instead of snapping. Scoped to this element, never `document`, so it
   // never snapshots the live-repainting terminal (which would ghost). Reduced
   // motion, or an engine without the scoped API, runs the mutation directly.
   type ScopedTransitionList = HTMLElement & {
@@ -439,7 +439,7 @@
     }
 
     // Resolve once the DOM has updated (so a caller like the delete flow can close
-    // its dialog then) — the transition itself keeps animating after that.
+    // its dialog then) - the transition itself keeps animating after that.
     const transition = list.startViewTransition(async () => {
       await mutate();
       await tick();
@@ -460,8 +460,8 @@
 
   // Ctrl P from anywhere opens the switcher and focuses its filter, matching the
   // shortcut the trigger and the search field advertise. It runs in the capture
-  // phase (like pane-shortcuts) so it wins over the terminal — xterm would
-  // otherwise swallow Ctrl P and send it to the agent — and the browser's print
+  // phase (like pane-shortcuts) so it wins over the terminal - xterm would
+  // otherwise swallow Ctrl P and send it to the agent - and the browser's print
   // dialog, neither of which sees the chord once it's consumed here.
   function openViaShortcut(e: KeyboardEvent) {
     const isCtrlP =
@@ -487,7 +487,7 @@
 
   // Keep the branch chips honest while the switcher is on screen: a branch
   // switch or git init in any listed project re-asks for the visible rows. A
-  // closed menu skips it — opening invalidates them anyway.
+  // closed menu skips it - opening invalidates them anyway.
   let unlistenGitState: UnlistenFn | undefined;
   onMount(async () => {
     unlistenGitState = await vcs.onStateChanged(() => {
@@ -526,7 +526,7 @@
     class="trigger menu-trigger"
     {@attach openRepositoryOnModifiedClick({ project: path })}
     aria-haspopup="menu"
-    aria-label={`Switch project · Ctrl P · Ctrl-click opens repository — ${label}`}
+    aria-label={`Switch project · Ctrl P · Ctrl-click opens repository - ${label}`}
     data-tooltip="Switch project · Ctrl-click opens repository"
     popovertarget="application-menu"
   >
@@ -570,7 +570,7 @@
           <span class="save-title">Save this workspace</span>
           <button
             class="save-relabel"
-            {@attach tooltip("Rename it in PADE only — the folder keeps its path")}
+            {@attach tooltip("Rename it in PADE only - the folder keeps its path")}
             onclick={() => {
               relabelTarget = path;
             }}
@@ -637,12 +637,12 @@
       <div class="menu-divider"></div>
     {/if}
 
-    <!-- Open PADE windows — in creation order, which is also the cycle order for
+    <!-- Open PADE windows - in creation order, which is also the cycle order for
        Ctrl+Alt+[ / ]. Click a non-current one to focus its window. -->
     {#if windowRows.length > 0}
       <div class="menu-separator">Open windows</div>
       <!-- Own container so the scoped view transition (animateWindowListChange)
-           morphs just these rows when the order changes — locally or when another
+           morphs just these rows when the order changes - locally or when another
            window's reorder broadcasts. -->
       <div bind:this={windowListElement} class="open-window-list">
         {#each windowRows as windowRow (windowRow.label)}
@@ -1072,7 +1072,7 @@
 
   /* Shell comes from the shared .popover-menu; width, colour and anchor side here. */
 
-  /* "Save this workspace" — the temp-promotion card leading the menu. */
+  /* "Save this workspace" - the temp-promotion card leading the menu. */
   .save-card {
     display: flex;
     flex-direction: column;
@@ -1413,7 +1413,7 @@
     align-items: center;
   }
 
-  /* Drag handle for a pinned row — muted, brightens on hover; touch-action:none so
+  /* Drag handle for a pinned row - muted, brightens on hover; touch-action:none so
      a touch-drag grabs the handle rather than scrolling the list. */
   .grip {
     display: inline-flex;
@@ -1459,7 +1459,7 @@
     &:focus-visible {
       /* The kind icon falls back to the muted ink when a project has no
          detected language (a plain folder), and that ink was picked against the
-         row's resting surface — on this fill it is dim at best, and invisible
+         row's resting surface - on this fill it is dim at best, and invisible
          where the container is dark. Re-point the token it already reads rather
          than overriding its colour, so a real brand mark (Rust's orange, Go's
          cyan) still wears its own. */
@@ -1514,7 +1514,7 @@
       font-size: 9px;
 
       /* The branch glyph leads the branch name, tinted tertiary like the design's
-         "vc" mark — it stays that colour on row hover (as the dot did). */
+         "vc" mark - it stays that colour on row hover (as the dot did). */
       .branch-icon {
         display: inline-flex;
         flex: none;
@@ -1553,7 +1553,7 @@
     color: inherit;
   }
 
-  /* Row kebab — the ⋮ button opening the per-row options popover. */
+  /* Row kebab - the ⋮ button opening the per-row options popover. */
   .project-row-kebab {
     display: inline-flex;
     flex: none;
@@ -1583,7 +1583,7 @@
     opacity: 100%;
   }
 
-  /* Per-row options popover — Pin/Unpin, Remove, Delete. Width is capped so the
+  /* Per-row options popover - Pin/Unpin, Remove, Delete. Width is capped so the
      Delete item's path ellipsizes (.menu-item-subtitle) instead of ballooning the menu wide
      enough to spill past the panel over the terminal. */
   .row-menu {

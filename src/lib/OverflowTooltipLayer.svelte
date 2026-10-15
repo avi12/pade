@@ -1,9 +1,9 @@
 <script lang="ts">
   import { overflowTooltipState } from "@/lib/overflow-tooltip.svelte";
 
-  // The bubble is a manual [popover] so it renders in the TOP LAYER — above the
+  // The bubble is a manual [popover] so it renders in the TOP LAYER - above the
   // workspace switcher's own popover menu (a plain fixed div would paint behind
-  // it) — and is never clipped by a scroll/`content-visibility` ancestor. It
+  // it) - and is never clipped by a scroll/`content-visibility` ancestor. It
   // stays in the DOM and toggles open as a trigger claims/releases it; the
   // anchor just moves, so no open/close churn when hovering row to row.
   let bubble = $state<HTMLDivElement>();
@@ -64,7 +64,7 @@
     pointer-events: none;
     animation: overflow-tooltip-fade 120ms var(--ease) both;
 
-    /* Flip above the trigger near the viewport bottom — reuses theme.css's
+    /* Flip above the trigger near the viewport bottom - reuses theme.css's
        shared try, and its gap/gutter tokens above, so this bubble and the
        [data-tooltip] pseudo are placed identically. */
     position-try-fallbacks: --tooltip-flip-up;

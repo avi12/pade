@@ -3,7 +3,7 @@
   import { DiffKind, toSplitRows } from "@/lib/diff";
   import type { DiffLine } from "@/lib/diff";
 
-  // The one authoritative renderer for a parsed diff — unified or split —
+  // The one authoritative renderer for a parsed diff - unified or split -
   // shared by the Change Feed, the VCS panel, and the commit modal (DRY).
   // Presentation only: callers own fetching/parsing, the scroll container,
   // and any interactivity (a wrapper can delegate clicks through the
@@ -73,7 +73,7 @@
     line-height: 1.5;
   }
 
-  /* "Fully printed": every code line is visible in full — long lines wrap
+  /* "Fully printed": every code line is visible in full - long lines wrap
      (preserving whitespace) rather than clip or hide behind a side-scroll,
      and unbroken tokens may break anywhere so nothing ever overflows. */
 
@@ -107,7 +107,7 @@
     overflow-wrap: anywhere;
   }
 
-  /* content-visibility lets the engine skip layout/paint for offscreen rows —
+  /* content-visibility lets the engine skip layout/paint for offscreen rows -
      on a 9.4k-line diff (Notepad++ stress test) it cut the expand's main-thread
      block ~30% and the split toggle ~20%, with instant scrolling. The intrinsic
      size reserves one line-height (1.5 × 12px) per row to keep the scrollbar

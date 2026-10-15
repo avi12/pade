@@ -1,12 +1,12 @@
 <script lang="ts" module>
-  // One .svg file per icon lives in ./icons — the authoritative home for each
+  // One .svg file per icon lives in ./icons - the authoritative home for each
   // glyph (no hardcoded path strings). Vite inlines every file as a raw string at
   // build time; we render its inner markup (the <path>/<circle> body) inside the
   // shared <svg> wrapper below, so all icons keep one size/stroke and the files
   // stay valid standalone SVGs. To add an icon: drop a `<name>.svg` in ./icons and
   // add its name to ICON_NAMES.
   //
-  // ICON_NAMES is the type's single source of truth — a glob's keys are only
+  // ICON_NAMES is the type's single source of truth - a glob's keys are only
   // `string` to the type system, so the name union can't be derived from them.
   const ICON_NAMES = [
     "activity", "alert", "android", "androidstudio", "angular", "antigravity", "astro",
@@ -32,7 +32,7 @@
     eager: true
   });
 
-  // Drop each file's outer <svg …> wrapper — the template supplies it — leaving
+  // Drop each file's outer <svg …> wrapper - the template supplies it - leaving
   // just the body to inject. No regex: the first '>' closes the opening tag (SVG
   // path data and attribute values never contain one).
   function iconBody(svg: string): string {
