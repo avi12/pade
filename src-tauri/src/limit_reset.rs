@@ -11,19 +11,21 @@
 //! twice. Spending a grant cannot be undone; the frontend confirms first.
 
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
 use crate::usage::{
-    claude_access_token, claude_cli_version, claude_organization, curl_get_json,
-    is_safe_header_token, USAGE_CACHE_SECONDS,
+    claude_access_token, claude_cli_version, claude_organization, claude_usage_url,
+    curl_claude_oauth, is_safe_header_token, ClaudeOauthRequest, CLAUDE_API, USAGE_CACHE_TTL,
 };
 
 /// The reset program's name, both as the usage query flag and in the claim.
 const RESET_PROGRAM: &str = "cedar_ember";
-const OFFER_URL: &str = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1";
-const CLAIM_API: &str = "https://api.anthropic.com/api/organizations";
+/// How long an offer or claim request may take before curl gives up.
+const RESET_REQUEST_TIMEOUT_SECONDS: u32 = 20;
+/// The longest grant id Claude Code itself accepts.
+const MAXIMUM_GRANT_ID_LENGTH: usize = 40;
 
 /// The reset an account can spend now: the grant the server names as next.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -89,12 +91,10 @@ pub async fn limit_reset_claim(grant_id: String) -> Result<LimitResetOutcome, St
         .map_err(|error| error.to_string())?
 }
 
-/// How long one reading of the offer is reused. It comes off the same
-/// rate-limited usage endpoint as the meter, which is re-read every few
-/// minutes; asking on every reading as well got the endpoint refusing both.
-const OFFER_CACHE_TTL: Duration = Duration::from_secs(USAGE_CACHE_SECONDS);
-
-/// The last offer the endpoint answered, and when.
+/// The last offer the endpoint answered, and when. Cached as long as a meter
+/// reading ([`USAGE_CACHE_TTL`]): the offer comes off the same rate-limited
+/// usage endpoint, and asking on every reading as well got the endpoint
+/// refusing both.
 static OFFER_CACHE: Mutex<Option<(Instant, Option<LimitReset>)>> = Mutex::new(None);
 
 /// The offer, from the cache while it is fresh. A failed request (offline, or
@@ -103,7 +103,7 @@ static OFFER_CACHE: Mutex<Option<(Instant, Option<LimitReset>)>> = Mutex::new(No
 fn fetch_offer() -> Option<LimitReset> {
     let cached = OFFER_CACHE.lock().ok().and_then(|guard| guard.clone());
     if let Some((read_at, offer)) = &cached {
-        if read_at.elapsed() < OFFER_CACHE_TTL {
+        if read_at.elapsed() < USAGE_CACHE_TTL {
             return offer.clone();
         }
     }
@@ -131,14 +131,16 @@ struct OfferUnanswered;
 /// Ask the endpoint for the offer - `Ok(None)` when it answered that there is
 /// nothing to spend.
 fn request_offer() -> Result<Option<LimitReset>, OfferUnanswered> {
-    let config = request_config(&Request {
-        url: OFFER_URL,
+    let url = format!("{}?{RESET_PROGRAM}=1&skip_spend=1", claude_usage_url());
+    let body = curl_claude_oauth(&ClaudeOauthRequest {
+        url: &url,
         token: &claude_access_token().ok_or(OfferUnanswered)?,
         user_agent: &claude_cli_user_agent().ok_or(OfferUnanswered)?,
-        body: None,
+        organization: None,
+        json_body: None,
+        timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
     })
     .ok_or(OfferUnanswered)?;
-    let body = curl_get_json(&config).ok_or(OfferUnanswered)?;
     let response: serde_json::Value = serde_json::from_str(&body).map_err(|_| OfferUnanswered)?;
     Ok(response
         .get(RESET_PROGRAM)
@@ -152,6 +154,9 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
     }
 
     let token = claude_access_token().ok_or("Claude is not signed in")?;
+    if !is_safe_header_token(&token) {
+        return Err("unsafe request".to_string());
+    }
     let organization = claude_organization()
         .filter(|organization| is_safe_header_token(organization))
         .ok_or("no Claude organization")?;
@@ -163,15 +168,16 @@ fn claim(grant_id: &str) -> Result<LimitResetOutcome, String> {
         "request_id": request_id,
     })
     .to_string();
-    let url = format!("{CLAIM_API}/{organization}/reset_rate_limits");
-    let config = request_config(&Request {
+    let url = format!("{CLAUDE_API}/organizations/{organization}/reset_rate_limits");
+    let response = curl_claude_oauth(&ClaudeOauthRequest {
         url: &url,
         token: &token,
         user_agent: &user_agent,
-        body: Some(&body),
+        organization: None,
+        json_body: Some(&body),
+        timeout_seconds: RESET_REQUEST_TIMEOUT_SECONDS,
     })
-    .ok_or("unsafe request")?;
-    let response = curl_get_json(&config).ok_or("the reset request failed")?;
+    .ok_or("the reset request failed")?;
     forget_offer();
     serde_json::from_str(&response).map_err(|error| error.to_string())
 }
@@ -200,7 +206,7 @@ fn offered_reset(status: ResetStatus) -> Option<LimitReset> {
 /// The shape Claude Code itself accepts for a grant id - also what keeps it
 /// safe inside the request body.
 fn is_grant_id(grant_id: &str) -> bool {
-    let has_valid_length = (1..=40).contains(&grant_id.len());
+    let has_valid_length = (1..=MAXIMUM_GRANT_ID_LENGTH).contains(&grant_id.len());
     has_valid_length
         && grant_id.bytes().all(|byte| {
             byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
@@ -215,40 +221,6 @@ fn claude_cli_user_agent() -> Option<String> {
             .bytes()
             .all(|byte| byte.is_ascii_digit() || byte == b'.');
     is_version.then(|| format!("claude-cli/{version} (external, cli)"))
-}
-
-struct Request<'request> {
-    url: &'request str,
-    token: &'request str,
-    user_agent: &'request str,
-    body: Option<&'request str>,
-}
-
-/// A curl `--config` document for `request`, the token riding in it rather
-/// than the arguments. `None` when the token could break out of its quotes.
-fn request_config(request: &Request) -> Option<String> {
-    let Request {
-        url,
-        token,
-        user_agent,
-        body,
-    } = request;
-    if !is_safe_header_token(token) {
-        return None;
-    }
-
-    let post = body.map_or_else(String::new, |body| {
-        let quoted = body.replace('\\', "\\\\").replace('"', "\\\"");
-        format!("request = \"POST\"\ndata = \"{quoted}\"\n")
-    });
-    Some(format!(
-        "silent\nshow-error\nfail\nmax-time = 20\nurl = \"{url}\"\n\
-         header = \"Authorization: Bearer {token}\"\n\
-         header = \"anthropic-beta: oauth-2025-04-20\"\n\
-         header = \"User-Agent: {user_agent}\"\n\
-         header = \"Content-Type: application/json\"\n\
-         {post}"
-    ))
 }
 
 #[cfg(test)]

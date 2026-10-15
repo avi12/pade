@@ -14,6 +14,7 @@
 //! "usage unavailable" state - we never fabricate numbers.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -233,14 +234,24 @@ fn codex_tier_label_usage() -> Option<Usage> {
 // whatever windows the response carries rather than hardcoding a fixed few.
 // ---------------------------------------------------------------------------
 
-/// The claude.ai OAuth API Claude Code reads its account state from.
-const CLAUDE_OAUTH_API: &str = "https://api.anthropic.com/api/oauth";
-/// The undocumented endpoint Claude Code's `/usage` reads. It requires the
-/// `claude-code/<version>` User-Agent (any other UA lands in an aggressively
-/// rate-limited bucket) and is safe at ~180s intervals - hence the cache below.
-const OAUTH_USAGE_PATH: &str = "/usage";
-const USAGE_UA: &str = "claude-code/1.0.128";
-pub(crate) const USAGE_CACHE_SECONDS: u64 = 170;
+/// The claude.ai API Claude Code reads its account state from.
+pub(crate) const CLAUDE_API: &str = "https://api.anthropic.com/api";
+/// Where the OAuth-authenticated endpoints live under [`CLAUDE_API`].
+const CLAUDE_OAUTH_PATH: &str = "/oauth";
+/// The `User-Agent` the usage endpoint expects: any other one lands in an
+/// aggressively rate-limited bucket.
+const CLAUDE_USAGE_USER_AGENT: &str = "claude-code/1.0.128";
+/// How long one reading of a usage endpoint is reused. They are rate-limited per
+/// token and safe at ~180s intervals, so every adapter (and the limit-reset
+/// offer, read off the same endpoint) caches its answer this long.
+pub(crate) const USAGE_CACHE_TTL: Duration = Duration::from_secs(170);
+/// How long one usage read may take before curl gives up.
+const USAGE_REQUEST_TIMEOUT_SECONDS: u32 = 12;
+
+/// The undocumented endpoint Claude Code's `/usage` reads.
+pub(crate) fn claude_usage_url() -> String {
+    format!("{CLAUDE_API}{CLAUDE_OAUTH_PATH}/usage")
+}
 
 /// The two named top-level windows we give product names to; every other named
 /// window the endpoint returns is surfaced generically as
@@ -461,8 +472,7 @@ fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
         .then(|| {
             cache.lock().ok().and_then(|guard| {
                 let (fetched_at, cached) = guard.get(&request.agent)?;
-                (fetched_at.elapsed() < Duration::from_secs(USAGE_CACHE_SECONDS))
-                    .then(|| cached.clone())
+                (fetched_at.elapsed() < USAGE_CACHE_TTL).then(|| cached.clone())
             })
         })
         .flatten();
@@ -519,8 +529,8 @@ fn fetch_claude_account_usage() -> Option<AccountUsage> {
         .and_then(serde_json::Value::as_str)
         .map_or_else(|| "Claude".to_string(), |tier| format!("Claude {tier}"));
 
-    let body = curl_claude_oauth(&ClaudeOauthGet {
-        path: OAUTH_USAGE_PATH,
+    let body = read_claude_usage_endpoint(&ClaudeUsageRead {
+        url: &claude_usage_url(),
         token,
         organization: None,
     })?;
@@ -575,9 +585,10 @@ pub(crate) fn claude_cli_version() -> Option<String> {
 /// Code's `/usage-credits` reads. Only asked for while credits are on.
 fn claude_credit_balance(token: &str) -> Option<CreditBalance> {
     let organization = claude_organization()?;
-    let path = format!("/organizations/{organization}/prepaid/credits");
-    let body = curl_claude_oauth(&ClaudeOauthGet {
-        path: &path,
+    let url =
+        format!("{CLAUDE_API}{CLAUDE_OAUTH_PATH}/organizations/{organization}/prepaid/credits");
+    let body = read_claude_usage_endpoint(&ClaudeUsageRead {
+        url: &url,
         token,
         organization: Some(&organization),
     })?;
@@ -722,52 +733,114 @@ pub(crate) fn is_safe_header_token(token: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
 }
 
-/// One GET against a claude.ai OAuth endpoint: its path under
-/// [`CLAUDE_OAUTH_API`], the bearer token, and - for an organization-scoped
-/// endpoint - the organization uuid it is addressed to.
-struct ClaudeOauthGet<'request> {
-    path: &'request str,
+const AUTHORIZATION_HEADER: &str = "Authorization";
+const USER_AGENT_HEADER: &str = "User-Agent";
+/// The beta flag every claude.ai OAuth endpoint requires.
+const CLAUDE_OAUTH_BETA: &str = "oauth-2025-04-20";
+
+/// One request to a claude.ai OAuth endpoint, made the way Claude Code makes it:
+/// the bearer token, the `User-Agent` that endpoint expects, and - for an
+/// organization-scoped endpoint - the organization uuid it is addressed to. A
+/// `json_body` turns it into a POST.
+pub(crate) struct ClaudeOauthRequest<'request> {
+    pub(crate) url: &'request str,
+    pub(crate) token: &'request str,
+    pub(crate) user_agent: &'request str,
+    pub(crate) organization: Option<&'request str>,
+    pub(crate) json_body: Option<&'request str>,
+    pub(crate) timeout_seconds: u32,
+}
+
+/// Call a claude.ai OAuth endpoint via `curl`. The token and organization uuid
+/// are interpolated into quoted config directives, so anything outside the
+/// OAuth-token character set is refused - see [`is_safe_header_token`].
+pub(crate) fn curl_claude_oauth(request: &ClaudeOauthRequest) -> Option<String> {
+    let ClaudeOauthRequest {
+        url,
+        token,
+        user_agent,
+        organization,
+        json_body,
+        timeout_seconds,
+    } = *request;
+    let is_organization_safe = organization.is_none_or(is_safe_header_token);
+    if !is_safe_header_token(token) || !is_organization_safe {
+        return None;
+    }
+
+    let authorization = format!("Bearer {token}");
+    let mut headers = vec![
+        (AUTHORIZATION_HEADER, authorization.as_str()),
+        ("anthropic-beta", CLAUDE_OAUTH_BETA),
+        (USER_AGENT_HEADER, user_agent),
+        ("Content-Type", "application/json"),
+    ];
+    if let Some(organization) = organization {
+        headers.push(("x-organization-uuid", organization));
+    }
+    curl_json(&CurlRequest {
+        url,
+        timeout_seconds,
+        headers: &headers,
+        json_body,
+    })
+}
+
+/// One read of a claude.ai usage endpoint, as Claude Code's `/usage` makes it.
+struct ClaudeUsageRead<'request> {
+    url: &'request str,
     token: &'request str,
     organization: Option<&'request str>,
 }
 
-/// GET a claude.ai OAuth endpoint via `curl`, feeding every header (incl. the
-/// bearer token) through a `--config` file on stdin so the token never appears in
-/// the process arguments. `--fail` turns an HTTP error status into a non-zero exit.
-///
-/// The token and organization uuid are interpolated into quoted config directives,
-/// so we reject anything outside the OAuth-token character set - see
-/// [`is_safe_header_token`].
-fn curl_claude_oauth(request: &ClaudeOauthGet) -> Option<String> {
-    let ClaudeOauthGet {
-        path,
-        token,
-        organization,
-    } = request;
-    let organization_is_safe = organization.is_none_or(is_safe_header_token);
-    if !is_safe_header_token(token) || !organization_is_safe {
-        return None;
-    }
-
-    let organization_header = organization.map_or_else(String::new, |organization| {
-        format!("header = \"x-organization-uuid: {organization}\"\n")
-    });
-    let config = format!(
-        "silent\nshow-error\nfail\nmax-time = 12\nurl = \"{CLAUDE_OAUTH_API}{path}\"\n\
-         header = \"Authorization: Bearer {token}\"\n\
-         header = \"anthropic-beta: oauth-2025-04-20\"\n\
-         header = \"User-Agent: {USAGE_UA}\"\n\
-         header = \"Content-Type: application/json\"\n\
-         {organization_header}"
-    );
-    curl_get_json(&config)
+fn read_claude_usage_endpoint(read: &ClaudeUsageRead) -> Option<String> {
+    curl_claude_oauth(&ClaudeOauthRequest {
+        url: read.url,
+        token: read.token,
+        user_agent: CLAUDE_USAGE_USER_AGENT,
+        organization: read.organization,
+        json_body: None,
+        timeout_seconds: USAGE_REQUEST_TIMEOUT_SECONDS,
+    })
 }
 
-/// Run a prepared curl `--config` document (which already carries the `url` and
-/// every `header`, including the bearer token) by feeding it on stdin - so the
-/// token never appears in the process arguments. The shared transport behind both
-/// vendors' usage calls; each builds its own header set above.
-pub(crate) fn curl_get_json(config: &str) -> Option<String> {
+/// One HTTP request, described as a curl `--config` document.
+struct CurlRequest<'request> {
+    url: &'request str,
+    timeout_seconds: u32,
+    /// `(name, value)` pairs, each already checked safe to quote.
+    headers: &'request [(&'request str, &'request str)],
+    /// A JSON body, which turns the request into a POST.
+    json_body: Option<&'request str>,
+}
+
+/// The curl `--config` document for `request`. `fail` turns an HTTP error
+/// status into a non-zero exit, so an error body is never read as an answer.
+fn curl_config(request: &CurlRequest) -> String {
+    let CurlRequest {
+        url,
+        timeout_seconds,
+        headers,
+        json_body,
+    } = request;
+    let mut config =
+        format!("silent\nshow-error\nfail\nmax-time = {timeout_seconds}\nurl = \"{url}\"\n");
+    // Writing into a `String` cannot fail, so the `fmt::Result`s carry nothing.
+    for (name, value) in *headers {
+        let _ = writeln!(config, "header = \"{name}: {value}\"");
+    }
+    if let Some(body) = json_body {
+        let quoted = body.replace('\\', "\\\\").replace('"', "\\\"");
+        let _ = write!(config, "request = \"POST\"\ndata = \"{quoted}\"\n");
+    }
+    config
+}
+
+/// Run `request` by feeding its curl `--config` document on stdin - so the
+/// bearer token never appears in the process arguments. The one transport
+/// behind every vendor's usage call and the limit-reset calls.
+fn curl_json(request: &CurlRequest) -> Option<String> {
+    let config = curl_config(request);
     let mut child = crate::util::command("curl")
         .arg("--config")
         .arg("-")
@@ -798,7 +871,13 @@ pub(crate) fn curl_get_json(config: &str) -> Option<String> {
 /// cadence as the Claude endpoint.
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 /// A Codex-CLI-shaped User-Agent, matching what `get_codex_user_agent()` sends.
-const CODEX_USAGE_UA: &str = "codex_cli_rs/0.55.0";
+const CODEX_USAGE_USER_AGENT: &str = "codex_cli_rs/0.55.0";
+
+/// The `ChatGPT` login Codex stores: the bearer token and the account it acts for.
+struct CodexLogin<'login> {
+    token: &'login str,
+    account_id: &'login str,
+}
 
 /// Codex's two account-wide rate-limit window durations, used to classify each
 /// window the endpoint returns into the same session/weekly kinds the meter and
@@ -817,7 +896,7 @@ fn fetch_codex_account_usage() -> Option<AccountUsage> {
         .get("account_id")
         .and_then(serde_json::Value::as_str)?;
 
-    let body = curl_codex_usage(token, account_id)?;
+    let body = read_codex_usage_endpoint(&CodexLogin { token, account_id })?;
     let response: serde_json::Value = serde_json::from_str(&body).ok()?;
 
     let windows = collect_codex_windows(&response);
@@ -984,22 +1063,26 @@ fn unix_seconds_to_iso8601(seconds: i64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
 }
 
-/// GET the Codex usage endpoint via `curl`, feeding the bearer token and account
-/// id through a `--config` file on stdin so neither appears in the process
-/// arguments. Both are interpolated into quoted `header = "…"` directives, so we
-/// reject anything outside the token character set - see [`is_safe_header_token`].
-fn curl_codex_usage(token: &str, account_id: &str) -> Option<String> {
+/// GET the Codex usage endpoint. The token and account id are interpolated into
+/// quoted header directives, so anything outside the token character set is
+/// refused - see [`is_safe_header_token`].
+fn read_codex_usage_endpoint(login: &CodexLogin) -> Option<String> {
+    let CodexLogin { token, account_id } = *login;
     if !is_safe_header_token(token) || !is_safe_header_token(account_id) {
         return None;
     }
 
-    let config = format!(
-        "silent\nshow-error\nfail\nmax-time = 12\nurl = \"{CODEX_USAGE_URL}\"\n\
-         header = \"Authorization: Bearer {token}\"\n\
-         header = \"ChatGPT-Account-Id: {account_id}\"\n\
-         header = \"User-Agent: {CODEX_USAGE_UA}\"\n"
-    );
-    curl_get_json(&config)
+    let authorization = format!("Bearer {token}");
+    curl_json(&CurlRequest {
+        url: CODEX_USAGE_URL,
+        timeout_seconds: USAGE_REQUEST_TIMEOUT_SECONDS,
+        headers: &[
+            (AUTHORIZATION_HEADER, &authorization),
+            ("ChatGPT-Account-Id", account_id),
+            (USER_AGENT_HEADER, CODEX_USAGE_USER_AGENT),
+        ],
+        json_body: None,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -1021,7 +1104,7 @@ fn curl_codex_usage(token: &str, account_id: &str) -> Option<String> {
 const COPILOT_USAGE_URL: &str = "https://api.github.com/copilot_internal/user";
 /// A Copilot-Chat-shaped `User-Agent`; the endpoint gates on an editor-flavored
 /// client identifying itself, like the Claude/Codex endpoints do.
-const COPILOT_USAGE_UA: &str = "GitHubCopilotChat/0.26.7";
+const COPILOT_USAGE_USER_AGENT: &str = "GitHubCopilotChat/0.26.7";
 /// The `Editor-Version` the Copilot endpoints expect from an editor client.
 const COPILOT_EDITOR_VERSION: &str = "vscode/1.99.0";
 /// Where the fallback plan label comes from when only a local token (no live
@@ -1062,7 +1145,7 @@ fn fetch_copilot_account_usage() -> Option<AccountUsage> {
 /// body isn't a usage response (e.g. a 401 error blob carries neither
 /// `copilot_plan` nor any quota snapshot).
 fn copilot_live_usage(token: &str) -> Option<AccountUsage> {
-    let body = curl_copilot_usage(token)?;
+    let body = read_copilot_usage_endpoint(token)?;
     let response: serde_json::Value = serde_json::from_str(&body).ok()?;
 
     let has_plan = response.get("copilot_plan").is_some();
@@ -1209,24 +1292,27 @@ fn copilot_token_from_store() -> Option<String> {
     None
 }
 
-/// GET the Copilot entitlement endpoint via `curl`, feeding the token through a
-/// `--config` file on stdin so it never appears in the process arguments. The
-/// endpoint uses the `token` (not `Bearer`) authorization scheme and expects an
-/// editor `User-Agent` + `Editor-Version`. Rejects anything outside the token
-/// character set - see [`is_safe_header_token`].
-fn curl_copilot_usage(token: &str) -> Option<String> {
+/// GET the Copilot entitlement endpoint. It uses the `token` (not `Bearer`)
+/// authorization scheme and expects an editor `User-Agent` + `Editor-Version`.
+/// Rejects anything outside the token character set - see
+/// [`is_safe_header_token`].
+fn read_copilot_usage_endpoint(token: &str) -> Option<String> {
     if !is_safe_header_token(token) {
         return None;
     }
 
-    let config = format!(
-        "silent\nshow-error\nfail\nmax-time = 12\nurl = \"{COPILOT_USAGE_URL}\"\n\
-         header = \"Authorization: token {token}\"\n\
-         header = \"User-Agent: {COPILOT_USAGE_UA}\"\n\
-         header = \"Editor-Version: {COPILOT_EDITOR_VERSION}\"\n\
-         header = \"Accept: application/json\"\n"
-    );
-    curl_get_json(&config)
+    let authorization = format!("token {token}");
+    curl_json(&CurlRequest {
+        url: COPILOT_USAGE_URL,
+        timeout_seconds: USAGE_REQUEST_TIMEOUT_SECONDS,
+        headers: &[
+            (AUTHORIZATION_HEADER, &authorization),
+            (USER_AGENT_HEADER, COPILOT_USAGE_USER_AGENT),
+            ("Editor-Version", COPILOT_EDITOR_VERSION),
+            ("Accept", "application/json"),
+        ],
+        json_body: None,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -1347,9 +1433,9 @@ fn auth_file_has_login(path: &std::path::Path) -> bool {
 mod tests {
     use super::{
         collect_codex_windows, collect_copilot_windows, collect_windows, credit_balance,
-        credits_state, humanize_key, humanize_window_seconds, is_safe_header_token,
+        credits_state, curl_config, humanize_key, humanize_window_seconds, is_safe_header_token,
         uncapped_credits_spend, unix_seconds_to_iso8601, usage_from_account, AccountUsage,
-        CreditsState, HeadlineWindow, UsageAgent, UsageWindow, UsageWindowKind,
+        CreditsState, CurlRequest, HeadlineWindow, UsageAgent, UsageWindow, UsageWindowKind,
         BILLING_ACCOUNT_GOOGLE,
     };
     use crate::agents::{ID_CODEX, ID_OPENCODE};
@@ -1694,6 +1780,40 @@ mod tests {
         assert_eq!(humanize_window_seconds(604_800), "Weekly");
         assert_eq!(humanize_window_seconds(86_400), "1-day");
         assert_eq!(humanize_window_seconds(3_600), "1-hour");
+    }
+
+    #[test]
+    fn a_curl_config_carries_every_header_and_turns_a_body_into_a_quoted_post() {
+        let config = curl_config(&CurlRequest {
+            url: "https://example.com/reset",
+            timeout_seconds: 20,
+            headers: &[("Authorization", "Bearer abc"), ("User-Agent", "pade")],
+            json_body: Some(r#"{"id":"a\b"}"#),
+        });
+
+        assert_eq!(
+            config,
+            "silent\nshow-error\nfail\nmax-time = 20\nurl = \"https://example.com/reset\"\n\
+             header = \"Authorization: Bearer abc\"\n\
+             header = \"User-Agent: pade\"\n\
+             request = \"POST\"\ndata = \"{\\\"id\\\":\\\"a\\\\b\\\"}\"\n"
+        );
+    }
+
+    #[test]
+    fn a_curl_config_without_a_body_is_a_get() {
+        let config = curl_config(&CurlRequest {
+            url: "https://example.com/usage",
+            timeout_seconds: 12,
+            headers: &[],
+            json_body: None,
+        });
+
+        assert!(!config.contains("request ="), "{config}");
+        assert!(
+            config.ends_with("url = \"https://example.com/usage\"\n"),
+            "{config}"
+        );
     }
 
     #[test]
