@@ -24,6 +24,13 @@ import { SvelteMap } from "svelte/reactivity";
 const CHARACTERS_PER_TOKEN = 4;
 /** Assumed context window (tokens) when only the estimate is available. */
 const DEFAULT_CONTEXT_LIMIT = 200_000;
+/** A completely full context window, in percent. */
+const FULL_PERCENTAGE = 100;
+/** What a token count's suffix multiplies it by ("45k", "1m"). */
+const TOKEN_SUFFIX_SCALE: Readonly<Record<string, number>> = {
+  k: 1_000,
+  m: 1_000_000
+};
 
 interface ContextSignal {
   /** Tokens the agent's own session log says the conversation occupies - the
@@ -56,21 +63,24 @@ interface ContextSignal {
 const signals = new SvelteMap<string, ContextSignal>();
 
 /** Scale a token count like "123", "45k", "1m" to an absolute number. */
-function scaleTokens(numberText: string, suffix: string | undefined) {
+function scaleTokens({ numberText, suffix }: {
+  numberText: string;
+  suffix: string | undefined;
+}) {
   const base = Number(numberText.replaceAll(",", ""));
   if (!Number.isFinite(base)) {
     return null;
   }
 
-  if (suffix === "k") {
-    return base * 1_000;
-  }
+  return base * (TOKEN_SUFFIX_SCALE[suffix ?? ""] ?? 1);
+}
 
-  if (suffix === "m") {
-    return base * 1_000_000;
-  }
-
-  return base;
+/** `part` as a percent of `whole`, capped at a full window. */
+function cappedPercentage({ part, whole }: {
+  part: number;
+  whole: number;
+}) {
+  return Math.min(FULL_PERCENTAGE, (part / whole) * FULL_PERCENTAGE);
 }
 
 // Match the common shapes an agent CLI prints and normalize to "percent USED".
@@ -157,7 +167,9 @@ function parseUsedPercentage(text: string) {
       return null;
     }
 
-    return isRemaining ? Math.max(0, 100 - percentage) : Math.min(100, percentage);
+    return isRemaining
+      ? Math.max(0, FULL_PERCENTAGE - percentage)
+      : Math.min(FULL_PERCENTAGE, percentage);
   }
 
   return parseRatioPercentage(lower);
@@ -170,13 +182,22 @@ function parseRatioPercentage(lower: string) {
     return null;
   }
 
-  const usedTokens = scaleTokens(ratio[1], ratio[2]);
-  const limitTokens = scaleTokens(ratio[3], ratio[4]);
+  const usedTokens = scaleTokens({
+    numberText: ratio[1],
+    suffix: ratio[2]
+  });
+  const limitTokens = scaleTokens({
+    numberText: ratio[3],
+    suffix: ratio[4]
+  });
   if (usedTokens === null || limitTokens === null || limitTokens <= 0) {
     return null;
   }
 
-  return Math.min(100, (usedTokens / limitTokens) * 100);
+  return cappedPercentage({
+    part: usedTokens,
+    whole: limitTokens
+  });
 }
 
 const EMPTY_SIGNAL: ContextSignal = {
@@ -196,15 +217,20 @@ const EMPTY_SIGNAL: ContextSignal = {
 function parseTokenSignals(text: string) {
   const lower = text.toLowerCase();
 
-  let windowTokens: number | null = null;
-  const window = lower.match(WINDOW_RE);
-  if (window) {
-    windowTokens = scaleTokens(window[1], window[2]);
-  }
+  const windowBanner = lower.match(WINDOW_RE);
+  const windowTokens = windowBanner
+    ? scaleTokens({
+      numberText: windowBanner[1],
+      suffix: windowBanner[2]
+    })
+    : null;
 
   let reportedTokens = 0;
   for (const counter of lower.replaceAll(RATIO_STRIP_RE, "").matchAll(TOKENS_RE)) {
-    const tokens = scaleTokens(counter[1], counter[2]);
+    const tokens = scaleTokens({
+      numberText: counter[1],
+      suffix: counter[2]
+    });
     if (tokens !== null && tokens > reportedTokens) {
       reportedTokens = tokens;
     }
@@ -315,12 +341,15 @@ function tokensDerivedPercentage({ signal, allowFallback }: {
     return null;
   }
 
-  const window = signal.windowTokens ?? (allowFallback ? FALLBACK_WINDOW_TOKENS : null);
-  if (window === null) {
+  const windowTokens = signal.windowTokens ?? (allowFallback ? FALLBACK_WINDOW_TOKENS : null);
+  if (windowTokens === null) {
     return null;
   }
 
-  return Math.min(100, (signal.reportedTokens / window) * 100);
+  return cappedPercentage({
+    part: signal.reportedTokens,
+    whole: windowTokens
+  });
 }
 
 /** The percent the agent's own session log implies, or null until both halves of
@@ -331,7 +360,22 @@ function loggedPercentage(signal: ContextSignal) {
     return null;
   }
 
-  return Math.min(100, (signal.loggedTokens / signal.windowTokens) * 100);
+  return cappedPercentage({
+    part: signal.loggedTokens,
+    whole: signal.windowTokens
+  });
+}
+
+/** The rough fill the PTY bytes alone imply, or null before any output. */
+function estimatedPercentage(signal: ContextSignal) {
+  if (signal.characters === 0) {
+    return null;
+  }
+
+  return cappedPercentage({
+    part: signal.characters / CHARACTERS_PER_TOKEN,
+    whole: DEFAULT_CONTEXT_LIMIT
+  });
 }
 
 /** The session's context usage percent (logged if known, else parsed, else
@@ -342,29 +386,13 @@ export function contextPercentage(id: string) {
     return null;
   }
 
-  const logged = loggedPercentage(signal);
-  if (logged !== null) {
-    return logged;
-  }
-
-  if (signal.parsedPercentage !== null) {
-    return signal.parsedPercentage;
-  }
-
-  const derived = tokensDerivedPercentage({
-    signal,
-    allowFallback: true
-  });
-  if (derived !== null) {
-    return derived;
-  }
-
-  if (signal.characters === 0) {
-    return null;
-  }
-
-  const tokens = signal.characters / CHARACTERS_PER_TOKEN;
-  return Math.min(100, (tokens / DEFAULT_CONTEXT_LIMIT) * 100);
+  return loggedPercentage(signal)
+    ?? signal.parsedPercentage
+    ?? tokensDerivedPercentage({
+      signal,
+      allowFallback: true
+    })
+    ?? estimatedPercentage(signal);
 }
 
 /** The session's context fill as the AGENT ITSELF accounts for it, or null when
