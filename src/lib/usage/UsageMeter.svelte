@@ -11,7 +11,8 @@
   import type { AccountUsage, AgentSession } from "@/lib/types";
   import { growInline } from "@/lib/ui/motion";
   import LimitResetConfirm from "@/lib/usage/LimitResetConfirm.svelte";
-  import { hasClaudePill, pendingResetBoundaries } from "@/lib/usage/meter/usage-meter";
+  import { hasClaudePill, pendingResetBoundaries, withLastGoodReadings } from "@/lib/usage/meter/usage-meter";
+  import type { KeptReading } from "@/lib/usage/meter/usage-meter";
   import UsagePanel from "@/lib/usage/meter/UsagePanel.svelte";
   import UsageTrigger from "@/lib/usage/meter/UsageTrigger.svelte";
   import { buildGroups, justResetLimits, limitPercentages } from "@/lib/usage/usage-groups";
@@ -51,9 +52,14 @@
     })
   );
 
+  // Each agent's last real reading, so one refused request (Claude's usage
+  // endpoint rate-limits) doesn't blank its pill - see withLastGoodReadings.
+  let keptReadings: ReadonlyMap<string, KeptReading> = new Map();
+
   // Fetch each distinct running agent's account (Claude, Codex, …) in parallel,
   // keyed by agent id. An agent with no local usage signal resolves to null and
-  // renders as an "unknown" group - never fabricated.
+  // renders as an "unknown" group - never fabricated - unless it had a real
+  // reading within the last hour, which stands in while the endpoint refuses.
   async function loadAccounts({ forceRefresh = false }: { forceRefresh?: boolean } = {}) {
     const agentIds = [...new Set(sessions.map(session => session.agent.id))];
     const entries = await Promise.all(
@@ -68,7 +74,13 @@
         })
       ] as const)
     );
-    return new Map(entries);
+    const read = withLastGoodReadings({
+      fresh: new Map(entries),
+      kept: keptReadings,
+      now: Date.now()
+    });
+    keptReadings = read.kept;
+    return read.accounts;
   }
 
   const resetOffer = $derived(limitResetOffer());

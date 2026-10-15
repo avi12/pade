@@ -3,6 +3,7 @@ import {
   groupSeverityClass,
   hasClaudePill,
   isJustReset,
+  KEEP_LAST_READING_MS,
   measuredAgentCount,
   overflowCount,
   overflowLevel,
@@ -10,7 +11,8 @@ import {
   severityClass,
   triggerPillGroups,
   USAGE_PANEL_LABEL,
-  usageAriaLabel
+  usageAriaLabel,
+  withLastGoodReadings
 } from "@/lib/usage/meter/usage-meter";
 import { type AgentGroup, Level, type Limit, limitKey } from "@/lib/usage/usage-groups";
 import { describe, expect, it } from "vitest";
@@ -248,5 +250,49 @@ describe("pendingResetBoundaries", () => {
       expired: undefined,
       next: undefined
     });
+  });
+});
+
+describe("withLastGoodReadings", () => {
+  const reading = {
+    windows: [],
+    plan: "Max",
+    source: "test"
+  };
+  const NOW = 1_000_000_000;
+
+  it("shows a fresh reading and keeps it", () => {
+    const { accounts, kept } = withLastGoodReadings({
+      fresh: new Map([["claude", reading]]),
+      kept: new Map(),
+      now: NOW
+    });
+    expect(accounts.get("claude")).toBe(reading);
+    expect(kept.get("claude")?.at).toBe(NOW);
+  });
+
+  it("rides out a refused reading on the last real one", () => {
+    const { accounts } = withLastGoodReadings({
+      fresh: new Map([["claude", null]]),
+      kept: new Map([["claude", {
+        account: reading,
+        at: NOW - KEEP_LAST_READING_MS + 1
+      }]]),
+      now: NOW
+    });
+    expect(accounts.get("claude")).toBe(reading);
+  });
+
+  it("lets a reading older than the limit go, and has nothing for an agent never read", () => {
+    const { accounts } = withLastGoodReadings({
+      fresh: new Map([["claude", null], ["codex", null]]),
+      kept: new Map([["claude", {
+        account: reading,
+        at: NOW - KEEP_LAST_READING_MS - 1
+      }]]),
+      now: NOW
+    });
+    expect(accounts.get("claude")).toBeNull();
+    expect(accounts.get("codex")).toBeNull();
   });
 });

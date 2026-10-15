@@ -145,3 +145,46 @@ export function pendingResetBoundaries({ accounts, refreshed, now }: {
     next
   };
 }
+
+/** How long a meter keeps showing an agent's last real reading while its usage
+ *  endpoint refuses to answer (a rate limit, a network blip) - long enough to
+ *  ride out a refusal, short enough that a reading never passes for current. */
+export const KEEP_LAST_READING_MS = 60 * 60_000;
+
+/** One agent's last real reading and when it arrived. */
+export interface KeptReading {
+  account: AccountUsage;
+  at: number;
+}
+
+/** The accounts to show for a fresh round of readings: a real reading replaces
+ *  the kept one; a failed one (null) falls back to the last real reading while
+ *  it is younger than KEEP_LAST_READING_MS, so a refused request no longer
+ *  blanks the meter. Returns the accounts and the updated kept readings. */
+export function withLastGoodReadings({ fresh, kept, now }: {
+  fresh: ReadonlyMap<string, AccountUsage | null>;
+  kept: ReadonlyMap<string, KeptReading>;
+  now: number;
+}) {
+  const accounts = new Map<string, AccountUsage | null>();
+  const nextKept = new Map(kept);
+  for (const [agentId, account] of fresh) {
+    if (account !== null) {
+      nextKept.set(agentId, {
+        account,
+        at: now
+      });
+      accounts.set(agentId, account);
+      continue;
+    }
+
+    const last = kept.get(agentId);
+    const isLastFresh = last !== undefined && now - last.at <= KEEP_LAST_READING_MS;
+    accounts.set(agentId, isLastFresh ? last.account : null);
+  }
+
+  return {
+    accounts,
+    kept: nextKept
+  };
+}
