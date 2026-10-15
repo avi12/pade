@@ -70,6 +70,12 @@ const OPENCODE_MODEL_FLAG: &str = "-m";
 /// How Codex and `OpenCode` take the session id to resume.
 const CODEX_RESUME_SUBCOMMAND: &str = "resume";
 const OPENCODE_SESSION_FLAG: &str = "--session";
+/// PADE's data subfolder holding one state file per session, and that file's
+/// extension - the watcher reads the session id back off the name.
+const STATE_DIRECTORY_NAME: &str = "agent-model";
+const STATE_FILE_EXTENSION: &str = ".json";
+/// Where a state file is written before it is renamed into place.
+const PARTIAL_STATE_EXTENSION: &str = "json.partial";
 
 /// A session's model and effort as the agent reported them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -379,26 +385,19 @@ fn launch_arguments(program: &str, choice: &ModelChoice) -> Vec<String> {
         _ => Vec::new(),
     };
 
-    let mut arguments = Vec::new();
-    for (flag, value) in flag_pairs {
-        arguments.push(flag.to_string());
-        arguments.push(value);
-    }
-    arguments
+    flag_pairs
+        .into_iter()
+        .flat_map(|(flag, value)| [flag.to_string(), value])
+        .collect()
 }
 
 fn model_and_effort_flags(
     model: Option<&str>,
     effort: Option<&str>,
 ) -> Vec<(&'static str, String)> {
-    let mut flags = Vec::new();
-    if let Some(model) = model {
-        flags.push((MODEL_FLAG, model.to_string()));
-    }
-    if let Some(effort) = effort {
-        flags.push((EFFORT_FLAG, effort.to_string()));
-    }
-    flags
+    let model_flag = model.map(|model| (MODEL_FLAG, model.to_string()));
+    let effort_flag = effort.map(|effort| (EFFORT_FLAG, effort.to_string()));
+    model_flag.into_iter().chain(effort_flag).collect()
 }
 
 /// The sink's job: read the report the agent piped in and either answer it
@@ -551,11 +550,11 @@ fn is_plain_id(conversation_id: &str) -> bool {
 
 /// Where the sink and plugins keep one file per session.
 fn state_directory() -> Option<PathBuf> {
-    Some(crate::util::pade_data_dir()?.join("agent-model"))
+    Some(crate::util::pade_data_dir()?.join(STATE_DIRECTORY_NAME))
 }
 
 fn state_file(conversation_id: &str) -> Option<PathBuf> {
-    Some(state_directory()?.join(format!("{conversation_id}.json")))
+    Some(state_directory()?.join(format!("{conversation_id}{STATE_FILE_EXTENSION}")))
 }
 
 fn read_state(path: &Path) -> Option<SessionState> {
@@ -592,7 +591,7 @@ fn write_state(path: &Path, state: &SessionState) -> std::io::Result<()> {
     if let Some(directory) = path.parent() {
         std::fs::create_dir_all(directory)?;
     }
-    let partial = path.with_extension("json.partial");
+    let partial = path.with_extension(PARTIAL_STATE_EXTENSION);
     std::fs::write(&partial, serde_json::to_vec(state)?)?;
     std::fs::rename(partial, path)
 }
@@ -704,7 +703,7 @@ fn changed_payload(path: &Path, places: &[(PathBuf, WatchedPlace)]) -> Option<Ch
         .map(|(_, place)| *place)?;
     match place {
         WatchedPlace::SessionStates => {
-            let session_id = name.strip_suffix(".json")?;
+            let session_id = name.strip_suffix(STATE_FILE_EXTENSION)?;
             Some(ChangedPayload {
                 session_id: Some(session_id.to_string()),
             })

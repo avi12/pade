@@ -39,6 +39,9 @@ const OVERRIDE_LAYER: &str = if cfg!(windows) {
     "/<session-flags>/config.toml"
 };
 const TURN_CONTEXT: &str = "turn_context";
+/// The `config.toml` keys `/model` saves and a `-c` override sets.
+const MODEL_KEY: &str = "model";
+const EFFORT_KEY: &str = "model_reasoning_effort";
 
 /// The hook events PADE registers: Codex's config name and the snake-case name
 /// its trust keys use.
@@ -65,15 +68,13 @@ pub(super) fn choice_overrides(
     model: Option<&str>,
     effort: Option<&str>,
 ) -> Vec<(&'static str, String)> {
-    let mut overrides = Vec::new();
-    if let Some(model) = model {
-        overrides.push((CONFIG_FLAG, format!("model={}", toml_string(model))));
-    }
-    if let Some(effort) = effort {
-        let setting = format!("model_reasoning_effort={}", toml_string(effort));
-        overrides.push((CONFIG_FLAG, setting));
-    }
-    overrides
+    let model_override = model.map(|model| (MODEL_KEY, model));
+    let effort_override = effort.map(|effort| (EFFORT_KEY, effort));
+    model_override
+        .into_iter()
+        .chain(effort_override)
+        .map(|(key, value)| (CONFIG_FLAG, format!("{key}={}", toml_string(value))))
+        .collect()
 }
 
 /// The session's model and effort: the newest of what its hooks and rollout
@@ -153,22 +154,20 @@ fn hook_entries(command: &str) -> String {
     let handler = format!(
         "[{{hooks=[{{type=\"command\",command={quoted_command},timeout={HOOK_TIMEOUT_SECONDS}}}]}}]"
     );
-    let mut entries = Vec::new();
-    for (event, _) in HOOK_EVENTS {
-        entries.push(format!("{event}={handler}"));
-    }
-    entries.join(",")
+    HOOK_EVENTS
+        .map(|(event, _)| format!("{event}={handler}"))
+        .join(",")
 }
 
 /// One `"<layer>:<event>:0:0"={trusted_hash="sha256:..."}` per hook.
 fn trust_entries(command: &str) -> String {
-    let mut entries = Vec::new();
-    for (_, trust_name) in HOOK_EVENTS {
-        let key = toml_string(&format!("{OVERRIDE_LAYER}:{trust_name}:0:0"));
-        let hash = toml_string(&fingerprint(trust_name, command));
-        entries.push(format!("{key}={{trusted_hash={hash}}}"));
-    }
-    entries.join(",")
+    HOOK_EVENTS
+        .map(|(_, trust_name)| {
+            let key = toml_string(&format!("{OVERRIDE_LAYER}:{trust_name}:0:0"));
+            let hash = toml_string(&fingerprint(trust_name, command));
+            format!("{key}={{trusted_hash={hash}}}")
+        })
+        .join(",")
 }
 
 /// The fingerprint Codex trusts a hook group by: sha256 of its compact JSON,
@@ -246,8 +245,8 @@ fn saved_settings() -> SavedSettings {
         })
     };
     SavedSettings {
-        model: saved("model"),
-        effort: saved("model_reasoning_effort"),
+        model: saved(MODEL_KEY),
+        effort: saved(EFFORT_KEY),
     }
 }
 
@@ -256,8 +255,7 @@ fn read_toml(path: &Path) -> Option<toml::Table> {
 }
 
 fn read_models_cache() -> Option<serde_json::Value> {
-    let path = settings_directory()?.join(MODELS_CACHE_FILE);
-    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
+    crate::util::read_json(&settings_directory()?.join(MODELS_CACHE_FILE))
 }
 
 fn model_option(model: &serde_json::Value) -> Option<ModelOption> {

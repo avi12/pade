@@ -14,6 +14,7 @@
 use std::path::{Path, PathBuf};
 
 use super::{read_session_state, state_file, EffortOption, ModelOption, RunningModel};
+use crate::util::read_json;
 
 const CONFIG_CONTENT_VARIABLE: &str = "OPENCODE_CONFIG_CONTENT";
 const STATE_FILE_VARIABLE: &str = "PADE_MODEL_STATE_FILE";
@@ -164,10 +165,6 @@ fn configured_model_id() -> Option<String> {
         .join(CONFIG_FILE);
     let config = read_json(&path)?;
     Some(config.get("model")?.as_str()?.to_string())
-}
-
-fn read_json(path: &Path) -> Option<serde_json::Value> {
-    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
 }
 
 /// `provider/model` ids from the picker's favourites, then its recents.
