@@ -6,7 +6,7 @@
   import SandboxedPreview from "@/lib/code/SandboxedPreview.svelte";
   import { isMarkdownPath } from "@/lib/feed/preview";
   import Icon, { type IconName } from "@/lib/Icon.svelte";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { UI_SCALE_MAXIMUM, UI_SCALE_MINIMUM, UI_SCALE_STEP } from "@/lib/settings/prefs-bounds";
   import { chooseThemeMode, effective, updatePrefs } from "@/lib/settings/prefs.svelte";
   import { prefs } from "@/lib/settings/settings.svelte";
@@ -16,10 +16,13 @@
   import Segmented from "@/lib/ui/Segmented.svelte";
   import { MAXIMUM_HANDOFF_PERCENTAGE, MINIMUM_HANDOFF_PERCENTAGE } from "@/lib/usage/context-level";
   import { formatPercent } from "@/lib/util/format";
+  import { normalizePath } from "@/lib/util/paths";
   import { HandoffPercent, parseInput } from "@/lib/validate";
   import AgentModelDefaults from "@/panels/config/AgentModelDefaults.svelte";
   import TerminalColours from "@/panels/config/TerminalColours.svelte";
   import UsagePacingSettings from "@/panels/config/UsagePacingSettings.svelte";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy, onMount } from "svelte";
 
   // Only the config files relevant to the active agent are listed. `project` is
   // what scopes the per-project settings below to this window's workspace.
@@ -237,6 +240,47 @@
       }
     })();
   });
+
+  // Keep the listed files live: when an agent (or anyone) writes one of them,
+  // re-list them - a file can appear or vanish - and re-read the one on show.
+  function isListedFile(changedPath: string) {
+    const changed = normalizePath(changedPath).toLowerCase();
+    return files.some(file => {
+      const rel = normalizePath(file.rel).toLowerCase();
+      return changed === rel || changed.endsWith(`/${rel}`);
+    });
+  }
+
+  async function refreshAfterChange() {
+    const requestedAgent = agent;
+    const listed = await sendMessage(Command.configList, { agent: requestedAgent });
+    if (requestedAgent !== agent) {
+      return;
+    }
+
+    files = listed;
+    const shown = listed.find(file => file.rel === selected?.rel);
+    if (shown === undefined) {
+      return;
+    }
+
+    if (shown.exists) {
+      await open(shown);
+    } else {
+      selected = shown;
+      content = "";
+    }
+  }
+
+  let unlistenFileChanges: UnlistenFn | undefined;
+  onMount(async () => {
+    unlistenFileChanges = await onMessage(EventType.feedChange, async ({ data }) => {
+      if (isListedFile(data.path)) {
+        await refreshAfterChange();
+      }
+    });
+  });
+  onDestroy(() => unlistenFileChanges?.());
 
   // Config has no count or refresh - clear those slots in the shared header.
   $effect(() => {
