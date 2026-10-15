@@ -30,12 +30,15 @@ type PaneShortcut =
   | { action: typeof PaneAction.Previous | typeof PaneAction.Next | typeof PaneAction.Close }
   | {
     action: typeof PaneAction.SelectAt;
-    index: number;
+    iPane: number;
   };
 
 /** The digit keys that pick a pane by position - Ctrl+Alt+1..9 select the
  *  1st..9th pane. This literal list is their authoritative home. */
 const PANE_NUMBER_KEYS: readonly string[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const PREVIOUS_PANE_KEY = "[";
+const NEXT_PANE_KEY = "]";
+const CLOSE_PANE_KEY = "w";
 
 /** Map a key chord to the pane action it triggers, or null when it isn't one.
  *  Ctrl+[ previous · Ctrl+] next (both plain Ctrl) · Ctrl+Alt+1..9 select that
@@ -54,11 +57,11 @@ export function matchPaneShortcut({ chord, paneCount }: {
   // Ctrl+[ / Ctrl+] cycle the panes - plain Ctrl, off the Ctrl+Alt chords below.
   const isPlainCtrl = !altKey && !shiftKey;
   if (isPlainCtrl) {
-    if (key === "[") {
+    if (key === PREVIOUS_PANE_KEY) {
       return { action: PaneAction.Previous };
     }
 
-    if (key === "]") {
+    if (key === NEXT_PANE_KEY) {
       return { action: PaneAction.Next };
     }
 
@@ -72,15 +75,15 @@ export function matchPaneShortcut({ chord, paneCount }: {
     return null;
   }
 
-  if (key.toLowerCase() === "w") {
+  if (key.toLowerCase() === CLOSE_PANE_KEY) {
     return { action: PaneAction.Close };
   }
 
-  const position = PANE_NUMBER_KEYS.indexOf(key);
-  const selectsExistingPane = position !== -1 && position < paneCount;
-  return selectsExistingPane ? {
+  const iPane = PANE_NUMBER_KEYS.indexOf(key);
+  const isExistingPane = iPane !== -1 && iPane < paneCount;
+  return isExistingPane ? {
     action: PaneAction.SelectAt,
-    index: position
+    iPane
   } : null;
 }
 
@@ -100,10 +103,10 @@ export interface PaneShortcutHandlers {
 
 /** Register the capture-phase listener; returns the matching unregister. */
 export function registerPaneShortcuts(handlers: PaneShortcutHandlers) {
-  function onKeyDown(event: KeyboardEvent) {
+  function onKeyDown(e: KeyboardEvent) {
     const paneIds = handlers.paneIds();
     const shortcut = matchPaneShortcut({
-      chord: event,
+      chord: e,
       paneCount: paneIds.length
     });
     if (shortcut === null) {
@@ -119,8 +122,8 @@ export function registerPaneShortcuts(handlers: PaneShortcutHandlers) {
 
     // Win over the terminal and any browser default by consuming the event here
     // in the capture phase, so xterm never sees the raw chord.
-    event.preventDefault();
-    event.stopImmediatePropagation();
+    e.preventDefault();
+    e.stopImmediatePropagation();
 
     runShortcut({
       shortcut,
@@ -164,7 +167,7 @@ function resolveTargetId({ shortcut, paneIds, activeId }: {
   if (shortcut.action === PaneAction.SelectAt) {
     return paneIdAt({
       paneIds,
-      index: shortcut.index
+      iPane: shortcut.iPane
     });
   }
 

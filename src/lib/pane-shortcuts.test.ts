@@ -52,7 +52,7 @@ describe("matchPaneShortcut", () => {
       })
     ).toEqual({
       action: PaneAction.SelectAt,
-      index: 0
+      iPane: 0
     });
     expect(
       matchPaneShortcut({
@@ -65,7 +65,7 @@ describe("matchPaneShortcut", () => {
       })
     ).toEqual({
       action: PaneAction.SelectAt,
-      index: 3
+      iPane: 3
     });
     expect(
       matchPaneShortcut({
@@ -78,7 +78,7 @@ describe("matchPaneShortcut", () => {
       })
     ).toEqual({
       action: PaneAction.SelectAt,
-      index: 8
+      iPane: 8
     });
   });
 
