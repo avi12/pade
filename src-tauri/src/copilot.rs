@@ -28,7 +28,7 @@ use sha2::{Digest, Sha256};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{client::IntoClientRequest, Message, WebSocket};
 
-use crate::naming::{session_naming_prompt, NameContext, Namer, NAME_TIMEOUT};
+use crate::naming::{session_naming_prompt, NAME_TIMEOUT};
 
 const ORIGIN: &str = "https://copilot.microsoft.com";
 const START_URL: &str = "https://copilot.microsoft.com/c/api/start";
@@ -46,23 +46,24 @@ const MAX_HASHCASH_DIFFICULTY: u32 = 24;
 /// the overall deadline - so a silent server can't wedge the naming worker.
 const SOCKET_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
 
-pub struct CopilotNamer;
+/// Copilot's conversation-id alphabet and the length of an id drawn from it.
+const CONVERSATION_ID_ALPHABET: &[u8] =
+    b"useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+const CONVERSATION_ID_LENGTH: usize = 21;
 
-impl Namer for CopilotNamer {
-    /// Project naming stays with the agent CLI / heuristic (it works from a file
-    /// list, not a conversation); Copilot only names live sessions.
-    fn suggest(&self, _context: &NameContext) -> Option<String> {
-        None
-    }
-}
+/// The chat-socket events this client sends or reacts to, by their wire names.
+const CHALLENGE_EVENT: &str = "challenge";
+const APPEND_TEXT_EVENT: &str = "appendText";
+const DONE_EVENT: &str = "done";
+const ERROR_EVENT: &str = "error";
+const HASHCASH_METHOD: &str = "hashcash";
 
-impl CopilotNamer {
-    /// Name a live session from its (cleaned) transcript via an anonymous Copilot
-    /// guest chat. `None` on any failure so naming falls back to the agent CLI.
-    #[allow(clippy::unused_self)]
-    pub fn suggest_session(&self, transcript: &str) -> Option<String> {
-        run_chat(&session_naming_prompt(transcript))
-    }
+/// Name a live session from its (cleaned) transcript via an anonymous Copilot
+/// guest chat. `None` on any failure so naming falls back to the agent CLI.
+/// Project naming stays with the agent CLI / heuristic (it works from a file
+/// list, not a conversation); Copilot only names live sessions.
+pub(crate) fn suggest_session_name(transcript: &str) -> Option<String> {
+    run_chat(&session_naming_prompt(transcript))
 }
 
 /// Open an anonymous guest session and return the cookie that authorizes the chat
@@ -94,10 +95,10 @@ fn solve_hashcash(token: &str, difficulty: u32) -> Option<u64> {
     if difficulty > MAX_HASHCASH_DIFFICULTY {
         return None;
     }
-    let whole_zero_bytes = (difficulty / 8) as usize;
-    let leftover_bits = difficulty % 8;
+    let whole_zero_bytes = usize::try_from(difficulty / u8::BITS).ok()?;
+    let leftover_bits = difficulty % u8::BITS;
     let leftover_mask: u8 = if leftover_bits > 0 {
-        0xffu8 << (8 - leftover_bits)
+        u8::MAX << (u8::BITS - leftover_bits)
     } else {
         0
     };
@@ -108,9 +109,10 @@ fn solve_hashcash(token: &str, difficulty: u32) -> Option<u64> {
         hasher.update(nonce.to_string().as_bytes());
         let digest = hasher.finalize();
 
-        let leading_zero = digest[..whole_zero_bytes].iter().all(|byte| *byte == 0);
-        let leftover_ok = leftover_bits == 0 || (digest[whole_zero_bytes] & leftover_mask) == 0;
-        if leading_zero && leftover_ok {
+        let are_whole_bytes_zero = digest[..whole_zero_bytes].iter().all(|byte| *byte == 0);
+        let are_leftover_bits_zero =
+            leftover_bits == 0 || (digest[whole_zero_bytes] & leftover_mask) == 0;
+        if are_whole_bytes_zero && are_leftover_bits_zero {
             return Some(nonce);
         }
     }
@@ -120,13 +122,15 @@ fn solve_hashcash(token: &str, difficulty: u32) -> Option<u64> {
 /// A 21-char id in Copilot's conversation-id alphabet, seeded from random bytes
 /// (two v4 UUIDs give 32 bytes; the mapping needn't be cryptographic).
 fn new_conversation_id() -> String {
-    const ALPHABET: &[u8] = b"useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
-    let mut bytes = Vec::with_capacity(32);
-    bytes.extend_from_slice(uuid::Uuid::new_v4().as_bytes());
-    bytes.extend_from_slice(uuid::Uuid::new_v4().as_bytes());
-    bytes[..21]
+    let random_bytes = [uuid::Uuid::new_v4(), uuid::Uuid::new_v4()];
+    random_bytes
         .iter()
-        .map(|byte| ALPHABET[*byte as usize % ALPHABET.len()] as char)
+        .flat_map(|uuid| *uuid.as_bytes())
+        .take(CONVERSATION_ID_LENGTH)
+        .map(|byte| {
+            let index = usize::from(byte) % CONVERSATION_ID_ALPHABET.len();
+            char::from(CONVERSATION_ID_ALPHABET[index])
+        })
         .collect()
 }
 
@@ -201,18 +205,18 @@ fn run_chat(prompt: &str) -> Option<String> {
             continue;
         };
         match frame.get("event").and_then(Value::as_str) {
-            Some("challenge") => {
+            Some(CHALLENGE_EVENT) => {
                 answer_challenge(&mut socket, &frame)?;
                 send_frame(&mut socket, &send_frame_value)?;
             }
-            Some("appendText") => {
+            Some(APPEND_TEXT_EVENT) => {
                 if let Some(delta) = frame.get("text").and_then(Value::as_str) {
                     reply.push_str(delta);
                 }
             }
             // `done` ends the turn; `error` (e.g. Turnstile → `invalid-event`)
             // means the guest path is walled right now - bail to the CLI fallback.
-            Some("done" | "error") => break,
+            Some(DONE_EVENT | ERROR_EVENT) => break,
             _ => {}
         }
     }
@@ -229,7 +233,7 @@ fn answer_challenge(
     socket: &mut WebSocket<MaybeTlsStream<TcpStream>>,
     frame: &Value,
 ) -> Option<()> {
-    let is_hashcash = frame.get("method").and_then(Value::as_str) == Some("hashcash");
+    let is_hashcash = frame.get("method").and_then(Value::as_str) == Some(HASHCASH_METHOD);
     let Some(parameter) = frame.get("parameter").and_then(Value::as_str) else {
         return Some(());
     };
@@ -242,7 +246,7 @@ fn answer_challenge(
     let nonce = solve_hashcash(token, difficulty)?;
     send_frame(
         socket,
-        &json!({ "event": "challengeResponse", "method": "hashcash", "token": nonce.to_string() }),
+        &json!({ "event": "challengeResponse", "method": HASHCASH_METHOD, "token": nonce.to_string() }),
     )
 }
 
@@ -255,10 +259,8 @@ fn send_frame(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>, frame: &Value) 
 
 #[cfg(test)]
 mod tests {
-    use super::{new_conversation_id, solve_hashcash};
+    use super::{new_conversation_id, solve_hashcash, CONVERSATION_ID_ALPHABET};
     use sha2::{Digest, Sha256};
-
-    const ALPHABET: &str = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
 
     #[test]
     fn solve_hashcash_finds_a_nonce_with_the_required_leading_zero_bits() {
@@ -284,6 +286,8 @@ mod tests {
     fn a_conversation_id_is_21_chars_from_the_alphabet() {
         let id = new_conversation_id();
         assert_eq!(id.chars().count(), 21);
-        assert!(id.chars().all(|character| ALPHABET.contains(character)));
+        assert!(id
+            .bytes()
+            .all(|byte| CONVERSATION_ID_ALPHABET.contains(&byte)));
     }
 }

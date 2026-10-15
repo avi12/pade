@@ -27,13 +27,13 @@ use crate::util::is_noise_directory;
 
 /// What a namer works from: the workspace's files (relative, `/`-joined) and an
 /// optional first task prompt.
-pub(crate) struct NameContext {
-    pub files: Vec<String>,
-    pub prompt: Option<String>,
+struct NameContext {
+    files: Vec<String>,
+    prompt: Option<String>,
 }
 
 /// One name source. Returns a *raw* candidate; the orchestrator sanitizes it.
-pub(crate) trait Namer {
+trait Namer {
     fn suggest(&self, context: &NameContext) -> Option<String>;
 }
 
@@ -75,6 +75,20 @@ const MINIMUM_SESSION_NAME_INPUT_LENGTH: usize = 40;
 /// shared by the agent-CLI invocations and the Copilot chat namer.
 pub(crate) const NAME_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// How much of a session's transcript tail a naming prompt carries.
+const SESSION_PROMPT_TAIL_BYTES: usize = 4000;
+/// How many of a workspace's files a project-naming prompt lists.
+const PROMPT_FILE_COUNT: usize = 12;
+/// The bounds a name is held to: at most this many words and characters, at
+/// least this many characters.
+const MAXIMUM_NAME_WORDS: usize = 4;
+const MAXIMUM_NAME_LENGTH: usize = 40;
+const MINIMUM_NAME_LENGTH: usize = 2;
+/// How often a headless agent run is checked for completion.
+const AGENT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+/// The closing instruction every naming prompt ends with.
+const REPLY_INSTRUCTION: &str = "Reply with ONLY the name - no quotes, no explanation.";
+
 fn session_name(transcript: &str, agent: &str) -> Option<String> {
     // A fullscreen-TUI agent (Claude, Codex, opencode) repaints its ENTIRE
     // screen on every tick, so the raw tail is one frame - status bar, spinner,
@@ -92,9 +106,8 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
     // yields `None` whenever it's unavailable - offline, region-gated, or the
     // Cloudflare Turnstile gate on the first message - so naming quietly falls
     // back to `claude -p` / `codex exec` and never blocks on it.
-    if let Some(name) = crate::copilot::CopilotNamer
-        .suggest_session(&readable)
-        .and_then(|raw| sanitize(&raw))
+    if let Some(name) =
+        crate::copilot::suggest_session_name(&readable).and_then(|raw| sanitize(&raw))
     {
         return Some(name);
     }
@@ -122,7 +135,7 @@ fn readable_transcript(transcript: &str) -> String {
     lines.join("\n")
 }
 
-/// The trailing `max` bytes of `text`, snapped to a char boundary - most recent
+/// The trailing `maximum_length` bytes of `text`, snapped to a char boundary - most recent
 /// context matters most and keeps the prompt bounded.
 fn tail(text: &str, maximum_length: usize) -> &str {
     if text.len() <= maximum_length {
@@ -143,8 +156,9 @@ pub(crate) fn session_naming_prompt(transcript: &str) -> String {
          Suggest a concise, descriptive name in kebab-case (2-4 lowercase words joined by hyphens) \
          capturing what the session is about.\n\n---\n",
     );
-    prompt.push_str(tail(transcript, 4000));
-    prompt.push_str("\n---\n\nReply with ONLY the name - no quotes, no explanation.");
+    prompt.push_str(tail(transcript, SESSION_PROMPT_TAIL_BYTES));
+    prompt.push_str("\n---\n\n");
+    prompt.push_str(REPLY_INSTRUCTION);
     prompt
 }
 
@@ -175,16 +189,16 @@ fn autoname(path: &str, agent: &str) -> Option<String> {
         prompt: None,
     };
 
-    // Layered sources: agent CLI first, then (on Windows) Copilot, then heuristic.
+    // Layered sources: agent CLI first, then the heuristic. Copilot names only
+    // live sessions (it reads a conversation, not a file list).
     let mut namers: Vec<Box<dyn Namer>> = Vec::new();
     if let Some((arguments, executable)) = oneshot_invocation(agent).zip(program(agent)) {
         namers.push(Box::new(AgentCliNamer {
             command: executable,
-            args: arguments,
+            arguments,
             cwd: directory.to_path_buf(),
         }));
     }
-    namers.push(Box::new(crate::copilot::CopilotNamer));
     namers.push(Box::new(HeuristicNamer {
         directory: directory.to_path_buf(),
     }));
@@ -238,7 +252,7 @@ fn gather_files(directory: &Path) -> Vec<String> {
 struct AgentCliNamer {
     /// The resolved executable - see `agents::program`.
     command: PathBuf,
-    args: &'static [&'static str],
+    arguments: &'static [&'static str],
     cwd: PathBuf,
 }
 
@@ -246,7 +260,7 @@ impl Namer for AgentCliNamer {
     fn suggest(&self, context: &NameContext) -> Option<String> {
         run_agent_prompt(
             &self.command,
-            self.args,
+            self.arguments,
             Some(&self.cwd),
             naming_prompt(context),
         )
@@ -257,8 +271,8 @@ fn naming_prompt(context: &NameContext) -> String {
     let list = context
         .files
         .iter()
-        .take(12)
-        .cloned()
+        .take(PROMPT_FILE_COUNT)
+        .map(String::as_str)
         .collect::<Vec<_>>()
         .join("\n");
     let mut prompt = String::from(
@@ -270,7 +284,8 @@ fn naming_prompt(context: &NameContext) -> String {
         prompt.push_str("\n\nInitial task: ");
         prompt.push_str(task);
     }
-    prompt.push_str("\n\nReply with ONLY the name - no quotes, no explanation.");
+    prompt.push_str("\n\n");
+    prompt.push_str(REPLY_INSTRUCTION);
     prompt
 }
 
@@ -279,7 +294,7 @@ fn naming_prompt(context: &NameContext) -> String {
 fn extract_name(output: &str) -> Option<String> {
     let bare = output.lines().map(str::trim).find(|line| {
         !line.is_empty()
-            && line.len() <= 40
+            && line.len() <= MAXIMUM_NAME_LENGTH
             && line.chars().all(|character| {
                 character.is_ascii_alphanumeric() || character == '-' || character == '_'
             })
@@ -336,7 +351,7 @@ fn run_capture(mut command: Command, timeout: Duration) -> Option<String> {
                 let _ = child.wait();
                 return None;
             }
-            Ok(None) => std::thread::sleep(Duration::from_millis(100)),
+            Ok(None) => std::thread::sleep(AGENT_POLL_INTERVAL),
             Err(_) => return None,
         }
     }
@@ -432,27 +447,26 @@ fn dominant_stem(files: &[String]) -> Option<String> {
 pub(crate) fn sanitize(raw: &str) -> Option<String> {
     let first = raw.trim().lines().next().unwrap_or("").to_lowercase();
     let mut kebab = String::with_capacity(first.len());
-    for ch in first.chars() {
-        if ch.is_ascii_alphanumeric() {
-            kebab.push(ch);
+    for character in first.chars() {
+        if character.is_ascii_alphanumeric() {
+            kebab.push(character);
         } else if !kebab.ends_with('-') {
             kebab.push('-');
         }
     }
-    // At most 4 words, then cap length (all-ASCII by now, so byte == char).
+    // Cap the word count, then the length (all-ASCII by now, so byte == char).
     let name = kebab
-        .trim_matches('-')
         .split('-')
         .filter(|part| !part.is_empty())
-        .take(4)
+        .take(MAXIMUM_NAME_WORDS)
         .collect::<Vec<_>>()
         .join("-");
     let name = name
-        .get(..name.len().min(40))
+        .get(..name.len().min(MAXIMUM_NAME_LENGTH))
         .unwrap_or(&name)
         .trim_end_matches('-')
         .to_string();
-    (name.len() >= 2).then_some(name)
+    (name.len() >= MINIMUM_NAME_LENGTH).then_some(name)
 }
 
 #[cfg(test)]
