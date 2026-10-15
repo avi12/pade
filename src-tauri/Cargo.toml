@@ -34,7 +34,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1"
 portable-pty = "0.8"
-notify = "6"
+notify = "8"
 rusqlite = { version = "0.40", features = ["bundled"] }
 # PNG encoding for clipboard-image paste. Already in the tree transitively
 # (arboard → image deps), so this adds no new supply-chain surface; the heavy
