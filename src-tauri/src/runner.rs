@@ -17,15 +17,32 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
+use crate::pty::{MAXIMUM_PATH_BYTES, MAXIMUM_SESSION_ID_BYTES};
 use crate::util::{owner_access, OwnerAccess};
 
 const MAXIMUM_RUNNERS_PER_WINDOW: usize = 32;
-const MAX_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
+const MAXIMUM_RUNNER_COMMAND_BYTES: usize = 16 * 1024;
+/// How often the exit-waiter polls its child, releasing the child lock in
+/// between so `runner_stop` can always reach it.
+const EXIT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+
+/// The events carrying a runner's output lines and its exit. These names are
+/// the frontend contract (`src/lib/bridge.ts`) - the two sides must agree.
+const RUNNER_DATA_EVENT: &str = "runner://data";
+const RUNNER_EXIT_EVENT: &str = "runner://exit";
+
+const FOREIGN_RUNNER_ERROR: &str = "runner belongs to another window";
+
+/// Runners from every window share one map, so a runner is keyed by its owning
+/// window and its id together - two windows may reuse an id.
+fn registry_key(owner: &str, id: &str) -> String {
+    format!("{owner}\0{id}")
+}
 
 struct RunnerRequest<'a> {
     id: &'a str,
@@ -36,10 +53,10 @@ struct RunnerRequest<'a> {
 fn validate_runner_request(
     RunnerRequest { id, command, cwd }: RunnerRequest<'_>,
 ) -> Result<(), String> {
-    let exceeds_limits = id.len() > 128
+    let exceeds_limits = id.len() > MAXIMUM_SESSION_ID_BYTES
         || id.chars().any(char::is_control)
-        || command.len() > MAX_RUNNER_COMMAND_BYTES
-        || cwd.is_some_and(|value| value.len() > 4096);
+        || command.len() > MAXIMUM_RUNNER_COMMAND_BYTES
+        || cwd.is_some_and(|value| value.len() > MAXIMUM_PATH_BYTES);
     if exceeds_limits {
         return Err("runner request exceeds its input limits".into());
     }
@@ -140,21 +157,21 @@ fn now_millis() -> u64 {
 /// `ide::ide_open` reaches launchers: `cmd /C <command>` on Windows, else
 /// `sh -c <command>` so shell syntax (pipes, `&&`, `$VAR`) works either way.
 fn shell_command(command: &str) -> Command {
-    let mut process = if cfg!(windows) {
-        let mut command_process = crate::util::command("cmd");
-        command_process.args(["/C", command]);
-        command_process
+    let (shell, run_flag) = if cfg!(windows) {
+        ("cmd", "/C")
     } else {
-        let mut command_process = crate::util::command("sh");
-        command_process.args(["-c", command]);
-        command_process
+        ("sh", "-c")
     };
-    process.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut process = crate::util::command(shell);
+    process
+        .args([run_flag, command])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     process
 }
 
 /// Arguments for [`pump_stream`], bundled so the reader thread takes one param.
-struct PumpArgs<R: BufRead> {
+struct PumpRequest<R: BufRead> {
     app: AppHandle,
     owner: String,
     id: String,
@@ -177,19 +194,19 @@ fn last_carriage_frame(line: &str) -> &str {
 /// runner id and stream name. Emit errors are swallowed so a closed frontend never
 /// panics the reader thread.
 fn pump_stream<R: BufRead>(
-    PumpArgs {
+    PumpRequest {
         app,
         owner,
         id,
         stream,
         reader,
-    }: PumpArgs<R>,
+    }: PumpRequest<R>,
 ) {
     for line in reader.lines() {
         let Ok(data) = line else { break };
         let _ = app.emit_to(
             &owner,
-            "runner://data",
+            RUNNER_DATA_EVENT,
             RunnerData {
                 id: id.clone(),
                 data: last_carriage_frame(&data).to_string(),
@@ -222,14 +239,14 @@ pub async fn runner_start(
         command: &command,
         cwd: cwd.as_deref(),
     })?;
-    let registry_id = format!("{owner}\0{id}");
+    let registry_id = registry_key(&owner, &id);
     match runner_start_access(RunnerAccessRequest {
         state: &state,
         owner: &owner,
         registry_id: &registry_id,
     })? {
         OwnerAccess::Owned => return Ok(()),
-        OwnerAccess::Foreign => return Err("runner belongs to another window".into()),
+        OwnerAccess::Foreign => return Err(FOREIGN_RUNNER_ERROR.into()),
         OwnerAccess::Vacant => {}
     }
 
@@ -246,79 +263,73 @@ pub async fn runner_start(
     let stdout = child.stdout.take().ok_or("failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("failed to capture stderr")?;
 
-    let stdout_args = PumpArgs {
+    let stdout_pump = PumpRequest {
         app: app.clone(),
         owner: owner.clone(),
         id: id.clone(),
         stream: RunnerStream::Stdout,
         reader: BufReader::new(stdout),
     };
-    std::thread::spawn(move || pump_stream(stdout_args));
+    std::thread::spawn(move || pump_stream(stdout_pump));
 
-    let stderr_args = PumpArgs {
+    let stderr_pump = PumpRequest {
         app: app.clone(),
         owner: owner.clone(),
         id: id.clone(),
         stream: RunnerStream::Stderr,
         reader: BufReader::new(stderr),
     };
-    std::thread::spawn(move || pump_stream(stderr_args));
+    std::thread::spawn(move || pump_stream(stderr_pump));
 
-    // Polling avoids holding the child lock while the process runs.
     let child = Arc::new(Mutex::new(child));
-    let waiter_child = Arc::clone(&child);
-    let app_exit = app.clone();
-    let exit_owner = owner.clone();
-    let exit_id = id.clone();
-    std::thread::spawn(move || {
-        let code = loop {
-            let poll = waiter_child.lock().map(|mut child| child.try_wait());
-            match poll {
-                // Exited: report the code (`None` if killed by a signal).
-                Ok(Ok(Some(status))) => break status.code(),
-                // Still running - release the lock and poll again shortly.
-                Ok(Ok(None)) => std::thread::sleep(std::time::Duration::from_millis(100)),
-                // A wait error or a poisoned lock: stop waiting, report unknown code.
-                Ok(Err(_)) | Err(_) => break None,
-            }
-        };
-        let _ = app_exit.emit_to(
-            &exit_owner,
-            "runner://exit",
-            RunnerExit { id: exit_id, code },
-        );
-    });
+    spawn_exit_waiter(app, owner.clone(), id.clone(), Arc::clone(&child));
 
     let info = RunnerInfo {
-        id: id.clone(),
+        id,
         command,
         cwd,
         started_at: now_millis(),
     };
     let mut runners = state.0.lock().map_err(|e| e.to_string())?;
-    match owner_access(
+    let access = owner_access(
         runners
             .get(&registry_id)
             .map(|runner| runner.owner.as_str()),
         &owner,
-    ) {
-        OwnerAccess::Owned | OwnerAccess::Foreign => {
-            let is_foreign = runners
-                .get(&registry_id)
-                .is_some_and(|runner| runner.owner != owner);
-            drop(runners);
-            if let Ok(mut duplicate) = child.lock() {
-                stop_process_tree(&mut duplicate);
-            }
-            if is_foreign {
-                return Err("runner belongs to another window".into());
-            }
-            return Ok(());
-        }
-        OwnerAccess::Vacant => {}
+    );
+    if access == OwnerAccess::Vacant {
+        runners.insert(registry_id, Runner { owner, child, info });
+        return Ok(());
     }
-    runners.insert(registry_id, Runner { owner, child, info });
+
+    // A concurrent start won the race: stop this duplicate outside the lock.
+    drop(runners);
+    if let Ok(mut duplicate) = child.lock() {
+        stop_process_tree(&mut duplicate);
+    }
+    if access == OwnerAccess::Foreign {
+        return Err(FOREIGN_RUNNER_ERROR.into());
+    }
     Ok(())
+}
+
+/// Wait for a runner's process to exit and emit its code. Polling, rather than
+/// a blocking `wait`, avoids holding the child lock while the process runs.
+fn spawn_exit_waiter(app: AppHandle, owner: String, id: String, child: Arc<Mutex<Child>>) {
+    std::thread::spawn(move || {
+        let code = loop {
+            let poll = child.lock().map(|mut child| child.try_wait());
+            match poll {
+                // Exited: report the code (`None` if killed by a signal).
+                Ok(Ok(Some(status))) => break status.code(),
+                // Still running - release the lock and poll again shortly.
+                Ok(Ok(None)) => std::thread::sleep(EXIT_POLL_INTERVAL),
+                // A wait error or a poisoned lock: stop waiting, report unknown code.
+                Ok(Err(_)) | Err(_) => break None,
+            }
+        };
+        let _ = app.emit_to(&owner, RUNNER_EXIT_EVENT, RunnerExit { id, code });
+    });
 }
 
 /// Stop a task's whole process tree. Dropping a `std::process::Child` does *not*
@@ -352,7 +363,7 @@ pub async fn runner_stop(
     state: State<'_, RunnerState>,
     id: String,
 ) -> Result<(), String> {
-    let registry_id = format!("{}\0{id}", window.label());
+    let registry_id = registry_key(window.label(), &id);
     let removed = {
         let mut runners = state.0.lock().map_err(|e| e.to_string())?;
         if owner_access(
@@ -362,7 +373,7 @@ pub async fn runner_stop(
             window.label(),
         ) == OwnerAccess::Foreign
         {
-            return Err("runner belongs to another window".into());
+            return Err(FOREIGN_RUNNER_ERROR.into());
         }
         runners.remove(&registry_id)
     };
