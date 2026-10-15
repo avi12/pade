@@ -647,6 +647,819 @@
   color-scheme: light;
 }
 
+/* Agent brand tints - each coding agent's signature colour. Used only to tint the
+   agent chips in the picker and onboarding; a component opts in by colouring its
+   icon with `var(--agent-brand, currentColor)`. The session tabs never set
+   --agent-brand - their icon colour instead encodes context-window severity (the
+   --context-* gauge above), as the usage meter's icon encodes rate-limit
+   severity. Grok, Cursor and Aider are monochrome brands -
+   they set nothing and follow the text colour. Brand hex (not theme tokens) so the
+   colours stay true; the dark scheme lightens each for contrast on dark surfaces. */
+[data-agent="claude"] {
+  --agent-brand: #d97757;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #e28b6d;
+  }
+}
+
+[data-agent="codex"] {
+  --agent-brand: #6d5ae6;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #a99bff;
+  }
+}
+
+[data-agent="copilot"] {
+  --agent-brand: #8250df;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #a371f7;
+  }
+}
+
+[data-agent="antigravity"] {
+  --agent-brand: #4285f4;
+
+  :root[data-theme="dark"] & {
+    --agent-brand: #83aefc;
+  }
+}
+
+/* Language & editor brand tints - same mechanism as the agent tints above.
+   Languages key by their icon name (`data-brand={languageIcon(kind)}`); editors
+   key by their canonical id (`data-brand={ideBrand(id)}`). A component opts in
+   by colouring the icon span with `var(--brand-color, <fallback>)`.
+
+   Most marks need no entry: multi-colour official logos (the JetBrains
+   products, JavaScript, Python, Java, C++, C#, PHP, Ruby, Android Studio) carry
+   their fills baked into the SVG, so a tint is a no-op there. Entries below
+   cover only the genuinely single-colour brands, nesting both schemes: light is
+   the official brand hex (darkened where the true hex is illegible on light
+   surfaces - the Android green); dark is lightened for contrast. Cursor stays
+   untinted - its brand is genuinely black and follows the text colour. Rust's
+   logo is black too, so it wears the colour the ecosystem knows it by - the
+   named rust #b7410e, GitHub's Rust #dea584 in the dark scheme. */
+[data-brand="go"] {
+  --brand-color: #00add8;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #40c8ea;
+  }
+}
+
+[data-brand="android"] {
+  --brand-color: #1ea362;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #3ddc84;
+  }
+}
+
+[data-brand="rust"] {
+  --brand-color: #b7410e;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #dea584;
+  }
+}
+
+[data-brand="vscode"] {
+  --brand-color: #007acc;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #3ea6e8;
+  }
+}
+
+[data-brand="sublime"] {
+  --brand-color: #ff9800;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #ffad33;
+  }
+}
+
+[data-brand="visualstudio"] {
+  --brand-color: #5c2d91;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #9a70d6;
+  }
+}
+
+[data-brand="zed"] {
+  --brand-color: #084ccf;
+
+  :root[data-theme="dark"] & {
+    --brand-color: #5b8def;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-color: color-mix(in sRGB, currentColor 28%, transparent) transparent;
+
+  /* Subtle, thin scrollbars everywhere (Firefox / standard). */
+  scrollbar-width: thin;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+/* Root font tracks the user's zoom pref (lib/prefs sets --ui-scale). Using % of
+   the inherited base - never a fixed px - keeps the OS/browser a11y font size
+   honored; rem/em and `--font-base` sizing scale with it. */
+html {
+  font-size: calc(100% * var(--ui-scale, 1));
+}
+
+/* Tabular figures are the app-wide default, declared once here rather than at
+   each of the three dozen places that happen to print a number. Every count,
+   percentage, byte size, timer and line tally in a console is a value that
+   CHANGES in place, and proportional figures re-flow the text around it on each
+   tick. Inherited, so a component only ever has to opt back OUT. */
+body {
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A button is a themed surface, never the UA's ButtonFace - components paint
+   their own backgrounds on top. (On the light theme the UA face was near-
+   invisible against the light surfaces, so the missing reset only showed as
+   glaring light patches in dark mode - the design file's reset, adopted.) */
+button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  color: inherit;
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: var(--focus-glow);
+}
+
+/* Text selection in the primary's hue (from the design file) - the fixed
+   mid-tone blue reads on both schemes. */
+::selection {
+  background: hsl(var(--seed-hue) 90% 55% / 35%);
+}
+
+/* Chromium/WebView scrollbar - thin, subtle; xterm's viewport otherwise shows
+   the chunky default. Scrolling is preserved. */
+::-webkit-scrollbar {
+  block-size: 10px;
+  inline-size: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in sRGB, currentColor 28%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The terminal shows no scrollbar at all - it stays scrollable via the wheel. */
+.xterm-viewport {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    block-size: 0;
+    inline-size: 0;
+  }
+}
+
+/* SPA phase changes (onboarding ↔ picker ↔ workspace) cross-fade via the View
+   Transitions API - styled here in pure CSS on the M3 emphasized easing. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* The `*` reset can't reach the view-transition pseudo-tree - disable it here. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* The bubble itself, one home for both tooltips: the [data-tooltip] pseudo
+   below and the top-layer bubble (OverflowTooltipLayer) read identically and
+   can never drift. Only the look lives here - each places itself, since the
+   top-layer one also has to reset the popover's own box first. */
+[data-tooltip]::after,
+.overflow-tooltip {
+  inline-size: max-content;
+  max-inline-size: min(320px, 90vw);
+  padding: 4px 9px;
+  border-radius: var(--radius-small);
+  background: var(--surface-3);
+  color: var(--on-surface);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: calc(0.6875 * var(--font-base));
+  line-height: 1.35;
+
+  /* Wrap long tooltips (a full file path) within the max-inline-size cap: the
+     trigger may set `white-space: nowrap` (the file button does), which the
+     pseudo would otherwise inherit; and a path has no spaces to break at, so
+     `overflow-wrap: anywhere` lets it break to fit rather than overflow. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 0 6px 20px var(--shadow-color);
+  pointer-events: none;
+}
+
+/* Tooltips - pure CSS (inspired by video-time-manager). Add data-tooltip="…"
+   (plus an aria-label on icon-only controls) to any element and its ::after shows
+   the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
+   a dense, overflow:hidden toolbar's clip; `inset-block-start: anchor(bottom)` +
+   `justify-self: anchor-center` sit the bubble centered *below* the trigger with a
+   `margin-block-start` gap, so it never rides over the control it describes; near
+   the viewport bottom (the dock, low panel rows) it flips *above* via
+   --tooltip-flip-up, keeping the same gap. The bubble anchors to its own trigger
+   via `position-anchor: auto` - a pseudo-element's implicit anchor is its
+   originating element - deliberately NOT a named anchor: a trigger that also
+   hosts a popover sets its own inline `anchor-name` (the IDE caret, the usage
+   pill), which would override a stylesheet-side name and strand the bubble on
+   top of the control. `position: relative` keeps the trigger a containing block
+   for any absolutely-positioned children it owns. Sized off --font-base so it
+   tracks the zoom pref.
+
+   PERF: the bubble is `display: none` until its trigger is hovered/focused. An
+   always-present anchor-positioned fixed pseudo on every one of the ~30 triggers
+   makes the browser re-run anchor + position-try for all of them on every
+   drag/resize frame - that is the window-drag lag (bisected to the tooltip
+   rewrite, c9d199a). display:none keeps them out of layout at rest, so only the
+   single hovered bubble is ever positioned; `display` + `@starting-style`
+   (allow-discrete) keep the fade. For the same reason never gate tooltips with a
+   document-level `body:has(…)` - it forces a full-tree recalc on every layout
+   change.
+
+   LIMIT: `fixed` only escapes as far as its containing block. An ancestor with a
+   `view-transition-name`, a transform/filter, or `content-visibility` becomes that
+   containing block *and* a stacking context, so there the bubble is clipped or
+   painted under whatever follows the ancestor. Those triggers use the shared
+   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/truncation-tooltip`
+   - not this pseudo. */
+[data-tooltip] {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: fixed;
+    inset-block-start: anchor(bottom);
+    z-index: 200;
+    display: none;
+    justify-self: anchor-center;
+    margin-block-start: var(--tooltip-gap);
+    margin-inline: var(--tooltip-edge-gutter);
+    opacity: 0%;
+    transition:
+      opacity 120ms var(--ease),
+      display 120ms allow-discrete;
+    position-anchor: auto;
+    position-try-fallbacks: --tooltip-flip-up;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    display: block;
+    opacity: 100%;
+  }
+
+  /* Nested tooltips: while a descendant's own tooltip shows, suppress this one so
+     the two never stack (e.g. a usage bar inside the usage pill). */
+  &:has([data-tooltip]:hover)::after,
+  &:has([data-tooltip]:focus-visible)::after {
+    opacity: 0%;
+  }
+}
+
+/* Flip above the trigger only when there's no room below (the dock, low panel
+   rows) - same gap on the other side so the bubble still clears the control. */
+@position-try --tooltip-flip-up {
+  inset-block: auto anchor(top);
+  margin-block: 0 var(--tooltip-gap);
+}
+
+/* The bubble toggles display, so give its shown state a from-opacity for the
+   enter transition (allow-discrete on `display` handles the exit). */
+@starting-style {
+  [data-tooltip]:hover::after,
+  [data-tooltip]:focus-visible::after {
+    opacity: 0%;
+  }
+}
+
+/* ── Popover menu triggers stay active while their menu is open ────────────────
+   A control that opens a [popover] loses :hover the instant the pointer crosses
+   into the top-layer menu, so the trigger flattens while the menu is still
+   showing. The fix is one shared, JS-free rule for every dropdown: wrap the
+   trigger and its [popover] in a `.menu-host`, tag the control `.menu-trigger`,
+   and it holds a pressed state for as long as the menu is open - the same
+   surface-3 fill + primary edge + flipped caret the fields use on :hover, so all
+   dropdowns read identically. New dropdowns opt in with the two class names and
+   inherit the behaviour; nothing is written per component.
+
+   `.menu-host` bounds the :has() so it never becomes a document-wide selector
+   (see the tooltip PERF note above); `:not([popover] *)` stops a menu's own inner
+   trigger (a submenu) from lighting up the outer one. */
+.menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
+  border-color: var(--primary);
+  background: var(--surface-3);
+
+  /* A caret in the trigger flips to point at the open menu. */
+  .caret {
+    rotate: 180deg;
+  }
+
+  /* The trigger's own hover tooltip must not peek out from behind the open menu
+     (both live in the top layer). */
+  &[data-tooltip]::after {
+    display: none;
+  }
+}
+
+/* ── Shared M3 Expressive motion ─────────────────────────────────────────────
+   One authoritative home for the animation vocabulary (DRY). Components
+   reference these by name; the reduced-motion block above already disables them
+   all via the global `*` reset. */
+
+/* Cards, panels, hero surfaces rise up and settle with a slight overshoot. */
+@keyframes rise {
+  0% {
+    opacity: 0%;
+    translate: 0 12px;
+  }
+
+  60% {
+    opacity: 100%;
+    translate: 0 -3px;
+  }
+
+  100% {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* A just-arrived item pops in (feed cards on push, toasts). */
+@keyframes pop-in {
+  0% {
+    opacity: 0%;
+    scale: 0.9;
+    translate: 0 -8px;
+  }
+
+  60% {
+    opacity: 100%;
+    scale: 1.03;
+    translate: 0 0;
+  }
+
+  100% {
+    opacity: 100%;
+    scale: 1;
+  }
+}
+
+/* Chips / session tabs spring in from small. */
+@keyframes spring-in {
+  0% {
+    opacity: 0%;
+    scale: 0.7;
+  }
+
+  60% {
+    opacity: 100%;
+    scale: 1.08;
+  }
+
+  100% {
+    opacity: 100%;
+    scale: 1;
+  }
+}
+
+/* The side panel slides in from the right edge. */
+@keyframes panel-in {
+  0% {
+    opacity: 0%;
+    translate: 22px 0;
+  }
+
+  60% {
+    opacity: 100%;
+    translate: -5px 0;
+  }
+
+  100% {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* Swapping panel contents (Feed ↔ Git ↔ Tasks ↔ Config). */
+@keyframes panel-swap {
+  from {
+    opacity: 0%;
+    translate: 0 6px;
+  }
+
+  to {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* A pane springing into the split: it slides in from its trailing edge and
+   reveals left-to-right (clip-path) with a soft overshoot, so an added pane
+   reads as arriving rather than snapping into the flex row. Fired imperatively
+   on the added slot only (App.animatePaneIn) - a plain tab switch stays
+   instant. */
+@keyframes pane-enter {
+  0% {
+    clip-path: inset(0 0 0 40%);
+    opacity: 0%;
+    scale: 0.97;
+    translate: 14px 0;
+  }
+
+  60% {
+    opacity: 100%;
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 100%;
+    scale: 1;
+    translate: 0 0;
+  }
+}
+
+/* Terminal / runner output lines fade up as they stream in. */
+@keyframes line-in {
+  from {
+    opacity: 0%;
+    translate: 0 4px;
+  }
+
+  to {
+    opacity: 100%;
+    translate: 0 0;
+  }
+}
+
+/* Custom checkbox check pops when toggled. */
+@keyframes check-pop {
+  0% {
+    scale: 0.8;
+  }
+
+  55% {
+    scale: 1.16;
+  }
+
+  100% {
+    scale: 1.06;
+  }
+}
+
+/* The "working" status dot breathes. */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 100%;
+  }
+
+  50% {
+    opacity: 35%;
+  }
+}
+
+/* Terminal cursor. */
+@keyframes blink {
+  50% {
+    opacity: 0%;
+  }
+}
+
+/* Refresh / rescan spinner. */
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Backdrop / plain fade (modal scrim, toast). */
+@keyframes fadein {
+  from {
+    opacity: 0%;
+  }
+
+  to {
+    opacity: 100%;
+  }
+}
+
+/* ── Custom checkbox - shared M3 control ──────────────────────────────────────
+   One authoritative home (DRY) so any panel can reuse `<span class="checkbox">`. The
+   box fills primary and the tick draws itself on check; reuses the check-pop
+   keyframe above. */
+.checkbox {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  block-size: 20px;
+  inline-size: 20px;
+
+  input {
+    position: absolute;
+    inset: 0;
+    block-size: 100%;
+    inline-size: 100%;
+    margin: 0;
+    opacity: 0%;
+    cursor: pointer;
+  }
+
+  .box {
+    display: grid;
+    place-items: center;
+    block-size: 20px;
+    inline-size: 20px;
+    border: 2px solid var(--outline);
+    border-radius: 7px;
+    background: var(--surface-2);
+    transition:
+      background 250ms var(--ease),
+      border-color 250ms var(--ease),
+      scale 300ms var(--spring);
+
+    svg {
+      display: block;
+      block-size: 13px;
+      inline-size: 13px;
+    }
+
+    path {
+      fill: none;
+      stroke: var(--on-primary);
+      stroke-dasharray: 22;
+      stroke-dashoffset: 22;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 3;
+      transition: stroke-dashoffset 240ms var(--ease) 60ms;
+    }
+  }
+
+  input:checked + .box {
+    border-color: var(--primary);
+    background: var(--primary);
+    scale: 1.06;
+    animation: check-pop 360ms var(--spring);
+
+    path {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  input:focus-visible + .box {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: var(--focus-glow);
+  }
+
+  input:not(:checked):hover + .box {
+    border-color: var(--primary);
+  }
+}
+
+/* The hover underline the terminal link provider paints over a URL's glyphs.
+   Lives here because the elements are appended into xterm's own screen DOM
+   (outside any component's scoped styles); only their position is set inline. */
+.terminal-link-underline {
+  position: absolute;
+  box-sizing: border-box;
+  border-block-end: 2px solid var(--primary);
+  pointer-events: none;
+}
+
+/* Native popovers (menus) reveal with a spring; light-dismiss is handled by the
+   platform. `@starting-style` gives the enter transition its from-state, and
+   `allow-discrete` animates display/overlay so the exit plays too. */
+[popover] {
+  margin: 0;
+  opacity: 0%;
+  transition:
+    opacity 160ms var(--ease),
+    scale 200ms var(--spring),
+    translate 200ms var(--spring),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+  scale: 0.95;
+  translate: 0 -10px;
+
+  &:popover-open {
+    opacity: 100%;
+    scale: 1;
+    translate: 0 0;
+  }
+}
+
+@starting-style {
+  [popover]:popover-open {
+    opacity: 0%;
+    scale: 0.95;
+    translate: 0 -10px;
+  }
+}
+
+/* Shared shell for anchored popover menus (app menu, tab menus, IDE / design
+   lists, picker row menus) - the one authoritative home for the menu box.
+   Each menu keeps only what genuinely varies: its width, its anchor side
+   (`position-area`), and its own item styles. */
+.popover-menu {
+  position: absolute;
+  inset: auto;
+  margin-block: 6px 0;
+  margin-inline: 0;
+  padding: 6px;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-medium);
+  background: var(--surface-2);
+  list-style: none;
+  box-shadow: 0 16px 40px var(--shadow-color);
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+
+  /* The row every menu is a stack of, and its one home. Six menus had each
+     written the same full-width, transparent, primary-on-hover button into their
+     own `\3c style>` under four different selectors (`li button`, `.branch-row`,
+     `.member-row`, `.menu-item`), so a change to how a menu row reads meant six
+     edits that never quite landed the same.
+
+     It is written inside the shell so it outranks a section's blanket `button`
+     rule (the picker's filled buttons) without either knowing about the other.
+     A menu keeps only what genuinely varies: its gap, a mono face for refs, and
+     its current / active states. Its scoped selector outranks this one, so a
+     menu that re-colours a row at rest owns that row's hover colour too. */
+  .menu-item {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    inline-size: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: var(--on-surface);
+    font: inherit;
+    font-size: 13px;
+    text-align: start;
+    cursor: pointer;
+    transition: color 120ms var(--ease), background 120ms var(--ease);
+
+    &:hover {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+  }
+}
+
+/* The two things every menu puts BETWEEN its rows, and the one home for both.
+   Six menus had each written the same uppercase label rule into their own
+   `\3c style>` under three different names (`.menu-separator`, `.hint`, `.head`)
+   and the same hairline under two more (`.menu-divider`, `.separator`), so a
+   change to how a menu is sectioned meant six edits - and the picker's row menu,
+   which never wrote either, simply had none.
+
+   A label names the group under it; a divider only separates. A group that has
+   both wants the label alone (the label carries its own rule under the skins
+   that draw one), so put the divider before a label only where the sections
+   genuinely need the extra beat. */
+.menu-separator {
+  margin-block: 6px 2px;
+  padding-block: 2px 4px;
+  padding-inline: 10px;
+  color: var(--on-surface-variant);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  /* A menu that opens on a label has nothing above it to be spaced from. */
+  &:first-child {
+    margin-block-start: 0;
+  }
+}
+
+.menu-divider {
+  block-size: 1px;
+  margin-block: 6px;
+  margin-inline: 8px;
+  background: var(--outline);
+}
+
+/* ── Scroll-fade ───────────────────────────────────────────────────────────────
+   A reusable overflow-y scroller that hides its scrollbar and dissolves its top
+   and bottom edges into a soft gradient instead - the only overflow cue once the
+   bar is gone. The fade is scroll-position-driven (`animation-timeline:
+   scroll(self)`): the top edge fades in only once content sits above, the bottom
+   only while content sits below. Off a scroll timeline the mask rests fully
+   opaque (both custom props at their initial `rgb(0 0 0)`), so it degrades to a
+   plain, unfaded scroller. Add the `.scroll-fade` class to any such scroller. */
+@property --scroll-fade-top {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(0 0 0);
+}
+
+@property --scroll-fade-bottom {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgb(0 0 0);
+}
+
+.scroll-fade {
+  scrollbar-width: none;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      var(--scroll-fade-top) 0%,
+      rgb(0 0 0) 24px,
+      rgb(0 0 0) calc(100% - 24px),
+      var(--scroll-fade-bottom) 100%
+    );
+
+  @supports (animation-timeline: scroll(self)) {
+    animation:
+      scroll-fade-top-unmask linear both,
+      scroll-fade-bottom-unmask linear both;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range: 0 24px, calc(100% - 24px) 100%;
+  }
+
+  &::-webkit-scrollbar {
+    block-size: 0;
+    inline-size: 0;
+  }
+}
+
+@keyframes scroll-fade-top-unmask {
+  from {
+    --scroll-fade-top: rgb(0 0 0);
+  }
+
+  to {
+    --scroll-fade-top: transparent;
+  }
+}
+
+@keyframes scroll-fade-bottom-unmask {
+  from {
+    --scroll-fade-bottom: transparent;
+  }
+
+  to {
+    --scroll-fade-bottom: rgb(0 0 0);
+  }
+}
+
 /* Cyberpunk's shape language: corners are CUT, not rounded. `corner-shape:
    bevel` reinterprets every radius in the app as a chamfer, and the scale below
    runs the cut down one diagonal - `<size> 0` is the two-value border-radius
@@ -1033,818 +1846,5 @@
   &[data-theme="light"] .agent-icon.ready {
     background: var(--tertiary-wash);
     box-shadow: none;
-  }
-}
-
-/* Agent brand tints - each coding agent's signature colour. Used only to tint the
-   agent chips in the picker and onboarding; a component opts in by colouring its
-   icon with `var(--agent-brand, currentColor)`. The session tabs never set
-   --agent-brand - their icon colour instead encodes context-window severity (the
-   --context-* gauge above), as the usage meter's icon encodes rate-limit
-   severity. Grok, Cursor and Aider are monochrome brands -
-   they set nothing and follow the text colour. Brand hex (not theme tokens) so the
-   colours stay true; the dark scheme lightens each for contrast on dark surfaces. */
-[data-agent="claude"] {
-  --agent-brand: #d97757;
-
-  :root[data-theme="dark"] & {
-    --agent-brand: #e28b6d;
-  }
-}
-
-[data-agent="codex"] {
-  --agent-brand: #6d5ae6;
-
-  :root[data-theme="dark"] & {
-    --agent-brand: #a99bff;
-  }
-}
-
-[data-agent="copilot"] {
-  --agent-brand: #8250df;
-
-  :root[data-theme="dark"] & {
-    --agent-brand: #a371f7;
-  }
-}
-
-[data-agent="antigravity"] {
-  --agent-brand: #4285f4;
-
-  :root[data-theme="dark"] & {
-    --agent-brand: #83aefc;
-  }
-}
-
-/* Language & editor brand tints - same mechanism as the agent tints above.
-   Languages key by their icon name (`data-brand={languageIcon(kind)}`); editors
-   key by their canonical id (`data-brand={ideBrand(id)}`). A component opts in
-   by colouring the icon span with `var(--brand-color, <fallback>)`.
-
-   Most marks need no entry: multi-colour official logos (the JetBrains
-   products, JavaScript, Python, Java, C++, C#, PHP, Ruby, Android Studio) carry
-   their fills baked into the SVG, so a tint is a no-op there. Entries below
-   cover only the genuinely single-colour brands, nesting both schemes: light is
-   the official brand hex (darkened where the true hex is illegible on light
-   surfaces - the Android green); dark is lightened for contrast. Cursor stays
-   untinted - its brand is genuinely black and follows the text colour. Rust's
-   logo is black too, so it wears the colour the ecosystem knows it by - the
-   named rust #b7410e, GitHub's Rust #dea584 in the dark scheme. */
-[data-brand="go"] {
-  --brand-color: #00add8;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #40c8ea;
-  }
-}
-
-[data-brand="android"] {
-  --brand-color: #1ea362;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #3ddc84;
-  }
-}
-
-[data-brand="rust"] {
-  --brand-color: #b7410e;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #dea584;
-  }
-}
-
-[data-brand="vscode"] {
-  --brand-color: #007acc;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #3ea6e8;
-  }
-}
-
-[data-brand="sublime"] {
-  --brand-color: #ff9800;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #ffad33;
-  }
-}
-
-[data-brand="visualstudio"] {
-  --brand-color: #5c2d91;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #9a70d6;
-  }
-}
-
-[data-brand="zed"] {
-  --brand-color: #084ccf;
-
-  :root[data-theme="dark"] & {
-    --brand-color: #5b8def;
-  }
-}
-
-* {
-  box-sizing: border-box;
-  scrollbar-color: color-mix(in sRGB, currentColor 28%, transparent) transparent;
-
-  /* Subtle, thin scrollbars everywhere (Firefox / standard). */
-  scrollbar-width: thin;
-}
-
-html,
-body,
-#app {
-  height: 100%;
-  margin: 0;
-}
-
-/* Root font tracks the user's zoom pref (lib/prefs sets --ui-scale). Using % of
-   the inherited base - never a fixed px - keeps the OS/browser a11y font size
-   honored; rem/em and `--font-base` sizing scale with it. */
-html {
-  font-size: calc(100% * var(--ui-scale, 1));
-}
-
-/* Tabular figures are the app-wide default, declared once here rather than at
-   each of the three dozen places that happen to print a number. Every count,
-   percentage, byte size, timer and line tally in a console is a value that
-   CHANGES in place, and proportional figures re-flow the text around it on each
-   tick. Inherited, so a component only ever has to opt back OUT. */
-body {
-  overflow: hidden;
-  background: var(--surface);
-  color: var(--on-surface);
-  font-family: var(--font-ui);
-  font-variant-numeric: tabular-nums;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* A button is a themed surface, never the UA's ButtonFace - components paint
-   their own backgrounds on top. (On the light theme the UA face was near-
-   invisible against the light surfaces, so the missing reset only showed as
-   glaring light patches in dark mode - the design file's reset, adopted.) */
-button {
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-input,
-select,
-textarea {
-  color: inherit;
-  font: inherit;
-}
-
-:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-  box-shadow: var(--focus-glow);
-}
-
-/* Text selection in the primary's hue (from the design file) - the fixed
-   mid-tone blue reads on both schemes. */
-::selection {
-  background: hsl(var(--seed-hue) 90% 55% / 35%);
-}
-
-/* Chromium/WebView scrollbar - thin, subtle; xterm's viewport otherwise shows
-   the chunky default. Scrolling is preserved. */
-::-webkit-scrollbar {
-  block-size: 10px;
-  inline-size: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: var(--radius-full);
-  background-color: color-mix(in sRGB, currentColor 28%, transparent);
-  background-clip: padding-box;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* The terminal shows no scrollbar at all - it stays scrollable via the wheel. */
-.xterm-viewport {
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    block-size: 0;
-    inline-size: 0;
-  }
-}
-
-/* SPA phase changes (onboarding ↔ picker ↔ workspace) cross-fade via the View
-   Transitions API - styled here in pure CSS on the M3 emphasized easing. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 260ms;
-  animation-timing-function: var(--ease);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
-
-  /* The `*` reset can't reach the view-transition pseudo-tree - disable it here. */
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
-}
-
-/* Tooltips - pure CSS (inspired by video-time-manager). Add data-tooltip="…"
-   (plus an aria-label on icon-only controls) to any element and its ::after shows
-   the text, placed with CSS anchor positioning: `position: fixed` lifts it out of
-   a dense, overflow:hidden toolbar's clip; `inset-block-start: anchor(bottom)` +
-   `justify-self: anchor-center` sit the bubble centered *below* the trigger with a
-   `margin-block-start` gap, so it never rides over the control it describes; near
-   the viewport bottom (the dock, low panel rows) it flips *above* via
-   --tooltip-flip-up, keeping the same gap. The bubble anchors to its own trigger
-   via `position-anchor: auto` - a pseudo-element's implicit anchor is its
-   originating element - deliberately NOT a named anchor: a trigger that also
-   hosts a popover sets its own inline `anchor-name` (the IDE caret, the usage
-   pill), which would override a stylesheet-side name and strand the bubble on
-   top of the control. `position: relative` keeps the trigger a containing block
-   for any absolutely-positioned children it owns. Sized off --font-base so it
-   tracks the zoom pref.
-
-   PERF: the bubble is `display: none` until its trigger is hovered/focused. An
-   always-present anchor-positioned fixed pseudo on every one of the ~30 triggers
-   makes the browser re-run anchor + position-try for all of them on every
-   drag/resize frame - that is the window-drag lag (bisected to the tooltip
-   rewrite, c9d199a). display:none keeps them out of layout at rest, so only the
-   single hovered bubble is ever positioned; `display` + `@starting-style`
-   (allow-discrete) keep the fade. For the same reason never gate tooltips with a
-   document-level `body:has(…)` - it forces a full-tree recalc on every layout
-   change.
-
-   LIMIT: `fixed` only escapes as far as its containing block. An ancestor with a
-   `view-transition-name`, a transform/filter, or `content-visibility` becomes that
-   containing block *and* a stacking context, so there the bubble is clipped or
-   painted under whatever follows the ancestor. Those triggers use the shared
-   top-layer bubble instead - `{@attach tooltip(…)}` from `@/lib/truncation-tooltip`
-   - not this pseudo. */
-[data-tooltip] {
-  position: relative;
-
-  &::after {
-    content: attr(data-tooltip);
-    position: fixed;
-    inset-block-start: anchor(bottom);
-    z-index: 200;
-    display: none;
-    justify-self: anchor-center;
-    margin-block-start: var(--tooltip-gap);
-    margin-inline: var(--tooltip-edge-gutter);
-    opacity: 0%;
-    transition:
-      opacity 120ms var(--ease),
-      display 120ms allow-discrete;
-    position-anchor: auto;
-    position-try-fallbacks: --tooltip-flip-up;
-  }
-
-  &:hover::after,
-  &:focus-visible::after {
-    display: block;
-    opacity: 100%;
-  }
-
-  /* Nested tooltips: while a descendant's own tooltip shows, suppress this one so
-     the two never stack (e.g. a usage bar inside the usage pill). */
-  &:has([data-tooltip]:hover)::after,
-  &:has([data-tooltip]:focus-visible)::after {
-    opacity: 0%;
-  }
-}
-
-/* The bubble itself, one home for both tooltips: this pseudo and the top-layer
-   bubble (OverflowTooltipLayer) read identically and can never drift. Only the
-   look lives here - each places itself, since the top-layer one also has to
-   reset the popover's own box first. */
-[data-tooltip]::after,
-.overflow-tooltip {
-  inline-size: max-content;
-  max-inline-size: min(320px, 90vw);
-  padding: 4px 9px;
-  border-radius: var(--radius-small);
-  background: var(--surface-3);
-  color: var(--on-surface);
-  font-family: var(--font-ui);
-  font-weight: 500;
-  font-size: calc(0.6875 * var(--font-base));
-  line-height: 1.35;
-
-  /* Wrap long tooltips (a full file path) within the max-inline-size cap: the
-     trigger may set `white-space: nowrap` (the file button does), which the
-     pseudo would otherwise inherit; and a path has no spaces to break at, so
-     `overflow-wrap: anywhere` lets it break to fit rather than overflow. */
-  white-space: normal;
-  overflow-wrap: anywhere;
-  box-shadow: 0 6px 20px var(--shadow-color);
-  pointer-events: none;
-}
-
-/* Flip above the trigger only when there's no room below (the dock, low panel
-   rows) - same gap on the other side so the bubble still clears the control. */
-@position-try --tooltip-flip-up {
-  inset-block: auto anchor(top);
-  margin-block: 0 var(--tooltip-gap);
-}
-
-/* The bubble toggles display, so give its shown state a from-opacity for the
-   enter transition (allow-discrete on `display` handles the exit). */
-@starting-style {
-  [data-tooltip]:hover::after,
-  [data-tooltip]:focus-visible::after {
-    opacity: 0%;
-  }
-}
-
-/* ── Popover menu triggers stay active while their menu is open ────────────────
-   A control that opens a [popover] loses :hover the instant the pointer crosses
-   into the top-layer menu, so the trigger flattens while the menu is still
-   showing. The fix is one shared, JS-free rule for every dropdown: wrap the
-   trigger and its [popover] in a `.menu-host`, tag the control `.menu-trigger`,
-   and it holds a pressed state for as long as the menu is open - the same
-   surface-3 fill + primary edge + flipped caret the fields use on :hover, so all
-   dropdowns read identically. New dropdowns opt in with the two class names and
-   inherit the behaviour; nothing is written per component.
-
-   `.menu-host` bounds the :has() so it never becomes a document-wide selector
-   (see the tooltip PERF note above); `:not([popover] *)` stops a menu's own inner
-   trigger (a submenu) from lighting up the outer one. */
-.menu-host:has([popover]:popover-open) .menu-trigger:not([popover] *) {
-  border-color: var(--primary);
-  background: var(--surface-3);
-
-  /* A caret in the trigger flips to point at the open menu. */
-  .caret {
-    rotate: 180deg;
-  }
-
-  /* The trigger's own hover tooltip must not peek out from behind the open menu
-     (both live in the top layer). */
-  &[data-tooltip]::after {
-    display: none;
-  }
-}
-
-/* ── Shared M3 Expressive motion ─────────────────────────────────────────────
-   One authoritative home for the animation vocabulary (DRY). Components
-   reference these by name; the reduced-motion block above already disables them
-   all via the global `*` reset. */
-
-/* Cards, panels, hero surfaces rise up and settle with a slight overshoot. */
-@keyframes rise {
-  0% {
-    opacity: 0%;
-    translate: 0 12px;
-  }
-
-  60% {
-    opacity: 100%;
-    translate: 0 -3px;
-  }
-
-  100% {
-    opacity: 100%;
-    translate: 0 0;
-  }
-}
-
-/* A just-arrived item pops in (feed cards on push, toasts). */
-@keyframes pop-in {
-  0% {
-    opacity: 0%;
-    scale: 0.9;
-    translate: 0 -8px;
-  }
-
-  60% {
-    opacity: 100%;
-    scale: 1.03;
-    translate: 0 0;
-  }
-
-  100% {
-    opacity: 100%;
-    scale: 1;
-  }
-}
-
-/* Chips / session tabs spring in from small. */
-@keyframes spring-in {
-  0% {
-    opacity: 0%;
-    scale: 0.7;
-  }
-
-  60% {
-    opacity: 100%;
-    scale: 1.08;
-  }
-
-  100% {
-    opacity: 100%;
-    scale: 1;
-  }
-}
-
-/* The side panel slides in from the right edge. */
-@keyframes panel-in {
-  0% {
-    opacity: 0%;
-    translate: 22px 0;
-  }
-
-  60% {
-    opacity: 100%;
-    translate: -5px 0;
-  }
-
-  100% {
-    opacity: 100%;
-    translate: 0 0;
-  }
-}
-
-/* Swapping panel contents (Feed ↔ Git ↔ Tasks ↔ Config). */
-@keyframes panel-swap {
-  from {
-    opacity: 0%;
-    translate: 0 6px;
-  }
-
-  to {
-    opacity: 100%;
-    translate: 0 0;
-  }
-}
-
-/* A pane springing into the split: it slides in from its trailing edge and
-   reveals left-to-right (clip-path) with a soft overshoot, so an added pane
-   reads as arriving rather than snapping into the flex row. Fired imperatively
-   on the added slot only (App.animatePaneIn) - a plain tab switch stays
-   instant. */
-@keyframes pane-enter {
-  0% {
-    clip-path: inset(0 0 0 40%);
-    opacity: 0%;
-    scale: 0.97;
-    translate: 14px 0;
-  }
-
-  60% {
-    opacity: 100%;
-  }
-
-  100% {
-    clip-path: inset(0 0 0 0);
-    opacity: 100%;
-    scale: 1;
-    translate: 0 0;
-  }
-}
-
-/* Terminal / runner output lines fade up as they stream in. */
-@keyframes line-in {
-  from {
-    opacity: 0%;
-    translate: 0 4px;
-  }
-
-  to {
-    opacity: 100%;
-    translate: 0 0;
-  }
-}
-
-/* Custom checkbox check pops when toggled. */
-@keyframes check-pop {
-  0% {
-    scale: 0.8;
-  }
-
-  55% {
-    scale: 1.16;
-  }
-
-  100% {
-    scale: 1.06;
-  }
-}
-
-/* The "working" status dot breathes. */
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 100%;
-  }
-
-  50% {
-    opacity: 35%;
-  }
-}
-
-/* Terminal cursor. */
-@keyframes blink {
-  50% {
-    opacity: 0%;
-  }
-}
-
-/* Refresh / rescan spinner. */
-@keyframes spin {
-  to {
-    rotate: 1turn;
-  }
-}
-
-/* Backdrop / plain fade (modal scrim, toast). */
-@keyframes fadein {
-  from {
-    opacity: 0%;
-  }
-
-  to {
-    opacity: 100%;
-  }
-}
-
-/* ── Custom checkbox - shared M3 control ──────────────────────────────────────
-   One authoritative home (DRY) so any panel can reuse `<span class="checkbox">`. The
-   box fills primary and the tick draws itself on check; reuses the check-pop
-   keyframe above. */
-.checkbox {
-  position: relative;
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  block-size: 20px;
-  inline-size: 20px;
-
-  input {
-    position: absolute;
-    inset: 0;
-    block-size: 100%;
-    inline-size: 100%;
-    margin: 0;
-    opacity: 0%;
-    cursor: pointer;
-  }
-
-  .box {
-    display: grid;
-    place-items: center;
-    block-size: 20px;
-    inline-size: 20px;
-    border: 2px solid var(--outline);
-    border-radius: 7px;
-    background: var(--surface-2);
-    transition:
-      background 250ms var(--ease),
-      border-color 250ms var(--ease),
-      scale 300ms var(--spring);
-
-    svg {
-      display: block;
-      block-size: 13px;
-      inline-size: 13px;
-    }
-
-    path {
-      fill: none;
-      stroke: var(--on-primary);
-      stroke-dasharray: 22;
-      stroke-dashoffset: 22;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-width: 3;
-      transition: stroke-dashoffset 240ms var(--ease) 60ms;
-    }
-  }
-
-  input:checked + .box {
-    border-color: var(--primary);
-    background: var(--primary);
-    scale: 1.06;
-    animation: check-pop 360ms var(--spring);
-
-    path {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  input:not(:checked):hover + .box {
-    border-color: var(--primary);
-  }
-
-  input:focus-visible + .box {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    box-shadow: var(--focus-glow);
-  }
-}
-
-/* The hover underline the terminal link provider paints over a URL's glyphs.
-   Lives here because the elements are appended into xterm's own screen DOM
-   (outside any component's scoped styles); only their position is set inline. */
-.terminal-link-underline {
-  position: absolute;
-  box-sizing: border-box;
-  border-block-end: 2px solid var(--primary);
-  pointer-events: none;
-}
-
-/* Native popovers (menus) reveal with a spring; light-dismiss is handled by the
-   platform. `@starting-style` gives the enter transition its from-state, and
-   `allow-discrete` animates display/overlay so the exit plays too. */
-[popover] {
-  margin: 0;
-  opacity: 0%;
-  transition:
-    opacity 160ms var(--ease),
-    scale 200ms var(--spring),
-    translate 200ms var(--spring),
-    overlay 200ms allow-discrete,
-    display 200ms allow-discrete;
-  scale: 0.95;
-  translate: 0 -10px;
-
-  &:popover-open {
-    opacity: 100%;
-    scale: 1;
-    translate: 0 0;
-  }
-}
-
-@starting-style {
-  [popover]:popover-open {
-    opacity: 0%;
-    scale: 0.95;
-    translate: 0 -10px;
-  }
-}
-
-/* Shared shell for anchored popover menus (app menu, tab menus, IDE / design
-   lists, picker row menus) - the one authoritative home for the menu box.
-   Each menu keeps only what genuinely varies: its width, its anchor side
-   (`position-area`), and its own item styles. */
-.popover-menu {
-  position: absolute;
-  inset: auto;
-  margin-block: 6px 0;
-  margin-inline: 0;
-  padding: 6px;
-  border: 1px solid var(--outline);
-  border-radius: var(--radius-medium);
-  background: var(--surface-2);
-  list-style: none;
-  box-shadow: 0 16px 40px var(--shadow-color);
-  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
-
-  /* The row every menu is a stack of, and its one home. Six menus had each
-     written the same full-width, transparent, primary-on-hover button into their
-     own `\3c style>` under four different selectors (`li button`, `.branch-row`,
-     `.member-row`, `.menu-item`), so a change to how a menu row reads meant six
-     edits that never quite landed the same.
-
-     It is written inside the shell so it outranks a section's blanket `button`
-     rule (the picker's filled buttons) without either knowing about the other.
-     A menu keeps only what genuinely varies: its gap, a mono face for refs, and
-     its current / active states. Its scoped selector outranks this one, so a
-     menu that re-colours a row at rest owns that row's hover colour too. */
-  .menu-item {
-    display: flex;
-    gap: 9px;
-    align-items: center;
-    inline-size: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
-    font-size: 13px;
-    text-align: start;
-    cursor: pointer;
-    transition: color 120ms var(--ease), background 120ms var(--ease);
-
-    &:hover {
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-    }
-  }
-}
-
-/* The two things every menu puts BETWEEN its rows, and the one home for both.
-   Six menus had each written the same uppercase label rule into their own
-   `\3c style>` under three different names (`.menu-separator`, `.hint`, `.head`)
-   and the same hairline under two more (`.menu-divider`, `.separator`), so a
-   change to how a menu is sectioned meant six edits - and the picker's row menu,
-   which never wrote either, simply had none.
-
-   A label names the group under it; a divider only separates. A group that has
-   both wants the label alone (the label carries its own rule under the skins
-   that draw one), so put the divider before a label only where the sections
-   genuinely need the extra beat. */
-.menu-separator {
-  margin-block: 6px 2px;
-  padding-block: 2px 4px;
-  padding-inline: 10px;
-  color: var(--on-surface-variant);
-  font-weight: 700;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-
-  /* A menu that opens on a label has nothing above it to be spaced from. */
-  &:first-child {
-    margin-block-start: 0;
-  }
-}
-
-.menu-divider {
-  block-size: 1px;
-  margin-block: 6px;
-  margin-inline: 8px;
-  background: var(--outline);
-}
-
-/* ── Scroll-fade ───────────────────────────────────────────────────────────────
-   A reusable overflow-y scroller that hides its scrollbar and dissolves its top
-   and bottom edges into a soft gradient instead - the only overflow cue once the
-   bar is gone. The fade is scroll-position-driven (`animation-timeline:
-   scroll(self)`): the top edge fades in only once content sits above, the bottom
-   only while content sits below. Off a scroll timeline the mask rests fully
-   opaque (both custom props at their initial `rgb(0 0 0)`), so it degrades to a
-   plain, unfaded scroller. Add the `.scroll-fade` class to any such scroller. */
-@property --scroll-fade-top {
-  syntax: "<color>";
-  inherits: false;
-  initial-value: rgb(0 0 0);
-}
-
-@property --scroll-fade-bottom {
-  syntax: "<color>";
-  inherits: false;
-  initial-value: rgb(0 0 0);
-}
-
-.scroll-fade {
-  scrollbar-width: none;
-  mask-image:
-    linear-gradient(
-      to bottom,
-      var(--scroll-fade-top) 0%,
-      rgb(0 0 0) 24px,
-      rgb(0 0 0) calc(100% - 24px),
-      var(--scroll-fade-bottom) 100%
-    );
-
-  @supports (animation-timeline: scroll(self)) {
-    animation:
-      scroll-fade-top-unmask linear both,
-      scroll-fade-bottom-unmask linear both;
-    animation-timeline: scroll(self), scroll(self);
-    animation-range: 0 24px, calc(100% - 24px) 100%;
-  }
-
-  &::-webkit-scrollbar {
-    block-size: 0;
-    inline-size: 0;
-  }
-}
-
-@keyframes scroll-fade-top-unmask {
-  from {
-    --scroll-fade-top: rgb(0 0 0);
-  }
-
-  to {
-    --scroll-fade-top: transparent;
-  }
-}
-
-@keyframes scroll-fade-bottom-unmask {
-  from {
-    --scroll-fade-bottom: transparent;
-  }
-
-  to {
-    --scroll-fade-bottom: rgb(0 0 0);
   }
 }

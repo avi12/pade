@@ -161,6 +161,10 @@
       display: none;
     }
 
+    &:focus-visible {
+      outline: none;
+    }
+
     :global(.body[data-resizing]) & {
       transition: none;
     }
@@ -184,10 +188,6 @@
     &:focus-visible .panel-resize-bar {
       block-size: 100%;
       background: var(--primary);
-    }
-
-    &:focus-visible {
-      outline: none;
     }
   }
 </style>

@@ -318,13 +318,13 @@
     cursor: pointer;
     transition: background 120ms var(--ease);
 
-    &:hover:not(:disabled) {
-      background: var(--surface-3);
-    }
-
     &:disabled {
       opacity: 55%;
       cursor: default;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--surface-3);
     }
   }
 

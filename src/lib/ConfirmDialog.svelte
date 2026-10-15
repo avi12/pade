@@ -331,13 +331,13 @@
     background: var(--primary);
     color: var(--on-primary);
 
-    &:hover:not(:disabled) {
-      filter: brightness(1.06);
-    }
-
     .danger & {
       background: var(--critical);
       color: var(--surface);
+    }
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
     }
   }
 

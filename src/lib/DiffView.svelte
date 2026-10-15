@@ -113,39 +113,6 @@
     overflow-wrap: anywhere;
   }
 
-  /* content-visibility lets the engine skip layout/paint for offscreen rows -
-     on a 9.4k-line diff (Notepad++ stress test) it cut the expand's main-thread
-     block ~30% and the split toggle ~20%, with instant scrolling. The intrinsic
-     size reserves one line-height (1.5 × 12px) per row to keep the scrollbar
-     honest. */
-  .unified .line {
-    contain-intrinsic-block-size: auto 18px;
-    display: flex;
-    content-visibility: auto;
-    align-items: flex-start;
-    padding-inline: var(--diff-line-padding, 12px);
-    color: var(--code-foreground);
-
-    &.add {
-      background: var(--tertiary-wash);
-    }
-
-    &.deletion {
-      background: var(--critical-wash);
-    }
-
-    &.meta {
-      color: var(--on-surface-variant);
-
-      /* A hunk/meta row has no line numbers, so its gutter reserves the same
-         width the two number columns take (2 × 2.5ch + gap) to keep the code
-         aligned. */
-      .gutter {
-        min-inline-size: calc(5ch + 8px);
-      }
-    }
-  }
-
   .split {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -182,6 +149,39 @@
 
       &.filled-add {
         background: var(--tertiary-wash);
+      }
+    }
+  }
+
+  /* content-visibility lets the engine skip layout/paint for offscreen rows -
+     on a 9.4k-line diff (Notepad++ stress test) it cut the expand's main-thread
+     block ~30% and the split toggle ~20%, with instant scrolling. The intrinsic
+     size reserves one line-height (1.5 × 12px) per row to keep the scrollbar
+     honest. */
+  .unified .line {
+    contain-intrinsic-block-size: auto 18px;
+    display: flex;
+    content-visibility: auto;
+    align-items: flex-start;
+    padding-inline: var(--diff-line-padding, 12px);
+    color: var(--code-foreground);
+
+    &.add {
+      background: var(--tertiary-wash);
+    }
+
+    &.deletion {
+      background: var(--critical-wash);
+    }
+
+    &.meta {
+      color: var(--on-surface-variant);
+
+      /* A hunk/meta row has no line numbers, so its gutter reserves the same
+         width the two number columns take (2 × 2.5ch + gap) to keep the code
+         aligned. */
+      .gutter {
+        min-inline-size: calc(5ch + 8px);
       }
     }
   }

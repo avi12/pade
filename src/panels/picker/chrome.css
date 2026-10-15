@@ -50,11 +50,6 @@
   align-items: center;
 }
 
-.picker .row > button:first-child {
-  flex: 1;
-  min-inline-size: 0;
-}
-
 /* Trailing kebab - a subtle pill circle that fills on hover. */
 .picker .kebab {
   display: inline-flex;
@@ -201,6 +196,12 @@
     filter: none;
     cursor: default;
   }
+}
+
+/* A list row's main button takes the width its trailing kebab leaves. */
+.picker .row > button:first-child {
+  flex: 1;
+  min-inline-size: 0;
 }
 
 .picker .none {

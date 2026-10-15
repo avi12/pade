@@ -1166,6 +1166,45 @@
     }
   }
 
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-block: 10px 0;
+    padding-inline: 10px;
+  }
+
+  .chip {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 11px;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 120ms var(--ease),
+      color 120ms var(--ease);
+
+    &:hover {
+      background: var(--surface-3);
+    }
+
+    &.on {
+      border-color: transparent;
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-weight: 600;
+    }
+
+    .count {
+      opacity: 75%;
+    }
+  }
+
   /* Anchored below the chip. Uses the shared .popover-menu shell for its flip
      fallbacks, but overrides the surface to a tonal surface-container card with
      the M3 large radius, softer elevation, and airier padding to match design. */
@@ -1281,13 +1320,13 @@
     cursor: pointer;
     transition: background 120ms var(--ease);
 
-    &:hover:not(:disabled) {
-      background: var(--surface-3);
-    }
-
     &:disabled {
       color: var(--on-surface-variant);
       cursor: default;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--surface-3);
     }
 
     .icon {
@@ -1299,45 +1338,6 @@
        reduced-motion reset disables it for those who ask. */
     .spin {
       animation: spin 900ms linear infinite;
-    }
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding-block: 10px 0;
-    padding-inline: 10px;
-  }
-
-  .chip {
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-    padding: 4px 11px;
-    border: 1px solid var(--outline);
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    font-size: 12px;
-    cursor: pointer;
-    transition:
-      background 120ms var(--ease),
-      color 120ms var(--ease);
-
-    &:hover {
-      background: var(--surface-3);
-    }
-
-    &.on {
-      border-color: transparent;
-      background: var(--primary-container);
-      color: var(--on-primary-container);
-      font-weight: 600;
-    }
-
-    .count {
-      opacity: 75%;
     }
   }
 
@@ -1847,6 +1847,11 @@
     align-items: flex-end;
   }
 
+  .file-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .file-button {
     display: inline-flex;
     gap: 6px;
@@ -1868,11 +1873,6 @@
       color: var(--on-surface-variant);
       cursor: default;
     }
-  }
-
-  .file-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .spacer {

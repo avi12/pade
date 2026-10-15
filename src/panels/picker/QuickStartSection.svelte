@@ -1029,13 +1029,13 @@
     cursor: pointer;
     transition: filter 150ms var(--ease);
 
-    &:hover:not(:disabled) {
-      filter: brightness(1.06);
-    }
-
     &:disabled {
       opacity: 50%;
       cursor: default;
+    }
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
     }
   }
 

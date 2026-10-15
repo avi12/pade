@@ -531,6 +531,12 @@
     cursor: pointer;
   }
 
+  .field-label {
+    color: var(--on-surface);
+    font-weight: 600;
+    font-size: 12px;
+  }
+
   /* ── Discord card ─────────────────────────────────────────────────────────── */
   .discord {
     /* Two checkbox rows and a note read tighter than the 16px card rhythm. */
@@ -587,12 +593,6 @@
     display: flex;
     flex-direction: column;
     gap: 7px;
-  }
-
-  .field-label {
-    color: var(--on-surface);
-    font-weight: 600;
-    font-size: 12px;
   }
 
   /* Theme - segmented single-select (buttons + aria-pressed, per the app's
@@ -748,13 +748,13 @@
       cursor: pointer;
       transition: background 140ms var(--ease);
 
-      &:hover:not(:disabled) {
-        background: var(--surface-3);
-      }
-
       &:disabled {
         opacity: 40%;
         cursor: default;
+      }
+
+      &:hover:not(:disabled) {
+        background: var(--surface-3);
       }
     }
 
@@ -832,13 +832,13 @@
     cursor: pointer;
     transition: background 140ms var(--ease);
 
-    &:hover:not(:disabled) {
-      background: var(--surface-2);
-    }
-
     &:disabled {
       opacity: 45%;
       cursor: default;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--surface-2);
     }
 
     &.selected {

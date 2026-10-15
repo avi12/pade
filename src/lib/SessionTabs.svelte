@@ -732,22 +732,6 @@
       &.active {
         background: var(--primary-container);
       }
-
-      &.active .pick {
-        color: var(--on-primary-container);
-        font-weight: 600;
-      }
-
-      /* The active pill's label reads with a text caret - a single click there
-         renames it (Finder-style); inactive labels inherit the pill's pointer. */
-      &.active .label {
-        cursor: text;
-      }
-
-      /* On the active pill the close × rides the container's on-color too. */
-      &.active .close-button {
-        color: var(--on-primary-container);
-      }
     }
 
     .pick {
@@ -980,6 +964,24 @@
         opacity: 100%;
       }
     }
+
+    .tab.active {
+      .pick {
+        color: var(--on-primary-container);
+        font-weight: 600;
+      }
+
+      /* The active pill's label reads with a text caret - a single click there
+         renames it (Finder-style); inactive labels inherit the pill's pointer. */
+      .label {
+        cursor: text;
+      }
+
+      /* On the active pill the close × rides the container's on-color too. */
+      .close-button {
+        color: var(--on-primary-container);
+      }
+    }
   }
 
   /* Groups the add trigger with its popover as one menu-host, adding no box of
@@ -1057,10 +1059,6 @@
       &.active {
         background: var(--primary-container);
       }
-
-      &.active .more-pick {
-        color: var(--on-primary-container);
-      }
     }
 
     .more-pick {
@@ -1077,6 +1075,10 @@
         background: transparent;
         color: inherit;
       }
+    }
+
+    .more-item.active .more-pick {
+      color: var(--on-primary-container);
     }
 
     .more-label {

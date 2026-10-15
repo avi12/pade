@@ -419,12 +419,12 @@
         font-size: 10px;
       }
 
-      &:hover:not(:disabled) .save-go {
-        color: var(--on-primary-container);
-      }
-
       &.save-root-collides .save-go {
         color: var(--critical);
+      }
+
+      &:hover:not(:disabled) .save-go {
+        color: var(--on-primary-container);
       }
     }
   }
