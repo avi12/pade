@@ -23,7 +23,32 @@ import type {
 
 /** Consumption severity, applied as a CSS class: blue while there's room, amber
  *  past 75%, red past 90% - no green, per the design's usage semantics. */
-export type Level = "normal" | "warn" | "crit";
+const Level = {
+  Normal: "normal",
+  Warning: "warn",
+  Critical: "crit"
+} as const;
+export type Level = (typeof Level)[keyof typeof Level];
+
+const WARNING_PERCENTAGE = 75;
+const CRITICAL_PERCENTAGE = 90;
+const MAXIMUM_PERCENTAGE = 100;
+
+const MILLISECONDS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3_600;
+const SECONDS_PER_DAY = 86_400;
+
+/** The endpoint's sub-millisecond digits, trimmed so every engine parses the
+ *  timestamp the same way. */
+const SUB_MILLISECOND_DIGITS = /(\.\d{3})\d+/;
+
+const NON_ALPHANUMERIC_RUN = /[^a-z0-9]+/i;
+/** The vendor word a model label leads with - never the distinctive one. */
+const VENDOR_WORD = "claude";
+const TRAILING_CODE_OR_CLI = /\s+(code|cli)$/i;
+
+const EXTRA_USAGE_LABEL = "Extra usage";
 
 /** The key the account response files extra usage under (`usage.rs`'s
  *  `CREDITS_KEY`), given to the row an uncapped allowance has no window for. */
@@ -78,21 +103,16 @@ export type AgentGroup = {
 // id (see `App.svelte`); they aren't coding agents and carry no usage.
 const EDITOR_AGENT_ID_PREFIX = "editor-";
 
-// Severity by consumption. Applied as a CSS class downstream.
 function limitLevel(percentage: number) {
-  if (percentage >= 90) {
-    return "crit";
+  if (percentage >= CRITICAL_PERCENTAGE) {
+    return Level.Critical;
   }
 
-  if (percentage >= 75) {
-    return "warn";
-  }
-
-  return "normal";
+  return percentage >= WARNING_PERCENTAGE ? Level.Warning : Level.Normal;
 }
 
-function clamp(value: number) {
-  return Math.max(0, Math.min(100, value));
+function clampPercentage(value: number) {
+  return Math.max(0, Math.min(MAXIMUM_PERCENTAGE, value));
 }
 
 // Normalize the endpoint's microsecond timestamps to ms so every engine parses
@@ -110,19 +130,15 @@ export function usageResetTime(iso: string | null | undefined) {
     return Number.NaN;
   }
 
-  return new Date(iso.replace(/(\.\d{3})\d+/, "$1")).getTime();
+  return new Date(iso.replace(SUB_MILLISECOND_DIGITS, "$1")).getTime();
 }
 
-function resetHasPassed({ resetsAt, now }: {
+function hasResetPassed({ resetsAt, now }: {
   resetsAt: string | null | undefined;
   now: number;
 }) {
-  if (!resetsAt) {
-    return false;
-  }
-
-  const resetMs = usageResetTime(resetsAt);
-  return Number.isFinite(resetMs) && resetMs <= now;
+  const resetMilliseconds = usageResetTime(resetsAt);
+  return Number.isFinite(resetMilliseconds) && resetMilliseconds <= now;
 }
 
 // Absolute reset time for the hover tooltip - weekday + date + time so a window
@@ -137,16 +153,8 @@ const RESET_TIMESTAMP = new Intl.DateTimeFormat(undefined, {
 
 // ISO reset time → its absolute local timestamp, or "" when unknown/unparseable.
 function resetTimestamp(iso: string | null | undefined) {
-  if (!iso) {
-    return "";
-  }
-
-  const resetMs = usageResetTime(iso);
-  if (!Number.isFinite(resetMs)) {
-    return "";
-  }
-
-  return RESET_TIMESTAMP.format(resetMs);
+  const resetMilliseconds = usageResetTime(iso);
+  return Number.isFinite(resetMilliseconds) ? RESET_TIMESTAMP.format(resetMilliseconds) : "";
 }
 
 // ISO reset time → a live "in …" countdown (largest two units), or "". Consumers
@@ -155,20 +163,17 @@ function resetCountdown({ iso, now }: {
   iso: string | null | undefined;
   now: number;
 }) {
-  if (!iso) {
-    return "";
-  }
-
   const remaining = usageResetTime(iso) - now;
-  if (!Number.isFinite(remaining) || remaining <= 0) {
+  const isResetAhead = Number.isFinite(remaining) && remaining > 0;
+  if (!isResetAhead) {
     return "";
   }
 
-  const totalSeconds = Math.floor(remaining / 1000);
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = totalSeconds % 60;
+  const totalSeconds = Math.floor(remaining / MILLISECONDS_PER_SECOND);
+  const days = Math.floor(totalSeconds / SECONDS_PER_DAY);
+  const hours = Math.floor((totalSeconds % SECONDS_PER_DAY) / SECONDS_PER_HOUR);
+  const minutes = Math.floor((totalSeconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+  const seconds = totalSeconds % SECONDS_PER_MINUTE;
   if (days > 0) {
     return `in ${days}d ${hours}h`;
   }
@@ -188,8 +193,8 @@ function resetCountdown({ iso, now }: {
 // its first distinctive word, e.g. "Claude Opus" → "O", "Claude Fable" → "F".
 // Used for per-model and any opaque windows (session/weekly get fixed codes).
 function labelShort(name: string) {
-  const tokens = name.split(/[^a-z0-9]+/i).filter(Boolean);
-  const word = tokens.find(token => token.toLowerCase() !== "claude") ?? tokens[0] ?? name;
+  const words = name.split(NON_ALPHANUMERIC_RUN).filter(Boolean);
+  const word = words.find(candidate => candidate.toLowerCase() !== VENDOR_WORD) ?? words[0] ?? name;
   return word.slice(0, 1).toUpperCase();
 }
 
@@ -197,7 +202,7 @@ function labelShort(name: string) {
 // "Grok CLI" → "Grok"), for the space-tight compact pills. Falls back to the
 // full label when stripping would leave nothing.
 function shortName(label: string) {
-  return label.replace(/\s+(code|cli)$/i, "").trim() || label;
+  return label.replace(TRAILING_CODE_OR_CLI, "").trim() || label;
 }
 
 /** A quota counts as spent only when the vendor says it is fully spent. Anything
@@ -234,10 +239,10 @@ function limitPriority({ limit, limits }: {
     return LimitPriority.headroom;
   }
 
-  const spentWindowRidesOnCredits = limit.carriesWork
+  const isSpentWindowRidingOnCredits = limit.carriesWork
     && limits.some(other => other.kind !== UsageWindowKind.enum.credits
       && other.percentage >= USAGE_SPENT_PERCENTAGE);
-  return spentWindowRidesOnCredits ? LimitPriority.carrying : LimitPriority.headroom;
+  return isSpentWindowRidingOnCredits ? LimitPriority.carrying : LimitPriority.headroom;
 }
 
 // A limit paired with its priority, so the ranking below is written once and
@@ -280,10 +285,11 @@ function worstRanked(limits: Limit[]) {
       limit,
       limits
     });
-    if (!worst || outranks({
+    const isWorstSoFar = !worst || outranks({
       candidate,
       incumbent: worst
-    })) {
+    });
+    if (isWorstSoFar) {
       worst = candidate;
     }
   }
@@ -321,7 +327,7 @@ function windowPresentation(window: UsageWindow) {
 
   if (window.kind === UsageWindowKind.enum.credits) {
     return {
-      label: "Extra usage",
+      label: EXTRA_USAGE_LABEL,
       sub: "monthly spend",
       kindShort: "E"
     };
@@ -361,7 +367,7 @@ function uncappedCreditsWindows(account: AccountUsage) {
   return [{
     key: UNCAPPED_CREDITS_KEY,
     kind: UsageWindowKind.enum.credits,
-    label: "Extra usage",
+    label: EXTRA_USAGE_LABEL,
     utilization: 0
   }];
 }
@@ -383,13 +389,13 @@ function buildLimits({ account, now }: {
     // A utilization belongs to the window that ended at `resetsAt`. Once that
     // boundary passes, retaining it is knowingly stale; render the new window's
     // zero baseline while UsageMeter forces a fresh vendor read.
-    const value = resetHasPassed({
+    const percentage = hasResetPassed({
       resetsAt: window.resetsAt,
       now
     })
       ? 0
-      : clamp(window.utilization);
-    const isUntouchedFeatureCap = window.kind === UsageWindowKind.enum.opaque && value === 0;
+      : clampPercentage(window.utilization);
+    const isUntouchedFeatureCap = window.kind === UsageWindowKind.enum.opaque && percentage === 0;
     if (isUntouchedFeatureCap) {
       continue;
     }
@@ -404,10 +410,10 @@ function buildLimits({ account, now }: {
       kindShort: presentation.kindShort,
       balance: isCreditsCap ? formatBalance(account.creditBalance) : "",
       carriesWork: isCreditsCap && account.credits === CreditsState.enum.available,
-      percentage: value,
+      percentage,
       isUncapped,
-      reading: isUncapped ? formatBalance(account.uncappedSpend) : formatPercent(value),
-      level: limitLevel(value),
+      reading: isUncapped ? formatBalance(account.uncappedSpend) : formatPercent(percentage),
+      level: limitLevel(percentage),
       reset: resetCountdown({
         iso: window.resetsAt,
         now
@@ -486,9 +492,9 @@ export function buildGroups({ accounts, sessions, now }: {
     const accountId = account?.account ?? null;
     const isShellAgent = agentId === SHELL_AGENT_ID;
     const isEditorSession = agentId.startsWith(EDITOR_AGENT_ID_PREFIX);
-    const alreadySeen = seenAgentIds.has(agentId);
-    const accountAlreadyGrouped = accountId !== null && seenAccountIds.has(accountId);
-    if (isShellAgent || isEditorSession || alreadySeen || accountAlreadyGrouped) {
+    const isAlreadySeen = seenAgentIds.has(agentId);
+    const isAccountAlreadyGrouped = accountId !== null && seenAccountIds.has(accountId);
+    if (isShellAgent || isEditorSession || isAlreadySeen || isAccountAlreadyGrouped) {
       continue;
     }
 
@@ -516,15 +522,15 @@ export function buildGroups({ accounts, sessions, now }: {
 // distribution bar (one source, DRY).
 const SEVERITY_ORDER = [
   {
-    level: "crit",
+    level: Level.Critical,
     label: "critical"
   },
   {
-    level: "warn",
+    level: Level.Warning,
     label: "near"
   },
   {
-    level: "normal",
+    level: Level.Normal,
     label: "healthy"
   }
 ] as const satisfies readonly {
@@ -577,14 +583,16 @@ export function limitPercentages(groups: AgentGroup[]) {
   const percentages = new Map<string, number>();
   for (const group of groups) {
     for (const limit of group.limits) {
-      if (!limit.isUncapped) {
-        percentages.set(
-          limitKey({
-            agentId: group.id,
-            limit
-          }), limit.percentage
-        );
+      if (limit.isUncapped) {
+        continue;
       }
+
+      percentages.set(
+        limitKey({
+          agentId: group.id,
+          limit
+        }), limit.percentage
+      );
     }
   }
 
@@ -600,8 +608,8 @@ export function justResetLimits({ previous, current }: {
   const reset = new Set<string>();
   for (const [key, percentage] of current) {
     const before = previous.get(key);
-    const fell = before !== undefined && before - percentage >= RESET_FALL_PERCENTAGE;
-    if (fell) {
+    const hasFallen = before !== undefined && before - percentage >= RESET_FALL_PERCENTAGE;
+    if (hasFallen) {
       reset.add(key);
     }
   }
@@ -618,10 +626,11 @@ export function findSpotlight(agents: AgentGroup[]) {
       continue;
     }
 
-    if (!closestRanked || outranks({
+    const isClosestSoFar = !closestRanked || outranks({
       candidate,
       incumbent: closestRanked
-    })) {
+    });
+    if (isClosestSoFar) {
       closestRanked = candidate;
       closest = {
         agent,
@@ -646,10 +655,6 @@ export function buildKindLegend(agents: AgentGroup[]) {
   const seen: Record<string, true> = {};
   const entries: KindLegendEntry[] = [];
   for (const agent of agents) {
-    if (agent.limits.length === 0) {
-      continue;
-    }
-
     for (const limit of agent.limits) {
       if (seen[limit.kindShort]) {
         continue;
