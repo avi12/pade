@@ -9,8 +9,31 @@
 
 import { cubicOut } from "svelte/easing";
 
-function prefersReducedMotion() {
-  return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+/** Bisection rounds: each halves the interval, so twenty pin t to about a millionth. */
+const BISECTION_STEPS = 20;
+const EMPHASIZED_X_CONTROL_ONE = 0.2;
+const EMPHASIZED_X_CONTROL_TWO = 0;
+const EMPHASIZED_Y_CONTROL_ONE = 0;
+const EMPHASIZED_Y_CONTROL_TWO = 1;
+
+const REVEAL_DURATION = 240;
+const COLLAPSE_DURATION = 260;
+const EXPAND_DURATION = 220;
+const GROW_INLINE_DURATION = 240;
+const FLIP_DURATION = 220;
+
+/** How far a sliding row travels sideways, in pixels, and how much it shrinks. */
+const ROW_SLIDE_DISTANCE = 12;
+const ROW_SHRINK = 0.03;
+const PANE_SHRINK = 0.02;
+
+/** Whether the user asked for reduced motion - the one home for that query, read
+ *  by every JS-driven animation (false where there is no `matchMedia`, e.g. a
+ *  node test run). */
+export function prefersReducedMotion() {
+  return globalThis.matchMedia?.(REDUCED_MOTION_QUERY).matches ?? false;
 }
 
 // One coordinate of a cubic Bézier with anchors fixed at 0 and 1 (P0 = 0,
@@ -34,14 +57,15 @@ export function emphasized(progress: number) {
   let low = 0;
   let high = 1;
   let adjustedProgress = progress;
-  for (let step = 0; step < 20; step += 1) {
+  for (let step = 0; step < BISECTION_STEPS; step += 1) {
     adjustedProgress = (low + high) / 2;
 
-    if (bezierAxis({
-      controlOne: 0.2,
-      controlTwo: 0,
+    const isBelowTarget = bezierAxis({
+      controlOne: EMPHASIZED_X_CONTROL_ONE,
+      controlTwo: EMPHASIZED_X_CONTROL_TWO,
       curveProgress: adjustedProgress
-    }) < progress) {
+    }) < progress;
+    if (isBelowTarget) {
       low = adjustedProgress;
     } else {
       high = adjustedProgress;
@@ -49,8 +73,8 @@ export function emphasized(progress: number) {
   }
 
   return bezierAxis({
-    controlOne: 0,
-    controlTwo: 1,
+    controlOne: EMPHASIZED_Y_CONTROL_ONE,
+    controlTwo: EMPHASIZED_Y_CONTROL_TWO,
     curveProgress: adjustedProgress
   });
 }
@@ -63,7 +87,7 @@ function motionDuration(milliseconds: number) {
  *  diff): its height - and the end-margin it brings - glides open and closed
  *  while it fades, so toggling the card is a smooth glide both ways instead of
  *  an appear-then-snap. */
-export function revealBlock(node: Element, { duration = 240 }: { duration?: number } = {}) {
+export function revealBlock(node: Element, { duration = REVEAL_DURATION }: { duration?: number } = {}) {
   const { height } = node.getBoundingClientRect();
   const marginBlockEnd = parseFloat(getComputedStyle(node).marginBlockEnd) || 0;
 
@@ -83,7 +107,10 @@ export function revealBlock(node: Element, { duration = 240 }: { duration?: numb
  *  row: its block-size and the flex `gap` the row holds glide together with a
  *  fade and a small sideways slide. Svelte drives `progress` 0→1 on the way in
  *  and 1→0 on the way out, so one builder serves both directions. */
-function slideRow(node: Element, duration: number) {
+function slideRow({ node, duration }: {
+  node: Element;
+  duration: number;
+}) {
   const { height } = node.getBoundingClientRect();
   // The list's own `gap` still reserves space for a row of zero height; a
   // matching negative end-margin retires it in step with the collapse.
@@ -104,7 +131,7 @@ function slideRow(node: Element, duration: number) {
       margin-block-start: ${progress * marginBlockStart}px;
       margin-block-end: ${-gap * remaining}px;
       opacity: ${progress};
-      transform: translateX(${-12 * remaining}px) scale(${1 - (0.03 * remaining)});
+      transform: translateX(${-ROW_SLIDE_DISTANCE * remaining}px) scale(${1 - (ROW_SHRINK * remaining)});
     `
   };
 }
@@ -112,15 +139,21 @@ function slideRow(node: Element, duration: number) {
 /** Out-transition for a row that was removed from a list: it fades and slides
  *  aside while its height (and the flex gap it was holding open) collapses, so
  *  the rows below glide up to close the space instead of snapping shut. */
-export function collapseRow(node: Element, { duration = 260 }: { duration?: number } = {}) {
-  return slideRow(node, duration);
+export function collapseRow(node: Element, { duration = COLLAPSE_DURATION }: { duration?: number } = {}) {
+  return slideRow({
+    node,
+    duration
+  });
 }
 
 /** In-transition mirroring {@link collapseRow} for a row added to a list: it
  *  fades and slides into place as its height (and the flex gap it takes) opens
  *  up, so the rows below glide apart to make room instead of snapping open. */
-export function expandRow(node: Element, { duration = 220 }: { duration?: number } = {}) {
-  return slideRow(node, duration);
+export function expandRow(node: Element, { duration = EXPAND_DURATION }: { duration?: number } = {}) {
+  return slideRow({
+    node,
+    duration
+  });
 }
 
 /** Out-transition for a split PANE being closed: the flex-row pane collapses its
@@ -128,22 +161,31 @@ export function expandRow(node: Element, { duration = 220 }: { duration?: number
  *  and dips slightly in scale, so the surviving panes glide across to fill the
  *  space instead of snapping shut. The inline-axis mirror of {@link collapseRow}
  *  (which does the block axis), for `out:collapsePane` on a pane slot. */
-export function collapsePane(node: Element, { duration = 260 }: { duration?: number } = {}) {
-  return slideInline(node, duration);
+export function collapsePane(node: Element, { duration = COLLAPSE_DURATION }: { duration?: number } = {}) {
+  return slideInline({
+    node,
+    duration
+  });
 }
 
 /** In/out transition for an inline item that comes and goes in a flex row (a
  *  usage pill's extra-usage segment, its reset chip): it opens and closes its
  *  width - and the gap it holds - while it fades, so its neighbours glide
  *  aside instead of jumping. */
-export function growInline(node: Element, { duration = 240 }: { duration?: number } = {}) {
-  return slideInline(node, duration);
+export function growInline(node: Element, { duration = GROW_INLINE_DURATION }: { duration?: number } = {}) {
+  return slideInline({
+    node,
+    duration
+  });
 }
 
 /** Inline-axis collapse geometry shared by {@link collapsePane} and
  *  {@link growInline}: Svelte drives `progress` 1→0 on the way out and 0→1 on
  *  the way in, so one builder serves both. */
-function slideInline(node: Element, duration: number) {
+function slideInline({ node, duration }: {
+  node: Element;
+  duration: number;
+}) {
   const { width } = node.getBoundingClientRect();
   const gap = node.parentElement
     ? parseFloat(getComputedStyle(node.parentElement).columnGap) || 0
@@ -158,13 +200,13 @@ function slideInline(node: Element, duration: number) {
       inline-size: ${progress * width}px;
       margin-inline-end: ${-gap * remaining}px;
       opacity: ${progress};
-      scale: ${1 - (0.02 * remaining)};
+      scale: ${1 - (PANE_SHRINK * remaining)};
     `
   };
 }
 
 /** `animate:flip` duration for a reordering list row, silenced under reduced
  *  motion so survivors jump straight to their new slots. */
-export function flipDuration(milliseconds = 220) {
+export function flipDuration(milliseconds = FLIP_DURATION) {
   return motionDuration(milliseconds);
 }

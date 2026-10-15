@@ -34,6 +34,8 @@
 // frame (no flash).
 
 import { colorAlpha, OPAQUE_ALPHA } from "@/lib/colors";
+import { Key } from "@/lib/focus";
+import { prefersReducedMotion } from "@/lib/motion";
 import { committedOrderOnDrop, DropSide, insertionIndex, paneDropSide } from "@/lib/reorder";
 import { tick } from "svelte";
 
@@ -147,9 +149,13 @@ const LIFTED_Z_INDEX = "130";
 const SHIELD_Z_INDEX = "120";
 const LIFTED_RADIUS = "0.75rem";
 
+const GRABBING_CURSOR = "grabbing";
+const PRIMARY_BUTTON = 0;
+const NOT_FOUND = -1;
+
 interface Sibling {
   id: string;
-  element: HTMLElement;
+  elItem: HTMLElement;
   /** Left edge in client coordinates, measured before anything moved. */
   left: number;
   /** Top edge in client coordinates, measured before anything moved. */
@@ -158,20 +164,22 @@ interface Sibling {
   height: number;
 }
 
-function prefersReducedMotion() {
-  return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+/** Where the pointer is, in client coordinates. */
+interface Point {
+  x: number;
+  y: number;
 }
 
 /** Whether the item already draws a surface the lift can float on, so the engine
  *  only paints `LIFT_BACKGROUND` under the rows that draw none. */
-function paintsOwnSurface(element: HTMLElement) {
-  const { backgroundColor, backgroundImage } = getComputedStyle(element);
+function paintsOwnSurface(elItem: HTMLElement) {
+  const { backgroundColor, backgroundImage } = getComputedStyle(elItem);
   return backgroundImage !== "none" || colorAlpha(backgroundColor) >= OPAQUE_ALPHA;
 }
 
 // Only one drag may run at a time - a second press while one is live (including
 // the ~300ms settle after release) is ignored so gestures never overlap.
-let dragInProgress = false;
+let isDragInProgress = false;
 
 export function beginReorder(options: BeginReorderOptions) {
   const {
@@ -187,7 +195,7 @@ export function beginReorder(options: BeginReorderOptions) {
     onDropOutside
   } = options;
   // Primary button only - middle-click (close a tab) and right-click stay theirs.
-  if (dragInProgress || e.button !== 0 || !(e.target instanceof Element)) {
+  if (isDragInProgress || e.button !== PRIMARY_BUTTON || !(e.target instanceof Element)) {
     return;
   }
 
@@ -196,51 +204,51 @@ export function beginReorder(options: BeginReorderOptions) {
     return;
   }
 
-  const pressed = e.target.closest<HTMLElement>(itemSelector);
-  const pressedParent = pressed?.parentElement ?? null;
-  const pressedId = pressed?.getAttribute(idAttribute) ?? null;
-  if (!pressed || !pressedParent || pressedId === null) {
+  const elPressed = e.target.closest<HTMLElement>(itemSelector);
+  const elPressedParent = elPressed?.parentElement ?? null;
+  const pressedId = elPressed?.getAttribute(idAttribute) ?? null;
+  if (!elPressed || !elPressedParent || pressedId === null) {
     return;
   }
 
   // Closure-safe non-null bindings: TS drops the guard's narrowing inside the
   // nested handlers below, so re-bind through explicitly typed consts.
-  const parent: HTMLElement = pressedParent;
+  const elParent: HTMLElement = elPressedParent;
   const draggedId: string = pressedId;
   const isHorizontal = axis === Axis.Horizontal;
-  const reduce = prefersReducedMotion();
+  const isReducedMotion = prefersReducedMotion();
 
   const pointerStartX = e.clientX;
   const pointerStartY = e.clientY;
   const bodyStyle = document.body.style;
   const bodyUserSelect = bodyStyle.userSelect;
-  const parentPointerEvents = parent.style.pointerEvents;
+  const parentPointerEvents = elParent.style.pointerEvents;
 
   // Mutable gesture state - all snapshotted lazily once the drag actually begins.
-  let dragging = false;
+  let isDragging = false;
   let siblings: Sibling[] = [];
   let centers: number[] = [];
   let originalIds: string[] = [];
-  let originalIndexById = new Map<string, number>();
-  let fromIndex = -1;
-  let currentIndex = -1;
-  let lastBefore = -1;
+  let iOriginalById = new Map<string, number>();
+  let iFrom = NOT_FOUND;
+  let iCurrent = NOT_FOUND;
+  let iLastBefore = NOT_FOUND;
   let grabOffsetX = 0;
   let grabOffsetY = 0;
   let lastPointerX = pointerStartX;
   let lastPointerY = pointerStartY;
-  let outside = false;
+  let isOutside = false;
   let dropTarget: DropTarget | null = null;
   // A transparent full-window sheet under the lifted item: it shows the grabbing
   // cursor over every surface and swallows stray hover/click. Disabled around each
   // hit-test so `elementFromPoint` reaches the drop zone below it.
-  let shield: HTMLElement | null = null;
+  let elShield: HTMLElement | null = null;
   const overflowSaves: {
-    element: HTMLElement;
+    elAncestor: HTMLElement;
     overflow: string;
   }[] = [];
 
-  dragInProgress = true;
+  isDragInProgress = true;
   addEventListener("pointermove", onPointerMove);
   addEventListener("pointerup", onPointerUp);
   addEventListener("pointercancel", onPointerCancel);
@@ -252,7 +260,10 @@ export function beginReorder(options: BeginReorderOptions) {
     return isHorizontal ? slot.left + slot.width / 2 : slot.top + slot.height / 2;
   }
 
-  function slotTranslate(from: Sibling, to: Sibling) {
+  function slotTranslate({ from, to }: {
+    from: Sibling;
+    to: Sibling;
+  }) {
     return `${to.left - from.left}px ${to.top - from.top}px`;
   }
 
@@ -262,20 +273,21 @@ export function beginReorder(options: BeginReorderOptions) {
   // (display:none → zero size, e.g. an off-screen pane) aren't reorderable.
   function snapshot() {
     siblings = [];
-    for (const child of parent.children) {
-      if (!(child instanceof HTMLElement) || !child.matches(itemSelector)) {
+    for (const elChild of elParent.children) {
+      if (!(elChild instanceof HTMLElement) || !elChild.matches(itemSelector)) {
         continue;
       }
 
-      const rectangle = child.getBoundingClientRect();
-      const id = child.getAttribute(idAttribute);
-      if (rectangle.width <= 0 || rectangle.height <= 0 || id === null || id === "") {
+      const rectangle = elChild.getBoundingClientRect();
+      const id = elChild.getAttribute(idAttribute);
+      const isReorderable = rectangle.width > 0 && rectangle.height > 0 && id !== null && id !== "";
+      if (!isReorderable) {
         continue;
       }
 
       siblings.push({
         id,
-        element: child,
+        elItem: elChild,
         left: rectangle.left,
         top: rectangle.top,
         width: rectangle.width,
@@ -284,70 +296,76 @@ export function beginReorder(options: BeginReorderOptions) {
     }
 
     originalIds = siblings.map(sibling => sibling.id);
-    originalIndexById = new Map(siblings.map((sibling, index) => [sibling.id, index]));
+    iOriginalById = new Map(siblings.map((sibling, i) => [sibling.id, i]));
     centers = siblings.map(axisCenter);
-    fromIndex = originalIndexById.get(draggedId) ?? -1;
-    currentIndex = fromIndex;
+    iFrom = iOriginalById.get(draggedId) ?? NOT_FOUND;
+    iCurrent = iFrom;
   }
 
   // Slide every non-dragged sibling from its original slot to the slot at its new
-  // position when the dragged item is inserted at `before` among the others. Each
+  // position when the dragged item is inserted at `iBefore` among the others. Each
   // is mapped to a real slot's geometry, so variable-width pills close and open
   // exactly - no uniform-gap assumption. The siblings' transition is set once on
   // lift, so this only writes `translate`.
-  function reflow(before: number) {
+  function reflow(iBefore: number) {
     const others = originalIds.filter(id => id !== draggedId);
-    const order = [...others.slice(0, before), draggedId, ...others.slice(before)];
-    for (let newPosition = 0; newPosition < order.length; newPosition++) {
-      const id = order[newPosition];
-      if (id === draggedId) {
+    const order = [...others.slice(0, iBefore), draggedId, ...others.slice(iBefore)];
+    for (const [i, id] of order.entries()) {
+      const iOriginal = iOriginalById.get(id);
+      if (id === draggedId || iOriginal === undefined) {
         continue;
       }
 
-      const originalPosition = originalIndexById.get(id);
-      if (originalPosition === undefined) {
-        continue;
-      }
-
-      const sibling = siblings[originalPosition];
-      sibling.element.style.translate = slotTranslate(sibling, siblings[newPosition]);
+      const sibling = siblings[iOriginal];
+      sibling.elItem.style.translate = slotTranslate({
+        from: sibling,
+        to: siblings[i]
+      });
     }
   }
 
   // The element the pointer is truly over, resolved through the drag shield (and
   // through the lifted item, which already carries `pointerEvents:none`), so the
   // surface beneath both stays reachable.
-  function hitElementAt(x: number, y: number) {
-    if (shield) {
-      shield.style.pointerEvents = "none";
+  function hitElementAt({ x, y }: Point) {
+    if (elShield) {
+      elShield.style.pointerEvents = "none";
     }
 
-    const element = document.elementFromPoint(x, y);
-    if (shield) {
-      shield.style.pointerEvents = "";
+    const elHit = document.elementFromPoint(x, y);
+    if (elShield) {
+      elShield.style.pointerEvents = "";
     }
 
-    return element;
+    return elHit;
+  }
+
+  /** Over the outside drop zone and not over a reorderable item - a drop-out. */
+  function isOverOutsideZone(elHit: Element | null) {
+    if (!outsideSelector || !elHit) {
+      return false;
+    }
+
+    return elHit.closest(outsideSelector) !== null && elHit.closest(itemSelector) === null;
   }
 
   // The pane + half under the pointer, or null - the drop-half decision, made once
   // here (via `reorder.paneDropSide`) for both the live hint and the release.
-  function resolveDropTarget(hit: Element | null, x: number) {
-    if (!hit) {
+  function resolveDropTarget({ elHit, x }: {
+    elHit: Element | null;
+    x: number;
+  }) {
+    const elTarget = elHit?.closest(PANE_DROP_TARGET.selector);
+    if (!elHit || !elTarget || elHit.closest(itemSelector)) {
       return null;
     }
 
-    const targetElement = hit.closest(PANE_DROP_TARGET.selector);
-    if (!targetElement || hit.closest(itemSelector)) {
-      return null;
-    }
-
-    const id = targetElement.getAttribute(PANE_DROP_TARGET.idAttribute);
+    const id = elTarget.getAttribute(PANE_DROP_TARGET.idAttribute);
     if (id === null || id === "") {
       return null;
     }
 
-    const rectangle = targetElement.getBoundingClientRect();
+    const rectangle = elTarget.getBoundingClientRect();
     return {
       id,
       side: paneDropSide({
@@ -358,51 +376,54 @@ export function beginReorder(options: BeginReorderOptions) {
     };
   }
 
-  function updateOutsideHints(x: number, y: number) {
+  function updateOutsideHints(point: Point) {
     if (!outsideSelector) {
       return;
     }
 
-    const hit = hitElementAt(x, y);
-    outside = hit !== null && hit.closest(outsideSelector) !== null && hit.closest(itemSelector) === null;
-    dropTarget = resolveDropTarget(hit, x);
+    const elHit = hitElementAt(point);
+    isOutside = isOverOutsideZone(elHit);
+    dropTarget = resolveDropTarget({
+      elHit,
+      x: point.x
+    });
   }
 
   // ── lift / restore ───────────────────────────────────────────────────────────
 
   function startDrag() {
-    dragging = true;
+    isDragging = true;
     snapshot();
 
-    if (fromIndex === -1) {
+    if (iFrom === NOT_FOUND) {
       return;
     }
 
-    const draggedSlot = siblings[fromIndex];
+    const draggedSlot = siblings[iFrom];
     grabOffsetX = pointerStartX - draggedSlot.left;
     grabOffsetY = pointerStartY - draggedSlot.top;
 
     bodyStyle.userSelect = "none";
-    parent.style.pointerEvents = "none";
+    elParent.style.pointerEvents = "none";
     raiseShield();
 
-    for (let index = 0; index < siblings.length; index++) {
-      const { style } = siblings[index].element;
+    for (const [i, { elItem }] of siblings.entries()) {
+      const { style } = elItem;
       style.position = "relative";
 
-      if (index === fromIndex) {
-        style.transition = "none";
-        style.zIndex = LIFTED_Z_INDEX;
-        style.boxShadow = LIFT_SHADOW;
-        style.pointerEvents = "none";
-        style.cursor = "grabbing";
-        style.borderRadius = LIFTED_RADIUS;
+      if (i !== iFrom) {
+        style.transition = isReducedMotion ? "none" : `translate ${SIBLING_SECONDS}s var(--ease)`;
+        continue;
+      }
 
-        if (!paintsOwnSurface(siblings[index].element)) {
-          style.background = LIFT_BACKGROUND;
-        }
-      } else {
-        style.transition = reduce ? "none" : `translate ${SIBLING_SECONDS}s var(--ease)`;
+      style.transition = "none";
+      style.zIndex = LIFTED_Z_INDEX;
+      style.boxShadow = LIFT_SHADOW;
+      style.pointerEvents = "none";
+      style.cursor = GRABBING_CURSOR;
+      style.borderRadius = LIFTED_RADIUS;
+      if (!paintsOwnSurface(elItem)) {
+        style.background = LIFT_BACKGROUND;
       }
     }
 
@@ -410,20 +431,20 @@ export function beginReorder(options: BeginReorderOptions) {
   }
 
   function raiseShield() {
-    const element = document.createElement("div");
-    element.dataset.dragShield = "";
-    element.style.position = "fixed";
-    element.style.inset = "0";
-    element.style.zIndex = SHIELD_Z_INDEX;
-    element.style.cursor = "grabbing";
-    element.style.background = "transparent";
-    document.body.appendChild(element);
-    shield = element;
+    const elNewShield = document.createElement("div");
+    elNewShield.dataset.dragShield = "";
+    elNewShield.style.position = "fixed";
+    elNewShield.style.inset = "0";
+    elNewShield.style.zIndex = SHIELD_Z_INDEX;
+    elNewShield.style.cursor = GRABBING_CURSOR;
+    elNewShield.style.background = "transparent";
+    document.body.appendChild(elNewShield);
+    elShield = elNewShield;
   }
 
   function removeShield() {
-    shield?.remove();
-    shield = null;
+    elShield?.remove();
+    elShield = null;
   }
 
   // Neutralize the scroll ancestors' clipping for the gesture, restoring each
@@ -434,39 +455,36 @@ export function beginReorder(options: BeginReorderOptions) {
   // and an `overflow: auto` ancestor (the runner dock's grid) would otherwise
   // pop scrollbars for the whole drag and settle.
   function unclipAncestors() {
-    const neutral = outsideSelector ? "visible" : "hidden";
-    let node: HTMLElement | null = parent;
-    while (node && node !== document.body) {
-      const { overflow } = getComputedStyle(node);
-      if (overflow !== "" && overflow !== "visible" && overflow !== "hidden") {
+    const isEscapeDrag = Boolean(outsideSelector);
+    const neutral = isEscapeDrag ? "visible" : "hidden";
+    let elAncestor: HTMLElement | null = elParent;
+    while (elAncestor && elAncestor !== document.body) {
+      const { overflow } = getComputedStyle(elAncestor);
+      const isScrolling = overflow !== "" && overflow !== "visible" && overflow !== "hidden";
+      const isClippingEscape = isEscapeDrag && overflow === "hidden";
+      if (isScrolling || isClippingEscape) {
         overflowSaves.push({
-          element: node,
-          overflow: node.style.overflow
+          elAncestor,
+          overflow: elAncestor.style.overflow
         });
-        node.style.overflow = neutral;
-      } else if (outsideSelector && overflow === "hidden") {
-        overflowSaves.push({
-          element: node,
-          overflow: node.style.overflow
-        });
-        node.style.overflow = "visible";
+        elAncestor.style.overflow = isScrolling ? neutral : "visible";
       }
 
-      node = node.parentElement;
+      elAncestor = elAncestor.parentElement;
     }
   }
 
   function reclipAncestors() {
-    for (const { element, overflow } of overflowSaves) {
-      element.style.overflow = overflow;
+    for (const { elAncestor, overflow } of overflowSaves) {
+      elAncestor.style.overflow = overflow;
     }
 
     overflowSaves.length = 0;
   }
 
   function clearItemStyles() {
-    for (const sibling of siblings) {
-      const { style } = sibling.element;
+    for (const { elItem } of siblings) {
+      const { style } = elItem;
       // Clear `transition` first so removing `translate` is instant, never animated.
       style.transition = "";
       style.translate = "";
@@ -482,60 +500,62 @@ export function beginReorder(options: BeginReorderOptions) {
 
   // ── events ─────────────────────────────────────────────────────────────────
 
-  function onPointerMove(move: PointerEvent) {
-    lastPointerX = move.clientX;
-    lastPointerY = move.clientY;
+  function onPointerMove(e: PointerEvent) {
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
 
-    if (!dragging) {
-      const travelled = Math.hypot(move.clientX - pointerStartX, move.clientY - pointerStartY);
+    if (!isDragging) {
+      const travelled = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
       if (travelled < threshold) {
         return;
       }
 
       startDrag();
 
-      if (fromIndex === -1) {
+      if (iFrom === NOT_FOUND) {
         finish(true);
         return;
       }
     }
 
-    const draggedSlot = siblings[fromIndex];
-    const projectedLeft = move.clientX - grabOffsetX;
-    const projectedTop = move.clientY - grabOffsetY;
-    draggedSlot.element.style.translate = `${projectedLeft - draggedSlot.left}px ${projectedTop - draggedSlot.top}px`;
+    const draggedSlot = siblings[iFrom];
+    const projectedLeft = e.clientX - grabOffsetX;
+    const projectedTop = e.clientY - grabOffsetY;
+    draggedSlot.elItem.style.translate = `${projectedLeft - draggedSlot.left}px ${projectedTop - draggedSlot.top}px`;
 
     // Exclude the dragged item's *current* gap (not its origin) from the count, so
     // a swapped item stays put until the pointer crosses the neighbour's new centre.
-    const projectedCenter = isHorizontal
-      ? projectedLeft + draggedSlot.width / 2
-      : projectedTop + draggedSlot.height / 2;
-    const before = insertionIndex({
+    const iBefore = insertionIndex({
       centers,
-      fromIndex: currentIndex,
-      draggedCenter: projectedCenter
+      fromIndex: iCurrent,
+      draggedCenter: isHorizontal
+        ? projectedLeft + draggedSlot.width / 2
+        : projectedTop + draggedSlot.height / 2
     });
-    if (before !== lastBefore) {
-      lastBefore = before;
-      currentIndex = before;
-      reflow(before);
+    if (iBefore !== iLastBefore) {
+      iLastBefore = iBefore;
+      iCurrent = iBefore;
+      reflow(iBefore);
     }
 
-    updateOutsideHints(move.clientX, move.clientY);
+    updateOutsideHints({
+      x: e.clientX,
+      y: e.clientY
+    });
     onHint?.({
       id: draggedId,
-      outside,
+      outside: isOutside,
       dropTarget,
-      pointerX: move.clientX,
-      pointerY: move.clientY
+      pointerX: e.clientX,
+      pointerY: e.clientY
     });
   }
 
-  function onPointerUp(up: PointerEvent) {
-    lastPointerX = up.clientX;
-    lastPointerY = up.clientY;
+  function onPointerUp(e: PointerEvent) {
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
 
-    if (dragging) {
+    if (isDragging) {
       // A real drag must not also fire the click the browser synthesizes under the
       // pointer (which would select/rename the item we just dropped).
       suppressNextClick();
@@ -548,91 +568,111 @@ export function beginReorder(options: BeginReorderOptions) {
     finish(true);
   }
 
-  function onKeyDown(key: KeyboardEvent) {
-    if (key.key !== "Escape") {
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key !== Key.Escape) {
       return;
     }
 
-    key.preventDefault();
+    e.preventDefault();
 
-    if (dragging) {
+    if (isDragging) {
       suppressNextClick();
     }
 
     finish(true);
   }
 
+  /** Pop the item out onto the outside zone when it was released over it; false
+   *  when the release point isn't a drop-out. Re-hit-tests at the release point
+   *  (the lifted item is still pointer-transparent, so the zone beneath is
+   *  reachable). */
+  function dropOutside() {
+    if (!onDropOutside) {
+      return false;
+    }
+
+    const elHit = hitElementAt({
+      x: lastPointerX,
+      y: lastPointerY
+    });
+    if (!isOverOutsideZone(elHit)) {
+      return false;
+    }
+
+    const releaseTarget = resolveDropTarget({
+      elHit,
+      x: lastPointerX
+    });
+    clearItemStyles();
+    reclipAncestors();
+    onHint?.(null);
+    onDropOutside({
+      id: draggedId,
+      dropTarget: releaseTarget,
+      pointerX: lastPointerX,
+      pointerY: lastPointerY
+    });
+    isDragInProgress = false;
+    return true;
+  }
+
   // Tear down input, drop the shield, then either pop out (outside), spring home
   // (cancel), or spring into the new slot and commit (normal drop).
-  function finish(cancel: boolean) {
+  function finish(isCancelled: boolean) {
     removeEventListener("pointermove", onPointerMove);
     removeEventListener("pointerup", onPointerUp);
     removeEventListener("pointercancel", onPointerCancel);
     removeEventListener("keydown", onKeyDown, true);
     bodyStyle.userSelect = bodyUserSelect;
     removeShield();
-    parent.style.pointerEvents = parentPointerEvents;
+    elParent.style.pointerEvents = parentPointerEvents;
 
-    if (!dragging) {
-      dragInProgress = false;
+    if (!isDragging) {
+      isDragInProgress = false;
       return;
     }
 
-    dragging = false;
+    isDragging = false;
 
     // The pressed item vanished before it could lift - nothing to settle or commit.
-    if (fromIndex === -1) {
+    if (iFrom === NOT_FOUND) {
       onHint?.(null);
-      dragInProgress = false;
+      isDragInProgress = false;
       return;
     }
 
-    // Re-hit-test at the release point (the lifted item is still pointer-transparent,
-    // so the zone beneath is reachable): a genuine drop-out pops the item out.
-    if (!cancel && onDropOutside && outsideSelector) {
-      const hit = hitElementAt(lastPointerX, lastPointerY);
-      const overOutside = hit !== null && hit.closest(outsideSelector) !== null && hit.closest(itemSelector) === null;
-      if (overOutside) {
-        const releaseTarget = resolveDropTarget(hit, lastPointerX);
-        clearItemStyles();
-        reclipAncestors();
-        onHint?.(null);
-        onDropOutside({
-          id: draggedId,
-          dropTarget: releaseTarget,
-          pointerX: lastPointerX,
-          pointerY: lastPointerY
-        });
-        dragInProgress = false;
-        return;
-      }
+    if (!isCancelled && dropOutside()) {
+      return;
     }
 
-    settleIntoSlot(cancel);
+    settleIntoSlot(isCancelled);
   }
 
   // Spring the lifted item from its release point to the target slot (the open gap,
   // or home on cancel), fading the shadow out; commit the reorder only once it has
   // settled, so nothing jumps.
-  function settleIntoSlot(cancel: boolean) {
-    const draggedElement = siblings[fromIndex].element;
-    const settleIndex = cancel || lastBefore < 0 ? fromIndex : currentIndex;
-    const target = slotTranslate(siblings[fromIndex], siblings[settleIndex]);
-    if (reduce) {
-      draggedElement.style.translate = target;
+  function settleIntoSlot(isCancelled: boolean) {
+    const elDragged = siblings[iFrom].elItem;
+    const isReturningHome = isCancelled || iLastBefore < 0;
+    const target = slotTranslate({
+      from: siblings[iFrom],
+      to: siblings[isReturningHome ? iFrom : iCurrent]
+    });
+    if (isReducedMotion) {
+      elDragged.style.translate = target;
       queueMicrotask(async () => {
-        await finalizeCommit(cancel);
+        await finalizeCommit(isCancelled);
       });
       return;
     }
 
-    draggedElement.style.transition = `translate ${SPRING_SECONDS}s ${SPRING_EASE}, box-shadow ${SPRING_SECONDS}s`;
-    draggedElement.style.boxShadow = LIFT_SHADOW_FADED;
+    elDragged.style.transition = `translate ${SPRING_SECONDS}s ${SPRING_EASE}, box-shadow ${SPRING_SECONDS}s`;
+    elDragged.style.boxShadow = LIFT_SHADOW_FADED;
     requestAnimationFrame(() => {
-      draggedElement.style.translate = target;
+      elDragged.style.translate = target;
     });
     setTimeout(async () => {
-      await finalizeCommit(cancel);
+      await finalizeCommit(isCancelled);
     }, SPRING_MILLISECONDS);
   }
 
@@ -641,12 +681,12 @@ export function beginReorder(options: BeginReorderOptions) {
   // no-op left the caller's list out of sync with the DOM the engine had moved, and
   // a later selection reconciled against that stale order and dropped the tab; the
   // design engine commits `lastOrder ?? ids.slice()` for exactly this reason.
-  async function finalizeCommit(cancel: boolean) {
+  async function finalizeCommit(isCancelled: boolean) {
     const order = committedOrderOnDrop({
       ids: originalIds,
-      fromIndex,
-      toIndex: currentIndex,
-      cancelled: cancel
+      fromIndex: iFrom,
+      toIndex: iCurrent,
+      cancelled: isCancelled
     });
     if (order) {
       onCommit(order);
@@ -661,7 +701,7 @@ export function beginReorder(options: BeginReorderOptions) {
     clearItemStyles();
     reclipAncestors();
     onHint?.(null);
-    dragInProgress = false;
+    isDragInProgress = false;
   }
 }
 
@@ -669,11 +709,11 @@ export function beginReorder(options: BeginReorderOptions) {
 // double as a click. A macrotask retires the guard if the browser fires no click
 // at all (it usually doesn't after a long drag), so it never eats a later click.
 function suppressNextClick() {
-  function swallow(click: Event) {
-    click.stopPropagation();
+  function swallow(e: Event) {
+    e.stopPropagation();
 
-    if (click.cancelable) {
-      click.preventDefault();
+    if (e.cancelable) {
+      e.preventDefault();
     }
 
     removeEventListener("click", swallow, true);
