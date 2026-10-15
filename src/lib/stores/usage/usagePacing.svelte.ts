@@ -156,6 +156,29 @@ const accountKeys = new Map<string, string>();
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- written per scan, never rendered
 const samples = new Map<string, UsageSample[]>();
 
+/** The readings, kept across a reload of the window like its pauses - a burn
+ *  rate takes ten minutes of work to measure, and a reload must not restart it. */
+const StoredSamples = z.record(
+  z.string(), z.array(
+    z.object({
+      at: z.number(),
+      utilization: z.number(),
+      resetsAt: z.string().nullish()
+    })
+  )
+);
+
+function samplesStorageKey() {
+  return `pade.usage-pacing-samples:${windowLabel()}`;
+}
+
+function rememberSamples() {
+  writeStoredJson({
+    key: samplesStorageKey(),
+    value: Object.fromEntries(samples)
+  });
+}
+
 function remember() {
   writeStoredJson({
     key: pacingStorageKey(),
@@ -223,6 +246,8 @@ function recordSamples({ accountKey, account, now }: {
     });
     samples.set(key, recent);
   }
+
+  rememberSamples();
 }
 
 /** Start an account's burn rate over - after a step or an override, the old
@@ -237,6 +262,8 @@ function forgetSamples(accountKey: string | undefined) {
       samples.delete(key);
     }
   }
+
+  rememberSamples();
 }
 
 function liveRate({ accountKey, window }: {
@@ -370,6 +397,15 @@ export function createUsagePacing(host: PacingHost) {
     }) ?? {}
   )) {
     paced.set(id, state);
+  }
+
+  for (const [key, readings] of Object.entries(
+    readStoredJson({
+      key: samplesStorageKey(),
+      schema: StoredSamples
+    }) ?? {}
+  )) {
+    samples.set(key, readings);
   }
 
   function earlyMs() {
