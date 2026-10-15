@@ -164,12 +164,22 @@ fn is_legacy_registered() -> bool {
 ///   registers its packaged handler once and thereafter only toggles a flag.
 /// - **Windows 10 and older**: add the legacy registry keys (there is no packaged
 ///   handler to host the verb).
+// Every command here shells out to `reg` or `PowerShell` (an `Add-AppxPackage`
+// takes seconds), so each runs on the blocking pool rather than an async worker.
 #[cfg(windows)]
 #[tauri::command]
 pub async fn context_menu_register() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(register_menu)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[cfg(windows)]
+fn register_menu() -> Result<(), String> {
     if !is_windows_11() {
         return register_legacy();
     }
+    // Best-effort: a leftover legacy entry only duplicates the verb.
     let _ = unregister_legacy();
     if !modern::is_registered() {
         modern::register()?;
@@ -189,6 +199,13 @@ pub async fn context_menu_register() -> Result<(), String> {
 #[cfg(windows)]
 #[tauri::command]
 pub async fn context_menu_unregister() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(unregister_menu)
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[cfg(windows)]
+fn unregister_menu() -> Result<(), String> {
     if !is_windows_11() {
         return unregister_legacy();
     }
@@ -203,6 +220,14 @@ pub async fn context_menu_unregister() -> Result<(), String> {
 #[cfg(windows)]
 #[tauri::command]
 pub async fn context_menu_status() -> bool {
+    // A probe that panicked reports the menu as off, the state it can't prove.
+    tauri::async_runtime::spawn_blocking(is_menu_on)
+        .await
+        .unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn is_menu_on() -> bool {
     if !is_windows_11() {
         return is_legacy_registered();
     }
