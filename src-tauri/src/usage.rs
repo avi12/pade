@@ -23,7 +23,7 @@ use std::fmt::Write as _;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -475,8 +475,8 @@ impl AccountUsageRequest {
 /// Live account usage windows for a specific agent (`claude`, `codex`) - what the
 /// per-agent meter renders and the auto-resume scheduler reads. `None` for an
 /// agent we have no usage adapter for, or when its token / network isn't
-/// available (offline, `curl` missing, or a token expired until the agent's next
-/// run refreshes it).
+/// available (offline, `curl` missing, refused, or a token expired until the
+/// agent's next run refreshes it) and no recent reading is held to fall back on.
 // `async` + `spawn_blocking` for the same reason as [`usage_get`]: a cache miss
 // is a bounded-but-slow curl request that must never run on the UI thread.
 #[tauri::command]
@@ -495,7 +495,64 @@ pub async fn usage_account_agent(agent: String, force_refresh: bool) -> Option<A
     .flatten()
 }
 
-type AccountUsageCache = Mutex<HashMap<UsageAgent, (Instant, AccountUsage)>>;
+/// How long a reading is still shown after the endpoint stops answering. A
+/// refused or failed ask (a 429 with a multi-minute `retry-after`, a token that
+/// expired while every Claude session sat idle, a dropped network) keeps the
+/// last real reading on screen instead of blanking the meter - its windows past
+/// their reset already read as 0% in the frontend - but a reading this old is
+/// no longer worth showing as current.
+const LAST_READING_LIMIT: Duration = Duration::from_hours(1);
+
+/// What the cache knows about one agent's account: when its endpoint was last
+/// asked, and the last reading it answered. A failed ask moves `asked_at` but
+/// keeps the reading, so a refusal neither blanks the meter nor invites an
+/// immediate retry that only extends the refusal.
+#[derive(Clone, Default)]
+struct AccountReadings {
+    asked_at: Option<Instant>,
+    last_reading: Option<(Instant, AccountUsage)>,
+}
+
+impl AccountReadings {
+    /// Whether a request made at `requested_at` must ask the endpoint, or can be
+    /// answered from what is held. Someone asking after the request was made (a
+    /// concurrent caller that held the fetch gate first - another window, or the
+    /// scheduler) settles it either way, so a burst of misses, forced or not,
+    /// costs one request; otherwise a cached request reuses any ask, failed or
+    /// not, younger than [`USAGE_CACHE_TTL`].
+    fn needs_asking(
+        &self,
+        request: AccountUsageRequest,
+        requested_at: Instant,
+        now: Instant,
+    ) -> bool {
+        let Some(asked_at) = self.asked_at else {
+            return true;
+        };
+        let was_asked_since_request = asked_at >= requested_at;
+        let is_cache_allowed = matches!(request.cache_policy, UsageCachePolicy::UseCache);
+        let is_ask_fresh = now.saturating_duration_since(asked_at) < USAGE_CACHE_TTL;
+        !(was_asked_since_request || (is_cache_allowed && is_ask_fresh))
+    }
+
+    /// Record one ask made at `asked_at`; a failed one (`None`) keeps the last
+    /// reading.
+    fn record(&mut self, answer: Option<AccountUsage>, asked_at: Instant) {
+        self.asked_at = Some(asked_at);
+        if let Some(reading) = answer {
+            self.last_reading = Some((asked_at, reading));
+        }
+    }
+
+    /// The last reading, while it is younger than [`LAST_READING_LIMIT`].
+    fn last_known(&self, now: Instant) -> Option<AccountUsage> {
+        let (read_at, reading) = self.last_reading.as_ref()?;
+        let is_recent = now.saturating_duration_since(*read_at) < LAST_READING_LIMIT;
+        is_recent.then(|| reading.clone())
+    }
+}
+
+type AccountUsageCache = Mutex<HashMap<UsageAgent, AccountReadings>>;
 
 /// The one cache of live account readings, keyed by agent - the single source
 /// for both commands, so a meter read and a scheduler read share one request.
@@ -504,29 +561,60 @@ fn account_usage_cache() -> &'static AccountUsageCache {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// `agent`'s cached reading, while it is younger than [`USAGE_CACHE_TTL`].
-fn fresh_cached_account_usage(agent: UsageAgent) -> Option<AccountUsage> {
-    let guard = account_usage_cache().lock().ok()?;
-    let (fetched_at, cached) = guard.get(&agent)?;
-    (fetched_at.elapsed() < USAGE_CACHE_TTL).then(|| cached.clone())
+/// A copy of what the cache holds for `agent`, taken under a short lock.
+fn account_readings(agent: UsageAgent) -> AccountReadings {
+    account_usage_cache()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&agent)
+        .cloned()
+        .unwrap_or_default()
+}
+
+type FetchGates = Mutex<HashMap<UsageAgent, Arc<Mutex<()>>>>;
+
+/// `agent`'s fetch gate: held across one endpoint ask, so concurrent misses
+/// (every open window polls, and all of them force a refresh at the same reset
+/// boundary) wait for that one ask instead of each firing their own - a burst
+/// the rate-limited endpoint answers with 429s. Per agent, so one slow vendor
+/// never holds up another.
+fn fetch_gate(agent: UsageAgent) -> Arc<Mutex<()>> {
+    static GATES: OnceLock<FetchGates> = OnceLock::new();
+    let gates = GATES.get_or_init(|| Mutex::new(HashMap::new()));
+    Arc::clone(
+        gates
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(agent)
+            .or_default(),
+    )
 }
 
 /// Live account usage for `agent`, cached per agent to respect each endpoint's
-/// per-token limit. The fetch runs with the cache unlocked, so one slow vendor
-/// never holds up another agent's cached read.
+/// per-token limit, with concurrent asks coalesced into one and a failed ask
+/// answered by the last real reading (see [`AccountReadings`]). The cache lock
+/// is only ever held for a lookup; the ask itself runs under the agent's gate.
 fn account_usage_for(request: AccountUsageRequest) -> Option<AccountUsage> {
-    let is_cache_allowed = matches!(request.cache_policy, UsageCachePolicy::UseCache);
-    if is_cache_allowed {
-        if let Some(cached) = fresh_cached_account_usage(request.agent) {
-            return Some(cached);
-        }
+    let requested_at = Instant::now();
+    let readings = account_readings(request.agent);
+    if !readings.needs_asking(request, requested_at, Instant::now()) {
+        return readings.last_known(Instant::now());
     }
 
-    let fresh = request.agent.fetch_account_usage()?;
-    if let Ok(mut guard) = account_usage_cache().lock() {
-        guard.insert(request.agent, (Instant::now(), fresh.clone()));
+    let gate = fetch_gate(request.agent);
+    let _asking = gate.lock().unwrap_or_else(PoisonError::into_inner);
+    let readings = account_readings(request.agent);
+    if !readings.needs_asking(request, requested_at, Instant::now()) {
+        return readings.last_known(Instant::now());
     }
-    Some(fresh)
+
+    let answer = request.agent.fetch_account_usage();
+    let mut cache = account_usage_cache()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let readings = cache.entry(request.agent).or_default();
+    readings.record(answer, Instant::now());
+    readings.last_known(Instant::now())
 }
 
 /// Claude Code's stored OAuth login, while its token has not expired - a
@@ -1460,7 +1548,88 @@ mod tests {
         BillingAccount, ClaudeProfile, CreditsState, CurlRequest, HeadlineWindow, Usage,
         UsageAgent, UsageWindow, UsageWindowKind,
     };
+    use super::{AccountReadings, AccountUsageRequest, LAST_READING_LIMIT, USAGE_CACHE_TTL};
     use crate::agents::{ID_CODEX, ID_OPENCODE};
+    use std::time::{Duration, Instant};
+
+    const ONE_SECOND: Duration = Duration::from_secs(1);
+
+    fn reading(plan: &str) -> AccountUsage {
+        AccountUsage {
+            plan: plan.to_string(),
+            ..AccountUsage::default()
+        }
+    }
+
+    fn readings_answered_at(asked_at: Instant) -> AccountReadings {
+        let mut readings = AccountReadings::default();
+        readings.record(Some(reading("Max")), asked_at);
+        readings
+    }
+
+    #[test]
+    fn an_agent_never_asked_must_be_asked() {
+        let now = Instant::now();
+        let request = AccountUsageRequest::cached(UsageAgent::Claude);
+        assert!(AccountReadings::default().needs_asking(request, now, now));
+    }
+
+    #[test]
+    fn a_cached_request_reuses_a_fresh_ask() {
+        let asked_at = Instant::now();
+        let requested_at = asked_at + USAGE_CACHE_TTL.saturating_sub(ONE_SECOND);
+        let request = AccountUsageRequest::cached(UsageAgent::Claude);
+        let readings = readings_answered_at(asked_at);
+        assert!(!readings.needs_asking(request, requested_at, requested_at));
+
+        let expired_at = asked_at + USAGE_CACHE_TTL;
+        assert!(readings.needs_asking(request, expired_at, expired_at));
+    }
+
+    #[test]
+    fn a_forced_request_asks_unless_someone_asked_after_it_was_made() {
+        let asked_at = Instant::now();
+        let request = AccountUsageRequest::refresh(UsageAgent::Claude);
+        let readings = readings_answered_at(asked_at);
+        let made_later = asked_at + ONE_SECOND;
+        assert!(readings.needs_asking(request, made_later, made_later));
+
+        // A burst of forced refreshes waits on the one ask in flight, then reuses it.
+        let made_earlier = asked_at;
+        assert!(!readings.needs_asking(request, made_earlier, asked_at + ONE_SECOND));
+    }
+
+    #[test]
+    fn a_failed_ask_keeps_the_last_reading_and_holds_off_a_retry() {
+        let first_ask = Instant::now();
+        let mut readings = readings_answered_at(first_ask);
+        let failed_ask = first_ask + USAGE_CACHE_TTL;
+        readings.record(None, failed_ask);
+
+        let shortly_after = failed_ask + ONE_SECOND;
+        let request = AccountUsageRequest::cached(UsageAgent::Claude);
+        assert!(!readings.needs_asking(request, shortly_after, shortly_after));
+        assert_eq!(
+            readings.last_known(shortly_after).map(|usage| usage.plan),
+            Some("Max".to_string())
+        );
+    }
+
+    #[test]
+    fn a_reading_past_its_limit_is_no_longer_shown() {
+        let asked_at = Instant::now();
+        let mut readings = readings_answered_at(asked_at);
+        readings.record(None, asked_at + LAST_READING_LIMIT);
+        assert!(readings.last_known(asked_at + LAST_READING_LIMIT).is_none());
+    }
+
+    #[test]
+    fn a_failure_before_any_reading_answers_nothing() {
+        let asked_at = Instant::now();
+        let mut readings = AccountReadings::default();
+        readings.record(None, asked_at);
+        assert!(readings.last_known(asked_at).is_none());
+    }
 
     #[test]
     fn opencode_resolves_to_the_codex_adapter() {
