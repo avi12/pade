@@ -8,7 +8,7 @@ import { resolveColor } from "@/lib/colors";
 
 /** The closed set of roles a token can play; each value is also the themed CSS
  *  class ColorText paints it with. */
-const TokenClass = {
+export const TokenClass = {
   Comment: "comment",
   String: "string",
   Number: "number",
