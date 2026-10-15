@@ -8,7 +8,13 @@
     size?: number;
   } = $props();
   const kind = $derived(projectKind(path));
-  const icon = $derived(kind ? languageIcon(kind) : "folder");
+  const icon = $derived.by(() => {
+    if (!kind) {
+      return "folder";
+    }
+
+    return languageIcon(kind);
+  });
 </script>
 
 <span

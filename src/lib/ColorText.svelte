@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { tokenize, tokenizeMarkdown } from "@/lib/highlight";
-  import type { Token } from "@/lib/highlight";
+  import { isSyntax, tokenize, tokenizeMarkdown } from "@/lib/highlight";
 
   // Renders a snippet with lightweight syntax highlighting AND a color swatch
   // after every hex / rgb / hsl / var(--x) value. `vars` traces the file's own
@@ -18,7 +17,7 @@
     markdown?: boolean;
   } = $props();
 
-  const tokens = $derived.by<Token[]>(() => {
+  const tokens = $derived.by(() => {
     if (markdown) {
       return tokenizeMarkdown(text, vars);
     }
@@ -27,14 +26,7 @@
   });
 </script>
 
-{#each tokens as token, index (index)}<span
-  class:comment={token.cls === "comment"}
-  class:function={token.cls === "function"}
-  class:keyword={token.cls === "keyword"}
-  class:number={token.cls === "number"}
-  class:property={token.cls === "property"}
-  class:string={token.cls === "string"}
->{token.text}{#if token.color}
+{#each tokens as token, i (i)}<span class={isSyntax(token.cls) ? token.cls : undefined}>{token.text}{#if token.color}
   <span
     style:--swatch-color={token.color}
     class="swatch"

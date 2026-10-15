@@ -17,11 +17,11 @@
 </script>
 
 <div class="efforts" aria-label="Reasoning effort" role="group">
-  {#each efforts as effort, index (effort.id)}
+  {#each efforts as effort, i (effort.id)}
     {@const isCurrent = current === effort.id}
     {@const isRecommended = recommended === effort.id}
     {@const tone = effortTone({
-      step: index + 1,
+      step: i + 1,
       steps: efforts.length
     })}
     <button
