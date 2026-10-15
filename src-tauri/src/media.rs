@@ -67,7 +67,9 @@ pub fn is_video(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
-            VIDEO_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str())
+            VIDEO_EXTENSIONS
+                .iter()
+                .any(|video| extension.eq_ignore_ascii_case(video))
         })
 }
 
