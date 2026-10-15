@@ -32,6 +32,8 @@ export const RESET_GRACE_MS = 10 * 60_000;
 /** A stepped-down session steps back up only once its runway reaches this far
  *  past the reset - well clear of where it stepped down, so it doesn't see-saw. */
 const SPARE_RUNWAY_FRACTION = 1.5;
+/** The chosen margin never asks for more than this share of the time left. */
+const MAXIMUM_MARGIN_SHARE = 0.5;
 /** Two readings further apart than this span idle time, not burn - skipped. */
 const MAXIMUM_SAMPLE_GAP_MS = 5 * 60_000;
 /** A burn rate needs at least this much working time behind it… */
@@ -57,7 +59,7 @@ export function windowName(kind: UsageWindowKind) {
 export interface UsageSample {
   at: number;
   utilization: number;
-  resetsAt: string | null | undefined;
+  resetsAt?: string | null;
 }
 
 /** How fast a window is being spent while its agents work, in percent per
@@ -108,25 +110,32 @@ function runwayOf({ window, rate }: {
 
 /** The trigger: a window that runs out more than `earlyMs` before it runs free
  *  (RESET_GRACE_MS before its reset) is over pace. */
-function runsOutTooEarly({ runOutAt, freeAt, earlyMs }: {
+function runsOutTooEarly({ runOutAt, freeAt, earlyMs, now }: {
   runOutAt: number;
   freeAt: number;
   earlyMs: number;
+  now: number;
 }) {
-  return runOutAt < freeAt - earlyMs;
+  // A margin longer than the time left can never be met - "2 h early" with 16
+  // minutes to go would leave the window unpaced right when it runs dry - so it
+  // shrinks to at most a share of the time left.
+  const margin = Math.min(earlyMs, (freeAt - now) * MAXIMUM_MARGIN_SHARE);
+  return runOutAt < freeAt - margin;
 }
 
 /** Whether a forecast (`paceForecast`) is over pace now - what the Config
  *  panel's live line asks, by the same rule the pacing loop acts on. */
-export function isForecastOverPace({ forecast, earlyMs }: {
+export function isForecastOverPace({ forecast, earlyMs, now }: {
   forecast: NonNullable<ReturnType<typeof paceForecast>>;
   earlyMs: number;
+  now: number;
 }) {
   const isPacedNow = forecast.window.utilization >= PACE_FLOOR_PERCENTAGE && forecast.runOutAt !== null;
   return isPacedNow && runsOutTooEarly({
     runOutAt: forecast.runOutAt ?? Number.POSITIVE_INFINITY,
     freeAt: forecast.resetAt - RESET_GRACE_MS,
-    earlyMs
+    earlyMs,
+    now
   });
 }
 
@@ -172,7 +181,8 @@ export function assessPace({ account, now, isPaused, earlyMs, rateOf }: {
     const isOverPace = runsOutTooEarly({
       runOutAt: now + runway,
       freeAt,
-      earlyMs: isPaused ? 0 : earlyMs
+      earlyMs: isPaused ? 0 : earlyMs,
+      now
     });
     const readyAt = Math.max(now, freeAt - runway);
     const isHolding = isOverPace && (binding === null || readyAt > binding.readyAt);
@@ -201,6 +211,8 @@ export function paceForecast({ account, now, rateOf }: {
     window: UsageWindow;
     resetAt: number;
     runOutAt: number | null;
+    /** Whether enough working time is behind the pace to judge it. */
+    isMeasured: boolean;
   } | null = null;
   let worstMargin = Number.POSITIVE_INFINITY;
   for (const window of account?.windows ?? []) {
@@ -220,7 +232,8 @@ export function paceForecast({ account, now, rateOf }: {
       worst = {
         window,
         resetAt,
-        runOutAt
+        runOutAt,
+        isMeasured: rate !== null
       };
       worstMargin = margin;
     }

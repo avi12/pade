@@ -29,11 +29,58 @@ function forecast({ utilization, runsOutIn, resetsIn }: {
       resetsAt: new Date(NOW + resetsIn).toISOString()
     },
     resetAt: NOW + resetsIn,
-    runOutAt: runsOutIn === null ? null : NOW + runsOutIn
+    runOutAt: runsOutIn === null ? null : NOW + runsOutIn,
+    isMeasured: true
   };
 }
 
 describe("pacingPreview", () => {
+  it("still acts close to the reset when the chosen margin is longer than the time left", () => {
+    // 2 h early can't happen with 16 minutes to go; the margin shrinks to half
+    // the 6 minutes before the grace, and running dry in 2 minutes is past it.
+    const preview = pacingPreview({
+      forecast: forecast({
+        utilization: 99,
+        runsOutIn: 2 * MINUTE_MS,
+        resetsIn: 16 * MINUTE_MS
+      }),
+      settings: {
+        ...DEFAULT_PACING,
+        earlyMinutes: 120
+      },
+      now: NOW
+    });
+    expect(preview.wouldDo).toBe("Would now: lower effort");
+  });
+
+  it("tells a pace still being measured from one that spends nothing", () => {
+    const measuring = pacingPreview({
+      forecast: {
+        ...forecast({
+          utilization: 99,
+          runsOutIn: null,
+          resetsIn: HOUR_MS
+        }),
+        isMeasured: false
+      },
+      settings: DEFAULT_PACING,
+      now: NOW
+    });
+    expect(measuring.meter?.detail).toContain("pace not measured yet");
+    expect(measuring.wouldDo).toContain("Measuring the pace");
+    expect(
+      pacingPreview({
+        forecast: forecast({
+          utilization: 99,
+          runsOutIn: null,
+          resetsIn: HOUR_MS
+        }),
+        settings: DEFAULT_PACING,
+        now: NOW
+      }).meter?.detail
+    ).toContain("nothing spent lately");
+  });
+
   it("says what pacing would do to an agent running out well before its reset", () => {
     const preview = pacingPreview({
       forecast: forecast({

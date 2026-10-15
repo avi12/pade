@@ -251,22 +251,51 @@ export function pacingPreview({ forecast, settings, now }: {
     iso: new Date(time).toISOString(),
     now
   });
-  const runsOut = forecast.runOutAt === null ? "pace not measured yet" : `runs out ${countdown(forecast.runOutAt)}`;
   const meter = {
     name: `${windowName(forecast.window.kind)} window`,
     utilization: forecast.window.utilization,
-    detail: `${formatPercent(forecast.window.utilization)} · ${runsOut} · resets ${countdown(forecast.resetAt)}`
+    detail: `${formatPercent(forecast.window.utilization)} · ${runOutText({
+      forecast,
+      countdown
+    })} · resets ${countdown(forecast.resetAt)}`
   };
-  const isOverPace = isForecastOverPace({
-    forecast,
-    earlyMs: settings.earlyMinutes * MILLISECONDS_PER_MINUTE
-  });
-  const firstStep = allowedSteps(settings)[0];
-  const wouldDo = isOverPace && firstStep !== undefined
-    ? `Would now: ${PACING_STEP_TEXT[firstStep].label.toLowerCase()}`
-    : "On pace - nothing to do";
   return {
     meter,
-    wouldDo
+    wouldDo: wouldDoText({
+      forecast,
+      settings,
+      now
+    })
   };
+}
+
+function runOutText({ forecast, countdown }: {
+  forecast: NonNullable<ReturnType<typeof paceForecast>>;
+  countdown: (time: number) => string;
+}) {
+  if (!forecast.isMeasured) {
+    return "pace not measured yet";
+  }
+
+  return forecast.runOutAt === null ? "nothing spent lately" : `runs out ${countdown(forecast.runOutAt)}`;
+}
+
+function wouldDoText({ forecast, settings, now }: {
+  forecast: NonNullable<ReturnType<typeof paceForecast>>;
+  settings: PacingSettings;
+  now: number;
+}) {
+  if (!forecast.isMeasured) {
+    return "Measuring the pace - it can act after about ten minutes of work";
+  }
+
+  const isOverPace = isForecastOverPace({
+    forecast,
+    earlyMs: settings.earlyMinutes * MILLISECONDS_PER_MINUTE,
+    now
+  });
+  const firstStep = allowedSteps(settings)[0];
+  return isOverPace && firstStep !== undefined
+    ? `Would now: ${PACING_STEP_TEXT[firstStep].label.toLowerCase()}`
+    : "On pace - nothing to do";
 }
