@@ -1,19 +1,12 @@
 mod agents;
-mod clipboard;
-mod contextmenu;
-mod design;
-mod discord;
 mod limit_reset;
-mod media;
-mod os;
-mod recovery;
+mod platform;
 mod terminal;
 #[cfg(test)]
 mod test_support;
 mod usage;
 mod util;
 mod vcs;
-mod window;
 mod workspace;
 
 use tauri::Manager;
@@ -99,8 +92,10 @@ pub fn run() {
             // WebView2 doesn't reliably fire the frontend's prefers-color-scheme
             // change for a window that stays focused; the native ThemeChanged does.
             match event {
-                tauri::WindowEvent::ThemeChanged(theme) => window::on_theme_changed(window, *theme),
-                tauri::WindowEvent::Destroyed => window::on_destroyed(window),
+                tauri::WindowEvent::ThemeChanged(theme) => {
+                    platform::window::on_theme_changed(window, *theme);
+                }
+                tauri::WindowEvent::Destroyed => platform::window::on_destroyed(window),
                 _ => {}
             }
         })
@@ -112,13 +107,13 @@ pub fn run() {
             terminal::runner::init(handle);
             workspace::watcher::init(handle);
             agents::running_model::init(handle);
-            app.manage(window::WindowProjects::default());
-            app.manage(discord::DiscordState::default());
+            app.manage(platform::window::WindowProjects::default());
+            app.manage(platform::discord::DiscordState::default());
             // Paint the main window in-theme before showing it, so a dark desktop
             // doesn't flash a white webview before the UI first renders. The window
             // is created hidden (see tauri.conf.json) and shown here once themed.
-            if let Some(main) = app.get_webview_window(window::MAIN_WINDOW_LABEL) {
-                window::paint_surface(&main);
+            if let Some(main) = app.get_webview_window(platform::window::MAIN_WINDOW_LABEL) {
+                platform::window::paint_surface(&main);
                 let _ = main.show();
                 // Crash recovery arms from the FRONTEND (`recovery_arm` with
                 // its live location.href) - a backend capture here raced
@@ -128,14 +123,14 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agents::agents_detect,
-            clipboard::clipboard_image_save,
-            contextmenu::context_menu_register,
-            contextmenu::context_menu_unregister,
-            contextmenu::context_menu_status,
-            design::design_tools,
-            design::design_open,
-            discord::discord_set_activity,
-            discord::discord_clear_activity,
+            platform::clipboard::clipboard_image_save,
+            platform::contextmenu::context_menu_register,
+            platform::contextmenu::context_menu_unregister,
+            platform::contextmenu::context_menu_status,
+            platform::design::design_tools,
+            platform::design::design_open,
+            platform::discord::discord_set_activity,
+            platform::discord::discord_clear_activity,
             workspace::ide::ide_detect,
             workspace::ide::ide_add_editor,
             workspace::ide::ide_remove_editor,
@@ -147,19 +142,19 @@ pub fn run() {
             workspace::ide::ide_open,
             workspace::ide::ide_open_file,
             workspace::members::members_list,
-            os::open_in_explorer,
-            os::reveal_in_explorer,
-            os::open_in_terminal,
-            os::open_url,
-            os::restart,
-            window::window_create,
-            window::window_register_project,
-            window::window_focus_project,
-            window::window_focus_relative,
-            window::window_list,
-            window::window_reorder,
-            window::window_focus_label,
-            window::window_theme,
+            platform::os::open_in_explorer,
+            platform::os::reveal_in_explorer,
+            platform::os::open_in_terminal,
+            platform::os::open_url,
+            platform::os::restart,
+            platform::window::window_create,
+            platform::window::window_register_project,
+            platform::window::window_focus_project,
+            platform::window::window_focus_relative,
+            platform::window::window_list,
+            platform::window::window_reorder,
+            platform::window::window_focus_label,
+            platform::window::window_theme,
             terminal::pty::pty_spawn,
             terminal::pty::pty_write,
             terminal::pty::pty_resize,
@@ -168,7 +163,7 @@ pub fn run() {
             terminal::pty::session_task_running,
             terminal::pty::pty_history,
             terminal::pty::pty_list,
-            recovery::recovery_arm,
+            platform::recovery::recovery_arm,
             terminal::theming::agent_theme_publish,
             agents::resume::agent_resume_args,
             agents::session_context::agent_session_context,
@@ -258,7 +253,7 @@ pub fn run() {
             // its replacement (same label, same URL) is about to be built,
             // and killing the PTYs now would defeat the recovery. An
             // explicit exit (`code` present) is always honored.
-            if code.is_none() && recovery::is_recreate_pending() {
+            if code.is_none() && platform::recovery::is_recreate_pending() {
                 api.prevent_exit();
                 return;
             }

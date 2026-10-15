@@ -1747,7 +1747,7 @@ pub enum FeedVideo {
 }
 
 /// The video preview for `path`: its opening seconds transcoded by ffmpeg into a
-/// small MP4 (see [`crate::media`]). `None` when `path` is not a video, was not
+/// small MP4 (see [`crate::platform::media`]). `None` when `path` is not a video, was not
 /// surfaced by this window's watch this session, is gone, or ffmpeg couldn't
 /// read it. Gated and root-confined exactly like [`feed_image`]; the transcode
 /// runs on a blocking thread so a slow video never stalls the async runtime.
@@ -1761,7 +1761,7 @@ pub async fn feed_video(
         return Ok(None);
     };
     let file = Path::new(&path);
-    if !crate::media::is_video(file) || !was_surfaced(&watch, file)? {
+    if !crate::platform::media::is_video(file) || !was_surfaced(&watch, file)? {
         return Ok(None);
     }
     let Some(canonical_root) = canonical_watch_root(&watch) else {
@@ -1771,15 +1771,16 @@ pub async fn feed_video(
         return Ok(None);
     };
 
-    let clip = tauri::async_runtime::spawn_blocking(move || crate::media::preview_clip(&source))
-        .await
-        .map_err(|error| error.to_string())?;
+    let clip =
+        tauri::async_runtime::spawn_blocking(move || crate::platform::media::preview_clip(&source))
+            .await
+            .map_err(|error| error.to_string())?;
     match clip {
         Ok(bytes) => Ok(Some(FeedVideo::Ready {
-            data_url: data_url(crate::media::PREVIEW_CLIP_MIME, &bytes),
+            data_url: data_url(crate::platform::media::PREVIEW_CLIP_MIME, &bytes),
         })),
-        Err(crate::media::ClipError::NoTranscoder) => Ok(Some(FeedVideo::NoTranscoder)),
-        Err(crate::media::ClipError::Failed) => Ok(None),
+        Err(crate::platform::media::ClipError::NoTranscoder) => Ok(Some(FeedVideo::NoTranscoder)),
+        Err(crate::platform::media::ClipError::Failed) => Ok(None),
     }
 }
 

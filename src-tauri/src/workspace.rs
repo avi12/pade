@@ -1328,7 +1328,7 @@ fn has_vanished(path: &str) -> bool {
 /// script, or from a terminal leaves the page like one deleted from the menu.
 #[tauri::command]
 pub async fn workspace_prune(app: AppHandle) -> Result<Settings, String> {
-    delete_unused_temps(&crate::window::open_projects(&app))?;
+    delete_unused_temps(&crate::platform::window::open_projects(&app))?;
     update_settings(|settings| {
         settings
             .workspace_last_used

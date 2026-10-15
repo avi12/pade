@@ -78,7 +78,7 @@ pub fn recovery_arm(window: WebviewWindow, url: String) {
 /// so recovery is visually seamless.
 #[cfg(windows)]
 struct Placement {
-    look: crate::window::WindowLook,
+    look: crate::platform::window::WindowLook,
     position: Option<tauri::PhysicalPosition<i32>>,
     is_maximized: bool,
 }
@@ -95,7 +95,7 @@ fn recreate(app: &tauri::AppHandle, label: &str, url: &tauri::Url) {
         return;
     };
     let placement = Placement {
-        look: crate::window::WindowLook::of(&crashed),
+        look: crate::platform::window::WindowLook::of(&crashed),
         position: crashed.outer_position().ok(),
         is_maximized: crashed.is_maximized().unwrap_or(false),
     };
@@ -138,7 +138,7 @@ fn rebuild(app: &tauri::AppHandle, label: &str, url: &tauri::Url, placement: &Pl
         return;
     }
 
-    let mut builder = crate::window::app_window_builder(
+    let mut builder = crate::platform::window::app_window_builder(
         app,
         label,
         WebviewUrl::External(url.clone()),

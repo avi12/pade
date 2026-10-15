@@ -22,7 +22,7 @@ const PACKAGE_NAME: &str = "PADE.ContextMenu";
 
 /// The sparse manifest, embedded from its authoritative home in the handler crate.
 /// [`EXECUTABLE_PLACEHOLDER`] is filled with the running exe's name before writing.
-const MANIFEST_TEMPLATE: &str = include_str!("../../contextmenu-handler/AppxManifest.xml");
+const MANIFEST_TEMPLATE: &str = include_str!("../../../contextmenu-handler/AppxManifest.xml");
 
 /// The token the template carries where the packaged executable's file name goes.
 const EXECUTABLE_PLACEHOLDER: &str = "{{EXECUTABLE}}";
@@ -44,14 +44,17 @@ const DEVELOPER_MODE_OFF_ERROR: &str = "0x80073CFF";
 /// the app icons and written into `Assets\` at register time: `(file name, bytes)`.
 /// The paths here must match the `Logo` / `Square*Logo` attributes in the manifest.
 const ASSETS: &[(&str, &[u8])] = &[
-    ("StoreLogo.png", include_bytes!("../../icons/StoreLogo.png")),
+    (
+        "StoreLogo.png",
+        include_bytes!("../../../icons/StoreLogo.png"),
+    ),
     (
         "Square150x150Logo.png",
-        include_bytes!("../../icons/Square150x150Logo.png"),
+        include_bytes!("../../../icons/Square150x150Logo.png"),
     ),
     (
         "Square44x44Logo.png",
-        include_bytes!("../../icons/Square44x44Logo.png"),
+        include_bytes!("../../../icons/Square44x44Logo.png"),
     ),
 ];
 

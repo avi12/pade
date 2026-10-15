@@ -1,0 +1,14 @@
+//! PADE's reach into the desktop around it: its own windows and their crash
+//! recovery (`window`, `recovery`), the OS shell - file manager, terminal,
+//! browser, Explorer's context menu (`os`, `contextmenu`) - the clipboard and
+//! video transcoding (`clipboard`, `media`), and the outside apps it hands off
+//! to or reports into (`design`, `discord`).
+
+pub(crate) mod clipboard;
+pub(crate) mod contextmenu;
+pub(crate) mod design;
+pub(crate) mod discord;
+pub(crate) mod media;
+pub(crate) mod os;
+pub(crate) mod recovery;
+pub(crate) mod window;

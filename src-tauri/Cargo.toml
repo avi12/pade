@@ -56,7 +56,7 @@ uuid = { version = "1", features = ["v4"] }
 # Windows process-priority FFI lives behind this safe helper because the main
 # crate forbids unsafe code. Set before WebView2 and PTY children are spawned.
 process-priority = { path = "process-priority" }
-# WebView2 `ProcessFailed` auto-recovery (see src/recovery.rs). A separate
+# WebView2 `ProcessFailed` auto-recovery (see src/platform/recovery.rs). A separate
 # workspace member because COM event registration is unsafe and this crate
 # forbids unsafe code; it pins webview2-com/windows-core to the versions
 # already in the tree via wry, so no new supply-chain surface.

@@ -155,7 +155,7 @@ pub struct ConfigFile {
 
 fn project_root(
     window: &WebviewWindow,
-    projects: &crate::window::WindowProjects,
+    projects: &crate::platform::window::WindowProjects,
 ) -> Result<PathBuf, String> {
     projects.project_for(window.label()).map(PathBuf::from)
 }
@@ -163,7 +163,7 @@ fn project_root(
 #[tauri::command]
 pub async fn config_list(
     window: WebviewWindow,
-    projects: tauri::State<'_, crate::window::WindowProjects>,
+    projects: tauri::State<'_, crate::platform::window::WindowProjects>,
     agent: String,
 ) -> Result<Vec<ConfigFile>, String> {
     let root = project_root(&window, &projects)?;
@@ -185,7 +185,7 @@ pub async fn config_list(
 #[tauri::command]
 pub async fn config_read(
     window: WebviewWindow,
-    projects: tauri::State<'_, crate::window::WindowProjects>,
+    projects: tauri::State<'_, crate::platform::window::WindowProjects>,
     rel: String,
 ) -> Result<String, String> {
     let is_allowed = KNOWN_CONFIG_FILES
