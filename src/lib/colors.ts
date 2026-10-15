@@ -117,6 +117,18 @@ function linearChannel(byte: number) {
  *  Windows Terminal schemes, whose every colour field is plain hex, and taking
  *  the narrow shape keeps this honest about what it can actually answer. */
 export function hexLuminance(hex: string) {
+  const channels = hexChannels(hex);
+  if (!channels) {
+    return null;
+  }
+
+  const [red, green, blue] = channels;
+  return RED_WEIGHT * linearChannel(red) + GREEN_WEIGHT * linearChannel(green) + BLUE_WEIGHT * linearChannel(blue);
+}
+
+/** `#rgb` / `#rrggbb` → its three 0..255 channels; `null` for anything else, so
+ *  a colour PADE can't read never becomes a silently wrong one. */
+export function hexChannels(hex: string) {
   const match = HEX_COLOR.exec(hex.trim());
   if (!match) {
     return null;
@@ -128,10 +140,10 @@ export function hexLuminance(hex: string) {
 
   function channel(iChannel: number) {
     const start = iChannel * HEX_DIGITS_PER_CHANNEL;
-    return linearChannel(parseInt(expanded.slice(start, start + HEX_DIGITS_PER_CHANNEL), HEX_RADIX));
+    return parseInt(expanded.slice(start, start + HEX_DIGITS_PER_CHANNEL), HEX_RADIX);
   }
 
-  return RED_WEIGHT * channel(0) + GREEN_WEIGHT * channel(1) + BLUE_WEIGHT * channel(2);
+  return [channel(0), channel(1), channel(2)] as const;
 }
 
 /** Half luminance - the split between a colour that paints a dark surface and
