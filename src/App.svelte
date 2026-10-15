@@ -18,7 +18,6 @@
   import { clearDiscordPresence, updateDiscordPresence } from "@/lib/discord-presence";
   import type { DragHint } from "@/lib/drag-reorder";
   import { focusTerminalPane } from "@/lib/focus";
-  import { formatCount } from "@/lib/format";
   import Icon from "@/lib/Icon.svelte";
   import IdeMenu from "@/lib/IdeMenu.svelte";
   import Logo from "@/lib/Logo.svelte";
@@ -36,13 +35,7 @@
   } from "@/lib/pane-layout";
   import { registerPaneShortcuts } from "@/lib/pane-shortcuts";
   import { displayName, isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/paths";
-  import {
-    effective,
-    SIDE_PANEL_DEFAULT_WIDTH,
-    SIDE_PANEL_MAX_FRACTION,
-    SIDE_PANEL_MIN_WIDTH,
-    updatePrefs
-  } from "@/lib/prefs.svelte";
+  import { effective, SIDE_PANEL_MAX_FRACTION, SIDE_PANEL_MIN_WIDTH } from "@/lib/prefs.svelte";
   import { DropSide } from "@/lib/reorder";
   import { openRepositoryTarget } from "@/lib/repository-links";
   import RunnerDock from "@/lib/RunnerDock.svelte";
@@ -54,6 +47,7 @@
   import SessionTabs from "@/lib/SessionTabs.svelte";
   import { settings } from "@/lib/settings.svelte";
   import { settledValue } from "@/lib/settled";
+  import { Side, SIDE_PANEL_TABS } from "@/lib/side-panels";
   import { dropAgentActivity } from "@/lib/stores/agentActivity.svelte";
   import { createAgentRetheme } from "@/lib/stores/agentRetheme.svelte";
   import { createApiErrorRetry, dropApiError } from "@/lib/stores/apiErrorRetry.svelte";
@@ -66,7 +60,7 @@
     initNewProjectDetection
   } from "@/lib/stores/new-project-detection";
   import { projectKind, requestProjectKind } from "@/lib/stores/projectKinds.svelte";
-  import { ensureRunnerListeners, startRunner, stopAllRunners } from "@/lib/stores/runners.svelte";
+  import { ensureRunnerListeners, stopAllRunners } from "@/lib/stores/runners.svelte";
   import {
     dropChoiceAttention,
     ensureChoiceAttention,
@@ -75,7 +69,6 @@
   import { dropSessionLabel } from "@/lib/stores/sessionLabels.svelte";
   import { applyNamingToAll, dropNaming, setNaming, transferNaming } from "@/lib/stores/sessionNaming.svelte";
   import { dropSessionStatus, isSessionIdle, whenSessionIdle } from "@/lib/stores/sessions.svelte";
-  import { panelCount, panelRefresh } from "@/lib/stores/sidePanel.svelte";
   import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/taskRuns.svelte";
   import { showToast, toastText } from "@/lib/stores/toast.svelte";
   import { createUsageResume, dropUsageLimit } from "@/lib/stores/usageResume.svelte";
@@ -89,16 +82,16 @@
     Ide,
     McpChange,
     ModelChoice,
-    OpenTarget,
-    TaskGroup
+    OpenTarget
   } from "@/lib/types";
   import UsageMeter from "@/lib/UsageMeter.svelte";
   import { FolderPath, parseInput } from "@/lib/validate";
   import { WindowShortcut, windowShortcutFor } from "@/lib/window-shortcuts";
   import { createRelocator } from "@/lib/workspace-relocate";
-  import ChangeFeed from "@/panels/ChangeFeed.svelte";
   import Onboarding from "@/panels/Onboarding.svelte";
   import ProjectPicker from "@/panels/ProjectPicker.svelte";
+  import SidePanel from "@/panels/SidePanel.svelte";
+  import SidePanelResizer from "@/panels/SidePanelResizer.svelte";
   import { onDestroy, onMount, tick, untrack } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
@@ -1536,98 +1529,11 @@
     }
   });
 
-  // Side panels (lazy-loaded for tree-shaking). A closed set of panel ids
-  // defined once; `null` means no panel is open.
-  const Side = {
-    feed: "feed",
-    vcs: "vcs",
-    tasks: "tasks",
-    config: "config"
-  } as const;
-  type Side = (typeof Side)[keyof typeof Side] | null;
-  let side = $state<Side>(Side.feed);
-  function toggleSide(panel: Exclude<Side, null>) {
-    side = side === panel ? null : panel;
-  }
-
-  // One source of truth for the side panels: the segmented control shows the
-  // short label (full name in a tooltip), the shared aside header shows the full
-  // label. Count + refresh are published per-panel via the sidePanel store.
-  const PANEL_TABS = [
-    {
-      id: Side.feed,
-      icon: "activity",
-      short: "Feed",
-      label: "Change Feed"
-    },
-    {
-      id: Side.vcs,
-      icon: "branch",
-      short: "Git",
-      label: "Version control"
-    },
-    {
-      id: Side.tasks,
-      icon: "checks",
-      short: "Tasks",
-      label: "Tasks"
-    },
-    {
-      id: Side.config,
-      icon: "sliders",
-      short: "Config",
-      label: "Agent config"
-    }
-  ] as const;
-  const sideTitle = $derived(PANEL_TABS.find(tab => tab.id === side)?.label ?? "");
-
-  // ── Side-panel width (draggable divider) ────────────────────────────────────
-  // The persisted width lives in prefs (SSOT); this local mirror is what the drag
-  // moves live without a backend write per frame. The `.body` grid caps it at 60%
-  // of the window via a CSS clamp, so the terminal is never swallowed. Mirrors the
-  // design's `panelW` + `startPanelResize`/`resetPanelW`.
+  // The open side panel (lib/side-panels); `null` means none is open.
+  let side = $state<Side | null>(Side.feed);
+  // The side column's width, which SidePanelResizer moves live during a drag.
   let sidePanelWidth = $state(effective.sidePanelWidth);
-  let resizingSidePanel = $state(false);
-  const SIDE_PANEL_NUDGE = 16;
-
-  // Adopt a width persisted in prefs (e.g. loaded at boot, or reset) - but never
-  // while a drag is live, so the pointer stays in charge of the frame.
-  $effect(() => {
-    const persisted = effective.sidePanelWidth;
-    if (!resizingSidePanel) {
-      sidePanelWidth = persisted;
-    }
-  });
-
-  // Persist the current width. `updatePrefs` assigns `prefs` synchronously before
-  // its first await, so calling this before clearing `resizingSidePanel` means the
-  // adopt-effect already sees the new value and won't briefly revert the drag.
-  // Owns its error so the un-awaited call can never reject.
-  async function persistSidePanelWidth() {
-    try {
-      await updatePrefs({ sidePanelWidth: Math.round(sidePanelWidth) });
-    } catch {
-    // A failed settings write just keeps the width on screen; nothing to undo.
-    }
-  }
-
-  // Clamp a proposed width to [min, 60% of the body] - the same ceiling the CSS
-  // clamp enforces, so keyboard and pointer agree.
-  function clampSidePanelWidth(proposed: number): number {
-    const body = document.querySelector<HTMLElement>(".body");
-    const ceiling = body ? Math.round(body.getBoundingClientRect().width * SIDE_PANEL_MAX_FRACTION) : proposed;
-    return Math.max(SIDE_PANEL_MIN_WIDTH, Math.min(ceiling, Math.round(proposed)));
-  }
-
-  function nudgeSidePanel(delta: number) {
-    sidePanelWidth = clampSidePanelWidth(sidePanelWidth + delta);
-    persistSidePanelWidth();
-  }
-
-  function resetSidePanelWidth() {
-    sidePanelWidth = SIDE_PANEL_DEFAULT_WIDTH;
-    persistSidePanelWidth();
-  }
+  let isResizingSidePanel = $state(false);
 
   // Highlight → agent bridge: a selection in a side panel is injected into the
   // active session's input.
@@ -1841,11 +1747,11 @@
           />
 
           <div class="segmented-control" aria-label="Side panels" role="tablist">
-            {#each PANEL_TABS as tab (tab.id)}
+            {#each SIDE_PANEL_TABS as tab (tab.id)}
               <button
                 aria-selected={side === tab.id}
                 data-tooltip={tab.label}
-                onclick={() => toggleSide(tab.id)}
+                onclick={() => (side = side === tab.id ? null : tab.id)}
                 role="tab"
               ><Icon name={tab.icon} /> <span>{tab.short}</span></button>
             {/each}
@@ -1913,7 +1819,7 @@
         style:--side-panel-max-fraction="{SIDE_PANEL_MAX_FRACTION * 100}%"
         class="body"
         class:with-side={side !== null}
-        data-resizing={resizingSidePanel || undefined}
+        data-resizing={isResizingSidePanel || undefined}
       >
         <section bind:this={panesElement} class="pane terminal-pane" data-panes>
           <!-- A tab dragged over the panes reads as "open in split" - a dashed
@@ -2010,131 +1916,8 @@
         </section>
 
         {#if side !== null}
-          <!-- Draggable divider between the terminal area and the side panel: a thin
-               bar (var(--outline)) that grows to full-height --primary on hover /
-               drag / focus. Sits on the grid boundary via the same clamp the column
-               uses; double-click resets, arrows nudge. Mirrors the design's
-               [data-resizehandle]/[data-resizebar]. -->
-          <!-- A focusable, keyboard-operable window-splitter is a valid ARIA
-               separator widget (tabindex + aria-valuenow), so the non-interactive
-               separator warnings are false positives here. -->
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <div
-            style:--side-panel-width="{sidePanelWidth}px"
-            class="panel-resize"
-            aria-label="Resize side panel (double-click to reset)"
-            aria-orientation="vertical"
-            aria-valuemin={SIDE_PANEL_MIN_WIDTH}
-            aria-valuenow={Math.round(sidePanelWidth)}
-            data-tooltip="Drag to resize · double-click to reset"
-            ondblclick={resetSidePanelWidth}
-            onkeydown={e => {
-              if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                nudgeSidePanel(SIDE_PANEL_NUDGE);
-              } else if (e.key === "ArrowRight") {
-                e.preventDefault();
-                nudgeSidePanel(-SIDE_PANEL_NUDGE);
-              } else if (e.key === "Home") {
-                e.preventDefault();
-                resetSidePanelWidth();
-              }
-            }}
-            onpointerdown={e => {
-              if (e.button !== 0 || !(e.currentTarget instanceof HTMLElement)) {
-                return;
-              }
-
-              e.preventDefault();
-              const handle = e.currentTarget;
-              handle.setPointerCapture(e.pointerId);
-              resizingSidePanel = true;
-              document.body.style.cursor = "col-resize";
-              document.body.style.userSelect = "none";
-
-              function onMove(move: PointerEvent): void {
-                const body = handle.closest<HTMLElement>(".body");
-                if (!body) {
-                  return;
-                }
-
-                const rectangle = body.getBoundingClientRect();
-                sidePanelWidth = clampSidePanelWidth(rectangle.right - move.clientX);
-              }
-              function cleanup(): void {
-                handle.removeEventListener("pointermove", onMove);
-                handle.removeEventListener("pointerup", cleanup);
-                handle.removeEventListener("pointercancel", cleanup);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-                // Persist first (updates prefs synchronously), then release the
-                // drag guard so the adopt-effect sees the final width, not the old.
-                persistSidePanelWidth();
-                resizingSidePanel = false;
-              }
-              handle.addEventListener("pointermove", onMove);
-              handle.addEventListener("pointerup", cleanup);
-              handle.addEventListener("pointercancel", cleanup);
-            }}
-            role="separator"
-            tabindex="0"
-          ><span class="panel-resize-bar" aria-hidden="true"></span></div>
-          <aside class="pane side-pane">
-            <header class="panel-head">
-              <div class="panel-title">
-                <h2>{sideTitle}</h2>
-                {#if panelCount() !== null}
-                  <span class="panel-count">{formatCount(panelCount() ?? 0)}</span>
-                {/if}
-              </div>
-              {#if panelRefresh()}
-                <button
-                  class="panel-refresh"
-                  aria-label="Refresh"
-                  data-tooltip="Refresh"
-                  onclick={() => panelRefresh()?.()}
-                >
-                  <Icon name="refresh" />
-                </button>
-              {/if}
-            </header>
-
-            <div class="panel-body">
-              {#if side === Side.feed}
-                <ChangeFeed project={currentProject} />
-              {:else if side === Side.vcs}
-                {#await import("@/panels/VcsPanel.svelte") then { default: VcsPanel }}
-                  <VcsPanel project={currentProject} />
-                {:catch}
-                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
-                {/await}
-              {:else if side === Side.tasks}
-                {#await import("@/panels/TasksPanel.svelte") then { default: TasksPanel }}
-                  <!-- Run a project task as a streaming runner in the dock (not a
-                       throwaway terminal tab), so its output stays visible and can
-                       be piped into an agent. -->
-                  <TasksPanel
-                    onrun={async (task: {
-                      label: string;
-                      command: string;
-                      cwd: string;
-                      kind: TaskGroup["kind"];
-                    }) => await startRunner(task)}
-                    project={currentProject}
-                  />
-                {:catch}
-                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
-                {/await}
-              {:else if side === Side.config}
-                {#await import("@/panels/ConfigPanel.svelte") then { default: ConfigPanel }}
-                  <ConfigPanel agent={activeAgent} agents={realAgents} project={currentProject} />
-                {:catch}
-                  <p class="panel-load-error">Could not load this panel. Reload the window to retry.</p>
-                {/await}
-              {/if}
-            </div>
-          </aside>
+          <SidePanelResizer bind:width={sidePanelWidth} bind:isResizing={isResizingSidePanel} />
+          <SidePanel agent={activeAgent} agents={realAgents} project={currentProject} {side} />
         {/if}
       </main>
 
@@ -2324,146 +2107,10 @@
     }
   }
 
-  /* Draggable divider straddling the terminal/side-panel boundary. Positioned on
-     the grid line via the same clamp the column uses, and pulled half its width
-     left so the hit-area sits over the seam. Lives in `.body` (not the clipped
-     `.side-pane`) so it can overhang the boundary. */
-  .panel-resize {
-    position: absolute;
-    inset-block: 0;
-    inset-inline-end: var(--side-panel-track);
-    z-index: 20;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    inline-size: 11px;
-    margin-inline-end: -5.5px;
-    cursor: col-resize;
-    touch-action: none;
-
-    /* Follows the seam in step with the column tween on a double-click reset,
-       held still during a live drag (see `[data-resizing]` below). */
-    transition: inset-inline-end 250ms var(--ease);
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-
-    .body[data-resizing] & {
-      transition: none;
-    }
-
-    /* A thin pill at rest; fills to full-height primary while hovered, dragged,
-       or keyboard-focused (design's [data-resizebar] hover/active rule). */
-    .panel-resize-bar {
-      block-size: 36px;
-      inline-size: 2px;
-      border-radius: var(--radius-full);
-      background: var(--outline);
-      transition: background 150ms var(--ease), block-size 150ms var(--ease);
-
-      @media (prefers-reduced-motion: reduce) {
-        transition: none;
-      }
-    }
-
-    &:hover .panel-resize-bar,
-    &:active .panel-resize-bar,
-    &:focus-visible .panel-resize-bar {
-      block-size: 100%;
-      background: var(--primary);
-    }
-
-    &:focus-visible {
-      outline: none;
-    }
-  }
-
   .pane {
     overflow: hidden;
     min-block-size: 0;
     min-inline-size: 0;
-  }
-
-  .side-pane {
-    display: flex;
-    flex-direction: column;
-    border-inline-start: 1px solid var(--outline);
-    background: var(--surface);
-    animation: panel-in 340ms var(--ease);
-  }
-
-  /* One shared header for every panel (DRY) - title + optional count + optional
-     refresh. The panels below own only their scroll body.
-
-     Every header is the same height whether or not its panel publishes a
-     refresh action: the title row reserves a control's worth of space, so Tasks
-     and Git (which have the button) no longer stand 8px taller than Feed and
-     Config (which don't), and switching panels never nudges the body down. */
-  .panel-head {
-    --panel-head-control-size: 28px;
-
-    display: flex;
-    flex-shrink: 0;
-    gap: 8px;
-    align-items: center;
-    padding-block: 12px 10px;
-    padding-inline: 16px;
-  }
-
-  .panel-load-error {
-    margin: 16px;
-    color: var(--on-surface-variant);
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  .panel-title {
-    display: flex;
-    gap: 9px;
-    align-items: center;
-    min-block-size: var(--panel-head-control-size);
-
-    h2 {
-      margin: 0;
-      font-weight: 700;
-      font-size: 15px;
-    }
-  }
-
-  .panel-count {
-    padding: 2px 9px;
-    border-radius: var(--radius-full);
-    background: var(--primary-container);
-    color: var(--on-primary-container);
-    font-weight: 700;
-    font-size: 12px;
-  }
-
-  .panel-refresh {
-    display: grid;
-    place-items: center;
-    block-size: var(--panel-head-control-size);
-    inline-size: var(--panel-head-control-size);
-    margin-inline-start: auto;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--surface-2);
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    transition: color 140ms var(--ease), background 140ms var(--ease);
-
-    &:hover {
-      background: var(--surface-3);
-      color: var(--on-surface);
-    }
-  }
-
-  .panel-body {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-block-size: 0;
   }
 
   /* All sessions stay mounted so their scrollback survives switching; only the
@@ -2588,12 +2235,6 @@
     .body.with-side {
       grid-template-rows: 1fr 40%;
       grid-template-columns: 1fr;
-    }
-
-    /* Stacked top/bottom below this width - a vertical col-resize divider no
-       longer maps to the layout, so hide it. */
-    .panel-resize {
-      display: none;
     }
   }
 
