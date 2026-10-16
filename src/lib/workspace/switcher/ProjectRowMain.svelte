@@ -3,6 +3,7 @@
   import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/projectBranches.svelte";
   import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
+  import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
   import ProjectKindIcon from "@/lib/workspace/ProjectKindIcon.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
@@ -58,6 +59,7 @@
       <LastAccessed now={openedAt} path={project} />
     </span>
   </span>
+  <LanguageBar path={project} />
   {#if isCurrent}
     <span class="project-row-check" aria-hidden="true"><Icon name="check" size={15} /></span>
   {/if}
@@ -65,6 +67,7 @@
 
 <style>
   .project-row-main {
+    position: relative;
     display: flex;
     flex: 1;
     gap: 9px;
