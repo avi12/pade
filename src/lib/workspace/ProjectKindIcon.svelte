@@ -1,13 +1,16 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { observeProjectKind, projectKind } from "@/lib/stores/workspace/projectKinds.svelte";
+  import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
   import { languageIcon } from "@/lib/workspace/language-icon";
 
   const { path, size = 16 }: {
     path: string;
     size?: number;
   } = $props();
-  const kind = $derived(projectKind(path));
+  // A project with no project file of any kind still has source: it wears its
+  // biggest language.
+  const kind = $derived(projectKind(path) ?? projectLanguageShares(path)?.[0]?.kind);
   const icon = $derived.by(() => {
     if (!kind) {
       return "folder";
@@ -20,6 +23,7 @@
 <span
   class="project-kind-icon"
   {@attach observeProjectKind({ path })}
+  {@attach observeProjectLanguages({ path })}
   aria-hidden="true"
   data-brand={kind ? icon : undefined}
 ><Icon name={icon} {size} /></span>
