@@ -132,6 +132,7 @@
   /* The typed-path field - holds the shared PathCombobox, which anchors its own
      autocomplete popover to itself, so the two stay aligned wherever it lands. */
   .combo {
+    display: flex;
     flex: 1;
     min-inline-size: 200px;
   }
