@@ -1433,18 +1433,36 @@ pub async fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
 
 /// The kind most of a workspace's project roots declare - six C# projects
 /// beside two small Rust tools read as .NET, not as whichever kind the registry
-/// happens to list first. A tie goes to the registry's priority order.
+/// happens to list first. A platform declared anywhere claims the kinds it owns,
+/// so an Android app's Gradle files - which read as Java in every module - count
+/// for Android rather than outvoting it. A tie goes to the registry's priority
+/// order.
 fn primary_declared_kind(declarations: &[ProjectDeclaration]) -> Option<ProjectKind> {
+    let declared = kinds_from_declarations(declarations);
+    let claimed_by = |kind: ProjectKind| {
+        declared
+            .iter()
+            .copied()
+            .find(|platform| *platform != kind && platform.owns_source_kind(kind))
+            .unwrap_or(kind)
+    };
     let declaring_roots = |kind: &ProjectKind| {
         declarations
             .iter()
-            .filter(|declaration| declaration.kinds.contains(kind))
+            .filter(|declaration| {
+                declaration
+                    .kinds
+                    .iter()
+                    .any(|declared_kind| claimed_by(*declared_kind) == *kind)
+            })
             .count()
     };
     // `max_by_key` keeps the LAST of equal maxima, so walking the registry order
     // backwards leaves a tie with the kind listed first.
-    kinds_from_declarations(declarations)
-        .into_iter()
+    declared
+        .iter()
+        .copied()
+        .filter(|kind| claimed_by(*kind) == *kind)
         .rev()
         .max_by_key(declaring_roots)
 }
@@ -2121,6 +2139,18 @@ mod tests {
         assert_eq!(
             primary_declared_kind(&declarations),
             Some(ProjectKind::Dotnet)
+        );
+    }
+
+    #[test]
+    fn an_android_app_is_not_outvoted_by_its_own_gradle_modules() {
+        let declarations = [
+            declaration("", &[ProjectKind::Android, ProjectKind::Java]),
+            declaration("app", &[ProjectKind::Java]),
+        ];
+        assert_eq!(
+            primary_declared_kind(&declarations),
+            Some(ProjectKind::Android)
         );
     }
 
