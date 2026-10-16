@@ -1361,15 +1361,17 @@ pub async fn watch_dirs(
 /// languages may have. The payload is the project path, as the switcher sent it.
 const LANGUAGES_CHANGED_EVENT: &str = "languages://changed";
 
-/// The `.git` folder of a project that has one as a directory (a linked
-/// worktree's `.git` is a file and sits this watch out).
-fn git_directory_of(project: &Path) -> Option<PathBuf> {
-    let directory = project.join(".git");
-    let canonical = std::fs::canonicalize(&directory).ok()?;
-    canonical.is_dir().then_some(canonical)
+/// The git folders holding a project's index files - its own `.git` and each
+/// submodule's - canonical, as the watcher reports paths under them. A linked
+/// worktree (whose `.git` is a file) has none and sits this watch out.
+fn tracked_set_directories(project: &Path) -> Vec<PathBuf> {
+    crate::vcs::tracked_set_indexes(project)
+        .iter()
+        .filter_map(|index| std::fs::canonicalize(index.parent()?).ok())
+        .collect()
 }
 
-/// Watch the `.git` folder of each project row the switcher shows (only those
+/// Watch the git folders (its own and its submodules') of each project row the switcher shows (only those
 /// on screen, only while it is open) and report a row whose index or `HEAD`
 /// moved - a staged, committed or checked-out change to its tracked files, the
 /// set its language bar counts. Non-recursive, one folder per row, so it costs
@@ -1391,7 +1393,11 @@ pub async fn watch_languages(
     guard.remove(&label);
     let projects: Vec<(PathBuf, String)> = paths
         .into_iter()
-        .filter_map(|path| Some((git_directory_of(Path::new(&path))?, path)))
+        .flat_map(|path| {
+            tracked_set_directories(Path::new(&path))
+                .into_iter()
+                .map(move |directory| (directory, path.clone()))
+        })
         .collect();
     if projects.is_empty() {
         return Ok(());

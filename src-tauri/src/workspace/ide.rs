@@ -668,6 +668,8 @@ fn source_file_evidence(
 /// The Git repository root and the tracked paths below PADE's active project
 /// directory. `--full-name` keeps those paths rooted at the repository, so the
 /// census can join them safely after Git scopes the listing to the active folder.
+/// `--recurse-submodules` lists each submodule's tracked files too - a companion
+/// app kept as a submodule is part of the project's code, not one opaque entry.
 struct GitRepository {
     root: std::path::PathBuf,
     tracked_paths: Vec<String>,
@@ -686,7 +688,13 @@ fn git_repository(cwd: &std::path::Path) -> Option<GitRepository> {
         return None;
     }
     let files_output = git_in(cwd)
-        .args(["ls-files", "--cached", "--full-name", "-z"])
+        .args([
+            "ls-files",
+            "--cached",
+            "--recurse-submodules",
+            "--full-name",
+            "-z",
+        ])
         .output()
         .ok()?;
     if !files_output.status.success() {
@@ -1544,11 +1552,17 @@ static LANGUAGE_CACHE: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<String, CountedShares>>,
 > = std::sync::LazyLock::new(Default::default);
 
-/// When a project's git index last changed, or `None` outside a git checkout.
+/// When anything a project tracks last changed - the newest of its own and its
+/// submodules' git index files - or `None` outside a git checkout.
 fn index_modified(project: &std::path::Path) -> Option<std::time::SystemTime> {
-    std::fs::metadata(project.join(".git").join("index"))
-        .and_then(|metadata| metadata.modified())
-        .ok()
+    crate::vcs::tracked_set_indexes(project)
+        .iter()
+        .filter_map(|index| {
+            std::fs::metadata(index)
+                .and_then(|metadata| metadata.modified())
+                .ok()
+        })
+        .max()
 }
 
 /// A project's language shares, counted again only when its git index changed

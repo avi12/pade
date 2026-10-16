@@ -124,6 +124,54 @@ pub(crate) fn git_in(directory: &std::path::Path) -> std::process::Command {
     command
 }
 
+/// How deep under `.git/modules` a nested submodule's git folder may sit.
+const SUBMODULE_SEARCH_DEPTH: usize = 4;
+
+/// The git index files that record what a project tracks: its own, then each
+/// submodule's (git keeps those under `.git/modules/<name>/`). One of them
+/// changes whenever a tracked file is staged or committed anywhere in the
+/// project, submodules included - the stamp and watch target for anything
+/// counting tracked files. Empty outside a git checkout.
+pub(crate) fn tracked_set_indexes(project: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let git_directory = project.join(".git");
+    let own = git_directory.join("index");
+    if !own.is_file() {
+        return Vec::new();
+    }
+
+    let mut indexes = vec![own];
+    collect_submodule_indexes(
+        &git_directory.join("modules"),
+        SUBMODULE_SEARCH_DEPTH,
+        &mut indexes,
+    );
+    indexes
+}
+
+fn collect_submodule_indexes(
+    directory: &std::path::Path,
+    depth_left: usize,
+    indexes: &mut Vec<std::path::PathBuf>,
+) {
+    if depth_left == 0 {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let index = path.join("index");
+        if index.is_file() {
+            indexes.push(index);
+        }
+        collect_submodule_indexes(&path, depth_left - 1, indexes);
+    }
+}
+
 /// Run Git inside one explicitly selected workspace. A Tauri process can host
 /// several windows at once, so the process working directory belongs to no one
 /// window and must never decide which repository a request reads or mutates.
@@ -201,7 +249,29 @@ impl StatusKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{head_file_text, run_git, validate_object_id, NumstatRow, StatusKind};
+    use super::{
+        head_file_text, run_git, tracked_set_indexes, validate_object_id, NumstatRow, StatusKind,
+    };
+
+    #[test]
+    fn a_projects_tracked_set_includes_its_submodules_indexes() {
+        let project = std::env::temp_dir().join(format!("pade-tracked-set-{}", std::process::id()));
+        let submodule = project.join(".git").join("modules").join("companion");
+        std::fs::create_dir_all(&submodule).expect("test dirs");
+        std::fs::write(project.join(".git").join("index"), "").expect("own index");
+        std::fs::write(submodule.join("index"), "").expect("submodule index");
+
+        assert_eq!(
+            tracked_set_indexes(&project),
+            [project.join(".git").join("index"), submodule.join("index")]
+        );
+        assert_eq!(
+            tracked_set_indexes(&project.join("missing")),
+            Vec::<std::path::PathBuf>::new()
+        );
+
+        std::fs::remove_dir_all(&project).expect("cleanup");
+    }
 
     #[test]
     fn parses_a_plain_numstat_row() {
