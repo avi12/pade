@@ -433,6 +433,7 @@ const KIND_REGISTRY: &[KindDefinition] = &[
         markers: &[
             Marker::Named("global.json"),
             Marker::Extension("sln"),
+            Marker::Extension("slnx"),
             Marker::Extension("csproj"),
         ],
         extensions: &["cs"],
@@ -1351,8 +1352,8 @@ pub fn ide_kinds() -> Vec<KindInfo> {
         .collect()
 }
 
-/// Primary detected kind for each of `paths` - the marker-declared kind highest
-/// in the registry's priority order - for the switcher's per-project language
+/// Primary detected kind for each of `paths` - the kind most of its project
+/// roots declare ([`primary_declared_kind`]) - for the switcher's per-project language
 /// logo. Paths with no recognised markers are omitted, so the caller falls back
 /// to a folder glyph. Marker probing only (root + one level down), so it stays
 /// cheap enough to run for a menuful of recent projects at once.
@@ -1365,6 +1366,24 @@ pub async fn ide_project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
         .unwrap_or_default()
 }
 
+/// The kind most of a workspace's project roots declare - six C# projects
+/// beside two small Rust tools read as .NET, not as whichever kind the registry
+/// happens to list first. A tie goes to the registry's priority order.
+fn primary_declared_kind(declarations: &[ProjectDeclaration]) -> Option<ProjectKind> {
+    let declaring_roots = |kind: &ProjectKind| {
+        declarations
+            .iter()
+            .filter(|declaration| declaration.kinds.contains(kind))
+            .count()
+    };
+    // `max_by_key` keeps the LAST of equal maxima, so walking the registry order
+    // backwards leaves a tie with the kind listed first.
+    kinds_from_declarations(declarations)
+        .into_iter()
+        .rev()
+        .max_by_key(declaring_roots)
+}
+
 /// The per-path primary-kind probe behind [`ide_project_kinds`].
 fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
     paths
@@ -1373,9 +1392,7 @@ fn project_kinds(paths: Vec<String>) -> BTreeMap<String, String> {
             // One child walk per project, shared by the marker probe and the
             // TypeScript narrowing - this runs for a whole menuful of recents.
             let roots = probe_roots(std::path::Path::new(&path));
-            let kind = kinds_from_declarations(&declarations_in(&roots))
-                .into_iter()
-                .next()?;
+            let kind = primary_declared_kind(&declarations_in(&roots))?;
             // A web project that uses TypeScript shows the TS badge, not JavaScript.
             let icon_key = if kind == ProjectKind::Web && uses_typescript(&roots) {
                 TYPESCRIPT_ICON_KEY.to_string()
@@ -1656,9 +1673,10 @@ pub async fn ide_open_file(
 mod tests {
     use super::{
         census, editor_covers_project, editor_family, executable_basename, ide_kinds,
-        open_arguments, open_style, preference_chain, project_declarations, ranked_editor_ids,
-        required_project_kinds, source_content, suggestible_editor_ids, EditorCoverage, OpenStyle,
-        ProjectDeclaration, ProjectKind, SourceFileEvidence, SourceProfile, REGISTRY,
+        open_arguments, open_style, preference_chain, primary_declared_kind, project_declarations,
+        ranked_editor_ids, required_project_kinds, source_content, suggestible_editor_ids,
+        EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind, SourceFileEvidence,
+        SourceProfile, REGISTRY,
     };
     use crate::test_support::assert_not_empty;
 
@@ -1892,6 +1910,38 @@ mod tests {
             required_project_kinds(&profile, &declarations),
             vec![ProjectKind::Web, ProjectKind::Rust]
         );
+    }
+
+    fn declaration(root: &str, kinds: &[ProjectKind]) -> ProjectDeclaration {
+        ProjectDeclaration {
+            root: std::path::PathBuf::from(root),
+            kinds: kinds.to_vec(),
+        }
+    }
+
+    #[test]
+    fn the_kind_most_project_roots_declare_is_the_primary_one() {
+        let declarations = [
+            declaration("app", &[ProjectKind::Dotnet]),
+            declaration("lib", &[ProjectKind::Dotnet]),
+            declaration("service", &[ProjectKind::Dotnet]),
+            declaration("downloader-rs", &[ProjectKind::Rust]),
+            declaration("updater-rs", &[ProjectKind::Rust]),
+        ];
+        assert_eq!(
+            primary_declared_kind(&declarations),
+            Some(ProjectKind::Dotnet)
+        );
+    }
+
+    #[test]
+    fn a_tie_between_declared_kinds_goes_to_registry_order() {
+        let declarations = [
+            declaration("", &[ProjectKind::Web]),
+            declaration("src-tauri", &[ProjectKind::Rust]),
+        ];
+        assert_eq!(primary_declared_kind(&declarations), Some(ProjectKind::Web));
+        assert_eq!(primary_declared_kind(&[]), None);
     }
 
     #[test]
@@ -2131,7 +2181,10 @@ mod tests {
             .find(|info| info.kind == "dotnet")
             .expect("dotnet is a recognised kind");
         assert_eq!(dotnet.label, "C# / .NET");
-        assert_eq!(dotnet.signals, ["global.json", "*.sln", "*.csproj"]);
+        assert_eq!(
+            dotnet.signals,
+            ["global.json", "*.sln", "*.slnx", "*.csproj"]
+        );
     }
 
     #[test]
