@@ -138,6 +138,7 @@ pub fn run() {
             workspace::ide::ide_kind_options,
             workspace::ide::ide_kinds,
             workspace::ide::ide_project_kinds,
+            workspace::ide::ide_project_languages,
             workspace::ide::ide_open,
             workspace::ide::ide_open_file,
             workspace::members::members_list,

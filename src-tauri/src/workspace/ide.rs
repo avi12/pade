@@ -1417,6 +1417,72 @@ fn uses_typescript(roots: &[std::path::PathBuf]) -> bool {
     })
 }
 
+/// A language below this share of a project's source (in per mille) is left
+/// off its language bar, so a build script never paints a sliver.
+const MINIMUM_LANGUAGE_PER_MILLE: u64 = 30;
+const PER_MILLE: u64 = 1000;
+
+/// One language's share of a project's source, for the switcher's GitHub-style
+/// language bar. `perMille` is of the languages shown, so the bar's segments
+/// always fill it.
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LanguageShare {
+    kind: String,
+    label: String,
+    per_mille: u64,
+}
+
+/// Each project's languages by share of its source, biggest first, for the
+/// switcher rows' language bars. Paths with no countable source are omitted.
+// `async` + `spawn_blocking`: this is the git-tracked source census, once per
+// visible row - real filesystem work, off the UI thread.
+#[tauri::command]
+pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<LanguageShare>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .into_iter()
+            .filter_map(|path| {
+                let shares = language_shares(&source_profile(std::path::Path::new(&path)).totals);
+                (!shares.is_empty()).then_some((path, shares))
+            })
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Turn per-kind source bytes into the bar's shares: languages under
+/// [`MINIMUM_LANGUAGE_PER_MILLE`] dropped, the rest re-shared among themselves
+/// and ordered biggest first.
+fn language_shares(totals: &BTreeMap<ProjectKind, u64>) -> Vec<LanguageShare> {
+    let total: u64 = totals.values().sum();
+    if total == 0 {
+        return Vec::new();
+    }
+
+    let mut kept: Vec<(ProjectKind, u64)> = totals
+        .iter()
+        .filter(|(_, bytes)| **bytes * PER_MILLE / total >= MINIMUM_LANGUAGE_PER_MILLE)
+        .map(|(kind, bytes)| (*kind, *bytes))
+        .collect();
+    kept.sort_by_key(|(_, bytes)| Reverse(*bytes));
+    let kept_total: u64 = kept.iter().map(|(_, bytes)| bytes).sum();
+    kept.into_iter()
+        .map(|(kind, bytes)| LanguageShare {
+            kind: kind.as_str().to_string(),
+            label: KIND_REGISTRY
+                .iter()
+                .find(|definition| definition.kind == kind)
+                .map_or_else(
+                    || kind.as_str().to_string(),
+                    |definition| definition.label.to_string(),
+                ),
+            per_mille: bytes * PER_MILLE / kept_total,
+        })
+        .collect()
+}
+
 /// An id is worth suggesting only if it's actually launchable - a registry
 /// launcher on PATH, or a user-added editor (its stored path is the launcher,
 /// resolved against the caller's already-loaded `added` list).
@@ -1671,10 +1737,10 @@ pub async fn ide_open_file(
 mod tests {
     use super::{
         census, editor_covers_project, editor_family, executable_basename, ide_kinds,
-        open_arguments, open_style, preference_chain, primary_declared_kind, project_declarations,
-        ranked_editor_ids, required_project_kinds, source_content, suggestible_editor_ids,
-        EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind, SourceFileEvidence,
-        SourceProfile, REGISTRY,
+        language_shares, open_arguments, open_style, preference_chain, primary_declared_kind,
+        project_declarations, ranked_editor_ids, required_project_kinds, source_content,
+        suggestible_editor_ids, EditorCoverage, OpenStyle, ProjectDeclaration, ProjectKind,
+        SourceFileEvidence, SourceProfile, REGISTRY,
     };
     use crate::test_support::assert_not_empty;
 
@@ -1915,6 +1981,29 @@ mod tests {
             root: std::path::PathBuf::from(root),
             kinds: kinds.to_vec(),
         }
+    }
+
+    #[test]
+    fn language_shares_drop_slivers_and_fill_the_bar_biggest_first() {
+        let totals = std::collections::BTreeMap::from([
+            (ProjectKind::Python, 310),
+            (ProjectKind::Web, 480),
+            (ProjectKind::Dotnet, 200),
+            (ProjectKind::Rust, 10),
+        ]);
+        let shares: Vec<(String, u64)> = language_shares(&totals)
+            .into_iter()
+            .map(|share| (share.kind, share.per_mille))
+            .collect();
+        assert_eq!(
+            shares,
+            [
+                ("web".to_string(), 484),
+                ("python".to_string(), 313),
+                ("dotnet".to_string(), 202)
+            ]
+        );
+        assert_eq!(language_shares(&std::collections::BTreeMap::new()), []);
     }
 
     #[test]

@@ -22,6 +22,7 @@ import {
   FeedImage,
   FeedVideo,
   Ide,
+  LanguageShare,
   LaunchContext,
   LimitReset,
   LimitResetOutcome,
@@ -83,6 +84,7 @@ export enum Command {
   ideKinds = "ide_kinds",
   ideKindOptions = "ide_kind_options",
   ideProjectKinds = "ide_project_kinds",
+  ideProjectLanguages = "ide_project_languages",
   ideAddEditor = "ide_add_editor",
   ideRemoveEditor = "ide_remove_editor",
   ideOpen = "ide_open",
@@ -300,6 +302,9 @@ export interface CommandProtocolMap {
   [Command.ideKindOptions]: () => Record<string, string[]>;
   /** Primary detected kind per project path; unrecognised paths are omitted. */
   [Command.ideProjectKinds]: (data: { paths: string[] }) => Record<string, string>;
+  /** Each project's languages by share of its source, biggest first;
+   *  paths with no countable source are omitted. */
+  [Command.ideProjectLanguages]: (data: { paths: string[] }) => Record<string, LanguageShare[]>;
   /** Add an editor by its executable path; rejects with the message when it
    *  isn't a supported editor. */
   [Command.ideAddEditor]: (data: PathData) => Settings;
@@ -651,6 +656,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.ideKinds]: z.array(EditorKind),
   [Command.ideKindOptions]: z.record(z.string(), z.array(z.string())),
   [Command.ideProjectKinds]: z.record(z.string(), z.string()),
+  [Command.ideProjectLanguages]: z.record(z.string(), z.array(LanguageShare)),
   [Command.ideAddEditor]: Settings,
   [Command.ideRemoveEditor]: Settings,
   [Command.ideOpen]: NO_REPLY,

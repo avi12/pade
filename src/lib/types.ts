@@ -275,6 +275,16 @@ export const EditorKind = z.object({
 });
 export type EditorKind = z.infer<typeof EditorKind>;
 
+/** One language's share of a project's source (`ide_project_languages`), for
+ *  the switcher rows' GitHub-style language bar. Shares are of the languages
+ *  shown, so they fill the bar. */
+export const LanguageShare = z.object({
+  kind: z.string(),
+  label: z.string(),
+  perMille: z.number().int().min(0).max(1000)
+});
+export type LanguageShare = z.infer<typeof LanguageShare>;
+
 /** An editor the user located by executable path (merged into detection). */
 const AddedEditor = z.object({
   id: z.string(),
