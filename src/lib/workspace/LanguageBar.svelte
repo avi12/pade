@@ -30,7 +30,10 @@
   /* Each segment's colour comes from `language-bar` (one per language, swapped
      for its alternate when two in a bar would look alike). Each segment is
      taller than the colour it paints, so the hover target is easy to hit
-     without a thick bar. */
+     without a thick bar. The bar always holds its place along the row's foot
+     (absolutely positioned, so it never moves the row): when a project gains a
+     language its segments grow in from the left, and a share that changes
+     slides to its new width. */
   .language-bar {
     --bar-thickness: 4px;
 
@@ -43,6 +46,10 @@
     block-size: 8px;
 
     > span {
+      @starting-style {
+        scale: 0 1;
+      }
+
       flex-basis: 0;
       block-size: 100%;
       background:
@@ -51,6 +58,12 @@
           var(--language-color) 0 var(--bar-thickness),
           transparent var(--bar-thickness)
         );
+      transition: flex-grow 400ms var(--ease), scale 400ms var(--ease);
+      transform-origin: left;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
 
       &:hover {
         --bar-thickness: 100%;
