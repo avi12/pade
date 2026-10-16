@@ -182,7 +182,7 @@ export function realAgents(agents: readonly Agent[]) {
  *  encodes the target here and the Rust `window` module emits the same tokens.
  *  The one home for these literals so boot routing, the IPC protocol, and the
  *  New-window menu can't drift. */
-export const WindowMode = z.enum(["empty", "temp", "open"]);
+export const WindowMode = z.enum(["empty", "temp", "open", "dashboard"]);
 export type WindowMode = z.infer<typeof WindowMode>;
 
 /** Which way `window_focus_relative` steps through the open windows. */

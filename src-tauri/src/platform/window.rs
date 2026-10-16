@@ -30,6 +30,9 @@ const MINIMUM_WINDOW_WIDTH: f64 = 720.0;
 const MINIMUM_WINDOW_HEIGHT: f64 = 480.0;
 /// The label prefix of every spawned window (`w-1`, `w-2`, …).
 const SPAWNED_LABEL_PREFIX: &str = "w-";
+/// The agents dashboard's label. There is only ever one: asking for it again
+/// brings the open one up.
+const DASHBOARD_LABEL: &str = "dashboard";
 
 /// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and
 /// dark schemes. Painted as the webview background at window creation so a window
@@ -453,6 +456,7 @@ static NEXT_WINDOW_SEQUENCE: AtomicU32 = AtomicU32::new(1);
 enum LaunchMode<'path> {
     Empty,
     Temp,
+    Dashboard,
     Open(&'path str),
 }
 
@@ -465,8 +469,19 @@ impl<'path> LaunchMode<'path> {
         }
         match mode {
             "temp" => Self::Temp,
+            "dashboard" => Self::Dashboard,
             _ => Self::Empty,
         }
+    }
+
+    /// The label a window of this mode takes: the one fixed dashboard label, or
+    /// the next spawned `w-{n}`.
+    fn label(&self) -> String {
+        if matches!(self, Self::Dashboard) {
+            return DASHBOARD_LABEL.to_string();
+        }
+        let sequence = NEXT_WINDOW_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        format!("{SPAWNED_LABEL_PREFIX}{sequence}")
     }
 
     /// The query string the frontend router boots from.
@@ -474,6 +489,7 @@ impl<'path> LaunchMode<'path> {
         match self {
             Self::Empty => "w=empty".to_string(),
             Self::Temp => "w=temp".to_string(),
+            Self::Dashboard => "w=dashboard".to_string(),
             Self::Open(path) => {
                 format!("w=open&path={}", crate::util::percent_encode(path, b""))
             }
@@ -482,7 +498,8 @@ impl<'path> LaunchMode<'path> {
 }
 
 /// Spawn a new PADE window loading the app with a `w=` query describing what to
-/// boot into. `mode` is `"empty"` | `"temp"`; a present `path` opens that project.
+/// boot into. `mode` is `"empty"` | `"temp"` | `"dashboard"`; a present `path`
+/// opens that project. The dashboard is one window: asking again focuses it.
 ///
 /// **`async` is load-bearing on Windows.** Tauri runs a synchronous command *on the
 /// event loop thread*, and building a webview window blocks that thread waiting for
@@ -498,9 +515,13 @@ pub async fn window_create(
     mode: String,
     path: Option<String>,
 ) -> Result<(), String> {
-    let query = LaunchMode::resolve(&mode, path.as_deref()).query();
-    let sequence = NEXT_WINDOW_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let label = format!("{SPAWNED_LABEL_PREFIX}{sequence}");
+    let launch = LaunchMode::resolve(&mode, path.as_deref());
+    let label = launch.label();
+    if let Some(open) = app.get_webview_window(&label) {
+        bring_to_front(&open);
+        return Ok(());
+    }
+    let query = launch.query();
     let url = WebviewUrl::App(format!("index.html?{query}").into());
     let main_look = app
         .get_webview_window(MAIN_WINDOW_LABEL)
@@ -582,5 +603,13 @@ mod tests {
             LaunchMode::resolve("temp", Some(r"C:\my project")).query(),
             "w=open&path=C%3A%5Cmy%20project"
         );
+    }
+
+    #[test]
+    fn the_dashboard_always_takes_its_one_label() {
+        let dashboard = LaunchMode::resolve("dashboard", None);
+        assert_eq!(dashboard.query(), "w=dashboard");
+        assert_eq!(dashboard.label(), dashboard.label());
+        assert!(LaunchMode::resolve("empty", None).label().starts_with("w-"));
     }
 }
