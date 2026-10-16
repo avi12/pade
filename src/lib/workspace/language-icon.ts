@@ -55,3 +55,30 @@ export function languageIcon(kind: string) {
 
   return kind === TYPESCRIPT_KEY ? TYPESCRIPT_ICON : FALLBACK_ICON;
 }
+
+/** Each Linguist language's logo, keyed by the names `ide_project_languages`
+ *  reports. SCSS wears the CSS mark. */
+const LANGUAGE_ICONS: Record<string, IconName> = {
+  TypeScript: "typescript",
+  JavaScript: "javascript",
+  Svelte: "svelte",
+  Vue: "vue",
+  HTML: "html",
+  CSS: "css",
+  SCSS: "css",
+  Python: "python",
+  PHP: "php",
+  Ruby: "ruby",
+  Go: "go",
+  Rust: "rust",
+  Java: "java",
+  Kotlin: "kotlin",
+  C: "c",
+  "C++": "cplusplus",
+  "C#": "csharp"
+};
+
+/** A language's own logo, else the generic code glyph. */
+export function languageIconOf(language: string) {
+  return LANGUAGE_ICONS[language] ?? FALLBACK_ICON;
+}

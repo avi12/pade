@@ -1,4 +1,4 @@
-import { languageIcon, ProjectKind } from "@/lib/workspace/language-icon";
+import { languageIcon, languageIconOf, ProjectKind } from "@/lib/workspace/language-icon";
 import { describe, expect, it } from "vitest";
 
 describe("languageIcon", () => {
@@ -22,5 +22,13 @@ describe("languageIcon", () => {
   it("falls back to the generic code glyph for an unknown kind", () => {
     expect(languageIcon("cobol")).toBe("code");
     expect(languageIcon("")).toBe("code");
+  });
+});
+
+describe("languageIconOf", () => {
+  it("maps a counted language to its own logo, and an unknown one to the code glyph", () => {
+    expect(languageIconOf("Kotlin")).toBe("kotlin");
+    expect(languageIconOf("SCSS")).toBe("css");
+    expect(languageIconOf("Zig")).toBe("code");
   });
 });
