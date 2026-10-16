@@ -210,6 +210,7 @@ pub fn run() {
             usage::limit_reset::limit_reset_claim,
             agents::naming::project_autoname,
             agents::naming::session_generate_name,
+            agents::summary::session_summarize,
             workspace::launch_context,
             workspace::settings_get,
             workspace::workspace_add_root,

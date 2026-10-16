@@ -122,7 +122,7 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
 /// the raw stream is the same frame repeated - keeping each trimmed line once
 /// removes that repaint amplification (the static chrome and the spinner appear
 /// a single time) and leaves the variety of what was actually said.
-fn readable_transcript(transcript: &str) -> String {
+pub(crate) fn readable_transcript(transcript: &str) -> String {
     let mut seen = std::collections::HashSet::new();
     let mut lines = Vec::new();
     for line in transcript.lines() {
@@ -139,7 +139,7 @@ fn readable_transcript(transcript: &str) -> String {
 
 /// The trailing `maximum_length` bytes of `text`, snapped to a char boundary - most recent
 /// context matters most and keeps the prompt bounded.
-fn tail(text: &str, maximum_length: usize) -> &str {
+pub(crate) fn tail(text: &str, maximum_length: usize) -> &str {
     if text.len() <= maximum_length {
         return text;
     }
@@ -321,13 +321,23 @@ fn run_agent_prompt(
     cwd: Option<&Path>,
     prompt: String,
 ) -> Option<String> {
+    extract_name(&run_agent_reply(command, arguments, cwd, prompt)?)
+}
+
+/// Run an agent CLI headless and return its whole reply - the invoke step every
+/// one-shot prompt shares, before each caller pulls out what it asked for.
+pub(crate) fn run_agent_reply(
+    command: &Path,
+    arguments: &[&str],
+    cwd: Option<&Path>,
+    prompt: String,
+) -> Option<String> {
     let mut process = crate::util::command(command);
     if let Some(directory) = cwd {
         process.current_dir(directory);
     }
     process.args(arguments).arg(prompt);
-    let output = run_capture(process, NAME_TIMEOUT)?;
-    extract_name(&output)
+    run_capture(process, NAME_TIMEOUT)
 }
 
 /// Run `command`, capturing stdout and killing it after `timeout`. stdin is

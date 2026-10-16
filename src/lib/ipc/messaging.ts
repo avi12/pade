@@ -76,6 +76,7 @@ export enum Command {
   agentRunningModel = "agent_running_model",
   projectAutoname = "project_autoname",
   sessionGenerateName = "session_generate_name",
+  sessionSummarize = "session_summarize",
   ideDetect = "ide_detect",
   ideSuggest = "ide_suggest",
   ideChooseEditor = "ide_choose_editor",
@@ -274,6 +275,12 @@ export interface CommandProtocolMap {
   /** A concise session name from its transcript (null until there's enough
    *  conversation, or if nothing usable is produced). */
   [Command.sessionGenerateName]: (data: {
+    id: string;
+    agent: string;
+  }) => string | null;
+  /** A sentence or two on what the session has done and is doing now, from its
+   *  transcript, for the agents dashboard (null until there's enough). */
+  [Command.sessionSummarize]: (data: {
     id: string;
     agent: string;
   }) => string | null;
@@ -637,6 +644,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.agentRunningModel]: RunningModel.nullable(),
   [Command.projectAutoname]: z.string().nullable(),
   [Command.sessionGenerateName]: z.string().nullable(),
+  [Command.sessionSummarize]: z.string().nullable(),
   [Command.ideDetect]: z.array(Ide),
   [Command.ideSuggest]: z.array(Ide),
   [Command.ideChooseEditor]: Settings,

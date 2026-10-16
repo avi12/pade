@@ -14,6 +14,7 @@ pub(crate) mod naming;
 pub(crate) mod resume;
 pub(crate) mod running_model;
 pub(crate) mod session_context;
+pub(crate) mod summary;
 
 use std::path::PathBuf;
 

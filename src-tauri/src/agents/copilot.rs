@@ -159,7 +159,7 @@ fn arm_read_timeout(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>) {
 
 /// Run one anonymous guest chat turn and return the assembled reply text. `None`
 /// on any failure (offline, region/consent gate, Turnstile, malformed frames).
-fn run_chat(prompt: &str) -> Option<String> {
+pub(crate) fn run_chat(prompt: &str) -> Option<String> {
     let cookie = start_guest_session()?;
 
     let url = format!("{CHAT_URL}&clientSessionId={}", uuid::Uuid::new_v4());
