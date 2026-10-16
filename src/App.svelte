@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { publishToBoard } from "@/lib/dashboard/boardPublisher.svelte";
   import { Command, sendMessage } from "@/lib/ipc/messaging";
   import { onWindowCloseRequested } from "@/lib/ipc/platform";
   import { EmptyWorkspaceOutcome, emptyWorkspaceOutcome } from "@/lib/session/session-exit";
@@ -141,6 +142,13 @@
     windowSessions,
     repository,
     isWindowFocused: () => isWindowFocused
+  });
+
+  // Keep the agents dashboard (lib/dashboard) up to date with this window's agents.
+  publishToBoard({
+    project: () => currentProject,
+    projectLabel: () => projectLabel,
+    windowSessions
   });
 
   // Agent detection runs a subprocess per agent, so cap how long the boot waits
