@@ -1,5 +1,7 @@
 <script lang="ts">
   import { observeProjectLanguages, projectLanguageShares } from "@/lib/stores/workspace/projectLanguages.svelte";
+  import type { LanguageShare } from "@/lib/types";
+  import { tooltip } from "@/lib/ui/truncation-tooltip";
   import { isLanguageMix, languageShareText, segmentColors } from "@/lib/workspace/language-bar";
 
   // A project row's GitHub-style language bar: a slim bar along the row's foot,
@@ -12,6 +14,13 @@
 
   const shares = $derived(projectLanguageShares(path) ?? []);
   const colors = $derived(segmentColors(shares));
+
+  // The shared top-layer bubble, not a `data-tooltip` pseudo: a project row
+  // contains its own painting (content-visibility), which would clip a bubble
+  // that opens below the row.
+  function segmentTooltip(share: LanguageShare) {
+    return tooltip(languageShareText(share));
+  }
 </script>
 
 <span class="language-bar" {@attach observeProjectLanguages({ path })}>
@@ -20,7 +29,7 @@
       <span
         style:flex-grow={share.perMille}
         style:--language-color={colors[i]}
-        data-tooltip={languageShareText(share)}
+        {@attach segmentTooltip(share)}
       ></span>
     {/each}
   {/if}
