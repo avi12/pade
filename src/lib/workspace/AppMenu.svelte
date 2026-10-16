@@ -2,6 +2,7 @@
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
   import { invalidateProjectBranches } from "@/lib/stores/workspace/projectBranches.svelte";
   import { revalidateProjectKinds } from "@/lib/stores/workspace/projectKinds.svelte";
+  import { revalidateProjectLanguages } from "@/lib/stores/workspace/projectLanguages.svelte";
   import { WindowMode } from "@/lib/types";
   import type { AddRootOutcome, WindowInfo } from "@/lib/types";
   import { Key } from "@/lib/ui/keys";
@@ -289,6 +290,7 @@
         focusFilter();
         invalidateProjectBranches();
         revalidateProjectKinds();
+        revalidateProjectLanguages();
         await loadOpenWindows();
       }
     }}

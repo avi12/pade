@@ -1490,7 +1490,7 @@ const PER_MILLE: u64 = 1000;
 /// One language's share of a project's source, for the switcher's GitHub-style
 /// language bar. `perMille` is of the languages shown, so the bar's segments
 /// always fill it.
-#[derive(Serialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LanguageShare {
     /// The Linguist name - the bar's label and colour key.
@@ -1510,14 +1510,49 @@ pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<L
         paths
             .into_iter()
             .filter_map(|path| {
-                let shares =
-                    language_shares(&source_profile(std::path::Path::new(&path)).languages);
+                let shares = cached_language_shares(&path);
                 (!shares.is_empty()).then_some((path, shares))
             })
             .collect()
     })
     .await
     .unwrap_or_default()
+}
+
+/// A project's counted shares, kept against the moment its git index last
+/// changed - the tracked set the census counts can't move without it.
+type CountedShares = (std::time::SystemTime, Vec<LanguageShare>);
+static LANGUAGE_CACHE: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, CountedShares>>,
+> = std::sync::LazyLock::new(Default::default);
+
+/// When a project's git index last changed, or `None` outside a git checkout.
+fn index_modified(project: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(project.join(".git").join("index"))
+        .and_then(|metadata| metadata.modified())
+        .ok()
+}
+
+/// A project's language shares, counted again only when its git index changed
+/// since the last count - so re-checking every row each time the switcher opens
+/// costs one `stat` per unchanged project. A folder outside git is always counted.
+fn cached_language_shares(path: &str) -> Vec<LanguageShare> {
+    let project = std::path::Path::new(path);
+    let modified = index_modified(project);
+    let cached = modified.and_then(|stamp| {
+        let cache = LANGUAGE_CACHE.lock().ok()?;
+        let (counted_at, shares) = cache.get(path)?;
+        (*counted_at == stamp).then(|| shares.clone())
+    });
+    if let Some(shares) = cached {
+        return shares;
+    }
+
+    let shares = language_shares(&source_profile(project).languages);
+    if let (Some(stamp), Ok(mut cache)) = (modified, LANGUAGE_CACHE.lock()) {
+        cache.insert(path.to_string(), (stamp, shares.clone()));
+    }
+    shares
 }
 
 /// Turn per-language source bytes into the bar's shares: languages under

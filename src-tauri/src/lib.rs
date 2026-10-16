@@ -176,6 +176,7 @@ pub fn run() {
             workspace::watcher::watch_start,
             workspace::watcher::watch_status,
             workspace::watcher::watch_dirs,
+            workspace::watcher::watch_languages,
             workspace::watcher::feed_diff,
             workspace::watcher::feed_image,
             workspace::watcher::feed_text,

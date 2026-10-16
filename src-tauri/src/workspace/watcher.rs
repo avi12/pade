@@ -132,6 +132,16 @@ pub struct WatcherState {
     /// window has its own picker, watching its own folders, and its
     /// appearance/disappearance events route back only to it.
     directory_watchers: Mutex<HashMap<String, RecommendedWatcher>>,
+    /// The switcher's language watch - see `watch_languages`. Per window, like
+    /// the picker's: each open switcher watches the rows it shows.
+    language_watchers: Mutex<HashMap<String, LanguageWatch>>,
+}
+
+/// One window's watch on the `.git` folders of the project rows it shows, with
+/// the folders it holds open so a rename or delete can let go of them first.
+struct LanguageWatch {
+    _watcher: RecommendedWatcher,
+    git_directories: Vec<PathBuf>,
 }
 
 /// This window's watch bookkeeping, created empty on first use. `None` only when
@@ -168,6 +178,17 @@ pub fn release_watches_under(app: &AppHandle, folder: &Path) {
             *git_state = None;
         }
     }
+    // A switcher watching a row inside the folder holds its `.git` open too; it
+    // re-arms the next time its rows change.
+    let Ok(mut language_watchers) = state.language_watchers.lock() else {
+        return;
+    };
+    language_watchers.retain(|_, watch| {
+        !watch
+            .git_directories
+            .iter()
+            .any(|directory| directory.starts_with(&folder))
+    });
 }
 
 /// The canonical filesystem target this window's active watcher was armed on.
@@ -193,6 +214,9 @@ fn prune_closed_windows(app: &AppHandle, state: &WatcherState) {
     }
     if let Ok(mut directory_watchers) = state.directory_watchers.lock() {
         directory_watchers.retain(|label, _| live.contains(label));
+    }
+    if let Ok(mut language_watchers) = state.language_watchers.lock() {
+        language_watchers.retain(|label, _| live.contains(label));
     }
 }
 
@@ -1332,6 +1356,88 @@ pub async fn watch_dirs(
     guard.insert(label, watcher);
     Ok(())
 }
+
+/// Announces that a watched project row's tracked files changed, so its
+/// languages may have. The payload is the project path, as the switcher sent it.
+const LANGUAGES_CHANGED_EVENT: &str = "languages://changed";
+
+/// The `.git` folder of a project that has one as a directory (a linked
+/// worktree's `.git` is a file and sits this watch out).
+fn git_directory_of(project: &Path) -> Option<PathBuf> {
+    let directory = project.join(".git");
+    let canonical = std::fs::canonicalize(&directory).ok()?;
+    canonical.is_dir().then_some(canonical)
+}
+
+/// Watch the `.git` folder of each project row the switcher shows (only those
+/// on screen, only while it is open) and report a row whose index or `HEAD`
+/// moved - a staged, committed or checked-out change to its tracked files, the
+/// set its language bar counts. Non-recursive, one folder per row, so it costs
+/// next to nothing; the census itself runs only when the frontend asks.
+/// Re-arming replaces the previous set; an empty list drops the watch.
+#[tauri::command]
+pub async fn watch_languages(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, WatcherState>,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    let label = window.label().to_string();
+    prune_closed_windows(&app, &state);
+    let mut guard = state
+        .language_watchers
+        .lock()
+        .map_err(|error| error.to_string())?;
+    guard.remove(&label);
+    let projects: Vec<(PathBuf, String)> = paths
+        .into_iter()
+        .filter_map(|path| Some((git_directory_of(Path::new(&path))?, path)))
+        .collect();
+    if projects.is_empty() {
+        return Ok(());
+    }
+
+    let routes: HashMap<PathBuf, String> = projects.iter().cloned().collect();
+    let app_handle = app.clone();
+    let callback_label = label.clone();
+    let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
+        let Ok(event) = result else { return };
+        let touched = event.paths.iter().find_map(|path| {
+            let is_tracked_set = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| GIT_TRACKED_SET_FILES.contains(&name));
+            if !is_tracked_set {
+                return None;
+            }
+            routes.get(path.parent()?)
+        });
+        if let Some(project) = touched {
+            let _ = app_handle.emit_to(&callback_label, LANGUAGES_CHANGED_EVENT, project);
+        }
+    })
+    .map_err(|error| error.to_string())?;
+
+    for (directory, _) in &projects {
+        let _ = watcher.watch(directory, RecursiveMode::NonRecursive);
+    }
+
+    guard.insert(
+        label,
+        LanguageWatch {
+            _watcher: watcher,
+            git_directories: projects
+                .into_iter()
+                .map(|(directory, _)| directory)
+                .collect(),
+        },
+    );
+    Ok(())
+}
+
+/// The `.git` files whose change means the tracked set (or what is checked
+/// out) moved: the index on a stage or commit, `HEAD` on a checkout.
+const GIT_TRACKED_SET_FILES: &[&str] = &["index", "HEAD"];
 
 fn handle_event(app: &AppHandle, label: &str, event: Event) {
     let Some(kind) = ChangeKind::from_event(event.kind) else {

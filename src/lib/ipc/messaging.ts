@@ -122,6 +122,7 @@ export enum Command {
   watchStart = "watch_start",
   watchStatus = "watch_status",
   watchDirs = "watch_dirs",
+  watchLanguages = "watch_languages",
   feedDiff = "feed_diff",
   feedImage = "feed_image",
   feedVideo = "feed_video",
@@ -197,6 +198,7 @@ export enum EventType {
   feedIgnoreChanged = "feed://ignore-changed",
   mcpChanged = "mcp://changed",
   directoriesChanged = "directories://changed",
+  languagesChanged = "languages://changed",
   gitState = "git://state",
   runnerData = "runner://data",
   runnerExit = "runner://exit",
@@ -418,6 +420,9 @@ export interface CommandProtocolMap {
   [Command.watchStatus]: () => WatchStatus;
   /** Arm the picker's folder watcher on the parents of the rows on the page. */
   [Command.watchDirs]: (data: { dirs: string[] }) => void;
+  /** Watch the `.git` folders of the project rows on screen, so a row whose
+   *  tracked files change re-counts its languages; an empty list stops. */
+  [Command.watchLanguages]: (data: { paths: string[] }) => void;
   /** The card's git-free preview: the first-touch baseline vs current content. */
   [Command.feedDiff]: (data: PathData) => FeedDiff | null;
   /** An image path's current bytes as a `data:` URL, `null` past the size cap. */
@@ -620,6 +625,8 @@ interface EventProtocolMap {
   /** A picker-watched folder gained or lost a child (a project created or
    *  deleted outside PADE). */
   [EventType.directoriesChanged]: (data: null) => void;
+  /** A watched project row's tracked files changed - its path, as sent. */
+  [EventType.languagesChanged]: (data: string) => void;
   /** The workspace's live git state changed (HEAD, config, `git init`).
    *  Payload-free on purpose: listeners re-fetch what they display. */
   [EventType.gitState]: (data: null) => void;
@@ -694,6 +701,7 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.watchStart]: NO_REPLY,
   [Command.watchStatus]: WatchStatus,
   [Command.watchDirs]: NO_REPLY,
+  [Command.watchLanguages]: NO_REPLY,
   [Command.feedDiff]: FeedDiff.nullable(),
   [Command.feedImage]: FeedImage.nullable(),
   [Command.feedVideo]: FeedVideo.nullable(),
@@ -766,6 +774,7 @@ const EVENT_PAYLOAD_SCHEMAS = {
   [EventType.feedIgnoreChanged]: z.null(),
   [EventType.mcpChanged]: McpChange,
   [EventType.directoriesChanged]: z.null(),
+  [EventType.languagesChanged]: z.string(),
   [EventType.gitState]: z.null(),
   [EventType.runnerData]: RunnerData,
   [EventType.runnerExit]: RunnerExit,

@@ -13,11 +13,14 @@ import { SvelteMap } from "svelte/reactivity";
 export const PROJECT_ROW_CACHE_LIMIT = 256;
 
 /** One lazily-loaded, visibility-driven lookup keyed by project path. */
-export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
+export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePathsChange }: {
   /** Resolve a batch of paths; a path missing from the result is probed empty. */
   load: (paths: string[]) => Promise<Record<string, Value>>;
   /** Oldest entries are evicted beyond this many cached paths. */
   cacheLimit: number;
+  /** Told the paths on screen whenever a row enters or leaves the screen - for
+   *  a lookup that keeps a live watch on exactly those rows. */
+  onVisiblePathsChange?: (paths: string[]) => void;
 }) {
   const values = new SvelteMap<string, Value | null>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- request bookkeeping, never rendered
@@ -135,6 +138,11 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit }: {
       visibleCounts.delete(key);
     } else {
       visibleCounts.set(key, next);
+    }
+
+    const isOnScreenChange = (count === 0) !== (next === 0);
+    if (isOnScreenChange) {
+      onVisiblePathsChange?.([...visibleCounts.keys()].map(visibleKey => originalPaths.get(visibleKey) ?? visibleKey));
     }
   }
 
