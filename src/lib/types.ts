@@ -279,8 +279,10 @@ export type EditorKind = z.infer<typeof EditorKind>;
  *  the switcher rows' GitHub-style language bar. Shares are of the languages
  *  shown, so they fill the bar. */
 export const LanguageShare = z.object({
+  /** The GitHub Linguist name - the bar's label and colour key. */
+  language: z.string(),
+  /** Its family, for a project row's icon. */
   kind: z.string(),
-  label: z.string(),
   perMille: z.number().int().min(0).max(1000)
 });
 export type LanguageShare = z.infer<typeof LanguageShare>;

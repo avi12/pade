@@ -47,30 +47,6 @@ impl ProjectKind {
         }
     }
 
-    fn from_extension(extension: &str) -> Option<Self> {
-        KIND_REGISTRY
-            .iter()
-            .find(|definition| {
-                definition
-                    .extensions
-                    .iter()
-                    .any(|known| known.eq_ignore_ascii_case(extension))
-            })
-            .map(|definition| definition.kind)
-    }
-
-    fn from_linguist_language(language: &str) -> Option<Self> {
-        KIND_REGISTRY
-            .iter()
-            .find(|definition| {
-                definition
-                    .linguist_languages
-                    .iter()
-                    .any(|known| known.eq_ignore_ascii_case(language))
-            })
-            .map(|definition| definition.kind)
-    }
-
     /// Whether source of `kind` is native to this declared project ecosystem.
     /// Android is a platform declaration whose implementation language is
     /// represented by the Java/Kotlin family; every language kind owns itself.
@@ -312,19 +288,132 @@ impl Marker {
     }
 }
 
-/// One source-language family PADE recognises. A single row is the authoritative
-/// mapping from project markers, filename extensions, and GitHub Linguist names
-/// to one project kind. Editor support lives separately in [`REGISTRY`], so
-/// adding a language never requires preference-list tuning.
+/// One source-language family PADE recognises: the project markers that declare
+/// it. Its languages live in [`LANGUAGE_REGISTRY`]. Editor support lives
+/// separately in [`REGISTRY`], so adding a language never requires
+/// preference-list tuning.
 struct KindDefinition {
     kind: ProjectKind,
     label: &'static str,
     markers: &'static [Marker],
-    /// Filename extensions whose language classification is unambiguous in the
-    /// PADE-supported set. Ambiguous extensions deliberately sit out.
+}
+
+/// One language as GitHub Linguist names it, the family it belongs to, and the
+/// filename extensions whose classification is unambiguous in the PADE-supported
+/// set (ambiguous ones deliberately sit out). The single home for
+/// extension → language → kind; the language bar reads languages, editor
+/// coverage reads their kinds.
+#[derive(Debug)]
+struct LanguageDefinition {
+    /// The Linguist name, also accepted by the `linguist-language` Git attribute.
+    name: &'static str,
+    kind: ProjectKind,
     extensions: &'static [&'static str],
-    /// Canonical names accepted by the `linguist-language` Git attribute.
-    linguist_languages: &'static [&'static str],
+}
+
+const LANGUAGE_REGISTRY: &[LanguageDefinition] = &[
+    LanguageDefinition {
+        name: "TypeScript",
+        kind: ProjectKind::Web,
+        extensions: &["ts", "tsx", "mts", "cts"],
+    },
+    LanguageDefinition {
+        name: "JavaScript",
+        kind: ProjectKind::Web,
+        extensions: &["js", "jsx", "mjs", "cjs"],
+    },
+    LanguageDefinition {
+        name: "Svelte",
+        kind: ProjectKind::Web,
+        extensions: &["svelte"],
+    },
+    LanguageDefinition {
+        name: "Vue",
+        kind: ProjectKind::Web,
+        extensions: &["vue"],
+    },
+    LanguageDefinition {
+        name: "HTML",
+        kind: ProjectKind::Web,
+        extensions: &["html"],
+    },
+    LanguageDefinition {
+        name: "CSS",
+        kind: ProjectKind::Web,
+        extensions: &["css"],
+    },
+    LanguageDefinition {
+        name: "SCSS",
+        kind: ProjectKind::Web,
+        extensions: &["scss"],
+    },
+    LanguageDefinition {
+        name: "Python",
+        kind: ProjectKind::Python,
+        extensions: &["py"],
+    },
+    LanguageDefinition {
+        name: "PHP",
+        kind: ProjectKind::Php,
+        extensions: &["php"],
+    },
+    LanguageDefinition {
+        name: "Ruby",
+        kind: ProjectKind::Ruby,
+        extensions: &["rb"],
+    },
+    LanguageDefinition {
+        name: "Go",
+        kind: ProjectKind::Go,
+        extensions: &["go"],
+    },
+    LanguageDefinition {
+        name: "Rust",
+        kind: ProjectKind::Rust,
+        extensions: &["rs"],
+    },
+    LanguageDefinition {
+        name: "Java",
+        kind: ProjectKind::Java,
+        extensions: &["java"],
+    },
+    LanguageDefinition {
+        name: "Kotlin",
+        kind: ProjectKind::Java,
+        extensions: &["kt"],
+    },
+    LanguageDefinition {
+        name: "C",
+        kind: ProjectKind::Cpp,
+        extensions: &["c", "h"],
+    },
+    LanguageDefinition {
+        name: "C++",
+        kind: ProjectKind::Cpp,
+        extensions: &["cc", "cpp", "hpp"],
+    },
+    LanguageDefinition {
+        name: "C#",
+        kind: ProjectKind::Dotnet,
+        extensions: &["cs"],
+    },
+];
+
+/// The language a filename extension unambiguously names.
+fn language_of_extension(extension: &str) -> Option<&'static LanguageDefinition> {
+    LANGUAGE_REGISTRY.iter().find(|language| {
+        language
+            .extensions
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(extension))
+    })
+}
+
+/// The language a `linguist-language` attribute names.
+fn language_named(name: &str) -> Option<&'static LanguageDefinition> {
+    LANGUAGE_REGISTRY
+        .iter()
+        .find(|language| language.name.eq_ignore_ascii_case(name))
 }
 
 const KIND_REGISTRY: &[KindDefinition] = &[
@@ -339,8 +428,6 @@ const KIND_REGISTRY: &[KindDefinition] = &[
             Marker::Named("settings.gradle"),
             Marker::Named("settings.gradle.kts"),
         ],
-        extensions: &[],
-        linguist_languages: &[],
     },
     KindDefinition {
         kind: ProjectKind::Web,
@@ -351,18 +438,6 @@ const KIND_REGISTRY: &[KindDefinition] = &[
             Marker::Named("index.html"),
             Marker::JsonKey("manifest.json", "manifest_version"),
         ],
-        extensions: &[
-            "ts", "tsx", "js", "jsx", "mjs", "svelte", "vue", "html", "css", "scss",
-        ],
-        linguist_languages: &[
-            "JavaScript",
-            "TypeScript",
-            "Svelte",
-            "Vue",
-            "HTML",
-            "CSS",
-            "SCSS",
-        ],
     },
     KindDefinition {
         kind: ProjectKind::Python,
@@ -372,36 +447,26 @@ const KIND_REGISTRY: &[KindDefinition] = &[
             Marker::Named("requirements.txt"),
             Marker::Named("setup.py"),
         ],
-        extensions: &["py"],
-        linguist_languages: &["Python"],
     },
     KindDefinition {
         kind: ProjectKind::Php,
         label: "PHP",
         markers: &[Marker::Named("composer.json")],
-        extensions: &["php"],
-        linguist_languages: &["PHP"],
     },
     KindDefinition {
         kind: ProjectKind::Ruby,
         label: "Ruby",
         markers: &[Marker::Named("Gemfile")],
-        extensions: &["rb"],
-        linguist_languages: &["Ruby"],
     },
     KindDefinition {
         kind: ProjectKind::Go,
         label: "Go",
         markers: &[Marker::Named("go.mod")],
-        extensions: &["go"],
-        linguist_languages: &["Go"],
     },
     KindDefinition {
         kind: ProjectKind::Rust,
         label: "Rust",
         markers: &[Marker::Named("Cargo.toml")],
-        extensions: &["rs"],
-        linguist_languages: &["Rust"],
     },
     KindDefinition {
         kind: ProjectKind::Java,
@@ -411,8 +476,6 @@ const KIND_REGISTRY: &[KindDefinition] = &[
             Marker::Named("build.gradle"),
             Marker::Named("build.gradle.kts"),
         ],
-        extensions: &["java", "kt"],
-        linguist_languages: &["Java", "Kotlin"],
     },
     // C/C++ before .NET: a Visual C++ solution also carries a .sln, and marker
     // files can't reliably separate C from C++, so one "cpp" kind covers both.
@@ -424,8 +487,6 @@ const KIND_REGISTRY: &[KindDefinition] = &[
             Marker::Named("meson.build"),
             Marker::Extension("vcxproj"),
         ],
-        extensions: &["c", "cc", "cpp", "h", "hpp"],
-        linguist_languages: &["C", "C++"],
     },
     KindDefinition {
         kind: ProjectKind::Dotnet,
@@ -436,8 +497,6 @@ const KIND_REGISTRY: &[KindDefinition] = &[
             Marker::Extension("slnx"),
             Marker::Extension("csproj"),
         ],
-        extensions: &["cs"],
-        linguist_languages: &["C#"],
     },
 ];
 
@@ -472,7 +531,7 @@ const LINGUIST_ATTRIBUTES: &[&str] = &[
 /// file. `None` means the corresponding attribute was unspecified.
 #[derive(Default)]
 struct LinguistAttributes {
-    language: Option<ProjectKind>,
+    language: Option<&'static LanguageDefinition>,
     generated: Option<bool>,
     vendored: Option<bool>,
     documentation: Option<bool>,
@@ -498,7 +557,7 @@ impl LinguistAttributes {
             LINGUIST_VENDORED => self.vendored = boolean,
             LINGUIST_DOCUMENTATION => self.documentation = boolean,
             LINGUIST_DETECTABLE => self.detectable = boolean,
-            LINGUIST_LANGUAGE => self.language = ProjectKind::from_linguist_language(value),
+            LINGUIST_LANGUAGE => self.language = language_named(value),
             _ => {}
         }
     }
@@ -520,20 +579,25 @@ struct SourceContent {
 struct SourceFileEvidence {
     path: std::path::PathBuf,
     kind: ProjectKind,
+    /// The Linguist language within the kind, for the language bar.
+    language: &'static str,
     bytes: u64,
 }
 
 /// Both aggregate language weights and the file-level evidence behind them.
-/// Ranking consumes the totals; project-shape analysis consumes the locations.
+/// Ranking consumes the per-kind totals, the language bar the per-language
+/// ones; project-shape analysis consumes the locations.
 #[derive(Default)]
 struct SourceProfile {
     totals: BTreeMap<ProjectKind, u64>,
+    languages: BTreeMap<&'static str, u64>,
     files: Vec<SourceFileEvidence>,
 }
 
 impl SourceProfile {
     fn record(&mut self, file: SourceFileEvidence) {
         *self.totals.entry(file.kind).or_insert(0) += file.bytes;
+        *self.languages.entry(file.language).or_insert(0) += file.bytes;
         self.files.push(file);
     }
 }
@@ -588,14 +652,15 @@ fn source_file_evidence(
     if content.binary || is_generated {
         return None;
     }
-    let kind = attributes.language.or_else(|| {
+    let language = attributes.language.or_else(|| {
         path.extension()
             .and_then(|value| value.to_str())
-            .and_then(ProjectKind::from_extension)
+            .and_then(language_of_extension)
     })?;
     Some(SourceFileEvidence {
         path: path.to_path_buf(),
-        kind,
+        kind: language.kind,
+        language: language.name,
         bytes: content.bytes,
     })
 }
@@ -1428,8 +1493,10 @@ const PER_MILLE: u64 = 1000;
 #[derive(Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LanguageShare {
+    /// The Linguist name - the bar's label and colour key.
+    language: String,
+    /// Its family, for a project row's icon.
     kind: String,
-    label: String,
     per_mille: u64,
 }
 
@@ -1443,7 +1510,8 @@ pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<L
         paths
             .into_iter()
             .filter_map(|path| {
-                let shares = language_shares(&source_profile(std::path::Path::new(&path)).totals);
+                let shares =
+                    language_shares(&source_profile(std::path::Path::new(&path)).languages);
                 (!shares.is_empty()).then_some((path, shares))
             })
             .collect()
@@ -1452,33 +1520,30 @@ pub async fn ide_project_languages(paths: Vec<String>) -> BTreeMap<String, Vec<L
     .unwrap_or_default()
 }
 
-/// Turn per-kind source bytes into the bar's shares: languages under
+/// Turn per-language source bytes into the bar's shares: languages under
 /// [`MINIMUM_LANGUAGE_PER_MILLE`] dropped, the rest re-shared among themselves
 /// and ordered biggest first.
-fn language_shares(totals: &BTreeMap<ProjectKind, u64>) -> Vec<LanguageShare> {
+fn language_shares(totals: &BTreeMap<&'static str, u64>) -> Vec<LanguageShare> {
     let total: u64 = totals.values().sum();
     if total == 0 {
         return Vec::new();
     }
 
-    let mut kept: Vec<(ProjectKind, u64)> = totals
+    let mut kept: Vec<(&'static str, u64)> = totals
         .iter()
         .filter(|(_, bytes)| **bytes * PER_MILLE / total >= MINIMUM_LANGUAGE_PER_MILLE)
-        .map(|(kind, bytes)| (*kind, *bytes))
+        .map(|(language, bytes)| (*language, *bytes))
         .collect();
     kept.sort_by_key(|(_, bytes)| Reverse(*bytes));
     let kept_total: u64 = kept.iter().map(|(_, bytes)| bytes).sum();
     kept.into_iter()
-        .map(|(kind, bytes)| LanguageShare {
-            kind: kind.as_str().to_string(),
-            label: KIND_REGISTRY
-                .iter()
-                .find(|definition| definition.kind == kind)
-                .map_or_else(
-                    || kind.as_str().to_string(),
-                    |definition| definition.label.to_string(),
-                ),
-            per_mille: bytes * PER_MILLE / kept_total,
+        .filter_map(|(name, bytes)| {
+            let language = language_named(name)?;
+            Some(LanguageShare {
+                language: language.name.to_string(),
+                kind: language.kind.as_str().to_string(),
+                per_mille: bytes * PER_MILLE / kept_total,
+            })
         })
         .collect()
 }
@@ -1755,6 +1820,7 @@ mod tests {
         SourceFileEvidence {
             path: std::path::PathBuf::from(path),
             kind,
+            language: kind.as_str(),
             bytes,
         }
     }
@@ -1986,21 +2052,23 @@ mod tests {
     #[test]
     fn language_shares_drop_slivers_and_fill_the_bar_biggest_first() {
         let totals = std::collections::BTreeMap::from([
-            (ProjectKind::Python, 310),
-            (ProjectKind::Web, 480),
-            (ProjectKind::Dotnet, 200),
-            (ProjectKind::Rust, 10),
+            ("Python", 310),
+            ("TypeScript", 300),
+            ("Svelte", 180),
+            ("C#", 200),
+            ("Rust", 10),
         ]);
-        let shares: Vec<(String, u64)> = language_shares(&totals)
+        let shares: Vec<(String, String, u64)> = language_shares(&totals)
             .into_iter()
-            .map(|share| (share.kind, share.per_mille))
+            .map(|share| (share.language, share.kind, share.per_mille))
             .collect();
         assert_eq!(
             shares,
             [
-                ("web".to_string(), 484),
-                ("python".to_string(), 313),
-                ("dotnet".to_string(), 202)
+                ("Python".to_string(), "python".to_string(), 313),
+                ("TypeScript".to_string(), "web".to_string(), 303),
+                ("C#".to_string(), "dotnet".to_string(), 202),
+                ("Svelte".to_string(), "web".to_string(), 181)
             ]
         );
         assert_eq!(language_shares(&std::collections::BTreeMap::new()), []);
