@@ -8,6 +8,7 @@
   import { arrowFocus } from "@/lib/ui/roving-menu";
   import { ToggleState } from "@/lib/ui/toggle-state";
   import { normalizePath } from "@/lib/util/paths";
+  import { otherWindowWith } from "@/lib/workspace/open-windows";
   import SaveWorkspaceCard from "@/lib/workspace/SaveWorkspaceCard.svelte";
   import { runListTransition } from "@/lib/workspace/switcher/list-transition";
   import OpenWindowList from "@/lib/workspace/switcher/OpenWindowList.svelte";
@@ -151,6 +152,21 @@
     } catch {
     // Keep the last-known rows; the next open or change event retries.
     }
+  }
+
+  /** Bring up the window that already has this project open, the way its row in
+   *  the open-windows list does. False when no other window has it. */
+  async function focusWindowWith(project: string) {
+    const openWindow = otherWindowWith({
+      windowRows,
+      path: project
+    });
+    if (!openWindow) {
+      return false;
+    }
+
+    await sendMessage(Command.windowFocusLabel, { label: openWindow.label });
+    return true;
   }
 
   function hide() {
@@ -322,7 +338,7 @@
 
     <SwitcherFilter
       id={FILTER_ID}
-      onenter={() => {
+      onenter={async () => {
         const first = pinnedShown[0] ?? recentShown[0];
         if (!first) {
           return;
@@ -330,10 +346,11 @@
 
         hide();
 
-        if (!isCurrentProject({
+        const isAlreadyOpen = isCurrentProject({
           project: first,
           current: path
-        })) {
+        }) || await focusWindowWith(first);
+        if (!isAlreadyOpen) {
           onopen(first);
         }
       }}
@@ -353,7 +370,7 @@
         if (isCurrentProject({
           project,
           current: path
-        })) {
+        }) || await focusWindowWith(project)) {
           return;
         }
 

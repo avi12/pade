@@ -1,4 +1,4 @@
-import { isOpenInAnotherWindow } from "@/lib/workspace/open-windows";
+import { isOpenInAnotherWindow, otherWindowWith } from "@/lib/workspace/open-windows";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\poll-avi";
@@ -41,5 +41,24 @@ describe("isOpenInAnotherWindow", () => {
         path: PROJECT
       })
     ).toBe(false);
+  });
+});
+
+describe("otherWindowWith", () => {
+  it("names the window to focus for a project open elsewhere", () => {
+    expect(
+      otherWindowWith({
+        windowRows: [{
+          label: "main",
+          path: "C:\\repositories\\avi\\pade",
+          isCurrent: true
+        }, {
+          label: "second",
+          path: "c:/repositories/avi/poll-avi",
+          isCurrent: false
+        }],
+        path: PROJECT
+      })?.label
+    ).toBe("second");
   });
 });
