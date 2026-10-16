@@ -1,5 +1,6 @@
 import App from "@/App.svelte";
 import { DARK_SCHEME_QUERY, loadPrefs } from "@/lib/settings/prefs.svelte";
+import { isDashboardAddress } from "@/lib/shell/window-route";
 import { Scheme } from "@/lib/types";
 import "@/theme.css";
 import { mount } from "svelte";
@@ -23,6 +24,16 @@ async function applyPersistedPreferences() {
 }
 await applyPersistedPreferences();
 
-const app = mount(App, { target: document.getElementById("app")! });
+// The agents dashboard is its own small app: it runs none of a project window's
+// machinery (sessions, watchers, close interception), so it mounts in App's place.
+async function rootComponent() {
+  if (isDashboardAddress(location.search)) {
+    return (await import("@/panels/dashboard/AgentsDashboard.svelte")).default;
+  }
+
+  return App;
+}
+
+const app = mount(await rootComponent(), { target: document.getElementById("app")! });
 
 export default app;

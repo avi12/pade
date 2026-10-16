@@ -1,4 +1,4 @@
-import { windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
+import { isDashboardAddress, windowQueryFor, WindowRoute, windowRouteFor } from "@/lib/shell/window-route";
 import { describe, expect, it } from "vitest";
 
 const PROJECT = "C:\\repositories\\avi\\pade & friends";
@@ -41,5 +41,13 @@ describe("windowQueryFor", () => {
       kind: WindowRoute.Project,
       path: PROJECT
     });
+  });
+});
+
+describe("isDashboardAddress", () => {
+  it("tells the dashboard window from every other", () => {
+    expect(isDashboardAddress("?w=dashboard")).toBe(true);
+    expect(isDashboardAddress("?w=empty")).toBe(false);
+    expect(isDashboardAddress("")).toBe(false);
   });
 });

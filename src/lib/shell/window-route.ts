@@ -20,6 +20,12 @@ export const WindowRoute = {
   LaunchContext: "launch-context"
 } as const;
 
+/** Whether the address is the agents dashboard's - a window that boots its own
+ *  small app instead of a project window's. */
+export function isDashboardAddress(search: string) {
+  return new URLSearchParams(search).get(MODE_PARAMETER) === WindowMode.enum.dashboard;
+}
+
 /** Read a window address (`location.search`). The path is a trust boundary, so
  *  an `open` address without a valid folder falls back to the launch context. */
 export function windowRouteFor(search: string) {

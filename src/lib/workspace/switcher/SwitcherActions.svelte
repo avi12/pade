@@ -54,6 +54,16 @@
   <span class="lead tertiary"><Icon name="plus" /></span>
   <span class="grow">Throwaway workspace</span>
 </button>
+<button
+  class="menu-item action"
+  onclick={() => onspawn(WindowMode.enum.dashboard)}
+  role="menuitem"
+  type="button"
+>
+  <span class="lead"><Icon name="activity" /></span>
+  <span class="grow">Agents dashboard</span>
+  <span class="subtitle">Every window at a glance</span>
+</button>
 
 <style>
   /* The row itself is the shared .menu-item; these rows only weigh heavier and
