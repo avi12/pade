@@ -1472,7 +1472,6 @@ fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
         return Err("project directory does not exist".to_string());
     }
     let declarations = project_declarations(cwd);
-    let kinds = kinds_from_declarations(&declarations);
     let profile = source_profile(cwd);
     let required_kinds = required_project_kinds(&profile, &declarations);
     // One settings read for the whole pass; every per-id resolve below shares it.
@@ -1482,8 +1481,7 @@ fn suggest_for(cwd: &str) -> Result<Vec<Ide>, String> {
     // 1) Explicit per-project pick, 2) compatible primary-kind rule,
     // 3) compatible fallback, 4) coverage ranking.
     let choice = prefs.ide_project_choices.get(&canonical_project).cloned();
-    let rule = kinds
-        .first()
+    let rule = primary_declared_kind(&declarations)
         .and_then(|kind| prefs.ide_rules.get(kind.as_str()).cloned());
     let configured = preference_chain(choice.clone(), rule, prefs.ide_fallback, |id| {
         editor_covers_project(id, &profile.totals, &required_kinds)
