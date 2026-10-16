@@ -1,4 +1,4 @@
-// The words behind a project row's GitHub-style language bar.
+// The rules and words behind a project row's GitHub-style language bar.
 
 import type { LanguageShare } from "@/lib/types";
 import { formatPercent } from "@/lib/util/format";
@@ -15,9 +15,7 @@ export function isLanguageMix(shares: readonly LanguageShare[]) {
   return shares.filter(share => share.perMille >= MAJOR_LANGUAGE_PER_MILLE).length >= MINIMUM_MAJOR_LANGUAGES;
 }
 
-/** The bar's hover text: each language with its share, biggest first. */
-export function languageBarText(shares: readonly LanguageShare[]) {
-  return shares
-    .map(share => `${share.label} ${formatPercent(share.perMille / PER_MILLE_PER_PERCENT)}`)
-    .join(" · ");
+/** One segment's hover text: its language and share. */
+export function languageShareText(share: LanguageShare) {
+  return `${share.label} ${formatPercent(share.perMille / PER_MILLE_PER_PERCENT)}`;
 }

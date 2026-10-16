@@ -1,4 +1,4 @@
-import { isLanguageMix, languageBarText } from "@/lib/workspace/language-bar";
+import { isLanguageMix, languageShareText } from "@/lib/workspace/language-bar";
 import { describe, expect, it } from "vitest";
 
 const SHARES = [
@@ -43,8 +43,8 @@ describe("isLanguageMix", () => {
   });
 });
 
-describe("languageBarText", () => {
-  it("names each language with its share, biggest first", () => {
-    expect(languageBarText(SHARES)).toBe("C# / .NET 92% · Rust 8%");
+describe("languageShareText", () => {
+  it("names a segment's language and share", () => {
+    expect(languageShareText(SHARES[0])).toBe("C# / .NET 92%");
   });
 });
