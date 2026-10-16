@@ -30,7 +30,8 @@
   /* Each segment's colour comes from `language-bar` (one per language, swapped
      for its alternate when two in a bar would look alike). Each segment is
      taller than the colour it paints, so the hover target is easy to hit
-     without a thick bar. The bar always holds its place along the row's foot
+     without a thick bar. It sits 3px up, inside the row so the hover and
+     current-row outline never cross it, and always holds its place there
      (absolutely positioned, so it never moves the row): when a project gains a
      language its segments grow in from the left, and a share that changes
      slides to its new width. */
@@ -39,11 +40,11 @@
 
     position: absolute;
     inset-inline: 8px;
-    inset-block-end: 0;
+    inset-block-end: 3px;
     display: flex;
     gap: 1px;
     align-items: flex-end;
-    block-size: 8px;
+    block-size: 7px;
 
     > span {
       @starting-style {
