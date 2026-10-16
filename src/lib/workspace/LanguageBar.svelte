@@ -27,17 +27,18 @@
      keeps it distinct (TypeScript blue, Python yellow, Java orange, C# purple).
      An umbrella kind wears its most common member's colour. Each segment is
      taller than the colour it paints, so the hover target is easy to hit without
-     a thick bar. */
+     a thick bar. It sits 3px up, inside the row, so the hover and current-row
+     outline never cross it. */
   .language-bar {
     --bar-thickness: 4px;
 
     position: absolute;
     inset-inline: 8px;
-    inset-block-end: 0;
+    inset-block-end: 3px;
     display: flex;
     gap: 1px;
     align-items: flex-end;
-    block-size: 8px;
+    block-size: 7px;
 
     > span {
       --language-color: var(--outline);
