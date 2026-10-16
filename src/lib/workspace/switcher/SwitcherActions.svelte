@@ -18,12 +18,12 @@
   } = $props();
 </script>
 
-<button class="action" onclick={onswitch} role="menuitem" type="button">
+<button class="menu-item action" onclick={onswitch} role="menuitem" type="button">
   <span class="lead"><Icon name="swap" /></span>
   <span class="grow">Open a project…</span>
   <span class="subtitle">All projects &amp; clone</span>
 </button>
-<button class="action" onclick={onrenamefolder} role="menuitem" type="button">
+<button class="menu-item action" onclick={onrenamefolder} role="menuitem" type="button">
   <span class="lead"><Icon name="folder" /></span>
   <span class="grow">Rename this folder…</span>
   <span class="subtitle">{shortDisplayName({
@@ -36,7 +36,7 @@
 
 <div class="menu-separator">New window</div>
 <button
-  class="action"
+  class="menu-item action"
   onclick={() => onspawn(WindowMode.enum.empty)}
   role="menuitem"
   type="button"
@@ -46,7 +46,7 @@
   <span class="kbd">Ctrl ⇧ N</span>
 </button>
 <button
-  class="action"
+  class="menu-item action"
   onclick={() => onspawn(WindowMode.enum.temp)}
   role="menuitem"
   type="button"
@@ -56,25 +56,12 @@
 </button>
 
 <style>
+  /* The row itself is the shared .menu-item; these rows only weigh heavier and
+     light up on keyboard focus too. */
   .action {
-    display: flex;
     gap: 10px;
-    align-items: center;
-    inline-size: 100%;
-    padding-block: 8px;
-    padding-inline: 10px;
-    border: none;
-    border-radius: var(--radius-small);
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
     font-weight: 600;
-    font-size: 13px;
-    text-align: start;
-    cursor: pointer;
-    transition: color 120ms var(--ease), background 120ms var(--ease);
 
-    &:hover,
     &:focus-visible {
       background: var(--primary-container);
       color: var(--on-primary-container);
