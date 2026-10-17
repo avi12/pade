@@ -475,6 +475,14 @@ impl<'path> LaunchMode<'path> {
         }
     }
 
+    /// Whether the window zooms the way a browser does: WebView2's own zoom on
+    /// Ctrl with the wheel, plus, minus or zero. Only the dashboard - it is read,
+    /// not typed in, while a project window's terminal owns those keys and its
+    /// font size is the app's zoom preference.
+    fn has_browser_zoom(&self) -> bool {
+        matches!(self, Self::Dashboard)
+    }
+
     /// The label a window of this mode takes: the one fixed dashboard label, or
     /// the next spawned `w-{n}`.
     fn label(&self) -> String {
@@ -535,6 +543,7 @@ pub async fn window_create(
     // recovery arms once the window's frontend boots and calls `recovery_arm`
     // with its live URL (see recovery.rs).
     app_window_builder(&app, &label, url, main_look.as_ref())
+        .zoom_hotkeys_enabled(launch.has_browser_zoom())
         .build()
         .map(|_| ())
         .map_err(|error| error.to_string())
@@ -612,5 +621,7 @@ mod tests {
         assert_eq!(dashboard.query(), "w=dashboard");
         assert_eq!(dashboard.label(), dashboard.label());
         assert!(LaunchMode::resolve("empty", None).label().starts_with("w-"));
+        assert!(dashboard.has_browser_zoom());
+        assert!(!LaunchMode::resolve("empty", None).has_browser_zoom());
     }
 }
