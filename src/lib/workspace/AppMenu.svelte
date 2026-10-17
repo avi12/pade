@@ -16,14 +16,20 @@
   import { runListTransition } from "@/lib/workspace/switcher/list-transition";
   import OpenWindowList from "@/lib/workspace/switcher/OpenWindowList.svelte";
   import ProjectList from "@/lib/workspace/switcher/ProjectList.svelte";
-  import { isCurrentProject, matchesProjectFilter, windowRowsInOrder } from "@/lib/workspace/switcher/switcher-rows";
+  import {
+    isCurrentProject,
+    isSameMembership,
+    matchesProjectFilter,
+    windowRowsInOrder
+  } from "@/lib/workspace/switcher/switcher-rows";
+  import type { ListedProjects } from "@/lib/workspace/switcher/switcher-rows";
   import SwitcherActions from "@/lib/workspace/switcher/SwitcherActions.svelte";
   import SwitcherDialogs from "@/lib/workspace/switcher/SwitcherDialogs.svelte";
   import SwitcherFilter from "@/lib/workspace/switcher/SwitcherFilter.svelte";
   import SwitcherTrigger from "@/lib/workspace/switcher/SwitcherTrigger.svelte";
   import type { Relocator } from "@/lib/workspace/workspace-relocate";
   import type { UnlistenFn } from "@tauri-apps/api/event";
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
 
   // The project switcher that leads the top bar. It lists every open PADE window
   // (jump between them, or cycle with Ctrl+Alt+[ / ]), then is a fast way to
@@ -129,11 +135,48 @@
   let relabelTarget = $state<string | null>(null);
   let renameFolderTarget = $state<string | null>(null);
 
-  const pinnedSet = $derived(new Set(pinnedProjects.map(normalizePath)));
+  // What the list shows. It follows the settings, but a change to WHICH
+  // projects are listed plays through the scoped transition whoever made it -
+  // a row removed here, a pin, or a folder another window found deleted - so a
+  // row never just blinks out. A reorder (or a closed menu) is taken as is.
+  let listed = $state<ListedProjects>(
+    untrack(() => ({
+      pinned: pinnedProjects,
+      recent: recentProjects
+    }))
+  );
+
+  async function followListed(next: ListedProjects) {
+    const isReshaped = !isSameMembership({
+      before: listed,
+      after: next
+    });
+    if (!isMenuOpen || !isReshaped) {
+      listed = next;
+      return;
+    }
+
+    await runListTransition({
+      elList: elSwitchList,
+      mutate: async () => {
+        listed = next;
+      }
+    });
+  }
+
+  $effect(() => {
+    const next = {
+      pinned: pinnedProjects,
+      recent: recentProjects
+    };
+    untrack(() => followListed(next));
+  });
+
+  const pinnedSet = $derived(new Set(listed.pinned.map(normalizePath)));
   // Recents minus anything already pinned, so a project shows in one section only.
-  const recentsOnly = $derived(recentProjects.filter(project => !pinnedSet.has(normalizePath(project))));
+  const recentsOnly = $derived(listed.recent.filter(project => !pinnedSet.has(normalizePath(project))));
   const pinnedShown = $derived(
-    pinnedProjects.filter(project => matchesProjectFilter({
+    listed.pinned.filter(project => matchesProjectFilter({
       project,
       query: filterQuery,
       labels
@@ -185,13 +228,6 @@
   // rAF waits for the popover's top layer to lay out before the field is focusable.
   function focusFilter() {
     requestAnimationFrame(() => document.getElementById(FILTER_ID)?.focus());
-  }
-
-  async function animateListChange(mutate: () => Promise<void>) {
-    await runListTransition({
-      elList: elSwitchList,
-      mutate
-    });
   }
 
   // Ctrl P from anywhere opens the switcher and focuses its filter, matching the
@@ -364,7 +400,7 @@
     <ProjectList
       isFiltered={filterQuery !== ""}
       {labels}
-      onclearrecent={async () => await animateListChange(onclearrecent)}
+      {onclearrecent}
       ondelete={project => {
         deleteTarget = project;
       }}
@@ -394,12 +430,12 @@
       onrelabel={project => {
         relabelTarget = project;
       }}
-      onremove={async project => await animateListChange(() => onremoverecent(project))}
+      onremove={onremoverecent}
       onrenamefolder={project => {
         renameFolderTarget = project;
       }}
       {onreorderpins}
-      ontogglepin={async target => await animateListChange(() => ontogglepin(target))}
+      {ontogglepin}
       {openedAt}
       {path}
       {pinnedShown}
@@ -429,7 +465,7 @@
 
     <SwitcherDialogs
       {labels}
-      ondelete={async project => await animateListChange(() => ondelete(project))}
+      {ondelete}
       {onrenamefolder}
       bind:deleteTarget
       bind:relabelTarget
@@ -440,9 +476,9 @@
          with the same morph a removal from the menu plays -->
     <FolderWatch
       isActive={isMenuOpen}
-      onvanish={async () => await animateListChange(async () => {
+      onvanish={async () => {
         await sendSettingsMessage(Command.workspacePrune);
-      })}
+      }}
       projects={[...pinnedProjects, ...recentProjects]}
     />
   </div>

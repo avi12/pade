@@ -1,5 +1,6 @@
 import {
   isCurrentProject,
+  isSameMembership,
   matchesProjectFilter,
   rowMenuId,
   rowTransitionName,
@@ -115,5 +116,48 @@ describe("windowRowsInOrder", () => {
         order: ["closed", "main"]
       }).map(row => row.label)
     ).toEqual(["main"]);
+  });
+});
+
+describe("isSameMembership", () => {
+  const before = {
+    pinned: ["C:/a"],
+    recent: ["C:/b", "C:/c"]
+  };
+
+  it("ignores a reorder", () => {
+    expect(
+      isSameMembership({
+        before,
+        after: {
+          pinned: ["C:/a"],
+          recent: ["C:/c", "C:/b"]
+        }
+      })
+    ).toBe(true);
+  });
+
+  it("sees a project leave", () => {
+    expect(
+      isSameMembership({
+        before,
+        after: {
+          pinned: ["C:/a"],
+          recent: ["C:/b"]
+        }
+      })
+    ).toBe(false);
+  });
+
+  it("sees a project move between sections", () => {
+    expect(
+      isSameMembership({
+        before,
+        after: {
+          pinned: ["C:/a", "C:/b"],
+          recent: ["C:/c"]
+        }
+      })
+    ).toBe(false);
   });
 });

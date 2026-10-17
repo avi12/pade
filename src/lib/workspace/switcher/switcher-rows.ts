@@ -73,3 +73,23 @@ export function windowRowsInOrder({ windowRows, order }: {
     return row ? [row] : [];
   });
 }
+
+/** The projects each switcher section lists. */
+export interface ListedProjects {
+  pinned: readonly string[];
+  recent: readonly string[];
+}
+
+/** Whether two listings hold the same projects in each section, in any order -
+ *  a reorder isn't a change the list should animate, an arrival, departure or
+ *  move between sections is. */
+export function isSameMembership({ before, after }: {
+  before: ListedProjects;
+  after: ListedProjects;
+}) {
+  const sameMembers = (first: readonly string[], second: readonly string[]) => {
+    const firstSet = new Set(first.map(normalizePath));
+    return first.length === second.length && second.every(project => firstSet.has(normalizePath(project)));
+  };
+  return sameMembers(before.pinned, after.pinned) && sameMembers(before.recent, after.recent);
+}
