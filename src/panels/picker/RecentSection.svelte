@@ -4,6 +4,7 @@
   import { collapseRow } from "@/lib/ui/motion";
   import { tooltip, truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
+  import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
@@ -79,6 +80,7 @@
                   tooltip: path
                 })}>{path}</span>
               <LastAccessed now={shownAt} {path} />
+              <LanguageBar {path} />
             </button>
             <OpenInEditorButton
               name={displayName({
@@ -147,6 +149,7 @@
 
   /* Recent row - pill button, mono name, truncating path; fills on hover. */
   .recent-item {
+    position: relative;
     display: flex;
     gap: 10px;
     align-items: center;

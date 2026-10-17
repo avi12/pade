@@ -3,6 +3,7 @@
   import type { Ide, ProjectEntry } from "@/lib/types";
   import { collapseRow } from "@/lib/ui/motion";
   import { formatQuantity } from "@/lib/util/format";
+  import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
   import type { WorkspaceLifecycle } from "@/panels/picker/lifecycle.svelte";
   import OpenInEditorButton from "@/panels/picker/OpenInEditorButton.svelte";
   import RowMenu from "@/panels/picker/RowMenu.svelte";
@@ -52,6 +53,7 @@
           {#if project.isGit}
             <span class="git">git</span>
           {/if}
+          <LanguageBar path={project.path} />
         </button>
         <OpenInEditorButton name={project.name} {ides} path={project.path} />
         <RowMenu {lifecycle} path={project.path} scope="root" />
@@ -134,6 +136,7 @@
 
   /* Detected project - tonal card; lifts into primary-container on hover. */
   .project {
+    position: relative;
     display: flex;
     gap: 10px;
     align-items: center;
