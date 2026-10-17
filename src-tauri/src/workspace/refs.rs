@@ -19,7 +19,7 @@
 
 mod agents;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::util::is_on_path;
 
@@ -400,14 +400,26 @@ fn rewrite_vscode_family(_app: VsCodeApp, _old: &str, _new: &str) {}
 /// every fallible step is swallowed and we bound the walk by never following the
 /// links we inspect (which also avoids link cycles).
 fn fix_project_symlinks(new_directory: &Path, old: &str, new: &str) {
-    relink_directory(new_directory, old, new);
+    let mut stale = Vec::new();
+    collect_stale_links(new_directory, old, new, &mut stale);
+    recreate_links(&stale);
 }
 
-/// Recurse `directory`, re-pointing stale absolute links and descending only
+/// A link whose absolute target lay inside the moved folder, and where it
+/// points now.
+struct StaleLink {
+    link: PathBuf,
+    target: String,
+    /// A link to a directory is recreated as a directory link (a junction on
+    /// Windows), a link to a file as a file symlink.
+    is_target_directory: bool,
+}
+
+/// Recurse `directory`, gathering the stale absolute links and descending only
 /// into real sub-directories (never into a link - that bounds the walk and
 /// dodges cycles). Skips `.git` (huge, holds no project-path links worth
 /// rewriting).
-fn relink_directory(directory: &Path, old: &str, new: &str) {
+fn collect_stale_links(directory: &Path, old: &str, new: &str, stale: &mut Vec<StaleLink>) {
     let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };
@@ -419,7 +431,7 @@ fn relink_directory(directory: &Path, old: &str, new: &str) {
             continue;
         };
         if metadata.file_type().is_symlink() {
-            remap_link(&path, old, new);
+            stale.extend(stale_link(path, old, new));
             continue;
         }
         if !metadata.is_dir() {
@@ -429,27 +441,22 @@ fn relink_directory(directory: &Path, old: &str, new: &str) {
         if is_git_directory {
             continue;
         }
-        relink_directory(&path, old, new);
+        collect_stale_links(&path, old, new, stale);
     }
 }
 
-/// If `link`'s target is an absolute path under `old`, recreate it pointing at
-/// the same suffix under `new`. No-op for relative targets or targets outside
-/// `old`. `is_target_directory` decides junction-vs-file-symlink on recreation.
-fn remap_link(link: &Path, old: &str, new: &str) {
-    let Ok(target) = std::fs::read_link(link) else {
-        return;
-    };
-    let Some(target_text) = target.to_str() else {
-        return;
-    };
-    let Some(remapped) = moved_link_target(target_text, old, new) else {
-        return;
-    };
-    // A link to a directory must be recreated as a dir link (junction on
-    // Windows); resolve through the link to learn what it points at.
-    let is_target_directory = std::fs::metadata(link).map_or(true, |metadata| metadata.is_dir());
-    recreate_link(link, &remapped, is_target_directory);
+/// `link` re-pointed, when its target is an absolute path under `old`. `None`
+/// for a relative target or one outside `old`.
+fn stale_link(link: PathBuf, old: &str, new: &str) -> Option<StaleLink> {
+    let target = std::fs::read_link(&link).ok()?;
+    let target = moved_link_target(target.to_str()?, old, new)?;
+    // Resolve through the link to learn what it points at.
+    let is_target_directory = std::fs::metadata(&link).map_or(true, |metadata| metadata.is_dir());
+    Some(StaleLink {
+        link,
+        target,
+        is_target_directory,
+    })
 }
 
 /// Where an absolute link `target` points once the folder `old` becomes `new`:
@@ -463,66 +470,112 @@ fn moved_link_target(target: &str, old: &str, new: &str) -> Option<String> {
     moved_path(target, old, new)
 }
 
-/// Remove the stale link at `link` and recreate it pointing at `target`. On
-/// Windows a directory link is a junction (`mklink /J`, no admin needed, matching
-/// pnpm); a file link uses `symlink_file`. On other platforms a single `symlink`
-/// covers both. Best-effort: any failure is logged and swallowed.
+/// Remove each stale link and recreate it pointing at its new target. On
+/// Windows a directory link is a junction (`mklink /J`, no admin needed,
+/// matching pnpm); a file link uses `symlink_file`. Best-effort: any failure is
+/// logged and swallowed.
 #[cfg(windows)]
-fn recreate_link(link: &Path, target: &str, is_target_directory: bool) {
+fn recreate_links(stale: &[StaleLink]) {
     use std::os::windows::fs::symlink_file;
 
-    // Removing a junction is a directory op (`remove_dir`); a file symlink is a
-    // file op. Pick by what we're about to recreate.
-    let removed = if is_target_directory {
-        std::fs::remove_dir(link)
-    } else {
-        std::fs::remove_file(link)
-    };
-    if let Err(error) = removed {
-        eprintln!(
-            "refs: failed to remove stale link {}: {error}",
-            link.display()
-        );
-        return;
+    let mut junctions = Vec::new();
+    for link in stale {
+        // Removing a junction is a directory op (`remove_dir`); a file symlink
+        // is a file op.
+        if link.is_target_directory {
+            if remove_stale_link(link, std::fs::remove_dir(&link.link)) {
+                junctions.push(link);
+            }
+            continue;
+        }
+        let is_removed = remove_stale_link(link, std::fs::remove_file(&link.link));
+        if is_removed && symlink_file(&link.target, &link.link).is_err() {
+            report_unlinked(link);
+        }
     }
-
-    let result = if is_target_directory {
-        // pnpm uses junctions for dir links (no admin). `mklink /J` is the only
-        // no-admin way to make one; the std lib has no junction constructor.
-        crate::util::command(crate::util::COMMAND_SHELL)
-            .args([crate::util::COMMAND_SHELL_RUN_FLAG, "mklink", "/J"])
-            .arg(link)
-            .arg(target)
-            .output()
-            .is_ok_and(|output| output.status.success())
-    } else {
-        symlink_file(target, link).is_ok()
-    };
-    if !result {
-        eprintln!(
-            "refs: failed to recreate link {} → {target}",
-            link.display()
-        );
-    }
+    create_junctions(&junctions);
 }
 
 #[cfg(not(windows))]
-fn recreate_link(link: &Path, target: &str, _is_target_directory: bool) {
+fn recreate_links(stale: &[StaleLink]) {
     use std::os::unix::fs::symlink;
 
-    if let Err(error) = std::fs::remove_file(link) {
-        eprintln!(
-            "refs: failed to remove stale link {}: {error}",
-            link.display()
-        );
+    for link in stale {
+        let is_removed = remove_stale_link(link, std::fs::remove_file(&link.link));
+        if is_removed && symlink(&link.target, &link.link).is_err() {
+            report_unlinked(link);
+        }
+    }
+}
+
+/// Whether the stale link is gone, logging why when it isn't.
+fn remove_stale_link(link: &StaleLink, removed: std::io::Result<()>) -> bool {
+    let Err(error) = removed else {
+        return true;
+    };
+    eprintln!(
+        "refs: failed to remove stale link {}: {error}",
+        link.link.display()
+    );
+    false
+}
+
+fn report_unlinked(link: &StaleLink) {
+    eprintln!(
+        "refs: failed to recreate link {} → {}",
+        link.link.display(),
+        link.target
+    );
+}
+
+/// The code page that makes the shell read the script as UTF-8, so a path in
+/// any script survives.
+#[cfg(windows)]
+const UTF8_CODE_PAGE_LINE: &str = "@chcp 65001 >nul\r\n";
+
+/// Make every junction from one shell. `mklink /J` is a shell builtin - the
+/// only no-admin way to make a junction, as std has no junction constructor -
+/// so one shell per link cost a process start each: minutes for a pnpm tree of
+/// thousands. A script of them runs at file-system speed.
+#[cfg(windows)]
+fn create_junctions(junctions: &[&StaleLink]) {
+    if junctions.is_empty() {
         return;
     }
-    if let Err(error) = symlink(target, link) {
+    let script_path = std::env::temp_dir().join(format!("pade-relink-{}.cmd", std::process::id()));
+    if let Err(error) = std::fs::write(&script_path, junction_script(junctions)) {
+        eprintln!("refs: failed to write {}: {error}", script_path.display());
+        return;
+    }
+    let is_created = crate::util::command(crate::util::COMMAND_SHELL)
+        .arg(crate::util::COMMAND_SHELL_RUN_FLAG)
+        .arg(&script_path)
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !is_created {
         eprintln!(
-            "refs: failed to recreate link {} → {target}: {error}",
-            link.display()
+            "refs: some of {} junctions were not recreated",
+            junctions.len()
         );
     }
+    if let Err(error) = std::fs::remove_file(&script_path) {
+        eprintln!("refs: failed to remove {}: {error}", script_path.display());
+    }
+}
+
+/// One `mklink /J` line per junction. A batch script expands `%`, so each one
+/// in a path is doubled; a Windows path can't hold a quote, so quoting each
+/// path covers the rest (`&`, `^`, spaces).
+#[cfg(windows)]
+fn junction_script(junctions: &[&StaleLink]) -> String {
+    let lines = junctions.iter().map(|junction| {
+        let link = junction.link.to_string_lossy().replace('%', "%%");
+        let target = junction.target.replace('%', "%%");
+        format!("@mklink /J \"{link}\" \"{target}\" >nul\r\n")
+    });
+    std::iter::once(UTF8_CODE_PAGE_LINE.to_string())
+        .chain(lines)
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -619,6 +672,7 @@ fn spawn_install(directory: &Path, command: &str) {
 #[cfg(test)]
 mod tests {
     use super::{moved_link_target, rebase_paths_in, vscode_uri};
+    use std::path::Path;
 
     #[test]
     fn vscode_uri_encodes_a_windows_path() {
@@ -703,6 +757,50 @@ mod tests {
         assert_eq!(
             moved_link_target(&absolute("\u{212A}/x"), &absolute("k"), &absolute("new")),
             None
+        );
+    }
+
+    /// A pnpm tree's junctions all point at absolute paths inside the project;
+    /// after the move each one is re-pointed under the new folder.
+    #[cfg(windows)]
+    #[test]
+    fn a_junction_into_the_moved_folder_is_re_pointed() {
+        let scratch = std::env::temp_dir().join(format!("pade-relink-{}", std::process::id()));
+        let old = scratch.join("old");
+        let new = scratch.join("new");
+        std::fs::create_dir_all(new.join("store").join("package")).expect("store folder");
+        let link = new.join("package");
+        let is_created = crate::util::command(crate::util::COMMAND_SHELL)
+            .args([crate::util::COMMAND_SHELL_RUN_FLAG, "mklink", "/J"])
+            .arg(&link)
+            .arg(old.join("store").join("package"))
+            .output()
+            .is_ok_and(|output| output.status.success());
+        if is_created {
+            super::fix_project_symlinks(&new, &old.to_string_lossy(), &new.to_string_lossy());
+            let target = std::fs::read_link(&link).expect("re-pointed junction");
+            assert!(
+                target.ends_with(Path::new("new").join("store").join("package")),
+                "{}",
+                target.display()
+            );
+        }
+        std::fs::remove_dir(&link).ok();
+        std::fs::remove_dir_all(&scratch).ok();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_junction_script_doubles_percent_signs_and_quotes_each_path() {
+        let junction = super::StaleLink {
+            link: std::path::PathBuf::from(r"C:\a & b\100%"),
+            target: r"C:\c\100%".to_string(),
+            is_target_directory: true,
+        };
+        let script = super::junction_script(&[&junction]);
+        assert!(
+            script.ends_with("@mklink /J \"C:\\a & b\\100%%\" \"C:\\c\\100%%\" >nul\r\n"),
+            "{script}"
         );
     }
 }
