@@ -1,13 +1,19 @@
-//! The open pull request for a project's current branch, so the agents
-//! dashboard can link it.
+//! The open pull request for a project's current branch, so an agent's
+//! summary can link it whenever it mentions it.
 //!
 //! Asked of the GitHub CLI (`gh`), which already knows the user's account and
 //! follows a fork to the upstream repository its pull requests live in - a
 //! branch pushed to a fork and opened against upstream is found too. No `gh`,
-//! no GitHub remote, no open pull request: `None`, and the card simply shows
-//! no link.
+//! no GitHub remote, no open pull request: `None`, and the summary is written
+//! without one. A lookup is a network call, so each folder's answer is kept
+//! for a couple of minutes - every agent summarized meanwhile shares it.
 
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
+use std::time::{Duration, Instant};
+
+use serde::Deserialize;
 
 use crate::vcs::git_in;
 
@@ -17,26 +23,40 @@ const GITHUB_CLI: &str = "gh";
 /// the lookup runs unattended, so it fails instead.
 const PROMPT_DISABLED_VARIABLE: &str = "GH_PROMPT_DISABLED";
 
-/// One open pull request, as the dashboard links it.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct PullRequest {
-    number: u64,
-    title: String,
-    url: String,
+/// How long one folder's lookup is reused before `gh` is asked again.
+const LOOKUP_REUSE: Duration = Duration::from_secs(120);
+
+/// One open pull request: its number, title and web address.
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PullRequest {
+    pub(crate) number: u64,
+    pub(crate) title: String,
+    pub(crate) url: String,
 }
 
-/// The open pull request whose head is `cwd`'s current branch, or `None`.
-// `async` + `spawn_blocking`: two subprocesses, one of them a network call.
-#[tauri::command]
-pub async fn vcs_pull_request(cwd: String) -> Option<PullRequest> {
-    tauri::async_runtime::spawn_blocking(move || open_pull_request(std::path::Path::new(&cwd)))
-        .await
-        .ok()
-        .flatten()
+type Lookup = (Instant, Option<PullRequest>);
+static LOOKUPS: LazyLock<Mutex<HashMap<PathBuf, Lookup>>> = LazyLock::new(Default::default);
+
+/// The open pull request whose head is `cwd`'s current branch, or `None` -
+/// from the last couple of minutes' lookup when there is one. Blocking: two
+/// subprocesses, one of them a network call.
+pub(crate) fn open_pull_request(cwd: &Path) -> Option<PullRequest> {
+    let reused = LOOKUPS.lock().ok().and_then(|lookups| {
+        let (looked_up_at, pull_request) = lookups.get(cwd)?;
+        (looked_up_at.elapsed() < LOOKUP_REUSE).then(|| pull_request.clone())
+    });
+    if let Some(pull_request) = reused {
+        return pull_request;
+    }
+
+    let pull_request = look_up_pull_request(cwd);
+    if let Ok(mut lookups) = LOOKUPS.lock() {
+        lookups.insert(cwd.to_path_buf(), (Instant::now(), pull_request.clone()));
+    }
+    pull_request
 }
 
-fn open_pull_request(cwd: &std::path::Path) -> Option<PullRequest> {
+fn look_up_pull_request(cwd: &Path) -> Option<PullRequest> {
     if !crate::util::is_on_path(GITHUB_CLI) {
         return None;
     }

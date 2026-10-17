@@ -98,23 +98,3 @@ export function inlineMarkdown(source: string) {
 
   return pieces;
 }
-
-/** Link a summary's mentions of the project's open pull request - "PR #1278",
- *  "pull request #1278", a bare "#1278" - to it, as Markdown links. The
- *  transcript rarely carries the address, so the summary names the number and
- *  the dashboard, which knows the pull request, supplies the link. A summary
- *  that already links it is left alone. */
-export function withPullRequestLinks({ text, pullRequest }: {
-  text: string;
-  pullRequest: {
-    number: number;
-    url: string;
-  } | null;
-}) {
-  if (!pullRequest || text.includes(`](${pullRequest.url})`)) {
-    return text;
-  }
-
-  const mention = new RegExp(String.raw`(?<![\[\w/#])(?:(?:PR|pull request) )?#${pullRequest.number}(?!\d)`, "gi");
-  return text.replaceAll(mention, found => `[${found}](${pullRequest.url})`);
-}

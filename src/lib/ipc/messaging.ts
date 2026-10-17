@@ -35,7 +35,6 @@ import {
   PtyHistory,
   PtySession,
   PullOutcome,
-  PullRequest,
   RestoreCandidate,
   RunnerData,
   RunnerExit,
@@ -141,7 +140,6 @@ export enum Command {
   vcsCommit = "vcs_commit",
   vcsCommitDiff = "vcs_commit_diff",
   vcsRemoteUrl = "vcs_remote_url",
-  vcsPullRequest = "vcs_pull_request",
   vcsDefaultBranch = "vcs_default_branch",
   vcsGitInstalled = "vcs_git_installed",
   vcsHasSshKey = "vcs_has_ssh_key",
@@ -289,6 +287,8 @@ export interface CommandProtocolMap {
   [Command.sessionSummarize]: (data: {
     id: string;
     agent: string;
+    /** The session's folder, whose branch's open pull request the summary links. */
+    cwd: string;
   }) => string | null;
   [Command.ideDetect]: () => Ide[];
   /** Installed IDEs ordered for the given project: explicit per-project choice
@@ -475,9 +475,6 @@ export interface CommandProtocolMap {
   }) => string;
   /** The branch-configured remote, falling back to `origin`, as a browser URL. */
   [Command.vcsRemoteUrl]: (data: { cwd: string }) => string | null;
-  /** The open pull request whose head is `cwd`'s current branch, via the
-   *  GitHub CLI - null without `gh`, a GitHub remote or an open PR. */
-  [Command.vcsPullRequest]: (data: { cwd: string }) => PullRequest | null;
   /** The configured remote's locally-known default branch, when available. */
   [Command.vcsDefaultBranch]: (data: { cwd: string }) => string | null;
   /** Is the `git` CLI installed? Gates the picker's Clone tab. */
@@ -724,7 +721,6 @@ const COMMAND_RESPONSE_SCHEMAS = {
   [Command.vcsCommit]: CommitDetail,
   [Command.vcsCommitDiff]: z.string(),
   [Command.vcsRemoteUrl]: z.string().nullable(),
-  [Command.vcsPullRequest]: PullRequest.nullable(),
   [Command.vcsDefaultBranch]: z.string().nullable(),
   [Command.vcsGitInstalled]: z.boolean(),
   [Command.vcsHasSshKey]: z.boolean(),

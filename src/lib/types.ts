@@ -278,15 +278,6 @@ export type EditorKind = z.infer<typeof EditorKind>;
 /** One language's share of a project's source (`ide_project_languages`), for
  *  the switcher rows' GitHub-style language bar. Shares are of the languages
  *  shown, so they fill the bar. */
-/** The open pull request for a project's current branch (`vcs_pull_request`),
- *  which the agents dashboard links. */
-export const PullRequest = z.object({
-  number: z.number().int().positive(),
-  title: z.string(),
-  url: z.url()
-});
-export type PullRequest = z.infer<typeof PullRequest>;
-
 export const LanguageShare = z.object({
   /** The GitHub Linguist name - the bar's label and colour key. */
   language: z.string(),

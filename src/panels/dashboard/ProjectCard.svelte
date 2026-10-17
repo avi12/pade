@@ -4,7 +4,6 @@
   import Icon from "@/lib/Icon.svelte";
   import AgentRow from "@/panels/dashboard/AgentRow.svelte";
   import ChangedFiles from "@/panels/dashboard/ChangedFiles.svelte";
-  import PullRequestLink from "@/panels/dashboard/PullRequestLink.svelte";
 
   // One project window on the dashboard: its name (a click brings the window
   // forward), how much it has changed, and each of its agents.
@@ -27,13 +26,9 @@
     now
   })}</p>
 
-  {#if board.pullRequest}
-    <PullRequestLink pullRequest={board.pullRequest} />
-  {/if}
-
   <ul class="agents">
     {#each board.agents as agent (agent.id)}
-      <AgentRow {agent} {now} onfocus={() => onfocus(agent.id)} pullRequest={board.pullRequest} />
+      <AgentRow {agent} {now} onfocus={() => onfocus(agent.id)} />
     {/each}
   </ul>
 

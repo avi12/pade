@@ -22,16 +22,13 @@ import { awaitingChoice } from "@/lib/stores/session/sessionAttention.svelte";
 import { sessionLabel } from "@/lib/stores/session/sessionLabels.svelte";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
 import { feedStore } from "@/lib/stores/workspace/feed.svelte";
-import type { AgentSession, PullRequest, SessionStatus } from "@/lib/types";
+import type { AgentSession, SessionStatus } from "@/lib/types";
 import { onDestroy, onMount } from "svelte";
 import { SvelteMap } from "svelte/reactivity";
 
 /** How often a working agent's summary is reconsidered while the dashboard is
  *  open - the status changes that matter most re-check at once. */
 const SUMMARY_CHECK_MS = 30_000;
-/** How often the project's open pull request is looked up again while the
- *  dashboard is open - a network call, so far less often than summaries. */
-const PULL_REQUEST_CHECK_MS = 2 * 60_000;
 /** A session not summarized yet. */
 const NO_SUMMARY = {
   text: null,
@@ -57,8 +54,6 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- in-flight bookkeeping, never rendered
   const summarizing = new Set<string>();
   let dashboardSeenAt = $state<number | null>(null);
-  let pullRequest = $state<PullRequest | null>(null);
-  let pullRequestCheckedAt = 0;
   let now = $state(Date.now());
 
   function post(message: BoardMessage) {
@@ -95,8 +90,7 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
       agents: windowSessions.sessions.map(boardAgent),
       changedFiles: files.recent,
       changedFileCount: files.count,
-      lastChangeAt: feedStore.events[0]?.ts ?? null,
-      pullRequest
+      lastChangeAt: feedStore.events[0]?.ts ?? null
     };
   });
 
@@ -131,36 +125,13 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
 
   $effect(publish);
 
-  async function refreshPullRequest() {
-    const cwd = project();
-    pullRequestCheckedAt = Date.now();
-
-    if (cwd === "") {
-      pullRequest = null;
-      return;
-    }
-
-    try {
-      pullRequest = await sendMessage(Command.vcsPullRequest, { cwd });
-    } catch (error) {
-      console.warn("pade: could not look up the project's open pull request", error);
-    }
-  }
-
-  // A project switch drops the old project's pull request; the next check
-  // looks up the new one's.
-  $effect(() => {
-    project();
-    pullRequest = null;
-    pullRequestCheckedAt = 0;
-  });
-
   async function summarize(session: AgentSession) {
     summarizing.add(session.id);
     try {
       const text = await sendMessage(Command.sessionSummarize, {
         id: session.id,
-        agent: session.agent.command
+        agent: session.agent.command,
+        cwd: session.cwd ?? project()
       });
       if (text !== null) {
         summaries.set(session.id, {
@@ -195,11 +166,6 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
 
     for (const session of windowSessions.sessions.filter(isSessionSummaryDue)) {
       summarize(session);
-    }
-
-    const isPullRequestStale = now - pullRequestCheckedAt >= PULL_REQUEST_CHECK_MS;
-    if (isPullRequestStale) {
-      refreshPullRequest();
     }
   });
 

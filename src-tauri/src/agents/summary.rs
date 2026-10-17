@@ -7,6 +7,7 @@
 
 use crate::agents::naming::{readable_transcript, run_agent_reply, tail};
 use crate::agents::{copilot, oneshot_invocation, program};
+use crate::vcs::pull_request::{open_pull_request, PullRequest};
 
 /// Below this much readable conversation there is nothing worth summarizing.
 const MINIMUM_SUMMARY_INPUT_LENGTH: usize = 80;
@@ -26,31 +27,35 @@ const ELLIPSIS: char = '…';
 const LINE_MARKERS: &[&str] = &["### ", "## ", "# ", "- ", "* "];
 
 /// Summarize the session `id` from its recent transcript, driven by `agent` (its
-/// command). `None` until there is enough conversation, or when no source
-/// answers. Only the window that owns the session may ask.
+/// command). `cwd` is the session's folder: when its branch has an open pull
+/// request, the summary links it wherever it mentions it. `None` until there
+/// is enough conversation, or when no source answers. Only the window that
+/// owns the session may ask.
 #[tauri::command]
 pub async fn session_summarize(
     window: tauri::WebviewWindow,
     id: String,
     agent: String,
+    cwd: String,
     state: tauri::State<'_, crate::terminal::pty::PtyState>,
 ) -> Result<Option<String>, String> {
     let transcript = crate::terminal::pty::transcript_of(&state, window.label(), &id)?;
-    Ok(
-        tauri::async_runtime::spawn_blocking(move || session_summary(&transcript, &agent))
-            .await
-            .ok()
-            .flatten(),
-    )
+    Ok(tauri::async_runtime::spawn_blocking(move || {
+        session_summary(&transcript, &agent, std::path::Path::new(&cwd))
+    })
+    .await
+    .ok()
+    .flatten())
 }
 
-fn session_summary(transcript: &str, agent: &str) -> Option<String> {
+fn session_summary(transcript: &str, agent: &str, cwd: &std::path::Path) -> Option<String> {
     let readable = readable_transcript(transcript);
     if readable.len() < MINIMUM_SUMMARY_INPUT_LENGTH {
         return None;
     }
 
-    let prompt = summary_prompt(&readable);
+    let pull_request = open_pull_request(cwd);
+    let prompt = summary_prompt(&readable, pull_request.as_ref());
     copilot::run_chat(&prompt)
         .and_then(|raw| tidy_summary(&raw))
         .or_else(|| {
@@ -60,7 +65,7 @@ fn session_summary(transcript: &str, agent: &str) -> Option<String> {
         })
 }
 
-fn summary_prompt(transcript: &str) -> String {
+fn summary_prompt(transcript: &str, pull_request: Option<&PullRequest>) -> String {
     let mut prompt = String::from(
         "Below is the recent terminal transcript of a coding-agent session. Ignore the terminal \
          interface itself - spinners, progress indicators, status bars, key hints, token counts, \
@@ -69,11 +74,30 @@ fn summary_prompt(transcript: &str) -> String {
          user and for what. Write for someone glancing at a dashboard, where it must fit two \
          short lines - leave out detail rather than run long. You may use inline Markdown: **bold** for the one key point, `code` for a file, \
          command or identifier, and [text](url) for a real URL the transcript shows (a pull \
-         request, an issue). No headings, lists or line breaks.\n\n---\n",
+         request, an issue). No headings, lists or line breaks.",
     );
+    if let Some(pull_request) = pull_request {
+        prompt.push_str(&pull_request_note(pull_request));
+    }
+    prompt.push_str("\n\n---\n");
     prompt.push_str(tail(transcript, SUMMARY_PROMPT_TAIL_BYTES));
     prompt.push_str("\n---\n\nReply with ONLY the summary.");
     prompt
+}
+
+/// What the prompt tells the model about the branch's open pull request: link
+/// it whenever the summary mentions it, and link any other `#number` in the
+/// same repository too (GitHub forwards an issue address to a pull request).
+fn pull_request_note(pull_request: &PullRequest) -> String {
+    let PullRequest { number, title, url } = pull_request;
+    let repository = url
+        .rsplit_once("/pull/")
+        .map_or(url.as_str(), |(repository, _)| repository);
+    format!(
+        " This project's branch has an open pull request, #{number} \"{title}\" at {url}. \
+         Whenever the summary mentions it, link it as [PR #{number}]({url}); any other \
+         #number in this repository links to {repository}/issues/<number>."
+    )
 }
 
 /// Shape a raw reply into one dashboard line: whitespace collapsed, a wrapping
@@ -110,7 +134,7 @@ fn tidy_summary(raw: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{summary_prompt, tidy_summary, MAXIMUM_SUMMARY_LENGTH};
+    use super::{summary_prompt, tidy_summary, PullRequest, MAXIMUM_SUMMARY_LENGTH};
 
     #[test]
     fn a_reply_becomes_one_line_without_its_wrapping() {
@@ -151,8 +175,21 @@ mod tests {
     #[test]
     fn the_prompt_carries_only_the_transcript_tail() {
         let transcript = format!("{}LATEST", "x".repeat(10_000));
-        let prompt = summary_prompt(&transcript);
+        let prompt = summary_prompt(&transcript, None);
         assert!(prompt.contains("LATEST"));
         assert!(prompt.len() < 7_000);
+    }
+
+    #[test]
+    fn the_prompt_hands_the_model_the_open_pull_request_to_link() {
+        let pull_request = PullRequest {
+            number: 1278,
+            title: "Weather light".to_string(),
+            url: "https://github.com/a/b/pull/1278".to_string(),
+        };
+        let prompt = summary_prompt("transcript", Some(&pull_request));
+        assert!(prompt.contains("[PR #1278](https://github.com/a/b/pull/1278)"));
+        assert!(prompt.contains("https://github.com/a/b/issues/<number>"));
+        assert!(!summary_prompt("transcript", None).contains("pull request, #"));
     }
 }

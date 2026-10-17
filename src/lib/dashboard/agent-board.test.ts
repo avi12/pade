@@ -44,8 +44,7 @@ function window({ projectLabel, agents }: {
     agents,
     changedFiles: [],
     changedFileCount: 0,
-    lastChangeAt: null,
-    pullRequest: null
+    lastChangeAt: null
   };
 }
 

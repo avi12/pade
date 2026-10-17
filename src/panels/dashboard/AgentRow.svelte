@@ -3,7 +3,6 @@
   import { AGENT_STATE_TEXT, agentState } from "@/lib/dashboard/agent-board";
   import type { BoardAgent } from "@/lib/dashboard/agent-board";
   import Icon from "@/lib/Icon.svelte";
-  import type { PullRequest } from "@/lib/types";
   import { formatAge, formatTimestamp } from "@/lib/util/format";
   import SummaryText from "@/panels/dashboard/SummaryText.svelte";
 
@@ -11,10 +10,8 @@
   // long, the model it runs, and the AI summary of what it has done. A click
   // anywhere on the card brings its window forward on this tab - through a
   // button stretched over the card, so the summary's links can still be links.
-  const { agent, pullRequest, now, onfocus }: {
+  const { agent, now, onfocus }: {
     agent: BoardAgent;
-    /** The project's open pull request, which the summary may mention. */
-    pullRequest: PullRequest | null;
     now: number;
     onfocus: () => Promise<void>;
   } = $props();
@@ -40,7 +37,7 @@
     {/if}
   </button>
   {#if agent.summary}
-    <p class="summary"><SummaryText {pullRequest} text={agent.summary} /></p>
+    <p class="summary"><SummaryText text={agent.summary} /></p>
   {:else}
     <p class="summary pending">No summary yet - it comes once the agent has done some work</p>
   {/if}
