@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Command, EventType, onMessage, sendMessage } from "@/lib/ipc/messaging";
+  import { sendSettingsMessage } from "@/lib/settings/settings-requests";
   import { invalidateProjectBranches } from "@/lib/stores/workspace/projectBranches.svelte";
   import { revalidateProjectKinds } from "@/lib/stores/workspace/projectKinds.svelte";
   import { revalidateProjectLanguages } from "@/lib/stores/workspace/projectLanguages.svelte";
@@ -11,6 +12,7 @@
   import { normalizePath } from "@/lib/util/paths";
   import { otherWindowWith } from "@/lib/workspace/open-windows";
   import SaveWorkspaceCard from "@/lib/workspace/SaveWorkspaceCard.svelte";
+  import FolderWatch from "@/lib/workspace/switcher/FolderWatch.svelte";
   import { runListTransition } from "@/lib/workspace/switcher/list-transition";
   import OpenWindowList from "@/lib/workspace/switcher/OpenWindowList.svelte";
   import ProjectList from "@/lib/workspace/switcher/ProjectList.svelte";
@@ -432,6 +434,16 @@
       bind:deleteTarget
       bind:relabelTarget
       bind:renameFolderTarget
+    />
+
+    <!-- A listed folder deleted or renamed outside PADE closes out of the list
+         with the same morph a removal from the menu plays -->
+    <FolderWatch
+      isActive={isMenuOpen}
+      onvanish={async () => await animateListChange(async () => {
+        await sendSettingsMessage(Command.workspacePrune);
+      })}
+      projects={[...pinnedProjects, ...recentProjects]}
     />
   </div>
 </span>
