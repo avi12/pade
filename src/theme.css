@@ -1549,7 +1549,7 @@ textarea {
      The panel tabs also take the game's uppercase-with-tracking treatment. Only
      those: every other label in the app is a project, file or session name, and
      shouting someone's data back at them is not a theme. */
-  :is(button, [role="tab"], .tab, input, select, textarea):not(:focus-visible) {
+  :is(button, [role="tab"], .tab):not(:focus-visible) {
     outline: 1px solid var(--control-edge);
     outline-offset: -1px;
   }
@@ -1583,6 +1583,84 @@ textarea {
   [role="tab"] {
     letter-spacing: 0.08em;
     text-transform: uppercase;
+  }
+
+  /* A place to type and a place to click wore the same 1px frame, so neither
+     read as what it was. Fields now behave like the game's (and Arwes') input
+     plates: the caret is the terminal's own block colour, a placeholder is the
+     instrument's mono writing, and focus draws an accent line in along the foot
+     while the frame lights - the ring sits ON the cut plate rather than
+     floating 2px outside it, so it follows the bevel. On paper there is no
+     glow, so that line is what says "focused" there. `:read-write` is every
+     field you type into and none of the checkboxes, radios or sliders. The
+     frame itself is set apart, below this block. */
+  :is(:read-write, select) {
+    background-image: linear-gradient(var(--stripe) 0 0);
+    background-position: left bottom;
+    background-size: 0 2px;
+    background-repeat: no-repeat;
+    caret-color: var(--terminal-cursor);
+    transition: background-size 160ms var(--ease);
+
+    &:dir(rtl) {
+      background-position: right bottom;
+    }
+
+    &::placeholder {
+      color: var(--on-surface-variant);
+      font-family: var(--font-monospace);
+      letter-spacing: 0.04em;
+    }
+
+    &:focus {
+      background-size: 100% 2px;
+    }
+  }
+
+  /* `:user-invalid` waits for the user to have touched the field, so a form
+     never opens already red. */
+  :is(:user-invalid, [aria-invalid="true"]) {
+    background-color: var(--critical-wash);
+    background-image: linear-gradient(var(--critical) 0 0);
+    background-size: 100% 2px;
+    outline-color: var(--critical);
+  }
+
+  /* Buttons acknowledge the pointer the way the HUD does: the frame lights on
+     hover and snaps one step inward while pressed - a plate being pushed, drawn
+     without moving the button, so nothing that positions one is disturbed. */
+  :is(button, [role="tab"], .tab):not(:disabled, :focus-visible) {
+    &:hover {
+      outline-color: var(--hairline);
+    }
+
+    &:active {
+      outline-width: 2px;
+      outline-offset: -3px;
+    }
+  }
+
+  /* On paper the frame is already the ink it would light to, so hover takes
+     the card weight instead. */
+  &[data-theme="light"] :is(button, [role="tab"], .tab):hover:not(:disabled, :focus-visible, :active) {
+    outline-width: 2px;
+    outline-offset: -2px;
+  }
+
+  /* Disabled is "offline", not faded: a dashed frame over a hatched plate, read
+     at full strength so its label stays legible. */
+  :disabled:not(fieldset, optgroup, option) {
+    background-image:
+      repeating-linear-gradient(
+        -45deg,
+        color-mix(in sRGB, var(--outline) 22%, transparent) 0 2px,
+        transparent 2px 6px
+      );
+    color: var(--on-surface-variant);
+    outline: 1px dashed var(--outline);
+    outline-offset: -1px;
+    opacity: 100%;
+    cursor: not-allowed;
   }
 
   /* Atmosphere: a CRT sweep over a faint survey grid, both in one inert fixed
@@ -1845,6 +1923,24 @@ textarea {
 
   &[data-theme="light"] .agent-icon.ready {
     background: var(--tertiary-wash);
+    box-shadow: none;
+  }
+}
+
+/* A field's frame, kept out of the skin block on purpose: `:where()` drops the
+   palette's weight, so a field set inside a plate of its own (the switcher's
+   search, the terminal's find bar) - whose component already says
+   `outline: none` - stays one plate instead of a box inside a box. A
+   standalone field keeps the frame, and focus lights it ON the cut plate
+   rather than floating a glowing ring around it - the accent line drawn along
+   its foot already says where the caret is. */
+:where(:root[data-palette="cyberpunk"]) :is(:read-write, select) {
+  outline: 1px solid var(--control-edge);
+  outline-offset: -1px;
+
+  &:focus-visible {
+    outline: 2px solid var(--hairline);
+    outline-offset: -2px;
     box-shadow: none;
   }
 }
