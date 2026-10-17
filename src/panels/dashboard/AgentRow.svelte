@@ -150,16 +150,10 @@
     font-size: 11px;
   }
 
-  /* Two lines at most, so every row reads in one glance. The summary is asked
-     for at that length (summary.rs); one that still runs over fades out along
-     the end of its second line rather than stopping mid-word. */
+  /* Shown whole: the summary is written to fit two lines (summary.rs), never
+     clipped or faded to make it fit. */
   .summary {
-    overflow: hidden;
-    max-block-size: 2lh;
     margin: 0;
-    mask:
-      linear-gradient(#000000, #000000) top / 100% 1lh no-repeat,
-      linear-gradient(to right, #000000 75%, transparent) bottom / 100% 1lh no-repeat;
     font-size: 12.5px;
     line-height: 1.45;
 
