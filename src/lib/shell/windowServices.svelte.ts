@@ -15,7 +15,9 @@ import type { WindowSessions } from "@/lib/shell/windowSessions.svelte";
 import { ensureChoiceAttention } from "@/lib/stores/session/sessionAttention.svelte";
 import { ensureRunnerListeners } from "@/lib/stores/tasks/runners.svelte";
 import { initTaskRunDetection, refreshTaskRunDetection } from "@/lib/stores/tasks/taskRuns.svelte";
+import { refreshEditors } from "@/lib/stores/workspace/editors.svelte";
 import { projectKind, requestProjectKind } from "@/lib/stores/workspace/projectKinds.svelte";
+import { followOwnProject } from "@/lib/stores/workspace/projectLanguages.svelte";
 import {
   activeMemberIn,
   loadWorkspaceMembers,
@@ -84,6 +86,17 @@ export function startWindowServices({ project, windowSessions, repository, isWin
 
     sendMessage(Command.watchStart, { root });
     refreshTaskRunDetection();
+  });
+
+  // Keep the open project's language mix counted as it changes, and re-pick its
+  // editor when the mix moves - a TypeScript app that grows a C# companion may
+  // now want a different one (stores/workspace/projectLanguages, editors).
+  $effect(() => {
+    const path = project();
+    untrack(() => followOwnProject({
+      path,
+      onchange: () => refreshEditors(path)
+    }));
   });
 
   // What this workspace is made of - nested checkouts and declared packages, as
