@@ -1077,7 +1077,10 @@ enum MovedLabel {
 
 /// Move the folder `from` to `destination` and everything that knows it by
 /// path along with it: PADE's own watch lets go first, then each agent's
-/// memory, the IDEs' recents and PADE's settings follow, and PADE reopens it.
+/// memory, the IDEs' recents and PADE's settings follow. It is not opened: a
+/// folder renamed from a list keeps its place in it (`retarget` re-keys the
+/// entries it had) rather than jumping into the recents, and a window that had
+/// it open re-points itself.
 /// Off the async runtime: the rename retries while Windows closes handles, and
 /// the agents' memories are files and databases.
 async fn relocate_folder(
@@ -1129,7 +1132,6 @@ fn relocate_folder_now(
         }
         Ok(())
     })?;
-    workspace_open(destination_string.clone())?;
     Ok(destination_string)
 }
 
