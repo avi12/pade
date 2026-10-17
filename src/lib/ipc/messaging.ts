@@ -35,6 +35,7 @@ import {
   PtyHistory,
   PtySession,
   PullOutcome,
+  RelocateProgress,
   RestoreCandidate,
   RunnerData,
   RunnerExit,
@@ -199,6 +200,7 @@ export enum EventType {
   mcpChanged = "mcp://changed",
   directoriesChanged = "directories://changed",
   languagesChanged = "languages://changed",
+  relocateProgress = "relocate://progress",
   gitState = "git://state",
   runnerData = "runner://data",
   runnerExit = "runner://exit",
@@ -630,6 +632,8 @@ interface EventProtocolMap {
   [EventType.directoriesChanged]: (data: null) => void;
   /** A watched project row's tracked files changed - its path, as sent. */
   [EventType.languagesChanged]: (data: string) => void;
+  /** A folder move reached its next step - shown by the prompt waiting on it. */
+  [EventType.relocateProgress]: (data: RelocateProgress) => void;
   /** The workspace's live git state changed (HEAD, config, `git init`).
    *  Payload-free on purpose: listeners re-fetch what they display. */
   [EventType.gitState]: (data: null) => void;
@@ -778,6 +782,7 @@ const EVENT_PAYLOAD_SCHEMAS = {
   [EventType.mcpChanged]: McpChange,
   [EventType.directoriesChanged]: z.null(),
   [EventType.languagesChanged]: z.string(),
+  [EventType.relocateProgress]: RelocateProgress,
   [EventType.gitState]: z.null(),
   [EventType.runnerData]: RunnerData,
   [EventType.runnerExit]: RunnerExit,

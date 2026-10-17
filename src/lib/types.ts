@@ -733,6 +733,17 @@ export const RunnerExit = z.object({
 });
 export type RunnerExit = z.infer<typeof RunnerExit>;
 
+/** The steps a folder move goes through, in order (Rust `RelocateStep`). */
+export const RelocateStep = z.enum(["renaming", "agentMemories", "editorRecents", "links", "settings"]);
+export type RelocateStep = z.infer<typeof RelocateStep>;
+
+/** Where a folder move is, keyed by the folder it started from. */
+export const RelocateProgress = z.object({
+  from: z.string(),
+  step: RelocateStep
+});
+export type RelocateProgress = z.infer<typeof RelocateProgress>;
+
 /** A running terminal session bound to one agent (frontend-only, not IPC). */
 export interface AgentSession {
   id: string;

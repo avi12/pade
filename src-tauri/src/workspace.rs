@@ -1044,6 +1044,29 @@ pub async fn workspace_rename_folder(
     relocate_folder(&app, &from, &destination, MovedLabel::Drop).await
 }
 
+/// The steps a folder move goes through. Each is told to the frontend as it
+/// starts: re-pointing everything that knows the folder can take a while on a
+/// large project, and a prompt that only says "Renaming…" reads as stuck.
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum RelocateStep {
+    Renaming,
+    AgentMemories,
+    EditorRecents,
+    Links,
+    Settings,
+}
+
+/// Where a folder move is, keyed by the folder it started from.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RelocateProgress<'a> {
+    from: &'a str,
+    step: RelocateStep,
+}
+
+const RELOCATE_PROGRESS_EVENT: &str = "relocate://progress";
+
 /// Whether a moved workspace keeps its display label. A rename makes the chosen
 /// folder name the one shown, so a label carried over would shadow it.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1089,11 +1112,16 @@ fn relocate_folder_now(
         return Err(format!("{} already exists", destination.display()));
     }
 
+    let report = |step| {
+        let _ = app.emit(RELOCATE_PROGRESS_EVENT, RelocateProgress { from, step });
+    };
+    report(RelocateStep::Renaming);
     watcher::release_watches_under(app, source);
     leave_if_inside(source);
     rename_patiently(source, destination).map_err(|error| error.to_string())?;
     let destination_string = destination.to_string_lossy().into_owned();
-    refs::update_references(from, &destination_string);
+    refs::update_references(from, &destination_string, &report);
+    report(RelocateStep::Settings);
     update_settings(|settings| {
         retarget(settings, from, &destination_string);
         if label == MovedLabel::Drop {
@@ -1228,7 +1256,7 @@ pub async fn workspace_save_migrate(
     // Re-point external tools (agent memory, IDE recents) at the copied project -
     // best-effort, independent of the settings bookkeeping below. The temp is NOT
     // moved: it stays owned/labeled until the frontend deletes it.
-    refs::update_references(&from, &destination_string);
+    refs::update_references(&from, &destination_string, &|_| {});
     update_settings(|settings| {
         record_recent(settings, &destination_string);
         // The chosen folder name is the real project's authoritative display name;

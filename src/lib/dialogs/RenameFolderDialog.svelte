@@ -1,8 +1,13 @@
 <script lang="ts">
   import NameDialog from "@/lib/dialogs/NameDialog.svelte";
-  import { baseName } from "@/lib/util/paths";
+  import { EventType, onMessage } from "@/lib/ipc/messaging";
+  import type { RelocateStep } from "@/lib/types";
+  import { baseName, normalizePath } from "@/lib/util/paths";
   import { ProjectName } from "@/lib/validate";
+  import { RELOCATE_STEP_TEXT } from "@/lib/workspace/relocate-steps";
   import type { Relocator } from "@/lib/workspace/workspace-relocate";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy, onMount } from "svelte";
 
   // Rename a project's folder on disk, where it stands. Unlike a relabel, the
   // path itself changes, so everything that knows the folder by path follows it:
@@ -16,10 +21,29 @@
     /** Close the prompt - after the rename, or on cancel. */
     onclose: () => void;
   } = $props();
+
+  // A large project takes a while to follow - every agent's memory, the
+  // editors' lists, thousands of package links - so the busy button names the
+  // step the move is on rather than one "Renaming…" that reads as stuck.
+  let step = $state<RelocateStep | null>(null);
+  let unlistenProgress: UnlistenFn | undefined;
+
+  onMount(async () => {
+    unlistenProgress = await onMessage(EventType.relocateProgress, ({ data }) => {
+      const isThisFolder = normalizePath(data.from) === normalizePath(path);
+      if (isThisFolder) {
+        step = data.step;
+      }
+    });
+  });
+
+  onDestroy(() => {
+    unlistenProgress?.();
+  });
 </script>
 
 <NameDialog
-  busyLabel="Renaming…"
+  busyLabel={step === null ? "Renaming…" : RELOCATE_STEP_TEXT[step]}
   confirmLabel="Rename folder"
   failureFallback="Couldn’t rename that folder"
   initialValue={baseName(path)}

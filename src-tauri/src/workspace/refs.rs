@@ -21,15 +21,21 @@ mod agents;
 
 use std::path::{Path, PathBuf};
 
+use super::RelocateStep;
 use crate::util::is_on_path;
 
 /// Best-effort: re-point every external reference from `old` to `new` (absolute
 /// dir paths). Per-adapter errors are logged and ignored - one failing tool must
 /// never abort the others or the move itself.
-pub fn update_references(old: &str, new: &str) {
+/// `report` hears each step as it starts, so a move that takes a while on a
+/// large project can say where it is.
+pub fn update_references(old: &str, new: &str, report: &dyn Fn(RelocateStep)) {
     let new_directory = Path::new(new);
+    report(RelocateStep::AgentMemories);
     agents::relocate_memories(old, new);
+    report(RelocateStep::EditorRecents);
     rewrite_ide_recents(new_directory, old, new);
+    report(RelocateStep::Links);
     fix_project_symlinks(new_directory, old, new);
     reconcile_package_manager(new_directory);
 }
