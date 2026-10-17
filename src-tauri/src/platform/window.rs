@@ -475,7 +475,7 @@ impl<'path> LaunchMode<'path> {
         }
     }
 
-    /// Whether the window zooms the way a browser does: WebView2's own zoom on
+    /// Whether the window zooms the way a browser does: `WebView2`'s own zoom on
     /// Ctrl with the wheel, plus, minus or zero. Only the dashboard - it is read,
     /// not typed in, while a project window's terminal owns those keys and its
     /// font size is the app's zoom preference.
