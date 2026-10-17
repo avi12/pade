@@ -190,6 +190,7 @@ pub fn run() {
             vcs::branches::vcs_remote_branches,
             vcs::branches::vcs_switch_branch,
             vcs::pull::vcs_pull,
+            vcs::pull_request::vcs_pull_request,
             vcs::inspect::vcs_commit,
             vcs::inspect::vcs_commit_diff,
             vcs::remote::vcs_default_branch,
