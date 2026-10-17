@@ -77,8 +77,9 @@ fn summary_prompt(transcript: &str, links: &[String]) -> String {
          what it is doing now - or, if it has stopped, whether it finished or is waiting on the \
          user and for what. Write for someone glancing at a dashboard, where it must fit two \
          short lines - leave out detail rather than run long. You may use inline Markdown: \
-         **bold** for the one key point, `code` for a file, command or identifier, and \
-         [text](url) links. No headings, lists or line breaks.",
+         **bold** for the one key point, `code` for a file, command or identifier, and a link \
+         always as Markdown with a few words of text - [PR #1278](https://...) - never a bare \
+         address. No headings, lists or line breaks.",
     );
     prompt.push_str(&links_note(links));
     prompt.push_str("\n\n---\n");
@@ -103,7 +104,7 @@ fn links_note(links: &[String]) -> String {
     let mut note = format!(
         "{rule} Addresses this session has worked with, newest first - whenever the summary \
          mentions something one of them points to (a pull request, an issue, a run, a page), \
-         link it with that address:"
+         link it as [a few words](that exact address) - never print the address itself:"
     );
     for link in links.iter().take(PROMPT_LINKS) {
         note.push_str("\n- ");
@@ -131,17 +132,43 @@ fn tidy_summary(raw: &str) -> Option<String> {
         return None;
     }
 
-    if trimmed.chars().count() <= MAXIMUM_SUMMARY_LENGTH {
+    let Some(cut_at) = after_visible_characters(trimmed, MAXIMUM_SUMMARY_LENGTH - 1) else {
         return Some(trimmed.to_string());
-    }
+    };
 
     // Over-long: keep the whole sentences that fit, rather than stopping
     // mid-thought; only one long sentence is cut with an ellipsis.
-    let cut: String = trimmed.chars().take(MAXIMUM_SUMMARY_LENGTH - 1).collect();
+    let cut = &trimmed[..cut_at];
     if let Some(end) = cut.rfind(SENTENCE_END) {
         return Some(cut[..=end].to_string());
     }
     Some(format!("{}{ELLIPSIS}", cut.trim_end()))
+}
+
+/// The byte index in `text` just after its first `budget` visible characters -
+/// a Markdown link's `(address)` never shows, so it never counts. `None` when
+/// the text shows no more than that.
+fn after_visible_characters(text: &str, budget: usize) -> Option<usize> {
+    let mut shown = 0;
+    let mut is_in_address = false;
+    let mut previous = None;
+    for (index, character) in text.char_indices() {
+        let opens_address = character == '(' && previous == Some(']');
+        previous = Some(character);
+        if is_in_address {
+            is_in_address = character != ')';
+            continue;
+        }
+        if opens_address {
+            is_in_address = true;
+            continue;
+        }
+        if shown == budget {
+            return Some(index);
+        }
+        shown += 1;
+    }
+    None
 }
 
 #[cfg(test)]
@@ -158,6 +185,13 @@ mod tests {
             tidy_summary("- Added the dashboard window").as_deref(),
             Some("Added the dashboard window")
         );
+    }
+
+    #[test]
+    fn a_links_address_does_not_count_toward_the_length() {
+        let address = format!("https://github.com/a/b/pull/1278?{}", "x".repeat(200));
+        let reply = format!("Relaunched the app and answered with the [PR link]({address}).");
+        assert_eq!(tidy_summary(&reply).as_deref(), Some(reply.as_str()));
     }
 
     #[test]
