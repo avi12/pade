@@ -2,8 +2,9 @@
   import { windowFacts } from "@/lib/dashboard/agent-board";
   import type { BoardWindow } from "@/lib/dashboard/agent-board";
   import Icon from "@/lib/Icon.svelte";
-  import { baseName } from "@/lib/util/paths";
   import AgentRow from "@/panels/dashboard/AgentRow.svelte";
+  import ChangedFiles from "@/panels/dashboard/ChangedFiles.svelte";
+  import PullRequestLink from "@/panels/dashboard/PullRequestLink.svelte";
 
   // One project window on the dashboard: its name (a click brings the window
   // forward), how much it has changed, and each of its agents.
@@ -26,19 +27,17 @@
     now
   })}</p>
 
+  {#if board.pullRequest}
+    <PullRequestLink pullRequest={board.pullRequest} />
+  {/if}
+
   <ul class="agents">
     {#each board.agents as agent (agent.id)}
-      <AgentRow {agent} {now} onfocus={() => onfocus(agent.id)} />
+      <AgentRow {agent} {now} onfocus={() => onfocus(agent.id)} pullRequest={board.pullRequest} />
     {/each}
   </ul>
 
-  {#if board.changedFiles.length > 0}
-    <ul class="files">
-      {#each board.changedFiles as file (file)}
-        <li data-tooltip={file}>{baseName(file)}</li>
-      {/each}
-    </ul>
-  {/if}
+  <ChangedFiles files={board.changedFiles} />
 </section>
 
 <style>
@@ -88,30 +87,12 @@
     font-size: 11px;
   }
 
-  .agents,
-  .files {
+  .agents {
     display: flex;
+    flex-direction: column;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-
-  .agents {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .files {
-    flex-wrap: wrap;
-    gap: 6px;
-
-    li {
-      padding: 2px 7px;
-      border-radius: var(--radius-small);
-      background: var(--surface-2);
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 11px;
-    }
   }
 </style>

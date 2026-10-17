@@ -7,7 +7,7 @@
 // watching (and only then spend a model call summarizing their agents); a row
 // click asks the owning window to bring that session's tab forward.
 
-import { SessionStatus } from "@/lib/types";
+import { PullRequest, SessionStatus } from "@/lib/types";
 import { formatAge, formatQuantity } from "@/lib/util/format";
 import { z } from "zod";
 
@@ -51,7 +51,9 @@ const BoardWindow = z.object({
   /** Distinct changed files in the project, newest first. */
   changedFiles: z.array(z.string()),
   changedFileCount: z.number(),
-  lastChangeAt: z.number().nullable()
+  lastChangeAt: z.number().nullable(),
+  /** The open pull request for the project's current branch, when there is one. */
+  pullRequest: PullRequest.nullable()
 });
 export type BoardWindow = z.infer<typeof BoardWindow>;
 

@@ -1,4 +1,4 @@
-import { InlineKind, inlineMarkdown } from "@/lib/dashboard/summary-markdown";
+import { InlineKind, inlineMarkdown, withPullRequestLinks } from "@/lib/dashboard/summary-markdown";
 import { describe, expect, it } from "vitest";
 
 describe("inlineMarkdown", () => {
@@ -78,5 +78,43 @@ describe("inlineMarkdown", () => {
         text: "**not bold**"
       }
     ]);
+  });
+});
+
+describe("withPullRequestLinks", () => {
+  const pullRequest = {
+    number: 1278,
+    url: "https://github.com/a/b/pull/1278"
+  };
+
+  it("links each mention of the open pull request", () => {
+    expect(
+      withPullRequestLinks({
+        text: "Updated PR #1278's description, see #1278",
+        pullRequest
+      })
+    ).toBe("Updated [PR #1278](https://github.com/a/b/pull/1278)'s description, see [#1278](https://github.com/a/b/pull/1278)");
+  });
+
+  it("leaves other numbers, an already-linked summary and no pull request alone", () => {
+    expect(
+      withPullRequestLinks({
+        text: "Fixed #12780 and issue#1278",
+        pullRequest
+      })
+    ).toBe("Fixed #12780 and issue#1278");
+    const linked = "Merged [the PR](https://github.com/a/b/pull/1278)";
+    expect(
+      withPullRequestLinks({
+        text: linked,
+        pullRequest
+      })
+    ).toBe(linked);
+    expect(
+      withPullRequestLinks({
+        text: "PR #1278",
+        pullRequest: null
+      })
+    ).toBe("PR #1278");
   });
 });

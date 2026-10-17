@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { InlineKind, inlineMarkdown } from "@/lib/dashboard/summary-markdown";
-  import { Command, sendMessage } from "@/lib/ipc/messaging";
+  import { openLink } from "@/lib/dashboard/open-link";
+  import { InlineKind, inlineMarkdown, withPullRequestLinks } from "@/lib/dashboard/summary-markdown";
+  import type { PullRequest } from "@/lib/types";
 
   // An agent summary's inline Markdown as real elements - bold, emphasis, code
-  // and links - never as HTML. A link opens in the browser, not in this window.
-  const { text }: {
+  // and links - never as HTML. A link opens in the browser, not in this window;
+  // a mention of the project's open pull request becomes a link to it.
+  const { text, pullRequest }: {
     text: string;
+    pullRequest: PullRequest | null;
   } = $props();
 
   /** The element each formatted piece renders as. */
@@ -17,7 +20,14 @@
     [InlineKind.Text]: "span"
   } as const;
 
-  const pieces = $derived(inlineMarkdown(text));
+  const pieces = $derived(
+    inlineMarkdown(
+      withPullRequestLinks({
+        text,
+        pullRequest
+      })
+    )
+  );
 </script>
 
 {#each pieces as piece, i (i)}
@@ -26,11 +36,7 @@
       href={piece.url}
       onclick={async e => {
         e.preventDefault();
-        try {
-          await sendMessage(Command.openUrl, { url: e.currentTarget.href });
-        } catch (error) {
-          console.warn("pade: could not open the summary's link", error);
-        }
+        await openLink(e.currentTarget.href);
       }}
     >{piece.text}</a>
   {:else if piece.kind === InlineKind.Text}
