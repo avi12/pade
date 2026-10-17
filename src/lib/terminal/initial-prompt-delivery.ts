@@ -6,6 +6,7 @@
 // the agent has settled quiet at its REPL, paste the prompt and submit it.
 
 import { promptEchoed, TrustGateKey, trustGateKey } from "@/lib/agent/initial-prompt";
+import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity-timing";
 import { pastedText } from "@/lib/terminal/terminal-input";
 import { CURSOR_DOWN, CURSOR_UP, ENTER } from "@/lib/terminal/terminal-sequences";
 import { afterDelay } from "@/lib/util/delay";
@@ -30,13 +31,8 @@ const TRUST_GATE_KEY_BYTES = {
 // output is watched for the prompt echoing back in the composer, and until it
 // does the attempt repeats on a short timer - a deliberate poll, since no
 // event announces "the TUI now reads input". Bounded so an agent that renders
-// the prompt unrecognizably can't be pasted at forever.
-// Longer than the pane's idle window (1500ms): a submit's paste-echo alone flips
-// the session to `working`, but with nothing behind it the idle timer settles it
-// back to `ready` at 1500ms. Verifying at 2000ms therefore tells the two apart -
-// still `working` here means the agent is genuinely processing the prompt, not
-// just echoing the paste.
-const PROMPT_ECHO_VERIFY_MS = 2_000;
+// the prompt unrecognizably can't be pasted at forever. Each attempt is checked
+// `SUBMIT_VERIFY_MS` after it, past the echo of its paste.
 // Let a fresh bracketed paste land in the composer before the submitting Enter,
 // so the TUI's post-paste guard doesn't fold the CR into the paste burst and
 // leave the prompt sitting unsent (a combined paste+CR is exactly what stranded
@@ -61,8 +57,8 @@ export function createInitialPromptDelivery({ prompt, write, isWorking }: {
   let isTrustGateAwaitingRepaint = false;
   let recentOutput = "";
   let attempts = 0;
-  // A submit is written and waiting for its 2000ms verdict. The idle handler
-  // fires its own re-check at 1500ms - before the verdict - so it must not
+  // A submit is written and waiting for its verdict. The idle handler fires its
+  // own re-check once the idle window passes - before the verdict - so it must not
   // re-enter delivery meanwhile, or it would re-paste (or prematurely latch)
   // while the verify timer is still deciding. The verify callback owns the retry.
   let isAwaitingVerify = false;
@@ -125,7 +121,7 @@ export function createInitialPromptDelivery({ prompt, write, isWorking }: {
       await write(ENTER);
     }
 
-    // Verify shortly. Still `working` at 2000ms means the agent took the prompt
+    // Verify shortly. Still `working` at the verdict means the agent took the prompt
     // up and is running it - delivery is done, so latch it (this is what stops a
     // handoff successor, whose first turn scrolls the echo out of `recentOutput`,
     // from being re-prompted). Back at `ready` means it wasn't submitted - the
@@ -141,7 +137,7 @@ export function createInitialPromptDelivery({ prompt, write, isWorking }: {
       }
 
       deliverIfReady();
-    }, PROMPT_ECHO_VERIFY_MS);
+    }, SUBMIT_VERIFY_MS);
   }
 
   return {

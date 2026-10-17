@@ -2,22 +2,10 @@
 // gap while the process is alive = ready (done with its task, waiting for you);
 // exit = done.
 
+import { IDLE_MS } from "@/lib/terminal/activity-timing";
 import { ENTER } from "@/lib/terminal/terminal-sequences";
 import { SessionStatus } from "@/lib/types";
 
-// How long the PTY must fall quiet before a working session settles back to
-// "ready". This is a hysteresis window, not just a debounce: it must comfortably
-// outlast the *slowest periodic repaint* a long-running task emits, or the badge
-// flickers. A dev server started by the agent (e.g. `pnpm netlify` → Vite) keeps
-// Claude repainting its elapsed-time counter ("1m 1s", "1m 2s", …) about once a
-// second and dribbles the odd log line - if this window were shorter than that
-// ~1 s cadence, the status would drop to "ready" in the gap after each tick and
-// snap back to "working" on the next, a ~1 Hz flicker. Sitting above 1 s, one
-// periodic tick re-arms the timer before it fires, so the session stays steadily
-// "working" for the whole command and only settles ~1.5 s after output truly
-// stops. The cost is the "ready" badge on a normal quiet turn appears ~0.8 s
-// later than the old 700 ms - an acceptable trade for no flicker.
-const IDLE_MS = 1500;
 // A resize makes the agent repaint; output within this window after one is
 // treated as that repaint's echo, not fresh activity - so revealing a hidden
 // pane (which refits it) can't flash the badge from "ready" to "working".

@@ -1,3 +1,4 @@
+import { IDLE_MS } from "@/lib/terminal/activity-timing";
 import { createSessionActivity } from "@/lib/terminal/sessionActivity.svelte";
 import { ENTER } from "@/lib/terminal/terminal-sequences";
 import { SessionStatus } from "@/lib/types";
@@ -9,8 +10,6 @@ import {
   it,
   vi
 } from "vitest";
-
-const IDLE_MS = 1500;
 
 function settledActivity() {
   const onSettled = vi.fn();

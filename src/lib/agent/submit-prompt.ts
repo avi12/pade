@@ -11,12 +11,12 @@
 
 import { Command, sendMessage } from "@/lib/ipc/messaging";
 import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
+import { SUBMIT_VERIFY_MS } from "@/lib/terminal/activity-timing";
 import { pastedText, PROMPT_SUBMIT } from "@/lib/terminal/terminal-input";
 import { SessionStatus } from "@/lib/types";
 
 const SUBMIT_SETTLE_MS = 1_200;
 const SUBMIT_ATTEMPTS = 6;
-const SUBMIT_CONFIRM_MS = 1_500;
 
 /** Paste `text` into a session's composer and submit it. `wait` is the caller's
  *  delay, so one that tears down its timers on dispose can cancel the retries. */
@@ -36,7 +36,7 @@ export async function submitPastedPrompt({ id, text, wait }: {
       id,
       data: PROMPT_SUBMIT
     });
-    await wait(SUBMIT_CONFIRM_MS);
+    await wait(SUBMIT_VERIFY_MS);
 
     if (sessionStatus(id) === SessionStatus.enum.working) {
       return;
