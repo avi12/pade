@@ -312,7 +312,8 @@ pub fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
     claude_session_log(ID_CLAUDE, Some(conversation_id))
 }
 
-/// The session log Claude keeps for `conversation_id`, at
+/// The session log Claude keeps for `conversation_id`: the transcript its hooks
+/// last named (a resumed session logs under Claude's own new id), else
 /// `~/.claude/projects/<encoded-cwd>/<conversation-id>.jsonl`. The id is unique,
 /// so the project directory is matched by scanning rather than by re-deriving
 /// Claude's path encoding. The one place this file is located; see the module
@@ -321,9 +322,15 @@ fn claude_session_log(command: &str, conversation_id: Option<&str>) -> Option<Pa
     if command != ID_CLAUDE {
         return None;
     }
+    let conversation_id = conversation_id?;
+    // A resumed session goes on in a log under Claude's own new id; its hooks
+    // name that file. The pinned id's log is only the first session's.
+    if let Some(reported) = crate::agents::running_model::reported_transcript(conversation_id) {
+        return Some(reported);
+    }
 
     let projects = home_directory()?.join(".claude").join("projects");
-    let log_name = format!("{}.jsonl", conversation_id?);
+    let log_name = format!("{conversation_id}.jsonl");
     std::fs::read_dir(projects)
         .ok()?
         .flatten()

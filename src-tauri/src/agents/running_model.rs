@@ -578,6 +578,17 @@ fn read_session_state(conversation_id: &str) -> Option<SessionState> {
     read_state(&state_file(conversation_id)?)
 }
 
+/// The transcript the agent's own hooks last named for `conversation_id`,
+/// when it still exists. A resumed Claude session writes under a new id of its
+/// own, so this - not the id PADE pinned at launch - is where it really logs.
+pub(crate) fn reported_transcript(conversation_id: &str) -> Option<PathBuf> {
+    if !is_plain_id(conversation_id) {
+        return None;
+    }
+    let transcript = PathBuf::from(read_session_state(conversation_id)?.transcript?);
+    transcript.is_file().then_some(transcript)
+}
+
 /// Record a model / effort PADE itself put in place (at launch, or by a live
 /// switch) as the session's newest report.
 fn record_choice(conversation_id: &str, choice: &ModelChoice) {
