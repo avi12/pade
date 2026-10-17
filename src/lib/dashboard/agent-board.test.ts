@@ -1,6 +1,7 @@
 import {
   agentState,
   AgentState,
+  BoardSort,
   boardTally,
   changedFiles,
   isDashboardOpen,
@@ -62,25 +63,46 @@ describe("agentState", () => {
 });
 
 describe("orderedWindows", () => {
-  it("shows the window needing the user first, then the busy ones, then by name", () => {
-    const idle = window({
-      projectLabel: "alpha",
-      agents: [agent()]
-    });
-    const busy = window({
-      projectLabel: "zulu",
-      agents: [agent({ status: SessionStatus.enum.working })]
-    });
-    const waiting = window({
-      projectLabel: "mike",
-      agents: [agent(), agent({ isAwaitingChoice: true })]
-    });
-    const quiet = window({
-      projectLabel: "bravo",
-      agents: [agent()]
-    });
-    expect(orderedWindows([idle, busy, quiet, waiting]).map(shown => shown.projectLabel))
-      .toEqual(["mike", "zulu", "alpha", "bravo"]);
+  const idle = window({
+    projectLabel: "alpha",
+    agents: [agent({ statusSince: NOW - MINUTE_MS })]
+  });
+  const busy = window({
+    projectLabel: "zulu",
+    agents: [agent({ status: SessionStatus.enum.working })]
+  });
+  const waiting = window({
+    projectLabel: "mike",
+    agents: [agent({ statusSince: NOW - 3 * MINUTE_MS }), agent({
+      isAwaitingChoice: true,
+      statusSince: NOW - 2 * MINUTE_MS
+    })]
+  });
+  const quiet = window({
+    projectLabel: "bravo",
+    agents: [agent({ statusSince: NOW - 9 * MINUTE_MS })]
+  });
+  const windows = [idle, busy, quiet, waiting];
+  const labels = (sort: BoardSort) => orderedWindows({
+    windows,
+    order: ["zulu", "alpha"],
+    sort
+  }).map(shown => shown.projectLabel);
+
+  it("keeps the user's window order whatever the agents are doing, then names the rest", () => {
+    expect(labels(BoardSort.enum.windows)).toEqual(["zulu", "alpha", "bravo", "mike"]);
+  });
+
+  it("sorts by name", () => {
+    expect(labels(BoardSort.enum.name)).toEqual(["alpha", "bravo", "mike", "zulu"]);
+  });
+
+  it("puts the window needing the user first, then the busy ones", () => {
+    expect(labels(BoardSort.enum.attention)).toEqual(["mike", "zulu", "alpha", "bravo"]);
+  });
+
+  it("puts the most recently active window first", () => {
+    expect(labels(BoardSort.enum.activity)).toEqual(["zulu", "alpha", "mike", "bravo"]);
   });
 });
 

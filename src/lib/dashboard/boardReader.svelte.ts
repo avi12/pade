@@ -1,8 +1,8 @@
 // The dashboard window's side of the agents board (lib/dashboard/agent-board):
 // announce itself so every project window publishes (and starts summarizing),
-// keep each window's latest snapshot, and drop a window once it leaves - by its
-// own goodbye, or by no longer being among the open windows when one closed
-// without saying so.
+// keep each window's latest snapshot in the user's own "Open windows" order,
+// and drop a window once it leaves - by its own goodbye, or by no longer being
+// among the open windows when one closed without saying so.
 
 import {
   BOARD_CHANNEL,
@@ -19,15 +19,24 @@ import { SvelteMap } from "svelte/reactivity";
 export function createBoardReader() {
   const channel = new BroadcastChannel(BOARD_CHANNEL);
   const windows = new SvelteMap<string, BoardWindow>();
+  /** The open windows' labels in the switcher's order (`window_list`). */
+  let order = $state<string[]>([]);
 
   function post(message: BoardMessage) {
     channel.postMessage(message);
   }
 
-  async function dropClosedWindows() {
-    const open = (await sendMessage(Command.windowList)).map(listed => listed.label);
+  /** Follow the open windows: their order, and which have closed. */
+  async function syncOpenWindows() {
+    try {
+      order = (await sendMessage(Command.windowList)).map(listed => listed.label);
+    } catch (error) {
+      console.warn("pade: could not list the open windows, keeping the board as it is", error);
+      return;
+    }
+
     for (const label of windows.keys()) {
-      if (!open.includes(label)) {
+      if (!order.includes(label)) {
         windows.delete(label);
       }
     }
@@ -59,13 +68,8 @@ export function createBoardReader() {
 
   let unlistenWindows: UnlistenFn | undefined;
   onMount(async () => {
-    unlistenWindows = await onMessage(EventType.windowsChanged, async () => {
-      try {
-        await dropClosedWindows();
-      } catch (error) {
-        console.warn("pade: could not list the open windows, keeping the board as it is", error);
-      }
-    });
+    await syncOpenWindows();
+    unlistenWindows = await onMessage(EventType.windowsChanged, syncOpenWindows);
   });
   onDestroy(() => {
     unlistenWindows?.();
@@ -75,6 +79,10 @@ export function createBoardReader() {
   return {
     get windows() {
       return windows;
+    },
+    /** The open windows' labels in the user's "Open windows" order. */
+    get order() {
+      return order;
     },
     /** Bring a window forward on the session the user picked. */
     async focus({ label, sessionId }: {

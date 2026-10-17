@@ -124,6 +124,32 @@ export function agentState(agent: Pick<BoardAgent, "status" | "isAwaitingChoice"
   return STATE_OF_STATUS[agent.status];
 }
 
+/** How the dashboard orders its project cards. */
+export const BoardSort = z.enum(["windows", "name", "attention", "activity"]);
+export type BoardSort = z.infer<typeof BoardSort>;
+
+/** The sort control's options, the stable ones first. Window order is the
+ *  default: a card that moved every time its agent started or stopped could
+ *  not be found again at a glance, so the live orders are the user's to pick. */
+export const BOARD_SORTS = [
+  {
+    value: BoardSort.enum.windows,
+    label: "Window order"
+  },
+  {
+    value: BoardSort.enum.name,
+    label: "Name"
+  },
+  {
+    value: BoardSort.enum.attention,
+    label: "Needs you first"
+  },
+  {
+    value: BoardSort.enum.activity,
+    label: "Recent activity"
+  }
+] as const;
+
 function stateRank(state: AgentState) {
   return AGENT_STATE_ORDER.indexOf(state);
 }
@@ -141,11 +167,49 @@ function windowState(window: Pick<BoardWindow, "agents">) {
   return urgent;
 }
 
-/** The windows in the order the dashboard shows them: the one needing the user
- *  first, then the busiest, each tie by project name. */
-export function orderedWindows(windows: Iterable<BoardWindow>) {
-  return [...windows].toSorted((a, b) =>
-    stateRank(windowState(a)) - stateRank(windowState(b)) || a.projectLabel.localeCompare(b.projectLabel));
+/** When anything last happened in a window: a file changed or an agent's
+ *  state moved. */
+function lastActivity(window: BoardWindow) {
+  let latest = window.lastChangeAt ?? 0;
+  for (const agent of window.agents) {
+    latest = Math.max(latest, agent.statusSince);
+  }
+
+  return latest;
+}
+
+/** Each sort as a comparison; every one falls back to the project's name. */
+function sortKeyComparison({ sort, order }: {
+  sort: BoardSort;
+  order: readonly string[];
+}) {
+  const position = (window: BoardWindow) => {
+    const index = order.indexOf(window.label);
+    return index === -1 ? order.length : index;
+  };
+  const comparisons: Record<BoardSort, (a: BoardWindow, b: BoardWindow) => number> = {
+    [BoardSort.enum.windows]: (a, b) => position(a) - position(b),
+    [BoardSort.enum.name]: () => 0,
+    [BoardSort.enum.attention]: (a, b) => stateRank(windowState(a)) - stateRank(windowState(b)),
+    [BoardSort.enum.activity]: (a, b) => lastActivity(b) - lastActivity(a)
+  };
+  return comparisons[sort];
+}
+
+/** The windows in the order the dashboard shows them. `order` is the user's own
+ *  "Open windows" order (window labels as `window_list` gives them - the one
+ *  order the switcher and the Ctrl+Alt+[ / ] cycle read too); a window not in it
+ *  yet sorts after. */
+export function orderedWindows({ windows, order, sort }: {
+  windows: Iterable<BoardWindow>;
+  order: readonly string[];
+  sort: BoardSort;
+}) {
+  const compare = sortKeyComparison({
+    sort,
+    order
+  });
+  return [...windows].toSorted((a, b) => compare(a, b) || a.projectLabel.localeCompare(b.projectLabel));
 }
 
 /** How many agents are in each state across every window - the states that

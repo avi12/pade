@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { AGENT_STATE_TEXT, boardTally, orderedWindows } from "@/lib/dashboard/agent-board";
+  import { AGENT_STATE_TEXT, BOARD_SORTS, boardTally, orderedWindows } from "@/lib/dashboard/agent-board";
+  import { rememberedSort, rememberSort } from "@/lib/dashboard/board-sort";
   import { createBoardReader } from "@/lib/dashboard/boardReader.svelte";
   import { setWindowTitle } from "@/lib/ipc/platform";
   import { effective } from "@/lib/settings/prefs.svelte";
+  import { flipDuration } from "@/lib/ui/motion";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
+  import Segmented from "@/lib/ui/Segmented.svelte";
   import ProjectCard from "@/panels/dashboard/ProjectCard.svelte";
   import { onMount } from "svelte";
+  import { flip } from "svelte/animate";
 
   // The agents dashboard window: every open project window's agents at a
   // glance - the one that needs you first - each with what it is doing and
@@ -15,7 +19,14 @@
   const CLOCK_TICK_MS = 15_000;
 
   const reader = createBoardReader();
-  const windows = $derived(orderedWindows(reader.windows.values()));
+  let sort = $state(rememberedSort());
+  const windows = $derived(
+    orderedWindows({
+      windows: reader.windows.values(),
+      order: reader.order,
+      sort
+    })
+  );
   const tally = $derived(boardTally(reader.windows.values()));
   let now = $state(Date.now());
 
@@ -36,6 +47,17 @@
         <li data-state={entry.state}><span class="count">{entry.count}</span> {AGENT_STATE_TEXT[entry.state]}</li>
       {/each}
     </ul>
+    <div class="sort">
+      <Segmented
+        chosen={sort}
+        label="Sort projects"
+        onchoose={chosen => {
+          sort = chosen;
+          rememberSort(chosen);
+        }}
+        options={BOARD_SORTS}
+      />
+    </div>
   </header>
 
   {#if windows.length === 0}
@@ -43,14 +65,16 @@
   {:else}
     <div class="grid">
       {#each windows as projectWindow (projectWindow.label)}
-        <ProjectCard
-          board={projectWindow}
-          {now}
-          onfocus={sessionId => reader.focus({
-            label: projectWindow.label,
-            sessionId
-          })}
-        />
+        <div animate:flip={{ duration: flipDuration() }}>
+          <ProjectCard
+            board={projectWindow}
+            {now}
+            onfocus={sessionId => reader.focus({
+              label: projectWindow.label,
+              sessionId
+            })}
+          />
+        </div>
       {/each}
     </div>
   {/if}
@@ -69,12 +93,16 @@
     color: var(--on-surface);
   }
 
+  /* Title and tally on the left, the sort control pushed right. */
   header {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
-    justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
+  }
+
+  .sort {
+    margin-inline-start: auto;
   }
 
   h1 {
