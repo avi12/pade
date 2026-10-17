@@ -31,7 +31,8 @@ const MINIMUM_WINDOW_HEIGHT: f64 = 480.0;
 /// The label prefix of every spawned window (`w-1`, `w-2`, …).
 const SPAWNED_LABEL_PREFIX: &str = "w-";
 /// The agents dashboard's label. There is only ever one: asking for it again
-/// brings the open one up.
+/// brings the open one up. `capabilities/default.json` lists it by this name
+/// beside `main` and `w-*`, so it gets the same permissions.
 const DASHBOARD_LABEL: &str = "dashboard";
 
 /// M3 surface colors, mirroring `--surface` in `src/theme.css` for the light and

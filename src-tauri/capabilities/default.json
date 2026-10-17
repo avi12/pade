@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Core capabilities for the ADE main window and spawned app windows (w-*)",
-  "windows": ["main", "w-*"],
+  "description": "Core capabilities for the ADE main window, spawned app windows (w-*) and the agents dashboard (its fixed label, DASHBOARD_LABEL in platform/window.rs)",
+  "windows": ["main", "w-*", "dashboard"],
   "permissions": [
     "core:default",
     "core:event:default",
