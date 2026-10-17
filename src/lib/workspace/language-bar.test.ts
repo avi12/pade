@@ -43,32 +43,35 @@ describe("segmentColors", () => {
 describe("isEnteringAfterCount", () => {
   const mix = [share("C#", 600), share("Rust", 400)];
 
-  it("keeps a row's entrance from the list's first load when its first count lands", () => {
+  it("grows in when a row's first count lands on screen", () => {
     expect(
       isEnteringAfterCount({
         previous: undefined,
         current: mix,
-        isEntering: true
+        isEntering: false,
+        isOnScreen: true
       })
     ).toBe(true);
   });
 
-  it("stays at rest when a row's first count lands as it scrolls in", () => {
+  it("paints at rest when the count lands ahead of the scroll", () => {
     expect(
       isEnteringAfterCount({
         previous: undefined,
         current: mix,
-        isEntering: false
+        isEntering: false,
+        isOnScreen: false
       })
     ).toBe(false);
   });
 
-  it("grows in when a recount finds a new language", () => {
+  it("grows in when a recount on screen finds a new language", () => {
     expect(
       isEnteringAfterCount({
         previous: [share("C#", 1000)],
         current: mix,
-        isEntering: false
+        isEntering: false,
+        isOnScreen: true
       })
     ).toBe(true);
   });
@@ -78,7 +81,8 @@ describe("isEnteringAfterCount", () => {
       isEnteringAfterCount({
         previous: [share("C#", 500), share("Rust", 500)],
         current: mix,
-        isEntering: false
+        isEntering: false,
+        isOnScreen: true
       })
     ).toBe(false);
   });
@@ -88,7 +92,8 @@ describe("isEnteringAfterCount", () => {
       isEnteringAfterCount({
         previous: undefined,
         current: [share("C#", 1000)],
-        isEntering: true
+        isEntering: true,
+        isOnScreen: true
       })
     ).toBe(false);
   });

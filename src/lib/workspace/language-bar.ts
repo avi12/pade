@@ -64,23 +64,26 @@ function isGainingLanguage({ previous, current }: {
   return current.some(share => !known.has(share.language));
 }
 
-/** Whether a bar's segments should grow in after a count lands: a recount that
- *  adds a language starts the entrance, a count with no bar to draw ends it,
- *  and otherwise the entrance carries on (the first count of a row on screen
- *  as the list loads keeps the entrance it was mounted with). */
-export function isEnteringAfterCount({ previous, current, isEntering }: {
+/** Whether a bar's segments should grow in after a count lands. New segments
+ *  - a first count, or a recount that adds a language - grow in only when they
+ *  land on screen: a count made ahead of the scroll, for a row just out of
+ *  view, paints at rest, while one a fast scroll outruns grows in as it
+ *  arrives. A count with no bar to draw ends any entrance. */
+export function isEnteringAfterCount({ previous, current, isEntering, isOnScreen }: {
   previous: CountedShares;
   current: CountedShares;
   isEntering: boolean;
+  isOnScreen: boolean;
 }) {
   if (!isLanguageMix(current ?? [])) {
     return current === undefined && isEntering;
   }
 
-  return isEntering || isGainingLanguage({
+  const hasNewSegments = previous === undefined || isGainingLanguage({
     previous,
     current
   });
+  return isEntering || (isOnScreen && hasNewSegments);
 }
 
 /** One segment's hover text: its language and share. */

@@ -16,11 +16,13 @@
   const shares = $derived(projectLanguageShares(path) ?? []);
   const colors = $derived(segmentColors(shares));
 
-  // Segments grow in only when the list first loads (a row of its first view,
-  // its languages still being counted) or when a project on screen
-  // gains a language - never because a row scrolls into view. Cleared once the
-  // entrance is over, so a row coming back on screen paints at rest.
+  // Segments grow in only when they land on screen - the list's first rows as
+  // they are counted, a row a fast scroll reached before its count, a project
+  // that gains a language - and never because a row already counted scrolls
+  // into view. Cleared once the entrance is over or the row leaves the
+  // screen, so a row coming back paints at rest.
   let isEntering = $state(false);
+  let isOnScreen = false;
   let previousShares: LanguageShare[] | null | undefined;
 
   $effect.pre(() => {
@@ -28,7 +30,8 @@
     isEntering = isEnteringAfterCount({
       previous: previousShares,
       current,
-      isEntering: untrack(() => isEntering)
+      isEntering: untrack(() => isEntering),
+      isOnScreen
     });
     previousShares = current;
   });
@@ -36,8 +39,12 @@
   function observeRow(element: Element) {
     return observeProjectLanguages({
       path,
-      onShown(isFirstView) {
-        isEntering = isFirstView && projectLanguageShares(path) === undefined;
+      onScreenChange(isNowOnScreen) {
+        isOnScreen = isNowOnScreen;
+
+        if (!isNowOnScreen) {
+          isEntering = false;
+        }
       }
     })(element);
   }

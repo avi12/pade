@@ -1,9 +1,9 @@
 // Shared lazy, per-project lookups for project rows (the language icon, the
 // branch chip). One IntersectionObserver per lookup watches every row; paths
-// whose rows become visible coalesce into one backend batch, and one reactive
-// cache feeds every surface - so a list of any length only ever asks the backend
-// about the rows actually on screen, never one call per row and never the whole
-// list up front.
+// whose rows become visible (or come near it) coalesce into one backend batch,
+// and one reactive cache feeds every surface - so a list of any length only ever
+// asks the backend about the rows on or near the screen, never one call per row
+// and never the whole list up front.
 
 import { normalizePath } from "@/lib/util/paths";
 import { SvelteMap } from "svelte/reactivity";
@@ -11,6 +11,13 @@ import { SvelteMap } from "svelte/reactivity";
 /** How many project paths each row lookup keeps cached - comfortably more than
  *  a recent-projects list shows, so scrolling back never re-asks the backend. */
 export const PROJECT_ROW_CACHE_LIMIT = 256;
+
+/** How far past a list's scrolled edges a row already counts as on screen -
+ *  half the list's height either way, so the rows a scroll is about to reveal
+ *  arrive with their badge, branch and language bar already in place. A
+ *  `scrollMargin`, not a `rootMargin`: the rows scroll inside their list, whose
+ *  clip a margin on the viewport never reaches past. */
+const NEARBY_ROWS_MARGIN = "50% 0px";
 
 /** One lazily-loaded, visibility-driven lookup keyed by project path. */
 export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePathsChange }: {
@@ -39,10 +46,12 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   const observed = new WeakMap<Element, {
     key: string;
     isVisible: boolean;
-    onShown?: (isFirstView: boolean) => void;
   }>();
   let observer: IntersectionObserver | undefined;
-  let hasShownRows = false;
+  // Rows that asked to hear when they are really on screen - the row observer
+  // answers early, inside its margin, so this one has none.
+  const screenListeners = new WeakMap<Element, (isOnScreen: boolean) => void>();
+  let screenObserver: IntersectionObserver | undefined;
   let isLoading = false;
   let isFlushQueued = false;
 
@@ -150,7 +159,6 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
 
   function rowObserver() {
     observer ??= new IntersectionObserver(entries => {
-      const isFirstView = !hasShownRows;
       for (const entry of entries) {
         const state = observed.get(entry.target);
         if (!state || state.isVisible === entry.isIntersecting) {
@@ -164,13 +172,20 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
         });
 
         if (entry.isIntersecting) {
-          hasShownRows = true;
-          state.onShown?.(isFirstView);
           request(originalPaths.get(state.key) ?? state.key);
         }
       }
-    });
+    }, { scrollMargin: NEARBY_ROWS_MARGIN });
     return observer;
+  }
+
+  function onScreenObserver() {
+    screenObserver ??= new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        screenListeners.get(entry.target)?.(entry.isIntersecting);
+      }
+    });
+    return screenObserver;
   }
 
   /** Cached value: `undefined` while unresolved, `null` when probed empty. */
@@ -209,29 +224,32 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
     return loadedValue;
   }
 
-  /** Attachment that requests a path only once its row becomes visible.
-   *  `onShown` is told each time the row comes on screen, before its value is
-   *  requested, and whether that is the list's first view - the rows that show
-   *  together when the list first appears, not one scrolled to later. */
-  function observe({ path, onShown }: {
+  /** Attachment that requests a path once its row is on or near the screen.
+   *  `onScreenChange` hears whenever the row itself comes on or goes off screen
+   *  - not merely near it - for a row that animates only what lands in view. */
+  function observe({ path, onScreenChange }: {
     path: string;
-    onShown?: (isFirstView: boolean) => void;
+    onScreenChange?: (isOnScreen: boolean) => void;
   }) {
     return (element: Element) => {
       const key = normalizePath(path);
       originalPaths.set(key, path);
       const state = {
         key,
-        isVisible: false,
-        onShown
+        isVisible: false
       };
       observed.set(element, state);
 
       const isObserverAvailable = typeof IntersectionObserver !== "undefined";
       if (isObserverAvailable) {
         rowObserver().observe(element);
+
+        if (onScreenChange) {
+          screenListeners.set(element, onScreenChange);
+          onScreenObserver().observe(element);
+        }
       } else {
-        onShown?.(true);
+        onScreenChange?.(true);
         state.isVisible = true;
         adjustVisibility({
           key,
@@ -242,6 +260,8 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
 
       return () => {
         observer?.unobserve(element);
+        screenObserver?.unobserve(element);
+        screenListeners.delete(element);
 
         if (state.isVisible) {
           adjustVisibility({
