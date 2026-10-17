@@ -151,37 +151,160 @@ pub fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
     newest_in_tail(&log, newest_turn_in)
 }
 
-/// The pull request Claude Code tied a conversation to, as its own log records
-/// it (a `pr-link` entry, written when the session opens or finds the PR its
-/// branch belongs to).
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
-pub(crate) struct LinkedPullRequest {
-    #[serde(rename = "prNumber")]
-    pub(crate) number: u64,
-    #[serde(rename = "prUrl")]
-    pub(crate) url: String,
-    /// `owner/name` of the repository the pull request lives in.
-    #[serde(rename = "prRepository")]
-    pub(crate) repository: String,
+/// The log entry kinds that belong to the conversation itself - what was said,
+/// what the tools returned, and the links Claude recorded (`pr-link`). The
+/// rest of a log (tool schemas, system attachments, settings) is the app's
+/// own furniture and full of addresses no one worked with.
+const CONVERSATION_ENTRY_KINDS: &[&str] = &["user", "assistant", "pr-link"];
+/// How many of a project's most recent other session logs on the same branch
+/// add their links - a resumed session continues in a fresh log that doesn't
+/// carry the earlier ones.
+const EARLIER_LOGS_SEARCHED: usize = 30;
+/// Links kept per log, newest last.
+const LINKS_PER_LOG: usize = 40;
+/// What marks a log entry's branch.
+const GIT_BRANCH_FIELD: &str = "gitBranch";
+const WEB_ADDRESS_START: &str = "https://";
+/// Where an address embedded in log text ends: whitespace, or a character
+/// JSON, Markdown or a sentence wraps it in.
+const ADDRESS_ENDS: &[char] = &[
+    '"', '\'', '\\', '`', '<', '>', '(', ')', '[', ']', '{', '}', '|', ',',
+];
+/// Punctuation a sentence leaves stuck to the end of an address.
+const TRAILING_PUNCTUATION: &[char] = &['.', ':', ';', '!', '?'];
+
+/// One log entry's kind, read without parsing the rest of it.
+#[derive(Deserialize)]
+struct EntryKind {
+    #[serde(rename = "type")]
+    kind: String,
 }
 
-/// What marks a `pr-link` entry in Claude's log.
-const PULL_REQUEST_LINK_MARKER: &str = "\"type\":\"pr-link\"";
+/// The web addresses a conversation has worked with, newest first - links it
+/// opened, created or was shown, from its own log and the earlier logs of the
+/// same project on the same branch. Read off Claude's own logs, so nothing is
+/// looked up; whatever kind of address it is, a pull request, a CI run, a
+/// deploy, it is simply an address the session knows.
+pub(crate) fn session_links(conversation_id: &str) -> Vec<String> {
+    let Some(log) = claude_session_log(ID_CLAUDE, Some(conversation_id)) else {
+        return Vec::new();
+    };
+    let mut logs = vec![log.clone()];
+    logs.extend(earlier_logs_on_branch(&log));
 
-/// The newest pull request Claude Code linked `conversation_id` to, read off
-/// its own session log - the app already knows, so nothing is looked up.
-pub(crate) fn linked_pull_request(conversation_id: &str) -> Option<LinkedPullRequest> {
-    let log = claude_session_log(ID_CLAUDE, Some(conversation_id))?;
-    newest_in_tail(&log, newest_pull_request_link)
+    let mut links: Vec<String> = Vec::new();
+    for each_log in &logs {
+        for link in links_of(each_log).into_iter().rev() {
+            if !links.contains(&link) {
+                links.push(link);
+            }
+        }
+    }
+    links
 }
 
-/// The newest `pr-link` entry in a stretch of log (its first line may be cut
-/// mid-entry and simply fails to parse).
-fn newest_pull_request_link(tail: &str) -> Option<LinkedPullRequest> {
-    tail.lines()
-        .rev()
-        .filter(|line| line.contains(PULL_REQUEST_LINK_MARKER))
-        .find_map(|line| serde_json::from_str(line).ok())
+/// The project's other logs on `log`'s branch, newest first.
+fn earlier_logs_on_branch(log: &Path) -> Vec<PathBuf> {
+    let (Some(branch), Some(folder)) = (branch_of(log), log.parent()) else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return Vec::new();
+    };
+    let mut earlier: Vec<(std::time::SystemTime, PathBuf)> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path != log
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension == "jsonl")
+        })
+        .filter_map(|path| Some((std::fs::metadata(&path).ok()?.modified().ok()?, path)))
+        .collect();
+    earlier.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+    earlier
+        .into_iter()
+        .take(EARLIER_LOGS_SEARCHED)
+        .map(|(_, path)| path)
+        .filter(|path| branch_of(path).as_deref() == Some(branch.as_str()))
+        .collect()
+}
+
+/// The branch a log's newest entry was written on.
+fn branch_of(log: &Path) -> Option<String> {
+    newest_in_tail(log, |tail| {
+        tail.lines()
+            .rev()
+            .find_map(|line| json_string_field(line, GIT_BRANCH_FIELD))
+            .filter(|branch| !branch.is_empty())
+    })
+}
+
+/// Each log's links, kept until the log changes - a link can sit megabytes
+/// back, so a log is read through once per change, not once per summary.
+type ReadLinks = (std::time::SystemTime, Vec<String>);
+static LOG_LINKS: std::sync::LazyLock<Mutex<HashMap<PathBuf, ReadLinks>>> =
+    std::sync::LazyLock::new(Default::default);
+
+/// The distinct addresses in a log's conversation entries, oldest first, the
+/// last [`LINKS_PER_LOG`] of them.
+fn links_of(log: &Path) -> Vec<String> {
+    let Some(modified) = std::fs::metadata(log)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+    else {
+        return Vec::new();
+    };
+    let cached = LOG_LINKS.lock().ok().and_then(|links| {
+        let (read_at, links) = links.get(log)?;
+        (*read_at == modified).then(|| links.clone())
+    });
+    if let Some(links) = cached {
+        return links;
+    }
+
+    let mut links: Vec<String> = Vec::new();
+    if let Ok(file) = File::open(log) {
+        for line in BufReader::new(file).lines().map_while(Result::ok) {
+            if !is_conversation_entry(&line) {
+                continue;
+            }
+            for address in addresses_in(&line) {
+                links.retain(|known| known != address);
+                links.push(address.to_string());
+            }
+        }
+    }
+    let kept = links.split_off(links.len().saturating_sub(LINKS_PER_LOG));
+    if let Ok(mut cache) = LOG_LINKS.lock() {
+        cache.insert(log.to_path_buf(), (modified, kept.clone()));
+    }
+    kept
+}
+
+/// Whether a log line is one of the conversation's own entries. A line with no
+/// address at all is skipped before it is parsed.
+fn is_conversation_entry(line: &str) -> bool {
+    line.contains(WEB_ADDRESS_START)
+        && serde_json::from_str::<EntryKind>(line)
+            .is_ok_and(|entry| CONVERSATION_ENTRY_KINDS.contains(&entry.kind.as_str()))
+}
+
+/// Every web address written in `text`, in order.
+fn addresses_in(text: &str) -> Vec<&str> {
+    text.match_indices(WEB_ADDRESS_START)
+        .filter_map(|(start, _)| {
+            let rest = &text[start..];
+            let end = rest
+                .find(|character: char| {
+                    character.is_whitespace() || ADDRESS_ENDS.contains(&character)
+                })
+                .unwrap_or(rest.len());
+            let address = rest[..end].trim_end_matches(TRAILING_PUNCTUATION);
+            (address.len() > WEB_ADDRESS_START.len()).then_some(address)
+        })
+        .collect()
 }
 
 /// Where Claude keeps `conversation_id`'s transcript, when it has one yet.
@@ -309,8 +432,8 @@ fn fetch_catalog() -> Option<HashMap<String, u64>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        model_field, newest_occupied_in, newest_pull_request_link, newest_turn_in, CatalogProvider,
-        LinkedPullRequest, TurnProfile,
+        addresses_in, is_conversation_entry, model_field, newest_occupied_in, newest_turn_in,
+        CatalogProvider, TurnProfile,
     };
     use std::collections::HashMap;
 
@@ -416,27 +539,31 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_newest_pull_request_link_from_a_log_tail() {
-        let link = |number: u64| {
-            format!(
-                r#"{{"type":"pr-link","prNumber":{number},"prUrl":"https://github.com/a/b/pull/{number}","prRepository":"a/b"}}"#
-            )
-        };
-        let tail = [
-            link(7),
-            r#"{"type":"user"}"#.to_string(),
-            link(9),
-            r#"{"type":"assistant"}"#.to_string(),
-        ]
-        .join("\n");
+    fn finds_every_address_in_log_text_without_its_wrapping() {
+        let text = r#"see [PR](https://github.com/a/b/pull/7), then \"https://ci.example.com/run/9\". Done: https://x.dev."#;
         assert_eq!(
-            newest_pull_request_link(&tail),
-            Some(LinkedPullRequest {
-                number: 9,
-                url: "https://github.com/a/b/pull/9".to_string(),
-                repository: "a/b".to_string(),
-            })
+            addresses_in(text),
+            [
+                "https://github.com/a/b/pull/7",
+                "https://ci.example.com/run/9",
+                "https://x.dev"
+            ]
         );
-        assert_eq!(newest_pull_request_link(r#"{"type":"user"}"#), None);
+    }
+
+    #[test]
+    fn only_the_conversations_own_entries_count() {
+        assert!(is_conversation_entry(
+            r#"{"type":"pr-link","prUrl":"https://github.com/a/b/pull/7"}"#
+        ));
+        assert!(is_conversation_entry(
+            r#"{"type":"assistant","message":{"content":"https://x.dev"}}"#
+        ));
+        assert!(!is_conversation_entry(
+            r#"{"type":"attachment","tools":"https://docs.example.com"}"#
+        ));
+        assert!(!is_conversation_entry(
+            r#"{"type":"user","message":"no link"}"#
+        ));
     }
 }

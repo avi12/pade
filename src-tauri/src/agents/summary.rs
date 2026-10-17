@@ -6,7 +6,7 @@
 //! anonymous Copilot guest chat first, then the session's own agent CLI.
 
 use crate::agents::naming::{readable_transcript, run_agent_reply, tail};
-use crate::agents::session_context::{linked_pull_request, LinkedPullRequest};
+use crate::agents::session_context::session_links;
 use crate::agents::{copilot, oneshot_invocation, program};
 
 /// Below this much readable conversation there is nothing worth summarizing.
@@ -28,9 +28,10 @@ const LINE_MARKERS: &[&str] = &["### ", "## ", "# ", "- ", "* "];
 
 /// Summarize the session `id` from its recent transcript, driven by `agent` (its
 /// command). `conversation_id` is the conversation the session is pinned to:
-/// when the agent's own log ties it to a pull request, the summary links it
-/// wherever it mentions it. `None` until there is enough conversation, or when
-/// no source answers. Only the window that owns the session may ask.
+/// the web addresses its own logs show it worked with go to the model, so the
+/// summary can link whatever it mentions. `None` until there is enough
+/// conversation, or when no source answers. Only the window that owns the
+/// session may ask.
 #[tauri::command]
 pub async fn session_summarize(
     window: tauri::WebviewWindow,
@@ -41,25 +42,24 @@ pub async fn session_summarize(
 ) -> Result<Option<String>, String> {
     let transcript = crate::terminal::pty::transcript_of(&state, window.label(), &id)?;
     Ok(tauri::async_runtime::spawn_blocking(move || {
-        let pull_request = conversation_id.as_deref().and_then(linked_pull_request);
-        session_summary(&transcript, &agent, pull_request.as_ref())
+        let links = conversation_id
+            .as_deref()
+            .map(session_links)
+            .unwrap_or_default();
+        session_summary(&transcript, &agent, &links)
     })
     .await
     .ok()
     .flatten())
 }
 
-fn session_summary(
-    transcript: &str,
-    agent: &str,
-    pull_request: Option<&LinkedPullRequest>,
-) -> Option<String> {
+fn session_summary(transcript: &str, agent: &str, links: &[String]) -> Option<String> {
     let readable = readable_transcript(transcript);
     if readable.len() < MINIMUM_SUMMARY_INPUT_LENGTH {
         return None;
     }
 
-    let prompt = summary_prompt(&readable, pull_request);
+    let prompt = summary_prompt(&readable, links);
     copilot::run_chat(&prompt)
         .and_then(|raw| tidy_summary(&raw))
         .or_else(|| {
@@ -69,44 +69,47 @@ fn session_summary(
         })
 }
 
-fn summary_prompt(transcript: &str, pull_request: Option<&LinkedPullRequest>) -> String {
+fn summary_prompt(transcript: &str, links: &[String]) -> String {
     let mut prompt = String::from(
         "Below is the recent terminal transcript of a coding-agent session. Ignore the terminal \
          interface itself - spinners, progress indicators, status bars, key hints, token counts, \
          borders. In ONE short sentence of at most 15 words, say what the agent has done and \
          what it is doing now - or, if it has stopped, whether it finished or is waiting on the \
          user and for what. Write for someone glancing at a dashboard, where it must fit two \
-         short lines - leave out detail rather than run long. You may use inline Markdown: **bold** for the one key point, `code` for a file, \
-         command or identifier, and [text](url) for a real URL the transcript shows (a pull \
-         request, an issue). No headings, lists or line breaks.",
+         short lines - leave out detail rather than run long. You may use inline Markdown: \
+         **bold** for the one key point, `code` for a file, command or identifier, and \
+         [text](url) links. No headings, lists or line breaks.",
     );
-    if let Some(pull_request) = pull_request {
-        prompt.push_str(&pull_request_note(pull_request));
-    }
+    prompt.push_str(&links_note(links));
     prompt.push_str("\n\n---\n");
     prompt.push_str(tail(transcript, SUMMARY_PROMPT_TAIL_BYTES));
     prompt.push_str("\n---\n\nReply with ONLY the summary.");
     prompt
 }
 
-/// What the prompt tells the model about the pull request the session is tied
-/// to: link it whenever the summary mentions it, and link any other `#number`
-/// in the same repository too (GitHub forwards an issue address to a pull
-/// request).
-fn pull_request_note(pull_request: &LinkedPullRequest) -> String {
-    let LinkedPullRequest {
-        number,
-        url,
-        repository,
-    } = pull_request;
-    let repository_url = url
-        .rsplit_once("/pull/")
-        .map_or(url.as_str(), |(repository_url, _)| repository_url);
-    format!(
-        " This session works on pull request #{number} of {repository}, at {url}. \
-         Whenever the summary mentions it, link it as [PR #{number}]({url}); any other \
-         #number in this repository links to {repository_url}/issues/<number>."
-    )
+/// How many of the session's links the prompt carries, newest first.
+const PROMPT_LINKS: usize = 15;
+
+/// What the prompt tells the model about links: anything the summary mentions
+/// that one of the session's own addresses points to is linked with that exact
+/// address - whatever it is - and no address is ever made up.
+fn links_note(links: &[String]) -> String {
+    let rule = " Only link an address that appears in the transcript or in the list below, \
+         copied exactly - never build or guess one.";
+    if links.is_empty() {
+        return rule.to_string();
+    }
+
+    let mut note = format!(
+        "{rule} Addresses this session has worked with, newest first - whenever the summary \
+         mentions something one of them points to (a pull request, an issue, a run, a page), \
+         link it with that address:"
+    );
+    for link in links.iter().take(PROMPT_LINKS) {
+        note.push_str("\n- ");
+        note.push_str(link);
+    }
+    note
 }
 
 /// Shape a raw reply into one dashboard line: whitespace collapsed, a wrapping
@@ -143,7 +146,7 @@ fn tidy_summary(raw: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{summary_prompt, tidy_summary, LinkedPullRequest, MAXIMUM_SUMMARY_LENGTH};
+    use super::{summary_prompt, tidy_summary, MAXIMUM_SUMMARY_LENGTH};
 
     #[test]
     fn a_reply_becomes_one_line_without_its_wrapping() {
@@ -184,21 +187,24 @@ mod tests {
     #[test]
     fn the_prompt_carries_only_the_transcript_tail() {
         let transcript = format!("{}LATEST", "x".repeat(10_000));
-        let prompt = summary_prompt(&transcript, None);
+        let prompt = summary_prompt(&transcript, &[]);
         assert!(prompt.contains("LATEST"));
         assert!(prompt.len() < 7_000);
     }
 
     #[test]
-    fn the_prompt_hands_the_model_the_open_pull_request_to_link() {
-        let pull_request = LinkedPullRequest {
-            number: 1278,
-            url: "https://github.com/a/b/pull/1278".to_string(),
-            repository: "a/b".to_string(),
-        };
-        let prompt = summary_prompt("transcript", Some(&pull_request));
-        assert!(prompt.contains("[PR #1278](https://github.com/a/b/pull/1278)"));
-        assert!(prompt.contains("https://github.com/a/b/issues/<number>"));
-        assert!(!summary_prompt("transcript", None).contains("pull request #"));
+    fn the_prompt_hands_the_model_the_sessions_links_to_use() {
+        let links = vec![
+            "https://github.com/a/b/pull/1278".to_string(),
+            "https://ci.example.com/run/9".to_string(),
+        ];
+        let prompt = summary_prompt("transcript", &links);
+        assert!(prompt.contains(
+            "
+- https://github.com/a/b/pull/1278
+- https://ci.example.com/run/9"
+        ));
+        assert!(prompt.contains("never build or guess one"));
+        assert!(!summary_prompt("transcript", &[]).contains("newest first"));
     }
 }
