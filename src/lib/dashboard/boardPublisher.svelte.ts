@@ -131,7 +131,7 @@ export function publishToBoard({ project, projectLabel, windowSessions }: {
       const text = await sendMessage(Command.sessionSummarize, {
         id: session.id,
         agent: session.agent.command,
-        cwd: session.cwd ?? project()
+        conversationId: session.conversationId ?? null
       });
       if (text !== null) {
         summaries.set(session.id, {

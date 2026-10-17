@@ -287,8 +287,9 @@ export interface CommandProtocolMap {
   [Command.sessionSummarize]: (data: {
     id: string;
     agent: string;
-    /** The session's folder, whose branch's open pull request the summary links. */
-    cwd: string;
+    /** The conversation the session is pinned to, whose own log may tie it
+     *  to a pull request the summary then links. */
+    conversationId: string | null;
   }) => string | null;
   [Command.ideDetect]: () => Ide[];
   /** Installed IDEs ordered for the given project: explicit per-project choice

@@ -17,7 +17,6 @@ pub(crate) mod clone;
 pub(crate) mod inspect;
 pub(crate) mod log;
 pub(crate) mod pull;
-pub(crate) mod pull_request;
 pub(crate) mod remote;
 pub(crate) mod restore;
 pub(crate) mod status;

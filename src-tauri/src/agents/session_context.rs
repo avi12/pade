@@ -151,6 +151,39 @@ pub fn logged_claude_turn(conversation_id: &str) -> Option<TurnProfile> {
     newest_in_tail(&log, newest_turn_in)
 }
 
+/// The pull request Claude Code tied a conversation to, as its own log records
+/// it (a `pr-link` entry, written when the session opens or finds the PR its
+/// branch belongs to).
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LinkedPullRequest {
+    #[serde(rename = "prNumber")]
+    pub(crate) number: u64,
+    #[serde(rename = "prUrl")]
+    pub(crate) url: String,
+    /// `owner/name` of the repository the pull request lives in.
+    #[serde(rename = "prRepository")]
+    pub(crate) repository: String,
+}
+
+/// What marks a `pr-link` entry in Claude's log.
+const PULL_REQUEST_LINK_MARKER: &str = "\"type\":\"pr-link\"";
+
+/// The newest pull request Claude Code linked `conversation_id` to, read off
+/// its own session log - the app already knows, so nothing is looked up.
+pub(crate) fn linked_pull_request(conversation_id: &str) -> Option<LinkedPullRequest> {
+    let log = claude_session_log(ID_CLAUDE, Some(conversation_id))?;
+    newest_in_tail(&log, newest_pull_request_link)
+}
+
+/// The newest `pr-link` entry in a stretch of log (its first line may be cut
+/// mid-entry and simply fails to parse).
+fn newest_pull_request_link(tail: &str) -> Option<LinkedPullRequest> {
+    tail.lines()
+        .rev()
+        .filter(|line| line.contains(PULL_REQUEST_LINK_MARKER))
+        .find_map(|line| serde_json::from_str(line).ok())
+}
+
 /// Where Claude keeps `conversation_id`'s transcript, when it has one yet.
 pub fn claude_transcript(conversation_id: &str) -> Option<PathBuf> {
     claude_session_log(ID_CLAUDE, Some(conversation_id))
@@ -275,7 +308,10 @@ fn fetch_catalog() -> Option<HashMap<String, u64>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{model_field, newest_occupied_in, newest_turn_in, CatalogProvider, TurnProfile};
+    use super::{
+        model_field, newest_occupied_in, newest_pull_request_link, newest_turn_in, CatalogProvider,
+        LinkedPullRequest, TurnProfile,
+    };
     use std::collections::HashMap;
 
     fn assistant_line(input: u64, cache_read: u64, cache_write: u64, output: u64) -> String {
@@ -377,5 +413,30 @@ mod tests {
                     .context
             });
         assert_eq!(context, Some(1_000_000));
+    }
+
+    #[test]
+    fn reads_the_newest_pull_request_link_from_a_log_tail() {
+        let link = |number: u64| {
+            format!(
+                r#"{{"type":"pr-link","prNumber":{number},"prUrl":"https://github.com/a/b/pull/{number}","prRepository":"a/b"}}"#
+            )
+        };
+        let tail = [
+            link(7),
+            r#"{"type":"user"}"#.to_string(),
+            link(9),
+            r#"{"type":"assistant"}"#.to_string(),
+        ]
+        .join("\n");
+        assert_eq!(
+            newest_pull_request_link(&tail),
+            Some(LinkedPullRequest {
+                number: 9,
+                url: "https://github.com/a/b/pull/9".to_string(),
+                repository: "a/b".to_string(),
+            })
+        );
+        assert_eq!(newest_pull_request_link(r#"{"type":"user"}"#), None);
     }
 }
