@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use notify::event::ModifyKind;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
@@ -1339,9 +1340,15 @@ pub async fn watch_dirs(
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
         let Ok(event) = result else { return };
         // Only appearance/disappearance moves rows on the page; edits inside a
-        // project are the Change Feed's business, not the picker's. Routed to the
-        // owning window alone so a sibling's picker doesn't rescan on our news.
-        if matches!(event.kind, EventKind::Create(_) | EventKind::Remove(_)) {
+        // project are the Change Feed's business, not the picker's. A rename
+        // counts - the old name is gone - and so does Explorer's delete, which
+        // moves the folder into the Recycle Bin. Routed to the owning window
+        // alone so a sibling's picker doesn't rescan on our news.
+        let is_appearance_change = matches!(
+            event.kind,
+            EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+        );
+        if is_appearance_change {
             let _ = app_handle.emit_to(&callback_label, DIRECTORIES_CHANGED_EVENT, ());
         }
     })
