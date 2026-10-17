@@ -39,8 +39,10 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
   const observed = new WeakMap<Element, {
     key: string;
     isVisible: boolean;
+    onShown?: (isFirstView: boolean) => void;
   }>();
   let observer: IntersectionObserver | undefined;
+  let hasShownRows = false;
   let isLoading = false;
   let isFlushQueued = false;
 
@@ -148,6 +150,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
 
   function rowObserver() {
     observer ??= new IntersectionObserver(entries => {
+      const isFirstView = !hasShownRows;
       for (const entry of entries) {
         const state = observed.get(entry.target);
         if (!state || state.isVisible === entry.isIntersecting) {
@@ -161,6 +164,8 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
         });
 
         if (entry.isIntersecting) {
+          hasShownRows = true;
+          state.onShown?.(isFirstView);
           request(originalPaths.get(state.key) ?? state.key);
         }
       }
@@ -204,14 +209,21 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
     return loadedValue;
   }
 
-  /** Attachment that requests a path only once its row becomes visible. */
-  function observe({ path }: { path: string }) {
+  /** Attachment that requests a path only once its row becomes visible.
+   *  `onShown` is told each time the row comes on screen, before its value is
+   *  requested, and whether that is the list's first view - the rows that show
+   *  together when the list first appears, not one scrolled to later. */
+  function observe({ path, onShown }: {
+    path: string;
+    onShown?: (isFirstView: boolean) => void;
+  }) {
     return (element: Element) => {
       const key = normalizePath(path);
       originalPaths.set(key, path);
       const state = {
         key,
-        isVisible: false
+        isVisible: false,
+        onShown
       };
       observed.set(element, state);
 
@@ -219,6 +231,7 @@ export function createVisiblePathBatch<Value>({ load, cacheLimit, onVisiblePaths
       if (isObserverAvailable) {
         rowObserver().observe(element);
       } else {
+        onShown?.(true);
         state.isVisible = true;
         adjustVisibility({
           key,

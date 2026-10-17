@@ -47,6 +47,42 @@ export function isLanguageMix(shares: readonly LanguageShare[]) {
   return shares.filter(share => share.perMille >= MAJOR_LANGUAGE_PER_MILLE).length >= MINIMUM_MAJOR_LANGUAGES;
 }
 
+/** A project's counted shares: `undefined` before the count is made, `null`
+ *  for a project with no source. */
+type CountedShares = readonly LanguageShare[] | null | undefined;
+
+/** Whether a recount added a language the previous count didn't have. */
+function isGainingLanguage({ previous, current }: {
+  previous: CountedShares;
+  current: CountedShares;
+}) {
+  if (previous === undefined || !current) {
+    return false;
+  }
+
+  const known = new Set((previous ?? []).map(share => share.language));
+  return current.some(share => !known.has(share.language));
+}
+
+/** Whether a bar's segments should grow in after a count lands: a recount that
+ *  adds a language starts the entrance, a count with no bar to draw ends it,
+ *  and otherwise the entrance carries on (the first count of a row on screen
+ *  as the list loads keeps the entrance it was mounted with). */
+export function isEnteringAfterCount({ previous, current, isEntering }: {
+  previous: CountedShares;
+  current: CountedShares;
+  isEntering: boolean;
+}) {
+  if (!isLanguageMix(current ?? [])) {
+    return current === undefined && isEntering;
+  }
+
+  return isEntering || isGainingLanguage({
+    previous,
+    current
+  });
+}
+
 /** One segment's hover text: its language and share. */
 export function languageShareText(share: LanguageShare) {
   return `${share.language} ${formatPercent(share.perMille / PER_MILLE_PER_PERCENT)}`;

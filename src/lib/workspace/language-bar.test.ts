@@ -1,4 +1,4 @@
-import { isLanguageMix, languageShareText, segmentColors } from "@/lib/workspace/language-bar";
+import { isEnteringAfterCount, isLanguageMix, languageShareText, segmentColors } from "@/lib/workspace/language-bar";
 import { describe, expect, it } from "vitest";
 
 function share(language: string, perMille: number) {
@@ -37,5 +37,59 @@ describe("segmentColors", () => {
 
   it("gives an unknown language a neutral colour", () => {
     expect(segmentColors([share("Zig", 1000)])).toEqual(["#8a9bb0"]);
+  });
+});
+
+describe("isEnteringAfterCount", () => {
+  const mix = [share("C#", 600), share("Rust", 400)];
+
+  it("keeps a row's entrance from the list's first load when its first count lands", () => {
+    expect(
+      isEnteringAfterCount({
+        previous: undefined,
+        current: mix,
+        isEntering: true
+      })
+    ).toBe(true);
+  });
+
+  it("stays at rest when a row's first count lands as it scrolls in", () => {
+    expect(
+      isEnteringAfterCount({
+        previous: undefined,
+        current: mix,
+        isEntering: false
+      })
+    ).toBe(false);
+  });
+
+  it("grows in when a recount finds a new language", () => {
+    expect(
+      isEnteringAfterCount({
+        previous: [share("C#", 1000)],
+        current: mix,
+        isEntering: false
+      })
+    ).toBe(true);
+  });
+
+  it("stays at rest when only the shares move", () => {
+    expect(
+      isEnteringAfterCount({
+        previous: [share("C#", 500), share("Rust", 500)],
+        current: mix,
+        isEntering: false
+      })
+    ).toBe(false);
+  });
+
+  it("ends the entrance when the count has no bar to draw", () => {
+    expect(
+      isEnteringAfterCount({
+        previous: undefined,
+        current: [share("C#", 1000)],
+        isEntering: true
+      })
+    ).toBe(false);
   });
 });
