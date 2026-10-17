@@ -15,7 +15,7 @@ const MINIMUM_SUMMARY_INPUT_LENGTH: usize = 80;
 const SUMMARY_PROMPT_TAIL_BYTES: usize = 6000;
 /// A reply is cut to this many characters (Markdown included), so one chatty
 /// answer can't flood a dashboard card's two lines.
-const MAXIMUM_SUMMARY_LENGTH: usize = 220;
+const MAXIMUM_SUMMARY_LENGTH: usize = 160;
 /// Where a sentence ends - a reply cut short ends on the last whole one.
 const SENTENCE_END: &str = ". ";
 /// A reply shorter than this is no summary.
@@ -64,10 +64,10 @@ fn summary_prompt(transcript: &str) -> String {
     let mut prompt = String::from(
         "Below is the recent terminal transcript of a coding-agent session. Ignore the terminal \
          interface itself - spinners, progress indicators, status bars, key hints, token counts, \
-         borders. In ONE short sentence of at most 25 words, say what the agent has done and \
+         borders. In ONE short sentence of at most 15 words, say what the agent has done and \
          what it is doing now - or, if it has stopped, whether it finished or is waiting on the \
-         user and for what. Write for someone glancing at a dashboard, where it shows in two \
-         lines. You may use inline Markdown: **bold** for the one key point, `code` for a file, \
+         user and for what. Write for someone glancing at a dashboard, where it must fit two \
+         short lines - leave out detail rather than run long. You may use inline Markdown: **bold** for the one key point, `code` for a file, \
          command or identifier, and [text](url) for a real URL the transcript shows (a pull \
          request, an issue). No headings, lists or line breaks.\n\n---\n",
     );
