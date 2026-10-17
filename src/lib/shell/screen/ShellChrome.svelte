@@ -50,6 +50,16 @@
     onsavetemp: AppMenuProps["onsavetemp"];
     onterminaleditor: ComponentProps<typeof IdeMenu>["onterminaleditor"];
   } = $props();
+
+  // The repository the top bar points at, when it has a remote to open - both
+  // the project button's and the branch pill's Ctrl-click open this one.
+  const remoteRepository = $derived.by(() => {
+    if (!repository.hasRemote) {
+      return null;
+    }
+
+    return activeMemberIn(project);
+  });
 </script>
 
 <!-- Chrome row: project menu on the left, actions pushed right. Session
@@ -87,6 +97,7 @@
     path={project}
     pinnedProjects={settings.pinnedProjects}
     recentProjects={settings.recentProjects}
+    {remoteRepository}
     roots={settings.roots}
   />
   <!-- Only rendered when the workspace has more than one part; a plain
@@ -103,7 +114,7 @@
     onopengit={() => (side = Side.Vcs)}
     onopenremote={async () => {
       await openRepositoryTarget({
-        project,
+        project: remoteRepository ?? project,
         branch: repository.currentBranch
       });
     }}

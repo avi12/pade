@@ -3,26 +3,43 @@
   import { openRepositoryOnModifiedClick } from "@/lib/vcs/repository-links";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
 
-  // The top bar's "Project" pill that opens the switcher popover; a
-  // Ctrl-click opens the project's repository instead.
-  const { path, label, isTemp, menuId, menuAnchor }: {
-    path: string;
+  // The top bar's "Project" pill that opens the switcher popover; when the
+  // repository has a remote, a Ctrl-click opens it instead.
+  const { label, isTemp, remoteRepository, menuId, menuAnchor }: {
     label: string;
     isTemp: boolean;
+    /** The repository a Ctrl-click opens on its remote; null when it has none. */
+    remoteRepository: string | null;
     /** The switcher popover this button toggles. */
     menuId: string;
     /** The anchor name the popover positions itself against. */
     menuAnchor: string;
   } = $props();
+
+  const tooltip = $derived.by(() => {
+    if (remoteRepository) {
+      return "Switch project · Ctrl-click opens repository";
+    }
+
+    return "Switch project";
+  });
+
+  function openRemoteOnModifiedClick(element: HTMLElement) {
+    if (!remoteRepository) {
+      return;
+    }
+
+    return openRepositoryOnModifiedClick({ project: remoteRepository })(element);
+  }
 </script>
 
 <button
   style:anchor-name={menuAnchor}
   class="trigger menu-trigger"
-  {@attach openRepositoryOnModifiedClick({ project: path })}
+  {@attach openRemoteOnModifiedClick}
   aria-haspopup="menu"
-  aria-label={`Switch project · Ctrl P · Ctrl-click opens repository - ${label}`}
-  data-tooltip="Switch project · Ctrl-click opens repository"
+  aria-label={`${tooltip} · Ctrl P - ${label}`}
+  data-tooltip={tooltip}
   popovertarget={menuId}
 >
   <Logo size={18} />

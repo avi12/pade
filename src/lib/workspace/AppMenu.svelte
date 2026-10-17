@@ -44,6 +44,7 @@
     path,
     label,
     isTemp,
+    remoteRepository,
     roots,
     recentProjects,
     pinnedProjects,
@@ -62,6 +63,9 @@
     path: string;
     label: string;
     isTemp: boolean;
+    /** The repository the trigger's Ctrl-click opens on its remote; null when
+     *  it has none. */
+    remoteRepository: string | null;
     /** The saved project roots - destinations the temp workspace can be saved into. */
     roots: string[];
     recentProjects: string[];
@@ -314,7 +318,7 @@
 />
 
 <span class="menu-host">
-  <SwitcherTrigger {isTemp} {label} menuAnchor={MENU_ANCHOR} menuId={MENU_ID} {path} />
+  <SwitcherTrigger {isTemp} {label} menuAnchor={MENU_ANCHOR} menuId={MENU_ID} {remoteRepository} />
 
   <div
     id={MENU_ID}

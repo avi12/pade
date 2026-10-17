@@ -126,6 +126,10 @@
     >
       <span class="branch-pill-icon" aria-hidden="true"><Icon name="branch" size={13} /></span>
       <span class="branch-pill-name">{current}</span>
+      {#if hasRemote}
+        <!-- Says the branch lives on a remote too, which a Ctrl-click opens. -->
+        <span class="branch-pill-remote" aria-hidden="true"><Icon name="external" size={11} /></span>
+      {/if}
       <span class="caret">▾</span>
     </button>
 
@@ -208,10 +212,20 @@
       background: var(--surface-3);
     }
 
-    .branch-pill-icon {
+    .branch-pill-icon,
+    .branch-pill-remote {
       display: inline-flex;
       flex-shrink: 0;
       color: var(--on-surface-variant);
+    }
+
+    .branch-pill-remote {
+      opacity: 70%;
+      transition: opacity 150ms var(--ease);
+    }
+
+    &:hover .branch-pill-remote {
+      opacity: 100%;
     }
 
     .branch-pill-name {
