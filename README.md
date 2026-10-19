@@ -6,6 +6,8 @@ builds an environment around it. No token metering - it uses your existing
 subscription, and stays ToS-clean by only reading the terminal's output and
 typing into it (the same posture as the official editor integrations).
 
+![PADE: an agent in the terminal beside the Change Feed](docs/images/screenshot.png)
+
 ## Why
 
 Coding 100% through an agent makes you fast but **blind to the codebase**. ADE's
