@@ -8,6 +8,8 @@ typing into it (the same posture as the official editor integrations).
 
 ![PADE: an agent in the terminal beside the Change Feed](https://github.com/user-attachments/assets/d96f8f9a-d19d-485f-80f3-77c4b24a7e2e)
 
+![PADE: the Agents dashboard across every open project](https://github.com/user-attachments/assets/6ab95559-0c39-4b39-a9b0-ebfc51862b77)
+
 ## Why
 
 Coding 100% through an agent makes you fast but **blind to the codebase**. ADE's
