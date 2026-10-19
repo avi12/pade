@@ -14,6 +14,14 @@ typing into it (the same posture as the official editor integrations).
 
 *The Agents dashboard: one card per open project, showing each agent's model, effort, whether it is working or idle, how many files it changed and which ones. Sort by window order, name, who needs you first, or recent activity.*
 
+![PADE: the project switcher](https://github.com/user-attachments/assets/980c68d5-af97-49f0-9859-23f855aaeb80)
+
+*The project switcher: every open window with its language icon, a search box (Ctrl P) over recent projects with their branch and last-used time, and shortcuts to open, rename, or start a new window, a throwaway workspace or the Agents dashboard.*
+
+![PADE: the usage meter](https://github.com/user-attachments/assets/77b9d74c-0f88-4093-81b6-96d75379ba5b)
+
+*The usage meter: the limit closest to running out, with its reset time, then per-agent bars for the session, weekly and extra-usage windows so you can pace the agent before it stops.*
+
 ## Why
 
 Coding 100% through an agent makes you fast but **blind to the codebase**. ADE's
