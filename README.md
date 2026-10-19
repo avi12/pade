@@ -22,6 +22,10 @@ typing into it (the same posture as the official editor integrations).
 
 *The usage meter: the limit closest to running out, with its reset time, then per-agent bars for the session, weekly and extra-usage windows so you can pace the agent before it stops.*
 
+![PADE: the agent config panel and model picker](https://github.com/user-attachments/assets/07b64fbd-8acd-4c4d-840b-9d8de1e17a8c)
+
+*The Config panel with the live model and effort picker open: switch the running agent's model and effort without leaving the terminal. The panel also holds terminal colours that follow the app theme, font size, auto-handoff to a fresh agent at a chosen context fill, and usage pacing that lowers effort, swaps to a cheaper model or rests when you are on track to run out early.*
+
 ## Why
 
 Coding 100% through an agent makes you fast but **blind to the codebase**. ADE's
