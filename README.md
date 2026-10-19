@@ -26,6 +26,10 @@ typing into it (the same posture as the official editor integrations).
 
 ![PADE: the agent config panel and model picker](https://github.com/user-attachments/assets/07b64fbd-8acd-4c4d-840b-9d8de1e17a8c)
 
+**Project tasks, one click to run**
+
+![PADE: the Tasks panel](https://github.com/user-attachments/assets/c45773cc-4227-418a-8804-855b5ec9e0bc)
+
 ## Why
 
 Coding 100% through an agent makes you fast but **blind to the codebase**. ADE's
