@@ -6,7 +6,7 @@ builds an environment around it. No token metering - it uses your existing
 subscription, and stays ToS-clean by only reading the terminal's output and
 typing into it (the same posture as the official editor integrations).
 
-![PADE: an agent in the terminal beside the Change Feed](docs/images/screenshot.png)
+![PADE: an agent in the terminal beside the Change Feed](https://github.com/user-attachments/assets/d96f8f9a-d19d-485f-80f3-77c4b24a7e2e)
 
 ## Why
 
