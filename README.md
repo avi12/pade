@@ -40,13 +40,15 @@ what changed, and how much - so you stay the owner while the agent writes.
 
 ## MVP status
 
-This is step 1–2 of the roadmap:
-
-- ✅ Native window (Tauri 2 + Rust) with a real terminal (xterm.js + PTY)
+- ✅ Native window (Tauri 2 + Rust) with a real terminal (xterm.js + PTY), split panes and session tabs
 - ✅ Change Feed - filesystem watcher turns each save into a diff card
+- ✅ Highlight → agent bridge - send a selection or a file to the agent
+- ✅ Git review panel, usage meter with pacing, auto-handoff, Tasks and Config panels
 - ✅ Open the project in your editor - GUI editors (VS Code, JetBrains, Zed…) or
   console editors (Neovim, Vim, Helix) in a terminal tab; add any editor by path
-- ⏳ Highlight → agent bridge, agent tree (next)
+- ⏳ Agent tree, review verbs on agent commits (next)
+
+Full status per requirement: [`docs/requirements.md`](docs/requirements.md).
 
 ## Stack
 
