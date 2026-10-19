@@ -6,35 +6,37 @@ builds an environment around it. No token metering - it uses your existing
 subscription, and stays ToS-clean by only reading the terminal's output and
 typing into it (the same posture as the official editor integrations).
 
-**Agent terminal beside the Change Feed**
-
-![PADE: an agent in the terminal beside the Change Feed](https://github.com/user-attachments/assets/d96f8f9a-d19d-485f-80f3-77c4b24a7e2e)
-
-**Agents dashboard: every project at a glance**
-
-![PADE: the Agents dashboard across every open project](https://github.com/user-attachments/assets/6ab95559-0c39-4b39-a9b0-ebfc51862b77)
-
-**Project switcher**
-
-![PADE: the project switcher](https://github.com/user-attachments/assets/980c68d5-af97-49f0-9859-23f855aaeb80)
-
-**Usage meter with reset times**
-
-![PADE: the usage meter](https://github.com/user-attachments/assets/77b9d74c-0f88-4093-81b6-96d75379ba5b)
-
-**Live model and effort switching, usage pacing**
-
-![PADE: the agent config panel and model picker](https://github.com/user-attachments/assets/07b64fbd-8acd-4c4d-840b-9d8de1e17a8c)
-
-**Project tasks, one click to run**
-
-![PADE: the Tasks panel](https://github.com/user-attachments/assets/c45773cc-4227-418a-8804-855b5ec9e0bc)
+<p align="center">
+  <img alt="PADE: an agent in the terminal beside the Change Feed" src="https://github.com/user-attachments/assets/d96f8f9a-d19d-485f-80f3-77c4b24a7e2e" width="900">
+</p>
 
 ## Why
 
 Coding 100% through an agent makes you fast but **blind to the codebase**. ADE's
 flagship surface is the **Change Feed**: every edit becomes a readable card -
 what changed, and how much - so you stay the owner while the agent writes.
+
+## Features
+
+### Agents dashboard: every project at a glance
+
+<img alt="PADE: the Agents dashboard across every open project" src="https://github.com/user-attachments/assets/6ab95559-0c39-4b39-a9b0-ebfc51862b77" width="800">
+
+### Project switcher
+
+<img alt="PADE: the project switcher" src="https://github.com/user-attachments/assets/980c68d5-af97-49f0-9859-23f855aaeb80" width="800">
+
+### Usage meter with reset times
+
+<img alt="PADE: the usage meter" src="https://github.com/user-attachments/assets/77b9d74c-0f88-4093-81b6-96d75379ba5b" width="800">
+
+### Live model and effort switching, usage pacing
+
+<img alt="PADE: the agent config panel and model picker" src="https://github.com/user-attachments/assets/07b64fbd-8acd-4c4d-840b-9d8de1e17a8c" width="800">
+
+### Project tasks, one click to run
+
+<img alt="PADE: the Tasks panel" src="https://github.com/user-attachments/assets/c45773cc-4227-418a-8804-855b5ec9e0bc" width="800">
 
 ## MVP status
 
