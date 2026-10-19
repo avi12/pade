@@ -6,25 +6,25 @@ builds an environment around it. No token metering - it uses your existing
 subscription, and stays ToS-clean by only reading the terminal's output and
 typing into it (the same posture as the official editor integrations).
 
+**Agent terminal beside the Change Feed**
+
 ![PADE: an agent in the terminal beside the Change Feed](https://github.com/user-attachments/assets/d96f8f9a-d19d-485f-80f3-77c4b24a7e2e)
 
-*The workspace: Claude Code runs unmodified in the terminal on the left, while the Change Feed on the right turns every edit into a card with its size and a diff you can expand. The top bar shows the branch, the agent's usage limits and an "Open in" launcher for your editor.*
+**Agents dashboard: every project at a glance**
 
 ![PADE: the Agents dashboard across every open project](https://github.com/user-attachments/assets/6ab95559-0c39-4b39-a9b0-ebfc51862b77)
 
-*The Agents dashboard: one card per open project, showing each agent's model, effort, whether it is working or idle, how many files it changed and which ones. Sort by window order, name, who needs you first, or recent activity.*
+**Project switcher**
 
 ![PADE: the project switcher](https://github.com/user-attachments/assets/980c68d5-af97-49f0-9859-23f855aaeb80)
 
-*The project switcher: every open window with its language icon, a search box (Ctrl P) over recent projects with their branch and last-used time, and shortcuts to open, rename, or start a new window, a throwaway workspace or the Agents dashboard.*
+**Usage meter with reset times**
 
 ![PADE: the usage meter](https://github.com/user-attachments/assets/77b9d74c-0f88-4093-81b6-96d75379ba5b)
 
-*The usage meter: the limit closest to running out, with its reset time, then per-agent bars for the session, weekly and extra-usage windows so you can pace the agent before it stops.*
+**Live model and effort switching, usage pacing**
 
 ![PADE: the agent config panel and model picker](https://github.com/user-attachments/assets/07b64fbd-8acd-4c4d-840b-9d8de1e17a8c)
-
-*The Config panel with the live model and effort picker open: switch the running agent's model and effort without leaving the terminal. The panel also holds terminal colours that follow the app theme, font size, auto-handoff to a fresh agent at a chosen context fill, and usage pacing that lowers effort, swaps to a cheaper model or rests when you are on track to run out early.*
 
 ## Why
 
