@@ -8,7 +8,11 @@ typing into it (the same posture as the official editor integrations).
 
 ![PADE: an agent in the terminal beside the Change Feed](https://github.com/user-attachments/assets/d96f8f9a-d19d-485f-80f3-77c4b24a7e2e)
 
+*The workspace: Claude Code runs unmodified in the terminal on the left, while the Change Feed on the right turns every edit into a card with its size and a diff you can expand. The top bar shows the branch, the agent's usage limits and an "Open in" launcher for your editor.*
+
 ![PADE: the Agents dashboard across every open project](https://github.com/user-attachments/assets/6ab95559-0c39-4b39-a9b0-ebfc51862b77)
+
+*The Agents dashboard: one card per open project, showing each agent's model, effort, whether it is working or idle, how many files it changed and which ones. Sort by window order, name, who needs you first, or recent activity.*
 
 ## Why
 
