@@ -312,8 +312,9 @@
       filter 140ms var(--ease);
 
     &:disabled {
-      opacity: 60%;
-      cursor: default;
+      background: var(--surface-2);
+      color: var(--on-surface-variant);
+      cursor: not-allowed;
     }
   }
 

@@ -1650,6 +1650,7 @@ textarea {
   /* Disabled is "offline", not faded: a dashed frame over a hatched plate, read
      at full strength so its label stays legible. */
   :disabled:not(fieldset, optgroup, option) {
+    background-color: var(--surface-2) !important;
     background-image:
       repeating-linear-gradient(
         -45deg,
