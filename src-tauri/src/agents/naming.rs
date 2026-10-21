@@ -7,11 +7,11 @@
 //! topbar and the Recent list.
 //!
 //! Naming is layered and swappable behind the `Namer` trait. Session naming tries
-//! the anonymous Copilot guest chat first, then the session's own agent CLI;
+//! a Copilot chat first, then the session's own agent CLI;
 //! project naming (from a file list) uses the agent CLI then a local heuristic:
-//!   1. anonymous Copilot (`copilot.rs`) - a `copilot.microsoft.com` guest chat,
-//!      no account, cross-platform; session naming only, best-effort (falls
-//!      through when offline / region- or Turnstile-gated);
+//!   1. Copilot (`copilot.rs`) - a `copilot.com` chat as the personal Microsoft
+//!      account Windows is signed in to; session naming only, best-effort (falls
+//!      through when there is no account, offline or the day's allowance is spent);
 //!   2. the installed agent CLI, one-shot headless (`claude -p …`) - reuses the
 //!      user's subscription, no extra auth;
 //!   3. a local heuristic (package/Cargo name, README heading, dominant file) -
@@ -103,10 +103,9 @@ fn session_name(transcript: &str, agent: &str) -> Option<String> {
         return None;
     }
 
-    // Copilot first (anonymous copilot.microsoft.com guest chat - no account,
-    // no local CLI, cross-platform), then the session's own agent CLI. Copilot
-    // yields `None` whenever it's unavailable - offline, region-gated, or the
-    // Cloudflare Turnstile gate on the first message - so naming quietly falls
+    // Copilot first (the copilot.com chat, no local CLI), then the session's own
+    // agent CLI. Copilot yields `None` whenever it's unavailable - no signed-in
+    // account, offline, or the day's allowance spent - so naming quietly falls
     // back to `claude -p` / `codex exec` and never blocks on it.
     if let Some(name) =
         crate::agents::copilot::suggest_session_name(&readable).and_then(|raw| sanitize(&raw))

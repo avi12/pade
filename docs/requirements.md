@@ -311,8 +311,10 @@ writes.
   auto-naming it is display-only - the folder keeps its path - and a label the
   user sets always wins: auto-naming never replaces an existing label, enforced
   in the backend as it saves.
-- R1.9.4 🔭 Copilot (Windows) as an optional name source via MSAL native token -
-  seam in place (`copilot.rs`), not yet wired; see the auto-naming handoff doc.
+- R1.9.4 ✅ Copilot (Windows) as the preferred live-session name source: the
+  copilot.com chat hub with a token from `msalruntime.dll` for the signed-in
+  personal Microsoft account (`copilot.rs`). Free allowance is 50 messages a day;
+  summaries do not use it. Falls back to the agent CLI on any failure.
 - R1.9.5 ✅ **Move / rename re-points every linked reference** (`refs.rs`). Moving
   or renaming a workspace rewrites the old→new path everywhere it's remembered:
   the agent memory dir (`~/.claude/projects/<encoded-cwd>`; Codex/Gemini TODO),

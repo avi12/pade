@@ -2,12 +2,13 @@
 //! doing now, for the agents dashboard.
 //!
 //! It reads the same rolling PTY transcript session naming reads, collapsed to
-//! its distinct lines, and asks the same sources in the same order: the
-//! anonymous Copilot guest chat first, then the session's own agent CLI.
+//! its distinct lines, and asks the session's own agent CLI. Copilot is left
+//! out: its free allowance is 50 messages a day and a dashboard re-summarizes
+//! every working session about every 30 seconds.
 
 use crate::agents::naming::{readable_transcript, run_agent_reply, tail};
 use crate::agents::session_context::session_links;
-use crate::agents::{copilot, oneshot_invocation, program};
+use crate::agents::{oneshot_invocation, program};
 
 /// Below this much readable conversation there is nothing worth summarizing.
 const MINIMUM_SUMMARY_INPUT_LENGTH: usize = 80;
@@ -60,13 +61,9 @@ fn session_summary(transcript: &str, agent: &str, links: &[String]) -> Option<St
     }
 
     let prompt = summary_prompt(&readable, links);
-    copilot::run_chat(&prompt)
-        .and_then(|raw| tidy_summary(&raw))
-        .or_else(|| {
-            let arguments = oneshot_invocation(agent)?;
-            let executable = program(agent)?;
-            run_agent_reply(&executable, arguments, None, prompt).and_then(|raw| tidy_summary(&raw))
-        })
+    let arguments = oneshot_invocation(agent)?;
+    let executable = program(agent)?;
+    run_agent_reply(&executable, arguments, None, prompt).and_then(|raw| tidy_summary(&raw))
 }
 
 fn summary_prompt(transcript: &str, links: &[String]) -> String {
