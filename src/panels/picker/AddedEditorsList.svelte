@@ -2,6 +2,7 @@
   import Icon from "@/lib/Icon.svelte";
   import { showToast } from "@/lib/stores/ui/toast.svelte";
   import type { Prefs } from "@/lib/types";
+  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
 
   // Editors located by executable path - listed so a stale one can be dropped
   // from every menu.
@@ -21,7 +22,7 @@
             <span class="editor-added-name">{editor.label}</span>
             <span class="editor-added-tag">added</span>
           </span>
-          <span class="editor-added-path" data-tooltip={editor.path}>{editor.path}</span>
+          <span class="editor-added-path" {@attach truncationTooltip({ tooltip: editor.path })}>{editor.path}</span>
         </span>
         <button
           class="editor-remove"

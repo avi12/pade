@@ -5,6 +5,7 @@
   import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { RecordedConversation } from "@/lib/types";
+  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
 
   // One chat row in the left rail, with its right-click menu. A live chat
   // carries a stop button beside the row's own button, never inside it, so
@@ -36,6 +37,14 @@
   }
   let menu = $state<ProjectChatMenu | null>(null);
 
+  // The full title, only while the row ellipsizes it.
+  function labelTruncationTooltip(element: HTMLElement) {
+    return truncationTooltip({
+      tooltip: () => chat.label,
+      measureSelector: ".chat-label"
+    })(element);
+  }
+
   // Shared by the row's button and its stop button, so a right-click anywhere
   // on the row opens the same menu.
   function openMenu(e: MouseEvent) {
@@ -48,9 +57,9 @@
 <div class="row" class:active={isActive} data-sidebar-line>
   <button
     class="chat"
+    {@attach labelTruncationTooltip}
     aria-current={isActive}
     data-sidebar-item
-    data-tooltip={chat.label}
     onclick={open}
     oncontextmenu={openMenu}
     tabindex="-1"

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/projectBranches.svelte";
+  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
   import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
@@ -34,8 +35,9 @@
     })
   );
   const OPEN_ELSEWHERE_NOTE = "Open in another window";
-  // The full name on its own line, then the path - and, for a project another
-  // window holds, where picking it will take you.
+  // The full name on its own line, then the path - shown only while the row
+  // cuts either short - and, for a project another window holds, where
+  // picking it will take you, which the row never spells out.
   const rowTooltip = $derived.by(() => {
     const nameAndPath = `${name}\n${project}`;
     if (isOpenElsewhere) {
@@ -44,6 +46,14 @@
 
     return nameAndPath;
   });
+
+  function rowTruncationTooltip(element: HTMLElement) {
+    return truncationTooltip({
+      tooltip: () => rowTooltip,
+      restingTooltip: () => isOpenElsewhere ? OPEN_ELSEWHERE_NOTE : "",
+      measureSelector: ".project-row-name, .project-row-path"
+    })(element);
+  }
   // The trailing mark: a check on this window's project, a window glyph on one
   // another window has open, nothing otherwise.
   const mark = $derived.by(() => {
@@ -69,9 +79,9 @@
   class="project-row-main"
   class:current={isCurrent}
   {@attach observeProjectBranch({ path: project })}
+  {@attach rowTruncationTooltip}
   aria-current={isCurrent}
   data-sidebar-item
-  data-tooltip={rowTooltip}
   onclick={onpick}
   type="button"
 >
