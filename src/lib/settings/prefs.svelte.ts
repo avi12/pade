@@ -82,14 +82,16 @@ export const effective = {
    *  as a `var()` rather than resolved - nothing paints UI text to a canvas, and
    *  keeping the reference live is what lets a palette that brings its own face
    *  (Cyberpunk is set in Rajdhani, the game's) take effect without this getter
-   *  re-running. `null` when nothing is chosen: the root's `--font-ui` already
-   *  IS that stack, so the binding is simply dropped. */
+   *  re-running. The palette's digit-only face (`--font-digits`) stays ahead of
+   *  the chosen one, so numbers keep tabular figures whatever that face ships.
+   *  `null` when nothing is chosen: the root's `--font-ui` already IS that
+   *  stack, so the binding is simply dropped. */
   get uiFamily() {
     if (!prefs.uiFont) {
       return null;
     }
 
-    return `"${prefs.uiFont}", var(--font-ui-base)`;
+    return `var(--font-digits), "${prefs.uiFont}", var(--font-ui-base)`;
   },
   get uiScale() {
     return prefs.uiScale ?? DEFAULT_UI_SCALE;

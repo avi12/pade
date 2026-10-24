@@ -81,8 +81,10 @@ export function tooltip(text: TooltipText) {
  *  bubble. `restingTooltip`, when given, is what the unclipped state shows
  *  instead (an action hint like "Open in WebStorm" stays useful without the
  *  redundant path); omitted, the unclipped state has no tooltip.
- *  `measureSelector` points at the descendant that actually ellipsizes when the
- *  clipping child differs from the hover host (a button whose inner span clips).
+ *  `measureSelector` points at the descendants that actually clip when they
+ *  differ from the hover host (a button whose inner spans clip); any one of
+ *  them clipped counts. Clipped means cut short either way: an ellipsized line
+ *  or a line-clamped block.
  *
  *  The clip check runs on `pointerenter` - the one moment that both guarantees a
  *  settled layout (a mount-time measure can read a mid-layout width and brand an
@@ -95,8 +97,9 @@ export function truncationTooltip({ tooltip: text, restingTooltip, measureSelect
   measureSelector?: string;
 }) {
   return overflowTooltip(elTrigger => {
-    const elMeasured = (measureSelector ? elTrigger.querySelector(measureSelector) : null) ?? elTrigger;
-    const isClipped = elMeasured.scrollWidth > elMeasured.clientWidth;
+    const elsMeasured = measureSelector ? [...elTrigger.querySelectorAll(measureSelector)] : [elTrigger];
+    const isClipped = elsMeasured.some(elMeasured =>
+      elMeasured.scrollWidth > elMeasured.clientWidth || elMeasured.scrollHeight > elMeasured.clientHeight);
     if (isClipped) {
       return resolve(text);
     }

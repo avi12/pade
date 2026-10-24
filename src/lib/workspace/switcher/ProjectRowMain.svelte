@@ -1,16 +1,17 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { observeProjectBranch, projectBranch } from "@/lib/stores/workspace/projectBranches.svelte";
-  import { displayName, isTemporaryWorkspace } from "@/lib/util/paths";
+  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
+  import { displayName } from "@/lib/util/paths";
   import LanguageBar from "@/lib/workspace/LanguageBar.svelte";
   import LastAccessed from "@/lib/workspace/LastAccessed.svelte";
   import ProjectKindIcon from "@/lib/workspace/ProjectKindIcon.svelte";
-  import TempBadge from "@/lib/workspace/TempBadge.svelte";
+  import ProjectRowName from "@/lib/workspace/switcher/ProjectRowName.svelte";
 
-  // A project row's main button in the left rail: kind icon, name (up to two
-  // lines), branch chip, path and last-accessed age, with a check on this
-  // window's project and a window mark on one another window has open. Its
-  // tooltip carries the full name and the path, whatever the row could show.
+  // A project row's main button in the left rail: kind icon, its root and
+  // name (up to two lines), branch chip and last-accessed age, with a check on
+  // this window's project and a window mark on one another window has open.
+  // Its tooltip carries the path, and the full name while the row clamps it.
   const { project, labels, isCurrent, isOpenElsewhere, chatCount, now, onpick }: {
     project: string;
     labels: Record<string, string>;
@@ -34,16 +35,24 @@
     })
   );
   const OPEN_ELSEWHERE_NOTE = "Open in another window";
-  // The full name on its own line, then the path - and, for a project another
-  // window holds, where picking it will take you.
-  const rowTooltip = $derived.by(() => {
-    const nameAndPath = `${name}\n${project}`;
+  // What the row never spells out: the full path, and for a project another
+  // window holds, where picking it will take you. The full name leads only
+  // while the row clamps it.
+  const restingTooltip = $derived.by(() => {
     if (isOpenElsewhere) {
-      return `${nameAndPath}\n${OPEN_ELSEWHERE_NOTE}`;
+      return `${project}\n${OPEN_ELSEWHERE_NOTE}`;
     }
 
-    return nameAndPath;
+    return project;
   });
+
+  function rowTruncationTooltip(element: HTMLElement) {
+    return truncationTooltip({
+      tooltip: () => `${name}\n${restingTooltip}`,
+      restingTooltip: () => restingTooltip,
+      measureSelector: ".project-row-name"
+    })(element);
+  }
   // The trailing mark: a check on this window's project, a window glyph on one
   // another window has open, nothing otherwise.
   const mark = $derived.by(() => {
@@ -69,19 +78,15 @@
   class="project-row-main"
   class:current={isCurrent}
   {@attach observeProjectBranch({ path: project })}
+  {@attach rowTruncationTooltip}
   aria-current={isCurrent}
-  data-tooltip={rowTooltip}
+  data-sidebar-item
   onclick={onpick}
   type="button"
 >
   <ProjectKindIcon path={project} />
   <span class="project-row-body">
-    <span class="project-row-name-line">
-      <span class="project-row-name">{name}</span>
-      {#if isTemporaryWorkspace(project)}
-        <TempBadge />
-      {/if}
-    </span>
+    <ProjectRowName {name} {project} />
     <span class="project-row-metadata">
       {#if branch}
         <span class="branch">
@@ -89,7 +94,6 @@
           {branch}
         </span>
       {/if}
-      <span class="project-row-path">{project}</span>
       <LastAccessed {now} path={project} />
     </span>
   </span>
@@ -157,27 +161,6 @@
     line-height: 1.25;
   }
 
-  /* A long name (a temp workspace's sentence-long label) wraps onto a second
-     line before it clips, so the rail's narrow width still shows most of it;
-     the tooltip has the rest. */
-  .project-row-name-line {
-    display: flex;
-    gap: 6px;
-    align-items: flex-start;
-    min-inline-size: 0;
-
-    .project-row-name {
-      overflow: hidden;
-      max-block-size: 2lh;
-      min-inline-size: 0;
-      font-family: var(--font-monospace);
-      font-weight: 600;
-      font-size: 13px;
-      overflow-wrap: anywhere;
-      line-clamp: 2;
-    }
-  }
-
   .project-row-metadata {
     --last-accessed-font-size: 9px;
 
@@ -206,17 +189,6 @@
         flex: none;
         color: var(--tertiary);
       }
-    }
-
-    .project-row-path {
-      flex: 1;
-      overflow: hidden;
-      min-inline-size: 0;
-      color: var(--on-surface-variant);
-      font-family: var(--font-monospace);
-      font-size: 9px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
   }
 

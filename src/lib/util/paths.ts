@@ -107,6 +107,19 @@ export function relativeToRoot({ path, root }: {
   return `/${tail}`;
 }
 
+/** The root a project's row names before it: the part before the slash in its
+ *  "parent/leaf" label (`shortDirectory`, the top bar's), so the two never
+ *  disagree. Empty for a temporary workspace (its TEMP badge says where it
+ *  lives) and for a path with no parent. */
+export function projectRootName(path: string) {
+  if (isTemporaryWorkspace(path)) {
+    return "";
+  }
+
+  const [root, leaf] = shortDirectory(path).split("/");
+  return leaf === undefined ? "" : root;
+}
+
 /** Normalize a path for comparison. Separators and a trailing separator are
  *  cosmetic everywhere; casing is cosmetic only on Windows. A drive-letter path
  *  (`C:\…`) lives on case-insensitive NTFS, so it also folds to lower case -

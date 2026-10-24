@@ -1,47 +1,26 @@
 <script lang="ts">
   import Icon from "@/lib/Icon.svelte";
   import { WindowMode } from "@/lib/types";
-  import { shortDisplayName } from "@/lib/util/paths";
 
-  // The left rail's project actions: open the full picker, rename this window's
-  // folder, and spawn a new empty or throwaway window or the agents dashboard.
-  // A window with no project open (the picker itself) offers only the spawns.
-  const { path, labels, onswitch, onrenamefolder, onspawn }: {
-    /** This window's project; empty while the picker is up. */
-    path: string;
-    labels: Record<string, string>;
+  // The left rail's window-level actions: open the full picker, and spawn a new
+  // empty or throwaway window or the agents dashboard. Per-project actions
+  // (rename, browse, pin, delete) live on each project row's own menu. A window
+  // with no project open (the picker itself) offers only the spawns.
+  const { onswitch, onspawn }: {
     /** Open the full picker (browse every root, clone, open a folder) - absent
      *  where the picker is already on screen. */
     onswitch?: () => void;
-    /** Rename this window's folder on disk. */
-    onrenamefolder: () => void;
     /** Spawn a fresh window in this mode. */
     onspawn: (mode: WindowMode) => void;
   } = $props();
-
-  const hasProject = $derived(path !== "");
-  const isSwitchOffered = $derived(onswitch !== undefined);
-  const hasProjectActions = $derived(isSwitchOffered || hasProject);
 </script>
 
-{#if isSwitchOffered}
+{#if onswitch !== undefined}
   <button class="menu-item action" onclick={onswitch} role="menuitem" type="button">
     <span class="lead"><Icon name="swap" /></span>
     <span class="grow">Open a project…</span>
     <span class="subtitle">All projects &amp; clone</span>
   </button>
-{/if}
-{#if hasProject}
-  <button class="menu-item action" onclick={onrenamefolder} role="menuitem" type="button">
-    <span class="lead"><Icon name="folder" /></span>
-    <span class="grow">Rename this folder…</span>
-    <span class="subtitle">{shortDisplayName({
-      path,
-      labels
-    })}</span>
-  </button>
-{/if}
-{#if hasProjectActions}
   <div class="menu-divider"></div>
 {/if}
 

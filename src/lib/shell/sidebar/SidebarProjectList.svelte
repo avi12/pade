@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SidebarProject } from "@/lib/session/chat-registry";
   import type { ChatPick, ConversationPick } from "@/lib/shell/sidebar/chat-click";
+  import { sidebarArrowKeys } from "@/lib/shell/sidebar/sidebar-keyboard";
   import type { sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarProjectGroup from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
   import type { WindowInfo } from "@/lib/types";
@@ -22,13 +23,13 @@
     onselectchat,
     onresumeconversation,
     ondeletechat,
+    onstopchat,
     ontogglepin,
     onreorderpins,
     onrelabel,
     onrenamefolder,
     onremove,
-    ondeleteproject,
-    onclearrecent
+    ondeleteproject
   }: {
     sections: ReturnType<typeof sidebarSections>;
     /** A search narrows the rows. */
@@ -50,6 +51,10 @@
       project: string;
       chatId: string;
     }) => void;
+    onstopchat: (target: {
+      project: string;
+      chatId: string;
+    }) => void;
     ontogglepin: (target: {
       path: string;
       pinned: boolean;
@@ -59,7 +64,6 @@
     onrenamefolder: (project: string) => void;
     onremove: (project: string) => void;
     ondeleteproject: (project: string) => void;
-    onclearrecent: () => void;
   } = $props();
 
   const NO_MATCHES = "No projects match";
@@ -125,6 +129,10 @@
       project: entry.project,
       ...picked
     })}
+    onstopchat={chatId => onstopchat({
+      project: entry.project,
+      chatId
+    })}
   />
 {/snippet}
 
@@ -136,15 +144,12 @@
   {@render group(entry, false, false)}
 {/snippet}
 
-<div class="groups">
+<!-- Arrow keys move along and between the rail's keyboard lines (each
+     `data-sidebar-line`, its controls marked `data-sidebar-item`); Tab stops
+     on project headers only, which the markup's tabindex already arranges. -->
+<div class="groups" {@attach sidebarArrowKeys}>
   <ProjectSection heading="Pinned" items={sections.pinned} key={entry => entry.project} row={pinnedGroup} />
-  <ProjectSection
-    heading="Recent"
-    items={sections.recent}
-    key={entry => entry.project}
-    onclear={onclearrecent}
-    row={recentGroup}
-  />
+  <ProjectSection heading="Recent" items={sections.recent} key={entry => entry.project} row={recentGroup} />
 
   {#if emptyMessage}
     <p class="empty">{emptyMessage}</p>
@@ -156,6 +161,10 @@
      shrink to the rail's width rather than overflow it, and the scrollbar is
      the skin's: thin, a primary-tinted thumb over the rail's own surface. */
   .groups {
+    /* The sticky Pinned / Recent label's height - each project's header
+       sticks right under it, so both read this one length. */
+    --section-head-block-size: 27px;
+
     display: flex;
     flex: 1;
     flex-direction: column;

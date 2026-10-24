@@ -2,17 +2,18 @@
   import { agentIconName } from "@/lib/agent/agent-icon";
   import Icon from "@/lib/Icon.svelte";
   import type { SidebarChat } from "@/lib/session/chat-registry";
+  import ProjectChatMenu, { STOP_SESSION } from "@/lib/shell/sidebar/ProjectChatMenu.svelte";
   import { sessionStatus } from "@/lib/stores/session/sessions.svelte";
   import type { RecordedConversation } from "@/lib/types";
-  import { rovingMenu } from "@/lib/ui/roving-menu";
+  import { truncationTooltip } from "@/lib/ui/truncation-tooltip";
   import { isNewWindowClick } from "@/lib/workspace/open-windows";
 
-  // One chat row in the left rail, with the right-click menu that belongs to
-  // it - open it, start another in its project, or delete it for good. The
-  // menu hangs at the pointer that opened it, not at the row. A row another
-  // PADE window runs wears that window's mark. Ctrl, Cmd or Shift asks for the
-  // chat in a new window, as on a project row.
-  const { chat, isActive, onselect, onresume, ondelete, onnew }: {
+  // One chat row in the left rail, with its right-click menu. A live chat
+  // carries a stop button beside the row's own button, never inside it, so
+  // stopping never also opens the chat. A row another PADE window runs wears
+  // that window's mark, and only that window can stop it. Ctrl, Cmd or Shift
+  // asks for the chat in a new window, as on a project row.
+  const { chat, isActive, onselect, onresume, ondelete, onnew, onstop }: {
     chat: SidebarChat;
     isActive: boolean;
     /** Bring up a PADE chat - here, or in a new window. */
@@ -26,14 +27,14 @@
      *  transcript is the agent's, not PADE's to delete. */
     ondelete: () => void;
     onnew: () => void;
+    /** End a live chat's agent session the way closing its tab does - it
+     *  stays in the rail as a conversation to resume. */
+    onstop: () => void;
   } = $props();
-
-  const menuId = $derived(`project-chat-menu-${chat.id}`);
-  // Another window's session is that window's to end, never this rail's.
-  const isDeletable = $derived(chat.resume === undefined && chat.windowLabel === undefined);
 
   const ELSEWHERE_NOTE = "Running in another window";
   const isElsewhere = $derived(chat.windowLabel !== undefined);
+  const isStoppable = $derived(chat.isLive && !isElsewhere);
   const status = $derived(chat.status ?? sessionStatus(chat.id));
 
   // Shared by the row's click and its menu's "Open chat".
@@ -49,107 +50,78 @@
 
     onselect(opensNewWindow);
   }
-  let elMenu = $state<HTMLElement | null>(null);
-  let menuPosition = $state({
-    x: 0,
-    y: 0
-  });
+  let menu = $state<ProjectChatMenu | null>(null);
+
+  // The full title, only while the row ellipsizes it.
+  function labelTruncationTooltip(element: HTMLElement) {
+    return truncationTooltip({
+      tooltip: () => chat.label,
+      measureSelector: ".chat-label"
+    })(element);
+  }
+
+  // Shared by the row's button and its stop button, so a right-click anywhere
+  // on the row opens the same menu.
+  function openMenu(e: MouseEvent) {
+    menu?.openAt(e);
+  }
 </script>
 
-<button
-  class="chat"
-  class:active={isActive}
-  aria-current={isActive}
-  data-tooltip={chat.label}
-  onclick={open}
-  oncontextmenu={e => {
-    e.preventDefault();
-    menuPosition = {
-      x: e.clientX,
-      y: e.clientY
-    };
-    elMenu?.showPopover();
-  }}
-  type="button"
->
-  <span class="agent-icon">
-    <Icon name={agentIconName(chat.agentId)} size={14} />
-    {#if chat.isLive}
-      <span class="status-dot {status}" aria-hidden="true"></span>
-    {/if}
-  </span>
-  <span class="chat-label">{chat.label}</span>
-  <span class="elsewhere" hidden={!isElsewhere}>
-    <Icon name="external" size={12} />
-    <span class="elsewhere-note">{ELSEWHERE_NOTE}</span>
-  </span>
-</button>
-
-<div
-  bind:this={elMenu}
-  id={menuId}
-  style:left="{menuPosition.x}px"
-  style:top="{menuPosition.y}px"
-  class="context-menu popover-menu"
-  {@attach rovingMenu}
-  popover
-  role="menu"
->
+<!-- One keyboard line, out of the tab order: the arrows reach it from its
+     project's header (sidebar-keyboard). -->
+<div class="row" class:active={isActive} data-sidebar-line>
   <button
-    class="menu-item"
-    onclick={e => open(e)}
-    popovertarget={menuId}
-    popovertargetaction="hide"
-    role="menuitem"
+    class="chat"
+    {@attach labelTruncationTooltip}
+    aria-current={isActive}
+    data-sidebar-item
+    onclick={open}
+    oncontextmenu={openMenu}
+    tabindex="-1"
     type="button"
   >
-    <span class="menu-icon"><Icon name="terminal" size={15} /></span>
-    <span>Open chat</span>
+    <span class="agent-icon">
+      <Icon name={agentIconName(chat.agentId)} size={14} />
+      {#if chat.isLive}
+        <span class="status-dot {status}" aria-hidden="true"></span>
+      {/if}
+    </span>
+    <span class="chat-label">{chat.label}</span>
+    <span class="elsewhere" hidden={!isElsewhere}>
+      <Icon name="external" size={12} />
+      <span class="elsewhere-note">{ELSEWHERE_NOTE}</span>
+    </span>
   </button>
-  <button
-    class="menu-item"
-    onclick={onnew}
-    popovertarget={menuId}
-    popovertargetaction="hide"
-    role="menuitem"
-    type="button"
-  >
-    <span class="menu-icon"><Icon name="plus" size={15} /></span>
-    <span>New chat in this project</span>
-  </button>
-  {#if isDeletable}
-    <div class="menu-divider"></div>
+  {#if isStoppable}
     <button
-      class="menu-item critical"
-      onclick={ondelete}
-      popovertarget={menuId}
-      popovertargetaction="hide"
-      role="menuitem"
+      class="stop"
+      aria-label="{STOP_SESSION}: {chat.label}"
+      data-sidebar-item
+      data-tooltip={STOP_SESSION}
+      onclick={onstop}
+      oncontextmenu={openMenu}
+      tabindex="-1"
       type="button"
-    >
-      <span class="menu-icon"><Icon name="trash" size={15} /></span>
-      <span>Delete chat</span>
-    </button>
+    ><Icon name="stop" size={12} /></button>
   {/if}
 </div>
 
+<ProjectChatMenu bind:this={menu} {chat} {ondelete} {onnew} onopen={open} {onstop} />
+
 <style>
-  .chat {
+  /* The row carries the hover and active fill, so the chat button and its
+     stop button read as one row. */
+  .row {
     display: flex;
-    gap: 7px;
     align-items: center;
-    inline-size: 100%;
-    padding-block: 6px;
-    padding-inline: 8px;
-    border: none;
+    min-inline-size: 0;
     border-radius: var(--radius-small);
-    background: transparent;
     color: var(--on-surface-variant);
-    font: inherit;
-    font-size: 12.5px;
-    text-align: start;
-    cursor: pointer;
     transition: background 120ms var(--ease), color 120ms var(--ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
 
     &:hover {
       background: var(--surface-2);
@@ -161,6 +133,32 @@
       color: var(--on-primary-container);
       font-weight: 600;
     }
+
+    /* Calm until wanted: the stop button shows on the row's hover or focus,
+       and always on the active row - the chat most likely to be stopped. It
+       only fades, so Tab still reaches it. */
+    &:hover,
+    &:focus-within,
+    &.active {
+      --stop-opacity: 100%;
+    }
+  }
+
+  .chat {
+    display: flex;
+    flex: 1;
+    gap: 7px;
+    align-items: center;
+    min-inline-size: 0;
+    padding-block: 6px;
+    padding-inline: 8px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12.5px;
+    text-align: start;
+    cursor: pointer;
 
     .agent-icon {
       position: relative;
@@ -197,6 +195,33 @@
     }
   }
 
+  .stop {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    block-size: 22px;
+    inline-size: 22px;
+    margin-inline-end: 3px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-small);
+    background: transparent;
+    color: inherit;
+    opacity: var(--stop-opacity, 0%);
+    cursor: pointer;
+    transition: background 120ms var(--ease), color 120ms var(--ease), opacity 120ms var(--ease);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+
+    &:hover {
+      background: var(--critical-wash);
+      color: var(--critical);
+    }
+  }
+
   /* Live status, mirroring the tab strip's dot colours - a badge on the agent
      icon's corner, so a live chat's label lines up with every other row's. */
   .status-dot {
@@ -230,32 +255,6 @@
 
     &.exited {
       background: var(--critical);
-    }
-  }
-
-  /* The right-click menu - fixed at the pointer, not anchored to the row. */
-  .context-menu {
-    position: fixed;
-    min-inline-size: 210px;
-    margin: 0;
-
-    .menu-icon {
-      display: inline-flex;
-      flex: none;
-      color: var(--on-surface-variant);
-    }
-
-    .menu-item.critical {
-      color: var(--critical);
-
-      .menu-icon {
-        color: var(--critical);
-      }
-
-      &:hover {
-        background: var(--critical-wash);
-        color: var(--critical);
-      }
     }
   }
 </style>

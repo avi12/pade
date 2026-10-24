@@ -7,18 +7,15 @@
 
   type ActionsProps = ComponentProps<typeof SwitcherActions>;
 
-  // The rail's head: its title and the project actions menu - open the full
-  // picker, rename this window's folder, or spawn an empty window, a throwaway
-  // workspace or the agents dashboard.
-  const { path, labels, onswitch, onrenamefolder }: {
-    path: ActionsProps["path"];
-    labels: ActionsProps["labels"];
+  // The rail's head: its title and the window actions menu - open the full
+  // picker, or spawn an empty window, a throwaway workspace or the agents
+  // dashboard.
+  const { onswitch }: {
     onswitch?: ActionsProps["onswitch"];
-    onrenamefolder: ActionsProps["onrenamefolder"];
   } = $props();
 
   const MENU_ID = "sidebar-project-actions";
-  const MENU_LABEL = "Project actions";
+  const MENU_LABEL = "Window actions";
 
   function hideMenu() {
     document.getElementById(MENU_ID)?.hidePopover();
@@ -37,11 +34,6 @@
   ><Icon name="more" size={16} /></button>
   <div id={MENU_ID} class="actions-menu popover-menu" {@attach rovingMenu} popover role="menu">
     <SwitcherActions
-      {labels}
-      onrenamefolder={() => {
-        hideMenu();
-        onrenamefolder();
-      }}
       onspawn={async mode => {
         await sendMessage(Command.windowCreate, { mode });
         hideMenu();
@@ -52,7 +44,6 @@
           hideMenu();
           onswitch();
         }}
-      {path}
     />
   </div>
 </div>

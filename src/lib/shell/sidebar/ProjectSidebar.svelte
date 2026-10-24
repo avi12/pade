@@ -45,6 +45,7 @@
     onselectchat,
     onresumeconversation,
     ondeletechat,
+    onstopchat,
     onnewchat
   }: {
     registry: StoredChatRegistry;
@@ -68,6 +69,11 @@
     onselectchat: (target: ChatPick) => void;
     onresumeconversation: (target: ConversationPick) => void;
     ondeletechat: (target: {
+      project: string;
+      chatId: string;
+    }) => void;
+    /** End a live chat's agent session the way closing its tab does. */
+    onstopchat: (target: {
       project: string;
       chatId: string;
     }) => void;
@@ -203,14 +209,7 @@
 />
 
 <nav class="sidebar" aria-label="Projects and chats">
-  <SidebarHeader
-    labels={settings.labels}
-    onrenamefolder={() => {
-      renameFolderTarget = project;
-    }}
-    {onswitch}
-    path={project}
-  />
+  <SidebarHeader {onswitch} />
 
   <div class="search">
     <!-- Ctrl P focuses it from anywhere (a window shortcut) -->
@@ -234,9 +233,6 @@
     isFiltered={filter.trim() !== ""}
     labels={settings.labels}
     {now}
-    onclearrecent={async () => {
-      await sendSettingsMessage(Command.workspaceClearRecent);
-    }}
     {ondeletechat}
     ondeleteproject={target => {
       deleteTarget = target;
@@ -260,6 +256,7 @@
     }}
     {onresumeconversation}
     {onselectchat}
+    {onstopchat}
     ontogglepin={async target => {
       await sendSettingsMessage(Command.workspaceSetPinned, target);
     }}

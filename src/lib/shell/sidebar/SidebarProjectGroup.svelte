@@ -31,7 +31,8 @@
     onnewchat,
     onselectchat,
     onresumeconversation,
-    ondeletechat
+    ondeletechat,
+    onstopchat
   }: {
     group: SidebarProject;
     labels: Record<string, string>;
@@ -56,6 +57,7 @@
       opensNewWindow: boolean;
     }) => void;
     ondeletechat: (chatId: string) => void;
+    onstopchat: (chatId: string) => void;
   } = $props();
 
   const NEW_CHAT = "New chat";
@@ -78,7 +80,9 @@
 </script>
 
 <section class="group" data-pin-id={isPinReorderable ? group.project : undefined}>
-  <div class="project-row">
+  <!-- One keyboard line: the header is the project's only tab stop, and the
+       arrows reach its buttons (sidebar-keyboard). -->
+  <div class="project-row" data-sidebar-line>
     <ReorderGrip
       idAttribute="data-pin-id"
       isEnabled={isPinReorderable}
@@ -97,8 +101,10 @@
     <button
       class="new-chat"
       aria-label="{NEW_CHAT} in {name}"
+      data-sidebar-item
       data-tooltip={NEW_CHAT}
       onclick={onnewchat}
+      tabindex="-1"
       type="button"
     ><Icon name="plus" size={14} /></button>
     <ProjectRowMenu {...menu} {isPinned} {labels} project={group.project} />
@@ -117,6 +123,7 @@
             chatId: chat.id,
             opensNewWindow
           })}
+          onstop={() => onstopchat(chat.id)}
         />
       </li>
     {:else}
@@ -134,13 +141,18 @@
   }
 
   /* Project header - the switch target, with the new-chat button and the
-     options kebab riding it. Both reveal fully on hover or focus. */
+     options kebab riding it. Both reveal fully on hover or focus. It sticks
+     under the section label while its own chats scroll beneath it, and lets
+     go when the next project's header pushes it out. */
   .project-row {
-    position: relative;
+    position: sticky;
+    inset-block-start: var(--section-head-block-size, 0);
+    z-index: 1;
     display: flex;
     gap: 1px;
     align-items: center;
     min-inline-size: 0;
+    background: var(--surface-1);
 
     &:hover,
     &:focus-within {
