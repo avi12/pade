@@ -21,6 +21,7 @@
     onselectchat,
     onresumeconversation,
     ondeletechat,
+    onstopchat,
     ontogglepin,
     onreorderpins,
     onrelabel,
@@ -52,6 +53,10 @@
       conversation: RecordedConversation;
     }) => void;
     ondeletechat: (target: {
+      project: string;
+      chatId: string;
+    }) => void;
+    onstopchat: (target: {
       project: string;
       chatId: string;
     }) => void;
@@ -127,6 +132,10 @@
       conversation
     })}
     onselectchat={chatId => onselectchat({
+      project: entry.project,
+      chatId
+    })}
+    onstopchat={chatId => onstopchat({
       project: entry.project,
       chatId
     })}

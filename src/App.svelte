@@ -41,7 +41,7 @@
     initNewProjectDetection
   } from "@/lib/stores/workspace/new-project-detection";
   import { StartMode, realAgents as toRealAgents } from "@/lib/types";
-  import type { Agent, OpenTarget, RecordedConversation } from "@/lib/types";
+  import type { Agent, AgentSession, OpenTarget, RecordedConversation } from "@/lib/types";
   import OverflowTooltipLayer from "@/lib/ui/OverflowTooltipLayer.svelte";
   import { isTemporaryWorkspace, normalizePath, shortDisplayName } from "@/lib/util/paths";
   import { settledValue } from "@/lib/util/settled";
@@ -381,16 +381,27 @@
     windowSessions,
     isWorkspaceShown: () => phase === Phase.Ready,
     fallbackAgent: () => bestAgent,
-    // Through its tab while the workspace is on screen, so it animates out.
-    closeSession(session) {
-      if (workspaceScreen) {
-        workspaceScreen.closeSession(session);
-        return;
-      }
-
-      windowSessions.close(session);
-    }
+    closeSession: closeThroughTab
   });
+
+  // Through its tab while the workspace is on screen, so it animates out.
+  async function closeThroughTab(session: AgentSession) {
+    if (workspaceScreen) {
+      workspaceScreen.closeSession(session);
+      return;
+    }
+
+    await windowSessions.close(session);
+  }
+
+  // The rail's stop button: end a live chat the way its tab's close does. It
+  // lives on as a recorded conversation it can be resumed from.
+  async function stopChat({ chatId }: { chatId: string }) {
+    const liveSession = windowSessions.sessions.find(session => session.id === chatId);
+    if (liveSession !== undefined) {
+      await closeThroughTab(liveSession);
+    }
+  }
 
   // Closing PADE (the title-bar X) is a deliberate leave too: intercept the
   // close, let every agent reach an idle prompt, kill them, and only then let
@@ -674,6 +685,7 @@
         onrenamefolder={relocator.renameFolder}
         onresumeconversation={resumeConversation}
         onselectchat={selectChat}
+        onstopchat={stopChat}
         project={currentProject}
         registry={chatRegistry}
         sessions={windowSessions.sessions}
@@ -722,6 +734,7 @@
       onreroot={path => (currentProject = path)}
       onresumeconversation={resumeConversation}
       onselectchat={selectChat}
+      onstopchat={stopChat}
       onswitch={async () => {
         // "Switch project" - a DELIBERATE leave to the picker. The project's
         // agents and task runners do not idle invisibly behind it: runners

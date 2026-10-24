@@ -52,6 +52,7 @@
     onselectchat,
     onresumeconversation,
     ondeletechat,
+    onstopchat,
     onnewchat
   }: {
     windowSessions: WindowSessions;
@@ -82,6 +83,7 @@
     onselectchat: SidebarProps["onselectchat"];
     onresumeconversation: SidebarProps["onresumeconversation"];
     ondeletechat: SidebarProps["ondeletechat"];
+    onstopchat: SidebarProps["onstopchat"];
     onnewchat: SidebarProps["onnewchat"];
   } = $props();
 
@@ -114,6 +116,7 @@
     {onrenamefolder}
     {onresumeconversation}
     {onselectchat}
+    {onstopchat}
     {onswitch}
     {project}
     registry={chatRegistry}

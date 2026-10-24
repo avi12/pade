@@ -20,7 +20,7 @@
     "license", "link", "llvm", "lock", "lua", "markdown", "maximize", "minimize", "monitor", "moon", "more", "npm",
     "opencode", "pencil", "perl", "php", "phpstorm", "plus", "powershell", "prisma", "pycharm", "python", "r", "rails", "react",
     "refresh", "regex", "rider", "ruby", "rubymine", "rust", "rustrover", "scala", "search", "send",
-    "shader", "shell", "sliders", "sparkles", "sql", "star", "sublime", "sun", "svelte", "swap", "swift",
+    "shader", "shell", "sliders", "sparkles", "sql", "star", "stop", "sublime", "sun", "svelte", "swap", "swift",
     "terminal", "text", "toml", "trash", "typescript", "visualstudio", "vscode", "vue", "wallet",
     "webstorm", "wholeWord", "window", "windowPlus", "xml", "yaml", "zed", "zig"
   ] as const;
