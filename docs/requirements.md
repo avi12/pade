@@ -368,7 +368,11 @@ writes.
   - `lib/ui/roving-tabs.ts`; panels stay mounted - typed state survives
   switching - and slide in from the side the selection moved toward, pure
   CSS, instant under reduced motion). Clicking a tab or typing in a field
-  keeps the menu open; a pick closes it:
+  keeps the menu open; a pick closes it. Keyboard: opening focuses the first
+  project row (the selected tab when there are none); Up/Down walk the rows,
+  one Tab stop; Tab moves to the selected tab, Left/Right switch tabs, Down
+  from New steps into its items, and Tab from a tab enters the open panel's
+  first field; Escape closes and returns focus to the trigger:
   - **New** - "New project in {root}/" per root, naming the project in the
     composer and creating it on Start ("Create and open"), or a throwaway
     workspace.

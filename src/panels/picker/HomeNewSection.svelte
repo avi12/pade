@@ -3,6 +3,7 @@
   import { baseName } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/RootedName.svelte";
   import { THROWAWAY_LABEL } from "@/panels/picker/home-composer";
+  import { HomeMenuList } from "@/panels/picker/home-menu-tabs";
 
   // The composer menu's New tab: a new project under each root, or a
   // throwaway workspace.
@@ -28,6 +29,7 @@
            undoing the name field's focus. -->
       <button
         class="menu-item create-option"
+        data-arrow-list={HomeMenuList.New}
         onclick={e => {
           e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
           onnew(root);
@@ -46,6 +48,7 @@
   <button
     class="menu-item create-option"
     class:picked={isTempPicked}
+    data-arrow-list={HomeMenuList.New}
     onclick={ontemp}
     popovertarget={menuId}
     popovertargetaction="hide"

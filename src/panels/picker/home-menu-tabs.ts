@@ -9,17 +9,27 @@ export const HomeMenuTab = {
 } as const;
 export type HomeMenuTab = typeof HomeMenuTab[keyof typeof HomeMenuTab];
 
+/** The menu's arrow-key lists (`arrowLists`' `data-arrow-list` names): the
+ *  project rows, and the New tab's items, which Down from the New tab
+ *  steps into. */
+export const HomeMenuList = {
+  Projects: "projects",
+  New: "new"
+} as const;
+
 /** The tabs in reading order - the order the arrow keys walk and the panels
- *  slide by. */
+ *  slide by. `entersList` names the list Up/Down from the tab steps into. */
 export const HOME_MENU_TABS: readonly {
   id: HomeMenuTab;
   label: string;
   icon: IconName;
+  entersList?: typeof HomeMenuList[keyof typeof HomeMenuList];
 }[] = [
   {
     id: HomeMenuTab.New,
     label: "New",
-    icon: "folderPlus"
+    icon: "folderPlus",
+    entersList: HomeMenuList.New
   },
   {
     id: HomeMenuTab.Open,

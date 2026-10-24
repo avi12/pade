@@ -3,6 +3,7 @@
   import { isTemporaryWorkspace, projectRootName } from "@/lib/util/paths";
   import RootedName from "@/lib/workspace/RootedName.svelte";
   import TempBadge from "@/lib/workspace/TempBadge.svelte";
+  import { HomeMenuList } from "@/panels/picker/home-menu-tabs";
 
   // One project in the composer's menu: its root and name ("avi/pade"), the
   // TEMP badge for a throwaway workspace, a tick when picked, and its path in
@@ -24,6 +25,8 @@
     class:picked={isPicked}
     {@attach tooltip(path)}
     aria-current={isPicked}
+    data-arrow-list={HomeMenuList.Projects}
+    data-arrow-open-focus
     onclick={onpick}
     popovertarget={menuId}
     popovertargetaction="hide"

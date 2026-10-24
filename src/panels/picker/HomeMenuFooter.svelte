@@ -64,7 +64,7 @@
 
 <div class="footer" class:separator={isSeparated}>
   <div class="pill-tabs" aria-label="Start from" role="tablist" use:rovingTablist>
-    {#each HOME_MENU_TABS as { id, label, icon } (id)}
+    {#each HOME_MENU_TABS as { id, label, icon, entersList } (id)}
       <button
         id={homeMenuTabId({
           menuId,
@@ -76,6 +76,8 @@
           tab: id
         })}
         aria-selected={selectedTab === id}
+        data-arrow-enters={entersList}
+        data-arrow-open-focus={selectedTab === id || undefined}
         onclick={() => {
           slideDirection = tabSlideDirection({
             from: selectedTab,

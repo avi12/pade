@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { arrowLists } from "@/lib/ui/roving-menu";
   import { ProjectChoice } from "@/panels/picker/home-composer";
   import HomeMenuFooter from "@/panels/picker/HomeMenuFooter.svelte";
   import HomeProjectOption from "@/panels/picker/HomeProjectOption.svelte";
@@ -42,7 +43,18 @@
   const pickedPath = $derived(choice === ProjectChoice.Existing ? selectedPath : null);
 </script>
 
-<div id={menuId} style:position-anchor="--{menuId}" class="menu popover-menu home-menu" popover>
+<!-- Keyboard: the project rows are one Tab stop walked by Up/Down, then the
+     selected tab (Left/Right switch tabs), then the open panel's first field;
+     Down from the New tab steps into its items. Opening focuses the first
+     row, or the selected tab when there are none; Escape closes and hands
+     focus back to the trigger (the popover's own behaviour). -->
+<div
+  id={menuId}
+  style:position-anchor="--{menuId}"
+  class="menu popover-menu home-menu"
+  {@attach arrowLists}
+  popover
+>
   <ul class="options" aria-label="Projects">
     {#each groups as group (group.head)}
       <li class="head" class:separator={group.isSeparated} aria-hidden="true">{group.head}</li>
