@@ -74,7 +74,9 @@
 </script>
 
 <section class="group" data-pin-id={isPinReorderable ? group.project : undefined}>
-  <div class="project-row">
+  <!-- One keyboard line: the header is the project's only tab stop, and the
+       arrows reach its buttons (sidebar-keyboard). -->
+  <div class="project-row" data-sidebar-line>
     <ReorderGrip
       idAttribute="data-pin-id"
       isEnabled={isPinReorderable}
@@ -93,8 +95,10 @@
     <button
       class="new-chat"
       aria-label="{NEW_CHAT} in {name}"
+      data-sidebar-item
       data-tooltip={NEW_CHAT}
       onclick={onnewchat}
+      tabindex="-1"
       type="button"
     ><Icon name="plus" size={14} /></button>
     <ProjectRowMenu {...menu} {isPinned} {labels} project={group.project} />

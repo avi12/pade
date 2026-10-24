@@ -43,7 +43,9 @@
     path: project,
     labels
   })}`}
+  data-sidebar-item
   popovertarget={menuId}
+  tabindex="-1"
   type="button"
 ><Icon name="more" size={16} /></button>
 <div id={menuId} class="row-menu popover-menu" {@attach rovingMenu} popover role="menu">

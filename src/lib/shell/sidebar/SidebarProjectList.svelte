@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SidebarProject } from "@/lib/session/chat-registry";
+  import { sidebarArrowKeys } from "@/lib/shell/sidebar/sidebar-keyboard";
   import type { sidebarSections } from "@/lib/shell/sidebar/sidebar-sections";
   import SidebarProjectGroup from "@/lib/shell/sidebar/SidebarProjectGroup.svelte";
   import type { RecordedConversation, WindowInfo } from "@/lib/types";
@@ -150,7 +151,10 @@
   {@render group(entry, false, false)}
 {/snippet}
 
-<div class="groups">
+<!-- Arrow keys move along and between the rail's keyboard lines (each
+     `data-sidebar-line`, its controls marked `data-sidebar-item`); Tab stops
+     on project headers only, which the markup's tabindex already arranges. -->
+<div class="groups" {@attach sidebarArrowKeys}>
   <ProjectSection heading="Pinned" items={sections.pinned} key={entry => entry.project} row={pinnedGroup} />
   <ProjectSection
     heading="Recent"

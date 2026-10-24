@@ -70,6 +70,7 @@
   class:current={isCurrent}
   {@attach observeProjectBranch({ path: project })}
   aria-current={isCurrent}
+  data-sidebar-item
   data-tooltip={rowTooltip}
   onclick={onpick}
   type="button"

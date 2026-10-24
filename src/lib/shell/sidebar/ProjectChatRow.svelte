@@ -43,13 +43,17 @@
   }
 </script>
 
-<div class="row" class:active={isActive}>
+<!-- One keyboard line, out of the tab order: the arrows reach it from its
+     project's header (sidebar-keyboard). -->
+<div class="row" class:active={isActive} data-sidebar-line>
   <button
     class="chat"
     aria-current={isActive}
+    data-sidebar-item
     data-tooltip={chat.label}
     onclick={open}
     oncontextmenu={openMenu}
+    tabindex="-1"
     type="button"
   >
     <span class="agent-icon">
@@ -64,9 +68,11 @@
     <button
       class="stop"
       aria-label="{STOP_SESSION}: {chat.label}"
+      data-sidebar-item
       data-tooltip={STOP_SESSION}
       onclick={onstop}
       oncontextmenu={openMenu}
+      tabindex="-1"
       type="button"
     ><Icon name="stop" size={12} /></button>
   {/if}
